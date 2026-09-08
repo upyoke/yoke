@@ -81,6 +81,10 @@ CLAIMS_ADAPTERS = [
         "yoke claims path coordination-decision-build",
     ),
     AdapterEntry(
+        "claims.path.boundary_prove",
+        "yoke claims path boundary-prove --item PREFIX-N",
+    ),
+    AdapterEntry(
         "claims.coordination_claim.acquire",
         "python3 -m yoke_core.api.service_client coordination-claim-acquire",
     ),

@@ -39,10 +39,14 @@ def test_boundary_prove_observes_recorded_lane_then_relays_proof(tmp_path):
     }
     calls = []
 
-    def _dispatch(*, function_id, target, payload, actor, **_kwargs):
-        calls.append((function_id, target, payload, actor))
+    proof = {"kind": "path_claim_boundary_local_v1"}
+
+    def _dispatch(*, function_id, target, payload, actor, **kwargs):
+        calls.append((function_id, target, payload, actor, kwargs))
         if function_id == "claims.path.boundary_context":
             return _response(function_id, {"context": context})
+        if function_id == "claims.path.boundary_observe":
+            return _response(function_id, {"proof": proof})
         return _response(
             function_id,
             {
@@ -52,7 +56,6 @@ def test_boundary_prove_observes_recorded_lane_then_relays_proof(tmp_path):
             },
         )
 
-    proof = {"kind": "path_claim_boundary_local_v1"}
     out, err = io.StringIO(), io.StringIO()
     with (
         patch.dict("os.environ", {"YOKE_SESSION_ID": "session-1"}),
@@ -65,10 +68,6 @@ def test_boundary_prove_observes_recorded_lane_then_relays_proof(tmp_path):
             "yoke_cli.commands.adapters.claims_path_flow.sync_local_snapshot_for_write",
             return_value={"status": "ok"},
         ) as sync,
-        patch(
-            "yoke_core.domain.path_claim_boundary_gate_proof.build_local_boundary_proof",
-            return_value=proof,
-        ) as build,
         redirect_stdout(out),
         redirect_stderr(err),
     ):
@@ -85,8 +84,12 @@ def test_boundary_prove_observes_recorded_lane_then_relays_proof(tmp_path):
     assert [call[0] for call in calls] == [
         "claims.path.boundary_context",
         "claims.path.boundary_context",
+        "claims.path.boundary_observe",
         "claims.path.boundary_prove",
     ]
+    assert calls[-2][1].kind == "global"
+    assert calls[-2][2] == {"context": context, "repo_path": str(lane)}
+    assert calls[-2][4] == {"local_only": True}
     assert calls[-1][1].public_ref == "YOK-7777"
     assert calls[-1][2] == {"proof": proof}
     sync.assert_called_once_with(
@@ -96,5 +99,4 @@ def test_boundary_prove_observes_recorded_lane_then_relays_proof(tmp_path):
         session_id=None,
         head_only=True,
     )
-    build.assert_called_once_with(context, str(lane))
     assert "boundary-proof-recorded|item|remote_integration_ref" in out.getvalue()

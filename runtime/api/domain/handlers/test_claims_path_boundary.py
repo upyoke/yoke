@@ -13,6 +13,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import path_claim_boundary_gate_proof as proof_module
 from yoke_core.domain.handlers.claims_path_boundary import (
     handle_boundary_context,
+    handle_boundary_observe,
     handle_boundary_prove,
 )
 from yoke_core.domain.handlers.__init_register__ import register_all_handlers
@@ -74,6 +75,30 @@ def test_prove_handler_binds_actor_session(db, monkeypatch):
     assert outcome.result_payload["lane_commit_sha"] == "a" * 40
 
 
+def test_observe_handler_builds_local_proof(monkeypatch):
+    proof = {"kind": "proof"}
+    monkeypatch.setattr(
+        proof_module,
+        "build_local_boundary_proof",
+        lambda context, repo_path: {
+            **proof,
+            "item_id": context["item_id"],
+            "repo_path": repo_path,
+        },
+    )
+    request = FunctionCallRequest(
+        function="claims.path.boundary_observe",
+        actor=ActorContext(actor_id="worker", session_id="session-1"),
+        target=TargetRef(kind="global"),
+        payload={"context": {"item_id": 7777}, "repo_path": "/lane"},
+    )
+    outcome = handle_boundary_observe(request)
+    assert outcome.primary_success
+    assert outcome.result_payload == {
+        "proof": {"kind": "proof", "item_id": 7777, "repo_path": "/lane"}
+    }
+
+
 def test_prove_handler_returns_named_refusal(db, monkeypatch):
     def _refuse(*_args, **_kwargs):
         raise BoundaryProofError("coverage changed")
@@ -92,8 +117,11 @@ def test_boundary_functions_have_claimed_transport_contracts():
     try:
         register_all_handlers()
         context = lookup("claims.path.boundary_context")
+        observe = lookup("claims.path.boundary_observe")
         prove = lookup("claims.path.boundary_prove")
         assert context is not None and context.adapter_status == "internal"
+        assert observe is not None and observe.adapter_status == "internal"
+        assert observe.claim_required_kind is None
         assert prove is not None and prove.adapter_status == "live"
         assert context.claim_required_kind == prove.claim_required_kind == "item"
     finally:

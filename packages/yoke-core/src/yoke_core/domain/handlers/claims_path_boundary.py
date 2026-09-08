@@ -21,6 +21,15 @@ class BoundaryContextResponse(BaseModel):
     context: Dict[str, Any]
 
 
+class BoundaryObserveRequest(BaseModel):
+    context: Dict[str, Any] = Field(default_factory=dict)
+    repo_path: str
+
+
+class BoundaryObserveResponse(BaseModel):
+    proof: Dict[str, Any]
+
+
 class BoundaryProveRequest(BaseModel):
     proof: Dict[str, Any] = Field(default_factory=dict)
 
@@ -65,6 +74,24 @@ def handle_boundary_context(request: FunctionCallRequest) -> HandlerOutcome:
     return HandlerOutcome(result_payload={"context": context})
 
 
+def handle_boundary_observe(request: FunctionCallRequest) -> HandlerOutcome:
+    try:
+        body = BoundaryObserveRequest.model_validate(request.payload or {})
+    except Exception as exc:
+        return _error("payload_invalid", f"boundary observation invalid: {exc}")
+
+    from yoke_core.domain.path_claim_boundary_gate_proof import (
+        BoundaryProofError,
+        build_local_boundary_proof,
+    )
+
+    try:
+        proof = build_local_boundary_proof(body.context, body.repo_path)
+    except BoundaryProofError as exc:
+        return _error("boundary_proof_failed", str(exc))
+    return HandlerOutcome(result_payload={"proof": proof})
+
+
 def handle_boundary_prove(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         body = BoundaryProveRequest.model_validate(request.payload or {})
@@ -101,8 +128,11 @@ def handle_boundary_prove(request: FunctionCallRequest) -> HandlerOutcome:
 __all__ = [
     "BoundaryContextRequest",
     "BoundaryContextResponse",
+    "BoundaryObserveRequest",
+    "BoundaryObserveResponse",
     "BoundaryProveRequest",
     "BoundaryProveResponse",
     "handle_boundary_context",
+    "handle_boundary_observe",
     "handle_boundary_prove",
 ]

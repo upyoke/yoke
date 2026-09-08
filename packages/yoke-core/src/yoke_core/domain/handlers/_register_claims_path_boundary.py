@@ -21,6 +21,20 @@ def register(registry) -> None:
         claim_required_kind="item",
     )
     registry.register(
+        "claims.path.boundary_observe",
+        _boundary.handle_boundary_observe,
+        _boundary.BoundaryObserveRequest,
+        _boundary.BoundaryObserveResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.claims_path_boundary",
+        target_kinds=["global"],
+        side_effects=[],
+        emitted_event_names=[],
+        guardrails=["local_checkout_required"],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )
+    registry.register(
         "claims.path.boundary_prove",
         _boundary.handle_boundary_prove,
         _boundary.BoundaryProveRequest,

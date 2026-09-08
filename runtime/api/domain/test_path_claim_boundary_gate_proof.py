@@ -23,6 +23,8 @@ from yoke_core.domain.path_claim_boundary_gate_proof import (
     build_local_boundary_proof,
     record_boundary_proof,
 )
+from yoke_core.domain.path_claim_boundary_proof_validation import _remote_heads
+from yoke_core.domain.project_github_auth import MissingCapability, MissingPermission
 from yoke_core.domain.gate_satisfier_stamp import read_rungs
 from yoke_core.domain.path_claims import register
 from yoke_core.domain.path_claims_gate_boundary import check_boundary_for_item
@@ -179,6 +181,44 @@ def test_local_integration_capability_does_not_require_github(
     )
     _record(real_db, proof)
     assert _hosted_gate(real_db, monkeypatch) is None
+
+
+def test_generic_remote_clone_keeps_caller_observed_ref_semantics(
+    project_repo,
+    real_db,
+    monkeypatch,
+):
+    _claim_id, _lane, _context, proof = _seed_proof_case(project_repo, real_db)
+    monkeypatch.setattr(
+        "yoke_core.domain.path_claim_boundary_proof_validation._remote_heads",
+        lambda *_args: None,
+    )
+    recorded = _record(real_db, proof)
+    assert recorded["integration_base_validation"] == "caller_observed_remote_ref"
+    assert _hosted_gate(real_db, monkeypatch) is None
+
+
+def test_remote_head_check_allows_only_absent_github_capability(monkeypatch):
+    def _missing(*_args, **_kwargs):
+        raise MissingCapability("plain-git", "no GitHub capability")
+
+    monkeypatch.setattr(
+        "yoke_core.domain.project_github_auth.resolve_project_github_auth",
+        _missing,
+    )
+    assert _remote_heads(object(), "plain-git", ["main"]) is None
+
+
+def test_remote_head_check_preserves_configured_auth_failure(monkeypatch):
+    def _refuse(*_args, **_kwargs):
+        raise MissingPermission("github-project", "contents permission missing")
+
+    monkeypatch.setattr(
+        "yoke_core.domain.project_github_auth.resolve_project_github_auth",
+        _refuse,
+    )
+    with pytest.raises(BoundaryProofError, match="missing_permission"):
+        _remote_heads(object(), "github-project", ["main"])
 
 
 def test_remote_tip_advance_needs_reproof_but_not_rebase(

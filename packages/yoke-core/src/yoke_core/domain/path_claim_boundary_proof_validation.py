@@ -150,17 +150,27 @@ def validate_proof(
             str(base["integration_target"]): str(base["integration_base_sha"])
             for base in bases
         }
-        if observed != expected:
+        if expected is not None and observed != expected:
             raise BoundaryProofError(
                 "the recorded remote integration base is stale; fetch the lane "
                 "and produce a new boundary proof"
             )
+        proof["integration_base_validation"] = (
+            "github_api" if expected is not None else "caller_observed_remote_ref"
+        )
+    elif rung_id == "local_integration_ref":
+        proof["integration_base_validation"] = "caller_observed_local_ref"
     return proof
 
 
-def _remote_heads(conn: Any, project: str, targets: Iterable[str]) -> dict[str, str]:
+def _remote_heads(
+    conn: Any,
+    project: str,
+    targets: Iterable[str],
+) -> dict[str, str] | None:
     from yoke_core.domain.github_actions_rest import rest_get
     from yoke_core.domain.project_github_auth import (
+        MissingCapability,
         ProjectGithubAuthError,
         resolve_project_github_auth,
     )
@@ -171,6 +181,14 @@ def _remote_heads(conn: Any, project: str, targets: Iterable[str]) -> dict[str, 
             conn=conn,
             required_permissions=GITHUB_CONTENTS_READ_PERMISSION_LEVELS,
         )
+    except MissingCapability:
+        return None
+    except ProjectGithubAuthError as exc:
+        raise BoundaryProofError(
+            f"remote integration base is unreadable: {exc.code}: {exc}"
+        ) from exc
+
+    try:
         heads: dict[str, str] = {}
         for target in targets:
             data = rest_get(
@@ -186,10 +204,6 @@ def _remote_heads(conn: Any, project: str, targets: Iterable[str]) -> dict[str, 
         return heads
     except BoundaryProofError:
         raise
-    except ProjectGithubAuthError as exc:
-        raise BoundaryProofError(
-            f"remote integration base is unreadable: {exc.code}: {exc}"
-        ) from exc
     except Exception as exc:
         raise BoundaryProofError(
             f"remote integration base is unreadable: {type(exc).__name__}: {exc}"

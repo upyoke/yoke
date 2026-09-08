@@ -20,6 +20,7 @@ from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_res
 from yoke_cli.commands.adapters.project_snapshot import (
     sync_local_snapshot_for_write,
 )
+from yoke_contracts.api.function_call import TargetRef
 
 
 CLAIMS_PATH_REQUIRED_GATE_USAGE = (
@@ -130,15 +131,16 @@ def claims_path_boundary_prove(args: List[str]) -> int:
     if not current.success:
         return emit_response(current, json_mode=parsed.json_mode)
     context = (current.result or {}).get("context") or {}
-    from yoke_core.domain.path_claim_boundary_gate_proof import (
-        BoundaryProofError,
-        build_local_boundary_proof,
+    observation = call_dispatcher(
+        function_id="claims.path.boundary_observe",
+        target=TargetRef(kind="global"),
+        payload={"context": context, "repo_path": repo_path},
+        actor=actor,
+        local_only=True,
     )
-
-    try:
-        proof = build_local_boundary_proof(context, repo_path)
-    except BoundaryProofError as exc:
-        return _local_error("boundary_proof_failed", str(exc))
+    if not observation.success:
+        return emit_response(observation, json_mode=parsed.json_mode)
+    proof = (observation.result or {}).get("proof") or {}
     response = call_dispatcher(
         function_id="claims.path.boundary_prove",
         target=target,
