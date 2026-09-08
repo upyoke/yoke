@@ -138,21 +138,29 @@ def record_machine_case_result(
             handle = parse_handle(raw_handle)
             if handle["backend"] == "local":
                 source = Path(str(handle["path"])).expanduser()
-                if source.is_file():
-                    target = artifact_file_path(
-                        str(case["project"]),
-                        artifact_subject,
-                        run_id,
-                        f"{key}.png",
+                if not source.is_file():
+                    raise ValueError(
+                        f"machine QA capture {key!r} was not transferred: no "
+                        f"bytes at {source} on this machine. The submitting "
+                        "host sends capture bytes alongside its result; "
+                        "recording the handle alone would present evidence "
+                        "this control plane can never read. Re-run the case "
+                        "so the capture is submitted with its bytes."
                     )
-                    if local_artifact_created is not None:
-                        local_artifact_created(target)
-                    shutil.copyfile(source, target)
-                    source.unlink(missing_ok=True)
-                    handle = local_handle(
-                        str(target.resolve()),
-                        "image/png",
-                    )
+                target = artifact_file_path(
+                    str(case["project"]),
+                    artifact_subject,
+                    run_id,
+                    f"{key}.png",
+                )
+                if local_artifact_created is not None:
+                    local_artifact_created(target)
+                shutil.copyfile(source, target)
+                source.unlink(missing_ok=True)
+                handle = local_handle(
+                    str(target.resolve()),
+                    "image/png",
+                )
             add_artifact(
                 "terminal_screenshot",
                 "image/png",

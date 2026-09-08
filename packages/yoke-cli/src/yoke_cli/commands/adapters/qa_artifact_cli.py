@@ -61,8 +61,10 @@ def qa_artifact_add(args: List[str]) -> int:
             "Typed handle JSON naming where the evidence lives: "
             '{"backend":"s3","bucket":B,"key":K} for uploaded '
             'evidence, {"backend":"local","path":P} for explicit '
-            "machine-local evidence. Bare paths are refused. Mutually "
-            "exclusive with --content-base64 / --content-file."
+            "machine-local evidence. Bare paths are refused, and so is a "
+            "local handle on a mission capture run that the control plane "
+            "cannot read — send those bytes with --content-file instead. "
+            "Mutually exclusive with --content-base64 / --content-file."
         ),
     )
     source.add_argument(

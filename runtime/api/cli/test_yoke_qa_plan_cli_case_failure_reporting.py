@@ -128,7 +128,7 @@ def test_mission_handoff_qualifies_every_control_plane_command(monkeypatch) -> N
         ),
         "artifact_add_command": (
             "yoke qa artifact add --requirement-id 41 --run-id 7 "
-            "--artifact-type TYPE --artifact-handle HANDLE_JSON"
+            "--artifact-type TYPE --content-file PATH"
         ),
     }
     prompt = " ".join(commands.values())

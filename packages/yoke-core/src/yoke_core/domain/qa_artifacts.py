@@ -79,8 +79,7 @@ def is_sanctioned_artifact_path(
 
     candidate = Path(path).expanduser().resolve(strict=False)
     project_root = (
-        project_scratch_dir.global_scratch_root()
-        / safe_segment(project)
+        project_scratch_dir.global_scratch_root() / safe_segment(project)
     ).resolve(strict=False)
     try:
         relative = candidate.relative_to(project_root)
@@ -134,3 +133,40 @@ def build_metadata(
 def route_slug(route: str) -> str:
     """Convert a route path to a slug: strip leading /, replace / with -, lowercase."""
     return route.lstrip("/").replace("/", "-").lower()
+
+
+def is_server_evidence_path(
+    path: str | Path,
+    project: str,
+    subject_id: int | str,
+    run_id: int,
+    *,
+    checkout: Optional[Path] = None,
+) -> bool:
+    """Return whether THIS machine can address *path* as the run's evidence.
+
+    Readable evidence lives in the run's canonical artifact tree — the
+    directory this process captures into, or any session's canonical tree
+    for the same run — or inside the project's own checkout, where
+    repo-committed baselines live. A path outside both names some other
+    machine's disk: a client, or a QA test host whose home is reset between
+    missions, where the bytes vanish while the artifact row survives.
+
+    Both the evidence reader and the artifact writer decide locality with
+    this one predicate, so a handle accepted at record time is a handle the
+    reader can still serve.
+    """
+
+    candidate = Path(path).expanduser()
+    if not candidate.is_absolute():
+        return False
+    if is_sanctioned_artifact_path(candidate, project, subject_id, run_id):
+        return True
+    roots = [artifact_directory(project, subject_id, run_id, create=False)]
+    if checkout is not None:
+        roots.append(Path(checkout))
+    resolved = candidate.resolve(strict=False)
+    return any(
+        resolved == root or root in resolved.parents
+        for root in (root.resolve(strict=False) for root in roots)
+    )

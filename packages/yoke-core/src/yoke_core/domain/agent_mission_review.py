@@ -67,11 +67,30 @@ def _walker_dispatch(
         f"{host_command_base} -- yoke qa browser step --base-url BASE_URL "
         "--step-json STEP_JSON [--output-dir PATH]"
     )
+    walks_on_target = executor != "informed_subagent"
+    artifact_bytes_source = (
+        "--content-file PATH"
+        if walks_on_target
+        else "--content-base64 B64 --filename NAME"
+    )
     artifact_add_command = (
         "yoke qa artifact add "
         f"--requirement-id {int(case['requirement_id'])} "
         f"--run-id {int(case['capture_run_id'])} --artifact-type TYPE "
-        "--artifact-handle HANDLE_JSON [--content-type TYPE] [--metadata JSON]"
+        f"{artifact_bytes_source} [--content-type TYPE] [--metadata JSON]"
+    )
+    artifact_bytes_clause = (
+        "attach it with the bytes themselves, never a path on the target: "
+        "that host's home is restored to its baseline between missions, so a "
+        "recorded path outlives its own file and is refused. "
+    ) + (
+        ""
+        if walks_on_target
+        else (
+            "You are driving the target from another machine, so read the "
+            "bytes back first by running `base64 -i TARGET_PATH` through "
+            "the remote command below and passing its stdout as B64. "
+        )
     )
     scratch_path = mission_scratch_path(execution_id)
     scratch_teardown_command = (
@@ -87,7 +106,9 @@ def _walker_dispatch(
         "screen perception is disposable. Attach only deliberate proof of a "
         "finding, never more than "
         f"{AGENT_MISSION_ARTIFACT_LIMIT} artifacts for the entire run using "
-        f"`{artifact_add_command}`. Remote commands use `{host_command}`; "
+        f"`{artifact_add_command}`. For every artifact, "
+        f"{artifact_bytes_clause}"
+        f"Remote commands use `{host_command}`; "
         f"materialize the target browser with `{browser_setup_command}` using "
         "a bounded timeout long enough for first setup, then "
         f"drive it one chosen step at a time with `{browser_step_command}`. "
