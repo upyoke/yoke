@@ -235,9 +235,15 @@ test("a kill reads as a cause of death on ended, never as its own liveness", () 
     messageability: { messageable: false },
   });
   assert.equal(byClass(rendered, "session-health").length, 0);
-  const badge = byClass(rendered, "session-kill-badge")[0];
-  assert.equal(badge.textContent, "killed");
-  assert.match(badge.title, /Reason: operator stopped worker$/);
+  assert.equal(byClass(rendered, "session-kill-badge").length, 0);
+  assert.equal(
+    byClass(rendered, "session-history-ended")[0].textContent,
+    "Killed 2026-08-22T12:05:00Z",
+  );
+  assert.equal(
+    byClass(rendered, "session-history-reason")[0].textContent,
+    "Reason: operator stopped worker",
+  );
   assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "ended");
 });
 
