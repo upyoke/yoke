@@ -145,7 +145,8 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _utc_stamp(clock: Callable[[], datetime] | None = None) -> str:
+def utc_stamp(clock: Callable[[], datetime] | None = None) -> str:
+    """UTC ``YYYY-MM-DDTHH:MM:SSZ`` stamp shared by owned stderr diagnostics."""
     instant = (clock or _utc_now)()
     if instant.tzinfo is None:
         instant = instant.replace(tzinfo=timezone.utc)
@@ -178,7 +179,7 @@ def format_retry_notice(
 ) -> str:
     """One stderr line: UTC stamp, class, attempt, and that recovery is retry."""
     return (
-        f"{_utc_stamp(clock)} note: relay attempt "
+        f"{utc_stamp(clock)} note: relay attempt "
         f"{attempt + 1}/{CONNECTION_ATTEMPTS} failed ({reason}) "
         f"class={_classify_retry_reason(reason)} outcome=retrying; "
         f"retrying in {backoff_seconds:.0f}s"
@@ -222,6 +223,7 @@ __all__ = [
     "RESPONSE_DEADLINE_ATTEMPTS",
     "connection_backoff_seconds",
     "format_retry_notice",
+    "utc_stamp",
     "write_retry_notice",
     "http_status_is_transient",
 ]

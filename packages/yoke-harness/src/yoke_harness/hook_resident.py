@@ -303,11 +303,9 @@ def _serve(socket_path: Path, lock_fd: int) -> bool:
         # and ``block_on_close`` joins them here.
         server.server_close()
         if not server.observations.close(drain_timeout=2.0):
-            sys.stderr.write(
-                "WARNING: YOKE_HOOK_TELEMETRY_DRAIN_TIMEOUT: retained observations "
-                "could not flush before shutdown; telemetry is disposable and the "
-                "resident continues to the installed revision\n"
-            )
+            from yoke_harness.hook_observation_delivery import drain_timeout_warning
+
+            sys.stderr.write(drain_timeout_warning())
         server.http_opener.close()
         _unlink_socket(socket_path)
     return restart
@@ -319,10 +317,9 @@ def main() -> int:
     try:
         os.fstat(args.lock_fd)
     except OSError:
-        sys.stderr.write(
-            "ERROR: YOKE_HOOK_RESIDENT_LOCK_INVALID: start through "
-            "`yoke hook evaluate` so the singleton lock is inherited\n"
-        )
+        from yoke_harness.hook_observation_delivery import lock_invalid_error
+
+        sys.stderr.write(lock_invalid_error())
         return 2
     os.set_inheritable(args.lock_fd, True)
     socket_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)

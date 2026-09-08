@@ -8,15 +8,22 @@ operation is failing, with what reason, and for how long.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 import logging
 import threading
 import time
 from typing import Callable
 
+from yoke_cli.transport.https_retry_policy import utc_stamp
+
 
 FAILURE_LOG_INTERVAL_SECONDS = 300
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _wall_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 @dataclass
@@ -32,6 +39,7 @@ class FailureReporter:
 
     interval_seconds: float = FAILURE_LOG_INTERVAL_SECONDS
     clock: Callable[[], float] = time.monotonic
+    stamp_clock: Callable[[], datetime] = _wall_now
     bursts: dict[str, _FailureBurst] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -49,7 +57,9 @@ class FailureReporter:
                     return
                 burst.last_logged_at = now
             _LOGGER.error(
-                "relay %s failed: %s; consecutive_failures=%d elapsed_seconds=%.1f",
+                "%s relay %s failed: %s; class=relay_failure "
+                "consecutive_failures=%d elapsed_seconds=%.1f outcome=retrying",
+                utc_stamp(self.stamp_clock),
                 operation,
                 detail,
                 burst.count,
@@ -62,7 +72,9 @@ class FailureReporter:
             burst = self.bursts.pop(operation, None)
         if burst is not None:
             _LOGGER.warning(
-                "relay %s recovered; consecutive_failures=%d elapsed_seconds=%.1f",
+                "%s relay %s recovered; class=relay_recovery "
+                "consecutive_failures=%d elapsed_seconds=%.1f outcome=recovered",
+                utc_stamp(self.stamp_clock),
                 operation,
                 burst.count,
                 max(0.0, now - burst.started_at),

@@ -5,6 +5,8 @@ head and everything behind it waits. So the queue distinguishes a batch
 the control plane will never take — dropped, loudly — from one it might,
 which is retried a bounded number of times, and it caps its own depth. No
 observation is worth stalling the hooks of every session on the machine.
+Owned warning and error lines carry the same UTC stamp as transport retry
+notices; vendor output is never rewritten as if Yoke produced it.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from yoke_harness.hook_observation_delivery import (
     OBSERVATION_BACKLOG_LIMIT,
     backlog_diagnostic,
     classify_delivery_failure,
+    owned_diagnostic_line,
     retry_delay_seconds,
 )
 from yoke_harness.hook_resident_client_wall import PendingClientWall
@@ -91,8 +94,9 @@ def _record_model_confirmations(
 class ObservationQueue:
     """Retain failed telemetry batches and retry in original hook order."""
 
-    def __init__(self, opener) -> None:
+    def __init__(self, opener, stream=None) -> None:
         self._opener = opener
+        self._stream = sys.stderr if stream is None else stream
         self._condition = threading.Condition()
         self._flush_lock = threading.Lock()
         self._entries: list[PendingTelemetry] = []
@@ -135,20 +139,28 @@ class ObservationQueue:
             failure = self._failure
             recovery = self._recovery
             dropped = self._dropped
-        lines = []
+        lines: list[str] = []
         if failure:
             lines.append(
-                "WARNING: YOKE_HOOK_TELEMETRY_FLUSH_FAILED: "
-                f"{failure}; {backlog_diagnostic(pending=pending, oldest_age_seconds=oldest)}"
-                f"; {recovery}"
+                owned_diagnostic_line(
+                    "WARNING: YOKE_HOOK_TELEMETRY_FLUSH_FAILED: "
+                    f"{failure}; {backlog_diagnostic(pending=pending, oldest_age_seconds=oldest)}",
+                    failure_class="transient_retry",
+                    outcome="retrying",
+                    recovery=recovery,
+                )
             )
         if dropped:
             lines.append(
-                f"WARNING: YOKE_HOOK_TELEMETRY_DROPPED: {dropped} observation(s) "
-                "were discarded so later reports could flush; telemetry is "
-                "disposable and no operational state was lost"
+                owned_diagnostic_line(
+                    f"WARNING: YOKE_HOOK_TELEMETRY_DROPPED: {dropped} observation(s) "
+                    "were discarded so later reports could flush; telemetry is "
+                    "disposable and no operational state was lost",
+                    failure_class="dropped",
+                    outcome="discarded",
+                )
             )
-        return "".join(f"{line}\n" for line in lines)
+        return "".join(lines)
 
     def _due_wait_locked(self, now: float) -> float | None:
         if not self._entries:
@@ -260,8 +272,10 @@ class ObservationQueue:
         failure = classify_delivery_failure(exc)
         summary = failure.summary()
         drop = failure.permanent
+        attempts = 0
         with self._condition:
             self._attempts += 1
+            attempts = self._attempts
             if not drop and self._attempts >= MAX_TRANSIENT_ATTEMPTS:
                 drop = True
                 summary = f"{summary}; gave up after {self._attempts} attempts"
@@ -278,15 +292,19 @@ class ObservationQueue:
             else:
                 self._failure = summary
                 self._recovery = failure.recovery
-        level = "ERROR" if drop else "WARNING"
-        name = (
-            "YOKE_HOOK_TELEMETRY_BATCH_REJECTED"
-            if drop
-            else ("YOKE_HOOK_TELEMETRY_FLUSH_FAILED")
-        )
-        sys.stderr.write(
-            f"{level}: {name}: {summary}; {failure.recovery}"
-            f"{'; batch dropped so later reports flush' if drop else ''}\n"
+        self._stream.write(
+            owned_diagnostic_line(
+                f"{'ERROR' if drop else 'WARNING'}: "
+                f"{'YOKE_HOOK_TELEMETRY_BATCH_REJECTED' if drop else 'YOKE_HOOK_TELEMETRY_FLUSH_FAILED'}: "
+                f"{summary}; attempts={attempts}",
+                failure_class="permanent_reject" if drop else "transient_retry",
+                outcome="dropped" if drop else "retrying",
+                recovery=(
+                    f"{failure.recovery}; batch dropped so later reports flush"
+                    if drop
+                    else failure.recovery
+                ),
+            )
         )
 
     def drain(self, timeout: float) -> bool:

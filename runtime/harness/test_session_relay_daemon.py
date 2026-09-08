@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import logging
 import os
 import signal
@@ -196,9 +197,11 @@ def test_failure_burst_logs_first_periodic_and_recovery_lines(caplog) -> None:
 
     interval = failure_log.FAILURE_LOG_INTERVAL_SECONDS
     observed = iter((0.0, 10.0, float(interval), float(interval + 5)))
+    stamp = datetime(2026, 9, 8, 14, 54, 9, tzinfo=timezone.utc)
     reporter = failure_log.FailureReporter(
         interval_seconds=interval,
         clock=lambda: next(observed),
+        stamp_clock=lambda: stamp,
     )
     caplog.set_level(logging.WARNING, logger=failure_log.__name__)
 
@@ -209,12 +212,15 @@ def test_failure_burst_logs_first_periodic_and_recovery_lines(caplog) -> None:
 
     messages = [record.getMessage() for record in caplog.records]
     assert messages == [
-        "relay poll failed: request rejected; consecutive_failures=1 "
-        "elapsed_seconds=0.0",
-        "relay poll failed: request rejected; consecutive_failures=3 "
-        f"elapsed_seconds={interval:.1f}",
-        "relay poll recovered; consecutive_failures=3 "
-        f"elapsed_seconds={interval + 5:.1f}",
+        "2026-09-08T14:54:09Z relay poll failed: request rejected; "
+        "class=relay_failure consecutive_failures=1 elapsed_seconds=0.0 "
+        "outcome=retrying",
+        "2026-09-08T14:54:09Z relay poll failed: request rejected; "
+        "class=relay_failure consecutive_failures=3 "
+        f"elapsed_seconds={interval:.1f} outcome=retrying",
+        "2026-09-08T14:54:09Z relay poll recovered; class=relay_recovery "
+        "consecutive_failures=3 "
+        f"elapsed_seconds={interval + 5:.1f} outcome=recovered",
     ]
 
 
@@ -238,7 +244,8 @@ def test_claim_failure_logs_reason_then_poll_recovery(tmp_path, caplog) -> None:
     messages = [record.getMessage() for record in caplog.records]
     assert any("relay poll failed: unexpected_field" in line for line in messages)
     assert any(
-        "relay poll recovered; consecutive_failures=1" in line for line in messages
+        "relay poll recovered" in line and "consecutive_failures=1" in line
+        for line in messages
     )
 
 
@@ -266,7 +273,8 @@ def test_poll_exception_is_logged_without_ending_the_relay(tmp_path, caplog) -> 
         "relay poll failed: ValueError: server rejected" in line for line in messages
     )
     assert any(
-        "relay poll recovered; consecutive_failures=1" in line for line in messages
+        "relay poll recovered" in line and "consecutive_failures=1" in line
+        for line in messages
     )
 
 

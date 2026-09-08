@@ -88,8 +88,16 @@ def supervise(capture: Path, native: Sequence[str]) -> int:
             stderr=subprocess.PIPE,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        streams.append(STDERR, f"native did not start: {exc}".encode())
-        _write(capture, streams, state=STATE_EXITED, exit_code=None)
+        started = time.time()
+        streams.append(
+            STDERR,
+            (
+                f"{utc_stamp(started)} ERROR: YOKE_NATIVE_START_FAILED: "
+                f"native did not start: {exc}; class=native_start_failed "
+                "outcome=exited; the capture is the account of the spawn refusal\n"
+            ).encode(),
+        )
+        _write(capture, streams, state=STATE_EXITED, exit_code=None, now=started)
         return 1
     drains = tuple(
         started
