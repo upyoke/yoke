@@ -32,6 +32,10 @@ class HostedMachineAuthorizationCancelled(HostedMachineAuthorizationError):
 # Hosted pages that may present the one-time code approval: the dedicated
 # machine-approval page and the unified connect-machine page.
 _BROWSER_VERIFICATION_PATHS = ("/connect", "/machine")
+_RETRYABLE_POLL_ERRORS = {
+    202: "authorization_pending",
+    503: "machine_credential_unavailable",
+}
 
 
 @dataclass(frozen=True)
@@ -137,7 +141,7 @@ def complete(
             error = (
                 exc.payload.get("error") if isinstance(exc.payload, Mapping) else None
             )
-            if exc.status == 202 and error == "authorization_pending":
+            if _poll_is_retryable(exc.status, error):
                 continue
             if exc.status == 410 and error == "authorization_denied":
                 raise HostedMachineAuthorizationDenied(
@@ -151,16 +155,14 @@ def complete(
                 f"hosted authorization polling failed (HTTP {exc.status})"
             ) from None
         error = payload.get("error")
-        if status == 202 and error == "authorization_pending":
+        if _poll_is_retryable(status, error):
             continue
         if status == 410 and error == "authorization_denied":
             raise HostedMachineAuthorizationDenied(
                 "authorization denied in the browser"
             )
         if error in {"authorization_expired", "authorization_consumed"}:
-            raise HostedMachineAuthorizationError(
-                str(error).replace("_", " ")
-            )
+            raise HostedMachineAuthorizationError(str(error).replace("_", " "))
         if status != 200:
             raise HostedMachineAuthorizationError(
                 f"hosted authorization polling failed (HTTP {status})"
@@ -185,12 +187,18 @@ def complete(
     )
 
 
+def _poll_is_retryable(status: int, error: object) -> bool:
+    expected_error = _RETRYABLE_POLL_ERRORS.get(status)
+    return expected_error is not None and expected_error == error
+
+
 def authorize(
     platform_url: str,
     *,
     opener: Callable[..., Any] | None = None,
     browser_open: Callable[[str], Any] | None = None,
-    notify: Callable[[PendingMachineAuthorization, BrowserOpenResult], None] | None = None,
+    notify: Callable[[PendingMachineAuthorization, BrowserOpenResult], None]
+    | None = None,
     sleep: Callable[[float], Any] = time.sleep,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> HostedMachineCredential:
