@@ -202,6 +202,37 @@ def test_duration_measures_the_tool_not_the_delivery_delay(
     assert 2_000 <= detail["ingest_lag_ms"] < 60_000
 
 
+def test_dispatch_rows_name_the_call_they_are_a_phase_of(
+    client, observation_db
+) -> None:
+    """Both phases keep the identity the deferred path observed.
+
+    The identity lives in the telemetry context, not the ``tool_use_id``
+    column: that column is uniquely indexed on ``(tool_use_id,
+    event_name)``, so writing both phases there would keep one row and
+    drop the other.
+    """
+    assert client.post("/v1/hooks/telemetry/batch", json=_batch()).status_code == 200
+
+    conn = connect_test_db(observation_db["db_path"])
+    try:
+        rows = list(
+            conn.execute(
+                "SELECT tool_use_id,hook_event_name,envelope FROM events "
+                "WHERE event_name='HookDispatchTelemetry' ORDER BY created_at"
+            )
+        )
+    finally:
+        conn.close()
+
+    assert [row["hook_event_name"] for row in rows] == ["PreToolUse", "PostToolUse"]
+    assert [json.loads(row["envelope"])["context"]["tool_use_id"] for row in rows] == [
+        "resident-read-1",
+        "resident-read-1",
+    ]
+    assert [row["tool_use_id"] for row in rows] == [None, None]
+
+
 def test_batch_retry_is_idempotent(client, observation_db) -> None:
     body = _batch()
     assert client.post("/v1/hooks/telemetry/batch", json=body).status_code == 200

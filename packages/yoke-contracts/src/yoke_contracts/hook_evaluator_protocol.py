@@ -22,6 +22,9 @@ HOOK_CLIENT_WALL_PATH = "/v1/hooks/telemetry/client-wall"
 # the telemetry context and is copied into the indexed ``events`` column of
 # the same name, which is how the completing wall-time report finds its row.
 HOOK_CLIENT_TIMING_ID_FIELD = "client_timing_id"
+# Harness tool-call identity a dispatch row is correlated by. Named for the
+# normalized payload key every harness parser produces.
+HOOK_CALL_IDENTITY_FIELD = "tool_use_id"
 HOOK_EVALUATOR_CAPABILITIES = (
     HOOK_OBSERVATION_BATCH_CAPABILITY,
     HOOK_CLIENT_WALL_CAPABILITY,
@@ -233,6 +236,27 @@ def attach_evaluator_metadata(
     return json.dumps(payload, separators=(",", ":"))
 
 
+def hook_call_identity_fields(payload: Any) -> dict[str, Any]:
+    """Correlation fields copied into ``HookDispatchTelemetry`` context.
+
+    One tool call produces two dispatch rows, one per hook event, so a
+    reader that wants a specific call's phases has to name the call. The
+    identity rides in the telemetry context rather than the indexed
+    ``events.tool_use_id`` column because that column is uniquely indexed
+    on ``(tool_use_id, event_name)`` — writing both rows there would drop
+    the second and leave the first looking like the whole call.
+
+    A payload that carries no identity yields no field, so a reader sees a
+    row it cannot attribute rather than one attributed by arrival order.
+    """
+    if not isinstance(payload, Mapping):
+        return {}
+    identity = payload.get(HOOK_CALL_IDENTITY_FIELD)
+    if not isinstance(identity, str) or not identity.strip():
+        return {}
+    return {HOOK_CALL_IDENTITY_FIELD: identity.strip()}
+
+
 def evaluator_telemetry_fields(payload: Any) -> dict[str, Any]:
     """Validated fields copied into ``HookDispatchTelemetry`` context."""
     if not isinstance(payload, Mapping):
@@ -267,6 +291,7 @@ def evaluator_telemetry_fields(payload: Any) -> dict[str, Any]:
 
 __all__ = [
     "EVALUATOR_PAYLOAD_KEY",
+    "HOOK_CALL_IDENTITY_FIELD",
     "HOOK_CLIENT_TIMING_ID_FIELD",
     "HOOK_CLIENT_WALL_BATCH_FIELD",
     "HOOK_CLIENT_WALL_CAPABILITY",
@@ -284,6 +309,7 @@ __all__ = [
     "attach_evaluator_metadata",
     "encode_frame",
     "evaluator_telemetry_fields",
+    "hook_call_identity_fields",
     "receive_frame",
     "send_frame",
 ]

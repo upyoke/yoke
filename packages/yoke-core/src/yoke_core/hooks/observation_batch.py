@@ -8,7 +8,10 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from yoke_contracts.hook_driver_process import resolve_driver_process
-from yoke_contracts.hook_evaluator_protocol import evaluator_telemetry_fields
+from yoke_contracts.hook_evaluator_protocol import (
+    evaluator_telemetry_fields,
+    hook_call_identity_fields,
+)
 from yoke_contracts.hook_runner.chain_registry import chain_for
 from yoke_core.domain import db_backend
 from yoke_core.domain.events import build_envelope as build_event_envelope
@@ -197,6 +200,7 @@ def _dispatch_event(
         "driver_ppid": driver.get("ppid"),
         "driver_origin": driver.get("origin"),
         **evaluator_telemetry_fields(payload),
+        **hook_call_identity_fields(payload),
     }
     envelope = build_event_envelope(
         _DISPATCH_EVENT,

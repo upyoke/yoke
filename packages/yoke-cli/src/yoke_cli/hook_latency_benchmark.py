@@ -12,17 +12,25 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Sequence
 
+from yoke_contracts.hook_evaluator_protocol import HOOK_CALL_IDENTITY_FIELD
 from yoke_cli.hook_latency_benchmark_report import (
+    PHASE_HOOK_EVENTS,
     BenchmarkRefusal,
     attach_durable_phases,
     compare_reports,
     load_report,
     parse_provenance,
+    phase_coverage,
     summarize_samples,
 )
 
 
 SAMPLE_COMMAND = (shutil.which("true") or "/usr/bin/true",)
+# Headroom over this run's own dispatch rows so unrelated hooks the same
+# session fires inside the run window cannot push a sample's row out of the
+# bounded query. A run that still fills the limit says so in its coverage.
+UNRELATED_ROW_HEADROOM = 50
+EVENTS_QUERY_MAX_LIMIT = 1000
 _CLI_CODE = (
     "import sys; from yoke_cli.main import main; raise SystemExit(main(sys.argv[1:]))"
 )
@@ -150,15 +158,24 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
         samples.append(
             {
                 "ordinal": ordinal,
+                HOOK_CALL_IDENTITY_FIELD: tool_use_id,
                 "pre_hook_ms": pre_ms,
                 "command_ms": command_ms,
                 "post_hook_ms": post_ms,
                 "envelope_ms": envelope_ms,
-                "pre_phase": None,
-                "post_phase": None,
+                **{field: None for field in PHASE_HOOK_EVENTS},
             }
         )
     ended_at = datetime.now(timezone.utc)
+    # Bounded twice over: to this session's dispatch rows inside this run's
+    # own window, and then to the sample identities the join recognizes. The
+    # predecessor read the latest 2N rows of the whole session and required
+    # exact Pre/Post alternation, so one unrelated hook firing mid-run
+    # discarded every phase the run had actually measured.
+    dispatch_limit = min(
+        EVENTS_QUERY_MAX_LIMIT,
+        sample_count * len(PHASE_HOOK_EVENTS) + UNRELATED_ROW_HEADROOM,
+    )
     dispatch_rows = _run_json(
         run,
         (
@@ -168,21 +185,27 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
             "HookDispatchTelemetry",
             "--session",
             str(identity.get("session_id")),
+            "--since",
+            started_at.isoformat(),
             "--limit",
-            str(sample_count * 2),
+            str(dispatch_limit),
         ),
         env,
     ).get("rows", [])
     attach_durable_phases(samples, dispatch_rows)
+    coverage = phase_coverage(
+        samples,
+        dispatch_row_count=len(dispatch_rows),
+        dispatch_row_limit=dispatch_limit,
+    )
     for sample in samples:
-        phases = (sample.get("pre_phase"), sample.get("post_phase"))
         sample["status"] = (
             "complete"
             if all(
-                isinstance(phase, dict)
-                and isinstance(phase.get("evaluator_ms"), int)
-                and isinstance(phase.get("client_wall_ms"), int)
-                for phase in phases
+                isinstance(sample.get(field), dict)
+                and isinstance(sample[field].get("evaluator_ms"), int)
+                and isinstance(sample[field].get("client_wall_ms"), int)
+                for field in PHASE_HOOK_EVENTS
             )
             else "incomplete"
         )
@@ -236,6 +259,7 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
             "end": roster_end,
         },
         "summary": summary,
+        "phase_coverage": coverage,
         "samples": samples,
     }
 
@@ -246,6 +270,7 @@ __all__ = [
     "compare_reports",
     "load_report",
     "parse_provenance",
+    "phase_coverage",
     "run_benchmark",
     "summarize_samples",
 ]
