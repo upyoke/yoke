@@ -29,10 +29,14 @@ from yoke_cli.transport.dispatcher import (
     call_dispatcher,
     emit_response,
 )
+from yoke_cli.transport.https_relay_outcome import TRANSPORT_FAILED_CODE
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.path_snapshot import (
     PathSnapshotSyncPayload,
 )
+
+HOOK_WRITE_TIMEOUT_S = 8.0
+_RESPONSE_TIMEOUT_MARKER = "exceeded the time limit"
 
 PROJECT_SNAPSHOT_SYNC_USAGE = (
     "yoke project snapshot sync [REPO_ROOT] [--project P] "
@@ -86,14 +90,14 @@ def project_snapshot_sync(args: List[str]) -> int:
                 project=project,
                 payload=payload,
                 session_id=parsed.session_id,
-                timeout_s=8.0 if parsed.hook_mode else None,
+                timeout_s=HOOK_WRITE_TIMEOUT_S if parsed.hook_mode else None,
             )
         else:
             response = _dispatch_sync_payload(
                 project=project,
                 payload=payload,
                 session_id=parsed.session_id,
-                timeout_s=8.0 if parsed.hook_mode else None,
+                timeout_s=HOOK_WRITE_TIMEOUT_S if parsed.hook_mode else None,
             )
     except Exception as exc:
         if parsed.hook_mode:
@@ -123,16 +127,18 @@ def sync_local_snapshot_for_write(
     integration_target: Optional[str],
     session_id: Optional[str],
     head_only: bool = False,
+    timeout_s: Optional[float] = HOOK_WRITE_TIMEOUT_S,
+    retry_command: str = "",
     stderr: TextIO = sys.stderr,
 ) -> dict[str, Any]:
     project_id = _project_context(project)
-    repair_command = _repair_command(project_id, repo_root)
+    snapshot_repair = _repair_command(project_id, repo_root)
     if project_id is None:
         return _sync_status(
             False,
             "skipped",
             "project context unavailable",
-            repair_command,
+            snapshot_repair,
         )
     try:
         payload = build_sync_payload(
@@ -141,46 +147,54 @@ def sync_local_snapshot_for_write(
             integration_target=integration_target,
             head_only=head_only,
             hook_mode=True,
-            # The CLI's own `--hook --head-only` invocation (the git
-            # post-commit shim) defers file contents the same way; a
-            # caller asking for head-only wants that same identity-only
-            # speed, not a full blob scan of the whole tree.
+            # Identity-only callers match the git post-commit shim: skip
+            # a full blob scan of the tree.
             include_contents=not head_only,
         )
     except ProjectSnapshotScanError as exc:
-        return _sync_status(False, "skipped", str(exc), repair_command)
+        return _sync_status(False, "skipped", str(exc), snapshot_repair)
+    dispatch = (
+        dispatch_chunked_sync_payload
+        if needs_https_chunking(payload)
+        else _dispatch_sync_payload
+    )
     try:
-        if needs_https_chunking(payload):
-            response = dispatch_chunked_sync_payload(
-                project=project_id,
-                payload=payload,
-                session_id=session_id,
-                timeout_s=8.0,
-            )
-        else:
-            response = _dispatch_sync_payload(
-                project=project_id,
-                payload=payload,
-                session_id=session_id,
-                timeout_s=8.0,
-            )
+        response = dispatch(
+            project=project_id,
+            payload=payload,
+            session_id=session_id,
+            timeout_s=timeout_s,
+        )
     except Exception as exc:
         message = str(exc) or type(exc).__name__
-        _write_claim_sync_warning(message, stderr)
-        return _sync_status(True, "failed", message, repair_command)
+        repair = _write_repair(
+            message,
+            code="",
+            retry_command=retry_command,
+            snapshot_repair=snapshot_repair,
+        )
+        print(_failure_warning(message, repair), file=stderr)
+        return _sync_status(True, "failed", message, repair)
     if not response.success:
         deferred = _is_snapshot_deferral(response)
-        print(_sync_outcome_line(response), file=stderr)
-        message = (
-            response.error.message
-            if response.error is not None
-            else "snapshot sync failed"
+        error = response.error
+        message = error.message if error is not None else "snapshot sync failed"
+        repair = (
+            ""
+            if deferred
+            else _write_repair(
+                message,
+                code=getattr(error, "code", "") or "",
+                retry_command=retry_command,
+                snapshot_repair=snapshot_repair,
+            )
         )
+        print(_sync_outcome_line(response, repair=repair), file=stderr)
         return _sync_status(
             True,
             "deferred" if deferred else "failed",
             message,
-            "" if deferred else repair_command,
+            repair,
         )
     return _sync_status(True, "ok", "", "")
 
@@ -238,7 +252,29 @@ def _is_snapshot_deferral(response: Any) -> bool:
     return getattr(error, "code", "") == SNAPSHOT_DEFERRED_CODE
 
 
-def _sync_outcome_line(response: Any) -> str:
+def _write_repair(
+    message: str,
+    *,
+    code: str,
+    retry_command: str,
+    snapshot_repair: str,
+) -> str:
+    # Timeouts and other transport/auth/validation refusals are not missing
+    # snapshot content. Only real scan/snapshot defects prescribe a full sync.
+    if _RESPONSE_TIMEOUT_MARKER in message or code == TRANSPORT_FAILED_CODE:
+        return retry_command
+    if code and not str(code).startswith("snapshot_"):
+        return retry_command
+    return snapshot_repair
+
+
+def _failure_warning(message: str, repair: str) -> str:
+    if repair:
+        return f"warning: snapshot sync failed; repair with `{repair}`: {message}"
+    return f"warning: snapshot sync failed: {message}"
+
+
+def _sync_outcome_line(response: Any, *, repair: Optional[str] = None) -> str:
     """Stderr line for an unsuccessful sync response.
 
     A by-design deferral (a large snapshot kept off the commit / path-claim
@@ -249,19 +285,9 @@ def _sync_outcome_line(response: Any) -> str:
     message = (getattr(error, "message", "") or "") or "snapshot sync failed"
     if _is_snapshot_deferral(response):
         return f"note: {message}"
-    return (
-        "warning: snapshot sync failed; repair with "
-        f"`yoke project snapshot sync`: {message}"
-    )
-
-
-def _write_claim_sync_warning(message: str, stderr: TextIO) -> None:
-    print(
-        "warning: snapshot sync before path-claim write failed; repair with "
-        "`yoke project snapshot sync`: "
-        f"{message}",
-        file=stderr,
-    )
+    if repair is None:
+        repair = "yoke project snapshot sync"
+    return _failure_warning(message, repair)
 
 
 def _write_human(response: Any, stdout, stderr) -> None:
@@ -279,6 +305,7 @@ def _write_human(response: Any, stdout, stderr) -> None:
 
 
 __all__ = [
+    "HOOK_WRITE_TIMEOUT_S",
     "PROJECT_SNAPSHOT_SYNC_USAGE",
     "project_snapshot_sync",
     "sync_local_snapshot_for_write",

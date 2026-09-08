@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
+from yoke_cli.commands.adapters.project_snapshot import HOOK_WRITE_TIMEOUT_S
 from yoke_cli.project_snapshot import scanner
 from yoke_cli.project_snapshot.scan_progress import ScanProgress
 from yoke_cli.project_snapshot.scanner_blobs import blob_sources
@@ -69,6 +70,7 @@ def test_hook_cli_defers_without_reading_file_contents(tmp_path: Path) -> None:
     assert "deferred" in err
     assert [call["payload"]["operation"] for call in CALLS] == ["begin", "abort"]
     assert CALLS[0]["payload"]["snapshot"]["file_count"] == 0
+    assert CALLS[0]["timeout_s"] == HOOK_WRITE_TIMEOUT_S
 
 
 def test_full_scan_emits_progress_and_still_reads_files(
