@@ -20,10 +20,7 @@ from yoke_core.domain.session_launch_types import (
     LaunchAuthorization,
     SessionLaunchError,
 )
-from yoke_core.domain.session_launch_projection import (
-    public_launch_record,
-    public_launch_records,
-)
+from yoke_core.domain.session_launch_projection import public_launch_record
 from yoke_core.domain.session_launch_validation import preview_model_selection_payload
 from yoke_core.domain.session_launch_validation import validate_preview_model_selection
 
@@ -247,7 +244,7 @@ def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
     if isinstance(parsed, HandlerOutcome):
         return parsed
     from yoke_core.domain.session_launch_deadlines import settle_launch_deadlines
-    from yoke_core.domain.session_launch_store import list_launches
+    from yoke_core.domain.session_launch_history_page import read_launch_page
 
     conn = _open()
     try:
@@ -256,15 +253,17 @@ def handle_launch_list(request: FunctionCallRequest) -> HandlerOutcome:
         if not auth.can_operate_project:
             raise SessionLaunchError("permission_denied", "project operator required")
         settle_launch_deadlines(conn, project_id=project_id)
-        rows = public_launch_records(
-            list_launches(
+        return HandlerOutcome(
+            result_payload=read_launch_page(
                 conn,
                 project_id=project_id,
                 state=parsed.state,
+                surface=parsed.surface,
+                machine=parsed.machine,
                 limit=parsed.limit,
+                cursor=parsed.cursor,
             )
         )
-        return HandlerOutcome(result_payload={"launches": rows, "count": len(rows)})
     except Exception as exc:
         return _domain_error(exc)
     finally:

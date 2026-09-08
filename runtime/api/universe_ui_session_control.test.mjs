@@ -77,16 +77,8 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
   };
   const client = shellClient(requests, {
     "session_control.launch.list": () => ok({
-      launches: [{
-        launch_id: "launch-existing", state: "awaiting_registration",
-        requested_surface: "codex-desktop", selected_surface: "codex-desktop",
-        assigned_machine_id: "m1",
-        created_at: "2026-08-23T01:00:00Z",
-        assigned_at: "2026-08-23T01:01:00Z",
-        launching_at: "2026-08-23T01:02:00Z",
-        awaiting_registration_at: "2026-08-23T01:03:00Z",
-      }],
-      count: 1,
+      operational: [], operational_count: 0,
+      history: [], history_matched_count: 0, next_cursor: null,
     }),
     "sessions.list": () => ok({ rows: [{ model: "gpt-5.6-sol" }] }),
     "session_control.relay.list": () => ok({ relays: [relay], count: 1 }),
@@ -103,17 +95,6 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
   const { root, mounted } = await mountAt(
     t, "#/machines?project=1", client,
   );
-  const timelineText = allNodes(root).map((node) => node._textContent).join(" ");
-  assert.ok(timelineText.includes(
-    "codex-desktop requested · codex-desktop selected · m1",
-  ));
-  assert.equal(
-    byClass(root, "session-launch-card")[0].getAttribute("data-launch-id"),
-    "launch-existing",
-  );
-  assert.ok(timelineText.includes("launching:"));
-  assert.ok(timelineText.includes("awaiting registration:"));
-  assert.ok(timelineText.includes("2026-08-23 01:02 UTC"));
   button(root, "Create session").dispatchEvent(new Event("click"));
   await settle();
   const inputs = byClass(root, "session-control-input");

@@ -75,8 +75,44 @@ def public_launch_record(launch: LaunchRecord) -> dict[str, Any]:
     return result
 
 
-def public_launch_records(launches: Iterable[LaunchRecord]) -> list[dict[str, Any]]:
-    return [public_launch_record(launch) for launch in launches]
+#: What a list row shows before it is expanded. Everything a reader needs to
+#: recognise a launch and decide whether to open it; the rich record behind
+#: `public_launch_record` is fetched only when one is expanded.
+_COMPACT_FIELDS = (
+    "launch_id",
+    "project_id",
+    "state",
+    "result_code",
+    "requested_surface",
+    "selected_surface",
+    "requested_machine_id",
+    "assigned_machine_id",
+    "resolved_model",
+    "resolved_reasoning_effort",
+    "resolved_context_window_tokens",
+    "created_at",
+    "completed_at",
+    "registered_session_id",
+)
 
 
-__all__ = ["public_launch_record", "public_launch_records"]
+def compact_launch_record(
+    launch: LaunchRecord, project: str | None = None
+) -> dict[str, Any]:
+    """Project one launch as a list row, labelled with its project."""
+    row = {field: getattr(launch, field) for field in _COMPACT_FIELDS}
+    row["project"] = project
+    return row
+
+
+def compact_launch_records(
+    launches: Iterable[LaunchRecord], project: str | None = None
+) -> list[dict[str, Any]]:
+    return [compact_launch_record(launch, project) for launch in launches]
+
+
+__all__ = [
+    "compact_launch_record",
+    "compact_launch_records",
+    "public_launch_record",
+]
