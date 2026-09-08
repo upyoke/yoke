@@ -18,6 +18,8 @@ from yoke_core.domain import (
     backlog_github_comments,
     backlog_github_state_sync,
     backlog_github_sync,
+    backlog_post_write_sync,
+    backlog_rendering,
     github_rest,
 )
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
@@ -161,6 +163,7 @@ class TestCloseIssue:
         set_state.assert_called_once()
         assert set_state.call_args.kwargs["state"] == "closed"
         assert set_state.call_args.kwargs["number"] == 60
+        assert "comment" not in set_state.call_args.kwargs
         db.close()
 
     def test_already_closed_is_noop(self):
@@ -267,3 +270,49 @@ class TestReopenIssue:
         assert rc == 0
         assert "DRY-RUN" in stdout.getvalue()
         db.close()
+
+
+class TestPostWriteTerminalAnnouncement:
+    def test_terminal_status_closes_silently_then_posts_one_comment(self):
+        out = io.StringIO()
+        with patch.object(
+            backlog_rendering, "_close_issue", return_value=True,
+        ) as close_issue, patch.object(
+            backlog_rendering, "_sync_labels", return_value=True,
+        ), patch.object(
+            backlog_rendering, "_post_comment", return_value=True,
+        ) as post_comment:
+            rc = backlog_post_write_sync.run_post_db_sync(
+                item_id=40,
+                field="status",
+                value="done",
+                old_status="reviewing-implementation",
+                out=out,
+            )
+
+        assert rc == 0
+        close_issue.assert_called_once()
+        post_comment.assert_called_once_with(
+            40, "reviewing-implementation", "done", out,
+        )
+
+    def test_already_terminal_status_posts_no_comment(self):
+        out = io.StringIO()
+        with patch.object(
+            backlog_rendering, "_close_issue", return_value=True,
+        ) as close_issue, patch.object(
+            backlog_rendering, "_sync_labels", return_value=True,
+        ), patch.object(
+            backlog_rendering, "_post_comment", return_value=True,
+        ) as post_comment:
+            rc = backlog_post_write_sync.run_post_db_sync(
+                item_id=40,
+                field="status",
+                value="done",
+                old_status="done",
+                out=out,
+            )
+
+        assert rc == 0
+        close_issue.assert_called_once()
+        post_comment.assert_not_called()
