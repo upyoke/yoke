@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -33,7 +34,10 @@ def _payload() -> dict[str, object]:
 def _rejected() -> SimpleNamespace:
     return SimpleNamespace(
         success=False,
-        error=SimpleNamespace(code="payload_invalid"),
+        error=SimpleNamespace(
+            code="report_conflict",
+            message="expired launch attempt already has another outcome",
+        ),
     )
 
 
@@ -48,16 +52,18 @@ def _inventory() -> RelayInventory:
     )
 
 
-def test_rejected_report_is_quarantined_and_the_next_claim_proceeds(
+def test_expired_launch_late_report_is_quarantined_and_heartbeat_continues(
     tmp_path: Path,
     caplog,
 ) -> None:
     claims = 0
+    heartbeats = []
 
     def dispatch(**kwargs):
         nonlocal claims
         if kwargs["function_id"] == session_relay.RELAY_CLAIM_FUNCTION_ID:
             claims += 1
+            heartbeats.append(kwargs["payload"])
             return SimpleNamespace(
                 success=True,
                 result={"state": "active", "next_poll_seconds": 60, "jobs": []},
@@ -93,9 +99,12 @@ def test_rejected_report_is_quarantined_and_the_next_claim_proceeds(
     assert len(payloads) == 1
     assert "must not persist" not in payloads[0].read_text(encoding="utf-8")
     metadata = json.loads(next(quarantine.glob("*.meta.json")).read_text())
-    assert metadata["error_code"] == "payload_invalid"
+    assert metadata["error_code"] == "report_conflict"
     assert metadata["attempts"] == 3
-    assert "server_reason=payload_invalid" in caplog.text
+    assert metadata["payload_sha256"] == sha256(payloads[0].read_bytes()).hexdigest()
+    assert metadata["preserved_path"] == str(payloads[0])
+    assert heartbeats[0]["health"]["state"] == "quarantined"
+    assert "server_reason=report_conflict" in caplog.text
     assert "report " + metadata["report_id"] + " quarantined" in caplog.text
     assert observe_relay_health(tmp_path)["state"] == "quarantined"
 
