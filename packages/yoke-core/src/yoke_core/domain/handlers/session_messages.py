@@ -99,24 +99,21 @@ def handle_message_send(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 def handle_message_list(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.session_message_queries import list_messages
+    from yoke_core.domain.session_message_page import read_message_page
 
     return _handle(
         request,
         MessageListRequest,
-        lambda conn, body, actor_id: {
-            "messages": (
-                messages := list_messages(
-                    conn,
-                    actor_id=actor_id,
-                    caller_session_id=request.actor.session_id or None,
-                    state=body.state,
-                    session_id=body.session_id,
-                    limit=body.limit,
-                )
-            ),
-            "count": len(messages),
-        },
+        lambda conn, body, actor_id: read_message_page(
+            conn,
+            actor_id=actor_id,
+            caller_session_id=request.actor.session_id or None,
+            state=body.state,
+            session_id=body.session_id,
+            projects=body.projects,
+            limit=body.limit,
+            cursor=body.cursor,
+        ),
     )
 
 

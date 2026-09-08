@@ -149,6 +149,9 @@ def test_list_and_get_handlers_use_stable_envelopes(monkeypatch) -> None:
         _request("session_control.message.list", {})
     )
     assert listed.result_payload["count"] == 1
+    assert listed.result_payload["actionable_count"] == 0
+    assert listed.result_payload["settled_matched_count"] == 1
+    assert listed.result_payload["next_cursor"] is None
     assert listed.result_payload["messages"][0]["message_id"] == message_id
 
     conn = message_connection()

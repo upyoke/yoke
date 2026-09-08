@@ -56,7 +56,10 @@ function shellClient(requests, handlers) {
 test("message history directs new composition to the roster", async (t) => {
   const requests = [];
   const client = shellClient(requests, {
-    "session_control.message.list": () => ok({ messages: [], count: 0 }),
+    "session_control.message.list": () => ok({
+      messages: [], count: 0, actionable_count: 0,
+      settled_matched_count: 0, next_cursor: null,
+    }),
   });
   const { root, mounted } = await mountAt(
     t, "#/messages?project=1", client,
@@ -133,6 +136,19 @@ test("launch create uses relay-discovered surfaces and an exact preview", async 
 
 test("message receipts expose recipient delivery and wake state", async (t) => {
   const requests = [];
+  const recipients = [{
+    session_id: "session-1", project_id: 1, state: "pending",
+    created_at: "2026-08-23T01:00:00Z", wake_attempt_count: 2,
+    last_wake_at: "2026-08-23T01:05:00Z", executor_surface: "codex-cli",
+  }, {
+    session_id: "session-2", project_id: 1, state: "acknowledged",
+    wake_attempt_count: 0, acknowledged_at: "2026-08-23T01:06:00Z",
+    executor_surface: "codex-cli",
+  }, {
+    session_id: "session-3", project_id: 1, state: "acknowledged",
+    wake_attempt_count: 1, acknowledged_at: "2026-08-23T01:07:00Z",
+    executor_surface: "codex-cli",
+  }];
   const client = shellClient(requests, {
     "session_control.message.list": () => ok({
       messages: [{
@@ -141,27 +157,21 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
         sender_session_id: "session-sender",
         sender_surface: "harness_session", sender_surface_label: "harness session",
         created_at: "2026-08-23T01:00:00Z",
-        recipients: [{
-          session_id: "session-1", project_id: 1, state: "pending",
-          created_at: "2026-08-23T01:00:00Z", wake_attempt_count: 2,
-          last_wake_at: "2026-08-23T01:05:00Z",
-        }, {
-          session_id: "session-2", project_id: 1, state: "acknowledged",
-          wake_attempt_count: 0, acknowledged_at: "2026-08-23T01:06:00Z",
-        }, {
-          session_id: "session-3", project_id: 1, state: "acknowledged",
-          wake_attempt_count: 1, acknowledged_at: "2026-08-23T01:07:00Z",
-        }],
+        needs_attention: true,
+        recipients: structuredClone(recipients),
       }],
       count: 1,
+      actionable_count: 1,
+      settled_matched_count: 0,
+      next_cursor: null,
     }),
-    "sessions.list": () => ok({
-      rows: ["sender", "1", "2", "3"].map((suffix) => ({
-        session_id: `session-${suffix}`,
-        executor_surface: "codex-cli",
-        current_item: `YOK-25${suffix}`,
-        claims: [{ target_kind: "item", target: `YOK-25${suffix}` }],
-      })),
+    "session_control.message.get": () => ok({
+      message: {
+        message_id: "message-1", body: "Please report delivery status.",
+        sender_actor_id: 2, sender_actor_label: "ben", sender_actor_kind: "human",
+        sender_session_id: "session-sender", created_at: "2026-08-23T01:00:00Z",
+        recipients: structuredClone(recipients),
+      },
     }),
     "session_control.message.cancel": () => ok({ message: {} }),
   });
@@ -171,6 +181,8 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
   assert.equal(byClass(root, "session-message-card")[0].getAttribute(
     "data-message-state",
   ), "pending");
+  button(root, "Details").dispatchEvent(new Event("click"));
+  await settle();
   assert.deepEqual(
     byClass(root, "session-message-delivery-marker").map((node) => node.textContent),
     ["Wake ×2", "Direct", "Wake ×1"],
@@ -179,9 +191,9 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
     byClass(root, "session-message-party").map((node) => node.textContent),
     [
       "ben via session session-sender",
-      "codex-cli · YOK-251",
-      "codex-cli · YOK-252",
-      "codex-cli · YOK-253",
+      "codex-cli",
+      "codex-cli",
+      "codex-cli",
     ],
   );
   const acknowledged = byClass(root, "session-message-recipient-status")[1];

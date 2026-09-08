@@ -82,6 +82,7 @@ test("message history leads with readable content and accessible receipts", asyn
         sender_surface: "harness_session",
         sender_surface_label: "harness session",
         created_at: "2026-08-23T01:02:03Z",
+        needs_attention: false,
         recipients: [{
           session_id: "recipient-1", project_id: 1, state: "acknowledged",
           acknowledged_at: "2026-08-23T01:04:03Z", wake_attempt_count: 0,
@@ -96,43 +97,49 @@ test("message history leads with readable content and accessible receipts", asyn
         sender_surface: "harness_session",
         sender_surface_label: "harness session",
         created_at: "2026-08-23T00:02:03Z",
+        needs_attention: true,
         recipients: [{
           session_id: "recipient-2", project_id: 1, state: "pending",
           created_at: "2026-08-23T00:02:03Z",
         }],
       }],
       count: 2,
+      actionable_count: 1,
+      settled_matched_count: 1,
+      next_cursor: null,
     }),
-    "sessions.list": () => ok({ rows: [{
-      session_id: "sender-1", executor_surface: "codex-cli",
-      current_item: "YOK-2500", current_item_title: "Verify delivery",
-      claims: [{ target_kind: "item", target: "YOK-2500" }],
-    }, {
-      session_id: "recipient-1", executor_surface: "claude-cli",
-      current_item: "YOK-2501",
-      claims: [{ target_kind: "item", target: "YOK-2501" }],
-    }, {
-      session_id: "sender-2", executor_surface: "cursor",
-      current_item: "YOK-2502",
-      claims: [{ target_kind: "item", target: "YOK-2502" }],
-    }, {
-      session_id: "recipient-2", executor_surface: "codex-desktop",
-      current_item: "YOK-2503",
-      claims: [{ target_kind: "item", target: "YOK-2503" }],
-    }] }),
+    "session_control.message.get": (request) => ok({
+      message: request.payload.message_id === "message-opaque-id"
+        ? {
+          message_id: "message-opaque-id", body: fullBody,
+          sender_actor_id: 2, sender_actor_label: "ben",
+          sender_actor_kind: "human", sender_session_id: "sender-1",
+          created_at: "2026-08-23T01:02:03Z",
+          recipients: [{
+            session_id: "recipient-1", project_id: 1, state: "acknowledged",
+            acknowledged_at: "2026-08-23T01:04:03Z", wake_attempt_count: 0,
+            executor_surface: "claude-cli",
+          }],
+        }
+        : {},
+    }),
   });
 
+  const settledCard = byClass(root, "session-message-card").find(
+    (card) => card.getAttribute("data-message-id") === "message-opaque-id",
+  );
+  const attentionCard = byClass(root, "session-message-card").find(
+    (card) => card.getAttribute("data-message-id") === "message-needs-attention",
+  );
   assert.equal(
-    byClass(root, "session-message-copy")[0].textContent,
+    byClass(settledCard, "session-message-copy")[0].textContent,
     fullBody,
   );
   assert.equal(
-    byClass(root, "session-message-card")[0].getAttribute("data-message-id"),
+    settledCard.getAttribute("data-message-id"),
     "message-opaque-id",
   );
-  assert.equal(byClass(root, "session-message-card")[1].className.includes(
-    "is-attention",
-  ), true);
+  assert.equal(attentionCard.className.includes("is-attention"), true);
   assert.equal(button(root, "Cancel") !== undefined, true);
   assert.equal(allNodes(root).filter(
     (node) => node.tagName === "BUTTON" && node.textContent === "Cancel",
@@ -145,6 +152,10 @@ test("message history leads with readable content and accessible receipts", asyn
   assert.ok(byClass(root, "session-message-direction").some(
     (node) => node.textContent === "To 1 recipient",
   ));
+  allNodes(settledCard).find(
+    (node) => node.tagName === "BUTTON" && node.textContent === "Details",
+  ).dispatchEvent(new Event("click"));
+  await settle();
   const acknowledged = byClass(root, "session-message-recipient-status").find(
     (node) => node.textContent.includes("Acknowledged"),
   );

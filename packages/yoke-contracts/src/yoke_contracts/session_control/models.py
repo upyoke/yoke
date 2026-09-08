@@ -100,7 +100,9 @@ class MessageSendResponse(BaseModel):
 class MessageListRequest(BaseModel):
     state: Optional[MessageListState] = None
     session_id: Optional[str] = None
+    projects: Optional[List[int]] = None
     limit: int = Field(default=50, ge=1, le=500)
+    cursor: Optional[str] = None
 
 
 class MessageGetRequest(BaseModel):
