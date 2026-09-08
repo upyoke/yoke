@@ -58,10 +58,13 @@ def test_exact_broker_lease_spawns_claude_and_reports_running(
     tmp_path,
 ) -> None:
     conn, message_id = _seed()
+    # The resume runs in the session's own workspace, so the fixture session
+    # has to live somewhere this machine actually has.
     conn.execute(
         "UPDATE harness_sessions SET executor='claude-code',"
-        "executor_surface='claude-cli',executor_version=? WHERE session_id='s4'",
-        (CLAUDE_VERSION,),
+        "executor_surface='claude-cli',executor_version=?,workspace=? "
+        "WHERE session_id='s4'",
+        (CLAUDE_VERSION, str(tmp_path)),
     )
     conn.execute(
         "UPDATE session_message_recipients SET executor_surface='claude-cli',"

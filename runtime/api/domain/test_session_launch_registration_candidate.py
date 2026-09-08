@@ -35,7 +35,6 @@ WORKSPACE = "/project"
 
 def _connection():
     conn = relay_connection()
-    conn.execute("ALTER TABLE harness_sessions ADD COLUMN workspace TEXT")
     conn.execute("ALTER TABLE harness_sessions ADD COLUMN episode_started_at TEXT")
     conn.commit()
     return conn

@@ -83,6 +83,10 @@ _TEXT_FIELDS = frozenset(
         # cannot separate "this surface has no such route" from "the peer
         # binary is missing", which is the first question an operator asks.
         "skip_reason",
+        # The directory a wake was going to resume the target session in.
+        # A refusal here is about one specific path being absent, and the
+        # operator's next move is to look at it.
+        "session_workspace",
         "wake_operation",
         "turn_posture",
         "liveness",
@@ -155,6 +159,7 @@ def redacted_evidence_document(
                 in {
                     "native_capture_path",
                     "identity_output_snippet",
+                    "session_workspace",
                     NATIVE_LAUNCH_WORKSPACE_FIELD,
                 }
                 else _MAX_TEXT_LENGTH
