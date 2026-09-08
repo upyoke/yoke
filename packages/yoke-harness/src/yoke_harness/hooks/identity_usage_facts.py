@@ -6,6 +6,10 @@ it. Unlike a served model, though, consumption never settles — it grows
 for as long as the session runs, so every hook event carries the current
 reading rather than stopping once one has landed.
 
+A turn whose tokens are stated only after its last hook — a print-mode
+Cursor result — cannot ride this path at all, and travels instead on the
+report its machine makes when the native exits.
+
 That is affordable because a reading is incremental. The per-session
 watermark means each event folds only the bytes the artifact gained since
 the last one, and the value sent is the absolute total rather than a

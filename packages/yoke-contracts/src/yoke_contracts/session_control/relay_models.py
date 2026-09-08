@@ -71,11 +71,18 @@ class RelayClaimResponse(BaseModel):
 
 
 class RelayLivenessReport(BaseModel):
-    """One session whose native process the reporting machine proved gone."""
+    """One session whose native process the reporting machine proved gone.
+
+    ``usage_totals`` is the reading that native's own result stated, which
+    only the reporting machine can see and which arrives after the turn's
+    last hook. It rides this report because the exit that proves the
+    process gone is the same event that makes the reading readable.
+    """
 
     model_config = ConfigDict(extra="forbid")
     session_id: str
     evidence: Dict[str, Any] = Field(default_factory=dict)
+    usage_totals: Optional[str] = None
 
 
 class RelayLaunchDeathReport(BaseModel):

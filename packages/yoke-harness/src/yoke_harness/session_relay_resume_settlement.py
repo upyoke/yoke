@@ -30,6 +30,7 @@ from yoke_harness.session_launch_containment import (
     release_supervised_native,
     supervised_records,
 )
+from yoke_harness.cursor_native_result_usage import fold_native_result_usage
 from yoke_harness.session_relay_native_capture_format import NativeCapture
 from yoke_harness.session_relay_native_diagnostics import (
     classify_native_failure,
@@ -101,6 +102,13 @@ def _finished(record: SupervisedResume) -> FinishedNativeResume | None:
     settled = capture is not None and capture.exited
     if not settled and record.running:
         return None
+    if settled:
+        # The turn's own token counts leave the native only in the result it
+        # printed as it exited, after its last hook had already run. This is
+        # the first moment anything can read them; folding is keyed by the
+        # result's request id, so a retried report re-reads without
+        # re-counting.
+        fold_native_result_usage(capture)
     # The process is gone without a settled capture: its supervisor was killed
     # alongside it, or never got far enough to record how the native ended.
     return FinishedNativeResume(

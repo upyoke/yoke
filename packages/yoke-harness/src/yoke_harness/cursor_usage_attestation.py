@@ -9,9 +9,12 @@ disjoint buckets subtract them and clamp the remainder at zero.
 
 The installed CLI's print-mode JSON result is a second native shape:
 ``usage.inputTokens`` (exclusive of cache), ``cacheReadTokens``,
-``cacheWriteTokens``, ``outputTokens``, keyed by ``request_id``. A
-2026.09.02-c22c1a3 print-mode sample did not invoke ``stop``. Conversation
-store blobs still carry no usage.
+``cacheWriteTokens``, ``outputTokens``, keyed by ``request_id``. That result
+reaches this reader from the finished native's own capture rather than from a
+hook — a print-mode turn prints it as it exits, after its last hook has run,
+and a 2026.09.02-c22c1a3 sample did not invoke ``stop`` at all
+(``yoke_harness.cursor_native_result_usage``). Conversation store blobs still
+carry no usage.
 
 A payload that names no token fields is not a proof of zero: return the
 watermarked total when one exists, otherwise ``unavailable`` for *this*
@@ -88,7 +91,9 @@ def attest_cursor_usage(payload: Mapping[str, Any]) -> SessionUsage:
         save_watermark(session_id, artifact, mark)
     elif buckets is not None:
         return unavailable(CURSOR_NO_TURN_IDENTITY_REASON, source=source)
-    elif _token_keys_present(payload) and payload.get("is_subagent_session") is not True:
+    elif (
+        _token_keys_present(payload) and payload.get("is_subagent_session") is not True
+    ):
         if totals:
             return _reading(totals, source=source, partial=None)
         return unavailable(CURSOR_INCOMPLETE_TOKEN_FIELDS_REASON, source=source)

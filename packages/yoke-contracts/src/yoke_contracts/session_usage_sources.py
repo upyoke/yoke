@@ -37,13 +37,13 @@ CURSOR_NO_TURN_IDENTITY_REASON = (
 CURSOR_UNNAMED_MODEL = "unknown"
 
 #: Cursor's first-class usage surface: parent-turn hook fields, and the
-#: print-mode result ``usage`` object when that JSON is presented as a
-#: payload. Conversation-store blobs still carry no usage; a payload that
-#: omits the optional fields is ``unavailable`` for that surface, not a
-#: global "Cursor unsupported" deferral.
+#: print-mode result ``usage`` object read from a finished native's own
+#: capture, because that result is printed after the turn's last hook.
+#: Conversation-store blobs still carry no usage; a payload that omits the
+#: optional fields is ``unavailable`` for that surface, not a global
+#: "Cursor unsupported" deferral.
 CURSOR_USAGE_SOURCE = (
-    "cursor parent-turn stop/afterAgentResponse token fields; "
-    "print-mode result usage"
+    "cursor parent-turn stop/afterAgentResponse token fields; print-mode result usage"
 )
 
 #: The first-class usage surface per harness family, or ``""`` for a
