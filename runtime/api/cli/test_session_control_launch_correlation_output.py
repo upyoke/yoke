@@ -93,13 +93,7 @@ def test_launch_list_distinguishes_mismatch_and_awaiting_registration() -> None:
 
     write_launch_result(
         {
-            "launches": [
-                _launch(
-                    native_session_id="native-a",
-                    registered_session_id="registered-b",
-                    identity_correlation="mismatch",
-                    origin="operator",
-                ),
+            "operational": [
                 _launch(
                     launch_id="launch-2",
                     state="awaiting_registration",
@@ -109,20 +103,33 @@ def test_launch_list_distinguishes_mismatch_and_awaiting_registration() -> None:
                     instruction_delivery="pending",
                     origin="steering",
                 ),
-            ]
+            ],
+            "operational_count": 1,
+            "history": [
+                _launch(
+                    native_session_id="native-a",
+                    registered_session_id="registered-b",
+                    identity_correlation="mismatch",
+                    origin="operator",
+                ),
+            ],
+            "history_matched_count": 1,
+            "next_cursor": None,
         },
         output,
     )
 
     rendered = output.getvalue()
-    assert "NATIVE" in rendered
+    assert "OPERATIONAL LAUNCHES" in rendered
+    assert "COMPLETED HISTORY (1 of 1 matching)" in rendered
     assert "REGISTERED" in rendered
-    assert "ORIGIN" in rendered
-    assert "operator" in rendered
-    assert "steering" in rendered
-    assert "CORRELATION" in rendered
-    assert "mismatch" in rendered
+    assert "STATE / RESULT" in rendered
     assert "awaiting registration" in rendered
+    assert "launch-2" in rendered
+    # Correlation, delivery, and native identity are detail-only now; the list
+    # row carries what a reader needs to pick a launch, not its whole record.
+    assert "CORRELATION" not in rendered
+    assert "native-c" not in rendered
 
 
 def test_failed_correlation_says_instruction_was_not_delivered_and_teaches_recovery() -> (

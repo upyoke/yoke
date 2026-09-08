@@ -78,18 +78,26 @@ test("uncertain launches require reconciliation before retry", async (t) => {
       if (request.function === "projects.list") {
         return ok({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
       }
+      const uncertain = {
+        launch_id: "launch-uncertain",
+        state: reconciled ? "failed" : "outcome_unknown",
+        result_code: reconciled ? "late_native_reconciled" : "outcome_unknown",
+        instruction_delivery: reconciled ? "delivered" : "not_delivered",
+        requested_surface: "codex-desktop",
+        selected_surface: "codex-desktop",
+        assigned_machine_id: "machine-1",
+      };
       if (request.function === "session_control.launch.list") {
         return ok({
-          launches: [{
-            launch_id: "launch-uncertain",
-            state: reconciled ? "failed" : "outcome_unknown",
-            result_code: reconciled ? "late_native_reconciled" : "outcome_unknown",
-            requested_surface: "codex-desktop",
-            selected_surface: "codex-desktop",
-            assigned_machine_id: "machine-1",
-          }],
-          count: 1,
+          operational: [uncertain],
+          operational_count: 1,
+          history: [],
+          history_matched_count: 0,
+          next_cursor: null,
         });
+      }
+      if (request.function === "session_control.launch.get") {
+        return ok({ launch: uncertain });
       }
       if (request.function === "session_control.launch.reconcile") {
         reconciled = true;
@@ -101,6 +109,8 @@ test("uncertain launches require reconciliation before retry", async (t) => {
   const { root, mounted } = await mountAt(
     t, "#/machines?project=1", client,
   );
+  button(root, "Details").dispatchEvent(new Event("click"));
+  await settle();
 
   assert.equal(button(root, "Retry").disabled, true);
   const text = allNodes(root).map((node) => node._textContent).join(" ");

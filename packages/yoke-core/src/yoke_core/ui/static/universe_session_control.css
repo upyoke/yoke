@@ -285,7 +285,7 @@
   gap: 12px;
 }
 
-.universe-app-root .session-launch-card .panel-header,
+.universe-app-root .session-launch-row .panel-header,
 .universe-app-root .session-relay-card .panel-header {
   display: flex;
   justify-content: space-between;

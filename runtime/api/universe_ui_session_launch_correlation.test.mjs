@@ -42,6 +42,7 @@ test("launch cards show identity correlation and exact registered-session links"
   const launches = [
     {
       launch_id: "launch-matched", project_id: 1, state: "completed",
+      created_at: "2026-08-23T05:00:00Z",
       native_session_id: "session-matched", registered_session_id: "session-matched",
       identity_correlation: "matched", instruction_delivery: "delivered",
       result_code: "native_created",
@@ -69,34 +70,48 @@ test("launch cards show identity correlation and exact registered-session links"
     },
     {
       launch_id: "launch-mismatch", project_id: 1, state: "completed",
+      created_at: "2026-08-23T04:00:00Z",
       native_session_id: "native-a", registered_session_id: "registered-b",
       identity_correlation: "mismatch", instruction_delivery: "pending",
     },
     {
       launch_id: "launch-awaiting", project_id: 1, state: "awaiting_registration",
+      created_at: "2026-08-23T03:00:00Z",
       native_session_id: "native-awaiting", registered_session_id: null,
       identity_correlation: "awaiting_registration", instruction_delivery: "pending",
     },
     {
       launch_id: "launch-native-unreported", project_id: 1, state: "completed",
+      created_at: "2026-08-23T02:00:00Z",
       native_session_id: null, registered_session_id: "registered-only",
       identity_correlation: "native_unreported", instruction_delivery: "pending",
       result_evidence: "raw secret evidence must not render",
     },
     {
       launch_id: "launch-correlation-failed", project_id: 1,
+      created_at: "2026-08-23T01:00:00Z",
       state: "outcome_unknown", result_code: "identity_parse_failed",
       native_session_id: null, registered_session_id: null,
       identity_correlation: "correlation_failed",
       instruction_delivery: "not_delivered",
     },
   ];
+  const byLaunchId = new Map(launches.map((launch) => [launch.launch_id, launch]));
   const client = {
     async call(request) {
       const shell = shellResult(request);
       if (shell) return shell;
       if (request.function === "session_control.launch.list") {
-        return ok({ launches, count: launches.length });
+        return ok({
+          operational: launches,
+          operational_count: launches.length,
+          history: [],
+          history_matched_count: 0,
+          next_cursor: null,
+        });
+      }
+      if (request.function === "session_control.launch.get") {
+        return ok({ launch: byLaunchId.get(request.payload.launch_id) });
       }
       throw new Error(`unexpected function ${request.function}`);
     },
@@ -104,6 +119,14 @@ test("launch cards show identity correlation and exact registered-session links"
   const { root, mounted } = await mountAt(
     t, "#/machines?project=1", client,
   );
+  // Identity, delivery, and evidence live in the expanded record, which the
+  // list fetches one row at a time.
+  for (const row of byClass(root, "session-launch-row")) {
+    allNodes(row).find(
+      (node) => node.tagName === "BUTTON" && node.textContent === "Details",
+    ).dispatchEvent(new Event("click"));
+    await settle();
+  }
 
   assert.deepEqual(
     byClass(root, "session-launch-correlation").map((node) => node.textContent),
@@ -147,8 +170,9 @@ test("launch cards show identity correlation and exact registered-session links"
     byClass(root, "session-launch-model-request")[0].textContent,
     /gpt-5\.6-sol \(requested\).*XHIGH \(requested\).*1m \(requested\)/,
   );
+  // The effective selection rides the compact row, not the expanded record.
   assert.match(
-    byClass(root, "session-launch-model-selection")[0].textContent,
+    byClass(root, "session-launch-summary")[0].textContent,
     /gpt-5\.6-sol.*XHIGH.*1m/,
   );
   assert.doesNotMatch(

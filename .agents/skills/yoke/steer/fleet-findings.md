@@ -71,7 +71,11 @@ What the report gives you is a finding; what to do with each one is yours:
   first process. Wait through `deadline_at`; reconcile refuses and retry
   reattaches without duplication. Otherwise use the commands below:
   `session_control.launch.list` reads `session_launches`;
-  `session_control_launches` does not exist:
+  `session_control_launches` does not exist. It answers in two sets:
+  `operational` carries every unfinished or actionable launch however old,
+  so a stranded one is always in that first block rather than paged away,
+  while `history` is the newest window of finished launches and
+  `history_matched_count` names how many matched:
 
   ```text
   yoke session-control launch list --project {_project}

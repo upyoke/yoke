@@ -140,19 +140,31 @@ def test_get_and_list_return_the_safe_projection_after_operator_auth(
 
     assert fetched.primary_success
     assert listed.primary_success
-    for row in [fetched.result_payload["launch"], *listed.result_payload["launches"]]:
-        assert row["result_evidence"] == {
-            "adapter_revision": "adapter-v2",
-            "duration_ms": 17,
-            "machine_id": "machine-1",
-            "native_diagnostic_command": (
-                "yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
-            ),
-            "native_diagnostic_ref": "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-            "relay_id": "machine:machine-1",
-        }
+    assert fetched.result_payload["launch"]["result_evidence"] == {
+        "adapter_revision": "adapter-v2",
+        "duration_ms": 17,
+        "machine_id": "machine-1",
+        "native_diagnostic_command": (
+            "yoke relay diagnostic nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        ),
+        "native_diagnostic_ref": "nd-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "relay_id": "machine:machine-1",
+    }
+    listed_rows = [
+        *listed.result_payload["operational"],
+        *listed.result_payload["history"],
+    ]
+    assert listed_rows
+    for row in [fetched.result_payload["launch"], *listed_rows]:
         assert "message_id" not in row
         assert "attestation_hash" not in row
+    # A list row is compact: evidence and native identity are detail-only, so
+    # a page of a hundred launches carries none of it.
+    for row in listed_rows:
+        assert "result_evidence" not in row
+        assert "native_session_id" not in row
+        assert row["project"] == "launch-project"
+    assert "secret" not in json.dumps(listed.result_payload)
 
 
 def test_projection_names_failed_correlation_and_undelivered_instruction() -> None:

@@ -147,36 +147,55 @@ def _write_launch_detail(
     write_summary("LAUNCH", fields, stdout)
 
 
+_LIST_COLUMNS: tuple[Column, ...] = (
+    ("LAUNCH", lambda row: row.get("launch_id"), None),
+    ("STATE / RESULT", _launch_status, 28),
+    ("PROJECT", lambda row: row.get("project") or row.get("project_id"), 14),
+    ("REQUESTED", lambda row: row.get("requested_surface"), 18),
+    ("SELECTED", lambda row: row.get("selected_surface"), 18),
+    (
+        "MACHINE",
+        lambda row: row.get("assigned_machine_id") or row.get("requested_machine_id"),
+        None,
+    ),
+    ("MODEL", lambda row: row.get("resolved_model"), 18),
+    ("REGISTERED", lambda row: row.get("registered_session_id"), None),
+    ("CREATED (UTC)", lambda row: utc_time(row.get("created_at")), 22),
+    ("COMPLETED (UTC)", lambda row: utc_time(row.get("completed_at")), 22),
+)
+
+
+def _write_launch_page(result: Mapping[str, Any], stdout: TextIO) -> None:
+    """Two tables, because the two sets answer different questions.
+
+    Operational launches are shown in full however old they are; completed
+    history is the newest window of a larger set, so its heading names the
+    matching total rather than letting the row count imply one.
+    """
+    history = list(result.get("history") or [])
+    matched = result.get("history_matched_count")
+    write_table(
+        "OPERATIONAL LAUNCHES",
+        _LIST_COLUMNS,
+        result.get("operational") or [],
+        stdout,
+        empty="No unfinished or actionable launches.",
+    )
+    write_table(
+        f"COMPLETED HISTORY ({len(history)} of {matched} matching)",
+        _LIST_COLUMNS,
+        history,
+        stdout,
+        empty="No completed launches found.",
+    )
+    next_cursor = result.get("next_cursor")
+    if next_cursor:
+        print(f"More history: --cursor {next_cursor}", file=stdout)
+
+
 def write_launch_result(result: Mapping[str, Any], stdout: TextIO) -> None:
-    if "launches" in result:
-        columns: tuple[Column, ...] = (
-            ("LAUNCH", lambda row: row.get("launch_id"), None),
-            ("STATE / RESULT", _launch_status, 28),
-            ("PROJECT", lambda row: row.get("project") or row.get("project_id"), 14),
-            ("ORIGIN", lambda row: row.get("origin"), 10),
-            ("REQUESTED", lambda row: row.get("requested_surface"), 18),
-            ("SELECTED", lambda row: row.get("selected_surface"), 18),
-            ("NATIVE", lambda row: row.get("native_session_id"), None),
-            ("REGISTERED", lambda row: row.get("registered_session_id"), None),
-            ("CORRELATION", _launch_identity, 24),
-            ("DELIVERY", _instruction_delivery, 16),
-            (
-                "MACHINE",
-                lambda row: (
-                    row.get("assigned_machine_id") or row.get("requested_machine_id")
-                ),
-                None,
-            ),
-            ("CREATED (UTC)", lambda row: utc_time(row.get("created_at")), 22),
-            ("DEADLINE (UTC)", lambda row: utc_time(row.get("deadline_at")), 22),
-        )
-        write_table(
-            "LAUNCHES",
-            columns,
-            result.get("launches") or [],
-            stdout,
-            empty="No launches found.",
-        )
+    if "operational" in result:
+        _write_launch_page(result, stdout)
         return
     launch = result.get("launch")
     if isinstance(launch, Mapping):
