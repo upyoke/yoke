@@ -29,7 +29,6 @@ from yoke_cli.transport.dispatcher import (
     call_dispatcher,
     emit_response,
 )
-from yoke_cli.transport.https_relay_outcome import TRANSPORT_FAILED_CODE
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.path_snapshot import (
     PathSnapshotSyncPayload,
@@ -101,10 +100,17 @@ def project_snapshot_sync(args: List[str]) -> int:
             )
     except Exception as exc:
         if parsed.hook_mode:
+            message = str(exc) or type(exc).__name__
             print(
-                "warning: snapshot sync failed; repair with "
-                "`yoke project snapshot sync`: "
-                f"{exc}",
+                _failure_warning(
+                    message,
+                    _write_repair(
+                        message,
+                        code="",
+                        retry_command="",
+                        snapshot_repair="yoke project snapshot sync",
+                    ),
+                ),
                 file=sys.stderr,
             )
             return 0
@@ -259,13 +265,13 @@ def _write_repair(
     retry_command: str,
     snapshot_repair: str,
 ) -> str:
-    # Timeouts and other transport/auth/validation refusals are not missing
-    # snapshot content. Only real scan/snapshot defects prescribe a full sync.
-    if _RESPONSE_TIMEOUT_MARKER in message or code == TRANSPORT_FAILED_CODE:
+    # Only a response-deadline timeout recommends retry. Auth/validation
+    # refusals keep an empty repair so the named original error stands.
+    if _RESPONSE_TIMEOUT_MARKER in message:
         return retry_command
-    if code and not str(code).startswith("snapshot_"):
-        return retry_command
-    return snapshot_repair
+    if str(code).startswith("snapshot_") or not code:
+        return snapshot_repair
+    return ""
 
 
 def _failure_warning(message: str, repair: str) -> str:
@@ -286,7 +292,12 @@ def _sync_outcome_line(response: Any, *, repair: Optional[str] = None) -> str:
     if _is_snapshot_deferral(response):
         return f"note: {message}"
     if repair is None:
-        repair = "yoke project snapshot sync"
+        repair = _write_repair(
+            message,
+            code=getattr(error, "code", "") or "",
+            retry_command="",
+            snapshot_repair="yoke project snapshot sync",
+        )
     return _failure_warning(message, repair)
 
 

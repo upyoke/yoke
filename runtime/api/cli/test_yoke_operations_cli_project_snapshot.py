@@ -106,6 +106,33 @@ def test_hook_mode_reports_failure_but_exits_zero(tmp_path: Path) -> None:
     assert "yoke project snapshot sync" in err
 
 
+def test_hook_mode_timeout_does_not_prescribe_full_sync(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    response = FunctionCallResponse(
+        success=False,
+        function="project.snapshot.sync",
+        version="v1",
+        error=FunctionError(
+            code="https_transport_failed",
+            message="HTTPS function relay response exceeded the time limit",
+        ),
+    )
+    rc, _out, err = _run(
+        "project",
+        "snapshot",
+        "sync",
+        str(repo),
+        "--project",
+        "demo",
+        "--head-only",
+        "--hook",
+        response=response,
+    )
+    assert rc == 0
+    assert "exceeded the time limit" in err
+    assert "yoke project snapshot sync" not in err
+
+
 def test_hook_mode_deferral_reads_as_calm_note(tmp_path: Path) -> None:
     # A by-design deferral (large snapshot kept off the hot path) must NOT read
     # as a scary "FAILED ... repair" warning — it's a calm note.
@@ -267,6 +294,7 @@ def test_write_sync_permanent_refusal_does_not_prescribe_full_sync(
     result, _captured, err, _repo = _write_sync(
         tmp_path,
         monkeypatch,
+        retry_command="yoke claims path boundary-prove --item YOK-1",
         response=FunctionCallResponse(
             success=False,
             function="project.snapshot.sync",
@@ -278,7 +306,27 @@ def test_write_sync_permanent_refusal_does_not_prescribe_full_sync(
     assert result["message"] == "actor cannot write"
     assert result["repair_command"] == ""
     assert "yoke project snapshot sync" not in err
+    assert "boundary-prove" not in err
     assert "actor cannot write" in err
+
+    (tmp_path / "validation").mkdir()
+    invalid, _captured, err, _repo = _write_sync(
+        tmp_path / "validation",
+        monkeypatch,
+        retry_command="yoke claims path boundary-prove --item YOK-1",
+        response=FunctionCallResponse(
+            success=False,
+            function="project.snapshot.sync",
+            version="v1",
+            error=FunctionError(
+                code="invalid_payload",
+                message="timeout must be positive and finite",
+            ),
+        ),
+    )
+    assert invalid["repair_command"] == ""
+    assert "boundary-prove" not in err
+    assert "timeout must be positive and finite" in err
 
 
 def test_write_sync_snapshot_failure_still_names_full_sync(

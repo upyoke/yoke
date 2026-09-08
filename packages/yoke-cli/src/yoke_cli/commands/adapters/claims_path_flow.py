@@ -122,7 +122,7 @@ def claims_path_boundary_prove(args: List[str]) -> int:
     )
     if sync["status"] != "ok":
         message = str(sync.get("message") or "lane HEAD snapshot sync failed")
-        repair = str(sync.get("repair_command") or retry)
+        repair = str(sync.get("repair_command") or "")
         if repair:
             message = f"{message}; retry `{repair}`"
         return _local_error("boundary_head_sync_failed", message)

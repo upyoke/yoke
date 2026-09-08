@@ -171,3 +171,50 @@ def test_boundary_prove_timeout_retries_original_command(tmp_path):
     assert "exceeded the time limit" in refusal
     assert "yoke claims path boundary-prove --item YOK-7777" in refusal
     assert "yoke project snapshot sync" not in refusal
+
+
+def test_boundary_prove_auth_refusal_does_not_teach_retry(tmp_path):
+    lane = tmp_path / "lane"
+    lane.mkdir()
+    context = {
+        "item_id": 7777,
+        "project": {"id": 1, "slug": "yoke"},
+        "lane": {
+            "id": 9,
+            "item_id": 7777,
+            "branch": "YOK-7777",
+            "path": str(lane),
+            "commit_sha": "a" * 40,
+            "lane_role": "implementation",
+            "state": "active",
+        },
+        "work_claim": {"claim_id": 3, "session_id": "session-1"},
+        "claims": [{"claim_id": 8}],
+    }
+    out, err = io.StringIO(), io.StringIO()
+    with (
+        patch.dict("os.environ", {"YOKE_SESSION_ID": "session-1"}),
+        patch("yoke_cli.commands.adapters.claims_path_flow.ensure_handlers_loaded"),
+        patch(
+            "yoke_cli.commands.adapters.claims_path_flow.call_dispatcher",
+            return_value=_response(
+                "claims.path.boundary_context", {"context": context}
+            ),
+        ),
+        patch(
+            "yoke_cli.commands.adapters.claims_path_flow.sync_local_snapshot_for_write",
+            return_value={
+                "status": "failed",
+                "message": "actor cannot write",
+                "repair_command": "",
+            },
+        ),
+        redirect_stdout(out),
+        redirect_stderr(err),
+    ):
+        rc = cli_main(["claims", "path", "boundary-prove", "--item", "YOK-7777"])
+    assert rc == 1
+    refusal = err.getvalue()
+    assert "actor cannot write" in refusal
+    assert "boundary-prove" not in refusal
+    assert "yoke project snapshot sync" not in refusal
