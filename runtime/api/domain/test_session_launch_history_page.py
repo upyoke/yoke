@@ -127,16 +127,12 @@ def test_history_pages_forward_without_gaps_or_duplicates() -> None:
     newest_first = list(reversed(seeded))
 
     first = read_launch_page(conn, project_id=10, limit=3)
-    second = read_launch_page(
-        conn, project_id=10, limit=3, cursor=first["next_cursor"]
-    )
+    second = read_launch_page(conn, project_id=10, limit=3, cursor=first["next_cursor"])
     # A newer launch arrives between pages. An offset would skip a row here and
     # a positional window would repeat one; a cursor naming a position does
     # neither, and the new row simply is not in this walk.
     late = _seed(conn, key="late", state="succeeded", created_at=_stamp(9))
-    third = read_launch_page(
-        conn, project_id=10, limit=3, cursor=second["next_cursor"]
-    )
+    third = read_launch_page(conn, project_id=10, limit=3, cursor=second["next_cursor"])
 
     paged = [*_ids(first["history"]), *_ids(second["history"]), *_ids(third["history"])]
     assert paged == newest_first

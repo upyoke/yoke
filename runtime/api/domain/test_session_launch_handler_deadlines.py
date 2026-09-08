@@ -80,8 +80,9 @@ def test_get_and_list_settle_deadlines_when_no_relay_is_running(monkeypatch) -> 
 
     assert fetched.primary_success
     assert fetched.result_payload["launch"]["state"] == "expired"
+    # An expired launch is actionable, so it lands in the operational set.
     states = {
-        row["launch_id"]: row["state"] for row in listed.result_payload["launches"]
+        row["launch_id"]: row["state"] for row in listed.result_payload["operational"]
     }
     assert states[listed_launch.launch_id] == "expired"
 

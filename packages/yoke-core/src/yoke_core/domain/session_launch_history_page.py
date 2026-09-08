@@ -34,7 +34,9 @@ from yoke_core.domain.session_launch_types import LaunchRecord, SessionLaunchErr
 #: terminal, but the operator still owes them a decision.
 ACTIONABLE_LAUNCH_STATES = frozenset({"expired", "failed", "outcome_unknown"})
 #: Unfinished plus actionable: the set that is always shown in full.
-OPERATIONAL_LAUNCH_STATES = frozenset(IN_FLIGHT_LAUNCH_STATES | ACTIONABLE_LAUNCH_STATES)
+OPERATIONAL_LAUNCH_STATES = frozenset(
+    IN_FLIGHT_LAUNCH_STATES | ACTIONABLE_LAUNCH_STATES
+)
 
 DEFAULT_HISTORY_LIMIT = 50
 MAX_HISTORY_LIMIT = 100
@@ -105,7 +107,9 @@ def _state_set_clause(conn: Any, *, member: bool) -> tuple[str, list[Any]]:
     return f"state {keyword} ({placeholders})", list(states)
 
 
-def _select(conn: Any, clauses: Sequence[str], params: Sequence[Any], order: str) -> list[LaunchRecord]:
+def _select(
+    conn: Any, clauses: Sequence[str], params: Sequence[Any], order: str
+) -> list[LaunchRecord]:
     rows = conn.execute(
         f"SELECT {LAUNCH_COLUMNS} FROM session_launches "
         f"WHERE {' AND '.join(clauses)} {order}",
