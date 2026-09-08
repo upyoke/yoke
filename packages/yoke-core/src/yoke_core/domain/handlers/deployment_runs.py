@@ -72,6 +72,25 @@ def handle_deployment_run_list(request: FunctionCallRequest) -> HandlerOutcome:
     if invalid is not None:
         return invalid
     payload = request.payload or {}
+    if "page" in payload:
+        incompatible = [
+            key
+            for key in ("project", "status", "limit", "relevance")
+            if payload.get(key) is not None
+        ]
+        if incompatible:
+            return error(
+                "payload_invalid",
+                "page cannot combine with legacy list inputs: "
+                + ", ".join(incompatible)
+                + "; remove them and reload the first Runs page",
+                jsonpath="$.payload.page",
+            )
+        from yoke_core.domain.handlers.deployment_run_page import (
+            handle_deployment_run_page,
+        )
+
+        return handle_deployment_run_page(request, payload.get("page"))
     project = payload.get("project")
     status = payload.get("status")
     limit = payload.get("limit")

@@ -13,8 +13,8 @@ from yoke_core.domain.idea_readiness_repair import (
     CLASS_MIXED_STALE_COUNT,
     RepairOutcome,
     RepairedPath,
-    _RECOVERABLE_CLAIM_CODES,
 )
+from yoke_core.domain.idea_readiness_results import _RECOVERABLE_CLAIM_CODES
 from yoke_core.domain.idea_readiness_repair_missing_file_budget import (
     maybe_repair_missing_file_budget,
 )
@@ -156,15 +156,10 @@ def _rerun_readiness(item_id: int) -> Tuple[str, List[Dict[str, Any]]]:
 
     conn = _connect_raw()
     try:
-        issues = run_all_checks(conn, item_id)
+        outcome = run_all_checks(conn, item_id)
     finally:
         conn.close()
-    payload = [
-        {"code": i.code, "message": i.message,
-         "remediation": i.remediation, "context": i.context}
-        for i in issues
-    ]
-    return ("pass" if not issues else "block", payload)
+    return (outcome.verdict, outcome.issue_payloads())
 
 
 _AMEND_EXCS = (AmendmentError, PathClaimError, PathResolveError)

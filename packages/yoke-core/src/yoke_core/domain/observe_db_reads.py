@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.observe_db import normalize_observe_db_path
+from yoke_core.domain.observe_timing import (
+    CapturedTimestamp,
+    ElapsedMeasurement,
+    TIMING_UNKNOWN_LOOKUP_FAILED,
+    TIMING_UNKNOWN_NO_CALL_IDENTITY,
+    TIMING_UNKNOWN_NO_CAPTURED_END,
+    measure_elapsed,
+)
 
 
 def connect_observe_read_db(db_path: Optional[str]):
@@ -24,32 +31,45 @@ def connect_observe_read_db(db_path: Optional[str]):
     return connect(normalized)
 
 
-def compute_tool_call_duration(
-    db_path: Optional[str], tool_use_id: str,
-) -> Optional[int]:
-    """Return tool-call duration from explicit or connected authority state."""
+def measure_tool_call_duration(
+    db_path: Optional[str],
+    *,
+    session_id: str,
+    tool_use_id: str,
+    completed_at: CapturedTimestamp,
+) -> ElapsedMeasurement:
+    """Measure one tool call between its two captured endpoints.
+
+    The start is the ``session_tool_calls`` row the call's own PreToolUse
+    observation opened; the end is ``completed_at``, the instant the caller
+    captured the call closing. Both are captured at the tool boundary, so
+    the interval survives however long telemetry took to arrive.
+
+    The lookup is scoped by ``(session_id, tool_use_id)`` — the row's own
+    unique identity — because a tool-use id is only unique within its
+    session. Read failures stay fail-open: this returns a named unknown so
+    the hook never blocks a tool on telemetry.
+    """
+    if not session_id or not tool_use_id:
+        return ElapsedMeasurement(None, TIMING_UNKNOWN_NO_CALL_IDENTITY)
+    if completed_at is None or (
+        isinstance(completed_at, str) and not completed_at.strip()
+    ):
+        return ElapsedMeasurement(None, TIMING_UNKNOWN_NO_CAPTURED_END)
     try:
         conn = connect_observe_read_db(db_path)
         try:
             marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
             row = conn.execute(
-                """SELECT started_at FROM session_tool_calls
-                   WHERE tool_use_id = {marker}
-                   ORDER BY started_at DESC LIMIT 1""".format(marker=marker),
-                (tool_use_id,),
+                "SELECT started_at FROM session_tool_calls "
+                f"WHERE session_id = {marker} AND tool_use_id = {marker}",
+                (session_id, tool_use_id),
             ).fetchone()
         finally:
             conn.close()
-        if row and row[0]:
-            start_dt = datetime.fromisoformat(row[0].replace("Z", "+00:00"))
-            duration_ms = int(
-                (datetime.now(timezone.utc) - start_dt).total_seconds() * 1000
-            )
-            if 0 <= duration_ms <= 600000:
-                return duration_ms
     except Exception:
-        pass
-    return None
+        return ElapsedMeasurement(None, TIMING_UNKNOWN_LOOKUP_FAILED)
+    return measure_elapsed(row[0] if row else None, completed_at)
 
 
 def repo_root_for_attribution(db_path: str, project_dir: str) -> Optional[str]:
@@ -101,8 +121,8 @@ def worktree_path_item_id(file_path: str, db_path: Optional[str]) -> Optional[in
 
 
 __all__ = [
-    "compute_tool_call_duration",
     "connect_observe_read_db",
+    "measure_tool_call_duration",
     "repo_root_for_attribution",
     "worktree_path_item_id",
 ]

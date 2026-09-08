@@ -42,6 +42,18 @@ def _human(report: dict) -> None:
         f"{evidence['end']['tool_active_bucket_proxy_count']}\n"
         f"Definition: {evidence['definition']}\n"
     )
+    coverage = report["phase_coverage"]
+    for missing in coverage["missing_phases"]:
+        sys.stdout.write(
+            f"Missing phase: sample {missing['ordinal']} "
+            f"{missing['hook_event']} — {missing['reason']}\n"
+        )
+    if coverage["dispatch_row_limit_reached"]:
+        sys.stdout.write(
+            "Dispatch rows returned the full bounded limit "
+            f"({coverage['dispatch_row_limit']}); rerun with fewer samples or "
+            "from a quieter session to widen the window this run can see.\n"
+        )
     comparison = report.get("comparison")
     if comparison:
         sys.stdout.write(

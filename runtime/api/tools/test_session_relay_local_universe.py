@@ -193,6 +193,7 @@ def test_local_install_never_boots_out_a_healthy_prod_relay(
         if call[:2] == ["launchctl", "bootout"]
     )
 
+
 @pytest.mark.parametrize("ready", (True, False))
 def test_local_relay_status_reports_the_installed_launcher(
     monkeypatch, capsys, ready: bool
@@ -200,12 +201,18 @@ def test_local_relay_status_reports_the_installed_launcher(
     """A local relay's health is its launcher, not a release pin it never has."""
     monkeypatch.setattr(
         install_session_relay,
+        "resolve_relay_instance",
+        lambda **_kwargs: SimpleNamespace(follows_served_release=False),
+    )
+    monkeypatch.setattr(
+        install_session_relay,
         "relay_launchd_status",
-        lambda: SimpleNamespace(
+        lambda **_kwargs: SimpleNamespace(
             supported=True,
             plist_present=True,
             loaded=True,
             plist_current=True,
+            environment="local",
             follows_served_release=False,
         ),
     )

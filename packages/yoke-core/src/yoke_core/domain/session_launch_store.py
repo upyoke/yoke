@@ -181,32 +181,6 @@ def get_launch_by_dedupe(
     return row_to_launch(row) if row is not None else None
 
 
-def list_launches(
-    conn: Any,
-    *,
-    project_id: int | None = None,
-    state: str | None = None,
-    limit: int = 50,
-) -> list[LaunchRecord]:
-    p = marker(conn)
-    where: list[str] = []
-    params: list[Any] = []
-    if project_id is not None:
-        where.append(f"project_id = {p}")
-        params.append(project_id)
-    if state:
-        where.append(f"state = {p}")
-        params.append(state)
-    clause = f" WHERE {' AND '.join(where)}" if where else ""
-    params.append(max(1, min(int(limit), 500)))
-    rows = conn.execute(
-        f"SELECT {LAUNCH_COLUMNS} FROM session_launches{clause} "
-        f"ORDER BY created_at DESC, launch_id DESC LIMIT {p}",
-        tuple(params),
-    ).fetchall()
-    return [row_to_launch(row) for row in rows]
-
-
 def update_launch(
     conn: Any,
     launch_id: str,
@@ -330,7 +304,6 @@ __all__ = [
     "get_launch_by_dedupe",
     "insert_instruction_message",
     "instruction_message",
-    "list_launches",
     "marker",
     "next_attempt_number",
     "parse_time",

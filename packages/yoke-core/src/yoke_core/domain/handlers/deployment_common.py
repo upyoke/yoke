@@ -14,9 +14,17 @@ from yoke_contracts.api.function_call import (
 
 
 FLOW_ROW_FIELDS = (
-    "id", "project", "name", "description", "stages", "on_failure",
-    "created_at", "target_tier", "target_environment",
-    "done_description", "status",
+    "id",
+    "project",
+    "name",
+    "description",
+    "stages",
+    "on_failure",
+    "created_at",
+    "target_tier",
+    "target_environment",
+    "done_description",
+    "status",
 )
 
 
@@ -159,12 +167,18 @@ class DeploymentRunListRequest(BaseModel):
     status: Optional[str] = None
     limit: Optional[int] = None
     relevance: Optional[str] = None
+    page: Optional[Dict[str, Any]] = None
 
 
 class DeploymentRunListResponse(BaseModel):
     fields: List[str]
     rows: List[Dict[str, Any]]
     limit: int
+    unfinished_count: Optional[int] = None
+    completed_match_count: Optional[int] = None
+    completed_loaded_count: Optional[int] = None
+    next_cursor: Optional[str] = None
+    filters: Optional[Dict[str, Any]] = None
 
 
 class DeploymentRunUpdateRequest(BaseModel):

@@ -199,6 +199,11 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
             runRow("run-20260102-001", "failed", "test-failed"),
             runRow("run-20260101-001", "succeeded", "complete"),
           ],
+          unfinished_count: 2,
+          completed_match_count: 2,
+          completed_loaded_count: 2,
+          next_cursor: null,
+          filters: { projects: [], statuses: [], environments: [], flows: [] },
         });
       }
       throw new Error(`unexpected function ${request.function}`);
@@ -206,11 +211,14 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
   };
   const { root, mounted } = await mountAt(t, "#/deployments?project=1", client);
 
-  // The read carries the view's scope in the payload and keeps the proxy's
-  // server-side global target default.
+  // The paged read carries the view's scope inside its opt-in page envelope
+  // and keeps the proxy's server-side global target default.
   assert.deepEqual(
     requests.find((request) => request.function === "deployment_runs.list"),
-    { function: "deployment_runs.list", payload: { project: "1" } },
+    {
+      function: "deployment_runs.list",
+      payload: { page: { page_size: 50, projects: ["1"] } },
+    },
   );
 
   // A built tab carries its own picker: the All chip plus one per project,

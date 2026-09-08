@@ -154,13 +154,18 @@ def test_runner_dispatch_populates_top_level_tool_name(
 
     capability = AdapterCapability(
         family="claude",
-        payload_parser=lambda raw: {"tool_name": "Bash", "tool_input": {"command": "ls"}},
+        payload_parser=lambda raw: {
+            "tool_name": "Bash",
+            "tool_input": {"command": "ls"},
+        },
         decision_renderer=render_claude_decision,
     )
 
     runner_module.run_event("PreToolUse", capability=capability, stdin_data="{}")
 
-    guardrail_rows = [c for c in captured if c["event_name"] == "HookGuardrailEvaluated"]
+    guardrail_rows = [
+        c for c in captured if c["event_name"] == "HookGuardrailEvaluated"
+    ]
     assert guardrail_rows, "HookGuardrailEvaluated was not emitted"
     assert guardrail_rows[0]["tool_name"] == "Bash"
 
@@ -188,32 +193,53 @@ def test_flush_skips_throwaway_rows_and_resolves_floor_once(
         return event_name != "HookGuardrailEvaluated"  # DEBUG guardrail = throwaway
 
     monkeypatch.setattr(
-        "yoke_core.domain.events_writes.hook_emit_connection", fake_conn,
+        "yoke_core.domain.events_writes.hook_emit_connection",
+        fake_conn,
     )
     monkeypatch.setattr(
-        "yoke_core.domain.events_writes.check_severity_conn", fake_check,
+        "yoke_core.domain.events_writes.check_severity_conn",
+        fake_check,
     )
 
     guard: list[dict[str, Any]] = []
     failed: list[dict[str, Any]] = []
     dispatch: list[dict[str, Any]] = []
-    monkeypatch.setattr(telemetry, "emit_hook_guardrail_evaluated", lambda **k: guard.append(k))
-    monkeypatch.setattr(telemetry, "emit_hook_execution_failed", lambda **k: failed.append(k))
-    monkeypatch.setattr(telemetry, "emit_hook_dispatch_telemetry", lambda **k: dispatch.append(k))
+    monkeypatch.setattr(
+        telemetry, "emit_hook_guardrail_evaluated", lambda **k: guard.append(k)
+    )
+    monkeypatch.setattr(
+        telemetry, "emit_hook_execution_failed", lambda **k: failed.append(k)
+    )
+    monkeypatch.setattr(
+        telemetry, "emit_hook_dispatch_telemetry", lambda **k: dispatch.append(k)
+    )
 
     common = {
-        "module": "m", "hook_event": "PreToolUse", "executor": "claude",
-        "session_id": "s", "item_id": None, "tool_name": "Bash", "duration_ms": 1,
+        "module": "m",
+        "hook_event": "PreToolUse",
+        "executor": "claude",
+        "session_id": "s",
+        "item_id": None,
+        "tool_name": "Bash",
+        "duration_ms": 1,
     }
     records = [
         ("guardrail", {**common, "decision_outcome": "noop"}),
         ("guardrail", {**common, "module": "m2", "decision_outcome": "noop"}),
         ("failed", {**common, "failure": "timeout_1ms"}),
-        ("dispatch", {
-            "hook_event": "PreToolUse", "executor": "claude", "chain_length": 3,
-            "decision_outcome": "allow", "session_id": "s", "item_id": None,
-            "tool_name": "Bash", "duration_ms": 5,
-        }),
+        (
+            "dispatch",
+            {
+                "hook_event": "PreToolUse",
+                "executor": "claude",
+                "chain_length": 3,
+                "decision_outcome": "allow",
+                "session_id": "s",
+                "item_id": None,
+                "tool_name": "Bash",
+                "duration_ms": 5,
+            },
+        ),
     ]
     telemetry.flush_hook_telemetry(records)
 
@@ -233,12 +259,9 @@ def test_dispatch_record_names_the_driving_process(monkeypatch) -> None:
     monkeypatch.setattr(
         run_tail, "flush_run_tail", run_tail.flush_run_tail
     )  # explicit: exercise the real tail
+    monkeypatch.setattr(telemetry, "flush_hook_telemetry", lambda *a, **k: None)
     monkeypatch.setattr(
-        telemetry, "flush_hook_telemetry", lambda *a, **k: None
-    )
-    monkeypatch.setattr(
-        "yoke_core.hooks.session_turn_posture_tail."
-        "persist_accepted_hook_turn_posture",
+        "yoke_core.hooks.session_turn_posture_tail.persist_accepted_hook_turn_posture",
         lambda **k: None,
     )
 

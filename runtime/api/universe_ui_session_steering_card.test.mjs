@@ -96,5 +96,8 @@ test("a steering card wears no sheet of its own", () => {
   assert.match(
     css, /\.session-steering-symbol \{[\s\S]*?position: absolute/,
   );
-  assert.match(css, /\.steering-symbol svg \{[\s\S]*?width: 14px/);
+  // Landscape viewBox: height 14px, width auto. Sizing by width shrinks
+  // the mark and thins the ring stroke relative to the shared artwork.
+  assert.match(css, /\.steering-symbol svg \{[\s\S]*?height: 14px/);
+  assert.match(css, /\.steering-symbol svg \{[\s\S]*?width: auto/);
 });

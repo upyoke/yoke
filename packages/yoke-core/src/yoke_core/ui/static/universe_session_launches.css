@@ -1,0 +1,25 @@
+/* Session launches list: section headings, compact rows, expansion. */
+
+.universe-app-root .session-launch-heading {
+  margin: 16px 0 8px;
+  color: var(--yoke-muted);
+  font: 600 11.5px/1.3 var(--yoke-font-sans);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.universe-app-root .session-launch-state {
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  text-align: right;
+}
+
+.universe-app-root .session-launch-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .session-launch-more {
+  margin-top: 14px;
+}

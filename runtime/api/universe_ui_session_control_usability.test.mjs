@@ -158,7 +158,10 @@ test("message history leads with readable content and accessible receipts", asyn
 
 test("launch and relay views explain unavailable machine capability", async (t) => {
   const handlers = {
-    "session_control.launch.list": () => ok({ launches: [], count: 0 }),
+    "session_control.launch.list": () => ok({
+      operational: [], operational_count: 0,
+      history: [], history_matched_count: 0, next_cursor: null,
+    }),
     "session_control.relay.list": () => ok({ relays: [], count: 0 }),
     "sessions.list": () => ok({ rows: [] }),
   };

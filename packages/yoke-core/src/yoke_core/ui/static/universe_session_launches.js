@@ -1,14 +1,13 @@
 import { el } from "./universe_view_support.js";
-import { buildUniverseRoute } from "./universe_navigation.js";
-import { appendLaunchTimeline } from "./session_launch_timeline.js";
 import { openSessionLaunchDialog } from "./session_launch_create_dialog.js";
-import { appendRelayDiagnostic } from "./session_relay_diagnostic_view.js";
 import {
-  displaySessionModel,
-  sessionModelFactTags,
-} from "./session_model_display.js";
+  appendLaunchDetail,
+  selectionLabels,
+} from "./session_launch_detail_card.js";
+import { launchFilters } from "./universe_session_launch_filters.js";
+import { sessionLaunchPageLoader } from "./universe_session_launch_history.js";
 import {
-  labelledControl,
+  formatSessionControlTime,
   presentSessionControlFailure,
   renderSessionControlFailure,
   scopedProjectRefs,
@@ -16,235 +15,161 @@ import {
   statusRegion,
 } from "./universe_session_control_data.js";
 
-const RETRYABLE_STATES = new Set(["failed", "expired"]);
-const RECONCILE_FIRST_STATES = new Set(["outcome_unknown"]);
-const CANCELLABLE_STATES = new Set([
-  "queued", "assigned", "launching", "awaiting_registration",
-]);
-const RESULT_EVIDENCE_FIELDS = Object.freeze([
-  ["adapter_revision", "text"],
-  ["native_instruction_sha256", "text"],
-  ["result_code", "text"],
-  ["probe_detail", "text"],
-  ["surface", "text"],
-  ["duration_ms", "integer"],
-  ["exit_code", "integer"],
-]);
-
-export function launchIdentityPresentation(launch) {
-  const nativeSessionId = String(launch.native_session_id || "").trim();
-  const registeredSessionId = String(launch.registered_session_id || "").trim();
-  const state = String(launch.identity_correlation || "unknown");
-  const result = String(launch.result_code || "unknown").replaceAll("_", " ");
-  const labels = {
-    matched: "Identity matched",
-    mismatch: "Identity mismatch: native and registered sessions differ",
-    awaiting_registration: "Awaiting registration",
-    registration_failed: "Session registration failed",
-    native_unreported: "Registered; native identity not reported",
-    correlation_failed: `Identity correlation failed: ${result}`,
-    unavailable: "Native identity unavailable",
-    pending: "Waiting for native session",
-    unknown: "Identity correlation status unavailable",
-  };
-  return {
-    state: state.replaceAll("_", "-"),
-    label: labels[state] || state.replaceAll("_", " "),
-    nativeSessionId: nativeSessionId || null,
-    registeredSessionId: registeredSessionId || null,
-  };
+function stateLabel(launch) {
+  const state = String(launch.state || "unknown").replaceAll("_", " ");
+  const result = String(launch.result_code || "").replaceAll("_", " ");
+  return result ? `${state} (${result})` : state;
 }
 
-function instructionDeliveryPresentation(launch) {
-  const state = String(launch.instruction_delivery || "unknown");
-  const labels = {
-    delivered: "Launch instruction delivered",
-    not_delivered: "Launch instruction not delivered",
-    pending: "Launch instruction delivery pending",
-    unknown: "Launch instruction delivery status unavailable",
-  };
-  return { state: state.replaceAll("_", "-"), label: labels[state] || state };
-}
-
-function appendLaunchIdentity(documentNode, body, launch) {
-  const identity = launchIdentityPresentation(launch);
-  body.appendChild(el(
-    documentNode,
-    "p",
-    "fact-line session-launch-identity",
-    `Launch ${launch.launch_id || "unreported"} → native ${identity.nativeSessionId || "pending"} → registered ${identity.registeredSessionId || "pending"}`,
-  ));
-  body.appendChild(el(
-    documentNode,
-    "p",
-    `session-launch-correlation ${identity.state}`,
-    identity.label,
-  ));
-  const delivery = instructionDeliveryPresentation(launch);
-  body.appendChild(el(
-    documentNode,
-    "p",
-    `session-launch-delivery ${delivery.state}`,
-    delivery.label,
-  ));
-  const evidence = launch.result_evidence;
-  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) return;
-  const facts = [];
-  for (const [key, kind] of RESULT_EVIDENCE_FIELDS) {
-    const value = evidence[key];
-    if (kind === "text" && typeof value === "string" && value.trim()) {
-      facts.push(`${key.replaceAll("_", " ")}: ${value.trim().slice(0, 128)}`);
-    } else if (kind === "integer" && Number.isInteger(value)) {
-      facts.push(`${key.replaceAll("_", " ")}: ${value}`);
-    }
+function machineFact(launch) {
+  if (launch.assigned_machine_id) return `${launch.assigned_machine_id} assigned`;
+  if (launch.requested_machine_id) {
+    return `${launch.requested_machine_id} requested`;
   }
-  if (facts.length) {
-    body.appendChild(el(
-      documentNode,
-      "p",
-      "fact-line session-launch-result-evidence",
-      `Result evidence · ${facts.join(" · ")}`,
-    ));
-  }
-  appendRelayDiagnostic(
-    documentNode, body, evidence, launch.assigned_machine_id,
-  );
+  return "unassigned";
 }
 
-function appendAction(documentNode, actions, label, disabled, invoke) {
-  const button = el(documentNode, "button", "item-button", label);
-  button.type = "button";
-  button.disabled = disabled;
-  button.addEventListener("click", () => invoke(button));
-  actions.appendChild(button);
-}
-
-function selectionLabels(row, emptyModel) {
-  return [
-    displaySessionModel(row, emptyModel),
-    ...sessionModelFactTags(row).map((fact) => fact.label),
-  ];
-}
-
-function launchCard(documentNode, launch, mutate) {
-  const card = el(documentNode, "article", "panel session-launch-card");
-  card.setAttribute("data-launch-id", String(launch.launch_id || ""));
-  const header = el(documentNode, "div", "panel-header");
-  header.appendChild(el(
-    documentNode, "h3", null, "Session launch",
-  ));
-  card.appendChild(header);
-  const body = el(documentNode, "div", "panel-body");
-  body.appendChild(el(
-    documentNode, "code", "session-control-id", launch.launch_id || "—",
-  ));
-  body.appendChild(el(
-    documentNode,
-    "p",
-    "fact-line",
-    `${launch.requested_surface || "unknown surface"} requested · ${launch.selected_surface || "unselected"} selected · ${launch.assigned_machine_id || "unassigned"}`,
-  ));
-  const explicitSelection = selectionLabels(launch, "vendor defaults requested");
-  body.appendChild(el(
-    documentNode,
-    "p",
-    "fact-line session-launch-model-request",
-    `Explicit request · ${explicitSelection.join(" · ")}`,
-  ));
-  const effectiveSelection = selectionLabels({
+function summaryLine(launch) {
+  const model = selectionLabels({
     model: launch.resolved_model,
     reasoning_effort: launch.resolved_reasoning_effort,
     context_window_tokens: launch.resolved_context_window_tokens,
   }, "vendor model default");
+  return [
+    `${launch.requested_surface || "unknown surface"} requested`,
+    `${launch.selected_surface || "unselected"} selected`,
+    machineFact(launch),
+    ...model,
+  ].join(" · ");
+}
+
+function timingLine(launch) {
+  const completed = launch.completed_at
+    ? `completed ${formatSessionControlTime(launch.completed_at)}`
+    : "not completed";
+  return `Created ${formatSessionControlTime(launch.created_at)} · ${completed}`;
+}
+
+function launchRow(documentNode, launch, view) {
+  const launchId = String(launch.launch_id || "");
+  const card = el(documentNode, "article", "panel session-launch-row");
+  card.setAttribute("data-launch-id", launchId);
+  const header = el(documentNode, "div", "panel-header");
+  header.appendChild(el(
+    documentNode, "code", "session-control-id", launchId || "—",
+  ));
+  header.appendChild(el(
+    documentNode, "span", "session-launch-state", stateLabel(launch),
+  ));
+  card.appendChild(header);
+  const body = el(documentNode, "div", "panel-body");
   body.appendChild(el(
     documentNode,
     "p",
-    "fact-line session-launch-model-selection",
-    `Effective launch selection · ${effectiveSelection.join(" · ")}`,
+    "fact-line session-launch-project",
+    `Project ${launch.project || launch.project_id || "unknown"}`,
   ));
-  if (
-    launch.selected_surface
-    && launch.selected_surface !== launch.requested_surface
-  ) {
-    body.appendChild(el(
-      documentNode, "p", "session-launch-guidance", "Same-family fallback used.",
-    ));
-  }
-  appendLaunchTimeline(documentNode, body, launch);
-  appendLaunchIdentity(documentNode, body, launch);
+  body.appendChild(el(
+    documentNode, "p", "fact-line session-launch-summary", summaryLine(launch),
+  ));
+  body.appendChild(el(
+    documentNode, "p", "fact-line session-launch-timing", timingLine(launch),
+  ));
   if (launch.registered_session_id) {
-    const link = el(
-      documentNode,
-      "a",
-      "session-result-link",
-      `Open registered session ${launch.registered_session_id}`,
-    );
-    link.href = buildUniverseRoute(
-      "sessions",
-      launch.project_id == null ? null : String(launch.project_id),
-      String(launch.registered_session_id),
-    );
-    body.appendChild(link);
-  }
-  const actions = el(documentNode, "div", "session-control-actions");
-  if (RECONCILE_FIRST_STATES.has(launch.state)) {
     body.appendChild(el(
       documentNode,
       "p",
-      "session-launch-guidance",
-      "The launch instruction was not delivered. Reconcile whether a native session exists before retrying or creating another one.",
-    ));
-    const observedNativeId = el(
-      documentNode, "input", "session-control-input session-launch-reconcile-id",
-    );
-    observedNativeId.type = "text";
-    observedNativeId.placeholder = "Leave blank only if no native session was created";
-    body.appendChild(labelledControl(
-      documentNode,
-      "Observed native session ID (optional)",
-      observedNativeId,
-    ));
-    const reconcile = el(documentNode, "button", "item-button", "Reconcile");
-    reconcile.type = "button";
-    reconcile.addEventListener("click", () => {
-      const nativeId = String(observedNativeId.value || "").trim();
-      mutate("reconcile", launch.launch_id, reconcile, nativeId
-        ? { observed_native_id: nativeId }
-        : {});
-    });
-    actions.appendChild(reconcile);
-  } else if (RETRYABLE_STATES.has(launch.state)) {
-    body.appendChild(el(
-      documentNode,
-      "p",
-      "session-launch-guidance",
-      "This attempt stopped before registration. Retry starts a new attempt with the same exact request.",
+      "fact-line session-launch-registered",
+      `Registered session ${launch.registered_session_id}`,
     ));
   }
-  appendAction(
-    documentNode, actions, "Cancel",
-    !CANCELLABLE_STATES.has(launch.state),
-    (button) => mutate("cancel", launch.launch_id, button),
+  const expanded = view.expanded.has(launchId);
+  const toggle = el(
+    documentNode,
+    "button",
+    "item-button session-launch-expand",
+    expanded ? "Hide details" : "Details",
   );
-  appendAction(
-    documentNode, actions, "Retry",
-    !RETRYABLE_STATES.has(launch.state),
-    (button) => mutate("retry", launch.launch_id, button),
-  );
-  body.appendChild(actions);
+  toggle.type = "button";
+  toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+  toggle.addEventListener("click", () => view.toggleDetail(launchId));
+  body.appendChild(toggle);
+  if (expanded) appendExpansion(documentNode, body, launchId, view);
   card.appendChild(body);
   return card;
 }
 
-function renderLaunches(documentNode, host, launches, mutate) {
-  host.replaceChildren();
-  if (!launches.length) {
-    host.appendChild(el(documentNode, "p", "sessions-empty", "No session launches yet."));
+function appendExpansion(documentNode, body, launchId, view) {
+  const region = el(documentNode, "div", "session-launch-detail");
+  const failure = view.detailFailures.get(launchId);
+  const detail = view.details.get(launchId);
+  if (failure) {
+    region.appendChild(el(
+      documentNode,
+      "p",
+      "error",
+      presentSessionControlFailure(
+        failure, "The launch details could not be loaded.",
+      ),
+    ));
+  } else if (!detail) {
+    region.appendChild(el(
+      documentNode, "p", "session-launch-guidance", "Loading launch details…",
+    ));
+  } else {
+    appendLaunchDetail(documentNode, region, detail, view.mutate);
+  }
+  body.appendChild(region);
+}
+
+function appendSection(documentNode, host, heading, rows, view, empty) {
+  host.appendChild(el(documentNode, "h3", "session-launch-heading", heading));
+  if (!rows.length) {
+    host.appendChild(el(documentNode, "p", "sessions-empty", empty));
     return;
   }
   const grid = el(documentNode, "div", "session-launch-grid");
-  for (const launch of launches) grid.appendChild(launchCard(documentNode, launch, mutate));
+  for (const row of rows) grid.appendChild(launchRow(documentNode, row, view));
   host.appendChild(grid);
+}
+
+function renderLaunches(documentNode, host, loader, view, filtered) {
+  const operational = loader.operational();
+  const history = loader.history();
+  host.replaceChildren();
+  if (loader.failure()) {
+    renderSessionControlFailure(
+      host, loader.failure(), "Session launches could not be loaded.",
+    );
+    return;
+  }
+  appendSection(
+    documentNode,
+    host,
+    `Needs attention · ${loader.operationalCount()} unfinished or actionable`,
+    operational,
+    view,
+    filtered
+      ? "No unfinished or actionable launch matches these filters."
+      : "No unfinished or actionable launches.",
+  );
+  appendSection(
+    documentNode,
+    host,
+    `History · ${history.length} of ${loader.historyMatchedCount()} matching loaded`,
+    history,
+    view,
+    filtered
+      ? "No completed launch matches these filters."
+      : "No completed launches yet.",
+  );
+  if (loader.hasMore()) {
+    const more = el(documentNode, "button", "item-button session-launch-more", "Load more");
+    more.type = "button";
+    more.disabled = loader.loading();
+    more.addEventListener("click", () => loader.loadMore());
+    host.appendChild(more);
+  }
 }
 
 export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
@@ -259,38 +184,76 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
   create.disabled = projects.length === 0;
   const actions = el(documentNode, "div", "session-control-actions");
   actions.appendChild(create);
+  const state = {
+    expanded: new Set(),
+    details: new Map(),
+    detailFailures: new Map(),
+    pending: new Set(),
+    mutate: null,
+    toggleDetail: null,
+  };
+  const filters = launchFilters(documentNode, () => loader.reload());
+  const loader = sessionLaunchPageLoader(
+    context, projects, () => filters.criteria(), () => render(),
+  );
+  const render = () => {
+    const rows = [...loader.operational(), ...loader.history()];
+    filters.offer(rows);
+    renderLaunches(
+      documentNode,
+      content,
+      loader,
+      state,
+      Object.keys(filters.criteria()).length > 0,
+    );
+  };
   view.appendChild(actions);
+  view.appendChild(filters.host);
   view.appendChild(status);
   view.appendChild(content);
   view.appendChild(dialogHost);
   main.replaceChildren(view);
   if (typeof chrome.setPageHead === "function") {
-    chrome.setPageHead({
-      title: "Session launches",
-      actions: [create],
-    });
+    chrome.setPageHead({ title: "Session launches", actions: [create] });
   }
-  const load = async () => {
+  // One fetch per expanded row: the compact list carries no timeline, evidence,
+  // or actions, and a second click while the first is in flight must not
+  // duplicate the request or let an older answer overwrite a newer one.
+  const ensureDetail = async (launchId) => {
+    if (state.details.has(launchId) || state.pending.has(launchId)) return;
+    state.pending.add(launchId);
     try {
-      const results = await Promise.all(projects.map((project) => (
-        sessionControlCall(context, "session_control.launch.list", {
-          project, limit: 100,
-        })
-      )));
-      if (!context.isMounted()) return;
-      const launches = results.flatMap((result) => result.launches || []);
-      renderLaunches(documentNode, content, launches, mutate);
-    } catch (error) {
-      renderSessionControlFailure(
-        content, error, "Session launches could not be loaded.",
+      const result = await sessionControlCall(
+        context, "session_control.launch.get", { launch_id: launchId },
       );
+      state.details.set(launchId, result.launch || {});
+      state.detailFailures.delete(launchId);
+    } catch (error) {
+      state.detailFailures.set(launchId, error);
+    } finally {
+      state.pending.delete(launchId);
     }
+    if (context.isMounted() && state.expanded.has(launchId)) render();
   };
-  const mutate = async (operation, launchId, button, extraPayload = {}) => {
+  state.toggleDetail = (launchId) => {
+    if (state.expanded.has(launchId)) {
+      state.expanded.delete(launchId);
+      render();
+      return;
+    }
+    state.expanded.add(launchId);
+    state.detailFailures.delete(launchId);
+    render();
+    return ensureDetail(launchId);
+  };
+  state.mutate = async (operation, launchId, button, extraPayload = {}) => {
     button.disabled = true;
     status.hidden = false;
     const progress = {
       cancel: "Cancelling", reconcile: "Reconciling", retry: "Retrying",
+    };
+    const outcome = {
+      cancel: "cancelled", reconcile: "reconciled", retry: "retried",
     };
     status.textContent = `${progress[operation]} ${launchId}…`;
     try {
@@ -299,17 +262,13 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
         `session_control.launch.${operation}`,
         { launch_id: launchId, ...extraPayload },
       );
-      const completed = {
-        cancel: "cancelled", reconcile: "reconciled", retry: "retried",
-      };
-      status.textContent = `${launchId} ${completed[operation]}.`;
-      await load();
+      status.textContent = `${launchId} ${outcome[operation]}.`;
+      state.details.delete(launchId);
+      await loader.reload();
+      if (state.expanded.has(launchId)) await ensureDetail(launchId);
     } catch (error) {
-      const failureAction = {
-        cancel: "cancelled", reconcile: "reconciled", retry: "retried",
-      };
       status.textContent = presentSessionControlFailure(
-        error, `The launch could not be ${failureAction[operation]}.`,
+        error, `The launch could not be ${outcome[operation]}.`,
       );
       button.disabled = false;
     }
@@ -318,7 +277,7 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
     const launchId = result?.launch?.launch_id || "Session launch";
     status.hidden = false;
     status.textContent = `${launchId} created. Tracking registration below.`;
-    await load();
+    await loader.reload();
   };
   create.addEventListener("click", async () => {
     try {
@@ -330,5 +289,5 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
       );
     }
   });
-  load();
+  loader.reload();
 }

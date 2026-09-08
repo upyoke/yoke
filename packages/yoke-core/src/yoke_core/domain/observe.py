@@ -15,9 +15,7 @@ from yoke_core.domain.observe_cli import _resolve_db_fallback
 from yoke_core.domain.observe_constants import BUSY_TIMEOUT_MS
 from yoke_core.domain.observe_codex_transcript import _TRANSCRIPT_TAIL_BYTES
 from yoke_core.domain.observe_event_emission import build_envelope, insert_event
-from yoke_core.domain.observe_db_reads import (
-    compute_tool_call_duration as _compute_duration,
-)
+from yoke_core.domain.observe_db_reads import measure_tool_call_duration
 from yoke_core.domain.observe_normalization import _resolve_main_session_attribution
 from yoke_core.domain.observe_parsing import (
     EventRecord,
@@ -35,7 +33,7 @@ __all__ = [
     "insert_event",
     "evaluate",
     "main",
-    "_compute_duration",
+    "measure_tool_call_duration",
     "_extract_response_text",
     "_resolve_main_session_attribution",
     "_TRANSCRIPT_TAIL_BYTES",
@@ -61,6 +59,7 @@ def evaluate(record: HookContext) -> HookDecision:
                 hook_event=record.event_name,
                 tool_use_id=str(tool_use_id) if tool_use_id else None,
                 project_dir=record.cwd,
+                completed_at=record.now,
             )
     except Exception:
         pass

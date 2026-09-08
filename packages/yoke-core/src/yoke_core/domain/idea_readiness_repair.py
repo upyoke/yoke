@@ -29,22 +29,28 @@ from yoke_core.domain.backlog_structured_write_op import execute_structured_writ
 from yoke_core.domain.idea_readiness_file_budget_sizing import (
     SIBLING_REQUIRED_THRESHOLD,
 )
-from yoke_core.domain.idea_readiness_check_repo_root import _resolve_repo_root
+from yoke_core.domain.idea_readiness_checkout import item_project_checkout
+from yoke_core.domain.idea_readiness_results import (
+    CLASS_MIXED_STALE_COUNT,
+    CLASS_PASS,
+    CLASS_PURE_STALE_COUNT,
+    CLASS_UNAVAILABLE,
+    CLASS_UNRECOVERABLE,
+    VERDICT_PASS,
+    ReadinessOutcome,
+    classify_readiness_issues,
+)
 
-
-CLASS_PASS = "pass"
-CLASS_PURE_STALE_COUNT = "pure_stale_count"
-CLASS_MIXED_STALE_COUNT = "mixed_stale_count"
-CLASS_UNRECOVERABLE = "unrecoverable"
-
-_STALE_CODE = "STALE_LINE_COUNT"
-_RECOVERABLE_CLAIM_CODES = frozenset({
-    "FILE_BUDGET_NOT_IN_CLAIM", "CLAIM_NOT_IN_FILE_BUDGET",
-    "cross_item_overlap", "MISSING_FILE_BUDGET",
-})
 _SIBLING_PATTERN = re.compile(
     r"\bsibling\b|\bextract\b|\bnew sibling\b|\bsibling module\b",
     re.IGNORECASE,
+)
+# Repair re-reads live line counts off disk, so a host with no checkout for
+# the item's project has nothing to repair against.
+_NO_CHECKOUT_ERROR = (
+    "no checkout for this item's project on this host; repair reads live "
+    "line counts from the project's files. Re-run from a machine whose "
+    "checkout for that project is registered."
 )
 
 
@@ -83,28 +89,6 @@ class RepairOutcome:
         if self.audit_emitted:
             out["audit_emitted"] = True
         return out
-
-
-def classify_readiness_issues(issues: List[Dict[str, Any]]) -> str:
-    """Bucket a readiness-check issues list for refine-entry routing.
-
-    Issue-code sets that contain at least one recoverable claim-coverage
-    code and no codes outside the recoverable set route through
-    ``CLASS_MIXED_STALE_COUNT``. The historical class name is preserved
-    for downstream refine-entry routing compatibility — the branch already
-    means "continue into refine for claim/path repair", which is the right
-    destination here.
-    """
-    if not issues:
-        return CLASS_PASS
-    codes = {str(i.get("code") or "") for i in issues}
-    if codes == {_STALE_CODE}:
-        return CLASS_PURE_STALE_COUNT
-    if _STALE_CODE in codes and codes - {_STALE_CODE} <= _RECOVERABLE_CLAIM_CODES:
-        return CLASS_MIXED_STALE_COUNT
-    if codes and codes <= _RECOVERABLE_CLAIM_CODES:
-        return CLASS_MIXED_STALE_COUNT
-    return CLASS_UNRECOVERABLE
 
 
 def _path_pattern(path: str) -> re.Pattern:
@@ -227,7 +211,9 @@ def attempt_stale_count_repair(
         return RepairOutcome(success=False, **base, error=(
             f"only pure stale-count handled; got classification={classification!r}"
         ))
-    root = repo_root or _resolve_repo_root()
+    root = repo_root or _item_checkout(item_id)
+    if root is None:
+        return RepairOutcome(success=False, **base, error=_NO_CHECKOUT_ERROR)
     spec_text = _read_spec(item_id) or ""
     if not spec_text.strip():
         return RepairOutcome(success=False, **base,
@@ -254,32 +240,38 @@ def attempt_stale_count_repair(
         return RepairOutcome(success=False, **base, error=str(
             write_result.get("error") or "structured write failed"
         ))
-    rerun_verdict, rerun_issues = _rerun_readiness(item_id)
+    rerun = _rerun_readiness(item_id)
+    rerun_verdict = rerun.verdict
     audit_emitted = _emit_audit(item_id=item_id, repaired=repairs,
                                 refused=refused, rerun_verdict=rerun_verdict)
     return RepairOutcome(
-        success=(rerun_verdict == "pass"), **base,
+        success=(rerun_verdict == VERDICT_PASS), **base,
         repaired_paths=repairs, field_written="spec",
-        rerun_verdict=rerun_verdict, rerun_issues=rerun_issues,
+        rerun_verdict=rerun_verdict, rerun_issues=rerun.issue_payloads(),
         audit_emitted=audit_emitted,
     )
 
 
-def _rerun_readiness(item_id: int) -> Tuple[str, List[Dict[str, Any]]]:
+def _item_checkout(item_id: int) -> Optional[Path]:
+    """This machine's checkout for the item's project, or ``None``."""
+    from yoke_core.domain.schema_common import _connect_raw, _resolve_db_path
+
+    conn = _connect_raw(_resolve_db_path())
+    try:
+        return item_project_checkout(conn, item_id)
+    finally:
+        conn.close()
+
+
+def _rerun_readiness(item_id: int) -> "ReadinessOutcome":
     from yoke_core.domain.idea_readiness_check import run_all_checks
     from yoke_core.domain.schema_common import _connect_raw, _resolve_db_path
 
     conn = _connect_raw(_resolve_db_path())
     try:
-        issues = run_all_checks(conn, item_id)
+        return run_all_checks(conn, item_id)
     finally:
         conn.close()
-    payload = [
-        {"code": i.code, "message": i.message,
-         "remediation": i.remediation, "context": i.context}
-        for i in issues
-    ]
-    return ("pass" if not issues else "block", payload)
 
 
 class _NullSink:
@@ -307,11 +299,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     except ValueError as exc:
         print(json.dumps({"success": False, "error": str(exc)}))
         return 1
-    verdict, issues = _rerun_readiness(item_id)
-    classification = classify_readiness_issues(issues)
-    if verdict == "pass":
+    outcome = _rerun_readiness(item_id)
+    verdict = outcome.verdict
+    issues = outcome.issue_payloads()
+    classification = outcome.classification
+    if verdict == VERDICT_PASS:
         print(json.dumps({"success": True, "classification": CLASS_PASS,
-                          "item_id": item_id, "rerun_verdict": "pass"}))
+                          "item_id": item_id, "rerun_verdict": verdict}))
         return 0
     if classification != CLASS_PURE_STALE_COUNT:
         print(json.dumps({
@@ -332,7 +326,7 @@ attempt_claim_coverage_repair: Any
 
 __all__ = [
     "CLASS_MIXED_STALE_COUNT", "CLASS_PASS", "CLASS_PURE_STALE_COUNT",
-    "CLASS_UNRECOVERABLE", "RepairOutcome", "RepairedPath",
+    "CLASS_UNAVAILABLE", "CLASS_UNRECOVERABLE", "RepairOutcome", "RepairedPath",
     "apply_stale_count_replacements", "attempt_claim_coverage_repair",
     "attempt_stale_count_repair", "classify_readiness_issues", "main",
 ]

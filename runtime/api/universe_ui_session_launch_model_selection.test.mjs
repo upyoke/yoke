@@ -50,7 +50,10 @@ test("launch dialog previews and creates one explicit model selection", async (t
         return ok({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
       }
       if (request.function === "session_control.launch.list") {
-        return ok({ launches: [], count: 0 });
+        return ok({
+          operational: [], operational_count: 0,
+          history: [], history_matched_count: 0, next_cursor: null,
+        });
       }
       if (request.function === "session_control.relay.list") {
         return ok({ relays: [relay], count: 1 });

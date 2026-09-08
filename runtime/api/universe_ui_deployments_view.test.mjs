@@ -116,6 +116,11 @@ test("Runs is the prototype's one seven-column execution table", async (t) => {
             ],
             member_items: [], gates: [],
           }],
+          unfinished_count: 0,
+          completed_match_count: 1,
+          completed_loaded_count: 1,
+          next_cursor: null,
+          filters: { projects: [], statuses: [], environments: [], flows: [] },
         });
       }
       throw new Error(`unexpected function ${request.function}`);
@@ -126,7 +131,10 @@ test("Runs is the prototype's one seven-column execution table", async (t) => {
   // "all" is one unfiltered call over the whole universe.
   assert.deepEqual(
     requests.find((request) => request.function === "deployment_runs.list"),
-    { function: "deployment_runs.list", payload: {} },
+    {
+      function: "deployment_runs.list",
+      payload: { page: { page_size: 50 } },
+    },
   );
   assert.deepEqual(
     allNodes(root).filter((node) => node.tagName === "TH")
@@ -202,6 +210,11 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
               decided_by_you: false,
             }],
           }],
+          unfinished_count: 1,
+          completed_match_count: 0,
+          completed_loaded_count: 0,
+          next_cursor: null,
+          filters: { projects: [], statuses: [], environments: [], flows: [] },
         });
       }
       throw new Error(`unexpected function ${request.function}`);

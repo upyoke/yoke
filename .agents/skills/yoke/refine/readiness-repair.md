@@ -30,8 +30,11 @@ handler without releasing the claim or surrendering the chain step.
 
 ## The classifier
 
-`yoke_core.domain.idea_readiness_repair.classify_readiness_issues(issues)`
-buckets a readiness-check `issues` list into four classes:
+`yoke_core.domain.idea_readiness_results.classify_readiness_issues(issues)`
+(re-exported from `idea_readiness_repair`) buckets a readiness-check
+`issues` list into four classes. A fifth class, `unavailable`, comes from
+the run as a whole rather than from its issues — read `classification`
+straight out of the readiness payload rather than reclassifying:
 
 | Class | When | Refine entry routing |
 |---|---|---|
@@ -39,6 +42,26 @@ buckets a readiness-check `issues` list into four classes:
 | `pure_stale_count` | every issue is `STALE_LINE_COUNT` | Invoke the repair helper, re-run, continue on pass; block on refusal. |
 | `mixed_stale_count` | at least one recoverable code is present (`MISSING_FILE_BUDGET` / `FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` / `cross_item_overlap`), and every issue code is in that set or optional `STALE_LINE_COUNT` | Dispatch to `yoke readiness repair-claim-coverage`. A lone `MISSING_FILE_BUDGET` at `idea` auto-appends the documented UNRESOLVED File Budget marker (refine still owns resolving that shape before `refining-idea` exit). `FILE_BUDGET_NOT_IN_CLAIM` / `CLAIM_NOT_IN_FILE_BUDGET` auto-widen / auto-narrow / refuse ambiguous shapes. `cross_item_overlap` is agent-attested (see `## Cross-item overlap repair` below); the agent classifies and authors the matching `item_dependencies` row, then refine re-runs `idea_readiness_check` to confirm pass. On refusal or escalation, continue into refine; step 4b's path-claim re-check and step 5/6 critique cover the remainder. The final readiness rerun before status mutation catches anything still unresolved. |
 | `unrecoverable` | anything else (unresolved refs, missing sibling plan, or a code outside the recoverable set) | Release the claim with reason `readiness-check-blocked` and exit 1 — same terminal behavior refine had before. |
+| `unavailable` | the run reports `verdict="unavailable"`: one or more checks could not be performed on the executing host, and no issue outranks them | Do NOT repair and do NOT retry. Release the claim with reason `readiness-validation-unavailable` and report each `unavailable_checks[]` entry's `check` and `recovery` to the operator. |
+
+## When validation could not be performed
+
+Checks that read the item project's files need that project's checkout on
+whichever host runs them. The hosted API host has none, and installing one
+there is not a supported recovery — so the run reports what it could not do
+instead of guessing at a tree or reporting an unperformed check as passed.
+
+The payload carries an `unavailable_checks` list beside `issues`; each entry
+names the `check`, a `reason` (`project_checkout_unavailable`), a `recovery`
+that actually works from where the operator stands, and `retryable: false`.
+The envelope itself still succeeds — this is a result, not a function
+failure — so read `verdict` and `classification`, never the exit status
+alone.
+
+`retryable: false` is literal. Re-running the same check on the same host
+produces the same answer, so a repair loop here spends turns for nothing;
+the work moves to a machine whose checkout for that project is registered
+(`yoke project register <checkout> --project-id <id>`).
 
 The classifier is a pure function with focused regression coverage. Verify its
 behavior through the project's registered test command rather than assuming a
@@ -161,6 +184,16 @@ case "$_class" in
       # remaining work; the final readiness rerun catches any drift.
       printf 'Recoverable readiness gaps not auto-repaired; continuing into refine:\n%s\n' "$_readiness_json"
     }
+    ;;
+  unavailable)
+    # A check the executing host could not perform. Non-retryable here:
+    # each unavailable_checks[] entry names the check and the recovery.
+    printf '%s\n' "$_readiness_json"
+    yoke sessions checkpoint --step 1 --action refine --chainable false --outcome blocked --item-id "$ITEM_REF"
+    yoke claims work release \
+      --item "$ITEM_REF" --reason "readiness-validation-unavailable" \
+      >/dev/null 2>&1 || true
+    exit 1
     ;;
   unrecoverable)
     printf '%s\n' "$_readiness_json"

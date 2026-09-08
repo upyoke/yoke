@@ -49,7 +49,10 @@ test("launch fallback requires a visible opt-in and shows the selected surface",
     project_ids: [1],
   };
   const handlers = {
-    "session_control.launch.list": () => ok({ launches: [], count: 0 }),
+    "session_control.launch.list": () => ok({
+      operational: [], operational_count: 0,
+      history: [], history_matched_count: 0, next_cursor: null,
+    }),
     "sessions.list": () => ok({ rows: [] }),
     "session_control.relay.list": () => ok({ relays: [relay], count: 1 }),
     "session_control.launch.preview": () => ok({
@@ -124,7 +127,10 @@ test("launch preview refuses an unconfirmed model constraint", async (t) => {
     surface_versions: { "codex-desktop": "26.818.31338" },
   };
   const handlers = {
-    "session_control.launch.list": () => ok({ launches: [], count: 0 }),
+    "session_control.launch.list": () => ok({
+      operational: [], operational_count: 0,
+      history: [], history_matched_count: 0, next_cursor: null,
+    }),
     "session_control.relay.list": () => ok({ relays: [relay], count: 1 }),
     "session_control.launch.preview": () => ok({
       outcome: "assigned", requested_surface: "codex-desktop",

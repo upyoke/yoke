@@ -65,8 +65,10 @@ def parse_pre_event(
 ) -> Optional[Dict[str, Any]]:
     """Parse a PreToolUse JSON payload into a ``HarnessToolCallStarted`` envelope.
 
-    Returns ``None`` when the event should be silently dropped (missing
-    ``tool_use_id`` — matches the original shell behavior).
+    Returns ``None`` when the payload has no ``tool_use_id``. Cursor shell
+    gates omit that primitive (see ``yoke_contracts.cursor_shell_timing``),
+    so their starts are not recorded; completions remain and coverage
+    classifies them as unsupported duration rather than a measurement gap.
     """
     if not isinstance(data, dict):
         return None

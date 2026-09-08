@@ -95,8 +95,14 @@ def test_launch_lifecycle_adapters_build_typed_payloads(monkeypatch) -> None:
                 "yoke",
                 "--state",
                 "outcome_unknown",
+                "--surface",
+                "codex-cli",
+                "--machine",
+                "machine-1",
                 "--limit",
                 "4",
+                "--cursor",
+                "opaque-cursor",
             ]
         )
         == 0
@@ -124,7 +130,10 @@ def test_launch_lifecycle_adapters_build_typed_payloads(monkeypatch) -> None:
     assert calls[1]["payload"] == {
         "project": "yoke",
         "state": "outcome_unknown",
+        "surface": "codex-cli",
+        "machine": "machine-1",
         "limit": 4,
+        "cursor": "opaque-cursor",
     }
     assert calls[-1]["payload"] == {
         "launch_id": "launch-1",
@@ -151,12 +160,20 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
     }
     list_output = io.StringIO()
     launches.write_launch_result(
-        SimpleNamespace(result={"launches": [launch], "count": 1}),
+        SimpleNamespace(
+            result={
+                "operational": [launch],
+                "operational_count": 1,
+                "history": [],
+                "history_matched_count": 12,
+                "next_cursor": "opaque-cursor",
+            }
+        ),
         list_output,
         io.StringIO(),
     )
     rendered_list = list_output.getvalue()
-    assert rendered_list.splitlines()[0] == "LAUNCHES"
+    assert rendered_list.splitlines()[0] == "OPERATIONAL LAUNCHES"
     assert "STATE / RESULT" in rendered_list
     assert "CREATED (UTC)" in rendered_list
     assert "REQUESTED" in rendered_list
@@ -165,6 +182,10 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
     assert FULL_MACHINE_ID in rendered_list
     assert "outcome unknown (native cre" in rendered_list
     assert "…" in rendered_list
+    # The window size never stands in for the matching total.
+    assert "COMPLETED HISTORY (0 of 12 matching)" in rendered_list
+    assert "No completed launches found." in rendered_list
+    assert "More history: --cursor opaque-cursor" in rendered_list
     get_output = io.StringIO()
     launches.write_launch_result(
         SimpleNamespace(result={"launch": launch}),
@@ -181,11 +202,22 @@ def test_launch_list_and_get_have_headings_labels_and_empty_state() -> None:
     assert "Deadline (UTC)" in rendered_get
     empty_output = io.StringIO()
     launches.write_launch_result(
-        SimpleNamespace(result={"launches": [], "count": 0}),
+        SimpleNamespace(
+            result={
+                "operational": [],
+                "operational_count": 0,
+                "history": [],
+                "history_matched_count": 0,
+                "next_cursor": None,
+            }
+        ),
         empty_output,
         io.StringIO(),
     )
-    assert empty_output.getvalue() == "LAUNCHES\nNo launches found.\n"
+    assert empty_output.getvalue() == (
+        "OPERATIONAL LAUNCHES\nNo unfinished or actionable launches.\n"
+        "COMPLETED HISTORY (0 of 0 matching)\nNo completed launches found.\n"
+    )
 
 
 @dataclass(frozen=True)

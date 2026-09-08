@@ -15,12 +15,23 @@ from yoke_cli.commands._helpers import (
     dispatch_and_emit,
     item_target,
     parse_or_usage_error,
+    split_comma,
 )
 from yoke_contracts.api.function_call import TargetRef
 
 
 ITEMS_OVERVIEW_LIST_USAGE = (
-    "yoke items overview list [--project P] [--limit N] [--json]"
+    "yoke items overview list [--project P] [--projects P,Q] [--limit N] "
+    "[--relevance overview] [--search TEXT] [--workflow W] [--status S] "
+    "[--page-size N] [--cursor C] [--json]"
+)
+ITEMS_OVERVIEW_LIST_DESCRIPTION = (
+    "List workflow-aware item rows for the unified roster. Naming any of "
+    "--projects, --search, --workflow, --status, --page-size, or --cursor "
+    "selects the paged roster read, which requires --page-size and returns "
+    "match_count plus next_cursor; naming none of them keeps the unpaged "
+    "shape. --relevance overview reads the Overview relevance window and "
+    "cannot be combined with the paged inputs."
 )
 ITEMS_DETAIL_GET_USAGE = (
     "yoke items detail get ITEM [--project P] [--json]"
@@ -30,23 +41,89 @@ ITEMS_PUBLIC_REF_LOOKUP_USAGE = (
 )
 
 
+#: ``ItemsOverviewListRequest`` fields this adapter forwards verbatim,
+#: paired with the flag that names each one. Range, enum, and cursor
+#: validation stay with that model: forwarding what the operator named
+#: keeps the CLI from restating the contract's bounds in a second place,
+#: and the read already answers an invalid combination with a named
+#: refusal and the recovery step.
+_OVERVIEW_STRING_FIELDS = (
+    "project", "relevance", "search", "workflow", "status", "cursor",
+)
+_OVERVIEW_INT_FIELDS = ("limit", "page_size")
+
+
 def items_overview_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items overview list",
-        description="List workflow-aware item rows for the unified roster.",
+        description=ITEMS_OVERVIEW_LIST_DESCRIPTION,
     )
-    parser.add_argument("--project")
-    parser.add_argument("--limit", type=int)
+    parser.add_argument(
+        "--project", help="Single project slug or ref to scope the read to.",
+    )
+    parser.add_argument(
+        "--projects",
+        help=(
+            "Comma-separated project slugs or refs (paged read). Use "
+            "instead of --project to scope one page to several projects."
+        ),
+    )
+    parser.add_argument(
+        "--limit", type=int, help="Cap on rows for the unpaged read.",
+    )
+    parser.add_argument(
+        "--relevance",
+        help=(
+            "Pass 'overview' to read the Overview relevance window instead "
+            "of full history."
+        ),
+    )
+    parser.add_argument(
+        "--search", help="Free-text roster search (paged read).",
+    )
+    parser.add_argument(
+        "--workflow",
+        help="Filter the page to one workflow id (paged read).",
+    )
+    parser.add_argument(
+        "--status",
+        help="Filter the page to one lifecycle status (paged read).",
+    )
+    parser.add_argument(
+        "--page-size",
+        dest="page_size",
+        type=int,
+        help=(
+            "Rows per roster page. Required whenever any other paged input "
+            "is named; the read names the accepted range when it refuses."
+        ),
+    )
+    parser.add_argument(
+        "--cursor",
+        help=(
+            "Opaque next_cursor from the previous page's response, to read "
+            "the following page."
+        ),
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_OVERVIEW_LIST_USAGE)
     if parsed is None:
         return 2
+    # Omitted options stay absent from the payload, so the read keeps
+    # choosing between its unpaged and paged shapes on the same evidence
+    # it used before these flags existed.
     payload = {}
-    if parsed.project:
-        payload["project"] = parsed.project
-    if parsed.limit is not None:
-        payload["limit"] = parsed.limit
+    for field in _OVERVIEW_STRING_FIELDS:
+        value = getattr(parsed, field)
+        if value:
+            payload[field] = value
+    for field in _OVERVIEW_INT_FIELDS:
+        value = getattr(parsed, field)
+        if value is not None:
+            payload[field] = value
+    if parsed.projects is not None:
+        payload["projects"] = split_comma(parsed.projects)
     return dispatch_and_emit(
         function_id="items.overview.list",
         target=TargetRef(kind="global"),

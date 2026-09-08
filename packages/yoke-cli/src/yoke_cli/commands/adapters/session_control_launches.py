@@ -45,7 +45,8 @@ SESSIONS_CREATE_USAGE = (
 )
 LAUNCH_GET_USAGE = "yoke session-control launch get LAUNCH-ID [--json]"
 LAUNCH_LIST_USAGE = (
-    "yoke session-control launch list --project P [--state STATE] [--limit N] [--json]"
+    "yoke session-control launch list --project P [--state STATE] "
+    "[--surface SURFACE] [--machine MACHINE] [--limit N] [--cursor CURSOR] [--json]"
 )
 LAUNCH_CANCEL_USAGE = "yoke session-control launch cancel LAUNCH-ID [--json]"
 LAUNCH_RETRY_USAGE = "yoke session-control launch retry LAUNCH-ID [--json]"
@@ -233,15 +234,24 @@ def session_launch_list(args: List[str]) -> int:
     )
     parser.add_argument("--project", required=True)
     parser.add_argument("--state", choices=get_args(LaunchState), default=None)
+    parser.add_argument("--surface", default=None)
+    parser.add_argument("--machine", default=None)
     parser.add_argument("--limit", type=int, default=50)
+    parser.add_argument(
+        "--cursor",
+        default=None,
+        help="continuation cursor from a previous page's next_cursor",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, LAUNCH_LIST_USAGE)
     if parsed is None:
         return 2
     payload: dict[str, Any] = {"project": parsed.project, "limit": parsed.limit}
-    if parsed.state:
-        payload["state"] = parsed.state
+    for name in ("state", "surface", "machine", "cursor"):
+        chosen = getattr(parsed, name)
+        if chosen:
+            payload[name] = chosen
     return _dispatch_launch(
         parsed,
         function_id="session_control.launch.list",

@@ -101,14 +101,7 @@ def _browser_check_steps(
 
 
 class _FakeRunRecorder:
-    """Drop-in replacement for browser_qa._record_run / _complete_run / _record_artifact.
-
-    Records runs and artifacts directly against the per-test DB so tests can
-    assert on qa_runs and qa_artifacts tables without exercising the
-    dispatcher write path. Signatures mirror the dispatcher-backed helpers in
-    ``browser_qa_steps`` (``_complete_run`` / ``_record_artifact`` carry the
-    owning requirement id for claim-resolvable targets).
-    """
+    """Record scenario runs and artifacts directly in a per-test database."""
 
     def __init__(self, db_path: str) -> None:
         self.db_path = db_path
@@ -164,15 +157,9 @@ class _FakeRunRecorder:
         conn.close()
 
     def record_artifact(
-        self,
-        run_id: int,
-        requirement_id: int,
-        artifact_type: str,
-        content_type: str,
-        artifact_handle: dict,
-        metadata: str,
-        *,
-        actor=None,
+        self, run_id: int, requirement_id: int, artifact_type: str,
+        content_type: str, artifact_handle: dict, metadata: str, *, actor=None,
+        raise_on_failure: bool = False,
     ) -> int:
         from yoke_core.domain.qa_artifact_handle import serialize_handle
 
@@ -190,6 +177,19 @@ class _FakeRunRecorder:
         conn.commit()
         conn.close()
         return art_id
+
+    def record_artifact_file(
+        self, run_id: int, requirement_id: int, file_path: str,
+        content_type: str, artifact_type: str, metadata: str, *, actor=None,
+    ) -> int:
+        """Stand in for persistence while scenario tests exercise orchestration."""
+        filename = str(file_path).rsplit("/", 1)[-1]
+        return self.record_artifact(
+            run_id, requirement_id, artifact_type, content_type,
+            {"backend": "s3", "bucket": "test-artifacts",
+             "key": f"qa/test/{run_id}/{filename}"},
+            metadata, actor=actor,
+        )
 
 
 def _fetch_context_from_test_db(
@@ -284,9 +284,11 @@ def _patch_external_deps(
         mock.patch.object(
             browser_qa, "_record_artifact", side_effect=recorder.record_artifact
         ),
-        # No artifacts bucket in scenario tests: presign misses, captures
-        # record explicit local handles.
-        mock.patch.object(browser_qa, "_presign_artifact", return_value=None),
+        mock.patch.object(
+            browser_qa,
+            "_record_artifact_file",
+            side_effect=recorder.record_artifact_file,
+        ),
     ]
 
     if execute_step_responses is not None:

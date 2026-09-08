@@ -10,6 +10,7 @@ MAX_RELAY_QUARANTINE_FACTS = 20
 RELAY_NEWER_THAN_SERVER = "relay_newer_than_server"
 RELAY_NEWER_THAN_SERVER_RECOVERY = "deploy"
 RELAY_HEALTH_STATES = frozenset({"healthy", "retrying", "quarantined", "refused"})
+SETTLED_RELAY_REPORT_CODE = "report_conflict"
 
 
 def _text(value: object, *, limit: int = 128) -> str:
@@ -115,11 +116,49 @@ def relay_refuses_jobs(value: object) -> bool:
     return sanitize_relay_health(value)["state"] == "refused"
 
 
+def retained_settled_conflicts_only(value: object) -> bool:
+    """True when health is only already-settled report_conflict evidence.
+
+    Incomplete bounded metadata never qualifies: a truncated quarantine
+    list, a missing error_code, or any non-conflict entry stays
+    actionable. Pending reports, live failures, and run refusals also
+    stay actionable.
+    """
+    health = sanitize_relay_health(value)
+    if health["pending_reports"] or health["report_failure"] or health["run_refusal"]:
+        return False
+    quarantines = health["quarantined_reports"]
+    if not quarantines:
+        return False
+    if health["quarantine_count"] != len(quarantines):
+        return False
+    codes = [str(entry.get("error_code") or "") for entry in quarantines]
+    return bool(codes) and all(code == SETTLED_RELAY_REPORT_CODE for code in codes)
+
+
+def fleet_relay_error_code(
+    failure: Mapping[str, Any],
+    quarantines: list[dict[str, Any]],
+) -> str:
+    """Prefer a live failure or an unsettled quarantine over the last conflict."""
+    code = _text(failure.get("error_code"))
+    if code:
+        return code
+    for entry in quarantines:
+        candidate = _text(entry.get("error_code"))
+        if candidate and candidate != SETTLED_RELAY_REPORT_CODE:
+            return candidate
+    return _text((quarantines[-1] if quarantines else {}).get("error_code"))
+
+
 __all__ = [
     "MAX_RELAY_QUARANTINE_FACTS",
     "RELAY_HEALTH_STATES",
     "RELAY_NEWER_THAN_SERVER",
     "RELAY_NEWER_THAN_SERVER_RECOVERY",
+    "SETTLED_RELAY_REPORT_CODE",
+    "fleet_relay_error_code",
     "relay_refuses_jobs",
+    "retained_settled_conflicts_only",
     "sanitize_relay_health",
 ]

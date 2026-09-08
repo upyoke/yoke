@@ -8,6 +8,8 @@ from typing import Any
 
 from yoke_contracts.session_control.relay_health import (
     RELAY_NEWER_THAN_SERVER,
+    fleet_relay_error_code,
+    retained_settled_conflicts_only,
     sanitize_relay_health,
 )
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds, marker
@@ -70,11 +72,12 @@ def relay_health_conditions(
         if not _serves(row["project_checkouts"], project_id):
             continue
         health = sanitize_relay_health(_document(row["relay_health"], {}))
+        if retained_settled_conflicts_only(health):
+            continue
         failure = health.get("report_failure")
         failure = failure if isinstance(failure, dict) else {}
         quarantines = health.get("quarantined_reports")
         quarantines = quarantines if isinstance(quarantines, list) else []
-        latest_quarantine = quarantines[-1] if quarantines else {}
         refusal = health.get("run_refusal")
         refusal = refusal if isinstance(refusal, dict) else {}
         first_failed_at = str(failure.get("first_failed_at") or "")
@@ -83,6 +86,15 @@ def relay_health_conditions(
         ) >= SUSTAINED_RELAY_REPORT_FAILURE_SECONDS
         if health["state"] not in {"quarantined", "refused"} and not sustained:
             continue
+        error_code = fleet_relay_error_code(failure, quarantines)
+        attempts = next(
+            (
+                int(entry.get("attempts") or 0)
+                for entry in quarantines
+                if str(entry.get("error_code") or "") == error_code
+            ),
+            0,
+        )
         result.append(
             RelayHealthCondition(
                 relay_id=str(row["relay_id"]),
@@ -91,16 +103,8 @@ def relay_health_conditions(
                 state=str(health["state"]),
                 pending_reports=int(health["pending_reports"]),
                 quarantine_count=int(health["quarantine_count"]),
-                error_code=str(
-                    failure.get("error_code")
-                    or latest_quarantine.get("error_code")
-                    or ""
-                ),
-                failure_count=int(
-                    failure.get("failure_count")
-                    or latest_quarantine.get("attempts")
-                    or 0
-                ),
+                error_code=error_code,
+                failure_count=int(failure.get("failure_count") or attempts or 0),
                 first_failed_at=first_failed_at,
                 last_failed_at=str(failure.get("last_failed_at") or ""),
                 refusal_reason=str(refusal.get("reason") or ""),
@@ -147,10 +151,21 @@ def relay_health_lines(
             )
         lines.append(
             f"  {entry.hostname} {entry.machine_id}/{entry.relay_id} {detail}; "
-            "run `yoke relay status` "
-            "on that machine, restore wire/transport compatibility, then reconcile"
+            f"{_recovery_clause(entry)}"
         )
     return lines
+
+
+def _recovery_clause(entry: RelayHealthCondition) -> str:
+    status = "run `yoke relay status` on that machine"
+    if entry.refusal_reason == RELAY_NEWER_THAN_SERVER:
+        return f"{status}; recovery: {entry.recovery}"
+    if entry.state == "quarantined":
+        return (
+            f"{status}; restore wire/transport compatibility for contract "
+            "rejections; do not replay report_conflict"
+        )
+    return f"{status}; restore control-plane transport, then leave the relay running"
 
 
 __all__ = [

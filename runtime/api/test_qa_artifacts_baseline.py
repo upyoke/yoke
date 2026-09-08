@@ -29,7 +29,9 @@ def req_id(db_path: str) -> int:
 
 
 class TestArtifacts:
-    def test_add_artifact(self, db_path: str, req_id: int) -> None:
+    def test_add_artifact(self, db_path: str, req_id: int, tmp_path: Path) -> None:
+        screenshot = tmp_path / "shot.png"
+        screenshot.write_bytes(b"PNG")
         run_id = qa.cmd_run_add(
             db_path=db_path, requirement_id=req_id,
             performed_by="agent", qa_kind="unit_test",
@@ -40,7 +42,7 @@ class TestArtifacts:
             artifact_type="screenshot",
             content_type="image/png",
             artifact_handle=json.dumps(
-                {"backend": "local", "path": "/tmp/shot.png"}
+                {"backend": "local", "path": str(screenshot)}
             ),
             metadata='{"width": 1920}',
         )

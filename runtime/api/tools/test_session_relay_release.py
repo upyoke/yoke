@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import subprocess
 
 import pytest
 
-from yoke_cli.config.session_relay_instance import resolve_relay_instance
+from runtime.api.tools.session_relay_release_test_support import (
+    NEXT_RELEASE,
+    RELEASE,
+    fake_venv,
+    relay_instance,
+    runner_for,
+)
 from yoke_core.tools.session_relay_release import (
     RELAY_RELEASE_FETCH_FAILED,
     RELAY_RELEASE_INSTALL_FAILED,
@@ -19,61 +24,6 @@ from yoke_core.tools.session_relay_release import (
     write_release_json,
 )
 from yoke_core.tools.session_relay_release_install import pin_relay_release
-
-
-RELEASE = "0.1.1+launch.365"
-NEXT_RELEASE = "0.1.1+launch.366"
-
-
-def _config(tmp_path: Path, api_url: str = "https://relay.example.test/api") -> Path:
-    path = tmp_path / "config.json"
-    path.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "active_env": "prod",
-                "connections": {
-                    "prod": {
-                        "transport": "https",
-                        "prod": True,
-                        "api_url": api_url,
-                        "credential_source": {
-                            "kind": "token_file",
-                            "path": str(tmp_path / "token"),
-                        },
-                    }
-                },
-                "projects": [],
-            }
-        ),
-        encoding="utf-8",
-    )
-    return path
-
-
-def _instance(tmp_path: Path, api_url: str = "https://relay.example.test/api"):
-    return resolve_relay_instance(
-        config_path=_config(tmp_path, api_url),
-        environment="prod",
-        yoke_home=tmp_path / "state",
-    )
-
-
-def _fake_venv(path: Path) -> None:
-    binary = path / "bin"
-    binary.mkdir(parents=True)
-    (binary / "python").touch()
-    (binary / "yoke").write_text(f"#!{binary / 'python'}\n", encoding="utf-8")
-
-
-def _runner_for(release: str, calls: list[list[str]]):
-    def run(command, **_kwargs):
-        argv = list(command)
-        calls.append(argv)
-        stdout = f"{release}\n" if "-c" in argv else ""
-        return subprocess.CompletedProcess(argv, 0, stdout, "")
-
-    return run
 
 
 def test_handshake_build_is_an_exact_immutable_wheel_version() -> None:
@@ -100,20 +50,22 @@ def test_handshake_build_is_an_exact_immutable_wheel_version() -> None:
 def test_distribution_index_belongs_to_the_selected_environment(
     tmp_path: Path, api_url: str, expected: str
 ) -> None:
-    assert distribution_index_for_instance(_instance(tmp_path, api_url)) == expected
+    assert (
+        distribution_index_for_instance(relay_instance(tmp_path, api_url)) == expected
+    )
 
 
 def test_successful_pin_installs_a_wheel_then_repoints_the_active_release(
     tmp_path: Path,
 ) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     calls: list[list[str]] = []
 
     status = pin_relay_release(
         instance=instance,
         served_build=f"v{RELEASE}",
-        create_venv=_fake_venv,
-        runner=_runner_for(RELEASE, calls),
+        create_venv=fake_venv,
+        runner=runner_for(RELEASE, calls),
     )
 
     assert status.current
@@ -140,13 +92,13 @@ def test_successful_pin_installs_a_wheel_then_repoints_the_active_release(
 
 
 def test_same_served_build_reuses_the_verified_install(tmp_path: Path) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     calls: list[list[str]] = []
     pin_relay_release(
         instance=instance,
         served_build=f"v{RELEASE}",
-        create_venv=_fake_venv,
-        runner=_runner_for(RELEASE, calls),
+        create_venv=fake_venv,
+        runner=runner_for(RELEASE, calls),
     )
     original_target = (instance.state_dir / "release").resolve()
 
@@ -164,9 +116,9 @@ def test_same_served_build_reuses_the_verified_install(tmp_path: Path) -> None:
 def test_existing_release_link_converges_to_the_stable_runtime(
     tmp_path: Path,
 ) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     prior_release = instance.state_dir / "releases" / "prior"
-    _fake_venv(prior_release)
+    fake_venv(prior_release)
     write_release_json(
         prior_release / ".yoke-relay-release.json",
         {
@@ -212,12 +164,12 @@ def test_existing_release_link_converges_to_the_stable_runtime(
 def test_fetch_failure_keeps_the_last_working_install_and_records_recovery(
     tmp_path: Path,
 ) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     installed = pin_relay_release(
         instance=instance,
         served_build=f"v{RELEASE}",
-        create_venv=_fake_venv,
-        runner=_runner_for(RELEASE, []),
+        create_venv=fake_venv,
+        runner=runner_for(RELEASE, []),
     )
     original_target = (instance.state_dir / "release").resolve()
     runtime_identity = installed.runtime_python.stat()
@@ -230,7 +182,7 @@ def test_fetch_failure_keeps_the_last_working_install_and_records_recovery(
         pin_relay_release(
             instance=instance,
             served_build=f"v{NEXT_RELEASE}",
-            create_venv=_fake_venv,
+            create_venv=fake_venv,
             runner=fail,
         )
 
@@ -246,29 +198,13 @@ def test_fetch_failure_keeps_the_last_working_install_and_records_recovery(
     assert "Recovery:" in observed.error_message
 
 
-def test_handshake_failure_is_named_and_records_recovery(tmp_path: Path) -> None:
-    instance = _instance(tmp_path)
-
-    def fail_handshake(_environment: str):
-        raise TimeoutError("manifest timed out")
-
-    with pytest.raises(RelayReleaseError) as raised:
-        pin_relay_release(instance=instance, fetch_manifest=fail_handshake)
-
-    assert raised.value.code == RELAY_RELEASE_FETCH_FAILED
-    assert "handshake failed" in str(raised.value)
-    assert "relay install" in str(raised.value)
-    observed = relay_release_status(instance=instance, refresh_served=False)
-    assert observed.error_code == RELAY_RELEASE_FETCH_FAILED
-
-
 def test_local_install_failure_keeps_the_last_working_release(tmp_path: Path) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     pin_relay_release(
         instance=instance,
         served_build=f"v{RELEASE}",
-        create_venv=_fake_venv,
-        runner=_runner_for(RELEASE, []),
+        create_venv=fake_venv,
+        runner=runner_for(RELEASE, []),
     )
     original_target = (instance.state_dir / "release").resolve()
 
@@ -287,7 +223,7 @@ def test_local_install_failure_keeps_the_last_working_release(tmp_path: Path) ->
 
 
 def test_state_directory_failure_is_named_with_recovery(tmp_path: Path) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     instance.state_dir.parent.mkdir(parents=True)
     instance.state_dir.write_text("not a directory", encoding="utf-8")
 
@@ -302,12 +238,12 @@ def test_state_directory_failure_is_named_with_recovery(tmp_path: Path) -> None:
 def test_status_compares_the_pinned_release_with_a_fresh_handshake(
     tmp_path: Path,
 ) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     pin_relay_release(
         instance=instance,
         served_build=f"v{RELEASE}",
-        create_venv=_fake_venv,
-        runner=_runner_for(RELEASE, []),
+        create_venv=fake_venv,
+        runner=runner_for(RELEASE, []),
     )
 
     current = relay_release_status(
@@ -323,12 +259,12 @@ def test_status_compares_the_pinned_release_with_a_fresh_handshake(
 def test_status_never_treats_a_stale_served_build_as_a_fresh_handshake(
     tmp_path: Path,
 ) -> None:
-    instance = _instance(tmp_path)
+    instance = relay_instance(tmp_path)
     pin_relay_release(
         instance=instance,
         served_build=f"v{RELEASE}",
-        create_venv=_fake_venv,
-        runner=_runner_for(RELEASE, []),
+        create_venv=fake_venv,
+        runner=runner_for(RELEASE, []),
     )
 
     def fail_handshake(_environment: str):

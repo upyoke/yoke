@@ -58,15 +58,10 @@ def _rerun_readiness(item_id: int) -> Tuple[str, List[Dict[str, Any]]]:
 
     conn = _connect_raw(_resolve_db_path())
     try:
-        issues = run_all_checks(conn, item_id)
+        outcome = run_all_checks(conn, item_id)
     finally:
         conn.close()
-    payload = [
-        {"code": i.code, "message": i.message,
-         "remediation": i.remediation, "context": i.context}
-        for i in issues
-    ]
-    return ("pass" if not issues else "block", payload)
+    return (outcome.verdict, outcome.issue_payloads())
 
 
 def _emit_audit(*, item_id: int, rerun_verdict: str) -> bool:

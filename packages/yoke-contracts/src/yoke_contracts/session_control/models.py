@@ -186,10 +186,21 @@ class LaunchReconcileRequest(LaunchMutationRequest):
 
 
 class LaunchListRequest(BaseModel):
+    """Criteria for one launch page.
+
+    ``surface`` matches either the requested or the selected surface, and
+    ``machine`` either the requested or the assigned machine, because a launch
+    carries both and the list renders both. ``limit`` and ``cursor`` page the
+    completed history only; the operational set is always returned complete.
+    """
+
     model_config = ConfigDict(extra="forbid")
     project: str
-    state: Optional[str] = None
-    limit: int = Field(default=50, ge=1, le=500)
+    state: Optional[LaunchState] = None
+    surface: Optional[str] = None
+    machine: Optional[str] = None
+    limit: int = Field(default=50, ge=1, le=100)
+    cursor: Optional[str] = None
 
 
 class LaunchResponse(BaseModel):
@@ -200,8 +211,19 @@ class LaunchResponse(BaseModel):
 
 
 class LaunchListResponse(BaseModel):
-    launches: List[Dict[str, Any]]
-    count: int
+    """One launch page: the complete operational set plus a history window.
+
+    ``operational`` is every matching unfinished or actionable launch and is
+    returned only on a first (cursor-free) request; a continuation carries
+    completed history alone. ``operational_count`` and ``history_matched_count``
+    are complete matching totals, never the size of the returned window.
+    """
+
+    operational: List[Dict[str, Any]]
+    operational_count: int
+    history: List[Dict[str, Any]]
+    history_matched_count: int
+    next_cursor: Optional[str] = None
 
 
 class LaunchPreviewResponse(BaseModel):

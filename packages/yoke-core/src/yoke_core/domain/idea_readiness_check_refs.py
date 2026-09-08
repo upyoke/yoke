@@ -57,7 +57,7 @@ def is_module_or_planned_ref(
     full_path: str,
     item_id: int,
     conn: Optional[Any],
-    repo_root: Optional[Path] = None,
+    repo_root: Path,
 ) -> bool:
     """Return True when full_path should NOT be treated as an
     existing-function reference.
@@ -81,18 +81,17 @@ def is_module_or_planned_ref(
         return False
     module_dotted = full_path.rsplit(".", 1)[0]
     # Check 1: module portion resolves to a package directory.
-    root = repo_root or _resolve_repo_root()
     if any(
         candidate.is_dir()
-        for candidate in _module_dir_candidates(root, module_dotted)
+        for candidate in _module_dir_candidates(repo_root, module_dotted)
     ):
         return True
     # Check 2: full dotted path maps to a pre-observation claim target.
     if conn is not None and item_id:
         try:
             p = _p(conn)
-            for candidate in module_file_candidates(root, full_path):
-                rel = str(candidate.relative_to(root))
+            for candidate in module_file_candidates(repo_root, full_path):
+                rel = str(candidate.relative_to(repo_root))
                 row = conn.execute(
                     "SELECT 1 FROM path_claim_targets pct "
                     "JOIN path_claims pc ON pc.id = pct.claim_id "
@@ -109,12 +108,6 @@ def is_module_or_planned_ref(
         except db_backend.operational_error_types(conn):
             pass
     return False
-
-
-def _resolve_repo_root() -> Path:
-    from yoke_core.api.repo_root import find_repo_root
-
-    return find_repo_root(Path(__file__))
 
 
 def module_file_candidates(repo_root: Path, module_dotted: str) -> tuple[Path, ...]:

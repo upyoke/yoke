@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -106,6 +106,19 @@ def _batch(*, tool_name: str = "Read", project_id: int = 1) -> dict:
     }
 
 
+def _completed_tool_call(observation_db) -> dict:
+    conn = connect_test_db(observation_db["db_path"])
+    try:
+        row = conn.execute(
+            "SELECT duration_ms,envelope FROM events WHERE session_id=%s "
+            "AND event_name='HarnessToolCallCompleted'",
+            (SESSION_ID,),
+        ).fetchone()
+        return dict(row)
+    finally:
+        conn.close()
+
+
 def _stored_state(observation_db) -> tuple[list, list, dict]:
     conn = connect_test_db(observation_db["db_path"])
     try:
@@ -161,6 +174,65 @@ def test_batch_persists_ordered_events_activity_and_evaluator(
     }
 
 
+def test_duration_measures_the_tool_not_the_delivery_delay(
+    client, observation_db
+) -> None:
+    """A two-second call ingested five seconds after it started stays 2000ms.
+
+    The resident answers read-only hooks locally and delivers the
+    observations afterwards, so ingest time always trails the tool. Timing
+    the call against ingest time charged that delay to the tool.
+    """
+    started_at = datetime.now(timezone.utc) - timedelta(seconds=5)
+    body = _batch()
+    body["observations"][0]["observed_at"] = started_at.isoformat()
+    body["observations"][1]["observed_at"] = (
+        started_at + timedelta(seconds=2)
+    ).isoformat()
+
+    assert client.post("/v1/hooks/telemetry/batch", json=body).status_code == 200
+
+    completion = _completed_tool_call(observation_db)
+    detail = json.loads(completion["envelope"])["context"]["detail"]
+    assert completion["duration_ms"] == 2000
+    assert detail["timing_status"] == "measured"
+    # The delay the batching really cost, recorded beside the duration
+    # rather than inside it.
+    assert detail["ingest_lag_status"] == "measured"
+    assert 2_000 <= detail["ingest_lag_ms"] < 60_000
+
+
+def test_dispatch_rows_name_the_call_they_are_a_phase_of(
+    client, observation_db
+) -> None:
+    """Both phases keep the identity the deferred path observed.
+
+    The identity lives in the telemetry context, not the ``tool_use_id``
+    column: that column is uniquely indexed on ``(tool_use_id,
+    event_name)``, so writing both phases there would keep one row and
+    drop the other.
+    """
+    assert client.post("/v1/hooks/telemetry/batch", json=_batch()).status_code == 200
+
+    conn = connect_test_db(observation_db["db_path"])
+    try:
+        rows = list(
+            conn.execute(
+                "SELECT tool_use_id,hook_event_name,envelope FROM events "
+                "WHERE event_name='HookDispatchTelemetry' ORDER BY created_at"
+            )
+        )
+    finally:
+        conn.close()
+
+    assert [row["hook_event_name"] for row in rows] == ["PreToolUse", "PostToolUse"]
+    assert [json.loads(row["envelope"])["context"]["tool_use_id"] for row in rows] == [
+        "resident-read-1",
+        "resident-read-1",
+    ]
+    assert [row["tool_use_id"] for row in rows] == [None, None]
+
+
 def test_batch_retry_is_idempotent(client, observation_db) -> None:
     body = _batch()
     assert client.post("/v1/hooks/telemetry/batch", json=body).status_code == 200
@@ -171,6 +243,9 @@ def test_batch_retry_is_idempotent(client, observation_db) -> None:
     assert len(tool_events) == 2
     assert len(dispatches) == 2
     assert session["tool_call_count"] == 1
+    # Both endpoints are captured, so a redelivery reports the same
+    # interval rather than one that grows with each attempt.
+    assert _completed_tool_call(observation_db)["duration_ms"] == 1000
 
 
 def test_client_wall_completion_updates_the_matching_dispatch(

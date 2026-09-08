@@ -23,7 +23,9 @@ def _isolate_machine_side_effects(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(
         onboard_session_relay,
         "install",
-        lambda **_kwargs: True,
+        lambda **_kwargs: onboard_session_relay.RelayInstallOutcome(
+            installed=True, reused=False
+        ),
     )
 
 

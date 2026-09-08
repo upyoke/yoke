@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import io
 import json
 from pathlib import Path
@@ -12,7 +13,8 @@ import pytest
 
 from yoke_core.domain import browser_qa
 from yoke_core.domain.browser_qa_steps import (
-    _durable_artifact_handle,
+    QaArtifactWriteError,
+    _record_artifact_file,
     _upload_artifact,
 )
 from runtime.api.domain.browser_qa_test_helpers import (
@@ -45,18 +47,21 @@ def _presign_payload(filename: str = "home.png") -> Dict[str, Any]:
     }
 
 
-class TestDurableArtifactHandle:
-    def test_presign_plus_upload_returns_s3_handle(self, tmp_path: Path) -> None:
+class TestDurableArtifactSubmission:
+    def test_configured_s3_uploads_then_records_handle(self, tmp_path: Path) -> None:
         shot = tmp_path / "home.png"
         shot.write_bytes(b"PNG")
         with mock.patch.object(
             browser_qa, "_presign_artifact", return_value=_presign_payload(),
         ) as presign, mock.patch.object(
-            browser_qa, "_upload_artifact", return_value=True,
-        ) as upload:
-            handle = _durable_artifact_handle(1, 10, str(shot), "image/png")
-        assert handle["backend"] == "s3"
-        assert handle["bucket"] == "yoke-prod-artifacts"
+            browser_qa, "_upload_artifact", return_value=None,
+        ) as upload, mock.patch.object(
+            browser_qa, "_record_artifact", return_value=55,
+        ) as record:
+            artifact_id = _record_artifact_file(
+                1, 10, str(shot), "image/png", "screenshot", "{}",
+            )
+        assert artifact_id == 55
         presign.assert_called_once_with(
             1, 10, "home.png", "image/png", actor=None,
         )
@@ -64,31 +69,40 @@ class TestDurableArtifactHandle:
             "https://b.s3.us-east-1.amazonaws.com/k?sig=x",
             str(shot), "image/png",
         )
+        assert record.call_args.args[4]["backend"] == "s3"
 
-    def test_presign_miss_degrades_to_explicit_local(self, tmp_path: Path) -> None:
+    def test_unconfigured_s3_submits_bytes_to_server(self, tmp_path: Path) -> None:
         shot = tmp_path / "home.png"
         shot.write_bytes(b"PNG")
         with mock.patch.object(
             browser_qa, "_presign_artifact", return_value=None,
-        ):
-            handle = _durable_artifact_handle(1, 10, str(shot), "image/png")
-        assert handle == {
-            "backend": "local",
-            "path": str(shot),
-            "content_type": "image/png",
-        }
+        ), mock.patch(
+            "yoke_core.domain.browser_qa_steps._dispatch_qa_write",
+            return_value={"qa_artifact_id": 56},
+        ) as dispatch:
+            artifact_id = _record_artifact_file(
+                1, 10, str(shot), "image/png", "screenshot", "{}",
+            )
+        assert artifact_id == 56
+        payload = dispatch.call_args.args[2]
+        assert base64.b64decode(payload["content_base64"]) == b"PNG"
+        assert payload["filename"] == "home.png"
 
-    def test_upload_failure_degrades_to_explicit_local(self, tmp_path: Path) -> None:
+    def test_configured_upload_failure_never_records_local(self, tmp_path: Path) -> None:
         shot = tmp_path / "home.png"
         shot.write_bytes(b"PNG")
         with mock.patch.object(
             browser_qa, "_presign_artifact", return_value=_presign_payload(),
         ), mock.patch.object(
-            browser_qa, "_upload_artifact", return_value=False,
-        ):
-            handle = _durable_artifact_handle(1, 10, str(shot), "image/png")
-        assert handle["backend"] == "local"
-        assert handle["path"] == str(shot)
+            browser_qa,
+            "_upload_artifact",
+            side_effect=QaArtifactWriteError("S3 upload failed: down"),
+        ), mock.patch.object(browser_qa, "_record_artifact") as record:
+            with pytest.raises(QaArtifactWriteError, match="S3 upload failed"):
+                _record_artifact_file(
+                    1, 10, str(shot), "image/png", "screenshot", "{}",
+                )
+        record.assert_not_called()
 
 
 class TestUploadArtifact:
@@ -114,10 +128,9 @@ class TestUploadArtifact:
             return _Resp()
 
         with mock.patch("urllib.request.urlopen", side_effect=_fake_urlopen):
-            ok = _upload_artifact(
+            _upload_artifact(
                 "https://bkt.s3.amazonaws.com/k?sig=y", str(shot), "image/png",
             )
-        assert ok is True
         assert seen["method"] == "PUT"
         assert seen["content_type"] == "image/png"
         assert seen["body"] == b"PNGBYTES"
@@ -131,12 +144,14 @@ class TestUploadArtifact:
             "urllib.request.urlopen",
             side_effect=urllib.error.URLError("down"),
         ):
-            assert _upload_artifact("https://x/y", str(shot), "image/png") is False
+            with pytest.raises(QaArtifactWriteError, match="down"):
+                _upload_artifact("https://x/y", str(shot), "image/png")
 
     def test_missing_file_returns_false(self, tmp_path: Path) -> None:
-        assert _upload_artifact(
-            "https://x/y", str(tmp_path / "absent.png"), "image/png",
-        ) is False
+        with pytest.raises(QaArtifactWriteError, match="No such file"):
+            _upload_artifact(
+                "https://x/y", str(tmp_path / "absent.png"), "image/png",
+            )
 
 
 class TestScenarioRecordsUploadedHandles:
@@ -171,7 +186,6 @@ class TestScenarioRecordsUploadedHandles:
 
         def _fake_upload(url, path, content_type):
             uploads.append((url, path, content_type))
-            return True
 
         def _fake_context(
             item_id, project, requirement_id, expected_branch=None, actor=None,
@@ -198,7 +212,10 @@ class TestScenarioRecordsUploadedHandles:
             ),
             mock.patch.object(
                 browser_qa, "_record_artifact",
-                side_effect=recorder.record_artifact,
+                side_effect=lambda *args, **kwargs: recorder.record_artifact(
+                    *args,
+                    actor=kwargs.get("actor"),
+                ),
             ),
             mock.patch.object(
                 browser_qa, "_presign_artifact",

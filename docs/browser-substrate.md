@@ -228,22 +228,22 @@ and records its artifacts. Do not wrap diagnostic calls in parallel records.
 Diagnostic commands write only to caller-supplied `--output` or `--output-dir`
 paths; those paths are not QA evidence until the case runner records them.
 
-The canonical case runner stores captures under project scratch storage:
+The case runner first writes captures under project scratch storage:
 
 ```
 {scratch_root}/{project}/storage/qa-artifacts/{subject}/{run_id}/screenshot-{step_index}-{timestamp}.png
 ```
 
-With an environment artifact bucket, the runner uploads the file and records
-this durable key:
+Before recording evidence, the runner uploads the file to the configured project
+artifact bucket and records this durable key:
 
 ```
-qa-artifacts/{project}/{subject}/{run_id}/screenshot-{step_index}-{timestamp}.png
+{artifacts.prefix?}/qa-artifacts/{project}/{subject}/{run_id}/screenshot-{step_index}-{timestamp}.png
 ```
 
-`{subject}` is the requirement's own owner — its item id, or
-`deployment-run-{run}`. Without a bucket the runner records a machine-local
-handle for the absolute capture path.
+`{subject}` is the requirement's own owner: its item id or `deployment-run-{run}`.
+Only without a bucket does the server copy bytes under `~/.yoke/artifacts/{project}/{subject}/{run_id}/`.
+Configured-store failures never downgrade. Hosted `YOKE_QA_ARTIFACT_*` broker settings carry a Platform-derived tenant prefix, never AWS credentials.
 
 ### Metadata
 

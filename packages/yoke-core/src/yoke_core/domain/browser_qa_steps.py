@@ -9,17 +9,17 @@ Owns:
   delegates (``qa.run.add`` / ``qa.run.complete`` / ``qa.artifact.add``)
   so the writes work over both transports; failures degrade to ``None`` /
   no-op exactly as the prior in-process delegates did.
-- ``_durable_artifact_handle`` — upload-at-record: mint a presigned PUT
-  through ``qa.artifact.presign``, upload the capture over plain HTTPS,
-  and return the S3 handle to record. Any miss (no bucket declared,
-  presign denied, upload failure) degrades to an explicit ``local``
-  handle — captured evidence is recorded either way; durability is the
-  opt-in layer.
+- ``_record_artifact_file`` — submit one capture durably. Configured S3 uses
+  ``qa.artifact.presign`` plus a plain HTTPS PUT; genuinely unconfigured S3
+  sends the bytes through ``qa.artifact.add`` for permanent server-local
+  storage. Presign and upload failures stay explicit and never downgrade.
 """
 
 from __future__ import annotations
 
+import base64
 import os
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from yoke_contracts.api.function_call import ActorContext
@@ -27,6 +27,10 @@ from yoke_contracts.api.function_call import ActorContext
 _SCREENSHOT_ACTIONS = frozenset({"screenshot"})
 
 _BROWSER_EXECUTOR_TYPE = "browser_substrate"
+
+
+class QaArtifactWriteError(RuntimeError):
+    """A browser capture could not reach durable evidence storage."""
 
 
 def _is_screenshot_step(step: Dict[str, Any]) -> bool:
@@ -72,6 +76,8 @@ def _dispatch_qa_write(
     requirement_id: int,
     payload: Dict[str, Any],
     actor: Optional[ActorContext] = None,
+    *,
+    raise_on_failure: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Dispatch one qa write; return the result payload or None on failure."""
     from yoke_contracts.api.function_call import TargetRef
@@ -88,9 +94,21 @@ def _dispatch_qa_write(
             payload=payload,
             actor=actor,
         )
-    except Exception:
+    except Exception as exc:
+        if raise_on_failure:
+            raise QaArtifactWriteError(
+                f"{function_id} transport failed: {exc}"
+            ) from exc
         return None
     if not response.success:
+        if raise_on_failure:
+            error = response.error
+            detail = (
+                f"{error.code}: {error.message}"
+                if error is not None
+                else f"{function_id} returned an unsuccessful response"
+            )
+            raise QaArtifactWriteError(detail)
         return None
     return response.result or {}
 
@@ -158,6 +176,7 @@ def _record_artifact(
     metadata: str,
     *,
     actor: Optional[ActorContext] = None,
+    raise_on_failure: bool = False,
 ) -> Optional[int]:
     """Record a qa_artifact via ``qa.artifact.add``. Returns the id or None."""
     result = _dispatch_qa_write(
@@ -171,6 +190,7 @@ def _record_artifact(
             "metadata": metadata,
         },
         actor=actor,
+        raise_on_failure=raise_on_failure,
     )
     if result is None:
         return None
@@ -186,21 +206,43 @@ def _presign_artifact(
     *,
     actor: Optional[ActorContext] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Mint a presigned PUT via ``qa.artifact.presign`` (None on any miss)."""
-    return _dispatch_qa_write(
-        "qa.artifact.presign",
-        requirement_id,
-        {
-            "run_id": int(run_id),
-            "filename": filename,
-            "content_type": content_type,
-        },
-        actor=actor,
+    """Mint a PUT, returning None only when S3 is genuinely unconfigured."""
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.domain.qa_composed_dispatch import call_qa_function
+
+    try:
+        response = call_qa_function(
+            function_id="qa.artifact.presign",
+            target=TargetRef(
+                kind="qa_requirement",
+                qa_requirement_id=int(requirement_id),
+            ),
+            payload={
+                "run_id": int(run_id),
+                "filename": filename,
+                "content_type": content_type,
+            },
+            actor=actor,
+        )
+    except Exception as exc:
+        raise QaArtifactWriteError(
+            f"qa.artifact.presign transport failed: {exc}"
+        ) from exc
+    if response.success:
+        return response.result or {}
+    if response.error is not None and response.error.code == "s3_not_configured":
+        return None
+    error = response.error
+    detail = (
+        f"{error.code}: {error.message}"
+        if error is not None
+        else "qa.artifact.presign returned an unsuccessful response"
     )
+    raise QaArtifactWriteError(detail)
 
 
-def _upload_artifact(upload_url: str, file_path: str, content_type: str) -> bool:
-    """PUT the capture bytes to the presigned URL (plain HTTPS, no creds)."""
+def _upload_artifact(upload_url: str, file_path: str, content_type: str) -> None:
+    """PUT capture bytes; retain the actual failure for the QA run."""
     import urllib.error
     import urllib.request
 
@@ -214,27 +256,30 @@ def _upload_artifact(upload_url: str, file_path: str, content_type: str) -> bool
             headers={"Content-Type": content_type or "application/octet-stream"},
         )
         with urllib.request.urlopen(request, timeout=60) as response:
-            return 200 <= int(response.status) < 300
-    except (OSError, urllib.error.URLError, ValueError):
-        return False
+            status = int(response.status)
+    except urllib.error.HTTPError as exc:
+        raise QaArtifactWriteError(
+            f"S3 upload failed: HTTP {exc.code} {exc.reason}"
+        ) from exc
+    except (OSError, urllib.error.URLError, ValueError) as exc:
+        raise QaArtifactWriteError(f"S3 upload failed: {exc}") from exc
+    if not 200 <= status < 300:
+        raise QaArtifactWriteError(f"S3 upload failed: HTTP {status}")
 
 
-def _durable_artifact_handle(
+def _record_artifact_file(
     run_id: int,
     requirement_id: int,
     file_path: str,
     content_type: str,
+    artifact_type: str,
+    metadata: str,
     *,
     actor: Optional[ActorContext] = None,
-) -> Dict[str, Any]:
-    """Return the handle to record for one on-disk capture.
-
-    Presign + upload yields the durable S3 handle; any miss yields an
-    explicit ``local`` handle on the capture's absolute path.
-    """
+) -> int:
+    """Persist one capture before recording its readable evidence row."""
     # Lazy import keeps this module patchable per-helper in tests.
     from yoke_core.domain import browser_qa as _bqa
-    from yoke_core.domain.qa_artifact_handle import local_handle
 
     filename = os.path.basename(str(file_path))
     presigned = _bqa._presign_artifact(
@@ -244,14 +289,43 @@ def _durable_artifact_handle(
     if presigned:
         upload_url = presigned.get("upload_url")
         handle = presigned.get("artifact_handle")
-        if (
-            isinstance(upload_url, str)
-            and isinstance(handle, dict)
-            and _bqa._upload_artifact(upload_url, file_path, content_type)
-        ):
-            return handle
-        _bqa._log(
-            f"  upload to durable storage failed for {filename}; "
-            "recording explicit local handle"
+        if not isinstance(upload_url, str) or not isinstance(handle, dict):
+            raise QaArtifactWriteError(
+                "qa.artifact.presign returned no upload_url or artifact_handle"
+            )
+        _bqa._upload_artifact(upload_url, file_path, content_type)
+        artifact_id = _bqa._record_artifact(
+            run_id,
+            requirement_id,
+            artifact_type,
+            content_type,
+            handle,
+            metadata,
+            actor=actor,
+            raise_on_failure=True,
         )
-    return local_handle(os.path.abspath(str(file_path)), content_type)
+    else:
+        try:
+            content = Path(file_path).read_bytes()
+        except OSError as exc:
+            raise QaArtifactWriteError(
+                f"capture file cannot be read for submission: {exc}"
+            ) from exc
+        result = _dispatch_qa_write(
+            "qa.artifact.add",
+            requirement_id,
+            {
+                "run_id": int(run_id),
+                "artifact_type": artifact_type,
+                "content_type": content_type,
+                "content_base64": base64.b64encode(content).decode("ascii"),
+                "filename": filename,
+                "metadata": metadata,
+            },
+            actor=actor,
+            raise_on_failure=True,
+        )
+        artifact_id = result.get("qa_artifact_id") if result is not None else None
+    if artifact_id is None:
+        raise QaArtifactWriteError("qa.artifact.add returned no artifact id")
+    return int(artifact_id)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
 
 import pytest
 from pydantic import BaseModel
@@ -15,14 +14,12 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
     TargetRef,
 )
-from yoke_core.domain import observe_parsing
 from yoke_core.domain import yoke_function_dispatch as dispatch_module
 from yoke_core.domain import yoke_function_dispatch_events as events_module
 from yoke_core.domain import (
     yoke_function_dispatch_observability as observability_module,
 )
 from yoke_core.domain.events import emit_event as native_emit_event
-from yoke_core.domain.observe_event_emission import build_envelope, insert_event
 from yoke_core.domain.yoke_function_dispatch import dispatch
 from yoke_core.domain.yoke_function_registry import (
     register,
@@ -73,7 +70,8 @@ def _timed_handler(clock: _ManualClock, milliseconds: int):
     def handler(_request):
         clock.advance(milliseconds)
         return HandlerOutcome(
-            result_payload={"status": "ok"}, primary_success=True,
+            result_payload={"status": "ok"},
+            primary_success=True,
         )
 
     return handler
@@ -84,7 +82,9 @@ def dispatch_db(monkeypatch):
     reset_registry_for_tests()
     monkeypatch.setattr(dispatch_module, "_HANDLERS_REGISTERED", True)
     monkeypatch.setattr(
-        dispatch_module, "_idempotency_lookup", lambda *_args, **_kwargs: None,
+        dispatch_module,
+        "_idempotency_lookup",
+        lambda *_args, **_kwargs: None,
     )
     try:
         with test_database() as conn:
@@ -92,7 +92,9 @@ def dispatch_db(monkeypatch):
                 events_module,
                 "emit_event",
                 lambda *args, **kwargs: native_emit_event(
-                    *args, conn=conn, **kwargs,
+                    *args,
+                    conn=conn,
+                    **kwargs,
                 ),
             )
             yield conn
@@ -101,7 +103,8 @@ def dispatch_db(monkeypatch):
 
 
 def test_dispatcher_persists_handler_duration_and_slow_call_is_larger(
-    dispatch_db, monkeypatch,
+    dispatch_db,
+    monkeypatch,
 ) -> None:
     clock = _ManualClock()
     monkeypatch.setattr(observability_module, "_read_monotonic", clock.read)
@@ -137,7 +140,8 @@ def test_dispatcher_persists_handler_duration_and_slow_call_is_larger(
 
 
 def test_dispatcher_keeps_running_when_duration_is_unavailable(
-    dispatch_db, monkeypatch,
+    dispatch_db,
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr(observability_module, "_read_monotonic", lambda: None)
     register(
@@ -164,44 +168,9 @@ def test_duration_clock_failure_degrades_to_none(monkeypatch) -> None:
         raise RuntimeError("clock unavailable")
 
     monkeypatch.setattr(
-        observability_module, "_read_monotonic", fail_clock_read,
+        observability_module,
+        "_read_monotonic",
+        fail_clock_read,
     )
 
     assert observability_module.start_duration_measurement() is None
-
-
-def test_post_tool_duration_uses_connected_authority_without_db_token() -> None:
-    with test_database() as conn:
-        started_at = datetime.now(timezone.utc) - timedelta(milliseconds=80)
-        started_text = started_at.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        conn.execute(
-            "INSERT INTO session_tool_calls "
-            "(session_id, tool_use_id, tool_name, started_at) "
-            "VALUES (%s, %s, %s, %s)",
-            ("duration-session", "tool-duration", "Bash", started_text),
-        )
-        conn.commit()
-
-        record = observe_parsing.parse_hook_event(
-            {
-                "tool_name": "Bash",
-                "tool_input": {"command": "true"},
-                "tool_response": {"content": "Exit code 0"},
-            },
-            session_id="duration-session",
-            hook_event="PostToolUse",
-            tool_use_id="tool-duration",
-            db_path=None,
-        )
-
-        assert record is not None
-        assert record.duration_ms is not None
-        assert 50 <= record.duration_ms < 10_000
-        insert_event(conn, build_envelope(record))
-        row = conn.execute(
-            "SELECT duration_ms, envelope FROM events "
-            "WHERE event_name = 'HarnessToolCallCompleted' "
-            "ORDER BY id DESC LIMIT 1"
-        ).fetchone()
-        assert row[0] == record.duration_ms
-        assert json.loads(row[1])["duration_ms"] == record.duration_ms

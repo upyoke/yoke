@@ -160,8 +160,9 @@ SESSION_ADAPTERS = [
     _read_entry(
         function_id="session_control.launch.list",
         cli_invocation=(
-            "yoke session-control launch list --project P "
-            "[--state STATE] [--limit N] [--json]"
+            "yoke session-control launch list --project P [--state STATE] "
+            "[--surface SURFACE] [--machine MACHINE] [--limit N] "
+            "[--cursor CURSOR] [--json]"
         ),
     ),
     AdapterEntry(

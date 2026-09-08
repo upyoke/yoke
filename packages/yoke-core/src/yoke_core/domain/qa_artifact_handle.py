@@ -7,16 +7,17 @@ that names WHERE the artifact bytes live, explicitly:
   durable evidence uploaded to the project environment's artifacts bucket
   at the moment the artifact row was recorded.
 - ``{"backend": "local", "path": P, "content_type": CT?}`` — an explicit
-  machine-local reference (tests, ephemerals, repo-committed baselines).
-  ``path`` is absolute or repo-relative; locality is declared, never
-  inferred from a bare path string.
+  server-local reference. New submitted bytes use the permanent application-
+  data tree only when the owning project has no configured S3 store. Legacy
+  scratch references and repo-committed baselines remain readable. ``path``
+  is absolute or repo-relative; locality is declared, never inferred from a
+  bare path string.
 
 There is no bare-path compatibility shape: writers that try to record a
 path without a backend get a typed denial naming this module's vocabulary.
 S3 keys reuse the historical storage taxonomy
 ``qa-artifacts/{project}/{subject}/{run_id}/{filename}`` -- where the
-subject is the requirement's own owner, an item or a deployment run -- so
-one capture's local scratch layout and its durable key stay parallel.
+subject is the requirement's own owner, an item or a deployment run.
 """
 
 from __future__ import annotations
@@ -31,8 +32,7 @@ BACKEND_S3 = "s3"
 BACKEND_LOCAL = "local"
 VALID_BACKENDS = frozenset({BACKEND_S3, BACKEND_LOCAL})
 
-# Shared key/scratch taxonomy prefix (also used by the capture scratch tree
-# in :mod:`yoke_core.domain.qa_artifacts`).
+# Shared evidence taxonomy prefix, also used by capture and local storage.
 QA_ARTIFACT_STORAGE_KIND = "qa-artifacts"
 
 
@@ -56,10 +56,12 @@ def build_artifact_key(
     subject: Union[int, str],
     run_id: int,
     filename: str,
+    *,
+    storage_prefix: str | None = None,
 ) -> str:
     """Build the canonical S3 object key for one QA artifact.
 
-    Format: ``qa-artifacts/{project}/{subject}/{run_id}/{filename}``.
+    Format: ``{storage_prefix?}/qa-artifacts/{project}/{subject}/{run_id}/{filename}``.
 
     ``subject`` is the requirement's own owner as
     :func:`yoke_core.domain.qa_artifacts.case_artifact_subject` names it --
@@ -68,10 +70,37 @@ def build_artifact_key(
     store evidence at all; assuming an item id refused those requirements
     outright.
     """
-    return (
+    return artifact_key_prefix(
+        project,
+        subject,
+        run_id,
+        storage_prefix=storage_prefix,
+    ) + safe_segment(filename)
+
+
+def safe_storage_prefix(value: str) -> str:
+    """Validate a configured multi-segment S3 ownership prefix."""
+    text = str(value).strip().strip("/")
+    if not text:
+        raise ArtifactHandleError("artifact storage prefix must be non-empty")
+    return "/".join(safe_segment(segment) for segment in text.split("/"))
+
+
+def artifact_key_prefix(
+    project: str,
+    subject: Union[int, str],
+    run_id: int,
+    *,
+    storage_prefix: str | None = None,
+) -> str:
+    """Return the authorized object-key prefix for one QA run."""
+    owner = (
         f"{QA_ARTIFACT_STORAGE_KIND}/{safe_segment(project)}/"
-        f"{safe_segment(str(subject))}/{int(run_id)}/{safe_segment(filename)}"
+        f"{safe_segment(str(subject))}/{int(run_id)}/"
     )
+    if storage_prefix is None:
+        return owner
+    return f"{safe_storage_prefix(storage_prefix)}/{owner}"
 
 
 def s3_handle(
@@ -174,6 +203,7 @@ __all__ = [
     "BACKEND_S3",
     "QA_ARTIFACT_STORAGE_KIND",
     "VALID_BACKENDS",
+    "artifact_key_prefix",
     "build_artifact_key",
     "handle_address",
     "is_present",
@@ -181,6 +211,7 @@ __all__ = [
     "parse_handle",
     "s3_handle",
     "safe_segment",
+    "safe_storage_prefix",
     "serialize_handle",
     "validate_handle",
 ]
