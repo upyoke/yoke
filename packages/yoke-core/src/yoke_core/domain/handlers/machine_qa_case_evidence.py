@@ -115,9 +115,8 @@ def record_machine_case_result(
             filename="machine-evidence.json",
             content=raw_result.encode("utf-8"),
             content_type="application/json",
+            before_local_write=local_artifact_created,
         )
-        if local_artifact_created is not None and evidence_handle["backend"] == "local":
-            local_artifact_created(Path(str(evidence_handle["path"])))
         metadata = {
             "case_key": str(case["case_key"]),
             "host_baseline": case.get("host_baseline"),
@@ -149,9 +148,8 @@ def record_machine_case_result(
                     path=source,
                     filename=f"{key}.png",
                     content_type="image/png",
+                    before_local_write=local_artifact_created,
                 )
-                if local_artifact_created is not None and handle["backend"] == "local":
-                    local_artifact_created(Path(str(handle["path"])))
                 source.unlink(missing_ok=True)
             add_artifact(
                 "terminal_screenshot",

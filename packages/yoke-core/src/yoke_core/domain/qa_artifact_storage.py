@@ -7,7 +7,7 @@ import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from yoke_core.domain import db_backend
 
@@ -85,6 +85,7 @@ def _write_permanent_local(
     filename: str,
     content: bytes,
     content_type: Optional[str],
+    before_write: Callable[[Path], None] | None = None,
 ) -> dict[str, Any]:
     from yoke_core.domain.qa_artifact_handle import local_handle
     from yoke_core.domain.qa_artifacts import (
@@ -98,6 +99,8 @@ def _write_permanent_local(
         int(run_id),
         filename,
     )
+    if before_write is not None:
+        before_write(target)
     handle = tempfile.NamedTemporaryFile(
         dir=target.parent,
         prefix=f".{target.name}.",
@@ -161,6 +164,7 @@ def store_artifact_bytes(
     filename: str,
     content: bytes,
     content_type: Optional[str] = None,
+    before_local_write: Callable[[Path], None] | None = None,
 ) -> dict[str, Any]:
     """Store bytes in configured S3 or permanent server-local storage.
 
@@ -196,6 +200,7 @@ def store_artifact_bytes(
                 filename=filename,
                 content=checked,
                 content_type=content_type,
+                before_write=before_local_write,
             )
         except OSError as exc:
             raise ArtifactStorageError(
@@ -297,6 +302,7 @@ def store_artifact_file(
     path: str | Path,
     filename: str | None = None,
     content_type: Optional[str] = None,
+    before_local_write: Callable[[Path], None] | None = None,
 ) -> dict[str, Any]:
     """Read one submitted file and durably store it through the shared owner."""
 
@@ -315,6 +321,7 @@ def store_artifact_file(
         filename=filename or source.name,
         content=content,
         content_type=content_type,
+        before_local_write=before_local_write,
     )
 
 
