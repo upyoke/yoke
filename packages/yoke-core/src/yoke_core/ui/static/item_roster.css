@@ -113,6 +113,14 @@
   vertical-align: -3px;
 }
 
+/* Places the Load more control under the page it extends. The control itself
+   is an .item-button and reuses that class's existing disabled styling. */
+.universe-app-root .item-roster-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
 @media (max-width: 960px) {
   .universe-app-root .item-filters {
     grid-template-columns: 1fr;

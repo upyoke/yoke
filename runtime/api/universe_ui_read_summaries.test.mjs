@@ -233,7 +233,7 @@ test("Inbox renders its decided empty-state model under one page head", async (t
   mounted.unmount();
 });
 
-test("the items count is the served total, summed across buckets — never rows.length", async (t) => {
+test("the items count is the served match total — never rows.length", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -253,11 +253,14 @@ test("the items count is the served total, summed across buckets — never rows.
     claimed_by: null,
     project,
   });
-  // Each bucket serves one row of a larger total, so the served counts and
-  // the merged rows.length deliberately disagree.
-  const servedByBucket = {
-    1: { rows: [itemRow(11, 1, "alpha")], count: 3 },
-    2: { rows: [itemRow(21, 2, "beta")], count: 4 },
+  // One page of two rows stands in front of a much larger match set, so the
+  // attested total and the rendered rows.length deliberately disagree.
+  const servedPage = {
+    rows: [itemRow(11, 1, "alpha"), itemRow(21, 2, "beta")],
+    count: 2,
+    match_count: 7,
+    next_cursor: null,
+    filters: { workflow_ids: ["issue"], statuses: [] },
   };
   const client = {
     async call(request) {
@@ -279,12 +282,11 @@ test("the items count is the served total, summed across buckets — never rows.
         };
       }
       if (request.function === "items.overview.list") {
+        // The pair is one read carrying both projects, not one read each.
+        assert.deepEqual(request.payload.projects, ["1", "2"]);
         return {
           status: 200,
-          envelope: {
-            success: true,
-            result: servedByBucket[request.payload.project],
-          },
+          envelope: { success: true, result: servedPage },
         };
       }
       throw new Error(`unexpected function ${request.function}`);

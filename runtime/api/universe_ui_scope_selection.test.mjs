@@ -50,7 +50,7 @@ test("a multi view defaults to the whole universe: All chip on, unfiltered read"
   assert.equal(byClass(root, "scope-label")[0].textContent, "Projects");
   // Explicit All is one unfiltered call and survives history/reload.
   assert.deepEqual(
-    itemsCalls(client).map((request) => request.payload.project), [undefined],
+    itemsCalls(client).map((request) => request.payload.projects), [undefined],
   );
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=all");
   mounted.unmount();
@@ -79,7 +79,7 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
   // One project: the read carries it and the hash names it.
   const narrowed = await click("ALP");
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=1");
-  assert.deepEqual(narrowed.map((request) => request.payload.project), ["1"]);
+  assert.deepEqual(narrowed.map((request) => request.payload.projects), [["1"]]);
   assert.deepEqual(
     scopeChips(root).map((chip) => chip.classList.contains("on")),
     [false, true, false],
@@ -89,11 +89,15 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
     (node) => node.tagName === "TH" && node.textContent === "project",
   ));
 
-  // A second chip widens to the pair: one read per member, rows merged in
-  // call order, with each row retaining its own project for drill-in.
+  // A second chip widens to the pair in ONE read carrying both members, not
+  // one read each: pages from separate requests cannot be ordered against
+  // each other, so a fan-out could not serve a newest-first page across the
+  // pair at all. Each row still retains its own project for drill-in.
   const paired = await click("BET");
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=1,2");
-  assert.deepEqual(paired.map((request) => request.payload.project), ["1", "2"]);
+  assert.deepEqual(
+    paired.map((request) => request.payload.projects), [["1", "2"]],
+  );
   const cells = allNodes(root)
     .filter((node) => node.tagName === "TD")
     .map(cellText);
@@ -121,7 +125,9 @@ test("chips narrow to one, widen to a pair, and empty back out to All", async (t
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=2");
   const widened = await click("BET");
   assert.equal(documentNode.defaultView.location.hash, "#/items?project=all");
-  assert.deepEqual(widened.map((request) => request.payload.project), [undefined]);
+  assert.deepEqual(
+    widened.map((request) => request.payload.projects), [undefined],
+  );
   assert.deepEqual(
     scopeChips(root).map((chip) => chip.classList.contains("on")),
     [true, false, false],
@@ -220,7 +226,7 @@ test("screens share the current scope across nav round trips", async (t) => {
   // ...and following it restores that scope's read.
   await navigate(itemsLink.href);
   const lastItems = itemsCalls(client).at(-1);
-  assert.equal(lastItems.payload.project, "2");
+  assert.deepEqual(lastItems.payload.projects, ["2"]);
   mounted.unmount();
 });
 

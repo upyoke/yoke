@@ -184,7 +184,8 @@ test("global-to-project-to-global round trips synchronize chips, URLs and reads"
   assert.equal(windowNode.location.hash, "#/workflows?project=1,2");
   assert.match(byClass(root, "scope-context-note")[0].textContent, /universe-wide/);
   await navigate("#/items");
-  assert.deepEqual(itemsCalls(client).slice(-2).map((call) => call.payload.project), ["1", "2"]);
+  // The pair is one read naming both projects, not one read per member.
+  assert.deepEqual(itemsCalls(client).at(-1).payload.projects, ["1", "2"]);
   await navigate("#/projects");
   assert.deepEqual(selected(root), ["ALP", "BET"]);
   assert.equal(windowNode.location.hash, "#/projects?project=1,2");

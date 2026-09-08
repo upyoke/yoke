@@ -5,6 +5,9 @@ import {
   mountUniverseApp,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
+  ROSTER_PAGE_SIZE,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_items_roster_loader.js";
+import {
   FakeDocument,
   allNodes,
   byClass,
@@ -188,7 +191,9 @@ test("Items roster names projects but keeps blocking details out", async (t) => 
     byClass(root, "row-link").map((node) => node.href),
     ["#/items/1?project=1", "#/items/2?project=1"],
   );
-  assert.deepEqual(itemsRequest.payload, {});
+  // The roster pages, so the read names its page size and nothing else at
+  // an unfiltered scope.
+  assert.deepEqual(itemsRequest.payload, { page_size: ROSTER_PAGE_SIZE });
   assert.equal(byClass(root, "panel-count").length, 0);
   mounted.unmount();
 });
