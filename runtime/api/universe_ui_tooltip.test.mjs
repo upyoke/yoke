@@ -177,6 +177,10 @@ test("the bubble escapes clipping rows and stays inside the viewport", () => {
   ), "utf8");
   // Fixed, not absolute: these hang off pills inside rows that clip.
   assert.match(css, /\.tooltip-bubble \{[^}]*position: fixed;/s);
+  // Unscoped on purpose: the bubble is parked in `body`, so a rule written
+  // under `.universe-app-root` would not reach it and it would render with
+  // no styling at all.
+  assert.doesNotMatch(css, /\.universe-app-root \.tooltip-bubble/);
   assert.match(css, /\.tooltip-bubble \{[^}]*max-width: min\(280px, calc\(100vw - 16px\)\);/s);
   assert.match(css, /\.tooltip-bubble\[hidden\] \{\s*display: none;\s*\}/);
   assert.match(css, /\.has-tooltip:focus-visible \{[^}]*outline: 2px solid var\(--yoke-accent\);/s);

@@ -2,19 +2,15 @@
    pill on the Sessions roster and a timestamp on an item detail explain
    themselves the same way. */
 
+/* The trigger keeps exactly the box and the styling it already had. These
+   sentences used to hang off `title`, and marking every one of them would
+   redecorate rows the operator reads at a glance — a usage line whose every
+   word is underlined is harder to read, not more discoverable. The cursor
+   says there is more here; the focus ring says a keyboard has reached it;
+   and where nothing visible carries the explanation at all, `infoTooltip`
+   mints the (i) that does. */
 .universe-app-root .has-tooltip {
   cursor: help;
-}
-
-/* The trigger keeps whatever box it already had; only the underline marks
-   that there is more to read. Controls and links carry their own affordance
-   already, so they are left alone. */
-.universe-app-root span.has-tooltip,
-.universe-app-root time.has-tooltip,
-.universe-app-root div.has-tooltip {
-  text-decoration: underline dotted
-    color-mix(in srgb, var(--yoke-muted) 60%, transparent);
-  text-underline-offset: 2px;
 }
 
 .universe-app-root .has-tooltip:focus-visible {
@@ -22,10 +18,13 @@
   outline-offset: 2px;
 }
 
-/* Fixed, so a bubble hanging off a pill inside a clipping row is positioned
-   against the viewport instead of being cut off by an ancestor's overflow.
-   The script sets left/top from the trigger's own box. */
-.universe-app-root .tooltip-bubble {
+/* Deliberately unscoped, unlike every other rule in this sheet: the bubble is
+   a document-level layer parked in `body` rather than inside the app root, so
+   no clipping ancestor can reach it and nothing it renders joins a trigger's
+   own text. The theme variables live on `:root`, so it still reads the same
+   palette. Fixed positioning is the other half of escaping those ancestors;
+   the script sets left/top from the trigger's own box. */
+.tooltip-bubble {
   position: fixed;
   z-index: 60;
   display: block;
@@ -51,7 +50,7 @@
   cursor: auto;
 }
 
-.universe-app-root .tooltip-bubble[hidden] {
+.tooltip-bubble[hidden] {
   display: none;
 }
 
