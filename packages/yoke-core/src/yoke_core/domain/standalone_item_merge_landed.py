@@ -4,21 +4,14 @@ Every close-out step after the merge assumes there is still something to
 land, and three of them are not free when that assumption is wrong. The
 commit-bound QA recovery re-executes a SHA-bound CI case, which publishes the
 lane — and publishing a lane whose pull request is sitting in the merge queue
-is refused by GitHub and drops the pull request out of the train. Full queue
-admission is wrong after landing too. A durable queue handoff marker is enough
-to run only its post-landing bookkeeping: recover the identified merge-group
-proof and receipt without publishing or re-entering the pull request.
+is refused by GitHub and drops the pull request out of the train. A durable
+queue handoff instead runs only post-landing bookkeeping.
 
-So the merge boundary asks this question once, before any of them, and
-converges when the answer is yes. Skipping the pre-merge QA gate on that path
-waives nothing: the gate exists to refuse *before* a branch lands, and the
-terminal ``done`` transition still runs the same blocking-run check against
-the merge identity recorded here.
+The boundary asks once and converges when the answer is yes. This waives no QA:
+the gate refuses *before* landing, and ``done`` rechecks the merge identity.
 
-The answer comes from the checkout and the durable receipt, never from
-GitHub. A landing is exactly "the base branch contains the lane", and ``git
-fetch`` answers that while an API token or an SSH tunnel is still down —
-which is the state the boundary is most often re-entered in.
+The answer comes from Git: the target must contain the lane head or a
+receipt's merge SHA. A receipt's source commit alone is never landing proof.
 
 Which commit the landing is *answerable for* is a second question with a
 different answer. The lane head decides whether anything is left to merge;
@@ -59,10 +52,18 @@ def _norm(sha: str) -> str:
     return sha.strip().lower()
 
 
-def _recorded_identities(receipt: Optional[receipts.MergeReceipt]) -> set[str]:
-    if receipt is None:
-        return set()
-    return {sha for sha in (_norm(receipt.commit_sha), _norm(receipt.merge_sha)) if sha}
+def _recorded_landing(
+    receipt: Optional[receipts.MergeReceipt],
+    repo_root: str,
+    target: str,
+) -> tuple[set[str], str]:
+    if receipt is None or not receipt.merge_sha:
+        return set(), ""
+    merge_sha = _norm(receipt.merge_sha)
+    containing = git.containing_ref(repo_root, merge_sha, target)
+    if not containing:
+        return set(), ""
+    return {sha for sha in (_norm(receipt.commit_sha), merge_sha) if sha}, containing
 
 
 def current_candidate(repo_root: str, branch: str, recorded_head: str = "") -> str:
@@ -82,13 +83,12 @@ def stale_unlanded_work(
 ) -> str:
     """Why this close-out must not run, or empty when the landing still matches.
 
-    A recorded receipt is the landing identity. Matching it — including a
-    squash whose original head is not on the base — is crash re-entry. A
-    different head the base does not contain is new work and must not be
-    declared delivered or cleaned here.
+    A target-contained receipt merge SHA proves the landing. Its source commit
+    can match squash re-entry; any other uncontained head is new work.
     """
     current = current_candidate(repo_root, branch, recorded_head)
-    identities = _recorded_identities(receipts.load(item_id, branch, target))
+    receipt = receipts.load(item_id, branch, target)
+    identities, _ = _recorded_landing(receipt, repo_root, target)
     if not current or not identities:
         return ""
     if _norm(current) in identities:
@@ -124,7 +124,14 @@ def _describe(
         and git.is_ancestor(repo_root, recorded.commit_sha, containing)
     ):
         commit_sha = recorded.commit_sha
-    merge_sha = (recorded.merge_sha if recorded is not None else "") or (
+    recorded_merge_sha = recorded.merge_sha if recorded is not None else ""
+    if recorded_merge_sha and not git.is_ancestor(
+        repo_root,
+        recorded_merge_sha,
+        containing,
+    ):
+        recorded_merge_sha = ""
+    merge_sha = recorded_merge_sha or (
         receipts.landing_merge_commit(repo_root, containing, commit_sha)
     )
     return LandedLane(
@@ -154,14 +161,12 @@ def landed_lane(
 ) -> Optional[LandedLane]:
     """The landing this lane already has, or ``None`` when work is left.
 
-    While the branch exists it is the authority on that question: a lane
-    whose head is not a recorded landing identity and that the base does not
-    contain has not landed. Matching a recorded identity is the same landing
-    even when a squash is not an ancestor of the base. Once the branch is gone
-    the recorded lane head answers, and the receipt after it.
+    The live branch is authoritative unless a target-contained receipt proves
+    its matching squash landing. Once it is gone, the recorded head and receipt
+    answer from the same target-containment proof.
     """
     receipt = receipts.load(item_id, branch, target)
-    identities = _recorded_identities(receipt)
+    identities, receipt_ref = _recorded_landing(receipt, repo_root, target)
     if git.branch_exists(repo_root, branch):
         head = git.head_of(repo_root, branch)
         containing = git.containing_ref(repo_root, head, target)
@@ -174,7 +179,7 @@ def landed_lane(
             repo_root=repo_root,
             project=project,
             landed_sha=head,
-            containing=containing or target,
+            containing=containing or receipt_ref,
             source="lane branch" if containing else "merge receipt",
         )
     candidates = [(recorded_head, "recorded lane head")]

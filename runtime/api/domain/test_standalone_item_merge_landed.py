@@ -83,7 +83,12 @@ def _wire_cli(monkeypatch, item, *, stale=""):
 
 
 def test_a_live_lane_the_base_contains_reports_the_landing(monkeypatch):
-    _probe(monkeypatch, branch_exists=True, head=LANE_SHA, contains=(LANE_SHA,))
+    _probe(
+        monkeypatch,
+        branch_exists=True,
+        head=LANE_SHA,
+        contains=(LANE_SHA, MERGE_SHA),
+    )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
     lane = _lane()
     assert lane is not None
@@ -96,14 +101,19 @@ def test_a_live_lane_the_base_contains_reports_the_landing(monkeypatch):
 
 
 def test_a_lane_carrying_new_commits_has_not_landed(monkeypatch):
-    _probe(monkeypatch, branch_exists=True, head="9" * 40, contains=(LANE_SHA,))
+    _probe(
+        monkeypatch,
+        branch_exists=True,
+        head="9" * 40,
+        contains=(LANE_SHA, MERGE_SHA),
+    )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
     assert _lane() is None
     assert "fresh work item" in landed.stale_unlanded_work(**_LOOK)
 
 
 def test_a_squashed_head_matching_the_receipt_has_landed(monkeypatch):
-    _probe(monkeypatch, branch_exists=True, head=LANE_SHA, contains=())
+    _probe(monkeypatch, branch_exists=True, head=LANE_SHA, contains=(MERGE_SHA,))
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
     lane = _lane()
     assert lane is not None and lane.commit_sha == LANE_SHA

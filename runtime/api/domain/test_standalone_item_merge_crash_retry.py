@@ -13,6 +13,7 @@ import pytest
 
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import item_merge_receipts as receipts
 
 ITEM_ID = 7
@@ -146,6 +147,44 @@ class TestInterruptedMergeConverges:
 
         assert not outcome.ok
         assert "before the branch landed" in outcome.error
+
+    @pytest.mark.parametrize("false_merge_sha", ["", "commit"])
+    def test_an_unlanded_receipt_resumes_the_real_merge_path(
+        self,
+        repo: Path,
+        ledger: _ReceiptStore,
+        monkeypatch: pytest.MonkeyPatch,
+        false_merge_sha: str,
+    ) -> None:
+        commit_sha = _git_out(repo, "rev-parse", BRANCH)
+        ledger.record(
+            ITEM_ID,
+            receipts.MergeReceipt(
+                branch=BRANCH,
+                target=TARGET,
+                commit_sha=commit_sha,
+                merge_sha=commit_sha if false_merge_sha else "",
+                touched_files=("feature.txt",),
+            ),
+        )
+        assert (
+            landed.landed_lane(
+                item_id=ITEM_ID,
+                branch=BRANCH,
+                target=TARGET,
+                repo_root=str(repo),
+                project="yoke",
+            )
+            is None
+        )
+
+        def land_now():
+            _land(repo)
+            return 0, ""
+
+        monkeypatch.setattr(sim, "_run_merge_engine", _engine_that(land_now))
+        outcome = _merge(repo)
+        assert outcome.ok and git.is_ancestor(str(repo), commit_sha, TARGET)
 
     def test_a_retry_with_the_ref_gone_converges_from_the_receipt(
         self, repo: Path, ledger: _ReceiptStore,
