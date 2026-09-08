@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.session_item_scope import session_item_scope
+from yoke_core.domain.session_item_scope import (
+    session_claim_for_item,
+    session_item_scope,
+)
 from runtime.api.domain.test_session_message_support import (
     NOW_TEXT,
     message_connection,
@@ -74,3 +77,48 @@ def test_a_session_that_never_held_an_item_has_no_scope() -> None:
 
     assert session_item_scope(conn, "s2") is None
     assert session_item_scope(conn, None) is None
+
+
+class _RecordingConn:
+    """Count item-metadata lookups without patching sqlite3.Connection."""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.item_ids: list[int] = []
+
+    def execute(self, sql, params=()):
+        if "FROM items" in str(sql):
+            self.item_ids.append(int(params[0]))
+        return self._inner.execute(sql, params)
+
+
+def test_ordinary_scope_stops_after_the_first_matching_item() -> None:
+    conn = message_connection()
+    conn.execute(
+        "INSERT INTO work_claims (id,session_id,target_kind,scope,claimed_at,"
+        "released_at) VALUES (7,'s1','item','{\"item_id\":201}',?,?)",
+        (NOW_TEXT, LATER_TEXT),
+    )
+    conn.commit()
+    recorded = _RecordingConn(conn)
+
+    session_item_scope(recorded, "s1")
+
+    assert recorded.item_ids == [101]
+
+
+def test_named_claim_skips_unrelated_item_metadata() -> None:
+    conn = message_connection()
+    _release(conn, 1)
+    conn.execute(
+        "INSERT INTO work_claims (id,session_id,target_kind,scope,claimed_at) "
+        "VALUES (8,'s1','item','{\"item_id\":201}',?)",
+        (NOW_TEXT,),
+    )
+    conn.commit()
+    recorded = _RecordingConn(conn)
+
+    found = session_claim_for_item(recorded, "s1", 101)
+
+    assert found is not None and found.live is False
+    assert recorded.item_ids == [101]

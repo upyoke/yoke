@@ -13,7 +13,7 @@ work this session did, while another session's released claim is not.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterator
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.work_claim_targets import TARGET_KIND_ITEM, decode_scope
@@ -28,10 +28,10 @@ class SessionItemScope:
     live: bool
 
 
-def _iter_item_scopes(conn: Any, session_id: str) -> list[SessionItemScope]:
+def _claim_rows(conn: Any, session_id: str) -> list[Any]:
     """Live item claims first, then this session's released item claims."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    rows = conn.execute(
+    return conn.execute(
         "SELECT wc.scope AS scope, wc.released_at AS released_at "
         "FROM work_claims wc "
         f"WHERE wc.session_id = {marker} AND wc.target_kind = {marker} "
@@ -39,36 +39,54 @@ def _iter_item_scopes(conn: Any, session_id: str) -> list[SessionItemScope]:
         "wc.claimed_at DESC, wc.id DESC",
         (str(session_id), TARGET_KIND_ITEM),
     ).fetchall()
-    scopes: list[SessionItemScope] = []
+
+
+def _item_id_from_claim(record: dict[str, Any]) -> int:
+    return int(decode_scope(record["scope"])["item_id"])
+
+
+def _scope_from_claim(conn: Any, record: dict[str, Any]) -> SessionItemScope | None:
+    """Resolve one claim row's item, or ``None`` when that item is gone."""
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    item_id = _item_id_from_claim(record)
+    item = conn.execute(
+        f"SELECT project_id FROM items WHERE id = {marker}",
+        (item_id,),
+    ).fetchone()
+    if item is None:
+        return None
+    return SessionItemScope(
+        item_id=item_id,
+        project_id=int(dict(item)["project_id"]),
+        live=record["released_at"] is None,
+    )
+
+
+def _iter_item_scopes(
+    conn: Any, session_id: str, *, item_id: int | None = None
+) -> Iterator[SessionItemScope]:
+    """Yield matching scopes lazily; skip unrelated ids before item lookup."""
+    wanted = None if item_id is None else int(item_id)
     seen: set[int] = set()
-    for row in rows:
+    for row in _claim_rows(conn, session_id):
         record = dict(row)
-        item_id = int(decode_scope(record["scope"])["item_id"])
-        if item_id in seen:
+        found_id = _item_id_from_claim(record)
+        if wanted is not None and found_id != wanted:
             continue
-        item = conn.execute(
-            f"SELECT project_id FROM items WHERE id = {marker}",
-            (item_id,),
-        ).fetchone()
-        if item is None:
+        if found_id in seen:
             continue
-        seen.add(item_id)
-        scopes.append(
-            SessionItemScope(
-                item_id=item_id,
-                project_id=int(dict(item)["project_id"]),
-                live=record["released_at"] is None,
-            )
-        )
-    return scopes
+        scope = _scope_from_claim(conn, record)
+        if scope is None:
+            continue
+        seen.add(found_id)
+        yield scope
 
 
 def session_item_scope(conn: Any, session_id: str | None) -> SessionItemScope | None:
     """Return the item this session holds, else the one it last released."""
     if not session_id:
         return None
-    scopes = _iter_item_scopes(conn, session_id)
-    return scopes[0] if scopes else None
+    return next(_iter_item_scopes(conn, session_id), None)
 
 
 def session_claim_for_item(
@@ -77,11 +95,7 @@ def session_claim_for_item(
     """The live or released item claim this session has on *item_id*."""
     if not session_id:
         return None
-    wanted = int(item_id)
-    for scope in _iter_item_scopes(conn, session_id):
-        if scope.item_id == wanted:
-            return scope
-    return None
+    return next(_iter_item_scopes(conn, session_id, item_id=item_id), None)
 
 
 __all__ = [
