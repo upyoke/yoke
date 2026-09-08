@@ -8,6 +8,10 @@ from typing import Any
 from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.actors import ActorError
+from yoke_core.domain.machine_access_authority import (
+    actor_administers_project,
+    actor_may_use_machine,
+)
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.session_launch_capacity import machine_capacity
 from yoke_core.domain.session_relay_storage import marker
@@ -47,6 +51,20 @@ def _owner_names(conn: Any, actor_ids: set[int]) -> dict[int, str]:
     return names
 
 
+def _administers_universe(conn: Any, *, actor_id: int, project_ids: set[int]) -> bool:
+    """Resolve administrator standing once for the whole roster.
+
+    Administrator standing is granted per project, while a roster spans every
+    project this actor takes part in, so the closest true statement the roster
+    can make is "administers somewhere in this universe". Reading it once here
+    keeps it off the per-relay path.
+    """
+    return any(
+        actor_administers_project(conn, actor_id=int(actor_id), project_id=project_id)
+        for project_id in sorted(project_ids)
+    )
+
+
 def list_visible_relays(
     conn: Any,
     *,
@@ -56,7 +74,14 @@ def list_visible_relays(
     limit: int = 100,
     now: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Return safe relay facts intersected with actor-visible projects."""
+    """Return safe relay facts for the machines this actor may see.
+
+    A machine earns a card two ways: it serves a project this actor can see, or
+    the registry's access document lets this actor spend its capacity. The
+    second ground is why a machine that has only just connected — no checkout
+    recorded yet, so nothing to intersect with — is still on the roster. Having
+    a checkout is a launch prerequisite, never a condition of being seen.
+    """
     from yoke_core.domain.session_relay_storage import utc_now
 
     current = now or utc_now()
@@ -93,6 +118,8 @@ def list_visible_relays(
     for mark in list_marks(conn):
         marks_by_machine.setdefault(str(mark["machine_id"]), []).append(mark)
 
+    is_admin = _administers_universe(conn, actor_id=actor_id, project_ids=visible)
+
     result: list[dict[str, Any]] = []
     for row in rows:
         projects = {
@@ -103,10 +130,23 @@ def list_visible_relays(
         visible_projects = sorted(projects & visible)
         if requested_project is not None and requested_project not in projects:
             continue
-        if not visible_projects:
+        machine_id = str(_value(row, "machine_id", 1))
+        # A roster spans projects, so the only project context it can offer the
+        # access authority is the one the caller filtered by. A role-mode access
+        # document always declares its own project, which the authority prefers
+        # over this value.
+        if (
+            not visible_projects
+            and not actor_may_use_machine(
+                conn,
+                machine_id=machine_id,
+                actor_id=int(actor_id),
+                project_id=int(requested_project or 0),
+                is_admin=is_admin,
+            ).allowed
+        ):
             continue
         connected_until = _value(row, "connected_until", 8)
-        machine_id = str(_value(row, "machine_id", 1))
         capacity = machine_capacity(
             conn,
             machine_id=machine_id,
@@ -116,8 +156,8 @@ def list_visible_relays(
         result.append(
             {
                 "relay_id": str(_value(row, "relay_id", 0)),
-                # The owner's name, never the raw actor id: a relay is visible
-                # to everyone who shares one of its projects, and they need to
+                # The owner's name, never the raw actor id: a roster mixes
+                # teammates' machines with this actor's own, and they need to
                 # know whose machine they are about to launch onto.
                 "owner": owners.get(int(_value(row, "actor_id", 11)), ""),
                 "machine_id": machine_id,
