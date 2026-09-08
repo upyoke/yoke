@@ -273,7 +273,7 @@ test("organization Fleet edits only changed registry-backed settings", async (t)
   mounted.unmount();
 });
 
-test("roster includes ended sessions with exact message actions", async (t) => {
+test("roster keeps exact message actions on open sessions only", async (t) => {
   const requests = [];
   const base = {
     execution_lane: "DARIUS", mode: "wait", executor: "codex",
@@ -284,20 +284,26 @@ test("roster includes ended sessions with exact message actions", async (t) => {
     activity_at: "2026-07-26T12:00:00Z",
   };
   const client = shellClient(requests, {
-    "sessions.list": () => ok({ rows: [{
+    "sessions.list": (request) => request.payload.open ? ok({ rows: [{
       ...base, session_id: "messageable", liveness: "active",
       messageability: { messageable: true, wake_available: false },
     }, {
       ...base, session_id: "wakeable", liveness: "stale",
       messageability: { messageable: false, wake_available: true },
-    }, {
-      ...base, session_id: "ended-wakeable", liveness: "ended",
-      messageability: { messageable: true, wake_available: true },
-    }] }),
+    }] }) : ok({
+      rows: [{
+        session_id: "ended-wakeable", liveness: "ended", project_id: 1,
+        project: "yoke", executor: "codex", executor_surface: "codex-desktop",
+        machine_id: "machine-1", machine_name: "studio",
+        activity_at: "2026-07-26T12:00:00Z", current_item: null,
+      }],
+      matched_count: 1, next_cursor: null,
+      facets: { projects: [], harnesses: [], machines: [] },
+    }),
     "session_control.message.preview": () => ok({
       recipients: [{
-        ...base, session_id: "ended-wakeable", liveness: "ended",
-        messageability: { messageable: true, wake_available: true },
+        ...base, session_id: "messageable", liveness: "active",
+        messageability: { messageable: true, wake_available: false },
       }],
       recipient_count: 1,
       confirmation_token: "confirmed-ended",
@@ -311,6 +317,7 @@ test("roster includes ended sessions with exact message actions", async (t) => {
     .children[1];
   state.value = "";
   state.dispatchEvent(new Event("change"));
+  await settle();
   const cardIds = () => byClass(root, "session-card").map(
     (card) => card.getAttribute("data-session-id"),
   );
@@ -323,14 +330,18 @@ test("roster includes ended sessions with exact message actions", async (t) => {
   const endedCard = byClass(root, "session-card").find(
     (card) => card.getAttribute("data-session-id") === "ended-wakeable",
   );
-  button(endedCard, "Message").dispatchEvent(new Event("click"));
+  assert.equal(button(endedCard, "Message"), undefined);
+  const activeCard = byClass(root, "session-card").find(
+    (card) => card.getAttribute("data-session-id") === "messageable",
+  );
+  button(activeCard, "Message").dispatchEvent(new Event("click"));
   await settle();
   assert.equal(byClass(root, "session-message-selector-sessions").length, 0);
   assert.deepEqual(
     requests.find(
       (request) => request.function === "session_control.message.preview",
     ).payload.selector,
-    { session_ids: ["ended-wakeable"] },
+    { session_ids: ["messageable"] },
   );
   state.value = "active";
   state.dispatchEvent(new Event("change"));
