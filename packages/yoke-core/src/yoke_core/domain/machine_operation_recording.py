@@ -10,6 +10,7 @@ from yoke_contracts.machine_config.test_machine import test_machine_capability_t
 from yoke_contracts.machine_qa_execution import (
     BRIDGE_DIAGNOSE_OPERATION,
     GOLDEN_CAPTURE_OPERATION,
+    HostControlExecutionContract,
     RESET_OPERATION,
 )
 
@@ -99,6 +100,33 @@ def record_test_machine_operation(
     }
 
 
+def record_test_machine_baseline_reset(
+    conn: Any,
+    contract: HostControlExecutionContract,
+    preparation: Mapping[str, Any],
+    *,
+    lease_id: int,
+    contract_digest: str,
+) -> dict[str, Any] | None:
+    """Record a plan preparation reset when its contract authorized one."""
+    if not contract.baselines:
+        return None
+    baseline = contract.baselines[0]
+    ok = bool(preparation.get("ok"))
+    evidence = dict(preparation.get("evidence") or {})
+    return record_test_machine_operation(
+        conn,
+        contract.project_id,
+        machine=contract.settings["resource_name"],
+        operation=RESET_OPERATION,
+        status="verified" if ok else "error",
+        checks=[{**evidence, "name": baseline, "ok": ok}],
+        error_code=str(preparation.get("error_code") or "") or None,
+        lease_id=lease_id,
+        contract_digest=contract_digest,
+    )
+
+
 def recorded_test_machine_operation(
     conn: Any,
     project_id: int,
@@ -155,6 +183,7 @@ def test_machine_operation_receipts(
 
 __all__ = [
     "RECORDED_OPERATIONS",
+    "record_test_machine_baseline_reset",
     "record_test_machine_operation",
     "recorded_test_machine_operation",
     "test_machine_operation_receipts",

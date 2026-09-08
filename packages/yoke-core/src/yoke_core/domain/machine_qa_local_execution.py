@@ -201,11 +201,8 @@ def prepare_agent_mission_contract(
     execution = _execution(contract, progress_callback=progress_callback)
     if progress_callback is not None:
         progress_callback()
-    baseline = (
-        execution.reach_baseline(contract.cases[0].host_baseline)
-        if contract.cases[0].host_baseline
-        else None
-    )
+    baseline_name = contract.baselines[0] if contract.baselines else None
+    baseline = execution.reach_baseline(baseline_name) if baseline_name else None
     if progress_callback is not None:
         progress_callback()
     scratch_path = create_mission_scratch(
