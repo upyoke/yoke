@@ -25,6 +25,12 @@ different answer. The lane head decides whether anything is left to merge;
 the receipt names the commit the merge recorded, and that is the one evidence
 must carry, because a lane fast-forwarded onto the base after its merge points
 at the merge commit rather than at the work.
+
+Close-out therefore compares the current lane candidate to those recorded
+identities before it stamps, records, or cleans. Matching the recorded
+candidate is the same landing even when a squash is not an ancestor of the
+base. A different candidate that the base does not contain is new work: the
+recovery is a fresh work item with its own merge identity, not this close-out.
 """
 
 from __future__ import annotations
@@ -47,6 +53,55 @@ class LandedLane:
     merge_sha: str = ""
     touched_files: tuple[str, ...] = field(default=())
     source: str = ""
+
+
+def _norm(sha: str) -> str:
+    return sha.strip().lower()
+
+
+def _recorded_identities(receipt: Optional[receipts.MergeReceipt]) -> set[str]:
+    if receipt is None:
+        return set()
+    return {sha for sha in (_norm(receipt.commit_sha), _norm(receipt.merge_sha)) if sha}
+
+
+def current_candidate(repo_root: str, branch: str, recorded_head: str = "") -> str:
+    """The commit the live branch points at, else the last recorded lane head."""
+    if git.branch_exists(repo_root, branch):
+        return git.head_of(repo_root, branch).strip()
+    return (recorded_head or "").strip()
+
+
+def stale_unlanded_work(
+    *,
+    item_id: int,
+    branch: str,
+    target: str,
+    repo_root: str,
+    recorded_head: str = "",
+) -> str:
+    """Why this close-out must not run, or empty when the landing still matches.
+
+    A recorded receipt is the landing identity. Matching it — including a
+    squash whose original head is not on the base — is crash re-entry. A
+    different head the base does not contain is new work and must not be
+    declared delivered or cleaned here.
+    """
+    current = current_candidate(repo_root, branch, recorded_head)
+    identities = _recorded_identities(receipts.load(item_id, branch, target))
+    if not current or not identities:
+        return ""
+    if _norm(current) in identities:
+        return ""
+    if git.containing_ref(repo_root, current, target):
+        return ""
+    named = ", ".join(sorted(sha[:12] for sha in identities))
+    return (
+        f"branch {branch!r} head {current[:12]} is not the recorded landing "
+        f"({named}); file a fresh work item so the new commits get their own "
+        "merge identity. Close-out will not declare them delivered or clean "
+        "this lane"
+    )
 
 
 def _describe(
@@ -99,24 +154,30 @@ def landed_lane(
 ) -> Optional[LandedLane]:
     """The landing this lane already has, or ``None`` when work is left.
 
-    While the branch exists it is the only authority on that question: a lane
-    carrying commits the base does not have has not landed, whatever an older
-    receipt says about an earlier head. Once the branch is gone the recorded
-    lane head answers, and the receipt after it — the last surviving record of
-    what the lane carried.
+    While the branch exists it is the authority on that question: a lane
+    whose head is not a recorded landing identity and that the base does not
+    contain has not landed. Matching a recorded identity is the same landing
+    even when a squash is not an ancestor of the base. Once the branch is gone
+    the recorded lane head answers, and the receipt after it.
     """
+    receipt = receipts.load(item_id, branch, target)
+    identities = _recorded_identities(receipt)
     if git.branch_exists(repo_root, branch):
         head = git.head_of(repo_root, branch)
         containing = git.containing_ref(repo_root, head, target)
-        if not containing:
+        if not containing and _norm(head) not in identities:
             return None
         return _describe(
-            item_id=item_id, branch=branch, target=target,
-            repo_root=repo_root, project=project, landed_sha=head,
-            containing=containing, source="lane branch",
+            item_id=item_id,
+            branch=branch,
+            target=target,
+            repo_root=repo_root,
+            project=project,
+            landed_sha=head,
+            containing=containing or target,
+            source="lane branch" if containing else "merge receipt",
         )
     candidates = [(recorded_head, "recorded lane head")]
-    receipt = receipts.load(item_id, branch, target)
     if receipt is not None:
         candidates.append((receipt.commit_sha, "merge receipt"))
         candidates.append((receipt.merge_sha, "merge receipt"))
@@ -124,9 +185,14 @@ def landed_lane(
         containing = git.containing_ref(repo_root, candidate, target)
         if containing:
             return _describe(
-                item_id=item_id, branch=branch, target=target,
-                repo_root=repo_root, project=project, landed_sha=candidate,
-                containing=containing, source=source,
+                item_id=item_id,
+                branch=branch,
+                target=target,
+                repo_root=repo_root,
+                project=project,
+                landed_sha=candidate,
+                containing=containing,
+                source=source,
             )
     return None
 
@@ -194,6 +260,22 @@ def converge(
     naming the merge identity, and — when the landing never reached origin
     because the process carrying it died first — the push that publishes it.
     """
+    stale = stale_unlanded_work(
+        item_id=item_id,
+        branch=lane.branch,
+        target=lane.target,
+        repo_root=repo_root,
+        recorded_head=lane.commit_sha,
+    )
+    if stale:
+        from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
+
+        return StandaloneMergeOutcome(
+            ok=False,
+            exit_code=1,
+            already_merged=False,
+            error=stale,
+        )
     if queue_pr_number:
         return _converge_queue_landing(
             item_id=item_id,
@@ -220,8 +302,10 @@ def converge(
     receipt_note = receipts.record(
         item_id,
         receipts.MergeReceipt(
-            branch=lane.branch, target=lane.target,
-            commit_sha=lane.commit_sha, merge_sha=merge_sha,
+            branch=lane.branch,
+            target=lane.target,
+            commit_sha=lane.commit_sha,
+            merge_sha=merge_sha,
             touched_files=lane.touched_files,
         ),
     )
@@ -231,9 +315,7 @@ def converge(
     pushed = False
     if git.has_remote(repo_root):
         git.fetch_target(repo_root, lane.target)
-        if not git.is_ancestor(
-            repo_root, lane.commit_sha, f"origin/{lane.target}"
-        ):
+        if not git.is_ancestor(repo_root, lane.commit_sha, f"origin/{lane.target}"):
             pushed, push_warning = git.publish(repo_root, lane.target)
             if push_warning:
                 warnings.append(push_warning)
@@ -252,4 +334,10 @@ def converge(
     )
 
 
-__all__ = ["LandedLane", "converge", "landed_lane"]
+__all__ = [
+    "LandedLane",
+    "converge",
+    "current_candidate",
+    "landed_lane",
+    "stale_unlanded_work",
+]

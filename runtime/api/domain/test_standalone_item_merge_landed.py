@@ -1,11 +1,4 @@
-"""A lane the base branch already contains converges instead of re-landing.
-
-Each case here is a close-out that ran a second time against work that had
-already merged, and each one made things worse rather than merely wasting a
-call: re-running the commit-bound QA recovery published a lane whose pull
-request was sitting in the merge queue, and re-entering the queue read a train
-run for a pull request GitHub had already merged.
-"""
+"""A lane the base branch already contains converges instead of re-landing."""
 
 from __future__ import annotations
 
@@ -31,6 +24,7 @@ RECEIPT = receipts.MergeReceipt(
     merge_sha=MERGE_SHA,
     touched_files=("feature.py",),
 )
+_LOOK = dict(item_id=7, branch="ITEM-1", target="main", repo_root="/repo")
 
 
 def _probe(monkeypatch, *, branch_exists: bool, head: str, contains: tuple[str, ...]):
@@ -48,85 +42,105 @@ def _probe(monkeypatch, *, branch_exists: bool, head: str, contains: tuple[str, 
     )
 
 
+def _lane(**kw):
+    return landed.landed_lane(**_LOOK, project="yoke", **kw)
+
+
+def _item(**extra):
+    row = {
+        "id": 7,
+        "public_ref": "ITEM-1",
+        "status": "reviewing-implementation",
+        "workflow": {"id": "dash"},
+        "project": {"slug": "yoke"},
+        "worktrees": [{"branch": "ITEM-1", "state": "active", "path": "/repo/lane"}],
+    }
+    row.update(extra)
+    return row
+
+
+def _wire_cli(monkeypatch, item, *, stale=""):
+    monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
+    monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
+    monkeypatch.setattr(
+        merge_cli,
+        "_resolve_checkout",
+        lambda *_a: (Path("/repo"), "main"),
+    )
+    monkeypatch.setattr(merge_cli.landed, "stale_unlanded_work", lambda **_k: stale)
+    monkeypatch.setattr(
+        merge_cli.landed,
+        "landed_lane",
+        lambda **_kw: landed.LandedLane(
+            branch="ITEM-1",
+            target="main",
+            commit_sha=LANE_SHA,
+            merge_sha=MERGE_SHA,
+            touched_files=("feature.py",),
+            source="lane branch",
+        ),
+    )
+
+
 def test_a_live_lane_the_base_contains_reports_the_landing(monkeypatch):
     _probe(monkeypatch, branch_exists=True, head=LANE_SHA, contains=(LANE_SHA,))
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
-
-    lane = landed.landed_lane(
-        item_id=7, branch="ITEM-1", target="main",
-        repo_root="/repo", project="yoke",
-    )
-
+    lane = _lane()
     assert lane is not None
-    assert lane.commit_sha == LANE_SHA
-    assert lane.merge_sha == MERGE_SHA
-    assert lane.touched_files == ("feature.py",)
-    assert lane.source == "lane branch"
+    assert (lane.commit_sha, lane.merge_sha, lane.touched_files, lane.source) == (
+        LANE_SHA,
+        MERGE_SHA,
+        ("feature.py",),
+        "lane branch",
+    )
 
 
 def test_a_lane_carrying_new_commits_has_not_landed(monkeypatch):
-    """The branch is the authority while it exists, not an older receipt."""
     _probe(monkeypatch, branch_exists=True, head="9" * 40, contains=(LANE_SHA,))
-    monkeypatch.setattr(
-        landed.receipts,
-        "load",
-        lambda *_a, **_k: pytest.fail("an unlanded branch answers for itself"),
-    )
+    monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
+    assert _lane() is None
+    assert "fresh work item" in landed.stale_unlanded_work(**_LOOK)
 
-    assert landed.landed_lane(
-        item_id=7, branch="ITEM-1", target="main",
-        repo_root="/repo", project="yoke",
-    ) is None
+
+def test_a_squashed_head_matching_the_receipt_has_landed(monkeypatch):
+    _probe(monkeypatch, branch_exists=True, head=LANE_SHA, contains=())
+    monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
+    lane = _lane()
+    assert lane is not None and lane.commit_sha == LANE_SHA
+    assert landed.stale_unlanded_work(**_LOOK) == ""
 
 
 def test_a_lane_fast_forwarded_onto_the_base_still_reports_the_receipt_head(
     monkeypatch,
 ):
-    """A lane pointing at its own merge commit landed; it is not new work."""
     _probe(
-        monkeypatch, branch_exists=True, head=MERGE_SHA,
+        monkeypatch,
+        branch_exists=True,
+        head=MERGE_SHA,
         contains=(LANE_SHA, MERGE_SHA),
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
-
-    lane = landed.landed_lane(
-        item_id=7, branch="ITEM-1", target="main",
-        repo_root="/repo", project="yoke",
-    )
-
-    assert lane is not None
-    # The commit the merge was answerable for, not the merge commit the lane
-    # happens to point at: evidence names what was verified.
-    assert lane.commit_sha == LANE_SHA
+    lane = _lane()
+    assert lane is not None and lane.commit_sha == LANE_SHA
 
 
 def test_a_pruned_lane_falls_back_to_the_recorded_head(monkeypatch):
     _probe(monkeypatch, branch_exists=False, head="", contains=(LANE_SHA,))
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
-
-    lane = landed.landed_lane(
-        item_id=7, branch="ITEM-1", target="main",
-        repo_root="/repo", project="yoke", recorded_head=LANE_SHA,
-    )
-
+    lane = _lane(recorded_head=LANE_SHA)
     assert lane is not None and lane.source == "recorded lane head"
 
 
 def test_a_receipt_the_base_does_not_contain_is_not_a_landing(monkeypatch):
     _probe(monkeypatch, branch_exists=False, head="", contains=())
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
-
-    assert landed.landed_lane(
-        item_id=7, branch="ITEM-1", target="main",
-        repo_root="/repo", project="yoke",
-    ) is None
+    assert _lane() is None
 
 
 def test_converging_records_the_merge_identity_a_retry_reads(monkeypatch):
     recorded: list[receipts.MergeReceipt] = []
-    monkeypatch.setattr(
-        landed, "fast_forward_main_checkout", lambda *_a: "",
-    )
+    monkeypatch.setattr(landed, "stale_unlanded_work", lambda **_k: "")
+    monkeypatch.setattr(landed, "fast_forward_main_checkout", lambda *_a: "")
     monkeypatch.setattr(landed.git, "has_remote", lambda *_a: True)
     monkeypatch.setattr(landed.git, "fetch_target", lambda *_a: None)
     monkeypatch.setattr(landed.git, "is_ancestor", lambda *_a: True)
@@ -145,29 +159,52 @@ def test_converging_records_the_merge_identity_a_retry_reads(monkeypatch):
         "yoke_core.domain.standalone_item_merge.stamp_merged_at",
         lambda item_id: stamped.append(item_id) or None,
     )
-
     outcome = landed.converge(
         item_id=7,
         project="yoke",
         repo_root="/repo",
         lane=landed.LandedLane(
-            branch="ITEM-1", target="main", commit_sha=LANE_SHA,
-            merge_sha=MERGE_SHA, touched_files=("feature.py",),
+            branch="ITEM-1",
+            target="main",
+            commit_sha=LANE_SHA,
+            merge_sha=MERGE_SHA,
+            touched_files=("feature.py",),
             source="lane branch",
         ),
     )
-
-    assert outcome.ok is True
-    assert outcome.already_merged is True
-    assert outcome.merge_sha == MERGE_SHA
-    assert outcome.touched_files == ("feature.py",)
-    assert stamped == [7]
-    assert recorded and recorded[0].merge_sha == MERGE_SHA
+    assert outcome.ok and outcome.already_merged and outcome.merge_sha == MERGE_SHA
+    assert stamped == [7] and recorded[0].merge_sha == MERGE_SHA
     assert any("already landed" in warning for warning in outcome.warnings)
 
 
+def test_converge_refuses_new_commits_without_recording(monkeypatch):
+    stamped: list[int] = []
+    monkeypatch.setattr(
+        landed,
+        "stale_unlanded_work",
+        lambda **_k: "file a fresh work item",
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.standalone_item_merge.stamp_merged_at",
+        lambda item_id: stamped.append(item_id),
+    )
+    outcome = landed.converge(
+        item_id=7,
+        project="yoke",
+        repo_root="/repo",
+        lane=landed.LandedLane(
+            branch="ITEM-1",
+            target="main",
+            commit_sha=LANE_SHA,
+            merge_sha=MERGE_SHA,
+            source="lane branch",
+        ),
+    )
+    assert not outcome.ok and "fresh work item" in outcome.error and stamped == []
+
+
 def test_converging_publishes_a_landing_that_never_reached_origin(monkeypatch):
-    """A merge whose push died with the process still owes that push."""
+    monkeypatch.setattr(landed, "stale_unlanded_work", lambda **_k: "")
     monkeypatch.setattr(landed, "fast_forward_main_checkout", lambda *_a: "")
     monkeypatch.setattr(landed.git, "has_remote", lambda *_a: True)
     monkeypatch.setattr(landed.git, "fetch_target", lambda *_a: None)
@@ -181,49 +218,28 @@ def test_converging_publishes_a_landing_that_never_reached_origin(monkeypatch):
     monkeypatch.setattr(landed.receipts, "record", lambda *_a, **_k: "")
     monkeypatch.setattr(
         "yoke_core.domain.standalone_item_merge.stamp_merged_at",
-        lambda _item_id: None,
+        lambda _i: None,
     )
-
     outcome = landed.converge(
         item_id=7,
         project="yoke",
         repo_root="/repo",
         lane=landed.LandedLane(
-            branch="ITEM-1", target="main", commit_sha=LANE_SHA,
-            merge_sha=MERGE_SHA, source="merge receipt",
+            branch="ITEM-1",
+            target="main",
+            commit_sha=LANE_SHA,
+            merge_sha=MERGE_SHA,
+            source="merge receipt",
         ),
     )
-
-    assert pushes == ["main"]
-    assert outcome.pushed is True
+    assert pushes == ["main"] and outcome.pushed is True
 
 
 def test_a_landed_lane_never_reaches_the_verification_gate_or_the_queue(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ):
-    """The two calls that made a re-entered close-out destructive."""
-    item = {
-        "id": 7,
-        "public_ref": "ITEM-1",
-        "status": "reviewing-implementation",
-        "workflow": {"id": "dash"},
-        "project": {"slug": "yoke"},
-        "worktrees": [{"branch": "ITEM-1", "state": "active", "path": "/repo/lane"}],
-    }
-    monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
-    monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
-    monkeypatch.setattr(
-        merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
-    )
-    monkeypatch.setattr(
-        merge_cli.landed,
-        "landed_lane",
-        lambda **_kw: landed.LandedLane(
-            branch="ITEM-1", target="main", commit_sha=LANE_SHA,
-            merge_sha=MERGE_SHA, touched_files=("feature.py",),
-            source="lane branch",
-        ),
-    )
+    _wire_cli(monkeypatch, _item())
     monkeypatch.setattr(
         verify,
         "qa_preflight",
@@ -239,40 +255,20 @@ def test_a_landed_lane_never_reaches_the_verification_gate_or_the_queue(
     monkeypatch.setattr(landed.receipts, "record", lambda *_a, **_k: "")
     monkeypatch.setattr(
         "yoke_core.domain.standalone_item_merge.stamp_merged_at",
-        lambda _item_id: None,
+        lambda _i: None,
     )
-
     assert merge_cli.run(["ITEM-1", "--skip-status", "--json"]) == 0
     envelope = capsys.readouterr().out
-    assert '"already_merged": true' in envelope
-    assert MERGE_SHA in envelope
+    assert '"already_merged": true' in envelope and MERGE_SHA in envelope
 
 
 def test_queue_handoff_reentry_runs_only_post_landing_bookkeeping(
-    monkeypatch, capsys,
+    monkeypatch,
+    capsys,
 ):
-    item = {
-        "id": 7,
-        "public_ref": "ITEM-1",
-        "status": "reviewing-implementation",
-        "workflow": {"id": "dash"},
-        "project": {"slug": "yoke"},
-        "merge_queue": {"pr_number": "42", "enqueued_at": "2026-09-02T03:00Z"},
-        "worktrees": [{"branch": "ITEM-1", "state": "active", "path": "/repo/lane"}],
-    }
-    monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
-    monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
-    monkeypatch.setattr(
-        merge_cli, "_resolve_checkout", lambda *_a: (Path("/repo"), "main"),
-    )
-    monkeypatch.setattr(
-        merge_cli.landed,
-        "landed_lane",
-        lambda **_kw: landed.LandedLane(
-            branch="ITEM-1", target="main", commit_sha=LANE_SHA,
-            merge_sha=MERGE_SHA, touched_files=("feature.py",),
-            source="lane branch",
-        ),
+    _wire_cli(
+        monkeypatch,
+        _item(merge_queue={"pr_number": "42", "enqueued_at": "2026-09-02T03:00Z"}),
     )
     seen: dict = {}
 
@@ -282,7 +278,8 @@ def test_queue_handoff_reentry_runs_only_post_landing_bookkeeping(
             merge_sha=MERGE_SHA,
             touched_files=("feature.py",),
             batch=BatchReceipt(
-                pr_num="42", head_sha=MERGE_SHA,
+                pr_num="42",
+                head_sha=MERGE_SHA,
                 run_url="https://github.test/runs/42",
             ),
         )
@@ -293,29 +290,40 @@ def test_queue_handoff_reentry_runs_only_post_landing_bookkeeping(
         "qa_preflight",
         lambda *_a, **_k: pytest.fail("a landed queue member is not republished"),
     )
-
     assert merge_cli.run(["ITEM-1", "--skip-status", "--json"]) == 0
-    envelope = capsys.readouterr().out
-    assert seen["pr_num"] == "42"
-    assert seen["member_snapshot"] == ("ITEM-1",)
-    assert '"already_merged": true' in envelope
+    assert seen["pr_num"] == "42" and seen["member_snapshot"] == ("ITEM-1",)
+    assert '"already_merged": true' in capsys.readouterr().out
 
 
-def test_containing_ref_names_the_remote_when_only_the_remote_has_it(
-    monkeypatch,
-):
+def test_merge_item_refuses_stale_landing_before_close_out(monkeypatch, capsys):
+    _wire_cli(monkeypatch, _item(), stale="file a fresh work item")
+    monkeypatch.setattr(
+        merge_cli.landed,
+        "converge",
+        lambda **_k: pytest.fail("must not converge"),
+    )
+    monkeypatch.setattr(
+        verify,
+        "qa_preflight",
+        lambda *_a, **_k: pytest.fail("must not verify"),
+    )
+    assert merge_cli.run(["ITEM-1", "--skip-status", "--json"]) == 1
+    assert "fresh work item" in capsys.readouterr().out
+
+
+def test_containing_ref_names_the_remote_when_only_the_remote_has_it(monkeypatch):
     commands: list = []
 
     def fake_git(_repo_root, *args):
         commands.append(list(args))
-        landed_here = args[:2] == ("merge-base", "--is-ancestor")
-        remote_ref = landed_here and args[3] == "origin/main"
+        remote = (
+            args[:2] == ("merge-base", "--is-ancestor") and args[3] == "origin/main"
+        )
         return SimpleNamespace(
-            returncode=0 if remote_ref else 1, stdout="origin\n", stderr="",
+            returncode=0 if remote else 1, stdout="origin\n", stderr=""
         )
 
     monkeypatch.setattr(git, "_git", fake_git)
     monkeypatch.setattr(git, "git_out", lambda _repo_root, *_a: "origin")
-
     assert git.containing_ref("/repo", LANE_SHA, "main") == "origin/main"
     assert ["fetch", "origin", "main"] in commands
