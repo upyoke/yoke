@@ -19,10 +19,10 @@ from yoke_harness.claude_runtime_records import (
     resolve_claude_session_record,
 )
 from yoke_harness.session_launch_containment import SUPERVISION_DIRECTORY_NAME
+from yoke_harness import session_launch_handles
 
 
 ADAPTER_REVISION = "session-termination-v2"
-NATIVE_HANDLE_DIRECTORY_NAME = "session-native-handles"
 MAX_RECORD_BYTES = 4096
 TERMINATE_WAIT_SECONDS = 2.0
 
@@ -31,20 +31,9 @@ def local_state_root(state_dir: Path | None) -> Path:
     return state_dir or machine_config.cache_dir()
 
 
-def _handle_directory(state_dir: Path | None) -> Path:
-    directory = local_state_root(state_dir) / NATIVE_HANDLE_DIRECTORY_NAME
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    directory.chmod(0o700)
-    return directory
-
-
 def _supervision_path(launch_id: str, state_dir: Path | None) -> Path:
     directory = local_state_root(state_dir) / SUPERVISION_DIRECTORY_NAME
     return directory / f"{launch_id}.json"
-
-
-def _handle_path(launch_id: str, state_dir: Path | None) -> Path:
-    return _handle_directory(state_dir) / f"{launch_id}.json"
 
 
 def read_local_record(path: Path) -> dict[str, Any] | None:
@@ -80,7 +69,7 @@ def adopt_launched_session(
         "process_start_time": start,
     }
     try:
-        destination = _handle_path(launch_id, state_dir)
+        destination = session_launch_handles.native_handle_path(launch_id)
         temporary = destination.with_suffix(f".{os.getpid()}.tmp")
         temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
         temporary.chmod(0o600)
@@ -285,7 +274,7 @@ def reap_terminated_session(
     evidence: dict[str, object] = {}
     records: list[tuple[Path, dict[str, Any]]] = []
     if launch_id:
-        handle = _handle_path(launch_id, state_dir)
+        handle = session_launch_handles.native_handle_path(launch_id)
         record = read_local_record(handle)
         if (
             record is not None
@@ -338,7 +327,6 @@ def reap_terminated_session(
 __all__ = [
     "ADAPTER_REVISION",
     "MAX_RECORD_BYTES",
-    "NATIVE_HANDLE_DIRECTORY_NAME",
     "TERMINATE_WAIT_SECONDS",
     "adopt_launched_session",
     "local_state_root",

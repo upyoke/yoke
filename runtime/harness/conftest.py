@@ -17,7 +17,10 @@ from runtime.api.api_workflow_test_helpers import (
 )
 from runtime.api.fixtures.file_test_db import init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-from yoke_core.hooks import helpers as hook_helpers, helpers_markers as hook_helpers_markers
+from yoke_core.hooks import (
+    helpers as hook_helpers,
+    helpers_markers as hook_helpers_markers,
+)
 
 from yoke_core.domain import db_backend as _db_backend
 
@@ -78,6 +81,29 @@ def _harness_hook_written_identity_isolation(tmp_path, monkeypatch):
     )
 
     isolate_hook_written_identity_registries(tmp_path, monkeypatch)
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _harness_launch_handle_isolation(tmp_path, monkeypatch):
+    """Give each test its own launch-handle directory.
+
+    Launch handles live in the machine cache, which is where the hook writes
+    them for real; the relay liveness sweep here reads that directory and
+    prunes every handle whose session the control plane ends. Unisolated,
+    those are the handles of the developer's own live sessions. The directory
+    has one resolver and every caller reaches it through this module, so this
+    one patch covers writers, readers, termination, and pruning alike.
+    """
+    from yoke_harness import session_launch_handles
+
+    guard = tmp_path / "session-native-handles-guard"
+
+    def _resolve():
+        guard.mkdir(mode=0o700, parents=True, exist_ok=True)
+        return guard
+
+    monkeypatch.setattr(session_launch_handles, "native_handle_directory", _resolve)
     yield
 
 
