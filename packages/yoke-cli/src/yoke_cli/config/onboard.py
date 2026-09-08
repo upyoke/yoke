@@ -267,18 +267,13 @@ def build_report(
             harness_posture_install.apply_reported()
         )
         onboard_apply_progress.emit(progress, *posture_step, "done")
-    relay_steps = onboard_session_relay.progress_steps(
-        local_destination=local_destination
+    onboard_session_relay.apply(
+        progress,
+        report,
+        local_destination=local_destination,
+        config_path=cfg_path,
+        environment=env_name,
     )
-    if onboard_session_relay.is_supported(local_destination=local_destination):
-        onboard_apply_progress.emit_many(progress, relay_steps, "running")
-        installed = onboard_session_relay.install(local_destination=local_destination)
-        onboard_apply_progress.emit_many(progress, relay_steps, "done")
-        report["session_relay"] = onboard_session_relay.report_fragment(
-            planned=True,
-            installed=installed,
-            local_destination=local_destination,
-        )
     onboard_machine_registry.apply(cfg_path, progress=progress, report=report)
     if reuse.get("machine_github"):
         report["machine_github"] = dict(machine_github)
