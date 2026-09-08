@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 import { pillFamilyForState } from "./universe_state_pills.js";
 import {
@@ -14,7 +15,9 @@ function relayCard(documentNode, relay) {
   const title = el(
     documentNode, "h3", null, relay.hostname || relay.machine_id,
   );
-  if (relay.hostname && relay.machine_id) title.title = String(relay.machine_id);
+  if (relay.hostname && relay.machine_id) {
+    attachTooltip(documentNode, title, String(relay.machine_id));
+  }
   header.appendChild(title);
   const state = String(relay.liveness || "unknown");
   header.appendChild(el(
@@ -48,11 +51,11 @@ function relayCard(documentNode, relay) {
           "pill pill-danger",
           "disabled",
         );
-        badge.title = [
+        attachTooltip(documentNode, badge, [
           mark.reason,
           mark.set_by_actor_id ? `actor ${mark.set_by_actor_id}` : "",
           mark.created_at || "",
-        ].filter(Boolean).join(" · ");
+        ].filter(Boolean).join(" · "));
         item.appendChild(documentNode.createTextNode(`${surface} ${version} `));
         item.appendChild(badge);
       } else {

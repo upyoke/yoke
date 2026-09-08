@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 
 // The symbol marks a steering seat wherever one is shown: the corner of the
@@ -19,7 +20,7 @@ function svgNode(documentNode, tagName, attributes) {
 
 export function steeringMarker(documentNode, className, { decorative = false } = {}) {
   const marker = el(documentNode, "span", `steering-symbol ${className}`);
-  marker.title = STEERING_MARKER_TITLE;
+  attachTooltip(documentNode, marker, STEERING_MARKER_TITLE);
   if (decorative) marker.setAttribute("aria-hidden", "true");
   else {
     marker.setAttribute("role", "img");

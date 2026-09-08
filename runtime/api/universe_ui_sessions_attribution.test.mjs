@@ -51,7 +51,7 @@ test("a filed item nobody holds stays on the card under its own label", () => {
   );
   assert.equal(byClass(body, "session-item-link")[0].textContent, "YOK-4102");
   assert.match(
-    byClass(body, "session-attached")[0].title,
+    byClass(body, "session-attached")[0].getAttribute("data-tooltip"),
     /no session holds a work claim on it/,
   );
 });
@@ -81,7 +81,10 @@ test("a worktree lane on another session's item is untouched by the rule", () =>
   });
   assert.equal(focusAttribution(row), "lane");
   const body = bodyFor(row);
-  assert.match(byClass(body, "session-attached")[0].title, /^worktree lane/);
+  assert.match(
+    byClass(body, "session-attached")[0].getAttribute("data-tooltip"),
+    /^worktree lane/,
+  );
   assert.deepEqual(
     byClass(body, "session-holdings-label").map((node) => node.textContent),
     ["Currently held"],

@@ -139,6 +139,7 @@ export class FakeDocument {
   constructor() {
     this.defaultView = new FakeWindow();
     this.activeElement = null;
+    this.body = new FakeNode(this, "body");
   }
 
   createElement(tagName) {

@@ -204,11 +204,11 @@ test("The session card identity line wraps instead of truncating its labels", ()
   // ellipsis names nothing; the row breaks to a second line instead.
   assert.match(
     css,
-    /\.session-top \{[^}]*flex-wrap: wrap;[^}]*gap: 6px 9px;/s,
+    /\.session-top,\n\.universe-app-root \.session-state-line \{[^}]*flex-wrap: wrap;[^}]*gap: 6px 9px;/s,
   );
   assert.match(
     css,
-    /\.session-top > \* \{[^}]*max-width: 100%;[^}]*overflow-wrap: anywhere;/,
+    /\.session-top > \*,\n\.universe-app-root \.session-state-line > \* \{[^}]*max-width: 100%;[^}]*overflow-wrap: anywhere;/,
   );
   for (const rule of ["session-executor", "session-operator"]) {
     const block = css.match(
@@ -243,7 +243,7 @@ test("Sessions sizes its stats and keeps the message row to one text line", () =
   );
   assert.match(
     css,
-    /\.session-message-badge,[\s\S]*\.session-kill-badge \{[\s\S]*padding: 2px 8px;[\s\S]*font-size: 11px;/,
+    /\.session-message-badge \{[\s\S]*padding: 2px 8px;[\s\S]*font-size: 11px;/,
   );
   assert.match(
     css,

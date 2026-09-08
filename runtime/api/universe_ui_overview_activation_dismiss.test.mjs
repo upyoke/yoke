@@ -68,7 +68,7 @@ test("dismiss: ✕ on activated modules, restore line, show, restore", async (t)
   const dismissButtons = byClass(root, "activation-dismiss");
   assert.equal(dismissButtons.length, 4);
   assert.equal(
-    dismissButtons[1].attributes.get("title"),
+    dismissButtons[1].getAttribute("data-tooltip"),
     "Dismiss — signals keep tracking; restore any time",
   );
 

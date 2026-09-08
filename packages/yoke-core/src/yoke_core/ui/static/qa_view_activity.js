@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import {
   el,
   withProjectColumn,
@@ -148,7 +149,9 @@ function renderActivityTable(context, body, rows, scope) {
     ));
     tr.appendChild(outcome);
     const evidence = el(documentNode, "td", null, evidenceText(row));
-    if (row.verdict_reason) evidence.title = row.verdict_reason;
+    if (row.verdict_reason) {
+      attachTooltip(documentNode, evidence, row.verdict_reason);
+    }
     tr.appendChild(evidence);
     const when = el(documentNode, "td");
     when.appendChild(relativeTimeNode(documentNode, row.happened_at));

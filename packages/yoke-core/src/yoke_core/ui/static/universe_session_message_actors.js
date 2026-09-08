@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 
@@ -38,7 +39,7 @@ export function sessionMessageParty(documentNode, sessionId, snapshot, sessions)
     sessionId ? `Session ${sessionId}` : "",
     session?.current_item_title || "",
   ].filter(Boolean).join(" — ");
-  if (title) identity.title = title;
+  if (title) attachTooltip(documentNode, identity, title);
   return identity;
 }
 
@@ -88,7 +89,7 @@ export function appendActorRecipientRows(documentNode, list, message) {
       "session-message-delivery-marker is-direct",
       "Human",
     );
-    marker.title = "Durable human inbox recipient";
+    attachTooltip(documentNode, marker, "Durable human inbox recipient");
     main.appendChild(marker);
     row.appendChild(main);
     list.appendChild(row);

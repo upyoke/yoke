@@ -80,10 +80,11 @@ test("Active reuses full session cards and excludes ended sessions", async (t) =
   );
   assert.equal(byClass(root, "session-model-line").length, 2);
   assert.deepEqual(
-    byClass(root, "session-quiet-explanation").map((node) => [
-      node.children[0].textContent, node.children[1].textContent,
+    byClass(root, "tooltip-info").map((node) => [
+      node.getAttribute("aria-label"), node.getAttribute("data-tooltip"),
     ]),
-    [["Why quiet", "waiting on YOK-7"]],
+    [["Why parked", "parked by the session itself; its next tool call takes it"
+      + " back · waiting on YOK-7"]],
   );
   assert.deepEqual(
     byClass(root, "pill").filter((node) => node.attributes.get("data-state") === "parked")

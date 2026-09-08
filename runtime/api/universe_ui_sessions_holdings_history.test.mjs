@@ -169,7 +169,9 @@ test("released steering seats lead previously-held rows before items", () => {
     ["yoke · CURRENT-PLAN", "platform · CURRENT-PLAN"],
   );
   assert.deepEqual(
-    byClass(previous, "session-lock").map((node) => [node.textContent, node.title]),
+    byClass(previous, "session-lock").map(
+      (node) => [node.textContent, node.getAttribute("data-tooltip")],
+    ),
     [
       ["", "steering seat — this session steered this project"],
       ["", "steering seat — this session steered this project"],

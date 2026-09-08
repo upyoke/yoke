@@ -76,26 +76,6 @@ export function statePill(documentNode, value, label = value) {
   return pill;
 }
 
-// Parked is a real session state. Quiet reasons are explanatory prose and
-// belong in their own disclosure rather than masquerading as another state.
-export function sessionStateBadge(documentNode, mode) {
-  if (String(mode || "").toLowerCase() !== "parked") return null;
-  return statePill(documentNode, "parked");
-}
-
-export function sessionQuietExplanation(documentNode, reason) {
-  const text = String(reason ?? "").trim();
-  if (!text) return null;
-  const disclosure = el(documentNode, "details", "session-quiet-explanation");
-  disclosure.appendChild(el(
-    documentNode, "summary", "session-quiet-summary", "Why quiet",
-  ));
-  disclosure.appendChild(el(
-    documentNode, "div", "session-quiet-copy", text,
-  ));
-  return disclosure;
-}
-
 export function renderError(body, callResult) {
   const envelope = callResult.envelope || {};
   const detail = (envelope.error && envelope.error.message) ||

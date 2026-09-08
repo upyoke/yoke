@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import {
   summarizeSessionUsage,
   usageSummaryLabel,
@@ -38,10 +39,12 @@ export function appendMachineUsage(documentNode, card, relay, sessions) {
   const scope = el(
     documentNode, "span", "machine-usage-scope", usageSummaryScope(summary),
   );
-  scope.title =
+  attachTooltip(
+    documentNode, scope,
     "estimated API-equivalent cost for the sessions shown here, "
     + "not consumption of any subscription plan; the dollar total covers "
-    + "only the sessions that could be priced";
+    + "only the sessions that could be priced",
+  );
   line.appendChild(scope);
   card.appendChild(line);
 }

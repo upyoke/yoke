@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   releasedHoldingHistory,
@@ -150,7 +151,7 @@ function appendHoldingEntry(
   const marker = markerFacts.steering
     ? steeringMarker(documentNode, "session-lock")
     : el(documentNode, "span", "session-lock", markerFacts.text);
-  if (!markerFacts.steering) marker.title = markerFacts.title;
+  if (!markerFacts.steering) attachTooltip(documentNode, marker, markerFacts.title);
   work.appendChild(marker);
   const href = holding.target_kind === "item" ? holdingHref(holding, row) : null;
   const target = el(
@@ -180,7 +181,7 @@ function appendHoldingEntry(
     const count = Number(holding.occurrence_count || 1);
     if (count > 1) {
       const repeated = el(documentNode, "span", "session-holding-repeat", `×${count}`);
-      repeated.title = `held ${count} times`;
+      attachTooltip(documentNode, repeated, `held ${count} times`);
       history.appendChild(repeated);
     }
     work.appendChild(history);
@@ -199,10 +200,10 @@ function appendHoldingEntry(
 function appendAttachedEntry(documentNode, body, row, attribution) {
   const work = el(documentNode, "div", "session-work");
   const marker = el(documentNode, "span", "session-attached", "↳");
-  marker.title = attribution === "lane"
+  attachTooltip(documentNode, marker, attribution === "lane"
     ? "worktree lane on the owning session's item; holds no item claim"
     : "filed or updated by this session and unclaimed; "
-      + "no session holds a work claim on it";
+      + "no session holds a work claim on it");
   work.appendChild(marker);
   const href = itemDrillInHref({
     projectId: row.current_item_project_id,

@@ -1,3 +1,4 @@
+import { tooltipHost } from "./universe_tooltip.js";
 import { callFunction, el } from "./universe_view_support.js";
 import { button } from "./workflow_view_primitives.js";
 
@@ -44,15 +45,18 @@ export function itemPostureToggle(
     `item-button${state[key] ? " primary" : ""}`,
   );
   control.disabled = !enabled || fixed;
-  if (fixed) control.title = "Required by the workflow default";
-  else if (!enabled) control.title = "No verification choices are available";
+  const refusal = fixed
+    ? "Required by the workflow default"
+    : enabled ? "" : "No verification choices are available";
   control.setAttribute("aria-pressed", String(Boolean(state[key]) || fixed));
   control.addEventListener("click", () => {
     if (control.disabled) return;
     state[key] = !state[key];
     rerender();
   });
-  row.appendChild(control);
+  row.appendChild(
+    refusal ? tooltipHost(documentNode, control, refusal) : control,
+  );
   return row;
 }
 

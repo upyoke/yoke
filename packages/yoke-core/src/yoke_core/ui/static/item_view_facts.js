@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { relativeTime } from "./universe_time.js";
 import {
@@ -80,7 +81,7 @@ function fileBudgetFact(documentNode, item) {
   const label = `${budget.total} ${Number(budget.total) === 1 ? "file" : "files"}`;
   const value = el(documentNode, "span", null, label);
   if (Array.isArray(budget.paths) && budget.paths.length) {
-    value.title = budget.paths.join("\n");
+    attachTooltip(documentNode, value, budget.paths.join("\n"));
   }
   return value;
 }

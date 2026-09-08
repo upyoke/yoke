@@ -158,7 +158,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     ],
   );
   // Modes without a quiet reason render no explanation or invented state.
-  assert.equal(byClass(root, "session-quiet-explanation").length, 0);
+  assert.equal(byClass(root, "tooltip-info").length, 0);
   // The mode pill is gone; the lane names the session beside its harness and
   // the relay pill is the one reachability fact the card keeps.
   assert.deepEqual(
@@ -181,15 +181,17 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   );
   assert.deepEqual(
     byClass(root, "session-lock").map(
-      (marker) => [marker.textContent, marker.className, marker.title],
+      (marker) => [
+        marker.textContent, marker.className, marker.getAttribute("data-tooltip"),
+      ],
     ),
-    [["💼", "session-lock", "work claim — this session holds it"]],
+    [["💼", "session-lock has-tooltip", "work claim — this session holds it"]],
   );
   assert.deepEqual(
     byClass(root, "session-attached").map(
       (marker) => [marker.textContent, marker.className],
     ),
-    [["↳", "session-attached"]],
+    [["↳", "session-attached has-tooltip"]],
   );
   // Holding rows carry no present-day item stage. The attached context row may
   // still name its live item stage, and neither path exposes a raw target kind.
@@ -279,7 +281,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   mounted.unmount();
 });
 
-test("Sessions cards separate state badges from quiet explanations", async (t) => {
+test("Sessions cards fold every state signal into one pill", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -323,16 +325,22 @@ test("Sessions cards separate state badges from quiet explanations", async (t) =
       .map((n) => n.textContent),
     ["parked"],
   );
+  // One pill each, and the reason each card would have restated underneath
+  // reaches the reader through that pill's own (i).
   assert.deepEqual(
-    byClass(root, "session-quiet-explanation").map((node) => [
-      node.children[0].textContent, node.children[1].textContent,
+    byClass(root, "tooltip-info").map((node) => [
+      node.getAttribute("aria-label"), node.getAttribute("data-tooltip"),
     ]),
     [
       [
-        "Why quiet",
-        "waiting on a blocking claim",
+        "Why parked",
+        "parked by the session itself; its next tool call takes it back"
+        + " · waiting on a blocking claim",
       ],
-      ["Why quiet", "Waiting for the merge queue to validate a deliberately long explanation without clipping any of its recovery context."],
+      [
+        "Why idle",
+        "Waiting for the merge queue to validate a deliberately long explanation without clipping any of its recovery context.",
+      ],
     ],
   );
   assert.deepEqual(byClass(root, "session-harness").map((n) => n.textContent), ["X", "A", "C"]);

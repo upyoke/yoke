@@ -16,6 +16,21 @@
   font-size: 11px;
 }
 
+/* Each figure names what it is. `44m · $34` left a reader to guess which
+   number was which; the units cost one word each and the row still fits. */
+.universe-app-root .session-usage-label {
+  color: var(--yoke-muted);
+  font-size: 10px;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.universe-app-root .session-usage-unit {
+  margin-left: -2px;
+  color: var(--yoke-muted);
+  font-size: 10px;
+}
+
 /* A partial figure is dimmed rather than hidden: it is still the best answer
    available, and the trailing mark plus this weight say so without costing
    the row a word of explanation. */

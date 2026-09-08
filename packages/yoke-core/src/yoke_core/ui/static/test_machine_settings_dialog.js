@@ -1,3 +1,4 @@
+import { tooltipHost } from "./universe_tooltip.js";
 import {
   callFunction,
   el,
@@ -60,16 +61,19 @@ export function machineSettingsDialog(context, detail, close, saved) {
     const wrapper = el(documentNode, "label", null, label);
     const input = el(documentNode, "input");
     input.value = detail.settings[key] || "";
+    let explanation = "";
     if (key === "resource_name") {
       input.readOnly = true;
-      input.title = "The resource name is this capability row's identity.";
+      explanation = "The resource name is this capability row's identity.";
     }
     if (key === "host_kind") {
-      input.title =
+      explanation =
         "Which implementation drives this host. Registered kinds: "
         + (detail.host_kinds || []).join(", ");
     }
-    wrapper.appendChild(input);
+    wrapper.appendChild(
+      explanation ? tooltipHost(documentNode, input, explanation) : input,
+    );
     fields.appendChild(wrapper);
     inputs[key] = input;
   }

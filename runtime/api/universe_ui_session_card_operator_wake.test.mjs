@@ -55,7 +55,7 @@ test("Message button explains a quiet desktop chat waits on its operator", async
   const buttons = byClass(byClass(root, "session-card")[0], "item-button");
   assert.deepEqual(buttons.map((button) => button.textContent), ["Message"]);
   assert.equal(
-    buttons[0].title,
+    buttons[0].getAttribute("data-tooltip"),
     "Waiting for the operator to wake it: a message is delivered when they "
       + "next type anything in this chat.",
   );

@@ -4,6 +4,7 @@
 // so every fact is a value in a column, and the words that would repeat on
 // every healthy row are left out.
 
+import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 import { preciseAge } from "./universe_time.js";
 import {
@@ -61,7 +62,7 @@ function surfaceHead(documentNode, relay, surface, state, reading, stale) {
   const [lightClass, label] = LIGHTS[state];
   const head = el(documentNode, "div", "machine-surface-head");
   const light = el(documentNode, "span", `machine-light ${lightClass}`);
-  light.title = label;
+  attachTooltip(documentNode, light, label);
   light.setAttribute("role", "img");
   light.setAttribute("aria-label", label);
   head.appendChild(light);
