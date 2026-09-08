@@ -51,6 +51,10 @@ export function relativeTime(
   const absolute = absoluteTime(value);
   time.className = "ago";
   time.textContent = relative;
+  // Deliberately the browser's own title rather than the shared tooltip: this
+  // element's own click and Enter/Space toggle already swap the visible text
+  // to this absolute value, and aria-label carries it, so the fact is not
+  // hover-only and the swap would replace an attached bubble anyway.
   time.title = absolute;
   time.tabIndex = 0;
   time.setAttribute("role", "button");

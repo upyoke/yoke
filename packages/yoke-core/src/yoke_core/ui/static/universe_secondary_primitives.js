@@ -1,5 +1,6 @@
 // Small presentation primitives shared by the secondary universe screens.
 
+import { attachTooltip } from "./universe_tooltip.js";
 import { el, statePill } from "./universe_view_support.js";
 
 export function metricStrip(documentNode, metrics) {
@@ -43,7 +44,7 @@ export function stageProgress(
     ? `stage ${current} of ${total}` : (label || "stage unavailable");
   track.setAttribute("role", "img");
   track.setAttribute("aria-label", progressLabel);
-  track.setAttribute("title", label || progressLabel);
+  attachTooltip(documentNode, track, label || progressLabel);
   for (let stageIndex = 0; stageIndex < total; stageIndex += 1) {
     const segment = el(documentNode, "i", "stage-progress-segment");
     if (stageIndex < current) segment.classList.add("is-complete");
@@ -66,7 +67,7 @@ export function deliveryStageBar(documentNode, stages) {
     const segment = el(documentNode, "span", "delivery-stage");
     const state = String(stage.state || "pending");
     segment.setAttribute("data-state", state);
-    segment.setAttribute("title", `${stage.name} · ${state}`);
+    attachTooltip(documentNode, segment, `${stage.name} · ${state}`);
     segment.appendChild(el(documentNode, "i"));
     segment.appendChild(el(documentNode, "span", null, stage.name));
     bar.appendChild(segment);

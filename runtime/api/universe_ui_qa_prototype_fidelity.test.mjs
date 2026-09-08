@@ -81,7 +81,8 @@ test("all method details retain the prototype contract anatomy", async () => {
       assert.equal(subtitle, "Pack-registered method · machine-qa");
       assert.match(text, /serial · one lease/);
       assert.match(
-        byClass(host, "pill").find((node) => node.textContent === "in use").title,
+        byClass(host, "pill").find((node) => node.textContent === "in use")
+          .getAttribute("data-tooltip"),
         /YOK-2001/,
       );
     }
@@ -123,14 +124,15 @@ test("case-state explanations preserve queued, waiting, and review semantics", (
     true,
   );
 
-  assert.match(review.children[0].title, /does not yet have a conclusive verdict/i);
-  assert.match(review.children[0].title, /runner records/);
-  assert.doesNotMatch(review.children[0].title, /human decision was requested/i);
-  assert.match(queued.children[0].title, /has not started/);
-  assert.match(waiting.children[0].title, /required capability or serial lease/);
-  assert.match(capability.title, /in use by YOK-2001/);
-  assert.match(capability.title, /this case queues/);
-  assert.match(capability.title, /nothing about the plan is blocked/);
+  const explains = (node) => node.getAttribute("data-tooltip");
+  assert.match(explains(review.children[0]), /does not yet have a conclusive verdict/i);
+  assert.match(explains(review.children[0]), /runner records/);
+  assert.doesNotMatch(explains(review.children[0]), /human decision was requested/i);
+  assert.match(explains(queued.children[0]), /has not started/);
+  assert.match(explains(waiting.children[0]), /required capability or serial lease/);
+  assert.match(explains(capability), /in use by YOK-2001/);
+  assert.match(explains(capability), /this case queues/);
+  assert.match(explains(capability), /nothing about the plan is blocked/);
 });
 
 test("review explanations derive human work only from recorded request state", () => {

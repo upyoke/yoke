@@ -151,11 +151,13 @@ test("a lease-waiting case explains contention without offering actions", async 
   assert.equal(byClass(host, "qa-case-actions")[0].textContent, "—");
   assert.match(text(host), /success policy: all 1 case passes/);
   assert.match(
-    byClass(host, "pill").find((node) => node.textContent === "in use").title,
+    byClass(host, "pill").find((node) => node.textContent === "in use")
+      .getAttribute("data-tooltip"),
     /YOK-2001.*this case queues.*nothing about the plan is blocked/,
   );
   assert.match(
-    byClass(host, "pill").find((node) => node.textContent === "waiting").title,
+    byClass(host, "pill").find((node) => node.textContent === "waiting")
+      .getAttribute("data-tooltip"),
     /required capability or serial lease/,
   );
   assert.match(text(host), /1 waiting — the release transition waits/);

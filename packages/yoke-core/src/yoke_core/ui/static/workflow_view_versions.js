@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 import { callFunction } from "./universe_view_support.js";
 import { relativeAge } from "./universe_time.js";
@@ -220,7 +221,7 @@ function versionRow(documentNode, workflow, version, previous, actions) {
   );
   if (version.published_at) {
     published.setAttribute("datetime", version.published_at);
-    published.setAttribute("title", version.published_at);
+    attachTooltip(documentNode, published, version.published_at);
   }
   rowActions.appendChild(published);
   if (!current) {

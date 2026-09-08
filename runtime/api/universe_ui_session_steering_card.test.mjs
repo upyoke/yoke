@@ -51,7 +51,8 @@ test("a live seat leads with the Steering box and designed corner symbol", () =>
   assert.equal(svg.children[0].getAttribute("fill"), "currentColor");
   assert.equal(svg.children[1].getAttribute("stroke"), "currentColor");
   assert.equal(
-    symbol.title, "steering seat — this session steered this project",
+    symbol.getAttribute("data-tooltip"),
+    "steering seat — this session steered this project",
   );
   assert.equal(symbol.getAttribute("aria-hidden"), "true");
   assert.equal(symbol.getAttribute("aria-label"), null);

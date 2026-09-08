@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import {
@@ -123,7 +124,7 @@ function itemTable(documentNode, rows, rowHref, scope, projects) {
         documentNode, "span", "item-workflow",
         reason ? `QA undetermined — ${reason}` : "QA undetermined",
       );
-      attention.title = reason;
+      attachTooltip(documentNode, attention, reason);
       titleCell.appendChild(attention);
     }
     tr.appendChild(titleCell);
@@ -135,7 +136,7 @@ function itemTable(documentNode, rows, rowHref, scope, projects) {
       row.workflow_id,
     );
     workflow.setAttribute("data-workflow", row.workflow_id);
-    workflow.setAttribute("title", `workflow · ${row.workflow_id}`);
+    attachTooltip(documentNode, workflow, `workflow · ${row.workflow_id}`);
     workflowCell.appendChild(workflow);
     tr.appendChild(workflowCell);
     const statusCell = el(documentNode, "td");

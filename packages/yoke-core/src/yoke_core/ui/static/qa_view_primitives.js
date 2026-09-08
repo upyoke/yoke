@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import {
   callFunction,
   el,
@@ -126,17 +127,17 @@ export function capabilityStateNode(
   if (!pill || state !== "in_use") return pill;
   const itemRef = capabilityContext?.active_lease?.item_ref;
   if (caseContext) {
-    pill.title = itemRef
+    attachTooltip(documentNode, pill, itemRef
       ? `All registered Test Macs are occupied; one is in use by ${itemRef}. ` +
         "this case queues; nothing about the plan is blocked."
       : "All registered Test Macs are held by active executions; " +
-        "this case queues without blocking its plan.";
+        "this case queues without blocking its plan.");
   } else {
-    pill.title = itemRef
+    attachTooltip(documentNode, pill, itemRef
       ? `All registered Test Macs are occupied; one is in use by ${itemRef}. ` +
         "New machine cases queue without blocking their plans."
       : "All registered Test Macs are held by active executions. " +
-        "New machine cases queue without blocking their plans.";
+        "New machine cases queue without blocking their plans.");
   }
   return pill;
 }
@@ -245,10 +246,10 @@ export function outcomeNode(
     : baseLabel;
   const pill = statePill(documentNode, display, label);
   if (pill) {
-    pill.title = [
+    attachTooltip(documentNode, pill, [
       explanation || OUTCOME_EXPLANATIONS[outcomeId] || "",
       degradedReason ? `Capture degraded: ${degradedReason}` : "",
-    ].filter(Boolean).join(" ");
+    ].filter(Boolean).join(" "));
     wrap.appendChild(pill);
   }
   return wrap;
@@ -285,7 +286,7 @@ export function relativeTimeNode(documentNode, value) {
   if (!value) return el(documentNode, "span", "muted", "—");
   const time = el(documentNode, "time", "qa-relative-time", relativeAge(value));
   time.dateTime = String(value);
-  time.title = String(value);
+  attachTooltip(documentNode, time, String(value));
   return time;
 }
 

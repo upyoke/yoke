@@ -281,7 +281,8 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
   );
   const attributed = byClass(root, "session-attached");
   assert.deepEqual(attributed.map((node) => node.textContent), ["↳"]);
-  assert.match(attributed[0].title, /^filed or updated by this session/);
+  const attribution = attributed[0].getAttribute("data-tooltip");
+  assert.match(attribution, /^filed or updated by this session/);
   assert.equal(byClass(root, "session-work-role").length, 0);
   assert.deepEqual(
     byClass(root, "session-item-stage").map((node) => node.textContent),

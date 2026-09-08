@@ -10,6 +10,7 @@
 // derives a state is a fact about the model, not something a member acts on,
 // so it stays out of the rendered card.
 
+import { attachTooltip } from "./universe_tooltip.js";
 import {
   callFunction,
   el,
@@ -156,7 +157,7 @@ function renderModule(context, module, position, result, draw, viewState) {
   );
   if (module.key === "run_onboard") {
     title.classList.add("cmd");
-    title.setAttribute("title", RUN_ONBOARD_TITLE_HINT);
+    attachTooltip(documentNode, title, RUN_ONBOARD_TITLE_HINT);
   }
   head.appendChild(title);
   const pill = statePill(
@@ -173,7 +174,7 @@ function renderModule(context, module, position, result, draw, viewState) {
   } else if (result.dismiss_available && module.state === "activated") {
     const dismiss = el(documentNode, "button", "activation-dismiss", "✕");
     dismiss.type = "button";
-    dismiss.setAttribute("title", DISMISS_HINT);
+    attachTooltip(documentNode, dismiss, DISMISS_HINT, { pinOnClick: false });
     dismiss.addEventListener(
       "click", () => setDismissed(context, module, true, draw),
     );

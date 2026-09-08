@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  killBadgeLabel,
-  killBadgeTitle,
+  killExplanation,
   sessionHealthState,
   sessionPrimaryStatus,
+  sessionStatusExplanation,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_diagnostics.js";
 import {
   sessionCard,
@@ -19,6 +19,13 @@ const ITEM_CLAIM = [{ target_kind: "item", target: "YOK-1" }];
 
 function card(row) {
   return sessionCard(new FakeDocument(), row, () => {});
+}
+
+// The status pill's own (i) — not any explaining node on the card, since the
+// lane chip and other facts explain themselves through the same primitive.
+function statusExplanation(rendered) {
+  const info = byClass(rendered, "tooltip-info")[0];
+  return info ? info.getAttribute("data-tooltip") : null;
 }
 
 // A session past the staleness window with claims held, so every health state
@@ -100,11 +107,14 @@ test("a declared wait reads as waiting, not as a session suspected of being gone
   assert.equal(dependency.label, "waiting");
   assert.equal(dependency.detail, "gated on YOK-2 (implementing)");
 
+  // Holding the turn open for an answer IS parked; it used to render a
+  // `waiting` pill, a `parked` pill and this sentence all at once.
   const posture = sessionHealthState(
     quietHolder({ declared_wait: { kind: "turn_posture" } }),
     Date.parse("2026-08-22T12:00:00Z"),
   );
-  assert.equal(posture.state, "waiting");
+  assert.equal(posture.state, "parked");
+  assert.equal(posture.label, "parked");
   assert.equal(posture.detail, "turn parked for an answer");
 });
 
@@ -144,7 +154,7 @@ test("an open probe replaces possibly-stale, which needs no declaration at all",
     }),
     Date.parse("2026-08-22T12:00:00Z"),
   );
-  assert.equal(both.state, "waiting");
+  assert.equal(both.state, "parked");
 });
 
 test("process-gone evidence outranks age and tells the operator how to act", () => {
@@ -168,10 +178,13 @@ test("process-gone evidence outranks age and tells the operator how to act", () 
   assert.equal(byClass(rendered, "session-status-pill")[0].textContent, "process gone");
   assert.equal(byClass(rendered, "session-health-pill").length, 0);
   assert.equal(rendered.classList.contains("is-stale"), false);
+  // The recovery action reaches the operator through the pill's own (i)
+  // rather than a second line of prose under the card.
   assert.equal(
-    byClass(rendered, "session-health-detail")[0].textContent,
+    statusExplanation(rendered),
     "claims held — terminate deliberately if dead",
   );
+  assert.equal(byClass(rendered, "session-health-detail").length, 0);
 });
 
 test("health stays silent for active, claim-free, and ended sessions", () => {
@@ -202,26 +215,20 @@ test("the health pill renders its state and detail on the card", () => {
   assert.equal(pill.getAttribute("data-state"), "waiting");
   assert.equal(byClass(rendered, "session-health-pill").length, 0);
   assert.equal(rendered.classList.contains("is-stale"), false);
-  assert.equal(
-    byClass(rendered, "session-health-detail")[0].textContent,
-    "gated on YOK-2 (implementing)",
-  );
+  const explain = byClass(rendered, "tooltip-info")[0];
+  assert.equal(explain.getAttribute("aria-label"), "Why waiting");
+  assert.equal(statusExplanation(rendered), "gated on YOK-2 (implementing)");
 });
 
 test("a kill reads as a cause of death on ended, never as its own liveness", () => {
-  assert.equal(killBadgeLabel({ liveness: "ended" }), "");
-  assert.equal(killBadgeLabel({ ended_cause: "killed" }), "killed");
-  // The label stays one word whether or not a reason exists; the reason is
-  // hover detail, so it reaches the reader through the title instead.
-  assert.equal(
-    killBadgeLabel({ ended_cause: "killed", termination_reason: "a long reason" }),
-    "killed",
-  );
+  assert.equal(killExplanation({ liveness: "ended" }), "");
+  // The pill stays one word whether or not a reason exists; the reason is
+  // explanation, so it reaches the reader through the pill's (i) instead.
   assert.match(
-    killBadgeTitle({ ended_cause: "killed", termination_reason: "a long reason" }),
+    killExplanation({ ended_cause: "killed", termination_reason: "a long reason" }),
     /Reason: a long reason$/,
   );
-  assert.ok(!killBadgeTitle({ ended_cause: "killed" }).includes("Reason:"));
+  assert.ok(!killExplanation({ ended_cause: "killed" }).includes("Reason:"));
 
   const rendered = card({
     session_id: "killed-1",
@@ -236,6 +243,10 @@ test("a kill reads as a cause of death on ended, never as its own liveness", () 
   });
   assert.equal(byClass(rendered, "session-health").length, 0);
   assert.equal(byClass(rendered, "session-kill-badge").length, 0);
+  assert.match(
+    statusExplanation(rendered),
+    /^Terminated: .*Reason: operator stopped worker$/,
+  );
   assert.equal(
     byClass(rendered, "session-history-ended")[0].textContent,
     "Killed 2026-08-22T12:05:00Z",
@@ -282,10 +293,46 @@ test("one primary status covers the meaningful combinations without restating st
   assert.equal(uncertain.classList.contains("is-stale"), false);
   assert.equal(byClass(uncertain, "session-stale-pill").length, 0);
 
-  const waiting = card(quietHolder({
+  const parked = card(quietHolder({
     activity_at: quiet,
     declared_wait: { kind: "turn_posture" },
   }));
-  assert.equal(byClass(waiting, "session-status-pill")[0].textContent, "waiting");
-  assert.equal(waiting.classList.contains("is-stale"), false);
+  assert.deepEqual(
+    byClass(parked, "session-status-pill").map((n) => n.textContent),
+    ["parked"],
+  );
+  assert.equal(parked.classList.contains("is-stale"), false);
+});
+
+test("one pill covers a self-declared park, and its reasons meet in one place", () => {
+  const now = Date.parse("2026-08-22T12:00:00Z");
+  // A session that stamped `parked` about itself used to draw a `parked`
+  // badge beside whichever liveness pill the roster had computed.
+  const selfParked = { liveness: "active", activity_at: new Date(now).toISOString(), mode: "parked" };
+  assert.equal(sessionPrimaryStatus(selfParked, now).state, "parked");
+  const rendered = card({ ...selfParked, session_id: "s", executor: "codex", claims: [],
+    stale_eligible_at: "2099-01-01T00:00:00Z", messageability: { messageable: false } });
+  assert.deepEqual(
+    byClass(rendered, "session-status-pill").map((n) => n.textContent),
+    ["parked"],
+  );
+  assert.deepEqual(
+    byClass(rendered, "session-status-pill").map((n) => n.getAttribute("data-state")),
+    ["parked"],
+  );
+
+  // The state's own detail and the recorded quiet reason are one answer.
+  assert.equal(
+    sessionStatusExplanation({ ...selfParked, quiet_reason: "waiting on the operator" }, now),
+    "parked by the session itself; its next tool call takes it back"
+    + " · waiting on the operator",
+  );
+  // A quiet reason that only restates the state is said once.
+  assert.equal(
+    sessionStatusExplanation(
+      { ...selfParked, quiet_reason: "parked by the session itself; its next tool call takes it back" },
+      now,
+    ),
+    "parked by the session itself; its next tool call takes it back",
+  );
 });

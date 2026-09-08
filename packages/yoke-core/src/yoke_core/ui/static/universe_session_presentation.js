@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 
 export function presentationLabel(row) {
@@ -21,6 +22,9 @@ export function appendSessionPresentation(documentNode, body, row) {
     "session-presentation",
     `Presentation: ${label}`,
   );
-  line.title = "Observed attachment only; initiating authority and frontend are unknown.";
+  attachTooltip(
+    documentNode, line,
+    "Observed attachment only; initiating authority and frontend are unknown.",
+  );
   body.appendChild(line);
 }

@@ -1,0 +1,91 @@
+/* The shared hover / tap / focus explanation. One rule set app-wide, so a
+   pill on the Sessions roster and a timestamp on an item detail explain
+   themselves the same way. */
+
+/* The trigger keeps exactly the box and the styling it already had. These
+   sentences used to hang off `title`, and marking every one of them would
+   redecorate rows the operator reads at a glance — a usage line whose every
+   word is underlined is harder to read, not more discoverable. The cursor
+   says there is more here; the focus ring says a keyboard has reached it;
+   and where nothing visible carries the explanation at all, `infoTooltip`
+   mints the (i) that does. */
+.universe-app-root .has-tooltip {
+  cursor: help;
+}
+
+.universe-app-root .has-tooltip:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 2px;
+}
+
+/* Deliberately unscoped, unlike every other rule in this sheet: the bubble is
+   a document-level layer parked in `body` rather than inside the app root, so
+   no clipping ancestor can reach it and nothing it renders joins a trigger's
+   own text. The theme variables live on `:root`, so it still reads the same
+   palette. Fixed positioning is the other half of escaping those ancestors;
+   the script sets left/top from the trigger's own box. */
+.tooltip-bubble {
+  position: fixed;
+  z-index: 60;
+  display: block;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 7px 10px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-surface);
+  box-shadow: var(--yoke-shadow);
+  color: var(--yoke-ink);
+  font-size: 11.5px;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: normal;
+  line-height: 1.45;
+  text-align: left;
+  text-decoration: none;
+  text-transform: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: auto;
+}
+
+.tooltip-bubble[hidden] {
+  display: none;
+}
+
+/* The (i) for a fact nothing visible already explains. Sized to sit inside a
+   row of pills without changing that row's height. */
+.universe-app-root .tooltip-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--yoke-muted) 55%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--yoke-muted);
+  font-family: var(--yoke-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+
+.universe-app-root .tooltip-info:hover,
+.universe-app-root .tooltip-info.tooltip-open {
+  border-color: var(--yoke-accent);
+  color: var(--yoke-accent);
+}
+
+/* Wraps a control that may be disabled: a disabled control fires no pointer
+   or focus events, so the host takes them on its behalf. */
+.universe-app-root .tooltip-host {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}

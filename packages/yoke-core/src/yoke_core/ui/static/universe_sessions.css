@@ -47,39 +47,39 @@
 }
 .universe-app-root .session-card.is-stale { background: var(--yoke-warn-bg); }
 
-/* The identity line wraps rather than truncating: at the grid's narrow column
-   a harness name, lane, and operator that do not fit on one line move to the
-   next one whole, because an initial and an ellipsis name nothing. */
-.universe-app-root .session-top {
+/* Both header rows wrap rather than truncating: at the grid's narrow column
+   a harness name, lane, operator, or model that does not fit on one line
+   moves to the next one whole, because an initial and an ellipsis name
+   nothing. */
+.universe-app-root .session-top,
+.universe-app-root .session-state-line {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px 9px;
   min-width: 0;
-  margin-bottom: 10px;
 }
-.universe-app-root .session-top > * {
+.universe-app-root .session-top > *,
+.universe-app-root .session-state-line > * {
   box-sizing: border-box;
   max-width: 100%;
   overflow-wrap: anywhere;
 }
-
-.universe-app-root .session-quiet-explanation {
-  color: var(--yoke-muted);
+.universe-app-root .session-top {
+  margin-bottom: 8px;
+  /* The identity row sets the height both header rows keep, so the harness
+     mark, the pill below it, and the operator on the far end share one
+     baseline instead of each row sizing to its own tallest chip. */
+  min-height: 22px;
 }
-.universe-app-root .session-quiet-summary {
-  width: fit-content;
-  min-height: 24px;
-  cursor: pointer;
-  color: var(--yoke-warn);
-  font-size: 11px;
-  font-weight: 700;
+.universe-app-root .session-state-line {
+  min-height: 22px;
+  gap: 6px;
 }
-.universe-app-root .session-quiet-copy {
-  margin-top: 4px;
-  overflow-wrap: anywhere;
-  color: var(--yoke-ink);
-  white-space: pre-wrap;
+/* The model reads as the state's qualifier rather than a competing fact, so
+   it gives up the pill's gap and takes the row's remaining width. */
+.universe-app-root .session-state-line .session-model-line {
+  flex: 1 1 auto;
 }
 
 .universe-app-root .session-harness.h-machine {
@@ -175,15 +175,11 @@
   color: inherit;
 }
 
-.universe-app-root .session-latest-message,
-.universe-app-root .session-ended-cause {
+.universe-app-root .session-latest-message {
   display: flex;
   align-items: center;
-  gap: 7px;
-}
-
-.universe-app-root .session-latest-message {
   flex-wrap: nowrap;
+  gap: 7px;
   min-width: 0;
   line-height: 1.2;
   white-space: nowrap;
@@ -200,8 +196,7 @@
   line-height: 1;
 }
 
-.universe-app-root .session-message-badge,
-.universe-app-root .session-kill-badge {
+.universe-app-root .session-message-badge {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
@@ -223,16 +218,6 @@
   color: var(--yoke-good);
 }
 
-.universe-app-root .session-kill-badge {
-  background: var(--yoke-crit-bg);
-  color: var(--yoke-crit);
-}
-
-.universe-app-root .session-kill-when {
-  color: var(--yoke-muted);
-  font-size: 11px;
-}
-
 .universe-app-root .session-operator {
   min-width: 0;
   color: var(--yoke-muted);
@@ -248,8 +233,8 @@
 
 /* Identity reads left to right, wrapping when it must: who is running, then
    the lane the fleet gave them, then who owns the session, held to the far end
-   of whichever row it lands on. Health and reachability each get their own row
-   below the work so a glance separates them. */
+   of whichever row it lands on. State and model follow on the next row, and
+   reachability gets its own row below the work so a glance separates them. */
 .universe-app-root .session-top .session-operator {
   margin-left: auto;
 }
@@ -271,7 +256,6 @@
   white-space: nowrap;
 }
 
-.universe-app-root .session-health,
 .universe-app-root .session-relay {
   display: flex;
   align-items: center;
@@ -293,7 +277,6 @@
 .universe-app-root .session-relay-pill::before { flex: 0 0 auto; }
 .universe-app-root .session-relay-machine { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.universe-app-root .session-health-detail,
 .universe-app-root .session-relay-warning,
 .universe-app-root .session-messaging-blocked {
   min-width: 0;

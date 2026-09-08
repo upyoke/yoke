@@ -69,9 +69,19 @@ test("the session card carries the explanation the figures dropped", () => {
 
   const line = byClass(body, "session-usage-line")[0];
   assert.ok(line, "the card renders a usage line");
-  assert.equal(line.title, MEASURED.usage_note);
+  assert.equal(line.getAttribute("data-tooltip"), MEASURED.usage_note);
   const facts = byClass(body, "session-usage");
   assert.deepEqual(facts.map((node) => node.textContent), ["1.2m", "$12.5"]);
+  // Each figure names what it is: the line used to read `1.2m · $12.5` and
+  // left the reader to work out which number was which.
+  assert.deepEqual(
+    byClass(body, "session-usage-label").map((node) => node.textContent),
+    ["usage"],
+  );
+  assert.deepEqual(
+    byClass(body, "session-usage-unit").map((node) => node.textContent),
+    ["tokens", "API cost"],
+  );
 });
 
 test("an unread session still renders, explaining why it is blank", () => {
@@ -81,10 +91,15 @@ test("an unread session still renders, explaining why it is blank", () => {
   appendSessionUsage(documentNode, body, { session_id: "s" });
 
   const line = byClass(body, "session-usage-line")[0];
-  assert.match(line.title, /no consumption recorded/);
+  assert.match(line.getAttribute("data-tooltip"), /no consumption recorded/);
+  // The units stay on an unread session: naming what is missing is the point.
   assert.deepEqual(
     byClass(body, "session-usage").map((node) => node.textContent),
     [UNREAD_DISPLAY, UNREAD_DISPLAY],
+  );
+  assert.deepEqual(
+    byClass(body, "session-usage-unit").map((node) => node.textContent),
+    ["tokens", "API cost"],
   );
 });
 
@@ -219,7 +234,7 @@ test("the machine scope says the estimate is not plan consumption", () => {
   ]);
 
   assert.match(
-    byClass(card, "machine-usage-scope")[0].title,
+    byClass(card, "machine-usage-scope")[0].getAttribute("data-tooltip"),
     /not consumption of any subscription plan/,
   );
 });

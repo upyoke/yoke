@@ -6,19 +6,14 @@ import {
 import { loadMachinesPanel } from "./universe_machines_panel.js";
 import { overviewSection } from "./universe_overview_primitives.js";
 import { appendHoldings } from "./universe_sessions_holdings.js";
-import {
-  callFunction,
-  el,
-  sessionQuietExplanation,
-  sessionStateBadge,
-} from "./universe_view_support.js";
+import { attachTooltip, tooltipHost } from "./universe_tooltip.js";
+import { callFunction, el } from "./universe_view_support.js";
 import {
   appendEndedHistory,
   renderSessionRows,
   sessionsHistoryLoader,
 } from "./universe_sessions_history_loader.js";
 import {
-  appendSessionDiagnostics,
   appendSessionMessageLine,
   appendSessionPrimaryStatus,
   sessionPrimaryStatus,
@@ -65,7 +60,10 @@ function laneChip(documentNode, row) {
     "session-lane",
     row.lane_glyph ? `${row.lane_glyph} ${laneLabel}` : laneLabel,
   );
-  chip.title = "execution lane — the job Yoke assigned, not the harness";
+  attachTooltip(
+    documentNode, chip,
+    "execution lane — the job Yoke assigned, not the harness",
+  );
   return chip;
 }
 function operatorLabel(documentNode, row) {
@@ -103,6 +101,10 @@ export function sessionCard(
   card.setAttribute("data-session-id", String(row.session_id || ""));
   card.setAttribute("data-liveness", liveness || "unknown");
 
+  // Two header rows, each answering one question. Who is running this and
+  // under whose name, then what state it is in and on what model: the status
+  // pill used to sit in the middle of the identity row, where it competed
+  // with a harness name and a lane for the same eye.
   const top = el(documentNode, "div", "session-top");
   const harness = harnessIdentity(row);
   top.appendChild(el(
@@ -112,18 +114,16 @@ export function sessionCard(
     harness.mark,
   ));
   top.appendChild(el(documentNode, "span", "session-executor", harness.label));
-  appendSessionPrimaryStatus(documentNode, top, row);
   if (liveness !== "ended") top.appendChild(laneChip(documentNode, row));
-  const stateBadge = sessionStateBadge(documentNode, row.mode);
-  if (stateBadge) top.appendChild(stateBadge);
   const operator = operatorLabel(documentNode, row);
   if (operator) top.appendChild(operator);
   card.appendChild(top);
 
   const body = el(documentNode, "div", "session-card-body");
-  const quietExplanation = sessionQuietExplanation(documentNode, row.quiet_reason);
-  if (quietExplanation) body.appendChild(quietExplanation);
-  appendModel(documentNode, body, row);
+  const state = el(documentNode, "div", "session-state-line");
+  appendSessionPrimaryStatus(documentNode, state, row);
+  appendModel(documentNode, state, row);
+  body.appendChild(state);
   appendSessionUsage(documentNode, body, row);
   if (liveness === "ended") {
     appendEndedHistory(documentNode, body, row);
@@ -138,7 +138,6 @@ export function sessionCard(
   appendSessionRelay(documentNode, body, row);
   appendSessionMessageLine(documentNode, body, row, messageAction);
   appendSessionMessagingBlocker(documentNode, body, row);
-  appendSessionDiagnostics(documentNode, body, row);
   card.appendChild(body);
   return card;
 }
@@ -159,11 +158,13 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   );
   messageAll.type = "button";
   messageAll.disabled = true;
+  const messageAllHost = tooltipHost(documentNode, messageAll, "");
   const reclaim = el(
     documentNode, "button", "item-button session-filter-action", "Reclaim stale",
   );
   reclaim.type = "button";
   reclaim.disabled = true;
+  const reclaimHost = tooltipHost(documentNode, reclaim, "");
   const loadMore = el(
     documentNode, "button", "item-button session-filter-action", "Load more",
   );
@@ -207,9 +208,9 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     machinesPanel.then((panel) => panel?.redraw()).catch(() => {});
     const bulkRows = loader?.bulkRows() || [];
     messageAll.disabled = bulkRows.length === 0;
-    messageAll.title = bulkRows.length
+    messageAllHost.tooltip.set(bulkRows.length
       ? `Message all ${bulkRows.length} open session${bulkRows.length === 1 ? "" : "s"}`
-      : "No open sessions match the current filters";
+      : "No open sessions match the current filters");
     const historyError = loader?.historyError();
     loadMore.hidden = !loader?.historyVisible()
       || (!historyError && !loader.nextCursor());
@@ -221,14 +222,14 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       (row) => row.liveness === "stale",
     ).length;
     reclaim.disabled = staleCount === 0;
-    reclaim.title = staleCount
+    reclaimHost.tooltip.set(staleCount
       ? `Recheck and reclaim ${staleCount} stale session${staleCount === 1 ? "" : "s"}`
-      : "No stale sessions in this scope";
+      : "No stale sessions in this scope");
   };
   filters = sessionRosterFilters(documentNode, (key) => loader?.filtersChanged(key));
   loader = sessionsHistoryLoader(context, scope, filters, renderRoster);
-  filters.actions.appendChild(messageAll);
-  filters.actions.appendChild(reclaim);
+  filters.actions.appendChild(messageAllHost);
+  filters.actions.appendChild(reclaimHost);
   filters.actions.appendChild(loadMore);
   messageAll.addEventListener("click", () => {
     const rows = loader.bulkRows();

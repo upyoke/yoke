@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 import {
   readablePolicyValue,
@@ -138,9 +139,9 @@ function lockPill(documentNode, row, workflowName) {
     `workflow-lock-pill ${invariant ? "universal" : "workflow"}`,
     `🔒 ${invariant ? "Always" : workflowName}`,
   );
-  pill.title = invariant
+  attachTooltip(documentNode, pill, invariant
     ? "No workflow can change this"
-    : `Fixed by every ${workflowName}`;
+    : `Fixed by every ${workflowName}`);
   return pill;
 }
 

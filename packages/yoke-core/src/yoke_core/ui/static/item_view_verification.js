@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { relativeTime } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
@@ -26,7 +27,7 @@ function qaOutcomePill(documentNode, row, workflowId) {
   }
   const pill = statePill(documentNode, outcome, label);
   if (pill && row.capture_degraded_reason) {
-    pill.title = String(row.capture_degraded_reason);
+    attachTooltip(documentNode, pill, String(row.capture_degraded_reason));
   }
   return pill;
 }

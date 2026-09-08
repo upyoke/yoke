@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 import { pillFamilyForState } from "./universe_state_pills.js";
 import { appendRelayDiagnostic } from "./session_relay_diagnostic_view.js";
@@ -122,13 +123,13 @@ function deliveryMarker(documentNode, recipient) {
     `session-message-delivery-marker ${wakes ? "is-wake" : "is-direct"}`,
     wakes ? `Wake ×${wakes}` : "Direct",
   );
-  marker.title = wakes
+  attachTooltip(documentNode, marker, wakes
     ? `${wakes} wake attempt${wakes === 1 ? "" : "s"} ${
       recipient.state === "acknowledged"
         ? "preceded acknowledgement"
         : "made; acknowledgement is still pending"
     }`
-    : "Acknowledged without a wake attempt";
+    : "Acknowledged without a wake attempt");
   return marker;
 }
 

@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 
 const STAGE_STATES = new Set([
@@ -31,7 +32,7 @@ export function renderStageStrip(documentNode, stageRows) {
     segment.setAttribute("data-state", state);
     // The segment carries its own failure, so the strip says it in place
     // rather than under a second line of red text repeating the stage name.
-    segment.setAttribute("title", `${name} · ${failure || state}`);
+    attachTooltip(documentNode, segment, `${name} · ${failure || state}`);
     strip.appendChild(segment);
   }
   return strip;

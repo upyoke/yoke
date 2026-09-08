@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 
 function input(documentNode, label, kind = "text") {
@@ -202,6 +203,9 @@ export function appendSessionRelay(documentNode, body, row) {
     documentNode, "span", "session-relay-machine", machineLabel(row),
   ));
   pill.setAttribute("data-state", connected ? "connected" : "unavailable");
+  // Deliberately the browser's own title rather than the shared tooltip: the
+  // pill's text already IS this label, clipped to 22ch by the sheet, so the
+  // reveal repeats visible characters instead of explaining anything.
   pill.title = machineLabel(row);
   line.appendChild(pill);
   if (!connected) {
@@ -280,8 +284,12 @@ export function sessionMessageButton(documentNode, row, onMessage) {
     "Message",
   );
   message.type = "button";
-  message.title = availability.note
-    || `Message only session ${row.session_id}`;
+  attachTooltip(
+    documentNode,
+    message,
+    availability.note || `Message only session ${row.session_id}`,
+    { pinOnClick: false },
+  );
   message.addEventListener("click", () => onMessage(String(row.session_id)));
   return message;
 }

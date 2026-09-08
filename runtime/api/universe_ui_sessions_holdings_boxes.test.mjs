@@ -145,7 +145,7 @@ test("primary held item shows its complete workflow stage strip", () => {
   );
   assert.deepEqual(
     byClass(current, "delivery-run-stage").map(
-      (node) => node.getAttribute("title"),
+      (node) => node.getAttribute("data-tooltip"),
     ),
     [
       "idea · complete",
@@ -179,7 +179,9 @@ test("the failed segment carries its failure without a second red line", () => {
   assert.equal(progress.children[0].className, "delivery-run-stages");
   const segment = byClass(rendered, "delivery-run-stage")[1];
   assert.equal(segment.getAttribute("data-state"), "failed");
-  assert.equal(segment.getAttribute("title"), "implementing · QA failed");
+  assert.equal(
+    segment.getAttribute("data-tooltip"), "implementing · QA failed",
+  );
   assert.match(
     byClass(rendered, "delivery-run-stages")[0].getAttribute("aria-label"),
     /implementing failed QA failed/,
@@ -266,7 +268,7 @@ test("a claimed Dash still at status idea paints idea done, not active", () => {
   });
 
   const titles = byClass(rendered, "delivery-run-stage").map(
-    (node) => node.getAttribute("title"),
+    (node) => node.getAttribute("data-tooltip"),
   );
   assert.equal(titles[0], "idea · complete");
   assert.equal(titles[1], "implementing · active");

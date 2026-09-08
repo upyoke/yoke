@@ -73,7 +73,7 @@ test("day zero: module one is next up, the rest wait in order", async (t) => {
   );
   const onboardTitle = byClass(cards[2], "activation-title")[0];
   assert.equal(
-    onboardTitle.attributes.get("title"),
+    onboardTitle.getAttribute("data-tooltip"),
     "Run this in your harness — the web never invokes a skill",
   );
   // Which signal derives a state explains the model to its designers; it is

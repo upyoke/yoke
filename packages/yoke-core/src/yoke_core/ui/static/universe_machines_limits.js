@@ -9,6 +9,7 @@
  * than inventing a second.
  */
 
+import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 import {
   METER_PIVOT,
@@ -45,7 +46,7 @@ function headroomTrack(documentNode, headroom, tone) {
   // means one thing wherever it is read.
   const pivot = el(documentNode, "i", "machine-headroom-pivot");
   pivot.style.left = `${METER_PIVOT}%`;
-  pivot.title = "100% headroom";
+  attachTooltip(documentNode, pivot, "100% headroom");
   track.appendChild(pivot);
   track.setAttribute(
     "aria-label",
@@ -75,7 +76,9 @@ export function planWindowRow(documentNode, window, stale) {
     "machine-limit-name",
     unread ? "no reading" : windowLabel(window),
   );
-  // The column caps its width, so the full name stays reachable on hover.
+  // Deliberately the browser's own title rather than the shared tooltip: the
+  // column caps its width, so this reveals the characters the ellipsis ate
+  // and repeats what is already on screen instead of explaining anything.
   name.title = name.textContent;
   row.appendChild(name);
   row.appendChild(headroomTrack(documentNode, headroom, tone));

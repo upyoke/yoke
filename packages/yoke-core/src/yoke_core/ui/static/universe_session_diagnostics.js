@@ -1,3 +1,4 @@
+import { attachTooltip, infoTooltip } from "./universe_tooltip.js";
 import { isInstantRelativeTime, relativeAge } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
 
@@ -15,18 +16,18 @@ function latestMessageBadge(documentNode, message) {
     `session-message-badge is-${classState}`,
     `${state} · ${relativeAge(message.created_at)}`,
   );
-  badge.title = `Latest message ${message.message_id || ""}`.trim();
+  attachTooltip(
+    documentNode, badge, `Latest message ${message.message_id || ""}`.trim(),
+  );
   return badge;
 }
 
-// The badge says what happened, not why: a termination reason is a sentence of
+// The pill says what happened, not why: a termination reason is a sentence of
 // operator prose, and rendering it inline turns a status marker into a red
-// paragraph. The label is the word; `killBadgeTitle` carries the reason.
-export function killBadgeLabel(row) {
-  return row.ended_cause === "killed" ? "killed" : "";
-}
-
-export function killBadgeTitle(row) {
+// paragraph. The pill keeps the one-word state; this carries the reason and
+// the fact that no recovery action exists, into the pill's explanation.
+export function killExplanation(row) {
+  if (row.ended_cause !== "killed") return "";
   const base = "Terminated: this session cannot be revived, woken, or messaged.";
   const reason = String(row.termination_reason || "").trim();
   return reason ? `${base} Reason: ${reason}` : base;
@@ -41,13 +42,37 @@ function pastStalenessWindow(row, now) {
   return !Number.isNaN(eligible) && eligible <= now;
 }
 
-function declaredWaitDetail(wait) {
+// A declared wait is a state, not a footnote to one. Gating behind another
+// item and holding the turn open for an answer are different situations with
+// different answers, so each names itself in the pill and explains itself in
+// the pill's tooltip.
+function declaredWaitStatus(wait) {
   if (wait.kind === "dependency") {
     const status = String(wait.blocking_status || "").trim();
     const stage = status ? ` (${status})` : "";
-    return `gated on ${wait.blocking_item}${stage}`;
+    return {
+      state: "waiting",
+      label: "waiting",
+      detail: `gated on ${wait.blocking_item}${stage}`,
+    };
   }
-  return "turn parked for an answer";
+  return {
+    state: "parked",
+    label: "parked",
+    detail: "turn parked for an answer",
+  };
+}
+
+// A session that stamped `parked` about itself is accounted for in exactly
+// the way a declared wait is, so it reads as the same state rather than as a
+// second badge beside whatever the liveness read happened to say.
+function selfParkedStatus(row) {
+  if (String(row.mode || "").toLowerCase() !== "parked") return null;
+  return {
+    state: "parked",
+    label: "parked",
+    detail: "parked by the session itself; its next tool call takes it back",
+  };
 }
 
 // Health is what the session's own record says about its quiet, and the three
@@ -73,13 +98,7 @@ export function sessionHealthState(row, now = Date.now()) {
   }
   if (!pastStalenessWindow(row, now)) return null;
   const wait = row.declared_wait;
-  if (wait) {
-    return {
-      state: "waiting",
-      label: "waiting",
-      detail: declaredWaitDetail(wait),
-    };
-  }
+  if (wait) return declaredWaitStatus(wait);
   const probe = row.stale_alive_probe;
   if (probe) {
     return {
@@ -97,50 +116,73 @@ export function sessionHealthState(row, now = Date.now()) {
   return { state: "possibly stale", label: "possibly stale", detail };
 }
 
+/**
+ * The one state the card shows, whichever state actually applies.
+ *
+ * A card used to be able to say three things about one silence at once — a
+ * `waiting` pill, a `parked` pill beside it, and a sentence underneath that
+ * repeated whichever of them was right. The reasons and recovery actions all
+ * survived that collapse by moving into `detail`, which the pill's own
+ * explanation renders; what did not survive is the second badge.
+ *
+ * A self-declared park is checked before the quiet reads for the same reason
+ * a declared wait is: the session has already accounted for its own silence,
+ * so reporting it as possibly stale would describe a session nobody is
+ * missing.
+ */
 export function sessionPrimaryStatus(row, now = Date.now()) {
   const liveness = String(row.liveness || "").toLowerCase();
-  if (liveness === "ended") return { state: "ended", label: "ended", detail: null };
-  const health = sessionHealthState(row, now);
-  if (health) return health;
-  if (liveness === "stale") return { state: "stale", label: "stale", detail: null };
-  if (liveness === "active") {
-    return isInstantRelativeTime(row.activity_at, now)
-      ? { state: "active", label: "active", detail: null }
-      : { state: "idle", label: "idle", detail: null };
+  const killed = killExplanation(row);
+  const carrying = (status) => (killed
+    ? { ...status, detail: [status.detail, killed].filter(Boolean).join(" · ") }
+    : status);
+  if (liveness === "ended") {
+    return carrying({ state: "ended", label: "ended", detail: null });
   }
-  return { state: "unknown", label: "unknown", detail: null };
+  const health = sessionHealthState(row, now);
+  if (health && health.state === "process-gone") return carrying(health);
+  const parked = selfParkedStatus(row);
+  if (parked) return carrying(parked);
+  if (health) return carrying(health);
+  if (liveness === "stale") {
+    return carrying({ state: "stale", label: "stale", detail: null });
+  }
+  if (liveness === "active") {
+    return carrying(isInstantRelativeTime(row.activity_at, now)
+      ? { state: "active", label: "active", detail: null }
+      : { state: "idle", label: "idle", detail: null });
+  }
+  return carrying({ state: "unknown", label: "unknown", detail: null });
 }
 
-export function appendSessionPrimaryStatus(documentNode, top, row, now = Date.now()) {
+/**
+ * Everything the card knows about why this session reads the way it does.
+ *
+ * The state's own detail and the session's recorded quiet reason are two
+ * halves of one answer, and a session that recorded the same sentence its
+ * state already implies says it once.
+ */
+export function sessionStatusExplanation(row, now = Date.now()) {
+  const status = sessionPrimaryStatus(row, now);
+  const quiet = String(row.quiet_reason ?? "").trim();
+  const parts = [status.detail, quiet].filter(Boolean);
+  return [...new Set(parts)].join(" · ");
+}
+
+/**
+ * The status pill, and — only where there is more to know — the (i) that
+ * carries the rest of it on hover, tap and focus.
+ */
+export function appendSessionPrimaryStatus(documentNode, host, row, now = Date.now()) {
   const status = sessionPrimaryStatus(row, now);
   const pill = statePill(documentNode, status.state, status.label);
   const confirmed = status.state === "stale" ? " session-stale-pill" : "";
   pill.className = `${pill.className} session-status-pill${confirmed}`;
-  top.appendChild(pill);
-}
-
-// A killed session is ended like any other gone session; the kill is a cause
-// of death, so it reads as a badge on ended rather than a liveness state.
-function appendKillCause(documentNode, body, row) {
-  const label = killBadgeLabel(row);
-  if (!label) return;
-  const line = el(documentNode, "div", "session-ended-cause");
-  const badge = el(documentNode, "span", "session-kill-badge", label);
-  badge.title = killBadgeTitle(row);
-  line.appendChild(badge);
-  const at = relativeAge(row.terminated_at);
-  if (at) line.appendChild(el(documentNode, "span", "session-kill-when", at));
-  body.appendChild(line);
-}
-
-function appendHealth(documentNode, body, row) {
-  const health = sessionHealthState(row);
-  if (!health || !health.detail) return;
-  const line = el(documentNode, "div", "session-health");
-  line.appendChild(el(
-    documentNode, "span", "session-health-detail", health.detail,
-  ));
-  body.appendChild(line);
+  host.appendChild(pill);
+  const explanation = infoTooltip(
+    documentNode, sessionStatusExplanation(row, now), `Why ${status.label}`,
+  );
+  if (explanation) host.appendChild(explanation);
 }
 
 export function appendSessionMessageLine(
@@ -158,9 +200,4 @@ export function appendSessionMessageLine(
     }
     body.appendChild(message);
   }
-}
-
-export function appendSessionDiagnostics(documentNode, body, row) {
-  appendKillCause(documentNode, body, row);
-  appendHealth(documentNode, body, row);
 }

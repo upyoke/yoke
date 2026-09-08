@@ -1,3 +1,4 @@
+import { attachTooltip } from "./universe_tooltip.js";
 import {
   el,
 } from "./universe_view_support.js";
@@ -54,7 +55,7 @@ function methodSummary(documentNode, row) {
     const icon = el(
       documentNode, "span", "qa-method-glyph", methodIcon(method),
     );
-    icon.title = method.id;
+    attachTooltip(documentNode, icon, method.id);
     wrap.appendChild(icon);
   }
   const groups = [...new Set(methods.map((method) => method.group).filter(Boolean))];
@@ -148,7 +149,7 @@ function renderPlanTable(context, body, rows) {
       documentNode, row.last_outcome || "not run", null, displayLabel,
     ));
     if (row.last_verdict_reason) {
-      result.title = row.last_verdict_reason;
+      attachTooltip(documentNode, result, row.last_verdict_reason);
       result.appendChild(el(
         documentNode, "span", "qa-result-reason",
         ` · ${row.last_verdict_reason}`,

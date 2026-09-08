@@ -161,7 +161,10 @@ test("roster defaults to active and exposes only the supported filters", async (
   harness.dispatchEvent(new Event("input"));
   await settle();
   assert.deepEqual(cardIds(root), ["stale-cursor"]);
-  assert.equal(button(root, "Message all").title, "Message all 1 open session");
+  assert.equal(
+    button(root, "Message all").parentNode.getAttribute("data-tooltip"),
+    "Message all 1 open session",
+  );
 
   button(root, "Clear").dispatchEvent(new Event("click"));
   assert.equal(state.value, "active");
@@ -270,9 +273,9 @@ test("a card Message action sends to only that session", async (t) => {
   assert.deepEqual(
     latest.children.map((node) => [node.tagName, node.className]),
     [
-      ["BUTTON", "item-button session-message-button"],
+      ["BUTTON", "item-button session-message-button has-tooltip"],
       ["SPAN", "session-latest-label"],
-      ["SPAN", "session-message-badge is-acknowledged"],
+      ["SPAN", "session-message-badge is-acknowledged has-tooltip"],
     ],
   );
   assert.equal(latest.children[0].textContent, "Message");
