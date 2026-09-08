@@ -23,7 +23,7 @@
    marks the whole block as the steering region at a glance. */
 .universe-app-root .session-steering-symbol {
   position: absolute;
-  top: 5px;
+  top: 6px;
   right: 7px;
   color: var(--yoke-accent);
 }
@@ -35,10 +35,13 @@
   line-height: 1;
 }
 
+/* Landscape artwork (209.8×142). Size by height so stroke weight and
+   visible width match the prototype sess-wheel, not by width which
+   shrinks the mark. */
 .universe-app-root .steering-symbol svg {
   display: block;
-  width: 14px;
-  height: auto;
+  height: 14px;
+  width: auto;
 }
 
 .universe-app-root .session-lock.steering-symbol {
