@@ -25,6 +25,7 @@ from yoke_cli.config import machine_config
 from yoke_cli.config import machine_config_file
 from yoke_cli.config import secrets as machine_secrets
 from yoke_cli.config import writer
+from yoke_contracts.control_plane_locality import RemoteControlPlaneConnectionError
 from yoke_contracts.machine_config import schema as contract
 
 #: The machine-config env label local mode owns.
@@ -90,7 +91,14 @@ def run_local_init(
     engine = _engine()
     try:
         report = dict(engine.birth(org_name=org_name, emit=emit))
-    except RuntimeError as exc:  # engine setup errors (binaries, cluster, bootstrap)
+    except RemoteControlPlaneConnectionError as exc:
+        # BaseException: a leftover ambient connect would traceback past
+        # RuntimeError. Named setup error plus retry is the product recovery.
+        raise LocalUniverseSetupError(
+            f"{exc} Retry `yoke init --local`; it opens the owned local "
+            "cluster without using the active remote connection."
+        ) from exc
+    except RuntimeError as exc:  # binaries, cluster, bootstrap
         raise LocalUniverseSetupError(str(exc)) from exc
     connection = _ensure_local_connection(
         report["dsn"],

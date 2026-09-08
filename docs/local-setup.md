@@ -86,9 +86,9 @@ yoke status
 (unix-socket-only, trust auth on the private socket), bootstraps the full
 control-plane schema, ensures the org identity card and the one human
 actor, then records a `local` connection in `~/.yoke/config.json` and
-sets it as the machine default. Re-running detects the live universe and
-reports; a conflicting existing `local` connection is only replaced with
-`--force`.
+sets it as the machine default. Create and repair open the owned cluster
+even while a hosted HTTPS connection is active; ordinary commands still
+use that active connection. Re-run reports; a conflicting `local` needs `--force`.
 
 GitHub sync needs no server in any mode: sync executes wherever the
 engine dispatches. In local mode the engine dispatches in-process and
