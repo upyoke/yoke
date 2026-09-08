@@ -29,7 +29,13 @@ function detailResult(overrides = {}) {
       liveness: "connected",
       relay_version: "0.1.1",
       last_seen_at: "2026-09-08T12:00:00Z",
-      plan_limits: { "codex-cli": { plan_tier: "Team" } },
+      plan_limits: {
+        "codex-cli": {
+          plan_tier: "Team",
+          observed_at: new Date().toISOString(),
+          windows: [{ status: "ok" }],
+        },
+      },
     },
     token: {
       status: "active",
@@ -97,6 +103,7 @@ test("machine detail composes identity, credential, hook, and history facts", as
   assert.match(copy, /GitHub present/);
   assert.match(copy, /AWS not reported/);
   assert.match(copy, /Team/);
+  assert.match(copy, /codex-cli credential present/);
   assert.match(copy, /\/work\/yoke/);
   assert.match(copy, /trust this project's hooks in Codex's hook-trust prompt/);
   assert.match(copy, /Run \/yoke onboard/);
@@ -105,6 +112,32 @@ test("machine detail composes identity, credential, hook, and history facts", as
   assert.equal(byClass(main, "machine-harness-row").length, 2);
   assert.equal(byClass(main, "machine-harness-row")[0].children.length, 1);
   assert.equal(byClass(main, "machine-harness-row")[1].children.length, 2);
+});
+
+test("stale and unreadable credential observations stay explicitly unknown", async () => {
+  const result = detailResult();
+  result.relay.plan_limits["codex-cli"] = {
+    plan_tier: "Ultra",
+    observed_at: "2026-01-01T00:00:00Z",
+    windows: [{ status: "ok" }],
+  };
+  result.relay.plan_limits["cursor-cli"] = {
+    plan_tier: "Pro",
+    observed_at: new Date().toISOString(),
+    windows: [{ status: "unknown", reason: "quota_http_429" }],
+  };
+  result.credential_presence.harnesses["cursor-cli"] = false;
+  result.harnesses.push({
+    key: "cursor-cli", label: "Cursor CLI", status: "active", version: "1.0",
+  });
+  const { main } = await render(result);
+  const copy = visibleText(main, " ");
+
+  assert.doesNotMatch(copy, /\b(?:Ultra|Pro)\b/);
+  assert.match(copy, /credential observation not current/);
+  assert.match(copy, /plan observation stale/);
+  assert.match(copy, /cursor-cli credential presence not reported/);
+  assert.match(copy, /quota_http_429/);
 });
 
 test("a retired machine remains readable but has no active controls", async () => {

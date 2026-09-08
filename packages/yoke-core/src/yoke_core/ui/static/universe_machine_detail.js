@@ -8,6 +8,7 @@ import { LAUNCHABLE_SURFACES } from "./universe_machines_panel.js";
 import {
   hookTrustRemediation,
 } from "./universe_views_overview_activation_copy.js";
+import { readingIsStale } from "./universe_machines_meters.js";
 
 function fact(documentNode, label, value) {
   const row = el(documentNode, "div", "machine-detail-fact");
@@ -41,17 +42,39 @@ function appendAbout(documentNode, host, result) {
   host.appendChild(card);
 }
 
-function appendCredentials(documentNode, host, presence) {
-  const card = detailCard(documentNode, "Signed in");
+function planObservation(reading) {
+  const windows = Array.isArray(reading?.windows) ? reading.windows : [];
+  return {
+    stale: Boolean(reading) && readingIsStale(reading.observed_at),
+    readable: windows.some((window) => window?.status === "ok"),
+    reason: windows.find(
+      (window) => window?.status !== "ok" && window?.reason,
+    )?.reason,
+  };
+}
+
+function harnessCredentialLabel(presence, surface, reading) {
+  if (!Object.hasOwn(presence, surface)) return null;
+  if (!presence[surface]) return "credential presence not reported";
+  const observation = planObservation(reading);
+  return observation.stale || !observation.readable
+    ? "credential observation not current"
+    : "credential present";
+}
+
+function appendCredentials(documentNode, host, presence, planLimits) {
+  const card = detailCard(documentNode, "Credential presence");
   card.appendChild(fact(
     documentNode, "GitHub", presence.github ? "present" : "not reported",
   ));
   card.appendChild(fact(
     documentNode, "AWS", presence.aws ? "present" : "not reported",
   ));
-  for (const [surface, present] of Object.entries(presence.harnesses || {})) {
+  for (const surface of Object.keys(presence.harnesses || {})) {
     card.appendChild(fact(
-      documentNode, surface, present ? "present" : "not reported",
+      documentNode,
+      surface,
+      harnessCredentialLabel(presence.harnesses, surface, planLimits[surface]),
     ));
   }
   host.appendChild(card);
@@ -61,16 +84,28 @@ function surfaceControl(documentNode, context, result, harness, reload, status) 
   const row = el(documentNode, "div", "machine-harness-row");
   const copy = el(documentNode, "div");
   copy.appendChild(el(documentNode, "strong", null, harness.label));
-  const plan = result.relay?.plan_limits?.[harness.key]?.plan_tier;
-  const harnessPresence = result.credential_presence?.harnesses || {};
-  const signIn = Object.hasOwn(harnessPresence, harness.key)
-    ? (harnessPresence[harness.key] ? "signed in" : "sign-in not reported")
+  const reading = result.relay?.plan_limits?.[harness.key];
+  const observation = planObservation(reading);
+  const plan = observation.readable && !observation.stale
+    ? reading.plan_tier
     : null;
+  const harnessPresence = result.credential_presence?.harnesses || {};
+  const credential = harnessCredentialLabel(
+    harnessPresence, harness.key, reading,
+  );
   copy.appendChild(el(
     documentNode,
     "span",
     "machine-detail-muted",
-    [harness.version, plan, signIn, harness.status, harness.last_seen_at]
+    [
+      harness.version,
+      plan,
+      credential,
+      observation.stale ? "plan observation stale" : null,
+      observation.reason ? `plan limit ${observation.reason}` : null,
+      harness.status,
+      harness.last_seen_at,
+    ]
       .filter(Boolean).join(" · "),
   ));
   row.appendChild(copy);
@@ -281,7 +316,12 @@ export function renderMachineDetail(context, main, _project, detail, navigation 
         : "Registered machine";
       const grid = el(documentNode, "div", "machine-detail-grid");
       appendAbout(documentNode, grid, result);
-      appendCredentials(documentNode, grid, result.credential_presence || {});
+      appendCredentials(
+        documentNode,
+        grid,
+        result.credential_presence || {},
+        result.relay?.plan_limits || {},
+      );
       appendHarnesses(documentNode, grid, context, result, load, status);
       appendProjects(documentNode, grid, result.projects || []);
       appendHistory(

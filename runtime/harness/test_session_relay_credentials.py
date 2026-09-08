@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from yoke_harness.session_relay_credentials import observe_credential_presence
 
 
@@ -37,16 +39,18 @@ def test_presence_is_boolean_only(tmp_path: Path):
     assert "secret" not in repr(result)
 
 
-def test_harness_sign_in_is_not_claimed_without_a_successful_safe_probe(
+@pytest.mark.parametrize(
+    "reason", ["stale_credential", "quota_http_403", "quota_http_429"]
+)
+def test_harness_presence_is_not_claimed_without_a_successful_safe_probe(
     tmp_path: Path,
+    reason: str,
 ):
     result = observe_credential_presence(
         {},
         versions={"codex-cli": "1.0"},
         plan_limits={
-            "codex-cli": {
-                "windows": [{"status": "unknown", "reason": "stale_credential"}]
-            }
+            "codex-cli": {"windows": [{"status": "unknown", "reason": reason}]}
         },
         secret_root=tmp_path,
     )
