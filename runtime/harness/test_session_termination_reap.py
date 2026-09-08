@@ -15,9 +15,9 @@ from yoke_harness.session_launch_containment import (
     record_supervised_native,
     release_supervised_native,
 )
+from yoke_harness.session_launch_handles import native_handle_path
 from yoke_harness.session_relay_runtime import run_registered_job
 from yoke_harness.session_relay_termination import (
-    NATIVE_HANDLE_DIRECTORY_NAME,
     adopt_launched_session,
     reap_terminated_session,
     stop_claude_job,
@@ -36,10 +36,6 @@ def _sleeper() -> subprocess.Popen:
         stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
-
-
-def _handle_path(state_dir: Path) -> Path:
-    return state_dir / NATIVE_HANDLE_DIRECTORY_NAME / f"{LAUNCH_ID}.json"
 
 
 def _job(**values: object) -> dict[str, object]:
@@ -73,7 +69,7 @@ def test_registration_adopts_owner_only_launch_handle_and_reaper_stops_it(
             state_dir=tmp_path,
         )
         release_supervised_native(LAUNCH_ID, state_dir=tmp_path)
-        handle = _handle_path(tmp_path)
+        handle = native_handle_path(LAUNCH_ID)
         assert stat.S_IMODE(handle.stat().st_mode) == 0o600
         payload = json.loads(handle.read_text())
         assert payload["target_session_id"] == SESSION_ID
@@ -95,8 +91,7 @@ def test_registration_adopts_owner_only_launch_handle_and_reaper_stops_it(
 
 
 def test_reused_pid_is_treated_as_an_already_exited_native(tmp_path: Path) -> None:
-    handle = _handle_path(tmp_path)
-    handle.parent.mkdir(mode=0o700)
+    handle = native_handle_path(LAUNCH_ID)
     handle.write_text(
         json.dumps(
             {
@@ -115,8 +110,7 @@ def test_reused_pid_is_treated_as_an_already_exited_native(tmp_path: Path) -> No
 
 
 def test_reaper_refuses_to_signal_its_own_process_group(tmp_path: Path) -> None:
-    handle = _handle_path(tmp_path)
-    handle.parent.mkdir(mode=0o700)
+    handle = native_handle_path(LAUNCH_ID)
     handle.write_text(
         json.dumps(
             {

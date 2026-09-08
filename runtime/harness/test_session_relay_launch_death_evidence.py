@@ -7,13 +7,10 @@ from pathlib import Path
 
 from yoke_harness.session_relay_native_capture_format import compose_capture
 from yoke_harness.session_relay_native_diagnostics import native_diagnostic_path
+from yoke_harness.session_launch_handles import native_handle_path
 from yoke_harness.session_relay_process_liveness import (
     native_account,
     verified_dead_sessions,
-)
-from yoke_harness.session_relay_termination import (
-    NATIVE_HANDLE_DIRECTORY_NAME,
-    local_state_root,
 )
 
 
@@ -22,10 +19,8 @@ SESSION_ID = "22222222-2222-4222-8222-222222222222"
 REFUSAL = "the model refused: credit balance is too low"
 
 
-def _launch_handle(state_dir: Path, *, pid: int, start_time: str) -> Path:
-    directory = local_state_root(state_dir) / NATIVE_HANDLE_DIRECTORY_NAME
-    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    path = directory / f"{LAUNCH_ID}.json"
+def _launch_handle(*, pid: int, start_time: str) -> Path:
+    path = native_handle_path(LAUNCH_ID)
     path.write_text(
         json.dumps(
             {
@@ -58,7 +53,7 @@ def _capture(state_dir: Path, *, exit_code: int) -> Path:
 def test_a_dead_launched_native_reports_its_launch_and_its_last_words(
     tmp_path: Path,
 ) -> None:
-    _launch_handle(tmp_path, pid=4321, start_time="recorded-start")
+    _launch_handle(pid=4321, start_time="recorded-start")
     _capture(tmp_path, exit_code=1)
 
     dead = verified_dead_sessions(
@@ -82,7 +77,7 @@ def test_a_dead_launched_native_reports_its_launch_and_its_last_words(
 
 
 def test_a_live_launched_native_is_not_reported_at_all(tmp_path: Path) -> None:
-    _launch_handle(tmp_path, pid=4321, start_time="recorded-start")
+    _launch_handle(pid=4321, start_time="recorded-start")
 
     dead = verified_dead_sessions(
         state_dir=tmp_path,
@@ -94,7 +89,7 @@ def test_a_live_launched_native_is_not_reported_at_all(tmp_path: Path) -> None:
 
 
 def test_a_launch_with_no_capture_still_reports_the_death(tmp_path: Path) -> None:
-    _launch_handle(tmp_path, pid=4321, start_time="recorded-start")
+    _launch_handle(pid=4321, start_time="recorded-start")
 
     dead = verified_dead_sessions(
         state_dir=tmp_path,

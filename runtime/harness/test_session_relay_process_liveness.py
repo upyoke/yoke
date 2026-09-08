@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
+from yoke_harness.session_launch_handles import native_handle_path
 from yoke_harness.session_relay_process_liveness import (
     LAUNCH_HANDLE_SOURCE,
     PROCESS_ANCHOR_SOURCE,
@@ -13,7 +14,6 @@ from yoke_harness.session_relay_process_liveness import (
     session_process_records,
     verified_dead_sessions,
 )
-from yoke_harness.session_relay_termination import NATIVE_HANDLE_DIRECTORY_NAME
 
 
 LIVE_SESSION = "11111111-1111-4111-8111-111111111111"
@@ -51,9 +51,9 @@ def _write(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
-def _handle(state_dir: Path, session_id: str, pid: int, launch: str) -> None:
+def _handle(session_id: str, pid: int, launch: str) -> None:
     _write(
-        state_dir / NATIVE_HANDLE_DIRECTORY_NAME / f"{launch}.json",
+        native_handle_path(launch),
         {
             "launch_id": launch,
             "target_session_id": session_id,
@@ -84,10 +84,9 @@ def _start_time_of(live_pids: set[int]):
 
 def test_records_read_both_families_and_compare_start_times(tmp_path: Path) -> None:
     anchors = tmp_path / ANCHORS_DIR_NAME
-    _handle(tmp_path, LIVE_SESSION, 4001, "launch-live")
+    _handle(LIVE_SESSION, 4001, "launch-live")
     _anchor(anchors, DEAD_SESSION, 4002)
     records = session_process_records(
-        state_dir=tmp_path,
         anchors_dir=anchors,
         start_time_of=_start_time_of({4001}),
     )
@@ -102,9 +101,9 @@ def test_only_sessions_with_every_record_gone_are_verified_dead(
     tmp_path: Path,
 ) -> None:
     anchors = tmp_path / ANCHORS_DIR_NAME
-    _handle(tmp_path, LIVE_SESSION, 4001, "launch-live")
+    _handle(LIVE_SESSION, 4001, "launch-live")
     _anchor(anchors, LIVE_SESSION, 4003)
-    _handle(tmp_path, DEAD_SESSION, 4002, "launch-dead")
+    _handle(DEAD_SESSION, 4002, "launch-dead")
     dead = verified_dead_sessions(
         state_dir=tmp_path,
         anchors_dir=anchors,
@@ -156,7 +155,7 @@ def test_report_dispatches_the_dead_sessions_and_returns_what_ended(
     tmp_path: Path,
 ) -> None:
     anchors = tmp_path / ANCHORS_DIR_NAME
-    _handle(tmp_path, DEAD_SESSION, 4002, "launch-dead")
+    _handle(DEAD_SESSION, 4002, "launch-dead")
     dispatcher = _Dispatcher(_Response(True, {"ended": [DEAD_SESSION], "skipped": []}))
     ended = report_verified_dead_sessions(
         dispatcher,
@@ -174,7 +173,7 @@ def test_report_dispatches_the_dead_sessions_and_returns_what_ended(
 
 def test_nothing_dead_means_no_dispatch_at_all(tmp_path: Path) -> None:
     anchors = tmp_path / ANCHORS_DIR_NAME
-    _handle(tmp_path, LIVE_SESSION, 4001, "launch-live")
+    _handle(LIVE_SESSION, 4001, "launch-live")
     dispatcher = _Dispatcher(_Response(True, {"ended": [], "skipped": []}))
     assert (
         report_verified_dead_sessions(
@@ -191,7 +190,7 @@ def test_nothing_dead_means_no_dispatch_at_all(tmp_path: Path) -> None:
 
 def test_a_landed_report_prunes_the_spent_records(tmp_path: Path) -> None:
     anchors = tmp_path / ANCHORS_DIR_NAME
-    _handle(tmp_path, DEAD_SESSION, 4002, "launch-dead")
+    _handle(DEAD_SESSION, 4002, "launch-dead")
     _anchor(anchors, LIVE_SESSION, 4001)
     dispatcher = _Dispatcher(_Response(True, {"ended": [DEAD_SESSION], "skipped": []}))
     report_verified_dead_sessions(
@@ -201,8 +200,7 @@ def test_a_landed_report_prunes_the_spent_records(tmp_path: Path) -> None:
         anchors_dir=anchors,
         start_time_of=_start_time_of({4001}),
     )
-    handle = tmp_path / NATIVE_HANDLE_DIRECTORY_NAME / "launch-dead.json"
-    assert not handle.exists()
+    assert not native_handle_path("launch-dead").exists()
     assert (anchors / "4001.json").exists(), "a live session keeps its record"
 
 
@@ -210,7 +208,7 @@ def test_a_spared_claim_holder_keeps_records_for_a_later_report(
     tmp_path: Path,
 ) -> None:
     anchors = tmp_path / ANCHORS_DIR_NAME
-    _handle(tmp_path, DEAD_SESSION, 4002, "launch-dead")
+    _handle(DEAD_SESSION, 4002, "launch-dead")
     dispatcher = _Dispatcher(
         _Response(
             True,
@@ -227,14 +225,14 @@ def test_a_spared_claim_holder_keeps_records_for_a_later_report(
         anchors_dir=anchors,
         start_time_of=_start_time_of(set()),
     )
-    assert (tmp_path / NATIVE_HANDLE_DIRECTORY_NAME / "launch-dead.json").exists()
+    assert native_handle_path("launch-dead").exists()
 
 
 def test_a_refused_report_keeps_the_records_for_the_next_poll(
     tmp_path: Path,
 ) -> None:
     anchors = tmp_path / ANCHORS_DIR_NAME
-    _handle(tmp_path, DEAD_SESSION, 4002, "launch-dead")
+    _handle(DEAD_SESSION, 4002, "launch-dead")
     dispatcher = _Dispatcher(_Response(False, None, None))
     report_verified_dead_sessions(
         dispatcher,
@@ -243,14 +241,14 @@ def test_a_refused_report_keeps_the_records_for_the_next_poll(
         anchors_dir=anchors,
         start_time_of=_start_time_of(set()),
     )
-    assert (tmp_path / NATIVE_HANDLE_DIRECTORY_NAME / "launch-dead.json").exists()
+    assert native_handle_path("launch-dead").exists()
 
 
 def test_a_server_that_does_not_serve_the_function_is_survived(
     tmp_path: Path,
 ) -> None:
     anchors = tmp_path / ANCHORS_DIR_NAME
-    _handle(tmp_path, DEAD_SESSION, 4002, "launch-dead")
+    _handle(DEAD_SESSION, 4002, "launch-dead")
 
     class _Error:
         code = "function_version_skew"
@@ -276,7 +274,7 @@ def test_a_reused_pid_reads_as_gone_rather_than_as_the_recorded_native(
     """Another process holding the number is not the native that was recorded."""
     anchors = tmp_path / ANCHORS_DIR_NAME
     anchors.mkdir(parents=True, exist_ok=True)
-    _handle(tmp_path, DEAD_SESSION, 4002, "launch-dead")
+    _handle(DEAD_SESSION, 4002, "launch-dead")
 
     def _reused(pid: int) -> str:
         del pid

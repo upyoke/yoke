@@ -51,9 +51,15 @@ lets the holdings TTL settle abandonment.
 
 Two record families name a session's process, both already written:
 
-- the launch handle (`session-native-handles/<launch-id>.json`) the relay
-  retains when a launched native registers, so termination can still reach
-  a process that containment has released;
+- the launch handle (`session-native-handles/<launch-id>.json`) written when
+  a launched native registers, so termination can still reach a process that
+  containment has released. It lives in the machine cache, resolved by one
+  function every writer and reader calls, because the hook that writes it runs
+  inside the launched session and knows nothing about which relay instance
+  started it, while a relay's own state directory is keyed by the control-plane
+  connection it serves. Composing that directory from whichever root each
+  caller passed put writer and reader in different places, and a launched
+  native's exit and usage went unreported;
 - the process-anchor registry (`session-anchors/<anchor-pid>.json`) the
   hooks write for ambient identity.
 

@@ -9,9 +9,11 @@ process table whether that pid is still the process it recorded settles it.
 Two record families name a session's process, both written by paths that
 already exist for other reasons:
 
-* the launch handle (``session-native-handles/<launch-id>.json``) the relay
-  retains when a launched native registers, so termination can still reach
-  a process containment has released;
+* the launch handle (``session-native-handles/<launch-id>.json``) the hook
+  writes when a launched native registers, so termination can still reach a
+  process containment has released. It lives in the machine cache rather than
+  in this relay's state directory, because the hook that writes it belongs to
+  the launched session rather than to any relay instance;
 * the process-anchor registry (``session-anchors/<anchor-pid>.json``) the
   hooks write to resolve ambient identity.
 
@@ -49,6 +51,7 @@ from yoke_harness.cursor_native_result_usage import (
     fold_launch_native_result,
     session_usage_document,
 )
+from yoke_harness import session_launch_handles
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
     diagnostic_reference,
@@ -56,11 +59,7 @@ from yoke_harness.session_relay_native_diagnostics import (
     read_native_capture,
 )
 from yoke_harness.session_relay_report_delivery import RELAY_REPORT_TIMEOUT_SECONDS
-from yoke_harness.session_relay_termination import (
-    NATIVE_HANDLE_DIRECTORY_NAME,
-    local_state_root,
-    read_local_record,
-)
+from yoke_harness.session_relay_termination import read_local_record
 
 
 LAUNCH_HANDLE_SOURCE = "launch_handle"
@@ -143,14 +142,12 @@ def _observed(
 
 def session_process_records(
     *,
-    state_dir: Path | None = None,
     anchors_dir: Path | None = None,
     start_time_of: StartTimeOf = process_start_time,
 ) -> tuple[SessionProcessRecord, ...]:
     """Read every machine-local record that names one session's process."""
-    handles = local_state_root(state_dir) / NATIVE_HANDLE_DIRECTORY_NAME
     observed: list[SessionProcessRecord] = []
-    for path, record in _records_in(handles):
+    for path, record in _records_in(session_launch_handles.native_handle_directory()):
         entry = _observed(
             path,
             record.get("target_session_id"),
@@ -189,7 +186,6 @@ def verified_dead_sessions(
     """Return the sessions whose every recorded process is verifiably gone."""
     by_session: dict[str, list[SessionProcessRecord]] = {}
     for record in session_process_records(
-        state_dir=state_dir,
         anchors_dir=anchors_dir,
         start_time_of=start_time_of,
     ):

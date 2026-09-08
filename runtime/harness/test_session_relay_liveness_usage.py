@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
+from yoke_harness.session_launch_handles import native_handle_path
 from yoke_harness.session_relay_process_liveness import report_verified_dead_sessions
-from yoke_harness.session_relay_termination import NATIVE_HANDLE_DIRECTORY_NAME
 
 
 DEAD_SESSION = "22222222-2222-4222-8222-222222222222"
@@ -38,10 +38,8 @@ class _Dispatcher:
         return self._response
 
 
-def _handle(state_dir: Path, session_id: str, pid: int, launch: str) -> None:
-    path = state_dir / NATIVE_HANDLE_DIRECTORY_NAME / f"{launch}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+def _handle(session_id: str, pid: int, launch: str) -> None:
+    native_handle_path(launch).write_text(
         json.dumps(
             {
                 "launch_id": launch,
@@ -85,7 +83,7 @@ def test_the_reading_the_dead_native_stated_rides_its_report(
     home.mkdir()
     monkeypatch.setattr(machine_config, "yoke_home", lambda: home)
     launch_id = "44444444-4444-4444-8444-444444444444"
-    _handle(tmp_path, DEAD_SESSION, 4002, launch_id)
+    _handle(DEAD_SESSION, 4002, launch_id)
     write_native_capture(
         native_diagnostic_path(
             diagnostic_reference(launch_id), state_dir=tmp_path, create=True
@@ -116,7 +114,7 @@ def test_a_death_with_nothing_measured_carries_no_reading(
     home = tmp_path / "yoke-home"
     home.mkdir()
     monkeypatch.setattr(machine_config, "yoke_home", lambda: home)
-    _handle(tmp_path, DEAD_SESSION, 4002, "launch-dead")
+    _handle(DEAD_SESSION, 4002, "launch-dead")
     dispatcher = _Dispatcher(_Response(True, {"ended": []}))
 
     report_verified_dead_sessions(
