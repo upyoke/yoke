@@ -203,6 +203,11 @@ that makes the highest-ranked findings independently understandable. Use the
 exact artifact-add recipe supplied by the dispatch and never create a parallel
 run.
 
+Attach bytes, never a path on the test host. That host's home is restored to
+its baseline between missions, so an artifact naming one of its paths outlives
+its own file — the row survives and the evidence does not. The dispatch recipe
+already carries the bytes; a handle naming the target is refused.
+
 Never place credentials, tokens, secret-bearing files, or unredacted command
 arguments in the report or artifacts. Verify permissions and presence without
 reading secret content.

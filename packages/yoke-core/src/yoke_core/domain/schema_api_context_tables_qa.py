@@ -170,7 +170,11 @@ QA_TABLES: dict[str, dict] = {
             "records the returned handle via qa.artifact.add. "
             "s3_not_configured from presign means no environment of the "
             "project declares environments.settings.artifacts.bucket — "
-            "record an explicit local handle instead."
+            "record an explicit local handle instead. On an `agent_mission` "
+            "capture run, add refuses a local handle this control plane "
+            "cannot read: the QA test host's home is restored between "
+            "missions, so the row would outlive its bytes. Send the bytes "
+            "(`--content-file` / `content_base64`) instead."
         ),
     },
 }

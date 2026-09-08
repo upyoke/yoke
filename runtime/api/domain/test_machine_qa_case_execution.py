@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from runtime.api.domain.machine_qa_baseline_group_test_support import (
     materialize_installer_campaign,
 )
@@ -165,3 +167,46 @@ def test_machine_result_records_exact_outcome_and_canonical_artifacts(
     assert all(Path(handle["path"]).is_file() for handle in handles)
     assert screenshot.exists() is False
     assert recorded["evidence_count"] == 2
+
+
+def test_machine_result_refuses_a_capture_whose_bytes_never_arrived(
+    test_db,
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """A handle without its bytes would present evidence nobody can read."""
+    monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+    materialized = materialize_installer_campaign(test_db, item_id=42)
+    requirement_id = next(
+        int(row["id"])
+        for row in materialized
+        if row["plan_case_key"] == "default-add-yoke-to-my-path"
+    )
+    case = get_case_execution_context(test_db, requirement_id=requirement_id)
+    missing = tmp_path / "host-home" / "welcome.png"
+    result = MachineCaseResult(
+        case_outcome="needs_review",
+        verdict="pending",
+        capture_degraded_reason=None,
+        evidence={
+            "machine": "mac-mini-lab",
+            "steps": [
+                {
+                    "key": "welcome",
+                    "artifact_handle": local_handle(str(missing), "image/png"),
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError) as refusal:
+        _record_machine_case_result(
+            test_db,
+            case=case,
+            result=result,
+            duration_ms=12,
+        )
+
+    test_db.rollback()
+    assert "was not transferred" in str(refusal.value)
+    assert str(missing) in str(refusal.value)

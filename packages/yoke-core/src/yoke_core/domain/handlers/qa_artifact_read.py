@@ -33,15 +33,6 @@ class QaArtifactReadResponse(BaseModel):
     path: Optional[str] = None
 
 
-def _inside(path: Path, roots: list[Path]) -> bool:
-    candidate = path.resolve(strict=False)
-    return any(
-        candidate == root.resolve(strict=False)
-        or root.resolve(strict=False) in candidate.parents
-        for root in roots
-    )
-
-
 def _machine_label(raw: object) -> Optional[str]:
     try:
         metadata = raw if isinstance(raw, dict) else json.loads(str(raw or "{}"))
@@ -59,22 +50,12 @@ def _local_result(row, handle: dict) -> dict:
         checkout_for_project_id,
     )
     from yoke_core.domain.qa_artifacts import (
-        artifact_directory,
         case_artifact_subject,
-        is_sanctioned_artifact_path,
+        is_server_evidence_path,
     )
 
     checkout = checkout_for_project_id(int(row["project_id"]))
     subject = case_artifact_subject(dict(row))
-    scratch = artifact_directory(
-        str(row["project"]),
-        subject,
-        int(row["run_id"]),
-        create=False,
-    )
-    roots = [scratch]
-    if checkout is not None:
-        roots.append(checkout)
     raw_path = Path(str(handle["path"])).expanduser()
     path = (
         raw_path
@@ -82,14 +63,12 @@ def _local_result(row, handle: dict) -> dict:
         else (checkout / raw_path if checkout is not None else raw_path)
     )
     machine = _machine_label(row["metadata"])
-    canonical_scratch_path = is_sanctioned_artifact_path(
+    if not is_server_evidence_path(
         path,
         str(row["project"]),
         subject,
         int(row["run_id"]),
-    )
-    if not path.is_absolute() or not (
-        _inside(path, roots) or canonical_scratch_path
+        checkout=checkout,
     ):
         return {
             "disposition": "evidence_on_machine",

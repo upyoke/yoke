@@ -226,6 +226,14 @@ and the shared artifact-add surface rejects attachments beyond it. Never make a
 parallel run to evade the cap, and never attach credentials or secret-bearing
 content.
 
+A mission attaches evidence as bytes, never as a path on the test host. That
+host's home is restored to its baseline between missions, so an artifact row
+naming one of its paths outlives its own file: the row survives and the
+evidence does not. The artifact-add surface refuses a mission handle this
+control plane cannot read and names the byte-carrying recipe instead — the
+walker's own `--content-file` when it walks on the target, or the bytes read
+back through the remote command when it drives the target from elsewhere.
+
 The ranked written report is the primary deliverable. Each finding should name
 observed and expected behavior, impact, minimal reproduction, confidence, and
 supporting artifact ids when present. The report must state every important
