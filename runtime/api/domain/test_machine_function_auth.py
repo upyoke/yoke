@@ -27,12 +27,13 @@ def test_relay_call_refuses_a_different_machine_identity():
     assert refusal[0] == "machine_credential_mismatch"
 
 
-def test_bound_relay_and_human_functions_continue():
+def test_bound_relay_and_non_relay_functions_continue():
     assert (
         machine_credential_refusal(_envelope("session_control.relay.claim"), MACHINE_ID)
         is None
     )
     assert machine_credential_refusal(_envelope("machine.list", None), None) is None
+    assert machine_credential_refusal(_envelope("machine.register", None), None) is None
 
 
 def test_bound_machine_credential_requires_every_relay_body_to_name_it():

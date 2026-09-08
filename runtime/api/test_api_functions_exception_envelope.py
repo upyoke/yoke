@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from runtime.api.auth_test_helpers import mint_api_auth_context
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import SCHEMA_DDL, apply_fixture_ddl
-from yoke_core.api.routes import functions as functions_route
+from yoke_core.api import function_failure_observability
 from yoke_core.api.main import app
 from runtime.api.test_api_helpers import _install_overrides
 
@@ -66,11 +66,11 @@ class TestFunctionCallExceptionEnvelope(unittest.TestCase):
                 side_effect=RuntimeError("repo root missing"),
             ),
             mock.patch.object(
-                functions_route._LOGGER,
+                function_failure_observability._LOGGER,
                 "error",
             ) as logged,
             mock.patch.object(
-                functions_route,
+                function_failure_observability,
                 "trace_context",
                 return_value={"trace_id": "trace-1"},
             ),
@@ -115,7 +115,7 @@ class TestFunctionCallExceptionEnvelope(unittest.TestCase):
                 side_effect=RuntimeError("repo root missing"),
             ),
             mock.patch.object(
-                functions_route._LOGGER,
+                function_failure_observability._LOGGER,
                 "error",
                 side_effect=OSError("stderr closed"),
             ),
