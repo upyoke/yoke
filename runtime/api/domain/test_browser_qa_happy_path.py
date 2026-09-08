@@ -9,10 +9,9 @@ from unittest import mock
 
 import pytest
 
-from yoke_core.domain import browser_qa, db_backend
+from yoke_core.domain import browser_qa, db_backend, qa_artifacts
 from yoke_core.domain.qa_artifact_handle import parse_handle
 from yoke_core.domain.qa_artifact_ops import linked_artifact_handle
-from yoke_core.domain.qa_artifacts import artifact_directory
 from runtime.api.domain.browser_qa_test_helpers import (
     _FakeRunRecorder,
     _browser_check_steps,
@@ -83,13 +82,13 @@ class TestHappyPath:
         assert row[1] == "pass"
         assert row[2] == "captured"
 
-    def test_artifacts_use_scratch_storage_tree(
+    def test_capture_scratch_is_separate_from_persisted_handle(
         self,
         tmp_path: Path,
         db_path: str,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Artifacts land under the project scratch storage tree."""
+        """Capture files may use scratch while stored handles remain durable."""
         monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
         _seed_item(db_path, 100)
         req_id = _seed_requirement(
@@ -141,7 +140,11 @@ class TestHappyPath:
             mock.patch.object(browser_qa, "_record_run", side_effect=recorder.record_run),
             mock.patch.object(browser_qa, "_complete_run", side_effect=recorder.complete_run),
             mock.patch.object(browser_qa, "_record_artifact", side_effect=recorder.record_artifact),
-            mock.patch.object(browser_qa, "_presign_artifact", return_value=None),
+            mock.patch.object(
+                browser_qa,
+                "_record_artifact_file",
+                side_effect=recorder.record_artifact_file,
+            ),
             mock.patch.object(browser_qa, "_execute_step", side_effect=_fake_step),
         ]
 
@@ -162,7 +165,7 @@ class TestHappyPath:
         assert result.executed == 1
         assert captured["project"] == "testproj"
         assert captured["item_id"] == 100
-        expected_dir = artifact_directory(
+        expected_dir = qa_artifacts.artifact_directory(
             "testproj", 100, captured["run_id"], create=False
         )
         assert Path(captured["artifact_dir"]) == expected_dir
@@ -178,14 +181,9 @@ class TestHappyPath:
 
         assert row is not None
         handle = parse_handle(row[0])
-        # No artifacts bucket configured -> explicit local handle on the
-        # scratch capture path.
-        assert handle["backend"] == "local"
-        assert handle["path"] == str(
-            artifact_directory(
-                "testproj", 100, captured["run_id"], create=False
-            ) / "home.png"
-        )
+        assert handle["backend"] == "s3"
+        assert handle["bucket"] == "test-artifacts"
+        assert handle["key"] == f"qa/test/{captured['run_id']}/home.png"
 
         # Browser check succeeds automatically and stamps captured status.
         conn = connect_test_db(db_path)
@@ -212,14 +210,16 @@ class TestHappyPath:
         payload = json.loads(raw_row[0])
         assert payload["artifacts"] == [str(expected_dir / "home.png")]
 
-    def test_linked_manual_artifact_copies_to_scratch_storage(
-        self,
-        tmp_path: Path,
-        db_path: str,
+    def test_linked_manual_artifact_copies_to_permanent_local_storage(
+        self, tmp_path: Path, db_path: str,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """One-step manual artifact evidence is copied into scratch storage."""
-        monkeypatch.setenv("YOKE_SCRATCH_ROOT", str(tmp_path / "scratch"))
+        """Unconfigured S3 stores manual artifact evidence permanently."""
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+        monkeypatch.setattr(
+            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            lambda *_args: None,
+        )
         _seed_item(db_path, 100)
         req_id = _seed_requirement(
             db_path,
@@ -246,9 +246,9 @@ class TestHappyPath:
         handle = parse_handle(handle_text)
         assert handle["backend"] == "local"
         expected_file = Path(handle["path"])
-        assert expected_file == artifact_directory(
-            "yoke", 100, 77, create=False
-        ) / "manual.png"
+        assert expected_file == qa_artifacts.permanent_artifact_file_path(
+            "yoke", 100, 77, "manual.png", create_parent=False
+        )
         assert expected_file.read_bytes() == b"PNG"
 
     def test_ac3_only_browser_kinds_are_executed(self, db_path: str) -> None:

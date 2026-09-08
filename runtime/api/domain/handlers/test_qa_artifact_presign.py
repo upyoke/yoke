@@ -188,7 +188,6 @@ class TestPresignHappyPath(unittest.TestCase):
         self.assertTrue(outcome.primary_success, outcome.error)
         self.assertEqual(outcome.result_payload["environment"], "prod")
 
-
 class TestPresignDeploymentRunOwner(unittest.TestCase):
     """A requirement a deployment run owns stores evidence under that run."""
 
@@ -239,7 +238,7 @@ class TestPresignDenials(unittest.TestCase):
         self.assertEqual(outcome.error.code, "s3_not_configured")
         self.assertIn("artifacts.bucket", outcome.error.message)
 
-    def test_missing_region_is_typed_s3_not_configured(self):
+    def test_missing_region_is_configured_failure(self):
         with test_database() as conn:
             _seed(
                 conn,
@@ -250,7 +249,7 @@ class TestPresignDenials(unittest.TestCase):
                 _request({"run_id": 77, "filename": "home.png"}),
             )
         self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "s3_not_configured")
+        self.assertEqual(outcome.error.code, "s3_configuration_invalid")
         self.assertIn("region", outcome.error.message)
 
     def test_missing_capability_secrets_is_typed(self):
@@ -265,7 +264,7 @@ class TestPresignDenials(unittest.TestCase):
                     _request({"run_id": 77, "filename": "home.png"}),
                 )
         self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "s3_not_configured")
+        self.assertEqual(outcome.error.code, "s3_configuration_invalid")
         self.assertIn("aws-admin", outcome.error.message)
 
     def test_run_must_belong_to_requirement(self):
@@ -295,8 +294,8 @@ class TestPresignDenials(unittest.TestCase):
 
     def test_epic_task_owner_is_refused_by_name_not_as_item_only(self):
         # The third owner kind durable storage has no key layout for. The
-        # refusal has to name the owner it saw, so the caller records a
-        # local handle instead of reading "not item-backed" and guessing.
+        # Refusal names the owner it saw rather than reporting the requirement
+        # as merely "not item-backed".
         with test_database() as conn:
             _seed(conn, env_buckets={"prod": "b"}, with_run=False)
             insert_qa_requirement(
@@ -323,7 +322,7 @@ class TestPresignDenials(unittest.TestCase):
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "target_invalid")
         self.assertIn("epic_id=42", outcome.error.message)
-        self.assertIn("local artifact_handle", outcome.error.message)
+        self.assertIn("durable evidence", outcome.error.message)
 
     def test_unsafe_filename_is_payload_invalid(self):
         with test_database() as conn:

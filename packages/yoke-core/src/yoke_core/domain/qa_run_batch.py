@@ -25,10 +25,8 @@ from yoke_core.domain.db_helpers import (
     query_one,
     query_scalar,
 )
-from yoke_core.domain.qa_artifact_handle import (
-    local_handle,
-    serialize_handle,
-)
+from yoke_core.domain.qa_artifact_ops import linked_artifact_handle
+from yoke_core.domain.qa_artifact_storage import ArtifactStorageError
 from yoke_core.domain.qa_constants import (
     _normalize_qa_kind,
     is_browser_method_requirement,
@@ -231,11 +229,12 @@ def cmd_run_add_batch(
                     ".webp": "image/webp",
                     ".gif": "image/gif",
                 }.get(_ext, "application/octet-stream")
-                # Explicit local handle, no canonicalizing DB reads: the
-                # batch shares one transaction, so the single-run path's
-                # rollback-on-lookup-failure shape would discard earlier
-                # batch inserts.
-                _handle = serialize_handle(local_handle(artifact_path))
+                _handle = linked_artifact_handle(
+                    conn,
+                    requirement_id=int(row["requirement_id"]),
+                    run_id=inserted_id,
+                    artifact_path=str(artifact_path),
+                )
                 conn.execute(
                     """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
                        VALUES (%s, %s, %s, %s, %s, %s)""",
@@ -270,6 +269,10 @@ def cmd_run_add_batch(
                 verdict=verdict,
                 verdict_reason=row.get("verdict_reason"),
             )
+    except ArtifactStorageError as exc:
+        conn.rollback()
+        print(f"Error: {exc.code}: {exc}", file=sys.stderr)
+        sys.exit(2)
     except Exception:
         conn.rollback()
         raise

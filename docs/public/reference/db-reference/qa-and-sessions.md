@@ -119,14 +119,14 @@ created_at TEXT NOT NULL
 **Index:** `idx_qa_artifacts_run(qa_run_id)`
 
 **Artifact handles:** `artifact_handle` is the only file reference — a typed
-JSON document naming where the bytes live. `s3` handles are durable evidence
-uploaded at record time (the orchestrator mints a presigned PUT via
-`qa.artifact.presign`, uploads, then records); `local` handles explicitly
-declare machine-local evidence (tests, manual fallbacks, repo-committed
-baselines). Bare paths are refused by `qa.artifact.add`. Mutually exclusive
-inline `content_base64` plus `filename` stores a `local` handle. Gates verify `local`
-handles on disk and accept well-formed `s3` handles structurally (the upload
-preceded the record; lifecycle gates add no network calls).
+JSON document naming where bytes live. All submitted files and inline bytes use
+the configured project S3 store; upload completes before its row is recorded.
+Only a genuinely unconfigured bucket selects permanent server-local storage;
+shared hosted buckets set `artifacts.prefix` to reject foreign-tenant handles.
+Invalid configured storage returns its real error without a row or local
+downgrade. Existing readable local handles and repo baselines remain supported,
+but bare paths are refused. Gates check local files and accept valid S3 handles
+structurally without an added network call.
 
 
 ## Table: release_entries

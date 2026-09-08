@@ -1,8 +1,8 @@
 """QA artifact CRUD operations over typed artifact handles.
 
 Owns ``cmd_artifact_add``, ``cmd_artifact_list``, and
-``linked_artifact_handle`` (file copy into the canonical scratch-backed
-QA capture tree for the one-step run-add fallback). The parent
+``linked_artifact_handle`` (file submission through the configured project
+artifact store for the one-step run-add fallback). The parent
 ``qa_execution`` re-exports these symbols.
 
 Every row carries an ``artifact_handle``
@@ -12,9 +12,7 @@ refused with the handle vocabulary in the error.
 
 from __future__ import annotations
 
-import shutil
 import sys
-from pathlib import Path
 from typing import List, Optional
 
 from yoke_contracts.machine_qa_execution import AGENT_MISSION_ARTIFACT_LIMIT
@@ -28,7 +26,6 @@ from yoke_core.domain.db_helpers import (
 from yoke_core.domain.qa_artifact_handle import (
     ArtifactHandleError,
     handle_address,
-    local_handle,
     parse_handle,
     serialize_handle,
 )
@@ -92,68 +89,18 @@ def linked_artifact_handle(
     run_id: int,
     artifact_path: str,
 ) -> str:
-    """Return the serialized handle for a one-step run-add artifact.
+    """Store one-step run evidence through the shared durable byte owner."""
 
-    When ``artifact_path`` points to a real file and the requirement
-    targets an item row with a known project, copy the file into the
-    canonical scratch-backed capture tree and return an explicit ``local``
-    handle on the copied absolute path (a stable location instead of
-    wherever the caller captured). Otherwise return a ``local`` handle on
-    the caller-provided path. The one-step fallback is deliberately
-    local-only — durable S3 upload is the orchestrator's
-    presign-at-record flow.
-    """
-    source_path = Path(artifact_path)
-    if not source_path.is_file():
-        return serialize_handle(local_handle(artifact_path))
+    from yoke_core.domain.qa_artifact_storage import store_artifact_file
 
-    savepoint = "qa_linked_artifact_handle"
-    conn.execute(f"SAVEPOINT {savepoint}")
-    try:
-        req_row = query_one(
+    return serialize_handle(
+        store_artifact_file(
             conn,
-            "SELECT item_id,deployment_run_id FROM qa_requirements WHERE id = %s",
-            (requirement_id,),
+            requirement_id=requirement_id,
+            run_id=run_id,
+            path=artifact_path,
         )
-        if req_row is not None and req_row["item_id"] is not None:
-            project_row = query_one(
-                conn,
-                "SELECT p.slug AS project FROM items i "
-                "JOIN projects p ON p.id=i.project_id WHERE i.id=%s",
-                (int(req_row["item_id"]),),
-            )
-        elif req_row is not None and req_row["deployment_run_id"] is not None:
-            project_row = query_one(
-                conn,
-                "SELECT p.slug AS project FROM deployment_runs dr "
-                "JOIN projects p ON p.id=dr.project_id WHERE dr.id=%s",
-                (str(req_row["deployment_run_id"]),),
-            )
-        else:
-            project_row = None
-        if project_row is not None and project_row["project"]:
-            from yoke_core.domain.qa_artifacts import (
-                artifact_file_path,
-                case_artifact_subject,
-            )
-
-            target_path = artifact_file_path(
-                str(project_row["project"]),
-                case_artifact_subject(dict(req_row)),
-                run_id,
-                source_path.name,
-            )
-            if source_path.resolve() != target_path.resolve():
-                shutil.copy2(source_path, target_path)
-            handle = serialize_handle(local_handle(str(target_path)))
-        else:
-            handle = serialize_handle(local_handle(str(source_path)))
-    except Exception:
-        conn.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
-        handle = serialize_handle(local_handle(str(source_path)))
-    finally:
-        conn.execute(f"RELEASE SAVEPOINT {savepoint}")
-    return handle
+    )
 
 
 def cmd_artifact_add(
@@ -180,10 +127,59 @@ def cmd_artifact_add(
     conn = connect(path=db_path)
     try:
         try:
-            ensure_artifact_capacity(conn, run_id)
+            requirement_id = ensure_artifact_capacity(conn, run_id)
         except QaArtifactLimitError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             sys.exit(2)
+        if handle_text is not None:
+            parsed = parse_handle(handle_text)
+            if parsed["backend"] == "s3":
+                if requirement_id is None or run_id is None:
+                    print(
+                        "Error: an S3 artifact handle requires a QA run owner",
+                        file=sys.stderr,
+                    )
+                    sys.exit(2)
+                from yoke_core.domain.qa_artifact_storage import (
+                    ArtifactStorageError,
+                    validate_s3_handle_owner,
+                )
+
+                try:
+                    validate_s3_handle_owner(
+                        conn,
+                        requirement_id=requirement_id,
+                        run_id=run_id,
+                        handle=parsed,
+                    )
+                except ArtifactStorageError as exc:
+                    print(f"Error: {exc.code}: {exc}", file=sys.stderr)
+                    sys.exit(2)
+            if parsed["backend"] == "local":
+                if requirement_id is None or run_id is None:
+                    print(
+                        "Error: a local artifact handle requires a QA run owner",
+                        file=sys.stderr,
+                    )
+                    sys.exit(2)
+                from yoke_core.domain.qa_artifact_storage import (
+                    ArtifactStorageError,
+                    store_artifact_file,
+                )
+
+                try:
+                    handle_text = serialize_handle(
+                        store_artifact_file(
+                            conn,
+                            requirement_id=requirement_id,
+                            run_id=run_id,
+                            path=parsed["path"],
+                            content_type=content_type or parsed.get("content_type"),
+                        )
+                    )
+                except (ArtifactStorageError, ValueError) as exc:
+                    print(f"Error: {exc}", file=sys.stderr)
+                    sys.exit(2)
         cur = conn.execute(
             """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",

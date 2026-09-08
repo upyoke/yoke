@@ -148,8 +148,17 @@ class TestRunAdd:
         assert count == 0
 
     def test_agent_undetermined_verdict_records_attached_evidence(
-        self, db_path: str, req_id: int, tmp_path: Path
+        self,
+        db_path: str,
+        req_id: int,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+        monkeypatch.setattr(
+            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            lambda *_args: None,
+        )
         evidence = tmp_path / "ambiguous.png"
         evidence.write_bytes(b"\x89PNG")
         run_id = qa.cmd_run_add(
@@ -278,9 +287,18 @@ class TestRunAdd:
         assert row[0] == "implementation_review"
 
     def test_artifact_path_creates_linked_artifact(
-        self, db_path: str, req_id: int, tmp_path: Path
+        self,
+        db_path: str,
+        req_id: int,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """--artifact-path creates a qa_artifact linked to the new run."""
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+        monkeypatch.setattr(
+            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            lambda *_args: None,
+        )
         screenshot = tmp_path / "shot.png"
         screenshot.write_bytes(b"\x89PNG")
         run_id = qa.cmd_run_add(

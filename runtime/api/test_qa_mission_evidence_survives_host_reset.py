@@ -3,9 +3,8 @@
 A QA test host's home is restored to its baseline between missions. An
 artifact row naming one of its paths therefore outlives its own bytes: the
 row survives the restore and the file does not. ``qa.artifact.add`` refuses
-that reference on a mission capture run and names the byte-carrying recipe,
-so evidence a walk claims to have attached is evidence the control plane can
-still read.
+every client-local reference and names the byte-carrying recipe, then stores
+submitted bytes in S3 or permanent server-local application data.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain import project_scratch_dir
+from yoke_core.domain import machine_config, project_scratch_dir
 from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_artifact_read import handle_qa_artifact_read
 from yoke_core.domain.handlers.qa_browser_writes import handle_qa_run_add
@@ -95,23 +94,59 @@ def test_mission_handle_naming_the_test_host_is_refused_with_its_recipe() -> Non
 def test_mission_s3_handle_is_still_accepted() -> None:
     with test_database() as conn:
         run_id = _seed_run(conn, performed_by="agent_mission")
-        outcome = handle_qa_artifact_add(
-            _request(
-                {
-                    "run_id": run_id,
-                    "artifact_type": "log",
-                    "artifact_handle": {
-                        "backend": "s3",
-                        "bucket": "p-prod-artifacts",
-                        "key": "qa-artifacts/p/42/1/onboard.log",
-                    },
-                }
-            ),
-        )
+        with patch(
+            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            return_value=("prod", "yoke-prod-artifacts", None),
+        ):
+            outcome = handle_qa_artifact_add(
+                _request(
+                    {
+                        "run_id": run_id,
+                        "artifact_type": "log",
+                        "artifact_handle": {
+                            "backend": "s3",
+                            "bucket": "yoke-prod-artifacts",
+                            "key": "qa-artifacts/yoke/42/1/onboard.log",
+                        },
+                    }
+                ),
+            )
     assert outcome.primary_success, outcome.error
 
 
-def test_a_non_mission_run_still_records_its_own_local_handle() -> None:
+def test_mission_s3_handle_outside_tenant_prefix_is_refused() -> None:
+    with test_database() as conn:
+        run_id = _seed_run(conn, performed_by="agent_mission")
+        with patch(
+            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            return_value=("prod", "yoke-prod-artifacts", "tenants/7"),
+        ):
+            outcome = handle_qa_artifact_add(
+                _request(
+                    {
+                        "run_id": run_id,
+                        "artifact_type": "log",
+                        "artifact_handle": {
+                            "backend": "s3",
+                            "bucket": "yoke-prod-artifacts",
+                            "key": (
+                                f"tenants/8/qa-artifacts/yoke/42/{run_id}/"
+                                "onboard.log"
+                            ),
+                        },
+                    }
+                ),
+            )
+        stored = conn.execute(
+            "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id = %s",
+            (run_id,),
+        ).fetchone()[0]
+    assert not outcome.primary_success
+    assert outcome.error.code == "artifact_store_mismatch"
+    assert int(stored) == 0
+
+
+def test_a_non_mission_client_local_handle_is_also_refused() -> None:
     with test_database() as conn:
         run_id = _seed_run(conn, performed_by="worktree_run")
         outcome = handle_qa_artifact_add(
@@ -126,7 +161,9 @@ def test_a_non_mission_run_still_records_its_own_local_handle() -> None:
                 }
             ),
         )
-    assert outcome.primary_success, outcome.error
+    assert not outcome.primary_success
+    assert outcome.error.code == "payload_invalid"
+    assert "--content-file PATH" in outcome.error.message
 
 
 def test_mission_bytes_stay_readable_after_the_host_source_is_removed(
@@ -134,6 +171,7 @@ def test_mission_bytes_stay_readable_after_the_host_source_is_removed(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv(project_scratch_dir.ENV_KEY, str(tmp_path / "scratch"))
+    monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path / "machine-home"))
     monkeypatch.setenv("YOKE_SESSION_ID", "mission-session")
     monkeypatch.setenv("YOKE_RUN_ID", "mission-run")
     host_capture = tmp_path / "host-home" / "qa-evidence" / "onboard.log"
@@ -172,6 +210,7 @@ def test_mission_bytes_stay_readable_after_the_host_source_is_removed(
         )
 
     assert stored_path != host_capture
+    assert stored_path.is_relative_to(tmp_path / "machine-home" / "artifacts")
     assert not host_capture.exists()
     assert read_outcome.primary_success, read_outcome.error
     assert read_outcome.result_payload["disposition"] == "ready"
@@ -183,6 +222,7 @@ def test_a_mission_handle_in_server_artifact_storage_is_accepted(
     monkeypatch,
 ) -> None:
     monkeypatch.setenv(project_scratch_dir.ENV_KEY, str(tmp_path / "scratch"))
+    monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path / "machine-home"))
     monkeypatch.setenv("YOKE_SESSION_ID", "mission-session")
     monkeypatch.setenv("YOKE_RUN_ID", "mission-run")
     from yoke_core.domain.qa_artifacts import artifact_file_path
@@ -216,6 +256,7 @@ def test_a_mission_handle_with_no_bytes_at_the_allowed_location_is_refused(
 ) -> None:
     """Location is not presence: an empty canonical path carries no evidence."""
     monkeypatch.setenv(project_scratch_dir.ENV_KEY, str(tmp_path / "scratch"))
+    monkeypatch.setenv(machine_config.HOME_ENV, str(tmp_path / "machine-home"))
     monkeypatch.setenv("YOKE_SESSION_ID", "mission-session")
     monkeypatch.setenv("YOKE_RUN_ID", "mission-run")
     from yoke_core.domain.qa_artifacts import artifact_file_path

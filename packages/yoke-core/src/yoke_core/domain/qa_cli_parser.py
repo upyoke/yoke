@@ -130,7 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--artifact-path",
         help=(
             "Optional screenshot path; creates a linked qa_artifact automatically "
-            "and canonicalizes item-backed files into scratch-backed QA storage."
+            "and persists its bytes in configured S3 or permanent local storage."
         ),
     )
 

@@ -244,22 +244,25 @@ def _process_requirement(
                     _bqa._log(f"  SKIPPED artifact (not on disk): {apath}")
                 continue
 
-            # Durability is opt-in at the record boundary: presign + upload
-            # to the env artifacts bucket when declared, else an explicit
-            # local handle on the capture path.
-            handle = _bqa._durable_artifact_handle(
-                run_id, req_id, str(apath), "image/png",
-                actor=actor,
-            )
             metadata = build_metadata(step_idx, qa_kind, item_id, current_route)
-
-            art_id = _bqa._record_artifact(
-                run_id, req_id, "screenshot", "image/png",
-                handle, json.dumps(metadata), actor=actor,
-            )
+            try:
+                art_id = _bqa._record_artifact_file(
+                    run_id, req_id, str(apath), "image/png", "screenshot",
+                    json.dumps(metadata),
+                    actor=actor,
+                )
+            except _bqa.QaArtifactWriteError as exc:
+                _bqa._log(
+                    f"  Step {step_idx}: FAILED -- durable artifact storage: {exc}"
+                )
+                _mark_capture_failed(
+                    f"step_{step_idx}:artifact_storage_failed:{exc};"
+                )
+                step_had_artifact_failure = True
+                continue
             if art_id:
-                # The capture stays on this machine's disk either way;
-                # in-session screenshot inspection reads it from here.
+                # Capture scratch remains available for in-session inspection;
+                # the recorded evidence already lives in durable storage.
                 run_artifacts.append(os.path.abspath(str(apath)))
                 step_had_valid_artifact = True
 

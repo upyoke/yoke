@@ -13,7 +13,7 @@ from yoke_core.domain.handlers.machine_qa_case import (
     _record_machine_case_result,
 )
 from yoke_core.domain.machine_qa_execution import MachineCaseResult
-from yoke_core.domain.qa_artifact_handle import local_handle, parse_handle
+from yoke_core.domain.qa_artifact_handle import local_handle, parse_handle, s3_handle
 from yoke_core.domain.qa_case_execution_context import (
     get_case_execution_context,
 )
@@ -167,6 +167,42 @@ def test_machine_result_records_exact_outcome_and_canonical_artifacts(
     assert all(Path(handle["path"]).is_file() for handle in handles)
     assert screenshot.exists() is False
     assert recorded["evidence_count"] == 2
+
+
+def test_machine_result_uses_shared_configured_s3_storage(
+    test_db,
+    monkeypatch,
+) -> None:
+    materialized = materialize_installer_campaign(test_db, item_id=42)
+    requirement_id = next(
+        int(row["id"])
+        for row in materialized
+        if row["plan_case_key"] == "default-add-yoke-to-my-path"
+    )
+    case = get_case_execution_context(test_db, requirement_id=requirement_id)
+    result = MachineCaseResult(
+        case_outcome="needs_review",
+        verdict="pending",
+        capture_degraded_reason=None,
+        evidence={"machine": "mac-mini-lab", "steps": []},
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_artifact_storage.store_artifact_bytes",
+        lambda *_args, **_kwargs: s3_handle(
+            "tenant-artifacts",
+            "tenants/7/qa-artifacts/yoke/42/1/machine-evidence.json",
+            "application/json",
+        ),
+    )
+
+    recorded = _record_machine_case_result(
+        test_db, case=case, result=result, duration_ms=12
+    )
+    row = test_db.execute(
+        "SELECT artifact_handle FROM qa_artifacts WHERE qa_run_id=%s",
+        (recorded["run_id"],),
+    ).fetchone()
+    assert parse_handle(row["artifact_handle"])["backend"] == "s3"
 
 
 def test_machine_result_refuses_a_capture_whose_bytes_never_arrived(

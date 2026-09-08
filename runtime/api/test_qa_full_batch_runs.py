@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from yoke_core.domain import actors, db_backend, qa
+from yoke_core.domain import actors, db_backend, qa, qa_artifacts
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_identity_tables,
 )
@@ -295,8 +295,13 @@ class TestRunAddBatch:
 
     @pytest.mark.parametrize("include_artifact", [False, True])
     def test_undetermined_requires_artifact_path(
-        self, db_path, capsys, tmp_path, include_artifact
+        self, db_path, capsys, tmp_path, monkeypatch, include_artifact
     ):
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine"))
+        monkeypatch.setattr(
+            "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+            lambda *_args: None,
+        )
         req_id = self._seed_requirement(db_path, capsys)
 
         payload = [
@@ -307,11 +312,14 @@ class TestRunAddBatch:
                 "verdict": "undetermined",
                 "verdict_reason": "The capture shows two overlapping states.",
                 **(
-                    {"artifact_path": "/tmp/screenshot.png"} if include_artifact else {}
+                    {"artifact_path": str(tmp_path / "screenshot.png")}
+                    if include_artifact else {}
                 ),
             },
         ]
         json_file = str(tmp_path / "artifact.json")
+        if include_artifact:
+            (tmp_path / "screenshot.png").write_bytes(b"\x89PNG")
         with open(json_file, "w") as f:
             json.dump(payload, f)
 
@@ -329,6 +337,10 @@ class TestRunAddBatch:
         ).fetchone()
         assert art is not None
         handle = json.loads(art["artifact_handle"])
-        assert handle == {"backend": "local", "path": "/tmp/screenshot.png"}
+        expected = qa_artifacts.permanent_artifact_file_path(
+            "yoke", 100, ids[0], "screenshot.png", create_parent=False
+        )
+        assert handle == {"backend": "local", "path": str(expected)}
+        assert expected.read_bytes() == b"\x89PNG"
         assert art["content_type"] == "image/png"
         conn.close()

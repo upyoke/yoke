@@ -207,12 +207,17 @@ def cmd_run_add(
                 ".webp": "image/webp",
                 ".gif": "image/gif",
             }.get(_ext, "application/octet-stream")
-            _handle = linked_artifact_handle(
-                conn,
-                requirement_id=requirement_id,
-                run_id=inserted_id,
-                artifact_path=artifact_path,
-            )
+            try:
+                _handle = linked_artifact_handle(
+                    conn,
+                    requirement_id=requirement_id,
+                    run_id=inserted_id,
+                    artifact_path=artifact_path,
+                )
+            except Exception as exc:
+                conn.rollback()
+                print(f"Error: artifact storage failed: {exc}", file=sys.stderr)
+                sys.exit(2)
             conn.execute(
                 """INSERT INTO qa_artifacts (qa_run_id, artifact_type, content_type, artifact_handle, metadata, created_at)
                    VALUES (%s, %s, %s, %s, %s, %s)""",

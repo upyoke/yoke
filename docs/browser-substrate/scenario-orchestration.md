@@ -117,19 +117,24 @@ Browser captures are first written under project scratch storage:
 `{subject}` is the requirement's own owner: its item id, or
 `deployment-run-{run}` when a deployment run owns the requirement.
 
-When the target environment declares an artifact bucket, the runner uploads
-the capture and records a durable handle:
+Before recording evidence, the runner uploads the capture to the configured
+project artifact bucket and records a durable handle:
 
 ```json
 {"backend": "s3", "bucket": "{project}-{env}-artifacts",
- "key": "qa-artifacts/{project}/{subject}/{run_id}/screenshot-{step_index}-{timestamp}.png"}
+ "key": "{artifacts.prefix?}/qa-artifacts/{project}/{subject}/{run_id}/screenshot-{step_index}-{timestamp}.png"}
 ```
 
-If durable upload is unavailable, it records an explicit machine-local handle:
+Only when no environment declares an artifact bucket does the server copy the
+submitted bytes into permanent application data and record a local handle:
 
 ```json
-{"backend": "local", "path": "/absolute/path/to/capture.png"}
+{"backend": "local", "path": "~/.yoke/artifacts/{project}/{subject}/{run_id}/capture.png"}
 ```
+
+Missing S3 credentials and upload failures remain explicit capture failures;
+configured storage never silently downgrades to local disk.
+Shared hosted buckets set a stable tenant prefix; foreign-prefix handles are refused.
 
 Artifact metadata includes the step index, requirement identity, route, item
 identity, project, viewport, and timestamp.

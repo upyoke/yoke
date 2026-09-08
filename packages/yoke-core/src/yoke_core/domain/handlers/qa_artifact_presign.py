@@ -12,9 +12,11 @@ credentials — the upload is one plain HTTPS PUT.
 
 Bucket resolution order: the requirement's declared ``target_env`` when
 that environment declares a bucket, else ``prod``, else the remaining
-environments name-sorted. No environment declaring a bucket is a typed
-``s3_not_configured`` error — callers then record an explicit ``local``
-handle (durability is opt-in; local capture stays the default).
+environments name-sorted. No environment declaring a bucket is the sole
+``s3_not_configured`` result; byte-submission callers then let
+``qa.artifact.add`` persist the evidence in the server's permanent local
+application-data tree. Optional ``artifacts.prefix`` is the stable tenant
+namespace prepended to every server-authorized object key.
 """
 
 from __future__ import annotations
@@ -25,19 +27,23 @@ from typing import Dict, List, Optional, Tuple
 from pydantic import BaseModel
 
 from yoke_core.domain.handlers.qa import _error, _p
+from yoke_core.domain.qa_artifact_storage import (
+    ARTIFACT_PRESIGN_EXPIRES_S,
+    requirement_storage_owner,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
 )
 
-PRESIGN_EXPIRES_S = 900
+PRESIGN_EXPIRES_S = ARTIFACT_PRESIGN_EXPIRES_S
 
 _NO_BUCKET_REMEDIATION = (
     "no environment of project {project!r} declares an artifacts bucket; "
-    "apply the environment stack (output artifactsBucketName) and record "
-    "it: python3 -m yoke_core.domain.projects environment-merge-settings "
-    "<env-id> --set artifacts.bucket=<name>. Until then record an explicit "
-    "local artifact_handle instead."
+    "apply the environment stack, record its artifactsBucketName through "
+    "the project environment-settings artifacts.bucket surface, or submit "
+    "the artifact bytes "
+    "through qa.artifact.add for permanent server-local storage"
 )
 
 
@@ -58,8 +64,8 @@ def resolve_artifacts_bucket(
     conn,
     project_id: int,
     target_env: Optional[str],
-) -> Optional[Tuple[str, str]]:
-    """Return ``(env_name, bucket)`` for the project, or ``None``.
+) -> Optional[Tuple[str, str, Optional[str]]]:
+    """Return ``(env_name, bucket, storage_prefix)`` or ``None``.
 
     Reads ``environments.settings.artifacts.bucket`` directly on the
     handler's connection (single three-column read; the full renderer
@@ -73,7 +79,7 @@ def resolve_artifacts_bucket(
         f"WHERE s.project_id = {p}",
         (int(project_id),),
     ).fetchall()
-    buckets: Dict[str, str] = {}
+    buckets: Dict[str, tuple[str, Optional[str]]] = {}
     for row in rows:
         name, raw = str(row[0]), row[1]
         try:
@@ -83,7 +89,18 @@ def resolve_artifacts_bucket(
         artifacts = settings.get("artifacts")
         bucket = artifacts.get("bucket") if isinstance(artifacts, dict) else None
         if isinstance(bucket, str) and bucket.strip():
-            buckets[name] = bucket.strip()
+            raw_prefix = artifacts.get("prefix")
+            if raw_prefix in (None, ""):
+                prefix = None
+            elif isinstance(raw_prefix, str):
+                from yoke_core.domain.qa_artifact_handle import safe_storage_prefix
+
+                prefix = safe_storage_prefix(raw_prefix)
+            else:
+                raise ValueError(
+                    f"environment {name!r} artifacts.prefix must be a string"
+                )
+            buckets[name] = (bucket.strip(), prefix)
     if not buckets:
         return None
     order: List[str] = []
@@ -93,7 +110,8 @@ def resolve_artifacts_bucket(
     order.extend(sorted(buckets))
     for name in order:
         if name in buckets:
-            return name, buckets[name]
+            bucket, prefix = buckets[name]
+            return name, bucket, prefix
     return None
 
 
@@ -107,8 +125,8 @@ def _aws_region(conn, project_id: int) -> Optional[str]:
     if row is None:
         return None
     try:
-        settings = json.loads(str(row[0]) or "{}")
-    except ValueError:
+        settings = row[0] if isinstance(row[0], dict) else json.loads(row[0] or "{}")
+    except (TypeError, ValueError):
         return None
     region = settings.get("region")
     return str(region) if isinstance(region, str) and region.strip() else None
@@ -183,62 +201,36 @@ def handle_qa_artifact_presign(request: FunctionCallRequest) -> HandlerOutcome:
                 f"run {run_id} belongs to requirement "
                 f"{run_row['qa_requirement_id']}, not {req_id}",
             )
-        # A requirement is owned by an item or by a deployment run, and the
-        # project follows whichever one it is. Resolving through the item
-        # alone refused every run-owned requirement as "not item-backed",
-        # which is how a deployment run's QA gate ended up unable to store
-        # the evidence its approver was being asked to judge.
-        req_row = query_one(
-            conn,
-            "SELECT r.item_id, r.epic_id, r.task_num, r.deployment_run_id, "
-            "r.target_env, COALESCE(i.project_id, d.project_id) AS project_id, "
-            "p.slug AS project "
-            "FROM qa_requirements r "
-            "LEFT JOIN items i ON i.id = r.item_id "
-            "LEFT JOIN deployment_runs d ON d.id = r.deployment_run_id "
-            "LEFT JOIN projects p "
-            "ON p.id = COALESCE(i.project_id, d.project_id) "
-            f"WHERE r.id = {p}",
-            (int(req_id),),
-        )
-        if req_row is None:
-            return _error("not_found", f"requirement {req_id} not found")
-        # Epic-task requirements are the third owner kind, and durable
-        # storage has no key layout for them: naming that is the refusal,
-        # rather than reporting a project the row does not have.
-        if req_row["project"] is None:
-            return _error(
-                "target_invalid",
-                f"requirement {req_id} resolves to no project through its "
-                f"owner (item_id={req_row['item_id']!r}, "
-                f"epic_id={req_row['epic_id']!r}, "
-                f"deployment_run_id={req_row['deployment_run_id']!r}); "
-                "presigned evidence upload resolves the project through an "
-                "item-owned or deployment-run-owned requirement, so record "
-                "an explicit local artifact_handle instead",
-            )
+        try:
+            req_row = requirement_storage_owner(conn, int(req_id))
+        except LookupError as exc:
+            return _error("not_found", str(exc))
+        except ValueError as exc:
+            return _error("target_invalid", str(exc))
         project = str(req_row["project"])
         subject = case_artifact_subject(dict(req_row))
 
-        resolved = resolve_artifacts_bucket(
-            conn,
-            int(req_row["project_id"]),
-            req_row["target_env"],
-        )
+        try:
+            resolved = resolve_artifacts_bucket(
+                conn,
+                int(req_row["project_id"]),
+                req_row["target_env"],
+            )
+        except ValueError as exc:
+            return _error("s3_configuration_invalid", str(exc))
         if resolved is None:
             return _error(
                 "s3_not_configured",
                 _NO_BUCKET_REMEDIATION.format(project=project),
             )
-        env_name, bucket = resolved
+        env_name, bucket, storage_prefix = resolved
         region = _aws_region(conn, int(req_row["project_id"]))
         if not region:
             return _error(
-                "s3_not_configured",
-                f"project {project!r} aws-admin capability declares no "
-                "region; set it via python3 -m yoke_core.domain.projects "
-                f"capability-merge-settings {project} aws-admin "
-                "--set region=<aws-region>",
+                "s3_configuration_invalid",
+                f"project {project!r} declares artifacts bucket {bucket!r} "
+                "but its aws-admin capability has no region; set the "
+                "capability region",
             )
     finally:
         conn.close()
@@ -246,16 +238,23 @@ def handle_qa_artifact_presign(request: FunctionCallRequest) -> HandlerOutcome:
     credentials = _capability_credentials(project)
     if credentials is None:
         return _error(
-            "s3_not_configured",
-            f"project {project!r} aws-admin capability secrets are missing "
-            "(need access_key_id + secret_access_key); store them locally via "
+            "s3_configuration_invalid",
+            f"project {project!r} declares artifacts bucket {bucket!r} but "
+            "its aws-admin capability secrets are missing (need "
+            "access_key_id + secret_access_key); store them via "
             "`yoke projects capability secret set --project "
             f"{project} --cap-type aws-admin --key access_key_id VALUE` "
             "and `--key secret_access_key VALUE`",
         )
 
     try:
-        key = build_artifact_key(project, subject, int(run_id), filename)
+        key = build_artifact_key(
+            project,
+            subject,
+            int(run_id),
+            filename,
+            storage_prefix=storage_prefix,
+        )
         handle = s3_handle(bucket, key, content_type=content_type)
     except (ArtifactHandleError, ValueError) as exc:
         return _error(

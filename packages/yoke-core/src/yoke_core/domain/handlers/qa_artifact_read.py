@@ -11,9 +11,10 @@ from pydantic import BaseModel
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.qa import _error, _p
+from yoke_core.domain.qa_artifact_storage import MAX_ARTIFACT_BYTES
 
 READ_EXPIRES_S = 300
-MAX_INLINE_BYTES = 20 * 1024 * 1024
+MAX_INLINE_BYTES = MAX_ARTIFACT_BYTES
 
 
 class QaArtifactReadRequest(BaseModel):
@@ -118,8 +119,9 @@ def _s3_result(conn, row, handle: dict) -> tuple[dict, Optional[HandlerOutcome]]
     credentials = _capability_credentials(str(row["project"]))
     if not region or credentials is None:
         return {}, _error(
-            "s3_not_configured",
-            "the project artifact store cannot mint a download URL",
+            "s3_configuration_invalid",
+            "the configured project artifact store cannot mint a download "
+            "URL because its aws-admin region or credentials are unavailable",
         )
     return {
         "disposition": "ready",
