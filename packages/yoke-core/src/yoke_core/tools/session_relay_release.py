@@ -184,6 +184,19 @@ def fetch_served_build(
             RELAY_RELEASE_FETCH_FAILED,
             f"environment {instance.environment!r} handshake failed: {exc}",
         ) from exc
+    if payload is None:
+        # The manifest reader answers ``None`` for every reason it cannot
+        # produce one, so name the reasons it hides rather than reporting an
+        # empty build. This is the shape a relay install hits when it runs
+        # against a connection whose credential it cannot yet read.
+        raise RelayReleaseError(
+            RELAY_RELEASE_FETCH_FAILED,
+            f"environment {instance.environment!r} returned no manifest: its "
+            "https connection did not resolve, or the handshake failed. "
+            f"Recovery: confirm `yoke --env {instance.environment} status` "
+            "reaches the plane with a readable credential, then retry "
+            f"`yoke --env {instance.environment} relay install`.",
+        )
     build = (
         str(payload.get("server_engine_version") or "").strip()
         if isinstance(payload, Mapping)

@@ -12,7 +12,13 @@ from yoke_cli.config import onboard_session_relay
 
 def _apply(tmp_path: Path, monkeypatch, outcome: dict) -> dict:
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
-    monkeypatch.setattr(onboard_session_relay, "install", lambda **_kwargs: True)
+    monkeypatch.setattr(
+        onboard_session_relay,
+        "install",
+        lambda **_kwargs: onboard_session_relay.RelayInstallOutcome(
+            installed=True, reused=False
+        ),
+    )
     calls: list[object] = []
 
     def register(config_path=None):

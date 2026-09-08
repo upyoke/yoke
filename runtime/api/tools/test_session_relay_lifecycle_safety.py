@@ -310,9 +310,17 @@ def test_legacy_status_helper_uses_the_same_health_contract(
         plist_present=present,
         loaded=loaded,
         plist_current=current,
+        environment="prod",
         follows_served_release=True,
     )
-    monkeypatch.setattr(install_session_relay, "relay_launchd_status", lambda: status)
+    monkeypatch.setattr(
+        install_session_relay,
+        "resolve_relay_instance",
+        lambda **_kwargs: SimpleNamespace(follows_served_release=True),
+    )
+    monkeypatch.setattr(
+        install_session_relay, "relay_launchd_status", lambda **_kwargs: status
+    )
     monkeypatch.setattr(
         install_session_relay,
         "relay_release_status",
@@ -321,6 +329,7 @@ def test_legacy_status_helper_uses_the_same_health_contract(
             served_build="v0.1.1+launch.365",
             current=True,
             error_code="",
+            error_message="",
         ),
     )
 
