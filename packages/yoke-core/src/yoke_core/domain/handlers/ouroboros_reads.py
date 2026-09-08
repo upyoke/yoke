@@ -22,12 +22,23 @@ from yoke_core.domain.ouroboros_entries import (
     DEFAULT_ENTRY_LIST_LIMIT,
     MAX_ENTRY_LIST_LIMIT,
 )
+from yoke_core.domain.ouroboros_entry_roster import (
+    RosterCursorError,
+    RosterFilterError,
+    list_roster_page,
+    parse_category_prefix,
+    parse_review_state,
+    parse_roster_shape,
+)
 
 
 class OuroborosEntryListRequest(BaseModel):
     unreviewed: bool = False
     project: Optional[str] = None
     category_prefix: Optional[str] = None
+    review_state: Optional[str] = None
+    shape: Optional[str] = None
+    cursor: Optional[str] = None
     limit: int = Field(default=DEFAULT_ENTRY_LIST_LIMIT, ge=1, le=MAX_ENTRY_LIST_LIMIT)
     offset: int = Field(default=0, ge=0)
     count: bool = False
@@ -36,6 +47,8 @@ class OuroborosEntryListRequest(BaseModel):
 class OuroborosEntryListResponse(BaseModel):
     entries: List[Dict[str, Any]] = Field(default_factory=list)
     count: Optional[int] = None
+    matching_count: Optional[int] = None
+    next_cursor: Optional[str] = None
     limit: Optional[int] = None
     offset: Optional[int] = None
 
@@ -107,6 +120,75 @@ def _validated_limit_offset(
     return limit, offset, None
 
 
+def _payload_error(message: str, jsonpath: str) -> HandlerOutcome:
+    return HandlerOutcome(
+        primary_success=False,
+        error=FunctionError(
+            code="payload_invalid",
+            message=message,
+            jsonpath=jsonpath,
+        ),
+    )
+
+
+def _handle_roster_list(
+    payload: Dict[str, Any],
+    limit: int,
+    offset: int,
+) -> HandlerOutcome:
+    if offset:
+        return _payload_error(
+            "shape=roster pages by cursor, not offset. "
+            "Reload the Ouroboros page to restart paging from the newest match.",
+            "$.payload.offset",
+        )
+    try:
+        review_state = parse_review_state(
+            payload.get("review_state"),
+            unreviewed=bool(payload.get("unreviewed", False)),
+        )
+        category_prefix = parse_category_prefix(payload.get("category_prefix"))
+        project = payload.get("project")
+        cursor = payload.get("cursor")
+        if cursor is not None and cursor != "" and not isinstance(cursor, str):
+            return _payload_error(
+                "cursor must be a string. Reload the Ouroboros page to "
+                "restart paging from the newest match.",
+                "$.payload.cursor",
+            )
+        from yoke_core.domain.db_helpers import connect
+
+        conn = connect()
+        try:
+            page = list_roster_page(
+                conn,
+                project=str(project) if project else "",
+                review_state=review_state,
+                category_prefix=category_prefix,
+                limit=limit,
+                cursor=str(cursor) if cursor else None,
+            )
+        finally:
+            conn.close()
+    except RosterFilterError as exc:
+        return _payload_error(str(exc), exc.jsonpath)
+    except RosterCursorError as exc:
+        return _payload_error(str(exc), "$.payload.cursor")
+    except LookupError as exc:
+        return _payload_error(str(exc), "$.payload.project")
+    except ValueError as exc:
+        return _payload_error(str(exc), "$.payload.limit")
+    return HandlerOutcome(
+        result_payload={
+            "entries": page["entries"],
+            "matching_count": page["matching_count"],
+            "next_cursor": page["next_cursor"],
+            "limit": page["limit"],
+        },
+        primary_success=True,
+    )
+
+
 def handle_ouroboros_entry_list(request: FunctionCallRequest) -> HandlerOutcome:
     payload = request.payload or {}
     project = payload.get("project")
@@ -114,6 +196,12 @@ def handle_ouroboros_entry_list(request: FunctionCallRequest) -> HandlerOutcome:
     if limit_error is not None:
         return limit_error
     assert limit is not None and offset is not None
+    try:
+        roster = parse_roster_shape(payload.get("shape"))
+    except RosterFilterError as exc:
+        return _payload_error(str(exc), exc.jsonpath)
+    if roster:
+        return _handle_roster_list(payload, limit, offset)
 
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.ouroboros_entries import (
@@ -147,23 +235,9 @@ def handle_ouroboros_entry_list(request: FunctionCallRequest) -> HandlerOutcome:
             )
         except LookupError as exc:
             # resolve_project_id raises LookupError for unknown projects.
-            return HandlerOutcome(
-                primary_success=False,
-                error=FunctionError(
-                    code="payload_invalid",
-                    message=str(exc),
-                    jsonpath="$.payload.project",
-                ),
-            )
+            return _payload_error(str(exc), "$.payload.project")
         except ValueError as exc:
-            return HandlerOutcome(
-                primary_success=False,
-                error=FunctionError(
-                    code="payload_invalid",
-                    message=str(exc),
-                    jsonpath="$.payload.limit",
-                ),
-            )
+            return _payload_error(str(exc), "$.payload.limit")
     finally:
         conn.close()
     return HandlerOutcome(
