@@ -11,7 +11,10 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_types import 
 ITEMS_ADAPTERS = [
     read_entry(
         function_id="items.overview.list",
-        cli_invocation="yoke items overview list --project P",
+        cli_invocation=(
+            "yoke items overview list --project P [--relevance overview] "
+            "[--page-size N] [--cursor C]"
+        ),
     ),
     read_entry(
         function_id="items.detail.get",
