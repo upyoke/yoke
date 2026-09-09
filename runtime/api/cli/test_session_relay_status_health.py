@@ -15,6 +15,11 @@ from yoke_harness.session_relay_health import (
     record_relay_run_refusal,
     record_report_failure,
 )
+from yoke_harness.session_relay_poll_health import (
+    record_poll_failure,
+    record_poll_success,
+    reset_poll_outcome,
+)
 from yoke_harness.session_relay_report_delivery import deliver_terminal_report
 
 
@@ -198,3 +203,72 @@ def test_quarantined_status_teaches_terminal_recovery_without_replay(
     assert "report_conflict" in payload["relay_health_recovery"]
     assert "do not replay" in payload["relay_health_recovery"]
     assert "yoke relay report quarantine" in payload["relay_health_recovery"]
+
+
+def _loaded(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        relay,
+        "_plist_operation",
+        lambda _action: SimpleNamespace(
+            supported=True,
+            environment="prod",
+            label="com.upyoke.relay",
+            plist_present=True,
+            plist_current=True,
+            loaded=True,
+            plist_path=tmp_path / "relay.plist",
+            state_dir=tmp_path,
+        ),
+    )
+
+
+def test_failed_poll_is_named_even_when_report_delivery_is_healthy(
+    monkeypatch, capsys, tmp_path: Path
+) -> None:
+    record_poll_failure(tmp_path, error_code="machine_credential_required")
+    _loaded(monkeypatch, tmp_path)
+
+    assert relay.relay_status(["--json"]) == 1
+    payload = json.loads(capsys.readouterr().out)
+    poll = payload["relay_health"]["poll_outcome"]
+    assert payload["relay_health"]["state"] == "healthy"
+    assert poll["status"] == "failed"
+    assert poll["error_code"] == "machine_credential_required"
+    assert poll["consecutive_failures"] == 1
+    recovery = payload["relay_health_recovery"]
+    assert "Control-plane connection failed" in recovery
+    assert "yoke connect" in recovery
+    assert "alone does not mint credentials" in recovery
+
+
+def test_poll_recovery_clears_current_failure_and_status_is_healthy(
+    monkeypatch, capsys, tmp_path: Path
+) -> None:
+    record_poll_failure(tmp_path, error_code="machine_credential_required")
+    record_poll_failure(tmp_path, error_code="machine_credential_required")
+    record_poll_success(tmp_path)
+    _loaded(monkeypatch, tmp_path)
+
+    assert relay.relay_status(["--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    poll = payload["relay_health"]["poll_outcome"]
+    assert poll["status"] == "ok"
+    assert "error_code" not in poll
+    assert "consecutive_failures" not in poll
+    assert poll["last_failed_at"]
+    assert "connection failed" not in payload["relay_health_recovery"]
+
+
+def test_restarted_daemon_does_not_inherit_a_healthy_poll_verdict(
+    monkeypatch, capsys, tmp_path: Path
+) -> None:
+    record_poll_success(tmp_path)
+    reset_poll_outcome(tmp_path)
+    _loaded(monkeypatch, tmp_path)
+
+    assert relay.relay_status(["--json"]) == 1
+    payload = json.loads(capsys.readouterr().out)
+    poll = payload["relay_health"]["poll_outcome"]
+    assert poll["status"] == "pending"
+    assert poll["last_succeeded_at"]
+    assert "not completed a control-plane poll" in payload["relay_health_recovery"]

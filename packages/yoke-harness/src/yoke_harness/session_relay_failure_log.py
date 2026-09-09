@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import logging
+from pathlib import Path
 import threading
 import time
 from typing import Callable
@@ -42,10 +43,25 @@ class FailureReporter:
     stamp_clock: Callable[[], datetime] = _wall_now
     bursts: dict[str, _FailureBurst] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
+    state_dir: Path | None = None
 
-    def failed(self, operation: str, reason: object) -> None:
+    def failed(
+        self, operation: str, reason: object, *, persist_code: str | None = None
+    ) -> None:
         now = self.clock()
         detail = " ".join(str(reason).splitlines()).strip() or "unknown failure"
+        if operation == "poll" and self.state_dir is not None:
+            from yoke_harness.session_relay_poll_health import (
+                diagnosed_poll_code,
+                record_poll_failure,
+            )
+
+            record_poll_failure(
+                self.state_dir,
+                error_code=diagnosed_poll_code(
+                    persist_code if persist_code is not None else reason
+                ),
+            )
         with self.lock:
             burst = self.bursts.get(operation)
             if burst is None:
@@ -68,6 +84,10 @@ class FailureReporter:
 
     def recovered(self, operation: str) -> None:
         now = self.clock()
+        if operation == "poll" and self.state_dir is not None:
+            from yoke_harness.session_relay_poll_health import record_poll_success
+
+            record_poll_success(self.state_dir)
         with self.lock:
             burst = self.bursts.pop(operation, None)
         if burst is not None:

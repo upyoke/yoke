@@ -156,9 +156,10 @@ def _relay_lifecycle(args: List[str], action: str) -> int:
     _emit(payload, json_mode=parsed.json_mode, title=f"RELAY {action.upper()}")
     if not status.supported:
         return 1
-    health_healthy = (
-        payload.get("relay_health", {}).get("state", "healthy") == "healthy"
-    )
+    health = payload.get("relay_health") or {}
+    poll = health.get("poll_outcome") if isinstance(health, dict) else None
+    poll_status = poll.get("status") if isinstance(poll, dict) else "ok"
+    health_healthy = health.get("state", "healthy") == "healthy" and poll_status == "ok"
     if action == "status" and not (
         status.plist_present
         and status.plist_current

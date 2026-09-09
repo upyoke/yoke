@@ -268,6 +268,8 @@ def write_relay_summary(
     if "supported" in payload:
         health = payload.get("relay_health")
         health = health if isinstance(health, Mapping) else {}
+        poll = health.get("poll_outcome")
+        poll = poll if isinstance(poll, Mapping) else {}
         fields = [
             ("Environment", payload.get("environment")),
             ("Launch agent", payload.get("launchd_label")),
@@ -284,6 +286,11 @@ def write_relay_summary(
             ("Release pin error", payload.get("release_error_code")),
             ("Release pin recovery", payload.get("release_recovery")),
             ("Report delivery", humanize(health.get("state"))),
+            ("Control-plane poll", humanize(poll.get("status"))),
+            ("Poll error", poll.get("error_code")),
+            ("Poll consecutive failures", poll.get("consecutive_failures")),
+            ("Last successful poll", poll.get("last_succeeded_at")),
+            ("Last failed poll", poll.get("last_failed_at")),
             ("Pending reports", health.get("pending_reports")),
             ("Quarantined reports", health.get("quarantine_count")),
             ("Recovery", payload.get("relay_health_recovery")),

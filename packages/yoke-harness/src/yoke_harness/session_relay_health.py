@@ -234,11 +234,19 @@ def observe_relay_health(state_dir: Path | None = None) -> dict[str, object]:
             "quarantined_reports": [_load(path) for path in metadata_paths[-20:]],
         }
     )
-    return sanitize_relay_health(document)
+    from yoke_harness.session_relay_poll_health import attach_poll_outcome
+
+    return attach_poll_outcome(sanitize_relay_health(document), document)
 
 
 def relay_health_recovery(health: Mapping[str, object]) -> str:
     """Operator action for the condition shown by ``yoke relay status``."""
+    from yoke_harness.session_relay_poll_health import poll_connection_recovery
+
+    poll = health.get("poll_outcome")
+    poll = poll if isinstance(poll, Mapping) else {}
+    if str(poll.get("status") or "") == "failed":
+        return poll_connection_recovery(health)
     if health.get("state") == "refused":
         refusal = health.get("run_refusal")
         refusal = refusal if isinstance(refusal, Mapping) else {}
@@ -260,7 +268,7 @@ def relay_health_recovery(health: Mapping[str, object]) -> str:
             "Report delivery is retrying; restore control-plane transport and "
             "leave the relay running so the durable queue can drain."
         )
-    return ""
+    return poll_connection_recovery(health)
 
 
 __all__ = [
