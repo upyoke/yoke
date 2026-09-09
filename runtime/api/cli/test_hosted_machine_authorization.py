@@ -10,6 +10,14 @@ from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpStatusError,
 )
 
+MACHINE_ID = "8bea37d8-e2d5-4e4d-96c4-cfc53d9dbe5f"
+
+
+@pytest.fixture(autouse=True)
+def machine_identity(monkeypatch) -> None:
+    monkeypatch.setattr(auth.machine_runtime, "ensure_machine_id", lambda: MACHINE_ID)
+    monkeypatch.setattr(auth, "machine_display_name", lambda: "Test Host")
+
 
 class _Clock:
     now = 0.0

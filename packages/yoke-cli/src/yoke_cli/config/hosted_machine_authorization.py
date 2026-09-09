@@ -15,6 +15,8 @@ from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpStatusError,
     request_json,
 )
+from yoke_contracts.machine_config.machine_name import machine_display_name
+from yoke_contracts.machine_config import runtime as machine_runtime
 
 
 class HostedMachineAuthorizationError(RuntimeError):
@@ -114,11 +116,21 @@ def complete(
     cancelled: Callable[[], bool] | None = None,
 ) -> HostedMachineCredential:
     """Poll until a browser-approved org credential is delivered exactly once.
-
     ``cancelled`` is consulted after every wait; pair it with a ``sleep`` that
     wakes early (``threading.Event.wait``) so an abandoned wait ends at once
     rather than at the next poll tick.
     """
+    try:
+        resolved_machine_id = machine_runtime.ensure_machine_id()
+    except machine_runtime.MachineConfigError as exc:
+        raise HostedMachineAuthorizationError(
+            f"machine_identity_required: {exc}; create or restore this machine's "
+            "config, then retry"
+        ) from None
+    machine_identity = {
+        "machine_id": resolved_machine_id,
+        "machine_name": machine_display_name(),
+    }
     deadline = monotonic() + authorization.expires_in
     token_url = f"{authorization.platform_url}/api/machine/authorizations/token"
     while monotonic() < deadline:
@@ -132,7 +144,7 @@ def complete(
         try:
             payload, status = _post_json(
                 token_url,
-                {"device_code": authorization.device_code},
+                {"device_code": authorization.device_code, **machine_identity},
                 opener=opener,
                 timeout_seconds=min(timeout_seconds, max(0.1, deadline - monotonic())),
                 sensitive_values=(authorization.device_code,),
@@ -150,6 +162,11 @@ def complete(
             if error in {"authorization_expired", "authorization_consumed"}:
                 raise HostedMachineAuthorizationError(
                     str(error).replace("_", " ")
+                ) from None
+            if error == "machine_identity_required":
+                raise HostedMachineAuthorizationError(
+                    "machine_identity_required: run `yoke status` to inspect this "
+                    "machine's configured identity, repair it, then retry"
                 ) from None
             raise HostedMachineAuthorizationError(
                 f"hosted authorization polling failed (HTTP {exc.status})"
