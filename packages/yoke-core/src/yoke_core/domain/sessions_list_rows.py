@@ -12,12 +12,7 @@ from yoke_contracts.session_control.liveness import (
     LIVENESS_ENDED,
     LIVENESS_STALE,
 )
-from yoke_core.domain.actors import (
-    ActorLabelAmbiguous,
-    ActorLabelMissing,
-    ActorNotFound,
-)
-from yoke_core.domain.actor_display import actor_display_name
+from yoke_core.domain.actor_render import render_actor_name
 from yoke_core.domain.session_focus_attribution import focus_attribution
 from yoke_core.domain.session_list_fields import usage_fields
 from yoke_core.domain.session_native_process_observation import (
@@ -69,14 +64,12 @@ def _actor_label(
     cache: Dict[int, Optional[str]],
     actor_id: Any,
 ) -> Optional[str]:
+    """One roster cell per actor, resolved once and omitted when absent."""
     if actor_id is None:
         return None
     key = int(actor_id)
     if key not in cache:
-        try:
-            cache[key] = actor_display_name(conn, key)
-        except (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous):
-            cache[key] = None
+        cache[key] = render_actor_name(conn, key)
     return cache[key]
 
 

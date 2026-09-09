@@ -1,4 +1,4 @@
-"""The sign-in ladder adopts the provider's name as the actor display label."""
+"""The sign-in ladder adopts the provider's name as the actor's name."""
 
 from __future__ import annotations
 
@@ -7,13 +7,8 @@ from typing import Any, Iterator
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_contracts.actor_labels import (
-    DISPLAY_LABEL_SURFACE,
-    GITHUB_LABEL_SURFACE,
-)
-from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.actor_permissions import seed_roles_and_permissions
-from yoke_core.domain.actors import seed_human_actor, set_actor_label
+from yoke_core.domain.actors import actor_name, seed_human_actor
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.external_identities import link_external_identity
 from yoke_core.domain.external_identity_schema import (
@@ -69,33 +64,22 @@ def _claims(**overrides: Any) -> dict:
 
 def _linked_member(conn, *, subject: str, handle: str) -> int:
     """A member whose identity is already linked, as a synced membership is."""
-    actor_id = seed_human_actor(conn)
-    set_actor_label(conn, actor_id, handle, surface=GITHUB_LABEL_SURFACE)
+    actor_id = seed_human_actor(conn, handle)
     link_external_identity(
         conn, actor_id=actor_id, issuer=_ISSUER, subject=subject,
     )
     return actor_id
 
 
-def _display_rows(conn, actor_id: int) -> list[str]:
-    return [
-        str(row[0])
-        for row in conn.execute(
-            "SELECT label FROM actor_labels WHERE actor_id = %s AND surface = %s",
-            (actor_id, DISPLAY_LABEL_SURFACE),
-        ).fetchall()
-    ]
-
-
-def test_sync_writes_the_display_row_for_a_linked_member(conn):
+def test_sync_adopts_the_providers_name_for_a_linked_member(conn):
     actor_id = _linked_member(conn, subject="sub-1", handle="casey")
-    assert actor_display_name(conn, actor_id) == "casey"
+    assert actor_name(conn, actor_id) == "casey"
 
     result = resolve_sign_in(conn, _claims())
 
     assert result.outcome == OUTCOME_LINKED_IDENTITY
     assert result.actor_id == actor_id
-    assert actor_display_name(conn, actor_id) == "Casey Nguyen"
+    assert actor_name(conn, actor_id) == "Casey Nguyen"
 
 
 def test_a_renamed_account_propagates_on_the_next_sync(conn):
@@ -104,16 +88,31 @@ def test_a_renamed_account_propagates_on_the_next_sync(conn):
 
     resolve_sign_in(conn, _claims(name="Casey Rivera"))
 
-    assert _display_rows(conn, actor_id) == ["Casey Rivera"]
+    assert actor_name(conn, actor_id) == "Casey Rivera"
 
 
-def test_an_account_with_no_name_leaves_the_fallback_chain_untouched(conn):
+def test_a_rename_admits_the_same_actor_not_a_new_one(conn):
+    """The (issuer, subject) pair decides who signs in; the name never does."""
+    actor_id = _linked_member(conn, subject="sub-1", handle="casey")
+
+    renamed = resolve_sign_in(conn, _claims(name="Casey Rivera"))
+
+    assert renamed.actor_id == actor_id
+    assert (
+        int(
+            conn.execute("SELECT COUNT(*) FROM actors WHERE kind = 'human'")
+            .fetchone()[0]
+        )
+        == 1
+    )
+
+
+def test_an_account_with_no_name_leaves_the_existing_name_untouched(conn):
     actor_id = _linked_member(conn, subject="sub-1", handle="casey")
 
     for absent in (None, "", "   "):
         assert resolve_sign_in(conn, _claims(name=absent)).succeeded
-        assert _display_rows(conn, actor_id) == []
-        assert actor_display_name(conn, actor_id) == "casey"
+        assert actor_name(conn, actor_id) == "casey"
 
 
 def test_a_later_nameless_sync_keeps_the_name_an_earlier_one_adopted(conn):
@@ -122,25 +121,24 @@ def test_a_later_nameless_sync_keeps_the_name_an_earlier_one_adopted(conn):
 
     resolve_sign_in(conn, _claims(name=None))
 
-    assert _display_rows(conn, actor_id) == ["Casey Nguyen"]
+    assert actor_name(conn, actor_id) == "Casey Nguyen"
 
 
-def test_each_member_of_an_org_owns_only_its_own_display_row(conn):
+def test_each_member_of_an_org_owns_only_its_own_name(conn):
     first = _linked_member(conn, subject="sub-1", handle="casey")
     second = _linked_member(conn, subject="sub-2", handle="dana")
 
     resolve_sign_in(conn, _claims())
 
-    assert _display_rows(conn, first) == ["Casey Nguyen"]
-    assert _display_rows(conn, second) == []
-    assert actor_display_name(conn, second) == "dana"
+    assert actor_name(conn, first) == "Casey Nguyen"
+    assert actor_name(conn, second) == "dana"
 
     resolve_sign_in(
         conn, _claims(subject="sub-2", email="dana@example.com", name="Dana Ito"),
     )
 
-    assert _display_rows(conn, first) == ["Casey Nguyen"]
-    assert _display_rows(conn, second) == ["Dana Ito"]
+    assert actor_name(conn, first) == "Casey Nguyen"
+    assert actor_name(conn, second) == "Dana Ito"
 
 
 def test_two_members_sharing_a_name_both_keep_it(conn):
@@ -153,5 +151,5 @@ def test_two_members_sharing_a_name_both_keep_it(conn):
         _claims(subject="sub-2", email="dana@example.com", name="Casey Nguyen"),
     )
 
-    assert _display_rows(conn, first) == ["Casey Nguyen"]
-    assert _display_rows(conn, second) == ["Casey Nguyen"]
+    assert actor_name(conn, first) == "Casey Nguyen"
+    assert actor_name(conn, second) == "Casey Nguyen"

@@ -80,7 +80,7 @@ def test_owner_resolution_is_one_lookup_per_owner_not_one_per_relay() -> None:
 
     assert len(relays) == 6
     assert {relay["owner"] for relay in relays} == {"Ada"}
-    assert sum("actor_labels" in sql for sql in executed) == 1
+    assert sum("FROM actors" in sql for sql in executed) == 1
 
 
 def test_confirmed_absent_surfaces_reach_the_roster_distinct_from_versions() -> None:

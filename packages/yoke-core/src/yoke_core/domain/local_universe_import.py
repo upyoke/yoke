@@ -158,36 +158,26 @@ def _prepare_local_owner(conn: psycopg.Connection) -> dict[str, object]:
     if role is None:
         raise LocalUniverseImportError("the imported universe has no admin role")
 
-    label = _machine_owner_label()
-    actor = conn.execute(
-        "SELECT a.id, a.kind FROM actor_labels al "
-        "JOIN actors a ON a.id = al.actor_id "
-        "WHERE al.surface = %s AND al.label = %s",
-        (actors.GITHUB_LABEL_SURFACE, label),
-    ).fetchone()
+    name = _machine_owner_name()
     now = datetime.now(timezone.utc).isoformat()
-    if actor is not None:
-        if str(actor[1]) != "human":
-            raise LocalUniverseImportError(
-                "the machine owner label belongs to a non-human actor"
-            )
-        actor_id = int(actor[0])
-    else:
+    # The imported universe's own human is the owner this machine takes
+    # over; a name is not the identity, so an existing human is kept
+    # whatever the archive called them and only a universe with none gets
+    # a fresh actor named after this machine's login.
+    actor_id = actors.sole_human_actor_id(conn, oldest=True)
+    if actor_id is None:
         row = conn.execute(
-            "INSERT INTO actors (kind, system_component, created_at) "
-            "VALUES ('human', NULL, %s) RETURNING id",
-            (now,),
+            "INSERT INTO actors (kind, system_component, name, created_at) "
+            "VALUES ('human', NULL, %s, %s) RETURNING id",
+            (name, now),
         ).fetchone()
         if row is None:
             raise LocalUniverseImportError(
                 "the local owner actor could not be created"
             )
         actor_id = int(row[0])
-        conn.execute(
-            "INSERT INTO actor_labels (actor_id, surface, label, created_at) "
-            "VALUES (%s, %s, %s, %s)",
-            (actor_id, actors.GITHUB_LABEL_SURFACE, label, now),
-        )
+    else:
+        name = actors.actor_name(conn, actor_id) or name
 
     conn.execute(
         "INSERT INTO actor_org_roles "
@@ -210,10 +200,21 @@ def _prepare_local_owner(conn: psycopg.Connection) -> dict[str, object]:
         ") SELECT COUNT(*) FROM revoked",
         (now,),
     ).fetchone()
+    # This machine now operates the imported universe, so record which
+    # actor it does that as. Every later session reads that id instead of
+    # inferring an identity from a login or a name.
+    binding_error = ""
+    try:
+        from yoke_core.domain.session_actor_binding_write import persist_operating_actor
+
+        persist_operating_actor(conn, actor_id)
+    except Exception as exc:  # noqa: BLE001 — the import outlives a config miss
+        binding_error = str(exc)
     return {
         "org": org_slug,
         "actor_id": actor_id,
-        "actor_label": label,
+        "actor_label": name,
+        "operating_actor_binding_error": binding_error,
         "revoked_token_count": revoked_tokens,
         "revoked_web_session_count": int(revoked_sessions[0] or 0),
     }
@@ -242,11 +243,12 @@ def _revoke_api_tokens(
     return int(row[0] or 0)
 
 
-def _machine_owner_label() -> str:
+def _machine_owner_name() -> str:
+    """A name for an owner actor this import has to create, never a lookup."""
     try:
-        return getpass.getuser().strip() or actors.DEFAULT_LOCAL_HUMAN_LABEL
+        return getpass.getuser().strip() or actors.DEFAULT_LOCAL_HUMAN_NAME
     except Exception:
-        return actors.DEFAULT_LOCAL_HUMAN_LABEL
+        return actors.DEFAULT_LOCAL_HUMAN_NAME
 
 
 def _validated_archive_path(archive: Path | str) -> Path:

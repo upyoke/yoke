@@ -47,7 +47,7 @@ def render_file_map(
         project_doc_slugs,
     )
 
-    from yoke_core.domain.actor_render import actor_render_label
+    from yoke_core.domain.actor_render import render_actor_name
 
     wanted = tuple(slugs) if slugs else tuple(project_doc_slugs(conn, project_id))
     if not wanted:
@@ -60,7 +60,7 @@ def render_file_map(
         doc = get_doc(conn, project_id, slug)
         # Resolve the editor's actor id to a display label (fail-open): the id
         # is the durable stored identity, the label is render-time only.
-        updated_by = actor_render_label(conn, doc.get("updated_by_actor_id"))
+        updated_by = render_actor_name(conn, doc.get("updated_by_actor_id"))
         files.append(
             {
                 "slug": slug,

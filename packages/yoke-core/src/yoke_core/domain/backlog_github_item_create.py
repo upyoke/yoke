@@ -23,7 +23,7 @@ from typing import Any, Optional, TextIO
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
 from yoke_core.domain import backlog_github_body_budget as _budget
 from yoke_core.domain import github_rest
-from yoke_core.domain.actors import actor_label_or_passthrough
+from yoke_core.domain.actors import actor_name_or_passthrough
 from yoke_core.domain.backlog_github_fetch import (
     _close_if_owned,
     _item_context,
@@ -40,7 +40,9 @@ from yoke_core.domain.backlog_github_item_render import (
     regenerate_item_markdown as _regenerate_md,
 )
 from yoke_core.domain import project_label_policy
-from yoke_core.domain.github_constraints import clamp_label_name
+from yoke_core.domain.github_constraints import (
+    clamp_label_name, github_attribution_name,
+)
 from yoke_core.domain.github_dedup import search_existing_issue
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
@@ -215,15 +217,23 @@ def sync_item(
 
         colors = _label_colors()
 
-        source_token = actor_label_or_passthrough(conn, source)
-        owner_token = actor_label_or_passthrough(conn, owner)
+        source_token = github_attribution_name(
+            actor_name_or_passthrough(conn, source)
+        )
+        owner_token = github_attribution_name(
+            actor_name_or_passthrough(conn, owner)
+        )
 
         # Ensure labels exist
         status_label = f"status:{_status_display_label(status)}"
         workflow_label = f"workflow:{workflow_id}"
         pri_label = f"priority:{priority}"
-        source_label = f"source:{source_token}" if source_token else ""
-        owner_label = f"owner:{owner_token}" if owner_token else ""
+        source_label = (
+            clamp_label_name(f"source:{source_token}") if source_token else ""
+        )
+        owner_label = (
+            clamp_label_name(f"owner:{owner_token}") if owner_token else ""
+        )
 
         pri_color = project_label_policy.get_color(
             f"label_color_priority_{priority}",

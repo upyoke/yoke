@@ -49,7 +49,7 @@ def _operating_actor_id(conn) -> int:
     """Seed the human actor and its org grant, as a born universe carries."""
     actor_id, _seeded = local_operating_actor.ensure_local_operating_actor(
         conn,
-        label="registered-surface-attribution-human",
+        name="registered-surface-attribution-human",
     )
     conn.commit()
     return int(actor_id)

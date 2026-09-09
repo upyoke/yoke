@@ -4,12 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.actor_display import actor_display_name
-from yoke_core.domain.actors import (
-    ActorLabelAmbiguous,
-    ActorLabelMissing,
-    ActorNotFound,
-)
+from yoke_core.domain.actors import actor_name
+from yoke_core.domain.actors import ActorError
 from yoke_core.domain.actor_message_recipients import inbox_actor_messages
 from yoke_core.domain.decision_request_authority import (
     pending_requests_for_actor,
@@ -34,8 +30,8 @@ def _requester_named(conn: Any, row: dict[str, Any]) -> dict[str, Any]:
     label = None
     if actor_id is not None:
         try:
-            label = actor_display_name(conn, int(actor_id))
-        except (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous):
+            label = actor_name(conn, int(actor_id))
+        except ActorError:
             label = None
     return {**row, "originator_actor_label": label}
 

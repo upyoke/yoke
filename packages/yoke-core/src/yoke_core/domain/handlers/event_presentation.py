@@ -64,7 +64,7 @@ def _context_label(context: Dict[str, Any], row: Dict[str, Any]) -> str:
 def present_event(
     row: Dict[str, Any],
     item_facts: Dict[int, Dict[str, Any]],
-    actor_labels: Dict[int, str],
+    actor_names: Dict[int, str],
 ) -> Dict[str, Any]:
     """Decorate a stored event with category, target, and source labels."""
     context = _context(row)
@@ -102,7 +102,7 @@ def present_event(
     actor_text = str(row.get("actor_id") or "")
     actor_id = int(actor_text) if actor_text.isdigit() else None
     source_label = (
-        actor_labels.get(actor_id) if actor_id is not None else None
+        actor_names.get(actor_id) if actor_id is not None else None
     ) or str(
         row.get("agent") or row.get("service") or row.get("source_type") or "system"
     )

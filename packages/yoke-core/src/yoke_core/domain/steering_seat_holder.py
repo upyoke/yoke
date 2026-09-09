@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actor_display import actor_display_name
+from yoke_core.domain.actors import actor_name
 from yoke_core.domain.actors import ActorError
 from yoke_core.domain.schema_common import _table_exists
 
@@ -44,11 +44,12 @@ def _machine_name(conn: Any, machine_id: Optional[str]) -> Optional[str]:
     return str(hostname) if hostname else str(machine_id)
 
 
-def actor_name(conn: Any, actor_id: Optional[Any]) -> str:
+def _holder_display(conn: Any, actor_id: Optional[Any]) -> str:
+    """Name the seat holder, degrading to the id rather than failing a listing."""
     if actor_id is None:
         return "an unknown actor"
     try:
-        return actor_display_name(conn, int(actor_id))
+        return actor_name(conn, int(actor_id))
     except (ActorError, TypeError, ValueError):
         return f"actor {actor_id}"
 
@@ -57,7 +58,7 @@ def holder_facts(conn: Any, session_id: str) -> dict[str, Optional[str]]:
     """The person and machine behind one seat, for listings and projections."""
     facts = _session_facts(conn, str(session_id)) if session_id else {}
     return {
-        "holder_actor_label": actor_name(conn, facts.get("actor_id")),
+        "holder_actor_label": _holder_display(conn, facts.get("actor_id")),
         "holder_machine": _machine_name(conn, facts.get("machine_id")),
     }
 
@@ -66,10 +67,10 @@ def holder_label(conn: Any, claim: Mapping[str, Any]) -> str:
     """Render "<person> on <machine> (session '<id>')" for a seat holder."""
     session_id = str(claim.get("session_id") or "")
     facts = _session_facts(conn, session_id) if session_id else {}
-    name = actor_name(conn, facts.get("actor_id"))
+    name = _holder_display(conn, facts.get("actor_id"))
     machine = _machine_name(conn, facts.get("machine_id"))
     where = f" on {machine}" if machine else ""
     return f"{name}{where} (session {session_id!r})"
 
 
-__all__ = ["actor_name", "holder_facts", "holder_label"]
+__all__ = ["holder_facts", "holder_label"]

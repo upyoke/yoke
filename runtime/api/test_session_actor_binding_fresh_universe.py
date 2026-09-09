@@ -28,6 +28,7 @@ from contextlib import redirect_stderr, redirect_stdout
 import pytest
 
 from runtime.api.fixtures.backlog import seed_test_canonical_actors
+from runtime.api.fixtures.operating_actor import record_fixture_operating_actor
 from runtime.api.fixtures.file_test_db import (
     apply_fixture_schema_ddl,
     connect_test_db,
@@ -55,7 +56,11 @@ def fresh_universe(tmp_path, monkeypatch):
         monkeypatch.setenv("YOKE_SESSION_ID", _SESSION_ID)
         conn = connect_test_db(db_path)
         try:
-            seed_test_canonical_actors(conn)
+            _yoke_core, local_human = seed_test_canonical_actors(conn)
+            # Birth also records WHICH actor this machine operates the
+            # universe as; a fixture without that binding models an install
+            # on which no session could register at all.
+            record_fixture_operating_actor(conn, local_human)
             conn.execute(
                 "INSERT INTO projects (id, slug, name, github_repo, "
                 "default_branch, public_item_prefix, created_at) "

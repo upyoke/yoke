@@ -44,6 +44,25 @@ def no_session(monkeypatch):
     monkeypatch.delenv("YOKE_ACTOR_ID", raising=False)
 
 
+@pytest.fixture
+def bound_machine(tmp_db):  # noqa: F811 — pytest injects the re-exported fixture
+    """The operating-actor binding a born universe records for itself.
+
+    A terminal write names the universe's operating human by reading the
+    actor id this machine recorded, so a fixture without that binding
+    models a machine no session could register on either.
+    """
+    from runtime.api.fixtures.operating_actor import (
+        record_fixture_operating_actor,
+    )
+
+    conn = _conn(tmp_db)
+    try:
+        record_fixture_operating_actor(conn, _seeded_human(tmp_db))
+    finally:
+        conn.close()
+
+
 def _seeded_human(path) -> int:
     conn = _conn(path)
     try:
@@ -101,6 +120,7 @@ def _actor_spy():
 def test_the_terminal_write_is_attributed_to_the_operating_human(
     tmp_db,  # noqa: F811 — pytest injects the re-exported fixture
     no_session,
+    bound_machine,
 ):
     seen, apply_patch = _actor_spy()
     with mock.patch(
@@ -114,6 +134,7 @@ def test_the_terminal_write_is_attributed_to_the_operating_human(
 def test_an_authenticated_caller_keeps_the_actor_the_boundary_verified(
     tmp_db,  # noqa: F811 — pytest injects the re-exported fixture
     no_session,
+    bound_machine,
 ):
     """Over https the boundary already named the actor; binding must not."""
     seen, apply_patch = _actor_spy()

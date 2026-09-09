@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_core.domain.actor_display import actor_display_name
+from yoke_core.domain.actors import actor_name
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.actors import ActorError
 from yoke_contracts.harness_hook_approval import hook_approval
@@ -182,7 +182,7 @@ def machine_detail(
         project_ids.update(relay.get("project_ids") or [])
     machine = record.to_dict()
     try:
-        machine["owner"] = actor_display_name(conn, record.owner_actor_id)
+        machine["owner"] = actor_name(conn, record.owner_actor_id)
     except ActorError:
         machine["owner"] = f"actor {record.owner_actor_id}"
     return {

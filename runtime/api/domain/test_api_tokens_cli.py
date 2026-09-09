@@ -25,7 +25,7 @@ def tokendb(test_db):
 
 def test_bootstrap_admin_outputs_raw_token_once_and_stores_only_hash(tokendb, capsys):
     rc = api_tokens_cli.main(
-        ["bootstrap-admin", "--actor-label", "ops-lead", "--project", "yoke"]
+        ["bootstrap-admin", "--actor-name", "ops-lead", "--project", "yoke"]
     )
     assert rc == 0
     body = json_helper.loads_text(capsys.readouterr().out)
@@ -46,17 +46,29 @@ def test_bootstrap_admin_outputs_raw_token_once_and_stores_only_hash(tokendb, ca
     assert raw_stored is None
 
 
-def test_bootstrap_admin_defaults_to_neutral_label_and_org_admin(tokendb, capsys):
-    """No flags: the admin label is neutral and the grant is the org admin role."""
-    from yoke_core.domain.actors import resolve_actor_by_label
-    from yoke_core.domain.api_tokens import DEFAULT_ADMIN_ACTOR_LABEL
+def test_bootstrap_admin_binds_the_universes_human_and_grants_org_admin(
+    tokendb, capsys,
+):
+    """No flags: the token binds the administrator this universe already has.
+
+    Minting a token is not a reason to rename anybody, so the actor keeps
+    the name it was born with; the neutral default names only a human this
+    call has to create.
+    """
+    from yoke_core.domain.actors import actor_name
+
+    existing = int(
+        tokendb.execute(
+            "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
+        ).fetchone()[0]
+    )
+    was_called = actor_name(tokendb, existing)
 
     rc = api_tokens_cli.main(["bootstrap-admin"])
     assert rc == 0
     body = json_helper.loads_text(capsys.readouterr().out)
-    assert (
-        resolve_actor_by_label(tokendb, DEFAULT_ADMIN_ACTOR_LABEL) == body["actor_id"]
-    )
+    assert body["actor_id"] == existing
+    assert actor_name(tokendb, existing) == was_called
     row = tokendb.execute(
         "SELECT 1 FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
         "WHERE aor.actor_id = %s AND r.name = 'admin'",

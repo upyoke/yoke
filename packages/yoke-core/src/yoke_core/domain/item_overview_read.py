@@ -82,12 +82,7 @@ def enrich_item_overview_rows(
     skips the lane query entirely — no roster consumer reads ``worktrees``,
     so the paged read neither fetches nor ships it.
     """
-    from yoke_core.domain.actors import (
-        ActorLabelAmbiguous,
-        ActorLabelMissing,
-        ActorNotFound,
-    )
-    from yoke_core.domain.actor_display import actor_display_name
+    from yoke_core.domain.actors import ActorError, actor_name
 
     base_rows = [dict(row) for row in rows]
     ids = [int(row["internal_id"]) for row in base_rows]
@@ -120,8 +115,8 @@ def enrich_item_overview_rows(
         owner_by_actor: dict[int, str] = {}
         for actor_id in actor_ids:
             try:
-                owner_by_actor[actor_id] = actor_display_name(conn, actor_id)
-            except (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous):
+                owner_by_actor[actor_id] = actor_name(conn, actor_id)
+            except ActorError:
                 owner_by_actor[actor_id] = ""
         owner_labels: dict[int, str] = {}
         for item_id, owner_raw in raw_owners.items():

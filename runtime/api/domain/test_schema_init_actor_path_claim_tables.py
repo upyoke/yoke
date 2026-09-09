@@ -116,55 +116,29 @@ def test_human_actors_can_share_null_component(conn):
     assert rows[0] == 2
 
 
-def test_actor_labels_unique_label_per_surface(conn):
-    p = _p(conn)
-    aid = _insert_actor(conn, "system", "yoke-core")
-    bid = _insert_human_actor(conn)
-    conn.execute(
-        "INSERT INTO actor_labels (actor_id, surface, label, created_at) "
-        f"VALUES ({p}, 'github_label', 'yoke-core', {p})",
-        (aid, _now()),
-    )
-    with pytest.raises(_integrity_error_types(conn)):
-        conn.execute(
-            "INSERT INTO actor_labels (actor_id, surface, label, created_at) "
-            f"VALUES ({p}, 'github_label', 'yoke-core', {p})",
-            (bid, _now()),
-        )
-
-
-def test_actor_labels_share_one_display_label_across_actors(conn):
-    p = _p(conn)
+def test_actors_name_defaults_to_empty_not_null(conn):
+    """The column is NOT NULL, so an unnamed actor reads as empty."""
     aid = _insert_human_actor(conn)
-    bid = _insert_human_actor(conn)
-    for actor_id in (aid, bid):
+    row = conn.execute(
+        f"SELECT name FROM actors WHERE id = {_p(conn)}", (aid,)
+    ).fetchone()
+    assert row[0] == ""
+
+
+def test_actors_name_carries_no_uniqueness(conn):
+    """Two people who genuinely share a name must both be able to exist."""
+    p = _p(conn)
+    first = _insert_human_actor(conn)
+    second = _insert_human_actor(conn)
+    for actor_id in (first, second):
         conn.execute(
-            "INSERT INTO actor_labels (actor_id, surface, label, created_at) "
-            f"VALUES ({p}, 'display', 'Alex Kim', {p})",
-            (actor_id, _now()),
+            f"UPDATE actors SET name = {p} WHERE id = {p}",
+            ("Alex Kim", actor_id),
         )
     holders = conn.execute(
-        "SELECT COUNT(*) FROM actor_labels "
-        f"WHERE surface = 'display' AND label = {p}",
-        ("Alex Kim",),
+        f"SELECT COUNT(*) FROM actors WHERE name = {p}", ("Alex Kim",)
     ).fetchone()
     assert holders[0] == 2
-
-
-def test_actor_labels_unique_actor_per_surface(conn):
-    p = _p(conn)
-    aid = _insert_human_actor(conn)
-    conn.execute(
-        "INSERT INTO actor_labels (actor_id, surface, label, created_at) "
-        f"VALUES ({p}, 'github_label', 'ben', {p})",
-        (aid, _now()),
-    )
-    with pytest.raises(_integrity_error_types(conn)):
-        conn.execute(
-            "INSERT INTO actor_labels (actor_id, surface, label, created_at) "
-            f"VALUES ({p}, 'github_label', 'ben-alt', {p})",
-            (aid, _now()),
-        )
 
 
 def test_path_claim_state_check(conn):

@@ -44,14 +44,19 @@ def _apply_backlog_fixture_schema() -> None:
     on both engines.
     """
     from runtime.api.fixtures.backlog import seed_test_canonical_actors
+    from runtime.api.fixtures.operating_actor import record_fixture_operating_actor
     from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 
     apply_fixture_schema_ddl()
     conn = db_backend.connect()
     try:
         seed_project_identities(conn)
-        seed_test_canonical_actors(conn)
+        _yoke_core, local_human = seed_test_canonical_actors(conn)
         conn.commit()
+        # A born universe also records which actor this machine operates it
+        # as. Without that, a session-less terminal write has no operating
+        # human to attribute the item to and refuses.
+        record_fixture_operating_actor(conn, local_human)
     finally:
         conn.close()
 

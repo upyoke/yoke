@@ -28,7 +28,7 @@ from yoke_core.domain.source_authority_overlay_receipts import (
 NORMALIZATION_SCHEMA = "yoke.portable-authority/v2"
 EXCLUDED_TABLE_OWNERSHIP = {
     "destination_convergence": frozenset({
-        "actor_external_identities", "actor_invites", "actor_labels",
+        "actor_external_identities", "actor_invites",
         "actor_org_roles", "actor_project_roles", "actors",
         "api_token_audit", "api_tokens", "web_sessions",
     }),

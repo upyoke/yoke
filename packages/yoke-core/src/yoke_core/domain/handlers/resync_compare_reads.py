@@ -53,16 +53,16 @@ def _row_to_dict(row: Any) -> dict:
 def _render_actor_token(conn: Any, value: str) -> str:
     """Render an ``items.source`` / ``items.owner`` value to a label token.
 
-    Wraps :func:`yoke_core.domain.actors.actor_label_or_passthrough` so a
+    Wraps :func:`yoke_core.domain.actors.actor_name_or_passthrough` so a
     missing-actor or missing-label condition does not abort the entire
     detect pass — the raw column value falls through so the comparator
     still names a value the operator can investigate.
     """
     from yoke_core.domain import db_backend
-    from yoke_core.domain.actors import ActorError, actor_label_or_passthrough
+    from yoke_core.domain.actors import ActorError, actor_name_or_passthrough
 
     try:
-        return actor_label_or_passthrough(conn, value)
+        return actor_name_or_passthrough(conn, value)
     except ActorError:
         return value or ""
     except db_backend.operational_error_types(conn):

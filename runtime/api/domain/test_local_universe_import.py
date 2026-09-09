@@ -56,7 +56,11 @@ def test_local_import_replaces_data_revokes_remote_auth_and_grants_owner(
             report = local_universe_import.import_universe(archive, dsn=target_dsn)
             assert report["ok"] is True
             assert report["org"] == "default"
-            assert report["actor_label"] == "machine-owner"
+            # The archive's own human is the owner this machine adopts.
+            # Renaming it after the local login would rename a real person
+            # on the strength of an OS account, which is exactly what the
+            # identity model refuses to do.
+            assert report["actor_id"] == token.actor_id
             assert report["revoked_token_count"] == 1
             assert report["revoked_web_session_count"] == 1
 
@@ -75,10 +79,9 @@ def test_local_import_replaces_data_revokes_remote_auth_and_grants_owner(
                 ).fetchone() == (True,)
                 assert target.execute(
                     "SELECT COUNT(*) FROM actor_org_roles aor "
-                    "JOIN actor_labels al ON al.actor_id = aor.actor_id "
+                    "JOIN actors a ON a.id = aor.actor_id "
                     "JOIN roles r ON r.id = aor.role_id "
-                    "WHERE al.surface = 'github_label' "
-                    "AND al.label = 'machine-owner' AND r.name = 'admin'"
+                    "WHERE a.kind = 'human' AND r.name = 'admin'"
                 ).fetchone() == (1,)
                 assert target.execute(
                     "SELECT COUNT(*) FROM api_tokens WHERE status = 'active'"

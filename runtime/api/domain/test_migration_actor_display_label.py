@@ -6,10 +6,6 @@ import psycopg
 import pytest
 
 from runtime.api.fixtures import pg_testdb
-from yoke_contracts.actor_labels import (
-    DISPLAY_LABEL_SURFACE,
-    GITHUB_LABEL_SURFACE,
-)
 from yoke_core.domain import migrations as migration_history_package
 from yoke_core.domain.migration_history import (
     history_dir,
@@ -17,13 +13,20 @@ from yoke_core.domain.migration_history import (
     ordered_entries,
 )
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE, declared_minimum
+from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
-    RESOLUTION_LABEL_INDEX,
     create_actor_identity_tables,
 )
 
 
 ENTRY_NAME = "0031_actor_display_label_not_a_resolution_key"
+
+# Spelled out locally, as the entry itself does. The surfaces and the index
+# this entry created belonged to a projection a later entry retired, so the
+# test that proves what THIS entry did cannot read them from a live module.
+DISPLAY_LABEL_SURFACE = "display"
+GITHUB_LABEL_SURFACE = "github_label"
+RESOLUTION_LABEL_INDEX = "uq_actor_labels_resolution_surface_label"
 
 
 def _entry():
@@ -130,35 +133,26 @@ def test_resolution_surfaces_stay_uniquely_keyed(pre_entry_db) -> None:
     pre_entry_db.rollback()
 
 
-def test_entry_is_a_no_op_on_a_universe_born_after_it() -> None:
+def test_entry_is_a_no_op_on_a_universe_born_without_the_projection() -> None:
+    """A universe born today has no label table, so this entry has no work.
+
+    The projection this entry once relaxed was later replaced by one
+    ``actors.name`` column. Ordered replay still reaches this entry on
+    every database, so it has to stay a clean no-op where the table it
+    names was never created.
+    """
     name = pg_testdb.create_test_database()
     conn = pg_testdb.connect_test_database(name)
-    def _indexes() -> set[str]:
-        return {
-            row[0]
-            for row in conn.execute(
-                "SELECT indexname FROM pg_indexes WHERE tablename = 'actor_labels'"
-            ).fetchall()
-        }
-
     try:
         create_actor_identity_tables(conn)
-        born = _indexes()
-        assert RESOLUTION_LABEL_INDEX in born
+        conn.commit()
+        assert not _table_exists(conn, "actor_labels")
+
         entry.apply(conn)
         entry.invariants(conn)
         conn.commit()
-        # The entry spells its index name out rather than importing the live
-        # constant, so applying it to a universe already born with that index
-        # must add nothing. A second index here would mean the two spellings
-        # have drifted apart.
-        assert _indexes() == born
 
-        first = _actor(conn)
-        second = _actor(conn)
-        _label(conn, first, DISPLAY_LABEL_SURFACE, "Alex Kim")
-        _label(conn, second, DISPLAY_LABEL_SURFACE, "Alex Kim")
-        conn.commit()
+        assert not _table_exists(conn, "actor_labels")
     finally:
         conn.close()
         pg_testdb.drop_test_database(name)

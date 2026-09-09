@@ -12,7 +12,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_contracts.machine_config.machine_access import OFFERS_ENFORCEMENT_NOTE
-from yoke_core.domain.actor_display import actor_display_name
+from yoke_core.domain.actors import actor_name
 from yoke_core.domain.actors import ActorError
 from yoke_core.domain.machine_registry import (
     MachineRegistryError,
@@ -172,7 +172,7 @@ def handle_machine_list(request: FunctionCallRequest) -> HandlerOutcome:
         owner_labels = {}
         for actor_id in {record.owner_actor_id for record in records}:
             try:
-                owner_labels[actor_id] = actor_display_name(conn, actor_id)
+                owner_labels[actor_id] = actor_name(conn, actor_id)
             except ActorError:
                 owner_labels[actor_id] = f"actor {actor_id}"
         machines = []

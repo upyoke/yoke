@@ -257,7 +257,7 @@ def test_first_boot_on_empty_db_births_universe_and_prints_token_once(
     neither re-mints nor re-prints.
     """
     from yoke_core.domain.api_tokens import (
-        DEFAULT_ADMIN_ACTOR_LABEL,
+        DEFAULT_ADMIN_ACTOR_NAME,
         INITIAL_ADMIN_TOKEN_NAME,
         TOKEN_PREFIX,
         verify_token,
@@ -298,11 +298,11 @@ def test_first_boot_on_empty_db_births_universe_and_prints_token_once(
                 "SELECT COUNT(*) FROM actors WHERE kind = 'human'"
             ).fetchone()
             assert int(humans[0]) == 1
-            label_rows = conn.execute(
-                "SELECT label FROM actor_labels WHERE actor_id = %s",
+            name_row = conn.execute(
+                "SELECT name FROM actors WHERE id = %s",
                 (verified.actor_id,),
-            ).fetchall()
-            assert {str(r[0]) for r in label_rows} == {DEFAULT_ADMIN_ACTOR_LABEL}
+            ).fetchone()
+            assert str(name_row[0]) == DEFAULT_ADMIN_ACTOR_NAME
 
             org_admin = conn.execute(
                 "SELECT 1 FROM actor_org_roles aor "

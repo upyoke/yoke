@@ -20,6 +20,7 @@ import pytest
 
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.backlog import seed_fixture_operating_actor
+from runtime.api.fixtures.operating_actor import seed_fixture_universe_identity
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 
@@ -144,6 +145,7 @@ _OWNERSHIP_EXTRA_TABLES = """
         id INTEGER PRIMARY KEY,
         kind TEXT NOT NULL DEFAULT 'system',
         system_component TEXT,
+        name TEXT NOT NULL DEFAULT '',
         created_at TEXT
     );
     CREATE TABLE IF NOT EXISTS events (
@@ -188,6 +190,7 @@ def _build_ownership_schema(create_ownership_schema) -> None:
     try:
         create_ownership_schema(conn)
         apply_ddl_statements(conn, _OWNERSHIP_EXTRA_TABLES)
+        seed_fixture_universe_identity(conn)
         seed_fixture_operating_actor(conn)
         from yoke_core.domain.workflow_registry import converge_builtin_workflows
         from yoke_core.domain.workflow_schema import ensure_workflow_schema

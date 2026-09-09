@@ -38,27 +38,27 @@ canonical session identity for registration or `session-offer`.
  produce no duplicate `harness_sessions` rows. This allows safe backfill from
  the prompt-submit hook and re-entry scenarios.
 
-4. **Registration MUST bind an actor.** `harness_sessions.actor_id` names the
- person the session acts for, and every later authority read — path-claim
- registration most visibly — resolves through it. The binding is resolved once,
- at registration (`yoke_core.domain.session_actor_binding`): an explicitly
- supplied actor wins (the verified bearer-token actor over https), otherwise
- the universe's operating actor — its single human actor, or among several the
- one whose `actor_labels` row carries the machine's OS login. Every born
- universe has that actor before any session registers, so the common path is a
- lookup. Registration MUST NOT store NULL: an unresolvable actor is refused
- with a named `SESSION_ACTOR_*` reason and its recovery step, because an
- actor-less row only fails later, at a claim that cannot explain why. A row
- written before this binding existed is backfilled by its next registration
- probe, and `HC-session-actor-binding` reports and (under `--fix`) repairs the
- rows that never see one.
+4. **Registration MUST bind an actor, by id.** `harness_sessions.actor_id`
+ names the person the session acts for, and every later authority read resolves
+ through it. It is resolved once, at registration
+ (`yoke_core.domain.session_actor_binding`): an explicit actor wins (the
+ verified bearer-token actor over https), otherwise the actor id this machine
+ recorded for the connection it is using, verified to still exist and PROVEN to
+ belong to the same universe it was recorded against — an unstated universe on
+ either side refuses, because an env label is a nickname that can be re-pointed
+ at another control plane. No rung matches on a name or an OS login: neither is
+ an identity. Only the paths that already know the id write it
+ (`session_actor_binding_write`). Registration MUST NOT store NULL: an
+ unresolvable actor is refused with a named `SESSION_ACTOR_*` reason and its
+ recovery, because an actor-less row only fails later, at a claim that cannot
+ explain why.
 
 5. **Resolving the operating actor also converges its authority.** Binding an
  actor that holds no org role only moves the refusal one step later, to the
  first claim or path registration. So when registration resolves the operating
  actor — and only then — a single-owner universe (exactly one human actor, the
- shape a machine-local universe has and a server or hosted control plane does
- not) is granted the org `admin` role if it is missing
+ shape a machine-local universe has and a hosted control plane does not) is
+ granted the org `admin` role if it is missing
  (`yoke_core.domain.local_operating_actor`), the same grant birth performs.
  This is the convergence point for a universe born before the grant existed
  and upgraded in place, because nothing on that path re-enters birth. The

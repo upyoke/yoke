@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.session_actor_binding_write import persist_operating_actor
 from yoke_core.tools.build_release import create_seeded_pip_venv
 
 
@@ -18,7 +19,7 @@ def test_installed_hooks_register_emit_and_deny(
 ) -> None:
     venv = _install_product(tmp_path, product_wheelhouse)
     repo = _git_repo(tmp_path)
-    env = _installed_env(tmp_path, venv, repo)
+    env = _installed_env(tmp_path, venv, repo, test_db)
     yoke = venv / "bin" / "yoke"
     session_id = "installed-hook-session"
 
@@ -89,7 +90,7 @@ def test_installed_hook_chain_imports_and_missing_member_is_loud(
 ) -> None:
     venv = _install_product(tmp_path, product_wheelhouse)
     repo = _git_repo(tmp_path)
-    env = _installed_env(tmp_path, venv, repo)
+    env = _installed_env(tmp_path, venv, repo, test_db)
     python = venv / "bin" / "python"
     script = """
 import importlib
@@ -171,6 +172,7 @@ def _installed_env(
     tmp_path: Path,
     venv: Path,
     repo: Path,
+    conn,
 ) -> dict[str, str]:
     machine_home = tmp_path / "home" / ".yoke"
     machine_home.mkdir(parents=True)
@@ -195,6 +197,14 @@ def _installed_env(
             }],
         }) + "\n",
         encoding="utf-8",
+    )
+    # A born universe records which actor this machine operates it as, and
+    # the installed engine registers a session by reading that binding back
+    # by id. A config naming the connection but no operating actor models a
+    # machine no session can register on, which is not the install these
+    # tests describe.
+    persist_operating_actor(
+        conn, _operating_human(conn), env="local", config_path=config
     )
     dsn = os.environ[db_backend.PG_DSN_ENV]
     return {
@@ -260,3 +270,12 @@ def _format(result: subprocess.CompletedProcess[str]) -> str:
         f"command failed with {result.returncode}: {result.args!r}\n"
         f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
+
+
+def _operating_human(conn) -> int:
+    """The human actor the fixture universe is operated as."""
+    row = conn.execute(
+        "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
+    ).fetchone()
+    assert row is not None, "fixture universe seeds no human actor to operate as"
+    return int(row[0])

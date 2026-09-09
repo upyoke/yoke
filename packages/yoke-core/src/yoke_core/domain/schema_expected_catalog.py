@@ -32,12 +32,11 @@ from typing import Dict
 _EXPECTED_SCHEMA_STR = (
     "actor_external_identities:id/INTEGER,actor_id/INTEGER,issuer/TEXT,subject/TEXT,email/TEXT,linked_at/TEXT,created_by_actor_id/INTEGER"
     "|actor_invites:id/INTEGER,email/TEXT,org_id/INTEGER,role_id/INTEGER,actor_id/INTEGER,status/TEXT,invited_by_actor_id/INTEGER,created_at/TEXT,accepted_at/TEXT,accepted_by_actor_id/INTEGER"
-    "|actor_labels:id/INTEGER,actor_id/INTEGER,surface/TEXT,label/TEXT,created_at/TEXT"
     "|actor_message_recipients:message_id/TEXT,actor_id/INTEGER,state/TEXT,created_at/TEXT,read_at/TEXT,expired_at/TEXT,recipient_kind/TEXT,steering_scope/TEXT,sender_item_id/INTEGER,project_id/INTEGER,seat_session_id/TEXT,seat_claim_id/INTEGER,delivered_at/TEXT,acknowledged_at/TEXT"
     "|actor_org_roles:actor_id/INTEGER,org_id/INTEGER,role_id/INTEGER,granted_at/TEXT,granted_by_actor_id/INTEGER"
     "|actor_project_roles:actor_id/INTEGER,project_id/INTEGER,role_id/INTEGER,granted_at/TEXT,granted_by_actor_id/INTEGER"
     "|actor_ui_preferences:id/INTEGER,actor_id/INTEGER,pref_key/TEXT,value/TEXT,updated_at/TEXT"
-    "|actors:id/INTEGER,kind/TEXT,system_component/TEXT,created_at/TEXT"
+    "|actors:id/INTEGER,kind/TEXT,system_component/TEXT,name/TEXT,created_at/TEXT"
     "|api_token_audit:id/INTEGER,api_token_id/INTEGER,actor_id/INTEGER,project_id/INTEGER,event_type/TEXT,outcome/TEXT,permission_key/TEXT,diagnostic_metadata/TEXT,created_at/TEXT"
     "|api_tokens:id/INTEGER,token_hash/TEXT,actor_id/INTEGER,machine_id/TEXT,name/TEXT,status/TEXT,created_at/TEXT,revoked_at/TEXT,expires_at/TEXT,last_used_at/TEXT,diagnostic_metadata/TEXT"
     "|applied_migrations:migration_name/TEXT,applied_at/TEXT,applied_by/TEXT,minimum_serving_version/TEXT,content_sha256/TEXT"

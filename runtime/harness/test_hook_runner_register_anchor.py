@@ -201,6 +201,11 @@ class TestRelayOwnedRegistration:
         from yoke_core.hooks import session_lifecycle_client as slc
 
         monkeypatch.setattr(slc, "_relay_owns_registration", lambda: False)
+        # The subprocess path is the one a machine takes when this process
+        # does NOT own the universe. Left ambient, the answer comes from
+        # whatever connection the running machine has selected, so the test
+        # passes or fails on the operator's config rather than on the code.
+        monkeypatch.setattr(slc, "_local_authority_active", lambda: False)
         calls = []
         monkeypatch.setattr(
             "yoke_core.hooks.service_client.register_session",

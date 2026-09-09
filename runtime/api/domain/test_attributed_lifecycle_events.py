@@ -48,7 +48,7 @@ class _Response(BaseModel):
 def _actor_ids(conn) -> tuple[int, int]:
     system_actor_id, human_actor_id = actors.seed_canonical_actors(
         conn,
-        local_human_label="attribution-test-human",
+        local_human_name="attribution-test-human",
     )
     return human_actor_id, system_actor_id
 

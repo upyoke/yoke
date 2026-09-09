@@ -138,9 +138,9 @@ def seed_target(conn: Any, *, path_string: str) -> int:
 def local_human(conn: Any) -> int:
     """Resolve the seeded local human actor id, falling back to a fresh row."""
     row = conn.execute(
-        "SELECT actor_id FROM actor_labels WHERE label='ben' AND surface='github_label'"
+        "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
     ).fetchone()
-    return int(row["actor_id"]) if row else seed_human_actor(conn)
+    return int(row["id"]) if row else seed_human_actor(conn)
 
 
 def seed_item(conn: Any, *, item_id: int, status: str = "idea") -> int:

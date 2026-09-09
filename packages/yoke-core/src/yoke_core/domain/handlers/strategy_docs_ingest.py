@@ -122,7 +122,7 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
     session_id = request.actor.session_id or ""
     target_root = str(payload.target_root or "<your checkout>")
 
-    from yoke_core.domain.actor_render import actor_render_label
+    from yoke_core.domain.actor_render import render_actor_name
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.strategy_docs_header import render_file_text
 
@@ -178,7 +178,7 @@ def handle_ingest(request: FunctionCallRequest) -> HandlerOutcome:
                 # All docs in one ingest share the requesting actor; resolve
                 # its display label once (inside the live conn) so the
                 # write-back header matches render_file_map's output.
-                ingest_label = actor_render_label(conn, actor_id)
+                ingest_label = render_actor_name(conn, actor_id)
     except _docs.UnknownStrategyDocError as exc:
         return _err("unknown_slug", str(exc))
     except _docs.StrategyDocMissingError as exc:

@@ -127,6 +127,7 @@ _SESSION_OFFER_SCHEMA_DDL = f"""
         id INTEGER PRIMARY KEY,
         kind TEXT NOT NULL CHECK(kind IN ('human','system')),
         system_component TEXT,
+        name TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL,
         CHECK (
             (kind = 'system' AND system_component IS NOT NULL)
@@ -230,10 +231,18 @@ def _map_offer_workspace_home(monkeypatch, workspace: str, project_id: int = 1) 
     machine_home = Path(os.environ.get("YOKE_MACHINE_HOME") or "")
     if machine_home:
         machine_home.mkdir(parents=True, exist_ok=True)
-        (machine_home / "config.json").write_text(
-            json.dumps({"projects": {home: {"project_id": project_id}}}),
-            encoding="utf-8",
-        )
+        config_file = machine_home / "config.json"
+        # Merge: the fixture universe has already recorded its connection
+        # and its operating actor here, and replacing the document drops
+        # the binding registration reads — leaving every session in these
+        # tests unable to name an actor.
+        payload = {}
+        if config_file.is_file():
+            payload = json.loads(config_file.read_text(encoding="utf-8"))
+        projects = dict(payload.get("projects") or {})
+        projects[home] = {"project_id": project_id}
+        payload["projects"] = projects
+        config_file.write_text(json.dumps(payload), encoding="utf-8")
 
     def _project_id(repo_root, path=None):
         text = str(Path(repo_root).resolve())

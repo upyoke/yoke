@@ -20,6 +20,9 @@ from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_identity_tables,
 )
 from yoke_core.domain.project_identity import resolve_project_id
+from runtime.api.fixtures.operating_actor import (
+    record_fixture_operating_actor,
+)
 from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
 from runtime.api.test_dependency_schema import PROJECTS_SCHEMA
 
@@ -51,6 +54,10 @@ def mint_api_auth_context(
     seed_default_org(conn)
     seed_roles_and_permissions(conn)
     actor_id = seed_human_actor(conn)
+    # A born universe also records which actor this machine operates it
+    # as, and registration reads that binding by id; without it no
+    # session in the fixture can register.
+    record_fixture_operating_actor(conn, actor_id)
     project_id = resolve_project_id(conn, project)
     p = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(

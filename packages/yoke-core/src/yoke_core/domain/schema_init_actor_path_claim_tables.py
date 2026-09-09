@@ -9,19 +9,13 @@ the precedent set by :mod:`schema_init_path_integrity_tables`.
 Tables created (idempotent):
 
 * ``actors`` — durable accountable-subject table. Carries ``kind``
-  (``'human'`` or ``'system'``) and ``system_component`` (required-and-
-  unique for system actors, NULL for humans). Profile fields do not live
-  on this table; future User/profile identity attaches to ``actors.id``
-  in a later extension.
-* ``actor_labels`` — surface-specific human-readable label projection.
-  Renders ``actors.id`` to surface labels. ``surface='display'`` is the
-  generic actor-facing display projection; ``surface='github_label'`` is
-  the GitHub sync projection. Every actor has at most one label per
-  surface, so the central rendering helper in
-  :mod:`yoke_core.domain.actors` cannot produce ambiguous output. The
-  reverse direction — one label naming at most one actor — is enforced
-  only on the resolution surfaces, because a display name is read, never
-  resolved, and two people can share one.
+  (``'human'`` or ``'system'``), ``system_component`` (required-and-
+  unique for system actors, NULL for humans), and ``name``, the one
+  human-readable name every surface renders. ``name`` is deliberately
+  not unique: two people can genuinely share a name, and nothing
+  resolves an identity from it — a session, a token, an org role, and
+  an external identity all key on ``actors.id``. Renaming an actor
+  therefore changes what operators read and nothing else.
 * ``path_claims`` — first path-claim storage. One row per registered
   intent to edit a declared path coverage on an integration target.
   Carries explicit typed ownership (``owner_kind`` in
@@ -61,14 +55,10 @@ Schema layering rules:
   state machine; domain code treats the CHECK as the definitive set.
   Adding a new state requires updating the CHECK and the domain
   validator together.
-* ``UNIQUE(actor_id, surface)`` prevents one actor from carrying multiple
-  labels on the same surface; the central rendering helper relies on it
-  for every surface. The partial unique index named by
-  :data:`RESOLUTION_LABEL_INDEX` adds the converse — one label naming at
-  most one actor — over the resolution surfaces only. Excluding the
-  display surface is deliberate: a display label resolves nothing, so
-  uniqueness there would refuse a second member who legitimately shares a
-  name with the first rather than prevent an ambiguity.
+* ``actors.name`` carries no uniqueness constraint of any kind. Nothing
+  resolves an actor from it, so uniqueness would refuse a second member
+  who legitimately shares a name with the first rather than prevent an
+  ambiguity.
 * The partial unique index on ``actors.system_component`` (``WHERE
   system_component IS NOT NULL``) preserves uniqueness for system rows
   without forcing humans to disambiguate against each other on a NULL
@@ -79,13 +69,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from yoke_contracts.actor_labels import DISPLAY_LABEL_SURFACE
 from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
 _REQUIRED_TABLES = (
     "actors",
-    "actor_labels",
     "path_claims",
     "path_claim_targets",
     "path_claim_task_bindings",
@@ -93,18 +81,12 @@ _REQUIRED_TABLES = (
     "path_claim_overrides",
 )
 
-#: Label uniqueness holds only on resolution surfaces. A resolution surface
-#: answers "which actor is this token?", so two actors sharing one label there
-#: would make the answer ambiguous. The display surface answers "what do we
-#: call this actor?" and resolves nothing, so two people who genuinely share a
-#: name must both be able to carry it.
-RESOLUTION_LABEL_INDEX = "uq_actor_labels_resolution_surface_label"
-
 _ACTOR_IDENTITY_SQL = """
         CREATE TABLE IF NOT EXISTS actors (
             id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL CHECK(kind IN ('human','system')),
             system_component TEXT,
+            name TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL,
             CHECK (
                 (kind = 'system' AND system_component IS NOT NULL)
@@ -115,20 +97,6 @@ _ACTOR_IDENTITY_SQL = """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_actors_system_component
             ON actors(system_component)
             WHERE system_component IS NOT NULL;
-
-        CREATE TABLE IF NOT EXISTS actor_labels (
-            id INTEGER PRIMARY KEY,
-            actor_id INTEGER NOT NULL REFERENCES actors(id),
-            surface TEXT NOT NULL,
-            label TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            UNIQUE(actor_id, surface)
-        );
-        CREATE UNIQUE INDEX IF NOT EXISTS """ + RESOLUTION_LABEL_INDEX + """
-            ON actor_labels(surface, label)
-            WHERE surface <> '""" + DISPLAY_LABEL_SURFACE + """';
-        CREATE INDEX IF NOT EXISTS idx_actor_labels_actor
-            ON actor_labels(actor_id);
 """
 
 _PATH_CLAIM_TASK_BINDING_SQL = """
@@ -269,7 +237,6 @@ def required_tables() -> tuple[str, ...]:
 
 
 __all__ = [
-    "RESOLUTION_LABEL_INDEX",
     "create_actor_identity_tables",
     "create_actor_path_claim_tables",
     "create_path_claim_task_binding_table",

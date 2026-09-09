@@ -147,12 +147,12 @@ def record_decision(
 
 def actor_display_label(conn: Any, actor_id: int) -> str:
     """Name one approver the way the person reading the Inbox knows them."""
-    row = conn.execute(
-        "SELECT label FROM actor_labels "
-        f"WHERE actor_id = {_p(conn)} AND surface = 'display'",
-        (int(actor_id),),
-    ).fetchone()
-    label = str(row[0]).strip() if row is not None and row[0] else ""
+    from yoke_core.domain.actors import ActorError, actor_name
+
+    try:
+        label = actor_name(conn, int(actor_id)).strip()
+    except ActorError:
+        label = ""
     return label or f"actor {int(actor_id)}"
 
 

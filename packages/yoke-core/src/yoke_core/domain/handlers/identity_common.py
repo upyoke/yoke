@@ -14,7 +14,7 @@ from yoke_contracts.api.function_call import FunctionCallRequest, FunctionError
 from yoke_core.domain import db_backend
 from yoke_core.domain.actors import (
     SYSTEM_COMPONENT_YOKE_CORE,
-    resolve_actor_by_label,
+    resolve_actors_by_name,
     seed_system_actor,
     validate_actor_id,
 )
@@ -72,7 +72,13 @@ def resolve_org_ref(
 def resolve_actor_ref(
     conn: Any, actor_ref: str, jsonpath: str,
 ) -> Tuple[Optional[int], Optional[FunctionError]]:
-    """Resolve an actor payload ref: a numeric id or a display label."""
+    """Resolve an actor payload ref: a numeric id, or a name that is unique.
+
+    The name form is an operator convenience for an explicit admin call,
+    never a resolution the payload can rely on: names are not unique, so
+    several matches refuse with the ids named rather than granting one of
+    them the authority the call is about to hand out.
+    """
     cleaned = str(actor_ref or "").strip()
     if not cleaned:
         return None, payload_error("actor reference must be non-empty", jsonpath)
@@ -81,12 +87,17 @@ def resolve_actor_ref(
         if not validate_actor_id(conn, actor_id):
             return None, not_found_error(f"no actor with id {actor_id}", jsonpath)
         return actor_id, None
-    actor_id = resolve_actor_by_label(conn, cleaned)
-    if actor_id is None:
-        return None, not_found_error(
-            f"no actor labelled {cleaned!r}", jsonpath,
-        )
-    return actor_id, None
+    matches = resolve_actors_by_name(conn, cleaned)
+    if len(matches) == 1:
+        return matches[0], None
+    if not matches:
+        return None, not_found_error(f"no actor named {cleaned!r}", jsonpath)
+    listed = ", ".join(str(actor_id) for actor_id in matches)
+    return None, payload_error(
+        f"{len(matches)} actors are named {cleaned!r} (ids {listed}); "
+        "name the one you mean by id",
+        jsonpath,
+    )
 
 
 __all__ = [

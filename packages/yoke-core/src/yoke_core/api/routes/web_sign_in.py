@@ -52,7 +52,7 @@ from yoke_core.api.oidc_flow_state import (
     verify_flow_state,
 )
 from yoke_core.domain import db_helpers
-from yoke_core.domain.actors import ActorError, actor_label
+from yoke_core.domain.actors import ActorError, actor_name
 from yoke_core.domain.external_identities import default_org_id
 from yoke_core.domain.sign_in_resolution import resolve_sign_in
 from yoke_core.domain.web_sessions import (
@@ -241,7 +241,7 @@ def _signed_in_page(actor_id: int) -> HTMLResponse:
         ).fetchone()
         org_name = str(row[0]) if row else "this organization"
         try:
-            label = actor_label(conn, actor_id)
+            label = actor_name(conn, actor_id)
         except ActorError:
             label = f"actor {actor_id}"
     packet = build_runtime_identity(

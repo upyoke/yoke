@@ -40,6 +40,7 @@ from runtime.api.test_dependency_schema import (
 )
 from yoke_core.domain import db_backend
 from runtime.api.fixtures.backlog import seed_fixture_operating_actor
+from runtime.api.fixtures.operating_actor import seed_fixture_universe_identity
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 from yoke_core.domain.sessions import (
@@ -117,18 +118,18 @@ def _create_schema(conn) -> None:
             id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL CHECK(kind IN ('human','system')),
             system_component TEXT,
+            name TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL
         );
-        CREATE TABLE IF NOT EXISTS actor_labels (
-            id INTEGER PRIMARY KEY,
-            actor_id INTEGER NOT NULL,
-            surface TEXT NOT NULL,
-            label TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            UNIQUE(actor_id, surface)
+        -- The universe's identity card: recording which actor this machine
+        -- operates the universe as needs the universe to say which one it is.
+        CREATE TABLE IF NOT EXISTS organizations (
+            id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL, created_at TEXT NOT NULL
         );
-        CREATE UNIQUE INDEX IF NOT EXISTS uq_actor_labels_resolution_surface_label
-            ON actor_labels(surface, label) WHERE surface <> 'display';
+        INSERT INTO organizations (id, slug, name, created_at)
+            VALUES (1, 'default', 'Default', '2026-01-01T00:00:00Z')
+            ON CONFLICT DO NOTHING;
         """,
         _SESSIONS_AND_CLAIMS_DDL,
     )
@@ -256,7 +257,7 @@ def _create_ownership_schema(conn) -> None:
 EMIT_PATH_TABLES = """
     CREATE TABLE IF NOT EXISTS actors (
         id INTEGER PRIMARY KEY, kind TEXT NOT NULL DEFAULT 'system',
-        system_component TEXT, created_at TEXT
+        system_component TEXT, name TEXT NOT NULL DEFAULT '', created_at TEXT
     );
     CREATE TABLE IF NOT EXISTS events (
         id INTEGER PRIMARY KEY, event_id TEXT UNIQUE, event_name TEXT NOT NULL,
@@ -279,6 +280,7 @@ def _build_ownership_schema(conn) -> None:
     """Build the ownership schema + the extra reclaim/emit tables on ``conn``."""
     _create_ownership_schema(conn)
     apply_ddl_statements(conn, EMIT_PATH_TABLES)
+    seed_fixture_universe_identity(conn)
     seed_fixture_operating_actor(conn)
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
     from yoke_core.domain.workflow_schema import ensure_workflow_schema

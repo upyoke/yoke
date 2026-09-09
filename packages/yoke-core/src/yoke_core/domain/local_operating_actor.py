@@ -3,8 +3,9 @@
 A machine-local universe has exactly one person behind it, and that
 person is both its user and its administrator. Two facts make that real:
 
-* an ``actors`` row labeled with the machine's login — the identity every
-  session on this machine registers under
+* an ``actors`` row named after the machine's owner, recorded by id as
+  this machine's operating-actor binding — the identity every session on
+  this machine registers under
   (:mod:`yoke_core.domain.session_actor_binding` resolves it); and
 * the org ``admin`` role on the universe's single org — the authority the
   function dispatcher checks the moment a session names an actor.
@@ -45,9 +46,15 @@ OPERATING_ACTOR_GRANT_REPAIR = "yoke doctor run --quick --fix"
 
 
 def ensure_local_operating_actor(
-    conn: Any, *, label: Optional[str] = None
+    conn: Any, *, name: Optional[str] = None
 ) -> tuple[int, bool]:
-    """Return ``(actor_id, seeded)`` for this machine's operating actor."""
+    """Return ``(actor_id, seeded)`` for this machine's operating actor.
+
+    ``name`` is what to call a human actor this call creates. It never
+    selects one: an existing human is kept whatever it is called, because
+    the actor already holds this universe's claims, roles, and sessions
+    and a rename must not fork it into a second person.
+    """
     from yoke_core.domain import actors
     from yoke_core.domain.actor_permissions import (
         ROLE_ADMIN,
@@ -56,16 +63,13 @@ def ensure_local_operating_actor(
     )
     from yoke_core.domain.org_schema import seed_default_org
 
-    row = conn.execute(
-        "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
-    ).fetchone()
-    seeded = row is None
-    if row is not None:
-        actor_id = int(row[0])
+    existing = actors.sole_human_actor_id(conn, oldest=True)
+    seeded = existing is None
+    if existing is not None:
+        actor_id = existing
     else:
-        actor_id = actors.seed_human_actor(conn)
-        actors.set_actor_label(
-            conn, actor_id, label or actors.DEFAULT_LOCAL_HUMAN_LABEL
+        actor_id = actors.seed_human_actor(
+            conn, name or actors.DEFAULT_LOCAL_HUMAN_NAME
         )
     seed_roles_and_permissions(conn)
     grant_actor_org_role(

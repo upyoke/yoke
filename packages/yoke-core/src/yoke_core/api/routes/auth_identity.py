@@ -47,25 +47,13 @@ def _identity_payload(conn: Any, auth: Any) -> dict[str, Any]:
 def _actor_summary(conn: Any, actor_id: int) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
-        f"SELECT kind, system_component FROM actors WHERE id = {p}",
+        f"SELECT kind, system_component, name FROM actors WHERE id = {p}",
         (actor_id,),
     ).fetchone()
-    labels = conn.execute(
-        f"SELECT surface, label FROM actor_labels WHERE actor_id = {p} "
-        "ORDER BY surface",
-        (actor_id,),
-    ).fetchall()
-    label = ""
-    for surface, value in labels:
-        if str(surface) == "github_label":
-            label = str(value)
-            break
-    if not label and labels:
-        label = str(labels[0][1])
     return {
         "id": actor_id,
         "kind": str(row[0]) if row else "",
-        "label": label,
+        "label": str(row[2] or "") if row else "",
         "system_component": str(row[1]) if row and row[1] is not None else None,
     }
 

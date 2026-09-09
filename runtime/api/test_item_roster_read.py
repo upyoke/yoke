@@ -14,9 +14,8 @@ from runtime.api.item_roster_test_support import (
     seed_ladder as _seed_ladder,
 )
 from yoke_core.domain.actors import (
-    DISPLAY_LABEL_SURFACE,
     seed_human_actor,
-    set_actor_label,
+    set_actor_name,
 )
 from yoke_core.domain.handlers import item_page_reads
 from yoke_core.domain.item_overview_read import COMPACT_ROSTER_FIELDS
@@ -125,7 +124,7 @@ def test_search_reaches_history_beyond_the_loaded_page(test_db):
 
 def test_search_matches_public_ref_and_owner_label(test_db):
     actor_id = seed_human_actor(test_db)
-    set_actor_label(test_db, actor_id, "Marguerite", surface=DISPLAY_LABEL_SURFACE)
+    set_actor_name(test_db, actor_id, "Marguerite")
     insert_item(
         test_db, id=901, title="owned row", status="implementing",
         owner=str(actor_id), created_at=_iso(10), updated_at=_iso(10),

@@ -88,12 +88,10 @@ def cmd_active_queue(args: list[str]) -> int:
                 if not stripped or stripped.lower() in ("none", "null"):
                     return ""
                 if stripped.isdigit():
-                    from yoke_core.domain.actor_display import (
-                        actor_display_name,
-                    )
+                    from yoke_core.domain.actors import actor_name
 
                     try:
-                        return actor_display_name(conn, int(stripped))
+                        return actor_name(conn, int(stripped))
                     except Exception:
                         return ""
                 return stripped
@@ -187,12 +185,10 @@ def cmd_item_list(args: list[str]) -> int:
                 if not stripped or stripped.lower() in ("none", "null"):
                     return ""
                 if stripped.isdigit():
-                    from yoke_core.domain.actor_display import (
-                        actor_display_name,
-                    )
+                    from yoke_core.domain.actors import actor_name
 
                     try:
-                        return actor_display_name(conn, int(stripped))
+                        return actor_name(conn, int(stripped))
                     except Exception:
                         return ""
                 return stripped

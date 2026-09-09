@@ -26,7 +26,11 @@ from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
 from yoke_core.domain import backlog_github_body_writer as _writer
 from yoke_core.domain import backlog_github_label_sync_rest as _label_rest
 from yoke_core.domain import github_rest
-from yoke_core.domain.actors import actor_label_or_passthrough
+from yoke_core.domain.actors import actor_name_or_passthrough
+from yoke_core.domain.github_constraints import (
+    clamp_label_name,
+    github_attribution_name,
+)
 from yoke_core.domain.backlog_github_comments import post_comment
 from yoke_core.domain.backlog_github_fetch import (
     _close_if_owned,
@@ -174,15 +178,23 @@ def sync_done_item(
 
         existing_labels, state = _issue_snapshot(issue_num, repo, gh_project)
         colors = _label_colors()
-        source_label = actor_label_or_passthrough(conn, fields["source"])
-        owner_label = actor_label_or_passthrough(conn, fields["owner"])
+        source_label = github_attribution_name(
+            actor_name_or_passthrough(conn, fields["source"])
+        )
+        owner_label = github_attribution_name(
+            actor_name_or_passthrough(conn, fields["owner"])
+        )
         desired = {
             "status:": f"status:{_status_display_label(fields['status'])}",
             "priority:": f"priority:{fields['priority']}",
             "workflow:": f"workflow:{fields['workflow_id']}",
             "type:": "",
-            "source:": f"source:{source_label}" if source_label else "",
-            "owner:": f"owner:{owner_label}" if owner_label else "",
+            "source:": (
+                clamp_label_name(f"source:{source_label}") if source_label else ""
+            ),
+            "owner:": (
+                clamp_label_name(f"owner:{owner_label}") if owner_label else ""
+            ),
             "worktree:": "",
         }
         label_colors = {

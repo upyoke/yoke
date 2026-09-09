@@ -21,13 +21,7 @@ def decision_request_connection():
             id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL,
             system_component TEXT,
-            created_at TEXT NOT NULL
-        );
-        CREATE TABLE actor_labels (
-            id INTEGER PRIMARY KEY,
-            actor_id INTEGER NOT NULL REFERENCES actors(id),
-            surface TEXT NOT NULL,
-            label TEXT NOT NULL,
+            name TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL
         );
         CREATE TABLE organizations (
@@ -83,7 +77,9 @@ def decision_request_connection():
     )
     for actor_id in range(1, 6):
         value.execute(
-            "INSERT INTO actors VALUES (?, 'human', NULL, 'now')", (actor_id,)
+            "INSERT INTO actors (id, kind, system_component, created_at) "
+            "VALUES (?, 'human', NULL, 'now')",
+            (actor_id,),
         )
     for role_id, name in enumerate(("owner", "operator", "admin", "viewer"), 1):
         value.execute(

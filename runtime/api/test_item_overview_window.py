@@ -6,11 +6,10 @@ from datetime import datetime, timedelta, timezone
 
 from runtime.api.conftest import insert_item
 from runtime.api.domain.handlers.items_read_test_support import request_for
-from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.actors import (
-    DISPLAY_LABEL_SURFACE,
+    actor_name,
     seed_human_actor,
-    set_actor_label,
+    set_actor_name,
 )
 from yoke_core.domain.handlers import item_page_reads, items_listing
 
@@ -67,7 +66,7 @@ def test_overview_keeps_live_and_recent_terminals(test_db):
 
 def test_overview_resolves_each_owner_once(test_db, monkeypatch):
     actor_id = seed_human_actor(test_db)
-    set_actor_label(test_db, actor_id, "Ada", surface=DISPLAY_LABEL_SURFACE)
+    set_actor_name(test_db, actor_id, "Ada")
     old = _iso(48)
     for item_id, title in ((601, "owned-a"), (602, "owned-b")):
         insert_item(
@@ -76,14 +75,14 @@ def test_overview_resolves_each_owner_once(test_db, monkeypatch):
         )
     test_db.commit()
     calls: list[int] = []
-    real = actor_display_name
+    real = actor_name
 
     def counted(conn, value):
         calls.append(int(value))
         return real(conn, value)
 
     monkeypatch.setattr(
-        "yoke_core.domain.actor_display.actor_display_name", counted,
+        "yoke_core.domain.actors.actor_name", counted,
     )
     outcome = item_page_reads.handle_items_overview_list(
         request_for("items.overview.list", {})

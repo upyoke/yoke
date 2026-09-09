@@ -234,30 +234,30 @@ def birth_universe() -> None:
     """
     from yoke_contracts.schema_authority import serving_build_authority
     from yoke_core.domain import db_helpers, org_schema
-    from yoke_core.domain.actors import LOCAL_HUMAN_LABEL_ENV
+    from yoke_core.domain.actors import LOCAL_HUMAN_NAME_ENV
     from yoke_core.domain.api_tokens import (
-        DEFAULT_ADMIN_ACTOR_LABEL,
+        DEFAULT_ADMIN_ACTOR_NAME,
         bootstrap_admin_token,
     )
     from yoke_core.domain.environment_bootstrap import run_bootstrap
 
     # The init chain invokes its modules with no parameters, so the admin
-    # label rides the same pinned-env idiom the local-universe birth uses
+    # name rides the same pinned-env idiom the local-universe birth uses
     # for the OS login. This makes the canonical human actor the chain
     # seeds THE admin actor the token binds to — one human row, no
-    # founder-fallback label on a self-hosted universe.
-    prior_label = os.environ.get(LOCAL_HUMAN_LABEL_ENV)
-    os.environ[LOCAL_HUMAN_LABEL_ENV] = DEFAULT_ADMIN_ACTOR_LABEL
+    # founder-fallback actor on a self-hosted universe.
+    prior_name = os.environ.get(LOCAL_HUMAN_NAME_ENV)
+    os.environ[LOCAL_HUMAN_NAME_ENV] = DEFAULT_ADMIN_ACTOR_NAME
     try:
         # Birth builds the schema this same process is about to serve, so the
         # chain it runs holds the same authority the boot converge does.
         with serving_build_authority():
             run_bootstrap(emit=_log.info)
     finally:
-        if prior_label is None:
-            os.environ.pop(LOCAL_HUMAN_LABEL_ENV, None)
+        if prior_name is None:
+            os.environ.pop(LOCAL_HUMAN_NAME_ENV, None)
         else:
-            os.environ[LOCAL_HUMAN_LABEL_ENV] = prior_label
+            os.environ[LOCAL_HUMAN_NAME_ENV] = prior_name
     org_name = (os.environ.get(ORG_NAME_ENV) or "").strip() or None
     with db_helpers.connect() as conn:
         org = org_schema.ensure_org_identity_card(conn, org_name)

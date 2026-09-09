@@ -14,11 +14,7 @@ import pytest
 
 from runtime.api.conftest import insert_item
 from runtime.api.domain.handlers.items_read_test_support import request_for
-from yoke_core.domain.actors import (
-    DISPLAY_LABEL_SURFACE,
-    seed_human_actor,
-    set_actor_label,
-)
+from yoke_core.domain.actors import seed_human_actor, set_actor_name
 from yoke_core.domain.handlers import (
     item_page_reads,
     items_listing,
@@ -45,11 +41,9 @@ def diverged_item(test_db):
 
 @pytest.fixture()
 def labeled_owner(test_db):
-    """A human actor whose display label shares nothing with its id."""
+    """A human actor whose name shares nothing with its id."""
     actor_id = seed_human_actor(test_db)
-    set_actor_label(
-        test_db, actor_id, OWNER_LABEL, surface=DISPLAY_LABEL_SURFACE,
-    )
+    set_actor_name(test_db, actor_id, OWNER_LABEL)
     test_db.commit()
     return actor_id
 
@@ -88,7 +82,7 @@ class TestItemsListProjection:
         row = _find(outcome.result_payload["rows"], "Divergent identity")
         assert row["internal_id"] == str(INTERNAL_ID)
 
-    def test_owner_and_source_render_actor_labels(
+    def test_owner_and_source_render_actor_names(
         self, diverged_item, labeled_owner,
     ):
         insert_item(

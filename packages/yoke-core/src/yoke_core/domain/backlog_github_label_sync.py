@@ -35,7 +35,7 @@ from yoke_core.domain.backlog_github_repo_label_sync import (
 )
 from yoke_core.domain import backlog_github_label_sync_rest as _rest
 from yoke_core.domain import project_label_policy
-from yoke_core.domain.actors import actor_label_or_passthrough
+from yoke_core.domain.actors import actor_name_or_passthrough
 from yoke_core.domain.backlog_github_fetch import (
     BLOCKED_LABEL_COLOR,
     _close_if_owned,
@@ -47,7 +47,10 @@ from yoke_core.domain.backlog_github_fetch import (
     _resolve_item_id,
     _status_display_label,
 )
-from yoke_core.domain.github_constraints import clamp_label_name
+from yoke_core.domain.github_constraints import (
+    clamp_label_name,
+    github_attribution_name,
+)
 from yoke_core.domain.project_github_auth import (
     resolve_project_github_auth,
 )
@@ -191,8 +194,12 @@ def sync_labels(
         colors = _label_colors()
         status, priority = fields["status"], fields["priority"]
         workflow_id = fields["workflow_id"]
-        source_label = actor_label_or_passthrough(conn, fields["source"])
-        owner_label = actor_label_or_passthrough(conn, fields["owner"])
+        source_label = github_attribution_name(
+            actor_name_or_passthrough(conn, fields["source"])
+        )
+        owner_label = github_attribution_name(
+            actor_name_or_passthrough(conn, fields["owner"])
+        )
         from yoke_core.domain.item_worktrees import primary_item_worktree
 
         active_lane = primary_item_worktree(conn, int(item_pk))
@@ -210,8 +217,12 @@ def sync_labels(
         want_workflow = (
             f"workflow:{workflow_id}" if workflow_id and workflow_id != "null" else ""
         )
-        want_source = f"source:{source_label}" if source_label else ""
-        want_owner = f"owner:{owner_label}" if owner_label else ""
+        want_source = (
+            clamp_label_name(f"source:{source_label}") if source_label else ""
+        )
+        want_owner = (
+            clamp_label_name(f"owner:{owner_label}") if owner_label else ""
+        )
         want_worktree = (
             clamp_label_name(f"worktree:{worktree.replace('/', '-')}")
             if worktree and worktree != "null"

@@ -42,6 +42,9 @@ from runtime.api.fixtures.backlog_inserts import (
     insert_qa_requirement,
     insert_qa_run,
 )
+from runtime.api.fixtures.operating_actor import (
+    record_fixture_operating_actor,
+)
 from runtime.api.fixtures.schema_ddl import SCHEMA_DDL
 
 
@@ -63,11 +66,14 @@ def seed_fixture_operating_actor(conn: Any) -> int:
 
     Every born universe carries one — ``schema_init.cmd_init`` seeds it —
     and registration refuses rather than storing a NULL actor, so a
-    fixture without one models an install that cannot exist. A fixture
-    whose schema also carries the org/role tables gets the admin grant a
-    real universe gives its operator, because the dispatcher enforces
-    permissions as soon as a session names an actor. Idempotent, and a
-    minimal ``actors``-only schema still works.
+    fixture without one models an install that cannot exist. Birth also
+    records WHICH actor this machine operates the universe as, so this
+    records that binding too; without it the seeded actor exists and no
+    session can name it. A fixture whose schema also carries the
+    org/role tables gets the admin grant a real universe gives its
+    operator, because the dispatcher enforces permissions as soon as a
+    session names an actor. Idempotent, and a minimal ``actors``-only
+    schema still works.
     """
     from yoke_core.domain.actors import seed_human_actor
     from yoke_core.domain.schema_common import _table_exists
@@ -81,28 +87,33 @@ def seed_fixture_operating_actor(conn: Any) -> int:
         )
 
         actor_id, _seeded = ensure_local_operating_actor(conn)
+        record_fixture_operating_actor(conn, actor_id)
         return actor_id
     row = conn.execute(
         "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
     ).fetchone()
-    if row is not None:
-        return int(row[0])
-    return seed_human_actor(conn)
+    actor_id = int(row[0]) if row is not None else seed_human_actor(conn)
+    record_fixture_operating_actor(conn, actor_id)
+    return actor_id
 
 
 @pytest.fixture
 def test_db():
     """Connection with the full Yoke schema on a disposable Postgres DB.
 
-    Seeds the canonical yoke-core + local human actors so writer tests
-    resolving the default actor see the same post-init shape production ships.
+    Seeds the canonical yoke-core + local human actors, and records the
+    operating-actor binding beside them, so writer tests resolving the
+    default actor see the same post-init shape production ships.
     """
     from runtime.api.fixtures.pg_testdb import test_database
 
     with test_database() as conn:
         create_gate_satisfaction_tables(conn)
-        seed_test_canonical_actors(conn)
+        _yoke_core, local_human = seed_test_canonical_actors(conn)
         conn.commit()
+        # A born universe also records which actor this machine operates
+        # it as; without that, no session in the fixture can register.
+        record_fixture_operating_actor(conn, local_human)
         yield conn
 
 

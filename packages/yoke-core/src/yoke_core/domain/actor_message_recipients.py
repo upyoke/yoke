@@ -8,8 +8,8 @@ from typing import Any
 
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain import db_backend
-from yoke_core.domain.actor_render import actor_render_label
-from yoke_core.domain.actors import resolve_actor_by_label, validate_actor_id
+from yoke_core.domain.actor_render import render_actor_name
+from yoke_core.domain.actors import resolve_actors_by_name, validate_actor_id
 from yoke_core.domain.organization_settings import read_organization_setting
 from yoke_core.domain.session_message_types import (
     SessionMessageError,
@@ -62,18 +62,35 @@ def _org_ids(conn: Any, actor_id: int) -> set[int]:
 
 
 def _resolve_actor_ref(conn: Any, raw: str) -> int:
+    """Resolve one addressed anchor: an actor id, or a name that is unique.
+
+    A name is the sender's own search term, so it is accepted — but it is
+    never disambiguated on their behalf. Two members called the same thing
+    refuse with both ids named, because picking one would deliver somebody's
+    message to the wrong person and look like it worked.
+    """
     cleaned = str(raw or "").strip()
-    actor_id = (
-        int(cleaned) if cleaned.isdigit() else resolve_actor_by_label(conn, cleaned)
+    matches = (
+        [int(cleaned)]
+        if cleaned.isdigit()
+        else resolve_actors_by_name(conn, cleaned, kind="human")
     )
-    if actor_id is None or not validate_actor_id(conn, int(actor_id)):
+    if len(matches) > 1:
+        listed = ", ".join(str(actor_id) for actor_id in matches)
         raise SessionMessageError(
-            "actor_recipient_not_found",
-            f"actor anchor {raw!r} did not resolve; use an exact member actor id "
-            "or registered resolution label",
+            "actor_recipient_ambiguous",
+            f"{len(matches)} members are called {cleaned!r} (actor ids "
+            f"{listed}); address the one you mean by id",
             jsonpath="$.payload.selector.actors",
         )
-    return int(actor_id)
+    if not matches or not validate_actor_id(conn, matches[0]):
+        raise SessionMessageError(
+            "actor_recipient_not_found",
+            f"actor anchor {raw!r} did not resolve; use an exact member "
+            "actor id or an unambiguous member name",
+            jsonpath="$.payload.selector.actors",
+        )
+    return matches[0]
 
 
 def resolve_actor_recipients(
@@ -116,7 +133,7 @@ def resolve_actor_recipients(
             actor_id,
             ResolvedActorRecipient(
                 actor_id=actor_id,
-                label=actor_render_label(conn, actor_id),
+                label=render_actor_name(conn, actor_id),
                 shared_org_ids=set(),
             ),
         )
@@ -182,7 +199,7 @@ def actor_recipients_for_message(conn: Any, message_id: str) -> list[dict[str, A
     for row in rows:
         recipient = row_dict(row)
         actor_id = int(recipient["actor_id"])
-        recipient.update({"label": actor_render_label(conn, actor_id), "kind": "human"})
+        recipient.update({"label": render_actor_name(conn, actor_id), "kind": "human"})
         result.append(recipient)
     return result
 

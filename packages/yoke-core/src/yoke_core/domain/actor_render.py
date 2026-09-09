@@ -1,59 +1,57 @@
-"""Fail-open actor display rendering.
+"""Fail-open actor name rendering for operator-facing surfaces.
 
-A render adapter over :func:`yoke_core.domain.actors.actor_display_name`.
-The lower-level actor helpers are fail-closed because GitHub sync and other
-external projections must not emit malformed tokens. Display rendering has
-the opposite need: a view must never fail to render because an editor's
-identity has no label yet, so this returns ``None`` and the caller omits the
+A render adapter over :func:`yoke_core.domain.actors.actor_name`. The
+lower-level helper is fail-closed because a caller that holds an id and
+asks for a name is usually about to write it somewhere durable. A view
+has the opposite need: it must never fail to render because an editor's
+actor row is missing, so this returns ``None`` and the caller omits the
 field.
 
-The stored identity stays the numeric actor id; the label is a render-time
-projection only. When a richer identity layer (e.g. a users table) maps
-``actor_id`` to a person, the same id resolves to a better label with no
-change to stored data.
+Rendering preserves spaces. A person's name is "Ada Lovelace", not
+"Ada-Lovelace", and the surfaces that read this — session-message
+framing, claim holders, session rosters — are line-oriented rather than
+token-oriented. What the sanitizer removes is what would break a line:
+control characters and newlines collapse to a single space, so a name
+can never split one rendered record into two or forge a framing line.
+
+The stored identity stays the numeric actor id; the name is a
+render-time projection only.
 """
 
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Any, Optional
 
-from yoke_core.domain.actor_display import actor_display_name
-from yoke_core.domain.actors import (
-    ActorError,
-    actor_label,
-)
-
-# Render headers/labels are space-delimited tokens, so a rendered label must
-# be a single token; collapse anything outside this charset to '-'.
-_UNSAFE_LABEL_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+from yoke_core.domain.actors import ActorError, actor_name
 
 
-def actor_render_label(
-    conn: Any,
-    actor_id: Optional[int],
-    *,
-    surface: Optional[str] = None,
-) -> Optional[str]:
-    """Single-token display label for ``actor_id``, or ``None`` if unresolvable.
+def _is_line_safe(char: str) -> bool:
+    """Whether ``char`` can appear inside one rendered line."""
+    return unicodedata.category(char) not in ("Cc", "Cf", "Zl", "Zp")
 
-    Never raises (fail-open): a null id, an unlabeled actor, an ambiguous
-    mapping, or a nonexistent actor all yield ``None`` so the caller can omit
-    the field ("print the label only if we have it"). The result is sanitized
-    to one ``[A-Za-z0-9._-]`` token, safe to embed in a space-delimited
-    render header.
+
+_WHITESPACE_RUN = re.compile(r"\s+")
+
+
+def render_actor_name(conn: Any, actor_id: Optional[int]) -> Optional[str]:
+    """One-line display name for ``actor_id``, or ``None`` if unresolvable.
+
+    Never raises (fail-open): a null id, a nonexistent actor, or an actor
+    with no name at all yields ``None`` so the caller can omit the field
+    ("print the name only if we have it"). Interior spaces survive;
+    control characters, newlines, and repeated whitespace collapse to a
+    single space so the result occupies exactly one line.
     """
     if actor_id is None:
         return None
     try:
-        if surface is None:
-            label = actor_display_name(conn, int(actor_id))
-        else:
-            label = actor_label(conn, int(actor_id), surface=surface)
-    except ActorError:
+        name = actor_name(conn, int(actor_id))
+    except (ActorError, TypeError, ValueError):
         return None
-    token = _UNSAFE_LABEL_CHARS.sub("-", label.strip())
-    return token or None
+    safe = "".join(char if _is_line_safe(char) else " " for char in name)
+    return _WHITESPACE_RUN.sub(" ", safe).strip() or None
 
 
-__all__ = ["actor_render_label"]
+__all__ = ["render_actor_name"]

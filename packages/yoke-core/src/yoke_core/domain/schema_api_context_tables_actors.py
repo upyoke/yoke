@@ -9,36 +9,26 @@ ACTOR_TABLES: dict[str, dict] = {
             ("id", "INTEGER"),
             ("kind", "TEXT"),
             ("system_component", "TEXT"),
+            ("name", "TEXT"),
             ("created_at", "TEXT"),
         ],
         "notes": (
             "Actor identity referenced by work_claims.actor_id, "
             "path_claims.registered_by_actor_id, and similar foreign keys. kind "
             "is 'human' or 'system'; system_component is the bound "
-            "component name when kind is system-attributed. Human-readable "
-            "names live in actor_labels as surface-specific projections: "
-            "display for generic actor views, github_label for GitHub sync."
-            " actors has NO org_id column; resolve an actor's organization "
-            "membership through actor_org_roles.org_id."
-        ),
-    },
-    "actor_labels": {
-        "columns": [
-            ("id", "INTEGER"),
-            ("actor_id", "INTEGER"),
-            ("surface", "TEXT"),
-            ("label", "TEXT"),
-            ("created_at", "TEXT"),
-        ],
-        "notes": (
-            "Surface-specific actor labels. surface='display' is the "
-            "generic actor-facing display projection; surface='github_label' "
-            "is the GitHub sync projection. One label per actor per surface "
-            "on every surface. One actor per surface/label pair only on the "
-            "resolution surfaces (github_label): display labels are names, "
-            "so two actors may carry the same one. Write a display label "
-            "with actor_display.set_actor_display_name, which upserts; "
-            "actors.set_actor_label binds once and no-ops on a relabel."
+            "component name when kind is system-attributed. name is the ONE "
+            "human-readable name every surface renders (read it with "
+            "actors.actor_name, write it with actors.set_actor_name) and it "
+            "carries no uniqueness: two people may share a name, and nothing "
+            "resolves an identity from it. There is no per-surface name "
+            "projection and no actor_labels table (wrong guesses: "
+            "actor_labels, surface='display', surface='github_label', "
+            "actor_display.actor_display_name, actors.actor_label, "
+            "actors.set_actor_label, actors.resolve_actor_by_label). "
+            "actors.resolve_actors_by_name is an operator SEARCH returning a "
+            "list; never use it to pick a session identity, an authenticated "
+            "caller, or an owner. actors has NO org_id column; resolve an "
+            "actor's organization membership through actor_org_roles.org_id."
         ),
     },
 }

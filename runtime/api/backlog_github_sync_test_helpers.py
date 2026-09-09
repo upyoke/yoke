@@ -45,7 +45,7 @@ def make_db():
     focused on the sync surface they are exercising. The canonical
     yoke-core + local human actors are seeded so rows
     that store ``items.source`` / ``items.owner`` as numeric actor ids
-    resolve through ``actor_label_or_passthrough``. Tests that need a
+    resolve through ``actor_name_or_passthrough``. Tests that need a
     different fixture build their own connection inline (see
     ``test_missing_projects_table_fails_open_to_default_repo``).
     """
