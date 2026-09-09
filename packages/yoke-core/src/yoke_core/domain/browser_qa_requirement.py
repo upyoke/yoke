@@ -40,7 +40,7 @@ class RequirementOutcome:
 def _process_requirement(
     *,
     req_row: Dict[str, Any],
-    item_id: int,
+    subject: int | str,
     project: str,
     base_url: str,
     code_identity: Dict[str, str],
@@ -135,7 +135,7 @@ def _process_requirement(
     _bqa._log(f"Created qa_run {run_id}")
 
     # Create artifact directory
-    artifact_dir = str(artifact_directory(project, item_id, run_id))
+    artifact_dir = str(artifact_directory(project, subject, run_id))
     os.makedirs(artifact_dir, exist_ok=True)
 
     # capture writes execution_status; verdict is assigned only on capture
@@ -176,7 +176,7 @@ def _process_requirement(
         _bqa._log(f"  Step {step_idx}: executing...")
 
         response = _bqa._execute_step(
-            step, base_url, artifact_dir, run_id, item_id,
+            step, base_url, artifact_dir, run_id,
             project, current_route, step_idx,
         )
 
@@ -244,7 +244,7 @@ def _process_requirement(
                     _bqa._log(f"  SKIPPED artifact (not on disk): {apath}")
                 continue
 
-            metadata = build_metadata(step_idx, qa_kind, item_id, current_route)
+            metadata = build_metadata(step_idx, qa_kind, subject, current_route)
             try:
                 art_id = _bqa._record_artifact_file(
                     run_id, req_id, str(apath), "image/png", "screenshot",

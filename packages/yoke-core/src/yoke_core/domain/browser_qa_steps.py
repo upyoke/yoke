@@ -51,7 +51,6 @@ def _execute_step(
     base_url: str,
     artifact_dir: str,
     run_id: int,
-    item_id: int,
     project: str,
     route: str,
     step_index: int,

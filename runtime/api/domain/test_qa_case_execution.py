@@ -259,12 +259,59 @@ def test_browser_case_executes_only_the_target_requirement() -> None:
 
     assert result["verdict"] == "pass"
     execute.assert_called_once_with(
-        item_id=9,
         project="yoke",
+        requirement_id=41,
+        item_id=9,
+        deployment_run_id=None,
         base_url="https://preview.example",
         expected_branch=None,
         expected_sha=None,
+        actor=actor,
+    )
+
+
+def test_browser_case_runs_a_deployment_run_subject_without_an_item() -> None:
+    case = {
+        **_case(
+            "browser-check",
+            "browser_substrate",
+            {"steps": [{"action": "navigate", "route": "/"}]},
+        ),
+        "item_id": None,
+        "deployment_run_id": "run-20260101-001",
+    }
+    scenario = ScenarioResult(
+        verdict="pass",
+        runs=[RunResult(41, "plan_case", "pass", qa_run_id=7)],
+        executed=1,
+    )
+    actor = ActorContext(actor_id="7", session_id="qa-case-test")
+    with (
+        mock.patch.object(
+            qa_case_execution,
+            "fetch_case_execution_context",
+            return_value=case,
+        ),
+        mock.patch(
+            "yoke_core.domain.browser_qa.execute_scenario",
+            return_value=scenario,
+        ) as execute,
+    ):
+        result = qa_case_execution.execute_case(
+            41,
+            base_url="https://preview.example",
+            actor=actor,
+        )
+
+    assert result["verdict"] == "pass"
+    execute.assert_called_once_with(
+        project="yoke",
         requirement_id=41,
+        item_id=None,
+        deployment_run_id="run-20260101-001",
+        base_url="https://preview.example",
+        expected_branch=None,
+        expected_sha=None,
         actor=actor,
     )
 

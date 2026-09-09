@@ -15,9 +15,14 @@ routes through registered function ids:
   :mod:`yoke_core.domain.handlers.qa_browser_writes` so each file stays
   under the 350-line cap (the ``qa.py`` / ``qa_run.py`` convention).
 
-Write handlers carry ``claim_required_kind="item"`` exactly like
+Write handlers carry ``claim_required_kind="qa_subject"`` exactly like
 ``qa.run.record_verdict``; this read carries no claim and tolerates absent
 ambient sessions (board.data.get precedent).
+
+A materialized Browser case names exactly one subject — the item it
+verifies, or the deployment run it verifies — so this read accepts an
+``item`` target or a ``deployment_run`` target and scopes the requirement
+lookup to whichever the caller named.
 """
 
 from __future__ import annotations
@@ -40,7 +45,8 @@ class QaBrowserContextGetRequest(BaseModel):
 
 
 class QaBrowserContextGetResponse(BaseModel):
-    item_id: int
+    item_id: Optional[int] = None
+    deployment_run_id: Optional[str] = None
     requirements: List[Dict[str, Any]]
     deployed_sha: Optional[str] = None
     deployment_recorded: bool = False
@@ -55,10 +61,13 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
 
     target = request.target
     item_id = target.item_id
-    if item_id is None:
+    deployment_run_id = target.deployment_run_id
+    if (item_id is None) == (deployment_run_id is None):
         return _error(
             "target_invalid",
-            "qa.browser_context.get requires target.item_id",
+            "qa.browser_context.get requires exactly one subject: "
+            "target.item_id for an item case, or target.deployment_run_id "
+            "for a deployment-run case",
         )
     payload = request.payload or {}
     project = payload.get("project")
@@ -75,6 +84,10 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
             jsonpath="$.payload.requirement_id",
         )
 
+    subject_column = "item_id" if item_id is not None else "deployment_run_id"
+    subject_value: Any = (
+        int(item_id) if item_id is not None else str(deployment_run_id)
+    )
     conn = connect()
     try:
         p = _p(conn)
@@ -82,10 +95,10 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
             conn,
             "SELECT id, qa_kind, method_id, method_config, "
             "expected_outcome FROM qa_requirements "
-            f"WHERE item_id = {p} "
+            f"WHERE {subject_column} = {p} "
             "AND method_id IN ('browser-check', 'browser-inspection') "
             f"AND waived_at IS NULL AND id = {p}",
-            (int(item_id), int(requirement_id)),
+            (subject_value, int(requirement_id)),
         )
         requirements = [
             {
@@ -135,7 +148,10 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
             # Echo the resolved numeric id so ref-shaped callers (the
             # dispatcher resolves target.public_ref before this handler
             # runs) learn it without a second round trip.
-            "item_id": int(item_id),
+            "item_id": int(item_id) if item_id is not None else None,
+            "deployment_run_id": (
+                str(deployment_run_id) if deployment_run_id is not None else None
+            ),
             "requirements": requirements,
             "deployed_sha": deployed_sha,
             "deployment_recorded": deployment_recorded,

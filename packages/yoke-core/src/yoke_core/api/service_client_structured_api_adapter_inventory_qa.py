@@ -179,7 +179,11 @@ QA_ADAPTERS: List[AdapterEntry] = [
     # Browser case DB legs consumed by the shared per-requirement runner.
     _read_entry(
         function_id="qa.browser_context.get",
-        cli_invocation="yoke qa browser-context get --item PREFIX-N --requirement-id N --project P",
+        cli_invocation=(
+            "yoke qa browser-context get "
+            "(--item PREFIX-N | --deployment-run RUN-ID) "
+            "--requirement-id N --project P"
+        ),
     ),
     AdapterEntry(
         "qa.run.add",

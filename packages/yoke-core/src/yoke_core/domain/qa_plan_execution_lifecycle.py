@@ -7,6 +7,7 @@ from typing import Any
 from yoke_core.domain.coordination_claims import heartbeat, release
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.qa_capture_settlement import (
+    record_inflight_case_failure,
     settle_unreviewed_execution_captures,
 )
 from yoke_core.domain.qa_execution_decision_disposition import (
@@ -122,6 +123,7 @@ def finish_plan_execution(
     terminal_settlement = state in TERMINAL_PLAN_EXECUTION_STATES
     if terminal_settlement:
         settle_unreviewed_execution_captures(conn, execution)
+        record_inflight_case_failure(conn, execution, reason=reason)
     retain_lease = state == "awaiting_agent_review" and _mission_needs_retained_lease(
         execution
     )

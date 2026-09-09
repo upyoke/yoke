@@ -59,7 +59,7 @@ def _collect_daemon_diagnostics() -> Dict[str, Any]:
 
 def _ensure_daemon_running(
     *,
-    item_id: Optional[int] = None,
+    subject: int | str | None = None,
     project: str = "yoke",
 ) -> Optional[str]:
     """Ensure browser daemon is running. Returns error message or None.
@@ -149,7 +149,7 @@ def _ensure_daemon_running(
             attempt_count=_DAEMON_MAX_RETRIES + 1,
             last_error=last_err or "unknown",
             diagnostics=diagnostics,
-            item_id=item_id,
+            subject=subject,
             project=project,
         )
     except Exception as emit_exc:
@@ -174,7 +174,7 @@ def _emit_daemon_startup_failed_event(
     last_error: str,
     diagnostics: Dict[str, Any],
     *,
-    item_id: Optional[int] = None,
+    subject: int | str | None = None,
     project: str = "yoke",
 ) -> None:
     """Emit a BrowserDaemonStartupFailed event via the runtime event platform."""
@@ -193,8 +193,9 @@ def _emit_daemon_startup_failed_event(
             "attempt_count": attempt_count,
             "last_error": last_error,
             "diagnostics": diagnostics,
+            "subject": subject,
         },
     }
-    if item_id is not None:
-        kwargs["item_id"] = int(item_id)
+    if isinstance(subject, int):
+        kwargs["item_id"] = subject
     _native_emit("BrowserDaemonStartupFailed", **kwargs)
