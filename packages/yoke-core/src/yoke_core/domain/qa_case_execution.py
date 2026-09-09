@@ -116,6 +116,7 @@ def record_command_run(
     from yoke_core.domain.qa_artifacts import (
         artifact_file_path,
         case_artifact_subject,
+        stage_recovery_copy,
     )
 
     call_qa = recording_leg(case, actor=actor)
@@ -151,10 +152,13 @@ def record_command_run(
             },
         )
     except QaCaseExecutionError as exc:
-        evidence_path = shlex.quote(str(output_path))
+        recovery_path = stage_recovery_copy(output_bytes, filename)
+        evidence_path = shlex.quote(str(recovery_path))
         raise QaCaseExecutionError(
             f"command evidence upload failed for recorded QA run #{run_id}: "
-            f"{exc}. The evidence remains at {output_path}. Recover this same "
+            f"{exc}. The evidence is staged for recovery at {recovery_path} "
+            f"(the capture itself stays at {output_path}, which a session "
+            "holding a lane claim is not allowed to read). Recover this same "
             "run with `yoke qa artifact add "
             f"--requirement-id {requirement_id} --run-id {run_id} "
             "--artifact-type command_output --content-type text/plain "

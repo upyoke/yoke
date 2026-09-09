@@ -17,10 +17,13 @@ from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain import lint_lane_main_write
 from yoke_core.domain.lint_lane_main_write_derivation import (
     COMMAND_TOKEN,
+    RECOVERY_MESSAGE_FILE,
     TOOL_TARGET,
     WORKING_DIRECTORY,
     TargetDerivation,
+    format_derivation_guidance,
 )
+from yoke_core.domain.lint_session_cwd_path_authority import is_free_path
 from yoke_core.domain.lint_lane_main_write_messages import format_denial
 from yoke_core.domain.lint_python_write_target_extract import (
     analyze_python_heredoc_writes,
@@ -190,3 +193,83 @@ class TestProjectAgnosticMessages:
         for found in absolute_paths:
             assert any(found == path for path in supplied), found
         assert ".worktrees" not in reason
+
+    def test_fallback_denial_only_names_supplied_paths_and_the_recipe(self):
+        """The cwd-fallback branch adds exactly one literal: the temp file."""
+        supplied = [
+            "/checkout/docs/guide.md",
+            "/checkout/.lanes/one",
+            "/checkout/.lanes/one/docs/guide.md",
+            "/checkout",
+        ]
+        reason = format_denial(
+            item_label="ONE",
+            lane_path=supplied[1],
+            attempted_path=supplied[3],
+            lane_equivalent=supplied[1],
+            mode="deny",
+            suppression_seen=False,
+            derivation=TargetDerivation(
+                source=WORKING_DIRECTORY,
+                working_directory=supplied[3],
+                main_checkout=supplied[3],
+            ),
+        )
+        allowed = [*supplied, RECOVERY_MESSAGE_FILE]
+        for found in re.findall(r"(?<![\w.])/[\w./-]+", reason):
+            assert any(found == path for path in allowed), found
+        assert f"git -C {supplied[1]} commit" in reason
+
+
+class TestComputedCommitMessageRecovery:
+    """The refusal must name a recovery the refused caller can run.
+
+    A commit whose message is built by a command substitution has no
+    readable write target, so the guard falls back to the call's declared
+    working directory. Telling that caller to "run it from the lane" is
+    the advice they already followed with a leading ``cd``, which the
+    guard never reads — so the refusal names the lane on the command.
+    """
+
+    def _computed_commit(self, lane: Path) -> str:
+        return (
+            f"cd {lane} && git commit -m \"$(cat <<'EOF'\n"
+            "Fix the thing\n"
+            "\n"
+            "Longer body explaining why.\n"
+            "EOF\n"
+            ")\""
+        )
+
+    def test_computed_commit_message_falls_back_to_the_declared_cwd(
+        self, conn, repo,
+    ):
+        lane = _seed_lane(conn, repo)
+        verdict = _evaluate(self._computed_commit(lane), repo)
+        assert verdict.allow is False
+        assert verdict.derivation.source == WORKING_DIRECTORY
+        assert f"fell back to the working directory {repo}" in verdict.reason
+
+    def test_computed_commit_refusal_names_the_lane_recovery(self, conn, repo):
+        lane = _seed_lane(conn, repo)
+        verdict = _evaluate(self._computed_commit(lane), repo)
+        assert (
+            f"git -C {lane} commit -F {RECOVERY_MESSAGE_FILE}"
+            in verdict.reason
+        )
+
+    def test_refusal_says_a_leading_cd_does_not_move_the_fallback(
+        self, conn, repo,
+    ):
+        lane = _seed_lane(conn, repo)
+        verdict = _evaluate(self._computed_commit(lane), repo)
+        assert "leading `cd` in the command body does not move" in verdict.reason
+
+    def test_recovery_message_file_is_readable_from_a_claimed_lane(self):
+        assert is_free_path(RECOVERY_MESSAGE_FILE)
+
+    def test_guidance_without_a_lane_path_stays_a_placeholder(self):
+        guidance = format_derivation_guidance(
+            TargetDerivation(source=WORKING_DIRECTORY, working_directory="/w"),
+        )
+        assert "git -C <lane path> commit" in guidance
