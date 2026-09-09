@@ -42,6 +42,9 @@ from runtime.api.fixtures.backlog_inserts import (
     insert_qa_requirement,
     insert_qa_run,
 )
+from runtime.api.fixtures.operating_actor import (
+    record_fixture_operating_actor,
+)
 from runtime.api.fixtures.schema_ddl import SCHEMA_DDL
 
 
@@ -56,51 +59,6 @@ def seed_test_canonical_actors(conn: Any) -> tuple[int, int]:
     helper.
     """
     return seed_canonical_actors(conn)
-
-
-#: The connection label a fixture universe is reached under. Registration
-#: resolves the operating actor per connection, so the fixture needs one
-#: to record the binding against, exactly as a real machine does.
-FIXTURE_ENV = "local"
-
-
-def _record_fixture_operating_actor(conn: Any, actor_id: int) -> None:
-    """Record the operating-actor binding a born universe already carries.
-
-    Session registration reads an actor id this machine recorded for the
-    connection it is using; it does not infer one from a login or a name.
-    A fixture that seeded the actor but recorded no binding therefore
-    models a machine that cannot register a session, which is not the
-    install any of these tests mean to describe.
-
-    The conftest points ``YOKE_MACHINE_HOME`` at a per-test directory, so
-    both the config written here and the binding are isolated.
-
-    A fixture whose schema carries no organization identity card cannot
-    state which universe it is, so no binding is recorded and its tests
-    get the refusal a real machine would. That skip is checked for by
-    name rather than caught: swallowing the write's own failure once hid
-    a missing identity card through a whole CI round, and any other
-    failure here is a defect that should surface at the fixture.
-    """
-    from yoke_contracts.machine_config import runtime as machine_config
-    from yoke_core.domain.session_actor_binding_write import (
-        persist_operating_actor,
-    )
-    from yoke_core.domain.universe_identity import universe_fingerprint
-
-    if universe_fingerprint(conn) is None:
-        return
-
-    config_path = machine_config.config_path()
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = dict(machine_config.load_config())
-    connections = dict(payload.get("connections") or {})
-    connections.setdefault(FIXTURE_ENV, {"transport": "local-postgres"})
-    payload["connections"] = connections
-    payload.setdefault("active_env", FIXTURE_ENV)
-    machine_config.write_config(config_path, payload)
-    persist_operating_actor(conn, actor_id, env=FIXTURE_ENV)
 
 
 def seed_fixture_operating_actor(conn: Any) -> int:
@@ -129,13 +87,13 @@ def seed_fixture_operating_actor(conn: Any) -> int:
         )
 
         actor_id, _seeded = ensure_local_operating_actor(conn)
-        _record_fixture_operating_actor(conn, actor_id)
+        record_fixture_operating_actor(conn, actor_id)
         return actor_id
     row = conn.execute(
         "SELECT id FROM actors WHERE kind = 'human' ORDER BY id LIMIT 1"
     ).fetchone()
     actor_id = int(row[0]) if row is not None else seed_human_actor(conn)
-    _record_fixture_operating_actor(conn, actor_id)
+    record_fixture_operating_actor(conn, actor_id)
     return actor_id
 
 
@@ -155,12 +113,11 @@ def test_db():
         conn.commit()
         # A born universe also records which actor this machine operates
         # it as; without that, no session in the fixture can register.
-        _record_fixture_operating_actor(conn, local_human)
+        record_fixture_operating_actor(conn, local_human)
         yield conn
 
 
 __all__ = (
-    "FIXTURE_ENV",
     "JSONB_COLUMNS",
     "SCHEMA_DDL",
     "insert_deployment_run",
