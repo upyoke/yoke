@@ -45,6 +45,7 @@ def call_dispatcher(
     intent: Optional[str] = None,
     timeout_s: Optional[float] = None,
     local_only: bool = False,
+    relay_env: Optional[str] = None,
 ) -> FunctionCallResponse:
     """Build a request envelope and route it via the client dispatcher."""
 
@@ -61,6 +62,7 @@ def call_dispatcher(
         intent=intent,
         timeout_s=timeout_s,
         local_only=local_only,
+        relay_env=relay_env,
         _local_dispatch=dispatch,
         _function_hint=_function_not_registered_hint,
     )

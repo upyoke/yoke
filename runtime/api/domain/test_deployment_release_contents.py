@@ -62,12 +62,14 @@ def test_release_contents_are_derived_once_and_change_nothing(
     first = evaluate_deployment_stage_approval(
         test_db,
         run_id=seeded["run_id"],
+        stage=seeded["stage"],
         originator_actor_id=seeded["originator"],
     )
     for _ in range(3):
         repeated = evaluate_deployment_stage_approval(
             test_db,
             run_id=seeded["run_id"],
+            stage=seeded["stage"],
             originator_actor_id=seeded["originator"],
         )
         assert repeated.request_id == first.request_id
@@ -97,6 +99,7 @@ def test_a_stored_snapshot_survives_and_a_new_lineage_does_not(test_db):
     first = evaluate_deployment_stage_approval(
         test_db,
         run_id=seeded["run_id"],
+        stage=seeded["stage"],
         originator_actor_id=seeded["originator"],
     )
     stored = test_db.execute(
@@ -107,6 +110,7 @@ def test_a_stored_snapshot_survives_and_a_new_lineage_does_not(test_db):
     repeated = evaluate_deployment_stage_approval(
         test_db,
         run_id=seeded["run_id"],
+        stage=seeded["stage"],
         originator_actor_id=seeded["originator"],
     )
     assert repeated.request_id == first.request_id
@@ -126,6 +130,7 @@ def test_a_stored_snapshot_survives_and_a_new_lineage_does_not(test_db):
     moved = evaluate_deployment_stage_approval(
         test_db,
         run_id=seeded["run_id"],
+        stage=seeded["stage"],
         originator_actor_id=seeded["originator"],
     )
     assert moved.request_id != first.request_id

@@ -68,6 +68,12 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-runs approve",
     ),
     AdapterEntry(
+        function_id="deployment_runs.stage_approval.evaluate",
+        cli_invocation=(
+            "yoke deployment-runs stage-approval evaluate RUN-ID --stage STAGE"
+        ),
+    ),
+    AdapterEntry(
         function_id="deployment_runs.start_for_item",
         cli_invocation="yoke deployment-runs start-for-item PREFIX-N",
     ),

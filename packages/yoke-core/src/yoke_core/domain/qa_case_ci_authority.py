@@ -18,33 +18,6 @@ from yoke_contracts.github_workflow_dispatch import (
 )
 
 
-def owning_control_plane_env() -> str:
-    """The https plane holding GitHub App authority for this session's rows.
-
-    An https connection *is* that plane. A direct-Postgres admin connection
-    is not a plane at all — it is an owner-only door into one universe's
-    database — so the plane that answers for the same universe is its https
-    sibling. Returns ``""`` when neither resolves.
-    """
-    try:
-        from yoke_cli.transport.https import resolve_https_connection
-
-        https = resolve_https_connection()
-    except Exception:  # noqa: BLE001 - an unusable connection selects nothing
-        https = None
-    if https is not None:
-        return str(https.env or "")
-    try:
-        from yoke_cli.config import machine_config
-        from yoke_contracts.machine_config.schema import same_universe_https_env
-
-        return same_universe_https_env(
-            machine_config.load_config(), machine_config.active_env(),
-        )
-    except Exception:  # noqa: BLE001 - an unreadable config pairs with nothing
-        return ""
-
-
 @contextlib.contextmanager
 def github_actions_authority() -> Iterator[None]:
     """Point GitHub Actions calls at the control plane that owns this project.
@@ -65,7 +38,11 @@ def github_actions_authority() -> Iterator[None]:
     if preselected:
         yield
         return
-    owning_env = owning_control_plane_env()
+    from yoke_core.domain.control_plane_transport import (
+        serving_control_plane_env,
+    )
+
+    owning_env = serving_control_plane_env()
     if not owning_env:
         yield
         return
@@ -79,5 +56,4 @@ def github_actions_authority() -> Iterator[None]:
 __all__ = [
     "GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV",
     "github_actions_authority",
-    "owning_control_plane_env",
 ]

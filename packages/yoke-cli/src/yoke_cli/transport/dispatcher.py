@@ -116,6 +116,7 @@ def call_dispatcher(
     timeout_s: Optional[float] = None,
     max_attempts: Optional[int] = None,
     local_only: bool = False,
+    relay_env: Optional[str] = None,
     _local_dispatch: Optional[LocalDispatch] = None,
     _function_hint: Optional[HintResolver] = None,
     sensitive_values: tuple[str, ...] = (),
@@ -124,7 +125,10 @@ def call_dispatcher(
 
     Routing is connection-keyed: an https active connection relays the
     envelope to the server; any other connection dispatches in-process
-    through the engine. For a non-prod local-postgres universe that
+    through the engine. *relay_env* names a different connection to relay
+    through — the caller has decided which plane must run this operation,
+    so a named env that resolves to no https connection is refused rather
+    than quietly dispatched here. For a non-prod local-postgres universe that
     in-process dispatch IS the product path — the credentials in the
     active connection, not the transport mechanics, are the authority
     boundary. Prod-flagged postgres connections are operator-only by
@@ -147,10 +151,22 @@ def call_dispatcher(
             _call_local(request, _local_dispatch, client_local=True), sensitive_values,
         )
     try:
-        https = https_transport.resolve_https_connection()
+        https = https_transport.resolve_https_connection(
+            explicit_env=relay_env,
+        )
     except https_transport.TransportError as exc:
         return _redact_response(_error_response(
             request, "https_transport_misconfigured", str(exc)
+        ), sensitive_values)
+    if https is None and relay_env:
+        return _redact_response(_error_response(
+            request,
+            "relay_env_unavailable",
+            f"env {relay_env!r} was named as the plane that must run "
+            f"{request.function!r}, but it resolves to no https "
+            "connection on this machine; configure it with "
+            f"`yoke connection set {relay_env} --api-url ...` or check "
+            "`yoke env list`",
         ), sensitive_values)
     if https is not None:
         handshake = https_transport.ServerHandshake()

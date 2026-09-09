@@ -93,6 +93,7 @@ def approve_run(
         verdict = evaluate_deployment_stage_approval(
             conn,
             run_id=run_id,
+            stage=approved_stage,
             session_id=session_id,
         )
         if verdict.request_status != "pending":

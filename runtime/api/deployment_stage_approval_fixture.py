@@ -134,6 +134,55 @@ def seed_stage_approval(conn: Any) -> dict[str, Any]:
     }
 
 
+def gate_environment_id(conn, *, environment: str = "prod") -> int:
+    conn.execute(
+        "INSERT INTO sites(project_id, name, created_at) "
+        "VALUES (1, 'Gate test site', '2026-07-26T00:00:00Z') "
+        "ON CONFLICT(project_id, name) DO NOTHING"
+    )
+    conn.execute(
+        "INSERT INTO environments(site, project_id, name, created_at) "
+        "SELECT id, 1, %s, '2026-07-26T00:00:00Z' FROM sites "
+        "WHERE project_id=1 AND name='Gate test site' "
+        "ON CONFLICT(project_id, name) DO NOTHING",
+        (environment,),
+    )
+    return int(
+        conn.execute(
+            "SELECT id FROM environments WHERE project_id=1 AND name=%s",
+            (environment,),
+        ).fetchone()[0]
+    )
+
+
+def seed_gate_run(
+    conn,
+    *,
+    flow_id,
+    run_id,
+    stages_json,
+    created_by="1",
+    environment="prod",
+    current_stage="approve-prod",
+):
+    environment_id = gate_environment_id(conn, environment=environment)
+    conn.execute(
+        "INSERT INTO deployment_flows "
+        "(id, project_id, name, stages, created_at) "
+        "VALUES (%s, 1, %s, %s, '2026-07-26T00:00:00Z')",
+        (flow_id, flow_id, stages_json),
+    )
+    conn.execute(
+        "INSERT INTO deployment_runs "
+        "(id, project_id, flow, target_tier, target_environment_id, "
+        "status, current_stage, created_by, created_at) "
+        "VALUES (%s, 1, %s, 'persistent', %s, 'executing', "
+        "%s, %s, '2026-07-26T00:00:00Z')",
+        (run_id, flow_id, environment_id, current_stage, created_by),
+    )
+    conn.commit()
+
+
 class OpenConnection:
     """Keep the fixture-owned connection open across runtime helper calls.
 

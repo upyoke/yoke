@@ -15,13 +15,34 @@ from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
 from yoke_core.domain import deployment_run_approval
+from yoke_core.domain import control_plane_transport
 from yoke_core.domain.deployment_approval_requests import (
     emit_deployment_completion,
     deployment_stage_decision,
     deployment_stage_is_approved,
-    dispatch_deployment_stage_approval,
     evaluate_deployment_stage_approval,
 )
+from yoke_core.domain.deployment_stage_approval_dispatch import (
+    dispatch_deployment_stage_approval,
+)
+
+
+def _serving_verdict(conn, run_id: str, stage: str) -> dict:
+    """Answer as the build serving this control plane would."""
+    verdict = evaluate_deployment_stage_approval(
+        conn,
+        run_id=run_id,
+        stage=stage,
+    )
+    return {
+        "run_id": run_id,
+        "stage": stage,
+        "satisfied": bool(verdict.satisfied),
+        "request_id": int(verdict.request_id),
+        "request_status": str(verdict.request_status),
+        "resolution_action": verdict.resolution_action,
+        "reason": str(verdict.reason),
+    }
 
 
 def _prod_environment_id(conn) -> int:
@@ -55,11 +76,13 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
     first = evaluate_deployment_stage_approval(
         test_db,
         run_id="run-approval-proof",
+        stage=seeded["stage"],
         originator_actor_id=originator,
     )
     repeated = evaluate_deployment_stage_approval(
         test_db,
         run_id="run-approval-proof",
+        stage=seeded["stage"],
         originator_actor_id=originator,
     )
     assert first.satisfied is False
@@ -149,6 +172,17 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
     import yoke_core.domain.db_helpers as db_helpers
 
     monkeypatch.setattr(db_helpers, "connect", lambda: open_conn)
+    # The pipeline asks the serving build rather than deriving the verdict
+    # itself; standing in for that build here keeps the end-to-end shape.
+    monkeypatch.setattr(
+        control_plane_transport,
+        "serving_authority",
+        lambda function_id, payload, target=None: _serving_verdict(
+            test_db,
+            target.workflow_run_id,
+            payload["stage"],
+        ),
+    )
     assert dispatch_deployment_stage_approval(
         "run-approval-proof",
         "approve-prod",
