@@ -33,8 +33,8 @@ CANONICAL_RELAY_LABEL = PROD_RELAY_LABEL
 CANONICAL_RELAY_PLIST_NAME = f"{PROD_RELAY_LABEL}.plist"
 LAUNCH_AGENTS_DIR_NAME = "LaunchAgents"
 JOURNAL_NAME = "launchctl-journal.jsonl"
-UNLOAD_POLL_ATTEMPTS = 10
-UNLOAD_POLL_INTERVAL_SECONDS = 0.05
+UNLOAD_WAIT_SECONDS = 30.0
+UNLOAD_POLL_INTERVAL_SECONDS = 0.1
 
 #: Directory a test process lends this boundary: launch-agent plists are
 #: written under it and launchctl commands are recorded into its journal
@@ -194,14 +194,22 @@ def wait_for_launchd_unload(
     *,
     run: Callable[[Sequence[str]], subprocess.CompletedProcess[str]],
     pause: Callable[[float], None] = time.sleep,
+    now: Callable[[], float] = time.monotonic,
 ) -> bool:
-    """Poll until launchd no longer reports the exact job as loaded."""
-    for attempt in range(UNLOAD_POLL_ATTEMPTS):
+    """Poll until launchd no longer reports the exact job as loaded.
+
+    ``bootout`` returns before the job does: launchd sends SIGTERM and only
+    SIGKILLs at ``ExitTimeOut`` (20 seconds by default), so an ordinary
+    teardown outlives any sub-second wait. A job still loaded once
+    ``UNLOAD_WAIT_SECONDS`` has passed is stuck, not shutting down.
+    """
+    deadline = now() + UNLOAD_WAIT_SECONDS
+    while True:
         if run(["launchctl", "print", target]).returncode != 0:
             return True
-        if attempt + 1 < UNLOAD_POLL_ATTEMPTS:
-            pause(UNLOAD_POLL_INTERVAL_SECONDS)
-    return False
+        if now() >= deadline:
+            return False
+        pause(UNLOAD_POLL_INTERVAL_SECONDS)
 
 
 def bootstrap_launchd_job(

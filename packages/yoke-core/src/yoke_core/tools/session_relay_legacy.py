@@ -13,7 +13,11 @@ from yoke_cli.config.session_relay_instance import (
     RelayInstance,
     prod_https_environments,
 )
-from yoke_core.tools.launchctl_boundary import launch_agents_dir, launchd_target
+from yoke_core.tools.launchctl_boundary import (
+    launch_agents_dir,
+    launchd_target,
+    wait_for_launchd_unload,
+)
 
 
 class LegacyRelayError(RuntimeError):
@@ -92,10 +96,13 @@ def retire_unpinned_legacy_relay(
 
     target = launchd_target(PROD_RELAY_LABEL, uid)
     _run(["launchctl", "bootout", target], runner=runner)
-    probe = _run(["launchctl", "print", target], runner=runner)
-    if probe.returncode == 0:
+    if not wait_for_launchd_unload(
+        target, run=lambda command: _run(list(command), runner=runner)
+    ):
         raise LegacyRelayError(
-            "launchctl kept the unpinned legacy machine relay loaded"
+            "launchctl kept the unpinned legacy machine relay loaded after "
+            "bootout, so its plist stays in place; wait for teardown, then "
+            f"rerun `yoke --env {instance.environment} relay install`"
         )
     try:
         legacy_path.unlink()
