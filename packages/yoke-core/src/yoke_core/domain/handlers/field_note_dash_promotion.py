@@ -20,7 +20,9 @@ from yoke_core.domain.field_note_dash_promotion import (
 
 class PromoteRequest(BaseModel):
     entry_id: int = Field(..., gt=0)
-    title: str = Field(..., min_length=1, max_length=100)
+    # Length is the resolved project title policy's call, checked by the
+    # create path after the target project is known.
+    title: str = Field(..., min_length=1)
     instruction: Optional[str] = None
     project: Optional[str] = None
     priority: Optional[str] = None

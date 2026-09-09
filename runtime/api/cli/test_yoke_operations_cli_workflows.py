@@ -50,6 +50,7 @@ def test_human_output_renders_registry_rows_and_gate_catalog(capsys) -> None:
                 }
             ],
             "flows": [],
+            "title_max_length": 100,
         },
     )
 
@@ -65,6 +66,7 @@ def test_human_output_renders_registry_rows_and_gate_catalog(capsys) -> None:
 
     assert capsys.readouterr().out.splitlines() == [
         "family|work-items",
+        "title_max_length|100",
         "workflow|issue|1|7|active|idea",
         "gate|issue|idea|db_mutation",
         "catalog-gate|db_mutation|engine|DB mutation evidence is complete.",

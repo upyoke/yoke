@@ -30,6 +30,8 @@ from runtime.api.epic_full_test_support import (
     TEST_EPIC_WORKTREE_PATH,
 )
 
+from yoke_contracts.title_policy import title_max_length
+
 
 class TestTaskUpsert:
     def test_basic_upsert(self, test_db):
@@ -99,8 +101,10 @@ class TestTaskUpsert:
         assert stored == title
 
     def test_title_length_validation(self, test_db):
-        long_title = "x" * 101
-        with pytest.raises(ValueError, match="exceeds 100 characters"):
+        long_title = "x" * (title_max_length() + 1)
+        with pytest.raises(
+            ValueError, match=f"exceeds {title_max_length()} characters"
+        ):
             epic.task_upsert(test_db, "42", 1, long_title)
 
     def test_empty_title_rejected(self, test_db):

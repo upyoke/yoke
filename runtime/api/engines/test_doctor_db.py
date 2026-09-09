@@ -10,6 +10,8 @@ Schema scaffolding shared via _doctor_db_test_helpers (private module).
 
 from __future__ import annotations
 
+from yoke_contracts import title_policy
+
 from yoke_core.engines.doctor import (
     DoctorArgs,
     HEALTH_CHECKS,
@@ -300,3 +302,26 @@ class TestHCTitleLength:
         r = _get_result(rec, "HC-title-length")
         assert r.result == "WARN"
         assert "105 chars" in r.detail
+
+    def test_threshold_follows_the_title_policy(self, conn, monkeypatch):
+        """A title the shipped limit allows is over a tightened one."""
+        title = "A" * 40
+        p = _p(conn)
+        conn.execute(
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, "
+            "status, priority) "
+            f"VALUES (1, {p}, 'issue', (SELECT current_version_id FROM "
+            "workflows WHERE id='issue'), 'idea', 'low')",
+            (title,),
+        )
+        rec = RecordCollector()
+        hc_title_length(conn, _default_args(), rec)
+        assert _get_result(rec, "HC-title-length").result == "PASS"
+
+        monkeypatch.setattr(title_policy, "DEFAULT_TITLE_MAX_LENGTH", 20)
+        rec = RecordCollector()
+        hc_title_length(conn, _default_args(), rec)
+        r = _get_result(rec, "HC-title-length")
+        assert r.result == "WARN"
+        assert "40 chars" in r.detail
+        assert "limit 20" in r.detail

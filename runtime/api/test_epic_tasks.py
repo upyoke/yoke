@@ -9,6 +9,8 @@ import pytest
 from yoke_core.domain import epic
 from runtime.api.conftest import insert_epic_task, insert_item
 
+from yoke_contracts.title_policy import title_max_length
+
 # Synthetic test epic ID — not a real backlog item reference.
 TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
@@ -63,8 +65,11 @@ class TestTaskUpsert:
         assert row["item_worktree_id"] is None
 
     def test_title_length_limit(self, db):
-        with pytest.raises(ValueError, match="100 characters"):
-            epic.task_upsert(db, "42", 1, "x" * 101, "", "", "")
+        over = "x" * (title_max_length() + 1)
+        with pytest.raises(
+            ValueError, match=f"{title_max_length()} characters"
+        ):
+            epic.task_upsert(db, "42", 1, over, "", "", "")
 
     def test_empty_title_raises(self, db):
         with pytest.raises(ValueError, match="title is required"):

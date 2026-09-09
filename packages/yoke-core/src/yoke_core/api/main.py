@@ -105,7 +105,6 @@ from yoke_core.domain.frontier import (  # noqa: F401
 )
 from yoke_core.domain.mutations import (  # noqa: F401
     SUPPORTED_UPDATE_FIELDS,
-    TITLE_MAX_LENGTH,
     VALID_PRIORITIES as MUTATION_VALID_PRIORITIES,
     ApprovalResult,
     CreateResult,

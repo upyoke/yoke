@@ -60,7 +60,7 @@ test("New item derives web-fileability and settings from the definition", async 
   renderNewItemView(itemContext(documentNode, async (request) => {
     requests.push(request);
     const result = request.function === "workflows.definition.get"
-      ? { workflows }
+      ? { workflows, title_max_length: 100 }
       : request.function === "qa.plan.list"
         ? { rows: [{ id: 3, slug: "browser-close" }] }
         : { rows: [{ id: "browser-inspection", name: "Browser inspection" }] };
@@ -152,6 +152,7 @@ test("New item submits one atomic create and routes to the public ref", async ()
                 },
               },
             }],
+            title_max_length: 100,
           },
         },
       };
@@ -239,6 +240,7 @@ test("New item files Task through the typed web surface without gate posture", a
             },
           },
         }],
+        title_max_length: 100,
       }
       : request.function === "items.create"
         ? { public_ref: "ACM-31" }
@@ -267,4 +269,31 @@ test("New item files Task through the typed web surface without gate posture", a
     workflow_posture: {},
   });
   assert.match(itemText(root), /Created ACM-31/);
+});
+
+test("New item caps its title input at the limit the server served", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const workflows = [
+    {
+      id: "dash",
+      name: "Dash",
+      definition: {
+        entry_surfaces: ["web_form"],
+        policies: { item_posture_allowlist: [] },
+      },
+    },
+  ];
+  renderNewItemView(itemContext(documentNode, async (request) => {
+    const result = request.function === "workflows.definition.get"
+      ? { workflows, title_max_length: 42 }
+      : { rows: [] };
+    return { status: 200, envelope: { success: true, result } };
+  }), root, "7");
+  await settle();
+
+  const title = allNodes(root).find(
+    (node) => node.tagName === "INPUT" && node.type === "text",
+  );
+  assert.equal(title.maxLength, 42);
 });

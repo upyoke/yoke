@@ -33,6 +33,16 @@ from yoke_core.domain.task_lifecycle import (
     TASK_TERMINAL_SUCCESS,
     is_valid_task_status,
 )
+from yoke_core.domain.title_policy import item_title_length_error
+
+
+def _reject_long_task_title(conn, epic_id: str, title: str) -> None:
+    """Refuse a task title too long for the parent epic's project."""
+    err = item_title_length_error(
+        conn, epic_id, title, subject="Epic task title"
+    )
+    if err:
+        raise ValueError(err)
 
 
 def task_upsert(
@@ -49,11 +59,7 @@ def task_upsert(
     """Upsert an epic task row (preserves existing fields on conflict)."""
     if not title:
         raise ValueError("title is required")
-    if len(title) > 100:
-        raise ValueError(
-            f"epic task title exceeds 100 characters ({len(title)}). "
-            "Shorten it or move details to the body."
-        )
+    _reject_long_task_title(conn, epic_id, title)
     lane_id = None
     item_exists = _table_exists(conn, "items") and conn.execute(
         f"SELECT 1 FROM items WHERE id={_placeholder(conn)}", (int(epic_id),)
@@ -201,6 +207,9 @@ def task_update_field(
     # Delegate status updates to task_update_status for validation
     if field == "status":
         return task_update_status(conn, epic_id, task_num, value, **kwargs)
+
+    if field == "title":
+        _reject_long_task_title(conn, epic_id, value)
 
     _require_task_exists(conn, epic_id, task_num)
     p = _placeholder(conn)

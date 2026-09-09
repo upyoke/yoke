@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, FrozenSet, List, Optional, Tuple
 
+from yoke_contracts.title_policy import TitleProject, title_length_error
+
 if TYPE_CHECKING:
     from yoke_core.domain.workflow_runtime import WorkflowRuntime
 
@@ -19,7 +21,6 @@ if TYPE_CHECKING:
 # Constants
 # ---------------------------------------------------------------------------
 
-TITLE_MAX_LENGTH: int = 100
 VALID_PRIORITIES: FrozenSet[str] = frozenset({"high", "medium", "low"})
 
 # Fields supported by the update surface.
@@ -130,16 +131,15 @@ class ApprovalResult(MutationResult):
 # ---------------------------------------------------------------------------
 
 
-def validate_title(title: str) -> Optional[str]:
-    """Validate title. Returns error message or None."""
+def validate_title(
+    title: str,
+    *,
+    project: TitleProject = None,
+) -> Optional[str]:
+    """Validate title against *project*'s policy. Error message or None."""
     if not title or not title.strip():
         return "Field 'title' is required"
-    if len(title) > TITLE_MAX_LENGTH:
-        return (
-            f"Title exceeds {TITLE_MAX_LENGTH} characters ({len(title)}). "
-            f"Shorten it or move details to the body."
-        )
-    return None
+    return title_length_error(title, project=project)
 
 
 def validate_priority(priority: str) -> Optional[str]:

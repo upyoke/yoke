@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from yoke_contracts import title_policy
+from yoke_contracts.title_policy import title_max_length
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -163,6 +165,34 @@ class TestWorkflowRegistry:
         assert filtered["family"] == "work-items"
         assert filtered["workflows"] == unfiltered["workflows"]
         assert filtered["gate_catalog"] == unfiltered["gate_catalog"]
+
+
+class TestTitleLimit:
+    """The read a client form caps its title input from."""
+
+    def test_the_effective_limit_is_served(self, test_db):
+        assert (
+            get_workflows_definition(project="yoke")["title_max_length"]
+            == title_max_length("yoke")
+        )
+
+    def test_an_unnamed_project_still_serves_a_limit(self, test_db):
+        assert (
+            get_workflows_definition()["title_max_length"]
+            == title_max_length()
+        )
+
+    def test_the_served_limit_follows_the_policy(self, test_db, monkeypatch):
+        """A form reading this response cannot be left on a stale number."""
+        monkeypatch.setattr(title_policy, "DEFAULT_TITLE_MAX_LENGTH", 23)
+        assert get_workflows_definition(project="yoke")["title_max_length"] == 23
+
+    def test_the_handler_serves_it_too(self, test_db):
+        outcome = handle_workflows_definition_get(_request({"project": "yoke"}))
+        assert outcome.primary_success
+        assert outcome.result_payload["title_max_length"] == title_max_length(
+            "yoke"
+        )
 
 
 class TestFlows:

@@ -9,6 +9,8 @@ import pytest
 from runtime.api.test_parity import _run_service_client
 from runtime.api.parity_service_client_test_helpers import make_write_parity_env
 
+from yoke_contracts.title_policy import title_max_length
+
 
 @pytest.fixture()
 def write_parity_env():
@@ -103,10 +105,10 @@ class TestUpdateParity:
         assert cli_data["success"] is True
 
     def test_update_title_too_long_rejected_both(self, write_parity_env):
-        """Both surfaces should reject a title exceeding 100 characters."""
+        """Both surfaces should reject a title past the project limit."""
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
-        long_title = "X" * 101
+        long_title = "X" * (title_max_length() + 1)
 
         api_resp = client.patch("/v1/items/1", json={"title": long_title})
         assert api_resp.status_code == 422

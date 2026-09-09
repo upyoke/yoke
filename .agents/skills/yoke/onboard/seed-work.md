@@ -17,7 +17,7 @@ instruction to the complete batch:
 yoke workflow execution-instruction resolve --workflow issue --project {project}
 ```
 
-Read CURRENT-PLAN (`yoke strategy doc get CURRENT-PLAN --project {project}`) and derive a short list of concrete, independently workable items — the plan's near-term outcomes, one item each, titles ≤100 characters. These are `/yoke idea` intakes filed through the registered create surface; follow the idea intake conventions:
+Read CURRENT-PLAN (`yoke strategy doc get CURRENT-PLAN --project {project}`) and derive a short list of concrete, independently workable items — the plan's near-term outcomes, one item each, titles within the project's effective title limit. These are `/yoke idea` intakes filed through the registered create surface; follow the idea intake conventions:
 
 - Resolve the deployment flow **before** proposing: `yoke project-structure deploy-defaults get --project {project}` prints the project default (set by the flow declaration in step 5 of this skill); empty output means no flow — omit the flag, and never pass the literal string `none`.
 - Infer each item's priority from the plan's language (urgent/broken/blocking → high; nice-to-have/future → low; else medium). Never ask about priority.

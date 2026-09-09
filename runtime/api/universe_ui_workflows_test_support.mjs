@@ -101,6 +101,7 @@ function definitionFixture(workflows = [workflowFixture()]) {
       description: "The declared proof must exist.",
     }],
     flows: [],
+    title_max_length: 100,
   };
 }
 

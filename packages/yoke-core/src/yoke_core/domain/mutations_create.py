@@ -32,7 +32,7 @@ def prepare_create(
     for the actual DB insert and ID assignment.
 
     Args:
-        title: Item title (max 100 chars).
+        title: Item title; length validated against the project's policy.
         workflow: Immutable workflow version selected for the new item.
         priority: 'high', 'medium', or 'low'.
         project: Project ID. Defaults to adapter-resolved default.
@@ -47,7 +47,7 @@ def prepare_create(
         or success=False with error details.
     """
     # Validate title
-    err = validate_title(title)
+    err = validate_title(title, project=project)
     if err:
         return CreateResult(success=False, error=err, error_code="VALIDATION_ERROR")
 

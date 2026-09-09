@@ -12,9 +12,10 @@ import sys
 # Ensure the repo root is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+from yoke_contracts.title_policy import title_max_length
+
 from yoke_core.domain.mutations import (
     SUPPORTED_UPDATE_FIELDS,
-    TITLE_MAX_LENGTH,
     VALID_PRIORITIES,
     GateContext,
     ItemState,
@@ -68,12 +69,12 @@ class TestValidateTitle:
         assert validate_title("   ") is not None
 
     def test_max_length_title(self):
-        assert validate_title("x" * TITLE_MAX_LENGTH) is None
+        assert validate_title("x" * title_max_length()) is None
 
     def test_over_max_length_title(self):
-        err = validate_title("x" * (TITLE_MAX_LENGTH + 1))
+        err = validate_title("x" * (title_max_length() + 1))
         assert err is not None
-        assert str(TITLE_MAX_LENGTH) in err
+        assert str(title_max_length()) in err
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +146,7 @@ class TestPrepareCreate:
 
     def test_invalid_title_too_long(self):
         result = prepare_create(
-            title="x" * (TITLE_MAX_LENGTH + 1),
+            title="x" * (title_max_length() + 1),
             workflow=builtin_workflow_runtime("issue"),
         )
         assert result.success is False
@@ -314,7 +315,7 @@ class TestPrepareUpdateBasic:
         result = prepare_update(
             item=item,
             field_name="title",
-            value="x" * (TITLE_MAX_LENGTH + 1),
+            value="x" * (title_max_length() + 1),
         )
         assert result.success is False
 

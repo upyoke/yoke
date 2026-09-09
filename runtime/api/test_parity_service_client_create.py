@@ -9,6 +9,8 @@ import pytest
 from runtime.api.test_parity import _run_service_client
 from runtime.api.parity_service_client_test_helpers import make_write_parity_env
 
+from yoke_contracts.title_policy import title_max_length
+
 
 @pytest.fixture()
 def write_parity_env():
@@ -67,10 +69,10 @@ class TestCreateParity:
         assert cli_data["field_writes"]["workflow_id"] == "dash"
 
     def test_create_invalid_title_rejected_both(self, write_parity_env):
-        """Both surfaces should reject a title exceeding 100 characters."""
+        """Both surfaces should reject a title past the project limit."""
         client = write_parity_env["client"]
         db_path = write_parity_env["db_path"]
-        long_title = "X" * 101
+        long_title = "X" * (title_max_length() + 1)
 
         # API
         api_resp = client.post("/v1/items", json={
@@ -89,7 +91,7 @@ class TestCreateParity:
         assert cli_result.returncode == 1
         cli_data = json.loads(cli_result.stdout)
         assert cli_data["success"] is False
-        assert "100" in cli_data["error"]
+        assert str(title_max_length()) in cli_data["error"]
 
     def test_create_invalid_workflow_rejected_both(self, write_parity_env):
         """Both surfaces should reject an unknown workflow."""

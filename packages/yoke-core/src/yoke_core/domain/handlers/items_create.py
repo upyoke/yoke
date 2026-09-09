@@ -49,7 +49,13 @@ class ItemCreateRequest(BaseModel):
     Mirrors :func:`backlog_create_op.execute_create`'s arguments.
     """
 
-    title: str = Field(..., description="Item title (<=100 chars).")
+    title: str = Field(
+        ...,
+        description=(
+            "Item title; length is capped by the target project's title "
+            "policy, served by workflows.definition.get."
+        ),
+    )
     workflow: str = Field(
         ...,
         description="Workflow id selected from the active workflow registry.",

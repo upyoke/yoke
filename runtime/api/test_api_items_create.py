@@ -11,6 +11,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+from yoke_contracts.title_policy import title_max_length
+
 from runtime.api.api_items_test_helpers import (
     make_client_fixture,
     make_test_db_fixture,
@@ -94,20 +96,20 @@ class TestCreateItem:
         assert resp.status_code == 422
         assert "workflow" in json.dumps(resp.json()).lower()
 
-    def test_create_item_title_too_long(self, client):
-        """Title limit is 100 characters (matches TITLE_MAX_LENGTH)."""
+    def test_create_item_title_over_project_limit(self, client):
+        """One past the project's effective limit is refused."""
         resp = client.post("/v1/items", json={
-            "title": "x" * 101,
+            "title": "x" * (title_max_length() + 1),
             "workflow": "dash",
         })
         assert resp.status_code == 422
         data = resp.json()
         assert data["error"]["code"] == "VALIDATION_ERROR"
 
-    def test_create_item_title_at_limit(self, client, test_db):
-        """Title at exactly 100 characters should succeed."""
+    def test_create_item_title_at_project_limit(self, client, test_db):
+        """Exactly the project's effective limit is accepted."""
         resp = client.post("/v1/items", json={
-            "title": "x" * 100,
+            "title": "x" * title_max_length(),
             "workflow": "dash",
         })
         assert resp.status_code == 201

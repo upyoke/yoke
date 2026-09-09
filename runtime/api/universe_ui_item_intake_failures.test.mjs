@@ -46,7 +46,10 @@ function intakeClient({
       if (request.function === "workflows.definition.get") {
         return definitionFailure || {
           status: 200,
-          envelope: { success: true, result: { workflows } },
+          envelope: {
+            success: true,
+            result: { workflows, title_max_length: 100 },
+          },
         };
       }
       if (request.function === "qa.plan.list") {

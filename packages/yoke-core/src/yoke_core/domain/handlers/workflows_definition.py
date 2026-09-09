@@ -22,6 +22,7 @@ class WorkflowsDefinitionGetResponse(BaseModel):
     workflows: List[Dict[str, Any]]
     gate_catalog: List[Dict[str, Any]]
     flows: List[Dict[str, Any]]
+    title_max_length: int
 
 
 def _error(
