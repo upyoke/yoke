@@ -108,7 +108,7 @@ def presentation_facts(
             if str(row.get("actor_id") or "").isdigit()
         }
     )
-    actor_labels: Dict[int, str] = {}
+    actor_names: Dict[int, str] = {}
     if actor_ids:
         markers = ", ".join("%s" for _ in actor_ids)
         actors = conn.execute(
@@ -117,8 +117,8 @@ def presentation_facts(
             f"FROM actors a WHERE a.id IN ({markers})",
             tuple(actor_ids),
         ).fetchall()
-        actor_labels = {int(actor["id"]): str(actor["label"]) for actor in actors}
-    return item_facts, actor_labels
+        actor_names = {int(actor["id"]): str(actor["label"]) for actor in actors}
+    return item_facts, actor_names
 
 
 def encode_cursor(created_at: str, event_id: int) -> str:
@@ -227,8 +227,8 @@ def read_event_history(
     ]
     has_more = len(rows) > limit
     page = rows[:limit]
-    item_facts, actor_labels = presentation_facts(conn, page)
-    compact = [_compact(present_event(row, item_facts, actor_labels)) for row in page]
+    item_facts, actor_names = presentation_facts(conn, page)
+    compact = [_compact(present_event(row, item_facts, actor_names)) for row in page]
     next_cursor = None
     if has_more and page:
         last = page[-1]

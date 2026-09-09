@@ -20,6 +20,8 @@ id it operates its universe as, and reads it back by id.
 
 from __future__ import annotations
 
+from yoke_core.domain.agents_render_conditional import RENDERED_AGENT_DIRS
+
 _RETIRED_LABEL_TABLE = r"\bactor" + r"_labels\b"
 _RETIRED_LABEL_SURFACE_CONSTANT = (
     r"\b(DISPLAY" + r"_LABEL_SURFACE|GITHUB" + r"_LABEL_SURFACE"
@@ -90,13 +92,16 @@ ACTOR_NAME_RETIREMENT_LABELS: dict[str, str] = {
 #: Surfaces whose subject IS this retirement: the history entry that drops
 #: the projection and its test, the decision record explaining why, and the
 #: agent packet, which cannot warn the next agent off a retired spelling
-#: without writing that spelling down.
+#: without writing that spelling down. Every rendered harness adapter
+#: mirrors that packet body verbatim, so the exemption follows the
+#: renderer's own directory registry rather than a hand-kept list —
+#: onboarding a harness must not turn this check red.
 _RETIREMENT_SUBJECT_PATHS: tuple[str, ...] = (
     "packages/yoke-core/src/yoke_core/domain/migrations/",
     "runtime/api/domain/test_migration_actor_name_replaces_labels.py",
     "packages/yoke-core/src/yoke_core/domain/schema_api_context_tables_actors.py",
     "docs/archive/decisions/actor-name-is-not-an-identity.md",
-)
+) + tuple(f"{directory.as_posix()}/" for directory in RENDERED_AGENT_DIRS)
 
 ACTOR_NAME_RETIREMENT_ALLOWLIST: dict[str, tuple[str, ...]] = {
     pattern: _RETIREMENT_SUBJECT_PATHS

@@ -236,10 +236,10 @@ def _select_rows(where: str, params: List[Any], limit: int) -> List[Dict[str, An
             }
             for row in raw_rows
         ]
-        item_facts, actor_labels = presentation_facts(conn, rows)
+        item_facts, actor_names = presentation_facts(conn, rows)
     finally:
         conn.close()
-    return [present_event(row, item_facts, actor_labels) for row in rows]
+    return [present_event(row, item_facts, actor_names) for row in rows]
 
 
 def handle_events_query(request: FunctionCallRequest) -> HandlerOutcome:
