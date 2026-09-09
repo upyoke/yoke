@@ -162,12 +162,8 @@ def test_ended_existing_row_accepts_repeated_carried_total_without_revival():
     )
     conn.execute("INSERT INTO work_claims VALUES (?, ?)", ("s-ended", "released"))
     carried = _measured()
-    observed_session = (
-        "s-ended",
-        json.dumps({"session_id": "s-ended", "usage_totals": carried}),
-        "codex",
-        True,
-    )
+    payload = json.dumps({"session_id": "s-ended", "usage_totals": carried})
+    observed_session = ("s-ended", payload, "codex", True)
 
     for _ in range(2):
         hook_registration_tail.apply_hook_session_tail(
@@ -196,10 +192,7 @@ def test_missing_row_is_not_inserted_by_usage_observation():
         conn,
         ensure_session=None,
         observed_session=(
-            "missing",
-            json.dumps({"usage_totals": _measured()}),
-            "claude",
-            True,
+            "missing", json.dumps({"usage_totals": _measured()}), "claude", True
         ),
     )
     assert conn.execute("SELECT * FROM harness_sessions").fetchall() == []
@@ -228,10 +221,7 @@ def test_telemetry_failure_does_not_lose_carried_usage(monkeypatch):
     telemetry.flush_hook_telemetry(
         [("dispatch", {})],
         observed_session=(
-            "s-relay",
-            json.dumps({"usage_totals": carried}),
-            "codex",
-            False,
+            "s-relay", json.dumps({"usage_totals": carried}), "codex", False
         ),
     )
 
