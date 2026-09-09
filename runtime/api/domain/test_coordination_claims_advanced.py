@@ -14,11 +14,15 @@ from yoke_core.domain.coordination_claims_listing import (
     stale_claim_candidates,
 )
 from runtime.api.domain.coordination_claim_test_support import (
+    GRANT_KEY,
+    MACHINE,
     MODEL,
     PROJECT_OTHER,
     PROJECT_YOKE,
+    deploy_target,
     migration_target,
     qa_target,
+    qualification_target,
     seed_project,
     seed_session,
 )
@@ -128,20 +132,39 @@ class TestListing:
             )
             project = list_claims(conn, project_id="yoke")
             assert {row.session_id for row in project} == {"sess-1"}
+            assert list_claims(conn, project_id=PROJECT_YOKE) == project
             session = list_claims(conn, session_id="sess-other")
             assert {row.project_id for row in session} == {PROJECT_OTHER}
         finally:
             conn.close()
 
-    def test_list_filters_by_key_and_owning_item(self, db_path: str) -> None:
+    def test_list_filters_by_every_registered_key_kind(self, db_path: str) -> None:
         conn = _connect(db_path)
         try:
-            coordination_claims.acquire(conn, migration_target(7), "sess-1")
-            coordination_claims.acquire(conn, qa_target(), "sess-2")
-            by_key = list_claims(conn, key=f"LIVE_DB_MIGRATION:{MODEL}")
-            assert {row.key for row in by_key} == {f"LIVE_DB_MIGRATION:{MODEL}"}
+            targets = (
+                (migration_target(7), "sess-1", f"LIVE_DB_MIGRATION:{MODEL}"),
+                (qa_target(), "sess-2", f"QA_HOST:{MACHINE}"),
+                (
+                    qualification_target(),
+                    "sess-a",
+                    f"FLEET_PRIVATE_ROUTE_QUALIFICATION:v1:{GRANT_KEY}",
+                ),
+                (deploy_target(), "sess-b", "DEPLOY:yoke"),
+            )
+            for target, session_id, key in targets:
+                coordination_claims.acquire(conn, target, session_id)
+                assert [row.key for row in list_claims(conn, key=key)] == [key]
+
             by_item = list_claims(conn, owner_item_id=7)
             assert {row.owner_item_id for row in by_item} == {7}
+        finally:
+            conn.close()
+
+    def test_list_returns_empty_for_absent_keys(self, db_path: str) -> None:
+        conn = _connect(db_path)
+        try:
+            assert list_claims(conn, key="QA_HOST:absent") == []
+            assert list_claims(conn, key="NOT_REGISTERED:anything") == []
         finally:
             conn.close()
 
