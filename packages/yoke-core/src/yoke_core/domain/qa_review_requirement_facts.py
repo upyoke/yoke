@@ -116,4 +116,28 @@ def review_subject(requirement: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-__all__ = ["requirement_facts", "review_subject"]
+def is_agent_verdict(conn: Any, requirement_id: int, performed_by: Any) -> bool:
+    """Return whether this run's verdict is one a person is owed a review of.
+
+    The discriminator is the requirement's own ``verdict_path``, not the
+    string in ``performed_by``. A Browser or Terminal inspection is judged by
+    an agent and refuses ``performed_by='agent'`` outright — its runs are
+    recorded under the substrate that captured them — so keying on that
+    string meant an undetermined inspection verdict raised no review request
+    and reached nobody, while the method's own contract promised the item
+    would halt for owner or operator review.
+    """
+    if str(performed_by or "") == "agent":
+        return True
+    p = _p(conn)
+    row = conn.execute(
+        f"SELECT verdict_path FROM qa_requirements WHERE id = {p}",
+        (int(requirement_id),),
+    ).fetchone()
+    if row is None:
+        return False
+    verdict_path = row["verdict_path"] if hasattr(row, "keys") else row[0]
+    return str(verdict_path or "") == "agent"
+
+
+__all__ = ["is_agent_verdict", "requirement_facts", "review_subject"]

@@ -46,6 +46,20 @@ test("a deployment approval names the items it releases, not just the run", asyn
   assert.ok(body.includes("YOK-2712"), body);
   assert.ok(body.includes("YOK-2707"), body);
   assert.ok(body.includes("release 0.1.1+launch.379"), body);
+  // An item ref inside the release list is an item ref: it links to the item
+  // exactly as the row's own does. A commit nobody filed work for has no
+  // home, so it stays plain text rather than pointing somewhere invented.
+  assert.deepEqual(
+    byClass(main, "gate-block-code")
+      .filter((node) => node.tagName === "A")
+      .map((node) => [node.textContent, node.href]),
+    [
+      ["YOK-2712", "#/items/2712?project=10"],
+      ["YOK-2707", "#/items/2707?project=10"],
+      ["YOK-2712", "#/items/2712?project=10"],
+      ["YOK-2707", "#/items/2707?project=10"],
+    ],
+  );
   // Membership and contents are different facts, so the items the pipeline
   // owns stay visible under their own heading rather than being conflated
   // with what ships.
@@ -66,6 +80,12 @@ test("an environment run reports what it carries, not its empty membership", asy
   // A commit nobody filed work for is still shipping, and is named as one.
   assert.ok(body.includes("9911aa22bb33"), body);
   assert.ok(body.includes("commit with no item reference"), body);
+  assert.deepEqual(
+    byClass(main, "gate-block-code")
+      .filter((node) => node.tagName === "A")
+      .map((node) => node.textContent),
+    ["YOK-2712"],
+  );
   assert.ok(!body.includes("0 changes"), body);
   assert.ok(!body.includes("Linked items"), body);
 });

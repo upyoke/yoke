@@ -12,13 +12,17 @@
 // only reads what the decision already recorded.
 
 import { el } from "./universe_view_support.js";
+import { itemDrillInHref } from "./universe_item_routes.js";
 import { block, MAX_LISTED, overflow, row } from "./gate_block_layout.js";
 
 // What the release actually contains, preferring the derived answer over run
 // membership. Membership is which items the pipeline OWNS; an environment run
 // owns none while shipping every change merged since the last release, so a
 // card built from membership alone reported an empty release that was not.
-export function releaseContents(facts) {
+export function releaseContents(facts, projectId = null) {
+  const itemHref = (ref) => (
+    ref ? itemDrillInHref({ projectId, publicRef: ref }) : null
+  );
   const carried = facts.carried;
   const derived = Array.isArray(carried?.items) ? carried.items : [];
   const bare = Array.isArray(carried?.commits) ? carried.commits : [];
@@ -31,10 +35,12 @@ export function releaseContents(facts) {
         ...derived.map((entry) => ({
           label: String(entry.ref || `item ${entry.item_id}`),
           detail: `${(entry.commit_shas || []).length} commit(s)`,
+          href: itemHref(entry.ref),
         })),
         ...bare.map((sha) => ({
           label: String(sha).slice(0, 12),
           detail: "commit with no item reference",
+          href: null,
         })),
       ],
       reason: "",
@@ -52,6 +58,7 @@ export function releaseContents(facts) {
       entries: items.map((item) => ({
         label: String(item.item_ref || `item ${item.item_id}`),
         detail: String(item.title || ""),
+        href: itemHref(item.item_ref),
       })),
       reason: "",
       recovery: "",
@@ -67,9 +74,9 @@ export function releaseContents(facts) {
   };
 }
 
-export function appendDeploymentBody(context, host, facts) {
+export function appendDeploymentBody(context, host, facts, projectId = null) {
   const documentNode = context.document;
-  const contents = releaseContents(facts);
+  const contents = releaseContents(facts, projectId);
   const release = block(
     documentNode,
     host,
@@ -79,7 +86,7 @@ export function appendDeploymentBody(context, host, facts) {
     }`,
   );
   for (const entry of contents.entries.slice(0, MAX_LISTED)) {
-    row(documentNode, release, entry.label, entry.detail);
+    row(documentNode, release, entry.label, entry.detail, entry.href);
   }
   overflow(documentNode, release, contents.entries.length, `${contents.noun}s`);
   if (contents.source === "unavailable") {
@@ -103,6 +110,9 @@ export function appendDeploymentBody(context, host, facts) {
   }
   // Membership stays visible beside the contents when both exist: it is who
   // the pipeline will move to done, which is a different fact from what ships.
+  const itemHref = (ref) => (
+    ref ? itemDrillInHref({ projectId, publicRef: ref }) : null
+  );
   const linked = Array.isArray(facts.batch?.items) ? facts.batch.items : [];
   if (contents.source === "derived" && linked.length) {
     const owned = block(
@@ -114,6 +124,7 @@ export function appendDeploymentBody(context, host, facts) {
         owned,
         String(item.item_ref || `item ${item.item_id}`),
         String(item.title || ""),
+        itemHref(item.item_ref),
       );
     }
     overflow(documentNode, owned, linked.length, "items");

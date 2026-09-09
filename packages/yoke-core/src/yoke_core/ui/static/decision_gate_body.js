@@ -282,7 +282,7 @@ export function appendGateBody(context, wrap, row_) {
     what.appendChild(el(documentNode, "span", "gate-what-copy", prose));
     host.appendChild(what);
   }
-  if (builder) builder(context, host, row_.subject_context || {});
+  if (builder) builder(context, host, row_.subject_context || {}, row_.project_id);
   wrap.appendChild(host);
   return host;
 }

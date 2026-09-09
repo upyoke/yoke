@@ -17,9 +17,19 @@ export function block(documentNode, parent, className, heading) {
   return node;
 }
 
-export function row(documentNode, parent, code, copy) {
+// An identifier with a home is a link to it; one without stays plain text.
+// The rule is the same everywhere on these cards: prose is selectable, and
+// only the identifiers navigate.
+export function row(documentNode, parent, code, copy, href = null) {
   const line = el(documentNode, "div", "gate-block-row");
-  line.appendChild(el(documentNode, "code", "gate-block-code", code));
+  const label = el(
+    documentNode,
+    href ? "a" : "code",
+    "gate-block-code",
+    code,
+  );
+  if (href) label.href = href;
+  line.appendChild(label);
   if (copy) line.appendChild(el(documentNode, "span", "gate-block-copy", copy));
   parent.appendChild(line);
   return line;

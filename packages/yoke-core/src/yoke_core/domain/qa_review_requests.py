@@ -16,6 +16,7 @@ from yoke_core.domain.decision_requests import (
 )
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_review_requirement_facts import (
+    is_agent_verdict,
     requirement_facts,
     review_subject,
 )
@@ -110,7 +111,9 @@ def requirement_awaits_human_review(
     performed_by = latest["performed_by"] if hasattr(latest, "keys") else latest[0]
     verdict = latest["verdict"] if hasattr(latest, "keys") else latest[1]
     verdict_reason = latest["verdict_reason"] if hasattr(latest, "keys") else latest[2]
-    if str(performed_by or "") != "agent" or str(verdict or "") != "undetermined":
+    if str(verdict or "") != "undetermined" or not is_agent_verdict(
+        conn, int(requirement_id), performed_by
+    ):
         return None
     request = next(
         (
@@ -253,7 +256,7 @@ def maybe_ensure_qa_review_request(
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
 ) -> Optional[dict[str, Any]]:
-    """Produce human work only for an agent's undetermined verdict."""
+    """Produce human work only for an agent-judged undetermined verdict."""
     if verdict != "undetermined":
         return None
     p = _p(conn)
@@ -268,7 +271,7 @@ def maybe_ensure_qa_review_request(
         if run is not None
         else None
     )
-    if str(performed_by or "") != "agent":
+    if not is_agent_verdict(conn, int(requirement_id), performed_by):
         return None
     request, _ = ensure_qa_review_request(
         conn,
