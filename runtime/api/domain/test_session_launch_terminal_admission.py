@@ -246,14 +246,9 @@ def test_changed_instructions_same_key_conflicts(monkeypatch, compose_mandate):
     assert _write_counts(conn)[0] == 1
 
 
-@pytest.mark.parametrize("compose_mandate", [True, False])
-def test_changed_instructions_still_conflict_after_item_is_terminal(
-    monkeypatch, compose_mandate
-):
+def test_changed_raw_body_same_key_conflicts_after_item_is_terminal(monkeypatch):
     conn, item = _create_conn(monkeypatch, status="idea")
-    payload = _create_payload(
-        item, compose_mandate=compose_mandate, key=f"chg-term-{compose_mandate}"
-    )
+    payload = _create_payload(item, compose_mandate=False, key="chg-term-raw")
     first = handlers.handle_launch_create(_request(payload))
     assert first.primary_success is True, first.error
     conn.execute("UPDATE items SET status='cancelled' WHERE id=41")
@@ -266,14 +261,9 @@ def test_changed_instructions_still_conflict_after_item_is_terminal(
     assert _write_counts(conn)[0] == 1
 
 
-@pytest.mark.parametrize("compose_mandate", [True, False])
-def test_same_request_replay_survives_item_becoming_terminal(
-    monkeypatch, compose_mandate
-):
+def test_raw_same_request_replay_survives_item_becoming_terminal(monkeypatch):
     conn, item = _create_conn(monkeypatch, status="idea")
-    payload = _create_payload(
-        item, compose_mandate=compose_mandate, key=f"replay-term-{compose_mandate}"
-    )
+    payload = _create_payload(item, compose_mandate=False, key="replay-term-raw")
     first = handlers.handle_launch_create(_request(payload))
     assert first.primary_success is True, first.error
     conn.execute("UPDATE items SET status='cancelled' WHERE id=41")
@@ -285,6 +275,20 @@ def test_same_request_replay_survives_item_becoming_terminal(
         second.result_payload["launch"]["launch_id"]
         == first.result_payload["launch"]["launch_id"]
     )
+    assert _write_counts(conn)[0] == 1
+
+
+def test_composed_replay_still_refuses_after_item_is_terminal(monkeypatch):
+    conn, item = _create_conn(monkeypatch, status="idea")
+    payload = _create_payload(item, compose_mandate=True, key="replay-term-composed")
+    first = handlers.handle_launch_create(_request(payload))
+    assert first.primary_success is True, first.error
+    conn.execute("UPDATE items SET status='cancelled' WHERE id=41")
+    conn.commit()
+    second = handlers.handle_launch_create(_request(payload))
+    assert second.primary_success is False
+    assert second.error is not None
+    assert second.error.code == "assignment_item_terminal"
     assert _write_counts(conn)[0] == 1
 
 
