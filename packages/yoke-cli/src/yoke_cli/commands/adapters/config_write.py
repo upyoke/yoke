@@ -147,10 +147,16 @@ def auth_set(args: List[str]) -> int:
 
 
 def project_register(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(prog="yoke project register")
+    parser = argparse.ArgumentParser(
+        prog="yoke project register", description=(
+            "Map a checkout to a project id for ONE connection env. Project\n"
+            "ids are per universe, so the row is recorded against the\n"
+            "selected env (--env / YOKE_ENV / active_env) and resolves\n"
+            "under no other; register once per env, other rows intact."
+        ),
+    )
     parser.add_argument("repo_root")
-    parser.add_argument("--project-id", dest="project_id", type=int,
-                        required=True)
+    parser.add_argument("--project-id", dest="project_id", type=int, required=True)
     parser.add_argument("--board-scope", dest="board_scope", default=None)
     parser.add_argument("--board-render-path", dest="board_render_path",
                         default=None)

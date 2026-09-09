@@ -17,6 +17,9 @@ from yoke_core.domain.session_broker_wake_settlement import (
 )
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_types import RelayHeartbeat
+from yoke_contracts.session_control.function_ids import (
+    RELAY_LIVENESS_FUNCTION_ID,
+)
 from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
 from yoke_harness import session_relay
 from yoke_harness import session_relay_claude as claude_module
@@ -129,6 +132,14 @@ def test_exact_broker_lease_spawns_claude_and_reports_running(
                 now_provider=lambda: _stamp(seconds=3),
             )
             return SimpleNamespace(success=True, result=claimed.to_dict())
+        # A poll delivers liveness batches before it claims, and those carry
+        # no job identity. Route on the function id so an unrecognised call
+        # names itself instead of arriving in the job-report branch.
+        if kwargs["function_id"] == RELAY_LIVENESS_FUNCTION_ID:
+            return SimpleNamespace(success=True, result={"accepted": 0})
+        assert kwargs["function_id"] == session_relay.RELAY_REPORT_FUNCTION_ID, (
+            f"unexpected relay dispatch: {kwargs['function_id']}"
+        )
         reports.append(payload)
         result = report_relay_job(
             conn,

@@ -42,6 +42,9 @@ if _tree_binding.refusal is not None:
     print(_tree_binding.refusal, file=sys.stderr)
     raise SystemExit(_binding.TREE_BINDING_REFUSED_EXIT_STATUS)
 
+from runtime.harness.launch_supervision_isolation import (  # noqa: E402,F401
+    _isolate_launch_supervision_custody,
+)
 from yoke_core.tools import build_release  # noqa: E402
 from yoke_core.tools import launchctl_boundary  # noqa: E402
 

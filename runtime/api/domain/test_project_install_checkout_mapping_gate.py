@@ -84,9 +84,13 @@ def test_other_env_only_mapping_refuses_explicit_project_id(
     monkeypatch.setattr(project_install, "_resolve_bundle", _bundle_unreachable)
     before = _tree_bytes(repo)
 
-    with pytest.raises(ProjectInstallError, match="mapped only for another env"):
+    with pytest.raises(ProjectInstallError) as refusal:
         project_install.install(repo, project_id=3, config_path=cfg)
 
+    message = str(refusal.value)
+    assert "refusing install/refresh on the selected env" in message
+    assert "project 3 on env prod" in message
+    assert "the selected env is stage" in message
     assert _tree_bytes(repo) == before
     assert machine_config.project_id(repo, cfg) is None
 

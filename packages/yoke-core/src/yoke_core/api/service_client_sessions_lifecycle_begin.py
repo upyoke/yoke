@@ -164,9 +164,16 @@ def cmd_session_begin(args: list[str]) -> int:
 
     resolved_project_id = _project_id_from_args(parsed.project_id, parsed.workspace)
     if resolved_project_id is None:
+        from yoke_contracts.machine_config.checkout_env_mismatch import (
+            with_mismatch_note,
+        )
+
         print(
-            "Session registration requires a project id. Run Yoke setup for "
-            "this checkout or pass --project-id.",
+            with_mismatch_note(
+                "Session registration requires a project id. Run Yoke setup "
+                "for this checkout or pass --project-id.",
+                parsed.workspace,
+            ),
             file=sys.stderr,
         )
         return 2

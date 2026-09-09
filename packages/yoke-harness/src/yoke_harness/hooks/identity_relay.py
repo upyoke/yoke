@@ -122,7 +122,7 @@ def client_entrypoint(executor: str, payload: dict[str, Any]) -> Optional[str]:
         return None
 
 
-def _workspace_path_candidates(payload: dict[str, Any]) -> list[str]:
+def workspace_path_candidates(payload: dict[str, Any]) -> list[str]:
     """Ordered workspace paths a hook payload may carry.
 
     ``workspace_roots`` (a list of absolute paths, first entry = the
@@ -144,7 +144,7 @@ def _workspace_path_candidates(payload: dict[str, Any]) -> list[str]:
 
 
 def client_project_id(payload: dict[str, Any]) -> Optional[int]:
-    for value in _workspace_path_candidates(payload):
+    for value in workspace_path_candidates(payload):
         try:
             resolved = machine_config.project_id(Path(value))
         except Exception:
@@ -233,5 +233,6 @@ __all__ = [
     "resolve_model_facts",
     "client_native_thread_id",
     "client_project_id",
+    "workspace_path_candidates",
     "relay_identity_payload",
 ]

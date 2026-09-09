@@ -17,6 +17,7 @@ from yoke_cli.commands.session_begin_corroboration import (
     uncorroborated_reason,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.machine_config.checkout_env_mismatch import with_mismatch_note
 
 
 SESSIONS_TOUCH_USAGE = (
@@ -215,10 +216,11 @@ def sessions_begin(args: List[str]) -> int:
         return usage_error(refusal)
     project_id = _resolve_begin_project_id(parsed.project, parsed.workspace)
     if project_id is None:
-        return usage_error(
+        return usage_error(with_mismatch_note(
             "Session registration requires a project id. Run Yoke setup for "
-            "this checkout or pass --project."
-        )
+            "this checkout or pass --project.",
+            parsed.workspace,
+        ))
     payload: Dict[str, Any] = {
         "executor": parsed.executor,
         "provider": parsed.provider,
