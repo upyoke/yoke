@@ -19,12 +19,12 @@ from pathlib import Path
 from yoke_harness import session_launch_containment as custody
 from yoke_harness import session_relay_termination
 
-from runtime.harness.launch_supervision_isolation import REAL_MACHINE_CACHE
+from yoke_cli.config import machine_config
 
 
 def test_the_default_custody_directory_is_not_the_real_machine_cache() -> None:
     """Nothing a poll reads by default can be the machine's live custody."""
-    assert not custody._directory().is_relative_to(REAL_MACHINE_CACHE)
+    assert not custody._directory().is_relative_to(machine_config.cache_dir())
 
 
 def test_every_custody_resolver_still_agrees_on_one_directory() -> None:

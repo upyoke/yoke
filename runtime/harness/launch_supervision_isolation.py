@@ -13,14 +13,22 @@ holds a record, which reads as flakiness rather than as the ambient
 dependency it is. The delete is worse, because it spends real state a test
 never created.
 
-The redirect is applied at ``cache_dir`` — the one root every custody
-resolver bottoms out at — and deliberately NOT at any single resolver
-derived from it. Several modules compose that root independently
-(containment, relay termination, launch handoff, launch handles), so moving
-one of them alone points the writer and the reader at different directories,
-which is the very split ``test_launch_handle_directory`` exists to catch.
-An explicit ``state_dir`` still wins, and a test that pins ``cache_dir``
-itself overrides this fixture the moment it does.
+Scope is the custody resolvers themselves, not ``cache_dir``. Several
+modules compose the machine root independently, so moving only one points
+the writer and the reader at different directories — the split
+``test_launch_handle_directory`` exists to catch — while moving ``cache_dir``
+reaches every unrelated consumer of it, which is far more of the suite than
+a custody concern should touch. Patching this enumerated set keeps those
+resolvers agreeing with each other and with nothing else.
+
+Three behaviours are preserved exactly:
+
+* an explicit ``state_dir`` resolves as production does;
+* a test that pins ``cache_dir`` itself keeps the directory it chose, since
+  the fallback re-reads the resolver and only substitutes while it still
+  names the real machine cache;
+* the isolated root lives outside the test's own ``tmp_path``, so a test
+  asserting on its temp directory's contents does not see it.
 """
 
 from __future__ import annotations
@@ -31,16 +39,36 @@ import pytest
 
 from yoke_cli.config import machine_config
 
-#: The machine's own cache, read once before any test can redirect it, so a
-#: test can still prove the isolated root is not the real one.
-REAL_MACHINE_CACHE: Path = machine_config.cache_dir()
-
 
 @pytest.fixture(autouse=True)
-def _isolate_launch_supervision_custody(tmp_path, monkeypatch: pytest.MonkeyPatch):
-    isolated = tmp_path / "machine-cache"
-    isolated.mkdir(mode=0o700, parents=True, exist_ok=True)
-    monkeypatch.setattr(machine_config, "cache_dir", lambda: isolated)
+def _isolate_launch_supervision_custody(tmp_path_factory, monkeypatch: pytest.MonkeyPatch):
+    from yoke_harness import session_launch_containment as containment
+    from yoke_harness import session_launch_handoff as handoff
+    from yoke_harness import session_relay_termination as termination
+
+    real_machine_cache = machine_config.cache_dir()
+    isolated = tmp_path_factory.mktemp("launch-custody")
+
+    def root(state_dir: Path | None) -> Path:
+        if state_dir is not None:
+            return state_dir
+        selected = machine_config.cache_dir()
+        return isolated if selected == real_machine_cache else selected
+
+    containment_directory = containment._directory
+    handoff_directory = handoff._directory
+
+    monkeypatch.setattr(
+        containment, "_directory",
+        lambda state_dir=None: containment_directory(root(state_dir)),
+    )
+    monkeypatch.setattr(
+        handoff, "_directory",
+        lambda state_dir=None: handoff_directory(root(state_dir)),
+    )
+    monkeypatch.setattr(
+        termination, "local_state_root", lambda state_dir=None: root(state_dir),
+    )
 
 
-__all__ = ["REAL_MACHINE_CACHE", "_isolate_launch_supervision_custody"]
+__all__ = ["_isolate_launch_supervision_custody"]
