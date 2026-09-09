@@ -101,7 +101,9 @@ For each `(project, flow)` group:
 
 ### 8c1-8c7: Compose the run
 
-Lead with the composed surface `runs start-for-item`, which folds resolve-target, create-run, add-item, and validate-composition into a single invocation:
+Lead with the composed `deployment_runs.start_for_item` surface for the first
+item; it folds resolve-target, create-run, enrollment, and composition
+validation into a single invocation:
 
 ```bash
 yoke --env {control-plane}-db-admin deployment-runs start-for-item {item-id} \
@@ -113,13 +115,27 @@ Create and start-for-item require the owner-only local-postgres connection
 (not the HTTPS product plane) so run rows stay writable when that plane is
 the deploy target. Use the same `*-db-admin` env that execute will use.
 
+For every remaining item in the `(project, flow)` group, attach its public
+reference through the guarded membership command, then validate the complete
+batch before execution:
+
+```bash
+yoke --env {control-plane}-db-admin deployment-runs add-item {run-id} PREFIX-N
+yoke --env {control-plane}-db-admin deployment-runs validate-composition {run-id}
+```
+
+Both commands require the same project deploy lock. Enrollment resolves the
+public item reference through the registered item target and refuses a run
+that has left `created`, a different project, or an incompatible workflow
+binding. Composition refusal halts the batch; do not execute a partial run.
+
 Multiple resolvable environments → `AskUserQuestion` for selection, then re-run with `--environment`. Validation failure → halt.
 
 Preview-flow side decisions wrap the composed call (these are not folded into `start-for-item`):
 
-- **Before** `start-for-item`: check occupancy via `runs check-preview-occupancy {project} {environment}`; if occupied, `AskUserQuestion` (overwrite / new name / abort). For a new lineage, `runs lineage-create` first and pass the result as `--release-lineage`.
-- **Resume an existing run** instead of starting a new one when `runs find-by-item {first-item-id} --status executing` returns a row — skip to 8c8.
-- **After** `start-for-item`: `runs claim-preview {run-id} {project} {environment}` to attach the preview to the run.
+- **Before** `start-for-item`: use the registered preview-occupancy operation; if occupied, `AskUserQuestion` (overwrite / new name / abort). For a new lineage, use the registered lineage-create operation and pass the result as `--release-lineage`.
+- **Resume an existing run** instead of starting a new one when `yoke deployment-runs find-by-item {first-item-id} --status executing` returns a row — skip to 8c8.
+- **After** `start-for-item`: use the registered preview-claim operation to attach the preview to the run.
 
 The target resolver is `yoke deployment-runs resolve-target`; prefer the registered composed call for item-bound delivery.
 

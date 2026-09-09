@@ -257,8 +257,16 @@ Pin one source SHA and use that same SHA for stage and production:
 
 ```text
 yoke --env <cp>-db-admin deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA}
+yoke --env <cp>-db-admin deployment-runs add-item {RUN_ID} PREFIX-N
+yoke --env <cp>-db-admin deployment-runs validate-composition {RUN_ID}
 yoke --env <cp>-db-admin watch deploy -- {RUN_ID}
 ```
+
+Repeat `add-item` once for every item in the batch, using its public reference.
+Do not start execution unless `validate-composition` accepts the complete
+membership. These commands preserve the same deploy lock and refuse items from
+another project, incompatible flow bindings, or enrollment after the run has
+left `created`.
 
 Retry from the recorded run instead of silently creating unrelated lineage:
 

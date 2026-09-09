@@ -126,7 +126,7 @@ added_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" 
 PRIMARY KEY (run_id, item_id)
 ```
 
-Item-bound delivery starts from `/yoke usher PREFIX-N` or `runs start-for-item`, which creates the run and inserts membership rows.
+Item-bound delivery starts from `/yoke usher PREFIX-N` or `yoke deployment-runs start-for-item`, which creates the run and inserts membership rows.
 
 ### The deploy lock gates create and execute
 
