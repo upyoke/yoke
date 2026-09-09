@@ -274,16 +274,16 @@ this machine's own config declares a matching executor key —
 placeholder rows without reading client-local state.
 
 The lane is the one field the client usually has no opinion about.
-Routing policy normally lives in the project's `session-routing`
-capability, which only the control plane can read, so `client_lane`
-answers `None` on a local miss rather than shipping a placeholder. That
-placeholder would arrive as an *explicit* lane and outrank the project's
-own `executor_default_lanes` mapping, stamping a session with the
-unresolved sentinel — a value no `lane_paths` entry declares, which the
-offer gate then treats as an unknown lane and refuses to route work on.
-Defence in depth sits on the server too: `resolve_execution_lane` treats
-the sentinel like `default`, so even an older client's placeholder yields
-to routing policy.
+Routing policy lives in the project's `session-routing` capability — its
+selectors read the session's model as well as its harness — and only the
+control plane can read it, so `client_lane` answers `None` on a local miss
+rather than shipping a placeholder. That placeholder would arrive as an
+*explicit* lane and outrank the project's own routing, stamping a session
+with the unresolved sentinel, a value no allowlist declares, which the offer
+gate then treats as an unknown lane and refuses to route work on. Defence in
+depth sits on the server too: `resolve_execution_lane` treats the sentinel
+like `default`, so an older client's placeholder yields to policy. Precedence:
+[`public/reference/session-lane-routing.md`](public/reference/session-lane-routing.md).
 
 ## Session Reactivation and Work Claims
 

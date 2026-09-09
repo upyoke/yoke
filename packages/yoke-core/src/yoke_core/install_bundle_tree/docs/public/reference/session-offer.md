@@ -53,13 +53,28 @@ reach different offers.
 | `model` | string | Server-sourced | -- | Model identifier string (e.g., `claude-opus-4-7`), read from the session row as SessionStart recorded it, `[variant]` suffix preserved. |
 | `capabilities` | list[string] | Server-sourced | `[]` | Capability tags, read from the session row. Free-form strings; known values include `browser`, `shell`, `file_write`, `github`. |
 | `workspace` | string | Server-sourced | -- | Absolute path or identifier for the working directory/repo, read from the session row. |
-| `execution_lane` | string | Row default, operator-overridable | -- | Execution lane identity, defaulting to `harness_sessions.execution_lane`. The canonical lane tokens are `DARIUS` and `ALTMAN`; path eligibility is defined only by `lane_paths_<lane>` policy, not by scheduler output. Registration resolved the value from the project's DB-backed `session-routing` capability via `yoke_core.api.routing_config.RoutingConfig.default_lane_for_executor()`, which walks the chain: exact key (`executor_default_lane_claude_vscode`) -> wildcard key with the longest non-wildcard prefix (`executor_default_lane_claude*`) -> global `executor_default_lane_unknown` -> the unresolved sentinel. Machine config is only the no-project/operator fallback. A caller-supplied `--lane` / body `execution_lane` overrides the row and emits `SessionOfferLaneOverrideApplied` — that is a **deliberate operator re-route**. Autonomous loops send nothing: a locally resolved lane outranks the project mapping and filters the whole frontier. |
+| `execution_lane` | string | Row default, operator-overridable | -- | Execution lane identity, defaulting to `harness_sessions.execution_lane`. Lane identities are project-declared, not a fixed enum; path eligibility is defined only by that lane's allowlist, never by scheduler output. Registration resolved the value from the project's DB-backed `session-routing` capability via `yoke_core.api.routing_config.RoutingConfig.lane_for_session()` — see **Lane routing** below for the full precedence. Machine config is only the no-project/operator fallback. A caller-supplied `--lane` / body `execution_lane` overrides the row and emits `SessionOfferLaneOverrideApplied` — that is a **deliberate operator re-route**. Autonomous loops send nothing: a locally resolved lane outranks the project mapping and filters the whole frontier. |
 | `offered_at` | string (ISO 8601) | No | Current UTC time | Timestamp of when the offer was created. |
 | `supported_paths` | list[string] | No | `[]` | Canonical downstream path names this session can execute (e.g., `["advance", "shepherd"]`). The two Yoke-owned harness families today — Claude and Codex — no longer declare this field; Yoke core derives the effective list server-side from the shared Yoke registry plus any limitations in the coarse harness manifest. Surface-specific executor values normalize back to the family manifest (`codex-desktop` -> Codex manifest, `claude-vscode` -> Claude manifest), and registry-derived truth overrides any caller-supplied list. Manifest presence is the single axis of explicit limitation: both Yoke-owned families ship manifests, and their declared limitations are applied after registry-derived capabilities. See **Path Derivation Mapping** for details. |
 
+### Lane routing
+
+A project declares its lanes in the `session-routing` capability and
+decides which session lands on which one, through `lane_rules` selectors
+over harness and model and the `executor_default_lanes` harness default
+beneath them. Precedence, the rule document shape, when an edit takes
+effect, the read that composes the answer, and the terminal-safe glyph
+contract are all in
+[`session-lane-routing.md`](session-lane-routing.md).
+
 ### Path Derivation Mapping
 
-The decision engine derives the required downstream path from `scheduler_context.next_step`:
+The routable actions a lane may allow are exactly the actions something can
+dispatch a session onto. `yoke_core.domain.routable_actions` is that catalog
+— stable id, label, and description per action — and its membership is
+derived from the dispatch maps below plus the standing `steer` path, so a
+lane cannot allow an action nothing runs. The decision engine derives the
+required downstream path from `scheduler_context.next_step`:
 
 | `next_step` value | Required path |
 |-------------------|---------------|
@@ -80,7 +95,7 @@ Process-backed actions (`feed`, `strategize`, `doctor`) are first-class lane-pol
 | `FEED` | `feed` |
 | `DOCTOR` | `doctor` |
 
-`DOCTOR` is recognized as a vocabulary token even though the decision engine does not yet emit a `DOCTOR` `NextAction` — operators may pre-declare it in `lane_paths_*` so future autonomy lands without a config change.
+`DOCTOR` is recognized as a vocabulary token even though the decision engine does not yet emit a `DOCTOR` `NextAction` — operators may pre-declare it in `lane_paths_*` so future autonomy lands without a config change. `steer` is routable too: it is dispatched from a strategy document rather than from a work item, so neither map above carries it.
 
 ### Lane policy and `do_process_offer_*` compose as AND
 

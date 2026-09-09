@@ -5,8 +5,6 @@ session runs and whether an autonomous loop may dispatch a process at
 all are separate questions that happen to read the same two scopes.
 """
 
-from pathlib import Path
-
 from yoke_core.api.process_offer_policy import (
     ProcessOfferPolicy,
     load_process_offer_policy,

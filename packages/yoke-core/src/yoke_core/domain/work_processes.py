@@ -23,7 +23,7 @@ Process target semantics:
 
 from __future__ import annotations
 
-from typing import Dict, List, Mapping
+from typing import Dict, Mapping
 
 from yoke_contracts.work_processes import (
     PROCESS_DOCTOR,

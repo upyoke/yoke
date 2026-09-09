@@ -40,7 +40,7 @@ def _capture():
 class TestRecordDisabledProcessSkip:
     """Persist chain-skip + emit SchedulerOfferSkipped."""
 
-    def test_records_skip_when_charge_swap_payload_present(self, conn):
+    def test_records_skip_when_charge_swap_payload_present(self, conn):  # noqa: F811
         _register(conn, session_id="rec-charge")
         action = NextAction(
             action=ActionKind.CHARGE,
@@ -85,7 +85,7 @@ class TestRecordDisabledProcessSkip:
         assert ctx["recommended_action"] == "strategize"
         assert ctx["chain_step"] == 3
 
-    def test_records_skip_when_suppressed_wait_payload_present(self, conn):
+    def test_records_skip_when_suppressed_wait_payload_present(self, conn):  # noqa: F811
         _register(conn, session_id="rec-wait")
         action = NextAction(
             action=ActionKind.WAIT,
@@ -120,7 +120,7 @@ class TestRecordDisabledProcessSkip:
         assert memory[0]["process_key"] == "STRATEGIZE"
         assert memory[0]["skip_reason"] == "process_disabled_by_config"
 
-    def test_no_op_for_non_process_action(self, conn):
+    def test_no_op_for_non_process_action(self, conn):  # noqa: F811
         _register(conn, session_id="rec-noop")
         action = NextAction(
             action=ActionKind.CHARGE,
@@ -142,7 +142,7 @@ class TestRecordDisabledProcessSkip:
         assert read_chain_skip_memory(conn, "rec-noop") == []
         assert [c for c in captured if c["name"] == "SchedulerOfferSkipped"] == []
 
-    def test_no_op_when_action_lacks_process_payload(self, conn):
+    def test_no_op_when_action_lacks_process_payload(self, conn):  # noqa: F811
         _register(conn, session_id="rec-empty")
         action = NextAction(
             action=ActionKind.WAIT,
