@@ -36,19 +36,6 @@
   border-bottom: 0;
 }
 
-.universe-app-root .inbox-row[role="link"] {
-  cursor: pointer;
-}
-
-.universe-app-root .inbox-row[role="link"]:hover {
-  background: var(--yoke-hover);
-}
-
-.universe-app-root .inbox-row[role="link"]:focus-visible {
-  outline: 2px solid var(--yoke-accent);
-  outline-offset: -2px;
-}
-
 .universe-app-root .inbox-icon {
   display: grid;
   flex: 0 0 auto;
@@ -70,12 +57,6 @@
   color: var(--yoke-ink);
   font-size: 12.5px;
   font-weight: 500;
-  text-decoration: none;
-}
-
-.universe-app-root a.inbox-row-title:hover {
-  color: var(--yoke-accent);
-  text-decoration: underline;
 }
 
 .universe-app-root .inbox-row-subtitle {
@@ -277,6 +258,48 @@
 .universe-app-root .gate-evidence-warn {
   flex: 0 0 auto;
   color: var(--yoke-warn);
+}
+
+/* The row's identifiers, and the only navigation in it. The whole tile used
+   to be a link, so none of the decision's text could be selected — not an
+   item ref to paste into a command, not the reason an agent gave for not
+   deciding. */
+.universe-app-root .inbox-row-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 3px;
+}
+
+.universe-app-root .inbox-row-link {
+  color: var(--yoke-link);
+  font-family: var(--yoke-font-mono);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.universe-app-root .inbox-row-link:hover {
+  text-decoration: underline;
+}
+
+/* Why this ask exists and who else could end it, above what approving does.
+   A reader who cannot tell an item-specific approval from a workflow default
+   cannot tell whether answering is routine or unusual. */
+.universe-app-root .gate-why {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.universe-app-root .gate-why-copy {
+  margin: 0;
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.universe-app-root .gate-why-copy:first-of-type {
+  color: var(--yoke-ink);
 }
 
 @media (max-width: 720px) {

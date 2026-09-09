@@ -3,40 +3,29 @@ import { relativeTime } from "./universe_time.js";
 import {
   ACTION_LABELS,
   ACTION_RANK,
+  decisionLinks,
   decisionSubtitle,
   decisionTitle,
   KIND_PRESENTATION,
-  subjectHref,
   yourDecisionText,
 } from "./inbox_presentation.js";
 import { appendGateBody } from "./decision_gate_body.js";
 import { senderDescription } from "./universe_session_message_actors.js";
 
-function eventCameFromControl(event, row) {
-  let target = event.target;
-  while (target && target !== row) {
-    if (["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "TIME"].includes(
-      String(target.tagName || "").toUpperCase(),
-    )) return true;
-    target = target.parentNode;
+// The named destinations, and the only navigation in the row. The whole tile
+// used to be one link, so a reader could not select a word of the decision
+// they were being asked to make -- not the item ref, not a run id, not the
+// reason an agent gave for not deciding. Text is text; identifiers are links.
+function appendLinks(documentNode, host, links) {
+  if (!links.length) return null;
+  const row = el(documentNode, "div", "inbox-row-links");
+  for (const link of links) {
+    const anchor = el(documentNode, "a", "inbox-row-link", link.label);
+    anchor.href = link.href;
+    row.appendChild(anchor);
   }
-  return false;
-}
-
-function makeRowNavigable(documentNode, row, href, label) {
-  row.tabIndex = 0;
-  row.setAttribute("role", "link");
-  row.setAttribute("aria-label", `Open ${label}`);
-  row.addEventListener("click", (event) => {
-    if (eventCameFromControl(event, row)) return;
-    documentNode.defaultView.location.hash = href;
-  });
-  row.addEventListener("keydown", (event) => {
-    if (eventCameFromControl(event, row)) return;
-    if (!["Enter", " "].includes(event.key)) return;
-    if (typeof event.preventDefault === "function") event.preventDefault();
-    documentNode.defaultView.location.hash = href;
-  });
+  host.appendChild(row);
+  return row;
 }
 
 function timedSubtitle(
@@ -90,10 +79,9 @@ export function appendDecisionRow(
   const presentation = KIND_PRESENTATION[row.kind] || { icon: "•" };
   wrap.appendChild(el(documentNode, "span", "inbox-icon", presentation.icon));
   const main = el(documentNode, "div", "inbox-row-main");
-  const title = el(documentNode, "a", "inbox-row-title", decisionTitle(row));
-  const href = subjectHref(row);
-  title.href = href;
-  main.appendChild(title);
+  main.appendChild(el(
+    documentNode, "div", "inbox-row-title", decisionTitle(row),
+  ));
   const subtitle = decisionSubtitle(row);
   main.appendChild(timedSubtitle(
     documentNode,
@@ -103,6 +91,7 @@ export function appendDecisionRow(
     subtitle.trailing,
     projectLabel,
   ));
+  appendLinks(documentNode, main, decisionLinks(row));
   wrap.appendChild(main);
   // The body goes in before the actions so a gate that shows evidence reads
   // top to bottom -- what it is, what you are approving, then the answer.
@@ -120,7 +109,6 @@ export function appendDecisionRow(
       documentNode, "span", "inbox-decided", yourDecisionText(row),
     ));
     wrap.appendChild(actions);
-    makeRowNavigable(documentNode, wrap, href, decisionTitle(row));
     body.appendChild(wrap);
     return;
   }
@@ -177,7 +165,6 @@ export function appendDecisionRow(
     actions.appendChild(button);
   }
   wrap.appendChild(actions);
-  makeRowNavigable(documentNode, wrap, href, decisionTitle(row));
   body.appendChild(wrap);
 }
 
@@ -230,20 +217,18 @@ export function appendActorMessageRow(context, body, message, acknowledge) {
   wrap.setAttribute("data-message-id", String(message.message_id || ""));
   wrap.appendChild(el(documentNode, "span", "inbox-icon", "✉"));
   const main = el(documentNode, "div", "inbox-row-main");
-  const href = "#/messages";
-  const title = el(
+  main.appendChild(el(
     documentNode,
-    "a",
+    "div",
     "inbox-row-title",
     String(message.body || "Message body unavailable"),
-  );
-  title.href = href;
-  main.appendChild(title);
+  ));
   main.appendChild(timedSubtitle(
     documentNode,
     `From ${senderDescription(message)}`,
     message.created_at,
   ));
+  appendLinks(documentNode, main, [{ label: "Messages", href: "#/messages" }]);
   wrap.appendChild(main);
   if (message.actor_receipt?.state === "pending") {
     const button = el(documentNode, "button", "inbox-read", "Acknowledge");
@@ -251,7 +236,6 @@ export function appendActorMessageRow(context, body, message, acknowledge) {
     button.addEventListener("click", () => acknowledge(message.message_id, button));
     wrap.appendChild(button);
   }
-  makeRowNavigable(documentNode, wrap, href, "message");
   body.appendChild(wrap);
 }
 

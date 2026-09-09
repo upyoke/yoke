@@ -18,7 +18,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.decision_request_authority import authority_reason
+from yoke_core.domain.decision_request_authority import (
+    authority_reason,
+    request_deciders,
+)
 from yoke_core.domain.decision_request_contract import (
     DEPLOYMENT_STAGE_APPROVAL,
     QA_NEEDS_REVIEW,
@@ -118,6 +121,7 @@ def run_gates(
                 "requested_at": request.get("created_at"),
                 "can_act": reason is not None and decision is None,
                 "authority_reason": reason,
+                "deciders": request_deciders(conn, request_id, actor_id),
                 "your_decision": decision,
                 "decided_by_you": decision is not None,
             }

@@ -52,6 +52,125 @@ export function subjectHref(row) {
   return buildUniverseRoute("inbox", row.project_id);
 }
 
+// The named destinations a row offers, and the only things in it that
+// navigate. The row itself used to be one big link, which made every word of
+// the decision unselectable: a reader could not copy an item ref, a run id or
+// a reason out of the thing they were being asked to judge. Linking the
+// identifiers instead keeps the prose as prose.
+export function decisionLinks(row) {
+  const facts = row.subject_context || {};
+  const links = [];
+  const itemLink = (ref) => {
+    const href = itemDrillInHref({ projectId: row.project_id, publicRef: ref });
+    if (ref && href) links.push({ label: String(ref), href });
+  };
+  if (row.kind === "lifecycle_transition_approval") itemLink(facts.item_ref);
+  if (row.kind === "deployment_stage_approval" && facts.run_id) {
+    links.push({
+      label: String(facts.run_id),
+      href: buildUniverseRoute("deployments", row.project_id),
+    });
+  }
+  if (row.kind === "qa_needs_review") {
+    const subject = facts.subject || {};
+    itemLink(subject.item_ref);
+    if (subject.deployment_run_id) {
+      links.push({
+        label: String(subject.deployment_run_id),
+        href: buildUniverseRoute("deployments", row.project_id),
+      });
+    }
+    if (facts.plan_id) {
+      links.push({
+        label: `QA plan ${facts.plan_id}`,
+        href: buildUniverseRoute(
+          "qa-plans", row.project_id, String(facts.plan_id),
+        ),
+      });
+    }
+  }
+  if (row.kind === "machine_approval" && facts.machine) {
+    links.push({
+      label: String(facts.machine),
+      href: buildUniverseRoute("machines", null),
+    });
+  }
+  return links;
+}
+
+// Where the ask came from, in the words of the thing that asked. Each kind
+// reads its own persisted origin fact rather than a summary string: the
+// lifecycle gate stores WHICH policy selected the approval, and rendering
+// that as `workflow_posture.approval_on_done` handed a reader a config key
+// they have no way to act on.
+export function decisionOrigin(row) {
+  const facts = row.subject_context || {};
+  if (row.kind === "lifecycle_transition_approval") {
+    const stage = facts.to_stage || "the next stage";
+    if (facts.approval_source?.kind === "item_posture") {
+      return `This item asks for approval to reach ${stage}. Its workflow `
+        + "does not require one — the approval was selected on this item.";
+    }
+    return `Every ${facts.workflow_id || "workflow"} item needs approval to `
+      + `reach ${stage}; this is that workflow's default, not a setting on `
+      + "this item.";
+  }
+  if (row.kind === "deployment_stage_approval") {
+    return `The ${facts.flow?.name || "deployment"} flow declares its `
+      + `${facts.stage || "next"} stage gated, so the pipeline stops here `
+      + "for a person.";
+  }
+  if (row.kind === "qa_needs_review") {
+    const subject = facts.subject || {};
+    if (subject.kind === "deployment_run") {
+      return `An agent ran this check against ${
+        subject.deployment_run_id
+      } and returned no verdict, so recording one is a person's job.`;
+    }
+    return "An agent ran this check and returned no verdict, so recording "
+      + "one is a person's job.";
+  }
+  if (row.kind === "machine_approval") {
+    return "A machine asked to join this organization and cannot act until "
+      + "an admin admits it.";
+  }
+  return "";
+}
+
+// Why THIS reader is holding it, and who else could answer instead. Both are
+// read from live membership, so a row never tells someone they are the only
+// approver when a colleague holds the same role.
+export function decisionEligibility(row) {
+  const progress = row.approval_progress || {};
+  const deciders = Array.isArray(row.deciders) ? row.deciders : [];
+  const others = deciders.filter((decider) => !decider.is_you);
+  const you = row.asked_of_you
+    ? "You were asked by name."
+    : row.authority_reason
+      ? `You can answer because you hold ${row.authority_reason}.`
+      : "";
+  const describe = (decider) => (
+    decider.via === "named"
+      ? decider.label
+      : `${decider.label} (${decider.via})`
+  );
+  const required = Number(progress.required || 0);
+  const settles = progress.mode === "all"
+    ? `Every approver must answer: ${Number(progress.satisfied || 0)} of ${
+      required
+    } recorded${
+      (progress.outstanding || []).length
+        ? `, waiting on ${(progress.outstanding || []).join(", ")}`
+        : ""
+    }.`
+    : "Any one approver settles it.";
+  return {
+    you,
+    others: others.map(describe),
+    settles: deciders.length || required ? settles : "",
+  };
+}
+
 export function decisionProgressText(row) {
   const progress = row.approval_progress || {};
   const required = Number(progress.required || 0);
@@ -88,10 +207,10 @@ const SUBTITLE_BUILDERS = {
     ];
   },
   lifecycle_transition_approval(facts) {
-    // policy_summary names the pinned version and the entry that gated this
-    // transition. workflow_version_id beside it is the row id of that
-    // version, which points the approver at a version that does not exist.
-    return [facts.policy_summary || facts.workflow_id];
+    // The item's own title, not the policy that gated it: which policy asked
+    // is prose the body carries, and naming its config entry here told the
+    // reader a settings key instead of what they are looking at.
+    return [facts.item_title];
   },
   machine_approval(facts, row) {
     return [
@@ -155,6 +274,9 @@ export function decisionTitle(row) {
 }
 
 export const inboxPresentation = {
+  decisionEligibility,
+  decisionLinks,
+  decisionOrigin,
   decisionProgressText,
   decisionSubtitle,
   decisionTitle,

@@ -6,6 +6,7 @@ from typing import Any, Mapping, Optional
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_stage_position import stage_position
 from yoke_core.domain.decision_requests import (
     create_decision_request,
     list_subject_requests,
@@ -88,6 +89,7 @@ def _deployment_subject_context(
         "run_id": str(run["id"]),
         "flow": {"id": str(run["flow"]), "name": str(run["flow_name"])},
         "stage": stage,
+        "stage_position": stage_position(run, stage),
         "batch": {"item_count": len(items), "items": items},
         "shipping": {
             "release_lineage": lineage,
@@ -96,6 +98,26 @@ def _deployment_subject_context(
         },
         "title": f"Deploy to {target} — approve the stage",
     }
+
+
+def _release_contents(conn: Any, run_id: str) -> dict[str, Any]:
+    """Derive what this run actually carries, once, for a brand-new request.
+
+    Run membership answers which items the pipeline owns, and an environment
+    run owns none — so a card built from membership alone told an approver a
+    release contained nothing while it shipped every change merged since the
+    last one. The carried-work deriver already answers the real question from
+    release lineage, and its result travels into the immutable snapshot here.
+
+    This runs only on the path that creates a request. Re-evaluating a gate
+    that already has a pending request must not shell out to git again, and a
+    stored snapshot is never recomputed.
+    """
+    from yoke_core.domain.deployment_run_carried_work import (
+        derive_carried_work_safely,
+    )
+
+    return derive_carried_work_safely(conn, run_id)
 
 
 def _existing_actor_id(conn: Any, value: Any) -> Optional[int]:
@@ -169,6 +191,10 @@ def evaluate_deployment_stage_approval(
     if verdict is not None:
         conn.commit()
         return verdict
+    # Only now, with no request answering for this snapshot, is the release
+    # content derived: the deriver reads git, and repeating it on every
+    # pending-gate evaluation would pay for a fact the snapshot already froze.
+    subject_context["carried"] = _release_contents(conn, run_id)
     originator = _existing_actor_id(
         conn,
         originator_actor_id if originator_actor_id is not None else run["created_by"],

@@ -12,6 +12,12 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actor_display import actor_display_name
+from yoke_core.domain.actors import (
+    ActorLabelAmbiguous,
+    ActorLabelMissing,
+    ActorNotFound,
+)
 from yoke_core.domain.approval_decisions import actor_decision
 from yoke_core.domain.decision_requests import _request_row
 
@@ -52,6 +58,79 @@ def authority_reason(
         if match is not None:
             return f"{row[0]} {str(row[2]).replace('_', ' ')}"
     return None
+
+
+def _role_label(scope_kind: Any, role_name: Any) -> str:
+    return f"{scope_kind} {str(role_name).replace('_', ' ')}"
+
+
+def _actor_label(conn: Any, actor_id: int) -> str:
+    try:
+        return actor_display_name(conn, actor_id)
+    except (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous):
+        return f"actor {actor_id}"
+
+
+def request_deciders(
+    conn: Any,
+    request_id: int,
+    viewer_actor_id: Optional[int] = None,
+) -> list[dict[str, Any]]:
+    """Name everyone who may answer this request now, and how they qualify.
+
+    "Who else can decide" is a question about live membership, so it is
+    answered from the same tables the authority predicate reads rather than
+    from a list frozen at creation: a person named directly is addressed by
+    name, and a role box is answered by whoever holds that role today. A
+    surface that showed only the role would tell the reader a policy where
+    they asked about people.
+    """
+    p = _p(conn)
+    deciders: dict[int, dict[str, Any]] = {}
+    for row in conn.execute(
+        "SELECT actor_id FROM decision_request_actor_authorities "
+        f"WHERE request_id = {p} ORDER BY actor_id",
+        (request_id,),
+    ).fetchall():
+        actor_id = int(row[0])
+        deciders[actor_id] = {
+            "actor_id": actor_id,
+            "label": _actor_label(conn, actor_id),
+            "via": "named",
+        }
+    roles = conn.execute(
+        "SELECT scope_kind, scope_id, role_name "
+        "FROM decision_request_role_authorities "
+        f"WHERE request_id = {p} ORDER BY role_name, scope_id",
+        (request_id,),
+    ).fetchall()
+    for role in roles:
+        table = "actor_org_roles" if role[0] == "org" else "actor_project_roles"
+        scope_column = "org_id" if role[0] == "org" else "project_id"
+        for holder in conn.execute(
+            f"SELECT ar.actor_id FROM {table} ar "
+            "JOIN roles r ON r.id = ar.role_id "
+            f"WHERE ar.{scope_column} = {p} AND r.name = {p} "
+            "ORDER BY ar.actor_id",
+            (int(role[1]), str(role[2])),
+        ).fetchall():
+            actor_id = int(holder[0])
+            # A person named directly keeps that standing: being asked by
+            # name is a stronger fact about why they are here than holding
+            # a role that happens to cover the same request.
+            if actor_id in deciders:
+                continue
+            deciders[actor_id] = {
+                "actor_id": actor_id,
+                "label": _actor_label(conn, actor_id),
+                "via": _role_label(role[0], role[2]),
+            }
+    result = sorted(deciders.values(), key=lambda value: value["label"])
+    for decider in result:
+        decider["is_you"] = (
+            viewer_actor_id is not None and decider["actor_id"] == viewer_actor_id
+        )
+    return result
 
 
 def decision_request_authority_actor_ids(
@@ -124,6 +203,7 @@ def pending_requests_for_actor(
         request["authority_reason"] = reason
         request["your_decision"] = decision
         request["decided_by_you"] = decision is not None
+        request["deciders"] = request_deciders(conn, request["id"], actor_id)
         result.append(request)
     result.sort(
         key=lambda value: (value["decided_by_you"], not value["asked_of_you"])
@@ -135,4 +215,5 @@ __all__ = [
     "authority_reason",
     "decision_request_authority_actor_ids",
     "pending_requests_for_actor",
+    "request_deciders",
 ]

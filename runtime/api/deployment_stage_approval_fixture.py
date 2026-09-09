@@ -42,6 +42,102 @@ def attach_default_human_approval_addresses(conn: Any) -> None:
     conn.commit()
 
 
+def seed_stage_approval(conn: Any) -> dict[str, Any]:
+    """Seed one executing run suspended at a human-approval stage.
+
+    Returns the identities its callers assert on: the run, its one batch
+    member, and the actors who created and may answer the gate. One helper so
+    a second test file does not re-author the same flow, run and membership.
+    """
+    from yoke_core.domain.decision_request_schema import (
+        create_decision_request_tables,
+    )
+
+    create_decision_request_tables(conn)
+    conn.execute(
+        "INSERT INTO sites(project_id, name, created_at) "
+        "VALUES (1, 'Approval test site', '2026-07-26T00:00:00Z') "
+        "ON CONFLICT(project_id, name) DO NOTHING"
+    )
+    conn.execute(
+        "INSERT INTO environments(site, project_id, name, created_at) "
+        "SELECT id, 1, 'prod', '2026-07-26T00:00:00Z' FROM sites "
+        "WHERE project_id=1 AND name='Approval test site' "
+        "ON CONFLICT(project_id, name) DO NOTHING"
+    )
+    environment_id = conn.execute(
+        "SELECT id FROM environments WHERE project_id=1 AND name='prod'"
+    ).fetchone()[0]
+    originator = conn.execute(
+        "SELECT id FROM actors ORDER BY id LIMIT 1"
+    ).fetchone()[0]
+    owner = conn.execute(
+        "SELECT id FROM actors ORDER BY id DESC LIMIT 1"
+    ).fetchone()[0]
+    role = conn.execute(
+        "INSERT INTO roles (id, name, description, created_at) "
+        "VALUES (9301, 'owner', 'Owner', '2026-07-26T00:00:00Z') "
+        "ON CONFLICT(name) DO UPDATE SET description=EXCLUDED.description "
+        "RETURNING id"
+    ).fetchone()[0]
+    conn.execute(
+        "INSERT INTO actor_project_roles "
+        "(actor_id, project_id, role_id, granted_at) "
+        "VALUES (%s, 1, %s, '2026-07-26T00:00:00Z') "
+        "ON CONFLICT DO NOTHING",
+        (owner, role),
+    )
+    conn.execute(
+        "INSERT INTO deployment_flows "
+        "(id, project_id, name, stages, created_at) "
+        "VALUES ('approval-proof', 1, 'Approval proof', "
+        '\'[{"name":"approve-prod","step_runner":"human-approval",'
+        '"approvals":{"roles":["owner","operator"],"actors":[]}},'
+        '{"name":"release","step_runner":"auto"}]\', '
+        "'2026-07-26T00:00:00Z')"
+    )
+    conn.execute(
+        "INSERT INTO deployment_runs "
+        "(id, project_id, flow, target_tier, target_environment_id, "
+        "release_lineage, status, current_stage, created_at) "
+        "VALUES ('run-approval-proof', 1, 'approval-proof', 'persistent', "
+        "%s, 'release-proof-lineage', 'executing', 'approve-prod', "
+        "'2026-07-26T00:00:00Z')",
+        (environment_id,),
+    )
+    workflow = conn.execute(
+        "SELECT current_version_id FROM workflows WHERE id='issue'"
+    ).fetchone()[0]
+    conn.execute(
+        "INSERT INTO items "  # lint:no-lifecycle-mutation-check
+        "(id, title, status, priority, created_at, updated_at, source, owner, "
+        "project_id, project_sequence, workflow_id, workflow_version_id) "
+        "VALUES (9601, 'Deployment batch member', 'implemented', 'medium', "
+        "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z', %s, %s, "
+        "1, 9601, 'issue', %s)",
+        (str(originator), str(owner), workflow),
+    )
+    member = conn.execute(
+        "SELECT i.id, i.project_sequence, i.title, p.slug, p.public_item_prefix "
+        "FROM items i JOIN projects p ON p.id=i.project_id "
+        "WHERE i.id=9601"
+    ).fetchone()
+    conn.execute(
+        "INSERT INTO deployment_run_items (run_id, item_id, added_at) "
+        "VALUES ('run-approval-proof', %s, '2026-07-26T00:00:00Z')",
+        (int(member[0]),),
+    )
+    conn.commit()
+    return {
+        "run_id": "run-approval-proof",
+        "stage": "approve-prod",
+        "environment_id": int(environment_id),
+        "originator": originator,
+        "owner": owner,
+        "member": member,
+    }
+
+
 class OpenConnection:
     """Keep the fixture-owned connection open across runtime helper calls.
 

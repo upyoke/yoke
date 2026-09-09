@@ -7,6 +7,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_execution_proof import (
     qa_artifact_counts_by_run,
+    qa_artifact_rows_by_run,
     qa_precondition_reason,
     qa_proof_summary,
     qa_run_outcome,
@@ -119,11 +120,16 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
     )
     run_ids = {int(row["run_id"]) for row in rows if row.get("run_id") is not None}
     artifacts_by_run = qa_artifact_counts_by_run(conn, run_ids) if has_artifacts else {}
+    # The rows themselves, not only their per-type counts: an item's
+    # verification panel has to open the screenshot behind a verdict, and a
+    # count gave the reader a number and a link to a method contract.
+    artifact_rows = qa_artifact_rows_by_run(conn, run_ids) if has_artifacts else {}
     for row in rows:
         run_id = int(row["run_id"]) if row.get("run_id") is not None else None
         outcome = qa_run_outcome(row)
         raw_result = row.pop("raw_result", None)
         row["recorded_head_sha"] = recorded_head_sha(raw_result)
+        row["artifacts"] = artifact_rows.get(run_id, [])
         precondition_reason = qa_precondition_reason(raw_result)
         row["outcome"] = outcome
         row["precondition_reason"] = precondition_reason

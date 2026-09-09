@@ -6,7 +6,10 @@ import json
 
 import pytest
 
-from runtime.api.deployment_stage_approval_fixture import OpenConnection
+from runtime.api.deployment_stage_approval_fixture import (
+    OpenConnection,
+    seed_stage_approval,
+)
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
@@ -44,69 +47,10 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
     test_db,
     monkeypatch,
 ):
-    create_decision_request_tables(test_db)
-    environment_id = _prod_environment_id(test_db)
-    originator = test_db.execute(
-        "SELECT id FROM actors ORDER BY id LIMIT 1"
-    ).fetchone()[0]
-    owner = test_db.execute(
-        "SELECT id FROM actors ORDER BY id DESC LIMIT 1"
-    ).fetchone()[0]
-    role = test_db.execute(
-        "INSERT INTO roles (id, name, description, created_at) "
-        "VALUES (9301, 'owner', 'Owner', '2026-07-26T00:00:00Z') "
-        "ON CONFLICT(name) DO UPDATE SET description=EXCLUDED.description "
-        "RETURNING id"
-    ).fetchone()[0]
-    test_db.execute(
-        "INSERT INTO actor_project_roles "
-        "(actor_id, project_id, role_id, granted_at) "
-        "VALUES (%s, 1, %s, '2026-07-26T00:00:00Z') "
-        "ON CONFLICT DO NOTHING",
-        (owner, role),
-    )
-    test_db.execute(
-        "INSERT INTO deployment_flows "
-        "(id, project_id, name, stages, created_at) "
-        "VALUES ('approval-proof', 1, 'Approval proof', "
-        '\'[{"name":"approve-prod","step_runner":"human-approval",'
-        '"approvals":{"roles":["owner","operator"],"actors":[]}},'
-        '{"name":"release","step_runner":"auto"}]\', '
-        "'2026-07-26T00:00:00Z')"
-    )
-    test_db.execute(
-        "INSERT INTO deployment_runs "
-        "(id, project_id, flow, target_tier, target_environment_id, "
-        "release_lineage, status, current_stage, created_at) "
-        "VALUES ('run-approval-proof', 1, 'approval-proof', 'persistent', "
-        "%s, 'release-proof-lineage', 'executing', 'approve-prod', "
-        "'2026-07-26T00:00:00Z')",
-        (environment_id,),
-    )
-    workflow = test_db.execute(
-        "SELECT current_version_id FROM workflows WHERE id='issue'"
-    ).fetchone()[0]
-    test_db.execute(
-        "INSERT INTO items "
-        "(id, title, status, priority, created_at, updated_at, source, owner, "
-        "project_id, project_sequence, workflow_id, workflow_version_id) "
-        "VALUES (9601, 'Deployment batch member', 'implemented', 'medium', "
-        "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z', %s, %s, "
-        "1, 9601, 'issue', %s)",
-        (str(originator), str(owner), workflow),
-    )
-    member = test_db.execute(
-        "SELECT i.id, i.project_sequence, i.title, p.slug, p.public_item_prefix "
-        "FROM items i JOIN projects p ON p.id=i.project_id "
-        "WHERE i.id=9601"
-    ).fetchone()
-    assert member is not None
-    test_db.execute(
-        "INSERT INTO deployment_run_items (run_id, item_id, added_at) "
-        "VALUES ('run-approval-proof', %s, '2026-07-26T00:00:00Z')",
-        (int(member[0]),),
-    )
-    test_db.commit()
+    seeded = seed_stage_approval(test_db)
+    originator = seeded["originator"]
+    owner = seeded["owner"]
+    member = seeded["member"]
 
     first = evaluate_deployment_stage_approval(
         test_db,
@@ -149,6 +93,33 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
             "summary": (
                 "1 item(s) ship to prod under release lineage release-proof-lineage."
             ),
+        },
+        # What the release actually carries, derived once when the request
+        # was created. This run has no predecessor to measure against, and
+        # the snapshot says exactly that rather than implying an empty
+        # release.
+        "stage_position": {"index": 0, "total": 2, "remaining": ["release"]},
+        "carried": {
+            "schema": 1,
+            "derivation": {
+                "status": "empty",
+                # The comparison could not run — there is no predecessor —
+                # which is a different fact from a release that carries
+                # nothing, and the reader must not conflate them.
+                "contents_known": False,
+                "reason": "no_prior_succeeded_run",
+                "recovery": (
+                    "No action is required; this run establishes the lineage "
+                    "baseline."
+                ),
+                "run_id": "run-approval-proof",
+                "previous_run_id": "",
+                "previous_release_lineage": "",
+                "release_lineage": "release-proof-lineage",
+            },
+            "items": [],
+            "commits": [],
+            "warnings": [],
         },
         "title": "Deploy to prod — approve the stage",
     }
@@ -224,6 +195,7 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         ).fetchone()[0]
         == "approve-prod"
     )
+
 
 
 def test_deployment_completion_event_shares_the_caller_transaction(

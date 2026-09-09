@@ -137,10 +137,30 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
     )
     assert created is True
     assert request is not None
+    item_ref = test_db.execute(
+        "SELECT p.public_item_prefix || '-' || i.project_sequence "
+        "FROM items i JOIN projects p ON p.id = i.project_id WHERE i.id = %s",
+        (9501,),
+    ).fetchone()[0]
     assert request["subject_context"] == {
         "requirement_id": int(requirement_id),
         "run_id": int(run_id),
         "plan_id": int(plan_id),
+        # What the review is a review OF. An item's verification and a
+        # deployment run's post-release check are different decisions, and a
+        # reviewer told neither cannot tell which one they are answering.
+        "subject": {
+            "kind": "item",
+            "item_id": 9501,
+            "item_ref": item_ref,
+            "item_title": "Review QA evidence",
+            "deployment_run_id": None,
+            "target_environment": None,
+            "qa_phase": "verification",
+        },
+        # This run recorded no code identity, so the card says so rather than
+        # implying the evidence describes the current tree.
+        "code_revision": None,
         "qa_kind": "plan_case",
         "plan_name": "Review proof",
         "case_name": "checkout-flow",
@@ -157,6 +177,10 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
                 # say up front that these bytes only exist on the machine that
                 # captured them, exactly as QA detail does.
                 "artifact_handle": '{"backend":"local","path":"/tmp/review.png"}',
+                # The capture's own caption material — route, step, viewport.
+                # This run recorded none, so the reader gets no caption
+                # rather than an invented one.
+                "metadata": {},
             }
         ],
         "artifact_count": 1,

@@ -270,7 +270,7 @@ function renderLoadedBlitz(context, main, item, execution) {
       ),
       ...filledNarrativePanels(documentNode, item),
       worktreeLanesPanel(documentNode, item),
-      verificationPanel(documentNode, item),
+      verificationPanel(context, item),
     ],
     [
       blitzFactsPanel(documentNode, item),

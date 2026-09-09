@@ -16,6 +16,16 @@
   cursor: pointer;
 }
 
+/* What the capture recorded about itself — route, step, viewport, browser.
+   Four screenshots of one page share a filename; this is what tells them
+   apart. */
+.qa-evidence-caption {
+  display: block;
+  color: var(--yoke-muted);
+  font-family: var(--yoke-font-mono);
+  font-size: 10.5px;
+}
+
 .qa-evidence-action,
 .qa-evidence-result {
   color: var(--yoke-muted);

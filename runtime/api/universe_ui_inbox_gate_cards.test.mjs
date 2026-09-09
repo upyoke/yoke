@@ -12,12 +12,16 @@ import { overviewRunCard } from "../../packages/yoke-core/src/yoke_core/ui/stati
 import { FakeDocument, byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import {
   deploymentRequestRow,
+  emptyReleaseRequestRow,
+  environmentRunRequestRow,
   inboxClient,
   machineRequestRow,
   qaBareRequestRow,
   qaRequestRow,
   renderInbox,
   requestRow,
+  signOffRequestRow,
+  undeterminedContentsRequestRow,
 } from "./universe_ui_inbox_test_support.mjs";
 
 const gateText = (main) => byClass(main, "gate-body")[0].textContent;
@@ -36,130 +40,98 @@ test("a deployment approval names the items it releases, not just the run", asyn
   assert.ok(subtitle.includes("stage prod-deploy"), subtitle);
 
   const body = gateText(main);
-  assert.ok(body.includes("This run releases 2 items together to prod"), body);
-  assert.ok(body.includes("In this release · 2 items"), body);
+  assert.ok(body.includes("This run carries 2 changes to prod"), body);
+  assert.ok(body.includes("continues into release once you resolve it"), body);
+  assert.ok(body.includes("In this release · 2 changes"), body);
   assert.ok(body.includes("YOK-2712"), body);
   assert.ok(body.includes("YOK-2707"), body);
   assert.ok(body.includes("release 0.1.1+launch.379"), body);
+  // Membership and contents are different facts, so the items the pipeline
+  // owns stay visible under their own heading rather than being conflated
+  // with what ships.
+  assert.ok(body.includes("Linked items · 2"), body);
 });
 
-test("a deployment approval carrying no items says what it is still shipping", async () => {
+test("an environment run reports what it carries, not its empty membership", async () => {
+  // The defect this replaces: run membership is empty for an environment run
+  // while the release still carries every change merged since the last one,
+  // so the card asked someone to approve a release it called empty.
+  const { main } = renderInbox("all", [environmentRunRequestRow()]);
+  await settle();
+
+  const body = gateText(main);
+  assert.ok(body.includes("This run carries 2 changes to stage"), body);
+  assert.ok(body.includes("In this release · 2 changes"), body);
+  assert.ok(body.includes("YOK-2712"), body);
+  // A commit nobody filed work for is still shipping, and is named as one.
+  assert.ok(body.includes("9911aa22bb33"), body);
+  assert.ok(body.includes("commit with no item reference"), body);
+  assert.ok(!body.includes("0 changes"), body);
+  assert.ok(!body.includes("Linked items"), body);
+});
+
+test("an underivable release names its reason instead of reading as empty", async () => {
+  const { main } = renderInbox("all", [undeterminedContentsRequestRow()]);
+  await settle();
+
+  const body = gateText(main);
+  assert.ok(body.includes("could not be determined"), body);
+  assert.ok(body.includes("project_checkout_unavailable"), body);
+  assert.ok(body.includes("Register this project's checkout"), body);
+  // The exact revision, so the approver knows what they would be shipping
+  // even though its contents could not be listed.
+  assert.ok(body.includes("0.1.2+launch.407"), body);
+});
+
+test("a request frozen before contents were derived reports its membership", async () => {
+  // Every request stored before the release-contents fact existed carries no
+  // `carried` key at all. It knows its membership and nothing else, and says
+  // exactly that rather than claiming a derivation it never ran.
+  const facts = { ...deploymentRequestRow().subject_context };
+  delete facts.carried;
   const { main } = renderInbox("all", [deploymentRequestRow({
-    subject_context: {
-      ...deploymentRequestRow().subject_context,
-      batch: { item_count: 0, items: [] },
-      shipping: {
-        release_lineage: null,
-        target_environment: "stage",
-        summary: "0 item(s) ship to stage.",
-      },
-    },
+    subject_context: facts,
   })]);
   await settle();
 
-  // "Releases 0 items" reads as though approving were free. The approver is
-  // still advancing a pipeline, and the honest answer is that the run's
-  // commits are the payload nobody filed work for.
   const body = gateText(main);
-  assert.ok(!body.includes("releases 0 items"), body);
+  assert.ok(body.includes("In this release · 2 items"), body);
+  assert.ok(body.includes("This run carries 2 items to prod"), body);
+  assert.ok(!body.includes("could not be determined"), body);
+  // The producer's own one-line summary repeats the count and destination the
+  // card has already given, so it is not echoed.
+  assert.ok(!body.includes("2 item(s) ship to prod"), body);
+});
+
+test("a sign-off stage is not described as though it deploys", async () => {
+  // Not every gated stage precedes a deploy. This one is the flow's last, so
+  // every earlier stage has already run and approving completes the run.
+  const { main } = renderInbox("all", [signOffRequestRow()]);
+  await settle();
+
+  const body = gateText(main);
   assert.ok(
-    body.includes("carries no recorded items, so what ships to stage is "
-      + "whatever its commits contain"),
+    body.includes("approve-result is the last stage in this flow"),
     body,
   );
-  assert.ok(body.includes("In this release · 0 items"), body);
-  // The producer's own one-line summary says the count and destination the
-  // card has already given twice. Echoing it puts "0 item(s)" back on a card
-  // whose whole point is that the count is not what is shipping.
-  assert.ok(!body.includes("0 item(s) ship to stage"), body);
+  assert.ok(body.includes("rather than starting another deploy"), body);
+  assert.ok(!body.includes("continues into"), body);
 });
 
-test("a QA review shows each artifact behind it, openable in place", async () => {
-  const { main } = renderInbox("all", [qaRequestRow()]);
+test("a release that carries nothing is not reported as underivable", async () => {
+  // The comparison ran and found no new commits. That is an answer, and it
+  // reads differently from a derivation that could not run at all.
+  const { main } = renderInbox("all", [emptyReleaseRequestRow()]);
   await settle();
 
-  // The stored title is the same fixed sentence for every QA review, so the
-  // card names the case instead; a reviewer with three pending reviews could
-  // otherwise not tell them apart.
-  assert.equal(
-    byClass(main, "inbox-row-title")[0].textContent,
-    "marketing-pages-visual needs your review",
-  );
   const body = gateText(main);
-  assert.ok(body.includes("Evidence · 3 artifacts"), body);
-  assert.ok(body.includes("Nav collapses at 680px"), body);
-  assert.ok(body.includes("Every marketing page renders"), body);
-  // One card per artifact, each with its own control: counting the evidence
-  // by type told the approver a number and showed them nothing.
-  assert.equal(byClass(main, "qa-evidence").length, 3);
-  assert.deepEqual(
-    byClass(main, "gate-evidence")[0].children
-      .filter((node) => node.classList.contains("qa-evidence"))
-      .map((card) => byClass(card, "qa-evidence-open")[0].textContent),
-    ["screenshot", "screenshot", "log"],
-  );
-  assert.equal(byClass(main, "gate-evidence-none").length, 0);
-});
-
-test("opening a gate artifact reads it and shows the image full-size", async () => {
-  const { client, main } = renderInbox("all", [qaRequestRow()]);
-  await settle();
-
-  const card = byClass(main, "qa-evidence")[0];
-  byClass(card, "qa-evidence-open")[0].dispatchEvent(new Event("click"));
-  await settle();
-
-  // The read is addressed at the requirement the gate names, not at an item
-  // or session the gate card would have to invent.
-  const read = client.requests.filter(
-    (request) => request.function === "qa.artifact.read",
-  );
-  assert.deepEqual(read.map((request) => request.target), [
-    { kind: "qa_requirement", qa_requirement_id: 21583 },
-  ]);
-  assert.deepEqual(read.map((request) => request.payload), [{ artifact_id: 1 }]);
-
-  const full = byClass(card, "qa-evidence-full")[0];
-  assert.ok(full, "an image artifact opens at full size");
-  assert.equal(full.target, "_blank");
-  assert.ok(full.href.startsWith("data:image/png;base64,"), full.href);
-  assert.equal(
-    full.getAttribute("aria-label"), "Open full image: screenshot",
-  );
-  const preview = byClass(card, "qa-evidence-preview")[0];
-  assert.equal(preview.href, undefined);
-  assert.equal(preview.alt, "screenshot");
-});
-
-test("a gate artifact whose bytes are elsewhere says where, not nothing", async () => {
-  const { main } = renderInbox("all", [qaRequestRow()]);
-  await settle();
-
-  // The third fixture artifact reads back as living on its capture machine.
-  const card = byClass(main, "qa-evidence")[2];
-  byClass(card, "qa-evidence-open")[0].dispatchEvent(new Event("click"));
-  await settle();
-
-  assert.equal(
-    byClass(card, "qa-evidence-action")[0].textContent, "on studio-mini",
-  );
+  assert.ok(body.includes("This run carries no new changes to prod"), body);
   assert.ok(
-    card.textContent.includes("the evidence bytes are not present"),
-    card.textContent,
+    body.includes("This release carries no new commits since the previous one"),
+    body,
   );
-});
-
-test("a QA review with no artifacts refuses instead of looking the same", async () => {
-  const { main } = renderInbox("all", [qaBareRequestRow()]);
-  await settle();
-
-  assert.equal(byClass(main, "qa-evidence").length, 0);
-  const refusal = byClass(main, "gate-evidence-none")[0];
-  assert.ok(refusal, "a run with no artifacts must say so");
-  assert.ok(
-    refusal.textContent.includes("a verdict on nothing"),
-    refusal.textContent,
-  );
+  assert.ok(!body.includes("could not be determined"), body);
+  assert.ok(!body.includes("no_new_commits"), body);
 });
 
 test("a lifecycle approval shows what changed on the branch", async () => {
@@ -174,15 +146,15 @@ test("a lifecycle approval shows what changed on the branch", async () => {
   assert.ok(body.includes("What changed on the branch"), body);
   assert.ok(body.includes("+412 −87 across 9 files"), body);
   assert.ok(body.includes("runtime/api/inbox.py"), body);
-  // Why the transition was gated at all: the pinned version and the policy
-  // entry that asked. The subtitle carries it, and it names the version a
-  // person can look up rather than that version's row id.
+  // Why the transition was gated is prose in the body, not a config entry in
+  // the subtitle: the subtitle carries the item's own title.
   const subtitle = byClass(main, "inbox-row-subtitle")[0].textContent;
   assert.ok(
-    subtitle.includes("dash@3 · approval_defaults.reviewing-implementation"),
+    subtitle.includes("Approve the reviewing-implementation transition"),
     subtitle,
   );
-  assert.ok(!subtitle.includes("v41"), subtitle);
+  assert.ok(!subtitle.includes("dash@"), subtitle);
+  assert.ok(!subtitle.includes("approval_defaults."), subtitle);
 });
 
 test("a laneless transition says so rather than showing an empty diff", async () => {
@@ -260,7 +232,7 @@ test("a run stopped on an approval says so and carries the answer", () => {
   assert.equal(byClass(card, "run-gate-note")[0].textContent, "you: project owner");
   assert.ok(
     byClass(card, "run-gate-why")[0].textContent.includes(
-      "This run releases 2 items together to prod",
+      "This run carries 2 changes to prod",
     ),
   );
   // Same labels, same order, same emphasis as the Inbox draws for this

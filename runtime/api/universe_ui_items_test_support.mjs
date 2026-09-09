@@ -139,6 +139,17 @@ export function detailItem(workflowId) {
         : "1 screenshot",
       evidence_count: 1,
       latest_evidence_type: "screenshot",
+      // The artifact rows themselves, as the item projection now serves
+      // them: a count tells the reader evidence exists, and the reader has
+      // to be able to open it.
+      artifacts: [{
+        id: 91,
+        artifact_type: "screenshot",
+        content_type: "image/png",
+        artifact_handle: null,
+        metadata: { route: "/pricing", step_index: 3 },
+      }],
+      recorded_head_sha: "5c1de77aa9014400",
       verdict: "needs review",
       execution_status: "completed",
       workflow_transition_id: "reviewing-implementation",

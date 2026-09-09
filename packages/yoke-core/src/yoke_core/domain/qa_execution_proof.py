@@ -207,8 +207,45 @@ def qa_artifact_counts_by_run(
     return result
 
 
+def qa_artifact_rows_by_run(
+    conn: Any,
+    run_ids: set[int],
+) -> dict[int, list[dict[str, Any]]]:
+    """Return each run's readable artifact rows, not just how many there are.
+
+    A count tells a reader that evidence exists and gives them no way to look
+    at it — an item's verification panel reporting "2 screenshots passed" and
+    linking to a method contract is that gap. These are the same fields the
+    shared artifact reader needs to fetch and draw the bytes.
+    """
+    if not run_ids:
+        return {}
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    placeholders = ", ".join(marker for _ in run_ids)
+    rows = query_rows(
+        conn,
+        "SELECT id, qa_run_id, artifact_type, content_type, artifact_handle, "
+        f"metadata FROM qa_artifacts WHERE qa_run_id IN ({placeholders}) "
+        "ORDER BY qa_run_id, id",
+        tuple(sorted(run_ids)),
+    )
+    result: dict[int, list[dict[str, Any]]] = {}
+    for row in rows:
+        result.setdefault(int(row["qa_run_id"]), []).append(
+            {
+                "id": int(row["id"]),
+                "artifact_type": str(row["artifact_type"]),
+                "content_type": row["content_type"],
+                "artifact_handle": row["artifact_handle"],
+                "metadata": row["metadata"],
+            }
+        )
+    return result
+
+
 __all__ = [
     "qa_artifact_counts_by_run",
+    "qa_artifact_rows_by_run",
     "qa_precondition_reason",
     "qa_proof_summary",
     "qa_run_outcome",

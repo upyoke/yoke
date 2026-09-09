@@ -45,14 +45,21 @@ def _empty(
     recovery: str,
     *,
     run_id: str,
+    contents_known: bool = False,
     previous_run_id: str = "",
     previous_lineage: str = "",
     release_lineage: str = "",
     warnings: Sequence[Mapping[str, str]] = (),
     error_type: str = "",
 ) -> dict[str, Any]:
+    # An empty answer and an unanswerable question are different facts, and a
+    # reader that conflates them tells an approver a release is empty when the
+    # deriver simply could not look. `contents_known` is true only when the
+    # comparison actually ran: a run whose lineage matches its predecessor
+    # genuinely carries nothing, while a missing checkout carries an unknown.
     derivation: dict[str, Any] = {
         "status": "empty",
+        "contents_known": contents_known,
         "reason": reason,
         "recovery": recovery,
         "run_id": run_id,
@@ -182,6 +189,7 @@ def derive_carried_work(
             "no_new_commits",
             "No action is required; both runs resolve to the same trunk tree.",
             run_id=run_id,
+            contents_known=True,
             previous_run_id=previous_run_id,
             previous_lineage=previous_lineage,
             release_lineage=release_lineage,
@@ -206,6 +214,7 @@ def derive_carried_work(
         "schema": CARRIED_WORK_SCHEMA,
         "derivation": {
             "status": "derived",
+            "contents_known": True,
             "reason": "partial_item_resolution" if bare_commits else "complete",
             "recovery": (
                 "Inspect bare commits and restore missing merge metadata if needed."
@@ -230,6 +239,31 @@ def derive_carried_work(
     }
 
 
+def derive_carried_work_safely(conn: Any, run_id: str) -> dict[str, Any]:
+    """Derive without writing, and answer in the same shape when it cannot.
+
+    Both callers need a payload rather than an exception: the completion
+    record has to say why it is empty, and the pre-approval snapshot has to
+    tell an approver that the contents could not be derived rather than let a
+    git failure abort the decision request. The derivation happens inside a
+    savepoint so a failed read leaves the caller's transaction usable.
+    """
+    conn.execute("SAVEPOINT carried_work_derivation")
+    try:
+        payload = derive_carried_work(conn, run_id)
+    except Exception as exc:  # noqa: BLE001 - callers record named emptiness
+        conn.execute("ROLLBACK TO SAVEPOINT carried_work_derivation")
+        conn.execute("RELEASE SAVEPOINT carried_work_derivation")
+        return _empty(
+            "derivation_failed",
+            "Repair the named checkout or metadata read, clear this field, and retry.",
+            run_id=run_id,
+            error_type=type(exc).__name__,
+        )
+    conn.execute("RELEASE SAVEPOINT carried_work_derivation")
+    return payload
+
+
 def record_carried_work(conn: Any, run_id: str) -> dict[str, Any]:
     """Write a forward-only carried-work record in the caller's transaction."""
     row = conn.execute(
@@ -241,20 +275,7 @@ def record_carried_work(conn: Any, run_id: str) -> dict[str, Any]:
     existing = parse_carried_work(_cell(row, CARRIED_WORK_FIELD, 0))
     if existing is not None:
         return existing
-    conn.execute("SAVEPOINT carried_work_derivation")
-    try:
-        payload = derive_carried_work(conn, run_id)
-    except Exception as exc:  # noqa: BLE001 - completion records named emptiness
-        conn.execute("ROLLBACK TO SAVEPOINT carried_work_derivation")
-        conn.execute("RELEASE SAVEPOINT carried_work_derivation")
-        payload = _empty(
-            "derivation_failed",
-            "Repair the named checkout or metadata read, clear this field, and retry.",
-            run_id=run_id,
-            error_type=type(exc).__name__,
-        )
-    else:
-        conn.execute("RELEASE SAVEPOINT carried_work_derivation")
+    payload = derive_carried_work_safely(conn, run_id)
     conn.execute(
         "UPDATE deployment_runs SET carried_work=%s WHERE id=%s",
         (dumps_compact(payload), run_id),
@@ -266,6 +287,7 @@ __all__ = [
     "CARRIED_WORK_FIELD",
     "CARRIED_WORK_SCHEMA",
     "derive_carried_work",
+    "derive_carried_work_safely",
     "parse_carried_work",
     "record_carried_work",
 ]
