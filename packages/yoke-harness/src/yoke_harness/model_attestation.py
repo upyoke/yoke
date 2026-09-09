@@ -24,6 +24,10 @@ What each harness reports, measured rather than assumed:
 
 Facts are per-turn, not per-session: a mid-session model or effort switch
 shows up as a later value, so each reader takes the newest one it finds.
+Newest is also all that is read: Claude's reader takes a bounded window
+off the end of its transcript, and Codex's resumes from the same
+per-artifact progress record usage folding uses, so a switch stays
+visible without re-parsing a session's whole history on every event.
 """
 
 from __future__ import annotations
@@ -38,11 +42,21 @@ from yoke_contracts.session_model_facts import (
     normalize_context_window_tokens,
     normalize_reasoning_effort,
 )
+from yoke_harness.artifact_scan import scan_rows, tail_rows_newest_first
+from yoke_harness.artifact_watermark import (
+    MODEL_KIND,
+    ArtifactWatermark,
+    load_watermark,
+    save_watermark,
+    stored_totals,
+    watermark_lock,
+)
 
 
-#: Transcript tail scanned for the newest turn. A session long enough to
-#: exceed this has its recent turns well inside the window, and the cap is
-#: what keeps the read cheap enough to run on a hook event.
+#: Records scanned back from the end for the newest turn. A session long
+#: enough to exceed this has its recent turns well inside the window, and
+#: the cap is what keeps the read cheap enough to run on a hook event —
+#: read from the end of the file, so a session's history costs nothing.
 TRANSCRIPT_SCAN_LINES = 500
 
 
@@ -83,13 +97,13 @@ def _claude_facts(
     path = transcript_path or _text(payload.get("transcript_path"))
     if not path or not Path(path).is_file():
         return SessionModelFacts(context_window_tokens=window)
-    raw = Path(path).read_text(encoding="utf-8", errors="replace")
-    for line in reversed(raw.splitlines()[-TRANSCRIPT_SCAN_LINES:]):
-        row = _row(line)
-        if row is None or row.get("type") != "assistant":
+    for row in tail_rows_newest_first(Path(path), max_rows=TRANSCRIPT_SCAN_LINES):
+        if row.get("type") != "assistant":
             continue
         message = row.get("message")
-        model = _served_model(message.get("model") if isinstance(message, dict) else None)
+        model = _served_model(
+            message.get("model") if isinstance(message, dict) else None
+        )
         if model is None:
             continue
         return SessionModelFacts(
@@ -110,37 +124,62 @@ def _codex_facts(payload: Mapping[str, Any]) -> SessionModelFacts:
     if not thread_id:
         return SessionModelFacts()
     for path in codex_transcript_candidates(thread_id):
-        facts = _codex_rollout_facts(path)
+        facts = _codex_rollout_facts(path, thread_id)
         if facts.attested():
             return facts
     return SessionModelFacts()
 
 
-def _codex_rollout_facts(path: Path) -> SessionModelFacts:
+def _codex_rollout_facts(path: Path, thread_id: str) -> SessionModelFacts:
     """Fold one rollout into its last-stated model, effort, and window.
 
     The three facts arrive on different row types and at different points
-    in the run, so the whole file is folded and the newest statement of
-    each wins — a turn that changed the model does not blank the window
-    the run declared once at startup.
+    in the run, so each newest statement wins — a turn that changed the
+    model does not blank the window the run declared once at startup.
+    Keeping those three in a per-artifact progress record is what makes
+    that affordable: each event folds only what the rollout gained, and
+    the startup window survives in the record rather than by rereading
+    the beginning of the file. A reader that arrives while another is
+    folding answers from the record instead of scanning the same bytes.
     """
-    model: Optional[str] = None
-    effort: Optional[str] = None
-    window: Optional[int] = None
-    with path.open("r", encoding="utf-8", errors="replace") as handle:
-        for line in handle:
-            row = _row(line)
-            if row is None:
-                continue
+    with watermark_lock(thread_id, kind=MODEL_KIND) as folding:
+        mark = load_watermark(thread_id, path, kind=MODEL_KIND)
+        held = dict(stored_totals(mark))
+        if not folding:
+            return _facts_from_record(held)
+
+        def fold(row: Mapping[str, Any]) -> None:
             block = row.get("payload")
             if not isinstance(block, dict):
-                continue
+                return
             if row.get("type") == "turn_context":
-                model = _served_model(block.get("model")) or model
-                effort = normalize_reasoning_effort(block.get("effort")) or effort
-            window = _codex_window(block) or window
+                held["model"] = _served_model(block.get("model")) or held.get("model")
+                held["effort"] = normalize_reasoning_effort(
+                    block.get("effort")
+                ) or held.get("effort")
+            held["window"] = _codex_window(block) or held.get("window")
+
+        scan = scan_rows(path, mark.offset, fold)
+        save_watermark(
+            thread_id,
+            path,
+            ArtifactWatermark(
+                offset=scan.offset,
+                totals=held,
+                truncated=mark.truncated,
+                oversized=mark.oversized or scan.oversized,
+            ),
+            kind=MODEL_KIND,
+        )
+    return _facts_from_record(held)
+
+
+def _facts_from_record(held: Mapping[str, Any]) -> SessionModelFacts:
+    """Present the folded record as the reading its callers consume."""
     return SessionModelFacts(
-        model=model, reasoning_effort=effort, context_window_tokens=window
+        model=_served_model(held.get("model")),
+        reasoning_effort=normalize_reasoning_effort(held.get("effort")),
+        context_window_tokens=normalize_context_window_tokens(held.get("window")),
     )
 
 
@@ -174,16 +213,6 @@ def _served_model(value: object) -> Optional[str]:
     if not text or _is_placeholder_model(text):
         return None
     return text
-
-
-def _row(line: str) -> Optional[dict]:
-    if not line.strip():
-        return None
-    try:
-        parsed = json.loads(line)
-    except (json.JSONDecodeError, TypeError):
-        return None
-    return parsed if isinstance(parsed, dict) else None
 
 
 def _text(value: object) -> str:

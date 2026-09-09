@@ -39,11 +39,12 @@ from yoke_contracts.session_usage_sources import (
     CURSOR_USAGE_SOURCE,
     usage_source,
 )
-from yoke_harness.usage_watermark import (
-    UsageWatermark,
+from yoke_harness.artifact_watermark import (
+    ArtifactWatermark,
     load_watermark,
     save_watermark,
     stored_totals,
+    watermark_lock,
 )
 
 
@@ -62,7 +63,19 @@ _RESULT_FIELDS = (
 
 
 def attest_cursor_usage(payload: Mapping[str, Any]) -> SessionUsage:
-    """Fold one Cursor hook or print-mode result into session totals."""
+    """Fold one Cursor hook or print-mode result into session totals.
+
+    The fold waits for its turn rather than yielding it: a Cursor payload
+    states its turn's tokens exactly once, in this call, so a reader that
+    answered from the persisted record instead would lose them entirely.
+    The critical section is a small read and a small write, never an
+    artifact scan.
+    """
+    with watermark_lock(_session_id(payload), blocking=True):
+        return _fold_cursor_usage(payload)
+
+
+def _fold_cursor_usage(payload: Mapping[str, Any]) -> SessionUsage:
     from yoke_harness.usage_attestation import (
         _accumulate,
         _reading,
@@ -84,7 +97,7 @@ def attest_cursor_usage(payload: Mapping[str, Any]) -> SessionUsage:
         if generation not in seen:
             _accumulate(totals, model, buckets)
             seen.append(generation)
-        mark = UsageWatermark(
+        mark = ArtifactWatermark(
             last_key=generation,
             totals=_cursor_document(totals, seen, _totals_document),
         )

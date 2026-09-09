@@ -13,7 +13,7 @@ from yoke_contracts.session_usage_facts import (
 )
 from yoke_contracts.session_usage_sources import usage_source
 from yoke_harness.usage_attestation import attest_session_usage
-from yoke_harness.usage_watermark import TRUNCATED_ARTIFACT_REASON
+from yoke_harness.artifact_watermark import TRUNCATED_ARTIFACT_REASON
 from runtime.harness.session_usage_test_support import (  # noqa: F401
     append_rows,
     claude_row,
