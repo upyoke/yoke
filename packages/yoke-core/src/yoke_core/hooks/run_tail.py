@@ -76,6 +76,25 @@ def _ensure_session_request(
     )
 
 
+def _usage_session_request(
+    *,
+    context: Any,
+    payload: Any,
+    stdin_data: str,
+) -> tuple[Any, ...] | None:
+    """Build a usage read for an existing row without registration authority."""
+    if not context.session_id:
+        return None
+    payload_json = (
+        json.dumps(payload) if isinstance(payload, dict) else (stdin_data or "")
+    )
+    return (
+        context.session_id,
+        payload_json,
+        context.executor_family or "",
+    )
+
+
 def preflight_remote_registration(
     *,
     event_name: str,
@@ -138,7 +157,13 @@ def flush_run_tail(
     )
 
     failed = any(kind == "failed" for kind, _record in telem_records)
+    usage_session = _usage_session_request(
+        context=context,
+        payload=payload,
+        stdin_data=stdin_data,
+    )
     if not deadline.telemetry_allowed():
+        _telemetry.flush_hook_telemetry([], usage_session=usage_session)
         persist_accepted_hook_turn_posture(
             event_name=event_name,
             session_id=context.session_id or "",
@@ -192,6 +217,7 @@ def flush_run_tail(
         telem_records,
         deadline=deadline,
         ensure_session=ensure_session,
+        usage_session=usage_session,
     )
     persist_accepted_hook_turn_posture(
         event_name=event_name,

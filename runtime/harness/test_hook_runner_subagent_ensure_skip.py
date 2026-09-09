@@ -36,7 +36,8 @@ def test_subagent_payload_does_not_arm_ensure_session(monkeypatch) -> None:
     monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: ["mod.allow"])
     captured: list[Any] = []
 
-    def fake_flush(records, *, deadline=None, ensure_session=None):
+    def fake_flush(records, *, deadline=None, ensure_session=None, usage_session=None):
+        del usage_session
         captured.append(ensure_session)
 
     monkeypatch.setattr(telemetry, "flush_hook_telemetry", fake_flush)
@@ -52,7 +53,9 @@ def test_subagent_payload_does_not_arm_ensure_session(monkeypatch) -> None:
         decision_renderer=render_claude_decision,
     )
     runner_module.run_event(
-        "PreToolUse", capability=capability, stdin_data="{}",
+        "PreToolUse",
+        capability=capability,
+        stdin_data="{}",
     )
     assert captured == [None]
 
@@ -67,7 +70,8 @@ def test_worktree_remap_payload_does_not_arm_ensure_session(monkeypatch) -> None
     monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: ["mod.allow"])
     captured: list[Any] = []
 
-    def fake_flush(records, *, deadline=None, ensure_session=None):
+    def fake_flush(records, *, deadline=None, ensure_session=None, usage_session=None):
+        del usage_session
         captured.append(ensure_session)
 
     monkeypatch.setattr(telemetry, "flush_hook_telemetry", fake_flush)
@@ -83,6 +87,8 @@ def test_worktree_remap_payload_does_not_arm_ensure_session(monkeypatch) -> None
         decision_renderer=render_claude_decision,
     )
     runner_module.run_event(
-        "PreToolUse", capability=capability, stdin_data="{}",
+        "PreToolUse",
+        capability=capability,
+        stdin_data="{}",
     )
     assert captured == [None]

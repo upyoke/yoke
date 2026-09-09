@@ -234,28 +234,21 @@ _KIND_EVENT_SEVERITY = {
 _HOOK_SOURCE_TYPE = "hook"
 
 
-def flush_hook_telemetry(records, *, deadline=None, ensure_session=None) -> None:
-    """Flush accumulated hook-telemetry records over ONE reused connection.
+def flush_hook_telemetry(
+    records, *, deadline=None, ensure_session=None, usage_session=None
+) -> None:
+    """Flush hook telemetry and independent session facts on one connection.
 
-    ``records`` is the runner's ordered ``(kind, kwargs)`` list
-    (``"guardrail"`` / ``"failed"`` / ``"dispatch"``). Emitting after
-    the dispatch loop keeps per-module DB latency off the deadline; one
-    reused connection collapses N cold connects into one.
-
-    ``ensure_session`` — optional ``(session_id, payload_json,
-    transcript_path, record_anchor, executor_hint, register_in_process,
-    force_reregister, actor_id, project_id)`` — arms
-    ensure-register-on-first-sight:
-    the row is probed on the shared connection BEFORE the records flush;
-    a missing row drives ``_register_from_hook``, so tool-call hooks are
-    a registration path and the first dispatch's rows enrich fresh.
-    ``actor_id`` is the server-verified bearer-token actor (None locally).
+    ``records`` is the runner's ordered ``(kind, kwargs)`` list. Optional
+    ``ensure_session`` arms register-on-first-sight before records flush.
+    ``usage_session`` carries an existing row's payload and trusted executor;
+    unlike registration it is valid for terminal hooks and cannot revive a row.
 
     Best-effort: never raises. A supplied ``deadline`` stops emission at
     budget exhaustion. Emitters resolve at call time so test patches
     still intercept.
     """
-    if not records and ensure_session is None:
+    if not records and ensure_session is None and usage_session is None:
         return
     emitters = {
         "guardrail": emit_hook_guardrail_evaluated,
@@ -273,13 +266,17 @@ def flush_hook_telemetry(records, *, deadline=None, ensure_session=None) -> None
         )
         return
     with hook_emit_connection() as conn:
-        if ensure_session is not None and conn is not None:
-            try:  # register-if-missing; the net must never break dispatch
+        if conn is not None:
+            try:  # session facts are best-effort and never break dispatch
                 from yoke_core.hooks.hook_registration_tail import (
-                    apply_hook_registration,
+                    apply_hook_session_tail,
                 )
 
-                apply_hook_registration(conn, ensure_session)
+                apply_hook_session_tail(
+                    conn,
+                    ensure_session=ensure_session,
+                    usage_session=usage_session,
+                )
             except Exception:  # noqa: BLE001
                 pass
         check = check_severity_conn if conn is not None else None

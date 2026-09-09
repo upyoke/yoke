@@ -249,8 +249,9 @@ def _run_runner(monkeypatch, payload: dict, controls=None):
     monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: ["mod.allow"])
     captured: list[dict[str, Any]] = []
 
-    def fake_flush(records, *, deadline=None, ensure_session=None):
-        captured.append({"records": records, "ensure_session": ensure_session})
+    def fake_flush(records, *, deadline=None, ensure_session=None, usage_session=None):
+        captured.append({"records": records, "ensure_session": ensure_session,
+                         "usage_session": usage_session})
 
     monkeypatch.setattr(
         telemetry, "flush_hook_telemetry", fake_flush,
@@ -332,7 +333,7 @@ class TestRunnerArmsEnsureSession:
         captured = []
         monkeypatch.setattr(
             telemetry, "flush_hook_telemetry",
-            lambda records, *, deadline=None, ensure_session=None:
+            lambda records, *, deadline=None, ensure_session=None, usage_session=None:
                 captured.append(ensure_session),
         )
         capability = AdapterCapability(
@@ -345,3 +346,4 @@ class TestRunnerArmsEnsureSession:
             controls=RunControls(remote=True),
         )
         assert captured and captured[0][6] is True
+
