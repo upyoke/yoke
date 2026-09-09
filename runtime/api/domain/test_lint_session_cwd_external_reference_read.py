@@ -36,17 +36,16 @@ SESSION = "sid-external-read"
 
 @pytest.fixture(autouse=True)
 def _tmp_paths_are_not_free(monkeypatch):
-    """Keep ``/tmp`` free but drop ``/var/folders``.
+    """Empty the free-path allowlist for this file.
 
-    Every path in this file is built under pytest's ``tmp_path``, which lives
-    under ``/var/folders`` on macOS — on the free-path allowlist, so without
-    this the whole file would pass while proving nothing.
+    Every path here is built under pytest's ``tmp_path``, and where that lands
+    is the operating system's choice: ``/var/folders`` on macOS, ``/tmp`` on
+    Linux. Both are on the production allowlist, so naming either one to keep
+    would leave the other incidentally free — and a free target allows before
+    any of the authority under test is consulted, turning every refusal
+    assertion here green while proving nothing.
     """
-    monkeypatch.setattr(
-        lint_session_cwd_validate,
-        "FREE_PATH_PREFIXES",
-        ("/tmp", "/private/tmp", "/dev"),
-    )
+    monkeypatch.setattr(lint_session_cwd_validate, "FREE_PATH_PREFIXES", ())
 
 
 @pytest.fixture
