@@ -47,7 +47,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools import _watch_digest, _watch_runner
+from yoke_core.tools import _source_pythonpath, _watch_digest, _watch_runner
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_lifecycle"
@@ -60,7 +60,10 @@ KIND = "lifecycle"
 # ``repair-status`` executes the registered, transport-keyed Yoke CLI.
 SUBCOMMAND_MODULES: dict[str, tuple[str, tuple[str, ...]]] = {
     "items-update-status": ("yoke_core.cli.db_router", ("items", "update")),
-    "repair-status": ("yoke_cli.main", ("lifecycle", "repair-status")),
+    "repair-status": (
+        _source_pythonpath.YOKE_CLI_MODULE,
+        ("lifecycle", "repair-status"),
+    ),
 }
 
 # Per-class regexes. Each is line-oriented; callers feed one line at a

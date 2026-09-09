@@ -37,6 +37,26 @@ For example, validate the agent renderer from the lane with:
 yoke dev run -- yoke agents render --target-root .
 ```
 
+A nested `yoke` command binds like the python shape does. Left alone, an
+installed launcher resolves a checkout of its own — the canonical launcher
+prepends its `YOKE_HOME` package roots ahead of an inherited `PYTHONPATH`, and
+a pinned relay launcher runs isolated and never reads one — so the child would
+execute release or main-checkout code while `dev run` printed the lane's
+origins. `dev run` therefore runs a nested `yoke` as the CLI module on the same
+interpreter it just verified. That binding carries through the watcher wrappers
+and the gates they wrap, because each of those runs its own child as
+`<interpreter> -m <module>`:
+
+```bash
+yoke --env <name> dev run -- yoke watch qa-case -- --requirement-id <id>
+yoke --env <name> dev run -- yoke migration rehearse PREFIX-N
+```
+
+Keep the `yoke watch <kind>` spelling inside that wrapper: the retired
+`python3 -m yoke_core.tools.watch_*` form is refused by
+`lint-watcher-module-form`, and it is not what binds the lane — the outer
+`dev run` is.
+
 Focused pytest normally goes through `yoke watch pytest`, which already binds
 the same resolver and enforces the session's verification-tree claim. Use the
 general recipe only for a direct invocation that is not covered by a wrapper:

@@ -67,7 +67,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_core.tools import _watch_digest, _watch_runner
+from yoke_core.tools import _source_pythonpath, _watch_digest, _watch_runner
 from yoke_core.tools._watch_throttle import Classification, LineClass
 
 WRAPPER_MODULE = "yoke_core.tools.watch_doctor"
@@ -79,7 +79,7 @@ KIND = "doctor"
 #: ``yoke-cli``, so an interpreter that imports the wrapper imports this
 #: module too; there is no environment where one resolves and the other
 #: does not.
-DOCTOR_CLI_MODULE = "yoke_cli.main"
+DOCTOR_CLI_MODULE = _source_pythonpath.YOKE_CLI_MODULE
 DOCTOR_CLI_SUBCOMMAND = ("doctor", "run")
 # argparse prog for a direct module invocation; the CLI adapter
 # passes the ``yoke watch doctor`` form so help reads back the

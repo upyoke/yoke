@@ -1,4 +1,12 @@
-"""Run source commands from a claimed lane or a read-only main surface."""
+"""Run source commands from a claimed lane or a read-only main surface.
+
+The reported import origins are a promise about the child, so the child
+has to be a process that can keep it. An ambient ``python3`` and the
+installed ``yoke`` launcher each resolve a checkout of their own, so
+either would run other code than this command printed. Both are rewritten
+onto the interpreter whose origins were just verified, which binds
+``yoke dev run -- yoke <subcommand>`` exactly as the python shape is.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +23,6 @@ from yoke_core.tools import _source_pythonpath
 
 
 MAIN_CHECKOUT_FALLBACK_EVENT = "SourceDevRunMainCheckoutFallback"
-AMBIENT_PYTHON_NAMES = frozenset({"python", "python3"})
 MAIN_CHECKOUT_READ_ONLY_SCRIPTS = frozenset(
     {
         "runtime/api/tools/scan_item_ref_construction.py",
@@ -24,13 +31,6 @@ MAIN_CHECKOUT_READ_ONLY_SCRIPTS = frozenset(
 MAIN_CHECKOUT_CLAIMED_TARGET_PREFIX = tuple(
     shlex.split(_source_pythonpath.INSTALL_BUNDLE_SYNC_RECIPE.partition("-- ")[2])[:-1]
 )
-
-
-def _bound_command(args: list[str]) -> list[str]:
-    """Replace an ambient python3 with this process's interpreter."""
-    if args and Path(args[0]).name in AMBIENT_PYTHON_NAMES:
-        return [sys.executable, *args[1:]]
-    return args
 
 
 def _lane_selectors(lanes: Sequence[Path]) -> str:
@@ -310,7 +310,7 @@ def run(
             print(f"error: {event_error}", file=sys.stderr)
             return 1
     print(f"source imports: {rendered}", file=sys.stderr)
-    args = _bound_command(args)
+    args = _source_pythonpath.bound_child_command(args)
     try:
         return subprocess.run(args, cwd=str(root), env=env, check=False).returncode
     except OSError as exc:
@@ -325,7 +325,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             "Run a command from the current session's claimed Yoke source "
             "lane, or a registered scanner or claimed-target maintenance "
             "operation from its mapped main checkout when no Yoke lane "
-            "exists, and report every checkout-owned import origin."
+            "exists, and report every checkout-owned import origin. A "
+            "nested `yoke` command runs on the interpreter those origins "
+            "describe, as an ambient `python3` does."
         ),
     )
     parser.add_argument(

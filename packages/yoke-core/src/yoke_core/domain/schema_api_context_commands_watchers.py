@@ -13,9 +13,12 @@ Recipe shape doctrine (current):
     adapter runs a local subprocess and carries no function id — but the
     console script is what makes them resolvable everywhere, so it is the
     taught form. The module invocation
-    (``python3 -m yoke_core.tools.watch_pytest``) stays callable as the
-    operator-debug fallback. ``tail`` / ``grep`` / ``git -C`` shapes
-    inside watcher recipes stay command-shaped by design.
+    (``python3 -m yoke_core.tools.watch_pytest``) is refused by
+    ``lint-watcher-module-form`` wherever an adapter exists; a run that
+    must bind one checkout's code wraps the same CLI form in
+    ``yoke dev run -- yoke watch <kind> -- <args>``. ``tail`` / ``grep``
+    / ``git -C`` shapes inside watcher recipes stay command-shaped by
+    design.
 
 The recipes here are also deliberately harness-neutral:
 ``--print-streaming-pair`` reads the caller's manifest wake fact. A

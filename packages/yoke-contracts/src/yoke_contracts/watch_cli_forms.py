@@ -6,9 +6,12 @@ spelling: the CLI builds its token table from this map, and the wrappers
 print it inside ``--print-streaming-pair`` output. Contracts is the one
 package both may import statically, so the mapping lives here.
 
-The module form (``python3 -m yoke_core.tools.watch_pytest``) stays
-callable as the operator-debug fallback; it is not a form this module
-teaches.
+The module form (``python3 -m yoke_core.tools.watch_pytest``) remains the
+wrapper's own entrypoint for the adapter, but it is not an invocation
+shape: ``lint-watcher-module-form`` refuses it wherever a mapping below
+exists. To run a watcher against a specific checkout's code, keep the
+``yoke watch <kind>`` form and bind the checkout around it with
+``yoke dev run -- yoke watch <kind> -- <args>``.
 """
 
 from __future__ import annotations
