@@ -5,10 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List
 
-from yoke_contracts.machine_config.runtime import (
-    MachineConfigError,
-    ensure_machine_id,
-)
+from yoke_contracts.machine_config.runtime import machine_id as read_machine_id
 
 
 def persist_install_glue(
@@ -45,11 +42,13 @@ def persist_install_glue(
     payload_reports: List[Dict[str, Any]] = list(by_id.values())
     if not payload_reports:
         return
-    try:
-        machine_id = ensure_machine_id()
-    except MachineConfigError as exc:
+    machine_id = read_machine_id()
+    if not machine_id:
         install_report.setdefault("warnings", []).append(
-            f"harness machine report was not persisted: {exc}"
+            "harness machine report was not persisted: machine_id is missing "
+            "from this machine's config. Include it from the machine identity "
+            "resolver; the server does not guess a machine, and install does "
+            "not mint one."
         )
         return
     ensure_handlers_loaded()
