@@ -46,9 +46,50 @@ surface, launch origin, or holding kind.
 `native_process_gone_evidence` retain the relay observation. A strictly later
 heartbeat, tool call, or episode start supersedes it, proving that a process
 has resumed the session. Until then, the session roster and fleet report say
-*process gone, claims held — terminate deliberately if dead*. A process-gone
-holder is actionable even when parked or below the ordinary idle threshold,
-and no wake recipe is offered for a process known not to exist.
+*process gone, claims held — terminate deliberately if dead*, and no wake
+recipe is offered for a process known not to exist.
+
+**The stamp names the death, not the poll.** Retaining the local record is
+what makes a later report possible, and it also means the same dead record is
+reported on every poll for as long as the holdings keep the row open. Stamping
+each of those reports with its arrival time made one old exit permanently
+newer than every later resume: a session whose first native exited cleanly,
+which was then woken and worked for another ninety minutes, still read as a
+fresh death because the newest report was minutes old.
+
+The native's own exit time settles the stamp wherever the machine read one
+from the launch's diagnostic capture, because a first report can also arrive
+long after the exit it names and must not outrank a resume that happened in
+between. Failing that reading, the recorder compares the reported process —
+its pids and their start times — against what the row already carries, and a
+repeat about a process already recorded keeps the time its first observation
+earned. Only a report naming a different process stamps the moment it was
+seen, which is what keeps a genuine second death visible after a resume, and
+no stamp ever moves earlier than a death already recorded.
+
+**A declared wait accounts for a normal exit.** A headless worker's native
+exits when its turn ends, so a session that armed a merge-queue landing and
+stopped, or parked itself waiting on an answer or a dependency, has a dead
+process and nothing wrong with it. Where the machine measured `exit_code` 0
+and the session declares such a wait — `mode='parked'`, or holding an item
+armed in the queue and not yet landed — the derived observation is dropped and
+the card shows that wait with its own reason. This is a projection judgment,
+not masking: the evidence stays stored and truthful. The landing half rides
+`claimed_item_facts` as `item_awaiting_landing`, the one batched read that
+already loads every claimed item's row for both surfaces, so neither pays a
+second query to learn it. A non-zero exit and an
+exit nobody measured are never accounted for, whatever wait is declared,
+because a park is not a place to hide a crash.
+
+**A session the machine still runs a native for is not reported at all.**
+The report reads the launch-handle and process-anchor families, and a launch
+handle survives its native, so a session that was later resumed carried a
+spent handle beside a live resume-custody record. The dead-session scan now
+also asks the resume-custody reader whether this machine is still running a
+native for that session, and skips it when it is — the same custody question
+a wake asks before starting a second native, in the one place the machine
+already knows the answer. What "still running" means is settled by
+[`defunct-process-is-an-exited-process.md`](defunct-process-is-an-exited-process.md).
 
 ## Local record lifetime
 

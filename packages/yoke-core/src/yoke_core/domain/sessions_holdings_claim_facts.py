@@ -16,6 +16,7 @@ from typing import Any, Dict, Iterable, List
 from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.session_holdings import pair_steering_document_slugs
 from yoke_core.domain import db_backend
+from yoke_core.domain.turn_end_unfinished_work import waiting_on_landing
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
@@ -32,6 +33,11 @@ def clear_failed_read(conn: Any) -> None:
         pass
 
 
+#: Whether the claimed item is armed in the merge queue and has not landed,
+#: so the holder's remaining work belongs to GitHub rather than to it.
+ITEM_AWAITING_LANDING_KEY = "item_awaiting_landing"
+
+
 def claimed_item_facts(
     conn: Any,
     item_ids: List[int],
@@ -40,9 +46,10 @@ def claimed_item_facts(
 
     Values are the claim-payload shape itself — ``public_ref``,
     ``item_project_id``, ``item_project_sequence``, ``item_status``,
-    ``item_workflow_id`` — so every item claim says what it is and how far
-    along it is, not only the one the session's focus names. An id with no
-    backing item row is absent; callers apply the display fallback.
+    ``item_workflow_id``, ``item_awaiting_landing`` — so every item claim
+    says what it is and how far along it is, not only the one the session's
+    focus names. An id with no backing item row is absent; callers apply the
+    display fallback.
     """
     distinct = list(dict.fromkeys(int(value) for value in item_ids))
     if not distinct:
@@ -53,7 +60,10 @@ def claimed_item_facts(
         rows = conn.execute(
             "SELECT i.id AS id, i.project_id AS project_id, i.title AS title, "
             "i.project_sequence AS project_sequence, i.status AS status, "
-            "i.workflow_id AS workflow_id, p.public_item_prefix AS prefix "
+            "i.workflow_id AS workflow_id, i.merged_at AS merged_at, "
+            "i.merge_queue_enqueued_at AS merge_queue_enqueued_at, "
+            "i.merge_queue_landed_at AS merge_queue_landed_at, "
+            "p.public_item_prefix AS prefix "
             "FROM items i JOIN projects p ON p.id = i.project_id "
             f"WHERE i.id IN ({placeholders})",
             tuple(distinct),
@@ -74,6 +84,7 @@ def claimed_item_facts(
             "item_title": row["title"],
             "item_status": row["status"],
             "item_workflow_id": row["workflow_id"],
+            ITEM_AWAITING_LANDING_KEY: waiting_on_landing(dict(row)),
         }
     return facts
 
@@ -120,6 +131,7 @@ def steered_document_slugs(
 
 
 __all__ = [
+    "ITEM_AWAITING_LANDING_KEY",
     "claimed_item_facts",
     "clear_failed_read",
     "param_marker",

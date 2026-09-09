@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from yoke_contracts.session_identity import ANCHORS_DIR_NAME
+from yoke_harness.session_launch_containment import supervision_record_path
 from yoke_harness.session_launch_handles import native_handle_path
 from yoke_harness.session_relay_process_liveness import (
     LAUNCH_HANDLE_SOURCE,
@@ -123,6 +124,61 @@ def test_only_sessions_with_every_record_gone_are_verified_dead(
         # and is the evidence that ends a settled session without a TTL wait.
         "launch_id": "launch-dead",
     }
+
+
+def _resume_custody(session_id: str, pid: int, state_dir: Path) -> None:
+    """The record the relay keeps for a native it resumed, until that native exits."""
+    _write(
+        supervision_record_path(f"resume-{pid}", state_dir),
+        {
+            "launch_id": f"resume-{pid}",
+            "pid": pid,
+            "process_start_time": RECORDED_START,
+            "native_session_id": session_id,
+            "supervision_kind": "resume",
+        },
+    )
+
+
+def test_a_session_this_machine_still_runs_a_native_for_is_not_reported(
+    tmp_path: Path,
+) -> None:
+    """A spent launch handle beside a live resume is not proof of a death.
+
+    The first native exited and its handle survives, because the control
+    plane kept the claim-holding session; reporting on that handle alone
+    called a session dead while this machine was running its turn.
+    """
+    anchors = tmp_path / ANCHORS_DIR_NAME
+    anchors.mkdir(parents=True, exist_ok=True)
+    _handle(DEAD_SESSION, 4002, "launch-spent")
+    _resume_custody(DEAD_SESSION, 4004, tmp_path)
+
+    assert (
+        verified_dead_sessions(
+            state_dir=tmp_path,
+            anchors_dir=anchors,
+            start_time_of=_start_time_of({4004}),
+        )
+        == ()
+    )
+
+
+def test_a_session_whose_resume_native_also_exited_is_still_reported(
+    tmp_path: Path,
+) -> None:
+    anchors = tmp_path / ANCHORS_DIR_NAME
+    anchors.mkdir(parents=True, exist_ok=True)
+    _handle(DEAD_SESSION, 4002, "launch-spent")
+    _resume_custody(DEAD_SESSION, 4004, tmp_path)
+
+    dead = verified_dead_sessions(
+        state_dir=tmp_path,
+        anchors_dir=anchors,
+        start_time_of=_start_time_of(set()),
+    )
+
+    assert [entry.session_id for entry in dead] == [DEAD_SESSION]
 
 
 def test_a_session_without_any_record_is_never_reported(tmp_path: Path) -> None:

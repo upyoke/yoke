@@ -24,6 +24,15 @@ that reading is a measurement rather than a verdict: it is stored for any
 session this machine is authorized to report about, including one kept alive
 by a claim it still holds.
 
+Recording the observation is not the same as refreshing it. The reporting
+machine keeps its record until the control plane ends the session, so a
+session retained by a claim, a park, or an open question is reported again
+every poll; the recorder stamps the death rather than the report, and a
+repeat about a process already recorded keeps the time its first observation
+earned. Otherwise one old exit stays permanently newer than every later
+resume, and a session that has demonstrably resumed keeps reading as a fresh
+death.
+
 Correcting the launch behind a dead native is separate from ending its
 session, and runs whatever the session verdict is. A session that died a
 minute ago still reads active, so waiting for it to go stale is exactly how a
