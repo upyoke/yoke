@@ -39,10 +39,17 @@ def github_actions_authority() -> Iterator[None]:
         yield
         return
     from yoke_core.domain.control_plane_transport import (
+        ServingControlPlaneUnresolved,
         serving_control_plane_env,
     )
 
-    owning_env = serving_control_plane_env()
+    try:
+        owning_env = serving_control_plane_env()
+    except ServingControlPlaneUnresolved:
+        # This selection is an optimization: GitHub Actions calls have their
+        # own resolution, so a machine that cannot name its plane is left
+        # alone rather than refused.
+        owning_env = ""
     if not owning_env:
         yield
         return

@@ -13,6 +13,9 @@ import pytest
 
 from yoke_core.domain import control_plane_transport
 from yoke_core.domain import deployment_stage_approval_dispatch as dispatch
+from runtime.api.domain.test_serving_control_plane_env import (
+    stub_machine_connections,
+)
 from yoke_core.domain.deployment_approval_requests import (
     EVALUATE_STAGE_APPROVAL_FUNCTION,
 )
@@ -134,51 +137,77 @@ def test_the_driver_never_opens_the_control_plane_database_itself(monkeypatch):
     assert outcome == (0, "")
 
 
-def test_an_admin_connection_routes_to_the_plane_it_administers(monkeypatch):
-    """A database door is not a plane; its https sibling is."""
-    from yoke_cli.transport import https as https_transport
-
-    monkeypatch.setattr(
-        https_transport,
-        "resolve_https_connection",
-        lambda *a, **k: None,
+def test_that_refusal_reaches_the_pipeline_as_a_named_stage_failure(monkeypatch):
+    stub_machine_connections(
+        monkeypatch,
+        active="stage-db-admin",
+        connections={"stage-db-admin": {"transport": "local-postgres"}},
     )
-    from yoke_cli.config import machine_config
-
-    monkeypatch.setattr(
-        machine_config,
-        "active_env",
-        lambda *a, **k: "prod-db-admin",
+    code, diagnostic = dispatch.dispatch_deployment_stage_approval(
+        "run-serving-2", "approve-prod"
     )
-    monkeypatch.setattr(
-        machine_config,
-        "load_config",
-        lambda *a, **k: {
-            "connections": {
-                "prod": {"transport": "https", "api_url": "https://example"},
-                "prod-db-admin": {"transport": "local-postgres"},
-            }
+    assert code == 1
+    assert "serving control plane" in diagnostic
+    assert "stage-db-admin" in diagnostic
+
+
+def test_the_public_cli_evaluation_routes_to_the_serving_plane(monkeypatch):
+    """The operator command makes the same promise the pipeline does.
+
+    Under an admin connection an ordinary dispatch runs in-process, which
+    would evaluate with the caller's revision against the deployed build's
+    database — the exact defect, reached through the public command.
+    """
+    from yoke_cli.commands import _helpers
+    from yoke_cli.commands.adapters import deployment_stage_approval as adapter
+
+    stub_machine_connections(
+        monkeypatch,
+        active="prod-db-admin",
+        connections={
+            "prod": {"transport": "https", "api_url": "https://example"},
+            "prod-db-admin": {"transport": "local-postgres"},
         },
     )
-    assert control_plane_transport.serving_control_plane_env() == "prod"
+    seen: dict = {}
 
+    def _capture(**kwargs):
+        seen.update(kwargs)
+        return 0
 
-def test_a_local_universe_serves_itself(monkeypatch):
-    from yoke_cli.transport import https as https_transport
-    from yoke_cli.config import machine_config
-
-    monkeypatch.setattr(
-        https_transport,
-        "resolve_https_connection",
-        lambda *a, **k: None,
+    monkeypatch.setattr(_helpers, "dispatch_and_emit", _capture)
+    monkeypatch.setattr(adapter, "dispatch_and_emit", _capture, raising=False)
+    assert (
+        adapter.deployment_runs_stage_approval_evaluate(
+            ["run-serving-3", "--stage", "approve-prod"]
+        )
+        == 0
     )
-    monkeypatch.setattr(machine_config, "active_env", lambda *a, **k: "local")
-    monkeypatch.setattr(
-        machine_config,
-        "load_config",
-        lambda *a, **k: {"connections": {"local": {"transport": "local-postgres"}}},
+    assert seen["relay_env"] == "prod"
+    assert seen["function_id"] == EVALUATE_STAGE_APPROVAL_FUNCTION
+    assert seen["payload"] == {"stage": "approve-prod"}
+
+
+def test_the_public_cli_refuses_when_the_serving_plane_cannot_be_named(
+    monkeypatch, capsys
+):
+    from yoke_cli.commands.adapters import deployment_stage_approval as adapter
+
+    stub_machine_connections(
+        monkeypatch,
+        active="prod-db-admin",
+        connections={"prod-db-admin": {"transport": "local-postgres"}},
     )
-    assert control_plane_transport.serving_control_plane_env() == ""
+
+    def _must_not_dispatch(**_kwargs):
+        raise AssertionError("the command dispatched without a serving plane")
+
+    monkeypatch.setattr(adapter, "dispatch_and_emit", _must_not_dispatch, raising=False)
+    exit_code = adapter.deployment_runs_stage_approval_evaluate(
+        ["run-serving-4", "--stage", "approve-prod", "--json"]
+    )
+    assert exit_code == 1
+    assert "serving_control_plane_unresolved" in capsys.readouterr().out
 
 
 def test_a_named_plane_that_resolves_to_nothing_is_refused(monkeypatch):

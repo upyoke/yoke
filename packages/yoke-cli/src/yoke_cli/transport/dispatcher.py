@@ -151,8 +151,12 @@ def call_dispatcher(
             _call_local(request, _local_dispatch, client_local=True), sensitive_values,
         )
     try:
-        https = https_transport.resolve_https_connection(
-            explicit_env=relay_env,
+        # Only a caller that named a plane changes how the connection is
+        # resolved; the ordinary path keeps the plain call it always made.
+        https = (
+            https_transport.resolve_https_connection(explicit_env=relay_env)
+            if relay_env
+            else https_transport.resolve_https_connection()
         )
     except https_transport.TransportError as exc:
         return _redact_response(_error_response(
