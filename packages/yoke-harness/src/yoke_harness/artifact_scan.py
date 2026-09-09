@@ -170,6 +170,12 @@ def tail_rows_newest_first(
     turn therefore pays for its window, not for the session. Records are
     parsed as they are yielded, so a reader that stops at the first match
     — which is what "newest wins" means — never materializes the rest.
+
+    A final record with no trailing newline is read like any other: this
+    reader advances no offset, so it loses nothing by looking, and a
+    half-written record is not valid JSON and is dropped rather than
+    half-believed. Requiring the newline instead would blind the reader
+    to a whole artifact that has only ever been written once.
     """
     max_bytes = MAX_TAIL_BYTES if max_bytes is None else max_bytes
     start = 0

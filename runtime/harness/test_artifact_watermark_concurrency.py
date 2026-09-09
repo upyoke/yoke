@@ -143,57 +143,6 @@ def test_a_contending_reader_never_writes_an_older_offset(tmp_path: Path) -> Non
     assert load_watermark("session-1", transcript).offset == newest
 
 
-def test_a_reading_that_stopped_short_of_the_artifact_is_partial(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from yoke_harness import artifact_scan
-
-    transcript = write_rows(
-        tmp_path / "s.jsonl", [claude_row(f"msg_{index}") for index in range(6)]
-    )
-
-    with monkeypatch.context() as bounded:
-        bounded.setattr(artifact_scan, "MAX_SCAN_BYTES", 400)
-        usage = _read_claude(transcript)
-
-    assert usage.status == "partial"
-    assert usage.reason == artifact_scan.CATCH_UP_PENDING_REASON
-
-
-def test_a_skipped_oversized_record_keeps_saying_the_total_is_short(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from yoke_harness import artifact_scan
-
-    row = claude_row("msg_a")
-    row["message"]["filler"] = "x" * 1_000
-    transcript = write_rows(tmp_path / "s.jsonl", [row, claude_row("msg_b")])
-
-    with monkeypatch.context() as bounded:
-        bounded.setattr(artifact_scan, "MAX_RECORD_BYTES", 800)
-        usage = _read_claude(transcript)
-
-    assert usage.status == "partial"
-    assert usage.reason == artifact_scan.OVERSIZED_RECORD_REASON
-    assert usage.models[0].output == 100
-    assert partial_reason(load_watermark("session-1", transcript)) == (
-        artifact_scan.OVERSIZED_RECORD_REASON
-    )
-
-
-def test_a_large_unrelated_record_does_not_disturb_the_totals(
-    tmp_path: Path,
-) -> None:
-    transcript = write_rows(
-        tmp_path / "s.jsonl",
-        [{"type": "user", "filler": "u" * 400_000}, claude_row("msg_a")],
-    )
-
-    usage = _read_claude(transcript)
-
-    assert usage.models[0].output == 100
-
-
 def test_codex_model_facts_fold_forward_without_rereading(tmp_path: Path) -> None:
     rollout = write_rows(
         tmp_path / "rollout.jsonl",

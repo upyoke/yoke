@@ -43,7 +43,10 @@ from pathlib import Path
 from typing import Any, Iterator, Optional
 
 from yoke_cli.config import machine_config
-from yoke_harness.artifact_scan import OVERSIZED_RECORD_REASON
+from yoke_harness.artifact_scan import (
+    CATCH_UP_PENDING_REASON,
+    OVERSIZED_RECORD_REASON,
+)
 
 
 #: Progress of the token-consumption fold.
@@ -71,7 +74,10 @@ class ArtifactWatermark:
     because one logical record can span the boundary as several physical
     rows. ``oversized`` remembers that a record was skipped for exceeding
     the reader's record bound, because what it stated stays uncounted for
-    the rest of the session.
+    the rest of the session, and ``caught_up`` remembers whether the fold
+    that wrote this record reached the artifact's end — so a later reader
+    of the record, including one that folded nothing itself, knows the
+    accounting it is holding is not yet the whole session's.
     """
 
     offset: int = 0
@@ -79,6 +85,7 @@ class ArtifactWatermark:
     totals: dict[str, Any] = field(default_factory=dict)
     truncated: bool = False
     oversized: bool = False
+    caught_up: bool = True
 
 
 def watermark_path(session_id: str, *, kind: str = USAGE_KIND) -> Path:
@@ -156,6 +163,7 @@ def load_watermark(
         totals=stored.get("totals") if isinstance(stored.get("totals"), dict) else {},
         truncated=bool(stored.get("truncated")),
         oversized=bool(stored.get("oversized")),
+        caught_up=bool(stored.get("caught_up", True)),
     )
     return _reset_if_shrunk(mark, artifact)
 
@@ -189,6 +197,7 @@ def save_watermark(
                     "totals": mark.totals,
                     "truncated": mark.truncated,
                     "oversized": mark.oversized,
+                    "caught_up": mark.caught_up,
                 }
             ),
             encoding="utf-8",
@@ -256,6 +265,8 @@ def partial_reason(mark: ArtifactWatermark) -> Optional[str]:
         return TRUNCATED_ARTIFACT_REASON
     if mark.oversized:
         return OVERSIZED_RECORD_REASON
+    if not mark.caught_up:
+        return CATCH_UP_PENDING_REASON
     return None
 
 

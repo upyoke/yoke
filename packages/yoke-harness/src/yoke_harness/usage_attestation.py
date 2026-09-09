@@ -50,11 +50,7 @@ from yoke_contracts.session_usage_facts import (
     with_partial,
 )
 from yoke_contracts.session_usage_sources import usage_source
-from yoke_harness.artifact_scan import (
-    CATCH_UP_PENDING_REASON,
-    ScanResult,
-    scan_rows,
-)
+from yoke_harness.artifact_scan import scan_rows
 from yoke_harness.artifact_watermark import (
     ArtifactWatermark,
     load_watermark,
@@ -136,9 +132,10 @@ def _claude_usage(
             totals=_totals_document(totals),
             truncated=mark.truncated,
             oversized=mark.oversized or scan.oversized,
+            caught_up=scan.caught_up,
         )
         save_watermark(session_id, path, mark)
-    return _scanned_reading(totals, source, mark, scan)
+    return _reading(totals, source=source, partial=partial_reason(mark))
 
 
 def _claude_buckets(usage: Mapping[str, Any]) -> dict[str, int]:
@@ -178,19 +175,6 @@ def _persisted_reading(session_id: str, path: Path, source: str) -> SessionUsage
         source=source,
         partial=partial_reason(mark),
     )
-
-
-def _scanned_reading(
-    totals: dict[str, dict[str, int]],
-    source: str,
-    mark: ArtifactWatermark,
-    scan: ScanResult,
-) -> SessionUsage:
-    """Present a fold, saying so when it stopped short of the artifact's end."""
-    reading = _reading(totals, source=source, partial=partial_reason(mark))
-    if scan.caught_up:
-        return reading
-    return with_partial(reading, CATCH_UP_PENDING_REASON)
 
 
 def _reading(

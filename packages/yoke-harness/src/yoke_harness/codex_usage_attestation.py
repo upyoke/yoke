@@ -26,7 +26,7 @@ from yoke_contracts.session_usage_facts import (
     with_partial,
 )
 from yoke_contracts.session_usage_sources import usage_source
-from yoke_harness.artifact_scan import CATCH_UP_PENDING_REASON, scan_rows
+from yoke_harness.artifact_scan import scan_rows
 from yoke_harness.artifact_watermark import (
     ArtifactWatermark,
     load_watermark,
@@ -106,10 +106,10 @@ def attest_codex_usage(payload: Mapping[str, Any], session_id: str) -> SessionUs
             totals={"latest": state["latest"] or {}, "models": state["models"]},
             truncated=mark.truncated,
             oversized=mark.oversized or scan.oversized,
+            caught_up=scan.caught_up,
         )
         save_watermark(session_id, path, mark)
-    reading = _codex_reading(stored_totals(mark), source, partial_reason(mark))
-    return reading if scan.caught_up else with_partial(reading, CATCH_UP_PENDING_REASON)
+    return _codex_reading(stored_totals(mark), source, partial_reason(mark))
 
 
 def _codex_totals(block: Mapping[str, Any]) -> Optional[dict[str, int]]:

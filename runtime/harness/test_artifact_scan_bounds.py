@@ -253,6 +253,30 @@ def test_a_tail_read_costs_its_window_rather_than_the_artifact(
     assert peak < 2 * MAX_TAIL_BYTES
 
 
+def test_a_half_written_final_record_is_dropped_by_the_tail_read(
+    tmp_path: Path,
+) -> None:
+    """It is not valid JSON, so the newest complete record still wins."""
+    artifact = _write(tmp_path / "s.jsonl", [_padded(1, 10)])
+    with artifact.open("a") as handle:
+        handle.write(json.dumps(_padded(2, 10))[:20])
+
+    rows = list(tail_rows_newest_first(artifact))
+
+    assert [row["index"] for row in rows] == [1]
+
+
+def test_a_complete_final_record_without_its_newline_is_read(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "s.jsonl"
+    artifact.write_text(json.dumps(_padded(1, 10)))
+
+    rows = list(tail_rows_newest_first(artifact))
+
+    assert [row["index"] for row in rows] == [1]
+
+
 def test_a_tail_smaller_than_its_window_reads_every_record(tmp_path: Path) -> None:
     artifact = _write(tmp_path / "s.jsonl", [_padded(i, 10) for i in range(3)])
 

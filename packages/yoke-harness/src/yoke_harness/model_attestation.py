@@ -146,7 +146,7 @@ def _codex_rollout_facts(path: Path, thread_id: str) -> SessionModelFacts:
         mark = load_watermark(thread_id, path, kind=MODEL_KIND)
         held = dict(stored_totals(mark))
         if not folding:
-            return _facts_from_record(held)
+            return _facts_from_record(held, mark.caught_up)
 
         def fold(row: Mapping[str, Any]) -> None:
             block = row.get("payload")
@@ -168,14 +168,25 @@ def _codex_rollout_facts(path: Path, thread_id: str) -> SessionModelFacts:
                 totals=held,
                 truncated=mark.truncated,
                 oversized=mark.oversized or scan.oversized,
+                caught_up=scan.caught_up,
             ),
             kind=MODEL_KIND,
         )
-    return _facts_from_record(held)
+    return _facts_from_record(held, scan.caught_up)
 
 
-def _facts_from_record(held: Mapping[str, Any]) -> SessionModelFacts:
-    """Present the folded record as the reading its callers consume."""
+def _facts_from_record(held: Mapping[str, Any], caught_up: bool) -> SessionModelFacts:
+    """Present the folded record, but only once the fold reached the end.
+
+    A served fact is the newest statement in the rollout, so a fold that
+    stopped at its byte bound is holding a historical one. Attesting it
+    would be worse than attesting nothing: the caller settles a session
+    the moment its model lands, and a stale model that settles is the
+    model that session reports for the rest of its life. Unattested facts
+    make the next event resume the fold instead.
+    """
+    if not caught_up:
+        return SessionModelFacts()
     return SessionModelFacts(
         model=_served_model(held.get("model")),
         reasoning_effort=normalize_reasoning_effort(held.get("effort")),
