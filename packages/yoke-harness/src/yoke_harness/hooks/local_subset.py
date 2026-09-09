@@ -35,6 +35,7 @@ from yoke_harness.hooks.local_policies import (
     lint_shell_backtick_search,
     lint_tmp_runtime_import,
 )
+from yoke_harness.hooks.unmatched_path_glob import lint_unmatched_path_glob
 from yoke_harness.hooks.local_policy_common import (
     ADVISORY,
     DENY,
@@ -52,6 +53,7 @@ LOCAL_STATE_POLICIES: frozenset[str] = frozenset(
         "yoke_core.domain.lint_python_runtime_import_in_tmp",
         "yoke_core.domain.hint_file_line_limit_approach",
         "yoke_core.domain.db_error_hook",
+        "yoke_core.domain.lint_unmatched_path_glob",
     }
 )
 
@@ -169,6 +171,7 @@ _POLICY_EVALUATORS = {
     "yoke_core.domain.lint_python_runtime_import_in_tmp": lint_tmp_runtime_import,
     "yoke_core.domain.hint_file_line_limit_approach": hint_file_line,
     "yoke_core.domain.db_error_hook": db_error_advisory,
+    "yoke_core.domain.lint_unmatched_path_glob": lint_unmatched_path_glob,
 }
 
 

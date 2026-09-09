@@ -61,6 +61,8 @@ LOCAL_STATE_POLICIES: frozenset[str] = frozenset(
         "yoke_core.domain.hint_file_line_limit_approach",
         # Stray-DB detection scans the client repo root.
         "yoke_core.domain.db_error_hook",
+        # Expands path globs against the command cwd on the client FS.
+        "yoke_core.domain.lint_unmatched_path_glob",
         # Session orientation/lifecycle: hook-script-dir target resolution,
         # git subprocesses, client env mutation, bootstrap file reads.
         "yoke_core.hooks.session_dispatch",

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from yoke_core.hooks.remote_policy import LOCAL_STATE_POLICIES
+from yoke_core.hooks.remote_policy import LOCAL_STATE_POLICIES as REMOTE_LOCAL_POLICIES
+from yoke_harness.hooks import local_subset
 
 
 def test_db_backed_authority_guards_stay_server_side() -> None:
@@ -25,4 +26,12 @@ def test_db_backed_authority_guards_stay_server_side() -> None:
         "yoke_core.domain.observe",
     }
 
-    assert db_authority_guards.isdisjoint(LOCAL_STATE_POLICIES)
+    assert db_authority_guards.isdisjoint(REMOTE_LOCAL_POLICIES)
+
+
+def test_unmatched_path_glob_has_client_owned_remote_split() -> None:
+    module_id = "yoke_core.domain.lint_unmatched_path_glob"
+
+    assert module_id in REMOTE_LOCAL_POLICIES
+    assert module_id in local_subset.LOCAL_STATE_POLICIES
+    assert module_id in local_subset._POLICY_EVALUATORS
