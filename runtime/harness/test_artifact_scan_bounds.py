@@ -187,6 +187,39 @@ def test_iteration_stops_where_its_reader_stops(tmp_path: Path) -> None:
     assert peak < artifact.stat().st_size
 
 
+def test_a_final_record_without_its_newline_is_still_iterated(
+    tmp_path: Path,
+) -> None:
+    """An identity scan advances no offset, so it reads the last record."""
+    artifact = tmp_path / "s.jsonl"
+    artifact.write_text(json.dumps(_padded(1, 10)))
+
+    assert [row["index"] for row in iter_rows(artifact)] == [1]
+
+
+def test_a_final_oversized_record_without_its_newline_is_not_iterated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(artifact_scan, "MAX_RECORD_BYTES", 1_000)
+    artifact = tmp_path / "s.jsonl"
+    artifact.write_text(json.dumps(_padded(1, 10)) + "\n" + "x" * 40_000)
+
+    assert [row["index"] for row in iter_rows(artifact)] == [1]
+
+
+def test_a_fold_leaves_a_final_record_without_its_newline_for_next_time(
+    tmp_path: Path,
+) -> None:
+    artifact = tmp_path / "s.jsonl"
+    artifact.write_text(json.dumps(_padded(1, 10)))
+    seen: list[int] = []
+
+    result = scan_rows(artifact, 0, lambda row: seen.append(row["index"]))
+
+    assert seen == []
+    assert result.offset == 0
+
+
 def test_the_newest_records_are_read_from_the_end(tmp_path: Path) -> None:
     artifact = _write(tmp_path / "s.jsonl", [_padded(i, 50_000) for i in range(20)])
 

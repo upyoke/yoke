@@ -125,7 +125,11 @@ def iter_rows(
 
     For a reader that stops as soon as it has what it came for — session
     metadata is stated once, near the beginning — so the rest of the file
-    is never read at all.
+    is never read at all. Unlike a resumable fold, this reader delivers a
+    final record that has no trailing newline: it advances no offset, so
+    nothing is lost by reading a record that may still be growing, and a
+    harness that writes its metadata without a trailing newline would
+    otherwise state its identity to nobody.
     """
     max_bytes = MAX_SCAN_BYTES if max_bytes is None else max_bytes
     pending: deque[dict] = deque()
@@ -147,6 +151,11 @@ def iter_rows(
             drain.feed(chunk)
             while pending:
                 yield pending.popleft()
+        else:
+            return
+        drain.finish()
+        while pending:
+            yield pending.popleft()
 
 
 def tail_rows_newest_first(
@@ -224,6 +233,14 @@ class _Drain:
             self._buffer.clear()
             self._skipping = True
             self.oversized = True
+
+    def finish(self) -> None:
+        """Deliver a final record that never got its newline."""
+        if self._skipping or not self._buffer:
+            return
+        record = bytes(self._buffer)
+        self._buffer.clear()
+        self._deliver(record)
 
     def _deliver(self, record: bytes) -> None:
         if len(record) > MAX_RECORD_BYTES:
