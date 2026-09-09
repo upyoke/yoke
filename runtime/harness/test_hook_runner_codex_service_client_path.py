@@ -8,13 +8,23 @@ from yoke_contracts.session_model_facts import SessionModelFacts
 
 
 def _pin_local_transport(monkeypatch) -> None:
-    """These tests assert the local-subprocess wiring, which the
-    https-default relay-owned registration skip
-    bypasses — pin local transport so they stay hermetic on an
-    https-default dev machine."""
+    """Pin the branch these tests are about: the service-client subprocess.
+
+    Two other branches reach lifecycle work first, and each is chosen from
+    the running machine's own connection — the relay-owned registration skip
+    on an https machine, and in-process dispatch on a machine that owns its
+    universe. Left ambient, either one answers from the operator's config
+    rather than from the code under test, so the assertions turn on where
+    the suite happens to run.
+    """
     monkeypatch.setattr(
         session_lifecycle_client,
         "_relay_owns_registration",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        session_lifecycle_client,
+        "_local_authority_active",
         lambda: False,
     )
     monkeypatch.setattr(
@@ -176,6 +186,7 @@ def test_universal_touch_uses_target_service_client_path(monkeypatch) -> None:
         calls.append(args)
         return 0
 
+    _pin_local_transport(monkeypatch)
     monkeypatch.setattr(
         "yoke_core.hooks.target.target_service_client_path",
         lambda root: "/Users/x/yoke/runtime/api/service_client.py",
