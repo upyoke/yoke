@@ -183,8 +183,12 @@ function capacityLine(documentNode, capacity) {
 // neither reaches the status that has to stay legible at the end of the row.
 function machineHead(documentNode, relay, options) {
   const head = el(documentNode, "div", "machine-head");
+  // The names travel together so the status is the only thing a narrow card
+  // can step down to a second line: a group that holds its own line keeps
+  // both names truncating on one instead of each claiming a line of its own.
+  const names = el(documentNode, "div", "machine-names");
   const live = String(relay.liveness) === "connected";
-  head.appendChild(el(
+  names.appendChild(el(
     documentNode,
     "span",
     `machine-light ${live ? "machine-light-ok" : "machine-light-warn"}`,
@@ -194,7 +198,7 @@ function machineHead(documentNode, relay, options) {
   // A truncated name still answers in full on hover, tap and focus, through
   // the one explanation surface the product already draws everywhere else.
   attachTooltip(documentNode, host, name);
-  head.appendChild(host);
+  names.appendChild(host);
   const ownerName = options.owner || relay.owner || "";
   if (ownerName) {
     const owner = el(documentNode, "span", "machine-owner");
@@ -202,8 +206,9 @@ function machineHead(documentNode, relay, options) {
       documentNode, "span", "machine-owner-name", ownerName,
     ));
     attachTooltip(documentNode, owner, ownerName);
-    head.appendChild(owner);
+    names.appendChild(owner);
   }
+  head.appendChild(names);
   const age = preciseAge(relay.last_seen_at);
   head.appendChild(el(
     documentNode,
