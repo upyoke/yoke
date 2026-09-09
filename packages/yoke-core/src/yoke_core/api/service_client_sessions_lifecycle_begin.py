@@ -13,6 +13,7 @@ from yoke_contracts.session_model_facts import (
     facts_from_mapping,
 )
 
+from yoke_core.domain.session_routing_rules import routing_model_of
 from yoke_core.api.service_client_shared import (
     SESSION_REQUIRED_ERROR,
     _get_db_readwrite,
@@ -86,6 +87,7 @@ def begin_session(
         executor=executor,
         explicit_lane=None,
         routing_config=routing_config,
+        model=routing_model_of(model_facts.model, model_facts.requested_model),
     )
     try:
         result = register_session(

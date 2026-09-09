@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from yoke_core.api.routing_config import ProcessOfferPolicy
+from yoke_core.api.process_offer_policy import ProcessOfferPolicy
 
 from .chain_skip_memory_filter import merge_skip_memory_with_policy
 from .scheduler_events import emit_scheduler_offer_skipped

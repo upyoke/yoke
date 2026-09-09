@@ -9,6 +9,9 @@ from yoke_cli.commands.adapters.projects_write import (
     projects_environment_update,
 )
 from yoke_cli.commands.adapters.project_git_bootstrap import project_git_bootstrap
+from yoke_cli.commands.adapters.projects_lane_summary import (
+    projects_lane_summary_get,
+)
 from yoke_cli.commands.adapters.release_pin_record import release_pin_record
 
 
@@ -44,6 +47,10 @@ PROJECTS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("projects", "capabilities", "list"): (
         "projects.capabilities.list",
         _adapters.projects_capabilities_list,
+    ),
+    ("projects", "lane-summary", "get"): (
+        "projects.lane_summary.get",
+        projects_lane_summary_get,
     ),
     ("projects", "capability-settings", "get"): (
         "projects.capability_settings.get",

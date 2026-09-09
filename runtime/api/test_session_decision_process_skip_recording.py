@@ -25,7 +25,7 @@ from yoke_core.domain.session_decision_process_gate import (
     record_disabled_process_skip,
 )
 from yoke_core.domain.sessions_queries_chain import read_chain_skip_memory
-from yoke_core.api.routing_config import ProcessOfferPolicy
+from yoke_core.api.process_offer_policy import ProcessOfferPolicy
 from runtime.api.test_sessions import _register, conn  # noqa: F401  (Postgres-backed pytest fixture)
 
 

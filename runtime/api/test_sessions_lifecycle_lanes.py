@@ -114,3 +114,120 @@ class TestRegisterSessionLaneHealing:
 
         assert result["execution_lane"] == "DARIUS"
         assert _stored_lane(conn, "lane-reactivate-upgrade") == "DARIUS"
+
+
+_MODEL_ROUTING = {
+    "executor_default_lanes": {"claude*": "DARIUS", "codex*": "ALTMAN"},
+    "lane_paths": {"DARIUS": ["dash"], "ALTMAN": ["dash"], "MUSKY": ["dash"]},
+    "lane_rules": [
+        {"model": "claude-opus-*", "lane": "MUSKY"},
+        {"harness": "codex", "model": "gpt-5", "lane": "MUSKY"},
+    ],
+}
+
+
+class TestBeginSessionRoutesOnModel:
+    """A selector routes the session that is registering, not its harness."""
+
+    @pytest.fixture(autouse=True)
+    def _project_routing(self, monkeypatch):
+        monkeypatch.setattr(
+            "yoke_core.api.service_client_sessions_lifecycle_begin"
+            "._load_routing_config",
+            lambda **_kw: load_routing_config(
+                "", project_settings=_MODEL_ROUTING,
+            ),
+        )
+
+    @pytest.mark.parametrize(
+        "session_id,executor,facts,expected",
+        [
+            (
+                "model-served",
+                "claude-cli",
+                SessionModelFacts(model="claude-opus-5"),
+                "MUSKY",
+            ),
+            (
+                "model-asked",
+                "claude-cli",
+                SessionModelFacts(requested_model="claude-opus-5[1m]"),
+                "MUSKY",
+            ),
+            (
+                "model-other",
+                "claude-cli",
+                SessionModelFacts(model="claude-sonnet-5"),
+                "DARIUS",
+            ),
+            (
+                "model-none",
+                "claude-cli",
+                SessionModelFacts(),
+                "DARIUS",
+            ),
+            (
+                "model-combined",
+                "codex-cli",
+                SessionModelFacts(model="gpt-5"),
+                "MUSKY",
+            ),
+        ],
+    )
+    def test_the_registering_session_lands_on_its_selector_lane(
+        self, conn, session_id, executor, facts, expected,  # noqa: F811
+    ):
+        result = begin_session(
+            conn,
+            session_id=session_id,
+            executor=executor,
+            provider="anthropic",
+            model_facts=facts,
+            workspace="/tmp/work",
+            project_id=1,
+        )
+
+        assert result["session"]["execution_lane"] == expected
+        assert _stored_lane(conn, session_id) == expected
+
+    def test_a_routing_change_leaves_an_already_stamped_session_alone(
+        self, conn, monkeypatch,  # noqa: F811
+    ):
+        # Lane is stamped once, at registration. Rewriting a live session's
+        # lane would move work away from a session already running it.
+        begin_session(
+            conn,
+            session_id="stamped-before-change",
+            executor="claude-cli",
+            provider="anthropic",
+            model_facts=SessionModelFacts(model="claude-sonnet-5"),
+            workspace="/tmp/work",
+            project_id=1,
+        )
+        assert _stored_lane(conn, "stamped-before-change") == "DARIUS"
+
+        monkeypatch.setattr(
+            "yoke_core.api.service_client_sessions_lifecycle_begin"
+            "._load_routing_config",
+            lambda **_kw: load_routing_config(
+                "",
+                project_settings={
+                    **_MODEL_ROUTING,
+                    "lane_rules": [
+                        {"model": "claude-sonnet-*", "lane": "ALTMAN"},
+                    ],
+                },
+            ),
+        )
+        begin_session(
+            conn,
+            session_id="stamped-after-change",
+            executor="claude-cli",
+            provider="anthropic",
+            model_facts=SessionModelFacts(model="claude-sonnet-5"),
+            workspace="/tmp/work",
+            project_id=1,
+        )
+
+        assert _stored_lane(conn, "stamped-before-change") == "DARIUS"
+        assert _stored_lane(conn, "stamped-after-change") == "ALTMAN"

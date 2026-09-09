@@ -28,8 +28,10 @@ from yoke_core.api.service_client_shared import (
 )
 from yoke_core.api.routing_config import (
     PROJECT_ROUTING_CAPABILITY,
-    load_process_offer_policy,
     load_project_routing_settings,
+)
+from yoke_core.api.process_offer_policy import (
+    load_process_offer_policy,
 )
 from yoke_core.domain.frontier_compute import _canonical_project_label
 from yoke_core.domain.session_decision_process_gate import merge_skip_memory_with_policy, record_disabled_process_skip

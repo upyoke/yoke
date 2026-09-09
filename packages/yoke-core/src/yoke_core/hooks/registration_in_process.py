@@ -14,7 +14,8 @@ from typing import Optional
 
 from yoke_contracts.session_model_facts import SessionModelFacts
 
-from yoke_core.hooks.registration_identity import project_lane_for_executor
+from yoke_core.domain.session_routing_rules import routing_model_of
+from yoke_core.hooks.registration_identity import project_lane_for_session
 
 
 def _register_in_process(
@@ -60,11 +61,14 @@ def _register_in_process(
         conn = db_helpers.connect()
         try:
             resolved_lane = (
-                project_lane_for_executor(
+                project_lane_for_session(
                     conn,
                     project_id,
                     executor,
                     explicit_lane=execution_lane,
+                    model=routing_model_of(
+                        model_facts.model, model_facts.requested_model
+                    ),
                 )
                 or execution_lane
             )

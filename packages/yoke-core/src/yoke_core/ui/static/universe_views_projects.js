@@ -10,6 +10,9 @@ import {
   labelledFact,
   metricStrip,
 } from "./universe_secondary_primitives.js";
+import {
+  renderProjectLaneSummary,
+} from "./universe_views_project_lanes.js";
 
 function createProjectNote(documentNode, capabilities) {
   const panel = section(documentNode, "Create project");
@@ -104,7 +107,9 @@ export function renderProjectsView(context, main) {
 export function renderProjectView(context, main, scope) {
   const documentNode = context.document;
   const panel = section(documentNode, "Project settings");
-  main.replaceChildren(panel);
+  // The lane summary reads the project the route opened, not the remembered
+  // list selection, so opening a second project shows that project's lanes.
+  main.replaceChildren(panel, renderProjectLaneSummary(context, scope));
   loadSection(
     context,
     panel,

@@ -58,3 +58,51 @@ def test_legacy_board_payload_uses_lane_presentation_fallback() -> None:
         "label": "DARIUS",
         "glyph": "🐎",
     }
+
+
+def test_a_custom_lane_glyph_occupies_one_board_column() -> None:
+    """The write-time contract and the renderer must agree on the width.
+
+    Measuring with the renderer's own helper rather than a string length is
+    the point: the helper consumes selector and modifier sequences that the
+    source convention forbids, so a glyph that passes a length check can
+    still shear the column. Only glyphs the write boundary accepts are
+    asserted here, because only those can reach a lane.
+    """
+    from yoke_contracts.board.utils import display_width
+    from yoke_contracts.lane_glyph import BOARD_GLYPH_CELLS, validate_lane_glyph
+
+    for glyph in ("\U0001f52c", "\U0001f680", "\U0001f40e"):
+        validate_lane_glyph(glyph)
+        presentation = lane_presentation(
+            "RESEARCH",
+            {"lane_metadata": {"RESEARCH": {"label": "RESEARCH", "glyph": glyph}}},
+        )
+        rendered = _render_lane("RESEARCH", presentation)
+        assert rendered == f"{glyph} RESEARCH"
+        assert display_width(rendered) == (
+            BOARD_GLYPH_CELLS + 1 + len("RESEARCH")
+        )
+
+
+def test_every_custom_lane_renders_at_the_same_width() -> None:
+    """Two lanes whose labels match must produce two identical widths.
+
+    This is the alignment the convention exists for: differing glyph widths
+    between rows is exactly how a board's columns shear.
+    """
+    from yoke_contracts.board.utils import display_width
+
+    widths = {
+        display_width(
+            _render_lane(
+                "LANE",
+                lane_presentation(
+                    "LANE",
+                    {"lane_metadata": {"LANE": {"label": "LANE", "glyph": glyph}}},
+                ),
+            )
+        )
+        for glyph in ("\U0001f40e", "\U0001f453", "\U0001f6f8", "\U0001f680")
+    }
+    assert len(widths) == 1

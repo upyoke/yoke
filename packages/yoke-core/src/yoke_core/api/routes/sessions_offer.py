@@ -29,10 +29,12 @@ from yoke_core.domain.session import (
 )
 from yoke_core.api.routing_config import (
     PROJECT_ROUTING_CAPABILITY,
-    get_max_chain_steps,
-    load_process_offer_policy,
     load_project_routing_settings,
     load_routing_config,
+)
+from yoke_core.api.process_offer_policy import (
+    get_max_chain_steps,
+    load_process_offer_policy,
 )
 from yoke_core.api.service_client_sessions_frontier import (
     build_frontier_state_from_schedule,

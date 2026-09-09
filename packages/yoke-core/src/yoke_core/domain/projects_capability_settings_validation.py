@@ -5,6 +5,9 @@ from __future__ import annotations
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
 )
+from yoke_contracts.project_contract.project_keys import (
+    SESSION_ROUTING_CAPABILITY,
+)
 from yoke_contracts.release_pin import RELEASE_PIN_CAPABILITY
 from yoke_contracts.machine_config.test_machine import (
     is_test_machine_capability_type,
@@ -17,6 +20,13 @@ def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
     """Validate and canonicalize settings JSON for typed capabilities."""
     if cap_type == "migration_model":
         from yoke_core.domain.migration_model_capability import validate_json_string
+
+        return validate_json_string(raw_json)
+
+    if cap_type == SESSION_ROUTING_CAPABILITY:
+        from yoke_core.domain.session_routing_validation import (
+            validate_json_string,
+        )
 
         return validate_json_string(raw_json)
 

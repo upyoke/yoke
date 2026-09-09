@@ -1,0 +1,88 @@
+/* The project lane summary. It borrows the workbench panel and table faces;
+   these rules only cover what a lane row needs that an ordinary row does
+   not — a glyph beside its label, several stacked selectors in one cell,
+   and an action list that discloses its descriptions. */
+
+.universe-app-root .lane-settings { margin-top: 18px; }
+
+.universe-app-root table.lane-table { table-layout: fixed; min-width: 670px; }
+.universe-app-root table.lane-table th:nth-child(1) { width: 22%; }
+.universe-app-root table.lane-table th:nth-child(2) { width: 35%; }
+.universe-app-root table.lane-table th:nth-child(3) { width: 28%; }
+.universe-app-root table.lane-table td { vertical-align: top; }
+
+.universe-app-root .lane-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.universe-app-root .lane-caption b {
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .lane-glyph { font-size: 20px; line-height: 1; }
+
+.universe-app-root .lane-th-note {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .lane-matches { display: grid; gap: 8px; }
+.universe-app-root .lane-match-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+.universe-app-root .lane-match-summary code {
+  font-family: var(--yoke-font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.universe-app-root .lane-muted { color: var(--yoke-muted); }
+.universe-app-root .lane-default-summary + .lane-default-summary {
+  margin-top: 7px;
+}
+
+.universe-app-root .lane-actions summary { cursor: pointer; }
+.universe-app-root .lane-actions > div {
+  display: grid;
+  gap: 11px;
+  padding-top: 12px;
+}
+.universe-app-root .lane-actions small {
+  display: block;
+  margin-top: 3px;
+  line-height: 1.5;
+  color: var(--yoke-muted);
+}
+
+.universe-app-root .lane-priority,
+.universe-app-root .lane-cli {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--yoke-border);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.universe-app-root .lane-cli p {
+  margin: 6px 0 0;
+  color: var(--yoke-muted);
+}
+.universe-app-root .lane-cli code {
+  font-family: var(--yoke-font-mono);
+  font-size: 11px;
+  color: var(--yoke-ink);
+}
+
+.universe-app-root .lane-unrouted {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--yoke-warn);
+}

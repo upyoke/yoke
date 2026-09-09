@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from yoke_core.api.routing_config import ProcessOfferPolicy
+from yoke_core.api.process_offer_policy import ProcessOfferPolicy
 
 from .session_contract import ActionKind, ClaimedWork, FrontierState, NextAction, SessionOffer
 from .session_decision_charge import (  # noqa: F401 — re-exported by session.py
