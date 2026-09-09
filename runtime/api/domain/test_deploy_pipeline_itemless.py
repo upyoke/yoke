@@ -122,7 +122,7 @@ class TestItemLessRun:
         ), mock.patch.object(
             deploy_pipeline, "connect", return_value=mock.Mock(),
         ), mock.patch.object(
-            deploy_pipeline, "query_scalar", return_value=0,
+            deploy_pipeline, "unresolved_blocking_qa", return_value=[],
         ):
             rc = deploy_pipeline.run_pipeline(
                 run_id, product_repo_path="/pinned/product",
