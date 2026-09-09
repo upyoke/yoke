@@ -78,7 +78,8 @@ _SESSION_EVENT_REGISTRY_ROWS = (
         "session_hook_failure",
         "api",
         (
-            "Emitted when a Claude/Codex Stop or SessionEnd hook fails to complete "
+            "Emitted when a session-lifecycle hook — SessionStart's stale reap, "
+            "or Stop/SessionEnd's empty-session cleanup — fails to complete "
             "cleanly (DB contention or cleanup exception). Carries "
             "hook_event, executor, reason, latency_ms, stdin_state, session_id_source."
         ),
