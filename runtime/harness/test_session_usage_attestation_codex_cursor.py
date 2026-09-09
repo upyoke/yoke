@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 
+from yoke_contracts.harness_family_identity import CODEX_FAMILY
 from yoke_contracts.session_usage_facts import USAGE_PARTIAL, USAGE_UNAVAILABLE
-from yoke_contracts.session_usage_sources import states_usage
+from yoke_contracts.session_usage_sources import states_usage, usage_source
 from yoke_harness.usage_attestation import MIXED_MODEL_REASON, attest_session_usage
 from runtime.harness.session_usage_test_support import (  # noqa: F401
     append_rows,
@@ -55,6 +56,8 @@ def test_codex_cached_input_is_subtracted_out_of_its_input_total(
     assert entry.output == 50
     assert entry.reasoning == 20
     assert usage.billable_tokens() == 100 + 900 + 50
+    assert usage.source == usage_source(CODEX_FAMILY)
+    assert usage.source
 
 
 def test_a_cached_count_larger_than_its_input_total_never_goes_negative(
@@ -140,6 +143,8 @@ def test_a_codex_rollout_with_no_reading_yet_reports_unavailable(
     usage = _read_codex(rollout, monkeypatch)
 
     assert usage.status == USAGE_UNAVAILABLE
+    assert usage.source == usage_source(CODEX_FAMILY)
+    assert usage.source
 
 
 def test_cursor_declares_a_usage_source_and_omitted_fields_are_unavailable() -> None:
