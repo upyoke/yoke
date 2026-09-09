@@ -5,6 +5,14 @@ the reading its own machine took, because only that machine can see the
 harness artifact. A local hook carries nothing, so the reading is taken
 here — the same process, the same machine, the same artifact.
 
+Which of those two a caller is deciding is a fact about the dispatch, and
+it is passed in rather than inferred. A server evaluating a relayed hook
+runs on a machine that has its own transcripts, its own harness
+environment, and its own surface — none of them the session's. Reading
+any of those to fill a gap the client left would stamp one tenant's row
+with another machine's identity, so a relayed evaluation writes only what
+the wire carried and leaves the rest unknown.
+
 Registration is not that reader. A session registers before its first
 response exists, so the model a provider served and the surface it was
 served on are both unknown at the moment registration runs. Every later
@@ -21,9 +29,15 @@ episode, claim, or usage state.
 
 Two write rules keep the stored identity honest:
 
-* Served model facts follow the newest-reading rule they follow everywhere
-  (:mod:`yoke_core.domain.session_model_columns`), so repeated observation
-  of the same turn is write-free.
+* A carried reading follows the newest-reading rule served facts follow
+  everywhere (:mod:`yoke_core.domain.session_model_columns`), so a session
+  that switched model mid-run heals here as it does at registration, and
+  repeating one observation is write-free.
+* The local artifact read is taken only where the row still has the gap it
+  would fill. It is the expensive half, and a live local session that
+  switched model is already refreshed every tool call by
+  :func:`yoke_core.hooks.session_model_attestation_write.attest_served_model_facts`;
+  the gap this reader exists for is the turn that fired no such hook.
 * The surface fills a gap only. It names the process the session runs in,
   fixed for that session's life, so a later differing reading is a
   different reader rather than a change.
@@ -99,7 +113,12 @@ def carried_served_facts(payload: dict[str, Any]) -> SessionModelFacts:
 
 
 def local_served_facts(payload: dict[str, Any], executor: str) -> SessionModelFacts:
-    """Read the served facts this machine's own harness artifact proves."""
+    """Read the served facts this machine's own harness artifact proves.
+
+    Only a genuinely local evaluation may call this: on a relaying server
+    the artifact under this path belongs to some other session, or to no
+    session at all.
+    """
     if not executor:
         return SessionModelFacts()
     try:
@@ -125,11 +144,18 @@ def resolve_surface(executor: str, entrypoint: str) -> Optional[str]:
         return None
 
 
-def observed_surface(payload: dict[str, Any], executor: str) -> Optional[str]:
-    """Return the surface this hook event carries, or can resolve itself."""
+def observed_surface(
+    payload: dict[str, Any], executor: str, *, local_evaluation: bool = False
+) -> Optional[str]:
+    """Return the surface this hook event carries, or may resolve itself.
+
+    A relayed payload that named no surface leaves the column NULL. The
+    surface of the process running this code is the server's, and writing
+    it onto a relayed session would be a fabricated answer.
+    """
     carried = payload.get("entrypoint")
     entrypoint = carried.strip() if isinstance(carried, str) else ""
-    if not entrypoint and executor:
+    if not entrypoint and local_evaluation and executor:
         try:
             from yoke_harness.hooks.identity_relay import client_entrypoint
 
@@ -140,22 +166,32 @@ def observed_surface(payload: dict[str, Any], executor: str) -> Optional[str]:
 
 
 def observed_identity(
-    row: dict[str, Any], payload_json: str, executor: str
+    row: dict[str, Any],
+    payload_json: str,
+    executor: str,
+    *,
+    local_evaluation: bool = False,
 ) -> Tuple[SessionModelFacts, Optional[str]]:
     """Return the served facts and surface worth writing onto ``row``.
 
-    The wire's reading is free to consult and always consulted. The local
-    artifact costs a file read, so it is taken only where the stored row
-    still has the gap it would fill — which is exactly the case this
-    reader exists for.
+    The wire's reading is free to consult and always consulted. This
+    machine's own artifacts are consulted only when this machine is the
+    one running the session, and then only where the stored row still has
+    the gap that reading would fill.
     """
     payload = _payload(payload_json)
     facts = carried_served_facts(payload)
-    if not facts.attested() and not _stored(row, "model"):
+    if (
+        local_evaluation
+        and not facts.attested()
+        and not _stored(row, "model")
+    ):
         facts = local_served_facts(payload, executor)
     surface = None
     if not _stored(row, SURFACE_COLUMN):
-        surface = observed_surface(payload, executor)
+        surface = observed_surface(
+            payload, executor, local_evaluation=local_evaluation
+        )
     return facts, surface
 
 
@@ -165,8 +201,16 @@ def record_session_identity(
     session_id: str,
     payload_json: str,
     executor: str = "",
+    local_evaluation: bool = False,
 ) -> bool:
-    """Store a newer identity reading; a repeated one stays write-free."""
+    """Store a newer identity reading; a repeated one stays write-free.
+
+    ``local_evaluation`` is the dispatch's own answer to whether this
+    process is the one running the session, never something the payload
+    asserts about itself. It defaults to off so that a caller which has
+    not answered it cannot accidentally read a server's artifacts for a
+    client's row.
+    """
     if conn is None or not session_id:
         return False
     marker = _marker(conn)
@@ -178,7 +222,9 @@ def record_session_identity(
     if fetched is None:
         return False
     row = _row_map(fetched)
-    facts, surface = observed_identity(row, payload_json, executor)
+    facts, surface = observed_identity(
+        row, payload_json, executor, local_evaluation=local_evaluation
+    )
     columns, values = changed_columns(row, facts)
     if surface:
         columns.append(SURFACE_COLUMN)

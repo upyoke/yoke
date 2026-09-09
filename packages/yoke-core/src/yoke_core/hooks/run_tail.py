@@ -81,6 +81,7 @@ def _observed_session_request(
     context: Any,
     payload: Any,
     stdin_data: str,
+    controls: Any = None,
 ) -> tuple[Any, ...] | None:
     """Build an observation of a row that exists, with no registration authority.
 
@@ -91,6 +92,11 @@ def _observed_session_request(
     turn's served model and consumption are first provable once the turn
     has ended, and a single-turn answer that calls no tool has no other
     hook left to prove them on.
+
+    Whether this process is the one running the session travels with the
+    request, read from the dispatch controls rather than from the payload,
+    because a relayed evaluation reading its own machine's artifacts would
+    answer for the wrong session entirely.
     """
     if not context.session_id:
         return None
@@ -101,6 +107,7 @@ def _observed_session_request(
         context.session_id,
         payload_json,
         context.executor_family or "",
+        not (controls is not None and controls.remote),
     )
 
 
@@ -170,6 +177,7 @@ def flush_run_tail(
         context=context,
         payload=payload,
         stdin_data=stdin_data,
+        controls=controls,
     )
     if not deadline.telemetry_allowed():
         _telemetry.flush_hook_telemetry([], observed_session=observed_session)

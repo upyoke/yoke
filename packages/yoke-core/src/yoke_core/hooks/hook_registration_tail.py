@@ -13,10 +13,11 @@ def apply_hook_session_tail(
 ) -> None:
     """Apply independent registration and row observations on one connection.
 
-    ``observed_session`` carries an existing row's payload and trusted
-    executor. Unlike registration it is valid for terminal hooks and can
-    never create or revive a row, which is what lets the last hook of a
-    turn record evidence that only exists once that turn has finished.
+    ``observed_session`` carries an existing row's payload, trusted
+    executor, and whether this process is the one running the session.
+    Unlike registration it is valid for terminal hooks and can never
+    create or revive a row, which is what lets the last hook of a turn
+    record evidence that only exists once that turn has finished.
     """
     if ensure_session is not None:
         from yoke_core.hooks.registration import ensure_registered_from_hook
@@ -65,7 +66,7 @@ def apply_hook_session_tail(
         )
         from yoke_core.domain.session_usage_observation import record_session_usage
 
-        session_id, payload_json, executor = observed_session
+        session_id, payload_json, executor, local_evaluation = observed_session
         try:  # one failed observation must not drop the other
             record_session_usage(
                 conn,
@@ -81,6 +82,7 @@ def apply_hook_session_tail(
                 session_id=session_id,
                 payload_json=payload_json,
                 executor=executor,
+                local_evaluation=local_evaluation,
             )
         except Exception:  # noqa: BLE001
             pass

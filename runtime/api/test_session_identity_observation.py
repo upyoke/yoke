@@ -76,23 +76,16 @@ def test_a_local_turn_that_called_no_tool_still_records_what_it_was_served(
     payload = _payload(transcript_path=_claude_transcript(tmp_path))
 
     assert record_session_identity(
-        conn, session_id=SESSION, payload_json=payload, executor="claude-code"
+        conn,
+        session_id=SESSION,
+        payload_json=payload,
+        executor="claude-code",
+        local_evaluation=True,
     )
 
     assert _stored(conn, "model") == "claude-opus-5"
     assert _stored(conn, "reasoning_effort") == "high"
     assert _stored(conn, SURFACE_COLUMN) == "claude-cli"
-
-
-def test_a_relayed_reading_lands_without_reading_a_local_artifact(conn) -> None:
-    payload = _payload(model="claude-opus-5", entrypoint="claude-desktop")
-
-    assert record_session_identity(
-        conn, session_id=SESSION, payload_json=payload, executor="claude-code"
-    )
-
-    assert _stored(conn, "model") == "claude-opus-5"
-    assert _stored(conn, SURFACE_COLUMN) == "claude-desktop"
 
 
 def test_evidence_that_proves_nothing_writes_nothing(conn, monkeypatch) -> None:
@@ -106,6 +99,7 @@ def test_evidence_that_proves_nothing_writes_nothing(conn, monkeypatch) -> None:
         session_id=SESSION,
         payload_json=_payload(transcript_path="/nonexistent/transcript.jsonl"),
         executor="claude-code",
+        local_evaluation=True,
     )
 
     assert _stored(conn, "model") is None
@@ -117,11 +111,19 @@ def test_observing_the_same_finished_turn_again_is_write_free(
 ) -> None:
     payload = _payload(transcript_path=_claude_transcript(tmp_path))
     assert record_session_identity(
-        conn, session_id=SESSION, payload_json=payload, executor="claude-code"
+        conn,
+        session_id=SESSION,
+        payload_json=payload,
+        executor="claude-code",
+        local_evaluation=True,
     )
 
     assert not record_session_identity(
-        conn, session_id=SESSION, payload_json=payload, executor="claude-code"
+        conn,
+        session_id=SESSION,
+        payload_json=payload,
+        executor="claude-code",
+        local_evaluation=True,
     )
 
 
@@ -140,6 +142,7 @@ def test_an_ended_session_records_its_identity_without_being_revived(
         session_id=SESSION,
         payload_json=_payload(transcript_path=_claude_transcript(tmp_path)),
         executor="claude-code",
+        local_evaluation=True,
     )
 
     assert _stored(conn, "model") == "claude-opus-5"
@@ -183,7 +186,82 @@ def test_a_stored_surface_is_never_replaced_by_a_later_reader(conn) -> None:
     assert _stored(conn, SURFACE_COLUMN) == "claude-desktop"
 
 
-def test_a_newer_served_model_replaces_the_stored_one(conn) -> None:
+def test_a_session_with_no_row_is_never_created(conn) -> None:
+    assert not record_session_identity(
+        conn,
+        session_id="never-registered",
+        payload_json=json.dumps({"session_id": "never-registered", "model": "m"}),
+        executor="claude-code",
+    )
+    assert (
+        conn.execute("SELECT COUNT(*) FROM harness_sessions").fetchone()[0] == 1
+    )
+
+
+@pytest.mark.parametrize("token", ["banana", "skill", ""])
+def test_a_token_no_harness_registry_recognizes_stays_unknown(token: str) -> None:
+    assert observed_surface({"entrypoint": token}, "codex") is None
+
+
+@pytest.fixture
+def local_probes_refuse(monkeypatch):
+    """Fail loudly if a relayed evaluation reaches for this machine's own facts."""
+
+    def refuse(*_args, **_kwargs):
+        raise AssertionError("a relayed evaluation read this machine's identity")
+
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity_relay.resolve_model_facts", refuse
+    )
+    monkeypatch.setattr("yoke_harness.hooks.identity_relay.client_entrypoint", refuse)
+
+
+def test_a_relayed_payload_that_named_nothing_leaves_the_row_unknown(
+    conn, local_probes_refuse, local_claude
+) -> None:
+    """The client's session does not run here, so this machine cannot answer for it."""
+    assert not record_session_identity(
+        conn,
+        session_id=SESSION,
+        payload_json=_payload(transcript_path="/some/other/machine/transcript.jsonl"),
+        executor="claude-code",
+    )
+
+    assert _stored(conn, "model") is None
+    assert _stored(conn, SURFACE_COLUMN) is None
+
+
+def test_a_relayed_payload_still_stores_every_fact_it_did_carry(
+    conn, local_probes_refuse, local_claude
+) -> None:
+    assert record_session_identity(
+        conn,
+        session_id=SESSION,
+        payload_json=_payload(model="claude-opus-5", entrypoint="claude-desktop"),
+        executor="claude-code",
+    )
+
+    assert _stored(conn, "model") == "claude-opus-5"
+    assert _stored(conn, SURFACE_COLUMN) == "claude-desktop"
+
+
+def test_a_relayed_payload_carrying_only_a_model_leaves_the_surface_unknown(
+    conn, local_probes_refuse, local_claude
+) -> None:
+    assert record_session_identity(
+        conn,
+        session_id=SESSION,
+        payload_json=_payload(model="claude-opus-5"),
+        executor="claude-code",
+    )
+
+    assert _stored(conn, "model") == "claude-opus-5"
+    assert _stored(conn, SURFACE_COLUMN) is None
+
+
+def test_a_relayed_model_switch_still_replaces_the_stored_one(
+    conn, local_probes_refuse
+) -> None:
     conn.execute(
         "UPDATE harness_sessions SET model='claude-opus-5' WHERE session_id=?",
         (SESSION,),
@@ -200,18 +278,21 @@ def test_a_newer_served_model_replaces_the_stored_one(conn) -> None:
     assert _stored(conn, "model") == "claude-sonnet-5"
 
 
-def test_a_session_with_no_row_is_never_created(conn) -> None:
+def test_a_local_session_that_already_named_a_model_reads_no_artifact_again(
+    conn, local_probes_refuse, local_claude, tmp_path
+) -> None:
+    """The tool-call refresher owns a live local session's model switches."""
+    conn.execute(
+        "UPDATE harness_sessions SET model='claude-opus-5', "
+        f"{SURFACE_COLUMN}='claude-cli' WHERE session_id=?",
+        (SESSION,),
+    )
+    conn.commit()
+
     assert not record_session_identity(
         conn,
-        session_id="never-registered",
-        payload_json=json.dumps({"session_id": "never-registered", "model": "m"}),
+        session_id=SESSION,
+        payload_json=_payload(transcript_path=_claude_transcript(tmp_path)),
         executor="claude-code",
+        local_evaluation=True,
     )
-    assert (
-        conn.execute("SELECT COUNT(*) FROM harness_sessions").fetchone()[0] == 1
-    )
-
-
-@pytest.mark.parametrize("token", ["banana", "skill", ""])
-def test_a_token_no_harness_registry_recognizes_stays_unknown(token: str) -> None:
-    assert observed_surface({"entrypoint": token}, "codex") is None

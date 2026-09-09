@@ -54,7 +54,7 @@ def test_registrar_bool_shape_does_not_supply_executor(
     hook_registration_tail.apply_hook_session_tail(
         object(),
         ensure_session=("s", "{}", "", True, "", True, False, None, None),
-        observed_session=("s", "{}", "codex"),
+        observed_session=("s", "{}", "codex", True),
     )
 
     assert calls == [{"session_id": "s", "payload_json": "{}", "executor": "codex"}]
@@ -85,7 +85,7 @@ def test_registration_fact_failures_do_not_suppress_usage(monkeypatch, failure):
     hook_registration_tail.apply_hook_session_tail(
         object(),
         ensure_session=("s", "{}", "", True, "", True, False, None, None),
-        observed_session=("s", "{}", "claude"),
+        observed_session=("s", "{}", "claude", True),
     )
 
     assert calls == [{"session_id": "s", "payload_json": "{}", "executor": "claude"}]
@@ -100,7 +100,7 @@ def test_every_session_hook_builds_usage_without_terminal_registration(event_nam
         stdin_data="{}",
     )
 
-    assert request == ("s-codex", '{"session_id": "s-codex"}', "codex")
+    assert request == ("s-codex", '{"session_id": "s-codex"}', "codex", True)
     ensure = run_tail._ensure_session_request(
         event_name=event_name,
         context=context,
@@ -166,6 +166,7 @@ def test_ended_existing_row_accepts_repeated_carried_total_without_revival():
         "s-ended",
         json.dumps({"session_id": "s-ended", "usage_totals": carried}),
         "codex",
+        True,
     )
 
     for _ in range(2):
@@ -198,6 +199,7 @@ def test_missing_row_is_not_inserted_by_usage_observation():
             "missing",
             json.dumps({"usage_totals": _measured()}),
             "claude",
+            True,
         ),
     )
     assert conn.execute("SELECT * FROM harness_sessions").fetchall() == []
@@ -229,6 +231,7 @@ def test_telemetry_failure_does_not_lose_carried_usage(monkeypatch):
             "s-relay",
             json.dumps({"usage_totals": carried}),
             "codex",
+            False,
         ),
     )
 
