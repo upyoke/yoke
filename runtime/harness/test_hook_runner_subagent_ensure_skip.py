@@ -36,8 +36,8 @@ def test_subagent_payload_does_not_arm_ensure_session(monkeypatch) -> None:
     monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: ["mod.allow"])
     captured: list[Any] = []
 
-    def fake_flush(records, *, deadline=None, ensure_session=None, usage_session=None):
-        del usage_session
+    def fake_flush(records, *, deadline=None, ensure_session=None, observed_session=None):
+        del observed_session
         captured.append(ensure_session)
 
     monkeypatch.setattr(telemetry, "flush_hook_telemetry", fake_flush)
@@ -70,8 +70,8 @@ def test_worktree_remap_payload_does_not_arm_ensure_session(monkeypatch) -> None
     monkeypatch.setattr(runner_module, "chain_for", lambda *a, **k: ["mod.allow"])
     captured: list[Any] = []
 
-    def fake_flush(records, *, deadline=None, ensure_session=None, usage_session=None):
-        del usage_session
+    def fake_flush(records, *, deadline=None, ensure_session=None, observed_session=None):
+        del observed_session
         captured.append(ensure_session)
 
     monkeypatch.setattr(telemetry, "flush_hook_telemetry", fake_flush)

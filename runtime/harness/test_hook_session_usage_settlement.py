@@ -54,7 +54,7 @@ def test_registrar_bool_shape_does_not_supply_executor(
     hook_registration_tail.apply_hook_session_tail(
         object(),
         ensure_session=("s", "{}", "", True, "", True, False, None, None),
-        usage_session=("s", "{}", "codex"),
+        observed_session=("s", "{}", "codex"),
     )
 
     assert calls == [{"session_id": "s", "payload_json": "{}", "executor": "codex"}]
@@ -85,7 +85,7 @@ def test_registration_fact_failures_do_not_suppress_usage(monkeypatch, failure):
     hook_registration_tail.apply_hook_session_tail(
         object(),
         ensure_session=("s", "{}", "", True, "", True, False, None, None),
-        usage_session=("s", "{}", "claude"),
+        observed_session=("s", "{}", "claude"),
     )
 
     assert calls == [{"session_id": "s", "payload_json": "{}", "executor": "claude"}]
@@ -94,7 +94,7 @@ def test_registration_fact_failures_do_not_suppress_usage(monkeypatch, failure):
 @pytest.mark.parametrize("event_name", ["PreToolUse", "Stop", "SessionEnd"])
 def test_every_session_hook_builds_usage_without_terminal_registration(event_name):
     context = SimpleNamespace(session_id="s-codex", executor_family="codex")
-    request = run_tail._usage_session_request(
+    request = run_tail._observed_session_request(
         context=context,
         payload={"session_id": "s-codex"},
         stdin_data="{}",
@@ -130,7 +130,7 @@ def test_direct_cursor_stop_carries_supplied_usage_without_registration():
     context = SimpleNamespace(session_id="s-cursor", executor_family="cursor")
     payload = {"session_id": "s-cursor", "usage_totals": carried}
 
-    request = run_tail._usage_session_request(
+    request = run_tail._observed_session_request(
         context=context, payload=payload, stdin_data="{}"
     )
 
@@ -162,7 +162,7 @@ def test_ended_existing_row_accepts_repeated_carried_total_without_revival():
     )
     conn.execute("INSERT INTO work_claims VALUES (?, ?)", ("s-ended", "released"))
     carried = _measured()
-    usage_session = (
+    observed_session = (
         "s-ended",
         json.dumps({"session_id": "s-ended", "usage_totals": carried}),
         "codex",
@@ -172,7 +172,7 @@ def test_ended_existing_row_accepts_repeated_carried_total_without_revival():
         hook_registration_tail.apply_hook_session_tail(
             conn,
             ensure_session=None,
-            usage_session=usage_session,
+            observed_session=observed_session,
         )
 
     row = conn.execute(
@@ -194,7 +194,7 @@ def test_missing_row_is_not_inserted_by_usage_observation():
     hook_registration_tail.apply_hook_session_tail(
         conn,
         ensure_session=None,
-        usage_session=(
+        observed_session=(
             "missing",
             json.dumps({"usage_totals": _measured()}),
             "claude",
@@ -225,7 +225,7 @@ def test_telemetry_failure_does_not_lose_carried_usage(monkeypatch):
     carried = _measured(input_tokens=17)
     telemetry.flush_hook_telemetry(
         [("dispatch", {})],
-        usage_session=(
+        observed_session=(
             "s-relay",
             json.dumps({"usage_totals": carried}),
             "codex",
@@ -297,13 +297,13 @@ def test_terminal_tail_consumes_codex_total_written_after_stop_timestamp(
     )
     conn.execute("INSERT INTO harness_sessions VALUES (?, ?)", ("s-late", None))
     context = SimpleNamespace(session_id="s-late", executor_family="codex")
-    usage_session = run_tail._usage_session_request(
+    observed_session = run_tail._observed_session_request(
         context=context,
         payload={"session_id": "s-late", "thread_id": "thread-late"},
         stdin_data="{}",
     )
     hook_registration_tail.apply_hook_session_tail(
-        conn, ensure_session=None, usage_session=usage_session
+        conn, ensure_session=None, observed_session=observed_session
     )
     earlier = conn.execute(
         "SELECT usage_totals FROM harness_sessions WHERE session_id = ?",
@@ -336,7 +336,7 @@ def test_terminal_tail_consumes_codex_total_written_after_stop_timestamp(
     hook_registration_tail.apply_hook_session_tail(
         conn,
         ensure_session=None,
-        usage_session=usage_session,
+        observed_session=observed_session,
     )
 
     stored = conn.execute(

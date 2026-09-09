@@ -235,20 +235,20 @@ _HOOK_SOURCE_TYPE = "hook"
 
 
 def flush_hook_telemetry(
-    records, *, deadline=None, ensure_session=None, usage_session=None
+    records, *, deadline=None, ensure_session=None, observed_session=None
 ) -> None:
     """Flush hook telemetry and independent session facts on one connection.
 
     ``records`` is the runner's ordered ``(kind, kwargs)`` list. Optional
     ``ensure_session`` arms register-on-first-sight before records flush.
-    ``usage_session`` carries an existing row's payload and trusted executor;
-    unlike registration it is valid for terminal hooks and cannot revive a row.
+    ``observed_session`` carries an existing row's payload and trusted
+    executor; valid for terminal hooks, and it can never revive a row.
 
     Best-effort: never raises. A supplied ``deadline`` stops emission at
     budget exhaustion. Emitters resolve at call time so test patches
     still intercept.
     """
-    if not records and ensure_session is None and usage_session is None:
+    if not records and ensure_session is None and observed_session is None:
         return
     emitters = {
         "guardrail": emit_hook_guardrail_evaluated,
@@ -275,7 +275,7 @@ def flush_hook_telemetry(
                 apply_hook_session_tail(
                     conn,
                     ensure_session=ensure_session,
-                    usage_session=usage_session,
+                    observed_session=observed_session,
                 )
             except Exception:  # noqa: BLE001
                 pass
