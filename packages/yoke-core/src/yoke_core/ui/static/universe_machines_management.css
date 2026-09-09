@@ -26,17 +26,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-top: 12px;
+  padding: 9px 11px;
   border-top: 1px solid var(--yoke-border);
-}
-
-.machine-owner {
-  min-width: 0;
-  margin-right: auto;
-  color: var(--yoke-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .machine-retire { color: var(--yoke-crit); }

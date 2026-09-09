@@ -29,23 +29,45 @@
 .machine-head {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 7px;
+  gap: 6px;
   padding: 7px 11px;
   border-bottom: 1px solid var(--yoke-border);
   background: var(--yoke-surface-2);
 }
+/* The two names shrink, the status does not, and each name carries its own
+   ellipsis rather than the pair being clipped as one string: a long machine
+   name cannot push its owner out of the row, nor a long owner name bury the
+   machine it belongs to. The owner's parentheses are drawn beside its
+   shrinking text, so truncation never leaves an unclosed bracket. */
+.machine-host,
+.machine-owner-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .machine-host {
-  min-width: 0;
+  flex: 0 1 auto;
+  min-width: 3ch;
   color: var(--yoke-ink);
   font-size: 12px;
   font-weight: 650;
-  overflow-wrap: anywhere;
 }
+.machine-owner {
+  display: flex;
+  flex: 0 1 auto;
+  min-width: 4ch;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.machine-owner::before { content: "("; }
+.machine-owner::after { content: ")"; }
 .machine-meta {
+  flex: 0 0 auto;
   margin-left: auto;
+  padding-left: 4px;
   color: var(--yoke-muted);
   font-size: 10.5px;
+  white-space: nowrap;
 }
 /* One fact, read at a glance, so a filled disc with a halo — a ring at this
    size reads as grey at every colour. */

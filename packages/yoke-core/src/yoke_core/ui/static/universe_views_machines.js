@@ -108,6 +108,7 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
     const machineById = new Map(active.map((row) => [String(row.machine_id), row]));
     renderMachinesPanel(context, roster, activeRelays, {
       showHeading: false,
+      showManagement: true,
       machineById,
       onRetire: async (machineId) => {
         if (!documentNode.defaultView.confirm(

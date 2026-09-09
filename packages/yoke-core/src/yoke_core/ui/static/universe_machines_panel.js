@@ -176,9 +176,12 @@ function capacityLine(documentNode, capacity) {
   return line;
 }
 
-export function machineCard(documentNode, relay, sessions, options = {}) {
-  const card = el(documentNode, "article", "machine-card");
-  card.setAttribute("data-machine-id", String(relay.machine_id || ""));
+// Whose machine this is belongs beside its name, not at the far end of the
+// card: the two names are one identity, and an operator scanning a grid reads
+// them together. They shrink independently, so two long names each keep their
+// opening characters instead of one spending the room the other needed, and
+// neither reaches the status that has to stay legible at the end of the row.
+function machineHead(documentNode, relay, options) {
   const head = el(documentNode, "div", "machine-head");
   const live = String(relay.liveness) === "connected";
   head.appendChild(el(
@@ -186,12 +189,21 @@ export function machineCard(documentNode, relay, sessions, options = {}) {
     "span",
     `machine-light ${live ? "machine-light-ok" : "machine-light-warn"}`,
   ));
-  head.appendChild(el(
-    documentNode,
-    "span",
-    "machine-host",
-    options.name || relay.hostname || relay.machine_id,
-  ));
+  const name = options.name || relay.hostname || relay.machine_id;
+  const host = el(documentNode, "span", "machine-host", name);
+  // A truncated name still answers in full on hover, tap and focus, through
+  // the one explanation surface the product already draws everywhere else.
+  attachTooltip(documentNode, host, name);
+  head.appendChild(host);
+  const ownerName = options.owner || relay.owner || "";
+  if (ownerName) {
+    const owner = el(documentNode, "span", "machine-owner");
+    owner.appendChild(el(
+      documentNode, "span", "machine-owner-name", ownerName,
+    ));
+    attachTooltip(documentNode, owner, ownerName);
+    head.appendChild(owner);
+  }
   const age = preciseAge(relay.last_seen_at);
   head.appendChild(el(
     documentNode,
@@ -199,17 +211,18 @@ export function machineCard(documentNode, relay, sessions, options = {}) {
     "machine-meta",
     [live ? relay.state : "silent", age].filter(Boolean).join(" · "),
   ));
-  card.appendChild(head);
-  card.appendChild(capacityLine(documentNode, relay.capacity));
-  appendMachineUsage(documentNode, card, relay, sessions);
-  for (const surface of LAUNCHABLE_SURFACES) {
-    card.appendChild(surfaceRow(documentNode, relay, surface));
-  }
+  return head;
+}
+
+// Details and Retire act on the machine registry, so they ride only the page
+// that owns that registry. Every other page embeds this card as a status tile
+// and asks for no management bar, which is why the caller says so explicitly
+// rather than the card guessing from the route it happens to be rendered on.
+function managementBar(documentNode, relay, options) {
   const footer = el(documentNode, "div", "machine-card-footer");
-  footer.appendChild(el(
-    documentNode, "span", "machine-owner", options.owner || relay.owner || "",
-  ));
-  const detail = el(documentNode, "a", "item-button machine-detail-link", "Details");
+  const detail = el(
+    documentNode, "a", "item-button machine-detail-link", "Details",
+  );
   detail.href = options.detailHref || buildUniverseRoute(
     "machines", null, relay.machine_id,
   );
@@ -222,7 +235,21 @@ export function machineCard(documentNode, relay, sessions, options = {}) {
     retire.addEventListener("click", () => options.onRetire(relay.machine_id));
     footer.appendChild(retire);
   }
-  card.appendChild(footer);
+  return footer;
+}
+
+export function machineCard(documentNode, relay, sessions, options = {}) {
+  const card = el(documentNode, "article", "machine-card");
+  card.setAttribute("data-machine-id", String(relay.machine_id || ""));
+  card.appendChild(machineHead(documentNode, relay, options));
+  card.appendChild(capacityLine(documentNode, relay.capacity));
+  appendMachineUsage(documentNode, card, relay, sessions);
+  for (const surface of LAUNCHABLE_SURFACES) {
+    card.appendChild(surfaceRow(documentNode, relay, surface));
+  }
+  if (options.showManagement) {
+    card.appendChild(managementBar(documentNode, relay, options));
+  }
   return card;
 }
 
@@ -252,6 +279,7 @@ export function renderMachinesPanel(context, host, relays, options = {}) {
       name: machine.name,
       owner: machine.owner,
       onRetire: options.onRetire,
+      showManagement: options.showManagement,
     }));
   }
   panel.appendChild(grid);
