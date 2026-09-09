@@ -37,8 +37,8 @@ conversation, or through a mapping its own hooks record
 (:mod:`yoke_contracts.cursor_session_map`); ambient resolution failing
 outright is the correct outcome when neither reached the process.
 
-Start times are opaque ``ps -o lstart=`` strings compared for equality
-only — a recorded anchor whose pid was reused fails the comparison.
+Start times are opaque ``ps -o lstart=`` strings compared for equality only;
+a reused pid fails that comparison, and so does a defunct one.
 """
 
 from __future__ import annotations
@@ -83,6 +83,8 @@ sessions, which is that walk happening repeatedly on the write side.
 
 _MAX_ANCESTOR_DEPTH = 64
 _PS_TIMEOUT_SECONDS = 5
+#: A process that exited unreaped: pid and start time are the ones it ran with.
+_DEFUNCT_PROCESS_STATE = "Z"
 
 
 @dataclass(frozen=True)
@@ -140,12 +142,17 @@ def parent_map() -> Dict[int, int]:
 
 
 def process_start_time(pid: int) -> Optional[str]:
-    """Return the opaque ``ps -o lstart=`` string for ``pid`` or ``None``."""
-    lines = ps_lines(["-o", "lstart=", "-p", str(pid)])
-    if not lines:
+    """Return the ``ps -o lstart=`` string for a *running* ``pid``, else ``None``.
+
+    A zombie keeps both facts this compares, so the state comes back in the
+    same call and a defunct process answers exactly as a gone one; state leads
+    because ``lstart`` is the only column here containing spaces. Why:
+    ``docs/archive/decisions/defunct-process-is-an-exited-process.md``."""
+    lines = ps_lines(["-o", "stat=,lstart=", "-p", str(pid)])
+    fields = lines[0].strip().split(None, 1) if lines else []
+    if len(fields) < 2 or fields[0].startswith(_DEFUNCT_PROCESS_STATE):
         return None
-    value = lines[0].strip()
-    return value or None
+    return fields[1].strip() or None
 
 
 def process_command_name(pid: int) -> Optional[str]:

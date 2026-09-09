@@ -17,6 +17,9 @@ from yoke_core.domain.session_mode import session_is_parked
 from yoke_core.domain.session_native_process_observation import (
     current_native_process_observation,
 )
+from yoke_core.domain.sessions_holdings_claim_facts import (
+    ITEM_AWAITING_LANDING_KEY,
+)
 from yoke_core.domain.sessions_holdings_projection import session_holdings_by_session
 from yoke_core.domain.steering_fleet_report_detectors import age_seconds
 
@@ -100,7 +103,13 @@ def claim_holders(
             record.get("last_tool_call_at") or entry.get("claimed_at") or ""
         )
         mode = str(record.get("mode") or "")
-        process = current_native_process_observation(record) or {}
+        process = (
+            current_native_process_observation(
+                record,
+                landing_wait=bool(entry.get(ITEM_AWAITING_LANDING_KEY)),
+            )
+            or {}
+        )
         holders.append(
             ClaimHolder(
                 session_id=session_id,

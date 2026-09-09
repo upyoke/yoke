@@ -20,6 +20,7 @@ from yoke_contracts.process_ancestry import (
     is_harness_process_name,
     is_multiplexed_process_name,
     parent_map,
+    process_start_time,
     process_table,
 )
 
@@ -277,6 +278,29 @@ class TestPsParsing(unittest.TestCase):
             return_value=["  338     1"],
         ):
             self.assertEqual(process_table(), {338: (1, "")})
+
+    def test_a_running_process_reports_only_its_start_time(self):
+        with patch.object(
+            process_ancestry,
+            "ps_lines",
+            return_value=["Ss   Wed Sep  9 10:40:45 2026   "],
+        ):
+            self.assertEqual(process_start_time(200), "Wed Sep  9 10:40:45 2026")
+
+    def test_a_defunct_process_reads_as_gone(self):
+        # A zombie keeps its pid and its original start time until its parent
+        # reaps it, so both halves of the recorded-process comparison still
+        # match. Reading them alone called an exited native a live turn.
+        with patch.object(
+            process_ancestry,
+            "ps_lines",
+            return_value=["Z+   Wed Sep  9 10:20:28 2026"],
+        ):
+            self.assertIsNone(process_start_time(62801))
+
+    def test_a_pid_ps_does_not_know_reads_as_gone(self):
+        with patch.object(process_ancestry, "ps_lines", return_value=[]):
+            self.assertIsNone(process_start_time(999999))
 
     def test_ps_failure_degrades_to_empty(self):
         with patch.object(process_ancestry, "ps_lines", return_value=[]):

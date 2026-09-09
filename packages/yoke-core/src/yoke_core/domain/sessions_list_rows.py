@@ -23,6 +23,9 @@ from yoke_core.domain.session_list_fields import usage_fields
 from yoke_core.domain.session_native_process_observation import (
     current_native_process_observation,
 )
+from yoke_core.domain.sessions_holdings_claim_facts import (
+    ITEM_AWAITING_LANDING_KEY,
+)
 from yoke_core.domain.session_presentation_read import session_presentation
 from yoke_core.domain.session_staleness import activity_is_stale
 from yoke_core.domain.sessions_queries_base import display_claim_item_id
@@ -131,6 +134,10 @@ def render_session_roster_rows(
             item_holders=item_holders,
         )
         presentation = session_presentation(conn, row)
+        holdings = holdings_by_session.get(session_id) or empty_holdings
+        landing_wait = any(
+            entry.get(ITEM_AWAITING_LANDING_KEY) for entry in holdings["current"]
+        )
         result.append(
             {
                 "session_id": session_id,
@@ -157,7 +164,10 @@ def render_session_roster_rows(
                 **usage_fields(row),
                 "workspace": row.get("workspace"),
                 "offered_at": row.get("offered_at"),
-                "native_process": current_native_process_observation(row),
+                "native_process": current_native_process_observation(
+                    row,
+                    landing_wait=landing_wait,
+                ),
                 "ended_at": row.get("ended_at"),
                 "terminated_at": row.get("terminated_at"),
                 "terminated_by_actor_id": row.get("terminated_by_actor_id"),
@@ -176,9 +186,10 @@ def render_session_roster_rows(
                 ),
                 **focus,
                 "claims": claims,
-                "holdings": holdings_by_session.get(session_id) or empty_holdings,
+                "holdings": holdings,
                 "claimed_blitz_worktree_ids": blitz_lanes_by_session.get(
-                    session_id, [],
+                    session_id,
+                    [],
                 ),
             }
         )

@@ -23,6 +23,11 @@ rather than as alive. A session with no record at all proves nothing and is
 left to the control plane's TTL sweep — this path only ever shortens the
 wait for a death it can actually demonstrate.
 
+A record only ever proves its own process gone, never the session's silence.
+A session whose first launch exited and was later woken has a spent launch
+handle beside a live resume-custody record, so the scan below also asks the
+custody reader whether this machine is still running a native for it.
+
 A record whose process is gone is spent only after the control plane ends
 the session. A claim-holding session is deliberately spared, so its local
 records remain and the relay reports the fact again after its claims are
@@ -181,6 +186,13 @@ def verified_dead_sessions(
     start_time_of: StartTimeOf = process_start_time,
 ) -> tuple[VerifiedDeadSession, ...]:
     """Return the sessions whose every recorded process is verifiably gone."""
+    # Imported here rather than at module scope because the custody reader
+    # names this module's launch-handle family; the dependency runs both ways
+    # and only this direction is needed at call time.
+    from yoke_harness.session_relay_native_turn_custody import (
+        running_native_for_session,
+    )
+
     by_session: dict[str, list[SessionProcessRecord]] = {}
     for record in session_process_records(
         anchors_dir=anchors_dir,
@@ -190,6 +202,15 @@ def verified_dead_sessions(
     dead: list[VerifiedDeadSession] = []
     for session_id, records in sorted(by_session.items()):
         if any(record.running for record in records):
+            continue
+        if (
+            running_native_for_session(
+                session_id,
+                custody_state_dir=state_dir,
+                start_time_of=start_time_of,
+            )
+            is not None
+        ):
             continue
         evidence: dict[str, Any] = {
             "records_considered": len(records),
