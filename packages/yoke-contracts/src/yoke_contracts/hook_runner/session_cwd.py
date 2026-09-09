@@ -1,4 +1,4 @@
-"""Client/authority contract for session-cwd scratch-root evidence."""
+"""Client/authority contracts for session-cwd filesystem evidence."""
 
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ CLIENT_SCRATCH_ROOT_KEY = "_yoke_client_scratch_root"
 CLIENT_SCRATCH_ROOT_SCHEMA = 1
 CLIENT_CLAUDE_JOB_TMP_KEY = "_yoke_client_claude_job_tmp"
 CLIENT_CLAUDE_JOB_TMP_SCHEMA = 1
+CLIENT_MACHINE_HOME_KEY = "_yoke_client_machine_home"
+CLIENT_MACHINE_HOME_SCHEMA = 1
 
 
 def _valid_root(root: object) -> str:
@@ -43,6 +45,40 @@ def client_scratch_root(payload: Mapping[str, Any]) -> str:
     if raw.get("schema") != CLIENT_SCRATCH_ROOT_SCHEMA:
         return ""
     return _valid_root(raw.get("root"))
+
+
+def _valid_machine_home(root: object) -> str:
+    value = _valid_root(root)
+    if not value:
+        return ""
+    path = Path(value)
+    resolved = path.resolve()
+    if value != str(resolved):
+        return ""
+    return value
+
+
+def client_machine_home_fact(root: str) -> dict[str, object]:
+    """Build the relayed fact naming the client's canonical home."""
+    value = _valid_machine_home(root)
+    if not value:
+        return {}
+    return {
+        CLIENT_MACHINE_HOME_KEY: {
+            "schema": CLIENT_MACHINE_HOME_SCHEMA,
+            "root": value,
+        }
+    }
+
+
+def client_machine_home(payload: Mapping[str, Any]) -> str:
+    """Return the schema-validated client home from a hook payload."""
+    raw = payload.get(CLIENT_MACHINE_HOME_KEY)
+    if not isinstance(raw, Mapping):
+        return ""
+    if raw.get("schema") != CLIENT_MACHINE_HOME_SCHEMA:
+        return ""
+    return _valid_machine_home(raw.get("root"))
 
 
 def _valid_claude_job_tmp(root: object) -> str:
@@ -98,11 +134,15 @@ def client_claude_job_tmp(
 __all__ = [
     "CLIENT_CLAUDE_JOB_TMP_KEY",
     "CLIENT_CLAUDE_JOB_TMP_SCHEMA",
+    "CLIENT_MACHINE_HOME_KEY",
+    "CLIENT_MACHINE_HOME_SCHEMA",
     "CLIENT_SCRATCH_ROOT_KEY",
     "CLIENT_SCRATCH_ROOT_SCHEMA",
     "claude_job_tmp_root",
     "client_claude_job_tmp",
     "client_claude_job_tmp_fact",
+    "client_machine_home",
+    "client_machine_home_fact",
     "client_scratch_root",
     "client_scratch_root_fact",
 ]

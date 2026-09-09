@@ -61,6 +61,14 @@ def test_relative_apply_patch_target_resolves_from_declared_workdir():
     ]
 
 
+def test_tilde_target_resolves_against_explicit_machine_home():
+    payload = {"tool_name": "Read", "tool_input": {"file_path": "~/Docs/ref.md"}}
+
+    assert extract_payload_targets(
+        payload, machine_home="/clients/alice",
+    ) == ["/clients/alice/Docs/ref.md"]
+
+
 def test_tool_alias_keeps_patch_content_out_of_target_paths():
     target = "/checkout/.worktrees/YOK-1/layout.tsx"
     body = (

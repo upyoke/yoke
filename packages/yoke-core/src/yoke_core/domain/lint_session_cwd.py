@@ -1,24 +1,12 @@
 """PreToolUse + orientation guard: refuse tool calls whose target paths
 fall outside the session's claim-based authority.
 
-The policy answers two questions per target, in order. First: does a
-**different** live session hold the worktree lane this target is inside?
-That refusal applies to every caller, including one holding no claim at
-all, because a session with no stake in a lane is the shape that walks
-into somebody else's. Second, and only for a caller that holds claims:
-the target must land under (a) a claimed worktree, (b) any project's
-control plane (repo root excluding ``.worktrees/``), or (c) the
-free-path allowlist (``/tmp``, ``/var/folders/...``). A session with no
-claims is otherwise unconstrained.
+The policy first refuses targets in another session's live lane. For a caller
+holding claims, other targets must land in a claimed worktree, a project
+control plane, or a free path; sessions without claims are otherwise
+unconstrained. Pre-implementing worktree writes use their dedicated policy.
 
-The same body renders as both a PreToolUse deny payload and an
-orientation warning block; the orientation path uses the harness cwd
-as a synthetic target. Pre-implementing-status worktree writes route
-to :mod:`lint_session_cwd_pre_implementing` for the deny / warn /
-suppression matrix.
-
-Hook fails open on internal errors, audited via
-``SessionCwdBindingFailOpen``.
+Hook failures open and emit ``SessionCwdBindingFailOpen``.
 """
 
 from __future__ import annotations
@@ -79,6 +67,7 @@ from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 from yoke_contracts.hook_runner.session_cwd import (
     client_claude_job_tmp,
+    client_machine_home,
     client_scratch_root,
 )
 
@@ -88,14 +77,7 @@ _ORIENTATION_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
 
 @dataclass(frozen=True)
 class Verdict:
-    """Outcome of a PreToolUse evaluation. ``allow=True`` => no deny payload.
-
-    ``failure_class`` discriminates scope-mismatch vs.
-    pre-implementing-status vs. foreign-lane; ``item_id`` /
-    ``item_status`` / ``mode`` / ``suppression_attempted`` carry
-    pre-implementing branch state, and ``occupant`` carries the holding
-    claim for the foreign-lane branch.
-    """
+    """Outcome and refusal evidence for one PreToolUse evaluation."""
 
     allow: bool
     reason: str = ""
@@ -129,6 +111,7 @@ def evaluate_pre_tool_use(
     *,
     watcher_capture_root: str = "",
     claude_job_tmp_root: str = "",
+    machine_home: str | None = None,
 ) -> Verdict:
     """Return the :class:`Verdict` for a PreToolUse payload."""
     session_id = session_id_from_hook_payload(payload)
@@ -144,7 +127,7 @@ def evaluate_pre_tool_use(
             ),
             failure_class=IDENTITY_FAILURE_CLASS,
         )
-    targets = extract_payload_targets(payload)
+    targets = extract_payload_targets(payload, machine_home=machine_home)
     command = extract_payload_command(payload)
     fallback_cwd = resolve_authority_cwd(payload)
 
@@ -157,6 +140,7 @@ def evaluate_pre_tool_use(
                 fallback_cwd=fallback_cwd,
                 watcher_capture_root=watcher_capture_root,
                 claude_job_tmp_root=claude_job_tmp_root,
+                machine_home=machine_home,
                 read_only=not write_operation,
                 command=command,
                 tool_name=tool_name,
@@ -284,6 +268,7 @@ def evaluate(record: HookContext) -> HookDecision:
                     client_scratch_root(payload) if record.remote else ""
                 ),
                 claude_job_tmp_root=client_claude_job_tmp(payload, job_dir=job_dir),
+                machine_home=client_machine_home(payload) if record.remote else None,
             )
         except Exception as exc:
             emit_fail_open(
