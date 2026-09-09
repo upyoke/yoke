@@ -270,7 +270,10 @@ def test_failed_create_reaps_immediately_inside_the_ttl_window(tmp_path: Path) -
         assert outcome.reason == "create_failed"
         assert outcome.result in {"terminated", "killed"}
         assert not _record_file(tmp_path).exists()
-        assert process.poll() is not None
+        # Containment signals the native; the kernel reaps it a moment later,
+        # so wait for the exit rather than sampling for one that has not
+        # landed yet — the same shape the TTL sweep's assertion uses.
+        assert process.wait(timeout=10) is not None
     finally:
         if process.poll() is None:
             process.kill()
