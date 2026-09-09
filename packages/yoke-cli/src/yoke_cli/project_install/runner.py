@@ -25,6 +25,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+from yoke_contracts.machine_config import checkout_env_mismatch
+
 from yoke_cli.config import machine_config
 from yoke_cli.config import writer as machine_config_writer
 from yoke_cli.commands.adapters.project_snapshot import (
@@ -237,18 +239,12 @@ def _resolve_project_id(
             return mapped, True
         return mapped, False
 
-    other_env = _other_env_checkout_mappings(repo_root, config_path)
+    other_env = checkout_env_mismatch.mismatch_note(
+        repo_root, config_path=config_path,
+    )
     if other_env:
-        details = ", ".join(
-            f"project_id {entry['project_id']} on env "
-            f"{entry.get('env') or '(untagged)'}"
-            for entry in other_env
-        )
         raise ProjectInstallError(
-            f"checkout {repo_root} is mapped only for another env ({details}); "
-            "refusing install/refresh on the active env. Register an explicit "
-            "mapping for this env with `yoke project register`, or switch to "
-            "the mapped env."
+            f"refusing install/refresh on the selected env. {other_env}"
         )
     if explicit is not None:
         return int(explicit), True
@@ -257,44 +253,6 @@ def _resolve_project_id(
         "will register the checkout mapping in machine config), or run "
         "`yoke project register` first"
     )
-
-
-def _other_env_checkout_mappings(
-    repo_root: Path,
-    config_path: str | Path | None,
-) -> list[dict[str, Any]]:
-    """Return this checkout's mappings that do not apply under the selected env."""
-    from yoke_contracts.machine_config import schema as contract
-
-    cfg = machine_config.load_config(config_path)
-    try:
-        env: str | None = contract.selected_env(cfg)
-    except contract.MachineConfigContractError:
-        env = None
-    active = str(cfg.get("active_env") or "").strip()
-    candidates = {
-        _resolved_path_key(path)
-        for path in contract.checkout_path_candidates(repo_root)
-    }
-    other: list[dict[str, Any]] = []
-    for entry in contract.normalize_projects(cfg.get("projects")):
-        if _resolved_path_key(Path(entry["checkout"]).expanduser()) not in candidates:
-            continue
-        if contract.entry_resolves_under_env(
-            entry,
-            env=env,
-            active_env=active,
-        ):
-            continue
-        other.append(entry)
-    return other
-
-
-def _resolved_path_key(path: Path) -> str:
-    try:
-        return str(path.resolve())
-    except OSError:
-        return str(path)
 
 
 def _managed_markdown_paths(bundle: dict) -> list[str]:
