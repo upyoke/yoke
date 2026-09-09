@@ -132,7 +132,7 @@ def test_heartbeat_session_session_error_swallowed():
     ) as conn_factory, mock.patch(
         "yoke_core.domain.sessions_lifecycle_registry.heartbeat",
         side_effect=SessionError("NOT_FOUND", "no such session"),
-    ):
+    ), mock.patch.object(hook_helpers_heartbeat, "_backfill_session"):
         conn = mock.MagicMock()
         conn_factory.return_value = conn
         hook_helpers_heartbeat._heartbeat_session("dead-session", mock.MagicMock())
