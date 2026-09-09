@@ -113,8 +113,8 @@ def test_local_cursor_entry_marks_and_merges_client_orientation(
     monkeypatch.setattr(local_entry, "detect_executor", lambda: "cursor")
     monkeypatch.setattr(
         local_entry,
-        "record_then_stamp",
-        lambda _payload, text, _executor, _event: text,
+        "stamp_hook_input",
+        lambda _payload, text, _executor, _event: (text, None),
     )
     monkeypatch.setattr(
         local_entry,

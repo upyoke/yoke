@@ -25,3 +25,19 @@ def _skip_https_connection_backoff(monkeypatch):
     defaults = relay_https.__kwdefaults__
     assert defaults is not None
     monkeypatch.setitem(defaults, "sleep", lambda _seconds: None)
+
+
+@pytest.fixture(autouse=True)
+def _clear_inherited_launch_context(monkeypatch):
+    """Keep hook-payload tests independent of the runner's ambient launch.
+
+    A relay-launched worker inherits the launch context its own native was
+    started with, and a hook correctly projects that live attestation into
+    the payload it composes. Running these tests inside such a worker would
+    otherwise fail an exact-payload comparison for a reason that has nothing
+    to do with the code under test. Only the test environment is cleared; a
+    test that needs a launch context sets its own.
+    """
+    from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
+
+    monkeypatch.delenv(LAUNCH_CONTEXT_ENV, raising=False)

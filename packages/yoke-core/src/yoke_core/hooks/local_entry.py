@@ -26,7 +26,7 @@ from yoke_harness.hooks.identity_relay import (
     record_model_facts_shipped,
     relay_identity_payload,
 )
-from yoke_harness.hooks.identity_stamp import record_then_stamp
+from yoke_harness.hooks.launch_context import settle_projection, stamp_hook_input
 from yoke_harness.hooks.relay import AGENT_TYPE_ENV_VAR
 from yoke_harness.hooks.relay_identity_guard import (
     capture_codex_session,
@@ -47,7 +47,9 @@ def evaluate_local_hook(
     record_client_anchor(payload, session_start=event_name == "SessionStart")
     executor = detect_executor()
     original_stdin = stdin_data
-    stdin_data = record_then_stamp(payload, stdin_data, executor, event_name)
+    stdin_data, launch_projection = stamp_hook_input(
+        payload, stdin_data, executor, event_name
+    )
     ensure_user_lifecycle_hooks_for_executor(executor)
     capture_codex_session(event_name, original_stdin, executor)
 
@@ -99,6 +101,7 @@ def evaluate_local_hook(
         )
     if stdout:
         sys.stdout.write(stdout)
+    settle_projection(stdout, launch_projection)
     return exit_code
 
 
