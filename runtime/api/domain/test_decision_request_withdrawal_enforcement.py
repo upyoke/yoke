@@ -195,7 +195,20 @@ def test_deployment_withdraw_requires_run_stage_to_end(conn) -> None:
             "run_id": "run-1",
             "flow": {"id": "release", "name": "Release"},
             "stage": "production",
+            "stage_position": {"index": 0, "total": 1, "remaining": []},
             "batch": {"item_count": 0, "items": []},
+            "carried": {
+                "schema": 1,
+                "derivation": {
+                    "status": "empty",
+                    "contents_known": False,
+                    "reason": "no_prior_succeeded_run",
+                    "recovery": "This run establishes the lineage baseline.",
+                },
+                "items": [],
+                "commits": [],
+                "warnings": [],
+            },
             "shipping": {
                 "release_lineage": None,
                 "target_environment": "prod",
@@ -245,6 +258,16 @@ def test_qa_withdraw_requires_conclusive_or_waived_requirement(conn) -> None:
         subject_context={
             "requirement_id": 7,
             "run_id": 70,
+            "subject": {
+                "kind": "plan",
+                "item_id": None,
+                "item_ref": None,
+                "item_title": None,
+                "deployment_run_id": None,
+                "target_environment": None,
+                "qa_phase": "verification",
+            },
+            "code_revision": None,
             "expected_outcome": "The requirement passes.",
             "verdict_reason": "The result needs human review.",
             "artifacts": [],
