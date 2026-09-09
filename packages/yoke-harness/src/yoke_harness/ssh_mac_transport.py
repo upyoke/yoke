@@ -16,6 +16,7 @@ from yoke_contracts.machine_qa_execution import (
     GUI_SESSION_CONTEXT,
     REQUIRED_SESSION_CONTEXT_FIELD,
 )
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness.ssh_mac_baseline_probes import prove_declared_probes
 from yoke_harness.ssh_mac_full_reset import execute_full_test_mac_reset
 from yoke_harness.ssh_mac_golden_capture import capture_golden_baseline
@@ -110,10 +111,24 @@ class SshMacTransport:
             timeout=20,
         )
         if result.returncode:
-            raise RuntimeError("host_control connection failed")
+            raise HostControlLocalError(
+                code="host_control_connection_failed",
+                phase="host_facts_ssh",
+                detail="SSH could not collect test-machine host facts",
+                exit_code=int(result.returncode),
+                stderr=result.stderr,
+                recovery_hint="Check the SSH host, user, network, and key authorization; retry.",
+            )
         values = result.stdout.split("\n")
         if len(values) < 3 or not values[0]:
-            raise RuntimeError("host_control returned incomplete host facts")
+            raise HostControlLocalError(
+                code="host_control_host_facts_malformed",
+                phase="host_facts_parse",
+                detail=f"SSH returned malformed host facts: {result.stdout}",
+                exit_code=int(result.returncode),
+                stderr=result.stderr,
+                recovery_hint="Repair the remote HOME and SHELL facts, then retry.",
+            )
         return {
             "home": values[0],
             "shell": values[1] or "/bin/zsh",

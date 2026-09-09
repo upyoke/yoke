@@ -7,13 +7,20 @@ import json
 from pathlib import Path
 from typing import Any, List
 
+from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.machine_config.capability_secrets import (
+    TEST_MACHINE_CAPABILITY,
+)
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
     usage_error,
+)
+from yoke_cli.config.capability_secrets import (
+    list_machine_capability_secret_keys,
 )
 from yoke_cli.commands.adapters.test_machine_operation import run_host_operation
 
@@ -53,6 +60,8 @@ def _dispatch(
     parsed: argparse.Namespace,
     function_id: str,
     payload: dict[str, Any],
+    *,
+    attest_local_secrets: bool = False,
 ) -> int:
     return dispatch_and_emit(
         function_id=function_id,
@@ -60,7 +69,40 @@ def _dispatch(
         payload={"project": parsed.project, **payload},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+        response_recovery=(
+            (lambda response, _actor: _attest_secret_presence(response, parsed.project))
+            if attest_local_secrets
+            else None
+        ),
     )
+
+
+def _attest_secret_presence(
+    response: FunctionCallResponse,
+    project: str,
+) -> FunctionCallResponse:
+    """Attach credential presence proven on this executing CLI machine."""
+    if not response.success or not isinstance(response.result, dict):
+        return response
+    stored = set(list_machine_capability_secret_keys(project, TEST_MACHINE_CAPABILITY))
+
+    def attest(detail: Any) -> Any:
+        if not isinstance(detail, dict):
+            return detail
+        updated = dict(detail)
+        updated["secrets"] = [
+            {**secret, "stored": secret.get("key") in stored}
+            for secret in detail.get("secrets") or []
+            if isinstance(secret, dict)
+        ]
+        return updated
+
+    result = dict(response.result)
+    if isinstance(result.get("machines"), list):
+        result["machines"] = [attest(detail) for detail in result["machines"]]
+    else:
+        result = attest(result)
+    return response.model_copy(update={"result": result})
 
 
 def test_machine_get(args: List[str]) -> int:
@@ -68,7 +110,12 @@ def test_machine_get(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, GET_USAGE)
     if parsed is None:
         return 2
-    return _dispatch(parsed, "test_machine.get", {"machine": parsed.machine})
+    return _dispatch(
+        parsed,
+        "test_machine.get",
+        {"machine": parsed.machine},
+        attest_local_secrets=True,
+    )
 
 
 def test_machine_list(args: List[str]) -> int:
@@ -76,7 +123,12 @@ def test_machine_list(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, LIST_USAGE)
     if parsed is None:
         return 2
-    return _dispatch(parsed, "test_machine.list", {})
+    return _dispatch(
+        parsed,
+        "test_machine.list",
+        {},
+        attest_local_secrets=True,
+    )
 
 
 def test_machine_settings_replace(args: List[str]) -> int:

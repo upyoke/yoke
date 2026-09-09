@@ -13,6 +13,7 @@ from yoke_contracts.machine_config.test_machine import (
     TestMachineCapabilityError,
     validate_test_machine_settings,
 )
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_harness.test_machine_types import HostActionResult
 
 from yoke_core.domain.capability_machine_secrets import (
@@ -234,9 +235,16 @@ def materialize_test_machine_contract(
                 )
             )
     if missing:
-        raise TestMachineCapabilityError(
-            "test-machine is missing machine-local credential references: "
-            + ", ".join(missing)
+        raise HostControlLocalError(
+            code="host_control_credential_missing",
+            phase="credential_materialization",
+            detail="executing machine is missing credential references: "
+            + ", ".join(missing),
+            recovery_hint=(
+                "Store the named credential on this executing machine with "
+                f"`yoke projects capability secret set --project {normalized.project} "
+                "--cap-type test-machine --key KEY --value-stdin`, then retry."
+            ),
         )
     return TestMachineMaterial(
         project_id=normalized.project_id,
@@ -264,8 +272,11 @@ def resolve_contract_host_control(
 ) -> tuple[HostControl, TestMachineMaterial]:
     """Materialize a server-issued contract on the credential-owning machine."""
     if _factory is None:
-        raise TestMachineCapabilityError(
-            "host_control runner is not registered on this machine"
+        raise HostControlLocalError(
+            code="host_control_runner_unavailable",
+            phase="runner_registration",
+            detail="host_control runner is not registered on the executing machine",
+            recovery_hint="Run the operation through the registered Yoke CLI command.",
         )
     material = materialize_test_machine_contract(contract)
     return _factory(material), material

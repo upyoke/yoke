@@ -120,7 +120,8 @@ def test_test_machine_is_typed_and_secret_presence_only(
     ]
     assert detail["host_baselines"] == ["fresh-host", "shell-preconfigured"]
     assert {row["key"] for row in detail["secrets"]} == TEST_MACHINE_SECRET_KEYS
-    assert not any(row["stored"] for row in detail["secrets"])
+    assert all(row["stored"] is None for row in detail["secrets"])
+    assert {row["scope"] for row in detail["secrets"]} == {"executing_machine"}
     assert all(
         is_machine_local_capability_secret(TEST_MACHINE_CAPABILITY, key)
         for key in TEST_MACHINE_SECRET_KEYS

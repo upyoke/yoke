@@ -6,14 +6,27 @@ import sys
 from typing import Any, Mapping
 
 from yoke_contracts.api.function_call import ActorContext, TargetRef
+from yoke_contracts.machine_qa_failures import host_control_failure
 
 
 class MachinePlanCaseDispatchError(RuntimeError):
     """A plan-scoped host-control case cannot complete its protocol."""
 
-    def __init__(self, message: str, *, host_contact_possible: bool = True) -> None:
-        super().__init__(message)
+    def __init__(
+        self,
+        message: str,
+        *,
+        host_contact_possible: bool = True,
+        error_code: str | None = None,
+        recovery_hint: str | None = None,
+    ) -> None:
+        rendered = f"{message} ({error_code})" if error_code else message
+        if recovery_hint:
+            rendered += f". Recovery: {recovery_hint}"
+        super().__init__(rendered)
         self.host_contact_possible = host_contact_possible
+        self.error_code = error_code
+        self.recovery_hint = recovery_hint
 
 
 def _report_selection(begun: Mapping[str, Any], execution: Mapping[str, Any]) -> None:
@@ -125,8 +138,14 @@ def execute_plan_machine_case(
             payload={**request, **submission.payload},
         )
     except Exception as exc:
+        code, message, recovery = host_control_failure(
+            exc,
+            phase="plan_case_local_execution",
+        )
         raise MachinePlanCaseDispatchError(
-            f"plan-scoped local host-control execution failed ({type(exc).__name__})"
+            message,
+            error_code=code,
+            recovery_hint=recovery,
         ) from exc
     finally:
         if submission is not None:
@@ -216,8 +235,14 @@ def execute_plan_agent_mission_case(
             payload={**request, **prepared},
         )
     except Exception as exc:
+        code, message, recovery = host_control_failure(
+            exc,
+            phase="agent_mission_preparation",
+        )
         raise MachinePlanCaseDispatchError(
-            f"plan-scoped agent mission preparation failed ({type(exc).__name__})"
+            message,
+            error_code=code,
+            recovery_hint=recovery,
         ) from exc
     result = submitted.get("result")
     if not isinstance(result, dict) or (

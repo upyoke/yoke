@@ -22,6 +22,12 @@ export function orderedMachineSecrets(secrets) {
     });
 }
 
+export function machineSecretState(secret) {
+  if (secret?.stored === true) return { state: "stored", label: "stored" };
+  if (secret?.stored === false) return { state: "missing", label: "missing" };
+  return { state: "unknown", label: "unknown on this browser" };
+}
+
 function rejectedCallMessage(error, fallback) {
   if (error instanceof Error && error.message) return error.message;
   const detail = String(error ?? "").trim();
@@ -92,8 +98,9 @@ export function machineSettingsDialog(context, detail, close, saved) {
       documentNode, "div", "test-machine-command-identity",
     );
     identity.appendChild(el(documentNode, "strong", null, secret.key));
+    const secretState = machineSecretState(secret);
     const state = statePill(
-      documentNode, secret.stored ? "stored" : "missing",
+      documentNode, secretState.state, secretState.label,
     );
     if (state) identity.appendChild(state);
     row.appendChild(identity);
