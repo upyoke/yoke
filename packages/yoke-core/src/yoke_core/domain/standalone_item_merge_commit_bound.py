@@ -1,10 +1,11 @@
 """Recover a merge preflight that only lacks a commit-bound QA verdict.
 
 Missing or stale ``verification_tree.head_sha`` on an otherwise passing
-blocking run is a re-record / re-run condition: stamp hand acceptance
-runs onto the merging commit, or re-execute SHA-bound Command cases
-against the lane head, then re-check preflight. Other refusal classes
-stay terminal.
+blocking run is recoverable only when the proof can be produced for the
+candidate: stamp methodless hand acceptance onto the merging commit, or
+re-execute SHA-bound Command cases against the lane head. Method-backed
+substrate evidence keeps its runner authority and refuses with its supported
+recovery path instead of being rebound by the merge.
 """
 
 from __future__ import annotations
@@ -12,12 +13,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 from yoke_core.domain.qa_terminal_settlement import BlockingRequirementIssue
 from yoke_core.domain.standalone_item_merge_qa import evaluate, preflight
 
 
 COMMIT_BOUND_STATES = frozenset({"stale-sha"})
-COMMAND_METHODS = frozenset({"command", "command-ci"})
+COMMAND_RUNNERS = frozenset(
+    str(method["runner_id"])
+    for method in BUILTIN_QA_METHODS
+    if method.get("proof_kind") == "command"
+)
 
 
 def is_commit_bound_refusal(issues: list[BlockingRequirementIssue]) -> bool:
@@ -64,6 +70,45 @@ def rerun_command_case(requirement_id: int) -> None:
     execute_case(int(requirement_id))
 
 
+def _runner_authority_refusal(
+    item: dict[str, Any],
+    requirement: dict[str, Any],
+    commit_sha: str,
+) -> str:
+    requirement_id = int(requirement["id"])
+    method_id = str(requirement.get("method_id") or "<missing>")
+    runner_id = str(requirement.get("runner_id") or "<missing>")
+    public_ref = str(item.get("public_ref") or item.get("id") or "ITEM")
+    transition = str(
+        requirement.get("workflow_transition_id") or "<bound-transition>"
+    )
+    if runner_id == "browser_substrate":
+        rerun_path = (
+            f"`yoke qa case run --requirement-id {requirement_id} "
+            "--base-url <candidate-url> --expected-branch <candidate-branch> "
+            f"--expected-sha {commit_sha}`"
+        )
+    elif runner_id == "agent_mission":
+        rerun_path = (
+            f"`yoke qa plan run --item {public_ref} --transition {transition}`"
+        )
+    else:
+        rerun_path = f"`yoke qa case run --requirement-id {requirement_id}`"
+    return (
+        "commit_bound_runner_authority: "
+        f"requirement #{requirement_id} uses method {method_id!r} with runner "
+        f"{runner_id!r}; merge recovery will not re-record or bind its "
+        f"substrate-owned evidence to candidate commit {commit_sha}. Rerun the "
+        "requirement through its registered runner against that candidate with "
+        f"{rerun_path}, then retry `yoke merge item {public_ref}`. If the "
+        "evidence exists only after "
+        "deployment, select deployment posture and bind the requirement to the "
+        "`done` transition with `qa_phase=post_deploy` or `manual_acceptance`; "
+        "merge with `--skip-status`, run that phase through its registered "
+        "runner, then close out."
+    )
+
+
 def recover_issues(
     item: dict[str, Any],
     issues: list[BlockingRequirementIssue],
@@ -79,13 +124,16 @@ def recover_issues(
         requirement = _requirement(item, issue.requirement_id)
         if requirement is None:
             return f"cannot recover requirement #{issue.requirement_id}: not on item"
-        method_id = str(requirement.get("method_id") or "")
+        method_id = str(requirement.get("method_id") or "").strip()
+        runner_id = str(requirement.get("runner_id") or "").strip()
         try:
-            if method_id in COMMAND_METHODS:
+            if runner_id in COMMAND_RUNNERS:
                 execute(int(requirement["id"]))
                 _mark_bound(requirement, commit_sha)
-            else:
+            elif not method_id and not runner_id:
                 persist(requirement, commit_sha)
+            else:
+                return _runner_authority_refusal(item, requirement, commit_sha)
         except Exception as exc:
             return f"commit-bound recovery failed for #{issue.requirement_id}: {exc}"
     return ""
@@ -118,7 +166,7 @@ def recover_and_recheck(
 
 
 __all__ = [
-    "COMMAND_METHODS",
+    "COMMAND_RUNNERS",
     "COMMIT_BOUND_STATES",
     "is_commit_bound_refusal",
     "recover_and_recheck",
