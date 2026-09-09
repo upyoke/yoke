@@ -7,7 +7,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+import json
+
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
+from yoke_harness.session_relay_native_turn_custody import (
+    RESUME_CUSTODY_SOURCE,
+    RunningNative,
+)
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_types import SessionRelayError
 from yoke_core.domain.session_wake_deferral import restore_deferred_wake_budget
@@ -22,6 +28,14 @@ from runtime.api.domain.test_session_relay import (
 
 CLAIMED_AT = "2026-08-22T11:30:00Z"
 REPORTED_AT = "2026-08-22T11:30:02Z"
+#: Built by the producer itself, so a rename on either side of the wire is a
+#: failure here rather than a fact that silently stops being stored.
+RUNNING_NATIVE = RunningNative(
+    session_id="target",
+    pid=4001,
+    process_start_time="Mon Aug 24 08:00:00 2026",
+    source=RESUME_CUSTODY_SOURCE,
+)
 
 
 def _claim_wake(conn, *, now: str = CLAIMED_AT):
@@ -32,7 +46,9 @@ def _claim_wake(conn, *, now: str = CLAIMED_AT):
     return claimed.jobs[0]
 
 
-def _report(conn, job, *, result_code: str = NATIVE_TURN_RUNNING_RESULT, now=REPORTED_AT):
+def _report(
+    conn, job, *, result_code: str = NATIVE_TURN_RUNNING_RESULT, now=REPORTED_AT
+):
     return report_relay_job(
         conn,
         actor_id=1,
@@ -42,7 +58,7 @@ def _report(conn, job, *, result_code: str = NATIVE_TURN_RUNNING_RESULT, now=REP
         lease_id=job.lease_id,
         result_code=result_code,
         adapter_revision="relay-custody-v1",
-        evidence={"running_native_pid": 4001},
+        evidence=dict(RUNNING_NATIVE.evidence),
         now=now,
     )
 
@@ -52,6 +68,62 @@ def _recipient(conn) -> tuple[int, str, str]:
         "SELECT wake_attempt_count,wake_after,state FROM session_message_recipients "
         "WHERE message_id='message-1'"
     ).fetchone()
+
+
+def test_the_stored_attempt_keeps_the_proof_the_wake_was_refused_on() -> None:
+    """The pid, its start time, and the custody family must survive storage.
+
+    Attempt evidence passes through a bounded allowlist that omits every
+    field it does not know, so a fact the relay reports is not a fact an
+    operator can read. These three are the whole proof that a wake was
+    declined against a specific live process rather than for no reason, and
+    a reader on another machine has nothing else to check it with.
+    """
+    conn = _connection()
+    _add_wake_recipient(conn)
+    job = _claim_wake(conn)
+
+    _report(conn, job)
+
+    stored = json.loads(
+        conn.execute(
+            "SELECT evidence FROM session_message_attempts WHERE attempt_id=?",
+            (job.job_id,),
+        ).fetchone()[0]
+    )
+    assert stored["running_native_pid"] == RUNNING_NATIVE.pid
+    assert stored["running_native_start_time"] == RUNNING_NATIVE.process_start_time
+    assert stored["running_native_source"] == RUNNING_NATIVE.source
+    assert stored["result_code"] == NATIVE_TURN_RUNNING_RESULT
+
+
+def test_an_unknown_evidence_field_is_still_dropped() -> None:
+    """Widening the allowlist must not widen it to everything."""
+    conn = _connection()
+    _add_wake_recipient(conn)
+    job = _claim_wake(conn)
+
+    report_relay_job(
+        conn,
+        actor_id=1,
+        relay_id=RELAY_ID,
+        job_kind="wake",
+        job_id=job.job_id,
+        lease_id=job.lease_id,
+        result_code=NATIVE_TURN_RUNNING_RESULT,
+        adapter_revision="relay-custody-v1",
+        evidence={**RUNNING_NATIVE.evidence, "native_environment_dump": "SECRET=1"},
+        now=REPORTED_AT,
+    )
+
+    stored = json.loads(
+        conn.execute(
+            "SELECT evidence FROM session_message_attempts WHERE attempt_id=?",
+            (job.job_id,),
+        ).fetchone()[0]
+    )
+    assert "native_environment_dump" not in stored
+    assert stored["running_native_pid"] == RUNNING_NATIVE.pid
 
 
 def test_a_deferred_wake_gives_its_attempt_back() -> None:
@@ -182,9 +254,7 @@ def test_a_report_that_loses_to_a_different_outcome_is_refused(monkeypatch) -> N
     conn = _connection()
     _add_wake_recipient(conn)
     job = _claim_wake(conn)
-    _settle_between_read_and_write(
-        conn, result_code="failed", monkeypatch=monkeypatch
-    )
+    _settle_between_read_and_write(conn, result_code="failed", monkeypatch=monkeypatch)
 
     with pytest.raises(SessionRelayError) as refusal:
         _report(conn, job)
