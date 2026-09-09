@@ -6,7 +6,7 @@ import argparse
 import sys
 from typing import List, Optional
 
-from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
+from yoke_core.domain.db_helpers import connect
 from yoke_core.domain import deploy_qa_recorder
 from yoke_core.domain.claim_recovery import canonical_item_ref
 from yoke_core.domain.deploy_lock import deploy_lock_refusal
@@ -35,6 +35,10 @@ from yoke_core.domain.deploy_pipeline_run_context import (
     resolve_flow_target,
     resolve_project_checkout_path,
 )
+from yoke_core.domain.deployment_run_completion_preconditions import (
+    awaiting_qa_report_lines,
+    unresolved_blocking_qa,
+)
 from yoke_core.domain.deployment_item_stamp import (
     transition_member_to_release,
 )
@@ -45,6 +49,7 @@ EXIT_SUCCESS = 0
 EXIT_STAGE_FAILED = deploy_pipeline_failure.EXIT_STAGE_FAILED
 EXIT_AWAITING_APPROVAL = 2
 EXIT_USAGE = 3
+EXIT_AWAITING_QA = 5
 _release_control_plane_env = deploy_env.release_control_plane_env
 
 
@@ -283,27 +288,19 @@ def run_pipeline(
     # --- Pipeline complete ---
     _set_deploy_stage("complete", run_id, member_items, sd=sd)
 
-    # Check blocking QA before marking succeeded
+    # The run has delivered its stages; blocking QA decides whether it
+    # succeeded. Reporting here rather than letting the succeeded write
+    # refuse keeps the unresolved checks in the operator's output and
+    # skips the retry backoff, which exists for a transient write.
     conn = connect()
     try:
-        pending_blocking = query_scalar(
-            conn,
-            "SELECT COUNT(*) FROM deployment_run_qa WHERE run_id=%s AND blocking=1 AND status='pending'",
-            (run_id,),
-        )
-        if pending_blocking and pending_blocking > 0:
-            pending_checks = [
-                row[0] for row in query_rows(
-                    conn,
-                    "SELECT check_name FROM deployment_run_qa WHERE run_id=%s AND blocking=1 AND status='pending'",
-                    (run_id,),
-                )
-            ]
-            print(f"Warning: {pending_blocking} blocking QA check(s) still pending for run {run_id}", file=sys.stderr)
-            if pending_checks:
-                print(f"  Pending checks: {', '.join(pending_checks)}", file=sys.stderr)
+        unresolved_qa = unresolved_blocking_qa(conn, run_id)
     finally:
         conn.close()
+    if unresolved_qa:
+        for line in awaiting_qa_report_lines(run_id, unresolved_qa):
+            print(line, file=sys.stderr)
+        return EXIT_AWAITING_QA
 
     return complete_run_finalization(
         run_id, flow_id, project, member_items, target_tier,

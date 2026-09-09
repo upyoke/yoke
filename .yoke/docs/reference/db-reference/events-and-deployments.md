@@ -161,6 +161,36 @@ updated_at TEXT
 PRIMARY KEY (run_id, check_name)
 ```
 
+### Blocking QA holds the succeeded stamp
+
+A run does not reach `status='succeeded'` while any blocking QA
+obligation is unresolved. `deployment_runs.cmd_update` is the boundary
+that enforces it, so every route into a succeeded stamp — including the
+pipeline's own finalization — is covered by one check.
+
+Two tables carry those obligations, and both are read:
+
+- `deployment_run_qa`, the flow-derived checks. Only `passed` and
+  `waived` resolve one. `failed` does not: a failed blocking check is
+  the strongest reason not to call the run succeeded.
+- `qa_requirements` rows keyed by `deployment_run_id`, the run's plan
+  cases. One resolves on a `qa_runs` row with `verdict='pass'`, or on a
+  waiver. A case whose latest run is `undetermined` and awaits human
+  evidence review is named with that pending review and its authorities.
+
+Non-blocking checks never hold a run, and `force=True` overrides the
+hold exactly as it overrides the stage checks beside it.
+
+The pipeline reports this before it tries the write, so the operator
+reads the specific unresolved obligations rather than a refusal from
+the status update. It stamps `current_stage='complete'`, prints each
+obligation, and exits 5 without emitting `DeploymentRunSucceeded` or a
+`completed_at`. The stages already executed keep their recorded results.
+Settle or waive each obligation and re-drive the run: the pipeline
+resumes at `complete`, skips every stage, and finalizes.
+
+Owner: `yoke_core.domain.deployment_run_completion_preconditions`.
+
 ## Table: deployment_preview_environments
 
 Preview environment occupancy tracking for deployment runs.

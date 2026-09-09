@@ -149,8 +149,8 @@ class _Harness:
             ),
             mock.patch.object(
                 deploy_pipeline,
-                "query_scalar",
-                return_value=0,
+                "unresolved_blocking_qa",
+                return_value=[],
             ),
             mock.patch.object(
                 deploy_pipeline_step_runners,
