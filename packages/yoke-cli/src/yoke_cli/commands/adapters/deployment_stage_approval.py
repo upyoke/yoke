@@ -11,6 +11,10 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 
+from yoke_cli.transport.serving_plane import (
+    ServingControlPlaneUnresolved,
+    serving_control_plane_env,
+)
 from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
@@ -64,11 +68,6 @@ def deployment_runs_stage_approval_evaluate(args: List[str]) -> int:
     # the verdict. Dispatching on the caller's own connection would evaluate
     # with the caller's revision — which is exactly the defect this replaces,
     # and an admin connection is the shape most likely to hit it.
-    from yoke_core.domain.control_plane_transport import (
-        ServingControlPlaneUnresolved,
-        serving_control_plane_env,
-    )
-
     try:
         relay_env = serving_control_plane_env() or None
     except ServingControlPlaneUnresolved as exc:

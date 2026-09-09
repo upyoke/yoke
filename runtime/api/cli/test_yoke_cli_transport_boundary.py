@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -11,23 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from runtime.api.product_boundary_isolation import write_sitecustomize
-
-
-def _client_only_env(tmp_path: Path) -> dict[str, str]:
-    root = Path(__file__).resolve().parents[3]
-    env = os.environ.copy()
-    cli_src = root / "packages" / "yoke-cli" / "src"
-    contracts_src = root / "packages" / "yoke-contracts" / "src"
-    sitecustomize_dir = write_sitecustomize(
-        tmp_path,
-        repo_root=root,
-        allowed_repo_paths=(cli_src, contracts_src),
-    )
-    env["PYTHONPATH"] = os.pathsep.join(
-        [str(sitecustomize_dir), str(cli_src), str(contracts_src)]
-    )
-    return env
+from runtime.api.product_boundary_isolation import client_only_env
 
 
 def test_dispatcher_import_does_not_load_core_runtime_or_psycopg(
@@ -48,7 +31,7 @@ print(json.dumps(forbidden))
     result = subprocess.run(
         [sys.executable, "-c", script],
         cwd="/tmp",
-        env=_client_only_env(tmp_path),
+        env=client_only_env(tmp_path),
         capture_output=True,
         text=True,
         check=True,
@@ -72,7 +55,7 @@ print(json.dumps(response.model_dump(mode="json"), sort_keys=True))
     result = subprocess.run(
         [sys.executable, "-c", script],
         cwd="/tmp",
-        env=_client_only_env(tmp_path),
+        env=client_only_env(tmp_path),
         capture_output=True,
         text=True,
         check=True,
@@ -126,19 +109,21 @@ def test_local_dispatch_allows_explicit_prod_flag_when_local_core_is_available(
 ) -> None:
     config_path = tmp_path / "config.json"
     config_path.write_text(
-        json.dumps({
-            "schema_version": 1,
-            "active_env": "prod-db-admin",
-            "connections": {
-                "prod-db-admin": {
-                    "transport": "local-postgres",
-                    "prod": True,
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "prod-db-admin",
+                "connections": {
+                    "prod-db-admin": {
+                        "transport": "local-postgres",
+                        "prod": True,
+                    },
                 },
-            },
-        }),
+            }
+        ),
         encoding="utf-8",
     )
-    env = _client_only_env(tmp_path)
+    env = client_only_env(tmp_path)
     env["YOKE_MACHINE_CONFIG_FILE"] = str(config_path)
     script = """
 import json
@@ -184,24 +169,26 @@ def test_local_dispatch_allows_prod_shaped_names_without_explicit_flag(
 ) -> None:
     config_path = tmp_path / "config.json"
     config_path.write_text(
-        json.dumps({
-            "schema_version": 1,
-            "active_env": "prod",
-            "connections": {
-                "prod": {
-                    "transport": "local-postgres",
-                    "authority": {
-                        "location": {
-                            "stack": "yoke-prod",
-                            "database_name": "yoke_prod",
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "prod",
+                "connections": {
+                    "prod": {
+                        "transport": "local-postgres",
+                        "authority": {
+                            "location": {
+                                "stack": "yoke-prod",
+                                "database_name": "yoke_prod",
+                            },
                         },
                     },
                 },
-            },
-        }),
+            }
+        ),
         encoding="utf-8",
     )
-    env = _client_only_env(tmp_path)
+    env = client_only_env(tmp_path)
     env["YOKE_MACHINE_CONFIG_FILE"] = str(config_path)
     script = """
 import json

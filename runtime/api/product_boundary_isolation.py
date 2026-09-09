@@ -8,6 +8,31 @@ from pathlib import Path
 from typing import Iterable
 
 
+def client_only_env(tmp_path) -> dict[str, str]:
+    """An environment where only the client packages are importable.
+
+    A supported ``yoke-cli`` install carries contracts and textual and
+    nothing else, so a boundary test has to reproduce that install rather
+    than trust the development tree, where every package is on the path.
+    """
+    import os
+    from pathlib import Path as _Path
+
+    root = _Path(__file__).resolve().parents[2]
+    env = os.environ.copy()
+    cli_src = root / "packages" / "yoke-cli" / "src"
+    contracts_src = root / "packages" / "yoke-contracts" / "src"
+    sitecustomize_dir = write_sitecustomize(
+        tmp_path,
+        repo_root=root,
+        allowed_repo_paths=(cli_src, contracts_src),
+    )
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(sitecustomize_dir), str(cli_src), str(contracts_src)]
+    )
+    return env
+
+
 def write_sitecustomize(
     tmp_path: Path,
     *,
