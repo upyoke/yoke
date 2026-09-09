@@ -237,3 +237,72 @@ __all__ = [
     "same_universe_https_env",
     "selected_env",
 ]
+
+
+#: Key under a connection entry holding the actor this machine operates that
+#: universe as. A binding is per connection because it is per universe: the
+#: same person is a different ``actors.id`` in every control plane they use.
+OPERATING_ACTOR_KEY = "operating_actor"
+
+#: Field inside that entry pinning which universe the actor id belongs to.
+#: An env label is a local nickname an operator can retarget, so an actor id
+#: filed under one carries no proof it names anybody in the universe the
+#: label currently points at. Storing the universe's own identity alongside
+#: the id is what turns a retarget into a named refusal instead of a
+#: silent binding to a stranger who happens to hold that id.
+OPERATING_ACTOR_UNIVERSE_KEY = "universe"
+
+OPERATING_ACTOR_ID_KEY = "actor_id"
+
+
+def operating_actor_binding(
+    payload: Mapping[str, Any] | None, env: str
+) -> tuple[int | None, str]:
+    """The ``(actor_id, universe)`` recorded for *env*, or ``(None, "")``.
+
+    Returns ``None`` for the id whenever the entry is absent or malformed,
+    so a caller reads "no usable binding" from one condition rather than
+    validating the file shape itself.
+    """
+    entry = _connection(payload, str(env or "").strip())
+    binding = entry.get(OPERATING_ACTOR_KEY)
+    if not isinstance(binding, Mapping):
+        return None, ""
+    try:
+        actor_id = int(binding.get(OPERATING_ACTOR_ID_KEY))
+    except (TypeError, ValueError):
+        return None, ""
+    universe = str(binding.get(OPERATING_ACTOR_UNIVERSE_KEY) or "").strip()
+    return (actor_id, universe) if actor_id > 0 else (None, "")
+
+
+def with_operating_actor_binding(
+    payload: Mapping[str, Any],
+    env: str,
+    *,
+    actor_id: int,
+    universe: str,
+) -> dict[str, Any]:
+    """Return *payload* with *env*'s operating-actor binding replaced.
+
+    Refuses rather than creating the connection: binding an actor to an
+    env this machine has never configured would record authority against
+    a universe it cannot reach, and the operator meant a different label.
+    """
+    env = str(env or "").strip()
+    updated = dict(payload)
+    connections = updated.get("connections")
+    if not isinstance(connections, Mapping) or env not in connections:
+        raise MachineConfigContractError(
+            f"no connection named {env!r} is configured, so no operating "
+            "actor can be bound to it; configure it first with "
+            "`yoke connection set` or pick a configured env from "
+            "`yoke env list`"
+        )
+    entry = dict(connections[env]) if isinstance(connections[env], Mapping) else {}
+    entry[OPERATING_ACTOR_KEY] = {
+        OPERATING_ACTOR_ID_KEY: int(actor_id),
+        OPERATING_ACTOR_UNIVERSE_KEY: str(universe),
+    }
+    updated["connections"] = {**connections, env: entry}
+    return updated

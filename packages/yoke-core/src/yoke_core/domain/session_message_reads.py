@@ -11,7 +11,7 @@ from yoke_core.domain.actor_message_recipients import (
     ACTOR_KIND,
     actor_recipients_for_message,
 )
-from yoke_core.domain.actor_render import actor_render_label
+from yoke_core.domain.actor_render import render_actor_name
 from yoke_core.domain.session_message_types import (
     SessionMessageError,
     row_dict,
@@ -49,7 +49,7 @@ def sender_identity_projection(
         f"SELECT kind FROM actors WHERE id={marker}", (actor_id,)
     ).fetchone()
     projection = {
-        "sender_actor_label": actor_render_label(conn, actor_id),
+        "sender_actor_label": render_actor_name(conn, actor_id),
         "sender_actor_kind": str(row[0]) if row is not None else None,
     }
     if sender_surface is not None:

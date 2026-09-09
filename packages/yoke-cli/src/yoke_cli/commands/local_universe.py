@@ -27,6 +27,8 @@ import sys
 from typing import Any, Callable, Dict, List, Tuple
 
 from yoke_cli.commands._helpers import parse_or_usage_error
+from yoke_cli.commands.local_universe_import_command import universe_import
+from yoke_cli.commands.local_universe_usage import IMPORT_USAGE
 from yoke_cli.config import local_universe_setup as setup
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config.universe_export_download import (
@@ -42,7 +44,6 @@ INIT_USAGE = (
 )
 
 EXPORT_USAGE = "yoke universe export [--out PATH] [--json]"
-IMPORT_USAGE = "yoke universe import ARCHIVE [--yes] [--json]"
 DEMO_SEED_USAGE = (
     "yoke local demo seed [--project PROJECT] [--count N] [--config PATH] [--json]"
 )
@@ -161,60 +162,6 @@ def universe_export(args: List[str]) -> int:
         print(f"universe export: {report.get('artifact')}")
         print(f"org: {report.get('org')}")
         print(f"format: {report.get('format')} bytes: {report.get('bytes')}")
-    return 0
-
-
-def universe_import(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke universe import",
-        description=(
-            "Replace the active machine-local universe from one portable "
-            "archive. The archive carries its own checksum receipt; deployed "
-            "code supplies the schema, imported remote credentials are "
-            "revoked, and the machine owner receives local admin authority."
-        ),
-    )
-    parser.add_argument("archive")
-    parser.add_argument(
-        "--yes",
-        dest="assume_yes",
-        action="store_true",
-        help="Consent to replacing the active local universe without a prompt.",
-    )
-    parser.add_argument("--json", dest="json_mode", action="store_true")
-    parsed = parse_or_usage_error(parser, args, IMPORT_USAGE)
-    if parsed is None:
-        return 2
-    if not parsed.assume_yes:
-        if not sys.stdin.isatty():
-            print(
-                "error: importing replaces the active local universe; pass "
-                "--yes to consent when running non-interactively",
-                file=sys.stderr,
-            )
-            return 1
-        try:
-            response = input(
-                "This import replaces the active local universe. "
-                "Type 'replace' to continue: "
-            )
-        except EOFError:
-            response = ""
-        if response.strip().lower() != "replace":
-            print("error: import cancelled", file=sys.stderr)
-            return 1
-    try:
-        report = setup.universe_import(archive=parsed.archive)
-    except setup.LocalUniverseSetupError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 1
-    if parsed.json_mode:
-        print(json.dumps(report, indent=2, sort_keys=True))
-    else:
-        print(f"universe imported: {report.get('org')}")
-        print(f"local owner: {report.get('actor_label')}")
-        archive = report.get("archive") or {}
-        print(f"archive: {archive.get('path')}")
     return 0
 
 
@@ -403,5 +350,4 @@ __all__ = [
     "local_postgres_status",
     "local_postgres_stop",
     "universe_export",
-    "universe_import",
 ]

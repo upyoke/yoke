@@ -99,12 +99,11 @@ def _search_clause(conn: Any, search: str) -> tuple[str, list[Any]]:
     )
     arms = [f"{ref_expression} LIKE {p}", f"LOWER(i.title) LIKE {p}"]
     params: list[Any] = [pattern, pattern]
-    if _table_exists(conn, "actor_labels"):
+    if _table_exists(conn, "actors"):
         arms.append(
-            "EXISTS (SELECT 1 FROM actor_labels ol "
-            "WHERE CAST(ol.actor_id AS TEXT) = i.owner "
-            "AND ol.surface = 'display' "
-            f"AND LOWER(ol.label) LIKE {p})"
+            "EXISTS (SELECT 1 FROM actors ol "
+            "WHERE CAST(ol.id AS TEXT) = i.owner "
+            f"AND LOWER(ol.name) LIKE {p})"
         )
         params.append(pattern)
     if _table_exists(conn, "work_claims"):
@@ -113,11 +112,9 @@ def _search_clause(conn: Any, search: str) -> tuple[str, list[Any]]:
             "EXISTS (SELECT 1 FROM work_claims wc "
             "LEFT JOIN harness_sessions hs ON hs.session_id = wc.session_id "
             "LEFT JOIN actors a ON a.id = hs.actor_id "
-            "LEFT JOIN actor_labels cl ON cl.actor_id = a.id "
-            "AND cl.surface = 'display' "
             "WHERE wc.target_kind = 'item' AND wc.released_at IS NULL "
             f"AND {claim_item_id} = i.id AND ("
-            f"LOWER(cl.label) LIKE {p} "
+            f"LOWER(a.name) LIKE {p} "
             f"OR LOWER(a.system_component) LIKE {p} "
             f"OR LOWER(hs.executor) LIKE {p} "
             f"OR LOWER(wc.session_id) LIKE {p}))"

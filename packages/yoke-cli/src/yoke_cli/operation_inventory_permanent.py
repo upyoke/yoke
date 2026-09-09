@@ -108,6 +108,7 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke packets budget get", "packets", REASON_TOOL_SHAPED),
     _p("yoke scratch dispatch-inputs", "scratch", REASON_TOOL_SHAPED),
     _p("yoke config example", "config", REASON_TOOL_SHAPED),
+    _p("yoke config bind-actor", "config", REASON_TOOL_SHAPED),
     _p("yoke config stamp-project-env", "config", REASON_TOOL_SHAPED),
     _p("yoke config status", "config", REASON_TOOL_SHAPED),
     _p("yoke status", "status", REASON_TOOL_SHAPED),

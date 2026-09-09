@@ -79,16 +79,11 @@ def _project_slug(conn: Any, project_id: Optional[int]) -> Optional[str]:
 def _actor_label(conn: Any, actor_id: Optional[int]) -> Optional[str]:
     if actor_id is None:
         return None
-    from yoke_core.domain.actor_display import actor_display_name
-    from yoke_core.domain.actors import (
-        ActorLabelAmbiguous,
-        ActorLabelMissing,
-        ActorNotFound,
-    )
+    from yoke_core.domain.actors import ActorError, actor_name
 
     try:
-        return actor_display_name(conn, actor_id)
-    except (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous):
+        return actor_name(conn, actor_id)
+    except ActorError:
         return f"actor {actor_id}"
 
 

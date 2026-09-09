@@ -11,6 +11,13 @@ lived as scattered literals across the sync surfaces:
   ``status:``, etc.) and a leading slice of the value, replacing the
   excess with a short stable hash so two long slugs that share a prefix
   remain distinguishable.
+- :func:`github_attribution_name` — renders a person's name into a
+  ``source:``/``owner:`` label value. Spaces survive, because "Ada
+  Lovelace" is the name and "Ada-Lovelace" is not; what it neutralizes is
+  a leading ``@``, which GitHub reads as a mention of whoever happens to
+  hold that handle. An actor name is chosen by the person or their
+  account system and never vetted against GitHub's user namespace, so a
+  name beginning ``@`` must not become an accidental ping.
 - :func:`is_real_issue_num` — the dedup/create path returns ``"0"`` (or
   writes the sentinel ``#0`` into ``epic_tasks.github_issue``) when an
   issue could not be created. Lifecycle transitions, sync idempotency
@@ -43,6 +50,18 @@ def clamp_label_name(name: str) -> str:
         # Degenerate case — return the hash alone.
         return digest
     return f"{name[:keep]}-{digest}"
+
+
+def github_attribution_name(name: str) -> str:
+    """Render an actor name safely for a GitHub attribution label value.
+
+    Collapses whitespace (a label may not carry newlines) and strips
+    leading ``@`` so the value cannot read as a mention. Returns the
+    empty string for a name with nothing left, which callers already
+    treat as "no attribution label".
+    """
+    collapsed = " ".join(str(name or "").split())
+    return collapsed.lstrip("@").strip()
 
 
 def is_real_issue_num(value: Optional[str]) -> bool:

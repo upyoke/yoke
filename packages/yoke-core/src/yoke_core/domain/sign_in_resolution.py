@@ -9,8 +9,8 @@ upstream) and answers "which actor is signing in?" by walking four rungs:
 2. **Pending invite.** A pending ``actor_invites`` row matches the
    verified email (case-insensitive) -> accept it. An invite carrying a
    target ``actor_id`` (email pre-link) binds the identity to that
-   existing actor; otherwise a new human actor is created (label from
-   the email local part, then the ``name`` claim). The invite's
+   existing actor; otherwise a new human actor is created (named from
+   the ``name`` claim, then the email local part). The invite's
    ``role_id``, when set, grants that org role.
 3. **Verified-domain admission.** The org policy enables verified-domain
    membership and the email's domain equals ``organizations.domain`` ->
@@ -24,13 +24,18 @@ claim entirely is trusted only when the operator opted in
 is never trusted.
 
 Every admitted sign-in also adopts the id_token's ``name`` claim as the
-actor's display label, so the account system that owns a person's name
-owns what Yoke calls them. Adoption happens on all three admitting rungs,
-which is what lets a renamed account propagate on its next sign-in rather
-than freezing the name it first joined under. A claim with no name writes
-nothing and leaves the actor's existing display row and fallback chain
-alone; an actor that has never signed in through a named account keeps
-the generic chain unchanged.
+actor's name, so the account system that owns a person's name owns what
+Yoke calls them. Adoption happens on all three admitting rungs, which is
+what lets a renamed account propagate on its next sign-in rather than
+freezing the name it first joined under. A claim with no name writes
+nothing and leaves the actor's existing name alone.
+
+No rung ever resolves an actor from a name or an email local part.
+Admission is decided by the linked ``(issuer, subject)`` pair, then by a
+pending invite, then by verified-domain membership; a name only ever
+labels the actor those rungs already chose. Two members who share a name
+therefore stay two actors, and renaming one admits nobody to the other's
+work.
 """
 
 from __future__ import annotations
@@ -39,18 +44,13 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actor_display import set_actor_display_name
 from yoke_core.domain.actor_invites import (
     Invite,
     mark_invite_accepted,
     pending_invite_for_email,
 )
 from yoke_core.domain.actor_permissions import grant_actor_org_role
-from yoke_core.domain.actors import (
-    resolve_actor_by_label,
-    seed_human_actor,
-    set_actor_label,
-)
+from yoke_core.domain.actors import seed_human_actor, set_actor_name
 from yoke_core.domain.external_identities import (
     default_org_id,
     link_external_identity,
@@ -117,32 +117,24 @@ def _email_domain(email: str) -> Optional[str]:
     return domain.strip().lower() or None
 
 
-def _label_base(email: str, name_claim: Optional[str]) -> str:
-    local = email.partition("@")[0].strip()
-    if local:
-        return local
-    name = str(name_claim or "").strip()
-    return name or "member"
+def _admitted_name(email: str, name_claim: Optional[str]) -> str:
+    """What to call a newly admitted member.
 
-
-def _create_labelled_actor(conn: Any, *, email: str, name_claim: Optional[str]) -> int:
-    """Create a human actor labelled from the email local part.
-
-    Labels are unique per surface, so collisions get a numeric suffix;
-    the actor id itself is the durable identity, the label is display.
+    The provider's ``name`` claim first, because that is the name its
+    account system owns; the email local part only when the provider
+    supplied no name. Nothing disambiguates against existing members:
+    names carry no uniqueness, so a second Ada Lovelace is simply
+    another actor called Ada Lovelace.
     """
-    actor_id = seed_human_actor(conn)
-    base = _label_base(email, name_claim)
-    label = base
-    suffix = 2
-    while resolve_actor_by_label(conn, label) is not None:
-        label = f"{base}-{suffix}"
-        suffix += 1
-        if suffix > 50:
-            label = f"{base}-{actor_id}"
-            break
-    set_actor_label(conn, actor_id, label)
-    return actor_id
+    name = str(name_claim or "").strip()
+    if name:
+        return name
+    return email.partition("@")[0].strip() or "member"
+
+
+def _create_named_actor(conn: Any, *, email: str, name_claim: Optional[str]) -> int:
+    """Create the human actor an admitting rung just decided to admit."""
+    return seed_human_actor(conn, _admitted_name(email, name_claim))
 
 
 def _grant_invite_role(conn: Any, invite: Invite, actor_id: int) -> None:
@@ -176,22 +168,23 @@ def _succeed(
     """Record the admission, adopting the provider's name for the actor.
 
     Every rung lands here, so the identity provider's ``name`` claim owns
-    the actor's display label on each admission rather than only on the
-    one that created the actor. That is what makes a renamed account
-    propagate: the linked-identity rung re-adopts the current name, and a
-    claim with no name leaves the existing display row and fallback chain
-    untouched. The name needs no ``email_verified`` gate — it is not an
-    admission decision, and it rides the same already-verified id_token
-    whose (issuer, subject) proved the identity.
+    the actor's name on each admission rather than only on the one that
+    created the actor. That is what makes a renamed account propagate:
+    the linked-identity rung re-adopts the current name, and a claim with
+    no name leaves the existing one untouched. The name needs no
+    ``email_verified`` gate — it is not an admission decision, and it
+    rides the same already-verified id_token whose (issuer, subject)
+    proved the identity. It moves no authority either: the actor was
+    already chosen by that pair.
     """
-    renamed = set_actor_display_name(conn, actor_id, name_claim)
+    renamed = set_actor_name(conn, actor_id, name_claim)
     emit_identity_event(
         EVENT_SIGN_IN_SUCCEEDED,
         context={
             "actor_id": actor_id,
             "issuer": issuer,
             "outcome": outcome,
-            "display_name_adopted": renamed,
+            "name_adopted": renamed,
         },
     )
     return SignInResolution(
@@ -270,7 +263,7 @@ def resolve_sign_in(
         if invite.actor_id is not None:
             actor_id = invite.actor_id
         else:
-            actor_id = _create_labelled_actor(
+            actor_id = _create_named_actor(
                 conn, email=email, name_claim=name_claim,
             )
         link_external_identity(
@@ -295,7 +288,7 @@ def resolve_sign_in(
         conn, org_id, "membership.auto_join_domain_verified",
     )
     if admission_enabled and domain and _email_domain(email) == domain:
-        actor_id = _create_labelled_actor(
+        actor_id = _create_named_actor(
             conn, email=email, name_claim=name_claim,
         )
         link_external_identity(

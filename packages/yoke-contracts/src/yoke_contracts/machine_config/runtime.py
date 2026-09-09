@@ -162,6 +162,11 @@ def _replace_config(selected: Path, payload: Mapping[str, Any]) -> None:
             pass
 
 
+#: Public name for the atomic publish the writers above use, for callers
+#: that compose a whole updated payload rather than mutating one field.
+write_config = _replace_config
+
+
 def active_connection(
     path: str | Path | None = None,
     *,

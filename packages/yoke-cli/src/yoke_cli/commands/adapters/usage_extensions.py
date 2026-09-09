@@ -6,6 +6,7 @@ from typing import Dict
 
 from yoke_cli.commands.adapters import claims_coordination_claim
 from yoke_cli.commands.adapters import claims_steering
+from yoke_cli.commands.adapters import config_actor_binding
 from yoke_cli.commands.adapters import project_git_bootstrap
 from yoke_cli.commands.adapters import steering_report
 from yoke_cli.commands.adapters import qa
@@ -29,6 +30,7 @@ def extend_adapter_usage(target: Dict[str, str]) -> None:
     target.update(workflows_item_posture.USAGE_BY_FUNCTION_ID)
     target.update(claims_coordination_claim.USAGE_BY_FUNCTION_ID)
     target.update(claims_steering.USAGE_BY_FUNCTION_ID)
+    target.update(config_actor_binding.USAGE_BY_FUNCTION_ID)
     target.update(steering_report.USAGE_BY_FUNCTION_ID)
 
 

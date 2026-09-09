@@ -49,12 +49,12 @@ class TestReads:
             assert doc["updated_at"] == SEED_UPDATED_AT
 
     def test_list_docs_resolves_updated_by_label(self, tmp_db: str) -> None:
-        from yoke_core.domain.actors import resolve_actor_by_label
+        from yoke_core.domain.actors import resolve_actors_by_name
 
         conn = connect_test_db(tmp_db)
         try:
             seed_docs(conn)
-            editor = resolve_actor_by_label(conn, "ben")  # canonical seed
+            (editor,) = resolve_actors_by_name(conn, "ben")  # canonical seed
             assert editor is not None
             conn.execute(
                 "UPDATE strategy_docs SET updated_by_actor_id = %s "

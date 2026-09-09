@@ -20,7 +20,7 @@ from yoke_core.domain.actor_permissions import (
     role_id_by_name,
     seed_roles_and_permissions,
 )
-from yoke_core.domain.actors import seed_human_actor, set_actor_label
+from yoke_core.domain.actors import actor_name, seed_human_actor
 from yoke_core.domain.auth_schema import create_auth_tables
 from yoke_core.domain.external_identities import (
     default_org_id,
@@ -89,7 +89,6 @@ def _claims(**overrides: Any) -> dict:
 
 def _admin(conn) -> int:
     actor_id = seed_human_actor(conn)
-    set_actor_label(conn, actor_id, f"inviter-{actor_id}")
     return actor_id
 
 
@@ -142,12 +141,8 @@ def test_rung_two_invite_creates_actor_links_identity_and_grants_role(conn):
         org_id=org_id,
         permission_key=PERM_ORG_ADMIN,
     ).allowed
-    # Label came from the email local part.
-    label_row = conn.execute(
-        "SELECT label FROM actor_labels WHERE actor_id = %s",
-        (result.actor_id,),
-    ).fetchone()
-    assert label_row[0] == "casey"
+    # The provider's name claim names the admitted actor.
+    assert actor_name(conn, result.actor_id) == "Casey"
 
 
 def test_rung_two_pre_link_invite_binds_existing_actor(conn):
@@ -265,15 +260,15 @@ def test_missing_issuer_or_subject_refuses(conn):
     assert result.refusal_reason == REFUSAL_MISSING_REQUIRED_CLAIMS
 
 
-def test_label_collision_appends_numeric_suffix(conn):
-    taken = seed_human_actor(conn)
-    set_actor_label(conn, taken, "casey")
+def test_an_existing_member_with_the_same_name_is_not_disambiguated(conn):
+    """Names collide freely, so admission neither suffixes nor reuses one."""
+    taken = seed_human_actor(conn, "Casey")
     org_id = default_org_id(conn)
     _enable_domain_admission(conn, org_id=org_id, domain="example.com")
+
     result = resolve_sign_in(conn, _claims())
+
     assert result.outcome == OUTCOME_AUTO_JOINED
-    label_row = conn.execute(
-        "SELECT label FROM actor_labels WHERE actor_id = %s",
-        (result.actor_id,),
-    ).fetchone()
-    assert label_row[0] == "casey-2"
+    assert result.actor_id != taken
+    assert actor_name(conn, result.actor_id) == "Casey"
+    assert actor_name(conn, taken) == "Casey"

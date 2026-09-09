@@ -20,7 +20,7 @@ from yoke_core.domain import db_backend, json_helper
 TOKEN_STATUS_ACTIVE = "active"
 TOKEN_STATUS_REVOKED = "revoked"
 
-DEFAULT_ADMIN_ACTOR_LABEL = "admin"
+DEFAULT_ADMIN_ACTOR_NAME = "admin"
 INITIAL_ADMIN_TOKEN_NAME = "initial-admin"
 
 _TOKEN_BODY_ALPHABET = string.ascii_letters + string.digits
@@ -288,7 +288,7 @@ def record_token_audit(
 def bootstrap_admin_token(
     conn: Any,
     *,
-    actor_label: str = DEFAULT_ADMIN_ACTOR_LABEL,
+    actor_name: str = DEFAULT_ADMIN_ACTOR_NAME,
     project: str | None = None,
     token_name: str = INITIAL_ADMIN_TOKEN_NAME,
 ) -> CreatedToken:
@@ -297,7 +297,7 @@ def bootstrap_admin_token(
 
     return run(
         conn,
-        actor_label=actor_label,
+        actor_name=actor_name,
         project=project,
         token_name=token_name,
     )
@@ -327,7 +327,7 @@ def bootstrap_project_service_token(
 
 __all__ = [
     "CreatedToken",
-    "DEFAULT_ADMIN_ACTOR_LABEL",
+    "DEFAULT_ADMIN_ACTOR_NAME",
     "INITIAL_ADMIN_TOKEN_NAME",
     "TOKEN_PREFIX",
     "TOKEN_STATUS_ACTIVE",

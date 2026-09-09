@@ -112,11 +112,9 @@ def presentation_facts(
     if actor_ids:
         markers = ", ".join("%s" for _ in actor_ids)
         actors = conn.execute(
-            "SELECT a.id, COALESCE(dl.label, a.system_component, "
+            "SELECT a.id, COALESCE(NULLIF(a.name, ''), a.system_component, "
             "'actor ' || CAST(a.id AS TEXT)) AS label "
-            "FROM actors a LEFT JOIN actor_labels dl "
-            "ON dl.actor_id = a.id AND dl.surface = 'display' "
-            f"WHERE a.id IN ({markers})",
+            f"FROM actors a WHERE a.id IN ({markers})",
             tuple(actor_ids),
         ).fetchall()
         actor_labels = {int(actor["id"]): str(actor["label"]) for actor in actors}

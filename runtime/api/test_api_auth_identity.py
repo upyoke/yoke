@@ -13,7 +13,7 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.fixtures.schema_ddl import SCHEMA_DDL, apply_fixture_ddl
 from runtime.api.test_api_helpers import _install_overrides
 from yoke_core.api.main import app
-from yoke_core.domain.actors import set_actor_label
+from yoke_core.domain.actors import set_actor_name
 
 
 def test_auth_identity_returns_actor_org_roles_and_visible_projects() -> None:
@@ -29,7 +29,7 @@ def test_auth_identity_returns_actor_org_roles_and_visible_projects() -> None:
         conn = connect_test_db(db_path)
         try:
             auth = mint_api_auth_context(conn)
-            set_actor_label(conn, auth.actor_id, "ben")
+            set_actor_name(conn, auth.actor_id, "ben")
         finally:
             conn.close()
         client = stack.enter_context(TestClient(app))

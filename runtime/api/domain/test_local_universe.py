@@ -139,7 +139,7 @@ class _BirthHarness:
         def fake_bootstrap(emit):
             self.calls.append("bootstrap")
             self.dsn_at_bootstrap = os.environ.get(db_backend.PG_DSN_ENV)
-            self.label_env_at_bootstrap = os.environ.get(actors.LOCAL_HUMAN_LABEL_ENV)
+            self.name_env_at_bootstrap = os.environ.get(actors.LOCAL_HUMAN_NAME_ENV)
             return {"organizations": 1, "actors": 1}
 
         def fake_verify(emit):
@@ -232,7 +232,6 @@ def test_ensure_org_card_seeds_then_renames(test_db):
 
 
 def test_ensure_human_actor_seeds_once(test_db):
-    test_db.execute("DELETE FROM actor_labels")
     test_db.execute("DELETE FROM actors WHERE kind = 'human'")
     test_db.commit()
 
@@ -295,7 +294,7 @@ def test_run_bootstrap_seeds_human_actor_with_injected_label(tmp_path, monkeypat
     from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
     from yoke_core.api.repo_root import find_repo_root
 
-    monkeypatch.setenv(actors.LOCAL_HUMAN_LABEL_ENV, "composition-owner")
+    monkeypatch.setenv(actors.LOCAL_HUMAN_NAME_ENV, "composition-owner")
     repo_root = find_repo_root(Path(__file__))
 
     def bootstrap():
@@ -307,9 +306,7 @@ def test_run_bootstrap_seeds_human_actor_with_injected_label(tmp_path, monkeypat
             labels = [
                 row[0]
                 for row in conn.execute(
-                    "SELECT al.label FROM actors a "
-                    "JOIN actor_labels al ON al.actor_id = a.id "
-                    "WHERE a.kind = 'human'"
+                    "SELECT a.name FROM actors a WHERE a.kind = 'human'"
                 ).fetchall()
             ]
         finally:
@@ -317,9 +314,9 @@ def test_run_bootstrap_seeds_human_actor_with_injected_label(tmp_path, monkeypat
     assert labels == ["composition-owner"]
 
 
-def test_birth_composition_labels_os_login_and_repairs_half_born(monkeypatch):
+def test_birth_composition_names_os_login_and_repairs_half_born(monkeypatch):
     """End-to-end birth against a REAL fresh database (cluster seams stubbed):
-    the fresh birth runs the real bootstrap and labels the human actor with
+    the fresh birth runs the real bootstrap and names the human actor after
     the OS login; emptying a sentinel table afterwards simulates a half-born
     universe, and the re-run detects it via verification and repairs it."""
     from runtime.api.fixtures import pg_testdb
@@ -347,9 +344,7 @@ def test_birth_composition_labels_os_login_and_repairs_half_born(monkeypatch):
                 labels = [
                     row[0]
                     for row in conn.execute(
-                        "SELECT al.label FROM actors a "
-                        "JOIN actor_labels al ON al.actor_id = a.id "
-                        "WHERE a.kind = 'human'"
+                        "SELECT a.name FROM actors a WHERE a.kind = 'human'"
                     ).fetchall()
                 ]
                 # Simulate a first-run crash after the org card landed but

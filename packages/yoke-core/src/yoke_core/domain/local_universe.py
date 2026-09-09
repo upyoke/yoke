@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import replace
-import getpass
 import hashlib
 import os
 from pathlib import Path
@@ -35,6 +34,10 @@ import tempfile
 from typing import Any, Callable, Dict, Iterator, Optional
 
 from yoke_contracts.machine_config import runtime as machine_runtime
+from yoke_core.domain.local_universe_operating_actor import (
+    _ensure_human_actor,
+    _os_login_name,
+)
 from yoke_core.domain import postgres_binaries
 from yoke_core.domain import postgres_cluster
 from yoke_core.domain.postgres_cluster import ClusterSpec
@@ -232,14 +235,15 @@ def birth(
     }
     with contextlib.ExitStack() as stack:
         stack.enter_context(pinned_authority(dsn))
-        login = _os_login_label()
+        login = _os_login_name()
         if login:
-            from yoke_core.domain.actors import LOCAL_HUMAN_LABEL_ENV
+            from yoke_core.domain.actors import LOCAL_HUMAN_NAME_ENV
 
             # The init chain invokes its modules with no parameters, so the
-            # universe owner's label rides the same pinned-env idiom as the
-            # DSN authority; canonical-actor seeding consumes it.
-            stack.enter_context(_pinned_env(LOCAL_HUMAN_LABEL_ENV, login))
+            # name for the universe owner rides the same pinned-env idiom as
+            # the DSN authority; canonical-actor seeding consumes it. It names
+            # the row being created and never selects an existing one.
+            stack.enter_context(_pinned_env(LOCAL_HUMAN_NAME_ENV, login))
         if already_live:
             emit("  [local-universe] universe already live; verifying")
             report["verified"], report["repaired"] = _verify_or_repair(emit)
@@ -311,14 +315,6 @@ def _pinned_env(name: str, value: str) -> Iterator[None]:
             os.environ[name] = prior
 
 
-def _os_login_label() -> Optional[str]:
-    """The OS login that labels a fresh universe's human actor, or None."""
-    try:
-        return getpass.getuser() or None
-    except Exception:
-        return None
-
-
 def _ensure_org_card(
     org_name: Optional[str],
     emit: Callable[[str], None],
@@ -332,25 +328,6 @@ def _ensure_org_card(
         if org_name:
             emit(f"  [local-universe] org identity card named {org_name!r}")
         return dict(card)
-    finally:
-        conn.close()
-
-
-def _ensure_human_actor(emit: Callable[[str], None]) -> int:
-    """Return the machine owner's actor id, seeding and granting org admin."""
-    from yoke_core.domain import actors, db_helpers
-    from yoke_core.domain.local_operating_actor import (
-        ensure_local_operating_actor,
-    )
-
-    conn = db_helpers.connect()
-    try:
-        actor_id, seeded = ensure_local_operating_actor(
-            conn, label=_os_login_label() or actors.DEFAULT_LOCAL_HUMAN_LABEL
-        )
-        if seeded:
-            emit(f"  [local-universe] seeded local human actor {actor_id}")
-        return actor_id
     finally:
         conn.close()
 

@@ -252,9 +252,8 @@ def list_approval_actors(conn: Any) -> list[dict]:
     """Return the named-human roster available to an org-admin editor."""
     rows = query_rows(
         conn,
-        "SELECT a.id, l.label FROM actors a "
-        "JOIN actor_labels l ON l.actor_id=a.id AND l.surface='display' "
-        "WHERE a.kind='human' ORDER BY LOWER(l.label), a.id",
+        "SELECT a.id, a.name AS label FROM actors a "
+        "WHERE a.kind='human' AND a.name <> '' ORDER BY LOWER(a.name), a.id",
     )
     return [{"id": int(row["id"]), "label": str(row["label"])} for row in rows]
 

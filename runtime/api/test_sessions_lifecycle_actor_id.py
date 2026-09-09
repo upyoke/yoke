@@ -13,19 +13,22 @@ The cases cover the explicit / implicit / valid / unresolvable matrix:
 
 * explicit-and-valid -> stored
 * explicit-and-unknown -> refused (SESSION_ACTOR_INVALID)
-* implicit + one human actor -> that actor
-* implicit + several humans, one labeled with this login -> that one
-* implicit + several unlabeled humans -> refused (SESSION_ACTOR_AMBIGUOUS)
+* implicit + a recorded operating actor -> that actor, by id
+* implicit + several humans sharing a name -> still the recorded id
+* implicit + no recorded binding -> refused (SESSION_ACTOR_UNBOUND)
 * implicit + no human actor -> refused (SESSION_ACTOR_MISSING)
 * re-registration of a row that predates binding -> backfilled
 
 The shared `conn` fixture and `_register` helper come from the sibling
-test_sessions module, whose schema carries the `actors` and
-`actor_labels` tables and seeds the one human actor every born universe
-has.
+test_sessions module, whose schema carries the `actors` table and seeds
+the one human actor every born universe has. ``machine_config`` pins a
+throwaway config file so the implicit rung reads this test's binding
+rather than the operator's own machine.
 """
 
 from __future__ import annotations
+
+import json
 
 import pytest
 
@@ -34,6 +37,31 @@ from runtime.api.test_sessions import (
     conn,  # noqa: F401  (pytest fixture)
     _register,
 )
+
+ENV = "local"
+
+
+@pytest.fixture(autouse=True)
+def machine_config(tmp_path, monkeypatch):
+    """A throwaway machine config, so no test reads the operator's own."""
+    path = tmp_path / "config.json"
+    path.write_text(
+        json.dumps(
+            {
+                "active_env": ENV,
+                "connections": {ENV: {"transport": "local-postgres"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(path))
+    return path
+
+
+def _bind(conn, actor_id: int) -> None:
+    from yoke_core.domain.session_actor_binding_write import persist_operating_actor
+
+    persist_operating_actor(conn, actor_id, env=ENV)
 
 
 def _stored_actor_id(db, session_id: str):
@@ -52,7 +80,6 @@ def _seeded_human_id(db) -> int:
 
 
 def _drop_human_actors(db) -> None:
-    db.execute("DELETE FROM actor_labels")
     db.execute("DELETE FROM actors WHERE kind = 'human'")
     db.commit()
 
@@ -77,36 +104,34 @@ class TestRegisterSessionActorId:
             ("sess-actor-bad",),
         ).fetchone()[0] == 0
 
-    def test_register_binds_the_universes_only_human_actor(self, conn):
+    def test_register_binds_the_recorded_operating_actor(self, conn):
         """The fresh-install case: nobody passes an actor, and the row still
-        names the human the install was born for."""
+        names the human the install recorded itself as operating."""
+        _bind(conn, _seeded_human_id(conn))
         _register(conn, session_id="sess-actor-implicit")
         assert _stored_actor_id(conn, "sess-actor-implicit") == _seeded_human_id(conn)
 
-    def test_register_binds_the_human_labeled_with_this_login(self, conn, monkeypatch):
-        from yoke_core.domain import session_actor_binding
-        from yoke_core.domain.actors import seed_human_actor, set_actor_label
+    def test_register_binds_by_id_even_when_two_humans_share_a_name(self, conn):
+        """Names are not identities, so a namesake cannot take the binding."""
+        from yoke_core.domain.actors import seed_human_actor, set_actor_name
 
-        operator = seed_human_actor(conn)
-        set_actor_label(conn, operator, "machine-owner", surface="display")
-        monkeypatch.setattr(
-            session_actor_binding, "os_login", lambda: "machine-owner"
-        )
-        _register(conn, session_id="sess-actor-labeled")
-        assert _stored_actor_id(conn, "sess-actor-labeled") == operator
+        bound = _seeded_human_id(conn)
+        set_actor_name(conn, bound, "Ada Lovelace")
+        namesake = seed_human_actor(conn, "Ada Lovelace")
+        _bind(conn, bound)
 
-    def test_register_refuses_when_the_operating_actor_is_ambiguous(
-        self, conn, monkeypatch
-    ):
-        from yoke_core.domain import session_actor_binding
-        from yoke_core.domain.actors import seed_human_actor
+        _register(conn, session_id="sess-actor-namesake")
 
-        seed_human_actor(conn)
-        monkeypatch.setattr(session_actor_binding, "os_login", lambda: "nobody")
+        stored = _stored_actor_id(conn, "sess-actor-namesake")
+        assert stored == bound
+        assert stored != namesake
+
+    def test_register_refuses_when_no_operating_actor_is_recorded(self, conn):
+        """No binding is an unanswered question, not an invitation to guess."""
         with pytest.raises(SessionError) as excinfo:
-            _register(conn, session_id="sess-actor-ambiguous")
-        assert excinfo.value.code == "SESSION_ACTOR_AMBIGUOUS"
-        assert "yoke onboard --connect" in excinfo.value.message
+            _register(conn, session_id="sess-actor-unbound")
+        assert excinfo.value.code == "SESSION_ACTOR_UNBOUND"
+        assert "yoke config bind-actor" in excinfo.value.message
 
     def test_register_refuses_when_no_human_actor_exists(self, conn):
         """The unresolvable case names the reason and the recovery instead of
@@ -120,6 +145,7 @@ class TestRegisterSessionActorId:
     def test_reregistration_backfills_a_row_that_predates_binding(self, conn):
         """Rows written before binding existed heal on the next registration
         probe — the same path the hook chain drives on every session."""
+        _bind(conn, _seeded_human_id(conn))
         _register(conn, session_id="sess-actor-legacy")
         conn.execute(
             "UPDATE harness_sessions SET actor_id = NULL WHERE session_id = %s",

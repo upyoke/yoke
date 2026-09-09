@@ -18,11 +18,7 @@ from contextlib import redirect_stderr, redirect_stdout
 import pytest
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actors import (
-    DISPLAY_LABEL_SURFACE,
-    seed_human_actor,
-    set_actor_label,
-)
+from yoke_core.domain.actors import seed_human_actor, set_actor_name
 from runtime.api.fixtures.backlog import seed_test_canonical_actors
 from runtime.api.fixtures.file_test_db import apply_fixture_schema_ddl, init_test_db
 from yoke_core.api.service_client_actors import cmd_actors_get, cmd_actors_list
@@ -82,12 +78,9 @@ class TestActorsList:
         # Canonical actors are seeded by the fixture: yoke-core (system) + ben (human).
         kinds = sorted(a["kind"] for a in payload)
         assert kinds == ["human", "system"]
-        labels = sorted(a["github_label"] for a in payload if a["github_label"])
-        assert "ben" in labels
-        assert "yoke-core" in labels
-        display_names = sorted(a["display_name"] for a in payload if a["display_name"])
-        assert "ben" in display_names
-        assert "yoke-core" in display_names
+        names = sorted(a["name"] for a in payload if a["name"])
+        assert "ben" in names
+        assert "yoke-core" in names
 
     def test_list_rejects_extra_args(self, actors_db):
         rc, stderr = _capture_stderr(cmd_actors_list, ["unexpected"])
@@ -105,51 +98,44 @@ class TestActorsList:
 
 
 class TestActorsGet:
-    def test_get_returns_actor_with_label(self, actors_db):
+    def test_get_returns_actor_with_name(self, actors_db):
         # First find the local human's id via the list command.
         _, list_out = _capture_stdout(cmd_actors_list, [])
         actors = json.loads(list_out)
-        local_human = next(a for a in actors if a["github_label"] == "ben")
+        local_human = next(a for a in actors if a["name"] == "ben")
 
         rc, stdout = _capture_stdout(cmd_actors_get, [str(local_human["id"])])
         assert rc == 0
         payload = json.loads(stdout)
         assert payload["id"] == local_human["id"]
         assert payload["kind"] == "human"
-        assert payload["display_name"] == "ben"
-        assert payload["github_label"] == "ben"
+        assert payload["name"] == "ben"
 
-    def test_get_prefers_generic_display_name(self, actors_db):
+    def test_get_returns_the_current_name_after_a_rename(self, actors_db):
         conn = db_backend.connect()
         try:
-            actor_id = seed_human_actor(conn)
-            set_actor_label(conn, actor_id, "ben-github")
-            set_actor_label(
-                conn,
-                actor_id,
-                "Ben Display",
-                surface=DISPLAY_LABEL_SURFACE,
-            )
+            actor_id = seed_human_actor(conn, "Ben")
+            set_actor_name(conn, actor_id, "Ben Bauman")
         finally:
             conn.close()
 
         rc, stdout = _capture_stdout(cmd_actors_get, [str(actor_id)])
         assert rc == 0
         payload = json.loads(stdout)
-        assert payload["display_name"] == "Ben Display"
-        assert payload["github_label"] == "ben-github"
+        assert payload["id"] == actor_id
+        assert payload["name"] == "Ben Bauman"
 
     def test_get_returns_system_actor(self, actors_db):
         _, list_out = _capture_stdout(cmd_actors_list, [])
         actors = json.loads(list_out)
-        yoke_core = next(a for a in actors if a["github_label"] == "yoke-core")
+        yoke_core = next(a for a in actors if a["name"] == "yoke-core")
 
         rc, stdout = _capture_stdout(cmd_actors_get, [str(yoke_core["id"])])
         assert rc == 0
         payload = json.loads(stdout)
         assert payload["kind"] == "system"
         assert payload["system_component"] == "yoke-core"
-        assert payload["display_name"] == "yoke-core"
+        assert payload["name"] == "yoke-core"
 
     def test_get_unknown_id_returns_not_found(self, actors_db):
         rc, stderr = _capture_stderr(cmd_actors_get, ["424242"])

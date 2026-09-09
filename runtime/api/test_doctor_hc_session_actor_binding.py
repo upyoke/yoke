@@ -71,13 +71,7 @@ CREATE TABLE actors (
     id SERIAL PRIMARY KEY,
     kind TEXT NOT NULL,
     system_component TEXT,
-    created_at TEXT NOT NULL
-);
-CREATE TABLE actor_labels (
-    id SERIAL PRIMARY KEY,
-    actor_id INTEGER NOT NULL,
-    surface TEXT NOT NULL,
-    label TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
 """

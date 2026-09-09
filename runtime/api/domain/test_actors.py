@@ -1,4 +1,9 @@
-"""Tests for actor seeding, resolution, and central label rendering."""
+"""Tests for actor seeding, naming, and name search.
+
+The theme running through these: a name is what an actor is called, and
+never how one is found. Every test that touches renaming or duplicate
+names asserts that the ids stay where they were.
+"""
 
 from __future__ import annotations
 
@@ -8,24 +13,19 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 
-from yoke_core.domain.actor_display import actor_display_name
 from yoke_core.domain.actors import (
-    ActorLabelAmbiguous,
-    ActorLabelMissing,
     ActorNotFound,
-    DISPLAY_LABEL_SURFACE,
-    GITHUB_LABEL_SURFACE,
     SYSTEM_COMPONENT_YOKE_CORE,
-    actor_label,
-    actor_label_or_passthrough,
-    labels_for_surface,
-    resolve_actor_by_label,
+    actor_name,
+    actor_name_or_passthrough,
+    resolve_actors_by_name,
     seed_human_actor,
     seed_system_actor,
-    set_actor_label,
+    set_actor_name,
+    sole_human_actor_id,
     validate_actor_id,
 )
-from yoke_core.domain.actor_render import actor_render_label
+from yoke_core.domain.actor_render import render_actor_name
 from yoke_core.domain.schema_init_actor_path_claim_tables import (
     create_actor_path_claim_tables,
 )
@@ -49,252 +49,184 @@ def conn() -> Iterator[Any]:
 
 
 def test_seed_system_actor_is_idempotent(conn):
-    a = seed_system_actor(conn, SYSTEM_COMPONENT_YOKE_CORE)
-    b = seed_system_actor(conn, SYSTEM_COMPONENT_YOKE_CORE)
-    assert a == b
-    rows = conn.execute(
-        "SELECT COUNT(*) FROM actors WHERE system_component = %s",
-        (SYSTEM_COMPONENT_YOKE_CORE,),
-    ).fetchone()
-    assert rows[0] == 1
+    first = seed_system_actor(conn, SYSTEM_COMPONENT_YOKE_CORE)
+    assert seed_system_actor(conn, SYSTEM_COMPONENT_YOKE_CORE) == first
+    assert actor_name(conn, first) == SYSTEM_COMPONENT_YOKE_CORE
 
 
 def test_seed_human_actor_creates_distinct_rows(conn):
     a = seed_human_actor(conn)
     b = seed_human_actor(conn)
     assert a != b
+    assert validate_actor_id(conn, a) and validate_actor_id(conn, b)
 
 
-def test_seed_canonical_actors_label_resolution_precedence(conn, monkeypatch):
+def test_two_humans_may_share_one_name(conn):
+    """The constraint that once refused a second Ada Lovelace is gone."""
+    first = seed_human_actor(conn, "Ada Lovelace")
+    second = seed_human_actor(conn, "Ada Lovelace")
+
+    assert first != second
+    assert actor_name(conn, first) == actor_name(conn, second) == "Ada Lovelace"
+    assert resolve_actors_by_name(conn, "Ada Lovelace") == sorted([first, second])
+
+
+def test_set_actor_name_reports_only_real_changes(conn):
+    aid = seed_human_actor(conn, "Ada")
+
+    assert set_actor_name(conn, aid, "Ada Lovelace") is True
+    assert set_actor_name(conn, aid, "Ada Lovelace") is False
+    assert actor_name(conn, aid) == "Ada Lovelace"
+
+
+def test_set_actor_name_ignores_a_blank_name(conn):
+    """An account with no name of its own leaves the actor's name alone."""
+    aid = seed_human_actor(conn, "Ada Lovelace")
+
+    assert set_actor_name(conn, aid, "") is False
+    assert set_actor_name(conn, aid, None) is False
+    assert set_actor_name(conn, aid, "   ") is False
+    assert actor_name(conn, aid) == "Ada Lovelace"
+
+
+def test_renaming_an_actor_moves_no_identity(conn):
+    """The id is the identity; a rename changes what people read."""
+    aid = seed_human_actor(conn, "Ada Lovelace")
+    set_actor_name(conn, aid, "Ada King")
+
+    assert sole_human_actor_id(conn) == aid
+    assert resolve_actors_by_name(conn, "Ada Lovelace") == []
+    assert resolve_actors_by_name(conn, "Ada King") == [aid]
+
+
+def test_resolve_actors_by_name_returns_every_match(conn):
+    """A list, not an id: the shape refuses to let a caller guess."""
+    seed_system_actor(conn, SYSTEM_COMPONENT_YOKE_CORE)
+    one = seed_human_actor(conn, "Chris")
+    two = seed_human_actor(conn, "Chris")
+
+    assert resolve_actors_by_name(conn, "Chris") == sorted([one, two])
+    assert resolve_actors_by_name(conn, "chris") == []  # exact match only
+    assert resolve_actors_by_name(conn, "") == []
+    assert resolve_actors_by_name(conn, "nobody") == []
+
+
+def test_resolve_actors_by_name_can_narrow_to_humans(conn):
+    system = seed_system_actor(conn, SYSTEM_COMPONENT_YOKE_CORE)
+
+    assert resolve_actors_by_name(conn, SYSTEM_COMPONENT_YOKE_CORE) == [system]
+    assert (
+        resolve_actors_by_name(conn, SYSTEM_COMPONENT_YOKE_CORE, kind="human") == []
+    )
+
+
+def test_actor_name_fails_closed_on_an_unknown_actor(conn):
+    with pytest.raises(ActorNotFound):
+        actor_name(conn, 999999)
+    with pytest.raises(ActorNotFound):
+        set_actor_name(conn, 999999, "Ada")
+
+
+def test_actor_name_of_an_unnamed_actor_is_empty_not_an_id(conn):
+    aid = seed_human_actor(conn)
+
+    assert actor_name(conn, aid) == ""
+
+
+def test_sole_human_actor_id_answers_only_for_one_human(conn):
+    assert sole_human_actor_id(conn) is None
+
+    first = seed_human_actor(conn, "Ada")
+    assert sole_human_actor_id(conn) == first
+
+    seed_human_actor(conn, "Grace")
+    assert sole_human_actor_id(conn) is None
+    assert sole_human_actor_id(conn, oldest=True) == first
+
+
+def test_seed_canonical_actors_keeps_the_human_a_universe_already_has(conn):
+    """Re-seeding never forks an existing owner into a second actor."""
     from yoke_core.domain.actors import (
-        DEFAULT_LOCAL_HUMAN_LABEL,
-        LOCAL_HUMAN_LABEL_ENV,
+        DEFAULT_LOCAL_HUMAN_NAME,
+        LOCAL_HUMAN_NAME_ENV,
         seed_canonical_actors,
     )
 
-    monkeypatch.delenv(LOCAL_HUMAN_LABEL_ENV, raising=False)
-    _, default_human = seed_canonical_actors(conn)
-    assert resolve_actor_by_label(conn, DEFAULT_LOCAL_HUMAN_LABEL) == default_human
+    system, human = seed_canonical_actors(conn, local_human_name="Ada Lovelace")
+    assert actor_name(conn, human) == "Ada Lovelace"
+    assert actor_name(conn, system) == SYSTEM_COMPONENT_YOKE_CORE
 
-    # The env injection (how the no-argument init chain passes the
-    # universe owner's login through) names the human actor.
-    monkeypatch.setenv(LOCAL_HUMAN_LABEL_ENV, "env-owner")
-    _, env_human = seed_canonical_actors(conn)
-    assert env_human != default_human
-    assert resolve_actor_by_label(conn, "env-owner") == env_human
-
-    # An explicit argument beats the env injection.
-    monkeypatch.setenv(LOCAL_HUMAN_LABEL_ENV, "env-owner")
-    _, explicit_human = seed_canonical_actors(
-        conn, local_human_label="explicit-owner"
+    # A rename must not make the next seed create a second human.
+    set_actor_name(conn, human, "Ada King")
+    assert seed_canonical_actors(conn, local_human_name="Ada Lovelace") == (
+        system,
+        human,
     )
-    assert resolve_actor_by_label(conn, "explicit-owner") == explicit_human
-
-    # Idempotent per label: the same injection resolves the existing
-    # actor instead of duplicating it.
-    _, again = seed_canonical_actors(conn)
-    assert again == env_human
+    assert actor_name(conn, human) == "Ada King"
+    assert DEFAULT_LOCAL_HUMAN_NAME
+    assert LOCAL_HUMAN_NAME_ENV
 
 
-def test_actor_render_label_is_fail_open_for_display(conn):
-    # Human actor with a label resolves to that label.
-    human = seed_human_actor(conn)
-    set_actor_label(conn, human, "ben")
-    assert actor_render_label(conn, human) == "ben"
-    # System actor renders its component (the actor_label system path).
+def test_seed_canonical_actors_name_precedence_for_a_new_universe(
+    conn, monkeypatch
+):
+    from yoke_core.domain.actors import (
+        DEFAULT_LOCAL_HUMAN_NAME,
+        LOCAL_HUMAN_NAME_ENV,
+        seed_canonical_actors,
+    )
+
+    monkeypatch.delenv(LOCAL_HUMAN_NAME_ENV, raising=False)
+    _, default_human = seed_canonical_actors(conn)
+    assert actor_name(conn, default_human) == DEFAULT_LOCAL_HUMAN_NAME
+
+
+def test_seed_canonical_actors_takes_the_env_injected_name(conn, monkeypatch):
+    from yoke_core.domain.actors import LOCAL_HUMAN_NAME_ENV, seed_canonical_actors
+
+    monkeypatch.setenv(LOCAL_HUMAN_NAME_ENV, "env-owner")
+    _, human = seed_canonical_actors(conn)
+    assert actor_name(conn, human) == "env-owner"
+
+
+def test_render_actor_name_is_fail_open(conn):
+    human = seed_human_actor(conn, "Ada Lovelace")
+    assert render_actor_name(conn, human) == "Ada Lovelace"
+
     system = seed_system_actor(conn, SYSTEM_COMPONENT_YOKE_CORE)
-    assert actor_render_label(conn, system) == SYSTEM_COMPONENT_YOKE_CORE
-    # Fail-open: a null id and an unlabeled actor yield None (never raise),
-    # so the render omits the field rather than breaking.
-    assert actor_render_label(conn, None) is None
-    assert actor_render_label(conn, seed_human_actor(conn)) is None
-    assert actor_render_label(conn, 999999) is None  # nonexistent actor
+    assert render_actor_name(conn, system) == SYSTEM_COMPONENT_YOKE_CORE
+
+    # Fail-open: a null id, an unnamed actor, and a nonexistent actor all
+    # yield None so the view omits the field rather than breaking.
+    assert render_actor_name(conn, None) is None
+    assert render_actor_name(conn, seed_human_actor(conn)) is None
+    assert render_actor_name(conn, 999999) is None
 
 
-def test_set_and_resolve_actor_label(conn):
-    aid = seed_human_actor(conn)
-    set_actor_label(conn, aid, "ben")
-    assert resolve_actor_by_label(conn, "ben") == aid
-    assert resolve_actor_by_label(conn, "missing") is None
+def test_render_actor_name_preserves_spaces_and_collapses_line_breaks(conn):
+    """A person is "Ada Lovelace"; only what would split a line is removed."""
+    aid = seed_human_actor(conn, "Ada Lovelace")
+    assert render_actor_name(conn, aid) == "Ada Lovelace"
+
+    set_actor_name(conn, aid, "Ada\nLovelace")
+    assert render_actor_name(conn, aid) == "Ada Lovelace"
+
+    # A control character, a double space, and a zero-width space
+    # each collapse away; the interior single space does not.
+    set_actor_name(conn, aid, "Ada\a  \u200bKing")
+    assert render_actor_name(conn, aid) == "Ada King"
 
 
-def test_set_actor_label_is_idempotent_for_same_pair(conn):
-    aid = seed_human_actor(conn)
-    set_actor_label(conn, aid, "ben")
-    set_actor_label(conn, aid, "ben")
-    rows = conn.execute(
-        "SELECT COUNT(*) FROM actor_labels WHERE actor_id = %s",
-        (aid,),
-    ).fetchone()
-    assert rows[0] == 1
+def test_actor_name_or_passthrough_handles_ids_text_and_sentinels(conn):
+    aid = seed_human_actor(conn, "Ada Lovelace")
+
+    assert actor_name_or_passthrough(conn, str(aid)) == "Ada Lovelace"
+    # A legacy free-text owner token from before actors existed.
+    assert actor_name_or_passthrough(conn, "skill-simulate") == "skill-simulate"
+    for sentinel in ("", "null", "None"):
+        assert actor_name_or_passthrough(conn, sentinel) == ""
 
 
-def test_set_actor_label_rejects_relabel(conn):
-    """A different label for an existing (actor, surface) is no-op'd by
-    the ON CONFLICT clause; the prior label remains. The caller must
-    delete the prior row to relabel deliberately."""
-    aid = seed_human_actor(conn)
-    set_actor_label(conn, aid, "ben")
-    set_actor_label(conn, aid, "ben-alt")
-    rows = conn.execute(
-        "SELECT label FROM actor_labels WHERE actor_id = %s",
-        (aid,),
-    ).fetchall()
-    assert [r[0] for r in rows] == ["ben"]
-
-
-def test_actor_label_renders_system_component_for_github_surface(conn):
-    aid = seed_system_actor(conn, SYSTEM_COMPONENT_YOKE_CORE)
-    assert actor_label(conn, aid) == SYSTEM_COMPONENT_YOKE_CORE
-
-
-def test_actor_label_renders_human_via_actor_labels(conn):
-    aid = seed_human_actor(conn)
-    set_actor_label(conn, aid, "ben")
-    assert actor_label(conn, aid) == "ben"
-
-
-def test_actor_label_fails_closed_when_label_missing(conn):
-    aid = seed_human_actor(conn)
-    with pytest.raises(ActorLabelMissing):
-        actor_label(conn, aid)
-
-
-def test_actor_label_raises_for_unknown_actor(conn):
+def test_actor_name_or_passthrough_fails_closed_on_an_orphan_id(conn):
     with pytest.raises(ActorNotFound):
-        actor_label(conn, 999999)
-
-
-def test_actor_label_never_returns_raw_numeric_id(conn):
-    aid = seed_human_actor(conn)
-    set_actor_label(conn, aid, "ben")
-    rendered = actor_label(conn, aid)
-    assert rendered != str(aid)
-    assert not rendered.isdigit()
-
-
-def test_actor_display_name_prefers_display_surface(conn):
-    aid = seed_human_actor(conn)
-    set_actor_label(conn, aid, "ben")
-    set_actor_label(conn, aid, "Ben B.", surface=DISPLAY_LABEL_SURFACE)
-
-    assert actor_display_name(conn, aid) == "Ben B."
-    assert actor_label(conn, aid) == "ben"
-
-
-def test_actor_display_name_falls_back_to_github_label(conn):
-    aid = seed_human_actor(conn)
-    set_actor_label(conn, aid, "ben")
-
-    assert actor_display_name(conn, aid) == "ben"
-
-
-def test_actor_display_name_falls_back_to_system_component(conn):
-    aid = seed_system_actor(conn, SYSTEM_COMPONENT_YOKE_CORE)
-
-    assert actor_display_name(conn, aid) == SYSTEM_COMPONENT_YOKE_CORE
-
-
-def test_actor_render_label_sanitizes_display_surface(conn):
-    aid = seed_human_actor(conn)
-    set_actor_label(conn, aid, "Ben B.", surface=DISPLAY_LABEL_SURFACE)
-
-    assert actor_render_label(conn, aid) == "Ben-B."
-
-
-def test_actor_label_ambiguous_when_uniqueness_relaxed():
-    """Defense-in-depth: if a future schema migration weakens the
-    UNIQUE(actor_id, surface) index, the central helper must still
-    refuse to pick a label rather than silently emit one of two
-    possibilities. We rebuild a fresh DB without the constraint and
-    insert two rows directly to provoke the condition."""
-    from datetime import datetime, timezone
-
-    name = pg_testdb.create_test_database()
-    c = pg_testdb.connect_test_database(name)
-    try:
-        c.execute(
-            "CREATE TABLE actors ("
-            "id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, "
-            "kind TEXT NOT NULL, "
-            "system_component TEXT, "
-            "created_at TEXT NOT NULL)"
-        )
-        c.execute(
-            "CREATE TABLE actor_labels ("
-            "id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY, "
-            "actor_id INTEGER NOT NULL, "
-            "surface TEXT NOT NULL, "
-            "label TEXT NOT NULL, "
-            "created_at TEXT NOT NULL)"
-        )
-        now = datetime.now(timezone.utc).isoformat()
-        aid = c.execute(
-            "INSERT INTO actors (kind, system_component, created_at) "
-            "VALUES ('human', NULL, %s) RETURNING id",
-            (now,),
-        ).fetchone()[0]
-        c.execute(
-            "INSERT INTO actor_labels (actor_id, surface, label, created_at) "
-            "VALUES (%s, %s, 'ben', %s), (%s, %s, 'ben-alt', %s)",
-            (aid, GITHUB_LABEL_SURFACE, now, aid, GITHUB_LABEL_SURFACE, now),
-        )
-        with pytest.raises(ActorLabelAmbiguous):
-            actor_label(c, aid)
-    finally:
-        c.close()
-        pg_testdb.drop_test_database(name)
-
-
-def test_labels_for_surface_returns_pairs(conn):
-    a = seed_human_actor(conn)
-    b = seed_human_actor(conn)
-    set_actor_label(conn, a, "alpha")
-    set_actor_label(conn, b, "beta")
-    pairs = sorted(labels_for_surface(conn))
-    assert pairs == [(a, "alpha"), (b, "beta")]
-
-
-def test_validate_actor_id(conn):
-    aid = seed_human_actor(conn)
-    assert validate_actor_id(conn, aid) is True
-    assert validate_actor_id(conn, 999999) is False
-
-
-# ---------------------------------------------------------------------------
-# actor_label_or_passthrough — the cutover-window reader adapter
-# ---------------------------------------------------------------------------
-
-
-def test_passthrough_resolves_numeric_actor_id(conn):
-    aid = seed_human_actor(conn)
-    set_actor_label(conn, aid, "ben")
-    assert actor_label_or_passthrough(conn, str(aid)) == "ben"
-
-
-def test_passthrough_returns_text_label_unchanged(conn):
-    # Pre-migration shape: column holds a legacy text label, not an
-    # actor id. The reader must not try to coerce or validate; the
-    # value flows through unchanged so the GitHub render keeps working.
-    assert actor_label_or_passthrough(conn, "ben") == "ben"
-    assert actor_label_or_passthrough(conn, "skill-simulate") == "skill-simulate"
-
-
-def test_passthrough_collapses_empty_sentinels(conn):
-    assert actor_label_or_passthrough(conn, "") == ""
-    assert actor_label_or_passthrough(conn, "null") == ""
-    assert actor_label_or_passthrough(conn, "None") == ""
-
-
-def test_passthrough_failclosed_on_orphan_numeric_id(conn):
-    # Numeric values must not bypass the central helper's fail-closed
-    # contract; an orphan id with no actor row raises rather than
-    # leaking the raw integer as a label.
-    with pytest.raises(ActorNotFound):
-        actor_label_or_passthrough(conn, "424242")
-
-
-def test_passthrough_failclosed_when_label_missing(conn):
-    aid = seed_human_actor(conn)
-    with pytest.raises(ActorLabelMissing):
-        actor_label_or_passthrough(conn, str(aid))
+        actor_name_or_passthrough(conn, "999999")

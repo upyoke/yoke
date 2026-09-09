@@ -75,10 +75,9 @@ def test_local_import_replaces_data_revokes_remote_auth_and_grants_owner(
                 ).fetchone() == (True,)
                 assert target.execute(
                     "SELECT COUNT(*) FROM actor_org_roles aor "
-                    "JOIN actor_labels al ON al.actor_id = aor.actor_id "
+                    "JOIN actors a ON a.id = aor.actor_id "
                     "JOIN roles r ON r.id = aor.role_id "
-                    "WHERE al.surface = 'github_label' "
-                    "AND al.label = 'machine-owner' AND r.name = 'admin'"
+                    "WHERE a.kind = 'human' AND r.name = 'admin'"
                 ).fetchone() == (1,)
                 assert target.execute(
                     "SELECT COUNT(*) FROM api_tokens WHERE status = 'active'"

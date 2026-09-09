@@ -11,11 +11,27 @@ Resolution is deliberately narrow and fail-closed:
 
 * an explicit actor (the verified bearer-token actor over https, or one
   an operator surface supplies) wins after a presence check;
-* exactly one human actor on the authority — that actor;
-* several humans — the single human whose ``actor_labels`` row matches
-  the calling process's OS login, the label the local-universe birth
-  path seeds for the machine owner;
+* otherwise the actor id this machine recorded for the connection it is
+  using, verified to still exist and PROVEN to belong to the same
+  universe it was recorded against — an unstated universe on either side
+  refuses rather than passing;
 * anything else — a named refusal carrying its recovery command.
+
+There is no name-matching rung and no "well, there is only one human"
+rung. Both are guesses, and a guess about identity is the kind of bug
+that stays invisible until it has attributed somebody's work to somebody
+else. A person's OS login is not their identity in a universe; a name is
+not unique, is not stable, and is owned by whatever account system
+supplies it. So the binding is written once, explicitly, by the paths
+that already know the answer — universe birth, universe import, and the
+doctor repair — and read back by id afterwards (those writers live in
+:mod:`yoke_core.domain.session_actor_binding_write`). Renaming an actor
+cannot move it, and two people who share a name stay two bindings.
+
+The recorded binding names the universe as well as the actor, because an
+env label is a machine-local nickname that can be re-pointed at another
+control plane. Verifying the universe is what makes a retarget a refusal
+instead of a silent binding to whoever holds that id over there.
 
 Why refuse instead of storing NULL: an actor-less session looks healthy
 until the first path-claim registration, which refuses far away from the
@@ -24,27 +40,38 @@ no session on it ever bound an actor, so no item could reach a worktree,
 and nothing on the install named the missing binding as the cause.
 
 :func:`resolve_operating_actor` takes an open control-plane connection so
-both callers share one answer: session registration
-(:mod:`yoke_core.domain.sessions_lifecycle_identity`) and the loopback UI,
-which needs the same "who operates this machine?" resolution for
-actor-scoped writes.
+every caller shares one answer: session registration
+(:mod:`yoke_core.domain.sessions_lifecycle_identity`), the loopback UI,
+and the session-less terminal binder.
 """
 
 from __future__ import annotations
 
-import getpass
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, Optional
 
+from yoke_contracts.machine_config import runtime as machine_config
+from yoke_contracts.machine_config.schema_connections import (
+    operating_actor_binding,
+)
 from yoke_core.domain import db_backend
+from yoke_core.domain.universe_identity import universe_fingerprint
 
 
 #: Refusal codes. Uppercase because :class:`SessionError` codes are the
 #: surface operators and the function dispatcher both read.
 ACTOR_MISSING = "SESSION_ACTOR_MISSING"
-ACTOR_AMBIGUOUS = "SESSION_ACTOR_AMBIGUOUS"
+ACTOR_UNBOUND = "SESSION_ACTOR_UNBOUND"
+ACTOR_UNIVERSE_MISMATCH = "SESSION_ACTOR_UNIVERSE_MISMATCH"
+ACTOR_UNIVERSE_UNPROVEN = "SESSION_ACTOR_UNIVERSE_UNPROVEN"
 ACTOR_IDENTITY_UNAVAILABLE = "SESSION_ACTOR_IDENTITY_UNAVAILABLE"
 ACTOR_INVALID = "SESSION_ACTOR_INVALID"
+
+#: The one command that records a machine's operating-actor binding.
+OPERATING_ACTOR_BIND_COMMAND = "yoke config bind-actor --actor-id <id>"
+
+#: How to see the candidates that command chooses between.
+OPERATING_ACTOR_LIST_COMMAND = 'yoke db read "SELECT id, kind, name FROM actors"'
 
 
 @dataclass(frozen=True)
@@ -64,46 +91,35 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def os_login() -> str:
-    """Return this process's OS login, or "" when it cannot be read."""
-    try:
-        return (getpass.getuser() or "").strip()
-    except Exception:  # noqa: BLE001 — a missing login is a resolution miss
-        return ""
-
-
-def _human_actor_ids(conn: Any) -> Optional[List[int]]:
-    """Human actor ids, or ``None`` when the authority has no actors table."""
-    try:
-        rows = conn.execute(
-            "SELECT id FROM actors WHERE kind = 'human' ORDER BY id"
-        ).fetchall()
-    except db_backend.operational_error_types(conn):
-        _rollback_quietly(conn)
-        return None
-    return [int(row[0]) for row in rows]
-
-
-def _actor_ids_for_label(conn: Any, label: str) -> List[int]:
-    try:
-        rows = conn.execute(
-            "SELECT DISTINCT al.actor_id FROM actor_labels al "
-            "JOIN actors a ON a.id = al.actor_id "
-            f"WHERE a.kind = 'human' AND al.label = {_p(conn)}",
-            (label,),
-        ).fetchall()
-    except db_backend.operational_error_types(conn):
-        _rollback_quietly(conn)
-        return []
-    return [int(row[0]) for row in rows]
-
-
 def _rollback_quietly(conn: Any) -> None:
     """Clear the aborted-transaction state a failed probe leaves on Postgres."""
     try:
         conn.rollback()
     except Exception:  # noqa: BLE001 — the probe result is the whole product
         pass
+
+
+def _actors_readable(conn: Any) -> bool:
+    try:
+        conn.execute("SELECT 1 FROM actors LIMIT 1").fetchone()
+    except db_backend.operational_error_types(conn):
+        _rollback_quietly(conn)
+        return False
+    return True
+
+
+def _human_actor_count(conn: Any) -> int:
+    rows = conn.execute("SELECT id FROM actors WHERE kind = 'human'").fetchall()
+    return len(rows)
+
+
+def _selected_env(env: Optional[str], config_path: Any) -> str:
+    if env:
+        return str(env).strip()
+    try:
+        return machine_config.active_env(config_path)
+    except Exception:  # noqa: BLE001 — an unresolvable env is an unbound machine
+        return ""
 
 
 def explicit_actor_binding(conn: Any, actor_id: Any) -> ActorBinding:
@@ -116,8 +132,8 @@ def explicit_actor_binding(conn: Any, actor_id: Any) -> ActorBinding:
             detail=(
                 f"actor_id {actor_id!r} is not an integer, so no session "
                 "identity can be bound. Recovery: pass the numeric actor id "
-                "(`yoke db read \"SELECT id, kind FROM actors\"`), or omit it "
-                "to bind this universe's operating actor."
+                f"(`{OPERATING_ACTOR_LIST_COMMAND}`), or omit it to bind "
+                "this universe's operating actor."
             ),
         )
     from yoke_core.domain.actors import validate_actor_id
@@ -134,8 +150,8 @@ def explicit_actor_binding(conn: Any, actor_id: Any) -> ActorBinding:
         detail=(
             f"actor_id {candidate} does not exist on this control plane, so "
             "no session identity can be bound. Recovery: pass an actor this "
-            "authority carries (`yoke db read \"SELECT id, kind FROM "
-            "actors\"`), or omit it to bind this universe's operating actor."
+            f"authority carries (`{OPERATING_ACTOR_LIST_COMMAND}`), or omit "
+            "it to bind this universe's operating actor."
         ),
     )
 
@@ -152,14 +168,16 @@ def _identity_unavailable() -> ActorBinding:
     )
 
 
-def resolve_operating_actor(conn: Any) -> ActorBinding:
+def resolve_operating_actor(
+    conn: Any,
+    *,
+    env: Optional[str] = None,
+    config_path: Any = None,
+) -> ActorBinding:
     """Return the actor that operates this universe, or a named refusal."""
-    humans = _human_actor_ids(conn)
-    if humans is None:
+    if not _actors_readable(conn):
         return _identity_unavailable()
-    if len(humans) == 1:
-        return ActorBinding(actor_id=humans[0])
-    if not humans:
+    if _human_actor_count(conn) == 0:
         return ActorBinding(
             code=ACTOR_MISSING,
             detail=(
@@ -170,31 +188,93 @@ def resolve_operating_actor(conn: Any) -> ActorBinding:
                 "actor — then retry."
             ),
         )
-    login = os_login()
-    matches = _actor_ids_for_label(conn, login) if login else []
-    if len(matches) == 1:
-        return ActorBinding(actor_id=matches[0])
-    listed = ", ".join(str(actor_id) for actor_id in humans)
+
+    selected = _selected_env(env, config_path)
+    try:
+        payload = machine_config.load_config(config_path)
+    except Exception:  # noqa: BLE001 — an unreadable config is an unbound machine
+        payload = {}
+    actor_id, recorded_universe = operating_actor_binding(payload, selected)
+    if actor_id is None:
+        return ActorBinding(
+            code=ACTOR_UNBOUND,
+            detail=(
+                "this machine has recorded no operating actor for connection "
+                f"{selected or '(unresolved)'!r}, so a registering session has "
+                "no identity to bind. Over https a verified bearer token names "
+                "your actor instead; on a directly connected universe, record "
+                f"it once with `{OPERATING_ACTOR_BIND_COMMAND}` "
+                f"(`{OPERATING_ACTOR_LIST_COMMAND}` lists the candidates)."
+            ),
+        )
+
+    # Same-universe has to be PROVEN, not merely "not contradicted". A
+    # missing fingerprint on either side is an unanswered question, and
+    # accepting the id anyway is exactly the retarget this check exists to
+    # catch — an env label re-pointed at another control plane produces a
+    # recorded id whose universe nobody can vouch for.
+    live_universe = universe_fingerprint(conn)
+    if not recorded_universe:
+        return ActorBinding(
+            code=ACTOR_UNIVERSE_UNPROVEN,
+            detail=(
+                f"the operating actor recorded for connection {selected!r} "
+                "names no universe, so there is no proof actor "
+                f"{actor_id} belongs to the one this connection reaches. "
+                "Recovery: re-record the binding against this universe with "
+                f"`{OPERATING_ACTOR_BIND_COMMAND}`."
+            ),
+        )
+    if not live_universe:
+        return ActorBinding(
+            code=ACTOR_UNIVERSE_UNPROVEN,
+            detail=(
+                f"this control plane does not answer for its own identity "
+                "(a universe carries exactly one organization identity card, "
+                "and this one carries none or several), so the operating "
+                f"actor recorded for connection {selected!r} cannot be proven "
+                "to belong to it. Recovery: bring the universe to one "
+                "organization — `yoke doctor run --quick` reports the shape — "
+                "then retry."
+            ),
+        )
+    if recorded_universe != live_universe:
+        return ActorBinding(
+            code=ACTOR_UNIVERSE_MISMATCH,
+            detail=(
+                f"connection {selected!r} now reaches a different universe "
+                f"({live_universe}) than the one its recorded operating actor "
+                f"belongs to ({recorded_universe}), so actor {actor_id} may "
+                "name a different person here. Recovery: re-record the "
+                f"binding for this universe with `{OPERATING_ACTOR_BIND_COMMAND}`."
+            ),
+        )
+
+    binding = explicit_actor_binding(conn, actor_id)
+    if binding.bound:
+        return binding
     return ActorBinding(
-        code=ACTOR_AMBIGUOUS,
+        code=ACTOR_UNBOUND,
         detail=(
-            f"this control plane carries {len(humans)} human actors "
-            f"({listed}) and none is labeled with this machine's login "
-            f"{login or '(unreadable)'!r}, so the operating actor is "
-            "ambiguous. Recovery: connect this machine to the server that "
-            "owns those identities (`yoke onboard --connect URL`) so the "
-            "verified token binds your actor."
+            f"this machine's recorded operating actor for connection "
+            f"{selected!r} is actor {actor_id}, which this control plane no "
+            "longer carries. Recovery: re-record the binding with "
+            f"`{OPERATING_ACTOR_BIND_COMMAND}` "
+            f"(`{OPERATING_ACTOR_LIST_COMMAND}` lists the candidates)."
         ),
     )
 
 
 __all__ = [
-    "ACTOR_AMBIGUOUS",
     "ACTOR_IDENTITY_UNAVAILABLE",
     "ACTOR_INVALID",
     "ACTOR_MISSING",
+    "ACTOR_UNBOUND",
+    "ACTOR_UNIVERSE_MISMATCH",
+    "ACTOR_UNIVERSE_UNPROVEN",
     "ActorBinding",
+    "OPERATING_ACTOR_BIND_COMMAND",
+    "OPERATING_ACTOR_LIST_COMMAND",
     "explicit_actor_binding",
-    "os_login",
     "resolve_operating_actor",
 ]

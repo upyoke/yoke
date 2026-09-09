@@ -14,10 +14,10 @@ from yoke_core.domain.actor_permissions import (
     seed_roles_and_permissions,
 )
 from yoke_core.domain.actors import (
-    resolve_actor_by_label,
     seed_human_actor,
     seed_system_actor,
-    set_actor_label,
+    set_actor_name,
+    sole_human_actor_id,
 )
 from yoke_core.domain.api_tokens import CreatedToken, mint_token
 from yoke_core.domain.org_schema import seed_default_org
@@ -77,19 +77,44 @@ def _assert_service_actor_scope(
         )
 
 
+def _human_actors_present(conn: Any) -> bool:
+    return (
+        conn.execute(
+            "SELECT 1 FROM actors WHERE kind = 'human' LIMIT 1"
+        ).fetchone()
+        is not None
+    )
+
+
 def bootstrap_admin_token(
     conn: Any,
     *,
-    actor_label: str,
+    actor_name: str,
     project: str | None,
     token_name: str,
 ) -> CreatedToken:
-    """Create or resolve the admin actor, grant authority, and mint one token."""
+    """Create or resolve the admin actor, grant authority, and mint one token.
+
+    ``actor_name`` names a human this call creates; it never selects one.
+    A universe that already carries its single administrator keeps that
+    actor whatever it is called, because the token being minted has to
+    bind the identity that already holds this universe's authority — and
+    a name is not that identity. A universe carrying several humans is
+    past bootstrap, so the call refuses rather than guessing which of
+    them the token should speak for.
+    """
     seed_roles_and_permissions(conn)
-    actor_id = resolve_actor_by_label(conn, actor_label)
+    actor_id = sole_human_actor_id(conn)
     if actor_id is None:
-        actor_id = seed_human_actor(conn)
-        set_actor_label(conn, actor_id, actor_label)
+        if _human_actors_present(conn):
+            raise ValueError(
+                "this universe carries more than one human actor, so which "
+                "one an admin token should bind is not a bootstrap question; "
+                "mint the token for an explicit actor instead"
+            )
+        actor_id = seed_human_actor(conn, actor_name)
+    else:
+        set_actor_name(conn, actor_id, actor_name)
     if project is None:
         org_id = seed_default_org(conn)
         grant_actor_org_role(

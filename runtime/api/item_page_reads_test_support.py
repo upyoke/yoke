@@ -80,12 +80,8 @@ def _connection() -> sqlite3.Connection:
         CREATE TABLE actors (
           id INTEGER PRIMARY KEY,
           kind TEXT,
-          system_component TEXT
-        );
-        CREATE TABLE actor_labels (
-          actor_id INTEGER,
-          surface TEXT,
-          label TEXT
+          system_component TEXT,
+          name TEXT
         );
         CREATE TABLE item_worktrees (
           id INTEGER PRIMARY KEY,
@@ -232,8 +228,7 @@ def _connection() -> sqlite3.Connection:
         )
         """
     )
-    conn.execute("INSERT INTO actors VALUES (3, 'human', NULL)")
-    conn.execute("INSERT INTO actor_labels VALUES (3, 'display', 'Codex')")
+    conn.execute("INSERT INTO actors VALUES (3, 'human', NULL, 'Codex')")
     conn.execute("INSERT INTO harness_sessions VALUES ('session-z', 3, 'codex')")
     conn.execute(
         """

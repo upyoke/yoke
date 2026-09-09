@@ -18,7 +18,7 @@ from yoke_core.domain.actor_permissions import (
     require_permission,
     seed_roles_and_permissions,
 )
-from yoke_core.domain.actors import resolve_actor_by_label, seed_human_actor
+from yoke_core.domain.actors import actor_name, seed_human_actor
 from yoke_core.domain.api_tokens import (
     TOKEN_PREFIX,
     TokenNotFound,
@@ -130,12 +130,11 @@ def test_token_prefix_is_yoke_branded_and_body_is_dash_free():
 
 
 def test_bootstrap_admin_token_grants_org_admin_without_storing_raw_secret(conn):
-    """Default shape: neutral admin label + all-access org admin grant."""
-    from yoke_core.domain.api_tokens import DEFAULT_ADMIN_ACTOR_LABEL
+    """Default shape: neutral admin name + all-access org admin grant."""
+    from yoke_core.domain.api_tokens import DEFAULT_ADMIN_ACTOR_NAME
 
     created = bootstrap_admin_token(conn)
-    actor_id = resolve_actor_by_label(conn, DEFAULT_ADMIN_ACTOR_LABEL)
-    assert actor_id == created.actor_id
+    assert actor_name(conn, created.actor_id) == DEFAULT_ADMIN_ACTOR_NAME
     # Org admin is the all-access root identity: project-scoped permission
     # checks pass on any project the org owns.
     yoke_id = resolve_project_id(conn, "yoke")
@@ -157,7 +156,7 @@ def test_bootstrap_admin_token_grants_org_admin_without_storing_raw_secret(conn)
 def test_bootstrap_admin_token_project_slug_grants_project_owner(conn):
     """Explicit project shape keeps the narrower project-owner grant."""
     created = bootstrap_admin_token(
-        conn, actor_label="ops-lead", project="yoke",
+        conn, actor_name="ops-lead", project="yoke",
     )
     yoke_id = resolve_project_id(conn, "yoke")
     decision = require_permission(

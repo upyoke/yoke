@@ -117,18 +117,18 @@ def _create_schema(conn) -> None:
             id INTEGER PRIMARY KEY,
             kind TEXT NOT NULL CHECK(kind IN ('human','system')),
             system_component TEXT,
+            name TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL
         );
-        CREATE TABLE IF NOT EXISTS actor_labels (
-            id INTEGER PRIMARY KEY,
-            actor_id INTEGER NOT NULL,
-            surface TEXT NOT NULL,
-            label TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            UNIQUE(actor_id, surface)
+        -- The universe's identity card: recording which actor this machine
+        -- operates the universe as needs the universe to say which one it is.
+        CREATE TABLE IF NOT EXISTS organizations (
+            id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL, created_at TEXT NOT NULL
         );
-        CREATE UNIQUE INDEX IF NOT EXISTS uq_actor_labels_resolution_surface_label
-            ON actor_labels(surface, label) WHERE surface <> 'display';
+        INSERT INTO organizations (id, slug, name, created_at)
+            VALUES (1, 'default', 'Default', '2026-01-01T00:00:00Z')
+            ON CONFLICT DO NOTHING;
         """,
         _SESSIONS_AND_CLAIMS_DDL,
     )

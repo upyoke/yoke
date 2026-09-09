@@ -41,10 +41,8 @@ def test_postgres_schema_authority_and_transactional_resolution(test_db):
             (actor_id,),
         )
         test_db.execute(
-            "INSERT INTO actor_labels "
-            "(actor_id, surface, label, created_at) "
-            "VALUES (%s, 'display', %s, '2026-07-26T00:00:00Z')",
-            (actor_id, label),
+            "UPDATE actors SET name = %s WHERE id = %s",
+            (label, actor_id),
         )
     role_id = test_db.execute(
         "INSERT INTO roles (id, name, description, created_at) "

@@ -5,10 +5,6 @@ from __future__ import annotations
 import base64
 from typing import Any, Collection, Optional, Sequence
 
-from yoke_contracts.actor_labels import (
-    DISPLAY_LABEL_SURFACE,
-    GITHUB_LABEL_SURFACE,
-)
 from yoke_contracts.session_control.liveness import (
     ENDED_CAUSE_KILLED,
     ENDED_CAUSE_WOUND_DOWN,
@@ -46,15 +42,9 @@ _MACHINE_NAME = (
 )
 
 
-def _actor_label(marker: str) -> str:
-    return (
-        "COALESCE("
-        "(SELECT al.label FROM actor_labels al "
-        f"WHERE al.actor_id = s.actor_id AND al.surface = {marker} LIMIT 1), "
-        "a.system_component, "
-        "(SELECT al.label FROM actor_labels al "
-        f"WHERE al.actor_id = s.actor_id AND al.surface = {marker} LIMIT 1))"
-    )
+def _actor_label() -> str:
+    """SQL rendering the session's actor to the name every surface shows."""
+    return "COALESCE(NULLIF(a.name, ''), a.system_component, '')"
 
 
 def _cursor_encode(activity_at: str, session_id: str) -> str:
@@ -160,8 +150,8 @@ def read_ended_session_history(
     facets = _facet_rows(conn, scope_clauses, scope_params)
     clauses = list(scope_clauses)
     params = list(scope_params)
-    actor_label = _actor_label(marker)
-    actor_params = [DISPLAY_LABEL_SURFACE, GITHUB_LABEL_SURFACE]
+    actor_label = _actor_label()
+    actor_params: list[str] = []
     normalized_search = search.strip().lower()
     if normalized_search:
         searchable = (

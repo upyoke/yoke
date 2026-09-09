@@ -215,16 +215,14 @@ class TestSyncItem:
         db.close()
 
     def test_creates_new_issue_renders_owner_label(self):
-        """Post-Slice 5b create: numeric source/owner pass through
-        ``actor_label_or_passthrough`` and contribute ``source:`` and
-        ``owner:`` labels to the create payload. The raw integer must
-        not appear in any label argument."""
-        from yoke_core.domain.actors import resolve_actor_by_label
+        """A numeric source/owner renders to the actor's name and
+        contributes ``source:`` / ``owner:`` labels to the create payload.
+        The raw integer must not appear in any label argument."""
+        from yoke_core.domain.actors import resolve_actors_by_name
 
         db = _make_db()
-        local_human = resolve_actor_by_label(db, "ben")
-        yoke_core = resolve_actor_by_label(db, "yoke-core")
-        assert local_human is not None and yoke_core is not None
+        (local_human,) = resolve_actors_by_name(db, "ben")
+        (yoke_core,) = resolve_actors_by_name(db, "yoke-core")
 
         insert_item(
             db,

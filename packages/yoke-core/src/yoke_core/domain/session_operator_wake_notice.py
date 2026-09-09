@@ -37,7 +37,7 @@ from yoke_core.domain.actor_message_recipients import (
     ACTOR_KIND,
     ResolvedActorRecipient,
 )
-from yoke_core.domain.actor_render import actor_render_label
+from yoke_core.domain.actor_render import render_actor_name
 from yoke_core.domain.actors import SYSTEM_COMPONENT_YOKE_CORE, seed_system_actor
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_message_starvation import undelivered_since_send
@@ -169,7 +169,7 @@ def notify_operator_to_wake(
         actor_recipients=[
             ResolvedActorRecipient(
                 actor_id=actor_id,
-                label=actor_render_label(conn, actor_id),
+                label=render_actor_name(conn, actor_id),
                 shared_org_ids=set(),
                 resolution=[f"operator-of-session:{session_id}"],
             )

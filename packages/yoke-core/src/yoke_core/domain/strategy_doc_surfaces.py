@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from yoke_contracts.public_ref import format_item_ref
-from yoke_core.domain.actor_render import actor_render_label
+from yoke_core.domain.actor_render import render_actor_name
 from yoke_core.domain.item_worktrees import list_item_worktrees
 from yoke_core.domain.strategy_doc_history import list_doc_revisions
 from yoke_core.domain.strategy_doc_presentation import summary_from_row
@@ -184,7 +184,7 @@ def get_strategy_surface(
     current_revision = int(revisions[0]["revision"]) if revisions else None
     return {
         **doc,
-        "updated_by": actor_render_label(conn, doc["updated_by_actor_id"]),
+        "updated_by": render_actor_name(conn, doc["updated_by_actor_id"]),
         "bytes": len(doc["content"].encode("utf-8")),
         "parent_slug": meta.get("parent_slug"),
         "references": references,

@@ -25,10 +25,8 @@ def conn():
     with decision_request_connection() as value:
         for actor_id, label in ((2, "Ada"), (3, "Bo"), (5, "Cass")):
             value.execute(
-                "INSERT INTO actor_labels "
-                "(actor_id, surface, label, created_at) "
-                "VALUES (?, 'display', ?, 'now')",
-                (actor_id, label),
+                "UPDATE actors SET name = ? WHERE id = ?",
+                (label, actor_id),
             )
         value.commit()
         yield value

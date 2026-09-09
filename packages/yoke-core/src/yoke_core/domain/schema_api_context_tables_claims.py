@@ -4,7 +4,7 @@ Sibling of :mod:`schema_api_context_tables` (which combines per-topic
 dicts into the canonical ``CANONICAL_TABLES``). Holds the ``claims``
 topic entries: harness_sessions, work_claims, path_claims,
 path_claim_targets, path_claim_task_bindings, path_claim_overrides, path_targets,
-path_claim_amendments, actors, actor_labels.
+path_claim_amendments, actors.
 
 Pure data only — no I/O, no DB connections, no imports beyond stdlib.
 """

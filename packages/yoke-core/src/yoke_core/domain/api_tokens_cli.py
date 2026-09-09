@@ -12,7 +12,7 @@ from typing import Any, List, Optional
 from yoke_core.domain import json_helper
 from yoke_core.domain.actor_permissions import PROJECT_ROLES
 from yoke_core.domain.api_tokens import (
-    DEFAULT_ADMIN_ACTOR_LABEL,
+    DEFAULT_ADMIN_ACTOR_NAME,
     INITIAL_ADMIN_TOKEN_NAME,
     bootstrap_admin_token,
     bootstrap_project_service_token,
@@ -122,7 +122,7 @@ def cmd_bootstrap_admin(args: argparse.Namespace) -> int:
     try:
         created = bootstrap_admin_token(
             conn,
-            actor_label=args.actor_label,
+            actor_name=args.actor_name,
             project=args.project,
             token_name=args.name,
         )
@@ -214,7 +214,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "bootstrap-admin",
         help="Create/resolve the initial admin actor, grant authority, and mint a token",
     )
-    bootstrap.add_argument("--actor-label", default=DEFAULT_ADMIN_ACTOR_LABEL)
+    bootstrap.add_argument("--actor-name", default=DEFAULT_ADMIN_ACTOR_NAME)
     bootstrap.add_argument(
         "--project",
         default=None,

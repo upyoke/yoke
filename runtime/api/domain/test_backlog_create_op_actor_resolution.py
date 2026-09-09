@@ -19,11 +19,9 @@ from typing import Any, Optional
 import pytest
 
 from yoke_core.domain.actors import (
-    GITHUB_LABEL_SURFACE,
     seed_canonical_actors,
     seed_human_actor,
-    set_actor_label,
-)  # noqa: F401  (set_actor_label / GITHUB_LABEL_SURFACE used by secondary-human test)
+)
 from yoke_core.domain.item_source_actor import (
     ItemSourceActorResolutionError,
     coerce_explicit_item_source,
@@ -108,13 +106,7 @@ class TestCoerceExplicitSource:
             coerce_explicit_item_source(seeded_conn, "424242")
 
     def test_secondary_human_actor_resolves(self, seeded_conn):
-        # Two humans, distinct labels — the writer must accept either id
-        # without conflating them.
-        secondary = seed_human_actor(seeded_conn)
-        set_actor_label(
-            seeded_conn,
-            secondary,
-            "alice",
-            surface=GITHUB_LABEL_SURFACE,
-        )
+        # Two humans — the writer must accept either id without conflating
+        # them, and it must do so by id even when the names match.
+        secondary = seed_human_actor(seeded_conn, "ben")
         assert coerce_explicit_item_source(seeded_conn, str(secondary)) == secondary

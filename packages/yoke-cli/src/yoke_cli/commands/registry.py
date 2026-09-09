@@ -18,6 +18,7 @@ from yoke_cli.commands.adapters.migration_content_identity import (
 from yoke_cli.commands.adapters.render import packets_budget_get
 from yoke_cli.commands.adapters.claims_path_change import claims_path_amend
 from yoke_cli.commands.adapters.config import env_list
+from yoke_cli.commands.adapters.config_actor_binding import config_bind_actor
 from yoke_cli.commands.registry_token_normalization import expanded_hyphen_routes
 from yoke_cli.commands.registry_deployment import DEPLOYMENT_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_ephemeral_env import EPHEMERAL_ENV_SUBCOMMAND_REGISTRY
@@ -213,6 +214,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "scratch.dispatch_inputs",
         _adapters.scratch_dispatch_inputs,
     ),
+    ("config", "bind-actor"): ("config.bind_actor.run", config_bind_actor),
     ("config", "example"): ("config.example.run", _adapters.config_example),
     ("config", "stamp-project-env"): (
         "config.stamp_project_env.run",

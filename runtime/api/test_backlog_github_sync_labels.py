@@ -162,16 +162,14 @@ class TestSyncLabels:
         assert add_labels.call_args.args[0] == "org/externalwebapp"
         assert remove_label.call_args.args[0] == "org/externalwebapp"
 
-    def test_renders_source_and_owner_via_actor_label(self):
-        """Post-Slice 5b shape: numeric source/owner render to label tokens
-        through ``actor_label_or_passthrough`` rather than leaking the
-        raw integer."""
-        from yoke_core.domain.actors import resolve_actor_by_label
+    def test_renders_source_and_owner_via_actor_name(self):
+        """A numeric source/owner renders to the actor's name rather than
+        leaking the raw integer into a GitHub label."""
+        from yoke_core.domain.actors import resolve_actors_by_name
 
         db = _make_db()
-        local_human = resolve_actor_by_label(db, "ben")
-        yoke_core = resolve_actor_by_label(db, "yoke-core")
-        assert local_human is not None and yoke_core is not None
+        (local_human,) = resolve_actors_by_name(db, "ben")
+        (yoke_core,) = resolve_actors_by_name(db, "yoke-core")
 
         insert_item(
             db,

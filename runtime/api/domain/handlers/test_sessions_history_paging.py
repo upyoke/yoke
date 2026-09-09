@@ -131,11 +131,11 @@ def test_history_cursor_pages_tied_activity_without_duplicates(test_db):
 def test_history_search_filters_and_facets_cover_full_scope(test_db):
     from runtime.api.fixtures.backlog import insert_item
     from yoke_core.domain.actors import seed_human_actor
-    from yoke_core.domain.actor_display import set_actor_display_name
+    from yoke_core.domain.actors import set_actor_name
 
     _prepare(test_db)
     actor_id = seed_human_actor(test_db)
-    set_actor_display_name(test_db, actor_id, "History Operator")
+    set_actor_name(test_db, actor_id, "History Operator")
     insert_item(test_db, id=42, project_sequence=402, title="Needle Project")
     _insert_session(
         test_db, "target", ended_at="2026-09-08T03:00:00Z",

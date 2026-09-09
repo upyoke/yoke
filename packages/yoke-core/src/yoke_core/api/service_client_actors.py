@@ -6,10 +6,10 @@ service-client CLI, the equivalent of "GET /actors" and
 
 Two commands:
 
-* ``actors-list`` — JSON array of every actor row, ordered by id, with
-  the generic ``display_name`` projection and the GitHub label projection
-  joined when they exist. Quiet in the empty case (returns ``[]``).
-* ``actors-get <id>`` — JSON object for one actor, plus the same projections.
+* ``actors-list`` — JSON array of every actor row, ordered by id, each
+  carrying the one human-readable ``name`` every surface renders. Quiet
+  in the empty case (returns ``[]``).
+* ``actors-get <id>`` — JSON object for one actor.
   Exits non-zero with a ``not_found`` payload when the id has no row.
 
 Both are read-only; mutation lives in :mod:`yoke_core.domain.actors`
@@ -22,7 +22,6 @@ import json
 import sys
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actors import DISPLAY_LABEL_SURFACE, GITHUB_LABEL_SURFACE
 from yoke_core.domain.db_helpers import connect
 
 
@@ -41,38 +40,13 @@ def _row_to_actor_dict(row) -> dict:
         "kind": row["kind"],
         "system_component": row["system_component"],
         "created_at": row["created_at"],
-        "display_name": row["display_name"],
-        "github_label": row["github_label"],
+        "name": row["name"],
     }
 
 
-def _surface_params() -> tuple[str, str, str, str]:
+def _select_actors_sql(*, placeholder: str, where: str = "") -> str:
     return (
-        DISPLAY_LABEL_SURFACE,
-        GITHUB_LABEL_SURFACE,
-        DISPLAY_LABEL_SURFACE,
-        GITHUB_LABEL_SURFACE,
-    )
-
-
-def _select_actors_sql(
-    *,
-    placeholder: str,
-    where: str = "",
-) -> str:
-    return (
-        "SELECT a.id, a.kind, a.system_component, a.created_at, "
-        "       (SELECT label FROM actor_labels al "
-        f"        WHERE al.actor_id = a.id AND al.surface = {placeholder}) AS display_label, "
-        "       (SELECT label FROM actor_labels al "
-        f"        WHERE al.actor_id = a.id AND al.surface = {placeholder}) AS github_label, "
-        "       COALESCE("
-        "           (SELECT label FROM actor_labels al "
-        f"            WHERE al.actor_id = a.id AND al.surface = {placeholder}), "
-        "           a.system_component, "
-        "           (SELECT label FROM actor_labels al "
-        f"            WHERE al.actor_id = a.id AND al.surface = {placeholder})"
-        "       ) AS display_name "
+        "SELECT a.id, a.kind, a.system_component, a.created_at, a.name "
         "FROM actors a "
         f"{where} "
         "ORDER BY a.id"
@@ -87,10 +61,7 @@ def cmd_actors_list(args: list[str]) -> int:
     conn = _open_conn()
     try:
         p = _p(conn)
-        rows = conn.execute(
-            _select_actors_sql(placeholder=p),
-            _surface_params(),
-        ).fetchall()
+        rows = conn.execute(_select_actors_sql(placeholder=p)).fetchall()
         payload = [_row_to_actor_dict(r) for r in rows]
         print(json.dumps(payload))
     finally:
@@ -120,7 +91,7 @@ def cmd_actors_get(args: list[str]) -> int:
         p = _p(conn)
         row = conn.execute(
             _select_actors_sql(placeholder=p, where=f"WHERE a.id = {p}"),
-            (*_surface_params(), actor_id),
+            (actor_id,),
         ).fetchone()
         if row is None:
             print(

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from yoke_core.domain.actor_display import actor_display_name
+from yoke_core.domain.actors import actor_name
 from yoke_core.domain.actor_project_visibility import actor_visible_project_ids
 from yoke_core.domain.actors import ActorError
 from yoke_core.domain.machine_access_authority import (
@@ -45,7 +45,7 @@ def _owner_names(conn: Any, actor_ids: set[int]) -> dict[int, str]:
     names: dict[int, str] = {}
     for actor_id in sorted(actor_ids):
         try:
-            names[actor_id] = actor_display_name(conn, actor_id)
+            names[actor_id] = actor_name(conn, actor_id)
         except ActorError:
             names[actor_id] = ""
     return names

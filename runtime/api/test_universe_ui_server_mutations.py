@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from yoke_core.domain.actors import seed_human_actor, set_actor_label
+from yoke_core.domain.actors import seed_human_actor, set_actor_name
 from runtime.api.workflow_version_test_helpers import current_workflow_version
 from yoke_core.domain import session_actor_binding
 from yoke_core.domain import yoke_function_dispatch
@@ -57,7 +57,7 @@ class TestOperatorActorResolution:
         monkeypatch,
     ):
         second = seed_human_actor(test_db)
-        set_actor_label(test_db, second, "operator-login")
+        set_actor_name(test_db, second, "operator-login")
         monkeypatch.setattr(
             session_actor_binding,
             "os_login",

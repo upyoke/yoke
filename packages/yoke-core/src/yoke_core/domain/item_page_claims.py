@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actor_display import actor_display_name
+from yoke_core.domain.actors import actor_name
 from yoke_core.domain.actors import ActorError
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.work_claim_targets import scope_int_sql
@@ -27,7 +27,7 @@ def _claim_label(conn: Any, row: dict[str, Any]) -> str:
     actor_id = row.get("actor_id")
     if actor_id is not None:
         try:
-            return actor_display_name(conn, int(actor_id))
+            return actor_name(conn, int(actor_id))
         except ActorError:
             pass
     return str(row.get("executor") or row.get("session_id") or "")

@@ -64,7 +64,7 @@ def state_from_content(content: str) -> str | None:
 
 def summary_from_row(conn: Any, row: Any) -> dict[str, object]:
     """Project a strategy-doc database row for list displays."""
-    from yoke_core.domain.actor_render import actor_render_label
+    from yoke_core.domain.actor_render import render_actor_name
 
     slug = str(row["slug"])
     content = str(row["content"])
@@ -72,7 +72,7 @@ def summary_from_row(conn: Any, row: Any) -> dict[str, object]:
         "slug": slug,
         "title": title_from_content(slug, content),
         "updated_at": str(row["updated_at"]),
-        "updated_by": actor_render_label(conn, row["updated_by_actor_id"]),
+        "updated_by": render_actor_name(conn, row["updated_by_actor_id"]),
         "bytes": len(content.encode("utf-8")),
         "archived": row["archived_at"] is not None,
         "summary": summary_from_content(content),

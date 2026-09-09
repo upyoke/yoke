@@ -46,17 +46,15 @@ def test_bootstrap_admin_outputs_raw_token_once_and_stores_only_hash(tokendb, ca
     assert raw_stored is None
 
 
-def test_bootstrap_admin_defaults_to_neutral_label_and_org_admin(tokendb, capsys):
-    """No flags: the admin label is neutral and the grant is the org admin role."""
-    from yoke_core.domain.actors import resolve_actor_by_label
-    from yoke_core.domain.api_tokens import DEFAULT_ADMIN_ACTOR_LABEL
+def test_bootstrap_admin_defaults_to_neutral_name_and_org_admin(tokendb, capsys):
+    """No flags: the admin name is neutral and the grant is the org admin role."""
+    from yoke_core.domain.actors import actor_name
+    from yoke_core.domain.api_tokens import DEFAULT_ADMIN_ACTOR_NAME
 
     rc = api_tokens_cli.main(["bootstrap-admin"])
     assert rc == 0
     body = json_helper.loads_text(capsys.readouterr().out)
-    assert (
-        resolve_actor_by_label(tokendb, DEFAULT_ADMIN_ACTOR_LABEL) == body["actor_id"]
-    )
+    assert actor_name(tokendb, body["actor_id"]) == DEFAULT_ADMIN_ACTOR_NAME
     row = tokendb.execute(
         "SELECT 1 FROM actor_org_roles aor JOIN roles r ON r.id = aor.role_id "
         "WHERE aor.actor_id = %s AND r.name = 'admin'",

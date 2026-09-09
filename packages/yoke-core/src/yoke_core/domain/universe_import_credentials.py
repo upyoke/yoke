@@ -11,9 +11,8 @@ import psycopg
 
 from yoke_core.domain import json_helper
 from yoke_core.domain.actor_permissions import ROLE_ADMIN
-from yoke_core.domain.actors import GITHUB_LABEL_SURFACE
 from yoke_core.domain.api_tokens import (
-    DEFAULT_ADMIN_ACTOR_LABEL,
+    DEFAULT_ADMIN_ACTOR_NAME,
     generate_token,
     hash_token,
 )
@@ -43,35 +42,42 @@ def _now() -> str:
 
 
 def _resolve_import_admin(conn: psycopg.Connection, *, now: str) -> int:
-    row = conn.execute(
-        "SELECT a.id, a.kind FROM actor_labels al "
-        "JOIN actors a ON a.id = al.actor_id "
-        "WHERE al.surface = %s AND al.label = %s",
-        (GITHUB_LABEL_SURFACE, DEFAULT_ADMIN_ACTOR_LABEL),
-    ).fetchone()
-    if row is not None:
-        if str(row[1]) != "human":
-            raise UniverseImportCredentialError(
-                "the imported admin label belongs to a non-human actor"
-            )
-        return int(row[0])
+    """The human actor a restored universe re-issues admin authority to.
+
+    Resolution is by the org-admin role, never by name: the archive is
+    somebody's universe, its administrator already holds that grant, and
+    a name is neither unique nor guaranteed to have survived a rename in
+    the account system that owns it. Exactly one such actor keeps the
+    answer unambiguous; several mean the archive has more than one
+    administrator and the import is not entitled to pick.
+    """
+    rows = conn.execute(
+        "SELECT a.id, a.kind FROM actor_org_roles aor "
+        "JOIN roles r ON r.id = aor.role_id "
+        "JOIN actors a ON a.id = aor.actor_id "
+        "WHERE r.name = %s AND a.kind = 'human' "
+        "ORDER BY a.id LIMIT 2",
+        (ROLE_ADMIN,),
+    ).fetchall()
+    if len(rows) > 1:
+        raise UniverseImportCredentialError(
+            "the archive carries more than one org-admin human actor, so "
+            "which one the import should re-credential is not this "
+            "command's decision"
+        )
+    if rows:
+        return int(rows[0][0])
 
     actor_row = conn.execute(
-        "INSERT INTO actors (kind, system_component, created_at) "
-        "VALUES ('human', NULL, %s) RETURNING id",
-        (now,),
+        "INSERT INTO actors (kind, system_component, name, created_at) "
+        "VALUES ('human', NULL, %s, %s) RETURNING id",
+        (DEFAULT_ADMIN_ACTOR_NAME, now),
     ).fetchone()
     if actor_row is None:
         raise UniverseImportCredentialError(
             "the import admin actor could not be created"
         )
-    actor_id = int(actor_row[0])
-    conn.execute(
-        "INSERT INTO actor_labels (actor_id, surface, label, created_at) "
-        "VALUES (%s, %s, %s, %s)",
-        (actor_id, GITHUB_LABEL_SURFACE, DEFAULT_ADMIN_ACTOR_LABEL, now),
-    )
-    return actor_id
+    return int(actor_row[0])
 
 
 def _resolve_authority(conn: psycopg.Connection, *, now: str) -> tuple[str, int]:

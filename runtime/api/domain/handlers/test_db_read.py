@@ -38,10 +38,10 @@ def test_sql_guard_refuses_writes_ddl_and_multiple_statements() -> None:
 
 
 def test_sql_guard_allows_label_as_a_column_but_refuses_security_label() -> None:
-    assert _refusal_code("SELECT al.label FROM actor_labels al LIMIT 1") is None
-    assert _refusal_code("SELECT label FROM actor_labels") is None
+    assert _refusal_code("SELECT a.name FROM actors a LIMIT 1") is None
+    assert _refusal_code("SELECT name FROM actors") is None
     assert (
-        _refusal_code("SECURITY LABEL ON TABLE actor_labels IS 'text'")
+        _refusal_code("SECURITY LABEL ON TABLE actors IS 'text'")
         == "sql_ddl_refused"
     )
 

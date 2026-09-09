@@ -17,7 +17,7 @@ from yoke_contracts.api.function_call import (
     TargetRef,
 )
 
-from yoke_core.domain.actors import seed_human_actor, set_actor_label
+from yoke_core.domain.actors import seed_human_actor, set_actor_name
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.handlers.identity_invites import (
     handle_identity_invite_create,
@@ -116,7 +116,7 @@ def test_link_set_identity_shape_binds_issuer_subject(unique):
     conn = connect()
     try:
         actor_id = seed_human_actor(conn)
-        set_actor_label(conn, actor_id, f"linked-{unique}")
+        set_actor_name(conn, actor_id, f"linked-{unique}")
     finally:
         conn.close()
     outcome = handle_identity_link_set(

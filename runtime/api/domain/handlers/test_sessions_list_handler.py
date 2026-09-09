@@ -176,24 +176,20 @@ class TestClaimsAndAttribution:
         assert rows[0]["actor_id"] == system_actor_id
         assert rows[0]["actor_label"]
 
-    def test_human_attribution_uses_display_name_and_omits_missing_names(self, test_db):
-        from yoke_core.domain.actors import (
-            seed_human_actor,
-            set_actor_label,
-        )
+    def test_human_attribution_uses_the_name_and_omits_missing_ones(self, test_db):
+        from yoke_core.domain.actors import seed_human_actor
 
-        github_named = seed_human_actor(test_db)
-        set_actor_label(test_db, github_named, "github-fallback-operator")
+        named = seed_human_actor(test_db, "named-operator")
         resolverless = seed_human_actor(test_db)
         _insert_session(
-            test_db, "s-github-named", last_heartbeat=_iso(), actor_id=github_named
+            test_db, "s-named", last_heartbeat=_iso(), actor_id=named
         )
         _insert_session(
             test_db, "s-resolverless", last_heartbeat=_iso(), actor_id=resolverless
         )
 
         rows = {row["session_id"]: row for row in list_sessions()}
-        assert rows["s-github-named"]["actor_label"] == "github-fallback-operator"
+        assert rows["s-named"]["actor_label"] == "named-operator"
         assert rows["s-resolverless"]["actor_label"] is None
 
     def test_current_item_renders_display_form(self, test_db):

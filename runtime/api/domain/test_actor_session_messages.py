@@ -32,17 +32,13 @@ def _members():
     conn = message_connection()
     grant_actor_org_role(conn, actor_id=10, org_id=1, role_name=ROLE_OPERATOR)
     grant_actor_org_role(conn, actor_id=11, org_id=1, role_name=ROLE_VIEWER)
-    conn.execute(
-        "INSERT INTO actor_labels (actor_id,surface,label,created_at) "
-        "VALUES (11,'github_label','grace','2026-08-22T12:00:00Z')"
-    )
     conn.commit()
     return conn
 
 
 def test_actor_anchor_unions_with_session_fanout_and_snapshots_once() -> None:
     conn = _members()
-    target = selector(actors=["grace"], session_ids=["s1"])
+    target = selector(actors=["Grace"], session_ids=["s1"])
 
     preview = preview_message(conn, actor_id=10, selector=target, now=NOW)
     sent = send_message(
@@ -61,7 +57,7 @@ def test_actor_anchor_unions_with_session_fanout_and_snapshots_once() -> None:
             "actor_id": 11,
             "label": "Grace",
             "kind": "human",
-            "resolution": ["actor:grace"],
+            "resolution": ["actor:Grace"],
         }
     ]
     assert sent["recipient_count"] == 2
@@ -72,7 +68,7 @@ def test_actor_anchor_unions_with_session_fanout_and_snapshots_once() -> None:
         (sent["message_id"],),
     ).fetchone()
     assert details["sender_surface"] == "cli"
-    assert '"actors":["grace"]' in details["selector_snapshot"]
+    assert '"actors":["Grace"]' in details["selector_snapshot"]
     assert (
         conn.execute(
             "SELECT COUNT(*) FROM session_message_recipients WHERE message_id=?",

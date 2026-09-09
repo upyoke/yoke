@@ -61,13 +61,13 @@ class TestRenderDocs:
     def test_render_resolves_updated_by_actor_to_label(
         self, tmp_db: str, tmp_path: Path,
     ) -> None:
-        from yoke_core.domain.actors import resolve_actor_by_label
+        from yoke_core.domain.actors import resolve_actors_by_name
 
         conn = connect_test_db(tmp_db)
         try:
             seed_docs(conn)
             # The canonical seed provides the human actor labeled 'ben'.
-            editor = resolve_actor_by_label(conn, "ben")
+            (editor,) = resolve_actors_by_name(conn, "ben")
             assert editor is not None
             conn.execute(
                 "UPDATE strategy_docs SET updated_by_actor_id = %s "

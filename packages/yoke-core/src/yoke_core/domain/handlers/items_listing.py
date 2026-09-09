@@ -205,11 +205,11 @@ def handle_items_list(request: FunctionCallRequest) -> HandlerOutcome:
 
 _UNSET_LABEL_TOKENS = frozenset({"none", "null"})
 
-from yoke_core.domain.actors import ActorLabelAmbiguous, ActorLabelMissing, ActorNotFound  # noqa: E402
+from yoke_core.domain.actors import ActorError  # noqa: E402
 
-#: The degrade policy for actor-label cells: any of these means "cannot
-#: render" -> empty cell. One orphan actor must not fail the page.
-_ACTOR_ERRORS = (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous)
+#: The degrade policy for actor-name cells: an unresolvable actor means
+#: "cannot render" -> empty cell. One orphan actor must not fail the page.
+_ACTOR_ERRORS = ActorError
 
 
 def _actor_label_batches(
@@ -240,9 +240,8 @@ def _actor_label_batches(
     by_actor: dict[int, list[Any]] = {}
     missing: set[int] = set(ordered)
     for actor_id, *label_parts in conn.execute(
-        "SELECT a.id, al.label FROM actors a "
-        "LEFT JOIN actor_labels al ON al.actor_id = a.id "
-        f"AND al.surface = 'display' WHERE a.id IN ({markers})",
+        "SELECT a.id, NULLIF(a.name, '') AS name FROM actors a "
+        f"WHERE a.id IN ({markers})",
         tuple(ordered),
     ).fetchall():
         missing.discard(int(actor_id))
@@ -260,9 +259,9 @@ def _actor_label_batches(
             resolved[actor_id] = ""  # ambiguous display projection
             continue
         try:
-            from yoke_core.domain.actor_display import actor_display_name
+            from yoke_core.domain.actors import actor_name
 
-            resolved[actor_id] = actor_display_name(conn, actor_id)
+            resolved[actor_id] = actor_name(conn, actor_id)
         except _ACTOR_ERRORS:
             # Orphan/missing-label actor: degrade the cell, never the page.
             resolved[actor_id] = ""
