@@ -229,9 +229,7 @@ def _validate_carried(kind: str, value: Any) -> None:
     _required(kind, derivation, {"status", "contents_known", "reason", "recovery"})
     for field in ("status", "reason", "recovery"):
         _text(kind, derivation[field], f"carried.derivation.{field}")
-    for index, raw in enumerate(
-        _sequence(kind, carried["items"], "carried.items")
-    ):
+    for index, raw in enumerate(_sequence(kind, carried["items"], "carried.items")):
         entry = _mapping(kind, raw, f"carried.items[{index}]")
         _required(kind, entry, {"item_id", "ref", "commit_shas"})
         _positive_int(kind, entry["item_id"], f"carried.items[{index}].item_id")

@@ -77,10 +77,13 @@ def test_release_contents_are_derived_once_and_change_nothing(
     assert statuses() == statuses_before
     # Derivation is a read: the completion record is still unwritten, so the
     # pre-approval snapshot has not stood in for it.
-    assert test_db.execute(
-        "SELECT carried_work FROM deployment_runs WHERE id=%s",
-        (seeded["run_id"],),
-    ).fetchone()[0] is None
+    assert (
+        test_db.execute(
+            "SELECT carried_work FROM deployment_runs WHERE id=%s",
+            (seeded["run_id"],),
+        ).fetchone()[0]
+        is None
+    )
 
 
 def test_a_stored_snapshot_survives_and_a_new_lineage_does_not(test_db):
@@ -107,10 +110,13 @@ def test_a_stored_snapshot_survives_and_a_new_lineage_does_not(test_db):
         originator_actor_id=seeded["originator"],
     )
     assert repeated.request_id == first.request_id
-    assert test_db.execute(
-        "SELECT subject_context FROM decision_requests WHERE id=%s",
-        (first.request_id,),
-    ).fetchone()[0] == stored
+    assert (
+        test_db.execute(
+            "SELECT subject_context FROM decision_requests WHERE id=%s",
+            (first.request_id,),
+        ).fetchone()[0]
+        == stored
+    )
 
     test_db.execute(
         "UPDATE deployment_runs SET release_lineage='moved-lineage' WHERE id=%s",
@@ -123,8 +129,10 @@ def test_a_stored_snapshot_survives_and_a_new_lineage_does_not(test_db):
         originator_actor_id=seeded["originator"],
     )
     assert moved.request_id != first.request_id
-    assert test_db.execute(
-        "SELECT subject_context FROM decision_requests WHERE id=%s",
-        (first.request_id,),
-    ).fetchone()[0] == stored
-
+    assert (
+        test_db.execute(
+            "SELECT subject_context FROM decision_requests WHERE id=%s",
+            (first.request_id,),
+        ).fetchone()[0]
+        == stored
+    )

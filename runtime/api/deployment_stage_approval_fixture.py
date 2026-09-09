@@ -68,12 +68,8 @@ def seed_stage_approval(conn: Any) -> dict[str, Any]:
     environment_id = conn.execute(
         "SELECT id FROM environments WHERE project_id=1 AND name='prod'"
     ).fetchone()[0]
-    originator = conn.execute(
-        "SELECT id FROM actors ORDER BY id LIMIT 1"
-    ).fetchone()[0]
-    owner = conn.execute(
-        "SELECT id FROM actors ORDER BY id DESC LIMIT 1"
-    ).fetchone()[0]
+    originator = conn.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+    owner = conn.execute("SELECT id FROM actors ORDER BY id DESC LIMIT 1").fetchone()[0]
     role = conn.execute(
         "INSERT INTO roles (id, name, description, created_at) "
         "VALUES (9301, 'owner', 'Owner', '2026-07-26T00:00:00Z') "

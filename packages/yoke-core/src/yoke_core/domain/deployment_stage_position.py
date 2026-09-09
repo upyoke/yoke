@@ -26,7 +26,7 @@ def stage_position(run: dict[str, Any], stage: str) -> dict[str, Any]:
     return {
         "index": index,
         "total": len(names),
-        "remaining": names[index + 1:] if index >= 0 else [],
+        "remaining": names[index + 1 :] if index >= 0 else [],
     }
 
 

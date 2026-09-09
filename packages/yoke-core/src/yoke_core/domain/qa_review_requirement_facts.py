@@ -88,7 +88,6 @@ def requirement_facts(conn: Any, requirement_id: int) -> dict[str, Any]:
     return value
 
 
-
 def review_subject(requirement: dict[str, Any]) -> dict[str, Any]:
     """Name what this review is a review OF, from the requirement's own home.
 

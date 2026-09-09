@@ -205,9 +205,7 @@ def pending_requests_for_actor(
         request["decided_by_you"] = decision is not None
         request["deciders"] = request_deciders(conn, request["id"], actor_id)
         result.append(request)
-    result.sort(
-        key=lambda value: (value["decided_by_you"], not value["asked_of_you"])
-    )
+    result.sort(key=lambda value: (value["decided_by_you"], not value["asked_of_you"]))
     return result
 
 

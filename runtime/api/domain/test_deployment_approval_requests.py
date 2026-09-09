@@ -109,8 +109,7 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
                 "contents_known": False,
                 "reason": "no_prior_succeeded_run",
                 "recovery": (
-                    "No action is required; this run establishes the lineage "
-                    "baseline."
+                    "No action is required; this run establishes the lineage baseline."
                 ),
                 "run_id": "run-approval-proof",
                 "previous_run_id": "",
@@ -197,7 +196,6 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
     )
 
 
-
 def test_deployment_completion_event_shares_the_caller_transaction(
     test_db,
 ):
@@ -230,13 +228,9 @@ def test_deployment_completion_event_shares_the_caller_transaction(
         context={"flow": "completion-proof"},
     )
     recorded = "SELECT COUNT(*) FROM events WHERE event_name=%s"
-    assert (
-        test_db.execute(recorded, ("DeploymentRunSucceeded",)).fetchone()[0] == 1
-    )
+    assert test_db.execute(recorded, ("DeploymentRunSucceeded",)).fetchone()[0] == 1
     test_db.rollback()
-    assert (
-        test_db.execute(recorded, ("DeploymentRunSucceeded",)).fetchone()[0] == 0
-    )
+    assert test_db.execute(recorded, ("DeploymentRunSucceeded",)).fetchone()[0] == 0
 
 
 def test_terminal_deployment_telemetry_cannot_fail_the_pipeline(test_db):
