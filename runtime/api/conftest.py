@@ -79,9 +79,7 @@ os.environ.setdefault("YOKE_DB_INIT_DONE", "1")
 # boot-converge can apply pending history without requiring a caller-resolved
 # dump DSN (and without falling through to ambient Yoke authority). Tests
 # that exercise restore-point refusal clear or override this explicitly.
-os.environ.setdefault(
-    "YOKE_MIGRATION_RESTORE_POINT", "pytest-fixture-restore-point"
-)
+os.environ.setdefault("YOKE_MIGRATION_RESTORE_POINT", "pytest-fixture-restore-point")
 
 # ---------------------------------------------------------------------------
 # Postgres backend: per-worker disposable ambient test database
@@ -177,6 +175,7 @@ def _close_leaked_pg_connections():
     else:
         os.environ.pop(_db_backend.PG_DSN_FILE_ENV, None)
 
+
 @pytest.fixture(autouse=True)
 def _forget_schema_readiness_verdict():
     """Keep one test's schema-probe verdict out of the next test's database.
@@ -210,6 +209,54 @@ def _skip_print_layer_lookup(monkeypatch):
         "yoke_cli.transport.public_ref_display.lookup_public_refs",
         lambda _ids: {},
     )
+
+
+@pytest.fixture(autouse=True)
+def _serve_pinned_workflow_definitions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Answer the merge boundary's pinned-definition read from the canon.
+
+    ``yoke merge item`` reads the item's pinned workflow definition to ask
+    whether the item has reached the stage that definition declares for
+    review. Merge tests stub the item alone and have no universe holding
+    published workflow versions, so that read is answered here from the
+    same built-in canon those versions are published from. A test whose
+    subject IS the read patches over this with its own answer.
+    """
+    from types import SimpleNamespace
+
+    from yoke_core.domain import merge_review_readiness
+    from yoke_core.domain.builtin_workflow_definitions import (
+        builtin_workflow_definition,
+    )
+    from yoke_core.domain.workflow_registry import definition_digest
+
+    def _serve(**kwargs):
+        payload = kwargs.get("payload") or {}
+        workflow_id = str(payload.get("workflow_id") or "")
+        try:
+            definition = builtin_workflow_definition(workflow_id)["definition"]
+        except Exception as exc:  # noqa: BLE001 - reported as the read failing
+            return SimpleNamespace(
+                success=False,
+                result=None,
+                error=SimpleNamespace(message=str(exc)),
+            )
+        return SimpleNamespace(
+            success=True,
+            error=None,
+            result={
+                # A stub item that names no version still pins one here: the
+                # canon holds a single current definition per workflow, and
+                # the number only has to be a number for the read to parse.
+                "workflow_id": workflow_id,
+                "version": int(payload.get("version") or 1),
+                "version_id": 0,
+                "definition": definition,
+                "definition_digest": definition_digest(definition),
+            },
+        )
+
+    monkeypatch.setattr(merge_review_readiness, "call_dispatcher", _serve)
 
 
 # ---------------------------------------------------------------------------

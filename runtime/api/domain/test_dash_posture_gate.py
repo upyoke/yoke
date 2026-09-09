@@ -52,7 +52,8 @@ def _insert_dash(conn, *, item_id: int, posture: dict) -> None:
         conn,
         id=item_id,
         workflow_id="dash",
-        status="idea",
+        # The stage `done` is declared from, so a preflight reaches its gates.
+        status="reviewing-implementation",
         source="901",
         workflow_posture=json.dumps(posture),
     )
@@ -249,10 +250,6 @@ def test_approval_on_done_creates_and_requires_project_owner_request(
     conn = connect_test_db(dash_db_path)
     try:
         _insert_dash(conn, item_id=2303, posture={"approval_on_done": True})
-    finally:
-        conn.close()
-    conn = connect_test_db(dash_db_path)
-    try:
         preflight = prepare_status_transition(
             conn,
             item_id=2303,

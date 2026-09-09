@@ -31,7 +31,7 @@ class TestExecuteUpdate:
     """ExecuteUpdate sub-scenarios: QA gates."""
 
     def test_implemented_blocks_unsatisfied_blocking_verification_reqs(self, tmp_db):  # noqa: F811
-        _seed_item(tmp_db, id=10, status="reviewed-implementation")
+        _seed_item(tmp_db, id=10, status="polishing-implementation")
         _seed_qa_requirement(
             tmp_db,
             item_id=10,
@@ -53,7 +53,7 @@ class TestExecuteUpdate:
 
         assert result["success"] is False
         assert result["error_code"] == "GATE_QA_IMPLEMENTED"
-        assert _item_field(tmp_db, 10, "status") == "reviewed-implementation"
+        assert _item_field(tmp_db, 10, "status") == "polishing-implementation"
 
     def test_release_blocks_unsatisfied_blocking_verification_reqs(self, tmp_db):  # noqa: F811
         _seed_item(tmp_db, id=10, status="implemented")
@@ -100,7 +100,7 @@ class TestExecuteUpdate:
         assert _item_field(tmp_db, 10, "status") == "reviewing-implementation"
 
     def test_implemented_blocks_browser_pass_without_artifact(self, tmp_db):  # noqa: F811
-        _seed_item(tmp_db, id=10, status="reviewed-implementation")
+        _seed_item(tmp_db, id=10, status="polishing-implementation")
         req_id = _seed_qa_requirement(
             tmp_db,
             item_id=10,
@@ -129,7 +129,7 @@ class TestExecuteUpdate:
         assert result["success"] is False
         assert result["error_code"] == "GATE_QA_IMPLEMENTED"
         assert "substrate evidence" in result["error"]
-        assert _item_field(tmp_db, 10, "status") == "reviewed-implementation"
+        assert _item_field(tmp_db, 10, "status") == "polishing-implementation"
 
     def test_done_blocks_unsatisfied_blocking_requirements(self, tmp_db):  # noqa: F811
         _seed_item(tmp_db, id=10, status="release")

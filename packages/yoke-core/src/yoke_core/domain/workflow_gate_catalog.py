@@ -103,8 +103,7 @@ _GATE_CATALOG: Tuple[Dict[str, Any], ...] = (
         "id": GATE_PLAN_SIMULATION,
         "name": "Plan simulation",
         "description": (
-            "The epic's plan must pass the simulator's cross-task execution "
-            "trace."
+            "The epic's plan must pass the simulator's cross-task execution trace."
         ),
         "source_kind": "status_gate",
         "availability": "live",
@@ -233,6 +232,20 @@ def workflow_gate_catalog() -> list[Dict[str, Any]]:
     return deepcopy(list(_GATE_CATALOG))
 
 
+def activation_operation_gate_ids() -> frozenset[str]:
+    """Gate ids whose satisfaction is an activation, not a status check.
+
+    A stage carrying one of these is where a lane is taken — the work
+    claim, the path claims, the execution document — which is what makes it
+    identifiable as the implementation stage of any definition.
+    """
+    return frozenset(
+        str(gate["id"])
+        for gate in _GATE_CATALOG
+        if gate["source_kind"] == "activation_operation"
+    )
+
+
 __all__ = [
     "GATE_APPROVAL",
     "GATE_ARCHITECTURE_IMPACT",
@@ -249,5 +262,6 @@ __all__ = [
     "GATE_PLAN_SIMULATION",
     "GATE_QA_VERIFICATION",
     "GATE_WORK_CLAIM_ACTIVATION",
+    "activation_operation_gate_ids",
     "workflow_gate_catalog",
 ]

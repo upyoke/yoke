@@ -145,7 +145,8 @@ Then execute each selected posture knob through its shared authority:
 Move into the verification-close stage only when implementation checks pass
 and every case materialized above carries a passing run — the transition gates
 on those rows, so it is the last step of this section, never the step that
-discovers them:
+discovers them. The merge boundary refuses to land a branch before this
+transition, `--skip-status` included, so it is also not a step to defer:
 
 ```text
 yoke lifecycle transition ITEM --from implementing --to reviewing-implementation --reason "Implementation complete; verification passed"

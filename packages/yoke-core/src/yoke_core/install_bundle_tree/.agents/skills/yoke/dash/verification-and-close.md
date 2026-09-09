@@ -135,7 +135,9 @@ head sha; the wait budget applies only while checks or the train are genuinely
 pending.
 
 When deployment posture is selected, merge first without closing out, so the
-item-bound deployment can run against the recorded merge identity:
+item-bound deployment can run against the recorded merge identity. Skipping
+the status flip does not skip the review stage: admission still requires the
+item to have reached it, which step 5 already did:
 
 ```text
 yoke merge item ITEM --skip-status --json

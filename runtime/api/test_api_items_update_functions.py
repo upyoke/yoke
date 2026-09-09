@@ -204,10 +204,14 @@ class TestScalarUpdateGateMapping:
         test_db,
         monkeypatch,
     ):
-        # Item 1 is in 'implementing' and the caller asserts no done-ceremony
-        # nonce, so a done transition triggers GATE_DONE_NONCE in the mutation
-        # layer. The gate fires before claim verification, so the bypass is
-        # only needed for parity with the happy-path test.
+        # 'done' is declared from 'release', so the item stands there and the
+        # caller's missing done-ceremony nonce triggers GATE_DONE_NONCE in the
+        # mutation layer. The gate fires before claim verification, so the
+        # bypass is only needed for parity with the happy-path test.
+        conn = connect_test_db(test_db["db_path"])
+        conn.execute("UPDATE items SET status = 'release' WHERE id = 1")
+        conn.commit()
+        conn.close()
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test-isolation")
         resp = _post_scalar(
             test_db,

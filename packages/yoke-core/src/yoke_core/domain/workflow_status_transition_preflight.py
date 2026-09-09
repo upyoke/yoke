@@ -1,4 +1,10 @@
-"""Canonical QA materialization and approval preflight for status writes."""
+"""Canonical declared-edge, QA materialization, and approval preflight.
+
+Every status write passes here first. The pinned definition decides whether
+the move is one it declares before any of the target stage's own machinery
+runs, so a stage the item may not reach never gets QA rows or an approval
+request standing in its name.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +18,12 @@ from yoke_core.domain.decision_request_subject_context import (
     workflow_default_approval_source,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.status_claim_bypass_context import (
+    resolve_status_write_source,
+)
+from yoke_core.domain.workflow_declared_transitions import (
+    undeclared_forward_transition,
+)
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_QA_OPTIONAL,
 )
@@ -96,6 +108,30 @@ def prepare_status_transition(
                 ),
             },
         )
+    # The declared edge is checked before anything is materialized: QA rows
+    # and approval requests belong to a stage the item may actually reach,
+    # and creating them for a stage it may not is how a skipped stage starts
+    # to look like a satisfied one. A write that names its own source is a
+    # named engine or operator path (the done transition, an advance skip
+    # route walking declared edges of its own, an operator status repair)
+    # and keeps the reconciliation authority it was built with.
+    if not resolve_status_write_source():
+        edge_refusal = undeclared_forward_transition(
+            workflow,
+            from_stage_id=current_status,
+            to_stage_id=target_status,
+        )
+        if edge_refusal:
+            conn.rollback()
+            return StatusTransitionPreflight(
+                workflow_version_id=int(workflow.workflow_version_id),
+                source_status=current_status,
+                failure={
+                    "success": False,
+                    "error_code": "VALIDATION_ERROR",
+                    "error": edge_refusal,
+                },
+            )
     # A workflow whose QA policy is optional attaches no plans, so there is
     # nothing to materialize and the project defaults do not apply to it.
     qa_attaches_plans = str(workflow.policies.get("qa") or "") != WORKFLOW_QA_OPTIONAL

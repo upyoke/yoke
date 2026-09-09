@@ -21,6 +21,7 @@ its own isolated value and no cross-request leak.
 from __future__ import annotations
 
 import contextvars
+import os
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Iterator, Optional
@@ -41,6 +42,8 @@ class StatusBypassOverride:
 # override is posted, so those sites fall back to the environment variables. A
 # ContextVar gives each request its own isolated value, so one request's bypass
 # never leaks into another's claim check.
+STATUS_SOURCE_ENV_VAR = "YOKE_STATUS_SOURCE"
+
 _status_bypass: contextvars.ContextVar[Optional[StatusBypassOverride]] = (
     contextvars.ContextVar("status_claim_bypass_override", default=None)
 )
@@ -79,6 +82,19 @@ def resolve_claim_bypass() -> tuple[str, str]:
     return override.claim_bypass, override.status_source
 
 
+def resolve_status_write_source() -> str:
+    """Return the source this status write names for itself, else empty.
+
+    The request-scoped override first, then the process-global env var, in
+    the same order every claim-verification site reads them. A non-empty
+    answer means a named engine or operator path is driving the write — the
+    done transition, an advance skip route, an operator status repair —
+    rather than an ordinary caller asking for the next stage.
+    """
+    _, status_source = resolve_claim_bypass()
+    return status_source or os.environ.get(STATUS_SOURCE_ENV_VAR, "")
+
+
 def resolve_task_done_verified() -> bool:
     """Return the request-scoped epic-task done-verified flag (False if unset)."""
     override = _status_bypass.get()
@@ -88,8 +104,10 @@ def resolve_task_done_verified() -> bool:
 
 
 __all__ = [
+    "STATUS_SOURCE_ENV_VAR",
     "StatusBypassOverride",
     "status_bypass_override",
     "resolve_claim_bypass",
+    "resolve_status_write_source",
     "resolve_task_done_verified",
 ]

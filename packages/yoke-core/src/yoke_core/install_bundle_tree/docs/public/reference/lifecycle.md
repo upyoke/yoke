@@ -18,9 +18,9 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 ## Item stage authority
 
 Do not copy a progression into operator logic or documentation. Use
-`yoke workflows definition get` for current definitions. For a live item, the
-transition interpreter loads the exact pinned version so publishing or
-selecting a newer version cannot alter work already in flight.
+`yoke workflows definition get` for current definitions. A live item loads the
+exact pinned version, so a newer one cannot alter work in flight, and a forward
+move it does not declare is refused before the target stage materializes.
 
 ### Exceptional Item States
 

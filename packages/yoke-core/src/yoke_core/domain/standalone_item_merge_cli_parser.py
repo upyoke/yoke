@@ -29,7 +29,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--verification-status", **status_argument_kwargs())
     boolean_options = (
         ("--no-changes", "Record a verified no-change result."),
-        ("--skip-status", "Merge without changing lifecycle status."),
+        (
+            "--skip-status",
+            "Merge without changing lifecycle status. Admission still "
+            "requires the item to have reached the review stage its "
+            "pinned workflow declares.",
+        ),
         ("--pr", "Merge through a pull request."),
         (
             "--wait",
