@@ -12,12 +12,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actor_display import actor_display_name
-from yoke_core.domain.actors import (
-    ActorLabelAmbiguous,
-    ActorLabelMissing,
-    ActorNotFound,
-)
+from yoke_core.domain.actors import ActorError, actor_name
 from yoke_core.domain.approval_decisions import actor_decision
 from yoke_core.domain.decision_requests import _request_row
 
@@ -66,8 +61,11 @@ def _role_label(scope_kind: Any, role_name: Any) -> str:
 
 def _actor_label(conn: Any, actor_id: int) -> str:
     try:
-        return actor_display_name(conn, actor_id)
-    except (ActorNotFound, ActorLabelMissing, ActorLabelAmbiguous):
+        return actor_name(conn, actor_id)
+    except ActorError:
+        # A decider whose name cannot be rendered is still a decider: the
+        # eligibility line degrades to the id rather than failing the whole
+        # Inbox read over one unreadable actor.
         return f"actor {actor_id}"
 
 
