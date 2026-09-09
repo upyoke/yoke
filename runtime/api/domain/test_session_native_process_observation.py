@@ -134,6 +134,60 @@ def test_a_session_that_resumed_after_the_death_no_longer_reads_as_gone(conn):
     assert current_native_process_observation(_stored(conn, session_id)) is None
 
 
+def test_a_late_report_of_an_older_death_leaves_the_newer_one_standing(conn):
+    """The row describes one death, and an older one reported late is not it.
+
+    Taking the late report's evidence would replace a crash with an earlier
+    native's clean exit, and a declared wait would then read the row as
+    accounted for while the real failure went unnamed.
+    """
+    session_id = _session(conn, "sess-older-death-late")
+    record_native_process_gone(
+        conn,
+        session_id,
+        {**LATER_PROCESS, "exit_code": 1, "native_exit_at": POLLED_AGAIN_TEXT},
+    )
+
+    dropped = record_native_process_gone(
+        conn,
+        session_id,
+        {**DEAD_PROCESS, "exit_code": 0, "native_exit_at": FIRST_SEEN_TEXT},
+    )
+    conn.commit()
+
+    assert dropped["observed_at"] == POLLED_AGAIN_TEXT
+    row = _stored(conn, session_id)
+    assert row["native_process_gone_at"] == POLLED_AGAIN_TEXT
+    assert json.loads(row["native_process_gone_evidence"])["exit_code"] == 1
+    # The park must not swallow the crash the older report tried to overwrite.
+    assert current_native_process_observation({**row, "mode": "parked"}) is not None
+
+
+def test_a_known_exit_time_corrects_this_processs_own_polling_stamp(conn):
+    """The first report had no exit time and had to stamp its own arrival.
+
+    When the machine later reads the exit that report was about, that reading
+    replaces the guess -- otherwise the inflated stamp outlives the evidence
+    that could repair it.
+    """
+    session_id = _session(conn, "sess-stamp-corrected")
+    record_native_process_gone(conn, session_id, DEAD_PROCESS, observed_at=POLLED_AGAIN)
+    conn.execute(
+        "UPDATE harness_sessions SET last_tool_call_at=%s, last_heartbeat=%s "
+        "WHERE session_id=%s",
+        (RESUMED_AT, RESUMED_AT, session_id),
+    )
+
+    record_native_process_gone(
+        conn, session_id, {**DEAD_PROCESS, "native_exit_at": FIRST_SEEN_TEXT}
+    )
+    conn.commit()
+
+    row = _stored(conn, session_id)
+    assert row["native_process_gone_at"] == FIRST_SEEN_TEXT
+    assert current_native_process_observation(row) is None
+
+
 def test_a_late_first_report_is_stamped_when_the_native_exited(conn):
     """A report can arrive long after the exit it names.
 

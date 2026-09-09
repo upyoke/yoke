@@ -57,15 +57,24 @@ newer than every later resume: a session whose first native exited cleanly,
 which was then woken and worked for another ninety minutes, still read as a
 fresh death because the newest report was minutes old.
 
-The native's own exit time settles the stamp wherever the machine read one
-from the launch's diagnostic capture, because a first report can also arrive
-long after the exit it names and must not outrank a resume that happened in
-between. Failing that reading, the recorder compares the reported process —
-its pids and their start times — against what the row already carries, and a
-repeat about a process already recorded keeps the time its first observation
-earned. Only a report naming a different process stamps the moment it was
-seen, which is what keeps a genuine second death visible after a resume, and
-no stamp ever moves earlier than a death already recorded.
+So which death the row describes is decided before anything is written, by
+comparing the reported process — its pids and their start times — against
+what the row already carries.
+
+A report about the process already recorded is the same death said again.
+Its own exit time, once the machine has read one from the launch's diagnostic
+capture, *corrects* the stamp an earlier report had to guess from its own
+arrival; with no exit time it keeps the time that first report earned. The
+correction moves the stamp earlier on purpose: without it an inflated polling
+stamp outlives the very evidence that could repair it.
+
+A report about a different process is a different death, and the row
+describes one. The later death is the one that matters, so a report whose
+death predates what the row already carries is dropped whole — stamp and
+evidence together. Dropping only the stamp is the trap: a delayed report of
+an older native's clean exit would keep the newer timestamp while replacing
+the crash evidence under it, and a declared wait would then read the row as
+accounted for while the real failure went unnamed.
 
 **A declared wait accounts for a normal exit.** A headless worker's native
 exits when its turn ends, so a session that armed a merge-queue landing and

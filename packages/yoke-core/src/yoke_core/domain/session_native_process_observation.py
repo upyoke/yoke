@@ -120,24 +120,35 @@ def record_native_process_gone(
 ) -> dict[str, Any]:
     """Record a relay's verified-dead process evidence without committing.
 
-    The stamp belongs to the death rather than to the report.  The native's
-    own exit time settles it outright where the machine read one, because a
-    report can arrive long after the exit it names and a late first report
-    must not outrank a resume that happened in between.  Failing that, a
-    repeat about a process this session already has recorded keeps the time
-    its first observation earned, and only a report naming a different
-    process stamps the moment it was seen.  No stamp ever moves earlier than
-    a death already recorded.
+    The stamp belongs to the death rather than to the report, and which death
+    the row describes is decided before anything is written.
+
+    A report about the process already recorded is the same death said again.
+    Its own exit time, once the machine has read one, *corrects* the stamp an
+    earlier report had to guess from its own arrival; with no exit time it
+    keeps the time that first report earned.
+
+    A report about a different process is a different death, and the row
+    describes one.  The later death is the one that matters, so a report
+    whose death predates what the row already carries is dropped whole --
+    stamp and evidence together.  Keeping only its evidence would replace a
+    crash with some older native's clean exit, which a declared wait then
+    reads as accounted for.
     """
     stored_at, stored_evidence = _stored_observation(conn, session_id)
-    exited_at = parse_timestamp(evidence.get(NATIVE_EXIT_AT_KEY))
     identity = _process_identity(evidence)
-    if exited_at is not None:
-        stamp = max(timestamp(exited_at), stored_at)
-    elif stored_at and any(identity) and _process_identity(stored_evidence) == identity:
-        stamp = stored_at
+    exited_at = parse_timestamp(evidence.get(NATIVE_EXIT_AT_KEY))
+    death = timestamp(exited_at or observed_at or utc_now())
+    if any(identity) and _process_identity(stored_evidence) == identity:
+        stamp = death if exited_at is not None else (stored_at or death)
+    elif stored_at and death < stored_at:
+        return {
+            "state": NATIVE_PROCESS_GONE_STATE,
+            "observed_at": stored_at,
+            "evidence": stored_evidence,
+        }
     else:
-        stamp = max(timestamp(observed_at or utc_now()), stored_at)
+        stamp = death
     payload = json.dumps(dict(evidence), sort_keys=True, separators=(",", ":"))
     conn.execute(
         f"UPDATE harness_sessions SET {NATIVE_PROCESS_GONE_AT_COLUMN}=%s, "
