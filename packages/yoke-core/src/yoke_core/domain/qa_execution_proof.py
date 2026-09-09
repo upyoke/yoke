@@ -207,8 +207,54 @@ def qa_artifact_counts_by_run(
     return result
 
 
+def qa_artifact_rows_by_run(
+    conn: Any,
+    run_ids: set[int],
+) -> dict[int, list[dict[str, Any]]]:
+    """Return each run's readable artifact rows, not just how many there are.
+
+    A count tells a reader that evidence exists and gives them no way to look
+    at it — an item's verification panel reporting "2 screenshots passed" and
+    linking to a method contract is that gap. These are the same fields the
+    shared artifact reader needs to fetch and draw the bytes.
+    """
+    if not run_ids:
+        return {}
+    from yoke_core.domain.schema_common import _column_exists
+
+    # A database that has not converged yet carries a narrower artifact table.
+    # An item page that refused to render because the evidence columns are not
+    # there yet would fail the whole read over the one part of it that is
+    # optional, so absent columns are reported as absent instead.
+    optional = [
+        name
+        for name in ("content_type", "artifact_handle", "metadata")
+        if _column_exists(conn, "qa_artifacts", name)
+    ]
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    placeholders = ", ".join(marker for _ in run_ids)
+    selected = ", ".join(["id", "qa_run_id", "artifact_type", *optional])
+    rows = query_rows(
+        conn,
+        f"SELECT {selected} FROM qa_artifacts "
+        f"WHERE qa_run_id IN ({placeholders}) ORDER BY qa_run_id, id",
+        tuple(sorted(run_ids)),
+    )
+    result: dict[int, list[dict[str, Any]]] = {}
+    for row in rows:
+        result.setdefault(int(row["qa_run_id"]), []).append(
+            {
+                "id": int(row["id"]),
+                "artifact_type": str(row["artifact_type"]),
+                **{name: _row_value(row, name) for name in optional},
+            }
+        )
+    return result
+
+
 __all__ = [
     "qa_artifact_counts_by_run",
+    "qa_artifact_rows_by_run",
     "qa_precondition_reason",
     "qa_proof_summary",
     "qa_run_outcome",

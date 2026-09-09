@@ -18,7 +18,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.decision_request_authority import authority_reason
+from yoke_core.domain.decision_request_authority import (
+    authority_reason,
+    request_deciders,
+)
 from yoke_core.domain.decision_request_contract import (
     DEPLOYMENT_STAGE_APPROVAL,
     QA_NEEDS_REVIEW,
@@ -45,10 +48,7 @@ def _stage_approval_gates(
         f"AND status = 'pending' AND ({clauses})",
         (DEPLOYMENT_STAGE_APPROVAL, *(f"{run_id}:%" for run_id in run_ids)),
     ).fetchall()
-    return [
-        (str(row["subject_key"]).rsplit(":", 1)[0], int(row["id"]))
-        for row in rows
-    ]
+    return [(str(row["subject_key"]).rsplit(":", 1)[0], int(row["id"])) for row in rows]
 
 
 def _qa_review_gates(
@@ -70,9 +70,7 @@ def _qa_review_gates(
         f"AND qr.deployment_run_id IN ({markers})",
         (QA_NEEDS_REVIEW, *run_ids),
     ).fetchall()
-    return [
-        (str(row["deployment_run_id"]), int(row["id"])) for row in rows
-    ]
+    return [(str(row["deployment_run_id"]), int(row["id"])) for row in rows]
 
 
 def run_gates(
@@ -104,9 +102,7 @@ def run_gates(
             else None
         )
         decision = (
-            actor_decision(conn, request_id, actor_id)
-            if actor_id is not None
-            else None
+            actor_decision(conn, request_id, actor_id) if actor_id is not None else None
         )
         result.setdefault(run_id, []).append(
             {
@@ -118,6 +114,7 @@ def run_gates(
                 "requested_at": request.get("created_at"),
                 "can_act": reason is not None and decision is None,
                 "authority_reason": reason,
+                "deciders": request_deciders(conn, request_id, actor_id),
                 "your_decision": decision,
                 "decided_by_you": decision is not None,
             }

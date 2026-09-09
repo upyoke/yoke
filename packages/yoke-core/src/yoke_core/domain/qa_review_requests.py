@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
@@ -13,12 +14,25 @@ from yoke_core.domain.decision_requests import (
     create_decision_request,
     list_subject_requests,
 )
-from yoke_core.domain.qa_review_requirement_facts import requirement_facts
+from yoke_core.domain.qa_merging_identity import recorded_head_sha
+from yoke_core.domain.qa_review_requirement_facts import (
+    is_agent_verdict,
+    requirement_facts,
+    review_subject,
+)
 from yoke_core.domain.schema_common import _table_exists
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _artifact_metadata(raw: Any) -> dict[str, Any]:
+    try:
+        value = json.loads(str(raw or "{}"))
+    except (TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 @dataclass(frozen=True)
@@ -97,7 +111,9 @@ def requirement_awaits_human_review(
     performed_by = latest["performed_by"] if hasattr(latest, "keys") else latest[0]
     verdict = latest["verdict"] if hasattr(latest, "keys") else latest[1]
     verdict_reason = latest["verdict_reason"] if hasattr(latest, "keys") else latest[2]
-    if str(performed_by or "") != "agent" or str(verdict or "") != "undetermined":
+    if str(verdict or "") != "undetermined" or not is_agent_verdict(
+        conn, int(requirement_id), performed_by
+    ):
         return None
     request = next(
         (
@@ -148,31 +164,40 @@ def ensure_qa_review_request(
     project_id = int(requirement["project_id"])
     p = _p(conn)
     reason_row = conn.execute(
-        f"SELECT verdict_reason FROM qa_runs WHERE id={p} AND qa_requirement_id={p}",
+        "SELECT verdict_reason, raw_result FROM qa_runs "
+        f"WHERE id={p} AND qa_requirement_id={p}",
         (int(run_id), int(requirement_id)),
     ).fetchone()
     verdict_reason = str(reason_row[0] if reason_row else "").strip()
     if not verdict_reason:
         raise ValueError("undetermined QA run is missing its required reason")
+    # The exact tree the run judged. A reviewer looking at a screenshot has to
+    # know which revision produced it, or they are approving a picture of some
+    # build. Runs that record no code identity say so rather than guess.
+    code_revision = recorded_head_sha(reason_row[1] if reason_row else None) or None
     # The handle travels with the projection because the gate surfaces draw
     # each artifact through the same reader QA detail uses: it names the
     # file and says up front when the bytes only exist on the capture
     # machine, rather than offering a control that can only fail.
     artifact_rows = (
         conn.execute(
-            "SELECT id, artifact_type, content_type, artifact_handle "
+            "SELECT id, artifact_type, content_type, artifact_handle, metadata "
             f"FROM qa_artifacts WHERE qa_run_id={p} ORDER BY id",
             (int(run_id),),
         ).fetchall()
         if _table_exists(conn, "qa_artifacts")
         else []
     )
+    # The capture metadata travels too: it names the route, step and viewport
+    # the screenshot was taken at, which is the caption a reviewer needs to
+    # tell one screenshot of the same page from another.
     artifacts = [
         {
             "artifact_id": int(row[0]),
             "artifact_type": str(row[1]),
             "content_type": row[2],
             "artifact_handle": row[3],
+            "metadata": _artifact_metadata(row[4]),
         }
         for row in artifact_rows
     ]
@@ -197,6 +222,8 @@ def ensure_qa_review_request(
         subject_context={
             "requirement_id": int(requirement_id),
             "run_id": int(run_id),
+            "subject": review_subject(requirement),
+            "code_revision": code_revision,
             "plan_id": (
                 int(requirement["plan_id"])
                 if requirement.get("plan_id") is not None
@@ -229,7 +256,7 @@ def maybe_ensure_qa_review_request(
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
 ) -> Optional[dict[str, Any]]:
-    """Produce human work only for an agent's undetermined verdict."""
+    """Produce human work only for an agent-judged undetermined verdict."""
     if verdict != "undetermined":
         return None
     p = _p(conn)
@@ -244,7 +271,7 @@ def maybe_ensure_qa_review_request(
         if run is not None
         else None
     )
-    if str(performed_by or "") != "agent":
+    if not is_agent_verdict(conn, int(requirement_id), performed_by):
         return None
     request, _ = ensure_qa_review_request(
         conn,

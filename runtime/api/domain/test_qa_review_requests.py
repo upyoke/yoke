@@ -6,113 +6,11 @@ from yoke_core.domain.approval_policy import ApprovalPolicy
 from yoke_core.domain.decision_request_resolution import (
     resolve_decision_request,
 )
-from yoke_core.domain.decision_request_schema import (
-    create_decision_request_tables,
-)
 from yoke_core.domain.qa_review_requests import (
     ensure_qa_review_request,
     requirement_awaits_human_review,
 )
-from yoke_core.domain.qa_catalog_schema import (
-    create_qa_catalog_tables,
-    seed_builtin_qa_methods,
-)
-
-
-def _seed_undetermined_review(test_db, *, item_id, plan_slug, decider_roles):
-    """Seed one blocking plan case whose agent run came back undetermined.
-
-    Returns the seeded identities, including one distinct role-holding actor
-    per entry in *decider_roles* so a caller can exercise a policy that needs
-    more than one person.
-    """
-    create_decision_request_tables(test_db)
-    create_qa_catalog_tables(test_db)
-    seed_builtin_qa_methods(test_db)
-    originator = test_db.execute(
-        "SELECT id FROM actors ORDER BY id LIMIT 1"
-    ).fetchone()[0]
-    deciders = []
-    for offset, role_name in enumerate(decider_roles):
-        role = test_db.execute(
-            "INSERT INTO roles (id, name, description, created_at) "
-            "VALUES (%s, %s, 'Seeded', '2026-07-26T00:00:00Z') "
-            "ON CONFLICT(name) DO UPDATE SET description=EXCLUDED.description "
-            "RETURNING id",
-            (9400 + offset, role_name),
-        ).fetchone()[0]
-        actor = test_db.execute(
-            "INSERT INTO actors (id, kind, created_at) "
-            "VALUES (%s, 'human', '2026-07-26T00:00:00Z') "
-            "ON CONFLICT (id) DO UPDATE SET kind='human' RETURNING id",
-            (item_id * 10 + offset,),
-        ).fetchone()[0]
-        test_db.execute(
-            "INSERT INTO actor_project_roles "
-            "(actor_id, project_id, role_id, granted_at) "
-            "VALUES (%s, 1, %s, '2026-07-26T00:00:00Z') "
-            "ON CONFLICT DO NOTHING",
-            (actor, role),
-        )
-        deciders.append(int(actor))
-    owner = deciders[0]
-    workflow = test_db.execute(
-        "SELECT current_version_id FROM workflows WHERE id='issue'"
-    ).fetchone()[0]
-    test_db.execute(
-        "INSERT INTO items "
-        "(id, title, status, priority, created_at, updated_at, source, owner, "
-        "project_id, project_sequence, workflow_id, workflow_version_id) "
-        "VALUES (%s, 'Review QA evidence', 'implementing', 'medium', "
-        "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z', %s, %s, "
-        "1, %s, 'issue', %s)",
-        (item_id, str(originator), str(owner), item_id, workflow),
-    )
-    plan_id = test_db.execute(
-        "INSERT INTO qa_plans "
-        "(project_id, slug, name, created_at, updated_at) "
-        "VALUES (1, %s, 'Review proof', "
-        "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z') "
-        "RETURNING id",
-        (plan_slug,),
-    ).fetchone()[0]
-    requirement_id = test_db.execute(
-        "INSERT INTO qa_requirements "
-        "(item_id, plan_id, plan_case_key, method_id, method_name, "
-        "expected_outcome, runner_id, capability_requirements, verdict_path, qa_kind, "
-        "qa_phase, blocking_mode, created_at) "
-        "VALUES (%s, %s, 'checkout-flow', 'browser-inspection', "
-        "'Browser inspection', 'The saved state is visible.', "
-        "'browser_substrate', '[\"browser-control\"]', "
-        "'agent', 'plan_case', 'verification', 'blocking', "
-        "'2026-07-26T00:00:00Z') RETURNING id",
-        (item_id, plan_id),
-    ).fetchone()[0]
-    run_id = test_db.execute(
-        "INSERT INTO qa_runs "
-        "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
-        "started_at, completed_at, created_at) "
-        "VALUES (%s, 'agent', 'manual_acceptance', "
-        "'undetermined', 'The screenshot does not show the saved state.', "
-        "'2026-07-26T00:00:00Z', "
-        "'2026-07-26T00:00:00Z', '2026-07-26T00:00:00Z') RETURNING id",
-        (requirement_id,),
-    ).fetchone()[0]
-    artifact_id = test_db.execute(
-        "INSERT INTO qa_artifacts "
-        "(qa_run_id, artifact_type, artifact_handle, created_at) "
-        "VALUES (%s, 'screenshot', %s, '2026-07-26T00:00:00Z') RETURNING id",
-        (run_id, '{"backend":"local","path":"/tmp/review.png"}'),
-    ).fetchone()[0]
-    test_db.commit()
-    return {
-        "originator": int(originator),
-        "deciders": deciders,
-        "plan_id": int(plan_id),
-        "requirement_id": int(requirement_id),
-        "run_id": int(run_id),
-        "artifact_id": int(artifact_id),
-    }
+from runtime.api.domain.qa_review_seed import _seed_undetermined_review
 
 
 def test_undetermined_review_request_resolves_to_human_verdict(test_db):
@@ -137,10 +35,30 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
     )
     assert created is True
     assert request is not None
+    item_ref = test_db.execute(
+        "SELECT p.public_item_prefix || '-' || i.project_sequence "
+        "FROM items i JOIN projects p ON p.id = i.project_id WHERE i.id = %s",
+        (9501,),
+    ).fetchone()[0]
     assert request["subject_context"] == {
         "requirement_id": int(requirement_id),
         "run_id": int(run_id),
         "plan_id": int(plan_id),
+        # What the review is a review OF. An item's verification and a
+        # deployment run's post-release check are different decisions, and a
+        # reviewer told neither cannot tell which one they are answering.
+        "subject": {
+            "kind": "item",
+            "item_id": 9501,
+            "item_ref": item_ref,
+            "item_title": "Review QA evidence",
+            "deployment_run_id": None,
+            "target_environment": None,
+            "qa_phase": "verification",
+        },
+        # This run recorded no code identity, so the card says so rather than
+        # implying the evidence describes the current tree.
+        "code_revision": None,
         "qa_kind": "plan_case",
         "plan_name": "Review proof",
         "case_name": "checkout-flow",
@@ -157,6 +75,10 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
                 # say up front that these bytes only exist on the machine that
                 # captured them, exactly as QA detail does.
                 "artifact_handle": '{"backend":"local","path":"/tmp/review.png"}',
+                # The capture's own caption material — route, step, viewport.
+                # This run recorded none, so the reader gets no caption
+                # rather than an invented one.
+                "metadata": {},
             }
         ],
         "artifact_count": 1,

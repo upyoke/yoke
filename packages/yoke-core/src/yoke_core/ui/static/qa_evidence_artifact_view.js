@@ -29,8 +29,40 @@ export function normalizeArtifact(raw, requirementId = null) {
     artifact_type: String(raw.artifact_type || "artifact"),
     content_type: raw.content_type ?? null,
     artifact_handle: raw.artifact_handle ?? null,
+    metadata: raw.metadata ?? null,
     requirement_id: Number(raw.requirement_id ?? requirementId),
   };
+}
+
+function artifactMetadata(artifact) {
+  const raw = artifact.metadata;
+  if (!raw) return null;
+  if (typeof raw === "object") return raw;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+// The caption a capture already recorded about itself. Four screenshots of
+// one page at four steps are the same filename to a reader; the route, step
+// and viewport are what tell them apart, and the capture wrote them down.
+export function artifactCaption(artifact) {
+  const meta = artifactMetadata(artifact);
+  if (!meta) return "";
+  const viewport = meta.viewport
+    ? `${meta.viewport.width}×${meta.viewport.height}`
+    : "";
+  return [
+    meta.route,
+    meta.step_index === undefined || meta.step_index === null
+      ? ""
+      : `step ${meta.step_index}`,
+    viewport,
+    meta.browser,
+  ].filter(Boolean).join(" · ");
 }
 
 export function artifactHandle(artifact) {
@@ -177,6 +209,10 @@ export function artifactEvidenceCard(context, raw, requirementId = null) {
   copy.appendChild(el(
     documentNode, "small", null, artifactStorage(artifact, hostedLocal),
   ));
+  const caption = artifactCaption(artifact);
+  if (caption) {
+    copy.appendChild(el(documentNode, "small", "qa-evidence-caption", caption));
+  }
   if (hostedLocal) {
     card.appendChild(copy);
     card.appendChild(el(
@@ -245,6 +281,7 @@ export function artifactEvidenceCard(context, raw, requirementId = null) {
 }
 
 export const qaEvidenceArtifactView = {
+  artifactCaption,
   artifactEvidenceCard,
   artifactHandle,
   artifactLabel,

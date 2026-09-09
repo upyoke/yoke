@@ -45,7 +45,7 @@ test("Inbox renders the two content types and their served counts", async () => 
       .filter((node) => node.tagName === "SPAN")
       .map((node) => node.textContent),
     [
-      "dash@3 · approval_defaults.reviewing-implementation",
+      "Approve the reviewing-implementation transition",
       " · ",
       "requested ",
       " · ",
@@ -60,11 +60,13 @@ test("Inbox renders the two content types and their served counts", async () => 
     byClass(firstRow, "inbox-action").map((node) => node.textContent),
     ["Reject", "Approve"],
   );
-  assert.equal(firstRow.attributes.get("role"), "link");
-  firstRow.dispatchEvent(new Event("click"));
-  assert.equal(
-    main.ownerDocument.defaultView.location.hash,
-    "#/items/1907?project=10",
+  // The row navigates nowhere: its text is selectable, and only the named
+  // identifiers are links.
+  assert.equal(firstRow.attributes.get("role"), undefined);
+  assert.equal(byClass(firstRow, "inbox-row-title")[0].tagName, "DIV");
+  assert.deepEqual(
+    byClass(firstRow, "inbox-row-link").map((node) => [node.textContent, node.href]),
+    [["YOK-1907", "#/items/1907?project=10"]],
   );
 });
 

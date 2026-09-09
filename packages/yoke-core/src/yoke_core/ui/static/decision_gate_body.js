@@ -14,33 +14,47 @@
 // stopped it -- so the parts each surface needs are exported separately.
 
 import { el } from "./universe_view_support.js";
+import { block, MAX_LISTED, overflow, row } from "./gate_block_layout.js";
+import { decisionEligibility, decisionOrigin } from "./inbox_presentation.js";
+import {
+  appendDeploymentBody,
+  releaseContents,
+} from "./deployment_release_contents.js";
 import { artifactEvidenceCard } from "./qa_evidence_artifact_view.js";
 
-const MAX_LISTED = 6;
-
-function block(documentNode, parent, className, heading) {
-  const node = el(documentNode, "div", className);
-  if (heading) node.appendChild(el(documentNode, "div", "gate-block-head", heading));
-  parent.appendChild(node);
-  return node;
-}
-
-function row(documentNode, parent, code, copy) {
-  const line = el(documentNode, "div", "gate-block-row");
-  line.appendChild(el(documentNode, "code", "gate-block-code", code));
-  if (copy) line.appendChild(el(documentNode, "span", "gate-block-copy", copy));
-  parent.appendChild(line);
-  return line;
-}
-
-function overflow(documentNode, parent, total, noun) {
-  if (total <= MAX_LISTED) return;
-  parent.appendChild(el(
-    documentNode,
-    "div",
-    "gate-block-more",
-    `+${total - MAX_LISTED} more ${noun}`,
-  ));
+// What this run carries, and what resolving THIS stage does to it. Not every
+// gated stage precedes a deploy: a sign-off at the end of a flow is answered
+// after the release has already run, so the effect is read from the stage's
+// own position rather than assumed.
+function deploymentProse(facts) {
+  const contents = releaseContents(facts);
+  const target = facts.shipping?.target_environment;
+  const remaining = facts.stage_position?.remaining;
+  const carries = contents.source === "unavailable"
+    ? `This run's contents could not be determined (${contents.reason}), so `
+      + `what it carries${target ? ` to ${target}` : ""} is whatever commit ${
+        facts.shipping?.release_lineage || "its lineage names"
+      } contains.`
+    : contents.count
+      ? `This run carries ${contents.count} ${
+        contents.count === 1 ? contents.noun : `${contents.noun}s`
+      }${target ? ` to ${target}` : ""}.`
+      : `This run carries no new ${contents.noun}s${
+        target ? ` to ${target}` : ""
+      }.`;
+  // The run is suspended AT this stage, so whatever the flow names after it
+  // is exactly what approving lets the pipeline continue into. Nothing after
+  // it means approving completes the run rather than starting a deploy.
+  const effect = !Array.isArray(remaining)
+    ? "Approving advances the pipeline, which is suspended at this stage "
+      + "until it resolves."
+    : remaining.length
+      ? `The pipeline is suspended at ${facts.stage || "this stage"} and `
+        + `continues into ${remaining.join(", ")} once you resolve it.`
+      : `${facts.stage || "This stage"} is the last stage in this flow, so `
+        + "every earlier stage has already run: approving completes the run "
+        + "rather than starting another deploy.";
+  return `${carries} ${effect}`;
 }
 
 // The prose that answers "what am I actually saying yes to". Each kind names
@@ -49,36 +63,68 @@ function overflow(documentNode, parent, total, noun) {
 export function approvalProse(row_) {
   const facts = row_.subject_context || {};
   if (row_.kind === "deployment_stage_approval") {
-    const count = Number(facts.batch?.item_count || 0);
-    const target = facts.shipping?.target_environment;
-    const advance = "Approving advances the pipeline, which is suspended at "
-      + "this stage until it resolves.";
-    // A run with no recorded items is still shipping something -- bare
-    // commits nobody filed work for. Saying it "releases 0 items" reads as
-    // if approving were free, which is the opposite of what it means.
-    if (!count) {
-      return `This run carries no recorded items, so what ships${
-        target ? ` to ${target}` : ""
-      } is whatever its commits contain. ${advance}`;
-    }
-    return `This run releases ${count} ${count === 1 ? "item" : "items"} `
-      + `together${target ? ` to ${target}` : ""}. ${advance}`;
+    return deploymentProse(facts);
   }
   if (row_.kind === "lifecycle_transition_approval") {
+    // An item reaching its last stage is a record of state, not a release.
+    // Reading "approve the done transition" as permission to ship is the
+    // confusion this sentence exists to remove: no deployment flow consults
+    // this decision, and approving it puts nothing into any environment.
     return `Moving ${facts.item_ref || "this item"} from ${
       facts.from_stage || "its current stage"
-    } to ${facts.to_stage || "the next stage"}. The item's pinned workflow `
-      + "version declares this transition gated; nothing advances until you "
-      + "decide.";
+    } to ${facts.to_stage || "the next stage"}. This records the item's `
+      + "state only — it deploys nothing and releases nothing to any "
+      + "environment.";
   }
   if (row_.kind === "qa_needs_review") {
-    const requirement = facts.requirement_id;
-    return "The agent could not call this pass or fail, so the verdict is "
-      + `yours. Approving records a pass against requirement ${
-        requirement ?? "under review"
+    const subject = facts.subject || {};
+    const requirement = facts.requirement_id ?? "under review";
+    const verdict = "The agent could not call this pass or fail, so the "
+      + `verdict is yours. Approving records a pass against requirement ${
+        requirement
       }, attributed to you.`;
+    // `qa_phase` says how the check was DECLARED, never that a release has
+    // happened: a run still waiting at its approval stage already carries
+    // post-deploy requirements. So the sentence names what was checked and
+    // what a verdict can reach, and claims nothing about what has shipped.
+    if (subject.kind === "deployment_run") {
+      return `${verdict} This check is declared ${
+        subject.qa_phase || "on this run"
+      } against ${subject.deployment_run_id || "the run"}: a verdict here can `
+        + "gate that run's completion, and cannot undo code the run has "
+        + "already deployed.";
+    }
+    return `${verdict}${
+      subject.item_ref ? ` It was checked against ${subject.item_ref}.` : ""
+    }`;
   }
   return "";
+}
+
+// Why this ask exists, why it reached this reader, and who else could end it.
+// Every line is read from a persisted fact -- the policy the gate recorded as
+// its origin, live role membership, and the request's own approval mode -- so
+// the block never guesses at authority it cannot see.
+export function appendWhyAsked(context, host, row_) {
+  const documentNode = context.document;
+  const origin = decisionOrigin(row_);
+  const eligibility = decisionEligibility(row_);
+  const lines = [
+    origin,
+    eligibility.you,
+    eligibility.others.length
+      ? `Also able to decide: ${eligibility.others.join(", ")}.`
+      : "",
+    eligibility.settles,
+  ].filter(Boolean);
+  if (!lines.length) return null;
+  const asked = el(documentNode, "div", "gate-why");
+  asked.appendChild(el(documentNode, "span", "gate-what-label", "Why asked"));
+  for (const line of lines) {
+    asked.appendChild(el(documentNode, "p", "gate-why-copy", line));
+  }
+  host.appendChild(asked);
+  return asked;
 }
 
 // The evidence behind an undetermined verdict, shown rather than counted.
@@ -123,8 +169,46 @@ export function appendEvidence(context, host, facts) {
   return evidence;
 }
 
+// Exactly what the evidence is evidence OF. A screenshot with no subject,
+// run and revision beside it is a picture of some build: the reviewer cannot
+// tell which item it came from or whether it is still current.
+function appendQaSubject(documentNode, host, facts) {
+  const subject = facts.subject || {};
+  const checked = block(documentNode, host, "gate-block", "What was checked");
+  if (subject.kind === "deployment_run" && subject.deployment_run_id) {
+    row(
+      documentNode,
+      checked,
+      String(subject.deployment_run_id),
+      subject.target_environment
+        ? `released to ${subject.target_environment}`
+        : "",
+    );
+  } else if (subject.item_ref) {
+    row(
+      documentNode,
+      checked,
+      String(subject.item_ref),
+      String(subject.item_title || ""),
+    );
+  }
+  row(documentNode, checked, `run ${facts.run_id}`, subject.qa_phase || "");
+  row(
+    documentNode,
+    checked,
+    facts.code_revision
+      ? String(facts.code_revision).slice(0, 12)
+      : "revision not recorded",
+    facts.code_revision
+      ? "revision under test"
+      : "this run recorded no code identity",
+  );
+  return checked;
+}
+
 function appendQaBody(context, host, facts) {
   const documentNode = context.document;
+  appendQaSubject(documentNode, host, facts);
   if (facts.expected_outcome) {
     const expected = block(
       documentNode, host, "gate-block", "Expected outcome",
@@ -134,7 +218,9 @@ function appendQaBody(context, host, facts) {
     ));
   }
   if (facts.verdict_reason) {
-    const reason = block(documentNode, host, "gate-block", "Why the agent could not decide");
+    const reason = block(
+      documentNode, host, "gate-block", "Why the agent could not decide",
+    );
     reason.appendChild(el(
       documentNode, "q", "gate-verdict-reason", String(facts.verdict_reason),
     ));
@@ -172,48 +258,6 @@ function appendLifecycleBody(context, host, facts) {
   }
 }
 
-function appendDeploymentBody(context, host, facts) {
-  const documentNode = context.document;
-  const batch = facts.batch || {};
-  const items = Array.isArray(batch.items) ? batch.items : [];
-  const count = Number(batch.item_count || items.length);
-  // The payload of a deployment approval is the items, not the run id: the
-  // approver is blessing N pieces of work, and a run identifier alone never
-  // told them what they were shipping.
-  const release = block(
-    documentNode,
-    host,
-    "gate-block",
-    `In this release · ${count} item${count === 1 ? "" : "s"}`,
-  );
-  for (const item of items.slice(0, MAX_LISTED)) {
-    row(
-      documentNode,
-      release,
-      String(item.item_ref || `item ${item.item_id}`),
-      String(item.title || ""),
-    );
-  }
-  overflow(documentNode, release, items.length, "items");
-  if (!items.length) {
-    release.appendChild(el(
-      documentNode,
-      "div",
-      "gate-block-copy",
-      "This run carries no recorded items.",
-    ));
-  }
-  // The lineage, and only the lineage: the count and the destination are
-  // already the first thing the approver reads, and repeating them under
-  // the item list is how "0 items" ends up asserted twice on one card.
-  const lineage = (facts.shipping || {}).release_lineage;
-  if (lineage) {
-    release.appendChild(el(
-      documentNode, "div", "gate-block-more", `release ${lineage}`,
-    ));
-  }
-}
-
 // Machine approvals draw no body here on purpose: what an approver needs
 // beside that decision — the machine, its one-time code, who asked — is the
 // Machines page the row already links to, and the subtitle carries it.
@@ -229,6 +273,7 @@ export function appendGateBody(context, wrap, row_) {
   const prose = approvalProse(row_);
   if (!builder && !prose) return null;
   const host = el(documentNode, "div", "gate-body");
+  appendWhyAsked(context, host, row_);
   if (prose) {
     const what = el(documentNode, "div", "gate-what");
     what.appendChild(el(
@@ -237,9 +282,14 @@ export function appendGateBody(context, wrap, row_) {
     what.appendChild(el(documentNode, "span", "gate-what-copy", prose));
     host.appendChild(what);
   }
-  if (builder) builder(context, host, row_.subject_context || {});
+  if (builder) builder(context, host, row_.subject_context || {}, row_.project_id);
   wrap.appendChild(host);
   return host;
 }
 
-export const decisionGateBody = { appendEvidence, appendGateBody, approvalProse };
+export const decisionGateBody = {
+  appendEvidence,
+  appendGateBody,
+  appendWhyAsked,
+  approvalProse,
+};

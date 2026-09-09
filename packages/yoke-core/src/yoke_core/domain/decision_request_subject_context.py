@@ -100,6 +100,38 @@ def _required(kind: str, context: Mapping[str, Any], fields: set[str]) -> None:
         _fail(kind, "is missing required facts: " + ", ".join(missing))
 
 
+#: What a QA review is a review OF. The three homes ask different questions --
+#: an item's verification decides whether a branch is sound, a deployment run's
+#: post-release check records what a shipped release did -- so the surface that
+#: renders the decision must be told which one it is holding.
+REVIEW_SUBJECT_KINDS = ("item", "deployment_run", "plan")
+
+
+def _validate_review_subject(context: Mapping[str, Any]) -> None:
+    kind = QA_NEEDS_REVIEW
+    subject = _mapping(kind, context["subject"], "subject")
+    _required(
+        kind,
+        subject,
+        {
+            "kind",
+            "item_id",
+            "item_ref",
+            "item_title",
+            "deployment_run_id",
+            "target_environment",
+            "qa_phase",
+        },
+    )
+    if subject["kind"] not in REVIEW_SUBJECT_KINDS:
+        _fail(kind, f"has unknown subject kind {str(subject['kind'])!r}")
+    _text(kind, subject["qa_phase"], "subject.qa_phase")
+    if subject["kind"] == "item" and subject["item_id"] is None:
+        _fail(kind, "requires subject.item_id for an item review")
+    if subject["kind"] == "deployment_run" and not subject["deployment_run_id"]:
+        _fail(kind, "requires subject.deployment_run_id for a deployment review")
+
+
 def _validate_qa(context: Mapping[str, Any]) -> None:
     kind = QA_NEEDS_REVIEW
     _required(
@@ -108,6 +140,8 @@ def _validate_qa(context: Mapping[str, Any]) -> None:
         {
             "requirement_id",
             "run_id",
+            "subject",
+            "code_revision",
             "expected_outcome",
             "verdict_reason",
             "artifacts",
@@ -118,6 +152,9 @@ def _validate_qa(context: Mapping[str, Any]) -> None:
     )
     _positive_int(kind, context["requirement_id"], "requirement_id")
     _positive_int(kind, context["run_id"], "run_id")
+    _validate_review_subject(context)
+    if context["code_revision"] is not None:
+        _text(kind, context["code_revision"], "code_revision")
     _text(kind, context["expected_outcome"], "expected_outcome")
     _text(kind, context["verdict_reason"], "verdict_reason")
     _text(kind, context["evidence_summary"], "evidence_summary")
@@ -176,9 +213,53 @@ def _validate_lifecycle(context: Mapping[str, Any]) -> None:
     _text(kind, source["entry"], "approval_source.entry")
 
 
+def _validate_carried(kind: str, value: Any) -> None:
+    """A new request always answers what the release carries, even negatively.
+
+    Membership answers which items the pipeline owns; an environment run owns
+    none while still shipping every change merged since the last release. The
+    derived answer is required so no card can imply an empty release, and its
+    unavailable form is a named reason rather than an absence.
+    """
+    carried = _mapping(kind, value, "carried")
+    _required(kind, carried, {"derivation", "items", "commits"})
+    derivation = _mapping(kind, carried["derivation"], "carried.derivation")
+    # `contents_known` separates "this release carries nothing" from "the
+    # contents could not be determined", which a reader must never conflate.
+    _required(kind, derivation, {"status", "contents_known", "reason", "recovery"})
+    for field in ("status", "reason", "recovery"):
+        _text(kind, derivation[field], f"carried.derivation.{field}")
+    for index, raw in enumerate(_sequence(kind, carried["items"], "carried.items")):
+        entry = _mapping(kind, raw, f"carried.items[{index}]")
+        _required(kind, entry, {"item_id", "ref", "commit_shas"})
+        _positive_int(kind, entry["item_id"], f"carried.items[{index}].item_id")
+        _text(kind, entry["ref"], f"carried.items[{index}].ref")
+
+
 def _validate_deployment(context: Mapping[str, Any]) -> None:
     kind = DEPLOYMENT_STAGE_APPROVAL
-    _required(kind, context, {"run_id", "flow", "stage", "batch", "shipping"})
+    _required(
+        kind,
+        context,
+        {
+            "run_id",
+            "flow",
+            "stage",
+            "stage_position",
+            "batch",
+            "shipping",
+            "carried",
+        },
+    )
+    _validate_carried(kind, context["carried"])
+    # Where the gate sits in its flow, so a sign-off after the release is not
+    # described as though it were about to deploy.
+    position = _mapping(kind, context["stage_position"], "stage_position")
+    _required(kind, position, {"index", "total", "remaining"})
+    for index, value_ in enumerate(
+        _sequence(kind, position["remaining"], "stage_position.remaining")
+    ):
+        _text(kind, value_, f"stage_position.remaining[{index}]")
     _text(kind, context["run_id"], "run_id")
     _text(kind, context["stage"], "stage")
     flow = _mapping(kind, context["flow"], "flow")
@@ -227,6 +308,7 @@ def validate_subject_context(
 __all__ = [
     "APPROVAL_SOURCE_ITEM_POSTURE",
     "APPROVAL_SOURCE_WORKFLOW_DEFAULT",
+    "REVIEW_SUBJECT_KINDS",
     "DecisionRequestSubjectContextError",
     "SUBJECT_CONTEXT_INVALID",
     "SUBJECT_CONTEXT_RECOVERY",

@@ -1,66 +1,8 @@
-import { attachTooltip } from "./universe_tooltip.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { relativeTime } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
+import { qaOutcome, requirementCard } from "./item_view_requirement_card.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
-function qaOutcome(row) {
-  if (row.waived_at) return "waived";
-  const outcome = String(
-    row.outcome ||
-    row.case_outcome ||
-    row.verdict ||
-    row.execution_status ||
-    "queued",
-  ).toLowerCase().replaceAll("_", " ");
-  if (outcome === "pass") return "passed";
-  if (["fail", "error"].includes(outcome)) return "failed";
-  if (outcome === "undetermined") return "needs review";
-  return outcome;
-}
-function qaOutcomePill(documentNode, row, workflowId) {
-  const outcome = qaOutcome(row);
-  let label = workflowId === "dash" && outcome === "needs review"
-    ? "review"
-    : outcome;
-  if (row.capture_degraded_reason && outcome === "passed") {
-    label = "passed · degraded";
-  }
-  const pill = statePill(documentNode, outcome, label);
-  if (pill && row.capture_degraded_reason) {
-    attachTooltip(documentNode, pill, String(row.capture_degraded_reason));
-  }
-  return pill;
-}
-function currentProof(row) {
-  let summary = String(row.proof_summary || "").trim();
-  if (!summary) {
-    summary = [
-      row.lease_summary,
-      row.evidence_summary,
-    ].map((part) => String(part || "").trim()).filter(Boolean).join(" · ");
-  }
-  const degradedReason = String(row.capture_degraded_reason || "").trim();
-  if (degradedReason) {
-    const sharedSummary = `text capture + reason — ${degradedReason}`;
-    if (summary === sharedSummary) {
-      summary = `text capture + reason; ${degradedReason}`;
-    } else if (!summary.includes(degradedReason)) {
-      summary = summary
-        ? `${summary}; ${degradedReason}`
-        : `capture degraded; ${degradedReason}`;
-    }
-  }
-  if (summary) return summary;
-  if (row.run_id === null || row.run_id === undefined) return "not run";
-  if (qaOutcome(row) === "blocked on precondition") {
-    const baseline = String(row.host_baseline || "precondition")
-      .replaceAll("_", " ");
-    const reason = String(row.precondition_reason || "blocked")
-      .replaceAll("_", " ");
-    return `baseline ${baseline} ${reason} — case did not run`;
-  }
-  return "run recorded";
-}
 function derivedPlanAttachments(rows) {
   const plans = new Map();
   for (const row of rows) {
@@ -148,80 +90,6 @@ function planCard(documentNode, item, attachment, workflowId) {
   plan.appendChild(el(documentNode, "span", "item-proof-arrow", "plan →"));
   return plan;
 }
-function proofMethodIcon(row) {
-  const method = String(
-    row.method_id || row.method_name || row.qa_kind || "",
-  ).toLowerCase();
-  if (method.includes("terminal") && method.includes("inspection")) return "⌘";
-  if (method.includes("terminal")) return "⌨";
-  if (method.includes("machine") && method.includes("state")) return "≡";
-  if (method.includes("browser") && method.includes("inspection")) return "◎";
-  if (method.includes("browser")) return "◉";
-  if (method.includes("command")) return "⌥";
-  return "✓";
-}
-
-function requirementCard(documentNode, item, row, workflowId) {
-  const linked = ["blitz", "dash"].includes(workflowId);
-  const card = el(
-    documentNode,
-    "a",
-    `item-proof-row${linked ? " item-proof-link" : ""}`,
-  );
-  card.href = linked && row.method_id
-    ? buildUniverseRoute(
-      "qa-methods", String(item.project.id), String(row.method_id),
-    )
-    : buildUniverseRoute("qa-activity", String(item.project.id));
-  if (linked) {
-    card.appendChild(el(
-      documentNode, "span", "item-proof-icon", proofMethodIcon(row),
-    ));
-  }
-  const copy = el(documentNode, "div", "item-proof-copy");
-  const heading = el(documentNode, "div", "item-proof-heading");
-  const title = workflowId === "dash"
-    ? `ad hoc · ${row.requirement_source || row.plan_case_key || row.qa_kind}`
-    : workflowId === "blitz"
-      ? `${row.plan_slug || row.plan_name || "verification"} · ${
-        row.plan_case_key || row.requirement_source || row.qa_kind
-      }`
-      : row.plan_case_key ||
-        row.requirement_source ||
-        row.method_name ||
-        row.qa_kind ||
-        `requirement ${row.id}`;
-  heading.appendChild(el(
-    documentNode,
-    "span",
-    `item-proof-title${linked ? "" : " mono"}`,
-    title,
-  ));
-  if (!linked) {
-    heading.appendChild(el(
-      documentNode,
-      "span",
-      "item-method-badge",
-      row.method_name || row.method_id || row.qa_kind,
-    ));
-  }
-  copy.appendChild(heading);
-  const proof = currentProof(row);
-  const subtitle = linked
-    ? `${row.method_name || row.method_id || row.qa_kind} — ${proof}`
-    : proof;
-  copy.appendChild(el(
-    documentNode,
-    "div",
-    "item-proof-subtitle",
-    subtitle,
-  ));
-  card.appendChild(copy);
-  const pill = qaOutcomePill(documentNode, row, workflowId);
-  if (pill) card.appendChild(pill);
-  return card;
-}
-
 function unionCard(documentNode, rows) {
   const outcomes = rows.map(qaOutcome);
   const unsatisfied = outcomes.filter(
@@ -262,7 +130,8 @@ function unionCard(documentNode, rows) {
   return union;
 }
 
-export function verificationPanel(documentNode, item) {
+export function verificationPanel(context, item) {
+  const documentNode = context.document;
   const rows = item.qa_requirements || [];
   const workflowId = String(item.workflow.id || "").toLowerCase();
   const recordedAttachments = item.qa_plan_attachments || [];
@@ -323,15 +192,13 @@ export function verificationPanel(documentNode, item) {
         row.workflow_transition_id !== attachment.transition_id
       ) continue;
       renderedRows.add(row.id);
-      body.appendChild(requirementCard(
-        documentNode, item, row, workflowId,
-      ));
+      body.appendChild(requirementCard(context, item, row, workflowId));
     }
   }
   for (const row of rows) {
     if (renderedRows.has(row.id)) continue;
     renderedRows.add(row.id);
-    body.appendChild(requirementCard(documentNode, item, row, workflowId));
+    body.appendChild(requirementCard(context, item, row, workflowId));
   }
   if (rows.length && workflowId === "issue") {
     body.appendChild(unionCard(documentNode, rows));

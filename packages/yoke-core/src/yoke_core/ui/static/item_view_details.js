@@ -22,7 +22,7 @@ import {
 } from "./item_view_primitives.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
 
-function issuePanels(documentNode, item) {
+function issuePanels(context, documentNode, item) {
   const spec = item.narrative.spec || item.narrative.body;
   const acceptance = markdownSection(spec, "Acceptance Criteria");
   return detailColumns(
@@ -46,7 +46,7 @@ function issuePanels(documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
-      verificationPanel(documentNode, item),
+      verificationPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       progressPanel(documentNode, item),
@@ -117,7 +117,7 @@ function epicPanels(context, documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
-      verificationPanel(documentNode, item),
+      verificationPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),
@@ -151,7 +151,7 @@ function sourceFieldNotePanel(documentNode, item) {
   return panel;
 }
 
-function dashPanels(documentNode, item) {
+function dashPanels(context, documentNode, item) {
   const origin = sourceFieldNotePanel(documentNode, item);
   const progressLog = progressIfPresent(documentNode, item);
   return detailColumns(
@@ -164,7 +164,7 @@ function dashPanels(documentNode, item) {
         "No instruction recorded.",
       ),
       ...filledNarrativePanels(documentNode, item),
-      verificationPanel(documentNode, item),
+      verificationPanel(context, item),
     ],
     [
       factsPanel(documentNode, item),
@@ -198,7 +198,7 @@ function taskPanels(documentNode, item) {
   );
 }
 
-function fallbackPanels(documentNode, item) {
+function fallbackPanels(context, documentNode, item) {
   const body = String(item.narrative?.body || "").trim();
   const spec = String(item.narrative?.spec || "").trim();
   const primary = body
@@ -215,7 +215,7 @@ function fallbackPanels(documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
-      verificationPanel(documentNode, item),
+      verificationPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),
@@ -241,15 +241,15 @@ export function renderWorkflowItemDetail(context, main, item) {
     host.appendChild(blocked);
   }
   if (workflowId === "issue") {
-    host.appendChild(issuePanels(documentNode, item));
+    host.appendChild(issuePanels(context, documentNode, item));
   } else if (workflowId === "epic") {
     host.appendChild(epicPanels(context, documentNode, item));
   } else if (workflowId === "dash") {
-    host.appendChild(dashPanels(documentNode, item));
+    host.appendChild(dashPanels(context, documentNode, item));
   } else if (workflowId === "task") {
     host.appendChild(taskPanels(documentNode, item));
   } else {
-    host.appendChild(fallbackPanels(documentNode, item));
+    host.appendChild(fallbackPanels(context, documentNode, item));
   }
   main.replaceChildren(host);
 }

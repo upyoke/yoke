@@ -69,10 +69,10 @@ def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
             "touched_files": [],
             "summary": "No implementation branch is recorded for this transition.",
         },
+        # The origin is stored as the closed kind the reader's surface turns
+        # into a sentence. The config entry that selected the approval names
+        # an internal setting the approver has no way to act on.
         "approval_source": WORKFLOW_APPROVAL,
-        # The item pins version row 7; the approver is told version 1, which
-        # is the number they can look the workflow up by.
-        "policy_summary": "issue@1 · approval_defaults.reviewing-implementation",
     }
     assert (
         conn.execute("SELECT status FROM items WHERE id=1907").fetchone()[0]

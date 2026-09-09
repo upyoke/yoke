@@ -204,6 +204,7 @@
 .universe-app-root .pill.good { color: var(--yoke-good); background: var(--yoke-good-bg); }
 .universe-app-root .pill.warn { color: var(--yoke-warn); background: var(--yoke-warn-bg); }
 .universe-app-root .pill.crit { color: var(--yoke-crit); background: var(--yoke-crit-bg); }
+.universe-app-root .pill.park { color: var(--yoke-park); background: var(--yoke-park-bg); }
 .universe-app-root .pill.idle { color: var(--yoke-idle); background: var(--yoke-idle-bg); }
 
 .universe-app-root .error { color: var(--yoke-crit); }

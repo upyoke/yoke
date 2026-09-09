@@ -256,3 +256,41 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Evidence under the verdict it supports. The requirement card reported that
+   screenshots existed and linked to the method's contract, so the reader was
+   told a number and shown a definition. */
+.universe-app-root .item-proof-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.universe-app-root .item-proof-evidence-none,
+.universe-app-root .item-proof-revision {
+  margin-top: 4px;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+
+.universe-app-root .item-proof-revision {
+  font-family: var(--yoke-font-mono);
+}
+
+.universe-app-root .item-proof-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.universe-app-root .item-proof-link-out {
+  color: var(--yoke-link);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.universe-app-root .item-proof-link-out:hover {
+  text-decoration: underline;
+}

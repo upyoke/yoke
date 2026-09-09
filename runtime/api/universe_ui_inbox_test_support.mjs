@@ -33,13 +33,18 @@ export function requestRow(overrides = {}) {
         kind: "workflow_approval_default",
         entry: "approval_defaults.reviewing-implementation",
       },
-      policy_summary: "dash@3 · approval_defaults.reviewing-implementation",
       title: "YOK-1907 — approve the reviewing-implementation transition",
     },
     project_id: 10,
     created_at: "2026-07-26T12:00:00Z",
     asked_of_you: false,
     authority_reason: "project owner",
+    // Live role membership, as the server resolves it for this reader. The
+    // "who else can decide" line is a fact about people, not about a policy.
+    deciders: [
+      { actor_id: 2, label: "ben", via: "project owner", is_you: true },
+      { actor_id: 5, label: "dana", via: "project operator", is_you: false },
+    ],
     actions: ["approve", "reject"],
     ...overrides,
   };
@@ -56,6 +61,16 @@ export function qaRequestRow(overrides = {}) {
       requirement_id: 21583,
       run_id: 4120,
       plan_id: 7,
+      subject: {
+        kind: "item",
+        item_id: 1907,
+        item_ref: "YOK-1907",
+        item_title: "Approval evidence review",
+        deployment_run_id: null,
+        target_environment: null,
+        qa_phase: "verification",
+      },
+      code_revision: "9f21c4ab77e30badc0ffee",
       qa_kind: "ac_verification",
       plan_name: "release-readiness",
       case_name: "marketing-pages-visual",
@@ -93,33 +108,13 @@ export function qaBareRequestRow(overrides = {}) {
   };
 }
 
-export function deploymentRequestRow(overrides = {}) {
-  return requestRow({
-    id: 12,
-    kind: "deployment_stage_approval",
-    subject_type: "deployment_stage",
-    subject_key: "run-20260721-014:prod-deploy",
-    subject_context: {
-      run_id: "run-20260721-014",
-      flow: { id: "yoke-hosted-production", name: "yoke-hosted-production" },
-      stage: "prod-deploy",
-      batch: {
-        item_count: 2,
-        items: [
-          { item_id: 2712, item_ref: "YOK-2712", title: "Served context window" },
-          { item_id: 2707, item_ref: "YOK-2707", title: "Messages address actors" },
-        ],
-      },
-      shipping: {
-        release_lineage: "0.1.1+launch.379",
-        target_environment: "prod",
-        summary: "2 item(s) ship to prod under release lineage 0.1.1+launch.379.",
-      },
-      title: "Deploy to prod — approve the stage",
-    },
-    ...overrides,
-  });
-}
+export {
+  deploymentRequestRow,
+  emptyReleaseRequestRow,
+  environmentRunRequestRow,
+  signOffRequestRow,
+  undeterminedContentsRequestRow,
+} from "./universe_ui_deployment_request_fixtures.mjs";
 
 export function machineRequestRow(overrides = {}) {
   return requestRow({

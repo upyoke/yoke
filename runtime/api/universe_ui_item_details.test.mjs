@@ -227,12 +227,19 @@ for (const workflowId of ["issue", "dash"]) {
       byClass(byClass(root, "item-facts")[0], "row-link")[0].href,
       `#/workflows/${workflowId}`,
     );
-    assert.equal(
-      byClass(root, "item-proof-row")[0].href,
-      workflowId === "dash"
-        ? "#/qa-methods/browser-inspection?project=7"
-        : "#/qa-activity?project=7",
+    // The card itself navigates nowhere, so its text is selectable, and the
+    // method definition is a named link beside the evidence rather than the
+    // destination of the whole row.
+    const proofRow = byClass(root, "item-proof-row")[0];
+    assert.equal(proofRow.href, undefined);
+    assert.deepEqual(
+      byClass(proofRow, "item-proof-link-out").map((node) => node.href),
+      [
+        "#/qa-methods/browser-inspection?project=7",
+        "#/qa-activity?project=7",
+      ],
     );
+    assert.equal(byClass(proofRow, "qa-evidence").length, 1);
     assert.equal(
       byClass(byClass(root, "item-proof-row")[0], "pill")[0].textContent,
       workflowId === "dash" ? "review" : "needs review",
