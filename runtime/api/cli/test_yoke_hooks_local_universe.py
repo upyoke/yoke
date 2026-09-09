@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import json
-import os
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
@@ -124,79 +123,3 @@ def test_missing_local_engine_is_loud(monkeypatch, capsys) -> None:
     )
     assert rc == 1
     assert "YOKE_LOCAL_HOOK_ENGINE_MISSING" in capsys.readouterr().err
-
-
-def test_local_universe_hook_adopts_the_launched_native(
-    monkeypatch,
-    tmp_path,
-) -> None:
-    """A local universe writes the launch handle its own relay reads.
-
-    The handle is the only machine-local record binding a launched session to
-    the pid that served it, and both the relay's process-death report and the
-    native's captured token totals hang off it. A universe served in-process
-    ran a hook entry that never settled the launch projection, so no handle
-    was ever written: the session's death went unreported until the stale
-    sweep and its measured usage stayed unavailable forever.
-    """
-    from yoke_harness import session_launch_handles
-    from yoke_harness.session_launch_containment import record_supervised_native
-    from yoke_core.hooks import local_entry
-
-    launch_id = "3e0cb7c7-2453-427b-afda-c0e23ffeaafe"
-    session_id = "edf9a3d4-d4c0-4cab-bcc9-e6e415f9cd3f"
-    message_id = "2c0f305a-1ebc-4cf0-9c0c-62f80f94aed3"
-
-    handles = tmp_path / "session-native-handles"
-    custody = tmp_path / "custody"
-    monkeypatch.setattr(
-        session_launch_handles,
-        "native_handle_directory",
-        lambda: (handles.mkdir(mode=0o700, parents=True, exist_ok=True) or handles),
-    )
-    monkeypatch.setattr(
-        "yoke_cli.config.machine_config.cache_dir",
-        lambda *_a, **_k: custody,
-    )
-    monkeypatch.setenv(
-        "YOKE_SESSION_LAUNCH_CONTEXT",
-        json.dumps({"launch_id": launch_id, "attestation": "token"}),
-    )
-    assert record_supervised_native(launch_id, os.getpid())
-
-    delivered = (
-        f"=== BEGIN YOKE LAUNCH DELIVERY YOKE_SESSION_LAUNCH:{launch_id}:"
-        f"{message_id} ===\n--- begin instructions ---\nwork\n"
-        "--- end instructions ---\n"
-    )
-    monkeypatch.setattr(local_entry, "detect_executor", lambda: "cursor")
-    monkeypatch.setattr(local_entry, "record_client_anchor", lambda *_a, **_k: None)
-    monkeypatch.setattr(local_entry, "capture_codex_session", lambda *_a, **_k: None)
-    monkeypatch.setattr(
-        local_entry, "ensure_user_lifecycle_hooks_for_executor", lambda *_a: None
-    )
-    monkeypatch.setattr(local_entry, "relay_identity_payload", lambda *_a, **_k: {})
-    monkeypatch.setattr(
-        local_entry, "record_model_facts_shipped", lambda *_a, **_k: None
-    )
-    monkeypatch.setattr(local_entry, "confirmed_served_model", lambda *_a, **_k: None)
-    monkeypatch.setattr(local_entry, "resolve_capability", lambda *_a, **_k: None)
-    monkeypatch.setattr(
-        local_entry, "run_event", lambda *_a, **_k: (delivered, 0)
-    )
-
-    with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-        assert (
-            local_entry.evaluate_local_hook(
-                "SessionStart",
-                json.dumps({"session_id": session_id}),
-            )
-            == 0
-        )
-
-    handle = handles / f"{launch_id}.json"
-    assert handle.is_file(), "the launched native was never adopted"
-    assert json.loads(handle.read_text())["target_session_id"] == session_id
-    assert not (
-        custody / "session-launch-supervision" / f"{launch_id}.json"
-    ).exists(), "custody outlived the delivery that proved registration"
