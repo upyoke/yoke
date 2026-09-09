@@ -83,6 +83,18 @@ def _end_session_if_empty(
         root, session_id, executor=executor, event_source=event_source,
     )
 
+def _reap_stale_sessions(record: HookContext, root: str) -> None:
+    from yoke_core.hooks.session_start_stale_cleanup import (
+        run_session_start_stale_cleanup,
+    )
+
+    run_session_start_stale_cleanup(
+        root,
+        session_id=record.session_id or "",
+        executor=record.executor_family,
+        event_source=record.event_name,
+    )
+
 def _first_prompt(session_id: str, *, codex: bool) -> bool:
     from yoke_core.hooks.session_dispatch_first_prompt import (
         first_prompt as _first_prompt_impl,
@@ -205,13 +217,19 @@ def evaluate(context: HookContext) -> HookDecision:
             from yoke_core.engines.main_checkout_sync import sync_main_checkout_at_session_start
             sync_main_checkout_at_session_start(root)
             if context.executor_family == "codex":
-                return _decision(_run_codex_session_start(context, root))
-            if context.executor_family == "cursor":
+                stdout = _run_codex_session_start(context, root)
+            elif context.executor_family == "cursor":
                 from yoke_core.hooks import session_dispatch_cursor as _cursor_dispatch
 
-                return _decision(_cursor_dispatch.run_session_start(context, root))
-            _run_claude_session_start(context)
-            return _decision()
+                stdout = _cursor_dispatch.run_session_start(context, root)
+            else:
+                _run_claude_session_start(context)
+                stdout = ""
+            # After the family registered this session, never before: a
+            # resumed session arrives with an old heartbeat, and the janitor
+            # would collect the very session that is starting.
+            _reap_stale_sessions(context, root)
+            return _decision(stdout)
         if context.event_name == "UserPromptSubmit":
             if context.executor_family == "codex":
                 return _decision(_run_codex_prompt_submit(context, root))

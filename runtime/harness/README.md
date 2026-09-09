@@ -106,6 +106,8 @@ Operator-opened Claude and Codex surfaces can hold the turn with `decision/block
 
 ### Stale-Session Reclaim
 
+Every harness also shares the same SessionStart stale reap: once the starting session is registered, `yoke_core.hooks.session_start_stale_cleanup` runs `clean_stale_harness_sessions` on the same busy-wait budget, so abandoned actives are swept whenever any session starts. Registration comes first because a resumed session arrives with an old heartbeat and would otherwise be the sweep's own candidate. Both control-plane transports reap: the client-side dispatch runs it for a control plane this machine can open, and `yoke_core.hooks.remote_lifecycle` runs it server-side for relayed SessionStart events, where the client has no local database to open and skips. The reap is idempotent, so a checkout machine running both halves is harmless.
+
 `clean_stale_harness_sessions` is the shared janitor for both harnesses.  It:
 
 - Derives activity from first-class session heartbeat, active-claim timestamps, and `harness_sessions.last_tool_call_at`; the events ledger remains telemetry rather than liveness state.

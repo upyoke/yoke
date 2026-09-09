@@ -5,10 +5,14 @@ machines the client-side evaluation no-ops (not a Yoke target) — when
 this server half didn't exist, no such relayed session could ever end and
 the active set grew monotonically. Stop / SessionEnd
 run the bounded claims/chain-guarded end cleanup here; SessionStart runs
-the stale-session reap so abandoned actives get swept somewhere. Checkout
-machines may run both halves — the guarded cleanup and the reap are
-idempotent. Best-effort by contract: lifecycle must never break hook
-transport.
+the stale-session reap so abandoned actives get swept somewhere. The
+client-side dispatch runs that same reap for a control plane it can open
+(:mod:`yoke_core.hooks.session_start_stale_cleanup`), so a machine whose
+control plane is a local Postgres sweeps there instead; a relayed machine
+has no local database to open, which is why the reap also lives here.
+Checkout machines may run both halves — the
+guarded cleanup and the reap are idempotent. Best-effort by contract:
+lifecycle must never break hook transport.
 """
 
 from __future__ import annotations
