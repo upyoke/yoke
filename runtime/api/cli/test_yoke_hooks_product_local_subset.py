@@ -16,6 +16,8 @@ from yoke_contracts.hook_driver_process import DRIVER_PAYLOAD_KEY
 from yoke_contracts.hook_runner.session_cwd import (
     CLIENT_CLAUDE_JOB_TMP_KEY,
     CLIENT_CLAUDE_JOB_TMP_SCHEMA,
+    CLIENT_MACHINE_HOME_KEY,
+    CLIENT_MACHINE_HOME_SCHEMA,
     CLIENT_SCRATCH_ROOT_KEY,
     CLIENT_SCRATCH_ROOT_SCHEMA,
 )
@@ -155,5 +157,9 @@ def test_relay_subset_reports_client_free_path_roots(
         CLIENT_SCRATCH_ROOT_KEY: {
             "schema": CLIENT_SCRATCH_ROOT_SCHEMA,
             "root": client_root,
-        }
+        },
+        CLIENT_MACHINE_HOME_KEY: {
+            "schema": CLIENT_MACHINE_HOME_SCHEMA,
+            "root": str(Path.home().resolve()),
+        },
     }

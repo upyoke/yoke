@@ -166,6 +166,19 @@ class TestSingleArgReadSignatures:
         assert match_read_only_signature("cat /tmp/a /tmp/b") is None
 
 
+class TestSedReadSignatures:
+    def test_numeric_print_range_classifies(self):
+        command = "sed -n '1,40p' '/path with spaces/reference.py'"
+        assert match_read_only_signature(command) == "sed-read"
+
+    @pytest.mark.parametrize(
+        "command",
+        ["sed -i '' '1p' /tmp/a", "sed -n '1p' /tmp/a > /tmp/b"],
+    )
+    def test_mutating_sed_shapes_do_not_classify(self, command):
+        assert match_read_only_signature(command) is None
+
+
 class TestGrepLikeSignatures:
     @pytest.mark.parametrize(
         "command,want_signature",

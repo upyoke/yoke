@@ -6,6 +6,10 @@ import os
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Sequence
 
+from yoke_core.domain.lint_session_cwd_home import (
+    expand_machine_home,
+    home_free_path_prefixes,
+)
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree
 
 _ROOT = "/"
@@ -13,26 +17,6 @@ _ROOT = "/"
 
 def _abs(*parts: str) -> str:
     return os.path.join(_ROOT, *parts)
-
-
-def _harness_internal_prefixes() -> tuple[str, ...]:
-    """Expand harness-internal artifact directories under ``$HOME``."""
-    literals = (
-        "~/.claude/projects",
-        "~/.codex/sessions",
-        "~/.codex/archived_sessions",
-        "~/.codex/attachments",
-        "~/.yoke/config.json",
-    )
-    out: list[str] = list(literals)
-    home = os.path.expanduser("~")
-    if home and home != "~":
-        out.append(os.path.join(home, ".claude", "projects"))
-        out.append(os.path.join(home, ".codex", "sessions"))
-        out.append(os.path.join(home, ".codex", "archived_sessions"))
-        out.append(os.path.join(home, ".codex", "attachments"))
-        out.append(os.path.join(home, ".yoke", "config.json"))
-    return tuple(out)
 
 
 # Static free-path allowlist: OS temp dirs, discard devices, harness
@@ -43,31 +27,22 @@ def _harness_internal_prefixes() -> tuple[str, ...]:
 # scratch subtrees keep their own authority rules.
 DEV_FAMILY_PREFIX = _abs("dev")
 
-FREE_PATH_PREFIXES = (
+_STATIC_FREE_PATH_PREFIXES = (
     _abs("tmp"),
     _abs("private", "tmp"),
     _abs("var", "folders"),
     _abs("private", "var", "folders"),
     DEV_FAMILY_PREFIX,
-    *_harness_internal_prefixes(),
 )
 
+FREE_PATH_PREFIXES = (*_STATIC_FREE_PATH_PREFIXES, *home_free_path_prefixes())
 
-_SANCTIONED_INSTALLED_READ_DIRS = (
-    "~/.codex/plugins",
-    "~/.codex/skills",
-    "~/.claude/plugins",
-    "~/.yoke/browser-runtime",
-    "~/.yoke/relay-instances",
-    "~/.local/bin",
-)
 
-_SANCTIONED_INSTALLED_READ_FILES = (
-    "~/.codex/AGENTS.md",
-    "~/.local/bin/yoke",
-    "~/.claude/settings.json",
-    "~/.cursor/hooks.json",
-)
+def free_path_prefixes(machine_home: str | None = None) -> tuple[str, ...]:
+    """Resolve free paths against the local or explicitly evidenced home."""
+    if machine_home is None:
+        return FREE_PATH_PREFIXES
+    return (*_STATIC_FREE_PATH_PREFIXES, *home_free_path_prefixes(machine_home))
 
 
 # Standard tool / system binary directories. An extracted target under one
@@ -138,13 +113,11 @@ def is_free_path(
     target: str,
     *,
     prefixes: Sequence[str] | None = None,
+    machine_home: str | None = None,
 ) -> bool:
     """Return True when ``target`` lands under a free-path prefix."""
-    candidates = {resolve_for_display(target)}
-    expanded = os.path.expanduser(target)
-    if expanded != target:
-        candidates.add(resolve_for_display(expanded))
-    active = FREE_PATH_PREFIXES if prefixes is None else prefixes
+    candidates = {resolve_for_display(target, machine_home=machine_home)}
+    active = free_path_prefixes(machine_home) if prefixes is None else prefixes
     for cand in candidates:
         for prefix in active:
             if cand == prefix or cand.startswith(prefix + os.sep):
@@ -152,57 +125,6 @@ def is_free_path(
         if prefixes is None and is_yoke_watcher_capture_path(cand):
             return True
     return False
-
-
-def is_sanctioned_installed_read_path(target: str) -> bool:
-    """True for an installed harness/tool path explicitly safe to read."""
-    resolved = resolve_for_display(os.path.expanduser(target))
-    for raw_dir in _SANCTIONED_INSTALLED_READ_DIRS:
-        root = resolve_for_display(os.path.expanduser(raw_dir))
-        if resolved == root or resolved.startswith(root + os.sep):
-            return True
-
-    files = list(_SANCTIONED_INSTALLED_READ_FILES)
-    xdg_bin_home = os.environ.get("XDG_BIN_HOME", "").strip()
-    if xdg_bin_home:
-        files.append(os.path.join(xdg_bin_home, "yoke"))
-    return any(
-        resolved == resolve_for_display(os.path.expanduser(raw_file))
-        for raw_file in files
-    )
-
-
-def is_external_reference_path(
-    target: str,
-    *,
-    repo_roots: Sequence[str],
-) -> bool:
-    """True when ``target`` is the operator's own material rather than a checkout.
-
-    A reference document, an installed harness config, a launcher directory:
-    these live in the operator's home outside every registered project, and
-    reading one is not the wrong-checkout mix-up this guard exists to catch.
-
-    Three exclusions keep the answer narrow. Project code is never external —
-    anything inside a recorded repo root, or inside a ``.worktrees`` lane, is
-    governed exactly as it is today, whether or not the call is a read. Tool
-    state is not external either: a dot-directory in the home holds harness
-    configuration, credentials, and per-session scratch, and which of those
-    are readable is already a curated decision that
-    :func:`is_sanctioned_installed_read_path` owns and this must not widen.
-    And anything outside the home keeps today's answer untouched, so a stray
-    absolute path is still a scope mismatch, not a reference document.
-    """
-    resolved = resolve_for_display(os.path.expanduser(target))
-    home = os.path.expanduser("~")
-    if not home or home == "~" or not is_inside(resolved, home):
-        return False
-    relative = Path(resolved).parts[len(Path(home).parts) :]
-    if not relative or relative[0].startswith("."):
-        return False
-    if ".worktrees" in relative:
-        return False
-    return not any(is_inside(resolved, root) for root in repo_roots)
 
 
 def is_inside(target: str, root: str) -> bool:
@@ -248,9 +170,10 @@ def outside_worktree_lanes(
     return [t for t in targets if not any(is_inside(t, lane) for lane in lanes)]
 
 
-def resolve_for_display(target: str) -> str:
+def resolve_for_display(target: str, *, machine_home: str | None = None) -> str:
     try:
-        return str(Path(target).resolve())
+        expanded = expand_machine_home(target, machine_home=machine_home)
+        return str(Path(expanded).resolve())
     except OSError:
         return target
 
@@ -320,11 +243,11 @@ __all__ = [
     "FREE_PATH_PREFIXES",
     "TOOL_DIR_PREFIXES",
     "derive_repo_roots",
+    "free_path_prefixes",
     "is_dev_family_path",
     "is_free_path",
     "is_inside",
     "is_inside_control_plane",
-    "is_sanctioned_installed_read_path",
     "is_under_tool_dir",
     "is_yoke_watcher_capture_path",
     "outside_worktree_lanes",

@@ -1,16 +1,7 @@
 """Per-tool-call claim-based validation for the session-cwd policy.
 
-The session-cwd policy's authority is a session's **active work_claims**:
-the session may write under any worktree it holds a claim on, under any
-project control plane (repo root excluding ``.worktrees/``),
-or under the free-path allowlist (``/tmp``, ``/var/folders/...``, and
-the local or client-evidenced machine scratch root).
-
-This module owns the validator surface; the slim policy glue lives in
-:mod:`lint_session_cwd`. The lint reads claims directly through
-:func:`session_claimed_worktrees.claimed_worktrees`.
-
-Behaviour:
+Authority comes from active work claims, project control planes, and free paths.
+The slim hook-policy glue lives in :mod:`lint_session_cwd`. Behaviour:
 
 * Every target, from every caller → refused when it lands inside a
   worktree lane that a **different** live session holds. This test runs
@@ -19,17 +10,13 @@ Behaviour:
   damage here are precisely those with no claim on the lane they are
   writing into.
 * Read-only Git inspection of a lane → exempt from every test here.
-* A read-shaped call naming a path no registered project owns → allowed.
-  Reading an operator's reference document or an installed harness config is
-  not a checkout mix-up. Project code, other checkouts, and worktree lanes
-  stay governed, and any write shape — a redirect, a mutating verb, a
-  mutation chained onto a read — fails the read-shape test and is refused
-  exactly as before.
+* Read-shaped calls to ordinary home material and sanctioned installed paths
+  use the executing machine's home. Project paths, dot-directories, and every
+  write shape stay governed.
 * Session with no claims → allowed everywhere except another session's
   live lane.
-* Session with one or more claims → each target path must additionally
-  land under (a) a claimed worktree, (b) any recorded project's control
-  plane (repo root excluding ``.worktrees/``), or (c) a free path.
+* Session with claims → each target must land under a claimed worktree, a
+  recorded project's control plane, or a free path.
 * Bash with no extractable targets → the caller passes ``fallback_cwd``
   as a synthetic target so a worktree-binding session that runs a
   control-plane read from outside its worktree still validates against
@@ -49,15 +36,18 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
     FREE_PATH_PREFIXES,
     TOOL_DIR_PREFIXES,
     derive_repo_roots as _derive_repo_roots,
+    free_path_prefixes as _free_path_prefixes,
     recorded_repo_roots as _recorded_repo_roots,
     is_inside as _is_inside,
     is_inside_control_plane as _is_inside_control_plane,
-    is_external_reference_path,
     is_free_path as _path_is_free_path,
-    is_sanctioned_installed_read_path,
     is_under_tool_dir as _path_is_under_tool_dir,
     is_yoke_watcher_capture_path,
     resolve_for_display as _resolve_for_display,
+)
+from yoke_core.domain.lint_session_cwd_home import (
+    is_external_reference_path,
+    is_sanctioned_installed_read_path,
 )
 from yoke_core.domain.lint_session_cwd_foreign_lane import governed_targets
 from yoke_core.domain.lint_session_cwd_status import (
@@ -122,6 +112,7 @@ def validate_targets(
     fallback_cwd: str = "",
     watcher_capture_root: str = "",
     claude_job_tmp_root: str = "",
+    machine_home: str | None = None,
     read_only: bool = False,
     command: str = "",
     tool_name: str = "",
@@ -134,9 +125,7 @@ def validate_targets(
     gets checked. ``fallback_cwd`` may be empty when the caller wants
     the no-target case to allow unconditionally (Edit/Read/Write always
     carry an explicit file_path target).
-    ``watcher_capture_root`` is the client-evidenced root on relayed calls;
-    local evaluation resolves the root directly.
-    ``claude_job_tmp_root`` is the exact harness-owned background-job temp root.
+    Client-evidenced roots override local filesystem context on relayed calls.
     ``read_only`` admits explicitly sanctioned installed harness/tool paths.
     ``command`` is the Bash body, which decides the lane-inspection case.
     ``tool_name`` is the tool the call declared, which decides whether it has
@@ -212,6 +201,7 @@ def validate_targets(
             session_id=session_id,
             watcher_capture_root=watcher_capture_root,
             claude_job_tmp_root=claude_job_tmp_root,
+            machine_home=machine_home,
             read_only=read_only,
             external_reads_allowed=external_reads_allowed,
         ):
@@ -258,6 +248,7 @@ def _is_target_authorised(
     session_id: str,
     watcher_capture_root: str,
     claude_job_tmp_root: str,
+    machine_home: str | None,
     read_only: bool,
     external_reads_allowed: bool = False,
 ) -> bool:
@@ -266,14 +257,20 @@ def _is_target_authorised(
         session_id=session_id,
         watcher_capture_root=watcher_capture_root,
         claude_job_tmp_root=claude_job_tmp_root,
+        machine_home=machine_home,
     ):
         return True
     if _is_under_tool_dir(target):
         return True
-    if read_only and is_sanctioned_installed_read_path(target):
+    if read_only and is_sanctioned_installed_read_path(
+        target,
+        machine_home=machine_home,
+    ):
         return True
     if external_reads_allowed and is_external_reference_path(
-        target, repo_roots=repo_roots
+        target,
+        repo_roots=repo_roots,
+        machine_home=machine_home,
     ):
         return True
     for claim in claims:
@@ -299,10 +296,16 @@ def _is_free_path(
     session_id: str,
     watcher_capture_root: str,
     claude_job_tmp_root: str,
+    machine_home: str | None,
 ) -> bool:
     # FREE_PATH_PREFIXES stays monkeypatchable for tests; watcher-captures
     # under the live machine scratch root are a separate allowlist entry.
-    if _path_is_free_path(target, prefixes=FREE_PATH_PREFIXES):
+    prefixes = (
+        FREE_PATH_PREFIXES
+        if machine_home is None
+        else _free_path_prefixes(machine_home)
+    )
+    if _path_is_free_path(target, prefixes=prefixes, machine_home=machine_home):
         return True
     if claude_job_tmp_root and _is_inside(target, claude_job_tmp_root):
         return True

@@ -1,5 +1,4 @@
 """Classify a Bash command body as a read-only / self-orientation call.
-
 The session-cwd lint denies tool calls whose target paths fall outside
 the session's claim authority. When ``extract_payload_targets`` finds
 no extractable target the lint historically fell back to denying based
@@ -14,9 +13,7 @@ command body, return the matched read-only signature (a short label) or
 emits ``SessionCwdMismatchAllowedReadOnly`` when a signature matches.
 
 Adding a new signature here is the operator-facing extension point —
-keep regexes tight and label them descriptively so the emitted event
-carries actionable provenance.
-"""
+keep regexes tight and label them descriptively for actionable events."""
 
 from __future__ import annotations
 
@@ -206,6 +203,14 @@ def _classify_single_arg_read(tokens: List[str]) -> Optional[str]:
     return None
 
 
+def _classify_sed_read(tokens: List[str]) -> Optional[str]:
+    """Accept only ``sed -n`` with a numeric print program and one path."""
+    if len(tokens) == 4 and tokens[:2] == ["sed", "-n"]:
+        if re.fullmatch(r"\d+(?:,\d+)?p", tokens[2]):
+            return "sed-read"
+    return None
+
+
 _GREP_LIKE = frozenset({"grep", "rg", "ag", "ack"})
 
 
@@ -292,6 +297,7 @@ _SIMPLE_CLASSIFIERS = (
     _classify_yoke,
     _classify_help,
     _classify_stdout_reporter,
+    _classify_sed_read,
     _classify_single_arg_read,
 )
 

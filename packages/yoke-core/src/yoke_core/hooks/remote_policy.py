@@ -12,8 +12,8 @@ the https relay evaluates one chain split across the two sides:
 - **client-evidenced authority**: policies remain server-side for DB authority
   while receiving the minimum client-local facts in
   ``RunControls.payload_extra``. ``lint_main_commit`` receives Git facts;
-  ``lint_session_cwd`` receives the effective scratch root so it can recognize
-  only the calling session's watcher captures on the client filesystem.
+  ``lint_session_cwd`` receives the executing machine's canonical home and
+  scratch roots for its existing path-authority decisions.
 - **local-state** (``LOCAL_STATE_POLICIES``): the policy's verdict requires
   client-local evidence the server does not have. The relay client always
   evaluates its product-owned subset (``yoke_harness.hooks.local_subset``)

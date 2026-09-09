@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from yoke_contracts.hook_driver_process import (
@@ -18,6 +19,7 @@ from yoke_contracts.hook_runner.hook_ordering import (
 from yoke_contracts.hook_runner import lint_policy
 from yoke_contracts.hook_runner.session_cwd import (
     client_claude_job_tmp_fact,
+    client_machine_home_fact,
     client_scratch_root_fact,
 )
 from yoke_contracts.machine_config import runtime as machine_config
@@ -117,6 +119,14 @@ def _client_scratch_root_fact() -> dict[str, object]:
 
     try:
         return client_scratch_root_fact(machine_config.effective_temp_root())
+    except Exception:
+        return {}
+
+
+def _client_machine_home_fact() -> dict[str, object]:
+    """Collect the canonical home of the machine running the hook."""
+    try:
+        return client_machine_home_fact(str(Path.home().resolve()))
     except Exception:
         return {}
 
@@ -228,6 +238,7 @@ def evaluate_local_subset(
     # the harness hook child that ran. Rides to the server in payload_extra.
     payload_extra[DRIVER_PAYLOAD_KEY] = collect_driver_process()
     if defer_main_commit:
+        payload_extra.update(_client_machine_home_fact())
         payload_extra.update(_client_scratch_root_fact())
         payload_extra.update(_client_claude_job_tmp_fact())
         payload_extra.update(collect_git_commit_facts(payload))

@@ -42,6 +42,7 @@ from yoke_core.domain.lint_shell_target_tokens import (
     resolve_write_operands,
     shell_variable_bindings,
 )
+from yoke_core.domain.lint_session_cwd_home import expand_machine_home
 from yoke_core.domain.lint_session_cwd_path_authority import is_dev_family_path
 from yoke_core.domain.lint_session_cwd_read_only_signatures import git_write_targets
 from yoke_core.domain.lint_session_cwd_target_extract_shell import (
@@ -133,14 +134,17 @@ def resolve_payload_cwd(
     return project_cwd or fallback
 
 
-def _resolve_target_paths(paths: List[str], cwd: str) -> List[str]:
+def _resolve_target_paths(
+    paths: List[str], cwd: str, *, machine_home: str | None = None,
+) -> List[str]:
     out: List[str] = []
     for raw in paths:
-        path = Path(raw.strip()).expanduser()
+        path = Path(expand_machine_home(raw.strip(), machine_home=machine_home))
         if path.is_absolute():
             out.append(str(path))
         elif cwd:
-            out.append(str((Path(cwd).expanduser() / path).resolve()))
+            base = expand_machine_home(cwd, machine_home=machine_home)
+            out.append(str((Path(base) / path).resolve()))
     return out
 
 
@@ -155,7 +159,9 @@ def _dedupe_paths(paths: List[str]) -> List[str]:
     return out
 
 
-def extract_payload_targets(payload: Mapping[str, Any]) -> List[str]:
+def extract_payload_targets(
+    payload: Mapping[str, Any], *, machine_home: str | None = None,
+) -> List[str]:
     """Return the list of target paths for a PreToolUse payload."""
     if not isinstance(payload, Mapping):
         return []
@@ -175,7 +181,7 @@ def extract_payload_targets(payload: Mapping[str, Any]) -> List[str]:
             out.extend(extract_command_targets(command))
 
     cwd = resolve_payload_cwd(payload, fallback=str(Path.cwd()))
-    return _dedupe_paths(_resolve_target_paths(out, cwd))
+    return _dedupe_paths(_resolve_target_paths(out, cwd, machine_home=machine_home))
 
 
 @dataclass(frozen=True)
