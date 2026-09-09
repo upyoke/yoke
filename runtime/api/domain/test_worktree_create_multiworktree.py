@@ -233,6 +233,7 @@ class TestCreateWorktreeMultiWorktree:
         # Existing single-worktree callers receive populated path/branch/created.
         result = create_worktree(
             99205,
+            project="yoke",
             repo_root=str(git_repo),
             config_path=_config_path(git_repo),
         )
@@ -304,7 +305,9 @@ class TestCreateWorktreeMultiWorktree:
             "parse_item_argument",
             lambda *_args, **_kwargs: 99207,
         )
-        monkeypatch.setattr(sys, "argv", ["worktree", "create", "YOK-99207"])
+        monkeypatch.setattr(
+            sys, "argv", ["worktree", "create", "YOK-99207", "--project", "yoke"]
+        )
 
         rc = worktree_cli.main_create()
         assert rc == 0, capsys.readouterr().err

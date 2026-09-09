@@ -133,6 +133,7 @@ def test_hosted_blitz_materializes_every_authoritative_lane_locally(
 
     result = worktree_create.create_worktree(
         99223,
+        project="yoke",
         repo_root=str(git_repo),
         config_path=_config_path(git_repo),
     )

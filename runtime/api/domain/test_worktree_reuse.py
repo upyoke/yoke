@@ -41,6 +41,7 @@ def test_non_worktree_directory_is_refused(tmp_path: Path) -> None:
 def test_healthy_worktree_is_preexisting(git_repo: Path, yoke_db: str) -> None:
     first = create_worktree(
         24121,
+        project="yoke",
         repo_root=str(git_repo),
         config_path=str(git_repo / "runtime" / "config"),
     )
@@ -56,6 +57,7 @@ def test_empty_index_and_missing_files_are_repaired_on_reuse(
 ) -> None:
     first = create_worktree(
         24122,
+        project="yoke",
         repo_root=str(git_repo),
         config_path=str(git_repo / "runtime" / "config"),
     )
@@ -73,6 +75,7 @@ def test_empty_index_and_missing_files_are_repaired_on_reuse(
 
     second = create_worktree(
         24122,
+        project="yoke",
         repo_root=str(git_repo),
         config_path=str(git_repo / "runtime" / "config"),
     )

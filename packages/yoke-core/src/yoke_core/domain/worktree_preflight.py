@@ -147,7 +147,7 @@ def run_preflight(
         item = {}
 
     from yoke_core.domain.worktree_preflight_repo_resolution import (
-        resolve_preflight_repo_root,
+        resolve_preflight_lane_target,
     )
     from yoke_contracts.item_worktrees import runs_without_git_lane
 
@@ -155,16 +155,22 @@ def run_preflight(
     # place under the session's existing write authority.
     no_worktree = no_worktree or runs_without_git_lane(item.get("workflow") or {})
 
-    repo_root, resolution_error = resolve_preflight_repo_root(
+    lane_target = resolve_preflight_lane_target(
         item=item,
         project_flag=project,
         repo_root_override=repo_root,
     )
-    repo_root = _normalize_repo_root(repo_root or "") or ""
-    if not repo_root and not no_worktree:
+    # `git -C ""` ignores the empty path and answers for the CURRENT
+    # directory, so an unresolved root must not reach normalization — that
+    # turns a named refusal into the session's own repo.
+    resolved_root = lane_target.repo_root
+    repo_root = (_normalize_repo_root(resolved_root) or "") if resolved_root else ""
+    if (lane_target.error or not repo_root) and not no_worktree:
         out.ok = False
         out.block_kind = BLOCK_INPUT
-        out.narrative = resolution_error or "Could not resolve repo root for preflight."
+        out.narrative = (
+            lane_target.error or "Could not resolve repo root for preflight."
+        )
         return out
 
     # Step 1 — work claim.
@@ -251,9 +257,12 @@ def run_preflight(
         # (or scope `repo_root` to a tempdir) to keep tests off the real repo.
         from yoke_core.domain.worktree_create import create_worktree
 
+        # The item's own project — resolved above — owns lane provisioning
+        # too; forwarding the caller's unset flag sent dependency setup and
+        # the browser cache to the creator's default project.
         create_result = create_worktree(
             item_id=item_id,
-            project=project,
+            project=lane_target.project_slug or None,
             repo_root=repo_root,
             needed_paths=needed_paths,
             source_root_prefixes=source_roots,

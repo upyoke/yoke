@@ -1,9 +1,11 @@
-"""Item-project repo-root resolution for the worktree preflight.
+"""Item-project lane-target resolution for the worktree preflight.
 
 The lane belongs in the checkout of the ITEM's project. These unit tests
 pin the resolution order: explicit override, flag/item agreement, machine
 mapping, refusal on an unmapped item project, and the cwd fallback that
 survives only when the item's project is unknown (degraded detail read).
+They also pin the resolved project slug travelling with the repo root, so
+lane provisioning runs as the item's project rather than a default.
 """
 
 from __future__ import annotations
@@ -25,12 +27,13 @@ def test_explicit_override_wins_untouched(monkeypatch: pytest.MonkeyPatch):
         "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
         refuse,
     )
-    root, error = res.resolve_preflight_repo_root(
+    resolved = res.resolve_preflight_lane_target(
         item=_item("platform"),
         project_flag=None,
         repo_root_override="/tmp/explicit",
     )
-    assert (root, error) == ("/tmp/explicit", "")
+    assert (resolved.repo_root, resolved.error) == ("/tmp/explicit", "")
+    assert resolved.project_slug == "platform"
 
 
 def test_mapped_item_project_uses_the_mapping(monkeypatch: pytest.MonkeyPatch):
@@ -38,10 +41,11 @@ def test_mapped_item_project_uses_the_mapping(monkeypatch: pytest.MonkeyPatch):
         "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
         lambda slug: "/checkouts/platform" if slug == "platform" else None,
     )
-    root, error = res.resolve_preflight_repo_root(
+    resolved = res.resolve_preflight_lane_target(
         item=_item("platform"), project_flag=None, repo_root_override=None,
     )
-    assert (root, error) == ("/checkouts/platform", "")
+    assert (resolved.repo_root, resolved.error) == ("/checkouts/platform", "")
+    assert resolved.project_slug == "platform"
 
 
 def test_unmapped_item_project_refuses_with_register_recipe(
@@ -51,12 +55,12 @@ def test_unmapped_item_project_refuses_with_register_recipe(
         "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
         lambda _slug: None,
     )
-    root, error = res.resolve_preflight_repo_root(
+    resolved = res.resolve_preflight_lane_target(
         item=_item("platform"), project_flag=None, repo_root_override=None,
     )
-    assert root == ""
-    assert "yoke project register" in error
-    assert "wrong repository" in error
+    assert resolved.repo_root == ""
+    assert "yoke project register" in resolved.error
+    assert "wrong repository" in resolved.error
 
 
 def test_flag_disagreeing_with_item_project_refuses(
@@ -69,11 +73,11 @@ def test_flag_disagreeing_with_item_project_refuses(
         "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
         refuse,
     )
-    root, error = res.resolve_preflight_repo_root(
+    resolved = res.resolve_preflight_lane_target(
         item=_item("platform"), project_flag="yoke", repo_root_override=None,
     )
-    assert root == ""
-    assert "disagrees" in error
+    assert resolved.repo_root == ""
+    assert "disagrees" in resolved.error
 
 
 def test_agreeing_flag_resolves_like_the_item(monkeypatch: pytest.MonkeyPatch):
@@ -81,12 +85,13 @@ def test_agreeing_flag_resolves_like_the_item(monkeypatch: pytest.MonkeyPatch):
         "yoke_core.domain.project_checkout_locations.checkout_for_project_slug",
         lambda slug: "/checkouts/platform" if slug == "platform" else None,
     )
-    root, error = res.resolve_preflight_repo_root(
+    resolved = res.resolve_preflight_lane_target(
         item=_item("platform"),
         project_flag="platform",
         repo_root_override=None,
     )
-    assert (root, error) == ("/checkouts/platform", "")
+    assert (resolved.repo_root, resolved.error) == ("/checkouts/platform", "")
+    assert resolved.project_slug == "platform"
 
 
 def test_unknown_item_project_falls_back_to_cwd(
@@ -96,10 +101,11 @@ def test_unknown_item_project_falls_back_to_cwd(
         "yoke_core.domain.worktree_paths._resolve_repo_root_from_cwd",
         lambda: "/checkouts/session-repo",
     )
-    root, error = res.resolve_preflight_repo_root(
+    resolved = res.resolve_preflight_lane_target(
         item={}, project_flag=None, repo_root_override=None,
     )
-    assert (root, error) == ("/checkouts/session-repo", "")
+    assert (resolved.repo_root, resolved.error) == ("/checkouts/session-repo", "")
+    assert resolved.project_slug == ""
 
 
 def test_unmapped_flag_without_item_project_falls_back_to_cwd(
@@ -113,10 +119,11 @@ def test_unmapped_flag_without_item_project_falls_back_to_cwd(
         "yoke_core.domain.worktree_paths._resolve_repo_root_from_cwd",
         lambda: "/checkouts/session-repo",
     )
-    root, error = res.resolve_preflight_repo_root(
+    resolved = res.resolve_preflight_lane_target(
         item={}, project_flag="somewhere", repo_root_override=None,
     )
-    assert (root, error) == ("/checkouts/session-repo", "")
+    assert (resolved.repo_root, resolved.error) == ("/checkouts/session-repo", "")
+    assert resolved.project_slug == "somewhere"
 
 
 def test_no_resolution_anywhere_reports_input_error(
@@ -126,8 +133,8 @@ def test_no_resolution_anywhere_reports_input_error(
         "yoke_core.domain.worktree_paths._resolve_repo_root_from_cwd",
         lambda: "",
     )
-    root, error = res.resolve_preflight_repo_root(
+    resolved = res.resolve_preflight_lane_target(
         item={}, project_flag=None, repo_root_override=None,
     )
-    assert root == ""
-    assert "Could not resolve repo root" in error
+    assert resolved.repo_root == ""
+    assert "Could not resolve repo root" in resolved.error

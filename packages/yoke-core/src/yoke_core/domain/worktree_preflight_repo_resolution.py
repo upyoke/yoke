@@ -1,4 +1,4 @@
-"""Item-project repo-root resolution shared by the surfaces that act on it.
+"""Item-project lane-target resolution shared by the surfaces that act on it.
 
 A work item's implementation lane belongs in the checkout of the ITEM's
 project, not the checkout the session happens to be standing in. Deriving
@@ -22,41 +22,65 @@ Resolution order:
    wrong-repo lane was minted.
 5. Only when the item's project is unknown (degraded detail read) does the
    legacy cwd derivation apply, preserving offline behavior.
+
+The resolved project slug travels with the repo root in
+:class:`PreflightLaneTarget`. Provisioning inside the lane — dependency
+setup, validation surfaces, the browser cache — is project-scoped, so a
+caller that resolved the item's project and then dropped it provisions the
+lane against whichever project the downstream default named.
 """
 
 from __future__ import annotations
 
-from typing import Mapping, Optional, Tuple
+from dataclasses import dataclass
+from typing import Mapping, Optional
 
 
-def resolve_preflight_repo_root(
+@dataclass(frozen=True)
+class PreflightLaneTarget:
+    """Where an item's lane belongs, and which project owns it.
+
+    ``error`` carries a rendered refusal narrative naming the repair
+    recipe; the caller blocks on it verbatim. ``project_slug`` is empty
+    only when the item's project is genuinely unknown (degraded detail
+    read), never a substituted default.
+    """
+
+    repo_root: str = ""
+    project_slug: str = ""
+    error: str = ""
+
+
+def resolve_preflight_lane_target(
     *,
     item: Mapping,
     project_flag: Optional[str],
     repo_root_override: Optional[str],
-) -> Tuple[str, str]:
-    """Return ``(repo_root, error)`` — exactly one side is non-empty.
+) -> PreflightLaneTarget:
+    """Resolve the repo root and owning project for an item's lane.
 
     ``item`` is the ``items.detail.get`` item mapping (may be empty when
-    the read degraded). ``error`` carries a rendered refusal narrative
-    naming the repair recipe; the caller blocks on it verbatim.
+    the read degraded). Either ``error`` is set, or ``repo_root`` is.
     """
-    if repo_root_override:
-        return str(repo_root_override), ""
-
     item_slug = str((item.get("project") or {}).get("slug") or "").strip()
     flag_slug = str(project_flag or "").strip()
 
+    if repo_root_override:
+        return PreflightLaneTarget(
+            repo_root=str(repo_root_override),
+            project_slug=item_slug or flag_slug,
+        )
+
     if flag_slug and item_slug and flag_slug != item_slug:
-        return "", (
+        return PreflightLaneTarget(error=(
             f"--project {flag_slug!r} disagrees with the item's project "
             f"{item_slug!r}. The lane belongs in the item's project "
             "checkout; drop the flag or pass the matching slug."
-        )
+        ))
 
     slug = item_slug or flag_slug
     if not slug:
-        return _cwd_fallback()
+        return _cwd_fallback("")
 
     from yoke_core.domain.project_checkout_locations import (
         checkout_for_project_slug,
@@ -64,25 +88,25 @@ def resolve_preflight_repo_root(
 
     checkout = checkout_for_project_slug(slug)
     if checkout is not None:
-        return str(checkout), ""
+        return PreflightLaneTarget(repo_root=str(checkout), project_slug=slug)
     if item_slug:
-        return "", (
+        return PreflightLaneTarget(error=(
             f"project {item_slug!r} has no machine-local checkout mapping, "
             "and falling back to the session's own repo would act on the "
             "wrong repository. Register the mapping first:\n"
             f"    yoke project register <checkout-path> --project-id <id>\n"
             "then re-run this operation."
-        )
-    return _cwd_fallback()
+        ))
+    return _cwd_fallback(flag_slug)
 
 
-def _cwd_fallback() -> Tuple[str, str]:
+def _cwd_fallback(project_slug: str) -> PreflightLaneTarget:
     from yoke_core.domain.worktree_paths import _resolve_repo_root_from_cwd
 
     root = _resolve_repo_root_from_cwd()
     if root:
-        return str(root), ""
-    return "", "Could not resolve repo root for preflight."
+        return PreflightLaneTarget(repo_root=str(root), project_slug=project_slug)
+    return PreflightLaneTarget(error="Could not resolve repo root for preflight.")
 
 
-__all__ = ["resolve_preflight_repo_root"]
+__all__ = ["PreflightLaneTarget", "resolve_preflight_lane_target"]

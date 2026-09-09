@@ -16,20 +16,20 @@ from typing import Any
 def resolve_checkout(item: dict[str, Any], target_override: str) -> tuple[Path, str]:
     """Resolve the checkout and base branch the ITEM's branch lands in."""
     from yoke_core.domain.worktree_preflight_repo_resolution import (
-        resolve_preflight_repo_root,
+        resolve_preflight_lane_target,
     )
     from yoke_core.engines.done_transition_gates import (
         _get_base_branch,
         _resolve_default_branch,
     )
 
-    repo_root, error = resolve_preflight_repo_root(
+    lane_target = resolve_preflight_lane_target(
         item=item, project_flag=None, repo_root_override=None,
     )
-    if error:
-        raise RuntimeError(error)
-    project_repo = Path(repo_root)
-    project_slug = str((item.get("project") or {}).get("slug") or "")
+    if lane_target.error:
+        raise RuntimeError(lane_target.error)
+    project_repo = Path(lane_target.repo_root)
+    project_slug = lane_target.project_slug
     default_branch = (
         _resolve_default_branch(project_slug) if project_slug else ""
     )

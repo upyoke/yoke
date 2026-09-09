@@ -28,7 +28,7 @@ as normal product flow.
 
 Optional flags:
 
-- `--project <id>` — supply when the item targets a project other than `yoke` (the orchestrator otherwise resolves the project from the item row).
+- `--project <id>` — optional cross-check. The item's own project owns both the checkout its lane is created in and the project that lane is provisioned as (dependency setup, validation surfaces, browser cache), resolved from the item row; a flag that disagrees with the item's project refuses rather than winning.
 - `--no-worktree` — evidence-only items: skip worktree creation but still resolve the work claim, activate path claims, and emit the envelope (with `semantic_scope=main`).
 - `--session-id <id>` — override the session id (defaults to the canonical ambient chain, `yoke_contracts.session_identity`).
 
@@ -98,7 +98,7 @@ worktree` when the recursive walk is the point.
 - **Step 2 — Path-claim activation.** Delegates to `yoke_core.domain.advance_path_claim_activation` (the path-claim activation CLI). Diverged refs and blocked claims propagate to the caller verbatim.
 - **Step 3 — Worktree resolution.** Canonical `PREFIX-N` is reused idempotently.
 - **Step 3 — Dirty-main guard.** Runs **only** when this call would create a new worktree. `git worktree add` copies HEAD and does not require a clean main. Tracked/staged dirt (`dirty-tracked`) blocks only when it overlaps the paths the new lane needs (conflict-survey touch set, non-terminal path claims, File Budget). Untracked non-gitignored files under source/package roots (`dirty-untracked`) always block — a new module on main can collide. Untracked files outside those roots (repo-root scratch scripts) are a named envelope warning, not a block. When the guard refuses, the narrative names likely holders (live sessions on this machine whose work claim has no implementation lane) and includes an ask-the-holder `yoke say --session` recipe. Re-entry into an existing worktree never touches main and is never blocked by main dirt.
-- **Step 4 — Worktree creation + DB write.** `create_worktree` records the branch, path, and implementation role in `item_worktrees`; implementation entry records status on the item. The session continues — no scope envelope, no parent-stop, no claim release, no relaunch. The work-claim acquired in Step 1 is the session's authority over the new worktree, validated per tool call by `lint_session_cwd`.
+- **Step 4 — Worktree creation + DB write.** `create_worktree` provisions the lane as the item's own project and records the branch, path, and implementation role in `item_worktrees`; an item whose project cannot be resolved refuses with that reason instead of provisioning under a default project; implementation entry records status on the item. The session continues — no scope envelope, no parent-stop, no claim release, no relaunch. The work-claim acquired in Step 1 is the session's authority over the new worktree, validated per tool call by `lint_session_cwd`.
 - **Step 5 — Envelope rendering.** Emits descriptive `semantic_scope`, `physical_cwd_mode`, and an optional advisory note if the harness cwd is static at main (informational only — the work-claim is what authorizes writes).
 
 ## Failure handling

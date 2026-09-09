@@ -22,6 +22,7 @@ from yoke_core.domain.worktree_create_db import (
     item_worktree_authority_is_https,
     persist_item_worktrees,
     prepare_authoritative_item_worktrees,
+    provisioning_project,
 )
 from yoke_core.domain.worktree_create_plan import (
     WorktreeCreationEntry,
@@ -237,7 +238,16 @@ def create_worktree(
 
     # --- Per-worktree provisioning loop ---
     os.makedirs(worktrees_dir, exist_ok=True)
-    project_for_install = project or _fallback_project_for_worktree()
+    project_for_install, project_error = provisioning_project(
+        item_id, project, db_path
+    )
+    if project_error:
+        return CreateWorktreeResult(
+            path="",
+            branch=fallback_branch,
+            created=False,
+            error=project_error,
+        )
     for entry in plan.worktrees:
         if entry.preexisting:
             continue
@@ -317,7 +327,3 @@ def create_worktree(
 
 def _resolve_db_path_for_worktrees(*, repo_root_was_explicit: bool) -> Optional[str]:
     return None
-
-
-def _fallback_project_for_worktree() -> str:
-    return "yoke"
