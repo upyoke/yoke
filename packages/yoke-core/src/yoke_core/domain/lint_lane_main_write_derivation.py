@@ -35,6 +35,17 @@ TOOL_TARGET = "tool_target"
 COMMAND_TOKEN = "command_token"
 WORKING_DIRECTORY = "working_directory"
 
+# The free temp file the computed-message recovery writes through. It is
+# on the free-path allowlist from any lane, which is what makes the
+# recipe runnable by the session the refusal is teaching.
+RECOVERY_MESSAGE_FILE = "/tmp/message.txt"
+
+LANE_EDIT_GUIDANCE = (
+    "While this session holds an implementation-lane work claim, tracked "
+    "source edits belong in the lane worktree — not the main checkout. "
+    "Copy the in-lane path above into your Edit/Write/Bash call."
+)
+
 _SOURCE_NOTES = {
     TOOL_TARGET: "file path of the tool call",
     COMMAND_TOKEN: "write target read from the command body",
@@ -169,24 +180,37 @@ def format_derivation(
     return "\n".join(lines)
 
 
-def format_derivation_guidance(derivation: TargetDerivation) -> str:
-    """Render the next move, which differs by how the path was derived."""
+def format_derivation_guidance(
+    derivation: TargetDerivation, *, lane_path: str = "",
+) -> str:
+    """Render the next move, which differs by how the path was derived.
+
+    The cwd-fallback branch names a recovery the caller can actually run.
+    A leading ``cd`` inside the command body is the obvious reading of
+    "run it from the lane" and it does not work: the fallback is the
+    working directory the CALL declares, so a computed argument still
+    resolves against the main checkout and is refused again. The recovery
+    therefore names the lane on the command itself.
+    """
     if derivation.fell_back_to_cwd:
+        lane = lane_path or "<lane path>"
         return (
             "This command writes through a destination the guard cannot read "
-            "— a variable, a loop operand, or a computed path — so it fell "
-            "back to the working directory above. A path the command only "
-            "mentions as string data is never treated as a write target, and "
-            "an unreadable destination is refused rather than guessed. If the "
-            "write already lands in the lane, spell each destination as a "
-            "literal absolute lane path, or run the command with the lane as "
-            "its working directory."
+            "— a variable, a command substitution, a heredoc, or another "
+            "computed value — so it fell back to the working directory above. "
+            "A path the command only mentions as string data is never treated "
+            "as a write target, and an unreadable destination is refused "
+            "rather than guessed. A leading `cd` in the command body does not "
+            "move that fallback: the guard reads the working directory the "
+            "call itself declares. Name the lane on the command instead of "
+            "in front of it. For a commit whose message is computed, write "
+            "the message to a free temp file and run "
+            f"`git -C {lane} commit -F {RECOVERY_MESSAGE_FILE}`; "
+            "otherwise spell "
+            "each destination as a literal absolute lane path, or declare "
+            "the lane as the call's working directory."
         )
-    return (
-        "While this session holds an implementation-lane work claim, tracked "
-        "source edits belong in the lane worktree — not the main checkout. "
-        "Copy the in-lane path above into your Edit/Write/Bash call."
-    )
+    return LANE_EDIT_GUIDANCE
 
 
 def first_hit_fields(
@@ -200,7 +224,9 @@ def first_hit_fields(
 __all__ = [
     "COMMAND_TOKEN",
     "DerivationContext",
+    "LANE_EDIT_GUIDANCE",
     "MainWriteHit",
+    "RECOVERY_MESSAGE_FILE",
     "TOOL_TARGET",
     "TargetDerivation",
     "WORKING_DIRECTORY",

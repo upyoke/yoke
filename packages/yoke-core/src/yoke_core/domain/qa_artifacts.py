@@ -13,14 +13,26 @@ handle's address comes from ``qa_artifact_handle.handle_address``.
 
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from yoke_core.domain import machine_config, project_scratch_dir
+from yoke_core.domain.lint_session_cwd_path_authority import is_free_path
 from yoke_core.domain.qa_artifact_handle import (
     QA_ARTIFACT_STORAGE_KIND,
     safe_segment,
 )
+
+# A recovery recipe is only as good as its reader's authority to run it.
+# The capture tree lives under the machine scratch root inside the
+# operator's home dot-directories, which the session-cwd guard refuses to
+# read from a session holding a lane claim, so a refusal naming a capture
+# path hands the agent a command its own guard denies. Staged recovery
+# copies therefore land under the OS temp root, which both guards already
+# treat as a free path.
+_RECOVERY_COPY_PREFIX = "yoke-qa-evidence."
+_FALLBACK_TEMP_ROOT = Path("/tmp")
 
 
 def artifact_directory(
@@ -98,6 +110,37 @@ def permanent_artifact_file_path(
         run_id,
         create=create_parent,
     ) / safe_segment(filename)
+
+
+def recovery_copy_root() -> Path:
+    """Return a temp root a lane-claimed session is allowed to read from.
+
+    ``TMPDIR`` normally already resolves under the free-path allowlist. An
+    operator who has pointed it somewhere else would otherwise get a
+    recovery path their own guard refuses, so an out-of-allowlist temp root
+    falls back to ``/tmp``, which is on the allowlist by definition.
+    """
+
+    root = Path(tempfile.gettempdir())
+    return root if is_free_path(str(root)) else _FALLBACK_TEMP_ROOT
+
+
+def stage_recovery_copy(content: bytes, filename: str) -> Path:
+    """Write evidence bytes where the failed upload's recovery can read them.
+
+    Returns the staged file's path. The caller names that path in the
+    recovery recipe it raises, so the agent reading the refusal can run the
+    recipe as written instead of hitting a second refusal on the capture
+    path.
+    """
+
+    root = recovery_copy_root()
+    root.mkdir(parents=True, exist_ok=True)
+    staged = Path(
+        tempfile.mkdtemp(prefix=_RECOVERY_COPY_PREFIX, dir=root)
+    ) / safe_segment(filename)
+    staged.write_bytes(content)
+    return staged
 
 
 def is_sanctioned_artifact_path(

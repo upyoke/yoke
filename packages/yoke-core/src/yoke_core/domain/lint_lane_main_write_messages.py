@@ -6,6 +6,7 @@ from typing import Optional
 
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.domain.lint_lane_main_write_derivation import (
+    LANE_EDIT_GUIDANCE,
     TargetDerivation,
     format_derivation,
     format_derivation_guidance,
@@ -46,16 +47,12 @@ def format_denial(
             "evidence (outcome=suppression_attempted) but does NOT unblock."
         )
     derivation_block = ""
-    guidance = (
-        "While this session holds an implementation-lane work claim, tracked "
-        "source edits belong in the lane worktree — not the main checkout. "
-        "Copy the in-lane path above into your Edit/Write/Bash call."
-    )
+    guidance = LANE_EDIT_GUIDANCE
     if derivation is not None:
         derivation_block = format_derivation(
             derivation, attempted_path=attempted_path,
         ) + "\n"
-        guidance = format_derivation_guidance(derivation)
+        guidance = format_derivation_guidance(derivation, lane_path=lane_path)
     body = (
         "BLOCKED: source write to the main checkout while an implementation "
         "lane is held.\n\n"
