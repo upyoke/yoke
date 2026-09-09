@@ -39,6 +39,7 @@ def test_isolation_ignores_external_machine_config_and_identity(
 
     assert machine_config.yoke_home() == isolated_home
     assert machine_config.load_config() == {}
+    assert not isolated_home.exists()
     assert sentinel_config.read_text(encoding="utf-8") == sentinel_body
     assert not [name for name in AMBIENT_ENV_VARS if os.environ.get(name)]
     assert CURSOR_CONVERSATION_ENV_VAR not in os.environ
@@ -56,16 +57,18 @@ def test_consecutive_isolation_bindings_do_not_share_config(
             tmp_path / "first-case",
             first_patch,
         )
+        first_home.mkdir(parents=True)
         first_config = first_home / machine_config.DEFAULT_CONFIG_NAME
         first_config.write_text('{"case": "first"}\n', encoding="utf-8")
         assert machine_config.load_config() == {"case": "first"}
 
     with monkeypatch.context() as second_patch:
-        isolate_test_machine_and_session_identity(
+        second_home = isolate_test_machine_and_session_identity(
             tmp_path / "second-case",
             second_patch,
         )
         assert machine_config.load_config() == {}
+        assert not second_home.exists()
 
     assert first_config is not None
     assert first_config.read_text(encoding="utf-8") == '{"case": "first"}\n'

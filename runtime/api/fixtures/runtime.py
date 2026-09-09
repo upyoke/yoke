@@ -207,7 +207,6 @@ def isolate_test_machine_and_session_identity(
     from yoke_contracts.session_identity import AMBIENT_ENV_VARS
 
     machine_home = tmp_path / "machine-home"
-    machine_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(machine_home))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
     monkeypatch.delenv("YOKE_ENV", raising=False)
