@@ -175,26 +175,45 @@ def test_a_lane_with_a_commit_of_its_own_still_has_work_to_land(
     assert "fresh work item" in landed.stale_unlanded_work(**_look(repo))
 
 
-def test_a_lane_holding_an_unlanded_merge_is_not_a_copy(tmp_path, monkeypatch):
-    """A merge carries content ``git cherry`` skips, so it is never assumed away.
+def test_a_lane_whose_merge_carries_the_only_new_content_is_not_a_copy(
+    tmp_path, monkeypatch
+):
+    """Content a merge alone introduces is content patch identity cannot see.
 
-    The lane merges a side branch after its own landing. Every non-merge
-    commit on it still has an equivalent upstream, so patch identity alone
-    reports nothing left — while the merge brings content the base has never
-    seen, and converging would declare it delivered and clean the lane.
+    Every non-merge commit here has an equivalent upstream — the lane's own
+    work landed, and the side branch re-adds a file the base branch already
+    carries — so ``git cherry`` reports nothing left. The resolution written
+    into the merge is the exception it cannot compare, and converging would
+    declare that file delivered and clean the lane holding it.
+
+    A side branch carrying an ordinary unlanded commit would not test this:
+    ``git cherry`` names that commit on its own, so patch identity alone
+    already refuses and the merge is never what the answer turns on.
     """
-    repo, _base, lane_head, merge_commit = _landed_lane_repo(tmp_path)
-    _git(repo, "checkout", "-q", BRANCH)
-    _git(repo, "checkout", "-q", "-b", "side")
-    _commit(repo, "merge_only.txt", "only reachable through the merge\n")
+    repo, base, lane_head, merge_commit = _landed_lane_repo(tmp_path)
+    _git(repo, "checkout", "-q", "-B", "side", base)
+    _commit(repo, "later_one.py", "one\n")
     _git(repo, "checkout", "-q", BRANCH)
     _git(repo, "merge", "--no-ff", "side", "-m", "Merge side into the lane")
+    (repo / "merge_only.txt").write_text("resolved only in the merge\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "--amend", "--no-edit")
     _git(repo, "checkout", "-q", "main")
+    lane = _git(repo, "rev-parse", BRANCH)
+
+    # The premise this regression rests on, asserted rather than assumed.
+    assert not [
+        line
+        for line in _git(repo, "cherry", "main", lane).splitlines()
+        if line.startswith("+")
+    ]
+    assert "merge_only.txt" in _git(repo, "diff", "--name-only", "main", lane)
+    assert "merge_only.txt" not in _git(repo, "ls-tree", "-r", "--name-only", "main")
+
     monkeypatch.setattr(
         landed.receipts, "load", lambda *_a, **_k: _receipt(lane_head, merge_commit)
     )
-
-    assert git.unlanded_commits(str(repo), _git(repo, "rev-parse", BRANCH), "main")
+    assert git.unlanded_commits(str(repo), lane, "main")
     assert landed.landed_lane(**_look(repo), project="yoke") is None
     assert "fresh work item" in landed.stale_unlanded_work(**_look(repo))
 
