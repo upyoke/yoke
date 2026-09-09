@@ -25,10 +25,13 @@ CLI_PLAN_LIMIT_SURFACES = ("claude-cli", "codex-cli", "cursor-cli")
 PLAN_LIMIT_STATUSES = frozenset({"ok", "unknown"})
 PLAN_LIMIT_WINDOW_KINDS = frozenset({"rolling_5h", "rolling_7d", "monthly", "unknown"})
 
-# The one clock both sides read: how long a reading's own ``observed_at``
-# stays trustworthy before a display must stop presenting its percent and
-# tier as current. The relay-side refresh cadence and the Machines panel's
-# staleness gate both derive from this instead of naming their own number.
+# Central timing policy for plan-limit observations. Refreshing every four
+# minutes leaves a full minute for the bounded provider probe and report
+# delivery before the five-minute display cutoff. That raises steady-state
+# refresh starts per provider from 12 to 15 per hour (+25%); providers with
+# multiple reads per probe retain that same multiplier. The display keeps a
+# finite, truthful point after which quota and tier stop presenting as current.
+PLAN_LIMIT_REFRESH_SECONDS = 4 * 60
 PLAN_LIMIT_FRESH_SECONDS = 5 * 60
 
 # The scope sentinel for a meter that covers every model, as opposed to one
@@ -244,6 +247,7 @@ __all__ = [
     "CURSOR_OTHER_MODELS_SCOPE",
     "MAX_WINDOWS_PER_SURFACE",
     "PLAN_LIMIT_FRESH_SECONDS",
+    "PLAN_LIMIT_REFRESH_SECONDS",
     "PLAN_LIMIT_STATUSES",
     "PLAN_LIMIT_WINDOW_KINDS",
     "RELAY_PREDATES_WINDOWS_REASON",

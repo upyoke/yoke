@@ -16,7 +16,7 @@ from yoke_contracts.session_control.plan_limit_parsers import (
 )
 from yoke_contracts.session_control.plan_limits import (
     CLI_PLAN_LIMIT_SURFACES,
-    PLAN_LIMIT_FRESH_SECONDS,
+    PLAN_LIMIT_REFRESH_SECONDS,
     sanitize_plan_limits,
     unknown_reading,
 )
@@ -30,7 +30,6 @@ from yoke_harness.session_relay_schedule import relay_state_dir
 from yoke_harness.session_relay_surface_probes import resolve_native_cli
 
 
-PLAN_LIMIT_REFRESH_SECONDS = PLAN_LIMIT_FRESH_SECONDS
 PLAN_LIMIT_CACHE_FILE_NAME = "plan-limits.json"
 # Bumped whenever the cached reading shape changes. A cache written by a
 # different shape is discarded rather than reported, so an upgraded relay
@@ -213,7 +212,7 @@ def observe_plan_limits(
     now: float | None = None,
     clock: Callable[[], str] = _now_iso,
 ) -> dict[str, dict[str, Any]]:
-    """Return cached readings, refreshing connected CLI surfaces every 5 minutes."""
+    """Return cached readings, refreshing connected CLI surfaces every 4 minutes."""
     current = time.time() if now is None else now
     wanted = tuple(
         surface for surface in CLI_PLAN_LIMIT_SURFACES if surface in set(surfaces)

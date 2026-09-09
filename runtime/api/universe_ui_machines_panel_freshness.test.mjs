@@ -6,6 +6,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  PLAN_LIMIT_FRESH_SECONDS,
+  readingIsStale,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_machines_meters.js";
+import {
   renderMachinesPanel,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_machines_panel.js";
 import {
@@ -35,6 +39,19 @@ function renderOneCard(relay) {
   renderMachinesPanel({ document: documentNode }, host, [relay]);
   return host;
 }
+
+test("ordinary refresh latency stays visible until the finite cutoff", () => {
+  const observedAt = "2026-09-04T12:00:00Z";
+  const cutoff = Date.parse(observedAt) + PLAN_LIMIT_FRESH_SECONDS * 1000;
+  // The relay starts its normal refresh at four minutes. A UI load/redraw
+  // after thirty seconds of provider and delivery latency is inside the reserve.
+  const ordinaryDelivery = Date.parse(observedAt) + (4 * 60 + 30) * 1000;
+
+  assert.equal(readingIsStale(observedAt, ordinaryDelivery), false);
+  assert.equal(readingIsStale(observedAt, cutoff), false);
+  assert.equal(readingIsStale(observedAt, cutoff + 1), true);
+  assert.equal(readingIsStale("not-a-time", cutoff), true);
+});
 
 test("a confirmed removal reads absent and drops its stale version, never masked", () => {
   const host = renderOneCard({

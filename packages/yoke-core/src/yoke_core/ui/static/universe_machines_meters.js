@@ -39,18 +39,17 @@ const LANE_WARN_FRACTION = 0.75;
 const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 // How long a plan-limit reading's own `observed_at` stays trustworthy before
-// its percent and tier must stop presenting as a live fact. Mirrors the
-// relay's own refresh cadence (`PLAN_LIMIT_FRESH_SECONDS` in
-// yoke_contracts.session_control.plan_limits), so a healthy relay's reading
-// never crosses it — only a relay that has gone quiet does.
-const PLAN_LIMIT_STALE_SECONDS = 5 * 60;
+// its percent and tier must stop presenting as a live fact. The relay refreshes
+// one minute earlier; that reserve covers its bounded probe and report delivery
+// instead of assuming a refresh that starts at this boundary is instantaneous.
+export const PLAN_LIMIT_FRESH_SECONDS = 5 * 60;
 
 // No parseable `observed_at` is no evidence of freshness, so it reads as
 // stale rather than as a silent current value.
 export function readingIsStale(observedAt, now = Date.now()) {
   const timestamp = Date.parse(String(observedAt || ""));
   if (Number.isNaN(timestamp)) return true;
-  return (now - timestamp) / 1000 > PLAN_LIMIT_STALE_SECONDS;
+  return (now - timestamp) / 1000 > PLAN_LIMIT_FRESH_SECONDS;
 }
 
 // `Number(null)` is 0, so a fact the relay never published would otherwise read
