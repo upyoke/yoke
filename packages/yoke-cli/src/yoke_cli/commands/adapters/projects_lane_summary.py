@@ -88,4 +88,13 @@ def projects_lane_summary_get(args: List[str]) -> int:
     )
 
 
-__all__ = ["PROJECTS_LANE_SUMMARY_GET_USAGE", "projects_lane_summary_get"]
+USAGE_BY_FUNCTION_ID = {
+    "projects.lane_summary.get": PROJECTS_LANE_SUMMARY_GET_USAGE,
+}
+
+
+__all__ = [
+    "PROJECTS_LANE_SUMMARY_GET_USAGE",
+    "USAGE_BY_FUNCTION_ID",
+    "projects_lane_summary_get",
+]
