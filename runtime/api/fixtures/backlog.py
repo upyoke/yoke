@@ -74,14 +74,23 @@ def _record_fixture_operating_actor(conn: Any, actor_id: int) -> None:
     install any of these tests mean to describe.
 
     The conftest points ``YOKE_MACHINE_HOME`` at a per-test directory, so
-    both the config written here and the binding are isolated. A schema
-    too minimal to state its universe identity records nothing and keeps
-    the refusal it would really get.
+    both the config written here and the binding are isolated.
+
+    A fixture whose schema carries no organization identity card cannot
+    state which universe it is, so no binding is recorded and its tests
+    get the refusal a real machine would. That skip is checked for by
+    name rather than caught: swallowing the write's own failure once hid
+    a missing identity card through a whole CI round, and any other
+    failure here is a defect that should surface at the fixture.
     """
     from yoke_contracts.machine_config import runtime as machine_config
     from yoke_core.domain.session_actor_binding_write import (
         persist_operating_actor,
     )
+    from yoke_core.domain.universe_identity import universe_fingerprint
+
+    if universe_fingerprint(conn) is None:
+        return
 
     config_path = machine_config.config_path()
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -91,10 +100,7 @@ def _record_fixture_operating_actor(conn: Any, actor_id: int) -> None:
     payload["connections"] = connections
     payload.setdefault("active_env", FIXTURE_ENV)
     machine_config.write_config(config_path, payload)
-    try:
-        persist_operating_actor(conn, actor_id, env=FIXTURE_ENV)
-    except Exception:  # noqa: BLE001 — a schema with no identity card records none
-        pass
+    persist_operating_actor(conn, actor_id, env=FIXTURE_ENV)
 
 
 def seed_fixture_operating_actor(conn: Any) -> int:

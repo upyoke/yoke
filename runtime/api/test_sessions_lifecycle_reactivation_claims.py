@@ -106,6 +106,21 @@ CREATE TABLE IF NOT EXISTS actors (
 """
 
 
+# Recording which actor this machine operates the universe as requires the
+# universe to say which universe it is, and that answer is its single
+# organization identity card. A fixture that registers sessions carries one
+# for the same reason a born universe does.
+_CREATE_ORGANIZATIONS = """
+CREATE TABLE IF NOT EXISTS organizations (
+    id INTEGER PRIMARY KEY, slug TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL, created_at TEXT NOT NULL
+);
+INSERT INTO organizations (id, slug, name, created_at)
+    VALUES (1, 'default', 'Default', '2026-01-01T00:00:00Z')
+    ON CONFLICT DO NOTHING;
+"""
+
+
 def _apply_reactivation_schema() -> None:
     """``apply_schema`` strategy building the fixture via the backend factory.
 
@@ -125,7 +140,8 @@ def _apply_reactivation_schema() -> None:
             + _CREATE_WORK_CLAIMS
             + _CREATE_EVENTS
             + _CREATE_EVENT_REGISTRY
-            + _CREATE_ACTORS,
+            + _CREATE_ACTORS
+            + _CREATE_ORGANIZATIONS,
         )
         # Registration binds the universe's operating actor; a fixture
         # without one models an install that cannot exist.
