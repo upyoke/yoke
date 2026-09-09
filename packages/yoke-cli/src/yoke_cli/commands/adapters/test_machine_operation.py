@@ -17,6 +17,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     TargetRef,
 )
+from yoke_contracts.machine_qa_failures import host_control_failure
 from yoke_cli.commands._helpers import (
     ensure_handlers_loaded,
     parse_or_usage_error,
@@ -127,15 +128,22 @@ def _execute(
             execution=execution,
             reason="local_execution_failed",
         )
+        error_code, message, recovery_hint = host_control_failure(
+            exc,
+            phase=f"{operation}_execution",
+        )
         return emit_response(
             _local_execution_error(
                 operation,
-                f"local host-control {operation} failed ({type(exc).__name__}); "
+                message
+                + "; "
                 + (
                     "the server lease was released"
                     if released
                     else "automatic server-lease release also failed"
                 ),
+                error_code=error_code,
+                recovery_hint=recovery_hint,
                 lease_released=released,
             ),
             json_mode=json_mode,
@@ -208,6 +216,8 @@ def _local_execution_error(
     operation: str,
     message: str,
     *,
+    error_code: str = "host_control_local_execution_failed",
+    recovery_hint: str | None = None,
     lease_released: bool = False,
 ) -> FunctionCallResponse:
     return FunctionCallResponse(
@@ -215,11 +225,13 @@ def _local_execution_error(
         function=f"test_machine.{operation}",
         version="v1",
         error=FunctionError(
-            code="host_control_local_execution_failed",
+            code=error_code,
             message=message,
             recovery_hint=(
-                "Verify this machine owns the test-machine ssh_private_key "
-                "capability secret, then retry the CLI command."
+                (
+                    recovery_hint
+                    or "Retry the registered CLI command from the executing machine."
+                )
                 + (
                     ""
                     if lease_released

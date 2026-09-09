@@ -8,6 +8,7 @@ import {
   machineRelativeAge as relativeAge,
 } from "./test_machine_view_primitives.js";
 import {
+  machineSecretState,
   machineSecretNotes as secretNotes,
   orderedMachineSecrets,
 } from "./test_machine_settings_dialog.js";
@@ -18,7 +19,7 @@ export function secretPanel(documentNode, detail) {
     documentNode,
     "span",
     "panel-hint",
-    "presence only · values never render",
+    "executing-machine presence only · values never render",
   ));
   for (const secret of orderedMachineSecrets(detail.secrets)) {
     const row = el(documentNode, "div", "secret test-machine-secret");
@@ -36,7 +37,10 @@ export function secretPanel(documentNode, detail) {
       secretNotes[secret.key] || "runner-only credential",
     ));
     row.appendChild(copy);
-    const pill = statePill(documentNode, secret.stored ? "stored" : "missing");
+    const secretState = machineSecretState(secret);
+    const pill = statePill(
+      documentNode, secretState.state, secretState.label,
+    );
     if (pill) row.appendChild(pill);
     built.body.appendChild(row);
   }

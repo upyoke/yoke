@@ -22,9 +22,6 @@ from yoke_contracts.machine_qa_execution import (
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_method_capabilities import capability_kinds
-from yoke_core.domain.capability_machine_secrets import (
-    list_machine_capability_secret_keys,
-)
 from yoke_core.domain.capability_type_definitions import (
     capability_type_definition,
 )
@@ -201,9 +198,6 @@ def _test_machine_detail(
             subject=f"method {method[0]!r}",
         )
     ]
-    stored_keys = set(
-        list_machine_capability_secret_keys(row.project, TEST_MACHINE_CAPABILITY)
-    )
     status = (
         str(verification[0])
         if verification is not None
@@ -238,7 +232,7 @@ def _test_machine_detail(
             capability_type=row.capability_type,
         ),
         "secrets": [
-            {"key": key, "stored": key in stored_keys}
+            {"key": key, "stored": None, "scope": "executing_machine"}
             for key in sorted(TEST_MACHINE_SECRET_KEYS)
         ],
         "active_lease": (

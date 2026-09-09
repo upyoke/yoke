@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from yoke_cli.config import path_doctor
+from yoke_contracts.machine_qa_failures import HostControlLocalError
 from yoke_core.domain.host_control_runner import (
     TestMachineMaterial as MachineMaterial,
 )
@@ -23,6 +24,7 @@ from yoke_core.domain.ssh_mac_full_reset_script import (
     render_full_reset_script,
 )
 from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
+from yoke_harness.ssh_mac_transport import SshMacTransport
 
 GOLDEN_BASELINE_PATH = "/Users/Shared/yoke-golden/tester-home"
 
@@ -225,3 +227,61 @@ def test_fixture_file_transfers_use_guaranteed_mac_primitives(
         base64.b64encode(b"replacement fixture").decode("ascii"),
     ]
     assert "top-secret" not in repr(calls)
+
+
+def test_initial_ssh_failure_preserves_bounded_redacted_diagnostics(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    private_key = (
+        "-----BEGIN OPENSSH PRIVATE KEY-----\nsecret-body\n"
+        "-----END OPENSSH PRIVATE KEY-----"
+    )
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=255,
+            stdout="",
+            stderr=f"Permission denied {private_key} " + ("x" * 900),
+        ),
+    )
+
+    with pytest.raises(HostControlLocalError) as caught:
+        SshMacTransport(
+            settings={"host": "test-mac.local", "user": "yoke-test"},
+            key_path=tmp_path / "ssh_private_key",
+        )
+
+    failure = caught.value
+    assert failure.code == "host_control_connection_failed"
+    assert failure.phase == "host_facts_ssh"
+    assert failure.exit_code == 255
+    assert "Permission denied" in failure.stderr
+    assert "secret-body" not in str(failure)
+    assert "BEGIN OPENSSH" not in str(failure)
+    assert len(failure.stderr) <= 512
+
+
+def test_malformed_host_facts_are_distinct_from_connection_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=0,
+            stdout="only-one-fact",
+            stderr="remote profile emitted no shell fact",
+        ),
+    )
+
+    with pytest.raises(HostControlLocalError) as caught:
+        SshMacTransport(
+            settings={"host": "test-mac.local", "user": "yoke-test"},
+            key_path=tmp_path / "ssh_private_key",
+        )
+
+    assert caught.value.code == "host_control_host_facts_malformed"
+    assert caught.value.phase == "host_facts_parse"
+    assert caught.value.exit_code == 0
+    assert "only-one-fact" in str(caught.value)
