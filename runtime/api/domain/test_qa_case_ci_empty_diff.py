@@ -87,9 +87,12 @@ def test_empty_diff_records_pass_without_push_or_dispatch(
     assert result["empty_diff"] is True
     assert result["verification_tree"]["head_sha"] == LANE_HEAD
     evidence = json.loads(recorder.payload("qa.run.add")["raw_result"])
+    artifact = recorder.payload("qa.artifact.add")
     assert evidence["empty_diff"] is True
     assert evidence["verification_tree"]["head_sha"] == LANE_HEAD
     assert evidence["ci_conclusion"] == "success"
+    assert artifact["filename"] == "ci-run-output.txt"
+    assert "artifact_handle" not in artifact
     assert recorder.payload("qa.run.complete")["verdict"] == "pass"
     push.assert_not_called()
 

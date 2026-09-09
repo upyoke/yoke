@@ -25,56 +25,19 @@ def _record_run(
     output: str,
     actor: Optional[ActorContext],
 ) -> tuple[int, int]:
-    from yoke_core.domain.qa_artifact_handle import local_handle
-    from yoke_core.domain.qa_artifacts import (
-        artifact_file_path,
-        case_artifact_subject,
-    )
-    from yoke_core.domain.qa_case_execution import recording_leg
+    from yoke_core.domain.qa_case_execution import record_command_run
 
-    call_qa = recording_leg(case, actor=actor)
-    run = call_qa(
-        "qa.run.add",
-        {
-            "performed_by": EXECUTOR_ID,
-            "raw_result": raw_result,
-            "duration_ms": duration_ms,
-        },
+    return record_command_run(
+        case,
+        performed_by=EXECUTOR_ID,
+        raw_result=raw_result,
+        duration_ms=duration_ms,
+        verdict=verdict,
+        output=output,
+        filename="ci-run-output.txt",
+        metadata={"case_key": case["case_key"], "verdict": verdict},
+        actor=actor,
     )
-    run_id = int(run["qa_run_id"])
-    output_path = artifact_file_path(
-        str(case["project"]),
-        case_artifact_subject(case),
-        run_id,
-        "ci-run-output.txt",
-    )
-    output_path.write_text(output, encoding="utf-8")
-    artifact = call_qa(
-        "qa.artifact.add",
-        {
-            "run_id": run_id,
-            "artifact_type": "command_output",
-            "content_type": "text/plain",
-            "artifact_handle": local_handle(
-                str(output_path.resolve()),
-                "text/plain",
-            ),
-            "metadata": json.dumps(
-                {"case_key": case["case_key"], "verdict": verdict},
-                sort_keys=True,
-            ),
-        },
-    )
-    call_qa(
-        "qa.run.complete",
-        {
-            "run_id": run_id,
-            "verdict": verdict,
-            "raw_result": raw_result,
-            "duration_ms": duration_ms,
-        },
-    )
-    return run_id, int(artifact["qa_artifact_id"])
 
 
 def lane_has_no_commits_against_target(checkout: Path, target: str) -> bool:

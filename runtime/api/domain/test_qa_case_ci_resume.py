@@ -30,6 +30,7 @@ from yoke_core.domain import (
     qa_case_ci_resume,
     qa_case_ci_run,
     qa_case_ci_superseded_run,
+    qa_case_execution,
 )
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
@@ -124,6 +125,34 @@ def test_a_concluded_run_on_the_candidate_is_adopted_without_rebasing(
 
     assert result["ci_run_source"] == covering_run.ADOPTED
     assert result["verdict"] == "pass"
+    rebase.assert_not_called()
+
+
+def test_adopted_run_upload_failure_names_same_run_recovery(
+    live_lane, monkeypatch,
+) -> None:
+    checkout, recorder, _ = live_lane
+    _queue_project(monkeypatch)
+    rebase = _rebase_spy(monkeypatch)
+    monkeypatch.setattr(
+        covering_run, "find_run_for_tree", lambda **k: completed_run(LANE_HEAD),
+    )
+
+    def fail_artifact(function_id, requirement_id, payload, **kwargs):
+        if function_id == "qa.artifact.add":
+            raise QaCaseExecutionError("qa.artifact.add failed (s3_upload_failed)")
+        return recorder(function_id, requirement_id, payload, **kwargs)
+
+    monkeypatch.setattr(qa_case_execution, "_dispatch", fail_artifact)
+
+    with pytest.raises(QaCaseExecutionError) as error:
+        _run(checkout)
+
+    message = str(error.value)
+    assert "recorded QA run #77" in message
+    assert "--requirement-id 41 --run-id 77" in message
+    assert "yoke qa run complete" in message
+    assert not any(name == "qa.run.complete" for name, _, _ in recorder.calls)
     rebase.assert_not_called()
 
 

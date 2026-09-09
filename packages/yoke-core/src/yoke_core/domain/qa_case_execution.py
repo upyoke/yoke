@@ -11,7 +11,9 @@ boundary, and the checkout a runner runs against.
 
 from __future__ import annotations
 
+import base64
 import json
+import shlex
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -96,6 +98,80 @@ def recording_leg(
         )
 
     return dispatch_leg
+
+
+def record_command_run(
+    case: dict,
+    *,
+    performed_by: str,
+    raw_result: str,
+    duration_ms: int,
+    verdict: str,
+    output: str,
+    filename: str,
+    metadata: dict,
+    actor: Optional[ActorContext] = None,
+) -> tuple[int, int]:
+    """Upload command evidence bytes, then settle their durable run."""
+    from yoke_core.domain.qa_artifacts import (
+        artifact_file_path,
+        case_artifact_subject,
+    )
+
+    call_qa = recording_leg(case, actor=actor)
+    run = call_qa(
+        "qa.run.add",
+        {
+            "performed_by": performed_by,
+            "raw_result": raw_result,
+            "duration_ms": duration_ms,
+        },
+    )
+    run_id = int(run["qa_run_id"])
+    requirement_id = int(case["requirement_id"])
+    output_path = artifact_file_path(
+        str(case["project"]),
+        case_artifact_subject(case),
+        run_id,
+        filename,
+    )
+    output_bytes = output.encode("utf-8")
+    output_path.write_bytes(output_bytes)
+    metadata_json = json.dumps(metadata, sort_keys=True)
+    try:
+        artifact = call_qa(
+            "qa.artifact.add",
+            {
+                "run_id": run_id,
+                "artifact_type": "command_output",
+                "content_type": "text/plain",
+                "content_base64": base64.b64encode(output_bytes).decode("ascii"),
+                "filename": filename,
+                "metadata": metadata_json,
+            },
+        )
+    except QaCaseExecutionError as exc:
+        evidence_path = shlex.quote(str(output_path))
+        raise QaCaseExecutionError(
+            f"command evidence upload failed for recorded QA run #{run_id}: "
+            f"{exc}. The evidence remains at {output_path}. Recover this same "
+            "run with `yoke qa artifact add "
+            f"--requirement-id {requirement_id} --run-id {run_id} "
+            "--artifact-type command_output --content-type text/plain "
+            f"--content-file {evidence_path}`, then `yoke qa run complete "
+            f"--requirement-id {requirement_id} --run-id {run_id} "
+            f"--verdict {verdict}`."
+        ) from exc
+    call_qa(
+        "qa.run.complete",
+        {
+            "run_id": run_id,
+            "verdict": verdict,
+            "raw_result": raw_result,
+            "duration_ms": duration_ms,
+        },
+    )
+    return run_id, int(artifact["qa_artifact_id"])
 
 
 def fetch_case_execution_context(

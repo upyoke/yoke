@@ -148,62 +148,25 @@ def execute_worktree_case(
     if timeout_summary:
         record["timeout_summary"] = timeout_summary
     raw_result = json.dumps(record, sort_keys=True)
-    record_leg = qa_case_execution.recording_leg(case, actor=actor)
-    run = record_leg(
-        "qa.run.add",
-        {
-            "performed_by": "worktree_run",
-            "raw_result": raw_result,
-            "duration_ms": duration_ms,
+    run_id, artifact_id = qa_case_execution.record_command_run(
+        case,
+        performed_by="worktree_run",
+        raw_result=raw_result,
+        duration_ms=duration_ms,
+        verdict=verdict,
+        output=output,
+        filename="command-output.txt",
+        metadata={
+            "case_key": case["case_key"],
+            "exit_code": exit_code,
+            "timed_out": streamed.timed_out,
         },
-    )
-    run_id = int(run["qa_run_id"])
-    from yoke_core.domain.qa_artifact_handle import local_handle
-    from yoke_core.domain.qa_artifacts import (
-        artifact_file_path,
-        case_artifact_subject,
-    )
-
-    output_path = artifact_file_path(
-        str(case["project"]),
-        case_artifact_subject(case),
-        run_id,
-        "command-output.txt",
-    )
-    output_path.write_text(output, encoding="utf-8")
-    artifact = record_leg(
-        "qa.artifact.add",
-        {
-            "run_id": run_id,
-            "artifact_type": "command_output",
-            "content_type": "text/plain",
-            "artifact_handle": local_handle(
-                str(output_path.resolve()),
-                "text/plain",
-            ),
-            "metadata": json.dumps(
-                {
-                    "case_key": case["case_key"],
-                    "exit_code": exit_code,
-                    "timed_out": streamed.timed_out,
-                },
-                sort_keys=True,
-            ),
-        },
-    )
-    record_leg(
-        "qa.run.complete",
-        {
-            "run_id": run_id,
-            "verdict": verdict,
-            "raw_result": raw_result,
-            "duration_ms": duration_ms,
-        },
+        actor=actor,
     )
     return {
         "requirement_id": int(case["requirement_id"]),
         "run_id": run_id,
-        "artifact_id": int(artifact["qa_artifact_id"]),
+        "artifact_id": artifact_id,
         "runner_id": "worktree_run",
         "verdict": verdict,
         "case_outcome": "passed" if verdict == "pass" else "failed",

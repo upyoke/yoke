@@ -12,6 +12,7 @@ path exactly as it did before that path had an alternative.
 
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 
 from yoke_core.domain import (
@@ -54,14 +55,20 @@ def ci_case(**overrides) -> dict:
 class Recorder:
     """Captures the qa.* function calls the runner dispatches."""
 
-    def __init__(self) -> None:
+    def __init__(self, artifact_path: Path) -> None:
         self.calls: list[tuple[str, int, dict]] = []
+        self.artifact_path = artifact_path
 
     def __call__(self, function_id, requirement_id, payload, *, actor=None):
         self.calls.append((function_id, requirement_id, payload))
         if function_id == "qa.run.add":
             return {"qa_run_id": 77}
         if function_id == "qa.artifact.add":
+            assert "artifact_handle" not in payload
+            assert payload["filename"] == "ci-run-output.txt"
+            self.artifact_path.write_bytes(
+                base64.b64decode(payload["content_base64"], validate=True)
+            )
             return {"qa_artifact_id": 88}
         return {}
 
@@ -93,7 +100,7 @@ def wire_ci_case(tmp_path, monkeypatch) -> tuple[Path, Recorder, Path]:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
     artifact = tmp_path / "ci-run-output.txt"
-    recorder = Recorder()
+    recorder = Recorder(artifact)
     monkeypatch.setattr(qa_case_execution, "_dispatch", recorder)
     monkeypatch.setattr(
         "yoke_core.domain.verification_tree_binding.evaluate_run",

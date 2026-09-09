@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 from unittest import mock
@@ -145,6 +146,25 @@ def test_passing_run_records_no_timeout_summary(tmp_path: Path) -> None:
     assert "timeout_summary" not in json.loads(
         captured["qa.run.complete"]["raw_result"]
     )
+
+
+def test_empty_command_output_is_uploaded_as_truthful_inline_evidence(
+    tmp_path: Path,
+) -> None:
+    passed = qa_case_command_stream.StreamedCommand(
+        exit_code=0,
+        timed_out=False,
+        output="",
+        capture_path=tmp_path / "capture.log",
+    )
+
+    _, captured = _execute(tmp_path, passed)
+
+    artifact = captured["qa.artifact.add"]
+    assert artifact["filename"] == "command-output.txt"
+    assert "artifact_handle" not in artifact
+    decoded = base64.b64decode(artifact["content_base64"], validate=True).decode()
+    assert "[output]\n\n\n[exit_code]\n0" in decoded
 
 
 def test_cli_restates_a_timeout_alongside_the_failing_verdict(
