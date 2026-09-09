@@ -185,3 +185,43 @@ def test_derived_validation_creator_names_its_exact_target_to_the_guard(
         "name": "yoke_validation",
         "target_dsn": validation_dsn,
     }
+
+
+def test_reset_clears_every_schema_the_restore_will_recreate() -> None:
+    """A second hydration must not fail on a schema the first one left.
+
+    The restore recreates every schema the authority carries, so a reset
+    that clears only ``public`` leaves the next one to collide on
+    ``CREATE SCHEMA`` — read at the terminal as a broken rehearsal rather
+    than a dirty target.
+    """
+    from runtime.api.fixtures import pg_testdb
+
+    name = pg_testdb.create_test_database()
+    try:
+        conn = pg_testdb.connect_test_database(name)
+        try:
+            conn.execute("CREATE SCHEMA statement_statistics")
+            conn.execute("CREATE TABLE statement_statistics.samples (id INTEGER)")
+            conn.execute("CREATE TABLE public.leftover (id INTEGER)")
+            conn.commit()
+        finally:
+            conn.close()
+
+        copy_tool._reset_validation_schema(pg_testdb.dsn_for_test_database(name))
+
+        conn = pg_testdb.connect_test_database(name)
+        try:
+            remaining = {
+                str(row[0])
+                for row in conn.execute(
+                    "SELECT nspname FROM pg_namespace "
+                    "WHERE nspname NOT LIKE 'pg\\_%' "
+                    "AND nspname <> 'information_schema'"
+                ).fetchall()
+            }
+        finally:
+            conn.close()
+        assert remaining == {"public"}
+    finally:
+        pg_testdb.drop_test_database(name)

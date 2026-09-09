@@ -73,10 +73,31 @@ def _subprocess_connection(dsn: str) -> tuple[str, dict[str, str]]:
 
 
 def _reset_validation_schema(dsn: str) -> None:
-    """Clear the disposable validation schema without archive drop ordering."""
+    """Empty the disposable validation database without archive drop ordering.
+
+    Every schema the authority carries is recreated by the restore, so the
+    reset has to clear all of them rather than ``public`` alone: a database
+    still holding a schema from an earlier copy fails the next restore on
+    the ``CREATE SCHEMA`` for it, and the operator reads that as the
+    rehearsal being broken rather than the target being dirty. ``public``
+    is recreated because a dump of a default-shaped database does not carry
+    a statement to create it.
+    """
 
     with psycopg.connect(dsn) as conn:
-        conn.execute("DROP SCHEMA public CASCADE")
+        names = [
+            str(row[0])
+            for row in conn.execute(
+                "SELECT nspname FROM pg_namespace "
+                "WHERE nspname NOT LIKE 'pg\\_%' "
+                "AND nspname <> 'information_schema' "
+                "ORDER BY nspname"
+            ).fetchall()
+        ]
+        for name in names:
+            conn.execute(
+                sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(name))
+            )
         conn.execute("CREATE SCHEMA public")
 
 
