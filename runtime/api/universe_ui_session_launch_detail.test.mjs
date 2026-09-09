@@ -62,7 +62,7 @@ function page(overrides = {}) {
   });
 }
 
-async function mountAt(t, client, hash = "#/machines?project=1") {
+async function mountAt(t, client, hash = "#/launches?project=1") {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});

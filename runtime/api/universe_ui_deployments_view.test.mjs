@@ -51,6 +51,7 @@ test("navigation is three groups, and every entry declares one", () => {
       ["projects", "▤", "Projects", "none", "settings"],
       ["github", "⎇", "GitHub", "multi", "settings"],
       ["actors", "⚇", "Actors", "none", "settings"],
+      ["machines", "▣", "Machines", "multi", "settings"],
       ["members", "⚉", "Members", "none", "settings"],
       ["billing", "▧", "Billing", "none", "settings"],
 
@@ -67,10 +68,10 @@ test("navigation is three groups, and every entry declares one", () => {
       ["packs", "◫", "Packs", "none", "diagnostics"],
       ["architecture", "▦", "Architecture", "single", "diagnostics"],
       ["messages", "✦", "Messages", "multi", "diagnostics"],
+      ["launches", "⇱", "Launches", "multi", "diagnostics"],
       ["events", "≋", "Events", "multi", "diagnostics"],
       ["doctor", "♥", "Doctor", "multi", "diagnostics"],
       ["ouroboros", "∞", "Ouroboros", "multi", "diagnostics"],
-      ["machines", "▣", "Machines", "multi", "diagnostics"],
     ],
   );
 });

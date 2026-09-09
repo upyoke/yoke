@@ -2,25 +2,15 @@
 
 import { callFunction, el } from "./universe_view_support.js";
 import { renderMachinesPanel } from "./universe_machines_panel.js";
-import { renderSessionLaunchesView } from "./universe_session_launches.js";
+import {
+  machinesById,
+  registeredMachineRelays,
+  relaysByMachineId,
+} from "./universe_machines_roster.js";
 import {
   presentSessionControlFailure,
   sessionControlCall,
 } from "./universe_session_control_data.js";
-
-function offlineRelay(machine) {
-  return {
-    machine_id: machine.machine_id,
-    hostname: machine.name,
-    liveness: "silent",
-    state: "offline",
-    surface_versions: {},
-    surface_confirmed_absent: [],
-    plan_limits: {},
-    capacity: {},
-    surface_policies: [],
-  };
-}
 
 function stat(documentNode, value, label) {
   const node = el(documentNode, "div", "machine-roster-stat");
@@ -62,11 +52,8 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
   const stats = el(documentNode, "section", "machine-roster-stats");
   const roster = el(documentNode, "section", "machines-section");
   const retired = el(documentNode, "section", "machines-section");
-  const launches = el(documentNode, "section", "machines-section");
-  main.replaceChildren(status, stats, roster, retired, launches);
+  main.replaceChildren(status, stats, roster, retired);
   chrome.setPageHead?.({ title: "Machines" });
-  const composed = { ...chrome, setPageHead: undefined };
-  renderSessionLaunchesView(context, launches, _scope, composed);
 
   const load = async () => {
     status.textContent = "Loading machines…";
@@ -90,10 +77,8 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
     if (!context.isMounted()) return;
     const active = machines.filter((row) => !row.retired_at);
     const historical = machines.filter((row) => row.retired_at);
-    const relayById = new Map(relays.map((row) => [String(row.machine_id), row]));
-    const activeRelays = active.map(
-      (machine) => relayById.get(String(machine.machine_id)) || offlineRelay(machine),
-    );
+    const relayById = relaysByMachineId(relays);
+    const activeRelays = registeredMachineRelays(machines, relays);
     const online = activeRelays.filter((row) => row.liveness === "connected").length;
     const seen = active.filter((row) => relayById.has(String(row.machine_id))).length;
     stats.replaceChildren(
@@ -105,7 +90,7 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
       ? "Registration history and current relay telemetry are shown together."
       : "No active machines are registered.";
     roster.replaceChildren();
-    const machineById = new Map(active.map((row) => [String(row.machine_id), row]));
+    const machineById = machinesById(machines);
     renderMachinesPanel(context, roster, activeRelays, {
       showHeading: false,
       showManagement: true,

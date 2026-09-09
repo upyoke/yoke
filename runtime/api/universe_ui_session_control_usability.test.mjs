@@ -167,28 +167,7 @@ test("message history leads with readable content and accessible receipts", asyn
   mounted.unmount();
 });
 
-test("launch and machine roster explain unavailable machine capability", async (t) => {
-  const handlers = {
-    "machine.list": () => ok({ machines: [], count: 0 }),
-    "session_control.launch.list": () => ok({
-      operational: [], operational_count: 0,
-      history: [], history_matched_count: 0, next_cursor: null,
-    }),
-    "session_control.relay.list": () => ok({ relays: [], count: 0 }),
-    "sessions.list": () => ok({ rows: [] }),
-  };
-  const launch = await mountAt(t, "#/machines?project=1", handlers);
-  button(launch.root, "Create session").dispatchEvent(new Event("click"));
-  await settle();
-  assert.equal(button(launch.root, "Preview launch").disabled, true);
-  assert.ok(byClass(launch.root, "session-control-status").at(-1).textContent.includes(
-    "Reconnect a machine relay",
-  ));
-  assert.ok(byClass(launch.root, "session-control-help")[0].textContent.includes(
-    "will not silently change the selection or surface",
-  ));
-  launch.mounted.unmount();
-
+test("the machine roster reads a registered machine through its relay", async (t) => {
   const relay = await mountAt(t, "#/machines?project=1", {
     "machine.list": () => ok({
       machines: [{

@@ -62,7 +62,7 @@ function page(overrides = {}) {
   });
 }
 
-async function mountAt(t, client, hash = "#/machines?project=1") {
+async function mountAt(t, client, hash = "#/launches?project=1") {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -172,7 +172,7 @@ test("an all-project scope requests each project and labels every row", async (t
       { id: 2, slug: "platform", name: "Platform" },
     ],
   );
-  const { root, mounted } = await mountAt(t, client, "#/machines");
+  const { root, mounted } = await mountAt(t, client, "#/launches");
 
   assert.deepEqual(requested.sort(), ["1", "2"]);
   // Merged newest-first across projects, and each row says where it came from.
@@ -236,7 +236,7 @@ test("a superseded page response never overwrites the newer one", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/machines?project=1";
+  documentNode.defaultView.location.hash = "#/launches?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client });
   await settle();

@@ -1,5 +1,4 @@
 import { el } from "./universe_view_support.js";
-import { openSessionLaunchDialog } from "./session_launch_create_dialog.js";
 import {
   appendLaunchDetail,
   selectionLabels,
@@ -178,12 +177,6 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
   const view = el(documentNode, "div", "session-control-view");
   const status = statusRegion(documentNode);
   const content = el(documentNode, "div", "session-control-content", "Loading launches…");
-  const dialogHost = el(documentNode, "div", "session-control-dialog-host");
-  const create = el(documentNode, "button", "item-button", "Create session");
-  create.type = "button";
-  create.disabled = projects.length === 0;
-  const actions = el(documentNode, "div", "session-control-actions");
-  actions.appendChild(create);
   const state = {
     expanded: new Set(),
     details: new Map(),
@@ -207,14 +200,12 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
       Object.keys(filters.criteria()).length > 0,
     );
   };
-  view.appendChild(actions);
   view.appendChild(filters.host);
   view.appendChild(status);
   view.appendChild(content);
-  view.appendChild(dialogHost);
   main.replaceChildren(view);
   if (typeof chrome.setPageHead === "function") {
-    chrome.setPageHead({ title: "Session launches", actions: [create] });
+    chrome.setPageHead({ title: "Launches" });
   }
   // One fetch per expanded row: the compact list carries no timeline, evidence,
   // or actions, and a second click while the first is in flight must not
@@ -273,21 +264,5 @@ export function renderSessionLaunchesView(context, main, scope, chrome = {}) {
       button.disabled = false;
     }
   };
-  const launchCreated = async (result) => {
-    const launchId = result?.launch?.launch_id || "Session launch";
-    status.hidden = false;
-    status.textContent = `${launchId} created. Tracking registration below.`;
-    await loader.reload();
-  };
-  create.addEventListener("click", async () => {
-    try {
-      await openSessionLaunchDialog(context, dialogHost, projects, launchCreated);
-    } catch (error) {
-      status.hidden = false;
-      status.textContent = presentSessionControlFailure(
-        error, "The launch dialog could not be opened.",
-      );
-    }
-  });
   loader.reload();
 }

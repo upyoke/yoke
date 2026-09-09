@@ -5,7 +5,7 @@
 // every healthy row are left out.
 
 import { attachTooltip } from "./universe_tooltip.js";
-import { el } from "./universe_view_support.js";
+import { callFunction, el } from "./universe_view_support.js";
 import { preciseAge } from "./universe_time.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import {
@@ -23,6 +23,7 @@ import {
   planWindowRow,
 } from "./universe_machines_limits.js";
 import { appendMachineUsage } from "./universe_machines_usage.js";
+import { machinesById, registeredMachineRelays } from "./universe_machines_roster.js";
 import {
   renderSessionControlFailure,
   sessionControlCall,
@@ -269,7 +270,7 @@ export function renderMachinesPanel(context, host, relays, options = {}) {
       documentNode,
       "p",
       "machines-empty",
-      "No relay is connected, so no session can be launched onto this universe.",
+      "No machine is registered, so no session can be launched onto this universe.",
     ));
     host.appendChild(panel);
     return;
@@ -296,11 +297,16 @@ export async function loadMachinesPanel(context, host, options = {}) {
   let fetched = null;
   const run = async () => {
     let relays;
+    let machineById;
     try {
-      const result = await sessionControlCall(
-        context, "session_control.relay.list", { limit: 500 },
-      );
-      relays = result.relays || [];
+      const [machineCall, relayResult] = await Promise.all([
+        callFunction(context.client, "machine.list", {}),
+        sessionControlCall(context, "session_control.relay.list", { limit: 500 }),
+      ]);
+      if (!machineCall.envelope.success) throw machineCall;
+      const machines = machineCall.envelope.result.machines || [];
+      relays = registeredMachineRelays(machines, relayResult.relays || []);
+      machineById = machinesById(machines);
     } catch (error) {
       if (!context.isMounted()) return;
       host.replaceChildren();
@@ -312,7 +318,7 @@ export async function loadMachinesPanel(context, host, options = {}) {
       renderSessionControlFailure(
         failure,
         error,
-        "The relay roster could not be read, so what can run is unknown.",
+        "The machine roster could not be read, so what can run is unknown.",
       );
       const retry = el(documentNode, "button", "machines-retry", "Try again");
       retry.type = "button";
@@ -323,9 +329,9 @@ export async function loadMachinesPanel(context, host, options = {}) {
       return;
     }
     if (!context.isMounted()) return;
-    fetched = relays;
+    fetched = { relays, machineById };
     host.replaceChildren();
-    renderMachinesPanel(context, host, relays, options);
+    renderMachinesPanel(context, host, relays, { ...options, machineById });
   };
   await run();
   // Redrawing reuses the relays already fetched: the roster re-renders on
@@ -335,7 +341,9 @@ export async function loadMachinesPanel(context, host, options = {}) {
     redraw: () => {
       if (!fetched || !context.isMounted()) return;
       host.replaceChildren();
-      renderMachinesPanel(context, host, fetched, options);
+      renderMachinesPanel(context, host, fetched.relays, {
+        ...options, machineById: fetched.machineById,
+      });
     },
   };
 }

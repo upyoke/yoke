@@ -117,7 +117,7 @@ test("launch cards show identity correlation and exact registered-session links"
     },
   };
   const { root, mounted } = await mountAt(
-    t, "#/machines?project=1", client,
+    t, "#/launches?project=1", client,
   );
   // Identity, delivery, and evidence live in the expanded record, which the
   // list fetches one row at a time.

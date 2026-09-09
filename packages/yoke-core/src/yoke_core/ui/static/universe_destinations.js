@@ -65,6 +65,14 @@ export const NAV = [
     id: "actors", icon: "⚇", label: "Actors", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
   },
+  // Registration and proved identity per registered machine. Which machines
+  // exist is configuration you maintain, so it sits with the rest of it;
+  // capacity and health are a different question and stay on Sessions, where
+  // they are read before staffing rather than after.
+  {
+    id: "machines", icon: "▣", label: "Machines", scope: SCOPE_MULTI,
+    group: GROUP_SETTINGS,
+  },
   {
     id: "members", icon: "⚉", label: "Members", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
@@ -136,6 +144,10 @@ export const NAV = [
     group: GROUP_DIAGNOSTICS,
   },
   {
+    id: "launches", icon: "⇱", label: "Launches", scope: SCOPE_MULTI,
+    group: GROUP_DIAGNOSTICS,
+  },
+  {
     id: "events", icon: "≋", label: "Events", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
   },
@@ -145,13 +157,6 @@ export const NAV = [
   },
   {
     id: "ouroboros", icon: "∞", label: "Ouroboros", scope: SCOPE_MULTI,
-    group: GROUP_DIAGNOSTICS,
-  },
-  // Registration and proved identity per registered machine, absorbing the
-  // launch and relay records. Capacity and health are a different question and
-  // live on Sessions, which is where they are read: before staffing, not after.
-  {
-    id: "machines", icon: "▣", label: "Machines", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
   },
 ];

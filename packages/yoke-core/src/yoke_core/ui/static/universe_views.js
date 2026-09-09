@@ -46,6 +46,7 @@ import { renderSessionsView } from "./universe_views_sessions.js";
 import { renderSessionMessagesView } from "./universe_session_messages.js";
 import { renderRegisteredSessionDetail } from "./universe_session_detail.js";
 import { renderMachinesView } from "./universe_views_machines.js";
+import { renderSessionLaunchesView } from "./universe_session_launches.js";
 import { renderMachineDetail } from "./universe_machine_detail.js";
 import {
   renderStrategyDocDetailView,
@@ -107,6 +108,7 @@ export const VIEW_RENDERERS = {
   packs: renderPacksView,
   architecture: renderArchitectureView,
   messages: renderSessionMessagesView,
+  launches: renderSessionLaunchesView,
   events: renderEventsView,
   doctor: renderDoctorView,
   ouroboros: renderOuroborosView,

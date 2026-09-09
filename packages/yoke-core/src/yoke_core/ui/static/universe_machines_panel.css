@@ -1,6 +1,6 @@
 /* The Machines panel on Sessions. Dense on purpose: it is a status strip an
    operator scans before launching, not a report they read. */
-.machines-panel { margin-bottom: 22px; }
+.machines-panel { margin-bottom: 0; }
 .machines-panel-head {
   margin: 0 0 10px;
   color: var(--yoke-ink);
