@@ -5,14 +5,16 @@ Owns run creation, membership writes, transitions, and success bookkeeping.
 
 from __future__ import annotations
 
-import json
 import re
 from datetime import datetime, timezone
 from typing import Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_scalar
+from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain import deployment_run_lineage_rebind as lineage_rebind
+from yoke_core.domain import (
+    deployment_run_completion_preconditions as completion_preconditions,
+)
 from yoke_core.domain.deployment_runs_schema import (
     UPDATABLE_FIELDS,
     VALID_STATUSES,
@@ -259,52 +261,12 @@ def cmd_update(
                 except ValueError as exc:
                     return f"Error: {exc}"
 
-            if value == "succeeded":
-                cur_stage = (
-                    query_scalar(
-                        conn,
-                        "SELECT COALESCE(current_stage, '') FROM deployment_runs WHERE id=%s",
-                        (run_id,),
-                    )
-                    or ""
+            if value == "succeeded" and (
+                refusal := completion_preconditions.refuse_succeeded(
+                    conn, run_id, force=force
                 )
-
-                if cur_stage:
-                    if cur_stage.endswith("-failed"):
-                        if not force:
-                            return (
-                                f"Error: cannot set status=succeeded -- "
-                                f"current_stage '{cur_stage}' indicates failure"
-                            )
-
-                    run_flow = query_scalar(
-                        conn,
-                        "SELECT flow FROM deployment_runs WHERE id=%s",
-                        (run_id,),
-                    )
-                    if run_flow:
-                        stages_json = query_scalar(
-                            conn,
-                            "SELECT stages FROM deployment_flows WHERE id=%s",
-                            (run_flow,),
-                        )
-                        if stages_json:
-                            try:
-                                stages = json.loads(stages_json)
-                                if stages:
-                                    final_stage = stages[-1].get("name", "")
-                                    if (
-                                        final_stage
-                                        and cur_stage != final_stage
-                                        and cur_stage != "complete"
-                                        and not force
-                                    ):
-                                        return (
-                                            f"Error: cannot set status=succeeded -- "
-                                            f"current_stage '{cur_stage}' is not the final stage"
-                                        )
-                            except (json.JSONDecodeError, IndexError, KeyError):
-                                pass
+            ):
+                return refusal
 
             if value == "executing":
                 conn.execute(
