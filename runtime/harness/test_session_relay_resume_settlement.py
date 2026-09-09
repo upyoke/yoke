@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 import os
 import sys
@@ -143,8 +144,16 @@ def test_default_spawn_settles_usage_across_custody_and_relay_directories(
     assert not supervision_record_path(ATTEMPT_ID, custody).exists()
 
     usage = usage_from_document(session_usage_document(CONVERSATION))
-    assert session_usage_document(CONVERSATION) == first_usage
+    before_second_settlement = usage_from_document(first_usage)
     assert usage is not None
+    assert before_second_settlement is not None
+    # Every read retakes the reading, so its observed_at moves on its own.
+    # What a second settlement must not change is what was measured, and
+    # comparing the rendered documents asserted the clock as well — one
+    # settlement pair straddling a second boundary failed the whole shard.
+    assert replace(usage, observed_at="") == replace(
+        before_second_settlement, observed_at=""
+    )
     entry = usage.models[0]
     assert (entry.input, entry.cached_input, entry.cache_write, entry.output) == (
         102596,
