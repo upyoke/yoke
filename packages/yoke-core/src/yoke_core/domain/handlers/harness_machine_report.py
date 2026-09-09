@@ -62,9 +62,11 @@ def handle_harness_machine_report_upsert(
             error=FunctionError(
                 code="payload_invalid",
                 message=(
-                    f"{exc}. Reports are keyed by machine; a client that "
-                    "sends none is behind this control plane — upgrade yoke "
-                    "on the reporting machine."
+                    f"{exc}. Reports require machine_id naming the reporting "
+                    "machine; include it from the machine identity resolver. "
+                    "A missing or invalid machine_id is a payload error, "
+                    "not evidence of client version skew. The server does "
+                    "not guess a machine."
                 ),
                 jsonpath="$.payload",
             ),

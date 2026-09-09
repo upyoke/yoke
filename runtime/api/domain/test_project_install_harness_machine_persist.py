@@ -1,0 +1,149 @@
+"""Install persist must send machine_id through the real upsert handler."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from yoke_cli.project_install.harness_machine_persist import persist_install_glue
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    FunctionCallResponse,
+)
+from yoke_contracts.machine_config.runtime import MachineConfigError
+from yoke_core.domain import db_helpers, harness_machine_state
+from yoke_core.domain.handlers import harness_machine_report
+
+
+MACHINE = "11111111-1111-4111-8111-111111111111"
+PROJECT_ID = 7
+REPORT = {
+    "harness_id": "cursor",
+    "glue_present": True,
+    "glue_malformed": False,
+    "config_present": True,
+    "project_entry_present": False,
+    "approval_state": "unknown",
+}
+
+
+class _Connection:
+    def close(self) -> None:
+        pass
+
+
+def _patch_inventory(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "yoke_cli.project_install.harness_inventory.collect_harness_inventory",
+        lambda repo_root: [dict(REPORT)],
+    )
+    monkeypatch.setattr(
+        "yoke_cli.project_install.harness_inventory.collect_pack_prerequisite_inventory",
+        lambda repo_root: [],
+    )
+    monkeypatch.setattr(
+        "yoke_cli.commands._helpers.ensure_handlers_loaded",
+        lambda: None,
+    )
+
+
+def _dispatch_through_handler(**kwargs):
+    request = FunctionCallRequest(
+        function=kwargs["function_id"],
+        actor=kwargs.get("actor")
+        or ActorContext(actor_id="operator", session_id="session-1"),
+        target=kwargs["target"],
+        payload=kwargs["payload"],
+    )
+    outcome = harness_machine_report.handle_harness_machine_report_upsert(request)
+    return FunctionCallResponse(
+        success=outcome.primary_success,
+        function=kwargs["function_id"],
+        version="v1",
+        request_id="req-1",
+        result=outcome.result_payload or {},
+        error=outcome.error,
+    )
+
+
+def test_install_payload_is_accepted_and_scoped_to_this_machine(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict = {}
+    upserts: list[dict] = []
+
+    def fake_upsert(conn, *, project_id, machine_id, reports):
+        upserts.append(
+            {
+                "project_id": project_id,
+                "machine_id": machine_id,
+                "reports": reports,
+            }
+        )
+        return list(reports)
+
+    def fake_dispatch(**kwargs):
+        captured.update(kwargs)
+        return _dispatch_through_handler(**kwargs)
+
+    _patch_inventory(monkeypatch)
+    monkeypatch.setattr(
+        "yoke_cli.project_install.harness_machine_persist.ensure_machine_id",
+        lambda: MACHINE,
+    )
+    monkeypatch.setattr(
+        "yoke_cli.commands._helpers.call_dispatcher",
+        fake_dispatch,
+    )
+    monkeypatch.setattr(db_helpers, "connect", _Connection)
+    monkeypatch.setattr(
+        harness_machine_state,
+        "upsert_harness_machine_reports",
+        fake_upsert,
+    )
+
+    report: dict = {}
+    persist_install_glue(tmp_path, PROJECT_ID, report)
+
+    assert report.get("warnings", []) == []
+    payload = captured["payload"]
+    assert payload["machine_id"] == MACHINE
+    assert payload["project_id"] == PROJECT_ID
+    assert payload["reports"][0]["harness_id"] == "cursor"
+    assert len(upserts) == 1
+    assert upserts[0]["project_id"] == PROJECT_ID
+    assert upserts[0]["machine_id"] == MACHINE
+    assert upserts[0]["reports"][0]["harness_id"] == "cursor"
+
+
+def test_install_persist_fail_softs_unresolved_machine_identity(
+    monkeypatch, tmp_path: Path
+) -> None:
+    dispatched: list[dict] = []
+
+    def fake_dispatch(**kwargs):
+        dispatched.append(kwargs)
+        raise AssertionError("must not guess a machine and dispatch")
+
+    def _unconfigured() -> str:
+        raise MachineConfigError(
+            "config.json must be configured before assigning a machine id"
+        )
+
+    _patch_inventory(monkeypatch)
+    monkeypatch.setattr(
+        "yoke_cli.project_install.harness_machine_persist.ensure_machine_id",
+        _unconfigured,
+    )
+    monkeypatch.setattr(
+        "yoke_cli.commands._helpers.call_dispatcher",
+        fake_dispatch,
+    )
+
+    report: dict = {}
+    persist_install_glue(tmp_path, PROJECT_ID, report)
+
+    assert dispatched == []
+    assert report["warnings"]
+    assert "not persisted" in report["warnings"][0]
+    assert "upgrade" not in report["warnings"][0].lower()
