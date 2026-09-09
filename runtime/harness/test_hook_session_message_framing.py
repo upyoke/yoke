@@ -8,8 +8,6 @@ from yoke_contracts.session_control.teaching import (
     FLEET_INVALID_MESSAGE_ID_GUIDANCE,
 )
 from yoke_core.hooks.session_message_rendering import (
-    MAX_FULL_MESSAGES_PER_INJECTION,
-    MAX_SESSION_MESSAGE_INJECTION_BYTES,
     render_child_view,
     render_lease,
 )
@@ -190,7 +188,13 @@ def test_a_lease_with_no_report_renders_exactly_as_before() -> None:
     assert "YOKE FLEET REPORT" not in without
 
 
-def test_parent_backlog_expands_only_the_bounded_message_count() -> None:
+def test_parent_backlog_expands_every_leased_message() -> None:
+    """Only messages this lease never held are summarized rather than shown.
+
+    A body dropped here would still be settled by the lease that carried
+    it, so the count the envelope hides is exactly the count the lease
+    left pending.
+    """
     messages = tuple(_message() for _index in range(8))
 
     rendered, _ = _render(
@@ -201,29 +205,24 @@ def test_parent_backlog_expands_only_the_bounded_message_count() -> None:
         )
     )
 
-    assert rendered.count("--- BEGIN YOKE SESSION MESSAGE ") == (
-        MAX_FULL_MESSAGES_PER_INJECTION
-    )
-    assert "12 additional unacknowledged session message(s)" in rendered
+    assert rendered.count("--- BEGIN YOKE SESSION MESSAGE ") == len(messages)
+    assert "7 additional unacknowledged session message(s)" in rendered
     assert "--state unacknowledged" in rendered
     assert "yoke messages get MESSAGE-ID --json" in rendered
 
 
-def test_parent_payload_byte_ceiling_summarizes_oversized_content() -> None:
+def test_parent_renders_an_oversized_body_rather_than_summarizing_it() -> None:
+    """Fitting is the composer's call; trimming here would fake a receipt."""
+    body = "x" * 20_000
     oversized = LeasedSessionMessage(
         message_id=MESSAGE_ID,
-        body="x" * MAX_SESSION_MESSAGE_INJECTION_BYTES,
+        body=body,
         sender_actor_id=41,
     )
 
     rendered, _ = _render(
-        SessionMessageLease(
-            lease_id="lease-1",
-            messages=(oversized,),
-            report="r" * MAX_SESSION_MESSAGE_INJECTION_BYTES,
-        )
+        SessionMessageLease(lease_id="lease-1", messages=(oversized,))
     )
 
-    assert len(rendered.encode("utf-8")) <= MAX_SESSION_MESSAGE_INJECTION_BYTES
-    assert "1 additional unacknowledged session message(s)" in rendered
-    assert "YOKE FLEET REPORT" not in rendered
+    assert body in rendered
+    assert "additional unacknowledged session message(s)" not in rendered

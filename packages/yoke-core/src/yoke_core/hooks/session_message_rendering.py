@@ -13,14 +13,11 @@ from yoke_contracts.session_control.teaching import (
     canonical_fleet_message_id,
     fleet_acknowledgement_instruction,
 )
+from yoke_contracts.hook_inline_context import ENVELOPE_INLINE_CONTEXT_BYTES
 from yoke_core.hooks.session_message_delivery_port import (
     LeasedSessionMessage,
     SessionMessageLease,
 )
-
-
-MAX_FULL_MESSAGES_PER_INJECTION = 3
-MAX_SESSION_MESSAGE_INJECTION_BYTES = 24 * 1024
 
 
 def _render_message(
@@ -91,33 +88,26 @@ def _parent_text(token: str, blocks: list[str]) -> str:
 def _parent_blocks(
     lease: SessionMessageLease,
     *,
-    token: str,
     session_id: str,
 ) -> list[str]:
-    total_count = len(lease.messages) + max(0, lease.remaining_count)
-    selected: list[str] = []
-    for message in lease.messages[:MAX_FULL_MESSAGES_PER_INJECTION]:
-        proposed = [
-            *selected,
-            _render_message(
-                message,
-                acknowledgement=(
-                    fleet_acknowledgement_instruction(message.message_id)
-                    or FLEET_INVALID_MESSAGE_ID_GUIDANCE
-                ),
+    """Expand every leased body; only unleased messages are summarized.
+
+    The lease is one settlement unit: whatever it holds is marked injected
+    together. Dropping a body here therefore issues a receipt for text this
+    block never carried, and the omitted message is excluded from the
+    pending-only retry that would have carried it next.
+    """
+    blocks = [
+        _render_message(
+            message,
+            acknowledgement=(
+                fleet_acknowledgement_instruction(message.message_id)
+                or FLEET_INVALID_MESSAGE_ID_GUIDANCE
             ),
-        ]
-        hidden_count = total_count - len(proposed)
-        fixed_blocks = [*proposed]
-        if hidden_count:
-            fixed_blocks.append(_parent_overflow_notice(hidden_count, session_id))
-        if len(_parent_text(token, fixed_blocks).encode("utf-8")) > (
-            MAX_SESSION_MESSAGE_INJECTION_BYTES
-        ):
-            break
-        selected = proposed
-    hidden_count = total_count - len(selected)
-    blocks = [*selected]
+        )
+        for message in lease.messages
+    ]
+    hidden_count = max(0, lease.remaining_count)
     if hidden_count:
         blocks.append(_parent_overflow_notice(hidden_count, session_id))
     return blocks
@@ -128,12 +118,16 @@ def render_lease(
     *,
     session_id: str,
 ) -> tuple[str, str]:
-    """Return bounded model context and the durable settlement token."""
+    """Return the whole lease as model context, plus its settlement token.
+
+    Bounding happens where delivery is actually decided: the harness
+    context composer either carries this block intact or replaces it with
+    the overflow pointer that names every message and keeps each receipt
+    pending. Trimming it here instead would make both outcomes look
+    identical to settlement.
+    """
     token = f"YOKE_SESSION_MESSAGE_LEASE:{lease.lease_id}"
-    rendered = _parent_text(
-        token,
-        _parent_blocks(lease, token=token, session_id=session_id),
-    )
+    rendered = _parent_text(token, _parent_blocks(lease, session_id=session_id))
     return rendered, token
 
 
@@ -158,9 +152,15 @@ def _child_overflow_notice(hidden_count: int) -> str:
 
 
 def render_child_view(messages: tuple[LeasedSessionMessage, ...]) -> str:
-    """Render a bounded read-only view without granting receipt authority."""
+    """Render a bounded read-only view without granting receipt authority.
+
+    This block settles no receipt, so summarizing part of it falsifies
+    nothing. It bounds itself because the composer classifies it as a hint
+    and drops an oversized hint whole rather than pointing at it, and the
+    smallest harness inline ceiling is what it has to survive.
+    """
     selected: list[str] = []
-    for message in messages[:MAX_FULL_MESSAGES_PER_INJECTION]:
+    for message in messages:
         proposed = [
             *selected,
             _render_message(message, acknowledgement=SUBAGENT_FLEET_GUIDANCE),
@@ -170,7 +170,7 @@ def render_child_view(messages: tuple[LeasedSessionMessage, ...]) -> str:
         if hidden_count:
             fixed_blocks.append(_child_overflow_notice(hidden_count))
         if len(_child_text(fixed_blocks).encode("utf-8")) > (
-            MAX_SESSION_MESSAGE_INJECTION_BYTES
+            ENVELOPE_INLINE_CONTEXT_BYTES
         ):
             break
         selected = proposed
@@ -181,8 +181,6 @@ def render_child_view(messages: tuple[LeasedSessionMessage, ...]) -> str:
 
 
 __all__ = [
-    "MAX_FULL_MESSAGES_PER_INJECTION",
-    "MAX_SESSION_MESSAGE_INJECTION_BYTES",
     "render_child_view",
     "render_lease",
 ]
