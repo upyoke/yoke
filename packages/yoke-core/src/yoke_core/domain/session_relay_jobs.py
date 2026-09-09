@@ -184,12 +184,17 @@ def report_wake_job(
     if reported == result_code and result_code in WAKE_DELIVERY_UNVERIFIED_RESULTS:
         return {"attempt_id": attempt_id, "result_code": result_code}
     if reported not in WAKE_DELIVERY_UNVERIFIED_RESULTS:
-        require_relay_batch(conn, relay_id=relay_id, now=now)
+        try:
+            require_relay_batch(conn, relay_id=relay_id, now=now)
+        except SessionRelayError:
+            settled_row = conn.execute(
+                f"SELECT completed_at,result_code FROM session_message_attempts "
+                f"WHERE attempt_id={p}", (attempt_id,),
+            ).fetchone()
+            if settled_row and settled_row[0] and str(settled_row[1] or "") == result_code:
+                return {"attempt_id": attempt_id, "result_code": result_code}
+            raise
     completed_at = None if result_code in WAKE_DELIVERY_UNVERIFIED_RESULTS else now
-    # The unsettled predicate is what makes this report atomic. The read
-    # above establishes the attempt is open, but two copies of one report
-    # can both pass that read before either writes, and a settlement that
-    # trusted it would refund a deferral's wake budget twice.
     settled = conn.execute(
         "UPDATE session_message_attempts SET completed_at="
         + p
