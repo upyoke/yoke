@@ -73,6 +73,15 @@ _TEXT_FIELDS = frozenset(
         "requested_model",
         "requested_reasoning_effort",
         "result_code",
+        # Which native this machine was already running for the target
+        # session when it declined to start a second one, and which custody
+        # record named it. The pid alone cannot be checked by a reader
+        # elsewhere: the start time is what says the number still means that
+        # process, and the source says whether a resume or a launch put it
+        # there. A wake refused with none of the three is indistinguishable
+        # from one refused for no reason at all.
+        "running_native_source",
+        "running_native_start_time",
         # Which requested_* columns the binding filled from this launch. A
         # session that carried its own ask leaves it absent, so the two ways
         # a request reaches the roster stay tellable apart when one breaks.
@@ -112,6 +121,7 @@ _INTEGER_FIELDS = frozenset(
         "native_pid",
         "registered_context_window_tokens",
         "requested_context_window_tokens",
+        "running_native_pid",
     }
 )
 _MAX_TEXT_LENGTH = 128

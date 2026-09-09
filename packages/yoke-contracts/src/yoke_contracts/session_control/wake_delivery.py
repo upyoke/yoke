@@ -42,6 +42,17 @@ WAKE_DELIVERED_RESULT = "wake_delivered"
 #: whole verdict exists to stop reporting as a success.
 TURN_WITHOUT_INJECTION_RESULT = "turn_without_injection"
 
+#: What a relay reports when it declined to start a native at all, because
+#: the target session's own native is still running. Not a delivery and not
+#: a failure: nothing was started, the envelope stays pending for the live
+#: turn's own hook, and the sweep after that native exits wakes normally.
+NATIVE_TURN_RUNNING_RESULT = "native_turn_running"
+
+#: Reported codes that decided against waking rather than attempting one.
+#: Read as failures they would tell an operator a wake broke when it was
+#: deliberately held back, and would spend a retry the relay never used.
+WAKE_DEFERRED_RESULTS = frozenset({NATIVE_TURN_RUNNING_RESULT})
+
 #: Reported codes that leave delivery unproven. An attempt carrying one of
 #: these stays open until the control plane settles it.
 WAKE_DELIVERY_UNVERIFIED_RESULTS = frozenset(
@@ -66,6 +77,7 @@ WAKE_REPORT_CODES = frozenset(
         NATIVE_RESUME_ACCEPTED_RESULT,
         RESUMED_RUNNING_RESULT,
         *RESUME_RELAY_SETTLEMENT_RESULTS,
+        *WAKE_DEFERRED_RESULTS,
     ]
 )
 
@@ -136,6 +148,12 @@ def delivery_attempt_failed(result_code: object) -> bool:
     """
     if result_code is None or not str(result_code).strip():
         return False
+    if str(result_code) in WAKE_DEFERRED_RESULTS:
+        # Nothing was started, so nothing broke. The receipt is still
+        # pending and the next sweep after the running native exits
+        # wakes it; calling that a failure would report a defect where
+        # the relay made the correct decision.
+        return False
     return str(result_code) not in DELIVERY_ATTEMPT_SUCCESS_RESULTS
 
 
@@ -188,6 +206,7 @@ __all__ = [
     "DELIVERY_ATTEMPT_SUCCESS_RESULTS",
     "HOOK_INJECTED_RESULT",
     "NATIVE_RESUME_ACCEPTED_RESULT",
+    "NATIVE_TURN_RUNNING_RESULT",
     "UNREPORTED_DELIVERY_DIAGNOSTIC",
     "delivery_attempt_diagnostic",
     "delivery_attempt_failed",
@@ -196,6 +215,7 @@ __all__ = [
     "TURN_WITHOUT_INJECTION_RECOVERY",
     "TURN_WITHOUT_INJECTION_RESULT",
     "WAKE_DELIVERED_RESULT",
+    "WAKE_DEFERRED_RESULTS",
     "WAKE_DELIVERY_UNVERIFIED_RESULTS",
     "WAKE_DELIVERY_VERDICTS",
     "WAKE_REPORT_CODES",

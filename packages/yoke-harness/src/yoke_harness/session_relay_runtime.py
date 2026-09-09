@@ -288,6 +288,15 @@ def run_registered_job(job: Mapping[str, Any]) -> RelayAdapterResult:
                 "session_workspace": str(job.get("target_workspace") or ""),
             },
         )
+    # Resuming a conversation this machine is already running would be a
+    # second turn on it, so custody answers before any adapter spawns.
+    from yoke_harness.session_relay_native_turn_custody import (
+        deferral_for_running_native,
+    )
+
+    deferred = deferral_for_running_native(context)
+    if deferred is not None:
+        return deferred
     adapter = _ADAPTERS.get(context.surface)
     if adapter is None:
         try:
