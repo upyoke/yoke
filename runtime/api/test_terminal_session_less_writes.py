@@ -52,11 +52,13 @@ def bound_machine(tmp_db):  # noqa: F811 — pytest injects the re-exported fixt
     actor id this machine recorded, so a fixture without that binding
     models a machine no session could register on either.
     """
-    from runtime.api.fixtures.backlog import _record_fixture_operating_actor
+    from runtime.api.fixtures.operating_actor import (
+        record_fixture_operating_actor,
+    )
 
     conn = _conn(tmp_db)
     try:
-        _record_fixture_operating_actor(conn, _seeded_human(tmp_db))
+        record_fixture_operating_actor(conn, _seeded_human(tmp_db))
     finally:
         conn.close()
 
