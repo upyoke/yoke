@@ -15,6 +15,7 @@ from yoke_core.domain import close_out_control_plane_authority as close_out
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
+from yoke_core.domain.merge_review_readiness import review_readiness_refusal
 from yoke_core.domain import standalone_item_merge_pending as pending
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
@@ -85,6 +86,10 @@ def run(argv: List[str]) -> int:
     workflow_id = str((item.get("workflow") or {}).get("id") or "")
     status = str(item.get("status") or "")
     needs_evidence = workflow_id in EVIDENCE_WORKFLOWS and not args.skip_status
+
+    unready = review_readiness_refusal(item, public_ref=public_ref)
+    if unready:
+        return _fail(unready, as_json=as_json)
 
     if needs_evidence and not (args.result and args.verification):
         return _fail(

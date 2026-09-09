@@ -235,6 +235,33 @@ the default connection and close the item out in the wrong universe. With no
 binding the context managers do nothing, so a direct engine call and a
 universe that never switched keep the connection they already had.
 
+### Why admission asks for the declared review stage
+
+The merge boundary reads the item's current stage and lands from there.
+Nothing in that reading consulted the stage the pinned workflow declares for
+review, so an item still in implementation could have a pull request armed
+and a queue entry created for work no review stage had seen, and the
+close-out then asked for a jump straight to the terminal stage. Both halves
+of that are now refused, and they are refused in two different places
+because they are two different acts.
+
+The status write refuses the jump itself: a forward move must be an edge the
+pinned version declares, checked before the target stage materializes any QA
+row or approval request in its name. That alone cannot protect the landing,
+because `--skip-status` legitimately lands a branch without moving the item —
+an item-bound deployment run needs the merge identity before close-out. So
+admission asks the same declared question directly: has this item reached
+the stage its own workflow declares for review, where review is the stage
+the lane-activating stage's declared edge leads to. A definition that
+declares no such stage — the floor workflow delivers straight from
+implementation — is admitted unchanged.
+
+Reaching that stage is what runs the review stage's own gates. Admission
+never records that a review happened; it refuses to land work that has not
+had one, and it fails closed when it cannot read the pinned definition,
+because a boundary that cannot ask the question must not answer it with a
+landing.
+
 ## Consequences
 
 - The refusal message in the merge engine now names a command rather than a
@@ -254,3 +281,10 @@ universe that never switched keep the connection they already had.
   by the connected control plane's build, so a contract that lands and deploys
   governs the next close-out instead of waiting for every operator's lane to
   be rebuilt.
+- A standalone landing is refused while the item is still in implementation,
+  including under `--skip-status`. The refusal names the declared review
+  stage and the transition that reaches it.
+- Closing an item out straight from implementation is refused by the status
+  write itself. Rework, exceptional states, declared jumps, and a write that
+  names its own source — the done transition, an advance skip route, an
+  operator status repair — keep working unchanged.
