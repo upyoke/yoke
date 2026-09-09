@@ -72,6 +72,7 @@ def test_onboard_yes_reuses_existing_machine_and_project_state(
             json.dumps(
                 {
                     "schema_version": 1,
+                    "machine_id": "11111111-1111-4111-8111-111111111111",
                     "active_env": "prod",
                     "connections": {
                         "prod": {

@@ -5,6 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List
 
+from yoke_contracts.machine_config.runtime import (
+    MachineConfigError,
+    ensure_machine_id,
+)
+
 
 def persist_install_glue(
     repo_root: Path,
@@ -40,12 +45,27 @@ def persist_install_glue(
     payload_reports: List[Dict[str, Any]] = list(by_id.values())
     if not payload_reports:
         return
+    # Onboard register-machine only reads an already-present id. First
+    # install and refresh can reach persist with a config file that never
+    # received one. ensure_machine_id mints that UUID once under lock and
+    # does not replace a valid id.
+    try:
+        machine_id = ensure_machine_id()
+    except MachineConfigError as exc:
+        install_report.setdefault("warnings", []).append(
+            "harness machine report was not persisted: "
+            f"{exc}. Write this machine's config first (`yoke onboard`), "
+            "then retry install or `yoke harness machine-report upsert`. "
+            "The server does not guess a machine."
+        )
+        return
     ensure_handlers_loaded()
     response = call_dispatcher(
         function_id="harness.machine_report.upsert",
         target=TargetRef(kind="global"),
         payload={
             "project_id": int(project_id),
+            "machine_id": machine_id,
             "reports": payload_reports,
             "pack_prerequisites": collect_pack_prerequisite_inventory(repo_root),
         },
