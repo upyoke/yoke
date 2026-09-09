@@ -157,3 +157,47 @@ def test_relay_subset_reports_client_free_path_roots(
             "root": client_root,
         }
     }
+
+
+def test_product_local_subset_denies_missing_path_glob(tmp_path: Path) -> None:
+    result = local_subset.evaluate_local_subset(
+        "PreToolUse",
+        json.dumps(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "ls docs/deploy*"},
+                "cwd": str(tmp_path),
+            }
+        ),
+        "codex",
+        None,
+        _deadline(),
+        lint_config_snapshot={"lint_unmatched_path_glob": {"mode": "deny"}},
+    )
+
+    assert result.denied is True
+    assert "docs/deploy*" in result.stdout
+
+
+def test_product_local_subset_allows_matching_path_glob(tmp_path: Path) -> None:
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "deploy.md").write_text("ok\n", encoding="utf-8")
+
+    result = local_subset.evaluate_local_subset(
+        "PreToolUse",
+        json.dumps(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "ls docs/deploy*"},
+                "cwd": str(tmp_path),
+            }
+        ),
+        "codex",
+        None,
+        _deadline(),
+        lint_config_snapshot={"lint_unmatched_path_glob": {"mode": "deny"}},
+    )
+
+    assert result.denied is False
+    assert result.exit_code == 0
