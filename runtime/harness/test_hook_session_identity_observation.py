@@ -77,3 +77,32 @@ def test_a_terminal_hook_fills_identity_without_registering(
     ).fetchone()
     assert row["model"] == "claude-opus-5"
     assert row[SURFACE_COLUMN] == "claude-cli"
+
+
+@pytest.mark.parametrize("payload_claim", [True, "local", 1])
+def test_a_relayed_dispatch_never_takes_the_payload_at_its_word(payload_claim) -> None:
+    """Only the dispatch says whose machine this is; the payload cannot."""
+    request = run_tail._observed_session_request(
+        context=SimpleNamespace(session_id=SESSION, executor_family="claude-code"),
+        payload={
+            "session_id": SESSION,
+            "local_evaluation": payload_claim,
+            "remote": False,
+        },
+        stdin_data="{}",
+        controls=SimpleNamespace(remote=True),
+    )
+
+    assert request[3] is False
+
+
+@pytest.mark.parametrize("controls", [SimpleNamespace(remote=False), None])
+def test_a_local_dispatch_may_read_this_machine(controls) -> None:
+    request = run_tail._observed_session_request(
+        context=SimpleNamespace(session_id=SESSION, executor_family="claude-code"),
+        payload={"session_id": SESSION, "local_evaluation": False},
+        stdin_data="{}",
+        controls=controls,
+    )
+
+    assert request[3] is True

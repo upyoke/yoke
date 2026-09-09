@@ -5,8 +5,12 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
+
+from yoke_contracts.session_model_facts import SessionModelFacts
 
 from yoke_core.domain.session_identity_observation import (
     ROW_COLUMNS,
@@ -204,20 +208,31 @@ def test_a_token_no_harness_registry_recognizes_stays_unknown(token: str) -> Non
 
 
 @pytest.fixture
-def local_probes_refuse(monkeypatch):
-    """Fail loudly if a relayed evaluation reaches for this machine's own facts."""
+def local_probes(monkeypatch) -> SimpleNamespace:
+    """Watch, rather than break, the reads that answer from this machine.
 
-    def refuse(*_args, **_kwargs):
-        raise AssertionError("a relayed evaluation read this machine's identity")
-
-    monkeypatch.setattr(
-        "yoke_harness.hooks.identity_relay.resolve_model_facts", refuse
+    Raising from a stand-in proves nothing here: both call sites swallow
+    ``Exception`` so that an identity probe can never break a hook, and
+    ``AssertionError`` is one — a forbidden read would be caught, the
+    caller would fall through to "nothing attested", and the assertion
+    that was supposed to fail the test would never be seen. Recording the
+    calls instead means the refusal is asserted on directly.
+    """
+    probes = SimpleNamespace(
+        model=Mock(return_value=SessionModelFacts()),
+        surface=Mock(return_value="cli"),
     )
-    monkeypatch.setattr("yoke_harness.hooks.identity_relay.client_entrypoint", refuse)
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity_relay.resolve_model_facts", probes.model
+    )
+    monkeypatch.setattr(
+        "yoke_harness.hooks.identity_relay.client_entrypoint", probes.surface
+    )
+    return probes
 
 
 def test_a_relayed_payload_that_named_nothing_leaves_the_row_unknown(
-    conn, local_probes_refuse, local_claude
+    conn, local_probes, local_claude
 ) -> None:
     """The client's session does not run here, so this machine cannot answer for it."""
     assert not record_session_identity(
@@ -229,10 +244,12 @@ def test_a_relayed_payload_that_named_nothing_leaves_the_row_unknown(
 
     assert _stored(conn, "model") is None
     assert _stored(conn, SURFACE_COLUMN) is None
+    local_probes.model.assert_not_called()
+    local_probes.surface.assert_not_called()
 
 
 def test_a_relayed_payload_still_stores_every_fact_it_did_carry(
-    conn, local_probes_refuse, local_claude
+    conn, local_probes, local_claude
 ) -> None:
     assert record_session_identity(
         conn,
@@ -243,10 +260,12 @@ def test_a_relayed_payload_still_stores_every_fact_it_did_carry(
 
     assert _stored(conn, "model") == "claude-opus-5"
     assert _stored(conn, SURFACE_COLUMN) == "claude-desktop"
+    local_probes.model.assert_not_called()
+    local_probes.surface.assert_not_called()
 
 
 def test_a_relayed_payload_carrying_only_a_model_leaves_the_surface_unknown(
-    conn, local_probes_refuse, local_claude
+    conn, local_probes, local_claude
 ) -> None:
     assert record_session_identity(
         conn,
@@ -257,10 +276,11 @@ def test_a_relayed_payload_carrying_only_a_model_leaves_the_surface_unknown(
 
     assert _stored(conn, "model") == "claude-opus-5"
     assert _stored(conn, SURFACE_COLUMN) is None
+    local_probes.surface.assert_not_called()
 
 
 def test_a_relayed_model_switch_still_replaces_the_stored_one(
-    conn, local_probes_refuse
+    conn, local_probes
 ) -> None:
     conn.execute(
         "UPDATE harness_sessions SET model='claude-opus-5' WHERE session_id=?",
@@ -276,10 +296,11 @@ def test_a_relayed_model_switch_still_replaces_the_stored_one(
     )
 
     assert _stored(conn, "model") == "claude-sonnet-5"
+    local_probes.model.assert_not_called()
 
 
 def test_a_local_session_that_already_named_a_model_reads_no_artifact_again(
-    conn, local_probes_refuse, local_claude, tmp_path
+    conn, local_probes, local_claude, tmp_path
 ) -> None:
     """The tool-call refresher owns a live local session's model switches."""
     conn.execute(
@@ -296,3 +317,6 @@ def test_a_local_session_that_already_named_a_model_reads_no_artifact_again(
         executor="claude-code",
         local_evaluation=True,
     )
+
+    local_probes.model.assert_not_called()
+    local_probes.surface.assert_not_called()
