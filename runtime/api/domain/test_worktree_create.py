@@ -134,6 +134,7 @@ class TestCreateWorktree:
         # active work_claims, validated per call by lint_session_cwd.
         result = create_worktree(
             50,
+            project="yoke",
             repo_root=str(git_repo),
             config_path=str(git_repo / "runtime" / "config"),
         )
@@ -145,9 +146,9 @@ class TestCreateWorktree:
         assert not hasattr(result, "scope_message")
 
     def test_idempotency(self, git_repo, yoke_db):
-        result1 = create_worktree(42, repo_root=str(git_repo),
+        result1 = create_worktree(42, project="yoke", repo_root=str(git_repo),
                                    config_path=str(git_repo / "runtime" / "config"))
-        result2 = create_worktree(42, repo_root=str(git_repo),
+        result2 = create_worktree(42, project="yoke", repo_root=str(git_repo),
                                    config_path=str(git_repo / "runtime" / "config"))
         assert result2.error is None
         assert result2.created is False
@@ -165,7 +166,7 @@ class TestCreateWorktree:
                         check=True, capture_output=True)
 
         result = create_worktree(
-            99, base_branch="feature", repo_root=str(git_repo),
+            99, base_branch="feature", project="yoke", repo_root=str(git_repo),
             config_path=str(git_repo / "runtime" / "config"),
         )
         assert result.error is None
@@ -179,9 +180,11 @@ class TestCreateWorktree:
         cfg.write_text("worktrees_dir=.worktrees\nmax_active_worktrees=2\n")
         config_path = str(cfg)
 
-        create_worktree(1, repo_root=str(git_repo), config_path=config_path)
-        create_worktree(2, repo_root=str(git_repo), config_path=config_path)
-        result = create_worktree(3, repo_root=str(git_repo), config_path=config_path)
+        create_worktree(1, project="yoke", repo_root=str(git_repo), config_path=config_path)
+        create_worktree(2, project="yoke", repo_root=str(git_repo), config_path=config_path)
+        result = create_worktree(
+            3, project="yoke", repo_root=str(git_repo), config_path=config_path
+        )
 
         assert result.error is not None
         assert "max_active_worktrees" in result.error

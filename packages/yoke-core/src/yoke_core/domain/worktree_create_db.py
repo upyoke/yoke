@@ -137,6 +137,56 @@ def _record_authoritative_item_worktree_paths(
             raise RuntimeError(_response_error(response))
 
 
+def item_project_slug(item_id: int, db_path: Optional[str]) -> str:
+    """Return the slug of the project that owns an item, or ``""``.
+
+    Reads the same authority the rest of creation uses: the relayed item
+    detail when lane authority is the HTTPS control plane, the local
+    database otherwise. Provisioning is project-scoped, so this is what a
+    caller that did not already carry the project must consult.
+    """
+    if db_path is None and item_worktree_authority_is_https():
+        from yoke_core.api.service_client_structured_api_adapter import (
+            call_dispatcher,
+        )
+
+        response = call_dispatcher(
+            function_id="items.detail.get",
+            target=TargetRef(kind="item", item_id=int(item_id)),
+            payload={},
+        )
+        if not response.success:
+            return ""
+        item = (response.result or {}).get("item") or {}
+        return str((item.get("project") or {}).get("slug") or "")
+
+    from yoke_core.domain.db_helpers import connect
+
+    try:
+        conn = connect(db_path)
+    except Exception:  # noqa: BLE001 - an unreachable database names no project
+        return ""
+    try:
+        row = conn.execute(
+            "SELECT p.slug FROM items i JOIN projects p ON p.id = i.project_id "
+            "WHERE i.id = " + ("%s" if _is_postgres(conn) else "?") + " LIMIT 1",
+            (int(item_id),),
+        ).fetchone()
+    except Exception:  # noqa: BLE001 - a minimal fixture names no project
+        return ""
+    finally:
+        conn.close()
+    if row is None:
+        return ""
+    return str((row["slug"] if hasattr(row, "keys") else row[0]) or "")
+
+
+def _is_postgres(conn: Any) -> bool:
+    from yoke_core.domain.db_backend import connection_is_postgres
+
+    return bool(connection_is_postgres(conn))
+
+
 def check_path_claim_gate(item_id: int, db_path: Optional[str]) -> Optional[str]:
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.path_claims_gate import (
@@ -154,9 +204,38 @@ def check_path_claim_gate(item_id: int, db_path: Optional[str]) -> Optional[str]
     return None
 
 
+def provisioning_project(
+    item_id: int,
+    project: Optional[str],
+    db_path: Optional[str],
+) -> Tuple[str, str]:
+    """Resolve the project lane provisioning runs as; refuse when unknown.
+
+    Dependency setup, validation surfaces, and the browser cache are all
+    project-scoped. A caller that carries the item's project passes it; a
+    caller that does not gets it from the item itself. Naming a default
+    project instead provisioned every cross-repo lane as that project.
+    """
+    if project:
+        return str(project), ""
+    slug = item_project_slug(int(item_id), db_path)
+    if slug:
+        return slug, ""
+    return "", (
+        f"worktree provisioning has no project for item {item_id}: "
+        "dependency setup, validation surfaces, and the browser cache are "
+        "project-scoped, and provisioning under a guessed project prepares "
+        "the lane for the wrong repository. Pass the item's project "
+        "(`--project <slug>`), or make it resolvable — confirm the item "
+        "with `yoke items get <PREFIX-N> project`."
+    )
+
+
 __all__ = [
     "check_path_claim_gate",
+    "item_project_slug",
     "item_worktree_authority_is_https",
     "persist_item_worktrees",
     "prepare_authoritative_item_worktrees",
+    "provisioning_project",
 ]
