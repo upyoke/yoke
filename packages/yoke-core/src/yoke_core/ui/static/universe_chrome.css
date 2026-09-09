@@ -13,6 +13,9 @@
 }
 
 .universe-app-root {
+  /* One value decides the space between stacked sections, so a page and the
+     panels inside it cannot each contribute a gap and double it. */
+  --yoke-section-gap: 24px;
   display: grid;
   grid-template-rows: var(--yoke-header-height) minmax(0, 1fr);
   width: 100%;
@@ -272,6 +275,13 @@
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 20px;
+}
+/* A view that hides its head must not still pay for it. The rule above sets
+   `display: flex` at a higher specificity than the `[hidden]` attribute's own
+   `display: none`, so without this an emptied head stays in the layout as a
+   zero-height box and spends its bottom margin above the first section. */
+.universe-app-root .page-head[hidden] {
+  display: none;
 }
 .universe-app-root .page-head-action {
   flex: 0 0 auto;

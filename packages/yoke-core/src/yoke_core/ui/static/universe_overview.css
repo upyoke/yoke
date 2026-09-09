@@ -3,7 +3,7 @@
 
 /* Native details/summary is the one disclosure device for both levels. */
 .universe-app-root .overview-section {
-  margin: 0 0 24px;
+  margin: 0 0 var(--yoke-section-gap);
 }
 .universe-app-root .overview-section-summary,
 .universe-app-root .overview-band-summary {

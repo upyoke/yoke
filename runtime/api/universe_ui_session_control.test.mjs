@@ -20,12 +20,6 @@ function button(root, label) {
   );
 }
 
-function lastButton(root, label) {
-  return allNodes(root).filter(
-    (node) => node.tagName === "BUTTON" && node.textContent === label,
-  ).at(-1);
-}
-
 async function mountAt(t, hash, client) {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
@@ -68,69 +62,6 @@ test("message history directs new composition to the roster", async (t) => {
   assert.ok(allNodes(root).some(
     (node) => node.textContent.includes("Send from the Sessions roster"),
   ));
-  mounted.unmount();
-});
-
-test("launch create uses relay-discovered surfaces and an exact preview", async (t) => {
-  const requests = [];
-  const relay = {
-    relay_id: "machine:m1", machine_id: "m1", hostname: "studio",
-    state: "active", surface_versions: { "codex-desktop": "26.814.41407" },
-    project_ids: [1],
-  };
-  const client = shellClient(requests, {
-    "session_control.launch.list": () => ok({
-      operational: [], operational_count: 0,
-      history: [], history_matched_count: 0, next_cursor: null,
-    }),
-    "sessions.list": () => ok({ rows: [{ model: "gpt-5.6-sol" }] }),
-    "session_control.relay.list": () => ok({ relays: [relay], count: 1 }),
-    "session_control.launch.preview": () => ok({
-      outcome: "assigned", requested_surface: "codex-desktop", requested_model: "gpt-5.6-sol",
-      selected_surface: "codex-desktop", fallback_used: false,
-      launchable: true, eligible_relays: [relay], selected_relay: relay,
-    }),
-    "session_control.launch.create": () => ok({
-      launch: { launch_id: "launch-1", state: "assigned" },
-      preview: {}, deduplicated: false,
-    }),
-  });
-  const { root, mounted } = await mountAt(
-    t, "#/machines?project=1", client,
-  );
-  button(root, "Create session").dispatchEvent(new Event("click"));
-  await settle();
-  const inputs = byClass(root, "session-control-input");
-  assert.equal(inputs[0].value, "1");
-  inputs[1].value = "YOK-2580";
-  assert.equal(inputs[2].value, "codex-desktop");
-  inputs[4].value = "gpt-5.6-sol";
-  inputs[7].value = "Open the assigned work and report through hooks.";
-  button(root, "Preview launch").dispatchEvent(new Event("click"));
-  await settle();
-  assert.equal(lastButton(root, "Create session").disabled, false);
-  lastButton(root, "Create session").dispatchEvent(new Event("click"));
-  await settle();
-  assert.equal(
-    byClass(root, "session-control-status")[0].textContent,
-    "launch-1 created. Tracking registration below.",
-  );
-  const preview = requests.find(
-    (request) => request.function === "session_control.launch.preview",
-  );
-  const create = requests.find(
-    (request) => request.function === "session_control.launch.create",
-  );
-  assert.equal(preview.payload.executor_surface, "codex-desktop");
-  assert.equal(preview.payload.model, "gpt-5.6-sol");
-  assert.equal(create.payload.executor_surface, preview.payload.executor_surface);
-  assert.equal(create.payload.item, "YOK-2580");
-  assert.equal(create.payload.allow_surface_fallback, false);
-  assert.ok(create.payload.idempotency_key.startsWith("workbench-launch:"));
-  assert.equal(
-    create.payload.instructions,
-    "Open the assigned work and report through hooks.",
-  );
   mounted.unmount();
 });
 

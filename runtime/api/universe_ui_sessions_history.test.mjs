@@ -50,6 +50,7 @@ async function mountHistory(t, handler) {
         return ok({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
       }
       if (request.function === "session_control.relay.list") return ok({ relays: [] });
+      if (request.function === "machine.list") return ok({ machines: [] });
       return handler(request);
     },
   };

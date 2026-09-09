@@ -107,7 +107,7 @@ test("uncertain launches require reconciliation before retry", async (t) => {
     },
   };
   const { root, mounted } = await mountAt(
-    t, "#/machines?project=1", client,
+    t, "#/launches?project=1", client,
   );
   button(root, "Details").dispatchEvent(new Event("click"));
   await settle();

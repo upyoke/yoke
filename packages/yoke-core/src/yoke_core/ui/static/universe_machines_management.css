@@ -1,3 +1,10 @@
+.machines-section {
+  display: block;
+  margin-bottom: var(--yoke-section-gap);
+}
+
+.machines-section:last-child { margin-bottom: 0; }
+
 .machine-roster-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -88,5 +95,12 @@
 
 @media (max-width: 760px) {
   .machine-detail-grid { grid-template-columns: 1fr; }
-  .machine-roster-stats { grid-template-columns: 1fr; }
+  .machines-section {
+  display: block;
+  margin-bottom: var(--yoke-section-gap);
+}
+
+.machines-section:last-child { margin-bottom: 0; }
+
+.machine-roster-stats { grid-template-columns: 1fr; }
 }
