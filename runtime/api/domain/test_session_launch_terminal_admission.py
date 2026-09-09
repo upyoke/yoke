@@ -231,6 +231,42 @@ def test_same_request_idempotent_replay_returns_the_stored_launch(monkeypatch):
 
 
 @pytest.mark.parametrize("compose_mandate", [True, False])
+def test_changed_instructions_same_key_conflicts(monkeypatch, compose_mandate):
+    conn, item = _create_conn(monkeypatch, status="idea")
+    payload = _create_payload(
+        item, compose_mandate=compose_mandate, key=f"changed-{compose_mandate}"
+    )
+    first = handlers.handle_launch_create(_request(payload))
+    assert first.primary_success is True, first.error
+    changed = {**payload, "instructions": "Different launch body."}
+    second = handlers.handle_launch_create(_request(changed))
+    assert second.primary_success is False
+    assert second.error is not None
+    assert second.error.code == "idempotency_conflict"
+    assert _write_counts(conn)[0] == 1
+
+
+@pytest.mark.parametrize("compose_mandate", [True, False])
+def test_changed_instructions_still_conflict_after_item_is_terminal(
+    monkeypatch, compose_mandate
+):
+    conn, item = _create_conn(monkeypatch, status="idea")
+    payload = _create_payload(
+        item, compose_mandate=compose_mandate, key=f"chg-term-{compose_mandate}"
+    )
+    first = handlers.handle_launch_create(_request(payload))
+    assert first.primary_success is True, first.error
+    conn.execute("UPDATE items SET status='cancelled' WHERE id=41")
+    conn.commit()
+    changed = {**payload, "instructions": "Different launch body."}
+    second = handlers.handle_launch_create(_request(changed))
+    assert second.primary_success is False
+    assert second.error is not None
+    assert second.error.code == "idempotency_conflict"
+    assert _write_counts(conn)[0] == 1
+
+
+@pytest.mark.parametrize("compose_mandate", [True, False])
 def test_same_request_replay_survives_item_becoming_terminal(
     monkeypatch, compose_mandate
 ):

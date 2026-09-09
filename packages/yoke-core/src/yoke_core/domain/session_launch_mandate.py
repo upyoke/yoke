@@ -199,11 +199,14 @@ def _instructions_for_create(
     project_id: int,
     actor_id: int | None,
 ) -> str:
-    """Reuse a stored body on same-key replay; else refuse terminal then compose.
+    """Compose this request's body; skip terminal refuse only on same-key replay.
 
-    Replay must not re-route against a later terminal status, and a new
-    create still refuses before any instruction or launch write.
+    A stored launch must not replace the caller's instructions — that would
+    accept a changed body under the same key. After the item is terminal,
+    composed routing cannot rerun, so the stored body is used only when the
+    extras still match that stored mandate.
     """
+    existing = None
     if actor_id is not None:
         from yoke_core.domain.session_launch_store import (
             get_launch_by_dedupe,
@@ -211,13 +214,27 @@ def _instructions_for_create(
         )
 
         existing = get_launch_by_dedupe(conn, actor_id, parsed.idempotency_key)
-        if existing is not None:
-            body, _, _ = instruction_message(conn, existing.message_id)
-            return body
-    from yoke_core.domain.session_launch_assignment import refuse_terminal_assigned_item
+    if existing is None:
+        from yoke_core.domain.session_launch_assignment import (
+            refuse_terminal_assigned_item,
+        )
 
-    refuse_terminal_assigned_item(conn, public_ref=parsed.item, project_id=project_id)
-    return compose_item_launch_instructions(conn, parsed, project_id)
+        refuse_terminal_assigned_item(
+            conn, public_ref=parsed.item, project_id=project_id
+        )
+    try:
+        return compose_item_launch_instructions(conn, parsed, project_id)
+    except SessionLaunchError as exc:
+        if existing is None or exc.code != "mandate_unroutable":
+            raise
+        body, _, _ = instruction_message(conn, existing.message_id)
+        extra = str(parsed.instructions or "").strip()
+        if extra and not body.endswith(f"\n\n{extra}"):
+            raise SessionLaunchError(
+                "idempotency_conflict",
+                "idempotency key already names a different launch request",
+            ) from exc
+        return body
 
 
 def launch_request_for_create(
