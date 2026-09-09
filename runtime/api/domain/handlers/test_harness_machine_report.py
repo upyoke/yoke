@@ -72,5 +72,7 @@ def test_a_report_without_a_machine_refuses_and_names_the_fix(monkeypatch) -> No
     message = outcome.error.message
     assert "machine_id" in message
     assert "payload error" in message
+    assert "ensure_machine_id" in message
+    assert "yoke onboard" in message
     assert "not evidence of client version skew" in message
     assert "upgrade yoke" not in message.lower()

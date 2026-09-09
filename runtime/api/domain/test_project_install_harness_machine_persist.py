@@ -12,6 +12,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
 )
+from yoke_contracts.machine_config.runtime import (
+    ensure_machine_id,
+    machine_id as read_machine_id,
+)
 from yoke_core.domain import db_helpers, harness_machine_state
 from yoke_core.domain.handlers import harness_machine_report
 
@@ -89,7 +93,7 @@ def test_install_payload_is_accepted_and_scoped_to_this_machine(
 
     _patch_inventory(monkeypatch)
     monkeypatch.setattr(
-        "yoke_cli.project_install.harness_machine_persist.read_machine_id",
+        "yoke_cli.project_install.harness_machine_persist.ensure_machine_id",
         lambda: MACHINE,
     )
     monkeypatch.setattr(
@@ -117,7 +121,57 @@ def test_install_payload_is_accepted_and_scoped_to_this_machine(
     assert upserts[0]["reports"][0]["harness_id"] == "cursor"
 
 
-def test_install_persist_fail_softs_unresolved_machine_identity(
+def test_install_persist_initializes_stable_machine_id_and_reports(
+    monkeypatch, tmp_path: Path
+) -> None:
+    captured: dict = {}
+    upserts: list[dict] = []
+    home = tmp_path / "yoke-home"
+    home.mkdir()
+    config = home / "config.json"
+    config.write_text(
+        json.dumps({"schema_version": 1}, indent=2) + "\n", encoding="utf-8"
+    )
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
+    monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
+
+    def fake_upsert(conn, *, project_id, machine_id, reports):
+        upserts.append({"project_id": project_id, "machine_id": machine_id})
+        return list(reports)
+
+    def fake_dispatch(**kwargs):
+        captured.update(kwargs)
+        return _dispatch_through_handler(**kwargs)
+
+    _patch_inventory(monkeypatch)
+    monkeypatch.setattr(
+        "yoke_cli.commands._helpers.call_dispatcher",
+        fake_dispatch,
+    )
+    monkeypatch.setattr(db_helpers, "connect", _Connection)
+    monkeypatch.setattr(
+        harness_machine_state,
+        "upsert_harness_machine_reports",
+        fake_upsert,
+    )
+
+    report: dict = {}
+    persist_install_glue(tmp_path, PROJECT_ID, report)
+
+    first = captured["payload"]["machine_id"]
+    assert report.get("warnings", []) == []
+    assert first == read_machine_id()
+    assert first == ensure_machine_id()
+    assert upserts[0]["machine_id"] == first
+
+    persist_install_glue(tmp_path, PROJECT_ID, report)
+
+    assert captured["payload"]["machine_id"] == first
+    assert read_machine_id() == first
+    assert {row["machine_id"] for row in upserts} == {first}
+
+
+def test_install_persist_fail_softs_when_machine_config_is_missing(
     monkeypatch, tmp_path: Path
 ) -> None:
     dispatched: list[dict] = []
@@ -128,9 +182,6 @@ def test_install_persist_fail_softs_unresolved_machine_identity(
 
     home = tmp_path / "yoke-home"
     home.mkdir()
-    config = home / "config.json"
-    before = json.dumps({"schema_version": 1}, indent=2) + "\n"
-    config.write_text(before, encoding="utf-8")
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
 
@@ -146,8 +197,9 @@ def test_install_persist_fail_softs_unresolved_machine_identity(
     assert dispatched == []
     assert report["warnings"]
     assert "not persisted" in report["warnings"][0]
+    assert "yoke onboard" in report["warnings"][0]
     assert "upgrade" not in report["warnings"][0].lower()
-    assert config.read_text(encoding="utf-8") == before
+    assert not (home / "config.json").exists()
 
 
 def test_install_persist_reuses_existing_machine_id_without_rewriting_config(
