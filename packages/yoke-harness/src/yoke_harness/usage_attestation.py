@@ -38,6 +38,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
+from yoke_contracts.harness_family_identity import CLAUDE_FAMILY, CODEX_FAMILY
 from yoke_contracts.session_usage_facts import (
     USAGE_FIELDS,
     USAGE_COMPLETE,
@@ -101,7 +102,7 @@ def _claude_usage(
     payload: Mapping[str, Any], session_id: str, transcript_path: str
 ) -> SessionUsage:
     """Fold a Claude transcript's per-message usage into per-model totals."""
-    source = usage_source("claude")
+    source = usage_source(CLAUDE_FAMILY)
     path = _artifact(transcript_path or _text(payload.get("transcript_path")))
     if path is None:
         return unavailable(NO_ARTIFACT_REASON, source=source)
@@ -174,7 +175,7 @@ def _codex_usage(payload: Mapping[str, Any], session_id: str) -> SessionUsage:
     from yoke_harness.hooks.identity_runtime import resolve_session_id
     import json as _json
 
-    source = usage_source("codex")
+    source = usage_source(CODEX_FAMILY)
     thread_id = _text(payload.get("thread_id")) or resolve_session_id(
         _json.dumps(dict(payload))
     )

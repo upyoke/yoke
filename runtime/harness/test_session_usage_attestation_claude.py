@@ -5,11 +5,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from yoke_contracts.harness_family_identity import CLAUDE_FAMILY
 from yoke_contracts.session_usage_facts import (
     USAGE_COMPLETE,
     USAGE_PARTIAL,
     USAGE_UNAVAILABLE,
 )
+from yoke_contracts.session_usage_sources import usage_source
 from yoke_harness.usage_attestation import attest_session_usage
 from yoke_harness.usage_watermark import TRUNCATED_ARTIFACT_REASON
 from runtime.harness.session_usage_test_support import (  # noqa: F401
@@ -43,6 +45,8 @@ def test_claude_usage_lands_in_disjoint_billable_buckets(tmp_path: Path) -> None
     assert entry.cache_write_long == 300
     assert entry.output == 100
     assert entry.reasoning == 40
+    assert usage.source == usage_source(CLAUDE_FAMILY)
+    assert usage.source
 
 
 def test_reasoning_is_a_subset_of_output_and_not_added_to_the_total(
@@ -184,6 +188,8 @@ def test_a_missing_claude_transcript_reports_why_rather_than_zero(
     assert usage.status == USAGE_UNAVAILABLE
     assert usage.reason
     assert usage.billable_tokens() == 0
+    assert usage.source == usage_source(CLAUDE_FAMILY)
+    assert usage.source
 
 
 def test_a_transcript_with_no_assistant_rows_yet_reports_unavailable(
