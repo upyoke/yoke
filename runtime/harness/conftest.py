@@ -64,23 +64,21 @@ def clean_markers(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _harness_hook_written_identity_isolation(tmp_path, monkeypatch):
-    """Keep harness tests out of the real hook-written identity registries.
+def _harness_machine_and_session_identity_isolation(tmp_path, monkeypatch):
+    """Keep harness tests out of ambient machine and session identity.
 
     Parity with
-    ``runtime.api.fixtures.runtime._yoke_hook_written_identity_isolation``
-    (this subtree has its own conftest, so the API-side autouse does not
-    apply). Registration tests here drive ``_register_from_hook`` whose
-    unmocked anchor write resolves real process ancestry — observed live
-    poisoning the developer's own conversation anchor with a synthetic
-    session id — and Cursor payload tests drive the parser, which records a
-    conversation-to-session mapping the same way.
+    ``runtime.api.fixtures.runtime._yoke_machine_and_session_identity_isolation``.
+    This subtree has its own conftest, so the API-side autouse does not apply.
+    The shared helper binds config and both hook-written identity registries
+    to one per-test home, then clears every canonical ambient selector.
+    Individual identity/config tests explicitly monkeypatch what they need.
     """
     from runtime.api.fixtures.runtime import (
-        isolate_hook_written_identity_registries,
+        isolate_test_machine_and_session_identity,
     )
 
-    isolate_hook_written_identity_registries(tmp_path, monkeypatch)
+    isolate_test_machine_and_session_identity(tmp_path, monkeypatch)
     yield
 
 

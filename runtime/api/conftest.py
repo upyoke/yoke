@@ -150,58 +150,6 @@ def _block_live_github_rest_calls(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _isolate_machine_config(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pin every API test to the local in-process dispatch transport.
-
-    ``call_dispatcher`` (and every CLI adapter riding it) consults the
-    machine config's active connection; on a developer machine whose
-    active env declares ``transport: "https"`` (the dogfood default
-    since the prod cutover), an unisolated test would relay its
-    envelope to the LIVE prod API instead of in-process dispatch — so
-    dispatch-stub assertions fail only after a real network attempt.
-    Pointing ``YOKE_MACHINE_HOME`` at an empty per-test dir makes
-    ``machine_config.load_config`` return ``{}`` so transport
-    resolution falls back to local in-process dispatch, matching CI
-    (which has no machine config). Tests that exercise machine-config
-    behavior set their own ``YOKE_MACHINE_HOME`` / explicit config
-    paths and override this default; the test-DB authority is
-    unaffected (Postgres binding rides ``YOKE_PG_DSN``, not the
-    machine config).
-    """
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
-    monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
-    monkeypatch.delenv("YOKE_ENV", raising=False)
-
-
-@pytest.fixture(autouse=True)
-def _ensure_test_session_id(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Mint a synthetic ambient session id for the test process.
-
-    The function-call dispatcher's actor-identity guard
-    (``yoke_core.domain.yoke_function_actor_identity.bind_actor_identity``)
-    rejects every mutating call when no ambient harness session env var is
-    set. Local laptops always have one (the developer is in a Yoke
-    session); CI runners have none. Tests that exercise mutating
-    dispatcher paths must satisfy the contract, not bypass it — minting a
-    synthetic id here keeps the dispatcher gate intact while letting CI
-    runs match laptop runs.
-
-    Tests that intentionally exercise the missing-session branch override
-    this with ``monkeypatch.delenv``; pytest fixture ordering guarantees
-    the local override wins.
-
-    A conversation-shaped Cursor env var is not a resolved session id.
-    ``_isolate_machine_config`` hides the cursor-session-map, so presence
-    of that var must not skip the synthetic stamp or in-process watcher
-    calls cannot mint capture paths.
-    """
-    from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
-
-    if not resolve_ambient_session_id():
-        monkeypatch.setenv("YOKE_SESSION_ID", "test-session-autouse")
-
-
-@pytest.fixture(autouse=True)
 def _clear_ci_authority_selection_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Require tests to opt into GitHub Actions credential authority.
 

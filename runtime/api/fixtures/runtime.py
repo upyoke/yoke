@@ -170,6 +170,9 @@ def _yoke_filesystem_pollution_check():
 # ---------------------------------------------------------------------------
 
 
+DEFAULT_TEST_SESSION_ID = "test-session-autouse"
+
+
 def _guarded_registry_dir(guard_dir: Path, dir_name: str):
     """A resolver honoring a test's own ``YOKE_MACHINE_HOME``, else the guard."""
 
@@ -180,29 +183,45 @@ def _guarded_registry_dir(guard_dir: Path, dir_name: str):
     return _resolve
 
 
-def isolate_hook_written_identity_registries(tmp_path: Path, monkeypatch) -> None:
-    """Point every hook-written identity writer away from the real machine home.
+def isolate_test_machine_and_session_identity(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    session_id: str | None = None,
+) -> Path:
+    """Bind machine-local state and ambient identity to one test directory.
 
-    Both registries — the session-anchor records and the Cursor
-    conversation mapping — are written from hook processes against live
-    ambient state, so a test that reaches an unmocked write lands in the
-    developer's own ``~/.yoke``. For anchors that was observed poisoning
-    the machine's live conversation anchor with a synthetic session id,
-    costing the developer's session its ambient identity to the contention
-    guard; a stray conversation mapping would mis-attribute a later shell
-    the same way. Every writer shim re-resolves its directory per call, so
-    patching the resolvers covers every write path. A test that pins
-    ``YOKE_MACHINE_HOME`` keeps its own isolation; everything else lands in
-    a per-test guard directory.
+    Machine config and the two hook-written identity registries share the
+    isolated home. Canonical session selectors are cleared before any
+    registry resolver is installed; API tests may seed one explicit synthetic
+    Yoke session while harness tests stay session-less by default. Tests that
+    exercise config or identity behavior can monkeypatch their explicit state
+    afterward, and the registry resolvers follow that replacement home.
     """
-    from yoke_contracts.cursor_session_map import CURSOR_SESSION_MAP_DIR_NAME
+    from yoke_contracts.cursor_session_map import (
+        CURSOR_CONVERSATION_ENV_VAR,
+        CURSOR_SESSION_MAP_DIR_NAME,
+    )
+    from yoke_contracts.harness_family_identity import YOKE_SESSION_ENV_VAR
     from yoke_contracts.session_identity import ANCHORS_DIR_NAME
+    from yoke_contracts.session_identity import AMBIENT_ENV_VARS
+
+    machine_home = tmp_path / "machine-home"
+    monkeypatch.setenv("YOKE_MACHINE_HOME", str(machine_home))
+    monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
+    monkeypatch.delenv("YOKE_ENV", raising=False)
+    for name in (*AMBIENT_ENV_VARS, CURSOR_CONVERSATION_ENV_VAR):
+        monkeypatch.delenv(name, raising=False)
+    if session_id is not None:
+        monkeypatch.setenv(YOKE_SESSION_ENV_VAR, session_id)
 
     anchors = _guarded_registry_dir(
-        tmp_path / "session-anchors-guard", ANCHORS_DIR_NAME,
+        tmp_path / "session-anchors-guard",
+        ANCHORS_DIR_NAME,
     )
     cursor_map = _guarded_registry_dir(
-        tmp_path / "cursor-session-map-guard", CURSOR_SESSION_MAP_DIR_NAME,
+        tmp_path / "cursor-session-map-guard",
+        CURSOR_SESSION_MAP_DIR_NAME,
     )
 
     from yoke_core.domain import session_process_anchors
@@ -215,10 +234,16 @@ def isolate_hook_written_identity_registries(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.setattr(identity_anchor, "_anchors_dir", anchors)
     monkeypatch.setattr(cursor_session_map, "_map_dir", cursor_map)
 
+    return machine_home
+
 
 @pytest.fixture(autouse=True)
-def _yoke_hook_written_identity_isolation(tmp_path, monkeypatch):
-    isolate_hook_written_identity_registries(tmp_path, monkeypatch)
+def _yoke_machine_and_session_identity_isolation(tmp_path, monkeypatch):
+    isolate_test_machine_and_session_identity(
+        tmp_path,
+        monkeypatch,
+        session_id=DEFAULT_TEST_SESSION_ID,
+    )
     yield
 
 
