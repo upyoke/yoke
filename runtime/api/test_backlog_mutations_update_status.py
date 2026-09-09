@@ -219,7 +219,7 @@ class TestExecuteUpdate:
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
-                value="implemented",
+                value="polishing-implementation",
                 session_id="sess-1",
                 out=out,
             )
@@ -240,7 +240,7 @@ class TestExecuteUpdate:
             result = backlog.execute_update(
                 item_id=10,
                 field="status",
-                value="implemented",
+                value="polishing-implementation",
                 session_id="sess-1",
                 out=out,
             )

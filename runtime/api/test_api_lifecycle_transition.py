@@ -277,8 +277,12 @@ class TestLifecycleTransitionGateMapping:
         test_db,
         monkeypatch,
     ):
-        # Item 1 in 'implementing' without the done-ceremony nonce ->
-        # GATE_DONE_NONCE.
+        # 'done' is declared from 'release', so the item stands there and the
+        # missing done-ceremony nonce is what refuses -> GATE_DONE_NONCE.
+        conn = connect_test_db(test_db["db_path"])
+        conn.execute("UPDATE items SET status = 'release' WHERE id = 1")
+        conn.commit()
+        conn.close()
         monkeypatch.setenv("YOKE_CLAIM_BYPASS", "test-isolation")
         resp = _post_lifecycle(test_db, _lifecycle_envelope(1, "done"))
         assert resp.status_code == 422, resp.text
