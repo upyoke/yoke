@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS actors (
     id INTEGER PRIMARY KEY,
     kind TEXT NOT NULL DEFAULT 'human',
     system_component TEXT,
+    name TEXT NOT NULL DEFAULT '',
     created_at TEXT
 );
 """

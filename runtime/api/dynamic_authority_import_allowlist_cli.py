@@ -9,24 +9,38 @@ where there is room, and both halves are read as one roster.
 from __future__ import annotations
 
 CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
-    **{
-        (
-            "packages/yoke-cli/src/yoke_cli/commands/adapters/config_actor_binding.py",
-            module,
-        ): (
-            "client_local_machine_state",
-            "recording which actor this machine operates the connected "
-            "universe as needs that universe to confirm the actor and state "
-            "its own identity",
-        )
-        for module in (
-            "yoke_core.domain.control_plane_transport",
-            "yoke_core.domain.db_helpers",
-            "yoke_core.domain.session_actor_binding",
-            "yoke_core.domain.session_actor_binding_write",
-        )
-    },
-
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/config_actor_binding.py",
+        "yoke_core.domain.control_plane_transport",
+    ): (
+        "client_local_machine_state",
+        "recording this machine's operating actor needs the connected "
+        "universe to confirm the actor and state its own identity",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/config_actor_binding.py",
+        "yoke_core.domain.db_helpers",
+    ): (
+        "client_local_machine_state",
+        "recording this machine's operating actor needs the connected "
+        "universe to confirm the actor and state its own identity",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/config_actor_binding.py",
+        "yoke_core.domain.session_actor_binding",
+    ): (
+        "client_local_machine_state",
+        "recording this machine's operating actor needs the connected "
+        "universe to confirm the actor and state its own identity",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/config_actor_binding.py",
+        "yoke_core.domain.session_actor_binding_write",
+    ): (
+        "client_local_machine_state",
+        "recording this machine's operating actor needs the connected "
+        "universe to confirm the actor and state its own identity",
+    ),
     (
         "packages/yoke-cli/src/yoke_cli/config/universe_ui_launchd.py",
         "yoke_core.tools.launchctl_boundary",

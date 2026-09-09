@@ -64,6 +64,16 @@ def _bind(conn, actor_id: int) -> None:
     persist_operating_actor(conn, actor_id, env=ENV)
 
 
+def _forget_the_binding(config_path) -> None:
+    """Return this machine to never having recorded an operating actor."""
+    payload = json.loads(config_path.read_text(encoding="utf-8"))
+    payload["connections"] = {
+        env: {key: value for key, value in entry.items() if key != "operating_actor"}
+        for env, entry in (payload.get("connections") or {}).items()
+    }
+    config_path.write_text(json.dumps(payload), encoding="utf-8")
+
+
 def _stored_actor_id(db, session_id: str):
     return db.execute(
         "SELECT actor_id FROM harness_sessions WHERE session_id = %s",
@@ -126,8 +136,11 @@ class TestRegisterSessionActorId:
         assert stored == bound
         assert stored != namesake
 
-    def test_register_refuses_when_no_operating_actor_is_recorded(self, conn):
+    def test_register_refuses_when_no_operating_actor_is_recorded(
+        self, conn, machine_config,
+    ):
         """No binding is an unanswered question, not an invitation to guess."""
+        _forget_the_binding(machine_config)
         with pytest.raises(SessionError) as excinfo:
             _register(conn, session_id="sess-actor-unbound")
         assert excinfo.value.code == "SESSION_ACTOR_UNBOUND"
