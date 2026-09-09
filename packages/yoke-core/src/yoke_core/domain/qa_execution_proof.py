@@ -220,13 +220,24 @@ def qa_artifact_rows_by_run(
     """
     if not run_ids:
         return {}
+    from yoke_core.domain.schema_common import _column_exists
+
+    # A database that has not converged yet carries a narrower artifact table.
+    # An item page that refused to render because the evidence columns are not
+    # there yet would fail the whole read over the one part of it that is
+    # optional, so absent columns are reported as absent instead.
+    optional = [
+        name
+        for name in ("content_type", "artifact_handle", "metadata")
+        if _column_exists(conn, "qa_artifacts", name)
+    ]
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     placeholders = ", ".join(marker for _ in run_ids)
+    selected = ", ".join(["id", "qa_run_id", "artifact_type", *optional])
     rows = query_rows(
         conn,
-        "SELECT id, qa_run_id, artifact_type, content_type, artifact_handle, "
-        f"metadata FROM qa_artifacts WHERE qa_run_id IN ({placeholders}) "
-        "ORDER BY qa_run_id, id",
+        f"SELECT {selected} FROM qa_artifacts "
+        f"WHERE qa_run_id IN ({placeholders}) ORDER BY qa_run_id, id",
         tuple(sorted(run_ids)),
     )
     result: dict[int, list[dict[str, Any]]] = {}
@@ -235,9 +246,7 @@ def qa_artifact_rows_by_run(
             {
                 "id": int(row["id"]),
                 "artifact_type": str(row["artifact_type"]),
-                "content_type": row["content_type"],
-                "artifact_handle": row["artifact_handle"],
-                "metadata": row["metadata"],
+                **{name: _row_value(row, name) for name in optional},
             }
         )
     return result
