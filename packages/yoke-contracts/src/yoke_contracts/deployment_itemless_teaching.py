@@ -60,7 +60,7 @@ RESOLVE_TARGET_DESCRIPTION = (
 
 CREATE_DESCRIPTION = (
     "Create a zero-member environment deployment run. Item-bound "
-    "delivery uses `yoke usher` / runs start-for-item instead. "
+    "delivery uses `yoke usher` / `yoke deployment-runs start-for-item` instead. "
     "Requires the configured same-universe owner-only local-postgres "
     "connection, not the HTTPS product plane — run records must stay "
     "writable when that plane is the deploy target. Creation does not "

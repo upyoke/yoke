@@ -2,8 +2,8 @@
 
 Wraps the four existing primitives operators were running by hand:
 
-    runs resolve-target  ->  runs create-run  ->  runs add-item
-    ->  runs validate-composition
+    cmd_resolve_target -> cmd_create_run -> cmd_add_item
+    -> cmd_validate_composition
 
 into one call that returns a structured handle. Stops at validation —
 deploy execution remains a separate operator call into

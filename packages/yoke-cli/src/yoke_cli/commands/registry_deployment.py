@@ -15,6 +15,7 @@ from yoke_cli.commands.adapters.deployment_run_projection import (
 from yoke_cli.commands.adapters.deployment_run_terminalize import (
     deployment_runs_terminalize,
 )
+from yoke_cli.commands.adapters import deployment_run_membership as _membership
 
 
 AdapterFn = Callable[[List[str]], int]
@@ -44,6 +45,13 @@ DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("deployment-runs", "start-for-item"):
         ("deployment_runs.start_for_item",
          _adapters.deployment_runs_start_for_item),
+    ("deployment-runs", "add-item"):
+        ("deployment_runs.add_item", _membership.deployment_runs_add_item),
+    ("deployment-runs", "validate-composition"):
+        (
+            "deployment_runs.validate_composition",
+            _membership.deployment_runs_validate_composition,
+        ),
     ("deployment-runs", "approve"):
         ("deployment_runs.approve", _adapters.deployment_runs_approve),
     ("deployment-runs", "get"):

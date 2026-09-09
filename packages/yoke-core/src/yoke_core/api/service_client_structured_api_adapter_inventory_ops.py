@@ -72,6 +72,14 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-runs start-for-item PREFIX-N",
     ),
     AdapterEntry(
+        function_id="deployment_runs.add_item",
+        cli_invocation="yoke deployment-runs add-item RUN-ID PREFIX-N",
+    ),
+    _read_entry(
+        function_id="deployment_runs.validate_composition",
+        cli_invocation="yoke deployment-runs validate-composition RUN-ID",
+    ),
+    AdapterEntry(
         function_id="deployment_runs.continue_for_item",
         cli_invocation="yoke deployment-runs continue-for-item PREFIX-N",
     ),
