@@ -118,9 +118,7 @@ def scan_rows(
     )
 
 
-def iter_rows(
-    artifact: Path, *, max_bytes: Optional[int] = None
-) -> Iterator[dict]:
+def iter_rows(artifact: Path, *, max_bytes: Optional[int] = None) -> Iterator[dict]:
     """Yield records from the start under the same bounds as a scan.
 
     For a reader that stops as soon as it has what it came for — session

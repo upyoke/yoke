@@ -51,9 +51,7 @@ MIXED_MODEL_REASON = (
 )
 
 
-def attest_codex_usage(
-    payload: Mapping[str, Any], session_id: str
-) -> SessionUsage:
+def attest_codex_usage(payload: Mapping[str, Any], session_id: str) -> SessionUsage:
     """Read a Codex rollout's newest cumulative total.
 
     Nothing accumulates here: ``total_token_usage`` already covers the
@@ -156,9 +154,7 @@ def _codex_reading(
     return reading
 
 
-def _persisted_codex_reading(
-    session_id: str, path: Path, source: str
-) -> SessionUsage:
+def _persisted_codex_reading(session_id: str, path: Path, source: str) -> SessionUsage:
     mark = load_watermark(session_id, path)
     return _codex_reading(stored_totals(mark), source, partial_reason(mark))
 
