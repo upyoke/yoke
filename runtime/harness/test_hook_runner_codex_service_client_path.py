@@ -160,6 +160,7 @@ def test_codex_touch_uses_target_service_client_path(monkeypatch) -> None:
         calls.append(args)
         return 0
 
+    _pin_local_transport(monkeypatch)
     monkeypatch.setattr(
         "yoke_core.hooks.target.target_service_client_path",
         lambda root: "/Users/x/yoke/runtime/api/service_client.py",
