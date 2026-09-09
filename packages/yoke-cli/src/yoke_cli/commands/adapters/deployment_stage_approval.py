@@ -7,7 +7,7 @@ from typing import List
 
 from yoke_contracts.api.function_call import TargetRef
 
-from yoke_cli.commands.adapters._shared import (
+from yoke_cli.commands._helpers import (
     add_json_arg,
     add_session_arg,
     dispatch_and_emit,

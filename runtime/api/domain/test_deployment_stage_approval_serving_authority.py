@@ -204,3 +204,18 @@ def test_a_named_plane_that_resolves_to_nothing_is_refused(monkeypatch):
     assert response.success is False
     assert response.error.code == "relay_env_unavailable"
     assert "prod" in response.error.message
+
+
+def test_the_operator_adapter_is_reachable_from_the_cli():
+    """A registered operation nobody can invoke is not yet an operation."""
+    from yoke_cli.commands.registry import SUBCOMMAND_REGISTRY, resolve
+
+    route = ("deployment-runs", "stage-approval", "evaluate")
+    assert route in SUBCOMMAND_REGISTRY
+    assert SUBCOMMAND_REGISTRY[route][0] == EVALUATE_STAGE_APPROVAL_FUNCTION
+    resolved_route, function_id, _adapter, rest = resolve(
+        ["deployment-runs", "stage-approval", "evaluate", "run-x", "--stage", "s"]
+    )
+    assert resolved_route == route
+    assert function_id == EVALUATE_STAGE_APPROVAL_FUNCTION
+    assert rest == ["run-x", "--stage", "s"]

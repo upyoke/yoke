@@ -21,6 +21,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke deployment-runs add-item", "deployment_runs"),
     _w("yoke deployment-runs validate-composition", "deployment_runs"),
     _w("yoke deployment-runs approve", "deployment_runs"),
+    _w("yoke deployment-runs stage-approval evaluate", "deployment_runs"),
     _w("yoke deployment-runs get", "deployment_runs"),
     _w("yoke deployment-runs find-by-item", "deployment_runs"),
     _w("yoke deployment-runs failure-trace", "deployment_runs"),
