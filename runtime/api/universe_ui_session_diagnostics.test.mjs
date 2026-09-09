@@ -247,10 +247,8 @@ test("a kill reads as a cause of death on ended, never as its own liveness", () 
     statusExplanation(rendered),
     /^Terminated: .*Reason: operator stopped worker$/,
   );
-  assert.equal(
-    byClass(rendered, "session-history-ended")[0].textContent,
-    "Killed 2026-08-22T12:05:00Z",
-  );
+  // The kill and its time ride the shared timing region every card carries.
+  assert.match(byClass(rendered, "session-age")[0].textContent, /^killed /);
   assert.equal(
     byClass(rendered, "session-history-reason")[0].textContent,
     "Reason: operator stopped worker",

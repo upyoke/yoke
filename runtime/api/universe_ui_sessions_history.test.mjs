@@ -104,8 +104,10 @@ test("ended history is lazy, cursor-paged, and excluded from bulk audiences", as
     limit: 50, cursor: null, search: "", projects: ["1"], harnesses: [], machines: [],
   });
   assert.deepEqual(cardIds(root), ["ended-1", "ended-2"]);
-  assert.equal(byClass(root, "sessions-history-status")[0].textContent,
-    "2 of 3 ended sessions loaded");
+  // The page against its match is the sessions-shown tile's own value; the
+  // status paragraph is left for loading and failure, which this is neither.
+  assert.equal(byClass(root, "sessions-history-status").length, 0);
+  assert.equal(byClass(byClass(root, "stat")[0], "n")[0].textContent, "2 of 3");
   button(root, "Load more").dispatchEvent(new Event("click"));
   await settle();
   assert.deepEqual(cardIds(root), ["ended-1", "ended-2", "ended-3"]);

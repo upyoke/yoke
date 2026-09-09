@@ -108,7 +108,7 @@ test("web tile titles the current group and leaves previous title-free", () => {
 });
 
 
-test("previous holdings render for live sessions but not compact history", () => {
+test("what a session held reads the same after it ends", () => {
   const documentNode = new FakeDocument();
   for (const liveness of ["active", "stale", "ended"]) {
     const rendered = card(documentNode, liveness, {
@@ -119,25 +119,28 @@ test("previous holdings render for live sessions but not compact history", () =>
       ],
       previous_remainder: 0,
     });
+    // Released holds are history either way, so an ended card keeps them.
+    // Only the live filing attribution drops: an item nobody has claimed is
+    // sitting there for someone running to pick up, which an ended session
+    // is not.
     assert.deepEqual(
       byClass(rendered, "session-holdings-label").map((node) => node.textContent),
       liveness === "ended"
-        ? []
+        ? ["Previously held"]
         : ["Previously held", "Filed · unclaimed"],
     );
-    assert.equal(byClass(rendered, "session-lock").length,
-      liveness === "ended" ? 0 : 1);
+    assert.equal(byClass(rendered, "session-lock").length, 1);
   }
 });
 
 
-test("ended tile suppresses idle and actionable-work lines", () => {
+test("an ended card keeps its timing region and claims no live work", () => {
   const documentNode = new FakeDocument();
   const rendered = card(documentNode, "ended", {
     current: [], previous: [], previous_remainder: 0,
   });
 
-  assert.equal(byClass(rendered, "session-age").length, 0);
+  assert.equal(byClass(rendered, "session-age").length, 1);
   assert.equal(byClass(rendered, "session-attached").length, 0);
   assert.equal(byClass(rendered, "session-unassigned").length, 0);
 });
@@ -245,7 +248,7 @@ test("steering-only history lists released seats without a live lead", () => {
 });
 
 
-test("ended seat omits live-only steering history", () => {
+test("an ended seat still names the steering it held", () => {
   const rendered = card(new FakeDocument(), "ended", {
     current: [],
     previous: [
@@ -255,10 +258,11 @@ test("ended seat omits live-only steering history", () => {
     steered: true,
   }, { current_item: null, projects: PROJECTS });
 
-  assert.equal(byClass(rendered, "session-age").length, 0);
+  assert.equal(byClass(rendered, "session-age").length, 1);
+  // A released seat is an ordinary previously-held row on any card; the live
+  // Steering block above the holdings belongs to a seat still being held.
   assert.equal(byClass(rendered, "session-steering-lead").length, 0);
-  assert.equal(byClass(rendered, "session-hold-target").length, 0);
-  assert.equal(byClass(rendered, "session-lock").length, 0);
+  assert.equal(byClass(rendered, "session-hold-target").length, 1);
 });
 
 

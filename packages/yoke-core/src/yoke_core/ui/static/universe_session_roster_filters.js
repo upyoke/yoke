@@ -208,7 +208,10 @@ export function appendSessionRelay(documentNode, body, row) {
   // reveal repeats visible characters instead of explaining anything.
   pill.title = machineLabel(row);
   line.appendChild(pill);
-  if (!connected) {
+  // A missing relay is a live session's problem to solve; an ended one has
+  // nothing left to reach, so its card names the machine without raising an
+  // alarm about a connection nobody is waiting on.
+  if (!connected && String(row.liveness || "") !== "ended") {
     line.appendChild(el(
       documentNode,
       "span",
@@ -221,6 +224,19 @@ export function appendSessionRelay(documentNode, body, row) {
 
 export function messagingAvailability(row) {
   const routing = row.messageability || {};
+  // An ended session is answered by the fact that it ended, before any
+  // routing question: history rows carry no routing projection at all, and
+  // reading that absence as a missing delivery hook would blame the harness
+  // for a session that simply is not running.
+  if (String(row.liveness || "") === "ended") {
+    return {
+      available: false,
+      reason: routing.reason === "session_terminated"
+        ? "Messaging unavailable: this session was terminated."
+        : "Messaging unavailable: this session has ended and cannot be "
+          + "restarted from here.",
+    };
+  }
   if (routing.reason === "session_terminated") {
     return {
       available: false,

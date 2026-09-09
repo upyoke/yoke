@@ -163,7 +163,9 @@ test("relay tab renders public machine facts without native controls", async (t)
   );
   const text = allNodes(root).map((node) => node._textContent).join(" ");
   assert.ok(text.includes("studio"));
-  assert.ok(text.includes("claude-cli 2.1.238"));
+  // The card heads the surface's meters with its harness family; the version
+  // beside it is still the `claude-cli` build the relay reported.
+  assert.ok(text.includes("claude-code 2.1.238"));
   assert.equal(button(root, "Serve once"), undefined);
   mounted.unmount();
 });
