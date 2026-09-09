@@ -130,12 +130,63 @@ def test_a_lane_the_base_already_contains_is_not_declined(monkeypatch):
     assert (num, refusal) == ("183", "")
 
 
+def _wire_checkout(monkeypatch, *, is_landed: bool, unlanded):
+    """Answer both landing reads: by ancestry, then by patch identity."""
+    monkeypatch.setattr(discovery_mod.git, "is_landed", lambda *_a: is_landed)
+    monkeypatch.setattr(discovery_mod.git, "current_base_ref", lambda *_a: "main")
+    monkeypatch.setattr(discovery_mod.git, "unlanded_commits", lambda *_a: unlanded)
+
+
+def test_a_lane_holding_only_copies_of_merged_commits_is_not_declined(monkeypatch):
+    """A lane rebased after its merge carries fresh shas for merged patches.
+
+    Declining the pull request that merged them is what sent close-out off to
+    publish the lane and open a second one, overwriting the recorded landing
+    with a pull request that never lands.
+    """
+    _wire_listing(monkeypatch, [{
+        "number": 183, "html_url": "https://gh/183", "state": "closed",
+        "merged_at": "2026-01-01T00:00:00Z", "head": {"sha": MERGED_SHA},
+    }])
+    _wire_checkout(monkeypatch, is_landed=False, unlanded=())
+    ctx = MergeContext(
+        args=MergeArgs(branch="YOK-200", target="main"),
+        project="yoke",
+        repo_root="/repo",
+    )
+
+    _, num, refusal = discovery_mod.find_landable_pull_request(
+        ctx, lane_head=LANE_SHA,
+    )
+
+    assert (num, refusal) == ("183", "")
+
+
+def test_an_unreadable_patch_comparison_still_declines(monkeypatch):
+    _wire_listing(monkeypatch, [{
+        "number": 183, "html_url": "https://gh/183", "state": "closed",
+        "merged_at": "2026-01-01T00:00:00Z", "head": {"sha": MERGED_SHA},
+    }])
+    _wire_checkout(monkeypatch, is_landed=False, unlanded=None)
+    ctx = MergeContext(
+        args=MergeArgs(branch="YOK-200", target="main"),
+        project="yoke",
+        repo_root="/repo",
+    )
+
+    _, num, refusal = discovery_mod.find_landable_pull_request(
+        ctx, lane_head=LANE_SHA,
+    )
+
+    assert num is None and LANE_SHA[:12] in refusal
+
+
 def test_a_lane_the_base_lacks_is_still_declined_with_a_checkout(monkeypatch):
     _wire_listing(monkeypatch, [{
         "number": 183, "html_url": "https://gh/183", "state": "closed",
         "merged_at": "2026-01-01T00:00:00Z", "head": {"sha": MERGED_SHA},
     }])
-    monkeypatch.setattr(discovery_mod.git, "is_landed", lambda *_a: False)
+    _wire_checkout(monkeypatch, is_landed=False, unlanded=("c" * 40,))
     ctx = MergeContext(
         args=MergeArgs(branch="YOK-200", target="main"),
         project="yoke",

@@ -20,6 +20,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import db_helpers
 from yoke_core.domain import merge_queue_batch_receipt as batch_receipt
 from yoke_core.domain import merge_queue_close_out as queue_close_out
+from yoke_core.domain import standalone_item_merge_converge as converging
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain.handlers.direct_workflow_execution import (
     handle_dash_evidence,
@@ -89,7 +90,7 @@ def test_no_posture_queue_handoff_stamps_ci_backed_merge(test_db, monkeypatch):
         queue_close_out, "fast_forward_main_checkout", lambda *_a, **_k: "",
     )
 
-    close_out = landed.converge(
+    close_out = converging.converge(
         item_id=item_id,
         project="yoke",
         public_ref="YOK-1",

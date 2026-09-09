@@ -262,6 +262,35 @@ had one, and it fails closed when it cannot read the pinned definition,
 because a boundary that cannot ask the question must not answer it with a
 landing.
 
+### Why re-entry asks by patch identity, not by sha
+
+A lane rebased after its own landing points at commits that are copies: same
+patches, fresh shas, and nothing an ancestry read can attribute to the merge
+that already took them. Close-out asked only by sha, so it classified those
+copies as new work — published the lane, opened a second pull request, and
+recorded that number over the one that actually merged. The replacement pull
+request had nothing to land, so it closed unmerged, and close-out then waited
+permanently for merge-group CI evidence a pull request that never landed can
+never produce. Its diff carried the second hazard: a lane on a base that old
+proposes reverting everything merged since.
+
+`git cherry` answers the question the sha reads cannot, comparing patch
+identity rather than commit identity. So a head the base branch does not
+contain is asked once more whether any commit it carries is missing from the
+base, and a lane holding only copies converges on the landing already
+recorded instead of arming a second one. The same read runs at both places
+the old answer was wrong: close-out's own landing check, and the pull-request
+lookup that decides whether the merged pull request is this lane's.
+
+Two facts are required, not one. The base must contain the commit the merge
+receipt recorded — that is the identity the convergence preserves, and
+without it there is nothing to converge onto whatever the patches say. And
+the lane must hold no commit whose patch the base lacks, which is what keeps
+a retry after a red train and deliberate new work on the ordinary landing
+route. A comparison that could not run answers "still has work", because
+reading an unreadable checkout as "already landed" would close an item out
+against a merge nobody confirmed.
+
 ## Consequences
 
 - The refusal message in the merge engine now names a command rather than a
@@ -288,3 +317,10 @@ landing.
   write itself. Rework, exceptional states, declared jumps, and a write that
   names its own source — the done transition, an advance skip route, an
   operator status repair — keep working unchanged.
+- A close-out re-entered on a lane holding copies of already-merged commits
+  converges on the recorded landing instead of publishing the lane and
+  opening a second pull request. The recorded pull request number, merge
+  commit, and touched files keep the identity the landing gave them.
+- The lane candidate that is genuinely new work is unaffected: it is still
+  refused with the fresh-work-item recovery, and an unmerged retry still
+  lands through the ordinary route.

@@ -12,6 +12,7 @@ from yoke_core.domain.merge_preflight_github_lock_retry import (
     call_with_machine_lock_retry,
 )
 from yoke_core.domain import close_out_control_plane_authority as close_out
+from yoke_core.domain import standalone_item_merge_converge as converge
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
@@ -173,7 +174,7 @@ def run(argv: List[str]) -> int:
         # Nothing below is safe against a landing that already happened: the
         # commit-bound QA recovery publishes the lane, and the landing route
         # asks the queue to take a pull request it has already merged.
-        outcome = landed.converge(
+        outcome = converge.converge(
             item_id=item_id,
             project=project,
             repo_root=str(repo_root),
