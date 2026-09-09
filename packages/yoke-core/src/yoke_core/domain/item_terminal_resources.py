@@ -37,6 +37,46 @@ def terminal_stage_ids(runtime: WorkflowRuntime) -> frozenset[str]:
     return runtime.terminal_stage_ids | ENGINE_TERMINAL_STAGE_IDS
 
 
+def workflow_pin_schema_present(conn: Any) -> bool:
+    """Return whether *conn* can load a pinned item status and workflow."""
+    from yoke_core.domain.schema_common import _column_exists, _table_exists
+
+    return (
+        _table_exists(conn, "items")
+        and _table_exists(conn, "workflow_versions")
+        and all(
+            _column_exists(conn, "items", column)
+            for column in ("status", "workflow_id", "workflow_version_id")
+        )
+    )
+
+
+def item_is_terminal(conn: Any, item_id: int) -> bool | None:
+    """Return whether *item_id* is at a pinned or engine terminal stage.
+
+    ``None`` means this connection has no workflow-pin schema, so callers
+    that only know identity skip the gate. Incomplete pins are treated the
+    same way: they are not typed terminal membership.
+    """
+    from yoke_core.domain.workflow_registry import WorkflowRegistryError
+
+    if not workflow_pin_schema_present(conn):
+        return None
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        f"SELECT status FROM items WHERE id={marker}",
+        (int(item_id),),
+    ).fetchone()
+    if row is None:
+        return None
+    status = str(row["status"] if hasattr(row, "keys") else row[0])
+    try:
+        runtime = load_item_workflow_runtime(conn, int(item_id))
+    except WorkflowRegistryError:
+        return None
+    return status in terminal_stage_ids(runtime)
+
+
 def ensure_item_accepts_active_resources(conn: Any, item_id: int) -> None:
     """Reject active execution-resource creation for a terminal item.
 
@@ -194,6 +234,8 @@ def release_for_terminal_transition(
 __all__ = [
     "TerminalResourceReceipt",
     "ensure_item_accepts_active_resources",
+    "item_is_terminal",
     "release_for_terminal_transition",
     "terminal_stage_ids",
+    "workflow_pin_schema_present",
 ]

@@ -192,6 +192,34 @@ def compose_item_launch_instructions(
     )
 
 
+def _instructions_for_create(
+    conn: Any,
+    parsed: LaunchCreateRequest,
+    *,
+    project_id: int,
+    actor_id: int | None,
+) -> str:
+    """Reuse a stored body on same-key replay; else refuse terminal then compose.
+
+    Replay must not re-route against a later terminal status, and a new
+    create still refuses before any instruction or launch write.
+    """
+    if actor_id is not None:
+        from yoke_core.domain.session_launch_store import (
+            get_launch_by_dedupe,
+            instruction_message,
+        )
+
+        existing = get_launch_by_dedupe(conn, actor_id, parsed.idempotency_key)
+        if existing is not None:
+            body, _, _ = instruction_message(conn, existing.message_id)
+            return body
+    from yoke_core.domain.session_launch_assignment import refuse_terminal_assigned_item
+
+    refuse_terminal_assigned_item(conn, public_ref=parsed.item, project_id=project_id)
+    return compose_item_launch_instructions(conn, parsed, project_id)
+
+
 def launch_request_for_create(
     conn: Any,
     parsed: LaunchCreateRequest,
@@ -199,12 +227,15 @@ def launch_request_for_create(
     project_id: int,
     session_name: str,
     deadline_seconds: int,
+    actor_id: int | None = None,
 ) -> LaunchRequest:
     """Build the domain launch request, composing the mandate when requested."""
     return LaunchRequest(
         project_id=project_id,
         executor_surface=parsed.executor_surface,
-        instructions=compose_item_launch_instructions(conn, parsed, project_id),
+        instructions=_instructions_for_create(
+            conn, parsed, project_id=project_id, actor_id=actor_id
+        ),
         idempotency_key=parsed.idempotency_key,
         sender_surface=parsed.sender_surface,
         machine_id=parsed.machine_id,

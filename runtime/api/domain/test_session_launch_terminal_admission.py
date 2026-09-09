@@ -13,7 +13,10 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.builtin_workflow_definitions import builtin_workflow_definition
 from yoke_core.domain.handlers import session_launch as handlers
-from yoke_core.domain.session_launch_assignment import assignment_session_name
+from yoke_core.domain.session_launch_assignment import (
+    assignment_session_name,
+    refuse_terminal_assigned_item,
+)
 from yoke_core.domain.session_launch_types import SessionLaunchError
 from yoke_core.domain.workflow_definition_codec import (
     canonical_definition_json,
@@ -227,9 +230,39 @@ def test_same_request_idempotent_replay_returns_the_stored_launch(monkeypatch):
     assert _write_counts(conn)[0] == 1
 
 
-def test_assignment_name_refuses_terminal_without_hardcoding_done():
+@pytest.mark.parametrize("compose_mandate", [True, False])
+def test_same_request_replay_survives_item_becoming_terminal(
+    monkeypatch, compose_mandate
+):
+    conn, item = _create_conn(monkeypatch, status="idea")
+    payload = _create_payload(
+        item, compose_mandate=compose_mandate, key=f"replay-term-{compose_mandate}"
+    )
+    first = handlers.handle_launch_create(_request(payload))
+    assert first.primary_success is True, first.error
+    conn.execute("UPDATE items SET status='cancelled' WHERE id=41")
+    conn.commit()
+    second = handlers.handle_launch_create(_request(payload))
+    assert second.primary_success is True, second.error
+    assert second.result_payload["deduplicated"] is True
+    assert (
+        second.result_payload["launch"]["launch_id"]
+        == first.result_payload["launch"]["launch_id"]
+    )
+    assert _write_counts(conn)[0] == 1
+
+
+def test_assignment_name_still_names_a_terminal_item():
+    conn = launch_connection()
+    item = _seed_pinned_item(conn, status="archived", definition=_archived_definition())
+    assert assignment_session_name(conn, public_ref=item, project_id=10) == (
+        "LP-41: Active launch target"
+    )
+
+
+def test_refuse_terminal_uses_typed_stage_membership():
     conn = launch_connection()
     item = _seed_pinned_item(conn, status="archived", definition=_archived_definition())
     with pytest.raises(SessionLaunchError) as raised:
-        assignment_session_name(conn, public_ref=item, project_id=10)
+        refuse_terminal_assigned_item(conn, public_ref=item, project_id=10)
     assert raised.value.code == "assignment_item_terminal"
