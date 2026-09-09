@@ -111,6 +111,8 @@ def scan_rows(
                 caught_up = not handle.read(1)
     except OSError:
         return ScanResult(offset=offset)
+    if drain.consumed == 0 and read > 0 and not caught_up:
+        return ScanResult(offset=offset + read, oversized=True, caught_up=False)
     return ScanResult(
         offset=offset + drain.consumed,
         oversized=drain.oversized,

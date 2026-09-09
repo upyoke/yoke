@@ -153,3 +153,79 @@ def test_a_large_unrelated_record_does_not_disturb_the_totals(
     usage = _read_claude(transcript)
 
     assert usage.models[0].output == 100
+
+
+def test_a_settled_session_keeps_resolving_while_its_fold_is_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The marker ends the reads; a fold that is behind reopens them.
+
+    A settled session resolves only on registration events, so a bounded
+    fold left to those alone would advance once per user prompt and keep
+    reporting the model it shipped long after a later turn changed it.
+    """
+    from yoke_harness.hooks import identity_codex_runtime
+    from yoke_harness.hooks.identity_model_facts import (
+        client_model_facts,
+        record_model_facts_shipped,
+    )
+
+    rollout = write_rows(
+        tmp_path / "rollout.jsonl",
+        [codex_turn_context("gpt-5")]
+        + [{"type": "event_msg", "payload": {"filler": "a" * 2_000}}] * 4
+        + [codex_turn_context("gpt-5-codex")],
+    )
+    monkeypatch.setattr(
+        identity_codex_runtime, "codex_transcript_candidates", lambda _id: [rollout]
+    )
+    payload = {"session_id": "thread-1", "thread_id": "thread-1"}
+    record_model_facts_shipped(payload, "gpt-5")
+
+    with monkeypatch.context() as bounded:
+        bounded.setattr(artifact_scan, "MAX_SCAN_BYTES", 600)
+        assert client_model_facts("UserPromptSubmit", payload, "codex") == {}
+        after_prompt = load_watermark("thread-1", rollout, kind=MODEL_KIND)
+        assert not after_prompt.caught_up
+
+        assert client_model_facts("PreToolUse", payload, "codex") == {}
+        after_tool_call = load_watermark("thread-1", rollout, kind=MODEL_KIND)
+
+    assert after_tool_call.offset > after_prompt.offset
+    assert client_model_facts("PreToolUse", payload, "codex")["model"] == "gpt-5-codex"
+
+
+def test_a_settled_session_whose_fold_caught_up_stops_reading_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from yoke_harness.hooks import identity_codex_runtime
+    from yoke_harness.hooks.identity_model_facts import (
+        client_model_facts,
+        record_model_facts_shipped,
+    )
+
+    rollout = write_rows(tmp_path / "rollout.jsonl", [codex_turn_context("gpt-5")])
+    monkeypatch.setattr(
+        identity_codex_runtime, "codex_transcript_candidates", lambda _id: [rollout]
+    )
+    payload = {"session_id": "thread-1", "thread_id": "thread-1"}
+    client_model_facts("SessionStart", payload, "codex")
+    record_model_facts_shipped(payload, "gpt-5")
+
+    def refuse(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("a caught-up settled session must not read again")
+
+    monkeypatch.setattr(identity_codex_runtime, "codex_transcript_candidates", refuse)
+
+    assert client_model_facts("PreToolUse", payload, "codex") == {}
+
+
+def test_a_harness_whose_model_read_is_current_is_never_behind(
+    tmp_path: Path,
+) -> None:
+    """Claude reads a bounded tail, so there is no fold to fall behind."""
+    from yoke_harness.model_attestation import served_facts_catching_up
+
+    assert not served_facts_catching_up(
+        "claude-code", {"session_id": "session-1", "transcript_path": "s.jsonl"}
+    )

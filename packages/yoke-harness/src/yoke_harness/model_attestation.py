@@ -46,6 +46,7 @@ from yoke_harness.artifact_scan import scan_rows, tail_rows_newest_first
 from yoke_harness.artifact_watermark import (
     MODEL_KIND,
     ArtifactWatermark,
+    fold_is_behind,
     load_watermark,
     save_watermark,
     stored_totals,
@@ -114,13 +115,39 @@ def _claude_facts(
     return SessionModelFacts(context_window_tokens=window)
 
 
-def _codex_facts(payload: Mapping[str, Any]) -> SessionModelFacts:
-    from yoke_harness.hooks.identity_codex_runtime import codex_transcript_candidates
+def served_facts_catching_up(executor: str, payload: Mapping[str, Any]) -> bool:
+    """True when this session's served facts are mid-fold and behind.
+
+    A caller that has already shipped a model stops resolving, which is
+    what keeps a settled session cheap. That has to yield while a fold is
+    knowingly behind: the newest statement is the served fact, so a
+    session whose rollout is still being caught up may have shipped an
+    older one, and only continued resolving reaches the current answer.
+    Harnesses whose model reads are current by construction — a bounded
+    tail, a conversation store — are never behind.
+    """
+    try:
+        from yoke_harness.hooks.identity_runtime import is_codex
+
+        if not is_codex(executor):
+            return False
+        return fold_is_behind(_codex_thread_id(payload), kind=MODEL_KIND)
+    except Exception:  # noqa: BLE001 — an unreadable record blocks nothing
+        return False
+
+
+def _codex_thread_id(payload: Mapping[str, Any]) -> str:
     from yoke_harness.hooks.identity_runtime import resolve_session_id
 
-    thread_id = _text(payload.get("thread_id")) or resolve_session_id(
+    return _text(payload.get("thread_id")) or resolve_session_id(
         json.dumps(dict(payload))
     )
+
+
+def _codex_facts(payload: Mapping[str, Any]) -> SessionModelFacts:
+    from yoke_harness.hooks.identity_codex_runtime import codex_transcript_candidates
+
+    thread_id = _codex_thread_id(payload)
     if not thread_id:
         return SessionModelFacts()
     for path in codex_transcript_candidates(thread_id):
@@ -230,4 +257,8 @@ def _text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
-__all__ = ["TRANSCRIPT_SCAN_LINES", "attest_served_facts"]
+__all__ = [
+    "TRANSCRIPT_SCAN_LINES",
+    "attest_served_facts",
+    "served_facts_catching_up",
+]

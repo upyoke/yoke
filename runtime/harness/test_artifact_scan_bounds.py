@@ -125,6 +125,33 @@ def test_a_read_that_stops_short_says_so_and_the_next_one_resumes(
     assert first + second == list(range(10))
 
 
+def test_a_record_wider_than_one_read_does_not_stall_the_fold(
+    tmp_path: Path,
+) -> None:
+    """Folding nothing at the bound would repeat forever at one offset."""
+    artifact = _write(tmp_path / "s.jsonl", [_padded(1, 40_000), _padded(2, 10)])
+
+    first = scan_rows(artifact, 0, lambda row: None, max_scan_bytes=5_000)
+
+    assert first.offset > 0
+    assert first.oversized
+    assert not first.caught_up
+    seen: list[int] = []
+    offset = first.offset
+    while not (
+        result := scan_rows(
+            artifact,
+            offset,
+            lambda row: seen.append(row["index"]),
+            max_scan_bytes=5_000,
+        )
+    ).caught_up:
+        assert result.offset > offset
+        offset = result.offset
+
+    assert seen == [2]
+
+
 def test_a_read_that_reaches_the_end_exactly_at_its_bound_is_caught_up(
     tmp_path: Path,
 ) -> None:

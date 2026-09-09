@@ -259,6 +259,28 @@ def stored_totals(mark: ArtifactWatermark) -> dict[str, Any]:
     return mark.totals if isinstance(mark.totals, dict) else {}
 
 
+def fold_is_behind(session_id: str, *, kind: str = USAGE_KIND) -> bool:
+    """True when a stored record says its fold has not reached the end.
+
+    Answered from the record alone, with no artifact and no directory
+    walk, because the caller is a hook deciding whether to read at all —
+    a decision that has to cost less than the read it is guarding. No
+    record means nothing has folded yet, which is not the same as being
+    behind: the caller's first resolve will create one.
+    """
+    if not session_id:
+        return False
+    try:
+        stored = json.loads(
+            watermark_path(session_id, kind=kind).read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return False
+    if not isinstance(stored, dict):
+        return False
+    return not bool(stored.get("caught_up", True))
+
+
 def partial_reason(mark: ArtifactWatermark) -> Optional[str]:
     """Why a reading built on ``mark`` is less than the whole session."""
     if mark.truncated:
@@ -275,6 +297,7 @@ __all__ = [
     "TRUNCATED_ARTIFACT_REASON",
     "USAGE_KIND",
     "ArtifactWatermark",
+    "fold_is_behind",
     "load_watermark",
     "partial_reason",
     "save_watermark",
