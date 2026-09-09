@@ -42,6 +42,7 @@ from yoke_contracts.session_control.relay_health import RELAY_NEWER_THAN_SERVER
 from yoke_cli.transport import control_plane_payload
 from yoke_harness.session_relay import ServeOnceOutcome, run_serve_cycle
 from yoke_harness.session_relay_failure_log import FailureReporter
+from yoke_harness.session_relay_poll_health import reset_poll_outcome
 from yoke_harness.session_relay_schedule import relay_run_lock
 from yoke_harness.session_relay_process_restart import exec_relay_release
 
@@ -244,7 +245,8 @@ def _serve_under_lock(
     with relay_run_lock(state_dir) as acquired:
         if not acquired:
             return DaemonOutcome("locked")
-        failures = FailureReporter()
+        failures = FailureReporter(state_dir=state_dir)
+        reset_poll_outcome(state_dir)
         supervisor = _Supervisor(
             ThreadPoolExecutor(max_workers=max_job_workers), failures
         )
