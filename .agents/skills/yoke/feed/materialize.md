@@ -128,7 +128,7 @@ Invoke `/yoke idea` inline with the item title. When the idea skill prompts for 
 3. **Pull-forward justification**: Why this item is ready to be materialized now (from the decide phase rationale)
 
 The `/yoke idea` pipeline handles:
-- Title validation (<=100 chars)
+- Title validation (the project's `title_max_length`)
 - Metadata inference (project, workflow, priority)
 - Duplicate detection (secondary check beyond our 3A.1 check)
 - GitHub issue creation and sync

@@ -114,7 +114,7 @@ _decision_rationale = "<explanation of why frontier needs replenishment and what
 _decision_outcomes = [{ area: "<strategic area>", outcome: "materialize_new", rationale: "<why>" }]
 _items_to_materialize = [
  {
- title: "<concise title, <=100 chars>",
+ title: "<concise title within the project's title_max_length>",
  body_context: "<strategic context from SML for idea creation>",
  rationale: "<why this item is ready to pull forward now>",
  sml_source: "<which SML file/section this comes from>"

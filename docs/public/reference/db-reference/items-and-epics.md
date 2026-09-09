@@ -20,7 +20,7 @@ When an epic is synced to GitHub, sync may create one parent issue plus one task
 
 ```sql
 id INTEGER PRIMARY KEY
-title TEXT NOT NULL -- max 100 chars (enforced by the backlog service)
+title TEXT NOT NULL -- length capped by the project's title policy
 workflow_id TEXT NOT NULL REFERENCES workflows(id)
 workflow_version_id INTEGER NOT NULL REFERENCES workflow_versions(id)
 workflow_posture TEXT NOT NULL DEFAULT '{}'
@@ -270,7 +270,7 @@ created_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline
 id INTEGER PRIMARY KEY
 epic_id INTEGER NOT NULL
 task_num INTEGER NOT NULL
-title TEXT -- max 100 chars (enforced by the epic CLI)
+title TEXT -- length capped by the parent item's project title policy
 worktree TEXT
 context_estimate TEXT -- S|M|L|XL
 dependencies TEXT -- comma-separated task nums

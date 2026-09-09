@@ -9,6 +9,8 @@ from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.test_service_client import _run_client
 from runtime.api.test_service_client_delivery import mutation_db  # noqa: F401,F811
 
+from yoke_contracts.title_policy import title_max_length
+
 
 class TestBacklogGithubRelay:
     def test_sync_item_relays_without_touching_the_board(
@@ -35,8 +37,8 @@ class TestBacklogGithubRelay:
         assert rebuilds == []
 
     def test_update_title_too_long_rejected(self, mutation_db):
-        """Title exceeding 100 chars should be rejected."""
-        long_title = "B" * 101
+        """A title past the project limit should be rejected."""
+        long_title = "B" * (title_max_length() + 1)
         result = _run_client(
             ["update-item", "11", "--field", "title", "--value", long_title],
             db_path=mutation_db["db_path"],
@@ -44,7 +46,7 @@ class TestBacklogGithubRelay:
         assert result.returncode == 1
         data = json.loads(result.stdout.strip())
         assert data["success"] is False
-        assert "100 characters" in data["error"]
+        assert f"{title_max_length()} characters" in data["error"]
 
     def test_update_missing_field_usage_error(self, mutation_db):
         """Missing --field should return exit code 2."""

@@ -143,7 +143,7 @@ If the dispatch prompt indicates this is an **epic**, you may use more turns for
 - **Make blast radius discoverable.** When the work renames, removes, replaces, or migrates behavior, include grep-based discovery guidance rather than hardcoded file lists from memory.
 - **State the cleanup.** When the work replaces or removes behavior, call out what old code, docs, tests, or config must disappear with it.
 - **Cover failure and recovery for state-changing work.** If the work deploys, merges, migrates, renames, deletes, or otherwise changes persistent/system state, say what happens on failure and how recovery works.
-- **Title length limit.** All item titles MUST be ≤100 characters. If a proposed title exceeds this, shorten it and move the detail into the body. The DB rejects titles >100 chars.
+- **Title length limit.** Item titles are capped by the target project's title policy, so keep them brief and move detail into the body. The create surface resolves the project and refuses an over-long title, naming the effective limit; do not carry a number of your own.
 - **Flag scope creep.** If the user's idea grows beyond a single epic (~20 tasks), suggest splitting into phases.
 - **Track deferred work.** When you defer any work from the spec's scope (e.g., "deferred to a follow-up item", "out of scope for this epic"), add a `## Deferred Items` section with a table entry for each deferral. This is mandatory for epics and recommended for issues. Deferred items without entries are untrackable and will silently disappear when the epic closes.
 - **Output goes into the backlog item.** The invoking command writes your spec content through the `items.structured_field.replace` function call; the rendered item body picks it up. All specs live in item bodies.

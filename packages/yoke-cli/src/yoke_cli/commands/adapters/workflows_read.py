@@ -66,6 +66,7 @@ def workflows_definition_get(args: List[str]) -> int:
     def _human_writer(response, stdout, stderr) -> None:
         result = response.result or {}
         print(f"family|{result.get('family') or ''}", file=stdout)
+        print(f"title_max_length|{result.get('title_max_length') or ''}", file=stdout)
         for workflow in result.get("workflows") or []:
             definition = workflow.get("definition") or {}
             stages = ",".join(

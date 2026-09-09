@@ -76,9 +76,18 @@ export function renderNewItemView(context, main, projectId) {
     const verificationAvailable = Boolean(
       catalog.plans.length || catalog.methods.length,
     );
+    const titleLimit = callResult.envelope.result?.title_max_length;
+    if (!titleLimit) {
+      loading.body.textContent =
+        "workflows.definition.get served no title_max_length, so this form " +
+        "cannot cap the title. Update the server to a build that serves it.";
+      return;
+    }
     const title = el(documentNode, "input", "item-form-control");
     title.type = "text";
-    title.maxLength = 100;
+    // The server decides the limit for the selected project and stays
+    // authoritative; this only stops the field accepting what it will refuse.
+    title.maxLength = titleLimit;
     title.required = true;
     const instruction = el(documentNode, "textarea", "item-form-control");
     instruction.required = true;

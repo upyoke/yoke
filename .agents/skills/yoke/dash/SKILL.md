@@ -152,7 +152,9 @@ If the argument is not an item reference:
    yoke workflow execution-instruction resolve --workflow dash --project PROJECT
    ```
 
-3. Write a specific title of at most 100 characters.
+3. Write a specific title within the project's effective title limit
+   (`yoke workflows definition get --project PROJECT` serves it as
+   `title_max_length`).
 4. File with, passing `--execution-instructions-considered` to attest the
    read in step 2 (the create refuses without it, and no adapter sets it
    for you):

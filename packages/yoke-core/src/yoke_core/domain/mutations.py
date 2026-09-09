@@ -26,7 +26,6 @@ from __future__ import annotations
 from .mutation_fields import (
     DONE_CLEANUP_FIELDS,
     SUPPORTED_UPDATE_FIELDS,
-    TITLE_MAX_LENGTH,
     VALID_PRIORITIES,
     ApprovalResult,
     CreateResult,
@@ -52,7 +51,6 @@ def prepare_update(*args, **kwargs):
 __all__ = [
     "DONE_CLEANUP_FIELDS",
     "SUPPORTED_UPDATE_FIELDS",
-    "TITLE_MAX_LENGTH",
     "VALID_PRIORITIES",
     "ApprovalResult",
     "CreateResult",

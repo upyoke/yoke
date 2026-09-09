@@ -47,7 +47,9 @@ class EvidenceResponse(BaseModel):
 
 
 class EscalateRequest(BaseModel):
-    issue_title: str = Field(..., min_length=1, max_length=100)
+    # Length is the resolved project title policy's call, checked by the
+    # create path after the target project is known.
+    issue_title: str = Field(..., min_length=1)
     findings: str = Field(..., min_length=1)
     priority: Optional[str] = None
 

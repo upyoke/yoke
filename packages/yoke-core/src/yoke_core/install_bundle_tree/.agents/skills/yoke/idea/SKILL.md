@@ -43,7 +43,10 @@ Stamp the session mode so the board's active-session row reflects the live phase
 yoke sessions touch --mode idea
 ```
 
-1. **Validate the title.** If no title was provided, ask for one. If it exceeds 100 characters, ask the user to shorten it and move detail into the body. Do not proceed until the title is `<=100` characters.
+1. **Validate the title.** If no title was provided, ask for one. Read the target
+ project's effective limit from `yoke workflows definition get --project PROJECT`
+ (`title_max_length`); if the title is longer, ask the user to shorten it and move
+ detail into the body. Do not proceed until the title fits that limit.
 
 2. **Read [infer-and-create.md](infer-and-create.md) and [body-and-sync.md](body-and-sync.md) in parallel**, then execute them in order.
  - infer-and-create: metadata inference, cross-project hard blocks, duplicate detection, item creation, dependency persistence, and the creation confirmation.

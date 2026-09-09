@@ -137,7 +137,13 @@ def items_create(args: List[str]) -> int:
         prog="yoke items create",
         description=ITEMS_CREATE_USAGE,
     )
-    parser.add_argument("title", help="Item title (<=100 chars).")
+    parser.add_argument(
+        "title",
+        help=(
+            "Item title; the project's title policy caps its length "
+            "(`yoke workflows definition get --project P`)."
+        ),
+    )
     parser.add_argument(
         "workflow",
         nargs="?",

@@ -181,7 +181,7 @@ allow that surface.
 
 | Field | Type | Required | Default | Validation |
 |-------|------|----------|---------|------------|
-| `title` | string | yes | -- | Non-empty, max 100 characters |
+| `title` | string | yes | -- | Non-empty; capped by the project's `title_max_length` |
 | `workflow` | string | yes | -- | Active registered workflow whose current version allows `web_form` |
 | `priority` | string | no | `medium` | `high`, `medium`, or `low` |
 | `project` | string | no | `yoke` | Registered project slug |

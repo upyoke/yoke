@@ -8,7 +8,9 @@ the stable gate strings those definitions reference.
 
 The flows half reads ``deployment_flows`` rows — optionally filtered to
 one project (slug or id) — with each flow's stage names parsed out of its
-stages JSON so consumers need not re-parse the stored column.
+stages JSON so consumers need not re-parse the stored column. The same
+project selects ``title_max_length``, the effective title limit a client
+form caps its own input at.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.workflow_gate_catalog import workflow_gate_catalog
 from yoke_core.domain.workflow_registry import list_current_workflows
+from yoke_contracts.title_policy import title_max_length
 
 #: Row keys every served flow carries.
 FLOW_FIELDS = (
@@ -101,16 +104,19 @@ def get_workflows_definition(
 ) -> Dict[str, Any]:
     """The workflow definition, with flows optionally scoped to a project.
 
-    ``project`` (slug or id, resolved server-side) filters only the project-owned
-    flows list. Workflows and their gate catalog remain universe-wide.
+    ``project`` (slug or id, resolved server-side) filters the project-owned
+    flows list and selects the title limit clients enforce in their own
+    inputs. Workflows and their gate catalog remain universe-wide.
     """
     conn = db_helpers.connect()
     try:
         clause = ""
         params: Tuple[Any, ...] = ()
+        project_id = None
         if project:
+            project_id = resolve_project_id(conn, project)
             clause = "WHERE df.project_id = %s "
-            params = (resolve_project_id(conn, project),)
+            params = (project_id,)
         rows = conn.execute(
             "SELECT df.id, df.name, df.target_tier, "
             "e.name AS target_environment, "
@@ -148,6 +154,9 @@ def get_workflows_definition(
         "workflows": workflows,
         "gate_catalog": workflow_gate_catalog(),
         "flows": flows,
+        # The server stays authoritative; clients read this only to cap their
+        # own inputs, and re-read it whenever the selected project changes.
+        "title_max_length": title_max_length(project_id),
     }
 
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
 from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.title_policy import title_length_error
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.field_note_dash_promotion_reads import (
@@ -257,6 +258,9 @@ def promote_field_note_to_dash(
         raise FieldNotePromotionError(
             "field note has no project; pass the target project explicitly"
         )
+    too_long = title_length_error(clean_title, project=selected_project)
+    if too_long:
+        raise FieldNotePromotionError(too_long)
     if not try_hold_promotion_reservation(conn, entry_id):
         current = _promotion_row(conn, entry_id)
         if current and current["state"] == "completed":
