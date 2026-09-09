@@ -6,6 +6,10 @@ background task, nothing about the command stops — but a caller that reads
 the hand-back as completion ends the turn and kills it. The runner therefore
 names the continuation as metadata before the command starts, which is the
 only place a caller reading its own progress stream will find it mid-run.
+
+Its later turns owe the same notice: a relay-resumed worker carries the
+resume-attempt id in place of the launch context its scrubbed child
+environment never received.
 """
 
 from __future__ import annotations
@@ -13,6 +17,9 @@ from __future__ import annotations
 import io
 import sys
 
+import pytest
+
+from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 
 from yoke_core.tools import _watch_runner
@@ -41,14 +48,24 @@ def _noise_classifier(_line: str) -> Classification:
     return Classification(LineClass.NOISE)
 
 
-def test_headless_caller_is_told_to_continue_a_handed_back_call(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    ("marker", "value"),
+    [(LAUNCH_CONTEXT_ENV, "{}"), (RESUME_ATTEMPT_ENV, "job-1")],
+    ids=["launched", "resumed"],
+)
+def test_headless_caller_is_told_to_continue_a_handed_back_call(
+    tmp_path, monkeypatch, marker, value
+):
     """A relay-launched turn is the whole life of the command it starts.
 
     The notice leads the run rather than trailing it: a harness that
     hands the call back does so mid-run, and by then the only thing
-    the caller has read is what the watcher already printed.
+    the caller has read is what the watcher already printed. A turn the
+    relay resumed owes it just as much, and carries a different marker.
     """
-    monkeypatch.setenv(LAUNCH_CONTEXT_ENV, "{}")
+    monkeypatch.delenv(LAUNCH_CONTEXT_ENV, raising=False)
+    monkeypatch.delenv(RESUME_ATTEMPT_ENV, raising=False)
+    monkeypatch.setenv(marker, value)
     script = _python_emit_script(tmp_path, ["unrelated"], exit_code=0)
     raw = tmp_path / "raw.log"
     progress = tmp_path / "progress.log"
@@ -75,6 +92,7 @@ def test_headless_caller_is_told_to_continue_a_handed_back_call(tmp_path, monkey
 
 def test_a_caller_that_can_be_prompted_again_gets_no_notice(tmp_path, monkeypatch):
     monkeypatch.delenv(LAUNCH_CONTEXT_ENV, raising=False)
+    monkeypatch.delenv(RESUME_ATTEMPT_ENV, raising=False)
     script = _python_emit_script(tmp_path, ["unrelated"], exit_code=0)
     raw = tmp_path / "raw.log"
     progress = tmp_path / "progress.log"
