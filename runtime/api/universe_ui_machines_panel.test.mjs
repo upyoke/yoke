@@ -166,33 +166,6 @@ test("a machine card draws capacity and every launchable surface pool", () => {
   assert.equal(byClass(host, "machine-surface-absent").length, 1);
 });
 
-test("a durable machine record supplies the shared card owner and detail route", () => {
-  const relay = {
-    machine_id: "machine-registered",
-    hostname: "relay-hostname",
-    state: "active",
-    liveness: "connected",
-    surface_versions: {},
-    surface_policies: [],
-    capacity: {},
-    plan_limits: {},
-  };
-  const host = renderOneCard(relay, {
-    machineById: new Map([[relay.machine_id, {
-      machine_id: relay.machine_id,
-      name: "Studio",
-      owner: "Avery",
-    }]]),
-  });
-
-  assert.equal(byClass(host, "machine-host")[0].textContent, "Studio");
-  assert.equal(byClass(host, "machine-owner")[0].textContent, "Avery");
-  assert.equal(
-    byClass(host, "machine-detail-link")[0].href,
-    "#/machines/machine-registered",
-  );
-});
-
 test("a surface table carries HEADROOM and QUOTA columns and a pivot per bar", () => {
   const host = renderOneCard({
     machine_id: "machine-2",

@@ -29,26 +29,45 @@
 .machine-head {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 7px;
+  gap: 6px;
   padding: 7px 11px;
   border-bottom: 1px solid var(--yoke-border);
   background: var(--yoke-surface-2);
 }
+/* The names share one line and truncate on it, never crowding the status at
+   its end: they shrink as a group so the status keeps its width, and each
+   name's floor inside that group is the width its neighbour may never take,
+   so a name short enough to fit never loses characters to one that is not. */
+.machine-names { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.machine-host,
+.machine-owner-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .machine-host {
-  min-width: 0;
+  min-width: 10ch;
   color: var(--yoke-ink);
   font-size: 12px;
   font-weight: 650;
-  overflow-wrap: anywhere;
 }
+/* Parentheses beside the shrinking name, never inside it: a truncated owner
+   is never left holding an unclosed bracket. */
+.machine-owner {
+  display: flex;
+  min-width: 11ch;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.machine-owner::before { content: "("; }
+.machine-owner::after { content: ")"; }
 .machine-meta {
+  flex: 0 0 auto;
   margin-left: auto;
   color: var(--yoke-muted);
   font-size: 10.5px;
+  white-space: nowrap;
 }
-/* One fact, read at a glance, so a filled disc with a halo — a ring at this
-   size reads as grey at every colour. */
 .machine-light {
   width: 8px;
   height: 8px;
@@ -137,7 +156,6 @@
 .machine-surface-head {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
   margin-bottom: 5px;
