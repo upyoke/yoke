@@ -56,7 +56,11 @@ def test_local_import_replaces_data_revokes_remote_auth_and_grants_owner(
             report = local_universe_import.import_universe(archive, dsn=target_dsn)
             assert report["ok"] is True
             assert report["org"] == "default"
-            assert report["actor_label"] == "machine-owner"
+            # The archive's own human is the owner this machine adopts.
+            # Renaming it after the local login would rename a real person
+            # on the strength of an OS account, which is exactly what the
+            # identity model refuses to do.
+            assert report["actor_id"] == token.actor_id
             assert report["revoked_token_count"] == 1
             assert report["revoked_web_session_count"] == 1
 

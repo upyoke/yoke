@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from importlib import import_module
 from typing import Dict, List
 
 from yoke_cli.commands._helpers import (
@@ -58,15 +59,18 @@ def config_bind_actor(args: List[str]) -> int:
 
 def _bind_actor(actor_id, config_path) -> dict:
     """Record the binding against the universe the selected connection reaches."""
-    from yoke_core.domain import db_helpers
-    from yoke_core.domain.control_plane_transport import local_connection_or_none
-    from yoke_core.domain.session_actor_binding import explicit_actor_binding
-    from yoke_core.domain.session_actor_binding_write import (
-        converge_operating_actor_binding,
-        persist_operating_actor,
-    )
+    # The engine ships beside this client but the active connection decides
+    # whether it runs, so the reach is dynamic and registered in the
+    # classified authority-import roster.
+    db_helpers = import_module("yoke_core.domain.db_helpers")
+    transport = import_module("yoke_core.domain.control_plane_transport")
+    binding = import_module("yoke_core.domain.session_actor_binding")
+    binding_write = import_module("yoke_core.domain.session_actor_binding_write")
+    explicit_actor_binding = binding.explicit_actor_binding
+    converge_operating_actor_binding = binding_write.converge_operating_actor_binding
+    persist_operating_actor = binding_write.persist_operating_actor
 
-    conn = local_connection_or_none(db_helpers.connect)
+    conn = transport.local_connection_or_none(db_helpers.connect)
     if conn is None:
         raise writer.MachineConfigWriteError(
             "the selected connection reaches its control plane over https, "
@@ -86,9 +90,9 @@ def _bind_actor(actor_id, config_path) -> dict:
                     '`yoke db read "SELECT id, kind, name FROM actors"`)'
                 )
             actor_id = converged
-        binding = explicit_actor_binding(conn, actor_id)
-        if not binding.bound:
-            raise writer.MachineConfigWriteError(binding.detail)
+        resolved = explicit_actor_binding(conn, actor_id)
+        if not resolved.bound:
+            raise writer.MachineConfigWriteError(resolved.detail)
         env, universe = persist_operating_actor(
             conn, int(actor_id), config_path=config_path
         )

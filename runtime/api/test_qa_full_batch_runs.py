@@ -202,7 +202,7 @@ class TestRunAddBatch:
         apply_fixture_ddl(conn, _SESSIONS_FAMILY_DDL)
         _, actor_id = actors.seed_canonical_actors(
             conn,
-            local_human_label="qa-batch-event-test-human",
+            local_human_name="qa-batch-event-test-human",
         )
         conn.execute(
             "INSERT INTO harness_sessions "

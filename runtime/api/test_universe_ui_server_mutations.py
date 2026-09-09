@@ -11,7 +11,6 @@ from fastapi.testclient import TestClient
 
 from yoke_core.domain.actors import seed_human_actor, set_actor_name
 from runtime.api.workflow_version_test_helpers import current_workflow_version
-from yoke_core.domain import session_actor_binding
 from yoke_core.domain import yoke_function_dispatch
 from yoke_core.ui import local_operator_actor, server as ui_server
 
@@ -23,6 +22,24 @@ _TOKEN = "test-session-token-value"
 def ui_client():
     with TestClient(ui_server.create_ui_app(_TOKEN)) as client:
         yield client
+
+
+def _forget_the_operating_actor() -> None:
+    """Drop the machine's recorded operating-actor binding.
+
+    The loopback UI resolves its operator from that binding, so an
+    unresolved operator is a machine that never said which actor it
+    operates this universe as. Changing an OS login no longer reaches
+    that state: no rung reads one.
+    """
+    from yoke_contracts.machine_config import runtime as machine_config
+
+    payload = dict(machine_config.load_config())
+    payload["connections"] = {
+        env: {key: value for key, value in entry.items() if key != "operating_actor"}
+        for env, entry in (payload.get("connections") or {}).items()
+    }
+    machine_config.write_config(machine_config.config_path(), payload)
 
 
 def _call(ui_client, envelope):
@@ -38,32 +55,25 @@ class TestOperatorActorResolution:
         row = test_db.execute("SELECT id FROM actors WHERE kind = 'human'").fetchone()
         assert resolved == int(row[0])
 
-    def test_ambiguous_humans_without_login_match_resolve_to_nobody(
+    def test_a_second_human_does_not_disturb_the_recorded_binding(
         self,
         test_db,
-        monkeypatch,
     ):
-        seed_human_actor(test_db)
-        monkeypatch.setattr(
-            session_actor_binding,
-            "os_login",
-            lambda: "nobody-known",
-        )
-        assert local_operator_actor.resolve_local_operator_actor() is None
+        """The loopback UI reads the recorded id, so a newcomer changes nothing.
 
-    def test_login_label_disambiguates_among_humans(
-        self,
-        test_db,
-        monkeypatch,
-    ):
-        second = seed_human_actor(test_db)
-        set_actor_name(test_db, second, "operator-login")
-        monkeypatch.setattr(
-            session_actor_binding,
-            "os_login",
-            lambda: "operator-login",
-        )
-        assert local_operator_actor.resolve_local_operator_actor() == second
+        The fixture universe records its operating actor exactly as birth
+        does. Adding another human — even one named after this machine's
+        login — must not move the operator, because nothing resolves an
+        operator from a name or a login any more.
+        """
+        bound = local_operator_actor.resolve_local_operator_actor()
+        assert bound is not None
+
+        newcomer = seed_human_actor(test_db)
+        set_actor_name(test_db, newcomer, "operator-login")
+
+        assert local_operator_actor.resolve_local_operator_actor() == bound
+        assert local_operator_actor.resolve_local_operator_actor() != newcomer
 
 
 class TestProxyMutations:
@@ -281,14 +291,8 @@ class TestProxyMutations:
         self,
         ui_client,
         test_db,
-        monkeypatch,
     ):
-        seed_human_actor(test_db)
-        monkeypatch.setattr(
-            session_actor_binding,
-            "os_login",
-            lambda: "nobody-known",
-        )
+        _forget_the_operating_actor()
         refused = _call(
             ui_client,
             {
@@ -324,8 +328,7 @@ class TestProxyMutations:
         assert _call(ui_client, {"function": "deployment_runs.list"}).status_code == 200
         assert seen == [str(operator)]
 
-        seed_human_actor(test_db)
-        monkeypatch.setattr(session_actor_binding, "os_login", lambda: "nobody-known")
+        _forget_the_operating_actor()
         anonymous = _call(ui_client, {"function": "deployment_runs.list"})
         assert anonymous.status_code == 200
         assert anonymous.json()["success"] is True

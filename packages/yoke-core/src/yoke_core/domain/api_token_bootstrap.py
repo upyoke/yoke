@@ -16,7 +16,6 @@ from yoke_core.domain.actor_permissions import (
 from yoke_core.domain.actors import (
     seed_human_actor,
     seed_system_actor,
-    set_actor_name,
     sole_human_actor_id,
 )
 from yoke_core.domain.api_tokens import CreatedToken, mint_token
@@ -95,13 +94,13 @@ def bootstrap_admin_token(
 ) -> CreatedToken:
     """Create or resolve the admin actor, grant authority, and mint one token.
 
-    ``actor_name`` names a human this call creates; it never selects one.
-    A universe that already carries its single administrator keeps that
-    actor whatever it is called, because the token being minted has to
+    ``actor_name`` names a human this call creates; it never selects or
+    renames one. A universe that already carries its single administrator
+    keeps that actor AND its name, because the token being minted has to
     bind the identity that already holds this universe's authority — and
-    a name is not that identity. A universe carrying several humans is
-    past bootstrap, so the call refuses rather than guessing which of
-    them the token should speak for.
+    minting a token is no reason to change what a person is called. A
+    universe carrying several humans is past bootstrap, so the call
+    refuses rather than guessing which of them the token speaks for.
     """
     seed_roles_and_permissions(conn)
     actor_id = sole_human_actor_id(conn)
@@ -113,8 +112,6 @@ def bootstrap_admin_token(
                 "mint the token for an explicit actor instead"
             )
         actor_id = seed_human_actor(conn, actor_name)
-    else:
-        set_actor_name(conn, actor_id, actor_name)
     if project is None:
         org_id = seed_default_org(conn)
         grant_actor_org_role(

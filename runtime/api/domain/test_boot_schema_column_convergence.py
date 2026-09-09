@@ -62,9 +62,13 @@ _HISTORY_CONVERGED_COLUMNS = frozenset(
 # which run it is, and how far the observing sweep has got with it, and the
 # Stop-hold ledger (session_promised_work_holds), a net-new table whose four
 # columns are the pair it is keyed by plus how often that pair has been held
-# and when it last was.
+# and when it last was. The current value also drops the actor label
+# projection, whose every column was born with it and which an ordered
+# history entry retires in favour of one actors.name column; that name
+# column is NOT here, because it lands on an existing table and therefore
+# restores through boot convergence like any other additive column.
 _BORN_WITH_COLUMN_DIGEST = (
-    "dca50f97e5b8a1d6dfa653b85e5fa890ad6e0f846ff9b31eb12e9a1c0ed389ac"
+    "8be4ed22f631463353458bc683e65949958025141db7c18d8214e3cce1e15ea6"
 )
 
 

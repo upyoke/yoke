@@ -231,8 +231,8 @@ def _list_of_mappings(value: Any) -> list[Mapping[str, Any]]:
 def _actor_name(verification: Mapping[str, Any]) -> str:
     """Resolve a human label for the actor, never a bare numeric id.
 
-    Order: the server-resolved display name (actor.label, from actor_labels),
-    then the token's own name, then a clearly-marked id fallback.
+    Order: the server-resolved name the verification carries, then the
+    token's own name, then a clearly-marked id fallback.
     """
     actor = verification.get("actor")
     if not isinstance(actor, Mapping):

@@ -123,7 +123,7 @@ class _BirthHarness:
     def __init__(self, monkeypatch, *, already_born: bool, verify_fails: bool = False):
         self.calls = []
         self.dsn_at_bootstrap = None
-        self.label_env_at_bootstrap = None
+        self.name_env_at_bootstrap = None
         monkeypatch.setattr(
             lu,
             "ensure_engine_binaries",
@@ -188,7 +188,7 @@ def test_birth_bootstraps_fresh_universe_under_pinned_dsn(monkeypatch):
     assert "dbname=yoke" in report["dsn"]
     # The universe owner's OS login rides the pinned env injection so the
     # init chain's canonical-actor seeding labels the human actor with it.
-    assert harness.label_env_at_bootstrap == getpass.getuser()
+    assert harness.name_env_at_bootstrap == getpass.getuser()
 
 
 def test_birth_verifies_live_universe_without_rebootstrapping(monkeypatch):

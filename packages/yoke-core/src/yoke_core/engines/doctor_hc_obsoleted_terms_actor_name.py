@@ -97,8 +97,14 @@ ACTOR_NAME_RETIREMENT_LABELS: dict[str, str] = {
 #: renderer's own directory registry rather than a hand-kept list —
 #: onboarding a harness must not turn this check red.
 _RETIREMENT_SUBJECT_PATHS: tuple[str, ...] = (
+    # This module spells every retired name out as a literal, so it is as
+    # self-referential as the catalogue that loads it.
+    "packages/yoke-core/src/yoke_core/engines/doctor_hc_obsoleted_terms_actor_name.py",
     "packages/yoke-core/src/yoke_core/domain/migrations/",
     "runtime/api/domain/test_migration_actor_name_replaces_labels.py",
+    # Proves what the entry that RELAXED the old projection's uniqueness did,
+    # which cannot be asserted without naming the surfaces it acted on.
+    "runtime/api/domain/test_migration_actor_display_label.py",
     "packages/yoke-core/src/yoke_core/domain/schema_api_context_tables_actors.py",
     "docs/archive/decisions/actor-name-is-not-an-identity.md",
 ) + tuple(f"{directory.as_posix()}/" for directory in RENDERED_AGENT_DIRS)

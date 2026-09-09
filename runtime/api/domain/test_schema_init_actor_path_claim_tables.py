@@ -141,13 +141,6 @@ def test_actors_name_carries_no_uniqueness(conn):
     assert holders[0] == 2
 
 
-def test_no_actor_label_projection_is_created(conn):
-    """The per-surface projection is gone; one name column replaced it."""
-    from yoke_core.domain.schema_common import _table_exists
-
-    assert not _table_exists(conn, "actor_labels")
-
-
 def test_path_claim_state_check(conn):
     p = _p(conn)
     aid = _insert_human_actor(conn)

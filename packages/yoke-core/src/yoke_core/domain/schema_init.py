@@ -334,11 +334,11 @@ def cmd_init() -> None:
         seed_default_org(conn)
         apply_legacy_data_migrations(conn)
         # Seed the canonical actors after every other table and column
-        # exists. Idempotent on re-run; the human label resolves from the
-        # LOCAL_HUMAN_LABEL_ENV injection (pinned by the local-universe
-        # birth path to the OS login) and falls back to the label the
-        # migrated authoritative DB already maps, so re-init never
-        # creates a duplicate human row.
+        # exists. Idempotent on re-run: a universe that already carries a
+        # human keeps that actor whatever it is called, so re-init never
+        # creates a duplicate human row. The name for one this call has to
+        # create resolves from the YOKE_LOCAL_HUMAN_NAME injection, pinned
+        # by the local-universe birth path to the OS login.
         seed_canonical_actors(conn)
     finally:
         conn.close()
