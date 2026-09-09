@@ -9,6 +9,7 @@ import pytest
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_core.domain.session_launch_mandate import (
     COMMITTED_GATE_TEACHING,
+    HEADLESS_TOOL_CONTINUATION_TEACHING,
     compose_item_launch_instructions,
     compose_single_item_mandate,
 )
@@ -48,6 +49,30 @@ def test_composed_mandate_tells_workers_to_leave_the_only_push_to_the_gate() -> 
     assert COMMITTED_GATE_TEACHING in body
     assert "rebases onto the base branch, pushes once, and runs CI" in body
     assert "do not push the lane by hand" in body
+
+
+def test_composed_mandate_tells_workers_to_continue_a_handed_back_call() -> None:
+    body = _mandate()
+    assert HEADLESS_TOOL_CONTINUATION_TEACHING in body
+    teaching = HEADLESS_TOOL_CONTINUATION_TEACHING
+    assert "A tool call that outlives its yield is still running" in teaching
+    assert "moves a long command to a background task" in teaching
+    assert "hands back a continuation handle" in teaching
+    assert "not an interruption" in teaching
+    assert "Continue that same call through your harness's continuation" in teaching
+    assert "reading the background task's output continues the call" in teaching
+    assert "only ending the turn kills the watcher" in teaching
+    assert "Never start a second invocation beside a live one" in teaching
+    # The one sanctioned early stop stays named, so the continuation rule
+    # does not read as a ban on the landing handoff above it.
+    assert "a merge that returned landing_pending has its landing notice" in teaching
+
+
+def test_the_landing_handoff_precedes_the_continuation_rule() -> None:
+    """Order is the teaching: stop only where the command handed the wait off."""
+    body = _mandate()
+    landing = body.index("headless command that cannot be prompted again")
+    assert landing < body.index(HEADLESS_TOOL_CONTINUATION_TEACHING)
 
 
 def test_worker_sends_its_done_deliberately_before_releasing() -> None:

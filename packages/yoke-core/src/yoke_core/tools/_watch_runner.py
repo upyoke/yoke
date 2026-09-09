@@ -52,6 +52,10 @@ from yoke_core.tools._watch_streaming_pair import (  # noqa: F401
     print_streaming_pair,
     run_or_print_streaming_pair,
 )
+from yoke_core.tools._watch_wait_mode import (
+    HEADLESS_CONTINUATION_DIRECTIVE,
+    caller_is_headless_command,
+)
 from yoke_core.tools._watch_digest import (  # noqa: F401
     DEFAULT_FLUSH_SECONDS,
     ProgressDigest,
@@ -217,6 +221,16 @@ def run_watcher(
     try:
         # Wrapper metadata is class METADATA: emit immediately, never to raw.
         _emit_immediate(header, progress_f=progress_f, out=out)
+        # A headless turn that ends here takes this child with it, so the
+        # caller that cannot be re-prompted is told what a handed-back call
+        # means before the command it must keep holding starts.
+        if caller_is_headless_command():
+            _emit_immediate(
+                f"# watch_{kind} headless_continuation: "
+                f"{HEADLESS_CONTINUATION_DIRECTIVE}\n",
+                progress_f=progress_f,
+                out=out,
+            )
         if header_metadata:
             _emit_immediate(
                 f"{header_metadata.rstrip()}\n", progress_f=progress_f, out=out

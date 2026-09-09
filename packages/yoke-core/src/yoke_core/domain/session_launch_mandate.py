@@ -73,6 +73,23 @@ HEADLESS_LANDING_WAIT_TEACHING = (
 )
 
 
+HEADLESS_TOOL_CONTINUATION_TEACHING = (
+    "A tool call that outlives its yield is still running. When your harness "
+    "moves a long command to a background task or hands back a continuation "
+    "handle, that is the harness handing the call back, not an interruption: "
+    "the child and whatever it is waiting on are still alive. Continue that "
+    "same call through your harness's continuation surface until it exits "
+    "and you have read its outcome — reading the background task's output "
+    "continues the call, and only ending the turn kills the watcher and the "
+    "child it was holding, which lands as a killed capture with no recorded "
+    "verdict. Never start a second invocation beside a live one; re-run only "
+    "once the first process is verifiably gone. Stop before a command "
+    "finishes only where the command itself handed the wait off — a merge "
+    "that returned landing_pending has its landing notice, and nothing else "
+    "does."
+)
+
+
 _DELIBERATE_CLOSE = (
     "Ending a turn sends no Fleet message. When those legs are complete, "
     "message the orchestrator "
@@ -111,6 +128,15 @@ def compose_single_item_mandate(
     out, seven times in one night; the landing observer's notice is what closes
     that gap, so the mandate names the notice rather than an in-turn wait no
     launched worker survives.
+
+    The continuation teaching answers the other half of the same fact. A
+    headless turn is the whole life of every command it starts, so a turn
+    that ends while a long command is still running kills it: two print-mode
+    turns ended on a merge their harness had moved to a background task,
+    reported success, and left the watcher killed at the turn exit with no
+    verdict recorded. Nothing about that hand-back means the work stopped, so
+    the mandate says to continue the call rather than to read the hand-back
+    as completion.
     """
     close = _DELIBERATE_CLOSE.format(ref=public_ref)
     mandate = (
@@ -128,6 +154,7 @@ def compose_single_item_mandate(
     )
     mandate = f"{mandate}\n\n{COMMITTED_GATE_TEACHING}"
     mandate = f"{mandate}\n\n{HEADLESS_LANDING_WAIT_TEACHING}"
+    mandate = f"{mandate}\n\n{HEADLESS_TOOL_CONTINUATION_TEACHING}"
     extra = extras.strip()
     return f"{mandate}\n\n{extra}" if extra else mandate
 

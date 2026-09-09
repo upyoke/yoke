@@ -70,10 +70,10 @@ class TestMintCapturePaths:
             assert raw1 != raw2 and prog1 != prog2
             assert all(p.exists() for p in (raw1, raw2, prog1, prog2))
             for raw, prog in ((raw1, prog1), (raw2, prog2)):
-                nonce_r = raw.name.removeprefix(
-                    "yoke-kindx.raw.").removesuffix(".log")
-                nonce_p = prog.name.removeprefix(
-                    "yoke-kindx.progress.").removesuffix(".log")
+                nonce_r = raw.name.removeprefix("yoke-kindx.raw.").removesuffix(".log")
+                nonce_p = prog.name.removeprefix("yoke-kindx.progress.").removesuffix(
+                    ".log"
+                )
                 assert nonce_r == nonce_p
                 assert raw.parent == prog.parent
                 assert raw.parent.name == "watcher-captures"
@@ -252,7 +252,9 @@ class TestRunWatcherMetadata:
     def test_no_summary_footer_when_no_summary_classified(self, tmp_path):
         """No summary footer when the underlying command emits no SUMMARY lines."""
         script = _python_emit_script(
-            tmp_path, ["noise only", "more noise"], exit_code=0,
+            tmp_path,
+            ["noise only", "more noise"],
+            exit_code=0,
         )
         raw = tmp_path / "raw.log"
         progress = tmp_path / "progress.log"
@@ -274,9 +276,7 @@ class TestRunWatcherMetadata:
     def test_quiet_child_emits_heartbeat_outside_raw(self, tmp_path, monkeypatch):
         script = tmp_path / "quiet.py"
         script.write_text(
-            "import time\n"
-            "time.sleep(0.25)\n"
-            "print('MATCH awake')\n",
+            "import time\ntime.sleep(0.25)\nprint('MATCH awake')\n",
             encoding="utf-8",
         )
         raw = tmp_path / "raw.log"
@@ -298,7 +298,6 @@ class TestRunWatcherMetadata:
         assert "# watch_quiet still running" in progress.read_text(encoding="utf-8")
         assert "# watch_quiet still running" in stdout.getvalue()
         assert "# watch_quiet still running" not in raw.read_text(encoding="utf-8")
-
 
 
 class TestRunWatcherLaunchError:
