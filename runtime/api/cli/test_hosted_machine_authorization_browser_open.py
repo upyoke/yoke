@@ -101,12 +101,15 @@ def test_other_platforms_report_the_webbrowser_failure_alone() -> None:
     )
 
     assert result == browser.BrowserOpenResult(
-        opened=False, reason="webbrowser.open returned False",
+        opened=False,
+        reason="webbrowser.open returned False",
     )
     assert macos_calls == []
 
 
-def test_complete_stops_at_once_when_the_wait_is_cancelled() -> None:
+def test_complete_stops_at_once_when_the_wait_is_cancelled(monkeypatch) -> None:
+    monkeypatch.setattr(auth.machine_runtime, "ensure_machine_id", lambda: "machine-id")
+    monkeypatch.setattr(auth, "machine_display_name", lambda: "Test Host")
     polls: list[str] = []
     ticks = iter([0.0, 0.0, 0.0, 0.0])
 
