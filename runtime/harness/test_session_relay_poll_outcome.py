@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from yoke_contracts.session_control.relay_health import sanitize_relay_health
+import logging
+
+from yoke_contracts.session_control.relay_health import (
+    RELAY_NEWER_THAN_SERVER,
+    sanitize_relay_health,
+)
 from yoke_harness.session_relay import ServeOnceOutcome
 from yoke_harness.session_relay_daemon import serve_forever
 from yoke_harness.session_relay_health import observe_relay_health
@@ -99,6 +104,30 @@ def test_error_detail_is_not_stored_when_a_diagnosed_code_exists(tmp_path) -> No
     poll = observe_relay_health(tmp_path)["poll_outcome"]
     assert poll["error_code"] == "machine_credential_required"
     assert "https://" not in str(poll)
+
+
+def test_build_refusal_logs_revisions_without_storing_them(tmp_path, caplog) -> None:
+    caplog.set_level(logging.ERROR, logger="yoke_harness.session_relay_failure_log")
+    serve_forever(
+        state_dir=tmp_path,
+        cycle=lambda **_kwargs: ServeOnceOutcome(
+            RELAY_NEWER_THAN_SERVER,
+            error_code=RELAY_NEWER_THAN_SERVER,
+            error_detail=(
+                f"{RELAY_NEWER_THAN_SERVER}: relay revision aaaaaaaaaaaa is 30 "
+                "commit(s) ahead of server revision v0.1.1+launch.365; "
+                "recovery: deploy"
+            ),
+        ),
+        stop_after_cycles=1,
+        idle_tick_seconds=0,
+        install_signals=False,
+    )
+
+    assert "aaaaaaaaaaaa" in caplog.text
+    poll = observe_relay_health(tmp_path)["poll_outcome"]
+    assert poll["error_code"] == RELAY_NEWER_THAN_SERVER
+    assert "aaaaaaaaaaaa" not in str(poll)
 
 
 def test_unscoped_daemon_records_default_directory_startup_failure_and_recovery(

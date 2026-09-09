@@ -273,9 +273,11 @@ def _serve_under_lock(
                 else:
                     last_state = str(getattr(outcome, "state", ""))
                     if last_state in {"claim_failed", RELAY_NEWER_THAN_SERVER}:
+                        code = getattr(outcome, "error_code", None) or last_state
                         failures.failed(
                             "poll",
-                            getattr(outcome, "error_code", None) or last_state,
+                            getattr(outcome, "error_detail", None) or code,
+                            persist_code=code,
                         )
                     elif last_state == "report_failed":
                         failures.failed(

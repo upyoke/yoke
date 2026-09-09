@@ -45,7 +45,9 @@ class FailureReporter:
     lock: threading.Lock = field(default_factory=threading.Lock)
     state_dir: Path | None = None
 
-    def failed(self, operation: str, reason: object) -> None:
+    def failed(
+        self, operation: str, reason: object, *, persist_code: str | None = None
+    ) -> None:
         now = self.clock()
         detail = " ".join(str(reason).splitlines()).strip() or "unknown failure"
         if operation == "poll" and self.state_dir is not None:
@@ -55,7 +57,10 @@ class FailureReporter:
             )
 
             record_poll_failure(
-                self.state_dir, error_code=diagnosed_poll_code(reason)
+                self.state_dir,
+                error_code=diagnosed_poll_code(
+                    persist_code if persist_code is not None else reason
+                ),
             )
         with self.lock:
             burst = self.bursts.get(operation)
