@@ -49,9 +49,14 @@ class FailureReporter:
         now = self.clock()
         detail = " ".join(str(reason).splitlines()).strip() or "unknown failure"
         if operation == "poll" and self.state_dir is not None:
-            from yoke_harness.session_relay_poll_health import record_poll_failure
+            from yoke_harness.session_relay_poll_health import (
+                diagnosed_poll_code,
+                record_poll_failure,
+            )
 
-            record_poll_failure(self.state_dir, error_code=detail)
+            record_poll_failure(
+                self.state_dir, error_code=diagnosed_poll_code(reason)
+            )
         with self.lock:
             burst = self.bursts.get(operation)
             if burst is None:

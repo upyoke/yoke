@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+import re
 
 from yoke_harness.session_relay_health import (
     _LOCK,
@@ -16,6 +17,8 @@ from yoke_harness.session_relay_health import (
     _utc_now,
     _write,
 )
+
+_DIAGNOSED_CODE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,62}$")
 
 _CREDENTIAL_CODES = frozenset(
     {"machine_credential_required", "machine_credential_mismatch"}
@@ -32,6 +35,22 @@ _RESTORE_TRANSPORT = (
 )
 
 
+def diagnosed_poll_code(reason: object) -> str:
+    """Return a bounded identifier, never a truncated exception or URL."""
+    if isinstance(reason, BaseException):
+        name = type(reason).__name__
+        return name if _DIAGNOSED_CODE.fullmatch(name) else "poll_failed"
+    text = " ".join(str(reason or "").split())
+    if not text:
+        return "poll_failed"
+    token = text.split(":", 1)[0].strip()
+    if "://" in text or "@" in text:
+        if token[:1].isupper() and _DIAGNOSED_CODE.fullmatch(token):
+            return token
+        return "poll_failed"
+    return token if _DIAGNOSED_CODE.fullmatch(token) else "poll_failed"
+
+
 def _bounded_poll(value: object) -> dict[str, object]:
     if not isinstance(value, Mapping):
         return {}
@@ -45,9 +64,8 @@ def _bounded_poll(value: object) -> dict[str, object]:
         consecutive = 0
     if consecutive:
         result["consecutive_failures"] = consecutive
-    code = str(value.get("error_code") or "").strip()[:128]
-    if code:
-        result["error_code"] = code
+    if value.get("error_code"):
+        result["error_code"] = diagnosed_poll_code(value.get("error_code"))
     for key in ("first_failed_at", "last_failed_at", "last_succeeded_at"):
         stamp = str(value.get(key) or "").strip()[:32]
         if stamp:
@@ -94,7 +112,7 @@ def record_poll_failure(
         poll.update(
             {
                 "status": "failed",
-                "error_code": str(error_code or "poll_failed")[:128],
+                "error_code": diagnosed_poll_code(error_code),
                 "consecutive_failures": count + 1,
                 "first_failed_at": (poll.get("first_failed_at") if continuing else None)
                 or observed,
@@ -158,6 +176,7 @@ def poll_connection_recovery(health: Mapping[str, object]) -> str:
 
 __all__ = [
     "attach_poll_outcome",
+    "diagnosed_poll_code",
     "poll_connection_recovery",
     "record_poll_failure",
     "record_poll_success",

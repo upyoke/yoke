@@ -43,7 +43,7 @@ from yoke_cli.transport import control_plane_payload
 from yoke_harness.session_relay import ServeOnceOutcome, run_serve_cycle
 from yoke_harness.session_relay_failure_log import FailureReporter
 from yoke_harness.session_relay_poll_health import reset_poll_outcome
-from yoke_harness.session_relay_schedule import relay_run_lock
+from yoke_harness.session_relay_schedule import relay_run_lock, relay_state_dir
 from yoke_harness.session_relay_process_restart import exec_relay_release
 
 
@@ -242,11 +242,12 @@ def _serve_under_lock(
     **cycle_kwargs: object,
 ) -> DaemonOutcome:
     """Hold the machine's relay lock for as long as this daemon serves."""
-    with relay_run_lock(state_dir) as acquired:
+    resolved = state_dir if state_dir is not None else relay_state_dir()
+    with relay_run_lock(resolved) as acquired:
         if not acquired:
             return DaemonOutcome("locked")
-        failures = FailureReporter(state_dir=state_dir)
-        reset_poll_outcome(state_dir)
+        failures = FailureReporter(state_dir=resolved)
+        reset_poll_outcome(resolved)
         supervisor = _Supervisor(
             ThreadPoolExecutor(max_workers=max_job_workers), failures
         )
@@ -262,7 +263,7 @@ def _serve_under_lock(
                     if cycle_maintenance is not None:
                         cycle_maintenance()
                     outcome = cycle(
-                        state_dir=state_dir,
+                        state_dir=resolved,
                         dispatch_job=supervisor.dispatch,
                         **cycle_kwargs,
                     )
@@ -274,9 +275,7 @@ def _serve_under_lock(
                     if last_state in {"claim_failed", RELAY_NEWER_THAN_SERVER}:
                         failures.failed(
                             "poll",
-                            getattr(outcome, "error_detail", None)
-                            or getattr(outcome, "error_code", None)
-                            or last_state,
+                            getattr(outcome, "error_code", None) or last_state,
                         )
                     elif last_state == "report_failed":
                         failures.failed(
