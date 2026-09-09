@@ -19,7 +19,6 @@ from yoke_harness.artifact_watermark import (
     MODEL_KIND,
     ArtifactWatermark,
     load_watermark,
-    partial_reason,
     save_watermark,
     stored_totals,
     watermark_lock,
