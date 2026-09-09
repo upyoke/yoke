@@ -10,6 +10,10 @@ from __future__ import annotations
 
 from typing import Any, List, Optional, Union
 
+from yoke_contracts.coordination_claim_keys import (
+    COORDINATION_SCOPE_KEY,
+    key_prefix_for_kind,
+)
 from yoke_core.domain import db_backend
 from yoke_core.domain.coordination_claim_keys import (
     COORDINATION_TARGET_KINDS,
@@ -80,21 +84,7 @@ def list_claims(
 
 def _key_suffix_column(kind: str) -> tuple[str, int]:
     """Return the scope key and key-prefix length identifying one kind."""
-    from yoke_core.domain.coordination_claim_keys import (
-        MIGRATION_KEY_PREFIX,
-        QA_HOST_KEY_PREFIX,
-        QUALIFICATION_KEY_PREFIX,
-    )
-    from yoke_core.domain.work_claim_targets import (
-        TARGET_KIND_MIGRATION_SERIALIZATION,
-        TARGET_KIND_QA_ADMISSION,
-    )
-
-    if kind == TARGET_KIND_MIGRATION_SERIALIZATION:
-        return ("model", len(MIGRATION_KEY_PREFIX))
-    if kind == TARGET_KIND_QA_ADMISSION:
-        return ("machine_id", len(QA_HOST_KEY_PREFIX))
-    return ("grant_key", len(QUALIFICATION_KEY_PREFIX))
+    return (COORDINATION_SCOPE_KEY[kind], len(key_prefix_for_kind(kind)))
 
 
 def stale_claim_candidates(
