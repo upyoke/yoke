@@ -22,8 +22,8 @@ def test_remote_registration_precedes_attestation_with_sidecar(event_name, monke
         lambda *_args: ["yoke_core.hooks.session_launch_attestation"],
     )
 
-    def flush(_records, *, deadline=None, ensure_session=None, usage_session=None):
-        del deadline, usage_session
+    def flush(_records, *, deadline=None, ensure_session=None, observed_session=None):
+        del deadline, observed_session
         if ensure_session is not None:
             order.append(("register", ensure_session[6]))
 

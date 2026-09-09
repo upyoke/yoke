@@ -76,13 +76,28 @@ def _ensure_session_request(
     )
 
 
-def _usage_session_request(
+def _observed_session_request(
     *,
     context: Any,
     payload: Any,
     stdin_data: str,
+    controls: Any = None,
 ) -> tuple[Any, ...] | None:
-    """Build a usage read for an existing row without registration authority."""
+    """Build an observation of a row that exists, with no registration authority.
+
+    The executor is the family this dispatch actually ran through, so the
+    reading is taken against the harness that is really serving this
+    session rather than against whatever the ambient environment looks
+    like. Unlike registration this is built for terminal hooks too: a
+    turn's served model and consumption are first provable once the turn
+    has ended, and a single-turn answer that calls no tool has no other
+    hook left to prove them on.
+
+    Whether this process is the one running the session travels with the
+    request, read from the dispatch controls rather than from the payload,
+    because a relayed evaluation reading its own machine's artifacts would
+    answer for the wrong session entirely.
+    """
     if not context.session_id:
         return None
     payload_json = (
@@ -92,6 +107,7 @@ def _usage_session_request(
         context.session_id,
         payload_json,
         context.executor_family or "",
+        not (controls is not None and controls.remote),
     )
 
 
@@ -157,13 +173,14 @@ def flush_run_tail(
     )
 
     failed = any(kind == "failed" for kind, _record in telem_records)
-    usage_session = _usage_session_request(
+    observed_session = _observed_session_request(
         context=context,
         payload=payload,
         stdin_data=stdin_data,
+        controls=controls,
     )
     if not deadline.telemetry_allowed():
-        _telemetry.flush_hook_telemetry([], usage_session=usage_session)
+        _telemetry.flush_hook_telemetry([], observed_session=observed_session)
         persist_accepted_hook_turn_posture(
             event_name=event_name,
             session_id=context.session_id or "",
@@ -217,7 +234,7 @@ def flush_run_tail(
         telem_records,
         deadline=deadline,
         ensure_session=ensure_session,
-        usage_session=usage_session,
+        observed_session=observed_session,
     )
     persist_accepted_hook_turn_posture(
         event_name=event_name,
