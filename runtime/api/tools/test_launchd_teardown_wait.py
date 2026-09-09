@@ -1,9 +1,10 @@
 """Bootout returns before the job does; these cover waiting it out.
 
 A launch agent is torn down asynchronously: ``launchctl bootout`` returns
-immediately, launchd sends SIGTERM, and only at ``ExitTimeOut`` does it
-SIGKILL. A wait shorter than an ordinary teardown reports a healthy relay
-as stuck and refuses to reinstall it, which is what these tests pin down.
+immediately, launchd sends SIGTERM, and only after ``ExitTimeOut`` does it
+SIGKILL. A wait shorter than an ordinary teardown expires while the relay is
+still shutting down, and the install then refuses to bootstrap the relay it
+just stopped — which is what these tests pin down.
 """
 
 from __future__ import annotations
@@ -83,7 +84,7 @@ def test_an_unload_past_the_former_half_second_limit_is_still_waited_out() -> No
     assert clock.elapsed > 0.5
 
 
-def test_a_stuck_job_fails_at_the_bound_instead_of_waiting_forever() -> None:
+def test_a_job_that_never_unloads_fails_at_the_bound_not_forever() -> None:
     clock = _Clock()
     prints = 0
 

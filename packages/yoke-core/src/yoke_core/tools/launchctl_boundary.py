@@ -198,10 +198,10 @@ def wait_for_launchd_unload(
 ) -> bool:
     """Poll until launchd no longer reports the exact job as loaded.
 
-    ``bootout`` returns before the job does: launchd sends SIGTERM and only
-    SIGKILLs at ``ExitTimeOut`` (20 seconds by default), so an ordinary
-    teardown outlives any sub-second wait. A job still loaded once
-    ``UNLOAD_WAIT_SECONDS`` has passed is stuck, not shutting down.
+    ``bootout`` returns before the job does: launchd SIGKILLs a stopping job
+    only after ``ExitTimeOut``, whose default launchd.plist(5) leaves
+    system-defined. ``False`` reports only that this bounded wait expired
+    with the job still loaded, not that launchd is stuck.
     """
     deadline = now() + UNLOAD_WAIT_SECONDS
     while True:
