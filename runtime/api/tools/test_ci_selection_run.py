@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import json
+import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
+from typing import Sequence
 
 import pytest
 
+from yoke_core.domain.yaml_helper import load_document
 from yoke_core.tools import ci_selection_run as runner
 from yoke_core.tools._impacted_changed_paths import changed_paths
 from yoke_core.tools._impacted_selection import Selection
@@ -146,10 +151,78 @@ def test_main_parses_shell_quoted_pytest_args(monkeypatch, tmp_path) -> None:
 
     monkeypatch.setattr(runner, "run_selection", fake_run)
     code = runner.main([
-        "--root", str(tmp_path), "--base-sha", "b" * 40, "--head-sha", "a" * 40,
-        "--pytest-args", "-q -k 'x y'",
+        "--root", str(tmp_path), "--base-sha=" + "b" * 40, "--head-sha=" + "a" * 40,
+        "--pytest-args=-q -k 'x y'",
     ])
     assert code == 0
     assert seen == {
         "base_sha": "b" * 40, "expected_head_sha": "a" * 40, "passthrough": ["-q", "-k", "x y"],
     }
+
+
+SELECTION_WORKFLOW = repo_root() / ".github" / "workflows" / "yoke-tests-selection.yml"
+
+#: What the workflow step runs; the tests below swap it for an argv reporter.
+MODULE_INVOCATION = "uv run python -m yoke_core.tools.ci_selection_run"
+
+
+def _selection_run_block() -> str:
+    """The shell the workflow step runs to hand its inputs to this module."""
+    steps = load_document(SELECTION_WORKFLOW)["jobs"]["selection"]["steps"]
+    run_blocks = [
+        step["run"] for step in steps if MODULE_INVOCATION in step.get("run", "")
+    ]
+    assert len(run_blocks) == 1, "expected exactly one selection invocation"
+    return run_blocks[0]
+
+
+def _dispatched_argv(pytest_args: Sequence[str], tmp_path: Path) -> list[str]:
+    """The argv that workflow step's own shell builds for *pytest_args*.
+
+    The dispatcher writes ``shlex.join(pytest_args)`` into the workflow input,
+    so the step's environment carries exactly this string.
+    """
+    reporter = tmp_path / "report_argv.py"
+    reporter.write_text(
+        "import json, sys\nprint(json.dumps(sys.argv[1:]))\n", encoding="utf-8",
+    )
+    command = _selection_run_block().replace(
+        MODULE_INVOCATION,
+        f"{shlex.quote(sys.executable)} {shlex.quote(str(reporter))}",
+    )
+    completed = subprocess.run(
+        ["/bin/sh", "-c", command],
+        check=True,
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "SELECTION_BASE_SHA": "b" * 40,
+            "SELECTION_HEAD_SHA": "a" * 40,
+            "SELECTION_PYTEST_ARGS": shlex.join(pytest_args),
+        },
+    )
+    return json.loads(completed.stdout)
+
+
+@pytest.mark.parametrize(
+    "pytest_args",
+    [
+        pytest.param([], id="empty"),
+        pytest.param(["-q"], id="single-option"),
+        pytest.param(["-q", "-x"], id="multiple-options"),
+        pytest.param(["-k", "test_a or test_b"], id="quoted-filter-value"),
+    ],
+)
+def test_dispatched_pytest_args_survive_the_workflow_boundary(
+    pytest_args: list[str], tmp_path: Path,
+) -> None:
+    """Every dispatch shape reaches pytest meaning exactly what was sent.
+
+    A lone ``-q`` is the shape that used to die on argument parsing before
+    pytest started: separated, argparse read it as another option.
+    """
+    parsed = runner.parse_args(_dispatched_argv(pytest_args, tmp_path))
+    assert shlex.split(parsed.pytest_args) == pytest_args
+    assert parsed.base_sha == "b" * 40
+    assert parsed.head_sha == "a" * 40

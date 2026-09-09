@@ -149,7 +149,14 @@ def run_selection(
     return process.wait()
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def parse_args(argv: Sequence[str]) -> argparse.Namespace:
+    """Parse the workflow's dispatch arguments.
+
+    The workflow passes every value attached (``--pytest-args=-q``): a
+    dispatched pytest argument is itself dash-prefixed, and argparse reads a
+    lone ``-q`` in the following token as another option rather than as this
+    option's value.
+    """
     parser = argparse.ArgumentParser(
         prog="ci_selection_run",
         description=(
@@ -171,14 +178,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--pytest-args",
         default="",
-        help="Shell-quoted bare pytest arguments appended to the selection.",
+        help="Shell-quoted bare pytest arguments appended to the selection; "
+        "pass the value attached (--pytest-args=-q) so a dash-prefixed "
+        "argument is not read as another option.",
     )
     parser.add_argument(
         "--root",
         default=None,
         help="Checkout to run in (default: the working directory).",
     )
-    args = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
+    return parser.parse_args(list(argv))
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(sys.argv[1:] if argv is None else argv)
     root = Path(args.root or Path.cwd()).resolve()
     return run_selection(
         root,
@@ -194,6 +207,7 @@ __all__ = [
     "has_positional_args",
     "head_sha",
     "main",
+    "parse_args",
     "pytest_command",
     "run_selection",
     "selection_paths",

@@ -137,11 +137,14 @@ jobs:
           SELECTION_BASE_SHA: ${{ inputs.base_sha }}
           SELECTION_HEAD_SHA: ${{ inputs.head_sha }}
           SELECTION_PYTEST_ARGS: ${{ inputs.pytest_args }}
+        # Attached `--option=value`, because a dispatched pytest argument is
+        # itself dash-prefixed: separated, a lone `-q` reads as another option
+        # and the run dies on argument parsing before pytest starts.
         run: >-
           uv run python -m yoke_core.tools.ci_selection_run
-          --base-sha "$SELECTION_BASE_SHA"
-          --head-sha "$SELECTION_HEAD_SHA"
-          --pytest-args "$SELECTION_PYTEST_ARGS"
+          --base-sha="$SELECTION_BASE_SHA"
+          --head-sha="$SELECTION_HEAD_SHA"
+          --pytest-args="$SELECTION_PYTEST_ARGS"
 
       - name: Upload pytest output
         if: always()
