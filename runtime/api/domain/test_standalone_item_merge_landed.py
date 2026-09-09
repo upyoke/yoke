@@ -44,7 +44,7 @@ def _probe(
     monkeypatch.setattr(landed.git, "branch_exists", lambda *_a: branch_exists)
     monkeypatch.setattr(landed.git, "head_of", lambda *_a: head)
     monkeypatch.setattr(landed.git, "current_base_ref", lambda _repo, target: target)
-    monkeypatch.setattr(landed.git, "unlanded_patches", lambda *_a: unlanded)
+    monkeypatch.setattr(landed.git, "unlanded_commits", lambda *_a: unlanded)
     monkeypatch.setattr(
         landed.git,
         "containing_ref",

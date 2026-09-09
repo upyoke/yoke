@@ -107,7 +107,8 @@ def _carries_unlanded_work(ctx: MergeContext, lane_head: str) -> bool:
     way: it points at fresh copies of the merged commits, which no ancestry
     read can attribute to the merge that took them. Patch identity can, so a
     head the base does not contain is asked once more whether any commit it
-    carries is missing from the base.
+    carries is missing from the base — counting a lane-only merge as missing,
+    because a merge carries no patch for that read to compare.
 
     Without a checkout to read, the answer stays the conservative one: treat
     the difference as unlanded work rather than converge on a merge this
@@ -119,7 +120,7 @@ def _carries_unlanded_work(ctx: MergeContext, lane_head: str) -> bool:
     if git.is_landed(ctx.repo_root, lane_head, ctx.args.target):
         return False
     base = git.current_base_ref(ctx.repo_root, ctx.args.target)
-    return git.unlanded_patches(ctx.repo_root, lane_head, base) != ()
+    return git.unlanded_commits(ctx.repo_root, lane_head, base) != ()
 
 
 def find_landable_pull_request(

@@ -99,9 +99,10 @@ def _replayed_base_ref(
 
     A lane carrying a commit of its own answers empty, which is what keeps a
     retry after a red train and deliberate new work on the ordinary landing
-    route. So does a comparison that could not run, because reading an
-    unreadable checkout as "already landed" is the one mistake that closes an
-    item out against a merge nobody confirmed.
+    route — as does a lane holding a merge the base lacks, whose content
+    patch identity cannot speak for. So does a comparison that could not run,
+    because reading an unreadable checkout as "already landed" is the one
+    mistake that closes an item out against a merge nobody confirmed.
     """
     recorded = receipt.commit_sha if receipt is not None else ""
     if not recorded or not head:
@@ -109,7 +110,7 @@ def _replayed_base_ref(
     base = git.current_base_ref(repo_root, target)
     if not git.is_ancestor(repo_root, recorded, base):
         return ""
-    return base if git.unlanded_patches(repo_root, head, base) == () else ""
+    return base if git.unlanded_commits(repo_root, head, base) == () else ""
 
 
 def stale_unlanded_work(

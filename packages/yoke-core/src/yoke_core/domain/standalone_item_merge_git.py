@@ -9,7 +9,7 @@ facts after either point read them from the recorded receipt instead
 
 Every read fails soft — a git error reads as "the checkout does not say so"
 rather than raising — so the boundary decides what an absent answer means.
-The one exception is :func:`unlanded_patches`, whose absent answer would read
+The one exception is :func:`unlanded_commits`, whose absent answer would read
 as "nothing left to land"; it separates an unreadable comparison from an empty
 one so no caller can converge on a landing the checkout never confirmed.
 """
@@ -125,29 +125,40 @@ def current_base_ref(repo_root: str, target: str) -> str:
     return remote if git_out(repo_root, "rev-parse", "--verify", remote) else target
 
 
-def unlanded_patches(
+def unlanded_commits(
     repo_root: str, commit: str, base: str
 ) -> Optional[tuple[str, ...]]:
-    """Commits reachable from ``commit`` whose patch ``base`` does not carry.
+    """Commits on ``commit`` whose content ``base`` is not already known to hold.
 
     ``git cherry`` compares patch identity rather than sha, which is the only
     read that recognises a lane rebased after its own landing: the base holds
     the work, the lane holds fresh shas for the same patches, and no ancestry
     read connects the two.
 
-    ``None`` when the comparison could not run, so a caller cannot read an
+    It cannot speak for a merge commit, which it skips: a merge carries no
+    patch of its own to compare, yet it can introduce content — a resolution
+    written into the merge, or a whole branch merged into the lane. An empty
+    ``git cherry`` therefore proves nothing about a lane holding a merge the
+    base does not contain, so every such merge is reported as unlanded rather
+    than assumed away. Establishing that a lane-only merge introduces nothing
+    new is a comparison this does not attempt.
+
+    ``None`` when either read could not run, so a caller cannot read an
     unreadable checkout as "nothing left to land".
     """
     if not commit or not base:
         return None
-    result = _git(repo_root, "cherry", base, commit)
-    if result.returncode != 0:
+    cherry = _git(repo_root, "cherry", base, commit)
+    merges = _git(repo_root, "rev-list", "--merges", f"{base}..{commit}")
+    if cherry.returncode != 0 or merges.returncode != 0:
         return None
-    return tuple(
+    unlanded = [
         line.split(maxsplit=1)[-1]
-        for line in result.stdout.splitlines()
+        for line in cherry.stdout.splitlines()
         if line.startswith("+")
-    )
+    ]
+    unlanded.extend(line.strip() for line in merges.stdout.splitlines() if line.strip())
+    return tuple(dict.fromkeys(unlanded))
 
 
 def changed_files(repo_root: str, branch: str, target: str) -> tuple[str, ...]:
@@ -192,5 +203,5 @@ __all__ = [
     "publish",
     "remote_branch_exists",
     "remote_head_of",
-    "unlanded_patches",
+    "unlanded_commits",
 ]

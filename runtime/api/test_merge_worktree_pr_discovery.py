@@ -134,7 +134,7 @@ def _wire_checkout(monkeypatch, *, is_landed: bool, unlanded):
     """Answer both landing reads: by ancestry, then by patch identity."""
     monkeypatch.setattr(discovery_mod.git, "is_landed", lambda *_a: is_landed)
     monkeypatch.setattr(discovery_mod.git, "current_base_ref", lambda *_a: "main")
-    monkeypatch.setattr(discovery_mod.git, "unlanded_patches", lambda *_a: unlanded)
+    monkeypatch.setattr(discovery_mod.git, "unlanded_commits", lambda *_a: unlanded)
 
 
 def test_a_lane_holding_only_copies_of_merged_commits_is_not_declined(monkeypatch):

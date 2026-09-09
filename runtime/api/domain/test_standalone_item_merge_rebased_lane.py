@@ -35,6 +35,17 @@ def _commit(repo: Path, name: str, body: str) -> str:
     return _git(repo, "rev-parse", "HEAD")
 
 
+def _contains(repo: Path, commit: str) -> bool:
+    """Whether ``main`` reaches ``commit``, read without the module under test."""
+    return (
+        subprocess.run(
+            ["git", "-C", str(repo), "merge-base", "--is-ancestor", commit, "main"],
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+
 def _landed_lane_repo(tmp_path: Path) -> tuple[Path, str, str, str]:
     """A merged lane, later commits on main, and the lane rewound to copies.
 
@@ -62,9 +73,24 @@ def _landed_lane_repo(tmp_path: Path) -> tuple[Path, str, str, str]:
     _commit(repo, "later_two.py", "two\n")
 
     # The lane as a re-entry finds it: the same patch, a new sha, an old base.
-    _git(repo, "checkout", "-B", BRANCH, base)
-    _git(repo, "cherry-pick", lane_head)
-    _git(repo, "checkout", "main")
+    # Built with plumbing rather than `cherry-pick`, whose "already applied"
+    # handling varies by git version — a setup that quietly no-ops leaves the
+    # branch on the base branch and the test asserting nothing.
+    copy = _git(
+        repo,
+        "commit-tree",
+        _git(repo, "rev-parse", f"{lane_head}^{{tree}}"),
+        "-p",
+        base,
+        "-m",
+        # A rebase rewrites metadata, so the copy is a distinct object. An
+        # identical message under identical identity and timestamps would hash
+        # to the merged commit itself and quietly assert nothing.
+        "add feature.py (rewritten by a rebase)",
+    )
+    _git(repo, "branch", "-f", BRANCH, copy)
+    assert copy != lane_head
+    assert not _contains(repo, copy), "the copy must not be reachable from main"
     return repo, base, lane_head, merge_commit
 
 
@@ -87,7 +113,7 @@ def test_a_copied_commit_is_unlanded_by_sha_and_landed_by_patch(tmp_path):
     copy = _git(repo, "rev-parse", BRANCH)
 
     assert git.is_ancestor(str(repo), copy, "main") is False
-    assert git.unlanded_patches(str(repo), copy, "main") == ()
+    assert git.unlanded_commits(str(repo), copy, "main") == ()
 
 
 def test_a_copied_lane_closes_out_on_the_merge_identity_it_already_has(
@@ -144,7 +170,31 @@ def test_a_lane_with_a_commit_of_its_own_still_has_work_to_land(
         lambda *_a, **_k: _receipt(lane_head, merge_commit),
     )
 
-    assert git.unlanded_patches(str(repo), _git(repo, "rev-parse", BRANCH), "main")
+    assert git.unlanded_commits(str(repo), _git(repo, "rev-parse", BRANCH), "main")
+    assert landed.landed_lane(**_look(repo), project="yoke") is None
+    assert "fresh work item" in landed.stale_unlanded_work(**_look(repo))
+
+
+def test_a_lane_holding_an_unlanded_merge_is_not_a_copy(tmp_path, monkeypatch):
+    """A merge carries content ``git cherry`` skips, so it is never assumed away.
+
+    The lane merges a side branch after its own landing. Every non-merge
+    commit on it still has an equivalent upstream, so patch identity alone
+    reports nothing left — while the merge brings content the base has never
+    seen, and converging would declare it delivered and clean the lane.
+    """
+    repo, _base, lane_head, merge_commit = _landed_lane_repo(tmp_path)
+    _git(repo, "checkout", "-q", BRANCH)
+    _git(repo, "checkout", "-q", "-b", "side")
+    _commit(repo, "merge_only.txt", "only reachable through the merge\n")
+    _git(repo, "checkout", "-q", BRANCH)
+    _git(repo, "merge", "--no-ff", "side", "-m", "Merge side into the lane")
+    _git(repo, "checkout", "-q", "main")
+    monkeypatch.setattr(
+        landed.receipts, "load", lambda *_a, **_k: _receipt(lane_head, merge_commit)
+    )
+
+    assert git.unlanded_commits(str(repo), _git(repo, "rev-parse", BRANCH), "main")
     assert landed.landed_lane(**_look(repo), project="yoke") is None
     assert "fresh work item" in landed.stale_unlanded_work(**_look(repo))
 
@@ -167,7 +217,7 @@ def test_a_receipt_the_base_does_not_contain_converges_nothing(
         lambda *_a, **_k: _receipt(copy, ""),
     )
 
-    assert git.unlanded_patches(str(repo), copy, "main") == ()
+    assert git.unlanded_commits(str(repo), copy, "main") == ()
     assert landed.landed_lane(**_look(repo), project="yoke") is None
 
 
@@ -175,6 +225,6 @@ def test_an_unreadable_comparison_is_not_a_landing(tmp_path, monkeypatch):
     repo, _base, lane_head, merge_commit = _landed_lane_repo(tmp_path)
     receipt = _receipt(lane_head, merge_commit)
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: receipt)
-    monkeypatch.setattr(landed.git, "unlanded_patches", lambda *_a: None)
+    monkeypatch.setattr(landed.git, "unlanded_commits", lambda *_a: None)
 
     assert landed.landed_lane(**_look(repo), project="yoke") is None
