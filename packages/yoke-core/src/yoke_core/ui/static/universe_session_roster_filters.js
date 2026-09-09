@@ -194,10 +194,13 @@ export function appendSessionRelay(documentNode, body, row) {
   const line = el(documentNode, "div", "session-relay");
   line.appendChild(el(documentNode, "span", "session-relay-label", "Relay:"));
   const connected = row.relay === "connected";
+  // An ended session is not waiting on a relay, and a history row reports no
+  // relay state at all, so its machine reads idle rather than critical: the
+  // alarm belongs to a live session whose messages have nowhere to land.
+  const ended = String(row.liveness || "") === "ended";
+  const tone = connected ? "good" : (ended ? "idle" : "crit");
   const pill = el(
-    documentNode,
-    "span",
-    `pill ${connected ? "good" : "crit"} session-relay-pill`,
+    documentNode, "span", `pill ${tone} session-relay-pill`,
   );
   pill.appendChild(el(
     documentNode, "span", "session-relay-machine", machineLabel(row),

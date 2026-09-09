@@ -111,6 +111,9 @@ test("an ended card is composed from the same sections as a live one", () => {
   // A relay warning is a live session's alarm; an ended card still names its
   // machine without raising one.
   assert.equal(byClass(ended, "session-relay-warning").length, 0);
+  assert.match(
+    byClass(ended, "session-relay-pill")[0].className, /\bidle\b/,
+  );
   assert.match(byClass(ended, "session-age")[0].textContent, /^ended /);
 });
 
