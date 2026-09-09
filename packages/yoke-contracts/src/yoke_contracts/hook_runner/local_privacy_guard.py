@@ -1,20 +1,42 @@
 """Pure command classification for operator-machine privacy boundaries.
 
-Fleet workers may inspect their repository, worktree, scratch roots, and named
-harness dot-directories. They must not discover tools by walking the operator's
-home, touch macOS privacy-managed folders, or run local GUI automation. The
-classifier is dependency-free so the full engine guard and the product-local
-HTTPS fallback enforce one contract.
+The classifier names what a command would touch on the operator's machine and
+nothing more; each consumer decides what that means for it. A live tool call
+reads :mod:`local_privacy_messages`' severity map, which leaves personal-file
+reads and GUI automation to the harness prompt and the operating system,
+advises on broad home discovery, and refuses only the system privacy
+database. The automated-test tripwire blocks every category instead, because
+a unit test has no operator standing behind it to authorize anything.
+
+The classifier is dependency-free so the full engine guard and the
+product-local HTTPS fallback enforce one contract.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 import os
-import re
 import shlex
 from pathlib import Path
 from typing import Iterable, Sequence
+
+from yoke_contracts.hook_runner.local_privacy_command_parse import (
+    GREP_VALUE_OPTIONS,
+    RG_VALUE_OPTIONS,
+    option_positionals,
+    segments,
+    unwrap,
+)
+from yoke_contracts.hook_runner.local_privacy_messages import (
+    HOME_DISCOVERY,
+    LOCAL_GUI_AUTOMATION,
+    PERSONAL_FILE_ACCESS,
+    SYSTEM_PRIVACY_DATABASE,
+    live_reason,
+    live_severity,
+    severity_rank,
+    test_isolation_reason,
+)
 
 
 LOCAL_PRIVACY_INTEGRATION_ENV = "YOKE_ALLOW_LOCAL_PRIVACY_INTEGRATION"
@@ -39,94 +61,29 @@ _PROTECTED_HOME_ROOTS = (
     ("Library", "Mobile Documents"),
 )
 _SYSTEM_PRIVACY_DATABASE = Path("/Library/Application Support/com.apple.TCC/TCC.db")
-_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 _GLOB_CHARS = frozenset("*?[")
-_RG_VALUE_OPTIONS = frozenset(
-    (
-        "-A -B -C -E -e -f -g -j -M -m -r -t -T --after-context "
-        "--before-context --context --encoding --engine --file --glob --iglob "
-        "--max-columns --max-count --max-depth --regexp --replace --threads "
-        "--type --type-not"
-    ).split()
-)
-_GREP_VALUE_OPTIONS = frozenset(
-    (
-        "-A -B -C -e -f -m --after-context --before-context --context "
-        "--file --max-count --regexp"
-    ).split()
-)
 
 
 @dataclass(frozen=True)
-class LocalPrivacyViolation:
-    """One command shape that would cross the operator privacy boundary."""
+class LocalPrivacyFinding:
+    """One command shape that touches the operator's machine, and what it is."""
 
-    code: str
+    category: str
     target: str
     service: str
 
+    @property
+    def live_severity(self) -> str:
+        """What a live tool call gets: ``deny``, ``advisory``, or ``allowed``."""
+        return live_severity(self.category)
+
     def reason(self) -> str:
-        recovery = (
-            "Anchor searches in the repository/worktree or a named harness "
-            "dot-directory. For native harness binary discovery, use "
-            "resolve_native_cli/resolve_native_cli_source; _CLI_FALLBACKS "
-            "owns bundled application paths. Run GUI automation and privacy "
-            "probes only on the sanctioned target host, never the operator machine."
-        )
-        return (
-            "BLOCKED: local privacy boundary would be crossed.\n\n"
-            f"Reason: {self.code}\nTarget: {self.target}\n"
-            f"Privacy scope: {self.service}\n\nRecovery: {recovery}"
-        )
+        """Live deny/advisory text. Raises for a category live callers allow."""
+        return live_reason(self.category, self.target, self.service)
 
-
-def _segments(command: str) -> list[list[str]]:
-    """Return quote-aware command segments separated by shell operators."""
-    try:
-        lexer = shlex.shlex(
-            command.replace("\n", " ; "),
-            posix=True,
-            punctuation_chars=";&|",
-        )
-        lexer.whitespace_split = True
-        lexer.commenters = ""
-        tokens = list(lexer)
-    except ValueError:
-        return []
-    segments: list[list[str]] = []
-    current: list[str] = []
-    for token in tokens:
-        if token and set(token) <= set(";&|"):
-            if current:
-                segments.append(current)
-            current = []
-        else:
-            current.append(token)
-    if current:
-        segments.append(current)
-    return segments
-
-
-def _unwrap(tokens: Sequence[str]) -> tuple[str, list[str]]:
-    index = 0
-    while index < len(tokens) and _ASSIGNMENT.match(tokens[index]):
-        index += 1
-    while index < len(tokens):
-        executable = Path(tokens[index]).name
-        if executable in {"command", "exec", "nohup", "sudo"}:
-            index += 1
-            while index < len(tokens) and tokens[index].startswith("-"):
-                index += 1
-            continue
-        if executable == "env":
-            index += 1
-            while index < len(tokens) and (
-                tokens[index].startswith("-") or _ASSIGNMENT.match(tokens[index])
-            ):
-                index += 1
-            continue
-        return executable, list(tokens[index + 1 :])
-    return "", []
+    def test_isolation_reason(self) -> str:
+        """Text for the automated-test tripwire, which blocks every category."""
+        return test_isolation_reason(self.category, self.target, self.service)
 
 
 def _expanded_path(
@@ -148,95 +105,118 @@ def _expanded_path(
     return os.path.normpath(value)
 
 
-def _path_violation(
+def _stronger(
+    current: LocalPrivacyFinding | None, candidate: LocalPrivacyFinding | None
+) -> LocalPrivacyFinding | None:
+    """Return whichever finding a live caller must answer to.
+
+    A command names several things, and the first one it names is not
+    necessarily the one that matters: a personal-folder read the harness
+    already authorized must never stand in for a privacy-database read later
+    in the same command.
+    """
+    if candidate is None:
+        return current
+    if current is None:
+        return candidate
+    if severity_rank(candidate.category) > severity_rank(current.category):
+        return candidate
+    return current
+
+
+def _names_one_file(parts: Sequence[str]) -> bool:
+    """True when the operand names a single file rather than a tree to walk.
+
+    ``rg pattern ~/Downloads/notes/spec.md`` is the operator handing over one
+    document; ``rg pattern ~/Downloads`` is a search across everything they
+    have downloaded. The filename extension is what separates them without
+    asking the filesystem — and asking would be worse than imprecise here,
+    since a stat against a protected folder answers from the very permission
+    state the classification is reasoning about.
+    """
+    return bool(parts) and "." in parts[-1].lstrip(".")
+
+
+def _protected_root(parts: Sequence[str]) -> tuple[str, ...] | None:
+    for protected in _PROTECTED_HOME_ROOTS:
+        if tuple(parts[: len(protected)]) == protected:
+            return protected
+    return None
+
+
+def _path_finding(
     token: str,
     home: Path,
     cwd: str | os.PathLike[str] | None = None,
-) -> LocalPrivacyViolation | None:
+    *,
+    discovery: bool = False,
+) -> LocalPrivacyFinding | None:
+    """Classify one path operand.
+
+    ``discovery`` says the operand came from an enumeration tool (``find``,
+    ``rg``, ``ls`` …) rather than a reader naming one file. That is the whole
+    difference between "open the document the operator asked for" and "walk
+    their folders looking for something", and the two get different answers
+    live.
+    """
     expanded = _expanded_path(token, home, cwd)
     if expanded is None:
         return None
     if expanded == str(_SYSTEM_PRIVACY_DATABASE) or expanded.startswith(
         str(_SYSTEM_PRIVACY_DATABASE.parent) + os.sep
     ):
-        return LocalPrivacyViolation(
-            "local_privacy_database", token, "Full Disk Access"
-        )
+        return LocalPrivacyFinding(SYSTEM_PRIVACY_DATABASE, token, "Full Disk Access")
     home_text = os.path.normpath(str(home))
     if expanded == home_text:
-        return LocalPrivacyViolation("home_root_scan", token, "user home")
+        return LocalPrivacyFinding(HOME_DISCOVERY, token, "user home")
     if not expanded.startswith(home_text + os.sep):
         return None
     relative = expanded[len(home_text) + 1 :]
     parts = tuple(part for part in relative.split(os.sep) if part)
-    for protected in _PROTECTED_HOME_ROOTS:
-        if parts[: len(protected)] == protected:
-            return LocalPrivacyViolation(
-                "protected_home_access", token, "/".join(protected)
-            )
     if parts and any(char in parts[0] for char in _GLOB_CHARS):
-        return LocalPrivacyViolation("home_root_glob", token, "user home")
-    return None
+        return LocalPrivacyFinding(HOME_DISCOVERY, token, "user home")
+    protected = _protected_root(parts)
+    if protected is None:
+        return None
+    scope = "/".join(protected)
+    globbed = any(char in part for part in parts for char in _GLOB_CHARS)
+    if globbed or (discovery and not _names_one_file(parts)):
+        return LocalPrivacyFinding(HOME_DISCOVERY, token, scope)
+    return LocalPrivacyFinding(PERSONAL_FILE_ACCESS, token, scope)
 
 
 def _implicit_scan(
     cwd: str | os.PathLike[str] | None, home: Path
-) -> LocalPrivacyViolation | None:
+) -> LocalPrivacyFinding | None:
     if cwd is None:
         return None
-    return _path_violation(os.fspath(cwd), home)
+    return _path_finding(os.fspath(cwd), home, discovery=True)
 
 
-def _option_positionals(
-    args: Sequence[str], value_options: frozenset[str]
-) -> tuple[list[str], bool]:
-    positionals: list[str] = []
-    expression_supplied = False
-    consume_value = False
-    after_options = False
-    for token in args:
-        if consume_value:
-            consume_value = False
-            continue
-        if after_options:
-            positionals.append(token)
-            continue
-        if token == "--":
-            after_options = True
-            continue
-        option = token.split("=", 1)[0]
-        if option in {"-e", "--regexp"}:
-            expression_supplied = True
-        if option in value_options:
-            consume_value = "=" not in token
-            continue
-        if token.startswith("-"):
-            continue
-        positionals.append(token)
-    return positionals, expression_supplied
-
-
-def _first_path_violation(
+def _strongest_path_finding(
     paths: Iterable[str],
     home: Path,
     cwd: str | os.PathLike[str] | None,
-) -> LocalPrivacyViolation | None:
+    *,
+    discovery: bool = False,
+) -> LocalPrivacyFinding | None:
+    strongest: LocalPrivacyFinding | None = None
     for target in paths:
-        violation = _path_violation(target, home, cwd)
-        if violation is not None:
-            return violation
-    return None
+        strongest = _stronger(
+            strongest, _path_finding(target, home, cwd, discovery=discovery)
+        )
+    return strongest
 
 
 def _scan_segment(
     tokens: Sequence[str], *, home: Path, cwd: str | os.PathLike[str] | None
-) -> LocalPrivacyViolation | None:
-    executable, args = _unwrap(tokens)
+) -> LocalPrivacyFinding | None:
+    executable, args = unwrap(tokens)
     if not executable:
         return None
     if executable in _LOCAL_AUTOMATION:
-        return LocalPrivacyViolation(
-            "local_gui_automation", executable, _LOCAL_AUTOMATION[executable]
+        return LocalPrivacyFinding(
+            LOCAL_GUI_AUTOMATION, executable, _LOCAL_AUTOMATION[executable]
         )
     if executable in _SHELLS:
         for index, token in enumerate(args[:-1]):
@@ -252,38 +232,39 @@ def _scan_segment(
             if token.startswith("-") or token in {"!", "(", ")"}:
                 break
             roots.append(token)
-        return _first_path_violation(roots, home, cwd) or (
+        return _strongest_path_finding(roots, home, cwd, discovery=True) or (
             _implicit_scan(cwd, home) if not roots else None
         )
     if executable in {"ls", "du", "tree"}:
-        return _first_path_violation(
-            (token for token in args if not token.startswith("-")), home, cwd
+        return _strongest_path_finding(
+            (token for token in args if not token.startswith("-")),
+            home,
+            cwd,
+            discovery=True,
         )
     if executable in {"fd", "fdfind"}:
         positionals = [token for token in args if not token.startswith("-")]
         paths = positionals[1:]
-        return _first_path_violation(paths, home, cwd) or (
+        return _strongest_path_finding(paths, home, cwd, discovery=True) or (
             _implicit_scan(cwd, home) if not paths else None
         )
     if executable in {"rg", "ripgrep"}:
-        positionals, expression_supplied = _option_positionals(args, _RG_VALUE_OPTIONS)
+        positionals, expression_supplied = option_positionals(args, RG_VALUE_OPTIONS)
         files_mode = "--files" in args
         paths = positionals if files_mode or expression_supplied else positionals[1:]
-        return _first_path_violation(paths, home, cwd) or (
+        return _strongest_path_finding(paths, home, cwd, discovery=True) or (
             _implicit_scan(cwd, home) if not paths else None
         )
     if executable in {"grep", "egrep", "fgrep"} and any(
         flag in args for flag in ("-r", "-R", "--recursive")
     ):
-        positionals, expression_supplied = _option_positionals(
-            args, _GREP_VALUE_OPTIONS
-        )
+        positionals, expression_supplied = option_positionals(args, GREP_VALUE_OPTIONS)
         paths = positionals if expression_supplied else positionals[1:]
-        return _first_path_violation(paths, home, cwd) or (
+        return _strongest_path_finding(paths, home, cwd, discovery=True) or (
             _implicit_scan(cwd, home) if not paths else None
         )
     if executable in _DIRECT_READERS:
-        return _first_path_violation(args, home, cwd)
+        return _strongest_path_finding(args, home, cwd)
     return None
 
 
@@ -292,13 +273,12 @@ def classify_shell_command(
     *,
     home: Path,
     cwd: str | os.PathLike[str] | None = None,
-) -> LocalPrivacyViolation | None:
-    """Return the first operator-machine privacy violation in ``command``."""
-    for segment in _segments(command):
-        violation = _scan_segment(segment, home=home, cwd=cwd)
-        if violation is not None:
-            return violation
-    return None
+) -> LocalPrivacyFinding | None:
+    """Return the strongest operator-machine privacy finding in ``command``."""
+    strongest: LocalPrivacyFinding | None = None
+    for segment in segments(command):
+        strongest = _stronger(strongest, _scan_segment(segment, home=home, cwd=cwd))
+    return strongest
 
 
 def classify_subprocess_args(
@@ -306,7 +286,7 @@ def classify_subprocess_args(
     *,
     home: Path,
     cwd: str | os.PathLike[str] | None = None,
-) -> LocalPrivacyViolation | None:
+) -> LocalPrivacyFinding | None:
     """Classify a :class:`subprocess.Popen` argv/string without executing it."""
     if isinstance(args, str):
         command = args
@@ -326,7 +306,7 @@ def classify_subprocess_args(
 
 __all__ = [
     "LOCAL_PRIVACY_INTEGRATION_ENV",
-    "LocalPrivacyViolation",
+    "LocalPrivacyFinding",
     "classify_shell_command",
     "classify_subprocess_args",
 ]

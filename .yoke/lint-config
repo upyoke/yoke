@@ -68,7 +68,7 @@ lint_yoke_adapter_stderr_visibility=deny
 # Refuse grep/rg search text with backticks inside double quotes.
 lint_shell_backtick_search=deny
 
-# Refuse local GUI automation and privacy-managed filesystem access. [protected]
+# Refuse reads of the system privacy database; advise on home-wide scans. [protected]
 lint_local_privacy=deny
 
 # Refuse unquoted path globs that match no files; teach rg --files.

@@ -56,9 +56,9 @@ from yoke_core.domain.lint_session_cwd_control_plane import resolve_authority_cw
 from yoke_core.domain.lint_session_cwd_path_authority import derive_repo_roots
 from yoke_core.domain.lint_session_cwd_status import is_pre_implementing_status
 from yoke_core.domain.lint_session_cwd_target_extract import extract_payload_command
-from yoke_core.domain.lint_session_cwd_validate import (
-    _lookup_item_status,
-    _lookup_item_workflow,
+from yoke_core.domain.lint_session_cwd_item_lookup import (
+    lookup_item_status,
+    lookup_item_workflow,
 )
 from yoke_core.domain.session_ambient_identity import session_id_from_hook_payload
 from yoke_core.domain.session_claimed_worktrees import ClaimedWorktree, claimed_worktrees
@@ -113,8 +113,8 @@ def _extract_session_id(payload: Mapping[str, Any]) -> str:
 
 
 def _lane_is_active(conn: Any, claim: ClaimedWorktree) -> bool:
-    status = _lookup_item_status(conn, claim.item_id)
-    workflow = _lookup_item_workflow(conn, claim.item_id)
+    status = lookup_item_status(conn, claim.item_id)
+    workflow = lookup_item_workflow(conn, claim.item_id)
     return not is_pre_implementing_status(workflow, status)
 
 

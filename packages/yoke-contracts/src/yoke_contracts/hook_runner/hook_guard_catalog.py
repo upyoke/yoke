@@ -192,7 +192,7 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         "lint_local_privacy",
         f"{_MODULE_PREFIX}lint_local_privacy",
         True,
-        "Refuse local GUI automation and privacy-managed filesystem access.",
+        "Refuse reads of the system privacy database; advise on home-wide scans.",
         check_id="lint-local-privacy",
     ),
     GuardSpec(

@@ -58,12 +58,15 @@ _SANCTIONED_INSTALLED_READ_DIRS = (
     "~/.codex/skills",
     "~/.claude/plugins",
     "~/.yoke/browser-runtime",
+    "~/.yoke/relay-instances",
+    "~/.local/bin",
 )
 
 _SANCTIONED_INSTALLED_READ_FILES = (
     "~/.codex/AGENTS.md",
     "~/.local/bin/yoke",
     "~/.claude/settings.json",
+    "~/.cursor/hooks.json",
 )
 
 
@@ -167,6 +170,39 @@ def is_sanctioned_installed_read_path(target: str) -> bool:
         resolved == resolve_for_display(os.path.expanduser(raw_file))
         for raw_file in files
     )
+
+
+def is_external_reference_path(
+    target: str,
+    *,
+    repo_roots: Sequence[str],
+) -> bool:
+    """True when ``target`` is the operator's own material rather than a checkout.
+
+    A reference document, an installed harness config, a launcher directory:
+    these live in the operator's home outside every registered project, and
+    reading one is not the wrong-checkout mix-up this guard exists to catch.
+
+    Three exclusions keep the answer narrow. Project code is never external —
+    anything inside a recorded repo root, or inside a ``.worktrees`` lane, is
+    governed exactly as it is today, whether or not the call is a read. Tool
+    state is not external either: a dot-directory in the home holds harness
+    configuration, credentials, and per-session scratch, and which of those
+    are readable is already a curated decision that
+    :func:`is_sanctioned_installed_read_path` owns and this must not widen.
+    And anything outside the home keeps today's answer untouched, so a stray
+    absolute path is still a scope mismatch, not a reference document.
+    """
+    resolved = resolve_for_display(os.path.expanduser(target))
+    home = os.path.expanduser("~")
+    if not home or home == "~" or not is_inside(resolved, home):
+        return False
+    relative = Path(resolved).parts[len(Path(home).parts) :]
+    if not relative or relative[0].startswith("."):
+        return False
+    if ".worktrees" in relative:
+        return False
+    return not any(is_inside(resolved, root) for root in repo_roots)
 
 
 def is_inside(target: str, root: str) -> bool:

@@ -159,6 +159,7 @@ def evaluate_pre_tool_use(
                 claude_job_tmp_root=claude_job_tmp_root,
                 read_only=not write_operation,
                 command=command,
+                tool_name=tool_name,
             )
     except Exception as exc:
         emit_fail_open(

@@ -1,64 +1,107 @@
-"""Operator-machine privacy boundary coverage."""
+"""Operator-machine privacy boundary coverage.
+
+The classifier names four categories; live tool calls and automated-test
+isolation read that naming differently. A live call defers personal-folder
+reads and GUI automation to the harness prompt and the operating system,
+advises on broad home discovery, and refuses only the system privacy
+database. The test tripwire blocks all four, because no operator stands
+behind a unit test.
+
+Every path here is synthetic: the suite must not read the real folders it is
+describing, and does not need to in order to prove the classification.
+"""
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import shlex
-import subprocess
-import time
-from unittest.mock import patch
 
 import pytest
 
-from yoke_contracts.hook_runner.hook_guard_catalog import GUARD_CATALOG
-from yoke_contracts.hook_runner.hook_ordering import ordered_pipeline_for
 from yoke_contracts.hook_runner.local_privacy_guard import (
     classify_shell_command,
     classify_subprocess_args,
 )
-from yoke_core.domain import lint_local_privacy
-from yoke_harness.hooks import local_policies, local_subset
-from yoke_harness.hooks.deadline import HookDeadline
-from yoke_harness.hooks.local_policy_common import DENY, NOOP
+from yoke_contracts.hook_runner.local_privacy_messages import (
+    HOME_DISCOVERY,
+    LIVE_ADVISORY,
+    LIVE_ALLOWED,
+    LIVE_DENY,
+    LOCAL_GUI_AUTOMATION,
+    PERSONAL_FILE_ACCESS,
+    SYSTEM_PRIVACY_DATABASE,
+    live_reason,
+)
 
 
-HOME = Path.home()
-# Captured at import time, before the autouse privacy guard replaces the
-# name for each test.
-_REAL_POPEN = subprocess.Popen
-REPO = Path(__file__).resolve().parents[3]
+# A home directory that exists nowhere, so no assertion here can be satisfied
+# by — or accidentally reach — the machine running the suite.
+HOME = Path("/Users/synthetic-operator")
+REPO = "/Users/synthetic-operator/checkout"
 
 
-def _quote(path: Path) -> str:
-    return shlex.quote(str(path))
+def _quote(path: str) -> str:
+    return shlex.quote(path)
+
+
+# ---------------------------------------------------------------------------
+# Classification
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
-    ("command", "code"),
+    ("command", "category"),
     [
-        (f"find {_quote(HOME)} -maxdepth 6 -name codex", "home_root_scan"),
-        ("find $HOME -maxdepth 4 -name python3", "home_root_scan"),
-        ("ls $HOME/*", "home_root_glob"),
-        ("cat ~/Documents/notes.txt", "protected_home_access"),
-        ("rg token $HOME/Library/CloudStorage", "protected_home_access"),
-        ("du -sh ~/Downloads", "protected_home_access"),
+        (f"find {_quote(str(HOME))} -maxdepth 6 -name codex", HOME_DISCOVERY),
+        ("find $HOME -maxdepth 4 -name python3", HOME_DISCOVERY),
+        ("ls $HOME/*", HOME_DISCOVERY),
+        ("du -sh ~/Downloads", HOME_DISCOVERY),
+        ("rg token $HOME/Library/CloudStorage", HOME_DISCOVERY),
+        ("cat ~/Documents/*.txt", HOME_DISCOVERY),
+        ("cat ~/Documents/notes.txt", PERSONAL_FILE_ACCESS),
+        ("cat ~/Downloads/reference/synthesis.md", PERSONAL_FILE_ACCESS),
+        ("head -20 ~/Desktop/operator.txt", PERSONAL_FILE_ACCESS),
         (
             "cat '/Library/Application Support/com.apple.TCC/TCC.db'",
-            "local_privacy_database",
+            SYSTEM_PRIVACY_DATABASE,
         ),
-        ("osascript -e 'tell app \"Finder\" to activate'", "local_gui_automation"),
-        ("screencapture /tmp/screen.png", "local_gui_automation"),
-        ("zsh -lc 'osascript -e beep'", "local_gui_automation"),
+        ("osascript -e 'tell app \"Finder\" to activate'", LOCAL_GUI_AUTOMATION),
+        ("screencapture /tmp/screen.png", LOCAL_GUI_AUTOMATION),
+        ("zsh -lc 'osascript -e beep'", LOCAL_GUI_AUTOMATION),
     ],
 )
-def test_classifier_denies_privacy_crossing_commands(command: str, code: str) -> None:
-    violation = classify_shell_command(command, home=HOME, cwd=REPO)
+def test_classifier_names_the_category(command: str, category: str) -> None:
+    finding = classify_shell_command(command, home=HOME, cwd=REPO)
 
-    assert violation is not None
-    assert violation.code == code
-    assert "resolve_native_cli" in violation.reason()
-    assert "repository/worktree" in violation.reason()
+    assert finding is not None
+    assert finding.category == category
+
+
+@pytest.mark.parametrize(
+    ("category", "severity"),
+    [
+        (SYSTEM_PRIVACY_DATABASE, LIVE_DENY),
+        (HOME_DISCOVERY, LIVE_ADVISORY),
+        (PERSONAL_FILE_ACCESS, LIVE_ALLOWED),
+        (LOCAL_GUI_AUTOMATION, LIVE_ALLOWED),
+    ],
+)
+def test_live_severity_per_category(category: str, severity: str) -> None:
+    finding = classify_shell_command(
+        {
+            SYSTEM_PRIVACY_DATABASE: (
+                "cat '/Library/Application Support/com.apple.TCC/TCC.db'"
+            ),
+            HOME_DISCOVERY: "find $HOME -name codex",
+            PERSONAL_FILE_ACCESS: "cat ~/Documents/notes.txt",
+            LOCAL_GUI_AUTOMATION: "screencapture /tmp/shot.png",
+        }[category],
+        home=HOME,
+        cwd=REPO,
+    )
+
+    assert finding is not None
+    assert finding.live_severity == severity
 
 
 @pytest.mark.parametrize(
@@ -66,26 +109,30 @@ def test_classifier_denies_privacy_crossing_commands(command: str, code: str) ->
     [
         f"find {_quote(REPO)} -maxdepth 4 -name codex",
         "find ~/.yoke -maxdepth 3 -name config.json",
+        "cat ~/.codex/skills/example/SKILL.md",
+        "ls ~/.local/bin",
+        "cat ~/.cursor/hooks.json",
+        "cat ~/.yoke/config*.json",
         "rg -n local_privacy_guard packages runtime",
         "git status --short",
         "ssh test-mac 'osascript -e beep'",
     ],
 )
-def test_classifier_allows_scoped_or_remote_commands(command: str) -> None:
+def test_classifier_finds_nothing_outside_the_managed_folders(command: str) -> None:
     assert classify_shell_command(command, home=HOME, cwd=REPO) is None
 
 
 @pytest.mark.parametrize(
     "command", ["find . -name codex", "rg token", "grep -R token ."]
 )
-def test_relative_and_implicit_scans_are_denied_from_home(command: str) -> None:
-    violation = classify_shell_command(command, home=HOME, cwd=HOME)
+def test_relative_scans_from_home_are_discovery(command: str) -> None:
+    finding = classify_shell_command(command, home=HOME, cwd=str(HOME))
 
-    assert violation is not None
-    assert violation.code == "home_root_scan"
+    assert finding is not None
+    assert finding.category == HOME_DISCOVERY
 
 
-def test_relative_scan_is_allowed_from_repository() -> None:
+def test_relative_scan_from_a_repository_finds_nothing() -> None:
     assert classify_shell_command("find . -name codex", home=HOME, cwd=REPO) is None
 
 
@@ -100,77 +147,128 @@ def test_subprocess_argv_and_shell_text_share_the_classifier() -> None:
     assert from_argv.service == "Screen Recording"
 
 
-def test_repo_fixture_stops_local_automation_before_popen() -> None:
-    with pytest.raises(pytest.fail.Exception, match="local privacy boundary"):
-        subprocess.run(["osascript", "-e", "beep"], check=False)
+# ---------------------------------------------------------------------------
+# The strongest finding in a command is the one reported
+# ---------------------------------------------------------------------------
 
 
-def test_engine_and_product_local_policy_share_denial_text() -> None:
-    payload = {
-        "tool_name": "Bash",
-        "tool_input": {"command": "cat ~/Desktop/operator.txt"},
-        "cwd": str(REPO),
-    }
-    with patch.object(lint_local_privacy, "_read_mode", return_value="deny"):
-        engine_verdict = lint_local_privacy.evaluate_payload(payload)
-    product_verdict = local_policies.lint_local_privacy(payload)
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cat ~/Documents/a.txt '/Library/Application Support/com.apple.TCC/TCC.db'",
+        "cat ~/Documents/a.txt ; cat '/Library/Application Support/com.apple.TCC/TCC.db'",
+        "find $HOME -name x && cat '/Library/Application Support/com.apple.TCC/TCC.db'",
+        "screencapture /tmp/s.png; cat '/Library/Application Support/com.apple.TCC/TCC.db'",
+    ],
+)
+def test_a_weaker_earlier_finding_never_masks_the_privacy_database(
+    command: str,
+) -> None:
+    finding = classify_shell_command(command, home=HOME, cwd=REPO)
 
-    assert engine_verdict is not None
-    assert engine_verdict[0] == "deny"
-    assert product_verdict.outcome == DENY
-    assert product_verdict.message in engine_verdict[1]
-
-
-def test_engine_and_product_local_policy_share_safe_outcome() -> None:
-    payload = {
-        "tool_name": "Bash",
-        "tool_input": {"command": f"find {_quote(REPO)} -name codex"},
-        "cwd": str(REPO),
-    }
-
-    assert lint_local_privacy.evaluate_payload(payload) is None
-    assert local_policies.lint_local_privacy(payload).outcome == NOOP
+    assert finding is not None
+    assert finding.category == SYSTEM_PRIVACY_DATABASE
 
 
-def test_guard_is_protected_and_ordered_before_unmatched_globs() -> None:
-    spec = next(spec for spec in GUARD_CATALOG if spec.guard == "lint_local_privacy")
-    chain = ordered_pipeline_for("PreToolUse", "Bash")
-
-    assert spec.protected is True
-    assert spec.module == "yoke_core.domain.lint_local_privacy"
-    assert chain.index(spec.module) < chain.index(
-        "yoke_core.domain.lint_unmatched_path_glob"
+def test_an_allowed_read_does_not_mask_a_later_broad_scan() -> None:
+    finding = classify_shell_command(
+        "cat ~/Documents/a.txt && find $HOME -name codex", home=HOME, cwd=REPO
     )
 
+    assert finding is not None
+    assert finding.category == HOME_DISCOVERY
 
-def test_product_local_subset_denies_before_https_relay() -> None:
-    payload = json.dumps(
-        {
-            "tool_name": "Bash",
-            "tool_input": {"command": "screencapture /tmp/screen.png"},
-            "cwd": str(REPO),
-        }
+
+# ---------------------------------------------------------------------------
+# A search tool pointed at one named file is a targeted read
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rg pattern ~/Downloads/reference/synthesis.md",
+        "grep -r pattern ~/Documents/notes.txt",
+        "ls ~/Desktop/operator.txt",
+    ],
+)
+def test_one_named_file_is_targeted_even_for_a_search_tool(command: str) -> None:
+    finding = classify_shell_command(command, home=HOME, cwd=REPO)
+
+    assert finding is not None
+    assert finding.category == PERSONAL_FILE_ACCESS
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rg token ~/Downloads",
+        "rg token $HOME/Library/CloudStorage",
+        "find ~/Documents -name '*.md'",
+    ],
+)
+def test_a_tree_operand_stays_discovery(command: str) -> None:
+    finding = classify_shell_command(command, home=HOME, cwd=REPO)
+
+    assert finding is not None
+    assert finding.category == HOME_DISCOVERY
+
+
+# ---------------------------------------------------------------------------
+# Message accuracy
+# ---------------------------------------------------------------------------
+
+
+def test_advisory_names_yoke_as_not_refusing_and_teaches_anchoring() -> None:
+    finding = classify_shell_command("find $HOME -name codex", home=HOME, cwd=REPO)
+
+    assert finding is not None
+    reason = finding.reason()
+    assert "not refusing" in reason
+    assert "resolve_native_cli" in reason
+    assert "harness permission prompt" in reason
+
+
+def test_deny_names_yoke_as_the_refusing_authority() -> None:
+    finding = classify_shell_command(
+        "cat '/Library/Application Support/com.apple.TCC/TCC.db'",
+        home=HOME,
+        cwd=REPO,
     )
-    result = local_subset.evaluate_local_subset(
-        "PreToolUse",
-        payload,
-        "codex",
-        None,
-        HookDeadline(budget_ms=3000, started_at=time.monotonic()),
-        lint_config_snapshot={"lint_local_privacy": {"mode": "deny"}},
-    )
 
-    assert result.denied is True
-    assert result.denial_audit is not None
-    assert result.denial_audit["guard_key"] == ("yoke_core.domain.lint_local_privacy")
+    assert finding is not None
+    reason = finding.reason()
+    assert "Yoke refuses this itself" in reason
+    assert "System Settings" in reason
 
 
-def test_the_installed_guard_keeps_the_real_popen_type_surface() -> None:
-    # The autouse guard replaces subprocess.Popen for the whole session.
-    # Production modules annotate factories as subprocess.Popen[bytes] at
-    # module scope, so a replacement that is not subscriptable turns the
-    # first in-test import of such a module into a TypeError that has
-    # nothing to do with the test.
-    assert subprocess.Popen is not _REAL_POPEN
-    assert subprocess.Popen[bytes] is not None
-    assert issubclass(subprocess.Popen, _REAL_POPEN)
+@pytest.mark.parametrize(
+    "command",
+    ["cat ~/Documents/notes.txt", "osascript -e beep"],
+)
+def test_allowed_categories_defer_to_harness_and_os_authority(command: str) -> None:
+    finding = classify_shell_command(command, home=HOME, cwd=REPO)
+
+    assert finding is not None
+    text = finding.test_isolation_reason()
+    assert "Yoke does not decide" in text
+    assert "harness permission prompt" in text
+
+
+@pytest.mark.parametrize("category", [PERSONAL_FILE_ACCESS, LOCAL_GUI_AUTOMATION])
+def test_a_live_allowed_category_has_no_live_message(category: str) -> None:
+    with pytest.raises(ValueError, match="live tool calls"):
+        live_reason(category, "target", "service")
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["cat ~/Documents/notes.txt", "find $HOME -name codex", "osascript -e beep"],
+)
+def test_messages_avoid_tmp_and_unrelated_permission_advice(command: str) -> None:
+    finding = classify_shell_command(command, home=HOME, cwd=REPO)
+
+    assert finding is not None
+    text = finding.test_isolation_reason()
+    assert "/tmp" not in text
+    assert "Full Disk Access" not in text

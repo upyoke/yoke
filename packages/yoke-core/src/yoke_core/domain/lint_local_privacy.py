@@ -1,4 +1,12 @@
-"""PreToolUse Bash guard for operator-machine privacy boundaries."""
+"""PreToolUse Bash guard for operator-machine privacy boundaries.
+
+The classifier names what a command touches; the severity map in
+:mod:`local_privacy_messages` decides what that means live. Personal-folder
+reads and GUI automation are the harness prompt's and the operating system's
+call, so this guard stays out of them entirely. Broad home discovery gets one
+advisory line. Only the system privacy database still denies, and only that
+category consults the operator's configured guard mode.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +16,10 @@ import sys
 from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.local_privacy_guard import classify_shell_command
+from yoke_contracts.hook_runner.local_privacy_messages import (
+    LIVE_ADVISORY,
+    LIVE_DENY,
+)
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
@@ -51,19 +63,25 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     command = _extract_command(payload)
     if not command:
         return None
-    violation = classify_shell_command(
+    finding = classify_shell_command(
         command,
         home=Path.home(),
         cwd=(payload.get("cwd") if isinstance(payload.get("cwd"), str) else Path.cwd()),
     )
-    if violation is None:
+    if finding is None:
         return None
-    mode = _read_mode(payload)
-    reason = append_field_note_footer(violation.reason(), rule_id=CHECK_ID)
-    return mode, reason, "denied"
+    severity = finding.live_severity
+    if severity not in (LIVE_DENY, LIVE_ADVISORY):
+        return None
+    reason = append_field_note_footer(finding.reason(), rule_id=CHECK_ID)
+    if severity == LIVE_ADVISORY:
+        # An advisory is not the operator's guard mode speaking, so it does not
+        # consult one: there is nothing here for a `deny` setting to escalate.
+        return LIVE_ADVISORY, reason, "advisory"
+    return _read_mode(payload), reason, "denied"
 
 
-def _emit_audit_event(payload: dict, reason: str, mode: str) -> None:
+def _emit_audit_event(payload: dict, reason: str, mode: str, outcome: str) -> None:
     try:
         from yoke_core.hooks.telemetry import emit_denial_event
 
@@ -71,12 +89,12 @@ def _emit_audit_event(payload: dict, reason: str, mode: str) -> None:
             hook=HOOK_NAME,
             tool="Bash",
             check_id=CHECK_ID,
-            reason=f"[mode={mode}] {reason}" if mode == "warn" else reason,
+            reason=f"[mode={mode}] {reason}" if mode != "deny" else reason,
             session_id=str(payload.get("session_id") or ""),
             tool_use_id=str(payload.get("tool_use_id") or ""),
             turn_id=str(payload.get("turn_id") or payload.get("message_id") or ""),
             command_snippet=_extract_command(payload),
-            outcome="denied",
+            outcome=outcome,
         )
     except Exception:
         pass
@@ -88,8 +106,11 @@ def evaluate(record: HookContext) -> HookDecision:
     if verdict is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     mode, reason, outcome = verdict
-    _emit_audit_event(payload, reason, mode)
+    _emit_audit_event(payload, reason, mode, outcome)
     audit = {"mode": mode, "reason": reason, "audit_outcome": outcome}
+    if outcome == "advisory":
+        audit["additionalContext"] = reason
+        return HookDecision(outcome=Outcome.WARN, message="", audit_fields=audit)
     if mode == "deny":
         message = json.dumps(
             {
