@@ -166,7 +166,7 @@ def case_artifact_subject(case: dict[str, Any]) -> int | str:
 def build_metadata(
     step_index: int,
     qa_kind: str,
-    item_id: int,
+    subject: int | str,
     route: str = "/",
     viewport: Optional[Dict[str, int]] = None,
     browser: str = "chromium",
@@ -175,7 +175,7 @@ def build_metadata(
     meta: Dict[str, Any] = {
         "step_index": step_index,
         "qa_kind": qa_kind,
-        "item_id": item_id,
+        "subject": subject,
         "route": route,
     }
     if viewport:

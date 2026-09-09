@@ -146,13 +146,18 @@ def _browser_result(
 ) -> dict:
     from yoke_core.domain.browser_qa import execute_scenario
 
+    item_id = case.get("item_id")
+    deployment_run_id = case.get("deployment_run_id")
     result = execute_scenario(
-        item_id=int(case["item_id"]),
         project=str(case["project"]),
+        requirement_id=int(case["requirement_id"]),
+        item_id=int(item_id) if item_id is not None else None,
+        deployment_run_id=(
+            str(deployment_run_id) if deployment_run_id is not None else None
+        ),
         base_url=base_url,
         expected_branch=expected_branch,
         expected_sha=expected_sha,
-        requirement_id=int(case["requirement_id"]),
         actor=actor,
     )
     return {

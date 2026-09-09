@@ -52,7 +52,7 @@ class TestFetchBrowserContextSeam:
             side_effect=_capture,
         ):
             browser_qa._fetch_browser_context(
-                42, "externalwebapp", 10, "feature-x",
+                "externalwebapp", 10, item_id=42, expected_branch="feature-x",
             )
 
         assert calls[0]["function_id"] == "qa.browser_context.get"
@@ -78,7 +78,7 @@ class TestFetchBrowserContextSeam:
             side_effect=_capture,
         ):
             browser_qa._fetch_browser_context(
-                "EXT-1732", "externalwebapp", 10,
+                "externalwebapp", 10, item_id="EXT-1732",
             )
 
         target = calls[0]["target"]
@@ -87,13 +87,40 @@ class TestFetchBrowserContextSeam:
         assert target.public_ref == "EXT-1732"
         assert target.project_id == "externalwebapp"
 
+    def test_deployment_run_targets_the_run(self) -> None:
+        calls: List[Dict[str, Any]] = []
+
+        def _capture(**kwargs):
+            calls.append(kwargs)
+            return _ok({
+                "item_id": None,
+                "deployment_run_id": "run-20260101-001",
+                "requirements": [],
+            })
+
+        with mock.patch(
+            "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
+            side_effect=_capture,
+        ):
+            browser_qa._fetch_browser_context(
+                "externalwebapp", 10, deployment_run_id="run-20260101-001",
+            )
+
+        target = calls[0]["target"]
+        assert target.kind == "deployment_run"
+        assert target.deployment_run_id == "run-20260101-001"
+        assert target.item_id is None
+        assert target.project_id == "externalwebapp"
+
     def test_dispatch_failure_raises_with_code(self) -> None:
         with mock.patch(
             "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
             return_value=_fail("not_found"),
         ):
             try:
-                browser_qa._fetch_browser_context(42, "externalwebapp", 10)
+                browser_qa._fetch_browser_context(
+                    "externalwebapp", 10, item_id=42,
+                )
             except RuntimeError as exc:
                 assert "not_found" in str(exc)
             else:
@@ -152,7 +179,56 @@ class TestFetchBrowserContextSeam:
                 requirement_id=10,
             )
         assert result.executed == 1
-        assert seen["item_id"] == 1732
+        assert seen["subject"] == 1732
+
+    def test_scenario_carries_the_deployment_run_subject(self) -> None:
+        seen: Dict[str, Any] = {}
+
+        def _fake_process(**kwargs):
+            seen.update(kwargs)
+            from yoke_core.domain.browser_qa_requirement import (
+                RequirementOutcome,
+            )
+            from yoke_core.domain.browser_qa_results import RunResult
+
+            return RequirementOutcome(
+                run_result=RunResult(
+                    requirement_id=10, qa_kind="plan_case", verdict="",
+                ),
+                executed=True,
+            )
+
+        context = {
+            "item_id": None,
+            "deployment_run_id": "run-20260101-001",
+            "requirements": [{
+                "id": 10, "qa_kind": "plan_case",
+                "method_id": "browser-check",
+                "method_config": json.dumps(
+                    {"base_url": "http://localhost:9", "steps": [{}]},
+                ),
+            }],
+        }
+        with mock.patch.object(
+            browser_qa, "_fetch_browser_context", return_value=context,
+        ), mock.patch.object(
+            browser_qa, "_validate_reachability", return_value=None,
+        ), mock.patch.object(
+            browser_qa, "_ensure_daemon_running", return_value=None,
+        ), mock.patch(
+            "yoke_core.domain.browser_qa_scenario._process_requirement",
+            side_effect=_fake_process,
+        ):
+            result = browser_qa.execute_scenario(
+                "externalwebapp", 10, deployment_run_id="run-20260101-001",
+            )
+        assert result.executed == 1
+        assert seen["subject"] == "deployment-run-run-20260101-001"
+
+    def test_scenario_refuses_a_case_naming_no_subject(self) -> None:
+        result = browser_qa.execute_scenario("externalwebapp", 10)
+        assert result.verdict == "error"
+        assert result.note == "subject_invalid"
 
 
 class TestWriteSeam:
@@ -247,7 +323,7 @@ class TestWriteSeam:
             side_effect=_capture,
         ):
             browser_qa._fetch_browser_context(
-                42, "externalwebapp", 10, actor=actor,
+                "externalwebapp", 10, item_id=42, actor=actor,
             )
             _record_run(10, "plan_case", actor=actor)
 

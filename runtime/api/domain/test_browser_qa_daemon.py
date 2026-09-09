@@ -111,14 +111,14 @@ class TestDaemonRetry:
              mock.patch.object(browser_qa, "_collect_daemon_diagnostics", return_value={}), \
              mock.patch.object(browser_qa, "_emit_daemon_startup_failed_event") as mock_emit, \
              mock.patch("yoke_core.domain.browser_qa.time.sleep"):
-            result = browser_qa._ensure_daemon_running(item_id=1407, project="yoke")
+            result = browser_qa._ensure_daemon_running(subject=1407, project="yoke")
 
         assert result is not None
         mock_emit.assert_called_once_with(
             attempt_count=3,
             last_error="boom",
             diagnostics={},
-            item_id=1407,
+            subject=1407,
             project="yoke",
         )
 
@@ -156,7 +156,7 @@ class TestDaemonRetry:
                     "daemon_status": {"status": "crashed"},
                     "daemon_health": {"status": "degraded"},
                 },
-                item_id=1407,
+                subject=1407,
                 project="yoke",
             )
 
@@ -178,6 +178,7 @@ class TestDaemonRetry:
                     "daemon_status": {"status": "crashed"},
                     "daemon_health": {"status": "degraded"},
                 },
+                "subject": 1407,
             },
         )
 

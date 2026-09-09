@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict
 from unittest import mock
@@ -110,14 +111,12 @@ class TestHappyPath:
             _base_url: str,
             artifact_dir: str,
             run_id: int,
-            item_id: int,
             project: str,
             _route: str,
             _step_idx: int,
         ) -> Dict[str, Any]:
             captured["artifact_dir"] = artifact_dir
             captured["run_id"] = run_id
-            captured["item_id"] = item_id
             captured["project"] = project
             if _step.get("action") != "screenshot":
                 return {"success": True, "artifacts": []}
@@ -126,15 +125,14 @@ class TestHappyPath:
             shot.write_bytes(b"PNG")
             return {"success": True, "artifacts": [str(shot)]}
 
-        def _fake_context(
-            item_id, project, requirement_id, expected_branch=None, actor=None,
-        ):
-            return _fetch_context_from_test_db(
-                db_path, item_id, project, requirement_id, expected_branch,
-            )
-
         patches = [
-            mock.patch.object(browser_qa, "_fetch_browser_context", side_effect=_fake_context),
+            mock.patch.object(
+                browser_qa,
+                "_fetch_browser_context",
+                side_effect=partial(
+                    _fetch_context_from_test_db, db_path=db_path,
+                ),
+            ),
             mock.patch.object(browser_qa, "_validate_reachability", return_value=None),
             mock.patch.object(browser_qa, "_ensure_daemon_running", return_value=None),
             mock.patch.object(browser_qa, "_record_run", side_effect=recorder.record_run),
@@ -164,7 +162,6 @@ class TestHappyPath:
         assert result.verdict == "pass"
         assert result.executed == 1
         assert captured["project"] == "testproj"
-        assert captured["item_id"] == 100
         expected_dir = qa_artifacts.artifact_directory(
             "testproj", 100, captured["run_id"], create=False
         )

@@ -260,11 +260,11 @@ The run is the durable execution subject. Materialization and execution do
 not create a synthetic item: the immutable roster, serial Test Mac lease,
 QA runs, artifacts, and verdicts all remain bound through
 `qa_requirements.deployment_run_id`.
-Run-scoped proof reads stay equally explicit: `qa.plan.get` accepts
-`deployment_run_id` and filters every case proof to that subject,
-`qa.activity.list` returns (and may filter by) the same field, and
-`qa.artifact.read` resolves authorized local or durable evidence through the
-run's owning project.
+Run-scoped reads stay explicit: `qa.plan.get` filters every case proof to
+the run, `qa.activity.list` returns and filters the same field,
+`qa.browser_context.get` takes a `deployment_run` target and scopes its
+case read to that run, and `qa.artifact.read` resolves evidence through
+the run's owning project.
 
 ## Browser Methods
 

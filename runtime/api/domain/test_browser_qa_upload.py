@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List
 from unittest import mock
@@ -187,16 +188,13 @@ class TestScenarioRecordsUploadedHandles:
         def _fake_upload(url, path, content_type):
             uploads.append((url, path, content_type))
 
-        def _fake_context(
-            item_id, project, requirement_id, expected_branch=None, actor=None,
-        ):
-            return _fetch_context_from_test_db(
-                db_path, item_id, project, requirement_id, expected_branch,
-            )
-
         patches = [
             mock.patch.object(
-                browser_qa, "_fetch_browser_context", side_effect=_fake_context,
+                browser_qa,
+                "_fetch_browser_context",
+                side_effect=partial(
+                    _fetch_context_from_test_db, db_path=db_path,
+                ),
             ),
             mock.patch.object(
                 browser_qa, "_validate_reachability", return_value=None,

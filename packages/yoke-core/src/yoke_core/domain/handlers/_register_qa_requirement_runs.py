@@ -62,7 +62,7 @@ def register(registry) -> None:
         _qa_browser.QaBrowserContextGetResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.qa_browser",
-        target_kinds=["item"],
+        target_kinds=["item", "deployment_run"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=[],

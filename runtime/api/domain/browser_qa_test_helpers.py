@@ -9,6 +9,7 @@ module.
 from __future__ import annotations
 
 import json
+from functools import partial
 from typing import Any, Dict, List
 from unittest import mock
 
@@ -193,28 +194,34 @@ class _FakeRunRecorder:
 
 
 def _fetch_context_from_test_db(
-    db_path: str,
-    item_id: int,
     project: str,
     requirement_id: int,
+    *,
+    db_path: str,
+    item_id: int | None = None,
+    deployment_run_id: str | None = None,
     expected_branch: str | None = None,
+    actor: Any = None,
 ) -> Dict[str, Any]:
     """Direct-DB stand-in for browser_qa._fetch_browser_context.
 
     Mirrors the qa.browser_context.get handler's reads against the per-test
-    DB so scenario tests exercise the same payload shape without the
-    dispatcher's identity/claim machinery.
+    DB — including its one-subject rule, so a deployment-run case reads
+    through the same stand-in an item case does — without the dispatcher's
+    identity/claim machinery.
     """
+    subject_column = "item_id" if item_id is not None else "deployment_run_id"
+    subject_value = item_id if item_id is not None else deployment_run_id
     conn = connect_test_db(db_path)
     p = _placeholder(conn)
     try:
         rows = conn.execute(
             "SELECT id, qa_kind, method_id, method_config, expected_outcome "
             "FROM qa_requirements "
-            f"WHERE item_id = {p} AND id = {p} "
+            f"WHERE {subject_column} = {p} AND id = {p} "
             "AND method_id IN ('browser-check', 'browser-inspection') "
             "AND waived_at IS NULL",
-            (item_id, requirement_id),
+            (subject_value, requirement_id),
         ).fetchall()
         requirements = [
             {
@@ -242,6 +249,8 @@ def _fetch_context_from_test_db(
     finally:
         conn.close()
     return {
+        "item_id": item_id,
+        "deployment_run_id": deployment_run_id,
         "requirements": requirements,
         "deployed_sha": deployed_sha,
         "deployment_recorded": deployment_recorded,
@@ -258,16 +267,11 @@ def _patch_external_deps(
     """Return a list of active mock.patch context managers."""
     recorder = _FakeRunRecorder(db_path)
 
-    def _fake_context(
-        item_id, project, requirement_id, expected_branch=None, actor=None,
-    ):
-        return _fetch_context_from_test_db(
-            db_path, item_id, project, requirement_id, expected_branch,
-        )
-
     patches = [
         mock.patch.object(
-            browser_qa, "_fetch_browser_context", side_effect=_fake_context,
+            browser_qa,
+            "_fetch_browser_context",
+            side_effect=partial(_fetch_context_from_test_db, db_path=db_path),
         ),
         mock.patch.object(
             browser_qa,

@@ -26,12 +26,15 @@ from typing import Any, Dict, Optional
 from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.browser_qa_requirement import _process_requirement
 from yoke_core.domain.browser_qa_results import ScenarioResult
+from yoke_core.domain.qa_artifacts import case_artifact_subject
 
 
 def _fetch_browser_context(
-    item_id: int | str,
     project: str,
     requirement_id: int,
+    *,
+    item_id: int | str | None = None,
+    deployment_run_id: str | None = None,
     expected_branch: Optional[str] = None,
     actor: Optional[ActorContext] = None,
 ) -> Dict[str, Any]:
@@ -39,23 +42,30 @@ def _fetch_browser_context(
 
     One requirement-scoped read: the named Browser method case plus (when
     ``expected_branch`` is given) the latest deployed_sha for the freshness
-    gate. ``item_id`` accepts the numeric id or a public ref
-    (``PREFIX-N`` / bare project-local number) — refs resolve server-side
-    via ``target.public_ref``, and the result payload echoes the resolved
-    numeric ``item_id``. Raises ``RuntimeError`` with the
-    transport/handler error message on failure.
+    gate. Exactly one subject is named — ``item_id`` (the numeric id or a
+    public ref ``PREFIX-N`` / bare project-local number, resolved
+    server-side via ``target.public_ref``) or ``deployment_run_id``. The
+    result payload echoes the resolved subject. Raises ``RuntimeError``
+    with the transport/handler error message on failure.
     """
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.domain.qa_composed_dispatch import (
         call_qa_function,
     )
 
-    try:
-        target = TargetRef(kind="item", item_id=int(item_id))
-    except (TypeError, ValueError):
+    if deployment_run_id is not None:
         target = TargetRef(
-            kind="item", public_ref=str(item_id).strip(), project_id=project,
+            kind="deployment_run",
+            deployment_run_id=str(deployment_run_id),
+            project_id=project,
         )
+    else:
+        try:
+            target = TargetRef(kind="item", item_id=int(item_id))
+        except (TypeError, ValueError):
+            target = TargetRef(
+                kind="item", public_ref=str(item_id).strip(), project_id=project,
+            )
 
     payload: Dict[str, Any] = {
         "project": project,
@@ -77,9 +87,11 @@ def _fetch_browser_context(
 
 
 def execute_scenario(
-    item_id: int | str,
     project: str,
     requirement_id: int,
+    *,
+    item_id: int | str | None = None,
+    deployment_run_id: str | None = None,
     base_url: str = "",
     expected_branch: Optional[str] = None,
     expected_sha: Optional[str] = None,
@@ -90,10 +102,12 @@ def execute_scenario(
     The user-facing entry is ``yoke qa case run --requirement-id``.
 
     Args:
+        requirement_id: Materialized Browser case requirement to execute.
         item_id: Numeric item id, or a public ref (``PREFIX-N`` / bare
             project-local number) resolved server-side by the context
-            fetch.
-        requirement_id: Materialized Browser case requirement to execute.
+            fetch. Exactly one of item_id or deployment_run_id is named.
+        deployment_run_id: The deployment run this case verifies, for a
+            case materialized against a run rather than an item.
         expected_branch: Optional branch name for deployment freshness
             validation. Must be provided together with expected_sha.
         expected_sha: Optional HEAD SHA for deployment freshness validation.
@@ -109,6 +123,17 @@ def execute_scenario(
     code_identity = _bqa._build_code_identity(expected_branch, expected_sha)
     freshness_validated = bool(expected_branch and expected_sha)
 
+    if (item_id is None) == (deployment_run_id is None):
+        _bqa._log(
+            "ERROR: a Browser case names exactly one subject — pass "
+            "item_id for an item case or deployment_run_id for a "
+            "deployment-run case"
+        )
+        result.verdict = "error"
+        result.note = "subject_invalid"
+        print(result.to_json())
+        return result
+
     # Step 0: Freshness input contract
     freshness_arg_error = _bqa._validate_freshness_inputs(expected_branch, expected_sha)
     if freshness_arg_error:
@@ -119,17 +144,23 @@ def execute_scenario(
         return result
 
     # Step 1: One batched context read (requirements + freshness row)
+    named_subject = (
+        f"item {item_id}"
+        if item_id is not None
+        else f"deployment run {deployment_run_id}"
+    )
     _bqa._log(
-        f"Fetching browser QA context for item {item_id} "
+        f"Fetching browser QA context for {named_subject} "
         "(qa.browser_context.get)..."
     )
     try:
         context = _bqa._fetch_browser_context(
-            item_id,
             project,
             requirement_id,
-            expected_branch,
-            actor,
+            item_id=item_id,
+            deployment_run_id=deployment_run_id,
+            expected_branch=expected_branch,
+            actor=actor,
         )
     except Exception as exc:
         _bqa._log(f"ERROR: {exc}")
@@ -143,6 +174,9 @@ def execute_scenario(
     resolved = context.get("item_id")
     if resolved is not None:
         item_id = int(resolved)
+    subject = case_artifact_subject(
+        {"item_id": item_id, "deployment_run_id": deployment_run_id},
+    )
 
     # Step 2: Freshness validation against the context's deployed_sha
     if expected_branch and expected_sha:
@@ -163,7 +197,7 @@ def execute_scenario(
 
     req_rows = context.get("requirements") or []
     if not req_rows:
-        _bqa._log(f"No browser QA requirements found for item {item_id}")
+        _bqa._log(f"No browser QA requirements found for {named_subject}")
         result.note = "no_browser_requirements"
         print(result.to_json())
         return result
@@ -203,7 +237,7 @@ def execute_scenario(
 
     # Step 5: Ensure browser daemon is running
     _bqa._log("Checking browser daemon status...")
-    daemon_error = _bqa._ensure_daemon_running(item_id=item_id, project=project)
+    daemon_error = _bqa._ensure_daemon_running(subject=subject, project=project)
     if daemon_error:
         _bqa._log(f"ERROR: {daemon_error}")
         result.verdict = "error"
@@ -215,7 +249,7 @@ def execute_scenario(
     for req_row in req_rows:
         outcome = _process_requirement(
             req_row=req_row,
-            item_id=item_id,
+            subject=subject,
             project=project,
             base_url=base_url,
             code_identity=code_identity,
