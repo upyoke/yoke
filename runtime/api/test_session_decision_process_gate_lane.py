@@ -39,8 +39,9 @@ from yoke_core.domain.work_processes import (
     PROCESS_STRATEGIZE,
     process_key_to_path,
 )
-from yoke_core.api.routing_config import ProcessOfferPolicy
-from yoke_core.api.routing_config import load_process_offer_policy, load_routing_config
+from yoke_core.api.process_offer_policy import ProcessOfferPolicy
+from yoke_core.api.routing_config import load_routing_config
+from yoke_core.api.process_offer_policy import load_process_offer_policy
 
 
 def _make_offer(**overrides) -> SessionOffer:

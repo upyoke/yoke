@@ -172,6 +172,7 @@ _PAYLOAD_NAMED_PROJECT_FUNCTIONS = frozenset(
         "ephemeral_env.get",
         "projects.update",
         "projects.capability_settings.get",
+        "projects.lane_summary.get",
         "projects.capability_settings.set",
         "projects.capability_settings.merge",
         "projects.capability_settings.remove",

@@ -5,10 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from yoke_core.api.routing_config import (
-    ProcessOfferPolicy,
-    load_process_offer_policy,
     load_project_routing_settings,
     load_routing_config,
+)
+from yoke_core.api.process_offer_policy import (
+    ProcessOfferPolicy,
+    load_process_offer_policy,
 )
 from yoke_contracts.project_contract.project_keys import RECOGNIZED_PROJECT_KEYS
 from yoke_core.domain.project_settings import (

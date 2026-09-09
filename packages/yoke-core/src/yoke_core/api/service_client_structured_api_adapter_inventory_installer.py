@@ -142,6 +142,11 @@ INSTALLER_ADAPTERS: List[AdapterEntry] = [
         notes="CAS-protected removal for an ordinary capability. GitHub bindings and Pulumi operator state retain their dedicated lifecycle surfaces.",
     ),
     _read_entry(
+        function_id="projects.lane_summary.get",
+        cli_invocation="yoke projects lane-summary get --project NAME",
+        notes="Composes the project's effective session lane routing — label and glyph per lane, the harness/model selectors routing to it, its allowed actions, the harnesses defaulting to it, and any harness that routes nowhere — plus the routable-action catalog. Read-only; edits go through projects capability-settings on the session-routing capability.",
+    ),
+    _read_entry(
         function_id="projects.environment_settings.get",
         cli_invocation="yoke projects environment-settings get --project NAME --environment NAME",
         notes="Reads one project-owned environment settings document over the active transport.",

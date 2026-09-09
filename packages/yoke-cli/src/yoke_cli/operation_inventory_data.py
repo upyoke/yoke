@@ -157,6 +157,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke projects update", "projects"),
     _w("yoke projects capability has", "projects.capability"),
     _w("yoke projects capabilities list", "projects.capability"),
+    _w("yoke projects lane-summary get", "projects.lane_summary"),
     _w("yoke projects capability-settings get", "projects.capability_settings"),
     _w("yoke projects capability-settings set", "projects.capability_settings"),
     _w("yoke projects capability-settings merge", "projects.capability_settings"),

@@ -1,10 +1,14 @@
 """Helpers for Yoke session routing policy.
 
-This module resolves three routing policy surfaces:
+This module resolves where a session runs:
 
-- executor -> default lane
-- lane -> allowed downstream paths
-- process key -> autonomous offer enabled/disabled
+- session (harness, model) -> lane, through ``lane_rules`` selectors
+  and the ``executor_default_lanes`` harness default beneath them
+- lane -> allowed actions
+- lane -> its operator-facing label and glyph
+
+Whether an autonomous loop may dispatch a process at all is a separate
+question, answered by :mod:`yoke_core.api.process_offer_policy`.
 
 Project authority lives in the ``project_capabilities`` row whose type is
 ``session-routing``; machine ``~/.yoke/config.json`` remains the source-dev /
@@ -21,9 +25,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
+from yoke_core.domain.session_routing_rules import (
+    LaneRule,
+    parse_lane_rules_for_routing,
+    resolve_rule_lane,
+)
 from yoke_core.domain import json_helper
 from yoke_core.domain.project_policy_capabilities import (
     SESSION_ROUTING_CAPABILITY as PROJECT_ROUTING_CAPABILITY,
@@ -34,8 +43,12 @@ from yoke_core.domain import runtime_settings
 
 _EXECUTOR_PREFIX = "executor_default_lane_"
 _LANE_PATHS_PREFIX = "lane_paths_"
-_PROCESS_OFFER_PREFIX = "do_process_offer_"
-_PROCESS_OFFER_DEFAULT_KEY = f"{_PROCESS_OFFER_PREFIX}default"
+PROCESS_OFFER_PREFIX = "do_process_offer_"
+
+# Settings whose value is a nested document rather than a scalar. The
+# key/value grammar the rest of this module speaks cannot carry one, so
+# they ride through it as JSON text and are parsed back below.
+_JSON_VALUED_KEYS = ("lane_rules", "lane_metadata")
 
 
 def normalize_token(value: str) -> str:
@@ -80,9 +93,15 @@ def _settings_to_raw_map(settings: Mapping[str, Any]) -> Dict[str, str]:
     - ``executor_default_lanes: {"claude*": "DARIUS"}``
     - ``lane_paths: {"DARIUS": ["shepherd", "conduct"]}``
     - ``process_offers: {"default": false, "feed": true}``
+
+    ``lane_rules`` and ``lane_metadata`` are nested documents that the
+    flat grammar cannot express, so they are carried as JSON text.
     """
     raw: Dict[str, str] = {}
     for key, value in settings.items():
+        if key in _JSON_VALUED_KEYS:
+            raw[str(key)] = json_helper.dumps_compact(value)
+            continue
         if key == "executor_default_lanes" and isinstance(value, Mapping):
             for executor, lane in value.items():
                 raw[f"{_EXECUTOR_PREFIX}{executor}"] = _stringify_setting(lane)
@@ -93,7 +112,7 @@ def _settings_to_raw_map(settings: Mapping[str, Any]) -> Dict[str, str]:
             continue
         if key in {"process_offer", "process_offers"} and isinstance(value, Mapping):
             for process, enabled in value.items():
-                raw[f"{_PROCESS_OFFER_PREFIX}{process}"] = _stringify_setting(enabled)
+                raw[f"{PROCESS_OFFER_PREFIX}{process}"] = _stringify_setting(enabled)
             continue
         raw[str(key)] = _stringify_setting(value)
     return raw
@@ -153,6 +172,25 @@ def _rollback_quietly(conn: Any) -> None:
         pass
 
 
+def _json_setting(raw: Mapping[str, str], key: str) -> Any:
+    """Read one nested setting back out of the flat grammar.
+
+    Unparseable text yields ``None`` so a hand-edited document degrades
+    to the harness default instead of refusing every session in the
+    project; the settings write boundary is where malformed content is
+    refused by name.
+    """
+    text = raw.get(key)
+    if not text:
+        return None
+    if not isinstance(text, str):
+        return text
+    try:
+        return json_helper.loads_text(text)
+    except Exception:
+        return None
+
+
 def _routing_config_from_raw(raw: Mapping[str, str]) -> "RoutingConfig":
     executor_defaults: Dict[str, str] = {}
     executor_wildcard_lanes: Dict[str, str] = {}
@@ -186,6 +224,8 @@ def _routing_config_from_raw(raw: Mapping[str, str]) -> "RoutingConfig":
         executor_default_lanes=executor_defaults,
         executor_wildcard_lanes=executor_wildcard_lanes,
         lane_allowed_paths=lane_paths,
+        lane_rules=parse_lane_rules_for_routing(_json_setting(raw, "lane_rules")),
+        lane_metadata=_json_setting(raw, "lane_metadata") or {},
     )
 
 
@@ -196,6 +236,8 @@ class RoutingConfig:
     executor_default_lanes: Dict[str, str] = field(default_factory=dict)
     executor_wildcard_lanes: Dict[str, str] = field(default_factory=dict)
     lane_allowed_paths: Dict[str, List[str]] = field(default_factory=dict)
+    lane_rules: Tuple[LaneRule, ...] = ()
+    lane_metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def default_lane_for_executor(self, executor: str) -> str:
         """Return the configured default lane for an executor.
@@ -230,21 +272,47 @@ class RoutingConfig:
             return self.executor_default_lanes["unknown"]
         return UNRESOLVED_EXECUTION_LANE
 
+    def lane_for_session(
+        self, *, executor: str, model: Optional[str] = None
+    ) -> str:
+        """Return the lane a session with these facts routes onto.
+
+        A ``lane_rules`` selector wins over the harness default, because
+        every selector is narrower than "any session on this harness";
+        :mod:`yoke_core.domain.session_routing_rules` owns which of
+        several matching selectors is narrowest. With no rules
+        configured this is exactly the harness default, which is how a
+        project that has never declared a rule keeps its behaviour.
+        """
+        matched = resolve_rule_lane(
+            self.lane_rules, executor=executor, model=model
+        )
+        if matched is not None:
+            return matched
+        return self.default_lane_for_executor(executor)
+
 
 def load_routing_config(
     config_path: str | Path,
     *,
     project_settings: Optional[Mapping[str, str]] = None,
 ) -> RoutingConfig:
-    """Load executor default lanes and lane allowlists.
+    """Load executor default lanes, lane allowlists, and lane rules.
 
     Machine config is the no-project fallback.  When project settings are
     supplied from the ``session-routing`` capability, they are the complete
     project routing authority.
+
+    Supplied settings pass through the same normalizer the DB read uses, so
+    the grouped capability shape and the flat key/value grammar mean the
+    same thing here. Stringifying them instead would silently flatten the
+    nested documents — ``lane_rules`` most visibly — into a Python repr no
+    reader can parse, and the caller would get a session routed by the
+    harness default with nothing said about why.
     """
     raw = {} if project_settings is not None else parse_config_file(config_path)
     if project_settings is not None:
-        raw.update({str(k): str(v) for k, v in project_settings.items()})
+        raw.update(_settings_to_raw_map(project_settings))
     return _routing_config_from_raw(raw)
 
 
@@ -253,6 +321,7 @@ def resolve_execution_lane(
     executor: str,
     explicit_lane: Optional[str],
     routing_config: RoutingConfig,
+    model: Optional[str] = None,
 ) -> str:
     """Resolve the lane for a session offer or registration.
 
@@ -260,157 +329,17 @@ def resolve_execution_lane(
     the unresolved sentinel both mean "nothing chose a lane" and yield to
     routing policy, so a caller that could not resolve one locally cannot
     overrule the project's mapping with a lane no allowlist declares.
+
+    ``model`` is the model the session is actually serving, and it is
+    what ``lane_rules`` model selectors match against. Omitting it is
+    the honest answer when nothing attested one, and leaves the session
+    to the harness tiers rather than guessing a model for it.
     """
     if explicit_lane and explicit_lane.strip():
         resolved = explicit_lane.strip()
         if normalize_token(resolved) not in ("default", UNRESOLVED_EXECUTION_LANE):
             return resolved
-    return routing_config.default_lane_for_executor(executor)
-
-
-_MAX_CHAIN_STEPS_DEFAULT = 3
-
-
-_TRUTHY = {"true", "yes", "1", "on", "enabled"}
-_FALSY = {"false", "no", "0", "off", "disabled"}
-
-
-def _parse_bool(raw: Optional[str], default: bool) -> bool:
-    """Parse the boolean form used by Yoke config.
-
-    Recognized truthy strings (case-insensitive): ``true``, ``yes``, ``1``,
-    ``on``, ``enabled``. Recognized falsy strings: ``false``, ``no``, ``0``,
-    ``off``, ``disabled``. Anything else returns ``default`` so a typo in
-    the config does not silently flip an autonomy gate.
-    """
-    if raw is None:
-        return default
-    folded = str(raw).strip().lower()
-    if folded in _TRUTHY:
-        return True
-    if folded in _FALSY:
-        return False
-    return default
-
-
-@dataclass(frozen=True)
-class ProcessOfferPolicy:
-    """Config-gated per-process-key dispatch policy for ``/yoke do``.
-
-    ``/yoke do`` consults a config-backed policy before returning or dispatching
-    a process-backed action (``STRATEGIZE``, ``FEED``, ``DOCTOR``, future).
-    When a project policy is supplied, ``session-routing`` is the complete
-    project authority.  Machine config is only the no-project fallback.
-
-    The policy stores normalized lower-case process keys internally.
-    Callers should pass the registry-canonical upper-case form
-    (``"STRATEGIZE"``); :func:`is_enabled` / :func:`decision_for` /
-    :func:`config_key_for` handle the case-folding themselves.
-    """
-
-    default_enabled: bool = False
-    per_process: Dict[str, bool] = field(default_factory=dict)
-    shared_project_per_process: Dict[str, bool] = field(default_factory=dict)
-    shared_project_default: Optional[bool] = None
-    shared_project_source: Optional[str] = None
-
-    @staticmethod
-    def _normalize(process_key: str) -> str:
-        return process_key.strip().lower()
-
-    def decision_for(self, process_key: str) -> "tuple[bool, str, str]":
-        """Return ``(enabled, actionable_config_key, deciding_source)``.
-
-        The key names the per-process knob whose flip changes the outcome
-        at the deciding scope, spelled the way that scope stores it:
-        ``process_offers.<key>`` in the capability document,
-        ``do_process_offer_<key>`` in machine settings.
-        """
-        normalized = self._normalize(process_key)
-        project_key = f"process_offers.{normalized}"
-        machine_key = f"{_PROCESS_OFFER_PREFIX}{normalized}"
-        shared_src = self.shared_project_source or (
-            f"project capability {PROJECT_ROUTING_CAPABILITY}"
-        )
-        if normalized in self.shared_project_per_process:
-            return (
-                self.shared_project_per_process[normalized],
-                project_key,
-                shared_src,
-            )
-        if self.shared_project_default is not None:
-            return self.shared_project_default, project_key, shared_src
-        if normalized in self.per_process:
-            return self.per_process[normalized], machine_key, "machine config"
-        return self.default_enabled, machine_key, "machine config"
-
-    def is_enabled(self, process_key: str) -> bool:
-        return self.decision_for(process_key)[0]
-
-    def config_key_for(self, process_key: str) -> str:
-        """Return the actionable config key for the operator-facing surface."""
-        return self.decision_for(process_key)[1]
-
-
-def _offer_entries(raw: Dict[str, str]) -> "tuple[Optional[bool], Dict[str, bool]]":
-    """Split one scope's raw settings into (default, per-process map)."""
-    default: Optional[bool] = None
-    if _PROCESS_OFFER_DEFAULT_KEY in raw:
-        default = _parse_bool(raw.get(_PROCESS_OFFER_DEFAULT_KEY), default=False)
-    per_process: Dict[str, bool] = {}
-    for key, value in raw.items():
-        if not key.startswith(_PROCESS_OFFER_PREFIX):
-            continue
-        suffix = key[len(_PROCESS_OFFER_PREFIX):]
-        if not suffix or suffix == "default":
-            continue
-        per_process[suffix.lower()] = _parse_bool(value, default=False)
-    return default, per_process
-
-
-def load_process_offer_policy(
-    config_path: str | Path,
-    project_dir: "str | Path | None" = None,
-    *,
-    project_settings: Optional[Mapping[str, str]] = None,
-    shared_project_source: Optional[str] = None,
-) -> ProcessOfferPolicy:
-    """Load the ``/yoke do`` process-offer policy.
-
-    Machine scope reads ``config_path`` only when no DB project settings are
-    supplied.  ``project_dir`` is accepted for old callers and ignored.
-    """
-    del project_dir
-    raw = {} if project_settings is not None else parse_config_file(config_path)
-    machine_default, per_process = _offer_entries(raw)
-    shared_project_default: Optional[bool] = None
-    shared_project_per_process: Dict[str, bool] = {}
-    if project_settings is not None:
-        shared_project_default, shared_project_per_process = _offer_entries(
-            {str(k): str(v) for k, v in project_settings.items()}
-        )
-        shared_project_source = (
-            shared_project_source
-            or f"project capability {PROJECT_ROUTING_CAPABILITY}"
-        )
-    return ProcessOfferPolicy(
-        default_enabled=(
-            bool(machine_default) if machine_default is not None else False
-        ),
-        per_process=per_process,
-        shared_project_per_process=shared_project_per_process,
-        shared_project_default=shared_project_default,
-        shared_project_source=shared_project_source,
-    )
-
-
-def get_max_chain_steps(config_path: str | Path) -> int:
-    """Read ``max_chain_steps`` from config, defaulting to 3."""
-    raw = parse_config_file(config_path)
-    try:
-        return int(raw.get("max_chain_steps", _MAX_CHAIN_STEPS_DEFAULT))
-    except (ValueError, TypeError):
-        return _MAX_CHAIN_STEPS_DEFAULT
+    return routing_config.lane_for_session(executor=executor, model=model)
 
 
 def config_path_from_db_path(db_path: str | Path) -> Path:

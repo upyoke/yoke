@@ -149,7 +149,7 @@ def test_unresolved_lane_drives_reregister_from_project_routing(monkeypatch):
         lambda payload, sid, **_kw: calls.append(sid) or ("", "c", "p", "m", None),
     )
     monkeypatch.setattr(
-        "yoke_core.hooks.registration_identity.project_lane_for_executor",
+        "yoke_core.hooks.registration_identity.project_lane_for_session",
         lambda _conn, _project, _executor, **_kw: "DARIUS",
     )
 
@@ -173,7 +173,7 @@ def test_healed_lane_stops_driving_reregister(monkeypatch):
         lambda *_a, **_kw: pytest.fail("a resolved lane must not re-register"),
     )
     monkeypatch.setattr(
-        "yoke_core.hooks.registration_identity.project_lane_for_executor",
+        "yoke_core.hooks.registration_identity.project_lane_for_session",
         lambda *_a, **_kw: pytest.fail("resolved rows must not consult routing"),
     )
 
@@ -197,7 +197,7 @@ def test_unresolvable_lane_does_not_drive_reregister(monkeypatch):
         lambda *_a, **_kw: pytest.fail("an unresolvable lane must not re-register"),
     )
     monkeypatch.setattr(
-        "yoke_core.hooks.registration_identity.project_lane_for_executor",
+        "yoke_core.hooks.registration_identity.project_lane_for_session",
         lambda _conn, _project, _executor, **_kw: "primary",
     )
 

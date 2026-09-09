@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from yoke_core.api.routing_config import ProcessOfferPolicy
+from yoke_core.api.process_offer_policy import ProcessOfferPolicy
 from yoke_core.domain.scheduler_types import ClaimState, NextStep
 from yoke_core.domain.session import ActionKind, FrontierState, decide_next_action
 from yoke_core.domain.session_contract import NextAction

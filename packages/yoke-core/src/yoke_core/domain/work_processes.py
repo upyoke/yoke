@@ -23,7 +23,7 @@ Process target semantics:
 
 from __future__ import annotations
 
-from typing import Dict, List, Mapping
+from typing import Dict, Mapping
 
 from yoke_contracts.work_processes import (
     PROCESS_DOCTOR,
@@ -151,5 +151,16 @@ __all__ = [
     "conflict_group_for",
     "is_known_process",
     "list_processes",
+    "process_dispatch_paths",
     "process_key_to_path",
 ]
+
+
+def process_dispatch_paths() -> frozenset:
+    """Return every lane-policy path token a registered process maps onto.
+
+    The routable-action catalog derives its process membership from here,
+    so registering a process above is the only edit a new process
+    destination needs.
+    """
+    return frozenset(_PROCESS_KEY_TO_PATH.values())

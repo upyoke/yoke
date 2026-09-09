@@ -338,3 +338,13 @@ _NEXT_STEP_TO_PATH: Dict[str, str] = {
     "polish": "polish",
     "usher": "usher",
 }
+
+
+def lifecycle_dispatch_paths() -> frozenset:
+    """Return every lifecycle path a scheduler next_step can dispatch onto.
+
+    The routable-action catalog derives its lifecycle membership from here
+    rather than restating the tokens, so adding a next_step above is the
+    only edit a new lifecycle destination needs.
+    """
+    return frozenset(_NEXT_STEP_TO_PATH.values())

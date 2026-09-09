@@ -130,37 +130,37 @@ class TestStampedLaneIsRoutable:
         )
 
 
-class TestProjectLaneForExecutor:
+class TestProjectLaneForSession:
     """The hook-registration resolver reads project policy at stamp time."""
 
     @pytest.mark.parametrize("executor,expected", _EXECUTOR_LANES)
     def test_resolves_each_executor_surface(self, executor, expected):
         from yoke_core.hooks.registration_identity import (
-            project_lane_for_executor,
+            project_lane_for_session,
         )
 
         conn = _RoutingConn(
             '{"executor_default_lanes":{"claude*":"DARIUS","codex*":"ALTMAN"},'
             '"lane_paths":{"DARIUS":["dash"],"ALTMAN":["dash"]}}'
         )
-        assert project_lane_for_executor(conn, 1, executor) == expected
+        assert project_lane_for_session(conn, 1, executor) == expected
 
     def test_relayed_sentinel_does_not_override_project_policy(self):
         from yoke_core.hooks.registration_identity import (
-            project_lane_for_executor,
+            project_lane_for_session,
         )
 
         conn = _RoutingConn('{"executor_default_lanes":{"claude*":"DARIUS"}}')
-        assert project_lane_for_executor(
+        assert project_lane_for_session(
             conn, 1, "claude-desktop", explicit_lane=UNRESOLVED_EXECUTION_LANE,
         ) == "DARIUS"
 
     def test_no_project_id_leaves_the_caller_in_charge(self):
         from yoke_core.hooks.registration_identity import (
-            project_lane_for_executor,
+            project_lane_for_session,
         )
 
-        assert project_lane_for_executor(None, None, "claude-code") is None
+        assert project_lane_for_session(None, None, "claude-code") is None
 
 
 class TestProjectRoutingDefaults:

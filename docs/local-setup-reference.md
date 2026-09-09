@@ -128,8 +128,15 @@ Shared project behavior lives in the Yoke DB, not checkout files:
   nested `board` appearance and scope settings. The authored-file line limit
   is not among them: it must hold in a fresh clone with no DB reachable, so it
   is checked-in project-file policy.
-- `session-routing` capability settings own default lanes, lane path
-  allowlists, and `/yoke do` process-offer policy.
+- `session-routing` capability settings own the project's lanes: their
+  labels and glyphs, the harness/model selectors that route sessions onto
+  them, their allowed-action allowlists, and `/yoke do` process-offer
+  policy. Read the composed result with
+  `yoke projects lane-summary get --project <slug>`; edit it with
+  `yoke projects capability-settings merge --project <slug> --cap-type session-routing --set '<key.path>=<value>'`.
+  Writes are validated as a whole document — an unknown action, an
+  undeclared lane, a duplicate selector, or a lane glyph the board cannot
+  align is refused by name before storage.
 
 Reusable project capabilities are separately versioned Packs. Inspect the
 catalog, preview one install or update, and apply only after reviewing its

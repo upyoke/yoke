@@ -23,7 +23,7 @@ from yoke_core.domain.session_contract import (
 from yoke_core.domain.session_decision_process_gate import (
     apply_process_offer_gate,
 )
-from yoke_core.api.routing_config import ProcessOfferPolicy
+from yoke_core.api.process_offer_policy import ProcessOfferPolicy
 
 
 def _make_action(kind: ActionKind, **kwargs) -> NextAction:

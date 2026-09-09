@@ -139,9 +139,11 @@ from yoke_core.domain.dependency_planning import (  # noqa: F401
     evaluate_item_gate,
     plan_candidate_set,
 )
+from yoke_core.api.process_offer_policy import (  # noqa: F401
+    get_max_chain_steps,
+)
 from yoke_core.api.routing_config import (  # noqa: F401
     config_path_from_db_path,
-    get_max_chain_steps,
     load_routing_config,
     resolve_execution_lane,
 )

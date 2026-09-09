@@ -55,6 +55,24 @@ def canonical_harness_id(executor: Optional[str]) -> str:
     raise ValueError(f"unknown harness executor: {executor!r}")
 
 
+HARNESS_DISPLAY_NAMES: Mapping[str, str] = {
+    "claude-code": "Claude Code",
+    "codex": "Codex",
+    "cursor": "Cursor",
+}
+"""How each harness family is written for a person to read.
+
+Beside the vocabulary rather than in a view, so the Project settings
+summary, a CLI listing, and any future surface all spell a harness the
+same way.
+"""
+
+
+def harness_display_name(harness_id: str) -> str:
+    """Return the readable name for a canonical harness id."""
+    return HARNESS_DISPLAY_NAMES.get(str(harness_id), str(harness_id))
+
+
 EXECUTOR_EMOJI: Dict[str, str] = {
     "claude-code": "\U0001f916",  # robot (coarse Claude family)
     "claude-desktop": "\U0001f34e",  # apple (desktop)
@@ -163,6 +181,7 @@ __all__ = [
     "CANONICAL_HARNESS_IDS",
     "EXECUTOR_EMOJI",
     "EXECUTOR_PRESENTATION",
+    "HARNESS_DISPLAY_NAMES",
     "INVOCATION_CONTEXT_ORIGINATORS",
     "LEGACY_HARNESS_ALIASES",
     "KNOWN_EXECUTOR_LABELS",
@@ -170,5 +189,6 @@ __all__ = [
     "SURFACE_TOKEN_ALIASES",
     "canonical_harness_id",
     "executor_presentation",
+    "harness_display_name",
     "surface_alias",
 ]

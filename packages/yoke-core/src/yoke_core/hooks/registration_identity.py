@@ -6,16 +6,18 @@ import json
 from typing import Any, Optional
 
 from yoke_contracts.session_lane import lane_is_unresolved
+from yoke_core.domain.session_routing_rules import routing_model_of
 
 
-def project_lane_for_executor(
+def project_lane_for_session(
     conn: Any,
     project_id: Any,
     executor: str,
     *,
     explicit_lane: Optional[str] = None,
+    model: Optional[str] = None,
 ) -> Optional[str]:
-    """Resolve ``executor``'s lane from the project's routing policy.
+    """Resolve this session's lane from the project's routing policy.
 
     Routing policy is project-scoped shared authority (the
     ``session-routing`` capability), so the lane is resolved here — at stamp
@@ -23,6 +25,10 @@ def project_lane_for_executor(
     than trusted from whatever the caller carried in. Returns ``None`` when
     the project declares no routing policy, leaving the caller's own
     fallback in charge.
+
+    ``model`` is the model the session is serving, which the project's
+    ``lane_rules`` selectors may route on; omitting it leaves the session
+    to the harness tiers.
     """
     if project_id is None:
         return None
@@ -41,6 +47,7 @@ def project_lane_for_executor(
         # Project settings are the complete routing authority; the machine
         # config path is unread whenever they are supplied.
         routing_config=load_routing_config("", project_settings=settings),
+        model=model,
     )
 
 
@@ -78,7 +85,8 @@ def _lane_can_upgrade(
 
         p = "%s" if db_backend.connection_is_postgres(conn) else "?"
         row = conn.execute(
-            f"SELECT execution_lane, executor FROM harness_sessions "
+            "SELECT execution_lane, executor, model, requested_model "
+            f"FROM harness_sessions "
             f"WHERE session_id = {p}",
             (session_id,),
         ).fetchone()
@@ -94,8 +102,17 @@ def _lane_can_upgrade(
             return True
         if not executor:
             return False
+        if hasattr(row, "get"):
+            served, requested = row.get("model"), row.get("requested_model")
+        else:
+            served, requested = row[2], row[3]
         return not lane_is_unresolved(
-            project_lane_for_executor(conn, project_id, executor)
+            project_lane_for_session(
+                conn,
+                project_id,
+                executor,
+                model=routing_model_of(served, requested),
+            )
         )
     except Exception:  # noqa: BLE001 - probe must never break dispatch
         return False
@@ -253,4 +270,4 @@ def placeholder_identity_can_upgrade(
     )
 
 
-__all__ = ["placeholder_identity_can_upgrade", "project_lane_for_executor"]
+__all__ = ["placeholder_identity_can_upgrade", "project_lane_for_session"]

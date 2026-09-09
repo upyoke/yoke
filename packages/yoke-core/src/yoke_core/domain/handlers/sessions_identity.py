@@ -117,7 +117,7 @@ def _lane_allowed_paths(
 
 
 def _max_chain_steps() -> int:
-    from yoke_core.api.routing_config import get_max_chain_steps
+    from yoke_core.api.process_offer_policy import get_max_chain_steps
     from yoke_core.api.service_client_shared import _get_config_path
 
     return get_max_chain_steps(_get_config_path())

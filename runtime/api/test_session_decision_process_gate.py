@@ -41,7 +41,7 @@ from yoke_core.domain.session_decision_process_gate import (
     apply_process_offer_gate,
     is_process_action_disabled,
 )
-from yoke_core.api.routing_config import ProcessOfferPolicy
+from yoke_core.api.process_offer_policy import ProcessOfferPolicy
 
 
 RUNNABLE_A_ID = 1605

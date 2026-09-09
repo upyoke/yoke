@@ -24,6 +24,7 @@ from yoke_core.domain.sessions import (
     heartbeat,
     register_session,
 )
+from yoke_core.domain.session_routing_rules import routing_model_of
 from yoke_core.api.routing_config import (
     load_project_routing_settings,
     load_routing_config,
@@ -79,6 +80,7 @@ def api_register_session(req: RegisterSessionRequest) -> JSONResponse:
                 executor=req.executor,
                 explicit_lane=req.execution_lane,
                 routing_config=routing_config,
+                model=routing_model_of(req.model, req.requested_model),
             )
         result = register_session(
             conn,
