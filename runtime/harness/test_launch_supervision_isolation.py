@@ -1,16 +1,14 @@
 """The suite never reads or spends the machine's real launch custody.
 
-Native supervision records default to ``machine_config.cache_dir()``, which
-is right in production and wrong under test: a relay poll exercised by a
-test reports the machine's own dead launches as that poll's launch deaths
-and then deletes each record it reports. The autouse isolation redirects
-only that default.
+Native supervision records default to the machine cache, which is right in
+production and wrong under test: a relay poll exercised by a test reports the
+machine's own dead launches as that poll's launch deaths and then deletes
+each record it reports.
 
-Nothing here plants a record at the real resolved location. Doing so is the
-very accident the guard exists to prevent, and it is not undone by isolating
+Nothing here plants a record at the real location. Doing so is the accident
+the guard exists to prevent, and it is not undone by isolating
 ``YOKE_MACHINE_HOME``: an exported ``YOKE_MACHINE_CONFIG_FILE`` still selects
-the real config, whose absolute ``cache_dir`` wins. The guard is asserted
-through the resolver instead.
+the real config, whose absolute ``cache_dir`` wins.
 """
 
 from __future__ import annotations
@@ -18,20 +16,35 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from yoke_cli.config import machine_config
 from yoke_harness import session_launch_containment as custody
+from yoke_harness import session_relay_termination
+
+from runtime.harness.launch_supervision_isolation import REAL_MACHINE_CACHE
 
 
 def test_the_default_custody_directory_is_not_the_real_machine_cache() -> None:
     """Nothing a poll reads by default can be the machine's live custody."""
-    default = custody._directory()
-
-    assert not default.is_relative_to(machine_config.cache_dir())
+    assert not custody._directory().is_relative_to(REAL_MACHINE_CACHE)
 
 
-def test_a_poll_that_names_no_directory_reads_only_the_isolated_one(
-    tmp_path: Path,
-) -> None:
+def test_every_custody_resolver_still_agrees_on_one_directory() -> None:
+    """Isolation must move the shared root, never one resolver derived from it.
+
+    The hook writes custody through containment and the relay reads it back
+    through termination — two independent compositions of the same machine
+    root. Redirecting either alone points the writer and the reader at
+    different directories, and the launch handle silently stops resolving:
+    the split the handle-directory suite exists to catch.
+    """
+    written = custody._directory()
+    read = session_relay_termination.local_state_root(None) / (
+        custody.SUPERVISION_DIRECTORY_NAME
+    )
+
+    assert written == read
+
+
+def test_a_poll_that_names_no_directory_reads_only_the_isolated_one() -> None:
     """Reads still work — they just land in the redirected default."""
     (custody._directory() / "launch-isolated.json").write_text(
         json.dumps({
