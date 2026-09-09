@@ -24,6 +24,16 @@ identities before it stamps, records, or cleans. Matching the recorded
 candidate is the same landing even when a squash is not an ancestor of the
 base. A different candidate that the base does not contain is new work: the
 recovery is a fresh work item with its own merge identity, not this close-out.
+
+Rebasing after a landing is neither of those, and it is the case sha reads
+cannot see: the base holds the work, the lane holds new shas for the same
+patches, and calling that new work sends close-out off to publish the lane
+and open a second pull request for a merge that already happened. So a head
+the base does not contain is asked one further question, by patch identity
+rather than by sha — see :func:`_replayed_base_ref`.
+
+What a landed lane then owes its item is a separate concern, owned by
+:mod:`yoke_core.domain.standalone_item_merge_converge`.
 """
 
 from __future__ import annotations
@@ -33,7 +43,6 @@ from typing import Optional
 
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import item_merge_receipts as receipts
-from yoke_core.engines.main_checkout_sync import fast_forward_main_checkout
 
 
 @dataclass(frozen=True)
@@ -73,6 +82,36 @@ def current_candidate(repo_root: str, branch: str, recorded_head: str = "") -> s
     return (recorded_head or "").strip()
 
 
+def _replayed_base_ref(
+    repo_root: str,
+    head: str,
+    target: str,
+    receipt: Optional[receipts.MergeReceipt],
+) -> str:
+    """The base ref already holding this lane's work under different shas.
+
+    Rebasing a lane rewrites every commit it carries, so a lane rebased after
+    its own landing points at copies no ancestry read can attribute to the
+    merge that took them. Two facts together make them copies rather than new
+    work, and both are required: the base contains the commit the merge
+    receipt recorded — the landing whose identity a convergence here
+    preserves — and the lane holds no commit whose patch that base lacks.
+
+    A lane carrying a commit of its own answers empty, which is what keeps a
+    retry after a red train and deliberate new work on the ordinary landing
+    route. So does a comparison that could not run, because reading an
+    unreadable checkout as "already landed" is the one mistake that closes an
+    item out against a merge nobody confirmed.
+    """
+    recorded = receipt.commit_sha if receipt is not None else ""
+    if not recorded or not head:
+        return ""
+    base = git.current_base_ref(repo_root, target)
+    if not git.is_ancestor(repo_root, recorded, base):
+        return ""
+    return base if git.unlanded_patches(repo_root, head, base) == () else ""
+
+
 def stale_unlanded_work(
     *,
     item_id: int,
@@ -94,6 +133,8 @@ def stale_unlanded_work(
     if _norm(current) in identities:
         return ""
     if git.containing_ref(repo_root, current, target):
+        return ""
+    if _replayed_base_ref(repo_root, current, target, receipt):
         return ""
     named = ", ".join(sorted(sha[:12] for sha in identities))
     return (
@@ -162,15 +203,19 @@ def landed_lane(
     """The landing this lane already has, or ``None`` when work is left.
 
     The live branch is authoritative unless a target-contained receipt proves
-    its matching squash landing. Once it is gone, the recorded head and receipt
-    answer from the same target-containment proof.
+    its matching squash landing, or the base branch already carries every
+    patch the branch holds. Once the branch is gone, the recorded head and
+    receipt answer from the same target-containment proof.
     """
     receipt = receipts.load(item_id, branch, target)
     identities, receipt_ref = _recorded_landing(receipt, repo_root, target)
     if git.branch_exists(repo_root, branch):
         head = git.head_of(repo_root, branch)
         containing = git.containing_ref(repo_root, head, target)
-        if not containing and _norm(head) not in identities:
+        replayed = (
+            "" if containing else _replayed_base_ref(repo_root, head, target, receipt)
+        )
+        if not containing and not replayed and _norm(head) not in identities:
             return None
         return _describe(
             item_id=item_id,
@@ -179,8 +224,14 @@ def landed_lane(
             repo_root=repo_root,
             project=project,
             landed_sha=head,
-            containing=containing or receipt_ref,
-            source="lane branch" if containing else "merge receipt",
+            containing=containing or replayed or receipt_ref,
+            source=(
+                "lane branch"
+                if containing
+                else "rebased copy of the landed lane"
+                if replayed
+                else "merge receipt"
+            ),
         )
     candidates = [(recorded_head, "recorded lane head")]
     if receipt is not None:
@@ -202,146 +253,8 @@ def landed_lane(
     return None
 
 
-def _converge_queue_landing(
-    *,
-    item_id: int,
-    project: str,
-    public_ref: str,
-    repo_root: str,
-    lane: LandedLane,
-    queue_pr_number: str,
-):
-    """Finish the bookkeeping a two-call queue handoff deferred."""
-    from yoke_core.domain.merge_queue_close_out import record_landing
-    from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
-    from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
-
-    closed = record_landing(
-        MergeContext(
-            args=MergeArgs(branch=lane.branch, target=lane.target),
-            repo_root=repo_root,
-            project=project,
-        ),
-        item_id=item_id,
-        commit_sha=lane.commit_sha,
-        pr_num=queue_pr_number,
-        member_snapshot=(public_ref,) if public_ref else (),
-    )
-    merge_sha = closed.merge_sha or lane.merge_sha or lane.commit_sha
-    touched_files = closed.touched_files or lane.touched_files
-    warnings = (
-        f"branch {lane.branch!r} already landed on {lane.target!r}; "
-        "queue bookkeeping converged without queue re-entry",
-        *closed.warnings,
-    )
-    refusal = closed.ci_evidence_refusal(queue_pr_number)
-    return StandaloneMergeOutcome(
-        ok=not refusal,
-        exit_code=0 if not refusal else 1,
-        already_merged=True,
-        commit_sha=lane.commit_sha,
-        merge_sha=merge_sha,
-        touched_files=touched_files,
-        pushed=True,
-        pr_num=queue_pr_number,
-        error=refusal,
-        warnings=warnings,
-    )
-
-
-def converge(
-    *,
-    item_id: int,
-    project: str,
-    repo_root: str,
-    lane: LandedLane,
-    queue_pr_number: str = "",
-    public_ref: str = "",
-):
-    """Record what a lane that already landed still owes to its item.
-
-    The merge itself is done, so this is bookkeeping the caller's evidence and
-    terminal transition read afterwards: the ``merged_at`` stamp, a receipt
-    naming the merge identity, and — when the landing never reached origin
-    because the process carrying it died first — the push that publishes it.
-    """
-    stale = stale_unlanded_work(
-        item_id=item_id,
-        branch=lane.branch,
-        target=lane.target,
-        repo_root=repo_root,
-        recorded_head=lane.commit_sha,
-    )
-    if stale:
-        from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
-
-        return StandaloneMergeOutcome(
-            ok=False,
-            exit_code=1,
-            already_merged=False,
-            error=stale,
-        )
-    if queue_pr_number:
-        return _converge_queue_landing(
-            item_id=item_id,
-            project=project,
-            public_ref=public_ref,
-            repo_root=repo_root,
-            lane=lane,
-            queue_pr_number=queue_pr_number,
-        )
-
-    from yoke_core.domain.standalone_item_merge import (
-        StandaloneMergeOutcome,
-        stamp_merged_at,
-    )
-
-    warnings = [
-        f"branch {lane.branch!r} already landed on {lane.target!r} "
-        f"({lane.source}); close-out converged without re-merging"
-    ]
-    merge_sha = lane.merge_sha or lane.commit_sha
-    stamp_error = stamp_merged_at(item_id)
-    if stamp_error:
-        warnings.append(f"merged_at not recorded: {stamp_error}")
-    receipt_note = receipts.record(
-        item_id,
-        receipts.MergeReceipt(
-            branch=lane.branch,
-            target=lane.target,
-            commit_sha=lane.commit_sha,
-            merge_sha=merge_sha,
-            touched_files=lane.touched_files,
-        ),
-    )
-    if receipt_note:
-        warnings.append(receipt_note)
-
-    pushed = False
-    if git.has_remote(repo_root):
-        git.fetch_target(repo_root, lane.target)
-        if not git.is_ancestor(repo_root, lane.commit_sha, f"origin/{lane.target}"):
-            pushed, push_warning = git.publish(repo_root, lane.target)
-            if push_warning:
-                warnings.append(push_warning)
-        sync_warning = fast_forward_main_checkout(repo_root, lane.target)
-        if sync_warning:
-            warnings.append(sync_warning)
-    return StandaloneMergeOutcome(
-        ok=True,
-        exit_code=0,
-        already_merged=True,
-        commit_sha=lane.commit_sha,
-        merge_sha=merge_sha,
-        touched_files=lane.touched_files,
-        pushed=pushed,
-        warnings=tuple(warnings),
-    )
-
-
 __all__ = [
     "LandedLane",
-    "converge",
     "current_candidate",
     "landed_lane",
     "stale_unlanded_work",

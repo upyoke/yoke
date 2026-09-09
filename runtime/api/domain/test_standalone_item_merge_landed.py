@@ -9,6 +9,7 @@ import pytest
 
 from yoke_core.domain import merge_queue_close_out as queue_close_out
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_converge as converging
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import item_merge_receipts as receipts
@@ -27,9 +28,23 @@ RECEIPT = receipts.MergeReceipt(
 _LOOK = dict(item_id=7, branch="ITEM-1", target="main", repo_root="/repo")
 
 
-def _probe(monkeypatch, *, branch_exists: bool, head: str, contains: tuple[str, ...]):
+def _probe(
+    monkeypatch,
+    *,
+    branch_exists: bool,
+    head: str,
+    contains: tuple[str, ...],
+    unlanded: tuple[str, ...] | None = ("9" * 40,),
+):
+    """Answer every read of the checkout, so no test reaches a real repo.
+
+    ``unlanded`` is the patch-identity answer: a lane still carrying a commit
+    of its own by default, which is what keeps these cases about shas.
+    """
     monkeypatch.setattr(landed.git, "branch_exists", lambda *_a: branch_exists)
     monkeypatch.setattr(landed.git, "head_of", lambda *_a: head)
+    monkeypatch.setattr(landed.git, "current_base_ref", lambda _repo, target: target)
+    monkeypatch.setattr(landed.git, "unlanded_patches", lambda *_a: unlanded)
     monkeypatch.setattr(
         landed.git,
         "containing_ref",
@@ -147,104 +162,6 @@ def test_a_receipt_the_base_does_not_contain_is_not_a_landing(monkeypatch):
     assert _lane() is None
 
 
-def test_converging_records_the_merge_identity_a_retry_reads(monkeypatch):
-    recorded: list[receipts.MergeReceipt] = []
-    monkeypatch.setattr(landed, "stale_unlanded_work", lambda **_k: "")
-    monkeypatch.setattr(landed, "fast_forward_main_checkout", lambda *_a: "")
-    monkeypatch.setattr(landed.git, "has_remote", lambda *_a: True)
-    monkeypatch.setattr(landed.git, "fetch_target", lambda *_a: None)
-    monkeypatch.setattr(landed.git, "is_ancestor", lambda *_a: True)
-    monkeypatch.setattr(
-        landed.git,
-        "publish",
-        lambda *_a: pytest.fail("a published landing needs no second push"),
-    )
-    monkeypatch.setattr(
-        landed.receipts,
-        "record",
-        lambda _item, receipt, **_k: recorded.append(receipt) or "",
-    )
-    stamped: list[int] = []
-    monkeypatch.setattr(
-        "yoke_core.domain.standalone_item_merge.stamp_merged_at",
-        lambda item_id: stamped.append(item_id) or None,
-    )
-    outcome = landed.converge(
-        item_id=7,
-        project="yoke",
-        repo_root="/repo",
-        lane=landed.LandedLane(
-            branch="ITEM-1",
-            target="main",
-            commit_sha=LANE_SHA,
-            merge_sha=MERGE_SHA,
-            touched_files=("feature.py",),
-            source="lane branch",
-        ),
-    )
-    assert outcome.ok and outcome.already_merged and outcome.merge_sha == MERGE_SHA
-    assert stamped == [7] and recorded[0].merge_sha == MERGE_SHA
-    assert any("already landed" in warning for warning in outcome.warnings)
-
-
-def test_converge_refuses_new_commits_without_recording(monkeypatch):
-    stamped: list[int] = []
-    monkeypatch.setattr(
-        landed,
-        "stale_unlanded_work",
-        lambda **_k: "file a fresh work item",
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.standalone_item_merge.stamp_merged_at",
-        lambda item_id: stamped.append(item_id),
-    )
-    outcome = landed.converge(
-        item_id=7,
-        project="yoke",
-        repo_root="/repo",
-        lane=landed.LandedLane(
-            branch="ITEM-1",
-            target="main",
-            commit_sha=LANE_SHA,
-            merge_sha=MERGE_SHA,
-            source="lane branch",
-        ),
-    )
-    assert not outcome.ok and "fresh work item" in outcome.error and stamped == []
-
-
-def test_converging_publishes_a_landing_that_never_reached_origin(monkeypatch):
-    monkeypatch.setattr(landed, "stale_unlanded_work", lambda **_k: "")
-    monkeypatch.setattr(landed, "fast_forward_main_checkout", lambda *_a: "")
-    monkeypatch.setattr(landed.git, "has_remote", lambda *_a: True)
-    monkeypatch.setattr(landed.git, "fetch_target", lambda *_a: None)
-    monkeypatch.setattr(landed.git, "is_ancestor", lambda *_a: False)
-    pushes: list[str] = []
-    monkeypatch.setattr(
-        landed.git,
-        "publish",
-        lambda _repo, target: (pushes.append(target), (True, ""))[1],
-    )
-    monkeypatch.setattr(landed.receipts, "record", lambda *_a, **_k: "")
-    monkeypatch.setattr(
-        "yoke_core.domain.standalone_item_merge.stamp_merged_at",
-        lambda _i: None,
-    )
-    outcome = landed.converge(
-        item_id=7,
-        project="yoke",
-        repo_root="/repo",
-        lane=landed.LandedLane(
-            branch="ITEM-1",
-            target="main",
-            commit_sha=LANE_SHA,
-            merge_sha=MERGE_SHA,
-            source="merge receipt",
-        ),
-    )
-    assert pushes == ["main"] and outcome.pushed is True
-
-
 def test_a_landed_lane_never_reaches_the_verification_gate_or_the_queue(
     monkeypatch,
     capsys,
@@ -260,7 +177,7 @@ def test_a_landed_lane_never_reaches_the_verification_gate_or_the_queue(
         "route_standalone_landing",
         lambda **_k: pytest.fail("a landed lane must not re-enter the queue"),
     )
-    monkeypatch.setattr(landed, "fast_forward_main_checkout", lambda *_a: "")
+    monkeypatch.setattr(converging, "fast_forward_main_checkout", lambda *_a: "")
     monkeypatch.setattr(landed.git, "has_remote", lambda *_a: False)
     monkeypatch.setattr(landed.receipts, "record", lambda *_a, **_k: "")
     monkeypatch.setattr(
@@ -308,7 +225,7 @@ def test_queue_handoff_reentry_runs_only_post_landing_bookkeeping(
 def test_merge_item_refuses_stale_landing_before_close_out(monkeypatch, capsys):
     _wire_cli(monkeypatch, _item(), stale="file a fresh work item")
     monkeypatch.setattr(
-        merge_cli.landed,
+        merge_cli.converge,
         "converge",
         lambda **_k: pytest.fail("must not converge"),
     )

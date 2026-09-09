@@ -9,11 +9,15 @@ facts after either point read them from the recorded receipt instead
 
 Every read fails soft — a git error reads as "the checkout does not say so"
 rather than raising — so the boundary decides what an absent answer means.
+The one exception is :func:`unlanded_patches`, whose absent answer would read
+as "nothing left to land"; it separates an unreadable comparison from an empty
+one so no caller can converge on a landing the checkout never confirmed.
 """
 
 from __future__ import annotations
 
 import subprocess
+from typing import Optional
 
 
 def _git(repo_root: str, *args: str) -> subprocess.CompletedProcess:
@@ -107,6 +111,45 @@ def is_landed(repo_root: str, commit: str, target: str) -> bool:
     return bool(containing_ref(repo_root, commit, target))
 
 
+def current_base_ref(repo_root: str, target: str) -> str:
+    """The freshest ref for the base branch: ``origin/<target>``, else local.
+
+    A close-out re-entered from a lane reads a local base branch that can be
+    many merges behind, and every question about what has already landed is
+    answered wrongly when asked of a stale base.
+    """
+    if not has_remote(repo_root):
+        return target
+    fetch_target(repo_root, target)
+    remote = f"origin/{target}"
+    return remote if git_out(repo_root, "rev-parse", "--verify", remote) else target
+
+
+def unlanded_patches(
+    repo_root: str, commit: str, base: str
+) -> Optional[tuple[str, ...]]:
+    """Commits reachable from ``commit`` whose patch ``base`` does not carry.
+
+    ``git cherry`` compares patch identity rather than sha, which is the only
+    read that recognises a lane rebased after its own landing: the base holds
+    the work, the lane holds fresh shas for the same patches, and no ancestry
+    read connects the two.
+
+    ``None`` when the comparison could not run, so a caller cannot read an
+    unreadable checkout as "nothing left to land".
+    """
+    if not commit or not base:
+        return None
+    result = _git(repo_root, "cherry", base, commit)
+    if result.returncode != 0:
+        return None
+    return tuple(
+        line.split(maxsplit=1)[-1]
+        for line in result.stdout.splitlines()
+        if line.startswith("+")
+    )
+
+
 def changed_files(repo_root: str, branch: str, target: str) -> tuple[str, ...]:
     """Files the branch changed relative to where it left the base branch.
 
@@ -139,6 +182,7 @@ __all__ = [
     "branch_exists",
     "changed_files",
     "containing_ref",
+    "current_base_ref",
     "fetch_target",
     "git_out",
     "head_of",
@@ -148,4 +192,5 @@ __all__ = [
     "publish",
     "remote_branch_exists",
     "remote_head_of",
+    "unlanded_patches",
 ]
