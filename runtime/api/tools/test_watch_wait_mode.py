@@ -22,7 +22,6 @@ from yoke_core.tools import _watch_wait_mode
 from yoke_core.tools._watch_wait_mode import (
     HEADLESS_CONTINUATION_DIRECTIVE,
     WatchWaitMode,
-    caller_is_headless_command,
     resolve_wait_mode,
     wait_mode_for_session,
 )
@@ -171,12 +170,6 @@ def test_relay_launch_context_keeps_headless_worker_in_turn() -> None:
     # The same selection carries who the caller is, so the runner can name
     # the continuation without reading the launch context a second way.
     assert mode.headless is True
-
-
-def test_only_a_launch_context_marks_the_caller_headless() -> None:
-    assert caller_is_headless_command({LAUNCH_CONTEXT_ENV: "{}"}) is True
-    assert caller_is_headless_command({LAUNCH_CONTEXT_ENV: "   "}) is False
-    assert caller_is_headless_command({}) is False
 
 
 def test_wait_mode_for_a_wakeable_harness_is_not_headless() -> None:

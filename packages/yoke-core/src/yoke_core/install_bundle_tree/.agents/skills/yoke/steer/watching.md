@@ -9,7 +9,9 @@ yoke watch fleet --print-streaming-pair -- --project {_project}
 ```
 
 Use the existing returned `wait_mode` and reason. The selector reads the
-calling harness's declared wake capability and headless launch context. Native
+calling harness's declared wake capability and the relay marker a headless
+worker carries — its launch context on the turn the relay started, its
+resume-attempt id on every turn the relay restarted after that one. Native
 background notifications and Yoke restarting a stopped CLI session are distinct
 mechanisms; relay reachability does not grant a native idle notification.
 Never claim that an ended desktop turn without native idle wake can receive
