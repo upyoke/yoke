@@ -40,7 +40,10 @@ def _run_merge(tmp_path: Path, monkeypatch, item, *, rerecord, run_case=None):
     return merge_cli.run(["YOK-10", "--skip-status"]), merger
 
 
-def test_missing_sha_is_re_recorded_then_lands(tmp_path: Path, monkeypatch):
+def test_methodless_hand_acceptance_is_re_recorded_then_lands(
+    tmp_path: Path,
+    monkeypatch,
+):
     item = _item(_requirement(verdict="pass", sha=""))
     recorded = []
 
@@ -78,6 +81,7 @@ def test_stale_sha_is_re_recorded_then_lands(tmp_path: Path, monkeypatch):
 def test_command_case_is_re_run_then_lands(tmp_path: Path, monkeypatch):
     requirement = _requirement(verdict="pass", sha="")
     requirement["method_id"] = "command-ci"
+    requirement["runner_id"] = "ci_run"
     item = _item(requirement)
     ran = []
 
@@ -93,6 +97,37 @@ def test_command_case_is_re_run_then_lands(tmp_path: Path, monkeypatch):
     assert code == 0
     assert ran == [77]
     merger.assert_called_once()
+
+
+def test_browser_case_refuses_before_fabricating_run(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+):
+    requirement = _requirement(verdict="pass", sha="")
+    requirement["method_id"] = "browser-check"
+    requirement["runner_id"] = "browser_substrate"
+    item = _item(requirement)
+    rerecord = mock.Mock()
+    run_case = mock.Mock()
+
+    code, merger = _run_merge(
+        tmp_path,
+        monkeypatch,
+        item,
+        rerecord=rerecord,
+        run_case=run_case,
+    )
+
+    assert code == 1
+    error = capsys.readouterr().err
+    assert "commit_bound_runner_authority" in error
+    assert "browser-check" in error
+    assert "browser_substrate" in error
+    assert "qa_phase=post_deploy" in error
+    merger.assert_not_called()
+    rerecord.assert_not_called()
+    run_case.assert_not_called()
 
 
 def test_failed_verdict_is_not_a_commit_bound_recovery(tmp_path: Path, monkeypatch):
