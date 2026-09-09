@@ -211,6 +211,38 @@ def test_concurrent_duplicate_reports_refund_once(tmp_path) -> None:
     assert count == 0
 
 
+def test_duplicate_settled_before_batch_check_is_accepted(monkeypatch) -> None:
+    """The winner may clear the relay batch before the duplicate checks it."""
+    from yoke_core.domain import session_relay_jobs
+
+    conn = _connection()
+    _add_wake_recipient(conn)
+    job = _claim_wake(conn)
+    original = session_relay_jobs.require_relay_batch
+
+    def settle_and_clear(inner_conn, *, relay_id: str, now: str) -> None:
+        inner_conn.execute(
+            "UPDATE session_message_attempts SET completed_at=?,result_code=? "
+            "WHERE attempt_id=?",
+            (now, NATIVE_TURN_RUNNING_RESULT, job.job_id),
+        )
+        inner_conn.execute(
+            "UPDATE session_relays SET lease_id=NULL,lease_expires_at=NULL "
+            "WHERE relay_id=?",
+            (relay_id,),
+        )
+        original(inner_conn, relay_id=relay_id, now=now)
+
+    monkeypatch.setattr(
+        session_relay_jobs, "require_relay_batch", settle_and_clear,
+    )
+
+    answered = _report(conn, job)
+
+    assert answered["result_code"] == NATIVE_TURN_RUNNING_RESULT
+    assert _recipient(conn)[0] == 1
+
+
 def _settle_between_read_and_write(conn, *, result_code: str, monkeypatch) -> None:
     """Make another copy of the report win the settling write.
 

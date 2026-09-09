@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import base64
+import json
 from pathlib import Path
 from unittest import mock
-import json
 
 
 from runtime.api.fixtures.backlog_inserts import insert_item
@@ -220,14 +221,11 @@ def test_command_case_records_verdict_and_output_artifact(
     assert calls[0][2]["performed_by"] == "worktree_run"
     assert "verdict" not in calls[0][2]
     assert calls[2][2]["verdict"] == "pass"
-    handle = calls[1][2]["artifact_handle"]
-    assert handle["backend"] == "local"
-    assert (
-        Path(handle["path"])
-        .read_text(encoding="utf-8")
-        .find("case-output:https://preview.example")
-        >= 0
-    )
+    artifact = calls[1][2]
+    assert "artifact_handle" not in artifact
+    assert artifact["filename"] == "command-output.txt"
+    content = base64.b64decode(artifact["content_base64"], validate=True).decode()
+    assert "case-output:https://preview.example" in content
 
 
 def test_browser_case_executes_only_the_target_requirement() -> None:
