@@ -1,5 +1,9 @@
 /**
- * How one machine's plan windows are drawn.
+ * How one machine's launch surfaces and their plan windows are drawn.
+ *
+ * A surface row is its readiness light, the harness family it belongs to,
+ * and the windows that family's plan publishes — one module, because the
+ * head's column labels and the rows they sit over are the same alignment.
  *
  * A window is four aligned facts — its name, a headroom bar, the headroom
  * number, and quota left — and every rule about how they relate lives here
@@ -14,9 +18,11 @@ import { el } from "./universe_view_support.js";
 import {
   METER_PIVOT,
   finiteNumber,
+  harnessFamilyIdentity,
   headroomMeterPosition,
   headroomTone,
   planWindowHeadroom,
+  readingIsStale,
   windowLabel,
 } from "./universe_machines_meters.js";
 
@@ -111,4 +117,102 @@ export function limitColumns(documentNode) {
   ));
   columns.appendChild(el(documentNode, "span", "machine-limit-quota", "quota"));
   return columns;
+}
+
+const LIGHTS = {
+  ok: ["machine-light-ok", "ready"],
+  silent: ["machine-light-warn", "relay silent"],
+  disabled: ["machine-light-crit", "disabled"],
+  absent: ["machine-light-off", "not installed"],
+};
+
+
+function surfaceState(relay, surface) {
+  const mark = (relay.surface_policies || []).find(
+    (entry) => entry.surface === surface,
+  );
+  if (mark) return ["disabled", mark.reason || "disabled by an operator"];
+  // Never installed and confirmed removed both read as absent, but neither
+  // is inferred from the other: `surface_versions` now keeps naming a
+  // surface's last-known version past its cache going stale, so only an
+  // active removal (its own field, set by the relay's most recent probe) or
+  // a version this machine has truly never reported earns this light.
+  const neverSeen = !(relay.surface_versions || {})[surface];
+  const removed = (relay.surface_confirmed_absent || []).includes(surface);
+  if (neverSeen || removed) {
+    return ["absent", "surface_absent — not installed on this machine"];
+  }
+  if (String(relay.liveness) !== "connected") {
+    return ["silent", "the relay has not checked in; a launch cannot reach it"];
+  }
+  return ["ok", ""];
+}
+
+function surfaceHead(documentNode, relay, surface, state, reading, stale) {
+  const [lightClass, label] = LIGHTS[state];
+  const head = el(documentNode, "div", "machine-surface-head");
+  const light = el(documentNode, "span", `machine-light ${lightClass}`);
+  attachTooltip(documentNode, light, label);
+  light.setAttribute("role", "img");
+  light.setAttribute("aria-label", label);
+  head.appendChild(light);
+  // The family heads the meters, because a plan belongs to the harness an
+  // operator recognizes as its provider; `surface` stays the key its reading
+  // is stored under and the identity every launch and policy call carries.
+  const family = harnessFamilyIdentity(surface);
+  head.appendChild(el(documentNode, "span", "machine-surface-name", family));
+  // A stale tier is omitted with the quota it came from, rather than shown
+  // as a badge the reading can no longer back up.
+  if (reading?.plan_tier && !stale) head.appendChild(el(
+    documentNode, "span", "machine-plan-tier", reading.plan_tier,
+  ));
+  // A confirmed removal never shows its last-known version beside the
+  // light that says the surface is gone — that string is exactly what
+  // would otherwise mask the removal.
+  const version = (relay.surface_versions || {})[surface];
+  if (version && state !== "absent") head.appendChild(el(
+    documentNode, "span", "machine-surface-version", version,
+  ));
+  if (reading?.windows?.length) head.appendChild(limitColumns(documentNode));
+  return head;
+}
+
+export function surfaceRow(documentNode, relay, surface) {
+  const [state, reason] = surfaceState(relay, surface);
+  const row = el(
+    documentNode, "section", `machine-surface machine-surface-${state}`,
+  );
+  const reading = (relay.plan_limits || {})[surface];
+  // One freshness verdict for the whole reading, applied consistently to its
+  // tier, its headroom, and its quota below — never three separate guesses.
+  const stale = reading ? readingIsStale(reading.observed_at) : false;
+  row.appendChild(surfaceHead(documentNode, relay, surface, state, reading, stale));
+  if (reason) row.appendChild(el(
+    documentNode, "p", "machine-surface-reason", reason,
+  ));
+  if (reading?.windows?.length) {
+    const limits = el(documentNode, "div", "machine-limit-list");
+    // Ordered by headroom, so the wall this machine hits first is the top row;
+    // a window nobody could read sorts last, having named no runway at all.
+    const sorted = [...reading.windows].sort((left, right) => {
+      const leftValue = planWindowHeadroom(left);
+      const rightValue = planWindowHeadroom(right);
+      return (leftValue ?? Infinity) - (rightValue ?? Infinity);
+    });
+    for (const window of sorted) {
+      limits.appendChild(planWindowRow(documentNode, window, stale));
+      if (window.status !== "ok" && window.reason) {
+        limits.appendChild(limitNote(documentNode, window.reason));
+      }
+    }
+    row.appendChild(limits);
+  } else if (state !== "absent") {
+    row.appendChild(el(
+      documentNode,
+      "p",
+      "machine-limit-unavailable",
+      "Plan-limit windows were not reported by this relay.",
+    ));
+  }
+  return row;
 }

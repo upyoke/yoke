@@ -264,8 +264,16 @@ test("roster State uses accepted liveness values while kill cause stays on the c
   state.dispatchEvent(new Event("change"));
   await settle();
   assert.equal(byClass(root, "session-card").length, 2);
-  assert.match(byClass(root, "session-history-ended")[0].textContent, /^Killed /);
-  assert.equal(byClass(root, "session-history-reason")[0].textContent,
+  // The kill rides the card's one timing region, the same region a live card
+  // uses for its age, rather than a fact line only ended cards have.
+  const killed = byClass(root, "session-card")[0];
+  assert.match(byClass(killed, "session-age")[0].textContent, /^killed /);
+  assert.equal(byClass(killed, "session-history-reason")[0].textContent,
     "Reason: operator stopped worker");
+  // An end nobody recorded a time for says so instead of reading as recent.
+  const wound = byClass(root, "session-card")[1];
+  assert.match(
+    byClass(wound, "session-age")[0].textContent, /^ended · time unavailable/,
+  );
   mounted.unmount();
 });

@@ -194,10 +194,13 @@ export function appendSessionRelay(documentNode, body, row) {
   const line = el(documentNode, "div", "session-relay");
   line.appendChild(el(documentNode, "span", "session-relay-label", "Relay:"));
   const connected = row.relay === "connected";
+  // An ended session is not waiting on a relay, and a history row reports no
+  // relay state at all, so its machine reads idle rather than critical: the
+  // alarm belongs to a live session whose messages have nowhere to land.
+  const ended = String(row.liveness || "") === "ended";
+  const tone = connected ? "good" : (ended ? "idle" : "crit");
   const pill = el(
-    documentNode,
-    "span",
-    `pill ${connected ? "good" : "crit"} session-relay-pill`,
+    documentNode, "span", `pill ${tone} session-relay-pill`,
   );
   pill.appendChild(el(
     documentNode, "span", "session-relay-machine", machineLabel(row),
@@ -208,7 +211,10 @@ export function appendSessionRelay(documentNode, body, row) {
   // reveal repeats visible characters instead of explaining anything.
   pill.title = machineLabel(row);
   line.appendChild(pill);
-  if (!connected) {
+  // A missing relay is a live session's problem to solve; an ended one has
+  // nothing left to reach, so its card names the machine without raising an
+  // alarm about a connection nobody is waiting on.
+  if (!connected && String(row.liveness || "") !== "ended") {
     line.appendChild(el(
       documentNode,
       "span",
@@ -221,6 +227,19 @@ export function appendSessionRelay(documentNode, body, row) {
 
 export function messagingAvailability(row) {
   const routing = row.messageability || {};
+  // An ended session is answered by the fact that it ended, before any
+  // routing question: history rows carry no routing projection at all, and
+  // reading that absence as a missing delivery hook would blame the harness
+  // for a session that simply is not running.
+  if (String(row.liveness || "") === "ended") {
+    return {
+      available: false,
+      reason: routing.reason === "session_terminated"
+        ? "Messaging unavailable: this session was terminated."
+        : "Messaging unavailable: this session has ended and cannot be "
+          + "restarted from here.",
+    };
+  }
   if (routing.reason === "session_terminated") {
     return {
       available: false,

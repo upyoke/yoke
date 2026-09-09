@@ -55,28 +55,17 @@ function rowFacets(rows) {
   };
 }
 
-export function appendEndedHistory(documentNode, body, row) {
-  const prior = row.recent_item_title || row.focus || row.recent_item;
-  if (prior) body.appendChild(el(
-    documentNode, "div", "fact-line session-history-prior",
-    row.recent_item ? `${prior} · ${row.recent_item}` : prior,
-  ));
-  const ended = row.ended_cause === "killed" ? "Killed" : "Ended";
-  body.appendChild(el(
-    documentNode, "div", "fact-line session-history-ended",
-    `${ended} ${row.activity_at || row.ended_at || row.terminated_at || "time unavailable"}`,
-  ));
-  if (row.machine_name || row.machine_id) body.appendChild(el(
-    documentNode, "div", "fact-line session-history-machine",
-    `Machine: ${row.machine_name || row.machine_id}`,
-  ));
-  if (row.termination_reason) body.appendChild(el(
-    documentNode, "div", "fact-line session-history-reason",
-    `Reason: ${row.termination_reason}`,
-  ));
+// `50 of 4,758 sessions shown` when the roster holds a page of a larger
+// match, `50` when the page is the whole of it. The count a reader needs is
+// how much of the current filter they are looking at, which is one fact and
+// therefore one tile rather than a tile plus a sentence repeating it.
+function shownValue(shown, matched) {
+  return matched > shown
+    ? `${shown.toLocaleString()} of ${matched.toLocaleString()}`
+    : shown.toLocaleString();
 }
 
-function metricFacts(rows) {
+function metricFacts(rows, matched) {
   const claimedItems = new Set(rows.flatMap(
     (row) => (Array.isArray(row.holdings?.current) ? row.holdings.current : [])
       .filter((claim) => claim.target_kind === "item")
@@ -86,7 +75,10 @@ function metricFacts(rows) {
     (row) => row.actor_id ?? row.actor_label,
   ).filter((value) => value !== null && value !== undefined && value !== ""));
   return [
-    [rows.length, `session${rows.length === 1 ? "" : "s"} shown`],
+    [
+      shownValue(rows.length, matched),
+      `session${matched === 1 ? "" : "s"} shown`,
+    ],
     [claimedItems.size, `item${claimedItems.size === 1 ? "" : "s"} claimed`],
     [actors.size, `actor${actors.size === 1 ? "" : "s"}`],
   ];
@@ -94,9 +86,11 @@ function metricFacts(rows) {
 
 export function renderSessionRows(
   documentNode, host, rows, cardFor, filtered = false, historySummary = "",
+  matchedTotal = 0,
 ) {
   const stats = el(documentNode, "div", "stat-row sessions-stats");
-  for (const [value, label] of metricFacts(rows)) {
+  const matched = Math.max(Number(matchedTotal) || 0, rows.length);
+  for (const [value, label] of metricFacts(rows, matched)) {
     const tile = el(documentNode, "div", "stat");
     tile.appendChild(el(documentNode, "div", "n", String(value)));
     tile.appendChild(el(documentNode, "div", "l", label));
@@ -241,16 +235,27 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
     emit();
   };
 
+  const visibleOpenRows = () => filters.apply(openRows);
   return {
     loadOpen,
     loadMore: () => loadHistory(historyLoaded),
     filtersChanged,
     rows() {
       const state = filters.state();
-      const visibleOpen = filters.apply(openRows);
-      if (state === "active") return visibleOpen;
+      if (state === "active") return visibleOpenRows();
       if (state === "ended") return historyRows;
-      return [...visibleOpen, ...historyRows];
+      return [...visibleOpenRows(), ...historyRows];
+    },
+    // How many sessions the current filter matches, against which the rows
+    // on screen are a page. Ended matches are counted by the server across
+    // the whole history, open ones by the roster the client holds, and the
+    // unfiltered state answers for both so its page count means the same
+    // thing as either single-state one.
+    matchedTotal() {
+      const state = filters.state();
+      if (state === "active") return visibleOpenRows().length;
+      if (state === "ended") return matchedCount;
+      return visibleOpenRows().length + matchedCount;
     },
     openRows: () => openRows,
     bulkRows: () => filters.applyOpen(openRows),

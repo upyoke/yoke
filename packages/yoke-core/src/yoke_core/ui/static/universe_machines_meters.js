@@ -140,3 +140,23 @@ export function laneTone(liveLanes, maxLanes) {
   if (live >= cap) return "crit";
   return live / cap >= LANE_WARN_FRACTION ? "warn" : "ok";
 }
+
+// The harness families `harness_sessions.executor` stores, in the order the
+// engine lists them (`yoke_contracts.executor_labels.CANONICAL_HARNESS_IDS`).
+// A card heads its meters with the family, because that is the identity an
+// operator recognizes as a provider — the surface id it launches through
+// stays the key the reading is stored under.
+export const CANONICAL_HARNESS_IDS = ["claude-code", "codex", "cursor"];
+
+const harnessFamilyWord = (identity) => identity.split("-")[0];
+
+// The engine's own rule: a surface belongs to the family whose name it
+// carries, so `claude-cli` heads a card as `claude-code`. An identity no
+// family claims reads as itself rather than as a family it may not be in.
+export function harnessFamilyIdentity(surface) {
+  const normalized = String(surface || "").trim().toLowerCase().replace(/_/g, "-");
+  const family = CANONICAL_HARNESS_IDS.find(
+    (identity) => harnessFamilyWord(identity) === harnessFamilyWord(normalized),
+  );
+  return family || normalized;
+}

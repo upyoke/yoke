@@ -9,7 +9,6 @@ import { appendHoldings } from "./universe_sessions_holdings.js";
 import { attachTooltip, tooltipHost } from "./universe_tooltip.js";
 import { callFunction, el } from "./universe_view_support.js";
 import {
-  appendEndedHistory,
   renderSessionRows,
   sessionsHistoryLoader,
 } from "./universe_sessions_history_loader.js";
@@ -114,7 +113,7 @@ export function sessionCard(
     harness.mark,
   ));
   top.appendChild(el(documentNode, "span", "session-executor", harness.label));
-  if (liveness !== "ended") top.appendChild(laneChip(documentNode, row));
+  top.appendChild(laneChip(documentNode, row));
   const operator = operatorLabel(documentNode, row);
   if (operator) top.appendChild(operator);
   card.appendChild(top);
@@ -125,15 +124,14 @@ export function sessionCard(
   appendModel(documentNode, state, row);
   body.appendChild(state);
   appendSessionUsage(documentNode, body, row);
-  if (liveness === "ended") {
-    appendEndedHistory(documentNode, body, row);
-    card.appendChild(body);
-    return card;
-  }
+  // One section sequence for every card. An ended session reaches each
+  // section with the facts it actually has, and a section with nothing to
+  // say stays silent — the card is never rebuilt in a simpler shape, so an
+  // ended session reads against a live one without translation.
   appendSteeringHoldings(documentNode, body, row, projects);
   appendSessionPresentation(documentNode, body, row);
   appendHoldings(documentNode, body, row, projects);
-  if (row.liveness !== "ended") appendSessionAge(documentNode, body, row);
+  appendSessionAge(documentNode, body, row);
   const messageAction = sessionMessageButton(documentNode, row, onMessage);
   appendSessionRelay(documentNode, body, row);
   appendSessionMessageLine(documentNode, body, row, messageAction);
@@ -195,15 +193,14 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
         );
       } else if (loader.historyLoading() && !loader.historyLoaded()) {
         historySummary = "Loading ended session history…";
-      } else if (loader.historyLoaded()) {
-        const loaded = rows.filter((row) => row.liveness === "ended").length;
-        historySummary = `${loaded} of ${loader.matchedCount()} ended sessions loaded`;
       }
+      // A loaded page needs no sentence of its own: the sessions-shown tile
+      // already carries how much of the match is on screen.
     }
     renderSessionRows(
       documentNode, content, rows,
       (row) => sessionCard(documentNode, row, openMessage, context.projects()),
-      filters.isRestrictive(), historySummary,
+      filters.isRestrictive(), historySummary, loader?.matchedTotal() || 0,
     );
     machinesPanel.then((panel) => panel?.redraw()).catch(() => {});
     const bulkRows = loader?.bulkRows() || [];

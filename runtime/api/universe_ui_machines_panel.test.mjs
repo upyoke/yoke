@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  harnessFamilyIdentity,
   headroomMeterPosition,
   headroomTone,
   laneTone,
@@ -75,6 +76,20 @@ test("a window is labelled by its kind and scope, never its meter id", () => {
     windowLabel({ window_kind: "unknown", scope: "all", meter: "primary" }),
     "all",
   );
+});
+
+test("a surface names the harness family it belongs to, never a new label", () => {
+  assert.equal(harnessFamilyIdentity("claude-cli"), "claude-code");
+  assert.equal(harnessFamilyIdentity("codex-cli"), "codex");
+  assert.equal(harnessFamilyIdentity("cursor-cli"), "cursor");
+  // A family names itself, and casing or underscores a caller carried in
+  // resolve to the same family rather than to a second identity.
+  assert.equal(harnessFamilyIdentity("claude-code"), "claude-code");
+  assert.equal(harnessFamilyIdentity("Claude_Desktop"), "claude-code");
+  // An identity no family claims reads as itself: a heading that guessed a
+  // family would name a provider whose plan this reading is not.
+  assert.equal(harnessFamilyIdentity("aider-cli"), "aider-cli");
+  assert.equal(harnessFamilyIdentity(null), "");
 });
 
 test("pressure tones read each fact against what the machine itself has", () => {
@@ -154,7 +169,7 @@ test("a machine card draws capacity and every launchable surface pool", () => {
   assert.equal(byClass(host, "machine-meta")[0].textContent, "active · 12s");
   assert.deepEqual(
     textOf(host, "machine-surface-name"),
-    ["claude-cli", "codex-cli", "cursor-cli"],
+    ["claude-code", "codex", "cursor"],
   );
   assert.equal(byClass(host, "machine-limit-row").length, 2);
   assert.equal(byClass(host, "machine-plan-tier")[0].textContent, "pro");
