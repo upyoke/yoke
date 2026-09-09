@@ -315,3 +315,30 @@ def test_message_is_not_reinjected_on_the_post_hook_for_one_tool_call(
     assert MESSAGE_ID in first.audit_fields["additionalContext"]
     assert second.outcome is Outcome.NOOP
     assert len(port.leased) == 2
+
+
+def test_raw_stdout_channel_points_at_a_lease_it_cannot_carry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Raw stdout never reaches the decision renderer's composition, so the
+    inline ceiling and the overflow pointer have to be applied where the
+    delivery is rendered. Without that, an oversized lease settles as
+    injected on text no harness carries whole."""
+    from yoke_contracts.hook_context_compose import POINTER_BEGIN
+
+    port = FakePort()
+    port.body = "x" * 20_000
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+
+    decision = delivery.evaluate(_context("SessionStart"))
+    audit = decision.audit_fields[delivery.DELIVERY_AUDIT_FIELD]
+    rendered = audit["rendered_text"]
+    delivery.settle_after_render(
+        [decision], rendered_text=rendered, denied=False, port=port
+    )
+
+    assert audit["output_field"] == "stdout"
+    assert POINTER_BEGIN in rendered
+    assert f"yoke messages get {MESSAGE_ID} --json" in rendered
+    assert port.body not in rendered
+    assert port.completed == [("lease-1", False, "inline_overflow")]

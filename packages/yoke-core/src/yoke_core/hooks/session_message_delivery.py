@@ -125,23 +125,26 @@ def _decision_for_event(
             report_claimed_at=lease.report_claimed_at,
             report_not_after=lease.report_not_after,
         )
-        output_field = model_context_channel(
-            executor_family=context.executor_family,
-            event_name=context.event_name,
-            stdout_events=_STDOUT_EVENTS,
+    output_field = model_context_channel(
+        executor_family=context.executor_family,
+        event_name=context.event_name,
+        stdout_events=_STDOUT_EVENTS,
+    )
+    if output_field == STDOUT_CHANNEL:
+        # Raw stdout never reaches the decision renderer's composition, so
+        # this is the only place the harness inline ceiling and the overflow
+        # pointer can reach a lease delivered on it. Without them an
+        # oversized lease settles as injected on text no harness carries
+        # whole. Folding the report in here too keeps one coherent block:
+        # a report riding the additionalContext channel beside raw text
+        # would concatenate a JSON envelope with raw text into one invalid
+        # reply.
+        rendered = compose_context_list(
+            [rendered, lease.report] if lease.report else [rendered],
+            harness_id=context.executor_family,
         )
-        if output_field == STDOUT_CHANNEL:
-            # The message already committed to this event's raw-stdout wire
-            # format; a report riding the additionalContext channel beside it
-            # would concatenate a JSON envelope with raw text into one
-            # invalid reply. Fold both into the single coherent block this
-            # event actually reads, keeping compose_hook_context's
-            # delivery-then-report order and inline cap.
-            rendered = compose_context_list(
-                [rendered, lease.report], harness_id=context.executor_family
-            )
-        else:
-            extra[FLEET_REPORT_CONTEXT_FIELD] = lease.report
+    elif lease.report:
+        extra[FLEET_REPORT_CONTEXT_FIELD] = lease.report
     return _context_decision(context, rendered, audit, extra_fields=extra or None)
 
 
