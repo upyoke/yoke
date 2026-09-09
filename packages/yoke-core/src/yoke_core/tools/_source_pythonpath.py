@@ -16,6 +16,15 @@ PACKAGE_SRC_RELS: tuple[str, ...] = (
     "packages/yoke-harness/src",
 )
 SOURCE_RUN_RECIPE = "yoke dev run -- <command>"
+#: Import name of the ``yoke`` CLI entrypoint. Nested Yoke commands run as
+#: this module rather than through the installed ``yoke`` launcher: a
+#: launcher resolves its own checkout and its own interpreter, so it would
+#: discard the source binding its caller just verified.
+YOKE_CLI_MODULE = "yoke_cli.main"
+#: Command names that mean "whatever interpreter this shell resolves".
+AMBIENT_PYTHON_NAMES = frozenset({"python", "python3"})
+#: The installed launcher's command name.
+YOKE_LAUNCHER_NAME = "yoke"
 PYTEST_RUN_RECIPE = "yoke watch pytest -- <pytest args>"
 INSTALL_BUNDLE_SYNC_RECIPE = (
     "yoke dev run -- python3 -m yoke_core.domain.install_bundle_tree_sync "
@@ -58,17 +67,38 @@ def with_source_pythonpath(
     out = dict(os.environ if env is None else env)
     if not is_yoke_shaped_tree(root):
         return out
-    existing = [
-        value
-        for value in out.get("PYTHONPATH", "").split(os.pathsep)
-        if value
-    ]
+    existing = [value for value in out.get("PYTHONPATH", "").split(os.pathsep) if value]
     ordered: list[str] = []
     for value in [*source_entries(root), *existing]:
         if value not in ordered:
             ordered.append(value)
     out["PYTHONPATH"] = os.pathsep.join(ordered)
     return out
+
+
+def bound_child_command(
+    args: list[str],
+    *,
+    python: str = sys.executable,
+) -> list[str]:
+    """Rewrite a child command onto the interpreter a source binding verified.
+
+    Two command shapes resolve their own interpreter and would ignore the
+    binding: an ambient ``python3``, and the installed ``yoke`` launcher,
+    which prepends its own checkout's package roots ahead of an inherited
+    ``PYTHONPATH`` (and, for a pinned relay launcher, runs isolated so the
+    inherited value is never read at all). Both become an explicit
+    invocation of *python*, which is the interpreter whose import origins
+    the caller reports.
+    """
+    if not args:
+        return args
+    name = Path(args[0]).name
+    if name in AMBIENT_PYTHON_NAMES:
+        return [python, *args[1:]]
+    if name == YOKE_LAUNCHER_NAME:
+        return [python, "-m", YOKE_CLI_MODULE, *args[1:]]
+    return args
 
 
 def import_origin_refusal(
@@ -129,8 +159,13 @@ def import_origins(
     )
     try:
         completed = subprocess.run(
-            [python, "-c", code], cwd=str(root), env=dict(env),
-            capture_output=True, text=True, timeout=10, check=False,
+            [python, "-c", code],
+            cwd=str(root),
+            env=dict(env),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
         )
     except Exception as exc:
         return {}, f"could not inspect source import origins: {exc}"
@@ -156,11 +191,15 @@ def import_origins(
 
 
 __all__ = [
+    "AMBIENT_PYTHON_NAMES",
     "INSTALL_BUNDLE_SYNC_RECIPE",
     "PACKAGE_SRC_RELS",
     "PYTEST_RUN_RECIPE",
     "SOURCE_RUN_RECIPE",
+    "YOKE_CLI_MODULE",
     "YOKE_CORE_MARKER",
+    "YOKE_LAUNCHER_NAME",
+    "bound_child_command",
     "import_origins",
     "import_origin_refusal",
     "is_yoke_shaped_tree",

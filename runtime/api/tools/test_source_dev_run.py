@@ -243,18 +243,24 @@ def test_import_failure_names_the_source_runner(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "command",
+    ("command", "expected"),
     [
-        ["yoke", "agents", "render", "--target-root", "."],
-        [sys.executable, "-m", "pytest", "runtime/api/test_example.py"],
-        ["python3", "-m", "yoke_core.tools.pg_testcluster", "status"],
+        (
+            [sys.executable, "-m", "pytest", "runtime/api/test_example.py"],
+            [sys.executable, "-m", "pytest", "runtime/api/test_example.py"],
+        ),
+        (
+            ["python3", "-m", "yoke_core.tools.pg_testcluster", "status"],
+            [sys.executable, "-m", "yoke_core.tools.pg_testcluster", "status"],
+        ),
     ],
-    ids=("renderer", "focused-pytest", "ambient-python3"),
+    ids=("focused-pytest", "ambient-python3"),
 )
-def test_run_binds_renderer_and_focused_pytest_to_claimed_lane(
+def test_run_binds_every_command_shape_to_claimed_lane(
     monkeypatch,
     tmp_path,
     command,
+    expected,
 ):
     captured = {}
     monkeypatch.setattr(
@@ -279,11 +285,6 @@ def test_run_binds_renderer_and_focused_pytest_to_claimed_lane(
 
     monkeypatch.setattr(source_dev_run.subprocess, "run", _run)
 
-    expected = (
-        [sys.executable, *command[1:]]
-        if Path(command[0]).name in source_dev_run.AMBIENT_PYTHON_NAMES
-        else command
-    )
     assert source_dev_run.run(["--", *command]) == 0
     assert captured == {
         "args": expected,

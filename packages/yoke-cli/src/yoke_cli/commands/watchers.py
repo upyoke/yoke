@@ -186,9 +186,11 @@ def _run(wrapper_module: str, cli_form: str, args: List[str]) -> int:
     except OSError as exc:
         sys.stderr.write(
             f"{cli_form}: could not run '{' '.join(argv[:3])}' "
-            f"in this project ({exc}); repair the uv environment or "
-            f"invoke the wrapper module directly: "
-            f"python3 -m {wrapper_module}\n"
+            f"in this project ({exc}); repair this project's environment "
+            f"with `{UV_EXECUTABLE} sync --frozen` and re-run "
+            f"`{cli_form}`. To bind a claimed Yoke source lane instead, "
+            f"run `yoke dev run -- {cli_form} -- <args>`, which executes "
+            f"the CLI on the lane-bound interpreter.\n"
         )
         return 1
 
