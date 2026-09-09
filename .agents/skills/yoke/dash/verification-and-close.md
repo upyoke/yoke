@@ -93,9 +93,11 @@ free.
 - `in-turn` means the same invocation is already holding the foreground wait
   and will not return until landing finishes. No later completion notice is
   expected. On Claude, set the Bash tool's `timeout` to `600000` on every
-  `in-turn` watcher invocation: at the 120-second default the harness moves
-  the call to a background task, and reading that task's file ends the turn
-  while the watcher it was holding dies with it.
+  `in-turn` watcher invocation, so the harness does not move the call to a
+  background task at its 120-second default. If it moves the call anyway, the
+  command is still running: continue that same call through the background
+  task's output until it exits. Reading that output continues the call —
+  only ending the turn kills the watcher and the child it was holding.
 
 For a separate point-in-time check, run `yoke github merge-queue readiness
 ITEM --json`. It reads the target branch's named queue entry with arming, so

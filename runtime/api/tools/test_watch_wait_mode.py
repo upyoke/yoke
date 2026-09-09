@@ -20,7 +20,9 @@ from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_core.tools import _watch_streaming_pair, watch_doctor, watch_fleet
 from yoke_core.tools import _watch_wait_mode
 from yoke_core.tools._watch_wait_mode import (
+    HEADLESS_CONTINUATION_DIRECTIVE,
     WatchWaitMode,
+    caller_is_headless_command,
     resolve_wait_mode,
     wait_mode_for_session,
 )
@@ -166,6 +168,32 @@ def test_relay_launch_context_keeps_headless_worker_in_turn() -> None:
     )
     assert mode.name == "in-turn"
     assert "headless command" in mode.reason
+    # The same selection carries who the caller is, so the runner can name
+    # the continuation without reading the launch context a second way.
+    assert mode.headless is True
+
+
+def test_only_a_launch_context_marks_the_caller_headless() -> None:
+    assert caller_is_headless_command({LAUNCH_CONTEXT_ENV: "{}"}) is True
+    assert caller_is_headless_command({LAUNCH_CONTEXT_ENV: "   "}) is False
+    assert caller_is_headless_command({}) is False
+
+
+def test_wait_mode_for_a_wakeable_harness_is_not_headless() -> None:
+    mode = wait_mode_for_session(_session("claude-code", surface="claude-cli"))
+    assert mode.headless is False
+    assert wait_mode_for_session(None).headless is False
+
+
+def test_the_continuation_directive_names_the_hand_back_and_the_recovery() -> None:
+    directive = HEADLESS_CONTINUATION_DIRECTIVE
+    assert "headless command whose turn is its whole life" in directive
+    assert "background task or hands back a continuation handle" in directive
+    assert "the command is still running" in directive
+    assert "continue that same call" in directive
+    assert "Reading the background task's output continues the call" in directive
+    assert "only ending the turn kills this watcher" in directive
+    assert "Never start a second invocation beside a live one" in directive
 
 
 @pytest.mark.parametrize(

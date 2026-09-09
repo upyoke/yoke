@@ -1,4 +1,5 @@
-"""Landing teaching splits a session that can wait from one that cannot.
+"""Landing teaching splits a session that can wait from one that cannot, and
+tells every caller what a handed-back call still owes.
 
 A relay-launched session never waits: its merge arms the landing and returns,
 and the control-plane notice re-enters it for close-out. Every other caller
@@ -9,6 +10,12 @@ steps, usher merge step, worker mandate, packet recipe, and watcher help to
 that split and to every terminal wait outcome. The in-turn wait consumes a
 cadence-limited server record rather than repeating GitHub reads on the worker
 machine.
+
+The other half of the same split is what a caller does when its harness hands
+a still-running command back mid-turn. That hand-back is not the end of the
+call, and no surface may teach that continuing it is what ends the turn, so
+these tests hold the worker mandate, the Dash in-turn bullet, and the Claude
+session rules to continuing the call until it exits.
 """
 
 from __future__ import annotations
@@ -21,6 +28,7 @@ from yoke_core.domain.schema_api_context_commands_watchers import (
 )
 from yoke_core.domain.session_launch_mandate import (
     HEADLESS_LANDING_WAIT_TEACHING,
+    HEADLESS_TOOL_CONTINUATION_TEACHING,
     compose_single_item_mandate,
 )
 from yoke_core.domain.standalone_item_merge_cli_parser import build_parser
@@ -30,6 +38,7 @@ from yoke_core.tools import watch_merge
 DASH_CLOSE = SKILLS / "dash" / "verification-and-close.md"
 USHER_MERGE = SKILLS / "usher" / "merge.md"
 WORKER_LIFECYCLE = SKILLS / "steer" / "worker-lifecycle.md"
+CLAUDE_SESSION_RULES = REPO / "runtime/harness/claude/rules/session.md"
 BUNDLE_SKILLS = (
     REPO / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke"
 )
@@ -63,6 +72,14 @@ RETIRED_BLANKET_PROHIBITIONS = (
 # harness primitive that actually resumes the turn. A surface still carrying
 # one holds a natively wakeable conversation foreground for nothing, because
 # Monitor and notify_on_output need no control-plane route to fire.
+# Teaching that read the harness's own hand-back as the end of the call. A
+# surface still carrying one tells a caller that continuing its live command
+# is what kills it, which leaves ending the turn as the only move.
+RETIRED_HAND_BACK_AS_TURN_END = (
+    "reading that task's file ends the turn",
+    "reading that task's output ends the turn",
+)
+
 RETIRED_REACHABILITY_GATING = (
     "manifest wake capability and current control-plane reachability",
     "manifest capability plus current reachability",
@@ -145,6 +162,44 @@ def test_dash_close_out_routes_every_other_landing_by_harness_wake_capability():
     assert "one project-wide GitHub sweep per cadence" in content
     assert "waiting machine issues no `gh`, GitHub, or `git fetch` read loop" in content
     assert "none of them is silence" in content
+
+
+def test_dash_close_out_continues_a_call_its_harness_handed_back():
+    content = _words(_read(DASH_CLOSE))
+    assert "set the Bash tool's `timeout` to `600000`" in content
+    assert "so the harness does not move the call to a background task" in content
+    assert "If it moves the call anyway, the command is still running" in content
+    assert "continue that same call through the background task's output" in content
+    assert "Reading that output continues the call" in content
+    assert "only ending the turn kills the watcher" in content
+
+
+def test_worker_lifecycle_teaches_the_continuation_it_mandates():
+    content = _read(WORKER_LIFECYCLE)
+    assert HEADLESS_TOOL_CONTINUATION_TEACHING in content
+    collapsed = _words(content)
+    assert "a launched turn is the whole life of every command it starts" in collapsed
+    assert "read that hand-back as completion" in collapsed
+    assert "stop early only where the command itself handed the wait off" in collapsed
+
+
+def test_no_teaching_surface_reads_the_hand_back_as_the_end_of_the_call():
+    for path in (DASH_CLOSE, WORKER_LIFECYCLE, CLAUDE_SESSION_RULES):
+        content = _read(path)
+        for retired in RETIRED_HAND_BACK_AS_TURN_END:
+            assert retired not in content, f"{path} still teaches {retired!r}"
+
+
+def test_claude_session_rules_keep_the_watcher_alive_through_a_hand_back():
+    content = _words(_read(CLAUDE_SESSION_RULES))
+    assert "a turn that ends there kills the watcher it was holding" in content
+    assert (
+        "Reading the background task's output is how you continue the call, "
+        "not how you end the turn" in content
+    )
+    assert "keep reading until the command exits and you have its outcome" in content
+    assert "A relay-launched worker has no second chance here" in content
+    assert "naming the continuation before the command starts" in content
 
 
 def test_dash_close_out_names_every_way_the_in_turn_wait_ends():

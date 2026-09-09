@@ -12,7 +12,11 @@ desktop conversation selects exactly what its CLI sibling does.
 
 A relay-launched worker is the one caller that cannot be resumed in place,
 because it is a headless command whose turn is its whole life.  That case is
-settled from the launch context before any harness fact is read.
+settled from the launch context before any harness fact is read, and it is
+also the caller the runner warns: a headless turn that ends while the command
+is still running takes the command down with it, so the same launch-context
+fact both holds the wait and names what to do when the harness hands the call
+back before it finishes.
 
 A missing fact holds the turn: waiting too long is recoverable; returning to a
 caller that cannot be woken is not.
@@ -32,6 +36,17 @@ from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 WaitModeName = Literal["background-wake", "in-turn"]
 
 
+HEADLESS_CONTINUATION_DIRECTIVE = (
+    "this caller is a headless command whose turn is its whole life. If the "
+    "harness moves this call to a background task or hands back a "
+    "continuation handle, the command is still running: continue that same "
+    "call through the harness continuation surface until it exits. Reading "
+    "the background task's output continues the call; only ending the turn "
+    "kills this watcher and the child it holds. Never start a second "
+    "invocation beside a live one."
+)
+
+
 @dataclass(frozen=True)
 class WatchWaitMode:
     """One selected wait shape and the evidence that selected it."""
@@ -39,14 +54,15 @@ class WatchWaitMode:
     name: WaitModeName
     reason: str
     wake_mechanism: str = ""
+    headless: bool = False
 
     @property
     def waits_in_turn(self) -> bool:
         return self.name == "in-turn"
 
 
-def _in_turn(reason: str) -> WatchWaitMode:
-    return WatchWaitMode(name="in-turn", reason=reason)
+def _in_turn(reason: str, *, headless: bool = False) -> WatchWaitMode:
+    return WatchWaitMode(name="in-turn", reason=reason, headless=headless)
 
 
 def _background(reason: str, mechanism: str) -> WatchWaitMode:
@@ -82,6 +98,17 @@ def wait_mode_for_session(row: Mapping[str, Any] | None) -> WatchWaitMode:
         f"via {wake.idle_wake_mechanism}",
         wake.idle_wake_mechanism,
     )
+
+
+def caller_is_headless_command(environ: Mapping[str, str] | None = None) -> bool:
+    """Whether this process is a relay-launched worker that cannot be prompted.
+
+    One reading of the launch context serves both callers: the wait-mode
+    selector, which keeps such a caller in-turn, and the watcher runner,
+    which tells it what a handed-back call means.
+    """
+    source = os.environ if environ is None else environ
+    return bool(str(source.get(LAUNCH_CONTEXT_ENV) or "").strip())
 
 
 def _current_session_row() -> Mapping[str, Any] | None:
@@ -124,9 +151,11 @@ def resolve_wait_mode(
     session_reader: Callable[[], Mapping[str, Any] | None] = _current_session_row,
 ) -> WatchWaitMode:
     """Resolve the current caller, failing closed to an in-turn wait."""
-    source = os.environ if environ is None else environ
-    if str(source.get(LAUNCH_CONTEXT_ENV) or "").strip():
-        return _in_turn("relay launch context marks this caller as a headless command")
+    if caller_is_headless_command(environ):
+        return _in_turn(
+            "relay launch context marks this caller as a headless command",
+            headless=True,
+        )
     try:
         row = session_reader()
     except Exception as exc:  # noqa: BLE001 - an unknown harness waits safely
@@ -138,7 +167,9 @@ def resolve_wait_mode(
 
 
 __all__ = [
+    "HEADLESS_CONTINUATION_DIRECTIVE",
     "WatchWaitMode",
+    "caller_is_headless_command",
     "resolve_wait_mode",
     "wait_mode_for_session",
 ]

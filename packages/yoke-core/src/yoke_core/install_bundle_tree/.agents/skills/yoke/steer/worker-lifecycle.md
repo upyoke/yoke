@@ -284,12 +284,22 @@ that gap, and it re-enters the worker for close-out. The mandate therefore
 tells a launched worker to report the pull request, stop deliberately, and
 re-run the same command when the notice arrives.
 
+The same mandate names the opposite failure, because a launched turn is the
+whole life of every command it starts. When the harness moves a long command
+to a background task, the child keeps running; a worker that read that
+hand-back as completion ended its turn and killed the merge it was holding,
+twice in one night, reporting success with no verdict recorded. The mandate
+therefore tells the worker to continue the handed-back call until it exits,
+and to stop early only where the command itself handed the wait off.
+
 ```text
 {ROUTED_ENTRYPOINT}
 
 Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, message the orchestrator (`printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering`) and END your session — do not pick up further work, do not chain into other items. Send that report before releasing any claim you still hold; after close-out already released it, `--steering` resolves from the item you last held in this session. The PREFIX-N in the DONE heading is the report identity and must name work this session holds or released. If your claim is swept mid-work, reacquire and continue.
 
 You are a headless command that cannot be prompted again, so a merge-queue landing is not yours to wait out: it outlasts your turn, and a wait that dies with the turn leaves the branch landed and the item open. Your merge arms the landing and returns landing_pending=true with the pull request named, whether or not you passed --wait. That is the handoff, not a failure. Report the pull request, stop deliberately, and say you are waiting on landing. The control-plane landing notice wakes you: re-run the same `yoke merge item` command then and it completes close-out. A stopped landing arrives the same way and names its recovery (usually rebase, re-run the verification gate, re-run the command); a stale server landing record names its last refresh and repair step. Never replace either with local GitHub polling, and never report a landing you did not read. A separate check uses `yoke github merge-queue readiness PREFIX-N --json`: the named queue-entry state decides whether null arming was consumed or cleared.
+
+A tool call that outlives its yield is still running. When your harness moves a long command to a background task or hands back a continuation handle, that is the harness handing the call back, not an interruption: the child and whatever it is waiting on are still alive. Continue that same call through your harness's continuation surface until it exits and you have read its outcome — reading the background task's output continues the call, and only ending the turn kills the watcher and the child it was holding, which lands as a killed capture with no recorded verdict. Never start a second invocation beside a live one; re-run only once the first process is verifiably gone. Stop before a command finishes only where the command itself handed the wait off — a merge that returned landing_pending has its landing notice, and nothing else does.
 
 Ending a turn sends no Fleet message. Send the DONE report deliberately with `yoke say --steering` — lead with `DONE PREFIX-N <one-line summary>` naming work this session holds or released, then what landed, what is blocked, and what you need — before ending the session.
 ```

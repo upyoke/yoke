@@ -25,7 +25,9 @@ The recipes here are also deliberately harness-neutral:
 harness with a native idle-wake primitive gets its background
 subscription recipe; a headless relay-launched worker, and a harness
 with no or unverified idle wake, are held foreground until the watcher
-finishes. Recipe text therefore avoids naming any Claude-only primitive
+finishes. A headless caller is also told, before its command starts,
+that a call its harness hands back mid-run is still running and must be
+continued rather than read as finished. Recipe text therefore avoids naming any Claude-only primitive
 (the conditional-block renderer enforces this for any seed that lands
 in both ``main_agent`` and cross-harness packets).
 
@@ -56,7 +58,12 @@ WATCHERS_COMMANDS: list[dict] = [
             "--print-streaming-pair -- <project test anchors>\n"
             "# The wrapper prints wait_mode and why. background-wake emits "
             "the bound pair; in-turn runs here until exit; after a "
-            "background-wake completion, tail -80 <raw-capture>."
+            "background-wake completion, tail -80 <raw-capture>.\n"
+            "# Every watcher a headless relay-launched worker starts also "
+            "prints a headless_continuation line: if the harness moves that "
+            "call to a background task or hands back a continuation handle, "
+            "the command is still running \u2014 continue the same call "
+            "until it exits, and never start a second one beside it."
         ),
         "notes": (
             "The impacted selection is the default change-scoped check and "
