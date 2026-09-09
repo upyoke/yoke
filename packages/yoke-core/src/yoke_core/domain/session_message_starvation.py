@@ -67,6 +67,16 @@ twenty-one-minute ``merge-item --wait`` was escalated to a native resume
 on that reading. The open call is the proof that the route is only
 mid-stride — a hook is coming when it returns — so the envelope waits for
 it and no resume is spawned.
+
+That test catches only the silence an open row can prove. A turn between
+tool calls — reasoning, streaming, or holding an armed wake subscription —
+holds no open row while its process runs, and there is nothing here that
+could tell it apart from a route that has ended: everything this module
+reads is a clock. The machine that would start the second native is where
+that fact lives, and it is checked there, in
+:mod:`yoke_harness.session_relay_native_turn_custody`, against the pid and
+process start time this machine recorded when it started the first one. So
+an escalation from here is a proposal, and custody is what refuses it.
 """
 
 from __future__ import annotations

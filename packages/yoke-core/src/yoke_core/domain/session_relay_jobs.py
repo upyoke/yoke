@@ -6,6 +6,7 @@ from typing import Any, Mapping, Sequence
 
 from yoke_contracts.session_control.wake_instruction import native_wake_instruction
 from yoke_contracts.session_control.wake_delivery import (
+    WAKE_DEFERRED_RESULTS,
     WAKE_DELIVERY_UNVERIFIED_RESULTS,
     WAKE_REPORT_CODES,
 )
@@ -18,6 +19,7 @@ from yoke_core.domain.session_relay_evidence import (
     redacted_evidence_document,
 )
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
+from yoke_core.domain.session_wake_deferral import restore_deferred_wake_budget
 from yoke_core.domain.session_model_columns import resume_model_selection
 from yoke_core.domain.session_relay_storage import (
     clear_relay_batch_when_drained,
@@ -165,8 +167,8 @@ def report_wake_job(
         raise SessionRelayError("result_invalid", "unknown wake relay result code")
     p = marker(conn)
     row = conn.execute(
-        "SELECT lease_id,completed_at,result_code,evidence "
-        "FROM session_message_attempts "
+        "SELECT lease_id,completed_at,result_code,evidence,message_id,"
+        "target_session_id FROM session_message_attempts "
         f"WHERE attempt_id={p} AND attempt_kind IN ('wake_relay','wake_broker')",
         (attempt_id,),
     ).fetchone()
@@ -184,7 +186,11 @@ def report_wake_job(
     if reported not in WAKE_DELIVERY_UNVERIFIED_RESULTS:
         require_relay_batch(conn, relay_id=relay_id, now=now)
     completed_at = None if result_code in WAKE_DELIVERY_UNVERIFIED_RESULTS else now
-    conn.execute(
+    # The unsettled predicate is what makes this report atomic. The read
+    # above establishes the attempt is open, but two copies of one report
+    # can both pass that read before either writes, and a settlement that
+    # trusted it would refund a deferral's wake budget twice.
+    settled = conn.execute(
         "UPDATE session_message_attempts SET completed_at="
         + p
         + ",result_code="
@@ -193,7 +199,7 @@ def report_wake_job(
         + "'session-relay-report-v1')"
         + ",evidence="
         + p
-        + f" WHERE attempt_id={p}",
+        + f" WHERE attempt_id={p} AND completed_at IS NULL",
         (
             completed_at,
             result_code,
@@ -202,6 +208,27 @@ def report_wake_job(
             attempt_id,
         ),
     )
+    if settled.rowcount != 1:
+        # Another copy settled it between our read and our write, so its
+        # stored outcome wins: an identical code is the duplicate this
+        # absorbs, a different one is the conflict a sequential duplicate
+        # already raises.
+        stored = conn.execute(
+            f"SELECT result_code FROM session_message_attempts WHERE attempt_id={p}",
+            (attempt_id,),
+        ).fetchone()
+        if str((stored or [""])[0] or "") not in ("", result_code):
+            raise SessionRelayError(
+                "report_conflict", "wake attempt was already reported"
+            )
+        return {"attempt_id": attempt_id, "result_code": result_code}
+    if result_code in WAKE_DEFERRED_RESULTS:
+        restore_deferred_wake_budget(
+            conn,
+            message_id=str(row[4] or ""),
+            session_id=str(row[5] or ""),
+            now=now,
+        )
     clear_relay_batch_when_drained(conn, relay_id=relay_id, batch_id=lease_id)
     conn.commit()
     return {"attempt_id": attempt_id, "result_code": result_code}
