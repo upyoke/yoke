@@ -19,6 +19,12 @@ Behaviour:
   damage here are precisely those with no claim on the lane they are
   writing into.
 * Read-only Git inspection of a lane → exempt from every test here.
+* A read-shaped call naming a path no registered project owns → allowed.
+  Reading an operator's reference document or an installed harness config is
+  not a checkout mix-up. Project code, other checkouts, and worktree lanes
+  stay governed, and any write shape — a redirect, a mutating verb, a
+  mutation chained onto a read — fails the read-shape test and is refused
+  exactly as before.
 * Session with no claims → allowed everywhere except another session's
   live lane.
 * Session with one or more claims → each target path must additionally
@@ -35,7 +41,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Sequence
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.lane_occupancy import LaneOccupant, occupying_claim
 from yoke_core.domain.lint_session_cwd_control_plane import (
     is_under_yoke_control_plane,
@@ -47,6 +52,7 @@ from yoke_core.domain.lint_session_cwd_path_authority import (
     recorded_repo_roots as _recorded_repo_roots,
     is_inside as _is_inside,
     is_inside_control_plane as _is_inside_control_plane,
+    is_external_reference_path,
     is_free_path as _path_is_free_path,
     is_sanctioned_installed_read_path,
     is_under_tool_dir as _path_is_under_tool_dir,
@@ -61,13 +67,16 @@ from yoke_core.domain.lint_session_cwd_status import (
 from yoke_core.domain.lint_session_cwd_identity import (
     FAILURE_CLASS as IDENTITY_FAILURE_CLASS,
 )
+from yoke_core.domain.lint_session_cwd_read_only_signatures import (
+    match_read_only_signature,
+)
 from yoke_core.domain.session_claimed_worktrees import (
     ClaimedWorktree,
     claimed_worktrees,
 )
-from yoke_core.domain.workflow_runtime import (
-    WorkflowRuntime,
-    load_item_workflow_runtime,
+from yoke_core.domain.lint_session_cwd_item_lookup import (
+    lookup_item_status,
+    lookup_item_workflow,
 )
 
 
@@ -115,6 +124,7 @@ def validate_targets(
     claude_job_tmp_root: str = "",
     read_only: bool = False,
     command: str = "",
+    tool_name: str = "",
 ) -> ValidationVerdict:
     """Validate every target path against the session's claim authority.
 
@@ -129,6 +139,8 @@ def validate_targets(
     ``claude_job_tmp_root`` is the exact harness-owned background-job temp root.
     ``read_only`` admits explicitly sanctioned installed harness/tool paths.
     ``command`` is the Bash body, which decides the lane-inspection case.
+    ``tool_name`` is the tool the call declared, which decides whether it has
+    claimed to be a read at all.
     """
     if not (session_id or "").strip():
         return ValidationVerdict(
@@ -163,6 +175,8 @@ def validate_targets(
                 occupant=occupant,
             )
 
+    external_reads_allowed = read_only and _is_read_shaped(tool_name, command)
+
     if not session_id or not claims:
         return ValidationVerdict(
             allow=True,
@@ -177,8 +191,8 @@ def validate_targets(
             # Target is inside a claimed worktree — the status gate applies
             # only to this branch. Control-plane and free-path targets stay
             # status-agnostic by design.
-            status = _lookup_item_status(conn, worktree_match.item_id)
-            workflow = _lookup_item_workflow(conn, worktree_match.item_id)
+            status = lookup_item_status(conn, worktree_match.item_id)
+            workflow = lookup_item_workflow(conn, worktree_match.item_id)
             if is_pre_implementing_status(workflow, status):
                 return ValidationVerdict(
                     allow=False,
@@ -199,6 +213,7 @@ def validate_targets(
             watcher_capture_root=watcher_capture_root,
             claude_job_tmp_root=claude_job_tmp_root,
             read_only=read_only,
+            external_reads_allowed=external_reads_allowed,
         ):
             continue
         return ValidationVerdict(
@@ -218,6 +233,23 @@ def validate_targets(
     )
 
 
+def _is_read_shaped(tool_name: str, command: str) -> bool:
+    """True when the call has positively declared itself a read.
+
+    A body has to earn it from the shared read-only classifier, so a mixed
+    read-and-mutate command, an output redirect, or a mutation chained onto a
+    read never inherits a read's exemption. A call with no body qualifies on
+    its tool alone, which the caller has already established is not a write —
+    but only if it named one: a payload that never says which tool it is has
+    claimed nothing, and absent evidence fails closed.
+    """
+    if not tool_name.strip():
+        return False
+    if command.strip():
+        return match_read_only_signature(command) is not None
+    return True
+
+
 def _is_target_authorised(
     target: str,
     *,
@@ -227,6 +259,7 @@ def _is_target_authorised(
     watcher_capture_root: str,
     claude_job_tmp_root: str,
     read_only: bool,
+    external_reads_allowed: bool = False,
 ) -> bool:
     if _is_free_path(
         target,
@@ -238,6 +271,10 @@ def _is_target_authorised(
     if _is_under_tool_dir(target):
         return True
     if read_only and is_sanctioned_installed_read_path(target):
+        return True
+    if external_reads_allowed and is_external_reference_path(
+        target, repo_roots=repo_roots
+    ):
         return True
     for claim in claims:
         if _is_inside(target, claim.worktree_path):
@@ -296,46 +333,6 @@ def _matching_claim(
         if _is_inside(target, claim.worktree_path):
             return claim
     return None
-
-
-def _lookup_item_status(
-    conn: Any,
-    item_id: int,
-) -> Optional[str]:
-    """Return ``items.status`` for ``item_id`` or ``None`` on lookup miss.
-
-    Fails open on schema mismatch (e.g. test fixtures without a
-    ``status`` column) so the new status gate does not regress sessions
-    whose authority comes from the existing scope check.
-    """
-    try:
-        p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-        row = conn.execute(
-            f"SELECT status FROM items WHERE id = {p}",
-            (int(item_id),),
-        ).fetchone()
-    except db_backend.operational_error_types(conn):
-        return None
-    if row is None:
-        return None
-    try:
-        value = row["status"]
-    except (IndexError, KeyError, TypeError):
-        value = row[0] if len(row) else None
-    if isinstance(value, str):
-        return value
-    return None
-
-
-def _lookup_item_workflow(
-    conn: Any,
-    item_id: int,
-) -> Optional[WorkflowRuntime]:
-    """Return the item's verified workflow pin or fail open on lookup errors."""
-    try:
-        return load_item_workflow_runtime(conn, int(item_id))
-    except Exception:
-        return None
 
 
 __all__ = [

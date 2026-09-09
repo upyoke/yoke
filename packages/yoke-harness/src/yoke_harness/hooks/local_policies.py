@@ -8,6 +8,10 @@ import re
 from pathlib import Path
 
 from yoke_contracts.hook_runner.local_privacy_guard import classify_shell_command
+from yoke_contracts.hook_runner.local_privacy_messages import (
+    LIVE_ADVISORY,
+    LIVE_DENY,
+)
 from yoke_contracts.hook_runner.main_commit import (
     NO_MAIN_CHECK_SUPPRESSION,
     git_invocations as main_commit_git_invocations,
@@ -205,14 +209,24 @@ def lint_shell_backtick_search(payload: dict) -> PolicyResult:
 
 
 def lint_local_privacy(payload: dict) -> PolicyResult:
-    violation = classify_shell_command(
+    """Mirror the engine guard: deny the privacy database, advise broad scans.
+
+    Personal-folder reads and GUI automation are the harness prompt's and the
+    operating system's call, so they classify but produce nothing here.
+    """
+    finding = classify_shell_command(
         command_from_payload(payload),
         home=Path.home(),
         cwd=payload.get("cwd") if isinstance(payload.get("cwd"), str) else Path.cwd(),
     )
-    if violation is None:
+    if finding is None:
         return PolicyResult(NOOP)
-    return PolicyResult(DENY, violation.reason())
+    severity = finding.live_severity
+    if severity == LIVE_DENY:
+        return PolicyResult(DENY, finding.reason())
+    if severity == LIVE_ADVISORY:
+        return PolicyResult(ADVISORY, additional_context=finding.reason())
+    return PolicyResult(NOOP)
 
 
 def lint_tmp_runtime_import(payload: dict) -> PolicyResult:

@@ -174,15 +174,19 @@ def _forbid_local_privacy_access(monkeypatch: pytest.MonkeyPatch):
             )
             if allow != "1":
                 args = popen_args[0] if popen_args else kwargs.get("args", ())
-                violation = classify_subprocess_args(
+                # Every category blocks here, including the ones a live tool
+                # call is allowed: an authorized operator stands behind a live
+                # read of their own documents, and nobody stands behind a unit
+                # test's.
+                finding = classify_subprocess_args(
                     args,
                     home=Path.home(),
                     cwd=kwargs.get("cwd") or Path.cwd(),
                 )
-                if violation is not None:
+                if finding is not None:
                     pytest.fail(
-                        "Automated tests may not cross a local privacy boundary.\n"
-                        + violation.reason()
+                        "Automated tests may not reach the operator's machine.\n"
+                        + finding.test_isolation_reason()
                     )
             super().__init__(*popen_args, **kwargs)
 
