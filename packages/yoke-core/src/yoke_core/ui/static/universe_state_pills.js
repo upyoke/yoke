@@ -1,5 +1,11 @@
 // Semantic color hints for state values. Workflow vocabularies remain
 // definition-owned; unknown values intentionally render neutral.
+//
+// The families are the palette's own semantic pairs: `good` for healthy,
+// `run` for in flight, `warn` for attention, `park` for a declared wait,
+// `crit` for failure, `idle` for genuinely neutral. A meaningful state left
+// out of this map falls through to grey, which reads as "nothing to see" —
+// so a state worth showing belongs here even when its family is `idle`.
 
 const FAMILIES = {
   implementing: "run",
@@ -14,6 +20,13 @@ const FAMILIES = {
   active: "good",
   idle: "idle",
   ended: "idle",
+  // A session that parked itself is neither running nor neutral: it declared
+  // a wait and takes it back on its next tool call. Grey read as "nothing
+  // here", which is the opposite of what a park means.
+  parked: "park",
+  // A registered machine with no live relay is a reading, not an absence:
+  // nothing can be launched there until it comes back.
+  offline: "warn",
   connected: "good",
   succeeded: "good",
   blocked: "crit",
@@ -56,7 +69,9 @@ const FAMILIES = {
   "not satisfied": "warn",
   "not satisfied yet": "warn",
   missing: "crit",
-  unknown: "warn",
+  // Genuinely nothing known, which is neutral. Amber implied the state was
+  // itself something to act on.
+  unknown: "idle",
   available: "good",
   ready: "good",
   passed: "good",
@@ -70,7 +85,8 @@ const FAMILIES = {
   expired: "crit",
   cancelled: "idle",
   outcome_unknown: "warn",
-  waiting: "idle",
+  // Waiting on a person or an answer is attention, not neutral.
+  waiting: "warn",
   probed: "run",
   running: "run",
   claimed: "run",
