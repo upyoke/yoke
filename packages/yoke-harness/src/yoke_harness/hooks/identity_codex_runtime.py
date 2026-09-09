@@ -17,6 +17,7 @@ from typing import Optional
 
 from yoke_cli.config import machine_config
 from yoke_contracts.executor_labels import surface_alias
+from yoke_harness.artifact_scan import iter_rows, tail_rows_newest_first
 
 
 def _normalize_entrypoint(originator: str = "", source: str = "") -> Optional[str]:
@@ -56,51 +57,80 @@ def codex_transcript_candidates(
 
 
 def _codex_model_from_transcript(thread_id: str) -> Optional[str]:
+    """Return the model the thread's newest turn names.
+
+    The model is per-turn and the newest statement is the answer, so the
+    read comes off the end of the transcript rather than walking a whole
+    session's history to arrive at its last row.
+    """
     for path in codex_transcript_candidates(thread_id):
-        model = ""
-        try:
-            with path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    try:
-                        row = json.loads(line)
-                    except Exception:
-                        continue
-                    if row.get("type") != "turn_context":
-                        continue
-                    payload = row.get("payload") or {}
-                    model = payload.get("model") or model
-        except Exception:
-            continue
-        if model:
-            return model
+        for row in tail_rows_newest_first(path):
+            if row.get("type") != "turn_context":
+                continue
+            payload = row.get("payload") or {}
+            model = payload.get("model")
+            if model:
+                return str(model)
     return None
 
 
 def _codex_entrypoint_from_transcript(thread_id: str) -> Optional[str]:
+    """Return the surface the thread's session metadata names.
+
+    The entrypoint is stated once, in metadata written when the thread
+    was created, and never changes — so the scan stops at the row that
+    states it, and the answer is remembered for the thread. Reading past
+    it, on every hook event of a session whose transcript keeps growing,
+    is the whole cost this resolver used to pay for a value that was
+    already settled.
+    """
+    remembered = _remembered_entrypoint(thread_id)
+    if remembered:
+        return remembered
     for path in codex_transcript_candidates(thread_id):
-        entrypoint = None
-        try:
-            with path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    try:
-                        row = json.loads(line)
-                    except Exception:
-                        continue
-                    if row.get("type") != "session_meta":
-                        continue
-                    payload = row.get("payload") or {}
-                    entrypoint = (
-                        _normalize_entrypoint(
-                            str(payload.get("originator") or ""),
-                            str(payload.get("source") or ""),
-                        )
-                        or entrypoint
-                    )
-        except Exception:
-            continue
-        if entrypoint:
-            return entrypoint
+        for row in iter_rows(path):
+            if row.get("type") != "session_meta":
+                continue
+            payload = row.get("payload") or {}
+            entrypoint = _normalize_entrypoint(
+                str(payload.get("originator") or ""),
+                str(payload.get("source") or ""),
+            )
+            if entrypoint:
+                _remember_entrypoint(thread_id, entrypoint)
+                return entrypoint
     return None
+
+
+def _entrypoint_cache_path(thread_id: str) -> Path:
+    return (
+        machine_config.cache_dir()
+        / "codex-model-cache"
+        / f"codex-entrypoint-{thread_id}.txt"
+    )
+
+
+def _remembered_entrypoint(thread_id: str) -> Optional[str]:
+    try:
+        remembered = _entrypoint_cache_path(thread_id).read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return remembered.strip() or None
+
+
+def _remember_entrypoint(thread_id: str, entrypoint: str) -> None:
+    """Persist immutable thread metadata, best effort — a miss costs a scan."""
+    path = _entrypoint_cache_path(thread_id)
+    staged = path.parent / f"{path.name}.{os.getpid()}.staged"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        staged.write_text(f"{entrypoint}\n", encoding="utf-8")
+        os.replace(staged, path)
+    except OSError:
+        try:
+            staged.unlink()
+        except OSError:
+            return
 
 
 def _runtime_cache_path(session_id: str) -> Path:
@@ -187,6 +217,7 @@ def _codex_resolve_entrypoint(thread_id: Optional[str] = None) -> Optional[str]:
 
 __all__ = [
     "CODEX_TRANSCRIPT_ROOT_NAMES",
+    "_entrypoint_cache_path",
     "_cache_field",
     "_codex_entrypoint_from_transcript",
     "_codex_model_from_transcript",

@@ -9,7 +9,8 @@ import pytest
 from yoke_contracts.harness_family_identity import CODEX_FAMILY
 from yoke_contracts.session_usage_facts import USAGE_PARTIAL, USAGE_UNAVAILABLE
 from yoke_contracts.session_usage_sources import states_usage, usage_source
-from yoke_harness.usage_attestation import MIXED_MODEL_REASON, attest_session_usage
+from yoke_harness.codex_usage_attestation import MIXED_MODEL_REASON
+from yoke_harness.usage_attestation import attest_session_usage
 from runtime.harness.session_usage_test_support import (  # noqa: F401
     append_rows,
     codex_token_count,

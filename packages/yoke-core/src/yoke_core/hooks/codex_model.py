@@ -5,7 +5,8 @@ Extracted from the inline Python heredoc in ``resolve-model.sh``.
 Resolution order:
   1. Explicit YOKE_MODEL override
   2. CODEX_MODEL env var
-  3. Live/archived Codex session transcript for the thread ID
+  3. Live/archived Codex session transcript for the thread ID, read by the
+     harness resolvers this module delegates to
   4. SessionStart hook cache for this thread
 
 Entrypoint resolution is similar, but first checks the live Codex runtime
@@ -31,46 +32,19 @@ from typing import Optional
 from yoke_contracts.executor_labels import surface_alias
 
 
-def _transcript_candidates(thread_id: str) -> list[Path]:
-    """Return transcript candidates for a thread, newest first."""
-    roots = [
-        Path.home() / ".codex" / "sessions",
-        Path.home() / ".codex" / "archived_sessions",
-    ]
-
-    candidates = []
-    for root in roots:
-        if not root.exists():
-            continue
-        candidates.extend(root.rglob(f"*{thread_id}.jsonl"))
-
-    candidates.sort(key=lambda path: path.stat().st_mtime, reverse=True)
-    return candidates
-
-
 def resolve_from_transcript(thread_id: str) -> Optional[str]:
-    """Scan Codex session transcript JSONL files for the model."""
-    candidates = _transcript_candidates(thread_id)
+    """Return the model this thread's newest turn names.
 
-    for path in candidates:
-        model = ""
-        try:
-            with path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    try:
-                        row = json.loads(line)
-                    except Exception:
-                        continue
-                    if row.get("type") != "turn_context":
-                        continue
-                    payload = row.get("payload") or {}
-                    model = payload.get("model") or model
-        except Exception:
-            continue
-        if model:
-            return model
+    The reading itself belongs to the harness resolver, which bounds both
+    the record size and the window it reads back from the end of a
+    transcript that can reach gigabytes. Resolving it twice, in two
+    packages, is how one of the two copies keeps its unbounded read.
+    """
+    from yoke_harness.hooks.identity_codex_runtime import (
+        _codex_model_from_transcript,
+    )
 
-    return None
+    return _codex_model_from_transcript(thread_id)
 
 
 def _normalize_entrypoint(originator: str = "", source: str = "") -> Optional[str]:
@@ -98,31 +72,17 @@ def resolve_entrypoint_from_env() -> Optional[str]:
 
 
 def resolve_entrypoint_from_transcript(thread_id: str) -> Optional[str]:
-    """Scan Codex session transcript JSONL files for the entrypoint."""
-    candidates = _transcript_candidates(thread_id)
+    """Return the surface this thread's session metadata names.
 
-    for path in candidates:
-        entrypoint = None
-        try:
-            with path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    try:
-                        row = json.loads(line)
-                    except Exception:
-                        continue
-                    if row.get("type") != "session_meta":
-                        continue
-                    payload = row.get("payload") or {}
-                    entrypoint = _normalize_entrypoint(
-                        str(payload.get("originator") or ""),
-                        str(payload.get("source") or ""),
-                    ) or entrypoint
-        except Exception:
-            continue
-        if entrypoint:
-            return entrypoint
+    Delegated for the same reason as the model above: the harness
+    resolver stops at the metadata row, remembers the answer for the
+    thread, and bounds what it reads on the way there.
+    """
+    from yoke_harness.hooks.identity_codex_runtime import (
+        _codex_entrypoint_from_transcript,
+    )
 
-    return None
+    return _codex_entrypoint_from_transcript(thread_id)
 
 
 def _runtime_cache_path(thread_id: str) -> Path:

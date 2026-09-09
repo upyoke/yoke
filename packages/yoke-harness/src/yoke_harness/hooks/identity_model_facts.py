@@ -60,6 +60,10 @@ def model_facts_settled(event_name: str, session_id: str) -> bool:
     the model completed against the control plane. Registration events
     always resolve; unmarked sessions keep trying until the harness
     artifact exists AND an evaluation carrying it lands.
+
+    This answers the marker question only. Whether a fold that has landed
+    a model is nonetheless behind the artifact it read belongs to the
+    reader that folds, and :func:`client_model_facts` asks it separately.
     """
     if event_name in REGISTRATION_EVENTS:
         return False
@@ -133,7 +137,9 @@ def client_model_facts(
     """
     session_id = payload.get("session_id")
     session_id = session_id if isinstance(session_id, str) else ""
-    if model_facts_settled(event_name, session_id):
+    if model_facts_settled(event_name, session_id) and not _catching_up(
+        executor, payload
+    ):
         return _recorded_window_facts(session_id, executor)
     facts = resolve_model_facts(payload, executor)
     return {
@@ -141,6 +147,23 @@ def client_model_facts(
         for field in MODEL_FACT_FIELDS
         if getattr(facts, field) is not None
     }
+
+
+def _catching_up(executor: str, payload: dict[str, Any]) -> bool:
+    """Whether a settled session's own fold is still behind its artifact.
+
+    A settled session resolves only on registration events, so a fold that
+    advances one bounded read at a time would advance only once per user
+    prompt — a session with a large arrears would keep reporting the model
+    it shipped long after a later turn changed it. While the fold says it
+    is behind, every hook resolves again, which is what closes the gap.
+    """
+    try:
+        from yoke_harness.model_attestation import served_facts_catching_up
+
+        return served_facts_catching_up(executor, payload)
+    except Exception:  # noqa: BLE001 — identity probes never break a hook
+        return False
 
 
 def _recorded_window_facts(session_id: str, executor: str) -> dict[str, Any]:

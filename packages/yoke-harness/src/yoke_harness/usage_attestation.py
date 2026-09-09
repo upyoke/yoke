@@ -15,11 +15,8 @@ What each harness reports, measured rather than assumed:
   ``message.id`` and repeating the same usage, so summing rows would
   multiply a turn's cost by its content-block count; the id is the dedup
   key that prevents it.
-* **codex** — its rollout carries ``token_count`` events whose
-  ``info.total_token_usage`` is cumulative for the thread, so the newest
-  one is the whole answer and nothing accumulates. Its input count
-  contains its cached input and its output count contains its reasoning,
-  both of which are subtracted out into their own buckets here.
+* **codex** — its rollout carries cumulative ``token_count`` events, read
+  by :mod:`yoke_harness.codex_usage_attestation`.
 * **cursor** — optional ``stop`` / ``afterAgentResponse`` token fields
   (inclusive ``input_tokens``) and print-mode result ``usage`` (exclusive
   ``inputTokens``), the latter presented by the reader of a finished
@@ -29,7 +26,11 @@ What each harness reports, measured rather than assumed:
   is counted once.
 
 Reads resume from a per-session watermark, so a hook event folds only
-what the artifact gained since the last one.
+what the artifact gained since the last one, and each fold streams its
+records under the shared byte bounds rather than holding a tail whose
+size is the session's to choose. Only one fold per session runs at a
+time: a second hook arriving mid-fold answers from the totals already
+persisted instead of scanning the same bytes again.
 """
 
 from __future__ import annotations
@@ -38,7 +39,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
-from yoke_contracts.harness_family_identity import CLAUDE_FAMILY, CODEX_FAMILY
+from yoke_contracts.harness_family_identity import CLAUDE_FAMILY
 from yoke_contracts.session_usage_facts import (
     USAGE_FIELDS,
     USAGE_COMPLETE,
@@ -49,23 +50,16 @@ from yoke_contracts.session_usage_facts import (
     with_partial,
 )
 from yoke_contracts.session_usage_sources import usage_source
-from yoke_harness.usage_watermark import (
-    UsageWatermark,
+from yoke_harness.artifact_scan import scan_rows
+from yoke_harness.artifact_watermark import (
+    ArtifactWatermark,
     load_watermark,
-    read_new_lines,
-    resolve_json_rows,
+    partial_reason,
     save_watermark,
     stored_totals,
-    truncation_reason,
+    watermark_lock,
 )
 
-
-#: Recorded when a harness states session-wide totals but ran more than
-#: one model, so the totals cannot be divided between them.
-MIXED_MODEL_REASON = (
-    "this harness states one session-wide total and more than one model "
-    "served the session, so consumption cannot be attributed per model"
-)
 
 #: Recorded when an artifact exists but has not yet stated any usage.
 NO_USAGE_YET_REASON = "the harness artifact states no consumption yet"
@@ -90,7 +84,9 @@ def attest_session_usage(
             return attest_cursor_usage(payload)
         session_id = _text(payload.get("session_id"))
         if is_codex(executor):
-            return _codex_usage(payload, session_id)
+            from yoke_harness.codex_usage_attestation import attest_codex_usage
+
+            return attest_codex_usage(payload, session_id)
         if is_claude(executor):
             return _claude_usage(payload, session_id, transcript_path)
     except Exception:  # noqa: BLE001 — an unreadable source attests nothing
@@ -106,33 +102,40 @@ def _claude_usage(
     path = _artifact(transcript_path or _text(payload.get("transcript_path")))
     if path is None:
         return unavailable(NO_ARTIFACT_REASON, source=source)
-    mark = load_watermark(session_id, path)
-    lines, offset = read_new_lines(path, mark)
-    totals = _totals_by_model(stored_totals(mark))
-    last_key = mark.last_key
-    for row in resolve_json_rows(lines):
-        if row.get("type") != "assistant":
-            continue
-        message = row.get("message")
-        if not isinstance(message, dict):
-            continue
-        key = _text(message.get("id")) or _text(row.get("requestId"))
-        if not key or key == last_key:
-            continue
-        model = _text(message.get("model"))
-        usage = message.get("usage")
-        if not model or not isinstance(usage, dict):
-            continue
-        last_key = key
-        _accumulate(totals, model, _claude_buckets(usage))
-    mark = UsageWatermark(
-        offset=offset,
-        last_key=last_key,
-        totals=_totals_document(totals),
-        truncated=mark.truncated,
-    )
-    save_watermark(session_id, path, mark)
-    return _reading(totals, source=source, partial=truncation_reason(mark))
+    with watermark_lock(session_id) as folding:
+        if not folding:
+            return _persisted_reading(session_id, path, source)
+        mark = load_watermark(session_id, path)
+        totals = _totals_by_model(stored_totals(mark))
+        state = {"last_key": mark.last_key}
+
+        def fold(row: Mapping[str, Any]) -> None:
+            if row.get("type") != "assistant":
+                return
+            message = row.get("message")
+            if not isinstance(message, dict):
+                return
+            key = _text(message.get("id")) or _text(row.get("requestId"))
+            if not key or key == state["last_key"]:
+                return
+            model = _text(message.get("model"))
+            usage = message.get("usage")
+            if not model or not isinstance(usage, dict):
+                return
+            state["last_key"] = key
+            _accumulate(totals, model, _claude_buckets(usage))
+
+        scan = scan_rows(path, mark.offset, fold)
+        mark = ArtifactWatermark(
+            offset=scan.offset,
+            last_key=state["last_key"],
+            totals=_totals_document(totals),
+            truncated=mark.truncated,
+            oversized=mark.oversized or scan.oversized,
+            caught_up=scan.caught_up,
+        )
+        save_watermark(session_id, path, mark)
+    return _reading(totals, source=source, partial=partial_reason(mark))
 
 
 def _claude_buckets(usage: Mapping[str, Any]) -> dict[str, int]:
@@ -164,85 +167,14 @@ def _claude_buckets(usage: Mapping[str, Any]) -> dict[str, int]:
     }
 
 
-def _codex_usage(payload: Mapping[str, Any], session_id: str) -> SessionUsage:
-    """Read a Codex rollout's newest cumulative total.
-
-    Nothing accumulates here: ``total_token_usage`` already covers the
-    whole thread, so the newest statement replaces the previous one and a
-    read that finds no new statement keeps what it had.
-    """
-    from yoke_harness.hooks.identity_codex_runtime import codex_transcript_candidates
-    from yoke_harness.hooks.identity_runtime import resolve_session_id
-    import json as _json
-
-    source = usage_source(CODEX_FAMILY)
-    thread_id = _text(payload.get("thread_id")) or resolve_session_id(
-        _json.dumps(dict(payload))
-    )
-    candidates = codex_transcript_candidates(thread_id) if thread_id else []
-    path = candidates[0] if candidates else None
-    if path is None:
-        return unavailable(NO_ARTIFACT_REASON, source=source)
+def _persisted_reading(session_id: str, path: Path, source: str) -> SessionUsage:
+    """The totals a concurrent fold already persisted, folding nothing."""
     mark = load_watermark(session_id, path)
-    lines, offset = read_new_lines(path, mark)
-    stored = stored_totals(mark)
-    latest = stored.get("latest") if isinstance(stored.get("latest"), dict) else None
-    models = [str(name) for name in stored.get("models", []) if str(name).strip()]
-    for row in resolve_json_rows(lines):
-        block = row.get("payload")
-        if not isinstance(block, dict):
-            continue
-        if row.get("type") == "turn_context":
-            model = _text(block.get("model"))
-            if model and model not in models:
-                models.append(model)
-            continue
-        if block.get("type") != "token_count":
-            continue
-        totals = _codex_totals(block)
-        if totals is not None:
-            latest = totals
-    mark = UsageWatermark(
-        offset=offset,
-        last_key=mark.last_key,
-        totals={"latest": latest or {}, "models": models},
-        truncated=mark.truncated,
-    )
-    save_watermark(session_id, path, mark)
-    if not latest:
-        return _empty_reading(source, truncation_reason(mark))
-    reading = _reading(
-        {(models[-1] if models else ""): dict(latest)},
+    return _reading(
+        _totals_by_model(stored_totals(mark)),
         source=source,
-        partial=truncation_reason(mark),
+        partial=partial_reason(mark),
     )
-    if len(models) > 1:
-        reading = with_partial(reading, MIXED_MODEL_REASON)
-    return reading
-
-
-def _codex_totals(block: Mapping[str, Any]) -> Optional[dict[str, int]]:
-    """Convert one cumulative Codex reading into disjoint buckets.
-
-    Codex's ``input_tokens`` contains its ``cached_input_tokens`` and its
-    ``output_tokens`` contains its ``reasoning_output_tokens``, so the
-    cached half is subtracted out into its own bucket while reasoning
-    stays a labelled subset of the output it is already part of.
-    """
-    info = block.get("info")
-    usage = info.get("total_token_usage") if isinstance(info, dict) else None
-    if not isinstance(usage, dict):
-        return None
-    total_input = normalize_count(usage.get("input_tokens"))
-    cached = min(normalize_count(usage.get("cached_input_tokens")), total_input)
-    return {
-        "input": total_input - cached,
-        "cached_input": cached,
-        "cache_write": normalize_count(usage.get("cache_write_input_tokens")),
-        "cache_write_long": 0,
-        "output": normalize_count(usage.get("output_tokens")),
-        "reasoning": normalize_count(usage.get("reasoning_output_tokens")),
-    }
 
 
 def _reading(
@@ -313,7 +245,6 @@ def _text(value: object) -> str:
 
 
 __all__ = [
-    "MIXED_MODEL_REASON",
     "NO_ARTIFACT_REASON",
     "NO_USAGE_YET_REASON",
     "attest_session_usage",

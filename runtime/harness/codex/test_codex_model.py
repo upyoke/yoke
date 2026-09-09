@@ -38,6 +38,21 @@ def _helper_cache_path(thread_id: str):
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def machine_cache(tmp_path, monkeypatch):
+    """Keep resolver-remembered thread metadata inside the test's own tree.
+
+    The entrypoint resolver remembers what a transcript proved, and that
+    write is machine-local — pointed at the real cache it would outlive
+    the test and answer a later one.
+    """
+    from yoke_cli.config import machine_config
+
+    cache = tmp_path / "machine-cache"
+    monkeypatch.setattr(machine_config, "cache_dir", lambda: cache)
+    return cache
+
+
 @pytest.fixture
 def transcript_dir(tmp_path, monkeypatch):
     """Create a fake Codex session transcript directory."""
