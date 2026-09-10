@@ -44,7 +44,16 @@ def record_wait_and_warn(
         supersedes_run_id=supersedes_run_id,
     )
     if warning:
-        warn(f"{warning}; this run's verdict will not wake a stopped turn")
+        recovery = (
+            f"re-run `{continue_command}`"
+            if continue_command
+            else "re-run the same `yoke merge item` command"
+        )
+        warn(
+            f"{warning}; this run's verdict will not wake a stopped turn — "
+            f"{recovery} to rejoin run {run_id} by exact commit and adopt "
+            "its conclusion instead of dispatching another suite"
+        )
 
 
 __all__ = ["record_wait_and_warn"]

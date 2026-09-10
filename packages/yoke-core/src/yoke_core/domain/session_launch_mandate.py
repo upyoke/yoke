@@ -59,11 +59,13 @@ COMMITTED_GATE_TEACHING = (
 HEADLESS_CI_VERIFICATION_WAIT_TEACHING = (
     "Before any of that, `yoke merge item` may itself dispatch or attach to "
     "a CI run for its own post-rebase verification and poll it to a "
-    "conclusion. That poll arms the same kind of durable wait a merge-queue "
-    "landing does, so a turn that stops there is woken with the verdict "
-    "too: re-run the same `yoke merge item` command and it adopts the "
-    "concluded run by exact commit instead of dispatching another suite. "
-    "Never replace that wait with local GitHub polling either."
+    "conclusion. That poll registers a durable wait, the same mechanism a "
+    "merge-queue landing uses, so a turn that stops there is normally woken "
+    "with the verdict too. Registration can fail — the command warns by "
+    "name rather than promising a wake it cannot keep — so either way, "
+    "re-run the same `yoke merge item` command: it rejoins the run by exact "
+    "commit and adopts its conclusion instead of dispatching another suite. "
+    "Never replace either path with local GitHub polling."
 )
 
 

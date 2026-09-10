@@ -23,9 +23,11 @@ from yoke_core.domain.session_ci_wait_schema import (
     run_url,
 )
 
-#: What to call the run in the notice, by dispatching kind. Exhaustive
-#: rather than a fallback default, so a future kind fails loudly here
-#: instead of silently inheriting another kind's wording.
+#: What to call the run in the notice, by dispatching kind. Every kind this
+#: module knows about gets an accurate name; a kind it does not recognize —
+#: a control plane ahead of this build, or one added after it — falls back
+#: to the generic "CI run" rather than raising or borrowing another kind's
+#: wording.
 _WHAT_BY_KIND = {
     CI_WAIT_QA_CASE: "QA case CI run",
     CI_WAIT_SELECTION: "pytest selection run",

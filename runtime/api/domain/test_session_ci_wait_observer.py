@@ -139,7 +139,7 @@ def test_a_merge_boundary_wait_names_itself_accurately_and_teaches_resume(
             merge_session,
             merge_run_id,
             HEAD_SHA,
-            "yoke merge item YOK-42",
+            "yoke merge item ACME-9",
             "2026-09-04T17:41:00Z",
         ),
     )
@@ -158,7 +158,7 @@ def test_a_merge_boundary_wait_names_itself_accurately_and_teaches_resume(
     )
     assert "merge verification CI run" in body
     assert "pytest selection run" not in body
-    assert "yoke merge item YOK-42" in body
+    assert "yoke merge item ACME-9" in body
 
 
 def test_a_terminated_session_is_no_longer_a_candidate(waiting_connection) -> None:
