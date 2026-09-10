@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any
 
+from yoke_contracts.machine_qa_failures import (
+    HostControlLocalError,
+    bounded_machine_qa_diagnostic,
+    host_control_failure,
+)
 from yoke_core.domain.host_control_runner import HostActionResult
 from yoke_core.domain.machine_qa_execution import (
     MachineCaseResult,
@@ -92,6 +97,35 @@ def _lifecycle_evidence(
     }
 
 
+def _secret_values(execution: MachineQaLease) -> tuple[str, ...]:
+    secrets = getattr(execution.material, "secrets", None)
+    if isinstance(secrets, Mapping):
+        return tuple(str(value) for value in secrets.values() if value)
+    return ()
+
+
+def _primary_action_failure(
+    error: BaseException,
+    *,
+    secrets: Sequence[str],
+) -> dict[str, str]:
+    if isinstance(error, HostControlLocalError):
+        reason, diagnostic, recovery = host_control_failure(
+            error,
+            phase="primary_action",
+        )
+    else:
+        reason = "machine_method_failed"
+        diagnostic = f"{type(error).__name__}: {error}"
+        _, _, recovery = host_control_failure(error, phase="primary_action")
+    return {
+        "outcome": "failed",
+        "reason": reason,
+        "recovery": recovery,
+        "diagnostic": bounded_machine_qa_diagnostic(diagnostic, secrets),
+    }
+
+
 def _failed_case(
     execution: MachineQaLease,
     case: MachineQaCaseContract,
@@ -99,6 +133,7 @@ def _failed_case(
     error_code: str,
     lifecycle: Mapping[str, Any],
     primary_failed: bool = False,
+    primary_error: BaseException | None = None,
 ) -> MachineCaseResult:
     evidence: dict[str, Any] = {
         "runner_id": "host_control",
@@ -107,7 +142,12 @@ def _failed_case(
         "baseline": execution.baseline.name if execution.baseline else None,
         "fixture_operations": dict(lifecycle),
     }
-    if primary_failed:
+    if primary_error is not None:
+        evidence["primary_action"] = _primary_action_failure(
+            primary_error,
+            secrets=_secret_values(execution),
+        )
+    elif primary_failed:
         evidence["primary_action"] = {"outcome": "failed"}
     return MachineCaseResult(
         case_outcome="failed",
@@ -164,6 +204,7 @@ def execute_case_with_fixture_lifecycle(
     cleanup_attempts: list[HostActionResult] = []
     primary: MachineCaseResult | None = None
     primary_failed = False
+    primary_error: BaseException | None = None
     try:
         try:
             setup = fixture.execute_setup_operations(config.get("setup_operations", []))
@@ -180,8 +221,9 @@ def execute_case_with_fixture_lifecycle(
                     entry_surface=case.entry_surface,
                     required_completion=case.required_completion,
                 )
-            except Exception:
+            except Exception as exc:
                 primary_failed = True
+                primary_error = exc
             if not primary_failed:
                 try:
                     post_state = fixture.execute_post_state_assertions(
@@ -210,6 +252,7 @@ def execute_case_with_fixture_lifecycle(
             error_code="fixture_cleanup_failed",
             lifecycle=lifecycle,
             primary_failed=primary_failed,
+            primary_error=primary_error,
         )
     if not setup.ok:
         return _failed_case(
@@ -232,6 +275,7 @@ def execute_case_with_fixture_lifecycle(
             error_code="machine_method_failed",
             lifecycle=lifecycle,
             primary_failed=True,
+            primary_error=primary_error,
         )
     return replace(
         primary,
