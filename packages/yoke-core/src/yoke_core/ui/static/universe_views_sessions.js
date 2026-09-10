@@ -20,7 +20,10 @@ import {
 import { appendSessionAge } from "./universe_session_age.js";
 import { appendSessionPresentation } from "./universe_session_presentation.js";
 import { appendSessionUsage } from "./universe_session_usage.js";
-import { appendSteeringHoldings } from "./universe_sessions_steering.js";
+import {
+  appendSteeringHoldings,
+  sortSessionsSteeringFirst,
+} from "./universe_sessions_steering.js";
 import {
   appendSessionMessagingBlocker,
   appendSessionRelay,
@@ -183,7 +186,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       loadMore.hidden = true;
       return;
     }
-    const rows = currentRows();
+    const rows = sortSessionsSteeringFirst(currentRows());
     let historySummary = "";
     if (loader?.historyVisible()) {
       const historyError = loader.historyError();
