@@ -1,5 +1,5 @@
 import { attachTooltip, infoTooltip } from "./universe_tooltip.js";
-import { isInstantRelativeTime, relativeAge } from "./universe_time.js";
+import { relativeAge } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
 
 const MESSAGE_STATES = new Set([
@@ -147,10 +147,10 @@ export function sessionPrimaryStatus(row, now = Date.now()) {
   if (liveness === "stale") {
     return carrying({ state: "stale", label: "stale", detail: null });
   }
+  // Recency lives on the timing line as "active now" / "idle Xm"; the
+  // identity pill says only that the session is live.
   if (liveness === "active") {
-    return carrying(isInstantRelativeTime(row.activity_at, now)
-      ? { state: "active", label: "active", detail: null }
-      : { state: "idle", label: "idle", detail: null });
+    return carrying({ state: "active", label: "active", detail: null });
   }
   return carrying({ state: "unknown", label: "unknown", detail: null });
 }

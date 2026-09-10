@@ -266,7 +266,9 @@ test("one primary status covers the meaningful combinations without restating st
   const quiet = new Date(now - 60 * 60_000).toISOString();
 
   assert.equal(primary({ liveness: "active", activity_at: recent }).label, "active");
-  assert.equal(primary({ liveness: "active", activity_at: quiet }).label, "idle");
+  // "idle" is retired as a primary-status pill; recency shows only on the
+  // timing line's "active now" / "idle Xm" text, checked below.
+  assert.equal(primary({ liveness: "active", activity_at: quiet }).label, "active");
   assert.equal(primary({ liveness: "ended" }).label, "ended");
   assert.equal(primary({}).label, "unknown");
 
@@ -280,7 +282,7 @@ test("one primary status covers the meaningful combinations without restating st
   assert.ok(!confirmed.textContent.includes("possibly stale"));
   assert.deepEqual(
     byClass(confirmed, "session-age-prefix").map((n) => n.textContent),
-    ["activity "],
+    ["idle "],
   );
 
   const uncertain = card(quietHolder({ liveness: "active", activity_at: quiet }));
