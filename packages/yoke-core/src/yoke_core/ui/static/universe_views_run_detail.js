@@ -80,9 +80,15 @@ function verificationCard(context, checks, artifacts) {
     line.appendChild(el(
       documentNode, "b", null, [check.case_key, check.method_name].filter(Boolean).join(" · "),
     ));
-    line.appendChild(el(documentNode, "span", null, [
-      outcomeOf(check), check.verdict_reason,
-    ].filter(Boolean).join(" · ")));
+    line.appendChild(el(documentNode, "span", null, outcomeOf(check)));
+    // An agent's reason can run to a paragraph; it folds under the check so
+    // the list stays a list and the reason stays one click away.
+    if (check.verdict_reason) {
+      const reason = el(documentNode, "details", "run-check-reason");
+      reason.appendChild(el(documentNode, "summary", null, "What the agent said"));
+      reason.appendChild(el(documentNode, "p", null, String(check.verdict_reason)));
+      line.appendChild(reason);
+    }
     card.appendChild(line);
   }
   const strip = evidenceStrip(context, artifacts, { compact: true });
@@ -113,7 +119,7 @@ function statusCopy(row, gate) {
 }
 
 // What the run carries, and the decision waiting on it.
-function decisionCard(context, row, project, onAct) {
+function decisionCard(context, row, project, onAct, evidenceShown) {
   const documentNode = context.document;
   const gate = runGates(row)[0] || null;
   const card = el(documentNode, "section", "run-card");
@@ -147,8 +153,12 @@ function decisionCard(context, row, project, onAct) {
   }
   if (gate) {
     card.appendChild(el(documentNode, "div", "run-request-kind", KIND_LABELS[gate.kind]));
+    // A release approval's evidence is the run's own QA screenshots, which
+    // the Verification card beside it already shows; a QA review's is its
+    // own run's artifacts, so it keeps them.
     card.appendChild(reviewRequestCard(context, gateAsRequest(gate), {
       inline: true,
+      evidence: !(evidenceShown && gate.kind === "deployment_stage_approval"),
       onAct: (request, action, node, note) => onAct(gate, action, node, note),
     }));
   }
@@ -239,7 +249,7 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   appendSteps(documentNode, page, row.stages);
   const grid = el(documentNode, "div", "run-grid");
   grid.appendChild(verificationCard(context, checks, artifacts));
-  grid.appendChild(decisionCard(context, row, project, onAct));
+  grid.appendChild(decisionCard(context, row, project, onAct, artifacts.length > 0));
   page.appendChild(grid);
   main.replaceChildren(page);
 }

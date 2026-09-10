@@ -172,7 +172,9 @@ function appendActions(documentNode, foot, card, row, onAct) {
 
 // `options.inline` folds the card into a host that already names the
 // subject (a run card), so the head is the host's. `options.compact` is the
-// small decided form. `options.onAct(row, action, card, note)` answers.
+// small decided form. `options.evidence === false` leaves the evidence to a
+// host that already shows it. `options.onAct(row, action, card, note)`
+// answers.
 export function reviewRequestCard(context, row, options = {}) {
   const documentNode = context.document;
   const compact = Boolean(options.compact);
@@ -188,7 +190,7 @@ export function reviewRequestCard(context, row, options = {}) {
   const effect = effectLine(row);
   if (effect) card.appendChild(el(documentNode, "p", "review-effect", effect));
   if (row.kind === "qa_needs_review") appendQaBody(documentNode, card, row);
-  appendEvidence(context, card, row, compact);
+  if (options.evidence !== false) appendEvidence(context, card, row, compact);
   if (!compact) appendRequestDetails(context, card, row);
   const foot = el(documentNode, "footer", "review-foot");
   const who = reviewerLine(row);

@@ -22,6 +22,11 @@ import {
 
 const READ_TIMEOUT_MS = 15_000;
 
+// How many artifacts a strip shows before it folds the rest behind "+N
+// more". A release whose checks captured two dozen screenshots is real, and
+// a wall of them is not a strip.
+export const EVIDENCE_SHOWN = 6;
+
 const UNAVAILABLE_STATES = {
   evidence_on_machine: (result) => `On ${result.machine || "its capture machine"}`,
   evidence_not_portable: () => "Not portable",
@@ -205,15 +210,24 @@ export function evidenceStrip(context, artifacts, options = {}) {
     `review-evidence${options.compact ? " compact" : ""}`,
   );
   const hosted = portabilityMode(context.capabilities) === "hosted";
-  for (const artifact of rows) {
+  const draw = (artifact) => {
     const local = artifactHandle(artifact)?.backend === "local";
-    if (hosted && local) {
-      strip.appendChild(onMachineChip(documentNode, artifact));
-    } else if (isImage(artifact)) {
-      strip.appendChild(screenshot(context, artifact));
-    } else {
-      strip.appendChild(textChip(context, artifact));
-    }
+    if (hosted && local) return onMachineChip(documentNode, artifact);
+    if (isImage(artifact)) return screenshot(context, artifact);
+    return textChip(context, artifact);
+  };
+  const limit = options.limit ?? EVIDENCE_SHOWN;
+  for (const artifact of rows.slice(0, limit)) strip.appendChild(draw(artifact));
+  const rest = rows.slice(limit);
+  if (rest.length) {
+    const more = el(documentNode, "button", "review-more", `+${rest.length} more`);
+    more.type = "button";
+    more.addEventListener("click", (event) => {
+      if (typeof event.stopPropagation === "function") event.stopPropagation();
+      strip.removeChild(more);
+      for (const artifact of rest) strip.appendChild(draw(artifact));
+    });
+    strip.appendChild(more);
   }
   return strip;
 }

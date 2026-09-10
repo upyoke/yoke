@@ -16,6 +16,8 @@ import {
 } from "./qa_view_primitives.js";
 
 const RECENT_ACTIVITY_LIMIT = 6;
+// Three pictures fit a table row; the rest fold behind "+N more".
+const ACTIVITY_EVIDENCE_SHOWN = 3;
 
 function todayRows(rows) {
   const today = new Date().toISOString().slice(0, 10);
@@ -94,7 +96,7 @@ function evidenceCell(context, documentNode, row) {
   if (row.verdict_reason) attachTooltip(documentNode, summary, row.verdict_reason);
   td.appendChild(summary);
   const strip = evidenceStrip(context, artifacts, {
-    compact: true, requirementId: row.requirement_id,
+    compact: true, requirementId: row.requirement_id, limit: ACTIVITY_EVIDENCE_SHOWN,
   });
   if (strip) td.appendChild(strip);
   // The row itself navigates to its plan on click; a thumbnail opens its

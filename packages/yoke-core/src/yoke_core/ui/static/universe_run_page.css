@@ -189,9 +189,38 @@
   color: var(--yoke-muted);
   font-size: 11px;
 }
+.universe-app-root .delivery-runs-table td:first-child {
+  min-width: 180px;
+}
 .universe-app-root .delivery-run-evidence-cell {
-  min-width: 110px;
-  max-width: 240px;
+  min-width: 250px;
+}
+.universe-app-root .delivery-run-evidence-cell .review-shot,
+.universe-app-root .qa-activity-evidence .review-shot {
+  width: 72px;
+}
+.universe-app-root .delivery-run-evidence-cell .review-evidence {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+}
+.universe-app-root .delivery-run-evidence-cell .review-more {
+  padding: 4px 7px;
+  font-size: 11px;
+}
+.universe-app-root .run-check-reason {
+  flex: 1 1 100%;
+  color: var(--yoke-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.universe-app-root .run-check-reason > summary {
+  color: var(--yoke-link);
+  cursor: pointer;
+  font-weight: 600;
+}
+.universe-app-root .run-check {
+  flex-wrap: wrap;
 }
 @media (max-width: 720px) {
   .universe-app-root .run-title { font-size: 21px; }

@@ -75,13 +75,16 @@ function evidenceCell(context, row, facts) {
   if (!artifacts.length) {
     artifacts = runGates(row).flatMap((gate) => evidenceOf(gate).artifacts);
   }
-  const strip = evidenceStrip(context, artifacts, { compact: true });
+  const strip = evidenceStrip(context, artifacts, { compact: true, limit: TABLE_EVIDENCE_SHOWN });
   if (strip) cell.appendChild(strip);
   else cell.appendChild(el(context.document, "span", "secondary-muted", "—"));
   // The row navigates to the run; a thumbnail opens its picture instead.
   cell.addEventListener("click", (event) => event.stopPropagation());
   return cell;
 }
+
+// Three pictures fit a row; the rest fold behind "+N more".
+const TABLE_EVIDENCE_SHOWN = 3;
 
 export const RUN_TABLE_COLUMNS = [
   "Release", "Project", "Carries", "Target", "Stages", "Status", "QA evidence", "When",
