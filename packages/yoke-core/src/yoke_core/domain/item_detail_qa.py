@@ -8,6 +8,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.qa_execution_proof import (
     qa_artifact_counts_by_run,
     qa_artifact_rows_by_run,
+    qa_evidence_run_id,
     qa_precondition_reason,
     qa_proof_summary,
     qa_run_outcome,
@@ -78,6 +79,7 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         "m.name AS method_name" if has_methods else "NULL AS method_name",
         "m.proof_kind" if has_method_proof_kind else "NULL AS proof_kind",
         "r.id AS run_id",
+        run_column("performed_by"),
         "r.verdict",
         run_column("verdict_reason"),
         "r.execution_status",
@@ -118,18 +120,41 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
             (item_id, item_id),
         )
     )
-    run_ids = {int(row["run_id"]) for row in rows if row.get("run_id") is not None}
-    artifacts_by_run = qa_artifact_counts_by_run(conn, run_ids) if has_artifacts else {}
+    # A review verdict's own run rarely holds the screenshots it verifies —
+    # it embeds a ``capture_run_id`` back to the immutable run that captured
+    # them (or, for a human override, to the agent run it overrode). Resolve
+    # each row's evidence run before batching the artifact fetch, so a
+    # requirement's evidence follows that reference instead of stopping at
+    # the requirement's bare latest ``run_id``.
+    evidence_run_ids = [
+        (
+            qa_evidence_run_id(
+                conn,
+                requirement_id=int(row["id"]),
+                run_id=int(row["run_id"]) if row.get("run_id") is not None else None,
+                performed_by=row.get("performed_by"),
+                raw_result=row.get("raw_result"),
+            )
+            if has_artifacts
+            else None
+        )
+        for row in rows
+    ]
+    evidence_ids = {rid for rid in evidence_run_ids if rid is not None}
+    artifacts_by_run = (
+        qa_artifact_counts_by_run(conn, evidence_ids) if has_artifacts else {}
+    )
     # The rows themselves, not only their per-type counts: an item's
     # verification panel has to open the screenshot behind a verdict, and a
     # count gave the reader a number and a link to a method contract.
-    artifact_rows = qa_artifact_rows_by_run(conn, run_ids) if has_artifacts else {}
-    for row in rows:
+    artifact_rows = qa_artifact_rows_by_run(conn, evidence_ids) if has_artifacts else {}
+    for row, evidence_run_id in zip(rows, evidence_run_ids):
         run_id = int(row["run_id"]) if row.get("run_id") is not None else None
         outcome = qa_run_outcome(row)
         raw_result = row.pop("raw_result", None)
+        row.pop("performed_by", None)
         row["recorded_head_sha"] = recorded_head_sha(raw_result)
-        row["artifacts"] = artifact_rows.get(run_id, [])
+        row["artifacts"] = artifact_rows.get(evidence_run_id, [])
         precondition_reason = qa_precondition_reason(raw_result)
         row["outcome"] = outcome
         row["precondition_reason"] = precondition_reason
@@ -137,7 +162,7 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
             method_id=row.get("method_id"),
             run_id=run_id,
             raw_result=raw_result,
-            artifacts=artifacts_by_run.get(run_id, {}),
+            artifacts=artifacts_by_run.get(evidence_run_id, {}),
             outcome=outcome,
             verdict_reason=row.get("verdict_reason"),
             capture_degraded_reason=row.get("capture_degraded_reason"),

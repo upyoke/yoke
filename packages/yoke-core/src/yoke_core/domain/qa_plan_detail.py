@@ -14,6 +14,7 @@ from yoke_core.domain.qa_catalog_reads import (
     _outcome,
     _required_capability_details,
 )
+from yoke_core.domain.qa_execution_proof import qa_prior_agent_run
 from yoke_core.domain.qa_method_capabilities import capability_kinds
 from yoke_core.domain.schema_common import _table_exists
 
@@ -111,21 +112,6 @@ def _case_result(
     }
 
 
-def _prior_agent_run(
-    conn: Any,
-    requirement_id: int,
-    before_run_id: int,
-) -> dict[str, Any] | None:
-    marker = _placeholder(conn)
-    return query_one(
-        conn,
-        "SELECT id,verdict,verdict_reason,raw_result FROM qa_runs "
-        f"WHERE qa_requirement_id={marker} AND performed_by='agent' "
-        f"AND id<{marker} ORDER BY id DESC LIMIT 1",
-        (requirement_id, before_run_id),
-    )
-
-
 def _review_state(
     conn: Any,
     requirement_id: int,
@@ -138,10 +124,10 @@ def _review_state(
     agent_verdict = run["verdict"] if performed_by == "agent" else None
     agent_run_id = int(run["run_id"]) if performed_by == "agent" else None
     if performed_by == "human_review" and run["run_id"] is not None:
-        agent = _prior_agent_run(
+        agent = qa_prior_agent_run(
             conn,
-            requirement_id,
-            int(run["run_id"]),
+            requirement_id=requirement_id,
+            before_run_id=int(run["run_id"]),
         )
         if agent is not None:
             agent_run_id = int(agent["id"])
