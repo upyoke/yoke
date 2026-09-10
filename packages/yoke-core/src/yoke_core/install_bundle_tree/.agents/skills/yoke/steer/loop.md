@@ -105,15 +105,18 @@ Two things the report deliberately does not do, so do them yourself:
   TEXT`, not freeze.
 
 The dashboard session card carries one primary status in the identity line:
-`active` under a minute of activity, `idle` once quiet, confirmed `stale`
-when the server has classified it, and `possibly stale` only while still
-server-active past the window with claims and no wait or probe. A
-claim-holding card's primary becomes `waiting` or `probed` when those facts
-explain the quiet. Age, relay, and latest-message stay labelled subordinates
-and never restate that status word. The server's classification against the
-executor-aware TTL (1440 minutes on this surface) solely decides alive versus
-stale, so an `idle` card with a 6h activity age can still be a session the
-control plane counts. The age says how long it has been quiet.
+`active` for any live session, confirmed `stale` when the server has
+classified it, and `possibly stale` only while still server-active past the
+window with claims and no wait or probe. A claim-holding card's primary
+becomes `waiting` or `probed` when those facts explain the quiet. Age, relay,
+and latest-message stay labelled subordinates and never restate that status
+word. Recency instead lives on the age line's own timing text, not the
+identity pill: `active now` under a minute since the observed activity
+timestamp, `idle Xm` (elapsed whole minutes) at or past it. The server's
+classification against the executor-aware TTL (1440 minutes on this surface)
+solely decides alive versus stale, so a card whose age line reads `idle 6h`
+can still be a session the control plane counts. The age line says how long
+it has been quiet.
 
 ### 2. Consume worker reports
 
