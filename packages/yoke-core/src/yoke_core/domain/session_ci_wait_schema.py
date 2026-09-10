@@ -22,11 +22,12 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 
 
 #: Which gate dispatched the run. The notice reads differently for each,
-#: because continuing from a selection and continuing from a recorded QA
-#: verdict are different acts.
+#: because continuing a selection, a recorded QA verdict, and the merge
+#: boundary's own post-rebase verification are three different acts.
 CI_WAIT_SELECTION = "selection"
 CI_WAIT_QA_CASE = "qa_case"
-CI_WAIT_KINDS = (CI_WAIT_SELECTION, CI_WAIT_QA_CASE)
+CI_WAIT_MERGE_VERIFICATION = "merge_verification"
+CI_WAIT_KINDS = (CI_WAIT_SELECTION, CI_WAIT_QA_CASE, CI_WAIT_MERGE_VERIFICATION)
 
 _KIND_SQL = ",".join(f"'{kind}'" for kind in CI_WAIT_KINDS)
 
@@ -63,6 +64,7 @@ def ensure_session_ci_wait_schema(conn: Any) -> None:
 
 __all__ = [
     "CI_WAIT_KINDS",
+    "CI_WAIT_MERGE_VERIFICATION",
     "CI_WAIT_QA_CASE",
     "CI_WAIT_SELECTION",
     "SESSION_CI_RUN_WAITS_CREATE_SQL",

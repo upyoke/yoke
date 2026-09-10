@@ -122,6 +122,45 @@ def test_a_run_still_in_flight_produces_no_notice(waiting_connection) -> None:
     assert _wait_row(waiting_connection)["read_at"] == "2026-09-04T18:00:00Z"
 
 
+def test_a_merge_boundary_wait_names_itself_accurately_and_teaches_resume(
+    waiting_connection,
+) -> None:
+    """The merge boundary's own CI run is neither a selection nor a QA case."""
+    # "s2" is one of the base fixture's ordinary, non-running sessions —
+    # reused here rather than inserted, since the schema's session_id
+    # primary key would collide with the fixture's own row for it.
+    merge_session = "s2"
+    merge_run_id = "44904203798"
+    waiting_connection.execute(
+        "INSERT INTO session_ci_run_waits "
+        "(session_id,project_id,repo,run_id,head_sha,kind,continue_command,"
+        "created_at) VALUES (?,1,'acme/widgets',?,?,'merge_verification',?,?)",
+        (
+            merge_session,
+            merge_run_id,
+            HEAD_SHA,
+            "yoke merge item ACME-9",
+            "2026-09-04T17:41:00Z",
+        ),
+    )
+    waiting_connection.commit()
+
+    result = observe_pending_ci_runs(
+        waiting_connection, [1], now=NOW, read_run=concluded
+    )
+
+    assert result["concluded"] == 2
+    body = message_body(
+        waiting_connection,
+        message_id_for(
+            waiting_connection, f"ci-run-concluded:{merge_session}:{merge_run_id}"
+        ),
+    )
+    assert "merge verification CI run" in body
+    assert "pytest selection run" not in body
+    assert "yoke merge item ACME-9" in body
+
+
 def test_a_terminated_session_is_no_longer_a_candidate(waiting_connection) -> None:
     waiting_connection.execute(
         "UPDATE harness_sessions SET terminated_at='2026-09-04T17:50:00Z' "

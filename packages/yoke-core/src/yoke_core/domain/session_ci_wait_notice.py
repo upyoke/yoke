@@ -16,7 +16,23 @@ from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import message_details
-from yoke_core.domain.session_ci_wait_schema import CI_WAIT_QA_CASE, run_url
+from yoke_core.domain.session_ci_wait_schema import (
+    CI_WAIT_MERGE_VERIFICATION,
+    CI_WAIT_QA_CASE,
+    CI_WAIT_SELECTION,
+    run_url,
+)
+
+#: What to call the run in the notice, by dispatching kind. Every kind this
+#: module knows about gets an accurate name; a kind it does not recognize —
+#: a control plane ahead of this build, or one added after it — falls back
+#: to the generic "CI run" rather than raising or borrowing another kind's
+#: wording.
+_WHAT_BY_KIND = {
+    CI_WAIT_QA_CASE: "QA case CI run",
+    CI_WAIT_SELECTION: "pytest selection run",
+    CI_WAIT_MERGE_VERIFICATION: "merge verification CI run",
+}
 
 
 def notice_idempotency_key(session_id: str, run_id: str) -> str:
@@ -34,7 +50,7 @@ def ci_run_message(
     continue_command: str,
 ) -> str:
     """Name the verdict, the run, the commit, and how to continue."""
-    what = "QA case CI run" if kind == CI_WAIT_QA_CASE else "pytest selection run"
+    what = _WHAT_BY_KIND.get(kind, "CI run")
     commit = head_sha[:12] or "an unrecorded commit"
     lines = [
         f"CI verdict: {conclusion} — the {what} you dispatched for {commit} "

@@ -23,7 +23,11 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_core.domain import control_plane_function_degradation as degradation
-from yoke_core.engines import merge_worktree_tests, merge_worktree_tests_ci
+from yoke_core.engines import (
+    merge_worktree_tests,
+    merge_worktree_tests_ci,
+    merge_worktree_tests_ci_head,
+)
 
 _PAIRED_CONFIG = {
     "connections": {
@@ -252,7 +256,7 @@ class TestCandidateHeadBinding:
         """An older control plane degrades by name, not by refusing."""
         printed: list[str] = []
         monkeypatch.setattr(
-            merge_worktree_tests_ci,
+            merge_worktree_tests_ci_head,
             "_parent",
             lambda: SimpleNamespace(_print=lambda msg, **k: printed.append(msg)),
         )
@@ -287,7 +291,7 @@ class TestCandidateHeadBinding:
             _forbidden,
         )
         monkeypatch.setattr(
-            merge_worktree_tests_ci,
+            merge_worktree_tests_ci_head,
             "_parent",
             lambda: SimpleNamespace(_print=lambda *a, **k: None),
         )
