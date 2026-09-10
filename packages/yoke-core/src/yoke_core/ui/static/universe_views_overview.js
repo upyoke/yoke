@@ -54,7 +54,11 @@ export function renderOverviewView(context, main, scope, options = {}) {
   main.replaceChildren(
     ...(options.aboveScope ? [] : [onboarding]), strategy, frontier,
   );
-  loadActivationModules(context, activationHost);
+  // Once every onboarding module is hidden the whole section goes with it;
+  // the only way back is Reset on Profile.
+  loadActivationModules(context, activationHost, {
+    onAllHidden: () => { onboarding.hidden = true; },
+  });
 
   let currentScope = scope;
   const getScope = () => currentScope;

@@ -52,7 +52,11 @@ test("one-argument mount preserves the local client and DOM shape", async (t) =>
   assert.equal(byClass(root, "org-context")[0].textContent, "Local");
   const actor = byClass(root, "actor-chip")[0];
   assert.equal(byClass(actor, "actor-name")[0].textContent, "local actor");
-  assert.ok(actor.parentNode.classList.contains("header-context-value"));
+  // The chip sits inside its menu host, which sits in the context control.
+  assert.ok(actor.parentNode.classList.contains("actor-menu-host"));
+  assert.ok(
+    actor.parentNode.parentNode.classList.contains("header-context-value"),
+  );
   assert.equal(byClass(root, "capability-actions").length, 0);
   const functionFetches = fetches.filter((entry) => entry.init);
   assert.ok(functionFetches.length >= 2);

@@ -41,6 +41,12 @@ export const NAV = [
     id: "inbox", icon: "✉", label: "Inbox", scope: SCOPE_MULTI,
     group: GROUP_FOCUS,
   },
+  // The person's own page. Reached from the actor menu, never the sidebar:
+  // the sidebar lists the universe's destinations, and a person is not one.
+  {
+    id: "profile", icon: "◯", label: "Profile", scope: SCOPE_NONE,
+    group: GROUP_FOCUS, hidden: true,
+  },
 
   // A workflow definition is configuration: it is authored once and every item
   // then follows the version pinned to it. What you govern with is not what

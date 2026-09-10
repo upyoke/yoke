@@ -1,6 +1,7 @@
 // Shared DOM primitives and workbench chrome for the mounted universe app.
 
 import { appendSlot } from "./mount-options.js";
+import { createActorMenu } from "./universe_actor_menu.js";
 import {
   buildUniverseRoute,
   NAV,
@@ -22,32 +23,6 @@ export function callFunction(client, functionId, payload, target) {
   // one, so global-target reads keep their server-side default.
   if (target) request.target = target;
   return client.call(request);
-}
-
-// Whoever the viewer is acting as. The engine models an actor as an id and a
-// kind and nothing else — a human actor has no name there, because a name
-// belongs to an account and accounts are the host's.
-function createActorChip(documentNode, actor) {
-  const chip = el(documentNode, "span", "actor-chip");
-  const name = actor.label || `actor ${actor.id}`;
-  chip.appendChild(el(
-    documentNode,
-    "span",
-    "actor-avatar",
-    actor.kind === "system" ? "⚙" : name.slice(0, 1),
-  ));
-  chip.appendChild(el(documentNode, "span", "actor-name", name));
-  if (actor.id !== undefined && actor.id !== null) {
-    chip.appendChild(el(
-      documentNode, "span", "actor-kind", `actor ${actor.id}`,
-    ));
-  } else if (actor.kind === "system") {
-    chip.appendChild(el(
-      documentNode, "span", "actor-kind",
-      actor.systemComponent || "system",
-    ));
-  }
-  return chip;
 }
 
 function contextControl(documentNode, label, value, className) {
@@ -197,7 +172,7 @@ export function createWorkbenchChrome({
   if (actor) contextSide.appendChild(contextControl(
     documentNode,
     "Actor",
-    createActorChip(documentNode, actor),
+    createActorMenu(documentNode, client, actor),
     "header-actor-context",
   ));
   const controls = createShellControls({ documentNode, client, options });
@@ -246,6 +221,7 @@ export function createWorkbenchChrome({
   for (const group of NAV_GROUPS) {
     const entries = NAV.filter((entry) => (
       entry.group === group.id
+      && !entry.hidden
       && !(entry.hostFed && !resolvedSections[entry.id])
     ));
     if (!entries.length) continue;

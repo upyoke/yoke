@@ -3,12 +3,15 @@
 // every fact — module states, submodule signals, registered machines and
 // their harness targets, per-actor dismissals — and this module owns only
 // the drawn chrome: number/✓ medallions, waits / next up / activated pills,
-// the wizard checklist, hover dismiss, and the restore line (the per-machine
-// harness rows live in universe_views_overview_activation_machines.js). Honesty rules
-// hold throughout: an unresolved read renders a pending line (never
-// fabricated module states), and a pending submodule stays ○. Which signal
-// derives a state is a fact about the model, not something a member acts on,
-// so it stays out of the rendered card.
+// the wizard checklist, and hover dismiss (the per-machine harness rows live
+// in universe_views_overview_activation_machines.js). A hidden module is
+// gone from Overview: no count, no show-again control; the only way back is
+// Reset on Profile, and once every module is hidden the host tells the
+// Overview to hide the section too. Honesty rules hold throughout: an
+// unresolved read renders a pending line (never fabricated module states),
+// and a pending submodule stays ○. Which signal derives a state is a fact
+// about the model, not something a member acts on, so it stays out of the
+// rendered card.
 
 import { attachTooltip } from "./universe_tooltip.js";
 import {
@@ -145,7 +148,6 @@ function renderModule(context, module, position, result, draw, viewState) {
   const card = el(documentNode, "section", "activation-module");
   card.setAttribute("data-module", module.key);
   card.setAttribute("data-state", module.state);
-  if (module.dismissed) card.classList.add("dismissed");
   const head = el(documentNode, "div", "activation-head");
   head.appendChild(el(
     documentNode, "span", "activation-medallion",
@@ -164,14 +166,7 @@ function renderModule(context, module, position, result, draw, viewState) {
     documentNode, STATE_PILL_TEXT[module.state] || module.state,
   );
   if (pill) head.appendChild(pill);
-  if (module.dismissed) {
-    const restore = el(documentNode, "button", "activation-restore", "restore");
-    restore.type = "button";
-    restore.addEventListener(
-      "click", () => setDismissed(context, module, false, draw),
-    );
-    head.appendChild(restore);
-  } else if (result.dismiss_available && module.state === "activated") {
+  if (result.dismiss_available && module.state === "activated") {
     const dismiss = el(documentNode, "button", "activation-dismiss", "✕");
     dismiss.type = "button";
     attachTooltip(documentNode, dismiss, DISMISS_HINT, { pinOnClick: false });
@@ -196,7 +191,7 @@ function renderModule(context, module, position, result, draw, viewState) {
   return card;
 }
 
-function renderStack(context, host, result) {
+function renderStack(context, host, result, onAllHidden) {
   const documentNode = context.document;
   if (!result || !Array.isArray(result.modules)) {
     host.replaceChildren(el(
@@ -205,46 +200,31 @@ function renderStack(context, host, result) {
     ));
     return;
   }
-  const viewState = {
-    mode: portabilityMode(context.capabilities),
-    showDismissed: false,
-  };
+  const viewState = { mode: portabilityMode(context.capabilities) };
   const draw = () => {
     const stack = el(documentNode, "div", "activation-stack");
     result.modules.forEach((module, index) => {
-      if (module.dismissed && !viewState.showDismissed) return;
+      if (module.dismissed) return;
       stack.appendChild(renderModule(
         context, module, index + 1, result, draw, viewState,
       ));
     });
-    const dismissedCount = result.modules.filter(
-      (module) => module.dismissed,
-    ).length;
-    if (dismissedCount && !viewState.showDismissed) {
-      const line = el(
-        documentNode, "p", "activation-restore-line",
-        `${dismissedCount} dismissed module(s) · `,
-      );
-      const show = el(documentNode, "button", "activation-show", "show");
-      show.type = "button";
-      show.addEventListener("click", () => {
-        viewState.showDismissed = true;
-        draw();
-      });
-      line.appendChild(show);
-      stack.appendChild(line);
-    }
     host.replaceChildren(stack);
+    if (!stack.children.length && typeof onAllHidden === "function") {
+      onAllHidden();
+    }
   };
   draw();
 }
 
-// The one Overview entry point renders the stack from a single activation read.
-export function loadActivationModules(context, host) {
+// The one Overview entry point renders the stack from a single activation
+// read. `onAllHidden` fires whenever the drawn stack is empty because every
+// module is hidden, so the caller can hide the section that holds it.
+export function loadActivationModules(context, host, { onAllHidden } = {}) {
   const read = readActivation(context);
   read.then((result) => {
     if (!context.isMounted()) return;
-    renderStack(context, host, result);
+    renderStack(context, host, result, onAllHidden);
   });
   return read;
 }

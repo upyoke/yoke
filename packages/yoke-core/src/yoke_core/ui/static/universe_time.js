@@ -29,13 +29,31 @@ export function isInstantRelativeTime(value, now = Date.now()) {
   return relativeAge(value, now) === "now";
 }
 
+// The viewer's time-zone preference (Profile → Preferences). Empty means
+// Automatic: the browser's own zone. Set once from the profile read and
+// again when the person changes it, so every absolute time follows.
+let displayTimeZone = "";
+
+export function setDisplayTimeZone(zone) {
+  displayTimeZone = String(zone || "");
+}
+
+export function displayTimeZoneValue() {
+  return displayTimeZone;
+}
+
 function absoluteTime(value) {
   const timestamp = new Date(value);
   if (Number.isNaN(timestamp.getTime())) return String(value || "");
-  return timestamp.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  const options = { dateStyle: "medium", timeStyle: "short" };
+  if (displayTimeZone) options.timeZone = displayTimeZone;
+  try {
+    return timestamp.toLocaleString(undefined, options);
+  } catch (rangeError) {
+    // An unknown zone name must not blank every time on the page.
+    delete options.timeZone;
+    return timestamp.toLocaleString(undefined, options);
+  }
 }
 
 export function relativeTime(

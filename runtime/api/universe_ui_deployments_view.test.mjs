@@ -45,6 +45,8 @@ test("navigation is three groups, and every entry declares one", () => {
       ["overview", "⊞", "Overview", "multi", "focus"],
       ["sessions", "◈", "Sessions", "multi", "focus"],
       ["inbox", "✉", "Inbox", "multi", "focus"],
+      // Reached from the actor menu; hidden from the sidebar.
+      ["profile", "◯", "Profile", "none", "focus"],
 
       ["organization", "⛭", "Universe", "none", "settings"],
       ["workflows", "⚗", "Workflows", "none", "settings"],
