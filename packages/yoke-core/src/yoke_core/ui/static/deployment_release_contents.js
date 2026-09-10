@@ -95,18 +95,44 @@ function appendEffectBasis(documentNode, host, effect) {
   return why;
 }
 
+// The items this run records, drawn from run membership alone. Membership is
+// recorded whether or not a release ships, whether or not its contents could
+// be derived, and whether or not the flow reaches an environment — so hiding
+// it behind any of those told an approver a run touched nothing when it names
+// real work.
+function appendLinkedItems(documentNode, host, linked, projectId) {
+  if (!linked.length) return null;
+  const owned = block(
+    documentNode, host, "gate-block", `Linked items · ${linked.length}`,
+  );
+  for (const item of linked.slice(0, MAX_LISTED)) {
+    row(
+      documentNode,
+      owned,
+      String(item.item_ref || `item ${item.item_id}`),
+      String(item.title || ""),
+      item.item_ref
+        ? itemDrillInHref({ projectId, publicRef: item.item_ref })
+        : null,
+    );
+  }
+  overflow(documentNode, owned, linked.length, "items");
+  return owned;
+}
+
 export function appendDeploymentBody(context, host, facts, projectId = null) {
   const documentNode = context.document;
   const effect = facts.release_effect;
   if (effect && effect.consequence !== "deploys") {
     appendEffectBasis(documentNode, host, effect);
   }
+  const linked = Array.isArray(facts.batch?.items) ? facts.batch.items : [];
   if (effect && effect.consequence === "deploys_nothing") {
     // No release block: there is no release. Listing "0 changes" beside a
     // gate that ships nowhere reads as an empty deploy, which is the
-    // confusion this classification exists to end. An unsettled consequence
-    // keeps its contents — what a run carries is a separate fact either way.
-    return;
+    // confusion this classification exists to end. The items the run records
+    // are a different fact and stay visible.
+    return appendLinkedItems(documentNode, host, linked, projectId);
   }
   const contents = releaseContents(facts, projectId);
   const release = block(
@@ -140,26 +166,12 @@ export function appendDeploymentBody(context, host, facts, projectId = null) {
       "This release carries no new commits since the previous one.",
     ));
   }
-  // Membership stays visible beside the contents when both exist: it is who
-  // the pipeline will move to done, which is a different fact from what ships.
-  const itemHref = (ref) => (
-    ref ? itemDrillInHref({ projectId, publicRef: ref }) : null
-  );
-  const linked = Array.isArray(facts.batch?.items) ? facts.batch.items : [];
-  if (contents.source === "derived" && linked.length) {
-    const owned = block(
-      documentNode, host, "gate-block", `Linked items · ${linked.length}`,
-    );
-    for (const item of linked.slice(0, MAX_LISTED)) {
-      row(
-        documentNode,
-        owned,
-        String(item.item_ref || `item ${item.item_id}`),
-        String(item.title || ""),
-        itemHref(item.item_ref),
-      );
-    }
-    overflow(documentNode, owned, linked.length, "items");
+  // Membership stays visible beside the contents: it is who the pipeline will
+  // move to done, which is a different fact from what ships. The one time it
+  // is not repeated is when the release block above IS that same list, for
+  // want of any derived answer.
+  if (contents.source !== "membership") {
+    appendLinkedItems(documentNode, host, linked, projectId);
   }
   // The lineage, and only the lineage: the count and the destination are
   // already the first thing the approver reads, and repeating them under

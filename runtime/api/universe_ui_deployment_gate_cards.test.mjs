@@ -209,6 +209,56 @@ test("an unsettled consequence is its own answer, not a safe-sounding one", asyn
   assert.ok(body.includes("In this release"), body);
 });
 
+// Run membership is recorded on the run itself. Neither the flow's reach nor
+// the derivability of its contents changes which items it names, so both
+// fixtures below carry real membership and expect to see it.
+const withMembership = (row) => ({
+  ...row,
+  subject_context: {
+    ...row.subject_context,
+    batch: {
+      item_count: 2,
+      items: [
+        { item_id: 2712, item_ref: "YOK-2712", title: "Served context window" },
+        { item_id: 2707, item_ref: "YOK-2707", title: "Messages address actors" },
+      ],
+    },
+  },
+});
+
+test("a gate that deploys nothing still names the items it records", async () => {
+  // Returning before the membership block hid genuine item IDs and titles, so
+  // a run governing real work read as a run touching nothing at all.
+  const { main } = renderInbox("all", [withMembership(approvalOnlyRequestRow())]);
+  await settle();
+
+  const body = gateText(main);
+  assert.ok(body.includes("Linked items · 2"), body);
+  assert.ok(body.includes("YOK-2712"), body);
+  assert.ok(body.includes("Messages address actors"), body);
+  // Still no release block: naming the work is not claiming it ships.
+  assert.ok(!body.includes("In this release"), body);
+  // The item refs stay navigable, exactly as they are on a deploying card.
+  assert.deepEqual(
+    byClass(main, "gate-block-code")
+      .filter((node) => node.tagName === "A")
+      .map((node) => node.textContent),
+    ["YOK-2712", "YOK-2707"],
+  );
+});
+
+test("membership shows even when the release contents could not be derived", async () => {
+  const { main } = renderInbox(
+    "all", [withMembership(undeterminedContentsRequestRow())],
+  );
+  await settle();
+
+  const body = gateText(main);
+  assert.ok(body.includes("could not be determined"), body);
+  assert.ok(body.includes("Linked items · 2"), body);
+  assert.ok(body.includes("YOK-2707"), body);
+});
+
 test("a request predating the consequence fact reports it as unrecorded", async () => {
   // Its own stored title says "Deploy to merge-only" — the label a run wears
   // when it names no destination at all. Showing that would hand the reader

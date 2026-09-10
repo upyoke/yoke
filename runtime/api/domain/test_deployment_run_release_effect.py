@@ -8,6 +8,7 @@ from yoke_core.domain.approval import FlowStage
 from yoke_core.domain.deployment_run_release_effect import (
     DEPLOYS,
     DEPLOYS_NOTHING,
+    ENVIRONMENT_MUTATING_STEP_RUNNERS,
     NON_DEPLOYING_STEP_RUNNERS,
     UNKNOWN,
     derive_release_effect,
@@ -47,7 +48,7 @@ def test_an_approval_only_flow_names_the_consequence_and_its_evidence():
     # happening: an internal review that deploys nothing can still be a
     # required decision about genuine work.
     assert "The work this decision governs may still be real." in effect["effect"]
-    assert any("human-approval or auto" in line for line in effect["basis"])
+    assert any("verified to reach no environment" in line for line in effect["basis"])
     assert any("names no target environment" in line for line in effect["basis"])
 
 
@@ -131,5 +132,71 @@ def test_the_first_sample_shape_reaches_deploys_nothing(test_db):
     assert _effect()["consequence"] == DEPLOYS_NOTHING
 
 
-def test_allowlist_names_only_runners_the_flow_vocabulary_defines():
+@pytest.mark.parametrize("runner", sorted(NON_DEPLOYING_STEP_RUNNERS))
+def test_a_read_only_runner_never_makes_a_flow_deploy(runner):
+    """A probe is not a deploy.
+
+    `health-check` runs one URL probe, `warm-up` one read call, and
+    `ephemeral-verify` checks against substrate something else stood up.
+    Treating the vocabulary minus two names as deploying titled an
+    approval->health-check flow "Deploy to prod".
+    """
+    effect = _effect(
+        stages=[
+            FlowStage(name="approve", step_runner="human-approval", config={}),
+            FlowStage(name="observe", step_runner=runner, config={}),
+        ],
+        target_environment="prod",
+    )
+    assert effect["consequence"] == UNKNOWN
+    assert effect["headline"] == "Approve the review-example stage"
+    assert "Deploy to prod" not in effect["headline"]
+
+
+def test_a_generic_workflow_dispatch_is_unsettled_not_a_deploy():
+    """Every real hosted release stage is one of these, and that is the point.
+
+    The stage names a workflow file; what that workflow does is not readable
+    from here. Calling it a deploy would be a guess that happens to be right
+    today, and the same guess is what called a health probe a deploy.
+    """
+    effect = _effect(
+        stages=[
+            FlowStage(name="merged", step_runner="auto", config={}),
+            FlowStage(
+                name="hosted-release", step_runner="github-actions-workflow", config={}
+            ),
+            FlowStage(name="warm-up", step_runner="warm-up", config={}),
+        ],
+        target_environment="prod",
+    )
+    assert effect["consequence"] == UNKNOWN
+    assert any(
+        "hosted-release runs github-actions-workflow" in line
+        for line in effect["basis"]
+    )
+    assert any("The flow targets prod." == line for line in effect["basis"])
+
+
+@pytest.mark.parametrize("runner", sorted(ENVIRONMENT_MUTATING_STEP_RUNNERS))
+def test_every_environment_mutating_runner_settles_it_affirmatively(runner):
+    effect = _effect(
+        stages=[
+            FlowStage(name="approve", step_runner="human-approval", config={}),
+            FlowStage(name="act", step_runner=runner, config={}),
+        ],
+        target_environment="prod",
+    )
+    assert effect["consequence"] == DEPLOYS
+    assert effect["headline"] == "Deploy to prod — approve the review-example stage"
+
+
+def test_classified_runners_are_read_from_the_vocabulary_and_disjoint():
+    assert ENVIRONMENT_MUTATING_STEP_RUNNERS < VALID_STEP_RUNNERS
     assert NON_DEPLOYING_STEP_RUNNERS < VALID_STEP_RUNNERS
+    assert not (ENVIRONMENT_MUTATING_STEP_RUNNERS & NON_DEPLOYING_STEP_RUNNERS)
+    # Deliberately not a partition: an unread runner classifies unknown rather
+    # than inheriting an answer from the two sets around it.
+    assert VALID_STEP_RUNNERS - (
+        ENVIRONMENT_MUTATING_STEP_RUNNERS | NON_DEPLOYING_STEP_RUNNERS
+    )

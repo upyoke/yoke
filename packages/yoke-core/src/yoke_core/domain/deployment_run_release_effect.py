@@ -38,19 +38,50 @@ from typing import Any
 from yoke_core.domain.flow_validation import VALID_STEP_RUNNERS
 
 
-#: The step runners that provably reach nothing outside the control plane:
-#: one waits for a person, the other records that the stage ran. Every other
-#: runner in the vocabulary builds, deploys, activates, probes, or dispatches
-#: against a live environment.
-NON_DEPLOYING_STEP_RUNNERS = frozenset({"auto", "human-approval"})
+#: The step runners verified to mutate an environment. Each dispatch body was
+#: read: it rolls the serving container, stands up or destroys per-run preview
+#: substrate, or starts the instance and proves it reachable. Membership here
+#: is what makes a flow a deploy.
+ENVIRONMENT_MUTATING_STEP_RUNNERS = frozenset(
+    {
+        "core-container-deploy",
+        "ephemeral-deploy",
+        "ephemeral-teardown",
+        "environment-activate",
+    }
+)
 
-_UNKNOWN_ALLOWLIST = NON_DEPLOYING_STEP_RUNNERS - VALID_STEP_RUNNERS
-if _UNKNOWN_ALLOWLIST:
+#: The step runners verified to reach nothing: one records that the stage ran,
+#: one waits for a person, and three only read an environment that already
+#: exists — a health probe, one read call paying a cold start, and checks
+#: against already-deployed substrate. Reading is not deploying.
+NON_DEPLOYING_STEP_RUNNERS = frozenset(
+    {
+        "auto",
+        "human-approval",
+        "health-check",
+        "warm-up",
+        "ephemeral-verify",
+    }
+)
+
+# Deliberately not exhaustive over the vocabulary. `github-actions-workflow`
+# dispatches whatever workflow its stage names, which this build cannot read,
+# so it sits in neither set and lands its flow in `unknown`. Classifying by
+# "everything the vocabulary knows except the safe ones" is the inference that
+# called a health probe a production deploy: a runner earns a set by having
+# been read, and anything unread is unsettled.
+_MISCLASSIFIED = (
+    (ENVIRONMENT_MUTATING_STEP_RUNNERS | NON_DEPLOYING_STEP_RUNNERS)
+    - VALID_STEP_RUNNERS
+) | (ENVIRONMENT_MUTATING_STEP_RUNNERS & NON_DEPLOYING_STEP_RUNNERS)
+if _MISCLASSIFIED:
     raise RuntimeError(
-        "non-deploying step runner allowlist names "
-        f"{sorted(_UNKNOWN_ALLOWLIST)}, which the flow vocabulary no longer "
-        "defines. Recovery: rename the entries in "
-        "NON_DEPLOYING_STEP_RUNNERS to match VALID_STEP_RUNNERS."
+        f"step runner classification names {sorted(_MISCLASSIFIED)}, which the "
+        "flow vocabulary no longer defines or which appears in both sets. "
+        "Recovery: read the runner's dispatch body and put it in exactly one "
+        "of ENVIRONMENT_MUTATING_STEP_RUNNERS or NON_DEPLOYING_STEP_RUNNERS, "
+        "or leave it in neither so its flows classify unknown."
     )
 
 DEPLOYS = "deploys"
@@ -81,6 +112,10 @@ def _describe(stage: Any) -> str:
     return f"{stage.name or 'unnamed stage'} runs {_runner(stage) or 'no runner'}"
 
 
+def _listed(stages: Sequence[Any]) -> str:
+    return "; ".join(_describe(entry) for entry in stages)
+
+
 def derive_release_effect(
     *,
     stages: Sequence[Any],
@@ -94,19 +129,19 @@ def derive_release_effect(
     ``target_tier`` the run's declared destination. The returned object is
     stored verbatim on the approval request.
     """
-    known = [entry for entry in stages if _runner(entry) in VALID_STEP_RUNNERS]
     deploying = [
-        _describe(entry)
-        for entry in known
-        if _runner(entry) not in NON_DEPLOYING_STEP_RUNNERS
+        entry for entry in stages if _runner(entry) in ENVIRONMENT_MUTATING_STEP_RUNNERS
     ]
-    unrecognised = [
-        _describe(entry) for entry in stages if _runner(entry) not in VALID_STEP_RUNNERS
+    unclassified = [
+        entry
+        for entry in stages
+        if _runner(entry) not in ENVIRONMENT_MUTATING_STEP_RUNNERS
+        and _runner(entry) not in NON_DEPLOYING_STEP_RUNNERS
     ]
     destination = str(target_environment or target_tier or "").strip()
     stage_label = stage or "next"
     if deploying:
-        basis = ["Deploying stages: " + "; ".join(deploying) + "."]
+        basis = ["Deploying stages: " + _listed(deploying) + "."]
         if destination:
             basis.append(f"The flow targets {destination}.")
         return {
@@ -119,15 +154,17 @@ def derive_release_effect(
             "effect": "",
             "basis": basis,
         }
-    if unrecognised or not stages or destination:
+    if unclassified or not stages or destination:
         basis = []
-        if unrecognised:
+        if unclassified:
             basis.append(
-                "Stages this build cannot classify: " + "; ".join(unrecognised) + "."
+                "Stages this build cannot classify: " + _listed(unclassified) + "."
             )
         if not stages:
             basis.append("The flow declares no stages, so what it runs is unknown.")
-        if destination:
+        if destination and unclassified:
+            basis.append(f"The flow targets {destination}.")
+        elif destination:
             basis.append(
                 f"The flow targets {destination}, yet no stage in it deploys, "
                 "so what reaching that environment means here is not settled."
@@ -143,8 +180,9 @@ def derive_release_effect(
         "headline": DEPLOYS_NOTHING_HEADLINE,
         "effect": DEPLOYS_NOTHING_EFFECT,
         "basis": [
-            "Every stage runs human-approval or auto, and neither reaches an "
-            "environment.",
+            "Every stage runs a runner verified to reach no environment: "
+            + ", ".join(sorted({_runner(entry) for entry in stages}))
+            + ".",
             "The flow names no target environment or tier.",
         ],
     }
@@ -156,6 +194,7 @@ __all__ = [
     "DEPLOYS_NOTHING",
     "DEPLOYS_NOTHING_EFFECT",
     "DEPLOYS_NOTHING_HEADLINE",
+    "ENVIRONMENT_MUTATING_STEP_RUNNERS",
     "NON_DEPLOYING_STEP_RUNNERS",
     "UNKNOWN",
     "UNKNOWN_EFFECT",
