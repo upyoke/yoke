@@ -14,7 +14,7 @@ from yoke_core.domain.qa_catalog_reads import (
     _outcome,
     _required_capability_details,
 )
-from yoke_core.domain.qa_execution_proof import qa_prior_agent_run
+from yoke_core.domain.qa_execution_proof import qa_evidence_run_id, qa_prior_agent_run
 from yoke_core.domain.qa_method_capabilities import capability_kinds
 from yoke_core.domain.schema_common import _table_exists
 
@@ -77,7 +77,13 @@ def _case_result(
         }
     raw_result = _decode(row["raw_result"], {})
     review = _review_state(conn, int(row["requirement_id"]), row)
-    evidence_run_id = review["capture_run_id"] or row["run_id"]
+    evidence_run_id = qa_evidence_run_id(
+        conn,
+        requirement_id=int(row["requirement_id"]),
+        run_id=int(row["run_id"]) if row["run_id"] is not None else None,
+        performed_by=row["performed_by"],
+        raw_result=row["raw_result"],
+    )
     evidence = []
     if evidence_run_id is not None:
         evidence = [

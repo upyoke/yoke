@@ -83,3 +83,41 @@ def test_detail_qa_resolves_human_review_evidence_through_prior_agent_run(
     assert [artifact["artifact_type"] for artifact in row["artifacts"]] == (
         ["screenshot"]
     )
+
+
+def test_detail_qa_resolves_human_review_evidence_to_self_capturing_agent_run(
+    monkeypatch,
+):
+    conn = _connection()
+    conn.execute("ALTER TABLE qa_runs ADD COLUMN performed_by TEXT")
+    conn.execute("ALTER TABLE qa_runs ADD COLUMN verdict_reason TEXT")
+    conn.execute(
+        "INSERT INTO qa_requirements "
+        "(id, item_id, qa_kind, requirement_source, success_policy, "
+        "created_at, method_id, expected_outcome) "
+        "VALUES (7, 51, 'plan_case', 'agent-mission-review', '{}', "
+        "'now', 'terminal-inspection', 'The mission completes.')"
+    )
+    conn.execute(
+        "INSERT INTO qa_runs (id, qa_requirement_id, performed_by, verdict, "
+        "raw_result) VALUES (105, 7, 'agent', 'undetermined', '{}')"
+    )
+    conn.execute("INSERT INTO qa_artifacts VALUES (202, 105, 'terminal_screenshot')")
+    conn.execute(
+        "INSERT INTO qa_runs (id, qa_requirement_id, performed_by, verdict, "
+        "raw_result) VALUES (106, 7, 'human_review', 'pass', '{}')"
+    )
+    conn.commit()
+    monkeypatch.setattr(item_detail_read.db_helpers, "connect", lambda: conn)
+
+    item = item_detail_read.get_item_detail(51)
+    rows = {row["requirement_source"]: row for row in item["qa_requirements"]}
+    row = rows["agent-mission-review"]
+
+    # The agent run captured its own evidence directly (no capture_run_id of
+    # its own), so the human_review that overrode it must resolve back to
+    # the agent run rather than to its own (empty) artifact set.
+    assert row["run_id"] == 106
+    assert [artifact["artifact_type"] for artifact in row["artifacts"]] == (
+        ["terminal_screenshot"]
+    )
