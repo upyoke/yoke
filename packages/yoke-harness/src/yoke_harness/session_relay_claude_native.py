@@ -13,7 +13,6 @@ from yoke_contracts.session_control.model_selection import (
     LaunchModelSelection,
     native_model_selector,
 )
-from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness.session_relay_claude_invocation import ClaudeNativeInvocation
 from yoke_harness.session_relay_native_spawn import (
     SupervisedNative,
@@ -109,12 +108,10 @@ def spawn_claude_wake(
     to argue with a second owner for it: the previous turn's process is gone,
     and this one starts where it left off.
     """
-    environment = _environment(invocation)
-    environment[RESUME_ATTEMPT_ENV] = context.job_id
     return spawn_supervised_native(
         invocation.argv,
         checkout=invocation.cwd,
-        environment=environment,
+        environment=_environment(invocation),
         attempt_id=context.job_id,
         native_session_id=invocation.session_id,
         binary_source="path",

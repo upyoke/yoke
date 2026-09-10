@@ -28,7 +28,10 @@ import sys
 import time
 from typing import Callable, Mapping, Sequence
 
-from yoke_contracts.session_control.resume import RESUMED_RUNNING_RESULT
+from yoke_contracts.session_control.resume import (
+    RESUME_ATTEMPT_ENV,
+    RESUMED_RUNNING_RESULT,
+)
 from yoke_harness import session_relay_native_supervisor
 from yoke_harness.session_launch_containment import record_supervised_native
 from yoke_harness.session_relay_native_capture_format import (
@@ -46,6 +49,21 @@ from yoke_harness.session_relay_native_diagnostics import (
 
 
 ProcessFactory = Callable[..., subprocess.Popen[bytes]]
+
+
+def _child_environment(
+    environment: Mapping[str, str],
+    *,
+    supervision_kind: str,
+    attempt_id: str,
+) -> dict[str, str]:
+    """Stamp the current resume attempt; never leak a parent or create marker."""
+    child = dict(environment)
+    if supervision_kind == "resume" and attempt_id:
+        child[RESUME_ATTEMPT_ENV] = attempt_id
+    else:
+        child.pop(RESUME_ATTEMPT_ENV, None)
+    return child
 
 
 @dataclass(frozen=True)
@@ -144,7 +162,11 @@ def spawn_supervised_native(
         process = process_factory(
             supervised,
             cwd=checkout,
-            env=dict(environment),
+            env=_child_environment(
+                environment,
+                supervision_kind=supervision_kind,
+                attempt_id=attempt_id,
+            ),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

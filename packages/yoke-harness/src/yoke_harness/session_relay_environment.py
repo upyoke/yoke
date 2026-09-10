@@ -42,6 +42,7 @@ def native_session_environment(
     markers: Mapping[str, str] | None = None,
     launch_id: str | None = None,
     launch_attestation: str | None = None,
+    resume_attempt_id: str | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
     """Return a child environment with no parent-session identity facts.
@@ -62,6 +63,8 @@ def native_session_environment(
         env["YOKE_MODEL"] = model
     if markers:
         env.update(markers)
+    if resume_attempt_id:
+        env[RESUME_ATTEMPT_ENV] = resume_attempt_id
     if launch_id and launch_attestation:
         env[LAUNCH_CONTEXT_ENV] = json.dumps(
             {"launch_id": launch_id, "attestation": launch_attestation},

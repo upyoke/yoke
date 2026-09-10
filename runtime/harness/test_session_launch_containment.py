@@ -228,6 +228,10 @@ def test_quiet_resume_is_reaped_with_inactivity_evidence(tmp_path: Path) -> None
         assert outcomes[0].supervision_kind == "resume"
         assert outcomes[0].reason == "inactivity"
         assert outcomes[0].result in {"terminated", "killed"}
+        retained = json.loads(_record_file(tmp_path).read_text())
+        assert retained["containment_reason"] == "inactivity"
+        assert retained["contained_at"]
+        assert contain_stranded_launch_natives(state_dir=tmp_path, now=now) == []
         process.wait(timeout=10)
     finally:
         if process.poll() is None:

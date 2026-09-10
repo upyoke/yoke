@@ -190,6 +190,7 @@ def verified_dead_sessions(
     # names this module's launch-handle family; the dependency runs both ways
     # and only this direction is needed at call time.
     from yoke_harness.session_relay_native_turn_custody import (
+        overlay_finished_resume_evidence,
         running_native_for_session,
     )
 
@@ -222,17 +223,22 @@ def verified_dead_sessions(
                 if record.process_start_time
             },
         }
+        resume_id = overlay_finished_resume_evidence(
+            evidence,
+            session_id,
+            custody_state_dir=state_dir,
+            start_time_of=start_time_of,
+        )
         launch_id = next(
             (record.launch_id for record in records if record.launch_id), None
         )
         measured = ""
         if launch_id:
             evidence["launch_id"] = launch_id
-            evidence.update(native_account(launch_id, state_dir=state_dir))
-            # This machine started that native for this session, so what the
-            # native's own result states is this session's consumption —
-            # custody, not a name the vendor happened to print inside it.
-            measured = fold_launch_native_result(launch_id, state_dir=state_dir)
+        capture_id = resume_id or launch_id
+        if capture_id:
+            evidence.update(native_account(capture_id, state_dir=state_dir))
+            measured = fold_launch_native_result(capture_id, state_dir=state_dir)
         dead.append(
             VerifiedDeadSession(
                 session_id,

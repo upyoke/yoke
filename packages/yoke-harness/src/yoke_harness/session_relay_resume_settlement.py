@@ -53,6 +53,8 @@ class SupervisedResume:
     capture_path: Path | None
     diagnostic_ref: str | None
     running: bool
+    process_start_time: str = ""
+    containment_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -111,10 +113,16 @@ def _finished(record: SupervisedResume) -> FinishedNativeResume | None:
         fold_native_result_usage(capture)
     # The process is gone without a settled capture: its supervisor was killed
     # alongside it, or never got far enough to record how the native ended.
+    result = _result(capture if settled else None, record.diagnostic_ref)
+    evidence = {**dict(result.evidence), "native_pid": record.pid}
+    if record.process_start_time:
+        evidence["process_start_time"] = record.process_start_time
+    if record.containment_reason:
+        evidence["containment_reason"] = record.containment_reason
     return FinishedNativeResume(
         record.attempt_id,
         record.lease_id,
-        _result(capture if settled else None, record.diagnostic_ref),
+        RelayAdapterResult(result.result_code, evidence=evidence),
     )
 
 
@@ -129,6 +137,8 @@ def supervised_resumes(state_dir: Path | None = None) -> tuple[SupervisedResume,
             continue
         capture = payload.get("capture_path")
         reference = payload.get("diagnostic_ref")
+        recorded_start = payload.get("process_start_time")
+        reason = payload.get("containment_reason")
         resumes.append(
             SupervisedResume(
                 attempt_id=str(payload.get("launch_id") or ""),
@@ -136,9 +146,11 @@ def supervised_resumes(state_dir: Path | None = None) -> tuple[SupervisedResume,
                 lease_id=str(payload.get("lease_id") or ""),
                 capture_path=Path(capture) if isinstance(capture, str) else None,
                 diagnostic_ref=reference if isinstance(reference, str) else None,
-                # A reused pid names a different process, so the resume this
-                # record was written for is gone either way.
-                running=process_start_time(pid) == payload.get("process_start_time"),
+                running=process_start_time(pid) == recorded_start,
+                process_start_time=str(recorded_start or ""),
+                containment_reason=(
+                    str(reason).strip() if isinstance(reason, str) else ""
+                ),
             )
         )
     return tuple(resumes)

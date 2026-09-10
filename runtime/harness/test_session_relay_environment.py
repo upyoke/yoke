@@ -73,6 +73,29 @@ def test_native_environment_stamps_resolved_model_for_registration() -> None:
     assert environment["YOKE_MODEL"] == "cursor-grok-4.6-high-fast"
 
 
+def test_wake_environment_stamps_its_resume_attempt_after_the_parent_strip() -> None:
+    from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
+
+    environment = native_session_environment(
+        executor="cursor",
+        resume_attempt_id="attempt-1",
+        environ={RESUME_ATTEMPT_ENV: "stale-parent"},
+    )
+
+    assert environment[RESUME_ATTEMPT_ENV] == "attempt-1"
+
+
+def test_create_environment_drops_an_inherited_resume_attempt() -> None:
+    from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
+
+    environment = native_session_environment(
+        executor="cursor",
+        environ={RESUME_ATTEMPT_ENV: "stale-parent"},
+    )
+
+    assert RESUME_ATTEMPT_ENV not in environment
+
+
 def test_wake_environment_drops_stale_launch_context() -> None:
     environment = native_session_environment(
         executor="cursor",

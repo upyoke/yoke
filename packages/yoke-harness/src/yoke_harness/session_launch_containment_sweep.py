@@ -92,6 +92,8 @@ def contain_stranded_launch_natives(
         recorded_at = payload.get("recorded_at")
         if not isinstance(recorded_at, int):
             continue
+        if payload.get("contained_at") is not None:
+            continue
         kind = str(payload.get("supervision_kind") or "launch")
         if kind not in {"launch", "resume"}:
             kind = "launch"
@@ -163,7 +165,10 @@ def _contain_payload(
         result = "already_exited"
     else:
         result = _terminate(pid)
-    _drop(path)
+    if kind == "resume":
+        _retain_contained_resume(path, payload, result=result, reason=reason)
+    else:
+        _drop(path)
     return ContainmentOutcome(
         launch_id=launch_id,
         pid=pid,
@@ -172,6 +177,26 @@ def _contain_payload(
         supervision_kind=kind,
         reason=reason,
     )
+
+
+def _retain_contained_resume(
+    path: Path,
+    payload: dict[str, object],
+    *,
+    result: str,
+    reason: str,
+) -> None:
+    """Keep resume identity so settlement can report the exit after delivery."""
+    payload["contained_at"] = int(time.time())
+    payload["containment_result"] = result
+    payload["containment_reason"] = reason
+    try:
+        temporary = path.with_suffix(f".{os.getpid()}.tmp")
+        temporary.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+        temporary.chmod(0o600)
+        os.replace(temporary, path)
+    except OSError:
+        return
 
 
 def _drop(path: Path) -> None:
