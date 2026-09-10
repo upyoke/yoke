@@ -9,7 +9,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { byClass, settle } from "./universe_ui_dom_test_support.mjs";
-import { artifactCaption } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_evidence_artifact_view.js";
+import {
+  artifactCaption,
+  artifactLabel,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/qa_evidence_artifact_view.js";
 import {
   qaBareRequestRow,
   qaRequestRow,
@@ -20,15 +23,18 @@ import {
 const gateText = (main) => byClass(main, "gate-body")[0].textContent;
 
 test("artifact captions lead with the authored capture label", () => {
+  const artifact = {
+    metadata: {
+      label: "Approval actions and eligibility",
+      route: "/inbox",
+      step_index: 2,
+      browser: "chromium",
+    },
+    artifact_handle: { backend: "s3", key: "private/raw-name.png" },
+  };
+  assert.equal(artifactLabel(artifact), "Approval actions and eligibility");
   assert.equal(
-    artifactCaption({
-      metadata: {
-        label: "Approval actions and eligibility",
-        route: "/inbox",
-        step_index: 2,
-        browser: "chromium",
-      },
-    }),
+    artifactCaption(artifact),
     "Approval actions and eligibility · /inbox · step 2 · chromium",
   );
 });

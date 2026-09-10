@@ -87,7 +87,8 @@ class SshMacTransport:
             return subprocess.run(
                 argv,
                 input=input_text,
-                text=True,
+                encoding="utf-8",
+                errors="backslashreplace",
                 capture_output=True,
                 timeout=timeout,
                 check=False,

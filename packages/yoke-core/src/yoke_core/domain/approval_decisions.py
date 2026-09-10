@@ -217,10 +217,10 @@ def _box_satisfied(
 def _box_label(
     conn: Any,
     box: dict[str, Any],
-    actor_labels: dict[int, str],
+    decider_names: dict[int, str],
 ) -> str:
     if box["kind"] == "actor":
-        return actor_labels[int(box["actor_id"])]
+        return decider_names[int(box["actor_id"])]
     return str(box["label"])
 
 
@@ -240,7 +240,7 @@ def evaluate_decisions(conn: Any, request: dict[str, Any]) -> ApprovalProgress:
             for decision in decisions
             if is_human_actor(conn, decision["actor_id"])
         ]
-    actor_labels = actor_display_labels(
+    decider_names = actor_display_labels(
         conn,
         (box["actor_id"] for box in boxes if box["kind"] == "actor"),
     )
@@ -268,7 +268,7 @@ def evaluate_decisions(conn: Any, request: dict[str, Any]) -> ApprovalProgress:
                 note=decision["note"],
             )
     outstanding = tuple(
-        _box_label(conn, box, actor_labels)
+        _box_label(conn, box, decider_names)
         for box in boxes
         if not _box_satisfied(conn, box, decided_actor_ids)
     )
