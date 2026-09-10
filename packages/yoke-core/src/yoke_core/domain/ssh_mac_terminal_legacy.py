@@ -105,7 +105,7 @@ def execute_legacy_terminal_case(
                     },
                     "terminal_input_failed",
                 )
-            transcript = wait_for_text(
+            wait = wait_for_text(
                 run,
                 backend=backend,
                 session=session,
@@ -113,19 +113,26 @@ def execute_legacy_terminal_case(
                 timeout_seconds=int(step.get("timeout_seconds", 30)),
             )
             key = str(step["key"])
-            reached = transcript is not None
             captured.append(
                 {
                     "key": key,
                     "expect": str(step["expect"]),
-                    "reached": reached,
-                    "transcript": transcript or "",
+                    "reached": wait.matched,
+                    "transcript": wait.transcript,
                 }
             )
-            if not reached:
+            if not wait.matched:
                 return HostActionResult(
                     False,
-                    {"steps": captured},
+                    {
+                        "steps": captured,
+                        "expected_not_observed": str(step["expect"]),
+                        "recovery": (
+                            "Read the failing step's transcript for what the "
+                            "terminal actually showed, then correct the expected "
+                            "text or the entry surface, or raise timeout_seconds."
+                        ),
+                    },
                     (
                         "terminal_completion_not_reached"
                         if key == required_completion

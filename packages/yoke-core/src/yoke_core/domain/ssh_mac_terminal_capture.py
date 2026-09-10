@@ -3,6 +3,7 @@
 from yoke_harness.ssh_mac_terminal_capture import (
     RunRemote,
     TerminalBackend,
+    TerminalWaitResult,
     capture_screen,
     close_terminal_session,
     close_terminal_window,
@@ -18,6 +19,7 @@ from yoke_harness.ssh_mac_terminal_capture import (
 __all__ = [
     "RunRemote",
     "TerminalBackend",
+    "TerminalWaitResult",
     "capture_screen",
     "close_terminal_session",
     "close_terminal_window",

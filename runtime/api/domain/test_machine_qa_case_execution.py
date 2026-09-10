@@ -17,7 +17,11 @@ from yoke_core.domain.qa_artifact_handle import local_handle, parse_handle, s3_h
 from yoke_core.domain.qa_case_execution_context import (
     get_case_execution_context,
 )
-from yoke_core.domain.ssh_mac_terminal_capture import verify_terminal_bridge
+from yoke_core.domain.ssh_mac_terminal_capture import (
+    TerminalWaitResult,
+    verify_terminal_bridge,
+    wait_for_text,
+)
 from yoke_core.domain.ssh_mac_host_control import SshMacHostControl
 
 
@@ -88,7 +92,10 @@ def test_required_terminal_completion_has_distinct_not_reached_outcome(
     )
     monkeypatch.setattr(
         "yoke_core.domain.ssh_mac_terminal_legacy.wait_for_text",
-        lambda *_args, **_kwargs: None,
+        lambda *_args, **_kwargs: TerminalWaitResult(
+            False,
+            "Usage: yoke onboard [OPTIONS]",
+        ),
     )
 
     result = control.run_terminal_case(
@@ -100,6 +107,66 @@ def test_required_terminal_completion_has_distinct_not_reached_outcome(
 
     assert result.ok is False
     assert result.error_code == "terminal_completion_not_reached"
+    assert result.evidence["steps"] == [
+        {
+            "key": "review",
+            "expect": "Review",
+            "reached": False,
+            "transcript": "Usage: yoke onboard [OPTIONS]",
+        }
+    ]
+    assert result.evidence["expected_not_observed"] == "Review"
+    assert "transcript" in result.evidence["recovery"]
+
+
+def test_wait_for_text_timeout_preserves_last_observed_output() -> None:
+    def run(_command: str, **_kwargs):
+        return SimpleNamespace(
+            returncode=0,
+            stdout="partial help screen",
+            stderr="",
+        )
+
+    outcome = wait_for_text(
+        run,
+        session="capture",
+        expected="never shown",
+        timeout_seconds=0,
+    )
+
+    assert outcome == TerminalWaitResult(False, "partial help screen")
+
+
+def test_wait_for_text_match_returns_matching_transcript() -> None:
+    def run(_command: str, **_kwargs):
+        return SimpleNamespace(
+            returncode=0,
+            stdout="setup\ncompletion sentinel\n",
+            stderr="",
+        )
+
+    outcome = wait_for_text(
+        run,
+        session="capture",
+        expected="completion sentinel",
+        timeout_seconds=0,
+    )
+
+    assert outcome == TerminalWaitResult(True, "setup\ncompletion sentinel\n")
+
+
+def test_wait_for_text_truly_empty_output_reports_empty_transcript() -> None:
+    def run(_command: str, **_kwargs):
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    outcome = wait_for_text(
+        run,
+        session="capture",
+        expected="anything",
+        timeout_seconds=0,
+    )
+
+    assert outcome == TerminalWaitResult(False, "")
 
 
 def test_machine_result_records_exact_outcome_and_canonical_artifacts(
