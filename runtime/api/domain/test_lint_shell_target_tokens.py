@@ -163,6 +163,34 @@ class TestCaptureFirstWriteTargets:
         assert extract_payload_write_targets(_bash(command)) == []
 
 
+class TestPathValuedFlagOperands:
+    """``-C`` and its ``--flag=`` siblings resolve like redirect operands.
+
+    A flag operand passed through as literal ``$VAR`` text reaches a
+    consumer that joins non-absolute targets to the harness cwd, so the
+    guard names a main-checkout path the command never mentioned.
+    """
+
+    def test_same_command_temp_binding_resolves_the_directory_operand(self):
+        command = f'_d=$(mktemp -d {CAPTURE_TEMPLATE})\ngit -C "$_d" add file.py'
+        assert extract_payload_write_targets(_bash(command)) == [CAPTURE_TEMPLATE]
+
+    def test_unbound_directory_operand_yields_no_verdict(self):
+        analysis = analyze_payload_write_targets(_bash('git -C "$_d" add file.py'))
+        assert analysis.targets == []
+        assert analysis.unresolved_variable is True
+
+    def test_relative_directory_operand_still_extracts(self):
+        analysis = analyze_payload_write_targets(_bash("git -C runtime add file.py"))
+        assert analysis.targets == ["runtime"]
+        assert analysis.unresolved_variable is False
+
+    def test_equals_form_flag_resolves_and_drops_what_it_cannot(self):
+        bound = f"root=$(mktemp -d {CAPTURE_TEMPLATE})\nyoke agents render --target-root=$root"
+        assert extract_command_targets(bound) == [CAPTURE_TEMPLATE]
+        assert extract_command_targets("yoke agents render --target-root=$root") == []
+
+
 @pytest.fixture
 def conn():
     with test_database() as c:
@@ -223,6 +251,48 @@ class TestCaptureFirstLaneGuard:
             "tool_input": {"command": 'pytest -q > "$CAPTURE"'},
         })
         assert verdict.allow is True
+
+    def test_lane_directory_operand_from_a_temp_binding_is_allowed(
+        self, conn, repo,
+    ):
+        worktree = _seed_lane(conn, repo)
+        command = f'_d=$(mktemp -d {CAPTURE_TEMPLATE})\ngit -C "$_d" add {worktree}/f.py'
+        verdict = lint_lane_main_write.evaluate_pre_tool_use({
+            "session_id": "sid-capture",
+            "tool_name": "Bash",
+            "cwd": str(repo),
+            "tool_input": {"command": command},
+        })
+        assert verdict.allow is True
+
+    def test_unbound_directory_operand_names_no_main_path(self, conn, repo):
+        """The reported false denial: the guard resolved literal ``$_d``
+        against the harness cwd and refused the main checkout.
+        """
+        _seed_lane(conn, repo)
+        verdict = lint_lane_main_write.evaluate_pre_tool_use({
+            "session_id": "sid-capture",
+            "tool_name": "Bash",
+            "cwd": str(repo),
+            "tool_input": {"command": 'git -C "$_d" add file.py'},
+        })
+        assert verdict.allow is True
+
+    def test_directory_operand_bound_into_main_still_denies(self, conn, repo):
+        _seed_lane(conn, repo)
+        area = repo / "runtime"
+        area.mkdir(parents=True, exist_ok=True)
+        with mock.patch.object(
+            lint_lane_main_write, "emit_denied", return_value=None,
+        ):
+            verdict = lint_lane_main_write.evaluate_pre_tool_use({
+                "session_id": "sid-capture",
+                "tool_name": "Bash",
+                "cwd": str(repo),
+                "tool_input": {"command": f'd={area}\ngit -C "$d" add api/foo.py'},
+            })
+        assert verdict.allow is False
+        assert str(area) in verdict.reason
 
     def test_relative_main_write_still_denies(self, conn, repo):
         """The cwd fallback survives for operands that name no variable."""

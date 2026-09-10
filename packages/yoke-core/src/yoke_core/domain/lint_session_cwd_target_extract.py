@@ -39,7 +39,7 @@ from yoke_core.domain.lint_python_write_target_extract import (
     analyze_python_heredoc_writes,
 )
 from yoke_core.domain.lint_shell_target_tokens import (
-    resolve_write_operands,
+    resolve_path_operands,
     shell_variable_bindings,
 )
 from yoke_core.domain.lint_session_cwd_home import expand_machine_home
@@ -264,14 +264,16 @@ def _extract_shell_write_targets(command: str) -> Tuple[List[str], bool]:
         if not tokens:
             continue
         clean, redirects = _split_redirect_targets(tokens)
-        resolved, segment_unresolved = resolve_write_operands(redirects, bindings)
+        resolved, segment_unresolved = resolve_path_operands(redirects, bindings)
         out.extend(resolved)
         unresolved = unresolved or segment_unresolved
         if not clean:
             continue
         command_base = PurePath(clean[0]).name
         if command_base == "git":
-            out.extend(git_write_targets(segment, bindings=bindings))
+            git_targets, git_unresolved = git_write_targets(segment, bindings=bindings)
+            out.extend(git_targets)
+            unresolved = unresolved or git_unresolved
             continue
         args = clean[1:]
         positionals = [arg for arg in args if arg != "-" and not arg.startswith("-")]
@@ -279,7 +281,7 @@ def _extract_shell_write_targets(command: str) -> Tuple[List[str], bool]:
             positionals = positionals[-1:]
         elif command_base not in _ALL_POSITIONAL_WRITE_COMMANDS:
             continue
-        resolved, segment_unresolved = resolve_write_operands(positionals, bindings)
+        resolved, segment_unresolved = resolve_path_operands(positionals, bindings)
         out.extend(resolved)
         unresolved = unresolved or segment_unresolved
     return _dedupe_paths(out), unresolved

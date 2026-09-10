@@ -146,16 +146,17 @@ def path_target_from_token(
     return expanded
 
 
-def resolve_write_operands(
+def resolve_path_operands(
     tokens: List[str],
     bindings: Mapping[str, str],
 ) -> Tuple[List[str], bool]:
-    """Expand write-position operands, reporting whether any went unresolved.
+    """Expand path-position operands, reporting whether any went unresolved.
 
-    Write consumers accept relative operands (``touch notes.md`` lands under
-    the harness cwd), so this keeps every expanded token rather than
-    filtering to absolute paths. The flag lets a caller tell "no write
-    operands" apart from "write operands naming a path we cannot resolve".
+    Redirect targets, write-verb operands, and path-valued flags such as
+    ``git -C <dir>`` all accept relative operands (``touch notes.md`` lands
+    under the harness cwd), so this keeps every expanded token rather than
+    filtering to absolute paths. The flag lets a caller tell "no path
+    operands" apart from "operands naming a path we cannot resolve".
     """
     resolved: List[str] = []
     unresolved = False
@@ -273,7 +274,7 @@ __all__ = [
     "expand_variables",
     "is_path_like",
     "path_target_from_token",
-    "resolve_write_operands",
+    "resolve_path_operands",
     "shell_command_segments",
     "shell_variable_bindings",
     "split_command_segments",
