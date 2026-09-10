@@ -3,6 +3,7 @@ import {
   el,
   withProjectColumn,
 } from "./universe_view_support.js";
+import { artifactEvidenceCard } from "./qa_evidence_artifact_view.js";
 import {
   loadProjectCalls,
   outcomeNode,
@@ -79,6 +80,33 @@ function evidenceText(row) {
   return count ? `${count} ${count === 1 ? "artifact" : "artifacts"}` : "—";
 }
 
+// Genuinely linked evidence, drawn through the same reader every other QA
+// surface uses — a count alone gave this table's reader a number and no way
+// to look at the screenshot it counted.
+function evidenceCell(context, documentNode, row) {
+  const td = el(documentNode, "td", "qa-activity-evidence");
+  const artifacts = Array.isArray(row.artifacts) ? row.artifacts : [];
+  if (!artifacts.length) {
+    td.textContent = evidenceText(row);
+    if (row.verdict_reason) attachTooltip(documentNode, td, row.verdict_reason);
+    return td;
+  }
+  const summary = el(
+    documentNode, "div", "qa-activity-evidence-summary", evidenceText(row),
+  );
+  if (row.verdict_reason) attachTooltip(documentNode, summary, row.verdict_reason);
+  td.appendChild(summary);
+  const cards = el(documentNode, "div", "qa-activity-evidence-cards");
+  for (const artifact of artifacts) {
+    cards.appendChild(artifactEvidenceCard(context, artifact, row.requirement_id));
+  }
+  td.appendChild(cards);
+  // The row itself navigates to its plan on click; the evidence card's own
+  // "view ->" button and full-image link must not also trigger that.
+  td.addEventListener("click", (event) => event.stopPropagation());
+  return td;
+}
+
 function activityProjectLabel(context, row) {
   const rowLabel = row.project_slug || row.project;
   const rowKey = row.project_id ?? rowLabel;
@@ -148,11 +176,7 @@ function renderActivityTable(context, body, rows, scope) {
       documentNode, row.outcome, row.capture_degraded_reason,
     ));
     tr.appendChild(outcome);
-    const evidence = el(documentNode, "td", null, evidenceText(row));
-    if (row.verdict_reason) {
-      attachTooltip(documentNode, evidence, row.verdict_reason);
-    }
-    tr.appendChild(evidence);
+    tr.appendChild(evidenceCell(context, documentNode, row));
     const when = el(documentNode, "td");
     when.appendChild(relativeTimeNode(documentNode, row.happened_at));
     tr.appendChild(when);

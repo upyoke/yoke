@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.db_helpers import query_one, query_rows
 
 
 def _row_value(row: Any, key: str) -> Any:
@@ -252,10 +252,92 @@ def qa_artifact_rows_by_run(
     return result
 
 
+def qa_prior_agent_run(
+    conn: Any,
+    *,
+    requirement_id: int,
+    before_run_id: int,
+) -> dict[str, Any] | None:
+    """Return the last agent-performed run for a requirement before a run.
+
+    A ``human_review`` verdict overrides the agent verdict instead of
+    capturing its own evidence, so its capture reference lives here.
+    """
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    return query_one(
+        conn,
+        "SELECT id, verdict, verdict_reason, raw_result FROM qa_runs "
+        f"WHERE qa_requirement_id={marker} AND performed_by='agent' "
+        f"AND id<{marker} ORDER BY id DESC LIMIT 1",
+        (requirement_id, before_run_id),
+    )
+
+
+def _run_belongs_to_requirement(
+    conn: Any,
+    *,
+    run_id: int,
+    requirement_id: int,
+) -> bool:
+    """True when ``run_id`` is a real run recorded against ``requirement_id``.
+
+    A raw_result-embedded ``capture_run_id`` is untrusted data, not a
+    foreign key; unvalidated it could attach a stranger's evidence.
+    """
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = query_one(
+        conn,
+        f"SELECT 1 FROM qa_runs WHERE id={marker} AND qa_requirement_id={marker}",
+        (run_id, requirement_id),
+    )
+    return row is not None
+
+
+def qa_evidence_run_id(
+    conn: Any,
+    *,
+    requirement_id: int,
+    run_id: int | None,
+    performed_by: str | None,
+    raw_result: Any,
+) -> int | None:
+    """Return the run whose artifacts back a requirement's latest verdict.
+
+    A review's own ``raw_result`` embeds ``capture_run_id``, pointing at
+    the immutable run its screenshots came from. A ``human_review`` reads
+    that reference off the prior ``agent`` run it overrode instead of its
+    own; when that agent run has none either, it was itself the capture,
+    so its id is the fallback rather than the human_review row (which
+    owns no artifacts). Every reference is verified against this same
+    requirement, so a corrupted or mismatched one falls back instead of
+    surfacing a different subject's evidence.
+    """
+    if run_id is None:
+        return None
+    capture_run_id = _payload(raw_result).get("capture_run_id")
+    fallback_run_id = run_id
+    if str(performed_by or "") == "human_review":
+        agent = qa_prior_agent_run(
+            conn, requirement_id=requirement_id, before_run_id=int(run_id)
+        )
+        if agent is not None:
+            capture_run_id = _payload(agent["raw_result"]).get("capture_run_id")
+            fallback_run_id = int(agent["id"])
+        else:
+            capture_run_id = None
+    if str(capture_run_id or "").strip().isdigit() and _run_belongs_to_requirement(
+        conn, run_id=int(capture_run_id), requirement_id=requirement_id
+    ):
+        return int(capture_run_id)
+    return int(fallback_run_id)
+
+
 __all__ = [
     "qa_artifact_counts_by_run",
     "qa_artifact_rows_by_run",
+    "qa_evidence_run_id",
     "qa_precondition_reason",
+    "qa_prior_agent_run",
     "qa_proof_summary",
     "qa_run_outcome",
 ]
