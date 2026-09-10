@@ -100,13 +100,6 @@ def test_an_older_run_cannot_supersede_a_later_review() -> None:
             actor_id="7",
             session_id="later-review-session",
         )
-        advance_plan_execution(
-            conn,
-            execution,
-            ordinal=0,
-            requirement_id=requirement_id,
-            result={"requirement_id": requirement_id, "verdict": "undetermined"},
-        )
         run_id = conn.execute(
             "INSERT INTO qa_runs "
             "(qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
@@ -117,6 +110,17 @@ def test_an_older_run_cannot_supersede_a_later_review() -> None:
             "'2026-07-28T18:42:00Z') RETURNING id",
             (requirement_id,),
         ).fetchone()[0]
+        advance_plan_execution(
+            conn,
+            execution,
+            ordinal=0,
+            requirement_id=requirement_id,
+            result={
+                "requirement_id": requirement_id,
+                "verdict": "undetermined",
+                "run_id": int(run_id),
+            },
+        )
         request, _created = ensure_qa_review_request(
             conn, requirement_id=int(requirement_id), run_id=int(run_id)
         )

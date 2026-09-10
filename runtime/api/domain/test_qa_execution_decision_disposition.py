@@ -34,7 +34,12 @@ from yoke_core.domain.qa_review_requests import ensure_qa_review_request
 
 
 def _undetermined_walk(conn, *, item_id: int, session_id: str) -> tuple[dict, int]:
-    """Walk one case to an undetermined verdict and raise its review request."""
+    """Walk one case to an undetermined verdict and raise its review request.
+
+    Records the run's own id on the case's durable result, the same way a
+    real capture does, so the review request it raises is bound to this
+    execution through the existing relation the disposal check reads.
+    """
     requirement_ids = _materialize_two_cases(conn, item_id=item_id)
     requirement_id = requirement_ids[0]
     execution = begin_plan_execution(
@@ -43,13 +48,6 @@ def _undetermined_walk(conn, *, item_id: int, session_id: str) -> tuple[dict, in
         transition_id="implemented",
         actor_id="7",
         session_id=session_id,
-    )
-    advance_plan_execution(
-        conn,
-        execution,
-        ordinal=0,
-        requirement_id=requirement_id,
-        result={"requirement_id": requirement_id, "verdict": "undetermined"},
     )
     run_id = conn.execute(
         "INSERT INTO qa_runs "
@@ -61,6 +59,17 @@ def _undetermined_walk(conn, *, item_id: int, session_id: str) -> tuple[dict, in
         "'2026-07-28T18:42:00Z') RETURNING id",
         (requirement_id,),
     ).fetchone()[0]
+    advance_plan_execution(
+        conn,
+        execution,
+        ordinal=0,
+        requirement_id=requirement_id,
+        result={
+            "requirement_id": requirement_id,
+            "verdict": "undetermined",
+            "run_id": int(run_id),
+        },
+    )
     request, created = ensure_qa_review_request(
         conn,
         requirement_id=int(requirement_id),
@@ -122,32 +131,36 @@ def test_completing_an_execution_preserves_the_review_it_raised() -> None:
         assert _status(conn, request_id)[0] == "pending"
 
 
-def test_a_review_survives_while_another_execution_still_walks_it() -> None:
+def test_a_review_survives_while_its_own_execution_still_walks_it() -> None:
+    """An unrelated execution's own history must not decide this review's fate.
+
+    The execution that actually raised the review is still active. A
+    second, unrelated execution has already ended on the same requirement
+    without ever recording this run -- it is not bound to the review and
+    must be ignored.
+    """
     with test_database() as conn:
-        first, request_id = _undetermined_walk(
+        execution, request_id = _undetermined_walk(
             conn, item_id=4803, session_id="first-session"
         )
-        requirement_id = first["roster"][0]["requirement_id"]
+        requirement_id = execution["roster"][0]["requirement_id"]
         conn.execute(
             "INSERT INTO qa_plan_executions"
             "(id,item_id,transition_id,actor_id,session_id,roster_digest,"
-            "roster_json,cursor_ordinal,state,created_at,heartbeat_at) "
-            "VALUES ('second-walk',%s,'implementing','7','second-session',"
-            "'digest','[]',0,'active','2026-07-28T18:42:00Z',"
-            "'2026-07-28T18:42:00Z')",
+            "roster_json,cursor_ordinal,state,created_at,heartbeat_at,"
+            "completed_at) "
+            "VALUES ('unrelated-walk',%s,'implementing','7','other-session',"
+            "'digest','[]',0,'aborted','2026-07-28T18:41:00Z',"
+            "'2026-07-28T18:41:00Z','2026-07-28T18:41:00Z')",
             (4803,),
         )
         conn.execute(
             "INSERT INTO qa_plan_execution_results"
             "(execution_id,ordinal,requirement_id,result_json,completed_at) "
-            "VALUES ('second-walk',0,%s,'{}','2026-07-28T18:42:00Z')",
+            "VALUES ('unrelated-walk',0,%s,'{}','2026-07-28T18:41:00Z')",
             (requirement_id,),
         )
         conn.commit()
-
-        finish_plan_execution(
-            conn, first, state="aborted", reason="first walk abandoned"
-        )
 
         assert _status(conn, request_id)[0] == "pending"
         with pytest.raises(ValueError, match="still being walked"):
@@ -225,7 +238,7 @@ def test_the_sweep_converges_a_walk_that_already_ended() -> None:
 
         assert _status(conn, request_id)[0] == "withdrawn"
         assert [row["request_id"] for row in result["withdrawn"]] == [request_id]
-        assert "no live plan execution left" in result["withdrawn"][0]["evidence"]
+        assert "ended as aborted" in result["withdrawn"][0]["evidence"]
 
 
 def test_a_vintage_execution_without_a_target_still_runs_nothing_but_aborts() -> None:
