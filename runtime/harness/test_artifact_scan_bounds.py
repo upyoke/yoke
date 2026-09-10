@@ -21,6 +21,7 @@ from yoke_harness.artifact_scan import (
     scan_rows,
     tail_rows_newest_first,
 )
+from yoke_harness.codex_artifact_reader import codex_record_decoder
 
 
 def _write(path: Path, rows: list[dict]) -> Path:
@@ -103,6 +104,7 @@ def test_an_oversized_record_without_its_newline_yet_is_not_held(
     result = scan_rows(artifact, 0, lambda row: None)
 
     assert result.oversized
+    assert result.offset == artifact.stat().st_size
 
 
 def test_a_read_that_stops_short_says_so_and_the_next_one_resumes(
@@ -245,6 +247,34 @@ def test_a_fold_leaves_a_final_record_without_its_newline_for_next_time(
 
     assert seen == []
     assert result.offset == 0
+
+
+def test_a_projected_final_record_retries_whole_after_its_newline(
+    tmp_path: Path,
+) -> None:
+    encoded = json.dumps(
+        {
+            "type": "event_msg",
+            "payload": {
+                "type": "token_count",
+                "info": {"total_token_usage": {"input_tokens": 123}},
+            },
+        }
+    )
+    artifact = tmp_path / "s.jsonl"
+    artifact.write_text(encoded[: len(encoded) // 2])
+    seen: list[dict] = []
+
+    first = scan_rows(artifact, 0, seen.append, record_factory=codex_record_decoder)
+    with artifact.open("a") as handle:
+        handle.write(encoded[len(encoded) // 2 :] + "\n")
+    second = scan_rows(
+        artifact, first.offset, seen.append, record_factory=codex_record_decoder
+    )
+
+    assert first.offset == 0
+    assert second.caught_up
+    assert seen[0]["payload"]["info"]["total_token_usage"]["input_tokens"] == 123
 
 
 def test_the_newest_records_are_read_from_the_end(tmp_path: Path) -> None:

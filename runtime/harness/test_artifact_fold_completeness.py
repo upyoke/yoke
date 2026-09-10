@@ -93,7 +93,7 @@ def test_model_facts_are_not_attested_from_a_fold_that_stopped_short(
     rollout = write_rows(
         tmp_path / "rollout.jsonl",
         [codex_turn_context("gpt-5")]
-        + [{"type": "event_msg", "payload": {"filler": "a" * 2_000}}] * 4
+        + [{"type": "event_msg", "payload": {"filler": "a" * 150}}] * 8
         + [codex_turn_context("gpt-5-codex")],
     )
 
@@ -170,10 +170,13 @@ def test_a_settled_session_keeps_resolving_while_its_fold_is_behind(
         record_model_facts_shipped,
     )
 
+    monkeypatch.delenv("YOKE_MODEL", raising=False)
+    monkeypatch.delenv("CODEX_MODEL", raising=False)
+
     rollout = write_rows(
         tmp_path / "rollout.jsonl",
         [codex_turn_context("gpt-5")]
-        + [{"type": "event_msg", "payload": {"filler": "a" * 2_000}}] * 4
+        + [{"type": "event_msg", "payload": {"filler": "a" * 150}}] * 8
         + [codex_turn_context("gpt-5-codex")],
     )
     monkeypatch.setattr(

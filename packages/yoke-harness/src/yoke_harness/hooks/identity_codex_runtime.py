@@ -18,6 +18,7 @@ from typing import Optional
 from yoke_cli.config import machine_config
 from yoke_contracts.executor_labels import surface_alias
 from yoke_harness.artifact_scan import iter_rows, tail_rows_newest_first
+from yoke_harness.codex_artifact_reader import codex_record_decoder
 
 
 def _normalize_entrypoint(originator: str = "", source: str = "") -> Optional[str]:
@@ -64,7 +65,7 @@ def _codex_model_from_transcript(thread_id: str) -> Optional[str]:
     session's history to arrive at its last row.
     """
     for path in codex_transcript_candidates(thread_id):
-        for row in tail_rows_newest_first(path):
+        for row in tail_rows_newest_first(path, record_factory=codex_record_decoder):
             if row.get("type") != "turn_context":
                 continue
             payload = row.get("payload") or {}
@@ -88,7 +89,7 @@ def _codex_entrypoint_from_transcript(thread_id: str) -> Optional[str]:
     if remembered:
         return remembered
     for path in codex_transcript_candidates(thread_id):
-        for row in iter_rows(path):
+        for row in iter_rows(path, record_factory=codex_record_decoder):
             if row.get("type") != "session_meta":
                 continue
             payload = row.get("payload") or {}

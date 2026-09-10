@@ -27,6 +27,13 @@ from yoke_contracts.session_usage_facts import (
 )
 from yoke_contracts.session_usage_sources import usage_source
 from yoke_harness.artifact_scan import scan_rows
+from yoke_harness.codex_artifact_reader import (
+    MODEL_HISTORY_INCOMPLETE_KEY,
+    USAGE_INCOMPLETE_KEY,
+    codex_record_decoder,
+    prepare_codex_watermark,
+    stamp_codex_reader,
+)
 from yoke_harness.artifact_watermark import (
     ArtifactWatermark,
     load_watermark,
@@ -48,6 +55,14 @@ from yoke_harness.usage_attestation import (
 MIXED_MODEL_REASON = (
     "this harness states one session-wide total and more than one model "
     "served the session, so consumption cannot be attributed per model"
+)
+USAGE_GAP_REASON = (
+    "a Codex rollout record could not be projected, so its cumulative token "
+    "statement is unavailable until a later total replaces it"
+)
+MODEL_HISTORY_GAP_REASON = (
+    "a Codex rollout record could not be projected, so the session's model "
+    "history and API-equivalent cost cannot be known exactly"
 )
 
 
@@ -73,7 +88,8 @@ def attest_codex_usage(payload: Mapping[str, Any], session_id: str) -> SessionUs
     with watermark_lock(session_id) as folding:
         if not folding:
             return _persisted_codex_reading(session_id, path, source)
-        mark = load_watermark(session_id, path)
+        persisted_mark = load_watermark(session_id, path)
+        mark = prepare_codex_watermark(persisted_mark)
         stored = stored_totals(mark)
         state: dict[str, Any] = {
             "latest": stored.get("latest")
@@ -82,7 +98,15 @@ def attest_codex_usage(payload: Mapping[str, Any], session_id: str) -> SessionUs
             "models": [
                 str(name) for name in stored.get("models", []) if str(name).strip()
             ],
+            USAGE_INCOMPLETE_KEY: bool(stored.get(USAGE_INCOMPLETE_KEY)),
+            MODEL_HISTORY_INCOMPLETE_KEY: bool(
+                stored.get(MODEL_HISTORY_INCOMPLETE_KEY)
+            ),
         }
+
+        def mark_gap() -> None:
+            state[USAGE_INCOMPLETE_KEY] = True
+            state[MODEL_HISTORY_INCOMPLETE_KEY] = True
 
         def fold(row: Mapping[str, Any]) -> None:
             block = row.get("payload")
@@ -98,18 +122,36 @@ def attest_codex_usage(payload: Mapping[str, Any], session_id: str) -> SessionUs
             totals = _codex_totals(block)
             if totals is not None:
                 state["latest"] = totals
+                state[USAGE_INCOMPLETE_KEY] = False
 
-        scan = scan_rows(path, mark.offset, fold)
+        scan = scan_rows(
+            path,
+            mark.offset,
+            fold,
+            record_factory=codex_record_decoder,
+            on_unrecoverable=mark_gap,
+        )
         mark = ArtifactWatermark(
             offset=scan.offset,
             last_key=mark.last_key,
-            totals={"latest": state["latest"] or {}, "models": state["models"]},
+            totals=stamp_codex_reader(
+                {
+                    "latest": state["latest"] or {},
+                    "models": state["models"],
+                    USAGE_INCOMPLETE_KEY: state[USAGE_INCOMPLETE_KEY],
+                    MODEL_HISTORY_INCOMPLETE_KEY: state[MODEL_HISTORY_INCOMPLETE_KEY],
+                }
+            ),
             truncated=mark.truncated,
-            oversized=mark.oversized or scan.oversized,
+            oversized=bool(
+                state[USAGE_INCOMPLETE_KEY] or state[MODEL_HISTORY_INCOMPLETE_KEY]
+            ),
             caught_up=scan.caught_up,
         )
-        save_watermark(session_id, path, mark)
-    return _codex_reading(stored_totals(mark), source, partial_reason(mark))
+        if mark != persisted_mark:
+            save_watermark(session_id, path, mark)
+    stored = stored_totals(mark)
+    return _codex_reading(stored, source, _codex_partial_reason(stored, mark))
 
 
 def _codex_totals(block: Mapping[str, Any]) -> Optional[dict[str, int]]:
@@ -156,7 +198,25 @@ def _codex_reading(
 
 def _persisted_codex_reading(session_id: str, path: Path, source: str) -> SessionUsage:
     mark = load_watermark(session_id, path)
-    return _codex_reading(stored_totals(mark), source, partial_reason(mark))
+    stored = stored_totals(mark)
+    return _codex_reading(stored, source, _codex_partial_reason(stored, mark))
 
 
-__all__ = ["MIXED_MODEL_REASON", "attest_codex_usage"]
+def _codex_partial_reason(
+    stored: Mapping[str, Any], mark: ArtifactWatermark
+) -> Optional[str]:
+    if mark.truncated:
+        return partial_reason(mark)
+    if stored.get(USAGE_INCOMPLETE_KEY):
+        return USAGE_GAP_REASON
+    if stored.get(MODEL_HISTORY_INCOMPLETE_KEY):
+        return MODEL_HISTORY_GAP_REASON
+    return partial_reason(mark)
+
+
+__all__ = [
+    "MIXED_MODEL_REASON",
+    "MODEL_HISTORY_GAP_REASON",
+    "USAGE_GAP_REASON",
+    "attest_codex_usage",
+]
