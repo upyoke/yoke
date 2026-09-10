@@ -195,8 +195,10 @@
 .universe-app-root .delivery-run-evidence-cell {
   min-width: 250px;
 }
-.universe-app-root .delivery-run-evidence-cell .review-shot,
-.universe-app-root .qa-activity-evidence .review-shot {
+/* Table cells override the strip's own compact width, so the selector has
+   to outweigh it. */
+.universe-app-root .delivery-run-evidence-cell .review-evidence.compact .review-shot,
+.universe-app-root .qa-activity-evidence .review-evidence.compact .review-shot {
   width: 72px;
 }
 .universe-app-root .delivery-run-evidence-cell .review-evidence {
