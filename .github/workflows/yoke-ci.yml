@@ -135,7 +135,7 @@ jobs:
     # Reuse is gated per STEP below, never here: skipping a matrix job leaves
     # its matrix unevaluated, so it reports one `test-shard` check and none of
     # the required per-matrix contexts, stranding the queue entry.
-    if: always() && needs.repo_contracts.result == 'success'
+    if: ${{ !cancelled() && needs.repo_contracts.result == 'success' }}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     env:
       SUITE_ALREADY_PROVEN: ${{ needs.reuse_coverage.outputs.skip_suite }}
@@ -309,13 +309,13 @@ jobs:
 
   browser_runtime:
     needs: [repo_contracts, reuse_coverage]
-    if: always() && needs.repo_contracts.result == 'success'
+    if: ${{ !cancelled() && needs.repo_contracts.result == 'success' }}
     uses: ./.github/workflows/browser-runtime-tests.yml
 
   container:
     name: container
     needs: [reuse_coverage]
-    if: always() && needs.reuse_coverage.outputs.skip_suite != 'true'
+    if: ${{ !cancelled() && needs.reuse_coverage.outputs.skip_suite != 'true' }}
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
     permissions:
       contents: read
