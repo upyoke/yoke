@@ -133,12 +133,13 @@ def test_the_emitted_payload_is_one_the_real_handler_accepts(
     )
 
 
-def test_the_project_named_is_the_one_the_record_is_sent_to(
+def test_the_project_named_is_the_one_the_call_actually_failed_under(
     monkeypatch,
 ) -> None:
-    """Project ids are per-universe, and a record is delivered to whichever
-    universe the machine next reaches — routinely not the one that failed.
-    Naming the project observed at failure time would name a stranger."""
+    """Project ids are per-universe, and a record is often flushed by a LATER
+    call under a different universe entirely. Naming the project observed at
+    failure time — not the one the eventual flush happens to run under — is
+    what keeps the row from relabeling the failure into a stranger."""
     _project_context_is(monkeypatch, "universe-that-failed")
     _record(transport_delivered=False, application_succeeded=None)
 
@@ -146,7 +147,7 @@ def test_the_project_named_is_the_one_the_record_is_sent_to(
     _project_context_is(monkeypatch, "universe-receiving-it")
     assert relay_telemetry.flush() == 1
 
-    assert sent[0]["payload"]["project"] == "universe-receiving-it"
+    assert sent[0]["payload"]["project"] == "universe-that-failed"
 
 
 def test_an_unnameable_project_is_left_out_rather_than_guessed(
@@ -155,9 +156,9 @@ def test_an_unnameable_project_is_left_out_rather_than_guessed(
     """The server denies a project-scoped call it cannot place instead of
     falling back to a default, so a guess here would only mislabel the row
     of whichever project the guess happened to name."""
-    sent = _capture_emits(monkeypatch)
     _project_context_is(monkeypatch, None)
     _record(transport_delivered=False, application_succeeded=None)
 
+    sent = _capture_emits(monkeypatch)
     assert relay_telemetry.flush() == 1
     assert "project" not in sent[0]["payload"]

@@ -7,9 +7,18 @@ succeeds drains the file into ``events.emit``. Nothing polls, nothing runs in
 the background, and a machine that never talks to the control plane again
 just keeps a bounded file nobody reads.
 
-A record leaves the file only once it has actually been delivered. A spool
-that drops what it could not send has the failure mode it exists to prevent,
-because delivery fails hardest exactly when the outcomes are worth having.
+A record leaves the spool only once it has actually landed — delivered, or
+definitively refused. A spool that drops what it could not send has the
+failure mode it exists to prevent, because delivery fails hardest exactly
+when the outcomes are worth having. But "could not send" and "was refused"
+are different failures: the relay being unreachable says nothing about
+whether THIS record is valid, and a record the server has already evaluated
+and permanently refused (bad authorization, a malformed payload) will read
+exactly the same on every future attempt. Retrying that record forever turns
+one refusal into a standing tax on every later successful call, so a
+permanent refusal is quarantined — kept once as bounded local evidence,
+never resent — while a transient failure (the relay itself did not answer)
+stays in the spool for the next opportunity.
 
 Only the two outcomes worth counting are recorded: a call that needed more
 than one attempt and got there, and a call that ran out of attempts. The
@@ -27,21 +36,56 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 SPOOL_FILE_NAME = "relay-telemetry.jsonl"
 SPOOL_MAX_RECORDS = 500
+QUARANTINE_FILE_NAME = "relay-telemetry-quarantine.jsonl"
+QUARANTINE_MAX_RECORDS = 100
 EVENT_RETRIED = "RelayTransportRetrySucceeded"
 EVENT_EXHAUSTED = "RelayTransportAttemptsExhausted"
+TRANSPORT_FAILED_CODE = "https_transport_failed"
+
+_OUTCOME_DELIVERED = "delivered"
+_OUTCOME_TRANSIENT = "transient"
+_OUTCOME_PERMANENT = "permanent"
+
+# The dispatcher's own definitive refusals — the server evaluated this
+# specific record and will refuse it identically on every future attempt.
+# Anything else (transport failure, a permission check that could not reach
+# its own DB, an error code this module has never seen) is treated as
+# transient: the safe default keeps evidence rather than silently dropping a
+# failure mode nobody has classified yet.
+_PERMANENT_REFUSAL_CODES = frozenset(
+    {
+        "permission_denied",
+        "payload_invalid",
+        "retired_event_name",
+        "ambiguous_project",
+    }
+)
 
 _flushing = False
 
 
 def spool_path() -> Path:
-    """The machine-local spool file."""
+    """The machine-local spool file: records still waiting to be sent."""
     from yoke_cli.config.machine_config import yoke_home
 
     return yoke_home() / SPOOL_FILE_NAME
+
+
+def quarantine_path() -> Path:
+    """The machine-local file holding permanently refused outcomes.
+
+    Kept separate from the retry spool: a record lands here once the server
+    has definitively refused it (bad authorization, a malformed payload), so
+    nothing here is ever retried — it is bounded diagnostic custody, not a
+    queue.
+    """
+    from yoke_cli.config.machine_config import yoke_home
+
+    return yoke_home() / QUARANTINE_FILE_NAME
 
 
 def record(
@@ -53,8 +97,21 @@ def record(
     transport_delivered: bool,
     application_succeeded: bool | None,
     failure_class: str,
+    project: str = "",
 ) -> None:
-    """Append one relay outcome. Never raises — telemetry is not the work."""
+    """Append one relay outcome. Never raises — telemetry is not the work.
+
+    *project* names the universe the outcome was OBSERVED in — the caller's
+    own request/session/connection authority at the moment of failure, not
+    whatever universe the eventual flush happens to run under. Resolving it
+    here, once per observed outcome, is what keeps a record's attribution
+    stable: a flush that lands later, possibly against a different project
+    entirely, must report the project the call actually belonged to rather
+    than relabeling it into whichever project happens to call next. When the
+    caller cannot name one, this falls back to the ambient checkout context
+    of the process observing the failure — still the record's own moment,
+    never the flush's.
+    """
     _append(
         [
             {
@@ -65,22 +122,21 @@ def record(
                 "transport_delivered": transport_delivered,
                 "application_succeeded": application_succeeded,
                 "failure_class": failure_class,
+                "project": project or _project_context(),
             }
         ]
     )
 
 
 def _project_context() -> str:
-    """Name the project for the universe this record is being delivered to.
+    """Best-effort ambient project for a caller that named none explicitly.
 
     ``events.emit`` is project-scoped and the server refuses to guess one, so
-    an envelope that cannot name its project is denied and the outcome never
-    lands. Resolving it here rather than when the outcome was observed is
-    what makes the answer right: project ids are per-universe, a record is
-    delivered to whichever universe the machine next reaches, and the env
-    that failed is frequently not that one. Which env failed is already in
-    the record. One answer covers a whole flush, and resolving it walks up
-    to a checkout root, so a pass over a full spool asks once.
+    an envelope that cannot name its project is denied outright rather than
+    silently defaulting. This never touches the DB — only the machine
+    config's checkout->project map for the current process — because it
+    stands in for request-level authority the caller did not supply, not a
+    replacement for it.
     """
     try:
         from yoke_cli.commands._helpers import client_project_context
@@ -91,16 +147,27 @@ def _project_context() -> str:
 
 
 def _append(entries: List[Dict[str, Any]]) -> None:
-    """Append entries up to the bounded cap. Never raises.
+    """Append spool entries up to the bounded cap. Never raises.
 
     The cap is what keeps a machine that never reconnects from growing the
     file forever, so it holds for records coming back from a failed flush
     exactly as it does for newly observed ones.
     """
+    _append_bounded(spool_path, entries, SPOOL_MAX_RECORDS)
+
+
+def _quarantine(entry: Dict[str, Any]) -> None:
+    """Retain one permanently refused record as bounded local evidence."""
+    _append_bounded(quarantine_path, [entry], QUARANTINE_MAX_RECORDS)
+
+
+def _append_bounded(
+    resolve_path: Callable[[], Path], entries: List[Dict[str, Any]], cap: int
+) -> None:
     try:
-        path = spool_path()
+        path = resolve_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        room = SPOOL_MAX_RECORDS - _record_count(path)
+        room = cap - _record_count(path, cap)
         if room <= 0:
             return
         with path.open("a", encoding="utf-8") as handle:
@@ -110,14 +177,14 @@ def _append(entries: List[Dict[str, Any]]) -> None:
         return
 
 
-def _record_count(path: Path) -> int:
+def _record_count(path: Path, cap: int) -> int:
     try:
         with path.open("r", encoding="utf-8") as handle:
             return sum(1 for line in handle if line.strip())
     except FileNotFoundError:
         return 0
     except Exception:
-        return SPOOL_MAX_RECORDS
+        return cap
 
 
 def drain() -> List[Dict[str, Any]]:
@@ -158,10 +225,16 @@ def flush() -> int:
     through the same relay: without it the first flush would recurse
     through its own success path.
 
-    Anything not delivered goes back on the spool. The first failure ends
-    the pass rather than working through the rest: this runs inline on a
-    real caller's call, and a delivery path that just refused is not worth
-    the wait a whole queue of refusals would cost them.
+    A transient failure — the relay itself did not answer this particular
+    emit — ends the pass rather than working through the rest: this runs
+    inline on a real caller's call, and a relay that just refused is not
+    worth the wait a whole queue would cost them, so the failing record and
+    everything behind it goes back on the spool for the next opportunity. A
+    permanent failure is different: the relay is healthy and has already
+    evaluated this specific record and refused it for good (authorization,
+    payload shape), so retrying it would only repeat the same refusal on
+    every future call. That record is quarantined instead of requeued, and
+    the pass continues — one bad record says nothing about the next one.
     """
     global _flushing
     if _flushing:
@@ -171,13 +244,17 @@ def flush() -> int:
         records = drain()
         if not records:
             return 0
-        project = _project_context()
         sent = 0
         for index, entry in enumerate(records):
-            if not _emit(entry, project=project):
-                _append(records[index:])
-                break
-            sent += 1
+            outcome = _emit(entry)
+            if outcome == _OUTCOME_DELIVERED:
+                sent += 1
+                continue
+            if outcome == _OUTCOME_PERMANENT:
+                _quarantine(entry)
+                continue
+            _append(records[index:])
+            break
         return sent
     except Exception:
         return 0
@@ -185,7 +262,8 @@ def flush() -> int:
         _flushing = False
 
 
-def _emit(entry: Dict[str, Any], *, project: str) -> bool:
+def _emit(entry: Dict[str, Any]) -> str:
+    """Send one record as an event. Returns delivered/transient/permanent."""
     from yoke_cli.transport.dispatcher import build_actor, call_dispatcher
     from yoke_contracts.api.function_call import TargetRef
 
@@ -193,6 +271,7 @@ def _emit(entry: Dict[str, Any], *, project: str) -> bool:
     application_succeeded = entry.get("application_succeeded")
     name = EVENT_RETRIED if transport_delivered else EVENT_EXHAUSTED
     session_id = str(entry.get("session_id") or "")
+    project = str(entry.get("project") or "")
     payload: Dict[str, Any] = {
         "name": name,
         "kind": "system",
@@ -229,17 +308,28 @@ def _emit(entry: Dict[str, Any], *, project: str) -> bool:
             payload=payload,
         )
     except Exception:
-        return False
-    return bool(response.success)
+        # The transport itself could not be reached — indistinguishable from
+        # any other transient delivery failure, so keep the record.
+        return _OUTCOME_TRANSIENT
+    if response.success:
+        return _OUTCOME_DELIVERED
+    code = response.error.code if response.error else ""
+    if code in _PERMANENT_REFUSAL_CODES:
+        return _OUTCOME_PERMANENT
+    return _OUTCOME_TRANSIENT
 
 
 __all__ = [
     "EVENT_EXHAUSTED",
     "EVENT_RETRIED",
+    "QUARANTINE_FILE_NAME",
+    "QUARANTINE_MAX_RECORDS",
     "SPOOL_FILE_NAME",
     "SPOOL_MAX_RECORDS",
+    "TRANSPORT_FAILED_CODE",
     "drain",
     "flush",
+    "quarantine_path",
     "record",
     "spool_path",
 ]
