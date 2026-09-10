@@ -22,10 +22,12 @@ from yoke_core.domain.decision_request_contract import (
     DECISION_KINDS,
     DEPLOYMENT_STAGE_APPROVAL,
     LIFECYCLE_TRANSITION_APPROVAL,
+    QA_NEEDS_REVIEW,
     REQUEST_CREATED_EVENT,
 )
 from yoke_core.domain.decision_request_events import append_decision_event
 from yoke_core.domain.decision_request_subject_context import validate_subject_context
+from yoke_core.domain.qa_review_evidence import qa_review_artifact_context
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -46,34 +48,45 @@ def _p(conn: Any) -> str:
 def _live_evidence(
     conn: Any, kind: str, context: dict[str, Any]
 ) -> Optional[dict[str, Any]]:
-    """Recompute screenshot evidence live, for a request still open to answer.
+    """Recompute evidence live, for a request still open to answer.
 
-    A frozen ``evidence`` snapshot answers what existed the moment the
-    request was created; genuine evidence attached to the same exact subject
-    afterward never updates it on its own. This reruns the same query
-    against the request's own frozen subject and revision, so a reader
-    deciding a still-pending request sees screenshots recorded since. The
-    caller replaces ``evidence`` with this result only in the dict it
-    returns -- the stored row, and every resolved or withdrawn read, keep
-    the original frozen snapshot untouched.
+    A frozen snapshot answers what existed the moment the request was
+    created; genuine evidence attached to the same exact subject afterward
+    never updates it on its own. This reruns the same resolution against the
+    request's own frozen subject and revision, so a reader deciding a still-
+    pending request sees evidence recorded since. The caller merges the
+    returned fields into ``subject_context`` -- the stored row, and every
+    resolved or withdrawn read, keep the original frozen snapshot untouched.
     """
     if kind == LIFECYCLE_TRANSITION_APPROVAL:
         item_id = context.get("item_id")
         if item_id is None:
             return None
         changes = context.get("branch_changes") or {}
-        return related_screenshot_evidence(
-            conn, item_id=int(item_id), expected_revision=changes.get("commit_sha")
-        )
+        return {
+            "evidence": related_screenshot_evidence(
+                conn, item_id=int(item_id), expected_revision=changes.get("commit_sha")
+            )
+        }
     if kind == DEPLOYMENT_STAGE_APPROVAL:
         run_id = context.get("run_id")
         if run_id is None:
             return None
         shipping = context.get("shipping") or {}
-        return related_screenshot_evidence(
-            conn,
-            deployment_run_id=str(run_id),
-            expected_revision=shipping.get("release_lineage"),
+        return {
+            "evidence": related_screenshot_evidence(
+                conn,
+                deployment_run_id=str(run_id),
+                expected_revision=shipping.get("release_lineage"),
+            )
+        }
+    if kind == QA_NEEDS_REVIEW:
+        requirement_id = context.get("requirement_id")
+        run_id = context.get("run_id")
+        if requirement_id is None or run_id is None:
+            return None
+        return qa_review_artifact_context(
+            conn, requirement_id=int(requirement_id), run_id=int(run_id)
         )
     return None
 
@@ -94,7 +107,7 @@ def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
     if result["status"] == "pending":
         live = _live_evidence(conn, result["kind"], result["subject_context"])
         if live is not None:
-            result["subject_context"]["evidence"] = live
+            result["subject_context"].update(live)
     result["actions"] = list(DECISION_KINDS[result["kind"]].actions)
     result["role_authorities"] = [
         dict(value)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
@@ -14,6 +13,7 @@ from yoke_core.domain.decision_requests import (
     create_decision_request,
     list_subject_requests,
 )
+from yoke_core.domain.qa_review_evidence import qa_review_artifact_context
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_review_requirement_facts import (
     is_agent_verdict,
@@ -25,14 +25,6 @@ from yoke_core.domain.schema_common import _table_exists
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _artifact_metadata(raw: Any) -> dict[str, Any]:
-    try:
-        value = json.loads(str(raw or "{}"))
-    except (TypeError, ValueError):
-        return {}
-    return value if isinstance(value, dict) else {}
 
 
 @dataclass(frozen=True)
@@ -178,34 +170,12 @@ def ensure_qa_review_request(
     # The handle travels with the projection because the gate surfaces draw
     # each artifact through the same reader QA detail uses: it names the
     # file and says up front when the bytes only exist on the capture
-    # machine, rather than offering a control that can only fail.
-    artifact_rows = (
-        conn.execute(
-            "SELECT id, artifact_type, content_type, artifact_handle, metadata "
-            f"FROM qa_artifacts WHERE qa_run_id={p} ORDER BY id",
-            (int(run_id),),
-        ).fetchall()
-        if _table_exists(conn, "qa_artifacts")
-        else []
-    )
-    # The capture metadata travels too: it names the route, step and viewport
-    # the screenshot was taken at, which is the caption a reviewer needs to
-    # tell one screenshot of the same page from another.
-    artifacts = [
-        {
-            "artifact_id": int(row[0]),
-            "artifact_type": str(row[1]),
-            "content_type": row[2],
-            "artifact_handle": row[3],
-            "metadata": _artifact_metadata(row[4]),
-        }
-        for row in artifact_rows
-    ]
-    artifact_kinds = sorted({artifact["artifact_type"] for artifact in artifacts})
-    evidence_summary = (
-        f"{len(artifacts)} attached artifact(s): {', '.join(artifact_kinds)}"
-        if artifacts
-        else "No evidence artifacts are attached to this run."
+    # machine, rather than offering a control that can only fail. Resolved
+    # through the shared evidence-run resolver so a reviewed run whose own
+    # capture was recorded under a different run id (a human_review verdict,
+    # or a re-linked capture) reports the artifacts that actually back it.
+    review_context = qa_review_artifact_context(
+        conn, requirement_id=requirement_id, run_id=run_id
     )
     return create_decision_request(
         conn,
@@ -236,10 +206,10 @@ def ensure_qa_review_request(
             "title": "QA evidence needs your review",
             "expected_outcome": str(requirement.get("expected_outcome") or ""),
             "verdict_reason": verdict_reason,
-            "artifacts": artifacts,
-            "artifact_count": len(artifacts),
-            "evidence_state": "attached" if artifacts else "missing",
-            "evidence_summary": evidence_summary,
+            "artifacts": review_context["artifacts"],
+            "artifact_count": review_context["artifact_count"],
+            "evidence_state": review_context["evidence_state"],
+            "evidence_summary": review_context["evidence_summary"],
         },
         session_id=session_id,
         commit=commit,
