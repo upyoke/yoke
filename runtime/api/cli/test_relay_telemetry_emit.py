@@ -62,6 +62,10 @@ def _record(
     transport_delivered: bool,
     application_succeeded: bool | None,
 ) -> None:
+    """Record with no explicit *project* — resolves via ``_project_context()``
+    at call time, i.e. whatever ``client_project_context`` currently answers.
+    Callers that care about project attribution set it with
+    :func:`_project_context_is` before calling this."""
     relay_telemetry.record(
         function_id="items.detail.get",
         session_id="session-a",
@@ -92,6 +96,7 @@ def test_the_emitted_payload_is_one_the_real_handler_accepts(
     """``events.emit`` checks kind, source type, and severity against closed
     vocabularies, so the payload goes in front of that handler rather than
     in front of a stub with no opinion about any of them."""
+    _project_context_is(monkeypatch, "yoke")
     sent = _capture_emits(monkeypatch)
     _record(
         transport_delivered=transport_delivered,
@@ -150,15 +155,16 @@ def test_the_project_named_is_the_one_the_call_actually_failed_under(
     assert sent[0]["payload"]["project"] == "universe-that-failed"
 
 
-def test_an_unnameable_project_is_left_out_rather_than_guessed(
+def test_an_unnameable_project_is_never_dispatched_rather_than_guessed(
     monkeypatch,
 ) -> None:
-    """The server denies a project-scoped call it cannot place instead of
-    falling back to a default, so a guess here would only mislabel the row
-    of whichever project the guess happened to name."""
+    """The dispatcher denies ANY project-scoped call naming no project — a
+    known outcome — so a record with no defensible attribution is retained
+    locally instead of spending a call on an answer already decided, and
+    never guesses a default that would mislabel a stranger's row."""
     _project_context_is(monkeypatch, None)
     _record(transport_delivered=False, application_succeeded=None)
 
     sent = _capture_emits(monkeypatch)
-    assert relay_telemetry.flush() == 1
-    assert "project" not in sent[0]["payload"]
+    assert relay_telemetry.flush() == 0
+    assert sent == []

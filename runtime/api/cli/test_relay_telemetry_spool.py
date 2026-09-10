@@ -63,6 +63,7 @@ def _record_telemetry(
     transport_delivered: bool,
     application_succeeded: bool | None,
     function_id: str = "items.detail.get",
+    project: str = "yoke",
 ) -> None:
     relay_telemetry.record(
         function_id=function_id,
@@ -78,6 +79,7 @@ def _record_telemetry(
             if transport_delivered
             else "https_transport_failed"
         ),
+        project=project,
     )
 
 

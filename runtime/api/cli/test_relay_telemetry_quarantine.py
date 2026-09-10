@@ -60,6 +60,10 @@ def test_a_permanently_refused_record_is_quarantined_not_retried(
     assert _spooled() == []
     (quarantined,) = _quarantined()
     assert quarantined["function"] == "items.detail.get"
+    # The code that actually explains the quarantine, not the original
+    # observed call's own (unrelated) failure_class.
+    assert quarantined["quarantine_reason"] == "permission_denied"
+    assert quarantined["failure_class"] == "https_transport_failed"
 
 
 def test_a_permanent_refusal_does_not_stop_the_rest_of_the_pass(
@@ -81,6 +85,7 @@ def test_a_permanent_refusal_does_not_stop_the_rest_of_the_pass(
     assert relay_telemetry.flush() == 0
     assert _spooled() == []
     assert [entry["function"] for entry in _quarantined()] == ["first", "second"]
+    assert all(e["quarantine_reason"] == "payload_invalid" for e in _quarantined())
 
 
 def test_quarantine_stays_bounded_like_the_spool(monkeypatch) -> None:
@@ -111,7 +116,7 @@ def test_project_attribution_is_fixed_at_observation_not_at_flush(
         "yoke_cli.commands._helpers.client_project_context",
         lambda explicit=None: "universe-that-failed",
     )
-    _record_telemetry(transport_delivered=False, application_succeeded=None)
+    _record_telemetry(transport_delivered=False, application_succeeded=None, project="")
 
     sent: list[dict] = []
 
@@ -138,21 +143,66 @@ def test_project_attribution_is_fixed_at_observation_not_at_flush(
     assert sent[0]["payload"]["project"] == "universe-that-failed"
 
 
-def test_an_unnameable_project_at_observation_time_is_left_out(
+def test_an_unnameable_project_is_quarantined_without_a_dispatch_attempt(
     monkeypatch,
 ) -> None:
-    """The server denies a project-scoped call it cannot place instead of
-    defaulting, so a guess here would only mislabel a stranger's row."""
+    """The dispatcher refuses ANY project-scoped call naming no project, so
+    that outcome is already known — making the call would only spend it on
+    a request that is knowingly going to be denied. Retain the evidence
+    locally instead of exercising the real refusal shape over the wire."""
     monkeypatch.setattr(
         "yoke_cli.commands._helpers.client_project_context",
         lambda explicit=None: None,
     )
-    _record_telemetry(transport_delivered=False, application_succeeded=None)
+    _record_telemetry(transport_delivered=False, application_succeeded=None, project="")
 
-    sent: list[dict] = []
+    called: list[dict] = []
+    monkeypatch.setattr(
+        "yoke_cli.transport.dispatcher.call_dispatcher",
+        lambda **kwargs: called.append(kwargs),
+    )
+
+    assert relay_telemetry.flush() == 0
+    assert called == []
+    assert _spooled() == []
+    (quarantined,) = _quarantined()
+    assert quarantined["quarantine_reason"] == relay_telemetry.UNRESOLVED_PROJECT_REASON
+    assert not quarantined.get("project")
+
+
+def test_two_authorities_sharing_the_same_project_id_never_cross_wire(
+    monkeypatch,
+) -> None:
+    """A project id is only meaningful paired with the connection it was
+    observed under. Two universes can both have a project "1" meaning two
+    unrelated projects, so each record must be emitted through its OWN
+    connection — never whichever connection happens to be active — or it
+    would silently relabel one universe's project as another's."""
+    relay_telemetry.record(
+        function_id="items.detail.get",
+        session_id="session-a",
+        env="prod",
+        attempts=3,
+        transport_delivered=False,
+        application_succeeded=None,
+        failure_class="https_transport_failed",
+        project="1",
+    )
+    relay_telemetry.record(
+        function_id="items.detail.get",
+        session_id="session-b",
+        env="self-hosted-tenant",
+        attempts=3,
+        transport_delivered=False,
+        application_succeeded=None,
+        failure_class="https_transport_failed",
+        project="1",
+    )
+
+    calls: list[dict] = []
 
     def _capture(**kwargs):
-        sent.append(kwargs)
+        calls.append(kwargs)
         return FunctionCallResponse(
             success=True,
             function="events.emit",
@@ -166,5 +216,6 @@ def test_an_unnameable_project_at_observation_time_is_left_out(
         _capture,
     )
 
-    assert relay_telemetry.flush() == 1
-    assert "project" not in sent[0]["payload"]
+    assert relay_telemetry.flush() == 2
+    assert [call["relay_env"] for call in calls] == ["prod", "self-hosted-tenant"]
+    assert all(call["payload"]["project"] == "1" for call in calls)
