@@ -156,7 +156,7 @@ item status and the latest matching claim's `release_reason=completed`:
 
 ```text
 yoke items detail get PREFIX-N --json
-yoke db read "SELECT release_reason FROM work_claims WHERE target_kind = 'item' AND scope->>'item_id' = '{BARE_ITEM_ID}' ORDER BY id DESC LIMIT 1"
+yoke db read "SELECT release_reason FROM work_claims WHERE target_kind = 'item' AND scope::jsonb->>'item_id' = '{BARE_ITEM_ID}' ORDER BY id DESC LIMIT 1"
 ```
 
 When those authorities show the steering-scoped item is complete:
