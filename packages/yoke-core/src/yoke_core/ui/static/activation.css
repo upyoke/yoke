@@ -23,10 +23,6 @@
 .universe-app-root .activation-module[data-state="in_progress"] {
   border-color: var(--yoke-accent-line);
 }
-.universe-app-root .activation-module.dismissed {
-  opacity: 0.62;
-  border-style: dashed;
-}
 .universe-app-root .activation-head {
   display: flex;
   align-items: center;
@@ -60,9 +56,7 @@
   font-family: var(--yoke-font-mono);
   font-size: 13px;
 }
-.universe-app-root .activation-dismiss,
-.universe-app-root .activation-restore,
-.universe-app-root .activation-show {
+.universe-app-root .activation-dismiss {
   margin-left: auto;
   border: 1px solid var(--yoke-border);
   border-radius: 7px;
@@ -73,10 +67,6 @@
   padding: 1px 8px;
   cursor: pointer;
 }
-.universe-app-root .activation-restore,
-.universe-app-root .activation-show {
-  margin-left: 0;
-}
 .universe-app-root .activation-dismiss {
   /* Hover-revealed: present for keyboard/AT focus, visually quiet until
      the module is pointed at. */
@@ -86,9 +76,7 @@
 .universe-app-root .activation-dismiss:focus-visible {
   opacity: 1;
 }
-.universe-app-root .activation-dismiss:hover,
-.universe-app-root .activation-restore:hover,
-.universe-app-root .activation-show:hover {
+.universe-app-root .activation-dismiss:hover {
   color: var(--yoke-accent);
   border-color: var(--yoke-accent);
 }

@@ -37,7 +37,7 @@ export const WIZARD_TAIL_KEYS = new Set(["github", "hosting"]);
 export const RUN_ONBOARD_TITLE_HINT =
   "Run this in your harness — the web never invokes a skill";
 export const DISMISS_HINT =
-  "Dismiss — signals keep tracking; restore any time";
+  "Hide — bring it back from Profile";
 export const INSTALL_COMMAND = "curl -fsSL https://upyoke.com/install | sh";
 
 // A harness whose sessions carry no hook-written telemetry is registered but

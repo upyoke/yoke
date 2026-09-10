@@ -3,12 +3,13 @@
 Owns two additive tables behind the workbench Overview's activation
 modules:
 
-* ``actor_ui_preferences`` — generic per-actor key/value preferences so
-  later actor-scoped preferences (for example a time-zone override)
-  share the surface. Overview module dismissals use
+* ``actor_ui_preferences`` — generic per-actor key/value preferences.
+  Overview module dismissals use
   ``pref_key = 'overview.module.dismissed.<module_key>'`` with value
-  ``'1'``; ``UNIQUE(actor_id, pref_key)`` makes the upsert the whole
-  write contract.
+  ``'1'``; the Profile time-zone override uses
+  ``pref_key = 'profile.time_zone'`` with an IANA zone name (no row means
+  Automatic, the browser's own zone); ``UNIQUE(actor_id, pref_key)``
+  makes the upsert the whole write contract.
 * ``overview_activation_facts`` — universe-scoped monotone activation
   latches, one row per activation module key. A row records that the
   module's signal was observed satisfied at least once; rows are never

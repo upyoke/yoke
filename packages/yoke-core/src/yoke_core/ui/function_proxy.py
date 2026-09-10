@@ -115,6 +115,7 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
         "test_machine.get",
         "test_machine.list",
         "workflows.mechanics.get",
+        "profile.get",
     }
 )
 
@@ -139,6 +140,10 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "workflows.canon_follow.set",
         "overview.module.dismiss",
         "overview.module.restore",
+        "profile.token.create",
+        "profile.token.revoke",
+        "profile.preference.set",
+        "profile.onboarding.reset",
         "workflows.current.set",
         "workflows.policy_defaults.publish",
         "workflows.testing_default.set",

@@ -58,7 +58,7 @@ test("the mount forwards the host machine fact into the read", async (t) => {
   }
 });
 
-test("dismiss: ✕ on activated modules, restore line, show, restore", async (t) => {
+test("dismiss: ✕ on activated modules hides the module for good", async (t) => {
   stubFetch(t);
   const answer = activationAnswer({
     states: ALL_ACTIVATED, dismissAvailable: true,
@@ -69,38 +69,24 @@ test("dismiss: ✕ on activated modules, restore line, show, restore", async (t)
   assert.equal(dismissButtons.length, 4);
   assert.equal(
     dismissButtons[1].getAttribute("data-tooltip"),
-    "Dismiss — signals keep tracking; restore any time",
+    "Hide — bring it back from Profile",
   );
 
   dismissButtons[1].dispatchEvent(new Event("click"));
   await settle();
-  let cards = byClass(root, "activation-module");
+  const cards = byClass(root, "activation-module");
   assert.deepEqual(cards.map((card) => card.attributes.get("data-module")), [
     "finish_installation_wizard", "run_onboard", "first_deploy",
   ]);
-  const restoreLine = byClass(root, "activation-restore-line")[0];
-  assert.equal(ownTextContent(restoreLine), "1 dismissed module(s) · ");
-  const show = byClass(restoreLine, "activation-show")[0];
-  assert.equal(show.textContent, "show");
-
-  show.dispatchEvent(new Event("click"));
-  await settle();
-  cards = byClass(root, "activation-module");
-  assert.equal(cards.length, 4);
-  const revealed = cards[1];
-  assert.ok(revealed.classList.contains("dismissed"));
+  // No count, no show-again, no restore: the only way back is Profile.
   assert.equal(byClass(root, "activation-restore-line").length, 0);
-
-  const restore = byClass(revealed, "activation-restore")[0];
-  restore.dispatchEvent(new Event("click"));
-  await settle();
-  const restored = byClass(root, "activation-module")[1];
-  assert.equal(restored.classList.contains("dismissed"), false);
-  assert.equal(byClass(restored, "activation-dismiss").length, 1);
+  assert.equal(byClass(root, "activation-show").length, 0);
+  assert.equal(byClass(root, "activation-restore").length, 0);
+  assert.equal(byClass(root, "overview-section")[0].hidden, false);
   mounted.unmount();
 });
 
-test("all dismissed: the stack collapses to the restore line", async (t) => {
+test("all dismissed: the Onboarding section disappears from Overview", async (t) => {
   stubFetch(t);
   const answer = activationAnswer({
     states: ALL_ACTIVATED,
@@ -113,10 +99,32 @@ test("all dismissed: the stack collapses to the restore line", async (t) => {
   const { root, mounted } = await mountOverview(activationClient(answer));
 
   assert.equal(byClass(root, "activation-module").length, 0);
-  assert.equal(
-    ownTextContent(byClass(root, "activation-restore-line")[0]),
-    "4 dismissed module(s) · ",
+  assert.equal(byClass(root, "activation-restore-line").length, 0);
+  const onboarding = byClass(root, "overview-section").find(
+    (node) => (node.attributes.get("data-key") || "").includes("onboarding")
+      || allNodes(node).some((n) => n.textContent === "Onboarding"),
   );
+  assert.ok(onboarding);
+  assert.equal(onboarding.hidden, true);
+  mounted.unmount();
+});
+
+test("hiding the last visible module hides the section too", async (t) => {
+  stubFetch(t);
+  const answer = activationAnswer({
+    states: ALL_ACTIVATED,
+    dismissed: ["finish_installation_wizard", "connect_harness", "run_onboard"],
+    dismissAvailable: true,
+  });
+  const { root, mounted } = await mountOverview(activationClient(answer));
+  const onboarding = byClass(root, "overview-section").find(
+    (node) => allNodes(node).some((n) => n.textContent === "Onboarding"),
+  );
+  assert.equal(onboarding.hidden, false);
+  byClass(root, "activation-dismiss")[0].dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(byClass(root, "activation-module").length, 0);
+  assert.equal(onboarding.hidden, true);
   mounted.unmount();
 });
 

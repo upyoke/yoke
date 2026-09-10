@@ -34,6 +34,10 @@ class TestRegistrationShape:
         assert ui_server.UI_MUTATION_FUNCTION_ALLOWLIST == {
             "overview.module.dismiss",
             "overview.module.restore",
+            "profile.token.create",
+            "profile.token.revoke",
+            "profile.preference.set",
+            "profile.onboarding.reset",
             "workflows.current.set",
             "workflows.policy_defaults.publish",
             "workflows.testing_default.set",

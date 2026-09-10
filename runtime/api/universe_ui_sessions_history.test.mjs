@@ -51,6 +51,8 @@ async function mountHistory(t, handler) {
       }
       if (request.function === "session_control.relay.list") return ok({ relays: [] });
       if (request.function === "machine.list") return ok({ machines: [] });
+      // The actor menu's own read at mount; not part of the history story.
+      if (request.function === "profile.get") return failed();
       return handler(request);
     },
   };
