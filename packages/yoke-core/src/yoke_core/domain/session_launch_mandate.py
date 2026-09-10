@@ -56,6 +56,17 @@ COMMITTED_GATE_TEACHING = (
 )
 
 
+HEADLESS_CI_VERIFICATION_WAIT_TEACHING = (
+    "Before any of that, `yoke merge item` may itself dispatch or attach to "
+    "a CI run for its own post-rebase verification and poll it to a "
+    "conclusion. That poll arms the same kind of durable wait a merge-queue "
+    "landing does, so a turn that stops there is woken with the verdict "
+    "too: re-run the same `yoke merge item` command and it adopts the "
+    "concluded run by exact commit instead of dispatching another suite. "
+    "Never replace that wait with local GitHub polling either."
+)
+
+
 HEADLESS_LANDING_WAIT_TEACHING = (
     "You are a headless command that cannot be prompted again, so a "
     "merge-queue landing is not yours to wait out: it outlasts your turn, and "
@@ -153,6 +164,7 @@ def compose_single_item_mandate(
         "continue."
     )
     mandate = f"{mandate}\n\n{COMMITTED_GATE_TEACHING}"
+    mandate = f"{mandate}\n\n{HEADLESS_CI_VERIFICATION_WAIT_TEACHING}"
     mandate = f"{mandate}\n\n{HEADLESS_LANDING_WAIT_TEACHING}"
     mandate = f"{mandate}\n\n{HEADLESS_TOOL_CONTINUATION_TEACHING}"
     extra = extras.strip()
@@ -279,6 +291,7 @@ def launch_request_for_create(
 
 __all__ = [
     "COMMITTED_GATE_TEACHING",
+    "HEADLESS_CI_VERIFICATION_WAIT_TEACHING",
     "HEADLESS_LANDING_WAIT_TEACHING",
     "compose_item_launch_instructions",
     "compose_single_item_mandate",

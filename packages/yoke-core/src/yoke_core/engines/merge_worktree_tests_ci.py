@@ -4,9 +4,10 @@ When the candidate tree differs from covering QA evidence and the project
 declares a ``ci_workflow_file`` capability, the merge gate pushes the
 integrated candidate to the item lane, adopts or attaches to a run of that
 workflow already on the exact candidate commit and dispatches only when
-there is none, waits for the conclusion, asserts the CI-reported head
-matches the candidate tree, and records a ``qa_runs`` row so a later
-same-tree attempt can skip.
+there is none, records a durable wait so a worker whose turn ends mid-poll
+is still woken with the verdict, waits for the conclusion, asserts the
+CI-reported head matches the candidate tree, and records a ``qa_runs`` row
+so a later same-tree attempt can skip.
 
 Dispatching, polling, and reading the run's head all reach GitHub through
 the control plane that holds the project's App authority. None of them
@@ -30,6 +31,7 @@ from typing import Optional, Tuple
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import (
+    merge_ci_verification_wait,
     qa_case_ci_candidate_inputs,
     qa_case_ci_covering_run,
     qa_case_ci_lane,
@@ -38,8 +40,10 @@ from yoke_core.domain import (
 from yoke_core.domain.project_ci_workflow import project_ci_workflow_file
 from yoke_core.domain.qa_case_ci_conclusion import conclusion_from_poll
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
-from yoke_core.engines import merge_worktree_tree_coverage
 from yoke_core.engines.merge_worktree_prepare import MergeContext
+from yoke_core.engines.merge_worktree_tests_ci_head import (
+    covered_head_sha as _covered_head_sha,
+)
 
 DEFAULT_MERGE_CI_TIMEOUT_SECONDS = 5400
 
@@ -59,43 +63,6 @@ def _should_route_ci(ctx: MergeContext) -> bool:
     if not project:
         return False
     return bool(project_ci_workflow_file(str(project)))
-
-
-def _covered_head_sha(
-    *,
-    project: str,
-    repo: str,
-    ci_run_id: str,
-    candidate_sha: str,
-    worktree: Path,
-) -> str:
-    """The commit the CI run tested, proven to carry the candidate tree.
-
-    The run is read back through the relay rather than trusting the branch
-    we pushed, because between push and dispatch the ref can move. When the
-    control plane answers without a head sha — an engine older than that
-    field — the check degrades by name to the commit we published, which is
-    the binding the dispatch itself carried.
-    """
-    mw = _parent()
-    ci_head = qa_case_ci_lane.run_head_sha(
-        project=project, repo=repo, run_id=ci_run_id,
-    )
-    if not ci_head:
-        mw._print(
-            "[phase:tests] control plane reports no head sha for CI run "
-            f"{ci_run_id}; binding the verdict to the published candidate "
-            f"{candidate_sha[:12]} instead of the run's reported head"
-        )
-        return candidate_sha
-    candidate_tree = merge_worktree_tree_coverage._tree_object_id(worktree, "HEAD")
-    ci_tree = merge_worktree_tree_coverage._tree_object_id(worktree, ci_head)
-    if candidate_tree is None or ci_tree is None or candidate_tree != ci_tree:
-        raise QaCaseExecutionError(
-            f"CI head sha {ci_head} does not resolve to the candidate "
-            f"tree (candidate={candidate_tree}, ci={ci_tree})"
-        )
-    return ci_head
 
 
 def _record_ci_run(
@@ -240,6 +207,15 @@ def run_ci_verification(
                 exit_code = 0 if known_conclusion == "success" else 1
                 poll_output = f"adopted completed run: {known_conclusion}"
             else:
+                # A worker whose turn ends mid-poll would otherwise never
+                # learn this verdict: the watcher streaming the poll below
+                # dies with the turn, and nothing else was ever told a
+                # session was owed it.
+                merge_ci_verification_wait.record_wait_and_warn(
+                    repo=repo, run_id=ci_run_id, head_sha=tree.head_sha,
+                    public_ref=str(getattr(ctx, "public_ref", "") or ""),
+                    warn=_print,
+                )
                 exit_code, poll_output = qa_case_ci_lane.await_workflow(
                     project=project,
                     repo=repo,

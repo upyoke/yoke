@@ -146,6 +146,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
             if detail.success:
                 item = (detail.result or {}).get("item") or {}
                 slug = (item.get("project") or {}).get("slug")
+                ctx.public_ref = str(item.get("public_ref") or "") or None
             if slug and slug != "yoke":
                 from yoke_core.domain.project_checkout_locations import (
                     checkout_for_project_slug,

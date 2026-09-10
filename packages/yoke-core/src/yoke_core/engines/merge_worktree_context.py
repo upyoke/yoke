@@ -41,6 +41,10 @@ class MergeContext:
     epic_id: Optional[str] = None
     item_id: Optional[str] = None
     project: Optional[str] = None
+    # The item's PREFIX-N ref, resolved alongside project so a caller
+    # dispatching CI on this item's behalf can teach an exact
+    # `yoke merge item <ref>` continuation instead of a bare internal id.
+    public_ref: Optional[str] = None
     generated_files: list[str] = field(default_factory=list)
     branch_changed_files: list[str] = field(default_factory=list)
     used_merge_fallback: bool = False

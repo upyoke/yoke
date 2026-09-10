@@ -198,6 +198,83 @@ def test_a_run_still_in_flight_on_the_candidate_is_attached_to(
     )
 
 
+def test_a_dispatched_run_registers_a_durable_wait_before_polling(
+    monkeypatch: pytest.MonkeyPatch, tmp_path,
+) -> None:
+    """A worker whose turn ends mid-poll must still be woken with the verdict."""
+    head = "5" * 40
+    bind_candidate_tree(monkeypatch, tmp_path, head)
+    stub_lane(
+        monkeypatch,
+        dispatch=lambda **kwargs: "121",
+        await_result=lambda **kwargs: (0, "success"),
+    )
+    record_ci_runs(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        merge_worktree_tests_ci.merge_ci_verification_wait,
+        "record_wait_and_warn",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    assert run_verification(tmp_path) is None
+
+    assert len(calls) == 1
+    assert calls[0]["repo"] == "acme/widgets"
+    assert calls[0]["run_id"] == "121"
+    assert calls[0]["head_sha"] == head
+    # merge_ctx() names no item; an unresolved public_ref is legitimate.
+    assert calls[0]["public_ref"] == ""
+
+
+def test_an_attached_run_also_registers_a_durable_wait(
+    monkeypatch: pytest.MonkeyPatch, tmp_path,
+) -> None:
+    head = "6" * 40
+    bind_candidate_tree(monkeypatch, tmp_path, head)
+    stub_lane(
+        monkeypatch,
+        dispatch=never("must not dispatch beside a live run"),
+        await_result=lambda **kwargs: (0, "success"),
+        covering=existing_run(head, status="in_progress", conclusion="", run_id="99"),
+    )
+    record_ci_runs(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        merge_worktree_tests_ci.merge_ci_verification_wait,
+        "record_wait_and_warn",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    assert run_verification(tmp_path) is None
+
+    assert [c["run_id"] for c in calls] == ["99"]
+
+
+def test_an_adopted_run_registers_no_wait_because_nothing_is_polled(
+    monkeypatch: pytest.MonkeyPatch, tmp_path,
+) -> None:
+    head = "7" * 40
+    bind_candidate_tree(monkeypatch, tmp_path, head)
+    stub_lane(
+        monkeypatch,
+        dispatch=never("must not dispatch over a concluded run"),
+        await_result=never("must not poll a concluded run"),
+        covering=existing_run(head),
+    )
+    record_ci_runs(monkeypatch)
+    calls = []
+    monkeypatch.setattr(
+        merge_worktree_tests_ci.merge_ci_verification_wait,
+        "record_wait_and_warn",
+        lambda **kwargs: calls.append(kwargs),
+    )
+
+    assert run_verification(tmp_path) is None
+
+    assert calls == []
+
+
 def test_a_run_on_another_commit_never_answers_for_this_candidate(
     monkeypatch: pytest.MonkeyPatch, tmp_path,
 ) -> None:

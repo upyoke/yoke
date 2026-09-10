@@ -25,6 +25,15 @@ registered claim.
 
 ### 7. Merge, record evidence, and finish
 
+Before any landing shape below, `yoke merge item` itself may dispatch or
+attach to a CI run for post-rebase verification and poll it to a
+conclusion — this happens inside the same command, not as a separate step.
+That poll also arms a durable wait, the same mechanism the landing notice
+below uses, so a turn that stops mid-poll is still woken with the verdict:
+re-run the same `yoke merge item` command and it adopts the concluded run
+by exact commit instead of dispatching another suite. Never replace that
+wait with local GitHub polling either.
+
 Merge-queue projects land through one of two shapes, and which one you get is
 decided by the merge itself, not by you.
 
