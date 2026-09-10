@@ -53,7 +53,8 @@ def test_pending_read_rejects_mismatched_requirement_run_pairing(test_db):
         test_db, item_id=9510, plan_slug="review-proof-guard-d", decider_roles=("owner",)
     )
     project_id = test_db.execute(
-        "SELECT project_id FROM qa_requirements WHERE id=%s",
+        "SELECT i.project_id FROM qa_requirements q "
+        "JOIN items i ON i.id = q.item_id WHERE q.id=%s",
         (seeded_a["requirement_id"],),
     ).fetchone()[0]
 
@@ -117,7 +118,8 @@ def test_pending_read_rejects_context_requirement_disagreeing_with_subject_key(
         test_db, item_id=9512, plan_slug="review-proof-guard-f", decider_roles=("owner",)
     )
     project_id = test_db.execute(
-        "SELECT project_id FROM qa_requirements WHERE id=%s",
+        "SELECT i.project_id FROM qa_requirements q "
+        "JOIN items i ON i.id = q.item_id WHERE q.id=%s",
         (seeded_a["requirement_id"],),
     ).fetchone()[0]
 
@@ -179,7 +181,9 @@ def test_pending_read_rejects_requirement_scoped_to_a_different_project(test_db)
     requirement_id = int(seeded["requirement_id"])
     real_project_id = int(
         test_db.execute(
-            "SELECT project_id FROM qa_requirements WHERE id=%s", (requirement_id,)
+            "SELECT i.project_id FROM qa_requirements q "
+            "JOIN items i ON i.id = q.item_id WHERE q.id=%s",
+            (requirement_id,),
         ).fetchone()[0]
     )
 
