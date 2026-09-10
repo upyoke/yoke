@@ -17,6 +17,7 @@ from yoke_core.domain.decision_request_resolution import (
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
+    list_subject_requests,
 )
 
 
@@ -101,6 +102,39 @@ def test_all_mode_needs_one_decision_per_checked_box(conn):
     assert finished["resolution_actor_id"] == 3
     assert finished["approval_progress"]["resolved"] is True
     assert [row["actor_id"] for row in list_decisions(conn, request["id"])] == [2, 3]
+
+
+def test_all_mode_disambiguates_duplicate_named_people(conn):
+    conn.execute("UPDATE actors SET name = 'Ben Bauman' WHERE id IN (2, 3)")
+    request = _request(conn, mode="all", roles=(), actors=(2, 3))
+    partial = resolve_decision_request(
+        conn, request["id"], actor_id=2, action="approve"
+    )
+    assert partial["approval_progress"]["outstanding"] == ["Ben Bauman (actor 3)"]
+
+
+@pytest.mark.parametrize("action", ("approve", "reject"))
+def test_pending_gate_ignores_legacy_system_actor_votes(conn, action):
+    request = _request(conn, mode="all", roles=("owner",), actors=(4,))
+    conn.execute("UPDATE actors SET kind = 'system' WHERE id = 4")
+    conn.execute(
+        "INSERT INTO decision_request_decisions "
+        "(request_id, actor_id, action, decided_at) VALUES (?, 4, ?, 'later')",
+        (request["id"], action),
+    )
+    current = list_subject_requests(conn, "item_transition", "1907:done")[0]
+    assert current["status"] == "pending"
+    assert current["approval_progress"]["resolved"] is False
+    assert current["approval_progress"]["satisfied"] == 0
+
+
+def test_settled_gate_preserves_a_recorded_actor_resolution(conn):
+    request = _request(conn, mode="any", roles=(), actors=(4,))
+    settled = resolve_decision_request(conn, request["id"], actor_id=4, action="approve")
+    conn.execute("UPDATE actors SET kind = 'system' WHERE id = 4")
+    current = list_subject_requests(conn, "item_transition", "1907:done")[0]
+    assert settled["status"] == "resolved"
+    assert current["approval_progress"]["resolved"] is True
 
 
 def test_any_rejection_by_a_listed_party_rejects_the_whole_request(conn):

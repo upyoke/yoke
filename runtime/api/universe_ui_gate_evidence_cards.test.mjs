@@ -10,6 +10,10 @@ import test from "node:test";
 
 import { byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import {
+  artifactCaption,
+  artifactLabel,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/qa_evidence_artifact_view.js";
+import {
   qaBareRequestRow,
   qaRequestRow,
   renderInbox,
@@ -17,6 +21,23 @@ import {
 } from "./universe_ui_inbox_test_support.mjs";
 
 const gateText = (main) => byClass(main, "gate-body")[0].textContent;
+
+test("artifact captions lead with the authored capture label", () => {
+  const artifact = {
+    metadata: {
+      label: "Approval actions and eligibility",
+      route: "/inbox",
+      step_index: 2,
+      browser: "chromium",
+    },
+    artifact_handle: { backend: "s3", key: "private/raw-name.png" },
+  };
+  assert.equal(artifactLabel(artifact), "Approval actions and eligibility");
+  assert.equal(
+    artifactCaption(artifact),
+    "Approval actions and eligibility · /inbox · step 2 · chromium",
+  );
+});
 
 test("a QA review shows each artifact behind it, openable in place", async () => {
   const { main } = renderInbox("all", [qaRequestRow()]);

@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actors import actor_display_labels, is_human_actor
 from yoke_core.domain.approval_policy import (
     APPROVAL_MODE_ALL,
     APPROVAL_ROLE_LABELS,
@@ -147,13 +148,7 @@ def record_decision(
 
 def actor_display_label(conn: Any, actor_id: int) -> str:
     """Name one approver the way the person reading the Inbox knows them."""
-    from yoke_core.domain.actors import ActorError, actor_name
-
-    try:
-        label = actor_name(conn, int(actor_id)).strip()
-    except ActorError:
-        label = ""
-    return label or f"actor {int(actor_id)}"
+    return actor_display_labels(conn, (actor_id,))[int(actor_id)]
 
 
 def _holds_role(
@@ -169,7 +164,8 @@ def _holds_role(
     p = _p(conn)
     return (
         conn.execute(
-            f"SELECT 1 FROM {table} ar JOIN roles r ON r.id = ar.role_id "
+            f"SELECT 1 FROM {table} ar JOIN actors a ON a.id = ar.actor_id "
+            "AND a.kind = 'human' JOIN roles r ON r.id = ar.role_id "
             f"WHERE ar.actor_id = {p} AND ar.{scope_column} = {p} "
             f"AND r.name = {p} LIMIT 1",
             (int(actor_id), int(scope_id), str(role_name)),
@@ -218,9 +214,13 @@ def _box_satisfied(
     )
 
 
-def _box_label(conn: Any, box: dict[str, Any]) -> str:
+def _box_label(
+    conn: Any,
+    box: dict[str, Any],
+    decider_names: dict[int, str],
+) -> str:
     if box["kind"] == "actor":
-        return actor_display_label(conn, int(box["actor_id"]))
+        return decider_names[int(box["actor_id"])]
     return str(box["label"])
 
 
@@ -229,6 +229,21 @@ def evaluate_decisions(conn: Any, request: dict[str, Any]) -> ApprovalProgress:
     mode = str(request.get("approval_mode") or DEFAULT_APPROVAL_MODE)
     boxes = _boxes(request)
     decisions = list_decisions(conn, int(request["id"]))
+    if request.get("status") == "pending":
+        boxes = [
+            box
+            for box in boxes
+            if box["kind"] != "actor" or is_human_actor(conn, box["actor_id"])
+        ]
+        decisions = [
+            decision
+            for decision in decisions
+            if is_human_actor(conn, decision["actor_id"])
+        ]
+    decider_names = actor_display_labels(
+        conn,
+        (box["actor_id"] for box in boxes if box["kind"] == "actor"),
+    )
     required = len(boxes) if mode == APPROVAL_MODE_ALL else min(len(boxes), 1)
     decided_actor_ids = [decision["actor_id"] for decision in decisions]
 
@@ -253,7 +268,7 @@ def evaluate_decisions(conn: Any, request: dict[str, Any]) -> ApprovalProgress:
                 note=decision["note"],
             )
     outstanding = tuple(
-        _box_label(conn, box)
+        _box_label(conn, box, decider_names)
         for box in boxes
         if not _box_satisfied(conn, box, decided_actor_ids)
     )

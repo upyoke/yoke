@@ -121,7 +121,9 @@ def test_the_registered_operation_reports_a_stage_named_person_gate(
     """The gate shape that crashed a release: a named person, not a role."""
     create_decision_request_tables(test_db)
     actor = int(
-        test_db.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+        test_db.execute(
+            "SELECT id FROM actors WHERE kind='human' ORDER BY id LIMIT 1"
+        ).fetchone()[0]
     )
     seed_gate_run(
         test_db,
@@ -161,7 +163,9 @@ def test_the_registered_operation_reports_a_resolved_gate_as_satisfied(
 ):
     create_decision_request_tables(test_db)
     owner = int(
-        test_db.execute("SELECT id FROM actors ORDER BY id DESC LIMIT 1").fetchone()[0]
+        test_db.execute(
+            "SELECT id FROM actors WHERE kind='human' ORDER BY id DESC LIMIT 1"
+        ).fetchone()[0]
     )
     role = int(
         test_db.execute(

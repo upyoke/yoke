@@ -41,7 +41,7 @@ def test_missing_stage_approvers_fail_closed(test_db):
 def test_reject_does_not_satisfy_and_does_not_open_a_new_request(test_db):
     create_decision_request_tables(test_db)
     owner = test_db.execute(
-        "SELECT id FROM actors ORDER BY id DESC LIMIT 1"
+        "SELECT id FROM actors WHERE kind='human' ORDER BY id DESC LIMIT 1"
     ).fetchone()[0]
     role = test_db.execute(
         "INSERT INTO roles (id, name, description, created_at) "
@@ -89,7 +89,9 @@ def test_reject_does_not_satisfy_and_does_not_open_a_new_request(test_db):
 def test_named_actor_is_the_configured_authority(test_db):
     create_decision_request_tables(test_db)
     actor = int(
-        test_db.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+        test_db.execute(
+            "SELECT id FROM actors WHERE kind='human' ORDER BY id LIMIT 1"
+        ).fetchone()[0]
     )
     seed_gate_run(
         test_db,
@@ -128,10 +130,16 @@ def test_all_mode_stage_stays_unapproved_until_every_box_decides(
 ):
     create_decision_request_tables(test_db)
     named = int(
-        test_db.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
+        test_db.execute(
+            "SELECT id FROM actors WHERE kind='human' ORDER BY id LIMIT 1"
+        ).fetchone()[0]
     )
     owner = int(
-        test_db.execute("SELECT id FROM actors ORDER BY id DESC LIMIT 1").fetchone()[0]
+        test_db.execute(
+            "INSERT INTO actors (kind, system_component, name, created_at) "
+            "VALUES ('human', NULL, 'Second Approver', '2026-07-26T00:00:00Z') "
+            "RETURNING id"
+        ).fetchone()[0]
     )
     assert owner != named
     role = test_db.execute(

@@ -211,6 +211,7 @@ def build_metadata(
     qa_kind: str,
     subject: int | str,
     route: str = "/",
+    label: Any = None,
     viewport: Optional[Dict[str, int]] = None,
     browser: str = "chromium",
 ) -> Dict[str, Any]:
@@ -221,6 +222,8 @@ def build_metadata(
         "subject": subject,
         "route": route,
     }
+    if str(label or "").strip():
+        meta["label"] = str(label).strip()
     if viewport:
         meta["viewport"] = viewport
     if browser:

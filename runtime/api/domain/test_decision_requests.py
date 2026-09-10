@@ -10,6 +10,7 @@ from runtime.api.domain.decision_request_test_support import (
 from yoke_core.domain.decision_request_authority import (
     decision_request_authority_actor_ids,
     pending_requests_for_actor,
+    request_deciders,
 )
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
@@ -125,6 +126,33 @@ def test_live_role_union_named_priority_and_authorized_resolution(conn):
         "DecisionRecorded",
         "DecisionRequestResolved",
     ]
+
+
+def test_decider_labels_distinguish_people_with_the_same_name(conn):
+    conn.execute("UPDATE actors SET name = 'Ben Bauman' WHERE id IN (2, 3)")
+    request, _ = _transition_request(conn)
+    labels = {
+        row["actor_id"]: row["label"] for row in request_deciders(conn, request["id"])
+    }
+    assert labels[2] == "Ben Bauman (actor 2)"
+    assert labels[3] == "Ben Bauman (actor 3)"
+
+
+def test_system_actors_cannot_be_named_or_inherit_human_authority(conn):
+    conn.execute("UPDATE actors SET kind = 'system' WHERE id = 4")
+    conn.execute("INSERT INTO actor_project_roles VALUES (4, 10, 1, 'later')")
+    request, _ = _transition_request(conn)
+    assert decision_request_authority_actor_ids(conn, request["id"]) == (2, 3, 5)
+    assert pending_requests_for_actor(conn, 4) == []
+    with pytest.raises(ValueError, match="existing human actors: 4"):
+        create_decision_request(
+            conn,
+            kind="lifecycle_transition_approval",
+            subject_type="item_transition",
+            subject_key="1908:done",
+            project_id=10,
+            named_actor_ids=[4],
+        )
 
 
 def test_unauthorized_resolution_refuses_without_state_change(conn):

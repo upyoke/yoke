@@ -56,6 +56,7 @@ export function artifactCaption(artifact) {
     ? `${meta.viewport.width}×${meta.viewport.height}`
     : "";
   return [
+    meta.label,
     meta.route,
     meta.step_index === undefined || meta.step_index === null
       ? ""
@@ -79,6 +80,8 @@ export function artifactHandle(artifact) {
 }
 
 export function artifactLabel(artifact) {
+  const authored = artifactMetadata(artifact)?.label;
+  if (authored) return String(authored);
   const handle = artifactHandle(artifact);
   if (!handle) return artifact.artifact_type;
   const key = handle.key ? String(handle.key).split("/").at(-1) : null;
@@ -92,7 +95,7 @@ export function artifactLabel(artifact) {
 function artifactStorage(artifact, hostedLocal) {
   const handle = artifactHandle(artifact);
   if (handle?.backend === "s3") {
-    return "s3 handle · rendered via presigned read";
+    return "stored evidence · available here";
   }
   if (handle?.backend === "local") {
     return hostedLocal

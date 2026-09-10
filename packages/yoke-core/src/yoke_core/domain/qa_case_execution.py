@@ -240,10 +240,14 @@ def _browser_result(
         expected_sha=expected_sha,
         actor=actor,
     )
+    payload = json.loads(result.to_json())
+    runs = payload.get("runs")
+    if isinstance(runs, list) and len(runs) == 1 and isinstance(runs[0], dict):
+        payload["qa_run_id"] = runs[0].get("qa_run_id")
     return {
         "requirement_id": int(case["requirement_id"]),
         "runner_id": "browser_substrate",
-        **json.loads(result.to_json()),
+        **payload,
     }
 
 
