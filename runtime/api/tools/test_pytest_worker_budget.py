@@ -149,10 +149,12 @@ def test_granted_workers_still_backs_off_on_a_self_hosted_runner(monkeypatch) ->
     monkeypatch.setenv(budget.BUDGET_ENV, "2")
     monkeypatch.setenv(budget.LOCK_BASE_ENV, str(_scratch_lock_base()))
     called = {}
-    monkeypatch.setattr(
-        budget, "load_backoff",
-        lambda request, **k: called.setdefault("hit", True) or (request, None),
-    )
+
+    def _track_backoff(request, **_kwargs):
+        called["hit"] = True
+        return request, None
+
+    monkeypatch.setattr(budget, "load_backoff", _track_backoff)
     env = {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "self-hosted"}
     with budget.granted_workers(["-n", "auto"], env):
         pass
