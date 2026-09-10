@@ -46,7 +46,7 @@ def _p(conn: Any) -> str:
 
 
 def _live_evidence(
-    conn: Any, kind: str, context: dict[str, Any]
+    conn: Any, kind: str, context: dict[str, Any], *, subject_key: str
 ) -> Optional[dict[str, Any]]:
     """Recompute evidence live, for a request still open to answer.
 
@@ -57,6 +57,14 @@ def _live_evidence(
     pending request sees evidence recorded since. The caller merges the
     returned fields into ``subject_context`` -- the stored row, and every
     resolved or withdrawn read, keep the original frozen snapshot untouched.
+
+    ``subject_key`` is the row's own typed identity, set once at creation and
+    never rewritten -- for ``qa_needs_review`` it is ``str(requirement_id)``.
+    Matching ``context["run_id"]`` to ``context["requirement_id"]`` alone
+    proves those two agree with each other, not that either agrees with the
+    request this row actually is; a corrupted or mismatched frozen context
+    could otherwise still resolve and leak a different requirement's
+    evidence into this request's live read.
     """
     if kind == LIFECYCLE_TRANSITION_APPROVAL:
         item_id = context.get("item_id")
@@ -85,6 +93,8 @@ def _live_evidence(
         run_id = context.get("run_id")
         if requirement_id is None or run_id is None:
             return None
+        if str(int(requirement_id)) != str(subject_key).strip():
+            return None
         return qa_review_artifact_context(
             conn, requirement_id=int(requirement_id), run_id=int(run_id)
         )
@@ -105,7 +115,12 @@ def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
     except (TypeError, json.JSONDecodeError):
         result["subject_context"] = {}
     if result["status"] == "pending":
-        live = _live_evidence(conn, result["kind"], result["subject_context"])
+        live = _live_evidence(
+            conn,
+            result["kind"],
+            result["subject_context"],
+            subject_key=result["subject_key"],
+        )
         if live is not None:
             result["subject_context"].update(live)
     result["actions"] = list(DECISION_KINDS[result["kind"]].actions)
