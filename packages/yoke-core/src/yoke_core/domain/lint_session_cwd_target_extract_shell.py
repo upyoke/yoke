@@ -15,6 +15,7 @@ from yoke_core.domain.lint_session_cwd_host_command import (
 )
 from yoke_core.domain.lint_shell_target_tokens import (
     path_target_from_token,
+    resolve_path_operands,
     shell_command_segments,
     shell_variable_bindings,
 )
@@ -35,19 +36,20 @@ FLAG_EQUALS_PREFIXES = (
 )
 
 
-def extract_command_targets(
+def resolve_command_targets(
     command: str,
     *,
     bindings: Optional[Mapping[str, str]] = None,
-) -> List[str]:
-    """Return the target paths extracted from a Bash command body.
+) -> Tuple[List[str], bool]:
+    """Return a command body's target paths plus its unresolved status.
 
     Walks the tokens, surfaces ``-C <path>`` / ``--rootdir <path>`` /
     ``--target-root <path>`` / ``--worktree-path <path>`` / ``-w <path>``
     bindings and ``--flag=<path>`` short forms, plus absolute-path
     positional arguments that appear after the command name (skipping
-    flags). Returns an empty list when no target signals appear — the
-    caller treats that as "fall through to cwd".
+    flags). No target signal means an empty list, which the caller reads
+    as "fall through to cwd"; the flag says an operand named a path this
+    layer could not settle, so that fallback must be withheld instead.
 
     Invocation boundaries come from :func:`shell_command_segments`,
     so an operator written without surrounding whitespace still
@@ -57,24 +59,34 @@ def extract_command_targets(
     are stripped at the **line** level first: only body lines and the
     closing-tag line are removed. Anything on the opener's own line —
     including a redirect target that comes after the opener (``cat
-    <<EOF > /tmp/out``) — survives and is available to the positional
-    walk below.
+    <<EOF > /tmp/out``) — survives and reaches the positional walk below.
 
-    A token naming a shell variable resolves through that variable's own
-    assignment (see :mod:`lint_shell_target_tokens`). Pass ``bindings``
-    when the assignment lives in a wider command body than ``command``
-    — a caller walking one segment at a time would otherwise lose it.
+    A token naming a shell variable — positional or path-valued flag —
+    resolves through its assignment (:mod:`lint_shell_target_tokens`); pass
+    ``bindings`` when that assignment lives in a wider body than ``command``.
     """
     sanitized = strip_heredoc_body_lines(command)
     if not _safe_split(sanitized):
-        return []
+        return [], False
     if bindings is None:
         bindings = shell_variable_bindings(command)
 
     out: List[str] = extract_gh_repo_selector_targets(sanitized)
+    unresolved = False
     for segment in shell_command_segments(sanitized):
-        out.extend(_extract_segment_targets(segment, bindings))
-    return out
+        targets, segment_unresolved = _extract_segment_targets(segment, bindings)
+        out.extend(targets)
+        unresolved = unresolved or segment_unresolved
+    return out, unresolved
+
+
+def extract_command_targets(
+    command: str,
+    *,
+    bindings: Optional[Mapping[str, str]] = None,
+) -> List[str]:
+    """Return only the target paths :func:`resolve_command_targets` reads."""
+    return resolve_command_targets(command, bindings=bindings)[0]
 
 
 _SEARCH_COMMANDS = frozenset({
@@ -159,21 +171,22 @@ def _sed_script_positional_index(command_base: str, tokens: List[str]) -> int:
 def _extract_segment_targets(
     tokens: List[str],
     bindings: Mapping[str, str],
-) -> List[str]:
+) -> Tuple[List[str], bool]:
     """Extract target paths from a single command segment."""
     tokens = strip_env_prefixes(tokens)
     if not tokens:
-        return []
+        return [], False
 
     command_base = _segment_command_base(tokens)
     if _is_yoke_payload_path_segment(command_base, tokens):
-        return []
+        return [], False
     remote_resource_indexes = _remote_resource_indexes(command_base, tokens)
     is_search = command_base in _SEARCH_COMMANDS
     skip_arg_targets = is_search or command_base in STDOUT_REPORTERS
     sed_script_index = _sed_script_positional_index(command_base, tokens)
 
     out: List[str] = []
+    unresolved = False
     seen_command_name = False
     positional_index = -1
 
@@ -202,7 +215,9 @@ def _extract_segment_targets(
             if tok in FLAG_BINARY and i + 1 < n:
                 value = tokens[i + 1]
                 if value and not value.startswith("-"):
-                    out.append(value)
+                    values, flag_unresolved = resolve_path_operands([value], bindings)
+                    out.extend(values)
+                    unresolved = unresolved or flag_unresolved
                 i += 2
                 continue
             matched_equals = False
@@ -210,7 +225,9 @@ def _extract_segment_targets(
                 if tok.startswith(prefix):
                     value = tok[len(prefix):]
                     if value:
-                        out.append(value)
+                        values, eq_unresolved = resolve_path_operands([value], bindings)
+                        out.extend(values)
+                        unresolved = unresolved or eq_unresolved
                     matched_equals = True
                     break
             if matched_equals:
@@ -228,7 +245,7 @@ def _extract_segment_targets(
                     out.append(target)
         i += 1
 
-    return out
+    return out, unresolved
 
 
 def _safe_split(command: str) -> List[str]:
@@ -325,6 +342,7 @@ __all__ = [
     "STDOUT_REPORTERS",
     "extract_command_targets",
     "extract_heredoc_sections",
+    "resolve_command_targets",
     "strip_heredoc_body_lines",
     "strip_env_prefixes",
     "strip_heredoc_syntax",
