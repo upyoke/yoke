@@ -40,7 +40,10 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `items.detail.get` | `yoke items detail get PREFIX-N --json` |
 | `workflows.item.get` | `yoke workflows item get PREFIX-N --json` |
 | `claims.work.acquire` | `yoke claims work acquire --item PREFIX-N --reason TEXT` |
-| `claims.work.release` | `yoke claims work release --item PREFIX-N --reason TEXT` |
+| `claims.work.release` | `yoke claims work release (--item PREFIX-N \| --all-mine) --reason TEXT` |
+| `claims.work.holder_list` | `yoke claims work holder-list --session-id-filter S --json` |
+| `claims.coordination_claim.list` | `yoke claims coordination-claim list --session-id S --active-only --json` |
+| `claims.coordination_claim.release` | `yoke claims coordination-claim release (--project P --key K \| --claim-id N) --reason TEXT` |
 | `steering.report.get` | `yoke steering report get [--project P]` |
 | `session_control.launch.preview` | `yoke session-control launch preview --project P --surface S [--model M] [--reasoning-effort E] [--context-window N] --json` |
 | `session_control.launch.create` | `yoke session-control launch create --project P --surface S --item PREFIX-N --idempotency-key K [--model M] [--reasoning-effort E] [--context-window N]` |
@@ -235,19 +238,65 @@ skill. Worker launch rules live in
 [`worker-lifecycle.md`](worker-lifecycle.md) and ship in this first
 version — do not defer them.
 
-## 5. Wrapup releases claims
+## 5. Close-out: settle, hand off, and release everything held
 
-Release is mark-complete. An abandoned coordinator is reclaimed by the
-stale sweep. Before ending the session, release the steering claim; its paired
-document lock leaves in the same transaction:
+Release is mark-complete, not silence. A deliberate close-out is a full
+shutdown and handoff, not just the steering claim; an abandoned coordinator
+is reclaimed by the stale sweep instead. Honor an explicit stop promptly,
+then work through this order:
 
-```text
-yoke claims steering release {CLAIM_ID} --reason "steer wrapup"
-```
+1. **Snapshot state for the successor.** Refresh the strategy document's
+   `## Live status — steering snapshot` (see [`loop.md`](loop.md) § "Keep
+   the document current") with current runs, workers, and each one's exact
+   successor action — a cold-start reader must be able to pick up the scope
+   from the document alone.
+
+2. **Stop this session's own watchers and recovery automation.** Stop the
+   fleet watcher through its owning tool handle (see
+   [`watching.md`](watching.md)); on Codex, remove the `keep steering`
+   scheduled task if one is running — a watcher left armed has nowhere to
+   deliver its next wake.
+
+3. **Settle or explicitly hand off every active operation before releasing
+   the lock protecting it.** A `landing_pending` merge, an in-flight deploy
+   batch, or a worker mid-mandate is not release-ready: use its existing
+   recovery path (re-run `yoke merge item`, let the deploy batch finish,
+   message the worker) or hand it to the successor named above. Releasing a
+   lock never settles the operation it guarded.
+
+4. **Inventory every claim and lock this session holds.** No single bulk
+   call covers it — read all three:
+
+   ```text
+   yoke claims steering list --session-id {SESSION_ID} --active-only --json
+   yoke claims coordination-claim list --session-id {SESSION_ID} --active-only --json
+   yoke claims work holder-list --session-id-filter {SESSION_ID} --json
+   ```
+
+5. **Release every remaining session-owned claim/lock** — never another
+   worker's or an item-owned claim. Steering seat first (its paired
+   strategy-doc lock leaves with it), then every coordination claim the
+   inventory surfaced by name (e.g. `DEPLOY:{project}` — sticky, so it
+   survives `--all-mine`), then any remaining work claim:
+
+   ```text
+   yoke claims steering release {CLAIM_ID} --reason "steer close-out"
+   yoke claims coordination-claim release --project {_project} --key DEPLOY:{_project} --reason "steer close-out"
+   yoke claims work release --all-mine --reason "steer close-out"
+   ```
+
+6. **Re-verify zero unintended holds.** Re-run the three list calls from
+   step 4; each must return empty, or name only what step 3 deliberately
+   handed off with its own recorded successor.
+
+If a live operation cannot be settled or handed off safely, stop short of
+releasing its lock, name the concrete exception and exact recovery action
+instead of reporting a complete close-out. An explicit operator instruction
+to release a held lock is authorization on its own; do not ask again.
 
 Then `/yoke wrapup` if the operator asked for a session close. Do not
-release the paired document directly while the seat is live; that refusal
-teaches this paired release instead.
+release the paired strategy document directly while the steering seat is
+live; that refusal teaches this paired release instead.
 
 ## Seat hygiene (token economics)
 

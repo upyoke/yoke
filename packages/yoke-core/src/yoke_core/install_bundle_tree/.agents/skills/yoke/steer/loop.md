@@ -97,12 +97,13 @@ Two things the report deliberately does not do, so do them yourself:
   yoke claims work holder-get PREFIX-N
   ```
 
-- **Set the hold flag on work you are holding on purpose.** The report
-  excludes frozen and operator-blocked items rather than guessing intent
-  from age, so an item you have parked reports as available until you say so
-  with `yoke items freeze PREFIX-N` or `yoke items block PREFIX-N --reason
-  TEXT`. Work that will never resume is `yoke items cancel PREFIX-N --reason
-  TEXT`, not freeze.
+- **Set the hold flag on work you are holding on purpose, and recheck it
+  every pass.** The report excludes frozen and operator-blocked items rather
+  than guessing intent from age, so an item you have parked reports as
+  available until you say so with `yoke items freeze PREFIX-N` or `yoke
+  items block PREFIX-N --reason TEXT`; cancel (not freeze) work that will
+  never resume. Keep only current blockers or explicit operator holds, not
+  filing notes — unblock and resume the moment the reason clears.
 
 The dashboard session card carries one primary status in the identity line:
 `active` under a minute of activity, `idle` once quiet, confirmed `stale`

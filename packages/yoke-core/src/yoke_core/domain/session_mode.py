@@ -31,6 +31,7 @@ SESSION_MODES = frozenset(
         "shepherd",
         "steer",
         "strategize",
+        "wrapup",
     )
 )
 
