@@ -22,7 +22,7 @@ export function selectionParam(selection) {
   return Array.isArray(selection) ? selection.join(",") : "all";
 }
 
-export function createProjectSelection(saveView) {
+export function createProjectSelection(saveView, onNotice) {
   const views = new Map();
   // `ready` gates every write: until the initial server read has genuinely
   // succeeded (seeding what the actor actually has on record, even an
@@ -32,6 +32,19 @@ export function createProjectSelection(saveView) {
   // mount — every subsequent selection still renders correctly from
   // in-memory defaults, it just is not written through.
   const state = { notice: "", ready: false };
+  // A save can settle long after the render that started it, with nothing
+  // else about to re-render — `onNotice` (the caller's re-render hook) is
+  // what makes its notice visible without another navigation.
+  state.setNotice = (text) => {
+    state.notice = text;
+    onNotice?.();
+  };
+  // The initial load's own failure, in contrast, always settles BEFORE the
+  // mount bootstrap's own first render — that render already reads
+  // `notice` fresh, so setting it here needs no `onNotice` trigger, and
+  // firing one anyway would force a second, premature render/refetch race
+  // with the bootstrap's real one.
+  state.seedNotice = (text) => { state.notice = text; };
   const entryFor = (viewId) => {
     let entry = views.get(viewId);
     if (!entry) { entry = { selection: "all", focus: null }; views.set(viewId, entry); }
@@ -55,8 +68,8 @@ export function createProjectSelection(saveView) {
     Promise.resolve()
       .then(() => saveView(viewId, entry.selection, entry.focus))
       .catch(() => {
-        state.notice = "Project selection could not be saved. It may not " +
-          "carry over to another tab, session, or reload.";
+        state.setNotice("Project selection could not be saved. It may not " +
+          "carry over to another tab, session, or reload.");
       });
   };
   return state;

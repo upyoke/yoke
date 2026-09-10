@@ -82,8 +82,12 @@ export function mountUniverseApp(rootNode, options = {}) {
   let mounted = true;
   let projects = [];
   let projectsLoaded = false;
-  const scopeSelections = createProjectSelection((viewId, selection, focus) =>
-    saveScreenSelection(client, viewId, selection, focus));
+  const scopeSelections = createProjectSelection(
+    (viewId, selection, focus) => saveScreenSelection(client, viewId, selection, focus),
+    // A save can fail well after the render that started it; re-render so
+    // its notice shows up without the person having to navigate again.
+    () => renderRoute(),
+  );
   const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections);
   const context = {
     client,

@@ -6,9 +6,9 @@ import { selectionRoute } from "./universe_selection_routes.js";
 // still reach `createProjectSelection`'s `saveFor` as a rejection, or a save
 // that never landed would silently look saved.
 export function saveScreenSelection(client, viewId, selection, focus) {
-  return callFunction(
+  return Promise.resolve(callFunction(
     client, "ui_preferences.screen_selection.set", { view_id: viewId, selection, focus },
-  ).then((callResult) => {
+  )).then((callResult) => {
     if (!callResult.envelope?.success) {
       throw new Error(callResult.envelope?.error?.message || "screen selection save failed");
     }
@@ -20,7 +20,9 @@ export function saveScreenSelection(client, viewId, selection, focus) {
 // load-bearing the way `projects.list` is: every screen simply starts at
 // "all" — but `markReady()` runs only on a genuine success, so normalization
 // during that degraded render never persists a default over whatever the
-// server actually still holds.
+// server actually still holds. The person still needs to know their choices
+// are not being saved this session, so a failure surfaces the same scope
+// notice a failed save does.
 export function loadScreenSelections(client, scopeSelections) {
   return Promise.resolve().then(() => callFunction(
     client, "ui_preferences.screen_selection.list", {},
@@ -33,7 +35,12 @@ export function loadScreenSelections(client, scopeSelections) {
       scopeSelections.seed(viewId, view.selection, view.focus);
     }
     scopeSelections.markReady();
-  }).catch(() => {});
+  }).catch(() => {
+    // The mount bootstrap's own pending first render already reads
+    // `notice` fresh once this settles — no re-render trigger needed here,
+    // and firing one would race that render with a premature, incomplete one.
+    scopeSelections.seedNotice("Couldn't load saved projects. Reload to retry.");
+  });
 }
 
 export function createProjectControls(deps) {

@@ -288,10 +288,10 @@ test("a denied save resolves normally but still surfaces the notice through the 
     return baseCall(request);
   };
   const { root, navigate } = await mountAt(t, "#/items", client);
-  await navigate("#/items?project=2");
-  // A second render pass reads the notice the failed (but resolved) save
-  // left behind — `callFunction` never rejected, so only the app's own
-  // success=false handling can have produced it.
+  // One navigation, one settle — no second navigation to force a repaint.
+  // The failed (but resolved, never rejected) save must trigger its own
+  // re-render once it settles; if that wiring regresses, this fails instead
+  // of a second navigation quietly masking the missing repaint.
   await navigate("#/items?project=2");
   assert.match(byClass(root, "scope-context-note")[0].textContent, /could not be saved/);
 });
@@ -313,11 +313,15 @@ test("an unsuccessful initial read never lets a default clobber the server's rea
   };
   // The route names a project that differs from what the server actually
   // holds for Items — normally this would persist as the new value.
-  await mountAt(t, "#/items?project=2", client);
+  const { root } = await mountAt(t, "#/items?project=2", client);
   assert.equal(listCalls, 1);
   // The failed read never marked this mount ready, so the mismatch was
   // never written back over the actor's real saved selection.
   assert.deepEqual(client.state.views.items, { selection: ["1"], focus: null });
+  // The person still sees that their choices are not being saved this
+  // session, on the very first render — no extra navigation needed.
+  assert.match(byClass(root, "scope-context-note")[0].textContent,
+    /Couldn't load saved projects/);
 });
 
 test("detail focus preserves multi-selection and inaccessible focus never reads another project", async (t) => {
