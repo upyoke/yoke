@@ -29,6 +29,9 @@ from yoke_cli.commands.adapters.deployment_run_membership import (
 from yoke_cli.commands.adapters.deployment_run_terminalize import (
     DEPLOYMENT_RUNS_TERMINALIZE_USAGE,
 )
+from yoke_cli.commands.adapters.deployment_stage_approval import (
+    DEPLOYMENT_RUNS_STAGE_APPROVAL_EVALUATE_USAGE,
+)
 from yoke_cli.commands.adapters.deployment_inspection import (
     DEPLOYMENT_FLOWS_LIST_USAGE,
     DEPLOYMENT_RUNS_FAILURE_TRACE_USAGE,
@@ -46,6 +49,9 @@ DEPLOYMENT_USAGE = {
     "deployment_runs.create": DEPLOYMENT_RUNS_CREATE_USAGE,
     "deployment_runs.add_item": ADD_ITEM_USAGE,
     "deployment_runs.approve": DEPLOYMENT_RUNS_APPROVE_USAGE,
+    "deployment_runs.stage_approval.evaluate": (
+        DEPLOYMENT_RUNS_STAGE_APPROVAL_EVALUATE_USAGE
+    ),
     "deployment_runs.get": DEPLOYMENT_RUNS_GET_USAGE,
     "deployment_runs.failure_trace": DEPLOYMENT_RUNS_FAILURE_TRACE_USAGE,
     "deployment_runs.find_by_item": DEPLOYMENT_RUNS_FIND_BY_ITEM_USAGE,

@@ -67,6 +67,7 @@ def approve_item(
             verdict = evaluate_deployment_stage_approval(
                 conn,
                 run_id=str(active_run["id"]),
+                stage=str(active_run["current_stage"] or ""),
             )
         except ValueError as exc:
             return _main._error_response(409, "INVALID_STATE", str(exc))

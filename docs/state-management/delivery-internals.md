@@ -63,11 +63,30 @@ When a step runner encounters a missing capability, it follows the capability se
 
 When the pipeline encounters a `human-approval` step runner stage:
 
-1. Pipeline halts the deployment run at the approval stage and exits with code 2
-2. Items remain at `status = 'release'` with the run halted
-3. Operator reviews and runs `/yoke approve YOK-N [--note "..."]`
-4. Approve advances the run's `current_stage` to the next stage in the flow
-5. Operator re-runs `/yoke usher YOK-N` to continue from that next stage
+1. The driver asks the **serving** control plane for the verdict, naming the
+   exact run and stage: `deployment_runs.stage_approval.evaluate` (operator
+   adapter `yoke deployment-runs stage-approval evaluate RUN-ID --stage
+   STAGE`). The build serving that control plane derives policy, subject,
+   membership, snapshot, and decisions, and raises the decision request the
+   stage's declared policy calls for when none answers for it yet.
+2. Pipeline halts the deployment run at the approval stage and exits with code 2
+3. Items remain at `status = 'release'` with the run halted
+4. Operator reviews and runs `/yoke approve YOK-N [--note "..."]`
+5. Approve advances the run's `current_stage` to the next stage in the flow
+6. Operator re-runs `/yoke usher YOK-N` to continue from that next stage
+
+**Why the driver asks instead of deciding.** A release driver runs the
+candidate revision while the control plane it reads still runs the deployed
+one. Deriving the verdict in the driver reads the candidate's columns out of
+the deployed build's database, so a release that adds or retires a column
+crashes its own approval gate. Routing the evaluation to the serving build
+keeps code and schema one deployable pair. The shared surface is
+`control_plane_transport.serving_authority`; a universe with no https plane
+is served by the process holding it, so the same call dispatches in-process
+there. Evaluating never approves — it reports what the stage is still
+waiting on, and a person records an answer through `deployment_runs.approve`
+or the Inbox. A run standing at a different stage than the one named is
+refused rather than evaluated.
 
 ## Step Runner Dispatch
 

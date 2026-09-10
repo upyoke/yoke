@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from runtime.api.deployment_stage_approval_fixture import OpenConnection
+from runtime.api.deployment_stage_approval_fixture import (
+    OpenConnection,
+    seed_gate_run,
+)
 from yoke_core.domain import deployment_run_approval
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
@@ -19,47 +22,9 @@ from yoke_core.domain.deployment_approval_requests import (
 from yoke_core.domain.deployment_run_approval import emit_run_approval
 
 
-def _prod_environment_id(conn) -> int:
-    conn.execute(
-        "INSERT INTO sites(project_id, name, created_at) "
-        "VALUES (1, 'Gate test site', '2026-07-26T00:00:00Z') "
-        "ON CONFLICT(project_id, name) DO NOTHING"
-    )
-    conn.execute(
-        "INSERT INTO environments(site, project_id, name, created_at) "
-        "SELECT id, 1, 'prod', '2026-07-26T00:00:00Z' FROM sites "
-        "WHERE project_id=1 AND name='Gate test site' "
-        "ON CONFLICT(project_id, name) DO NOTHING"
-    )
-    return int(
-        conn.execute(
-            "SELECT id FROM environments WHERE project_id=1 AND name='prod'"
-        ).fetchone()[0]
-    )
-
-
-def _seed_run(conn, *, flow_id, run_id, stages_json, created_by="1"):
-    environment_id = _prod_environment_id(conn)
-    conn.execute(
-        "INSERT INTO deployment_flows "
-        "(id, project_id, name, stages, created_at) "
-        "VALUES (%s, 1, %s, %s, '2026-07-26T00:00:00Z')",
-        (flow_id, flow_id, stages_json),
-    )
-    conn.execute(
-        "INSERT INTO deployment_runs "
-        "(id, project_id, flow, target_tier, target_environment_id, "
-        "status, current_stage, created_by, created_at) "
-        "VALUES (%s, 1, %s, 'persistent', %s, 'executing', "
-        "'approve-prod', %s, '2026-07-26T00:00:00Z')",
-        (run_id, flow_id, environment_id, created_by),
-    )
-    conn.commit()
-
-
 def test_missing_stage_approvers_fail_closed(test_db):
     create_decision_request_tables(test_db)
-    _seed_run(
+    seed_gate_run(
         test_db,
         flow_id="gate-missing",
         run_id="run-gate-missing",
@@ -69,6 +34,7 @@ def test_missing_stage_approvers_fail_closed(test_db):
         evaluate_deployment_stage_approval(
             test_db,
             run_id="run-gate-missing",
+            stage="approve-prod",
         )
 
 
@@ -90,7 +56,7 @@ def test_reject_does_not_satisfy_and_does_not_open_a_new_request(test_db):
         "ON CONFLICT DO NOTHING",
         (owner, role),
     )
-    _seed_run(
+    seed_gate_run(
         test_db,
         flow_id="gate-reject",
         run_id="run-gate-reject",
@@ -102,6 +68,7 @@ def test_reject_does_not_satisfy_and_does_not_open_a_new_request(test_db):
     pending = evaluate_deployment_stage_approval(
         test_db,
         run_id="run-gate-reject",
+        stage="approve-prod",
     )
     resolve_decision_request(
         test_db,
@@ -112,6 +79,7 @@ def test_reject_does_not_satisfy_and_does_not_open_a_new_request(test_db):
     rejected = evaluate_deployment_stage_approval(
         test_db,
         run_id="run-gate-reject",
+        stage="approve-prod",
     )
     assert rejected.satisfied is False
     assert rejected.resolution_action == "reject"
@@ -123,7 +91,7 @@ def test_named_actor_is_the_configured_authority(test_db):
     actor = int(
         test_db.execute("SELECT id FROM actors ORDER BY id LIMIT 1").fetchone()[0]
     )
-    _seed_run(
+    seed_gate_run(
         test_db,
         flow_id="gate-named",
         run_id="run-gate-named",
@@ -135,6 +103,7 @@ def test_named_actor_is_the_configured_authority(test_db):
     verdict = evaluate_deployment_stage_approval(
         test_db,
         run_id="run-gate-named",
+        stage="approve-prod",
         originator_actor_id=actor,
     )
     named = [
@@ -177,7 +146,7 @@ def test_all_mode_stage_stays_unapproved_until_every_box_decides(
         "VALUES (%s, 1, %s, '2026-07-26T00:00:00Z') ON CONFLICT DO NOTHING",
         (owner, role),
     )
-    _seed_run(
+    seed_gate_run(
         test_db,
         flow_id="gate-every-approver",
         run_id="run-gate-every-approver",

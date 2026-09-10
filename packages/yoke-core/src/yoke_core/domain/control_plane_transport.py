@@ -6,6 +6,12 @@ needs only machine possession. Relaying through the dispatcher is the
 fallback for a control plane the client cannot open at all, which is what an
 https connection is.
 
+:func:`serving_authority` inverts that preference for the operations that
+need it. Holding a database door says nothing about running the build that
+database was converged for, so an operation whose result depends on the
+code and the schema being one deployable pair must execute where that pair
+lives.
+
 Any operation that runs client-side and touches control-plane state belongs
 on this pair. Opening a bare connection instead fails outright on an
 https-connected machine — on the transport most sessions actually use.
@@ -21,6 +27,10 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
+from yoke_cli.transport.serving_plane import (
+    ServingControlPlaneUnresolved,
+    serving_control_plane_env,
+)
 from yoke_contracts.control_plane_locality import local_authority_exempt
 
 
@@ -44,6 +54,8 @@ def relay(
     function_id: str,
     payload: dict,
     target: Optional[Any] = None,
+    *,
+    env: Optional[str] = None,
 ) -> dict:
     """Run one control-plane operation on the connected control plane.
 
@@ -55,6 +67,11 @@ def relay(
     item target may carry the raw public reference, which the dispatcher
     resolves server-side — a client with no local database can still name
     a ``PREFIX-N`` item.
+
+    *env* names one configured connection to relay through instead of the
+    active one. The transport refuses rather than falling back when that
+    env resolves to no https connection, because a caller that named a
+    plane meant it.
     """
     from yoke_contracts.api.function_call import TargetRef
     from yoke_core.api.service_client_structured_api_adapter import (
@@ -65,14 +82,51 @@ def relay(
         function_id=function_id,
         target=target if target is not None else TargetRef(kind="global"),
         payload=payload,
+        relay_env=env,
     )
     if not response.success:
         message = (
-            response.error.message if response.error is not None
+            response.error.message
+            if response.error is not None
             else f"{function_id} failed"
         )
         raise RuntimeError(message)
     return response.result or {}
 
 
-__all__ = ["local_connection_or_none", "relay"]
+def serving_authority(
+    function_id: str,
+    payload: dict,
+    target: Optional[Any] = None,
+) -> dict:
+    """Run one operation on the build that SERVES this universe.
+
+    Code and schema are one deployable pair, and a client can hold a
+    database door while running an entirely different revision — a
+    workstation driving a release runs the candidate, the database is
+    still the one the deployed build converged. An operation that reads a
+    column the candidate added, or a table the candidate removed, is
+    correct only where that pair lives, so this routes to the serving
+    plane rather than dispatching in this process.
+
+    A universe with no https plane is served by the process holding it, so
+    the relay dispatches in-process and the pair is intact either way. A
+    machine that cannot name its serving plane raises rather than taking
+    that path, because "no plane" and "the plane is unreachable" are
+    different answers and only the first one is safe to run here.
+    """
+    return relay(
+        function_id,
+        payload,
+        target,
+        env=serving_control_plane_env() or None,
+    )
+
+
+__all__ = [
+    "ServingControlPlaneUnresolved",
+    "local_connection_or_none",
+    "relay",
+    "serving_authority",
+    "serving_control_plane_env",
+]

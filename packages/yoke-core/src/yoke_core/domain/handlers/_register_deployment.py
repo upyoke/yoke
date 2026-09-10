@@ -9,6 +9,7 @@ from yoke_core.domain.handlers import (
     deployment_run_membership as _run_membership,
     deployment_run_projection as _run_projection,
     deployment_run_terminalization as _run_terminalization,
+    deployment_stage_approval as _stage_approval,
     deployment_flows as _flows,
     deployment_runs as _runs,
     deployment_runs_composed as _runs_composed,
@@ -275,6 +276,24 @@ def register(registry) -> None:
         side_effects=["deployment_runs_update", "items_deploy_stage_update"],
         emitted_event_names=["DeploymentApprovalGranted", "YokeFunctionCalled"],
         guardrails=["executing_run", "current_stage_human_approval"],
+        adapter_status="live", claim_required_kind=None,
+    )
+    registry.register(
+        _stage_approval.FUNCTION_ID,
+        _stage_approval.handle_deployment_stage_approval_evaluate,
+        _models.DeploymentStageApprovalEvaluateRequest,
+        _models.DeploymentStageApprovalEvaluateResponse,
+        stability="stable",
+        owner_module=(
+            "yoke_core.domain.handlers.deployment_stage_approval"
+        ),
+        target_kinds=["workflow_run"],
+        # Deciding is not approving: this creates the decision request the
+        # stage's declared policy calls for and reports what it is still
+        # waiting on. Recording an answer stays on deployment_runs.approve.
+        side_effects=["decision_requests_insert"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["executing_run", "exact_current_stage"],
         adapter_status="live", claim_required_kind=None,
     )
     registry.register(

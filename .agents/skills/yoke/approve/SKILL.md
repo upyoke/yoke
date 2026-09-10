@@ -57,3 +57,17 @@ deployment pipeline, which advances from the run's authoritative
 
 If the command refuses, report the exact structured error and stop. Never
 force a run past a non-approval stage or approve a terminal run.
+
+**To read a stage's verdict without deciding it**, name the exact run and
+stage:
+
+```sh
+yoke deployment-runs stage-approval evaluate RUN-ID --stage STAGE --json
+```
+
+That reports whether the stage is satisfied and who it is still waiting on,
+and raises the decision request its policy calls for when none answers for
+it yet. It never approves. The verdict is derived by the build serving the
+control plane, so it is correct even when the caller runs a different
+revision — read the stage name from `yoke deployment-runs stages RUN-ID`,
+because a run standing elsewhere is refused rather than evaluated.

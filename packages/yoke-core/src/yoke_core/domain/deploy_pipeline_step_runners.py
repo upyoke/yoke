@@ -128,7 +128,7 @@ def _dispatch_step_runner(
             sd=sd,
         ), ""
     if step_runner == "human-approval":
-        from yoke_core.domain.deployment_approval_requests import (
+        from yoke_core.domain.deployment_stage_approval_dispatch import (
             dispatch_deployment_stage_approval,
         )
 

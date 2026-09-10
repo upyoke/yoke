@@ -70,6 +70,7 @@ def _seed_run_awaiting_approval(conn) -> tuple[int, int]:
     evaluate_deployment_stage_approval(
         conn,
         run_id=RUN_ID,
+        stage="approve-prod",
         originator_actor_id=originator,
     )
     conn.commit()

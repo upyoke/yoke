@@ -14,6 +14,12 @@ from yoke_core.domain.decision_requests import (
 from yoke_core.domain.events_bounded_emit import emit_bounded
 
 
+#: The registered operation that derives one exact run stage's approval
+#: verdict. Named here so the evaluator, its handler, and the pipeline
+#: adapter all address the same operation.
+EVALUATE_STAGE_APPROVAL_FUNCTION = "deployment_runs.stage_approval.evaluate"
+
+
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
@@ -136,10 +142,18 @@ def evaluate_deployment_stage_approval(
     conn: Any,
     *,
     run_id: str,
+    stage: str,
     originator_actor_id: Optional[int] = None,
     session_id: str = "",
 ):
-    """Fail closed until an authorized approval resolves this run stage."""
+    """Fail closed until an authorized approval resolves this run stage.
+
+    *stage* names the exact stage the caller believes the run is waiting
+    at, and a run standing somewhere else is refused rather than evaluated.
+    A caller that let the run choose would evaluate whichever stage the run
+    happened to reach, which is a different gate than the one it asked
+    about.
+    """
     from yoke_core.domain.approval import parse_flow_stages, resolve_approval
     from yoke_core.domain.approval_gate import (
         ApprovalGateVerdict,
@@ -151,12 +165,22 @@ def evaluate_deployment_stage_approval(
         parse_stage_approvals,
     )
 
+    requested_stage = str(stage or "").strip()
+    if not requested_stage:
+        raise ValueError("an exact stage name is required")
     run = _run(conn, run_id, for_update=True)
     if run["status"] != "executing" or not run["current_stage"]:
         raise ValueError(
             f"deployment run {run_id!r} is not waiting at an executing stage"
         )
     stage = str(run["current_stage"])
+    if stage != requested_stage:
+        raise ValueError(
+            f"deployment run {run_id!r} is waiting at stage {stage!r}, not "
+            f"{requested_stage!r}; re-read the run with "
+            f"`yoke deployment-runs stages {run_id}` and evaluate the stage "
+            "it is actually waiting at"
+        )
     stages = parse_flow_stages(str(run["stages"]))
     resolution = resolve_approval(stages, stage)
     if not resolution.approved:
@@ -301,33 +325,10 @@ def emit_deployment_completion(
     )
 
 
-def dispatch_deployment_stage_approval(
-    run_id: str,
-    stage_name: str,
-) -> tuple[int, str]:
-    """Deployment-step_runner adapter for one human approval stage."""
-    from yoke_core.domain.db_helpers import connect
-
-    conn = connect()
-    try:
-        verdict = evaluate_deployment_stage_approval(conn, run_id=run_id)
-    finally:
-        conn.close()
-    if verdict.satisfied:
-        return 0, ""
-    if verdict.resolution_action == "reject":
-        return 1, (
-            f"deployment stage {stage_name!r} was rejected through "
-            f"decision request {verdict.request_id}"
-        )
-    print(f"Awaiting Inbox decision {verdict.request_id} for stage '{stage_name}'")
-    return -2, ""
-
-
 __all__ = [
+    "EVALUATE_STAGE_APPROVAL_FUNCTION",
     "deployment_stage_decision",
     "deployment_stage_is_approved",
-    "dispatch_deployment_stage_approval",
     "evaluate_deployment_stage_approval",
     "emit_deployment_completion",
 ]

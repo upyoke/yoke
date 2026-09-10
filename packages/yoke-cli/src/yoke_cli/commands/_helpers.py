@@ -36,6 +36,7 @@ __all__ = [
     "parse_or_usage_error",
     "usage_error",
     "dispatch_and_emit",
+    "emit_response",
     "run_id_receipt",
     "split_comma",
     "attach_field_note_footer",
@@ -221,6 +222,7 @@ def dispatch_and_emit(
     options: Optional[Dict[str, Any]] = None,
     preconditions: Optional[Dict[str, Any]] = None,
     response_recovery: Optional[Callable[[Any, Any], Any]] = None,
+    relay_env: Optional[str] = None,
 ) -> int:
     ensure_handlers_loaded()
     actor = build_actor(session_id=session_id)
@@ -244,6 +246,7 @@ def dispatch_and_emit(
         sensitive_values=sensitive_values,
         options=options,
         preconditions=preconditions,
+        relay_env=relay_env,
     )
     if response_recovery is not None:
         response = response_recovery(response, actor)

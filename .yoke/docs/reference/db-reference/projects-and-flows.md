@@ -253,6 +253,21 @@ UNIQUE(project, name)
 
 Every stage object requires `name` (string) and `step_runner` (string, closed set). Valid step runner types: `auto`, `health-check`, `warm-up`, `environment-activate`, `core-container-deploy`, `ephemeral-deploy`, `ephemeral-teardown`, `ephemeral-verify`, `human-approval`, `github-actions-workflow`. A database is brought up to its code by the boot converge that starts the container, so applying a migration is not a deployment stage and there is no stage `kind` vocabulary.
 
+**`human-approval` step runner:** Halts the run at the stage until the
+declared approval policy is satisfied. The driver does not derive the verdict
+itself — it asks the build serving the control plane, naming the exact run and
+stage, through `deployment_runs.stage_approval.evaluate` (operator adapter
+`yoke deployment-runs stage-approval evaluate RUN-ID --stage STAGE`). Code and
+schema are one deployable pair, and a release driver runs the candidate while
+the control plane still runs the deployed build, so a locally derived verdict
+reads the candidate's columns out of the deployed build's database. Evaluating
+raises the decision request the policy calls for and reports what the stage is
+still waiting on; it never approves. Recording an answer stays on
+`deployment_runs.approve`. Python owners:
+`yoke_core.domain.deployment_approval_requests` (the evaluator),
+`yoke_core.domain.handlers.deployment_stage_approval` (the serving side), and
+`yoke_core.domain.deployment_stage_approval_dispatch` (the pipeline side).
+
 **`github-actions-workflow` step runner:** Triggers a GitHub Actions workflow and polls for completion. Stage fields: `workflow` (workflow filename, e.g., `deploy.yml`), `watch_for` (state to wait for, e.g., `"completed"`), `on_failure` (`"halt"`). Used by external projects where GitHub Actions owns the pipeline. Python owners: `yoke_core.domain.github_actions` + `yoke_core.domain.deploy_pipeline`.
 
 **`warm-up` step runner:** Issues one heavy relayed function call against the

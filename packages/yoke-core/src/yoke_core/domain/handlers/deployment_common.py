@@ -213,6 +213,21 @@ class DeploymentRunApproveResponse(BaseModel):
     event_id: Optional[str] = None
 
 
+class DeploymentStageApprovalEvaluateRequest(BaseModel):
+    stage: str
+    run_id: Optional[str] = None
+
+
+class DeploymentStageApprovalEvaluateResponse(BaseModel):
+    run_id: str
+    stage: str
+    satisfied: bool
+    request_id: int
+    request_status: str
+    resolution_action: Optional[str] = None
+    reason: str
+
+
 class DeploymentRunResolveTargetRequest(BaseModel):
     project: str
     flow: str
