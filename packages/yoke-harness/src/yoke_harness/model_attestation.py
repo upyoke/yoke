@@ -43,6 +43,12 @@ from yoke_contracts.session_model_facts import (
     normalize_reasoning_effort,
 )
 from yoke_harness.artifact_scan import scan_rows, tail_rows_newest_first
+from yoke_harness.codex_artifact_reader import (
+    MODEL_HISTORY_INCOMPLETE_KEY,
+    codex_record_decoder,
+    prepare_codex_watermark,
+    stamp_codex_reader,
+)
 from yoke_harness.artifact_watermark import (
     MODEL_KIND,
     ArtifactWatermark,
@@ -170,10 +176,14 @@ def _codex_rollout_facts(path: Path, thread_id: str) -> SessionModelFacts:
     folding answers from the record instead of scanning the same bytes.
     """
     with watermark_lock(thread_id, kind=MODEL_KIND) as folding:
-        mark = load_watermark(thread_id, path, kind=MODEL_KIND)
+        persisted_mark = load_watermark(thread_id, path, kind=MODEL_KIND)
+        mark = prepare_codex_watermark(persisted_mark)
         held = dict(stored_totals(mark))
         if not folding:
-            return _facts_from_record(held, mark.caught_up)
+            return _facts_from_record(held, mark.caught_up, mark.oversized)
+
+        def mark_gap() -> None:
+            held[MODEL_HISTORY_INCOMPLETE_KEY] = True
 
         def fold(row: Mapping[str, Any]) -> None:
             block = row.get("payload")
@@ -186,23 +196,28 @@ def _codex_rollout_facts(path: Path, thread_id: str) -> SessionModelFacts:
                 ) or held.get("effort")
             held["window"] = _codex_window(block) or held.get("window")
 
-        scan = scan_rows(path, mark.offset, fold)
-        save_watermark(
-            thread_id,
+        scan = scan_rows(
             path,
-            ArtifactWatermark(
-                offset=scan.offset,
-                totals=held,
-                truncated=mark.truncated,
-                oversized=mark.oversized or scan.oversized,
-                caught_up=scan.caught_up,
-            ),
-            kind=MODEL_KIND,
+            mark.offset,
+            fold,
+            record_factory=codex_record_decoder,
+            on_unrecoverable=mark_gap,
         )
-    return _facts_from_record(held, scan.caught_up)
+        mark = ArtifactWatermark(
+            offset=scan.offset,
+            totals=stamp_codex_reader(held),
+            truncated=mark.truncated,
+            oversized=bool(held.get(MODEL_HISTORY_INCOMPLETE_KEY)),
+            caught_up=scan.caught_up,
+        )
+        if mark != persisted_mark:
+            save_watermark(thread_id, path, mark, kind=MODEL_KIND)
+    return _facts_from_record(held, mark.caught_up, mark.oversized)
 
 
-def _facts_from_record(held: Mapping[str, Any], caught_up: bool) -> SessionModelFacts:
+def _facts_from_record(
+    held: Mapping[str, Any], caught_up: bool, incomplete: bool = False
+) -> SessionModelFacts:
     """Present the folded record, but only once the fold reached the end.
 
     A served fact is the newest statement in the rollout, so a fold that
@@ -212,7 +227,7 @@ def _facts_from_record(held: Mapping[str, Any], caught_up: bool) -> SessionModel
     model that session reports for the rest of its life. Unattested facts
     make the next event resume the fold instead.
     """
-    if not caught_up:
+    if not caught_up or incomplete:
         return SessionModelFacts()
     return SessionModelFacts(
         model=_served_model(held.get("model")),

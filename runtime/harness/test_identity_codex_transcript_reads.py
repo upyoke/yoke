@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from yoke_cli.config import machine_config
+from yoke_harness import artifact_scan
 from yoke_harness.artifact_scan import MAX_TAIL_BYTES
 from yoke_harness.hooks import identity_codex_runtime
 
@@ -122,3 +123,33 @@ def test_a_thread_with_no_transcript_resolves_nothing(
 
     assert identity_codex_runtime._codex_model_from_transcript("t") is None
     assert identity_codex_runtime._codex_entrypoint_from_transcript("t") is None
+
+
+def test_identity_head_and_tail_reads_project_oversized_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(artifact_scan, "MAX_RECORD_BYTES", 300)
+
+    def refuse_full_decode(_record: bytes) -> None:
+        raise AssertionError("Codex identity must not fully decode rollout rows")
+
+    monkeypatch.setattr(artifact_scan, "parse_row", refuse_full_decode)
+    rollout = _rollout(
+        tmp_path / "t.jsonl",
+        [
+            {
+                "payload": {"filler": "x" * 8_000, "originator": "codex_cli_rs"},
+                "type": "session_meta",
+            },
+            {
+                "payload": {"filler": "y" * 8_000, "model": "gpt-5-codex"},
+                "type": "turn_context",
+            },
+        ],
+    )
+    _bind(monkeypatch, [rollout])
+
+    assert identity_codex_runtime._codex_entrypoint_from_transcript("t") == (
+        "codex-cli-rs"
+    )
+    assert identity_codex_runtime._codex_model_from_transcript("t") == "gpt-5-codex"

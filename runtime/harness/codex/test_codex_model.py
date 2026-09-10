@@ -228,7 +228,9 @@ class TestResolveEntrypoint:
 
         assert resolve_entrypoint(thread_id=None) == "codex-desktop"
 
-    def test_resolves_from_transcript(self, transcript_dir):
+    def test_resolves_from_transcript(self, transcript_dir, monkeypatch):
+        monkeypatch.delenv("CODEX_INTERNAL_ORIGINATOR_OVERRIDE", raising=False)
+        monkeypatch.delenv("CODEX_ORIGINATOR", raising=False)
         thread_id = "entrypoint-resolve"
         transcript = transcript_dir / f"{thread_id}.jsonl"
         transcript.write_text(
