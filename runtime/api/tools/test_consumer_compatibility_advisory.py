@@ -9,6 +9,7 @@ run. That last one is the ordinary fork case, and it must say so.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -21,6 +22,7 @@ from runtime.api.tools import require_platform_consumer_compatibility as gate
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 YOKE_CI = REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml"
+MERGE_QUEUE = REPO_ROOT / ".yoke" / "merge-queue.json"
 ADVISORY_MODULE = "runtime.api.tools.consumer_compatibility_advisory"
 CANDIDATE = "a" * 40
 CONTRACT_VERSION_ASSET = (
@@ -141,20 +143,44 @@ def test_a_refusal_is_reported_as_a_warning_and_a_non_zero_status(
     assert "::warning" in printed
 
 
-def test_the_advisory_rides_the_existing_repo_contracts_job() -> None:
-    # Extending a job that already runs beats a gate of its own: no new
-    # required context, no ruleset, and one changed-path scope for both.
+CONSUMER_ADVISORY_WORKFLOW = (
+    REPO_ROOT / ".github" / "workflows" / "consumer-compatibility-advisory.yml"
+)
+
+
+def test_the_advisory_runs_as_an_independent_job() -> None:
+    # An independent job beats a gate of its own: no new required context,
+    # no ruleset, and the job carries no `needs`, so repo-contracts and the
+    # shard matrix never wait on it finishing.
     workflow = load_document(YOKE_CI)
-    job = workflow["jobs"]["repo_contracts"]
-    token = gate.CONSUMER_TOKEN_ENV
+    call_job = workflow["jobs"]["consumer_advisory"]
 
     assert workflow["permissions"] == {"contents": "read"}
+    assert not call_job.get("needs")
+    assert call_job["uses"] == "./.github/workflows/consumer-compatibility-advisory.yml"
+    assert call_job["secrets"] == "inherit"
+
+    repo_contracts = workflow["jobs"]["repo_contracts"]
+    token = gate.CONSUMER_TOKEN_ENV
+    assert token not in (repo_contracts.get("env") or {})
+    assert not any(token in (step.get("env") or {}) for step in repo_contracts["steps"])
+    assert not any(
+        ADVISORY_MODULE in str(step.get("run", "")) for step in repo_contracts["steps"]
+    )
+
+
+def test_the_called_workflow_carries_the_scoped_credential_on_one_step() -> None:
+    called = load_document(CONSUMER_ADVISORY_WORKFLOW)
+    job = called["jobs"]["advisory"]
+    token = gate.CONSUMER_TOKEN_ENV
+
+    assert called["permissions"] == {"contents": "read"}
     assert token not in (job.get("env") or {})
     carrying = [step for step in job["steps"] if token in (step.get("env") or {})]
     assert len(carrying) == 1
     step = carrying[0]
     assert ADVISORY_MODULE in str(step["run"])
-    # Advisory: this job's verdict stays the tree contracts.
+    # Advisory: the calling job's verdict stays the tree contracts.
     assert step["continue-on-error"] is True
 
 
@@ -168,4 +194,21 @@ def test_no_other_workflow_carries_the_scoped_consumer_credential() -> None:
         if gate.CONSUMER_TOKEN_ENV in path.read_text(encoding="utf-8")
     }
 
-    assert carrying == {"yoke-ci.yml", "platform-release-bridge.yml"}
+    assert carrying == {
+        "consumer-compatibility-advisory.yml",
+        "platform-release-bridge.yml",
+    }
+
+
+def test_the_advisory_job_carries_no_required_status_check() -> None:
+    # Independence buys nothing if the queue starts waiting on it anyway.
+    declared = json.loads(MERGE_QUEUE.read_text(encoding="utf-8"))
+    contexts = {
+        str(entry["context"])
+        for rule in declared["ruleset"]["rules"]
+        if rule["type"] == "required_status_checks"
+        for entry in rule["parameters"]["required_status_checks"]
+    }
+
+    assert "consumer-advisory" not in contexts
+    assert not any("consumer-compatibility-advisory" in c for c in contexts)

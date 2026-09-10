@@ -6,6 +6,8 @@ name: yoke-ci
 # runners). merge_group runs are the merge queue's one integration gate
 # per train of queued PRs; its ruleset requires the same named checks.
 # repo-contracts fast-fails; identical trees may reuse recent coverage.
+# consumer_advisory is an independent, non-blocking job (no `needs`, no
+# required context) so repo-contracts and the shard matrix never wait on it.
 run-name: >-
   ${{ inputs.yoke_dispatch_id
       && format('yoke-ci {0} [yoke-dispatch:{1}]', github.ref_name, inputs.yoke_dispatch_id)
@@ -77,24 +79,6 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-packages --all-groups --locked
 
-      # Advisory: a producer-only green run proves the producer and nothing
-      # else, so an author changing the surface the hosted host consumes hears
-      # it here rather than at the release. It never decides this job's
-      # verdict, the build stays in the consumer's own required check, and
-      # GITHUB_TOKEN is untouched. The scoped credential is bound to this one
-      # step and absent on a fork, where the step says the pair was not
-      # checked instead of implying a clean answer.
-      - name: Advise whether the hosted consumer builds against this candidate
-        continue-on-error: true
-        env:
-          YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
-          YOKE_MACHINE_HOME: ${{ runner.temp }}/yoke-consumer-advisory
-        run: >-
-          uv run python -m runtime.api.tools.consumer_compatibility_advisory
-          --base "origin/${{ github.event.repository.default_branch }}"
-          --candidate-sha "${{ github.event.pull_request.head.sha || github.sha }}"
-          --dispatch-key "${{ github.run_id }}-${{ github.run_attempt }}"
-
       - name: Run repo contracts
         # One changed-path scope for every event: the merge-base with the
         # default branch. Scoping by event would let a dispatched gate and a
@@ -102,6 +86,13 @@ jobs:
         run: >-
           uv run python -m yoke_core.tools.ci_repo_contracts
           --base "origin/${{ github.event.repository.default_branch }}"
+
+  consumer_advisory:
+    name: consumer-advisory
+    # No `needs`: runs independent of and in parallel with repo-contracts and
+    # the shard matrix. Not a required status-check context.
+    uses: ./.github/workflows/consumer-compatibility-advisory.yml
+    secrets: inherit
 
   reuse_coverage:
     name: reuse-coverage

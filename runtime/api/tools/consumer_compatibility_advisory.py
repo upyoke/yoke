@@ -3,9 +3,11 @@
 Publication is where consumer proof is mandatory — see
 :mod:`require_platform_consumer_compatibility`, which the release bridge runs
 before it allocates the annotated tag. This is the earlier, advisory half:
-it runs inside the repo-contracts job so an author changing the shared
-universe app surface learns at the merge attempt rather than at the release,
-and it never decides that job's verdict.
+it runs in its own independent CI job (see
+``.github/workflows/consumer-compatibility-advisory.yml``) so an author
+changing the shared universe app surface learns at the merge attempt rather
+than at the release, and it never decides any required check's verdict —
+nor does the tree-contracts job or the shard matrix wait on it.
 
 Three outcomes, and the difference between them is the point:
 
