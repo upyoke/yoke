@@ -10,6 +10,7 @@ from yoke_contracts.session_control.resume import (
     RESUME_EXITED_NONZERO_RESULT,
     RESUMED_RUNNING_RESULT,
 )
+from yoke_contracts.session_control.wake_delivery import WAKE_DELIVERED_RESULT
 from yoke_core.domain.session_relay import claim_relay_job, report_relay_job
 from yoke_core.domain.session_relay_types import SessionRelayError
 from runtime.api.domain.test_session_relay import (
@@ -150,3 +151,52 @@ def test_a_settlement_still_needs_the_lease_the_attempt_was_started_under() -> N
 
     assert mismatch.value.code == "lease_mismatch"
     assert _attempt(conn, job.job_id)[1] == RESUMED_RUNNING_RESULT
+
+
+def test_a_delivered_wake_absorbs_a_later_native_exit() -> None:
+    conn = _connection()
+    _add_wake_recipient(conn)
+    job = _spawned(conn)
+    conn.execute(
+        "UPDATE session_message_attempts SET completed_at=?, result_code=? "
+        "WHERE attempt_id=?",
+        ("2026-08-22T12:01:00Z", WAKE_DELIVERED_RESULT, job.job_id),
+    )
+    conn.execute("ALTER TABLE harness_sessions ADD COLUMN native_process_gone_at TEXT")
+    conn.execute(
+        "ALTER TABLE harness_sessions ADD COLUMN native_process_gone_evidence TEXT"
+    )
+    conn.commit()
+
+    settled = report_relay_job(
+        conn,
+        actor_id=1,
+        relay_id=RELAY_ID,
+        job_kind="wake",
+        job_id=job.job_id,
+        lease_id=job.lease_id,
+        result_code=RESUME_EXITED_NONZERO_RESULT,
+        adapter_revision=None,
+        evidence={
+            "exit_code": 143,
+            "native_pid": 96192,
+            "process_start_time": "Mon Aug 24 08:00:00 2026",
+            "native_exit_at": SETTLED_AT,
+        },
+        now=SETTLED_AT,
+    )
+
+    assert settled["result_code"] == WAKE_DELIVERED_RESULT
+    _completed_at, result_code, _revision, evidence = _attempt(conn, job.job_id)
+    assert result_code == WAKE_DELIVERED_RESULT
+    stored = json.loads(evidence)
+    assert stored["exit_code"] == 143
+    assert stored["native_pid"] == 96192
+    gone = conn.execute(
+        "SELECT native_process_gone_at, native_process_gone_evidence "
+        "FROM harness_sessions WHERE session_id='target'"
+    ).fetchone()
+    assert gone[0]
+    payload = json.loads(gone[1])
+    assert payload["pids"] == [96192]
+    assert payload["exit_code"] == 143

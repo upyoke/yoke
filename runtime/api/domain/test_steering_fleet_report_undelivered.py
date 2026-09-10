@@ -207,6 +207,33 @@ def test_an_open_call_overtakes_an_earlier_failed_attempt(fleet):
     assert [entry.delivery_state for entry in rows] == [TURN_IN_FLIGHT]
 
 
+def test_an_open_call_on_a_verified_dead_native_is_not_in_flight(fleet):
+    seed_message(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
+    seed_tool_call(
+        fleet,
+        ANSWERER,
+        tool_use_id="call-1",
+        started_at=LONG_AGO,
+        command_summary="yoke watch pytest --impacted main",
+    )
+    fleet.execute(
+        "UPDATE harness_sessions SET last_heartbeat = %s, "
+        "native_process_gone_at = %s, native_process_gone_evidence = %s "
+        "WHERE session_id = %s",
+        (
+            BEFORE_THAT,
+            JUST_NOW,
+            '{"pids":[4002],"process_start_times":{"4002":"t"},"exit_code":143}',
+            ANSWERER,
+        ),
+    )
+    fleet.commit()
+
+    rows = undelivered_messages(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert TURN_IN_FLIGHT not in [entry.delivery_state for entry in rows]
+
+
 def test_a_desktop_recipient_is_flagged_as_its_operators_to_wake(fleet):
     """The seat cannot revive this one, so the row must say so.
 

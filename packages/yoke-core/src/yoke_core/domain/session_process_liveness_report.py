@@ -59,6 +59,7 @@ from yoke_core.domain.session_native_process_observation import (
     PARKED_STATUS,
     record_native_process_gone,
 )
+from yoke_core.domain.sessions_orphan_tool_call_sweep import sweep_orphaned_tool_calls
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_holdings_projection import session_holdings_by_session
 from yoke_core.domain.sessions_render_end import end_session
@@ -243,6 +244,11 @@ def apply_verified_process_death_reports(
             if status is not None:
                 record_native_process_gone(
                     conn, session_id, evidence, observed_at=current
+                )
+                sweep_orphaned_tool_calls(
+                    conn,
+                    session_id=session_id,
+                    lifecycle_reason="native_process_verified_dead",
                 )
         if status is None:
             status = _end_claimless(conn, session_id, evidence, now=current)

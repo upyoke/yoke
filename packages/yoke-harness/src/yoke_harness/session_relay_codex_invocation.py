@@ -14,13 +14,15 @@ from yoke_harness.session_relay_environment import native_session_environment
 
 
 def codex_launch_environment(request: CodexNativeRequest) -> dict[str, str]:
+    wake = request.job_kind != "launch"
     return native_session_environment(
         executor="codex",
         provider="openai",
         model=request.requested_model,
         markers={"CODEX_INTERNAL_ORIGINATOR_OVERRIDE": request.surface},
-        launch_id=request.job_id if request.job_kind == "launch" else None,
+        launch_id=None if wake else request.job_id,
         launch_attestation=request.launch_attestation,
+        resume_attempt_id=request.job_id if wake else None,
     )
 
 

@@ -74,6 +74,27 @@ class RunningNative:
         }
 
 
+@dataclass(frozen=True)
+class FinishedResume:
+    """A resume this machine started whose process is no longer that pid."""
+
+    attempt_id: str
+    pid: int
+    process_start_time: str
+    containment_reason: str = ""
+
+    @property
+    def evidence(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "pids": [self.pid],
+            "process_start_times": {str(self.pid): self.process_start_time},
+            "attempt_id": self.attempt_id,
+        }
+        if self.containment_reason:
+            payload["containment_reason"] = self.containment_reason
+        return payload
+
+
 def _running(
     session_id: str,
     record: Mapping[str, Any],
@@ -150,6 +171,57 @@ def running_native_for_session(
     return None
 
 
+def finished_resume_for_session(
+    session_id: str | None,
+    *,
+    custody_state_dir: Path | None = None,
+    start_time_of: StartTimeOf | None = None,
+) -> FinishedResume | None:
+    """Return this session's dead resume custody, if any remain on disk."""
+    wanted = str(session_id or "").strip()
+    if not wanted:
+        return None
+    start_time_of = start_time_of or process_start_time
+    for _path, record in supervised_records(custody_state_dir):
+        if str(record.get("supervision_kind") or "") != "resume":
+            continue
+        if str(record.get("native_session_id") or "").strip() != wanted:
+            continue
+        pid = record.get("pid")
+        recorded_start = record.get("process_start_time")
+        if not isinstance(pid, int) or pid <= 0 or not recorded_start:
+            continue
+        if start_time_of(pid) == recorded_start:
+            continue
+        reason = record.get("containment_reason")
+        return FinishedResume(
+            str(record.get("launch_id") or ""),
+            pid,
+            str(recorded_start),
+            str(reason).strip() if isinstance(reason, str) else "",
+        )
+    return None
+
+
+def overlay_finished_resume_evidence(
+    evidence: dict[str, Any],
+    session_id: str,
+    *,
+    custody_state_dir: Path | None = None,
+    start_time_of: StartTimeOf | None = None,
+) -> str:
+    """Prefer a dead resume's identity; return its attempt id when present."""
+    finished = finished_resume_for_session(
+        session_id,
+        custody_state_dir=custody_state_dir,
+        start_time_of=start_time_of,
+    )
+    if finished is None or not finished.attempt_id:
+        return ""
+    evidence.update(finished.evidence)
+    return finished.attempt_id
+
+
 def deferral_for_running_native(
     context: RelayExecutionContext,
     *,
@@ -177,8 +249,11 @@ def deferral_for_running_native(
 
 
 __all__ = [
+    "FinishedResume",
     "RESUME_CUSTODY_SOURCE",
     "RunningNative",
     "deferral_for_running_native",
+    "finished_resume_for_session",
+    "overlay_finished_resume_evidence",
     "running_native_for_session",
 ]

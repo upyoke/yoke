@@ -223,6 +223,11 @@ def undelivered_messages(
                    r.wake_escalation AS wake_escalation,
                    s.executor_surface AS executor_surface,
                    s.last_tool_call_at AS last_tool_call_at,
+                   s.last_heartbeat AS last_heartbeat,
+                   s.episode_started_at AS episode_started_at,
+                   s.mode AS mode,
+                   s.native_process_gone_at AS native_process_gone_at,
+                   s.native_process_gone_evidence AS native_process_gone_evidence,
                    s.ended_at AS ended_at,
                    s.terminated_at AS terminated_at
                    {open_call}

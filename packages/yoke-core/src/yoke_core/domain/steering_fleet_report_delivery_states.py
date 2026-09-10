@@ -30,6 +30,9 @@ from typing import Any, Mapping
 from yoke_contracts.session_control.wake_delivery import delivery_attempt_failed
 from yoke_core.domain.session_tool_call_projections import OPEN_TOOL_CALL_COLUMN
 from yoke_core.domain.session_message_starvation import hook_route_silent_since
+from yoke_core.domain.session_native_process_observation import (
+    current_native_process_observation,
+)
 
 #: An attempt was made and settled badly. It names its own reason.
 ATTEMPT_FAILED = "attempt_failed"
@@ -142,7 +145,8 @@ def delivery_state(
     if str(record.get("ended_at") or ""):
         return RECIPIENT_ENDED
     if str(record.get(OPEN_TOOL_CALL_COLUMN) or ""):
-        return TURN_IN_FLIGHT
+        if current_native_process_observation(record) is None:
+            return TURN_IN_FLIGHT
     if result_code:
         if delivery_attempt_failed(result_code):
             return ATTEMPT_FAILED

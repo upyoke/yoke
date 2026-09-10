@@ -23,6 +23,7 @@ from yoke_core.domain.session_process_liveness_report import (
     PROCESS_VERIFIED_DEAD_REASON,
     apply_verified_process_death_reports,
 )
+from yoke_core.domain.events_tool_call_outcome import OUTCOME_INTERRUPTED
 from yoke_core.domain.sessions import claim_work
 from yoke_core.domain.sessions_analytics import (
     EVENT_HARNESS_SESSION_ENDED,
@@ -297,3 +298,31 @@ def test_a_second_report_of_an_already_ended_session_is_a_no_op(conn):
     assert _apply(conn, session_id)["skipped"] == [
         {"session_id": session_id, "status": "liveness_ended"}
     ]
+
+
+def test_a_retained_death_closes_open_calls_without_bumping_activity(conn):
+    session_id = _ghost(conn)
+    claim_work(conn, session_id=session_id, item_id=9301)
+    started = _ago_minutes(30)
+    conn.execute(
+        "INSERT INTO session_tool_calls "
+        "(session_id, tool_use_id, tool_name, started_at) "
+        "VALUES (%s, %s, %s, %s)",
+        (session_id, "call-1", "Bash", started),
+    )
+    conn.commit()
+    before = _session_row(conn, session_id)["last_tool_call_at"]
+
+    assert _apply(conn, session_id)["skipped"] == [
+        {"session_id": session_id, "status": CLAIMS_HELD_STATUS}
+    ]
+
+    row = _session_row(conn, session_id)
+    assert row["last_tool_call_at"] == before
+    closed = conn.execute(
+        "SELECT outcome, completed_at FROM session_tool_calls "
+        "WHERE session_id=%s AND tool_use_id=%s",
+        (session_id, "call-1"),
+    ).fetchone()
+    assert closed["outcome"] == OUTCOME_INTERRUPTED
+    assert closed["completed_at"]

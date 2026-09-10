@@ -92,7 +92,7 @@ def test_resume_spawn_supervises_detaches_redirects_and_records_custody(
     assert argv[3:5] == ["--capture", str(result.capture_path)]
     assert argv[5:] == ["--", "/opt/claude", "-p", "--resume", SESSION_ID]
     assert kwargs["cwd"] == tmp_path
-    assert kwargs["env"] == {"SAFE": "1"}
+    assert kwargs["env"] == {"SAFE": "1", RESUME_ATTEMPT_ENV: ATTEMPT_ID}
     assert kwargs["start_new_session"] is True
     # The spawner initializes the capture before the supervisor starts writing,
     # and its attempt-derived name lets any reader holding that id find it.
@@ -306,6 +306,33 @@ def test_native_wake_environment_carries_only_its_resume_attempt(
     spawn_claude_wake(context, invocation)
 
     assert captured["attempt_id"] == ATTEMPT_ID
-    assert captured["environment"][RESUME_ATTEMPT_ENV] == ATTEMPT_ID
+    assert RESUME_ATTEMPT_ENV not in captured["environment"]
     assert "YOKE_SESSION_ID" not in captured["environment"]
     assert captured["environment"]["SHELL"] == "/bin/sh"
+
+
+def test_a_launch_spawn_drops_an_inherited_resume_attempt(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    calls = []
+    process = _Process()
+    monkeypatch.setattr(
+        spawn_module,
+        "record_supervised_native",
+        lambda *_args, **_kwargs: True,
+    )
+
+    spawn_supervised_native(
+        ["/opt/claude"],
+        checkout=tmp_path,
+        environment={RESUME_ATTEMPT_ENV: "stale-parent"},
+        attempt_id=ATTEMPT_ID,
+        native_session_id=SESSION_ID,
+        binary_source="path",
+        supervision_kind="launch",
+        state_dir=tmp_path,
+        process_factory=lambda *_args, **kwargs: calls.append(kwargs) or process,
+    )
+
+    assert RESUME_ATTEMPT_ENV not in calls[0]["env"]

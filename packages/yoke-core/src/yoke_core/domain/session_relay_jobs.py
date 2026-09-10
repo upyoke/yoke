@@ -10,9 +10,7 @@ from yoke_contracts.session_control.wake_delivery import (
     WAKE_DELIVERY_UNVERIFIED_RESULTS,
     WAKE_REPORT_CODES,
 )
-from yoke_core.domain.session_broker_wake_fallback import (
-    direct_wake_waits_for_broker,
-)
+from yoke_core.domain.session_broker_wake_fallback import direct_wake_waits_for_broker
 from yoke_core.domain.session_broker_wake_adoption import claim_broker_wake_job
 from yoke_core.domain.session_relay_evidence import (
     merge_redacted_evidence,
@@ -21,6 +19,9 @@ from yoke_core.domain.session_relay_evidence import (
 from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from yoke_core.domain.session_wake_deferral import restore_deferred_wake_budget
 from yoke_core.domain.session_model_columns import resume_model_selection
+from yoke_core.domain.session_native_process_observation import (
+    absorb_completed_wake_report,
+)
 from yoke_core.domain.session_relay_storage import (
     clear_relay_batch_when_drained,
     mark_relay_batch,
@@ -177,9 +178,9 @@ def report_wake_job(
     if str(row[0] or "") != lease_id:
         raise SessionRelayError("lease_mismatch", "wake attempt lease does not match")
     if row[1] is not None:
-        if str(row[2] or "") == result_code:
-            return {"attempt_id": attempt_id, "result_code": result_code}
-        raise SessionRelayError("report_conflict", "wake attempt was already reported")
+        return absorb_completed_wake_report(
+            conn, attempt_id, row, result_code, evidence, now
+        )
     reported = str(row[2] or "")
     if reported == result_code and result_code in WAKE_DELIVERY_UNVERIFIED_RESULTS:
         return {"attempt_id": attempt_id, "result_code": result_code}
@@ -189,9 +190,14 @@ def report_wake_job(
         except SessionRelayError:
             settled_row = conn.execute(
                 f"SELECT completed_at,result_code FROM session_message_attempts "
-                f"WHERE attempt_id={p}", (attempt_id,),
+                f"WHERE attempt_id={p}",
+                (attempt_id,),
             ).fetchone()
-            if settled_row and settled_row[0] and str(settled_row[1] or "") == result_code:
+            if (
+                settled_row
+                and settled_row[0]
+                and str(settled_row[1] or "") == result_code
+            ):
                 return {"attempt_id": attempt_id, "result_code": result_code}
             raise
     completed_at = None if result_code in WAKE_DELIVERY_UNVERIFIED_RESULTS else now
@@ -214,10 +220,6 @@ def report_wake_job(
         ),
     )
     if settled.rowcount != 1:
-        # Another copy settled it between our read and our write, so its
-        # stored outcome wins: an identical code is the duplicate this
-        # absorbs, a different one is the conflict a sequential duplicate
-        # already raises.
         stored = conn.execute(
             f"SELECT result_code FROM session_message_attempts WHERE attempt_id={p}",
             (attempt_id,),

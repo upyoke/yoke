@@ -30,6 +30,8 @@ import json
 from datetime import datetime
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.resume import RESUME_RELAY_SETTLEMENT_RESULTS
+from yoke_contracts.session_control.wake_delivery import WAKE_DELIVERED_RESULT
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
@@ -37,6 +39,9 @@ from yoke_core.domain.session_message_types import (
     utc_now,
 )
 from yoke_core.domain.session_mode import session_is_parked
+from yoke_core.domain.session_relay_evidence import merge_redacted_evidence
+from yoke_core.domain.session_relay_storage import marker
+from yoke_core.domain.session_relay_types import SessionRelayError
 
 
 NATIVE_PROCESS_GONE_AT_COLUMN = "native_process_gone_at"
@@ -88,10 +93,11 @@ def _process_identity(evidence: Mapping[str, Any]) -> tuple[tuple[str, ...], ...
 
 def _stored_observation(conn: Any, session_id: str) -> tuple[str, dict[str, Any]]:
     """The observation already on this session's row, if it carries one."""
+    placeholder = marker(conn)
     row = conn.execute(
         f"SELECT {NATIVE_PROCESS_GONE_AT_COLUMN} AS observed_at, "
         f"{NATIVE_PROCESS_GONE_EVIDENCE_COLUMN} AS evidence "
-        "FROM harness_sessions WHERE session_id=%s",
+        f"FROM harness_sessions WHERE session_id={placeholder}",
         (session_id,),
     ).fetchone()
     if row is None:
@@ -150,9 +156,11 @@ def record_native_process_gone(
     else:
         stamp = death
     payload = json.dumps(dict(evidence), sort_keys=True, separators=(",", ":"))
+    placeholder = marker(conn)
     conn.execute(
-        f"UPDATE harness_sessions SET {NATIVE_PROCESS_GONE_AT_COLUMN}=%s, "
-        f"{NATIVE_PROCESS_GONE_EVIDENCE_COLUMN}=%s WHERE session_id=%s",
+        f"UPDATE harness_sessions SET {NATIVE_PROCESS_GONE_AT_COLUMN}={placeholder}, "
+        f"{NATIVE_PROCESS_GONE_EVIDENCE_COLUMN}={placeholder} "
+        f"WHERE session_id={placeholder}",
         (stamp, payload, session_id),
     )
     return {
@@ -160,6 +168,61 @@ def record_native_process_gone(
         "observed_at": stamp,
         "evidence": dict(evidence),
     }
+
+
+def settlement_process_evidence(evidence: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Identity a wake-settlement report can record without the pid allowlist."""
+    source = dict(evidence or {})
+    payload: dict[str, Any] = {}
+    pid = source.get("native_pid")
+    if isinstance(pid, int) and pid > 0:
+        payload["native_pid"] = pid
+        payload["pids"] = [pid]
+        start = source.get("process_start_time")
+        if start:
+            payload["process_start_times"] = {str(pid): str(start)}
+    for key in (NATIVE_EXIT_CODE_KEY, NATIVE_EXIT_AT_KEY):
+        if key in source:
+            payload[key] = source[key]
+    reason = source.get("containment_reason")
+    if isinstance(reason, str) and reason.strip():
+        payload["containment_reason"] = reason.strip()
+    return payload
+
+
+def absorb_completed_wake_report(
+    conn: Any,
+    attempt_id: str,
+    row: Any,
+    incoming_code: str,
+    incoming_evidence: Mapping[str, Any] | None,
+    now: str,
+) -> dict[str, Any]:
+    """Keep ``wake_delivered`` and record a later native-exit settlement."""
+    stored_code = str(row[2] or "")
+    if stored_code == incoming_code:
+        return {"attempt_id": attempt_id, "result_code": incoming_code}
+    if (
+        stored_code != WAKE_DELIVERED_RESULT
+        or incoming_code not in RESUME_RELAY_SETTLEMENT_RESULTS
+    ):
+        raise SessionRelayError("report_conflict", "wake attempt was already reported")
+    placeholder = marker(conn)
+    conn.execute(
+        f"UPDATE session_message_attempts SET evidence={placeholder} "
+        f"WHERE attempt_id={placeholder}",
+        (merge_redacted_evidence(row[3], incoming_evidence), attempt_id),
+    )
+    session_id = str(row[5] or "")
+    if session_id:
+        record_native_process_gone(
+            conn,
+            session_id,
+            settlement_process_evidence(incoming_evidence),
+            observed_at=parse_timestamp(now),
+        )
+    conn.commit()
+    return {"attempt_id": attempt_id, "result_code": stored_code}
 
 
 def current_native_process_observation(
@@ -212,4 +275,6 @@ __all__ = [
     "PARKED_STATUS",
     "current_native_process_observation",
     "record_native_process_gone",
+    "absorb_completed_wake_report",
+    "settlement_process_evidence",
 ]

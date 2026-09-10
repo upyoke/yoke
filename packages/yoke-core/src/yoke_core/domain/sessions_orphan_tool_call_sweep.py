@@ -46,6 +46,7 @@ LIFECYCLE_REASONS: frozenset[str] = frozenset(
         "session_end_destructive",
         "stop_hook_destructive",
         "session_idle_auto_ended",
+        "native_process_verified_dead",
     }
 )
 
