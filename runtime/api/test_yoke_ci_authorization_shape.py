@@ -172,6 +172,21 @@ def test_a_matrix_job_carries_the_reuse_verdict_on_its_steps() -> None:
         assert "Run pytest" in guarded, job.get("name")
 
 
+def test_long_work_jobs_use_cancellation_aware_conditions() -> None:
+    jobs = _yoke_ci()["jobs"]
+    contracts_ok = (
+        "${{ !cancelled() && needs.repo_contracts.result == 'success' }}"
+    )
+    assert " ".join(str(jobs["test_shard"]["if"]).split()) == contracts_ok
+    assert " ".join(str(jobs["browser_runtime"]["if"]).split()) == contracts_ok
+    assert " ".join(str(jobs["container"]["if"]).split()) == (
+        "${{ !cancelled() && needs.reuse_coverage.outputs.skip_suite != 'true' }}"
+    )
+    steps = {step["name"]: step for step in jobs["test_shard"]["steps"]}
+    assert "always()" in str(steps["Upload pytest output"]["if"])
+    assert "always()" in str(steps["Stop Postgres"]["if"])
+
+
 def test_orphan_detection_flags_deleted_aggregate_names() -> None:
     job_names = workflow_job_names(WORKFLOWS)
     stale = ("test (3.10)", "test (3.13)", "test-postgres")
