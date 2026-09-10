@@ -54,4 +54,27 @@ def apply(conn: Any) -> None:
     _widen_kind_check(conn)
 
 
-__all__ = ["ALL_KINDS", "KIND_CONSTRAINT", "WAIT_TABLE", "apply"]
+def invariants(conn: Any) -> None:
+    """Assert the constraint this entry widened still admits every kind.
+
+    Postgres-only, mirroring ``apply``: a non-Postgres database created its
+    table fresh from the current schema module and never carried the old
+    constraint to widen.
+    """
+    if not _table_exists(conn, WAIT_TABLE) or not db_backend.connection_is_postgres(
+        conn
+    ):
+        return
+    row = conn.execute(
+        "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = %s",
+        (KIND_CONSTRAINT,),
+    ).fetchone()
+    assert row is not None, f"{KIND_CONSTRAINT} is missing after apply"
+    definition = str(row[0])
+    for kind in ALL_KINDS:
+        assert f"'{kind}'" in definition, (
+            f"{KIND_CONSTRAINT} does not admit {kind!r}: {definition}"
+        )
+
+
+__all__ = ["ALL_KINDS", "KIND_CONSTRAINT", "WAIT_TABLE", "apply", "invariants"]
