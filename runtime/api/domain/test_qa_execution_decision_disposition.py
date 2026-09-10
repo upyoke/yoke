@@ -1,4 +1,10 @@
-"""Ending a QA plan execution releases the decisions it asked a human."""
+"""A QA plan execution's ending settles the decisions it asked a human.
+
+Abandoning a walk (abort/error) moots the question it raised. Completing a
+walk normally does not -- the undetermined result it left is exactly what
+the human review is waiting to judge, so a completed walk preserves its own
+pending review rather than withdrawing it.
+"""
 
 from __future__ import annotations
 
@@ -92,7 +98,7 @@ def test_aborting_an_execution_withdraws_the_review_it_raised() -> None:
         assert "host wipe did not land" in reason
 
 
-def test_completing_an_execution_withdraws_the_review_it_raised() -> None:
+def test_completing_an_execution_preserves_the_review_it_raised() -> None:
     with test_database() as conn:
         execution, request_id = _undetermined_walk(
             conn, item_id=4802, session_id="complete-session"
@@ -113,9 +119,7 @@ def test_completing_an_execution_withdraws_the_review_it_raised() -> None:
             reason="qa-plan-agent-review-complete",
         )
 
-        status, reason = _status(conn, request_id)
-        assert status == "withdrawn"
-        assert "ended as completed" in reason
+        assert _status(conn, request_id)[0] == "pending"
 
 
 def test_a_review_survives_while_another_execution_still_walks_it() -> None:

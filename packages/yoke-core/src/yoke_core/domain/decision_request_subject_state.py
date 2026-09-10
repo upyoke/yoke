@@ -173,13 +173,19 @@ def _qa_review_ended(
 
 
 def _qa_walk_ended(conn: Any, requirement_id: int) -> tuple[bool, str]:
-    """Report whether every plan execution that walked this case has ended.
+    """Report whether this case's walk was abandoned with no evidence left.
 
-    A review request exists because a walk could not determine a verdict. Once
-    every execution that walked the case is terminal, no further evidence is
-    coming and the ask is over -- the requirement itself stays unresolved, and
-    that is the answer. A requirement no execution ever walked is a standing
-    ad-hoc ask with no walk to end, so it is never disposed of this way.
+    A review request exists because a walk left this case undetermined. A
+    walk that finished normally delivered that undetermined result on
+    purpose -- the human review is the next step it is waiting on, not
+    evidence the ask is moot -- so a completed walk never ends the subject on
+    its own; an unrelated execution finishing early or being abandoned must
+    not decide the validity of a review a completed walk already raised. Only
+    when every execution that ever walked this requirement was cut short
+    (aborted or errored) before finishing is there no further evidence
+    coming, and the ask is over. A requirement no execution ever walked is a
+    standing ad-hoc ask with no walk to end, so it is never disposed of this
+    way.
     """
     if not (
         _table_exists(conn, "qa_plan_executions")
@@ -204,6 +210,12 @@ def _qa_walk_ended(conn: Any, requirement_id: int) -> tuple[bool, str]:
         return False, (
             f"QA requirement {requirement_id} is still being walked by "
             f"execution {live[0]}"
+        )
+    completed = [str(row[0]) for row in walks if str(row[1]) == "completed"]
+    if completed:
+        return False, (
+            f"QA requirement {requirement_id} has a plan execution that "
+            f"completed normally and awaits human review ({completed[0]})"
         )
     outcomes = ", ".join(f"{row[0]} {row[1]}" for row in walks)
     return True, (
