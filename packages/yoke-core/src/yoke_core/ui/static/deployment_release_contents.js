@@ -74,8 +74,66 @@ export function releaseContents(facts, projectId = null) {
   };
 }
 
+// The evidence behind the consequence, shown rather than asserted. An
+// approver told a gate is harmless has to be able to check that, and one
+// told nobody could settle it has to be told what was missing. Each line is
+// a fact the request froze at creation: the runners the flow declares and
+// what it targets.
+function appendEffectBasis(documentNode, host, effect) {
+  const why = block(
+    documentNode,
+    host,
+    "gate-block",
+    effect.consequence === "deploys_nothing"
+      ? "Why this deploys nothing"
+      : "What could not be established",
+  );
+  const basis = Array.isArray(effect.basis) ? effect.basis : [];
+  for (const line of basis) {
+    why.appendChild(el(documentNode, "div", "gate-block-copy", String(line)));
+  }
+  return why;
+}
+
+// The items this run records, drawn from run membership alone. Membership is
+// recorded whether or not a release ships, whether or not its contents could
+// be derived, and whether or not the flow reaches an environment — so hiding
+// it behind any of those told an approver a run touched nothing when it names
+// real work.
+function appendLinkedItems(documentNode, host, linked, projectId) {
+  if (!linked.length) return null;
+  const owned = block(
+    documentNode, host, "gate-block", `Linked items · ${linked.length}`,
+  );
+  for (const item of linked.slice(0, MAX_LISTED)) {
+    row(
+      documentNode,
+      owned,
+      String(item.item_ref || `item ${item.item_id}`),
+      String(item.title || ""),
+      item.item_ref
+        ? itemDrillInHref({ projectId, publicRef: item.item_ref })
+        : null,
+    );
+  }
+  overflow(documentNode, owned, linked.length, "items");
+  return owned;
+}
+
 export function appendDeploymentBody(context, host, facts, projectId = null) {
   const documentNode = context.document;
+  const effect = facts.release_effect;
+  if (effect && effect.consequence !== "deploys") {
+    appendEffectBasis(documentNode, host, effect);
+  }
+  const linked = Array.isArray(facts.batch?.items) ? facts.batch.items : [];
+  if (effect && effect.consequence === "deploys_nothing") {
+    // No release block: there is no release. Listing "0 changes" beside a
+    // gate that ships nowhere reads as an empty deploy, which is the
+    // confusion this classification exists to end. The items the run records
+    // are a different fact and stay visible.
+    return appendLinkedItems(documentNode, host, linked, projectId);
+  }
   const contents = releaseContents(facts, projectId);
   const release = block(
     documentNode,
@@ -108,26 +166,12 @@ export function appendDeploymentBody(context, host, facts, projectId = null) {
       "This release carries no new commits since the previous one.",
     ));
   }
-  // Membership stays visible beside the contents when both exist: it is who
-  // the pipeline will move to done, which is a different fact from what ships.
-  const itemHref = (ref) => (
-    ref ? itemDrillInHref({ projectId, publicRef: ref }) : null
-  );
-  const linked = Array.isArray(facts.batch?.items) ? facts.batch.items : [];
-  if (contents.source === "derived" && linked.length) {
-    const owned = block(
-      documentNode, host, "gate-block", `Linked items · ${linked.length}`,
-    );
-    for (const item of linked.slice(0, MAX_LISTED)) {
-      row(
-        documentNode,
-        owned,
-        String(item.item_ref || `item ${item.item_id}`),
-        String(item.title || ""),
-        itemHref(item.item_ref),
-      );
-    }
-    overflow(documentNode, owned, linked.length, "items");
+  // Membership stays visible beside the contents: it is who the pipeline will
+  // move to done, which is a different fact from what ships. The one time it
+  // is not repeated is when the release block above IS that same list, for
+  // want of any derived answer.
+  if (contents.source !== "membership") {
+    appendLinkedItems(documentNode, host, linked, projectId);
   }
   // The lineage, and only the lineage: the count and the destination are
   // already the first thing the approver reads, and repeating them under

@@ -22,11 +22,27 @@ import {
 } from "./deployment_release_contents.js";
 import { artifactEvidenceCard } from "./qa_evidence_artifact_view.js";
 
+// A request frozen before the consequence was recorded knows its run, flow
+// and stage and nothing about what resolving it reaches. Saying so is the
+// only honest reading: the title it stored was composed from a shipping
+// destination that may have been the no-destination label.
+const LEGACY_UNRECORDED_EFFECT = "This request was recorded before what "
+  + "resolving it deploys was, so the request itself does not say. Read the "
+  + "run's flow before answering.";
+
 // What this run carries, and what resolving THIS stage does to it. Not every
 // gated stage precedes a deploy: a sign-off at the end of a flow is answered
 // after the release has already run, so the effect is read from the stage's
 // own position rather than assumed.
 function deploymentProse(facts) {
+  // A gate that reaches no environment, and one whose consequence could not
+  // be established, each say so in their own words. Both sentences are frozen
+  // into the request beside the classification, so the reader is never told a
+  // run deploys nothing because its name or its empty batch suggested it, and
+  // never told an unproven one deploys.
+  const recorded = facts.release_effect;
+  if (!recorded) return LEGACY_UNRECORDED_EFFECT;
+  if (recorded.consequence !== "deploys") return String(recorded.effect || "");
   const contents = releaseContents(facts);
   const target = facts.shipping?.target_environment;
   const remaining = facts.stage_position?.remaining;

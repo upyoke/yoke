@@ -247,11 +247,18 @@ export function decisionSubtitle(row) {
 // `title` string. Every producer writes one, and QA's is a fixed sentence
 // that names no case, so preferring the stored value made a reviewer's list
 // of pending reviews read identically for all of them.
+//
+// A deployment stage reads its title from the classification the request
+// froze rather than composing one from the shipping destination, which is
+// what titled an approval that deploys nothing "Deploy to merge-only". A
+// request recorded before that classification existed gets the neutral
+// title, not its own stored one: that stored sentence is the invented
+// consequence, and the honest answer for it is that nobody knows.
 const TITLE_BUILDERS = {
   deployment_stage_approval(facts) {
-    const target = facts.shipping?.target_environment;
-    if (!target) return "";
-    return `Deploy to ${target} — approve the ${facts.stage || "next"} stage`;
+    const headline = facts.release_effect?.headline;
+    if (headline) return String(headline);
+    return `Approve the ${facts.stage || "next"} stage`;
   },
   qa_needs_review(facts) {
     const subject = facts.case_name || facts.plan_name;

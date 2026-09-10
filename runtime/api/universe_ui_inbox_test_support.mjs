@@ -109,11 +109,14 @@ export function qaBareRequestRow(overrides = {}) {
 }
 
 export {
+  approvalOnlyRequestRow,
   deploymentRequestRow,
   emptyReleaseRequestRow,
   environmentRunRequestRow,
   signOffRequestRow,
   undeterminedContentsRequestRow,
+  unrecordedEffectRequestRow,
+  unsettledEffectRequestRow,
 } from "./universe_ui_deployment_request_fixtures.mjs";
 
 export function machineRequestRow(overrides = {}) {

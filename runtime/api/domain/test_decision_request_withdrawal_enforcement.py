@@ -214,6 +214,14 @@ def test_deployment_withdraw_requires_run_stage_to_end(conn) -> None:
                 "target_environment": "prod",
                 "summary": "No backlog items are attached to this run.",
             },
+            "release_effect": {
+                "consequence": "deploys",
+                "headline": "Deploy to prod — approve the production stage",
+                "effect": "",
+                "basis": [
+                    "Deploying stages: production runs core-container-deploy.",
+                ],
+            },
         },
     )
     with pytest.raises(ValueError, match="subject has not ended"):

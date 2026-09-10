@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, NoReturn
 
+from yoke_core.domain.deployment_run_release_effect import CONSEQUENCES, DEPLOYS
 from yoke_core.domain.decision_request_contract import (
     DEPLOYMENT_STAGE_APPROVAL,
     LIFECYCLE_TRANSITION_APPROVAL,
@@ -236,6 +237,32 @@ def _validate_carried(kind: str, value: Any) -> None:
         _text(kind, entry["ref"], f"carried.items[{index}].ref")
 
 
+def _validate_release_effect(kind: str, value: Any) -> None:
+    """A new request always says whether resolving it deploys anything.
+
+    A gate that reaches nothing outside the control plane and one that ships a
+    production release are opposite decisions, and the approver can only tell
+    them apart if the request carries the answer plus the facts behind it.
+    "Could not be established" is the third answer rather than a missing one,
+    and both it and a non-deploying claim have to name the consequence they
+    assert instead; an affirmative deploy is described by the release contents
+    the reader already has.
+    """
+    effect = _mapping(kind, value, "release_effect")
+    _required(kind, effect, {"consequence", "headline", "effect", "basis"})
+    consequence = str(effect["consequence"])
+    if consequence not in CONSEQUENCES:
+        _fail(kind, f"has unknown release_effect consequence {consequence!r}")
+    _text(kind, effect["headline"], "release_effect.headline")
+    if consequence != DEPLOYS:
+        _text(kind, effect["effect"], "release_effect.effect")
+    basis = _sequence(kind, effect["basis"], "release_effect.basis")
+    if not basis:
+        _fail(kind, "requires release_effect.basis to name at least one fact")
+    for index, entry in enumerate(basis):
+        _text(kind, entry, f"release_effect.basis[{index}]")
+
+
 def _validate_deployment(context: Mapping[str, Any]) -> None:
     kind = DEPLOYMENT_STAGE_APPROVAL
     _required(
@@ -249,9 +276,11 @@ def _validate_deployment(context: Mapping[str, Any]) -> None:
             "batch",
             "shipping",
             "carried",
+            "release_effect",
         },
     )
     _validate_carried(kind, context["carried"])
+    _validate_release_effect(kind, context["release_effect"])
     # Where the gate sits in its flow, so a sign-off after the release is not
     # described as though it were about to deploy.
     position = _mapping(kind, context["stage_position"], "stage_position")

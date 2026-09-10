@@ -143,7 +143,26 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
             "commits": [],
             "warnings": [],
         },
-        "title": "Deploy to prod — approve the stage",
+        # Every stage of this flow runs an allowlisted runner, so nothing in
+        # it deploys — yet it declares prod. Neither answer is proven, and the
+        # unsettled pair is its own answer rather than a guess in either
+        # direction. The approver is never told "Deploy to prod" on the
+        # strength of a destination no stage reaches.
+        "release_effect": {
+            "consequence": "unknown",
+            "headline": "Approve the approve-prod stage",
+            "effect": (
+                "What resolving this puts into an environment could not be "
+                "established from what this run records. Read the flow "
+                "before answering, and treat it as a decision that may "
+                "deploy."
+            ),
+            "basis": [
+                "The flow targets prod, yet no stage in it deploys, so what "
+                "reaching that environment means here is not settled.",
+            ],
+        },
+        "title": "Approve the approve-prod stage",
     }
     assert (
         deployment_stage_is_approved(
