@@ -97,12 +97,14 @@ Two things the report deliberately does not do, so do them yourself:
   yoke claims work holder-get PREFIX-N
   ```
 
-- **Set the hold flag on work you are holding on purpose.** The report
-  excludes frozen and operator-blocked items rather than guessing intent
-  from age, so an item you have parked reports as available until you say so
-  with `yoke items freeze PREFIX-N` or `yoke items block PREFIX-N --reason
-  TEXT`. Work that will never resume is `yoke items cancel PREFIX-N --reason
-  TEXT`, not freeze.
+- **Set the hold flag on work you are holding on purpose, and recheck it
+  every pass.** The report excludes frozen and operator-blocked items rather
+  than guessing intent from age, so an item you have parked reports as
+  available until you say so with `yoke items freeze PREFIX-N` or `yoke
+  items block PREFIX-N --reason TEXT`. Work that will never resume is `yoke
+  items cancel PREFIX-N --reason TEXT`, not freeze. Keep only current
+  blockers or explicit operator holds, not filing notes — unblock and
+  resume the moment the reason clears.
 
 The dashboard session card carries one primary status in the identity line:
 `active` under a minute of activity, `idle` once quiet, confirmed `stale`
@@ -154,7 +156,7 @@ item status and the latest matching claim's `release_reason=completed`:
 
 ```text
 yoke items detail get PREFIX-N --json
-yoke db read "SELECT release_reason FROM work_claims WHERE target_kind = 'item' AND scope->>'item_id' = '{BARE_ITEM_ID}' ORDER BY id DESC LIMIT 1"
+yoke db read "SELECT release_reason FROM work_claims WHERE target_kind = 'item' AND scope::jsonb->>'item_id' = '{BARE_ITEM_ID}' ORDER BY id DESC LIMIT 1"
 ```
 
 When those authorities show the steering-scoped item is complete:
@@ -344,6 +346,5 @@ continues autonomously.
 
 ## Stop
 
-A clean stop is wrapup in `SKILL.md` step 5: release the steering-scope claim,
-which releases its paired document lock too. An abandoned coordinator is
-reclaimed by the stale sweep; do not treat that as a successful wrapup.
+A clean stop follows the close-out ceremony in `SKILL.md` step 5 — settle,
+hand off, and release everything held; the stale sweep alone reclaims an abandoned coordinator.
