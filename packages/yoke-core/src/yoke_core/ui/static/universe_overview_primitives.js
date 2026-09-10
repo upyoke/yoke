@@ -3,6 +3,7 @@
 // remembers which disclosures the operator closed when a held read
 // repaints or the route is mounted again.
 
+import { steeringProjectIds } from "./universe_sessions_steering.js";
 import { el } from "./universe_view_support.js";
 
 const CLOSED_DISCLOSURES = new Set();
@@ -92,7 +93,12 @@ export function rowsInOverviewScope(rows, scope, projects) {
     if (project?.slug) wanted.add(String(project.slug));
   }
   return rows.filter((row) => (
-    wanted.has(String(row.project_id)) || wanted.has(String(row.project))
+    wanted.has(String(row.project_id))
+      || wanted.has(String(row.project))
+      // A session steering a project other than its own home project is
+      // still a member of that project's scope — the same live-claim fact
+      // the session's own card already leads with.
+      || steeringProjectIds(row).some((projectId) => wanted.has(projectId))
   ));
 }
 

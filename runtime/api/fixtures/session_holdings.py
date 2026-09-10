@@ -86,18 +86,27 @@ def insert_item_claim(
     conn.commit()
 
 
-def insert_steering_claim(conn, session_id: str) -> None:
+def insert_steering_claim(
+    conn,
+    session_id: str,
+    *,
+    project_id: int = 1,
+    released_at: str | None = None,
+) -> None:
     now = iso()
     conn.execute(
         "INSERT INTO work_claims ("
-        "session_id, target_kind, scope, claimed_at, last_heartbeat, reason"
-        ") VALUES (%s, 'steering', %s, %s, %s, %s)",
+        "session_id, target_kind, scope, claimed_at, last_heartbeat, reason, "
+        "released_at, release_reason"
+        ") VALUES (%s, 'steering', %s, %s, %s, %s, %s, %s)",
         (
             session_id,
-            make_steering_target(1).scope_json(),
+            make_steering_target(project_id).scope_json(),
             now,
             now,
             "strategy review",
+            released_at,
+            "released" if released_at else None,
         ),
     )
     conn.commit()
