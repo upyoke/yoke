@@ -8,7 +8,7 @@ from pathlib import Path
 import shlex
 import subprocess
 import time
-from typing import Callable
+from typing import Callable, NamedTuple
 from uuid import uuid4
 
 
@@ -164,9 +164,7 @@ def _terminal_screenshot_payload(
     window_id: int,
 ) -> str | None:
     """Capture through Terminal.app so macOS applies its Screen Recording grant."""
-    shell_command = (
-        f"/usr/sbin/screencapture -x -l {window_id} {shlex.quote(remote)}"
-    )
+    shell_command = f"/usr/sbin/screencapture -x -l {window_id} {shlex.quote(remote)}"
     window_id = open_terminal_window(
         run,
         command=shell_command,
@@ -224,16 +222,13 @@ def verify_terminal_bridge(
         )
         if terminal_window_id is None:
             return False, checks, "terminal_bridge_unavailable"
-        checks["terminal_control"] = (
-            wait_for_text(
-                run,
-                backend=backend,
-                session=session,
-                expected=sentinel,
-                timeout_seconds=5,
-            )
-            is not None
-        )
+        checks["terminal_control"] = wait_for_text(
+            run,
+            backend=backend,
+            session=session,
+            expected=sentinel,
+            timeout_seconds=5,
+        ).matched
         checks["screenshot_capture"] = (
             _terminal_screenshot_payload(
                 run,
@@ -260,6 +255,17 @@ def verify_terminal_bridge(
         close_terminal_window(run, window_id=terminal_window_id)
 
 
+class TerminalWaitResult(NamedTuple):
+    """Completion-match verdict plus the last observed session output.
+
+    ``matched`` alone decides success; a nonempty ``transcript`` on a miss is
+    diagnostic evidence, never a pass.
+    """
+
+    matched: bool
+    transcript: str
+
+
 def wait_for_text(
     run: RunRemote,
     *,
@@ -267,26 +273,31 @@ def wait_for_text(
     session: str,
     expected: str,
     timeout_seconds: int,
-) -> str | None:
+) -> TerminalWaitResult:
+    """Poll the session for ``expected``, always at least once, retaining output."""
+    if backend == "tmux":
+        command = f"tmux capture-pane -t {shlex.quote(session)} -p -S -"
+    elif backend == "screen":
+        remote = f"/tmp/{session}-transcript.txt"
+        command = (
+            f"screen -S {shlex.quote(session)} -p 0 -X hardcopy -h "
+            f"{shlex.quote(remote)}; "
+            f"cat {shlex.quote(remote)} 2>/dev/null; "
+            f"rm -f {shlex.quote(remote)}"
+        )
+    else:
+        raise ValueError(f"unsupported terminal backend {backend!r}")
+    transcript = ""
     deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        if backend == "tmux":
-            command = f"tmux capture-pane -t {shlex.quote(session)} -p -S -"
-        elif backend == "screen":
-            remote = f"/tmp/{session}-transcript.txt"
-            command = (
-                f"screen -S {shlex.quote(session)} -p 0 -X hardcopy -h "
-                f"{shlex.quote(remote)}; "
-                f"cat {shlex.quote(remote)} 2>/dev/null; "
-                f"rm -f {shlex.quote(remote)}"
-            )
-        else:
-            raise ValueError(f"unsupported terminal backend {backend!r}")
+    while True:
         result = run(command, timeout=10)
-        if result.returncode == 0 and expected in result.stdout:
-            return result.stdout
+        if result.returncode == 0:
+            if expected in result.stdout:
+                return TerminalWaitResult(True, result.stdout)
+            transcript = result.stdout
+        if time.monotonic() >= deadline:
+            return TerminalWaitResult(False, transcript)
         time.sleep(0.25)
-    return None
 
 
 def capture_screen(
@@ -320,6 +331,7 @@ def capture_screen(
 __all__ = [
     "RunRemote",
     "TerminalBackend",
+    "TerminalWaitResult",
     "capture_screen",
     "close_terminal_window",
     "close_terminal_session",
