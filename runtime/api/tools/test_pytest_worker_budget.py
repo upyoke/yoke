@@ -36,6 +36,20 @@ def test_load_backoff_halves_only_when_the_machine_is_over_its_cores() -> None:
     assert budget.load_backoff(3, load=99.0, cores=2)[0] == 1
 
 
+def test_dedicated_hosted_runner_classification() -> None:
+    assert budget.dedicated_hosted_runner(
+        {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted"},
+    )
+    assert budget.dedicated_hosted_runner(
+        {"GITHUB_ACTIONS": "True", "RUNNER_ENVIRONMENT": "github-hosted"},
+    )
+    assert not budget.dedicated_hosted_runner(
+        {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "self-hosted"},
+    )
+    assert not budget.dedicated_hosted_runner({"RUNNER_ENVIRONMENT": "github-hosted"})
+    assert not budget.dedicated_hosted_runner({})
+
+
 def test_budget_size_prefers_env_then_config_then_cores(monkeypatch) -> None:
     assert budget.budget_size({budget.BUDGET_ENV: "5"}) == 5
     assert budget.budget_size({budget.BUDGET_ENV: "junk"}) in (
@@ -115,6 +129,36 @@ def test_granted_workers_rewrites_args_and_publishes_the_marker(monkeypatch) -> 
         assert grant.apply(["-n", "auto", "x.py"]) == ["-n", "2", "x.py"]
         assert budget.Grant.environment({})[budget.HELD_ENV] == "2"
     assert budget.HELD_ENV not in __import__("os").environ
+
+
+def test_granted_workers_skips_load_backoff_on_a_dedicated_hosted_runner(monkeypatch) -> None:
+    monkeypatch.delenv(budget.HELD_ENV, raising=False)
+    monkeypatch.setenv(budget.BUDGET_ENV, "2")
+    monkeypatch.setenv(budget.LOCK_BASE_ENV, str(_scratch_lock_base()))
+    monkeypatch.setattr(
+        budget, "load_backoff",
+        lambda *a, **k: pytest.fail("must not back off on a dedicated hosted runner"),
+    )
+    env = {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted"}
+    with budget.granted_workers(["-n", "auto"], env):
+        pass
+
+
+def test_granted_workers_still_backs_off_on_a_self_hosted_runner(monkeypatch) -> None:
+    monkeypatch.delenv(budget.HELD_ENV, raising=False)
+    monkeypatch.setenv(budget.BUDGET_ENV, "2")
+    monkeypatch.setenv(budget.LOCK_BASE_ENV, str(_scratch_lock_base()))
+    called = {}
+
+    def _track_backoff(request, **_kwargs):
+        called["hit"] = True
+        return request, None
+
+    monkeypatch.setattr(budget, "load_backoff", _track_backoff)
+    env = {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "self-hosted"}
+    with budget.granted_workers(["-n", "auto"], env):
+        pass
+    assert called.get("hit")
 
 
 def test_disabled_budget_runs_ungoverned(monkeypatch) -> None:
