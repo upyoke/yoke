@@ -169,23 +169,37 @@ def _qa_review_ended(
     ).fetchone()
     if conclusive is not None:
         return True, f"QA requirement {requirement_id} has a conclusive result"
-    return _qa_walk_ended(conn, requirement_id)
+    run_row = conn.execute(
+        f"SELECT created_at FROM qa_runs WHERE id = {_p(conn)}",
+        (int(run_text),),
+    ).fetchone()
+    # An unresolvable run's own age can't be established, so fall back to any
+    # walk rather than wrongly disposing a review this session can't date.
+    run_created_at = str(run_row[0]) if run_row is not None and run_row[0] else ""
+    return _qa_walk_ended(conn, requirement_id, run_created_at)
 
 
-def _qa_walk_ended(conn: Any, requirement_id: int) -> tuple[bool, str]:
-    """Report whether this case's walk was abandoned with no evidence left.
+def _qa_walk_ended(
+    conn: Any, requirement_id: int, run_created_at: str
+) -> tuple[bool, str]:
+    """Report whether the walk that raised this run's review was abandoned.
 
     A review request exists because a walk left this case undetermined. A
     walk that finished normally delivered that undetermined result on
     purpose -- the human review is the next step it is waiting on, not
-    evidence the ask is moot -- so a completed walk never ends the subject on
-    its own; an unrelated execution finishing early or being abandoned must
-    not decide the validity of a review a completed walk already raised. Only
-    when every execution that ever walked this requirement was cut short
-    (aborted or errored) before finishing is there no further evidence
-    coming, and the ask is over. A requirement no execution ever walked is a
-    standing ad-hoc ask with no walk to end, so it is never disposed of this
-    way.
+    evidence the ask is moot -- so a walk completing never ends the subject
+    it raised on its own. But "a walk" means the run's OWN originating
+    execution, not any execution that has ever touched this requirement: an
+    unrelated execution finishing early, or completing before this run even
+    existed, must not decide the validity of a review a later, different
+    walk raised. Only a walk that finished at or after this run was
+    recorded can be the evidence that answers for it, so completion is
+    scoped to executions whose own completion is no older than the run in
+    question. When no such completion exists and nothing is still live, the
+    walk that raised this run was cut short (aborted or errored) and no
+    further evidence is coming -- the ask is over. A requirement no
+    execution ever walked is a standing ad-hoc ask with no walk to end, so
+    it is never disposed of this way.
     """
     if not (
         _table_exists(conn, "qa_plan_executions")
@@ -195,7 +209,7 @@ def _qa_walk_ended(conn: Any, requirement_id: int) -> tuple[bool, str]:
     from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_STATES
 
     walks = conn.execute(
-        "SELECT e.id, e.state FROM qa_plan_execution_results r "
+        "SELECT e.id, e.state, e.completed_at FROM qa_plan_execution_results r "
         "JOIN qa_plan_executions e ON e.id = r.execution_id "
         f"WHERE r.requirement_id = {_p(conn)} ORDER BY e.created_at, e.id",
         (requirement_id,),
@@ -211,7 +225,11 @@ def _qa_walk_ended(conn: Any, requirement_id: int) -> tuple[bool, str]:
             f"QA requirement {requirement_id} is still being walked by "
             f"execution {live[0]}"
         )
-    completed = [str(row[0]) for row in walks if str(row[1]) == "completed"]
+    completed = [
+        str(row[0])
+        for row in walks
+        if str(row[1]) == "completed" and str(row[2] or "") >= run_created_at
+    ]
     if completed:
         return False, (
             f"QA requirement {requirement_id} has a plan execution that "

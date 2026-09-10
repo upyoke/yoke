@@ -232,3 +232,48 @@ def test_replaying_the_review_bundle_recovers_one_pending_request() -> None:
             ).fetchone()[0]
             == 1
         )
+
+        # The end-to-end recovery guarantee: repeating the identical replay,
+        # then running normal Inbox convergence, leaves exactly the one
+        # recovered request pending -- convergence must not re-disqualify it,
+        # and the replay itself must not mint a second capture or verdict row.
+        second_replay = submit_plan_review(
+            conn,
+            execution,
+            bundle_id=bundle["bundle_id"],
+            bundle_digest=bundle["bundle_digest"],
+            verdicts=verdicts,
+            reviewer_actor_id=None,
+            reviewer_session_id="review-session",
+        )
+        assert int(second_replay["verdicts"][0]["decision_request_id"]) == recovered_id
+
+        convergence = dispose_ended_decision_requests(conn)
+
+        assert recovered_id not in [
+            row["request_id"] for row in convergence["withdrawn"]
+        ]
+        assert _status(conn, recovered_id)[0] == "pending"
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM qa_plan_review_verdicts WHERE bundle_id=%s",
+                (bundle["bundle_id"],),
+            ).fetchone()[0]
+            == 1
+        )
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s "
+                "AND performed_by='agent'",
+                (requirement_id,),
+            ).fetchone()[0]
+            == 1
+        )
+        assert (
+            conn.execute(
+                "SELECT COUNT(*) FROM decision_requests WHERE kind='qa_needs_review' "
+                "AND subject_key=%s AND status='pending'",
+                (str(requirement_id),),
+            ).fetchone()[0]
+            == 1
+        )
