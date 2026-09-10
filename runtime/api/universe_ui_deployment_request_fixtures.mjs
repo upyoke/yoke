@@ -132,8 +132,8 @@ export function approvalOnlyRequestRow(overrides = {}) {
           + "promoted to any environment. The work this decision governs may "
           + "still be real.",
         basis: [
-          "Every stage runs human-approval or auto, and neither reaches an "
-          + "environment.",
+          "Every stage runs a runner that neither deploys to nor mutates an "
+          + "environment: auto, human-approval.",
           "The flow names no target environment or tier.",
         ],
       },

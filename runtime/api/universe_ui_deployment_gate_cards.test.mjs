@@ -171,7 +171,9 @@ test("a gate that deploys nothing says so instead of naming a destination", asyn
   // The claim is checkable rather than asserted: the facts behind it are
   // shown, so an approver can see why nothing ships.
   assert.ok(body.includes("Why this deploys nothing"), body);
-  assert.ok(body.includes("neither reaches an environment"), body);
+  assert.ok(
+    body.includes("neither deploys to nor mutates an environment"), body,
+  );
   assert.ok(body.includes("names no target environment or tier"), body);
   // No release block: there is no release, and "0 changes" beside it would
   // read as an empty deploy.

@@ -14,7 +14,8 @@ unrecognised runner as a deploy invents a consequence exactly as reading a
 familiar-looking flow as harmless invents safety.
 
 What settles it is the flow's step runners, because they are the mechanism:
-a stage either runs something that reaches an environment or it does not.
+a stage either runs something that deploys to or mutates an environment,
+or it does not. Reading one is neither.
 A destination and a payload are different questions -- where a deploy would
 go, and what would ship -- so an unavailable carried-work derivation cannot
 make a flow deploy, and an empty release cannot make one harmless. Nor does
@@ -51,10 +52,11 @@ ENVIRONMENT_MUTATING_STEP_RUNNERS = frozenset(
     }
 )
 
-#: The step runners verified to reach nothing: one records that the stage ran,
-#: one waits for a person, and three only read an environment that already
-#: exists — a health probe, one read call paying a cold start, and checks
-#: against already-deployed substrate. Reading is not deploying.
+#: The step runners verified to neither deploy nor mutate an environment: one
+#: records that the stage ran, one waits for a person, and three do reach an
+#: environment but only to read it — a health probe, one read call paying a
+#: cold start, and checks against already-deployed substrate. Touching an
+#: environment is not the question; changing what it serves is.
 NON_DEPLOYING_STEP_RUNNERS = frozenset(
     {
         "auto",
@@ -180,7 +182,8 @@ def derive_release_effect(
         "headline": DEPLOYS_NOTHING_HEADLINE,
         "effect": DEPLOYS_NOTHING_EFFECT,
         "basis": [
-            "Every stage runs a runner verified to reach no environment: "
+            "Every stage runs a runner that neither deploys to nor mutates "
+            "an environment: "
             + ", ".join(sorted({_runner(entry) for entry in stages}))
             + ".",
             "The flow names no target environment or tier.",

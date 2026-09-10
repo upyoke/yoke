@@ -48,7 +48,10 @@ def test_an_approval_only_flow_names_the_consequence_and_its_evidence():
     # happening: an internal review that deploys nothing can still be a
     # required decision about genuine work.
     assert "The work this decision governs may still be real." in effect["effect"]
-    assert any("verified to reach no environment" in line for line in effect["basis"])
+    assert any(
+        "neither deploys to nor mutates an environment" in line
+        for line in effect["basis"]
+    )
     assert any("names no target environment" in line for line in effect["basis"])
 
 
@@ -134,10 +137,11 @@ def test_the_first_sample_shape_reaches_deploys_nothing(test_db):
 
 @pytest.mark.parametrize("runner", sorted(NON_DEPLOYING_STEP_RUNNERS))
 def test_a_read_only_runner_never_makes_a_flow_deploy(runner):
-    """A probe is not a deploy.
+    """Reaching an environment is not changing it.
 
     `health-check` runs one URL probe, `warm-up` one read call, and
-    `ephemeral-verify` checks against substrate something else stood up.
+    `ephemeral-verify` checks against substrate something else stood up. All
+    three do talk to a live environment; none of them changes what it serves.
     Treating the vocabulary minus two names as deploying titled an
     approval->health-check flow "Deploy to prod".
     """
