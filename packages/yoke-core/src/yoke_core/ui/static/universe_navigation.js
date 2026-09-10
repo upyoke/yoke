@@ -75,19 +75,22 @@ export function serializeScope(scope) {
 }
 
 export function scopeForEntry(entry, routeProject, projects, selections, routeSelection = null) {
-  const selection = resolveProjectSelection(selections, projects, routeSelection ?? routeProject);
+  const selection = resolveProjectSelection(selections, entry.id, projects, routeSelection ?? routeProject);
   if (entry.scope === SCOPE_NONE) return null;
   if (entry.scope === SCOPE_MULTI) return selection;
   const candidates = selection === "all" ? projects.map((row) => String(row.id)) : selection;
-  selections.focus = knownProjectId(projects, routeProject) ||
-    selections.focus || candidates[0] || null;
-  selections.save();
-  return selections.focus;
+  const priorFocus = selections.focusFor(entry.id);
+  const focus = knownProjectId(projects, routeProject) ||
+    priorFocus || candidates[0] || null;
+  selections.setFocusFor(entry.id, focus);
+  if (focus !== priorFocus) selections.saveFor(entry.id);
+  return focus;
 }
 
-// Every destination carries the shared selection, including global screens.
+// Each destination carries its OWN remembered selection, including global
+// screens — never another screen's.
 export function rememberedScopeParam(entry, projects, selections) {
-  return selectionParam(selections.selection);
+  return selectionParam(selections.selectionFor(entry.id));
 }
 
 function el(documentNode, tag, className, text) {

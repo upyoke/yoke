@@ -38,6 +38,7 @@ class TestRegistrationShape:
             "profile.token.revoke",
             "profile.preference.set",
             "profile.onboarding.reset",
+            "ui_preferences.screen_selection.set",
             "workflows.current.set",
             "workflows.policy_defaults.publish",
             "workflows.testing_default.set",

@@ -39,6 +39,8 @@ PRODUCT_AUTHZ_BY_ID = {
     "profile.token.revoke": AuthzSpec(ACTOR_SESSION, None),
     "profile.preference.set": AuthzSpec(ACTOR_SESSION, None),
     "profile.onboarding.reset": AuthzSpec(ACTOR_SESSION, None),
+    "ui_preferences.screen_selection.list": AuthzSpec(ACTOR_SESSION, None),
+    "ui_preferences.screen_selection.set": AuthzSpec(ACTOR_SESSION, None),
     "sessions.reclaim_stale": AuthzSpec(ORG, PERM_ORG_ADMIN),
     # A gate records that its own session is owed a CI verdict. The row's
     # subject is the calling session, so the session it authenticates as is

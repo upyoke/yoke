@@ -215,13 +215,6 @@ export interface UniverseAppOptions {
    * the local server supplies its resolved operator when one is known.
    */
   readonly currentActor?: UniverseActor;
-  /** Stable universe and authenticated actor IDs, never display labels.
-   * Remount when either changes. Omit for unidentified viewers: their
-   * selection remains in memory and is never shared through storage. */
-  readonly selectionIdentity?: {
-    readonly universeId: string;
-    readonly actorId: string | number;
-  };
   /**
    * Canonical runtime-identity packet. Hosts that already derived display
    * fields may omit this, but the local and hosted shells pass it so the

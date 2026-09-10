@@ -2,20 +2,61 @@ import { callFunction } from "./universe_view_support.js";
 import { createScopePicker, SCOPE_MULTI, SCOPE_NONE, SCOPE_SINGLE } from "./universe_navigation.js";
 import { selectionRoute } from "./universe_selection_routes.js";
 
+// A denied or failed write resolves normally with `success=false`; it must
+// still reach `createProjectSelection`'s `saveFor` as a rejection, or a save
+// that never landed would silently look saved.
+export function saveScreenSelection(client, viewId, selection, focus) {
+  return Promise.resolve(callFunction(
+    client, "ui_preferences.screen_selection.set", { view_id: viewId, selection, focus },
+  )).then((callResult) => {
+    if (!callResult.envelope?.success) {
+      throw new Error(callResult.envelope?.error?.message || "screen selection save failed");
+    }
+  });
+}
+
+// Each screen's remembered selection, seeded from the server before the
+// first render so no screen ever paints then jumps. A failure here is not
+// load-bearing the way `projects.list` is: every screen simply starts at
+// "all" — but `markReady()` runs only on a genuine success, so normalization
+// during that degraded render never persists a default over whatever the
+// server actually still holds. The person still needs to know their choices
+// are not being saved this session, so a failure surfaces the same scope
+// notice a failed save does.
+export function loadScreenSelections(client, scopeSelections) {
+  return Promise.resolve().then(() => callFunction(
+    client, "ui_preferences.screen_selection.list", {},
+  )).then((callResult) => {
+    if (!callResult.envelope?.success) {
+      throw new Error(callResult.envelope?.error?.message || "screen selection list failed");
+    }
+    const views = callResult.envelope.result?.views || {};
+    for (const [viewId, view] of Object.entries(views)) {
+      scopeSelections.seed(viewId, view.selection, view.focus);
+    }
+    scopeSelections.markReady();
+  }).catch(() => {
+    // The mount bootstrap's own pending first render already reads
+    // `notice` fresh once this settles — no re-render trigger needed here,
+    // and firing one would race that render with a premature, incomplete one.
+    scopeSelections.seedNotice("Couldn't load saved projects. Reload to retry.");
+  });
+}
+
 export function createProjectControls(deps) {
   const { documentNode, windowNode, entry, route, scope, projects,
     scopeSelections, onSelectionChange, renderRoute } = deps;
   const picker = createScopePicker({
     documentNode, windowNode, entry: { ...entry, scope: SCOPE_MULTI },
-    scope: scopeSelections.selection, projects, scopeSelections,
+    scope: scopeSelections.selectionFor(entry.id), projects, scopeSelections,
     onSelect: onSelectionChange,
   });
   if (entry.scope === SCOPE_SINGLE && !route.detail) {
     const focus = createScopePicker({
       documentNode, windowNode, entry, scope, projects, scopeSelections,
       onSelect(next) {
-        scopeSelections.focus = next;
-        scopeSelections.save();
+        scopeSelections.setFocusFor(entry.id, next);
+        scopeSelections.saveFor(entry.id);
         windowNode.location.hash = selectionRoute(route, scopeSelections, next, windowNode.location.hash);
         renderRoute();
       },
@@ -99,7 +140,7 @@ export function createHeldScopeController(deps) {
       const link = navLinks.get(navItem.id);
       if (!link) continue;
       link.href = navItem.scope === SCOPE_SINGLE
-        ? selectionRoute({ view: navItem.id }, scopeSelections, scopeSelections.focus)
+        ? selectionRoute({ view: navItem.id }, scopeSelections, scopeSelections.focusFor(navItem.id))
         : buildUniverseRoute(
         navItem.id,
         rememberedScopeParam(navItem, projectsRef(), scopeSelections),

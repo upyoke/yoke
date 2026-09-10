@@ -19,6 +19,13 @@ const docSlugs = (root) => byClass(root, "overview-doc-slug")
 const callCount = (client, functionId) => client.requests.filter(
   (request) => request.function === functionId,
 ).length;
+// A genuine scope change persists the new remembered selection — a
+// deliberate write, not a content re-read. Held-scope repaint asserts stay
+// about Overview's OWN data, so the persistence write is excluded here.
+const contentRequestCount = (client) => client.requests.filter(
+  (request) => request.function !== "ui_preferences.screen_selection.set"
+    && request.function !== "ui_preferences.screen_selection.list",
+).length;
 
 function stubFetch(t) {
   const originalFetch = globalThis.fetch;
@@ -42,7 +49,7 @@ test("a project change repaints Overview from held data with zero reads", async 
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
-  const before = client.requests.length;
+  const before = contentRequestCount(client);
   assert.equal(callCount(client, "overview.activation.get"), 1);
   assert.equal(callCount(client, "strategy.doc.list"), 2);
   assert.equal(callCount(client, "strategy.doc_claim.list"), 2);
@@ -57,7 +64,7 @@ test("a project change repaints Overview from held data with zero reads", async 
   const strategySection = byClass(root, "overview-section")[0];
 
   await navigate(windowNode, "#/overview?project=2");
-  assert.equal(client.requests.length, before);
+  assert.equal(contentRequestCount(client), before);
   assert.deepEqual(sessionIds(root), ["s-beta"]);
   assert.deepEqual(runIds(root), ["run-beta"]);
   assert.deepEqual(docSlugs(root), ["BETA-PLAN"]);
@@ -67,7 +74,7 @@ test("a project change repaints Overview from held data with zero reads", async 
   assert.equal(byClass(root, "overview-section")[0], strategySection);
 
   await navigate(windowNode, "#/overview?project=all");
-  assert.equal(client.requests.length, before);
+  assert.equal(contentRequestCount(client), before);
   assert.deepEqual(sessionIds(root).sort(), ["s-beta", "s-nil", "s-yoke"]);
   assert.deepEqual(runIds(root).sort(), ["run-beta", "run-yoke"]);
   assert.deepEqual(docSlugs(root).sort(), ["BETA-PLAN", "MISSION"]);
@@ -82,7 +89,7 @@ test("prefix chips repaint the held scope in place", async (t) => {
   const client = multiProjectOverviewClient();
   const mounted = mountUniverseApp(root, { client });
   await settle();
-  const before = client.requests.length;
+  const before = contentRequestCount(client);
   const chip = (label) => byClass(root, "scope-chip")
     .find((node) => node.textContent === label);
   const chipState = () => byClass(root, "scope-chip").map(
@@ -91,13 +98,13 @@ test("prefix chips repaint the held scope in place", async (t) => {
 
   chip("BET").dispatchEvent(new Event("click"));
   await settle();
-  assert.equal(client.requests.length, before);
+  assert.equal(contentRequestCount(client), before);
   assert.deepEqual(sessionIds(root).sort(), ["s-beta", "s-yoke"]);
   assert.deepEqual(chipState(), [["All", false], ["YOK", true], ["BET", true]]);
 
   chip("YOK").dispatchEvent(new Event("click"));
   await settle();
-  assert.equal(client.requests.length, before);
+  assert.equal(contentRequestCount(client), before);
   assert.deepEqual(sessionIds(root), ["s-beta"]);
   assert.equal(documentNode.defaultView.location.hash, "#/overview?project=2");
   mounted.unmount();
@@ -112,14 +119,14 @@ test("a failed project document read does not poison another scope", async (t) =
   const client = multiProjectOverviewClient({ failProject: "2" });
   const mounted = mountUniverseApp(root, { client });
   await settle();
-  const before = client.requests.length;
+  const before = contentRequestCount(client);
 
   assert.equal(byClass(root, "overview-band-error").length, 0);
   await navigate(windowNode, "#/overview?project=2");
-  assert.equal(client.requests.length, before);
+  assert.equal(contentRequestCount(client), before);
   assert.equal(byClass(root, "overview-band-error").length, 2);
   await navigate(windowNode, "#/overview?project=1");
-  assert.equal(client.requests.length, before);
+  assert.equal(contentRequestCount(client), before);
   assert.equal(byClass(root, "overview-band-error").length, 0);
   mounted.unmount();
 });
