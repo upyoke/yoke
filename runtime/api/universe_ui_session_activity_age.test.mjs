@@ -28,7 +28,8 @@ function renderedActivityAge(documentNode, activityAt, extras = {}) {
 
 // Activity recency is duration only. Liveness never appears as a second
 // status, and the one-minute threshold is the sole boundary between the two
-// words: active now under it, idle Xm at or past it.
+// words: active now under it, idle <age> at or past it, rolling over through
+// the shared minute/hour/day units.
 test("session activity copy keeps server liveness authoritative", (t) => {
   const now = Date.parse("2026-08-27T12:00:00Z");
   const originalNow = Date.now;
@@ -45,11 +46,16 @@ test("session activity copy keeps server liveness authoritative", (t) => {
     "idle 1m",
   );
   // A long executor TTL can keep a quiet session alive without making its
-  // activity recent. Unlike the shared relative-age helper, this line never
-  // rolls over to hours or days — X stays elapsed whole minutes.
+  // activity recent. This line rolls over to hours/days exactly like the
+  // shared relative-age helper — 1440 minutes reads as a day of hours.
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 1440 * 60_000).toISOString()),
-    "idle 1440m",
+    "idle 24h",
+  );
+  // Past the 48-hour threshold the same rollover reaches days.
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 3 * 24 * 3_600_000).toISOString()),
+    "idle 3d",
   );
   assert.equal(
     renderedActivityAge(

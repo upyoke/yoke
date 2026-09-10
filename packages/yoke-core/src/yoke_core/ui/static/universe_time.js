@@ -1,3 +1,11 @@
+// The dashboard's one "how long ago" convention: minute granularity rolling
+// over to hours past an hour and days past 48 hours. Every "X ago" display
+// on the card (age, idle recency, claim held, QA result age, …) reuses this
+// — and its click/keyboard absolute-time toggle via `relativeTime` below —
+// rather than authoring a per-card formatter. `preciseAge` further down is
+// the deliberate seconds-granular exception for facts that change faster
+// than a minute (a relay heartbeat), not a second convention to choose
+// between.
 export function relativeAge(value, now = Date.now()) {
   if (!value) return "recently";
   const timestamp = new Date(value).getTime();
