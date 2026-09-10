@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from yoke_core.domain.decision_request_schema import (
     create_decision_request_tables,
 )
@@ -9,6 +11,7 @@ from yoke_core.domain.deployment_approval_requests import (
     evaluate_deployment_stage_approval,
 )
 from yoke_core.domain.deployment_run_gates import run_gates
+from yoke_core.domain.qa_catalog_schema import create_qa_catalog_tables
 
 RUN_ID = "run-gate-proof"
 
@@ -116,3 +119,53 @@ def test_a_run_with_nothing_pending_reports_no_gate(test_db):
 
     assert run_gates(test_db, ["run-not-halted"], actor_id=None) == {}
     assert run_gates(test_db, [], actor_id=None) == {}
+
+
+def test_a_halted_run_shows_screenshots_attached_after_the_gate_was_recorded(test_db):
+    create_decision_request_tables(test_db)
+    owner, _originator = _seed_run_awaiting_approval(test_db)
+
+    # The gate froze with nothing to attach; qa tables did not exist yet.
+    frozen = run_gates(test_db, [RUN_ID], actor_id=owner)[RUN_ID][0]
+    assert frozen["subject_context"]["evidence"]["state"] == "absent"
+
+    create_qa_catalog_tables(test_db)
+    requirement_id = test_db.execute(
+        "INSERT INTO qa_requirements "
+        "(deployment_run_id, method_id, method_name, expected_outcome, "
+        "runner_id, verdict_path, qa_kind, qa_phase, blocking_mode, "
+        "created_at) VALUES (%s, 'browser-inspection', 'Browser inspection', "
+        "'The release renders.', 'browser_substrate', 'agent', 'plan_case', "
+        "'post_deploy', 'blocking', '2026-07-26T00:00:00Z') RETURNING id",
+        (RUN_ID,),
+    ).fetchone()[0]
+    run_row_id = test_db.execute(
+        "INSERT INTO qa_runs "
+        "(qa_requirement_id, performed_by, qa_kind, verdict, raw_result, "
+        "created_at) VALUES (%s, 'agent', 'manual_acceptance', 'pass', %s, "
+        "'2026-07-26T00:00:00Z') RETURNING id",
+        (requirement_id, json.dumps({"release_lineage": "lineage-gate-proof"})),
+    ).fetchone()[0]
+    test_db.execute(
+        "INSERT INTO qa_artifacts "
+        "(qa_run_id, artifact_type, artifact_handle, created_at) "
+        "VALUES (%s, 'screenshot', %s, '2026-07-26T00:00:00Z')",
+        (run_row_id, '{"backend":"local","path":"/tmp/run-gate-evidence.png"}'),
+    )
+    test_db.commit()
+
+    gate = run_gates(test_db, [RUN_ID], actor_id=owner)[RUN_ID][0]
+    # A still-pending gate's returned evidence recomputes against the same
+    # subject and revision, so it now sees what was attached since it froze.
+    evidence = gate["subject_context"]["evidence"]
+    assert evidence["screenshot_count"] == 1
+    assert evidence["expected_revision"] == "lineage-gate-proof"
+    # The stored row is never rewritten -- only the returned copy changes.
+    stored = json.loads(
+        test_db.execute(
+            "SELECT subject_context FROM decision_requests WHERE subject_key LIKE %s",
+            (f"{RUN_ID}:%",),
+        ).fetchone()[0]
+    )
+    assert stored["evidence"]["state"] == "absent"
+    assert stored["evidence"]["screenshot_count"] == 0

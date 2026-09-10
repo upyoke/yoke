@@ -17,8 +17,10 @@ from yoke_core.domain.approval_policy import (
     DEFAULT_APPROVAL_MODE,
 )
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.decision_related_evidence import related_screenshot_evidence
 from yoke_core.domain.decision_request_contract import (
     DECISION_KINDS,
+    DEPLOYMENT_STAGE_APPROVAL,
     LIFECYCLE_TRANSITION_APPROVAL,
     REQUEST_CREATED_EVENT,
 )
@@ -41,6 +43,41 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
+def _live_evidence(
+    conn: Any, kind: str, context: dict[str, Any]
+) -> Optional[dict[str, Any]]:
+    """Recompute screenshot evidence live, for a request still open to answer.
+
+    A frozen ``evidence`` snapshot answers what existed the moment the
+    request was created; genuine evidence attached to the same exact subject
+    afterward never updates it on its own. This reruns the same query
+    against the request's own frozen subject and revision, so a reader
+    deciding a still-pending request sees screenshots recorded since. The
+    caller replaces ``evidence`` with this result only in the dict it
+    returns -- the stored row, and every resolved or withdrawn read, keep
+    the original frozen snapshot untouched.
+    """
+    if kind == LIFECYCLE_TRANSITION_APPROVAL:
+        item_id = context.get("item_id")
+        if item_id is None:
+            return None
+        changes = context.get("branch_changes") or {}
+        return related_screenshot_evidence(
+            conn, item_id=int(item_id), expected_revision=changes.get("commit_sha")
+        )
+    if kind == DEPLOYMENT_STAGE_APPROVAL:
+        run_id = context.get("run_id")
+        if run_id is None:
+            return None
+        shipping = context.get("shipping") or {}
+        return related_screenshot_evidence(
+            conn,
+            deployment_run_id=str(run_id),
+            expected_revision=shipping.get("release_lineage"),
+        )
+    return None
+
+
 def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
@@ -54,6 +91,10 @@ def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
         result["subject_context"] = json.loads(result["subject_context"] or "{}")
     except (TypeError, json.JSONDecodeError):
         result["subject_context"] = {}
+    if result["status"] == "pending":
+        live = _live_evidence(conn, result["kind"], result["subject_context"])
+        if live is not None:
+            result["subject_context"]["evidence"] = live
     result["actions"] = list(DECISION_KINDS[result["kind"]].actions)
     result["role_authorities"] = [
         dict(value)
