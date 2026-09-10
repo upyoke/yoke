@@ -80,6 +80,16 @@ function carriedReference(item) {
   return item.ref || item.public_ref || item.item_ref || `item ${item.item_id}`;
 }
 
+function runProjectId(context, row, scope) {
+  const projects = typeof context.projects === "function" ? context.projects() : [];
+  const project = projects.find((candidate) => (
+    [candidate.id, candidate.slug, candidate.name].some(
+      (value) => String(value) === String(row.project),
+    )
+  ));
+  return project?.id || (scope !== "all" && scope.length === 1 ? scope[0] : null);
+}
+
 // A run card takes the whole view context rather than just its document:
 // the gates it draws read their evidence through the client, so a card that
 // only knew how to create elements could show that evidence existed and
@@ -118,17 +128,18 @@ export function overviewRunCard(context, row, scope, options = {}) {
   link.appendChild(el(
     documentNode, "strong", "overview-run-flow", row.flow || "flow unavailable",
   ));
+  const details = el(documentNode, "details", "overview-run-details");
+  details.appendChild(el(documentNode, "summary", null, "Details"));
   if ((row.stages || []).length) {
-    link.appendChild(deliveryStageBar(documentNode, row.stages));
+    details.appendChild(deliveryStageBar(documentNode, row.stages));
   }
-
   if (row.release_lineage) {
     const release = el(documentNode, "div", "overview-run-release");
     release.appendChild(el(documentNode, "span", null, "Release "));
     release.appendChild(el(
       documentNode, "code", null, String(row.release_lineage).slice(0, 12),
     ));
-    link.appendChild(release);
+    details.appendChild(release);
   }
 
   const items = carriedItems(row);
@@ -158,12 +169,12 @@ export function overviewRunCard(context, row, scope, options = {}) {
         `+${items.length - 6} more carried by this release`,
       ));
     }
-    link.appendChild(batch);
+    details.appendChild(batch);
   }
 
   const derivation = row.carried_work?.derivation;
   if (derivation) {
-    link.appendChild(el(
+    details.appendChild(el(
       documentNode,
       "div",
       "overview-run-derived",
@@ -171,13 +182,26 @@ export function overviewRunCard(context, row, scope, options = {}) {
     ));
   }
   const timing = row.completed_at || row.started_at || row.created_at;
+  const summary = [
+    items.length
+      ? `${items.length} ${items.length === 1 ? "item" : "items"}`
+      : "environment run",
+    row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
+    timing ? `${status} ${relativeAge(timing)} ago` : status,
+  ].filter(Boolean).join(" · ");
   link.appendChild(el(
     documentNode,
     "span",
     "overview-run-card-meta",
-    timing ? `${status} ${relativeAge(timing)} ago` : status,
+    summary,
   ));
   card.appendChild(link);
   appendRunGates(context, card, row.gates, options.onGateAction);
+  if (details.children.length > 1) card.appendChild(details);
+  const evidence = el(documentNode, "a", "overview-run-evidence", "QA evidence →");
+  evidence.href = buildUniverseRoute(
+    "qa-activity", runProjectId(context, row, scope), row.id || row.run_id,
+  );
+  card.appendChild(evidence);
   return card;
 }

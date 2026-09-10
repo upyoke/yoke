@@ -153,6 +153,10 @@ test("Runs is the prototype's one seven-column execution table", async (t) => {
     ],
   );
   assert.equal(byClass(root, "secondary-muted")[0].textContent, "environment run");
+  assert.equal(
+    byClass(root, "delivery-run-evidence")[0].href,
+    "#/qa-activity/run-20260101-001?project=2",
+  );
   assert.equal(byClass(root, "delivery-run-card").length, 0);
   assert.deepEqual(
     byClass(root, "delivery-run-stage").map(
@@ -237,6 +241,10 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
   assert.equal(
     byClass(root, "delivery-member")[0].textContent,
     "YOK-2228 · Ship the release",
+  );
+  assert.equal(
+    byClass(root, "delivery-run-evidence")[0].href,
+    "#/qa-activity/run-20260726-001?project=1",
   );
   const footer = byClass(root, "delivery-waiting-link")[0];
   assert.equal(footer.textContent, "1 run waiting on you →");

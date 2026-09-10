@@ -10,8 +10,16 @@
 // every card would assert a shape the flow does not have, and would teach the
 // reader to skip the one place the answer eventually appears.
 
-import { appendEvidence, approvalProse } from "./decision_gate_body.js";
-import { ACTION_LABELS, ACTION_RANK } from "./inbox_presentation.js";
+import {
+  appendEvidence,
+  appendRelatedEvidence,
+  approvalProse,
+} from "./decision_gate_body.js";
+import {
+  ACTION_LABELS,
+  ACTION_RANK,
+  decisionSummary,
+} from "./inbox_presentation.js";
 import { el } from "./universe_view_support.js";
 
 // A gate's label and its state are read from the kind, so the run card and
@@ -89,10 +97,21 @@ function appendGate(context, host, gate, onAct) {
   line.appendChild(el(documentNode, "span", "run-gate-note", gateNote(gate)));
   wrap.appendChild(line);
 
-  const why = approvalProse(gate);
-  if (why) wrap.appendChild(el(documentNode, "p", "run-gate-why", why));
+  const summary = decisionSummary(gate);
+  if (summary) wrap.appendChild(el(documentNode, "p", "run-gate-why", summary));
   if (gate.kind === "qa_needs_review") {
     appendEvidence(context, wrap, gate.subject_context || {});
+  } else {
+    appendRelatedEvidence(
+      context, wrap, gate.subject_context || {}, "run",
+    );
+  }
+  const detail = approvalProse(gate);
+  if (detail) {
+    const disclosure = el(documentNode, "details", "run-gate-details");
+    disclosure.appendChild(el(documentNode, "summary", null, "Details"));
+    disclosure.appendChild(el(documentNode, "p", null, detail));
+    wrap.appendChild(disclosure);
   }
   appendActions(documentNode, wrap, gate, onAct);
   host.appendChild(wrap);

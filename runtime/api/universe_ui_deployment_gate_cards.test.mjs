@@ -30,12 +30,12 @@ test("a deployment approval names the items it releases, not just the run", asyn
 
   assert.equal(
     byClass(main, "inbox-row-title")[0].textContent,
-    "Deploy to prod — approve the prod-deploy stage",
+    "Approve prod deploy",
   );
   const subtitle = byClass(main, "inbox-row-subtitle")[0].textContent;
-  assert.ok(subtitle.includes("run-20260721-014"), subtitle);
-  assert.ok(subtitle.includes("flow yoke-hosted-production"), subtitle);
-  assert.ok(subtitle.includes("stage prod-deploy"), subtitle);
+  assert.ok(subtitle.includes("yoke-hosted-production"), subtitle);
+  assert.ok(!subtitle.includes("run-20260721-014"), subtitle);
+  assert.ok(!subtitle.includes("prod-deploy"), subtitle);
 
   const body = gateText(main);
   assert.ok(body.includes("This run carries 2 changes to prod"), body);
@@ -161,7 +161,11 @@ test("a gate that deploys nothing says so instead of naming a destination", asyn
 
   assert.equal(
     byClass(main, "inbox-row-title")[0].textContent,
-    "Approval only — deploys nothing",
+    "Approve review example",
+  );
+  assert.equal(
+    byClass(main, "gate-summary")[0].textContent,
+    "Approval only — deploys nothing. Resolving this lets the run continue.",
   );
   const body = gateText(main);
   assert.ok(body.includes("nothing is built, released, or promoted"), body);
@@ -194,7 +198,7 @@ test("an unsettled consequence is its own answer, not a safe-sounding one", asyn
 
   assert.equal(
     byClass(main, "inbox-row-title")[0].textContent,
-    "Approve the review-example stage",
+    "Approve review example",
   );
   const body = gateText(main);
   assert.ok(body.includes("could not be established"), body);
@@ -270,7 +274,7 @@ test("a request predating the consequence fact reports it as unrecorded", async 
 
   assert.equal(
     byClass(main, "inbox-row-title")[0].textContent,
-    "Approve the review-example stage",
+    "Approve review example",
   );
   const body = gateText(main);
   assert.ok(body.includes("recorded before what resolving it deploys"), body);
@@ -287,7 +291,7 @@ test("a real release that carries nothing is still titled a deploy", async () =>
 
   assert.equal(
     byClass(main, "inbox-row-title")[0].textContent,
-    "Deploy to prod — approve the prod-deploy stage",
+    "Approve prod deploy",
   );
   const body = gateText(main);
   assert.ok(!body.includes("deploys nothing"), body);

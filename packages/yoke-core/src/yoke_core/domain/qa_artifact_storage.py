@@ -9,10 +9,11 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from yoke_contracts.qa_artifact_limits import MAX_ARTIFACT_BYTES
+
 from yoke_core.domain import db_backend
 
 
-MAX_ARTIFACT_BYTES = 20 * 1024 * 1024
 ARTIFACT_PRESIGN_EXPIRES_S = 900
 
 
@@ -72,8 +73,7 @@ def _checked_bytes(content: bytes) -> bytes:
         raise ValueError("artifact content is empty")
     if len(content) > MAX_ARTIFACT_BYTES:
         raise ValueError(
-            f"artifact content is {len(content)} bytes; limit is "
-            f"{MAX_ARTIFACT_BYTES}"
+            f"artifact content is {len(content)} bytes; limit is {MAX_ARTIFACT_BYTES}"
         )
     return content
 
@@ -136,8 +136,7 @@ def _upload_bytes(
     except urllib.error.HTTPError as exc:
         raise ArtifactStorageError(
             "s3_upload_failed",
-            f"S3 upload failed for s3://{bucket}/{key}: "
-            f"HTTP {exc.code} {exc.reason}",
+            f"S3 upload failed for s3://{bucket}/{key}: HTTP {exc.code} {exc.reason}",
         ) from exc
     except (OSError, urllib.error.URLError, ValueError) as exc:
         raise ArtifactStorageError(
@@ -195,8 +194,12 @@ def store_artifact_bytes(
     if configured is None:
         try:
             return _write_permanent_local(
-                owner=owner, run_id=run_id, filename=filename, content=checked,
-                content_type=content_type, before_write=before_local_write,
+                owner=owner,
+                run_id=run_id,
+                filename=filename,
+                content=checked,
+                content_type=content_type,
+                before_write=before_local_write,
             )
         except OSError as exc:
             raise ArtifactStorageError(
@@ -218,13 +221,20 @@ def store_artifact_bytes(
     if broker is not None:
         try:
             signed = presign_with_broker(
-                broker, operation="put", project=project, subject=subject,
-                run_id=int(run_id), filename=filename,
+                broker,
+                operation="put",
+                project=project,
+                subject=subject,
+                run_id=int(run_id),
+                filename=filename,
             )
         except ArtifactBrokerError as exc:
             raise ArtifactStorageError(exc.code, str(exc)) from exc
         _upload_bytes(
-            signed.url, bucket=signed.bucket, key=signed.key, content=checked,
+            signed.url,
+            bucket=signed.bucket,
+            key=signed.key,
+            content=checked,
             content_type=content_type,
         )
         return s3_handle(signed.bucket, signed.key, content_type)
@@ -252,7 +262,10 @@ def store_artifact_bytes(
         expires_s=ARTIFACT_PRESIGN_EXPIRES_S,
     )
     _upload_bytes(
-        upload_url, bucket=bucket, key=key, content=checked,
+        upload_url,
+        bucket=bucket,
+        key=key,
+        content=checked,
         content_type=content_type,
     )
     return s3_handle(bucket, key, content_type)
@@ -333,8 +346,4 @@ def store_artifact_file(
     )
 
 
-__all__ = [
-    "ArtifactStorageError", "ARTIFACT_PRESIGN_EXPIRES_S", "MAX_ARTIFACT_BYTES",
-    "requirement_storage_owner", "store_artifact_bytes", "store_artifact_file",
-    "validate_s3_handle_owner",
-]
+__all__ = "ArtifactStorageError ARTIFACT_PRESIGN_EXPIRES_S MAX_ARTIFACT_BYTES requirement_storage_owner store_artifact_bytes store_artifact_file validate_s3_handle_owner".split()

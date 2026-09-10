@@ -8,9 +8,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { byClass, settle } from "./universe_ui_dom_test_support.mjs";
+import {
+  byClass,
+  FakeDocument,
+  settle,
+} from "./universe_ui_dom_test_support.mjs";
 import {
   artifactCaption,
+  artifactEvidenceCard,
   artifactLabel,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_evidence_artifact_view.js";
 import {
@@ -48,7 +53,7 @@ test("a QA review shows each artifact behind it, openable in place", async () =>
   // otherwise not tell them apart.
   assert.equal(
     byClass(main, "inbox-row-title")[0].textContent,
-    "marketing-pages-visual needs your review",
+    "Review marketing-pages-visual",
   );
   const body = gateText(main);
   assert.ok(body.includes("Evidence · 3 artifacts"), body);
@@ -60,35 +65,31 @@ test("a QA review shows each artifact behind it, openable in place", async () =>
   assert.ok(body.includes("YOK-1907"), body);
   assert.ok(body.includes("run 4120"), body);
   assert.ok(body.includes("9f21c4ab77e3"), body);
-  // One card per artifact, each with its own control: counting the evidence
-  // by type told the approver a number and showed them nothing.
+  // One card per artifact. Screenshot bytes load immediately so the evidence
+  // itself, not a count or a View button, leads the decision.
   assert.equal(byClass(main, "qa-evidence").length, 3);
-  assert.deepEqual(
-    byClass(main, "gate-evidence")[0].children
-      .filter((node) => node.classList.contains("qa-evidence"))
-      .map((card) => byClass(card, "qa-evidence-open")[0].textContent),
-    ["screenshot", "screenshot", "log"],
-  );
+  assert.equal(byClass(main, "qa-evidence-preview").length, 2);
+  assert.equal(byClass(main, "qa-evidence-full").length, 2);
   assert.equal(byClass(main, "gate-evidence-none").length, 0);
 });
 
-test("opening a gate artifact reads it and shows the image full-size", async () => {
+test("a gate loads screenshots and links each preview full-size", async () => {
   const { client, main } = renderInbox("all", [qaRequestRow()]);
   await settle();
 
   const card = byClass(main, "qa-evidence")[0];
-  byClass(card, "qa-evidence-open")[0].dispatchEvent(new Event("click"));
-  await settle();
-
   // The read is addressed at the requirement the gate names, not at an item
   // or session the gate card would have to invent.
   const read = client.requests.filter(
     (request) => request.function === "qa.artifact.read",
   );
-  assert.deepEqual(read.map((request) => request.target), [
+  assert.deepEqual(read.slice(0, 2).map((request) => request.target), [
+    { kind: "qa_requirement", qa_requirement_id: 21583 },
     { kind: "qa_requirement", qa_requirement_id: 21583 },
   ]);
-  assert.deepEqual(read.map((request) => request.payload), [{ artifact_id: 1 }]);
+  assert.deepEqual(read.slice(0, 2).map((request) => request.payload), [
+    { artifact_id: 1 }, { artifact_id: 2 },
+  ]);
 
   const full = byClass(card, "qa-evidence-full")[0];
   assert.ok(full, "an image artifact opens at full size");
@@ -108,7 +109,7 @@ test("a gate artifact whose bytes are elsewhere says where, not nothing", async 
 
   // The third fixture artifact reads back as living on its capture machine.
   const card = byClass(main, "qa-evidence")[2];
-  byClass(card, "qa-evidence-open")[0].dispatchEvent(new Event("click"));
+  byClass(card, "qa-evidence-action")[0].dispatchEvent(new Event("click"));
   await settle();
 
   assert.equal(
@@ -177,4 +178,45 @@ test("an item completion approval says it deploys nothing", async () => {
       + "and releases nothing to any environment."),
     body,
   );
+});
+
+test("a lifecycle approval opens its attached screenshot immediately", async () => {
+  const base = requestRow();
+  const { main } = renderInbox("all", [requestRow({
+    subject_context: {
+      ...base.subject_context,
+      evidence: {
+        state: "attached",
+        screenshots: [{
+          artifact_id: 1,
+          artifact_type: "screenshot",
+          content_type: "image/png",
+          requirement_id: 21583,
+        }],
+      },
+    },
+  })]);
+  await settle();
+
+  assert.equal(byClass(main, "qa-evidence-preview").length, 1);
+  assert.equal(byClass(main, "qa-evidence-full").length, 1);
+});
+
+test("a stalled screenshot read fails loudly and remains retryable", async () => {
+  const documentNode = new FakeDocument();
+  const card = artifactEvidenceCard({
+    document: documentNode,
+    evidenceReadTimeoutMs: 1,
+    client: { call: () => new Promise(() => {}) },
+  }, {
+    artifact_id: 81,
+    artifact_type: "screenshot",
+    content_type: "image/png",
+    requirement_id: 92,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 5));
+
+  assert.match(card.textContent, /timed out/i);
+  assert.equal(byClass(card, "qa-evidence-action")[0].textContent, "retry →");
+  assert.equal(byClass(card, "qa-evidence-action")[0].disabled, false);
 });

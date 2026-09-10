@@ -73,6 +73,11 @@ def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
         # into a sentence. The config entry that selected the approval names
         # an internal setting the approver has no way to act on.
         "approval_source": WORKFLOW_APPROVAL,
+        "evidence": {
+            "state": "unavailable",
+            "screenshots": [],
+            "requirement_count": 0,
+        },
     }
     assert (
         conn.execute("SELECT status FROM items WHERE id=1907").fetchone()[0]

@@ -161,13 +161,22 @@ function renderActivityTable(context, body, rows, scope) {
   body.appendChild(tableWrap(documentNode, table));
 }
 
-export async function renderQaActivity(context, main, scope) {
+export async function renderQaActivity(
+  context, main, scope, deploymentRunId = null, navigation = {},
+) {
+  deploymentRunId = typeof deploymentRunId === "string" ? deploymentRunId : null;
   const documentNode = context.document;
   main.replaceChildren(el(
     documentNode, "p", "empty", "loading QA activity…",
   ));
   const { callResults, failed } = await loadProjectCalls(
-    context, scope, "qa.activity.list", { limit: RECENT_ACTIVITY_LIMIT },
+    context,
+    scope,
+    "qa.activity.list",
+    {
+      limit: deploymentRunId ? 100 : RECENT_ACTIVITY_LIMIT,
+      ...(deploymentRunId ? { deployment_run_id: deploymentRunId } : {}),
+    },
   );
   if (!context.isMounted()) return;
   if (failed) {
@@ -179,7 +188,7 @@ export async function renderQaActivity(context, main, scope) {
   ).sort((left, right) =>
     String(right.happened_at || "").localeCompare(
       String(left.happened_at || ""),
-    )).slice(0, RECENT_ACTIVITY_LIMIT);
+    )).slice(0, deploymentRunId ? 100 : RECENT_ACTIVITY_LIMIT);
   const summary = aggregateSummaries(callResults);
   const counts = summary.counts;
   const stats = el(documentNode, "div", "qa-stats");
@@ -206,7 +215,9 @@ export async function renderQaActivity(context, main, scope) {
     documentNode,
     "span",
     "qa-panel-context",
-    "requirements, runs and artifacts rendered as one outcome",
+    deploymentRunId
+      ? `Evidence for ${deploymentRunId}`
+      : "requirements, runs and artifacts rendered as one outcome",
   ));
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
@@ -220,4 +231,7 @@ export async function renderQaActivity(context, main, scope) {
     "explicit reason; missing evidence never renders as a satisfied outcome.";
   panel.appendChild(note);
   main.replaceChildren(stats, panel);
+  if (deploymentRunId && typeof navigation.setDetailLabel === "function") {
+    navigation.setDetailLabel(deploymentRunId);
+  }
 }

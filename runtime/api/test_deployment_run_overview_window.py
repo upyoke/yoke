@@ -50,14 +50,18 @@ def test_overview_keeps_live_and_recent_terminals_before_limit(test_db):
     test_db.commit()
 
     crowded = {
-        row["id"]
-        for row in list_deployment_runs(project=None, status=None, limit=20)
+        row["id"] for row in list_deployment_runs(project=None, status=None, limit=20)
     }
     assert "run-live" not in crowded
     windowed = list_deployment_runs(
-        project=None, status=None, limit=20, relevance="overview",
+        project=None,
+        status=None,
+        limit=20,
+        relevance="overview",
     )
     ids = {row["id"] for row in windowed}
+    assert windowed[0]["id"] == "run-live"
+    assert windowed[0]["overview_priority"] == 1
     assert "run-live" in ids
     assert "run-failed-recent" in ids
     assert "run-cancelled-old" not in ids

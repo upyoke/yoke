@@ -117,8 +117,7 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
                 "1 item(s) ship to prod under release lineage release-proof-lineage."
             ),
         },
-        # What the release actually carries, derived once when the request
-        # was created. This run has no predecessor to measure against, and
+        # What the release actually carries. This run has no predecessor,
         # the snapshot says exactly that rather than implying an empty
         # release.
         "stage_position": {"index": 0, "total": 2, "remaining": ["release"]},
@@ -161,6 +160,14 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
                 "The flow targets prod, yet no stage in it deploys, so what "
                 "reaching that environment means here is not settled.",
             ],
+        },
+        "evidence": {
+            "state": "absent",
+            "screenshots": [],
+            "screenshot_count": 0,
+            "requirement_count": 0,
+            "revisions": [],
+            "expected_revision": "release-proof-lineage",
         },
         "title": "Approve the approve-prod stage",
     }
