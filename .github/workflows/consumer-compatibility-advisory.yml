@@ -7,12 +7,16 @@ name: Consumer compatibility advisory
 # job needs it, so repo-contracts and the shard matrix start without
 # waiting on it. The release bridge's own required exact consumer proof
 # remains authoritative. FACTORY workflow: read-only GITHUB_TOKEN; the
-# scoped consumer credential is bound to the one step below via `secrets:
-# inherit` and is absent on a fork, where the step says the pair was not
-# checked instead of implying a clean answer.
+# caller passes exactly the one scoped consumer credential this workflow
+# declares below (never the whole secret set), and it is absent on a fork,
+# where the step says the pair was not checked instead of implying a clean
+# answer.
 
 on:
   workflow_call:
+    secrets:
+      YOKE_PLATFORM_RELEASE_API_TOKEN:
+        required: false
 
 permissions:
   contents: read
@@ -21,6 +25,10 @@ jobs:
   advisory:
     name: consumer-compatibility-advisory
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    # Job-level (not just the one advise step below): a setup-step failure
+    # here must stay as advisory as a refused consumer check, since this
+    # job carries no required status-check context in the caller.
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
