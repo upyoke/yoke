@@ -41,8 +41,7 @@ _SERVICE_CLIENT_MUTATIONS: frozenset[str] = frozenset(
         "execute-structured-write execute-update execute-update-cli "
         "execute-create execute-create-cli execute-batch-update "
         "execute-batch-update-cli execute-close update-item db-claim-amend "
-        "backlog-github coordination-claim-acquire coordination-claim-release "
-        "coordination-claim-heartbeat"
+        "backlog-github coordination-claim-acquire coordination-claim-heartbeat"
     ).split()
 )
 
@@ -120,6 +119,7 @@ def _recent_claim_denial_holder(
         lookback_seconds,
         connector=connect,
     )
+
 
 _PYTHON_M_RE = re.compile(r"python3?\s+-m\s+([\w.]+)\b")
 _SESSION_ID_FLAG_RE = re.compile(r"--session-id[=\s]+([^\s]+)")

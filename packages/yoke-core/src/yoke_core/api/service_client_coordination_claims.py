@@ -1,7 +1,6 @@
 """Service-client commands for the shared-operation claim primitive.
 
-Wires the human-operator recovery path (``coordination-claim-release``)
-plus the diagnostic surfaces (``coordination-claim-acquire``,
+Wires the diagnostic surfaces (``coordination-claim-acquire``,
 ``-heartbeat``, ``-list``) used by doctor and operators to inspect
 shared-operation claims without dropping to raw SQL. Migration rehearsal
 scopes by ``LIVE_DB_MIGRATION:<model_name>`` and takes its claim
@@ -17,64 +16,7 @@ import json
 import sys
 from typing import Any, Dict
 
-from yoke_core.domain.cli_text_file import add_text_file_pair, resolve_text_file
 from yoke_core.api.service_client_shared import _get_db_readwrite
-
-
-def cmd_coordination_claim_release(args: list[str]) -> int:
-    """Human-only operator override to release a stranded claim."""
-    parser = argparse.ArgumentParser(
-        prog="coordination-claim-release", add_help=False
-    )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--key", required=True)
-    reason_group = parser.add_mutually_exclusive_group(required=True)
-    add_text_file_pair(reason_group, "--reason", "--reason-file", dest="reason")
-    reason_group.add_argument("--intent", dest="reason")
-    parser.add_argument("--session-id", default=None)
-
-    try:
-        parsed = parser.parse_args(args)
-    except SystemExit:
-        print(
-            "Usage: coordination-claim-release --project P --key K --reason R "
-            "[--session-id S]",
-            file=sys.stderr,
-        )
-        return 2
-    try:
-        reason = resolve_text_file(parsed.reason, parsed.reason_file, "--reason-file")
-    except ValueError as exc:
-        return _emit_error("USAGE", str(exc))
-
-    from yoke_core.domain.coordination_claims import (
-        CoordinationClaimError,
-        CoordinationClaimHookContextError,
-        CoordinationClaimNotFoundError,
-    )
-    from yoke_core.domain.coordination_claims_operator import operator_release
-
-    conn = _get_db_readwrite()
-    try:
-        try:
-            result = operator_release(
-                conn,
-                project_id=parsed.project,
-                key=parsed.key,
-                operator_reason=reason,
-                session_id=parsed.session_id,
-            )
-        except CoordinationClaimHookContextError as exc:
-            return _emit_error("HOOK_CONTEXT", str(exc))
-        except CoordinationClaimNotFoundError as exc:
-            return _emit_error("NOT_FOUND", str(exc))
-        except CoordinationClaimError as exc:
-            return _emit_error("CLAIM_ERROR", str(exc))
-    finally:
-        conn.close()
-
-    print(json.dumps({"success": True, **result}))
-    return 0
 
 
 def cmd_coordination_claim_acquire(args: list[str]) -> int:
@@ -85,9 +27,7 @@ def cmd_coordination_claim_acquire(args: list[str]) -> int:
     path; this command is for *additional* shared-operation consumers and
     for operator-driven diagnostics.
     """
-    parser = argparse.ArgumentParser(
-        prog="coordination-claim-acquire", add_help=False
-    )
+    parser = argparse.ArgumentParser(prog="coordination-claim-acquire", add_help=False)
     parser.add_argument("--project", required=True)
     parser.add_argument("--key", required=True)
     parser.add_argument("--session-id", required=True)
@@ -176,9 +116,7 @@ def cmd_coordination_claim_heartbeat(args: list[str]) -> int:
 
 def cmd_coordination_claim_list(args: list[str]) -> int:
     """List shared-operation claims with optional filters."""
-    parser = argparse.ArgumentParser(
-        prog="coordination-claim-list", add_help=False
-    )
+    parser = argparse.ArgumentParser(prog="coordination-claim-list", add_help=False)
     parser.add_argument("--project", default=None)
     parser.add_argument("--key", default=None)
     parser.add_argument("--session-id", default=None)
@@ -208,10 +146,14 @@ def cmd_coordination_claim_list(args: list[str]) -> int:
     finally:
         conn.close()
 
-    print(json.dumps({
-        "success": True,
-        "claims": [_claim_to_dict(claim) for claim in claims],
-    }))
+    print(
+        json.dumps(
+            {
+                "success": True,
+                "claims": [_claim_to_dict(claim) for claim in claims],
+            }
+        )
+    )
     return 0
 
 
@@ -230,7 +172,6 @@ def _claim_to_dict(claim: Any) -> Dict[str, Any]:
 
 
 COORDINATION_CLAIM_COMMANDS: Dict[str, Any] = {
-    "coordination-claim-release": cmd_coordination_claim_release,
     "coordination-claim-acquire": cmd_coordination_claim_acquire,
     "coordination-claim-heartbeat": cmd_coordination_claim_heartbeat,
     "coordination-claim-list": cmd_coordination_claim_list,
@@ -242,5 +183,4 @@ __all__ = [
     "cmd_coordination_claim_acquire",
     "cmd_coordination_claim_heartbeat",
     "cmd_coordination_claim_list",
-    "cmd_coordination_claim_release",
 ]

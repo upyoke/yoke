@@ -7,6 +7,7 @@ from typing import Callable, Dict, List, Tuple
 from yoke_cli.commands.adapters.claims_coordination_claim import (
     claims_coordination_claim_acquire,
     claims_coordination_claim_list,
+    claims_coordination_claim_operator_release,
     claims_coordination_claim_release,
 )
 from yoke_cli.commands.adapters.claims_steering import (
@@ -45,6 +46,10 @@ CLAIMS_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "claims.coordination_claim.release",
         claims_coordination_claim_release,
     ),
+    ("claims", "coordination-claim", "operator-release"): (
+        "claims.coordination_claim.operator_release",
+        claims_coordination_claim_operator_release,
+    ),
     ("steering", "report", "get"): (
         "steering.report.get",
         steering_report_get,
@@ -55,6 +60,10 @@ CLAIMS_SUBCOMMAND_ALIAS_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] =
     ("coordination-claim", "list"): (
         "claims.coordination_claim.list",
         claims_coordination_claim_list,
+    ),
+    ("coordination-claim", "release"): (
+        "claims.coordination_claim.operator_release",
+        claims_coordination_claim_operator_release,
     ),
 }
 

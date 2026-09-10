@@ -1,10 +1,11 @@
 """Handler registrations for claims.work.* + claims.path.* +
 claims.coordination_claim.* + db_claim.amend handlers.
 """
+
 from __future__ import annotations
 
 from yoke_core.domain.handlers import (
-    claims_coordination_claim as _ccc,
+    _register_coordination_claims,
     claims_path as _cp,
     claims_path_activation as _cpa,
     claims_path_amend as _cpam,
@@ -20,8 +21,10 @@ def register(registry) -> None:
     """Register task 6's handlers via the given registry module."""
     # claims.work.acquire — no claim required (chicken-and-egg)
     registry.register(
-        "claims.work.acquire", _cw.handle_acquire,
-        _cw.AcquireRequest, _cw.AcquireResponse,
+        "claims.work.acquire",
+        _cw.handle_acquire,
+        _cw.AcquireRequest,
+        _cw.AcquireResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_work",
         target_kinds=["item", "epic_task", "global"],
@@ -33,8 +36,10 @@ def register(registry) -> None:
     )
     # claims.work.release — self_only
     registry.register(
-        "claims.work.release", _cw.handle_release,
-        _cw.ReleaseRequest, _cw.ReleaseResponse,
+        "claims.work.release",
+        _cw.handle_release,
+        _cw.ReleaseRequest,
+        _cw.ReleaseResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_work",
         target_kinds=["claim", "item", "epic_task", "global"],
@@ -55,13 +60,12 @@ def register(registry) -> None:
         _cwrs.ReleaseSessionScopedRequest,
         _cwrs.ReleaseSessionScopedResponse,
         stability="stable",
-        owner_module=(
-            "yoke_core.domain.handlers.claims_work_release_session_scoped"
-        ),
+        owner_module=("yoke_core.domain.handlers.claims_work_release_session_scoped"),
         target_kinds=["global"],
         side_effects=["work_claims_update_released_at"],
         emitted_event_names=[
-            "WorkReleased", "HarnessSessionEndReleasedClaims",
+            "WorkReleased",
+            "HarnessSessionEndReleasedClaims",
         ],
         guardrails=["same_session_filter"],
         adapter_status="live",
@@ -69,8 +73,10 @@ def register(registry) -> None:
     )
     # claims.work.holder_get / holder_list — read-only, no claim required
     registry.register(
-        "claims.work.holder_get", _cwh.handle_holder_get,
-        _cwh.HolderGetRequest, _cwh.HolderGetResponse,
+        "claims.work.holder_get",
+        _cwh.handle_holder_get,
+        _cwh.HolderGetRequest,
+        _cwh.HolderGetResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_work_holders",
         target_kinds=["item"],
@@ -81,8 +87,10 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
     registry.register(
-        "claims.work.holder_list", _cwh.handle_holder_list,
-        _cwh.HolderListRequest, _cwh.HolderListResponse,
+        "claims.work.holder_list",
+        _cwh.handle_holder_list,
+        _cwh.HolderListRequest,
+        _cwh.HolderListResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_work_holders",
         target_kinds=["item", "global"],
@@ -94,22 +102,27 @@ def register(registry) -> None:
     )
     # claims.path.register / widen / amend / release — item-scoped
     registry.register(
-        "claims.path.register", _cp.handle_register,
-        _cp.RegisterRequest, _cp.RegisterResponse,
+        "claims.path.register",
+        _cp.handle_register,
+        _cp.RegisterRequest,
+        _cp.RegisterResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_path",
         target_kinds=["item"],
         side_effects=["path_claims_insert"],
         emitted_event_names=[
-            "PathClaimRegistered", "PathClaimRegistrationBlocked",
+            "PathClaimRegistered",
+            "PathClaimRegistrationBlocked",
         ],
         guardrails=["actor_holds_item_claim"],
         adapter_status="live",
         claim_required_kind="item",
     )
     registry.register(
-        "claims.path.widen", _cp.handle_widen,
-        _cp.WidenRequest, _cp.WidenResponse,
+        "claims.path.widen",
+        _cp.handle_widen,
+        _cp.WidenRequest,
+        _cp.WidenResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_path",
         target_kinds=["item"],
@@ -121,26 +134,38 @@ def register(registry) -> None:
     )
     # claims.path.list / get — read-only projections, no claim required.
     registry.register(
-        "claims.path.list", _cpr.handle_claims_path_list,
-        _cpr.ClaimsPathListRequest, _cpr.ClaimsPathListResponse,
+        "claims.path.list",
+        _cpr.handle_claims_path_list,
+        _cpr.ClaimsPathListRequest,
+        _cpr.ClaimsPathListResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_path_reads",
-        target_kinds=["item"], side_effects=[],
+        target_kinds=["item"],
+        side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=[], adapter_status="live", claim_required_kind=None,
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
     )
     registry.register(
-        "claims.path.get", _cpr.handle_claims_path_get,
-        _cpr.ClaimsPathGetRequest, _cpr.ClaimsPathGetResponse,
+        "claims.path.get",
+        _cpr.handle_claims_path_get,
+        _cpr.ClaimsPathGetRequest,
+        _cpr.ClaimsPathGetResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_path_reads",
-        target_kinds=["path_claim"], side_effects=[],
+        target_kinds=["path_claim"],
+        side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=[], adapter_status="live", claim_required_kind=None,
+        guardrails=[],
+        adapter_status="live",
+        claim_required_kind=None,
     )
     registry.register(
-        "claims.path.release", _cp.handle_release,
-        _cp.ReleaseRequest, _cp.ReleaseResponse,
+        "claims.path.release",
+        _cp.handle_release,
+        _cp.ReleaseRequest,
+        _cp.ReleaseResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_path",
         target_kinds=["item"],
@@ -151,13 +176,16 @@ def register(registry) -> None:
         claim_required_kind="item",
     )
     registry.register(
-        "claims.path.amend", _cpam.handle_amend,
-        _cpam.AmendRequest, _cpam.AmendResponse,
+        "claims.path.amend",
+        _cpam.handle_amend,
+        _cpam.AmendRequest,
+        _cpam.AmendResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_path_amend",
         target_kinds=["item"],
         side_effects=[
-            "path_claim_targets_insert", "path_claim_targets_delete",
+            "path_claim_targets_insert",
+            "path_claim_targets_delete",
             "path_claim_amendments_insert",
         ],
         emitted_event_names=["PathClaimAmended"],
@@ -167,8 +195,10 @@ def register(registry) -> None:
     )
     # claims.path.override — operator-only
     registry.register(
-        "claims.path.override", _cp.handle_override,
-        _cp.OverrideRequest, _cp.OverrideResponse,
+        "claims.path.override",
+        _cp.handle_override,
+        _cp.OverrideRequest,
+        _cp.OverrideResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_path",
         target_kinds=["item"],
@@ -197,14 +227,17 @@ def register(registry) -> None:
 
     # claims.path.activation_run — item-scoped
     registry.register(
-        "claims.path.activation_run", _cpa.handle_activation_run,
-        _cpa.ActivationRunRequest, _cpa.ActivationRunResponse,
+        "claims.path.activation_run",
+        _cpa.handle_activation_run,
+        _cpa.ActivationRunRequest,
+        _cpa.ActivationRunResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_path_activation",
         target_kinds=["item"],
         side_effects=["path_claims_update_state"],
         emitted_event_names=[
-            "PathClaimActivated", "PathClaimActivationBlocked",
+            "PathClaimActivated",
+            "PathClaimActivationBlocked",
         ],
         guardrails=["actor_holds_item_claim"],
         adapter_status="live",
@@ -215,8 +248,10 @@ def register(registry) -> None:
     # calls it after resolving the work-claim holder; not an agent CLI
     # surface, so it carries no adapter inventory row.
     registry.register(
-        "claims.path.survey_ensure", _cpa.handle_survey_ensure,
-        _cpa.SurveyEnsureRequest, _cpa.SurveyEnsureResponse,
+        "claims.path.survey_ensure",
+        _cpa.handle_survey_ensure,
+        _cpa.SurveyEnsureRequest,
+        _cpa.SurveyEnsureResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.claims_path_activation",
         target_kinds=["item"],
@@ -242,60 +277,14 @@ def register(registry) -> None:
         claim_required_kind=None,
     )
 
-    # claims.coordination_claim.* — shared-operation claim kinds
-    registry.register(
-        "claims.coordination_claim.acquire", _ccc.handle_acquire,
-        _ccc.AcquireRequest, _ccc.AcquireResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.claims_coordination_claim",
-        target_kinds=["global"],
-        side_effects=["work_claims_insert"],
-        emitted_event_names=["LeaseAcquired"],
-        guardrails=[],
-        adapter_status="live",
-        claim_required_kind=None,
-    )
-    registry.register(
-        "claims.coordination_claim.heartbeat", _ccc.handle_heartbeat,
-        _ccc.HeartbeatRequest, _ccc.HeartbeatResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.claims_coordination_claim",
-        target_kinds=["global"],
-        side_effects=["work_claims_update_heartbeat"],
-        emitted_event_names=["LeaseHeartbeated"],
-        guardrails=[],
-        adapter_status="live",
-        claim_required_kind=None,
-    )
-    registry.register(
-        "claims.coordination_claim.release", _ccc.handle_release,
-        _ccc.ReleaseRequest, _ccc.ReleaseResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.claims_coordination_claim",
-        target_kinds=["global"],
-        side_effects=["work_claims_update_released_at"],
-        emitted_event_names=["LeaseReleased"],
-        guardrails=[],
-        adapter_status="live",
-        claim_required_kind=None,
-    )
-    registry.register(
-        "claims.coordination_claim.list", _ccc.handle_list,
-        _ccc.ListRequest, _ccc.ListResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.claims_coordination_claim",
-        target_kinds=["global"],
-        side_effects=[],
-        emitted_event_names=[],
-        guardrails=[],
-        adapter_status="live",
-        claim_required_kind=None,
-    )
+    _register_coordination_claims.register(registry)
 
     # db_claim.amend — item-scoped unified amendment workflow
     registry.register(
-        "db_claim.amend", _dbc.handle_amend,
-        _dbc.AmendRequest, _dbc.AmendResponse,
+        "db_claim.amend",
+        _dbc.handle_amend,
+        _dbc.AmendRequest,
+        _dbc.AmendResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.db_claim",
         target_kinds=["item"],
@@ -310,8 +299,10 @@ def register(registry) -> None:
     )
     # db_claim.prose_check — https-relayable prose-vs-claim read
     registry.register(
-        "db_claim.prose_check", _dbc.handle_prose_check,
-        _dbc.ProseCheckRequest, _dbc.ProseCheckResponse,
+        "db_claim.prose_check",
+        _dbc.handle_prose_check,
+        _dbc.ProseCheckRequest,
+        _dbc.ProseCheckResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.db_claim",
         target_kinds=["item"],

@@ -47,16 +47,6 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
         "claims.coordination_claim",
         REASON_OPERATOR_BREAK_GLASS,
     ),
-    _p(
-        "python3 -m yoke_core.api.service_client coordination-claim-release",
-        "claims.coordination_claim",
-        REASON_OPERATOR_BREAK_GLASS,
-    ),
-    _p(
-        "yoke coordination-claim release",
-        "coordination_claim",
-        REASON_OPERATOR_BREAK_GLASS,
-    ),
     # claims.path operator-only paths.
     _p(
         "python3 -m yoke_core.api.service_client path-claim-override",

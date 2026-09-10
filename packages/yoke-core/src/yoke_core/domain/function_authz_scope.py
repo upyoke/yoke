@@ -304,7 +304,7 @@ def permission_key_for(entry: RegistryEntry) -> str | None:
     if fid.startswith("lifecycle."):
         return PERM_ITEMS_WRITE
     if fid.startswith("claims."):
-        if ".release" in fid:
+        if ".release" in fid or fid.endswith("_release"):
             return PERM_CLAIMS_RELEASE
         if entry.side_effects:
             return PERM_CLAIMS_ACQUIRE

@@ -107,9 +107,7 @@ def describe_claim_contention(
     current = current.astimezone(timezone.utc)
     item_owned = claim.owner_item_id is not None
     holder = (
-        f"item {claim.owner_item_id}"
-        if item_owned
-        else f"session {claim.session_id}"
+        f"item {claim.owner_item_id}" if item_owned else f"session {claim.session_id}"
     )
     heartbeat_at = claim.last_heartbeat or claim.claimed_at
     heartbeat_age = _age_seconds(heartbeat_at, current)
@@ -135,7 +133,10 @@ def describe_claim_contention(
         effective_stale_ttl_minutes=ttl,
         holder_stale=stale,
         operator_release_command=operator_release_command(
-            claim.project_id or 0, claim.key
+            claim.project_id or 0,
+            claim.key,
+            claim_id=int(claim.id),
+            holder_session_id=str(claim.session_id),
         ),
     )
 

@@ -125,8 +125,9 @@ OPERATIONAL_COMMANDS: list[dict] = [
             "--reason 'operator-authored reconciliation' --dry-run"
         ),
         "notes": (
-            "First run `yoke sessions touch --mode operator`; drop --dry-run "
-            "to apply. `lifecycle.repair_status.execute` works over "
+            "Use the signed-in human action outside any harness session; "
+            "manual and launched agent sessions are refused. Drop "
+            "--dry-run to apply. `lifecycle.repair_status.execute` works over "
             "HTTPS/local, checks project permission and the pinned workflow, "
             "and limits its audited claim bypass to this request. Use "
             "`yoke claims work release --all-mine` to surrender claims "

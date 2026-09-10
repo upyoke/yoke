@@ -139,7 +139,7 @@ yoke claims coordination-claim release --project P --key DEPLOY:P --reason "rele
 
 It is per project rather than per environment because a release pair deploys stage and production from one pinned source; both halves run under one hold, so no second driver slips between them. The steering seat takes it when it starts driving a pair and releases it when the pair completes. Refusals name the current holder, the acquire recipe, and the release recipe.
 
-The kind is sticky: nothing reclaims the lock automatically, because a pipeline whose local driver died is still running on CI. A hold stranded by a dead driver is freed by the human-only `yoke coordination-claim release --project P --key DEPLOY:P --reason "..."`, which records a WARN `OperatorLeaseRelease`.
+The kind is sticky: nothing reclaims the lock automatically, because a pipeline whose local driver died is still running on CI. After confirming the pipeline has settled, list the live claim and review its holder, then use the signed-in human action outside any harness session to free the exact stranded row with `yoke coordination-claim release --project P --key DEPLOY:P --claim-id N --holder-session-id S --reason "..."`. Manual and launched agent sessions are refused. This registered action works over HTTPS or local authority, requires project `claims.release` permission, refuses if the claim or holder changed after review, and records a WARN `OperatorLeaseRelease` plus the durable reason on the claim row.
 
 Exclusivity is on `project_id` alone. The slug rides in the claim scope so the operator key renders without a database read, and renaming a project cannot hand out a second live lock.
 
