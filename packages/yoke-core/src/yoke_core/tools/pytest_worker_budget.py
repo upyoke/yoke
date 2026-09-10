@@ -17,6 +17,13 @@ slot is — session-scoped advisory locks on the shared test cluster, one
 per worker, so a crashed run's workers return with its connection — and,
 like the slot, it fails open when no cluster can be reached: it is a
 throughput guard, not a correctness gate.
+
+The load-average backoff exists to detect *other* processes crowding a
+shared workstation or a self-hosted runner host, so it still arbitrates
+there. A GitHub-hosted Actions runner is a fresh, single-tenant VM per
+job — its load average reflects its own suite's own workers, not
+contention from anything else — so that backoff is skipped there; the
+budget and its waiting/arbitration still apply.
 """
 
 from __future__ import annotations
@@ -37,6 +44,7 @@ from yoke_core.tools._pytest_parallel import (
     with_workers,
 )
 from yoke_core.tools.gate_slot_observability import _stamp_activity, slot_identity
+from yoke_core.tools.github_runner_disk_reclaim import GITHUB_HOSTED
 
 BUDGET_ENV = "YOKE_PYTEST_WORKER_BUDGET"
 BUDGET_MACHINE_CONFIG_KEY = "pytest_worker_budget"
@@ -91,6 +99,20 @@ def requested_workers(pytest_args: Sequence[str], env: Mapping[str, str]) -> int
         return max(1, int(raw)) if raw else core_count()
     except ValueError:
         return core_count()
+
+
+def dedicated_hosted_runner(env: Mapping[str, str]) -> bool:
+    """True on a GitHub-hosted Actions runner VM: single job, single tenant.
+
+    Distinct from a self-hosted runner, which may be a persistent host a
+    fleet reuses across concurrent jobs and so is still worth arbitrating
+    for. Mirrors the ``RUNNER_ENVIRONMENT`` classification already used in
+    :mod:`yoke_core.tools.github_runner_disk_reclaim`.
+    """
+    return (
+        env.get("GITHUB_ACTIONS", "").lower() == "true"
+        and env.get("RUNNER_ENVIRONMENT") == GITHUB_HOSTED
+    )
 
 
 def load_backoff(
@@ -250,9 +272,10 @@ def granted_workers(
     if os.environ.get(HELD_ENV):
         yield Grant(None, request)
         return
-    request, note = load_backoff(request)
-    if note:
-        print(note, file=stream, flush=True)
+    if not dedicated_hosted_runner(env):
+        request, note = load_backoff(request)
+        if note:
+            print(note, file=stream, flush=True)
     conn, taken = _acquire(request, stream)
     prior = os.environ.get(HELD_ENV)
     # Published even when ungoverned, so a descendant never queues behind
@@ -279,6 +302,7 @@ __all__ = [
     "WORKER_LOCK_BASE",
     "budget_size",
     "core_count",
+    "dedicated_hosted_runner",
     "granted_workers",
     "holders",
     "load_backoff",

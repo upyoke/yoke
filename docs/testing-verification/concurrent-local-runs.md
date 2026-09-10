@@ -85,6 +85,14 @@ workers; when nothing is free it waits, naming who holds the budget; when the
 one-minute load already exceeds the core count it asks for half. A pytest a
 test itself spawns rides its ancestor's grant rather than queueing behind it.
 
+The load-average halving is skipped on a GitHub-hosted Actions runner
+(`GITHUB_ACTIONS=true` and `RUNNER_ENVIRONMENT=github-hosted`): that VM is
+single-tenant per job, so its load average reflects only the very workers
+this run started, not contention from anything else. A self-hosted runner —
+a persistent host a fleet can reuse across concurrent jobs — still
+arbitrates through both the load backoff and the budget, same as a local
+workstation.
+
 The budget is arbitrated the way the admission slot is — session-scoped
 advisory locks on the shared test cluster, one per worker — so a crashed
 run's workers return with its connection, and it fails open when no cluster
