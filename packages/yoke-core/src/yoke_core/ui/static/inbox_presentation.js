@@ -248,14 +248,18 @@ export function decisionSubtitle(row) {
 // that names no case, so preferring the stored value made a reviewer's list
 // of pending reviews read identically for all of them.
 //
-// A deployment stage is the exception, and deliberately has no builder here.
-// Whether resolving it deploys anything is derived from the flow's runners,
-// destination and contents and frozen into the request, so its title is
-// written once beside that classification. Recomposing it from the shipping
-// destination is what titled an approval that deploys nothing "Deploy to
-// merge-only", and doing it here would put that sentence back in a second
-// place where the classification cannot be seen.
+// A deployment stage reads its title from the classification the request
+// froze rather than composing one from the shipping destination, which is
+// what titled an approval that deploys nothing "Deploy to merge-only". A
+// request recorded before that classification existed gets the neutral
+// title, not its own stored one: that stored sentence is the invented
+// consequence, and the honest answer for it is that nobody knows.
 const TITLE_BUILDERS = {
+  deployment_stage_approval(facts) {
+    const headline = facts.release_effect?.headline;
+    if (headline) return String(headline);
+    return `Approve the ${facts.stage || "next"} stage`;
+  },
   qa_needs_review(facts) {
     const subject = facts.case_name || facts.plan_name;
     return subject ? `${subject} needs your review` : "";

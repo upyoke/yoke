@@ -86,12 +86,19 @@ def _batch_items(conn: Any, run_id: str) -> list[dict[str, Any]]:
 def _deployment_subject_context(
     conn: Any,
     run: dict[str, Any],
+    stages: Any,
     stage: str,
     target: str,
 ) -> dict[str, Any]:
     items = _batch_items(conn, str(run["id"]))
     lineage = str(run["release_lineage"] or "").strip() or None
     lineage_summary = f" under release lineage {lineage}" if lineage else ""
+    effect = derive_release_effect(
+        stages=stages,
+        target_environment=run["target_environment"],
+        target_tier=run["target_tier"],
+        stage=stage,
+    )
     return {
         "run_id": str(run["id"]),
         "flow": {"id": str(run["flow"]), "name": str(run["flow_name"])},
@@ -103,6 +110,13 @@ def _deployment_subject_context(
             "target_environment": target,
             "summary": (f"{len(items)} item(s) ship to {target}{lineage_summary}."),
         },
+        # What resolving this stage actually does, read from the flow's own
+        # runners and its declared destination -- never from the flow's name,
+        # an empty batch, or a release whose contents could not be derived.
+        # The title follows the classification, so a gate that deploys
+        # nothing never reaches its approver as a deployment.
+        "release_effect": effect,
+        "title": effect["headline"],
     }
 
 
@@ -193,7 +207,7 @@ def evaluate_deployment_stage_approval(
         path=f"stage {stage!r} approvals",
     )
     target = str(run["target_environment"] or run["target_tier"] or "merge-only")
-    subject_context = _deployment_subject_context(conn, run, stage, target)
+    subject_context = _deployment_subject_context(conn, run, stages, stage, target)
     waiting = "the stage is waiting for a human decision"
     verdict = verdict_from_request_history(
         conn,
@@ -219,20 +233,6 @@ def evaluate_deployment_stage_approval(
     # content derived: the deriver reads git, and repeating it on every
     # pending-gate evaluation would pay for a fact the snapshot already froze.
     subject_context["carried"] = _release_contents(conn, run_id)
-    # What resolving this stage actually does, read from the flow's runners,
-    # its declared destination and the contents just derived -- never from the
-    # flow's name or an empty batch. The title follows the classification, so
-    # a gate that deploys nothing never reaches its approver as a deployment.
-    effect = derive_release_effect(
-        stages=stages,
-        target_environment=run["target_environment"],
-        target_tier=run["target_tier"],
-        carried=subject_context["carried"],
-        batch_item_count=int(subject_context["batch"]["item_count"]),
-        stage=stage,
-    )
-    subject_context["release_effect"] = effect
-    subject_context["title"] = effect["headline"]
     originator = _existing_actor_id(
         conn,
         originator_actor_id if originator_actor_id is not None else run["created_by"],

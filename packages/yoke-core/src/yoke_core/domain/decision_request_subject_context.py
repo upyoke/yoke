@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, NoReturn
 
+from yoke_core.domain.deployment_run_release_effect import CONSEQUENCES, DEPLOYS
 from yoke_core.domain.decision_request_contract import (
     DEPLOYMENT_STAGE_APPROVAL,
     LIFECYCLE_TRANSITION_APPROVAL,
@@ -241,16 +242,19 @@ def _validate_release_effect(kind: str, value: Any) -> None:
 
     A gate that reaches nothing outside the control plane and one that ships a
     production release are opposite decisions, and the approver can only tell
-    them apart if the request carries the answer plus the facts behind it. A
-    non-deploying classification is the claim that needs evidence, so it also
-    has to name the effect it has instead.
+    them apart if the request carries the answer plus the facts behind it.
+    "Could not be established" is the third answer rather than a missing one,
+    and both it and a non-deploying claim have to name the consequence they
+    assert instead; an affirmative deploy is described by the release contents
+    the reader already has.
     """
     effect = _mapping(kind, value, "release_effect")
-    _required(kind, effect, {"deploys", "headline", "effect", "basis"})
-    if not isinstance(effect["deploys"], bool):
-        _fail(kind, "requires release_effect.deploys to be a boolean")
+    _required(kind, effect, {"consequence", "headline", "effect", "basis"})
+    consequence = str(effect["consequence"])
+    if consequence not in CONSEQUENCES:
+        _fail(kind, f"has unknown release_effect consequence {consequence!r}")
     _text(kind, effect["headline"], "release_effect.headline")
-    if not effect["deploys"]:
+    if consequence != DEPLOYS:
         _text(kind, effect["effect"], "release_effect.effect")
     basis = _sequence(kind, effect["basis"], "release_effect.basis")
     if not basis:

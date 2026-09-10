@@ -74,13 +74,19 @@ export function releaseContents(facts, projectId = null) {
   };
 }
 
-// The evidence behind a "deploys nothing" claim, shown rather than asserted.
-// An approver told a gate is harmless has to be able to check that for
-// themselves, and each line is a fact the request froze at creation: which
-// runners the flow declares, what it targets, and what it carries.
-function appendNonDeployingBody(documentNode, host, effect) {
+// The evidence behind the consequence, shown rather than asserted. An
+// approver told a gate is harmless has to be able to check that, and one
+// told nobody could settle it has to be told what was missing. Each line is
+// a fact the request froze at creation: the runners the flow declares and
+// what it targets.
+function appendEffectBasis(documentNode, host, effect) {
   const why = block(
-    documentNode, host, "gate-block", "Why this deploys nothing",
+    documentNode,
+    host,
+    "gate-block",
+    effect.consequence === "deploys_nothing"
+      ? "Why this deploys nothing"
+      : "What could not be established",
   );
   const basis = Array.isArray(effect.basis) ? effect.basis : [];
   for (const line of basis) {
@@ -92,11 +98,15 @@ function appendNonDeployingBody(documentNode, host, effect) {
 export function appendDeploymentBody(context, host, facts, projectId = null) {
   const documentNode = context.document;
   const effect = facts.release_effect;
-  if (effect && effect.deploys === false) {
+  if (effect && effect.consequence !== "deploys") {
+    appendEffectBasis(documentNode, host, effect);
+  }
+  if (effect && effect.consequence === "deploys_nothing") {
     // No release block: there is no release. Listing "0 changes" beside a
-    // practice gate reads as an empty deploy, which is the confusion this
-    // classification exists to end.
-    return appendNonDeployingBody(documentNode, host, effect);
+    // gate that ships nowhere reads as an empty deploy, which is the
+    // confusion this classification exists to end. An unsettled consequence
+    // keeps its contents — what a run carries is a separate fact either way.
+    return;
   }
   const contents = releaseContents(facts, projectId);
   const release = block(

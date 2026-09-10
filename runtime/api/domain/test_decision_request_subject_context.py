@@ -95,10 +95,10 @@ SUBJECTS = {
                 "commits": [],
             },
             "release_effect": {
-                "deploys": True,
+                "consequence": "deploys",
                 "headline": "Deploy to prod — approve the production stage",
                 "effect": "",
-                "basis": ["The flow targets prod."],
+                "basis": ["Deploying stages: release runs core-container-deploy."],
             },
         },
     ),
@@ -133,10 +133,16 @@ def test_creation_rejects_gate_context_without_required_facts(kind):
         (QA_NEEDS_REVIEW, ("artifact_count",), 2),
         (LIFECYCLE_TRANSITION_APPROVAL, ("approval_source", "kind"), "unknown"),
         (DEPLOYMENT_STAGE_APPROVAL, ("batch", "item_count"), 2),
-        # A gate claiming it deploys nothing must say what it does instead;
-        # an unexplained "harmless" is the claim an approver cannot check.
-        (DEPLOYMENT_STAGE_APPROVAL, ("release_effect", "deploys"), False),
-        (DEPLOYMENT_STAGE_APPROVAL, ("release_effect", "deploys"), "no"),
+        # A gate claiming it deploys nothing, or that nobody could tell, must
+        # say what it does instead; an unexplained "harmless" is the claim an
+        # approver cannot check.
+        (
+            DEPLOYMENT_STAGE_APPROVAL,
+            ("release_effect", "consequence"),
+            "deploys_nothing",
+        ),
+        (DEPLOYMENT_STAGE_APPROVAL, ("release_effect", "consequence"), "unknown"),
+        (DEPLOYMENT_STAGE_APPROVAL, ("release_effect", "consequence"), "harmless"),
         (DEPLOYMENT_STAGE_APPROVAL, ("release_effect", "headline"), ""),
         (DEPLOYMENT_STAGE_APPROVAL, ("release_effect", "basis"), []),
     ),

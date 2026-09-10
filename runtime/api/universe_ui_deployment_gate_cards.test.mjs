@@ -18,6 +18,8 @@ import {
   renderInbox,
   signOffRequestRow,
   undeterminedContentsRequestRow,
+  unrecordedEffectRequestRow,
+  unsettledEffectRequestRow,
 } from "./universe_ui_inbox_test_support.mjs";
 
 const gateText = (main) => byClass(main, "gate-body")[0].textContent;
@@ -162,13 +164,15 @@ test("a gate that deploys nothing says so instead of naming a destination", asyn
     "Approval only — deploys nothing",
   );
   const body = gateText(main);
-  assert.ok(body.includes("Nothing is built, released, or promoted"), body);
-  // The claim is checkable rather than asserted: the three facts behind it
-  // are shown, so an approver can see why nothing ships.
+  assert.ok(body.includes("nothing is built, released, or promoted"), body);
+  // Reaching no environment is not the same as doing nothing real, and the
+  // sentence must not let an approver read it that way.
+  assert.ok(body.includes("may still be real"), body);
+  // The claim is checkable rather than asserted: the facts behind it are
+  // shown, so an approver can see why nothing ships.
   assert.ok(body.includes("Why this deploys nothing"), body);
-  assert.ok(body.includes("every stage runs human-approval or auto"), body);
+  assert.ok(body.includes("neither reaches an environment"), body);
   assert.ok(body.includes("names no target environment or tier"), body);
-  assert.ok(body.includes("carries no source change"), body);
   // No release block: there is no release, and "0 changes" beside it would
   // read as an empty deploy.
   assert.ok(!body.includes("In this release"), body);
@@ -177,6 +181,49 @@ test("a gate that deploys nothing says so instead of naming a destination", asyn
   // derivation never reads it.
   const subtitle = byClass(main, "inbox-row-subtitle")[0].textContent;
   assert.ok(subtitle.includes("Practice: role approval"), subtitle);
+});
+
+test("an unsettled consequence is its own answer, not a safe-sounding one", async () => {
+  // The flow names a runner this build cannot classify. "Deploys nothing"
+  // would be an invented reassurance and "Deploy to merge-only" an invented
+  // destination; the honest answer is that the request does not settle it.
+  const { main } = renderInbox("all", [unsettledEffectRequestRow()]);
+  await settle();
+
+  assert.equal(
+    byClass(main, "inbox-row-title")[0].textContent,
+    "Approve the review-example stage",
+  );
+  const body = gateText(main);
+  assert.ok(body.includes("could not be established"), body);
+  assert.ok(body.includes("treat it as a decision that may deploy"), body);
+  assert.ok(body.includes("What could not be established"), body);
+  assert.ok(body.includes("publish-example runs mirror-to-cdn"), body);
+  // The flow's authored name says "deploys nothing" and the Why-asked line
+  // quotes it; what must not appear is the derived claim, which this build
+  // cannot make.
+  assert.ok(!body.includes("Why this deploys nothing"), body);
+  assert.ok(!body.includes("merge-only"), body);
+  // An unsettled consequence still lists what the run carries: that is a
+  // separate fact and worth reading either way.
+  assert.ok(body.includes("In this release"), body);
+});
+
+test("a request predating the consequence fact reports it as unrecorded", async () => {
+  // Its own stored title says "Deploy to merge-only" — the label a run wears
+  // when it names no destination at all. Showing that would hand the reader
+  // the invented consequence this classification exists to end.
+  const { main } = renderInbox("all", [unrecordedEffectRequestRow()]);
+  await settle();
+
+  assert.equal(
+    byClass(main, "inbox-row-title")[0].textContent,
+    "Approve the review-example stage",
+  );
+  const body = gateText(main);
+  assert.ok(body.includes("recorded before what resolving it deploys"), body);
+  assert.ok(body.includes("Read the run's flow before answering"), body);
+  assert.ok(!body.includes("Deploy to merge-only"), body);
 });
 
 test("a real release that carries nothing is still titled a deploy", async () => {
