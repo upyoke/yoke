@@ -86,6 +86,11 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         # UI_ACTIVATION_LATCH_FUNCTIONS.
         "overview.activation.get",
         "overview.vitals.get",
+        # Actor-scoped like the entries above: identity shapes the result
+        # (whose remembered per-screen selections come back) but the read
+        # still answers — with an empty map — for an unresolved operator.
+        # See UI_OPERATOR_OPTIONAL_READ_FUNCTIONS.
+        "ui_preferences.screen_selection.list",
     }
 )
 
@@ -124,7 +129,9 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
 #: them offer an action. They bind the operator when one resolves and stay
 #: answerable when none does, because refusing them would blank a whole
 #: page over an action nobody was going to take.
-UI_OPERATOR_OPTIONAL_READ_FUNCTIONS = frozenset({"deployment_runs.list"})
+UI_OPERATOR_OPTIONAL_READ_FUNCTIONS = frozenset(
+    {"deployment_runs.list", "ui_preferences.screen_selection.list"}
+)
 
 #: The only mutations the local proxy may dispatch. All act as the resolved
 #: local operator actor (:mod:`yoke_core.ui.local_operator_actor`) and are
@@ -144,6 +151,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "profile.token.revoke",
         "profile.preference.set",
         "profile.onboarding.reset",
+        "ui_preferences.screen_selection.set",
         "workflows.current.set",
         "workflows.policy_defaults.publish",
         "workflows.testing_default.set",

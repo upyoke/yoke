@@ -44,7 +44,9 @@ import {
   createHostSectionPlacement,
   createProjectControls,
   loadOrganizationName,
+  loadScreenSelections,
   loadWordmark,
+  saveScreenSelection,
 } from "./universe_app_shell_support.js";
 import { createProjectSelection, knownProjectId, selectionParam } from "./universe_project_selection.js";
 import { createSelectionNavigation, selectionRoute } from "./universe_selection_routes.js";
@@ -80,7 +82,8 @@ export function mountUniverseApp(rootNode, options = {}) {
   let mounted = true;
   let projects = [];
   let projectsLoaded = false;
-  const scopeSelections = createProjectSelection(windowNode, options.selectionIdentity);
+  const scopeSelections = createProjectSelection((viewId, selection, focus) =>
+    saveScreenSelection(client, viewId, selection, focus));
   const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections);
   const context = {
     client,
@@ -162,11 +165,11 @@ export function mountUniverseApp(rootNode, options = {}) {
     const picker = createProjectControls({
       documentNode, windowNode, entry, route, scope, projects, scopeSelections, renderRoute,
       onSelectionChange(next) {
-        scopeSelections.selection = next;
+        scopeSelections.setSelectionFor(entry.id, next);
         const focus = route.detail ? route.project : scopeForEntry(
           entry, null, projects, scopeSelections, selectionParam(next),
         );
-        scopeSelections.save();
+        scopeSelections.saveFor(entry.id);
         windowNode.location.hash = selectionRoute(route, scopeSelections, focus, windowNode.location.hash);
         if (entry.scope === SCOPE_NONE || entry.scope === SCOPE_SINGLE || route.detail) renderRoute();
         else heldScope.applyScopeInPlace(next);
@@ -215,7 +218,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       if (detailRenderer && route.detail) {
         const detailHost = el(documentNode, "div", "view-host");
         const breadcrumb = createBreadcrumb(
-          documentNode, entry, selectionParam(scopeSelections.selection), route.detail,
+          documentNode, entry, selectionParam(scopeSelections.selectionFor(entry.id)), route.detail,
         );
         main.replaceChildren(breadcrumb, detailHost);
         detailRenderer(
@@ -255,7 +258,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       // remembered selection. Its host section belongs to the list view.
       const detailHost = el(documentNode, "div", "view-host");
       const breadcrumb = createBreadcrumb(
-        documentNode, entry, selectionParam(scopeSelections.selection), route.detail,
+        documentNode, entry, selectionParam(scopeSelections.selectionFor(entry.id)), route.detail,
       );
       main.replaceChildren(breadcrumb, detailHost);
       detailRenderer(
@@ -290,7 +293,7 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   windowNode.addEventListener("hashchange", heldScope.onHashChange);
 
-  Promise.resolve().then(() => callFunction(
+  const projectsFetched = Promise.resolve().then(() => callFunction(
     client, "projects.list", {
       fields: ["id", "slug", "name", "emoji", "public_item_prefix"],
     },
@@ -302,7 +305,12 @@ export function mountUniverseApp(rootNode, options = {}) {
     .catch(() => {
       if (mounted) main.replaceChildren(el(documentNode, "p", "error-banner",
         "Projects could not be loaded. Reload to retry; your saved selection is unchanged."));
-    }).then(() => { if (mounted && projectsLoaded) renderRoute(); });
+    });
+
+  const preferencesFetched = loadScreenSelections(client, scopeSelections);
+
+  Promise.all([projectsFetched, preferencesFetched])
+    .then(() => { if (mounted && projectsLoaded) renderRoute(); });
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;

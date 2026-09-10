@@ -1,4 +1,10 @@
-// One remembered selection per actor and universe; focus never replaces it.
+// One remembered selection per actor, kept independently for each
+// workbench screen: changing Sessions' selection never touches Inbox's or
+// Overview's. The server (`actor_ui_preferences`, via
+// `ui_preferences.screen_selection.*`) is the store of record, so a
+// screen's choice survives reload, a new tab, or a different browser for
+// the same actor — `saveView` (bound by the caller to the live
+// function-call client) is the only way values leave this module.
 export function knownProjectId(projects, candidate) {
   return projects.some((row) => String(row.id) === String(candidate))
     ? String(candidate) : null;
@@ -16,44 +22,58 @@ export function selectionParam(selection) {
   return Array.isArray(selection) ? selection.join(",") : "all";
 }
 
-export function createProjectSelection(windowNode, identity) {
-  let storage = null, key = null;
-  const state = { selection: "all", focus: null, notice: "" };
-  const report = () => {
-    state.notice = "Project selection cannot be saved. Allow browser storage to remember it after reload.";
+export function createProjectSelection(saveView) {
+  const views = new Map();
+  // `ready` gates every write: until the initial server read has genuinely
+  // succeeded (seeding what the actor actually has on record, even an
+  // empty map), this module knows nothing about the true stored state, so
+  // a normalization default must never be persisted over it. An
+  // unsuccessful initial read leaves `ready` false for the life of this
+  // mount — every subsequent selection still renders correctly from
+  // in-memory defaults, it just is not written through.
+  const state = { notice: "", ready: false };
+  const entryFor = (viewId) => {
+    let entry = views.get(viewId);
+    if (!entry) { entry = { selection: "all", focus: null }; views.set(viewId, entry); }
+    return entry;
   };
-  if (identity) {
-    if (!String(identity.universeId || "").trim() ||
-        !String(identity.actorId ?? "").trim()) {
-      throw new TypeError("project_selection_identity_invalid: supply universeId and actorId, or omit selectionIdentity for an unidentified viewer");
-    }
-    key = `yoke.project-selection:${JSON.stringify([
-      String(identity.universeId), String(identity.actorId),
-    ])}`;
-    try {
-      storage = windowNode.localStorage;
-      if (!storage) report();
-      const saved = JSON.parse(storage?.getItem(key) || "null");
-      if (saved && (saved.selection === "all" || Array.isArray(saved.selection))) {
-        state.selection = saved.selection;
-        state.focus = saved.focus;
-      }
-    } catch { report(); }
-  }
-  state.save = () => {
-    if (!storage) return;
-    try {
-      storage.setItem(key, JSON.stringify({ selection: state.selection, focus: state.focus }));
-    } catch { report(); }
+  state.selectionFor = (viewId) => entryFor(viewId).selection;
+  state.focusFor = (viewId) => entryFor(viewId).focus;
+  state.setSelectionFor = (viewId, selection) => { entryFor(viewId).selection = selection; };
+  state.setFocusFor = (viewId, focus) => { entryFor(viewId).focus = focus; };
+  // Seeds a view's remembered value with no save round trip: the mount
+  // bootstrap uses this to install what the server already has on record.
+  state.seed = (viewId, selection, focus = null) => {
+    views.set(viewId, { selection, focus });
+  };
+  // Marks the initial server read as genuinely settled — called only after
+  // that read succeeds, whether or not it had anything to seed.
+  state.markReady = () => { state.ready = true; };
+  state.saveFor = (viewId) => {
+    if (!saveView || !state.ready) return;
+    const entry = entryFor(viewId);
+    Promise.resolve()
+      .then(() => saveView(viewId, entry.selection, entry.focus))
+      .catch(() => {
+        state.notice = "Project selection could not be saved. It may not " +
+          "carry over to another tab, session, or reload.";
+      });
   };
   return state;
 }
 
-export function resolveProjectSelection(state, projects, explicitSelection) {
-  state.selection = projectSelection(
-    projects, explicitSelection ?? state.selection,
-  );
-  state.focus = knownProjectId(projects, state.focus);
-  state.save();
-  return state.selection;
+// Normalizes a view's selection/focus against the live project roster,
+// persists only when normalization actually changed something, and
+// returns the resolved selection.
+export function resolveProjectSelection(state, viewId, projects, explicitSelection) {
+  const priorSelection = state.selectionFor(viewId);
+  const priorFocus = state.focusFor(viewId);
+  const selection = projectSelection(projects, explicitSelection ?? priorSelection);
+  const focus = knownProjectId(projects, priorFocus);
+  state.setSelectionFor(viewId, selection);
+  state.setFocusFor(viewId, focus);
+  if (selectionParam(selection) !== selectionParam(priorSelection) || focus !== priorFocus) {
+    state.saveFor(viewId);
+  }
+  return selection;
 }

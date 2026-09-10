@@ -195,7 +195,7 @@ test("strategy at All fans out one call per roster project", async (t) => {
   mounted.unmount();
 });
 
-test("screens share the current scope across nav round trips", async (t) => {
+test("each screen keeps its own remembered scope across nav round trips", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -213,14 +213,17 @@ test("screens share the current scope across nav round trips", async (t) => {
     await settle();
   };
 
+  // Events has never been touched, so it starts at its own default — never
+  // Items' "2" — and the trip does not rewrite Items' remembered choice.
   await navigate("#/events");
-  assert.equal(windowNode.location.hash, "#/events?project=2");
+  assert.equal(windowNode.location.hash, "#/events?project=all");
   const itemsLink = byClass(root, "nav-link").find((link) =>
     allNodes(link).some(
       (node) => node.classList.contains("txt") &&
         node.textContent === "Items",
     ));
-  // The nav link carries the shared selection.
+  // The nav link still carries Items' OWN remembered selection, not
+  // whatever Events (the currently active screen) happens to be showing.
   assert.equal(itemsLink.href, "#/items?project=2");
 
   // ...and following it restores that scope's read.
@@ -235,7 +238,7 @@ test("an explicit QA Activity All route overrides its remembered project scope",
     { id: "buzz", slug: "buzz", name: "Buzz" },
     { id: "yoke", slug: "yoke", name: "Yoke" },
   ];
-  const selections = createProjectSelection({});
+  const selections = createProjectSelection(null);
   const entry = navEntry("qa-activity");
 
   assert.deepEqual(
@@ -249,7 +252,7 @@ test("an explicit QA Activity All route overrides its remembered project scope",
     scopeForEntry(entry, route.project, projects, selections),
     "all",
   );
-  assert.equal(selections.selection, "all");
+  assert.equal(selections.selectionFor(entry.id), "all");
 });
 
 test("a single-scope picker offers radio chips and no All chip", () => {

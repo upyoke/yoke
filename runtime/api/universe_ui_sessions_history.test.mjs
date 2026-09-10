@@ -53,6 +53,8 @@ async function mountHistory(t, handler) {
       if (request.function === "machine.list") return ok({ machines: [] });
       // The actor menu's own read at mount; not part of the history story.
       if (request.function === "profile.get") return failed();
+      if (request.function === "ui_preferences.screen_selection.list") return ok({ views: {} });
+      if (request.function === "ui_preferences.screen_selection.set") return ok({});
       return handler(request);
     },
   };

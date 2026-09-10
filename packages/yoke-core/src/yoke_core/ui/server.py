@@ -150,19 +150,19 @@ def _local_host_identity_json() -> str:
         install=detect_install(yoke_core.__file__),
     )
     fields = mount_fields(packet)
-    from yoke_core.ui.local_operator_actor import local_selection_identity
+    from yoke_core.ui.local_operator_actor import resolve_local_operator_actor
 
     try:
-        identity = local_selection_identity()
-        if identity is not None:
-            fields["selectionIdentity"] = identity
-            fields["currentActor"] = {"id": identity["actorId"], "kind": "human"}
+        actor_id = resolve_local_operator_actor()
+        if actor_id is not None:
+            fields["currentActor"] = {"id": str(actor_id), "kind": "human"}
     except Exception:
         import logging
 
         logging.getLogger(__name__).warning(
-            "project_selection_identity_unavailable: browser preferences will "
-            "not persist; restore the local universe connection and reload",
+            "local_operator_actor_unavailable: the topbar actor identity "
+            "will not resolve; restore the local universe connection and "
+            "reload",
             exc_info=True,
         )
     return json.dumps(fields, separators=(",", ":"))

@@ -1,12 +1,16 @@
 import { buildUniverseRoute, navEntry, parseUniverseRoute, SCOPE_SINGLE } from "./universe_navigation.js";
 import { selectionParam } from "./universe_project_selection.js";
 
-// Ordinary navigation preserves selection. A detail's project still addresses
-// its resource; an explicit selection on a deep link remains authoritative.
-export function withProjectSelection(hash, selection) {
+// Ordinary navigation preserves selection — each destination's OWN
+// remembered selection, looked up by the hash's own view, never the
+// selection of whichever screen the link happens to be rewritten from. A
+// detail's project still addresses its resource; an explicit selection on a
+// deep link remains authoritative.
+export function withProjectSelection(hash, selections) {
   if (!String(hash).startsWith("#/")) return hash;
   const route = parseUniverseRoute(hash);
   if (route.selection !== null) return hash;
+  const selection = selections.selectionFor(route.view);
   const [path, query = ""] = hash.split("?");
   const params = new URLSearchParams(query);
   if (route.detail || navEntry(route.view).scope === SCOPE_SINGLE) {
@@ -17,24 +21,25 @@ export function withProjectSelection(hash, selection) {
   return `${path}?${params.toString().replace(/%2C/g, ",")}`;
 }
 
-export function selectionRoute(route, state, project = null, sourceHash = "") {
+export function selectionRoute(route, selections, project = null, sourceHash = "") {
   const focusRoute = route.detail || navEntry(route.view).scope === SCOPE_SINGLE;
+  const selection = selections.selectionFor(route.view);
   const hash = buildUniverseRoute(
-    route.view, focusRoute ? project : selectionParam(state.selection), route.detail,
+    route.view, focusRoute ? project : selectionParam(selection), route.detail,
   );
   const [path, query = ""] = hash.split("?");
   const params = new URLSearchParams(sourceHash.split("?")[1] || "");
   params.delete("project");
   params.delete("selection");
   for (const [key, value] of new URLSearchParams(query)) params.set(key, value);
-  if (focusRoute) params.set("selection", selectionParam(state.selection));
+  if (focusRoute) params.set("selection", selectionParam(selection));
   return `${path}?${params.toString().replace(/%2C/g, ",")}`;
 }
 
 export function createSelectionNavigation(root, windowNode, state) {
   const authoredLinks = new WeakMap();
   const navigate = (hash) => {
-    windowNode.location.hash = withProjectSelection(hash, state.selection);
+    windowNode.location.hash = withProjectSelection(hash, state);
   };
   // A capture listener also covers host-owned anchors and modified clicks.
   // The observer makes copied/open-in-new-tab links carry the same context.
@@ -43,7 +48,7 @@ export function createSelectionNavigation(root, windowNode, state) {
     if (!href || !href.startsWith("#/")) return;
     const previous = authoredLinks.get(anchor);
     const authored = previous?.rendered === href ? previous.authored : href;
-    const next = withProjectSelection(authored, state.selection);
+    const next = withProjectSelection(authored, state);
     authoredLinks.set(anchor, { authored, rendered: next });
     if (next !== href) anchor.setAttribute("href", next);
   }
