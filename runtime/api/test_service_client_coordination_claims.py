@@ -17,7 +17,6 @@ from yoke_core.api.service_client_coordination_claims import (
     cmd_coordination_claim_acquire,
     cmd_coordination_claim_heartbeat,
     cmd_coordination_claim_list,
-    cmd_coordination_claim_release,
 )
 from yoke_core.domain.coordination_claim_keys import target_for_key
 
@@ -96,32 +95,31 @@ def _capture(monkeypatch, capsys) -> tuple:
 
 
 class TestCommandRegistration:
-    def test_command_map_wires_all_four_subcommands(self) -> None:
+    def test_command_map_wires_source_dev_diagnostics(self) -> None:
         assert set(COORDINATION_CLAIM_COMMANDS) == {
-            "coordination-claim-release",
             "coordination-claim-acquire",
             "coordination-claim-heartbeat",
             "coordination-claim-list",
         }
-        assert COORDINATION_CLAIM_COMMANDS["coordination-claim-release"] is (
-            cmd_coordination_claim_release
-        )
 
 
 class TestAcquire:
-    def test_acquire_returns_claim_envelope(
-        self, db_path: str, capsys
-    ) -> None:
+    def test_acquire_returns_claim_envelope(self, db_path: str, capsys) -> None:
         conn = connect_test_db(db_path)
         try:
             _ensure_session(conn, "sess-cli", 1)
         finally:
             conn.close()
-        rc = cmd_coordination_claim_acquire([
-            "--project", "yoke",
-            "--key", "QA_HOST:mac-mini-lab",
-            "--session-id", "sess-cli",
-        ])
+        rc = cmd_coordination_claim_acquire(
+            [
+                "--project",
+                "yoke",
+                "--key",
+                "QA_HOST:mac-mini-lab",
+                "--session-id",
+                "sess-cli",
+            ]
+        )
         out, err = _capture(None, capsys)
         assert rc == 0, err
         envelope = json.loads(out[-1])
@@ -133,20 +131,24 @@ class TestAcquire:
         assert envelope["claim"]["claimed_at"] is not None
         assert envelope["claim"]["last_heartbeat"] is not None
 
-    def test_acquire_records_the_owning_item(
-        self, db_path: str, capsys
-    ) -> None:
+    def test_acquire_records_the_owning_item(self, db_path: str, capsys) -> None:
         conn = connect_test_db(db_path)
         try:
             _ensure_session(conn, "sess-cli", 1)
         finally:
             conn.close()
-        rc = cmd_coordination_claim_acquire([
-            "--project", "yoke",
-            "--key", "LIVE_DB_MIGRATION:primary",
-            "--session-id", "sess-cli",
-            "--item", "42",
-        ])
+        rc = cmd_coordination_claim_acquire(
+            [
+                "--project",
+                "yoke",
+                "--key",
+                "LIVE_DB_MIGRATION:primary",
+                "--session-id",
+                "sess-cli",
+                "--item",
+                "42",
+            ]
+        )
         out, err = _capture(None, capsys)
         assert rc == 0, err
         envelope = json.loads(out[-1])
@@ -159,25 +161,34 @@ class TestAcquire:
             _ensure_session(conn, "sess-other", 1)
         finally:
             conn.close()
-        rc = cmd_coordination_claim_acquire([
-            "--project", "yoke",
-            "--key", "LIVE_DB_MIGRATION:primary",
-            "--session-id", "sess-other",
-            "--item", "8",
-        ])
+        rc = cmd_coordination_claim_acquire(
+            [
+                "--project",
+                "yoke",
+                "--key",
+                "LIVE_DB_MIGRATION:primary",
+                "--session-id",
+                "sess-other",
+                "--item",
+                "8",
+            ]
+        )
         _, err = _capture(None, capsys)
         assert rc == 1
         envelope = json.loads(err[-1])
         assert envelope["code"] == "HELD"
 
-    def test_acquire_rejects_an_unregistered_key(
-        self, db_path: str, capsys
-    ) -> None:
-        rc = cmd_coordination_claim_acquire([
-            "--project", "yoke",
-            "--key", "EXAMPLE_OP:x",
-            "--session-id", "sess-cli",
-        ])
+    def test_acquire_rejects_an_unregistered_key(self, db_path: str, capsys) -> None:
+        rc = cmd_coordination_claim_acquire(
+            [
+                "--project",
+                "yoke",
+                "--key",
+                "EXAMPLE_OP:x",
+                "--session-id",
+                "sess-cli",
+            ]
+        )
         _, err = _capture(None, capsys)
         assert rc == 1
         assert json.loads(err[-1])["code"] == "USAGE"
@@ -190,9 +201,7 @@ class TestAcquire:
 
 
 class TestHeartbeat:
-    def test_heartbeat_refreshes_a_live_claim(
-        self, db_path: str, capsys
-    ) -> None:
+    def test_heartbeat_refreshes_a_live_claim(self, db_path: str, capsys) -> None:
         claim = _seed_claim(db_path)
         rc = cmd_coordination_claim_heartbeat(["--claim-id", str(claim.id)])
         out, _ = _capture(None, capsys)
@@ -201,9 +210,7 @@ class TestHeartbeat:
         assert envelope["success"] is True
         assert envelope["claim"]["id"] == claim.id
 
-    def test_heartbeat_released_exits_one(
-        self, db_path: str, capsys
-    ) -> None:
+    def test_heartbeat_released_exits_one(self, db_path: str, capsys) -> None:
         claim = _seed_claim(db_path)
         conn = connect_test_db(db_path)
         try:
@@ -216,9 +223,7 @@ class TestHeartbeat:
         envelope = json.loads(err[-1])
         assert envelope["code"] == "RELEASED"
 
-    def test_heartbeat_missing_exits_one(
-        self, db_path: str, capsys
-    ) -> None:
+    def test_heartbeat_missing_exits_one(self, db_path: str, capsys) -> None:
         rc = cmd_coordination_claim_heartbeat(["--claim-id", "999"])
         _, err = _capture(None, capsys)
         assert rc == 1
@@ -230,7 +235,9 @@ class TestList:
     def test_list_filters_by_project(self, db_path: str, capsys) -> None:
         _seed_claim(db_path, key="LIVE_DB_MIGRATION:primary")
         _seed_claim(
-            db_path, project_id="other", session_id="sess-other",
+            db_path,
+            project_id="other",
+            session_id="sess-other",
             key="LIVE_DB_MIGRATION:secondary",
         )
         rc = cmd_coordination_claim_list(["--project", "yoke"])
@@ -240,9 +247,7 @@ class TestList:
         keys = {claim["key"] for claim in envelope["claims"]}
         assert keys == {"LIVE_DB_MIGRATION:primary"}
 
-    def test_list_active_only_excludes_released(
-        self, db_path: str, capsys
-    ) -> None:
+    def test_list_active_only_excludes_released(self, db_path: str, capsys) -> None:
         claim = _seed_claim(db_path)
         conn = connect_test_db(db_path)
         try:
@@ -255,47 +260,3 @@ class TestList:
         envelope = json.loads(out[-1])
         assert len(envelope["claims"]) == 1
         assert envelope["claims"][0]["session_id"] == "sess-2"
-
-
-class TestRelease:
-    def test_release_emits_envelope(self, db_path: str, capsys) -> None:
-        _seed_claim(db_path)
-        rc = cmd_coordination_claim_release([
-            "--project", "yoke",
-            "--key", "LIVE_DB_MIGRATION:primary",
-            "--reason", "operator recovery in cli test",
-        ])
-        out, _ = _capture(None, capsys)
-        assert rc == 0
-        envelope = json.loads(out[-1])
-        assert envelope["success"] is True
-        assert envelope["prior_session_id"] == "sess-1"
-        assert envelope["operator_reason"] == "operator recovery in cli test"
-
-    def test_release_rejects_hook_context(
-        self, db_path: str, capsys, monkeypatch
-    ) -> None:
-        _seed_claim(db_path)
-        monkeypatch.setenv("YOKE_HOOK_EVENT", "SessionEnd")
-        rc = cmd_coordination_claim_release([
-            "--project", "yoke",
-            "--key", "LIVE_DB_MIGRATION:primary",
-            "--reason", "should fail",
-        ])
-        _, err = _capture(None, capsys)
-        assert rc == 1
-        envelope = json.loads(err[-1])
-        assert envelope["code"] == "HOOK_CONTEXT"
-
-    def test_release_missing_claim_exits_one(
-        self, db_path: str, capsys
-    ) -> None:
-        rc = cmd_coordination_claim_release([
-            "--project", "yoke",
-            "--key", "LIVE_DB_MIGRATION:primary",
-            "--reason", "no-op recovery",
-        ])
-        _, err = _capture(None, capsys)
-        assert rc == 1
-        envelope = json.loads(err[-1])
-        assert envelope["code"] == "NOT_FOUND"

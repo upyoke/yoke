@@ -89,6 +89,7 @@ class TestClaimsHandlersRegistration(_ClaimsHandlerSuite):
             "claims.path.release": "item",
             "claims.path.amend": "item",
             "claims.path.override": "operator_override",
+            "claims.coordination_claim.operator_release": None,
             "db_claim.amend": "item",
         }
         for fid, kind in expected.items():
@@ -109,6 +110,7 @@ class TestClaimsHandlersRegistration(_ClaimsHandlerSuite):
             "claims.coordination_claim.acquire",
             "claims.coordination_claim.heartbeat",
             "claims.coordination_claim.release",
+            "claims.coordination_claim.operator_release",
             "claims.coordination_claim.list",
         ]
         for fid in extras:

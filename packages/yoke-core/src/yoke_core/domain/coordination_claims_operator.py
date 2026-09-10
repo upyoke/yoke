@@ -3,9 +3,9 @@
 Sibling of :mod:`yoke_core.domain.coordination_claims`. Owns the
 human-only ``operator_release`` surface plus its WARN-severity
 ``OperatorLeaseRelease`` emission. The split keeps the core module lean
-while preserving the ledger-first recovery property: the event lands
-before the release mutation so a telemetry outage cannot mask a
-successful operator action.
+while keeping authority on the durable claim mutation: the release row
+records the authenticated actor and operator-supplied reason, while the
+event is best-effort diagnostic telemetry.
 
 Sticky claim kinds have no automatic reclaim by design — the resource
 they name keeps operating after its session goes quiet — so this is the
@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
+from yoke_core.domain.auth_context import StandardAuthContext
 from yoke_core.domain.coordination_claim_keys import target_for_key
 from yoke_core.domain.coordination_claims import (
     OPERATOR_LEASE_RELEASE_EVENT,
@@ -27,8 +28,11 @@ from yoke_core.domain.coordination_claims import (
     active_claim,
     release,
 )
-from yoke_core.domain.project_identity import resolve_project_id
-from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
+from yoke_core.domain.project_identity import resolve_project
+
+
+class CoordinationClaimChangedError(CoordinationClaimError):
+    """The reviewed claim is no longer the active holder for its key."""
 
 
 def operator_release(
@@ -37,14 +41,16 @@ def operator_release(
     key: str,
     operator_reason: str,
     *,
-    session_id: Optional[str] = None,
+    expected_claim_id: int,
+    expected_holder_session_id: str,
+    operator_actor_id: int,
     now: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Human-only operator recovery for a stranded coordination claim.
 
     Refuses invocation from a hook context (``YOKE_HOOK_EVENT`` set),
-    emits a WARN ``OperatorLeaseRelease`` event *before* the release
-    mutation lands (ledger-first), and then releases the live claim.
+    emits best-effort WARN ``OperatorLeaseRelease`` diagnostic telemetry,
+    and records the authenticated actor and reason on the claim release.
 
     Returns a summary dict describing the released claim; raises
     :class:`CoordinationClaimNotFoundError` when no live claim exists.
@@ -59,18 +65,33 @@ def operator_release(
     if not operator_reason or not operator_reason.strip():
         raise CoordinationClaimError("operator_reason must be a non-empty string")
 
-    numeric_project_id = resolve_project_id(conn, project_id)
-    target = target_for_key(key, project_id=numeric_project_id)
+    identity = resolve_project(conn, project_id)
+    assert identity is not None
+    numeric_project_id = identity.id
+    target = target_for_key(
+        key,
+        project_id=numeric_project_id,
+        project_slug=identity.slug,
+    )
     claim = active_claim(conn, target, for_update=True)
     if claim is None:
         raise CoordinationClaimNotFoundError(
             f"No active coordination claim for {project_id}:{key}"
         )
+    expected_holder = str(expected_holder_session_id or "").strip()
+    if claim.id != int(expected_claim_id) or claim.session_id != expected_holder:
+        raise CoordinationClaimChangedError(
+            f"Coordination claim {project_id}:{key} changed after review: "
+            f"current claim id={claim.id}, holder={claim.session_id!r}; "
+            f"expected id={int(expected_claim_id)}, holder={expected_holder!r}. "
+            "Run `yoke coordination-claim list --project P --key K "
+            "--active-only --json`, review the current holder, and retry with "
+            "its exact --claim-id and --holder-session-id."
+        )
 
-    effective_session = (session_id or resolve_ambient_session_id() or "").strip()
-    if not effective_session:
+    if int(operator_actor_id) <= 0:
         raise CoordinationClaimError(
-            "operator session is required; refusing to copy the claim holder"
+            "operator_actor_id must identify the authenticated human actor"
         )
 
     context = {
@@ -81,11 +102,12 @@ def operator_release(
         "prior_session_id": claim.session_id,
         "prior_owner_item_id": claim.owner_item_id,
         "acquired_at": claim.claimed_at,
+        "operator_actor_id": int(operator_actor_id),
         "operator_reason": operator_reason,
         "release_reason_intent": "operator-override",
     }
     _emit_operator_release(
-        session_id=effective_session,
+        actor_id=int(operator_actor_id),
         project_id=numeric_project_id,
         context=context,
     )
@@ -95,7 +117,7 @@ def operator_release(
         claim.id,
         f"operator-override: {operator_reason}",
         now=now,
-        released_by_session_id=effective_session,
+        released_by_actor_id=int(operator_actor_id),
     )
 
     return {
@@ -104,7 +126,7 @@ def operator_release(
         "project_id": numeric_project_id,
         "key": key,
         "prior_session_id": claim.session_id,
-        "operator_session_id": effective_session,
+        "operator_actor_id": int(operator_actor_id),
         "operator_reason": operator_reason,
         "released_at": released.released_at,
     }
@@ -112,7 +134,7 @@ def operator_release(
 
 def _emit_operator_release(
     *,
-    session_id: str,
+    actor_id: int,
     project_id: int,
     context: Dict[str, Any],
 ) -> None:
@@ -125,7 +147,7 @@ def _emit_operator_release(
             event_kind="system",
             event_type="lease_lifecycle",
             source_type="api",
-            session_id=session_id,
+            auth_context=StandardAuthContext(actor_id=actor_id),
             project=project_id,
             severity="WARN",
             outcome="completed",
@@ -137,4 +159,4 @@ def _emit_operator_release(
         pass
 
 
-__all__ = ["operator_release"]
+__all__ = ["CoordinationClaimChangedError", "operator_release"]

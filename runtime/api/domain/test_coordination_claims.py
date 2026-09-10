@@ -157,9 +157,7 @@ class TestAcquireRelease:
         finally:
             conn.close()
 
-    def test_release_keeps_the_caller_words_beside_the_enum(
-        self, db_path: str
-    ) -> None:
+    def test_release_keeps_the_caller_words_beside_the_enum(self, db_path: str) -> None:
         conn = _connect(db_path)
         try:
             claim = coordination_claims.acquire(conn, qa_target(), "sess-a")
@@ -182,9 +180,7 @@ class TestAcquireRelease:
     def test_qualification_grants_are_not_sticky(self, db_path: str) -> None:
         conn = _connect(db_path)
         try:
-            claim = coordination_claims.acquire(
-                conn, qualification_target(), "sess-a"
-            )
+            claim = coordination_claims.acquire(conn, qualification_target(), "sess-a")
             assert claim.sticky is False
         finally:
             conn.close()
@@ -193,7 +189,8 @@ class TestAcquireRelease:
 class TestOperatorRelease:
     def _hold(self, db_path: str):
         conn = _connect(db_path)
-        coordination_claims.acquire(conn, migration_target(7), "sess-wedged")
+        claim = coordination_claims.acquire(conn, migration_target(7), "sess-wedged")
+        self.claim_id = claim.id
         return conn
 
     def test_emits_warn_event_before_release(self, db_path: str) -> None:
@@ -211,13 +208,16 @@ class TestOperatorRelease:
                         project_id="yoke",
                         key=f"LIVE_DB_MIGRATION:{MODEL}",
                         operator_reason="crashed apply-phase session",
-                        session_id="sess-operator",
+                        expected_claim_id=self.claim_id,
+                        expected_holder_session_id="sess-wedged",
+                        operator_actor_id=17,
                     )
 
             assert result["released"] is True
             assert result["prior_session_id"] == "sess-wedged"
-            assert result["operator_session_id"] == "sess-operator"
+            assert result["operator_actor_id"] == 17
             assert len(emit_calls) == 1
+            assert emit_calls[0]["actor_id"] == 17
             context = emit_calls[0]["context"]
             assert context["project_id"] == PROJECT_YOKE
             assert context["lease_key"] == f"LIVE_DB_MIGRATION:{MODEL}"
@@ -235,7 +235,9 @@ class TestOperatorRelease:
                 project_id="yoke",
                 key=f"LIVE_DB_MIGRATION:{MODEL}",
                 operator_reason="crashed apply-phase session",
-                session_id="sess-operator",
+                expected_claim_id=self.claim_id,
+                expected_holder_session_id="sess-wedged",
+                operator_actor_id=17,
             )
             settled = coordination_claims.get_claim(conn, result["claim_id"])
             assert settled.released_at is not None
@@ -245,23 +247,22 @@ class TestOperatorRelease:
         finally:
             conn.close()
 
-    def test_resolves_operator_session_from_ambient_identity(
-        self, db_path: str
-    ) -> None:
+    def test_rejects_invalid_operator_actor(self, db_path: str) -> None:
         conn = self._hold(db_path)
         try:
-            with mock.patch(
-                "yoke_core.domain.coordination_claims_operator."
-                "resolve_ambient_session_id",
-                return_value="sess-operator",
+            with pytest.raises(
+                coordination_claims.CoordinationClaimError,
+                match="operator_actor_id",
             ):
-                result = operator_release(
+                operator_release(
                     conn,
                     project_id="yoke",
                     key=f"LIVE_DB_MIGRATION:{MODEL}",
                     operator_reason="crashed apply-phase session",
+                    expected_claim_id=self.claim_id,
+                    expected_holder_session_id="sess-wedged",
+                    operator_actor_id=0,
                 )
-            assert result["operator_session_id"] == "sess-operator"
         finally:
             conn.close()
 
@@ -277,6 +278,9 @@ class TestOperatorRelease:
                         project_id="yoke",
                         key=f"LIVE_DB_MIGRATION:{MODEL}",
                         operator_reason="should not fire",
+                        expected_claim_id=self.claim_id,
+                        expected_holder_session_id="sess-wedged",
+                        operator_actor_id=17,
                     )
             still_held = coordination_claims.active_claim(conn, migration_target(7))
             assert still_held is not None and still_held.released_at is None
@@ -292,7 +296,9 @@ class TestOperatorRelease:
                     project_id="yoke",
                     key=f"LIVE_DB_MIGRATION:{MODEL}",
                     operator_reason="  ",
-                    session_id="sess-operator",
+                    expected_claim_id=self.claim_id,
+                    expected_holder_session_id="sess-wedged",
+                    operator_actor_id=17,
                 )
         finally:
             conn.close()
@@ -306,29 +312,9 @@ class TestOperatorRelease:
                     project_id="yoke",
                     key=f"LIVE_DB_MIGRATION:{MODEL}",
                     operator_reason="no-op recovery",
-                    session_id="sess-operator",
-                )
-        finally:
-            conn.close()
-
-    def test_refuses_when_the_operator_session_is_unknown(
-        self, db_path: str, monkeypatch
-    ) -> None:
-        conn = self._hold(db_path)
-        monkeypatch.setattr(
-            "yoke_core.domain.coordination_claims_operator."
-            "resolve_ambient_session_id",
-            lambda: None,
-        )
-        try:
-            with pytest.raises(
-                coordination_claims.CoordinationClaimError, match="operator session"
-            ):
-                operator_release(
-                    conn,
-                    project_id="yoke",
-                    key=f"LIVE_DB_MIGRATION:{MODEL}",
-                    operator_reason="crashed apply-phase session",
+                    expected_claim_id=9999,
+                    expected_holder_session_id="sess-wedged",
+                    operator_actor_id=17,
                 )
         finally:
             conn.close()

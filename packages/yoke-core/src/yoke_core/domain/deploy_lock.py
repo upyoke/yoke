@@ -90,9 +90,7 @@ def require_deploy_lock(
     identity = resolve_project(conn, project)
     assert identity is not None
     slug = identity.slug
-    claim = active_claim(
-        conn, make_deploy_serialization_target(identity.id, slug)
-    )
+    claim = active_claim(conn, make_deploy_serialization_target(identity.id, slug))
     caller = (session_id or "").strip()
 
     if claim is None:
@@ -119,7 +117,7 @@ def require_deploy_lock(
             f"(heartbeat {claim.last_heartbeat or 'none'}). Wait for that "
             "release pair to finish, or coordinate with its driver. "
             "Human-only recovery for a stranded hold: "
-            f"`{operator_release_command(slug, deploy_lock_key(slug))}`, "
+            f"`{operator_release_command(slug, deploy_lock_key(slug), claim_id=claim.id, holder_session_id=claim.session_id)}`, "
             f"which records a WARN OperatorLeaseRelease. {contention.message}"
             + _session_note(caller)
         )
@@ -146,15 +144,11 @@ def deploy_lock_refusal(
     )
 
     caller = (
-        resolve_ambient_session_id()
-        if session_id == AMBIENT_SESSION
-        else session_id
+        resolve_ambient_session_id() if session_id == AMBIENT_SESSION else session_id
     )
     conn = db_helpers.connect()
     try:
-        require_deploy_lock(
-            conn, project, session_id=caller, operation=operation
-        )
+        require_deploy_lock(conn, project, session_id=caller, operation=operation)
     except DeployLockError as exc:
         return str(exc)
     except LookupError:

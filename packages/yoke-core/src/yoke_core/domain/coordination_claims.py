@@ -220,6 +220,7 @@ def release(
     canonical_reason: str = DEFAULT_RELEASE_REASON,
     now: Optional[str] = None,
     released_by_session_id: Optional[str] = None,
+    released_by_actor_id: Optional[int] = None,
     commit: bool = True,
 ) -> CoordinationClaim:
     """Release a held claim. Idempotent — re-releasing returns unchanged."""
@@ -246,6 +247,7 @@ def release(
         context={
             "release_reason": reason,
             "released_by_session_id": released_by_session_id,
+            "released_by_actor_id": released_by_actor_id,
         },
         conn=None if commit else conn,
     )

@@ -11,6 +11,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.coordination_claim_recovery import OPERATOR_RELEASE_USAGE
 
 
 CLAIMS_COORDINATION_CLAIM_LIST_USAGE = (
@@ -78,15 +79,21 @@ def claims_coordination_claim_acquire(args: List[str]) -> int:
     parser.add_argument("--project", required=True, help="Project slug or id.")
     parser.add_argument("--key", required=True, help="Coordination key.")
     parser.add_argument(
-        "--reason", default=None, help="Why this session is taking the claim.",
+        "--reason",
+        default=None,
+        help="Why this session is taking the claim.",
     )
     parser.add_argument(
-        "--item", type=int, default=None,
+        "--item",
+        type=int,
+        default=None,
         help="Owning item id, for the kinds whose scope records one.",
     )
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, CLAIMS_COORDINATION_CLAIM_ACQUIRE_USAGE,
+        parser,
+        args,
+        CLAIMS_COORDINATION_CLAIM_ACQUIRE_USAGE,
     )
     if parsed is None:
         return 2
@@ -120,12 +127,17 @@ def claims_coordination_claim_release(args: List[str]) -> int:
     parser.add_argument("--project", default=None, help="Project slug or id.")
     parser.add_argument("--key", default=None, help="Coordination key.")
     parser.add_argument(
-        "--claim-id", type=int, default=None, help="Claim row id.",
+        "--claim-id",
+        type=int,
+        default=None,
+        help="Claim row id.",
     )
     parser.add_argument("--reason", required=True, help="Why it is released.")
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, CLAIMS_COORDINATION_CLAIM_RELEASE_USAGE,
+        parser,
+        args,
+        CLAIMS_COORDINATION_CLAIM_RELEASE_USAGE,
     )
     if parsed is None:
         return 2
@@ -148,6 +160,55 @@ def claims_coordination_claim_release(args: List[str]) -> int:
     )
 
 
+def claims_coordination_claim_operator_release(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke coordination-claim release",
+        description=OPERATOR_RELEASE_USAGE,
+        epilog=(
+            "Human-only recovery for a claim stranded by another session. "
+            "Invoke it as a signed-in human action outside a harness session; "
+            "manual and launched agent sessions are refused. Read the "
+            "active row with `yoke "
+            "coordination-claim list --project P --key K --active-only "
+            "--json`, then pass its exact claim id and holder session. The "
+            "command works through HTTPS or local authority, requires "
+            "claims.release permission on the project, records the reason, "
+            "and refuses if the holder changed after review."
+        ),
+    )
+    parser.add_argument("--project", required=True, help="Project slug or id.")
+    parser.add_argument("--key", required=True, help="Coordination key.")
+    parser.add_argument(
+        "--claim-id",
+        required=True,
+        type=int,
+        help="Exact active claim row reviewed by the operator.",
+    )
+    parser.add_argument(
+        "--holder-session-id",
+        required=True,
+        help="Exact current holder session reviewed by the operator.",
+    )
+    parser.add_argument("--reason", required=True, help="Audited operator reason.")
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, OPERATOR_RELEASE_USAGE)
+    if parsed is None:
+        return 2
+    return dispatch_and_emit(
+        function_id="claims.coordination_claim.operator_release",
+        target=TargetRef(kind="global"),
+        payload={
+            "project_id": parsed.project,
+            "key": parsed.key,
+            "claim_id": parsed.claim_id,
+            "holder_session_id": parsed.holder_session_id,
+            "reason": parsed.reason,
+        },
+        session_id=None,
+        json_mode=parsed.json_mode,
+    )
+
+
 def claims_coordination_claim_list(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke coordination-claim list",
@@ -156,20 +217,26 @@ def claims_coordination_claim_list(args: List[str]) -> int:
     parser.add_argument("--project", default=None, help="Project slug or id.")
     parser.add_argument("--key", default=None, help="Filter to one coordination key.")
     parser.add_argument(
-        "--session-id", default=None,
+        "--session-id",
+        default=None,
         help="Filter to claims held by this session.",
     )
     parser.add_argument(
-        "--item", type=int, default=None,
+        "--item",
+        type=int,
+        default=None,
         help="Filter to claims owned by this item id.",
     )
     parser.add_argument(
-        "--active-only", action="store_true",
+        "--active-only",
+        action="store_true",
         help="Restrict to claims that have not been released.",
     )
     add_json_arg(parser)
     parsed = parse_or_usage_error(
-        parser, args, CLAIMS_COORDINATION_CLAIM_LIST_USAGE,
+        parser,
+        args,
+        CLAIMS_COORDINATION_CLAIM_LIST_USAGE,
     )
     if parsed is None:
         return 2
@@ -195,13 +262,10 @@ def claims_coordination_claim_list(args: List[str]) -> int:
 
 
 USAGE_BY_FUNCTION_ID = {
-    "claims.coordination_claim.acquire": (
-        CLAIMS_COORDINATION_CLAIM_ACQUIRE_USAGE
-    ),
+    "claims.coordination_claim.acquire": (CLAIMS_COORDINATION_CLAIM_ACQUIRE_USAGE),
     "claims.coordination_claim.list": CLAIMS_COORDINATION_CLAIM_LIST_USAGE,
-    "claims.coordination_claim.release": (
-        CLAIMS_COORDINATION_CLAIM_RELEASE_USAGE
-    ),
+    "claims.coordination_claim.release": (CLAIMS_COORDINATION_CLAIM_RELEASE_USAGE),
+    "claims.coordination_claim.operator_release": OPERATOR_RELEASE_USAGE,
 }
 
 __all__ = [
@@ -211,5 +275,6 @@ __all__ = [
     "USAGE_BY_FUNCTION_ID",
     "claims_coordination_claim_acquire",
     "claims_coordination_claim_list",
+    "claims_coordination_claim_operator_release",
     "claims_coordination_claim_release",
 ]

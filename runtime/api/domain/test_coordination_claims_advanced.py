@@ -79,6 +79,8 @@ class TestContentionEvidence:
             message = str(exc.value)
             assert "held by session sess-dead" in message
             assert "--key QA_HOST:mac-mini-lab" in message
+            assert f"--claim-id {exc.value.contention.claim_id}" in message
+            assert "--holder-session-id sess-dead" in message
             assert "--reason 'stale holder confirmed'" in message
         finally:
             conn.close()

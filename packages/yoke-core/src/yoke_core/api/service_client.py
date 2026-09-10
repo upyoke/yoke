@@ -245,7 +245,6 @@ from yoke_core.api.service_client_coordination_claims import (  # noqa: F401
     cmd_coordination_claim_acquire,
     cmd_coordination_claim_heartbeat,
     cmd_coordination_claim_list,
-    cmd_coordination_claim_release,
 )
 
 # Unified DB-claim amendment workflow
@@ -330,6 +329,7 @@ COMMANDS = {
 def main() -> int:
     if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help", "help"):
         from yoke_core.api.service_client_help_umbrella import render_umbrella_help
+
         print(render_umbrella_help(COMMANDS.keys()), end="")
         return 0
     cmd, sub_args = sys.argv[1], sys.argv[2:]

@@ -92,10 +92,14 @@ yoke claims coordination-claim acquire --project {project} --key DEPLOY:{project
 
 If the acquire is refused, another session is already driving that project's
 deployments: the refusal names the holder and the acquire recipe. Wait for it,
-or coordinate with that driver — do not work around the lock. A hold stranded
-by a dead driver is freed by the human-only
-`yoke coordination-claim release --project P --key DEPLOY:P --reason "..."`,
-which records a WARN `OperatorLeaseRelease`.
+or coordinate with that driver — do not work around the lock. After confirming
+the pipeline settled, a human lists the live row and uses the signed-in action
+outside any harness session to release the exact reviewed holder with
+`yoke coordination-claim release --project P --key DEPLOY:P --claim-id N
+--holder-session-id S --reason "..."`. The registered action works over HTTPS
+or local authority, refuses a changed claim/holder, and records a WARN
+`OperatorLeaseRelease` plus the durable reason. Manual and launched agent
+sessions are refused.
 
 For each `(project, flow)` group:
 

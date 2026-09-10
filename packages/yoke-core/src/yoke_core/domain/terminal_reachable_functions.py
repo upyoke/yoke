@@ -62,6 +62,7 @@ ONBOARDING_APPLY: frozenset[str] = frozenset({
 #: first session exists.
 TERMINAL_RECIPES: frozenset[str] = frozenset({
     "board.rebuild.run",
+    "claims.coordination_claim.operator_release",
     "deployment_flows.create",
     "hook.evaluate.run",
     "identity.invite.create",

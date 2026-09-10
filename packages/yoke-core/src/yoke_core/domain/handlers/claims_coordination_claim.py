@@ -152,9 +152,7 @@ def handle_acquire(request: FunctionCallRequest) -> HandlerOutcome:
         except ValueError as exc:
             return _err("payload_invalid", str(exc))
         try:
-            claim = acquire(
-                conn, target, request.actor.session_id, reason=body.reason
-            )
+            claim = acquire(conn, target, request.actor.session_id, reason=body.reason)
         except CoordinationClaimStaleHolderError as exc:
             return _err("claim_stale_holder", str(exc))
         except CoordinationClaimHeldError as exc:
@@ -181,8 +179,7 @@ def handle_heartbeat(request: FunctionCallRequest) -> HandlerOutcome:
             if _reserved(get_claim(conn, int(body.claim_id)).key):
                 return _err(
                     "claim_key_reserved",
-                    "reserved qualification claims cannot be heartbeated "
-                    "generically",
+                    "reserved qualification claims cannot be heartbeated generically",
                 )
             claim = heartbeat(conn, int(body.claim_id))
         except CoordinationClaimNotFoundError as exc:
@@ -215,13 +212,28 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
         except ValueError as exc:
             return _err("payload_invalid", str(exc))
         try:
-            if _reserved(get_claim(conn, claim_id).key):
+            current = get_claim(conn, claim_id)
+            if _reserved(current.key):
                 return _err(
                     "claim_key_reserved",
-                    "reserved qualification claims cannot be released "
-                    "generically",
+                    "reserved qualification claims cannot be released generically",
                 )
-            claim = release(conn, claim_id, body.reason)
+            if current.session_id != request.actor.session_id:
+                return _err(
+                    "claim_not_held",
+                    f"coordination claim {claim_id} is held by session "
+                    f"{current.session_id!r}, not calling session "
+                    f"{request.actor.session_id!r}; ask the holder to release "
+                    "it, or use `yoke coordination-claim release` from an "
+                    "authenticated human terminal outside any harness session "
+                    "after reviewing the current claim id and holder",
+                )
+            claim = release(
+                conn,
+                claim_id,
+                body.reason,
+                released_by_session_id=request.actor.session_id,
+            )
         except CoordinationClaimNotFoundError as exc:
             return _err("claim_not_found", str(exc))
 
@@ -233,9 +245,7 @@ def _release_target_id(conn: Any, body: "ReleaseRequest") -> int:
     if body.claim_id is not None:
         return int(body.claim_id)
     if not body.key or not body.project_id:
-        raise ValueError(
-            "release requires claim_id, or project_id together with key"
-        )
+        raise ValueError("release requires claim_id, or project_id together with key")
     from yoke_core.domain.coordination_claims import active_claim
     from yoke_core.domain.project_identity import resolve_project
 

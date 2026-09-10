@@ -94,7 +94,13 @@ CLAIMS_ADAPTERS = [
     ),
     AdapterEntry(
         "claims.coordination_claim.release",
-        "python3 -m yoke_core.api.service_client coordination-claim-release",
+        "yoke claims coordination-claim release --claim-id N --reason TEXT",
+    ),
+    AdapterEntry(
+        "claims.coordination_claim.operator_release",
+        "yoke coordination-claim release --project P --key K --claim-id N "
+        "--holder-session-id S --reason TEXT",
+        agent_path="operator-only",
     ),
     AdapterEntry(
         "claims.coordination_claim.list",

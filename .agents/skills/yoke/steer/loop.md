@@ -292,10 +292,10 @@ Then release the deploy lock, so the next seat can drive:
 yoke claims coordination-claim release --project {_project} --key DEPLOY:{_project} --reason "release pair complete"
 ```
 
-Nothing reclaims that lock automatically — the pipeline outlives its local
-driver — so a hold stranded by a dead seat is freed by the human-only
-`yoke coordination-claim release --project P --key DEPLOY:P --reason "..."`,
-which records a WARN `OperatorLeaseRelease`.
+Nothing reclaims that lock automatically. After confirming the pipeline settled,
+a signed-in human outside any harness session runs `yoke coordination-claim
+release --project P --key DEPLOY:P --claim-id N --holder-session-id S --reason
+"..."`; HTTPS/local authority, exact-holder refusal, reason, and WARN audit apply.
 
 ### 7. Keep the document current
 
