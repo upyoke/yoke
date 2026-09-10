@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping
 
@@ -169,45 +170,108 @@ def _qa_review_ended(
     ).fetchone()
     if conclusive is not None:
         return True, f"QA requirement {requirement_id} has a conclusive result"
-    return _qa_walk_ended(conn, requirement_id)
+    return _qa_walk_ended(conn, requirement_id, int(run_text))
 
 
-def _qa_walk_ended(conn: Any, requirement_id: int) -> tuple[bool, str]:
-    """Report whether every plan execution that walked this case has ended.
+def _qa_review_execution_id(
+    conn: Any, requirement_id: int, run_id: int
+) -> str | None:
+    """Resolve the one execution whose walk actually produced this run.
 
-    A review request exists because a walk could not determine a verdict. Once
-    every execution that walked the case is terminal, no further evidence is
-    coming and the ask is over -- the requirement itself stays unresolved, and
-    that is the answer. A requirement no execution ever walked is a standing
-    ad-hoc ask with no walk to end, so it is never disposed of this way.
+    Two existing durable relations carry this identity, checked in the order
+    a run can appear in them: a reviewed verdict's ``review_run_id`` names
+    its bundle's execution directly (``qa_plan_review_verdicts.bundle_id`` ->
+    ``qa_plan_review_bundles.execution_id``); a raw capture's own advance
+    embeds its run id under a runner-keyed field (``run_id`` or
+    ``qa_run_id``) in that case's ``qa_plan_execution_results.result_json``.
+    A run neither relation names was never durably tied to a walk.
+    """
+    if _table_exists(conn, "qa_plan_review_verdicts") and _table_exists(
+        conn, "qa_plan_review_bundles"
+    ):
+        reviewed = conn.execute(
+            "SELECT b.execution_id FROM qa_plan_review_verdicts v "
+            "JOIN qa_plan_review_bundles b ON b.id = v.bundle_id "
+            f"WHERE v.review_run_id = {_p(conn)}",
+            (run_id,),
+        ).fetchone()
+        if reviewed is not None:
+            return str(reviewed[0])
+    if not _table_exists(conn, "qa_plan_execution_results"):
+        return None
+    for execution_id, result_json in conn.execute(
+        "SELECT execution_id, result_json FROM qa_plan_execution_results "
+        f"WHERE requirement_id = {_p(conn)}",
+        (requirement_id,),
+    ).fetchall():
+        try:
+            payload = json.loads(str(result_json or "{}"))
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(payload, Mapping):
+            continue
+        for key in ("run_id", "qa_run_id"):
+            value = payload.get(key)
+            if value is None:
+                continue
+            try:
+                matched = int(value) == run_id
+            except (TypeError, ValueError):
+                continue
+            if matched:
+                return str(execution_id)
+    return None
+
+
+def _qa_walk_ended(conn: Any, requirement_id: int, run_id: int) -> tuple[bool, str]:
+    """Report whether the walk that raised this run's review was abandoned.
+
+    A review request exists because a walk left this case undetermined. A
+    walk that finished normally delivered that undetermined result on
+    purpose -- the human review is the next step it is waiting on, not
+    evidence the ask is moot -- so a walk completing never ends the subject
+    it raised on its own. But "a walk" means the run's OWN originating
+    execution, resolved through the durable relations above, never any
+    other execution that happens to share the requirement: an unrelated
+    execution finishing early, finishing late, or still running must not
+    decide the validity of a review a different walk raised. A run no
+    relation ties to any execution is a standing ad-hoc ask with no walk to
+    end, so it is never disposed of this way; only independent facts
+    (conclusive result, waiver, removed subject) can settle it.
     """
     if not (
         _table_exists(conn, "qa_plan_executions")
         and _table_exists(conn, "qa_plan_execution_results")
     ):
         return False, f"QA requirement {requirement_id} remains unresolved"
+    execution_id = _qa_review_execution_id(conn, requirement_id, run_id)
+    if execution_id is None:
+        return False, (
+            f"QA requirement {requirement_id} run {run_id} is not bound to a "
+            "plan execution; it remains an open ask"
+        )
     from yoke_core.domain.qa_plan_execution_schema import LIVE_PLAN_EXECUTION_STATES
 
-    walks = conn.execute(
-        "SELECT e.id, e.state FROM qa_plan_execution_results r "
-        "JOIN qa_plan_executions e ON e.id = r.execution_id "
-        f"WHERE r.requirement_id = {_p(conn)} ORDER BY e.created_at, e.id",
-        (requirement_id,),
-    ).fetchall()
-    if not walks:
-        return False, (
-            f"QA requirement {requirement_id} has no plan execution to end; "
-            "it remains an open ask"
-        )
-    live = [str(row[0]) for row in walks if str(row[1]) in LIVE_PLAN_EXECUTION_STATES]
-    if live:
+    row = conn.execute(
+        f"SELECT state FROM qa_plan_executions WHERE id = {_p(conn)}",
+        (execution_id,),
+    ).fetchone()
+    if row is None:
+        return True, f"originating execution {execution_id} no longer exists"
+    state = str(row[0])
+    if state in LIVE_PLAN_EXECUTION_STATES:
         return False, (
             f"QA requirement {requirement_id} is still being walked by "
-            f"execution {live[0]}"
+            f"execution {execution_id}"
         )
-    outcomes = ", ".join(f"{row[0]} {row[1]}" for row in walks)
+    if state == "completed":
+        return False, (
+            f"QA requirement {requirement_id} has a plan execution that "
+            f"completed normally and awaits human review ({execution_id})"
+        )
     return True, (
-        f"QA requirement {requirement_id} has no live plan execution left ({outcomes})"
+        f"QA requirement {requirement_id}'s originating execution "
+        f"{execution_id} ended as {state}"
     )
 
 
