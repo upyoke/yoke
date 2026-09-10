@@ -247,12 +247,15 @@ export function decisionSubtitle(row) {
 // `title` string. Every producer writes one, and QA's is a fixed sentence
 // that names no case, so preferring the stored value made a reviewer's list
 // of pending reviews read identically for all of them.
+//
+// A deployment stage is the exception, and deliberately has no builder here.
+// Whether resolving it deploys anything is derived from the flow's runners,
+// destination and contents and frozen into the request, so its title is
+// written once beside that classification. Recomposing it from the shipping
+// destination is what titled an approval that deploys nothing "Deploy to
+// merge-only", and doing it here would put that sentence back in a second
+// place where the classification cannot be seen.
 const TITLE_BUILDERS = {
-  deployment_stage_approval(facts) {
-    const target = facts.shipping?.target_environment;
-    if (!target) return "";
-    return `Deploy to ${target} — approve the ${facts.stage || "next"} stage`;
-  },
   qa_needs_review(facts) {
     const subject = facts.case_name || facts.plan_name;
     return subject ? `${subject} needs your review` : "";

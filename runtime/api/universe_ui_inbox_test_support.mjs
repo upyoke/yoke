@@ -109,6 +109,7 @@ export function qaBareRequestRow(overrides = {}) {
 }
 
 export {
+  approvalOnlyRequestRow,
   deploymentRequestRow,
   emptyReleaseRequestRow,
   environmentRunRequestRow,

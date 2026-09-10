@@ -6,6 +6,7 @@ from typing import Any, Mapping, Optional
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_run_release_effect import derive_release_effect
 from yoke_core.domain.deployment_stage_position import stage_position
 from yoke_core.domain.decision_requests import (
     create_decision_request,
@@ -102,7 +103,6 @@ def _deployment_subject_context(
             "target_environment": target,
             "summary": (f"{len(items)} item(s) ship to {target}{lineage_summary}."),
         },
-        "title": f"Deploy to {target} — approve the stage",
     }
 
 
@@ -219,6 +219,20 @@ def evaluate_deployment_stage_approval(
     # content derived: the deriver reads git, and repeating it on every
     # pending-gate evaluation would pay for a fact the snapshot already froze.
     subject_context["carried"] = _release_contents(conn, run_id)
+    # What resolving this stage actually does, read from the flow's runners,
+    # its declared destination and the contents just derived -- never from the
+    # flow's name or an empty batch. The title follows the classification, so
+    # a gate that deploys nothing never reaches its approver as a deployment.
+    effect = derive_release_effect(
+        stages=stages,
+        target_environment=run["target_environment"],
+        target_tier=run["target_tier"],
+        carried=subject_context["carried"],
+        batch_item_count=int(subject_context["batch"]["item_count"]),
+        stage=stage,
+    )
+    subject_context["release_effect"] = effect
+    subject_context["title"] = effect["headline"]
     originator = _existing_actor_id(
         conn,
         originator_actor_id if originator_actor_id is not None else run["created_by"],

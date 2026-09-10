@@ -74,8 +74,30 @@ export function releaseContents(facts, projectId = null) {
   };
 }
 
+// The evidence behind a "deploys nothing" claim, shown rather than asserted.
+// An approver told a gate is harmless has to be able to check that for
+// themselves, and each line is a fact the request froze at creation: which
+// runners the flow declares, what it targets, and what it carries.
+function appendNonDeployingBody(documentNode, host, effect) {
+  const why = block(
+    documentNode, host, "gate-block", "Why this deploys nothing",
+  );
+  const basis = Array.isArray(effect.basis) ? effect.basis : [];
+  for (const line of basis) {
+    why.appendChild(el(documentNode, "div", "gate-block-copy", String(line)));
+  }
+  return why;
+}
+
 export function appendDeploymentBody(context, host, facts, projectId = null) {
   const documentNode = context.document;
+  const effect = facts.release_effect;
+  if (effect && effect.deploys === false) {
+    // No release block: there is no release. Listing "0 changes" beside a
+    // practice gate reads as an empty deploy, which is the confusion this
+    // classification exists to end.
+    return appendNonDeployingBody(documentNode, host, effect);
+  }
   const contents = releaseContents(facts, projectId);
   const release = block(
     documentNode,

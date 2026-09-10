@@ -27,6 +27,13 @@ import { artifactEvidenceCard } from "./qa_evidence_artifact_view.js";
 // after the release has already run, so the effect is read from the stage's
 // own position rather than assumed.
 function deploymentProse(facts) {
+  // A gate that reaches no environment says so in its own words. The
+  // classification and this sentence are both frozen into the request from
+  // the flow's runners, destination and contents, so the reader is never told
+  // a run deploys nothing because its name or its empty batch suggested it.
+  if (facts.release_effect && facts.release_effect.deploys === false) {
+    return String(facts.release_effect.effect || "");
+  }
   const contents = releaseContents(facts);
   const target = facts.shipping?.target_environment;
   const remaining = facts.stage_position?.remaining;

@@ -236,6 +236,29 @@ def _validate_carried(kind: str, value: Any) -> None:
         _text(kind, entry["ref"], f"carried.items[{index}].ref")
 
 
+def _validate_release_effect(kind: str, value: Any) -> None:
+    """A new request always says whether resolving it deploys anything.
+
+    A gate that reaches nothing outside the control plane and one that ships a
+    production release are opposite decisions, and the approver can only tell
+    them apart if the request carries the answer plus the facts behind it. A
+    non-deploying classification is the claim that needs evidence, so it also
+    has to name the effect it has instead.
+    """
+    effect = _mapping(kind, value, "release_effect")
+    _required(kind, effect, {"deploys", "headline", "effect", "basis"})
+    if not isinstance(effect["deploys"], bool):
+        _fail(kind, "requires release_effect.deploys to be a boolean")
+    _text(kind, effect["headline"], "release_effect.headline")
+    if not effect["deploys"]:
+        _text(kind, effect["effect"], "release_effect.effect")
+    basis = _sequence(kind, effect["basis"], "release_effect.basis")
+    if not basis:
+        _fail(kind, "requires release_effect.basis to name at least one fact")
+    for index, entry in enumerate(basis):
+        _text(kind, entry, f"release_effect.basis[{index}]")
+
+
 def _validate_deployment(context: Mapping[str, Any]) -> None:
     kind = DEPLOYMENT_STAGE_APPROVAL
     _required(
@@ -249,9 +272,11 @@ def _validate_deployment(context: Mapping[str, Any]) -> None:
             "batch",
             "shipping",
             "carried",
+            "release_effect",
         },
     )
     _validate_carried(kind, context["carried"])
+    _validate_release_effect(kind, context["release_effect"])
     # Where the gate sits in its flow, so a sign-off after the release is not
     # described as though it were about to deploy.
     position = _mapping(kind, context["stage_position"], "stage_position")

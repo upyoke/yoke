@@ -81,6 +81,25 @@ SUBJECTS = {
                 "target_environment": "prod",
                 "summary": "Release bbbbbbbbbbbb to prod.",
             },
+            "stage_position": {"index": 0, "total": 2, "remaining": ["release"]},
+            "carried": {
+                "derivation": {
+                    "status": "derived",
+                    "contents_known": True,
+                    "reason": "complete",
+                    "recovery": "No action is required.",
+                },
+                "items": [
+                    {"item_id": 75, "ref": "YOK-75", "commit_shas": ["b" * 40]},
+                ],
+                "commits": [],
+            },
+            "release_effect": {
+                "deploys": True,
+                "headline": "Deploy to prod — approve the production stage",
+                "effect": "",
+                "basis": ["The flow targets prod."],
+            },
         },
     ),
 }
@@ -114,6 +133,12 @@ def test_creation_rejects_gate_context_without_required_facts(kind):
         (QA_NEEDS_REVIEW, ("artifact_count",), 2),
         (LIFECYCLE_TRANSITION_APPROVAL, ("approval_source", "kind"), "unknown"),
         (DEPLOYMENT_STAGE_APPROVAL, ("batch", "item_count"), 2),
+        # A gate claiming it deploys nothing must say what it does instead;
+        # an unexplained "harmless" is the claim an approver cannot check.
+        (DEPLOYMENT_STAGE_APPROVAL, ("release_effect", "deploys"), False),
+        (DEPLOYMENT_STAGE_APPROVAL, ("release_effect", "deploys"), "no"),
+        (DEPLOYMENT_STAGE_APPROVAL, ("release_effect", "headline"), ""),
+        (DEPLOYMENT_STAGE_APPROVAL, ("release_effect", "basis"), []),
     ),
 )
 def test_contract_rejects_contradictory_gate_facts(kind, path, replacement):
@@ -126,3 +151,9 @@ def test_contract_rejects_contradictory_gate_facts(kind, path, replacement):
         DecisionRequestSubjectContextError, match=SUBJECT_CONTEXT_INVALID
     ):
         validate_subject_context(kind, context)
+
+
+def test_complete_deployment_context_validates():
+    """The negative cases above only mean something beside a passing one."""
+    context = deepcopy(SUBJECTS[DEPLOYMENT_STAGE_APPROVAL][2])
+    assert validate_subject_context(DEPLOYMENT_STAGE_APPROVAL, context) == context

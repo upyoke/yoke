@@ -143,7 +143,20 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
             "commits": [],
             "warnings": [],
         },
-        "title": "Deploy to prod — approve the stage",
+        # Every stage of this flow runs an allowlisted runner, and the batch
+        # is one item — yet it names prod and cannot prove what it carries,
+        # so it is a release. Benign-looking runners alone never make a
+        # practice gate.
+        "release_effect": {
+            "deploys": True,
+            "headline": "Deploy to prod — approve the approve-prod stage",
+            "effect": "",
+            "basis": [
+                "The flow targets prod.",
+                "This run carries linked work items.",
+            ],
+        },
+        "title": "Deploy to prod — approve the approve-prod stage",
     }
     assert (
         deployment_stage_is_approved(

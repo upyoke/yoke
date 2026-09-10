@@ -5,8 +5,19 @@
 // coincide, an environment run that owns nothing and ships everything, a
 // release that genuinely carries nothing, one whose contents could not be
 // determined at all, and a sign-off answered after the release has run.
+//
+// One more pair sits beside those: a gate that deploys nothing at all, and a
+// real production release that happens to carry nothing. They look alike from
+// membership and they read alike from a flow name, so every fixture carries
+// the classification the producer froze rather than letting the card guess.
 
 import { requestRow } from "./universe_ui_inbox_test_support.mjs";
+
+// The producer writes the title from the classification, so a fixture that
+// disagreed with its own release_effect would test a shape nothing produces.
+function withEffect(context, effect) {
+  return { ...context, release_effect: effect, title: effect.headline };
+}
 
 export function deploymentRequestRow(overrides = {}) {
   return requestRow({
@@ -53,10 +64,77 @@ export function deploymentRequestRow(overrides = {}) {
         commits: [],
         warnings: [],
       },
-      title: "Deploy to prod — approve the stage",
+      // Named runners, a named destination and real contents: a release.
+      release_effect: {
+        deploys: true,
+        headline: "Deploy to prod — approve the prod-deploy stage",
+        effect: "",
+        basis: [
+          "Deploying stages: release runs core-container-deploy.",
+          "The flow targets prod.",
+          "This run carries source changes and linked work items.",
+        ],
+      },
+      title: "Deploy to prod — approve the prod-deploy stage",
     },
     ...overrides,
   });
+}
+
+// An approval-only gate: every stage runs human-approval or auto, the flow
+// names no destination, and the run carries nothing. Only all three together
+// earn the classification — the flow's name is prose and proves nothing, so
+// the practice purpose this sample flow was authored for reaches the reader
+// through that authored name and never through the derivation.
+export function approvalOnlyRequestRow(overrides = {}) {
+  const row = deploymentRequestRow(overrides);
+  return {
+    ...row,
+    subject_context: withEffect(
+      {
+        ...row.subject_context,
+        run_id: "run-20260910-003",
+        flow: {
+          id: "approval-practice-role-review",
+          name: "Practice: role approval — deploys nothing",
+        },
+        stage: "review-example",
+        stage_position: { index: 0, total: 2, remaining: ["finish-example"] },
+        batch: { item_count: 0, items: [] },
+        shipping: {
+          release_lineage: null,
+          target_environment: "merge-only",
+          summary: "0 item(s) ship to merge-only.",
+        },
+        carried: {
+          schema: 1,
+          derivation: {
+            status: "empty",
+            contents_known: true,
+            reason: "no_release_lineage",
+            recovery: "No action is required; this run ships nothing.",
+          },
+          items: [],
+          commits: [],
+          warnings: [],
+        },
+      },
+      {
+        deploys: false,
+        headline: "Approval only — deploys nothing",
+        effect:
+          "Resolving this records your decision and lets the run finish. "
+          + "Nothing is built, released, or promoted, no environment changes, "
+          + "and no work item moves.",
+        basis: [
+          "No stage in this flow can deploy: every stage runs human-approval "
+          + "or auto.",
+          "The flow names no target environment or tier.",
+          "This run carries no source change and owns no work item.",
+        ],
+      },
+    ),
+  };
 }
 
 // An environment run: the pipeline owns no items, and the release still
@@ -66,7 +144,7 @@ export function environmentRunRequestRow(overrides = {}) {
   const row = deploymentRequestRow(overrides);
   return {
     ...row,
-    subject_context: {
+    subject_context: withEffect({
       ...row.subject_context,
       batch: { item_count: 0, items: [] },
       shipping: {
@@ -90,7 +168,16 @@ export function environmentRunRequestRow(overrides = {}) {
         commits: ["9911aa22bb33"],
         warnings: [],
       },
-    },
+    }, {
+      deploys: true,
+      headline: "Deploy to stage — approve the prod-deploy stage",
+      effect: "",
+      basis: [
+        "Deploying stages: release runs core-container-deploy.",
+        "The flow targets stage.",
+        "This run carries source changes.",
+      ],
+    }),
   };
 }
 
@@ -100,7 +187,7 @@ export function undeterminedContentsRequestRow(overrides = {}) {
   const row = environmentRunRequestRow(overrides);
   return {
     ...row,
-    subject_context: {
+    subject_context: withEffect({
       ...row.subject_context,
       carried: {
         schema: 1,
@@ -117,7 +204,17 @@ export function undeterminedContentsRequestRow(overrides = {}) {
         commits: [],
         warnings: [],
       },
-    },
+    }, {
+      deploys: true,
+      headline: "Deploy to stage — approve the prod-deploy stage",
+      effect: "",
+      basis: [
+        "Deploying stages: release runs core-container-deploy.",
+        "The flow targets stage.",
+        "This run's contents could not be derived, so what it carries is "
+        + "unknown.",
+      ],
+    }),
   };
 }
 
@@ -136,12 +233,14 @@ export function signOffRequestRow(overrides = {}) {
 }
 
 // A release whose comparison ran and found nothing. Distinct from one whose
-// contents could not be determined at all.
+// contents could not be determined at all, and — the trap this fixture holds
+// open — indistinguishable from an approval-only gate by membership alone. It
+// targets prod, so it is a release however little it carries.
 export function emptyReleaseRequestRow(overrides = {}) {
   const row = deploymentRequestRow(overrides);
   return {
     ...row,
-    subject_context: {
+    subject_context: withEffect({
       ...row.subject_context,
       batch: { item_count: 0, items: [] },
       carried: {
@@ -159,6 +258,14 @@ export function emptyReleaseRequestRow(overrides = {}) {
         commits: [],
         warnings: [],
       },
-    },
+    }, {
+      deploys: true,
+      headline: "Deploy to prod — approve the prod-deploy stage",
+      effect: "",
+      basis: [
+        "Deploying stages: release runs core-container-deploy.",
+        "The flow targets prod.",
+      ],
+    }),
   };
 }
