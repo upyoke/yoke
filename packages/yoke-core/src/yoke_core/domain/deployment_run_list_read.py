@@ -40,6 +40,7 @@ RUN_PRESENTATION_FIELDS = (
     "stage_index",
     "stage_count",
     "gates",
+    "overview_priority",
 )
 
 
@@ -160,6 +161,13 @@ def present_deployment_runs(
             "member_items": run_members,
             "stages": stages,
             "gates": gates.get(run_id, []),
+            "overview_priority": (
+                0
+                if gates.get(run_id)
+                else 2
+                if str(row.get("status") or "") in TERMINAL_RUN_STATUSES
+                else 1
+            ),
         }
         if not compact:
             presentation.update(
@@ -223,6 +231,10 @@ def list_deployment_runs(
             append_overview_run_window(clauses, params)
         where = f"WHERE {' AND '.join(clauses)} " if clauses else ""
         run_columns, env_join = _run_named_columns(conn)
+        priority_order = ""
+        if relevance == "overview":
+            quoted = ", ".join(f"'{status}'" for status in TERMINAL_RUN_STATUSES)
+            priority_order = f"CASE WHEN dr.status IN ({quoted}) THEN 1 ELSE 0 END, "
         rows = conn.execute(
             f"SELECT {run_columns}, df.stages "
             "FROM deployment_runs dr "
@@ -230,7 +242,7 @@ def list_deployment_runs(
             "JOIN deployment_flows df ON df.id = dr.flow "
             f"{env_join} "
             f"{where}"
-            "ORDER BY dr.created_at DESC, dr.id DESC LIMIT %s",
+            f"ORDER BY {priority_order}dr.created_at DESC, dr.id DESC LIMIT %s",
             (*params, limit),
         ).fetchall()
         base = [dict(row) for row in rows]

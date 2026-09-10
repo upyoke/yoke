@@ -292,6 +292,15 @@ def test_qa_withdraw_requires_conclusive_or_waived_requirement(conn) -> None:
             reason="still undetermined",
         )
 
+    conn.execute("INSERT INTO qa_runs VALUES (69, 7, 'fail', 'failed')")
+    with pytest.raises(ValueError, match="subject has not ended"):
+        withdraw_decision_request(
+            conn,
+            request["id"],
+            actor_id=2,
+            reason="older evidence failed",
+        )
+
     conn.execute("INSERT INTO qa_runs VALUES (71, 7, 'pass', 'passed')")
     assert (
         withdraw_decision_request(

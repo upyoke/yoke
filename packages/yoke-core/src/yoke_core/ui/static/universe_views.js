@@ -79,6 +79,7 @@ export const DETAIL_RENDERERS = {
   machines: renderMachineDetail,
   "qa-methods": fromDrillInProject(renderQaMethodDetail),
   "qa-plans": fromDrillInProject(renderQaPlanDetail),
+  "qa-activity": fromDrillInProject(renderQaActivity),
 };
 
 // A destination is live exactly when it has a renderer here.

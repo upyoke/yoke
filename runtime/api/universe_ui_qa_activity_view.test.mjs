@@ -63,17 +63,13 @@ test("Evidence view actions expose local and stranded dispositions honestly", as
       },
     }],
   }));
+  await settle();
 
   assert.match(
     allNodes(host).map((node) => node.textContent).join(" "),
     /Evidence · marketing-pages-visual/,
   );
   const actions = byClass(host, "qa-evidence-action");
-  assert.deepEqual(actions.map((node) => node.textContent), ["view →", "view →"]);
-  actions[0].dispatchEvent(new Event("click"));
-  await settle();
-  actions[1].dispatchEvent(new Event("click"));
-  await settle();
   assert.deepEqual(
     actions.map((node) => node.textContent),
     ["on Test Mac", "not portable"],
@@ -214,4 +210,33 @@ test("Activity labels every merged row with its owning project", async () => {
     byClass(root, "qa-activity-link").map((node) => node.href),
     ["#/qa-plans/2?project=2", "#/qa-plans/1?project=1"],
   );
+});
+
+test("a run evidence route requests only that deployment run", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("main");
+  const requests = [];
+  let detailLabel = "";
+  await renderQaActivity({
+    document: documentNode,
+    projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
+    isMounted: () => true,
+    navigate: () => {},
+    client: {
+      async call(request) {
+        requests.push(request);
+        return ok({ summary: { total: 0, counts: {} }, rows: [] });
+      },
+    },
+  }, root, ["1"], "run-20260910-006", {
+    setDetailLabel(value) { detailLabel = value; },
+  });
+
+  assert.deepEqual(requests[0].payload, {
+    project: "1",
+    limit: 100,
+    deployment_run_id: "run-20260910-006",
+  });
+  assert.equal(detailLabel, "run-20260910-006");
+  assert.match(visibleText(root, " "), /Evidence for run-20260910-006/);
 });

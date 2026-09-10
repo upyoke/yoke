@@ -126,3 +126,4 @@ def test_run_list_exposes_carried_work_as_a_structured_object():
         "items": [],
         "commits": ["abc"],
     }
+    assert rows[0]["overview_priority"] == 2

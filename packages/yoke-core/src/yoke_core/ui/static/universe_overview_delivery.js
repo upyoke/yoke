@@ -53,8 +53,9 @@ export async function loadDelivery(context, band, getScope) {
       }
       rows.push(...(result.rows || []));
     }
-    rows.sort((left, right) => String(right.created_at || "").localeCompare(
-      String(left.created_at || ""),
+    rows.sort((left, right) => (
+      Number(left.overview_priority ?? 1) - Number(right.overview_priority ?? 1)
+      || String(right.created_at || "").localeCompare(String(left.created_at || ""))
     ));
     band.setCount(rows.length);
     band.renderCards(

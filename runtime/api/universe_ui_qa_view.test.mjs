@@ -260,7 +260,10 @@ test("Plans renders the durable objects and the full case-detail composition", a
     /open →/,
   );
   assert.deepEqual(
-    client.requests.find((request) => request.function === "qa.artifact.read"),
+    client.requests.find((request) => (
+      request.function === "qa.artifact.read"
+      && request.payload.artifact_id === 4
+    )),
     {
       function: "qa.artifact.read",
       payload: { artifact_id: 4 },

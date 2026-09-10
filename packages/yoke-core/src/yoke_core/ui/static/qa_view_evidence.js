@@ -20,7 +20,7 @@ export function renderEvidence(context, plan) {
     documentNode,
     title,
     caseEvidence.length === 1 ? null : artifacts.length,
-    "artifact read surface · both handle kinds",
+    null,
   );
   if (!artifacts.length) {
     result.body.appendChild(el(

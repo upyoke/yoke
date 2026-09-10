@@ -57,13 +57,19 @@ test("Blitz detail route renders the full execution-document composition", async
         },
       };
     }
+    if (request.function === "qa.artifact.read") {
+      return {
+        status: 200,
+        envelope: { success: true, result: { disposition: "unavailable" } },
+      };
+    }
     throw new Error(`unexpected function ${request.function}`);
   }), root, "7", "ACM-22");
   await settle();
 
   assert.deepEqual(
     requests.map((request) => request.function),
-    ["items.detail.get", "strategy.execution.get"],
+    ["items.detail.get", "strategy.execution.get", "qa.artifact.read"],
   );
   const rendered = itemText(root);
   assert.match(rendered, /Execution document/);

@@ -23,6 +23,7 @@ from yoke_cli.transport.dispatcher import (
     call_dispatcher,
     emit_response,
 )
+from yoke_cli.qa_artifact_download import ArtifactDownloadError, download_artifact
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -153,12 +154,18 @@ def _artifact_read_to_path(parsed: Any) -> int:
             dest.write_bytes(base64.b64decode(encoded))
         elif source and Path(str(source)).is_file():
             shutil.copyfile(str(source), dest)
+        elif result.get("download_url"):
+            try:
+                download_artifact(str(result["download_url"]), dest)
+            except ArtifactDownloadError as exc:
+                print(f"yoke qa artifact read: {exc}", file=sys.stderr)
+                return 1
         else:
             print(
                 "yoke qa artifact read: no portable bytes to write to --output",
                 file=sys.stderr,
             )
-            return emit_response(response, json_mode=parsed.json_mode)
+            return 1
         result["path"] = str(dest.resolve())
     return emit_response(response, json_mode=parsed.json_mode)
 

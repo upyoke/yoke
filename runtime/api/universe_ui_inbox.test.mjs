@@ -266,11 +266,15 @@ test("all four request kinds link to their one subject home", () => {
 test("an every-approver gate shows progress and reports the viewer's own decision",
   async () => {
     const { main } = renderInbox("all", [requestRow({
+      deciders: [
+        { actor_id: 2, label: "Ben (actor 2)", via: "named", is_you: true },
+        { actor_id: 202, label: "Ben (actor 202)", via: "named", is_you: false },
+      ],
       approval_progress: {
         mode: "all",
         required: 2,
         satisfied: 1,
-        outstanding: ["Bo"],
+        outstanding: ["Ben (actor 202)"],
         resolved: false,
       },
       decided_by_you: true,
@@ -278,7 +282,10 @@ test("an every-approver gate shows progress and reports the viewer's own decisio
     })]);
     await settle();
     const subtitle = byClass(main, "inbox-row-subtitle")[0].textContent;
-    assert.ok(subtitle.includes("1 of 2, waiting on Bo"), subtitle);
+    assert.ok(subtitle.includes("1 of 2 approvals"), subtitle);
+    assert.ok(!subtitle.includes("actor 202"), subtitle);
+    const detail = byClass(main, "gate-details")[0].textContent;
+    assert.match(detail, /Ben \(actor 202\)/);
     assert.ok(subtitle.includes("you chose Approve"), subtitle);
     assert.equal(byClass(main, "inbox-action").length, 0);
     assert.equal(

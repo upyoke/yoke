@@ -175,9 +175,7 @@ export function decisionProgressText(row) {
   const progress = row.approval_progress || {};
   const required = Number(progress.required || 0);
   if (required < 2) return "";
-  const count = `${Number(progress.satisfied || 0)} of ${required}`;
-  const waiting = (progress.outstanding || []).join(", ");
-  return waiting ? `${count}, waiting on ${waiting}` : count;
+  return `${Number(progress.satisfied || 0)} of ${required} approvals`;
 }
 
 export function yourDecisionText(row) {
@@ -193,17 +191,13 @@ export function yourDecisionText(row) {
 const SUBTITLE_BUILDERS = {
   deployment_stage_approval(facts) {
     return [
-      facts.run_id,
-      facts.flow?.name ? `flow ${facts.flow.name}` : "",
-      facts.stage ? `stage ${facts.stage}` : "",
+      facts.flow?.name,
     ];
   },
   qa_needs_review(facts) {
     return [
       facts.plan_name,
       facts.method_name,
-      facts.run_id ? `run ${facts.run_id}` : "",
-      "undetermined",
     ];
   },
   lifecycle_transition_approval(facts) {
@@ -256,19 +250,48 @@ export function decisionSubtitle(row) {
 // consequence, and the honest answer for it is that nobody knows.
 const TITLE_BUILDERS = {
   deployment_stage_approval(facts) {
-    const headline = facts.release_effect?.headline;
-    if (headline) return String(headline);
-    return `Approve the ${facts.stage || "next"} stage`;
+    const stage = String(facts.stage || "next stage").replaceAll("-", " ");
+    return `Approve ${stage}`;
   },
   qa_needs_review(facts) {
     const subject = facts.case_name || facts.plan_name;
-    return subject ? `${subject} needs your review` : "";
+    return subject ? `Review ${subject}` : "";
   },
   lifecycle_transition_approval(facts) {
     if (!facts.item_ref) return "";
-    return `${facts.item_ref} — approve the ${facts.to_stage || "next"} transition`;
+    return `Approve ${facts.item_ref} ${facts.to_stage || "transition"}`;
   },
 };
+
+export function decisionSummary(row) {
+  const facts = row.subject_context || {};
+  if (row.kind === "deployment_stage_approval") {
+    const effect = facts.release_effect || {};
+    if (effect.consequence === "deploys_nothing") {
+      return "Approval only — deploys nothing. Resolving this lets the run continue.";
+    }
+    if (effect.consequence !== "deploys") {
+      return "Deployment effect is unknown. Treat this as a deploy decision.";
+    }
+    const carried = facts.carried;
+    const known = carried?.derivation?.contents_known;
+    const count = (carried?.items || []).length + (carried?.commits || []).length;
+    const target = facts.shipping?.target_environment || "an environment";
+    return known
+      ? `Deploys ${count} ${count === 1 ? "change" : "changes"} to ${target}.`
+      : `Deploys to ${target}; release contents are unknown.`;
+  }
+  if (row.kind === "lifecycle_transition_approval") {
+    return `Moves the item to ${facts.to_stage || "its next stage"}. Deploys nothing.`;
+  }
+  if (row.kind === "qa_needs_review") {
+    const count = Number(facts.artifact_count || 0);
+    return count
+      ? `Human verdict needed. ${count} ${count === 1 ? "artifact" : "artifacts"} attached.`
+      : "Human verdict needed. No evidence is attached.";
+  }
+  return "";
+}
 
 export function decisionTitle(row) {
   const facts = row.subject_context || {};
@@ -285,6 +308,7 @@ export const inboxPresentation = {
   decisionLinks,
   decisionOrigin,
   decisionProgressText,
+  decisionSummary,
   decisionSubtitle,
   decisionTitle,
   subjectHref,

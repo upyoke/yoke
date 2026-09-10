@@ -182,6 +182,7 @@ test("hosted evidence makes local handles explicitly on-machine", async () => {
       },
     }],
   }));
+  await settle();
 
   assert.equal(byClass(host, "panel-count").length, 0);
   assert.match(
@@ -191,7 +192,7 @@ test("hosted evidence makes local handles explicitly on-machine", async () => {
   const actions = byClass(host, "qa-evidence-action");
   assert.deepEqual(
     actions.map((node) => [node.tagName, node.textContent]),
-    [["SPAN", "on-machine"], ["BUTTON", "view →"], ["BUTTON", "view →"]],
+    [["SPAN", "on-machine"], ["BUTTON", "not portable"], ["BUTTON", "retry →"]],
   );
   assert.equal(
     allNodes(host).some((node) =>
@@ -199,11 +200,6 @@ test("hosted evidence makes local handles explicitly on-machine", async () => {
     ),
     false,
   );
-
-  actions[1].dispatchEvent(new Event("click"));
-  await settle();
-  actions[2].dispatchEvent(new Event("click"));
-  await settle();
 
   assert.deepEqual(
     requests.map((request) => request.payload.artifact_id),
@@ -258,11 +254,6 @@ test("local evidence keeps the artifact read behavior", async () => {
       },
     }],
   }));
-
-  const action = byClass(host, "qa-evidence-action")[0];
-  assert.equal(action.tagName, "BUTTON");
-  assert.equal(action.textContent, "view →");
-  action.dispatchEvent(new Event("click"));
   await settle();
 
   assert.deepEqual(requests, [{
@@ -317,10 +308,6 @@ test("a presigned image is shown, not just linked by filename", async () => {
       },
     }],
   }));
-
-  const actions = byClass(host, "qa-evidence-action");
-  actions[0].dispatchEvent(new Event("click"));
-  actions[1].dispatchEvent(new Event("click"));
   await settle();
 
   // Durable evidence is a screenshot whichever backend holds it. Stopping at
@@ -334,6 +321,8 @@ test("a presigned image is shown, not just linked by filename", async () => {
   );
   // Evidence with nothing to preview keeps the link it always had.
   assert.equal(byClass(host, "qa-evidence-preview").length, 1);
+  byClass(host, "qa-evidence-open")[1].dispatchEvent(new Event("click"));
+  await settle();
   assert.deepEqual(
     byClass(host, "qa-evidence-link").map((node) => [node.textContent, node.href]),
     [["view →", "https://bucket.example.test/2"]],

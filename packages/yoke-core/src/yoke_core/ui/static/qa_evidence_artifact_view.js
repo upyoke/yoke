@@ -9,15 +9,13 @@
 // at any of them, which is a verdict asked for on evidence its reader never
 // saw.
 //
-// Loading stays an explicit act. An Inbox listing every pending gate would
-// otherwise fetch every artifact of every row on paint, and evidence bytes
-// run to megabytes; the card names what it holds, and reads it when asked.
-
 import {
   callFunction,
   el,
   portabilityMode,
 } from "./universe_view_support.js";
+
+const EVIDENCE_READ_TIMEOUT_MS = 15_000;
 
 // Callers hold an artifact in two shapes -- QA detail reads whole rows off a
 // case result, while a gate carries the narrower projection its subject
@@ -95,7 +93,7 @@ export function artifactLabel(artifact) {
 function artifactStorage(artifact, hostedLocal) {
   const handle = artifactHandle(artifact);
   if (handle?.backend === "s3") {
-    return "stored evidence · available here";
+    return "";
   }
   if (handle?.backend === "local") {
     return hostedLocal
@@ -121,6 +119,28 @@ function isHostedLocal(context, artifact) {
 
 function isImage(contentType) {
   return String(contentType || "").startsWith("image/");
+}
+
+function previewable(artifact) {
+  return isImage(artifact.content_type)
+    || artifact.artifact_type.toLowerCase().includes("screenshot");
+}
+
+async function boundedRead(promise, timeoutMs = EVIDENCE_READ_TIMEOUT_MS) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("Evidence preview timed out. Retry the read.")),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // The preview and the full-size view are one control: the reader clicks what
@@ -201,17 +221,10 @@ export function artifactEvidenceCard(context, raw, requirementId = null) {
   const card = el(documentNode, "div", "qa-evidence");
   card.appendChild(el(documentNode, "span", "qa-evidence-icon", "🖼"));
   const copy = el(documentNode, "span");
-  const open = el(
-    documentNode,
-    hostedLocal ? "span" : "button",
-    hostedLocal ? "mono" : "qa-evidence-open",
-    label,
-  );
-  if (!hostedLocal) open.type = "button";
-  copy.appendChild(open);
-  copy.appendChild(el(
-    documentNode, "small", null, artifactStorage(artifact, hostedLocal),
-  ));
+  const labelNode = el(documentNode, "strong", "qa-evidence-label", label);
+  copy.appendChild(labelNode);
+  const storage = artifactStorage(artifact, hostedLocal);
+  if (storage) copy.appendChild(el(documentNode, "small", null, storage));
   const caption = artifactCaption(artifact);
   if (caption) {
     copy.appendChild(el(documentNode, "small", "qa-evidence-caption", caption));
@@ -239,22 +252,27 @@ export function artifactEvidenceCard(context, raw, requirementId = null) {
   action.setAttribute("aria-label", `View ${label}`);
   action.style.color = "var(--yoke-link)";
   card.appendChild(action);
+  let loading = false;
   const load = async () => {
-    open.disabled = true;
+    if (loading) return;
+    loading = true;
     action.disabled = true;
     action.textContent = "loading…";
     action.style.color = "var(--yoke-muted)";
     resultHost.textContent = "loading evidence…";
     let response;
     try {
-      response = await callFunction(
-        context.client,
-        "qa.artifact.read",
-        { artifact_id: artifact.id },
-        {
-          kind: "qa_requirement",
-          qa_requirement_id: artifact.requirement_id,
-        },
+      response = await boundedRead(
+        callFunction(
+          context.client,
+          "qa.artifact.read",
+          { artifact_id: artifact.id },
+          {
+            kind: "qa_requirement",
+            qa_requirement_id: artifact.requirement_id,
+          },
+        ),
+        context.evidenceReadTimeoutMs,
       );
     } catch (error) {
       response = {
@@ -266,6 +284,7 @@ export function artifactEvidenceCard(context, raw, requirementId = null) {
       action.textContent = showArtifactResult(
         documentNode, resultHost, artifact, response.envelope.result,
       ) || "";
+      loading = false;
       return;
     }
     // A failed read keeps the control live and says why: the reader has to
@@ -273,13 +292,13 @@ export function artifactEvidenceCard(context, raw, requirementId = null) {
     // chip-only state this module exists to end.
     resultHost.textContent =
       response.envelope?.error?.message || "Evidence unavailable.";
-    open.disabled = false;
+    loading = false;
     action.disabled = false;
     action.textContent = "retry →";
     action.style.color = "var(--yoke-link)";
   };
-  open.addEventListener("click", load);
   action.addEventListener("click", load);
+  if (previewable(artifact)) void load();
   return card;
 }
 

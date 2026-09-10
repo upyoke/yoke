@@ -9,6 +9,7 @@ from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_declared_paths import CONFLICT_SURVEY_SECTION
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
+from yoke_core.domain.decision_related_evidence import related_screenshot_evidence
 from yoke_core.domain.item_json_sections import read_json_section
 from yoke_core.domain.schema_common import _table_exists
 
@@ -111,6 +112,7 @@ def build_lifecycle_subject_context(
         str(item["public_item_prefix"] or ""),
         int(item["project_sequence"]),
     )
+    changes = _branch_changes(conn, int(item["id"]))
     return {
         "item_id": int(item["id"]),
         "item_ref": public_ref,
@@ -120,7 +122,12 @@ def build_lifecycle_subject_context(
         "to_stage": target,
         "workflow_id": str(item["workflow_id"]),
         "workflow_version_id": int(item["workflow_version_id"]),
-        "branch_changes": _branch_changes(conn, int(item["id"])),
+        "branch_changes": changes,
+        "evidence": related_screenshot_evidence(
+            conn,
+            item_id=int(item["id"]),
+            expected_revision=changes["commit_sha"],
+        ),
         # Which policy asked for this approval, as the closed kind the
         # reader's surface turns into a sentence. The config key that
         # selected it ("workflow_posture.approval_on_done") named an

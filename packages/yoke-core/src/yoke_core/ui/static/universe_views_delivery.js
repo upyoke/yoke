@@ -57,13 +57,17 @@ function originatingItems(documentNode, row) {
   return members;
 }
 
-function runProjectLabel(projects, projectSlug) {
+function runProject(projects, projectSlug) {
   const normalized = String(projectSlug || "").toLowerCase();
-  const project = projects.find((candidate) => (
+  return projects.find((candidate) => (
     [candidate.id, candidate.slug, candidate.name].some(
       (value) => String(value || "").toLowerCase() === normalized,
     )
   ));
+}
+
+function runProjectLabel(projects, projectSlug) {
+  const project = runProject(projects, projectSlug);
   const label = project?.slug || projectSlug || project?.name || "—";
   return project?.emoji ? `${project.emoji} ${label}` : label;
 }
@@ -88,7 +92,16 @@ function renderRunsTable(body, rows, projects, onTerminalized) {
   table.appendChild(head);
   for (const row of rows) {
     const tr = el(documentNode, "tr");
-    tr.appendChild(el(documentNode, "td", "mono", row.id || "—"));
+    const runCell = el(documentNode, "td", "mono");
+    const runLink = el(
+      documentNode, "a", "delivery-run-evidence", row.id || "—",
+    );
+    runLink.href = buildUniverseRoute(
+      "qa-activity", runProject(projects, row.project)?.id, row.id,
+    );
+    runLink.setAttribute("aria-label", `QA evidence for ${row.id}`);
+    runCell.appendChild(runLink);
+    tr.appendChild(runCell);
     tr.appendChild(el(
       documentNode, "td", null, runProjectLabel(projects, row.project),
     ));

@@ -20,9 +20,7 @@ SubjectStateCheck = Callable[
     tuple[bool, str],
 ]
 
-_MACHINE_ENDED_STATES = frozenset(
-    {"expired", "withdrawn", "cancelled", "canceled"}
-)
+_MACHINE_ENDED_STATES = frozenset({"expired", "withdrawn", "cancelled", "canceled"})
 _MACHINE_END_TIMESTAMPS = (
     "ended_at",
     "expired_at",
@@ -156,14 +154,18 @@ def _qa_review_ended(
         return True, f"QA requirement {requirement_id} was waived"
     if not _table_exists(conn, "qa_runs"):
         return False, f"QA requirement {requirement_id} remains unresolved"
+    run_text = str(_context(request).get("run_id") or "")
+    if not run_text.isdigit():
+        raise ValueError(f"decision request {request_id} has no verifiable QA run")
     clauses = ["verdict IN ('pass', 'fail')"]
     if _column_exists(conn, "qa_runs", "case_outcome"):
         clauses.append("case_outcome IN ('passed', 'failed')")
     conclusive = conn.execute(
         "SELECT 1 FROM qa_runs "
         f"WHERE qa_requirement_id = {_p(conn)} "
+        f"AND id >= {_p(conn)} "
         f"AND ({' OR '.join(clauses)}) LIMIT 1",
-        (requirement_id,),
+        (requirement_id, int(run_text)),
     ).fetchone()
     if conclusive is not None:
         return True, f"QA requirement {requirement_id} has a conclusive result"
@@ -205,10 +207,8 @@ def _qa_walk_ended(conn: Any, requirement_id: int) -> tuple[bool, str]:
         )
     outcomes = ", ".join(f"{row[0]} {row[1]}" for row in walks)
     return True, (
-        f"QA requirement {requirement_id} has no live plan execution left "
-        f"({outcomes})"
+        f"QA requirement {requirement_id} has no live plan execution left ({outcomes})"
     )
-
 
 
 def _machine_approval_ended(

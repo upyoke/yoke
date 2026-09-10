@@ -123,7 +123,7 @@ test("a run stopped on an approval says so and carries the answer", () => {
   assert.equal(byClass(card, "run-gate-note")[0].textContent, "you: project owner");
   assert.ok(
     byClass(card, "run-gate-why")[0].textContent.includes(
-      "This run carries 2 changes to prod",
+      "Deploys 2 changes to prod",
     ),
   );
   // Same labels, same order, same emphasis as the Inbox draws for this
@@ -154,15 +154,16 @@ test("a gate this reader may not answer names who it waits on", () => {
   assert.equal(byClass(card, "run-gate-action").length, 0);
 });
 
-test("a QA gate on a run card carries the evidence the Inbox shows", () => {
+test("a QA gate on a run card carries the evidence the Inbox shows", async () => {
   const { card } = renderRunCard(runGate(qaRequestRow()));
+  await settle();
 
   assert.ok(card.className.includes("is-awaiting-review"), card.className);
   assert.equal(byClass(card, "run-gate-name")[0].textContent, "marketing-pages-visual");
   // The same reader, so a reviewer deciding from the pipeline end opens the
   // screenshot exactly as one deciding from the mailbox end does.
   assert.equal(byClass(card, "qa-evidence").length, 3);
-  assert.equal(byClass(card, "qa-evidence-open").length, 6);
+  assert.equal(byClass(card, "qa-evidence-preview").length, 2);
 });
 
 test("a run with no gate draws no Gates region at all", () => {

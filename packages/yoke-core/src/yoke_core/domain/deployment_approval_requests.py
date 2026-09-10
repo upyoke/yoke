@@ -12,12 +12,11 @@ from yoke_core.domain.decision_requests import (
     create_decision_request,
     list_subject_requests,
 )
+from yoke_core.domain.decision_related_evidence import related_screenshot_evidence
 from yoke_core.domain.events_bounded_emit import emit_bounded
 
 
-#: The registered operation that derives one exact run stage's approval
-#: verdict. Named here so the evaluator, its handler, and the pipeline
-#: adapter all address the same operation.
+#: Registered operation deriving one exact run stage's approval verdict.
 EVALUATE_STAGE_APPROVAL_FUNCTION = "deployment_runs.stage_approval.evaluate"
 
 
@@ -133,9 +132,7 @@ def _release_contents(conn: Any, run_id: str) -> dict[str, Any]:
     that already has a pending request must not shell out to git again, and a
     stored snapshot is never recomputed.
     """
-    from yoke_core.domain.deployment_run_carried_work import (
-        derive_carried_work_safely,
-    )
+    from yoke_core.domain.deployment_run_carried_work import derive_carried_work_safely
 
     return derive_carried_work_safely(conn, run_id)
 
@@ -229,10 +226,13 @@ def evaluate_deployment_stage_approval(
     if verdict is not None:
         conn.commit()
         return verdict
-    # Only now, with no request answering for this snapshot, is the release
-    # content derived: the deriver reads git, and repeating it on every
-    # pending-gate evaluation would pay for a fact the snapshot already froze.
+    # Freeze the git-derived release facts only for a new request.
     subject_context["carried"] = _release_contents(conn, run_id)
+    subject_context["evidence"] = related_screenshot_evidence(
+        conn,
+        deployment_run_id=run_id,
+        expected_revision=subject_context["shipping"]["release_lineage"],
+    )
     originator = _existing_actor_id(
         conn,
         originator_actor_id if originator_actor_id is not None else run["created_by"],
