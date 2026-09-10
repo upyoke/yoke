@@ -34,15 +34,18 @@ test("healthy is green and genuinely neutral states stay grey", () => {
 
 test("every state a session card can show carries a deliberate family", () => {
   // The session vocabulary is small and fully enumerable, so none of it is
-  // allowed to reach the map's unknown-value fallback by accident.
+  // allowed to reach the map's unknown-value fallback by accident. "idle" is
+  // retired as a primary-status pill — recency now lives on the timing line
+  // as plain "active now" / "idle Xm" text, not a second pill — but the
+  // family itself stays live for other muted states (ended, unknown, …) and
+  // other pill families across the UI.
   const shown = [
-    "active", "idle", "waiting", "parked", "probed", "stale",
+    "active", "waiting", "parked", "probed", "stale",
     "possibly stale", "process-gone", "ended", "unknown",
   ];
   const families = new Map(shown.map((s) => [s, pillFamilyForState(s)]));
   assert.deepEqual([...families.entries()], [
     ["active", "good"],
-    ["idle", "idle"],
     ["waiting", "warn"],
     ["parked", "park"],
     ["probed", "run"],

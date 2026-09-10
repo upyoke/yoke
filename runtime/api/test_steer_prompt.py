@@ -207,14 +207,15 @@ class TestSteerSkillContract:
     def test_dashboard_card_is_named_as_the_faster_read(self):
         loop = _words(_read(_STEER_DIR / "loop.md"))
         assert "dashboard session card" in loop
-        # One primary status on the identity line; age never restates it.
-        assert "`active` under a minute" in loop
-        assert "`idle` once quiet" in loop
+        # One primary status on the identity line; age carries recency, not a pill.
+        assert "`active` for any live session" in loop
         assert "confirmed `stale`" in loop
         assert "`waiting` or `probed`" in loop
-        assert "executor-aware TTL (1440 minutes on this surface)" in loop
-        assert "solely decides alive versus stale" in loop
-        assert "The age says how long it has been quiet" in loop
+        assert "`active now` under a minute" in loop
+        assert "`idle Xm` (whole minutes, never hours/days)" in loop
+        assert "executor-aware TTL (1440 minutes here)" in loop
+        assert "decides alive versus stale" in loop
+        assert "still be a session the control plane counts" in loop
 
     def test_no_steer_file_teaches_the_retired_label_or_snapshot_reads(self):
         corpus = _corpus()
@@ -226,7 +227,7 @@ class TestSteerSkillContract:
         # stopped moving.
         assert "liveness=stale" not in corpus
         assert "rather than any liveness label" in _words(corpus)
-        assert "The age says how long it has been quiet" in _words(corpus)
+        assert "still be a session the control plane counts" in _words(corpus)
 
     def test_no_steer_file_teaches_steerer_sent_only_scope(self):
         corpus = _corpus()

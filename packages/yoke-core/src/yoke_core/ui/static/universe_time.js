@@ -57,12 +57,13 @@ function absoluteTime(value) {
 }
 
 export function relativeTime(
-  documentNode, value, now = Date.now(), { instantText = "now" } = {},
+  documentNode, value, now = Date.now(),
+  { instantText = "now", relativeAgeFn = relativeAge } = {},
 ) {
   const time = documentNode.createElement("time");
   const timestamp = new Date(value).getTime();
   const relativeText = (referenceTime = Date.now()) => {
-    const age = relativeAge(value, referenceTime);
+    const age = relativeAgeFn(value, referenceTime);
     return age === "now" ? instantText : age;
   };
   const relative = relativeText(now);
