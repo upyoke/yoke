@@ -110,13 +110,10 @@ classified it, and `possibly stale` only while still server-active past the
 window with claims and no wait or probe. A claim-holding card's primary
 becomes `waiting` or `probed` when those facts explain the quiet. Age, relay,
 and latest-message stay labelled subordinates and never restate that status
-word. Recency instead lives on the age line's own timing text, not the
-identity pill: `active now` under a minute since the observed activity
-timestamp, `idle Xm` (elapsed whole minutes) at or past it. The server's
-classification against the executor-aware TTL (1440 minutes on this surface)
-solely decides alive versus stale, so a card whose age line reads `idle 6h`
-can still be a session the control plane counts. The age line says how long
-it has been quiet.
+word. Recency instead lives on the age line: `active now` under a minute,
+`idle Xm` (whole minutes, never hours/days) past it. The executor-aware TTL
+(1440 minutes here) decides alive versus stale, so `idle 360m` there can
+still be a session the control plane counts.
 
 ### 2. Consume worker reports
 
