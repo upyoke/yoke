@@ -234,18 +234,6 @@ def test_post_state_failure_discards_primary_evidence() -> None:
     assert "sensitive-primary-output" not in result.evidence
 
 
-def test_primary_exception_is_secret_safe_and_cleanup_still_runs() -> None:
-    result, execution, events = run_lifecycle(
-        primary_error=RuntimeError("private remote output")
-    )
-
-    assert result.error_code == "machine_method_failed"
-    assert execution.execute_calls == 1
-    assert events == ["setup", "primary", "close"]
-    assert "private remote output" not in str(result.evidence)
-    assert result.evidence["primary_action"] == {"outcome": "failed"}
-
-
 def test_primary_failed_result_still_runs_post_state_and_cleanup() -> None:
     primary = MachineCaseResult(
         case_outcome="failed",

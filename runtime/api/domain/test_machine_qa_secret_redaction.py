@@ -4,12 +4,65 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from yoke_core.domain import machine_qa_local_execution
-from yoke_core.domain.machine_qa_execution import MachineCaseResult
-from yoke_core.domain.machine_qa_execution_contract import issue_execution_contract
+from runtime.api.domain.machine_qa_fixture_lifecycle_test_support import (
+    FakeExecution,
+    FakeFixtureRunner,
+)
 from runtime.api.domain.qa_plan_execution_test_support import (
     synthetic_execution_target,
 )
+from yoke_core.domain import machine_qa_local_execution
+from yoke_core.domain.machine_qa_execution import MachineCaseResult
+from yoke_core.domain.machine_qa_execution_contract import issue_execution_contract
+
+
+def _issued_case_contract():
+    execution_target, execution_target_digest = synthetic_execution_target(
+        project_id=4,
+        project="yoke",
+    )
+    return issue_execution_contract(
+        operation="case",
+        lease_id=5,
+        lease_key="test-machine:mac",
+        project_id=4,
+        project="yoke",
+        settings={
+            "resource_name": "test-mac",
+            "host": "test-mac.local",
+            "user": "tester",
+            "host_kind": "mac-ssh",
+            "operating_notes": "",
+        },
+        cases=[
+            {
+                "requirement_id": 1,
+                "item_id": 2,
+                "plan_id": 3,
+                "case_key": "secret-redaction",
+                "method_id": "machine-state-check",
+                "method_name": "Machine state check",
+                "runner_id": "host_control",
+                "required_capability_kinds": ["test-machine"],
+                "verdict_path": "automatic",
+                "qa_kind": "machine",
+                "instructions": "Check the machine.",
+                "expected_outcome": "The machine is ready.",
+                "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
+                "host_baseline": None,
+                "entry_surface": None,
+                "required_completion": None,
+                "workflow_transition_id": "implemented",
+                "project_id": 4,
+                "project": "yoke",
+                "execution_target": execution_target,
+                "execution_target_digest": execution_target_digest,
+                "lane_branch": None,
+                "case_position": 1,
+                "baseline_position": 1,
+            }
+        ],
+    )
 
 
 def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
@@ -34,54 +87,9 @@ def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
             },
         ),
     )
-    execution_target, execution_target_digest = synthetic_execution_target(
-        project_id=4,
-        project="yoke",
-    )
-    case = {
-        "requirement_id": 1,
-        "item_id": 2,
-        "plan_id": 3,
-        "case_key": "secret-redaction",
-        "method_id": "machine-state-check",
-        "method_name": "Machine state check",
-        "runner_id": "host_control",
-        "required_capability_kinds": ["test-machine"],
-        "verdict_path": "automatic",
-        "qa_kind": "machine",
-        "instructions": "Check the machine.",
-        "expected_outcome": "The machine is ready.",
-        "method_config": {"assertions": [{"argv": ["/usr/bin/true"]}]},
-        "host_baseline": None,
-        "entry_surface": None,
-        "required_completion": None,
-        "workflow_transition_id": "implemented",
-        "project_id": 4,
-        "project": "yoke",
-        "execution_target": execution_target,
-        "execution_target_digest": execution_target_digest,
-        "lane_branch": None,
-        "case_position": 1,
-        "baseline_position": 1,
-    }
-    contract = issue_execution_contract(
-        operation="case",
-        lease_id=5,
-        lease_key="test-machine:mac",
-        project_id=4,
-        project="yoke",
-        settings={
-            "resource_name": "test-mac",
-            "host": "test-mac.local",
-            "user": "tester",
-            "host_kind": "mac-ssh",
-            "operating_notes": "",
-        },
-        cases=[case],
-    )
 
     submission = machine_qa_local_execution.execute_machine_case_contract(
-        contract.model_dump(mode="json")
+        _issued_case_contract().model_dump(mode="json")
     )
 
     assert secret not in repr(submission.payload)
@@ -89,3 +97,28 @@ def test_fixture_augmented_evidence_is_redacted_before_submission(monkeypatch):
         submission.payload["results"][0]["evidence"]["fixture_report"]
         == "prepared with [REDACTED]"
     )
+
+
+def test_primary_exception_diagnostic_is_redacted_before_submission(monkeypatch):
+    secret = "credential-that-must-not-leave-the-client"
+    events: list[str] = []
+    execution = FakeExecution(
+        FakeFixtureRunner(events),
+        events,
+        primary_error=RuntimeError(f"failed with {secret}"),
+        secrets={"ssh_private_key": secret},
+    )
+    monkeypatch.setattr(
+        machine_qa_local_execution,
+        "_execution",
+        lambda _contract: execution,
+    )
+
+    submission = machine_qa_local_execution.execute_machine_case_contract(
+        _issued_case_contract().model_dump(mode="json")
+    )
+    action = submission.payload["results"][0]["evidence"]["primary_action"]
+
+    assert secret not in repr(submission.payload)
+    assert "[REDACTED]" in action["diagnostic"]
+    assert action["reason"] == "machine_method_failed"

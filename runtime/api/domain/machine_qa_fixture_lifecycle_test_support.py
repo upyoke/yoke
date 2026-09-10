@@ -92,6 +92,7 @@ class FakeExecution:
         primary: MachineCaseResult | None = None,
         primary_error: Exception | None = None,
         baseline: Any = None,
+        secrets: dict[str, str] | None = None,
     ) -> None:
         self.fixture = fixture
         self.fixture_create_calls = 0
@@ -100,7 +101,7 @@ class FakeExecution:
         )
         self.material = SimpleNamespace(
             settings={"resource_name": "test-mac"},
-            secrets={},
+            secrets=dict(secrets or {}),
         )
         self.events = events
         self.baseline = baseline
@@ -233,6 +234,7 @@ def run_lifecycle(
     primary_error: Exception | None = None,
     baseline: Any = None,
     case: MachineQaCaseContract | None = None,
+    secrets: dict[str, str] | None = None,
 ):
     events: list[str] = []
     fixture = FakeFixtureRunner(
@@ -247,6 +249,7 @@ def run_lifecycle(
         primary=primary,
         primary_error=primary_error,
         baseline=baseline,
+        secrets=secrets,
     )
     result = execute_case_with_fixture_lifecycle(
         execution,
