@@ -14,6 +14,7 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.qa_execution_proof import qa_evidence_run_id
+from yoke_core.domain.qa_review_requirement_facts import requirement_facts
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -43,6 +44,7 @@ def qa_review_artifact_context(
     *,
     requirement_id: int,
     run_id: int,
+    expected_project_id: int | None = None,
 ) -> dict[str, Any]:
     """Return the artifact projection for one requirement's reviewed run.
 
@@ -50,6 +52,12 @@ def qa_review_artifact_context(
     or any run whose own capture was recorded under a different run id,
     reports the artifacts that actually back the reviewed verdict instead of
     an empty set queried straight off the reviewed run's own id.
+
+    ``expected_project_id``, when given, must match the requirement's own
+    resolved project (:func:`requirement_facts`, the same resolution the
+    producer uses) -- a requirement/run pairing that is internally
+    consistent but scoped to a different project than the caller expects
+    refuses rather than crossing that boundary.
     """
     empty = {
         "artifacts": [],
@@ -59,6 +67,13 @@ def qa_review_artifact_context(
     }
     if not _table_exists(conn, "qa_runs") or not _table_exists(conn, "qa_artifacts"):
         return empty
+    if expected_project_id is not None:
+        try:
+            requirement = requirement_facts(conn, requirement_id)
+        except (LookupError, ValueError):
+            return empty
+        if int(requirement["project_id"]) != int(expected_project_id):
+            return empty
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     run_row = query_one(
         conn,
