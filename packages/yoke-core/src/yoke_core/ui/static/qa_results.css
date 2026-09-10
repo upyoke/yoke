@@ -76,6 +76,28 @@
   font-weight: 600;
 }
 
+/* The activity table's evidence cell: a summary line plus the genuinely
+   linked capture cards below it, bounded so one row with many screenshots
+   does not push the rest of the table off screen. */
+.qa-activity-evidence {
+  min-width: 160px;
+  max-width: 260px;
+}
+
+.qa-activity-evidence-summary {
+  color: var(--yoke-muted);
+  font-size: 11.5px;
+}
+
+.qa-activity-evidence-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  margin-top: 6px;
+  overflow-y: auto;
+}
+
 .qa-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -240,3 +240,49 @@ test("a run evidence route requests only that deployment run", async () => {
   assert.equal(detailLabel, "run-20260910-006");
   assert.match(visibleText(root, " "), /Evidence for run-20260910-006/);
 });
+
+test("a row's linked artifacts render through the shared evidence card", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("main");
+  await renderQaActivity({
+    document: documentNode,
+    projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
+    isMounted: () => true,
+    navigate: () => {},
+    capabilities: {},
+    client: {
+      async call(request) {
+        if (request.function === "qa.activity.list") {
+          return ok({
+            summary: { total: 1, counts: { passed: 1 } },
+            rows: [{
+              requirement_id: 9,
+              plan_id: 9,
+              plan: "release-readiness",
+              project: "yoke",
+              case_key: "browser-proof",
+              method_id: "browser-check",
+              method_name: "Browser check",
+              outcome: "passed",
+              evidence_count: 1,
+              proof_summary: "1 screenshot",
+              happened_at: "2026-07-29T12:00:00Z",
+              artifacts: [{
+                id: 7,
+                artifact_type: "screenshot",
+                content_type: "image/png",
+                artifact_handle:
+                  "{\"backend\":\"s3\",\"key\":\"proof.png\"}",
+              }],
+            }],
+          });
+        }
+        return ok({ disposition: "unavailable" });
+      },
+    },
+  }, root, "all");
+  await settle();
+
+  assert.equal(byClass(root, "qa-evidence").length, 1);
+  assert.match(visibleText(root, " "), /proof\.png/);
+});

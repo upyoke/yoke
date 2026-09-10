@@ -10,7 +10,8 @@ from typing import Any, Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.qa_execution_proof import (
-    qa_artifact_counts_by_run,
+    qa_artifact_rows_by_run,
+    qa_evidence_run_id,
     qa_precondition_reason,
     qa_proof_summary,
     qa_run_outcome,
@@ -63,11 +64,10 @@ def _list_activity(
         "q.deployment_run_id, "
         "q.host_baseline, q.waived_at, p.slug AS plan, pr.slug AS project, "
         "q.method_id, q.method_name, m.proof_kind, r.id AS run_id, "
+        "r.performed_by, "
         "r.verdict, r.verdict_reason, r.case_outcome, r.capture_degraded_reason, "
         "r.raw_result, "
-        "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at, "
-        "(SELECT COUNT(*) FROM qa_artifacts a WHERE a.qa_run_id=r.id) "
-        "AS evidence_count "
+        "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at "
         "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
         "JOIN projects pr ON pr.id=p.project_id "
         "LEFT JOIN qa_methods m ON m.id=q.method_id "
@@ -77,16 +77,35 @@ def _list_activity(
         f") {where} ORDER BY happened_at DESC, q.id DESC LIMIT {marker}",
         tuple(params),
     )
-    artifacts_by_run = qa_artifact_counts_by_run(
-        conn,
-        {int(row["run_id"]) for row in rows if row["run_id"] is not None},
+    # A review row rarely captures its own evidence — it embeds a
+    # capture_run_id back to the immutable run that did — so evidence is
+    # resolved through the same shared chain the item and plan detail pages
+    # use, rather than stopping at each row's own (often empty) run.
+    evidence_run_ids = [
+        (
+            qa_evidence_run_id(
+                conn,
+                requirement_id=int(row["requirement_id"]),
+                run_id=int(row["run_id"]) if row["run_id"] is not None else None,
+                performed_by=row["performed_by"],
+                raw_result=row["raw_result"],
+            )
+            if row["run_id"] is not None
+            else None
+        )
+        for row in rows
+    ]
+    artifact_rows = qa_artifact_rows_by_run(
+        conn, {rid for rid in evidence_run_ids if rid is not None}
     )
     result = []
-    for row in rows:
+    for row, evidence_run_id in zip(rows, evidence_run_ids):
         raw_result = _json_value(row["raw_result"], {})
         run_id = int(row["run_id"]) if row["run_id"] is not None else None
         precondition_reason = qa_precondition_reason(raw_result)
         outcome = qa_run_outcome(row)
+        artifacts = artifact_rows.get(evidence_run_id, [])
+        artifact_counts = Counter(a["artifact_type"] for a in artifacts)
         result.append(
             {
                 "requirement_id": int(row["requirement_id"]),
@@ -100,7 +119,8 @@ def _list_activity(
                 "method_id": row["method_id"],
                 "method_name": row["method_name"],
                 "outcome": outcome,
-                "evidence_count": int(row["evidence_count"] or 0),
+                "artifacts": artifacts,
+                "evidence_count": len(artifacts),
                 "capture_degraded_reason": row["capture_degraded_reason"],
                 "verdict_reason": row["verdict_reason"],
                 "precondition_reason": precondition_reason,
@@ -108,7 +128,7 @@ def _list_activity(
                     method_id=row["method_id"],
                     run_id=run_id,
                     raw_result=raw_result,
-                    artifacts=artifacts_by_run.get(run_id, {}),
+                    artifacts=artifact_counts,
                     outcome=outcome,
                     verdict_reason=row["verdict_reason"],
                     capture_degraded_reason=row["capture_degraded_reason"],
