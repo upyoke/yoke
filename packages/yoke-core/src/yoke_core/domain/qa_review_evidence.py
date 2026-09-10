@@ -66,12 +66,18 @@ def qa_review_artifact_context(
         f"WHERE id={marker} AND qa_requirement_id={marker}",
         (int(run_id), int(requirement_id)),
     )
+    # The reviewed run must actually belong to the named requirement, or a
+    # foreign run_id/requirement_id pairing would fall through
+    # qa_evidence_run_id's own fallback (which just returns run_id) and
+    # surface that foreign run's artifacts as this requirement's evidence.
+    if run_row is None:
+        return empty
     evidence_run_id = qa_evidence_run_id(
         conn,
         requirement_id=requirement_id,
         run_id=run_id,
-        performed_by=_row_value(run_row, "performed_by") if run_row else None,
-        raw_result=_row_value(run_row, "raw_result") if run_row else None,
+        performed_by=_row_value(run_row, "performed_by"),
+        raw_result=_row_value(run_row, "raw_result"),
     )
     if evidence_run_id is None:
         return empty
