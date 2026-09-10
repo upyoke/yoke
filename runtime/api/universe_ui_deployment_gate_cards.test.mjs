@@ -22,20 +22,25 @@ import {
   unsettledEffectRequestRow,
 } from "./universe_ui_inbox_test_support.mjs";
 
-const gateText = (main) => byClass(main, "gate-body")[0].textContent;
+const gateText = (main) => byClass(main, "review-card")[0].textContent;
 
 test("a deployment approval names the items it releases, not just the run", async () => {
   const { main } = renderInbox("all", [deploymentRequestRow()]);
   await settle();
 
   assert.equal(
-    byClass(main, "inbox-row-title")[0].textContent,
+    byClass(main, "review-title")[0].textContent,
     "Approve prod deploy",
   );
-  const subtitle = byClass(main, "inbox-row-subtitle")[0].textContent;
+  const subtitle = byClass(main, "review-context")[0].textContent;
   assert.ok(subtitle.includes("yoke-hosted-production"), subtitle);
+  assert.ok(subtitle.includes("to prod"), subtitle);
   assert.ok(!subtitle.includes("run-20260721-014"), subtitle);
   assert.ok(!subtitle.includes("prod-deploy"), subtitle);
+  assert.ok(byClass(main, "review-kind")[0].textContent.startsWith("Release approval"));
+  assert.equal(
+    byClass(main, "review-effect")[0].textContent, "Deploys 2 changes to prod.",
+  );
 
   const body = gateText(main);
   assert.ok(body.includes("This run carries 2 changes to prod"), body);
@@ -160,12 +165,12 @@ test("a gate that deploys nothing says so instead of naming a destination", asyn
   await settle();
 
   assert.equal(
-    byClass(main, "inbox-row-title")[0].textContent,
+    byClass(main, "review-title")[0].textContent,
     "Approve review example",
   );
   assert.equal(
-    byClass(main, "gate-summary")[0].textContent,
-    "Approval only — deploys nothing. Resolving this lets the run continue.",
+    byClass(main, "review-effect")[0].textContent,
+    "Deploys nothing. Approving lets the run finish.",
   );
   const body = gateText(main);
   assert.ok(body.includes("nothing is built, released, or promoted"), body);
@@ -185,7 +190,7 @@ test("a gate that deploys nothing says so instead of naming a destination", asyn
   assert.ok(!body.includes("merge-only"), body);
   // The flow's authored name is what says why the flow exists; the
   // derivation never reads it.
-  const subtitle = byClass(main, "inbox-row-subtitle")[0].textContent;
+  const subtitle = byClass(main, "review-context")[0].textContent;
   assert.ok(subtitle.includes("Practice: role approval"), subtitle);
 });
 
@@ -197,7 +202,7 @@ test("an unsettled consequence is its own answer, not a safe-sounding one", asyn
   await settle();
 
   assert.equal(
-    byClass(main, "inbox-row-title")[0].textContent,
+    byClass(main, "review-title")[0].textContent,
     "Approve review example",
   );
   const body = gateText(main);
@@ -273,7 +278,7 @@ test("a request predating the consequence fact reports it as unrecorded", async 
   await settle();
 
   assert.equal(
-    byClass(main, "inbox-row-title")[0].textContent,
+    byClass(main, "review-title")[0].textContent,
     "Approve review example",
   );
   const body = gateText(main);
@@ -290,7 +295,7 @@ test("a real release that carries nothing is still titled a deploy", async () =>
   await settle();
 
   assert.equal(
-    byClass(main, "inbox-row-title")[0].textContent,
+    byClass(main, "review-title")[0].textContent,
     "Approve prod deploy",
   );
   const body = gateText(main);

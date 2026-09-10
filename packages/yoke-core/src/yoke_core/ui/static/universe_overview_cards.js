@@ -5,8 +5,13 @@ import { buildUniverseRoute } from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { deliveryStageBar, workflowBadge } from "./universe_secondary_primitives.js";
 import { relativeAge } from "./universe_time.js";
-import { appendRunGates, runGateStatus } from "./universe_run_gates.js";
+import { appendRunGates, runGateStatus, runGates } from "./universe_run_gates.js";
+import { evidenceStrip } from "./review_evidence_strip.js";
+import { runEvidence, runFlowName } from "./universe_run_evidence.js";
 import { el, statePill } from "./universe_view_support.js";
+
+// How many carried items a card lists before it says "+N more".
+export const CARRIED_ITEMS_SHOWN = 3;
 
 function itemReference(row) {
   return String(row.public_ref || row.item_id || row.id || "Item");
@@ -71,7 +76,7 @@ export function overviewItemCard(documentNode, row, scope, options = {}) {
   return card;
 }
 
-function carriedItems(row) {
+export function carriedItems(row) {
   if ((row.member_items || []).length) return row.member_items;
   return row.carried_work?.items || [];
 }
@@ -80,7 +85,7 @@ function carriedReference(item) {
   return item.ref || item.public_ref || item.item_ref || `item ${item.item_id}`;
 }
 
-function runProjectId(context, row, scope) {
+export function runProjectId(context, row, scope) {
   const projects = typeof context.projects === "function" ? context.projects() : [];
   const project = projects.find((candidate) => (
     [candidate.id, candidate.slug, candidate.name].some(
@@ -90,10 +95,50 @@ function runProjectId(context, row, scope) {
   return project?.id || (scope !== "all" && scope.length === 1 ? scope[0] : null);
 }
 
+export function runDetailHref(context, row, scope) {
+  const projectId = runProjectId(context, row, scope);
+  return buildUniverseRoute(
+    "deployments", projectId == null ? null : String(projectId), row.id || row.run_id,
+  );
+}
+
+// What the run carries, listed on the card: the first few items, and an
+// honest "+N more" for the rest. Membership is who the pipeline moves to
+// done; for an environment run that owns nothing the derived contents stand
+// in, and a run that carries nothing says so in its meta line instead.
+export function appendCarried(documentNode, host, row) {
+  const items = carriedItems(row);
+  if (!items.length) return null;
+  const batch = el(documentNode, "div", "overview-run-batch");
+  batch.appendChild(el(
+    documentNode,
+    "span",
+    "overview-run-batch-title",
+    `Carries · ${items.length} item${items.length === 1 ? "" : "s"}`,
+  ));
+  for (const item of items.slice(0, CARRIED_ITEMS_SHOWN)) {
+    const member = el(documentNode, "span", "overview-run-member");
+    member.appendChild(el(documentNode, "code", null, carriedReference(item)));
+    member.appendChild(el(documentNode, "span", null, item.title || ""));
+    batch.appendChild(member);
+  }
+  if (items.length > CARRIED_ITEMS_SHOWN) {
+    batch.appendChild(el(
+      documentNode,
+      "span",
+      "overview-run-member-more",
+      `+${items.length - CARRIED_ITEMS_SHOWN} more carried by this release`,
+    ));
+  }
+  host.appendChild(batch);
+  return batch;
+}
+
 // A run card takes the whole view context rather than just its document:
-// the gates it draws read their evidence through the client, so a card that
-// only knew how to create elements could show that evidence existed and
-// never let the approver open it.
+// the request it folds in reads its evidence through the client, so a card
+// that only knew how to create elements could show that evidence existed
+// and never let the approver open it. `options.facts` carries the flow
+// names and QA checks read once for the whole band.
 export function overviewRunCard(context, row, scope, options = {}) {
   const documentNode = context.document;
   // A run stopped at a gate is not executing and not failed. Its own status
@@ -105,13 +150,11 @@ export function overviewRunCard(context, row, scope, options = {}) {
     "div",
     `overview-run-card is-${status.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
   );
-  // The informational card is a link to the run; a gate's Approve and Reject
-  // are buttons inside it. Nesting those in the anchor would be invalid, so
-  // the link wraps what is readable and the gates sit beside it.
+  // The informational card is a link to the run; a request's Approve and
+  // Reject are buttons inside it. Nesting those in the anchor would be
+  // invalid, so the link wraps what is readable and the request sits beside.
   const link = el(documentNode, "a", "overview-run-card-link");
-  link.href = buildUniverseRoute(
-    "deployments", scope === "all" ? null : scope.join(","),
-  );
+  link.href = runDetailHref(context, row, scope);
   const head = el(documentNode, "div", "overview-run-card-head");
   head.appendChild(el(
     documentNode, "span", "overview-run-id", row.id || row.run_id || "run",
@@ -126,82 +169,43 @@ export function overviewRunCard(context, row, scope, options = {}) {
   if (statusNode) head.appendChild(statusNode);
   link.appendChild(head);
   link.appendChild(el(
-    documentNode, "strong", "overview-run-flow", row.flow || "flow unavailable",
+    documentNode, "strong", "overview-run-flow", runFlowName(options.facts, row),
   ));
-  const details = el(documentNode, "details", "overview-run-details");
-  details.appendChild(el(documentNode, "summary", null, "Details"));
   if ((row.stages || []).length) {
-    details.appendChild(deliveryStageBar(documentNode, row.stages));
+    link.appendChild(deliveryStageBar(documentNode, row.stages));
   }
-  if (row.release_lineage) {
-    const release = el(documentNode, "div", "overview-run-release");
-    release.appendChild(el(documentNode, "span", null, "Release "));
-    release.appendChild(el(
-      documentNode, "code", null, String(row.release_lineage).slice(0, 12),
-    ));
-    details.appendChild(release);
-  }
-
   const items = carriedItems(row);
-  if (items.length) {
-    const batch = el(documentNode, "div", "overview-run-batch");
-    batch.appendChild(el(
-      documentNode,
-      "span",
-      "overview-run-batch-title",
-      `Carries · ${items.length} item${items.length === 1 ? "" : "s"}`,
-    ));
-    for (const item of items.slice(0, 6)) {
-      const member = el(documentNode, "span", "overview-run-member");
-      member.appendChild(el(
-        documentNode, "code", null, carriedReference(item),
-      ));
-      member.appendChild(el(
-        documentNode, "span", null, item.title || "",
-      ));
-      batch.appendChild(member);
-    }
-    if (items.length > 6) {
-      batch.appendChild(el(
-        documentNode,
-        "span",
-        "overview-run-member-more",
-        `+${items.length - 6} more carried by this release`,
-      ));
-    }
-    details.appendChild(batch);
-  }
-
+  const timing = row.completed_at || row.started_at || row.created_at;
+  link.appendChild(el(documentNode, "span", "overview-run-card-meta", [
+    items.length
+      ? `${items.length} ${items.length === 1 ? "item" : "items"}`
+      : "environment run",
+    row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
+    timing ? `${status} ${relativeAge(timing)} ago` : status,
+  ].filter(Boolean).join(" · ")));
+  card.appendChild(link);
+  appendCarried(documentNode, card, row);
   const derivation = row.carried_work?.derivation;
-  if (derivation) {
-    details.appendChild(el(
+  if (derivation && !items.length) {
+    card.appendChild(el(
       documentNode,
       "div",
       "overview-run-derived",
       [derivation.status, derivation.reason].filter(Boolean).join(" — "),
     ));
   }
-  const timing = row.completed_at || row.started_at || row.created_at;
-  const summary = [
-    items.length
-      ? `${items.length} ${items.length === 1 ? "item" : "items"}`
-      : "environment run",
-    row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
-    timing ? `${status} ${relativeAge(timing)} ago` : status,
-  ].filter(Boolean).join(" · ");
-  link.appendChild(el(
-    documentNode,
-    "span",
-    "overview-run-card-meta",
-    summary,
-  ));
-  card.appendChild(link);
   appendRunGates(context, card, row.gates, options.onGateAction);
-  if (details.children.length > 1) card.appendChild(details);
-  const evidence = el(documentNode, "a", "overview-run-evidence", "QA evidence →");
-  evidence.href = buildUniverseRoute(
-    "qa-activity", runProjectId(context, row, scope), row.id || row.run_id,
-  );
-  card.appendChild(evidence);
+  // The request folded in above already shows the evidence it rests on; a
+  // run with no open request shows what its QA checks captured instead.
+  if (!runGates(row).length) {
+    const artifacts = runEvidence(options.facts, row.id || row.run_id).artifacts;
+    const strip = evidenceStrip(context, artifacts, { compact: true });
+    if (strip) {
+      const wrap = el(documentNode, "div", "overview-run-evidence");
+      wrap.appendChild(el(documentNode, "span", "overview-run-batch-title", "QA evidence"));
+      wrap.appendChild(strip);
+      card.appendChild(wrap);
+    }
+  }
   return card;
 }

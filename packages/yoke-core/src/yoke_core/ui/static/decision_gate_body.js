@@ -3,13 +3,11 @@ import { block, MAX_LISTED, overflow, row } from "./gate_block_layout.js";
 import {
   decisionEligibility,
   decisionOrigin,
-  decisionSummary,
 } from "./inbox_presentation.js";
 import {
   appendDeploymentBody,
   releaseContents,
 } from "./deployment_release_contents.js";
-import { artifactEvidenceCard } from "./qa_evidence_artifact_view.js";
 
 // A request frozen before the consequence was recorded knows its run, flow
 // and stage and nothing about what resolving it reaches. Saying so is the
@@ -132,140 +130,6 @@ export function appendWhyAsked(context, host, row_) {
   return asked;
 }
 
-// The evidence behind an undetermined verdict, shown rather than counted.
-export function appendEvidence(context, host, facts) {
-  const documentNode = context.document;
-  const artifacts = Array.isArray(facts.artifacts) ? facts.artifacts : [];
-  // evidence_state is the producer's own answer, and it is validated against
-  // the artifact count at write time. Trusting it here keeps the reader and
-  // the record from disagreeing about whether evidence exists.
-  if (facts.evidence_state === "missing" || !artifacts.length) {
-    const none = el(documentNode, "div", "gate-evidence-none");
-    none.setAttribute("role", "note");
-    none.appendChild(el(documentNode, "span", "gate-evidence-warn", "⚠"));
-    none.appendChild(el(
-      documentNode,
-      "span",
-      null,
-      "No evidence attached. This run recorded no artifacts, so there is "
-      + "nothing to review — a pass or fail here would be a verdict on "
-      + "nothing.",
-    ));
-    host.appendChild(none);
-    return none;
-  }
-  const evidence = block(
-    documentNode,
-    host,
-    "gate-evidence",
-    `Evidence · ${artifacts.length} artifact${artifacts.length === 1 ? "" : "s"}`,
-  );
-  const grid = el(documentNode, "div", "gate-evidence-grid");
-  for (const artifact of artifacts) {
-    grid.appendChild(
-      artifactEvidenceCard(context, artifact, facts.requirement_id),
-    );
-  }
-  evidence.appendChild(grid);
-  return evidence;
-}
-
-export function appendRelatedEvidence(context, host, facts, subject) {
-  const documentNode = context.document;
-  const evidence = facts.evidence;
-  if (!evidence) {
-    host.appendChild(el(
-      documentNode, "div", "gate-evidence-state",
-      `Related ${subject} screenshot evidence was not recorded on this request.`,
-    ));
-    return;
-  }
-  const screenshots = Array.isArray(evidence.screenshots)
-    ? evidence.screenshots : [];
-  const messages = {
-    absent: `No ${subject}-attached QA evidence is recorded.`,
-    missing: `Related ${subject} QA runs attached no screenshots.`,
-    unavailable: "Screenshot evidence is unavailable on this installation.",
-    failed: "Related screenshot evidence includes a failed QA result.",
-    stale: "These screenshots cover an older revision than this decision.",
-    revision_unknown: "The screenshot revision was not recorded.",
-  };
-  if (messages[evidence.state]) {
-    host.appendChild(el(
-      documentNode, "div", `gate-evidence-state is-${evidence.state}`,
-      messages[evidence.state],
-    ));
-  }
-  if (!screenshots.length) return;
-  const wrap = block(
-    documentNode, host, "gate-evidence",
-    `Screenshots · ${screenshots.length}`,
-  );
-  const grid = el(documentNode, "div", "gate-evidence-grid");
-  for (const artifact of screenshots) {
-    grid.appendChild(artifactEvidenceCard(context, artifact));
-  }
-  wrap.appendChild(grid);
-}
-
-// Exactly what the evidence is evidence OF. A screenshot with no subject,
-// run and revision beside it is a picture of some build: the reviewer cannot
-// tell which item it came from or whether it is still current.
-function appendQaSubject(documentNode, host, facts) {
-  const subject = facts.subject || {};
-  const checked = block(documentNode, host, "gate-block", "What was checked");
-  if (subject.kind === "deployment_run" && subject.deployment_run_id) {
-    row(
-      documentNode,
-      checked,
-      String(subject.deployment_run_id),
-      subject.target_environment
-        ? `released to ${subject.target_environment}`
-        : "",
-    );
-  } else if (subject.item_ref) {
-    row(
-      documentNode,
-      checked,
-      String(subject.item_ref),
-      String(subject.item_title || ""),
-    );
-  }
-  row(documentNode, checked, `run ${facts.run_id}`, subject.qa_phase || "");
-  row(
-    documentNode,
-    checked,
-    facts.code_revision
-      ? String(facts.code_revision).slice(0, 12)
-      : "revision not recorded",
-    facts.code_revision
-      ? "revision under test"
-      : "this run recorded no code identity",
-  );
-  return checked;
-}
-
-function appendQaBody(context, host, facts) {
-  const documentNode = context.document;
-  appendQaSubject(documentNode, host, facts);
-  if (facts.expected_outcome) {
-    const expected = block(
-      documentNode, host, "gate-block", "Expected outcome",
-    );
-    expected.appendChild(el(
-      documentNode, "div", "gate-block-copy", String(facts.expected_outcome),
-    ));
-  }
-  if (facts.verdict_reason) {
-    const reason = block(
-      documentNode, host, "gate-block", "Why the agent could not decide",
-    );
-    reason.appendChild(el(
-      documentNode, "q", "gate-verdict-reason", String(facts.verdict_reason),
-    ));
-  }
-}
-
 function appendLifecycleBody(context, host, facts) {
   const documentNode = context.document;
   const changes = facts.branch_changes || {};
@@ -296,32 +160,21 @@ function appendLifecycleBody(context, host, facts) {
   }
 }
 
-// Machine approvals draw no body here on purpose: what an approver needs
-// beside that decision — the machine, its one-time code, who asked — is the
-// Machines page the row already links to, and the subtitle carries it.
+// A QA review's own facts — what was checked, what was expected, what the
+// agent said — are the card's body, so its details carry only why it was
+// asked and what a verdict records.
 const BODY_BUILDERS = {
-  qa_needs_review: appendQaBody,
   lifecycle_transition_approval: appendLifecycleBody,
   deployment_stage_approval: appendDeploymentBody,
 };
 
-export function appendGateBody(context, wrap, row_) {
+// The long form behind a card: why the ask exists and who else can end it,
+// the exact consequence of a yes, and the release contents or branch diff
+// it rests on. Everything the card's one-line effect leaves out lives here.
+export function appendRequestDetails(context, host, row_) {
   const documentNode = context.document;
   const builder = BODY_BUILDERS[row_.kind];
   const prose = approvalProse(row_);
-  const summary = decisionSummary(row_);
-  if (!builder && !prose && !summary) return null;
-  const host = el(documentNode, "div", "gate-body");
-  if (summary) host.appendChild(el(
-    documentNode, "p", "gate-summary", summary,
-  ));
-  const facts = row_.subject_context || {};
-  if (row_.kind === "qa_needs_review") appendEvidence(context, host, facts);
-  else if (row_.kind === "lifecycle_transition_approval") {
-    appendRelatedEvidence(context, host, facts, "item");
-  } else if (row_.kind === "deployment_stage_approval") {
-    appendRelatedEvidence(context, host, facts, "run");
-  }
   const details = el(documentNode, "details", "gate-details");
   details.appendChild(el(documentNode, "summary", null, "Details"));
   appendWhyAsked(context, details, row_);
@@ -333,16 +186,14 @@ export function appendGateBody(context, wrap, row_) {
     what.appendChild(el(documentNode, "span", "gate-what-copy", prose));
     details.appendChild(what);
   }
-  if (builder) builder(context, details, facts, row_.project_id);
+  if (builder) builder(context, details, row_.subject_context || {}, row_.project_id);
+  if (details.children.length === 1) return null;
   host.appendChild(details);
-  wrap.appendChild(host);
-  return host;
+  return details;
 }
 
 export const decisionGateBody = {
-  appendEvidence,
-  appendGateBody,
-  appendRelatedEvidence,
+  appendRequestDetails,
   appendWhyAsked,
   approvalProse,
 };

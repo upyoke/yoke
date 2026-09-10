@@ -239,7 +239,8 @@ for (const workflowId of ["issue", "dash"]) {
         "#/qa-activity?project=7",
       ],
     );
-    assert.equal(byClass(proofRow, "qa-evidence").length, 1);
+    // The evidence is the thumbnail strip every review surface draws.
+    assert.equal(byClass(proofRow, "review-shot").length, 1);
     assert.equal(
       byClass(byClass(root, "item-proof-row")[0], "pill")[0].textContent,
       workflowId === "dash" ? "review" : "needs review",

@@ -10,7 +10,7 @@
 
 import { attachTooltip } from "./universe_tooltip.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
-import { artifactEvidenceCard } from "./qa_evidence_artifact_view.js";
+import { evidenceStrip } from "./review_evidence_strip.js";
 import { el, statePill } from "./universe_view_support.js";
 
 function qaOutcome(row) {
@@ -103,9 +103,9 @@ function requirementEvidence(context, host, row) {
     return null;
   }
   const evidence = el(documentNode, "div", "item-proof-evidence");
-  for (const artifact of artifacts) {
-    evidence.appendChild(artifactEvidenceCard(context, artifact, row.id));
-  }
+  evidence.appendChild(evidenceStrip(context, artifacts, {
+    compact: true, requirementId: row.id,
+  }));
   host.appendChild(evidence);
   return evidence;
 }
@@ -136,6 +136,7 @@ function requirementCard(context, item, row, workflowId) {
   const documentNode = context.document;
   const linked = ["blitz", "dash"].includes(workflowId);
   const card = el(documentNode, "div", "item-proof-row");
+  card.setAttribute("data-requirement-id", String(row.id));
   if (linked) {
     card.appendChild(el(
       documentNode, "span", "item-proof-icon", proofMethodIcon(row),

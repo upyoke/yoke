@@ -13,7 +13,7 @@ test("Inbox labels row-owned projects only for merged scope", async () => {
   const merged = renderInbox();
   await settle();
   assert.deepEqual(
-    byClass(merged.main, "inbox-row-project").map(
+    byClass(merged.main, "review-project").map(
       (node) => node.textContent,
     ),
     ["yoke"],
@@ -21,5 +21,5 @@ test("Inbox labels row-owned projects only for merged scope", async () => {
 
   const narrowed = renderInbox(["10"]);
   await settle();
-  assert.equal(byClass(narrowed.main, "inbox-row-project").length, 0);
+  assert.equal(byClass(narrowed.main, "review-project").length, 0);
 });

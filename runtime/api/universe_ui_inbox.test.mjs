@@ -9,7 +9,6 @@ import {
   FakeDocument,
   allNodes,
   byClass,
-  ownTextContent,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 
@@ -20,62 +19,72 @@ import {
   requestRow,
 } from "./universe_ui_inbox_test_support.mjs";
 
-test("Inbox renders the two content types and their served counts", async () => {
+test("Inbox renders its three sections, the served counts, and one card shape", async () => {
   const { client, main } = renderInbox(["10"]);
   await settle();
 
-  const headings = allNodes(main)
-    .filter((node) => node.tagName === "H2")
-    .map(ownTextContent);
-  assert.deepEqual(headings, ["Needs your decision", "Messages"]);
-  assert.equal(byClass(main, "inbox-row").length, 2);
   assert.deepEqual(
-    byClass(main, "panel-count").map((node) => node.textContent),
-    ["· 1", "· 1"],
+    byClass(main, "overview-section-title").map((node) => node.textContent),
+    ["Waiting on you", "Messages", "Decided"],
   );
-  assert.equal(
-    byClass(main, "inbox-panel-hint")[0].textContent,
-    "the gate waits until you resolve",
+  assert.deepEqual(
+    byClass(main, "overview-section-count").map((node) => node.textContent),
+    ["1", "1", "0"],
   );
+  // Nothing has been decided, so the section is not on the page.
+  assert.equal(byClass(main, "overview-section")[2].hidden, true);
+  assert.equal(byClass(main, "review-card").length, 1);
+  assert.equal(byClass(main, "inbox-message").length, 1);
   assert.deepEqual(client.requests[0], {
     function: "inbox.list", payload: { project_ids: [10] },
   });
-  assert.deepEqual(
-    byClass(main, "inbox-row-subtitle")[0].children
-      .filter((node) => node.tagName === "SPAN")
-      .map((node) => node.textContent),
-    [
-      "Approve the reviewing-implementation transition",
-      " · ",
-      "requested ",
-      " · ",
-      "you: project owner",
-    ],
+
+  const card = byClass(main, "review-card")[0];
+  assert.equal(byClass(card, "review-kind")[0].textContent, "Work approval");
+  assert.equal(
+    byClass(card, "review-title")[0].textContent,
+    "Approve YOK-1907 reviewing-implementation",
   );
-  assert.ok(byClass(main, "inbox-action").every(
+  const context = byClass(card, "review-context")[0].textContent;
+  assert.ok(context.startsWith("Approve the reviewing-implementation transition"), context);
+  assert.ok(context.includes("requested"), context);
+  assert.equal(
+    byClass(card, "review-effect")[0].textContent,
+    "Moves the item to reviewing-implementation. Deploys nothing.",
+  );
+  // Who settles it, read from live membership: two people hold a role that
+  // covers this request, so either of them can end it.
+  assert.equal(
+    byClass(card, "review-who")[0].textContent,
+    "Any project owner or project operator can approve",
+  );
+  assert.ok(byClass(card, "review-action").every(
     (node) => node.classList.contains("item-button"),
   ));
-  const firstRow = byClass(main, "inbox-row")[0];
   assert.deepEqual(
-    byClass(firstRow, "inbox-action").map((node) => node.textContent),
+    byClass(card, "review-action").map((node) => node.textContent),
     ["Reject", "Approve"],
   );
-  // The row navigates nowhere: its text is selectable, and only the named
+  // The card navigates nowhere: its text is selectable, and only the named
   // identifiers are links.
-  assert.equal(firstRow.attributes.get("role"), undefined);
-  assert.equal(byClass(firstRow, "inbox-row-title")[0].tagName, "DIV");
+  assert.equal(card.attributes.get("role"), undefined);
+  assert.equal(byClass(card, "review-title")[0].tagName, "DIV");
   assert.deepEqual(
-    byClass(firstRow, "inbox-row-link").map((node) => [node.textContent, node.href]),
+    byClass(card, "review-link").map((node) => [node.textContent, node.href]),
     [["YOK-1907", "#/items/1907?project=10"]],
   );
+  // The long form stays one disclosure away, so nothing an approver could
+  // read before is lost.
+  const details = byClass(card, "gate-details")[0].textContent;
+  assert.ok(details.includes("What changed on the branch"), details);
+  assert.ok(details.includes("runtime/api/inbox.py"), details);
 });
 
-test("decision buttons call engine actions and refresh the instance lists", async () => {
+test("decision buttons call engine actions and keep the answered card on the page", async () => {
   const { client, main } = renderInbox();
   await settle();
   const approve = allNodes(main).find(
-    (node) => node.attributes.get("data-action") === "approve"
-      && node.parentNode.parentNode.attributes.get("data-request-id") === "7",
+    (node) => node.attributes.get("data-action") === "approve",
   );
   approve.dispatchEvent(new Event("click"));
   await settle();
@@ -84,9 +93,17 @@ test("decision buttons call engine actions and refresh the instance lists", asyn
     (request) => request.function === "decision_requests.resolve",
   );
   assert.deepEqual(resolve.payload, { request_id: 7, action: "approve" });
-  assert.equal(byClass(main, "inbox-row").length, 1);
   assert.equal(byClass(main, "inbox-empty")[0].textContent,
     "Nothing is waiting on you.");
+  // The server no longer lists the request; the page still shows what was
+  // decided, small and without actions, until the reader leaves.
+  const decided = byClass(main, "overview-section")[2];
+  assert.equal(decided.hidden, false);
+  const card = byClass(decided, "review-card")[0];
+  assert.ok(card.classList.contains("compact"), card.className);
+  assert.equal(byClass(card, "review-state")[0].textContent, "Approved");
+  assert.equal(byClass(card, "review-who")[0].textContent, "You approved");
+  assert.equal(byClass(card, "review-action").length, 0);
 });
 
 test("request changes collects the required note before resolving", async () => {
@@ -119,9 +136,9 @@ test("request changes collects the required note before resolving", async () => 
     (node) => node.attributes.get("data-action") === "request_changes",
   );
   requestChanges.dispatchEvent(new Event("click"));
-  const note = byClass(main, "inbox-note")[0];
+  const note = byClass(main, "review-note")[0];
   assert.ok(note);
-  const send = byClass(main, "inbox-note-composer")[0].children[2];
+  const send = byClass(main, "review-note-composer")[0].children[2];
   send.dispatchEvent(new Event("click"));
   assert.ok(note.classList.contains("invalid"));
   assert.equal(requests.filter(
@@ -141,7 +158,7 @@ test("request changes collects the required note before resolving", async () => 
   });
 });
 
-test("resolving a decision disables every action on that row", async () => {
+test("a refused resolution re-enables the card and is not remembered as decided", async () => {
   const documentNode = new FakeDocument();
   const main = documentNode.createElement("main");
   let finishResolve;
@@ -167,7 +184,7 @@ test("resolving a decision disables every action on that row", async () => {
   }, main, "all");
   await settle();
 
-  const actions = byClass(byClass(main, "inbox-row")[0], "inbox-action");
+  const actions = byClass(byClass(main, "review-card")[0], "review-action");
   actions[0].dispatchEvent(new Event("click"));
   assert.ok(actions.every((node) => node.disabled));
   finishResolve({
@@ -177,6 +194,7 @@ test("resolving a decision disables every action on that row", async () => {
   await settle();
   assert.ok(actions.every((node) => !node.disabled));
   assert.equal(byClass(main, "inbox-row-error")[0].textContent, "try again");
+  assert.equal(byClass(main, "overview-section")[2].hidden, true);
 });
 
 test("acknowledging a message clears it from the served list", async () => {
@@ -191,7 +209,8 @@ test("acknowledging a message clears it from the served list", async () => {
     (request) => request.function === "session_control.message.acknowledge"
       && request.payload.message_id === "msg-19",
   ));
-  assert.equal(byClass(main, "inbox-empty").at(-1).textContent,
+  // The request card stays; the message list is the first empty section.
+  assert.equal(byClass(main, "inbox-empty")[0].textContent,
     "No unread messages.");
 });
 
@@ -262,8 +281,7 @@ test("all four request kinds link to their one subject home", () => {
   })), "#/items?project=10");
 });
 
-
-test("an every-approver gate shows progress and reports the viewer's own decision",
+test("an every-approver gate the viewer answered sits under Decided with its progress",
   async () => {
     const { main } = renderInbox("all", [requestRow({
       deciders: [
@@ -281,39 +299,51 @@ test("an every-approver gate shows progress and reports the viewer's own decisio
       your_decision: { actor_id: 2, action: "approve" },
     })]);
     await settle();
-    const subtitle = byClass(main, "inbox-row-subtitle")[0].textContent;
-    assert.ok(subtitle.includes("1 of 2 approvals"), subtitle);
-    assert.ok(!subtitle.includes("actor 202"), subtitle);
-    const detail = byClass(main, "gate-details")[0].textContent;
-    assert.match(detail, /Ben \(actor 202\)/);
-    assert.ok(subtitle.includes("you chose Approve"), subtitle);
-    assert.equal(byClass(main, "inbox-action").length, 0);
+    assert.equal(byClass(main, "inbox-empty")[0].textContent, "Nothing is waiting on you.");
+    const decided = byClass(main, "overview-section")[2];
+    const card = byClass(decided, "review-card")[0];
     assert.equal(
-      byClass(main, "inbox-decided")[0].textContent,
-      "you chose Approve",
+      byClass(card, "review-who")[0].textContent,
+      "You approved · 1 of 2 · waiting on Ben (actor 202)",
     );
+    assert.equal(byClass(card, "review-state")[0].textContent, "Approved");
+    assert.equal(byClass(card, "review-action").length, 0);
   },
 );
 
+test("an every-approver gate still open counts who has answered", async () => {
+  const { main } = renderInbox("all", [requestRow({
+    deciders: [
+      { actor_id: 2, label: "Ben (actor 2)", via: "named", is_you: true },
+      { actor_id: 202, label: "Ben (actor 202)", via: "named", is_you: false },
+    ],
+    approval_progress: {
+      mode: "all", required: 2, satisfied: 0, outstanding: ["Ben (actor 2)", "Ben (actor 202)"],
+    },
+  })]);
+  await settle();
+  const card = byClass(main, "review-card")[0];
+  assert.equal(
+    byClass(card, "review-who")[0].textContent,
+    "All must approve · 0 of 2 · waiting on Ben (actor 2), Ben (actor 202)",
+  );
+  assert.deepEqual(
+    byClass(card, "review-action").map((node) => node.textContent),
+    ["Reject", "Approve"],
+  );
+});
 
-test("a single-approver gate keeps its actions and shows no progress count",
-  async () => {
-    const { main } = renderInbox("all", [requestRow({
-      approval_progress: {
-        mode: "any",
-        required: 1,
-        satisfied: 0,
-        outstanding: ["project owner"],
-        resolved: false,
-      },
-      decided_by_you: false,
-    })]);
-    await settle();
-    const subtitle = byClass(main, "inbox-row-subtitle")[0].textContent;
-    assert.ok(!subtitle.includes(" of "), subtitle);
-    assert.deepEqual(
-      byClass(main, "inbox-action").map((node) => node.textContent),
-      ["Reject", "Approve"],
-    );
-  },
-);
+test("a request addressed to named people says which of them can approve", async () => {
+  const { main } = renderInbox("all", [requestRow({
+    deciders: [
+      { actor_id: 2, label: "Ben", via: "named", is_you: true },
+      { actor_id: 5, label: "dana", via: "named", is_you: false },
+    ],
+    approval_progress: { mode: "any", required: 1, satisfied: 0, outstanding: [] },
+  })]);
+  await settle();
+  assert.equal(
+    byClass(main, "review-who")[0].textContent,
+    "Any of you, dana can approve",
+  );
+});

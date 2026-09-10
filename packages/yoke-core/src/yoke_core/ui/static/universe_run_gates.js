@@ -1,131 +1,50 @@
-// The Gates region on a deployment run card.
+// The decision a deployment run is halted on, folded into its card.
 //
 // A pipeline that suspends on a person surfaces, without this, as a run that
 // simply stops moving: a stage that never completes and nothing to act on.
-// What the reader needs is the same decision the Inbox carries, seen from the
-// delivery end -- which stage stopped, why, what backs it, and the control
-// that ends it.
-//
-// The region draws only when the run has a gate. An empty Gates block on
-// every card would assert a shape the flow does not have, and would teach the
-// reader to skip the one place the answer eventually appears.
+// What the reader needs is the same decision the Inbox carries, seen from
+// the delivery end, so the run card draws the same request card the Inbox
+// does — inline, without a second frame — and answers through the same
+// resolver.
 
-import {
-  appendEvidence,
-  appendRelatedEvidence,
-  approvalProse,
-} from "./decision_gate_body.js";
-import {
-  ACTION_LABELS,
-  ACTION_RANK,
-  decisionSummary,
-} from "./inbox_presentation.js";
+import { reviewRequestCard } from "./review_request_card.js";
+import { KIND_LABELS } from "./review_request_presentation.js";
 import { el } from "./universe_view_support.js";
 
-// A gate's label and its state are read from the kind, so the run card and
-// the Inbox cannot disagree about what a request is called.
-const GATE_LABELS = {
-  deployment_stage_approval: { label: "Approval", state: "waiting" },
-  qa_needs_review: { label: "QA", state: "needs review" },
-};
+// The two kinds that reach a run. Anything else on the gates list is not a
+// decision this card knows how to draw, and is left to the Inbox.
+const RUN_GATE_KINDS = new Set(["deployment_stage_approval", "qa_needs_review"]);
 
-function gateName(gate) {
-  const facts = gate.subject_context || {};
-  if (gate.kind === "deployment_stage_approval") return facts.stage || "stage";
-  return facts.case_name || facts.plan_name || "check";
+export function runGates(row) {
+  return (row?.gates || []).filter((gate) => RUN_GATE_KINDS.has(gate.kind));
 }
 
-// Who the gate waits on, told from this reader's position. A gate they may
-// answer names their own standing; one they may not names the address it was
-// sent to, so a run halted on somebody else still says so.
-function gateNote(gate) {
-  if (gate.decided_by_you) {
-    const action = gate.your_decision?.action;
-    return action ? `you: ${action}d` : "you: answered";
-  }
-  if (gate.can_act) return `you: ${gate.authority_reason}`;
-  const progress = gate.approval_progress || {};
-  if (progress.waiting_on) return `waiting on ${progress.waiting_on}`;
-  return "waiting on another approver";
-}
-
-function appendActions(documentNode, host, gate, onAct) {
-  if (!gate.can_act || !onAct) return;
-  const actions = el(documentNode, "div", "run-gate-actions");
-  // Order and emphasis come from the action itself, not its position in
-  // whatever order the server listed them: the affirmative answer is the
-  // primary control on both surfaces, and a card that emphasised "reject"
-  // while the Inbox emphasised "approve" would be two recommendations for
-  // one decision.
-  const available = [...(Array.isArray(gate.actions) ? gate.actions : [])].sort(
-    (left, right) => Number(ACTION_RANK[left] ?? 1) -
-      Number(ACTION_RANK[right] ?? 1),
-  );
-  available.forEach((action) => {
-    const button = el(
-      documentNode,
-      "button",
-      `run-gate-action${action === "approve" ? " is-primary" : ""}`,
-      ACTION_LABELS[action] || action,
-    );
-    button.type = "button";
-    button.addEventListener("click", (event) => {
-      // The card is a link to the run. A gate answered from inside it must
-      // not also navigate away from the answer.
-      event.preventDefault();
-      event.stopPropagation();
-      onAct(gate, action, host);
-    });
-    actions.appendChild(button);
-  });
-  host.appendChild(actions);
-}
-
-function appendGate(context, host, gate, onAct) {
-  const documentNode = context.document;
-  const known = GATE_LABELS[gate.kind];
-  if (!known) return;
-  const wrap = el(
-    documentNode,
-    "div",
-    `run-gate is-${known.state.replace(/ /g, "-")}`,
-  );
-  const line = el(documentNode, "div", "run-gate-line");
-  line.appendChild(el(documentNode, "span", "run-gate-kind", known.label));
-  line.appendChild(el(documentNode, "span", "run-gate-name", gateName(gate)));
-  line.appendChild(el(documentNode, "span", "run-gate-state", known.state));
-  line.appendChild(el(documentNode, "span", "run-gate-note", gateNote(gate)));
-  wrap.appendChild(line);
-
-  const summary = decisionSummary(gate);
-  if (summary) wrap.appendChild(el(documentNode, "p", "run-gate-why", summary));
-  if (gate.kind === "qa_needs_review") {
-    appendEvidence(context, wrap, gate.subject_context || {});
-  } else {
-    appendRelatedEvidence(
-      context, wrap, gate.subject_context || {}, "run",
-    );
-  }
-  const detail = approvalProse(gate);
-  if (detail) {
-    const disclosure = el(documentNode, "details", "run-gate-details");
-    disclosure.appendChild(el(documentNode, "summary", null, "Details"));
-    disclosure.appendChild(el(documentNode, "p", null, detail));
-    wrap.appendChild(disclosure);
-  }
-  appendActions(documentNode, wrap, gate, onAct);
-  host.appendChild(wrap);
+// A gate row as the card expects a request: the run gate projection keys
+// the request id and the request time differently from the Inbox row.
+export function gateAsRequest(gate) {
+  return {
+    ...gate,
+    id: gate.request_id,
+    created_at: gate.created_at || gate.requested_at,
+  };
 }
 
 export function appendRunGates(context, card, gates, onAct) {
   const documentNode = context.document;
-  const rows = (gates || []).filter((gate) => GATE_LABELS[gate.kind]);
+  const rows = (gates || []).filter((gate) => RUN_GATE_KINDS.has(gate.kind));
   if (!rows.length) return null;
-  const host = el(documentNode, "div", "run-gates");
-  const head = el(documentNode, "div", "run-gates-head", "Gates ");
-  head.appendChild(el(documentNode, "span", "run-gates-count", `· ${rows.length}`));
-  host.appendChild(head);
-  for (const gate of rows) appendGate(context, host, gate, onAct);
+  const host = el(documentNode, "div", "run-requests");
+  for (const gate of rows) {
+    const wrap = el(documentNode, "div", "run-request");
+    wrap.appendChild(el(
+      documentNode, "div", "run-request-kind", KIND_LABELS[gate.kind],
+    ));
+    wrap.appendChild(reviewRequestCard(context, gateAsRequest(gate), {
+      inline: true,
+      onAct: onAct ? (row, action, node, note) => onAct(gate, action, node, note) : null,
+    }));
+    host.appendChild(wrap);
+  }
   card.appendChild(host);
   return host;
 }
@@ -134,11 +53,16 @@ export function appendRunGates(context, card, gates, onAct) {
 // generic status palette has none, and drawing the card's edge and its pill
 // from separate sources left an amber-edged card wearing a grey pill.
 export function runGateStatus(row) {
-  const gates = (row.gates || []).filter((gate) => GATE_LABELS[gate.kind]);
+  const gates = runGates(row);
   if (!gates.length) return null;
   return gates.some((gate) => gate.kind === "deployment_stage_approval")
     ? "awaiting approval"
     : "awaiting review";
 }
 
-export const universeRunGates = { appendRunGates, runGateStatus };
+export const universeRunGates = {
+  appendRunGates,
+  gateAsRequest,
+  runGateStatus,
+  runGates,
+};
