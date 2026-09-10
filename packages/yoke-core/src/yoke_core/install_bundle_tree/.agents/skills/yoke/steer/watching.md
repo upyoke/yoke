@@ -36,6 +36,13 @@ substitute a relay resume for a native subscription.
 <!-- YOKE:HARNESS end -->
 
 <!-- YOKE:HARNESS codex start -->
+When scheduled-task tooling is available in the Codex conversation, start
+steering by creating or reusing a scheduled task in that same conversation
+that runs every five minutes with the prompt text exactly `keep steering`. Do
+not create a duplicate. Pause the schedule when the user pauses steering, and
+remove it when steering ends. Codex CLI does not expose desktop scheduled-task
+tooling; there, keep the watcher attached with the existing route below.
+
 Codex declares no native idle notification. Start the invocation with
 `exec_command`; while it returns a running `session_id`, continue it with
 `write_stdin`. Yield tool output in bounded intervals so ordinary user questions
