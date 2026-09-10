@@ -101,9 +101,10 @@ Two things the report deliberately does not do, so do them yourself:
   every pass.** The report excludes frozen and operator-blocked items rather
   than guessing intent from age, so an item you have parked reports as
   available until you say so with `yoke items freeze PREFIX-N` or `yoke
-  items block PREFIX-N --reason TEXT`; cancel (not freeze) work that will
-  never resume. Keep only current blockers or explicit operator holds, not
-  filing notes — unblock and resume the moment the reason clears.
+  items block PREFIX-N --reason TEXT`. Work that will never resume is `yoke
+  items cancel PREFIX-N --reason TEXT`, not freeze. Keep only current
+  blockers or explicit operator holds, not filing notes — unblock and
+  resume the moment the reason clears.
 
 The dashboard session card carries one primary status in the identity line:
 `active` under a minute of activity, `idle` once quiet, confirmed `stale`
@@ -345,6 +346,5 @@ continues autonomously.
 
 ## Stop
 
-A clean stop is wrapup in `SKILL.md` step 5: release the steering-scope claim,
-which releases its paired document lock too. An abandoned coordinator is
-reclaimed by the stale sweep; do not treat that as a successful wrapup.
+A clean stop follows the close-out ceremony in `SKILL.md` step 5 — settle,
+hand off, and release everything held; the stale sweep alone reclaims an abandoned coordinator.
