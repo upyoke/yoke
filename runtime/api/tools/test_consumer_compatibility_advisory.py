@@ -154,14 +154,21 @@ def test_the_advisory_runs_as_an_independent_job() -> None:
     # shard matrix never wait on it finishing.
     workflow = load_document(YOKE_CI)
     call_job = workflow["jobs"]["consumer_advisory"]
+    token = gate.CONSUMER_TOKEN_ENV
 
     assert workflow["permissions"] == {"contents": "read"}
     assert not call_job.get("needs")
     assert call_job["uses"] == "./.github/workflows/consumer-compatibility-advisory.yml"
-    assert call_job["secrets"] == "inherit"
+    # Exactly the one scoped secret the called workflow declares — never
+    # `secrets: inherit`, which would pass every repo/org secret through.
+    assert call_job["secrets"] == {
+        token: "${{ secrets." + token + " }}",
+    }
+    # Not a valid key alongside `uses:` (actionlint-verified); the called
+    # job's own continue-on-error is what protects this run's conclusion.
+    assert "continue-on-error" not in call_job
 
     repo_contracts = workflow["jobs"]["repo_contracts"]
-    token = gate.CONSUMER_TOKEN_ENV
     assert token not in (repo_contracts.get("env") or {})
     assert not any(token in (step.get("env") or {}) for step in repo_contracts["steps"])
     assert not any(
@@ -175,18 +182,24 @@ def test_the_called_workflow_carries_the_scoped_credential_on_one_step() -> None
     token = gate.CONSUMER_TOKEN_ENV
 
     assert called["permissions"] == {"contents": "read"}
+    # PyYAML's default (YAML 1.1) safe loader reads the bare `on:` trigger
+    # key as the boolean True, not the string "on".
+    assert called[True]["workflow_call"]["secrets"] == {token: {"required": False}}
     assert token not in (job.get("env") or {})
     carrying = [step for step in job["steps"] if token in (step.get("env") or {})]
     assert len(carrying) == 1
     step = carrying[0]
     assert ADVISORY_MODULE in str(step["run"])
-    # Advisory: the calling job's verdict stays the tree contracts.
+    # Job-level: a setup-step failure (checkout, Python/uv install) must
+    # stay advisory too, not just the one step that runs the report.
+    assert job["continue-on-error"] is True
     assert step["continue-on-error"] is True
 
 
 def test_no_other_workflow_carries_the_scoped_consumer_credential() -> None:
-    # It belongs to the release bridge and this one advisory step. Anywhere
-    # else would be a second place to reason about who can reach the consumer.
+    # It belongs to the release bridge, the one advisory step, and the
+    # explicit caller mapping that passes it through. Anywhere else would be
+    # a second place to reason about who can reach the consumer.
     workflows = sorted((REPO_ROOT / ".github" / "workflows").glob("*.yml"))
     carrying = {
         path.name
@@ -195,6 +208,7 @@ def test_no_other_workflow_carries_the_scoped_consumer_credential() -> None:
     }
 
     assert carrying == {
+        "yoke-ci.yml",
         "consumer-compatibility-advisory.yml",
         "platform-release-bridge.yml",
     }

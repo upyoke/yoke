@@ -90,9 +90,17 @@ jobs:
   consumer_advisory:
     name: consumer-advisory
     # No `needs`: runs independent of and in parallel with repo-contracts and
-    # the shard matrix. Not a required status-check context.
+    # the shard matrix. Not a required status-check context; the called
+    # workflow's own job-level continue-on-error (see
+    # consumer-compatibility-advisory.yml) keeps any failure there — a setup
+    # step included, not just its one advisory step — from flipping this
+    # run's overall conclusion, which CI-verdict adoption reads wholesale
+    # rather than by named check context. `continue-on-error` itself is not
+    # a valid key on a job that calls a reusable workflow (`uses:`), so it
+    # has to live on the called job, not here.
     uses: ./.github/workflows/consumer-compatibility-advisory.yml
-    secrets: inherit
+    secrets:
+      YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
 
   reuse_coverage:
     name: reuse-coverage
