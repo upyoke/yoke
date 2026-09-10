@@ -1,4 +1,4 @@
-"""Validate Codex JSON while retaining facts, not unrelated strings."""
+"""Decode ordinary Codex JSON and project oversized records."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from yoke_harness.artifact_scan import parse_row
 from yoke_harness.artifact_watermark import ArtifactWatermark, stored_totals
-
 
 _READER_MARKER = "projected-v1"
 _READER_MARKER_KEY = "codex_reader"
@@ -16,22 +16,15 @@ _MAX_SCALAR_BYTES = 4_096
 _UNKNOWN_KEY = "\0"
 USAGE_INCOMPLETE_KEY = "usage_incomplete"
 MODEL_HISTORY_INCOMPLETE_KEY = "model_history_incomplete"
+_PAYLOAD_KEYS = "type model effort model_context_window originator source".split()
+_USAGE_KEYS = (
+    "input_tokens cached_input_tokens cache_write_input_tokens "
+    "output_tokens reasoning_output_tokens"
+).split()
 _SELECTED_PATHS = frozenset(
-    {
-        ("type",),
-        ("payload", "type"),
-        ("payload", "model"),
-        ("payload", "effort"),
-        ("payload", "model_context_window"),
-        ("payload", "originator"),
-        ("payload", "source"),
-        ("payload", "info", "model_context_window"),
-        ("payload", "info", "total_token_usage", "input_tokens"),
-        ("payload", "info", "total_token_usage", "cached_input_tokens"),
-        ("payload", "info", "total_token_usage", "cache_write_input_tokens"),
-        ("payload", "info", "total_token_usage", "output_tokens"),
-        ("payload", "info", "total_token_usage", "reasoning_output_tokens"),
-    }
+    [("type",), ("payload", "info", "model_context_window")]
+    + [("payload", key) for key in _PAYLOAD_KEYS]
+    + [("payload", "info", "total_token_usage", key) for key in _USAGE_KEYS]
 )
 
 
@@ -44,12 +37,12 @@ class _Container:
 
 
 class CodexRecordDecoder:
-    """Validate one JSON object incrementally and retain selected leaves."""
-
-    full_decodes = 0
+    """Decode ordinary rows in C; project only rows beyond the normal bound."""
 
     def __init__(self, record_limit: int) -> None:
         self._record_limit = record_limit
+        self._buffer = bytearray()
+        self._projecting = False
         self._stack: list[_Container] = []
         self._root_state = "value"
         self._root_object = False
@@ -69,15 +62,31 @@ class CodexRecordDecoder:
         self.record_bytes = 0
         self.peak_retained_bytes = 0
         self.unrecoverable = False
+        self.full_decodes = 0
 
     def feed(self, data: bytes | memoryview) -> None:
         self.record_bytes += len(data)
+        if not self._projecting:
+            room = self._record_limit + 1 - len(self._buffer)
+            self._buffer.extend(data[:room])
+            self.peak_retained_bytes = max(self.peak_retained_bytes, len(self._buffer))
+            if len(self._buffer) <= self._record_limit:
+                return
+            prefix = bytes(self._buffer)
+            self._buffer.clear()
+            self._projecting = True
+            for byte in prefix:
+                self._accept(byte)
+            data = data[room:]
         if self._invalid:
             return
         for byte in data:
             self._accept(byte)
 
     def finish(self) -> Optional[dict[str, Any]]:
+        if not self._projecting:
+            self.full_decodes = 1
+            return parse_row(bytes(self._buffer))
         if self._in_bare:
             self._finish_bare()
         valid = (
@@ -337,13 +346,3 @@ def _missing_relevant_projection(row: dict[str, Any]) -> bool:
     info = payload.get("info")
     usage = info.get("total_token_usage") if isinstance(info, dict) else None
     return not isinstance(usage, dict)
-
-
-__all__ = [
-    "CodexRecordDecoder",
-    "MODEL_HISTORY_INCOMPLETE_KEY",
-    "USAGE_INCOMPLETE_KEY",
-    "codex_record_decoder",
-    "prepare_codex_watermark",
-    "stamp_codex_reader",
-]

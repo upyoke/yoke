@@ -77,7 +77,7 @@ def _large_token_row(input_tokens: int = 1_000, *, padding: int = 4_000) -> dict
     }
 
 
-def test_projection_skips_payloads_without_full_record_decodes(
+def test_ordinary_rows_decode_normally_and_oversized_rows_are_projected(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(artifact_scan, "MAX_RECORD_BYTES", 300)
@@ -97,7 +97,7 @@ def test_projection_skips_payloads_without_full_record_decodes(
         ],
     )
     projected: list[dict] = []
-    small = write_rows(tmp_path / "small.jsonl", [_large_token_row(padding=1)])
+    small = write_rows(tmp_path / "small.jsonl", [codex_turn_context("gpt-5")])
 
     result = scan_rows(
         artifact,
@@ -108,11 +108,11 @@ def test_projection_skips_payloads_without_full_record_decodes(
     small_result = scan_rows(
         small, 0, lambda _row: None, record_factory=codex_record_decoder
     )
-
     assert result.bytes_read == artifact.stat().st_size
-    assert result.records_decoded == 0
-    assert result.peak_retained_bytes < artifact_scan.MAX_RECORD_BYTES
-    assert result.peak_retained_bytes == small_result.peak_retained_bytes
+    assert result.records_decoded == 2
+    assert small_result.records_decoded == 1
+    assert result.peak_retained_bytes == artifact_scan.MAX_RECORD_BYTES + 1
+    assert small_result.peak_retained_bytes < artifact_scan.MAX_RECORD_BYTES
     assert not result.oversized
     assert projected[1]["payload"]["model"] == "gpt-5-🙂"
     usage = projected[2]["payload"]["info"]["total_token_usage"]
