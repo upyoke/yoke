@@ -7,10 +7,10 @@ Owns the read/write path for the ``actors`` table created in
    (``yoke-core``) and human actors. Seeding is migration-safe: every
    helper resolves the row that already exists before inserting, then
    returns its id.
-2. **Naming.** :func:`actor_name` renders an ``actors.id`` to the one
-   human-readable name every operator-facing surface shows, and
-   :func:`set_actor_name` writes it. There is exactly one name per
-   actor and no per-surface projection: a name is what we call someone,
+2. **Naming.** :func:`actor_name` renders an ``actors.id`` to its stored
+   human-readable name, :func:`actor_display_labels` disambiguates shared
+   names inside one display set, and :func:`set_actor_name` writes the name.
+   There is exactly one stored name per actor: a name is what we call someone,
    and the same thing is true of them in the board, the CLI, a GitHub
    attribution label, and a session message.
 3. **Name search.** :func:`resolve_actors_by_name` answers "who is
@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from typing import Any, List, Optional
+from typing import Any, Iterable, List, Optional
 
 from yoke_core.domain import db_backend
 
@@ -139,6 +139,37 @@ def actor_name(conn: Any, actor_id: int) -> str:
     if row is None:
         raise ActorNotFound(f"actor id {actor_id} does not exist")
     return str(row[0] or "")
+
+
+def actor_display_labels(
+    conn: Any,
+    actor_ids: Iterable[int],
+) -> dict[int, str]:
+    """Render actor ids distinctly when two actors share one name."""
+    ids = tuple(sorted({int(value) for value in actor_ids}))
+    labels: dict[int, str] = {}
+    for actor_id in ids:
+        try:
+            label = actor_name(conn, actor_id).strip()
+        except ActorError:
+            label = ""
+        labels[actor_id] = label or f"actor {actor_id}"
+    values = tuple(labels.values())
+    counts = {label: values.count(label) for label in values}
+    return {
+        actor_id: label if counts[label] == 1 else f"{label} (actor {actor_id})"
+        for actor_id, label in labels.items()
+    }
+
+
+def is_human_actor(conn: Any, actor_id: int) -> bool:
+    """Return whether an actor id names an existing human actor."""
+    p = _placeholder(conn)
+    row = conn.execute(
+        f"SELECT 1 FROM actors WHERE id = {p} AND kind = 'human'",
+        (int(actor_id),),
+    ).fetchone()
+    return row is not None
 
 
 def set_actor_name(conn: Any, actor_id: int, name: Any) -> bool:
@@ -298,8 +329,10 @@ __all__ = [
     "DEFAULT_LOCAL_HUMAN_NAME",
     "LOCAL_HUMAN_NAME_ENV",
     "SYSTEM_COMPONENT_YOKE_CORE",
+    "actor_display_labels",
     "actor_name",
     "actor_name_or_passthrough",
+    "is_human_actor",
     "resolve_actors_by_name",
     "seed_canonical_actors",
     "seed_human_actor",

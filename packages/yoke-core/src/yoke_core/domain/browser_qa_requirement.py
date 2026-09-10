@@ -244,7 +244,7 @@ def _process_requirement(
                     _bqa._log(f"  SKIPPED artifact (not on disk): {apath}")
                 continue
 
-            metadata = build_metadata(step_idx, qa_kind, subject, current_route)
+            metadata = build_metadata(step_idx, qa_kind, subject, current_route, step.get("label"))
             try:
                 art_id = _bqa._record_artifact_file(
                     run_id, req_id, str(apath), "image/png", "screenshot",

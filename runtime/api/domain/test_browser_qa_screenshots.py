@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,7 @@ from runtime.api.domain.browser_qa_test_helpers import (
     _seed_item,
     _seed_requirement,
 )
-from runtime.api.fixtures.file_test_db import init_test_db
+from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
 @pytest.fixture
@@ -254,6 +255,10 @@ class TestDataEnvelopeUnwrapping:
         assert result.runs[0].verdict == "pass"
         assert result.runs[0].execution_status == "captured"
         assert result.runs[0].recorded_screenshots == 1
+        check = connect_test_db(db_path)
+        stored = check.execute("SELECT metadata FROM qa_artifacts").fetchone()
+        check.close()
+        assert json.loads(stored[0])["label"] == "wrapped"
 
     def test_flat_response_still_works(self, tmp_path: Path, db_path: str) -> None:
         """Flat response shape (no data key) continues to work."""

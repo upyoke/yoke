@@ -7,6 +7,7 @@ import json
 from typing import Any, Iterable, Mapping, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.actors import is_human_actor
 from yoke_core.domain.approval_decisions import (
     evaluate_decisions,
     list_decisions,
@@ -150,6 +151,14 @@ def create_decision_request(
         raise ValueError("subject_key must contain 1 to 500 characters")
     roles = tuple(role_authorities)
     actors = tuple(sorted({int(value) for value in named_actor_ids}))
+    invalid_actors = [
+        actor_id for actor_id in actors if not is_human_actor(conn, actor_id)
+    ]
+    if invalid_actors:
+        raise ValueError(
+            "named actor authorities must reference existing human actors: "
+            + ", ".join(str(actor_id) for actor_id in invalid_actors)
+        )
     if not roles and not actors:
         raise ValueError("at least one role or named actor authority is required")
     if approval_mode not in APPROVAL_MODES:

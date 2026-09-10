@@ -56,6 +56,7 @@ export function artifactCaption(artifact) {
     ? `${meta.viewport.width}×${meta.viewport.height}`
     : "";
   return [
+    meta.label,
     meta.route,
     meta.step_index === undefined || meta.step_index === null
       ? ""

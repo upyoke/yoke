@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.actors import ActorError, actor_name
+from yoke_core.domain.actors import actor_display_labels
 from yoke_core.domain.approval_decisions import actor_decision
 from yoke_core.domain.decision_requests import _request_row
 
@@ -29,8 +29,9 @@ def authority_reason(
     """Return why this actor may answer this request, or ``None`` if they may not."""
     p = _p(conn)
     named = conn.execute(
-        "SELECT 1 FROM decision_request_actor_authorities "
-        f"WHERE request_id = {p} AND actor_id = {p}",
+        "SELECT 1 FROM decision_request_actor_authorities dra "
+        "JOIN actors a ON a.id = dra.actor_id AND a.kind = 'human' "
+        f"WHERE dra.request_id = {p} AND dra.actor_id = {p}",
         (request_id, actor_id),
     ).fetchone()
     if named is not None:
@@ -45,7 +46,8 @@ def authority_reason(
         table = "actor_org_roles" if row[0] == "org" else "actor_project_roles"
         scope_column = "org_id" if row[0] == "org" else "project_id"
         match = conn.execute(
-            f"SELECT 1 FROM {table} ar JOIN roles r ON r.id = ar.role_id "
+            f"SELECT 1 FROM {table} ar JOIN actors a ON a.id = ar.actor_id "
+            "AND a.kind = 'human' JOIN roles r ON r.id = ar.role_id "
             f"WHERE ar.actor_id = {p} AND ar.{scope_column} = {p} "
             f"AND r.name = {p} LIMIT 1",
             (actor_id, int(row[1]), str(row[2])),
@@ -57,16 +59,6 @@ def authority_reason(
 
 def _role_label(scope_kind: Any, role_name: Any) -> str:
     return f"{scope_kind} {str(role_name).replace('_', ' ')}"
-
-
-def _actor_label(conn: Any, actor_id: int) -> str:
-    try:
-        return actor_name(conn, actor_id)
-    except ActorError:
-        # A decider whose name cannot be rendered is still a decider: the
-        # eligibility line degrades to the id rather than failing the whole
-        # Inbox read over one unreadable actor.
-        return f"actor {actor_id}"
 
 
 def request_deciders(
@@ -86,14 +78,14 @@ def request_deciders(
     p = _p(conn)
     deciders: dict[int, dict[str, Any]] = {}
     for row in conn.execute(
-        "SELECT actor_id FROM decision_request_actor_authorities "
-        f"WHERE request_id = {p} ORDER BY actor_id",
+        "SELECT dra.actor_id FROM decision_request_actor_authorities dra "
+        "JOIN actors a ON a.id = dra.actor_id AND a.kind = 'human' "
+        f"WHERE dra.request_id = {p} ORDER BY dra.actor_id",
         (request_id,),
     ).fetchall():
         actor_id = int(row[0])
         deciders[actor_id] = {
             "actor_id": actor_id,
-            "label": _actor_label(conn, actor_id),
             "via": "named",
         }
     roles = conn.execute(
@@ -107,6 +99,7 @@ def request_deciders(
         scope_column = "org_id" if role[0] == "org" else "project_id"
         for holder in conn.execute(
             f"SELECT ar.actor_id FROM {table} ar "
+            "JOIN actors a ON a.id = ar.actor_id AND a.kind = 'human' "
             "JOIN roles r ON r.id = ar.role_id "
             f"WHERE ar.{scope_column} = {p} AND r.name = {p} "
             "ORDER BY ar.actor_id",
@@ -120,9 +113,11 @@ def request_deciders(
                 continue
             deciders[actor_id] = {
                 "actor_id": actor_id,
-                "label": _actor_label(conn, actor_id),
                 "via": _role_label(role[0], role[2]),
             }
+    labels = actor_display_labels(conn, deciders)
+    for actor_id, decider in deciders.items():
+        decider["label"] = labels[actor_id]
     result = sorted(deciders.values(), key=lambda value: value["label"])
     for decider in result:
         decider["is_you"] = (
@@ -140,8 +135,9 @@ def decision_request_authority_actor_ids(
     actor_ids = {
         int(row[0])
         for row in conn.execute(
-            "SELECT actor_id FROM decision_request_actor_authorities "
-            f"WHERE request_id = {p}",
+            "SELECT dra.actor_id FROM decision_request_actor_authorities dra "
+            "JOIN actors a ON a.id = dra.actor_id AND a.kind = 'human' "
+            f"WHERE dra.request_id = {p}",
             (request_id,),
         ).fetchall()
     }
@@ -156,6 +152,7 @@ def decision_request_authority_actor_ids(
         scope_column = "org_id" if role[0] == "org" else "project_id"
         rows = conn.execute(
             f"SELECT ar.actor_id FROM {table} ar "
+            "JOIN actors a ON a.id = ar.actor_id AND a.kind = 'human' "
             "JOIN roles r ON r.id = ar.role_id "
             f"WHERE ar.{scope_column} = {p} AND r.name = {p}",
             (int(role[1]), str(role[2])),
