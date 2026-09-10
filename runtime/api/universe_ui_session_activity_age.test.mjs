@@ -52,6 +52,30 @@ test("session activity copy keeps server liveness authoritative", (t) => {
     renderedActivityAge(documentNode, new Date(now - 1440 * 60_000).toISOString()),
     "idle 24h",
   );
+  // The operator screenshot's reported case: a long idle stretch reads in
+  // hours, not the elapsed minute count.
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 887 * 60_000).toISOString()),
+    "idle 14h",
+  );
+  // Minute/hour boundary: 59 minutes stays minutes, 60 rolls to the hour.
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 59 * 60_000).toISOString()),
+    "idle 59m",
+  );
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 60 * 60_000).toISOString()),
+    "idle 1h",
+  );
+  // Hour/day boundary: 47h stays hours, 48h rolls to days.
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 47 * 3_600_000).toISOString()),
+    "idle 47h",
+  );
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 48 * 3_600_000).toISOString()),
+    "idle 2d",
+  );
   // Past the 48-hour threshold the same rollover reaches days.
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 3 * 24 * 3_600_000).toISOString()),
