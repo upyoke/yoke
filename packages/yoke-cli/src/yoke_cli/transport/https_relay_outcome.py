@@ -39,7 +39,10 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_contracts.harness_sandbox_recovery import sandbox_recovery
 
-TRANSPORT_FAILED_CODE = "https_transport_failed"
+# Canonical definition lives in relay_telemetry (the lower-level module this
+# one already imports); re-exported here so existing importers of this
+# module's TRANSPORT_FAILED_CODE keep working.
+TRANSPORT_FAILED_CODE = relay_telemetry.TRANSPORT_FAILED_CODE
 UNREACHABLE_DETAIL = "could not reach the HTTPS function relay endpoint"
 
 _UNREACHABLE_HINT = (
@@ -206,7 +209,13 @@ def record_outcome(
     A first-try success is the overwhelming majority and carries no signal,
     so it records nothing — but it is exactly the moment the transport is
     known good, which is when anything spooled earlier can finally be sent.
+
+    The project passed to ``record`` is the FAILING request's own target
+    project — already resolved by whatever command built this request, the
+    same request/session/connection authority the call itself carried —
+    never a project discovered later when the spool happens to drain.
     """
+    project = str(request.target.project_id or "")
     delivered = response.error is None or response.error.code != TRANSPORT_FAILED_CODE
     if not delivered:
         relay_telemetry.record(
@@ -217,6 +226,7 @@ def record_outcome(
             transport_delivered=False,
             application_succeeded=None,
             failure_class=TRANSPORT_FAILED_CODE,
+            project=project,
         )
         return
     if attempts > 1:
@@ -228,6 +238,7 @@ def record_outcome(
             transport_delivered=True,
             application_succeeded=response.success,
             failure_class=response.error.code if response.error else "",
+            project=project,
         )
     relay_telemetry.flush()
 
