@@ -65,11 +65,12 @@ def test_the_environment_a_relay_resume_is_started_with_stays_in_turn(
 
     Asserting the marker against a hand-built dict would only prove the two
     descriptions agree. This starts a resume through the relay's real spawn
-    path, captures the environment it handed the child, and selects the wait
-    mode from exactly that.
+    path, captures the environment spawn hands the child (adapter dict plus
+    the resume attempt stamp), and selects the wait mode from exactly that.
     """
     from yoke_harness.session_relay_claude_invocation import ClaudeNativeInvocation
     from yoke_harness import session_relay_claude_native
+    from yoke_harness.session_relay_native_spawn import _child_environment
 
     monkeypatch.setenv(LAUNCH_CONTEXT_ENV, '{"launch_id": "parent-launch"}')
     started: list[dict[str, object]] = []
@@ -90,8 +91,14 @@ def test_the_environment_a_relay_resume_is_started_with_stays_in_turn(
 
     session_relay_claude_native.spawn_claude_wake(context, invocation)
 
-    environment = started[0]["environment"]
+    kwargs = started[0]
+    environment = _child_environment(
+        kwargs["environment"],
+        supervision_kind=str(kwargs.get("supervision_kind") or "resume"),
+        attempt_id=str(kwargs["attempt_id"]),
+    )
     assert LAUNCH_CONTEXT_ENV not in environment
+    assert environment[RESUME_ATTEMPT_ENV] == "resume-job"
     mode = resolve_wait_mode(
         environ=environment,
         session_reader=lambda: pytest.fail("headless resume must not need a read"),
