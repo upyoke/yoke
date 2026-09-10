@@ -131,6 +131,15 @@ export function sortSessionsSteeringFirst(rows) {
   ));
 }
 
+// Every project this session actively steers, from the same current-holdings
+// projection the card and the sort above read — never a title, name, or mode
+// string. A project-scoped session picker uses this alongside the session's
+// own home project: a live steering claim is a membership fact on the
+// project it targets, whether or not that is where the session started.
+export function steeringProjectIds(row) {
+  return steeringClaims(row).map((claim) => String(claimProjectId(claim)));
+}
+
 function steeringScope(claim, projects) {
   const docs = steeringDocs(claim);
   return {

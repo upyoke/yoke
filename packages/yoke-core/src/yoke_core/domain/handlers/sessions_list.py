@@ -149,10 +149,15 @@ def _open_rows(
         conn.close()
     if project_ids is None:
         return list_sessions(open=True, limit=limit)
-    rows: List[Dict[str, Any]] = []
+    # A session's live steering claim can name a project other than its own
+    # home project, so the same session now legitimately matches more than
+    # one project's per-project fetch below; keep its first appearance and
+    # drop the repeat rather than showing one session twice in the roster.
+    by_session_id: Dict[str, Dict[str, Any]] = {}
     for project_id in sorted(project_ids):
-        rows.extend(list_sessions(project=str(project_id), open=True, limit=limit))
-    return rows
+        for row in list_sessions(project=str(project_id), open=True, limit=limit):
+            by_session_id.setdefault(str(row.get("session_id") or ""), row)
+    return list(by_session_id.values())
 
 
 def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:

@@ -50,6 +50,7 @@ from yoke_core.domain.sessions_holdings_read import (
 from yoke_core.domain.sessions_holdings_projection import session_holdings_by_session
 from yoke_core.domain.sessions_list_query import build_sessions_query
 from yoke_core.domain.sessions_list_rows import render_session_roster_rows
+from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
 DEFAULT_SESSIONS_LIST_LIMIT = 100
@@ -75,7 +76,11 @@ def list_sessions(
     """List harness sessions, newest activity first.
 
     ``project`` filters on the session's own ``project_id`` binding
-    (slug or id, resolved server-side). ``liveness`` filters to one of
+    (slug or id, resolved server-side), OR-ed with an actual live steering
+    claim scoped to that project — a session steers a project it did not
+    start in, and that live claim is a project-membership fact just like
+    the home-project binding is. A released claim or an ended session
+    never adds visibility this way. ``liveness`` filters to one of
     :data:`LIVENESS_STATES`; the ended/not-ended half of that split
     prunes in SQL, while the active/stale split classifies within the
     ``limit`` window (the TTL is executor-aware, so it cannot live in
@@ -126,8 +131,19 @@ def list_sessions(
         clauses: List[str] = []
         where_params: List[Any] = []
         if project:
-            clauses.append("s.project_id = %s")
-            where_params.append(resolve_project_id(conn, project))
+            project_id = resolve_project_id(conn, project)
+            steering_project = scope_int_sql(conn, "wc.scope", "project_id")
+            clauses.append(
+                "(s.project_id = %s OR EXISTS ("
+                "SELECT 1 FROM work_claims wc "
+                "WHERE wc.session_id = s.session_id "
+                "AND wc.target_kind = 'steering' "
+                "AND wc.released_at IS NULL "
+                f"AND {live_session_sql('s')} "
+                f"AND {steering_project} = %s))"
+            )
+            where_params.append(project_id)
+            where_params.append(project_id)
         if normalized_session_id:
             clauses.append("s.session_id = %s")
             where_params.append(normalized_session_id)
