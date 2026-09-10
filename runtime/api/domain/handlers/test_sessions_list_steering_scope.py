@@ -183,9 +183,16 @@ class TestAuthorizationBoundary:
         _insert_project(test_db, _THIRD_PROJECT_ID, "third")
         _insert_session(test_db, "s-root", project_id=1)
         insert_steering_claim(test_db, "s-root", project_id=_PLATFORM_PROJECT_ID)
+        # A live claim on the inaccessible project too, so the denied
+        # assertion below proves the actor's own visibility filter is what
+        # blocks it — not merely that nothing was seeded there.
+        insert_steering_claim(test_db, "s-root", project_id=_THIRD_PROJECT_ID)
 
         actor_id = seed_human_actor(test_db)
-        _grant_project_role(test_db, actor_id, 1)
+        # Only platform, not the session's own home project (yoke): this
+        # proves the cross-project steering boundary specifically, rather
+        # than a visibility grant the session's home project would already
+        # have supplied.
         _grant_project_role(test_db, actor_id, _PLATFORM_PROJECT_ID)
 
         # Allowed steered project: the actor's own visibility grants platform,
@@ -198,8 +205,9 @@ class TestAuthorizationBoundary:
             "s-root",
         ]
 
-        # Inaccessible project: the actor holds no role there, so the live
-        # steering claim is not a back door around ordinary authorization.
+        # Inaccessible project: the actor holds no role there, so a live
+        # steering claim on that same project is not a back door around
+        # ordinary authorization.
         denied = handle_sessions_list(
             _request({"open": True, "projects": ["third"]}, actor_id=actor_id)
         )
