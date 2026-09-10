@@ -212,7 +212,7 @@ class TestSteerSkillContract:
         assert "confirmed `stale`" in loop
         assert "`waiting` or `probed`" in loop
         assert "`active now` under a minute" in loop
-        assert "`idle Xm` (whole minutes, never hours/days)" in loop
+        assert "`idle <age>` past it, rolling over minutes/hours/days" in loop
         assert "executor-aware TTL (1440 minutes here)" in loop
         assert "decides alive versus stale" in loop
         assert "still be a session the control plane counts" in loop
