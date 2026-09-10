@@ -12,6 +12,7 @@ import {
   successfulResult,
 } from "./universe_overview_primitives.js";
 import { sessionCard } from "./universe_views_sessions.js";
+import { sortSessionsSteeringFirst } from "./universe_sessions_steering.js";
 import { el } from "./universe_view_support.js";
 
 export async function loadSessions(context, band, getScope, sessionRoster) {
@@ -33,11 +34,11 @@ export async function loadSessions(context, band, getScope, sessionRoster) {
       ));
       return;
     }
-    const rows = sessionsShownInActive(
+    const rows = sortSessionsSteeringFirst(sessionsShownInActive(
       result.rows || [], getScope(), context.projects(),
     ).sort((left, right) => String(right.activity_at || "").localeCompare(
       String(left.activity_at || ""),
-    ));
+    )));
     band.setCount(rows.length);
     band.renderCards(
       rows.map((row) => sessionCard(

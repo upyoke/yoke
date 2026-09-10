@@ -118,6 +118,19 @@ export function releasedHoldingHistory(entries) {
     });
 }
 
+// Active steering sessions first, ordinary sessions after — both groups keep
+// their incoming relative order. Steering identity comes from the same
+// current-holdings projection the card itself reads, never from a title,
+// name, harness, or mode string, so a session only counts once its claim
+// says so. Shared by Overview and Sessions so both screens agree on where a
+// steering seat lands in the grid.
+export function sortSessionsSteeringFirst(rows) {
+  return (Array.isArray(rows) ? rows.slice() : []).sort((left, right) => (
+    Number(steeringClaims(right).length > 0)
+      - Number(steeringClaims(left).length > 0)
+  ));
+}
+
 function steeringScope(claim, projects) {
   const docs = steeringDocs(claim);
   return {
