@@ -13,6 +13,7 @@ from yoke_contracts.hook_context_compose import (
     reply_is_well_formed,
     token_delivered,
 )
+from yoke_contracts.hook_runner.config_owner import CURSOR_MODEL_CONTEXT_NATIVE_EVENTS
 from yoke_contracts.hook_runner.model_context_channel import (
     SESSION_OPENING_STDOUT_EVENTS,
     STDOUT_CHANNEL,
@@ -54,7 +55,19 @@ def _delivery_port() -> SessionMessageDeliveryPort:
     return CoreSessionMessageDeliveryPort()
 
 
+def _cursor_native_event_visible(context: HookContext) -> bool:
+    """Refuse Cursor's audit-only ``afterShellExecution``, which
+    canonicalizes to the same runner ``PostToolUse`` event as the real
+    ``postToolUse`` but has no model-visible reply channel."""
+    if context.executor_family != "cursor":
+        return True
+    native_event = str(context.payload.get("hook_event_name") or "")
+    return not native_event or native_event in CURSOR_MODEL_CONTEXT_NATIVE_EVENTS
+
+
 def _event_is_model_visible(context: HookContext) -> bool:
+    if not _cursor_native_event_visible(context):
+        return False
     capability = capability_for_surface(context.executor_surface)
     if capability is not None:
         return context.event_name in capability.inject_events
