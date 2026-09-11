@@ -1,13 +1,20 @@
 /* The steering region of a session card. Separate from the card's own
    sheet because it is its own design surface: on a steering seat the
    scope IS the work, so it leads the body where a worker card leads with
-   its claimed item. Only that seat renders this region. */
+   its claimed item. Only that seat renders this region.
+
+   Every rule below reads `--session-steering-color` — set inline per card
+   from the group's `steering_group_session_id` — so each concurrent
+   steering group renders in its own color; a card outside any steering
+   group falls back to the universal accent. */
 
 /* Associated session cards — the steering seat and every worker that
    seat currently covers — share one outer tint so the group reads as
    one. Stale status keeps the warning sheet. */
 .universe-app-root .session-card.is-steering-associated {
-  background: color-mix(in srgb, var(--yoke-accent) 10%, var(--yoke-surface));
+  background: color-mix(
+    in srgb, var(--session-steering-color, var(--yoke-accent)) 10%, var(--yoke-surface)
+  );
 }
 
 .universe-app-root .session-card.is-steering-associated.is-stale {
@@ -23,9 +30,11 @@
   flex-direction: column;
   gap: 4px;
   padding: 7px 9px;
-  border-left: 3px solid var(--yoke-accent);
+  border-left: 3px solid var(--session-steering-color, var(--yoke-accent));
   border-radius: 4px;
-  background: color-mix(in srgb, var(--yoke-accent) 8%, transparent);
+  background: color-mix(
+    in srgb, var(--session-steering-color, var(--yoke-accent)) 8%, transparent
+  );
 }
 
 /* The symbol sits in the box corner rather than beside the label, so it
@@ -34,7 +43,7 @@
   position: absolute;
   top: 6px;
   right: 7px;
-  color: var(--yoke-accent);
+  color: var(--session-steering-color, var(--yoke-accent));
 }
 
 .universe-app-root .steering-symbol {
@@ -54,11 +63,11 @@
 }
 
 .universe-app-root .session-lock.steering-symbol {
-  color: var(--yoke-accent);
+  color: var(--session-steering-color, var(--yoke-accent));
 }
 
 .universe-app-root .session-steering-lead-label {
-  color: var(--yoke-accent);
+  color: var(--session-steering-color, var(--yoke-accent));
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .055em;
@@ -92,8 +101,10 @@
   flex: 0 0 auto;
   padding: 1px 6px;
   border-radius: 4px;
-  color: var(--yoke-accent);
-  background: color-mix(in srgb, var(--yoke-accent) 16%, transparent);
+  color: var(--session-steering-color, var(--yoke-accent));
+  background: color-mix(
+    in srgb, var(--session-steering-color, var(--yoke-accent)) 16%, transparent
+  );
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: .04em;

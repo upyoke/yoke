@@ -23,6 +23,7 @@ import { appendSessionUsage } from "./universe_session_usage.js";
 import {
   appendSteeringHoldings,
   sortSessionsSteeringFirst,
+  steeringGroupColor,
 } from "./universe_sessions_steering.js";
 import {
   appendSessionMessagingBlocker,
@@ -105,6 +106,14 @@ export function sessionCard(
   if (row.steering_group_session_id) {
     card.setAttribute(
       "data-steering-group", String(row.steering_group_session_id),
+    );
+    // Every steering-region rule below reads this custom property with the
+    // universal accent as its fallback, so a group's color reaches the
+    // steering lead, the outer tint, and every covered worker's card from
+    // this one assignment.
+    card.style.setProperty(
+      "--session-steering-color",
+      steeringGroupColor(row.steering_group_session_id),
     );
   }
 

@@ -25,6 +25,26 @@ export class FakeClassList {
   }
 }
 
+// A CSSStyleDeclaration double: plain assignment (`style.width = ...`)
+// stays a direct property, and `setProperty`/`getPropertyValue` cover
+// custom properties the way `style["--foo"] = ...` does not reliably
+// across real browsers.
+class FakeStyle {
+  setProperty(name, value) {
+    this[name] = value;
+  }
+
+  getPropertyValue(name) {
+    return this[name] ?? "";
+  }
+
+  removeProperty(name) {
+    const value = this.getPropertyValue(name);
+    delete this[name];
+    return value;
+  }
+}
+
 export class FakeNode extends EventTarget {
   constructor(ownerDocument, tagName, nodeType = 1) {
     super();
@@ -36,7 +56,7 @@ export class FakeNode extends EventTarget {
     this.children = [];
     this.className = "";
     this.classList = new FakeClassList(this);
-    this.style = {};
+    this.style = new FakeStyle();
     this.hidden = false;
     this.disabled = false;
     this.selected = false;

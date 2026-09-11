@@ -6,6 +6,9 @@ import {
   sessionCard,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
 import {
+  steeringGroupColor,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.js";
+import {
   FakeDocument,
   byClass,
 } from "./universe_ui_dom_test_support.mjs";
@@ -101,7 +104,10 @@ test("associated cards share the steering seat tint", () => {
     css,
     /\.session-card\.is-steering-associated\.is-stale \{[\s\S]*?--yoke-warn-bg/,
   );
-  assert.match(css, /border-left: 3px solid var\(--yoke-accent\)/);
+  assert.match(
+    css,
+    /border-left: 3px solid var\(--session-steering-color, var\(--yoke-accent\)\)/,
+  );
   assert.match(
     css, /\.session-steering-symbol \{[\s\S]*?position: absolute/,
   );
@@ -128,4 +134,58 @@ test("coverage association tints the outer card", () => {
   );
   assert.ok(rendered.classList.contains("is-steering-associated"));
   assert.equal(rendered.getAttribute("data-steering-group"), "seat-1");
+});
+
+
+test("each steering group renders its own color, shared with its workers", () => {
+  const seatOne = sessionCard(
+    new FakeDocument(),
+    {
+      session_id: "seat-1",
+      liveness: "active",
+      holdings: { current: [steering], previous: [], previous_remainder: 0 },
+      messageability: { messageable: false },
+      steering_group_session_id: "seat-1",
+    },
+    () => {},
+    [{ id: 1, slug: "yoke" }],
+  );
+  const workerOfSeatOne = sessionCard(
+    new FakeDocument(),
+    {
+      session_id: "worker-1",
+      liveness: "active",
+      holdings: { current: [], previous: [], previous_remainder: 0 },
+      messageability: { messageable: false },
+      steering_group_session_id: "seat-1",
+    },
+    () => {},
+    [{ id: 1, slug: "yoke" }],
+  );
+  const seatTwo = sessionCard(
+    new FakeDocument(),
+    {
+      session_id: "seat-2",
+      liveness: "active",
+      holdings: { current: [steering], previous: [], previous_remainder: 0 },
+      messageability: { messageable: false },
+      steering_group_session_id: "seat-2",
+    },
+    () => {},
+    [{ id: 1, slug: "yoke" }],
+  );
+  const colorOne = seatOne.style.getPropertyValue("--session-steering-color");
+  const colorTwo = seatTwo.style.getPropertyValue("--session-steering-color");
+  assert.equal(colorOne, steeringGroupColor("seat-1"));
+  assert.equal(colorTwo, steeringGroupColor("seat-2"));
+  assert.notEqual(colorOne, colorTwo);
+  // The covered worker's card carries the SAME group color as its seat —
+  // one visual group, one custom-property value — not a separately
+  // computed one.
+  assert.equal(
+    workerOfSeatOne.style.getPropertyValue("--session-steering-color"),
+    colorOne,
+  );
+  // Deterministic across renders: no registry, no render-order dependence.
+  assert.equal(steeringGroupColor("seat-1"), steeringGroupColor("seat-1"));
 });
