@@ -2,7 +2,6 @@ import {
   buildUniverseRoute,
   serializeScope,
 } from "./universe_navigation.js";
-import { itemDrillInHref } from "./universe_item_routes.js";
 import {
   el,
   loadScopedSection,
@@ -10,140 +9,13 @@ import {
   renderError,
   scopeBuckets,
   section,
-  statePill,
 } from "./universe_view_support.js";
-import { relativeTime } from "./universe_time.js";
-import { renderStageStrip } from "./universe_stage_strip.js";
-import { runGateStatus } from "./universe_run_gates.js";
-import {
-  isTerminalizable,
-  terminalizationDialog,
-} from "./deployment_run_terminalization_dialog.js";
 import { renderDeliveryFlowExplorer } from "./universe_delivery_flows.js";
 import {
   createDeploymentRunsLoader,
 } from "./universe_deployment_runs_loader.js";
-
-function memberLink(documentNode, member) {
-  const href = itemDrillInHref({
-    projectId: member.project_id,
-    projectSequence: member.project_sequence,
-    publicRef: member.ref,
-  });
-  const link = el(
-    documentNode,
-    href ? "a" : "span",
-    "delivery-member",
-    [member.ref, member.title].filter(Boolean).join(" · "),
-  );
-  if (href) link.href = href;
-  return link;
-}
-
-function originatingItems(documentNode, row) {
-  const members = el(documentNode, "div", "delivery-origin-items");
-  if ((row.member_items || []).length) {
-    for (const member of row.member_items) {
-      members.appendChild(memberLink(documentNode, member));
-    }
-  } else {
-    members.appendChild(el(
-      documentNode,
-      "span",
-      "secondary-muted",
-      "environment run",
-    ));
-  }
-  return members;
-}
-
-function runProject(projects, projectSlug) {
-  const normalized = String(projectSlug || "").toLowerCase();
-  return projects.find((candidate) => (
-    [candidate.id, candidate.slug, candidate.name].some(
-      (value) => String(value || "").toLowerCase() === normalized,
-    )
-  ));
-}
-
-function runProjectLabel(projects, projectSlug) {
-  const project = runProject(projects, projectSlug);
-  const label = project?.slug || projectSlug || project?.name || "—";
-  return project?.emoji ? `${project.emoji} ${label}` : label;
-}
-
-function runTimestamp(row) {
-  return row.completed_at || row.started_at || row.created_at || null;
-}
-
-function renderRunsTable(body, rows, projects, onTerminalized) {
-  const documentNode = body.ownerDocument;
-  if (!rows.length) {
-    body.appendChild(el(documentNode, "p", "empty", "No runs in this scope."));
-    return;
-  }
-  const wrap = el(documentNode, "div", "table-wrap");
-  const table = el(documentNode, "table", "items delivery-runs-table");
-  const head = el(documentNode, "tr");
-  for (const label of [
-    "Run", "Project", "Originating item", "Target",
-    "Stages", "Status", "When",
-  ]) head.appendChild(el(documentNode, "th", null, label));
-  table.appendChild(head);
-  for (const row of rows) {
-    const tr = el(documentNode, "tr");
-    const runCell = el(documentNode, "td", "mono");
-    const runLink = el(
-      documentNode, "a", "delivery-run-evidence", row.id || "—",
-    );
-    runLink.href = buildUniverseRoute(
-      "qa-activity", runProject(projects, row.project)?.id, row.id,
-    );
-    runLink.setAttribute("aria-label", `QA evidence for ${row.id}`);
-    runCell.appendChild(runLink);
-    tr.appendChild(runCell);
-    tr.appendChild(el(
-      documentNode, "td", null, runProjectLabel(projects, row.project),
-    ));
-    const item = el(documentNode, "td");
-    item.appendChild(originatingItems(documentNode, row));
-    tr.appendChild(item);
-    tr.appendChild(el(
-      documentNode, "td", null,
-      row.target_environment || row.target_tier || "—",
-    ));
-    const stages = el(documentNode, "td");
-    stages.appendChild(renderStageStrip(documentNode, row.stages));
-    tr.appendChild(stages);
-    const status = el(documentNode, "td", "delivery-run-status");
-    // A suspended run keeps whatever status it held when it stopped, so the
-    // table reports the gate instead — the same string the run card shows.
-    const shown = runGateStatus(row) || row.status;
-    const pill = statePill(documentNode, shown, shown);
-    if (pill) status.appendChild(pill);
-    if (isTerminalizable(row)) {
-      const terminalize = el(
-        documentNode, "button", "delivery-run-terminalize", "Terminalize",
-      );
-      terminalize.type = "button";
-      terminalize.addEventListener("click", () => {
-        body.appendChild(terminalizationDialog(
-          onTerminalized.context,
-          row,
-          onTerminalized.reload,
-        ));
-      });
-      status.appendChild(terminalize);
-    }
-    tr.appendChild(status);
-    const when = el(documentNode, "td");
-    when.appendChild(relativeTime(documentNode, runTimestamp(row)));
-    tr.appendChild(when);
-    table.appendChild(tr);
-  }
-  wrap.appendChild(table);
-  body.appendChild(wrap);
-}
+import { renderRunsTable } from "./universe_delivery_runs_table.js";
+import { EMPTY_RUN_FACTS, loadRunFacts } from "./universe_run_evidence.js";
 
 export function renderDeliveryRunsView(context, main, scope) {
   const documentNode = context.document;
@@ -152,7 +24,7 @@ export function renderDeliveryRunsView(context, main, scope) {
   const controls = el(documentNode, "div", "item-filters delivery-run-filters");
   const query = el(documentNode, "input", "item-filter-control");
   query.type = "search";
-  query.placeholder = "Run ID or originating item";
+  query.placeholder = "Run ID or carried item";
   controls.appendChild(query);
   const selectSpecs = [
     ["project", "All projects"],
@@ -167,6 +39,16 @@ export function renderDeliveryRunsView(context, main, scope) {
     controls.appendChild(select);
   }
   main.replaceChildren(controls, panel);
+
+  // The QA checks and flow names beside each run are read once for the
+  // scope and joined into every page the loader serves.
+  let facts = EMPTY_RUN_FACTS;
+  let lastState = null;
+  const projectIds = scopeBuckets(scope, context.projects(), true);
+  loadRunFacts(context, projectIds).then((loaded) => {
+    facts = loaded;
+    if (lastState) renderState(lastState);
+  });
 
   const loader = createDeploymentRunsLoader({
     context,
@@ -207,10 +89,17 @@ export function renderDeliveryRunsView(context, main, scope) {
 
   function renderState(state) {
     if (!context.isMounted()) return;
+    lastState = state;
     updateControls(state);
     if (state.failure && !state.rows.length) {
       panel.renderEnvelope(state.failure, (body) => renderError(body, state.failure));
       return;
+    }
+    // The flow filter already labels every flow the page knows; the table
+    // reads its titles from there and from the definitions read beside it.
+    const flowLabels = new Map(facts.flowNames);
+    for (const flow of state.filters.flows || []) {
+      if (flow?.id && flow.label) flowLabels.set(String(flow.id), String(flow.label));
     }
     panel.setCount(state.unfinishedCount + state.completedMatchCount);
     panel.renderEnvelopes([], (body) => {
@@ -225,10 +114,14 @@ export function renderDeliveryRunsView(context, main, scope) {
         `${state.unfinishedCount} unfinished · `
           + `${state.completedLoadedCount} of ${state.completedMatchCount} completed loaded`,
       ));
-      renderRunsTable(body, state.rows, context.projects(), {
-        context,
-        reload: loader.start,
+      renderRunsTable(context, body, state.rows, {
+        facts, flowLabels, scope, reload: loader.start,
       });
+      if (facts.failed) {
+        body.appendChild(el(
+          documentNode, "p", "item-roster-note delivery-run-counts", facts.failed,
+        ));
+      }
       const waiting = state.rows.filter(
         (row) => (row.gates || []).some((gate) => gate.can_act),
       ).length;

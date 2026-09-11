@@ -20,6 +20,7 @@ import { renderDoctorView } from "./universe_views_doctor.js";
 import { renderEventsView } from "./universe_views_events.js";
 import { renderGithubView } from "./universe_views_github.js";
 import { renderInboxView } from "./universe_views_inbox.js";
+import { renderRunDetailView } from "./universe_views_run_detail.js";
 import {
   renderItemDetailView,
   renderItemsView,
@@ -81,6 +82,9 @@ export const DETAIL_RENDERERS = {
   "qa-methods": fromDrillInProject(renderQaMethodDetail),
   "qa-plans": fromDrillInProject(renderQaPlanDetail),
   "qa-activity": fromDrillInProject(renderQaActivity),
+  // Opening a run row IS opening the run: the page it lands on reads the
+  // same run row the table did, plus the QA activity recorded against it.
+  deployments: fromDrillInProject(renderRunDetailView),
 };
 
 // A destination is live exactly when it has a renderer here.

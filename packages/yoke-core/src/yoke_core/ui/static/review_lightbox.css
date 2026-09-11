@@ -1,0 +1,63 @@
+/* Lightbox: one picture or one block of captured text at full size, its
+   caption, and a way back. Drawn on the body, outside the app root. */
+
+.universe-app-root .review-lightbox,
+.review-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  background: rgba(15, 17, 26, .82);
+}
+.review-lightbox-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(1100px, 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+.review-lightbox-caption {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.review-lightbox-open {
+  color: #fff;
+  font-size: 12.5px;
+}
+.review-lightbox-close {
+  padding: 5px 12px;
+  border: 1px solid #fff;
+  border-radius: 6px;
+  background: #fff;
+  color: #0f111a;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.review-lightbox-image {
+  max-width: min(1100px, 100%);
+  max-height: calc(100vh - 90px);
+  border-radius: 8px;
+  background: #fff;
+}
+.review-lightbox-text {
+  width: min(1100px, 100%);
+  max-height: calc(100vh - 90px);
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  border-radius: 8px;
+  background: #0f111a;
+  color: #d7dbe6;
+  font-family: var(--yoke-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}

@@ -69,7 +69,9 @@ test("Blitz detail route renders the full execution-document composition", async
 
   assert.deepEqual(
     requests.map((request) => request.function),
-    ["items.detail.get", "strategy.execution.get", "qa.artifact.read"],
+    // The verification rows also ask which of their reviews still wait on
+    // this reader, so a pending one can point at its Inbox card.
+    ["items.detail.get", "strategy.execution.get", "qa.artifact.read", "inbox.list"],
   );
   const rendered = itemText(root);
   assert.match(rendered, /Execution document/);

@@ -70,14 +70,27 @@ labelled incomparable.
 
 - **Overview** — glance sections across strategy, frontier, sessions,
   delivery, events, doctor
-- **Inbox** — two panels, because two kinds of thing reach a person: the
-  gates waiting on your decision (deploy stage, QA review, lifecycle
-  approval) and the messages sent to you. An agent that needs you to know
+- **Inbox** — three sections: the decisions waiting on you (a release
+  approval, a work approval, or a QA review), the messages sent to you, and
+  what you decided while on the page. An agent that needs you to know
   something sends a message, with context and a specific ask
-- A gate that needs every listed approver shows how far it has got — how
-  many of the checked approvers have decided, and who it is still waiting
-  on. A gate you already answered reports your own decision instead of
-  offering an action you cannot take twice; any rejection ends it outright
+- Every decision is one card, the same card a run draws on the Overview's
+  Shipping band and on the run page: what kind of ask it is, what it is
+  about, what a yes does in one sentence, the evidence behind it, who
+  settles it, and the answer. Screenshots load as thumbnails and open in
+  place; stored command output opens as text; evidence held on another
+  machine says so. The long form — why you were asked, exactly what
+  approving does, the release contents or branch diff — stays one
+  disclosure away
+- A decision that needs every listed approver counts how far it has got
+  and names who it is still waiting on; one that any approver settles names
+  the people or the role who can. A card you already answered reports your
+  own decision instead of offering an action you cannot take twice; any
+  rejection ends it outright
+- **Deployments** rows open the run page: the flow, the stages, the checks
+  the run's QA recorded with their evidence, what the run carries, and the
+  decision waiting on it. QA activity rows and an item's Verification rows
+  point a review still waiting on you back at its Inbox card
 - A desktop conversation cannot be resumed for you, so a message waiting in
   one raises a notice asking you to open that chat. The notice is derived
   from the waiting message, so it settles itself the moment the wait ends —

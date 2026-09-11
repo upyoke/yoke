@@ -3,6 +3,7 @@ import { relativeTime } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
 import { qaOutcome, requirementCard } from "./item_view_requirement_card.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
+import { loadPendingReviews } from "./universe_run_evidence.js";
 function derivedPlanAttachments(rows) {
   const plans = new Map();
   for (const row of rows) {
@@ -130,6 +131,26 @@ function unionCard(documentNode, rows) {
   return union;
 }
 
+// A requirement whose review is still waiting on this reader points at the
+// Inbox card that decides it. The item page does not carry that fact, so
+// it is read once the rows are on screen and marked in place.
+function markPendingReviews(context, body, item) {
+  if (!context.client || !item.project?.id) return;
+  loadPendingReviews(context, [item.project.id]).then((pending) => {
+    if (!pending.size || (typeof context.isMounted === "function" && !context.isMounted())) return;
+    for (const card of Array.from(body.children)) {
+      const request = pending.get(String(card.getAttribute?.("data-requirement-id")));
+      if (!request) continue;
+      const copy = Array.from(card.children).find(
+        (child) => child.classList.contains("item-proof-copy"),
+      );
+      const link = el(context.document, "a", "review-pill is-pending", "needs your review →");
+      link.href = buildUniverseRoute("inbox", String(item.project.id));
+      (copy || card).appendChild(link);
+    }
+  });
+}
+
 export function verificationPanel(context, item) {
   const documentNode = context.document;
   const rows = item.qa_requirements || [];
@@ -210,5 +231,6 @@ export function verificationPanel(context, item) {
       ));
     }
   }
+  markPendingReviews(context, body, item);
   return panel;
 }

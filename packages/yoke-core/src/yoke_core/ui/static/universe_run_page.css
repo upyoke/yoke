@@ -1,0 +1,229 @@
+/* The run page: eyebrow, title and status, the stage steps, then two cards
+   — what was verified, and what is waiting. Plus the run card's evidence
+   strip and carries box on the Overview and the run title in the table. */
+.universe-app-root .run-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.universe-app-root .run-eyebrow {
+  color: var(--yoke-muted);
+  font-family: var(--yoke-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.universe-app-root .run-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: -10px;
+}
+.universe-app-root .run-title {
+  margin: 0;
+  color: var(--yoke-ink);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+}
+.universe-app-root .run-sub {
+  margin-top: 6px;
+  color: var(--yoke-muted);
+  font-size: 13.5px;
+}
+.universe-app-root .run-badge {
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--yoke-idle-bg);
+  color: var(--yoke-idle);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.universe-app-root .run-badge.is-awaiting-approval,
+.universe-app-root .run-badge.is-awaiting-review {
+  background: var(--yoke-warn-bg);
+  color: var(--yoke-warn);
+}
+.universe-app-root .run-badge.is-succeeded {
+  background: var(--yoke-good-bg);
+  color: var(--yoke-good);
+}
+.universe-app-root .run-badge.is-failed,
+.universe-app-root .run-badge.is-cancelled {
+  background: var(--yoke-crit-bg);
+  color: var(--yoke-crit);
+}
+.universe-app-root .run-badge.is-executing,
+.universe-app-root .run-badge.is-created {
+  background: var(--yoke-run-bg);
+  color: var(--yoke-run);
+}
+.universe-app-root .run-steps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  border-top: 1px solid var(--yoke-border);
+  border-bottom: 1px solid var(--yoke-border);
+  overflow-x: auto;
+}
+.universe-app-root .run-step {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+  color: var(--yoke-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.universe-app-root .run-step i {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid var(--yoke-border);
+  border-radius: 50%;
+  font-size: 12px;
+  font-style: normal;
+}
+.universe-app-root .run-step.is-complete { color: var(--yoke-good); }
+.universe-app-root .run-step.is-complete i { border-color: transparent; background: var(--yoke-good-bg); }
+.universe-app-root .run-step.is-active { color: var(--yoke-warn); }
+.universe-app-root .run-step.is-active i { border-color: transparent; background: var(--yoke-warn-bg); }
+.universe-app-root .run-step.is-failed,
+.universe-app-root .run-step.is-stopped { color: var(--yoke-crit); }
+.universe-app-root .run-step.is-failed i,
+.universe-app-root .run-step.is-stopped i { border-color: transparent; background: var(--yoke-crit-bg); }
+.universe-app-root .run-arrow {
+  flex: 0 0 auto;
+  color: var(--yoke-muted);
+}
+.universe-app-root .run-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.universe-app-root .run-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 12px;
+  background: var(--yoke-surface);
+}
+.universe-app-root .run-card h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  font-size: 17px;
+}
+.universe-app-root .run-verdict {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.universe-app-root .run-verdict.is-approved { background: var(--yoke-good-bg); color: var(--yoke-good); }
+.universe-app-root .run-verdict.is-rejected { background: var(--yoke-crit-bg); color: var(--yoke-crit); }
+.universe-app-root .run-check {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--yoke-border);
+  font-size: 13px;
+}
+.universe-app-root .run-check b { flex: 1; font-weight: 600; }
+.universe-app-root .run-check span { color: var(--yoke-muted); }
+.universe-app-root .run-check i { color: var(--yoke-crit); font-style: normal; }
+.universe-app-root .run-check.is-passed i { color: var(--yoke-good); }
+.universe-app-root .run-items {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px 14px;
+  font-size: 13.5px;
+}
+.universe-app-root .run-items .mono { color: var(--yoke-muted); text-decoration: none; }
+.universe-app-root .run-copy {
+  margin: 0;
+  color: var(--yoke-ink-2);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* Run cards on the Overview: the carries box stands out from the card, the
+   evidence strip sits under its own small label. */
+.universe-app-root .overview-run-batch {
+  border-color: color-mix(in srgb, var(--yoke-ink) 38%, var(--yoke-border));
+}
+.universe-app-root .overview-run-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.universe-app-root .overview-run-card .review-shot {
+  width: 120px;
+}
+
+/* The Runs table: a titled release with its id beneath, rows that open the
+   run, and a bounded evidence cell. */
+.universe-app-root .delivery-run-row { cursor: pointer; }
+.universe-app-root .delivery-run-row:hover td { background: var(--yoke-hover); }
+.universe-app-root .delivery-run-title {
+  color: var(--yoke-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+.universe-app-root .delivery-run-title:hover { color: var(--yoke-accent); }
+.universe-app-root .delivery-run-id {
+  margin-top: 2px;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.universe-app-root .delivery-runs-table td:first-child {
+  min-width: 180px;
+}
+.universe-app-root .delivery-run-evidence-cell {
+  min-width: 250px;
+}
+/* Table cells override the strip's own compact width, so the selector has
+   to outweigh it. */
+.universe-app-root .delivery-run-evidence-cell .review-evidence.compact .review-shot,
+.universe-app-root .qa-activity-evidence .review-evidence.compact .review-shot {
+  width: 72px;
+}
+.universe-app-root .delivery-run-evidence-cell .review-evidence {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+}
+.universe-app-root .delivery-run-evidence-cell .review-more {
+  padding: 4px 7px;
+  font-size: 11px;
+}
+.universe-app-root .run-check-reason {
+  flex: 1 1 100%;
+  color: var(--yoke-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.universe-app-root .run-check-reason > summary {
+  color: var(--yoke-link);
+  cursor: pointer;
+  font-weight: 600;
+}
+.universe-app-root .run-check {
+  flex-wrap: wrap;
+}
+@media (max-width: 720px) {
+  .universe-app-root .run-title { font-size: 21px; }
+}

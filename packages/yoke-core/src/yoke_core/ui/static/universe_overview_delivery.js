@@ -1,5 +1,6 @@
 // Shipping renders deployment runs as first-class cards, including the work
-// each release carries and the derivation that produced that membership.
+// each release carries, the request each is waiting on, and the QA evidence
+// its checks captured.
 
 import { createDecisionResolver } from "./inbox_rows.js";
 import { overviewRunCard } from "./universe_overview_cards.js";
@@ -8,6 +9,7 @@ import {
   OVERVIEW_CARD_LIMIT,
   successfulResult,
 } from "./universe_overview_primitives.js";
+import { EMPTY_RUN_FACTS, loadRunFacts } from "./universe_run_evidence.js";
 import { settledScopedCalls } from "./universe_view_support.js";
 
 function selectedProjects(projects, scope) {
@@ -19,24 +21,31 @@ function selectedProjects(projects, scope) {
 export async function loadDelivery(context, band, getScope) {
   const projects = context.projects();
   const buckets = projects.length ? projects : [{ id: null }];
-  const { callResults } = await settledScopedCalls(
-    context,
-    buckets.map((project) => ({
-      functionId: "deployment_runs.list",
-      payload: project.id === null
-        ? { relevance: "overview" }
-        : { project: String(project.id), relevance: "overview" },
-    })),
-  );
+  // Run rows and the facts beside them (flow names, QA checks) are two reads
+  // fanned out together; neither waits on the other.
+  const [{ callResults }, facts] = await Promise.all([
+    settledScopedCalls(
+      context,
+      buckets.map((project) => ({
+        functionId: "deployment_runs.list",
+        payload: project.id === null
+          ? { relevance: "overview" }
+          : { project: String(project.id), relevance: "overview" },
+      })),
+    ),
+    projects.length
+      ? loadRunFacts(context, projects.map((project) => project.id))
+      : Promise.resolve(EMPTY_RUN_FACTS),
+  ]);
   if (!context.isMounted()) return null;
-  // Answering a gate changes what the server would send, so the band reloads
-  // rather than repainting the rows it already has.
+  // Answering a request changes what the server would send, so the band
+  // reloads rather than repainting the rows it already has.
   const resolve = createDecisionResolver(
     context,
     () => loadDelivery(context, band, getScope),
   );
-  const onGateAction = (gate, action, wrap) => resolve(
-    { id: gate.request_id }, action, wrap,
+  const onGateAction = (gate, action, wrap, note) => resolve(
+    { id: gate.request_id }, action, wrap, note,
   );
   const paint = () => {
     const chosen = projects.length
@@ -60,7 +69,7 @@ export async function loadDelivery(context, band, getScope) {
     band.setCount(rows.length);
     band.renderCards(
       rows.slice(0, OVERVIEW_CARD_LIMIT).map((row) => overviewRunCard(
-        context, row, getScope(), { onGateAction },
+        context, row, getScope(), { onGateAction, facts },
       )),
       "No deployment run is in flight.",
       "overview-run-grid",

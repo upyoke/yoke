@@ -87,7 +87,7 @@ test("no destination declares tabs, and the group order is fixed", () => {
     ["focus", "settings", "diagnostics"]);
 });
 
-test("Runs is the prototype's one seven-column execution table", async (t) => {
+test("Runs is one eight-column table whose rows open the run page", async (t) => {
   const requests = [];
   const client = {
     async call(request) {
@@ -143,21 +143,24 @@ test("Runs is the prototype's one seven-column execution table", async (t) => {
     allNodes(root).filter((node) => node.tagName === "TH")
       .map((node) => node.textContent),
     [
-      "Run", "Project", "Originating item", "Target",
-      "Stages", "Status", "When",
+      "Release", "Project", "Carries", "Target",
+      "Stages", "Status", "QA evidence", "When",
     ],
   );
   assert.deepEqual(
     allNodes(root).filter((node) => node.tagName === "TD").map(cellText),
     [
-      "run-20260101-001", "externalwebapp", "environment run",
-      "prod", "", "succeeded", "then",
+      "externalwebapp-prod-release", "externalwebapp", "environment run",
+      "prod", "", "succeeded", "—", "then",
     ],
   );
   assert.equal(byClass(root, "secondary-muted")[0].textContent, "environment run");
+  // The release is titled by its flow, with the run id beneath, and opens
+  // the run's own page.
+  assert.equal(byClass(root, "delivery-run-id")[0].textContent, "run-20260101-001");
   assert.equal(
-    byClass(root, "delivery-run-evidence")[0].href,
-    "#/qa-activity/run-20260101-001?project=2",
+    byClass(root, "delivery-run-title")[0].href,
+    "#/deployments/run-20260101-001?project=2",
   );
   assert.equal(byClass(root, "delivery-run-card").length, 0);
   assert.deepEqual(
@@ -240,13 +243,16 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
     ["complete", "active", "pending"],
   );
   assert.equal(byClass(root, "delivery-member")[0].href, "#/items/2228?project=1");
+  assert.equal(byClass(root, "delivery-member")[0].textContent, "YOK-2228");
+  assert.equal(byClass(root, "delivery-member")[0].title, "Ship the release");
   assert.equal(
-    byClass(root, "delivery-member")[0].textContent,
-    "YOK-2228 · Ship the release",
+    byClass(root, "delivery-run-title")[0].href,
+    "#/deployments/run-20260726-001?project=1",
   );
+  // A suspended run reports its request, not the status it held when it
+  // stopped.
   assert.equal(
-    byClass(root, "delivery-run-evidence")[0].href,
-    "#/qa-activity/run-20260726-001?project=1",
+    byClass(root, "delivery-run-status")[0].children[0].textContent, "awaiting approval",
   );
   const footer = byClass(root, "delivery-waiting-link")[0];
   assert.equal(footer.textContent, "1 run waiting on you →");

@@ -105,7 +105,7 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
     allNodes(byClass(root, "qa-activity-table")[0])
       .filter((node) => node.tagName === "TH")
       .map((node) => node.textContent),
-    ["Plan", "Case", "Method", "Outcome", "Evidence", "When"],
+    ["Plan", "Case", "Method", "Outcome", "Evidence", "Review", "When"],
   );
   assert.deepEqual(
     client.requests.find(
@@ -167,6 +167,9 @@ test("Activity labels every merged row with its owning project", async () => {
     client: {
       async call(request) {
         requests.push(request);
+        if (request.function === "inbox.list") {
+          return ok({ needs_decision: [], messages: [] });
+        }
         const project = projects.find(
           (row) => String(row.id) === String(request.payload.project),
         );
@@ -193,14 +196,15 @@ test("Activity labels every merged row with its owning project", async () => {
   await renderQaActivity(context, root, "all");
 
   assert.deepEqual(
-    requests.map((request) => request.payload.project),
+    requests.filter((request) => request.function === "qa.activity.list")
+      .map((request) => request.payload.project),
     ["1", "2"],
   );
   assert.deepEqual(
     allNodes(byClass(root, "qa-activity-table")[0])
       .filter((node) => node.tagName === "TH")
       .map((node) => node.textContent),
-    ["Plan", "project", "Case", "Method", "Outcome", "Evidence", "When"],
+    ["Plan", "project", "Case", "Method", "Outcome", "Evidence", "Review", "When"],
   );
   assert.deepEqual(
     byClass(root, "qa-activity-project").map((node) => node.textContent),
@@ -241,7 +245,7 @@ test("a run evidence route requests only that deployment run", async () => {
   assert.match(visibleText(root, " "), /Evidence for run-20260910-006/);
 });
 
-test("a row's linked artifacts render through the shared evidence card", async () => {
+test("a row's linked artifacts render as thumbnails, and a pending review points at the Inbox", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("main");
   await renderQaActivity({
@@ -252,6 +256,12 @@ test("a row's linked artifacts render through the shared evidence card", async (
     capabilities: {},
     client: {
       async call(request) {
+        if (request.function === "inbox.list") {
+          return ok({ needs_decision: [{
+            id: 77, kind: "qa_needs_review", project_id: 1,
+            subject_context: { requirement_id: 9 },
+          }], messages: [] });
+        }
         if (request.function === "qa.activity.list") {
           return ok({
             summary: { total: 1, counts: { passed: 1 } },
@@ -283,6 +293,9 @@ test("a row's linked artifacts render through the shared evidence card", async (
   }, root, "all");
   await settle();
 
-  assert.equal(byClass(root, "qa-evidence").length, 1);
+  assert.equal(byClass(root, "review-shot").length, 1);
   assert.match(visibleText(root, " "), /proof\.png/);
+  const review = byClass(root, "qa-activity-review")[0];
+  assert.equal(byClass(review, "review-pill")[0].textContent, "needs your review →");
+  assert.equal(byClass(review, "review-pill")[0].href, "#/inbox?project=1");
 });

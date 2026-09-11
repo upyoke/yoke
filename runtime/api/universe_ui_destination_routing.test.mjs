@@ -233,10 +233,8 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
 
   // Newest run first in the one prototype table; engine-projected stages
   // render as compact segmented bars.
-  const cells = allNodes(root).filter((node) => node.tagName === "TD");
   assert.deepEqual(
-    cells.filter((cell, index) => index % 7 === 0)
-      .map((cell) => cell.textContent),
+    byClass(root, "delivery-run-id").map((cell) => cell.textContent),
     [
       "run-20260103-002", "run-20260103-001",
       "run-20260102-001", "run-20260101-001",

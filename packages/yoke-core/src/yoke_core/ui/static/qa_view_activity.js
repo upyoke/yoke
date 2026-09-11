@@ -3,7 +3,9 @@ import {
   el,
   withProjectColumn,
 } from "./universe_view_support.js";
-import { artifactEvidenceCard } from "./qa_evidence_artifact_view.js";
+import { evidenceStrip } from "./review_evidence_strip.js";
+import { buildUniverseRoute } from "./universe_navigation.js";
+import { loadPendingReviews } from "./universe_run_evidence.js";
 import {
   loadProjectCalls,
   outcomeNode,
@@ -14,6 +16,8 @@ import {
 } from "./qa_view_primitives.js";
 
 const RECENT_ACTIVITY_LIMIT = 6;
+// Three pictures fit a table row; the rest fold behind "+N more".
+const ACTIVITY_EVIDENCE_SHOWN = 3;
 
 function todayRows(rows) {
   const today = new Date().toISOString().slice(0, 10);
@@ -80,30 +84,40 @@ function evidenceText(row) {
   return count ? `${count} ${count === 1 ? "artifact" : "artifacts"}` : "—";
 }
 
-// Genuinely linked evidence, drawn through the same reader every other QA
-// surface uses — a count alone gave this table's reader a number and no way
-// to look at the screenshot it counted.
+// The pictures behind the row, drawn through the same strip every review
+// surface uses — a count alone gave this table's reader a number and no
+// way to look at the screenshot it counted.
 function evidenceCell(context, documentNode, row) {
   const td = el(documentNode, "td", "qa-activity-evidence");
   const artifacts = Array.isArray(row.artifacts) ? row.artifacts : [];
-  if (!artifacts.length) {
-    td.textContent = evidenceText(row);
-    if (row.verdict_reason) attachTooltip(documentNode, td, row.verdict_reason);
-    return td;
-  }
   const summary = el(
     documentNode, "div", "qa-activity-evidence-summary", evidenceText(row),
   );
   if (row.verdict_reason) attachTooltip(documentNode, summary, row.verdict_reason);
   td.appendChild(summary);
-  const cards = el(documentNode, "div", "qa-activity-evidence-cards");
-  for (const artifact of artifacts) {
-    cards.appendChild(artifactEvidenceCard(context, artifact, row.requirement_id));
-  }
-  td.appendChild(cards);
-  // The row itself navigates to its plan on click; the evidence card's own
-  // "view ->" button and full-image link must not also trigger that.
+  const strip = evidenceStrip(context, artifacts, {
+    compact: true, requirementId: row.requirement_id, limit: ACTIVITY_EVIDENCE_SHOWN,
+  });
+  if (strip) td.appendChild(strip);
+  // The row itself navigates to its plan on click; a thumbnail opens its
+  // picture and must not also trigger that.
   td.addEventListener("click", (event) => event.stopPropagation());
+  return td;
+}
+
+// Whether a person still has to answer for this row. Only a pending review
+// is served, so the cell either points at the Inbox card or says the row
+// needs nobody.
+function reviewCell(context, documentNode, row, pending) {
+  const td = el(documentNode, "td", "qa-activity-review");
+  const request = pending.get(String(row.requirement_id));
+  if (request) {
+    const link = el(documentNode, "a", "review-pill is-pending", "needs your review →");
+    link.href = buildUniverseRoute("inbox", request.project_id);
+    td.appendChild(link);
+  } else {
+    td.appendChild(el(documentNode, "span", "secondary-muted", "—"));
+  }
   return td;
 }
 
@@ -120,7 +134,7 @@ function activityProjectLabel(context, row) {
   );
 }
 
-function renderActivityTable(context, body, rows, scope) {
+function renderActivityTable(context, body, rows, scope, pending) {
   const documentNode = context.document;
   if (!rows.length) {
     body.appendChild(el(
@@ -135,6 +149,7 @@ function renderActivityTable(context, body, rows, scope) {
     { label: "Method" },
     { label: "Outcome" },
     { label: "Evidence" },
+    { label: "Review" },
     { label: "When" },
   ], scope, (row) => activityProjectLabel(context, row));
   const projectColumn = columns.find((column) => column.label === "project");
@@ -177,6 +192,7 @@ function renderActivityTable(context, body, rows, scope) {
     ));
     tr.appendChild(outcome);
     tr.appendChild(evidenceCell(context, documentNode, row));
+    tr.appendChild(reviewCell(context, documentNode, row, pending));
     const when = el(documentNode, "td");
     when.appendChild(relativeTimeNode(documentNode, row.happened_at));
     tr.appendChild(when);
@@ -193,15 +209,20 @@ export async function renderQaActivity(
   main.replaceChildren(el(
     documentNode, "p", "empty", "loading QA activity…",
   ));
-  const { callResults, failed } = await loadProjectCalls(
-    context,
-    scope,
-    "qa.activity.list",
-    {
-      limit: deploymentRunId ? 100 : RECENT_ACTIVITY_LIMIT,
-      ...(deploymentRunId ? { deployment_run_id: deploymentRunId } : {}),
-    },
-  );
+  const [{ callResults, failed }, pending] = await Promise.all([
+    loadProjectCalls(
+      context,
+      scope,
+      "qa.activity.list",
+      {
+        limit: deploymentRunId ? 100 : RECENT_ACTIVITY_LIMIT,
+        ...(deploymentRunId ? { deployment_run_id: deploymentRunId } : {}),
+      },
+    ),
+    loadPendingReviews(
+      context, scope === "all" ? context.projects().map((row) => row.id) : scope,
+    ),
+  ]);
   if (!context.isMounted()) return;
   if (failed) {
     showFailure(documentNode, main, failed);
@@ -245,7 +266,7 @@ export async function renderQaActivity(
   ));
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
-  renderActivityTable(context, body, rows, scope);
+  renderActivityTable(context, body, rows, scope, pending);
   panel.appendChild(body);
   const note = el(documentNode, "div", "qa-panel-note");
   note.textContent =

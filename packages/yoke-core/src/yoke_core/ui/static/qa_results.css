@@ -80,22 +80,22 @@
    linked capture cards below it, bounded so one row with many screenshots
    does not push the rest of the table off screen. */
 .qa-activity-evidence {
-  min-width: 160px;
-  max-width: 260px;
+  min-width: 330px;
+}
+.qa-activity-evidence .review-evidence {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.qa-activity-evidence .review-more {
+  padding: 4px 7px;
+  font-size: 11px;
 }
 
 .qa-activity-evidence-summary {
   color: var(--yoke-muted);
   font-size: 11.5px;
-}
-
-.qa-activity-evidence-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 220px;
-  margin-top: 6px;
-  overflow-y: auto;
 }
 
 .qa-stats {
