@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import List
@@ -18,6 +19,7 @@ from yoke_contracts.api.function_call import (
 
 
 _CAPTURED_REQUESTS: List[FunctionCallRequest] = []
+_IDENTITY_RESULT = {"project_id": 1, "project_slug": "yoke", "docs": []}
 
 
 @pytest.fixture(autouse=True)
@@ -52,24 +54,17 @@ def _run(*argv: str) -> int:
 class TestDocArchive:
     def test_flips_then_renders_into_target_root(self, tmp_path: Path) -> None:
         results = {
+            "strategy.doc.list": _IDENTITY_RESULT,
             "strategy.doc.archive": {
-                "project_id": 1,
-                "project_slug": "yoke",
-                "slug": "PAD",
-                "archived": True,
-                "changed": True,
+                "project_id": 1, "project_slug": "yoke",
+                "slug": "PAD", "archived": True, "changed": True,
             },
             "strategy.render.run": {
-                "project_id": 1,
-                "project_slug": "yoke",
-                "docs": [
-                    {
-                        "slug": "PAD",
-                        "updated_at": "x",
-                        "file_text": "<!-- h -->\n# PAD\n",
-                        "archived": True,
-                    }
-                ],
+                "project_id": 1, "project_slug": "yoke",
+                "docs": [{
+                    "slug": "PAD", "updated_at": "x",
+                    "file_text": "<!-- h -->\n# PAD\n", "archived": True,
+                }],
             },
         }
         with patch(
@@ -77,31 +72,23 @@ class TestDocArchive:
             side_effect=_stub(results),
         ):
             rc = _run(
-                "strategy",
-                "doc",
-                "archive",
-                "PAD",
-                "--target-root",
-                str(tmp_path),
+                "strategy", "doc", "archive", "PAD",
+                "--target-root", str(tmp_path),
             )
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.archive",
-            "strategy.render.run",
+            "strategy.doc.list", "strategy.doc.archive", "strategy.render.run",
         ]
         assert (tmp_path / ".yoke" / "strategy" / "archive" / "PAD.md").read_text(
             encoding="utf-8"
         ) == "<!-- h -->\n# PAD\n"
 
-    def test_skips_render_when_target_root_is_another_projects_checkout(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
+    def test_refuses_before_dispatch_when_target_root_is_another_project(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
         monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
         from yoke_cli.config import machine_config
-        import json
 
         other_checkout = tmp_path / "other-project-checkout"
         other_checkout.mkdir()
@@ -109,41 +96,25 @@ class TestDocArchive:
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(
             json.dumps(
-                {
-                    "projects": [
-                        {"checkout": str(other_checkout), "project_id": 2},
-                    ]
-                }
+                {"projects": [{"checkout": str(other_checkout), "project_id": 2}]}
             ),
             encoding="utf-8",
         )
 
-        results = {
-            "strategy.doc.archive": {
-                "project_id": 1,
-                "project_slug": "yoke",
-                "slug": "PAD",
-                "archived": True,
-                "changed": True,
-            },
-        }
+        results = {"strategy.doc.list": _IDENTITY_RESULT}
         with patch(
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=_stub(results),
         ):
             rc = _run(
-                "strategy",
-                "doc",
-                "archive",
-                "PAD",
-                "--target-root",
-                str(other_checkout),
+                "strategy", "doc", "archive", "PAD",
+                "--target-root", str(other_checkout),
             )
-        # The archive itself already landed in the DB, so the command
-        # still succeeds; only the local render is skipped.
-        assert rc == 0
+        # A known project mismatch refuses before the archive flip ever
+        # dispatches — zero DB writes.
+        assert rc == 2
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.archive",
+            "strategy.doc.list",
         ]
         assert not (other_checkout / ".yoke").exists()
 
@@ -151,24 +122,17 @@ class TestDocArchive:
 class TestDocUnarchive:
     def test_flips_then_renders_into_target_root(self, tmp_path: Path) -> None:
         results = {
+            "strategy.doc.list": _IDENTITY_RESULT,
             "strategy.doc.unarchive": {
-                "project_id": 1,
-                "project_slug": "yoke",
-                "slug": "PAD",
-                "archived": False,
-                "changed": True,
+                "project_id": 1, "project_slug": "yoke",
+                "slug": "PAD", "archived": False, "changed": True,
             },
             "strategy.render.run": {
-                "project_id": 1,
-                "project_slug": "yoke",
-                "docs": [
-                    {
-                        "slug": "PAD",
-                        "updated_at": "x",
-                        "file_text": "<!-- h -->\n# PAD\n",
-                        "archived": False,
-                    }
-                ],
+                "project_id": 1, "project_slug": "yoke",
+                "docs": [{
+                    "slug": "PAD", "updated_at": "x",
+                    "file_text": "<!-- h -->\n# PAD\n", "archived": False,
+                }],
             },
         }
         with patch(
@@ -176,17 +140,12 @@ class TestDocUnarchive:
             side_effect=_stub(results),
         ):
             rc = _run(
-                "strategy",
-                "doc",
-                "unarchive",
-                "PAD",
-                "--target-root",
-                str(tmp_path),
+                "strategy", "doc", "unarchive", "PAD",
+                "--target-root", str(tmp_path),
             )
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.unarchive",
-            "strategy.render.run",
+            "strategy.doc.list", "strategy.doc.unarchive", "strategy.render.run",
         ]
         assert (tmp_path / ".yoke" / "strategy" / "PAD.md").read_text(
             encoding="utf-8"

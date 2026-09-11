@@ -1,9 +1,9 @@
 """Project-aware ``target_root`` regression coverage for ``yoke strategy render``.
 
-field note 49342: a ``--project platform`` render issued without
-``--target-root`` from the Yoke checkout overwrote Yoke's own rendered
-strategy docs with Platform's. These tests exercise the fix end to end
-through the CLI adapter rather than the resolver unit (covered by
+A ``--project platform`` render issued without ``--target-root`` from
+the Yoke checkout must never overwrite Yoke's own rendered strategy
+docs with Platform's. These tests exercise the fix end to end through
+the CLI adapter rather than the resolver unit (covered by
 ``test_yoke_strategy_target_project.py``).
 """
 

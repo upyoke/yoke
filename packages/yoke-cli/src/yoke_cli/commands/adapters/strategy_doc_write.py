@@ -2,7 +2,8 @@
 
 Split from :mod:`yoke_cli.commands.adapters.strategy` (which owns the
 read-only ``doc list``/``doc get`` pair) to respect the authored-file
-line cap: these three commands share the same write-then-render shape.
+line cap: these three commands share the same resolve-then-write-then-
+render shape.
 
 - ``doc replace`` -> ``strategy.doc.replace`` (process-claim-gated write),
   then ``strategy.render.run`` for the full local rendered view.
@@ -11,13 +12,16 @@ line cap: these three commands share the same write-then-render shape.
   ``strategy.render.run`` so the file relocates to/from
   ``.yoke/strategy/archive/`` and the stale sibling is pruned.
 
-The DB write is the authority and lands first; the local render is a
-convenience refresh, so its checkout anchor is resolved and validated
-only after a successful write — never before, and never in a way that
-implies the write itself failed or rolled back.
-:mod:`yoke_cli.commands.adapters.strategy_target_project` supplies that
-project-aware anchor validation, so a write for one project can never
-render into a different project's checkout (field note 49342).
+Project identity resolves once, before any write: a known destination
+mismatch refuses the whole command before the DB mutation dispatches at
+all — zero dispatch, zero DB change. When the destination cannot be
+judged in advance (no explicit ``--target-root``, or one this machine
+has never registered to any project), the DB write lands and only the
+follow-up local render is skipped if the resolved anchor turns out
+wrong — never in a way that implies the write itself failed or rolled
+back. :mod:`yoke_cli.commands.adapters.strategy_target_project` supplies
+that project-aware anchor validation, so a write for one project can
+never render into a different project's checkout.
 """
 
 from __future__ import annotations
@@ -25,7 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 from yoke_cli.commands import _helpers as _helpers
 from yoke_cli.commands._helpers import (
@@ -59,59 +63,76 @@ __all__ = [
 ]
 
 
-def _refresh_render(
-    mutation_response,
-    *,
-    target_root_arg,
-    actor,
-    target,
-    json_mode,
-    skipped_verb: str,
-):
-    """Re-render the corpus into the validated anchor after a landed write.
+def _resolve_before_mutation(
+    target_root_arg, *, actor, target, json_mode,
+) -> Tuple[Optional[int], Optional[Any], Optional[str]]:
+    """Resolve and validate ``target_root`` BEFORE any mutating dispatch.
 
-    Shared by ``doc replace`` and ``doc archive``/``doc unarchive``: an
-    unresolvable anchor or a project mismatch both warn and skip the
-    local render rather than failing the command — the DB write already
-    landed. Returns the emit-ready return code.
+    Returns ``(early_exit, target_root, anchor_error)``. A non-``None``
+    ``early_exit`` is the command's return code for a KNOWN project
+    mismatch (or a failed identity read) — the mutation never dispatches.
+    Otherwise ``early_exit`` is ``None`` and the mutation may proceed:
+    ``target_root`` is the validated anchor, or ``None`` with
+    ``anchor_error`` naming why when the anchor itself never resolved
+    (e.g. a linked worktree without an explicit one) — that case still
+    lets the mutation land, matching the existing unresolvable-anchor
+    behavior, and only the follow-up render is skipped.
     """
     try:
         target_root = resolve_target_root_for_cli(target_root_arg)
     except RuntimeError as exc:
-        print(
-            f"warning: strategy doc {skipped_verb}; skipped local render — {exc}",
-            file=sys.stderr,
-        )
-        return emit_response(mutation_response, json_mode=json_mode)
+        return None, None, str(exc)
     explicit_target_root = target_root_was_explicit(target_root_arg)
 
-    mutation_result = mutation_response.result or {}
+    identity_response = call_dispatcher(
+        function_id="strategy.doc.list", target=target, payload={}, actor=actor,
+    )
+    if not identity_response.success:
+        return emit_response(identity_response, json_mode=json_mode), None, None
+    identity = identity_response.result or {}
     try:
         target_root = resolve_and_validate_target_root(
             target_root,
             explicit=explicit_target_root,
-            project_id=mutation_result.get("project_id"),
-            project_slug=mutation_result.get("project_slug"),
+            project_id=identity.get("project_id"),
+            project_slug=identity.get("project_slug"),
         )
     except StrategyTargetRootMismatchError as exc:
+        return usage_error(str(exc)), None, None
+    return None, target_root, None
+
+
+def _dispatch_and_render(
+    *, function_id, payload, actor, target, json_mode,
+    target_root, anchor_error, skipped_verb: str,
+) -> int:
+    """Dispatch the DB mutation, then refresh the local render.
+
+    The mutation already landed by the time ``target_root is None`` is
+    checked, so an unresolvable anchor warns and skips the render rather
+    than failing the command.
+    """
+    mutation_response = call_dispatcher(
+        function_id=function_id, target=target, payload=payload, actor=actor,
+    )
+    if not mutation_response.success:
+        return emit_response(mutation_response, json_mode=json_mode)
+    if target_root is None:
         print(
-            f"warning: strategy doc {skipped_verb}; skipped local render — {exc}",
+            f"warning: strategy doc {skipped_verb}; skipped local render "
+            f"— {anchor_error}",
             file=sys.stderr,
         )
         return emit_response(mutation_response, json_mode=json_mode)
 
     render_response = call_dispatcher(
-        function_id="strategy.render.run",
-        target=target,
-        payload={},
-        actor=actor,
+        function_id="strategy.render.run", target=target, payload={}, actor=actor,
     )
     if not render_response.success:
         return emit_response(render_response, json_mode=json_mode)
 
     report = write_rendered_files(
-        target_root,
-        (render_response.result or {}).get("docs", []),
+        target_root, (render_response.result or {}).get("docs", []),
     )
 
     def _human_writer(response, stdout, stderr) -> None:
@@ -125,9 +146,7 @@ def _refresh_render(
             )
 
     return emit_response(
-        mutation_response,
-        json_mode=json_mode,
-        human_writer=_human_writer,
+        mutation_response, json_mode=json_mode, human_writer=_human_writer,
     )
 
 
@@ -157,33 +176,25 @@ def strategy_doc_replace(args: List[str]) -> int:
     )
     parser.add_argument("slug", help="Strategy doc slug, e.g. MISSION.")
     parser.add_argument(
-        "--base-updated-at",
-        dest="base_updated_at",
-        required=True,
+        "--base-updated-at", dest="base_updated_at", required=True,
         help="The updated_at the new content was authored against.",
     )
     content_group = parser.add_mutually_exclusive_group(required=True)
     add_text_file_pair(
-        content_group,
-        "--content",
-        "--content-file",
+        content_group, "--content", "--content-file",
         dest="content",
         help_text="New doc content. Use --content-file to read from a path.",
     )
     content_group.add_argument(
-        "--stdin",
-        action="store_true",
+        "--stdin", action="store_true",
         help="Read new doc content from stdin.",
     )
     parser.add_argument(
-        "--force",
-        action="store_true",
+        "--force", action="store_true",
         help="Bypass the shrink guard for an intentional rewrite.",
     )
     parser.add_argument(
-        "--target-root",
-        dest="target_root",
-        default=None,
+        "--target-root", dest="target_root", default=None,
         help=(
             "Checkout root receiving the refreshed .yoke/strategy/ files "
             "(defaults like `yoke strategy render`)."
@@ -200,9 +211,7 @@ def strategy_doc_replace(args: List[str]) -> int:
     else:
         try:
             content = resolve_text_file(
-                parsed.content,
-                parsed.content_file,
-                "--content-file",
+                parsed.content, parsed.content_file, "--content-file",
             )
         except ValueError as exc:
             return usage_error(str(exc))
@@ -215,21 +224,17 @@ def strategy_doc_replace(args: List[str]) -> int:
     _helpers.ensure_handlers_loaded()
     actor = build_actor(session_id=parsed.session_id)
     target = strategy_target(parsed.project)
-    replace_response = call_dispatcher(
-        function_id="strategy.doc.replace",
-        target=target,
-        payload=payload,
-        actor=actor,
-    )
-    if not replace_response.success:
-        return emit_response(replace_response, json_mode=parsed.json_mode)
 
-    return _refresh_render(
-        replace_response,
-        target_root_arg=parsed.target_root,
-        actor=actor,
-        target=target,
-        json_mode=parsed.json_mode,
+    early_exit, target_root, anchor_error = _resolve_before_mutation(
+        parsed.target_root, actor=actor, target=target, json_mode=parsed.json_mode,
+    )
+    if early_exit is not None:
+        return early_exit
+
+    return _dispatch_and_render(
+        function_id="strategy.doc.replace", payload=payload,
+        actor=actor, target=target, json_mode=parsed.json_mode,
+        target_root=target_root, anchor_error=anchor_error,
         skipped_verb="replaced in the DB",
     )
 
@@ -246,20 +251,15 @@ STRATEGY_DOC_UNARCHIVE_USAGE = (
 
 
 def _strategy_doc_set_archived(
-    args: List[str],
-    *,
-    archived: bool,
-    function_id: str,
-    usage: str,
+    args: List[str], *, archived: bool, function_id: str, usage: str,
 ) -> int:
     """Flip a doc's archived state, then re-render so the file relocates.
 
-    Shared body for ``doc archive`` / ``doc unarchive``: dispatch the DB
-    flip (the authority), then re-render the full corpus so the doc moves
-    into/out of ``.yoke/strategy/archive/`` and the stale sibling is
-    pruned. Mirrors ``doc replace``'s render-refresh, including the
-    warn-and-skip when no checkout anchor resolves or the anchor belongs
-    to a different project.
+    Shared body for ``doc archive`` / ``doc unarchive``: resolve and
+    validate the destination, dispatch the DB flip (the authority), then
+    re-render the full corpus so the doc moves into/out of
+    ``.yoke/strategy/archive/`` and the stale sibling is pruned. Mirrors
+    ``doc replace``.
     """
     verb = "archive" if archived else "unarchive"
     parser = argparse.ArgumentParser(
@@ -277,9 +277,7 @@ def _strategy_doc_set_archived(
     )
     parser.add_argument("slug", help="Strategy doc slug, e.g. INSTALLER-PLAN.")
     parser.add_argument(
-        "--target-root",
-        dest="target_root",
-        default=None,
+        "--target-root", dest="target_root", default=None,
         help=(
             "Checkout root receiving the refreshed .yoke/strategy/ files "
             "(defaults like `yoke strategy render`)."
@@ -295,21 +293,17 @@ def _strategy_doc_set_archived(
     _helpers.ensure_handlers_loaded()
     actor = build_actor(session_id=parsed.session_id)
     target = strategy_target(parsed.project)
-    flip_response = call_dispatcher(
-        function_id=function_id,
-        target=target,
-        payload={"slug": parsed.slug},
-        actor=actor,
-    )
-    if not flip_response.success:
-        return emit_response(flip_response, json_mode=parsed.json_mode)
 
-    return _refresh_render(
-        flip_response,
-        target_root_arg=parsed.target_root,
-        actor=actor,
-        target=target,
-        json_mode=parsed.json_mode,
+    early_exit, target_root, anchor_error = _resolve_before_mutation(
+        parsed.target_root, actor=actor, target=target, json_mode=parsed.json_mode,
+    )
+    if early_exit is not None:
+        return early_exit
+
+    return _dispatch_and_render(
+        function_id=function_id, payload={"slug": parsed.slug},
+        actor=actor, target=target, json_mode=parsed.json_mode,
+        target_root=target_root, anchor_error=anchor_error,
         skipped_verb=f"{verb}d in the DB",
     )
 

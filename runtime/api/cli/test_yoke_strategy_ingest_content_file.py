@@ -81,10 +81,12 @@ def test_content_file_requires_exactly_one_explicit_slug(
 def test_write_back_skips_target_root_registered_to_another_project(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # field note 49342: the written docs already landed in the DB
-    # (this response models that success), so the command still
-    # succeeds — only the local header-advance write is skipped when
-    # target_root turns out to be a different project's checkout.
+    # The written docs already landed in the DB (this response models
+    # that success), so the command still succeeds — only the local
+    # header-advance write is skipped when target_root turns out to be
+    # a different project's checkout. A --content-file handoff never
+    # reads from target_root, so this write-back guard is the only
+    # project check that applies to it.
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
     monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
     from yoke_cli.config import machine_config

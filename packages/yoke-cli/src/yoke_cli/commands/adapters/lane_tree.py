@@ -104,16 +104,16 @@ def _mapped_checkout(item: dict[str, Any]) -> str:
     project_id = (item.get("project") or {}).get("id")
     if project_id is None:
         return ""
-    from yoke_cli.commands.adapters.strategy_target_project import (
-        mapped_checkout_for_project,
-    )
+    from yoke_cli.config.machine_config import configured_projects
 
     try:
         target = int(project_id)
     except (TypeError, ValueError):
         return ""
-    mapped = mapped_checkout_for_project(target)
-    return str(mapped) if mapped is not None else ""
+    for configured in configured_projects(existing_only=True):
+        if configured.project_id == target and configured.checkout.is_dir():
+            return str(configured.checkout)
+    return ""
 
 
 def verification_tree(

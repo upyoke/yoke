@@ -7,10 +7,9 @@ used as-is, and the implicit fallback was always the caller's cwd/repo
 root (:func:`yoke_contracts.project_contract.workspace_roots.resolve_target_root_for_cli`).
 A render or write-back for one project could therefore silently land
 inside a DIFFERENT project's checkout whenever both projects happened to
-share the operator's cwd and neither passed ``--target-root`` — see
-field note 49342, where a ``--project platform`` render issued from the
-Yoke checkout overwrote Yoke's own ``.yoke/strategy/`` files with
-Platform's rendered docs.
+share the operator's cwd and neither passed ``--target-root`` — e.g. a
+``--project platform`` render issued from the Yoke checkout overwriting
+Yoke's own ``.yoke/strategy/`` files with Platform's rendered docs.
 
 These helpers add the missing project check ON TOP OF that unchanged
 anchor resolution, once the operation's canonical ``project_id`` /
@@ -55,9 +54,7 @@ def mapped_checkout_for_project(project_id: int) -> Optional[Path]:
     """This machine's own registered checkout for ``project_id``, if any.
 
     The first existing-directory match wins when more than one checkout
-    is mapped to the same project on this machine (mirrors
-    :func:`yoke_cli.commands.adapters.lane_tree._mapped_checkout`, which
-    resolves the same mapping keyed off an item's project instead).
+    is mapped to the same project on this machine.
     """
     from yoke_cli.config import machine_config
 
@@ -93,6 +90,25 @@ def reject_target_root_project_mismatch(
             f"`yoke project register <correct checkout> --project-id "
             f"{project_id}`."
         )
+
+
+def reject_known_target_root_mismatch(
+    target_root: Path, *, project_id: Optional[object], project_slug: Optional[object],
+) -> None:
+    """Refuse ``target_root`` only when it's KNOWN to name a different project.
+
+    Unlike :func:`resolve_and_validate_target_root`, this never redirects
+    — it validates a source location the caller already resolved
+    (explicit or cwd-derived) in place, since redirecting could move a
+    READ away from wherever the operator's own edits actually live (a
+    write destination has no such constraint). ``None`` identity fields
+    (no project resolved yet) leave ``target_root`` alone.
+    """
+    if project_id is None or project_slug is None:
+        return
+    reject_target_root_project_mismatch(
+        target_root, project_id=int(project_id), project_slug=str(project_slug),
+    )
 
 
 def resolve_implicit_target_root(
@@ -156,6 +172,7 @@ def resolve_and_validate_target_root(
 __all__ = [
     "StrategyTargetRootMismatchError",
     "mapped_checkout_for_project",
+    "reject_known_target_root_mismatch",
     "reject_target_root_project_mismatch",
     "resolve_and_validate_target_root",
     "resolve_implicit_target_root",

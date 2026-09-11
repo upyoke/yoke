@@ -21,7 +21,7 @@ checkout→project map). Once the operation's project is known, both
 commands defer to
 :mod:`yoke_cli.commands.adapters.strategy_target_project` so a render or
 write-back for one project can never land inside a different project's
-checkout (field note 49342).
+checkout.
 """
 
 from __future__ import annotations
@@ -48,6 +48,7 @@ from yoke_cli.commands.adapters.strategy_render_response import (
     compact_file_text_response,
 )
 from yoke_cli.commands.adapters.strategy_target_project import (
+    reject_known_target_root_mismatch,
     resolve_and_validate_target_root,
     target_root_was_explicit,
     StrategyTargetRootMismatchError,
@@ -149,10 +150,27 @@ def strategy_ingest(args: List[str]) -> int:
             "text": str(content),
         }]
     else:
+        # Reading from target_root: resolve project identity and reject a
+        # KNOWN mismatch before reading any file or dispatching the
+        # mutation — never redirect the read location itself, since the
+        # operator's edits live wherever target_root already points.
+        identity_response = call_dispatcher(
+            function_id="strategy.doc.list", target=target, payload={}, actor=actor,
+        )
+        if not identity_response.success:
+            return emit_response(identity_response, json_mode=parsed.json_mode)
+        identity = identity_response.result or {}
+        try:
+            reject_known_target_root_mismatch(
+                target_root,
+                project_id=identity.get("project_id"),
+                project_slug=identity.get("project_slug"),
+            )
+        except StrategyTargetRootMismatchError as exc:
+            return usage_error(str(exc))
+
         if not slugs:
-            slugs, list_response = _corpus_slugs(target, actor)
-            if slugs is None:
-                return emit_response(list_response, json_mode=parsed.json_mode)
+            slugs = [str(d["slug"]) for d in identity.get("docs", [])]
             if not slugs:
                 print(
                     "error (doc_not_seeded): the project has no strategy docs; "
@@ -202,24 +220,6 @@ def strategy_ingest(args: List[str]) -> int:
         human_writer=_human_writer,
     )
     return rc
-
-
-def _corpus_slugs(target, actor):
-    """Resolve the project's full corpus for the no-args ingest default.
-
-    Returns ``(slugs, None)`` on success or ``(None, response)`` carrying
-    the failed ``strategy.doc.list`` response for verbatim emission.
-    """
-    response = call_dispatcher(
-        function_id="strategy.doc.list",
-        target=target,
-        payload={},
-        actor=actor,
-    )
-    if not response.success:
-        return None, response
-    docs = (response.result or {}).get("docs", [])
-    return [str(d["slug"]) for d in docs], None
 
 
 def _write_returned_files(

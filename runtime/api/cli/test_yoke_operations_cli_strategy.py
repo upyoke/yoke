@@ -231,14 +231,13 @@ class TestIngest:
         files = _CAPTURED_REQUESTS[-1].payload["files"]
         assert [f["slug"] for f in files] == ["PAD"]
 
-    def test_missing_file_fails_before_dispatch(
-        self, tmp_path: Path,
-    ) -> None:
+    def test_missing_file_fails_before_ingest_dispatch(self, tmp_path: Path) -> None:
+        # Identity resolves (doc.list) first; ingest.run never dispatches.
         rc = _run(
             "strategy", "ingest", "PAD", "--target-root", str(tmp_path),
         )
         assert rc == 1
-        assert _CAPTURED_REQUESTS == []
+        assert [r.function for r in _CAPTURED_REQUESTS] == ["strategy.doc.list"]
 
     def test_commit_flag_is_not_supported(self, tmp_path: Path) -> None:
         rc = _run(

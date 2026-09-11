@@ -1,10 +1,10 @@
 """Unit coverage for ``yoke_cli.commands.adapters.strategy_target_project``.
 
-field note 49342: target_root resolution for strategy renders/writes
-ignored the selected project entirely (arg/env/cwd only), so a render
-for one project could silently land inside a different project's
-checkout. These tests isolate machine config per test and exercise the
-resolver directly, independent of any CLI wiring.
+target_root resolution for strategy renders/writes previously ignored
+the selected project entirely (arg/env/cwd only), so a render for one
+project could silently land inside a different project's checkout.
+These tests isolate machine config per test and exercise the resolver
+directly, independent of any CLI wiring.
 """
 
 from __future__ import annotations
