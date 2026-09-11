@@ -15,6 +15,8 @@ from yoke_core.domain.schema_common import _column_exists
 RUN_HISTORY_FIELDS = (
     "id",
     "project",
+    "flow",
+    "flow_name",
     "target_tier",
     "target_environment",
     "status",
@@ -22,6 +24,7 @@ RUN_HISTORY_FIELDS = (
     "created_at",
     "started_at",
     "completed_at",
+    "carried_work",
     "member_items",
     "stages",
     "gates",
@@ -110,6 +113,8 @@ def _source(conn: Any) -> tuple[str, str]:
         (
             "dr.id",
             "p.slug AS project",
+            "dr.flow",
+            "df.name AS flow_name",
             f"{column('target_tier')} AS target_tier",
             f"{environment} AS target_environment",
             "dr.status",
@@ -117,6 +122,7 @@ def _source(conn: Any) -> tuple[str, str]:
             "dr.created_at",
             f"{column('started_at')} AS started_at",
             f"{column('completed_at')} AS completed_at",
+            f"{column('carried_work')} AS carried_work",
             "df.stages",
         )
     )
@@ -320,7 +326,7 @@ def read_deployment_run_history(
         [*unfinished_rows, *page],
         actor_id=actor_id,
         visible_project_ids=visible,
-        include_carried_work=False,
+        include_carried_work=True,
         compact=True,
     )
     return {

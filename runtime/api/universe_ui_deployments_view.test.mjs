@@ -260,3 +260,76 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
   assert.equal(byClass(root, "metric").length, 0);
   mounted.unmount();
 });
+
+test("a page-shaped list row shows flow, stages, and derived carried items", async (t) => {
+  const client = {
+    async call(request) {
+      if (request.function === "organizations.get") {
+        return okEnvelope({ name: "Yoke" });
+      }
+      if (request.function === "projects.list") {
+        return okEnvelope({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
+      }
+      if (request.function === "deployment_runs.list") {
+        return okEnvelope({
+          rows: [{
+            id: "run-20260911-001",
+            project: "yoke",
+            flow: "yoke-hosted-stage-typed-target",
+            flow_name: "Stage (Warm-Gated, No CI Gate, Typed Target)",
+            target_tier: "persistent",
+            target_environment: "stage",
+            status: "succeeded",
+            current_stage: "complete",
+            created_at: "2026-09-11T02:09:08Z",
+            started_at: "2026-09-11T02:09:57Z",
+            completed_at: "2026-09-11T02:34:23Z",
+            member_items: [],
+            carried_work: { items: [{ ref: "YOK-3080", item_id: 3207 }] },
+            stages: [
+              { name: "merged", state: "complete" },
+              { name: "hosted-release", state: "complete" },
+              { name: "warm-up", state: "complete" },
+              { name: "complete", state: "complete" },
+            ],
+            gates: [],
+          }],
+          unfinished_count: 0,
+          completed_match_count: 1,
+          completed_loaded_count: 1,
+          next_cursor: null,
+          filters: {
+            projects: [{ id: 1, label: "yoke" }],
+            statuses: ["succeeded"],
+            environments: ["stage"],
+            flows: [{
+              id: "yoke-hosted-stage-typed-target",
+              label: "Stage (Warm-Gated, No CI Gate, Typed Target)",
+            }],
+          },
+        });
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+  const { root, mounted } = await mountAt(t, "#/deployments?project=1", client);
+  const cells = allNodes(root).filter((node) => node.tagName === "TD").map(cellText);
+
+  assert.equal(
+    byClass(root, "delivery-run-title")[0].textContent,
+    "Stage (Warm-Gated, No CI Gate, Typed Target)",
+  );
+  assert.equal(cells[2], "YOK-3080");
+  assert.equal(byClass(root, "delivery-member")[0].textContent, "YOK-3080");
+  assert.deepEqual(
+    byClass(root, "delivery-run-stage").map(
+      (node) => node.attributes.get("data-state"),
+    ),
+    ["complete", "complete", "complete", "complete"],
+  );
+  assert.equal(
+    byClass(root, "delivery-run-title")[0].href,
+    "#/deployments/run-20260911-001?project=1",
+  );
+  mounted.unmount();
+});
