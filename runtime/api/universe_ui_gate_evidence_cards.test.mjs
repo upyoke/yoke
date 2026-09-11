@@ -32,6 +32,11 @@ import {
 
 const cardText = (main) => byClass(main, "review-card")[0].textContent;
 
+function assertNoDetails(host) {
+  assert.equal(byClass(host, "gate-details").length, 0);
+  assert.equal(byClass(host, "gate-why").length, 0);
+}
+
 test("artifact captions lead with the authored capture label", () => {
   const artifact = {
     metadata: {
@@ -79,6 +84,7 @@ test("a QA review shows what was checked, what the agent said, and each artifact
     byClass(main, "review-action").map((node) => node.textContent),
     ["Waive", "Reject", "Approve"],
   );
+  assertNoDetails(main);
 });
 
 test("a QA review loads its screenshots at once, addressed at the requirement", async () => {
@@ -208,11 +214,10 @@ test("a deployment QA review claims nothing about what has shipped", async () =>
 
   const body = cardText(main);
   assert.ok(body.includes("run-20260909-027 · released to prod"), body);
-  assert.ok(body.includes("declared post_deploy against run-20260909-027"), body);
-  assert.ok(body.includes("can gate that run's completion"), body);
-  assert.ok(body.includes("cannot undo code the run has already deployed"), body);
+  assert.ok(!body.includes("declared post_deploy against run-20260909-027"), body);
   assert.ok(!body.includes("completed, so"), body);
   assert.ok(!body.includes("ran after the release"), body);
+  assertNoDetails(main);
 });
 
 test("an item completion approval says it deploys nothing", async () => {
@@ -227,12 +232,11 @@ test("an item completion approval says it deploys nothing", async () => {
     byClass(main, "review-effect")[0].textContent,
     "Moves the item to done. Deploys nothing.",
   );
-  const body = cardText(main);
   assert.ok(
-    body.includes("This records the item's state only — it deploys nothing "
+    !cardText(main).includes("This records the item's state only — it deploys nothing "
       + "and releases nothing to any environment."),
-    body,
   );
+  assertNoDetails(main);
 });
 
 test("a work approval shows its attached screenshot and says nothing when it has none", async () => {
@@ -259,6 +263,8 @@ test("a work approval shows its attached screenshot and says nothing when it has
   // No screenshots on a work approval is not a defect, so no warning.
   assert.equal(byClass(cards[1], "review-shot").length, 0);
   assert.equal(byClass(cards[1], "review-evidence-none").length, 0);
+  assertNoDetails(cards[0]);
+  assertNoDetails(cards[1]);
 });
 
 test("stale screenshot evidence is flagged beside the pictures", async () => {
