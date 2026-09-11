@@ -85,7 +85,10 @@ test("Currently held boxes in green while Previously held stays grey", () => {
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.css",
     import.meta.url,
   ), "utf8");
-  assert.match(steering, /border-left: 3px solid var\(--yoke-accent\)/);
+  assert.match(
+    steering,
+    /border-left: 3px solid var\(--session-steering-color, var\(--yoke-accent\)\)/,
+  );
   assert.match(
     css,
     /\.session-holdings-current \{\n  border-left: 3px solid var\(--yoke-good\)/,
