@@ -22,10 +22,7 @@ from yoke_cli.commands.adapters.config_write_project import (
     config_stamp_project_env as config_stamp_project_env,
     project_register as project_register,
 )
-from yoke_cli.commands.adapters.config_write_shared import (
-    machine_config_errors as _machine_config_errors,
-    run as _run,
-)
+from yoke_cli.commands.adapters.config_write_shared import run as _run
 from yoke_cli.config import machine_config
 from yoke_cli.config import writer
 
