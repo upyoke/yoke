@@ -20,9 +20,9 @@ const STEERING_GROUP_PALETTE = [
   "#4338ca", // indigo
 ];
 
-// Rotating by the golden angle spreads any number of extra hues around the
-// wheel with no two ever landing close together, so a group beyond the
-// fixed six still gets a color pairwise distinct from every other extra one.
+// Rotating by the golden angle spreads consecutive extra hues well clear of
+// their immediate neighbor — not a claim that no two of them, out of an
+// unbounded run, can ever land close together.
 const GOLDEN_ANGLE_DEGREES = 137.508;
 
 function paletteColorAt(rank) {
@@ -31,25 +31,43 @@ function paletteColorAt(rank) {
   return `hsl(${hue.toFixed(1)}deg 65% 38%)`;
 }
 
-// One color per distinct steering group across the caller's whole known row
-// set — never a group hashed in isolation — so two groups concurrently on
-// screen can never collide onto the same hue by chance the way a per-id hash
-// could. Distinct group ids are ranked by their own identity (a plain
-// lexicographic sort), never by arrival or render order, so the same set of
-// groups always produces the same colors on every refresh: existing palette
-// entries are used first, in rank order, before any extra hue is minted.
-// Callers pass the broadest row set they know (e.g. the unfiltered roster),
-// not just what is currently visible, so narrowing the view with a filter
-// never reshuffles a still-visible group's color.
+function stringHash(text) {
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (Math.imul(hash, 31) + text.charCodeAt(index)) | 0;
+  }
+  return hash >>> 0;
+}
+
+// Overview, Sessions, and the single-session detail view each fetch their
+// own rows independently (Sessions scopes its query to one project,
+// Overview does not, and neither sees the other's page), so there is no
+// shared row set to rank groups against — ranking by position within
+// whichever rows a given call happened to receive gave the same group
+// different colors across pages, project-scope changes, and history
+// loading. A group's rank is therefore a hash of its own id alone: a pure
+// function of the group, so its color can never depend on which other
+// groups happen to also be known to a particular page, and stays put across
+// every refresh. The hash lands in a space four times the fixed palette
+// (`RANK_SPACE`) rather than exactly six, so two different ids landing on
+// the exact same rank — the only way two concurrently visible groups could
+// still share a color — is markedly less likely than a plain hash-into-six
+// while remaining a pure per-id fact with no render-order bump to keep
+// stable: a rank held against one page's neighbors would silently drift
+// the moment a different page's subset changed who else was visible.
+const RANK_SPACE = STEERING_GROUP_PALETTE.length * 4;
+
 export function steeringGroupColors(rows) {
   const distinctIds = [...new Set(
     (Array.isArray(rows) ? rows : [])
       .map((row) => row?.steering_group_session_id)
       .filter((id) => id !== undefined && id !== null && id !== "")
       .map((id) => String(id)),
-  )].sort();
+  )];
   const colors = new Map();
-  distinctIds.forEach((id, rank) => colors.set(id, paletteColorAt(rank)));
+  for (const id of distinctIds) {
+    colors.set(id, paletteColorAt(stringHash(id) % RANK_SPACE));
+  }
   return colors;
 }
 

@@ -37,9 +37,9 @@ export async function loadSessions(context, band, getScope, sessionRoster) {
       ));
       return;
     }
-    // Computed from the whole unfiltered roster, not the scoped/sorted
-    // `rows` about to render, so switching the active project scope never
-    // reshuffles a still-visible group's color.
+    // A group's color is a pure function of its own id (see
+    // steeringGroupColors), so this just needs to know which groups are
+    // present to populate the map — any row set that covers them works.
     const groupColors = steeringGroupColors(result.rows || []);
     const rows = sortSessionsSteeringFirst(sessionsShownInActive(
       result.rows || [], getScope(), context.projects(),

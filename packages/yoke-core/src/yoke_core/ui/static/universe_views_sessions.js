@@ -201,10 +201,14 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       return;
     }
     const rows = sortSessionsSteeringFirst(currentRows());
-    // Computed from the whole open roster, not the filtered/paged `rows`
-    // about to render, so narrowing the view (search, liveness, project
-    // scope) never reshuffles a still-visible group's color.
-    const groupColors = steeringGroupColors(loader?.openRows() || []);
+    // Every row this page knows about, open and ended alike (not just the
+    // filtered/paged `rows` about to render), so a loaded-in history card
+    // still gets its group's color instead of losing tint for want of an
+    // entry in the map — the color itself is a pure per-id fact (see
+    // steeringGroupColors), so this only needs to know which groups exist.
+    const groupColors = steeringGroupColors([
+      ...(loader?.openRows() || []), ...(loader?.historyRows() || []),
+    ]);
     let historySummary = "";
     if (loader?.historyVisible()) {
       const historyError = loader.historyError();

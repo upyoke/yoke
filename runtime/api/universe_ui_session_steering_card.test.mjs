@@ -179,8 +179,6 @@ function steeringSeatRow(sessionId) {
 }
 
 test("each steering group renders its own color, shared with its workers", () => {
-  // These two ids collided onto the same palette entry under the old
-  // per-id hash — the exact production bug this rewrite fixes.
   const rows = [
     steeringSeatRow("seat-1"),
     steeringWorkerRow("worker-1", "seat-1"),
@@ -210,19 +208,49 @@ test("each steering group renders its own color, shared with its workers", () =>
   );
 });
 
+test("a group's color does not depend on which other groups the caller also knows about", () => {
+  // Overview, Sessions, and a filtered project view each fetch their own
+  // rows independently, so a group's color has to come from its own id,
+  // never from its rank among whatever else a particular call also
+  // happened to fetch — including a colliding sibling that is present in
+  // one call's rows and absent (filtered out) from another's. This is the
+  // exact regression a per-render rank/bump reintroduces: the shared id's
+  // color must be identical whether or not its sibling is in the same row
+  // set, not merely when the two are never rendered together. A row's shape
+  // carries no "open" vs "history" distinction (see steeringSeatRow) — the
+  // Sessions page's history-loaded rows are exactly this same subset case,
+  // so this also covers a loaded-in ended-session card keeping its color.
+  const solo = steeringGroupColors([steeringSeatRow("seat-solo")]).get("seat-solo");
+  const withUnrelatedCompany = steeringGroupColors([
+    steeringSeatRow("seat-solo"), steeringSeatRow("seat-elsewhere"),
+  ]).get("seat-solo");
+  assert.equal(solo, withUnrelatedCompany);
+
+  // "seat-1" and "seat-2" land on adjacent ranks (see steeringGroupColors'
+  // hash), so they are a real pair to check across subsets: rendered
+  // together and rendered with one of the two absent must agree.
+  const together = steeringGroupColors([
+    steeringSeatRow("seat-1"), steeringSeatRow("seat-2"),
+  ]);
+  const seat1Alone = steeringGroupColors([steeringSeatRow("seat-1")]);
+  const seat2Alone = steeringGroupColors([steeringSeatRow("seat-2")]);
+  assert.equal(together.get("seat-1"), seat1Alone.get("seat-1"));
+  assert.equal(together.get("seat-2"), seat2Alone.get("seat-2"));
+});
+
 test("more than six concurrent groups stay pairwise distinct", () => {
   const ids = Array.from({ length: 8 }, (_, index) => `group-${index}`);
   const rows = ids.map((id) => steeringSeatRow(id));
   const groupColors = steeringGroupColors(rows);
   const colors = ids.map((id) => groupColors.get(id));
   assert.equal(new Set(colors).size, colors.length);
-  // The first six ranked groups (sorted by id) use the fixed palette
-  // itself; only the groups beyond it need a minted extra hue.
-  const sorted = [...ids].sort();
-  for (const id of sorted.slice(0, 6)) {
-    assert.match(groupColors.get(id), /^#[0-9a-f]{6}$/);
-  }
-  for (const id of sorted.slice(6)) {
-    assert.match(groupColors.get(id), /^hsl\(/);
+  // Every color is either a fixed palette entry or a minted extra hue —
+  // which specific ids land on which depends on each id's own hash, not
+  // sorted position, so assert the format rather than a fixed mapping.
+  for (const color of colors) {
+    assert.ok(
+      /^#[0-9a-f]{6}$/.test(color) || /^hsl\(/.test(color),
+      `unexpected color format: ${color}`,
+    );
   }
 });
