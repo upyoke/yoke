@@ -36,14 +36,13 @@ __all__ = [
 ]
 
 
-# Renderer-owned body sections. The DB-backed body renderer authors
-# these from authoritative state; an operator-authored copy in spec
-# (or any structured field) is silently stripped so the body shows
-# one canonical version, not two.
+# Renderer-owned sections. Operator-authored copies in spec or other
+# stored fields are stripped so the body shows one canonical version.
 RENDERER_OWNED_BODY_HEADINGS = (
     "## Path Claims",
     "## DB Claim",
     "## Architecture Impact",
+    "## Strategy",
 )
 
 
@@ -92,17 +91,10 @@ def strip_renderer_owned_section(content: str, heading: str) -> str:
     """Remove a top-level ``## <heading>`` block from operator-authored content.
 
     Some body sections — ``## Path Claims``, ``## DB Claim``,
-    ``## Architecture Impact``, ``## Blocked`` — are emitted from
-    authoritative DB state by the body renderer. When an operator-
-    authored field (spec, design_spec, etc.) also contains one of
-    those headings as planning prose, the rendered body shows the
-    section twice. This helper drops the operator-authored copy so
-    the DB-backed renderer remains the only source of truth.
-
-    Strips the heading line and every following line up to (but not
-    including) the next top-level ``## `` line or end-of-content.
-    Honors code fences identically to :func:`extract_section`. Returns
-    ``content`` unchanged when the heading is not present.
+    ``## Architecture Impact``, ``## Strategy`` — are renderer-owned.
+    An operator-authored copy in spec is stripped so the body shows
+    one canonical version. Strips through the next top-level ``## ``
+    or end-of-content; honors code fences like :func:`extract_section`.
     """
     if not content:
         return content
@@ -162,7 +154,7 @@ def normalise_heading(raw: str) -> str:
     """
     value = raw.strip()
     if value.startswith(_HEADING_PREFIX):
-        value = value[len(_HEADING_PREFIX):].strip()
+        value = value[len(_HEADING_PREFIX) :].strip()
     elif value.startswith("##"):
         value = value[2:].strip()
     return value
@@ -240,7 +232,8 @@ def extract_section(body: str, heading: str) -> Optional[str]:
 
 
 def _find_top_level_heading_index(
-    lines: list, target_line: str,
+    lines: list,
+    target_line: str,
 ) -> Optional[int]:
     """Return the line index of the first non-fenced match of *target_line*."""
     in_fence = False
@@ -266,13 +259,19 @@ def has_top_level_section(content: str, heading: str) -> bool:
     target = normalise_heading(heading)
     if not target:
         return False
-    return _find_top_level_heading_index(
-        content.splitlines(keepends=True), f"{_HEADING_PREFIX}{target}",
-    ) is not None
+    return (
+        _find_top_level_heading_index(
+            content.splitlines(keepends=True),
+            f"{_HEADING_PREFIX}{target}",
+        )
+        is not None
+    )
 
 
 def replace_section(
-    content: str, heading: str, new_section_content: str,
+    content: str,
+    heading: str,
+    new_section_content: str,
 ) -> Optional[str]:
     """Replace the body of a top-level ``## heading`` block in ``content``.
 
@@ -342,8 +341,4 @@ def replace_section(
         else:
             replacement = replacement.rstrip("\n")
 
-    return (
-        "".join(lines[:start_idx])
-        + replacement
-        + "".join(lines[end_idx:])
-    )
+    return "".join(lines[:start_idx]) + replacement + "".join(lines[end_idx:])
