@@ -76,8 +76,7 @@ export function sessionUsageIsPartial(row) {
  * A machine tile answers for the rows currently on the page, not for the
  * machine's whole history, so the scope travels with the total: `covered`
  * counts the rows that carried a reading and `total` counts the rows the
- * sum ranged over. A tile that reports 1.2m tokens over 2 of 5 sessions is
- * telling the truth; one that reports 1.2m alone is not.
+ * sum ranged over. `covered` is what the tile's SESSIONS count names.
  */
 export function summarizeSessionUsage(rows) {
   const scoped = Array.isArray(rows) ? rows : [];
@@ -126,29 +125,30 @@ export function usageSummaryLabel(summary) {
   return `${compactTokens(summary.tokens)}${suffix}${money}`;
 }
 
+// A machine tile is its own rollup, not one session's reading, so it
+// states a total rather than a hedge — the SESSIONS count beside it
+// already says how much of the roster that total answers for.
 export function usageSummaryTokenDisplay(summary) {
   if (!summary || summary.covered === 0) return UNREAD_DISPLAY;
-  return `${compactTokens(summary.tokens)}${summary.partial ? PARTIAL_MARK : ""}`;
+  return compactTokens(summary.tokens);
 }
 
 export function usageSummaryCostDisplay(summary) {
   if (!summary || summary.costed === 0) return UNREAD_DISPLAY;
-  return `${compactUsd(summary.cost)}${summary.partial ? PARTIAL_MARK : ""}`;
+  return compactUsd(summary.cost);
 }
 
 /**
- * Say how many sessions each half of the total was drawn from.
+ * Name the priced count only when it trails the session count already
+ * shown on the tile.
  *
  * Token coverage and cost coverage are different counts and routinely
  * differ: a session on a model nobody has researched a price for reports
- * its tokens and contributes nothing to the dollar figure. Reporting only
- * "2 of 13 sessions reported" beside a dollar total invites reading that
- * total as the spend of both sessions when one of them was never priced,
- * so the priced count is stated separately whenever it differs.
+ * its tokens and contributes nothing to the dollar figure. Repeating an
+ * identical count teaches nothing, so this stays silent until the two
+ * diverge.
  */
 export function usageSummaryScope(summary) {
-  if (!summary || !summary.total) return "";
-  const reported = `${summary.covered} of ${summary.total} sessions reported`;
-  if (!summary.costed || summary.costed === summary.covered) return reported;
-  return `${reported} · ${summary.costed} priced`;
+  if (!summary || !summary.costed || summary.costed === summary.covered) return "";
+  return `${summary.costed} priced`;
 }
