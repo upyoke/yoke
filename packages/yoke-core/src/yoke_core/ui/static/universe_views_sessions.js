@@ -96,12 +96,17 @@ export function sessionCard(
 ) {
   const liveness = String(row.liveness || "").toLowerCase();
   const primary = sessionPrimaryStatus(row);
-  const card = el(
-    documentNode, "article", primary.state === "stale"
-      ? "session-card is-stale" : "session-card",
-  );
+  const classes = ["session-card"];
+  if (primary.state === "stale") classes.push("is-stale");
+  if (row.steering_group_session_id) classes.push("is-steering-associated");
+  const card = el(documentNode, "article", classes.join(" "));
   card.setAttribute("data-session-id", String(row.session_id || ""));
   card.setAttribute("data-liveness", liveness || "unknown");
+  if (row.steering_group_session_id) {
+    card.setAttribute(
+      "data-steering-group", String(row.steering_group_session_id),
+    );
+  }
 
   // Two header rows, each answering one question. Who is running this and
   // under whose name, then what state it is in and on what model: the status

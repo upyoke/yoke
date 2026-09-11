@@ -32,7 +32,7 @@ from yoke_contracts.session_control.recipient_selector import (
 )
 from yoke_core.domain.session_item_scope import SessionItemScope, session_item_scope
 from yoke_core.domain.session_message_types import SessionMessageError
-from yoke_core.domain.steering_scope_membership import item_document_slug
+from yoke_core.domain.steering_scope_membership import item_document_link
 from yoke_core.domain.work_claim_scope_shape import STEERING_DOCUMENT_KEY
 
 
@@ -46,6 +46,7 @@ class SteeringAddress:
     scope: dict[str, Any]
     sender_item_id: Optional[int]
     sender_document: Optional[str] = None
+    sender_document_project_id: Optional[int] = None
 
     @property
     def project_id(self) -> int:
@@ -53,11 +54,15 @@ class SteeringAddress:
 
     def coverage_target(self) -> dict[str, Any]:
         """The addressed work, as the coverage rule reads it."""
+        from yoke_core.domain.steering_scope_coverage import DOCUMENT_PROJECT_KEY
+
         target = dict(self.scope)
         if self.sender_item_id is not None:
             target["item_id"] = int(self.sender_item_id)
         if self.sender_document is not None:
             target[STEERING_DOCUMENT_KEY] = self.sender_document
+        if self.sender_document_project_id is not None:
+            target[DOCUMENT_PROJECT_KEY] = int(self.sender_document_project_id)
         return target
 
 
@@ -70,10 +75,12 @@ def resolve_steering_address(
 ) -> SteeringAddress:
     """Derive the scope and item a ``--steering`` send is addressed within."""
     if reported_item is not None:
+        document = _document_for(conn, reported_item.item_id)
         return SteeringAddress(
             scope={STEERING_SCOPE_PROJECT_KEY: reported_item.project_id},
             sender_item_id=reported_item.item_id,
-            sender_document=_document_for(conn, reported_item.item_id),
+            sender_document=None if document is None else document[1],
+            sender_document_project_id=None if document is None else document[0],
         )
     if selector.steering_scope is not None:
         scope = dict(selector.steering_scope)
@@ -91,10 +98,12 @@ def resolve_steering_address(
             if held is not None and held.project_id == scope[STEERING_SCOPE_PROJECT_KEY]
             else None
         )
+        document = _document_for(conn, item_id)
         return SteeringAddress(
             scope=scope,
             sender_item_id=item_id,
-            sender_document=_document_for(conn, item_id),
+            sender_document=None if document is None else document[1],
+            sender_document_project_id=None if document is None else document[0],
         )
     held = session_item_scope(conn, sender_session_id)
     if held is None:
@@ -107,16 +116,20 @@ def resolve_steering_address(
             "--steering-scope '{\"project_id\": N}'.",
             jsonpath="$.payload.selector.steering",
         )
+    document = _document_for(conn, held.item_id)
     return SteeringAddress(
         scope={STEERING_SCOPE_PROJECT_KEY: held.project_id},
         sender_item_id=held.item_id,
-        sender_document=_document_for(conn, held.item_id),
+        sender_document=None if document is None else document[1],
+        sender_document_project_id=None if document is None else document[0],
     )
 
 
-def _document_for(conn: Any, item_id: Optional[int]) -> Optional[str]:
-    """The strategy document the addressed item belongs to, if any."""
-    return None if item_id is None else item_document_slug(conn, int(item_id))
+def _document_for(
+    conn: Any, item_id: Optional[int]
+) -> Optional[tuple[int, str]]:
+    """Owning project plus slug of the addressed item's document, if any."""
+    return None if item_id is None else item_document_link(conn, int(item_id))
 
 
 def seat_session_id(

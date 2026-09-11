@@ -3,11 +3,20 @@
    scope IS the work, so it leads the body where a worker card leads with
    its claimed item. Only that seat renders this region. */
 
+/* Associated session cards — the steering seat and every worker that
+   seat currently covers — share one outer tint so the group reads as
+   one. Stale status keeps the warning sheet. */
+.universe-app-root .session-card.is-steering-associated {
+  background: color-mix(in srgb, var(--yoke-accent) 10%, var(--yoke-surface));
+}
+
+.universe-app-root .session-card.is-steering-associated.is-stale {
+  background: var(--yoke-warn-bg);
+}
+
 /* The lead block: a steering seat's scope, in the work position. Card ink
    and a tinted rule give it the weight a claimed item gets, because it
-   answers the same question — what is this session doing. It is also the
-   only thing that marks a steering card: the card itself carries every
-   other card's background. */
+   answers the same question — what is this session doing. */
 .universe-app-root .session-steering-lead {
   position: relative;
   display: flex;

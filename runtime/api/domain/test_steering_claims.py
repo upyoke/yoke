@@ -110,25 +110,24 @@ def test_plan_document_locks_the_plan_without_narrowing_coverage(
     assert document_claim["owner_session_id"] == SESSION_ALPHA
 
 
-def test_a_plan_locked_seat_still_refuses_a_second_seat_in_the_project(
+def test_a_plan_locked_seat_coexists_with_a_non_plan_document_seat(
     steering_db,
 ) -> None:
     seed_strategy_doc(steering_db, PROJECT_ALPHA, "AREA-PLAN")
     with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
-        acquire_steering(
+        first = acquire_steering(
             steering_db,
             SESSION_ALPHA,
             PROJECT_ALPHA,
             plan_document=NEAR_TERM_PLAN_SLUG,
         )
-        with pytest.raises(SessionError) as refusal:
-            acquire_steering(
-                steering_db,
-                SESSION_BETA,
-                PROJECT_ALPHA,
-                document="AREA-PLAN",
-            )
-    assert refusal.value.code == "ALREADY_CLAIMED"
+        second = acquire_steering(
+            steering_db,
+            SESSION_BETA,
+            PROJECT_ALPHA,
+            document="AREA-PLAN",
+        )
+    assert first["id"] != second["id"]
 
 
 def test_naming_both_a_scope_document_and_a_plan_document_refuses(
@@ -172,8 +171,24 @@ def test_two_document_seats_on_different_documents_coexist(steering_db) -> None:
     ]
 
 
-def test_project_seat_and_document_seat_refuse_each_other(steering_db) -> None:
+def test_project_seat_and_document_seat_coexist_for_a_non_plan_document(
+    steering_db,
+) -> None:
     seed_strategy_doc(steering_db, PROJECT_ALPHA, "AREA-PLAN")
+    with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
+        first = acquire_steering(steering_db, SESSION_ALPHA, PROJECT_ALPHA)
+        second = acquire_steering(
+            steering_db,
+            SESSION_BETA,
+            PROJECT_ALPHA,
+            document="AREA-PLAN",
+        )
+    assert first["id"] != second["id"]
+
+
+def test_project_seat_and_current_plan_document_seat_refuse_each_other(
+    steering_db,
+) -> None:
     with patch("yoke_core.domain.steering_claims.emit_steering_claimed"):
         acquire_steering(steering_db, SESSION_ALPHA, PROJECT_ALPHA)
         with pytest.raises(SessionError) as refusal:
@@ -181,7 +196,7 @@ def test_project_seat_and_document_seat_refuse_each_other(steering_db) -> None:
                 steering_db,
                 SESSION_BETA,
                 PROJECT_ALPHA,
-                document="AREA-PLAN",
+                document=NEAR_TERM_PLAN_SLUG,
             )
     assert refusal.value.code == "ALREADY_CLAIMED"
     message = str(refusal.value)

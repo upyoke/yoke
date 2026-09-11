@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -70,16 +71,10 @@ test("the session card carries the explanation the figures dropped", () => {
   const line = byClass(body, "session-usage-line")[0];
   assert.ok(line, "the card renders a usage line");
   assert.equal(line.getAttribute("data-tooltip"), MEASURED.usage_note);
-  const facts = byClass(body, "session-usage");
+  const facts = byClass(body, "usage-stat-value");
   assert.deepEqual(facts.map((node) => node.textContent), ["1.2m", "$12.5"]);
-  // Each figure names what it is: the line used to read `1.2m · $12.5` and
-  // left the reader to work out which number was which.
   assert.deepEqual(
-    byClass(body, "session-usage-label").map((node) => node.textContent),
-    ["usage"],
-  );
-  assert.deepEqual(
-    byClass(body, "session-usage-unit").map((node) => node.textContent),
+    byClass(body, "usage-stat-unit").map((node) => node.textContent),
     ["tokens", "API cost"],
   );
 });
@@ -94,11 +89,11 @@ test("an unread session still renders, explaining why it is blank", () => {
   assert.match(line.getAttribute("data-tooltip"), /no consumption recorded/);
   // The units stay on an unread session: naming what is missing is the point.
   assert.deepEqual(
-    byClass(body, "session-usage").map((node) => node.textContent),
+    byClass(body, "usage-stat-value").map((node) => node.textContent),
     [UNREAD_DISPLAY, UNREAD_DISPLAY],
   );
   assert.deepEqual(
-    byClass(body, "session-usage-unit").map((node) => node.textContent),
+    byClass(body, "usage-stat-unit").map((node) => node.textContent),
     ["tokens", "API cost"],
   );
 });
@@ -191,11 +186,20 @@ test("the machine tile reports its scope beside its total", () => {
 
   appendMachineUsage(documentNode, card, { machine_id: "m1" }, sessions);
 
-  assert.equal(
-    byClass(card, "machine-usage-scope")[0].textContent,
-    "1 of 2 sessions reported",
+  assert.deepEqual(
+    byClass(card, "usage-stat-value").map((node) => node.textContent),
+    ["1k~", "$2~", "1 of 2"],
   );
-  assert.match(byClass(card, "machine-usage-total")[0].textContent, /^1k/);
+  assert.deepEqual(
+    byClass(card, "usage-stat-unit").map((node) => node.textContent),
+    ["tokens", "API cost", "sessions reported"],
+  );
+  assert.equal(
+    byClass(card, "machine-usage")[0].getAttribute("data-tooltip"),
+    "1 of 2 sessions reported. estimated API-equivalent cost for the sessions "
+    + "shown here, not consumption of any subscription plan; the dollar total "
+    + "covers only the sessions that could be priced",
+  );
 });
 
 test("the machine tile names its priced count when a session went unpriced", () => {
@@ -208,9 +212,13 @@ test("the machine tile names its priced count when a session went unpriced", () 
     { machine_id: "m1", usage_tokens: 2_000, usage_status: "complete" },
   ]);
 
-  assert.equal(
-    byClass(card, "machine-usage-scope")[0].textContent,
-    "2 of 2 sessions reported · 1 priced",
+  assert.deepEqual(
+    byClass(card, "usage-stat-value").map((node) => node.textContent),
+    ["3k~", "$8.25~", "2 of 2"],
+  );
+  assert.match(
+    byClass(card, "machine-usage")[0].getAttribute("data-tooltip"),
+    /2 of 2 sessions reported · 1 priced/,
   );
 });
 
@@ -234,7 +242,15 @@ test("the machine scope says the estimate is not plan consumption", () => {
   ]);
 
   assert.match(
-    byClass(card, "machine-usage-scope")[0].getAttribute("data-tooltip"),
+    byClass(card, "machine-usage")[0].getAttribute("data-tooltip"),
     /not consumption of any subscription plan/,
   );
+});
+
+test("usage stats wrap on the same narrow breakpoint as the rest of Sessions", () => {
+  const css = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_usage.css",
+    import.meta.url,
+  ), "utf8");
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*flex-wrap: wrap/);
 });

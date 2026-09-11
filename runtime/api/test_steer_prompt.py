@@ -58,11 +58,9 @@ class TestSteerSkillContract:
         assert "Reading a document and covering a scope are two decisions" in skill
         assert (
             '`--plan-doc` leaves the scope `{"project_id": N}`, so the seat '
-            "covers every item in the project"
+            "covers unlinked items and CURRENT-PLAN members in the project"
         ) in skill
-        assert (
-            "choose it only when the operator asked to steer that document"
-        ) in skill
+        assert "including other projects" in skill
 
     def test_vocabulary_is_steering_not_coordination(self):
         corpus = _corpus()

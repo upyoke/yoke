@@ -3,8 +3,7 @@ import {
   sessionTokensDisplay,
   sessionUsageIsPartial,
 } from "./session_usage_display.js";
-import { attachTooltip } from "./universe_tooltip.js";
-import { el } from "./universe_view_support.js";
+import { appendUsageStats } from "./universe_usage_stats.js";
 
 /**
  * What this session has spent, beside what the same tokens would have cost
@@ -19,31 +18,23 @@ import { el } from "./universe_view_support.js";
  * partial — is what the line's explanation still carries.
  */
 export function appendSessionUsage(documentNode, body, row) {
-  const line = el(documentNode, "div", "session-usage-line");
-  line.appendChild(el(documentNode, "span", "session-usage-label", "usage"));
-  const usageClass = sessionUsageIsPartial(row)
-    ? "session-usage is-partial"
-    : "session-usage";
-  const tokens = el(
-    documentNode, "span", usageClass, sessionTokensDisplay(row),
-  );
-  tokens.setAttribute("data-usage-fact", "tokens");
-  line.appendChild(tokens);
-  line.appendChild(el(documentNode, "span", "session-usage-unit", "tokens"));
-  const cost = el(
-    documentNode,
-    "span",
-    `${usageClass} session-usage-cost`,
-    sessionCostDisplay(row),
-  );
-  cost.setAttribute("data-usage-fact", "cost");
-  line.appendChild(cost);
-  line.appendChild(el(
-    documentNode, "span", "session-usage-unit", "API cost",
-  ));
-  attachTooltip(
-    documentNode, line,
-    row.usage_note || "no consumption recorded for this session yet",
-  );
-  body.appendChild(line);
+  const partial = sessionUsageIsPartial(row);
+  appendUsageStats(documentNode, body, {
+    className: "session-usage-line usage-stats",
+    tooltip: row.usage_note || "no consumption recorded for this session yet",
+    stats: [
+      {
+        fact: "tokens",
+        value: sessionTokensDisplay(row),
+        unit: "tokens",
+        partial,
+      },
+      {
+        fact: "cost",
+        value: sessionCostDisplay(row),
+        unit: "API cost",
+        partial,
+      },
+    ],
+  });
 }

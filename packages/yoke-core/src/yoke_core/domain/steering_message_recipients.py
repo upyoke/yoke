@@ -27,7 +27,6 @@ from yoke_core.domain.actor_message_recipient_schema import (
 )
 from yoke_core.domain.session_message_types import timestamp
 from yoke_core.domain.steering_scope_coverage import steering_scope_covers
-from yoke_core.domain.work_claim_scope_shape import STEERING_DOCUMENT_KEY
 
 
 TABLE = RECIPIENT_TABLE
@@ -62,17 +61,14 @@ def row_coverage_target(conn: Any, row: Mapping[str, Any]) -> dict[str, Any]:
     live, because a link written after the message was sent still decides
     which seat the message is now the business of.
     """
-    from yoke_core.domain.steering_scope_membership import item_document_slug
+    from yoke_core.domain.steering_scope_membership import apply_item_document
 
     target = decode_steering_scope(row.get("steering_scope"))
     item_id = row.get("sender_item_id")
     if item_id is None:
         return target
     target["item_id"] = int(item_id)
-    document = item_document_slug(conn, int(item_id))
-    if document is not None:
-        target[STEERING_DOCUMENT_KEY] = document
-    return target
+    return apply_item_document(conn, target, int(item_id))
 
 
 def record_steering_recipient(

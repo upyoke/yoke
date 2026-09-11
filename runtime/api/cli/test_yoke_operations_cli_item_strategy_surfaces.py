@@ -184,6 +184,21 @@ def test_strategy_execution_and_claim_commands_target_the_item() -> None:
     assert link.target.public_ref == TEST_ITEM_REF
     assert link.payload == {"slug": "WORKFLOW-TYPES"}
 
+    result, cross = _run(
+        "strategy",
+        "execution",
+        "link",
+        TEST_ITEM_REF,
+        "--slug",
+        "RELEASES",
+        "--project",
+        "platform",
+        "--document-project",
+        "yoke",
+    )
+    assert result == 0
+    assert cross.payload == {"slug": "RELEASES", "project": "yoke"}
+
     result, release = _run(
         "strategy",
         "claim",

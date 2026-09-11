@@ -2,65 +2,70 @@
    Split from the session and machine sheets because the two surfaces render
    one feature and its rules belong together rather than half in each. */
 
-.universe-app-root .session-usage-line {
+.universe-app-root .usage-stats {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-end;
+  gap: 20px;
   min-width: 0;
-  white-space: nowrap;
 }
 
-.universe-app-root .session-usage {
-  color: var(--yoke-muted);
-  font-family: var(--yoke-font-mono);
-  font-size: 11px;
+.universe-app-root .session-usage-line {
+  padding: 2px 0 0;
 }
 
-/* Each figure names what it is. `44m · $34` left a reader to guess which
-   number was which; the units cost one word each and the row still fits. */
-.universe-app-root .session-usage-label {
+.universe-app-root .machine-usage {
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .usage-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.universe-app-root .usage-stat-value {
+  color: var(--yoke-ink);
+  font-size: 18px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.universe-app-root .session-usage-line .usage-stat-value {
+  font-size: 15px;
+}
+
+.universe-app-root .usage-stat-unit {
   color: var(--yoke-muted);
   font-size: 10px;
-  letter-spacing: .055em;
+  font-weight: 650;
+  letter-spacing: .04em;
   text-transform: uppercase;
-}
-
-.universe-app-root .session-usage-unit {
-  margin-left: -2px;
-  color: var(--yoke-muted);
-  font-size: 10px;
 }
 
 /* A partial figure is dimmed rather than hidden: it is still the best answer
    available, and the trailing mark plus this weight say so without costing
    the row a word of explanation. */
-.universe-app-root .session-usage.is-partial,
-.universe-app-root .machine-usage-total.is-partial {
-  color: color-mix(in srgb, var(--yoke-muted) 70%, transparent);
+.universe-app-root .usage-stat.is-partial .usage-stat-value {
+  color: color-mix(in srgb, var(--yoke-ink) 55%, transparent);
 }
 
-.universe-app-root .session-usage-cost::before {
-  content: "\00b7";
-  margin-right: 6px;
-  color: var(--yoke-muted);
-}
+@media (max-width: 760px) {
+  .universe-app-root .usage-stats {
+    flex-wrap: wrap;
+    gap: 12px 16px;
+  }
 
-.universe-app-root .machine-usage {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-  white-space: nowrap;
-}
+  .universe-app-root .usage-stat {
+    flex: 1 1 40%;
+  }
 
-.universe-app-root .machine-usage-total {
-  font-family: var(--yoke-font-mono);
-  font-size: 12px;
-}
-
-/* The scope is part of the reading, not a caption: a sum whose membership is
-   unstated gets read as a lifetime total. */
-.universe-app-root .machine-usage-scope {
-  color: var(--yoke-muted);
-  font-size: 10px;
+  .universe-app-root .usage-stat-value,
+  .universe-app-root .session-usage-line .usage-stat-value {
+    font-size: 16px;
+  }
 }

@@ -126,6 +126,16 @@ export function usageSummaryLabel(summary) {
   return `${compactTokens(summary.tokens)}${suffix}${money}`;
 }
 
+export function usageSummaryTokenDisplay(summary) {
+  if (!summary || summary.covered === 0) return UNREAD_DISPLAY;
+  return `${compactTokens(summary.tokens)}${summary.partial ? PARTIAL_MARK : ""}`;
+}
+
+export function usageSummaryCostDisplay(summary) {
+  if (!summary || summary.costed === 0) return UNREAD_DISPLAY;
+  return `${compactUsd(summary.cost)}${summary.partial ? PARTIAL_MARK : ""}`;
+}
+
 /**
  * Say how many sessions each half of the total was drawn from.
  *

@@ -136,16 +136,23 @@ def handle_execution_link(request: FunctionCallRequest) -> HandlerOutcome:
         return error
     from yoke_core.domain.db_helpers import connect
     with connect() as conn:
-        project_id = conn.execute(
+        row = conn.execute(
             "SELECT project_id FROM items WHERE id = %s", (item_id,),
         ).fetchone()
-        if project_id is None:
+        if row is None:
             return _error("unknown_item", f"item {item_id} does not exist")
+        document_project_id = int(row[0])
+        if payload.project:
+            from yoke_core.domain.project_identity import resolve_project_id
+            try:
+                document_project_id = resolve_project_id(conn, payload.project)
+            except LookupError as exc:
+                return _error("execution_link_refused", str(exc))
         try:
             link = link_execution_document(
                 conn,
                 item_id=item_id,
-                project_id=int(project_id[0]),
+                project_id=document_project_id,
                 slug=payload.slug,
                 actor_id=_actor_id(request),
                 session_id=_session_id(request) or None,

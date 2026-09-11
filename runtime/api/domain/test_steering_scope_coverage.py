@@ -9,6 +9,7 @@ from yoke_core.domain.steering_scope_coverage import (
     scopes_overlap,
     steering_scope_covers,
 )
+from yoke_core.domain.strategy_docs_defaults import NEAR_TERM_PLAN_SLUG
 from runtime.api.domain.test_session_message_support import (
     NOW_TEXT,
     message_connection,
@@ -24,10 +25,29 @@ def _steering_claim(conn, *, claim_id: int, session_id: str, scope: str) -> None
     conn.commit()
 
 
-def test_project_scope_covers_every_item_in_that_project() -> None:
-    assert steering_scope_covers({"project_id": 1}, {"project_id": 1})
-    assert steering_scope_covers({"project_id": 1}, {"project_id": 1, "item_id": 101})
-    assert not steering_scope_covers({"project_id": 1}, {"project_id": 2})
+def test_project_scope_covers_unlinked_and_current_plan_items() -> None:
+    project = {"project_id": 1}
+    assert steering_scope_covers(project, {"project_id": 1})
+    assert steering_scope_covers(project, {"project_id": 1, "item_id": 101})
+    assert steering_scope_covers(
+        project,
+        {
+            "project_id": 1,
+            "item_id": 101,
+            "document": NEAR_TERM_PLAN_SLUG,
+            "document_project_id": 1,
+        },
+    )
+    assert not steering_scope_covers(
+        project,
+        {
+            "project_id": 1,
+            "item_id": 101,
+            "document": "AREA-PLAN",
+            "document_project_id": 1,
+        },
+    )
+    assert not steering_scope_covers(project, {"project_id": 2})
 
 
 def test_a_refinement_must_match_the_addressed_work() -> None:
@@ -73,17 +93,27 @@ def test_a_document_seat_covers_only_that_document_s_work() -> None:
     assert steering_scope_covers(
         scope, {"project_id": 1, "item_id": 101, "document": "AREA-PLAN"}
     )
+    assert steering_scope_covers(
+        scope,
+        {
+            "project_id": 2,
+            "item_id": 101,
+            "document": "AREA-PLAN",
+            "document_project_id": 1,
+        },
+    )
     assert not steering_scope_covers(
         scope, {"project_id": 1, "item_id": 201, "document": "CURRENT-PLAN"}
     )
     assert not steering_scope_covers(scope, {"project_id": 1, "item_id": 301})
 
 
-def test_two_document_seats_do_not_overlap_but_the_project_seat_does() -> None:
+def test_two_document_seats_do_not_overlap_and_only_current_plan_overlaps_the_project() -> None:
     project = {"project_id": 1}
     area = {"project_id": 1, "document": "AREA-PLAN"}
-    plan = {"project_id": 1, "document": "CURRENT-PLAN"}
-    assert scopes_overlap(project, area)
+    plan = {"project_id": 1, "document": NEAR_TERM_PLAN_SLUG}
+    assert not scopes_overlap(project, area)
+    assert scopes_overlap(project, plan)
     assert not scopes_overlap(area, plan)
 
 
@@ -97,9 +127,27 @@ def test_the_document_seat_wins_over_the_project_seat_for_its_work() -> None:
         scope='{"document":"AREA-PLAN","project_id":1}',
     )
 
-    linked = {"project_id": 1, "item_id": 101, "document": "AREA-PLAN"}
+    linked = {
+        "project_id": 1,
+        "item_id": 101,
+        "document": "AREA-PLAN",
+        "document_project_id": 1,
+    }
     assert covering_seat(conn, linked)["session_id"] == "s2"
     assert covering_seat(conn, {"project_id": 1, "item_id": 202})["session_id"] == "s1"
+
+
+def test_a_non_plan_document_is_unattended_without_its_seat() -> None:
+    conn = message_connection()
+    _steering_claim(conn, claim_id=10, session_id="s1", scope='{"project_id":1}')
+
+    linked = {
+        "project_id": 1,
+        "item_id": 101,
+        "document": "AREA-PLAN",
+        "document_project_id": 1,
+    }
+    assert covering_seat(conn, linked) is None
 
 
 def test_an_ended_session_is_not_a_seat() -> None:

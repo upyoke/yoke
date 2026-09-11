@@ -66,8 +66,12 @@ def test_claims_packet_teaches_scoped_steering_claim_lifecycle() -> None:
     body = sac.render_topic_packet("claims")
     assert 'steering={"project_id":N}' in body
     assert '{"project_id":N,"document":SLUG}' in body
-    assert "two live seats may not have overlapping scopes" in body
-    assert "items linked to that document in item_strategy_docs" in body
+    assert (
+        "A project seat overlaps CURRENT-PLAN document steering of the "
+        "same project" in body
+    )
+    assert "two different documents do not overlap" in body
+    assert "Document steering covers every item linked to that exact document" in body
     assert "Strategy-document locks remain in strategy_doc_claims" in body
     assert (
         "yoke claims steering acquire --project P "
