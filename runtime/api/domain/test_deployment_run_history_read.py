@@ -79,6 +79,22 @@ def _database() -> sqlite3.Connection:
         "INSERT INTO deployment_run_items VALUES "
         "('run-20260908-052', 1, ''), ('run-live-1', 2, '')"
     )
+    conn.execute(
+        "UPDATE deployment_flows SET stages = ? WHERE id = 'release'",
+        (
+            '[{"name":"merged"},{"name":"hosted-release"},'
+            '{"name":"warm-up"},{"name":"complete"}]',
+        ),
+    )
+    conn.execute(
+        "UPDATE deployment_runs SET carried_work = ? WHERE id = ?",
+        (
+            '{"schema":1,"items":[{"item_id":3207,"ref":"YOK-3080",'
+            '"commit_shas":["308ead240af24a12ac1090ce29dc7f69bab48521"]}],'
+            '"commits":[],"derivation":{"reason":"complete","status":"derived"}}',
+            "run-20260908-051",
+        ),
+    )
     conn.commit()
     return conn
 
@@ -216,45 +232,22 @@ def test_compact_presentation_keeps_only_rendered_member_and_stage_facts(monkeyp
     assert "stage_count" not in rows[0]
 
 
-def test_compact_page_row_keeps_flow_stages_and_derived_carried_items(monkeypatch):
+def test_history_query_presents_flow_stages_and_derived_carried_items(
+    monkeypatch,
+):
+    # Sqlite cannot bind the presenter's member-item SQL; the gap under
+    # test is the history SELECT plus compact carried-work presentation.
     monkeypatch.setattr(
         "yoke_core.domain.deployment_run_list_read._member_items",
         lambda *_args, **_kwargs: {},
     )
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_run_list_read.run_gates",
-        lambda *_args, **_kwargs: {},
-    )
-    rows = present_deployment_runs(
-        object(),
-        [
-            {
-                "id": "run-20260911-001",
-                "project": "yoke",
-                "flow": "yoke-hosted-stage-typed-target",
-                "flow_name": "Stage (Warm-Gated, No CI Gate, Typed Target)",
-                "status": "succeeded",
-                "current_stage": "complete",
-                "stages": (
-                    '[{"name":"merged"},{"name":"hosted-release"},'
-                    '{"name":"warm-up"},{"name":"complete"}]'
-                ),
-                "carried_work": (
-                    '{"schema":1,"items":[{"item_id":3207,"ref":"YOK-3080",'
-                    '"commit_shas":["308ead240af24a12ac1090ce29dc7f69bab48521"]}],'
-                    '"commits":[],"derivation":{"reason":"complete","status":"derived"}}'
-                ),
-            }
-        ],
-        actor_id=7,
-        visible_project_ids={1},
-        include_carried_work=True,
-        compact=True,
-    )
+    conn = _database()
+    result = _read(conn, search="run-20260908-051")
+    row = result["rows"][0]
 
-    row = rows[0]
-    assert row["flow"] == "yoke-hosted-stage-typed-target"
-    assert row["flow_name"] == "Stage (Warm-Gated, No CI Gate, Typed Target)"
+    assert row["id"] == "run-20260908-051"
+    assert row["flow"] == "release"
+    assert row["flow_name"] == "Release"
     assert [stage["name"] for stage in row["stages"]] == [
         "merged", "hosted-release", "warm-up", "complete",
     ]
