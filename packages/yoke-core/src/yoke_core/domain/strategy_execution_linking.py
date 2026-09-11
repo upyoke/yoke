@@ -1,10 +1,11 @@
 """Atomic linking of items to the strategy document they belong to.
 
 One link carries two meanings, and both read off the same row. For a Blitz
-the document is the execution plan the item runs, so replacing it while the
-Blitz holds its document claim is refused. For every other item the link is
-membership: it says which strategy document -- and so which steering seat --
-the item belongs to.
+the document is the execution plan the item runs, so it must belong to the
+item's project, and replacing it while the Blitz holds its document claim is
+refused. For every other item the link is membership: it names the
+document by owning project plus slug, so a Platform item may belong to a
+Yoke document without moving execution authority off the item's project.
 """
 
 from __future__ import annotations
@@ -44,9 +45,12 @@ def link_execution_document(
     lock_item_workflow_bindings(conn, (int(item_id),))
     item_binding_runtime_state(conn, int(item_id))
     item = _item_row(conn, item_id)
-    if int(item["project_id"]) != int(project_id):
+    if (
+        str(item["workflow_id"]) == BLITZ_WORKFLOW_ID
+        and int(item["project_id"]) != int(project_id)
+    ):
         raise StrategyExecutionLinkError(
-            "the strategy document must belong to the item's project"
+            "a Blitz execution document must belong to the item's project"
         )
     get_doc(conn, int(project_id), slug)
     marker = _marker(conn)

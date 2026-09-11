@@ -1,11 +1,11 @@
 """Registered handlers for session-owned steering claims.
 
-A seat covers a whole project, or one strategy document inside it, and
-the payload says which with two separate keys. ``document`` narrows the
-seat to that document's linked items and takes its lock in the same
-transaction. ``plan_document`` takes the lock without narrowing anything,
-so a project-wide seat still owns the standing plan it reads and writes.
-Neither key takes the project-wide seat and no lock.
+A seat covers a whole project, or one strategy document identified by
+owning project plus slug. ``document`` narrows the seat to that
+document's linked items — including other projects — and takes its lock
+in the same transaction. ``plan_document`` takes the lock without
+narrowing: the project-wide seat covers unlinked and CURRENT-PLAN
+members. Neither key takes the project-wide seat and no lock.
 """
 
 from __future__ import annotations

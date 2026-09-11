@@ -1,9 +1,9 @@
 """Scope-serialized steering claims backed by typed work claims.
 
-A seat covers either a whole project or one strategy document inside it.
-Non-overlapping seats coexist -- two documents in the same project are two
-seats -- while a project seat and any document seat inside it are the same
-territory and refuse each other.
+A seat covers a whole project or one strategy document identified by
+owning project plus slug. Non-overlapping seats coexist: two documents are
+two seats, and a project seat may run beside a non-CURRENT-PLAN document
+seat. CURRENT-PLAN document steering overlaps the affected project seat.
 """
 
 from __future__ import annotations

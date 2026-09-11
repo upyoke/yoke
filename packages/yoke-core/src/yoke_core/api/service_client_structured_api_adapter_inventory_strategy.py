@@ -51,7 +51,8 @@ STRATEGY_ADAPTERS = [
     AdapterEntry(
         function_id="strategy.execution.link",
         cli_invocation=(
-            "yoke strategy execution link ITEM --slug SLUG --project P"
+            "yoke strategy execution link ITEM --slug SLUG "
+            "[--document-project P] --project P"
         ),
     ),
     AdapterEntry(

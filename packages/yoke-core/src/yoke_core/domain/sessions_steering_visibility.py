@@ -1,9 +1,10 @@
-"""Read-time steering scope for the fleet session roster.
+"""Read-time steering facts for the fleet session roster.
 
-The seat's own scope is the only steering fact the roster still projects.
-Launch-parent and coverage used to fill other cards from a staffing origin
-that is no longer written; those fields are gone rather than left as a dead
-branch over a historical enum value.
+The seat's own scope still projects on the holding session. Worker
+association is a separate live coverage fact: which steering session
+covers the item the worker currently holds. Launch provenance is not
+consulted, so relinking and seat handoffs move the association on the next
+read.
 """
 
 from __future__ import annotations
@@ -15,10 +16,12 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_message_routing import session_liveness
 from yoke_core.domain.sessions_holdings_claim_facts import steered_document_slugs
+from yoke_core.domain.steering_scope_coverage import covering_seat, live_steering_claims
+from yoke_core.domain.steering_scope_membership import item_coverage_target
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
-_OUTPUT_FIELDS = ("steering_scope",)
+_OUTPUT_FIELDS = ("steering_scope", "steering_group_session_id")
 
 
 def _marker(conn: Any) -> str:
@@ -96,16 +99,52 @@ def _attach_strategy_docs(
         scope["strategy_docs"].extend(documents.get(int(scope["claim_id"]), []))
 
 
+def _held_item_ids(
+    conn: Any, session_ids: tuple[str, ...]
+) -> dict[str, tuple[int, int]]:
+    if not session_ids or not _table_exists(conn, "harness_sessions"):
+        return {}
+    if not _table_exists(conn, "items"):
+        return {}
+    marker = _marker(conn)
+    rows = conn.execute(
+        "SELECT s.session_id AS session_id, s.current_item_id AS item_id, "
+        "i.project_id AS project_id FROM harness_sessions s "
+        "JOIN items i ON CAST(i.id AS TEXT) = CAST(s.current_item_id AS TEXT) "
+        "WHERE s.session_id IN ("
+        + ",".join(marker for _ in session_ids)
+        + ") AND s.current_item_id IS NOT NULL",
+        session_ids,
+    ).fetchall()
+    held: dict[str, tuple[int, int]] = {}
+    for row in rows:
+        record = dict(row)
+        if record.get("item_id") is None or record.get("project_id") is None:
+            continue
+        held[str(record["session_id"])] = (
+            int(record["item_id"]),
+            int(record["project_id"]),
+        )
+    return held
+
+
 def steering_visibility(
     conn: Any,
     rows: list[dict[str, Any]],
     *,
     now: datetime | None = None,
 ) -> dict[str, dict[str, Any]]:
-    """Project the holding session's steering scope and nothing else."""
+    """Project the seat's scope and the live coverage association."""
     session_ids = _session_ids(rows)
     current = now or datetime.now(timezone.utc)
     scopes = _scope_rows(conn, _project_ids(rows), now=current)
+    claims = (
+        live_steering_claims(conn)
+        if _table_exists(conn, "work_claims")
+        else []
+    )
+    holders = {str(claim["session_id"]) for claim in claims}
+    held_items = _held_item_ids(conn, session_ids)
     projected = {
         session_id: {field: None for field in _OUTPUT_FIELDS}
         for session_id in session_ids
@@ -116,6 +155,24 @@ def steering_visibility(
         scope = scopes.get(int(project_id)) if project_id is not None else None
         if scope and scope["holder_session_id"] == session_id:
             projected[session_id]["steering_scope"] = scope
+        if session_id in holders:
+            projected[session_id]["steering_group_session_id"] = session_id
+            continue
+        item = held_items.get(session_id)
+        if item is None:
+            continue
+        item_id, item_project_id = item
+        seat = covering_seat(
+            conn,
+            item_coverage_target(
+                conn, project_id=item_project_id, item_id=item_id
+            ),
+            claims=claims,
+        )
+        if seat is not None:
+            projected[session_id]["steering_group_session_id"] = str(
+                seat["session_id"]
+            )
     return projected
 
 

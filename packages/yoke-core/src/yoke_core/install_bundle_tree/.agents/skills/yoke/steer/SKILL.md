@@ -68,23 +68,21 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
   pairs the steering-scope claim with its strategy-doc lock; together they
   are its authority. The doc and its linked items ARE the surviving state.
 - **Reading a document and covering a scope are two decisions.** `--doc
-  SLUG` narrows the seat to that document, covering exactly the items linked
-  to it. `--plan-doc SLUG` locks that document for writing while the seat
-  still covers the whole project — the shape a project-level request takes,
-  because the standing plan is what the seat reads, not a filter on the work
-  it steers. `--project` alone covers the project and locks nothing. Two
-  people steer two documents in one project at once, neither owning the
-  whole project.
+  SLUG` covers every item linked to that owning-project-plus-slug document,
+  including other projects. `--plan-doc SLUG` locks the standing plan while
+  the project-wide seat covers unlinked and CURRENT-PLAN members. `--project`
+  alone covers that same project set and locks nothing. Two people steer
+  two documents in one project at once, neither owning the whole project.
 - **No two live steering claims with overlapping scopes.** Acquire refuses on
-  overlap and names the holder by actor, machine, and session. The project is
-  the outer key, so a project seat and any document seat inside it are the
-  same territory; two different documents are not.
+  overlap and names the holder by actor, machine, and session. A project
+  seat overlaps CURRENT-PLAN document steering of that project; any other
+  document seat can run beside it.
 - **The link is the membership.** An item belongs to this seat's scope when
   it is linked to this document — `yoke strategy execution link ITEM --slug
-  {SLUG}`, or `--strategy-doc {SLUG}` at filing time. Work this seat files
-  names the document at intake; work it adopts from the frontier gets linked
-  before it is staffed, or it stays invisible to this seat's report and its
-  worker's `--steering` reports route to the project seat instead.
+  {SLUG} [--document-project P]`, or `--strategy-doc {SLUG}` at filing. Work
+  this seat files names the document at intake; work it adopts from the
+  frontier gets linked before it is staffed. Other links are that document's,
+  or unattended when no document seat is live.
 - **Workers address this seat as a role, never by its session id.** Every
   worker's mandate says `yoke say --steering`; the server resolves
   that at delivery to whichever seat covers the sending item — the one the
@@ -211,15 +209,14 @@ yoke claims steering acquire --project {_project} --doc {SLUG} --reason "steer {
 
 Run this once per resolved project. Either form acquires the seat and the
 {SLUG} document lock in the same transaction; they differ only in coverage.
-`--plan-doc` leaves the scope `{"project_id": N}`, so the seat covers every
-item in the project and reports on all of it while still being the only
-writer of {SLUG}. `--doc` narrows the scope to `{"project_id": N, "document":
-"{SLUG}"}`, so the seat covers exactly the items linked to {SLUG} — choose it
-only when the operator asked to steer that document. An overlapping seat or a
-document holder refuses the call and leaves neither half behind — the refusal
-names the holding actor, machine, and session, and a seat on a different
-document in the same project is always available. Do not proceed without both
-halves. Keep the returned `claim_id` for wrapup release.
+`--plan-doc` leaves the scope `{"project_id": N}`, so the seat covers
+unlinked items and CURRENT-PLAN members in the project while locking {SLUG}.
+`--doc` narrows to `{"project_id": N, "document": "{SLUG}"}` — `{N}` is the
+document's owning project — and covers every item linked to that exact
+document, including other projects. An overlapping seat (CURRENT-PLAN versus
+the project seat) or a document holder refuses and leaves neither half behind.
+A non-CURRENT-PLAN document seat can run beside the project seat. Do not
+proceed without both halves. Keep the returned `claim_id` for wrapup release.
 
 Acquire also hands over every role-addressed message this scope covers that
 no live seat was acting on and no previous seat acknowledged. A project-wide

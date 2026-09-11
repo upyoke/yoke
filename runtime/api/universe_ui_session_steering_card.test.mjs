@@ -84,20 +84,44 @@ test("an ordinary worker card carries no steering box", () => {
 });
 
 
-test("a steering card wears no sheet of its own", () => {
+test("associated cards share the steering seat tint", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.css",
     import.meta.url,
   ), "utf8");
-  // The card background is every other card's; the Steering box is what
-  // differentiates the seat.
-  assert.ok(!css.includes(".session-card"), "no card-level steering sheet");
+  assert.match(
+    css,
+    /\.session-card\.is-steering-associated \{[\s\S]*?color-mix/,
+  );
+  assert.match(
+    css,
+    /\.session-card\.is-steering-associated\.is-stale \{[\s\S]*?--yoke-warn-bg/,
+  );
   assert.match(css, /border-left: 3px solid var\(--yoke-accent\)/);
   assert.match(
     css, /\.session-steering-symbol \{[\s\S]*?position: absolute/,
   );
-  // Landscape viewBox: height 14px, width auto. Sizing by width shrinks
-  // the mark and thins the ring stroke relative to the shared artwork.
   assert.match(css, /\.steering-symbol svg \{[\s\S]*?height: 14px/);
   assert.match(css, /\.steering-symbol svg \{[\s\S]*?width: auto/);
+});
+
+
+test("coverage association tints the outer card", () => {
+  const rendered = sessionCard(
+    new FakeDocument(),
+    {
+      session_id: "worker-1",
+      liveness: "active",
+      mode: "dash",
+      executor: "codex",
+      claims: [],
+      holdings: { current: [], previous: [], previous_remainder: 0 },
+      messageability: { messageable: false },
+      steering_group_session_id: "seat-1",
+    },
+    () => {},
+    [{ id: 1, slug: "yoke" }],
+  );
+  assert.ok(rendered.classList.contains("is-steering-associated"));
+  assert.equal(rendered.getAttribute("data-steering-group"), "seat-1");
 });

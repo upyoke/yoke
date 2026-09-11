@@ -77,6 +77,7 @@ class StrategyCoordinationAppendResponse(BaseModel):
 
 class StrategyExecutionLinkRequest(BaseModel):
     slug: str = Field(..., min_length=1)
+    project: Optional[str] = None
 
 
 class StrategyExecutionResponse(BaseModel):

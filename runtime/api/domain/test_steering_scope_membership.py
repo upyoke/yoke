@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.steering_fleet_report_scope import (
     members_only,
@@ -11,12 +13,17 @@ from yoke_core.domain.steering_fleet_report_scope import (
 from yoke_core.domain.steering_scope_membership import (
     document_member_item_ids,
     item_coverage_target,
+    item_document_link,
     item_document_slug,
     scope_document,
     scope_member_item_ids,
 )
+from yoke_core.domain.strategy_docs_defaults import NEAR_TERM_PLAN_SLUG
+from yoke_core.domain.strategy_execution_linking import link_execution_document
+from yoke_core.domain.strategy_execution_state import StrategyExecutionLinkError
 from runtime.api.domain.steering_claim_test_support import (
     PROJECT_ALPHA,
+    PROJECT_BETA,
     seed_project,
     seed_strategy_doc,
 )
@@ -31,9 +38,12 @@ class _Row:
         self.session_id = session_id
 
 
-def _seed_item(conn, item_id: int, project_id: int = PROJECT_ALPHA) -> None:
+def _seed_item(
+    conn, item_id: int, project_id: int = PROJECT_ALPHA, workflow_id: str = "dash"
+) -> None:
     version = conn.execute(
-        "SELECT current_version_id FROM workflows WHERE id = 'dash'"
+        "SELECT current_version_id FROM workflows WHERE id = %s",
+        (workflow_id,),
     ).fetchone()
     now = iso8601_now()
     conn.execute(
@@ -41,8 +51,8 @@ def _seed_item(conn, item_id: int, project_id: int = PROJECT_ALPHA) -> None:
         "(id, title, status, priority, created_at, updated_at, source, "
         "project_id, project_sequence, workflow_id, workflow_version_id) "
         "VALUES (%s, %s, 'implementing', 'medium', %s, %s, '2', "
-        "%s, %s, 'dash', %s)",
-        (item_id, f"Item {item_id}", now, now, project_id, item_id, version[0]),
+        "%s, %s, %s, %s)",
+        (item_id, f"Item {item_id}", now, now, project_id, item_id, workflow_id, version[0]),
     )
     conn.commit()
 
@@ -81,7 +91,12 @@ def test_coverage_target_carries_project_item_and_document(test_db) -> None:
     conn = _world(test_db)
     assert item_coverage_target(
         conn, project_id=PROJECT_ALPHA, item_id=9101
-    ) == {"project_id": PROJECT_ALPHA, "item_id": 9101, "document": AREA_PLAN}
+    ) == {
+        "project_id": PROJECT_ALPHA,
+        "item_id": 9101,
+        "document": AREA_PLAN,
+        "document_project_id": PROJECT_ALPHA,
+    }
     assert item_coverage_target(
         conn, project_id=PROJECT_ALPHA, item_id=9102
     ) == {"project_id": PROJECT_ALPHA, "item_id": 9102}
@@ -100,11 +115,66 @@ def test_membership_is_exactly_the_documents_linked_items(test_db) -> None:
     ) == {9101}
 
 
-def test_a_project_seat_has_no_item_filter(test_db) -> None:
-    """``None`` is the whole project, not an empty membership."""
+def test_a_project_seat_covers_unlinked_and_current_plan_members(test_db) -> None:
     conn = _world(test_db)
-    assert scope_member_item_ids(conn, {"project_id": PROJECT_ALPHA}) is None
-    assert seat_members(conn, {"project_id": PROJECT_ALPHA}) is None
+    assert scope_member_item_ids(conn, {"project_id": PROJECT_ALPHA}) == {9102}
+    assert seat_members(conn, {"project_id": PROJECT_ALPHA}) == {9102}
+    _seed_item(conn, 9103)
+    _link(conn, 9103, NEAR_TERM_PLAN_SLUG)
+    assert scope_member_item_ids(conn, {"project_id": PROJECT_ALPHA}) == {
+        9102,
+        9103,
+    }
+
+
+def test_document_membership_includes_other_projects_items(test_db) -> None:
+    conn = _world(test_db)
+    seed_project(conn, PROJECT_BETA, "beta")
+    _seed_item(conn, 9201, PROJECT_BETA)
+    _link(conn, 9201, AREA_PLAN, PROJECT_ALPHA)
+    assert document_member_item_ids(
+        conn, project_id=PROJECT_ALPHA, document=AREA_PLAN
+    ) == {9101, 9201}
+    assert item_coverage_target(
+        conn, project_id=PROJECT_BETA, item_id=9201
+    ) == {
+        "project_id": PROJECT_BETA,
+        "item_id": 9201,
+        "document": AREA_PLAN,
+        "document_project_id": PROJECT_ALPHA,
+    }
+
+
+def test_a_dash_item_may_link_to_another_projects_document(test_db) -> None:
+    conn = _world(test_db)
+    seed_project(conn, PROJECT_BETA, "beta")
+    seed_strategy_doc(conn, PROJECT_BETA, AREA_PLAN)
+    linked = link_execution_document(
+        conn,
+        item_id=9102,
+        project_id=PROJECT_BETA,
+        slug=AREA_PLAN,
+        actor_id=2,
+        session_id=None,
+    )
+    assert linked["project_id"] == PROJECT_BETA
+    assert item_document_link(conn, 9102) == (PROJECT_BETA, AREA_PLAN)
+
+
+def test_a_blitz_cannot_link_to_another_projects_document(test_db) -> None:
+    conn = _world(test_db)
+    seed_project(conn, PROJECT_BETA, "beta")
+    seed_strategy_doc(conn, PROJECT_BETA, AREA_PLAN)
+    _seed_item(conn, 9301, workflow_id="blitz")
+    with pytest.raises(StrategyExecutionLinkError, match="item's project"):
+        link_execution_document(
+            conn,
+            item_id=9301,
+            project_id=PROJECT_BETA,
+            slug=AREA_PLAN,
+            actor_id=2,
+            session_id=None,
+        )
 
 
 def test_filters_keep_everything_for_a_project_seat() -> None:

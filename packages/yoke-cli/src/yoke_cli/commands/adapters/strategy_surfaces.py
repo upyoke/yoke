@@ -171,12 +171,23 @@ def strategy_execution_get(args: List[str]) -> int:
     )
 
 
+def _link_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--slug", required=True)
+    parser.add_argument("--document-project")
+
+
 def strategy_execution_link(args: List[str]) -> int:
     return _item(
         args, tokens="strategy execution link",
         function_id="strategy.execution.link",
-        configure=lambda parser: parser.add_argument("--slug", required=True),
-        payload=lambda parsed: {"slug": parsed.slug},
+        configure=_link_args,
+        payload=lambda parsed: {
+            "slug": parsed.slug,
+            **(
+                {"project": parsed.document_project}
+                if parsed.document_project else {}
+            ),
+        },
     )
 
 
@@ -303,7 +314,10 @@ USAGE_BY_FUNCTION_ID = {
     "strategy.parent.set": "yoke strategy parent set SLUG --parent-slug PARENT --project P",
     "strategy.coordination.append": "yoke strategy coordination append SLUG --section NAME --entry TEXT --project P",
     "strategy.execution.get": "yoke strategy execution get ITEM --project P",
-    "strategy.execution.link": "yoke strategy execution link ITEM --slug SLUG --project P",
+    "strategy.execution.link": (
+        "yoke strategy execution link ITEM --slug SLUG "
+        "[--document-project P] --project P"
+    ),
     "strategy.claim.acquire": "yoke strategy claim acquire ITEM --project P",
     "strategy.claim.release": (
         "yoke strategy claim release (ITEM | PROCESS_KEY) "

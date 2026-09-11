@@ -135,6 +135,27 @@ def test_an_unlinked_item_falls_back_to_the_project_seat() -> None:
     assert [r["session_id"] for r in sent["recipients"]] == ["s2"]
 
 
+def test_a_non_plan_link_with_only_the_project_seat_parks() -> None:
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+    _link_document(conn, 101, "AREA-PLAN")
+
+    sent = _say_steering(conn)
+
+    assert sent["recipients"] == []
+    assert _steering_row(conn, sent["message_id"])["state"] == STATE_AWAITING_SEAT
+
+
+def test_a_current_plan_link_still_addresses_the_project_seat() -> None:
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+    _link_document(conn, 101, "CURRENT-PLAN")
+
+    sent = _say_steering(conn)
+
+    assert [r["session_id"] for r in sent["recipients"]] == ["s2"]
+
+
 def test_a_link_written_after_the_send_moves_the_parked_message() -> None:
     """Membership is read live, so a later link decides who inherits it."""
     conn = message_connection()

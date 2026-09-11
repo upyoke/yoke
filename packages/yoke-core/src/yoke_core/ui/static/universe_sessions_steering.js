@@ -204,7 +204,7 @@ export function steeringLeadCovers(row) {
 // scope leads the body where a worker card leads with its claim. Reading a
 // steering card, the first question is which projects this seat drives and
 // from which documents — the same question a worker card answers with an
-// item ref. Other cards do not annotate a relationship to that seat.
+// item ref. Covered workers share the seat's outer tint.
 export function appendSteeringHoldings(documentNode, body, row, projects = []) {
   const scopes = steeringScopes(row, projects);
   if (!scopes.length) return false;

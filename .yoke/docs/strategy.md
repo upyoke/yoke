@@ -51,7 +51,8 @@ Write the link either at intake or afterwards:
 ```bash
 yoke dash "TITLE" "INSTRUCTION" --strategy-doc <SLUG> \
   --execution-instructions-considered
-yoke strategy execution link PREFIX-N --slug <SLUG> --project P
+yoke strategy execution link PREFIX-N --slug <SLUG> \
+  [--document-project DOC_PROJECT] --project P
 ```
 
 For a Blitz the same link also names the document the item executes, and that

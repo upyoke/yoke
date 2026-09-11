@@ -21,11 +21,22 @@ def _connection() -> sqlite3.Connection:
         CREATE TABLE harness_sessions (
             session_id TEXT PRIMARY KEY,
             project_id INTEGER,
+            actor_id INTEGER,
+            current_item_id INTEGER,
             last_heartbeat TEXT,
             last_tool_call_at TEXT,
             ended_at TEXT,
             terminated_at TEXT,
             executor TEXT
+        );
+        CREATE TABLE items (
+            id INTEGER PRIMARY KEY,
+            project_id INTEGER
+        );
+        CREATE TABLE item_strategy_docs (
+            item_id INTEGER PRIMARY KEY,
+            project_id INTEGER,
+            strategy_doc_slug TEXT
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY,
@@ -48,7 +59,9 @@ def _connection() -> sqlite3.Connection:
     conn.execute("INSERT INTO projects VALUES (10, 'yoke')")
     for session_id in ("holder-1", "operator-1", "worker-1"):
         conn.execute(
-            "INSERT INTO harness_sessions VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO harness_sessions "
+            "(session_id, project_id, last_heartbeat, last_tool_call_at, "
+            "ended_at, terminated_at, executor) VALUES (?,?,?,?,?,?,?)",
             (
                 session_id,
                 10,
@@ -93,6 +106,37 @@ def test_only_the_holding_session_projects_steering_scope() -> None:
     assert scope["liveness"] == "active"
     assert facts["operator-1"]["steering_scope"] is None
     assert facts["worker-1"]["steering_scope"] is None
-    assert set(facts["holder-1"]) == {"steering_scope"}
-    assert set(facts["operator-1"]) == {"steering_scope"}
-    assert set(facts["worker-1"]) == {"steering_scope"}
+    assert facts["holder-1"]["steering_group_session_id"] == "holder-1"
+    assert facts["operator-1"]["steering_group_session_id"] is None
+    assert facts["worker-1"]["steering_group_session_id"] is None
+    assert set(facts["holder-1"]) == {"steering_scope", "steering_group_session_id"}
+
+
+def test_a_worker_holding_a_covered_item_associates_to_the_seat() -> None:
+    conn = _connection()
+    conn.execute("INSERT INTO items VALUES (42, 10)")
+    conn.execute(
+        "UPDATE harness_sessions SET current_item_id = 42 "
+        "WHERE session_id = 'worker-1'"
+    )
+
+    facts = steering_visibility(conn, _rows(), now=NOW)
+
+    assert facts["worker-1"]["steering_group_session_id"] == "holder-1"
+    assert facts["operator-1"]["steering_group_session_id"] is None
+
+
+def test_a_worker_on_another_document_is_not_the_project_seat() -> None:
+    conn = _connection()
+    conn.execute("INSERT INTO items VALUES (42, 10)")
+    conn.execute(
+        "INSERT INTO item_strategy_docs VALUES (42, 10, 'AREA-PLAN')"
+    )
+    conn.execute(
+        "UPDATE harness_sessions SET current_item_id = 42 "
+        "WHERE session_id = 'worker-1'"
+    )
+
+    facts = steering_visibility(conn, _rows(), now=NOW)
+
+    assert facts["worker-1"]["steering_group_session_id"] is None
