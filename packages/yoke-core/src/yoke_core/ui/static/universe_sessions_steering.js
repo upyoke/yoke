@@ -10,10 +10,7 @@ export const STEERING_MARKER_TITLE =
 // A steering group's color is a fact about the group, not the theme — like
 // the harness brand marks in theme.css, it does not vary between light and
 // dark. Six hues, chosen for pairwise distinctness and to stay clear of the
-// existing state hues (good/warn/crit/run/park). A group's index is a
-// deterministic hash of its identity, so the same group renders the same
-// color on both Overview and Sessions and across ordinary refreshes with no
-// registry to maintain.
+// existing state hues (good/warn/crit/run/park).
 const STEERING_GROUP_PALETTE = [
   "#7c3aed", // violet
   "#0d9488", // teal
@@ -23,20 +20,37 @@ const STEERING_GROUP_PALETTE = [
   "#4338ca", // indigo
 ];
 
-function stringHash(text) {
-  let hash = 0;
-  for (let index = 0; index < text.length; index += 1) {
-    hash = (Math.imul(hash, 31) + text.charCodeAt(index)) | 0;
-  }
-  return hash >>> 0;
+// Rotating by the golden angle spreads any number of extra hues around the
+// wheel with no two ever landing close together, so a group beyond the
+// fixed six still gets a color pairwise distinct from every other extra one.
+const GOLDEN_ANGLE_DEGREES = 137.508;
+
+function paletteColorAt(rank) {
+  if (rank < STEERING_GROUP_PALETTE.length) return STEERING_GROUP_PALETTE[rank];
+  const hue = ((rank - STEERING_GROUP_PALETTE.length) * GOLDEN_ANGLE_DEGREES) % 360;
+  return `hsl(${hue.toFixed(1)}deg 65% 38%)`;
 }
 
-// The palette entry for a steering group, keyed by the same
-// `steering_group_session_id` the seat's own card and every card it covers
-// already carry — never a separately assigned or persisted id.
-export function steeringGroupColor(groupSessionId) {
-  const text = String(groupSessionId || "");
-  return STEERING_GROUP_PALETTE[stringHash(text) % STEERING_GROUP_PALETTE.length];
+// One color per distinct steering group across the caller's whole known row
+// set — never a group hashed in isolation — so two groups concurrently on
+// screen can never collide onto the same hue by chance the way a per-id hash
+// could. Distinct group ids are ranked by their own identity (a plain
+// lexicographic sort), never by arrival or render order, so the same set of
+// groups always produces the same colors on every refresh: existing palette
+// entries are used first, in rank order, before any extra hue is minted.
+// Callers pass the broadest row set they know (e.g. the unfiltered roster),
+// not just what is currently visible, so narrowing the view with a filter
+// never reshuffles a still-visible group's color.
+export function steeringGroupColors(rows) {
+  const distinctIds = [...new Set(
+    (Array.isArray(rows) ? rows : [])
+      .map((row) => row?.steering_group_session_id)
+      .filter((id) => id !== undefined && id !== null && id !== "")
+      .map((id) => String(id)),
+  )].sort();
+  const colors = new Map();
+  distinctIds.forEach((id, rank) => colors.set(id, paletteColorAt(rank)));
+  return colors;
 }
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
