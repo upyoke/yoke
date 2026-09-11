@@ -12,7 +12,10 @@ import {
   successfulResult,
 } from "./universe_overview_primitives.js";
 import { sessionCard } from "./universe_views_sessions.js";
-import { sortSessionsSteeringFirst } from "./universe_sessions_steering.js";
+import {
+  sortSessionsSteeringFirst,
+  steeringGroupColors,
+} from "./universe_sessions_steering.js";
 import { el } from "./universe_view_support.js";
 
 export async function loadSessions(context, band, getScope, sessionRoster) {
@@ -34,6 +37,10 @@ export async function loadSessions(context, band, getScope, sessionRoster) {
       ));
       return;
     }
+    // Computed from the whole unfiltered roster, not the scoped/sorted
+    // `rows` about to render, so switching the active project scope never
+    // reshuffles a still-visible group's color.
+    const groupColors = steeringGroupColors(result.rows || []);
     const rows = sortSessionsSteeringFirst(sessionsShownInActive(
       result.rows || [], getScope(), context.projects(),
     ).sort((left, right) => String(right.activity_at || "").localeCompare(
@@ -42,7 +49,7 @@ export async function loadSessions(context, band, getScope, sessionRoster) {
     band.setCount(rows.length);
     band.renderCards(
       rows.map((row) => sessionCard(
-        context.document, row, onMessage, context.projects(),
+        context.document, row, onMessage, context.projects(), groupColors,
       )),
       "No session is running against this universe.",
       "overview-session-grid session-grid",

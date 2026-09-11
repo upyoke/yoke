@@ -6,7 +6,7 @@ import {
   sessionCard,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
 import {
-  steeringGroupColor,
+  steeringGroupColors,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.js";
 import {
   FakeDocument,
@@ -158,47 +158,43 @@ test("a stale associated card keeps its group tint class alongside the stale cla
 });
 
 
+function steeringWorkerRow(sessionId, groupSessionId) {
+  return {
+    session_id: sessionId,
+    liveness: "active",
+    holdings: { current: [], previous: [], previous_remainder: 0 },
+    messageability: { messageable: false },
+    steering_group_session_id: groupSessionId,
+  };
+}
+
+function steeringSeatRow(sessionId) {
+  return {
+    session_id: sessionId,
+    liveness: "active",
+    holdings: { current: [steering], previous: [], previous_remainder: 0 },
+    messageability: { messageable: false },
+    steering_group_session_id: sessionId,
+  };
+}
+
 test("each steering group renders its own color, shared with its workers", () => {
-  const seatOne = sessionCard(
-    new FakeDocument(),
-    {
-      session_id: "seat-1",
-      liveness: "active",
-      holdings: { current: [steering], previous: [], previous_remainder: 0 },
-      messageability: { messageable: false },
-      steering_group_session_id: "seat-1",
-    },
-    () => {},
-    [{ id: 1, slug: "yoke" }],
+  // These two ids collided onto the same palette entry under the old
+  // per-id hash — the exact production bug this rewrite fixes.
+  const rows = [
+    steeringSeatRow("seat-1"),
+    steeringWorkerRow("worker-1", "seat-1"),
+    steeringSeatRow("seat-2"),
+  ];
+  const groupColors = steeringGroupColors(rows);
+  const cardFor = (row) => sessionCard(
+    new FakeDocument(), row, () => {}, [{ id: 1, slug: "yoke" }], groupColors,
   );
-  const workerOfSeatOne = sessionCard(
-    new FakeDocument(),
-    {
-      session_id: "worker-1",
-      liveness: "active",
-      holdings: { current: [], previous: [], previous_remainder: 0 },
-      messageability: { messageable: false },
-      steering_group_session_id: "seat-1",
-    },
-    () => {},
-    [{ id: 1, slug: "yoke" }],
-  );
-  const seatTwo = sessionCard(
-    new FakeDocument(),
-    {
-      session_id: "seat-2",
-      liveness: "active",
-      holdings: { current: [steering], previous: [], previous_remainder: 0 },
-      messageability: { messageable: false },
-      steering_group_session_id: "seat-2",
-    },
-    () => {},
-    [{ id: 1, slug: "yoke" }],
-  );
+  const seatOne = cardFor(rows[0]);
+  const workerOfSeatOne = cardFor(rows[1]);
+  const seatTwo = cardFor(rows[2]);
   const colorOne = seatOne.style.getPropertyValue("--session-steering-color");
   const colorTwo = seatTwo.style.getPropertyValue("--session-steering-color");
-  assert.equal(colorOne, steeringGroupColor("seat-1"));
-  assert.equal(colorTwo, steeringGroupColor("seat-2"));
   assert.notEqual(colorOne, colorTwo);
   // The covered worker's card carries the SAME group color as its seat —
   // one visual group, one custom-property value — not a separately
@@ -207,6 +203,26 @@ test("each steering group renders its own color, shared with its workers", () =>
     workerOfSeatOne.style.getPropertyValue("--session-steering-color"),
     colorOne,
   );
-  // Deterministic across renders: no registry, no render-order dependence.
-  assert.equal(steeringGroupColor("seat-1"), steeringGroupColor("seat-1"));
+  // Deterministic across renders: the same known row set always produces
+  // the same map, with no registry and no render-order dependence.
+  assert.deepEqual(
+    [...steeringGroupColors(rows).entries()], [...groupColors.entries()],
+  );
+});
+
+test("more than six concurrent groups stay pairwise distinct", () => {
+  const ids = Array.from({ length: 8 }, (_, index) => `group-${index}`);
+  const rows = ids.map((id) => steeringSeatRow(id));
+  const groupColors = steeringGroupColors(rows);
+  const colors = ids.map((id) => groupColors.get(id));
+  assert.equal(new Set(colors).size, colors.length);
+  // The first six ranked groups (sorted by id) use the fixed palette
+  // itself; only the groups beyond it need a minted extra hue.
+  const sorted = [...ids].sort();
+  for (const id of sorted.slice(0, 6)) {
+    assert.match(groupColors.get(id), /^#[0-9a-f]{6}$/);
+  }
+  for (const id of sorted.slice(6)) {
+    assert.match(groupColors.get(id), /^hsl\(/);
+  }
 });

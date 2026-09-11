@@ -23,7 +23,7 @@ import { appendSessionUsage } from "./universe_session_usage.js";
 import {
   appendSteeringHoldings,
   sortSessionsSteeringFirst,
-  steeringGroupColor,
+  steeringGroupColors,
 } from "./universe_sessions_steering.js";
 import {
   appendSessionMessagingBlocker,
@@ -93,7 +93,7 @@ function appendModel(documentNode, body, row) {
   body.appendChild(line);
 }
 export function sessionCard(
-  documentNode, row, onMessage, projects = [],
+  documentNode, row, onMessage, projects = [], groupColors = new Map(),
 ) {
   const liveness = String(row.liveness || "").toLowerCase();
   const primary = sessionPrimaryStatus(row);
@@ -110,11 +110,11 @@ export function sessionCard(
     // Every steering-region rule below reads this custom property with the
     // universal accent as its fallback, so a group's color reaches the
     // steering lead, the outer tint, and every covered worker's card from
-    // this one assignment.
-    card.style.setProperty(
-      "--session-steering-color",
-      steeringGroupColor(row.steering_group_session_id),
-    );
+    // this one assignment. `groupColors` is computed once per render pass
+    // across the caller's whole known roster, so this lookup never collides
+    // a distinct group onto the color another visible group already has.
+    const color = groupColors.get(String(row.steering_group_session_id));
+    if (color) card.style.setProperty("--session-steering-color", color);
   }
 
   // Two header rows, each answering one question. Who is running this and
@@ -201,6 +201,10 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       return;
     }
     const rows = sortSessionsSteeringFirst(currentRows());
+    // Computed from the whole open roster, not the filtered/paged `rows`
+    // about to render, so narrowing the view (search, liveness, project
+    // scope) never reshuffles a still-visible group's color.
+    const groupColors = steeringGroupColors(loader?.openRows() || []);
     let historySummary = "";
     if (loader?.historyVisible()) {
       const historyError = loader.historyError();
@@ -216,7 +220,9 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     }
     renderSessionRows(
       documentNode, content, rows,
-      (row) => sessionCard(documentNode, row, openMessage, context.projects()),
+      (row) => sessionCard(
+        documentNode, row, openMessage, context.projects(), groupColors,
+      ),
       filters.isRestrictive(), historySummary, loader?.matchedTotal() || 0,
     );
     machinesPanel.then((panel) => panel?.redraw()).catch(() => {});
