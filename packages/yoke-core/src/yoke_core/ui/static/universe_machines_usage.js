@@ -17,13 +17,14 @@ import { el } from "./universe_view_support.js";
  * labeled column rather than trailing unlabeled prose, because a sum
  * whose membership is unstated invites being read as a lifetime figure.
  *
- * Coverage is stated for the same reason. Sessions on a harness that
- * counts no tokens contribute nothing, so "2 of 5 sessions reported" is
- * the difference between a machine that spent little and one whose
- * spending is mostly unmeasured. The dollar total has its own coverage:
- * a session whose model carries no researched price reports tokens and
- * no cost, so the scope names the priced count separately when the two
- * differ rather than letting one count answer for both.
+ * The SESSIONS column names how many of those rows actually contributed
+ * to the total — a single count, not a ratio, since the tile's job is
+ * to say what underlies the numbers beside it, not to audit the roster.
+ * The tokens and cost figures are the machine's own rollup rather than
+ * one session's reading, so unlike a session card they carry no trailing
+ * approximation mark; the tooltip still names the priced count when it
+ * trails the session count, since a session on an unpriced model
+ * contributes tokens but nothing to the dollar figure.
  */
 export function appendMachineUsage(documentNode, card, relay, sessions) {
   const rows = (Array.isArray(sessions) ? sessions : []).filter(
@@ -65,8 +66,8 @@ export function appendMachineUsage(documentNode, card, relay, sessions) {
       },
       {
         fact: "coverage",
-        value: `${summary.covered} of ${summary.total}`,
-        unit: "sessions reported",
+        value: String(summary.covered),
+        unit: "sessions",
       },
     ],
   });

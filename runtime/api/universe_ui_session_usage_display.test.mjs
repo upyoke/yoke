@@ -123,7 +123,7 @@ test("a sum missing any member's reading is itself partial", () => {
   assert.equal(summary.covered, 1);
   assert.equal(summary.total, 2);
   assert.equal(summary.partial, true);
-  assert.equal(usageSummaryScope(summary), "1 of 2 sessions reported");
+  assert.equal(usageSummaryScope(summary), "");
 });
 
 test("cost coverage is stated separately when it trails token coverage", () => {
@@ -135,17 +135,17 @@ test("cost coverage is stated separately when it trails token coverage", () => {
 
   assert.equal(summary.covered, 2);
   assert.equal(summary.costed, 1);
-  assert.equal(usageSummaryScope(summary), "2 of 2 sessions reported · 1 priced");
+  assert.equal(usageSummaryScope(summary), "1 priced");
 });
 
-test("matching coverage states one count rather than repeating it", () => {
+test("matching coverage says nothing extra", () => {
   const summary = summarizeSessionUsage([
     { usage_tokens: 100, usage_status: "complete", usage_cost_usd: 1,
       usage_cost_status: "complete" },
     { session_id: "unread" },
   ]);
 
-  assert.equal(usageSummaryScope(summary), "1 of 2 sessions reported");
+  assert.equal(usageSummaryScope(summary), "");
 });
 
 test("nothing priced claims no cost coverage at all", () => {
@@ -154,7 +154,7 @@ test("nothing priced claims no cost coverage at all", () => {
   ]);
 
   assert.equal(summary.costed, 0);
-  assert.equal(usageSummaryScope(summary), "1 of 1 sessions reported");
+  assert.equal(usageSummaryScope(summary), "");
 });
 
 test("a sum of only unread sessions says so rather than reporting zero", () => {
@@ -188,15 +188,15 @@ test("the machine tile reports its scope beside its total", () => {
 
   assert.deepEqual(
     byClass(card, "usage-stat-value").map((node) => node.textContent),
-    ["1k~", "$2~", "1 of 2"],
+    ["1k", "$2", "1"],
   );
   assert.deepEqual(
     byClass(card, "usage-stat-unit").map((node) => node.textContent),
-    ["tokens", "API cost", "sessions reported"],
+    ["tokens", "API cost", "sessions"],
   );
   assert.equal(
     byClass(card, "machine-usage")[0].getAttribute("data-tooltip"),
-    "1 of 2 sessions reported. estimated API-equivalent cost for the sessions "
+    "estimated API-equivalent cost for the sessions "
     + "shown here, not consumption of any subscription plan; the dollar total "
     + "covers only the sessions that could be priced",
   );
@@ -214,11 +214,11 @@ test("the machine tile names its priced count when a session went unpriced", () 
 
   assert.deepEqual(
     byClass(card, "usage-stat-value").map((node) => node.textContent),
-    ["3k~", "$8.25~", "2 of 2"],
+    ["3k", "$8.25", "2"],
   );
   assert.match(
     byClass(card, "machine-usage")[0].getAttribute("data-tooltip"),
-    /2 of 2 sessions reported · 1 priced/,
+    /^1 priced\. estimated API-equivalent cost/,
   );
 });
 
