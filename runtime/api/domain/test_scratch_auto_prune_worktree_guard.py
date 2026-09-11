@@ -37,15 +37,24 @@ def scratch_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
-def _stale_scratch_dir(root: Path, *, age_seconds: int = 3600) -> Path:
+def _stale_scratch_dir(root: Path) -> Path:
     path = (
         root / "old-project" / "sessions" / "ended-session" / "runs" / "old-run"
         / "scratch-dirs" / "scratch-clone"
     )
     path.mkdir(parents=True)
+    return path
+
+
+def _backdate(path: Path, *, age_seconds: int = 3600) -> None:
+    """Age ``path`` past the staleness threshold.
+
+    Must run AFTER every entry is created underneath it: adding a directory
+    entry bumps its parent's own mtime back to "now", so backdating before
+    populating the tree gets silently undone by the population itself.
+    """
     epoch = int(time.time()) - age_seconds
     os.utime(path, (epoch, epoch))
-    return path
 
 
 def _run(conn, *, fix: bool = True) -> scratch_auto_prune.ScratchPruneResult:
@@ -58,6 +67,7 @@ def test_scratch_dir_containing_a_live_worktree_is_retained(conn, scratch_root):
     clone = _stale_scratch_dir(scratch_root)
     lane = clone / ".worktrees" / "some-branch"
     lane.mkdir(parents=True)
+    _backdate(clone)
     insert_item(conn, id=5201)
     insert_item_worktree(conn, item_id=5201, branch="some-branch", path=str(lane))
 
@@ -73,6 +83,7 @@ def test_scratch_dir_containing_a_live_worktree_is_retained(conn, scratch_root):
 
 def test_scratch_dir_with_no_worktree_is_still_pruned(conn, scratch_root):
     clone = _stale_scratch_dir(scratch_root)
+    _backdate(clone)
 
     result = _run(conn)
 
@@ -86,6 +97,7 @@ def test_scratch_dir_with_only_a_released_worktree_is_still_pruned(
     clone = _stale_scratch_dir(scratch_root)
     lane = clone / ".worktrees" / "some-branch"
     lane.mkdir(parents=True)
+    _backdate(clone)
     insert_item(conn, id=5202)
     insert_item_worktree(
         conn, item_id=5202, branch="some-branch", path=str(lane), state="released",
