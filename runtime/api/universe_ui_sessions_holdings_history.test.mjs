@@ -55,7 +55,10 @@ function steeringSeat(projectId, docs, extras = {}) {
     holding_kind: "work_claim",
     target_kind: "steering",
     project_id: projectId,
-    scope: { project_id: projectId },
+    scope: {
+      project_id: projectId,
+      ...(docs[0] ? { document: docs[0] } : {}),
+    },
     strategy_docs: docs,
     ...extras,
   };

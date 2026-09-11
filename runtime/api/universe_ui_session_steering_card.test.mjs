@@ -62,6 +62,10 @@ test("a live seat leads with the Steering box and designed corner symbol", () =>
   assert.equal(
     byClass(lead, "session-steering-lead-label")[0].textContent, "Steering",
   );
+  assert.equal(
+    byClass(lead, "session-steering-wide")[0].textContent, "Project-wide",
+  );
+  assert.equal(byClass(lead, "session-steering-docs").length, 0);
 });
 
 

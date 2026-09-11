@@ -73,11 +73,8 @@ test("Inbox renders its three sections, the served counts, and one card shape", 
     byClass(card, "review-link").map((node) => [node.textContent, node.href]),
     [["YOK-1907", "#/items/1907?project=10"]],
   );
-  // The long form stays one disclosure away, so nothing an approver could
-  // read before is lost.
-  const details = byClass(card, "gate-details")[0].textContent;
-  assert.ok(details.includes("What changed on the branch"), details);
-  assert.ok(details.includes("runtime/api/inbox.py"), details);
+  assert.equal(byClass(card, "gate-details").length, 0);
+  assert.ok(!card.textContent.includes("What changed on the branch"));
 });
 
 test("decision buttons call engine actions and keep the answered card on the page", async () => {

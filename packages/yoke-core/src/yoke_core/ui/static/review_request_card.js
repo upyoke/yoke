@@ -16,7 +16,6 @@ import {
   decisionLinks,
   decisionTitle,
 } from "./inbox_presentation.js";
-import { appendRequestDetails } from "./decision_gate_body.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
 import {
   contextLine,
@@ -191,7 +190,6 @@ export function reviewRequestCard(context, row, options = {}) {
   if (effect) card.appendChild(el(documentNode, "p", "review-effect", effect));
   if (row.kind === "qa_needs_review") appendQaBody(documentNode, card, row);
   if (options.evidence !== false) appendEvidence(context, card, row, compact);
-  if (!compact) appendRequestDetails(context, card, row);
   const foot = el(documentNode, "footer", "review-foot");
   const who = reviewerLine(row);
   if (who) foot.appendChild(el(documentNode, "span", "review-who", who));

@@ -1,9 +1,7 @@
-// Why an approval reached this reader, and who else could end it.
-//
-// The block exists because a reader who cannot tell an item-specific
-// approval from a workflow default cannot tell whether answering is routine
-// or unusual — and because the config entry that selected the approval is
-// not something a person can act on.
+// Why an approval reached this reader used to live in a Details disclosure.
+// That disclosure is gone; these cases hold that the origin and eligibility
+// prose is not relocated, and that config keys still do not leak into the
+// top-level context line.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -14,30 +12,27 @@ import {
   requestRow,
 } from "./universe_ui_inbox_test_support.mjs";
 
-test("a gate says where the ask came from and who else can end it", async () => {
+function assertNoWhyAsked(main) {
+  assert.equal(byClass(main, "gate-details").length, 0);
+  assert.equal(byClass(main, "gate-why").length, 0);
+}
+
+test("a gate does not draw Why asked, and context stays free of config keys", async () => {
   const { main } = renderInbox("all", [requestRow()]);
   await settle();
 
-  const why = byClass(main, "gate-why")[0].textContent;
-  // The workflow default, not the config entry that selected it: the stored
-  // origin is a closed kind, and "workflow_posture.approval_on_done" named a
-  // settings key to a person with no way to act on it.
+  assertNoWhyAsked(main);
+  const context = byClass(main, "review-context")[0].textContent;
   assert.ok(
-    why.includes("Every dash item needs approval to reach "
-      + "reviewing-implementation"),
-    why,
+    context.includes("Approve the reviewing-implementation transition"),
+    context,
   );
-  assert.ok(why.includes("that workflow's default, not a setting on this item"), why);
-  assert.ok(why.includes("you hold project owner"), why);
-  assert.ok(why.includes("dana (project operator)"), why);
-  assert.ok(why.includes("Any one approver settles it."), why);
-  assert.ok(!why.includes("workflow_posture"), why);
-  assert.ok(!why.includes("dash@"), why);
+  assert.ok(!context.includes("workflow_posture"), context);
+  assert.ok(!context.includes("dash@"), context);
+  assert.ok(!context.includes("approval_defaults."), context);
 });
 
-test("an item-specific approval is not reported as a workflow default", async () => {
-  // The distinction is the whole point of the origin line: an approval this
-  // item asked for reads differently from one every item of its workflow gets.
+test("an item-specific approval does not relocate its origin into Details", async () => {
   const facts = requestRow().subject_context;
   const { main } = renderInbox("all", [requestRow({
     subject_context: {
@@ -51,13 +46,11 @@ test("an item-specific approval is not reported as a workflow default", async ()
   })]);
   await settle();
 
-  const why = byClass(main, "gate-why")[0].textContent;
-  assert.ok(why.includes("This item asks for approval to reach done"), why);
-  assert.ok(why.includes("Its workflow does not require one"), why);
-  assert.ok(!why.includes("workflow_posture"), why);
+  assertNoWhyAsked(main);
+  assert.ok(!byClass(main, "review-context")[0].textContent.includes("workflow_posture"));
 });
 
-test("an every-approver gate names what is still outstanding", async () => {
+test("an every-approver gate names outstanding people at the top, not in Details", async () => {
   const { main } = renderInbox("all", [requestRow({
     approval_progress: {
       mode: "all",
@@ -69,10 +62,7 @@ test("an every-approver gate names what is still outstanding", async () => {
   })]);
   await settle();
 
-  const why = byClass(main, "gate-why")[0].textContent;
-  assert.ok(
-    why.includes("Every approver must answer: 1 of 2 recorded, waiting on "
-      + "project operator."),
-    why,
-  );
+  assertNoWhyAsked(main);
+  const who = byClass(main, "review-who")[0].textContent;
+  assert.ok(who.includes("project operator") || who.includes("1 of 2"), who);
 });

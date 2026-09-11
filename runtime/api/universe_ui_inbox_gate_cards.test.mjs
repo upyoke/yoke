@@ -23,21 +23,26 @@ import {
 
 const cardText = (main) => byClass(main, "review-card")[0].textContent;
 
+function assertNoDetails(host) {
+  assert.equal(byClass(host, "gate-details").length, 0);
+  assert.equal(byClass(host, "gate-why").length, 0);
+}
 
-test("a work approval shows what changed on the branch", async () => {
+
+test("a work approval names the transition at the top and has no Details", async () => {
   const { main } = renderInbox("all", [requestRow()]);
   await settle();
 
   const body = cardText(main);
-  assert.ok(
-    body.includes("Moving YOK-1907 from implementing to reviewing-implementation"),
-    body,
+  assert.equal(
+    byClass(main, "review-effect")[0].textContent,
+    "Moves the item to reviewing-implementation. Deploys nothing.",
   );
-  assert.ok(body.includes("What changed on the branch"), body);
-  assert.ok(body.includes("+412 −87 across 9 files"), body);
-  assert.ok(body.includes("runtime/api/inbox.py"), body);
-  // Why the transition was gated is prose in the details, not a config
-  // entry in the context line: the context carries the item's own title.
+  assert.ok(!body.includes("What changed on the branch"), body);
+  assert.ok(!body.includes("runtime/api/inbox.py"), body);
+  assertNoDetails(main);
+  // Why the transition was gated used to live in Details; the context
+  // still carries the item's own title, not a config entry.
   const context = byClass(main, "review-context")[0].textContent;
   assert.ok(
     context.includes("Approve the reviewing-implementation transition"),
@@ -47,10 +52,9 @@ test("a work approval shows what changed on the branch", async () => {
   assert.ok(!context.includes("approval_defaults."), context);
 });
 
-test("a laneless transition says so rather than showing an empty diff", async () => {
-  // A workflow with no git lane records the absence in the same field a
-  // branch would fill, so the card reads it out instead of drawing a blank
-  // block that looks like a failed lookup.
+test("a laneless transition still names the move and has no empty-diff Details", async () => {
+  // A workflow with no git lane used to fill Details with that absence.
+  // The top-level effect is the remaining fact; Details is gone.
   const { main } = renderInbox("all", [requestRow({
     subject_context: {
       ...requestRow().subject_context,
@@ -64,11 +68,14 @@ test("a laneless transition says so rather than showing an empty diff", async ()
   })]);
   await settle();
 
-  const body = cardText(main);
-  assert.ok(
-    body.includes("No implementation branch is recorded for this transition."),
-    body,
+  assert.equal(
+    byClass(main, "review-effect")[0].textContent,
+    "Moves the item to reviewing-implementation. Deploys nothing.",
   );
+  assert.ok(
+    !cardText(main).includes("No implementation branch is recorded for this transition."),
+  );
+  assertNoDetails(main);
 });
 
 // The same kinds, seen from the delivery end. A request on a run card is
@@ -125,6 +132,7 @@ test("a run stopped on an approval folds the request in and carries the answer",
   assert.ok(request.classList.contains("inline"), request.className);
   assert.equal(byClass(request, "review-head").length, 0);
   assert.equal(byClass(request, "review-effect")[0].textContent, "Deploys 2 changes to prod.");
+  assertNoDetails(request);
   // Same labels, same order, same emphasis as the Inbox draws for this
   // decision.
   const buttons = byClass(card, "review-action");
@@ -169,6 +177,7 @@ test("a QA review on a run card carries the evidence the Inbox shows", async () 
     byClass(card, "review-action").map((node) => node.textContent),
     ["Waive", "Reject", "Approve"],
   );
+  assertNoDetails(card);
 });
 
 test("a run with no request draws no request region at all", () => {
