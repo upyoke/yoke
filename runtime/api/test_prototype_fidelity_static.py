@@ -129,10 +129,11 @@ def test_inbox_uses_the_production_theme_contract() -> None:
     ):
         assert f"var({legacy_name})" not in source
     assert "var(--yoke-muted)" in source
-    assert ".inbox-panels" in source
-    assert "gap: 14px" in source
-    assert ".panel-body.inbox-stack" in source
-    assert "border-bottom: 1px solid var(--yoke-border)" in source
+    # Three Overview-shaped sections of grey message cards; the request card
+    # itself is styled beside its own module.
+    assert ".inbox-sections" in source
+    assert ".inbox-message" in source
+    assert "border: 1px solid var(--yoke-border)" in source
     assert "background: var(--yoke-accent-weak)" in source
 
 
