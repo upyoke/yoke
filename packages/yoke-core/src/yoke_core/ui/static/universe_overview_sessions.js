@@ -12,10 +12,7 @@ import {
   successfulResult,
 } from "./universe_overview_primitives.js";
 import { sessionCard } from "./universe_views_sessions.js";
-import {
-  sortSessionsSteeringFirst,
-  steeringGroupColors,
-} from "./universe_sessions_steering.js";
+import { sortSessionsSteeringFirst } from "./universe_sessions_steering.js";
 import { el } from "./universe_view_support.js";
 
 export async function loadSessions(context, band, getScope, sessionRoster) {
@@ -37,10 +34,10 @@ export async function loadSessions(context, band, getScope, sessionRoster) {
       ));
       return;
     }
-    // A group's color is a pure function of its own id (see
-    // steeringGroupColors), so this just needs to know which groups are
-    // present to populate the map — any row set that covers them works.
-    const groupColors = steeringGroupColors(result.rows || []);
+    // context.steeringGroupColors is one assigner shared by every view in
+    // this mounted app, so a group's color agrees with Sessions and the
+    // detail view regardless of what else is in this page's own rows.
+    const groupColors = context.steeringGroupColors(result.rows || []);
     const rows = sortSessionsSteeringFirst(sessionsShownInActive(
       result.rows || [], getScope(), context.projects(),
     ).sort((left, right) => String(right.activity_at || "").localeCompare(

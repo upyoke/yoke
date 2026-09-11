@@ -5,7 +5,6 @@ import {
 import { renderSessionControlFailure } from "./universe_session_control_data.js";
 import { renderSessionActions } from "./universe_session_actions.js";
 import { sessionCard } from "./universe_views_sessions.js";
-import { steeringGroupColors } from "./universe_sessions_steering.js";
 import {
   el,
   mergedRows,
@@ -69,7 +68,7 @@ export function renderRegisteredSessionDetail(
       row,
       openMessage,
       context.projects(),
-      steeringGroupColors(rows),
+      context.steeringGroupColors(rows),
     ));
     // Who acted on this session, as opposed to what it did itself.
     renderSessionActions(context, content, sessionId, row.project);

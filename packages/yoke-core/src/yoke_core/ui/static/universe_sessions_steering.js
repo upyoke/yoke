@@ -41,34 +41,43 @@ function stringHash(text) {
 
 // Overview, Sessions, and the single-session detail view each fetch their
 // own rows independently (Sessions scopes its query to one project,
-// Overview does not, and neither sees the other's page), so there is no
-// shared row set to rank groups against — ranking by position within
-// whichever rows a given call happened to receive gave the same group
-// different colors across pages, project-scope changes, and history
-// loading. A group's rank is therefore a hash of its own id alone: a pure
-// function of the group, so its color can never depend on which other
-// groups happen to also be known to a particular page, and stays put across
-// every refresh. The hash lands in a space four times the fixed palette
-// (`RANK_SPACE`) rather than exactly six, so two different ids landing on
-// the exact same rank — the only way two concurrently visible groups could
-// still share a color — is markedly less likely than a plain hash-into-six
-// while remaining a pure per-id fact with no render-order bump to keep
-// stable: a rank held against one page's neighbors would silently drift
-// the moment a different page's subset changed who else was visible.
-const RANK_SPACE = STEERING_GROUP_PALETTE.length * 4;
-
-export function steeringGroupColors(rows) {
-  const distinctIds = [...new Set(
-    (Array.isArray(rows) ? rows : [])
-      .map((row) => row?.steering_group_session_id)
-      .filter((id) => id !== undefined && id !== null && id !== "")
-      .map((id) => String(id)),
-  )];
+// Overview does not, and neither sees the other's page), so a color ranked
+// against whichever rows a given call happened to receive gave the same
+// group different colors across pages, project-scope changes, and history
+// loading — and that stays true no matter how the rank is computed from
+// those rows, because it is the source (one page's own local fetch) that
+// varies, not the arithmetic. The fix is to rank against one shared,
+// ever-growing record of every group this app instance has ever seen,
+// instead of any single call's rows: mountUniverseApp creates exactly one
+// assigner and hands it to every view through `context.steeringGroupColors`,
+// so a group's rank is decided once, the first time ANY page observes it,
+// and every later call — same page or a different one — reads that same
+// decision back rather than recomputing it from its own local rows. A
+// fresh id takes the next free rank starting from a hash of its own id (so
+// unrelated ids usually spread out on first sight rather than clustering at
+// rank 0), first six ranks the fixed palette, ranks beyond it a minted
+// extra hue; because "free" means free in this shared record and not in
+// whatever a single call can see, two concurrently visible groups can
+// never end up sharing a color the way a page-local hash could.
+export function createSteeringGroupColorAssigner() {
   const colors = new Map();
-  for (const id of distinctIds) {
-    colors.set(id, paletteColorAt(stringHash(id) % RANK_SPACE));
-  }
-  return colors;
+  const takenRanks = new Set();
+  return function steeringGroupColors(rows) {
+    const distinctIds = [...new Set(
+      (Array.isArray(rows) ? rows : [])
+        .map((row) => row?.steering_group_session_id)
+        .filter((id) => id !== undefined && id !== null && id !== "")
+        .map((id) => String(id)),
+    )];
+    for (const id of distinctIds) {
+      if (colors.has(id)) continue;
+      let rank = stringHash(id) % STEERING_GROUP_PALETTE.length;
+      while (takenRanks.has(rank)) rank += 1;
+      takenRanks.add(rank);
+      colors.set(id, paletteColorAt(rank));
+    }
+    return colors;
+  };
 }
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";

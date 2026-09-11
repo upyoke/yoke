@@ -23,7 +23,6 @@ import { appendSessionUsage } from "./universe_session_usage.js";
 import {
   appendSteeringHoldings,
   sortSessionsSteeringFirst,
-  steeringGroupColors,
 } from "./universe_sessions_steering.js";
 import {
   appendSessionMessagingBlocker,
@@ -204,9 +203,10 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     // Every row this page knows about, open and ended alike (not just the
     // filtered/paged `rows` about to render), so a loaded-in history card
     // still gets its group's color instead of losing tint for want of an
-    // entry in the map — the color itself is a pure per-id fact (see
-    // steeringGroupColors), so this only needs to know which groups exist.
-    const groupColors = steeringGroupColors([
+    // entry in the map. context.steeringGroupColors is the one assigner
+    // shared by every view in this mounted app, so the color itself agrees
+    // with Overview and the detail view too.
+    const groupColors = context.steeringGroupColors([
       ...(loader?.openRows() || []), ...(loader?.historyRows() || []),
     ]);
     let historySummary = "";

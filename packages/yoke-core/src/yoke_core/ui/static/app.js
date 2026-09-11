@@ -50,6 +50,7 @@ import {
 } from "./universe_app_shell_support.js";
 import { createProjectSelection, knownProjectId, selectionParam } from "./universe_project_selection.js";
 import { createSelectionNavigation, selectionRoute } from "./universe_selection_routes.js";
+import { createSteeringGroupColorAssigner } from "./universe_sessions_steering.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 export {
   UNIVERSE_APP_CONTRACT_VERSION,
@@ -89,6 +90,12 @@ export function mountUniverseApp(rootNode, options = {}) {
     () => renderRoute(),
   );
   const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections);
+  // One assigner for the whole mounted app: Overview, Sessions, and the
+  // session detail view each fetch their own rows, so a shared assigner —
+  // not each view's own local rows — is what lets a steering group's color
+  // agree across every page and project scope. See
+  // createSteeringGroupColorAssigner for why a per-call rank cannot do this.
+  const steeringGroupColors = createSteeringGroupColorAssigner();
   const context = {
     client,
     document: documentNode,
@@ -97,6 +104,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     // The roster the scope pickers already hold, so a view that only lists
     // projects costs no second call.
     projects: () => projects,
+    steeringGroupColors,
     // Host capability data, read by views that need an explicit deployment
     // mode or host-owned control surface. The Organization view interprets
     // portability capabilities; the topbar carries no capability controls.

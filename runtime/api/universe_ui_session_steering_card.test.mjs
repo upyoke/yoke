@@ -6,7 +6,7 @@ import {
   sessionCard,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
 import {
-  steeringGroupColors,
+  createSteeringGroupColorAssigner,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.js";
 import {
   FakeDocument,
@@ -184,7 +184,7 @@ test("each steering group renders its own color, shared with its workers", () =>
     steeringWorkerRow("worker-1", "seat-1"),
     steeringSeatRow("seat-2"),
   ];
-  const groupColors = steeringGroupColors(rows);
+  const groupColors = createSteeringGroupColorAssigner()(rows);
   const cardFor = (row) => sessionCard(
     new FakeDocument(), row, () => {}, [{ id: 1, slug: "yoke" }], groupColors,
   );
@@ -201,51 +201,55 @@ test("each steering group renders its own color, shared with its workers", () =>
     workerOfSeatOne.style.getPropertyValue("--session-steering-color"),
     colorOne,
   );
-  // Deterministic across renders: the same known row set always produces
-  // the same map, with no registry and no render-order dependence.
-  assert.deepEqual(
-    [...steeringGroupColors(rows).entries()], [...groupColors.entries()],
-  );
 });
 
-test("a group's color does not depend on which other groups the caller also knows about", () => {
+test("a shared assigner keeps a group's color the same across every page's own rows", () => {
   // Overview, Sessions, and a filtered project view each fetch their own
-  // rows independently, so a group's color has to come from its own id,
-  // never from its rank among whatever else a particular call also
-  // happened to fetch — including a colliding sibling that is present in
-  // one call's rows and absent (filtered out) from another's. This is the
-  // exact regression a per-render rank/bump reintroduces: the shared id's
-  // color must be identical whether or not its sibling is in the same row
-  // set, not merely when the two are never rendered together. A row's shape
-  // carries no "open" vs "history" distinction (see steeringSeatRow) — the
-  // Sessions page's history-loaded rows are exactly this same subset case,
-  // so this also covers a loaded-in ended-session card keeping its color.
-  const solo = steeringGroupColors([steeringSeatRow("seat-solo")]).get("seat-solo");
-  const withUnrelatedCompany = steeringGroupColors([
-    steeringSeatRow("seat-solo"), steeringSeatRow("seat-elsewhere"),
+  // rows independently. mountUniverseApp hands every view the SAME
+  // assigner (one per mounted app, via context.steeringGroupColors), so a
+  // group's rank is decided once — the first time any page observes it —
+  // and every later call reads that decision back rather than recomputing
+  // it from its own local rows. Simulate that here with one assigner
+  // standing in for the shared instance, called once per "page".
+  const assigner = createSteeringGroupColorAssigner();
+  const solo = assigner([steeringSeatRow("seat-solo")]).get("seat-solo");
+  // A later "page" that also happens to know about an unrelated group
+  // must not change a color already decided.
+  const withUnrelatedCompany = assigner([
+    steeringSeatRow("seat-elsewhere"),
   ]).get("seat-solo");
   assert.equal(solo, withUnrelatedCompany);
 
-  // "seat-1" and "seat-2" land on adjacent ranks (see steeringGroupColors'
-  // hash), so they are a real pair to check across subsets: rendered
-  // together and rendered with one of the two absent must agree.
-  const together = steeringGroupColors([
-    steeringSeatRow("seat-1"), steeringSeatRow("seat-2"),
+  // These two real steering-group ids hash to the exact same primary rank
+  // (the reported production collision) — a per-render rank/bump, or a
+  // per-id hash with no shared record, either recolors this pair
+  // depending on whether both happen to be visible together or a
+  // per-render rank reassigns everyone once a "page" sees more groups.
+  // Seeing them on separate "pages" (one row each, never together) must
+  // still land them on different colors, and each color must then hold
+  // when a later "page" sees them together.
+  const seatCurrentPlan = "01a088ce-8449-7101-91ae-1170b3312631";
+  const seatReleases = "01a09089-a901-77e2-b41f-b3606e124b9e";
+  const currentPlanAlone = assigner([steeringSeatRow(seatCurrentPlan)])
+    .get(seatCurrentPlan);
+  const releasesAlone = assigner([steeringSeatRow(seatReleases)])
+    .get(seatReleases);
+  assert.notEqual(currentPlanAlone, releasesAlone);
+  const together = assigner([
+    steeringSeatRow(seatCurrentPlan), steeringSeatRow(seatReleases),
   ]);
-  const seat1Alone = steeringGroupColors([steeringSeatRow("seat-1")]);
-  const seat2Alone = steeringGroupColors([steeringSeatRow("seat-2")]);
-  assert.equal(together.get("seat-1"), seat1Alone.get("seat-1"));
-  assert.equal(together.get("seat-2"), seat2Alone.get("seat-2"));
+  assert.equal(together.get(seatCurrentPlan), currentPlanAlone);
+  assert.equal(together.get(seatReleases), releasesAlone);
 });
 
 test("more than six concurrent groups stay pairwise distinct", () => {
   const ids = Array.from({ length: 8 }, (_, index) => `group-${index}`);
   const rows = ids.map((id) => steeringSeatRow(id));
-  const groupColors = steeringGroupColors(rows);
+  const groupColors = createSteeringGroupColorAssigner()(rows);
   const colors = ids.map((id) => groupColors.get(id));
   assert.equal(new Set(colors).size, colors.length);
   // Every color is either a fixed palette entry or a minted extra hue —
-  // which specific ids land on which depends on each id's own hash, not
+  // which specific ids land on which depends on discovery order, not
   // sorted position, so assert the format rather than a fixed mapping.
   for (const color of colors) {
     assert.ok(
