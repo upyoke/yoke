@@ -100,9 +100,9 @@ test("associated cards share the steering seat tint", () => {
     css,
     /\.session-card\.is-steering-associated \{[\s\S]*?color-mix/,
   );
-  assert.match(
+  assert.doesNotMatch(
     css,
-    /\.session-card\.is-steering-associated\.is-stale \{[\s\S]*?--yoke-warn-bg/,
+    /\.session-card\.is-steering-associated\.is-stale/,
   );
   assert.match(
     css,
@@ -134,6 +134,27 @@ test("coverage association tints the outer card", () => {
   );
   assert.ok(rendered.classList.contains("is-steering-associated"));
   assert.equal(rendered.getAttribute("data-steering-group"), "seat-1");
+});
+
+
+test("a stale associated card keeps its group tint class alongside the stale class", () => {
+  const rendered = sessionCard(
+    new FakeDocument(),
+    {
+      session_id: "worker-1",
+      liveness: "stale",
+      mode: "dash",
+      executor: "codex",
+      claims: [],
+      holdings: { current: [], previous: [], previous_remainder: 0 },
+      messageability: { messageable: false },
+      steering_group_session_id: "seat-1",
+    },
+    () => {},
+    [{ id: 1, slug: "yoke" }],
+  );
+  assert.ok(rendered.classList.contains("is-steering-associated"));
+  assert.ok(rendered.classList.contains("is-stale"));
 });
 
 

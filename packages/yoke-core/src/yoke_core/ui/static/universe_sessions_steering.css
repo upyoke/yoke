@@ -10,15 +10,12 @@
 
 /* Associated session cards — the steering seat and every worker that
    seat currently covers — share one outer tint so the group reads as
-   one. Stale status keeps the warning sheet. */
+   one. That tint identifies the group and holds regardless of stale
+   status; the status badge, not the background, carries staleness. */
 .universe-app-root .session-card.is-steering-associated {
   background: color-mix(
     in srgb, var(--session-steering-color, var(--yoke-accent)) 10%, var(--yoke-surface)
   );
-}
-
-.universe-app-root .session-card.is-steering-associated.is-stale {
-  background: var(--yoke-warn-bg);
 }
 
 /* The lead block: a steering seat's scope, in the work position. Card ink

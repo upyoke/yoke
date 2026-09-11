@@ -46,8 +46,6 @@
   );
   box-shadow: var(--yoke-shadow);
 }
-.universe-app-root .session-card.is-stale { background: var(--yoke-warn-bg); }
-
 /* Both header rows wrap rather than truncating: at the grid's narrow column
    a harness name, lane, operator, or model that does not fit on one line
    moves to the next one whole, because an initial and an ellipsis name
