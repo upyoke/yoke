@@ -12,6 +12,7 @@ import pytest
 from yoke_core.engines import doctor_hc_filesystem as filesystem
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
 from yoke_core.domain import scratch_auto_prune
+from yoke_core.domain import worktree_deletion_guard
 
 
 @pytest.fixture
@@ -62,7 +63,12 @@ def _run(
         if liveness_registry
         else (set(), set(), "harness_sessions liveness registry is unavailable")
     )
-    with patch.object(scratch_auto_prune, "_session_states", return_value=registry):
+    with (
+        patch.object(scratch_auto_prune, "_session_states", return_value=registry),
+        patch.object(
+            worktree_deletion_guard, "active_worktree_state", return_value=([], ""),
+        ),
+    ):
         filesystem.hc_orphaned_temp_files(
             object(),
             DoctorArgs(fix=fix),

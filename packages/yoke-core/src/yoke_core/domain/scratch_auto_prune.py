@@ -184,7 +184,11 @@ def prune_stale_scratch(
     except project_scratch_dir.ScratchRootResolutionError:
         return result
 
-    active, ended, registry_error = _session_states(conn)
+    active, ended, session_registry_error = _session_states(conn)
+    worktree_paths, worktree_registry_error = (
+        worktree_deletion_guard.active_worktree_state(conn)
+    )
+    registry_error = session_registry_error or worktree_registry_error
     result.registry_error = registry_error
     if fix and registry_error:
         result.failure_count += 1
@@ -249,7 +253,7 @@ def prune_stale_scratch(
                     result.issues.append("  -> retained: owning pid became live")
                     break
                 conflict = worktree_deletion_guard.active_worktree_conflict(
-                    conn, str(entry),
+                    worktree_paths, str(entry),
                 )
                 if conflict is not None:
                     result.protected_run_count += 1
