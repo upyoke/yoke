@@ -1,3 +1,5 @@
+@import url("./universe_sessions_usage.css");
+
 /* The Machines panel on Sessions. Dense on purpose: it is a status strip an
    operator scans before launching, not a report they read. */
 .machines-panel { margin-bottom: 0; }
