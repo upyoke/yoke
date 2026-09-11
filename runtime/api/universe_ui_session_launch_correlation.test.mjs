@@ -218,15 +218,23 @@ test("registered-session drill-in uses the exact session lookup", async (t) => {
     t, "#/sessions/session-matched?project=1", client,
   );
 
-  const lookup = requests.find((request) => request.function === "sessions.list");
+  // The app-wide steering-color roster (context.refreshSteeringGroupColors)
+  // also calls sessions.list at boot, so match on session_id rather than
+  // taking the first sessions.list call.
+  const lookup = requests.find(
+    (request) => request.function === "sessions.list" && request.payload?.session_id,
+  );
   assert.deepEqual(lookup.payload, { project: "1", session_id: "session-matched" });
   assert.equal(byClass(root, "session-card").length, 1);
   assert.equal(
     byClass(root, "session-card")[0].getAttribute("data-session-id"),
     "session-matched",
   );
+  // One is this view's own exact-session lookup; the other is the app-wide
+  // steering-color roster refreshed once at boot (context.
+  // refreshSteeringGroupColors), independent of which route is active.
   assert.equal(requests.filter(
     (request) => request.function === "sessions.list",
-  ).length, 1);
+  ).length, 2);
   mounted.unmount();
 });

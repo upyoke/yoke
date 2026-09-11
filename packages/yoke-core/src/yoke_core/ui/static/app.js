@@ -50,6 +50,7 @@ import {
 } from "./universe_app_shell_support.js";
 import { createProjectSelection, knownProjectId, selectionParam } from "./universe_project_selection.js";
 import { createSelectionNavigation, selectionRoute } from "./universe_selection_routes.js";
+import { computeSteeringGroupColors } from "./universe_sessions_steering.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 export {
   UNIVERSE_APP_CONTRACT_VERSION,
@@ -89,6 +90,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     () => renderRoute(),
   );
   const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections);
+  let steeringGroupColorMap = new Map();
   const context = {
     client,
     document: documentNode,
@@ -97,6 +99,9 @@ export function mountUniverseApp(rootNode, options = {}) {
     // The roster the scope pickers already hold, so a view that only lists
     // projects costs no second call.
     projects: () => projects,
+    // Ranked from the app-wide roster below, never each page's own rows.
+    steeringGroupColors: () => steeringGroupColorMap,
+    refreshSteeringGroupColors: () => refreshSteeringGroupColors(),
     // Host capability data, read by views that need an explicit deployment
     // mode or host-owned control surface. The Organization view interprets
     // portability capabilities; the topbar carries no capability controls.
@@ -316,7 +321,21 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const preferencesFetched = loadScreenSelections(client, scopeSelections);
 
-  Promise.all([projectsFetched, preferencesFetched])
+  // Ranks computeSteeringGroupColors over the complete roster; Overview and
+  // Sessions also call this to catch a group starting mid-session. Deferred
+  // like projectsFetched, so a synchronously throwing client rejects here.
+  function refreshSteeringGroupColors() {
+    return Promise.resolve().then(() => callFunction(
+      client, "sessions.list", { per_project: true, open: true },
+    )).then((r) => {
+      if (!mounted) return;
+      const rows = (r.envelope?.success && r.envelope.result?.rows) || [];
+      steeringGroupColorMap = computeSteeringGroupColors(rows);
+    }).catch(() => {});
+  }
+  const steeringGroupsFetched = refreshSteeringGroupColors();
+
+  Promise.all([projectsFetched, preferencesFetched, steeringGroupsFetched])
     .then(() => { if (mounted && projectsLoaded) renderRoute(); });
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {

@@ -23,7 +23,6 @@ import { appendSessionUsage } from "./universe_session_usage.js";
 import {
   appendSteeringHoldings,
   sortSessionsSteeringFirst,
-  steeringGroupColors,
 } from "./universe_sessions_steering.js";
 import {
   appendSessionMessagingBlocker,
@@ -201,10 +200,10 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       return;
     }
     const rows = sortSessionsSteeringFirst(currentRows());
-    // Computed from the whole open roster, not the filtered/paged `rows`
-    // about to render, so narrowing the view (search, liveness, project
-    // scope) never reshuffles a still-visible group's color.
-    const groupColors = steeringGroupColors(loader?.openRows() || []);
+    // context.steeringGroupColors() is the app-wide roster's colors, shared
+    // by every view, so the color here agrees with Overview and the detail
+    // view too.
+    const groupColors = context.steeringGroupColors();
     let historySummary = "";
     if (loader?.historyVisible()) {
       const historyError = loader.historyError();
@@ -316,5 +315,12 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     }
   });
 
+  // Parallel with the loader's own fetch, not after it: refreshing
+  // steering colors costs no serial latency, and keeps a group that
+  // started steering mid-session from staying untinted once this page is
+  // next visited (a fresh mount, e.g. re-navigating here), not just at
+  // app boot.
+  context.refreshSteeringGroupColors()
+    .then(() => { if (context.isMounted()) renderRoster(); });
   loader.loadOpen();
 }

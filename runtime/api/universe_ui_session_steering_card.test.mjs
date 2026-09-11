@@ -6,7 +6,7 @@ import {
   sessionCard,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
 import {
-  steeringGroupColors,
+  computeSteeringGroupColors,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.js";
 import {
   FakeDocument,
@@ -179,14 +179,12 @@ function steeringSeatRow(sessionId) {
 }
 
 test("each steering group renders its own color, shared with its workers", () => {
-  // These two ids collided onto the same palette entry under the old
-  // per-id hash — the exact production bug this rewrite fixes.
   const rows = [
     steeringSeatRow("seat-1"),
     steeringWorkerRow("worker-1", "seat-1"),
     steeringSeatRow("seat-2"),
   ];
-  const groupColors = steeringGroupColors(rows);
+  const groupColors = computeSteeringGroupColors(rows);
   const cardFor = (row) => sessionCard(
     new FakeDocument(), row, () => {}, [{ id: 1, slug: "yoke" }], groupColors,
   );
@@ -203,17 +201,45 @@ test("each steering group renders its own color, shared with its workers", () =>
     workerOfSeatOne.style.getPropertyValue("--session-steering-color"),
     colorOne,
   );
-  // Deterministic across renders: the same known row set always produces
-  // the same map, with no registry and no render-order dependence.
+});
+
+test("a color depends only on the complete roster, never on a page's own subset", () => {
+  // Overview, Sessions, and a filtered project view each fetch their own
+  // rows, but mountUniverseApp computes colors once from the app-wide
+  // roster (context.steeringGroupColors) and every view reads that back —
+  // so the input here always stands for that one complete set, never a
+  // page-local subset. Same complete set fed to two separate calls (e.g.
+  // two page loads) must produce identical colors.
+  const roster = [
+    steeringSeatRow("seat-1"), steeringSeatRow("seat-2"),
+    steeringSeatRow("seat-elsewhere"),
+  ];
   assert.deepEqual(
-    [...steeringGroupColors(rows).entries()], [...groupColors.entries()],
+    [...computeSteeringGroupColors(roster).entries()],
+    [...computeSteeringGroupColors(roster).entries()],
   );
+
+  // These two real steering-group ids hash to the exact same slot under a
+  // per-id hash (the reported production collision). Ranking by sorted
+  // identity within the one complete set resolves it deterministically —
+  // regardless of which order the roster lists them in.
+  const seatCurrentPlan = "01a088ce-8449-7101-91ae-1170b3312631";
+  const seatReleases = "01a09089-a901-77e2-b41f-b3606e124b9e";
+  const forward = computeSteeringGroupColors([
+    steeringSeatRow(seatCurrentPlan), steeringSeatRow(seatReleases),
+  ]);
+  const reversed = computeSteeringGroupColors([
+    steeringSeatRow(seatReleases), steeringSeatRow(seatCurrentPlan),
+  ]);
+  assert.notEqual(forward.get(seatCurrentPlan), forward.get(seatReleases));
+  assert.equal(forward.get(seatCurrentPlan), reversed.get(seatCurrentPlan));
+  assert.equal(forward.get(seatReleases), reversed.get(seatReleases));
 });
 
 test("more than six concurrent groups stay pairwise distinct", () => {
   const ids = Array.from({ length: 8 }, (_, index) => `group-${index}`);
   const rows = ids.map((id) => steeringSeatRow(id));
-  const groupColors = steeringGroupColors(rows);
+  const groupColors = computeSteeringGroupColors(rows);
   const colors = ids.map((id) => groupColors.get(id));
   assert.equal(new Set(colors).size, colors.length);
   // The first six ranked groups (sorted by id) use the fixed palette

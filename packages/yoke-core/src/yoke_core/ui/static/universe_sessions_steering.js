@@ -20,9 +20,9 @@ const STEERING_GROUP_PALETTE = [
   "#4338ca", // indigo
 ];
 
-// Rotating by the golden angle spreads any number of extra hues around the
-// wheel with no two ever landing close together, so a group beyond the
-// fixed six still gets a color pairwise distinct from every other extra one.
+// Rotating by the golden angle spreads consecutive extra hues well clear of
+// their immediate neighbor — not a claim that no two of them, out of an
+// unbounded run, can ever land close together.
 const GOLDEN_ANGLE_DEGREES = 137.508;
 
 function paletteColorAt(rank) {
@@ -31,17 +31,14 @@ function paletteColorAt(rank) {
   return `hsl(${hue.toFixed(1)}deg 65% 38%)`;
 }
 
-// One color per distinct steering group across the caller's whole known row
-// set — never a group hashed in isolation — so two groups concurrently on
-// screen can never collide onto the same hue by chance the way a per-id hash
-// could. Distinct group ids are ranked by their own identity (a plain
-// lexicographic sort), never by arrival or render order, so the same set of
-// groups always produces the same colors on every refresh: existing palette
-// entries are used first, in rank order, before any extra hue is minted.
-// Callers pass the broadest row set they know (e.g. the unfiltered roster),
-// not just what is currently visible, so narrowing the view with a filter
-// never reshuffles a still-visible group's color.
-export function steeringGroupColors(rows) {
+// Ranked by sorted id, not by position in any one page's own fetch: Overview,
+// Sessions, and the detail view each fetch their own rows (Sessions scopes to
+// one project, Overview does not), so ranking by position within a single
+// call's rows gave the same group different colors on different pages. The
+// fix is feeding this one function the same complete, app-wide roster on
+// every call (mountUniverseApp fetches it once, like context.projects()) —
+// a page-local subset never reaches this function at all.
+export function computeSteeringGroupColors(rows) {
   const distinctIds = [...new Set(
     (Array.isArray(rows) ? rows : [])
       .map((row) => row?.steering_group_session_id)
