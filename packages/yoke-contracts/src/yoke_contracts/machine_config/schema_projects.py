@@ -172,6 +172,26 @@ def _flatten_entry(entry: Mapping[str, Any]) -> dict[str, Any]:
     return out
 
 
+def reassign_ambient_session_refusal(session_id: str) -> str:
+    """Refusal text for a ``--reassign`` call bound to a harness session.
+
+    ``register_project``'s ``reassign`` gate exists for a deliberate
+    setup/operator-authorized checkout move (``yoke onboard``, ``yoke
+    project install``/``create``/``import``). A call carrying a resolvable
+    session id is a routine agent invocation instead — every Dash/Engineer/
+    Conduct/Tester worker always has one by construction — so it is refused
+    before it ever reaches the writer.
+    """
+    return (
+        f"--reassign refused for session {session_id!r}: an ambient session "
+        "id means a harness is driving this call, not a bare operator "
+        "terminal. Moving an already-registered project's checkout out from "
+        "under every other reader is reserved for a deliberate setup/"
+        "operator-authorized action (yoke onboard, yoke project install/"
+        "create/import) run with no harness session bound to the process."
+    )
+
+
 def existing_checkout_for_slot(
     projects: Any,
     *,

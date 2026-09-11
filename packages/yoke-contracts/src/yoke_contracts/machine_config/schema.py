@@ -20,6 +20,7 @@ from yoke_contracts.machine_config.schema_projects import (
     normalize_project_id as normalize_project_id,
     normalize_projects as normalize_projects,
     project_entry_for_checkout as project_entry_for_checkout,
+    reassign_ambient_session_refusal as reassign_ambient_session_refusal,
     upsert_project_entry as upsert_project_entry,
     _error,
     _is_nonempty_str,

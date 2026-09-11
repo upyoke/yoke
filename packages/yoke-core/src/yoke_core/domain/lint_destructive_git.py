@@ -257,15 +257,21 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
         return (mode, reason, outcome)
     cwd = _resolve_worktree("", payload)
     for targets in worktree_checks.parse_rm_rf_invocations(command):
-        worktree_targets = worktree_checks.rm_worktree_targets(targets, cwd)
-        if not worktree_targets:
+        resolved_targets = worktree_checks.resolve_rm_targets(targets, cwd)
+        if not resolved_targets:
             continue
+        worktree_targets = worktree_checks.rm_worktree_targets(resolved_targets)
         threatened = [
             threat
             for target in worktree_targets
             for threat in worktree_checks.worktree_status_threats(target, _git)
         ]
-        threatened.extend(_claimed_worktree_threats(worktree_targets))
+        # Location-blind: a target can hold another item's live lane nested
+        # arbitrarily deep beneath it with no literal ".worktrees" segment
+        # of its own (a scratch clone mis-registered as a checkout, an
+        # unrelated parent under /tmp, a symlink alias), so this checks
+        # every resolved target, not just the ones that look worktree-named.
+        threatened.extend(_claimed_worktree_threats(resolved_targets))
         if not threatened:
             continue
         mode = _read_mode(payload, root=cwd)

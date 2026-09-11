@@ -73,15 +73,40 @@ def worktree_remove_targets(args: list[str], cwd: str) -> list[str]:
     return targets
 
 
-def rm_worktree_targets(raw_targets: Iterable[str], cwd: str) -> list[str]:
+def resolve_rm_targets(raw_targets: Iterable[str], cwd: str) -> list[str]:
+    """Resolve and glob-expand raw ``rm`` target arguments to absolute paths.
+
+    No relevance filter — every path the shell would actually attempt to
+    delete, regardless of whether it looks worktree-related by name. A
+    target can hold a live worktree nested arbitrarily deep beneath it (a
+    scratch clone mis-registered as a checkout, an unrelated parent under
+    ``/tmp``, a symlink alias) with no literal ``.worktrees`` segment of its
+    own, so the containment check this feeds must not pre-filter by
+    location or name.
+    """
     candidates: list[str] = []
     for raw in raw_targets:
         resolved = _resolve_shell_path(raw, cwd)
         expanded = glob(resolved)
         candidates.extend(expanded or [resolved])
+    return candidates
 
+
+def rm_worktree_targets(resolved_targets: Iterable[str]) -> list[str]:
+    """Narrow already-resolved ``rm`` targets to ones that are themselves a
+    worktree path (or the shared ``.worktrees`` directory holding several).
+
+    Scoped to literal ``.worktrees`` mentions because this feeds
+    :func:`worktree_status_threats`, which asks "is THIS path itself a dirty
+    worktree" — a question that only makes sense against the worktree's own
+    root, not an arbitrary ancestor. The distinct question — does a target
+    hold ANOTHER lane nested inside it, wherever that target lives — is
+    location-blind and is checked separately against every resolved target
+    via ``claimed_worktree_threats``, which already compares containment in
+    both directions.
+    """
     out: list[str] = []
-    for path in candidates:
+    for path in resolved_targets:
         if not _path_mentions_worktrees(path):
             continue
         if os.path.basename(path) == ".worktrees" and os.path.isdir(path):

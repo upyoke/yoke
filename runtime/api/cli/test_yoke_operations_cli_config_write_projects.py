@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 from yoke_cli import main as yoke_operations_cli
+from yoke_cli.commands.adapters import config_write_project
 
 
 @pytest.fixture()
@@ -66,6 +68,52 @@ def test_project_register_refuses_board_scope(cfg, tmp_path, capsys) -> None:
 
     assert rc == 1
     assert "board is retired" in capsys.readouterr().err
+
+
+def test_project_register_reassign_refused_with_ambient_session(
+    cfg, tmp_path, capsys,
+) -> None:
+    _seed(cfg, tmp_path, "prod")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    capsys.readouterr()
+
+    with patch.object(
+        config_write_project, "resolve_ambient", return_value="sess-worker-1",
+    ):
+        rc = yoke_operations_cli.main([
+            "project", "register", str(repo),
+            "--project-id", "7", "--reassign",
+            "--config", str(cfg),
+        ])
+
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "--reassign refused" in err
+    assert "sess-worker-1" in err
+    assert json.loads(cfg.read_text()).get("projects", []) == []
+
+
+def test_project_register_reassign_allowed_without_ambient_session(
+    cfg, tmp_path, capsys,
+) -> None:
+    _seed(cfg, tmp_path, "prod")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    capsys.readouterr()
+
+    with patch.object(config_write_project, "resolve_ambient", return_value=None):
+        rc = yoke_operations_cli.main([
+            "project", "register", str(repo),
+            "--project-id", "7", "--reassign",
+            "--config", str(cfg),
+        ])
+
+    assert rc == 0
+    checkout = json.loads(capsys.readouterr().out)["checkout"]
+    assert json.loads(cfg.read_text())["projects"] == [
+        {"checkout": checkout, "project_id": 7, "env": "prod"},
+    ]
 
 
 def test_stamp_project_env_stamps_untagged_entries(cfg, tmp_path, capsys) -> None:
