@@ -12,12 +12,19 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from yoke_core.hooks import cursor_adapter
+from yoke_core.hooks import session_message_delivery as delivery
 from yoke_core.hooks.cursor_payload import parse_payload
 from yoke_core.hooks.adapter_capability import AdapterCapability
 from yoke_core.hooks.capability_resolve import resolve_capability
 from yoke_core.hooks.decision_render import render_cursor_decision
 from yoke_core.hooks.types import HookDecision, Outcome
+from runtime.harness.session_message_delivery_test_helpers import (
+    FakePort,
+    hook_context,
+)
 
 
 def test_capability_imports() -> None:
@@ -147,3 +154,31 @@ def test_adapter_module_under_140_lines() -> None:
     adapter_path = Path(cursor_adapter.__file__).resolve()
     line_count = len(adapter_path.read_text(encoding="utf-8").splitlines())
     assert line_count <= 140, f"adapter.py is {line_count} lines, must be <=140"
+
+
+@pytest.mark.parametrize(
+    ("native_event", "delivers"),
+    [("afterShellExecution", False), ("postToolUse", True)],
+)
+def test_message_delivery_gates_on_native_event_not_canonical_name(
+    monkeypatch: pytest.MonkeyPatch,
+    native_event: str,
+    delivers: bool,
+) -> None:
+    """Shell's audit-only ``afterShellExecution`` and the real
+    ``postToolUse`` both canonicalize to runner event ``PostToolUse``;
+    only the native event determines whether the model actually sees it."""
+    port = FakePort()
+    monkeypatch.setattr(delivery, "_delivery_port", lambda: port)
+
+    decision = delivery.evaluate(
+        hook_context(
+            "PostToolUse",
+            family="cursor",
+            surface="cursor-cli",
+            payload={"hook_event_name": native_event},
+        )
+    )
+
+    assert (decision.outcome is Outcome.AUDIT_ONLY) is delivers
+    assert bool(port.leased) is delivers

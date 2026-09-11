@@ -35,6 +35,17 @@ CURSOR_NATIVE_RUNNER_EVENTS: tuple[tuple[str, str], ...] = (
 )
 CURSOR_COMPATIBILITY_RUNNER_ALIASES = {"PermissionRequest": "PreToolUse"}
 
+# Native Cursor events whose allow-time JSON reply actually reaches the
+# model (Cursor's own hooks documentation advertises ``additional_context``
+# on ``sessionStart`` and ``postToolUse`` only). ``afterShellExecution`` is
+# an audit-only Shell event with no model-visible reply channel even though
+# it canonicalizes to the same runner ``PostToolUse`` event as
+# ``postToolUse`` above — a caller gating on the canonical name alone
+# cannot tell the two apart.
+CURSOR_MODEL_CONTEXT_NATIVE_EVENTS: frozenset[str] = frozenset(
+    {"sessionStart", "postToolUse"}
+)
+
 # Runner events Cursor fires on BOTH its own `.cursor/hooks.json` and an
 # imported Claude `.claude/settings.json` — the only events where one
 # invocation is a genuine duplicate of the other. Tool-shaped events are
@@ -86,6 +97,7 @@ __all__ = [
     "CURSOR_LIFECYCLE_COMMAND_MARKER",
     "CURSOR_LIFECYCLE_COMMAND_MARKERS",
     "CURSOR_LEGACY_LIFECYCLE_COMMAND_MARKER",
+    "CURSOR_MODEL_CONTEXT_NATIVE_EVENTS",
     "CURSOR_NATIVE_RUNNER_EVENTS",
     "CURSOR_PROJECT_CONFIG_OWNER",
     "CURSOR_PROCESS_ENV_VARS",
