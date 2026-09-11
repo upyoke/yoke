@@ -13,9 +13,19 @@
   padding: 2px 0 0;
 }
 
-.universe-app-root .machine-usage {
+.universe-app-root .machine-usage-block {
   padding: 8px 11px;
   border-bottom: 1px solid var(--yoke-border);
+}
+
+.universe-app-root .machine-usage-window {
+  display: block;
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
 }
 
 .universe-app-root .usage-stat {

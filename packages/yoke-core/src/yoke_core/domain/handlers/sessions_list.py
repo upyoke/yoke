@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -33,11 +33,17 @@ class SessionsListRequest(BaseModel):
     open: bool = False
     session_id: Optional[str] = None
     history: Optional[SessionsHistoryRequest] = None
+    ended_last_24h: bool = False
 
 
 class SessionsListResponse(BaseModel):
     fields: List[str]
     rows: List[Dict[str, Any]]
+
+
+#: Payload keys incompatible with every mutually-exclusive read mode
+#: (``history``, ``ended_last_24h``) besides the mode's own scoping keys.
+_LIVE_ROSTER_KEYS = ("liveness", "ended_cause", "open", "session_id", "per_project")
 
 
 def _error(
@@ -50,6 +56,35 @@ def _error(
         primary_success=False,
         error=FunctionError(code=code, message=message, jsonpath=jsonpath),
     )
+
+
+def _incompatible_keys(payload: Dict[str, Any], *extra: str) -> List[str]:
+    return [
+        key
+        for key in (*_LIVE_ROSTER_KEYS, *extra)
+        if payload.get(key) not in (None, False, "", [])
+    ]
+
+
+def _resolve_project_ids(
+    conn: Any, project_refs: Sequence[str], visible: Optional[set[int]]
+) -> Optional[set[int]]:
+    """Named refs resolved against visibility, or ``visible`` unscoped when
+    none are named. An unresolvable ref yields the empty set (matches
+    nothing) rather than silently widening back to every visible project."""
+    from yoke_core.domain.project_identity import resolve_project
+
+    if not project_refs:
+        return visible
+    project_ids: set[int] = set()
+    for project in project_refs:
+        ident = resolve_project(
+            conn, project, required=False, visible_project_ids=visible
+        )
+        if ident is None:
+            return set()
+        project_ids.add(ident.id)
+    return project_ids
 
 
 def _history_error(exc: ValidationError) -> HandlerOutcome:
@@ -71,29 +106,13 @@ def _history_result(
         actor_visible_project_ids,
         numeric_actor_id,
     )
-    from yoke_core.domain.project_identity import resolve_project
     from yoke_core.domain.sessions_history_read import read_ended_session_history
 
     conn = db_helpers.connect()
     try:
         actor = request.actor.actor_id if request.actor else None
         visible = actor_visible_project_ids(conn, numeric_actor_id(actor))
-        if history.projects:
-            resolved: set[int] = set()
-            for project in history.projects:
-                ident = resolve_project(
-                    conn,
-                    project,
-                    required=False,
-                    visible_project_ids=visible,
-                )
-                if ident is None:
-                    resolved.clear()
-                    break
-                resolved.add(ident.id)
-            project_ids: Optional[set[int]] = resolved
-        else:
-            project_ids = visible
+        project_ids = _resolve_project_ids(conn, history.projects, visible)
         result = read_ended_session_history(
             conn,
             project_ids=project_ids,
@@ -114,6 +133,29 @@ def _history_result(
     return HandlerOutcome(result_payload=result, primary_success=True)
 
 
+def _ended_usage_result(
+    request: FunctionCallRequest, project_refs: List[str]
+) -> HandlerOutcome:
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.actor_project_visibility import (
+        actor_visible_project_ids,
+        numeric_actor_id,
+    )
+    from yoke_core.domain.sessions_history_read import (
+        read_ended_session_usage_by_machine,
+    )
+
+    conn = db_helpers.connect()
+    try:
+        actor = request.actor.actor_id if request.actor else None
+        visible = actor_visible_project_ids(conn, numeric_actor_id(actor))
+        project_ids = _resolve_project_ids(conn, project_refs, visible)
+        result = read_ended_session_usage_by_machine(conn, project_ids=project_ids)
+    finally:
+        conn.close()
+    return HandlerOutcome(result_payload=result, primary_success=True)
+
+
 def _open_rows(
     request: FunctionCallRequest,
     project_refs: List[str],
@@ -124,27 +166,13 @@ def _open_rows(
         actor_visible_project_ids,
         numeric_actor_id,
     )
-    from yoke_core.domain.project_identity import resolve_project
     from yoke_core.domain.sessions_list_read import list_sessions
 
     conn = db_helpers.connect()
     try:
         actor = request.actor.actor_id if request.actor else None
         visible = actor_visible_project_ids(conn, numeric_actor_id(actor))
-        if project_refs:
-            project_ids: Optional[set[int]] = set()
-            for project in project_refs:
-                ident = resolve_project(
-                    conn,
-                    project,
-                    required=False,
-                    visible_project_ids=visible,
-                )
-                if ident is None:
-                    return []
-                project_ids.add(ident.id)
-        else:
-            project_ids = visible
+        project_ids = _resolve_project_ids(conn, project_refs, visible)
     finally:
         conn.close()
     if project_ids is None:
@@ -169,19 +197,9 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
         )
     payload = request.payload or {}
     if payload.get("history") is not None:
-        incompatible = [
-            key
-            for key in (
-                "liveness",
-                "ended_cause",
-                "project",
-                "open",
-                "session_id",
-                "per_project",
-                "projects",
-            )
-            if payload.get(key) not in (None, False, "", [])
-        ]
+        incompatible = _incompatible_keys(
+            payload, "project", "projects", "ended_last_24h"
+        )
         if incompatible:
             return _error(
                 "payload_invalid",
@@ -195,6 +213,33 @@ def handle_sessions_list(request: FunctionCallRequest) -> HandlerOutcome:
         except ValidationError as exc:
             return _history_error(exc)
         return _history_result(request, history)
+    ended_last_24h = payload.get("ended_last_24h", False)
+    if not isinstance(ended_last_24h, bool):
+        return _error(
+            "payload_invalid",
+            "ended_last_24h must be a boolean when present",
+            jsonpath="$.payload.ended_last_24h",
+        )
+    if ended_last_24h:
+        incompatible = _incompatible_keys(payload, "limit", "history", "project")
+        if incompatible:
+            return _error(
+                "payload_invalid",
+                "ended_last_24h cannot combine with other sessions.list inputs: "
+                + ", ".join(incompatible),
+                jsonpath="$.payload.ended_last_24h",
+            )
+        ended_projects = payload.get("projects", [])
+        if not isinstance(ended_projects, list) or any(
+            not isinstance(value, str) or not value.strip()
+            for value in ended_projects
+        ):
+            return _error(
+                "payload_invalid",
+                "projects must be a list of non-empty strings when present",
+                jsonpath="$.payload.projects",
+            )
+        return _ended_usage_result(request, ended_projects)
     session_filter = payload.get("session_id")
     if session_filter is not None and (
         not isinstance(session_filter, str) or not session_filter.strip()
