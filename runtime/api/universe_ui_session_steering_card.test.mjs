@@ -6,7 +6,7 @@ import {
   sessionCard,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
 import {
-  createSteeringGroupColorAssigner,
+  computeSteeringGroupColors,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.js";
 import {
   FakeDocument,
@@ -184,7 +184,7 @@ test("each steering group renders its own color, shared with its workers", () =>
     steeringWorkerRow("worker-1", "seat-1"),
     steeringSeatRow("seat-2"),
   ];
-  const groupColors = createSteeringGroupColorAssigner()(rows);
+  const groupColors = computeSteeringGroupColors(rows);
   const cardFor = (row) => sessionCard(
     new FakeDocument(), row, () => {}, [{ id: 1, slug: "yoke" }], groupColors,
   );
@@ -203,58 +203,52 @@ test("each steering group renders its own color, shared with its workers", () =>
   );
 });
 
-test("a shared assigner keeps a group's color the same across every page's own rows", () => {
+test("a color depends only on the complete roster, never on a page's own subset", () => {
   // Overview, Sessions, and a filtered project view each fetch their own
-  // rows independently. mountUniverseApp hands every view the SAME
-  // assigner (one per mounted app, via context.steeringGroupColors), so a
-  // group's rank is decided once — the first time any page observes it —
-  // and every later call reads that decision back rather than recomputing
-  // it from its own local rows. Simulate that here with one assigner
-  // standing in for the shared instance, called once per "page".
-  const assigner = createSteeringGroupColorAssigner();
-  const solo = assigner([steeringSeatRow("seat-solo")]).get("seat-solo");
-  // A later "page" that also happens to know about an unrelated group
-  // must not change a color already decided.
-  const withUnrelatedCompany = assigner([
+  // rows, but mountUniverseApp computes colors once from the app-wide
+  // roster (context.steeringGroupColors) and every view reads that back —
+  // so the input here always stands for that one complete set, never a
+  // page-local subset. Same complete set fed to two separate calls (e.g.
+  // two page loads) must produce identical colors.
+  const roster = [
+    steeringSeatRow("seat-1"), steeringSeatRow("seat-2"),
     steeringSeatRow("seat-elsewhere"),
-  ]).get("seat-solo");
-  assert.equal(solo, withUnrelatedCompany);
+  ];
+  assert.deepEqual(
+    [...computeSteeringGroupColors(roster).entries()],
+    [...computeSteeringGroupColors(roster).entries()],
+  );
 
-  // These two real steering-group ids hash to the exact same primary rank
-  // (the reported production collision) — a per-render rank/bump, or a
-  // per-id hash with no shared record, either recolors this pair
-  // depending on whether both happen to be visible together or a
-  // per-render rank reassigns everyone once a "page" sees more groups.
-  // Seeing them on separate "pages" (one row each, never together) must
-  // still land them on different colors, and each color must then hold
-  // when a later "page" sees them together.
+  // These two real steering-group ids hash to the exact same slot under a
+  // per-id hash (the reported production collision). Ranking by sorted
+  // identity within the one complete set resolves it deterministically —
+  // regardless of which order the roster lists them in.
   const seatCurrentPlan = "01a088ce-8449-7101-91ae-1170b3312631";
   const seatReleases = "01a09089-a901-77e2-b41f-b3606e124b9e";
-  const currentPlanAlone = assigner([steeringSeatRow(seatCurrentPlan)])
-    .get(seatCurrentPlan);
-  const releasesAlone = assigner([steeringSeatRow(seatReleases)])
-    .get(seatReleases);
-  assert.notEqual(currentPlanAlone, releasesAlone);
-  const together = assigner([
+  const forward = computeSteeringGroupColors([
     steeringSeatRow(seatCurrentPlan), steeringSeatRow(seatReleases),
   ]);
-  assert.equal(together.get(seatCurrentPlan), currentPlanAlone);
-  assert.equal(together.get(seatReleases), releasesAlone);
+  const reversed = computeSteeringGroupColors([
+    steeringSeatRow(seatReleases), steeringSeatRow(seatCurrentPlan),
+  ]);
+  assert.notEqual(forward.get(seatCurrentPlan), forward.get(seatReleases));
+  assert.equal(forward.get(seatCurrentPlan), reversed.get(seatCurrentPlan));
+  assert.equal(forward.get(seatReleases), reversed.get(seatReleases));
 });
 
 test("more than six concurrent groups stay pairwise distinct", () => {
   const ids = Array.from({ length: 8 }, (_, index) => `group-${index}`);
   const rows = ids.map((id) => steeringSeatRow(id));
-  const groupColors = createSteeringGroupColorAssigner()(rows);
+  const groupColors = computeSteeringGroupColors(rows);
   const colors = ids.map((id) => groupColors.get(id));
   assert.equal(new Set(colors).size, colors.length);
-  // Every color is either a fixed palette entry or a minted extra hue —
-  // which specific ids land on which depends on discovery order, not
-  // sorted position, so assert the format rather than a fixed mapping.
-  for (const color of colors) {
-    assert.ok(
-      /^#[0-9a-f]{6}$/.test(color) || /^hsl\(/.test(color),
-      `unexpected color format: ${color}`,
-    );
+  // The first six ranked groups (sorted by id) use the fixed palette
+  // itself; only the groups beyond it need a minted extra hue.
+  const sorted = [...ids].sort();
+  for (const id of sorted.slice(0, 6)) {
+    assert.match(groupColors.get(id), /^#[0-9a-f]{6}$/);
+  }
+  for (const id of sorted.slice(6)) {
+    assert.match(groupColors.get(id), /^hsl\(/);
   }
 });

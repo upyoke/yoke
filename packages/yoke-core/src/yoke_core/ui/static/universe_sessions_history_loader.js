@@ -258,7 +258,6 @@ export function sessionsHistoryLoader(context, scope, filters, onChange) {
       return visibleOpenRows().length + matchedCount;
     },
     openRows: () => openRows,
-    historyRows: () => historyRows,
     bulkRows: () => filters.applyOpen(openRows),
     openError: () => openError,
     historyError: () => historyError,

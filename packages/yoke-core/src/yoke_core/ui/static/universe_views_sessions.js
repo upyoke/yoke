@@ -200,15 +200,10 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       return;
     }
     const rows = sortSessionsSteeringFirst(currentRows());
-    // Every row this page knows about, open and ended alike (not just the
-    // filtered/paged `rows` about to render), so a loaded-in history card
-    // still gets its group's color instead of losing tint for want of an
-    // entry in the map. context.steeringGroupColors is the one assigner
-    // shared by every view in this mounted app, so the color itself agrees
-    // with Overview and the detail view too.
-    const groupColors = context.steeringGroupColors([
-      ...(loader?.openRows() || []), ...(loader?.historyRows() || []),
-    ]);
+    // context.steeringGroupColors() is the app-wide roster's colors, shared
+    // by every view, so the color here agrees with Overview and the detail
+    // view too.
+    const groupColors = context.steeringGroupColors();
     let historySummary = "";
     if (loader?.historyVisible()) {
       const historyError = loader.historyError();
@@ -320,5 +315,12 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     }
   });
 
+  // Parallel with the loader's own fetch, not after it: refreshing
+  // steering colors costs no serial latency, and keeps a group that
+  // started steering mid-session from staying untinted once this page is
+  // next visited (a fresh mount, e.g. re-navigating here), not just at
+  // app boot.
+  context.refreshSteeringGroupColors()
+    .then(() => { if (context.isMounted()) renderRoster(); });
   loader.loadOpen();
 }

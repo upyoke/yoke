@@ -68,7 +68,7 @@ export function renderRegisteredSessionDetail(
       row,
       openMessage,
       context.projects(),
-      context.steeringGroupColors(rows),
+      context.steeringGroupColors(),
     ));
     // Who acted on this session, as opposed to what it did itself.
     renderSessionActions(context, content, sessionId, row.project);

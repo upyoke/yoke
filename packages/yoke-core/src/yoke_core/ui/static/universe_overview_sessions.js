@@ -16,7 +16,11 @@ import { sortSessionsSteeringFirst } from "./universe_sessions_steering.js";
 import { el } from "./universe_view_support.js";
 
 export async function loadSessions(context, band, getScope, sessionRoster) {
-  const { callResults } = await sessionRoster;
+  // Parallel with sessionRoster, not after it: refreshing steering colors
+  // costs no serial latency, and keeps a group that started steering
+  // mid-session from staying untinted until reload.
+  const steeringGroupsReady = context.refreshSteeringGroupColors();
+  const [{ callResults }] = await Promise.all([sessionRoster, steeringGroupsReady]);
   if (!context.isMounted()) return null;
   const dialogHost = el(
     context.document, "div", "overview-session-dialog-host",
@@ -34,10 +38,10 @@ export async function loadSessions(context, band, getScope, sessionRoster) {
       ));
       return;
     }
-    // context.steeringGroupColors is one assigner shared by every view in
-    // this mounted app, so a group's color agrees with Sessions and the
-    // detail view regardless of what else is in this page's own rows.
-    const groupColors = context.steeringGroupColors(result.rows || []);
+    // context.steeringGroupColors() is the app-wide roster's colors, shared
+    // by every view, so a group's color agrees with Sessions and the detail
+    // view regardless of what else is in this page's own rows.
+    const groupColors = context.steeringGroupColors();
     const rows = sortSessionsSteeringFirst(sessionsShownInActive(
       result.rows || [], getScope(), context.projects(),
     ).sort((left, right) => String(right.activity_at || "").localeCompare(

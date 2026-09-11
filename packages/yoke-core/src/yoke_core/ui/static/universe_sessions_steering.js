@@ -31,53 +31,23 @@ function paletteColorAt(rank) {
   return `hsl(${hue.toFixed(1)}deg 65% 38%)`;
 }
 
-function stringHash(text) {
-  let hash = 0;
-  for (let index = 0; index < text.length; index += 1) {
-    hash = (Math.imul(hash, 31) + text.charCodeAt(index)) | 0;
-  }
-  return hash >>> 0;
-}
-
-// Overview, Sessions, and the single-session detail view each fetch their
-// own rows independently (Sessions scopes its query to one project,
-// Overview does not, and neither sees the other's page), so a color ranked
-// against whichever rows a given call happened to receive gave the same
-// group different colors across pages, project-scope changes, and history
-// loading — and that stays true no matter how the rank is computed from
-// those rows, because it is the source (one page's own local fetch) that
-// varies, not the arithmetic. The fix is to rank against one shared,
-// ever-growing record of every group this app instance has ever seen,
-// instead of any single call's rows: mountUniverseApp creates exactly one
-// assigner and hands it to every view through `context.steeringGroupColors`,
-// so a group's rank is decided once, the first time ANY page observes it,
-// and every later call — same page or a different one — reads that same
-// decision back rather than recomputing it from its own local rows. A
-// fresh id takes the next free rank starting from a hash of its own id (so
-// unrelated ids usually spread out on first sight rather than clustering at
-// rank 0), first six ranks the fixed palette, ranks beyond it a minted
-// extra hue; because "free" means free in this shared record and not in
-// whatever a single call can see, two concurrently visible groups can
-// never end up sharing a color the way a page-local hash could.
-export function createSteeringGroupColorAssigner() {
+// Ranked by sorted id, not by position in any one page's own fetch: Overview,
+// Sessions, and the detail view each fetch their own rows (Sessions scopes to
+// one project, Overview does not), so ranking by position within a single
+// call's rows gave the same group different colors on different pages. The
+// fix is feeding this one function the same complete, app-wide roster on
+// every call (mountUniverseApp fetches it once, like context.projects()) —
+// a page-local subset never reaches this function at all.
+export function computeSteeringGroupColors(rows) {
+  const distinctIds = [...new Set(
+    (Array.isArray(rows) ? rows : [])
+      .map((row) => row?.steering_group_session_id)
+      .filter((id) => id !== undefined && id !== null && id !== "")
+      .map((id) => String(id)),
+  )].sort();
   const colors = new Map();
-  const takenRanks = new Set();
-  return function steeringGroupColors(rows) {
-    const distinctIds = [...new Set(
-      (Array.isArray(rows) ? rows : [])
-        .map((row) => row?.steering_group_session_id)
-        .filter((id) => id !== undefined && id !== null && id !== "")
-        .map((id) => String(id)),
-    )];
-    for (const id of distinctIds) {
-      if (colors.has(id)) continue;
-      let rank = stringHash(id) % STEERING_GROUP_PALETTE.length;
-      while (takenRanks.has(rank)) rank += 1;
-      takenRanks.add(rank);
-      colors.set(id, paletteColorAt(rank));
-    }
-    return colors;
-  };
+  distinctIds.forEach((id, rank) => colors.set(id, paletteColorAt(rank)));
+  return colors;
 }
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
