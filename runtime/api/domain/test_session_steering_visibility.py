@@ -140,3 +140,50 @@ def test_a_worker_on_another_document_is_not_the_project_seat() -> None:
     facts = steering_visibility(conn, _rows(), now=NOW)
 
     assert facts["worker-1"]["steering_group_session_id"] is None
+
+
+def test_roster_schema_without_item_columns_still_projects_the_seat() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        """
+        CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT);
+        CREATE TABLE harness_sessions (
+            session_id TEXT PRIMARY KEY,
+            project_id INTEGER,
+            last_heartbeat TEXT,
+            last_tool_call_at TEXT,
+            ended_at TEXT,
+            terminated_at TEXT,
+            executor TEXT
+        );
+        CREATE TABLE work_claims (
+            id INTEGER PRIMARY KEY,
+            session_id TEXT,
+            target_kind TEXT,
+            scope TEXT,
+            claimed_at TEXT,
+            released_at TEXT
+        );
+        INSERT INTO projects VALUES (10, 'yoke');
+        INSERT INTO harness_sessions VALUES
+            ('holder-1', 10, '2026-08-26T12:00:00Z', NULL, NULL, NULL, 'codex');
+        """
+    )
+    conn.execute(
+        "INSERT INTO work_claims VALUES (1,?,?,?,?,NULL)",
+        (
+            "holder-1",
+            "steering",
+            make_steering_target(10).scope_json(),
+            "2026-08-26T11:00:00Z",
+        ),
+    )
+
+    facts = steering_visibility(
+        conn,
+        [{"session_id": "holder-1", "project_id": 10, "project": "yoke"}],
+        now=NOW,
+    )
+
+    assert facts["holder-1"]["steering_group_session_id"] == "holder-1"

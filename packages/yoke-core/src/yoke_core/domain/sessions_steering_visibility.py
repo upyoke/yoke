@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.session_message_routing import session_liveness
 from yoke_core.domain.sessions_holdings_claim_facts import steered_document_slugs
 from yoke_core.domain.steering_scope_coverage import covering_seat, live_steering_claims
@@ -105,6 +105,8 @@ def _held_item_ids(
     if not session_ids or not _table_exists(conn, "harness_sessions"):
         return {}
     if not _table_exists(conn, "items"):
+        return {}
+    if not _column_exists(conn, "harness_sessions", "current_item_id"):
         return {}
     marker = _marker(conn)
     rows = conn.execute(

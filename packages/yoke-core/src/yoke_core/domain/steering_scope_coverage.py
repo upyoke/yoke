@@ -30,6 +30,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.strategy_docs_defaults import NEAR_TERM_PLAN_SLUG
 from yoke_core.domain.work_claim_scope_shape import STEERING_DOCUMENT_KEY
 from yoke_core.domain.work_claim_targets import (
@@ -172,11 +173,19 @@ def live_steering_claims(conn: Any) -> list[dict[str, Any]]:
     """
     from yoke_core.domain import db_backend
 
+    if not _table_exists(conn, "work_claims") or not _table_exists(
+        conn, "harness_sessions"
+    ):
+        return []
+    actor = (
+        "hs.actor_id AS actor_id"
+        if _column_exists(conn, "harness_sessions", "actor_id")
+        else "NULL AS actor_id"
+    )
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     rows = conn.execute(
         "SELECT wc.id AS claim_id, wc.session_id AS session_id, "
-        "wc.scope AS scope, wc.claimed_at AS claimed_at, "
-        "hs.actor_id AS actor_id "
+        f"wc.scope AS scope, wc.claimed_at AS claimed_at, {actor} "
         "FROM work_claims wc "
         "JOIN harness_sessions hs ON hs.session_id = wc.session_id "
         f"WHERE wc.target_kind = {marker} AND wc.released_at IS NULL "
