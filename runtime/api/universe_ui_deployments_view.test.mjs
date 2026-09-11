@@ -53,7 +53,7 @@ test("navigation is three groups, and every entry declares one", () => {
       ["projects", "▤", "Projects", "none", "settings"],
       ["github", "⎇", "GitHub", "multi", "settings"],
       ["actors", "⚇", "Actors", "none", "settings"],
-      ["machines", "▣", "Machines", "multi", "settings"],
+      ["machines", "▣", "Machines", "none", "settings"],
       ["members", "⚉", "Members", "none", "settings"],
       ["billing", "▧", "Billing", "none", "settings"],
 

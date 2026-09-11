@@ -74,9 +74,10 @@ export const NAV = [
   // Registration and proved identity per registered machine. Which machines
   // exist is configuration you maintain, so it sits with the rest of it;
   // capacity and health are a different question and stay on Sessions, where
-  // they are read before staffing rather than after.
+  // they are read before staffing rather than after. The roster is
+  // universe-wide: project chips do not filter it.
   {
-    id: "machines", icon: "▣", label: "Machines", scope: SCOPE_MULTI,
+    id: "machines", icon: "▣", label: "Machines", scope: SCOPE_NONE,
     group: GROUP_SETTINGS,
   },
   {

@@ -46,6 +46,13 @@ export function loadScreenSelections(client, scopeSelections) {
 export function createProjectControls(deps) {
   const { documentNode, windowNode, entry, route, scope, projects,
     scopeSelections, onSelectionChange, renderRoute } = deps;
+  if (entry.scope === SCOPE_NONE) {
+    if (!scopeSelections.notice) return null;
+    const note = documentNode.createElement("span");
+    note.className = "scope-context-note";
+    note.textContent = scopeSelections.notice;
+    return note;
+  }
   const picker = createScopePicker({
     documentNode, windowNode, entry: { ...entry, scope: SCOPE_MULTI },
     scope: scopeSelections.selectionFor(entry.id), projects, scopeSelections,
@@ -65,10 +72,10 @@ export function createProjectControls(deps) {
     label.textContent = "Focus project";
     picker.appendChild(focus);
   }
-  if (entry.scope === SCOPE_NONE || scopeSelections.notice) {
+  if (scopeSelections.notice) {
     const note = documentNode.createElement("span");
     note.className = "scope-context-note";
-    note.textContent = scopeSelections.notice || "Selection remembered · universe-wide view";
+    note.textContent = scopeSelections.notice;
     picker.appendChild(note);
   }
   return picker;

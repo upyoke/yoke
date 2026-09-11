@@ -223,19 +223,17 @@ test("each screen's own remembered selection renders in its own chip state and s
   assert.deepEqual(selected(root), ["ALP", "BET"]);
 
   await navigate("#/workflows");
-  // Workflows has never been touched: it starts at its own default, never
-  // Items' remembered pair.
-  assert.deepEqual(selected(root), ["All"]);
+  // Unscoped chrome hides the picker; Items' remembered pair is untouched.
+  assert.equal(byClass(root, "header-project-context")[0].hidden, true);
+  assert.equal(scopeChips(root).length, 0);
   assert.equal(windowNode.location.hash, "#/workflows?project=all");
-  assert.match(byClass(root, "scope-context-note")[0].textContent, /universe-wide/);
 
   await navigate("#/items");
-  // Items' own selection survived the round trip untouched.
   assert.deepEqual(selected(root), ["ALP", "BET"]);
   assert.deepEqual(itemsCalls(client).at(-1).payload.projects, ["1", "2"]);
 
   await navigate("#/projects");
-  assert.deepEqual(selected(root), ["All"]);
+  assert.equal(byClass(root, "header-project-context")[0].hidden, true);
   assert.equal(windowNode.location.hash, "#/projects?project=all");
 });
 

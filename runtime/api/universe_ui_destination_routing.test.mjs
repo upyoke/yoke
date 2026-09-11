@@ -19,6 +19,7 @@ import {
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
+import { twoProjectClient } from "./universe_ui_read_views_test_support.mjs";
 
 function okEnvelope(result) {
   return { status: 200, envelope: { success: true, result } };
@@ -257,4 +258,59 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
     created: "idle",
   });
   mounted.unmount();
+});
+
+test("unscoped destinations hide the project selector; scoped ones restore it", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  const windowNode = documentNode.defaultView;
+  windowNode.location.hash = "#/items?project=1";
+  const root = documentNode.createElement("div");
+  const base = twoProjectClient();
+  const client = {
+    requests: base.requests,
+    async call(request) {
+      if (request.function === "ui_preferences.screen_selection.list") {
+        return { status: 200, envelope: { success: true, result: { views: {} } } };
+      }
+      if (request.function === "ui_preferences.screen_selection.set") {
+        return { status: 200, envelope: { success: true, result: {} } };
+      }
+      return base.call(request);
+    },
+  };
+  const mounted = mountUniverseApp(root, { client });
+  t.after(() => mounted.unmount());
+  await settle();
+
+  const projectContext = () => byClass(root, "header-project-context")[0];
+  const selected = () => byClass(root, "scope-chip")
+    .filter((chip) => chip.classList.contains("on"))
+    .map((chip) => chip.textContent);
+  assert.equal(projectContext().hidden, false);
+  assert.deepEqual(selected(), ["ALP"]);
+
+  const go = async (hash) => {
+    windowNode.location.hash = hash;
+    windowNode.dispatchEvent(new Event("hashchange"));
+    await settle();
+  };
+
+  await go("#/workflows");
+  assert.equal(projectContext().hidden, true);
+  assert.equal(byClass(root, "scope-chip").length, 0);
+
+  await go("#/items");
+  assert.equal(projectContext().hidden, false);
+  assert.deepEqual(selected(), ["ALP"]);
+
+  await go("#/workflows/dash");
+  assert.equal(projectContext().hidden, true);
+  assert.equal(byClass(root, "scope-chip").length, 0);
+
+  await go("#/items");
+  assert.equal(projectContext().hidden, false);
+  assert.deepEqual(selected(), ["ALP"]);
 });

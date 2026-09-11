@@ -179,8 +179,10 @@ export function mountUniverseApp(rootNode, options = {}) {
         else heldScope.applyScopeInPlace(next);
       },
     });
-    scopeHost.replaceChildren(picker);
-    setScopeVisible(true);
+    if (picker) {
+      scopeHost.replaceChildren(picker);
+      setScopeVisible(true);
+    }
     const breadcrumbNavigation = (breadcrumb) => ({
       setDetailLabel(label) {
         if (!mounted || main.children[0] !== breadcrumb) return;
@@ -197,8 +199,9 @@ export function mountUniverseApp(rootNode, options = {}) {
       // that the screen is not here — this mount cannot render it.
       const viewHost = el(documentNode, "div", "view-host");
       main.replaceChildren(createPageHead(documentNode, entry), viewHost);
-      // A host-fed section is the whole body at either placement. Selection
-      // remains in the shared topbar and does not filter this body.
+      // A host-fed section is the whole body at either placement. Those
+      // destinations are unscoped, so the shared topbar hides the project
+      // selector — it does not filter this body.
       const hostSection = resolvedSections[entry.id];
       if (hostSection) viewHost.appendChild(hostSection.content);
       else renderStubView(context, viewHost);
