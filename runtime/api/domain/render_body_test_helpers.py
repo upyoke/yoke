@@ -108,3 +108,30 @@ def _set_field(conn, item_id: int, field: str, value: str) -> None:
     p = _p(conn)
     conn.execute(f"UPDATE items SET {field} = {p} WHERE id = {p}", (value, item_id))
     conn.commit()
+
+
+def _seed_strategy_doc(
+    conn,
+    project_id: int,
+    slug: str,
+    content: str = "# Doc\n",
+) -> None:
+    from yoke_core.domain.strategy_docs_create import create_doc
+
+    create_doc(conn, project_id, slug, content, actor_id=None)
+
+
+def _link_item_strategy(
+    conn,
+    item_id: int,
+    project_id: int,
+    slug: str,
+) -> None:
+    p = _p(conn)
+    conn.execute(
+        "INSERT INTO item_strategy_docs "
+        "(item_id, project_id, strategy_doc_slug, linked_at) "
+        f"VALUES ({p}, {p}, {p}, {p})",
+        (item_id, project_id, slug, "2026-01-01T00:00:00Z"),
+    )
+    conn.commit()

@@ -19,6 +19,7 @@ from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.path_claims_render import render_path_claims_section
 from yoke_core.domain.render_body_blocked import render_blocked_section
 from yoke_core.domain.render_body_epic_notes import render_epic_progress_notes_section
+from yoke_core.domain.render_body_strategy import render_strategy_reference_section
 from yoke_core.domain.render_body_db_claim import (
     DB_CLAIM_ATTESTATION_SUBHEADING,
     DB_CLAIM_HEADING,
@@ -77,10 +78,20 @@ def _p(conn: Any) -> str:
 def _fetch_item(conn: Any, item_id: int):
     # Dynamically select only columns that exist (resilient to partial schemas in tests)
     available = set(_schema_get_columns(conn, "items"))
-    wanted = ["id", "title", "spec", "design_spec", "technical_plan",
-              "worktree_plan", "shepherd_caveats", "test_results", "deploy_log",
-              "db_mutation_profile", "db_compatibility_attestation",
-              "architecture_impact"]
+    wanted = [
+        "id",
+        "title",
+        "spec",
+        "design_spec",
+        "technical_plan",
+        "worktree_plan",
+        "shepherd_caveats",
+        "test_results",
+        "deploy_log",
+        "db_mutation_profile",
+        "db_compatibility_attestation",
+        "architecture_impact",
+    ]
     cols = [c for c in wanted if c in available]
     if "id" not in cols:
         return None
@@ -105,19 +116,23 @@ def _has_any_content(conn: Any, item_id: int, row, row_keys: set) -> bool:
     ):
         return True
     if _schema_table_exists(conn, "shepherd_verdicts") and query_scalar(
-        conn, f"SELECT COUNT(*) FROM shepherd_verdicts WHERE item = {p}",
+        conn,
+        f"SELECT COUNT(*) FROM shepherd_verdicts WHERE item = {p}",
         (f"YOK-{item_id}",),
     ):
         return True
     if _schema_table_exists(conn, "epic_progress_notes") and query_scalar(
-        conn, f"SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id = {p}",
+        conn,
+        f"SELECT COUNT(*) FROM epic_progress_notes WHERE epic_id = {p}",
         (str(item_id),),
     ):
         return True
     return False
 
 
-def _append_field_section(chunks: list[str], heading: str, content: Optional[str]) -> None:
+def _append_field_section(
+    chunks: list[str], heading: str, content: Optional[str]
+) -> None:
     if _section_has_content(content):
         chunks.append(
             _render_section(heading, _strip_duplicate_heading(str(content), heading))
@@ -129,8 +144,9 @@ def build_body(conn: Any, item_id: int) -> Optional[str]:
     row = _fetch_item(conn, item_id)
     if row is None:
         return None
-    row_keys = set(row.keys()) if hasattr(row, 'keys') else set()
-    if not _has_any_content(conn, item_id, row, row_keys):
+    row_keys = set(row.keys()) if hasattr(row, "keys") else set()
+    strategy_section = render_strategy_reference_section(conn, item_id)
+    if not _has_any_content(conn, item_id, row, row_keys) and not strategy_section:
         return ""
 
     chunks: list[str] = []
@@ -142,11 +158,14 @@ def build_body(conn: Any, item_id: int) -> Optional[str]:
     blocked_section = render_blocked_section(conn, item_id)
     if blocked_section:
         chunks.append(blocked_section)
+    if strategy_section:
+        chunks.append(strategy_section)
 
     spec = _get("spec")
     if _section_has_content(spec):
         cleaned = _strip_renderer_owned_sections(
-            _strip_spec_h1(str(spec)), RENDERER_OWNED_BODY_HEADINGS,
+            _strip_spec_h1(str(spec)),
+            RENDERER_OWNED_BODY_HEADINGS,
         )
         if _section_has_content(cleaned):
             chunks.append(_render_section(f"# Spec: {title}", cleaned))
@@ -160,7 +179,10 @@ def build_body(conn: Any, item_id: int) -> Optional[str]:
     if db_claim_section:
         chunks.append(db_claim_section)
 
-    from yoke_core.domain.render_body_architecture import render_architecture_impact_section
+    from yoke_core.domain.render_body_architecture import (
+        render_architecture_impact_section,
+    )
+
     arch_section = render_architecture_impact_section(_get("architecture_impact"))
     if arch_section:
         chunks.append(arch_section)
@@ -176,7 +198,9 @@ def build_body(conn: Any, item_id: int) -> Optional[str]:
 
     if _schema_table_exists(conn, "shepherd_verdicts"):
         try:
-            shepherd_log = cmd_shepherd_log(conn, f"YOK-{item_id}")  # legacy verdict key
+            shepherd_log = cmd_shepherd_log(
+                conn, f"YOK-{item_id}"
+            )  # legacy verdict key
             if len(shepherd_log.splitlines()) > 3:
                 chunks.append(shepherd_log.rstrip("\n"))
         except Exception:
@@ -216,6 +240,7 @@ def render_item(
 
         if output_file is not None:
             from pathlib import Path
+
             Path(output_file).write_text(body, encoding="utf-8")
             return 0
 
@@ -267,7 +292,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     args = list(argv if argv is not None else sys.argv[1:])
     usage = (
         "Usage: python3 -m yoke_core.domain.render_body <item-id> "
-        "[--output-file <path>] [--section \"## Heading\"]"
+        '[--output-file <path>] [--section "## Heading"]'
     )
     if not args:
         return _usage_error(usage)
@@ -306,6 +331,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     except FileNotFoundError:
         print("Error: cannot resolve Yoke DB authority", file=sys.stderr)
         return 1
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
