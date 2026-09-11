@@ -113,9 +113,9 @@ window with claims and no wait or probe. A claim-holding card's primary
 becomes `waiting` or `probed` when those facts explain the quiet. Age, relay,
 and latest-message stay labelled subordinates and never restate that status
 word. Recency instead lives on the age line: `active now` under a minute,
-`idle Xm` (whole minutes, never hours/days) past it. The executor-aware TTL
-(1440 minutes here) decides alive versus stale, so `idle 360m` there can
-still be a session the control plane counts.
+`idle <age>` past it, rolling over minutes/hours/days like every other age
+on the card. The executor-aware TTL (1440 minutes here) decides alive versus
+stale, so `idle 24h` there can still be a session the control plane counts.
 
 ### 2. Consume worker reports
 

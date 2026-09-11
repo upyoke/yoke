@@ -2,42 +2,41 @@ import {
   focusAttribution,
   topRenderedClaim,
 } from "./universe_sessions_holdings.js";
-import { isInstantRelativeTime, relativeTime } from "./universe_time.js";
+import { isInstantRelativeTime, relativeAge, relativeTime } from "./universe_time.js";
 import { el } from "./universe_view_support.js";
 
-// How often the "active now" / "idle Xm" text repaints itself so a reader
-// watching the card sees the one-minute boundary cross without reloading.
+// How often the "active now" / "idle Xm/Xh/Xd" text repaints itself so a
+// reader watching the card sees a unit boundary cross without reloading.
 const ACTIVITY_REFRESH_MS = 5_000;
 
-// Elapsed whole minutes for the activity line, deliberately not the shared
-// `relativeAge` — that helper rolls over to hours/days, but this line always
-// reads "idle Xm" no matter how long the session has been quiet. A
-// timestamp that fails to parse (missing, or a stray literal like "now")
-// never counts as instant, so it can never render "active now".
-function activityMinutesAge(value, now = Date.now()) {
+// Shared `relativeAge` echoes an unparseable value back verbatim (it is
+// built to keep displaying a caller-supplied fallback string); the activity
+// line instead needs it to read "recently" for a timestamp that fails to
+// parse (missing, or a stray literal like "now"), so it can never render
+// nonsense or claim "active now".
+function activityAge(value, now = Date.now()) {
   const parsed = Date.parse(String(value ?? ""));
-  if (Number.isNaN(parsed)) return "recently";
-  const elapsedMs = Math.max(0, now - parsed);
-  if (elapsedMs < 60_000) return "now";
-  return `${Math.floor(elapsedMs / 60_000)}m`;
+  return Number.isNaN(parsed) ? "recently" : relativeAge(value, now);
 }
 
 // Recency wording for the observed-activity timestamp, live: "active now"
-// while under a minute old, "idle Xm" once past it. Reuses relativeTime's
-// click/keyboard toggle to absolute time, driven by activityMinutesAge so
-// toggling back to relative never disagrees with the periodic repaint.
+// while under a minute old, "idle <age>" once past it, rolling over through
+// the shared minute/hour/day units like every other age on the card. Reuses
+// relativeTime's click/keyboard toggle to absolute time, driven by
+// `activityAge` so toggling back to relative never disagrees with the
+// periodic repaint.
 function appendActivityStatus(documentNode, age, timestamp) {
   const time = relativeTime(documentNode, timestamp, Date.now(), {
-    instantText: "now", relativeAgeFn: activityMinutesAge,
+    instantText: "now", relativeAgeFn: activityAge,
   });
   const prefix = el(documentNode, "span", "session-age-prefix", "");
   const paint = () => {
-    const instant = activityMinutesAge(timestamp, Date.now()) === "now";
+    const instant = activityAge(timestamp, Date.now()) === "now";
     prefix.textContent = instant ? "active " : "idle ";
     // A reader who toggled the time open to its absolute value is inspecting
     // it; a repaint must not overwrite that out from under them.
     if (time.getAttribute("aria-pressed") !== "true") {
-      time.textContent = instant ? "now" : activityMinutesAge(timestamp, Date.now());
+      time.textContent = instant ? "now" : activityAge(timestamp, Date.now());
     }
   };
   paint();
@@ -118,8 +117,8 @@ export function appendSessionAge(documentNode, body, row) {
     age.appendChild(el(documentNode, "span", "session-age-separator", " · "));
   }
   // Activity recency is duration only. Primary status lives on the identity
-  // pill; this line answers "active now" or "idle Xm" and keeps answering it
-  // as time passes.
+  // pill; this line answers "active now" or "idle <age>" and keeps
+  // answering it as time passes.
   appendActivityStatus(documentNode, age, row.activity_at);
   body.appendChild(age);
 }

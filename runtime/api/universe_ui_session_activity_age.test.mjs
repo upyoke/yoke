@@ -28,7 +28,8 @@ function renderedActivityAge(documentNode, activityAt, extras = {}) {
 
 // Activity recency is duration only. Liveness never appears as a second
 // status, and the one-minute threshold is the sole boundary between the two
-// words: active now under it, idle Xm at or past it.
+// words: active now under it, idle <age> at or past it, rolling over through
+// the shared minute/hour/day units.
 test("session activity copy keeps server liveness authoritative", (t) => {
   const now = Date.parse("2026-08-27T12:00:00Z");
   const originalNow = Date.now;
@@ -45,11 +46,40 @@ test("session activity copy keeps server liveness authoritative", (t) => {
     "idle 1m",
   );
   // A long executor TTL can keep a quiet session alive without making its
-  // activity recent. Unlike the shared relative-age helper, this line never
-  // rolls over to hours or days — X stays elapsed whole minutes.
+  // activity recent. This line rolls over to hours/days exactly like the
+  // shared relative-age helper — 1440 minutes reads as a day of hours.
   assert.equal(
     renderedActivityAge(documentNode, new Date(now - 1440 * 60_000).toISOString()),
-    "idle 1440m",
+    "idle 24h",
+  );
+  // The operator screenshot's reported case: a long idle stretch reads in
+  // hours, not the elapsed minute count.
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 887 * 60_000).toISOString()),
+    "idle 14h",
+  );
+  // Minute/hour boundary: 59 minutes stays minutes, 60 rolls to the hour.
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 59 * 60_000).toISOString()),
+    "idle 59m",
+  );
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 60 * 60_000).toISOString()),
+    "idle 1h",
+  );
+  // Hour/day boundary: 47h stays hours, 48h rolls to days.
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 47 * 3_600_000).toISOString()),
+    "idle 47h",
+  );
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 48 * 3_600_000).toISOString()),
+    "idle 2d",
+  );
+  // Past the 48-hour threshold the same rollover reaches days.
+  assert.equal(
+    renderedActivityAge(documentNode, new Date(now - 3 * 24 * 3_600_000).toISOString()),
+    "idle 3d",
   );
   assert.equal(
     renderedActivityAge(
