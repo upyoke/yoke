@@ -141,7 +141,26 @@ def present_deployment_runs(
         row = dict(source)
         run_id = str(row["id"])
         if include_carried_work:
-            row["carried_work"] = parse_carried_work(row.get("carried_work"))
+            carried = parse_carried_work(row.get("carried_work"))
+            if compact and carried:
+                carried = {
+                    "items": [
+                        {
+                            key: item[key]
+                            for key in (
+                                "ref",
+                                "title",
+                                "project_id",
+                                "project_sequence",
+                                "item_id",
+                            )
+                            if item.get(key) not in (None, "")
+                        }
+                        for item in carried.get("items") or []
+                        if isinstance(item, dict)
+                    ]
+                }
+            row["carried_work"] = carried
         stage_names = _stage_names(row.pop("stages", None))
         stages, stage_index = _stage_rows(
             stage_names,

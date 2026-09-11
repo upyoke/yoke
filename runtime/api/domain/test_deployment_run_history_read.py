@@ -128,8 +128,8 @@ def test_initial_and_following_pages_are_complete_stable_and_compact(monkeypatch
     assert first_completed.isdisjoint(second_completed)
     assert len(first_completed | second_completed) == 53
     assert tuple(first["fields"]) == RUN_HISTORY_FIELDS
-    assert "carried_work" not in first["fields"]
-    assert all("carried_work" not in row for row in first["rows"])
+    assert {row["flow"] for row in first["rows"]} == {"release"}
+    assert {row["flow_name"] for row in first["rows"]} == {"Release"}
 
 
 def test_search_filters_counts_and_facets_before_paging(monkeypatch):
@@ -214,6 +214,55 @@ def test_compact_presentation_keeps_only_rendered_member_and_stage_facts(monkeyp
     assert rows[0]["gates"] == [{"kind": "approval"}]
     assert "stage_index" not in rows[0]
     assert "stage_count" not in rows[0]
+
+
+def test_compact_page_row_keeps_flow_stages_and_derived_carried_items(monkeypatch):
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_run_list_read._member_items",
+        lambda *_args, **_kwargs: {},
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.deployment_run_list_read.run_gates",
+        lambda *_args, **_kwargs: {},
+    )
+    rows = present_deployment_runs(
+        object(),
+        [
+            {
+                "id": "run-20260911-001",
+                "project": "yoke",
+                "flow": "yoke-hosted-stage-typed-target",
+                "flow_name": "Stage (Warm-Gated, No CI Gate, Typed Target)",
+                "status": "succeeded",
+                "current_stage": "complete",
+                "stages": (
+                    '[{"name":"merged"},{"name":"hosted-release"},'
+                    '{"name":"warm-up"},{"name":"complete"}]'
+                ),
+                "carried_work": (
+                    '{"schema":1,"items":[{"item_id":3207,"ref":"YOK-3080",'
+                    '"commit_shas":["308ead240af24a12ac1090ce29dc7f69bab48521"]}],'
+                    '"commits":[],"derivation":{"reason":"complete","status":"derived"}}'
+                ),
+            }
+        ],
+        actor_id=7,
+        visible_project_ids={1},
+        include_carried_work=True,
+        compact=True,
+    )
+
+    row = rows[0]
+    assert row["flow"] == "yoke-hosted-stage-typed-target"
+    assert row["flow_name"] == "Stage (Warm-Gated, No CI Gate, Typed Target)"
+    assert [stage["name"] for stage in row["stages"]] == [
+        "merged", "hosted-release", "warm-up", "complete",
+    ]
+    assert all(stage["state"] == "complete" for stage in row["stages"])
+    assert row["member_items"] == []
+    assert row["carried_work"] == {
+        "items": [{"ref": "YOK-3080", "item_id": 3207}],
+    }
 
 
 def test_cursor_refuses_malformed_values_with_reload_recovery():
