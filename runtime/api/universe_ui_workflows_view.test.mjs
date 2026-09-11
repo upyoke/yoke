@@ -90,7 +90,7 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
     0,
   );
   assert.equal(byClass(root, "raw-toggle").length, 0);
-  assert.equal(byClass(root, "scope-bar").length, 1);
+  assert.equal(byClass(root, "scope-bar").length, 0);
   mounted.unmount();
 });
 

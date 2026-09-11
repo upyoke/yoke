@@ -141,10 +141,11 @@ test("every nav destination declares how it takes project scope", () => {
   for (const view of ["architecture"]) {
     assert.equal(universeNavScope(view), "single");
   }
-  // Workflows serves the engine's universe-wide lifecycle definition, so no
-  // project narrows it; the shared picker only remembers navigation context.
+  // These destinations do not filter by project. Shared chrome hides the
+  // selector on them; remembered selection restores on a scoped page.
   for (const view of [
-    "projects", "actors", "packs", "organization", "workflows",
+    "profile", "projects", "actors", "packs", "organization", "workflows",
+    "machines",
   ]) {
     assert.equal(universeNavScope(view), "none");
   }

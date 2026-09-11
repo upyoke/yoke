@@ -44,10 +44,11 @@ test("host-fed sections light their nav entries and render as the view", async (
   assert.ok(navLabels.includes("Billing"));
 
   // The routed host-fed view mounts the host's node as the whole body under
-  // the entry's page head and remembered selection, without a stub.
+  // the entry's page head. Host-fed destinations are unscoped, so the
+  // project selector stays hidden.
   assert.ok(allNodes(root).includes(membersPanel));
   assert.equal(byClass(root, "title")[0].textContent, "Members");
-  assert.equal(byClass(root, "scope-bar").length, 1);
+  assert.equal(byClass(root, "scope-bar").length, 0);
   assert.equal(byClass(root, "stub-panel").length, 0);
   assert.ok(membersPanel.parentNode.classList.contains("view-host"));
 
