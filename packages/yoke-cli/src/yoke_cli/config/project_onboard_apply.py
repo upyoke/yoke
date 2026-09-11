@@ -226,7 +226,11 @@ def register_project_mapping_if_needed(
 ) -> None:
     if not project_mapping_needs_write(root, project_id, config_path):
         return
-    machine_writer.register_project(root, int(project_id), path=config_path)
+    # Operator-driven onboarding Apply: previewed and confirmed before this
+    # runs, so a slot already routed elsewhere is a deliberate move.
+    machine_writer.register_project(
+        root, int(project_id), reassign=True, path=config_path,
+    )
 
 
 def project_mapping_needs_write(
