@@ -22,6 +22,9 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.machine_config.schema_projects import (
+    reassign_ambient_session_refusal,
+)
 
 
 class EnvUseRequest(BaseModel):
@@ -141,12 +144,21 @@ def handle_auth_set(request: FunctionCallRequest) -> HandlerOutcome:
 
 def handle_project_register(request: FunctionCallRequest) -> HandlerOutcome:
     payload = request.payload or {}
+    reassign = bool(payload.get("reassign") or False)
+    if reassign and request.actor.session_id:
+        return HandlerOutcome(
+            primary_success=False,
+            error=FunctionError(
+                code="machine_config_write_refused",
+                message=reassign_ambient_session_refusal(request.actor.session_id),
+            ),
+        )
     return _outcome(lambda: machine_config_writer.register_project(
         str(payload.get("repo_root") or ""),
         payload.get("project_id"),
         board_scope=payload.get("board_scope"),
         board_render_path=payload.get("board_render_path"),
-        reassign=bool(payload.get("reassign") or False),
+        reassign=reassign,
         path=payload.get("config_path"),
     ))
 

@@ -12,7 +12,11 @@ from typing import List
 
 from yoke_cli.commands._helpers import attach_field_note_footer, parse_or_usage_error
 from yoke_cli.commands.adapters.config_write_shared import run
+from yoke_cli.commands.session_begin_corroboration import resolve_ambient
 from yoke_cli.config import writer
+from yoke_contracts.machine_config.schema_projects import (
+    reassign_ambient_session_refusal,
+)
 
 PROJECT_REGISTER_USAGE = (
     "yoke project register REPO_ROOT --project-id N "
@@ -46,14 +50,24 @@ def project_register(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, PROJECT_REGISTER_USAGE)
     if parsed is None:
         return 2
-    return run(lambda: writer.register_project(
-        parsed.repo_root,
-        parsed.project_id,
-        board_scope=parsed.board_scope,
-        board_render_path=parsed.board_render_path,
-        reassign=parsed.reassign,
-        path=parsed.config_path,
-    ))
+
+    def _register() -> dict:
+        if parsed.reassign:
+            ambient_session_id = resolve_ambient()
+            if ambient_session_id:
+                raise writer.MachineConfigWriteError(
+                    reassign_ambient_session_refusal(ambient_session_id)
+                )
+        return writer.register_project(
+            parsed.repo_root,
+            parsed.project_id,
+            board_scope=parsed.board_scope,
+            board_render_path=parsed.board_render_path,
+            reassign=parsed.reassign,
+            path=parsed.config_path,
+        )
+
+    return run(_register)
 
 
 def config_stamp_project_env(args: List[str]) -> int:
