@@ -1,11 +1,12 @@
-"""``yoke strategy render|ingest|seed-defaults`` adapters.
+"""``yoke strategy render|ingest`` adapters.
 
 The filesystem-facing half of the strategy family (the ``doc *``
-adapters live in :mod:`yoke_cli.commands.adapters.strategy`):
+adapters live in :mod:`yoke_cli.commands.adapters.strategy`; ``yoke
+strategy seed-defaults`` lives in
+:mod:`yoke_cli.commands.adapters.strategy_seed_defaults`):
 
 - ``render`` -> ``strategy.render.run`` (fetch the rendered file texts).
 - ``ingest`` -> ``strategy.ingest.run`` (CAS write-back of edited files).
-- ``seed-defaults`` -> ``strategy.seed_defaults.run`` (top-up rows).
 
 File I/O happens HERE, client-side (12942): ``render`` dispatches for
 the row→file-text map and writes the files into the checkout it
@@ -16,7 +17,11 @@ headers the handler returns. The handlers never touch a filesystem
 path, so the same commands work over https against a server with no
 checkout. Project context resolves like every strategy command
 (``--project`` > ``$YOKE_PROJECT`` > the machine-config
-checkout→project map).
+checkout→project map). Once the operation's project is known, both
+commands defer to
+:mod:`yoke_cli.commands.adapters.strategy_target_project` so a render or
+write-back for one project can never land inside a different project's
+checkout (field note 49342).
 """
 
 from __future__ import annotations
@@ -31,7 +36,6 @@ from yoke_cli.commands._helpers import (
     add_json_arg,
     add_project_arg,
     add_session_arg,
-    dispatch_and_emit,
     parse_or_usage_error,
     usage_error,
 )
@@ -42,6 +46,11 @@ from yoke_cli.commands.adapters.strategy import (
 )
 from yoke_cli.commands.adapters.strategy_render_response import (
     compact_file_text_response,
+)
+from yoke_cli.commands.adapters.strategy_target_project import (
+    resolve_and_validate_target_root,
+    target_root_was_explicit,
+    StrategyTargetRootMismatchError,
 )
 from yoke_cli.commands.text_file import resolve_text_file
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
@@ -54,10 +63,8 @@ from yoke_contracts.project_contract.strategy_docs_io import (
 __all__ = [
     "strategy_render",
     "strategy_ingest",
-    "strategy_seed_defaults",
     "STRATEGY_RENDER_USAGE",
     "STRATEGY_INGEST_USAGE",
-    "STRATEGY_SEED_DEFAULTS_USAGE",
 ]
 
 
@@ -117,6 +124,7 @@ def strategy_ingest(args: List[str]) -> int:
         target_root = resolve_target_root_for_cli(parsed.target_root)
     except RuntimeError as exc:
         return usage_error(str(exc))
+    explicit_target_root = target_root_was_explicit(parsed.target_root)
 
     _helpers.ensure_handlers_loaded()
     actor = build_actor(session_id=parsed.session_id)
@@ -171,7 +179,9 @@ def strategy_ingest(args: List[str]) -> int:
     # Advance the written docs' headers on disk whatever the overall
     # outcome — on a partial conflict the docs written before it stay
     # written, and rewriting their headers makes a retry no-op them.
-    render_report = _write_returned_files(target_root, response)
+    render_report = _write_returned_files(
+        target_root, response, explicit_target_root=explicit_target_root,
+    )
 
     def _human_writer(human_response, stdout, stderr) -> None:
         result = human_response.result or {}
@@ -212,11 +222,33 @@ def _corpus_slugs(target, actor):
     return [str(d["slug"]) for d in docs], None
 
 
-def _write_returned_files(target_root, response) -> Dict[str, str]:
-    """Write any ``file_text`` entries the ingest response carries."""
-    docs = ((response.result or {}).get("docs", [])) if response else []
+def _write_returned_files(
+    target_root, response, *, explicit_target_root: bool = True,
+) -> Dict[str, str]:
+    """Write any ``file_text`` entries the ingest response carries.
+
+    The written docs already landed in the DB by the time this runs, so a
+    project mismatch on ``target_root`` warns and skips the local
+    header-advance write rather than unwinding anything.
+    """
+    result = (response.result or {}) if response else {}
+    docs = result.get("docs", [])
     entries = [d for d in docs if d.get("file_text")]
     if not entries:
+        return {}
+    try:
+        target_root = resolve_and_validate_target_root(
+            target_root,
+            explicit=explicit_target_root,
+            project_id=result.get("project_id"),
+            project_slug=result.get("project_slug"),
+        )
+    except StrategyTargetRootMismatchError as exc:
+        print(
+            "warning: strategy doc(s) ingested in the DB; skipped local "
+            f"header refresh — {exc}",
+            file=sys.stderr,
+        )
         return {}
     return write_rendered_files(target_root, entries)
 
@@ -234,10 +266,12 @@ def strategy_render(args: List[str]) -> int:
             "Write the project's gitignored .yoke/strategy/ rendered view "
             "from the DB authority into the local rendered view "
             "(idempotent headers; unchanged content renders byte-identical). "
-            "target_root resolves client-side: "
-            "--target-root, else $YOKE_RENDER_TARGET_ROOT, else the "
+            "target_root resolves client-side: --target-root, else "
+            "$YOKE_RENDER_TARGET_ROOT, else this machine's own registered "
+            "checkout for the project (`yoke project register`), else the "
             "repo root (refused from a linked worktree without an "
-            "explicit anchor)."
+            "explicit anchor). An explicit --target-root registered to a "
+            "DIFFERENT project refuses before writing anything."
         ),
     )
     parser.add_argument(
@@ -254,6 +288,7 @@ def strategy_render(args: List[str]) -> int:
         target_root = resolve_target_root_for_cli(parsed.target_root)
     except RuntimeError as exc:
         return usage_error(str(exc))
+    explicit_target_root = target_root_was_explicit(parsed.target_root)
 
     _helpers.ensure_handlers_loaded()
     response = call_dispatcher(
@@ -265,9 +300,17 @@ def strategy_render(args: List[str]) -> int:
 
     report: Optional[Any] = None
     if response.success:
-        report = write_rendered_files(
-            target_root, (response.result or {}).get("docs", []),
-        )
+        result = response.result or {}
+        try:
+            target_root = resolve_and_validate_target_root(
+                target_root,
+                explicit=explicit_target_root,
+                project_id=result.get("project_id"),
+                project_slug=result.get("project_slug"),
+            )
+        except StrategyTargetRootMismatchError as exc:
+            return usage_error(str(exc))
+        report = write_rendered_files(target_root, result.get("docs", []))
 
     def _human_writer(human_response, stdout, stderr) -> None:
         for slug, status in (report or {}).items():
@@ -277,56 +320,6 @@ def strategy_render(args: List[str]) -> int:
         compact_file_text_response(
             response, target_root=target_root, render_report=report,
         ),
-        json_mode=parsed.json_mode,
-        human_writer=_human_writer,
-    )
-
-
-STRATEGY_SEED_DEFAULTS_USAGE = (
-    "yoke strategy seed-defaults [--project P] [--session-id S] [--json]"
-)
-
-
-def strategy_seed_defaults(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke strategy seed-defaults",
-        description=(
-            "Top up a project's default strategy docs: mint a placeholder "
-            "row for each missing default slug (MISSION, VISION, "
-            "MASTER-PLAN, LANDSCAPE, CURRENT-PLAN), parameterized by the "
-            "project's display name. Idempotent per slug — existing rows "
-            "are never touched, healing projects that predate a roster "
-            "addition. Render files afterwards with `yoke strategy render`."
-        ),
-    )
-    add_project_arg(parser)
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, STRATEGY_SEED_DEFAULTS_USAGE)
-    if parsed is None:
-        return 2
-
-    def _human_writer(response, stdout, stderr) -> None:
-        result = response.result or {}
-        if result.get("already_seeded"):
-            print(
-                f"project {result.get('project_slug')} already carries all "
-                f"{result.get('existing_rows')} default strategy doc(s); "
-                "nothing seeded",
-                file=stdout,
-            )
-            return
-        print(
-            f"seeded {', '.join(result.get('seeded', []))} for project "
-            f"{result.get('project_slug')}",
-            file=stdout,
-        )
-
-    return dispatch_and_emit(
-        function_id="strategy.seed_defaults.run",
-        target=strategy_target(parsed.project),
-        payload={},
-        session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )

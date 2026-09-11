@@ -28,9 +28,7 @@ from yoke_cli.commands.adapters.claims_read import (
     CLAIMS_PATH_LIST_USAGE,
     PATH_CLAIMS_CONFLICTS_LIST_USAGE,
 )
-from yoke_cli.commands.adapters.claims_path_override import (
-    CLAIMS_PATH_OVERRIDE_USAGE,
-)
+from yoke_cli.commands.adapters.claims_path_override import CLAIMS_PATH_OVERRIDE_USAGE
 from yoke_cli.commands.adapters.config import (
     CONFIG_EXAMPLE_USAGE,
     CONFIG_STATUS_USAGE,
@@ -187,18 +185,20 @@ from yoke_cli.commands.adapters.render import (
 )
 from yoke_cli.commands.adapters.usage_extensions import extend_adapter_usage
 from yoke_cli.commands.adapters.strategy import (
-    STRATEGY_DOC_ARCHIVE_USAGE,
     STRATEGY_DOC_GET_USAGE,
     STRATEGY_DOC_LIST_USAGE,
+)
+from yoke_cli.commands.adapters.strategy_create import STRATEGY_DOC_CREATE_USAGE
+from yoke_cli.commands.adapters.strategy_doc_write import (
+    STRATEGY_DOC_ARCHIVE_USAGE,
     STRATEGY_DOC_REPLACE_USAGE,
     STRATEGY_DOC_UNARCHIVE_USAGE,
-)
-from yoke_cli.commands.adapters.strategy_create import (
-    STRATEGY_DOC_CREATE_USAGE,
 )
 from yoke_cli.commands.adapters.strategy_render import (
     STRATEGY_INGEST_USAGE,
     STRATEGY_RENDER_USAGE,
+)
+from yoke_cli.commands.adapters.strategy_seed_defaults import (
     STRATEGY_SEED_DEFAULTS_USAGE,
 )
 from yoke_cli.commands.adapters.packs import (

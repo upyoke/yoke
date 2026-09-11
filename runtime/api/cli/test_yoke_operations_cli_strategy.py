@@ -70,23 +70,18 @@ def _run(
                 side_effect=_stub_call_dispatcher,
             ):
                 with patch(
-                    "yoke_cli.commands.adapters.strategy."
+                    "yoke_cli.commands.adapters.strategy_render."
                     "call_dispatcher",
                     side_effect=_stub_call_dispatcher,
                 ):
                     with patch(
-                        "yoke_cli.commands.adapters.strategy_render."
-                        "call_dispatcher",
-                        side_effect=_stub_call_dispatcher,
+                        "yoke_cli.commands._helpers."
+                        "ensure_handlers_loaded"
                     ):
-                        with patch(
-                            "yoke_cli.commands._helpers."
-                            "ensure_handlers_loaded"
-                        ):
-                            with patch("sys.stdin", io.StringIO(stdin_text or "")):
-                                with redirect_stdout(io.StringIO()), \
-                                        redirect_stderr(io.StringIO()):
-                                    return cli_main(list(argv))
+                        with patch("sys.stdin", io.StringIO(stdin_text or "")):
+                            with redirect_stdout(io.StringIO()), \
+                                    redirect_stderr(io.StringIO()):
+                                return cli_main(list(argv))
 
 
 class TestRegistry:

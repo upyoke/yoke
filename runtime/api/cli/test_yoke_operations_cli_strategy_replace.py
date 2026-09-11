@@ -180,7 +180,7 @@ class TestDocReplace:
         # failing before the write. The replace dispatches and the
         # command still succeeds; the render does not dispatch.
         with patch(
-            "yoke_cli.commands.adapters.strategy."
+            "yoke_cli.commands.adapters.strategy_doc_write."
             "resolve_target_root_for_cli",
             side_effect=RuntimeError("no anchor"),
         ):
@@ -193,6 +193,65 @@ class TestDocReplace:
         assert [r.function for r in _CAPTURED_REQUESTS] == [
             "strategy.doc.replace",
         ]
+
+    def test_target_root_for_another_project_skips_render_after_replace(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # field note 49342: the replace already landed in the DB, so the
+        # command still succeeds; only the local render into the wrong
+        # project's checkout is skipped, and it never dispatches
+        # strategy.render.run for it.
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
+        monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
+        from yoke_cli.config import machine_config
+        import json
+
+        other_checkout = tmp_path / "other-project-checkout"
+        other_checkout.mkdir()
+        config_path = machine_config.config_path()
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(
+            json.dumps(
+                {"projects": [{"checkout": str(other_checkout), "project_id": 2}]}
+            ),
+            encoding="utf-8",
+        )
+
+        def _stub(request: FunctionCallRequest) -> FunctionCallResponse:
+            _CAPTURED_REQUESTS.append(request)
+            result = {}
+            if request.function == "strategy.doc.replace":
+                result = {
+                    "project_id": 1, "project_slug": "yoke",
+                    "old_bytes": 8, "new_bytes": 12,
+                }
+            return FunctionCallResponse(
+                success=True, function=request.function,
+                version=request.version, request_id=request.request_id,
+                result=result,
+            )
+
+        env = {"YOKE_SESSION_ID": "test-session"}
+        with patch.dict("os.environ", env):
+            with patch(
+                "yoke_core.domain.yoke_function_dispatch.dispatch",
+                side_effect=_stub,
+            ):
+                with patch(
+                    "yoke_cli.commands._helpers."
+                    "ensure_handlers_loaded"
+                ):
+                    rc = cli_main([
+                        "strategy", "doc", "replace", "MISSION",
+                        "--content", "# Mission\n",
+                        "--base-updated-at", "2026-06-10T00:00:00Z",
+                        "--target-root", str(other_checkout),
+                    ])
+        assert rc == 0
+        assert [r.function for r in _CAPTURED_REQUESTS] == [
+            "strategy.doc.replace",
+        ]
+        assert not (other_checkout / ".yoke").exists()
 
     def test_missing_content_source_returns_two(self) -> None:
         rc = _run(
