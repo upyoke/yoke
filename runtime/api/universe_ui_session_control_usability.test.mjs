@@ -169,6 +169,7 @@ test("message history leads with readable content and accessible receipts", asyn
 
 test("the machine roster reads a registered machine through its relay", async (t) => {
   const relay = await mountAt(t, "#/machines?project=1", {
+    "sessions.list": () => ok({ rows: [] }),
     "machine.list": () => ok({
       machines: [{
         machine_id: "machine-1", name: "studio", owner: "Ada", retired_at: null,

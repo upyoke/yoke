@@ -142,6 +142,7 @@ test("message receipts expose recipient delivery and wake state", async (t) => {
 test("relay tab renders public machine facts without native controls", async (t) => {
   const requests = [];
   const client = shellClient(requests, {
+    "sessions.list": () => ok({ rows: [] }),
     "machine.list": () => ok({
       machines: [{
         machine_id: "m1", name: "studio", owner: "Ada", retired_at: null,

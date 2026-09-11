@@ -16,7 +16,7 @@ import {
   memoryTone,
 } from "./universe_machines_meters.js";
 import { surfaceRow } from "./universe_machines_limits.js";
-import { appendMachineUsage } from "./universe_machines_usage.js";
+import { appendMachineUsage, fetchEndedUsageRows } from "./universe_machines_usage.js";
 import { machinesById, registeredMachineRelays } from "./universe_machines_roster.js";
 import {
   renderSessionControlFailure,
@@ -176,8 +176,9 @@ export function renderMachinesPanel(context, host, relays, options = {}) {
     return;
   }
   const grid = el(documentNode, "div", "machines-grid");
-  // The sessions accessor is read at render time so a redraw picks up the
-  // roster's current rows rather than whatever it held when first mounted.
+  // The sessions accessor is read at render time so a redraw picks up
+  // whatever ended-usage rows were last fetched rather than whatever it
+  // held when first mounted.
   const sessions = typeof options.sessions === "function" ? options.sessions() : [];
   for (const relay of relays) {
     const machine = options.machineById?.get?.(String(relay.machine_id)) || {};
@@ -198,15 +199,18 @@ export async function loadMachinesPanel(context, host, options = {}) {
   const run = async () => {
     let relays;
     let machineById;
+    let usageRows;
     try {
-      const [machineCall, relayResult] = await Promise.all([
+      const [machineCall, relayResult, endedUsageRows] = await Promise.all([
         callFunction(context.client, "machine.list", {}),
         sessionControlCall(context, "session_control.relay.list", { limit: 500 }),
+        fetchEndedUsageRows(context, options.projects || []),
       ]);
       if (!machineCall.envelope.success) throw machineCall;
       const machines = machineCall.envelope.result.machines || [];
       relays = registeredMachineRelays(machines, relayResult.relays || []);
       machineById = machinesById(machines);
+      usageRows = endedUsageRows;
     } catch (error) {
       if (!context.isMounted()) return;
       host.replaceChildren();
@@ -229,20 +233,24 @@ export async function loadMachinesPanel(context, host, options = {}) {
       return;
     }
     if (!context.isMounted()) return;
-    fetched = { relays, machineById };
+    fetched = { relays, machineById, usageRows };
     host.replaceChildren();
-    renderMachinesPanel(context, host, relays, { ...options, machineById });
+    renderMachinesPanel(context, host, relays, {
+      ...options, machineById, sessions: () => usageRows,
+    });
   };
   await run();
-  // Redrawing reuses the relays already fetched: the roster re-renders on
-  // every filter change, and the machine tiles that sum it must follow
-  // without asking the control plane for the relay list again.
+  // Redrawing reuses the relays and usage rows already fetched: the
+  // roster re-renders on every filter change, and the machine tiles that
+  // sum ended usage must follow without asking the control plane again.
   return {
     redraw: () => {
       if (!fetched || !context.isMounted()) return;
       host.replaceChildren();
       renderMachinesPanel(context, host, fetched.relays, {
-        ...options, machineById: fetched.machineById,
+        ...options,
+        machineById: fetched.machineById,
+        sessions: () => fetched.usageRows,
       });
     },
   };

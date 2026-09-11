@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import base64
+from datetime import datetime, timedelta, timezone
 from typing import Any, Collection, Optional, Sequence
 
 from yoke_contracts.session_control.liveness import (
     ENDED_CAUSE_KILLED,
     ENDED_CAUSE_WOUND_DOWN,
+    ended_at_sql,
     ended_session_sql,
 )
 from yoke_core.domain.json_helper import dumps_compact, loads_text
@@ -21,6 +23,11 @@ from yoke_core.domain.session_probe import not_probe_session_sql
 
 DEFAULT_HISTORY_LIMIT = 50
 MAX_HISTORY_LIMIT = 100
+#: How far back a machine tile's "Ended in last 24h" usage figure reaches.
+ENDED_USAGE_WINDOW = timedelta(hours=24)
+ENDED_USAGE_FIELDS = (
+    "session_id", "machine_id", "project_id", *USAGE_PROJECTION_FIELDS,
+)
 HISTORY_FIELDS = (
     "session_id", "project_id", "project", "focus", "recent_item",
     "recent_item_title", "actor_id", "actor_kind", "actor_label",
@@ -254,7 +261,54 @@ def read_ended_session_history(
     }
 
 
+def read_ended_session_usage_by_machine(
+    conn: Any,
+    *,
+    project_ids: Optional[Collection[int]],
+) -> dict[str, Any]:
+    """Every session's full usage for sessions ended in the trailing 24h,
+    unpaginated, scoped to ``project_ids`` (every visible project when
+    ``None``). A killed session dates by ``terminated_at`` via
+    ``ended_at_sql``, matching ``ended_session_sql``'s own definition of
+    ended so it is never silently dropped for lacking ``ended_at``.
+    """
+    marker = placeholder(conn)
+    clauses = [
+        ended_session_sql("s"), not_probe_session_sql("s"), "s.machine_id IS NOT NULL",
+    ]
+    params: list[Any] = []
+    if project_ids is not None:
+        ids = sorted({int(value) for value in project_ids})
+        if not ids:
+            clauses.append("1 = 0")
+        else:
+            clauses.append(f"s.project_id IN ({', '.join(marker for _ in ids)})")
+            params.extend(ids)
+    cutoff = (datetime.now(timezone.utc) - ENDED_USAGE_WINDOW).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    clauses.append(f"{ended_at_sql('s')} >= {marker}")
+    params.append(cutoff)
+    where = "WHERE " + " AND ".join(clauses)
+    rows = conn.execute(
+        "SELECT s.session_id, s.machine_id, s.project_id, s.usage_totals "
+        "FROM harness_sessions s " + where,
+        tuple(params),
+    ).fetchall()
+    rendered = [
+        {
+            "session_id": str(row_value(raw, "session_id", 0)),
+            "machine_id": str(row_value(raw, "machine_id", 1)),
+            "project_id": row_value(raw, "project_id", 2),
+            **usage_fields(dict(raw)),
+        }
+        for raw in rows
+    ]
+    return {"fields": list(ENDED_USAGE_FIELDS), "rows": rendered}
+
+
 __all__ = [
-    "DEFAULT_HISTORY_LIMIT", "HISTORY_FIELDS", "MAX_HISTORY_LIMIT",
-    "read_ended_session_history",
+    "DEFAULT_HISTORY_LIMIT", "ENDED_USAGE_FIELDS", "ENDED_USAGE_WINDOW",
+    "HISTORY_FIELDS", "MAX_HISTORY_LIMIT", "read_ended_session_history",
+    "read_ended_session_usage_by_machine",
 ]

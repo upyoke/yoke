@@ -266,7 +266,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   main.replaceChildren(machines, roster);
   machinesPanel = loadMachinesPanel(context, machines.body, {
     showHeading: false,
-    sessions: () => filters.applyOpen(loader.openRows()),
+    projects: scope === "all" ? [] : scope.map(String),
   });
   if (typeof chrome.hidePageHead === "function") chrome.hidePageHead();
 

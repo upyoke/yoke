@@ -29,6 +29,9 @@ export function sessionsClient(rows, requests, mutation = null) {
         return ok({ relays: [] });
       }
       if (request.function === "sessions.list") {
+        // The machines panel's own durable ended-usage read, independent of
+        // the roster rows this fixture otherwise serves.
+        if (request.payload.ended_last_24h) return ok({ rows: [] });
         return ok({ rows: typeof rows === "function" ? rows() : rows });
       }
       if (request.function === "sessions.reclaim_stale" && mutation) {

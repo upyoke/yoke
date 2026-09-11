@@ -18,8 +18,24 @@ import {
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_usage.js";
 import {
   appendMachineUsage,
+  fetchEndedUsageRows,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_machines_usage.js";
 import { FakeDocument, byClass } from "./universe_ui_dom_test_support.mjs";
+
+function fakeContext(rows) {
+  const calls = [];
+  return {
+    calls,
+    client: {
+      call(request) {
+        calls.push(request);
+        return Promise.resolve({
+          envelope: { success: true, result: { rows } },
+        });
+      },
+    },
+  };
+}
 
 const MEASURED = {
   usage_tokens: 1_240_000,
@@ -174,7 +190,7 @@ test("a partial member marks the total it contributed to", () => {
   assert.equal(usageSummaryLabel(summary), `100${PARTIAL_MARK} · $1${PARTIAL_MARK}`);
 });
 
-test("the machine tile reports its scope beside its total", () => {
+test("the machine tile labels its window and reports its scope beside its total", () => {
   const documentNode = new FakeDocument();
   const card = documentNode.createElement("div");
   const sessions = [
@@ -187,6 +203,10 @@ test("the machine tile reports its scope beside its total", () => {
   appendMachineUsage(documentNode, card, { machine_id: "m1" }, sessions);
 
   assert.deepEqual(
+    byClass(card, "machine-usage-window").map((node) => node.textContent),
+    ["Ended in last 24h"],
+  );
+  assert.deepEqual(
     byClass(card, "usage-stat-value").map((node) => node.textContent),
     ["1k", "$2", "1"],
   );
@@ -196,9 +216,9 @@ test("the machine tile reports its scope beside its total", () => {
   );
   assert.equal(
     byClass(card, "machine-usage")[0].getAttribute("data-tooltip"),
-    "estimated API-equivalent cost for the sessions "
-    + "shown here, not consumption of any subscription plan; the dollar total "
-    + "covers only the sessions that could be priced",
+    "estimated API-equivalent cost for sessions that ended on this machine "
+    + "in the last 24 hours, not consumption of any subscription plan; the "
+    + "dollar total covers only the sessions that could be priced",
   );
 });
 
@@ -222,7 +242,26 @@ test("the machine tile names its priced count when a session went unpriced", () 
   );
 });
 
-test("a machine with no sessions on this page draws no usage line", () => {
+test("a zero-coverage window still names the window it found nothing in", () => {
+  const documentNode = new FakeDocument();
+  const card = documentNode.createElement("div");
+
+  appendMachineUsage(documentNode, card, { machine_id: "m1" }, [
+    { machine_id: "m1" },
+    { machine_id: "m1" },
+  ]);
+
+  assert.deepEqual(
+    byClass(card, "machine-usage-window").map((node) => node.textContent),
+    ["Ended in last 24h"],
+  );
+  assert.deepEqual(
+    byClass(card, "usage-stat-unit").map((node) => node.textContent),
+    ["no consumption recorded for 2 sessions"],
+  );
+});
+
+test("a machine with no sessions ended in the window draws no usage line", () => {
   const documentNode = new FakeDocument();
   const card = documentNode.createElement("div");
 
@@ -245,6 +284,30 @@ test("the machine scope says the estimate is not plan consumption", () => {
     byClass(card, "machine-usage")[0].getAttribute("data-tooltip"),
     /not consumption of any subscription plan/,
   );
+});
+
+test("fetching ended usage omits projects when the caller is unscoped", async () => {
+  const context = fakeContext([{ machine_id: "m1", usage_tokens: 10 }]);
+
+  const rows = await fetchEndedUsageRows(context);
+
+  assert.deepEqual(context.calls, [
+    { function: "sessions.list", payload: { ended_last_24h: true } },
+  ]);
+  assert.deepEqual(rows, [{ machine_id: "m1", usage_tokens: 10 }]);
+});
+
+test("fetching ended usage scopes to the caller's selected projects", async () => {
+  const context = fakeContext([]);
+
+  await fetchEndedUsageRows(context, ["1", "2"]);
+
+  assert.deepEqual(context.calls, [
+    {
+      function: "sessions.list",
+      payload: { ended_last_24h: true, projects: ["1", "2"] },
+    },
+  ]);
 });
 
 test("usage stats wrap on the same narrow breakpoint as the rest of Sessions", () => {

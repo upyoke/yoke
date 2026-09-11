@@ -109,12 +109,12 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   });
   await settle();
 
-  // The app-wide steering-color roster calls sessions.list at boot and
-  // again alongside this view's own scoped load (the middle entry).
+  // Steering-color boot+view refreshes bracket the scoped load and usage read.
   assert.deepEqual(
     requests.filter((request) => request.function === "sessions.list"),
     [
       { function: "sessions.list", payload: { open: true, per_project: true } },
+      { function: "sessions.list", payload: { ended_last_24h: true, projects: ["1"] } },
       { function: "sessions.list", payload: { open: true, projects: ["1"] } },
       { function: "sessions.list", payload: { open: true, per_project: true } },
     ],
@@ -254,10 +254,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   assert.equal(reclaim.disabled, false);
   reclaim.dispatchEvent(new Event("click"));
   await settle();
-  // 3 from mount (see above) plus 1 more from reclaim's own reload.
-  assert.equal(
+  assert.equal( // 4 from mount (see above) plus 1 from reclaim's own reload.
     requests.filter((request) => request.function === "sessions.list").length,
-    4,
+    5,
   );
   assert.equal(byClass(root, "session-card").length, 1);
   assert.deepEqual(

@@ -59,6 +59,7 @@ async function mountRoster(t, rows, requests, handlers = {}) {
         return ok({ rows: [{ id: 1, slug: "yoke", name: "Yoke" }] });
       }
       if (request.function === "sessions.list") {
+        if (request.payload.ended_last_24h) return ok({ rows: [] });
         if (request.payload.history) {
           let ended = rows.filter((row) => row.liveness === "ended");
           const harness = request.payload.history.harnesses?.[0];
@@ -132,12 +133,14 @@ test("roster defaults to active and exposes only the supported filters", async (
   );
   // The app-wide steering-color roster (context.refreshSteeringGroupColors)
   // calls sessions.list once at boot and once again alongside this view's
-  // own scoped load, in addition to that scoped load itself.
+  // own scoped load; the machines panel's own durable ended-usage read
+  // fires alongside that scoped load too.
   assert.deepEqual(
     requests.filter((request) => request.function === "sessions.list")
       .map((request) => request.payload),
     [
       { open: true, per_project: true },
+      { ended_last_24h: true, projects: ["1"] },
       { open: true, projects: ["1"] },
       { open: true, per_project: true },
     ],
