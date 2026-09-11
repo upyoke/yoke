@@ -289,7 +289,11 @@ def _register_in_machine_config(
         return False
     if machine_config.project_id(repo_root, config_path) is not None:
         return False
-    machine_config_writer.register_project(repo_root, project_id, path=config_path)
+    # explicit_given means the operator typed --project-id themselves: a
+    # deliberate reconfiguration, not routine unattended execution.
+    machine_config_writer.register_project(
+        repo_root, project_id, reassign=True, path=config_path,
+    )
     return True
 
 

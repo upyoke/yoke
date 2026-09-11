@@ -172,6 +172,37 @@ def _flatten_entry(entry: Mapping[str, Any]) -> dict[str, Any]:
     return out
 
 
+def existing_checkout_for_slot(
+    projects: Any,
+    *,
+    checkout: str,
+    project_id: int,
+    env: str | None = None,
+) -> Optional[str]:
+    """Return the OTHER checkout already bound to ``(env, project_id)``.
+
+    An ``(env, project_id)`` slot belongs to exactly one checkout (see
+    :func:`upsert_project_entry`'s "the project moved" rule). ``None`` means
+    the slot is unclaimed or already held by ``checkout`` itself — either way,
+    writing ``checkout`` into it is ordinary first-time setup, not a routing
+    change. A non-``None`` result names the shared-routing-change case: some
+    caller wants to move an occupied slot onto a different checkout, which is
+    the write authorization boundary lives at (``register_project``'s
+    ``reassign`` gate), not this pure read.
+    """
+    checkout_key = _path_key(Path(str(checkout)).expanduser())
+    env_key = str(env).strip() if _is_nonempty_str(env) else None
+    target_id = int(project_id)
+    for entry in normalize_projects(projects):
+        if _path_key(Path(entry["checkout"]).expanduser()) == checkout_key:
+            continue
+        entry_env = (str(entry["env"]).strip()
+                     if _is_nonempty_str(entry.get("env")) else None)
+        if entry["project_id"] == target_id and _env_collides(entry_env, env_key):
+            return str(entry["checkout"])
+    return None
+
+
 def upsert_project_entry(
     projects: Any,
     *,
@@ -185,14 +216,20 @@ def upsert_project_entry(
     The checkout's rows for *other* envs are left intact — a checkout appears
     once per env it lives in. But a given ``(env, project_id)`` slot belongs to
     exactly one checkout, so any *other* checkout claiming the same slot is
-    dropped (the project moved). An untagged row's env is unknown, so it
-    collides with any env for the same id. ``board`` is accepted only so
+    dropped (the project moved) — see :func:`existing_checkout_for_slot`,
+    which this shares its collision rule with. ``board`` is accepted only so
     legacy callers compile; it is ignored (machine board is retired).
     """
     del board  # retired; DB project-policy.settings.board is authoritative
     checkout_key = _path_key(Path(str(checkout)).expanduser())
     env_key = str(env).strip() if _is_nonempty_str(env) else None
     target_id = int(project_id)
+    displaced = existing_checkout_for_slot(
+        projects, checkout=checkout, project_id=target_id, env=env_key,
+    )
+    displaced_key = (
+        _path_key(Path(displaced).expanduser()) if displaced is not None else None
+    )
     kept: list[dict[str, Any]] = []
     for entry in normalize_projects(projects):
         same_checkout = _path_key(Path(entry["checkout"]).expanduser()) == checkout_key
@@ -200,9 +237,10 @@ def upsert_project_entry(
                      if _is_nonempty_str(entry.get("env")) else None)
         if same_checkout and entry_env == env_key:
             continue  # replace this checkout's row for this env
-        if (not same_checkout
-                and entry["project_id"] == target_id
-                and _env_collides(entry_env, env_key)):
+        if (
+            displaced_key is not None
+            and _path_key(Path(entry["checkout"]).expanduser()) == displaced_key
+        ):
             continue  # another checkout held this (env, project_id) slot
         kept.append(entry)
     new_entry: dict[str, Any] = {

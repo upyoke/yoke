@@ -80,6 +80,7 @@ class ProjectRegisterRequest(BaseModel):
     project_id: int
     board_scope: Optional[str] = None
     board_render_path: Optional[str] = None
+    reassign: bool = False
     config_path: Optional[str] = None
 
 
@@ -145,6 +146,7 @@ def handle_project_register(request: FunctionCallRequest) -> HandlerOutcome:
         payload.get("project_id"),
         board_scope=payload.get("board_scope"),
         board_render_path=payload.get("board_render_path"),
+        reassign=bool(payload.get("reassign") or False),
         path=payload.get("config_path"),
     ))
 

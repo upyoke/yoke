@@ -100,6 +100,10 @@ def test_missing_project_id_denies_and_emits() -> None:
     kwargs = canonical.call_args.kwargs
     assert kwargs["check_id"] == "project_authorization"
     assert kwargs["client_revision"] == "clientsha1234"
+    # The denial teaches the isolated-config alternative at the point of
+    # confusion, so a scratch/canary checkout is never registered into the
+    # shared machine config to clear it.
+    assert "YOKE_MACHINE_CONFIG_FILE" in kwargs["reason"]
 
 
 def test_actor_without_project_visibility_denies_and_emits() -> None:

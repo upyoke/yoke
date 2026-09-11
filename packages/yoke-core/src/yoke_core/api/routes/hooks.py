@@ -19,6 +19,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
+from yoke_contracts.machine_config import runtime as machine_config_runtime
 from yoke_contracts.session_model_facts import facts_from_mapping
 from yoke_core.api.http_auth import require_auth_context
 from yoke_core.api.observability import record_counter, record_histogram
@@ -240,7 +241,13 @@ def _authorize_project(
     if project_id is None:
         reason = (
             "Yoke hook registration denied: this checkout has no "
-            "configured project id. Run Yoke setup for this checkout."
+            "configured project id. Run Yoke setup for this checkout if it "
+            "is a real project. For an isolated scratch/canary checkout, do "
+            "not register it in the shared machine config — set "
+            f"{machine_config_runtime.CONFIG_FILE_ENV} to a throwaway config "
+            "file for this process tree and register the checkout there "
+            "instead, so shared checkout routing for the real project is "
+            "never touched."
         )
         _emit_route_denial("project_authorization", reason, request)
         return JSONResponse(

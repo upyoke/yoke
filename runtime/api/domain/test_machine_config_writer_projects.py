@@ -124,6 +124,61 @@ class TestRegisterProject:
         with pytest.raises(MachineConfigWriteError, match="positive integer"):
             writer.register_project(repo, 0)
 
+    def test_reassigning_an_occupied_slot_is_refused_without_reassign(
+        self, home, tmp_path,
+    ):
+        _seed_https(home, tmp_path)
+        original = tmp_path / "real-checkout"
+        original.mkdir()
+        writer.register_project(original, 7)
+        scratch = tmp_path / "scratch-clone"
+        scratch.mkdir()
+
+        with pytest.raises(MachineConfigWriteError, match="already routed to"):
+            writer.register_project(scratch, 7)
+
+        # The real checkout's routing is untouched by the refused attempt.
+        entry = _row(_config(home), str(original.resolve()))
+        assert entry["project_id"] == 7
+
+    def test_reassign_true_moves_the_slot_to_the_new_checkout(
+        self, home, tmp_path,
+    ):
+        _seed_https(home, tmp_path)
+        original = tmp_path / "real-checkout"
+        original.mkdir()
+        writer.register_project(original, 7)
+        scratch = tmp_path / "scratch-clone"
+        scratch.mkdir()
+
+        result = writer.register_project(scratch, 7, reassign=True)
+
+        config = _config(home)
+        assert _rows(config, str(original.resolve())) == []
+        entry = _row(config, result["checkout"])
+        assert entry["project_id"] == 7
+
+    def test_first_time_registration_needs_no_reassign(self, home, tmp_path):
+        _seed_https(home, tmp_path)
+        repo = tmp_path / "repo"
+        repo.mkdir()
+
+        result = writer.register_project(repo, 7)
+
+        assert _row(_config(home), result["checkout"])["project_id"] == 7
+
+    def test_reregistering_the_same_checkout_needs_no_reassign(
+        self, home, tmp_path,
+    ):
+        _seed_https(home, tmp_path)
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        writer.register_project(repo, 7)
+
+        result = writer.register_project(repo, 7)
+
+        assert _row(_config(home), result["checkout"])["project_id"] == 7
+
 
 class TestStampUntaggedProjectEnvs:
     def _seed_untagged(self, home: Path, tmp_path: Path) -> None:

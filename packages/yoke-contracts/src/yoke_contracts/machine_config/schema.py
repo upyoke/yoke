@@ -15,6 +15,7 @@ from yoke_contracts.machine_config.schema_projects import (
     checkout_path_candidates as checkout_path_candidates,
     entry_project_id_for_env as entry_project_id_for_env,
     entry_resolves_under_env as entry_resolves_under_env,
+    existing_checkout_for_slot as existing_checkout_for_slot,
     mapped_checkouts as mapped_checkouts,
     normalize_project_id as normalize_project_id,
     normalize_projects as normalize_projects,

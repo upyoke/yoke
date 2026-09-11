@@ -14,6 +14,7 @@ from typing import Any
 
 from yoke_core.domain import project_scratch_dir
 from yoke_core.domain import project_scratch_segments
+from yoke_core.domain import worktree_deletion_guard
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
@@ -247,6 +248,16 @@ def prune_stale_scratch(
                     result.protected_run_count += 1
                     result.issues.append("  -> retained: owning pid became live")
                     break
+                conflict = worktree_deletion_guard.active_worktree_conflict(
+                    conn, str(entry),
+                )
+                if conflict is not None:
+                    result.protected_run_count += 1
+                    result.issues.append(
+                        "  -> retained: is or contains the active worktree "
+                        f"{conflict}"
+                    )
+                    continue
                 try:
                     if entry.is_symlink() or not entry.is_dir():
                         entry.unlink()
