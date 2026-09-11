@@ -245,7 +245,7 @@ test("Sessions sizes its stats and keeps the message row to one text line", () =
     css,
     /\.session-message-badge \{[\s\S]*padding: 2px 8px;[\s\S]*font-size: 11px;/,
   );
-  assert.match(
+  assert.doesNotMatch(
     css,
     /\.session-card\.is-stale \{ background: var\(--yoke-warn-bg\); \}/,
   );
