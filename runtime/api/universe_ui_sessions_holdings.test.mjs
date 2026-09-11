@@ -68,7 +68,8 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
           {
             holding_kind: "work_claim",
             target_kind: "steering", target: "steering for project 1",
-            project_id: 1, scope: { project_id: 1 }, strategy_docs: ["CURRENT-PLAN"],
+            project_id: 1, scope: { project_id: 1, document: "CURRENT-PLAN" },
+            strategy_docs: ["CURRENT-PLAN"],
           },
           {
             holding_kind: "strategy_document", target_kind: "strategy_document",
@@ -116,13 +117,12 @@ test("Sessions contains a long relay name and unequal multi-claim cards", async 
 
   const cards = byClass(root, "session-card");
   assert.equal(cards.length, 2);
-  // The steering seat's four steering holdings lead the card as its scope,
-  // leaving the item claim as the one ordinary holding below them.
+  // Four steering holdings lead as scope; the item claim stays below.
   assert.equal(byClass(cards[0], "session-work").length, 1);
   assert.equal(byClass(cards[1], "session-work").length, 1);
   assert.deepEqual(
     byClass(cards[0], "session-steering-scope").map((node) => node.textContent),
-    ["yokeCURRENT-PLAN", "platformCURRENT-PLAN"],
+    ["yokeCURRENT-PLAN", "platformProject-wide"],
   );
   assert.equal(
     byClass(cards[0], "session-steering-lead-label")[0].textContent, "Steering",

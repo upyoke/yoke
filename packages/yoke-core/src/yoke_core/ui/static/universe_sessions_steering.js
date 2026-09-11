@@ -140,12 +140,28 @@ export function steeringProjectIds(row) {
   return steeringClaims(row).map((claim) => String(claimProjectId(claim)));
 }
 
+// The claim's `scope.document` is the seat: present means document-only,
+// absent on a scope object means project-wide. Linked strategy_docs are
+// not that fact — a project-wide seat can still name CURRENT-PLAN.
+function scopeDocument(claim) {
+  if (!claim || !Object.prototype.hasOwnProperty.call(claim, "scope")) {
+    return undefined;
+  }
+  const scope = claim.scope;
+  if (scope == null || typeof scope !== "object") return undefined;
+  const value = scope.document;
+  if (value == null || value === "") return null;
+  return String(value);
+}
+
 function steeringScope(claim, projects) {
-  const docs = steeringDocs(claim);
-  return {
-    project: projectSlug(projects, claimProjectId(claim)) || "unknown project",
-    docs: docs.length ? docs.join(", ") : "no doc lock",
-  };
+  const project = projectSlug(projects, claimProjectId(claim)) || "unknown project";
+  const locked = scopeDocument(claim);
+  if (locked === undefined) {
+    return { project, wide: false, docs: "scope unknown" };
+  }
+  if (locked) return { project, wide: false, docs: locked };
+  return { project, wide: true, docs: "" };
 }
 
 // One document lock, named the way a steering claim names the same one.
@@ -158,7 +174,7 @@ function documentKey(projectId, slug) {
 
 export function steeringHoldingText(claim, projects = []) {
   const scope = steeringScope(claim, projects);
-  return `${scope.project} · ${scope.docs}`;
+  return `${scope.project} · ${scope.wide ? "PROJECT-WIDE" : scope.docs}`;
 }
 
 // Every project this session steers, each beside the documents it steers
@@ -221,9 +237,15 @@ export function appendSteeringHoldings(documentNode, body, row, projects = []) {
     line.appendChild(el(
       documentNode, "span", "session-steering-project", scope.project,
     ));
-    line.appendChild(el(
-      documentNode, "span", "session-steering-docs", scope.docs,
-    ));
+    if (scope.wide) {
+      line.appendChild(el(
+        documentNode, "span", "session-steering-wide", "Project-wide",
+      ));
+    } else {
+      line.appendChild(el(
+        documentNode, "span", "session-steering-docs", scope.docs,
+      ));
+    }
     lead.appendChild(line);
   }
   body.appendChild(lead);

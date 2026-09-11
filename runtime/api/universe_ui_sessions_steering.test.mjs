@@ -64,9 +64,8 @@ test("holder cards show scope and omit it from the holdings list", () => {
     byClass(holder, "session-steering-lead-label")[0].textContent, "Steering",
   );
   assert.equal(byClass(holder, "session-steering-project")[0].textContent, "yoke");
-  assert.equal(
-    byClass(holder, "session-steering-docs")[0].textContent, "MISSION, VISION",
-  );
+  assert.equal(byClass(holder, "session-steering-wide")[0].textContent, "Project-wide");
+  assert.equal(byClass(holder, "session-steering-docs").length, 0);
   assert.equal(byClass(holder, "session-hold-target").length, 0);
   assert.deepEqual(steeringMarkup(holder), {
     lead: 1, context: 0, report: 0, group: 0,
@@ -103,7 +102,8 @@ test("steering states itself once however many projects it covers", () => {
     holdings: { current: [
       {
         holding_kind: "work_claim",
-        target_kind: "steering", project_id: 1, scope: { project_id: 1 },
+        target_kind: "steering", project_id: 1,
+        scope: { project_id: 1, document: "CURRENT-PLAN" },
         strategy_docs: ["CURRENT-PLAN"],
       },
       {
@@ -122,8 +122,9 @@ test("steering states itself once however many projects it covers", () => {
     ], previous: [], previous_remainder: 0 },
   }, [{ id: 1, slug: "yoke" }, { id: 3, slug: "platform" }]);
 
-  // Two seats and two document locks read as two projects, each beside its
-  // own document, in one block — never as one project with two documents.
+  // Mixed scopes on one card: yoke is locked to CURRENT-PLAN, platform is
+  // project-wide even though strategy_docs still names CURRENT-PLAN. The
+  // badge follows scope.document, not the linked-doc list.
   assert.equal(byClass(holder, "session-steering-lead").length, 1);
   assert.deepEqual(
     byClass(holder, "session-steering-project").map((node) => node.textContent),
@@ -131,7 +132,11 @@ test("steering states itself once however many projects it covers", () => {
   );
   assert.deepEqual(
     byClass(holder, "session-steering-docs").map((node) => node.textContent),
-    ["CURRENT-PLAN", "CURRENT-PLAN"],
+    ["CURRENT-PLAN"],
+  );
+  assert.deepEqual(
+    byClass(holder, "session-steering-wide").map((node) => node.textContent),
+    ["Project-wide"],
   );
   assert.equal(byClass(holder, "session-hold-target").length, 0);
 });
@@ -144,7 +149,8 @@ test("each steered project carries the documents it is steered from", () => {
     holdings: { current: [
       {
         holding_kind: "work_claim",
-        target_kind: "steering", project_id: 1, scope: { project_id: 1 },
+        target_kind: "steering", project_id: 1,
+        scope: { project_id: 1, document: "MISSION" },
         strategy_docs: ["MISSION", "VISION"],
       },
       {
@@ -157,7 +163,8 @@ test("each steered project carries the documents it is steered from", () => {
       },
       {
         holding_kind: "work_claim",
-        target_kind: "steering", project_id: 3, scope: { project_id: 3 },
+        target_kind: "steering", project_id: 3,
+        scope: { project_id: 3, document: "MASTER-PLAN" },
         strategy_docs: ["MASTER-PLAN"],
       },
       {
@@ -171,7 +178,7 @@ test("each steered project carries the documents it is steered from", () => {
   // read as a third yoke document.
   assert.deepEqual(
     byClass(holder, "session-steering-scope").map((node) => node.textContent),
-    ["yokeMISSION, VISION", "platformMASTER-PLAN"],
+    ["yokeMISSION", "platformMASTER-PLAN"],
   );
 });
 
@@ -195,8 +202,9 @@ test("a steering claim alone still marks the session as steering", () => {
     byClass(holder, "session-steering-project")[0].textContent, "platform",
   );
   assert.equal(
-    byClass(holder, "session-steering-docs")[0].textContent, "no doc lock",
+    byClass(holder, "session-steering-wide")[0].textContent, "Project-wide",
   );
+  assert.equal(byClass(holder, "session-steering-docs").length, 0);
 });
 
 
@@ -208,6 +216,7 @@ test("a released seat and its document lock read as one previous row", () => {
       {
         holding_kind: "work_claim", target_kind: "steering",
         target: "steering for project 3", project_id: 3,
+        scope: { project_id: 3, document: "CURRENT-PLAN" },
         strategy_docs: ["CURRENT-PLAN"], released_at: "2026-08-29T12:00:00Z",
       },
       {
@@ -235,6 +244,7 @@ test("a previous document lock no released seat covers keeps its own row", () =>
       {
         holding_kind: "work_claim", target_kind: "steering",
         target: "steering for project 3", project_id: 3,
+        scope: { project_id: 3, document: "CURRENT-PLAN" },
         strategy_docs: ["CURRENT-PLAN"], released_at: "2026-08-29T12:00:00Z",
       },
       {
@@ -262,6 +272,7 @@ test("same-named documents in two projects stay two previous rows", () => {
       {
         holding_kind: "work_claim", target_kind: "steering",
         target: "steering for project 3", project_id: 3,
+        scope: { project_id: 3, document: "CURRENT-PLAN" },
         strategy_docs: ["CURRENT-PLAN"], released_at: "2026-08-29T12:00:00Z",
       },
       {
@@ -288,7 +299,8 @@ test("a current document lock the steering block does not name keeps a row", () 
     holdings: { current: [
       {
         holding_kind: "work_claim",
-        target_kind: "steering", project_id: 1, scope: { project_id: 1 },
+        target_kind: "steering", project_id: 1,
+        scope: { project_id: 1, document: "MISSION" },
         strategy_docs: ["MISSION"],
       },
       {
@@ -321,6 +333,7 @@ test("previous steering holdings use the paired project and document label", () 
     holdings: { current: [], previous: [{
       holding_kind: "work_claim", target_kind: "steering",
       target: "steering for project 3", project_id: 3,
+      scope: { project_id: 3, document: "CURRENT-PLAN" },
       strategy_docs: ["CURRENT-PLAN"], released_at: "2026-08-26T12:00:00Z",
     }], previous_remainder: 0 },
   }, [{ id: 3, slug: "platform" }]);
