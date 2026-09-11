@@ -70,23 +70,18 @@ def _run(
                 side_effect=_stub_call_dispatcher,
             ):
                 with patch(
-                    "yoke_cli.commands.adapters.strategy."
+                    "yoke_cli.commands.adapters.strategy_render."
                     "call_dispatcher",
                     side_effect=_stub_call_dispatcher,
                 ):
                     with patch(
-                        "yoke_cli.commands.adapters.strategy_render."
-                        "call_dispatcher",
-                        side_effect=_stub_call_dispatcher,
+                        "yoke_cli.commands._helpers."
+                        "ensure_handlers_loaded"
                     ):
-                        with patch(
-                            "yoke_cli.commands._helpers."
-                            "ensure_handlers_loaded"
-                        ):
-                            with patch("sys.stdin", io.StringIO(stdin_text or "")):
-                                with redirect_stdout(io.StringIO()), \
-                                        redirect_stderr(io.StringIO()):
-                                    return cli_main(list(argv))
+                        with patch("sys.stdin", io.StringIO(stdin_text or "")):
+                            with redirect_stdout(io.StringIO()), \
+                                    redirect_stderr(io.StringIO()):
+                                return cli_main(list(argv))
 
 
 class TestRegistry:
@@ -236,14 +231,13 @@ class TestIngest:
         files = _CAPTURED_REQUESTS[-1].payload["files"]
         assert [f["slug"] for f in files] == ["PAD"]
 
-    def test_missing_file_fails_before_dispatch(
-        self, tmp_path: Path,
-    ) -> None:
+    def test_missing_file_fails_before_ingest_dispatch(self, tmp_path: Path) -> None:
+        # Identity resolves (doc.list) first; ingest.run never dispatches.
         rc = _run(
             "strategy", "ingest", "PAD", "--target-root", str(tmp_path),
         )
         assert rc == 1
-        assert _CAPTURED_REQUESTS == []
+        assert [r.function for r in _CAPTURED_REQUESTS] == ["strategy.doc.list"]
 
     def test_commit_flag_is_not_supported(self, tmp_path: Path) -> None:
         rc = _run(

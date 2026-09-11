@@ -196,21 +196,13 @@ from yoke_cli.commands.adapters.github_actions import (
 from yoke_cli.commands.adapters.github_actions_run_wait import (
     github_actions_wait_run,
 )
-from yoke_cli.commands.adapters.strategy import (
-    strategy_doc_archive,
-    strategy_doc_get,
-    strategy_doc_list,
-    strategy_doc_replace,
-    strategy_doc_unarchive,
+from yoke_cli.commands.adapters.strategy import strategy_doc_get, strategy_doc_list
+from yoke_cli.commands.adapters.strategy_create import strategy_doc_create
+from yoke_cli.commands.adapters.strategy_doc_write import (
+    strategy_doc_archive, strategy_doc_replace, strategy_doc_unarchive,
 )
-from yoke_cli.commands.adapters.strategy_create import (
-    strategy_doc_create,
-)
-from yoke_cli.commands.adapters.strategy_render import (
-    strategy_ingest,
-    strategy_render,
-    strategy_seed_defaults,
-)
+from yoke_cli.commands.adapters.strategy_render import strategy_ingest, strategy_render
+from yoke_cli.commands.adapters.strategy_seed_defaults import strategy_seed_defaults
 from yoke_cli.commands.adapters.strategy_ops import (
     strategy_carry_candidate_set,
     strategy_carry_mark,

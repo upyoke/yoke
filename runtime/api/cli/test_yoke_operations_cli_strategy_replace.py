@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import List, Optional
@@ -67,9 +68,9 @@ class TestDocReplace:
         )
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.replace", "strategy.render.run",
+            "strategy.doc.list", "strategy.doc.replace", "strategy.render.run",
         ]
-        req = _CAPTURED_REQUESTS[0]
+        req = _CAPTURED_REQUESTS[1]
         assert req.function == "strategy.doc.replace"
         assert req.target.kind == "global"
         assert req.payload == {
@@ -78,7 +79,7 @@ class TestDocReplace:
             "base_updated_at": "2026-06-10T00:00:00Z",
             "force": False,
         }
-        assert _CAPTURED_REQUESTS[1].payload == {}
+        assert _CAPTURED_REQUESTS[2].payload == {}
 
     def test_dispatches_with_content_flag_and_force(
         self, tmp_path: Path,
@@ -91,14 +92,14 @@ class TestDocReplace:
         )
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.replace", "strategy.render.run",
+            "strategy.doc.list", "strategy.doc.replace", "strategy.render.run",
         ]
-        req = _CAPTURED_REQUESTS[0]
+        req = _CAPTURED_REQUESTS[1]
         assert req.payload == {
             "slug": "PAD", "content": "# PAD\n",
             "base_updated_at": "2026-06-10T00:00:00Z", "force": True,
         }
-        assert _CAPTURED_REQUESTS[1].payload == {}
+        assert _CAPTURED_REQUESTS[2].payload == {}
 
     def test_dispatches_with_content_file(self, tmp_path: Path) -> None:
         content_file = tmp_path / "doc.md"
@@ -110,8 +111,8 @@ class TestDocReplace:
             "--target-root", str(tmp_path),
         )
         assert rc == 0
-        assert _CAPTURED_REQUESTS[0].payload["content"] == "# From file\n"
-        assert _CAPTURED_REQUESTS[1].function == "strategy.render.run"
+        assert _CAPTURED_REQUESTS[1].payload["content"] == "# From file\n"
+        assert _CAPTURED_REQUESTS[2].function == "strategy.render.run"
 
     def test_writes_full_render_after_success(
         self, tmp_path: Path, capsys,
@@ -119,6 +120,8 @@ class TestDocReplace:
         def _stub(request: FunctionCallRequest) -> FunctionCallResponse:
             _CAPTURED_REQUESTS.append(request)
             result = {"old_bytes": 8, "new_bytes": 12}
+            if request.function == "strategy.doc.list":
+                result = {"project_id": 1, "project_slug": "yoke", "docs": []}
             if request.function == "strategy.render.run":
                 result = {
                     "project_id": 1,
@@ -160,9 +163,9 @@ class TestDocReplace:
                     ])
         assert rc == 0
         assert [r.function for r in _CAPTURED_REQUESTS] == [
-            "strategy.doc.replace", "strategy.render.run",
+            "strategy.doc.list", "strategy.doc.replace", "strategy.render.run",
         ]
-        assert _CAPTURED_REQUESTS[1].payload == {}
+        assert _CAPTURED_REQUESTS[2].payload == {}
         assert (
             tmp_path / ".yoke" / "strategy" / "MISSION.md"
         ).read_text(encoding="utf-8") == "<!-- h -->\n# MISSION\n"
@@ -174,13 +177,13 @@ class TestDocReplace:
         assert "PAD\twritten" in out
 
     def test_unresolvable_anchor_skips_render_after_replace(self) -> None:
-        # Anchor resolution is deferred to AFTER the replace lands: an
-        # unresolvable anchor (e.g. a linked worktree without
-        # --target-root) warns and skips the local render instead of
-        # failing before the write. The replace dispatches and the
-        # command still succeeds; the render does not dispatch.
+        # An unresolvable anchor (e.g. a linked worktree without
+        # --target-root) never reaches project-identity resolution: it
+        # warns and skips the local render instead of failing before the
+        # write. The replace still dispatches and the command still
+        # succeeds; the render does not dispatch.
         with patch(
-            "yoke_cli.commands.adapters.strategy."
+            "yoke_cli.commands.adapters.strategy_doc_write."
             "resolve_target_root_for_cli",
             side_effect=RuntimeError("no anchor"),
         ):
@@ -193,6 +196,60 @@ class TestDocReplace:
         assert [r.function for r in _CAPTURED_REQUESTS] == [
             "strategy.doc.replace",
         ]
+
+    def test_target_root_for_another_project_refuses_before_dispatch(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # A KNOWN project mismatch is caught by resolving identity via
+        # strategy.doc.list before the mutation dispatches at all: zero
+        # DB writes, zero strategy.doc.replace calls.
+        monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "machine-home"))
+        monkeypatch.delenv("YOKE_MACHINE_CONFIG_FILE", raising=False)
+        from yoke_cli.config import machine_config
+
+        other_checkout = tmp_path / "other-project-checkout"
+        other_checkout.mkdir()
+        config_path = machine_config.config_path()
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(
+            json.dumps(
+                {"projects": [{"checkout": str(other_checkout), "project_id": 2}]}
+            ),
+            encoding="utf-8",
+        )
+
+        def _stub(request: FunctionCallRequest) -> FunctionCallResponse:
+            _CAPTURED_REQUESTS.append(request)
+            result = {}
+            if request.function == "strategy.doc.list":
+                result = {"project_id": 1, "project_slug": "yoke", "docs": []}
+            return FunctionCallResponse(
+                success=True, function=request.function,
+                version=request.version, request_id=request.request_id,
+                result=result,
+            )
+
+        env = {"YOKE_SESSION_ID": "test-session"}
+        with patch.dict("os.environ", env):
+            with patch(
+                "yoke_core.domain.yoke_function_dispatch.dispatch",
+                side_effect=_stub,
+            ):
+                with patch(
+                    "yoke_cli.commands._helpers."
+                    "ensure_handlers_loaded"
+                ):
+                    rc = cli_main([
+                        "strategy", "doc", "replace", "MISSION",
+                        "--content", "# Mission\n",
+                        "--base-updated-at", "2026-06-10T00:00:00Z",
+                        "--target-root", str(other_checkout),
+                    ])
+        assert rc == 2
+        assert [r.function for r in _CAPTURED_REQUESTS] == [
+            "strategy.doc.list",
+        ]
+        assert not (other_checkout / ".yoke").exists()
 
     def test_missing_content_source_returns_two(self) -> None:
         rc = _run(
