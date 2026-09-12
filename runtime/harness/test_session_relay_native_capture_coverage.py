@@ -104,3 +104,27 @@ def test_a_capture_never_grows_with_a_native_that_will_not_stop_talking() -> Non
 
     stdout, stderr = streams.snapshot()
     assert len(stdout) == 32 and len(stderr) == 32
+
+
+def test_a_chatty_native_keeps_its_last_words_as_well_as_its_first() -> None:
+    """The end is where a failure and a print-mode result both land."""
+    streams = BoundedStreams(budget=1_024)
+    streams.append(STDOUT, b"opening line\n")
+    streams.append(STDOUT, b"m" * 40_000)
+    streams.append(STDOUT, b"\nclosing line")
+
+    stdout, _ = streams.snapshot()
+
+    assert stdout.startswith(b"opening line")
+    assert stdout.endswith(b"closing line")
+    assert b"--- elided " in stdout
+    assert len(stdout) <= 1_024
+
+
+def test_a_stream_inside_its_budget_is_kept_whole_and_says_nothing_extra() -> None:
+    streams = BoundedStreams(budget=1_024)
+    streams.append(STDOUT, b'{"type":"result"}\n')
+
+    stdout, _ = streams.snapshot()
+
+    assert stdout == b'{"type":"result"}\n'

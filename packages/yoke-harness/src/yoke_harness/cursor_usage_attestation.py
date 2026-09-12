@@ -35,7 +35,7 @@ from yoke_contracts.session_usage_facts import (
 from yoke_contracts.session_usage_sources import (
     CURSOR_INCOMPLETE_TOKEN_FIELDS_REASON,
     CURSOR_NO_TURN_IDENTITY_REASON,
-    CURSOR_UNNAMED_MODEL,
+    UNNAMED_MODEL,
     CURSOR_USAGE_SOURCE,
     usage_source,
 )
@@ -47,6 +47,13 @@ from yoke_harness.artifact_watermark import (
     watermark_lock,
 )
 
+
+#: How many parent-turn ids the dedup record keeps. A turn arrives twice
+#: within moments — a ``stop`` and an ``afterAgentResponse`` naming one
+#: ``generation_id`` — never after hundreds of later turns, so keeping
+#: every id a long session ever produced would grow a record that is
+#: rewritten on every turn to no purpose.
+DEDUP_HISTORY = 512
 
 _HOOK_FIELDS = (
     "input_tokens",
@@ -97,6 +104,7 @@ def _fold_cursor_usage(payload: Mapping[str, Any]) -> SessionUsage:
         if generation not in seen:
             _accumulate(totals, model, buckets)
             seen.append(generation)
+            del seen[:-DEDUP_HISTORY]
         mark = ArtifactWatermark(
             last_key=generation,
             totals=_cursor_document(totals, seen, _totals_document),
@@ -168,7 +176,7 @@ def _model_name(payload: Mapping[str, Any], nested: Optional[Mapping[str, Any]])
             name = _text(block.get(key))
             if name:
                 return name
-    return CURSOR_UNNAMED_MODEL
+    return UNNAMED_MODEL
 
 
 def _session_id(payload: Mapping[str, Any]) -> str:

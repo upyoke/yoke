@@ -12,7 +12,7 @@ import json
 import sqlite3
 
 from yoke_contracts.session_usage_facts import usage_from_document
-from yoke_contracts.session_usage_sources import CURSOR_UNNAMED_MODEL
+from yoke_contracts.session_usage_sources import UNNAMED_MODEL
 from yoke_harness.cursor_native_result_usage import (
     fold_launch_native_result,
     fold_native_result_usage,
@@ -160,7 +160,7 @@ def test_a_conversation_naming_no_model_is_not_given_one(tmp_path: Path) -> None
         _capture(NATIVE_RESULT_LINE), chats_dir=tmp_path / "empty"
     )
 
-    assert usage_from_document(document).models[0].model == CURSOR_UNNAMED_MODEL
+    assert usage_from_document(document).models[0].model == UNNAMED_MODEL
 
 
 def test_a_launch_capture_is_folded_by_its_launch_id(tmp_path: Path) -> None:
@@ -191,3 +191,24 @@ def test_a_launch_capture_is_folded_by_its_launch_id(tmp_path: Path) -> None:
 
 def test_an_unreadable_launch_reference_folds_nothing(tmp_path: Path) -> None:
     assert fold_launch_native_result("not-a-launch-id", state_dir=tmp_path) == ""
+
+
+def test_a_chatty_turns_result_survives_the_capture_bound(tmp_path: Path) -> None:
+    """A native that outtalks its budget still states its tokens.
+
+    Cursor prints its result as it exits, so a capture that kept only the
+    beginning of a long turn would drop exactly the object this reader
+    exists to fold — and the turn's consumption with it, silently.
+    """
+    from yoke_harness.session_relay_native_streams import STDOUT, BoundedStreams
+
+    streams = BoundedStreams()
+    streams.append(STDOUT, b"chatter\n" * 40_000)
+    streams.append(STDOUT, NATIVE_RESULT_LINE.encode() + b"\n")
+    stdout, stderr = streams.snapshot()
+    capture = parse_capture(compose_capture(stdout=stdout, stderr=stderr, exit_code=0))
+
+    payload = native_result_payload(capture)
+
+    assert payload is not None
+    assert payload["usage"]["inputTokens"] == 102596

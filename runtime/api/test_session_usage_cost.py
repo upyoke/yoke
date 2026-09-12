@@ -231,3 +231,37 @@ def test_published_rates_alone_stay_a_complete_cost() -> None:
 
     assert cost.status == COST_COMPLETE
     assert cost.reason == ""
+
+
+def test_exact_tokens_with_an_unattributable_model_price_as_uncertain() -> None:
+    """A caveat belongs to the estimate, never to the counts."""
+    usage = SessionUsage(
+        status=USAGE_COMPLETE,
+        source="rollout token_count info.total_token_usage",
+        models=(ModelUsage(model="gpt-5.1-codex-max", input=1_000_000),),
+        cost_caveat="the session's model history cannot be known exactly",
+    )
+
+    cost = session_cost(usage, _priced)
+
+    assert tokens_display(usage) == compact_tokens(1_000_000)
+    assert cost.status == COST_PARTIAL
+    assert "model history" in cost.reason
+    assert cost.usd == 5.0
+    assert "tokens exact, pricing uncertain" in usage_title(usage, cost)
+
+
+def test_a_caveat_is_kept_once_and_never_touches_the_token_status() -> None:
+    from yoke_contracts.session_usage_facts import (
+        usage_document,
+        usage_from_document,
+        with_cost_caveat,
+    )
+
+    usage = with_cost_caveat(
+        with_cost_caveat(_usage(input=10), "first caveat"), "second caveat"
+    )
+
+    assert usage.status == USAGE_COMPLETE
+    assert usage.cost_caveat == "first caveat"
+    assert usage_from_document(usage_document(usage)).cost_caveat == "first caveat"

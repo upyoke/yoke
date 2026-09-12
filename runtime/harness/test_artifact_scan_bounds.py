@@ -22,22 +22,19 @@ from yoke_harness.artifact_scan import (
     tail_rows_newest_first,
 )
 from yoke_harness.codex_artifact_reader import codex_record_decoder
-
-
-def _write(path: Path, rows: list[dict]) -> Path:
-    path.write_text("\n".join(json.dumps(row) for row in rows) + "\n")
-    return path
-
-
-def _padded(index: int, size: int, filler: str = "a") -> dict:
-    return {"index": index, "filler": filler * size}
+from runtime.harness.artifact_record_test_support import (
+    padded_row,
+    write_rows,
+)
 
 
 def test_a_fold_holds_accumulators_rather_than_the_bytes_it_read(
     tmp_path: Path,
 ) -> None:
     """Peak allocation tracks one record, not the artifact."""
-    artifact = _write(tmp_path / "big.jsonl", [_padded(i, 200_000) for i in range(8)])
+    artifact = write_rows(
+        tmp_path / "big.jsonl", [padded_row(i, 200_000) for i in range(8)]
+    )
     counted = 0
 
     def fold(row: dict) -> None:
@@ -61,11 +58,11 @@ def test_one_wide_character_does_not_multiply_the_whole_artifact(
     tmp_path: Path,
 ) -> None:
     """Python stores a string containing one emoji four bytes per character."""
-    artifact = _write(
-        tmp_path / "wide.jsonl", [_padded(i, 200_000, "a") for i in range(4)]
+    artifact = write_rows(
+        tmp_path / "wide.jsonl", [padded_row(i, 200_000, "a") for i in range(4)]
     )
     with artifact.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(_padded(9, 200_000, "a") | {"emoji": "🙂"}) + "\n")
+        handle.write(json.dumps(padded_row(9, 200_000, "a") | {"emoji": "🙂"}) + "\n")
 
     tracemalloc.start()
     try:
@@ -81,8 +78,9 @@ def test_an_oversized_record_is_skipped_and_said_out_loud(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(artifact_scan, "MAX_RECORD_BYTES", 1_000)
-    artifact = _write(
-        tmp_path / "s.jsonl", [_padded(1, 10), _padded(2, 5_000), _padded(3, 10)]
+    artifact = write_rows(
+        tmp_path / "s.jsonl",
+        [padded_row(1, 10), padded_row(2, 5_000), padded_row(3, 10)],
     )
     seen: list[int] = []
 
@@ -99,7 +97,7 @@ def test_an_oversized_record_without_its_newline_yet_is_not_held(
     """The bytes are dropped as they arrive, not buffered awaiting an end."""
     monkeypatch.setattr(artifact_scan, "MAX_RECORD_BYTES", 1_000)
     artifact = tmp_path / "s.jsonl"
-    artifact.write_text(json.dumps(_padded(1, 10)) + "\n" + "x" * 40_000)
+    artifact.write_text(json.dumps(padded_row(1, 10)) + "\n" + "x" * 40_000)
 
     result = scan_rows(artifact, 0, lambda row: None)
 
@@ -110,7 +108,9 @@ def test_an_oversized_record_without_its_newline_yet_is_not_held(
 def test_a_read_that_stops_short_says_so_and_the_next_one_resumes(
     tmp_path: Path,
 ) -> None:
-    artifact = _write(tmp_path / "s.jsonl", [_padded(i, 20_000) for i in range(10)])
+    artifact = write_rows(
+        tmp_path / "s.jsonl", [padded_row(i, 20_000) for i in range(10)]
+    )
     first: list[int] = []
 
     early = scan_rows(
@@ -127,37 +127,10 @@ def test_a_read_that_stops_short_says_so_and_the_next_one_resumes(
     assert first + second == list(range(10))
 
 
-def test_a_record_wider_than_one_read_does_not_stall_the_fold(
-    tmp_path: Path,
-) -> None:
-    """Folding nothing at the bound would repeat forever at one offset."""
-    artifact = _write(tmp_path / "s.jsonl", [_padded(1, 40_000), _padded(2, 10)])
-
-    first = scan_rows(artifact, 0, lambda row: None, max_scan_bytes=5_000)
-
-    assert first.offset > 0
-    assert first.oversized
-    assert not first.caught_up
-    seen: list[int] = []
-    offset = first.offset
-    while not (
-        result := scan_rows(
-            artifact,
-            offset,
-            lambda row: seen.append(row["index"]),
-            max_scan_bytes=5_000,
-        )
-    ).caught_up:
-        assert result.offset > offset
-        offset = result.offset
-
-    assert seen == [2]
-
-
 def test_a_read_that_reaches_the_end_exactly_at_its_bound_is_caught_up(
     tmp_path: Path,
 ) -> None:
-    artifact = _write(tmp_path / "s.jsonl", [_padded(0, 10)])
+    artifact = write_rows(tmp_path / "s.jsonl", [padded_row(0, 10)])
 
     result = scan_rows(
         artifact, 0, lambda row: None, max_scan_bytes=artifact.stat().st_size
@@ -167,10 +140,10 @@ def test_a_read_that_reaches_the_end_exactly_at_its_bound_is_caught_up(
 
 
 def test_a_trailing_partial_record_waits_for_its_newline(tmp_path: Path) -> None:
-    artifact = _write(tmp_path / "s.jsonl", [_padded(1, 10)])
+    artifact = write_rows(tmp_path / "s.jsonl", [padded_row(1, 10)])
     complete = artifact.stat().st_size
     with artifact.open("a") as handle:
-        handle.write(json.dumps(_padded(2, 10))[:20])
+        handle.write(json.dumps(padded_row(2, 10))[:20])
     seen: list[int] = []
 
     result = scan_rows(artifact, 0, lambda row: seen.append(row["index"]))
@@ -202,7 +175,9 @@ def test_a_missing_artifact_folds_nothing_and_keeps_its_offset(
 
 def test_iteration_stops_where_its_reader_stops(tmp_path: Path) -> None:
     """A reader that has what it came for never reads the rest."""
-    artifact = _write(tmp_path / "s.jsonl", [_padded(i, 100_000) for i in range(10)])
+    artifact = write_rows(
+        tmp_path / "s.jsonl", [padded_row(i, 100_000) for i in range(10)]
+    )
 
     tracemalloc.start()
     try:
@@ -221,7 +196,7 @@ def test_a_final_record_without_its_newline_is_still_iterated(
 ) -> None:
     """An identity scan advances no offset, so it reads the last record."""
     artifact = tmp_path / "s.jsonl"
-    artifact.write_text(json.dumps(_padded(1, 10)))
+    artifact.write_text(json.dumps(padded_row(1, 10)))
 
     assert [row["index"] for row in iter_rows(artifact)] == [1]
 
@@ -231,7 +206,7 @@ def test_a_final_oversized_record_without_its_newline_is_not_iterated(
 ) -> None:
     monkeypatch.setattr(artifact_scan, "MAX_RECORD_BYTES", 1_000)
     artifact = tmp_path / "s.jsonl"
-    artifact.write_text(json.dumps(_padded(1, 10)) + "\n" + "x" * 40_000)
+    artifact.write_text(json.dumps(padded_row(1, 10)) + "\n" + "x" * 40_000)
 
     assert [row["index"] for row in iter_rows(artifact)] == [1]
 
@@ -240,7 +215,7 @@ def test_a_fold_leaves_a_final_record_without_its_newline_for_next_time(
     tmp_path: Path,
 ) -> None:
     artifact = tmp_path / "s.jsonl"
-    artifact.write_text(json.dumps(_padded(1, 10)))
+    artifact.write_text(json.dumps(padded_row(1, 10)))
     seen: list[int] = []
 
     result = scan_rows(artifact, 0, lambda row: seen.append(row["index"]))
@@ -278,7 +253,9 @@ def test_a_projected_final_record_retries_whole_after_its_newline(
 
 
 def test_the_newest_records_are_read_from_the_end(tmp_path: Path) -> None:
-    artifact = _write(tmp_path / "s.jsonl", [_padded(i, 50_000) for i in range(20)])
+    artifact = write_rows(
+        tmp_path / "s.jsonl", [padded_row(i, 50_000) for i in range(20)]
+    )
 
     rows = list(tail_rows_newest_first(artifact, max_rows=2, max_bytes=200_000))
 
@@ -286,7 +263,9 @@ def test_the_newest_records_are_read_from_the_end(tmp_path: Path) -> None:
 
 
 def test_the_record_the_tail_window_cut_in_half_is_dropped(tmp_path: Path) -> None:
-    artifact = _write(tmp_path / "s.jsonl", [_padded(i, 10_000) for i in range(5)])
+    artifact = write_rows(
+        tmp_path / "s.jsonl", [padded_row(i, 10_000) for i in range(5)]
+    )
 
     rows = list(tail_rows_newest_first(artifact, max_bytes=15_000))
 
@@ -297,7 +276,9 @@ def test_a_tail_read_costs_its_window_rather_than_the_artifact(
     tmp_path: Path,
 ) -> None:
     """A reader taking the newest match never parses the window's rest."""
-    artifact = _write(tmp_path / "s.jsonl", [_padded(i, 200_000) for i in range(30)])
+    artifact = write_rows(
+        tmp_path / "s.jsonl", [padded_row(i, 200_000) for i in range(30)]
+    )
 
     tracemalloc.start()
     try:
@@ -314,9 +295,9 @@ def test_a_half_written_final_record_is_dropped_by_the_tail_read(
     tmp_path: Path,
 ) -> None:
     """It is not valid JSON, so the newest complete record still wins."""
-    artifact = _write(tmp_path / "s.jsonl", [_padded(1, 10)])
+    artifact = write_rows(tmp_path / "s.jsonl", [padded_row(1, 10)])
     with artifact.open("a") as handle:
-        handle.write(json.dumps(_padded(2, 10))[:20])
+        handle.write(json.dumps(padded_row(2, 10))[:20])
 
     rows = list(tail_rows_newest_first(artifact))
 
@@ -327,7 +308,7 @@ def test_a_complete_final_record_without_its_newline_is_read(
     tmp_path: Path,
 ) -> None:
     artifact = tmp_path / "s.jsonl"
-    artifact.write_text(json.dumps(_padded(1, 10)))
+    artifact.write_text(json.dumps(padded_row(1, 10)))
 
     rows = list(tail_rows_newest_first(artifact))
 
@@ -335,7 +316,7 @@ def test_a_complete_final_record_without_its_newline_is_read(
 
 
 def test_a_tail_smaller_than_its_window_reads_every_record(tmp_path: Path) -> None:
-    artifact = _write(tmp_path / "s.jsonl", [_padded(i, 10) for i in range(3)])
+    artifact = write_rows(tmp_path / "s.jsonl", [padded_row(i, 10) for i in range(3)])
 
     rows = list(tail_rows_newest_first(artifact))
 

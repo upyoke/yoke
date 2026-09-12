@@ -15,6 +15,14 @@ ordinary Cursor attestation, whose ``request_id`` dedup means re-reading
 the same capture on a later poll counts the turn once, however many times
 a report is retried.
 
+Because the result is printed last, a capture that kept only the start of
+a talkative turn would drop it, and the turn's consumption with it. So a
+capture keeps its tail as well as its head
+(:mod:`yoke_harness.session_relay_native_streams`). One residual limit is
+stated rather than hidden: a single result object larger than a stream's
+whole budget cannot be read back at all, because no part of a truncated
+JSON object parses; such a turn is unavailable rather than wrong.
+
 The result names no model, so the served model is read from the same
 conversation store the session's model attestation reads. Naming it is
 what lets the shared price reference recognise the tokens; a conversation

@@ -15,12 +15,20 @@ them. :data:`REASONING_BUCKET` is the deliberate exception — it is a
 labelled *subset* of ``output``, recorded because an operator wants to see
 it and never added to a total, because its tokens are already in output.
 
-``status`` carries the other half of the honesty. A reading is complete
-only when the artifact stated everything for the whole session; a source
-that lost earlier history, or that cannot attribute its totals to the
-model that produced them, is ``partial`` and says why. A harness that
-states no usage at all is ``unavailable`` with its reason, never zero —
-zero is a real measurement and would read as a session that ran free.
+``status`` carries the other half of the honesty, and it is about tokens
+alone. A reading is complete only when the artifact stated the whole
+session's consumption; a source that lost history it needed is
+``partial`` and says why. A harness that states no usage at all is
+``unavailable`` with its reason, never zero — zero is a real measurement
+and would read as a session that ran free.
+
+Knowing the tokens exactly is not the same as knowing what they cost.
+A source stating one cumulative total for the whole thread recovers that
+total exactly even when the record of *which* models ran is incomplete,
+and pricing needs the model. That uncertainty travels as
+:attr:`SessionUsage.cost_caveat` rather than as a partial token count,
+because marking exact tokens partial teaches an operator to distrust a
+figure that is right.
 """
 
 from __future__ import annotations
@@ -91,6 +99,10 @@ class SessionUsage:
     observed_at: str = ""
     source: str = ""
     models: tuple[ModelUsage, ...] = ()
+    #: Why an estimate priced from these tokens is less certain than the
+    #: tokens themselves — an unattributable model, a partial model
+    #: history. Never a statement about the counts.
+    cost_caveat: str = ""
 
     def billable_tokens(self) -> int:
         return sum(entry.billable_tokens() for entry in self.models)
@@ -160,6 +172,18 @@ def with_partial(usage: SessionUsage, reason: str) -> SessionUsage:
     )
 
 
+def with_cost_caveat(usage: SessionUsage, reason: str) -> SessionUsage:
+    """Name why pricing this reading is less certain than counting it.
+
+    The token status is untouched: the counts stay exactly as measured,
+    and only the estimate derived from them carries the doubt. The first
+    caveat is kept, for the same reason the first partial reason is.
+    """
+    if usage.status == USAGE_UNAVAILABLE:
+        return usage
+    return replace(usage, cost_caveat=usage.cost_caveat or reason.strip())
+
+
 def usage_document(usage: SessionUsage) -> str:
     """Serialize one reading for the ``usage_totals`` column."""
     return json.dumps(
@@ -168,6 +192,7 @@ def usage_document(usage: SessionUsage) -> str:
             "reason": usage.reason,
             "observed_at": usage.observed_at,
             "source": usage.source,
+            "cost_caveat": usage.cost_caveat,
             "models": [
                 {
                     "model": entry.model,
@@ -206,6 +231,7 @@ def usage_from_document(document: Any) -> Optional[SessionUsage]:
         observed_at=str(block.get("observed_at") or ""),
         source=str(block.get("source") or ""),
         models=models,
+        cost_caveat=str(block.get("cost_caveat") or ""),
     )
 
 
@@ -243,5 +269,6 @@ __all__ = [
     "unavailable",
     "usage_document",
     "usage_from_document",
+    "with_cost_caveat",
     "with_partial",
 ]

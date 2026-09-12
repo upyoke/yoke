@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from yoke_contracts.harness_family_identity import CODEX_FAMILY
-from yoke_contracts.session_usage_facts import USAGE_PARTIAL, USAGE_UNAVAILABLE
+from yoke_contracts.session_usage_facts import USAGE_COMPLETE, USAGE_UNAVAILABLE
 from yoke_contracts.session_usage_sources import states_usage, usage_source
 from yoke_harness.codex_usage_attestation import MIXED_MODEL_REASON
 from yoke_harness.usage_attestation import attest_session_usage
@@ -117,6 +117,12 @@ def test_a_resumed_codex_read_keeps_the_last_cumulative_total(
 def test_codex_session_wide_totals_cannot_be_split_across_two_models(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """The cumulative total is exact; only its attribution is not.
+
+    Marking the counts partial here would teach an operator to distrust a
+    number the rollout stated outright, so the doubt lands on the price
+    instead.
+    """
     rollout = write_rows(
         tmp_path / "rollout.jsonl",
         [
@@ -129,8 +135,8 @@ def test_codex_session_wide_totals_cannot_be_split_across_two_models(
 
     usage = _read_codex(rollout, monkeypatch)
 
-    assert usage.status == USAGE_PARTIAL
-    assert usage.reason == MIXED_MODEL_REASON
+    assert usage.status == USAGE_COMPLETE
+    assert usage.cost_caveat == MIXED_MODEL_REASON
     assert usage.billable_tokens() == 550
 
 

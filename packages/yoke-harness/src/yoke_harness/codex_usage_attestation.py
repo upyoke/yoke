@@ -15,6 +15,7 @@ scanning the rollout a second time.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
@@ -23,9 +24,9 @@ from yoke_contracts.session_usage_facts import (
     SessionUsage,
     normalize_count,
     unavailable,
-    with_partial,
+    with_cost_caveat,
 )
-from yoke_contracts.session_usage_sources import usage_source
+from yoke_contracts.session_usage_sources import UNNAMED_MODEL, usage_source
 from yoke_harness.artifact_scan import scan_rows
 from yoke_harness.codex_artifact_reader import (
     MODEL_HISTORY_INCOMPLETE_KEY,
@@ -51,7 +52,9 @@ from yoke_harness.usage_attestation import (
 
 
 #: Recorded when a harness states session-wide totals but ran more than
-#: one model, so the totals cannot be divided between them.
+#: one model, so the totals cannot be divided between them. The tokens
+#: are still exactly what the thread consumed, which is why this names a
+#: pricing caveat rather than a partial count.
 MIXED_MODEL_REASON = (
     "this harness states one session-wide total and more than one model "
     "served the session, so consumption cannot be attributed per model"
@@ -150,8 +153,7 @@ def attest_codex_usage(payload: Mapping[str, Any], session_id: str) -> SessionUs
         )
         if mark != persisted_mark:
             save_watermark(session_id, path, mark)
-    stored = stored_totals(mark)
-    return _codex_reading(stored, source, _codex_partial_reason(stored, mark))
+    return _codex_reading(stored_totals(mark), source, mark)
 
 
 def _codex_totals(block: Mapping[str, Any]) -> Optional[dict[str, int]]:
@@ -179,39 +181,52 @@ def _codex_totals(block: Mapping[str, Any]) -> Optional[dict[str, int]]:
 
 
 def _codex_reading(
-    stored: Mapping[str, Any], source: str, partial: Optional[str]
+    stored: Mapping[str, Any], source: str, mark: ArtifactWatermark
 ) -> SessionUsage:
     """Present a Codex fold: its newest cumulative statement, per model."""
+    partial = _codex_partial_reason(stored, mark)
     latest = stored.get("latest") if isinstance(stored.get("latest"), dict) else None
     models = [str(name) for name in stored.get("models", []) if str(name).strip()]
     if not latest:
         return _empty_reading(source, partial)
     reading = _reading(
-        {(models[-1] if models else ""): dict(latest)},
+        {(models[-1] if models else UNNAMED_MODEL): dict(latest)},
         source=source,
         partial=partial,
     )
-    if len(models) > 1:
-        reading = with_partial(reading, MIXED_MODEL_REASON)
-    return reading
+    caveat = _codex_cost_caveat(stored, models)
+    return with_cost_caveat(reading, caveat) if caveat else reading
 
 
 def _persisted_codex_reading(session_id: str, path: Path, source: str) -> SessionUsage:
     mark = load_watermark(session_id, path)
-    stored = stored_totals(mark)
-    return _codex_reading(stored, source, _codex_partial_reason(stored, mark))
+    return _codex_reading(stored_totals(mark), source, mark)
 
 
 def _codex_partial_reason(
     stored: Mapping[str, Any], mark: ArtifactWatermark
 ) -> Optional[str]:
-    if mark.truncated:
-        return partial_reason(mark)
+    """Why the token counts themselves are less than the whole thread.
+
+    A lost record is deliberately not partiality by itself here, which is
+    why the mark's own oversized flag is set aside before asking for the
+    shared reason. Codex states its consumption cumulatively, so the
+    newest statement covers every turn including the ones whose records
+    could not be read: what such a loss costs is the model history, and
+    the stored flags say which of the two it was.
+    """
     if stored.get(USAGE_INCOMPLETE_KEY):
         return USAGE_GAP_REASON
+    return partial_reason(replace(mark, oversized=False))
+
+
+def _codex_cost_caveat(stored: Mapping[str, Any], models: list[str]) -> str:
+    """Why an estimate priced from those exact tokens is still uncertain."""
     if stored.get(MODEL_HISTORY_INCOMPLETE_KEY):
         return MODEL_HISTORY_GAP_REASON
-    return partial_reason(mark)
+    if len(models) > 1:
+        return MIXED_MODEL_REASON
+    return ""
 
 
 __all__ = [
