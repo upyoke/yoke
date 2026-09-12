@@ -51,9 +51,9 @@ async function mountHistory(t, handler) {
       }
       if (request.function === "session_control.relay.list") return ok({ relays: [] });
       if (request.function === "machine.list") return ok({ machines: [] });
-      // The machines panel's own durable ended-usage read; independent of
+      // The machines panel's own durable 24h-usage read; independent of
       // this file's open/history roster story.
-      if (request.function === "sessions.list" && request.payload.ended_last_24h) {
+      if (request.function === "sessions.list" && request.payload.usage_last_24h) {
         return ok({ rows: [] });
       }
       // The actor menu's own read at mount; not part of the history story.
@@ -107,10 +107,10 @@ test("ended history is lazy, cursor-paged, and excluded from bulk audiences", as
   });
   // The app-wide roster refreshes once at boot and once again alongside
   // this view's own scoped load; the machines panel's own durable
-  // ended-usage read fires alongside that scoped load too.
+  // 24h-usage read fires alongside that scoped load too.
   assert.deepEqual(requests.filter((request) => request.function === "sessions.list"), [
     { function: "sessions.list", payload: { open: true, per_project: true } },
-    { function: "sessions.list", payload: { ended_last_24h: true, projects: ["1"] } },
+    { function: "sessions.list", payload: { usage_last_24h: true, projects: ["1"] } },
     { function: "sessions.list", payload: { open: true, projects: ["1"] } },
     { function: "sessions.list", payload: { open: true, per_project: true } },
   ]);

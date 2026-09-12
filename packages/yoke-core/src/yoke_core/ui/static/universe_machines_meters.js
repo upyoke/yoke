@@ -107,6 +107,56 @@ export function windowLabel(window) {
   return scope ? `${kind} · ${scope}` : kind;
 }
 
+// Where a window sits in the card's row order, smallest first. A pool is read
+// as a unit — the general pool the plan meters as a whole, then each
+// model-specific pool — because a reader comparing one model's weekly level
+// against its own rolling window should not have to hop over another pool's
+// row to do it. Inside a pool the longest window leads, so the weekly level a
+// plan is actually budgeted against is the first thing read and the main
+// weekly/all row is always the card's top line. Sorting on the structured
+// `scope`/`window_kind` identity rather than the rendered label keeps the
+// order intact when a label is truncated to its column.
+const WINDOW_ORDER = ["rolling_7d", "monthly", "rolling_5h"];
+// A scope the vendor has not taught us yet still groups with its own pool and
+// orders after every known one, rather than splitting the pools it lands in.
+const UNKNOWN_WINDOW_RANK = WINDOW_ORDER.length;
+
+// The general pool the plan meters as a whole. A window that names no scope
+// is metering that same whole, so it belongs to the same group rather than to
+// a model pool of its own.
+const GENERAL_POOL = "all";
+
+function windowScope(window) {
+  return String(window?.scope || "").trim();
+}
+
+export function planWindowSortKey(window) {
+  const scope = windowScope(window);
+  const general = scope === "" || scope === GENERAL_POOL;
+  const kindRank = WINDOW_ORDER.indexOf(String(window?.window_kind || ""));
+  return {
+    poolRank: general ? 0 : 1,
+    poolName: general ? "" : scope.toLowerCase(),
+    windowRank: kindRank === -1 ? UNKNOWN_WINDOW_RANK : kindRank,
+  };
+}
+
+// Deterministic from the rows alone: two windows of one pool stay adjacent,
+// the general pool leads, and model pools follow in a stable name order. Ties
+// (a pool and window pair appearing twice) keep their incoming order, so the
+// sort never reshuffles rows it cannot distinguish.
+export function sortPlanWindows(windows) {
+  return [...(Array.isArray(windows) ? windows : [])]
+    .map((window, index) => ({ window, index, key: planWindowSortKey(window) }))
+    .sort((left, right) => (
+      left.key.poolRank - right.key.poolRank
+      || left.key.poolName.localeCompare(right.key.poolName)
+      || left.key.windowRank - right.key.windowRank
+      || left.index - right.index
+    ))
+    .map((entry) => entry.window);
+}
+
 // A pool with no runway left is at the wall, which is a different fact from a
 // pool nobody could read; both are different from one merely running warm.
 export function headroomTone(headroom) {

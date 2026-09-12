@@ -97,6 +97,9 @@ export function createSearchFrame(documentNode) {
 
   return {
     closeOverlay,
+    // The compact overlay is open state the shared dismissal has to see: an
+    // overlay opened with an empty query has no result list to go by.
+    isOverlayOpen: () => !overlay.hidden,
     focus() {
       if (compactViewport(windowNode)) openOverlay();
       else input?.focus?.();

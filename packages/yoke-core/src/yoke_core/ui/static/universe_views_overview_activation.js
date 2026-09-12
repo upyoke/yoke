@@ -191,13 +191,19 @@ function renderModule(context, module, position, result, draw, viewState) {
   return card;
 }
 
-function renderStack(context, host, result, onAllHidden) {
+function renderStack(context, host, result, onStackResolved) {
   const documentNode = context.document;
+  const resolved = (visible) => {
+    if (typeof onStackResolved === "function") onStackResolved(visible);
+  };
   if (!result || !Array.isArray(result.modules)) {
     host.replaceChildren(el(
       documentNode, "p", "activation-unresolved",
       "activation signals unresolved",
     ));
+    // An unresolved read is shown, not hidden: the section says the signals
+    // could not be read rather than implying there is nothing to activate.
+    resolved(true);
     return;
   }
   const viewState = { mode: portabilityMode(context.capabilities) };
@@ -210,21 +216,20 @@ function renderStack(context, host, result, onAllHidden) {
       ));
     });
     host.replaceChildren(stack);
-    if (!stack.children.length && typeof onAllHidden === "function") {
-      onAllHidden();
-    }
+    resolved(stack.children.length > 0);
   };
   draw();
 }
 
 // The one Overview entry point renders the stack from a single activation
-// read. `onAllHidden` fires whenever the drawn stack is empty because every
-// module is hidden, so the caller can hide the section that holds it.
-export function loadActivationModules(context, host, { onAllHidden } = {}) {
+// read. `onStackResolved` reports whether the drawn stack has anything in it,
+// each time it is drawn, so the caller reveals or hides the section that
+// holds it from a resolved fact rather than from a default.
+export function loadActivationModules(context, host, { onStackResolved } = {}) {
   const read = readActivation(context);
   read.then((result) => {
     if (!context.isMounted()) return;
-    renderStack(context, host, result, onAllHidden);
+    renderStack(context, host, result, onStackResolved);
   });
   return read;
 }

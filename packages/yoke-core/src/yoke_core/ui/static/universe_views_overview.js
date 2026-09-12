@@ -48,16 +48,21 @@ export function renderOverviewView(context, main, scope, options = {}) {
   frontier.body.replaceChildren(waiting, ready, active, shipping, done);
 
   const onboarding = overviewSection(documentNode, "onboarding", "Onboarding");
+  // Hidden until the activation read says there is a module to show. The
+  // section used to be drawn visible and hidden again once the read landed,
+  // which is the flash anyone who dismissed every module saw on each load.
+  onboarding.hidden = true;
   const activationHost = el(documentNode, "div", "activation-host");
   onboarding.body.replaceChildren(activationHost);
   if (options.aboveScope) options.aboveScope.replaceChildren(onboarding);
   main.replaceChildren(
     ...(options.aboveScope ? [] : [onboarding]), strategy, frontier,
   );
-  // Once every onboarding module is hidden the whole section goes with it;
-  // the only way back is Reset on Profile.
+  // The section follows the resolved stack: revealed when it has modules,
+  // and gone once every one of them is dismissed — the only way back then
+  // is Reset on Profile.
   loadActivationModules(context, activationHost, {
-    onAllHidden: () => { onboarding.hidden = true; },
+    onStackResolved: (visible) => { onboarding.hidden = !visible; },
   });
 
   let currentScope = scope;

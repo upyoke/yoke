@@ -1,6 +1,7 @@
 // Interactive controls that belong to the universe frame rather than a view:
 // the cross-screen search and the persistent environment/footer strip.
 
+import { attachMenuDismissal } from "./universe_menu_dismissal.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { createSearchFrame } from "./universe_search_overlay.js";
@@ -262,10 +263,7 @@ function createSearch(documentNode, client) {
     if (input.value.trim()) scheduleUpdate();
   });
   input.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      dismiss();
-      return;
-    }
+    // Escape is the shared dismissal's, so it reads the same everywhere.
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       selectResult(activeIndex + (event.key === "ArrowDown" ? 1 : -1));
@@ -278,32 +276,43 @@ function createSearch(documentNode, client) {
       dismiss();
     }
   });
-  return { close: dismiss, focus: frame.focus, input, root: frame.root };
+  const disposeDismissal = attachMenuDismissal(documentNode, {
+    root: frame.root,
+    close: dismiss,
+    isOpen: () => !results.hidden || frame.isOverlayOpen(),
+    trigger: input,
+  });
+  return {
+    close: dismiss,
+    dispose: disposeDismissal,
+    focus: frame.focus,
+    input,
+    root: frame.root,
+  };
 }
 
 export function createShellControls({ documentNode, client, options }) {
   const search = createSearch(documentNode, client);
-  const { footer, closePanels } = createFooter(documentNode, options);
+  const { footer, dispose: disposeFooter } = createFooter(documentNode, options);
   const windowNode = documentNode.defaultView;
+  // Escape and outside-click dismissal belong to the shared menu contract
+  // each surface attaches for itself; this binding owns only the shortcut
+  // that opens search from anywhere.
   const onWindowKeydown = (event) => {
     const key = String(event.key || "").toLowerCase();
-    if ((event.metaKey || event.ctrlKey) && key === "k") {
-      event.preventDefault();
-      search.focus();
-      if (search.input.value.trim()) {
-        search.input.dispatchEvent(new Event("input"));
-      }
-      return;
-    }
-    if (event.key === "Escape") {
-      search.close();
-      closePanels();
+    if (!(event.metaKey || event.ctrlKey) || key !== "k") return;
+    event.preventDefault();
+    search.focus();
+    if (search.input.value.trim()) {
+      search.input.dispatchEvent(new Event("input"));
     }
   };
   windowNode.addEventListener("keydown", onWindowKeydown);
   return {
     dispose() {
       windowNode.removeEventListener("keydown", onWindowKeydown);
+      search.dispose();
+      disposeFooter();
     },
     footer,
     search: search.root,

@@ -217,8 +217,18 @@ def test_page_module_wires_the_workbench_shell():
     reference moving house fails loudly rather than silently passing."""
     static_root = files("yoke_core.ui").joinpath("static")
     shell = static_root.joinpath("app.js").read_text()
-    for reference in ("export function mountUniverseApp", "projects.list"):
+    # The mount composes the first-paint gate; the reads it waits on sit with
+    # the other bootstrap reads next door.
+    for reference in ("export function mountUniverseApp", "loadProjectRoster"):
         assert reference in shell, reference
+    shell_support = static_root.joinpath("universe_app_shell_support.js").read_text()
+    assert "projects.list" in shell_support
+
+    # Steering-group colors are decoration, so their roster read lives with
+    # the ranking it feeds and never in the gate above.
+    group_colors = static_root.joinpath("universe_steering_group_color.js").read_text()
+    assert "sessions.list" in group_colors
+    assert "sessions.list" not in shell
 
     # Header search queries items on the server so the whole backlog stays
     # reachable; only the session arm still filters a cached roster.

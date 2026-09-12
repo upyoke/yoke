@@ -16,6 +16,16 @@ from yoke_cli.transport import response_deadline_read
 from yoke_cli.transport.response_limits import BUNDLE_JSON_RESPONSE_LIMIT_BYTES
 
 
+# The budget for every case below whose subject is NOT the deadline. Their
+# openers are injected and answer in-process with no I/O, so the only thing
+# the budget has to outlast is handing the open to `open_replay_safe`'s
+# daemon thread and joining it — and a small budget turns that scheduling
+# hand-off into the assertion, which is how a contended CI shard failed the
+# redirect-rejection case on its wall clock rather than on its behavior.
+# The one case that IS about the deadline drives a fake clock instead.
+BEHAVIOR_TIMEOUT_SECONDS = 30.0
+
+
 class _Response:
     status = 200
 
@@ -73,7 +83,7 @@ def test_default_get_uses_redirect_free_replay_safe_open(monkeypatch) -> None:
 
     response = transport.request_json(
         _request(),
-        timeout_seconds=2.0,
+        timeout_seconds=BEHAVIOR_TIMEOUT_SECONDS,
         replay_safe=True,
     )
 
@@ -102,7 +112,7 @@ def test_default_post_stays_caller_owned_and_denies_redirects(monkeypatch) -> No
 
     response = transport.request_json(
         _request("POST"),
-        timeout_seconds=2.0,
+        timeout_seconds=BEHAVIOR_TIMEOUT_SECONDS,
         replay_safe=False,
     )
 
@@ -130,7 +140,7 @@ def test_error_body_is_bounded_redacted_and_control_safe() -> None:
     with pytest.raises(transport.BoundedJsonHttpStatusError) as raised:
         transport.request_json(
             _request(),
-            timeout_seconds=2.0,
+            timeout_seconds=BEHAVIOR_TIMEOUT_SECONDS,
             replay_safe=True,
             opener=reject,
         )
@@ -188,7 +198,7 @@ def test_plain_http_is_numeric_loopback_only() -> None:
     ):
         transport.request_json(
             _request(url="http://api.example/v1/x"),
-            timeout_seconds=1.0,
+            timeout_seconds=BEHAVIOR_TIMEOUT_SECONDS,
             replay_safe=True,
             allow_loopback_http=True,
             opener=lambda *_args, **_kwargs: pytest.fail(
@@ -198,7 +208,7 @@ def test_plain_http_is_numeric_loopback_only() -> None:
 
     response = transport.request_json(
         _request(url="http://127.0.0.1:8765/v1/x"),
-        timeout_seconds=1.0,
+        timeout_seconds=BEHAVIOR_TIMEOUT_SECONDS,
         replay_safe=True,
         allow_loopback_http=True,
         opener=lambda *_args, **_kwargs: _Response(
@@ -221,7 +231,7 @@ def test_injected_opener_redirect_result_is_rejected_before_body_read() -> None:
     ):
         transport.request_json(
             _request(),
-            timeout_seconds=1.0,
+            timeout_seconds=BEHAVIOR_TIMEOUT_SECONDS,
             replay_safe=True,
             opener=lambda *_args, **_kwargs: response,
         )
@@ -232,7 +242,7 @@ def test_injected_opener_redirect_result_is_rejected_before_body_read() -> None:
 def test_response_header_names_are_case_insensitive() -> None:
     response = transport.request_json(
         _request(),
-        timeout_seconds=1.0,
+        timeout_seconds=BEHAVIOR_TIMEOUT_SECONDS,
         replay_safe=True,
         opener=lambda *_args, **_kwargs: _Response(
             b"{}",

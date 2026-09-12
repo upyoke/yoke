@@ -1,9 +1,10 @@
-"""Machine-tile ended-usage aggregate: `sessions.list` with `ended_last_24h`.
+"""Machine-tile 24-hour usage aggregate: `sessions.list` with `usage_last_24h`.
 
-A machine card's "Ended in last 24h" figure sums the FULL cumulative
-`usage_totals` of every session whose end fell in the trailing 24-hour
-window, scoped to the caller's authorized projects — never just whatever
-page of sessions happened to be loaded.
+A machine card's 24-hour figures sum the FULL cumulative `usage_totals` of
+every session in the window's cohort — those that ENDED inside the trailing
+24 hours plus those that STARTED inside it and have not ended — each counted
+once, scoped to the caller's authorized projects, never just whatever page of
+sessions happened to be loaded.
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ def _insert_session(
     *,
     ended_at: str | None = None,
     terminated_at: str | None = None,
+    offered_at: str | None = None,
     machine_id: str | None = "machine-one",
     project_id: int = 1,
     usage_tokens: int | None = 1_000,
@@ -47,7 +49,7 @@ def _insert_session(
     # is exactly what the probe predicate reads as a harness startup probe
     # rather than a real session — a nonzero count keeps this fixture out of
     # that exclusion regardless of the timestamps under test.
-    activity = ended_at or terminated_at or _iso()
+    activity = offered_at or ended_at or terminated_at or _iso()
     conn.execute(
         "INSERT INTO harness_sessions ("
         "session_id, executor, provider, model, execution_lane, workspace, "
@@ -72,7 +74,7 @@ def _request(*, actor_id: int | None = None) -> FunctionCallRequest:
             session_id="",
         ),
         target=TargetRef(kind="global"),
-        payload={"ended_last_24h": True},
+        payload={"usage_last_24h": True},
     )
 
 
@@ -103,16 +105,6 @@ def test_killed_session_is_dated_by_its_termination_stamp(test_db):
 
     rows = handle_sessions_list(_request()).result_payload["rows"]
     assert [row["session_id"] for row in rows] == ["killed-recent"]
-
-
-def test_active_session_is_excluded_even_with_recorded_usage(test_db):
-    create_session_control_tables(test_db)
-    test_db.commit()
-    _insert_session(test_db, "still-active", usage_tokens=2_000)
-    _insert_session(test_db, "ended", ended_at=_iso(1), usage_tokens=500)
-
-    rows = handle_sessions_list(_request()).result_payload["rows"]
-    assert [row["session_id"] for row in rows] == ["ended"]
 
 
 def test_sessions_with_no_machine_are_skipped(test_db):
@@ -158,7 +150,7 @@ def test_scoped_by_machine_and_authorized_project(test_db):
     )
     test_db.execute(
         "INSERT INTO roles (id, name, description, created_at) "
-        "VALUES (9101, 'ended-usage-reader', 'test role', %s)",
+        "VALUES (9101, 'recent-usage-reader', 'test role', %s)",
         (_iso(),),
     )
     actor_id = seed_human_actor(test_db)
@@ -196,7 +188,7 @@ def test_explicit_projects_narrows_within_actor_visibility(test_db):
     )
     test_db.execute(
         "INSERT INTO roles (id, name, description, created_at) "
-        "VALUES (9102, 'ended-usage-reader-2', 'test role', %s)",
+        "VALUES (9102, 'recent-usage-reader-2', 'test role', %s)",
         (_iso(),),
     )
     actor_id = seed_human_actor(test_db)
@@ -220,7 +212,7 @@ def test_explicit_projects_narrows_within_actor_visibility(test_db):
         function="sessions.list",
         actor=ActorContext(actor_id=str(actor_id), session_id=""),
         target=TargetRef(kind="global"),
-        payload={"ended_last_24h": True, "projects": ["1"]},
+        payload={"usage_last_24h": True, "projects": ["1"]},
     )
     # The actor can see both projects, but the request named exactly one —
     # scoping must honor that, not fall back to every visible project.
@@ -237,7 +229,7 @@ def test_unresolvable_project_ref_yields_no_rows(test_db):
         function="sessions.list",
         actor=ActorContext(actor_id=None, session_id=""),
         target=TargetRef(kind="global"),
-        payload={"ended_last_24h": True, "projects": ["nope"]},
+        payload={"usage_last_24h": True, "projects": ["nope"]},
     )
     assert handle_sessions_list(request).result_payload["rows"] == []
 
@@ -271,19 +263,19 @@ def test_ended_at_takes_priority_over_terminated_at_for_the_cutoff(test_db):
     assert [row["session_id"] for row in rows] == ["ended-recent-terminated-old"]
 
 
-def test_history_and_ended_last_24h_are_mutually_exclusive(test_db):
+def test_history_and_usage_last_24h_are_mutually_exclusive(test_db):
     request = FunctionCallRequest(
         function="sessions.list",
         actor=ActorContext(actor_id=None, session_id=""),
         target=TargetRef(kind="global"),
-        payload={"history": {}, "ended_last_24h": True},
+        payload={"history": {}, "usage_last_24h": True},
     )
     outcome = handle_sessions_list(request)
     assert not outcome.primary_success
     assert outcome.error.code == "payload_invalid"
 
 
-def test_ended_last_24h_rejects_singular_project(test_db):
+def test_usage_last_24h_rejects_singular_project(test_db):
     # Only the plural `projects` scoping key is supported; a caller that
     # sends the singular live-roster `project` key must be told rather
     # than silently ignored.
@@ -291,32 +283,32 @@ def test_ended_last_24h_rejects_singular_project(test_db):
         function="sessions.list",
         actor=ActorContext(actor_id=None, session_id=""),
         target=TargetRef(kind="global"),
-        payload={"ended_last_24h": True, "project": "yoke"},
+        payload={"usage_last_24h": True, "project": "yoke"},
     )
     outcome = handle_sessions_list(request)
     assert not outcome.primary_success
     assert outcome.error.code == "payload_invalid"
 
 
-def test_ended_last_24h_cannot_combine_with_other_filters(test_db):
+def test_usage_last_24h_cannot_combine_with_other_filters(test_db):
     request = FunctionCallRequest(
         function="sessions.list",
         actor=ActorContext(actor_id=None, session_id=""),
         target=TargetRef(kind="global"),
-        payload={"ended_last_24h": True, "liveness": "ended"},
+        payload={"usage_last_24h": True, "liveness": "ended"},
     )
     outcome = handle_sessions_list(request)
     assert not outcome.primary_success
     assert outcome.error.code == "payload_invalid"
-    assert "ended_last_24h" in outcome.error.message
+    assert "usage_last_24h" in outcome.error.message
 
 
-def test_ended_last_24h_must_be_boolean(test_db):
+def test_usage_last_24h_must_be_boolean(test_db):
     request = FunctionCallRequest(
         function="sessions.list",
         actor=ActorContext(actor_id=None, session_id=""),
         target=TargetRef(kind="global"),
-        payload={"ended_last_24h": "yes"},
+        payload={"usage_last_24h": "yes"},
     )
     outcome = handle_sessions_list(request)
     assert not outcome.primary_success

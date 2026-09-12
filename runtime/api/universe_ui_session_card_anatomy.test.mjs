@@ -114,7 +114,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     requests.filter((request) => request.function === "sessions.list"),
     [
       { function: "sessions.list", payload: { open: true, per_project: true } },
-      { function: "sessions.list", payload: { ended_last_24h: true, projects: ["1"] } },
+      { function: "sessions.list", payload: { usage_last_24h: true, projects: ["1"] } },
       { function: "sessions.list", payload: { open: true, projects: ["1"] } },
       { function: "sessions.list", payload: { open: true, per_project: true } },
     ],
