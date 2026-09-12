@@ -195,11 +195,12 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
   assert.equal(main.scrollTop, 0);
 
-  const keyboard = byClass(root, "keyboard-help-toggle")[0];
-  keyboard.dispatchEvent(new Event("click"));
-  assert.equal(byClass(root, "keyboard-help")[0].hidden, false);
+  // Escape dismisses the footer's identity panel the same way it dismisses
+  // search.
+  versionControl.dispatchEvent(new Event("click"));
+  assert.equal(identityPanel.hidden, false);
   documentNode.defaultView.dispatchEvent(keyEvent("Escape"));
-  assert.equal(byClass(root, "keyboard-help")[0].hidden, true);
+  assert.equal(identityPanel.hidden, true);
   mounted.unmount();
   assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 0);
 });
