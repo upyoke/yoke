@@ -15,6 +15,7 @@ mocking the emit path.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 
@@ -187,7 +188,14 @@ class TestHarnessToolCallDeniedEndToEnd:
             "tool_input": {"command": 'claude -p "summarize this"'},
         }
 
-        decision = ldc.evaluate(ldc._build_context_from_payload(payload))
+        # A Claude caller is what makes this invocation a nesting risk, and
+        # the test runner's own ancestry is not it: CI has no harness parent.
+        context = dataclasses.replace(
+            ldc._build_context_from_payload(payload),
+            executor_family="claude-code",
+        )
+
+        decision = ldc.evaluate(context)
 
         assert decision.audit_fields["check_id"] == NESTED_CLAUDE_CLI_CHECK_ID
         rendered = json.loads(decision.message)["hookSpecificOutput"]
