@@ -100,7 +100,9 @@ def _settings_to_raw_map(settings: Mapping[str, Any]) -> Dict[str, str]:
     raw: Dict[str, str] = {}
     for key, value in settings.items():
         if key in _JSON_VALUED_KEYS:
-            raw[str(key)] = json_helper.dumps_compact(value)
+            raw[str(key)] = (
+                value if isinstance(value, str) else json_helper.dumps_compact(value)
+            )
             continue
         if key == "executor_default_lanes" and isinstance(value, Mapping):
             for executor, lane in value.items():
@@ -198,7 +200,7 @@ def _routing_config_from_raw(raw: Mapping[str, str]) -> "RoutingConfig":
 
     for key, value in raw.items():
         if key.startswith(_EXECUTOR_PREFIX):
-            executor_key = key[len(_EXECUTOR_PREFIX):]
+            executor_key = key[len(_EXECUTOR_PREFIX) :]
             if not executor_key or not value:
                 continue
             if "*" in executor_key:
@@ -214,10 +216,12 @@ def _routing_config_from_raw(raw: Mapping[str, str]) -> "RoutingConfig":
             continue
 
         if key.startswith(_LANE_PATHS_PREFIX):
-            lane_key = key[len(_LANE_PATHS_PREFIX):]
+            lane_key = key[len(_LANE_PATHS_PREFIX) :]
             if not lane_key:
                 continue
-            parsed_paths = [part.strip().lower() for part in value.split(",") if part.strip()]
+            parsed_paths = [
+                part.strip().lower() for part in value.split(",") if part.strip()
+            ]
             lane_paths[normalize_token(lane_key).upper()] = parsed_paths
 
     return RoutingConfig(
@@ -272,9 +276,7 @@ class RoutingConfig:
             return self.executor_default_lanes["unknown"]
         return UNRESOLVED_EXECUTION_LANE
 
-    def lane_for_session(
-        self, *, executor: str, model: Optional[str] = None
-    ) -> str:
+    def lane_for_session(self, *, executor: str, model: Optional[str] = None) -> str:
         """Return the lane a session with these facts routes onto.
 
         A ``lane_rules`` selector wins over the harness default, because
@@ -284,9 +286,7 @@ class RoutingConfig:
         configured this is exactly the harness default, which is how a
         project that has never declared a rule keeps its behaviour.
         """
-        matched = resolve_rule_lane(
-            self.lane_rules, executor=executor, model=model
-        )
+        matched = resolve_rule_lane(self.lane_rules, executor=executor, model=model)
         if matched is not None:
             return matched
         return self.default_lane_for_executor(executor)
