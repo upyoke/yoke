@@ -139,6 +139,10 @@ test("flow explorer is active-first and makes history and selection explicit", a
   assert.equal(history.textContent, "Hide history");
   assert.equal(history.attributes.get("aria-pressed"), "true");
   assert.deepEqual(cardNames(root), ["Alpha Release", "Alpha Legacy", "Beta Promote"]);
+  assert.equal(
+    byClass(root, "delivery-flow-card-shape")[1].attributes.get("aria-label"),
+    "1 stage: archive",
+  );
   cards = byClass(root, "delivery-flow-card");
   assert.equal(cards[1].attributes.get("data-status"), "disabled");
   cards[1].dispatchEvent(new Event("click"));

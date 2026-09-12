@@ -4,7 +4,7 @@
 // failure so a refused read names itself instead of blanking the page.
 
 import { buildUniverseRoute } from "./universe_navigation.js";
-import { relativeAge, setDisplayTimeZone } from "./universe_time.js";
+import { relativeAgePhrase, setDisplayTimeZone } from "./universe_time.js";
 import {
   callFunction, el, renderError, section,
 } from "./universe_view_support.js";
@@ -56,9 +56,9 @@ function rolesCard(documentNode, profile) {
 function tokenDetail(token) {
   const parts = [];
   if (token.machine_id) parts.push("machine token");
-  if (token.created_at) parts.push(`created ${relativeAge(token.created_at)} ago`);
+  if (token.created_at) parts.push(`created ${relativeAgePhrase(token.created_at)}`);
   parts.push(token.last_used_at
-    ? `last used ${relativeAge(token.last_used_at)} ago` : "never used");
+    ? `last used ${relativeAgePhrase(token.last_used_at)}` : "never used");
   return parts.join(" · ");
 }
 

@@ -167,6 +167,8 @@ test("a bound project renders installations, mappings, and machine facts", async
   assert.ok(text.includes("2026-07-02T08:30:00Z"));
   assert.ok(text.includes("bound"));
   assert.ok(text.includes("studio"));
+  assert.match(text, /seen \d+d ago/);
+  assert.doesNotMatch(text, /(?:now|recently) ago/);
   assert.ok(text.includes(
     "unavailable — this universe has no product read for a personal",
   ));

@@ -115,7 +115,8 @@ export function summarizeSessionUsage(rows) {
 export function usageSummaryLabel(summary) {
   if (!summary || summary.covered === 0) {
     return summary?.total
-      ? `no consumption recorded for ${summary.total} sessions`
+      ? `no consumption recorded for ${summary.total} ` +
+        `${summary.total === 1 ? "session" : "sessions"}`
       : "";
   }
   const suffix = summary.partial ? PARTIAL_MARK : "";

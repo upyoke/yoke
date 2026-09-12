@@ -14,7 +14,7 @@ import { evidenceStrip } from "./review_evidence_strip.js";
 import { KIND_LABELS } from "./review_request_presentation.js";
 import { carriedItems } from "./universe_overview_cards.js";
 import { gateAsRequest, runGateStatus, runGates } from "./universe_run_gates.js";
-import { relativeAge } from "./universe_time.js";
+import { relativeAgePhrase } from "./universe_time.js";
 import { RUNS_PAGE_SIZE } from "./universe_deployment_runs_loader.js";
 import {
   callFunction,
@@ -111,7 +111,7 @@ function statusCopy(row, gate) {
     };
   }
   if (status === "succeeded") {
-    return { title: "Succeeded", copy: row.completed_at ? `Completed ${relativeAge(row.completed_at)} ago.` : "" };
+    return { title: "Succeeded", copy: row.completed_at ? `Completed ${relativeAgePhrase(row.completed_at)}.` : "" };
   }
   if (status === "cancelled") return { title: "Cancelled", copy: "" };
   if (status === "created") return { title: "Not started", copy: "The run is created and has not begun." };

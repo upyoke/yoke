@@ -37,7 +37,7 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
       id: 1, slug: "yoke", name: "Yoke", emoji: "▤",
       github_repo: "acme/yoke", default_branch: "main",
       public_item_prefix: "YOK", in_flight_count: 3,
-      ready_count: 2, blocked_count: 1, strategy_doc_count: 4,
+      ready_count: 2, blocked_count: 1, strategy_doc_count: 1,
       has_strategy: true,
     },
     {
@@ -93,8 +93,9 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
   );
   assert.deepEqual(
     byClass(root, "metric").map((node) => node.children[0].textContent),
-    ["2", "3", "3", "1", "4"],
+    ["2", "3", "3", "1", "1"],
   );
+  assert.ok(allNodes(root).some((node) => node.textContent === "1 doc"));
   assert.deepEqual(
     byClass(root, "row-link").map((node) => node.href),
     [

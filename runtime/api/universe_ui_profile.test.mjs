@@ -137,6 +137,25 @@ test("profile hides email when the actor has no linked identity", async () => {
   mounted.unmount();
 });
 
+test("token ages render now and missing use without malformed suffixes", async () => {
+  const instant = new Date().toISOString();
+  const tokens = [{
+    token_id: 7, name: "operator-cli", status: "active",
+    created_at: instant, last_used_at: instant, machine_id: null,
+  }, {
+    token_id: 8, name: "unused", status: "active",
+    created_at: null, last_used_at: null, machine_id: null,
+  }];
+  const { root, mounted } = await mountProfile(
+    profileClient(profileAnswer({ tokens })),
+  );
+  const details = byClass(root, "profile-row-main")
+    .map((row) => row.children[1].textContent);
+
+  assert.deepEqual(details, ["created now · last used now", "never used"]);
+  mounted.unmount();
+});
+
 test("revoke asks once inline, then reloads the tokens", async () => {
   const client = profileClient();
   const { root, mounted } = await mountProfile(client);
