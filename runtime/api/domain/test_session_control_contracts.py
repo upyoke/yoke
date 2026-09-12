@@ -45,7 +45,7 @@ def test_registered_function_vocabulary_uses_product_verbs_only() -> None:
             "private",
             "supported",
             "supported",
-            "none",
+            "supported",
             (),
         ),
         (
@@ -89,8 +89,9 @@ def test_cli_messageability_matches_pinned_evidence(
 @pytest.mark.parametrize(
     ("executor", "surface", "relay_launched", "expected"),
     [
-        ("claude", "cli", True, False),
+        ("claude", "cli", True, True),
         ("claude-code", "cli", False, True),
+        ("claude", "claude-desktop", True, True),
         ("codex", "codex-exec", True, False),
         ("codex", "desktop", True, False),
         ("codex", "vscode", False, True),

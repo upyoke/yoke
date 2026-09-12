@@ -55,18 +55,16 @@ def _patch_live_claim(
     emitted: list[dict],
     *,
     relay_launched: bool = False,
+    claim: dict | None = None,
 ) -> None:
+    held = claim or {"item_id": 42, "status": "implementing"}
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", _Conn)
     monkeypatch.setattr(
         gate,
         "_evidence_for",
         lambda _record: type("Evidence", (), {"available": True, "question": False})(),
     )
-    monkeypatch.setattr(
-        gate,
-        "_live_claim",
-        lambda _conn, _sid: {"item_id": 42, "status": "implementing"},
-    )
+    monkeypatch.setattr(gate, "_live_claim", lambda _conn, _sid: held)
     monkeypatch.setattr(
         gate,
         "session_was_relay_launched",
@@ -75,10 +73,84 @@ def _patch_live_claim(
     monkeypatch.setattr(gate, "_emit_deferred", lambda **kw: emitted.append(kw))
 
 
+def test_relay_launched_claude_cli_holds_its_unfinished_work(monkeypatch) -> None:
+    """A denied Stop returns to the same claude-cli process, so hold it.
+
+    Headlessness bounds what can reach this worker between turns; it does
+    not end the turn the block just held. Allowing here instead would
+    abandon a live claim that the worker is still able to finish.
+    """
+    emitted: list[dict] = []
+    _patch_live_claim(monkeypatch, emitted, relay_launched=True)
+    monkeypatch.setattr(gate, "_armed_monitor_blocks_stop", lambda *_args: False)
+    monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: False)
+
+    decision = gate.evaluate(_context("claude", "cli"))
+
+    assert decision.outcome is Outcome.DENY
+    assert decision.audit_fields["reason"] == gate.REASON_REINJECTED
+    assert decision.message == unfinished.DIRECTIVE
+    assert [entry["reason"] for entry in emitted] == [gate.REASON_REINJECTED]
+
+
+def test_relay_launched_claude_cli_allows_a_legitimate_landing_wait(
+    monkeypatch,
+) -> None:
+    """An armed queue landing is the designed handoff, not unfinished work."""
+    emitted: list[dict] = []
+    _patch_live_claim(
+        monkeypatch,
+        emitted,
+        relay_launched=True,
+        claim={
+            "item_id": 42,
+            "status": "reviewing-implementation",
+            "merge_queue_enqueued_at": "2026-09-12T16:00:00Z",
+        },
+    )
+
+    decision = gate.evaluate(_context("claude", "cli"))
+
+    assert decision.outcome is Outcome.ALLOW
+    assert emitted == []
+
+
+def test_relay_launched_claude_cli_allows_a_turn_that_asked_the_operator(
+    monkeypatch,
+) -> None:
+    """A worker waiting on an answer is not a worker abandoning its claim."""
+    emitted: list[dict] = []
+    _patch_live_claim(monkeypatch, emitted, relay_launched=True)
+    monkeypatch.setattr(
+        gate,
+        "_evidence_for",
+        lambda _record: type("Evidence", (), {"available": True, "question": True})(),
+    )
+
+    decision = gate.evaluate(_context("claude", "cli"))
+
+    assert decision.outcome is Outcome.ALLOW
+    assert emitted == []
+
+
+def test_relay_launched_claude_cli_stops_holding_at_the_cap(monkeypatch) -> None:
+    """The reinjection cap still bounds the hold on a relay worker."""
+    emitted: list[dict] = []
+    _patch_live_claim(monkeypatch, emitted, relay_launched=True)
+    monkeypatch.setattr(gate, "_armed_monitor_blocks_stop", lambda *_args: False)
+    monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: True)
+
+    decision = gate.evaluate(_context("claude", "cli"))
+
+    assert decision.outcome is Outcome.ALLOW
+    assert [(entry["reason"], entry["cap_reached"]) for entry in emitted] == [
+        (gate.REASON_CAP_REACHED, True)
+    ]
+
+
 @pytest.mark.parametrize(
     ("executor", "entrypoint"),
     [
-        ("claude", "cli"),
         ("codex", "codex-cli"),
         ("codex", "codex-desktop"),
         ("cursor", "cursor-cli"),
