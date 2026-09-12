@@ -228,8 +228,6 @@ export declare function withProjectSelection(hash: string, selection: "all" | re
 /** `segment` is the view's second path segment: a tab id for a view that
  * declares tabs, a drill-in row for any other view. */
 export declare function buildUniverseRoute(view: UniverseRouteView | string, project?: string | null, segment?: string | null): string;
-/** The scope a view takes: see `UniverseScope`. */
-export declare function universeNavScope(view: string): UniverseScope;
 /**
  * Wires the dismissal every transient surface in the frame shares onto one
  * the host owns: a click outside it closes it, Escape closes it and returns
@@ -244,16 +242,14 @@ export declare function universeNavScope(view: string): UniverseScope;
  * `close`, and its `<summary>` as `trigger`. Returns the dispose to call
  * when the host tears its own node down.
  */
-export declare function attachMenuDismissal(
-  documentNode: Document,
-  surface: {
+export declare function attachMenuDismissal(documentNode: Document, surface: {
     readonly root: Element;
     readonly close: () => void;
     readonly isOpen: () => boolean;
     readonly trigger?: Element | (() => Element | null) | null;
-  },
-): () => void;
-
+}): () => void;
+/** The scope a view takes: see `UniverseScope`. */
+export declare function universeNavScope(view: string): UniverseScope;
 /**
  * Mounts the app into `rootNode`, which the app then sizes itself: the
  * frame stands the full window and anchors its footer there, so a host
