@@ -11,7 +11,7 @@ from yoke_contracts.session_usage_facts import (
 from yoke_contracts.session_usage_sources import (
     CURSOR_INCOMPLETE_TOKEN_FIELDS_REASON,
     CURSOR_NO_TURN_IDENTITY_REASON,
-    CURSOR_UNNAMED_MODEL,
+    UNNAMED_MODEL,
     CURSOR_USAGE_SOURCE,
 )
 from yoke_harness.usage_attestation import attest_session_usage
@@ -39,7 +39,9 @@ def test_cursor_stop_subtracts_inclusive_cache_fields() -> None:
 def test_cursor_inclusive_remainder_clamps_at_zero() -> None:
     usage = attest_session_usage(
         "cursor",
-        cursor_stop_payload(input_tokens=10, cache_read_tokens=40, cache_write_tokens=10),
+        cursor_stop_payload(
+            input_tokens=10, cache_read_tokens=40, cache_write_tokens=10
+        ),
     )
 
     assert usage.models[0].input == 0
@@ -110,10 +112,10 @@ def test_cursor_unnamed_model_is_recorded_as_unknown() -> None:
 
     usage = attest_session_usage("cursor", payload)
 
-    assert usage.models[0].model == CURSOR_UNNAMED_MODEL
+    assert usage.models[0].model == UNNAMED_MODEL
     stored = usage_from_document(usage_document(usage))
     assert stored is not None
-    assert stored.models[0].model == CURSOR_UNNAMED_MODEL
+    assert stored.models[0].model == UNNAMED_MODEL
 
 
 def test_cursor_print_mode_usage_is_exclusive_of_cache() -> None:
@@ -124,7 +126,7 @@ def test_cursor_print_mode_usage_is_exclusive_of_cache() -> None:
     assert entry.cached_input == 7424
     assert entry.cache_write == 0
     assert entry.output == 34
-    assert entry.model == CURSOR_UNNAMED_MODEL
+    assert entry.model == UNNAMED_MODEL
 
 
 def test_cursor_event_without_tokens_keeps_watermarked_totals() -> None:

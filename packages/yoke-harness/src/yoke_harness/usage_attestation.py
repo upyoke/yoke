@@ -14,7 +14,10 @@ What each harness reports, measured rather than assumed:
   that output. One logical response is written as several rows sharing a
   ``message.id`` and repeating the same usage, so summing rows would
   multiply a turn's cost by its content-block count; the id is the dedup
-  key that prevents it.
+  key that prevents it. A transcript row can also be enormous — a pasted
+  file, a tool result — so rows past the reader's record bound are
+  projected down to those fields rather than skipped
+  (:mod:`yoke_harness.claude_artifact_reader`).
 * **codex** — its rollout carries cumulative ``token_count`` events, read
   by :mod:`yoke_harness.codex_usage_attestation`.
 * **cursor** — optional ``stop`` / ``afterAgentResponse`` token fields
@@ -24,6 +27,16 @@ What each harness reports, measured rather than assumed:
   zero: the watermarked total is returned when one exists, otherwise
   ``unavailable`` for that surface. Same ``generation_id`` / ``request_id``
   is counted once.
+
+Three differences between those branches are deliberate, and each
+follows from what its source actually states. Claude accumulates, so its
+fold dedups per message and a replay must start from empty totals; Codex
+does not accumulate at all, so its newest cumulative statement replaces
+whatever is held and a lost record costs the model history rather than
+the counts; Cursor is folded from payloads handed to this process once,
+so its reader waits for the lock rather than yielding it, and a payload
+that omits the optional token fields is unavailable for that surface
+rather than a zero.
 
 Reads resume from a per-session watermark, so a hook event folds only
 what the artifact gained since the last one, and each fold streams its
@@ -51,6 +64,12 @@ from yoke_contracts.session_usage_facts import (
 )
 from yoke_contracts.session_usage_sources import usage_source
 from yoke_harness.artifact_scan import scan_rows
+from yoke_harness.claude_artifact_reader import (
+    ASSISTANT_ROW_TYPE,
+    claude_record_decoder,
+    prepare_claude_watermark,
+    stamp_claude_reader,
+)
 from yoke_harness.artifact_watermark import (
     ArtifactWatermark,
     load_watermark,
@@ -97,7 +116,13 @@ def attest_session_usage(
 def _claude_usage(
     payload: Mapping[str, Any], session_id: str, transcript_path: str
 ) -> SessionUsage:
-    """Fold a Claude transcript's per-message usage into per-model totals."""
+    """Fold a Claude transcript's per-message usage into per-model totals.
+
+    A gap here means one assistant row's usage statement could not be
+    read. An oversized row of any other kind is not a gap: it states no
+    consumption, so the projection that dropped its content dropped
+    nothing this fold was reading for.
+    """
     source = usage_source(CLAUDE_FAMILY)
     path = _artifact(transcript_path or _text(payload.get("transcript_path")))
     if path is None:
@@ -105,12 +130,15 @@ def _claude_usage(
     with watermark_lock(session_id) as folding:
         if not folding:
             return _persisted_reading(session_id, path, source)
-        mark = load_watermark(session_id, path)
+        mark = prepare_claude_watermark(load_watermark(session_id, path))
         totals = _totals_by_model(stored_totals(mark))
-        state = {"last_key": mark.last_key}
+        state: dict[str, Any] = {"last_key": mark.last_key, "gap": mark.oversized}
+
+        def mark_gap() -> None:
+            state["gap"] = True
 
         def fold(row: Mapping[str, Any]) -> None:
-            if row.get("type") != "assistant":
+            if row.get("type") != ASSISTANT_ROW_TYPE:
                 return
             message = row.get("message")
             if not isinstance(message, dict):
@@ -125,13 +153,19 @@ def _claude_usage(
             state["last_key"] = key
             _accumulate(totals, model, _claude_buckets(usage))
 
-        scan = scan_rows(path, mark.offset, fold)
+        scan = scan_rows(
+            path,
+            mark.offset,
+            fold,
+            record_factory=claude_record_decoder,
+            on_unrecoverable=mark_gap,
+        )
         mark = ArtifactWatermark(
             offset=scan.offset,
             last_key=state["last_key"],
-            totals=_totals_document(totals),
+            totals=stamp_claude_reader(_totals_document(totals)),
             truncated=mark.truncated,
-            oversized=mark.oversized or scan.oversized,
+            oversized=bool(state["gap"]),
             caught_up=scan.caught_up,
         )
         save_watermark(session_id, path, mark)

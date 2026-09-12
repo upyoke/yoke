@@ -3,21 +3,43 @@
 Whole-record decoding remains bounded for general callers. Callers that
 provide a record factory may instead project small facts while bytes stream.
 Every loss or unfinished scan is surfaced on :class:`ScanResult`.
+
+The scan budget bounds how much one invocation *starts*, not where it may
+stop. A scan that reaches its budget in the middle of a record keeps
+reading to that record's end, because stopping there would leave the
+offset inside a record no later read can enter: the next read skips
+forward to the following newline and everything the record stated is gone.
+A harness that writes one compacted record larger than the whole budget is
+the case that made this real, and it is exactly the record a reader most
+wants. Finishing is itself bounded by
+:data:`MAX_RECORD_COMPLETION_BYTES`, so a record with no end in sight —
+corrupt, or still growing without a newline — is abandoned deliberately
+and said out loud rather than read forever.
 """
 
 from __future__ import annotations
 
-import json
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
+from yoke_harness.artifact_record_stream import (
+    RecordStream,
+    decode_record,
+    parse_row,
+)
+
 #: The longest single record a general reader parses as one JSON object.
 MAX_RECORD_BYTES = 1 << 20
 
-#: The most bytes one invocation reads; arrears fold over later events.
+#: The most bytes one invocation starts reading; arrears fold over later
+#: events.
 MAX_SCAN_BYTES = 8 << 20
+
+#: How far past that budget one invocation keeps reading to finish the
+#: record it is already inside, rather than abandon it mid-record.
+MAX_RECORD_COMPLETION_BYTES = 32 << 20
 
 MAX_TAIL_BYTES = 1 << 20
 _READ_CHUNK_BYTES = 1 << 16
@@ -45,23 +67,13 @@ class ScanResult:
     peak_retained_bytes: int = 0
 
 
-def parse_row(record: bytes) -> Optional[dict]:
-    """Return one JSON object, or ``None`` for anything else."""
-    if not record.strip():
-        return None
-    try:
-        parsed = json.loads(record)
-    except (json.JSONDecodeError, TypeError, ValueError, UnicodeDecodeError):
-        return None
-    return parsed if isinstance(parsed, dict) else None
-
-
 def scan_rows(
     artifact: Path,
     offset: int,
     consume: Callable[[dict], Any],
     *,
     max_scan_bytes: Optional[int] = None,
+    max_record_completion_bytes: Optional[int] = None,
     record_factory: Optional[Callable[[int], Any]] = None,
     on_unrecoverable: Optional[Callable[[], Any]] = None,
 ) -> ScanResult:
@@ -72,6 +84,11 @@ def scan_rows(
     harness appending during the scan is never believed halfway through.
     """
     max_scan_bytes = MAX_SCAN_BYTES if max_scan_bytes is None else max_scan_bytes
+    completion = (
+        MAX_RECORD_COMPLETION_BYTES
+        if max_record_completion_bytes is None
+        else max_record_completion_bytes
+    )
     read = 0
     caught_up = True
     try:
@@ -81,24 +98,40 @@ def scan_rows(
                 handle.seek(offset - 1)
                 starts_inside_record = handle.read(1) != b"\n"
             handle.seek(offset)
-            drain = _Drain(
+            stream = RecordStream(
                 consume,
+                record_limit=MAX_RECORD_BYTES,
                 record_factory=record_factory,
                 skip_record=starts_inside_record,
                 on_unrecoverable=on_unrecoverable,
             )
-            while read < max_scan_bytes:
-                chunk = handle.read(min(_READ_CHUNK_BYTES, max_scan_bytes - read))
+            limit = max_scan_bytes
+            finishing_from = -1
+            while True:
+                if read >= limit:
+                    if stream.inside_record and finishing_from < 0 and completion > 0:
+                        limit = max_scan_bytes + completion
+                        finishing_from = stream.consumed
+                        continue
+                    caught_up = not handle.read(1)
+                    break
+                chunk = handle.read(min(_READ_CHUNK_BYTES, limit - read))
                 if not chunk:
                     break
                 read += len(chunk)
-                drain.feed(chunk)
-            else:
-                caught_up = not handle.read(1)
+                stream.feed(chunk)
+                if 0 <= finishing_from < stream.consumed:
+                    # The record the budget landed inside has ended, and
+                    # ending it is the only reason to read past that
+                    # budget. Reading on would make the budget a
+                    # suggestion rather than a bound.
+                    caught_up = not handle.read(1)
+                    break
     except OSError:
         return ScanResult(offset=offset)
-    abandon_current = drain.current_unrecoverable and read > drain.consumed
-    if read > 0 and (abandon_current or (drain.consumed == 0 and not caught_up)):
+    abandoned = stream.current_unrecoverable and read > stream.consumed
+    starved = stream.inside_record and stream.consumed == 0 and not caught_up
+    if read > 0 and (abandoned or starved):
         if on_unrecoverable is not None:
             on_unrecoverable()
         return ScanResult(
@@ -106,16 +139,16 @@ def scan_rows(
             oversized=True,
             caught_up=False,
             bytes_read=read,
-            records_decoded=drain.records_decoded,
-            peak_retained_bytes=drain.peak_retained_bytes,
+            records_decoded=stream.records_decoded,
+            peak_retained_bytes=stream.peak_retained_bytes,
         )
     return ScanResult(
-        offset=offset + drain.consumed,
-        oversized=drain.oversized or drain.current_unrecoverable,
+        offset=offset + stream.consumed,
+        oversized=stream.oversized,
         caught_up=caught_up,
         bytes_read=read,
-        records_decoded=drain.records_decoded,
-        peak_retained_bytes=drain.peak_retained_bytes,
+        records_decoded=stream.records_decoded,
+        peak_retained_bytes=stream.peak_retained_bytes,
     )
 
 
@@ -137,7 +170,11 @@ def iter_rows(
     """
     max_bytes = MAX_SCAN_BYTES if max_bytes is None else max_bytes
     pending: deque[dict] = deque()
-    drain = _Drain(pending.append, record_factory=record_factory)
+    stream = RecordStream(
+        pending.append,
+        record_limit=MAX_RECORD_BYTES,
+        record_factory=record_factory,
+    )
     read = 0
     try:
         handle = artifact.open("rb")
@@ -152,12 +189,12 @@ def iter_rows(
             if not chunk:
                 break
             read += len(chunk)
-            drain.feed(chunk)
+            stream.feed(chunk)
             while pending:
                 yield pending.popleft()
         else:
             return
-        drain.finish()
+        stream.finish()
         while pending:
             yield pending.popleft()
 
@@ -183,6 +220,12 @@ def tail_rows_newest_first(
     half-written record is not valid JSON and is dropped rather than
     half-believed. Requiring the newline instead would blind the reader
     to a whole artifact that has only ever been written once.
+
+    A window that falls entirely inside one enormous record yields
+    nothing, which is deliberate: this reader answers "what is the newest
+    statement" for facts every turn restates, so the next event's read
+    answers it once an ordinary record follows. A fact that must survive
+    such a record is folded incrementally with :func:`scan_rows` instead.
     """
     max_bytes = MAX_TAIL_BYTES if max_bytes is None else max_bytes
     start = 0
@@ -208,134 +251,18 @@ def tail_rows_newest_first(
         cut = window.rfind(b"\n", floor, end)
         record = window[cut + 1 : end] if cut >= floor else window[floor:end]
         end = cut if cut >= floor else floor
-        row = _decode_record(record, record_factory)
+        row = decode_record(
+            record, record_limit=MAX_RECORD_BYTES, record_factory=record_factory
+        )
         if row is not None:
             yielded += 1
             yield row
 
 
-class _BufferedJsonRecord:
-    """The general bounded decoder used when no projection is selected."""
-
-    def __init__(self, record_limit: int) -> None:
-        self._limit = record_limit
-        self._buffer = bytearray()
-        self.record_bytes = 0
-        self.peak_retained_bytes = 0
-        self.unrecoverable = False
-        self.full_decodes = 0
-
-    def feed(self, data: bytes | memoryview) -> None:
-        self.record_bytes += len(data)
-        if self.unrecoverable:
-            return
-        room = self._limit + 1 - len(self._buffer)
-        if room > 0:
-            self._buffer.extend(data[:room])
-            self.peak_retained_bytes = max(self.peak_retained_bytes, len(self._buffer))
-        if self.record_bytes > self._limit:
-            self._buffer.clear()
-            self.unrecoverable = True
-
-    def finish(self) -> Optional[dict]:
-        if self.unrecoverable or not self._buffer.strip():
-            return None
-        self.full_decodes = 1
-        return parse_row(bytes(self._buffer))
-
-
-class _Drain:
-    """Split a byte stream while each decoder retains only bounded state."""
-
-    def __init__(
-        self,
-        consume: Callable[[dict], Any],
-        *,
-        record_factory: Optional[Callable[[int], Any]] = None,
-        skip_record: bool = False,
-        on_unrecoverable: Optional[Callable[[], Any]] = None,
-    ) -> None:
-        self._consume = consume
-        self._record_factory = record_factory
-        self._on_unrecoverable = on_unrecoverable
-        self._decoder = self._new_decoder()
-        self._skipping = skip_record
-        self._skipped_bytes = 0
-        self.consumed = 0
-        self.oversized = False
-        self.records_decoded = 0
-        self.peak_retained_bytes = 0
-
-    @property
-    def current_unrecoverable(self) -> bool:
-        return bool(self._decoder.unrecoverable) if not self._skipping else True
-
-    def _new_decoder(self) -> Any:
-        if self._record_factory is not None:
-            return self._record_factory(MAX_RECORD_BYTES)
-        return _BufferedJsonRecord(MAX_RECORD_BYTES)
-
-    def feed(self, chunk: bytes) -> None:
-        start = 0
-        while start < len(chunk):
-            newline = chunk.find(b"\n", start)
-            end = len(chunk) if newline < 0 else newline
-            piece = memoryview(chunk)[start:end]
-            if self._skipping:
-                self._skipped_bytes += len(piece)
-            else:
-                self._decoder.feed(piece)
-                self.peak_retained_bytes = max(
-                    self.peak_retained_bytes,
-                    self._decoder.peak_retained_bytes,
-                )
-            if newline < 0:
-                return
-            if self._skipping:
-                self.consumed += self._skipped_bytes + 1
-                self._skipped_bytes = 0
-                self._skipping = False
-                self.oversized = True
-                if self._on_unrecoverable is not None:
-                    self._on_unrecoverable()
-            else:
-                self._finish_record(terminated=True)
-            start = newline + 1
-
-    def finish(self) -> None:
-        """Deliver a final record that never got its newline."""
-        if not self._skipping and self._decoder.record_bytes:
-            self._finish_record(terminated=False)
-
-    def _finish_record(self, *, terminated: bool) -> None:
-        decoder = self._decoder
-        row = decoder.finish()
-        self.records_decoded += decoder.full_decodes
-        self.oversized = self.oversized or decoder.unrecoverable
-        if decoder.unrecoverable and self._on_unrecoverable is not None:
-            self._on_unrecoverable()
-        if row is not None:
-            self._consume(row)
-        if terminated:
-            self.consumed += decoder.record_bytes + 1
-        self._decoder = self._new_decoder()
-
-
-def _decode_record(
-    record: bytes, record_factory: Optional[Callable[[int], Any]]
-) -> Optional[dict]:
-    decoder = (
-        record_factory(MAX_RECORD_BYTES)
-        if record_factory is not None
-        else _BufferedJsonRecord(MAX_RECORD_BYTES)
-    )
-    decoder.feed(record)
-    return decoder.finish()
-
-
 __all__ = [
     "CATCH_UP_PENDING_REASON",
     "MAX_RECORD_BYTES",
+    "MAX_RECORD_COMPLETION_BYTES",
     "MAX_SCAN_BYTES",
     "MAX_TAIL_BYTES",
     "OVERSIZED_RECORD_REASON",

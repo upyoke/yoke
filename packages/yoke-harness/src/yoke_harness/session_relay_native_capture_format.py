@@ -32,6 +32,9 @@ CAPTURE_MAX_BYTES = 132 * 1024
 STREAM_BUDGET_BYTES = 64 * 1024
 #: One line of the native's own words, short enough to sit inside a fleet row.
 TAIL_MAX_CHARS = 240
+#: Room reserved inside a stream's budget for the notice below, so a
+#: capture that elides its middle still fits the envelope's bound.
+ELISION_NOTICE_BYTES = 64
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]+")
 
 
@@ -68,6 +71,18 @@ def capture_tail(stream: bytes) -> str:
         if collapsed:
             return collapsed[:TAIL_MAX_CHARS]
     return ""
+
+
+def elision_notice(count: int) -> bytes:
+    """Name the bytes a capture dropped between its head and its tail.
+
+    A native that talks past its budget loses its middle rather than its
+    end, because the end is where a result object and a failure both
+    live. Saying so on its own line keeps the drop visible to a reader
+    and keeps a line-by-line parser from stitching two halves of
+    different lines into one that was never written.
+    """
+    return f"--- elided {int(count)} bytes ---".encode()
 
 
 def compose_capture(
@@ -136,6 +151,7 @@ def parse_capture(payload: bytes) -> NativeCapture | None:
 __all__ = [
     "CAPTURE_HEADER",
     "CAPTURE_MAX_BYTES",
+    "ELISION_NOTICE_BYTES",
     "STATE_EXITED",
     "STATE_RUNNING",
     "STDERR_MARKER",
@@ -144,6 +160,7 @@ __all__ = [
     "TAIL_MAX_CHARS",
     "NativeCapture",
     "capture_tail",
+    "elision_notice",
     "compose_capture",
     "parse_capture",
     "utc_stamp",

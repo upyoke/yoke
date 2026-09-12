@@ -97,7 +97,10 @@ def session_cost(
     if usage is None or not usage.models:
         return SessionCost(reason="no usage recorded for this session")
     total = 0.0
-    gaps: list[str] = []
+    # A reading whose tokens are exact can still be uncertain to price:
+    # the caveat names that, and it belongs to the estimate rather than
+    # to the counts it was computed from.
+    gaps: list[str] = [usage.cost_caveat] if usage.cost_caveat else []
     bases: list[str] = []
     effective: list[str] = []
     checked: list[str] = []

@@ -99,6 +99,8 @@ def usage_title(usage: Optional[SessionUsage], cost: Optional[SessionCost]) -> s
             parts.append(f"read from {usage.source}")
         if usage.status != USAGE_COMPLETE and usage.reason:
             parts.append(f"partial: {usage.reason}")
+        if usage.cost_caveat:
+            parts.append(f"tokens exact, pricing uncertain: {usage.cost_caveat}")
     if cost is not None and cost.priced():
         parts.append("estimated API-equivalent cost, not plan consumption")
         if cost.price_basis:

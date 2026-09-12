@@ -32,13 +32,19 @@ CURSOR_NO_TURN_IDENTITY_REASON = (
     "cursor token fields arrived without generation_id or request_id"
 )
 
-#: Stored model name when a Cursor reading names none. Empty strings are
-#: dropped by ``usage_from_document``, so the sentinel must be non-empty.
-CURSOR_UNNAMED_MODEL = "unknown"
+#: Stored model name when a reading's source named no model — a Cursor
+#: payload that carries none, or a Codex rollout whose model statement
+#: could not be read. Empty strings are dropped by ``usage_from_document``
+#: and by the per-model reading builder, so the sentinel must be
+#: non-empty: without it, exactly measured tokens would disappear for
+#: want of a label, which is worse than pricing them as unattributable.
+UNNAMED_MODEL = "unknown"
 
 #: Cursor's first-class usage surface: parent-turn hook fields, and the
 #: print-mode result ``usage`` object read from a finished native's own
-#: capture, because that result is printed after the turn's last hook.
+#: capture, because that result is printed after the turn's last hook —
+#: which is also why that capture retains its tail rather than only its
+#: opening bytes.
 #: Conversation-store blobs still carry no usage; a payload that omits the
 #: optional fields is ``unavailable`` for that surface, not a global
 #: "Cursor unsupported" deferral.
@@ -77,7 +83,7 @@ def usage_source(harness_id: object) -> str:
 __all__ = [
     "CURSOR_INCOMPLETE_TOKEN_FIELDS_REASON",
     "CURSOR_NO_TURN_IDENTITY_REASON",
-    "CURSOR_UNNAMED_MODEL",
+    "UNNAMED_MODEL",
     "CURSOR_USAGE_SOURCE",
     "SESSION_USAGE_SOURCES",
     "states_usage",
