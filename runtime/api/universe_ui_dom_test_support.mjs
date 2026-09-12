@@ -155,11 +155,17 @@ class FakeWindow extends EventTarget {
   }
 }
 
-export class FakeDocument {
+// An event target, like the real one: page-visibility handlers are
+// registered on the document, so a double that cannot carry them hides the
+// behavior rather than testing it. `visibilityState` starts where a rendered
+// page starts, and a test that needs the other state sets it.
+export class FakeDocument extends EventTarget {
   constructor() {
+    super();
     this.defaultView = new FakeWindow();
     this.activeElement = null;
     this.body = new FakeNode(this, "body");
+    this.visibilityState = "visible";
   }
 
   createElement(tagName) {

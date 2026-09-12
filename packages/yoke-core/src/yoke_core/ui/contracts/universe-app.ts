@@ -272,7 +272,7 @@ export interface UniverseRoute {
 export type UniverseScope = "multi" | "single" | "none";
 
 /** Canonical value; the runtime module is emitted from this source. */
-export const UNIVERSE_APP_CONTRACT_VERSION = 8 as const;
+export const UNIVERSE_APP_CONTRACT_VERSION = 9 as const;
 
 export declare function createHttpFunctionClient(
   options?: HttpFunctionClientOptions,
@@ -294,6 +294,30 @@ export declare function buildUniverseRoute(
   project?: string | null,
   segment?: string | null,
 ): string;
+
+/**
+ * Wires the dismissal every transient surface in the frame shares onto one
+ * the host owns: a click outside it closes it, Escape closes it and returns
+ * focus to `trigger`, and a hash navigation closes it — the gesture a menu
+ * cannot observe for itself when its own item is the route link.
+ *
+ * `root` is the element the surface lives in (a click inside it is not an
+ * outside click); `isOpen` and `close` are the host's own open state, so the
+ * host keeps whatever `aria-expanded` or focus semantics its markup calls
+ * for. A native `<details>` menu passes the `details` element as `root`,
+ * `() => details.open` as `isOpen`, `() => { details.open = false; }` as
+ * `close`, and its `<summary>` as `trigger`. Returns the dispose to call
+ * when the host tears its own node down.
+ */
+export declare function attachMenuDismissal(
+  documentNode: Document,
+  surface: {
+    readonly root: Element;
+    readonly close: () => void;
+    readonly isOpen: () => boolean;
+    readonly trigger?: Element | (() => Element | null) | null;
+  },
+): () => void;
 
 /** The scope a view takes: see `UniverseScope`. */
 export declare function universeNavScope(view: string): UniverseScope;

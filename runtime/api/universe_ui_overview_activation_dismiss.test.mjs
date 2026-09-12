@@ -86,6 +86,79 @@ test("dismiss: ✕ on activated modules hides the module for good", async (t) =>
   mounted.unmount();
 });
 
+test("the Onboarding section waits for its read rather than flashing", async (t) => {
+  stubFetch(t);
+  // The read never resolves, so the section is still undecided while the
+  // rest of the Overview draws. It stays hidden: drawing it first and
+  // hiding it once the read landed is the flash anyone who had dismissed
+  // every module saw on every load.
+  const answer = activationAnswer({ states: ALL_ACTIVATED });
+  const client = activationClient(answer);
+  const pendingRead = {
+    requests: client.requests,
+    call(request) {
+      if (request.function === "overview.activation.get") {
+        return new Promise(() => {});
+      }
+      return client.call(request);
+    },
+  };
+  const { root, mounted } = await mountOverview(pendingRead);
+  await settle();
+
+  const onboarding = byClass(root, "overview-section").find(
+    (node) => allNodes(node).some((n) => n.textContent === "Onboarding"),
+  );
+  assert.ok(onboarding);
+  assert.equal(onboarding.hidden, true);
+  assert.equal(byClass(root, "activation-module").length, 0);
+  // The rest of the screen is not held up by it.
+  assert.ok(byClass(root, "overview-section").length > 1);
+  mounted.unmount();
+});
+
+test("a resolved read with modules left reveals the section", async (t) => {
+  stubFetch(t);
+  const answer = activationAnswer({ states: ALL_ACTIVATED });
+  const { root, mounted } = await mountOverview(activationClient(answer));
+
+  const onboarding = byClass(root, "overview-section").find(
+    (node) => allNodes(node).some((n) => n.textContent === "Onboarding"),
+  );
+  assert.equal(onboarding.hidden, false);
+  assert.equal(byClass(root, "activation-module").length, 4);
+  mounted.unmount();
+});
+
+test("an unresolved read shows the section saying so, rather than hiding it", async (t) => {
+  stubFetch(t);
+  const answer = activationAnswer({ states: ALL_ACTIVATED });
+  const client = activationClient(answer);
+  const failingRead = {
+    requests: client.requests,
+    call(request) {
+      if (request.function === "overview.activation.get") {
+        return Promise.resolve({
+          status: 500,
+          envelope: { success: false, error: { message: "unavailable" } },
+        });
+      }
+      return client.call(request);
+    },
+  };
+  const { root, mounted } = await mountOverview(failingRead);
+  await settle();
+
+  const onboarding = byClass(root, "overview-section").find(
+    (node) => allNodes(node).some((n) => n.textContent === "Onboarding"),
+  );
+  // Hiding it here would say there is nothing to activate; the truth is
+  // that the signals could not be read.
+  assert.equal(onboarding.hidden, false);
+  assert.equal(byClass(root, "activation-unresolved").length, 1);
+  mounted.unmount();
+});
+
 test("all dismissed: the Onboarding section disappears from Overview", async (t) => {
   stubFetch(t);
   const answer = activationAnswer({

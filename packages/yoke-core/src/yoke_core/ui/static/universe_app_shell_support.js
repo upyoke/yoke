@@ -102,6 +102,20 @@ export function loadWordmark(brand, assetUrl, isMounted) {
     .catch(() => { if (isMounted()) brand.textContent = "Yoke"; });
 }
 
+// The routing roster: every screen's scope resolves against it, so the first
+// render waits on this one read. Projected to exactly the fields the pickers,
+// the nav hrefs, and the drill-ins need.
+export function loadProjectRoster(client, apply) {
+  return Promise.resolve().then(() => callFunction(
+    client, "projects.list", {
+      fields: ["id", "slug", "name", "emoji", "public_item_prefix"],
+    },
+  )).then((callResult) => {
+    if (!callResult.envelope?.success) throw new Error("projects unavailable");
+    apply((callResult.envelope && callResult.envelope.result)?.rows || []);
+  });
+}
+
 export function loadOrganizationName(client, orgContext, isMounted) {
   if (!orgContext) return;
   Promise.resolve().then(() => callFunction(client, "organizations.get", {}))

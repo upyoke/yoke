@@ -1,7 +1,11 @@
-// How a steering group is colored, and what ink reads on that color. One
-// module, because the palette and the black/white choice against it are the
-// same decision seen from two sides: a color nobody can read text on is not
-// a usable group color.
+// How a steering group is colored, what ink reads on that color, and the one
+// read those colors are ranked from. One module, because the palette, the
+// black/white choice against it, and the roster it ranks are the same
+// decision seen from three sides: a color nobody can read text on is not a
+// usable group color, and a color ranked from one page's own rows is not a
+// group's color at all.
+
+import { callFunction } from "./universe_view_support.js";
 
 // A steering group's color is a fact about the group, not the theme — like
 // the harness brand marks in theme.css, it does not vary between light and
@@ -99,4 +103,25 @@ export function computeSteeringGroupColors(rows) {
   const colors = new Map();
   distinctIds.forEach((id, rank) => colors.set(id, paletteColorAt(rank)));
   return colors;
+}
+
+// The roster the colors are ranked from, held where the ranking lives. The
+// read is decoration — it tints cards — so it must never gate a screen's
+// first paint; `refresh()` is fire-and-forget and a failure leaves the last
+// ranking standing. Overview and Sessions call it again to catch a group
+// that started mid-session.
+export function createSteeringGroupColors(client, isMounted) {
+  let colors = new Map();
+  return {
+    colors: () => colors,
+    refresh: () => Promise.resolve().then(() => callFunction(
+      client, "sessions.list", { per_project: true, open: true },
+    )).then((callResult) => {
+      if (!isMounted()) return;
+      const envelope = callResult.envelope;
+      colors = computeSteeringGroupColors(
+        (envelope?.success && envelope.result?.rows) || [],
+      );
+    }).catch(() => {}),
+  };
 }

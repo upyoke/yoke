@@ -70,3 +70,12 @@
   outline: 2px solid var(--yoke-accent);
   outline-offset: 2px;
 }
+
+/* The one pending-content line. Small, muted, and in the content area's own
+   flow: the shell around it is already drawn, so this marks the single
+   region that is not, without claiming a layout the app has not resolved. */
+.universe-app-root .route-loading {
+  padding: 14px 2px;
+  color: var(--yoke-muted);
+  font-size: 13px;
+}

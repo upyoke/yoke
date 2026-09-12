@@ -30,7 +30,6 @@ import {
   DETAIL_RENDERERS, VIEW_RENDERERS,
 } from "./universe_views.js";
 import {
-  callFunction,
   configurePageHead,
   createBreadcrumb,
   createPageHead,
@@ -44,14 +43,20 @@ import {
   createHostSectionPlacement,
   createProjectControls,
   loadOrganizationName,
+  loadProjectRoster,
   loadScreenSelections,
   loadWordmark,
   saveScreenSelection,
 } from "./universe_app_shell_support.js";
 import { createProjectSelection, knownProjectId, selectionParam } from "./universe_project_selection.js";
+import { createPageRevisit } from "./universe_page_revisit.js";
 import { createSelectionNavigation, selectionRoute } from "./universe_selection_routes.js";
-import { computeSteeringGroupColors } from "./universe_steering_group_color.js";
+import { routeLoadingLine } from "./universe_route_loading.js";
+import { createSteeringGroupColors } from "./universe_steering_group_color.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
+// A host owns its slot DOM, so it cannot inherit the app's own dismissal —
+// and should not write a second one. Contract: `contracts/universe-app.ts`.
+export { attachMenuDismissal } from "./universe_menu_dismissal.js";
 export {
   UNIVERSE_APP_CONTRACT_VERSION,
   createHttpFunctionClient,
@@ -90,7 +95,8 @@ export function mountUniverseApp(rootNode, options = {}) {
     () => renderRoute(),
   );
   const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections);
-  let steeringGroupColorMap = new Map();
+  const steeringColors = createSteeringGroupColors(client, () => mounted);
+  const pageRevisit = createPageRevisit(documentNode, rootNode, () => mounted);
   const context = {
     client,
     document: documentNode,
@@ -100,8 +106,10 @@ export function mountUniverseApp(rootNode, options = {}) {
     // projects costs no second call.
     projects: () => projects,
     // Ranked from the app-wide roster below, never each page's own rows.
-    steeringGroupColors: () => steeringGroupColorMap,
-    refreshSteeringGroupColors: () => refreshSteeringGroupColors(),
+    steeringGroupColors: () => steeringColors.colors(),
+    refreshSteeringGroupColors: () => steeringColors.refresh(),
+    // A slept machine wakes holding a snapshot; live screens re-read.
+    onPageRevisit: (host, refresh) => pageRevisit.subscribe(host, refresh),
     // Host capability data, read by views that need an explicit deployment
     // mode or host-owned control surface. The Organization view interprets
     // portability capabilities; the topbar carries no capability controls.
@@ -123,6 +131,8 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   const detachRootClass = attachMountRootClass(rootNode);
   rootNode.replaceChildren(header, shell);
+  // Said, not left blank, until the first render or the failure banner below.
+  main.replaceChildren(routeLoadingLine(documentNode));
 
   // The mark uses currentColor, so it must live in the DOM (an <img src>
   // would not inherit color); the brand container's ink flips in dark mode.
@@ -305,41 +315,30 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   windowNode.addEventListener("hashchange", heldScope.onHashChange);
 
-  const projectsFetched = Promise.resolve().then(() => callFunction(
-    client, "projects.list", {
-      fields: ["id", "slug", "name", "emoji", "public_item_prefix"],
-    },
-  )).then((callResult) => {
-    if (!callResult.envelope?.success) throw new Error("projects unavailable");
-    projects = (callResult.envelope && callResult.envelope.result)?.rows || [];
+  const projectsFetched = loadProjectRoster(client, (rows) => {
+    projects = rows;
     projectsLoaded = true;
-  })
-    .catch(() => {
-      if (mounted) main.replaceChildren(el(documentNode, "p", "error-banner",
-        "Projects could not be loaded. Reload to retry; your saved selection is unchanged."));
-    });
+  }).catch(() => {
+    if (mounted) main.replaceChildren(el(documentNode, "p", "error-banner",
+      "Projects could not be loaded. Reload to retry; your saved selection is unchanged."));
+  });
 
   const preferencesFetched = loadScreenSelections(client, scopeSelections);
 
-  // Ranks computeSteeringGroupColors over the complete roster; Overview and
-  // Sessions also call this to catch a group starting mid-session. Deferred
-  // like projectsFetched, so a synchronously throwing client rejects here.
-  function refreshSteeringGroupColors() {
-    return Promise.resolve().then(() => callFunction(
-      client, "sessions.list", { per_project: true, open: true },
-    )).then((r) => {
-      if (!mounted) return;
-      const rows = (r.envelope?.success && r.envelope.result?.rows) || [];
-      steeringGroupColorMap = computeSteeringGroupColors(rows);
-    }).catch(() => {});
-  }
-  const steeringGroupsFetched = refreshSteeringGroupColors();
+  // Steering-group colors are decoration and tint cards a render at a time,
+  // so they are started here but never waited on: gating the first content
+  // paint on them held every screen behind a roster read it did not need.
+  // Projects and remembered selections stay in the gate — routing resolves
+  // against the project roster, and a screen that paints before its saved
+  // selection arrives paints once and then jumps.
+  steeringColors.refresh();
 
-  Promise.all([projectsFetched, preferencesFetched, steeringGroupsFetched])
+  Promise.all([projectsFetched, preferencesFetched])
     .then(() => { if (mounted && projectsLoaded) renderRoute(); });
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
+    pageRevisit.dispose();
     navigation.dispose();
     windowNode.removeEventListener("hashchange", heldScope.onHashChange);
     disposeChrome();
