@@ -7,7 +7,8 @@ import {
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
 import {
   computeSteeringGroupColors,
-} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.js";
+  steeringGroupInk,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_steering_group_color.js";
 import {
   FakeDocument,
   byClass,
@@ -91,18 +92,21 @@ test("an ordinary worker card carries no steering box", () => {
 });
 
 
-test("associated cards share the steering seat tint", () => {
+test("the group color fills the worker label and never the card itself", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.css",
     import.meta.url,
   ), "utf8");
+  // No rule may paint a card background from the group color: held,
+  // previously-held, and status colors own the card surface.
+  assert.doesNotMatch(css, /\.session-card[^{]*\{[^}]*background/);
   assert.match(
     css,
-    /\.session-card\.is-steering-associated \{[\s\S]*?color-mix/,
+    /\.session-steered-badge \{[\s\S]*?background: var\(--session-steering-color/,
   );
-  assert.doesNotMatch(
+  assert.match(
     css,
-    /\.session-card\.is-steering-associated\.is-stale/,
+    /\.session-steered-badge \{[\s\S]*?color: var\(--session-steering-ink/,
   );
   assert.match(
     css,
@@ -116,12 +120,12 @@ test("associated cards share the steering seat tint", () => {
 });
 
 
-test("coverage association tints the outer card", () => {
-  const rendered = sessionCard(
+function coveredWorkerCard(liveness = "active") {
+  return sessionCard(
     new FakeDocument(),
     {
       session_id: "worker-1",
-      liveness: "active",
+      liveness,
       mode: "dash",
       executor: "codex",
       claims: [],
@@ -131,30 +135,50 @@ test("coverage association tints the outer card", () => {
     },
     () => {},
     [{ id: 1, slug: "yoke" }],
+    new Map([["seat-1", "#7c3aed"]]),
   );
-  assert.ok(rendered.classList.contains("is-steering-associated"));
+}
+
+test("a covered worker leads its identity row with the group label", () => {
+  const rendered = coveredWorkerCard();
+  const badge = byClass(rendered, "session-steered-badge")[0];
+  assert.equal(byClass(badge, "session-steered-text")[0].textContent, "Steered");
+  // The same steering artwork the seat's box carries, not a second mark.
+  assert.equal(badge.children[0].children[0].tagName, "SVG");
+  // First in the identity row, so the group reads before the harness.
+  assert.equal(byClass(rendered, "session-top")[0].children[0], badge);
   assert.equal(rendered.getAttribute("data-steering-group"), "seat-1");
+  assert.equal(
+    rendered.style.getPropertyValue("--session-steering-ink"), "#ffffff",
+  );
 });
 
-
-test("a stale associated card keeps its group tint class alongside the stale class", () => {
-  const rendered = sessionCard(
-    new FakeDocument(),
-    {
-      session_id: "worker-1",
-      liveness: "stale",
-      mode: "dash",
-      executor: "codex",
-      claims: [],
-      holdings: { current: [], previous: [], previous_remainder: 0 },
-      messageability: { messageable: false },
-      steering_group_session_id: "seat-1",
-    },
-    () => {},
-    [{ id: 1, slug: "yoke" }],
-  );
-  assert.ok(rendered.classList.contains("is-steering-associated"));
+test("a stale covered worker keeps both its group label and its stale class", () => {
+  const rendered = coveredWorkerCard("stale");
+  assert.equal(byClass(rendered, "session-steered-badge").length, 1);
   assert.ok(rendered.classList.contains("is-stale"));
+});
+
+test("the seat itself carries no worker label, and an unsteered card none", () => {
+  const seat = card(new FakeDocument(), { current: [steering] });
+  assert.equal(byClass(seat, "session-steered-badge").length, 0);
+  assert.equal(byClass(seat, "session-steering-lead").length, 1);
+
+  const unsteered = card(new FakeDocument(), { current: [] });
+  assert.equal(byClass(unsteered, "session-steered-badge").length, 0);
+});
+
+test("label ink is whichever of black and white reads on the group color", () => {
+  // Both palette forms are read, and the choice follows the color rather
+  // than its lightness number: the generated hues all sit at 38% lightness,
+  // where a blue is dark and a yellow-olive is not.
+  assert.equal(steeringGroupInk("#7c3aed"), "#ffffff");
+  assert.equal(steeringGroupInk("#a16207"), "#ffffff");
+  assert.equal(steeringGroupInk("hsl(250.0deg 65% 38%)"), "#ffffff");
+  assert.equal(steeringGroupInk("hsl(58.0deg 65% 38%)"), "#000000");
+  // A light background takes black, and an unparseable one stays legible.
+  assert.equal(steeringGroupInk("#f5d90a"), "#000000");
+  assert.equal(steeringGroupInk("nonsense"), "#ffffff");
 });
 
 

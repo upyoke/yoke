@@ -50,7 +50,7 @@ import {
 } from "./universe_app_shell_support.js";
 import { createProjectSelection, knownProjectId, selectionParam } from "./universe_project_selection.js";
 import { createSelectionNavigation, selectionRoute } from "./universe_selection_routes.js";
-import { computeSteeringGroupColors } from "./universe_sessions_steering.js";
+import { computeSteeringGroupColors } from "./universe_steering_group_color.js";
 export { withProjectSelection } from "./universe_selection_routes.js";
 export {
   UNIVERSE_APP_CONTRACT_VERSION,

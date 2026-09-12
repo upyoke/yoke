@@ -75,14 +75,19 @@ test("one-argument mount preserves the local client and DOM shape", async (t) =>
   const assetFetch = fetches.find((entry) => !entry.init);
   assert.match(assetFetch.url, /\/static\/yoke-wordmark\.svg$/);
   assert.doesNotMatch(assetFetch.url, /\/assets\//);
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 1);
-  assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 2);
+  // One routing listener plus one dismissal set per transient surface the
+  // frame opens over its content — actor menu, search, footer panels — and
+  // nothing may outlive the mount that attached it.
+  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 4);
+  assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 5);
+  assert.equal(documentNode.defaultView.listenerCounts.get("click"), 3);
   mounted.unmount();
   mounted.unmount();
   assert.equal(root.children.length, 0);
   assert.ok(!root.classList.contains("universe-app-root"));
   assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 0);
   assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 0);
+  assert.equal(documentNode.defaultView.listenerCounts.get("click"), 0);
 });
 
 test("injected clients, generic actions, slots, and mounts stay isolated", async (t) => {
@@ -160,7 +165,9 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   });
   await settle();
 
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 2);
+  // The host-slotted mount draws no actor menu of its own, so it attaches
+  // three sets against the plain mount's four.
+  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 7);
   // Host actions are not chrome: a mount carrying them draws nothing until
   // the Organization view asks for them, and the topbar never does.
   assert.equal(byClass(firstRoot, "capability-actions").length, 0);
@@ -271,7 +278,7 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
     [topbarStartSlot, topbarEndSlot, navigationStartSlot,
       navigationEndSlot, contentBeforeSlot, contentAfterSlot]
   )) assert.equal(slot.parentNode, null);
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 1);
+  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 4);
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
   assert.equal(firstClient.requests.length, firstCallsBeforeUnmount);

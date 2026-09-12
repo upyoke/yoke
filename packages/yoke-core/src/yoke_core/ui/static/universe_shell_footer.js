@@ -1,5 +1,9 @@
 // Footer strip: environment label, docs/keyboard links, and the activatable
-// version control that reveals the host's runtime-identity packet.
+// version control that reveals the host's runtime-identity packet. Its two
+// panels open over the content, so they take the shared menu-dismissal
+// contract like every other transient surface in the frame.
+
+import { attachMenuDismissal } from "./universe_menu_dismissal.js";
 
 const DEFAULT_DOCS_URL = "https://github.com/upyoke/yoke/tree/main/docs";
 const SOURCE_VERSION_LABEL = "source";
@@ -131,5 +135,15 @@ export function createFooter(documentNode, options) {
       version.setAttribute("aria-expanded", "true");
     }
   });
-  return { footer, keyboardPanel, identityPanel, closePanels };
+  const openTrigger = () => {
+    if (!keyboardPanel.hidden) return keyboard;
+    return identityPanel.hidden ? null : version;
+  };
+  const dispose = attachMenuDismissal(documentNode, {
+    root: footer,
+    close: closePanels,
+    isOpen: () => !(keyboardPanel.hidden && identityPanel.hidden),
+    trigger: openTrigger,
+  });
+  return { footer, keyboardPanel, identityPanel, closePanels, dispose };
 }

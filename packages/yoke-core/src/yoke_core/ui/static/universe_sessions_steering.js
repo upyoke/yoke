@@ -7,49 +7,6 @@ import { el } from "./universe_view_support.js";
 export const STEERING_MARKER_TITLE =
   "steering seat — this session steered this project";
 
-// A steering group's color is a fact about the group, not the theme — like
-// the harness brand marks in theme.css, it does not vary between light and
-// dark. Six hues, chosen for pairwise distinctness and to stay clear of the
-// existing state hues (good/warn/crit/run/park).
-const STEERING_GROUP_PALETTE = [
-  "#7c3aed", // violet
-  "#0d9488", // teal
-  "#db2777", // rose
-  "#0e7490", // cyan
-  "#a16207", // amber-brown
-  "#4338ca", // indigo
-];
-
-// Rotating by the golden angle spreads consecutive extra hues well clear of
-// their immediate neighbor — not a claim that no two of them, out of an
-// unbounded run, can ever land close together.
-const GOLDEN_ANGLE_DEGREES = 137.508;
-
-function paletteColorAt(rank) {
-  if (rank < STEERING_GROUP_PALETTE.length) return STEERING_GROUP_PALETTE[rank];
-  const hue = ((rank - STEERING_GROUP_PALETTE.length) * GOLDEN_ANGLE_DEGREES) % 360;
-  return `hsl(${hue.toFixed(1)}deg 65% 38%)`;
-}
-
-// Ranked by sorted id, not by position in any one page's own fetch: Overview,
-// Sessions, and the detail view each fetch their own rows (Sessions scopes to
-// one project, Overview does not), so ranking by position within a single
-// call's rows gave the same group different colors on different pages. The
-// fix is feeding this one function the same complete, app-wide roster on
-// every call (mountUniverseApp fetches it once, like context.projects()) —
-// a page-local subset never reaches this function at all.
-export function computeSteeringGroupColors(rows) {
-  const distinctIds = [...new Set(
-    (Array.isArray(rows) ? rows : [])
-      .map((row) => row?.steering_group_session_id)
-      .filter((id) => id !== undefined && id !== null && id !== "")
-      .map((id) => String(id)),
-  )].sort();
-  const colors = new Map();
-  distinctIds.forEach((id, rank) => colors.set(id, paletteColorAt(rank)));
-  return colors;
-}
-
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const STEERING_CONNECTOR_PATH = "M 112.41 106.36 L 112.54 103.77 L 112.94 100.88 L 113.59 97.78 L 114.56 94.72 L 115.72 92.11 L 117.41 89.52 L 118.03 88.72 L 120.27 86.24 L 123.20 83.29 L 124.39 82.25 L 125.10 81.71 L 151.80 64.19 L 152.89 63.33 L 153.86 62.22 L 154.59 60.94 L 154.97 59.92 L 155.20 58.82 L 155.24 57.34 L 155.00 55.89 L 154.64 54.87 L 153.93 53.58 L 152.98 52.45 L 151.82 51.54 L 150.83 50.99 L 149.82 50.62 L 148.71 50.39 L 147.63 50.33 L 146.50 50.43 L 145.45 50.69 L 144.40 51.11 L 143.54 51.60 L 108.73 74.46 L 107.53 75.09 L 106.89 75.31 L 106.24 75.47 L 104.89 75.60 L 103.54 75.47 L 102.89 75.31 L 101.63 74.80 L 101.05 74.46 L 66.24 51.60 L 65.38 51.11 L 64.33 50.69 L 63.28 50.43 L 61.81 50.33 L 60.68 50.45 L 59.64 50.72 L 58.29 51.33 L 57.36 51.97 L 56.56 52.70 L 55.66 53.87 L 55.01 55.19 L 54.62 56.61 L 54.53 58.08 L 54.72 59.54 L 55.19 60.94 L 55.73 61.93 L 56.65 63.09 L 57.19 63.59 L 57.98 64.19 L 84.72 81.74 L 85.44 82.28 L 86.59 83.29 L 89.26 85.97 L 91.76 88.72 L 92.38 89.52 L 94.07 92.11 L 95.23 94.72 L 96.20 97.78 L 96.85 100.88 L 97.31 104.43 L 97.36 106.10 L 97.36 133.99 L 97.48 135.38 L 97.75 136.43 L 98.18 137.47 L 98.74 138.40 L 99.45 139.27 L 99.99 139.78 L 100.86 140.43 L 101.85 140.96 L 102.87 141.32 L 104.32 141.58 L 105.80 141.54 L 107.24 141.22 L 108.58 140.63 L 109.79 139.78 L 110.81 138.72 L 111.60 137.47 L 112.13 136.10 L 112.35 134.99 L 112.41 133.99 L 112.41 106.36 Z";
 
@@ -259,11 +216,37 @@ export function steeringLeadCovers(row) {
   return (holding) => holding.target_kind === "steering" || foldsIn(holding);
 }
 
+// Whether this row is a worker a seat covers rather than the seat itself.
+// The projection sets a seat's own session id as its group id, so the two
+// differing is exactly what distinguishes a covered worker — no claim
+// inspection, and no title, name, or mode string.
+export function isSteeredWorker(row) {
+  const group = row?.steering_group_session_id;
+  if (group === undefined || group === null || group === "") return false;
+  return String(group) !== String(row?.session_id || "");
+}
+
+// The one mark a covered worker carries: a compact filled label in its
+// group's own color, with the same steering symbol the seat's box uses, so
+// the group reads at a glance without tinting the whole card — a tint
+// competed with the card's own status colors, which say something else
+// entirely. The seat itself carries no label; its steering box already
+// names it, and a worker that looks like a seat is the confusion this
+// avoids.
+export function steeringWorkerLabel(documentNode) {
+  const badge = el(documentNode, "span", "session-steered-badge");
+  badge.appendChild(steeringMarker(
+    documentNode, "session-steered-symbol", { decorative: true },
+  ));
+  badge.appendChild(el(documentNode, "span", "session-steered-text", "Steered"));
+  return badge;
+}
+
 // A steering seat holds no item; its scope IS its work, so on its card the
 // scope leads the body where a worker card leads with its claim. Reading a
 // steering card, the first question is which projects this seat drives and
 // from which documents — the same question a worker card answers with an
-// item ref. Covered workers share the seat's outer tint.
+// item ref.
 export function appendSteeringHoldings(documentNode, body, row, projects = []) {
   const scopes = steeringScopes(row, projects);
   if (!scopes.length) return false;

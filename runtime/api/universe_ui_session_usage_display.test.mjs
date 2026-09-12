@@ -18,7 +18,7 @@ import {
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_usage.js";
 import {
   appendMachineUsage,
-  fetchEndedUsageRows,
+  fetchRecentUsageRows,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_machines_usage.js";
 import { FakeDocument, byClass } from "./universe_ui_dom_test_support.mjs";
 
@@ -194,7 +194,7 @@ test("a partial member marks the total it contributed to", () => {
   assert.equal(usageSummaryLabel(summary), `100${PARTIAL_MARK} · $1${PARTIAL_MARK}`);
 });
 
-test("the machine tile labels its window and reports its scope beside its total", () => {
+test("the machine tile carries the window in each label, with no separate heading", () => {
   const documentNode = new FakeDocument();
   const card = documentNode.createElement("div");
   const sessions = [
@@ -206,22 +206,22 @@ test("the machine tile labels its window and reports its scope beside its total"
 
   appendMachineUsage(documentNode, card, { machine_id: "m1" }, sessions);
 
-  assert.deepEqual(
-    byClass(card, "machine-usage-window").map((node) => node.textContent),
-    ["Ended in last 24h"],
-  );
+  // The window rides each metric label, so the block holds the figures and
+  // nothing above them to pair up by position.
+  assert.equal(byClass(card, "machine-usage-block")[0].children.length, 1);
   assert.deepEqual(
     byClass(card, "usage-stat-value").map((node) => node.textContent),
     ["1k", "$2", "1"],
   );
   assert.deepEqual(
     byClass(card, "usage-stat-unit").map((node) => node.textContent),
-    ["tokens", "API cost", "sessions"],
+    ["24h tokens", "24h API cost", "24h sessions"],
   );
   assert.equal(
     byClass(card, "machine-usage")[0].getAttribute("data-tooltip"),
-    "estimated API-equivalent cost for sessions that ended on this machine "
-    + "in the last 24 hours, not consumption of any subscription plan; the "
+    "estimated API-equivalent cost for this machine's sessions in the last "
+    + "24 hours — those that ended in the window and those still running "
+    + "that started in it — not consumption of any subscription plan; the "
     + "dollar total covers only the sessions that could be priced",
   );
 });
@@ -246,7 +246,7 @@ test("the machine tile names its priced count when a session went unpriced", () 
   );
 });
 
-test("a zero-coverage window still names the window it found nothing in", () => {
+test("a zero-coverage window says so in place of the figures", () => {
   const documentNode = new FakeDocument();
   const card = documentNode.createElement("div");
 
@@ -255,17 +255,14 @@ test("a zero-coverage window still names the window it found nothing in", () => 
     { machine_id: "m1" },
   ]);
 
-  assert.deepEqual(
-    byClass(card, "machine-usage-window").map((node) => node.textContent),
-    ["Ended in last 24h"],
-  );
+  assert.equal(byClass(card, "machine-usage-block")[0].children.length, 1);
   assert.deepEqual(
     byClass(card, "usage-stat-unit").map((node) => node.textContent),
     ["no consumption recorded for 2 sessions"],
   );
 });
 
-test("a machine with no sessions ended in the window draws no usage line", () => {
+test("a machine with no sessions in the window draws no usage line", () => {
   const documentNode = new FakeDocument();
   const card = documentNode.createElement("div");
 
@@ -290,26 +287,26 @@ test("the machine scope says the estimate is not plan consumption", () => {
   );
 });
 
-test("fetching ended usage omits projects when the caller is unscoped", async () => {
+test("fetching 24h usage omits projects when the caller is unscoped", async () => {
   const context = fakeContext([{ machine_id: "m1", usage_tokens: 10 }]);
 
-  const rows = await fetchEndedUsageRows(context);
+  const rows = await fetchRecentUsageRows(context);
 
   assert.deepEqual(context.calls, [
-    { function: "sessions.list", payload: { ended_last_24h: true } },
+    { function: "sessions.list", payload: { usage_last_24h: true } },
   ]);
   assert.deepEqual(rows, [{ machine_id: "m1", usage_tokens: 10 }]);
 });
 
-test("fetching ended usage scopes to the caller's selected projects", async () => {
+test("fetching 24h usage scopes to the caller's selected projects", async () => {
   const context = fakeContext([]);
 
-  await fetchEndedUsageRows(context, ["1", "2"]);
+  await fetchRecentUsageRows(context, ["1", "2"]);
 
   assert.deepEqual(context.calls, [
     {
       function: "sessions.list",
-      payload: { ended_last_24h: true, projects: ["1", "2"] },
+      payload: { usage_last_24h: true, projects: ["1", "2"] },
     },
   ]);
 });

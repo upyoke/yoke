@@ -22,8 +22,11 @@ import { appendSessionPresentation } from "./universe_session_presentation.js";
 import { appendSessionUsage } from "./universe_session_usage.js";
 import {
   appendSteeringHoldings,
+  isSteeredWorker,
   sortSessionsSteeringFirst,
+  steeringWorkerLabel,
 } from "./universe_sessions_steering.js";
+import { steeringGroupInk } from "./universe_steering_group_color.js";
 import {
   appendSessionMessagingBlocker,
   appendSessionRelay,
@@ -98,7 +101,6 @@ export function sessionCard(
   const primary = sessionPrimaryStatus(row);
   const classes = ["session-card"];
   if (primary.state === "stale") classes.push("is-stale");
-  if (row.steering_group_session_id) classes.push("is-steering-associated");
   const card = el(documentNode, "article", classes.join(" "));
   card.setAttribute("data-session-id", String(row.session_id || ""));
   card.setAttribute("data-liveness", liveness || "unknown");
@@ -106,14 +108,19 @@ export function sessionCard(
     card.setAttribute(
       "data-steering-group", String(row.steering_group_session_id),
     );
-    // Every steering-region rule below reads this custom property with the
+    // Every steering-region rule reads this custom property with the
     // universal accent as its fallback, so a group's color reaches the
-    // steering lead, the outer tint, and every covered worker's card from
-    // this one assignment. `groupColors` is computed once per render pass
+    // seat's steering box and its workers' labels from this one assignment.
+    // The card background itself stays neutral: a whole-card tint competed
+    // with the held/previously-held and status colors, which answer a
+    // different question. `groupColors` is computed once per render pass
     // across the caller's whole known roster, so this lookup never collides
     // a distinct group onto the color another visible group already has.
     const color = groupColors.get(String(row.steering_group_session_id));
-    if (color) card.style.setProperty("--session-steering-color", color);
+    if (color) {
+      card.style.setProperty("--session-steering-color", color);
+      card.style.setProperty("--session-steering-ink", steeringGroupInk(color));
+    }
   }
 
   // Two header rows, each answering one question. Who is running this and
@@ -121,6 +128,10 @@ export function sessionCard(
   // pill used to sit in the middle of the identity row, where it competed
   // with a harness name and a lane for the same eye.
   const top = el(documentNode, "div", "session-top");
+  // A covered worker leads its identity row with its group's label, so the
+  // group is the first thing read on the card without the card itself
+  // changing color. The seat carries none: its steering box says so.
+  if (isSteeredWorker(row)) top.appendChild(steeringWorkerLabel(documentNode));
   const harness = harnessIdentity(row);
   top.appendChild(el(
     documentNode,

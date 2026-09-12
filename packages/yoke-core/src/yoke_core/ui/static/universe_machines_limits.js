@@ -23,6 +23,7 @@ import {
   headroomTone,
   planWindowHeadroom,
   readingIsStale,
+  sortPlanWindows,
   windowLabel,
 } from "./universe_machines_meters.js";
 
@@ -192,14 +193,12 @@ export function surfaceRow(documentNode, relay, surface) {
   ));
   if (reading?.windows?.length) {
     const limits = el(documentNode, "div", "machine-limit-list");
-    // Ordered by headroom, so the wall this machine hits first is the top row;
-    // a window nobody could read sorts last, having named no runway at all.
-    const sorted = [...reading.windows].sort((left, right) => {
-      const leftValue = planWindowHeadroom(left);
-      const rightValue = planWindowHeadroom(right);
-      return (leftValue ?? Infinity) - (rightValue ?? Infinity);
-    });
-    for (const window of sorted) {
+    // One fixed order every card shares, so the row a reader looks for is
+    // where they last saw it: the main weekly level first, then the rest of
+    // the general pool, then each model-specific pool kept together. Ordering
+    // by measured headroom instead would move rows around as the readings
+    // moved and split a pool's own two windows apart.
+    for (const window of sortPlanWindows(reading.windows)) {
       limits.appendChild(planWindowRow(documentNode, window, stale));
       if (window.status !== "ok" && window.reason) {
         limits.appendChild(limitNote(documentNode, window.reason));

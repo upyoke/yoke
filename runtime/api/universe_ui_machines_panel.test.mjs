@@ -278,23 +278,29 @@ test("an exhausted pool draws the wall, and an unreadable one says so", () => {
   });
 
   const rows = byClass(host, "machine-limit-row");
+  // Row order is the card's fixed pool order, so the general pool's window
+  // leads and the model pool follows however each one reads.
   assert.deepEqual(
     rows.map((node) => node.getAttribute("data-tone")),
-    ["wall", "unread"],
+    ["unread", "wall"],
   );
   assert.deepEqual(textOf(host, "machine-limit-headroom").slice(1), [
-    "wall", "—",
+    "—", "wall",
   ]);
-  assert.deepEqual(textOf(host, "machine-limit-quota").slice(1), ["0%", "—"]);
+  assert.deepEqual(textOf(host, "machine-limit-quota").slice(1), ["—", "0%"]);
   // The wall keeps the scale it is measured against; an unreadable window has
   // no reading to place against one, so it carries neither fill nor pivot.
   assert.equal(byClass(host, "machine-headroom-pivot").length, 1);
   assert.equal(byClass(host, "machine-headroom-fill").length, 1);
   assert.match(
-    byClass(host, "machine-headroom-track")[0].getAttribute("aria-label"),
+    byClass(host, "machine-headroom-track")[1].getAttribute("aria-label"),
     /at the wall/,
   );
-  assert.equal(byClass(host, "machine-limit-name")[1].textContent, "no reading");
+  assert.equal(
+    byClass(host, "machine-headroom-track")[0].getAttribute("aria-label"),
+    "no reading for this window",
+  );
+  assert.equal(byClass(host, "machine-limit-name")[0].textContent, "no reading");
   assert.match(
     byClass(host, "machine-limit-note")[0].textContent,
     /stale_credential — launches still attempt and fail/,

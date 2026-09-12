@@ -11,6 +11,7 @@ from yoke_contracts.session_control.liveness import (
     ENDED_CAUSE_WOUND_DOWN,
     ended_at_sql,
     ended_session_sql,
+    live_session_sql,
 )
 from yoke_core.domain.json_helper import dumps_compact, loads_text
 from yoke_core.domain.project_identity import placeholder, row_value
@@ -23,9 +24,9 @@ from yoke_core.domain.session_probe import not_probe_session_sql
 
 DEFAULT_HISTORY_LIMIT = 50
 MAX_HISTORY_LIMIT = 100
-#: How far back a machine tile's "Ended in last 24h" usage figure reaches.
-ENDED_USAGE_WINDOW = timedelta(hours=24)
-ENDED_USAGE_FIELDS = (
+#: How far back a machine tile's 24-hour usage figures reach.
+RECENT_USAGE_WINDOW = timedelta(hours=24)
+RECENT_USAGE_FIELDS = (
     "session_id", "machine_id", "project_id", *USAGE_PROJECTION_FIELDS,
 )
 HISTORY_FIELDS = (
@@ -261,21 +262,31 @@ def read_ended_session_history(
     }
 
 
-def read_ended_session_usage_by_machine(
+def read_recent_session_usage_by_machine(
     conn: Any,
     *,
     project_ids: Optional[Collection[int]],
 ) -> dict[str, Any]:
-    """Every session's full usage for sessions ended in the trailing 24h,
-    unpaginated, scoped to ``project_ids`` (every visible project when
-    ``None``). A killed session dates by ``terminated_at`` via
-    ``ended_at_sql``, matching ``ended_session_sql``'s own definition of
-    ended so it is never silently dropped for lacking ``ended_at``.
+    """Every session's full usage for the sessions a machine's 24-hour figures
+    answer for, unpaginated, scoped to ``project_ids`` (every visible project
+    when ``None``).
+
+    The cohort is the union of two halves, because either one alone tells a
+    half-truth about a machine that is busy right now: sessions that ENDED
+    inside the window, and sessions that STARTED inside it and have not ended.
+    A session cannot be in both halves — ended and not-ended are exact
+    complements — so the union counts each session exactly once without a
+    distinct pass. A still-open session that started before the window is
+    deliberately out: its cumulative usage is not a reading of the last 24
+    hours.
+
+    A killed session dates by ``terminated_at`` via ``ended_at_sql``, matching
+    ``ended_session_sql``'s own definition of ended so it is never silently
+    dropped for lacking ``ended_at``. A live session dates by ``offered_at``,
+    the same stamp the roster renders as when a session started.
     """
     marker = placeholder(conn)
-    clauses = [
-        ended_session_sql("s"), not_probe_session_sql("s"), "s.machine_id IS NOT NULL",
-    ]
+    clauses = [not_probe_session_sql("s"), "s.machine_id IS NOT NULL"]
     params: list[Any] = []
     if project_ids is not None:
         ids = sorted({int(value) for value in project_ids})
@@ -284,11 +295,14 @@ def read_ended_session_usage_by_machine(
         else:
             clauses.append(f"s.project_id IN ({', '.join(marker for _ in ids)})")
             params.extend(ids)
-    cutoff = (datetime.now(timezone.utc) - ENDED_USAGE_WINDOW).strftime(
+    cutoff = (datetime.now(timezone.utc) - RECENT_USAGE_WINDOW).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
-    clauses.append(f"{ended_at_sql('s')} >= {marker}")
-    params.append(cutoff)
+    clauses.append(
+        f"(({ended_session_sql('s')} AND {ended_at_sql('s')} >= {marker})"
+        f" OR (({live_session_sql('s')}) AND s.offered_at >= {marker}))"
+    )
+    params.extend([cutoff, cutoff])
     where = "WHERE " + " AND ".join(clauses)
     rows = conn.execute(
         "SELECT s.session_id, s.machine_id, s.project_id, s.usage_totals "
@@ -304,11 +318,11 @@ def read_ended_session_usage_by_machine(
         }
         for raw in rows
     ]
-    return {"fields": list(ENDED_USAGE_FIELDS), "rows": rendered}
+    return {"fields": list(RECENT_USAGE_FIELDS), "rows": rendered}
 
 
 __all__ = [
-    "DEFAULT_HISTORY_LIMIT", "ENDED_USAGE_FIELDS", "ENDED_USAGE_WINDOW",
-    "HISTORY_FIELDS", "MAX_HISTORY_LIMIT", "read_ended_session_history",
-    "read_ended_session_usage_by_machine",
+    "DEFAULT_HISTORY_LIMIT", "HISTORY_FIELDS", "MAX_HISTORY_LIMIT",
+    "RECENT_USAGE_FIELDS", "RECENT_USAGE_WINDOW",
+    "read_ended_session_history", "read_recent_session_usage_by_machine",
 ]

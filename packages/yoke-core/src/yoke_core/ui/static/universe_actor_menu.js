@@ -2,10 +2,15 @@
 // place the person's own page is reached from. Profile is not a sidebar
 // destination because it is about the person, not the universe.
 //
+// Opening and closing is the shared menu-dismissal contract, so the panel
+// closes on an outside click, on Escape with focus back on the chip, and on
+// the navigation its own Profile item starts.
+//
 // The chip is drawn immediately from what the shell already knows and then
 // refreshed from one profile.get read, which also carries the person's
 // time-zone preference so every absolute time on the page honours it.
 
+import { attachMenuDismissal } from "./universe_menu_dismissal.js";
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { setDisplayTimeZone } from "./universe_time.js";
 import { callFunction, el } from "./universe_view_support.js";
@@ -60,16 +65,16 @@ export function createActorMenu(documentNode, client, actor) {
     menu.hidden = !open;
     chip.setAttribute("aria-expanded", open ? "true" : "false");
   };
-  chip.addEventListener("click", (event) => {
-    event.stopPropagation();
-    setOpen(menu.hidden);
-  });
+  chip.addEventListener("click", () => setOpen(menu.hidden));
+  // Activating the item closes the menu itself, because reaching the page
+  // the menu is already on changes no hash for the dismissal to observe.
   profileLink.addEventListener("click", () => setOpen(false));
-  // A click anywhere else closes the menu; a headless document has no
-  // listeners to offer and the menu still toggles from the chip.
-  if (typeof documentNode.addEventListener === "function") {
-    documentNode.addEventListener("click", () => setOpen(false));
-  }
+  const disposeDismissal = attachMenuDismissal(documentNode, {
+    root: host,
+    close: () => setOpen(false),
+    isOpen: () => !menu.hidden,
+    trigger: chip,
+  });
 
   // The read may refuse (no bound actor), fail, or be unsupported by the
   // client; the chip then keeps the shell's own label, which is still true.
@@ -95,5 +100,5 @@ export function createActorMenu(documentNode, client, actor) {
       // a profile; the chip stays as drawn.
     }
   }
-  return host;
+  return { dispose: disposeDismissal, host };
 }

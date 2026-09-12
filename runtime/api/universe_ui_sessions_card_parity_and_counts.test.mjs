@@ -127,7 +127,7 @@ test("the sessions-shown tile carries the page against the filtered match", asyn
   const { root, mounted } = await mountSessions(t, {
     "session_control.relay.list": () => ok({ relays: [] }),
     "sessions.list": (request) => {
-      if (request.payload.ended_last_24h) return ok({ rows: [] });
+      if (request.payload.usage_last_24h) return ok({ rows: [] });
       if (request.payload.open) {
         return ok({ rows: [{
           ...BASE_ROW, session_id: "live-1", liveness: "active",

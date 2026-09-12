@@ -8,24 +8,21 @@ import {
 import { appendUsageStats } from "./universe_usage_stats.js";
 import { callFunction, el } from "./universe_view_support.js";
 
-//: The window label the tile shows, matching the durable read's own scope
-//: (`sessions.list` with `ended_last_24h: true`) — a machine tile answers
-//: for every session that ended in that window, never for a loaded page.
-const ENDED_WINDOW_LABEL = "Ended in last 24h";
-
 /**
- * Every session that ended on this machine in the trailing 24 hours,
- * scoped to `projects` (every visible project when empty) — not just a
- * loaded page.
+ * The sessions this machine's 24-hour figures answer for, scoped to
+ * `projects` (every visible project when empty) — not just a loaded page.
  *
- * A machine tile sums a durable read rather than whatever rows a roster
- * happens to have on screen, so the total answers for the whole window
- * regardless of paging or filters. Rows carry the same derived usage
- * fields the live roster already hands a card, keyed by `machine_id` so
- * `appendMachineUsage` can filter and sum them exactly as before.
+ * The engine's cohort is the union of sessions that ended inside the window
+ * and sessions that started inside it and have not ended, each counted once,
+ * so a machine that is busy right now reads as busy instead of waiting for
+ * its sessions to end. A machine tile sums that durable read rather than
+ * whatever rows a roster happens to have on screen, so the total answers for
+ * the whole window regardless of paging or filters. Rows carry the same
+ * derived usage fields the live roster already hands a card, keyed by
+ * `machine_id` so `appendMachineUsage` can filter and sum them.
  */
-export async function fetchEndedUsageRows(context, projects = []) {
-  const payload = { ended_last_24h: true };
+export async function fetchRecentUsageRows(context, projects = []) {
+  const payload = { usage_last_24h: true };
   if (projects.length) payload.projects = projects;
   const result = await callFunction(context.client, "sessions.list", payload);
   if (!result.envelope.success) throw result;
@@ -33,16 +30,18 @@ export async function fetchEndedUsageRows(context, projects = []) {
 }
 
 /**
- * What sessions that ended on this machine in the last 24 hours spent.
+ * What this machine's sessions spent in the last 24 hours.
  *
- * The SESSIONS column names how many contributing sessions underlie the
- * total — a single count, not a ratio, since the tile's job is to say
- * what the numbers beside it answer for. The tokens and cost figures are
- * the machine's own rollup rather than one session's reading, so unlike
- * a session card they carry no trailing approximation mark; the tooltip
- * still names the priced count when it trails the session count, since a
- * session on an unpriced model contributes tokens but nothing to the
- * dollar figure.
+ * Each metric label carries the window itself — `24H TOKENS`, `24H API COST`,
+ * `24H SESSIONS` — so the figures state their own scope where they are read,
+ * with no separate heading above them to pair up by position. The SESSIONS
+ * figure names how many contributing sessions underlie the total — a single
+ * count, not a ratio, since its job is to say what the numbers beside it
+ * answer for. The tokens and cost figures are the machine's own rollup rather
+ * than one session's reading, so unlike a session card they carry no trailing
+ * approximation mark; the tooltip still names the priced count when it trails
+ * the session count, since a session on an unpriced model contributes tokens
+ * but nothing to the dollar figure.
  */
 export function appendMachineUsage(documentNode, card, relay, sessions) {
   const rows = (Array.isArray(sessions) ? sessions : []).filter(
@@ -52,14 +51,12 @@ export function appendMachineUsage(documentNode, card, relay, sessions) {
   const summary = summarizeSessionUsage(rows);
   const tooltip = [
     usageSummaryScope(summary),
-    "estimated API-equivalent cost for sessions that ended on this machine "
-    + "in the last 24 hours, not consumption of any subscription plan; the "
+    "estimated API-equivalent cost for this machine's sessions in the last "
+    + "24 hours — those that ended in the window and those still running "
+    + "that started in it — not consumption of any subscription plan; the "
     + "dollar total covers only the sessions that could be priced",
   ].filter(Boolean).join(". ");
   const block = el(documentNode, "div", "machine-usage-block");
-  block.appendChild(el(
-    documentNode, "span", "machine-usage-window", ENDED_WINDOW_LABEL,
-  ));
   card.appendChild(block);
   if (!summary.covered) {
     const line = el(documentNode, "div", "machine-usage usage-stats");
@@ -78,19 +75,19 @@ export function appendMachineUsage(documentNode, card, relay, sessions) {
       {
         fact: "tokens",
         value: usageSummaryTokenDisplay(summary),
-        unit: "tokens",
+        unit: "24h tokens",
         partial: summary.partial,
       },
       {
         fact: "cost",
         value: usageSummaryCostDisplay(summary),
-        unit: "API cost",
+        unit: "24h API cost",
         partial: summary.partial,
       },
       {
         fact: "coverage",
         value: String(summary.covered),
-        unit: "sessions",
+        unit: "24h sessions",
       },
     ],
   });

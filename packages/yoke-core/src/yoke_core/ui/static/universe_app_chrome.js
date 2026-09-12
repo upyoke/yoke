@@ -169,11 +169,10 @@ export function createWorkbenchChrome({
   if (hostFillsTopbarEnd) {
     appendSlot(contextSide, resolvedSlots.topbarEnd, mountedSlotNodes);
   }
-  if (actor) contextSide.appendChild(contextControl(
-    documentNode,
-    "Actor",
-    createActorMenu(documentNode, client, actor),
-    "header-actor-context",
+  const actorMenu = actor
+    ? createActorMenu(documentNode, client, actor) : null;
+  if (actorMenu) contextSide.appendChild(contextControl(
+    documentNode, "Actor", actorMenu.host, "header-actor-context",
   ));
   const controls = createShellControls({ documentNode, client, options });
   const spacer = el(documentNode, "span", "header-spacer");
@@ -265,6 +264,7 @@ export function createWorkbenchChrome({
   return {
     brand,
     disposeChrome() {
+      actorMenu?.dispose();
       controls.dispose();
       documentNode.defaultView.removeEventListener("keydown", onEscape);
       documentNode.body?.classList.remove("side-open");

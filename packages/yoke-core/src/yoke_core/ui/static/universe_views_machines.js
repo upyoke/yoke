@@ -2,7 +2,7 @@
 
 import { callFunction, el } from "./universe_view_support.js";
 import { renderMachinesPanel } from "./universe_machines_panel.js";
-import { fetchEndedUsageRows } from "./universe_machines_usage.js";
+import { fetchRecentUsageRows } from "./universe_machines_usage.js";
 import {
   machinesById,
   registeredMachineRelays,
@@ -62,15 +62,15 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
     let relays;
     let usageRows;
     try {
-      const [machineCall, relayResult, endedUsageRows] = await Promise.all([
+      const [machineCall, relayResult, recentUsageRows] = await Promise.all([
         callFunction(context.client, "machine.list", {}),
         sessionControlCall(context, "session_control.relay.list", { limit: 500 }),
-        fetchEndedUsageRows(context),
+        fetchRecentUsageRows(context),
       ]);
       if (!machineCall.envelope.success) throw machineCall;
       machines = machineCall.envelope.result.machines || [];
       relays = relayResult.relays || [];
-      usageRows = endedUsageRows;
+      usageRows = recentUsageRows;
     } catch (error) {
       if (!context.isMounted()) return;
       status.textContent = presentSessionControlFailure(
