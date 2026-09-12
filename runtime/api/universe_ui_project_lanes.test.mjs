@@ -152,6 +152,17 @@ test("a full allowlist collapses and a subset names its actions", async (t) => {
   const altmanSummary = allNodes(laneRow(root, "ALTMAN"))
     .find((node) => node.tagName === "SUMMARY");
   assert.equal(ownTextContent(altmanSummary), "Polish");
+
+  const single = await mountProject(t, 1, client({
+    "projects.lane_summary.get": () => ok({
+      ...SUMMARY,
+      action_catalog: CATALOG.slice(0, 1),
+      lanes: [{ ...SUMMARY.lanes[0], actions: ["dash"] }],
+    }),
+  }));
+  const singleSummary = allNodes(laneRow(single, "DARIUS"))
+    .find((node) => node.tagName === "SUMMARY");
+  assert.equal(ownTextContent(singleSummary), "All 1 action");
 });
 
 test("an empty allowlist reads as None, never as all actions", async (t) => {

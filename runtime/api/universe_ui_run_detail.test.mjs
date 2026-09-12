@@ -154,13 +154,14 @@ test("the run page reads the run by id and draws it in the page's shape", async 
 test("a run with nothing waiting says what it is doing instead", async (t) => {
   const client = runClient(runRow({
     status: "succeeded", current_stage: "complete",
-    completed_at: new Date(Date.now() - 3600_000).toISOString(),
+    completed_at: new Date().toISOString(),
     stages: [{ name: "build", state: "complete" }, { name: "release", state: "complete" }],
   }));
   const { root, mounted } = await mountAt(t, "#/deployments/run-20260726-001?project=1", client);
   assert.equal(byClass(root, "run-badge")[0].textContent, "succeeded");
   const decision = byClass(root, "run-card")[1];
   assert.ok(decision.textContent.includes("Succeeded"), decision.textContent);
+  assert.ok(decision.textContent.includes("Completed now."), decision.textContent);
   assert.equal(byClass(decision, "review-card").length, 0);
   assert.ok(
     byClass(root, "run-card")[0].textContent.includes("No checks were recorded on this run."),

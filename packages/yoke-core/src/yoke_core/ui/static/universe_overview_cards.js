@@ -4,7 +4,7 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { deliveryStageBar, workflowBadge } from "./universe_secondary_primitives.js";
-import { relativeAge } from "./universe_time.js";
+import { relativeAgePhrase } from "./universe_time.js";
 import { appendRunGates, runGateStatus, runGates } from "./universe_run_gates.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
@@ -68,7 +68,7 @@ export function overviewItemCard(documentNode, row, scope, options = {}) {
   const timestamp = options.timestamp || row.updated_at || row.created_at;
   const meta = [
     options.meta,
-    timestamp ? `${options.timeLabel || "updated"} ${relativeAge(timestamp)} ago` : null,
+    timestamp ? `${options.timeLabel || "updated"} ${relativeAgePhrase(timestamp)}` : null,
   ].filter(Boolean).join(" · ");
   if (meta) card.appendChild(el(
     documentNode, "span", "overview-item-card-meta", meta,
@@ -181,7 +181,7 @@ export function overviewRunCard(context, row, scope, options = {}) {
       ? `${items.length} ${items.length === 1 ? "item" : "items"}`
       : "environment run",
     row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
-    timing ? `${status} ${relativeAge(timing)} ago` : status,
+    timing ? `${status} ${relativeAgePhrase(timing)}` : status,
   ].filter(Boolean).join(" · ")));
   card.appendChild(link);
   appendCarried(documentNode, card, row);

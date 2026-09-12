@@ -178,6 +178,10 @@ test("a sum of only unread sessions says so rather than reporting zero", () => {
 
   assert.equal(summary.covered, 0);
   assert.equal(usageSummaryLabel(summary), "no consumption recorded for 2 sessions");
+  assert.equal(
+    usageSummaryLabel(summarizeSessionUsage([{ session_id: "only" }])),
+    "no consumption recorded for 1 session",
+  );
 });
 
 test("a partial member marks the total it contributed to", () => {

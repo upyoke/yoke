@@ -96,6 +96,7 @@ test("Overview cards link to their first-class destinations", async (t) => {
   assert.match(text, /Waiting for a product decision/);
   assert.match(text, /No blockers; specification and plan are current/);
   assert.match(text, /Merged and deployed to stage/);
+  assert.doesNotMatch(text, /(?:now|recently) ago/);
   mounted.unmount();
 });
 

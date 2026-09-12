@@ -37,7 +37,8 @@ test("Plans labels a project target as intentionally environmentless", async () 
               id: 9,
               project: "yoke",
               slug: "registered-command-quick",
-              case_count: 1,
+              case_count: 0,
+              materialized_requirement_count: 1,
               method_ids: ["command"],
               attachments: [],
               execution_target: {
@@ -63,6 +64,7 @@ test("Plans labels a project target as intentionally environmentless", async () 
     byClass(main, "qa-plan-target")[0].textContent,
     "project source · no deployment environment",
   );
+  assert.equal(byClass(main, "qa-baseline-count")[0].textContent, "1 req × baseline");
 });
 
 test("Pack sources and Test Mac capability relations keep their prototype routes", () => {

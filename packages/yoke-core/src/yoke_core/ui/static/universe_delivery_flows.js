@@ -42,7 +42,7 @@ function stageShape(documentNode, row) {
   shape.setAttribute(
     "aria-label",
     stages.length
-      ? `${stages.length} stages: ${stages.join(", ")}`
+      ? `${stages.length} ${stages.length === 1 ? "stage" : "stages"}: ${stages.join(", ")}`
       : "No stages published",
   );
   if (!stages.length) {

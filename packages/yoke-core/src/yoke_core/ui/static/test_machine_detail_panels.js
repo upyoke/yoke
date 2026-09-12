@@ -216,7 +216,8 @@ export function availabilityPanel(documentNode, detail) {
     ],
     [
       "Health",
-      `${checkRows.filter((row) => row.ok).length} / ${checkRows.length} checks`,
+      `${checkRows.filter((row) => row.ok).length} / ${checkRows.length} ` +
+        `${checkRows.length === 1 ? "check" : "checks"}`,
     ],
   ]) {
     const card = el(documentNode, "div", "mini test-machine-stat");

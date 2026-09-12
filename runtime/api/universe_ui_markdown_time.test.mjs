@@ -6,6 +6,7 @@ import {
 } from "../../packages/yoke-core/src/yoke_core/ui/static/markdown_view.js";
 import {
   preciseAge,
+  relativeAgePhrase,
   relativeTime,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_time.js";
 import {
@@ -89,6 +90,18 @@ test("relative timestamps preserve custom instant wording across toggles", () =>
   assert.equal(time.textContent, time.title);
   time.dispatchEvent(new Event("click"));
   assert.equal(time.textContent, "just now");
+});
+
+test("relative age phrases keep instant and missing states grammatical", () => {
+  const now = Date.parse("2026-09-12T12:00:00Z");
+  const ago = (milliseconds) => new Date(now - milliseconds).toISOString();
+
+  assert.equal(relativeAgePhrase(ago(0), now), "now");
+  assert.equal(relativeAgePhrase(ago(60_000), now), "1m ago");
+  assert.equal(relativeAgePhrase(ago(3_600_000), now), "1h ago");
+  assert.equal(relativeAgePhrase(ago(48 * 3_600_000), now), "2d ago");
+  assert.equal(relativeAgePhrase(null, now), "recently");
+  assert.equal(relativeAgePhrase(Number.NaN, now), "recently");
 });
 
 test("a seconds-granular age keeps the magnitude a minute would round away", () => {

@@ -66,7 +66,8 @@ function methodSummary(documentNode, row) {
     wrap.appendChild(summarySeparator(documentNode));
     wrap.appendChild(el(
       documentNode, "span", "qa-baseline-count",
-      `${row.materialized_requirement_count} reqs × baseline`,
+      `${row.materialized_requirement_count} ` +
+        `${Number(row.materialized_requirement_count) === 1 ? "req" : "reqs"} × baseline`,
     ));
   }
   return wrap;

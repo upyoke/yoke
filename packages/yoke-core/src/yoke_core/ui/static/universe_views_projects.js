@@ -97,7 +97,8 @@ export function renderProjectsView(context, main) {
         {
           label: "strategy",
           value: (row) => row.has_strategy
-            ? `${row.strategy_doc_count} docs` : "not started",
+            ? `${row.strategy_doc_count} ${Number(row.strategy_doc_count) === 1 ? "doc" : "docs"}`
+            : "not started",
         },
       ], "no projects yet");
     },

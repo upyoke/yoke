@@ -2,7 +2,7 @@
 // executable plans, with authored summaries and current document claims.
 
 import { buildUniverseRoute } from "./universe_navigation.js";
-import { relativeAge } from "./universe_time.js";
+import { relativeAgePhrase } from "./universe_time.js";
 import { el, settledScopedCalls, statePill } from "./universe_view_support.js";
 import {
   callError,
@@ -94,7 +94,7 @@ function documentCard(documentNode, doc, claim, project) {
   );
   age.appendChild(el(documentNode, "span", "overview-doc-age-dot"));
   age.appendChild(el(
-    documentNode, "span", null, `updated ${relativeAge(doc.updated_at)} ago`,
+    documentNode, "span", null, `updated ${relativeAgePhrase(doc.updated_at)}`,
   ));
   head.appendChild(age);
   card.appendChild(head);

@@ -71,7 +71,7 @@ function actionsCell(documentNode, lane, catalog) {
     "summary",
     null,
     chosen.length === catalog.length
-      ? `All ${chosen.length} actions`
+      ? `All ${chosen.length} ${chosen.length === 1 ? "action" : "actions"}`
       : chosen.map((action) => action.label).join(", "),
   ));
   const detail = el(documentNode, "div");

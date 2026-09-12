@@ -9,7 +9,7 @@
 // GitHub account and authorization cells say unavailable — the registry
 // does not carry those facts. Read-only: no web-callable GitHub write.
 
-import { relativeAge } from "./universe_time.js";
+import { relativeAgePhrase } from "./universe_time.js";
 import {
   el,
   loadSection,
@@ -140,7 +140,7 @@ function renderMachines(body, result) {
       label: "machine",
       value: (row) => row.name,
       sub: (row) => (row.last_seen_at
-        ? `seen ${relativeAge(row.last_seen_at)} ago` : ""),
+        ? `seen ${relativeAgePhrase(row.last_seen_at)}` : ""),
     },
     { label: "GitHub account", value: () => "unavailable", pill: true },
     { label: "authorization", value: () => "unavailable", pill: true },

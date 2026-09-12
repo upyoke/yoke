@@ -19,6 +19,14 @@ export function relativeAge(value, now = Date.now()) {
   return `${Math.floor(hours / 24)}d`;
 }
 
+// Compact magnitudes take "ago"; words that already read naturally do not.
+// Keeping that grammar here prevents callers from producing "now ago" or
+// "recently ago" while preserving the dashboard's familiar "5m ago" form.
+export function relativeAgePhrase(value, now = Date.now()) {
+  const age = relativeAge(value, now);
+  return /^\d+[mhd]$/.test(age) ? `${age} ago` : age;
+}
+
 // Seconds-granular age, for a fact that changes faster than a minute: a relay
 // heartbeat is seconds old almost always, and "now" hides whether it is still
 // arriving. `relativeAge` stays the default everywhere a minute is the
