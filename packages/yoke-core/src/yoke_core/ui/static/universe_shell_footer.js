@@ -1,7 +1,7 @@
-// Footer strip: environment label, docs/keyboard links, and the activatable
-// version control that reveals the host's runtime-identity packet. Its two
-// panels open over the content, so they take the shared menu-dismissal
-// contract like every other transient surface in the frame.
+// Footer strip: environment label, docs link, and the activatable version
+// control that reveals the host's runtime-identity packet. That panel opens
+// over the content, so it takes the shared menu-dismissal contract like
+// every other transient surface in the frame.
 
 import { attachMenuDismissal } from "./universe_menu_dismissal.js";
 
@@ -77,12 +77,6 @@ export function createFooter(documentNode, options) {
   docs.target = "_blank";
   docs.rel = "noopener noreferrer";
   links.appendChild(docs);
-  const keyboard = el(
-    documentNode, "button", "app-footer-link keyboard-help-toggle", "Keyboard",
-  );
-  keyboard.type = "button";
-  keyboard.setAttribute("aria-expanded", "false");
-  links.appendChild(keyboard);
   const version = el(
     documentNode, "button", "app-footer-link app-footer-version",
     versionLabel(options),
@@ -92,18 +86,6 @@ export function createFooter(documentNode, options) {
   version.setAttribute("aria-label", "Runtime identity");
   links.appendChild(version);
   footer.appendChild(links);
-  const keyboardPanel = createTogglePanel(documentNode, {
-    className: "keyboard-help",
-    ariaLabel: "Keyboard shortcuts",
-    rows: [
-      ["⌘K / Ctrl K", "Search items and sessions"],
-      ["↑ / ↓", "Move through search results"],
-      ["Enter", "Open the selected result"],
-      ["Esc", "Close search or keyboard help"],
-    ],
-    labelKeyClass: { tag: "kbd", name: null },
-    valueClass: null,
-  });
   const identityPanel = createTogglePanel(documentNode, {
     className: "runtime-identity-help",
     ariaLabel: "Runtime identity",
@@ -111,22 +93,11 @@ export function createFooter(documentNode, options) {
     labelKeyClass: { tag: "span", name: "runtime-identity-help-label" },
     valueClass: "runtime-identity-help-value",
   });
-  footer.appendChild(keyboardPanel);
   footer.appendChild(identityPanel);
   const closePanels = () => {
-    keyboardPanel.hidden = true;
     identityPanel.hidden = true;
-    keyboard.setAttribute("aria-expanded", "false");
     version.setAttribute("aria-expanded", "false");
   };
-  keyboard.addEventListener("click", () => {
-    const open = keyboardPanel.hidden;
-    closePanels();
-    if (open) {
-      keyboardPanel.hidden = false;
-      keyboard.setAttribute("aria-expanded", "true");
-    }
-  });
   version.addEventListener("click", () => {
     const open = identityPanel.hidden;
     closePanels();
@@ -135,15 +106,11 @@ export function createFooter(documentNode, options) {
       version.setAttribute("aria-expanded", "true");
     }
   });
-  const openTrigger = () => {
-    if (!keyboardPanel.hidden) return keyboard;
-    return identityPanel.hidden ? null : version;
-  };
   const dispose = attachMenuDismissal(documentNode, {
     root: footer,
     close: closePanels,
-    isOpen: () => !(keyboardPanel.hidden && identityPanel.hidden),
-    trigger: openTrigger,
+    isOpen: () => !identityPanel.hidden,
+    trigger: () => (identityPanel.hidden ? null : version),
   });
-  return { footer, keyboardPanel, identityPanel, closePanels, dispose };
+  return { footer, identityPanel, closePanels, dispose };
 }
