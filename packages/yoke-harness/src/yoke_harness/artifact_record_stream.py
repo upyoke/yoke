@@ -141,8 +141,14 @@ class RecordStream:
         row = decoder.finish()
         self.records_decoded += decoder.full_decodes
         self.oversized = self.oversized or decoder.unrecoverable
-        if decoder.unrecoverable and self._on_unrecoverable is not None:
-            self._on_unrecoverable()
+        if decoder.unrecoverable:
+            # A record that could not be read whole is reported as a gap
+            # rather than delivered in part: a projection missing one of
+            # the fields its reader came for would otherwise be folded as
+            # if the source had stated nothing there.
+            row = None
+            if self._on_unrecoverable is not None:
+                self._on_unrecoverable()
         if row is not None:
             self._consume(row)
         if terminated:

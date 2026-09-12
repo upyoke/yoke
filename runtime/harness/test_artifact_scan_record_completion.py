@@ -64,7 +64,9 @@ def test_a_record_wider_than_any_read_is_abandoned_once_and_said_out_loud(
     tmp_path: Path,
 ) -> None:
     """A record with no end in sight must not be read forever."""
-    artifact = write_rows(tmp_path / "s.jsonl", [padded_row(1, 40_000), padded_row(2, 10)])
+    artifact = write_rows(
+        tmp_path / "s.jsonl", [padded_row(1, 40_000), padded_row(2, 10)]
+    )
     gaps: list[int] = []
     seen: list[int] = []
 

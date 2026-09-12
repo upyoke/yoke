@@ -98,9 +98,7 @@ def prepare_claude_watermark(mark: ArtifactWatermark) -> ArtifactWatermark:
 
 def stamp_claude_reader(totals: dict[str, Any]) -> dict[str, Any]:
     """Mark state as produced by the current selective decoder."""
-    return stamp_reader(
-        totals, reader_key=_READER_KEY, reader_version=_READER_VERSION
-    )
+    return stamp_reader(totals, reader_key=_READER_KEY, reader_version=_READER_VERSION)
 
 
 __all__ = [

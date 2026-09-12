@@ -123,11 +123,16 @@ def test_a_contending_model_reader_of_a_record_left_behind_attests_nothing(
     assert not contender.attested()
 
 
-def test_a_skipped_oversized_record_keeps_saying_the_total_is_short(
+def test_a_lost_usage_statement_keeps_saying_the_total_is_short(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """A row read past its bound is projected; one still lost stays named.
+
+    The gap happened in bytes the offset has already passed, so the
+    stored record keeps reporting it rather than recomputing it.
+    """
     row = claude_row("msg_a")
-    row["message"]["filler"] = "x" * 1_000
+    row["message"]["usage"]["input_tokens"] = "x" * 5_000
     transcript = write_rows(tmp_path / "s.jsonl", [row, claude_row("msg_b")])
 
     with monkeypatch.context() as bounded:

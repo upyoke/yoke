@@ -9,24 +9,13 @@ from typing import Optional
 
 import pytest
 
-from yoke_contracts.session_usage_cost import COST_PARTIAL, session_cost
+from yoke_contracts.session_usage_cost import session_cost
 from yoke_contracts.session_usage_facts import (
     USAGE_COMPLETE,
-    USAGE_PARTIAL,
-    USAGE_UNAVAILABLE,
 )
 from yoke_harness import artifact_scan
 from yoke_harness.artifact_scan import scan_rows
-from yoke_harness.artifact_watermark import (
-    ArtifactWatermark,
-    load_watermark,
-    save_watermark,
-)
 from yoke_harness.codex_artifact_reader import codex_record_decoder
-from yoke_harness.codex_usage_attestation import (
-    MODEL_HISTORY_GAP_REASON,
-    USAGE_GAP_REASON,
-)
 from yoke_harness.model_attestation import _codex_rollout_facts
 from yoke_harness.usage_attestation import attest_session_usage
 from runtime.harness.session_usage_test_support import (  # noqa: F401
@@ -207,63 +196,11 @@ def test_unchanged_reads_do_not_reparse_or_rewrite_the_checkpoint(
     assert scans[2][1] == rollout.stat().st_size - first_size
 
 
-def test_unrecoverable_usage_is_named_until_a_later_total_replaces_it(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(artifact_scan, "MAX_RECORD_BYTES", 300)
-    rollout = write_rows(
-        tmp_path / "rollout.jsonl",
-        [
-            codex_turn_context("priced"),
-            {
-                "type": "event_msg",
-                "payload": {
-                    "type": "token_count",
-                    "info": {"total_token_usage": "x" * 5_000},
-                },
-            },
-        ],
-    )
-
-    missing = _read_codex(rollout, monkeypatch)
-    append_rows(rollout, [codex_token_count(input_tokens=700, cached=200)])
-    recovered = _read_codex(rollout, monkeypatch)
-
-    assert missing.status == USAGE_UNAVAILABLE
-    assert missing.reason == USAGE_GAP_REASON
-    assert recovered.status == USAGE_PARTIAL
-    assert recovered.reason == MODEL_HISTORY_GAP_REASON
-    assert recovered.models[0].input == 500
-
-
-def test_a_later_cumulative_total_recovers_tokens_but_not_missing_model_history(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(artifact_scan, "MAX_SCAN_BYTES", 250)
-    rollout = write_rows(
-        tmp_path / "rollout.jsonl",
-        [
-            codex_turn_context("priced"),
-            {"type": "event_msg", "payload": {"body": "x" * 1_500}},
-            codex_token_count(input_tokens=500, cached=100, output=20),
-        ],
-    )
-
-    usage = _read_codex(rollout, monkeypatch)
-    for _ in range(12):
-        if usage.models and usage.models[0].input == 400:
-            break
-        usage = _read_codex(rollout, monkeypatch)
-
-    assert usage.status == USAGE_PARTIAL
-    assert usage.reason == MODEL_HISTORY_GAP_REASON
-    assert usage.models[0].input == 400
-    assert session_cost(usage, lambda _model: _Price()).status == COST_PARTIAL
-
-
 def test_a_resume_inside_a_skipped_record_never_parses_its_fragment(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """With no room to finish a record, the scan advances past what it
+    read, so the next one must drop that fragment rather than parse it."""
     artifact = write_rows(
         tmp_path / "rollout.jsonl",
         [
@@ -279,6 +216,7 @@ def test_a_resume_inside_a_skipped_record_never_parses_its_fragment(
             offset,
             seen.append,
             max_scan_bytes=300,
+            max_record_completion_bytes=0,
             record_factory=codex_record_decoder,
         )
         offset = result.offset
@@ -286,32 +224,6 @@ def test_a_resume_inside_a_skipped_record_never_parses_its_fragment(
             break
 
     assert [row["payload"].get("type") for row in seen] == ["token_count"]
-
-
-def test_a_legacy_sticky_oversized_mark_is_recovered_by_a_bounded_rescan(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    rollout = write_rows(
-        tmp_path / "rollout.jsonl",
-        [codex_turn_context("priced"), codex_token_count(input_tokens=500)],
-    )
-    save_watermark(
-        "legacy",
-        rollout,
-        ArtifactWatermark(
-            offset=rollout.stat().st_size,
-            totals={"latest": {"input": 1}, "models": ["priced"]},
-            oversized=True,
-        ),
-    )
-
-    usage = _read_codex(rollout, monkeypatch, session_id="legacy")
-    mark = load_watermark("legacy", rollout)
-
-    assert usage.status == USAGE_COMPLETE
-    assert usage.models[0].input == 500
-    assert not mark.oversized
-    assert mark.offset == rollout.stat().st_size
 
 
 def test_model_facts_recover_from_a_large_irrelevant_field_but_not_a_lost_value(

@@ -259,8 +259,15 @@ def test_a_transcript_holding_a_fourteen_megabyte_record_reads_promptly(
 
     started = time.monotonic()
     usage = _read_claude(transcript)
+    # The read that meets the giant record ends on it, so the row after
+    # it lands on the next one — two folds, both bounded.
+    for _ in range(4):
+        if usage.status == USAGE_COMPLETE and usage.models[0].output == 200:
+            break
+        usage = _read_claude(transcript)
     elapsed = time.monotonic() - started
 
     assert usage.status == USAGE_COMPLETE
+    assert not usage.reason
     assert usage.models[0].output == 200
     assert elapsed < 10

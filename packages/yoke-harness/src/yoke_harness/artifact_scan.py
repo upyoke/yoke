@@ -106,27 +106,35 @@ def scan_rows(
                 on_unrecoverable=on_unrecoverable,
             )
             limit = max_scan_bytes
-            finishing_from = -1
+            finishing = False
             while True:
                 if read >= limit:
-                    if stream.inside_record and finishing_from < 0 and completion > 0:
+                    if stream.inside_record and not finishing and completion > 0:
                         limit = max_scan_bytes + completion
-                        finishing_from = stream.consumed
+                        finishing = True
                         continue
                     caught_up = not handle.read(1)
                     break
                 chunk = handle.read(min(_READ_CHUNK_BYTES, limit - read))
                 if not chunk:
                     break
+                if finishing:
+                    newline = chunk.find(b"\n")
+                    if newline >= 0:
+                        # Ending the record the budget landed inside is
+                        # the only reason to read past that budget, so
+                        # the scan stops on its newline. Whatever else
+                        # this read happened to hold is left unfed and
+                        # read again next time, which keeps the budget a
+                        # bound rather than a suggestion.
+                        chunk = chunk[: newline + 1]
+                        read += len(chunk)
+                        stream.feed(chunk)
+                        handle.seek(offset + stream.consumed)
+                        caught_up = not handle.read(1)
+                        break
                 read += len(chunk)
                 stream.feed(chunk)
-                if 0 <= finishing_from < stream.consumed:
-                    # The record the budget landed inside has ended, and
-                    # ending it is the only reason to read past that
-                    # budget. Reading on would make the budget a
-                    # suggestion rather than a bound.
-                    caught_up = not handle.read(1)
-                    break
     except OSError:
         return ScanResult(offset=offset)
     abandoned = stream.current_unrecoverable and read > stream.consumed
