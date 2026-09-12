@@ -6,6 +6,10 @@
 # Stable telemetry compatibility id: lint-sqlite-cmd
 lint_db_cmd=deny
 
+# Refuse a Claude CLI invocation that would nest a Claude session inside
+# a Claude session.
+lint_db_cmd_nested_claude_cli=deny
+
 # Refuse Claude CLI invocations embedded in remote SSH commands.
 lint_db_cmd_remote_claude_cli=warn
 

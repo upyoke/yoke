@@ -18,6 +18,7 @@ ALLOW_WARN_TOKEN = lint_policy.ALLOW_WARN_TOKEN
 DENY = lint_policy.DENY
 WARN = lint_policy.WARN
 CONFIG_RELPATH = lint_policy.CONFIG_RELPATH
+NESTED_CLAUDE_CLI_GUARD = lint_policy.NESTED_CLAUDE_CLI_GUARD
 REMOTE_CLAUDE_CLI_GUARD = lint_policy.REMOTE_CLAUDE_CLI_GUARD
 SNAPSHOT_PAYLOAD_KEY = lint_policy.SNAPSHOT_PAYLOAD_KEY
 GUARD_CATALOG = lint_policy.GUARD_CATALOG
@@ -148,7 +149,8 @@ def render_lint_config() -> str:
 
 __all__ = [
     "ALLOW_WARN_TOKEN", "CONFIG_RELPATH", "DENY", "GUARD_CATALOG",
-    "GuardSpec", "REMOTE_CLAUDE_CLI_GUARD", "SNAPSHOT_PAYLOAD_KEY", "WARN",
+    "GuardSpec", "NESTED_CLAUDE_CLI_GUARD", "REMOTE_CLAUDE_CLI_GUARD",
+    "SNAPSHOT_PAYLOAD_KEY", "WARN",
     "config_path", "describe_config_source", "is_registered",
     "render_lint_config", "reset_cache",
     "resolve_mode", "resolve_mode_for_payload", "resolve_mode_from_snapshot",

@@ -17,9 +17,12 @@ import sys
 from collections.abc import Callable
 from typing import Any, Dict, Tuple
 
+from yoke_contracts.executor_labels import canonical_harness_id
+from yoke_contracts.harness_family_identity import nearest_harness_family
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.domain.lint_db_rules import HOOK_POLICY_SOURCE
 from yoke_core.domain.lint_db_runner import run_hook
+from yoke_core.domain.lint_nested_claude_cli import CALLER_HARNESS_PAYLOAD_KEY
 from yoke_contracts.hook_runner.lint_policy import (
     DB_COMMAND_STABLE_CHECK_ID,
     spec_for,
@@ -141,6 +144,7 @@ def evaluate(
 ) -> HookDecision:
     """Typed entry. Wraps :func:`run_hook` with HookContext / HookDecision."""
     payload = record.payload if isinstance(record.payload, dict) else {}
+    payload = _with_caller_harness(payload, record.executor_family)
     raw = json.dumps(payload)
     runner = run_hook_func or run_hook
     fallback = db_fallback_resolver or _resolve_db_fallback
@@ -175,14 +179,33 @@ def evaluate(
     )
 
 
+def _with_caller_harness(
+    payload: Dict[str, Any],
+    executor_family: str,
+) -> Dict[str, Any]:
+    """Stamp the calling harness family the rule source classifies on.
+
+    The evaluating side cannot read it for itself over the https relay — the
+    server's process tree names an API worker — so the family resolved from
+    the request rides in with the payload. An unresolved family is left out
+    rather than guessed, and the classifier then treats the caller as unknown.
+    """
+    try:
+        family = canonical_harness_id(executor_family)
+    except ValueError:
+        return payload
+    return {**payload, CALLER_HARNESS_PAYLOAD_KEY: family}
+
+
 def _build_context_from_payload(payload: Dict[str, Any]) -> HookContext:
     cwd = payload.get("cwd")
     sid = payload.get("session_id")
     tool = payload.get("tool_name")
+    family = nearest_harness_family() or ""
     return HookContext(
         event_name="PreToolUse",
-        executor_family="claude",
-        executor_surface="claude",
+        executor_family=family,
+        executor_surface=family,
         payload=payload,
         tool_name=tool if isinstance(tool, str) else None,
         command_body=_extract_command(payload) or None,

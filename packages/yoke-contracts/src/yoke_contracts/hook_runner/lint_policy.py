@@ -15,6 +15,7 @@ from typing import Mapping, Optional, Tuple
 from yoke_contracts.hook_runner.hook_guard_catalog import (
     DB_COMMAND_STABLE_CHECK_ID,
     GUARD_CATALOG,
+    NESTED_CLAUDE_CLI_GUARD,
     REMOTE_CLAUDE_CLI_GUARD,
     GuardSpec,
 )
@@ -217,6 +218,7 @@ __all__ = [
     "DENY",
     "GUARD_CATALOG",
     "GuardSpec",
+    "NESTED_CLAUDE_CLI_GUARD",
     "REMOTE_CLAUDE_CLI_GUARD",
     "SNAPSHOT_PAYLOAD_KEY",
     "WARN",
