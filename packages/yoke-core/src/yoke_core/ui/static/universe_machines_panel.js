@@ -240,14 +240,10 @@ export async function loadMachinesPanel(context, host, options = {}) {
     });
   };
   await run();
-  // Two ways back to the control plane, deliberately separate. `refresh`
-  // re-reads — the same read the failure retry re-runs — and is what a page
-  // returning to the foreground needs, since the relay and the sessions it
-  // reports have moved on. `redraw` reuses the relays and usage rows already
-  // fetched: the roster re-renders on every filter change, and the machine
-  // tiles that sum 24h usage must follow without asking again.
+  // Redrawing reuses the relays and usage rows already fetched: the
+  // roster re-renders on every filter change, and the machine tiles that
+  // sum 24h usage must follow without asking the control plane again.
   return {
-    refresh: run,
     redraw: () => {
       if (!fetched || !context.isMounted()) return;
       host.replaceChildren();

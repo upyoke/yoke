@@ -119,8 +119,4 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
     retired.replaceChildren(retiredTable(documentNode, historical));
   };
   load();
-  // A machine roster is live fleet state: coming back to a page that slept
-  // through a relay recovery must not keep showing the pre-sleep snapshot.
-  // `load` leaves the roster on screen until the new rows land.
-  context.onPageRevisit?.(main, load);
 }

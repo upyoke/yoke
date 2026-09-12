@@ -49,7 +49,6 @@ import {
   saveScreenSelection,
 } from "./universe_app_shell_support.js";
 import { createProjectSelection, knownProjectId, selectionParam } from "./universe_project_selection.js";
-import { createPageRevisit } from "./universe_page_revisit.js";
 import { createSelectionNavigation, selectionRoute } from "./universe_selection_routes.js";
 import { routeLoadingLine } from "./universe_route_loading.js";
 import { createSteeringGroupColors } from "./universe_steering_group_color.js";
@@ -96,7 +95,6 @@ export function mountUniverseApp(rootNode, options = {}) {
   );
   const navigation = createSelectionNavigation(rootNode, windowNode, scopeSelections);
   const steeringColors = createSteeringGroupColors(client, () => mounted);
-  const pageRevisit = createPageRevisit(documentNode, rootNode, () => mounted);
   const context = {
     client,
     document: documentNode,
@@ -108,8 +106,6 @@ export function mountUniverseApp(rootNode, options = {}) {
     // Ranked from the app-wide roster below, never each page's own rows.
     steeringGroupColors: () => steeringColors.colors(),
     refreshSteeringGroupColors: () => steeringColors.refresh(),
-    // A slept machine wakes holding a snapshot; live screens re-read.
-    onPageRevisit: (host, refresh) => pageRevisit.subscribe(host, refresh),
     // Host capability data, read by views that need an explicit deployment
     // mode or host-owned control surface. The Organization view interprets
     // portability capabilities; the topbar carries no capability controls.
@@ -338,7 +334,6 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
-    pageRevisit.dispose();
     navigation.dispose();
     windowNode.removeEventListener("hashchange", heldScope.onHashChange);
     disposeChrome();

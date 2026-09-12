@@ -334,11 +334,4 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   context.refreshSteeringGroupColors()
     .then(() => { if (context.isMounted()) renderRoster(); });
   loader.loadOpen();
-  // The roster and the machine panel above it are both live fleet state, so
-  // a page returning to the foreground re-reads both once — same scope, same
-  // loaders, existing rows left in place until the new ones arrive.
-  context.onPageRevisit?.(main, () => Promise.all([
-    loader.loadOpen(),
-    machinesPanel.then((panel) => panel?.refresh()),
-  ]));
 }

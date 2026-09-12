@@ -1,15 +1,11 @@
-// What the content area holds before a route can render, what it stops
-// waiting on to get there, and what happens to a screen whose page went to
-// sleep. Three behaviors, one subject: the frame around live data staying
-// honest about what it does and does not have yet.
+// What the content area holds before a route can render, and what it stops
+// waiting on to get there. One subject: the frame staying honest about what
+// it does and does not have yet.
 
 import assert from "node:assert/strict";
 import test from "node:test";
 
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
-import {
-  createPageRevisit,
-} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_page_revisit.js";
 import {
   routeLoadingLine,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_route_loading.js";
@@ -122,103 +118,4 @@ test("a stuck steering-color read no longer holds the first content paint", asyn
   assert.equal(byClass(root, "panel").length > 0, true);
   assert.ok(client.requests.includes("sessions.list"));
   mounted.unmount();
-});
-
-function revisitHarness() {
-  const documentNode = new FakeDocument();
-  const root = documentNode.createElement("div");
-  const host = documentNode.createElement("div");
-  root.appendChild(host);
-  let mountedFlag = true;
-  const revisit = createPageRevisit(documentNode, root, () => mountedFlag);
-  const calls = [];
-  revisit.subscribe(host, () => { calls.push("refresh"); });
-  return {
-    calls,
-    documentNode,
-    host,
-    revisit,
-    root,
-    unmount: () => { mountedFlag = false; },
-    windowNode: documentNode.defaultView,
-  };
-}
-
-test("returning to the foreground re-reads once, however many events fire", async () => {
-  const harness = revisitHarness();
-
-  harness.documentNode.dispatchEvent(new Event("visibilitychange"));
-  harness.windowNode.dispatchEvent(new Event("focus"));
-  harness.documentNode.dispatchEvent(new Event("visibilitychange"));
-  await settle();
-  // One return, one read: visibilitychange and focus both fire on a single
-  // wake, and re-reading per event would triple every recovery.
-  assert.deepEqual(harness.calls, ["refresh"]);
-  harness.revisit.dispose();
-});
-
-test("a page on its way out of the foreground re-reads nothing", async () => {
-  const harness = revisitHarness();
-  harness.documentNode.visibilityState = "hidden";
-
-  harness.documentNode.dispatchEvent(new Event("visibilitychange"));
-  await settle();
-  assert.deepEqual(harness.calls, []);
-  harness.revisit.dispose();
-});
-
-test("a screen the router replaced drops out instead of spending a read", async () => {
-  const harness = revisitHarness();
-  harness.root.replaceChildren();
-
-  harness.documentNode.dispatchEvent(new Event("visibilitychange"));
-  await settle();
-  assert.deepEqual(harness.calls, []);
-  harness.revisit.dispose();
-});
-
-test("an unmounted app and a disposed revisit both go quiet", async () => {
-  const harness = revisitHarness();
-  harness.unmount();
-  harness.documentNode.dispatchEvent(new Event("visibilitychange"));
-  await settle();
-  assert.deepEqual(harness.calls, []);
-
-  const second = revisitHarness();
-  second.revisit.dispose();
-  second.documentNode.dispatchEvent(new Event("visibilitychange"));
-  second.windowNode.dispatchEvent(new Event("focus"));
-  await settle();
-  assert.deepEqual(second.calls, []);
-  assert.equal(second.windowNode.listenerCounts.get("focus"), 0);
-  harness.revisit.dispose();
-});
-
-test("Sessions and Machines re-read their own live data on the return", async (t) => {
-  stubFetch(t);
-  for (const [hash, expected] of [
-    ["#/sessions?project=1", "session_control.relay.list"],
-    ["#/machines", "machine.list"],
-  ]) {
-    const client = mountClient();
-    const documentNode = new FakeDocument();
-    documentNode.defaultView.location.hash = hash;
-    const root = documentNode.createElement("div");
-    const mounted = mountUniverseApp(root, { client });
-    await settle();
-    await settle();
-    const before = client.requests.filter((name) => name === expected).length;
-    assert.ok(before > 0, `${hash} never read ${expected}`);
-
-    documentNode.dispatchEvent(new Event("visibilitychange"));
-    await settle();
-    await settle();
-    // The screen asked again, in place: the pre-sleep snapshot is what the
-    // return exists to replace.
-    assert.ok(
-      client.requests.filter((name) => name === expected).length > before,
-      `${hash} did not re-read ${expected} on the return`,
-    );
-    mounted.unmount();
-  }
 });
