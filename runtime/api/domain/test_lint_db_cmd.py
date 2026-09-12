@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from yoke_contracts.hook_runner.hook_guard_catalog import (
     NESTED_CLAUDE_CLI_CHECK_ID,
     REMOTE_CLAUDE_CLI_CHECK_ID,
@@ -27,7 +29,12 @@ def test_direct_sqlite_invocation_is_denied() -> None:
 
 
 def test_nested_claude_denial_carries_its_registered_id_and_recovery() -> None:
-    decision = _decision(run_hook(_payload('claude -p "summarize this"')))
+    from yoke_core.domain.lint_nested_claude_cli import CALLER_HARNESS_PAYLOAD_KEY
+
+    payload = json.loads(_payload('claude -p "summarize this"'))
+    payload[CALLER_HARNESS_PAYLOAD_KEY] = "claude-code"
+
+    decision = _decision(run_hook(json.dumps(payload)))
 
     assert decision["check_id"] == NESTED_CLAUDE_CLI_CHECK_ID
     assert (

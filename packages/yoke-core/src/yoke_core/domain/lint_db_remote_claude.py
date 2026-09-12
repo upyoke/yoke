@@ -5,16 +5,10 @@ from __future__ import annotations
 import shlex
 
 from yoke_contracts.hook_runner.hook_guard_catalog import (
-    NESTED_CLAUDE_CLI_CHECK_ID,
     REMOTE_CLAUDE_CLI_CHECK_ID,
 )
 from yoke_core.domain import lint_config
 
-NESTED_CLAUDE_CLI_DENIAL = (
-    "BLOCKED: Do not invoke claude as a CLI command "
-    "— use the Agent tool for subagent dispatch. "
-    "Nested claude processes crash Claude Code sessions."
-)
 REMOTE_CLAUDE_DENIAL = (
     "BLOCKED: Remote SSH command invokes claude as a CLI. "
     f"Set {lint_config.REMOTE_CLAUDE_CLI_GUARD}=warn in .yoke/lint-config "
@@ -98,8 +92,6 @@ def _command_basename(segment: str) -> str:
 
 
 __all__ = [
-    "NESTED_CLAUDE_CLI_CHECK_ID",
-    "NESTED_CLAUDE_CLI_DENIAL",
     "REMOTE_CLAUDE_CLI_CHECK_ID",
     "REMOTE_CLAUDE_DENIAL",
     "remote_claude_cli_state",

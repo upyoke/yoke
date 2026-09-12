@@ -184,18 +184,21 @@ if "YOKE_SKILL_CONTEXT=" in command_stripped:
 
 """
 RULE_TEXT_GUARDS_CLI = r"""
-# --- Check 5: Block claude CLI invocations ---
-# Nested Claude Code sessions crash the parent process. Agents must use
-# the Agent tool for subagent dispatch, never invoke claude as a CLI binary.
-# Match "claude" as a standalone command (first word of a segment), but
-# NOT references to .claude/ directory paths or the word in strings/comments.
+# --- Check 5: Block claude CLI invocations that would nest a session ---
+# A Claude session that starts a second one crashes; a Codex or Cursor
+# caller starts a first session, and a sessionless flag starts none. The
+# classifier decides on the caller's harness family, so this branch only
+# finds the "claude" binary — first word of a segment, never a .claude/
+# path or the word inside a string or comment.
 if "claude" in command_stripped:
     from yoke_core.domain.lint_db_remote_claude import (
-        NESTED_CLAUDE_CLI_CHECK_ID,
-        NESTED_CLAUDE_CLI_DENIAL,
         REMOTE_CLAUDE_CLI_CHECK_ID,
         REMOTE_CLAUDE_DENIAL,
         remote_claude_cli_state,
+    )
+    from yoke_core.domain.lint_nested_claude_cli import (
+        NESTED_CLAUDE_CLI_CHECK_ID,
+        nested_claude_cli_denial,
     )
     _remote_claude_seen, _remote_claude_allowed = remote_claude_cli_state(command_stripped, data)
     if _remote_claude_seen and not _remote_claude_allowed:
@@ -231,11 +234,14 @@ if "claude" in command_stripped:
         if _basename == "claude":
             if _remote_claude_allowed:
                 continue
+            _nested_reason = nested_claude_cli_denial(_words[_word_idx:], data)
+            if _nested_reason is None:
+                continue
             result = {
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",
                     "permissionDecision": "deny",
-                    "permissionDecisionReason": NESTED_CLAUDE_CLI_DENIAL,
+                    "permissionDecisionReason": _nested_reason,
                     "check_id": NESTED_CLAUDE_CLI_CHECK_ID,
                 }
             }

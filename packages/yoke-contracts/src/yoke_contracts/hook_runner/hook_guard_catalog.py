@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Tuple
 
 
+NESTED_CLAUDE_CLI_GUARD = "lint_db_cmd_nested_claude_cli"
 REMOTE_CLAUDE_CLI_GUARD = "lint_db_cmd_remote_claude_cli"
 DB_COMMAND_STABLE_CHECK_ID = "lint-sqlite-cmd"
 NESTED_CLAUDE_CLI_CHECK_ID = "lint-nested-claude-cli"
@@ -45,6 +46,14 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
             REMOTE_CLAUDE_CLI_CHECK_ID,
         ),
         compatibility_id=DB_COMMAND_STABLE_CHECK_ID,
+    ),
+    GuardSpec(
+        NESTED_CLAUDE_CLI_GUARD,
+        f"{_MODULE_PREFIX}lint_db_cmd.nested_claude_cli",
+        False,
+        "Refuse a Claude CLI invocation that would nest a Claude session "
+        "inside a Claude session.",
+        check_id=NESTED_CLAUDE_CLI_CHECK_ID,
     ),
     GuardSpec(
         REMOTE_CLAUDE_CLI_GUARD,
@@ -252,6 +261,7 @@ __all__ = [
     "GUARD_CATALOG",
     "GuardSpec",
     "NESTED_CLAUDE_CLI_CHECK_ID",
+    "NESTED_CLAUDE_CLI_GUARD",
     "REMOTE_CLAUDE_CLI_CHECK_ID",
     "REMOTE_CLAUDE_CLI_GUARD",
 ]
