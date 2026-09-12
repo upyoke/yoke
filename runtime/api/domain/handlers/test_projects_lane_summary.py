@@ -45,23 +45,33 @@ _STORED = {
 
 @pytest.fixture
 def summary(monkeypatch):
-    """Return the handler result for a project storing ``_STORED``."""
+    """Return the handler result for a project storing ``_STORED``.
+
+    Routes through the real ``load_project_routing_settings`` against a
+    DB-shaped row rather than mocking it away: that function is the one
+    that flattens ``lane_rules``/``lane_metadata`` into JSON text, and it is
+    exactly that flattened shape ``load_routing_config`` normalizes again.
+    Mocking it out (as the fixture used to) skips the boundary the phantom
+    lane defect lived on and would let a regression there go uncaught.
+    """
 
     def _load(stored=_STORED, configured=True):
+        stored_text = json_helper.dumps_compact(stored) if configured else None
         monkeypatch.setattr(
             "yoke_core.domain.projects_capabilities_settings"
             ".cmd_capability_get_settings",
-            lambda *_a, **_k: (
-                json_helper.dumps_compact(stored) if configured else None
-            ),
-        )
-        monkeypatch.setattr(
-            "yoke_core.api.routing_config.load_project_routing_settings",
-            lambda *_a, **_k: dict(stored),
+            lambda *_a, **_k: stored_text,
         )
         monkeypatch.setattr(
             projects_lane_summary, "_authorized_project_ref", lambda *_a: "1"
         )
+
+        class _Cursor:
+            def __init__(self, row):
+                self._row = row
+
+            def fetchone(self):
+                return self._row
 
         class _Conn:
             def __enter__(self):
@@ -69,6 +79,10 @@ def summary(monkeypatch):
 
             def __exit__(self, *_exc):
                 return False
+
+            def execute(self, *_a, **_k):
+                row = None if stored_text is None else {"settings": stored_text}
+                return _Cursor(row)
 
         monkeypatch.setattr(
             "yoke_core.domain.db_helpers.connect", lambda *_a, **_k: _Conn()
@@ -152,12 +166,13 @@ class TestMatchesAndDefaults:
         assert _lane(summary(), "MUSKY")["default_for"] == ["Cursor"]
         assert summary()["unrouted_harnesses"] == []
 
-    def test_a_harness_nothing_routes_is_named_rather_than_omitted(
-        self, summary
-    ):
+    def test_a_harness_nothing_routes_is_named_rather_than_omitted(self, summary):
         # Absent from every row reads like a lane nobody defaults to. The
         # real fact is a harness that cannot be routed at all, so it is
-        # reported under its own name.
+        # reported under its own name. Codex still resolves through the
+        # session-routing baseline defaults merged beneath the stored
+        # capability (real production behavior); only Cursor has neither a
+        # default nor a rule in this configuration.
         payload = summary(
             stored={
                 "lane_metadata": {"DARIUS": {"label": "DARIUS"}},
@@ -165,7 +180,7 @@ class TestMatchesAndDefaults:
                 "executor_default_lanes": {"claude*": "DARIUS"},
             }
         )
-        assert payload["unrouted_harnesses"] == ["Codex", "Cursor"]
+        assert payload["unrouted_harnesses"] == ["Cursor"]
         assert _lane(payload, "DARIUS")["default_for"] == ["Claude Code"]
 
     def test_the_harness_vocabulary_travels_with_the_summary(self, summary):
@@ -186,3 +201,32 @@ class TestUnconfiguredProject:
 
     def test_a_stored_capability_is_reported_as_configured(self, summary):
         assert summary()["configured"] is True
+
+
+class TestNoPhantomLanesFromDbShapedSettings:
+    """``load_project_routing_settings`` flattens ``lane_rules`` and
+    ``lane_metadata`` into JSON text before ``load_routing_config``
+    normalizes the result a second time. A prior defect at that shared
+    boundary double-encoded the already-flat text, so the single decode on
+    read handed back the JSON string itself rather than the parsed object —
+    iterating it in ``_declared_lanes`` yielded one phantom lane per
+    character (``{``, a quote, letters, unicode escapes) alongside the real
+    ones.
+    """
+
+    def test_only_real_lanes_are_reported(self, summary):
+        ids = [lane["id"] for lane in summary()["lanes"]]
+        assert sorted(ids) == ["ALTMAN", "DARIUS", "MUSKY"]
+        # None of the JSON structural characters a broken decode would
+        # have scattered across the lane list.
+        assert not any(len(lane_id) == 1 for lane_id in ids)
+
+    def test_lane_metadata_survives_the_round_trip(self, summary):
+        lane = _lane(summary(), "MUSKY")
+        assert lane["label"] == "MUSKY"
+        assert lane["glyph"] == "\U0001f6f8"
+
+    def test_lane_rules_survive_the_round_trip(self, summary):
+        assert _lane(summary(), "MUSKY")["matches"] == [
+            {"lane": "MUSKY", "harness": "cursor", "model": None}
+        ]

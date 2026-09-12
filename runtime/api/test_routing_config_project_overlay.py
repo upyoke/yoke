@@ -36,8 +36,7 @@ class TestRoutingPolicy:
     def test_project_routing_is_complete_authority(self, tmp_path: Path) -> None:
         cfg = _machine_cfg(
             tmp_path,
-            "executor_default_lane_claude*=LOCAL\n"
-            "lane_paths_local=feed\n",
+            "executor_default_lane_claude*=LOCAL\nlane_paths_local=feed\n",
         )
         routing = load_routing_config(
             cfg,
@@ -73,6 +72,37 @@ class TestRoutingPolicy:
         assert routing.default_lane_for_executor("codex") == "ALTMAN"
         assert "DARIUS" in routing.lane_allowed_paths
 
+    def test_lane_rules_and_metadata_survive_the_shared_double_normalization(
+        self,
+    ) -> None:
+        # ``load_project_routing_settings`` flattens ``lane_rules`` and
+        # ``lane_metadata`` into JSON text; every registered caller then
+        # hands that flat map straight to ``load_routing_config``, which
+        # normalizes it again. Both nested documents must come out the far
+        # side intact rather than as a JSON string of themselves.
+        class _Cursor:
+            def fetchone(self) -> dict[str, str]:
+                return {
+                    "settings": (
+                        '{"lane_metadata": {"MUSKY": {"label": "MUSKY"}}, '
+                        '"lane_rules": [{"harness": "cursor", "lane": "MUSKY"}]}'
+                    ),
+                }
+
+        class _Conn:
+            def execute(self, *_args, **_kwargs) -> _Cursor:
+                return _Cursor()
+
+        settings = load_project_routing_settings(_Conn(), 2)
+        routing = load_routing_config("unused", project_settings=settings)
+
+        assert routing.lane_metadata == {"MUSKY": {"label": "MUSKY"}}
+        assert routing.lane_for_session(executor="cursor-cli") == "MUSKY"
+        # A broken double-encode would have handed lane_metadata back as a
+        # JSON string; iterating it in ``_declared_lanes`` yields one
+        # phantom lane per character instead of the real "MUSKY" key.
+        assert list(routing.lane_metadata) == ["MUSKY"]
+
 
 class TestProcessPolicy:
     def test_project_process_policy_ignores_machine(self, tmp_path: Path) -> None:
@@ -103,25 +133,29 @@ class TestProcessPolicy:
             shared_project_source="project capability session-routing",
         )
         merged = merge_skip_memory_with_policy(
-            policy, [{"process_key": "STRATEGIZE"}],
+            policy,
+            [{"process_key": "STRATEGIZE"}],
         )
         assert merged is not None
         assert merged.is_enabled("STRATEGIZE") is False
-        assert (
-            merged.shared_project_source
-            == "project capability session-routing"
-        )
+        assert merged.shared_project_source == "project capability session-routing"
 
 
 class TestLocalOnlySettings:
     def test_db_owned_keys_ignore_machine_config_without_project_identity(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         cfg = _machine_cfg(tmp_path, "base_branch=develop\n")
         repo = _project_dir(tmp_path)
-        assert get_project_str(
-            repo, "base_branch", config_path=cfg,
-        ) == RECOGNIZED_PROJECT_KEYS["base_branch"][0]
+        assert (
+            get_project_str(
+                repo,
+                "base_branch",
+                config_path=cfg,
+            )
+            == RECOGNIZED_PROJECT_KEYS["base_branch"][0]
+        )
         assert get_project_int(repo, "wip_cap", config_path=cfg) == int(
             RECOGNIZED_PROJECT_KEYS["wip_cap"][0]
         )
@@ -129,9 +163,14 @@ class TestLocalOnlySettings:
     def test_worktrees_dir_remains_machine_local(self, tmp_path: Path) -> None:
         cfg = _machine_cfg(tmp_path, "worktrees_dir=.wt\n")
         repo = _project_dir(tmp_path)
-        assert get_project_str(
-            repo, "worktrees_dir", config_path=cfg,
-        ) == ".wt"
+        assert (
+            get_project_str(
+                repo,
+                "worktrees_dir",
+                config_path=cfg,
+            )
+            == ".wt"
+        )
 
 
 class TestOfferDirResolution:
@@ -147,12 +186,15 @@ class TestOfferDirResolution:
         (repo / ".git").mkdir(parents=True)
         cfg = self._machine(tmp_path, {str(repo): {"project_id": 2}})
         resolved = offer_project_config_dir(
-            str(repo), [1, 2], machine_config_path=cfg,
+            str(repo),
+            [1, 2],
+            machine_config_path=cfg,
         )
         assert resolved == repo
 
     def test_single_scope_falls_back_to_mapped_checkout(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         other = tmp_path / "other-checkout"
         other.mkdir()
@@ -160,16 +202,24 @@ class TestOfferDirResolution:
         workspace.mkdir()
         cfg = self._machine(tmp_path, {str(other): {"project_id": 3}})
         resolved = offer_project_config_dir(
-            str(workspace), [3], machine_config_path=cfg,
+            str(workspace),
+            [3],
+            machine_config_path=cfg,
         )
         assert resolved == other
 
     def test_multi_scope_unmapped_workspace_is_none(
-        self, tmp_path: Path,
+        self,
+        tmp_path: Path,
     ) -> None:
         workspace = tmp_path / "unmapped"
         workspace.mkdir()
         cfg = self._machine(tmp_path, {})
-        assert offer_project_config_dir(
-            str(workspace), [1, 2], machine_config_path=cfg,
-        ) is None
+        assert (
+            offer_project_config_dir(
+                str(workspace),
+                [1, 2],
+                machine_config_path=cfg,
+            )
+            is None
+        )
