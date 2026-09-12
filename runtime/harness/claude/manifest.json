@@ -54,7 +54,7 @@
         "message_idle": "private",
         "message_stopped": "supported",
         "stop_denial_continuation": "supported",
-        "relay_stop_denial_continuation": "none",
+        "relay_stop_denial_continuation": "supported",
         "liveness_process_names": [],
         "wake_authority": "native",
         "native_create_timeout_seconds": 180

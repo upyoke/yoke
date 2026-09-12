@@ -55,7 +55,6 @@ SESSION_SURFACE_CAPABILITIES: dict[str, SessionSurfaceCapability] = {
         "private",
         "private",
         "supported",
-        relay_stop_denial_continuation="none",
         native_create_timeout_seconds=_SUPERVISED_NATIVE_CREATE_TIMEOUT_SECONDS,
     ),
     "claude-desktop": SessionSurfaceCapability(

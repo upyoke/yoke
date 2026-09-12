@@ -132,8 +132,13 @@ Stop is proven to resume the same model turn; a policy that needs continuation
 must allow and durably defer work when this field is `none`.
 `relay_stop_denial_continuation` applies the same proof specifically to a
 session correlated with a Yoke relay launch. The Stop gate requires both facts
-to be `supported` for a relay worker, because an interactive CLI may honor a
-block while its headless launch command cannot accept a later prompt.
+to be `supported` for a relay worker, because a surface that honors a block
+when a person is watching may still end the turn under its own headless
+launch command. Both facts are proof, never inference: a surface whose
+headless continuation nobody has observed declares `none` and is durably
+deferred, and it is a canary on that surface — not the shape of its
+transport — that moves it to `supported`
+([why](../../docs/archive/decisions/headless-stop-continuation-is-observed-not-inferred.md)).
 `liveness_process_names` is a list of process basenames the surface permits as
 liveness-only anchors. These anchors can prove a registered session's process
 dead but never participate in ambient session identity, and shared-pid
