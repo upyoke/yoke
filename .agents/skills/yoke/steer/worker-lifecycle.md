@@ -247,9 +247,17 @@ ids and result codes.
 The server emits this single-item mandate (steering) shape — claim first,
 execute only that item through the routed legs, no deployment run, report then
 END. Every worker gets the `yoke say --steering` DONE step in the same place.
-The steerer messages a worker with `yoke say --item PREFIX-N --stdin`. The
-worker reports back with
-`yoke say --steering`, which addresses the ROLE rather than this seat: the
+The single-recipient `yoke say --item PREFIX-N --stdin` form is insufficient
+for a substantive peer request because it does not copy steering.
+The steerer sends a substantive peer request with `yoke say --item PREFIX-N
+--steering --stdin`, addressing the worker and copying the relevant steering
+seat because anchors union. A recipient replies to the exact original
+requesting session and copies steering with `yoke say --session
+EXACT-REQUESTING-SESSION-ID --steering --stdin`; when it holds no applicable
+item, it uses explicit `--steering-scope '{"project_id": N}'` in place of
+`--steering`. Never reconstruct a session id, and never send a refusal only to
+steering while leaving the requester uninformed. The worker's terminal report
+uses `yoke say --steering`, which addresses the ROLE rather than this seat: the
 server resolves it at delivery to whichever seat covers the worker's item,
 and parks it for the next seat when none is live. So a worker launched by a
 seat that later stops still reports to whoever holds the scope, and this seat
@@ -273,6 +281,10 @@ no Fleet message. Launch origin does not change that boundary: every worker
 deliberately sends terminal and other actionable reports with `yoke say
 --steering`.
 
+Acknowledging a peer request records receipt only. It does not accept the
+request or promise implementation; acceptance or refusal is a substantive
+reply to the requester with steering copied as above.
+
 Every launched worker, whatever its origin, is a headless command, so the
 mandate also tells it what a merge-queue landing is. It cannot be prompted
 again inside its own turn and it cannot outlive the landing either — the turn
@@ -295,7 +307,7 @@ and to stop early only where the command itself handed the wait off.
 ```text
 {ROUTED_ENTRYPOINT}
 
-Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. When those legs are complete, message the orchestrator (`printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering`) and END your session — do not pick up further work, do not chain into other items. Send that report before releasing any claim you still hold; after close-out already released it, `--steering` resolves from the item you last held in this session. The PREFIX-N in the DONE heading is the report identity and must name work this session holds or released. If your claim is swept mid-work, reacquire and continue.
+Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. For a substantive peer request or reply, address the intended worker/session AND copy relevant steering using union recipient flags (`--item PREFIX-N --steering`, or an exact listed `--session SESSION-ID --steering`; use explicit `--steering-scope '{"project_id": N}'` when you hold no applicable item). Reply to the original requesting session for acceptance, refusal, scope conflict, blocker, or decision; never send a rejection only to steering. Acknowledgement records receipt, not acceptance or implementation. When those legs are complete, message the orchestrator (`printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering`) and END your session — do not pick up further work, do not chain into other items. Send that report before releasing any claim you still hold; after close-out already released it, `--steering` resolves from the item you last held in this session. The PREFIX-N in the DONE heading is the report identity and must name work this session holds or released. If your claim is swept mid-work, reacquire and continue.
 
 You are a headless command that cannot be prompted again, so a merge-queue landing is not yours to wait out: it outlasts your turn, and a wait that dies with the turn leaves the branch landed and the item open. Your merge arms the landing and returns landing_pending=true with the pull request named, whether or not you passed --wait. That is the handoff, not a failure. Report the pull request, stop deliberately, and say you are waiting on landing. The control-plane landing notice wakes you: re-run the same `yoke merge item` command then and it completes close-out. A stopped landing arrives the same way and names its recovery (usually rebase, re-run the verification gate, re-run the command); a stale server landing record names its last refresh and repair step. Never replace either with local GitHub polling, and never report a landing you did not read. A separate check uses `yoke github merge-queue readiness PREFIX-N --json`: the named queue-entry state decides whether null arming was consumed or cleared.
 
