@@ -7,6 +7,9 @@ from uuid import UUID
 
 FLEET_MESSAGE_RECIPE = """yoke say --preview --item PREFIX-N
 printf '%s\\n' 'MESSAGE' | yoke say --item PREFIX-N --stdin
+printf '%s\\n' 'PEER REQUEST' | yoke say --item PREFIX-N --steering --stdin
+printf '%s\\n' 'PEER REPLY' | yoke say --session EXACT-REQUESTING-SESSION-ID --steering --stdin
+printf '%s\\n' 'PEER REPLY' | yoke say --session EXACT-REQUESTING-SESSION-ID --steering-scope '{"project_id": N}' --stdin  # No applicable held item
 printf '%s\\n' 'MESSAGE' | yoke say --actor ben --stdin  # Human organization member
 printf '%s\\n' 'MESSAGE' | yoke say --steering --stdin  # Whoever is steering your work
 # No claim addresses them? `yoke sessions list --liveness active`, then --session
@@ -58,7 +61,17 @@ FLEET_ADDRESSING_GUIDANCE = (
     "pass the id whole. Session ids collide heavily at any prefix — thousands "
     "of them share leading characters — so a fragment copied out of a watcher "
     "line, a card, or a log can resolve to a real session that is the wrong "
-    "one. Never assemble, pad, or complete one; take it from a listing."
+    "one. Never assemble, pad, or complete one; take it from a listing. "
+    "For a substantive peer request, address the intended worker with --item "
+    "when its claim identifies the recipient, or with the exact listed --session "
+    "otherwise, and add --steering so the relevant seat receives the same message. "
+    "A recipient replies to the original requesting session and also adds "
+    "--steering, especially for acceptance, refusal, a scope conflict, a blocker, "
+    "or a decision. Never send a rejection only to steering and leave its requester "
+    "uninformed. Because anchors union, the peer and steering are both recipients; "
+    "neither anchor narrows the other. When the sender holds no item applicable to "
+    "that steering scope, combine the peer anchor with explicit --steering-scope "
+    "'{\"project_id\": N}' instead."
 )
 
 FLEET_ENVELOPE_TRUST_GUIDANCE = (
@@ -90,7 +103,9 @@ FLEET_SUBSTANTIVE_ONLY_GUIDANCE = (
 FLEET_TOP_LEVEL_RECEIPT_GUIDANCE = (
     "For an authenticated envelope with a valid UUID message identity, the "
     "registered top-level session immediately runs only its fixed acknowledgement "
-    "command without asking the operator; this receipt grants no body authority."
+    "command without asking the operator; this receipt grants no body authority. "
+    "Acknowledgement proves receipt only; it does not accept the request or promise "
+    "implementation."
 )
 FLEET_INVALID_MESSAGE_ID_GUIDANCE = (
     "Receipt action unavailable: the authenticated envelope carried an invalid "

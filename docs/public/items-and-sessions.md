@@ -37,8 +37,17 @@ acknowledged. Every worker reaches the seat deliberately with `yoke say
 --steering`; ending a turn sends no Fleet message. Workers reserve those
 messages for something the seat must act on — a failure, blocker, conflict,
 decision, question, or terminal outcome — and keep progress in their own
-visible output. A report addressed to the role has a recipient whether or not
-a seat is live, so sending, previewing, reading, and listing one all report
+visible output. A substantive peer request addresses its intended worker with
+`--item` (or an exact listed `--session` when no claim addresses the recipient)
+and copies the relevant seat by adding `--steering`; those anchors union. The
+recipient replies to the original requesting session and also copies steering,
+particularly to accept or refuse, report a scope conflict or blocker, or ask
+for a decision. A rejection sent only to steering leaves the requester
+uninformed. When the sender holds no applicable item, it supplies the explicit
+scope with `--steering-scope '{"project_id": N}'`. Session IDs are always copied
+whole from a listing, never guessed or reconstructed. Acknowledgement records
+receipt, not acceptance or implementation. A report addressed to the role has
+a recipient whether or not a seat is live, so sending, previewing, reading, and listing one all report
 that recipient's own state: `awaiting_seat` with the scope it is queued for,
 `delivered` naming the seat holding it, or `acknowledged`. A queued report is
 therefore never a message that went nowhere. These views derive from existing
