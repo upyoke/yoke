@@ -38,7 +38,7 @@ HOSTED_ROW_ENVS = {
 }
 
 DESTINATION_ROWS = [
-    SelectionRow(DESTINATION_LOCAL, "This machine", "free · no account · stays here"),
+    SelectionRow(DESTINATION_LOCAL, "This machine", "free · best for solo dev"),
     SelectionRow(
         DESTINATION_SERVER,
         "A team server",

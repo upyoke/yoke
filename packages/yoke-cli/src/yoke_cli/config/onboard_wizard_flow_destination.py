@@ -112,8 +112,9 @@ class DestinationFlow:
             # undecided Account step while the picker is on screen.
             self._account_step_label = STEP_CONNECT_LABEL
             return steps.selection_body(
-                "Where should this Yoke live?",
-                "Every home runs the full engine — you can add another later.",
+                "Where should this Yoke universe live?",
+                "Keep the engine and database on your machine, or use a server "
+                "for team collab.",
                 DESTINATION_ROWS,
                 initial=DEFAULT_DESTINATION_INDEX,
             )

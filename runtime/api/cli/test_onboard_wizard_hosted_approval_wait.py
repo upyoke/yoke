@@ -117,7 +117,7 @@ def test_escape_during_the_approval_wait_returns_to_the_picker(monkeypatch, tmp_
             await pilot.press("escape")
             await pilot.pause()
             assert not app._checking
-            assert "Where should this Yoke live?" in _body_text(app)
+            assert "Where should this Yoke universe live?" in _body_text(app)
             assert app.query_one(Stepper).account_label == "Account"
             assert app._hosted_machine_authorization is None
             await app.workers.wait_for_complete()
@@ -125,7 +125,7 @@ def test_escape_during_the_approval_wait_returns_to_the_picker(monkeypatch, tmp_
             # The abandoned worker ended on the cancel signal and its result
             # never routed anywhere: the picker is still up.
             assert seen["cancelled"]
-            assert "Where should this Yoke live?" in _body_text(app)
+            assert "Where should this Yoke universe live?" in _body_text(app)
 
     asyncio.run(scenario())
     log = onboard_wizard_diagnostics.log_path(tmp_path / "cfg.json").read_text()
@@ -220,6 +220,6 @@ def test_escape_from_a_preset_hosted_run_steps_back_without_a_picker(
             assert not app._checking
             # No picker was ever shown on this run, so leaving the wait opens
             # one rather than re-entering the preset lane.
-            assert "Where should this Yoke live?" in _body_text(app)
+            assert "Where should this Yoke universe live?" in _body_text(app)
 
     asyncio.run(scenario())

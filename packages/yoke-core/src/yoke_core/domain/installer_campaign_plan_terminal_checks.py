@@ -31,7 +31,7 @@ from yoke_core.domain.installer_campaign_plan_common import (
 )
 
 
-_DESTINATION_PICKER_TEXT = ("Where should this Yoke live?",)
+_DESTINATION_PICKER_TEXT = ("Where should this Yoke universe live?",)
 
 
 def _browser_approval_actions() -> list[dict[str, Any]]:

@@ -156,7 +156,7 @@ def test_back_from_local_summary_repicks_cleanly(monkeypatch) -> None:
             await pilot.press("enter")
             await pilot.press("escape")  # back to the picker
             await pilot.pause()
-            assert "Where should this Yoke live?" in _body_text(app)
+            assert "Where should this Yoke universe live?" in _body_text(app)
             assert app.query_one(Stepper).account_label == STEP_CONNECT_LABEL
             await pilot.press("up", "up")  # repick: wrap local -> upyoke.com
             await pilot.press("enter")

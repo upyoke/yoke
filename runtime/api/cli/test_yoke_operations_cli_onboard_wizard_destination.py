@@ -89,7 +89,12 @@ def test_picker_opens_account_step_with_local_preselected() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             text = _body_text(app)
-            assert "Where should this Yoke live?" in text
+            assert "Where should this Yoke universe live?" in text
+            assert (
+                "Keep the engine and database on your machine, or use a server "
+                "for team collab."
+            ) in text
+            assert "free · best for solo dev" in text
             assert app.query_one(SelectionList).selected_value == (DESTINATION_LOCAL)
 
     asyncio.run(scenario())
@@ -145,7 +150,7 @@ def test_local_pick_names_existing_universe_on_rerun(tmp_path: Path) -> None:
             await pilot.press("down")  # Back
             await pilot.press("enter")
             await pilot.pause()
-            assert "Where should this Yoke live?" in _body_text(app)
+            assert "Where should this Yoke universe live?" in _body_text(app)
             assert len(app._history) == summary_depth - 1
             await pilot.press("escape")
             await pilot.pause()
@@ -183,7 +188,7 @@ def test_preset_destination_skips_picker() -> None:
             await advance_past_path(pilot)
             text = _body_text(app)
             assert "Your Yoke lives on this machine." in text
-            assert "Where should this Yoke live?" not in text
+            assert "Where should this Yoke universe live?" not in text
 
     asyncio.run(scenario())
 

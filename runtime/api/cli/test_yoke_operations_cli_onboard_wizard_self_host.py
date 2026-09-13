@@ -114,7 +114,7 @@ def test_picker_preview_is_exact_and_does_not_mutate_before_start(
             assert calls == []
             await pilot.press("down", "enter")
             await pilot.pause()
-            assert "Where should this Yoke live?" in _body_text(app)
+            assert "Where should this Yoke universe live?" in _body_text(app)
 
     asyncio.run(scenario())
 
@@ -207,7 +207,7 @@ def test_prerequisite_refusal_names_docker_and_allows_back(
             assert not bundle_directory.exists()
             await pilot.press("down", "enter")
             await pilot.pause()
-            assert "Where should this Yoke live?" in _body_text(app)
+            assert "Where should this Yoke universe live?" in _body_text(app)
 
     asyncio.run(scenario())
 
