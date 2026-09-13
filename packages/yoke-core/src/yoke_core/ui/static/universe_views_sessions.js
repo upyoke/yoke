@@ -26,7 +26,6 @@ import {
   sortSessionsSteeringFirst,
   steeringWorkerLabel,
 } from "./universe_sessions_steering.js";
-import { steeringGroupInk } from "./universe_steering_group_color.js";
 import {
   appendSessionMessagingBlocker,
   appendSessionRelay,
@@ -119,7 +118,6 @@ export function sessionCard(
     const color = groupColors.get(String(row.steering_group_session_id));
     if (color) {
       card.style.setProperty("--session-steering-color", color);
-      card.style.setProperty("--session-steering-ink", steeringGroupInk(color));
     }
   }
 
@@ -128,10 +126,6 @@ export function sessionCard(
   // pill used to sit in the middle of the identity row, where it competed
   // with a harness name and a lane for the same eye.
   const top = el(documentNode, "div", "session-top");
-  // A covered worker leads its identity row with its group's label, so the
-  // group is the first thing read on the card without the card itself
-  // changing color. The seat carries none: its steering box says so.
-  if (isSteeredWorker(row)) top.appendChild(steeringWorkerLabel(documentNode));
   const harness = harnessIdentity(row);
   top.appendChild(el(
     documentNode,
@@ -150,7 +144,10 @@ export function sessionCard(
   appendSessionPrimaryStatus(documentNode, state, row);
   appendModel(documentNode, state, row);
   body.appendChild(state);
-  appendSessionUsage(documentNode, body, row);
+  appendSessionUsage(
+    documentNode, body, row,
+    isSteeredWorker(row) ? steeringWorkerLabel(documentNode) : null,
+  );
   // One section sequence for every card. An ended session reaches each
   // section with the facts it actually has, and a section with nothing to
   // say stays silent — the card is never rebuilt in a simpler shape, so an

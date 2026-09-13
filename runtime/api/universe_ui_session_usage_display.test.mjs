@@ -16,6 +16,7 @@ import {
 import {
   appendSessionUsage,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_session_usage.js";
+import { steeringWorkerLabel } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.js";
 import {
   appendMachineUsage,
   fetchRecentUsageRows,
@@ -91,7 +92,27 @@ test("the session card carries the explanation the figures dropped", () => {
   assert.deepEqual(facts.map((node) => node.textContent), ["1.2m", "$12.5"]);
   assert.deepEqual(
     byClass(body, "usage-stat-unit").map((node) => node.textContent),
-    ["tokens", "API cost"],
+    ["tokens", "cost"],
+  );
+});
+
+test("a steered session leads the same inline metrics row with its badge", () => {
+  const documentNode = new FakeDocument();
+  const body = documentNode.createElement("div");
+  const badge = steeringWorkerLabel(documentNode);
+
+  appendSessionUsage(documentNode, body, MEASURED, badge);
+
+  const line = byClass(body, "session-usage-line")[0];
+  assert.deepEqual(line.children, [
+    badge,
+    byClass(line, "usage-stat")[0],
+    byClass(line, "usage-stat")[1],
+  ]);
+  assert.equal(byClass(line, "session-steered-text")[0].textContent, "Steered");
+  assert.deepEqual(
+    byClass(line, "usage-stat-unit").map((node) => node.textContent),
+    ["tokens", "cost"],
   );
 });
 
@@ -110,7 +131,7 @@ test("an unread session still renders, explaining why it is blank", () => {
   );
   assert.deepEqual(
     byClass(body, "usage-stat-unit").map((node) => node.textContent),
-    ["tokens", "API cost"],
+    ["tokens", "cost"],
   );
 });
 
@@ -317,4 +338,9 @@ test("usage stats wrap on the same narrow breakpoint as the rest of Sessions", (
     import.meta.url,
   ), "utf8");
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*flex-wrap: wrap/);
+  assert.match(css, /\.session-usage-line \{[\s\S]*flex-wrap: wrap/);
+  assert.match(
+    css,
+    /\.session-usage-line \.usage-stat \{[\s\S]*flex-direction: row/,
+  );
 });
