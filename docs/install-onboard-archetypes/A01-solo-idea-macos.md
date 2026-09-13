@@ -75,9 +75,9 @@ Then verified continue: "choose where your Yoke lives".
 ### Account (`DESTINATION_ROWS`)
 
 ```
-Where should this Yoke live?
-Every home runs the full engine — you can add another later.
-  This machine                                   free · no account · stays here
+Where should this Yoke universe live?
+Keep the engine and database on your machine, or use a server for team collab.
+  This machine                                   free · best for solo dev
   A team server                    the URL of your team's self-hosted Yoke server
   Set this machine up as a self-hosting server   Docker Compose · guided first boot
   upyoke.com                                          hosted by Yoke · private beta

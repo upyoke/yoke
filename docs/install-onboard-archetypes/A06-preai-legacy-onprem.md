@@ -26,7 +26,7 @@ consent `[Y/n]`. `Starting Yoke onboard…`.
 PATH Continue. Account:
 
 ```
-Where should this Yoke live?
+Where should this Yoke universe live?
   This machine
   A team server                    the URL of your team's self-hosted Yoke server
   Set this machine up as a self-hosting server   Docker Compose · guided first boot
