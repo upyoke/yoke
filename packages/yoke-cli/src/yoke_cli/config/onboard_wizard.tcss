@@ -125,7 +125,10 @@ _OptionRow.-selected {
     color: $onboard-accent-bright;
     text-style: bold;
     background: $onboard-row-bg;
-    border-left: thick $onboard-accent;
+    /* "heavy" draws a vertical line glyph (┃). "thick" draws a solid block
+       (█) on a height-1 row, which is indistinguishable from a text cursor
+       in an exported screenshot — it read as one until an operator asked. */
+    border-left: heavy $onboard-accent;
     padding: 0;
 }
 
