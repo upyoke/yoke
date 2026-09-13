@@ -70,6 +70,10 @@ class TestRenderDocs:
             (editor,) = resolve_actors_by_name(conn, "ben")
             assert editor is not None
             conn.execute(
+                "UPDATE actors SET name = %s WHERE id = %s",
+                ("Ben Bauman", editor),
+            )
+            conn.execute(
                 "UPDATE strategy_docs SET updated_by_actor_id = %s "
                 "WHERE project_id = %s AND slug = %s",
                 (editor, PROJECT_A, "VISION"),
@@ -85,7 +89,10 @@ class TestRenderDocs:
         vision = hdr.parse_file_text(
             strategy_view_path(target_root, "VISION").read_text(encoding="utf-8")
         )
-        assert vision.updated_by == "ben"
+        assert vision.updated_by == "Ben Bauman"
+        assert "updated_by=Ben%20Bauman" in strategy_view_path(
+            target_root, "VISION"
+        ).read_text(encoding="utf-8").splitlines()[0]
         # A doc with no recorded editor stays label-free (field omitted), so
         # an unlabeled edit never plants a churn-y placeholder.
         mission = hdr.parse_file_text(

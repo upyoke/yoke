@@ -13,7 +13,10 @@ import pytest
 
 from yoke_core.domain import strategy_docs as sd
 from yoke_core.domain import strategy_docs_ingest as ing
-from yoke_core.domain.strategy_docs_header import StrategyHeaderError
+from yoke_core.domain.strategy_docs_header import (
+    StrategyHeaderError,
+    parse_file_text,
+)
 from yoke_core.domain.strategy_docs_paths import strategy_view_path
 from runtime.api.domain.strategy_docs_test_helpers import (
     PROJECT_A,
@@ -157,6 +160,52 @@ class TestPlanValidation:
 
 
 class TestDryRun:
+    def test_rendered_spaced_author_preserves_stale_edit_protection(
+        self, tmp_db: str, tmp_path: Path,
+    ) -> None:
+        from yoke_core.domain.actors import resolve_actors_by_name
+
+        conn = connect_test_db(tmp_db)
+        try:
+            seed_docs(conn, PROJECT_A)
+            (editor,) = resolve_actors_by_name(conn, "ben")
+            assert editor is not None
+            conn.execute(
+                "UPDATE actors SET name = %s WHERE id = %s",
+                ("Ben Bauman", editor),
+            )
+            conn.execute(
+                "UPDATE strategy_docs SET updated_by_actor_id = %s "
+                "WHERE project_id = %s AND slug = %s",
+                (editor, PROJECT_A, "PAD"),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        checkout = tmp_path / "checkout"
+        sd.render_docs(target_root=checkout, project_id=PROJECT_A)
+        rendered = strategy_view_path(checkout, "PAD").read_text(
+            encoding="utf-8"
+        )
+        assert parse_file_text(rendered).updated_by == "Ben Bauman"
+        edit_body(checkout, "PAD", SEED_CONTENT["PAD"] + "Local edit.\n")
+
+        conn = connect_test_db(tmp_db)
+        try:
+            (fresh_plan,) = _plan(conn, checkout, ["PAD"])
+        finally:
+            conn.close()
+        assert fresh_plan.changed is True
+
+        bump_db_row(tmp_db, "PAD")
+        conn = connect_test_db(tmp_db)
+        try:
+            (stale_plan,) = _plan(conn, checkout, ["PAD"])
+        finally:
+            conn.close()
+        assert ing.dry_run_report([stale_plan])[0]["status"] == "conflict"
+
     def test_changed_unchanged_and_line_delta(
         self, tmp_db: str, checkout: Path,
     ) -> None:

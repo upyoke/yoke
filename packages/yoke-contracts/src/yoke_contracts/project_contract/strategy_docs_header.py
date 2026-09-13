@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass
+from urllib.parse import quote, unquote
 
 HEADER_MARKER = "<!-- YOKE:STRATEGY-DOC "
 
@@ -89,9 +90,10 @@ def build_header_line(
     no wall-clock input — which is what makes renders byte-idempotent.
     ``updated_by`` is the resolved actor label of the last editor; it is
     emitted only when truthy (no label → field omitted) so it never reads
-    as a misleading sentinel, and it is display-only — never the CAS base.
+    as a misleading sentinel. The label is percent-encoded into one header
+    token and decoded while parsing; it is display-only — never the CAS base.
     """
-    by = f"updated_by={updated_by} " if updated_by else ""
+    by = f"updated_by={quote(updated_by, safe='')} " if updated_by else ""
     return (
         f"<!-- YOKE:STRATEGY-DOC slug={slug} "
         f"updated_at={updated_at} "
@@ -162,7 +164,11 @@ def parse_file_text(file_text: str) -> StrategyDocHeader:
         updated_at=match.group("updated_at"),
         content_sha256=match.group("sha"),
         body=body,
-        updated_by=match.group("updated_by"),
+        updated_by=(
+            unquote(match.group("updated_by"))
+            if match.group("updated_by") is not None
+            else None
+        ),
     )
 
 

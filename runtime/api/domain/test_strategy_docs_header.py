@@ -34,17 +34,22 @@ class TestBuild:
         b = hdr.render_file_text("VISION", "2026-06-10T00:00:00Z", "content\n")
         assert a == b
 
-    def test_updated_by_renders_and_round_trips(self) -> None:
+    @pytest.mark.parametrize(
+        "updated_by",
+        ["ben", "Ben Bauman", "Zoë O’Connor — QA & Release"],
+    )
+    def test_updated_by_renders_and_round_trips(self, updated_by: str) -> None:
         line = hdr.build_header_line(
-            "MISSION", "2026-06-10T00:00:00Z", "body\n", updated_by="ben",
+            "MISSION", "2026-06-10T00:00:00Z", "body\n", updated_by=updated_by,
         )
-        assert "updated_by=ben" in line
+        assert "\n" not in line
         parsed = hdr.parse_file_text(
             hdr.render_file_text(
-                "MISSION", "2026-06-10T00:00:00Z", "body\n", updated_by="ben",
+                "MISSION", "2026-06-10T00:00:00Z", "body\n",
+                updated_by=updated_by,
             )
         )
-        assert parsed.updated_by == "ben"
+        assert parsed.updated_by == updated_by
         assert parsed.body == "body\n"
         # The label is display-only: it does not enter the content hash.
         assert parsed.content_sha256 == hdr.content_sha256("body\n")
