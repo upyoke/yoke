@@ -7,7 +7,6 @@ import {
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_sessions.js";
 import {
   computeSteeringGroupColors,
-  steeringGroupInk,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_steering_group_color.js";
 import {
   FakeDocument,
@@ -92,7 +91,7 @@ test("an ordinary worker card carries no steering box", () => {
 });
 
 
-test("the group color fills the worker label and never the card itself", () => {
+test("the group hue lightly fills the worker label and never the card itself", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.css",
     import.meta.url,
@@ -102,11 +101,11 @@ test("the group color fills the worker label and never the card itself", () => {
   assert.doesNotMatch(css, /\.session-card[^{]*\{[^}]*background/);
   assert.match(
     css,
-    /\.session-steered-badge \{[\s\S]*?background: var\(--session-steering-color/,
+    /\.session-steered-badge \{[\s\S]*?background: color-mix\([\s\S]*?14%/,
   );
   assert.match(
     css,
-    /\.session-steered-badge \{[\s\S]*?color: var\(--session-steering-ink/,
+    /\.session-steered-badge \{[\s\S]*?color: var\(--session-steering-color/,
   );
   assert.match(
     css,
@@ -139,18 +138,21 @@ function coveredWorkerCard(liveness = "active") {
   );
 }
 
-test("a covered worker leads its identity row with the group label", () => {
+test("a covered worker leads its usage row with the group label", () => {
   const rendered = coveredWorkerCard();
   const badge = byClass(rendered, "session-steered-badge")[0];
   assert.equal(byClass(badge, "session-steered-text")[0].textContent, "Steered");
   // The same steering artwork the seat's box carries, not a second mark.
   assert.equal(badge.children[0].children[0].tagName, "SVG");
-  // First in the identity row, so the group reads before the harness.
-  assert.equal(byClass(rendered, "session-top")[0].children[0], badge);
-  assert.equal(rendered.getAttribute("data-steering-group"), "seat-1");
-  assert.equal(
-    rendered.style.getPropertyValue("--session-steering-ink"), "#ffffff",
+  assert.equal(byClass(rendered, "session-top")[0].children.includes(badge), false);
+  // First in the usage row, followed by inline token and cost groups.
+  const usage = byClass(rendered, "session-usage-line")[0];
+  assert.equal(usage.children[0], badge);
+  assert.deepEqual(
+    byClass(usage, "usage-stat-unit").map((node) => node.textContent),
+    ["tokens", "cost"],
   );
+  assert.equal(rendered.getAttribute("data-steering-group"), "seat-1");
 });
 
 test("a stale covered worker keeps both its group label and its stale class", () => {
@@ -167,20 +169,6 @@ test("the seat itself carries no worker label, and an unsteered card none", () =
   const unsteered = card(new FakeDocument(), { current: [] });
   assert.equal(byClass(unsteered, "session-steered-badge").length, 0);
 });
-
-test("label ink is whichever of black and white reads on the group color", () => {
-  // Both palette forms are read, and the choice follows the color rather
-  // than its lightness number: the generated hues all sit at 38% lightness,
-  // where a blue is dark and a yellow-olive is not.
-  assert.equal(steeringGroupInk("#7c3aed"), "#ffffff");
-  assert.equal(steeringGroupInk("#a16207"), "#ffffff");
-  assert.equal(steeringGroupInk("hsl(250.0deg 65% 38%)"), "#ffffff");
-  assert.equal(steeringGroupInk("hsl(58.0deg 65% 38%)"), "#000000");
-  // A light background takes black, and an unparseable one stays legible.
-  assert.equal(steeringGroupInk("#f5d90a"), "#000000");
-  assert.equal(steeringGroupInk("nonsense"), "#ffffff");
-});
-
 
 function steeringWorkerRow(sessionId, groupSessionId) {
   return {

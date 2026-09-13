@@ -17,10 +17,11 @@ import { appendUsageStats } from "./universe_usage_stats.js";
  * the prices came from, when they were checked, and why either figure is
  * partial — is what the line's explanation still carries.
  */
-export function appendSessionUsage(documentNode, body, row) {
+export function appendSessionUsage(documentNode, body, row, leading = null) {
   const partial = sessionUsageIsPartial(row);
   appendUsageStats(documentNode, body, {
     className: "session-usage-line usage-stats",
+    leading,
     tooltip: row.usage_note || "no consumption recorded for this session yet",
     stats: [
       {
@@ -32,7 +33,7 @@ export function appendSessionUsage(documentNode, body, row) {
       {
         fact: "cost",
         value: sessionCostDisplay(row),
-        unit: "API cost",
+        unit: "cost",
         partial,
       },
     ],

@@ -8,21 +8,20 @@
    steering group renders in its own color; a card outside any steering
    group falls back to the universal accent. */
 
-/* A covered worker's one group mark: a compact filled label at the head of
-   its identity row, in the group's own color with the same steering symbol
-   the seat's box carries. Filled rather than tinting the card, because the
-   card background is where held, previously-held, and status colors live —
-   a group tint over those made two different facts one wash of color. Ink
-   is black or white, whichever reads on the group color, chosen in
-   `universe_steering_group_color.js` rather than guessed here. */
+/* A covered worker's one group mark: a compact light-filled label at the
+   head of its usage row, in the group's own hue with the same steering
+   symbol the seat's box carries. The card surface stays neutral. */
 .universe-app-root .session-steered-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   padding: 2px 7px;
   border-radius: 999px;
-  background: var(--session-steering-color, var(--yoke-accent));
-  color: var(--session-steering-ink, #ffffff);
+  background: color-mix(
+    in srgb, var(--session-steering-color, var(--yoke-accent)) 14%,
+    var(--yoke-surface)
+  );
+  color: var(--session-steering-color, var(--yoke-accent));
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .055em;

@@ -1,9 +1,5 @@
-// How a steering group is colored, what ink reads on that color, and the one
-// read those colors are ranked from. One module, because the palette, the
-// black/white choice against it, and the roster it ranks are the same
-// decision seen from three sides: a color nobody can read text on is not a
-// usable group color, and a color ranked from one page's own rows is not a
-// group's color at all.
+// How steering-group colors are assigned and the one roster those colors are
+// ranked from.
 
 import { callFunction } from "./universe_view_support.js";
 
@@ -24,61 +20,6 @@ const STEERING_GROUP_PALETTE = [
 // their immediate neighbor — not a claim that no two of them, out of an
 // unbounded run, can ever land close together.
 const GOLDEN_ANGLE_DEGREES = 137.508;
-
-// Whether black or white reads on a given group color, by WCAG relative
-// luminance against both: a filled label has to stay legible across the
-// palette's dark violets and its lighter amber-browns alike, and the two
-// extra forms the palette itself produces — a `#rrggbb` entry and the
-// generated `hsl()` hue — are the only two this has to parse.
-const SRGB_LUMINANCE_WEIGHTS = [0.2126, 0.7152, 0.0722];
-// Where the two inks swap. 0.179 is the luminance at which black and white
-// contrast equally against a background, so each side of it takes whichever
-// ink is genuinely the stronger of the two.
-const INK_SWAP_LUMINANCE = 0.179;
-
-function channelLuminance(value) {
-  const channel = value / 255;
-  return channel <= 0.04045
-    ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-}
-
-function hslChannels(hue, saturation, lightness) {
-  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
-  const sector = ((hue % 360) + 360) % 360 / 60;
-  const second = chroma * (1 - Math.abs((sector % 2) - 1));
-  const [red, green, blue] = [
-    [chroma, second, 0], [second, chroma, 0], [0, chroma, second],
-    [0, second, chroma], [second, 0, chroma], [chroma, 0, second],
-  ][Math.floor(sector) % 6];
-  const base = lightness - chroma / 2;
-  return [red, green, blue].map((part) => Math.round((part + base) * 255));
-}
-
-function colorChannels(color) {
-  const text = String(color || "").trim();
-  const hex = /^#([0-9a-f]{6})$/i.exec(text);
-  if (hex) {
-    return [0, 2, 4].map((at) => parseInt(hex[1].slice(at, at + 2), 16));
-  }
-  const hsl = /^hsl\(\s*([\d.]+)deg\s+([\d.]+)%\s+([\d.]+)%\s*\)$/i.exec(text);
-  if (hsl) {
-    return hslChannels(
-      Number(hsl[1]), Number(hsl[2]) / 100, Number(hsl[3]) / 100,
-    );
-  }
-  return null;
-}
-
-// A color this cannot read is not a reason to render unreadable text: white
-// on the palette's own range is the safer of the two defaults.
-export function steeringGroupInk(color) {
-  const channels = colorChannels(color);
-  if (!channels) return "#ffffff";
-  const luminance = channels
-    .map(channelLuminance)
-    .reduce((total, part, index) => total + part * SRGB_LUMINANCE_WEIGHTS[index], 0);
-  return luminance > INK_SWAP_LUMINANCE ? "#000000" : "#ffffff";
-}
 
 function paletteColorAt(rank) {
   if (rank < STEERING_GROUP_PALETTE.length) return STEERING_GROUP_PALETTE[rank];

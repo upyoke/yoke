@@ -10,7 +10,26 @@
 }
 
 .universe-app-root .session-usage-line {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 9px;
   padding: 2px 0 0;
+}
+
+.universe-app-root .session-usage-line .usage-stat {
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* A separator belongs to the complete metric group on its right, so narrow
+   cards wrap badge and metrics as units instead of orphaning a bare rule. */
+.universe-app-root .session-usage-line .session-steered-badge + .usage-stat,
+.universe-app-root .session-usage-line .usage-stat + .usage-stat {
+  padding-left: 9px;
+  border-left: 1px solid var(--yoke-border);
 }
 
 .universe-app-root .machine-usage-block {
@@ -60,7 +79,7 @@
     gap: 12px 16px;
   }
 
-  .universe-app-root .usage-stat {
+  .universe-app-root .machine-usage-block .usage-stat {
     flex: 1 1 40%;
   }
 
