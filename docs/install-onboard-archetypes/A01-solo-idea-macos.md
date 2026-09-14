@@ -19,20 +19,18 @@ Command: `curl -fsSL https://upyoke.com/install | sh`
 
 OS check in the shim: `Darwin|Linux` — macOS passes.
 
-If `uv` is missing (Homebrew on PATH — typical Mac):
+If `uv` is missing:
 
 ```
 [branded figlet welcome]
 ☀  Your operating system for software delivery
 
-☀ Yoke's only prerequisite — uv/uvx — isn't installed yet.
-☀ Install it with Homebrew?  brew install uv  [Y/n]
-  (no Homebrew? falls back to the official uv installer)
+☀ Installing uv
+☀ uv installed
 ```
 
-**User:** Enter (default Yes).
-
-Shim runs `brew install uv` (Astral installer if brew fails), then
+uv installs automatically via the official Astral installer — no
+confirmation prompt. The shim then runs
 `uv run --isolated --no-project python` on the downloaded `install.py`.
 
 ```

@@ -18,8 +18,9 @@ their network, using guided first boot on the host or the manual
 
 ## Transcript — installer
 
-Linux host: `curl -fsSL https://upyoke.com/install | sh`. uv via Astral
-consent `[Y/n]`. `Starting Yoke onboard…`.
+Linux host: `curl -fsSL https://upyoke.com/install | sh`. uv installs
+automatically via the official Astral installer — no confirmation.
+`Starting Yoke onboard…`.
 
 ## Transcript — wizard
 

@@ -14,7 +14,12 @@ from textual.widgets import Static
 
 from yoke_cli.config import install_binding, path_doctor, path_repair_plan
 from yoke_cli.config.onboard_terminal import glyphs
-from yoke_cli.config.onboard_wizard_palette import ACCENT, BRAND as _BRAND, DANGER
+from yoke_cli.config.onboard_wizard_palette import (
+    ACCENT,
+    BRAND as _BRAND,
+    DANGER,
+    DIM,
+)
 from yoke_cli.config.onboard_wizard_steps import selection_body
 from yoke_cli.config.onboard_wizard_widgets import SelectionRow
 from yoke_cli.config.path_state_contract import MANAGED_BEGIN, MANAGED_END
@@ -55,21 +60,44 @@ def _heading(title: str, subtitle: str) -> list[Static]:
     ]
 
 
-def _resolution_lines(label: str, resolved: list[Any]) -> list[Static]:
-    """Render one tool-resolution group: ``✓ name → path`` (green) when the tool
-    resolves, ``✗ name  not on PATH`` (red) when it does not."""
+def _tool_readiness_lines(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
+    """One compact readiness line per tool, current-shell resolution only.
+
+    ``yoke``/``uv``/``uvx`` are required — missing renders red. A harness CLI
+    (Cursor, Codex, …) not on PATH is optional and neutral: it means the tool
+    isn't installed, not that the PATH fix is broken.
+    """
     marks = glyphs()
-    lines: list[Static] = [Static(label, classes="onboard-plan-line")]
-    for res in resolved:
+    optional = set(path_doctor.HARNESS_CLIS)
+    lines: list[Static] = []
+    for res in diagnosis.current_resolved:
         name = escape(res.name)
         if res.path:
-            text = (
-                f"  [{ACCENT}]{marks.ok} {name:<7} {marks.arrow} {escape(res.path)}[/]"
-            )
+            text = f"[{ACCENT}]{marks.ok} {name}[/]"
+        elif res.name in optional:
+            text = f"[{DIM}]{marks.bullet} {name}  not installed (optional)[/]"
         else:
-            text = f"  [{DANGER}]{marks.fail} {name:<7} not on PATH[/]"
+            text = f"[{DANGER}]{marks.fail} {name}  not on PATH[/]"
         lines.append(Static(text, classes="onboard-plan-line"))
     return lines
+
+
+def _shell_files_summary(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
+    """Compact count + exact paths of the shell files the fix will touch."""
+    files = []
+    if diagnosis.login_needs_fix and diagnosis.startup_file:
+        files.append(f"{escape(diagnosis.startup_file)} (login)")
+    if diagnosis.ssh_needs_fix and diagnosis.ssh_startup_file:
+        files.append(f"{escape(diagnosis.ssh_startup_file)} (SSH/non-login)")
+    if not files:
+        return []
+    noun = "shell file" if len(files) == 1 else "shell files"
+    return [
+        Static(
+            f"Will update {len(files)} {noun}: {', '.join(files)}",
+            classes="onboard-plan-line",
+        )
+    ]
 
 
 def _shadowing_lines(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
@@ -121,15 +149,9 @@ def path_diagnosis_body(diagnosis: path_doctor.PathDiagnosis) -> list[Static]:
         subtitle = "Nothing to change — Terminal and SSH can already find it."
         rows = PATH_OK_ROWS
     widgets = _heading(title, subtitle)
-    widgets.extend(_resolution_lines("This shell sees:", diagnosis.current_resolved))
-    widgets.extend(
-        _resolution_lines("A new Terminal login shell sees:", diagnosis.future_resolved)
-    )
-    if diagnosis.ssh_resolved:
-        widgets.extend(
-            _resolution_lines("An SSH command sees:", diagnosis.ssh_resolved)
-        )
+    widgets.extend(_tool_readiness_lines(diagnosis))
     widgets.extend(_shadowing_lines(diagnosis))
+    widgets.extend(_shell_files_summary(diagnosis))
     widgets.append(Static("", classes="onboard-spacer"))
     widgets.extend(selection_body("", "", rows))
     return widgets
@@ -143,7 +165,10 @@ PATH_PREVIEW_DETAILS_INDEX = 1
 
 
 def path_preview_rows(
-    plan: dict[str, Any], *, apply_now: bool, show_details: bool,
+    plan: dict[str, Any],
+    *,
+    apply_now: bool,
+    show_details: bool,
 ) -> list[SelectionRow]:
     if apply_now:
         apply_row = SelectionRow("apply", "Apply", "write the shell files now")
@@ -151,7 +176,9 @@ def path_preview_rows(
         apply_row = SelectionRow(
             "apply", "Add it to Review", "Apply writes the files later"
         )
-    block_lines = len(path_doctor.render_managed_block(tuple(plan["directories"])).splitlines())
+    block_lines = len(
+        path_doctor.render_managed_block(tuple(plan["directories"])).splitlines()
+    )
     if show_details:
         details_row = SelectionRow(
             PATH_PREVIEW_DETAILS_ROW, "Hide details", "back to the summary"

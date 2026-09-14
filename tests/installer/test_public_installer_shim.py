@@ -80,7 +80,7 @@ def test_help_teaches_install_and_upgrade_index_contract(tmp_path: Path) -> None
     assert "public PyPI" in result.stdout
 
 
-def test_declining_uv_consent_prints_manual_and_rerun(tmp_path: Path) -> None:
+def test_prompt_answer_never_gates_uv_install(tmp_path: Path) -> None:
     bin_dir = _bin(tmp_path)
     prompt_in = tmp_path / "prompt-in"
     prompt_out = tmp_path / "prompt-out"
@@ -88,7 +88,9 @@ def test_declining_uv_consent_prints_manual_and_rerun(tmp_path: Path) -> None:
     prompt_out.write_text("", encoding="utf-8")
     write_executable(bin_dir / "curl", "#!/bin/sh\nexit 0\n")
 
-    # NO_COLOR pins the friendly decline screen to plain text we can assert on.
+    # NO_COLOR pins the status line to plain text we can assert on. There is
+    # no Y/n consent anymore: an "n" answer on the prompt endpoint has no
+    # effect on whether uv installs.
     result = run_shim(
         bin_dir,
         args=(),
@@ -101,13 +103,9 @@ def test_declining_uv_consent_prints_manual_and_rerun(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 1
-    # The branded welcome + consent and the friendly decline screen all render to
-    # stdout (golden-tested); the screen never dead-ends — it names the manual
-    # install and the exact rerun command.
-    assert "Yoke's only prerequisite — uv/uvx — isn't installed yet." in result.stdout
-    assert "uv/uvx is required to install Yoke." in result.stdout
-    assert "curl -LsSf https://astral.sh/uv/install.sh | sh" in result.stdout
-    assert "curl -fsSL https://example.invalid/install | sh" in result.stdout
+    assert "Installing uv" in result.stdout
+    assert "uv/uvx is required to install Yoke." not in result.stdout
+    assert "was installed but is not on PATH" in result.stderr
 
 
 def test_missing_uv_installs_via_astral_on_consent(tmp_path: Path) -> None:
@@ -243,7 +241,9 @@ def test_dry_run_forwards_dry_run_flag_to_helper(tmp_path: Path) -> None:
     assert "onboard" not in result.stdout.lower()
 
 
-def test_uv_install_prompt_reads_dev_tty_under_pipe(tmp_path: Path) -> None:
+def test_uv_install_ignores_prompt_endpoints_and_leaves_stdin_untouched(
+    tmp_path: Path,
+) -> None:
     bin_dir = _bin(tmp_path)
     prompt_in = tmp_path / "prompt-in"
     prompt_out = tmp_path / "prompt-out"
@@ -288,10 +288,9 @@ def test_uv_install_prompt_reads_dev_tty_under_pipe(tmp_path: Path) -> None:
         input_text="payload that must not be consumed by the prompt\n",
     )
 
-    # The consent is rendered to stdout; the answer is read from the tty-in file,
-    # never from the stdin pipe — so consent proceeds (uv installs) and the
-    # piped payload is left untouched.
-    assert "isn't installed yet." in result.stdout
+    # uv installs automatically with no consent read, so the prompt-endpoint
+    # files are never touched and the piped payload is left untouched too.
+    assert "Installing uv" in result.stdout
     assert result.returncode == 0
     assert "astral.sh/uv/install.sh" in log.read_text(encoding="utf-8")
 

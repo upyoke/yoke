@@ -17,12 +17,12 @@ INSTALL_SHIM = REPO_ROOT / "packaging" / "public-installer" / "install"
 INSTALL_PY = REPO_ROOT / "packaging" / "public-installer" / "install.py"
 
 
-def test_file_invocation_accepts_piped_uv_consent(tmp_path: Path) -> None:
+def test_file_invocation_installs_uv_automatically(tmp_path: Path) -> None:
     env = _installer_env(tmp_path, with_fake_curl=True)
 
     result = subprocess.run(
         ["/bin/sh", str(INSTALL_SHIM)],
-        input="y\n",
+        input="",
         text=True,
         capture_output=True,
         env=env,
@@ -30,9 +30,9 @@ def test_file_invocation_accepts_piped_uv_consent(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0, result.stderr
-    # Cold-start copy: the consent names uv/uvx together; on success with no
-    # `yoke` on PATH yet, the shim prints the resume command (no separate gate).
-    assert "Yoke's only prerequisite — uv/uvx — isn't installed yet." in result.stdout
+    # uv installs automatically with no Y/n consent to read; on success with
+    # no `yoke` on PATH yet, the shim prints the resume command (no gate).
+    assert "Installing uv" in result.stdout
     assert (
         "Run yoke onboard to finish setting up your machine & projects."
         in result.stdout
@@ -41,7 +41,7 @@ def test_file_invocation_accepts_piped_uv_consent(tmp_path: Path) -> None:
     assert "/dev/tty" not in result.stderr
 
 
-def test_pipe_invocation_without_yes_fails_without_tty_noise(
+def test_pipe_invocation_without_yes_installs_uv_without_tty_noise(
     tmp_path: Path,
 ) -> None:
     env = _installer_env(tmp_path, with_fake_curl=True)
@@ -54,16 +54,17 @@ def test_pipe_invocation_without_yes_fails_without_tty_noise(
         env=env,
         check=False,
         # A local test runner may itself own a controlling PTY. Detach this
-        # child so the curl-pipe scenario exercises the intended no-TTY path
-        # instead of opening the runner's /dev/tty and waiting for consent.
+        # child so the curl-pipe scenario exercises the intended no-TTY path.
         start_new_session=True,
     )
 
-    assert result.returncode == 1
-    # The friendly decline/failure screen now renders to stdout; stderr stays
-    # clean of tty noise on the curl|bash (stdin-piped) path.
-    assert "uv/uvx is required to install Yoke." in result.stdout
+    assert result.returncode == 0, result.stderr
+    # uv installs automatically with no consent read, so a curl|sh pipe with
+    # no controlling terminal and no --yes still succeeds; stderr stays
+    # clean of tty noise.
+    assert "Installing uv" in result.stdout
     assert "Device not configured" not in result.stderr
+    assert "/dev/tty" not in result.stderr
 
 
 def test_python_helper_honors_plain_glyph_env(monkeypatch) -> None:
@@ -128,14 +129,16 @@ def test_product_audit_rejects_missing_hook_runtime_package() -> None:
     install_py = _load_install_py()
 
     with pytest.raises(install_py.InstallError, match="yoke-harness"):
-        install_py._verify_product_package_presence({  # noqa: SLF001
-            "package_versions": {
-                "yoke-cli": "1.2.3",
-                "yoke-contracts": "1.2.3",
-                "yoke-harness": "",
-                "yoke-core": "1.2.3",
+        install_py._verify_product_package_presence(
+            {  # noqa: SLF001
+                "package_versions": {
+                    "yoke-cli": "1.2.3",
+                    "yoke-contracts": "1.2.3",
+                    "yoke-harness": "",
+                    "yoke-core": "1.2.3",
+                }
             }
-        })
+        )
 
 
 def _installer_env(tmp_path: Path, *, with_fake_curl: bool) -> dict[str, str]:

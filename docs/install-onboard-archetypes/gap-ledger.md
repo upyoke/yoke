@@ -92,16 +92,17 @@ Use local `command` when CI is not GitHub Actions. Never write
 
 ### Installed (OS / PATH / uv)
 
-**Declare:** Darwin/Linux only in the shim. uv consent. PATH doctor in the
-wizard.
+**Declare:** Darwin/Linux only in the shim. uv installs automatically, no
+consent. PATH doctor in the wizard.
 
-**Refuse:** native Windows `fail`. uv decline with manual install + rerun.
+**Refuse:** native Windows `fail`. uv install failure with manual install +
+rerun.
 
 **Instead:** WSL Linux path — named, not taught.
 
 ## Source pins
 
-- Shim OS gate and uv consent: `packaging/public-installer/install`
+- Shim OS gate and automatic uv install: `packaging/public-installer/install`
 - Hosting copy: `HOSTING_PROVIDER_TITLE` / `HOSTING_AWS_SIGN_IN_TITLE`
 - Idea defaults: `.agents/skills/yoke/idea/infer-and-create.md` §b
 - Onboard step 5 entry with deferred hosting: `hosting-and-environments.md`
