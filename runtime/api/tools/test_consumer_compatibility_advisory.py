@@ -76,7 +76,7 @@ def test_a_run_without_the_scoped_credential_says_it_did_not_check(
     monkeypatch.delenv(gate.CONSUMER_TOKEN_ENV, raising=False)
 
     code = advisory.main(
-        ["--base", "origin/main", "--candidate-sha", CANDIDATE, "--dispatch-key", "k"]
+        ["--base", "origin/main", "--candidate-sha", CANDIDATE]
     )
     printed = capsys.readouterr().out
 
@@ -91,7 +91,7 @@ def test_an_unrelated_change_reports_not_applicable_and_asks_nothing(
     _scope_of(monkeypatch, "docs/testing-verification.md")
 
     code = advisory.main(
-        ["--base", "origin/main", "--candidate-sha", CANDIDATE, "--dispatch-key", "k"]
+        ["--base", "origin/main", "--candidate-sha", CANDIDATE]
     )
 
     assert code == 0
@@ -112,7 +112,6 @@ def test_an_unreadable_scope_reports_rather_than_going_quiet(
         [
             "--base", "origin/nowhere",
             "--candidate-sha", CANDIDATE,
-            "--dispatch-key", "k",
         ]
     )
     printed = capsys.readouterr().out
@@ -134,7 +133,7 @@ def test_a_refusal_is_reported_as_a_warning_and_a_non_zero_status(
     )
 
     code = advisory.main(
-        ["--base", "origin/main", "--candidate-sha", CANDIDATE, "--dispatch-key", "k"]
+        ["--base", "origin/main", "--candidate-sha", CANDIDATE]
     )
     printed = capsys.readouterr().out
 
@@ -181,6 +180,7 @@ def test_the_called_workflow_carries_the_scoped_credential_on_one_step() -> None
     job = called["jobs"]["advisory"]
     token = gate.CONSUMER_TOKEN_ENV
 
+    assert called["name"] == "consumer-compatibility-advisory"
     assert called["permissions"] == {"contents": "read"}
     # PyYAML's default (YAML 1.1) safe loader reads the bare `on:` trigger
     # key as the boolean True, not the string "on".

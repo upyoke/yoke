@@ -26,7 +26,7 @@ continues past it: this is a warning, not a gate.
 Usage::
 
     python3 -m runtime.api.tools.consumer_compatibility_advisory \\
-        --base origin/main --candidate-sha <40-hex> --dispatch-key <key>
+        --base origin/main --candidate-sha <40-hex>
 """
 
 from __future__ import annotations
@@ -95,7 +95,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     parser.add_argument("--base", default="")
     parser.add_argument("--candidate-sha", default="")
-    parser.add_argument("--dispatch-key", default="")
     parser.add_argument("--timeout", type=int, default=1800, dest="timeout_sec")
     args = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
 
@@ -143,9 +142,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
 
     code, narrative, _proven = gate.prove(
-        candidate,
-        dispatch_key=args.dispatch_key.strip() or candidate,
-        timeout_sec=args.timeout_sec,
+        candidate, timeout_sec=args.timeout_sec,
     )
     _report(narrative, warn=bool(code))
     return code

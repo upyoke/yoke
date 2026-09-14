@@ -38,8 +38,9 @@ GITHUB_ACTIONS_TRIGGER_ONCE_USAGE = (
     "[--ref REF] [--input KEY=VALUE] --project P [--session-id S] [--json]"
 )
 GITHUB_ACTIONS_FIND_RUN_USAGE = (
-    "yoke github-actions find-run <repo-slug> <workflow-file> <commit-sha> "
-    "[--event EVENT] [--status STATUS] --project P [--session-id S] [--json]"
+    "yoke github-actions find-run <repo-slug> <workflow-file> [<commit-sha>] "
+    "[--branch BRANCH] [--event EVENT] [--status STATUS] --project P "
+    "[--session-id S] [--json]"
 )
 GITHUB_ACTIONS_POLL_USAGE = (
     "yoke github-actions poll <repo-slug> <run-id> "
@@ -248,7 +249,8 @@ def github_actions_find_run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke github-actions find-run")
     parser.add_argument("repo")
     parser.add_argument("workflow")
-    parser.add_argument("commit_sha")
+    parser.add_argument("commit_sha", nargs="?", default="")
+    parser.add_argument("--branch", default="")
     parser.add_argument("--event")
     parser.add_argument("--status")
     parser.add_argument("--project", required=True)
@@ -259,13 +261,16 @@ def github_actions_find_run(args: List[str]) -> int:
         return 2
     if not _valid_repo(parsed.repo):
         return usage_error(f"repo must be owner/name, got {parsed.repo!r}")
+    if not parsed.commit_sha and not parsed.branch:
+        return usage_error("commit sha or --branch is required")
     response = _call(
         "github_actions.workflow.find_run",
         {
             "repo": parsed.repo,
             "workflow": parsed.workflow,
-            "head_sha": parsed.commit_sha,
             "project": parsed.project,
+            **({"head_sha": parsed.commit_sha} if parsed.commit_sha else {}),
+            **({"branch": parsed.branch} if parsed.branch else {}),
             **({"event": parsed.event} if parsed.event else {}),
             **({"status": parsed.status} if parsed.status else {}),
         },
@@ -279,6 +284,7 @@ def github_actions_find_run(args: List[str]) -> int:
     else:
         print(response.result.get("run_id") if found else "not_found")
     return 0 if found else 1
+
 
 def github_actions_poll(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke github-actions poll")
@@ -335,15 +341,10 @@ def github_actions_jobs_count(args: List[str]) -> int:
 
 
 __all__ = [
-    "GITHUB_ACTIONS_FIND_RUN_USAGE",
-    "GITHUB_ACTIONS_JOBS_COUNT_USAGE",
-    "GITHUB_ACTIONS_OPERATION_ERROR_EXIT",
-    "GITHUB_ACTIONS_POLL_USAGE",
-    "GITHUB_ACTIONS_TRIGGER_USAGE",
-    "GITHUB_ACTIONS_TRIGGER_ONCE_USAGE",
-    "github_actions_find_run",
-    "github_actions_jobs_count",
-    "github_actions_poll",
-    "github_actions_trigger",
+    "GITHUB_ACTIONS_FIND_RUN_USAGE", "GITHUB_ACTIONS_JOBS_COUNT_USAGE",
+    "GITHUB_ACTIONS_OPERATION_ERROR_EXIT", "GITHUB_ACTIONS_POLL_USAGE",
+    "GITHUB_ACTIONS_TRIGGER_USAGE", "GITHUB_ACTIONS_TRIGGER_ONCE_USAGE",
+    "github_actions_find_run", "github_actions_jobs_count",
+    "github_actions_poll", "github_actions_trigger",
     "github_actions_trigger_once",
 ]

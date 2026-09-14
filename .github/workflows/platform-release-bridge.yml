@@ -102,9 +102,9 @@ jobs:
       # the host does not implement passes every check on this side and
       # refuses during promotion, after the artifact is already public. So
       # the real host is built here against the exact commit being released
-      # and its current trunk, on a dispatch key of this run's own so no
-      # earlier proof can be reused. Platform's promotion-time check remains
-      # the final backstop behind this one.
+      # and the consumer trunk bound before dispatch, so simultaneous
+      # stage/prod callers join one proof of that pair. Platform's
+      # promotion-time check remains the final backstop behind this one.
       - name: Prove the hosted consumer against the exact release candidate
         id: consumer_proof
         env:
@@ -112,8 +112,7 @@ jobs:
           PRODUCT_SHA: ${{ inputs.product_sha }}
         run: |
           python3 -m runtime.api.tools.require_platform_consumer_compatibility \
-            --candidate-sha "$PRODUCT_SHA" \
-            --dispatch-key "release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            --candidate-sha "$PRODUCT_SHA"
 
       - name: Create or recover the immutable annotated release tag
         id: release

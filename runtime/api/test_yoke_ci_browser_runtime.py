@@ -33,6 +33,7 @@ def test_browser_runtime_workflow_gates_every_expensive_step_on_its_tree() -> No
     assert "\non:\n  workflow_call:\n" in text
     workflow = load_document(BROWSER_RUNTIME_WORKFLOW)
 
+    assert workflow["name"] == "browser-runtime-tests"
     runtime_dir = workflow["env"]["BROWSER_RUNTIME_DIR"]
     assert runtime_dir.endswith("/browser_runtime")
     job = workflow["jobs"]["browser-runtime"]
