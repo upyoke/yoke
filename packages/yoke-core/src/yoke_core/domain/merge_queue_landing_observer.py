@@ -239,6 +239,14 @@ def observe_pending_landings(
                 if not row.get("merge_queue_enqueued_at"):
                     continue
                 notice_in_progress = True
+                # Keyed on the head this observation read, not just the pull
+                # request: the same PR number survives a force-push, so a
+                # fresh commit that fails its own required checks is a new
+                # ejection the holder has not heard about yet. Keying on the
+                # PR alone collapsed that second, distinct stoppage onto the
+                # first one's already-acknowledged message and the holder
+                # never heard the queue had dropped it again.
+                head_sha = readback.state.head_sha if readback.state else ""
                 delivery = push_notice(
                     conn,
                     item_id=item_id,
@@ -246,7 +254,9 @@ def observe_pending_landings(
                     body_for_route=lambda route: ejection_message(
                         public_ref, pr_number, observation, route
                     ),
-                    idempotency_key=f"merge-queue-ejected:{item_id}:{pr_number}",
+                    idempotency_key=(
+                        f"merge-queue-ejected:{item_id}:{pr_number}:{head_sha}"
+                    ),
                     now=current,
                 )
                 notice_in_progress = False
