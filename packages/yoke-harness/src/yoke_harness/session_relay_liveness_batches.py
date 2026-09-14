@@ -24,7 +24,10 @@ from typing import Any, Callable, Iterator, Literal, Mapping, Sequence
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.session_control.function_ids import RELAY_LIVENESS_FUNCTION_ID
-from yoke_contracts.session_control.relay_models import RELAY_REPORT_COLLECTION_LIMIT
+from yoke_contracts.session_control.relay_models import (
+    LIVENESS_RETENTION_STATUSES,
+    RELAY_REPORT_COLLECTION_LIMIT,
+)
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,4 +79,22 @@ def deliver_liveness_batches(
         yield batch, getattr(response, "result", None) or {}
 
 
-__all__ = ["deliver_liveness_batches", "LivenessCollection"]
+def prunable_session_ids(result: Mapping[str, Any], ended: Sequence[str]) -> set[str]:
+    """Session ids one batch's local record may be dropped for.
+
+    A session already accounted for -- ended by this report, ended by some
+    earlier one, or never reachable at all (unauthorized, unknown) -- will
+    never again need this machine's local process record. Only a retention
+    status (claims held, parked, awaiting a reply) means a later poll might
+    still need it, so it alone survives.
+    """
+    prunable = {str(session_id) for session_id in ended}
+    for skip in result.get("skipped") or ():
+        status = str(skip.get("status") or "")
+        session_id = str(skip.get("session_id") or "")
+        if session_id and status not in LIVENESS_RETENTION_STATUSES:
+            prunable.add(session_id)
+    return prunable
+
+
+__all__ = ["deliver_liveness_batches", "prunable_session_ids", "LivenessCollection"]

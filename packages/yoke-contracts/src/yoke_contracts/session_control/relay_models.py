@@ -18,6 +18,22 @@ from yoke_contracts.session_control.evidence_fetch import EvidenceFileEntry
 # is stated once and neither side can drift from the other.
 RELAY_REPORT_COLLECTION_LIMIT = 100
 
+#: A ``RelayLivenessResponse.skipped[].status`` naming a session the control
+#: plane deliberately kept alive despite the process-gone proof -- its
+#: claims, park, or open question may still lift on a later poll, so the
+#: reporting machine must keep its local process record for exactly these.
+#: Every other skip status means this machine will never usefully re-report
+#: the same record. Named once here so the server that emits these statuses
+#: and the relay that decides what to prune cannot drift apart.
+CLAIMS_HELD_STATUS = "claims_held"
+PARKED_STATUS = "parked"
+AWAITING_SEAT_REPLY_STATUS = "awaiting_seat_reply"
+LIVENESS_RETENTION_STATUSES = (
+    CLAIMS_HELD_STATUS,
+    PARKED_STATUS,
+    AWAITING_SEAT_REPLY_STATUS,
+)
+
 
 class RelayClaimRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -206,7 +222,11 @@ class RelayReportResponse(BaseModel):
 
 
 __all__ = [
+    "AWAITING_SEAT_REPLY_STATUS",
+    "CLAIMS_HELD_STATUS",
     "EvidenceDocument",
+    "LIVENESS_RETENTION_STATUSES",
+    "PARKED_STATUS",
     "RELAY_REPORT_COLLECTION_LIMIT",
     "RelayClaimRequest",
     "RelayClaimResponse",

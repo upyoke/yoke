@@ -30,6 +30,11 @@ import json
 from datetime import datetime
 from typing import Any, Mapping
 
+from yoke_contracts.session_control.relay_models import (
+    AWAITING_SEAT_REPLY_STATUS,
+    CLAIMS_HELD_STATUS,
+    PARKED_STATUS,
+)
 from yoke_contracts.session_control.resume import RESUME_RELAY_SETTLEMENT_RESULTS
 from yoke_contracts.session_control.wake_delivery import WAKE_DELIVERED_RESULT
 from yoke_core.domain.session_message_types import (
@@ -48,13 +53,6 @@ NATIVE_PROCESS_GONE_AT_COLUMN = "native_process_gone_at"
 NATIVE_PROCESS_GONE_EVIDENCE_COLUMN = "native_process_gone_evidence"
 NATIVE_PROCESS_OBSERVATION_COLUMN_DDL = "TEXT DEFAULT NULL"
 NATIVE_PROCESS_GONE_STATE = "gone"
-CLAIMS_HELD_STATUS = "claims_held"
-#: The session declared a wait about itself, so its row is resumable state
-#: rather than debris — the process being gone does not settle that wait.
-PARKED_STATUS = "parked"
-#: The session asked the steering role something and no answer has arrived.
-#: Ending it would drop the question along with the row that carries it.
-AWAITING_SEAT_REPLY_STATUS = "awaiting_seat_reply"
 #: What the reporting machine read from the native's own result.  Only a
 #: measured zero says the command finished; an exit nobody captured says
 #: nothing at all, and is never read as a clean one.
