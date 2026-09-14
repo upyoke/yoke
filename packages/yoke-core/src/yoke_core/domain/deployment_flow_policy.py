@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.approval_policy import parse_approval_policy
+from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.project_identity import resolve_project
 
 
@@ -255,16 +256,35 @@ def validate_stage_references(
         target = stage.get("target") if isinstance(stage, Mapping) else None
         if not isinstance(target, Mapping):
             continue
-        if target.get("kind") != "persistent_environment":
-            continue
-        environment = str(target.get("environment") or "")
-        try:
-            resolve(conn, project_id=ident.id, name=environment)
-        except LookupError as exc:
-            raise LookupError(
-                f"stage {index} target environment {environment!r} is not registered "
-                f"for project {project!r}"
-            ) from exc
+        kind = target.get("kind")
+        if kind == "persistent_environment":
+            environment = str(target.get("environment") or "")
+            try:
+                resolve(conn, project_id=ident.id, name=environment)
+            except LookupError as exc:
+                raise LookupError(
+                    f"stage {index} target environment {environment!r} is not "
+                    f"registered for project {project!r}"
+                ) from exc
+        elif kind == "run_preview":
+            capability = target.get("capability")
+            if not capability:
+                # A source_stage reference chains to an earlier run_preview
+                # stage, which was already validated on its own turn through
+                # this loop; nothing further to resolve here.
+                continue
+            capability = str(capability)
+            has_capability = query_scalar(
+                conn,
+                "SELECT COUNT(*) FROM project_capabilities "
+                "WHERE project_id=%s AND type=%s",
+                (ident.id, capability),
+            )
+            if not has_capability:
+                raise LookupError(
+                    f"stage {index} target capability {capability!r} is not "
+                    f"registered for project {project!r}"
+                )
     from yoke_core.domain.deployment_requirement_snapshots import (
         validate_flow_plan_references,
     )

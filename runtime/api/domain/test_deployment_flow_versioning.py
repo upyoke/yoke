@@ -19,7 +19,10 @@ from yoke_core.domain.deployment_flow_versioning import (
 from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.flow_crud import cmd_delete, cmd_set_status
 from yoke_core.domain.schema_init import converge_core_schema
-from yoke_core.domain.project_seed_test_helpers import seed_project_identities
+from yoke_core.domain.project_seed_test_helpers import (
+    SEED_PROJECT_IDS,
+    seed_project_identities,
+)
 
 
 LEGACY_STAGES = json.dumps(
@@ -53,7 +56,32 @@ def _create_legacy(conn: Any, flow_id: str = "mutable-flow") -> None:
     cmd_create(conn, flow_id, "yoke", "Mutable flow", "", LEGACY_STAGES)
 
 
+def _seed_ephemeral_capability(conn: Any, project_id: int = SEED_PROJECT_IDS["yoke"]) -> None:
+    """Register the ``ephemeral-env`` capability an ADVANCED_STAGES preview
+    stage names, so ``validate_stage_references`` resolves it like any other
+    real project instead of refusing on a fixture gap."""
+    conn.execute(
+        "INSERT INTO project_capabilities (project_id, type, settings, created_at) "
+        "VALUES (%s, 'ephemeral-env', %s, %s) "
+        "ON CONFLICT DO NOTHING",
+        (project_id, '{"trigger":"github-push","preview_domain":"preview.example.com"}',
+         "2026-01-01T00:00:00Z"),
+    )
+    conn.commit()
+
+
+def test_run_preview_target_requires_registered_capability(test_db: Any) -> None:
+    # No ephemeral-env capability seeded for the "yoke" test project: a
+    # run_preview stage naming it must refuse the same way an unregistered
+    # persistent_environment target does, not silently validate.
+    with pytest.raises(LookupError, match="capability 'ephemeral-env' is not registered"):
+        cmd_validate_definition(
+            test_db, project="yoke", stages=ADVANCED_STAGES, status="disabled"
+        )
+
+
 def test_advanced_definition_validates_but_cannot_activate_yet(test_db: Any) -> None:
+    _seed_ephemeral_capability(test_db)
     result = cmd_validate_definition(
         test_db, project="yoke", stages=ADVANCED_STAGES, status="disabled"
     )
@@ -113,6 +141,7 @@ def test_used_definition_is_immutable_but_can_publish_a_new_version(
 def test_advanced_definition_is_authored_disabled_and_status_guarded(
     test_db: Any,
 ) -> None:
+    _seed_ephemeral_capability(test_db)
     cmd_create(
         test_db,
         "preview-flow",
@@ -132,6 +161,7 @@ def test_advanced_definition_is_authored_disabled_and_status_guarded(
 
 
 def test_flow_plan_selection_is_project_scoped(test_db: Any) -> None:
+    _seed_ephemeral_capability(test_db)
     test_db.execute(
         "INSERT INTO qa_plans(id,project_id,slug,name,description,created_at,updated_at) "
         "VALUES (91,2,'foreign-plan','Foreign plan','',%s,%s)",
