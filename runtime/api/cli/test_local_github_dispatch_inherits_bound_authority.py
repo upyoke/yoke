@@ -1,11 +1,11 @@
 """In-process dispatch inherits the GitHub user authority its caller bound.
 
 The merge child pins its machine user-token provider to the https plane it
-was connected to, then selects that plane's owner-only admin connection for
-its engine. A dispatch inside that child that rebound a provider from the
-ambient connection proved against "local Yoke" instead, where a
-service-bound profile can never authorize — so every close-out sync under
-the admin connection refused while the merge itself had already landed.
+was connected to and keeps that plane for the engine. Ordinary hosted merge
+does not substitute a paired admin sibling. A dispatch inside that child
+that rebound a provider from the ambient connection proved against
+"local Yoke" instead, where a service-bound profile can never authorize —
+so every close-out sync refused while the merge itself had already landed.
 """
 
 from __future__ import annotations
@@ -103,10 +103,13 @@ def test_dispatch_inside_a_bound_authority_inherits_it(
         return _ok(request)
 
     with project_github_auth.bind_local_github_user_token_provider(
-        lambda: "ghu_pinned", api_url=GITHUB_API_URL,
+        lambda: "ghu_pinned",
+        api_url=GITHUB_API_URL,
     ):
         response = local_github_dispatch.call_with_machine_github_authorization(
-            _request(), dispatch, core_available=True,
+            _request(),
+            dispatch,
+            core_available=True,
         )
 
     assert response.success is True
@@ -162,25 +165,23 @@ def _engine_resolving_project_auth(
     return dispatch
 
 
-def test_merge_child_close_out_sync_proves_through_the_pinned_plane(
-    tmp_path, monkeypatch: pytest.MonkeyPatch,
+def _close_out_sync_child(
+    monkeypatch: pytest.MonkeyPatch,
+    seen: dict[str, Any],
+    *,
+    in_process: bool,
 ) -> None:
-    """The close-out sync reads the token the merge child pinned, not an ambient one.
-
-    Every network edge is the plane and GitHub answering as they do on a
-    healthy machine; the engine is the real resolver on a workstation that
-    holds no service App key, so only the machine user authorization can
-    answer — and under the admin connection it only answers through the
-    pinned plane.
-    """
-    _admin_sibling_machine(tmp_path, monkeypatch)
     monkeypatch.setattr(github_app_public_profile, "_urlopen", _profile_opener)
     monkeypatch.setattr(github_oauth_transport, "_urlopen", _refresh_opener)
     monkeypatch.setattr(
-        project_github_auth, "read_github_state", lambda *_a, **_k: _bound_state(),
+        project_github_auth,
+        "read_github_state",
+        lambda *_a, **_k: _bound_state(),
     )
     monkeypatch.setattr(
-        project_github_auth, "register_installation_token", lambda *_a, **_k: None,
+        project_github_auth,
+        "register_installation_token",
+        lambda *_a, **_k: None,
     )
 
     def _no_service_key(state, _config):
@@ -190,25 +191,39 @@ def test_merge_child_close_out_sync_proves_through_the_pinned_plane(
         )
 
     monkeypatch.setattr(project_github_auth, "read_app_credentials", _no_service_key)
-    seen: dict[str, Any] = {}
-    monkeypatch.setattr(
-        yoke_function_dispatch, "dispatch", _engine_resolving_project_auth(seen),
-    )
+    if in_process:
+        monkeypatch.setattr(
+            yoke_function_dispatch,
+            "dispatch",
+            _engine_resolving_project_auth(seen),
+        )
+    else:
+
+        def relayed_sync(**kwargs):
+            provider = LOCAL_USER_TOKEN_PROVIDER.get()
+            seen["token"] = provider() if provider is not None else None
+            seen["function_id"] = kwargs.get("function_id")
+            return SimpleNamespace(success=True, error=None)
+
+        monkeypatch.setattr(standalone_item_merge, "call_dispatcher", relayed_sync)
     monkeypatch.setattr(
         local_runtime,
         "call_dispatcher",
         lambda **_kwargs: SimpleNamespace(
             success=True,
-            result={"holder": {
-                "target_kind": "item", "scope": {"item_id": 42},
-                "session_id": "session-1",
-            }},
+            result={
+                "holder": {
+                    "target_kind": "item",
+                    "scope": {"item_id": 42},
+                    "session_id": "session-1",
+                }
+            },
             error=None,
         ),
     )
 
     def child_main(argv: list[str]) -> int:
-        assert os.environ.get(ENV_OVERRIDE) == ADMIN_ENV
+        seen["env"] = os.environ.get(ENV_OVERRIDE)
         seen["sync_error"] = standalone_item_merge.sync_item_to_github(42)
         return 0
 
@@ -221,8 +236,47 @@ def test_merge_child_close_out_sync_proves_through_the_pinned_plane(
 
     monkeypatch.setattr(local_runtime.importlib, "import_module", import_module)
 
+
+def test_merge_child_close_out_sync_proves_through_the_pinned_plane(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The close-out sync keeps the token the merge child pinned.
+
+    Ordinary hosted merge stays on the selected HTTPS plane even when an
+    admin sibling exists. GitHub sync relays; the pin must still be bound
+    for that dispatch, and the child must not switch YOKE_ENV onto admin.
+    """
+    _admin_sibling_machine(tmp_path, monkeypatch)
+    monkeypatch.setenv(ENV_OVERRIDE, "prod")
+    seen: dict[str, Any] = {}
+    _close_out_sync_child(monkeypatch, seen, in_process=False)
+
     assert local_runtime.run(["YOK-42", "--session-id", "session-1"]) == 0
 
+    assert seen["env"] == "prod"
+    assert seen["function_id"] == "items.github_sync"
+    assert seen["sync_error"] is None
+    assert seen["token"] == "refreshed-access"
+    assert LOCAL_USER_TOKEN_PROVIDER.get() is None
+
+
+def test_explicit_admin_merge_child_close_out_sync_keeps_the_pinned_plane(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit local Postgres still close-out-syncs through the pinned token."""
+    _admin_sibling_machine(tmp_path, monkeypatch)
+    monkeypatch.setenv(ENV_OVERRIDE, ADMIN_ENV)
+    monkeypatch.setattr(
+        local_runtime, "_confirm_selected_control_plane", lambda _authority: None
+    )
+    seen: dict[str, Any] = {}
+    _close_out_sync_child(monkeypatch, seen, in_process=True)
+
+    assert local_runtime.run(["YOK-42", "--session-id", "session-1"]) == 0
+
+    assert seen["env"] == ADMIN_ENV
     assert seen["sync_error"] is None
     assert seen["token"] == "refreshed-access"
     assert seen["token_source"] == GITHUB_AUTHORITY_USER
