@@ -78,6 +78,11 @@ def run_pipeline(
     project = str(run.get("project") or "")
     flow_id = str(run.get("flow") or "")
     release_lineage = str(run.get("release_lineage") or "")
+    qa_result = (
+        json.dumps({"verification_tree": {"head_sha": release_lineage}})
+        if release_lineage
+        else "{}"
+    )
     run_status = str(run.get("status") or "")
     current_stage = str(run.get("current_stage") or "")
     member_items = [str(member["item_id"]) for member in members]
@@ -234,7 +239,9 @@ def run_pipeline(
             # Step runner pre-emitted the stage completion event (e.g.
             # ephemeral-verify preview URL, github-actions reconcile-from-truth).
             print(f"  Stage '{s_name}' completed successfully")
-            control_plane.record_qa_stage(run_id, s_name, "pass")
+            control_plane.record_qa_stage(
+                run_id, s_name, "pass", raw_result=qa_result,
+            )
             continue
 
         # Handle result
@@ -245,7 +252,9 @@ def run_pipeline(
                 member_items=member_items, project=project, sd=sd,
             )
             print(f"  Stage '{s_name}' completed successfully")
-            control_plane.record_qa_stage(run_id, s_name, "pass")
+            control_plane.record_qa_stage(
+                run_id, s_name, "pass", raw_result=qa_result,
+            )
         else:
             return deploy_pipeline_failure.fail_pipeline_stage(
                 exit_code=exec_rc,
