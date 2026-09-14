@@ -109,7 +109,6 @@ export function renderProjectsView(context, main) {
 export function titleLimitCard(context, scope, effectiveLimit) {
   const documentNode = context.document;
   const card = el(documentNode, "div", "project-settings-title-limit");
-  card.appendChild(el(documentNode, "h4", null, "Title character limit"));
   card.appendChild(el(
     documentNode,
     "p",
@@ -117,7 +116,12 @@ export function titleLimitCard(context, scope, effectiveLimit) {
     "Applies to new item and epic-task titles, and to explicit title " +
     "edits. Existing titles are never affected.",
   ));
-  const row = el(documentNode, "div", "project-settings-title-limit-row");
+  // A <label> wrapping the input is a programmatic label — the same
+  // implicit-association idiom item_intake_controls.itemIntakeField uses.
+  const row = el(documentNode, "label", "project-settings-title-limit-row");
+  row.appendChild(el(
+    documentNode, "span", "item-form-label", "Title character limit",
+  ));
   const input = el(documentNode, "input", "project-settings-title-limit-input");
   input.type = "number";
   input.min = "10";

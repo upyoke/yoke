@@ -42,6 +42,20 @@ def test_non_integer_is_rejected():
         )
 
 
+def test_non_integral_float_is_rejected_rather_than_truncated():
+    with pytest.raises(ValueError, match="integer"):
+        canonicalize_capability_settings(
+            PROJECT_POLICY_CAPABILITY, json.dumps({"title_max_length": 10.5})
+        )
+
+
+def test_bool_is_rejected():
+    with pytest.raises(ValueError, match="integer"):
+        canonicalize_capability_settings(
+            PROJECT_POLICY_CAPABILITY, json.dumps({"title_max_length": True})
+        )
+
+
 def test_other_keys_pass_through_unvalidated():
     canonical = canonicalize_capability_settings(
         PROJECT_POLICY_CAPABILITY,

@@ -51,6 +51,17 @@ test("the card shows the effective limit and saves the edited value", async () =
   assert.equal(saveButton(host).disabled, false);
 });
 
+test("the input has a programmatic label naming the setting", async () => {
+  const ctx = context(async () => ({ status: 200, envelope: { success: true } }));
+  const host = ctx.document.createElement("div");
+  host.appendChild(titleLimitCard(ctx, "yoke", 100));
+
+  const input = byClass(host, "project-settings-title-limit-input")[0];
+  const label = input.parentNode;
+  assert.equal(label.tagName, "LABEL", "the input's parent must be a <label>");
+  assert.match(label.textContent, /Title character limit/);
+});
+
 test("a rejected save reports the server's message and re-enables Save", async () => {
   const ctx = context(async () => ({
     status: 422,

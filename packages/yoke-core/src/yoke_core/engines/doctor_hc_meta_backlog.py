@@ -90,10 +90,7 @@ def hc_title_length(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     issues: List[str] = []
     for row in query_rows(conn, "SELECT id FROM projects ORDER BY id"):
         project_id = int(row["id"])
-        try:
-            configured = project_policy_value(conn, project_id, "title_max_length")
-        except Exception:  # noqa: BLE001 - no project_capabilities table is a minimal fixture
-            continue
+        configured = project_policy_value(conn, project_id, "title_max_length")
         if configured is None:
             continue
         error = title_max_length_setting_error(configured)

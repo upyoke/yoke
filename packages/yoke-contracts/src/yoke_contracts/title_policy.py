@@ -53,19 +53,19 @@ def title_max_length_setting_error(value: Any) -> Optional[str]:
 
     Shared by the settings-save validation path and the doctor scan, so a
     rejected save and a flagged stored value agree on exactly the same
-    bound.
+    bound. An integer is required exactly — a non-integral float (``10.5``)
+    or a bool (JSON's only other numeric-looking type) is rejected rather
+    than silently truncated or coerced.
     """
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
+    if not isinstance(value, int) or isinstance(value, bool):
         return (
             "Title character limit must be an integer of at least "
             f"{TITLE_MAX_LENGTH_MINIMUM} (got {value!r})."
         )
-    if parsed < TITLE_MAX_LENGTH_MINIMUM:
+    if value < TITLE_MAX_LENGTH_MINIMUM:
         return (
             f"Title character limit must be at least {TITLE_MAX_LENGTH_MINIMUM} "
-            f"(got {parsed})."
+            f"(got {value})."
         )
     return None
 
