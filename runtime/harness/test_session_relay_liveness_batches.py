@@ -27,6 +27,7 @@ from yoke_harness.session_launch_handles import native_handle_path
 from yoke_harness.session_relay_launch_settlement import (
     report_unregistered_launch_deaths,
 )
+from yoke_harness.session_relay_liveness_batches import prunable_session_ids
 from yoke_harness.session_relay_process_liveness import report_verified_dead_sessions
 
 
@@ -192,6 +193,25 @@ def test_more_launch_deaths_than_one_request_holds_are_sent_as_accepted_batches(
     assert not any(
         supervision_record_path(launch_id, tmp_path).exists() for launch_id in launches
     )
+
+
+def test_prunable_session_ids_keeps_only_the_unresolvable_skips() -> None:
+    """Retention statuses survive; every other skip joins the ended ones."""
+    result = {
+        "ended": ["ended-session"],
+        "skipped": [
+            {"session_id": "still-claimed", "status": "claims_held"},
+            {"session_id": "still-parked", "status": "parked"},
+            {"session_id": "awaiting-reply", "status": "awaiting_seat_reply"},
+            {"session_id": "already-ended", "status": "liveness_ended"},
+            {"session_id": "not-found", "status": "session_not_found"},
+        ],
+    }
+    assert prunable_session_ids(result, ["ended-session"]) == {
+        "ended-session",
+        "already-ended",
+        "not-found",
+    }
 
 
 def test_a_refused_launch_batch_keeps_its_records_and_the_ones_behind_it(

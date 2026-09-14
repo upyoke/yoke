@@ -28,10 +28,9 @@ A session whose first launch exited and was later woken has a spent launch
 handle beside a live resume-custody record, so the scan below also asks the
 custody reader whether this machine is still running a native for it.
 
-A record whose process is gone is spent only after the control plane ends
-the session. A claim-holding session is deliberately spared, so its local
-records remain and the relay reports the fact again after its claims are
-released. That later report can then end the claimless session.
+A record whose process is gone is spent once the control plane accounts for
+it: ended here, ended earlier, or never reachable. A claim-holding session
+is spared instead, and reports again once its claims release.
 
 A launch handle names the launch that started the native as well as the
 session, so the report carries the launch id and the last line the native
@@ -54,7 +53,10 @@ from yoke_harness.cursor_native_result_usage import (
     session_usage_document,
 )
 from yoke_harness import session_launch_handles
-from yoke_harness.session_relay_liveness_batches import deliver_liveness_batches
+from yoke_harness.session_relay_liveness_batches import (
+    deliver_liveness_batches,
+    prunable_session_ids,
+)
 from yoke_harness.session_relay_native_diagnostics import (
     NativeDiagnosticError,
     diagnostic_reference,
@@ -92,8 +94,7 @@ class VerifiedDeadSession:
 
     session_id: str
     evidence: dict[str, Any]
-    # Local paths, deliberately outside the reported evidence: the control
-    # plane has no use for them, and they are pruned once the report lands.
+    # Local paths outside the reported evidence, pruned once accounted for.
     record_paths: tuple[Path, ...] = ()
     # What the session consumed, when its native stated it. A turn's tokens
     # reach this machine only in the result the native printed as it exited,
@@ -133,8 +134,7 @@ def _observed(
         session_id=session,
         pid=pid,
         source=source,
-        # A reused pid names a different process, so the native this record
-        # was written for is gone either way.
+        # A reused pid names a different process, so this record is gone either way.
         running=start_time_of(pid) == recorded_start,
         path=path,
         process_start_time=str(recorded_start),
@@ -315,6 +315,7 @@ def report_verified_dead_sessions(
     # carry, and the records that stay behind an undelivered batch are read
     # again next poll, so nothing is lost by sending only what fits.
     ended_ids: list[str] = []
+    prune_ids: set[str] = set()
     for _batch, result in deliver_liveness_batches(
         dispatcher,
         inventory,
@@ -330,11 +331,10 @@ def report_verified_dead_sessions(
         timeout_s=timeout_s,
         refusal_label="relay liveness report",
     ):
-        ended_ids.extend(str(session_id) for session_id in result.get("ended") or [])
-    ended_set = set(ended_ids)
-    # Only an acknowledged end spends a record: a session the control plane
-    # skipped, and one whose batch never left, both report again next poll.
-    _prune(tuple(entry for entry in dead if entry.session_id in ended_set))
+        ended = [str(session_id) for session_id in result.get("ended") or []]
+        ended_ids.extend(ended)
+        prune_ids.update(prunable_session_ids(result, ended))
+    _prune(tuple(entry for entry in dead if entry.session_id in prune_ids))
     return tuple(ended_ids)
 
 

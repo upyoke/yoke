@@ -72,12 +72,15 @@ session cannot testify about one session's death either.
 
 ## Local records follow the control-plane outcome
 
-A record whose process is gone is spent only when the control plane ends the
-session, so only IDs returned in `ended` have their records pruned. A
-`claims_held` response retains the records and is re-reported; after claims
-are released, a later report can end the empty ghost. A refused report also
-prunes nothing, so a server that starts serving this function later still
-hears about every death observed while it could not.
+A record whose process is gone is spent once the control plane accounts for
+it: IDs returned in `ended`, and IDs whose `skipped[].status` means this
+machine will never usefully re-report the same record (already ended by
+another path, unauthorized, not found), both have their records pruned. A
+`claims_held`/`parked`/`awaiting_seat_reply` response retains the records
+and is re-reported; after that retention lifts, a later report can end the
+empty ghost. A refused report also prunes nothing, so a server that starts
+serving this function later still hears about every death observed while it
+could not.
 
 One poll can observe more deaths than one request may carry. The liveness
 request caps each collection, and an over-long collection fails validation as
