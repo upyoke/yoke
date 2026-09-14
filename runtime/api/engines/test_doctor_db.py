@@ -10,8 +10,6 @@ Schema scaffolding shared via _doctor_db_test_helpers (private module).
 
 from __future__ import annotations
 
-from yoke_contracts import title_policy
-
 from yoke_core.engines.doctor import (
     DoctorArgs,
     HEALTH_CHECKS,
@@ -87,6 +85,7 @@ class TestFiltering:
     def test_only_filter(self):
         args = _default_args(only="status-consistency,blocked-items")
         from yoke_core.engines.doctor import _should_run_hc
+
         assert _should_run_hc("status-consistency", args) is True
         assert _should_run_hc("blocked-items", args) is True
         assert _should_run_hc("dispatch-chain", args) is False
@@ -94,17 +93,20 @@ class TestFiltering:
     def test_legacy_hc_aliases_filter(self):
         args = _default_args(only="HC-confabulation")
         from yoke_core.engines.doctor import _should_run_hc
+
         assert _should_run_hc("path-confabulation", args) is True
 
     def test_quick_skips_gh(self):
         args = _default_args(quick=True)
         from yoke_core.engines.doctor import _should_run_hc
+
         assert _should_run_hc("orphaned-gh-issues", args) is False
         assert _should_run_hc("status-consistency", args) is True
 
     def test_no_filter_runs_all(self):
         args = _default_args()
         from yoke_core.engines.doctor import _should_run_hc
+
         assert _should_run_hc("status-consistency", args) is True
         assert _should_run_hc("dispatch-chain", args) is True
 
@@ -124,11 +126,23 @@ class TestParseArgs:
 
     def test_requires_scope_flag(self):
         import pytest as _pytest
+
         with _pytest.raises(SystemExit):
             parse_args([])
 
     def test_all_flags(self):
-        args = parse_args(["--file", "/tmp/r.md", "--fix", "--only", "a,b", "--quick", "--project", "externalwebapp"])
+        args = parse_args(
+            [
+                "--file",
+                "/tmp/r.md",
+                "--fix",
+                "--only",
+                "a,b",
+                "--quick",
+                "--project",
+                "externalwebapp",
+            ]
+        )
         assert args.file == "/tmp/r.md"
         assert args.fix is True
         assert args.only == "a,b"
@@ -148,7 +162,9 @@ class TestParseArgs:
 
 class TestHCBlockedItems:
     def test_pass_no_blocked(self, conn):
-        conn.execute("INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low')")
+        conn.execute(
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) VALUES (1, 'T', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low')"
+        )
         rec = RecordCollector()
         hc_blocked_items(conn, _default_args(), rec)
         assert _get_result(rec, "HC-blocked-items").result == "PASS"
@@ -265,63 +281,60 @@ class TestHCFrontmatterSchema:
         assert r.result == "WARN"
         assert "does not match #N format" in r.detail
 
+
 class TestHCTitleLength:
-    def test_pass_short_title(self, conn):
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            "VALUES (1, 'Short', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low')"
-        )
+    """The scan judges a project's configured limit setting, never stored
+    titles: a title over a project's limit is not this check's concern
+    (the create/update path already refused it at the write), and lowering
+    a project's limit produces no finding against titles stored earlier.
+    """
+
+    def test_pass_when_no_project_configures_a_limit(self, conn):
         rec = RecordCollector()
         hc_title_length(conn, _default_args(), rec)
         assert _get_result(rec, "HC-title-length").result == "PASS"
 
-    def test_warn_long_title(self, conn):
-        long_title = "A" * 120
-        p = _p(conn)
-        conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority) "
-            f"VALUES (1, {p}, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea', 'low')",
-            (long_title,),
+    def test_pass_when_configured_limit_is_the_minimum(self, conn):
+        from yoke_core.domain.project_policy_capabilities import (
+            set_project_policy_value,
         )
+
+        set_project_policy_value(conn, 1, "title_max_length", 10)
+        conn.commit()
+        rec = RecordCollector()
+        hc_title_length(conn, _default_args(), rec)
+        assert _get_result(rec, "HC-title-length").result == "PASS"
+
+    def test_warn_when_configured_limit_is_below_the_minimum(self, conn):
+        from yoke_core.domain.project_policy_capabilities import (
+            set_project_policy_value,
+        )
+
+        set_project_policy_value(conn, 1, "title_max_length", 9)
+        conn.commit()
         rec = RecordCollector()
         hc_title_length(conn, _default_args(), rec)
         r = _get_result(rec, "HC-title-length")
         assert r.result == "WARN"
-        assert "120 chars" in r.detail
+        assert "project 1" in r.detail
+        assert "at least 10" in r.detail
 
-    def test_warn_long_task_title(self, conn):
-        long_title = "B" * 105
-        p = _p(conn)
-        conn.execute(
-            "INSERT INTO epic_tasks (epic_id, task_num, title, status) "
-            f"VALUES (1, 1, {p}, 'planning')",
-            (long_title,),
+    def test_lowering_the_limit_produces_no_finding_against_existing_titles(self, conn):
+        from yoke_core.domain.project_policy_capabilities import (
+            set_project_policy_value,
         )
-        rec = RecordCollector()
-        hc_title_length(conn, _default_args(), rec)
-        r = _get_result(rec, "HC-title-length")
-        assert r.result == "WARN"
-        assert "105 chars" in r.detail
 
-    def test_threshold_follows_the_title_policy(self, conn, monkeypatch):
-        """A title the shipped limit allows is over a tightened one."""
-        title = "A" * 40
+        long_title = "A" * 500
         p = _p(conn)
         conn.execute(
             "INSERT INTO items (id, title, workflow_id, workflow_version_id, "
             "status, priority) "
             f"VALUES (1, {p}, 'issue', (SELECT current_version_id FROM "
             "workflows WHERE id='issue'), 'idea', 'low')",
-            (title,),
+            (long_title,),
         )
+        set_project_policy_value(conn, 1, "title_max_length", 10)
+        conn.commit()
         rec = RecordCollector()
         hc_title_length(conn, _default_args(), rec)
         assert _get_result(rec, "HC-title-length").result == "PASS"
-
-        monkeypatch.setattr(title_policy, "DEFAULT_TITLE_MAX_LENGTH", 20)
-        rec = RecordCollector()
-        hc_title_length(conn, _default_args(), rec)
-        r = _get_result(rec, "HC-title-length")
-        assert r.result == "WARN"
-        assert "40 chars" in r.detail
-        assert "limit 20" in r.detail

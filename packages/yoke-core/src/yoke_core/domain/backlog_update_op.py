@@ -161,6 +161,14 @@ def _execute_update_once(
         )
         if field == "deployment_flow":
             gate.flow_project = flow_project
+        if field == "title":
+            from yoke_core.domain.project_title_policy import (
+                resolve_title_max_length,
+            )
+
+            gate.title_max_length = resolve_title_max_length(
+                conn, item_dict.get("project_id")
+            )
 
         target_status = value if field == "status" else None
         if target_status and workflow.policies["generated_children"] == "epic_tasks":
@@ -223,7 +231,9 @@ def _execute_update_once(
         if field == "status" and value == "cancelled":
             mutation_result.field_writes["resolution"] = resolution
         if field == "status":
-            claim_verified, claim_reason = _verify_status_claim(conn, item_id, out, session_id=session_id)
+            claim_verified, claim_reason = _verify_status_claim(
+                conn, item_id, out, session_id=session_id
+            )
             if not claim_verified:
                 public_ref = render_item_ref(conn, item_id)
                 return {
@@ -238,7 +248,9 @@ def _execute_update_once(
                 }
 
         if field == "project":
-            migrated, migration_error = _maybe_migrate_project_issue(conn, item_dict, value, out)
+            migrated, migration_error = _maybe_migrate_project_issue(
+                conn, item_dict, value, out
+            )
             if not migrated:
                 return {
                     "success": False,

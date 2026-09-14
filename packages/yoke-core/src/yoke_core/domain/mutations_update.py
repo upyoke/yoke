@@ -60,7 +60,7 @@ def prepare_update(
     # --- Field-specific validation ---
 
     if field_name == "title":
-        err = validate_title(value, project=item.project)
+        err = validate_title(value, project=item.project, limit=gate.title_max_length)
         if err:
             return MutationResult(
                 success=False,

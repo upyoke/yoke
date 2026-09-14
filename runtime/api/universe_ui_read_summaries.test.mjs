@@ -81,6 +81,12 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
           },
         };
       }
+      if (request.function === "workflows.definition.get") {
+        return {
+          status: 200,
+          envelope: { success: true, result: { title_max_length: 100 } },
+        };
+      }
       throw new Error(`unexpected function ${request.function}`);
     },
   };

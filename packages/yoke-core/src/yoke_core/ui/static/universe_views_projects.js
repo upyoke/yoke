@@ -1,5 +1,6 @@
 import { buildUniverseRoute } from "./universe_navigation.js";
 import {
+  callFunction,
   el,
   loadSection,
   portabilityMode,
@@ -105,6 +106,69 @@ export function renderProjectsView(context, main) {
   );
 }
 
+export function titleLimitCard(context, scope, effectiveLimit) {
+  const documentNode = context.document;
+  const card = el(documentNode, "div", "project-settings-title-limit");
+  card.appendChild(el(
+    documentNode,
+    "p",
+    "secondary-muted",
+    "Applies to new item and epic-task titles, and to explicit title " +
+    "edits. Existing titles are never affected.",
+  ));
+  const row = el(documentNode, "div", "project-settings-title-limit-row");
+  // A <label> wrapping only the input is a programmatic label — the same
+  // implicit-association idiom item_intake_controls.itemIntakeField uses.
+  // Save is a sibling, not nested inside the label with the input.
+  const field = el(documentNode, "label");
+  field.appendChild(el(
+    documentNode, "span", "item-form-label", "Title character limit",
+  ));
+  const input = el(documentNode, "input", "project-settings-title-limit-input");
+  input.type = "number";
+  input.min = "10";
+  input.step = "1";
+  input.value = String(effectiveLimit);
+  field.appendChild(input);
+  row.appendChild(field);
+  const status = el(
+    documentNode, "span", "project-settings-title-limit-status secondary-muted",
+  );
+  const save = el(documentNode, "button", "row-link", "Save");
+  save.type = "button";
+  save.addEventListener("click", async () => {
+    status.textContent = "";
+    save.disabled = true;
+    let result;
+    try {
+      result = await callFunction(
+        context.client,
+        "projects.capability_settings.merge",
+        {
+          project: String(scope),
+          cap_type: "project-policy",
+          assignments: { title_max_length: Number(input.value) },
+        },
+      );
+    } catch (callError) {
+      save.disabled = false;
+      status.textContent = String(callError);
+      return;
+    }
+    save.disabled = false;
+    if (!result.envelope.success) {
+      status.textContent =
+        result.envelope?.error?.message || "Could not save the title limit.";
+      return;
+    }
+    status.textContent = "Saved.";
+  });
+  row.appendChild(save);
+  card.appendChild(row);
+  card.appendChild(status);
+  return card;
+}
+
 export function renderProjectView(context, main, scope) {
   const documentNode = context.document;
   const panel = section(documentNode, "Project settings");
@@ -147,6 +211,24 @@ export function renderProjectView(context, main, scope) {
         grid.appendChild(labelledFact(documentNode, label, value));
       }
       body.appendChild(grid);
+
+      const titleLimitHost = el(documentNode, "div");
+      body.appendChild(titleLimitHost);
+      callFunction(
+        context.client,
+        "workflows.definition.get",
+        { project: String(scope) },
+      ).then((limitResult) => {
+        if (!context.isMounted()) return;
+        const limit = limitResult.envelope?.result?.title_max_length;
+        if (limitResult.status === 200 && limitResult.envelope.success && limit) {
+          titleLimitHost.replaceChildren(titleLimitCard(context, scope, limit));
+        }
+      }).catch(() => {
+        // The title-limit card is an enhancement to an already-rendered
+        // panel; a failed read here leaves the panel as-is rather than
+        // surfacing a second error alongside the project facts above.
+      });
 
       const actions = el(documentNode, "div", "secondary-action-row");
       const back = el(documentNode, "a", "row-link", "All projects →");

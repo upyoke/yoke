@@ -304,3 +304,41 @@ def test_https_mutation_target_cannot_override_payload_project(
     finally:
         conn.close()
     assert row is None
+
+
+def test_https_unauthorized_title_limit_save_refuses_without_changing_policy(
+    client,
+    capability_db,
+):
+    """The dashboard save reuses this same generic authorization guard."""
+    headers = _project_owner_headers(capability_db["db_path"], "yoke")
+
+    def _stored_title_limit() -> str | None:
+        conn = connect_test_db(capability_db["db_path"])
+        try:
+            row = conn.execute(
+                "SELECT settings FROM project_capabilities "
+                "WHERE project_id=%s AND type='project-policy'",
+                (resolve_project_id(conn, "externalwebapp"),),
+            ).fetchone()
+        finally:
+            conn.close()
+        return None if row is None else json.loads(row["settings"])
+
+    before = _stored_title_limit()
+
+    response = _call(
+        client,
+        "projects.capability_settings.merge",
+        {
+            "project": "externalwebapp",
+            "cap_type": "project-policy",
+            "assignments": {"title_max_length": 42},
+        },
+        target_project="yoke",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "permission_denied"
+    assert _stored_title_limit() == before
