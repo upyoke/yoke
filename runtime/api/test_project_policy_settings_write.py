@@ -1,10 +1,12 @@
 """The write boundary for ``project-policy`` settings.
 
-``title_max_length`` is the one validated key in this document today: a
-project-scoped title-length limit. This is the boundary a rejected save
-must never write through — the shared CAS merge/set loop only commits the
-canonicalized text this boundary returns, so a raised error here leaves
-the previously stored document untouched.
+``title_max_length`` and ``disposable_generated_paths`` are the validated
+keys in this document today: a project-scoped title-length limit, and the
+checkout-relative paths a project declares safe for the shared lane
+residue policy to treat as disposable. This is the boundary a rejected
+save must never write through — the shared CAS merge/set loop only commits
+the canonicalized text this boundary returns, so a raised error here
+leaves the previously stored document untouched.
 """
 
 from __future__ import annotations
@@ -71,3 +73,27 @@ def test_document_without_title_max_length_is_untouched():
         PROJECT_POLICY_CAPABILITY, json.dumps({"wip_cap": 5})
     )
     assert json.loads(canonical) == {"wip_cap": 5}
+
+
+def test_disposable_generated_paths_accepted():
+    canonical = canonicalize_capability_settings(
+        PROJECT_POLICY_CAPABILITY,
+        json.dumps({"disposable_generated_paths": ["docs/atlas.md"]}),
+    )
+    assert json.loads(canonical)["disposable_generated_paths"] == ["docs/atlas.md"]
+
+
+def test_disposable_generated_paths_traversal_rejected():
+    with pytest.raises(ValueError, match="traverse"):
+        canonicalize_capability_settings(
+            PROJECT_POLICY_CAPABILITY,
+            json.dumps({"disposable_generated_paths": ["../outside"]}),
+        )
+
+
+def test_disposable_generated_paths_non_list_rejected():
+    with pytest.raises(ValueError, match="JSON array"):
+        canonicalize_capability_settings(
+            PROJECT_POLICY_CAPABILITY,
+            json.dumps({"disposable_generated_paths": "docs/atlas.md"}),
+        )
