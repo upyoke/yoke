@@ -147,6 +147,109 @@ class TestDeclaredInputBindingDispatch:
         assert "platform" in diag and "registered" in diag
         assert not [c for c in gh_calls if c and c[0] == "trigger"]
 
+    def test_a_collision_with_a_concurrent_resolver_recovers_and_retries_once(self):
+        # A concurrent resolver for the identical logical request won the
+        # underlying claim with a different (also freshly-resolved) bound
+        # pair -- e.g. the declared branch moved between the two callers'
+        # independent reads. The first trigger attempt reports the DB-level
+        # collision that produces; recovery must re-derive bound inputs
+        # (the second resolve call, standing in for what now reads the
+        # winner's durable intent) and retry the dispatch exactly once with
+        # the recovered pair, succeeding rather than failing permanently.
+        gh_calls: list = []
+        trigger_attempts = {"n": 0}
+
+        def _fake_gh(*args, **kwargs):
+            gh_calls.append(args)
+            if args and args[0] == "trigger":
+                trigger_attempts["n"] += 1
+                if trigger_attempts["n"] == 1:
+                    return subprocess.CompletedProcess(
+                        args=args, returncode=4, stdout="",
+                        stderr="Error: idempotency_key_collision: request_id "
+                        "was already bound to a different canonical "
+                        "workflow payload",
+                    )
+                return subprocess.CompletedProcess(
+                    args=args, returncode=0, stdout="new-run-id\n",
+                )
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="")
+
+        with mock.patch.object(
+            deploy_pipeline_github_workflow, "_run_cmd",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="a" * 40 + "\n",
+            ),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_github_actions", side_effect=_fake_gh,
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_poll_github_actions",
+            return_value=(0, "completed: success"),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_emit_run_event",
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "resolve_declared_input_bindings",
+            side_effect=[
+                ({"consumer_sha": CONSUMER_C}, ""),  # this caller's own read
+                ({"consumer_sha": CONSUMER_B}, ""),  # recovered winner's pair
+            ],
+        ) as resolve:
+            rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
+                STAGE_CONFIG,
+                name="hosted-release", run_id="run-test", member_items=[],
+                github_repo="upyoke/platform", project="yoke",
+                project_repo_path="", timeout_min=30, fresh=False,
+                gate_branch="main", release_lineage="a" * 40, sd="/tmp/sd",
+            )
+
+        assert (rc, diag) == (0, "")
+        assert resolve.call_count == 2
+        triggers = [c for c in gh_calls if c and c[0] == "trigger"]
+        assert len(triggers) == 2
+        assert f"consumer_sha={CONSUMER_C}" in triggers[0]
+        assert f"consumer_sha={CONSUMER_B}" in triggers[1]
+
+    def test_a_collision_with_no_declared_bindings_is_not_retried(self):
+        # Without declared bindings, a collision names a genuine
+        # authority/actor/scope mismatch, not a race over a value that can
+        # legitimately vary between reads -- retrying with identical args
+        # can never resolve it, so it must fail rather than loop.
+        gh_calls: list = []
+
+        def _fake_gh(*args, **kwargs):
+            gh_calls.append(args)
+            if args and args[0] == "trigger":
+                return subprocess.CompletedProcess(
+                    args=args, returncode=4, stdout="",
+                    stderr="Error: idempotency_key_collision",
+                )
+            return subprocess.CompletedProcess(args=args, returncode=0, stdout="")
+
+        with mock.patch.object(
+            deploy_pipeline_github_workflow, "_run_cmd",
+            return_value=subprocess.CompletedProcess(
+                args=[], returncode=0, stdout="a" * 40 + "\n",
+            ),
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_github_actions", side_effect=_fake_gh,
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "_emit_run_event",
+        ), mock.patch.object(
+            deploy_pipeline_github_workflow, "resolve_declared_input_bindings",
+        ) as resolve:
+            rc, diag = deploy_pipeline_github_workflow._dispatch_github_actions_workflow(
+                {**STAGE_CONFIG, "input_bindings": {}},
+                name="hosted-release", run_id="run-test", member_items=[],
+                github_repo="upyoke/platform", project="yoke",
+                project_repo_path="", timeout_min=30, fresh=False,
+                gate_branch="main", release_lineage="a" * 40, sd="/tmp/sd",
+            )
+
+        assert rc == 1
+        assert "idempotency_key_collision" in diag
+        resolve.assert_not_called()
+        assert len([c for c in gh_calls if c and c[0] == "trigger"]) == 1
+
     def test_a_stage_without_input_bindings_never_calls_the_resolver(self):
         gh_calls: list = []
         with mock.patch.object(

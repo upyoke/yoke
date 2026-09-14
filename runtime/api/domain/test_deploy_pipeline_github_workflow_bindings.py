@@ -119,15 +119,14 @@ class TestResolveDeclaredInputBindings:
         assert resolved == {"consumer_sha": CONSUMER_B}
         resolve_head.assert_not_called()
 
-    def test_a_rejected_intent_resolves_fresh_not_stale(self):
-        # Trunk advanced B -> C between the rejected attempt and this retry;
-        # the new proof must bind C, never adopt the rejected attempt's B.
+    def test_a_rejected_intent_recovers_its_bound_pair_not_a_fresh_one(self):
+        # Rejection means GitHub refused the POST -- a retry may attempt it
+        # again -- not that the bound payload itself may now differ. Trunk
+        # having advanced B -> C since must not change what this retry
+        # binds: it recovers the rejected attempt's own B, never C.
         with mock.patch.object(
             intents, "latest_intent",
             return_value=_intent(state="rejected", inputs={"consumer_sha": CONSUMER_B}),
-        ), mock.patch.object(
-            deploy_pipeline_run_context, "resolve_project_checkout_path",
-            return_value="/platform",
         ), mock.patch.object(
             bindings, "resolve_branch_head_sha", return_value=(CONSUMER_C, ""),
         ) as resolve_head:
@@ -136,8 +135,8 @@ class TestResolveDeclaredInputBindings:
                 request_id="deploy:yoke:run-test:hosted-release",
             )
 
-        assert (resolved, error) == ({"consumer_sha": CONSUMER_C}, "")
-        resolve_head.assert_called_once_with("/platform", "main")
+        assert (resolved, error) == ({"consumer_sha": CONSUMER_B}, "")
+        resolve_head.assert_not_called()
 
     def test_no_request_id_always_resolves_fresh(self):
         # An explicit --fresh retrigger mints its own key; nothing durable
@@ -278,4 +277,70 @@ class TestResolveDeclaredInputBindingsAgainstTheRealIntentStore:
 
         assert (resolved, error) == ({"consumer_sha": CONSUMER_B}, "")
         assert resolved.get("consumer_sha") != CONSUMER_C
+        resolve_head.assert_not_called()
+
+    def test_two_callers_reading_before_either_claims_the_loser_recovers_the_winner(
+        self, tmp_path,
+    ) -> None:
+        # Real interleaving, not sequential recovery: BOTH callers read
+        # latest_intent and see nothing durable yet -- neither has claimed --
+        # before either attempts to claim. Trunk moved between their two
+        # independent reads, so they resolve different fresh pairs. Only one
+        # claim_attempt can win the shared (request_id, attempt) row; the
+        # loser's own second resolve call -- what a collision-retry drives --
+        # must recover the winner's exact bound pair, never its own losing
+        # resolution, and never fail permanently.
+        from runtime.api.fixtures.file_test_db import init_test_db
+        from yoke_core.domain.github_workflow_dispatch_intents import claim_attempt
+
+        with init_test_db(tmp_path), mock.patch.object(
+            deploy_pipeline_run_context, "resolve_project_checkout_path",
+            return_value="/platform",
+        ):
+            with mock.patch.object(
+                bindings, "resolve_branch_head_sha", return_value=(CONSUMER_B, ""),
+            ):
+                resolved_a, error_a = bindings.resolve_declared_input_bindings(
+                    {"consumer_sha": {"project": "platform", "branch": "main"}},
+                    request_id=self.REQUEST_ID,
+                )
+            with mock.patch.object(
+                bindings, "resolve_branch_head_sha", return_value=(CONSUMER_C, ""),
+            ):
+                resolved_b, error_b = bindings.resolve_declared_input_bindings(
+                    {"consumer_sha": {"project": "platform", "branch": "main"}},
+                    request_id=self.REQUEST_ID,
+                )
+            # Both read no intent (real interleaving); both resolved fresh,
+            # and they diverged, exactly the shape a bare retry can't heal.
+            assert (resolved_a, error_a) == ({"consumer_sha": CONSUMER_B}, "")
+            assert (resolved_b, error_b) == ({"consumer_sha": CONSUMER_C}, "")
+
+            winner = claim_attempt(
+                request_id=self.REQUEST_ID, attempt=1, actor_id="1",
+                authorization_scope="project:1", payload_checksum="checksum-a",
+                repo="upyoke/platform", workflow="platform-release-pin-check.yml",
+                workflow_ref=CONSUMER_B, inputs=resolved_a,
+                correlation_id=f"correlation-a-{self.REQUEST_ID}",
+            )
+            loser = claim_attempt(
+                request_id=self.REQUEST_ID, attempt=1, actor_id="1",
+                authorization_scope="project:1", payload_checksum="checksum-b",
+                repo="upyoke/platform", workflow="platform-release-pin-check.yml",
+                workflow_ref=CONSUMER_C, inputs=resolved_b,
+                correlation_id=f"correlation-b-{self.REQUEST_ID}",
+            )
+            assert (winner, loser) == (True, False)
+
+            # The loser's collision-retry re-resolves under the same request
+            # id -- this is the call the real dispatcher makes after an
+            # idempotency_key_collision.
+            with mock.patch.object(bindings, "resolve_branch_head_sha") as resolve_head:
+                recovered, error = bindings.resolve_declared_input_bindings(
+                    {"consumer_sha": {"project": "platform", "branch": "main"}},
+                    request_id=self.REQUEST_ID,
+                )
+
+        assert (recovered, error) == ({"consumer_sha": CONSUMER_B}, "")
+        assert recovered.get("consumer_sha") != CONSUMER_C
         resolve_head.assert_not_called()

@@ -4,10 +4,14 @@ A stage may declare ``input_bindings``: placeholders resolved from another
 registered project's branch tip rather than this run's own head_sha/run_id/
 target_environment. Recovering a prior durable dispatch's already-bound
 values is mandatory before any fresh resolution, so a retry (lost response,
-process restart) can never dispatch a changed pair under the same logical
-request — only a missing or rejected intent, or an explicit fresh retrigger,
-resolves anew. Project identity (which project, which branch) is declared in
-the stage's own config; this module only knows the generic lookup shape.
+process restart, a rejected attempt retried under the same request id) can
+never dispatch a changed pair under the same logical request — only a
+missing intent, or an explicit fresh retrigger (its own, empty-recovery
+request id), resolves anew. A rejected intent still recovers: rejection
+means GitHub refused the POST and another POST attempt is safe, not that
+the payload itself may now differ. Project identity (which project, which
+branch) is declared in the stage's own config; this module only knows the
+generic lookup shape.
 """
 
 from __future__ import annotations
@@ -71,19 +75,25 @@ def resolve_declared_input_bindings(
             intent = latest_intent(request_id)
         except DispatchIntentStoreError as exc:
             return {}, f"could not read a prior dispatch intent: {exc}"
-        if intent is not None and intent.state != "rejected":
+        if intent is not None:
+            # Recover regardless of state, rejected included: rejection
+            # means GitHub refused the POST and a retry may attempt it
+            # again, not that the bound values themselves are now stale.
+            # A caller that genuinely wants a different pair uses the
+            # explicit --fresh retrigger, which mints its own request id
+            # and never reaches this branch (request_id is empty for it).
             recovered = {key: intent.inputs.get(key, "") for key in bindings}
             if all(recovered.values()):
                 return recovered, ""
-            # A durable, still-relevant dispatch intent already exists for
-            # this exact logical request but does not record every declared
-            # binding — an unexpected shape, not an absent one. Resolving
-            # fresh here would risk dispatching a changed pair under the
-            # same request id; fail closed instead of rebinding it.
+            # A durable dispatch intent already exists for this exact
+            # logical request but does not record every declared binding —
+            # an unexpected shape, not an absent one. Resolving fresh here
+            # would risk dispatching a changed pair under the same request
+            # id; fail closed instead of rebinding it.
             return {}, (
-                f"a non-rejected dispatch intent already exists for "
-                f"{request_id!r} but does not record all declared bindings "
-                f"{sorted(bindings)}; refusing to rebind it"
+                f"a dispatch intent already exists for {request_id!r} but "
+                f"does not record all declared bindings {sorted(bindings)}; "
+                "refusing to rebind it"
             )
 
     from yoke_core.domain.deploy_pipeline_run_context import (
