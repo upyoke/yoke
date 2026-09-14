@@ -151,7 +151,7 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
 
     def child_main(argv):
         assert argv == ["YOK-42", "--session-id", "session-1"]
-        assert os.environ.get(ENV_OVERRIDE) == "prod-db-admin"
+        assert os.environ.get(ENV_OVERRIDE) == "prod"
         from yoke_core.domain import standalone_item_merge_recovery as recovery
 
         assert recovery.claim_error(42, "session-1") == ""
@@ -169,11 +169,6 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
     def import_module(name: str):
         if name == "yoke_core.domain.standalone_item_merge_cli":
             return SimpleNamespace(main=child_main)
-        if name == "yoke_core.domain.connected_env_readiness":
-            return SimpleNamespace(
-                ensure_ready=lambda **_k: SimpleNamespace(ok=True, message="ready"),
-                status=lambda: SimpleNamespace(ok=True, message="ready"),
-            )
         return real_import(name)
 
     monkeypatch.setattr(local_runtime.importlib, "import_module", import_module)
@@ -191,25 +186,38 @@ def test_https_child_binds_lazy_user_provider_for_entire_merge(
     assert os.environ.get(ENV_OVERRIDE) == "prod"
 
 
-def test_https_child_refuses_before_engine_load_without_paired_admin(
-    monkeypatch,
-    capsys,
-) -> None:
+def test_https_child_loads_engine_without_paired_admin(monkeypatch) -> None:
     _configure_control_plane(monkeypatch, paired=False)
     _configure_https_machine(monkeypatch, api_url="https://api.github.com")
+    monkeypatch.setattr(
+        local_runtime.github_local_user_access,
+        "access_token",
+        lambda **_k: SimpleNamespace(access_token="user-token"),
+    )
+    monkeypatch.setattr(
+        local_runtime,
+        "call_dispatcher",
+        lambda **_k: SimpleNamespace(success=True, result={}, error=None),
+    )
+    loaded: list[str] = []
+
+    def child_main(argv):
+        loaded.append(str(argv[0]) if argv else "")
+        assert os.environ.get(ENV_OVERRIDE) == "prod"
+        return 0
+
     real_import = local_runtime.importlib.import_module
 
     def import_module(name: str):
         if name == "yoke_core.domain.standalone_item_merge_cli":
-            pytest.fail("merge engine must not load before control-plane authority")
+            return SimpleNamespace(main=child_main)
         return real_import(name)
 
     monkeypatch.setattr(local_runtime.importlib, "import_module", import_module)
 
-    assert local_runtime.main(["YOK-42"]) == 1
-    error = capsys.readouterr().err
-    assert "before QA admission" in error
-    assert "prod-db-admin" in error
+    assert local_runtime.main(["YOK-42"]) == 0
+    assert loaded == ["YOK-42"]
+    assert os.environ.get(ENV_OVERRIDE) == "prod"
 
 
 def test_bound_user_provider_never_reads_service_app_credentials(

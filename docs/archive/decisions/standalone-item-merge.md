@@ -206,12 +206,13 @@ one is exactly what the winner released.
 
 ### Why close-out runs on the connected control plane
 
-Merge admission needs a database this process can lock, so the local merge
-runtime selects the same-universe local Postgres connection before it loads
-the engine. That selection is also, silently, a choice of *which build*
-executes the control-plane writes the close-out then makes: a non-https
-connection dispatches in-process, so the evidence record and the terminal
-transition are resolved by whatever engine the merging process imported.
+Ordinary hosted merge keeps the operator-selected control plane. An HTTPS
+product connection stays HTTPS and relays; a local Postgres connection —
+including an explicitly selected admin sibling for source-dev
+self-maintenance — dispatches in-process. That in-process path is also,
+silently, a choice of *which build* executes the control-plane writes the
+close-out then makes: the evidence record and the terminal transition are
+resolved by whatever engine the merging process imported.
 
 For a source lane that engine is the code as of the branch's base commit.
 A tightened done obligation therefore landed on trunk, deployed to the whole
