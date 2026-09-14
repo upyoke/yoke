@@ -164,6 +164,9 @@ If the argument is not an item reference:
    yoke dash "<title>" "<instruction>" --execution-instructions-considered --json
    ```
 
+   When the instruction asks for a screenshot or other visual evidence, pass
+   `--verification-method browser-inspection` on that same file command.
+
 3. Keep the returned item reference as `ITEM`.
 
 If the argument is a reference, use it as `ITEM`.
@@ -177,6 +180,11 @@ worktree; hold it for the whole Dash. This mirrors `/yoke idea` and
 ```text
 yoke claims work acquire --item ITEM --reason "Dash execution"
 ```
+
+If the instruction requested a screenshot, deployed evidence, or an
+approval, follow
+[`../idea/delivery-requirements.md`](../idea/delivery-requirements.md)
+before surveying.
 
 For a launched worker this is survival, not just order. A session holding no
 claim is what the non-destructive session end reaps as idle, so a worker that
