@@ -11,7 +11,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="deploy-pipeline",
         description="Deployment pipeline orchestrator",
     )
-    parser.add_argument("primary_arg", help="run-ID or item-ID")
+    parser.add_argument("primary_arg", help="run-ID")
     parser.add_argument("--timeout", type=int, default=30, help="Timeout in minutes")
     parser.add_argument("--from-stage", default="", help="Resume from this stage")
     parser.add_argument("--fresh", action="store_true", help="Skip existing-run search")

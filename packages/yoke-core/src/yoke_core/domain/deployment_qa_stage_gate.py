@@ -108,15 +108,17 @@ def _completed_execution(
     run_id: str,
     stage_name: str,
     member_item_id: int | None,
+    execution_target_digest: str,
 ) -> dict[str, Any] | None:
     from yoke_core.domain.qa_plan_execution_store import select_plan_execution
 
     row = conn.execute(
         "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s "
         "AND deployment_stage=%s "
-        "AND COALESCE(deployment_member_item_id,0)=%s AND state='completed' "
+        "AND COALESCE(deployment_member_item_id,0)=%s "
+        "AND execution_target_digest=%s AND state='completed' "
         "ORDER BY created_at DESC,id DESC LIMIT 1",
-        (run_id, stage_name, member_item_id or 0),
+        (run_id, stage_name, member_item_id or 0, execution_target_digest),
     ).fetchone()
     if row is None:
         return None
@@ -246,6 +248,7 @@ def deployment_qa_stage_status(
         run_id=run_id,
         stage_name=stage_name,
         member_item_id=member_item_id,
+        execution_target_digest=current_target_digest,
     )
     failures = _case_failures(
         conn,
@@ -343,7 +346,4 @@ def deployment_qa_stage_status(
     }
 
 
-__all__ = [
-    "ACCEPTANCE_QA_KIND",
-    "deployment_qa_stage_status",
-]
+__all__ = ["ACCEPTANCE_QA_KIND", "deployment_qa_stage_status"]

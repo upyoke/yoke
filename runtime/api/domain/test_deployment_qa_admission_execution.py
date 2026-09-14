@@ -325,4 +325,3 @@ def test_agent_selected_plan_stays_distinct_from_admitted_obligation(test_db) ->
     ).fetchone()
     assert admitted["verdict"] == "pass"
     assert json.loads(admitted["raw_result"])["execution_id"] == execution["id"]
-

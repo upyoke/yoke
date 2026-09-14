@@ -13,6 +13,7 @@ from yoke_core.domain.qa_deployment_scope_schema import (
     EXECUTION_SUBJECT_CONSTRAINT,
     LEGACY_EXECUTION_SUBJECT_EXPRESSION,
     REQUIREMENT_SCOPE_INDEX_NAMES,
+    _canonical_sql,
     assert_deployment_scope_contract,
 )
 from yoke_core.domain.qa_plan_execution_schema import (
@@ -216,6 +217,15 @@ def test_invariant_rejects_weaker_regrouping_with_the_same_tokens(test_db) -> No
 
     with pytest.raises(RuntimeError, match="unrecognized subject checks"):
         assert_deployment_scope_contract(test_db)
+
+
+def test_constraint_comparison_preserves_quoted_literal_contents() -> None:
+    assert _canonical_sql("CHECK (state = 'ACTIVE')") != _canonical_sql(
+        "CHECK (state = 'active')"
+    )
+    assert _canonical_sql("CHECK (note = 'a b')") != _canonical_sql(
+        "CHECK (note = 'ab')"
+    )
 
 
 def test_scoped_subjects_reject_blank_stage_names(test_db) -> None:

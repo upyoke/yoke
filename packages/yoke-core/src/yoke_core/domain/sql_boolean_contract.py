@@ -3,7 +3,44 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Any
+
+
+def _map_sql_syntax(value: str, transform: Callable[[str], str]) -> str:
+    """Transform syntax outside single-quoted literals, preserving literals."""
+    result: list[str] = []
+    segment_start = 0
+    position = 0
+    while position < len(value):
+        if value[position] != "'":
+            position += 1
+            continue
+        result.append(transform(value[segment_start:position]))
+        literal_start = position
+        position += 1
+        while position < len(value):
+            if value[position] != "'":
+                position += 1
+                continue
+            if position + 1 < len(value) and value[position + 1] == "'":
+                position += 2
+                continue
+            position += 1
+            break
+        result.append(value[literal_start:position])
+        segment_start = position
+    result.append(transform(value[segment_start:]))
+    return "".join(result)
+
+
+def _normalize_syntax(value: str) -> str:
+    def transform(segment: str) -> str:
+        normalized = segment.lower().replace("::text", "").replace('"', "")
+        normalized = normalized.replace("btrim(", "trim(")
+        return normalized.replace("trim(both from ", "trim(")
+
+    return _map_sql_syntax(value, transform).strip()
 
 
 def _strip_outer_parentheses(expression: str) -> str:
@@ -79,14 +116,12 @@ def _boolean_tree(expression: str) -> Any:
             else:
                 children.append(child)
         return operator, tuple(children)
-    return "atom", re.sub(r"\s+", "", value)
+    return "atom", _map_sql_syntax(value, lambda part: re.sub(r"\s+", "", part))
 
 
 def canonical_boolean_expression(value: str) -> Any:
     """Normalize spelling and redundant parentheses without losing grouping."""
-    normalized = value.lower().replace("::text", "").replace('"', "").strip()
-    normalized = normalized.replace("btrim(", "trim(")
-    normalized = normalized.replace("trim(both from ", "trim(")
+    normalized = _normalize_syntax(value)
     if normalized.startswith("check"):
         normalized = normalized[len("check") :].strip()
     return _boolean_tree(normalized)
