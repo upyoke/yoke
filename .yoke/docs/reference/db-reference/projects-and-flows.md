@@ -39,9 +39,12 @@ attachments declare which project checks run at each workflow transition.
 Items receive a `deployment_flow` via a two-tiered enforcement model:
 
 **Auto-default at idea time:**
-- Read the project's `deploy_defaults` entry via `yoke project-structure deploy-defaults get --project <project>` first. Empty get omits `--deployment-flow` and falls back to context inference. Never store the literal `none`.
+- Resolve explicit item flow, else the project's per-workflow default (`yoke workflows mechanics get` / `yoke workflows delivery-default set --project P --workflow W --flow F`), else `yoke project-structure deploy-defaults get --project <project>`. Empty omits `--deployment-flow`. Never store the literal `none`.
+- Task stays exempt even if an old `workflow_defaults` mapping still names a flow.
 - Merge-only or `-internal` defaults attach so Usher Route A stays automatic.
 - A persistent default (`target_tier=persistent` / has a target environment) is not applied to clearly non-delivery work (docs, research) or when hosting is not healthy (unresolved/empty target environment), unless the operator or title is deploy work.
+- Do not assign a disabled flow, or a definition whose `yoke deployment-flows validate ... --status active` reports `execution_supported=false`.
+- Intake screenshot/approval requests persist as item QA rows (`qa.requirement.add`, `post_deploy` + `--target-env` for deployed evidence). They do not rewrite shared defaults.
 - The Yoke control-plane project's configured default is `yoke-internal` (operator-authored `deploy_defaults`, not a seed).
 
 **Hard enforcement at planning gate:**

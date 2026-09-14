@@ -293,8 +293,9 @@ yoke claims work acquire \
 ```
 
 The claim is the live-race fix; `body-and-sync.md` releases it with
-`--reason idea-complete` once the spec body, AC normalization, and File
-Budget have all landed. Skip in `--dry-run` mode (no row to claim).
+`--reason idea-complete` once the spec, ACs, and File Budget land.
+Skip `--dry-run`. Delivery evidence/screenshot/approval after this claim:
+[delivery-requirements.md](delivery-requirements.md).
 
 The configured stale-heartbeat reclaim window (`session_stale_ttl_minutes`
 in machine config) in the harness session store is the safety net

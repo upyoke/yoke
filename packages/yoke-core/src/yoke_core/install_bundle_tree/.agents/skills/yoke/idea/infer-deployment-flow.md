@@ -1,25 +1,38 @@
 # Idea — Infer Deployment Flow
 
 Called from [infer-and-create.md](infer-and-create.md) §b. Owns the intake
-assignment rule: look up the project default first, then decide whether to
-attach it. Never store the literal `none`.
+assignment rule: look up the workflow-specific default, then the project
+default, then decide whether to attach it. Never store the literal `none`.
+After the item is claimed, delivery evidence/screenshot/approval requests
+follow [delivery-requirements.md](delivery-requirements.md).
 
 **This lookup MUST run before deciding `_deployment_flow`.** Skipping it and
 jumping to fallback inference is wrong.
 
+Task stays exempt: leave `_deployment_flow` empty even when a mapping still
+names a flow.
+
 ```bash
+_mechanics=$(yoke workflows mechanics get --json)
 _project_default_flow=$(yoke project-structure deploy-defaults get --project "${_project}" || true)
 ```
 
-Empty stdout means no default — go to **Fallback** below and
-omit `--deployment-flow`.
+From `_mechanics`, take `delivery_defaults[]` for this `_project` and the
+inferred `_workflow` when that row exists; that id is `_candidate_flow`.
+Else `_candidate_flow` is `_project_default_flow`. Empty candidate →
+**Fallback** below and omit `--deployment-flow`.
 
-When the lookup prints a flow id, classify it before assigning:
+When the lookup prints a flow id, classify that candidate before assigning:
 
 ```bash
-_default_tier=$(yoke deployment-flows get "${_project_default_flow}" --field target_tier || true)
-_default_env=$(yoke deployment-flows get "${_project_default_flow}" --field target_environment || true)
+_default_tier=$(yoke deployment-flows get "${_candidate_flow}" --field target_tier || true)
+_default_env=$(yoke deployment-flows get "${_candidate_flow}" --field target_environment || true)
+_default_status=$(yoke deployment-flows get "${_candidate_flow}" --field status || true)
 ```
+
+A disabled flow is not assignable. If `yoke deployment-flows get FLOW --json`
+reports `definition_schema_version` the serving runtime cannot execute, omit
+the assignment and do not enable that flow.
 
 `target_tier` is `persistent`, `ephemeral`, or empty (merge-only). A
 `-internal` suffix is Usher Route A regardless of tier.
@@ -39,6 +52,11 @@ item cannot use that environment:
   (no resolvable target environment)
 
 Otherwise attach the default.
+
+If the operator named an environment, screenshot, or verdict the candidate
+cannot satisfy, do not attach it and do not rewrite shared defaults. Select
+or configure a suitable **item** flow per
+[delivery-requirements.md](delivery-requirements.md).
 
 On attach: set `_deployment_flow` to the looked-up id and print
 `Deployment flow: {_deployment_flow} (project default)`.
