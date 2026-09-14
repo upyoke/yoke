@@ -12,6 +12,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional, Sequence
 
+from yoke_core.domain.merge_queue_entry_checks import (
+    ENTRY_CHECKS_FAILED,
+    describe_failed_checks,
+    failed_required_checks,
+)
 from yoke_core.domain.merge_queue_readback_outcomes import (
     ARMED_NOT_ENQUEUED,
     CLOSED_UNMERGED,
@@ -29,6 +34,11 @@ from yoke_core.domain.merge_queue_readback_outcomes import (
     NOT_IN_FLIGHT,
     NOT_STARTED,
     UNREADABLE,
+)
+from yoke_core.engines.merge_worktree_pr_check_runs import (
+    LandingCheck,
+    check_payload,
+    read_required_checks,
 )
 from yoke_core.engines.merge_worktree_pr_queue import (
     PrLandingState,
@@ -53,6 +63,7 @@ class MergeQueueReadiness:
     merged: Optional[bool] = None
     closed: Optional[bool] = None
     merge_state_status: str = ""
+    failed_checks: tuple[LandingCheck, ...] = field(default=())
     warnings: tuple[str, ...] = field(default=())
 
     @property
@@ -69,7 +80,8 @@ class MergeQueueReadiness:
             f"merge-when-ready={self.merge_when_ready}, "
             f"merged={_truth(self.merged)}, "
             f"state={_open_state(self.closed)}, "
-            f"mergeStateStatus={self.merge_state_status or 'unreported'}"
+            f"mergeStateStatus={self.merge_state_status or 'unreported'}, "
+            f"failed-required-checks={describe_failed_checks(self.failed_checks)}"
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -85,6 +97,7 @@ class MergeQueueReadiness:
             "merged": self.merged,
             "closed": self.closed,
             "merge_state_status": self.merge_state_status,
+            "failed_checks": [check_payload(check) for check in self.failed_checks],
             "narrative": self.describe(),
             "warnings": list(self.warnings),
         }
@@ -114,10 +127,23 @@ def classify_readiness(
     members: Optional[Sequence[QueueMember]],
     state_error: str = "",
     queue_error: str = "",
+    required_checks: Optional[Sequence[LandingCheck]] = None,
+    checks_error: str = "",
 ) -> MergeQueueReadiness:
-    """Compose independently read PR and branch-queue facts."""
-    warnings = tuple(note for note in (state_error, queue_error) if note)
+    """Compose independently read PR, branch-queue, and required-check facts.
+
+    Required checks are the same terminal fact the landing notifier already
+    classifies (:mod:`yoke_core.domain.merge_queue_entry_checks`): GitHub
+    creates the queue entry only once a pull request's own required checks
+    pass, so one that has already concluded red while still merely armed —
+    ``queue_holding=armed_not_enqueued`` — is a landing that cannot happen,
+    not an ordinary wait. Reading only the arming field reported that state
+    as a healthy ``in_flight`` and left the notifier as the only place that
+    ever noticed.
+    """
+    warnings = tuple(note for note in (state_error, queue_error, checks_error) if note)
     entry = _entry_for(members or (), pr_number) if members is not None else None
+    failed_checks = failed_required_checks(required_checks)
     entry_state = (
         (entry.state or ENTRY_PRESENT).strip().upper()
         if entry is not None
@@ -152,6 +178,11 @@ def classify_readiness(
         landing_state, in_flight = CLOSED_UNMERGED, False
     elif state is not None and state.merge_state_status.strip().lower() == "dirty":
         landing_state, in_flight = CONFLICTED, False
+    elif failed_checks:
+        # Not in the queue and one of the PR's own required checks already
+        # concluded red: GitHub will never create the entry, whatever the
+        # arming field still reports.
+        landing_state, in_flight = ENTRY_CHECKS_FAILED, False
     elif state is not None and state.auto_merge_active:
         landing_state, in_flight = IN_FLIGHT, True
     elif state is None or members is None:
@@ -172,6 +203,7 @@ def classify_readiness(
         merge_state_status=(state.merge_state_status or "").upper()
         if state is not None
         else "",
+        failed_checks=failed_checks,
         warnings=warnings,
     )
 
@@ -179,9 +211,18 @@ def classify_readiness(
 def read_merge_queue_readiness(
     ctx: MergeContext, *, pr_number: str, target: str
 ) -> MergeQueueReadiness:
-    """Read the PR and the target branch's queue, then compose their facts."""
+    """Read the PR, the target branch's queue, and required checks.
+
+    A merged pull request answers everything the required checks could —
+    it already landed — so the read is skipped there; every other outcome
+    needs the same terminal fact the landing notifier already reads.
+    """
     state, state_error = read_pr_landing_state(ctx, pr_number)
     members, queue_error = read_queue_members(ctx, base_branch=target)
+    required_checks: Optional[Sequence[LandingCheck]] = None
+    checks_error = ""
+    if state is not None and not state.merged:
+        required_checks, checks_error = read_required_checks(ctx, pr_number)
     return classify_readiness(
         pr_number=pr_number,
         target=target,
@@ -189,6 +230,8 @@ def read_merge_queue_readiness(
         members=members,
         state_error=state_error or "",
         queue_error=queue_error or "",
+        required_checks=required_checks,
+        checks_error=checks_error or "",
     )
 
 
@@ -209,6 +252,7 @@ __all__ = [
     "ARMED_NOT_ENQUEUED",
     "ENQUEUED",
     "ENTRY_ABSENT",
+    "ENTRY_CHECKS_FAILED",
     "ENTRY_NOT_READ",
     "ENTRY_PRESENT",
     "IN_FLIGHT",
