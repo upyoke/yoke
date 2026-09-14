@@ -59,6 +59,20 @@ def test_intake_persists_delivery_evidence_as_existing_qa_rows() -> None:
     assert "mode=all" in text
 
 
+def test_explicit_approval_requires_this_operator_not_human_if_unsure() -> None:
+    text = (REPO / ".agents/skills/yoke/idea/delivery-requirements.md").read_text(
+        encoding="utf-8"
+    )
+    compact = " ".join(text.split())
+    assert '"Have me approve it"' in compact
+    assert "required_human" in compact
+    assert "`required_human` or `human_if_unsure`" not in compact
+    assert "`human_if_unsure` can pass without asking" in compact
+    assert "explicitly conditional" in compact
+    assert "compatible reviewer requirement" in compact
+    assert "Do not replace a matching policy" in compact
+
+
 def test_dash_routes_intake_screenshot_to_delivery_requirements() -> None:
     text = (REPO / ".agents/skills/yoke/dash/SKILL.md").read_text(encoding="utf-8")
     assert "--verification-method browser-inspection" in text
