@@ -141,8 +141,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         return 0
 
+    # No durable driver authority resolves an exact consumer commit here
+    # (this runs on hosted CI, not the release bridge's own machine), so
+    # this dispatches onto trunk by name and trusts the run's own report
+    # instead of demanding an exact-pair match.
     code, narrative, _proven = gate.prove(
-        candidate, timeout_sec=args.timeout_sec,
+        candidate, gate.CONSUMER_TRUNK_REF,
+        timeout_sec=args.timeout_sec, exact_pair=False,
     )
     _report(narrative, warn=bool(code))
     return code

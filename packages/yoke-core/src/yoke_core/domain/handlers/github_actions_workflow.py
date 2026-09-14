@@ -11,7 +11,6 @@ client-side.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
-from urllib.parse import quote
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -61,9 +60,6 @@ class WorkflowFindRunResponse(BaseModel):
     conclusion: Optional[str] = None
     html_url: Optional[str] = None
     head_sha: Optional[str] = None
-    #: Commit the named branch currently points at. Distinct from the run's
-    #: ``head_sha`` so a caller can bind trunk before reuse, not the last run.
-    ref_sha: Optional[str] = None
 
 
 class RunJobsCountRequest(BaseModel):
@@ -133,8 +129,7 @@ def handle_workflow_find_run(request: FunctionCallRequest) -> HandlerOutcome:
         )
     except ValueError as exc:
         return _transport_failed(str(exc))
-    ref_sha = _branch_commit_sha(payload, token)
-    response = WorkflowFindRunResponse(found=run is not None, ref_sha=ref_sha)
+    response = WorkflowFindRunResponse(found=run is not None)
     if run is not None:
         response = WorkflowFindRunResponse(
             found=True,
@@ -143,33 +138,11 @@ def handle_workflow_find_run(request: FunctionCallRequest) -> HandlerOutcome:
             conclusion=str(run.get("conclusion") or "") or None,
             html_url=str(run.get("html_url") or "") or None,
             head_sha=str(run.get("head_sha") or "") or None,
-            ref_sha=ref_sha,
         )
     return HandlerOutcome(
         result_payload=response.model_dump(),
         primary_success=True,
     )
-
-
-def _branch_commit_sha(payload: WorkflowFindRunRequest, token: str) -> Optional[str]:
-    """The commit *branch* currently names, or None when it is not a branch."""
-    branch = str(payload.branch or "").strip()
-    if not branch:
-        return None
-    from yoke_core.domain.gh_rest_transport import RestTransportError
-    from yoke_core.domain.github_actions_rest import rest_get
-
-    try:
-        commit = rest_get(
-            f"/repos/{payload.repo}/commits/{quote(branch, safe='')}",
-            token=token,
-        )
-    except RestTransportError:
-        return None
-    if not isinstance(commit, dict):
-        return None
-    sha = str(commit.get("sha") or "").strip()
-    return sha or None
 
 
 def handle_run_jobs_count(request: FunctionCallRequest) -> HandlerOutcome:

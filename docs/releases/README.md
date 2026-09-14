@@ -13,11 +13,11 @@ backfilled or rewritten; new releases do not add files here.
    the two merges instead of depending on someone remembering it. The last
    merge in the pair binds that run to its merge commit and hands it to the
    deploy-lock holder; `.yoke/runbooks/deploy.md` carries the full procedure.
-2. Deliver the item through `yoke-hosted-stage-typed-target` or
-   `yoke-hosted-production-hotfix-typed-target`; the earlier `-warm-gated`,
-   `-no-ci-gate`, and `yoke-hosted-production` definitions are disabled
-   history — a definition a run has referenced is immutable, so each change
-   to a route retires the prior definition and adds the next one. The active flow's scoped GitHub App
+2. Deliver the item through `yoke-hosted-stage-consumer-bound` or
+   `yoke-hosted-production-hotfix-consumer-bound`; the earlier `-typed-target`,
+   `-warm-gated`, `-no-ci-gate`, and `yoke-hosted-production` definitions are
+   disabled history — a definition a run has referenced is immutable, so each
+   change to a route retires the prior definition and adds the next one. The active flow's scoped GitHub App
    continues the newest `vX.Y.Z+launch.N` series, creates an annotated tag
    whose message is the release note, and returns the existing tag when the
    same commit is retried. The PEP 440 local segment is intentional: public
