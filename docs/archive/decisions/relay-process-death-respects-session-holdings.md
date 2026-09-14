@@ -102,10 +102,13 @@ already knows the answer. What "still running" means is settled by
 
 ## Local record lifetime
 
-The relay prunes only the local process records for session IDs the control
-plane actually ended. Records for a `claims_held` response stay in place, so
-after the holdings are released a later report can end the now-claimless
-ghost. A refused report continues to retain records as before.
+The relay prunes the local process record for a session once the control
+plane accounts for it — ended by this report, or skipped for a status that
+means this machine will never usefully re-report the same record (already
+ended by another path, unauthorized, not found). A `claims_held` (or
+`parked`/`awaiting_seat_reply`) response stays retained instead, so after
+the holdings are released a later report can end the now-claimless ghost. A
+refused report continues to retain records as before.
 
 ## Relationship to the original decision
 
