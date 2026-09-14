@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import json
 from typing import Any, Dict, Iterable, Mapping, Sequence
 
-from yoke_core.domain import db_backend, db_helpers
+from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project
 
 

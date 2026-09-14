@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from unittest.mock import patch
-
 from yoke_cli.commands import _helpers
 from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 from yoke_core.domain.terminal_lane_cleanup import TerminalLaneCloseOut

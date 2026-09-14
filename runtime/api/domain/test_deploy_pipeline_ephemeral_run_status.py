@@ -15,7 +15,6 @@ from unittest import mock
 from yoke_core.domain import (
     deploy_pipeline_run_context,
     deploy_pipeline,
-    deploy_pipeline_step_runners,
     deploy_pipeline_run_updates,
 )
 
