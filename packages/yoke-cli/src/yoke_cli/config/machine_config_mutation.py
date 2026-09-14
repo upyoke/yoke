@@ -10,6 +10,7 @@ import uuid
 
 from yoke_cli.config import machine_config
 from yoke_cli.config import machine_config_file
+from yoke_contracts.machine_config import runtime as machine_runtime
 from yoke_contracts.machine_config import schema as contract
 from yoke_contracts.machine_config.preferred_session_models import (
     seed_preferred_session_models,
@@ -72,6 +73,30 @@ def repair_preferred_session_models(
     return {"path": str(cfg_path), "seeded": seeded}
 
 
+@serialized_mutation
+def _seed_machine_config(*, path: str | Path | None = None) -> None:
+    """Seed a fresh, unconfigured config document once, when none exists yet."""
+    payload, cfg_path = load_payload(path)
+    if not cfg_path.is_file():
+        write_payload(payload, cfg_path, allow_unconfigured=True)
+
+
+def ensure_local_machine_identity(*, path: str | Path | None = None) -> str:
+    """Seed config and its machine id the first time either one is missing.
+
+    A fresh install has no document yet for the runtime identity helper to
+    attach an id to; seed one first through the same validated, atomic
+    writer used elsewhere. An existing document, however populated, is left
+    untouched, and the runtime helper still resolves and self-heals the id
+    under its own lock — this only guarantees the precondition it requires.
+    """
+    _seed_machine_config(path=path)
+    try:
+        return machine_runtime.ensure_machine_id(path)
+    except machine_runtime.MachineConfigError as exc:
+        raise MachineConfigWriteError(str(exc)) from exc
+
+
 def write_payload(
     payload: dict[str, Any],
     cfg_path: Path,
@@ -115,6 +140,7 @@ def write_payload(
 
 __all__ = [
     "MachineConfigWriteError",
+    "ensure_local_machine_identity",
     "load_payload",
     "repair_preferred_session_models",
     "serialized_mutation",
