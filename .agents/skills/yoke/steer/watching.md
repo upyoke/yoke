@@ -36,24 +36,37 @@ substitute a relay resume for a native subscription.
 <!-- YOKE:HARNESS end -->
 
 <!-- YOKE:HARNESS codex start -->
-When scheduled-task tooling is available in the Codex conversation, start
+Codex declares no native idle notification — Codex desktop's scheduled-task
+tooling is a separate, timer-driven re-prompt, not a wake the running
+conversation receives while idle. When that tooling is available in the
+Codex conversation and the operator has not instructed otherwise, start
 steering by creating or reusing a scheduled task in that same conversation
 that runs every five minutes with the prompt text exactly `keep steering`. Do
-not create a duplicate. Pause the schedule when the user pauses steering, and
-remove it when steering ends. Codex CLI does not expose desktop scheduled-task
-tooling; there, keep the watcher attached with the existing route below.
+not create a duplicate. Honor an explicit operator instruction not to
+schedule one: skip creation and rely on the `in-turn` route below instead.
+Pause the schedule when the user pauses steering, and remove it when
+steering ends. Codex CLI does not expose desktop scheduled-task tooling;
+there, keep the watcher attached with the existing route below.
 
-Codex declares no native idle notification. Start the invocation with
-`exec_command`; while it returns a running `session_id`, continue it with
-`write_stdin`. Yield tool output in bounded intervals so ordinary user questions
-can be answered in commentary while work continues. A question or status
-request does not cancel the watcher or authorize a final answer that abandons
-it. Keep the active stream and resume coordinating after the commentary reply.
+The `in-turn` route is the only wake this harness has: start the invocation
+with `exec_command`, and while it returns a running `session_id`, continue
+the SAME session with `write_stdin` — never start a second `exec_command`
+invocation beside a live one, and never claim that relaunching a fresh
+invocation "wakes" the earlier turn; the earlier turn is either still
+running (continue it) or already ended (nothing wakes it, and a new
+invocation is a new turn, not a resumption). Yield tool output in bounded
+intervals so ordinary user questions can be answered in commentary while
+work continues. A question or status request does not cancel the watcher or
+authorize a final answer that abandons it. Keep the active stream and resume
+coordinating after the commentary reply.
 <!-- YOKE:HARNESS end -->
 
 The probe checks approximately once a minute. Newly actionable availability
 wakes immediately, including dependency clearance without an item status or
-claim change. Due reports are checked even without deltas, so cooldown then
+claim change — under `background-wake` that means the armed native
+subscription fires on the next check; under `in-turn` there is no separate
+wake to fire, the already-open stream simply surfaces the finding on its
+next check. Due reports are checked even without deltas, so cooldown then
 quiet and timer-only findings still reach the seat. Fingerprints suppress
 unchanged reports; existing idle-holder, unowned-work and undelivered-message
 checks remain in force. Pull `yoke steering report get` without a project
