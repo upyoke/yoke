@@ -11,6 +11,7 @@ import {
   artifactCaption,
   artifactHandle,
   artifactLabel,
+  artifactStepLabel,
   normalizeArtifact,
 } from "./qa_evidence_artifact_view.js";
 import { openImageLightbox, openTextLightbox } from "./review_lightbox.js";
@@ -41,6 +42,12 @@ function isImage(artifact) {
 
 function captionOf(artifact) {
   return artifactCaption(artifact) || artifactLabel(artifact);
+}
+
+// What the caption reads: the step this picture was taken at, or the
+// artifact's own name when the capture recorded no step.
+function shotLabel(artifact) {
+  return artifactStepLabel(artifact) || artifactLabel(artifact);
 }
 
 function decodeText(base64) {
@@ -111,17 +118,30 @@ function markUnavailable(documentNode, figure, outcome) {
   if (outcome.detail) figure.title = outcome.detail;
 }
 
-// A screenshot: the thumbnail is the control. It loads at once, because a
-// picture the reviewer has to ask for is a picture they will judge without.
+// A screenshot: the picture and its caption are two links to the same
+// evidence, so each one opens this artifact and nothing around it. They are
+// real anchors rather than a widget spelled with a role, which is what gives
+// them focus, Enter, and a middle-click that opens the bytes in a tab. The
+// long caption the capture recorded stays on the figure's title, where it
+// tells the reader which picture this is without becoming four lines of
+// metadata under a thumbnail.
 function screenshot(context, artifact) {
   const documentNode = context.document;
   const caption = captionOf(artifact);
   const figure = el(documentNode, "figure", "review-shot");
   figure.setAttribute("data-artifact-id", String(artifact.id));
+  if (caption) figure.title = caption;
+  const picture = el(documentNode, "a", "review-shot-open");
   const image = el(documentNode, "img", "review-shot-image");
   image.alt = caption;
-  figure.appendChild(image);
-  figure.appendChild(el(documentNode, "figcaption", "review-shot-caption", caption));
+  picture.appendChild(image);
+  figure.appendChild(picture);
+  const figcaption = el(documentNode, "figcaption", "review-shot-caption");
+  const step = el(
+    documentNode, "a", "review-shot-step", shotLabel(artifact),
+  );
+  figcaption.appendChild(step);
+  figure.appendChild(figcaption);
   void readArtifact(context, artifact).then((response) => {
     const outcome = readOutcome(response);
     if (!outcome.ready) {
@@ -130,14 +150,18 @@ function screenshot(context, artifact) {
     }
     image.src = outcome.source;
     figure.classList.add("is-ready");
-    figure.setAttribute("role", "button");
-    figure.tabIndex = 0;
-    figure.setAttribute("aria-label", `Open full size: ${caption}`);
-    const open = () => openImageLightbox(documentNode, outcome.source, caption);
-    figure.addEventListener("click", open);
-    figure.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") open();
-    });
+    const open = (event) => {
+      if (typeof event.preventDefault === "function") event.preventDefault();
+      if (typeof event.stopPropagation === "function") event.stopPropagation();
+      openImageLightbox(documentNode, outcome.source, caption);
+    };
+    for (const control of [picture, step]) {
+      control.href = outcome.source;
+      control.target = "_blank";
+      control.rel = "noopener";
+      control.setAttribute("aria-label", `Open full size: ${caption}`);
+      control.addEventListener("click", open);
+    }
   });
   return figure;
 }

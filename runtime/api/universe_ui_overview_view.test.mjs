@@ -84,12 +84,15 @@ test("Overview cards link to their first-class destinations", async (t) => {
     byClass(root, "overview-item-card").map((node) => node.href),
     ["#/items/7?project=1", "#/items/9?project=1", "#/items/6?project=1"],
   );
-  // A run card is a link wrapped beside its request controls, so the
-  // destination — the run's own page — lives on the readable half rather
-  // than on the card itself.
+  // A run card is readable text, not one big control: the run's own page
+  // hangs off its name at the top left, and the card itself is not a link.
   assert.deepEqual(
-    byClass(root, "overview-run-card-link").map((node) => node.href),
+    byClass(root, "overview-run-id").map((node) => node.href),
     ["#/deployments/run-1?project=1"],
+  );
+  assert.deepEqual(byClass(root, "overview-run-card-link"), []);
+  assert.deepEqual(
+    byClass(root, "overview-run-card").map((node) => node.tagName), ["DIV"],
   );
   const text = allNodes(root).map((node) => node.textContent || "").join(" ");
   assert.doesNotMatch(text, /OLD-PLAN|Superseded direction/);

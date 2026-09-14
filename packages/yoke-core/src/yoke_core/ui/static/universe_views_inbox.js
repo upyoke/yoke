@@ -61,10 +61,10 @@ export function renderInboxView(context, main, scope) {
   const payload = scope === "all"
     ? {} : { project_ids: scope.map((value) => Number(value)) };
 
-  // The server lists only what still waits. A decision you answered here
-  // stays on the page, in its decided state, until you leave it — the row
-  // the next read no longer returns is remembered from the moment you
-  // answered it.
+  // The server lists what still waits plus a tail of what this reader
+  // already settled, so the decided list survives a reload. Between
+  // answering a request and the next read returning it, the row is
+  // remembered here so it never blinks out of the page in between.
   const answered = new Map();
   const remember = (row, action) => {
     answered.set(String(row.id), {

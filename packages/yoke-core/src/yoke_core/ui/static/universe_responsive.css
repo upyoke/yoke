@@ -309,7 +309,6 @@
   .universe-app-root .activation-dismiss { opacity: 1; }
   .universe-app-root .overview-item-card:hover,
   .universe-app-root .overview-doc-card:hover,
-  .universe-app-root .overview-run-card:hover,
   .universe-app-root .session-card:hover {
     border-color: var(--yoke-border);
     box-shadow: none;

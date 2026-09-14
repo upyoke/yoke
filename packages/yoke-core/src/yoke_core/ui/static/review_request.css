@@ -150,7 +150,11 @@
 .universe-app-root td .review-evidence.compact .review-shot-caption {
   display: none;
 }
-.universe-app-root .review-shot.is-ready {
+.universe-app-root .review-shot-open {
+  display: block;
+  border-radius: 8px;
+}
+.universe-app-root .review-shot.is-ready .review-shot-open {
   cursor: zoom-in;
 }
 .universe-app-root .review-shot-image {
@@ -184,6 +188,18 @@
   color: var(--yoke-ink-2);
   font-size: 11.5px;
   overflow-wrap: anywhere;
+}
+.universe-app-root .review-shot-step {
+  color: var(--yoke-link);
+  text-decoration: none;
+}
+.universe-app-root .review-shot-step:hover {
+  text-decoration: underline;
+}
+/* Before the bytes arrive, and when they never do, the caption is a name
+   rather than a control: there is nothing yet for it to open. */
+.universe-app-root .review-shot:not(.is-ready) .review-shot-step {
+  color: var(--yoke-muted);
 }
 .universe-app-root .review-text-chip {
   display: inline-flex;

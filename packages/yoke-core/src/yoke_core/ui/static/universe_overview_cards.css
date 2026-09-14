@@ -14,14 +14,12 @@
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 .universe-app-root .overview-item-card:hover,
-.universe-app-root .overview-doc-card:hover,
-.universe-app-root .overview-run-card:hover {
+.universe-app-root .overview-doc-card:hover {
   border-color: color-mix(in srgb, var(--yoke-border) 45%, var(--yoke-accent));
   box-shadow: var(--yoke-shadow);
 }
 .universe-app-root .overview-item-card:focus-visible,
-.universe-app-root .overview-doc-card:focus-visible,
-.universe-app-root .overview-run-card:focus-visible {
+.universe-app-root .overview-doc-card:focus-visible {
   outline: 2px solid var(--yoke-accent);
   outline-offset: 2px;
 }
@@ -89,9 +87,13 @@
   letter-spacing: .075em;
   text-transform: uppercase;
 }
-.universe-app-root .overview-item-card-meta,
-.universe-app-root .overview-run-card-meta {
+.universe-app-root .overview-item-card-meta {
   margin-top: auto;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .overview-run-card-meta {
   color: var(--yoke-muted);
   font-size: 10.5px;
   overflow-wrap: anywhere;
@@ -218,15 +220,13 @@
 .universe-app-root .overview-run-card.is-awaiting-review {
   border-top-color: var(--yoke-warn);
 }
-.universe-app-root .overview-run-card-link {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 9px;
-  color: inherit;
+.universe-app-root .overview-run-id {
   text-decoration: none;
 }
-.universe-app-root .overview-run-card:focus-within {
+.universe-app-root .overview-run-id:hover {
+  text-decoration: underline;
+}
+.universe-app-root .overview-run-id:focus-visible {
   outline: 2px solid var(--yoke-accent);
   outline-offset: 2px;
 }
