@@ -12,17 +12,19 @@ from __future__ import annotations
 import json
 from pathlib import PurePosixPath
 
-import pytest
-
 from yoke_contracts.api.function_call import FunctionCallResponse
 
 from yoke_core.engines import lane_residue_declared_paths as module
 
 
-def _stub_response(settings: dict | None, *, success: bool = True) -> FunctionCallResponse:
+def _stub_response(
+    settings: dict | None, *, success: bool = True
+) -> FunctionCallResponse:
     result = {} if settings is None else {"settings_json": json.dumps(settings)}
     return FunctionCallResponse(
-        success=success, function="projects.capability_settings.get", version="v1",
+        success=success,
+        function="projects.capability_settings.get",
+        version="v1",
         result=result,
     )
 
@@ -64,9 +66,7 @@ def test_unreachable_authority_fails_closed(monkeypatch):
 
 
 def test_failed_response_fails_closed(monkeypatch):
-    _patch_dispatcher(
-        monkeypatch, lambda **_kw: _stub_response({}, success=False)
-    )
+    _patch_dispatcher(monkeypatch, lambda **_kw: _stub_response({}, success=False))
 
     assert module.declared_disposable_roots_for_project("yoke") == frozenset()
 

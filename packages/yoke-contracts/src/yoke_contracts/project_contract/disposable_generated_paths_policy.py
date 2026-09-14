@@ -80,8 +80,7 @@ def parsed_disposable_generated_paths(value: Any) -> tuple[str, ...]:
     if disposable_generated_paths_setting_error(value) is not None:
         return ()
     return tuple(
-        "/".join(_normalized_parts(entry.strip().replace("\\", "/")))
-        for entry in value
+        "/".join(_normalized_parts(entry.strip().replace("\\", "/"))) for entry in value
     )
 
 
