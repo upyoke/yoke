@@ -100,6 +100,22 @@ def test_contract_companions_survive_bounded_shared_fixture_deferral(
     )
 
 
+def test_fixture_schema_contract_survives_bounded_fixture_deferral(
+    tmp_path: Path,
+) -> None:
+    source = "runtime/api/fixtures/schema_ddl_runtime.py"
+    _write(tmp_path, source)
+    expected = set(prefix_families.FIXTURE_SCHEMA_CONTRACT_TESTS)
+    for test_path in {*impacted_tests.ALWAYS_RUN_TESTS, *expected}:
+        _write(tmp_path, test_path, "def test_contract(): pass\n")
+
+    selection = select([source], build_import_index(tmp_path), bounded=True)
+
+    assert selection.bounded_deferral is True
+    assert expected <= set(selection.files)
+    assert f"fixture_schema_contract:{source}" in selection.widening_triggers
+
+
 def test_private_route_consumers_survive_bounded_tooling_deferral(
     tmp_path: Path,
 ) -> None:

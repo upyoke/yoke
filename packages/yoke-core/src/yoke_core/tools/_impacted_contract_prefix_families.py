@@ -140,6 +140,9 @@ INSTALL_BUNDLE_SHIPPED_SURFACE_TESTS = (
 SOURCE_RECIPE_CONTRACT_TESTS = ("runtime/api/test_external_project_recipe_contract.py",)
 SOURCE_RECIPE_SOURCE_PREFIXES = ("docs/testing-verification.md",)
 
+FIXTURE_SCHEMA_CONTRACT_TESTS = ("runtime/api/test_fixture_schema_ddl_apply.py",)
+FIXTURE_SCHEMA_SOURCE_PREFIXES = ("runtime/api/fixtures/schema_ddl",)
+
 #: Canonical agent bodies the per-harness adapters render from. Shipped by way
 #: of those adapters rather than as a bundle source dir of its own, so it is
 #: named here alongside the dirs the bundle declares.
@@ -204,6 +207,11 @@ PREFIX_CONTRACT_TESTS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] 
         SOURCE_RECIPE_CONTRACT_TESTS,
     ),
     (
+        "fixture_schema_contract",
+        FIXTURE_SCHEMA_SOURCE_PREFIXES,
+        FIXTURE_SCHEMA_CONTRACT_TESTS,
+    ),
+    (
         "install_bundle_shipped_surface_contract",
         INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES,
         INSTALL_BUNDLE_SHIPPED_SURFACE_TESTS,
@@ -215,6 +223,8 @@ __all__ = [
     "AGENT_SKILL_CONTRACT_TESTS",
     "AGENT_SKILL_SOURCE_PREFIXES",
     "CANONICAL_AGENT_BODIES_SOURCE",
+    "FIXTURE_SCHEMA_CONTRACT_TESTS",
+    "FIXTURE_SCHEMA_SOURCE_PREFIXES",
     "INSTALL_BUNDLE_SHIPPED_SURFACE_PREFIXES",
     "INSTALL_BUNDLE_SHIPPED_SURFACE_TESTS",
     "HANDLER_REGISTRATION_CONTRACT_TESTS",

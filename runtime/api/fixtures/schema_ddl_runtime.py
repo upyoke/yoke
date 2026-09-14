@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS deployment_flows (
     done_description TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'active',
     definition_schema_version INTEGER NOT NULL DEFAULT 1,
-    supersedes_flow_id TEXT REFERENCES deployment_flows(id),
+    supersedes_flow_id TEXT,
     CHECK((target_tier IS NOT NULL AND target_tier = 'persistent')
           = (target_environment_id IS NOT NULL)),
     UNIQUE(project_id, name)
