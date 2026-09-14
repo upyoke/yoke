@@ -9,6 +9,7 @@ from typing import Any, Callable, Mapping
 import urllib.parse
 import urllib.request
 
+from yoke_cli.config import machine_config_mutation
 from yoke_cli.config.hosted_machine_browser import BrowserOpenResult, open_browser
 from yoke_cli.transport.bounded_json_http import (
     BoundedJsonHttpError,
@@ -16,7 +17,6 @@ from yoke_cli.transport.bounded_json_http import (
     request_json,
 )
 from yoke_contracts.machine_config.machine_name import machine_display_name
-from yoke_contracts.machine_config import runtime as machine_runtime
 
 
 class HostedMachineAuthorizationError(RuntimeError):
@@ -121,8 +121,8 @@ def complete(
     rather than at the next poll tick.
     """
     try:
-        resolved_machine_id = machine_runtime.ensure_machine_id()
-    except machine_runtime.MachineConfigError as exc:
+        resolved_machine_id = machine_config_mutation.ensure_local_machine_identity()
+    except machine_config_mutation.MachineConfigWriteError as exc:
         raise HostedMachineAuthorizationError(
             f"machine_identity_required: {exc}; create or restore this machine's "
             "config, then retry"

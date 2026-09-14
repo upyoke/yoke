@@ -97,13 +97,80 @@ def test_poll_and_reconnect_reuse_canonical_machine_identity(
     )
 
 
-def test_missing_machine_identity_refuses_before_poll(monkeypatch, tmp_path) -> None:
+def test_fresh_install_bootstraps_identity_before_poll(monkeypatch, tmp_path) -> None:
     config_path = tmp_path / "config.json"
     monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(config_path))
+    monkeypatch.setattr(auth, "machine_display_name", lambda: "Build Host")
+    monkeypatch.setattr(auth, "request_json", lambda *_args, **_kwargs: _approved())
+    clock = _Clock()
+
+    assert not config_path.exists()
+    credential = auth.complete(
+        _pending(), sleep=clock.sleep, monotonic=clock.monotonic
+    )
+
+    assert credential.token == "machine-token"
+    configured = json.loads(config_path.read_text(encoding="utf-8"))
+    assert str(uuid.UUID(configured["machine_id"])) == configured["machine_id"]
+
+
+def test_retry_after_fresh_bootstrap_keeps_same_identity(
+    monkeypatch, tmp_path
+) -> None:
+    config_path = tmp_path / "config.json"
+    monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(config_path))
+    monkeypatch.setattr(auth, "machine_display_name", lambda: "Build Host")
+    monkeypatch.setattr(auth, "request_json", lambda *_args, **_kwargs: _approved())
+
+    assert not config_path.exists()
+    seen_ids = []
+    for _ in range(2):
+        clock = _Clock()
+        auth.complete(_pending(), sleep=clock.sleep, monotonic=clock.monotonic)
+        seen_ids.append(
+            json.loads(config_path.read_text(encoding="utf-8"))["machine_id"]
+        )
+
+    assert seen_ids[0] == seen_ids[1]
+
+
+def test_partially_initialized_config_gains_identity_without_losing_fields(
+    monkeypatch, tmp_path
+) -> None:
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"schema_version": 1, "settings": {"kept": "value"}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(config_path))
+    monkeypatch.setattr(auth, "machine_display_name", lambda: "Build Host")
+    monkeypatch.setattr(auth, "request_json", lambda *_args, **_kwargs: _approved())
+    clock = _Clock()
+
+    credential = auth.complete(
+        _pending(), sleep=clock.sleep, monotonic=clock.monotonic
+    )
+
+    assert credential.token == "machine-token"
+    configured = json.loads(config_path.read_text(encoding="utf-8"))
+    assert configured["settings"] == {"kept": "value"}
+    assert str(uuid.UUID(configured["machine_id"])) == configured["machine_id"]
+
+
+def test_local_persistence_failure_refuses_before_poll(monkeypatch, tmp_path) -> None:
+    config_path = tmp_path / "config.json"
+    monkeypatch.setenv("YOKE_MACHINE_CONFIG_FILE", str(config_path))
+
+    def _boom(*_args, **_kwargs):
+        raise auth.machine_config_mutation.MachineConfigWriteError("disk is full")
+
+    monkeypatch.setattr(auth.machine_config_mutation, "write_payload", _boom)
     monkeypatch.setattr(
         auth,
         "request_json",
-        lambda *_args, **_kwargs: pytest.fail("poll must not run without identity"),
+        lambda *_args, **_kwargs: pytest.fail(
+            "poll must not run on a local persistence failure"
+        ),
     )
 
     with pytest.raises(
