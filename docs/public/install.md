@@ -25,9 +25,9 @@ unsupported; WSL follows the Linux path.
 Anything the wizard already finds — a checkout carrying Yoke files, a
 repository that already has a project, a checkout already mapped on this
 machine — is announced before you answer anything, and connecting to what
-exists is the default. Text selection and copy work normally, and on any
-screen showing a URL or a one-time code the footer names a copy key (`^y`)
-and an open-in-browser key (`^o`).
+exists is the default. The mouse scrolls and clicks normally; on any screen
+showing a URL or a one-time code the footer names a copy key (`^y`) and an
+open-in-browser key (`^o`) instead of a native drag-select.
 
 Flags: `--yes` for non-interactive apply; `--local` or `--connect URL` to skip
 the destination picker.
