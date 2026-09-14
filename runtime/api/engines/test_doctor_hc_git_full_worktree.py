@@ -106,7 +106,7 @@ class TestWorktreeHealth:
                 "branch refs/heads/YOK-9999\n"
                 "\n"
             )),
-            _completed(stdout="M file.py\n"),  # dirty
+            _completed(stdout=" M file.py\n"),  # dirty
         ]
         conn = _make_conn()
         conn.execute(
@@ -116,7 +116,10 @@ class TestWorktreeHealth:
         with patch.object(Path, "is_dir", return_value=True):
             rec = _run_hc(hc_worktree_health, conn)
         assert _result(rec).result == "WARN"
-        assert "uncommitted changes" in _result(rec).detail
+        assert (
+            "holds content cleanup preserves (unignored changes present: file.py)"
+            in _result(rec).detail
+        )
 
     @patch("yoke_cli.config.credentialed_git.run")
     @patch("yoke_core.engines.doctor_report._resolve_repo_root", return_value="/fake/repo")

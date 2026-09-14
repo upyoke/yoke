@@ -48,7 +48,10 @@ def test_terminal_close_out_runs_the_machine_wide_sweep(monkeypatch, tmp_path):
         swept.append(kwargs)
         return WorktreeSweep(
             removed=("/repo/.worktrees/OLD",),
-            preserved=(PreservedLane("/repo/.worktrees/DIRTY", "dirty or unverifiable worktree"),),
+            preserved=(PreservedLane(
+                    "/repo/.worktrees/DIRTY",
+                    "unignored changes present: scratch.txt",
+                ),),
         )
 
     close = terminal_lane_cleanup.cleanup_terminal_item_lanes(
@@ -64,7 +67,10 @@ def test_terminal_close_out_runs_the_machine_wide_sweep(monkeypatch, tmp_path):
     assert close.sweep == {
         "removed": ["/repo/.worktrees/OLD"],
         "preserved": [
-            {"path": "/repo/.worktrees/DIRTY", "reason": "dirty or unverifiable worktree"}
+            {
+                "path": "/repo/.worktrees/DIRTY",
+                "reason": "unignored changes present: scratch.txt",
+            }
         ],
         "skipped": "",
     }
@@ -87,7 +93,10 @@ def test_preserved_own_lane_is_recorded_as_an_event(monkeypatch, tmp_path):
     monkeypatch.setattr(terminal_lane_cleanup.git, "branch_exists", lambda *_a: True)
     calls: list[dict] = []
     monkeypatch.setattr(terminal_lane_cleanup, "call_dispatcher", _recording_dispatcher(calls))
-    reason = "lane ITEM-7 preserved: worktree is dirty or unverifiable (scratch.txt)"
+    reason = (
+        "lane ITEM-7 preserved: worktree /repo/.worktrees/ITEM-7 "
+        "(unignored changes present: scratch.txt)"
+    )
 
     close = terminal_lane_cleanup.cleanup_terminal_item_lanes(
         _item(),
@@ -127,7 +136,10 @@ def test_refused_preserved_lane_event_is_a_named_warning(monkeypatch, tmp_path):
         target_status="done",
         session_id="session-1",
         repo_root=tmp_path,
-        prune=lambda **_k: ("lane ITEM-7 preserved: branch is not merged into origin/main",),
+        prune=lambda **_k: (
+            "lane ITEM-7 preserved: branch is not merged into origin/main "
+            "and carries 1 commit with no equivalent there",
+        ),
         sweep=_no_sweep,
     )
 

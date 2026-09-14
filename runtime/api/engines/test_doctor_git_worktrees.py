@@ -205,7 +205,10 @@ class TestHcWorktreeHealth:
                     "worktree /fake/repo\nbranch refs/heads/main\n\nworktree /fake/wt/YOK-9999\nbranch refs/heads/YOK-9999\n\n"
                 )
             ),
-            _make_completed(stdout="M file.py\n"),
+            # Porcelain status is two state columns then the path, so the
+            # modified-in-worktree line leads with a space. The reason the
+            # HC now prints names the file, which a malformed line truncates.
+            _make_completed(stdout=" M file.py\n"),
         ]
         conn = _make_conn()
         conn.execute(
@@ -215,7 +218,10 @@ class TestHcWorktreeHealth:
         with patch.object(Path, "is_dir", return_value=True):
             rec = _run_hc(hc_worktree_health, conn)
         assert rec.results[0].result == "WARN"
-        assert "uncommitted changes" in rec.results[0].detail
+        assert (
+            "holds content cleanup preserves (unignored changes present: file.py)"
+            in rec.results[0].detail
+        )
 
 
 class TestHcPathConfabulation:
