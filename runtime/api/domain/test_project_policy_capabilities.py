@@ -82,6 +82,7 @@ def test_ensure_creates_default_capabilities(policy_conn: Any) -> None:
     policy = _settings(policy_conn, 1, PROJECT_POLICY_CAPABILITY)
     assert policy["base_branch"] == "stage"
     assert policy["wip_cap"] == 30
+    assert policy["disposable_generated_paths"] == []
     routing = _settings(policy_conn, 1, SESSION_ROUTING_CAPABILITY)
     assert routing["executor_default_lanes"]["claude*"] == "DARIUS"
     assert routing["executor_default_lanes"]["DARIUS"] == "DARIUS"
@@ -122,10 +123,12 @@ def test_ensure_repairs_missing_keys_without_overwriting(policy_conn: Any) -> No
 
     repaired = report["2"][PROJECT_POLICY_CAPABILITY]["repaired_keys"]
     assert "default_priority" in repaired
+    assert "disposable_generated_paths" in repaired
     policy = _settings(policy_conn, 2, PROJECT_POLICY_CAPABILITY)
     assert policy["base_branch"] == "release"
     assert policy["wip_cap"] == 9
     assert policy["default_priority"] == "medium"
+    assert policy["disposable_generated_paths"] == []
 
 
 class TestResolveTitleMaxLength:

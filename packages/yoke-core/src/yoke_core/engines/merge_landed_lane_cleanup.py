@@ -38,6 +38,7 @@ from yoke_core.engines.branch_landed_evidence import (
     assess_branch_landed,
     delete_landed_branch,
 )
+from yoke_core.engines.lane_residue_declared_paths import declared_disposable_roots
 from yoke_core.engines.merge_worktree_cleanliness import (
     assess_lane_residue,
     clear_lane_residue,
@@ -202,7 +203,9 @@ def assess_landed_lane(
             has_remote,
         )
     if worktree_path is not None:
-        residue = assess_lane_residue(git, worktree_path)
+        residue = assess_lane_residue(
+            git, worktree_path, declared_disposable_roots(repo_root)
+        )
         if not residue.disposable:
             return LaneCleanupAssessment(
                 False,
@@ -265,7 +268,9 @@ def prune_landed_lane(
 
     worktree_path = assessment.worktree_path
     if worktree_path is not None:
-        residue = clear_lane_residue(git, worktree_path)
+        residue = clear_lane_residue(
+            git, worktree_path, declared_disposable_roots(repo_root)
+        )
         if not residue.disposable:
             return (
                 f"lane {branch} preserved: worktree {worktree_path} ({residue.reason})",

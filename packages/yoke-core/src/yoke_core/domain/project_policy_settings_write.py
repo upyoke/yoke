@@ -8,6 +8,9 @@ document is left untouched on rejection.
 
 from __future__ import annotations
 
+from yoke_contracts.project_contract.disposable_generated_paths_policy import (
+    disposable_generated_paths_setting_error,
+)
 from yoke_contracts.title_policy import title_max_length_setting_error
 
 from yoke_core.domain import json_helper
@@ -20,6 +23,12 @@ def validate_json_string(raw_json: str) -> str:
         raise ValueError("project-policy settings must be a JSON object")
     if "title_max_length" in payload:
         error = title_max_length_setting_error(payload["title_max_length"])
+        if error:
+            raise ValueError(error)
+    if "disposable_generated_paths" in payload:
+        error = disposable_generated_paths_setting_error(
+            payload["disposable_generated_paths"]
+        )
         if error:
             raise ValueError(error)
     return json_helper.dumps_compact(payload)
