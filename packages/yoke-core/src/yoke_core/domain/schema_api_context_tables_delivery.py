@@ -137,16 +137,13 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("completed_at", "TEXT"),
         ],
         "notes": (
-            "Durable observations from non-QA deployment-stage attempts. "
-            "Attempt identity is allocated before dispatch and ordered by "
-            "`attempt_number`, never insertion timing. Correlation replay is "
-            "idempotent only for identical dispatch inputs. Terminal callbacks "
-            "are immutable; failed/cancelled attempts retain a recovery reason. "
-            "A scoped QA target consumes only the latest `ready` attempt for "
-            "its pinned `source_stage`, exact target, and run release lineage. "
-            "An older late success or a superseded ready receipt cannot satisfy "
-            "QA, even when the code SHA matches. Events are telemetry and are "
-            "not receipt authority."
+            "Durable ordered observations from non-QA deployment attempts. "
+            "Allocate attempt identity before dispatch. Identical correlation "
+            "replay is idempotent; terminal callbacks are immutable and "
+            "failures preserve recovery reasons. Scoped QA accepts only the "
+            "newest ready receipt for its pinned `source_stage`, exact target "
+            "and release lineage, and any pinned artifact identity. Older or "
+            "superseded success never satisfies QA; events are telemetry."
         ),
     },
     "deployment_run_items": {

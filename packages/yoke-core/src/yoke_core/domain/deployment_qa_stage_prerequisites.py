@@ -75,6 +75,7 @@ def _binding_refusal(
                 else None
             ),
             expected_release_lineage=str(deployment.get("release_lineage") or ""),
+            expected_artifact_identity=deployment.get("artifact_identity"),
             receipt_id=int(observation.get("receipt_id") or 0),
         )
     except (LookupError, TypeError, ValueError) as exc:

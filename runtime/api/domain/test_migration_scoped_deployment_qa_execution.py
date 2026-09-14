@@ -199,6 +199,25 @@ def test_fresh_schema_has_exact_scoped_contract_and_serving_floor(test_db) -> No
     assert MIGRATION.MINIMUM_SERVING_VERSION == NEXT_RELEASE
 
 
+def test_invariant_rejects_weaker_regrouping_with_the_same_tokens(test_db) -> None:
+    test_db.execute(
+        f"ALTER TABLE qa_plan_executions DROP CONSTRAINT "
+        f'"{EXECUTION_SUBJECT_CONSTRAINT}"'
+    )
+    test_db.execute(
+        f"ALTER TABLE qa_plan_executions ADD CONSTRAINT "
+        f'"{EXECUTION_SUBJECT_CONSTRAINT}" CHECK ('
+        f"{LEGACY_EXECUTION_SUBJECT_EXPRESSION} OR ("
+        "item_id IS NULL AND deployment_run_id IS NOT NULL "
+        "AND transition_id IS NULL AND deployment_stage IS NULL "
+        "AND deployment_member_item_id IS NULL) OR ("
+        "deployment_stage IS NOT NULL AND TRIM(deployment_stage) <> ''))"
+    )
+
+    with pytest.raises(RuntimeError, match="unrecognized subject checks"):
+        assert_deployment_scope_contract(test_db)
+
+
 def test_scoped_subjects_reject_blank_stage_names(test_db) -> None:
     with pytest.raises(db_backend.integrity_error_types(test_db)):
         test_db.execute(

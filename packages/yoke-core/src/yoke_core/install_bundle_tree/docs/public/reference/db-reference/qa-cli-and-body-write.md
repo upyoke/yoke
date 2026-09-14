@@ -10,6 +10,7 @@ Yoke CLI, which dispatches the registered `qa.*` function ids:
 - `yoke qa requirement add|add-batch|list|get|update|waive ...`
 - `yoke qa plan materialize --item PREFIX-N --transition T`
 - `yoke qa plan run --deployment-run-id RUN --plan PLAN --project P`
+- `yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P`
 - `yoke qa run add|complete|record-verdict|list|get ...`
 - `yoke qa artifact presign|add ...`
 - `yoke qa gate-summary ...`
@@ -78,8 +79,8 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 |---|---|---|
 | `yoke qa requirement add` | `--item PREFIX-N (--qa-kind K \| --method-id M) --qa-phase P --workflow-transition STAGE [opts]` | Insert one requirement bound to a QA-gated stage in the item's pinned workflow |
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically; every row requires `workflow_transition_id` |
-| `yoke qa plan materialize` | `--item PREFIX-N --transition T` or `--deployment-run-id RUN --plan PLAN --project P` | Materialize attached item plans or one named deployment-run plan; each snapshot row emits its own `QARequirementCreated` on the same transaction that writes it |
-| `yoke qa plan run` | `--item PREFIX-N --transition T` or `--deployment-run-id RUN --plan PLAN --project P` | Execute one server-issued durable roster against its real subject |
+| `yoke qa plan materialize` | `--item PREFIX-N --transition T`, legacy `--deployment-run-id RUN --plan PLAN --project P`, or scoped `--deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P` | Materialize attached item plans, one legacy run plan, or frozen stage/member obligations; each case stays on the shared QA authority |
+| `yoke qa plan run` | The same item, legacy run, or scoped stage/member selectors as materialize | Execute one server-issued durable roster against its exact subject and target |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |

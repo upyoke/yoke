@@ -123,6 +123,7 @@ def deployment_qa_execution_target(
         expected_target_kind=kind,
         expected_target_name=expected_name,
         expected_release_lineage=str(subject["release_lineage"]),
+        expected_artifact_identity=subject.get("artifact_identity"),
         receipt_id=receipt_id,
     )
     if kind == "persistent_environment":

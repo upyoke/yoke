@@ -145,7 +145,7 @@ target_name TEXT -- required when ready
 status TEXT NOT NULL -- pending | ready | failed | cancelled
 observed_url TEXT
 observed_release_lineage TEXT -- required when ready; exact run candidate
-observed_artifact_identity TEXT
+observed_artifact_identity TEXT -- must match when the run pins an artifact
 executor TEXT NOT NULL
 executor_receipt TEXT
 failure_reason TEXT -- required when failed or cancelled
@@ -159,10 +159,11 @@ The attempt number, rather than row insertion order, determines the current
 observation. A repeated correlation is accepted only with identical immutable
 dispatch inputs, and a terminal callback cannot change its evidence. Scoped QA
 consumes only the latest ready attempt from the QA target's earlier
-`source_stage`, with the exact target and release lineage. A delayed older
-success cannot override a newer failure, and a superseded receipt cannot
-revalidate an accepted execution or later-stage prerequisite. Run-preview
-readiness requires an observed URL; command-only persistent environments do not.
+`source_stage`, with the exact target and release lineage and, when the run pins
+one, the exact artifact identity. A delayed older success cannot override a
+newer failure, and a superseded receipt cannot revalidate an accepted execution
+or later-stage prerequisite. Run-preview readiness requires an observed URL;
+command-only persistent environments do not.
 
 ## Table: deployment_run_items
 

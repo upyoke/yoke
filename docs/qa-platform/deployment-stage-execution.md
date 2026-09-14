@@ -31,9 +31,10 @@ produces a durable `deployment_stage_receipts` attempt before dispatch. Attempt
 numbers are allocated under the run lock; a repeated correlation ID is
 idempotent only when its immutable dispatch inputs match. The latest attempt is
 authoritative even when an older callback arrives later. Only a latest `ready`
-attempt with the exact target and release lineage can start QA. Run-preview
-receipts must also carry the observed URL; command-only persistent targets may
-omit one.
+attempt with the exact target and release lineage can start QA; when the run
+pins an artifact identity, the receipt must observe that exact artifact too.
+Run-preview receipts must also carry the observed URL; command-only persistent
+targets may omit one.
 
 Materialization records the resolved tenant, project, configured environment,
 site and endpoints together with the receipt ID, attempt, correlation, observed

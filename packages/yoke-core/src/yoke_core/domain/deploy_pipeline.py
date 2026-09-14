@@ -33,6 +33,7 @@ from yoke_core.domain.deployment_run_completion_preconditions import (
 )
 from yoke_core.domain.deployment_item_stamp import transition_member_to_release
 from yoke_core.domain.deploy_product_source import DeployProductSourceError, validate_itemless_product_source
+from yoke_core.domain.deploy_pipeline_cli import _build_parser  # noqa: F401
 
 
 EXIT_SUCCESS = 0

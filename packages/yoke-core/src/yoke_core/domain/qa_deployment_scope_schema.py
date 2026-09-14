@@ -11,6 +11,7 @@ from yoke_core.domain.schema_common import (
     _column_exists,
     _table_exists,
 )
+from yoke_core.domain.sql_boolean_contract import canonical_boolean_expression
 
 
 DEPLOYMENT_STAGE_COLUMN = "deployment_stage"
@@ -49,7 +50,7 @@ EXECUTION_SUBJECT_EXPRESSION = """
     AND transition_id IS NULL
     AND (
         (deployment_stage IS NULL AND deployment_member_item_id IS NULL) OR
-        (deployment_stage IS NOT NULL AND BTRIM(deployment_stage) <> '')
+        (deployment_stage IS NOT NULL AND TRIM(deployment_stage) <> '')
     )
 )
 """.strip()
@@ -68,7 +69,7 @@ REQUIREMENT_SUBJECT_EXPRESSION = """
     AND deployment_run_id IS NOT NULL
     AND (
         (deployment_stage IS NULL AND deployment_member_item_id IS NULL) OR
-        (deployment_stage IS NOT NULL AND BTRIM(deployment_stage) <> '')
+        (deployment_stage IS NOT NULL AND TRIM(deployment_stage) <> '')
     )
 )
 """.strip()
@@ -148,9 +149,8 @@ def add_deployment_scope_columns(conn: Any) -> None:
             _add_column_if_not_exists(conn, table, column, definition)
 
 
-def _canonical_sql(value: str) -> str:
-    normalized = value.lower().replace("::text", "").replace('"', "")
-    return re.sub(r"[\s()\[\]]+", "", normalized)
+def _canonical_sql(value: str) -> Any:
+    return canonical_boolean_expression(value)
 
 
 def _subject_constraints(conn: Any, table: str) -> list[str]:
@@ -172,7 +172,11 @@ def _subject_constraints(conn: Any, table: str) -> list[str]:
         "qa_requirements": REQUIREMENT_SUBJECT_EXPRESSION,
     }[table]
     supported = {_canonical_sql(f"CHECK ({value})") for value in (legacy, current)}
-    unknown = [str(row[0]) for row in candidates if _canonical_sql(str(row[1])) not in supported]
+    unknown = [
+        (str(row[0]), str(row[1]))
+        for row in candidates
+        if _canonical_sql(str(row[1])) not in supported
+    ]
     if unknown:
         raise RuntimeError(
             f"{table} has unrecognized subject checks {unknown}; refusing to drop "

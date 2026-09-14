@@ -18,7 +18,7 @@ from yoke_core.domain.deployment_stage_receipts import (
 LINEAGE = "d" * 40
 
 
-def _seed(conn: Any, run_id: str) -> None:
+def _seed(conn: Any, run_id: str, *, artifact_identity: str | None = None) -> None:
     conn.execute(
         "INSERT INTO environments(site,project_id,name,url,settings,created_at) "
         "SELECT id,1,'stage','https://stage.example.test','{}',%s FROM sites "
@@ -58,8 +58,15 @@ def _seed(conn: Any, run_id: str) -> None:
     )
     conn.execute(
         "INSERT INTO deployment_runs(id,project_id,flow,release_lineage,status,"
-        "current_stage,created_at) VALUES (%s,1,%s,%s,'executing','deploy-stage',%s)",
-        (run_id, flow_id, LINEAGE, "2026-09-14T00:00:00Z"),
+        "current_stage,artifact_identity,created_at) "
+        "VALUES (%s,1,%s,%s,'executing','deploy-stage',%s,%s)",
+        (
+            run_id,
+            flow_id,
+            LINEAGE,
+            artifact_identity,
+            "2026-09-14T00:00:00Z",
+        ),
     )
     conn.commit()
 
@@ -182,6 +189,52 @@ def test_ready_receipt_requires_exact_candidate_and_target(test_db) -> None:
         receipt_id=int(completed["id"]),
     )
     assert selected["observed_url"] == "https://stage.example.test"
+
+
+def test_ready_receipt_requires_the_run_artifact_when_one_is_pinned(test_db) -> None:
+    artifact = '{"digest":"sha256:pinned"}'
+    _seed(test_db, "run-receipt-artifact", artifact_identity=artifact)
+    receipt = _allocate(test_db, "run-receipt-artifact", "dispatch-artifact")
+    with pytest.raises(ValueError, match="different artifact identity"):
+        complete_deployment_stage_receipt(
+            test_db,
+            receipt_id=int(receipt["id"]),
+            correlation_id="dispatch-artifact",
+            status="ready",
+            target_name="stage",
+            observed_release_lineage=LINEAGE,
+            observed_artifact_identity='{"digest":"sha256:other"}',
+        )
+    completed = complete_deployment_stage_receipt(
+        test_db,
+        receipt_id=int(receipt["id"]),
+        correlation_id="dispatch-artifact",
+        status="ready",
+        target_name="stage",
+        observed_release_lineage=LINEAGE,
+        observed_artifact_identity=artifact,
+    )
+    selected = deployment_stage_receipt_for_qa(
+        test_db,
+        run_id="run-receipt-artifact",
+        source_stage="deploy-stage",
+        expected_target_kind="persistent_environment",
+        expected_target_name="stage",
+        expected_release_lineage=LINEAGE,
+        expected_artifact_identity=artifact,
+        receipt_id=int(completed["id"]),
+    )
+    assert selected["observed_artifact_identity"] == artifact
+    with pytest.raises(ValueError, match="artifact differs"):
+        deployment_stage_receipt_for_qa(
+            test_db,
+            run_id="run-receipt-artifact",
+            source_stage="deploy-stage",
+            expected_target_kind="persistent_environment",
+            expected_target_name="stage",
+            expected_release_lineage=LINEAGE,
+            expected_artifact_identity='{"digest":"sha256:other"}',
+        )
 
 
 def test_superseded_ready_receipt_cannot_revalidate_qa(test_db) -> None:

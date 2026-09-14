@@ -190,17 +190,6 @@ QA_COMMANDS: list[dict] = [
     },
     {
         "topic": "qa",
-        "purpose": (
-            "Execute a named project plan on its real deployment-run subject "
-            "(never a synthetic item or host_control bypass)"
-        ),
-        "recipe": (
-            "yoke qa plan run --deployment-run-id RUN "
-            "--plan installer-campaign --project yoke"
-        ),
-    },
-    {
-        "topic": "qa",
         "purpose": "Execute one frozen deployment QA stage subject",
         "recipe": (
             "yoke qa plan run --deployment-run-id RUN --stage STAGE "
