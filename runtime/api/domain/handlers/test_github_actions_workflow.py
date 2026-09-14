@@ -94,8 +94,10 @@ class TestWorkflowFindRun:
     ):
         calls = []
 
-        def _get(path, *, query, token):
+        def _get(path, *, query=None, token):
             calls.append((path, query, token))
+            if path.endswith("/commits/stage"):
+                return {"sha": "d" * 40}
             return {
                 "workflow_runs": [
                     {"id": 11, "status": "completed"},
@@ -132,6 +134,7 @@ class TestWorkflowFindRun:
             "conclusion": None,
             "html_url": "https://github.test/actions/runs/12",
             "head_sha": "abc123",
+            "ref_sha": "d" * 40,
         }
         assert calls == [
             (
@@ -144,7 +147,12 @@ class TestWorkflowFindRun:
                     "status": "completed",
                 },
                 "ghs_test_token",
-            )
+            ),
+            (
+                "/repos/upyoke/platform/commits/stage",
+                None,
+                "ghs_test_token",
+            ),
         ]
         assert _resolved_auth == [
             (

@@ -1,4 +1,4 @@
-name: Consumer compatibility advisory
+name: consumer-compatibility-advisory
 
 # Advisory: a producer-only green run proves the producer and nothing else,
 # so an author changing the surface the hosted host consumes hears it here
@@ -59,4 +59,3 @@ jobs:
           uv run python -m runtime.api.tools.consumer_compatibility_advisory
           --base "origin/${{ github.event.repository.default_branch }}"
           --candidate-sha "${{ github.event.pull_request.head.sha || github.sha }}"
-          --dispatch-key "${{ github.run_id }}-${{ github.run_attempt }}"

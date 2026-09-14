@@ -1,4 +1,4 @@
-name: Browser runtime tests
+name: browser-runtime-tests
 
 on:
   workflow_call:

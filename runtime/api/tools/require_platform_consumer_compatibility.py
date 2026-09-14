@@ -1,48 +1,23 @@
 """Refuse to publish a release the hosted consumer has not been built against.
 
-The product ships a universe app bundle across a declared contract version,
-and the hosted host builds against it. When that version moved from 6 to 7
-the producer's own suite was green — it had been updated with the change —
-and the host implementing 6 only found out during promotion, after the
-artifact was already published. Two releases stopped on a mismatch nothing
-had been asked to look for.
-
-A producer-only green run proves the producer and nothing else. So before
-the release train allocates its annotated tag — the first irreversible act —
-the consumer's own release-pin check builds the real host against this exact
-candidate, and its conclusion is the answer. That is the check the consumer
-already requires on its own pull requests; passing a candidate commit only
-redirects what it builds against, so this adds no second validator and no
-second workflow. The consumer owns what compatible means; this side owns
-only that the answer is required before publication.
-
-:mod:`consumer_compatibility_advisory` asks the same question earlier, from
-its own independent CI job, so a mismatch surfaces at the merge attempt
-rather than at the release. That earlier report is advisory and never
-blocks; publication is the mandatory blocker.
+A producer-only green run proves the producer and nothing else. Before the
+release train allocates its annotated tag, the consumer's own
+release-pin check builds the real host against this exact candidate.
 
 Usage::
 
     python3 -m runtime.api.tools.require_platform_consumer_compatibility \\
-        --candidate-sha <40-hex> --dispatch-key <key> [--timeout SEC]
+        --candidate-sha <40-hex> [--timeout SEC]
 
-*candidate-sha* must be a full 40-hex commit. A short sha is resolved by the
-consumer against whatever it names there, which is the wrong-candidate green
-this gate exists to make impossible.
+*candidate-sha* must be a full 40-hex commit. The exact pair is that
+candidate, the consumer commit bound from current trunk before dispatch, and
+this check. Simultaneous callers share ``github-actions trigger
+--request-id``; a failed or cancelled run advances a new attempt on the same
+key. A later caller whose trunk has moved is a different pair. Floating
+``main`` is never the identity. Missing or mismatched evidence is unproven.
 
-*dispatch-key* binds one proof to one attempt: a retry inside an attempt
-rejoins the run that tested this candidate, while a new attempt forces a
-fresh build against the consumer's trunk as of then, so no proof outlives
-the trunk it was taken on.
-
-On success it writes ``proven_consumer_sha`` to ``$GITHUB_OUTPUT`` — the
-consumer revision actually built against — so promotion can refuse to ship
-against a different one.
-
-Exits 0 when the pair is proven, 1 when the consumer refused the candidate
-or its evidence does not name it, and 2 when no verdict could be obtained.
-Every non-zero exit fails the caller: missing evidence is a refusal, never a
-pass.
+On success it writes ``proven_consumer_sha`` to ``$GITHUB_OUTPUT``.
+Exits 0 when proven, 1 when refused or unattributable, 2 when unavailable.
 """
 
 from __future__ import annotations
@@ -80,6 +55,13 @@ CONSUMER_CONNECTION = "platform-consumer-check"
 
 _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 _COMMAND_TIMEOUT_SECONDS = 300
+
+
+def pair_request_id(candidate_sha: str, consumer_sha: str) -> str:
+    return (
+        f"consumer-compat:{candidate_sha}:{consumer_sha}:"
+        f"{CONSUMER_CHECK_WORKFLOW}"
+    )
 
 #: The consumer refused the candidate, or its evidence does not name it.
 UNPROVEN = 1
@@ -146,13 +128,39 @@ def bind_consumer_authority() -> str:
     return ""
 
 
-def dispatch(candidate_sha: str, dispatch_key: str) -> Tuple[str, str]:
-    """Dispatch — or recover — the consumer run for this exact candidate.
+def resolve_consumer_revision() -> Tuple[str, str]:
+    """Bind current consumer trunk to a commit, or say why it could not."""
+    _code, stdout, stderr = _yoke(
+        [
+            "github-actions", "find-run", CONSUMER_REPO,
+            CONSUMER_CHECK_WORKFLOW, "--branch", CONSUMER_TRUNK_REF,
+            "--project", CONSUMER_PROJECT, "--json",
+        ],
+        timeout=_COMMAND_TIMEOUT_SECONDS,
+    )
+    try:
+        payload = json.loads(stdout)
+    except ValueError:
+        payload = None
+    result = payload.get("result") if isinstance(payload, dict) else None
+    sha = str(
+        result.get("ref_sha") if isinstance(result, dict) else ""
+    ).strip().lower()
+    if payload and payload.get("success") is not False and is_full_commit_sha(sha):
+        return sha, ""
+    return "", (
+        f"consumer trunk {CONSUMER_REPO}@{CONSUMER_TRUNK_REF} could not be "
+        f"bound to a commit: {_detail(stdout, stderr)}"
+    )
 
-    The request id carries the candidate, so a retry inside one attempt
-    rejoins the run that tested it while a different candidate can never
-    adopt it.
-    """
+
+def dispatch(candidate_sha: str, consumer_sha: str) -> Tuple[str, str]:
+    """Dispatch or recover the consumer run for this exact pair."""
+    if not is_full_commit_sha(consumer_sha):
+        return "", (
+            "consumer check could not be dispatched: consumer commit "
+            f"{consumer_sha!r} is not a full 40-hex commit"
+        )
     code, stdout, stderr = _yoke(
         [
             "github-actions",
@@ -160,11 +168,11 @@ def dispatch(candidate_sha: str, dispatch_key: str) -> Tuple[str, str]:
             CONSUMER_REPO,
             CONSUMER_CHECK_WORKFLOW,
             "--ref",
-            CONSUMER_TRUNK_REF,
+            consumer_sha,
             "--input",
             f"{CANDIDATE_INPUT}={candidate_sha}",
             "--request-id",
-            f"consumer-compat:{candidate_sha}:{dispatch_key}",
+            pair_request_id(candidate_sha, consumer_sha),
             "--correlation-input",
             WORKFLOW_DISPATCH_CORRELATION_INPUT,
             "--project",
@@ -210,12 +218,9 @@ def await_verdict(run_id: str, *, timeout_sec: int) -> Tuple[Dict[str, Any], str
 
 def classify(
     result: Dict[str, Any], *, candidate_sha: str, run_id: str,
+    bound_consumer_sha: str = "",
 ) -> Tuple[int, str, str]:
-    """Exit code, narrative, and the consumer revision actually proven.
-
-    The revision is empty on every non-zero code: nothing was proven, so
-    there is nothing promotion may bind itself to.
-    """
+    """Exit code, narrative, and the consumer revision actually proven."""
     where = str(result.get("html_url") or "").strip() or f"run {run_id}"
     state = str(result.get("state") or "").strip()
     consumer_sha = str(result.get("head_sha") or "").strip()
@@ -243,27 +248,38 @@ def classify(
             f"be attributed to product {candidate_sha}. That is unproven, "
             "not proven; re-run the gate."
         ), ""
+    expected = bound_consumer_sha.strip().lower()
+    if expected and consumer_sha.lower() != expected:
+        return UNPROVEN, (
+            f"consumer evidence does not match the bound pair: {where} "
+            f"proved {consumer_sha} after this gate bound {expected} for "
+            f"product {candidate_sha}."
+        ), ""
     return 0, (
         f"hosted consumer builds against this candidate: product "
         f"{candidate_sha} with consumer {consumer_sha} — {where}"
     ), consumer_sha
 
 
-def prove(
-    candidate_sha: str, *, dispatch_key: str, timeout_sec: int,
-) -> Tuple[int, str, str]:
-    """Bind, dispatch, wait, classify — code, narrative, proven revision."""
+def prove(candidate_sha: str, *, timeout_sec: int) -> Tuple[int, str, str]:
+    """Bind, resolve trunk, dispatch, wait, classify."""
     unavailable = bind_consumer_authority()
     if unavailable:
         return UNAVAILABLE, f"consumer compatibility unproven: {unavailable}", ""
-    run_id, dispatch_error = dispatch(candidate_sha, dispatch_key)
+    consumer_sha, resolve_error = resolve_consumer_revision()
+    if resolve_error:
+        return UNAVAILABLE, f"consumer compatibility unproven: {resolve_error}", ""
+    run_id, dispatch_error = dispatch(candidate_sha, consumer_sha)
     if dispatch_error:
         return UNAVAILABLE, f"consumer compatibility unproven: {dispatch_error}", ""
     print(f"consumer check run: {CONSUMER_REPO} run {run_id}", flush=True)
     result, unreadable = await_verdict(run_id, timeout_sec=timeout_sec)
     if unreadable:
         return UNAVAILABLE, f"consumer compatibility unproven: {unreadable}", ""
-    return classify(result, candidate_sha=candidate_sha, run_id=run_id)
+    return classify(
+        result, candidate_sha=candidate_sha, run_id=run_id,
+        bound_consumer_sha=consumer_sha,
+    )
 
 
 def _write_output(key: str, value: str) -> None:
@@ -281,7 +297,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--candidate-sha", default="")
-    parser.add_argument("--dispatch-key", default="")
     parser.add_argument("--timeout", type=int, default=1800, dest="timeout_sec")
     args = parser.parse_args(list(sys.argv[1:] if argv is None else argv))
 
@@ -294,18 +309,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             file=sys.stderr,
         )
         return UNAVAILABLE
-    if not args.dispatch_key.strip():
-        print(
-            "consumer compatibility unproven: --dispatch-key is required so "
-            "one proof belongs to one attempt.",
-            file=sys.stderr,
-        )
-        return UNAVAILABLE
 
     code, narrative, proven_revision = prove(
-        candidate,
-        dispatch_key=args.dispatch_key.strip(),
-        timeout_sec=args.timeout_sec,
+        candidate, timeout_sec=args.timeout_sec,
     )
     if code:
         print(narrative, file=sys.stderr)

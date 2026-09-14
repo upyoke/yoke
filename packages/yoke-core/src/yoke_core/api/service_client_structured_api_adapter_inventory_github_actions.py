@@ -37,9 +37,13 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         function_id="github_actions.workflow.find_run",
         cli_invocation=(
             "yoke github-actions find-run <owner/repo> <workflow-file> "
-            "<commit-sha> --project <project>"
+            "[<commit-sha>] [--branch BRANCH] --project <project>"
         ),
-        notes="Point-in-time workflow-run reconciliation by commit SHA.",
+        notes=(
+            "Commit SHA and/or --branch; result.ref_sha is the named "
+            "branch tip, distinct from the run's head_sha. Wrong guess: "
+            "keying reuse on floating main or GITHUB_RUN_ATTEMPT."
+        ),
     ),
     _read_entry(
         function_id="github_actions.run.jobs_count",
