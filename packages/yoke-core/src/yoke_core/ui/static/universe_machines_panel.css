@@ -11,15 +11,13 @@
   letter-spacing: -0.012em;
 }
 .machines-empty { font-size: 12px; color: var(--yoke-muted); }
-/* The track is capped, not stretched: a meter row carries a label, a bar and
-   two numbers, and it does not get more readable past a point — it just gets
-   longer. */
-.machines-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 380px));
+/* Track sizing (display, columns, justify-content) comes from the shared
+   .machines-grid rule in universe_responsive.css, the same formula every
+   card grid on the page shares — this file only adds what that rule
+   deliberately leaves local. */
+.universe-app-root .machines-grid {
   gap: 12px;
   align-items: start;
-  justify-content: start;
 }
 .machine-card {
   min-width: 0;

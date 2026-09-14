@@ -144,10 +144,6 @@
   --yoke-card-track-min: 300px;
   --yoke-card-track-max: 390px;
 }
-.universe-app-root .machines-grid {
-  --yoke-card-track-min: 340px;
-  --yoke-card-track-max: 380px;
-}
 .universe-app-root .navigation-toggle {
   padding: 9px;
 }
