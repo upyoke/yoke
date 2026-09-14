@@ -114,10 +114,19 @@ deployment run.
 ## Approval is a flow verdict, not a QA add-on
 
 An evidence-only request does **not** add approval, `--approval-on-done`,
-or a human reviewer. "Have me approve it" requires a human-capable QA
-verdict on the selected flow (`required_human` or `human_if_unsure`) whose
-`reviewers` name **this operator** (`actors` + `mode=all`), not an `ANY`
-role policy someone else can satisfy. Missing reviewer policy makes that
-configuration invalid. Configure the flow through
-`yoke deployment-flows create` / `update-stages` (validate first); do not
-build a fallback reviewer system.
+or a human reviewer.
+
+"Have me approve it" requires `verdict.mode=required_human` on the
+selected flow whose `reviewers` require **this operator** (`actors` +
+`mode=all`), not an `ANY` role policy someone else can satisfy. Missing
+reviewer policy makes that configuration invalid. `human_if_unsure` can
+pass without asking the operator; reserve it for an explicitly
+conditional review request ("ask me if you're unsure").
+
+When the selected flow already has a compatible reviewer requirement that
+already requires this operator at `required_human`, keep it. Do not
+replace a matching policy, and do not weaken `required_human` to
+`human_if_unsure`.
+
+Configure the flow through `yoke deployment-flows create` /
+`update-stages` (validate first); do not build a fallback reviewer system.
