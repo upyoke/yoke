@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 from yoke_contracts.api.function_call import ActorContext
-from yoke_core.domain import db_backend
 from yoke_core.domain.qa_plan_execution_result_state import (
     BASELINE_GROUP_RESULTS as _BASELINE_GROUP_RESULTS,
     QaPlanExecutionError,
@@ -24,67 +23,9 @@ from yoke_core.domain.qa_plan_execution_target import build_plan_execution_targe
 from yoke_core.domain.qa_project_execution_target import resolve_execution_base_url
 from yoke_core.domain.machine_qa_case_machine import resolve_plan_machine
 from yoke_core.domain.qa_plan_execution_continuation import continuation_abort_reason
+from yoke_core.domain.qa_plan_execution_roster import ordered_plan_requirements
 
 _call_plan_function = call_plan_function
-
-
-def ordered_plan_requirements(
-    conn: Any,
-    *,
-    item_id: int | None = None,
-    transition_id: str | None = None,
-    deployment_run_id: str | None = None,
-) -> list[dict[str, Any]]:
-    """Return server-authoritative execution order for one QA subject."""
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    if (item_id is None) == (deployment_run_id is None):
-        raise QaPlanExecutionError("exactly one QA plan execution subject is required")
-    if item_id is not None:
-        where = f"item_id={marker} AND workflow_transition_id={marker}"
-        params: tuple[Any, ...] = (int(item_id), str(transition_id))
-        subject = f"item {item_id} transition {transition_id!r}"
-    else:
-        where = f"deployment_run_id={marker}"
-        params = (str(deployment_run_id),)
-        subject = f"deployment run {deployment_run_id!r}"
-    cursor = conn.execute(
-        "SELECT id AS requirement_id, plan_id, plan_case_key AS case_key, "
-        "case_position, baseline_position, host_baseline, method_id, "
-        "runner_id FROM qa_requirements "
-        f"WHERE {where} "
-        "AND plan_id IS NOT NULL AND waived_at IS NULL "
-        "ORDER BY plan_id, case_position, baseline_position, id",
-        params,
-    )
-    columns = [
-        str(getattr(column, "name", None) or column[0]) for column in cursor.description
-    ]
-    requirements = [
-        (
-            {str(key): row[key] for key in row.keys()}
-            if hasattr(row, "keys")
-            else dict(zip(columns, row))
-        )
-        for row in cursor.fetchall()
-    ]
-    if not requirements:
-        raise QaPlanExecutionError(f"{subject} has no materialized QA plan cases")
-    for row in requirements:
-        requirement_id = int(row["requirement_id"])
-        if (
-            row["case_position"] is None
-            or row["baseline_position"] is None
-            or not str(row["runner_id"] or "").strip()
-        ):
-            raise QaPlanExecutionError(
-                f"materialized QA case {requirement_id} has an incomplete "
-                "execution snapshot; apply the QA requirement snapshot migration"
-            )
-        row["requirement_id"] = requirement_id
-        row["plan_id"] = int(row["plan_id"])
-        row["case_position"] = int(row["case_position"])
-        row["baseline_position"] = int(row["baseline_position"])
-    return requirements
 
 
 def execute_plan(
@@ -92,6 +33,8 @@ def execute_plan(
     public_ref: Optional[str] = None,
     transition_id: Optional[str] = None,
     deployment_run_id: Optional[str] = None,
+    deployment_stage: Optional[str] = None,
+    deployment_member: Optional[str] = None,
     plan: Optional[str] = None,
     project: Optional[str] = None,
     base_url: str = "",
@@ -109,15 +52,22 @@ def execute_plan(
         public_ref=public_ref,
         transition_id=transition_id,
         deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage,
+        deployment_member=deployment_member,
         plan=plan,
         project=project,
     )
     resolved_actor = execution_actor(actor)
     if deployment_run_id:
+        materialize_payload = {"plan": plan, "project": project}
+        if deployment_stage:
+            materialize_payload["deployment_stage"] = deployment_stage
+        if deployment_member:
+            materialize_payload["deployment_member"] = deployment_member
         _call_plan_function(
             function_id="qa.plan.materialize",
             target=target,
-            payload={"plan": plan, "project": project},
+            payload=materialize_payload,
             actor=resolved_actor,
         )
     for key, value in (("machine", machine), ("continue_mission", continue_mission)):
@@ -336,6 +286,8 @@ def execute_plan(
             int(execution["item_id"]) if execution.get("item_id") is not None else None
         ),
         "deployment_run_id": execution.get("deployment_run_id"),
+        "deployment_stage": execution.get("deployment_stage"),
+        "deployment_member_item_id": execution.get("deployment_member_item_id"),
         "transition_id": transition_id,
         "state": state,
         "requirement_count": len(requirements),

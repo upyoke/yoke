@@ -252,6 +252,7 @@ def handle_agent_mission_access(request: FunctionCallRequest) -> HandlerOutcome:
         execution = lock_plan_execution(conn, parsed.execution_id)
         require_plan_execution_owner(
             execution,
+            conn=conn,
             item_id=item_id,
             deployment_run_id=deployment_run_id,
             actor_id=request.actor.actor_id,

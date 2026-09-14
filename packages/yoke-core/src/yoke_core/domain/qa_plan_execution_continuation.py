@@ -110,6 +110,8 @@ def latest_plan_execution(
     item_id: int | None = None,
     transition_id: str | None = None,
     deployment_run_id: str | None = None,
+    deployment_stage: str | None = None,
+    deployment_member_item_id: int | None = None,
 ) -> dict[str, Any] | None:
     """Return the most recent execution recorded for one QA subject."""
     placeholder = marker(conn)
@@ -121,8 +123,16 @@ def latest_plan_execution(
         where = f"item_id={placeholder} AND transition_id={placeholder}"
         params: tuple[Any, ...] = (int(item_id), str(transition_id))
     else:
-        where = f"deployment_run_id={placeholder}"
-        params = (str(deployment_run_id),)
+        where = (
+            f"deployment_run_id={placeholder} "
+            f"AND COALESCE(deployment_stage,'')={placeholder} "
+            f"AND COALESCE(deployment_member_item_id,0)={placeholder}"
+        )
+        params = (
+            str(deployment_run_id),
+            deployment_stage or "",
+            deployment_member_item_id or 0,
+        )
     row = conn.execute(
         f"SELECT id FROM qa_plan_executions WHERE {where} "
         "ORDER BY created_at DESC, id DESC LIMIT 1",
@@ -140,6 +150,8 @@ def require_continuable_execution(
     item_id: int | None = None,
     transition_id: str | None = None,
     deployment_run_id: str | None = None,
+    deployment_stage: str | None = None,
+    deployment_member_item_id: int | None = None,
 ) -> dict[str, Any]:
     """Return the settled mission execution a continuation may resume.
 
@@ -152,6 +164,8 @@ def require_continuable_execution(
         item_id=item_id,
         transition_id=transition_id,
         deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage,
+        deployment_member_item_id=deployment_member_item_id,
     )
     if prior is None:
         raise QaPlanExecutionStateError(
@@ -203,6 +217,8 @@ def resolve_continuation_source(
     item_id: int | None = None,
     transition_id: str | None = None,
     deployment_run_id: str | None = None,
+    deployment_stage: str | None = None,
+    deployment_member_item_id: int | None = None,
 ) -> str:
     """Return the settled execution id a requested continuation resumes."""
     try:
@@ -216,6 +232,8 @@ def resolve_continuation_source(
             item_id=item_id,
             transition_id=transition_id,
             deployment_run_id=deployment_run_id,
+            deployment_stage=deployment_stage,
+            deployment_member_item_id=deployment_member_item_id,
         )
     except QaPlanExecutionStateError:
         conn.rollback()
@@ -234,10 +252,17 @@ def continuation_recipe(conn: Any, execution: Mapping[str, Any]) -> str:
             f"--transition {str(execution.get('transition_id') or '')}"
         )
     else:
+        stage = str(execution.get("deployment_stage") or "")
+        member = execution.get("deployment_member_item_id")
+        scope = f" --stage {stage}" if stage else ""
+        if member is not None:
+            from yoke_core.domain.project_identity import render_item_ref
+
+            scope += f" --member {render_item_ref(conn, int(member))}"
+        plan = f" --plan {_plan_slug(conn, execution)}" if not stage else ""
         subject = (
-            f"--deployment-run-id {str(execution.get('deployment_run_id') or '')} "
-            f"--plan {_plan_slug(conn, execution)} "
-            f"--project {_project_slug(execution)}"
+            f"--deployment-run-id {str(execution.get('deployment_run_id') or '')}"
+            f"{plan} --project {_project_slug(execution)}{scope}"
         )
     return f"yoke qa plan run {subject} {CONTINUATION_FLAG}"
 

@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+import importlib
+
 from yoke_core.domain.qa_plan_execution_schema import (
     assert_qa_plan_execution_schema_invariants,
     assert_qa_plan_execution_subject_invariants,
     converge_qa_plan_execution_schema,
     converge_qa_plan_execution_subject_schema,
+)
+
+
+MIGRATION = importlib.import_module(
+    "yoke_core.domain.migrations.0043_scoped_deployment_qa_execution"
 )
 
 
@@ -58,6 +65,8 @@ def test_boot_convergence_expands_exact_legacy_postgres_shape(test_db) -> None:
     )
 
     converge_qa_plan_execution_schema(test_db)
+    MIGRATION.apply(test_db)
+    MIGRATION.invariants(test_db)
     assert_qa_plan_execution_schema_invariants(test_db)
     assert_qa_plan_execution_subject_invariants(test_db)
     converge_qa_plan_execution_schema(test_db)
