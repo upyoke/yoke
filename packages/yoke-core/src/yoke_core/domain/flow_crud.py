@@ -17,13 +17,18 @@ from yoke_core.domain.flow_validation import (
     require_human_approval_addresses,
     validate_stages,
 )
+from yoke_core.domain.deployment_flow_policy import (
+    definition_schema_version,
+    require_supported_definition_schema,
+    validate_stage_references,
+)
 from yoke_core.domain.deployment_flow_state import (
     FLOW_STATUS_ACTIVE,
     assert_flow_definition_mutable,
     lock_deployment_flow_rows,
     validate_flow_status,
 )
-from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.project_identity import resolve_project, resolve_project_slug
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -42,13 +47,16 @@ _FLOW_FIELDS = frozenset(
         "target_environment",
         "done_description",
         "status",
+        "definition_schema_version",
+        "supersedes_flow_id",
     }
 )
 
 _SELECT_COLS = (
     "df.id, p.slug AS project, df.name, df.description, df.stages, "
     "df.on_failure, df.created_at, df.target_tier, e.name AS target_environment, "
-    "df.done_description, df.status"
+    "df.done_description, df.status, df.definition_schema_version, "
+    "df.supersedes_flow_id"
 )
 
 
@@ -176,9 +184,17 @@ def cmd_update_stages(
     if flow is None:
         raise LookupError(f"deployment flow '{flow_id}' not found")
     assert_flow_definition_mutable(conn, flow_id)
+    project = resolve_project_slug(conn, int(flow[0]))
+    validate_stage_references(conn, project=project, stages_json=stages_json)
+    schema_version = definition_schema_version(stages_json)
+    if flow[1] == FLOW_STATUS_ACTIVE:
+        require_supported_definition_schema(
+            schema_version, operation="updating this active deployment flow"
+        )
     conn.execute(
-        "UPDATE deployment_flows SET stages=%s WHERE id=%s",
-        (stages_json, flow_id),
+        "UPDATE deployment_flows SET stages=%s, definition_schema_version=%s "
+        "WHERE id=%s",
+        (stages_json, schema_version, flow_id),
     )
     if description is not None:
         conn.execute(
@@ -190,18 +206,11 @@ def cmd_update_stages(
 
 
 def cmd_describe(conn, flow_id: str, description: str) -> str:
-    """Rewrite a flow's human description without touching its stages.
-
-    The definition-immutability guard exists so that an executed run's
-    history can never be reinterpreted, which is a property of the stage
-    list. A description is documentation about the flow, carries no
-    dispatch semantics, and stays correctable for the life of the flow —
-    otherwise the first run would freeze a flow's prose permanently and
-    operators could never fix a description that turned out to mislead.
-    """
+    """Rewrite an unused flow's description without touching its stages."""
     locked = lock_deployment_flow_rows(conn, (flow_id,), binding=False)
     if locked.get(flow_id) is None:
         raise LookupError(f"deployment flow '{flow_id}' not found")
+    assert_flow_definition_mutable(conn, flow_id)
     conn.execute(
         "UPDATE deployment_flows SET description=%s WHERE id=%s",
         (description, flow_id),
@@ -218,6 +227,15 @@ def cmd_set_status(conn, flow_id: str, status: str) -> str:
     )
     if exists is None:
         raise LookupError(f"deployment flow '{flow_id}' not found")
+    if normalized == FLOW_STATUS_ACTIVE:
+        schema_version = query_scalar(
+            conn,
+            "SELECT definition_schema_version FROM deployment_flows WHERE id=%s",
+            (flow_id,),
+        )
+        require_supported_definition_schema(
+            int(schema_version or 1), operation="activating this deployment flow"
+        )
     conn.execute(
         "UPDATE deployment_flows SET status=%s WHERE id=%s",
         (normalized, flow_id),

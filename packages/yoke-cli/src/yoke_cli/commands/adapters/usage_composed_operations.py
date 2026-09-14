@@ -7,6 +7,12 @@ from yoke_cli.commands.adapters.deployment_composed import (
 from yoke_cli.commands.adapters.deployment_flow_create import (
     USAGE as DEPLOYMENT_FLOWS_CREATE_USAGE,
 )
+from yoke_cli.commands.adapters.deployment_flow_configuration import (
+    REORDER_USAGE as DEPLOYMENT_FLOWS_REORDER_USAGE,
+    UPDATE_USAGE as DEPLOYMENT_FLOWS_UPDATE_USAGE,
+    VALIDATE_USAGE as DEPLOYMENT_FLOWS_VALIDATE_USAGE,
+    VERSION_USAGE as DEPLOYMENT_FLOWS_VERSION_USAGE,
+)
 from yoke_cli.commands.adapters.deployment_run_projection import (
     USAGE as DEPLOYMENT_RUNS_PROJECT_SNAPSHOT_USAGE,
 )
@@ -28,7 +34,11 @@ USAGE_BY_FUNCTION_ID = {
     "github.merge_queue.apply": GITHUB_MERGE_QUEUE_APPLY_USAGE,
     "github.merge_queue.readiness": GITHUB_MERGE_QUEUE_READINESS_USAGE,
     "deployment_flows.create": DEPLOYMENT_FLOWS_CREATE_USAGE,
+    "deployment_flows.reorder": DEPLOYMENT_FLOWS_REORDER_USAGE,
+    "deployment_flows.update": DEPLOYMENT_FLOWS_UPDATE_USAGE,
     "deployment_flows.update_stages": DEPLOYMENT_FLOWS_UPDATE_STAGES_USAGE,
+    "deployment_flows.validate": DEPLOYMENT_FLOWS_VALIDATE_USAGE,
+    "deployment_flows.version": DEPLOYMENT_FLOWS_VERSION_USAGE,
     "deployment_runs.start_for_item": DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE,
     "deployment_runs.project_snapshot": DEPLOYMENT_RUNS_PROJECT_SNAPSHOT_USAGE,
     "ephemeral_env.create": EPHEMERAL_ENV_CREATE_USAGE,

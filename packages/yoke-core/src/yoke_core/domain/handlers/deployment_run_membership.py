@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.deploy_lock import deploy_lock_refusal
@@ -13,12 +13,18 @@ from yoke_core.domain.handlers.deployment_common import error, run_id
 
 class DeploymentRunAddItemRequest(BaseModel):
     run_id: str
+    delivery_intent: Optional[str] = None
+    requirement_ids: List[int] = Field(default_factory=list)
+    plan_ids: List[int] = Field(default_factory=list)
 
 
 class DeploymentRunAddItemResponse(BaseModel):
     run_id: str
     item_id: int
     message: str
+    delivery_intent: Optional[str] = None
+    requirement_ids: List[int] = Field(default_factory=list)
+    plan_ids: List[int] = Field(default_factory=list)
 
 
 class DeploymentRunValidateCompositionRequest(BaseModel):
@@ -88,6 +94,32 @@ def handle_deployment_run_add_item(
             jsonpath="$.payload.run_id",
         )
     resolved_run_id = raw_run_id.strip()
+    delivery_intent = payload.get("delivery_intent")
+    if delivery_intent is not None and not isinstance(delivery_intent, str):
+        return error(
+            "payload_invalid",
+            "delivery_intent must be progress or final",
+            jsonpath="$.payload.delivery_intent",
+        )
+    selections: dict[str, list[int]] = {}
+    for key in ("requirement_ids", "plan_ids"):
+        values = payload.get(key) or []
+        if not isinstance(values, list) or any(
+            isinstance(value, bool) or not isinstance(value, int) or value <= 0
+            for value in values
+        ):
+            return error(
+                "payload_invalid",
+                f"{key} must be an array of positive integer ids",
+                jsonpath=f"$.payload.{key}",
+            )
+        if len(values) != len(set(values)):
+            return error(
+                "payload_invalid",
+                f"{key} must not contain duplicates",
+                jsonpath=f"$.payload.{key}",
+            )
+        selections[key] = values
     if refusal := _require_deploy_lock(
         request,
         resolved_run_id,
@@ -98,7 +130,11 @@ def handle_deployment_run_add_item(
     from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item
 
     try:
-        message = cmd_add_item(resolved_run_id, int(request.target.item_id))
+        kwargs = (
+            {"delivery_intent": delivery_intent} if delivery_intent is not None else {}
+        )
+        kwargs.update({key: values for key, values in selections.items() if values})
+        message = cmd_add_item(resolved_run_id, int(request.target.item_id), **kwargs)
     except LookupError as exc:
         return error("not_found", str(exc))
     except ValueError as exc:
@@ -108,6 +144,8 @@ def handle_deployment_run_add_item(
             "run_id": resolved_run_id,
             "item_id": int(request.target.item_id),
             "message": message,
+            "delivery_intent": delivery_intent,
+            **selections,
         },
         primary_success=True,
     )

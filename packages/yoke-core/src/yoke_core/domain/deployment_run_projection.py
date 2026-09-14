@@ -152,7 +152,9 @@ def project_snapshot(
                 "id,project_id,flow,target_tier,target_environment_id,"
                 "release_lineage,status,"
                 "current_stage,created_at,started_at,completed_at,created_by,"
-                "carried_work) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+                "carried_work,artifact_identity,composition_resolution,"
+                "composition_frozen_at,requirement_snapshot) VALUES ("
+                "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (
                     snapshot["id"],
                     project_id,
@@ -167,12 +169,16 @@ def project_snapshot(
                     snapshot["completed_at"],
                     snapshot["created_by"],
                     snapshot["carried_work"],
+                    snapshot["artifact_identity"],
+                    snapshot["composition_resolution"],
+                    snapshot["composition_frozen_at"],
+                    snapshot["requirement_snapshot"],
                 ),
             )
             outcome = "created"
             changed = list(RUN_FIELDS)
         else:
-            for field in ("project", "flow", "release_lineage"):
+            for field in ("project", "flow", "release_lineage", "artifact_identity"):
                 if existing[field] != snapshot[field]:
                     raise DeploymentRunProjectionCollision(
                         f"deployment run projection collides on {field}"
@@ -188,7 +194,8 @@ def project_snapshot(
                 "UPDATE deployment_runs SET target_tier=%s,"
                 "target_environment_id=%s,status=%s,"
                 "current_stage=%s,created_at=%s,started_at=%s,completed_at=%s,"
-                "created_by=%s,carried_work=%s WHERE id=%s",
+                "created_by=%s,carried_work=%s,composition_resolution=%s,"
+                "composition_frozen_at=%s,requirement_snapshot=%s WHERE id=%s",
                 (
                     snapshot["target_tier"],
                     target_environment_id,
@@ -199,6 +206,9 @@ def project_snapshot(
                     snapshot["completed_at"],
                     snapshot["created_by"],
                     snapshot["carried_work"],
+                    snapshot["composition_resolution"],
+                    snapshot["composition_frozen_at"],
+                    snapshot["requirement_snapshot"],
                     snapshot["id"],
                 ),
             )

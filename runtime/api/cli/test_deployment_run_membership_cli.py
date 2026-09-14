@@ -56,9 +56,10 @@ def test_registry_exposes_membership_commands() -> None:
     assert SUBCOMMAND_REGISTRY[("deployment-runs", "add-item")][0] == (
         "deployment_runs.add_item"
     )
-    assert SUBCOMMAND_REGISTRY[
-        ("deployment-runs", "validate-composition")
-    ][0] == "deployment_runs.validate_composition"
+    assert (
+        SUBCOMMAND_REGISTRY[("deployment-runs", "validate-composition")][0]
+        == "deployment_runs.validate_composition"
+    )
 
 
 def test_add_item_routes_public_ref_for_server_side_resolution() -> None:
@@ -93,6 +94,30 @@ def test_add_item_preserves_project_hint_for_bare_item_ref() -> None:
     request = CAPTURED[-1]
     assert request.target.public_ref == "3048"
     assert request.target.project_id == "yoke"
+
+
+def test_add_item_carries_explicit_slice_requirement_selection() -> None:
+    rc, _out, err = _run(
+        "deployment-runs",
+        "add-item",
+        "run-20260909-001",
+        "YOK-3048",
+        "--intent",
+        "progress",
+        "--requirement-id",
+        "41",
+        "--requirement-id",
+        "43",
+        "--plan-id",
+        "9",
+    )
+    assert rc == 0, err
+    assert CAPTURED[-1].payload == {
+        "run_id": "run-20260909-001",
+        "delivery_intent": "progress",
+        "requirement_ids": [41, 43],
+        "plan_ids": [9],
+    }
 
 
 def test_validate_composition_routes_run_target() -> None:

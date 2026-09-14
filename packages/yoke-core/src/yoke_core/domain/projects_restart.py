@@ -12,7 +12,8 @@ import json
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.db_backend import connection_is_postgres
-from yoke_core.domain.db_helpers import connect, iso8601_now, query_rows
+from yoke_core.domain import db_helpers
+from yoke_core.domain.db_helpers import iso8601_now, query_rows
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.project_github_capability_settings import (
     normalize_github_capability_type,
@@ -57,6 +58,7 @@ def _ensure_column(conn, table: str, column: str, ddl: str) -> None:
 # Schema helpers
 # ---------------------------------------------------------------------------
 
+
 def _table_exists(conn, table_name: str) -> bool:
     return _schema_table_exists(conn, table_name)
 
@@ -66,12 +68,20 @@ def _has_column(conn, table_name: str, column_name: str) -> bool:
 
 
 # Secret-key heuristic patterns used by config-split migration
-_SECRET_PATTERNS = ("token", "secret", "password", "api_key", "access_key", "private_key")
+_SECRET_PATTERNS = (
+    "token",
+    "secret",
+    "password",
+    "api_key",
+    "access_key",
+    "private_key",
+)
 
 
 # ---------------------------------------------------------------------------
 # Config-split migration helper
 # ---------------------------------------------------------------------------
+
 
 def _migrate_config_split(conn) -> None:
     """Split the unified ``config`` JSON into ``settings`` + ``capability_secrets``.
@@ -145,27 +155,40 @@ def _migrate_config_split(conn) -> None:
 # init
 # ---------------------------------------------------------------------------
 
+
 def cmd_init(db_path: Optional[str] = None) -> None:
     """Create project-registry tables, run migrations, and seed data."""
-    conn = connect(db_path)
+    # Resolve the connection at call time.  Handler tests legitimately replace
+    # ``db_helpers.connect`` while lazily importing the projects facade; keeping
+    # that temporary callable here would poison every later bootstrap in the
+    # same process after the test restores the module attribute.
+    conn = db_helpers.connect(db_path)
     try:
         create_project_registry_tables(conn)
 
         # --- Idempotent migrations (retired-schema-guarded ADD COLUMN) ---
         _ensure_column(
-            conn, "projects", "emoji",
+            conn,
+            "projects",
+            "emoji",
             "ALTER TABLE projects ADD COLUMN emoji TEXT DEFAULT ''",
         )
         _ensure_column(
-            conn, "projects", "github_repo",
+            conn,
+            "projects",
+            "github_repo",
             "ALTER TABLE projects ADD COLUMN github_repo TEXT",
         )
         _ensure_column(
-            conn, "project_capabilities", "settings",
+            conn,
+            "project_capabilities",
+            "settings",
             "ALTER TABLE project_capabilities ADD COLUMN settings TEXT DEFAULT '{}'",
         )
         _ensure_column(
-            conn, "ephemeral_environments", "deployed_sha",
+            conn,
+            "ephemeral_environments",
+            "deployed_sha",
             "ALTER TABLE ephemeral_environments ADD COLUMN deployed_sha TEXT",
         )
 
@@ -187,6 +210,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
 # resolve-deploy-envs
 # ---------------------------------------------------------------------------
 
+
 def cmd_resolve_deploy_envs(
     project: str,
     db_path: Optional[str] = None,
@@ -199,7 +223,7 @@ def cmd_resolve_deploy_envs(
 
     Returns newline-separated environment names (sorted), or None if none found.
     """
-    conn = connect(db_path)
+    conn = db_helpers.connect(db_path)
     try:
         ident = resolve_project(conn, project)
         assert ident is not None

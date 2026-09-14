@@ -48,6 +48,10 @@ def _snapshot(**overrides: Any) -> dict[str, Any]:
         "completed_at": "2026-07-30T00:03:00Z",
         "created_by": "release-control-plane",
         "carried_work": {"schema": 1, "items": [], "commits": []},
+        "artifact_identity": '{"digest":"sha256:abc"}',
+        "composition_resolution": "first governed release baseline",
+        "composition_frozen_at": "2026-07-30T00:01:30Z",
+        "requirement_snapshot": '{"schema":1,"selections":[]}',
     }
     row.update(overrides)
     assert set(row) == set(RUN_FIELDS)

@@ -9,7 +9,11 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_run_target_resolution import (
     coerce_target_environment_id,
 )
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.deployment_flow_policy import (
+    LEGACY_DEFINITION_SCHEMA_VERSION,
+    require_supported_definition_schema,
+)
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
 FLOW_STATUS_ACTIVE = "active"
@@ -74,6 +78,17 @@ def require_flow_for_new_run(
         raise ValueError(
             f"deployment flow '{flow_id}' is {status} and cannot start new runs"
         )
+    schema_version = LEGACY_DEFINITION_SCHEMA_VERSION
+    if _column_exists(conn, "deployment_flows", "definition_schema_version"):
+        version_row = conn.execute(
+            f"SELECT definition_schema_version FROM deployment_flows WHERE id={_p(conn)}",
+            (flow_id,),
+        ).fetchone()
+        if version_row is not None:
+            schema_version = int(version_row[0] or LEGACY_DEFINITION_SCHEMA_VERSION)
+    require_supported_definition_schema(
+        schema_version, operation=f"starting deployment flow {flow_id!r}"
+    )
     return flow_project_id, target_tier, target_environment_id
 
 

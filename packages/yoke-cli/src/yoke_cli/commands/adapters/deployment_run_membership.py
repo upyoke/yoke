@@ -17,11 +17,11 @@ from yoke_contracts.api.function_call import TargetRef
 
 ADD_ITEM_USAGE = (
     "yoke deployment-runs add-item RUN-ID PREFIX-N "
-    "[--project P] [--session-id S] [--json]"
+    "[--project P] [--intent progress|final] [--requirement-id N ...] "
+    "[--plan-id N ...] [--session-id S] [--json]"
 )
 VALIDATE_COMPOSITION_USAGE = (
-    "yoke deployment-runs validate-composition RUN-ID "
-    "[--session-id S] [--json]"
+    "yoke deployment-runs validate-composition RUN-ID [--session-id S] [--json]"
 )
 
 
@@ -36,6 +36,9 @@ def deployment_runs_add_item(args: List[str]) -> int:
     parser.add_argument("run_id")
     parser.add_argument("item")
     parser.add_argument("--project")
+    parser.add_argument("--intent", choices=("progress", "final"), default=None)
+    parser.add_argument("--requirement-id", type=int, action="append", default=[])
+    parser.add_argument("--plan-id", type=int, action="append", default=[])
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ADD_ITEM_USAGE)
@@ -46,10 +49,17 @@ def deployment_runs_add_item(args: List[str]) -> int:
         del stderr
         print((response.result or {}).get("message", ""), file=stdout)
 
+    payload = {"run_id": parsed.run_id}
+    if parsed.intent is not None:
+        payload["delivery_intent"] = parsed.intent
+    if parsed.requirement_id:
+        payload["requirement_ids"] = parsed.requirement_id
+    if parsed.plan_id:
+        payload["plan_ids"] = parsed.plan_id
     return dispatch_and_emit(
         function_id="deployment_runs.add_item",
         target=item_target("item", parsed.item, parsed.project),
-        payload={"run_id": parsed.run_id},
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,

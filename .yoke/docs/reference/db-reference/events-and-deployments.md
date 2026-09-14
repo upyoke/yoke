@@ -102,6 +102,10 @@ started_at TEXT -- when execution actually began
 completed_at TEXT
 created_by TEXT -- 'operator' or 'system'
 carried_work TEXT -- → JSONB on Postgres; resolved items and unresolved commit SHAs
+artifact_identity TEXT -- optional immutable build artifact identity, distinct from release_lineage
+composition_resolution TEXT -- explicit first-baseline attribution resolution
+composition_frozen_at TEXT -- immutable admission-freeze timestamp
+requirement_snapshot TEXT -- full flow-level QA plan/case content frozen at start
 ```
 
 A run copies the internal `target_tier` and `target_environment_id` from its flow. Operators select or override a persistent target only with `--environment <registered-name>`; numeric keys are never accepted or emitted by the operator surface. Setting `status=succeeded` stamps `environments.last_deployed_at` on the referenced row.
@@ -115,6 +119,16 @@ unreachable lineage. This record never enrolls those items in
 `deployment_run_items` and never changes their lifecycle state. Historical
 runs remain unset; recording is forward-only.
 
+Definition-schema-v2 runs freeze admission before execution. The candidate
+`release_lineage` must be a full commit SHA; every nonterminal delivery-ready
+change carried by that candidate must be a member, while done history,
+merge-only flows, Task items, and Epic task graphs are not admitted implicitly.
+The run records the shared artifact identity, an immutable composition digest,
+the effective flow for every member, and full recoverable QA requirement/plan
+content. Missing first-baseline attribution must be resolved explicitly before
+start. Cancellation preserves the frozen evidence. Schema-v1 and item-less
+environment runs retain their legacy start behavior.
+
 ## Table: deployment_run_items
 
 Membership table linking items to deployment runs. Zero rows for a run are valid when the run is an environment-level deploy with no attached backlog item; do not infer failure from item-less membership after the run has started executing.
@@ -123,10 +137,13 @@ Membership table linking items to deployment runs. Zero rows for a run are valid
 run_id TEXT NOT NULL REFERENCES deployment_runs(id)
 item_id INTEGER NOT NULL -- backlog item numeric ID
 added_at TEXT NOT NULL -- app-supplied ISO-8601 UTC; see "Timestamp discipline" below
+delivery_intent TEXT -- progress | final
+requirement_selection TEXT -- explicit member requirement/plan IDs selected for admission
+requirement_snapshot TEXT -- full selected requirement, plan, case, and attachment content
 PRIMARY KEY (run_id, item_id)
 ```
 
-Item-bound delivery starts from `/yoke usher PREFIX-N` or `yoke deployment-runs start-for-item`, which creates the run and inserts membership rows.
+Item-bound delivery starts from `/yoke usher PREFIX-N` or `yoke deployment-runs start-for-item`, which creates the run and inserts membership rows. For repeated continuous-slice delivery, intent is `progress` until the workflow's final predecessor and `final` at that final delivery posture. Member admission accepts explicit repeated `--requirement-id` and `--plan-id` selections; it never rolls every item requirement into a release by default.
 
 ### The deploy lock gates create and execute
 

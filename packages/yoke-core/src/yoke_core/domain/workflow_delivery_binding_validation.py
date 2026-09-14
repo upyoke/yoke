@@ -9,7 +9,13 @@ from yoke_core.domain.workflow_item_binding_validation import (
     WorkflowItemBindingError,
     item_binding_runtime_state,
 )
-from yoke_core.domain.workflow_runtime import WorkflowRuntime
+from yoke_core.domain.workflow_runtime import (
+    WorkflowRuntime,
+    load_item_workflow_runtime,
+)
+
+
+COMPLETED_ITEM_STAGE_ID = "done"
 
 
 def delivery_ready_for_stage(runtime: WorkflowRuntime, status: str) -> bool:
@@ -32,14 +38,14 @@ def delivery_ready_for_stage(runtime: WorkflowRuntime, status: str) -> bool:
     return False
 
 
-def validate_deployment_run_item(
+def _validate_deployment_run_item_state(
     conn: Any,
     *,
     run_id: str,
     item_id: int,
+    state: tuple[WorkflowRuntime, str] | None,
+    allow_completed: bool,
 ) -> None:
-    """Require project, flow, and delivery-stage compatibility."""
-    state = item_binding_runtime_state(conn, int(item_id))
     if state is None:
         return
     runtime, status = state
@@ -66,11 +72,76 @@ def validate_deployment_run_item(
         raise WorkflowItemBindingError(
             f"item {item_id} selects deployment flow {item_flow!r}, not {run_flow!r}"
         )
+    if allow_completed and status == COMPLETED_ITEM_STAGE_ID:
+        return
     if not delivery_ready_for_stage(runtime, status):
         raise WorkflowItemBindingError(
             f"item {item_id} workflow {runtime.workflow_id}@{runtime.version} "
             f"is not delivery-ready at stage {status!r}"
         )
+
+
+def validate_deployment_run_item(
+    conn: Any,
+    *,
+    run_id: str,
+    item_id: int,
+) -> None:
+    """Require project, flow, and delivery-stage compatibility for admission."""
+    _validate_deployment_run_item_state(
+        conn,
+        run_id=run_id,
+        item_id=int(item_id),
+        state=item_binding_runtime_state(conn, int(item_id)),
+        allow_completed=False,
+    )
+
+
+def attached_item_binding_runtime_state(
+    conn: Any,
+    item_id: int,
+) -> tuple[WorkflowRuntime, str] | None:
+    """Load an established run member, including later completion.
+
+    New bindings still go through ``item_binding_runtime_state`` and reject
+    every terminal item.  An item that was admitted while delivery-ready may
+    reach its workflow's successful ``done`` stage before its run starts;
+    that completion preserves the established membership.  Engine terminal
+    states such as ``cancelled`` and ``stopped`` remain refusals.
+    """
+    try:
+        return item_binding_runtime_state(conn, int(item_id))
+    except WorkflowItemBindingError:
+        marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+        row = conn.execute(
+            f"SELECT status FROM items WHERE id = {marker}",
+            (int(item_id),),
+        ).fetchone()
+        if row is None:
+            raise
+        status = str(row["status"] if hasattr(row, "keys") else row[0])
+        if status != COMPLETED_ITEM_STAGE_ID:
+            raise
+        runtime = load_item_workflow_runtime(conn, int(item_id))
+        if status not in runtime.terminal_stage_ids:
+            raise
+        return runtime, status
+
+
+def validate_attached_deployment_run_item(
+    conn: Any,
+    *,
+    run_id: str,
+    item_id: int,
+) -> None:
+    """Revalidate established membership without re-admitting completed work."""
+    _validate_deployment_run_item_state(
+        conn,
+        run_id=run_id,
+        item_id=int(item_id),
+        state=attached_item_binding_runtime_state(conn, int(item_id)),
+        allow_completed=True,
+    )
 
 
 def validate_deployment_run_items(
@@ -80,7 +151,7 @@ def validate_deployment_run_items(
     item_ids: Iterable[int],
 ) -> None:
     for item_id in item_ids:
-        validate_deployment_run_item(
+        validate_attached_deployment_run_item(
             conn,
             run_id=run_id,
             item_id=int(item_id),
@@ -88,7 +159,10 @@ def validate_deployment_run_items(
 
 
 __all__ = [
+    "COMPLETED_ITEM_STAGE_ID",
+    "attached_item_binding_runtime_state",
     "delivery_ready_for_stage",
+    "validate_attached_deployment_run_item",
     "validate_deployment_run_item",
     "validate_deployment_run_items",
 ]

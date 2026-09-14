@@ -19,6 +19,7 @@ from yoke_cli.commands._helpers import (
     run_id_receipt,
     usage_error,
 )
+from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 from yoke_cli.commands.adapters.deployment_owner_authority import (
     https_product_plane_create_error,
 )
@@ -59,15 +60,18 @@ def _execute_authority() -> str:
     active = os.environ.get(ENV_OVERRIDE, "").strip()
     if not active:
         return ""
-    base = active[: -len(DB_ADMIN_ENV_SUFFIX)] if active.endswith(
-        DB_ADMIN_ENV_SUFFIX
-    ) else active
+    base = (
+        active[: -len(DB_ADMIN_ENV_SUFFIX)]
+        if active.endswith(DB_ADMIN_ENV_SUFFIX)
+        else active
+    )
     return f"{base}{DB_ADMIN_ENV_SUFFIX}" if base else ""
 
 
 DEPLOYMENT_RUNS_CREATE_USAGE = (
     "yoke deployment-runs create PROJECT FLOW [--environment ENV] "
     "[--project-repo-path PATH --source-ref REF | --retry-of RUN-ID] "
+    "[--artifact-json JSON | --artifact-file PATH] "
     "[--created-by WHO] [--allow-pin-regression] [--session-id S] [--json]"
 )
 
@@ -104,6 +108,13 @@ def deployment_runs_create(args: List[str]) -> int:
             "cancelled deployment run."
         ),
     )
+    artifact_group = parser.add_mutually_exclusive_group()
+    add_text_file_pair(
+        artifact_group,
+        "--artifact-json",
+        "--artifact-file",
+        dest="artifact_identity",
+    )
     parser.add_argument(
         "--allow-pin-regression",
         action="store_true",
@@ -118,11 +129,14 @@ def deployment_runs_create(args: List[str]) -> int:
     if parsed is None:
         return 2
     if parsed.retry_of and parsed.project_repo_path:
-        return usage_error(
-            "--retry-of cannot be combined with --project-repo-path"
-        )
+        return usage_error("--retry-of cannot be combined with --project-repo-path")
     if parsed.retry_of and "--source-ref" in args:
         return usage_error("--retry-of cannot be combined with --source-ref")
+    if parsed.retry_of and (
+        parsed.artifact_identity is not None
+        or parsed.artifact_identity_file is not None
+    ):
+        return usage_error("--retry-of cannot be combined with artifact identity")
     owner_error = https_product_plane_create_error("deployment-runs create")
     if owner_error is not None:
         print(f"Error: {owner_error}", file=sys.stderr)
@@ -142,6 +156,18 @@ def deployment_runs_create(args: List[str]) -> int:
     }
     if parsed.retry_of is not None:
         payload["retry_of"] = parsed.retry_of
+    if (
+        parsed.artifact_identity is not None
+        or parsed.artifact_identity_file is not None
+    ):
+        try:
+            payload["artifact_identity"] = resolve_text_file(
+                parsed.artifact_identity,
+                parsed.artifact_identity_file,
+                "--artifact-file",
+            )
+        except ValueError as exc:
+            return usage_error(str(exc))
     if parsed.project_repo_path is not None:
         try:
             payload["release_lineage"] = resolve_commit_lineage(
@@ -162,7 +188,8 @@ def deployment_runs_create(args: List[str]) -> int:
         function_id="deployment_runs.create",
         target=TargetRef(kind="global"),
         payload=payload,
-        session_id=parsed.session_id, json_mode=parsed.json_mode,
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
 

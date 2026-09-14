@@ -16,6 +16,11 @@ from yoke_core.domain.deployment_flow_state import (
     FLOW_STATUS_ACTIVE,
     validate_flow_status,
 )
+from yoke_core.domain.deployment_flow_policy import (
+    definition_schema_version,
+    require_supported_definition_schema,
+    validate_stage_references,
+)
 from yoke_core.domain.flow_target import resolve_flow_target
 from yoke_core.domain.flow_validation import (
     require_human_approval_addresses,
@@ -36,6 +41,7 @@ def cmd_create(
     environment: Optional[str] = None,
     done_description: Optional[str] = None,
     status: str = FLOW_STATUS_ACTIVE,
+    supersedes_flow_id: Optional[str] = None,
 ) -> str:
     """Insert one deployment flow.
 
@@ -46,7 +52,13 @@ def cmd_create(
     """
     validate_stages(stages_json)
     require_human_approval_addresses(stages_json)
-    validate_flow_status(status)
+    normalized_status = validate_flow_status(status)
+    schema_version = definition_schema_version(stages_json)
+    if normalized_status == FLOW_STATUS_ACTIVE:
+        require_supported_definition_schema(
+            schema_version, operation="activating this deployment flow"
+        )
+    validate_stage_references(conn, project=project, stages_json=stages_json)
     target_environment_id = resolve_flow_target(
         conn,
         project=project,
@@ -61,8 +73,9 @@ def cmd_create(
     conn.execute(
         "INSERT INTO deployment_flows "
         "(id, project_id, name, description, stages, on_failure, created_at, "
-        "target_tier, target_environment_id, done_description, status) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        "target_tier, target_environment_id, done_description, status, "
+        "definition_schema_version, supersedes_flow_id) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (
             flow_id,
             ident.id,
@@ -74,7 +87,9 @@ def cmd_create(
             target_tier,
             target_environment_id,
             done_description,
-            status,
+            normalized_status,
+            schema_version,
+            supersedes_flow_id,
         ),
     )
     conn.commit()

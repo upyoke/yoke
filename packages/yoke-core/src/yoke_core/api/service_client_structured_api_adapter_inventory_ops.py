@@ -46,6 +46,22 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-flows create FLOW-ID --project P",
     ),
     AdapterEntry(
+        function_id="deployment_flows.update",
+        cli_invocation="yoke deployment-flows update FLOW-ID [definition options]",
+    ),
+    AdapterEntry(
+        function_id="deployment_flows.reorder",
+        cli_invocation="yoke deployment-flows reorder FLOW-ID --order NAME,NAME",
+    ),
+    _read_entry(
+        function_id="deployment_flows.validate",
+        cli_invocation="yoke deployment-flows validate --project P --stages-file PATH",
+    ),
+    AdapterEntry(
+        function_id="deployment_flows.version",
+        cli_invocation=("yoke deployment-flows version SOURCE NEW --name NAME"),
+    ),
+    AdapterEntry(
         function_id="deployment_flows.update_stages",
         cli_invocation="yoke deployment-flows update-stages FLOW-ID --stages-file PATH",
     ),
@@ -59,9 +75,7 @@ OPS_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         function_id="deployment_runs.project_snapshot",
-        cli_invocation=(
-            "yoke deployment-runs project-snapshot --snapshot-file PATH"
-        ),
+        cli_invocation=("yoke deployment-runs project-snapshot --snapshot-file PATH"),
     ),
     AdapterEntry(
         function_id="deployment_runs.approve",

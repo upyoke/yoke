@@ -54,14 +54,20 @@ def smoke_cli_patches(dispatch_stub: Callable) -> Iterator[None]:
             "yoke_cli.commands.adapters.strategy_render.call_dispatcher",
         ):
             stack.enter_context(patch(target, side_effect=call_stub))
-        stack.enter_context(patch(
-            "yoke_cli.transport.https.resolve_https_connection",
-            return_value=None,
-        ))
-        stack.enter_context(patch(
-            "yoke_cli.commands._helpers."
-            "ensure_handlers_loaded"
-        ))
+        stack.enter_context(
+            patch(
+                "yoke_cli.transport.https.resolve_https_connection",
+                return_value=None,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "yoke_cli.commands.adapters.deployment_stage_approval."
+                "serving_control_plane_env",
+                return_value=None,
+            )
+        )
+        stack.enter_context(patch("yoke_cli.commands._helpers.ensure_handlers_loaded"))
         yield
 
 
