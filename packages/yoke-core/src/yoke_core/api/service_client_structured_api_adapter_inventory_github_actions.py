@@ -40,12 +40,13 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
             "[<commit-sha>] [--branch BRANCH] --project <project>"
         ),
         notes=(
-            "Commit SHA and/or --branch; result.ref_sha is the named "
-            "branch tip, distinct from the run's head_sha. A caller "
-            "invoked before its own release has shipped this field must "
-            "treat an absent ref_sha as unavailable, not as a stale-head "
-            "fallback. Wrong guess: keying reuse on floating main or "
-            "GITHUB_RUN_ATTEMPT."
+            "Commit SHA and/or --branch; result.head_sha is the matched "
+            "run's own commit, not a branch tip. Trunk resolution for a "
+            "consumer-project input binding lives in the deploy pipeline's "
+            "own driver (deploy_pipeline_github_workflow_bindings), via a "
+            "plain git ls-remote against the project's registered "
+            "checkout, not this call. Wrong guess: keying reuse on "
+            "floating main or GITHUB_RUN_ATTEMPT."
         ),
     ),
     _read_entry(

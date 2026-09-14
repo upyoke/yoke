@@ -79,7 +79,7 @@ def test_packaged_snapshot_excludes_repo_internal_teaching() -> None:
     markers = (
         "# Yoke Repo Internals",
         "origin/cla-signatures",
-        "yoke-hosted-stage-typed-target",
+        "yoke-hosted-stage-consumer-bound",
     )
     offenders = []
     for path in PACKAGED_ROOT.rglob("*"):
