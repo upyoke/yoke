@@ -105,7 +105,7 @@ def test_truly_unarmed_pull_request_is_reported_not_in_flight(monkeypatch) -> No
 
 
 def test_a_red_required_check_stops_an_armed_not_enqueued_landing(monkeypatch) -> None:
-    """FN50023: armed-but-not-yet-queued must not read as a healthy wait.
+    """Armed-but-not-yet-queued must not read as a healthy wait.
 
     The pull request's own required check already concluded red, so GitHub
     will never create the queue entry, whatever the arming field says.
