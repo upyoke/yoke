@@ -242,9 +242,8 @@ outside it. Keep independent work moving while one item waits.
 
 ### 6. Deploy merged work in batches
 
-Workers merge but never create or dispatch deployment runs. The steerer owns
-batch delivery through the **prod control-plane** db-admin connection, even
-when the target environment is stage.
+Workers merge but never create or dispatch deployment runs. The steerer owns batch delivery through the **prod control-plane** connection even when the target environment is stage.
+Ordinary external delivery works over HTTPS; only a release replacing prod's own serving API uses `prod-db-admin` named by the refusal.
 
 **Take the project's deploy lock before the first run and hold it through the
 whole pair.** Creating a run and executing one both refuse without it, so one
@@ -258,10 +257,10 @@ yoke claims coordination-claim acquire --project {_project} --key DEPLOY:{_proje
 Pin one source SHA and use that same SHA for stage and production:
 
 ```text
-yoke --env <cp>-db-admin deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA}
-yoke --env <cp>-db-admin deployment-runs add-item {RUN_ID} PREFIX-N
-yoke --env <cp>-db-admin deployment-runs validate-composition {RUN_ID}
-yoke --env <cp>-db-admin watch deploy -- {RUN_ID}
+yoke --env <cp> deployment-runs create {_project} {FLOW} --environment {ENV} --project-repo-path {CHECKOUT} --source-ref {PINNED_SHA}
+yoke --env <cp> deployment-runs add-item {RUN_ID} PREFIX-N
+yoke --env <cp> deployment-runs validate-composition {RUN_ID}
+yoke --env <cp> watch deploy -- {RUN_ID}
 ```
 
 Repeat `add-item` once for every item in the batch, using its public reference.
@@ -273,7 +272,7 @@ left `created`.
 Retry from the recorded run instead of silently creating unrelated lineage:
 
 ```text
-yoke --env <cp>-db-admin deployment-runs create {_project} {FLOW} --retry-of {RUN_ID}
+yoke --env <cp> deployment-runs create {_project} {FLOW} --retry-of {RUN_ID}
 ```
 
 After the batch succeeds, finish every item parked at its release boundary.

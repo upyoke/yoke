@@ -3,9 +3,10 @@
 Operators discover the path through ``--help`` on resolve-target,
 create, the deployment-runs group, and watch deploy. Keep wording
 project-generic. The resolved environment is the deploy destination; the
-``--env …-db-admin`` connection at execute time is the control plane
-that owns the run row — verify the resolved destination rather than
-assuming the two names match.
+selected ``--env`` connection at execute time is the control plane that owns
+the run row — verify the resolved destination rather than assuming the two
+names match. Only a deployment targeting that control plane's own serving API
+needs its paired local ``*-db-admin`` connection.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ INTERRUPTED_RUN_RECOVERY = """\
 Interrupted driver (watch/execute died; GitHub kept going): re-drive the
 SAME run id. The dispatch correlation token reattaches to the workflow
 already started and does not fire a second release.
-  yoke --env CONTROL-PLANE-db-admin watch deploy -- RUN-ID
+  yoke --env CONTROL-PLANE watch deploy -- RUN-ID
 If the driver exits 4 (deploy succeeded, finalization pending), stages
 already finished — re-drive the same run id to land the succeeded stamp.
 `deployment-runs terminalize` only records failed or cancelled. Do not
@@ -31,20 +32,20 @@ Itemless environment release (project-generic):
   # tier|environment-name of the flow's registered target:
   yoke deployment-runs resolve-target PROJECT FLOW
   # Verify the environment name is the deploy destination — do not assume
-  # it matches the control-plane connection name used at create/execute
-  # time. Create and execute both use the owner-only local-postgres
-  # connection so run rows stay writable when the HTTPS product plane is
-  # the deploy target. The run copies the flow's registered environment;
-  # pass --environment ENV only to override it.
-  RUN_ID=$(yoke --env CONTROL-PLANE-db-admin deployment-runs create PROJECT FLOW \\
+  # it matches the selected control-plane connection name. Ordinary external
+  # delivery is fully supported over HTTPS. If the target is this control
+  # plane's own serving API, the CLI refuses and names the paired *-db-admin
+  # connection required for that self-deploy. The run copies the flow's
+  # registered environment; pass --environment ENV only to override it.
+  RUN_ID=$(yoke --env CONTROL-PLANE deployment-runs create PROJECT FLOW \\
     --project-repo-path /path/to/checkout \\
     --source-ref origin/main)
-  yoke --env CONTROL-PLANE-db-admin watch deploy -- "$RUN_ID"
+  yoke --env CONTROL-PLANE watch deploy -- "$RUN_ID"
 
 Retry a failed or cancelled run without following a moving branch:
-  RETRY_ID=$(yoke --env CONTROL-PLANE-db-admin deployment-runs create \
+  RETRY_ID=$(yoke --env CONTROL-PLANE deployment-runs create \
     PROJECT FLOW --retry-of FAILED_RUN_ID)
-  yoke --env CONTROL-PLANE-db-admin watch deploy -- "$RETRY_ID"
+  yoke --env CONTROL-PLANE watch deploy -- "$RETRY_ID"
 
 """
     + INTERRUPTED_RUN_RECOVERY
@@ -61,22 +62,23 @@ RESOLVE_TARGET_DESCRIPTION = (
 CREATE_DESCRIPTION = (
     "Create a zero-member environment deployment run. Item-bound "
     "delivery uses `yoke usher` / `yoke deployment-runs start-for-item` instead. "
-    "Requires the configured same-universe owner-only local-postgres "
-    "connection, not the HTTPS product plane — run records must stay "
-    "writable when that plane is the deploy target. Creation does not "
+    "Uses the selected control-plane transport, including HTTPS for ordinary "
+    "external delivery. Creation does not "
     "execute: the run stays 'created' until an operator drives it through "
-    "the same owning control-plane db-admin connection with "
-    "`yoke watch deploy`."
+    "the same control-plane connection with `yoke watch deploy`. A true "
+    "self-deploy of that connection's serving API requires its paired local "
+    "`*-db-admin` connection; the CLI identifies it when refusing HTTPS."
 )
 
 WATCH_DEPLOY_DESCRIPTION = (
     "Run a Yoke deployment pipeline under a shared raw+progress "
     "watcher. For an itemless environment release, resolve the flow's "
     "target, create the run with --project-repo-path and --source-ref, "
-    "then drive it here through the control-plane db-admin connection. "
+    "then drive it here through the same control-plane connection. "
     "Verify the resolved environment rather than assuming it matches the "
     "--env connection name. Re-driving the same run recovers an interrupted "
-    "driver by correlation token instead of dispatching a second release."
+    "driver by correlation token instead of dispatching a second release. "
+    "Only serving-API self-deploys require the paired local db-admin env."
 )
 
 

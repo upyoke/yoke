@@ -20,8 +20,8 @@ ephemeral-env get/create/update` wrappers. Read the project's policy through
 ephemeral-env --json`; `result.settings_json` declares `trigger`,
 `preview_domain`, and, for flow-triggered projects, `flow_id`. GitHub-triggered
 projects use the registered `yoke github-actions ...` family. Flow-triggered
-projects use the registered deployment-run composer plus the retained
-owner-only deployment step runner.
+projects use the registered deployment-run composer and transport-aware
+deployment step runner.
 
 **Prerequisite:** The item's project must have the `ephemeral-env`
 capability. Dispatch the `projects.capability.has` function call
@@ -87,11 +87,11 @@ For `flow`:
 2. Compose the item-bound run with `yoke deployment-runs start-for-item
    PREFIX-<id> --project <project> --flow <flow_id> --target-env ephemeral
    --json` and record its run id plus `status=starting` on the environment.
-3. Read `yoke status --json`. Use the selected connection's owner-only
-   `<connection>-db-admin` sibling only if it appears in `connection.envs`;
-   never store that machine-local profile name in project settings.
-4. Execute `yoke --env <connection>-db-admin deployment-runs execute <run-id>
-   --product-repo-path <worktree-path>`. The generic `ephemeral-deploy`
+3. Execute `yoke --env <connection> deployment-runs execute <run-id>
+   --product-repo-path <worktree-path>`. Ordinary external delivery works over
+   HTTPS. If this is a serving-API self-deploy, use the paired
+   `<connection>-db-admin` profile named by the refusal; never store that
+   machine-local profile name in project settings. The generic `ephemeral-deploy`
    step runner reads the source project's policy and project-owned Pack files,
    while `host_project` supplies the environment and provider authority.
 

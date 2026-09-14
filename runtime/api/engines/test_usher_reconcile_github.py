@@ -20,23 +20,16 @@ def wired(monkeypatch):
     emitted_events = []
     dispatched = []
 
-    def fake_yoke_db(*args, sd=None):
-        del sd
-        if args[:2] == ("items", "get") and len(args) > 3 and args[3] == "deploy_stage":
-            return item_state["deploy_stage"]
-        if args[:2] == ("runs", "get"):
-            return "run-X|yoke|yoke-hosted-production|production|abc|failed|hosted-release|2026-05-19T00:00:00Z"
-        return ""
-
-    def fake_flow_db(*args, sd=None):
-        del sd
-        if args[0] == "stages":
-            return '[{"name":"prod-deploy","step_runner":"github-actions-workflow","workflow":"deploy.yml"}]'
-        return ""
-
-    def fake_find_by_item(item_id, status=None, db_path=None):
-        del status, db_path
-        return "run-X|failed|prod-deploy|2026-05-19T00:00:00Z" if item_id == 42 else ""
+    def fake_execution_context(run_id):
+        assert run_id == "run-X"
+        return {
+            "run": {"project": "yoke", "flow": "yoke-hosted-production"},
+            "stages": [{
+                "name": "prod-deploy",
+                "step_runner": "github-actions-workflow",
+                "workflow": "deploy.yml",
+            }],
+        }
 
     def fake_run_cmd(cmd, timeout=60):
         del timeout
@@ -64,13 +57,17 @@ def wired(monkeypatch):
         item_state["deploy_stage"] = request.payload["value"]
         return SimpleNamespace(success=True)
 
-    monkeypatch.setattr(mod, "_yoke_db", fake_yoke_db)
+    monkeypatch.setattr(
+        mod, "_item_deploy_stage", lambda _item_id: item_state["deploy_stage"]
+    )
+    monkeypatch.setattr(mod, "_resolve_run_for_item", lambda _item_id: "run-X")
+    monkeypatch.setattr(mod.control_plane, "execution_context", fake_execution_context)
+    monkeypatch.setattr(mod, "checkout_for_project_slug", lambda _project: None)
     monkeypatch.setattr(
         mod,
         "resolve_project_github_auth",
         lambda project: SimpleNamespace(project=project, repo="anthropics/yoke"),
     )
-    monkeypatch.setattr(mod, "_flow_db", fake_flow_db)
     monkeypatch.setattr(mod, "_run_cmd", fake_run_cmd)
     monkeypatch.setattr(mod, "_github_actions", fake_github_actions)
     monkeypatch.setattr(mod, "_emit_run_event", fake_emit_run_event)
@@ -78,10 +75,6 @@ def wired(monkeypatch):
         mod,
         "_display_item_ref",
         lambda item_id: f"YOK-{item_id}",
-    )
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_runs_crud_query.cmd_find_by_item",
-        fake_find_by_item,
     )
     monkeypatch.setattr(
         "yoke_core.domain.yoke_function_dispatch.dispatch", fake_dispatch,
@@ -92,7 +85,7 @@ def wired(monkeypatch):
         dispatched=dispatched,
     )
 
-def test_ac2_alignment_emits_event_and_clears_deploy_stage(wired):
+def test_alignment_emits_event_and_clears_deploy_stage(wired):
     result = mod.reconcile_item(42)
 
     assert result.outcome == "aligned"
@@ -121,7 +114,7 @@ def test_ac2_alignment_emits_event_and_clears_deploy_stage(wired):
     assert wired.item_state["deploy_stage"] == "prod-deploy"
 
 @pytest.mark.parametrize("gh_stdout", ["failed:failure", "failed:cancelled", "failed:timed_out"])
-def test_ac3_gh_failure_does_not_mutate(wired, monkeypatch, gh_stdout):
+def test_github_failure_does_not_mutate(wired, monkeypatch, gh_stdout):
     def gh(*args, project, sd=None, timeout=60):
         del sd, timeout
         assert project == "yoke"
@@ -141,7 +134,7 @@ def test_ac3_gh_failure_does_not_mutate(wired, monkeypatch, gh_stdout):
     assert wired.item_state["deploy_stage"] == "prod-deploy-failed"
 
 @pytest.mark.parametrize("rc, status", [(2, "waiting"), (3, "in_progress")])
-def test_ac4_gh_running_does_not_mutate(wired, monkeypatch, rc, status):
+def test_github_running_does_not_mutate(wired, monkeypatch, rc, status):
     def gh(*args, project, sd=None, timeout=60):
         del sd, timeout
         assert project == "yoke"
@@ -160,7 +153,7 @@ def test_ac4_gh_running_does_not_mutate(wired, monkeypatch, rc, status):
     assert wired.dispatched == []
     assert wired.item_state["deploy_stage"] == "prod-deploy-failed"
 
-def test_ac5_unresolved_run_id_errors_without_mutating(wired, monkeypatch):
+def test_unresolved_run_id_errors_without_mutating(wired, monkeypatch):
     def gh(*args, project, sd=None, timeout=60):
         del sd, timeout
         assert project == "yoke"
@@ -175,11 +168,8 @@ def test_ac5_unresolved_run_id_errors_without_mutating(wired, monkeypatch):
     assert wired.dispatched == []
 
 
-def test_ac5_missing_deployment_run_errors(wired, monkeypatch):
-    monkeypatch.setattr(
-        "yoke_core.domain.deployment_runs_crud_query.cmd_find_by_item",
-        lambda item_id, status=None, db_path=None: "",
-    )
+def test_missing_deployment_run_errors(wired, monkeypatch):
+    monkeypatch.setattr(mod, "_resolve_run_for_item", lambda _item_id: "")
 
     result = mod.reconcile_item(42)
 
@@ -206,7 +196,7 @@ def test_missing_verified_binding_errors_before_actions(wired, monkeypatch):
     assert wired.emitted_events == []
     assert wired.dispatched == []
 
-def test_ac6_alignment_message_names_resume_command(wired):
+def test_alignment_message_names_resume_command(wired):
     result = mod.reconcile_item(42)
     assert result.outcome == "aligned"
     assert result.message == (
@@ -214,7 +204,7 @@ def test_ac6_alignment_message_names_resume_command(wired):
         "Resume usher with: /yoke usher YOK-42 --resume"
     )
 
-def test_ac11_operator_override_skips_find_run(wired, monkeypatch):
+def test_operator_override_skips_find_run(wired, monkeypatch):
     poll_calls = []
 
     def gh(*args, project, sd=None, timeout=60):
@@ -234,7 +224,7 @@ def test_ac11_operator_override_skips_find_run(wired, monkeypatch):
     assert result.workflow_run_id == "operator-555"
     assert poll_calls == [("poll", "anthropics/yoke", "operator-555")]
 
-def test_ac12_source_never_names_phantom_column():
+def test_source_never_names_phantom_column():
     src = Path(mod.__file__).read_text(encoding="utf-8")
     assert "workflow_run_id" in src  # references via --workflow-run-id are fine
     forbidden = (
@@ -246,7 +236,7 @@ def test_ac12_source_never_names_phantom_column():
         assert needle not in src, f"helper must not query phantom column ({needle!r})"
 
 def test_no_action_when_deploy_stage_empty(wired, monkeypatch):
-    monkeypatch.setattr(mod, "_yoke_db", lambda *args, sd=None: "")
+    monkeypatch.setattr(mod, "_item_deploy_stage", lambda _item_id: "")
     result = mod.reconcile_item(42)
     assert result.outcome == "no-action"
     assert wired.emitted_events == []
@@ -255,8 +245,7 @@ def test_no_action_when_deploy_stage_empty(wired, monkeypatch):
 
 def test_no_action_when_deploy_stage_not_failed_shape(wired, monkeypatch):
     monkeypatch.setattr(
-        mod, "_yoke_db",
-        lambda *args, sd=None: "complete" if args[:2] == ("items", "get") else "",
+        mod, "_item_deploy_stage", lambda _item_id: "complete",
     )
     result = mod.reconcile_item(42)
     assert result.outcome == "no-action"

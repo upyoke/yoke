@@ -185,27 +185,21 @@ def test_release_frees_the_project_for_the_next_driver(db_path):
 
 
 def test_the_pipeline_refuses_to_execute_without_the_lock(capsys):
-    """A run created under one hold is not resumed by a second driver."""
+    """A serving-plane lock refusal reaches the local driver unchanged."""
     from yoke_core.domain import deploy_pipeline
-
-    def run_row(*args, sd=None):
-        if args[:2] == ("runs", "get"):
-            return "run-1|yoke|yoke-hosted-prod|prod||created|"
-        return ""
 
     refusal = (
         "deployment run execution refused: no session holds the deploy lock "
         f"{deploy_lock_key(SLUG)} for project {SLUG!r}."
     )
-    with (
-        mock.patch.object(deploy_pipeline, "_yoke_db", side_effect=run_row),
-        mock.patch.object(
-            deploy_pipeline, "deploy_lock_refusal", return_value=refusal,
-        ) as lock,
+    with mock.patch.object(
+        deploy_pipeline.control_plane,
+        "execution_context",
+        side_effect=deploy_pipeline.control_plane.DeploymentControlPlaneError(
+            refusal
+        ),
     ):
         rc = deploy_pipeline.run_pipeline("run-1", sd="/tmp/sd")
 
     assert rc == deploy_pipeline.EXIT_USAGE
     assert deploy_lock_key(SLUG) in capsys.readouterr().err
-    assert lock.call_args.args[0] == SLUG
-    assert lock.call_args.kwargs["operation"] == "deployment run execution"

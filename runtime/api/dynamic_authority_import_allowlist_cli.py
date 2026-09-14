@@ -234,6 +234,13 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "client_local_diagnostics",
         "stdin prose-vs-claim detection needs no control-plane DB",
     ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/pulumi_stack_config_loader.py",
+        "yoke_core.domain.project_renderer_settings_snapshot",
+    ): (
+        "local_engine_activation",
+        "local-postgres aggregate renderer settings use the installed engine",
+    ),
 }
 
 __all__ = ["CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS"]

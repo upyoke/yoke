@@ -170,16 +170,12 @@ class TestResolveFlowGateBranch:
 
 class TestEphemeralTierBranchResolution:
     def test_empty_gate_branch_skips_merged_verification(self, capsys):
-        with mock.patch.object(
-            deploy_pipeline_gates,
-            "_active_item_lane_branch",
-            return_value="my-branch",
-        ):
-            ok, first_item, branch = deploy_pipeline_gates._resolve_and_verify_branch(
-                ["42"],
-                "/repo",
-                target_branch="",
-                sd=None,
-            )
+        ok, first_item, branch = deploy_pipeline_gates._resolve_and_verify_branch(
+            ["42"],
+            "/repo",
+            target_branch="",
+            first_branch="my-branch",
+            sd=None,
+        )
         assert (ok, first_item, branch) == (True, "42", "my-branch")
         assert "Ephemeral tier" in capsys.readouterr().out

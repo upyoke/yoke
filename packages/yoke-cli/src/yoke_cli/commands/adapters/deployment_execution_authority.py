@@ -6,6 +6,7 @@ from typing import Mapping, Optional
 from urllib.parse import urlsplit
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_cli.transport.dispatcher import call_dispatcher
 
 
 def _same_universe_admin_env(env: str) -> str:
@@ -47,8 +48,6 @@ def _target_api_host(snapshot: Mapping[str, object], environment: str) -> str:
 
 
 def _run(run_id: str) -> Mapping[str, object]:
-    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-
     response = call_dispatcher(
         function_id="deployment_runs.get",
         target=TargetRef(kind="workflow_run", workflow_run_id=run_id),

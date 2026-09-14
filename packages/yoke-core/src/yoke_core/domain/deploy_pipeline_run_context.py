@@ -12,16 +12,13 @@ from __future__ import annotations
 import sys
 import time
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from yoke_contracts.deployment_itemless_teaching import (
     FINALIZATION_PENDING_PREFIX,
 )
 from yoke_core.domain.deploy_pipeline_events import (
     emit_run_event as _emit_run_event,
-)
-from yoke_core.domain.deploy_pipeline_reporting import (
-    _flow_db,
 )
 from yoke_core.domain import deploy_pipeline_run_updates as run_updates
 
@@ -42,18 +39,13 @@ class RunFinalizationPending(RuntimeError):
 
 def resolve_project_checkout_path(project: str) -> str:
     """Machine-config checkout path for *project*, warning when broken."""
-    from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.project_checkout_locations import (
-        checkout_for_project,
+        checkout_for_project_slug,
     )
 
     if not project:
         return ""
-    conn = connect()
-    try:
-        checkout = checkout_for_project(conn, project)
-    finally:
-        conn.close()
+    checkout = checkout_for_project_slug(project)
     project_repo_path = str(checkout) if checkout is not None else ""
     if (
         project_repo_path
@@ -67,16 +59,6 @@ def resolve_project_checkout_path(project: str) -> str:
             file=sys.stderr,
         )
     return project_repo_path
-
-
-def resolve_flow_target(
-    flow_id: str,
-    sd: Optional[str] = None,
-) -> Tuple[str, str]:
-    """Return the flow's target tier and registered environment name."""
-    flow_target = _flow_db("target", flow_id, sd=sd)
-    tier, environment_name = (flow_target.split("|") + ["", ""])[:2]
-    return tier, environment_name
 
 
 def _update_run_succeeded(run_id: str, sd: Optional[str]) -> None:
@@ -167,6 +149,5 @@ __all__ = [
     "RunFinalizationPending",
     "complete_run_finalization",
     "finalize_run_success",
-    "resolve_flow_target",
     "resolve_project_checkout_path",
 ]

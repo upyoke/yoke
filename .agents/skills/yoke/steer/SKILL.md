@@ -58,7 +58,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `session_control.message.send` | `yoke say --item PREFIX-N --stdin` (workers reply with `yoke say --steering`) |
 | `session_control.message.acknowledge` | `yoke messages acknowledge MESSAGE-ID` |
 | `charge.schedule` | `yoke charge schedule --project P` |
-| `deployment_runs.create` | `yoke --env <cp>-db-admin deployment-runs create PROJECT FLOW ...` |
+| `deployment_runs.create` | `yoke --env <cp> deployment-runs create PROJECT FLOW ...`; paired `*-db-admin` only for a serving-API self-deploy |
 
 Do not invoke `/yoke feed`. Feed and steer are unrelated.
 

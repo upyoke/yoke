@@ -157,12 +157,13 @@ yoke merge item ITEM --skip-status --json
 ```
 
 Start item-bound delivery for the returned `merge_sha`, run it through the
-project executor, and wait for `succeeded`. Create requires the same-universe
-owner-only local-postgres env (not the HTTPS product plane) — the same
-`*-db-admin` connection execute uses:
+project executor, and wait for `succeeded`. Use the selected control-plane
+connection for ordinary external delivery, including HTTPS. Only when the
+target is that control plane's own serving API should you switch to the paired
+local `*-db-admin` connection named by the executor's refusal:
 
 ```text
-yoke --env <control-plane>-db-admin deployment-runs start-for-item ITEM \
+yoke --env <control-plane> deployment-runs start-for-item ITEM \
   --release-lineage <merge-sha> --json
 ```
 

@@ -154,14 +154,9 @@ class TestDeployPipelineProjectSettings:
 
     def test_ephemeral_verify_reads_domain_from_ephemeral_policy(self):
         policy = mock.Mock(preview_domain="externalwebapp.example.com")
-        with mock.patch.object(
-            deploy_pipeline_step_runners,
-            "connect",
-            return_value=mock.Mock(close=lambda: None),
-        ), mock.patch.object(
-            deploy_pipeline_step_runners,
-            "query_scalar",
-            return_value=0,
+        with mock.patch(
+            "yoke_core.domain.deploy_pipeline_control_plane.ephemeral_qa_ready",
+            return_value=False,
         ), mock.patch(
             "yoke_core.domain.ephemeral_substrate.load_ephemeral_policy",
             return_value=policy,
@@ -180,6 +175,7 @@ class TestDeployPipelineProjectSettings:
                 project_repo_path="",
                 branch="feature",
                 first_item="42",
+                first_item_label="EXT-42",
                 sd="/tmp/sd",
             )
 

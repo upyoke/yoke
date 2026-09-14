@@ -6,9 +6,7 @@ import sys
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import deploy_pipeline_schema_rehearsal
-from yoke_core.domain.db_helpers import connect, query_scalar
 from yoke_core.domain.deploy_ephemeral_verify import dispatch_ephemeral_verify
-from yoke_core.domain.deploy_pipeline_labels import item_label as _item_label
 from yoke_core.domain.deploy_pipeline_github_workflow import (
     _dispatch_github_actions_workflow,
 )
@@ -43,6 +41,7 @@ def _dispatch_step_runner(
     project_repo_path: str,
     branch: str,
     first_item: str,
+    first_item_label: str = "",
     timeout_min: int,
     fresh: bool,
     image_tag: str = "",
@@ -110,7 +109,7 @@ def _dispatch_step_runner(
                 branch=branch or str(config.get("branch", "") or ""),
                 repo_path=project_repo_path,
                 image_tag=str(config.get("image_tag", "") or ""),
-                item_label=_item_label(first_item),
+                item_label=first_item_label,
             ),
             "",
         )
@@ -125,6 +124,7 @@ def _dispatch_step_runner(
             project_repo_path=project_repo_path,
             branch=branch,
             first_item=first_item,
+            first_item_label=first_item_label,
             sd=sd,
         ), ""
     if step_runner == "human-approval":
@@ -322,6 +322,7 @@ def _dispatch_ephemeral_verify(
     project_repo_path: str,
     branch: str,
     first_item: str,
+    first_item_label: str = "",
     sd: Optional[str] = None,
 ) -> int:
     """Handle ephemeral-verify step runner."""
@@ -334,8 +335,7 @@ def _dispatch_ephemeral_verify(
         project=project,
         branch=branch,
         first_item=first_item,
+        first_item_label=first_item_label,
         step_runners=_step_runners,
-        connect_fn=connect,
-        query_scalar_fn=query_scalar,
         sd=sd,
     )

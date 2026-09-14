@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import pytest
 
-from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_core.tools import watch_deploy
 from yoke_core.tools._watch_throttle import LineClass
@@ -151,30 +150,22 @@ def test_the_union_pattern_matches_every_classified_shape():
         assert watch_deploy.DEPLOY_PROGRESS_PATTERN.search(line), line
 
 
-def test_a_non_admin_connection_is_refused_with_the_owner_only_recipe(
-    monkeypatch,
-):
-    """The wrapper repeats the execute adapter's guard.
-
-    The run row is readable only through the control plane's db-admin
-    connection; a wrapper that skipped this would become the unguarded way
-    to reach the same engine.
-    """
-    monkeypatch.setenv(ENV_OVERRIDE, "prod")
-    refusal = watch_deploy.owner_only_connection_error()
-    assert refusal is not None
-    assert "owner-only" in refusal
-    assert "CONTROL-PLANE" in refusal
+def test_wrapper_uses_the_execute_adapter_authority_check(monkeypatch):
+    monkeypatch.setattr(
+        watch_deploy,
+        "execution_connection_error",
+        lambda run_id: f"{run_id} replaces its serving API",
+    )
+    assert watch_deploy.deployment_connection_error("run-1") == (
+        "watch_deploy: run-1 replaces its serving API"
+    )
 
 
-def test_an_admin_connection_passes_the_guard(monkeypatch):
-    monkeypatch.setenv(ENV_OVERRIDE, "prod-db-admin")
-    assert watch_deploy.owner_only_connection_error() is None
-
-
-def test_a_missing_env_is_refused_rather_than_defaulted(monkeypatch):
-    monkeypatch.delenv(ENV_OVERRIDE, raising=False)
-    assert watch_deploy.owner_only_connection_error() is not None
+def test_wrapper_allows_an_ordinary_external_run(monkeypatch):
+    monkeypatch.setattr(
+        watch_deploy, "execution_connection_error", lambda _run_id: None
+    )
+    assert watch_deploy.deployment_connection_error("run-1") is None
 
 
 def test_the_wrapper_drives_the_same_engine_the_execute_adapter_drives():
@@ -196,10 +187,5 @@ def test_the_wrapper_is_reachable_from_both_registries():
 
 
 def test_a_run_id_is_required(capsys):
-    monkeypatch_env = pytest.MonkeyPatch()
-    monkeypatch_env.setenv(ENV_OVERRIDE, "prod-db-admin")
-    try:
-        assert watch_deploy.main([]) == 2
-        assert "missing run id" in capsys.readouterr().err
-    finally:
-        monkeypatch_env.undo()
+    assert watch_deploy.main([]) == 2
+    assert "missing run id" in capsys.readouterr().err
