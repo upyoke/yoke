@@ -12,6 +12,9 @@ from yoke_core.domain.schema_common import (
     _table_exists,
     environment_reference_column_sql,
 )
+from yoke_core.domain.deployment_runs_schema_init import (
+    DELIVERY_INTENT_COLUMN_SQL,
+)
 
 
 def _ensure_flow_schema(conn) -> None:
@@ -107,7 +110,7 @@ def _ensure_flow_schema(conn) -> None:
             conn,
             "deployment_run_items",
             "delivery_intent",
-            "TEXT CHECK(delivery_intent IN ('progress','final'))",
+            DELIVERY_INTENT_COLUMN_SQL,
         )
         for column in (
             "requirement_selection",

@@ -11,6 +11,8 @@ from yoke_core.domain.schema_common import (
     environment_reference_column_sql,
 )
 
+DELIVERY_INTENT_COLUMN_SQL = "TEXT CHECK(delivery_intent IN ('progress','final'))"
+
 
 def cmd_init(db_path: Optional[str] = None) -> None:
     """Create deployment-run tables and additive columns."""
@@ -47,12 +49,12 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                            = (target_environment_id IS NOT NULL))
             )
             """,
-            """
+            f"""
             CREATE TABLE IF NOT EXISTS deployment_run_items (
                 run_id TEXT NOT NULL REFERENCES deployment_runs(id),
                 item_id INTEGER NOT NULL,
                 added_at TEXT NOT NULL,
-                delivery_intent TEXT CHECK(delivery_intent IN ('progress','final')),
+                delivery_intent {DELIVERY_INTENT_COLUMN_SQL},
                 requirement_selection TEXT,
                 requirement_snapshot TEXT,
                 PRIMARY KEY (run_id, item_id)
@@ -95,12 +97,12 @@ def cmd_init(db_path: Optional[str] = None) -> None:
             "requirement_snapshot",
         ):
             _add_column_if_not_exists(conn, "deployment_runs", column, "TEXT")
-        for column in (
-            "delivery_intent",
-            "requirement_selection",
-            "requirement_snapshot",
+        for column, declaration in (
+            ("delivery_intent", DELIVERY_INTENT_COLUMN_SQL),
+            ("requirement_selection", "TEXT"),
+            ("requirement_snapshot", "TEXT"),
         ):
-            _add_column_if_not_exists(conn, "deployment_run_items", column, "TEXT")
+            _add_column_if_not_exists(conn, "deployment_run_items", column, declaration)
         if not _column_exists(conn, "deployment_preview_environments", "env_type"):
             try:
                 conn.execute(
@@ -116,4 +118,4 @@ def cmd_init(db_path: Optional[str] = None) -> None:
         conn.close()
 
 
-__all__ = ["cmd_init"]
+__all__ = ["DELIVERY_INTENT_COLUMN_SQL", "cmd_init"]

@@ -19,6 +19,7 @@ from yoke_core.domain.deployment_flow_versioning import (
 from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.flow_crud import cmd_delete, cmd_set_status
 from yoke_core.domain.schema_init import converge_core_schema
+from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 
 
 LEGACY_STAGES = json.dumps(
@@ -188,5 +189,44 @@ def test_flow_lineage_reference_matches_fresh_schema_after_boot_convergence(
             conn.commit()
             converge_core_schema(conn)
             assert _flow_lineage_reference(conn) == expected
+        finally:
+            conn.close()
+
+
+@pytest.mark.parametrize("initializer", ["flow", "deployment_runs"])
+def test_delivery_intent_constraint_matches_both_initialization_orders(
+    tmp_path: Path,
+    initializer: str,
+) -> None:
+    with init_test_db(tmp_path / initializer, apply_schema=_complete_schema) as db_path:
+        conn = connect_test_db(db_path)
+        try:
+            seed_project_identities(conn)
+            _create_legacy(conn, "intent-flow")
+            conn.execute(
+                "INSERT INTO deployment_runs(id,project_id,flow,status,created_at) "
+                "VALUES (%s,1,'intent-flow','created',%s)",
+                (f"run-{initializer}", "2026-09-14T00:00:00Z"),
+            )
+            conn.execute("ALTER TABLE deployment_run_items DROP COLUMN delivery_intent")
+            conn.commit()
+            if initializer == "flow":
+                converge_core_schema(conn)
+                converge_core_schema(conn)
+            else:
+                conn.close()
+                deployment_runs_schema.cmd_init(db_path)
+                deployment_runs_schema.cmd_init(db_path)
+                conn = connect_test_db(db_path)
+
+            with pytest.raises(Exception) as exc_info:
+                conn.execute(
+                    "INSERT INTO deployment_run_items"
+                    "(run_id,item_id,added_at,delivery_intent) "
+                    "VALUES (%s,91,%s,'invalid')",
+                    (f"run-{initializer}", "2026-09-14T00:00:00Z"),
+                )
+            assert "delivery_intent" in str(exc_info.value)
+            conn.rollback()
         finally:
             conn.close()
