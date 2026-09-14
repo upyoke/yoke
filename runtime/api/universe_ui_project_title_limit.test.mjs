@@ -60,6 +60,10 @@ test("the input has a programmatic label naming the setting", async () => {
   const label = input.parentNode;
   assert.equal(label.tagName, "LABEL", "the input's parent must be a <label>");
   assert.match(label.textContent, /Title character limit/);
+  assert.ok(
+    !allNodes(label).includes(saveButton(host)),
+    "Save must not be nested inside the input's label",
+  );
 });
 
 test("a rejected save reports the server's message and re-enables Save", async () => {
