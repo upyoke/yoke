@@ -196,7 +196,7 @@ def assess_landed_lane(
     if not landed.landed:
         return LaneCleanupAssessment(
             False,
-            f"lane {branch} preserved: {landed.reason}",
+            f"lane {branch} preserved: branch {landed.reason}",
             worktree_path,
             base,
             has_remote,

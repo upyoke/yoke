@@ -155,7 +155,7 @@ def test_unmerged_terminal_worktree_is_preserved(monkeypatch, tmp_path: Path):
 
     assert worktree.exists()
     assert any(
-        f"worktree branch {branch}: branch is not merged into origin/main" in line
+        f"worktree branch {branch} is not merged into origin/main" in line
         for line in lines
     )
 

@@ -175,7 +175,7 @@ def _cleanup_trial_branches(project_repo: Path, item_id: int | None = None) -> b
             continue
         landed = _branch_landed(project_repo, ref, "HEAD")
         if not landed.landed:
-            print(f"  Preserving trial branch {ref}: {landed.reason}")
+            print(f"  Preserving trial branch {ref} {landed.reason}")
             complete = False
             continue
         refusal = delete_landed_branch(

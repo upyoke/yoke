@@ -243,7 +243,7 @@ def prune_managed_worktrees(
             continue
         landed = _landed(git, repo_root, entry.branch, base)
         if not landed.landed:
-            keep(entry.path, f"worktree branch {entry.branch}: {landed.reason}")
+            keep(entry.path, f"worktree branch {entry.branch} {landed.reason}")
             continue
         residue = clear_lane_residue(git, entry.path)
         if not residue.disposable:

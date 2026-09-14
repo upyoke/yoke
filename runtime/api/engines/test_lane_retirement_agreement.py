@@ -125,7 +125,7 @@ def test_a_lane_with_unique_work_survives_both_boundaries(
 
     assert "no equivalent there" in preserved[0]
     assert [lane.reason for lane in sweep.preserved] == [
-        f"worktree branch {rebased_lane.branch}: branch is not merged into "
+        f"worktree branch {rebased_lane.branch} is not merged into "
         f"origin/main and carries 1 commit with no equivalent there"
     ]
     assert rebased_lane.worktree.exists()

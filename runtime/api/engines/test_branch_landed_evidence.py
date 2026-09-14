@@ -151,5 +151,5 @@ def test_an_unproven_branch_is_never_deleted(repo: Path):
         _run_git(repo), branch=BRANCH, evidence=evidence
     )
 
-    assert refusal == evidence.reason
+    assert refusal == f"local branch {BRANCH} {evidence.reason}"
     assert BRANCH in _git(repo, "branch", "--list", BRANCH).stdout

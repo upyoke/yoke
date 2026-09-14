@@ -14,7 +14,10 @@ target keeps the branch with the reason named, because a preserved branch
 costs an operator one sweep while a wrongly deleted one costs the work.
 
 ``run_git`` takes the git arguments after the executable and repository
-selection, so each caller binds its own ``-C`` or ``cwd``.
+selection, so each caller binds its own ``-C`` or ``cwd``. A refusal reason
+names no subject — "is not merged into origin/main and carries 1 commit with
+no equivalent there" — so each caller prefixes the thing it is preserving: a
+lane, a worktree branch, a trial ref, a remote branch.
 """
 
 from __future__ import annotations
@@ -48,7 +51,7 @@ def assess_branch_landed(
     if ancestry.returncode == 0:
         return BranchLandedEvidence(True, proof=ANCESTOR_PROOF)
 
-    not_merged = f"branch is not merged into {base}"
+    not_merged = f"is not merged into {base}"
     merges = run_git(["rev-list", "--merges", f"{base}..{branch}"])
     if merges.returncode != 0:
         return BranchLandedEvidence(
@@ -95,7 +98,7 @@ def delete_landed_branch(
     preserved instead of deleted.
     """
     if not evidence.landed:
-        return evidence.reason or f"local branch {branch} is not proven landed"
+        return f"local branch {branch} {evidence.reason or 'is not proven landed'}"
     deleted = run_git(["branch", "-D", branch])
     if deleted.returncode != 0:
         return f"local branch {branch} preserved after delete refusal"
