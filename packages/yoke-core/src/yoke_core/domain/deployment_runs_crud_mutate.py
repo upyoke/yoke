@@ -1,11 +1,9 @@
-"""Mutation-side CRUD for deployment runs.
-
-Owns run creation, membership writes, transitions, and success bookkeeping.
-"""
+"""Run creation, membership mutation, transitions, and success bookkeeping."""
 
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -18,6 +16,12 @@ from yoke_core.domain import (
 from yoke_core.domain.deployment_runs_schema import (
     UPDATABLE_FIELDS,
     VALID_STATUSES,
+)
+from yoke_core.domain.deployment_run_insert import insert_run
+from yoke_core.domain.deployment_run_composition_guard import (
+    frozen_mutation_refusal,
+    has_frozen_composition,
+    mutable_field_refusal,
 )
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.deployment_flow_state import require_flow_for_new_run
@@ -52,6 +56,8 @@ def _require_composable_run(conn, run_id: str) -> None:
             f"deployment run '{run_id}' is {status}; membership is mutable "
             "only while status='created'"
         )
+    if has_frozen_composition(conn, run_id):
+        raise ValueError(frozen_mutation_refusal(run_id, "membership")[7:])
 
 
 def _run_item_ids(conn, run_id: str) -> tuple[int, ...]:
@@ -129,6 +135,7 @@ def cmd_create_run(
     environment: Optional[str] = None,
     release_lineage: Optional[str] = None,
     created_by: str = "operator",
+    artifact_identity: Optional[str] = None,
     db_path: Optional[str] = None,
 ) -> str:
     """Create a new deployment run. Returns the generated run ID.
@@ -164,23 +171,18 @@ def cmd_create_run(
         # standalone next-id command remains a non-reserving preview.
         run_id = _next_run_id(conn, datetime.now(timezone.utc))
 
-        inserted = conn.execute(
-            "INSERT INTO deployment_runs "
-            "(id, project_id, flow, target_tier, target_environment_id, "
-            "release_lineage, created_by, created_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
-            "ON CONFLICT (id) DO NOTHING RETURNING id",
-            (
-                run_id,
-                project_id,
-                flow,
-                target_tier or None,
-                target_environment_id or None,
-                release_lineage or None,
-                created_by,
-                iso8601_now(),
-            ),
-        ).fetchone()
+        inserted = insert_run(
+            conn,
+            run_id=run_id,
+            project_id=project_id,
+            flow=flow,
+            target_tier=target_tier,
+            target_environment_id=target_environment_id,
+            release_lineage=release_lineage,
+            created_by=created_by,
+            created_at=iso8601_now(),
+            artifact_identity=artifact_identity,
+        )
         if inserted is None:
             raise RuntimeError(f"deployment run ID {run_id} was claimed concurrently")
         conn.commit()
@@ -189,7 +191,15 @@ def cmd_create_run(
         conn.close()
 
 
-def cmd_add_item(run_id: str, item_id: int, db_path: Optional[str] = None) -> str:
+def cmd_add_item(
+    run_id: str,
+    item_id: int,
+    db_path: Optional[str] = None,
+    *,
+    delivery_intent: Optional[str] = None,
+    requirement_ids: Iterable[int] = (),
+    plan_ids: Iterable[int] = (),
+) -> str:
     """Add item to run. Returns confirmation message."""
     conn = connect(db_path)
     try:
@@ -200,10 +210,26 @@ def cmd_add_item(run_id: str, item_id: int, db_path: Optional[str] = None) -> st
             run_id=run_id,
             item_id=int(item_id),
         )
+        from yoke_core.domain.deployment_requirement_snapshots import (
+            requirement_selection,
+            snapshot_member_requirements,
+        )
+        from yoke_core.domain.deployment_run_composition_freeze import (
+            validate_delivery_intent_for_item,
+        )
+
+        intent = validate_delivery_intent_for_item(conn, int(item_id), delivery_intent)
+        selection = requirement_selection(
+            requirement_ids=requirement_ids, plan_ids=plan_ids
+        )
+        snapshot_member_requirements(
+            conn, run_id=run_id, item_id=int(item_id), selection_json=selection
+        )
         conn.execute(
-            "INSERT INTO deployment_run_items (run_id, item_id, added_at) "
-            "VALUES (%s, %s, %s)",
-            (run_id, item_id, iso8601_now()),
+            "INSERT INTO deployment_run_items "
+            "(run_id, item_id, added_at, delivery_intent, requirement_selection) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (run_id, item_id, iso8601_now(), intent, selection),
         )
         conn.commit()
         return f"Added item {item_id} to run {run_id}"
@@ -236,9 +262,7 @@ def cmd_update(
 ) -> Optional[str]:
     """Update a run column. Returns error message on failure, None on success.
 
-    Auto-sets started_at when transitioning to executing and completed_at
-    when transitioning to terminal states. Validates status values and
-    cross-field consistency for status=succeeded.
+    Auto-sets timestamps and validates status=succeeded cross-field consistency.
     """
     if field not in UPDATABLE_FIELDS:
         return f"Error: field '{field}' is not updatable"
@@ -251,6 +275,8 @@ def cmd_update(
                 return f"Error: deployment run '{run_id}' not found"
             if value not in VALID_STATUSES:
                 return f"Error: invalid status '{value}'"
+            if value == "created" and has_frozen_composition(conn, run_id):
+                return frozen_mutation_refusal(run_id, "status")
             if value in {"created", "executing"}:
                 try:
                     validate_deployment_run_items(
@@ -269,6 +295,11 @@ def cmd_update(
                 return refusal
 
             if value == "executing":
+                from yoke_core.domain.deployment_run_composition_freeze import (
+                    freeze_run_composition,
+                )
+
+                freeze_run_composition(conn, run_id)
                 conn.execute(
                     "UPDATE deployment_runs SET status=%s, started_at=%s WHERE id=%s",
                     (value, iso8601_now(), run_id),
@@ -298,8 +329,14 @@ def cmd_update(
             refusal := lineage_rebind.refuse_lineage_write(conn, run_id, value)
         ):
             return refusal
-        elif _lock_run(conn, run_id) is None:
-            return f"Error: deployment run '{run_id}' not found"
+        else:
+            status = _lock_run(conn, run_id)
+            if status is None:
+                return f"Error: deployment run '{run_id}' not found"
+            if field in {"artifact_identity", "composition_resolution"} and (
+                refusal := mutable_field_refusal(conn, run_id, field, status)
+            ):
+                return refusal
 
         conn.execute(
             f"UPDATE deployment_runs SET {field}=%s WHERE id=%s",

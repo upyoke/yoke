@@ -59,6 +59,8 @@ CREATE TABLE IF NOT EXISTS deployment_flows (
     target_environment_id INTEGER,
     done_description TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'active',
+    definition_schema_version INTEGER NOT NULL DEFAULT 1,
+    supersedes_flow_id TEXT REFERENCES deployment_flows(id),
     CHECK((target_tier IS NOT NULL AND target_tier = 'persistent')
           = (target_environment_id IS NOT NULL)),
     UNIQUE(project_id, name)
@@ -79,6 +81,10 @@ CREATE TABLE IF NOT EXISTS deployment_runs (
     completed_at TEXT,
     created_by TEXT DEFAULT 'operator',
     carried_work TEXT, -- → JSONB on Postgres
+    artifact_identity TEXT,
+    composition_resolution TEXT,
+    composition_frozen_at TEXT,
+    requirement_snapshot TEXT,
     CHECK((target_tier IS NOT NULL AND target_tier = 'persistent')
           = (target_environment_id IS NOT NULL))
 );
@@ -86,6 +92,9 @@ CREATE TABLE IF NOT EXISTS deployment_run_items (
     run_id TEXT NOT NULL,
     item_id INTEGER NOT NULL,
     added_at TEXT NOT NULL,
+    delivery_intent TEXT CHECK(delivery_intent IN ('progress','final')),
+    requirement_selection TEXT,
+    requirement_snapshot TEXT,
     PRIMARY KEY (run_id, item_id)
 );
 CREATE TABLE IF NOT EXISTS events (

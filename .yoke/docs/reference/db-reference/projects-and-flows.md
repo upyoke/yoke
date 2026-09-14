@@ -238,7 +238,7 @@ Deployment flow definitions. Each flow defines an ordered sequence of stages tha
 
 ```sql
 id TEXT PRIMARY KEY -- e.g., 'project-prod-release'
-project TEXT NOT NULL REFERENCES projects(id)
+project_id INTEGER NOT NULL REFERENCES projects(id)
 name TEXT NOT NULL -- display name (e.g., 'Prod Release')
 description TEXT
 stages TEXT NOT NULL -- → JSONB on Postgres; JSON array of stage objects [{name, step_runner, ...}]
@@ -248,10 +248,22 @@ target_tier TEXT -- persistent | ephemeral | NULL (merge-only)
 target_environment_id INTEGER -- internal REFERENCES environments(id); required exactly when target_tier='persistent'
 done_description TEXT DEFAULT NULL -- per-flow "done means..." contract; human-readable definition of what "done" means for this flow
 status TEXT NOT NULL DEFAULT 'active' -- 'active' accepts assignments/runs; 'disabled' is history-only
-UNIQUE(project, name)
+definition_schema_version INTEGER NOT NULL DEFAULT 1
+supersedes_flow_id TEXT REFERENCES deployment_flows(id)
+UNIQUE(project_id, name)
 ```
 
 Every stage object requires `name` (string) and `step_runner` (string, closed set). Valid step runner types: `auto`, `health-check`, `warm-up`, `environment-activate`, `core-container-deploy`, `ephemeral-deploy`, `ephemeral-teardown`, `ephemeral-verify`, `human-approval`, `github-actions-workflow`. A database is brought up to its code by the boot converge that starts the container, so applying a migration is not a deployment stage and there is no stage `kind` vocabulary.
+
+Definition schema v2 adds release-policy configuration without changing the
+schema-v1 executor. Every v2 stage declares `stage_kind` (`execution` or `qa`)
+and scope. QA stages use `step_runner: "qa"`, target a persistent environment or
+an earlier preview-producing execution stage, may select reusable QA plan/case
+references, and declare verdict authority separately from informational
+notification recipients. Item-scoped QA operates on each admitted member while
+run-scoped QA operates once on the shared frozen batch target. A v2 definition
+may be validated and stored disabled, but activation, workflow assignment, and
+run start refuse until the execution engine supports version 2.
 
 **`human-approval` step runner:** Halts the run at the stage until the
 declared approval policy is satisfied. The driver does not derive the verdict
@@ -292,11 +304,15 @@ database object. Define one with
 `yoke deployment-flows create <flow-id> --project <slug> --name NAME --stages-file PATH`,
 adding `--target-tier persistent --environment <name>` for a flow that deploys
 to a registered environment or `--target-tier ephemeral` for per-run preview
-substrate. Change lifecycle state with
+substrate. Validate advanced configuration with `yoke deployment-flows validate`,
+replace any unused definition atomically with `deployment-flows update`, reorder
+its complete stage set with `deployment-flows reorder`, or publish the successor
+to a used definition with `deployment-flows version`. Change lifecycle state with
 `yoke deployment-flows set-status <flow-id> active|disabled`; disabling is how a
 route is retired — it prevents new assignments and runs while preserving the
 definition and every historical run. A definition referenced by a run is
-immutable, so changing a route's shape is a retirement plus a new flow. The
+immutable except for its lifecycle status, so changing its configuration
+requires a new version linked by `supersedes_flow_id`. The
 project default lives in the `deploy_defaults` Project Structure family: read it
 with `yoke project-structure deploy-defaults get --project <slug>` and set it
 through `yoke project-structure patch apply`.

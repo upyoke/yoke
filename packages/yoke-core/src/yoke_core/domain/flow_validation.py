@@ -14,6 +14,10 @@ from yoke_core.domain.approval_policy import (
     ApprovalPolicy,
     parse_approval_policy,
 )
+from yoke_core.domain.deployment_flow_policy import (
+    QA_STEP_RUNNER,
+    validate_release_stage_policy,
+)
 
 VALID_STEP_RUNNERS = frozenset(
     {
@@ -27,6 +31,7 @@ VALID_STEP_RUNNERS = frozenset(
         "ephemeral-verify",
         "human-approval",
         "github-actions-workflow",
+        QA_STEP_RUNNER,
     }
 )
 
@@ -105,3 +110,4 @@ def validate_stages(stages_json: str) -> None:
                 stage["approvals"],
                 path=f"stage {i} ({stage.get('name')}) approvals",
             )
+    validate_release_stage_policy(stages)

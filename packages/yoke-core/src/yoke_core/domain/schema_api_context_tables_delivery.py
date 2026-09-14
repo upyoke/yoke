@@ -24,6 +24,8 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("target_environment_id", "INTEGER"),
             ("done_description", "TEXT"),
             ("status", "TEXT"),
+            ("definition_schema_version", "INTEGER"),
+            ("supersedes_flow_id", "TEXT"),
         ],
         "notes": (
             "Deployment-flow definitions keyed by TEXT `id`. Project "
@@ -35,8 +37,17 @@ DELIVERY_TABLES: dict[str, dict] = {
             "`environments.id` — JOIN environments for the display name), "
             "`ephemeral` (per-run preview substrate), or NULL (merge-only); "
             "there is no `target_env` label column (stale guess). "
-            "`stages` is a JSON-array column whose elements define the "
-            "ordered pipeline steps. A `human-approval` stage names who "
+            "`supersedes_flow_id` links immutable definition identities once "
+            "a run references a flow. "
+            "`definition_schema_version` separates accepted configuration "
+            "from the execution engine's supported version: advanced "
+            "release-policy definitions may be stored disabled, but cannot "
+            "be activated, assigned, or started until the engine supports "
+            "them. `stages` is an ordered JSON array. Schema v2 gives every "
+            "stage an execution/QA kind, a run/item scope, an explicit "
+            "persistent or prior-preview target, reusable QA plan/case "
+            "selection, verdict authority, and informational notification "
+            "recipients. A `human-approval` stage names who "
             "may approve with `approvals: {roles, actors}` — the same "
             "address shape as workflow `policies.approval_defaults` "
             "(roles `owner`/`operator`/`admin`, optional named actor "
@@ -61,6 +72,10 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("completed_at", "TEXT"),
             ("created_by", "TEXT"),
             ("carried_work", "TEXT"),
+            ("artifact_identity", "TEXT"),
+            ("composition_resolution", "TEXT"),
+            ("composition_frozen_at", "TEXT"),
+            ("requirement_snapshot", "TEXT"),
         ],
         "notes": (
             "One row per deployment-flow execution. Primary key is the "
@@ -70,9 +85,15 @@ DELIVERY_TABLES: dict[str, dict] = {
             "through `deployment_run_items`. Use `deployment_runs.id` in "
             "raw run queries; do not look for a `run_id` column on the run "
             "table (that column lives on `deployment_run_items`). Normal "
-            "hosted releases are "
-            "item-bound; zero-member runs are reserved for explicit "
+            "hosted releases are item-bound; zero-member runs are reserved for explicit "
             "environment administration and still advance this run row. To "
+            "start a schema-v2 run, `release_lineage` must be a full commit "
+            "SHA and every delivery-ready carried item must be admitted. The "
+            "run then freezes member/flow requirement snapshots and any "
+            "distinct shared artifact identity. Missing "
+            "first-baseline attribution requires an explicit "
+            "`composition_resolution`. Schema-v1 runs keep legacy start "
+            "behavior. To "
             "read what any succeeded run actually shipped, inspect the "
             "`carried_work` JSON object: `items` are attribution matches, "
             "`commits` are unresolved bare SHAs, and `derivation.reason` "
@@ -101,6 +122,9 @@ DELIVERY_TABLES: dict[str, dict] = {
             ("run_id", "TEXT"),
             ("item_id", "INTEGER"),
             ("added_at", "TEXT"),
+            ("delivery_intent", "TEXT"),
+            ("requirement_selection", "TEXT"),
+            ("requirement_snapshot", "TEXT"),
         ],
         "notes": (
             "Many-to-many linkage between deployment_runs and items. "
@@ -111,7 +135,10 @@ DELIVERY_TABLES: dict[str, dict] = {
             "query. Do not require a row here for environment-level "
             "deploy runs; zero rows means no attached backlog item, not "
             "a broken run once `deployment_runs.status` has moved past "
-            "`created`."
+            "`created`. For schema-v2 releases, `delivery_intent` is "
+            "`progress` or `final`; the explicit requirement selection and "
+            "the full selected requirement/plan/case content are frozen when "
+            "the run starts."
         ),
     },
     "ephemeral_environments": {

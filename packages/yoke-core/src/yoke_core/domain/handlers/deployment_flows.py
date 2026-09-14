@@ -27,7 +27,8 @@ def handle_deployment_flow_get(request: FunctionCallRequest) -> HandlerOutcome:
     field = payload.get("field")
     if field is not None and not isinstance(field, str):
         return error(
-            "payload_invalid", "field must be a string when present",
+            "payload_invalid",
+            "field must be a string when present",
             jsonpath="$.payload.field",
         )
 
@@ -40,11 +41,15 @@ def handle_deployment_flow_get(request: FunctionCallRequest) -> HandlerOutcome:
             raw = cmd_get(conn, resolved_flow_id, field)
         except LookupError as exc:
             return error(
-                "not_found", str(exc), jsonpath="$.payload.flow_id",
+                "not_found",
+                str(exc),
+                jsonpath="$.payload.flow_id",
             )
         except ValueError as exc:
             return error(
-                "invalid_field", str(exc), jsonpath="$.payload.field",
+                "invalid_field",
+                str(exc),
+                jsonpath="$.payload.field",
             )
     finally:
         conn.close()
@@ -86,7 +91,9 @@ def handle_deployment_flow_stages(request: FunctionCallRequest) -> HandlerOutcom
             stages = cmd_stages(conn, resolved_flow_id)
         except LookupError as exc:
             return error(
-                "not_found", str(exc), jsonpath="$.payload.flow_id",
+                "not_found",
+                str(exc),
+                jsonpath="$.payload.flow_id",
             )
     finally:
         conn.close()
@@ -110,12 +117,14 @@ def handle_deployment_flow_update_stages(
     description = payload.get("description")
     if not isinstance(stages, str) or not stages.strip():
         return error(
-            "payload_invalid", "stages must be a non-empty JSON string",
+            "payload_invalid",
+            "stages must be a non-empty JSON string",
             jsonpath="$.payload.stages",
         )
     if description is not None and not isinstance(description, str):
         return error(
-            "payload_invalid", "description must be a string when present",
+            "payload_invalid",
+            "description must be a string when present",
             jsonpath="$.payload.description",
         )
     from yoke_core.domain.db_helpers import connect
@@ -125,7 +134,9 @@ def handle_deployment_flow_update_stages(
     try:
         try:
             message = cmd_update_stages(
-                conn, resolved_flow_id, stages,
+                conn,
+                resolved_flow_id,
+                stages,
                 description=description,
             )
         except LookupError as exc:
@@ -153,7 +164,8 @@ def handle_deployment_flow_describe(
     description = payload.get("description")
     if not isinstance(description, str) or not description.strip():
         return error(
-            "payload_invalid", "description must be a non-empty string",
+            "payload_invalid",
+            "description must be a non-empty string",
             jsonpath="$.payload.description",
         )
     from yoke_core.domain.db_helpers import connect
@@ -165,6 +177,8 @@ def handle_deployment_flow_describe(
             message = cmd_describe(conn, resolved_flow_id, description)
         except LookupError as exc:
             return error("not_found", str(exc), jsonpath="$.payload.flow_id")
+        except ValueError as exc:
+            return error("definition_immutable", str(exc), jsonpath="$.payload")
     finally:
         conn.close()
     return HandlerOutcome(
@@ -186,7 +200,8 @@ def handle_deployment_flow_set_status(
     status = payload.get("status")
     if not isinstance(status, str):
         return error(
-            "payload_invalid", "status must be active or disabled",
+            "payload_invalid",
+            "status must be active or disabled",
             jsonpath="$.payload.status",
         )
 
@@ -199,11 +214,15 @@ def handle_deployment_flow_set_status(
             cmd_set_status(conn, resolved_flow_id, status)
         except LookupError as exc:
             return error(
-                "not_found", str(exc), jsonpath="$.payload.flow_id",
+                "not_found",
+                str(exc),
+                jsonpath="$.payload.flow_id",
             )
         except ValueError as exc:
             return error(
-                "invalid_status", str(exc), jsonpath="$.payload.status",
+                "invalid_status",
+                str(exc),
+                jsonpath="$.payload.status",
             )
     finally:
         conn.close()
@@ -235,12 +254,14 @@ def handle_deployment_flow_create(
     stages = payload.get("stages")
     if not isinstance(name, str) or not name.strip():
         return error(
-            "payload_invalid", "name must be a non-empty string",
+            "payload_invalid",
+            "name must be a non-empty string",
             jsonpath="$.payload.name",
         )
     if not isinstance(stages, str) or not stages.strip():
         return error(
-            "payload_invalid", "stages must be a non-empty JSON string",
+            "payload_invalid",
+            "stages must be a non-empty JSON string",
             jsonpath="$.payload.stages",
         )
 

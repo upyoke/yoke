@@ -21,6 +21,10 @@ import re
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import query_scalar
+from yoke_core.domain.deployment_run_composition_guard import (
+    frozen_mutation_refusal,
+    has_frozen_composition,
+)
 
 
 LINEAGE_FIELD = "release_lineage"
@@ -36,6 +40,11 @@ PREPARE_NAMES_NO_LINEAGE = (
 _FULL_COMMIT = re.compile(r"[0-9a-f]{40}")
 
 
+def is_full_commit(value: str) -> bool:
+    """Whether a value is the immutable commit form stored on a frozen run."""
+    return _FULL_COMMIT.fullmatch(str(value or "")) is not None
+
+
 def refuse_lineage_write(
     conn: Any,
     run_id: str,
@@ -46,7 +55,7 @@ def refuse_lineage_write(
     Returns ``None`` when the write is allowed, including the idempotent case
     where the run already carries exactly *value*.
     """
-    if not _FULL_COMMIT.fullmatch(value):
+    if not is_full_commit(value):
         return (
             f"Error: release_lineage '{value}' is not a full 40-hex commit; "
             "bind the exact merge commit the run will deploy"
@@ -62,6 +71,8 @@ def refuse_lineage_write(
     current = str(row["release_lineage"] if hasattr(row, "keys") else row[1])
     if current == value:
         return None
+    if has_frozen_composition(conn, run_id):
+        return frozen_mutation_refusal(run_id, LINEAGE_FIELD)
     if status != "created":
         return (
             f"Error: deployment run '{run_id}' is {status}; release_lineage "
@@ -83,8 +94,7 @@ def lineage_of(conn: Any, run_id: str) -> str:
     return (
         query_scalar(
             conn,
-            "SELECT COALESCE(release_lineage, '') FROM deployment_runs "
-            "WHERE id=%s",
+            "SELECT COALESCE(release_lineage, '') FROM deployment_runs WHERE id=%s",
             (run_id,),
         )
         or ""
@@ -94,6 +104,7 @@ def lineage_of(conn: Any, run_id: str) -> str:
 __all__ = [
     "LINEAGE_FIELD",
     "PREPARE_NAMES_NO_LINEAGE",
+    "is_full_commit",
     "lineage_of",
     "refuse_lineage_write",
 ]

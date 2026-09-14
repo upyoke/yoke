@@ -25,6 +25,8 @@ FLOW_ROW_FIELDS = (
     "target_environment",
     "done_description",
     "status",
+    "definition_schema_version",
+    "supersedes_flow_id",
 )
 
 
@@ -117,6 +119,8 @@ class DeploymentRunCreateRequest(BaseModel):
     environment: Optional[str] = None
     release_lineage: Optional[str] = None
     created_by: str = "operator"
+    artifact_identity: Optional[str] = None
+    retry_of: Optional[str] = None
 
 
 class DeploymentRunCreateResponse(BaseModel):
@@ -126,6 +130,7 @@ class DeploymentRunCreateResponse(BaseModel):
     target_tier: Optional[str] = None
     target_environment: Optional[str] = None
     release_lineage: Optional[str] = None
+    artifact_identity: Optional[str] = None
     status: str
 
 

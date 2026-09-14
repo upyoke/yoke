@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Mapping
+
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
 from yoke_core.domain.handlers.deployment_common import (
     error,
@@ -14,7 +17,7 @@ from yoke_core.domain.deployment_run_target_resolution import (
 )
 
 
-def _retry_lineage(run_id: str, *, project: str, flow: str) -> str:
+def _retry_candidate(run_id: str, *, project: str, flow: str) -> tuple[str, str | None]:
     from yoke_core.domain.deployment_runs_crud_query import cmd_get
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 
@@ -29,15 +32,13 @@ def _retry_lineage(run_id: str, *, project: str, flow: str) -> str:
         )
     if source["status"] not in {"failed", "cancelled"}:
         raise ValueError(
-            f"retry source {run_id!r} has non-terminal status "
-            f"{source['status']!r}"
+            f"retry source {run_id!r} has non-terminal status {source['status']!r}"
         )
     lineage = (source["release_lineage"] or "").strip()
     if not lineage:
-        raise ValueError(
-            f"retry source {run_id!r} has no pinned release lineage"
-        )
-    return lineage
+        raise ValueError(f"retry source {run_id!r} has no pinned release lineage")
+    artifact = str(source.get("artifact_identity") or "").strip() or None
+    return lineage, artifact
 
 
 def handle_deployment_run_create(
@@ -53,6 +54,7 @@ def handle_deployment_run_create(
     environment = payload.get("environment")
     release_lineage = payload.get("release_lineage")
     retry_of = payload.get("retry_of")
+    artifact_identity = payload.get("artifact_identity")
     created_by = payload.get("created_by") or "operator"
     for key, value, required in (
         ("project", project, True),
@@ -60,24 +62,43 @@ def handle_deployment_run_create(
         ("environment", environment, False),
         ("release_lineage", release_lineage, False),
         ("retry_of", retry_of, False),
+        ("artifact_identity", artifact_identity, False),
         ("created_by", created_by, True),
     ):
         if required and (not isinstance(value, str) or not value.strip()):
             return error(
-                "payload_invalid", f"{key} must be a non-empty string",
+                "payload_invalid",
+                f"{key} must be a non-empty string",
                 jsonpath=f"$.payload.{key}",
             )
         if not required and value is not None and not isinstance(value, str):
             return error(
-                "payload_invalid", f"{key} must be a string when present",
+                "payload_invalid",
+                f"{key} must be a string when present",
                 jsonpath=f"$.payload.{key}",
             )
-    if retry_of and release_lineage:
+    if retry_of and (release_lineage or artifact_identity):
         return error(
             "payload_invalid",
-            "retry_of and release_lineage are mutually exclusive",
+            "retry_of cannot be combined with release_lineage or artifact_identity",
             jsonpath="$.payload",
         )
+    if artifact_identity:
+        try:
+            artifact = json.loads(artifact_identity)
+        except (TypeError, ValueError) as exc:
+            return error(
+                "payload_invalid",
+                f"artifact_identity must be valid JSON: {exc}",
+                jsonpath="$.payload.artifact_identity",
+            )
+        if not isinstance(artifact, Mapping):
+            return error(
+                "payload_invalid",
+                "artifact_identity must be a JSON object",
+                jsonpath="$.payload.artifact_identity",
+            )
+        artifact_identity = json.dumps(artifact, sort_keys=True, separators=(",", ":"))
 
     clean_project = project.strip()
     clean_flow = flow.strip()
@@ -92,18 +113,21 @@ def handle_deployment_run_create(
 
     try:
         if retry_of:
-            release_lineage = _retry_lineage(
-                retry_of.strip(), project=clean_project, flow=clean_flow,
+            release_lineage, artifact_identity = _retry_candidate(
+                retry_of.strip(),
+                project=clean_project,
+                flow=clean_flow,
             )
         from yoke_core.domain.deployment_runs_crud_mutate import cmd_create_run
 
-        created_run_id = cmd_create_run(
-            clean_project,
-            clean_flow,
-            environment=(environment or "").strip() or None,
-            release_lineage=(release_lineage or "").strip() or None,
-            created_by=created_by.strip(),
-        )
+        create_kwargs = {
+            "environment": (environment or "").strip() or None,
+            "release_lineage": (release_lineage or "").strip() or None,
+            "created_by": created_by.strip(),
+        }
+        if artifact_identity is not None:
+            create_kwargs["artifact_identity"] = artifact_identity
+        created_run_id = cmd_create_run(clean_project, clean_flow, **create_kwargs)
     except EnvironmentRegistryMigrationRequired as exc:
         return error(exc.code, str(exc))
     except LookupError as exc:
@@ -123,6 +147,7 @@ def handle_deployment_run_create(
             "target_tier": created.get("target_tier") or None,
             "target_environment": created.get("target_environment") or None,
             "release_lineage": created.get("release_lineage") or None,
+            "artifact_identity": created.get("artifact_identity") or None,
             "status": created.get("status") or "created",
         },
         primary_success=True,

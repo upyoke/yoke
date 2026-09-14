@@ -8,6 +8,7 @@ from yoke_cli.commands import flag_adapters as _adapters
 from yoke_cli.commands.adapters.deployment_flow_create import (
     deployment_flows_create,
 )
+from yoke_cli.commands.adapters import deployment_flow_configuration as _flow_config
 from yoke_cli.commands.adapters import deployment_inspection as _inspection
 from yoke_cli.commands.adapters.deployment_run_projection import (
     deployment_runs_project_snapshot,
@@ -25,64 +26,107 @@ AdapterFn = Callable[[List[str]], int]
 
 
 DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
-    ("deployment-flows", "list"):
-        ("deployment_flows.list", _inspection.deployment_flows_list),
-    ("deployment-flows", "get"):
-        ("deployment_flows.get", _adapters.deployment_flows_get),
-    ("deployment-flows", "create"):
-        ("deployment_flows.create", deployment_flows_create),
-    ("deployment-flows", "stages"):
-        ("deployment_flows.stages", _adapters.deployment_flows_stages),
-    ("deployment-flows", "update-stages"):
-        ("deployment_flows.update_stages",
-         _adapters.deployment_flows_update_stages),
-    ("deployment-flows", "describe"):
-        ("deployment_flows.describe",
-         _adapters.deployment_flows_describe),
-    ("deployment-flows", "set-status"):
-        ("deployment_flows.set_status", _adapters.deployment_flows_set_status),
-    ("deployment-runs", "create"):
-        ("deployment_runs.create", _adapters.deployment_runs_create),
-    ("deployment-runs", "project-snapshot"):
-        ("deployment_runs.project_snapshot", deployment_runs_project_snapshot),
-    ("deployment-runs", "start-for-item"):
-        ("deployment_runs.start_for_item",
-         _adapters.deployment_runs_start_for_item),
-    ("deployment-runs", "add-item"):
-        ("deployment_runs.add_item", _membership.deployment_runs_add_item),
-    ("deployment-runs", "validate-composition"):
-        (
-            "deployment_runs.validate_composition",
-            _membership.deployment_runs_validate_composition,
-        ),
-    ("deployment-runs", "approve"):
-        ("deployment_runs.approve", _adapters.deployment_runs_approve),
-    ("deployment-runs", "stage-approval", "evaluate"):
-        ("deployment_runs.stage_approval.evaluate",
-         deployment_runs_stage_approval_evaluate),
-    ("deployment-runs", "get"):
-        ("deployment_runs.get", _adapters.deployment_runs_get),
-    ("deployment-runs", "list"):
-        ("deployment_runs.list", _adapters.deployment_runs_list),
-    ("deployment-runs", "find-by-item"):
-        (
-            "deployment_runs.find_by_item",
-            _inspection.deployment_runs_find_by_item,
-        ),
-    ("deployment-runs", "failure-trace"):
-        (
-            "deployment_runs.failure_trace",
-            _inspection.deployment_runs_failure_trace,
-        ),
-    ("deployment-runs", "stages"):
-        ("deployment_runs.stages", _inspection.deployment_runs_stages),
-    ("deployment-runs", "update"):
-        ("deployment_runs.update", _adapters.deployment_runs_update),
-    ("deployment-runs", "terminalize"):
-        ("deployment_runs.terminalize", deployment_runs_terminalize),
-    ("deployment-runs", "resolve-target"):
-        ("deployment_runs.resolve_target",
-         _adapters.deployment_runs_resolve_target),
+    ("deployment-flows", "list"): (
+        "deployment_flows.list",
+        _inspection.deployment_flows_list,
+    ),
+    ("deployment-flows", "get"): (
+        "deployment_flows.get",
+        _adapters.deployment_flows_get,
+    ),
+    ("deployment-flows", "create"): (
+        "deployment_flows.create",
+        deployment_flows_create,
+    ),
+    ("deployment-flows", "update"): (
+        "deployment_flows.update",
+        _flow_config.deployment_flows_update,
+    ),
+    ("deployment-flows", "reorder"): (
+        "deployment_flows.reorder",
+        _flow_config.deployment_flows_reorder,
+    ),
+    ("deployment-flows", "validate"): (
+        "deployment_flows.validate",
+        _flow_config.deployment_flows_validate,
+    ),
+    ("deployment-flows", "version"): (
+        "deployment_flows.version",
+        _flow_config.deployment_flows_version,
+    ),
+    ("deployment-flows", "stages"): (
+        "deployment_flows.stages",
+        _adapters.deployment_flows_stages,
+    ),
+    ("deployment-flows", "update-stages"): (
+        "deployment_flows.update_stages",
+        _adapters.deployment_flows_update_stages,
+    ),
+    ("deployment-flows", "describe"): (
+        "deployment_flows.describe",
+        _adapters.deployment_flows_describe,
+    ),
+    ("deployment-flows", "set-status"): (
+        "deployment_flows.set_status",
+        _adapters.deployment_flows_set_status,
+    ),
+    ("deployment-runs", "create"): (
+        "deployment_runs.create",
+        _adapters.deployment_runs_create,
+    ),
+    ("deployment-runs", "project-snapshot"): (
+        "deployment_runs.project_snapshot",
+        deployment_runs_project_snapshot,
+    ),
+    ("deployment-runs", "start-for-item"): (
+        "deployment_runs.start_for_item",
+        _adapters.deployment_runs_start_for_item,
+    ),
+    ("deployment-runs", "add-item"): (
+        "deployment_runs.add_item",
+        _membership.deployment_runs_add_item,
+    ),
+    ("deployment-runs", "validate-composition"): (
+        "deployment_runs.validate_composition",
+        _membership.deployment_runs_validate_composition,
+    ),
+    ("deployment-runs", "approve"): (
+        "deployment_runs.approve",
+        _adapters.deployment_runs_approve,
+    ),
+    ("deployment-runs", "stage-approval", "evaluate"): (
+        "deployment_runs.stage_approval.evaluate",
+        deployment_runs_stage_approval_evaluate,
+    ),
+    ("deployment-runs", "get"): ("deployment_runs.get", _adapters.deployment_runs_get),
+    ("deployment-runs", "list"): (
+        "deployment_runs.list",
+        _adapters.deployment_runs_list,
+    ),
+    ("deployment-runs", "find-by-item"): (
+        "deployment_runs.find_by_item",
+        _inspection.deployment_runs_find_by_item,
+    ),
+    ("deployment-runs", "failure-trace"): (
+        "deployment_runs.failure_trace",
+        _inspection.deployment_runs_failure_trace,
+    ),
+    ("deployment-runs", "stages"): (
+        "deployment_runs.stages",
+        _inspection.deployment_runs_stages,
+    ),
+    ("deployment-runs", "update"): (
+        "deployment_runs.update",
+        _adapters.deployment_runs_update,
+    ),
+    ("deployment-runs", "terminalize"): (
+        "deployment_runs.terminalize",
+        deployment_runs_terminalize,
+    ),
+    ("deployment-runs", "resolve-target"): (
+        "deployment_runs.resolve_target",
+        _adapters.deployment_runs_resolve_target,
+    ),
 }
 
 

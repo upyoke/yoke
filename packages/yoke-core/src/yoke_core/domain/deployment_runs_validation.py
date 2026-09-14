@@ -42,10 +42,14 @@ def _item_label(conn, item_id: int, detail: str) -> str:
 def _not_delivery_ready(conn, rows) -> list[str]:
     refused: list[str] = []
     item_columns = set(_schema_get_columns(conn, "items"))
-    has_workflow_pins = _table_exists(conn, "workflow_versions") and {
-        "workflow_id",
-        "workflow_version_id",
-    } <= item_columns
+    has_workflow_pins = (
+        _table_exists(conn, "workflow_versions")
+        and {
+            "workflow_id",
+            "workflow_version_id",
+        }
+        <= item_columns
+    )
     for item_id, status in rows:
         if has_workflow_pins:
             runtime = load_item_workflow_runtime(conn, int(item_id))
@@ -105,8 +109,7 @@ def cmd_validate_composition(
         )
         if wrong_project:
             items_str = ", ".join(
-                _item_label(conn, row[0], f"project={row[1]}")
-                for row in wrong_project
+                _item_label(conn, row[0], f"project={row[1]}") for row in wrong_project
             )
             errors.append(f"Project mismatch (run expects {run_project}): {items_str}")
 
@@ -124,10 +127,11 @@ def cmd_validate_composition(
         )
         if wrong_flow:
             items_str = ", ".join(
-                _item_label(conn, row[0], f"flow={row[1]}")
-                for row in wrong_flow
+                _item_label(conn, row[0], f"flow={row[1]}") for row in wrong_flow
             )
-            errors.append(f"Incompatible deployment flow (run expects {run_flow}): {items_str}")
+            errors.append(
+                f"Incompatible deployment flow (run expects {run_flow}): {items_str}"
+            )
 
         # Check 3: Every item is delivery-ready for its pinned workflow.
         delivery_candidates = query_rows(
@@ -160,6 +164,14 @@ def cmd_validate_composition(
                 for dependent, blocker, verdict in blocked
             )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")
+
+        from yoke_core.domain.deployment_run_composition_freeze import (
+            carried_membership_refusal,
+        )
+
+        carried_refusal = carried_membership_refusal(conn, run_id)
+        if carried_refusal:
+            errors.append(carried_refusal)
 
         if errors:
             error_text = "\n".join(errors)
@@ -202,8 +214,7 @@ def cmd_check_batch_compatibility(
         )
         if wrong_project:
             items_str = ", ".join(
-                _item_label(conn, row[0], f"project={row[1]}")
-                for row in wrong_project
+                _item_label(conn, row[0], f"project={row[1]}") for row in wrong_project
             )
             errors.append(f"Project mismatch (batch expects {ident.slug}): {items_str}")
 
@@ -220,17 +231,16 @@ def cmd_check_batch_compatibility(
         )
         if wrong_flow:
             items_str = ", ".join(
-                _item_label(conn, row[0], f"flow={row[1]}")
-                for row in wrong_flow
+                _item_label(conn, row[0], f"flow={row[1]}") for row in wrong_flow
             )
-            errors.append(f"Incompatible deployment flow (batch expects {flow}): {items_str}")
+            errors.append(
+                f"Incompatible deployment flow (batch expects {flow}): {items_str}"
+            )
 
         # Check 3: Every item is delivery-ready for its pinned workflow.
         delivery_candidates = query_rows(
             conn,
-            f"SELECT i.id, i.status "
-            f"FROM items i "
-            f"WHERE i.id IN ({placeholders})",
+            f"SELECT i.id, i.status FROM items i WHERE i.id IN ({placeholders})",
             tuple(item_ids),
         )
         not_passed = _not_delivery_ready(conn, delivery_candidates)

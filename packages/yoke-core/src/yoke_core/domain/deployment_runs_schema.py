@@ -15,19 +15,20 @@ the thin shim at ``deployment_runs.py``.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
-from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.deployment_run_pipe_format import pipe_row, pipe_rows
+from yoke_core.domain.deployment_runs_schema_init import cmd_init as cmd_init
 from yoke_core.domain.runs import RunStatus
 from yoke_core.domain.schema_common import (
     _column_exists,
-    environment_reference_column_sql,
 )
 
+_pipe_row = pipe_row
+_pipe_rows = pipe_rows
 
-# ---------------------------------------------------------------------------
+
 # Row-shape constants
-# ---------------------------------------------------------------------------
 
 RUN_FIELDS = (
     "id",
@@ -43,6 +44,10 @@ RUN_FIELDS = (
     "completed_at",
     "created_by",
     "carried_work",
+    "artifact_identity",
+    "composition_resolution",
+    "composition_frozen_at",
+    "requirement_snapshot",
 )
 
 # ``release_lineage`` is writable only while a run is still ``created``, so a
@@ -53,6 +58,8 @@ UPDATABLE_FIELDS = (
     "current_stage",
     "created_by",
     "release_lineage",
+    "artifact_identity",
+    "composition_resolution",
 )
 
 VALID_STATUSES = tuple(s.value for s in RunStatus)
@@ -75,6 +82,10 @@ _RUN_OPTIONAL_FIELD_COLUMNS = {
     "completed_at": "completed_at",
     "created_by": "created_by",
     "carried_work": "carried_work",
+    "artifact_identity": "artifact_identity",
+    "composition_resolution": "composition_resolution",
+    "composition_frozen_at": "composition_frozen_at",
+    "requirement_snapshot": "requirement_snapshot",
 }
 
 
@@ -88,6 +99,10 @@ def _compose_run_select(
     completed_at: str,
     created_by: str,
     carried_work: str,
+    artifact_identity: str,
+    composition_resolution: str,
+    composition_frozen_at: str,
+    requirement_snapshot: str,
 ) -> str:
     return (
         "id, COALESCE((SELECT p.slug FROM projects p "
@@ -96,7 +111,8 @@ def _compose_run_select(
         f"{release_lineage}, "
         f"status, {current_stage}, created_at, "
         f"{started_at}, {completed_at}, "
-        f"{created_by}, {carried_work}"
+        f"{created_by}, {carried_work}, {artifact_identity}, "
+        f"{composition_resolution}, {composition_frozen_at}, {requirement_snapshot}"
     )
 
 
@@ -115,6 +131,10 @@ _RUN_SELECT = _compose_run_select(
     completed_at="COALESCE(completed_at,'')",
     created_by="COALESCE(created_by,'')",
     carried_work="COALESCE(carried_work,'')",
+    artifact_identity="COALESCE(artifact_identity,'')",
+    composition_resolution="COALESCE(composition_resolution,'')",
+    composition_frozen_at="COALESCE(composition_frozen_at,'')",
+    requirement_snapshot="COALESCE(requirement_snapshot,'')",
 )
 
 
@@ -151,6 +171,18 @@ def _run_select(conn: Any) -> str:
         completed_at=_run_column_sql(conn, "completed_at", "COALESCE(completed_at,'')"),
         created_by=_run_column_sql(conn, "created_by", "COALESCE(created_by,'')"),
         carried_work=_run_column_sql(conn, "carried_work", "COALESCE(carried_work,'')"),
+        artifact_identity=_run_column_sql(
+            conn, "artifact_identity", "COALESCE(artifact_identity,'')"
+        ),
+        composition_resolution=_run_column_sql(
+            conn, "composition_resolution", "COALESCE(composition_resolution,'')"
+        ),
+        composition_frozen_at=_run_column_sql(
+            conn, "composition_frozen_at", "COALESCE(composition_frozen_at,'')"
+        ),
+        requirement_snapshot=_run_column_sql(
+            conn, "requirement_snapshot", "COALESCE(requirement_snapshot,'')"
+        ),
     )
 
 
@@ -187,6 +219,10 @@ def _run_named_columns(conn: Any, alias: str = "dr") -> tuple[str, str]:
             col("completed_at"),
             col("created_by"),
             col("carried_work"),
+            col("artifact_identity"),
+            col("composition_resolution"),
+            col("composition_frozen_at"),
+            col("requirement_snapshot"),
         )
     )
     return columns, env_join
@@ -198,108 +234,3 @@ def _run_field_available(conn: Any, field: str) -> bool:
     if column is None:
         return True
     return _column_exists(conn, _RUN_TABLE, column)
-
-
-# ---------------------------------------------------------------------------
-# Pipe-delimited formatters
-# ---------------------------------------------------------------------------
-
-
-def _pipe_row(row) -> str:
-    """Format a DB row as a pipe-delimited string."""
-    return "|".join(str(v) for v in row)
-
-
-def _pipe_rows(rows) -> str:
-    """Format a list of sqlite3.Row as pipe-delimited lines."""
-    return "\n".join(_pipe_row(r) for r in rows)
-
-
-# ---------------------------------------------------------------------------
-# DDL bootstrap
-# ---------------------------------------------------------------------------
-
-
-def cmd_init(db_path: Optional[str] = None) -> None:
-    """Create tables if not exist (idempotent)."""
-    conn = connect(db_path)
-    try:
-        environment_ref = environment_reference_column_sql(conn)
-        for statement in (
-            f"""
-            CREATE TABLE IF NOT EXISTS deployment_runs (
-                id TEXT PRIMARY KEY,
-                project_id INTEGER NOT NULL REFERENCES projects(id),
-                flow TEXT NOT NULL REFERENCES deployment_flows(id),
-                target_tier TEXT,
-                target_environment_id {environment_ref},
-                release_lineage TEXT,
-                status TEXT NOT NULL DEFAULT 'created'
-                    CHECK(status IN ('created','executing','succeeded','failed','cancelled')),
-                current_stage TEXT,
-                created_at TEXT NOT NULL,
-                started_at TEXT,
-                completed_at TEXT,
-                created_by TEXT DEFAULT 'operator',
-                carried_work TEXT,  -- → JSONB on Postgres
-                CONSTRAINT deployment_runs_target_tier_vocabulary
-                    CHECK (target_tier IS NULL
-                           OR target_tier IN ('persistent','ephemeral')),
-                CONSTRAINT deployment_runs_target_tier_environment
-                    CHECK ((target_tier IS NOT NULL
-                            AND target_tier = 'persistent')
-                           = (target_environment_id IS NOT NULL))
-            )
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS deployment_run_items (
-                run_id TEXT NOT NULL REFERENCES deployment_runs(id),
-                item_id INTEGER NOT NULL,
-                added_at TEXT NOT NULL,
-                PRIMARY KEY (run_id, item_id)
-            )
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS deployment_run_qa (
-                id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                run_id TEXT NOT NULL REFERENCES deployment_runs(id),
-                check_name TEXT NOT NULL,
-                source TEXT NOT NULL DEFAULT 'flow_default',
-                blocking INTEGER NOT NULL DEFAULT 1,
-                status TEXT NOT NULL DEFAULT 'pending'
-                    CHECK(status IN ('pending','passed','failed','waived')),
-                updated_at TEXT,
-                UNIQUE(run_id, check_name)
-            )
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS deployment_preview_environments (
-                id INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-                project_id INTEGER NOT NULL REFERENCES projects(id),
-                env_name TEXT NOT NULL,
-                run_id TEXT REFERENCES deployment_runs(id),
-                status TEXT NOT NULL DEFAULT 'available'
-                    CHECK(status IN ('available','claimed','stale')),
-                env_type TEXT NOT NULL DEFAULT 'adhoc'
-                    CHECK(env_type IN ('shared','adhoc')),
-                url TEXT,
-                created_at TEXT NOT NULL,
-                UNIQUE(project_id, env_name)
-            )
-            """,
-        ):
-            conn.execute(statement)
-        # Migration: add env_type column if missing (for existing DBs)
-        if not _column_exists(conn, "deployment_preview_environments", "env_type"):
-            try:
-                conn.execute(
-                    "ALTER TABLE deployment_preview_environments "
-                    "ADD COLUMN env_type TEXT NOT NULL DEFAULT 'adhoc' "
-                    "CHECK(env_type IN ('shared','adhoc'))"
-                )
-                conn.commit()
-            except Exception:
-                pass
-        conn.commit()
-    finally:
-        conn.close()

@@ -30,6 +30,8 @@ def _ensure_flow_schema(conn) -> None:
             on_failure TEXT DEFAULT 'halt',
             created_at TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'active',
+            definition_schema_version INTEGER NOT NULL DEFAULT 1,
+            supersedes_flow_id TEXT REFERENCES deployment_flows(id),
             target_tier TEXT,
             target_environment_id {environment_ref},
             CONSTRAINT deployment_flows_target_tier_vocabulary
@@ -66,6 +68,18 @@ def _ensure_flow_schema(conn) -> None:
     _add_column_if_not_exists(
         conn, "deployment_flows", "status", "TEXT NOT NULL DEFAULT 'active'"
     )
+    _add_column_if_not_exists(
+        conn,
+        "deployment_flows",
+        "definition_schema_version",
+        "INTEGER NOT NULL DEFAULT 1",
+    )
+    _add_column_if_not_exists(
+        conn,
+        "deployment_flows",
+        "supersedes_flow_id",
+        "TEXT REFERENCES deployment_flows(id)",
+    )
 
     # Existing deployment_runs tables predate the typed target pair; the
     # legacy target_env label is recoded and dropped by the ordered
@@ -80,6 +94,26 @@ def _ensure_flow_schema(conn) -> None:
             environment_ref,
         )
         _add_column_if_not_exists(conn, "deployment_runs", "carried_work", "TEXT")
+        for column in (
+            "artifact_identity",
+            "composition_resolution",
+            "composition_frozen_at",
+            "requirement_snapshot",
+        ):
+            _add_column_if_not_exists(conn, "deployment_runs", column, "TEXT")
+
+    if _table_exists(conn, "deployment_run_items"):
+        _add_column_if_not_exists(
+            conn,
+            "deployment_run_items",
+            "delivery_intent",
+            "TEXT CHECK(delivery_intent IN ('progress','final'))",
+        )
+        for column in (
+            "requirement_selection",
+            "requirement_snapshot",
+        ):
+            _add_column_if_not_exists(conn, "deployment_run_items", column, "TEXT")
 
     # Add deployment_flow / deploy_stage to items (idempotent).
     # NOTE: SQLite silently drops the inline `REFERENCES` clause on
