@@ -24,11 +24,11 @@ from yoke_cli.transport.https_relay_outcome import (
     transport_error_response,
 )
 from yoke_cli.transport.https_retry_policy import (
-    CONNECTION_ATTEMPTS,
-    RESPONSE_DEADLINE_ATTEMPTS,
+    attempt_budget,
     connection_backoff_seconds,
     http_status_is_transient,
     should_retry_connection,
+    should_retry_response_deadline,
     typed_failure_status_is_transient,
     write_retry_notice,
 )
@@ -188,7 +188,7 @@ def _relay_attempts(
     # Serialized once: every attempt carries the same request_id, which is
     # what makes a repeat safe against a call that already landed.
     body = json.dumps(payload).encode("utf-8")
-    budget = min(max(max_attempts or CONNECTION_ATTEMPTS, 1), CONNECTION_ATTEMPTS)
+    budget = attempt_budget(max_attempts)
     attempt = 0
     for attempt in range(budget):
         if attempt:
@@ -222,8 +222,8 @@ def _relay_attempts(
                 sensitive_values=sensitive_values,
                 handshake=handshake,
             )
-            if response_error == _RETRYABLE_RESPONSE_ERROR and attempt + 1 < min(
-                RESPONSE_DEADLINE_ATTEMPTS, budget
+            if response_error == _RETRYABLE_RESPONSE_ERROR and (
+                should_retry_response_deadline(attempt, budget)
             ):
                 continue
             if response_error is not None:
@@ -242,8 +242,8 @@ def _relay_attempts(
                 continue
             return response, attempt + 1
         except HttpsResponsePolicyError as exc:
-            if str(exc) == _RETRYABLE_RESPONSE_ERROR and attempt + 1 < min(
-                RESPONSE_DEADLINE_ATTEMPTS, budget
+            if str(exc) == _RETRYABLE_RESPONSE_ERROR and (
+                should_retry_response_deadline(attempt, budget)
             ):
                 continue
             return _refuse(
@@ -253,7 +253,7 @@ def _relay_attempts(
                 sensitive_values=sensitive_values,
             ), attempt + 1
         except ResponseOpenDeadlineError:
-            if attempt + 1 < min(RESPONSE_DEADLINE_ATTEMPTS, budget):
+            if should_retry_response_deadline(attempt, budget):
                 continue
             return _refuse(
                 request,
