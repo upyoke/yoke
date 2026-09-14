@@ -22,7 +22,11 @@ from yoke_core.domain.session_message_reads import (
     message_recipient_match_clause,
     message_summary,
 )
-from yoke_core.domain.session_message_types import SessionMessageError
+from yoke_core.domain.session_message_types import (
+    SessionMessageError,
+    timestamp,
+    utc_now,
+)
 from yoke_core.domain.steering_message_recipients import (
     STATE_AWAITING_SEAT,
     STATE_DELIVERED,
@@ -104,12 +108,21 @@ def _visible_clause(
     if visible_projects:
         slots = ",".join(p for _ in visible_projects)
         branches.append(
+            "("
             "(EXISTS (SELECT 1 FROM session_message_recipients vp "
-            "WHERE vp.message_id=m.message_id) AND NOT EXISTS (SELECT 1 FROM "
-            "session_message_recipients vx WHERE vx.message_id=m.message_id "
-            f"AND vx.project_id NOT IN ({slots})))"
+            "WHERE vp.message_id=m.message_id) OR EXISTS (SELECT 1 FROM "
+            "actor_message_recipients vpt WHERE vpt.message_id=m.message_id "
+            f"AND vpt.recipient_kind={p})) "
+            "AND NOT EXISTS (SELECT 1 FROM session_message_recipients vx "
+            f"WHERE vx.message_id=m.message_id AND vx.project_id NOT IN ({slots})) "
+            "AND NOT EXISTS (SELECT 1 FROM actor_message_recipients vxt "
+            f"WHERE vxt.message_id=m.message_id AND vxt.recipient_kind={p} "
+            f"AND vxt.project_id NOT IN ({slots}))"
+            ")"
         )
-        params.extend(visible_projects)
+        params.extend(
+            [STEERING_KIND, *visible_projects, STEERING_KIND, *visible_projects]
+        )
     return "(" + " OR ".join(branches) + ")", params
 
 
@@ -138,6 +151,16 @@ def _project_clause(
 
 
 def _actionable_clause(conn: Any) -> tuple[str, list[Any]]:
+    """A message needs attention while some recipient still owes an answer.
+
+    A steering row cannot carry its own ``expired`` state -- the shared
+    table's kind/state constraint only allows the seat lifecycle states
+    (``awaiting_seat``/``delivered``/``acknowledged``) -- so unlike the
+    session and actor branches, which already converged past-due rows to
+    ``expired`` before this runs, staleness for steering is read straight
+    from the message it belongs to: an ``awaiting_seat`` or ``delivered``
+    row whose message has itself expired is no longer anyone's to act on.
+    """
     p = _p(conn)
     session_slots = ",".join(p for _ in OPEN_SESSION_STATES)
     steering_slots = ",".join(p for _ in OPEN_STEERING_STATES)
@@ -146,11 +169,18 @@ def _actionable_clause(conn: Any) -> tuple[str, list[Any]]:
         "session_message_recipients ao WHERE ao.message_id=m.message_id "
         f"AND ao.state IN ({session_slots})) OR EXISTS (SELECT 1 FROM "
         "actor_message_recipients aa WHERE aa.message_id=m.message_id "
-        f"AND aa.recipient_kind={p} AND aa.state='pending') OR EXISTS "
+        f"AND aa.recipient_kind={p} AND aa.state='pending') OR "
+        f"(m.expires_at>{p} AND EXISTS "
         "(SELECT 1 FROM actor_message_recipients ast WHERE "
         f"ast.message_id=m.message_id AND ast.recipient_kind={p} "
-        f"AND ast.state IN ({steering_slots}))))",
-        [*OPEN_SESSION_STATES, ACTOR_KIND, STEERING_KIND, *OPEN_STEERING_STATES],
+        f"AND ast.state IN ({steering_slots})))))",
+        [
+            *OPEN_SESSION_STATES,
+            ACTOR_KIND,
+            timestamp(utc_now()),
+            STEERING_KIND,
+            *OPEN_STEERING_STATES,
+        ],
     )
 
 
