@@ -201,6 +201,24 @@ QA_COMMANDS: list[dict] = [
     },
     {
         "topic": "qa",
+        "purpose": "Execute one frozen deployment QA stage subject",
+        "recipe": (
+            "yoke qa plan run --deployment-run-id RUN --stage STAGE "
+            "[--member PREFIX-N] [--plan AGENT_SELECTED_PLAN] --project PROJECT"
+        ),
+        "notes": (
+            "Registered writes qa.plan.materialize and qa.plan_execution.begin. "
+            "The stage must be the run's active pinned schema-2 QA stage. Item "
+            "scope requires --member; run scope omits it. Named flow cases and "
+            "member admission requirements come from frozen run snapshots. When "
+            "the stage names no concrete cases, --plan records the executor's "
+            "project-owned selection. Every case and verdict remains on the "
+            "existing qa_requirements/qa_runs/qa_artifacts authority, bound to "
+            "the resolved deployed target and release_lineage."
+        ),
+    },
+    {
+        "topic": "qa",
         "purpose": "Execute one materialized Browser method case",
         "recipe": (
             "yoke qa case run --requirement-id R "

@@ -35,6 +35,7 @@ def build_execution_roster(
     deployment_run_id: str | None = None,
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
+    execution_target_digest: str | None = None,
     host_capability_kinds: Any | None = None,
 ) -> list[dict[str, Any]]:
     """Capture the complete immutable execution context in server order."""
@@ -50,6 +51,7 @@ def build_execution_roster(
         deployment_run_id=deployment_run_id,
         deployment_stage=deployment_stage,
         deployment_member_item_id=deployment_member_item_id,
+        execution_target_digest=execution_target_digest,
     )
     roster: list[dict[str, Any]] = []
     for ordinal, order in enumerate(ordered):

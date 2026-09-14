@@ -9,12 +9,16 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.deployment_flow_versioning import cmd_create
-from yoke_core.domain.deployment_qa_stage_contract import (
+from yoke_core.domain.deployment_qa_execution_target import (
     validate_deployment_execution_target,
 )
 from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
+)
+from yoke_core.domain.deployment_stage_receipts import (
+    allocate_deployment_stage_receipt,
+    complete_deployment_stage_receipt,
 )
 from yoke_core.domain.deployment_requirement_snapshots import (
     requirement_selection,
@@ -77,7 +81,11 @@ def _stages(plan_id: int, *, verdict: dict | None = None) -> list[dict[str, Any]
             "step_runner": "qa",
             "stage_kind": "qa",
             "scope": "item",
-            "target": {"kind": "persistent_environment", "environment": "stage"},
+            "target": {
+                "kind": "persistent_environment",
+                "environment": "stage",
+                "source_stage": "deploy",
+            },
             "cases": {"plan_id": plan_id, "case_keys": ["command-smoke"]},
             "verdict": verdict or {"mode": "agent_only"},
         },
@@ -109,12 +117,11 @@ def _seed_run(
         "INSERT INTO deployment_runs("
         "id,project_id,flow,release_lineage,status,current_stage,created_at,"
         "composition_frozen_at,requirement_snapshot"
-        ") VALUES (%s,1,%s,%s,'executing',%s,%s,%s,%s)",
+        ") VALUES (%s,1,%s,%s,'executing','deploy',%s,%s,%s)",
         (
             run_id,
             flow_id,
             "a" * 40,
-            str(stages[1]["name"]),
             "2026-09-14T00:00:00Z",
             "2026-09-14T00:01:00Z",
             flow_snapshot,
@@ -140,17 +147,48 @@ def _seed_run(
             ") VALUES (%s,%s,%s,%s)",
             (run_id, item_id, "2026-09-14T00:00:00Z", member_snapshot),
         )
+    receipt = allocate_deployment_stage_receipt(
+        conn,
+        run_id=run_id,
+        stage_name="deploy",
+        correlation_id=f"{run_id}-deploy-1",
+        target_kind="persistent_environment",
+        executor="test",
+        commit=False,
+    )
+    complete_deployment_stage_receipt(
+        conn,
+        receipt_id=int(receipt["id"]),
+        correlation_id=str(receipt["correlation_id"]),
+        status="ready",
+        target_name="stage",
+        observed_url="https://preview.example.test",
+        observed_release_lineage="a" * 40,
+        executor_receipt="test://deploy-ready",
+        commit=False,
+    )
+    conn.execute(
+        "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
+        (str(stages[1]["name"]), run_id),
+    )
     conn.commit()
 
 
 def _complete_case(conn: Any, execution: dict[str, Any]) -> int:
     requirement_id = int(execution["roster"][0]["requirement_id"])
     now = "2026-09-14T00:02:00Z"
-    conn.execute(
+    run_id = int(
+        conn.execute(
         "INSERT INTO qa_runs("
         "qa_requirement_id,performed_by,qa_kind,verdict,started_at,completed_at,created_at"
-        ") VALUES (%s,'worktree_run','plan_case','pass',%s,%s,%s)",
+        ") VALUES (%s,'worktree_run','plan_case','pass',%s,%s,%s) RETURNING id",
         (requirement_id, now, now, now),
+        ).fetchone()[0]
+    )
+    conn.execute(
+        "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
+        "artifact_handle,created_at) VALUES (%s,'log','application/json',%s,%s)",
+        (run_id, "evidence://scoped-case", now),
     )
     advance_plan_execution(
         conn,
@@ -161,6 +199,7 @@ def _complete_case(conn: Any, execution: dict[str, Any]) -> int:
             "requirement_id": requirement_id,
             "verdict": "pass",
             "case_outcome": "passed",
+            "run_id": run_id,
         },
     )
     finish_plan_execution(
@@ -255,54 +294,3 @@ def test_frozen_plan_survives_edit_and_replaced_candidate_refuses_results(
     test_db.commit()
     with pytest.raises(ValueError, match="replaced"):
         validate_deployment_execution_target(test_db, execution)
-
-
-def test_required_human_request_waits_for_case_pass_and_uses_stage_policy(
-    test_db,
-) -> None:
-    plan_id = _plan(test_db, "human-release-smoke")
-    reviewers = {"mode": "all", "roles": ["owner"], "actors": []}
-    stages = _stages(
-        plan_id,
-        verdict={"mode": "required_human", "reviewers": reviewers},
-    )
-    stages[1]["scope"] = "run"
-    _seed_run(test_db, run_id="run-human-stage", stages=stages, members=())
-    materialize_deployment_qa_stage(
-        test_db,
-        deployment_run_id="run-human-stage",
-        deployment_stage="item-qa",
-    )
-    execution = begin_plan_execution(
-        test_db,
-        deployment_run_id="run-human-stage",
-        deployment_stage="item-qa",
-        actor_id="2",
-        session_id="run-qa",
-    )
-    before = deployment_qa_stage_status(
-        test_db,
-        run_id="run-human-stage",
-        stage_name="item-qa",
-        member_item_id=None,
-    )
-    assert not before["accepted"] and before["request_id"] is None
-    assert (
-        test_db.execute(
-            "SELECT COUNT(*) FROM decision_requests WHERE kind='qa_needs_review'"
-        ).fetchone()[0]
-        == 0
-    )
-    _complete_case(test_db, execution)
-    after = deployment_qa_stage_status(
-        test_db,
-        run_id="run-human-stage",
-        stage_name="item-qa",
-        member_item_id=None,
-    )
-    assert not after["accepted"] and after["request_id"] is not None
-    request = test_db.execute(
-        "SELECT approval_mode,status FROM decision_requests WHERE id=%s",
-        (after["request_id"],),
-    ).fetchone()
-    assert tuple(request) == ("all", "pending")

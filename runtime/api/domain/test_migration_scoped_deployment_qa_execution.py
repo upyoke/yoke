@@ -6,9 +6,12 @@ import importlib
 
 import pytest
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.migration_serving_version import NEXT_RELEASE
 from yoke_core.domain.qa_deployment_scope_schema import (
     EXECUTION_SCOPE_INDEX_NAMES,
+    EXECUTION_SUBJECT_CONSTRAINT,
+    LEGACY_EXECUTION_SUBJECT_EXPRESSION,
     REQUIREMENT_SCOPE_INDEX_NAMES,
     assert_deployment_scope_contract,
 )
@@ -196,6 +199,25 @@ def test_fresh_schema_has_exact_scoped_contract_and_serving_floor(test_db) -> No
     assert MIGRATION.MINIMUM_SERVING_VERSION == NEXT_RELEASE
 
 
+def test_scoped_subjects_reject_blank_stage_names(test_db) -> None:
+    with pytest.raises(db_backend.integrity_error_types(test_db)):
+        test_db.execute(
+            "INSERT INTO qa_plan_executions("
+            "id,deployment_run_id,deployment_stage,session_id,roster_digest,"
+            "roster_json,state,created_at,heartbeat_at"
+            ") VALUES ('blank-stage','run-blank','   ','session','digest','[]',"
+            "'active','then','then')"
+        )
+    test_db.rollback()
+    with pytest.raises(db_backend.integrity_error_types(test_db)):
+        test_db.execute(
+            "INSERT INTO qa_requirements("
+            "deployment_run_id,deployment_stage,qa_kind,qa_phase,created_at"
+            ") VALUES ('run-blank','','browser','post_deploy','then')"
+        )
+    test_db.rollback()
+
+
 def test_invariant_rejects_live_index_without_human_review_state(test_db) -> None:
     index = "idx_qa_plan_executions_deployment_stage_active"
     test_db.execute(f'DROP INDEX "{index}"')
@@ -207,5 +229,59 @@ def test_invariant_rejects_live_index_without_human_review_state(test_db) -> Non
         "AND deployment_member_item_id IS NULL "
         "AND state IN ('active','waiting')"
     )
-    with pytest.raises(AssertionError, match="wrong live-state predicate"):
+    with pytest.raises(AssertionError, match="wrong predicate"):
         assert_deployment_scope_contract(test_db)
+
+
+def test_invariant_rejects_same_name_non_unique_index(test_db) -> None:
+    index = "idx_qa_plan_executions_deployment_stage_active"
+    test_db.execute(f'DROP INDEX "{index}"')
+    test_db.execute(
+        f"CREATE INDEX {index} "
+        "ON qa_plan_executions(deployment_run_id,deployment_stage) "
+        "WHERE deployment_run_id IS NOT NULL "
+        "AND deployment_stage IS NOT NULL "
+        "AND deployment_member_item_id IS NULL "
+        "AND state IN ('active','awaiting_agent_review','waiting')"
+    )
+    with pytest.raises(AssertionError, match="must be unique, valid, and ready"):
+        assert_deployment_scope_contract(test_db)
+
+
+def test_invariant_rejects_wider_index_predicate(test_db) -> None:
+    index = "idx_qa_plan_executions_deployment_stage_active"
+    test_db.execute(f'DROP INDEX "{index}"')
+    test_db.execute(
+        f"CREATE UNIQUE INDEX {index} "
+        "ON qa_plan_executions(deployment_run_id,deployment_stage) "
+        "WHERE (deployment_run_id IS NOT NULL "
+        "AND deployment_stage IS NOT NULL "
+        "AND deployment_member_item_id IS NULL "
+        "AND state IN ('active','awaiting_agent_review','waiting')) OR TRUE"
+    )
+    with pytest.raises(AssertionError, match="wrong predicate"):
+        assert_deployment_scope_contract(test_db)
+
+
+def test_invariant_rejects_legacy_shape_under_current_constraint_name(test_db) -> None:
+    test_db.execute(
+        f'ALTER TABLE qa_plan_executions DROP CONSTRAINT "{EXECUTION_SUBJECT_CONSTRAINT}"'
+    )
+    test_db.execute(
+        f'ALTER TABLE qa_plan_executions ADD CONSTRAINT "{EXECUTION_SUBJECT_CONSTRAINT}" '
+        f"CHECK ({LEGACY_EXECUTION_SUBJECT_EXPRESSION})"
+    )
+    with pytest.raises(AssertionError, match="does not match"):
+        assert_deployment_scope_contract(test_db)
+
+
+def test_cutover_refuses_unrecognized_subject_check_instead_of_dropping(test_db) -> None:
+    _install_legacy_contract(test_db)
+    name = "qa_plan_executions_stricter_subject_check"
+    test_db.execute(
+        f'ALTER TABLE qa_plan_executions ADD CONSTRAINT "{name}" CHECK ('
+        f"({LEGACY_EXECUTION_SUBJECT_EXPRESSION}) AND session_id IS NOT NULL)"
+    )
+    with pytest.raises(RuntimeError, match="unrecognized subject checks"):
+        MIGRATION.apply(test_db)
+    assert name in _constraint_names(test_db, "qa_plan_executions")

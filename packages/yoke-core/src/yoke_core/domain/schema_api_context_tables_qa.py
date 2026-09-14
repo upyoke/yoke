@@ -18,6 +18,8 @@ QA_TABLES: dict[str, dict] = {
             ("epic_id", "INTEGER"),
             ("task_num", "INTEGER"),
             ("deployment_run_id", "TEXT"),
+            ("deployment_stage", "TEXT"),
+            ("deployment_member_item_id", "INTEGER"),
             ("qa_kind", "TEXT"),
             ("qa_phase", "TEXT"),
             ("target_env", "TEXT"),
@@ -57,6 +59,9 @@ QA_TABLES: dict[str, dict] = {
             "is NO `is_blocking` column. Primary key is `id`, not "
             "`requirement_id`; requirement rows do not carry `status` "
             "or `last_known_result`. "
+            "Deployment requirements may additionally bind the frozen stage "
+            "and optional attached member through `deployment_stage` and "
+            "`deployment_member_item_id`; both stay NULL on legacy run subjects. "
             "`capability_requirements` is a canonical JSON array of capability "
             "kinds; `[]` means the case has no capability prerequisite. "
             "The aggregate discriminator is `qa_kind` "

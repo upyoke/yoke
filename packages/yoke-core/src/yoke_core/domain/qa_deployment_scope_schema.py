@@ -28,6 +28,17 @@ LIVE_EXECUTION_STATE_SQL = ",".join(
 EXECUTION_SUBJECT_CONSTRAINT = "qa_plan_executions_subject_check"
 REQUIREMENT_SUBJECT_CONSTRAINT = "qa_requirements_subject_check"
 
+LEGACY_EXECUTION_SUBJECT_EXPRESSION = """
+(item_id IS NOT NULL AND deployment_run_id IS NULL AND transition_id IS NOT NULL)
+OR (item_id IS NULL AND deployment_run_id IS NOT NULL AND transition_id IS NULL)
+""".strip()
+
+LEGACY_REQUIREMENT_SUBJECT_EXPRESSION = """
+(item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NULL)
+OR (item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND deployment_run_id IS NULL)
+OR (item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NOT NULL)
+""".strip()
+
 EXECUTION_SUBJECT_EXPRESSION = """
 (
     item_id IS NOT NULL AND deployment_run_id IS NULL
@@ -38,7 +49,7 @@ EXECUTION_SUBJECT_EXPRESSION = """
     AND transition_id IS NULL
     AND (
         (deployment_stage IS NULL AND deployment_member_item_id IS NULL) OR
-        (deployment_stage IS NOT NULL)
+        (deployment_stage IS NOT NULL AND BTRIM(deployment_stage) <> '')
     )
 )
 """.strip()
@@ -57,7 +68,7 @@ REQUIREMENT_SUBJECT_EXPRESSION = """
     AND deployment_run_id IS NOT NULL
     AND (
         (deployment_stage IS NULL AND deployment_member_item_id IS NULL) OR
-        (deployment_stage IS NOT NULL)
+        (deployment_stage IS NOT NULL AND BTRIM(deployment_stage) <> '')
     )
 )
 """.strip()
@@ -86,16 +97,20 @@ _EXECUTION_INDEX_SPECS = (
 _REQUIREMENT_INDEX_SPECS = tuple(
     (
         requirement_name,
-        execution_spec[1] + ("plan_id", "plan_case_key", "COALESCE(host_baseline, '')"),
+        execution_spec[1]
+        + ("plan_id", "plan_case_key", "COALESCE(host_baseline, '')")
+        + (() if position == 0 else ("execution_target_digest",)),
         execution_spec[2] + " AND plan_id IS NOT NULL",
     )
-    for requirement_name, execution_spec in zip(
-        (
-            "idx_qa_requirement_deployment_legacy_materialization",
-            "idx_qa_requirement_deployment_stage_materialization",
-            "idx_qa_requirement_deployment_member_stage_materialization",
-        ),
-        _EXECUTION_INDEX_SPECS,
+    for position, (requirement_name, execution_spec) in enumerate(
+        zip(
+            (
+                "idx_qa_requirement_deployment_legacy_materialization",
+                "idx_qa_requirement_deployment_stage_materialization",
+                "idx_qa_requirement_deployment_member_stage_materialization",
+            ),
+            _EXECUTION_INDEX_SPECS,
+        )
     )
 )
 
@@ -133,6 +148,11 @@ def add_deployment_scope_columns(conn: Any) -> None:
             _add_column_if_not_exists(conn, table, column, definition)
 
 
+def _canonical_sql(value: str) -> str:
+    normalized = value.lower().replace("::text", "").replace('"', "")
+    return re.sub(r"[\s()\[\]]+", "", normalized)
+
+
 def _subject_constraints(conn: Any, table: str) -> list[str]:
     required = {
         "qa_plan_executions": ("item_id", "deployment_run_id", "transition_id"),
@@ -140,11 +160,25 @@ def _subject_constraints(conn: Any, table: str) -> list[str]:
     }[table]
     rows = conn.execute(
         "SELECT conname,pg_get_constraintdef(oid) FROM pg_constraint "
-        f"WHERE conrelid='{table}'::regclass AND contype='c'"
+        f"WHERE conrelid='{table}'::regclass AND contype='c' ORDER BY conname"
     ).fetchall()
-    return [
-        str(row[0]) for row in rows if all(column in str(row[1]) for column in required)
-    ]
+    candidates = [row for row in rows if all(column in str(row[1]) for column in required)]
+    legacy = {
+        "qa_plan_executions": LEGACY_EXECUTION_SUBJECT_EXPRESSION,
+        "qa_requirements": LEGACY_REQUIREMENT_SUBJECT_EXPRESSION,
+    }[table]
+    current = {
+        "qa_plan_executions": EXECUTION_SUBJECT_EXPRESSION,
+        "qa_requirements": REQUIREMENT_SUBJECT_EXPRESSION,
+    }[table]
+    supported = {_canonical_sql(f"CHECK ({value})") for value in (legacy, current)}
+    unknown = [str(row[0]) for row in candidates if _canonical_sql(str(row[1])) not in supported]
+    if unknown:
+        raise RuntimeError(
+            f"{table} has unrecognized subject checks {unknown}; refusing to drop "
+            "them. Recovery: classify and replace the checks in an ordered migration."
+        )
+    return [str(row[0]) for row in candidates]
 
 
 def replace_deployment_scope_contract(conn: Any) -> None:
@@ -189,11 +223,14 @@ def replace_deployment_scope_contract(conn: Any) -> None:
                 conn.execute(statement)
 
 
-def _index_contract(conn: Any, table: str, name: str) -> tuple[tuple[str, ...], str]:
+def _index_contract(
+    conn: Any, table: str, name: str
+) -> tuple[tuple[str, ...], str, bool, bool, bool]:
     row = conn.execute(
         "SELECT ARRAY(SELECT pg_get_indexdef(i.indexrelid, key_position, true) "
         "FROM generate_series(1, i.indnkeyatts) key_position "
-        "ORDER BY key_position), pg_get_expr(i.indpred, i.indrelid) "
+        "ORDER BY key_position), pg_get_expr(i.indpred, i.indrelid), "
+        "i.indisunique,i.indisvalid,i.indisready "
         "FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid "
         "JOIN pg_class t ON t.oid=i.indrelid "
         "WHERE t.relname=%s AND c.relname=%s",
@@ -201,7 +238,13 @@ def _index_contract(conn: Any, table: str, name: str) -> tuple[tuple[str, ...], 
     ).fetchone()
     if row is None:
         raise AssertionError(f"{name} is missing")
-    return tuple(str(value) for value in row[0]), str(row[1] or "")
+    return (
+        tuple(str(value) for value in row[0]),
+        str(row[1] or ""),
+        bool(row[2]),
+        bool(row[3]),
+        bool(row[4]),
+    )
 
 
 def _normalized_keys(keys: tuple[str, ...]) -> tuple[str, ...]:
@@ -214,33 +257,40 @@ def _assert_indexes(
     specs: tuple[tuple[str, tuple[str, ...], str], ...],
 ) -> None:
     for name, expected_keys, expected_scope in specs:
-        keys, predicate = _index_contract(conn, table, name)
+        keys, predicate, unique, valid, ready = _index_contract(conn, table, name)
+        if not unique or not valid or not ready:
+            raise AssertionError(
+                f"{name} must be unique, valid, and ready; got "
+                f"unique={unique}, valid={valid}, ready={ready}"
+            )
         if _normalized_keys(keys) != _normalized_keys(expected_keys):
             raise AssertionError(f"{name} has wrong keys: {keys}")
-        for token in re.findall(r"\bdeployment_[a-z_]+\b|\bplan_id\b", expected_scope):
-            expected_null = f"{token} IS NULL" in expected_scope
-            clause = f"{token} IS {'NULL' if expected_null else 'NOT NULL'}"
-            if clause.lower() not in predicate.lower():
-                raise AssertionError(
-                    f"{name} lacks predicate clause {clause}: {predicate}"
-                )
+        expected_predicate = expected_scope
         if table == "qa_plan_executions":
-            states = set(
-                re.findall(r"'(active|waiting|awaiting_agent_review)'", predicate)
+            expected_predicate += (
+                f" AND state = ANY (ARRAY[{LIVE_EXECUTION_STATE_SQL}])"
             )
-            if states != LIVE_EXECUTION_STATES:
-                raise AssertionError(
-                    f"{name} has wrong live-state predicate: {predicate}"
-                )
+        if _canonical_sql(predicate) != _canonical_sql(expected_predicate):
+            raise AssertionError(
+                f"{name} has wrong predicate: {predicate}; expected {expected_predicate}"
+            )
 
 
 def assert_deployment_scope_contract(conn: Any) -> None:
     """Assert exact scoped columns, subject checks, and unique-index keys."""
     if not db_backend.connection_is_postgres(conn):
         raise RuntimeError("deployment-scoped QA requires Postgres authority")
-    for table, constraint in (
-        ("qa_plan_executions", EXECUTION_SUBJECT_CONSTRAINT),
-        ("qa_requirements", REQUIREMENT_SUBJECT_CONSTRAINT),
+    for table, constraint, expression in (
+        (
+            "qa_plan_executions",
+            EXECUTION_SUBJECT_CONSTRAINT,
+            EXECUTION_SUBJECT_EXPRESSION,
+        ),
+        (
+            "qa_requirements",
+            REQUIREMENT_SUBJECT_CONSTRAINT,
+            REQUIREMENT_SUBJECT_EXPRESSION,
+        ),
     ):
         for column, _definition in DEPLOYMENT_SCOPE_COLUMNS:
             if not _column_exists(conn, table, column):
@@ -248,8 +298,23 @@ def assert_deployment_scope_contract(conn: Any) -> None:
         names = _subject_constraints(conn, table)
         if names != [constraint]:
             raise AssertionError(f"{table} has wrong subject constraints: {names}")
+        row = conn.execute(
+            "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+            "WHERE conrelid=%s::regclass AND conname=%s",
+            (table, constraint),
+        ).fetchone()
+        if row is None or _canonical_sql(str(row[0])) != _canonical_sql(
+            f"CHECK ({expression})"
+        ):
+            raise AssertionError(f"{constraint} does not match the scoped subject contract")
     _assert_indexes(conn, "qa_plan_executions", _EXECUTION_INDEX_SPECS)
     _assert_indexes(conn, "qa_requirements", _REQUIREMENT_INDEX_SPECS)
+    for obsolete in (
+        "idx_qa_plan_executions_deployment_active",
+        "idx_qa_requirement_deployment_materialization",
+    ):
+        if conn.execute("SELECT to_regclass(%s)", (obsolete,)).fetchone()[0] is not None:
+            raise AssertionError(f"obsolete index {obsolete} still exists")
 
 
 __all__ = [
@@ -262,6 +327,8 @@ __all__ = [
     "EXECUTION_SUBJECT_EXPRESSION",
     "LIVE_EXECUTION_STATES",
     "LIVE_EXECUTION_STATE_SQL",
+    "LEGACY_EXECUTION_SUBJECT_EXPRESSION",
+    "LEGACY_REQUIREMENT_SUBJECT_EXPRESSION",
     "REQUIREMENT_SCOPE_INDEX_NAMES",
     "REQUIREMENT_SCOPE_INDEX_SQL",
     "REQUIREMENT_SUBJECT_CONSTRAINT",

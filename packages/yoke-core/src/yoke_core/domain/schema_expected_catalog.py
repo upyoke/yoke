@@ -51,6 +51,7 @@ _EXPECTED_SCHEMA_STR = (
     "|deployment_preview_environments:id/INTEGER,project_id/INTEGER,env_name/TEXT,run_id/TEXT,status/TEXT,env_type/TEXT,url/TEXT,created_at/TEXT"
     "|deployment_run_items:run_id/TEXT,item_id/INTEGER,added_at/TEXT,delivery_intent/TEXT,requirement_selection/TEXT,requirement_snapshot/TEXT"
     "|deployment_run_qa:id/INTEGER,run_id/TEXT,check_name/TEXT,source/TEXT,blocking/INTEGER,status/TEXT,updated_at/TEXT"
+    "|deployment_stage_receipts:id/INTEGER,run_id/TEXT,stage_name/TEXT,attempt_number/INTEGER,correlation_id/TEXT,target_kind/TEXT,target_name/TEXT,status/TEXT,observed_url/TEXT,observed_release_lineage/TEXT,observed_artifact_identity/TEXT,executor/TEXT,executor_receipt/TEXT,failure_reason/TEXT,created_at/TEXT,completed_at/TEXT"
     "|deployment_runs:id/TEXT,project_id/INTEGER,flow/TEXT,target_tier/TEXT,target_environment_id/INTEGER,release_lineage/TEXT,status/TEXT,current_stage/TEXT,created_at/TEXT,started_at/TEXT,completed_at/TEXT,created_by/TEXT,carried_work/TEXT,artifact_identity/TEXT,composition_resolution/TEXT,composition_frozen_at/TEXT,requirement_snapshot/TEXT"
     "|doctor_runs:id/INTEGER,ran_at/TEXT,project/TEXT,scope/TEXT,runtime/TEXT,fail_count/INTEGER,pass_count/INTEGER,warn_count/INTEGER,na_count/INTEGER,results/TEXT"
     "|environments:id/INTEGER,site/INTEGER,project_id/INTEGER,name/TEXT,url/TEXT,deploy_method/TEXT,deploy_command/TEXT,health_check_url/TEXT,config_notes/TEXT,last_deployed_at/TEXT,created_at/TEXT,settings/TEXT"

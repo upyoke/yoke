@@ -129,6 +129,41 @@ content. Missing first-baseline attribution must be resolved explicitly before
 start. Cancellation preserves the frozen evidence. Schema-v1 and item-less
 environment runs retain their legacy start behavior.
 
+## Table: deployment_stage_receipts
+
+Durable executor observations for non-QA deployment-stage attempts. Events do
+not substitute for this authority.
+
+```sql
+id INTEGER PRIMARY KEY
+run_id TEXT NOT NULL REFERENCES deployment_runs(id)
+stage_name TEXT NOT NULL
+attempt_number INTEGER NOT NULL -- allocated before dispatch; increasing per run/stage
+correlation_id TEXT NOT NULL -- idempotency key for one dispatch
+target_kind TEXT NOT NULL -- persistent_environment | run_preview
+target_name TEXT -- required when ready
+status TEXT NOT NULL -- pending | ready | failed | cancelled
+observed_url TEXT
+observed_release_lineage TEXT -- required when ready; exact run candidate
+observed_artifact_identity TEXT
+executor TEXT NOT NULL
+executor_receipt TEXT
+failure_reason TEXT -- required when failed or cancelled
+created_at TEXT NOT NULL
+completed_at TEXT -- required when ready
+UNIQUE(run_id, stage_name, attempt_number)
+UNIQUE(run_id, stage_name, correlation_id)
+```
+
+The attempt number, rather than row insertion order, determines the current
+observation. A repeated correlation is accepted only with identical immutable
+dispatch inputs, and a terminal callback cannot change its evidence. Scoped QA
+consumes only the latest ready attempt from the QA target's earlier
+`source_stage`, with the exact target and release lineage. A delayed older
+success cannot override a newer failure, and a superseded receipt cannot
+revalidate an accepted execution or later-stage prerequisite. Run-preview
+readiness requires an observed URL; command-only persistent environments do not.
+
 ## Table: deployment_run_items
 
 Membership table linking items to deployment runs. Zero rows for a run are valid when the run is an environment-level deploy with no attached backlog item; do not infer failure from item-less membership after the run has started executing.

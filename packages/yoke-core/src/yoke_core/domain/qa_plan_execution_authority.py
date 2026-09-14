@@ -137,7 +137,7 @@ def require_plan_execution_owner(
     if execution.get("deployment_stage") is not None:
         if conn is None:
             _fail("scoped deployment QA mutation requires database authority")
-        from yoke_core.domain.deployment_qa_stage_contract import (
+        from yoke_core.domain.deployment_qa_execution_target import (
             validate_deployment_execution_target,
         )
 

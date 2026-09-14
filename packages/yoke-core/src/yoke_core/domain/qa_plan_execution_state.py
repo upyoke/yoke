@@ -97,9 +97,12 @@ def begin_plan_execution(
     if deployment_member_item_id is not None and deployment_stage is None:
         raise QaPlanExecutionStateError("deployment member requires deployment stage")
     expected_deployment_target = None
+    expected_deployment_target_digest = None
     if deployment_stage is not None:
-        from yoke_core.domain.deployment_qa_stage_contract import (
+        from yoke_core.domain.deployment_qa_execution_target import (
             deployment_qa_execution_target,
+        )
+        from yoke_core.domain.deployment_qa_stage_contract import (
             deployment_qa_stage_subject,
         )
 
@@ -110,6 +113,9 @@ def begin_plan_execution(
             member_item_id=deployment_member_item_id,
         )
         expected_deployment_target = deployment_qa_execution_target(conn, subject)
+        from yoke_core.domain.qa_execution_environment_target import target_digest
+
+        expected_deployment_target_digest = target_digest(expected_deployment_target)
     if item_id is not None:
         lock_item_workflow_bindings(conn, (int(item_id),))
     from yoke_core.domain.qa_case_execution_context import (
@@ -127,6 +133,7 @@ def begin_plan_execution(
         deployment_run_id=deployment_run_id,
         deployment_stage=deployment_stage,
         deployment_member_item_id=deployment_member_item_id,
+        execution_target_digest=expected_deployment_target_digest,
         host_capability_kinds=host_capabilities,
     )
     validate_roster_machine(conn, roster, machine)
@@ -190,6 +197,7 @@ def begin_plan_execution(
                 deployment_run_id=deployment_run_id,
                 deployment_stage=deployment_stage,
                 deployment_member_item_id=deployment_member_item_id,
+                execution_target_digest=expected_deployment_target_digest,
                 host_capability_kinds=host_capabilities,
             )
             validate_roster_machine(conn, roster, machine)

@@ -17,6 +17,7 @@ def ordered_plan_requirements(
     deployment_run_id: str | None = None,
     deployment_stage: str | None = None,
     deployment_member_item_id: int | None = None,
+    execution_target_digest: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return server-authoritative execution order for one QA subject."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
@@ -39,6 +40,21 @@ def ordered_plan_requirements(
             deployment_stage or "",
             deployment_member_item_id or 0,
         )
+        if deployment_stage is not None:
+            if not execution_target_digest:
+                target_rows = conn.execute(
+                    "SELECT DISTINCT execution_target_digest FROM qa_requirements "
+                    f"WHERE {where} AND method_id IS NOT NULL",
+                    params,
+                ).fetchall()
+                if len(target_rows) != 1 or not target_rows[0][0]:
+                    raise QaPlanExecutionError(
+                        "scoped deployment QA roster has ambiguous target history; "
+                        "resolve it against the active stage receipt"
+                    )
+                execution_target_digest = str(target_rows[0][0])
+            where += f" AND execution_target_digest={marker}"
+            params += (execution_target_digest,)
         subject = (
             f"deployment run {deployment_run_id!r} stage "
             f"{deployment_stage!r} member {deployment_member_item_id!r}"

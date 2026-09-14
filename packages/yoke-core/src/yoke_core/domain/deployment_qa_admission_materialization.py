@@ -13,17 +13,36 @@ from yoke_core.domain.qa_execution_environment_target import (
 )
 from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_plan_requirement_snapshot import require_existing_target
-from yoke_core.domain.db_helpers import iso8601_now, query_rows
+from yoke_core.domain.db_helpers import query_rows
 
 
-def member_requirements(subject: Mapping[str, Any]) -> list[dict[str, Any]]:
+def _target_environment(target: Mapping[str, Any]) -> str:
+    environment = target.get("environment")
+    if not isinstance(environment, Mapping):
+        return ""
+    return str(environment.get("name") or "").strip()
+
+
+def requirement_applies(
+    requirement: Mapping[str, Any], target: Mapping[str, Any]
+) -> bool:
+    """Select only post-deploy obligations declared for this destination."""
+    if str(requirement.get("qa_phase") or "") != "post_deploy":
+        return False
+    declared = str(requirement.get("target_env") or "").strip()
+    return not declared or declared == _target_environment(target)
+
+
+def member_requirements(
+    subject: Mapping[str, Any], *, target: Mapping[str, Any]
+) -> list[dict[str, Any]]:
     snapshot = subject.get("member_snapshot")
     if not isinstance(snapshot, Mapping):
         return []
     return [
         dict(requirement)
         for requirement in snapshot.get("requirements") or []
-        if isinstance(requirement, Mapping)
+        if isinstance(requirement, Mapping) and requirement_applies(requirement, target)
     ]
 
 
@@ -55,12 +74,13 @@ def materialize_admitted_requirement(
         "SELECT id,execution_target_json,execution_target_digest "
         "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
         "AND COALESCE(deployment_member_item_id,0)=%s AND plan_id IS NULL "
-        "AND plan_case_key=%s ORDER BY id",
+        "AND plan_case_key=%s AND execution_target_digest=%s ORDER BY id",
         (
             str(subject["id"]),
             str(subject["stage"]["name"]),
             int(subject.get("member_item_id") or 0),
             case_key,
+            target_digest(target),
         ),
     ).fetchall()
     if existing:
@@ -188,58 +208,96 @@ def fulfill_admitted_obligations(
     stage_name: str,
     member_item_id: int | None,
     execution_id: str,
+    execution_target_digest: str,
     acceptance_qa_kind: str,
 ) -> list[str]:
-    """Settle frozen aggregate obligations after their concrete walk passes."""
+    """Require explicit evidence-linked verdicts for aggregate obligations."""
     rows = query_rows(
         conn,
         "SELECT id,qa_kind,waived_at FROM qa_requirements "
         "WHERE deployment_run_id=%s AND deployment_stage=%s "
         "AND COALESCE(deployment_member_item_id,0)=%s AND method_id IS NULL "
-        "AND qa_kind<>%s ORDER BY id",
-        (run_id, stage_name, member_item_id or 0, acceptance_qa_kind),
+        "AND qa_kind<>%s AND execution_target_digest=%s ORDER BY id",
+        (
+            run_id,
+            stage_name,
+            member_item_id or 0,
+            acceptance_qa_kind,
+            execution_target_digest,
+        ),
     )
     failures: list[str] = []
-    inserted = False
-    now = iso8601_now()
     for row in rows:
         if row["waived_at"]:
             continue
         latest = conn.execute(
-            "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s "
+            "SELECT id,verdict,raw_result FROM qa_runs WHERE qa_requirement_id=%s "
             "ORDER BY created_at DESC,id DESC LIMIT 1",
             (int(row["id"]),),
         ).fetchone()
-        verdict = (
-            str((latest["verdict"] if hasattr(latest, "keys") else latest[0]) or "")
-            if latest is not None
-            else ""
-        )
-        if verdict == "pass":
-            continue
-        if verdict:
+        if latest is None:
             failures.append(
-                f"admitted requirement #{row['id']} latest verdict is {verdict}"
+                f"admitted requirement #{row['id']} has no explicit verdict; "
+                "record its evidence-linked result before accepting the stage"
             )
             continue
-        conn.execute(
-            "INSERT INTO qa_runs("
-            "qa_requirement_id,performed_by,qa_kind,verdict,verdict_reason,"
-            "raw_result,started_at,completed_at,created_at"
-            ") VALUES (%s,'agent',%s,'pass',%s,%s,%s,%s,%s)",
-            (
-                int(row["id"]),
-                str(row["qa_kind"]),
-                "the scoped deployment QA execution fulfilled this frozen obligation",
-                json.dumps({"execution_id": execution_id}, sort_keys=True),
-                now,
-                now,
-                now,
-            ),
+        verdict = str(
+            (latest["verdict"] if hasattr(latest, "keys") else latest[1]) or ""
         )
-        inserted = True
-    if inserted:
-        conn.commit()
+        if verdict:
+            if verdict != "pass":
+                failures.append(
+                    f"admitted requirement #{row['id']} latest verdict is {verdict}"
+                )
+                continue
+            raw = latest["raw_result"] if hasattr(latest, "keys") else latest[2]
+            try:
+                evidence = json.loads(str(raw or ""))
+            except (TypeError, ValueError):
+                evidence = None
+            artifact_ids = (
+                evidence.get("evidence_artifact_ids")
+                if isinstance(evidence, Mapping)
+                else None
+            )
+            if (
+                not isinstance(evidence, Mapping)
+                or str(evidence.get("execution_id") or "") != execution_id
+                or not isinstance(artifact_ids, list)
+                or not artifact_ids
+                or any(
+                    isinstance(value, bool)
+                    or not isinstance(value, int)
+                    or value < 1
+                    for value in artifact_ids
+                )
+            ):
+                failures.append(
+                    f"admitted requirement #{row['id']} pass is not linked to "
+                    "this execution and concrete evidence artifacts"
+                )
+                continue
+            placeholders = ",".join("%s" for _ in artifact_ids)
+            artifact_rows = conn.execute(
+                "SELECT DISTINCT a.id FROM qa_artifacts a "
+                "JOIN qa_runs r ON r.id=a.qa_run_id "
+                "JOIN qa_requirements q ON q.id=r.qa_requirement_id "
+                f"WHERE a.id IN ({placeholders}) AND q.deployment_run_id=%s "
+                "AND q.deployment_stage=%s "
+                "AND COALESCE(q.deployment_member_item_id,0)=%s "
+                "AND q.method_id IS NOT NULL",
+                (*artifact_ids, run_id, stage_name, member_item_id or 0),
+            ).fetchall()
+            found = {
+                int(value["id"] if hasattr(value, "keys") else value[0])
+                for value in artifact_rows
+            }
+            if found != set(artifact_ids):
+                failures.append(
+                    f"admitted requirement #{row['id']} references evidence "
+                    "outside this deployment QA subject"
+                )
+            continue
     return failures
 
 
@@ -247,4 +305,5 @@ __all__ = [
     "fulfill_admitted_obligations",
     "materialize_admitted_requirement",
     "member_requirements",
+    "requirement_applies",
 ]

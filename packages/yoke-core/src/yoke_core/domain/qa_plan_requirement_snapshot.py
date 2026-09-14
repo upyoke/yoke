@@ -302,6 +302,7 @@ def existing_requirement_id(
     case_key: str,
     baseline: Optional[str],
     transition_id: Optional[str] = None,
+    execution_target_digest: Optional[str] = None,
 ) -> Optional[int]:
     """Resolve the snapshot that won a concurrent idempotent insert."""
     marker = _placeholder(conn)
@@ -311,6 +312,17 @@ def existing_requirement_id(
     subject_value: int | str = (
         int(item_id) if item_id is not None else str(deployment_run_id)
     )
+    target_clause = (
+        f"AND execution_target_digest={marker} "
+        if execution_target_digest is not None
+        else ""
+    )
+    params: tuple[Any, ...] = (
+        subject_value, deployment_stage or "", deployment_member_item_id or 0,
+        plan_id, case_key, baseline or "", transition_id or "",
+    )
+    if execution_target_digest is not None:
+        params += (execution_target_digest,)
     row = query_one(
         conn,
         "SELECT id FROM qa_requirements "
@@ -320,16 +332,9 @@ def existing_requirement_id(
         f"AND plan_id={marker} "
         f"AND plan_case_key={marker} "
         f"AND COALESCE(host_baseline, '')={marker} "
-        f"AND COALESCE(workflow_transition_id, '')={marker}",
-        (
-            subject_value,
-            deployment_stage or "",
-            deployment_member_item_id or 0,
-            plan_id,
-            case_key,
-            baseline or "",
-            transition_id or "",
-        ),
+        f"AND COALESCE(workflow_transition_id, '')={marker} "
+        f"{target_clause}",
+        params,
     )
     return int(row["id"]) if row is not None else None
 

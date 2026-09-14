@@ -1,8 +1,8 @@
 """``project`` topic delivery-lane table entries for the schema cheat sheet.
 
 Sibling of :mod:`schema_api_context_tables` (which combines per-topic
-dicts into the canonical ``CANONICAL_TABLES``). Holds deployment_flows,
-deployment_runs, deployment_run_items, ephemeral_environments.
+dicts into the canonical ``CANONICAL_TABLES``). Holds deployment flows,
+runs, stage receipts, run items, and ephemeral environments.
 
 Pure data only — no I/O or DB connections.
 """
@@ -115,6 +115,38 @@ DELIVERY_TABLES: dict[str, dict] = {
             "the UTC day's maximum numeric suffix plus one, and inserts under "
             "the same transaction with the primary key as a collision guard. "
             "`runs next-id` is only a non-reserving preview."
+        ),
+    },
+    "deployment_stage_receipts": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("run_id", "TEXT"),
+            ("stage_name", "TEXT"),
+            ("attempt_number", "INTEGER"),
+            ("correlation_id", "TEXT"),
+            ("target_kind", "TEXT"),
+            ("target_name", "TEXT"),
+            ("status", "TEXT"),
+            ("observed_url", "TEXT"),
+            ("observed_release_lineage", "TEXT"),
+            ("observed_artifact_identity", "TEXT"),
+            ("executor", "TEXT"),
+            ("executor_receipt", "TEXT"),
+            ("failure_reason", "TEXT"),
+            ("created_at", "TEXT"),
+            ("completed_at", "TEXT"),
+        ],
+        "notes": (
+            "Durable observations from non-QA deployment-stage attempts. "
+            "Attempt identity is allocated before dispatch and ordered by "
+            "`attempt_number`, never insertion timing. Correlation replay is "
+            "idempotent only for identical dispatch inputs. Terminal callbacks "
+            "are immutable; failed/cancelled attempts retain a recovery reason. "
+            "A scoped QA target consumes only the latest `ready` attempt for "
+            "its pinned `source_stage`, exact target, and run release lineage. "
+            "An older late success or a superseded ready receipt cannot satisfy "
+            "QA, even when the code SHA matches. Events are telemetry and are "
+            "not receipt authority."
         ),
     },
     "deployment_run_items": {

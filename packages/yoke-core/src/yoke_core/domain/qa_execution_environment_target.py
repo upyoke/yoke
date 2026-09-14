@@ -84,7 +84,7 @@ def require_runtime_target(target: Mapping[str, Any]) -> None:
     """Refuse cross-environment dispatch in hosted Stage and Production."""
     if is_project_execution_target(target):
         return
-    from yoke_core.domain.deployment_qa_stage_contract import (
+    from yoke_core.domain.deployment_qa_execution_target import (
         is_deployment_execution_target,
     )
 

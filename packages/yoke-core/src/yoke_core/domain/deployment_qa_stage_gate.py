@@ -10,17 +10,16 @@ from yoke_core.domain.approval_policy import parse_approval_policy
 from yoke_core.domain.db_helpers import iso8601_now, query_rows
 from yoke_core.domain.deployment_qa_stage_contract import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
-    deployment_qa_execution_target,
     deployment_qa_stage_subject,
+)
+from yoke_core.domain.deployment_qa_execution_target import (
+    deployment_qa_execution_target,
     validate_deployment_execution_target,
 )
 from yoke_core.domain.deployment_qa_admission_materialization import (
     fulfill_admitted_obligations,
 )
-from yoke_core.domain.qa_execution_environment_target import (
-    canonical_target,
-    target_digest,
-)
+from yoke_core.domain import qa_execution_environment_target as target_authority
 
 
 ACCEPTANCE_QA_KIND = DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND
@@ -43,14 +42,17 @@ def _case_failures(
     run_id: str,
     stage_name: str,
     member_item_id: int | None,
+    execution_id: str | None,
+    execution_target_digest: str,
 ) -> list[str]:
     rows = query_rows(
         conn,
         "SELECT id,plan_case_key,waived_at FROM qa_requirements "
         "WHERE deployment_run_id=%s AND deployment_stage=%s "
         "AND COALESCE(deployment_member_item_id,0)=%s "
-        "AND method_id IS NOT NULL AND blocking_mode='blocking' ORDER BY id",
-        (run_id, stage_name, member_item_id or 0),
+        "AND method_id IS NOT NULL AND blocking_mode='blocking' "
+        "AND execution_target_digest=%s ORDER BY id",
+        (run_id, stage_name, member_item_id or 0, execution_target_digest),
     )
     if not rows:
         return ["no concrete QA cases are materialized"]
@@ -58,11 +60,44 @@ def _case_failures(
     for row in rows:
         if row["waived_at"]:
             continue
-        verdict = _latest_verdict(conn, int(row["id"]))
+        latest = conn.execute(
+            "SELECT id,verdict FROM qa_runs WHERE qa_requirement_id=%s "
+            "ORDER BY created_at DESC,id DESC LIMIT 1",
+            (int(row["id"]),),
+        ).fetchone()
+        verdict = str(latest["verdict"] if latest is not None else "")
         if verdict != "pass":
             failures.append(
                 f"requirement #{row['id']} ({row['plan_case_key']}) latest "
                 f"verdict is {verdict or 'missing'}"
+            )
+            continue
+        evidence_count = 0
+        if execution_id is not None:
+            result_row = conn.execute(
+                "SELECT result_json FROM qa_plan_execution_results "
+                "WHERE execution_id=%s AND requirement_id=%s",
+                (execution_id, int(row["id"])),
+            ).fetchone()
+            if result_row is not None:
+                raw_result = result_row["result_json"]
+                result = (
+                    dict(raw_result)
+                    if isinstance(raw_result, Mapping)
+                    else json.loads(str(raw_result or "{}"))
+                )
+                evidence_run_id = result.get("qa_run_id") or result.get("run_id")
+                if evidence_run_id is not None:
+                    evidence_count = int(
+                        conn.execute(
+                            "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id=%s",
+                            (int(evidence_run_id),),
+                        ).fetchone()[0]
+                    )
+        if evidence_count == 0:
+            failures.append(
+                f"requirement #{row['id']} ({row['plan_case_key']}) latest "
+                "passing result has no attached evidence"
             )
     return failures
 
@@ -104,17 +139,23 @@ def _acceptance_requirement(
         "SELECT id,execution_target_json,execution_target_digest "
         "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
         "AND COALESCE(deployment_member_item_id,0)=%s AND qa_kind=%s "
-        "ORDER BY id LIMIT 1",
+        "ORDER BY id",
         (run_id, stage_name, member or 0, ACCEPTANCE_QA_KIND),
     ).fetchall()
-    if len(rows) > 1:
+    expected_json = target_authority.canonical_target(target)
+    expected_digest = target_authority.target_digest(target)
+    matches = [
+        row
+        for row in rows
+        if str(row["execution_target_json"] or "") == expected_json
+        and str(row["execution_target_digest"] or "") == expected_digest
+    ]
+    if len(matches) > 1:
         raise ValueError(
             "deployment stage acceptance was materialized more than once; "
             "resolve the duplicate before resuming the pipeline"
         )
-    row = rows[0] if rows else None
-    expected_json = canonical_target(target)
-    expected_digest = target_digest(target)
+    row = matches[0] if matches else None
     if row is not None:
         stored_json = row["execution_target_json"] if hasattr(row, "keys") else row[1]
         stored_digest = (
@@ -198,17 +239,21 @@ def deployment_qa_stage_status(
         stage_name=stage_name,
         member_item_id=member_item_id,
     )
-    failures = _case_failures(
-        conn,
-        run_id=run_id,
-        stage_name=stage_name,
-        member_item_id=member_item_id,
-    )
+    target = deployment_qa_execution_target(conn, subject)
+    current_target_digest = target_authority.target_digest(target)
     execution = _completed_execution(
         conn,
         run_id=run_id,
         stage_name=stage_name,
         member_item_id=member_item_id,
+    )
+    failures = _case_failures(
+        conn,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+        execution_id=str(execution["id"]) if execution is not None else None,
+        execution_target_digest=current_target_digest,
     )
     if execution is None:
         failures.insert(0, "no completed scoped QA execution exists")
@@ -221,6 +266,7 @@ def deployment_qa_stage_status(
         stage_name=stage_name,
         member_item_id=member_item_id,
         execution_id=str(execution["id"]),
+        execution_target_digest=current_target_digest,
         acceptance_qa_kind=ACCEPTANCE_QA_KIND,
     )
     if obligation_failures:
@@ -230,7 +276,6 @@ def deployment_qa_stage_status(
             "request_id": None,
         }
     conn.execute("SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,))
-    target = deployment_qa_execution_target(conn, subject)
     requirement_id = _acceptance_requirement(conn, subject=subject, target=target)
     waiver_row = conn.execute(
         "SELECT waived_at FROM qa_requirements WHERE id=%s", (requirement_id,)

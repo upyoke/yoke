@@ -1,4 +1,4 @@
-"""Frozen deployment-stage subject and execution-target authority."""
+"""Frozen deployment-stage and member subject authority."""
 
 from __future__ import annotations
 
@@ -12,20 +12,10 @@ from yoke_core.domain.deployment_flow_policy import (
     RELEASE_POLICY_SCHEMA_VERSION,
     STAGE_KIND_QA,
 )
-from yoke_core.domain.qa_execution_environment_target import (
-    _decode,
-    _generic_endpoints,
-    _yoke_endpoints,
-    canonical_target,
-)
 from yoke_core.domain.deployment_qa_stage_prerequisites import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
     require_prior_stage_acceptance,
 )
-
-
-DEPLOYMENT_TARGET_SCHEMA = 4
-DEPLOYMENT_TARGET_KIND = "deployment"
 
 
 def _p(conn: Any) -> str:
@@ -184,129 +174,7 @@ def deployment_qa_stage_subject(
     return run
 
 
-def _persistent_target(conn: Any, run: Mapping[str, Any], environment: str) -> dict:
-    cursor = conn.execute(
-        "SELECT e.name AS environment_name,e.url,e.settings,s.name AS site_name "
-        "FROM environments e JOIN sites s ON s.id=e.site "
-        f"WHERE s.project_id={_p(conn)} AND e.name={_p(conn)}",
-        (int(run["project_id"]), environment),
-    )
-    row = _row(cursor, cursor.fetchone())
-    if row is None:
-        raise ValueError(
-            f"deployment QA target environment {environment!r} is not registered"
-        )
-    settings = _decode(row["settings"])
-    endpoints = (
-        _yoke_endpoints(environment, str(run["tenant_slug"]))
-        if run["project_slug"] == "yoke"
-        else _generic_endpoints(row, settings)
-    )
-    return {
-        "environment": {"name": environment, "kind": "persistent_environment"},
-        "site": {"name": str(row["site_name"])},
-        "endpoints": endpoints,
-    }
-
-
-def _preview_target(conn: Any, run: Mapping[str, Any], source_stage: str) -> dict:
-    cursor = conn.execute(
-        "SELECT env_name,url FROM deployment_preview_environments "
-        f"WHERE project_id={_p(conn)} AND run_id={_p(conn)} AND status='claimed' "
-        "ORDER BY id",
-        (int(run["project_id"]), str(run["id"])),
-    )
-    rows = [_row(cursor, value) for value in cursor.fetchall()]
-    if len(rows) != 1 or rows[0] is None:
-        raise ValueError(
-            f"deployment run {run['id']!r} must have exactly one claimed preview "
-            "target before scoped QA begins"
-        )
-    row = rows[0]
-    url = str(row.get("url") or "").strip().rstrip("/")
-    endpoints = {"app_url": url, "api_url": url} if url else {}
-    return {
-        "environment": {"name": str(row["env_name"]), "kind": "run_preview"},
-        "site": {"name": str(row["env_name"])},
-        "endpoints": endpoints,
-        "observed_url": url or None,
-        "source_stage": source_stage,
-    }
-
-
-def deployment_qa_execution_target(conn: Any, subject: Mapping[str, Any]) -> dict:
-    """Resolve the stage target with actual environment and candidate evidence."""
-    target = subject["stage"].get("target")
-    if not isinstance(target, Mapping):
-        raise ValueError("deployment QA stage has no pinned target")
-    if target.get("kind") == "persistent_environment":
-        resolved = _persistent_target(
-            conn, subject, str(target.get("environment") or "")
-        )
-    elif target.get("kind") == "run_preview":
-        resolved = _preview_target(conn, subject, str(target.get("source_stage") or ""))
-    else:
-        raise ValueError("deployment QA stage target kind is unsupported")
-    return {
-        "schema": DEPLOYMENT_TARGET_SCHEMA,
-        "target_kind": DEPLOYMENT_TARGET_KIND,
-        "tenant": {
-            "id": int(subject["tenant_id"]),
-            "slug": str(subject["tenant_slug"]),
-            "name": str(subject["tenant_name"]),
-        },
-        "project": {
-            "id": int(subject["project_id"]),
-            "slug": str(subject["project_slug"]),
-            "name": str(subject["project_name"]),
-        },
-        **resolved,
-        "deployment": {
-            "run_id": str(subject["id"]),
-            "stage": str(subject["stage"]["name"]),
-            "member_item_id": subject.get("member_item_id"),
-            "release_lineage": str(subject["release_lineage"]),
-            "artifact_identity": subject.get("artifact_identity"),
-        },
-    }
-
-
-def is_deployment_execution_target(target: Mapping[str, Any]) -> bool:
-    return (
-        target.get("schema") == DEPLOYMENT_TARGET_SCHEMA
-        and target.get("target_kind") == DEPLOYMENT_TARGET_KIND
-    )
-
-
-def validate_deployment_execution_target(
-    conn: Any, execution: Mapping[str, Any]
-) -> None:
-    """Reject stale, replaced, cancelled, or cross-subject result writes."""
-    stage = str(execution.get("deployment_stage") or "")
-    member = execution.get("deployment_member_item_id")
-    subject = deployment_qa_stage_subject(
-        conn,
-        run_id=str(execution.get("deployment_run_id") or ""),
-        stage_name=stage,
-        member_item_id=int(member) if member is not None else None,
-    )
-    expected = deployment_qa_execution_target(conn, subject)
-    actual = execution.get("execution_target")
-    if not isinstance(actual, Mapping) or canonical_target(actual) != canonical_target(
-        expected
-    ):
-        raise ValueError(
-            "deployment QA execution target or candidate has been replaced; "
-            "preserve this evidence and begin a new execution for the active target"
-        )
-
-
 __all__ = [
     "DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND",
-    "DEPLOYMENT_TARGET_KIND",
-    "DEPLOYMENT_TARGET_SCHEMA",
-    "deployment_qa_execution_target",
     "deployment_qa_stage_subject",
-    "is_deployment_execution_target",
-    "validate_deployment_execution_target",
 ]
