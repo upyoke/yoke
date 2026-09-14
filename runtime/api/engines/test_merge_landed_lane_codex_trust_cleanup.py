@@ -6,6 +6,11 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from yoke_core.engines import merge_landed_lane_cleanup as cleanup
+from yoke_core.engines.branch_landed_evidence import (
+    ANCESTOR_PROOF,
+    BranchLandedEvidence,
+)
+from yoke_core.engines.merge_worktree_cleanliness import LaneResidueAssessment
 
 
 def test_landed_lane_removes_only_its_codex_path_trust(monkeypatch, tmp_path: Path):
@@ -36,12 +41,11 @@ trust_level = "trusted"
             worktree_path=lane,
             base="main",
             has_remote=False,
+            landed=BranchLandedEvidence(True, proof=ANCESTOR_PROOF),
         ),
     )
     monkeypatch.setattr(
-        cleanup,
-        "assess_worktree_residue",
-        lambda *_a: cleanup.WorktreeResidueAssessment(True),
+        cleanup, "clear_lane_residue", lambda *_a: LaneResidueAssessment(True)
     )
     monkeypatch.setattr(cleanup, "release_lane_row", lambda *_a, **_kw: None)
 

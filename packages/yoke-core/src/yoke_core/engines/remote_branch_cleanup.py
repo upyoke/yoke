@@ -6,6 +6,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Literal
 
+from yoke_core.engines.branch_landed_evidence import assess_branch_landed
+
 
 RemoteBranchDeleteStatus = Literal["absent", "deleted", "preserved"]
 
@@ -64,7 +66,12 @@ def delete_remote_branch_if_merged(
     freshly fetched target branch, and the remote still advertises the expected
     commit when the leased delete executes.
 
-    An ancestry miss is re-read once after a short pause before it is believed,
+    "Retained" is the shared landing proof: exact ancestry, or the patch
+    equivalence a rebased or squashed lane leaves behind, so a remote branch
+    whose changes the target already holds retires with its local lane
+    instead of outliving it.
+
+    A miss is re-read once after a short pause before it is believed,
     because a merge pushed moments earlier is not yet advertised to this
     checkout and losing that race preserves a lane that is already landed.
     """
@@ -125,21 +132,17 @@ def delete_remote_branch_if_merged(
     if target_tip.returncode != 0 or not target_sha:
         return _preserved("refreshed target branch could not be resolved")
 
-    ancestry = run_git(
-        ["merge-base", "--is-ancestor", resolved_sha, target_sha]
-    )
-    if ancestry.returncode != 0:
+    landed = assess_branch_landed(run_git, branch=resolved_sha, base=target_sha)
+    if not landed.landed:
         sleep(ANCESTRY_RECHECK_DELAY_SECONDS)
         target_sha = _refreshed_target_tip(
             run_git, target_ref=target_ref, remote_target=remote_target
         )
         if not target_sha:
             return _preserved("refreshed target branch could not be resolved")
-        ancestry = run_git(
-            ["merge-base", "--is-ancestor", resolved_sha, target_sha]
-        )
-    if ancestry.returncode != 0:
-        return _preserved("remote branch is not merged into the target branch")
+        landed = assess_branch_landed(run_git, branch=resolved_sha, base=target_sha)
+    if not landed.landed:
+        return _preserved(f"remote branch {landed.reason}")
 
     deleted = run_git(
         [

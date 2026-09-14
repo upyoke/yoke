@@ -119,9 +119,21 @@ def _cleanup_with(responses, *, slept: list[float] | None = None):
     return result, commands
 
 
-def _up_to_first_ancestry(ancestry_returncode: int):
-    """Every response through the first ancestry read, which can miss."""
+def _unique_after_ancestry_miss():
+    """The patch-equivalence reading that follows an ancestry miss.
+
+    No merge commits to skip, and one commit the target has no equivalent
+    for — so the branch carries unique work and the miss stands.
+    """
     return [
+        _completed(stdout=""),
+        _completed(stdout="+ 1111111111111111111111111111111111111111\n"),
+    ]
+
+
+def _up_to_first_ancestry(ancestry_returncode: int):
+    """Every response through the first landing reading, which can miss."""
+    responses = [
         _completed(),
         _completed(),
         _completed(stdout=f"branch-sha\trefs/heads/{TEST_ITEM_REF}\n"),
@@ -131,6 +143,9 @@ def _up_to_first_ancestry(ancestry_returncode: int):
         _completed(stdout="target-sha\n"),
         _completed(returncode=ancestry_returncode),
     ]
+    if ancestry_returncode != 0:
+        responses.extend(_unique_after_ancestry_miss())
+    return responses
 
 
 def test_ancestry_miss_is_rechecked_once_against_a_refreshed_target():
@@ -167,10 +182,14 @@ def test_branch_still_unmerged_after_the_recheck_is_preserved():
         _completed(),
         _completed(stdout="target-sha-2\n"),
         _completed(returncode=1),
+        *_unique_after_ancestry_miss(),
     ])
 
     assert result.status == "preserved"
-    assert result.reason == "remote branch is not merged into the target branch"
+    assert result.reason == (
+        "remote branch is not merged into target-sha-2 and carries 1 commit "
+        "with no equivalent there"
+    )
     assert not any(command[0] == "push" for command in commands)
 
 

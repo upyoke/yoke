@@ -10,7 +10,6 @@ from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import terminal_lane_cleanup
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
-from yoke_core.domain.terminal_lane_cleanup import TerminalLaneCloseOut
 from yoke_core.engines.merge_worktree_safe_prune import WorktreeSweep
 
 
@@ -64,12 +63,12 @@ def _wire_close_out(monkeypatch, *, already: bool, cleanup_result=()):
         "transition_to_done",
         lambda **_k: timeline.append("done") or "",
     )
-    monkeypatch.setattr(
-        merge_cli,
-        "cleanup_terminal_item_lanes",
-        lambda *_a, **_k: timeline.append("cleanup")
-        or TerminalLaneCloseOut(tuple(cleanup_result), {"removed": ["/repo/.worktrees/OLD"]}),
-    )
+    def retire(_item, envelope, **_kwargs):
+        timeline.append("cleanup")
+        envelope.setdefault("warnings", []).extend(cleanup_result)
+        envelope["lane_sweep"] = {"removed": ["/repo/.worktrees/OLD"]}
+
+    monkeypatch.setattr(merge_cli, "record_terminal_lane_close_out", retire)
     return timeline
 
 
@@ -149,9 +148,8 @@ def test_close_out_drops_released_claim_before_lane_cleanup(monkeypatch):
     _wire_close_out(monkeypatch, already=False)
     monkeypatch.setattr(
         merge_cli,
-        "cleanup_terminal_item_lanes",
-        lambda payload, **_k: seen.update(claim=payload.get("claim"))
-        or TerminalLaneCloseOut(),
+        "record_terminal_lane_close_out",
+        lambda item, _envelope, **_k: seen.update(claim=item.get("claim")),
     )
 
     result = merge_cli.run(

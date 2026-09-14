@@ -13,10 +13,16 @@ remote-backed lane proves the landing against a freshly fetched
 ``origin/<target>``; a local-only repository proves it against its local
 target branch.
 
-Every step fails toward preserving. An unmerged branch, a dirty worktree, an
-ambiguous remote, or a refused deletion leaves the lane in place with the
-reason named, because a preserved lane costs an operator one sweep while a
-wrongly deleted one costs the work.
+Landing is proven by ``branch_landed_evidence`` — exact ancestry, or the
+patch equivalence that a rebased or squashed lane leaves behind — and the
+directory by the one residue policy in ``merge_worktree_cleanliness``, the
+same two readings the machine-wide sweep applies, so neither boundary
+retires a lane the other would keep.
+
+Every step fails toward preserving. A branch the target does not retain, a
+lane holding anything but named caches, an ambiguous remote, or a refused
+deletion leaves the lane in place with the reason named, because a preserved
+lane costs an operator one sweep while a wrongly deleted one costs the work.
 """
 
 from __future__ import annotations
@@ -27,6 +33,15 @@ from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
+from yoke_core.engines.branch_landed_evidence import (
+    BranchLandedEvidence,
+    assess_branch_landed,
+    delete_landed_branch,
+)
+from yoke_core.engines.merge_worktree_cleanliness import (
+    assess_lane_residue,
+    clear_lane_residue,
+)
 from yoke_core.engines.merge_worktree_safe_prune import (
     first_output_line,
     is_managed_worktree_path,
@@ -58,53 +73,7 @@ class LaneCleanupAssessment:
     worktree_path: Optional[Path] = None
     base: str = ""
     has_remote: bool = False
-
-
-@dataclass(frozen=True)
-class WorktreeResidueAssessment:
-    """Whether Git reports only repository-declared ignored residue."""
-
-    safe: bool
-    ignored_only: bool = False
-    reason: str = ""
-    precious_paths: tuple[str, ...] = ()
-
-
-def assess_worktree_residue(
-    run_git: Callable[..., Any], worktree_path: str | Path
-) -> WorktreeResidueAssessment:
-    """Classify tracked, unignored, and ignored worktree content through Git."""
-    root = Path(worktree_path).resolve()
-    current = run_git(
-        [
-            "-C",
-            str(root),
-            "status",
-            "--porcelain=v1",
-            "--ignored=matching",
-            "--untracked-files=all",
-        ],
-        cwd=str(root),
-        capture=True,
-    )
-    if current.returncode != 0:
-        return WorktreeResidueAssessment(False, reason="status unreadable")
-
-    ignored_paths: list[str] = []
-    precious_paths: list[str] = []
-    for line in (current.stdout or "").splitlines():
-        path = line[3:] if len(line) > 3 else line
-        if line.startswith("!! "):
-            ignored_paths.append(path)
-        else:
-            precious_paths.append(path)
-    if precious_paths:
-        return WorktreeResidueAssessment(
-            False,
-            reason="unignored changes present: " + ", ".join(precious_paths),
-            precious_paths=tuple(precious_paths),
-        )
-    return WorktreeResidueAssessment(True, ignored_only=bool(ignored_paths))
+    landed: BranchLandedEvidence = BranchLandedEvidence(False)
 
 
 _TERMINAL_OWNED_RELEASE = ("acquire one first", "claim_required")
@@ -219,26 +188,25 @@ def assess_landed_lane(
                 base,
                 has_remote,
             )
-    landed = git(
-        ["merge-base", "--is-ancestor", branch, base],
-        cwd=repo_root,
-        capture=True,
+    landed = assess_branch_landed(
+        lambda command: git(command, cwd=repo_root, capture=True),
+        branch=branch,
+        base=base,
     )
-    if landed.returncode != 0:
+    if not landed.landed:
         return LaneCleanupAssessment(
             False,
-            f"lane {branch} preserved: branch is not merged into {base}",
+            f"lane {branch} preserved: branch {landed.reason}",
             worktree_path,
             base,
             has_remote,
         )
     if worktree_path is not None:
-        residue = assess_worktree_residue(git, worktree_path)
-        if not residue.safe:
+        residue = assess_lane_residue(git, worktree_path)
+        if not residue.disposable:
             return LaneCleanupAssessment(
                 False,
-                f"{lane_name} preserved: worktree is dirty or unverifiable "
-                f"({residue.reason})",
+                f"{lane_name} preserved: {residue.reason}",
                 worktree_path,
                 base,
                 has_remote,
@@ -248,6 +216,7 @@ def assess_landed_lane(
         worktree_path=worktree_path,
         base=base,
         has_remote=has_remote,
+        landed=landed,
     )
 
 
@@ -296,18 +265,13 @@ def prune_landed_lane(
 
     worktree_path = assessment.worktree_path
     if worktree_path is not None:
-        residue = assess_worktree_residue(git, worktree_path)
-        if not residue.safe:
+        residue = clear_lane_residue(git, worktree_path)
+        if not residue.disposable:
             return (
-                f"lane {branch} preserved: worktree {worktree_path} is dirty "
-                f"or unverifiable ({residue.reason})",
+                f"lane {branch} preserved: worktree {worktree_path} ({residue.reason})",
             )
-        remove_args = ["worktree", "remove"]
-        if residue.ignored_only:
-            remove_args.append("--force")
-        remove_args.append(str(worktree_path))
         removed = git(
-            remove_args,
+            ["worktree", "remove", str(worktree_path)],
             cwd=repo_root,
             capture=True,
         )
@@ -324,18 +288,20 @@ def prune_landed_lane(
     row_warning = release_lane_row(item_id, branch, emit=say)
     notes = (row_warning,) if row_warning else ()
 
-    deleted = git(["branch", "-D", branch], cwd=repo_root, capture=True)
-    if deleted.returncode != 0:
-        return notes + (f"local branch {branch} preserved after delete refusal",)
+    refusal = delete_landed_branch(
+        lambda command: git(command, cwd=repo_root, capture=True),
+        branch=branch,
+        evidence=assessment.landed,
+    )
+    if refusal:
+        return notes + (refusal,)
     say(f"Pruned merged local branch: {branch}")
     return notes
 
 
 __all__ = [
     "LaneCleanupAssessment",
-    "WorktreeResidueAssessment",
     "assess_landed_lane",
-    "assess_worktree_residue",
     "prune_landed_lane",
     "release_lane_row",
 ]

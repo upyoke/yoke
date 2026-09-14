@@ -163,7 +163,8 @@ def test_unmerged_lane_is_preserved_with_the_reason_named(landed_lane):
     )
 
     assert preserved == (
-        f"lane {BRANCH} preserved: branch is not merged into origin/main",
+        f"lane {BRANCH} preserved: branch is not merged into origin/main "
+        f"and carries 1 commit with no equivalent there",
     )
     assert landed_lane.worktree.exists()
     assert BRANCH in _local_branches(landed_lane.repo)
@@ -184,13 +185,17 @@ def test_dirty_worktree_is_preserved_with_the_reason_named(landed_lane):
     )
 
     assert len(preserved) == 1
-    assert "dirty or unverifiable" in preserved[0]
-    assert "scratch.txt" in preserved[0]
+    assert "unignored changes present: scratch.txt" in preserved[0]
     assert landed_lane.worktree.exists()
 
 
-def test_nested_ignore_rules_make_residue_disposable(landed_lane):
-    """A repository-owned nested ignore rule authorizes forced removal."""
+def test_unknown_ignored_residue_is_preserved(landed_lane):
+    """Ignored is not disposable: only named caches are proven worthless.
+
+    A repository ignore rule says "do not track this", not "this may be
+    deleted" — the same reading the machine-wide sweep applies, so a lane
+    is never disposable to one boundary and precious to the other.
+    """
     _land_on_main(landed_lane.repo)
     generated = landed_lane.worktree / "webapp" / "generated" / "bundle.js"
     generated.parent.mkdir()
@@ -204,8 +209,9 @@ def test_nested_ignore_rules_make_residue_disposable(landed_lane):
         emit=lambda *_a, **_kw: None,
     )
 
-    assert preserved == ()
-    assert not landed_lane.worktree.exists()
+    assert len(preserved) == 1
+    assert "unknown ignored files present: webapp/generated/" in preserved[0]
+    assert generated.read_text(encoding="utf-8") == "built\n"
 
 
 def test_landed_lane_records_the_row_release(landed_lane, monkeypatch):

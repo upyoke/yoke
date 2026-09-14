@@ -71,8 +71,8 @@ class TestImportsSurviveLaneRemoval:
 
         monkeypatch.setattr(
             merge_worktree_cleanliness,
-            "clean_after_disposable_cache_removal",
-            lambda *args: True,
+            "clear_lane_residue",
+            lambda *args: merge_worktree_cleanliness.LaneResidueAssessment(True),
         )
         monkeypatch.setattr(
             merge_worktree_cleanup, "_release_lane_row", lambda _ctx: None

@@ -29,13 +29,15 @@ class TestCleanupTrialBranches:
             run_git.side_effect = [
                 mock.Mock(returncode=0, stdout="  trial/YOK-99\n"),
                 mock.Mock(returncode=0, stdout=""),  # ancestry
-                mock.Mock(returncode=0, stdout=""),  # branch -d
+                mock.Mock(returncode=0, stdout=""),  # branch -D
             ]
             assert done_transition._cleanup_trial_branches(project_repo) is True
 
+        # The delete is forced because it carries the shared landing proof,
+        # which is the reading git's own ``-d`` safety cannot make: a trial
+        # ref replayed onto HEAD keeps its own commits and would survive.
         commands = [" ".join(call.args[0]) for call in run_git.call_args_list]
-        assert any("branch -d trial/YOK-99" in command for command in commands)
-        assert not any("branch -D" in command for command in commands)
+        assert any("branch -D trial/YOK-99" in command for command in commands)
 
     def test_preserves_trial_branch_for_active_item(self, dt_db, tmp_path):
         db_path, _ = dt_db

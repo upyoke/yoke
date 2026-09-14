@@ -23,7 +23,6 @@ from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_terminal as terminal
-from yoke_core.domain.terminal_lane_cleanup import TerminalLaneCloseOut
 from yoke_core.domain.handlers.direct_workflow_conflict_survey_status import (
     handle_conflict_survey_status,
 )
@@ -181,9 +180,7 @@ def test_no_change_merge_records_base_identity_and_closes_dash(
     monkeypatch.setattr(terminal.git, "is_landed", lambda *_a: True)
     monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
     monkeypatch.setattr(
-        merge_cli,
-        "cleanup_terminal_item_lanes",
-        lambda *_a, **_kw: TerminalLaneCloseOut(),
+        merge_cli, "record_terminal_lane_close_out", lambda *_a, **_kw: None
     )
     calls = []
 

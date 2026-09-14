@@ -208,6 +208,15 @@ def run_id_receipt(response: Any, stdout: TextIO, stderr: TextIO) -> None:
     print(result.get("run_id") or json.dumps(result, sort_keys=True), file=stdout)
 
 
+# Every call that can leave an item terminal, so the machine-local lanes it
+# leaves behind retire on the same command. The status each one reached is
+# read back from its own result rather than from the request, because cancel
+# names no target status and a transition can land on a different one.
+_TERMINAL_CAPABLE_FUNCTIONS = frozenset(
+    {"lifecycle.transition.execute", "items.cancel.run"}
+)
+
+
 def dispatch_and_emit(
     *,
     function_id: str,
@@ -227,7 +236,7 @@ def dispatch_and_emit(
     ensure_handlers_loaded()
     actor = build_actor(session_id=session_id)
     cleanup_item = None
-    if function_id == "lifecycle.transition.execute":
+    if function_id in _TERMINAL_CAPABLE_FUNCTIONS:
         detail = call_dispatcher(
             function_id="items.detail.get",
             target=target,
@@ -257,9 +266,12 @@ def dispatch_and_emit(
         cleanup_terminal_item_lanes = importlib.import_module(
             "yoke_core.domain.terminal_lane_cleanup"
         ).cleanup_terminal_item_lanes
+        result = response.result or {}
         close = cleanup_terminal_item_lanes(
             cleanup_item,
-            target_status=str(payload.get("target_status") or ""),
+            target_status=str(
+                result.get("to_status") or result.get("status") or ""
+            ),
             session_id=actor.session_id,
             emit=lambda message, **_kw: print(message, file=sys.stderr),
         )

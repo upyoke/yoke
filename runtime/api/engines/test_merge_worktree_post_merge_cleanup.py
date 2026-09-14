@@ -175,8 +175,8 @@ class TestPostMergeRemoteCleanupSafety:
 
         monkeypatch.setattr(
             merge_worktree_cleanliness,
-            "clean_after_disposable_cache_removal",
-            lambda *args: True,
+            "clear_lane_residue",
+            lambda *args: merge_worktree_cleanliness.LaneResidueAssessment(True),
         )
 
         assert merge_worktree._post_merge_cleanup(ctx, no_changes=True) == 0

@@ -120,11 +120,13 @@ def test_a_transition_lost_to_a_finished_close_out_is_the_landing(
         "recorded_landing",
         lambda item_id: {**RECORD, "merged_at": "2026-09-03T18:27:22Z"},
     )
-    monkeypatch.setattr(
-        sim_cli,
-        "cleanup_terminal_item_lanes",
-        lambda *_a, **_k: pytest.fail("the finished close-out owns cleanup"),
-    )
+    retired: list[dict] = []
+
+    def retire(item, envelope, **kwargs):
+        retired.append({"item": item, **kwargs})
+        envelope["lane_sweep"] = {"removed": [], "preserved": [], "skipped": ""}
+
+    monkeypatch.setattr(sim_cli, "record_terminal_lane_close_out", retire)
 
     exit_code, out = _run_close_out(capsys)
 
@@ -132,6 +134,11 @@ def test_a_transition_lost_to_a_finished_close_out_is_the_landing(
     envelope = json.loads(out)
     assert envelope["ok"] is True
     assert envelope["result"] == evidence.LANDING_ALREADY_RECORDED
+    # The close-out that won the race may have had its own cleanup refused —
+    # a lane it left on disk is retired by whichever run reaches it next,
+    # which is safe because every step of that retirement is proof-gated.
+    assert retired[0]["target_status"] == evidence.CLOSED_OUT_STATUS
+    assert envelope["lane_sweep"] == {"removed": [], "preserved": [], "skipped": ""}
     assert envelope["status"] == "done"
     assert envelope["merge_sha"] == "2" * 40
     assert envelope["recorded_by_session_id"] == "session-1"

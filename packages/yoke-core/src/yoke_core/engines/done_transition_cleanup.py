@@ -9,6 +9,10 @@ from pathlib import Path
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.backlog_session_attribution import _current_session_id
+from yoke_core.engines.branch_landed_evidence import (
+    assess_branch_landed,
+    delete_landed_branch,
+)
 from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
 from yoke_core.engines.remote_branch_cleanup import delete_remote_branch_if_merged
 
@@ -55,19 +59,15 @@ def _branch_exists(project_repo: Path, branch: str) -> bool:
     return result.returncode == 0
 
 
-def _branch_merged(project_repo: Path, branch: str, base_ref: str) -> bool:
-    result = _parent()._run_git(
-        [
-            "-C",
-            str(project_repo),
-            "merge-base",
-            "--is-ancestor",
-            branch,
-            base_ref,
-        ],
-        capture=True,
+def _branch_landed(project_repo: Path, branch: str, base_ref: str):
+    """The shared landing proof, bound to this checkout."""
+    return assess_branch_landed(
+        lambda command: _parent()._run_git(
+            ["-C", str(project_repo), *command], capture=True
+        ),
+        branch=branch,
+        base=base_ref,
     )
-    return result.returncode == 0
 
 
 def _delete_remote_for_lane(project_repo: Path, branch: str, base_branch: str) -> bool:
@@ -173,20 +173,21 @@ def _cleanup_trial_branches(project_repo: Path, item_id: int | None = None) -> b
         if _has_foreign_claim(trial_item):
             complete = False
             continue
-        if not _branch_merged(project_repo, ref, "HEAD"):
-            print(f"  Preserving trial branch with unique commits: {ref}")
+        landed = _branch_landed(project_repo, ref, "HEAD")
+        if not landed.landed:
+            print(f"  Preserving trial branch {ref} {landed.reason}")
             complete = False
             continue
-        deleted = _parent()._run_git(
-            ["-C", str(project_repo), "branch", "-d", ref],
-            capture=True,
+        refusal = delete_landed_branch(
+            lambda command: _parent()._run_git(
+                ["-C", str(project_repo), *command], capture=True
+            ),
+            branch=ref,
+            evidence=landed,
         )
-        if deleted.returncode != 0:
+        if refusal:
             complete = False
-            print(
-                f"  WARNING: Refused to delete trial branch {ref}",
-                file=sys.stderr,
-            )
+            print(f"  WARNING: {refusal}", file=sys.stderr)
     return complete
 
 
