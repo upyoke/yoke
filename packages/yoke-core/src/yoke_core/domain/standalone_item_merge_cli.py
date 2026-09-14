@@ -12,10 +12,12 @@ from yoke_core.domain.merge_preflight_github_lock_retry import (
     call_with_machine_lock_retry,
 )
 from yoke_core.domain import close_out_control_plane_authority as close_out
+from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_converge as converge
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
+from yoke_core.domain import standalone_item_merge_release_continuation as release_flow
 from yoke_core.domain.merge_review_readiness import review_readiness_refusal
 from yoke_core.domain import standalone_item_merge_pending as pending
 from yoke_core.domain import standalone_item_merge_verify as verify
@@ -32,7 +34,7 @@ from yoke_core.domain.standalone_item_merge_lane import (
     lane_resolution_error,
     merge_source_lane,
 )
-from yoke_core.domain.terminal_lane_cleanup import cleanup_terminal_item_lanes
+from yoke_core.domain.terminal_lane_cleanup import record_terminal_lane_close_out
 
 # Workflows whose terminal transition requires an execution-evidence record.
 EVIDENCE_WORKFLOWS = frozenset({"dash"})
@@ -46,8 +48,9 @@ def _fail(message: str, *, as_json: bool, **extra: Any) -> int:
     return 1
 
 
-def _relay_error(response: Any, fallback: str) -> str:
-    return response.error.message if response.error is not None else fallback
+def _session_holds_claim(item_id: int, session_id: str) -> str:
+    """Empty when this session owns the item claim, else why it does not."""
+    return recovery.claim_error(item_id, session_id)
 
 
 def _resolve_item(public_ref: str, project: Optional[str]) -> tuple[Any, str]:
@@ -59,13 +62,9 @@ def _resolve_item(public_ref: str, project: Optional[str]) -> tuple[Any, str]:
         )
     )
     if not response.success:
-        return None, _relay_error(response, "item resolution failed")
+        error = response.error
+        return None, error.message if error is not None else "item resolution failed"
     return (response.result or {}).get("item") or {}, ""
-
-
-def _session_holds_claim(item_id: int, session_id: str) -> str:
-    """Empty when this session owns the item claim, else why it does not."""
-    return recovery.claim_error(item_id, session_id)
 
 
 def _announce_close_out(step: str) -> None:
@@ -105,10 +104,7 @@ def run(argv: List[str]) -> int:
 
     lane_error = lane_resolution_error(item)
     if active_lanes(item) and lane_error:
-        return _fail(
-            f"{public_ref}: {lane_error}",
-            as_json=as_json,
-        )
+        return _fail(f"{public_ref}: {lane_error}", as_json=as_json)
 
     branch = lane_branch(item, public_ref)
     claim_error = _session_holds_claim(item_id, str(args.session_id))
@@ -122,6 +118,12 @@ def run(argv: List[str]) -> int:
             claim_note=claim_error,
         )
         if closed_out is not None:
+            record_terminal_lane_close_out(
+                item,
+                closed_out,
+                target_status=status,
+                session_id=str(args.session_id),
+            )
             print(json.dumps(closed_out, indent=2, sort_keys=True))
             return 0
         if not recovery.claim_is_missing(claim_error):
@@ -266,12 +268,8 @@ def run(argv: List[str]) -> int:
             envelope["warnings"].append(write_warning)
         envelope["evidence_recorded"] = True
 
-    from yoke_core.domain.standalone_item_merge_release_continuation import (
-        continue_prepared_release,
-    )
-
     _announce_close_out("prepared release")
-    release_fragment, release_warning = continue_prepared_release(
+    release_fragment, release_warning = release_flow.continue_prepared_release(
         item_id=item_id,
         session_id=str(args.session_id),
     )
@@ -280,11 +278,8 @@ def run(argv: List[str]) -> int:
     if release_warning:
         envelope["warnings"].append(release_warning)
 
-    from yoke_core.domain.standalone_item_merge import sync_item_to_github
-
     _announce_close_out("syncing GitHub")
-    sync_error = sync_item_to_github(item_id)
-    if sync_error:
+    if sync_error := merge_domain.sync_item_to_github(item_id):
         envelope["warnings"].append(f"GitHub sync skipped: {sync_error}")
 
     if not args.skip_status:
@@ -306,6 +301,14 @@ def run(argv: List[str]) -> int:
                 branch=branch,
             )
             if recorded is not None:
+                record_terminal_lane_close_out(
+                    item,
+                    recorded,
+                    target_status=evidence.CLOSED_OUT_STATUS,
+                    session_id=str(args.session_id),
+                    repo_root=repo_root,
+                    target_branch=target,
+                )
                 print(json.dumps(recorded, indent=2, sort_keys=True))
                 return 0
             envelope["ok"] = False
@@ -317,16 +320,14 @@ def run(argv: List[str]) -> int:
             return 1
         envelope["status"] = "done"
         _announce_close_out("lane cleanup")
-        close = cleanup_terminal_item_lanes(
+        record_terminal_lane_close_out(
             {**item, "claim": None},
+            envelope,
             target_status="done",
             session_id=str(args.session_id),
             repo_root=repo_root,
             target_branch=target,
-            emit=lambda message, **_kw: print(message, file=sys.stderr, flush=True),
         )
-        envelope["warnings"].extend(close.warnings)
-        envelope["lane_sweep"] = close.sweep
         marker_error = pending.clear_after_close_out(item_id, item)
         if marker_error:
             envelope["warnings"].append(f"queue marker not cleared: {marker_error}")

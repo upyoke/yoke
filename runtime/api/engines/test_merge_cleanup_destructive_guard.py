@@ -1,4 +1,13 @@
-"""Static guard against destructive merge-lane cleanup primitives."""
+"""Static guard against destructive merge-lane cleanup primitives.
+
+Two deletions are stronger than the git safety they replace, and each is
+fenced in exactly one module: the forced branch delete in
+``branch_landed_evidence`` runs only behind that module's landing proof,
+which is the reading ``git branch -d`` cannot make, and the recursive
+delete in ``merge_worktree_cleanliness`` only removes paths its named-cache
+allowlist matched. Every other lane path must reach them through those
+modules rather than issuing its own.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +24,12 @@ def _engine_sources() -> list[Path]:
         / "yoke_core"
         / "engines"
     )
-    names = ("merge_worktree*.py", "done_transition*.py")
+    names = (
+        "merge_worktree*.py",
+        "merge_landed*.py",
+        "done_transition*.py",
+        "branch_landed_evidence.py",
+    )
     return sorted({path for pattern in names for path in root.glob(pattern)})
 
 
@@ -32,7 +46,8 @@ def test_merge_lifecycle_has_no_forced_ref_or_worktree_deletion():
                     and isinstance(value.value, str)
                 }
                 if {"branch", "-D"}.issubset(literals):
-                    violations.append(f"{path.name}:{node.lineno}: branch -D")
+                    if path.name != "branch_landed_evidence.py":
+                        violations.append(f"{path.name}:{node.lineno}: branch -D")
                 if {"worktree", "remove", "--force"}.issubset(literals):
                     violations.append(
                         f"{path.name}:{node.lineno}: forced worktree removal"

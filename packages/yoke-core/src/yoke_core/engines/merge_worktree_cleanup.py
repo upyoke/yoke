@@ -154,17 +154,13 @@ def _post_merge_cleanup(
             doomed_root=ctx.worktree_path,
             surviving_root=ctx.repo_root,
         )
-        from yoke_core.engines.merge_worktree_cleanliness import (
-            clean_after_disposable_cache_removal,
-        )
+        from yoke_core.engines.merge_worktree_cleanliness import clear_lane_residue
 
-        worktree_clean = clean_after_disposable_cache_removal(
-            _run_git, ctx.worktree_path
-        )
+        residue = clear_lane_residue(_run_git, ctx.worktree_path)
+        worktree_clean = residue.disposable
         if not worktree_clean:
             _print(
-                f"WARNING: Preserving dirty or unverifiable worktree: "
-                f"{ctx.worktree_path}",
+                f"WARNING: Preserving worktree {ctx.worktree_path}: {residue.reason}",
                 err=True,
             )
         else:

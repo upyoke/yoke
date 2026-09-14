@@ -20,9 +20,9 @@ from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.engines.merge_landed_lane_cleanup import (
     assess_landed_lane,
-    assess_worktree_residue,
     prune_landed_lane,
 )
+from yoke_core.engines.merge_worktree_cleanliness import assess_lane_residue
 from yoke_core.engines.merge_prune_authority import (
     item_cleanup_authority_blocks_prune,
 )
@@ -89,8 +89,10 @@ def _stranded_category(entry: dict, residue, assessment) -> tuple[str, str]:
     """Name why a terminal item's lane is still on disk, operator-first."""
     if "locked" in entry:
         return "locked", entry["locked"]
-    if residue is not None and not residue.safe:
+    if residue is not None and not residue.disposable:
         count = len(residue.precious_paths)
+        if not count:
+            return "preserved", residue.reason
         return "dirty", f"{count} modified file{'s' if count != 1 else ''}"
     if assessment.safe:
         return "sweep-ready", ""
@@ -134,14 +136,14 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             continue
         root = str(repo_root or Path(wt_path).parents[1])
 
-        # Repository-declared ignored residue is disposable lane state.
+        # Named ignored caches are disposable; anything else is lane content.
         residue = None
         if Path(wt_path).is_dir():
-            residue = assess_worktree_residue(_git_for_repo(root), wt_path)
-            if not residue.safe:
+            residue = assess_lane_residue(_git_for_repo(root), wt_path)
+            if not residue.disposable:
                 issues.append(
-                    f"- Worktree {branch} at {wt_path} has uncommitted changes "
-                    f"({residue.reason})"
+                    f"- Worktree {branch} at {wt_path} holds content cleanup "
+                    f"preserves ({residue.reason})"
                 )
 
         # Check terminal ownership through the universal registry.

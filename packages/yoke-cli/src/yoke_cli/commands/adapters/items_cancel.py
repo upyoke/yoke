@@ -4,6 +4,11 @@ Consumes the structured close path: work-claim scoping, frozen-item
 handling, worktree-lane release, dependency reconciliation, and GitHub
 close/comment happen in the handler. The caller supplies the item, a
 one-line reason, and an optional superseding-item ``--ref``.
+
+The handler releases the lane ROWS; the directory and branches they
+describe live on this machine, so the shared terminal-lane retirement in
+:mod:`yoke_cli.commands._helpers` runs here afterwards, exactly as it does
+for a lifecycle transition that lands on a terminal status.
 """
 
 from __future__ import annotations
@@ -58,6 +63,11 @@ def _build_parser() -> Any:
             "The command takes the item claim for you, writes cancelled with "
             "the reason, reconciles item_dependencies, closes the GitHub "
             "issue, and releases the claim. A foreign holder is refused.\n\n"
+            "Cancelling is terminal, so this machine's copy of the item's "
+            "lanes retires with it: a worktree holding only known caches and "
+            "a branch the base already contains are removed, while a dirty "
+            "tree, unique commits, a lock, or unknown ignored content keep "
+            "the lane and print the reason.\n\n"
             "Frozen items: cancel does not require a prior thaw. Freeze and "
             "cancel are different intents; a cancelled item is terminal, so "
             "frozen is cleared as part of this close. There is no --thaw "

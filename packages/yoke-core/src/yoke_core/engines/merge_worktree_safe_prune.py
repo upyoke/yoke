@@ -7,8 +7,11 @@ machine runs it after its own lane is handled, so a lane one landing
 preserved is examined again by the next. It never widens the rules: the
 control plane must name a terminal owner with no live authority
 (``merge.prune.authority_verdict`` over the active transport), the tree must
-be clean once disposable caches are gone, the branch must be contained in
-``origin/<target>``, and the remote branch goes before any local ref.
+hold nothing but named caches once those are gone, ``origin/<target>`` must
+retain every change the branch carries, and the remote branch goes before
+any local ref. The residue and landing proofs are the shared ones the
+per-lane retirement applies, so the two boundaries never disagree about the
+same lane.
 Unreachable authority skips everything. What was removed and what was kept,
 each with its reason, comes back as a :class:`WorktreeSweep` so the landing
 that ran the sweep can show it instead of burying it in progress output.
@@ -23,9 +26,11 @@ from typing import Any, Callable
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_contracts.codex_hook_trust_store import worktree_cleanup_warning
-from yoke_core.engines.merge_worktree_cleanliness import (
-    clean_after_disposable_cache_removal,
+from yoke_core.engines.branch_landed_evidence import (
+    assess_branch_landed,
+    delete_landed_branch,
 )
+from yoke_core.engines.merge_worktree_cleanliness import clear_lane_residue
 
 
 @dataclass(frozen=True)
@@ -111,18 +116,18 @@ def is_managed_worktree_path(path: Path, repo_root: Path) -> bool:
     return any(path != root and path.is_relative_to(root) for root in roots)
 
 
-def _merged(
+def _landed(
     run_git: Callable[..., Any],
     repo_root: str,
     branch: str,
     base: str,
-) -> bool:
-    result = run_git(
-        ["merge-base", "--is-ancestor", branch, base],
-        cwd=repo_root,
-        capture=True,
+):
+    """The shared landing proof, bound to this repository."""
+    return assess_branch_landed(
+        lambda command: run_git(command, cwd=repo_root, capture=True),
+        branch=branch,
+        base=base,
     )
-    return result.returncode == 0
 
 
 def _prune_verdict(
@@ -236,11 +241,13 @@ def prune_managed_worktrees(
                 f"worktree is locked ({entry.lock_reason or 'no reason recorded'})",
             )
             continue
-        if not clean_after_disposable_cache_removal(git, entry.path):
-            keep(entry.path, "dirty or unverifiable worktree")
+        landed = _landed(git, repo_root, entry.branch, base)
+        if not landed.landed:
+            keep(entry.path, f"worktree branch {entry.branch}: {landed.reason}")
             continue
-        if not _merged(git, repo_root, entry.branch, base):
-            keep(entry.path, f"unmerged worktree branch {entry.branch}")
+        residue = clear_lane_residue(git, entry.path)
+        if not residue.disposable:
+            keep(entry.path, residue.reason)
             continue
         remote = _delete_remote_before_local(
             run_git=git,
@@ -265,9 +272,13 @@ def prune_managed_worktrees(
             say(f"WARNING: {warning}", err=True)
         removed.append(str(entry.path))
         checked_out.discard(entry.branch)
-        deleted = git(["branch", "-d", entry.branch], cwd=repo_root, capture=True)
-        if deleted.returncode != 0:
-            say(f"Preserved local branch after delete refusal: {entry.branch}")
+        refusal = delete_landed_branch(
+            lambda command: git(command, cwd=repo_root, capture=True),
+            branch=entry.branch,
+            evidence=landed,
+        )
+        if refusal:
+            say(f"Preserved local branch: {refusal}")
 
     branches = git(
         ["for-each-ref", "--format=%(refname:short)", "refs/heads"],
@@ -287,7 +298,8 @@ def prune_managed_worktrees(
         assert verdict is not None  # not unavailable -> a dict
         if not verdict.get("prunable"):
             continue
-        if not _merged(git, repo_root, branch, base):
+        landed = _landed(git, repo_root, branch, base)
+        if not landed.landed:
             continue
         if not _delete_remote_before_local(
             run_git=git,
@@ -297,8 +309,11 @@ def prune_managed_worktrees(
             target=target,
         ).cleanup_complete:
             continue
-        deleted = git(["branch", "-d", branch], cwd=repo_root, capture=True)
-        if deleted.returncode == 0:
+        if not delete_landed_branch(
+            lambda command: git(command, cwd=repo_root, capture=True),
+            branch=branch,
+            evidence=landed,
+        ):
             say(f"Pruned terminal merged local branch: {branch}")
     return WorktreeSweep(tuple(removed), tuple(preserved))
 

@@ -115,13 +115,12 @@ def _remove_lane(ctx: MergeContext) -> None:
             return
 
     _chdir_out_of_doomed_worktree(ctx)
-    from yoke_core.engines.merge_worktree_cleanliness import (
-        clean_after_disposable_cache_removal,
-    )
+    from yoke_core.engines.merge_worktree_cleanliness import clear_lane_residue
 
-    if not clean_after_disposable_cache_removal(_run_git, ctx.worktree_path):
+    residue = clear_lane_residue(_run_git, ctx.worktree_path)
+    if not residue.disposable:
         _print(
-            f"WARNING: Preserving dirty or unverifiable worktree: {ctx.worktree_path}",
+            f"WARNING: Preserving worktree {ctx.worktree_path}: {residue.reason}",
             err=True,
         )
         return

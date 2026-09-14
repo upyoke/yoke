@@ -51,7 +51,7 @@ def _terminal_lane(tmp_path: Path) -> tuple[Path, Path]:
     (repo / "base.txt").write_text("base\n", encoding="utf-8")
     nested = repo / "webapp"
     nested.mkdir()
-    (nested / ".gitignore").write_text("generated/\n", encoding="utf-8")
+    (nested / ".gitignore").write_text("node_modules/\n", encoding="utf-8")
     _git(repo, "add", "base.txt", "webapp/.gitignore")
     _git(repo, "commit", "-m", "base")
     lane = repo / ".worktrees" / BRANCH
@@ -68,9 +68,9 @@ def test_doctor_reports_and_fixes_only_a_verified_safe_terminal_lane(
     monkeypatch,
 ):
     repo, lane = _terminal_lane(tmp_path)
-    generated = lane / "webapp" / "generated" / "bundle.js"
-    generated.parent.mkdir()
-    generated.write_text("built\n", encoding="utf-8")
+    cached = lane / "webapp" / "node_modules" / "pkg" / "index.js"
+    cached.parent.mkdir(parents=True)
+    cached.write_text("built\n", encoding="utf-8")
     conn = _make_conn()
     _insert_item(conn, 20, "Done", workflow_id="issue", status="done")
     conn.execute(

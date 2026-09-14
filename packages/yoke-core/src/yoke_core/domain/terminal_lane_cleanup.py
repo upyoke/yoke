@@ -13,6 +13,7 @@ refusal outlives the terminal output that first showed it.
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -214,8 +215,37 @@ def cleanup_terminal_item_lanes(
         )
 
 
+def record_terminal_lane_close_out(
+    item: dict[str, Any],
+    envelope: dict[str, Any],
+    *,
+    target_status: str,
+    session_id: str = "",
+    repo_root: str | Path | None = None,
+    target_branch: str = "",
+) -> None:
+    """Retire the item's lanes and report the outcome on a result envelope.
+
+    Every way a standalone merge reports a terminal item — the close-out it
+    just ran, and the two re-entries that find the landing already recorded —
+    owes the same physical retirement, so they share this one call rather
+    than each deciding whether cleanup is theirs to run.
+    """
+    close = cleanup_terminal_item_lanes(
+        item,
+        target_status=target_status,
+        session_id=session_id,
+        repo_root=repo_root,
+        target_branch=target_branch,
+        emit=lambda message, **_kw: print(message, file=sys.stderr, flush=True),
+    )
+    envelope.setdefault("warnings", []).extend(close.warnings)
+    envelope["lane_sweep"] = close.sweep
+
+
 __all__ = [
     "LANE_PRESERVED_EVENT_NAME",
     "TerminalLaneCloseOut",
     "cleanup_terminal_item_lanes",
+    "record_terminal_lane_close_out",
 ]

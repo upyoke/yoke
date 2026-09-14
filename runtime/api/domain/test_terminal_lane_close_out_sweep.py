@@ -82,18 +82,6 @@ def test_non_terminal_transition_neither_prunes_nor_sweeps(tmp_path):
     assert close == TerminalLaneCloseOut()
 
 
-def _recording_dispatcher(calls: list[dict], *, success: bool = True):
-    def dispatch(*, function_id, target, payload):
-        calls.append({"function_id": function_id, "target": target, "payload": payload})
-        return SimpleNamespace(
-            success=success,
-            result={},
-            error=None if success else SimpleNamespace(message="project unknown"),
-        )
-
-    return dispatch
-
-
 def test_preserved_own_lane_is_recorded_as_an_event(monkeypatch, tmp_path):
     """The refusal outlives the merge output: it lands on the events ledger."""
     monkeypatch.setattr(terminal_lane_cleanup.git, "branch_exists", lambda *_a: True)
