@@ -73,6 +73,28 @@ def typed_failure_status_is_transient(status: int | None) -> bool:
         return False
 
 
+def attempt_budget(max_attempts: int | None) -> int:
+    """Attempts this call may spend, never more than the connection budget.
+
+    An unstated budget takes the full ladder. A stated one is honoured as
+    given, clamped to at least one attempt — a caller that asked for zero
+    still gets the single try the call itself is, not the silent full
+    ladder that reading zero as "unstated" used to hand back.
+    """
+    if max_attempts is None:
+        return CONNECTION_ATTEMPTS
+    return max(1, min(int(max_attempts), CONNECTION_ATTEMPTS))
+
+
+def should_retry_response_deadline(attempt: int, budget: int) -> bool:
+    """Whether a server still working on the envelope earns the one re-attempt.
+
+    The server accepted it, so this is not the connection ladder: one
+    immediate retry, no backoff, and never more than the caller's budget.
+    """
+    return attempt + 1 < min(RESPONSE_DEADLINE_ATTEMPTS, budget)
+
+
 def should_retry_connection(
     attempt: int,
     api_url: str = "",
@@ -230,9 +252,11 @@ def write_retry_notice(
 
 __all__ = [
     "CONNECTION_ATTEMPTS",
+    "attempt_budget",
     "connection_refusal_is_conclusive",
     "is_sandbox_denial",
     "should_retry_connection",
+    "should_retry_response_deadline",
     "CONNECTION_BACKOFF_SECONDS",
     "RESPONSE_DEADLINE_ATTEMPTS",
     "connection_backoff_seconds",
