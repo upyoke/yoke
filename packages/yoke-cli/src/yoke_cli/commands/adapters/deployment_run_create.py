@@ -20,9 +20,6 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
-from yoke_cli.commands.adapters.deployment_owner_authority import (
-    https_product_plane_create_error,
-)
 from yoke_cli.commands.adapters.deployment_pin_guard import (
     pin_regression_error,
 )
@@ -31,10 +28,7 @@ from yoke_cli.commands.deployment_lineage import (
     resolve_commit_lineage,
 )
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.machine_config.schema import (
-    DB_ADMIN_ENV_SUFFIX,
-    ENV_OVERRIDE,
-)
+from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.deployment_itemless_teaching import (
     CREATE_DESCRIPTION,
     ITEMLESS_RELEASE_RECIPE,
@@ -42,8 +36,8 @@ from yoke_contracts.deployment_itemless_teaching import (
 )
 
 
-def _execute_authority() -> str:
-    """The owner-only connection that will hold this run at execute time.
+def _execute_connection() -> str:
+    """The selected connection that will address this run at execute time.
 
     A run lives on the control plane that created it, so the connection this
     creation is dispatching through already determines the one `execute` must
@@ -60,12 +54,7 @@ def _execute_authority() -> str:
     active = os.environ.get(ENV_OVERRIDE, "").strip()
     if not active:
         return ""
-    base = (
-        active[: -len(DB_ADMIN_ENV_SUFFIX)]
-        if active.endswith(DB_ADMIN_ENV_SUFFIX)
-        else active
-    )
-    return f"{base}{DB_ADMIN_ENV_SUFFIX}" if base else ""
+    return active
 
 
 DEPLOYMENT_RUNS_CREATE_USAGE = (
@@ -137,16 +126,11 @@ def deployment_runs_create(args: List[str]) -> int:
         or parsed.artifact_identity_file is not None
     ):
         return usage_error("--retry-of cannot be combined with artifact identity")
-    owner_error = https_product_plane_create_error("deployment-runs create")
-    if owner_error is not None:
-        print(f"Error: {owner_error}", file=sys.stderr)
-        return 1
-
     def _human_writer(response, stdout, stderr) -> None:
         run_id_receipt(response, stdout, stderr)
         run_id = (response.result or {}).get("run_id")
         if run_id:
-            authority = _execute_authority() or "<control-plane-env>-db-admin"
+            authority = _execute_connection() or "<control-plane-env>"
             print(execute_created_run_note(authority, run_id), file=stderr)
 
     payload = {

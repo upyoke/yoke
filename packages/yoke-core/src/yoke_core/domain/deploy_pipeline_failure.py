@@ -10,7 +10,7 @@ from typing import Callable, List, Optional
 from yoke_core.domain import deploy_pipeline_poll_authority as poll_authority
 from yoke_core.domain import deploy_pipeline_reporting as reporting
 from yoke_core.domain import deploy_pipeline_run_updates as run_updates
-from yoke_core.domain import deploy_qa_recorder
+from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 
 
 EXIT_STAGE_FAILED = 1
@@ -149,12 +149,7 @@ def fail_pipeline_stage(
         member_items,
         sd=sd,
     )
-    deploy_qa_recorder.cmd_record_stage_result(
-        run_id,
-        stage_name,
-        "fail",
-        script_dir=sd,
-    )
+    control_plane.record_qa_stage(run_id, stage_name, "fail")
     run_updates.update_run_field(run_id, "status", "failed")
     emit_event(
         "DeploymentRunFailed",

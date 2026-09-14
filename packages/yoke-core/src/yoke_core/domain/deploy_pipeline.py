@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from typing import List, Optional
 
-from yoke_core.domain.db_helpers import connect
-from yoke_core.domain import deploy_qa_recorder
-from yoke_core.domain.claim_recovery import canonical_item_ref
-from yoke_core.domain.deploy_lock import deploy_lock_refusal
+from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain.deploy_pipeline_step_runners import (
     _dispatch_step_runner,
 )
@@ -22,22 +20,17 @@ from yoke_core.domain.deploy_pipeline_gates import (
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 from yoke_core.domain import deploy_pipeline_failure
 from yoke_core.domain.deploy_pipeline_reporting import (
-    _flow_db,
     _parse_stages,
-    _project_db,
     _resolve_script_dir,
     _set_deploy_stage,
-    _yoke_db,
 )
 from yoke_core.domain.deploy_pipeline_run_context import (
     EXIT_FINALIZATION_PENDING,  # noqa: F401 — public pipeline exit 4
     complete_run_finalization,
-    resolve_flow_target,
     resolve_project_checkout_path,
 )
 from yoke_core.domain.deployment_run_completion_preconditions import (
     awaiting_qa_report_lines,
-    unresolved_blocking_qa,
 )
 from yoke_core.domain.deployment_item_stamp import (
     transition_member_to_release,
@@ -66,52 +59,43 @@ def run_pipeline(
     """Execute the deployment pipeline.  Returns exit code."""
     sd = sd or _resolve_script_dir()
 
-    run_id, project, flow_id = "", "", ""
-    run_status, current_stage, release_lineage = "", "", ""
-    member_items: List[str] = []
-
-    if primary_arg.startswith("run-"):
-        run_id = primary_arg
-        run_row = _yoke_db("runs", "get", run_id, sd=sd)
-        if not run_row:
-            print(deploy_env.run_not_found_message(run_id), file=sys.stderr)
-            return EXIT_USAGE
-
-        fields = run_row.split("|")
-        project = fields[1] if len(fields) > 1 else ""
-        flow_id = fields[2] if len(fields) > 2 else ""
-        release_lineage = fields[5] if len(fields) > 5 else ""
-        run_status = fields[6] if len(fields) > 6 else ""
-        current_stage = fields[7] if len(fields) > 7 else ""
-
-        items_output = _yoke_db("runs", "items", run_id, sd=sd)
-        if items_output:
-            member_items = [line.split("|")[1] for line in items_output.strip().split("\n") if "|" in line]
-
-        if not member_items:
-            print(f"Run {run_id} has no member items (environment-level deploy)")
-    else:
-        from yoke_core.domain.deploy_pipeline_item_run import (
-            create_run_for_item_ref,
+    if not primary_arg.startswith("run-"):
+        print(
+            "Error: deployment execution requires a run ID; compose an "
+            "item-bound run with `yoke deployment-runs start-for-item ITEM`, "
+            "then execute the returned run ID",
+            file=sys.stderr,
         )
-
-        item_run = create_run_for_item_ref(primary_arg, sd=sd)
-        if item_run is None:
-            return EXIT_USAGE
-        run_id = item_run.run_id
-        project = item_run.project
-        flow_id = item_run.flow_id
-        member_items = list(item_run.member_items)
-        run_status = "created"
+        return EXIT_USAGE
+    run_id = primary_arg
+    try:
+        context = control_plane.execution_context(run_id)
+    except control_plane.DeploymentControlPlaneError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    run = context.get("run") or {}
+    members = context.get("members") or []
+    project = str(run.get("project") or "")
+    flow_id = str(run.get("flow") or "")
+    release_lineage = str(run.get("release_lineage") or "")
+    qa_result = (
+        json.dumps({"verification_tree": {"head_sha": release_lineage}})
+        if release_lineage
+        else "{}"
+    )
+    run_status = str(run.get("status") or "")
+    current_stage = str(run.get("current_stage") or "")
+    member_items = [str(member["item_id"]) for member in members]
+    member_statuses = {
+        str(member["item_id"]): str(member.get("status") or "")
+        for member in members
+    }
+    first_member = members[0] if members else {}
+    if not member_items:
+        print(f"Run {run_id} has no member items (environment-level deploy)")
 
     if not flow_id:
         print(f"Error: deployment run '{run_id}' has no flow assigned", file=sys.stderr)
-        return EXIT_USAGE
-    lock_error = deploy_lock_refusal(
-        project, operation="deployment run execution",
-    )
-    if lock_error is not None:
-        print(f"Error: {lock_error}", file=sys.stderr)
         return EXIT_USAGE
     try:
         product_source = validate_itemless_product_source(
@@ -122,22 +106,24 @@ def run_pipeline(
         return EXIT_USAGE
     product_repo_path = product_source.repo_path if product_source else ""
     image_tag = product_source.image_tag if product_source else image_tag
-    stages_json = _flow_db("stages", flow_id, sd=sd)
-    if not stages_json:
+    raw_stages = context.get("stages")
+    if not isinstance(raw_stages, list):
         print(f"Error: deployment flow '{flow_id}' not found or has no stages", file=sys.stderr)
         return EXIT_USAGE
-
-    stages = _parse_stages(stages_json)
+    stages = _parse_stages(json.dumps(raw_stages))
     if not stages:
         print(f"Error: no stages found in flow '{flow_id}'", file=sys.stderr)
         return EXIT_USAGE
 
-    github_repo = _project_db("get", project, "github_repo", sd=sd) if project else ""
+    try:
+        github_repo = control_plane.project_field(project, "github_repo")
+    except control_plane.DeploymentControlPlaneError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
     project_repo_path = resolve_project_checkout_path(project)
 
-    target_tier, environment_name = resolve_flow_target(
-        flow_id, sd=sd,
-    )
+    target_tier = str(run.get("target_tier") or "")
+    environment_name = str(run.get("target_environment") or "")
     print(
         "Deployment authority: "
         f"release_control_plane={deploy_env.release_control_plane_env()} "
@@ -153,12 +139,21 @@ def run_pipeline(
     )
 
     ok, first_item, branch = _resolve_and_verify_branch(
-        member_items, project_repo_path, target_branch=gate_branch, sd=sd,
+        member_items,
+        project_repo_path,
+        target_branch=gate_branch,
+        first_branch=str(first_member.get("branch") or ""),
+        first_item_label=str(first_member.get("public_ref") or ""),
+        sd=sd,
     )
     if not ok:
         return EXIT_USAGE
 
-    deploy_qa_recorder.cmd_seed_from_flow(run_id, script_dir=sd)
+    try:
+        control_plane.seed_qa(run_id)
+    except control_plane.DeploymentControlPlaneError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
 
     # --- Determine start position ---
     start_stage = from_stage
@@ -201,12 +196,7 @@ def run_pipeline(
             )
             # Transition member items to release
             for sri_item in member_items:
-                sri_ref = canonical_item_ref(int(sri_item))
-                if sri_ref is None:
-                    print(f"Error: cannot render deployment member items.id={sri_item}", file=sys.stderr)
-                    return EXIT_USAGE
-                sri_status = _yoke_db("items", "get", sri_ref, "status", sd=sd)
-                if sri_status == "implemented":
+                if member_statuses.get(sri_item) == "implemented":
                     transition_member_to_release(int(sri_item), run_id)
             run_started = True
 
@@ -231,6 +221,7 @@ def run_pipeline(
             product_repo_path=product_repo_path,
             branch=branch,
             first_item=first_item,
+            first_item_label=str(first_member.get("public_ref") or ""),
             timeout_min=timeout_min,
             fresh=fresh,
             image_tag=image_tag,
@@ -248,8 +239,8 @@ def run_pipeline(
             # Step runner pre-emitted the stage completion event (e.g.
             # ephemeral-verify preview URL, github-actions reconcile-from-truth).
             print(f"  Stage '{s_name}' completed successfully")
-            deploy_qa_recorder.cmd_record_stage_result(
-                run_id, s_name, "pass", script_dir=sd,
+            control_plane.record_qa_stage(
+                run_id, s_name, "pass", raw_result=qa_result,
             )
             continue
 
@@ -261,8 +252,8 @@ def run_pipeline(
                 member_items=member_items, project=project, sd=sd,
             )
             print(f"  Stage '{s_name}' completed successfully")
-            deploy_qa_recorder.cmd_record_stage_result(
-                run_id, s_name, "pass", script_dir=sd,
+            control_plane.record_qa_stage(
+                run_id, s_name, "pass", raw_result=qa_result,
             )
         else:
             return deploy_pipeline_failure.fail_pipeline_stage(
@@ -292,11 +283,11 @@ def run_pipeline(
     # succeeded. Reporting here rather than letting the succeeded write
     # refuse keeps the unresolved checks in the operator's output and
     # skips the retry backoff, which exists for a transient write.
-    conn = connect()
     try:
-        unresolved_qa = unresolved_blocking_qa(conn, run_id)
-    finally:
-        conn.close()
+        unresolved_qa = control_plane.unresolved_qa(run_id)
+    except control_plane.DeploymentControlPlaneError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
     if unresolved_qa:
         for line in awaiting_qa_report_lines(run_id, unresolved_qa):
             print(line, file=sys.stderr)
@@ -313,7 +304,7 @@ def _build_parser() -> argparse.ArgumentParser:
         prog="deploy-pipeline",
         description="Deployment pipeline orchestrator",
     )
-    p.add_argument("primary_arg", help="run-ID or item-ID")
+    p.add_argument("primary_arg", help="run-ID")
     p.add_argument("--timeout", type=int, default=30, help="Timeout in minutes")
     p.add_argument("--from-stage", default="", help="Resume from this stage")
     p.add_argument("--fresh", action="store_true", help="Skip existing-run search")

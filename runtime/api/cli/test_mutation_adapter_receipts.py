@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from unittest.mock import patch
-
 from yoke_cli.commands import _helpers
 from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 from yoke_core.domain.terminal_lane_cleanup import TerminalLaneCloseOut
@@ -103,14 +101,9 @@ def test_deployment_run_create_falls_back_to_structured_receipt() -> None:
     def stub(request):
         return _response(request, {"status": "created"})
 
-    with patch(
-        "yoke_cli.commands.adapters.deployment_run_create."
-        "https_product_plane_create_error",
-        return_value=None,
-    ):
-        rc, out, err = _run_capture(
-            stub, "deployment-runs", "create", "acme", "acme-prod"
-        )
+    rc, out, err = _run_capture(
+        stub, "deployment-runs", "create", "acme", "acme-prod"
+    )
 
     assert rc == 0, err
     assert json.loads(out) == {"status": "created"}
@@ -120,12 +113,9 @@ def test_start_for_item_falls_back_to_structured_receipt() -> None:
     def stub(request):
         return _response(request, {"status": "created"})
 
-    with patch(
-        "yoke_cli.commands.adapters.deployment_composed."
-        "https_product_plane_create_error",
-        return_value=None,
-    ):
-        rc, out, err = _run_capture(stub, "deployment-runs", "start-for-item", "ITEM-7")
+    rc, out, err = _run_capture(
+        stub, "deployment-runs", "start-for-item", "ITEM-7"
+    )
 
     assert rc == 0, err
     assert json.loads(out) == {"status": "created"}

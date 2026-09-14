@@ -185,10 +185,6 @@ def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
         from yoke_core.engines import usher_reconcile_github
 
         return str(usher_reconcile_github.main(["2318"]))
-    if name == "deploy-item-run":
-        from yoke_core.domain import deploy_pipeline_item_run
-
-        return str(deploy_pipeline_item_run.create_run_for_item_ref("2318"))
     if name == "worktree-resolve":
         from yoke_core.domain.worktree_item_resolve import resolve_item_worktree
 
@@ -223,7 +219,7 @@ def _invoke_missing_context_boundary(name: str, monkeypatch) -> str:
         "shepherd-gate", "verify-claim", "stale-string-audit", "render-body",
         "db-claim-prose", "path-claim-coverage", "idea-readiness",
         "idea-readiness-repair", "claim-coverage-repair", "overlap-repair",
-        "usher-reconcile", "deploy-item-run", "worktree-resolve",
+        "usher-reconcile", "worktree-resolve",
         "validate-epic", "session-focus", "github-ownership",
     ],
 )
@@ -243,38 +239,6 @@ def test_operator_boundaries_preserve_missing_context_teaching(
         detail + captured.out + captured.err
     )
     identity_read.assert_not_called()
-
-
-def test_legacy_deploy_item_run_keeps_public_ref_for_nested_reads(
-    monkeypatch,
-) -> None:
-    from yoke_core.domain import deploy_pipeline_item_run
-
-    calls: list[tuple[str, ...]] = []
-
-    def yoke_db(*args: str, **_kwargs) -> str:
-        calls.append(args)
-        if args[:2] == ("items", "get"):
-            return "flow-1" if args[-1] == "deployment_flow" else "yoke"
-        if args[:2] == ("runs", "create-run"):
-            return "run-20260821-001"
-        return "ok"
-
-    monkeypatch.setattr(
-        deploy_pipeline_item_run,
-        "parse_item_argument",
-        lambda _raw: YOKE_INTERNAL_ID,
-    )
-    monkeypatch.setattr(deploy_pipeline_item_run, "_yoke_db", yoke_db)
-
-    result = deploy_pipeline_item_run.create_run_for_item_ref("2318")
-
-    assert result is not None
-    assert calls[0] == ("items", "get", "2318", "deployment_flow")
-    assert calls[1] == ("items", "get", "2318", "project")
-    assert calls[-1] == (
-        "runs", "add-item", "run-20260821-001", str(YOKE_INTERNAL_ID),
-    )
 
 
 def test_https_resolution_carries_raw_ref_and_project(monkeypatch) -> None:

@@ -7,6 +7,7 @@ import sys
 from contextlib import redirect_stdout
 from typing import Any, Dict, List, Optional
 
+from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 from yoke_core.domain.deploy_pipeline_reporting import _resolve_script_dir
 
@@ -21,34 +22,18 @@ def dispatch_ephemeral_verify(
     project: str,
     branch: str,
     first_item: str,
+    first_item_label: str,
     step_runners: Any,
-    connect_fn: Any,
-    query_scalar_fn: Any,
     sd: Optional[str] = None,
 ) -> int:
     """Verify a preview unless every member already passed ephemeral QA."""
     sd = sd or _resolve_script_dir()
 
-    all_passed = True
-    from yoke_core.domain.qa_constants import browser_requirement_predicate
-
-    conn = connect_fn()
     try:
-        for item_id in member_items:
-            count = query_scalar_fn(
-                conn,
-                "SELECT COUNT(*) FROM qa_runs qr "
-                "JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id "
-                "WHERE qreq.item_id = %s AND "
-                f"{browser_requirement_predicate('qreq')} "
-                "AND qreq.qa_phase = 'verification' AND qr.verdict = 'pass'",
-                (item_id,),
-            )
-            if not count:
-                all_passed = False
-                break
-    finally:
-        conn.close()
+        all_passed = control_plane.ephemeral_qa_ready(run_id)
+    except control_plane.DeploymentControlPlaneError as exc:
+        print(f"Error: could not read ephemeral QA readiness: {exc}", file=sys.stderr)
+        return 1
 
     if all_passed:
         print(
@@ -65,10 +50,8 @@ def dispatch_ephemeral_verify(
         )
         return 1
     if not branch or branch == "null":
-        from yoke_core.domain.deploy_pipeline_labels import item_label
-
         print(
-            f"Error: no branch available for {item_label(first_item)} -- cannot "
+            f"Error: no branch available for {first_item_label or first_item} -- cannot "
             "verify ephemeral deploy",
             file=sys.stderr,
         )

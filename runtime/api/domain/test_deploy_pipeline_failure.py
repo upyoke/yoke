@@ -34,8 +34,8 @@ def test_failed_stage_reports_terminal_trace_after_recording_state(capsys) -> No
             "_set_deploy_stage",
         ) as set_stage,
         mock.patch.object(
-            deploy_pipeline_failure.deploy_qa_recorder,
-            "cmd_record_stage_result",
+            deploy_pipeline_failure.control_plane,
+            "record_qa_stage",
         ) as record_qa,
         mock.patch.object(
             run_updates,

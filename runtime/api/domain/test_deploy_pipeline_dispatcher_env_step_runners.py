@@ -17,6 +17,7 @@ def _dispatch(stage, **overrides):
         project_repo_path="/repo",
         branch="b",
         first_item="1",
+        first_item_label="YOK-1",
         timeout_min=1,
         fresh=False,
         image_tag="",
@@ -130,9 +131,7 @@ class TestEnvStepRunnerDispatch:
         with mock.patch(
             "yoke_core.domain.deploy_ephemeral.exec_ephemeral_deploy",
             return_value=0,
-        ) as deploy, mock.patch.object(
-            deploy_pipeline_step_runners, "_item_label", return_value="YOK-1",
-        ):
+        ) as deploy:
             rc, diag = _dispatch(
                 _stage("ephemeral-deploy"), environment_name="",
             )
@@ -146,12 +145,11 @@ class TestEnvStepRunnerDispatch:
         with mock.patch(
             "yoke_core.domain.deploy_ephemeral.exec_ephemeral_deploy",
             return_value=0,
-        ) as deploy, mock.patch.object(
-            deploy_pipeline_step_runners, "_item_label", return_value="",
-        ):
+        ) as deploy:
             rc, _diag = _dispatch(
                 _stage("ephemeral-deploy", branch="cfg-branch"),
                 branch="", first_item="", member_items=[],
+                first_item_label="",
                 environment_name="",
             )
         assert rc == 0

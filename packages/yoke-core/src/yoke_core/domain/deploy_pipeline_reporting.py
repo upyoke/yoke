@@ -159,42 +159,6 @@ def _resolve_script_dir() -> str:
     return str(find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts")
 
 
-class DeployPipelineCommandError(RuntimeError):
-    """A pipeline db_router / flow / project command exited non-zero."""
-
-
-def _require_cmd_ok(
-    r: subprocess.CompletedProcess, *, argv: List[str],
-) -> str:
-    if r.returncode != 0:
-        detail = (r.stderr or r.stdout or "").strip() or "(no output)"
-        raise DeployPipelineCommandError(
-            f"pipeline command {argv!r} failed (exit {r.returncode}): {detail}"
-        )
-    return r.stdout.strip()
-
-
-def _yoke_db(*args: str, sd: Optional[str] = None) -> str:
-    # Route through the Python db_router entrypoint. A non-zero exit is a
-    # hard failure — swallowing stderr here is how a missed item stamp
-    # used to print as success.
-    del sd
-    argv = [sys.executable, "-m", "yoke_core.cli.db_router", *args]
-    return _require_cmd_ok(_run_cmd(argv), argv=argv)
-
-
-def _flow_db(*args: str, sd: Optional[str] = None) -> str:
-    del sd
-    argv = [sys.executable, "-m", "yoke_core.domain.flow", *args]
-    return _require_cmd_ok(_run_cmd(argv), argv=argv)
-
-
-def _project_db(*args: str, sd: Optional[str] = None) -> str:
-    del sd
-    argv = [sys.executable, "-m", "yoke_core.domain.projects", *args]
-    return _require_cmd_ok(_run_cmd(argv), argv=argv)
-
-
 def _parse_stages(stages_json: str) -> List[Dict[str, Any]]:
     """Parse flow stages JSON into dicts with name, step_runner, and config.
 

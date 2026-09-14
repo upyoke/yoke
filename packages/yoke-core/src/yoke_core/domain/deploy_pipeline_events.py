@@ -15,24 +15,35 @@ def emit_deployment_event(
     project: str,
     outcome: str,
     context: Dict[str, Any],
+    environment: Optional[str] = None,
     item_id: Optional[str] = None,
     sd: Optional[str] = None,
 ) -> None:
     """Emit a deployment event through the native event contract."""
     del sd  # retained for callers that pass the pipeline's script directory
     try:
-        from yoke_core.domain.events import emit_event
-
-        emit_event(
-            event_name,
-            event_kind=event_kind,
-            event_type=event_type,
-            source_type=source_type,
-            severity=severity,
-            project=project,
-            outcome=outcome,
-            context=context,
-            item_id=item_id,
+        from yoke_contracts.api.function_call import TargetRef
+        from yoke_core.api.service_client_structured_api_adapter import (
+            call_dispatcher,
+        )
+        payload = {
+            "name": event_name,
+            "kind": event_kind,
+            "type": event_type,
+            "source_type": source_type,
+            "severity": severity,
+            "project": project,
+            "outcome": outcome,
+            "context": context,
+        }
+        if item_id is not None:
+            payload["item_id"] = item_id
+        if environment is not None:
+            payload["environment"] = environment
+        call_dispatcher(
+            function_id="events.emit",
+            target=TargetRef(kind="global"),
+            payload=payload,
         )
     except Exception:
         pass
@@ -48,17 +59,10 @@ def emit_run_event(
     sd: Optional[str] = None,
 ) -> None:
     """Emit stage events per item and one canonical terminal run event."""
-    if name in {"DeploymentRunSucceeded", "DeploymentRunFailed"}:
-        from yoke_core.domain.deploy_pipeline_completion import emit_completion
-
-        emit_completion(
-            str(context["run_id"]),
-            name,
-            outcome,
-            context,
-        )
-        return
-    targets = member_items if member_items else [""]
+    targets = (
+        [""] if name in {"DeploymentRunSucceeded", "DeploymentRunFailed"}
+        else member_items or [""]
+    )
     for item_id in targets:
         emit_deployment_event(
             name,

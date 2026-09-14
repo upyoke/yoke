@@ -3,21 +3,20 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 from yoke_core.domain.deploy_pipeline_reporting import (
-    _flow_db,
     _github_actions,
     _run_cmd,
-    _yoke_db,
 )
-from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.project_checkout_locations import checkout_for_project
+from yoke_core.domain.project_checkout_locations import checkout_for_project_slug
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     repair_command_hint,
@@ -55,31 +54,30 @@ def _parse_item_argument(arg: str | int) -> int:
 
 
 def _resolve_run_for_item(item_id: int) -> str:
-    from yoke_core.domain.deployment_runs_crud_query import cmd_find_by_item
-
-    raw = cmd_find_by_item(item_id)
-    if not raw:
+    response = call_dispatcher(
+        function_id="deployment_runs.find_by_item",
+        target=TargetRef(kind="item", item_id=item_id),
+        payload={},
+    )
+    rows = (response.result or {}).get("rows") if response.success else []
+    if not rows:
         return ""
-    first = raw.split("\n", 1)[0].strip()
-    return first.split("|", 1)[0] if first else ""
+    return str(rows[0].get("id") or "")
 
 
-def _resolve_project_and_flow(run_id: str) -> Tuple[str, str]:
-    row = _yoke_db("runs", "get", run_id)
-    if not row:
-        return "", ""
-    fields = row.split("|")
-    return (fields[1] if len(fields) > 1 else ""), (fields[2] if len(fields) > 2 else "")
-
-
-def _resolve_workflow_for_stage(flow_id: str, stage_name: str) -> str:
-    stages_json = _flow_db("stages", flow_id)
-    if not stages_json:
+def _item_deploy_stage(item_id: int) -> str:
+    response = call_dispatcher(
+        function_id="items.get.run",
+        target=TargetRef(kind="item", item_id=item_id),
+        payload={"fields": ["deploy_stage"]},
+    )
+    if not response.success:
         return ""
-    try:
-        stages = json.loads(stages_json)
-    except (TypeError, ValueError):
-        return ""
+    fields = (response.result or {}).get("fields") or {}
+    return str(fields.get("deploy_stage") or "")
+
+
+def _resolve_workflow_for_stage(stages: list[dict], stage_name: str) -> str:
     for stage in stages:
         if stage.get("name") == stage_name:
             return stage.get("workflow", "") or ""
@@ -168,7 +166,7 @@ def reconcile_item(
     # The nested item CLI boundary receives the canonical public ref, never a
     # stringified internal id that it could reinterpret as a public sequence.
     public_ref = _display_item_ref(item_id)
-    deploy_stage = (_yoke_db("items", "get", public_ref, "deploy_stage") or "").strip()
+    deploy_stage = _item_deploy_stage(item_id).strip()
     if not deploy_stage:
         return ReconcileResult(
             outcome="no-action", item_id=item_id,
@@ -191,14 +189,19 @@ def reconcile_item(
             "Yoke deployment run. Investigate the usher session manually."
         ))
 
-    project, flow = _resolve_project_and_flow(run_id)
+    try:
+        context = control_plane.execution_context(run_id)
+    except control_plane.DeploymentControlPlaneError as exc:
+        return _error(item_id, deploy_stage, str(exc))
+    run = context.get("run") or {}
+    project, flow = str(run.get("project") or ""), str(run.get("flow") or "")
     if not project or not flow:
         return _error(item_id, deploy_stage, (
             f"deployment_run '{run_id}' has no project/flow metadata; "
             "cannot resolve workflow."
         ))
 
-    workflow = _resolve_workflow_for_stage(flow, stage_name)
+    workflow = _resolve_workflow_for_stage(context.get("stages") or [], stage_name)
     if not workflow:
         return _error(item_id, deploy_stage, (
             f"flow '{flow}' has no workflow configured for stage '{stage_name}'; "
@@ -216,8 +219,7 @@ def reconcile_item(
     if workflow_run_id_override:
         workflow_run_id = workflow_run_id_override.strip()
     else:
-        with connect() as conn:
-            checkout = checkout_for_project(conn, project)
+        checkout = checkout_for_project_slug(project)
         project_repo_path = str(checkout) if checkout is not None else ""
         head_sha = _resolve_head_sha(project_repo_path)
         if not head_sha:

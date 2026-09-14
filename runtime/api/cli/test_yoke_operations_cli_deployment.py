@@ -284,12 +284,19 @@ def test_deployment_run_execute_is_a_client_local_tool() -> None:
     assert remaining == ["run-20260616-009", "--timeout", "90"]
 
 
-def test_deployment_run_execute_requires_explicit_db_admin_env() -> None:
-    rc, _out, err = _run_capture(
-        _stub_ok, "deployment-runs", "execute", "run-20260616-009",
-    )
-    assert rc == 2
-    assert "--env prod-db-admin" in err
+def test_deployment_run_execute_allows_the_selected_external_control_plane() -> None:
+    with patch(
+        "yoke_cli.commands.deployment_execute.execution_connection_error",
+        return_value=None,
+    ), patch(
+        "yoke_cli.commands.deployment_execute.subprocess.run",
+    ) as pipeline:
+        pipeline.return_value.returncode = 0
+        rc, _out, err = _run_capture(
+            _stub_ok, "deployment-runs", "execute", "run-20260616-009",
+        )
+    assert rc == 0, err
+    pipeline.assert_called_once()
 
 
 def test_deployment_run_execute_help_does_not_require_admin_env() -> None:
@@ -297,11 +304,12 @@ def test_deployment_run_execute_help_does_not_require_admin_env() -> None:
         _stub_ok, "deployment-runs", "execute", "--help",
     )
     assert rc == 0
-    assert out.startswith("usage: yoke --env CONTROL-PLANE-ENV-db-admin")
-    # The -db-admin suffix reads as if it tracks the environment being
-    # deployed to; help has to say which axis it actually names, or an
-    # operator reaches for a <target>-db-admin env that need not exist.
+    assert out.startswith("usage: yoke --env CONTROL-PLANE-ENV")
+    assert "CONTROL-PLANE-ENV-db-admin" not in out
+    # The selected connection names the control plane, not the destination;
+    # only a true serving-API self-deploy needs its paired local admin env.
     assert "not the environment being deployed to" in out
+    assert "self-deploy" in out
     assert "--environment" in out
     assert err == ""
 

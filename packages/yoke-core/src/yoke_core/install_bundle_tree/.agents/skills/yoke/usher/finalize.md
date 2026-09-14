@@ -86,8 +86,11 @@ surface no suggestion for those and fall through to the recovery options.
 
 When: transient failure, cause resolved. Re-run pipeline (reads `current_stage`, strips `-failed`, retries):
 ```bash
-yoke --env prod-db-admin deployment-runs execute {run-id}
+yoke --env {control-plane} deployment-runs execute {run-id}
 ```
+
+Use the paired local `*-db-admin` env only when the executor identifies this
+as a serving-API self-deploy.
 
 ### Option B: Abort the run
 

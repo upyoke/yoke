@@ -127,6 +127,26 @@ PRODUCT_AUTHZ_BY_ID = {
     "workflow.execution_instruction.delete": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflow.execution_instruction.resolve": AuthzSpec(ACTOR_SESSION, None),
     "workflow.execution_instruction.list": AuthzSpec(ACTOR_SESSION, None),
+    # Deployment definitions remain organization-administered, while a
+    # project's owner may create and drive only that project's run rows.
+    "deployment_runs.create": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.start_for_item": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.continue_for_item": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.resolve_target": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "deployment_runs.stages": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "deployment_runs.approve": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.stage_approval.evaluate": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN
+    ),
+    "deployment_runs.execution.context": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.update": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.ephemeral_qa_ready": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN
+    ),
+    "deployment_runs.execution.qa_seed": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.qa_record": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.qa_pending": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "qa.case.waive": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.case_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
