@@ -31,9 +31,9 @@ After project is decided, resolve and print this machine's local checkout for th
 ### b. Infer deployment flow
 
 Read and follow [infer-deployment-flow.md](infer-deployment-flow.md) before
-setting `_deployment_flow`. That sibling owns the lookup, the persistent vs
-merge-only/`-internal` attach rule, the omit cases (non-delivery work or no
-healthy hosting), fallback inference when get is empty, and the ban on
+setting `_deployment_flow`. That sibling owns registered-flow lookup
+(not an id suffix), omission-as-inheritance, fallback via
+`deployment-flows list`, reporting missing setup, and the ban on
 storing the literal `none`.
 
 ### c. Infer workflow
