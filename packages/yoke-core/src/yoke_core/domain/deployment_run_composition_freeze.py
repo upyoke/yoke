@@ -19,6 +19,10 @@ from yoke_core.domain.deployment_requirement_snapshots import (
 )
 from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.workflow_delivery_binding_validation import (
+    COMPLETED_ITEM_STAGE_ID,
+    attached_item_binding_runtime_state,
+)
 from yoke_core.domain.workflow_item_binding_validation import (
     item_binding_runtime_state,
 )
@@ -53,10 +57,12 @@ def normalize_delivery_intent(value: Any) -> str | None:
 
 
 def _default_delivery_intent(conn: Any, item_id: int) -> str:
-    state = item_binding_runtime_state(conn, int(item_id))
+    state = attached_item_binding_runtime_state(conn, int(item_id))
     if state is None:
         return DELIVERY_INTENT_FINAL
     runtime, status = state
+    if status == COMPLETED_ITEM_STAGE_ID:
+        return DELIVERY_INTENT_FINAL
     final_predecessors = {
         str(edge["from_stage_id"])
         for edge in runtime.definition["transitions"]
@@ -271,9 +277,10 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
             f"WHERE run_id={marker} AND item_id={marker}",
             (run_id, item_id),
         ).fetchone()
-        intent = validate_delivery_intent_for_item(
-            conn, item_id, _cell(member, "delivery_intent", 0)
-        )
+        # Admission already validated an explicit intent.  Preserve that
+        # established choice even when the attached item has since completed;
+        # freeze is not a second admission against mutable item status.
+        intent = normalize_delivery_intent(_cell(member, "delivery_intent", 0))
         intent = intent or _default_delivery_intent(conn, item_id)
         snapshot = snapshot_member_requirements(
             conn,

@@ -27,9 +27,13 @@ from yoke_core.domain.schema_common import (
     _table_exists,
 )
 from yoke_core.domain.workflow_delivery_binding_validation import (
+    COMPLETED_ITEM_STAGE_ID,
     delivery_ready_for_stage,
 )
-from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.workflow_runtime import (
+    ENGINE_TERMINAL_STAGE_IDS,
+    load_item_workflow_runtime,
+)
 
 _LEGACY_DELIVERY_READY_STAGES = frozenset({"implemented", "release", "done"})
 
@@ -39,7 +43,7 @@ def _item_label(conn, item_id: int, detail: str) -> str:
     return f"{public_ref} ({detail})"
 
 
-def _not_delivery_ready(conn, rows) -> list[str]:
+def _not_delivery_ready(conn, rows, *, allow_completed: bool = False) -> list[str]:
     refused: list[str] = []
     item_columns = set(_schema_get_columns(conn, "items"))
     has_workflow_pins = (
@@ -53,7 +57,17 @@ def _not_delivery_ready(conn, rows) -> list[str]:
     for item_id, status in rows:
         if has_workflow_pins:
             runtime = load_item_workflow_runtime(conn, int(item_id))
-            ready = delivery_ready_for_stage(runtime, str(status))
+            status_text = str(status)
+            if status_text in runtime.terminal_stage_ids or (
+                status_text in ENGINE_TERMINAL_STAGE_IDS
+            ):
+                ready = (
+                    allow_completed
+                    and status_text == COMPLETED_ITEM_STAGE_ID
+                    and status_text in runtime.terminal_stage_ids
+                )
+            else:
+                ready = delivery_ready_for_stage(runtime, status_text)
         else:
             ready = str(status) in _LEGACY_DELIVERY_READY_STAGES
         if not ready:
@@ -142,7 +156,9 @@ def cmd_validate_composition(
             "WHERE dri.run_id=%s",
             (run_id,),
         )
-        not_passed = _not_delivery_ready(conn, delivery_candidates)
+        not_passed = _not_delivery_ready(
+            conn, delivery_candidates, allow_completed=True
+        )
         if not_passed:
             errors.append(
                 "Items not delivery-ready for their pinned workflow: "
