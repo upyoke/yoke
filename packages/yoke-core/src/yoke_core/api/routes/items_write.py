@@ -16,6 +16,7 @@ from yoke_core.domain.mutations import (
     prepare_update,
 )
 from yoke_core.domain.project_identity import render_item_ref, resolve_project_id
+from yoke_core.domain.project_title_policy import resolve_title_max_length
 from yoke_core.api.service_client import _resolve_deploy_envs
 from yoke_core.api.routes.item_delivery_binding_update import (
     lock_and_validate_delivery_binding,
@@ -75,6 +76,7 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
         flow_project, flow_err = validate_and_lookup_flow_project(
             conn, deployment_flow, req.project
         )
+        title_limit = resolve_title_max_length(conn, req.project)
         from yoke_core.domain.workflow_registry import (
             WorkflowRegistryError,
             resolve_current_workflow_pin,
@@ -109,6 +111,7 @@ def create_item(req: _main.CreateItemRequest) -> _main.ItemObject | JSONResponse
         project=req.project,
         deployment_flow=deployment_flow,
         flow_project=flow_project,
+        title_max_length=title_limit,
     )
 
     if not result.success:
@@ -278,6 +281,11 @@ def update_item(
         gate = GateContext()
         if "deployment_flow" in updates and updates["deployment_flow"]:
             gate.flow_project = flow_project
+
+        if "title" in updates:
+            gate.title_max_length = resolve_title_max_length(
+                conn, item_dict.get("project_id")
+            )
 
         if "deployed_to" in updates and updates["deployed_to"]:
             resolved_envs = _resolve_deploy_envs(conn, prospective_project)

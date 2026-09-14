@@ -62,8 +62,8 @@ one function instead of a dozen call sites.
 
 ## What a real per-project override still needs
 
-This change deliberately builds none of the following. Each is required
-before `title_max_length(project)` can return anything but the default:
+This change deliberately built none of the following (see the update
+below for what filled each gap):
 
 - **Storage and validation.** Somewhere to put a per-project limit
   (`project_capabilities` or a project settings key), with its own
@@ -83,3 +83,30 @@ before `title_max_length(project)` can return anything but the default:
   make a large number of stored titles non-conforming at once. Existing
   titles are never rewritten or truncated by this change, and nothing
   here should start doing so silently.
+
+## Update — the per-project override now exists
+
+`title_max_length` is a `project-policy` capability key (default `100`,
+minimum `10`, validated by `title_max_length_setting_error`), editable in
+dashboard Project settings. `yoke_core.domain.project_title_policy`
+resolves it: still DB-free contracts, but a DB-aware sibling reads the
+stored override and passes it into `title_length_error`/`validate_title`
+as an explicit `limit`, so every enforcing surface (creation, item title
+edits, epic-task creation and title edits, field-note promotion) picks up
+the override without contracts ever touching a connection.
+
+- **Resolution precedence.** Stored override, else the shipped default.
+  An unreadable project reference or a malformed stored value both fall
+  back to the default rather than refusing — title length is a soft
+  check, and a genuinely bad project reference surfaces its own error at
+  the write it is part of.
+- **Client refresh.** Unchanged: the browser still reads the limit once
+  per project-scoped load (`workflows.definition.get`). An open new-item
+  form does not notice a save made in another tab.
+- **Project moves and lowering a limit.** Still explicitly out of scope.
+  Existing titles are never rewritten, truncated, or backfilled, and
+  lowering a project's limit produces no doctor finding against titles
+  already stored under the old one — `HC-title-length` now judges the
+  configured setting value itself (flagging a corrupted or out-of-band
+  write below the minimum), not stored titles, so it has nothing to say
+  about a title that predates a tightened limit.

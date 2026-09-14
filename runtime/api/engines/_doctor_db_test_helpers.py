@@ -225,6 +225,14 @@ _MAKE_CONN_DDL = textwrap.dedent("""\
         VALUES
             (2, 'externalwebapp', 'ExternalWebapp', 'main',
              '2026-01-01T00:00:00Z', 'example-org/externalwebapp', 'EXT');
+
+        CREATE TABLE project_capabilities (
+            id INTEGER PRIMARY KEY,
+            project_id INTEGER,
+            type TEXT,
+            settings TEXT,
+            created_at TEXT
+        );
     """)
 
 

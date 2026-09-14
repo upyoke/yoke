@@ -10,11 +10,14 @@ import pytest
 
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.file_test_db import apply_sql_script
+from yoke_contracts.title_policy import DEFAULT_TITLE_MAX_LENGTH
 from yoke_core.domain.project_policy_capabilities import (
     PROJECT_POLICY_CAPABILITY,
     SESSION_ROUTING_CAPABILITY,
     ensure_default_policy_capabilities,
+    set_project_policy_value,
 )
+from yoke_core.domain.project_title_policy import resolve_title_max_length
 
 
 _SCHEMA = """
@@ -123,3 +126,31 @@ def test_ensure_repairs_missing_keys_without_overwriting(policy_conn: Any) -> No
     assert policy["base_branch"] == "release"
     assert policy["wip_cap"] == 9
     assert policy["default_priority"] == "medium"
+
+
+class TestResolveTitleMaxLength:
+    def test_defaults_when_unset(self, policy_conn: Any) -> None:
+        assert resolve_title_max_length(policy_conn, 1) == DEFAULT_TITLE_MAX_LENGTH
+
+    def test_reads_a_stored_override(self, policy_conn: Any) -> None:
+        set_project_policy_value(policy_conn, 1, "title_max_length", 42)
+        policy_conn.commit()
+
+        assert resolve_title_max_length(policy_conn, 1) == 42
+
+    def test_projects_are_independent(self, policy_conn: Any) -> None:
+        set_project_policy_value(policy_conn, 1, "title_max_length", 42)
+        policy_conn.commit()
+
+        assert resolve_title_max_length(policy_conn, 2) == DEFAULT_TITLE_MAX_LENGTH
+
+    def test_resolves_by_slug_or_id_alike(self, policy_conn: Any) -> None:
+        set_project_policy_value(policy_conn, 1, "title_max_length", 42)
+        policy_conn.commit()
+
+        assert resolve_title_max_length(policy_conn, "yoke") == 42
+        assert resolve_title_max_length(policy_conn, 1) == 42
+
+    def test_missing_project_falls_back_to_the_default(self, policy_conn: Any) -> None:
+        assert resolve_title_max_length(policy_conn, 999999) == DEFAULT_TITLE_MAX_LENGTH
+        assert resolve_title_max_length(policy_conn, None) == DEFAULT_TITLE_MAX_LENGTH

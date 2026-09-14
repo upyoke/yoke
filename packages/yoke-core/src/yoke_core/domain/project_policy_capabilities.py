@@ -31,6 +31,7 @@ from yoke_core.domain.project_session_routing_defaults import (
 
 _INT_POLICY_KEYS = frozenset(
     {
+        "title_max_length",
         "wip_cap",
         "merge_conflict_threshold",
         "max_attempts",

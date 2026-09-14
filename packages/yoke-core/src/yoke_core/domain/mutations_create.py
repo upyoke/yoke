@@ -24,6 +24,7 @@ def prepare_create(
     deployment_flow: Optional[str] = None,
     flow_project: Optional[str] = None,
     status: Optional[str] = None,
+    title_max_length: Optional[int] = None,
 ) -> CreateResult:
     """Validate and prepare an item creation.
 
@@ -41,13 +42,15 @@ def prepare_create(
             cross-project validation).
         status: Optional initial status override.  Defaults to 'idea'.
             Validated against the selected workflow version.
+        title_max_length: DB-resolved title-length limit for *project*,
+            pre-loaded by the adapter. Falls back to the shipped default.
 
     Returns:
         CreateResult with success=True and field_writes on valid input,
         or success=False with error details.
     """
     # Validate title
-    err = validate_title(title, project=project)
+    err = validate_title(title, project=project, limit=title_max_length)
     if err:
         return CreateResult(success=False, error=err, error_code="VALIDATION_ERROR")
 

@@ -22,7 +22,7 @@ from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.workflow_gate_catalog import workflow_gate_catalog
 from yoke_core.domain.workflow_registry import list_current_workflows
-from yoke_contracts.title_policy import title_max_length
+from yoke_core.domain.project_title_policy import resolve_title_max_length
 
 #: Row keys every served flow carries.
 FLOW_FIELDS = (
@@ -146,6 +146,7 @@ def get_workflows_definition(
                 }
             )
         workflows = list_current_workflows(conn)
+        title_limit = resolve_title_max_length(conn, project_id)
     finally:
         conn.close()
 
@@ -156,7 +157,7 @@ def get_workflows_definition(
         "flows": flows,
         # The server stays authoritative; clients read this only to cap their
         # own inputs, and re-read it whenever the selected project changes.
-        "title_max_length": title_max_length(project_id),
+        "title_max_length": title_limit,
     }
 
 
