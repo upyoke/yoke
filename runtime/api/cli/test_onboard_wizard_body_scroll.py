@@ -1,10 +1,12 @@
-"""Every wizard step body scrolls from the keyboard on every terminal.
+"""Every wizard step body scrolls from the keyboard, wheel, and scrollbar.
 
 A step taller than the window used to draw a scrollbar nothing could move,
 because the keys had no route to the non-focusable body. The body is now one
 scroll container on every terminal, and the wizard runs with mouse reporting
-off so ordinary text selection keeps working; these gates pin the keyboard
-route and that mouse-reporting decision.
+on so the wheel/trackpad and the visible scrollbar move it too — a click that
+lands on the surrounding chrome instead restores focus to the active control
+so Enter never goes dead; these gates pin the keyboard route and both mouse
+behaviors.
 """
 
 from __future__ import annotations
@@ -146,8 +148,10 @@ def test_plain_glyph_terminal_keeps_a_scrolling_body_without_scrollbar_glyphs(
     # Built outside the golden colour env, which would force rich glyphs on.
     app = OnboardWizardApp(
         defaults=WizardDefaults(
-            config_path="/tmp/cfg.json", env_name="prod",
-            api_url="https://yoke.example.test", token="actor-token",
+            config_path="/tmp/cfg.json",
+            env_name="prod",
+            api_url="https://yoke.example.test",
+            token="actor-token",
         ),
         apply_report=lambda _kw: FINISH_PLAN_FULL,
     )
@@ -166,18 +170,41 @@ def test_plain_glyph_terminal_keeps_a_scrolling_body_without_scrollbar_glyphs(
 
 
 @pytest.mark.parametrize("term_program", ["Apple_Terminal", "iTerm.app"])
-def test_mouse_reporting_stays_off_in_every_terminal(monkeypatch, term_program) -> None:
-    # With mouse reporting on, the terminal hands drags to the app, so an
-    # ordinary drag-select + copy of a URL or code selects nothing.
+def test_mouse_reporting_stays_on_in_every_terminal(monkeypatch, term_program) -> None:
+    # With mouse reporting on, the wheel/trackpad and the visible scrollbar
+    # move an overflowing body; native drag-select of a URL or code is the
+    # tradeoff, covered instead by the ^y/^o keyboard copy/open keys.
     calls: list[dict] = []
     monkeypatch.setenv("TERM_PROGRAM", term_program)
     monkeypatch.setattr(
-        OnboardWizardApp, "_hydrate_stored_credentials", lambda *_args: None,
+        OnboardWizardApp,
+        "_hydrate_stored_credentials",
+        lambda *_args: None,
     )
     monkeypatch.setattr(
-        OnboardWizardApp, "run", lambda _self, **kwargs: calls.append(kwargs),
+        OnboardWizardApp,
+        "run",
+        lambda _self, **kwargs: calls.append(kwargs),
     )
 
     run_wizard(defaults=WizardDefaults(), apply_report=lambda **_kwargs: None)
 
-    assert calls == [{"mouse": False}]
+    assert calls == [{}]
+
+
+def test_click_on_body_chrome_restores_focus_to_the_active_list() -> None:
+    # A click that lands on non-interactive chrome (here, the docked footer)
+    # must not strand focus off the active SelectionList — that leaves the
+    # highlighted row lit while Enter silently no-ops.
+    app = _review_app()
+
+    async def scenario() -> None:
+        async with app.run_test(size=SHORT_TERMINAL) as pilot:
+            await _open_review(app, pilot)
+            assert isinstance(app.focused, SelectionList)
+            await pilot.click("#onboard-footer")
+            await pilot.pause()
+            assert isinstance(app.focused, SelectionList)
+
+    with golden_color_env():
+        asyncio.run(scenario())

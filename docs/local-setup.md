@@ -149,11 +149,11 @@ entries selected via `yoke env use` or `--env`.
 
 `yoke onboard` is a full-screen wizard. A fixed header and stepper stay on
 screen — Install/PATH, Account, GitHub, Project, Review — while the body
-changes; you move through it with the arrow keys, redrawing in place. It runs
-with terminal mouse reporting off, so ordinary text selection and copy work
-everywhere; on any screen showing a URL or a one-time code the footer names a
-copy key (`^y`) and an open-in-browser key (`^o`), and a screen carrying both
-a code and a link cycles to the next one on each copy. Whatever onboarding
+changes; you move through it with the arrow keys, wheel/trackpad, or the
+scrollbar, redrawing in place. Mouse reporting stays on for that, at the
+cost of native drag-select; any screen showing a URL or a one-time code
+names a copy key (`^y`) and an open-in-browser key (`^o`) instead, and a
+screen carrying both cycles to the next one on each copy. Whatever onboarding
 already finds — a checkout that carries a Yoke layer, a repository that
 already has a project, a checkout already mapped here — is announced as the
 headline before any choice, with connecting to it as the default answer and
