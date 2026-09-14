@@ -60,7 +60,8 @@ def _stored_title_limit(db_path: str) -> object:
 
 
 def test_a_non_integral_save_is_rejected_without_mutating_the_stored_value(
-    client, title_limit_db,
+    client,
+    title_limit_db,
 ):
     accepted = _merge(client, 55)
     assert accepted.status_code == 200
