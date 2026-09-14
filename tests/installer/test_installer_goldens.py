@@ -21,7 +21,6 @@ from __future__ import annotations
 import io
 import json
 import os
-import re
 import subprocess
 from pathlib import Path
 
@@ -110,24 +109,6 @@ def _run_shim_capture(
     return result.stdout
 
 
-def _ansi_strip(line: str) -> str:
-    return re.sub(r"\033\[[0-9;]*m", "", line)
-
-
-def _slice_from_offer(captured: str) -> str:
-    # The declined-consent golden omits the figlet banner and the status line:
-    # it starts at the install offer ("Install it with ...") and runs through
-    # the decline screen. Find that offer line (ANSI-insensitive) and keep the
-    # rest verbatim, preserving each line's color.
-    lines = captured.splitlines(keepends=True)
-    for index, line in enumerate(lines):
-        # The offer line now carries the ☀ gutter ("☀ Install it with …"), so
-        # match the offer text anywhere in the (ANSI-stripped) line.
-        if "Install it with" in _ansi_strip(line):
-            return "".join(lines[index:])
-    raise AssertionError("offer line not found in declined-consent capture")
-
-
 def test_shell_welcome(tmp_path: Path) -> None:
     captured = _run_shim_capture(
         tmp_path,
@@ -162,18 +143,6 @@ def test_shell_welcome_plain(tmp_path: Path) -> None:
         answer="y\n",
     )
     _assert_golden("shell_welcome_plain.txt", captured)
-
-
-def test_shell_uv_declined(tmp_path: Path) -> None:
-    captured = _run_shim_capture(
-        tmp_path,
-        force_color="1",
-        os_name="Linux",
-        brew=False,
-        curl=True,
-        answer="n\n",
-    )
-    _assert_golden("shell_uv_declined.txt", _slice_from_offer(captured))
 
 
 _EXIT_REMEDIATION = (

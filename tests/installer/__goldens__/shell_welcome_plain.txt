@@ -1,4 +1,3 @@
 Welcome to Yoke — Your operating system for software delivery
 
-* Yoke's only prerequisite — uv/uvx — isn't installed yet.
-* Install it with: curl -LsSf https://astral.sh/uv/install.sh | sh  [Y/n]
+* Installing uv

@@ -42,8 +42,10 @@ def test_consent_and_execution_use_astral_even_when_brew_exists(
 
     action = "curl -LsSf https://astral.sh/uv/install.sh | sh"
     assert result.returncode == 1
-    assert action in result.stdout
+    assert "Installing uv" in result.stdout
+    assert action in result.stderr
     assert "brew install uv" not in result.stdout
+    assert "brew install uv" not in result.stderr
     assert not brew_log.exists()
     assert "--max-time 2 -- https://astral.sh/uv/install.sh" in curl_log.read_text(
         encoding="utf-8"

@@ -142,33 +142,16 @@ print_welcome_banner() {
   printf '%s☀%s  %s%s%s\n' "$(c_amber)" "$(sgr_reset)" "$(c_dim)" "$tagline" "$(sgr_reset)"
 }
 
-# The uv/uvx consent block: dim status line, the official Astral installer,
-# and the default-Yes [Y/n] prompt (Y bright bold). The plain (no-color)
-# variant collapses to a single-line offer. The trailing newline is omitted so
-# the answer is typed on the prompt line.
-# Reproduces the approved welcome screens verbatim.
-print_uv_consent() {
-  printf '%s%sYoke'\''s only prerequisite — uv/uvx — isn'\''t installed yet.%s\n' \
-    "$(gutter)" "$(c_dim)" "$(sgr_reset)"
-  if [ "$welcome_color" -ne 1 ]; then
-    printf '%sInstall it with: %s  [Y/n]\n' \
-      "$(gutter)" "$(uv_manual_install_command)"
-    return 0
-  fi
-  printf '%s%sInstall it with the official uv installer?%s\n' \
-    "$(gutter)" "$(c_dim)" "$(sgr_reset)"
-  printf '%s  %s%s%s  ' \
-    "$(gutter)" "$(c_bright)" "$(uv_manual_install_command)" "$(sgr_reset)"
-  print_yn_prompt
-  printf '\n'
+# uv/uvx installs automatically — no Y/n confirmation. This single status
+# line replaces the old prerequisite explanation and consent prompt.
+print_installing_uv() {
+  printf '%s%sInstalling uv%s\n' "$(gutter)" "$(c_dim)" "$(sgr_reset)"
 }
 
-# Default-Yes prompt: Y bright bold, brackets and n dim. No trailing newline.
-print_yn_prompt() {
-  printf '%s[%s%sY%s%s/%sn%s]%s ' \
-    "$(c_dim)" "$(sgr_reset)" "$(c_bright)$(c_bold)" "$(sgr_reset)" \
-    "$(c_dim)" "$(c_dim)" "$(sgr_reset)" "$(c_dim)"
-  sgr_reset
+# Success status line replacing the upstream Astral installer's own chatter
+# (e.g. "everything's installed!"), which is captured rather than shown.
+print_uv_installed() {
+  printf '%s%suv installed%s\n' "$(gutter)" "$(c_bright)" "$(sgr_reset)"
 }
 
 need_command() {
@@ -217,14 +200,6 @@ if use_stdin_prompt_fallback; then
   prompt_in="-"
   prompt_out="-"
 fi
-
-read_prompt_answer() {
-  if [ "$prompt_in" = "-" ]; then
-    IFS= read answer
-    return $?
-  fi
-  IFS= read answer 2>/dev/null < "$prompt_in"
-}
 
 run_prompt_command() {
   if [ "$prompt_in" = "-" ]; then
@@ -369,21 +344,7 @@ offer_onboard() {
   onboard_launched=1
 }
 
-# Read the consent answer for the welcome screen with default-Yes semantics:
-# empty (just Enter) and y/yes proceed; only an explicit no declines. The banner
-# and offer are already on stdout; this only reads.
-read_uv_consent_answer() {
-  if is_yes; then
-    return 0
-  fi
-  read_prompt_answer || return 1
-  case "$answer" in
-    n|N|no|NO) return 1 ;;
-  esac
-  return 0
-}
-
-# The install command named in consent and recovery is the official Astral
+# The install command named in recovery messages is the official Astral
 # installer used by the bootstrap path on every supported operating system.
 uv_manual_install_command() {
   printf 'curl -LsSf %s | sh' "$uv_installer_url"
@@ -412,21 +373,7 @@ safe_base_url_for_display() {
   esac
 }
 
-# Friendly, no-dead-end decline screen: a red headline, the manual install
-# command, and the exact rerun command. Printed to stdout, then exit 1. Mirrors
-# the approved "uv declined" screen.
-decline_uv_and_exit() {
-  rerun_cmd=$(rerun_install_command)
-  printf '\n%s%s%suv/uvx is required to install Yoke.%s\n\n' \
-    "$(gutter)" "$(c_danger)" "$(c_bold)" "$(sgr_reset)"
-  printf '%s%sInstall it yourself with:%s\n' "$(gutter)" "$(c_text)" "$(sgr_reset)"
-  printf '%s  %s%s%s\n\n' "$(gutter)" "$(c_bright)" "$(uv_manual_install_command)" "$(sgr_reset)"
-  printf '%s%sThen rerun:%s\n' "$(gutter)" "$(c_text)" "$(sgr_reset)"
-  printf '%s  %s%s%s\n' "$(gutter)" "$(c_bright)" "$rerun_cmd" "$(sgr_reset)"
-  exit 1
-}
-
-# Same refusal shape as decline_uv_and_exit: named recovery plus exact rerun.
+# Same refusal shape as the other named recoveries: reason plus exact rerun.
 decline_unsupported_os_and_exit() {
   rerun_cmd=$(rerun_install_command)
   printf '\n%s%s%snative %s is not supported by this installer. WSL follows the Linux path.%s\n\n' \
@@ -436,23 +383,22 @@ decline_unsupported_os_and_exit() {
   exit 1
 }
 
-# uv/uvx is the one install-time prerequisite (besides a shell and curl). The
-# branded welcome leads, then a default-Yes consent installs uv via Homebrew or
-# the Astral installer; a declined consent prints the friendly decline screen
-# (manual install + exact rerun command). curl-missing keeps its own actionable
-# message.
+# uv/uvx is the one install-time prerequisite (besides a shell and curl). It
+# installs automatically via the official Astral installer — no Y/n
+# confirmation. The branded welcome leads on interactive runs; a
+# noninteractive (--yes) run stays quiet. curl-missing keeps its own
+# actionable message.
 ensure_uv() {
   need_command uv && return 0
   validate_uv_installer_url
   validate_uv_bootstrap_timeout
-  astral_cmd="curl -LsSf ${uv_installer_url} | sh"
+  astral_cmd=$(uv_manual_install_command)
   rerun_cmd=$(rerun_install_command)
   if [ -n "$dry_run" ]; then
     return 0
   fi
   # Noninteractive (--yes) installs stay quiet and deterministic — no welcome
-  # banner, no consent screen. Interactive installs lead with the branded
-  # welcome and the default-Yes consent.
+  # banner, no status line.
   if is_yes; then
     install_uv_or_fail
     need_command uv || fail "uv was installed but is not on PATH. Add ${uv_bin_dir:-~/.local/bin} to PATH, then rerun: ${rerun_cmd}"
@@ -460,13 +406,10 @@ ensure_uv() {
   fi
   print_welcome_banner
   printf '\n'
-  print_uv_consent
-  if read_uv_consent_answer; then
-    install_uv_or_fail
-    need_command uv || fail "uv was installed but is not on PATH. Add ${uv_bin_dir:-~/.local/bin} to PATH, then rerun: ${rerun_cmd}"
-  else
-    decline_uv_and_exit
-  fi
+  print_installing_uv
+  install_uv_or_fail
+  need_command uv || fail "uv was installed but is not on PATH. Add ${uv_bin_dir:-~/.local/bin} to PATH, then rerun: ${rerun_cmd}"
+  print_uv_installed
 }
 
 validate_uv_installer_url() {
@@ -526,8 +469,12 @@ terminate_uv_process_tree() {
 
 run_uv_installer_with_timeout() {
   uv_timeout_marker="$uv_download_dir/timed-out"
+  uv_output_file="$uv_download_dir/output.log"
   rm -f "$uv_timeout_marker"
-  "$command_shell" "$uv_download_file" < "$command_stdin" &
+  # The upstream installer's own chatter (e.g. "everything's installed!") is
+  # captured rather than shown live: a clean run prints "uv installed"
+  # instead, and a failed run replays this capture as actionable diagnosis.
+  "$command_shell" "$uv_download_file" < "$command_stdin" > "$uv_output_file" 2>&1 &
   uv_install_pid=$!
   (
     sleep "$uv_bootstrap_timeout_seconds"
@@ -572,7 +519,12 @@ install_uv_or_fail() {
   fi
   run_uv_installer_with_timeout
   uv_install_rc=$?
-  rm -f "$uv_download_file" "$uv_download_dir/timed-out"
+  if [ "$uv_install_rc" -ne 0 ]; then
+    # A failed run's own output is actionable diagnosis; a clean run never
+    # shows it (replaced by "uv installed").
+    cat "$uv_output_file" >&2 2>/dev/null || :
+  fi
+  rm -f "$uv_download_file" "$uv_output_file" "$uv_download_dir/timed-out"
   rmdir "$uv_download_dir" 2>/dev/null || :
   if [ "$uv_install_rc" -eq 124 ]; then
     fail "uv bootstrap timed out after ${uv_bootstrap_timeout_seconds}s while running the official installer. Check network access, install uv manually with '${astral_cmd}', then rerun: ${rerun_cmd}"
