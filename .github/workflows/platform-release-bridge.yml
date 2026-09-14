@@ -101,10 +101,13 @@ jobs:
       # proves the producer and nothing else: a bundle declaring a contract
       # the host does not implement passes every check on this side and
       # refuses during promotion, after the artifact is already public. So
-      # the real host is built here against the exact commit being released
-      # and the consumer trunk bound before dispatch, so simultaneous
-      # stage/prod callers join one proof of that pair. Platform's
-      # promotion-time check remains the final backstop behind this one.
+      # the real host is built here against the exact commit being released,
+      # dispatched onto the consumer's trunk branch and read back from that
+      # run's own evidence (this step runs before this release has shipped
+      # anything, so it never binds trunk through a not-yet-served field of
+      # its own API). Simultaneous stage/prod callers share one dispatched
+      # run of the same candidate. Platform's promotion-time check remains
+      # the final backstop behind this one.
       - name: Prove the hosted consumer against the exact release candidate
         id: consumer_proof
         env:

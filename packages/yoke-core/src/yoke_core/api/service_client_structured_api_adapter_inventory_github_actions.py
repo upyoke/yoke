@@ -40,9 +40,11 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
             "[<commit-sha>] [--branch BRANCH] --project <project>"
         ),
         notes=(
-            "Commit SHA and/or --branch; result.ref_sha is the named "
-            "branch tip, distinct from the run's head_sha. Wrong guess: "
-            "keying reuse on floating main or GITHUB_RUN_ATTEMPT."
+            "Commit SHA and/or --branch; result.head_sha is the matched "
+            "run's own commit. Wrong guess: keying reuse on floating main "
+            "or GITHUB_RUN_ATTEMPT — dispatch by branch and read the "
+            "dispatched run's own head_sha back instead of pre-resolving "
+            "a branch tip through this call."
         ),
     ),
     _read_entry(

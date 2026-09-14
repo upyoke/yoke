@@ -130,8 +130,8 @@ def test_one_candidate_can_never_adopt_another_candidate_s_run(
     seen: List[List[str]] = []
     monkeypatch.setattr(gate, "_yoke", _recorder(seen))
 
-    gate.dispatch(CANDIDATE, CONSUMER_REVISION)
-    gate.dispatch("c" * 40, CONSUMER_REVISION)
+    gate.dispatch(CANDIDATE)
+    gate.dispatch("c" * 40)
 
     request_ids = [argv[argv.index("--request-id") + 1] for argv in seen]
     assert request_ids[0] != request_ids[1]
@@ -140,25 +140,12 @@ def test_one_candidate_can_never_adopt_another_candidate_s_run(
         f"{gate.CANDIDATE_INPUT}={CANDIDATE}"
     )
     for argv in seen:
-        assert argv[argv.index("--ref") + 1] == CONSUMER_REVISION
+        # Dispatched onto the consumer's trunk branch by name, so GitHub
+        # resolves the exact commit at dispatch time — never a pre-bound sha.
+        assert argv[argv.index("--ref") + 1] == gate.CONSUMER_TRUNK_REF
         assert argv[argv.index("--request-id") + 1].endswith(
             gate.CONSUMER_CHECK_WORKFLOW
         )
-
-
-def test_a_different_consumer_commit_is_a_different_pair(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    seen: List[List[str]] = []
-    monkeypatch.setattr(gate, "_yoke", _recorder(seen))
-
-    gate.dispatch(CANDIDATE, CONSUMER_REVISION)
-    gate.dispatch(CANDIDATE, "c" * 40)
-
-    request_ids = [argv[argv.index("--request-id") + 1] for argv in seen]
-    assert request_ids[0] != request_ids[1]
-    assert CONSUMER_REVISION in request_ids[0]
-    assert seen[1][seen[1].index("--ref") + 1] == "c" * 40
 
 
 def test_the_gate_reuses_the_consumer_s_own_required_check(
@@ -170,58 +157,40 @@ def test_the_gate_reuses_the_consumer_s_own_required_check(
     seen: List[List[str]] = []
     monkeypatch.setattr(gate, "_yoke", _recorder(seen))
 
-    gate.dispatch(CANDIDATE, CONSUMER_REVISION)
+    gate.dispatch(CANDIDATE)
 
     assert gate.CONSUMER_CHECK_WORKFLOW == "platform-release-pin-check.yml"
     assert seen[0][seen[0].index("trigger") + 2] == gate.CONSUMER_CHECK_WORKFLOW
 
 
-def test_the_same_pair_rejoins_one_consumer_run(
+def test_the_same_candidate_rejoins_one_consumer_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Simultaneous stage/prod callers proving the same product commit, and a
+    # later retry of the same candidate, all share one dispatched run.
     seen: List[List[str]] = []
     monkeypatch.setattr(gate, "_yoke", _recorder(seen))
 
-    gate.dispatch(CANDIDATE, CONSUMER_REVISION)
-    gate.dispatch(CANDIDATE, CONSUMER_REVISION)
+    gate.dispatch(CANDIDATE)
+    gate.dispatch(CANDIDATE)
 
     assert len({argv[argv.index("--request-id") + 1] for argv in seen}) == 1
 
 
-def test_success_against_a_different_consumer_commit_is_unproven() -> None:
-    code, narrative, proven = gate.classify(
-        {
-            "state": "success",
-            "conclusion": "success",
-            "head_sha": CONSUMER_REVISION,
-            "html_url": "https://example.invalid/run/9",
-        },
-        candidate_sha=CANDIDATE,
-        run_id="9",
-        bound_consumer_sha="c" * 40,
-    )
-
-    assert code == gate.UNPROVEN
-    assert proven == ""
-    assert "does not match the bound pair" in narrative
-
-
-def test_trunk_is_bound_from_find_run_ref_sha(
+def test_dispatch_never_calls_find_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def _find(_argv, *, timeout, stdin=None):  # type: ignore[no-untyped-def]
-        return 1, (
-            '{"success": true, "result": {"found": false, "ref_sha": "'
-            + CONSUMER_REVISION
-            + '"}}'
-        ), ""
+    # Regression for the rollout deadlock: a pre-dispatch trunk resolution
+    # through `find-run` depends on this repo's own server-side response
+    # shape, which is exactly what has not shipped yet when this gate runs.
+    # Proof must work whatever shape the currently-serving control plane
+    # returns, so nothing here may call `find-run` at all.
+    seen: List[List[str]] = []
+    monkeypatch.setattr(gate, "_yoke", _recorder(seen))
 
-    monkeypatch.setattr(gate, "_yoke", _find)
+    gate.dispatch(CANDIDATE)
 
-    sha, error = gate.resolve_consumer_revision()
-
-    assert error == ""
-    assert sha == CONSUMER_REVISION
+    assert all("find-run" not in argv for argv in seen)
 
 
 def test_a_missing_scoped_credential_refuses(

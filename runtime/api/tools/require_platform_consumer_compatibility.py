@@ -9,12 +9,25 @@ Usage::
     python3 -m runtime.api.tools.require_platform_consumer_compatibility \\
         --candidate-sha <40-hex> [--timeout SEC]
 
-*candidate-sha* must be a full 40-hex commit. The exact pair is that
-candidate, the consumer commit bound from current trunk before dispatch, and
-this check. Simultaneous callers share ``github-actions trigger
---request-id``; a failed or cancelled run advances a new attempt on the same
-key. A later caller whose trunk has moved is a different pair. Floating
-``main`` is never the identity. Missing or mismatched evidence is unproven.
+*candidate-sha* must be a full 40-hex commit. This gate always calls the
+currently-serving control plane, because it runs before the release it is
+gating has published anything — so it never depends on a server-side field
+this same release introduces; binding a value like that would make the
+release unable to ship until after it had already shipped. Trunk is
+resolved the same way the dispatched run itself resolves it: this gate
+dispatches onto the consumer's trunk branch and lets GitHub name the exact
+commit at that moment, then reads it back from the run's own evidence. That
+also fixes staleness structurally rather than by convention — a stale
+resolve-then-dispatch race is impossible when there is nothing to resolve
+ahead of dispatch.
+
+Simultaneous callers (a stage and a prod release proving the same product
+commit) share one ``github-actions trigger --request-id`` keyed on the
+candidate, so they join one run instead of dispatching two; a failed or
+cancelled run advances a new attempt on the same key. Reproving the same
+candidate later reuses that same run once it is live or already proved —
+idempotent same-candidate retries are intentional, since a given candidate
+commit is immutable once merged. Missing or refused evidence is unproven.
 
 On success it writes ``proven_consumer_sha`` to ``$GITHUB_OUTPUT``.
 Exits 0 when proven, 1 when refused or unattributable, 2 when unavailable.
@@ -57,11 +70,15 @@ _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 _COMMAND_TIMEOUT_SECONDS = 300
 
 
-def pair_request_id(candidate_sha: str, consumer_sha: str) -> str:
-    return (
-        f"consumer-compat:{candidate_sha}:{consumer_sha}:"
-        f"{CONSUMER_CHECK_WORKFLOW}"
-    )
+def candidate_request_id(candidate_sha: str) -> str:
+    """The idempotency key simultaneous stage/prod callers share.
+
+    Keyed on the candidate alone, not a pre-resolved consumer commit: the
+    consumer commit is never known before dispatch (see module docstring),
+    and a candidate commit is immutable, so reusing this key for retries of
+    the same candidate is the intended, safe behavior.
+    """
+    return f"consumer-compat:{candidate_sha}:{CONSUMER_CHECK_WORKFLOW}"
 
 #: The consumer refused the candidate, or its evidence does not name it.
 UNPROVEN = 1
@@ -128,39 +145,14 @@ def bind_consumer_authority() -> str:
     return ""
 
 
-def resolve_consumer_revision() -> Tuple[str, str]:
-    """Bind current consumer trunk to a commit, or say why it could not."""
-    _code, stdout, stderr = _yoke(
-        [
-            "github-actions", "find-run", CONSUMER_REPO,
-            CONSUMER_CHECK_WORKFLOW, "--branch", CONSUMER_TRUNK_REF,
-            "--project", CONSUMER_PROJECT, "--json",
-        ],
-        timeout=_COMMAND_TIMEOUT_SECONDS,
-    )
-    try:
-        payload = json.loads(stdout)
-    except ValueError:
-        payload = None
-    result = payload.get("result") if isinstance(payload, dict) else None
-    sha = str(
-        result.get("ref_sha") if isinstance(result, dict) else ""
-    ).strip().lower()
-    if payload and payload.get("success") is not False and is_full_commit_sha(sha):
-        return sha, ""
-    return "", (
-        f"consumer trunk {CONSUMER_REPO}@{CONSUMER_TRUNK_REF} could not be "
-        f"bound to a commit: {_detail(stdout, stderr)}"
-    )
+def dispatch(candidate_sha: str) -> Tuple[str, str]:
+    """Dispatch or recover the consumer run for this exact candidate.
 
-
-def dispatch(candidate_sha: str, consumer_sha: str) -> Tuple[str, str]:
-    """Dispatch or recover the consumer run for this exact pair."""
-    if not is_full_commit_sha(consumer_sha):
-        return "", (
-            "consumer check could not be dispatched: consumer commit "
-            f"{consumer_sha!r} is not a full 40-hex commit"
-        )
+    Dispatches onto ``CONSUMER_TRUNK_REF`` by name rather than a pre-resolved
+    commit, so GitHub — not this gate — resolves the exact trunk commit at
+    the moment of dispatch. See the module docstring for why that also
+    avoids a rollout dependency on this repo's own not-yet-served changes.
+    """
     code, stdout, stderr = _yoke(
         [
             "github-actions",
@@ -168,11 +160,11 @@ def dispatch(candidate_sha: str, consumer_sha: str) -> Tuple[str, str]:
             CONSUMER_REPO,
             CONSUMER_CHECK_WORKFLOW,
             "--ref",
-            consumer_sha,
+            CONSUMER_TRUNK_REF,
             "--input",
             f"{CANDIDATE_INPUT}={candidate_sha}",
             "--request-id",
-            pair_request_id(candidate_sha, consumer_sha),
+            candidate_request_id(candidate_sha),
             "--correlation-input",
             WORKFLOW_DISPATCH_CORRELATION_INPUT,
             "--project",
@@ -218,7 +210,6 @@ def await_verdict(run_id: str, *, timeout_sec: int) -> Tuple[Dict[str, Any], str
 
 def classify(
     result: Dict[str, Any], *, candidate_sha: str, run_id: str,
-    bound_consumer_sha: str = "",
 ) -> Tuple[int, str, str]:
     """Exit code, narrative, and the consumer revision actually proven."""
     where = str(result.get("html_url") or "").strip() or f"run {run_id}"
@@ -248,13 +239,6 @@ def classify(
             f"be attributed to product {candidate_sha}. That is unproven, "
             "not proven; re-run the gate."
         ), ""
-    expected = bound_consumer_sha.strip().lower()
-    if expected and consumer_sha.lower() != expected:
-        return UNPROVEN, (
-            f"consumer evidence does not match the bound pair: {where} "
-            f"proved {consumer_sha} after this gate bound {expected} for "
-            f"product {candidate_sha}."
-        ), ""
     return 0, (
         f"hosted consumer builds against this candidate: product "
         f"{candidate_sha} with consumer {consumer_sha} — {where}"
@@ -262,24 +246,18 @@ def classify(
 
 
 def prove(candidate_sha: str, *, timeout_sec: int) -> Tuple[int, str, str]:
-    """Bind, resolve trunk, dispatch, wait, classify."""
+    """Bind, dispatch, wait, classify."""
     unavailable = bind_consumer_authority()
     if unavailable:
         return UNAVAILABLE, f"consumer compatibility unproven: {unavailable}", ""
-    consumer_sha, resolve_error = resolve_consumer_revision()
-    if resolve_error:
-        return UNAVAILABLE, f"consumer compatibility unproven: {resolve_error}", ""
-    run_id, dispatch_error = dispatch(candidate_sha, consumer_sha)
+    run_id, dispatch_error = dispatch(candidate_sha)
     if dispatch_error:
         return UNAVAILABLE, f"consumer compatibility unproven: {dispatch_error}", ""
     print(f"consumer check run: {CONSUMER_REPO} run {run_id}", flush=True)
     result, unreadable = await_verdict(run_id, timeout_sec=timeout_sec)
     if unreadable:
         return UNAVAILABLE, f"consumer compatibility unproven: {unreadable}", ""
-    return classify(
-        result, candidate_sha=candidate_sha, run_id=run_id,
-        bound_consumer_sha=consumer_sha,
-    )
+    return classify(result, candidate_sha=candidate_sha, run_id=run_id)
 
 
 def _write_output(key: str, value: str) -> None:
