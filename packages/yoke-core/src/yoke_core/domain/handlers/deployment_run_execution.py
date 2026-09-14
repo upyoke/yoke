@@ -59,34 +59,20 @@ def _require_execution_lock(
     return None
 
 
-def _member_column(conn: Any, name: str) -> str:
-    """Return ``dri.<name>`` when the live table has it, else ``NULL AS <name>``.
-
-    Mirrors ``deployment_runs_schema._run_named_columns``'s ``col()``: an
-    additive column named unconditionally in the SELECT list raises
-    ``UndefinedColumn`` at the database level on a plane whose
-    ``deployment_run_items`` has not yet converged, before any per-row
-    ``.get()`` default is ever reached.
-    """
-    from yoke_core.domain.schema_common import _column_exists
-
-    if _column_exists(conn, "deployment_run_items", name):
-        return f"dri.{name}"
-    return f"NULL AS {name}"
-
-
 def _member_rows(run_id_value: str) -> List[Dict[str, Any]]:
     from yoke_core.domain.db_helpers import connect, query_rows
     from yoke_core.domain.item_worktrees import primary_item_worktree
     from yoke_core.domain.project_identity import render_item_ref
 
     with connect() as conn:
+        # A star-select never names delivery_intent/requirement_snapshot
+        # explicitly, so a live table that has not yet converged those
+        # additive columns just omits them from the row instead of raising
+        # UndefinedColumn — the member dict's existing .get() calls below
+        # already treat an absent column as unset.
         rows = query_rows(
             conn,
-            "SELECT dri.item_id,i.status,"
-            f"{_member_column(conn, 'delivery_intent')},"
-            f"{_member_column(conn, 'requirement_snapshot')} "
-            "FROM deployment_run_items dri "
+            "SELECT dri.*,i.status FROM deployment_run_items dri "
             "JOIN items i ON i.id=dri.item_id WHERE dri.run_id=%s "
             "ORDER BY dri.item_id",
             (run_id_value,),
