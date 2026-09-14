@@ -33,10 +33,11 @@ command is absent. Result:
 ☀ native {os_name} is not supported by this installer. WSL follows the Linux path.
 ```
 
-Exit 1. **No** uv consent, **no** `yoke onboard`, **no** PATH doctor.
+Exit 1. **No** uv install attempt, **no** `yoke onboard`, **no** PATH doctor.
 
-Contrast: uv-decline has a branded retry recipe (`decline_uv_and_exit`). The
-OS refusal is a one-line `fail` with no WSL install steps.
+Contrast: a failed uv install has its own branded retry recipe (manual
+install command + exact rerun). The OS refusal is a one-line `fail` with no
+WSL install steps.
 
 Git install advice if they somehow reached project git later
 (`project_git_install_advice.py`):
@@ -47,8 +48,8 @@ Git install advice if they somehow reached project git later
 ## Transcript — only supported continuation (WSL Ubuntu)
 
 They install WSL, then in Ubuntu: `curl -fsSL https://upyoke.com/install | sh`.
-Linux passes. uv consent uses Astral (shim `YOKE_UV_INSTALLER_URL`) unless they
-have brew (they don't). Default Yes. Wizard launches.
+Linux passes. uv installs automatically via the official Astral installer
+(shim `YOKE_UV_INSTALLER_URL`) — no confirmation. Wizard launches.
 
 PATH: Linux `.profile`. Account: This machine (or team server if they self-host).
 GitHub Connect. Project: Existing folder under `/home/chen/work/api` (clone of

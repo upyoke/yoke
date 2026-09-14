@@ -26,26 +26,27 @@ WELCOME_FRAME = terminal_case(
     instructions=(
         "Open the public Stage installer in Terminal and inspect the authored "
         "welcome frame with a process-local minimal macOS system PATH that "
-        "intentionally excludes user-installed uv/uvx, before accepting the "
-        "product's prerequisite offer."
+        "intentionally excludes user-installed uv/uvx, capturing the automatic "
+        "uv install status line (no confirmation prompt to accept)."
     ),
     expected_outcome=(
         "The real installer deterministically presents Yoke's authored identity "
-        "and uv/uvx prerequisite offer without changing the host, with text "
-        "evidence and a screenshot or an explicit capture-degraded reason."
+        "and starts installing uv automatically with text evidence and a "
+        "screenshot or an explicit capture-degraded reason."
     ),
     method_config=terminal_recipe(
         actions=(action("welcome-frame", wait_seconds=3),),
         expected_text=(
             "Your operating system for software delivery",
-            "Yoke's only prerequisite",
-            "isn't installed yet.",
+            "Installing uv",
         ),
         capture_checkpoints=("welcome-frame",),
         notes=(
             "The live public installer runs with HOME=/var/empty and the "
             "minimal macOS system PATH, excluding both ~/.local/bin and "
-            "Homebrew; stopping before consent makes no host mutation."
+            "Homebrew; uv installs automatically with no confirmation, so the "
+            "isolated /var/empty home (not a stopped-before-consent gate) is "
+            "what keeps this case from mutating the real host."
         ),
         start_delay=0.5,
     ),

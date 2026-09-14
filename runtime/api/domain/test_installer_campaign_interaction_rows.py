@@ -251,10 +251,7 @@ def test_inspection_and_machine_state_cases_are_semantic() -> None:
     assert cases["welcome-frame"]["method_config"]["capture_checkpoints"] == [
         "welcome-frame"
     ]
-    assert (
-        "Yoke's only prerequisite"
-        in (cases["welcome-frame"]["method_config"]["expected_text"])
-    )
+    assert "Installing uv" in (cases["welcome-frame"]["method_config"]["expected_text"])
     welcome_entry = cases["welcome-frame"]["entry_surface"]
     assert "HOME=/var/empty" in welcome_entry
     assert "XDG_BIN_HOME=/var/empty/.local/bin" in welcome_entry
