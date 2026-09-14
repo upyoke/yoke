@@ -42,9 +42,7 @@ from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_terminal as terminal
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 
-_CONNECTED_ENV: ContextVar[str] = ContextVar(
-    "yoke_close_out_connected_env", default=""
-)
+_CONNECTED_ENV: ContextVar[str] = ContextVar("yoke_close_out_connected_env", default="")
 
 
 @contextlib.contextmanager

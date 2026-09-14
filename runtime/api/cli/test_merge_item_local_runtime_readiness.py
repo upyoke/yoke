@@ -24,6 +24,30 @@ def _connections(monkeypatch, connections: dict) -> None:
     )
 
 
+def _ok_readiness():
+    return SimpleNamespace(
+        status=lambda: SimpleNamespace(ok=True, message=""),
+        ensure_ready=lambda force=False: SimpleNamespace(ok=True, message=""),
+        TunnelReplacementContended=type("TunnelReplacementContended", (Exception,), {}),
+    )
+
+
+def _import_with_readiness(monkeypatch, readiness, *, forbid_https_probe=False):
+    real_import = local_runtime.importlib.import_module
+    seen: list[str] = []
+
+    def import_module(name: str):
+        seen.append(name)
+        if name == "yoke_core.domain.connected_env_readiness":
+            if forbid_https_probe:
+                raise AssertionError("HTTPS merge must not probe a local tunnel")
+            return readiness
+        return real_import(name)
+
+    monkeypatch.setattr(local_runtime.importlib, "import_module", import_module)
+    return seen
+
+
 def test_https_with_sibling_stays_on_https(monkeypatch) -> None:
     _connections(
         monkeypatch,
@@ -43,10 +67,12 @@ def test_https_with_sibling_stays_on_https(monkeypatch) -> None:
         "active_connection",
         lambda: {"transport": "https"},
     )
+    seen = _import_with_readiness(monkeypatch, _ok_readiness(), forbid_https_probe=True)
 
     with local_runtime.same_universe_control_plane_authority() as selection:
         assert selection == ("prod", "prod")
     assert os.environ.get(ENV_OVERRIDE) == "prod"
+    assert "yoke_core.domain.connected_env_readiness" not in seen
 
 
 def test_https_without_sibling_stays_on_https(monkeypatch) -> None:
@@ -62,10 +88,12 @@ def test_https_without_sibling_stays_on_https(monkeypatch) -> None:
         "active_connection",
         lambda: {"transport": "https"},
     )
+    seen = _import_with_readiness(monkeypatch, _ok_readiness(), forbid_https_probe=True)
 
     with local_runtime.same_universe_control_plane_authority() as selection:
         assert selection == ("prod", "prod")
     assert os.environ.get(ENV_OVERRIDE) == "prod"
+    assert "yoke_core.domain.connected_env_readiness" not in seen
 
 
 def test_explicit_admin_postgres_stays_on_the_selected_connection(monkeypatch) -> None:
@@ -87,10 +115,12 @@ def test_explicit_admin_postgres_stays_on_the_selected_connection(monkeypatch) -
         "active_connection",
         lambda: {"transport": "local-postgres"},
     )
+    seen = _import_with_readiness(monkeypatch, _ok_readiness())
 
     with local_runtime.same_universe_control_plane_authority() as selection:
         assert selection == ("prod-db-admin", "prod-db-admin")
     assert os.environ.get(ENV_OVERRIDE) == "prod-db-admin"
+    assert "yoke_core.domain.connected_env_readiness" in seen
 
 
 def test_a_local_postgres_connection_is_never_switched(monkeypatch) -> None:
@@ -109,10 +139,47 @@ def test_a_local_postgres_connection_is_never_switched(monkeypatch) -> None:
         "active_connection",
         lambda: {"transport": "local-postgres"},
     )
+    seen = _import_with_readiness(monkeypatch, _ok_readiness())
 
     with local_runtime.same_universe_control_plane_authority() as selection:
         assert selection == ("local", "local")
     assert os.environ.get(ENV_OVERRIDE) == "local"
+    assert "yoke_core.domain.connected_env_readiness" in seen
+
+
+def test_unreachable_local_postgres_refuses_before_the_engine_loads(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        local_runtime.machine_config,
+        "active_env",
+        lambda: "local",
+    )
+    monkeypatch.setattr(
+        local_runtime.machine_config,
+        "active_connection",
+        lambda: {"transport": "local-postgres"},
+    )
+
+    class Contended(Exception):
+        timeout = 8
+        local_port = 5433
+        holder = "other"
+
+    readiness = SimpleNamespace(
+        status=lambda: SimpleNamespace(ok=False, message="tunnel down"),
+        ensure_ready=lambda force=False: (_ for _ in ()).throw(Contended("busy")),
+        TunnelReplacementContended=Contended,
+    )
+    _import_with_readiness(monkeypatch, readiness)
+
+    with pytest.raises(local_runtime.LocalMergeControlPlaneAuthorityError) as raised:
+        with local_runtime.same_universe_control_plane_authority():
+            pytest.fail("an unreachable local Postgres must not be yielded")
+
+    message = str(raised.value)
+    assert "local" in message
+    assert "tunnel replacement stayed busy" in message
 
 
 def test_unsupported_transport_refuses(monkeypatch) -> None:

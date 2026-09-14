@@ -72,6 +72,12 @@ def _configure_control_plane(monkeypatch, *, paired: bool = True) -> None:
         lambda _config_path=None: {"connections": connections},
     )
     monkeypatch.setenv(ENV_OVERRIDE, "prod")
+    monkeypatch.setattr(local_runtime.machine_config, "active_env", lambda: "prod")
+    monkeypatch.setattr(
+        local_runtime.machine_config,
+        "active_connection",
+        lambda: {"transport": "https"},
+    )
 
 
 def test_adapter_launches_authority_binding_child_without_secret_arguments(
@@ -108,6 +114,15 @@ def test_local_postgres_control_plane_needs_no_authority_substitution(
         },
     )
     monkeypatch.setenv(ENV_OVERRIDE, "local")
+    monkeypatch.setattr(local_runtime.machine_config, "active_env", lambda: "local")
+    monkeypatch.setattr(
+        local_runtime.machine_config,
+        "active_connection",
+        lambda: {"transport": "local-postgres"},
+    )
+    monkeypatch.setattr(
+        local_runtime, "_confirm_selected_control_plane", lambda _authority: None
+    )
 
     with local_runtime.same_universe_control_plane_authority() as selection:
         assert selection == ("local", "local")
@@ -204,13 +219,20 @@ def test_https_child_loads_engine_without_paired_admin(monkeypatch) -> None:
     def child_main(argv):
         loaded.append(str(argv[0]) if argv else "")
         assert os.environ.get(ENV_OVERRIDE) == "prod"
+        from yoke_core.domain import close_out_control_plane_authority as close_out
+
+        assert close_out._CONNECTED_ENV.get() == "prod"
         return 0
 
     real_import = local_runtime.importlib.import_module
+    imported: list[str] = []
 
     def import_module(name: str):
+        imported.append(name)
         if name == "yoke_core.domain.standalone_item_merge_cli":
             return SimpleNamespace(main=child_main)
+        if name == "yoke_core.domain.connected_env_readiness":
+            raise AssertionError("HTTPS merge must not probe a local tunnel")
         return real_import(name)
 
     monkeypatch.setattr(local_runtime.importlib, "import_module", import_module)
@@ -218,6 +240,8 @@ def test_https_child_loads_engine_without_paired_admin(monkeypatch) -> None:
     assert local_runtime.main(["YOK-42"]) == 0
     assert loaded == ["YOK-42"]
     assert os.environ.get(ENV_OVERRIDE) == "prod"
+    assert "yoke_core.domain.close_out_control_plane_authority" in imported
+    assert "yoke_core.domain.connected_env_readiness" not in imported
 
 
 def test_bound_user_provider_never_reads_service_app_credentials(

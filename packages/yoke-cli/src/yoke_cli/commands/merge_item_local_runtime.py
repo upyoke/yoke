@@ -132,6 +132,65 @@ def machine_github_user_authority() -> Iterator[None]:
         yield
 
 
+def _confirm_selected_control_plane(authority: str) -> None:
+    """Refuse before merge when selected local Postgres is unreachable.
+
+    HTTPS merge stays on authenticated dispatch and does not probe a tunnel.
+    A local Postgres connection normally sits behind an SSH forward; a dead
+    forward would otherwise fail the first in-process call mid-merge.
+    Probing here restarts a recoverable forward and turns an unrecoverable
+    one into a refusal that costs nothing. Connection acquisition still
+    self-heals through ``db_backend.connect``; this extra wait covers one
+    bounded ``TunnelReplacementContended`` window before the engine loads.
+    """
+    try:
+        readiness = importlib.import_module("yoke_core.domain.connected_env_readiness")
+    except ImportError as exc:
+        raise LocalMergeControlPlaneAuthorityError(
+            "local merge requires matching yoke-cli and yoke-core releases; "
+            "repair the Yoke installation, then retry"
+        ) from exc
+    try:
+        result = readiness.status()
+        if not result.ok:
+            try:
+                result = readiness.ensure_ready(force=True)
+            except Exception as exc:  # noqa: BLE001 - narrowed dynamically
+                contention_type = getattr(readiness, "TunnelReplacementContended", ())
+                if not isinstance(exc, contention_type):
+                    raise
+                wait_limit = int(exc.timeout)
+                print(
+                    "[phase:authority] tunnel_busy "
+                    f"127.0.0.1:{exc.local_port} ({exc.holder}) "
+                    f"elapsed={wait_limit}s/limit={wait_limit}s; waiting "
+                    "through one more bounded replacement window",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                result = readiness.ensure_ready(force=True)
+    except Exception as exc:  # noqa: BLE001 - every failure is the same refusal
+        contention_type = getattr(readiness, "TunnelReplacementContended", ())
+        if isinstance(exc, contention_type):
+            raise LocalMergeControlPlaneAuthorityError(
+                f"local merge selected control plane {authority!r}, but its "
+                "tunnel replacement stayed busy through the automatic bounded "
+                f"wait: {exc} Nothing has been merged; keep the named holder "
+                "running and re-run this merge after it finishes."
+            ) from exc
+        raise LocalMergeControlPlaneAuthorityError(
+            f"local merge selected control plane {authority!r}, which is not "
+            f"reachable: {exc}. Restore the connection, then re-run the merge; "
+            "nothing has been merged."
+        ) from exc
+    if not result.ok:
+        raise LocalMergeControlPlaneAuthorityError(
+            f"local merge selected control plane {authority!r}, which is not "
+            f"reachable: {result.message}. Restore the connection, then re-run "
+            "the merge; nothing has been merged."
+        )
+
+
 @contextmanager
 def same_universe_control_plane_authority() -> Iterator[tuple[str, str]]:
     """Keep the operator-selected control plane for merge admission.
@@ -141,7 +200,8 @@ def same_universe_control_plane_authority() -> Iterator[tuple[str, str]]:
     Postgres connection stays local, and an HTTPS product connection stays
     HTTPS. Ordinary hosted merge does not substitute a paired admin sibling.
     Source-dev self-maintenance keeps an explicitly selected admin connection
-    because that selection is already local Postgres.
+    because that selection is already local Postgres. Local Postgres still
+    proves reachability before the engine loads; HTTPS does not probe a tunnel.
     """
 
     try:
@@ -152,7 +212,11 @@ def same_universe_control_plane_authority() -> Iterator[tuple[str, str]]:
             "local merge control-plane authority is not configured"
         ) from exc
     transport = str(connection.get("transport") or "").strip()
-    if transport in POSTGRES_TRANSPORTS or transport == TRANSPORT_HTTPS:
+    if transport in POSTGRES_TRANSPORTS:
+        _confirm_selected_control_plane(selected)
+        yield selected, selected
+        return
+    if transport == TRANSPORT_HTTPS:
         yield selected, selected
         return
     raise LocalMergeControlPlaneAuthorityError(
