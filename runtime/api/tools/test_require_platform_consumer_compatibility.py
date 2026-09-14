@@ -10,8 +10,9 @@ candidate must each stop the release rather than pass quietly.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List
 
 import pytest
 
@@ -27,12 +28,22 @@ CANDIDATE = "a" * 40
 CONSUMER_REVISION = "b" * 40
 
 
-def _recorder(seen: List[List[str]]):
-    def _record(argv, *, timeout, stdin=None):  # type: ignore[no-untyped-def]
-        seen.append(list(argv))
-        return 0, "9001\n", ""
+def _resolver(seen: List[List[str]], trunk_shas: Iterable[str]):
+    """Stub `_yoke`: `find-run` answers successive `trunk_shas` ("" = unresolvable)."""
+    trunks = iter(trunk_shas)
 
-    return _record
+    def _call(argv, *, timeout, stdin=None):  # type: ignore[no-untyped-def]
+        seen.append(list(argv))
+        if "find-run" in argv:
+            sha = next(trunks, "")
+            result = {"found": False, "ref_sha": sha} if sha else {"found": False}
+            return 0, json.dumps({"success": True, "result": result}), ""
+        return 0, "9001\n", ""
+    return _call
+
+
+def _trigger_calls(seen: List[List[str]]) -> List[List[str]]:
+    return [argv for argv in seen if "trigger" in argv]
 
 
 def _bridge_steps() -> List[Dict[str, Any]]:
@@ -128,21 +139,23 @@ def test_one_candidate_can_never_adopt_another_candidate_s_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     seen: List[List[str]] = []
-    monkeypatch.setattr(gate, "_yoke", _recorder(seen))
+    monkeypatch.setattr(
+        gate, "_yoke", _resolver(seen, [CONSUMER_REVISION, CONSUMER_REVISION]),
+    )
 
     gate.dispatch(CANDIDATE)
     gate.dispatch("c" * 40)
 
-    request_ids = [argv[argv.index("--request-id") + 1] for argv in seen]
+    triggers = _trigger_calls(seen)
+    request_ids = [argv[argv.index("--request-id") + 1] for argv in triggers]
     assert request_ids[0] != request_ids[1]
     assert CANDIDATE in request_ids[0]
-    assert seen[0][seen[0].index("--input") + 1] == (
+    assert triggers[0][triggers[0].index("--input") + 1] == (
         f"{gate.CANDIDATE_INPUT}={CANDIDATE}"
     )
-    for argv in seen:
-        # Dispatched onto the consumer's trunk branch by name, so GitHub
-        # resolves the exact commit at dispatch time — never a pre-bound sha.
-        assert argv[argv.index("--ref") + 1] == gate.CONSUMER_TRUNK_REF
+    for argv in triggers:
+        # Bound to the pre-resolved trunk commit, not a floating branch.
+        assert argv[argv.index("--ref") + 1] == CONSUMER_REVISION
         assert argv[argv.index("--request-id") + 1].endswith(
             gate.CONSUMER_CHECK_WORKFLOW
         )
@@ -155,42 +168,115 @@ def test_the_gate_reuses_the_consumer_s_own_required_check(
     # compatible. The consumer's existing required check already builds its
     # host; a candidate commit only redirects what it builds against.
     seen: List[List[str]] = []
-    monkeypatch.setattr(gate, "_yoke", _recorder(seen))
+    monkeypatch.setattr(gate, "_yoke", _resolver(seen, [CONSUMER_REVISION]))
 
     gate.dispatch(CANDIDATE)
 
+    trigger = _trigger_calls(seen)[0]
     assert gate.CONSUMER_CHECK_WORKFLOW == "platform-release-pin-check.yml"
-    assert seen[0][seen[0].index("trigger") + 2] == gate.CONSUMER_CHECK_WORKFLOW
+    assert trigger[trigger.index("trigger") + 2] == gate.CONSUMER_CHECK_WORKFLOW
 
 
-def test_the_same_candidate_rejoins_one_consumer_run(
+def test_the_same_pair_rejoins_one_consumer_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Simultaneous stage/prod callers proving the same product commit, and a
-    # later retry of the same candidate, all share one dispatched run.
+    # Simultaneous stage/prod callers on the same trunk share one run.
     seen: List[List[str]] = []
-    monkeypatch.setattr(gate, "_yoke", _recorder(seen))
+    monkeypatch.setattr(
+        gate, "_yoke", _resolver(seen, [CONSUMER_REVISION, CONSUMER_REVISION]),
+    )
 
-    gate.dispatch(CANDIDATE)
-    gate.dispatch(CANDIDATE)
+    run_id_1, bound_1, error_1 = gate.dispatch(CANDIDATE)
+    run_id_2, bound_2, error_2 = gate.dispatch(CANDIDATE)
 
-    assert len({argv[argv.index("--request-id") + 1] for argv in seen}) == 1
+    assert error_1 == error_2 == ""
+    assert bound_1 == bound_2 == CONSUMER_REVISION
+    request_ids = {
+        argv[argv.index("--request-id") + 1] for argv in _trigger_calls(seen)
+    }
+    assert len(request_ids) == 1
 
 
-def test_dispatch_never_calls_find_run(
+def test_trunk_advancing_between_calls_forces_a_new_pair(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Regression for the rollout deadlock: a pre-dispatch trunk resolution
-    # through `find-run` depends on this repo's own server-side response
-    # shape, which is exactly what has not shipped yet when this gate runs.
-    # Proof must work whatever shape the currently-serving control plane
-    # returns, so nothing here may call `find-run` at all.
+    # A+B succeeds; trunk then advances to C. Re-dispatching A must prove
+    # A+C, never reuse the A+B identity — an immutable candidate does not
+    # make an earlier consumer trunk current.
     seen: List[List[str]] = []
-    monkeypatch.setattr(gate, "_yoke", _recorder(seen))
+    consumer_c = "c" * 40
+    monkeypatch.setattr(
+        gate, "_yoke", _resolver(seen, [CONSUMER_REVISION, consumer_c]),
+    )
 
-    gate.dispatch(CANDIDATE)
+    _run_id_1, bound_1, error_1 = gate.dispatch(CANDIDATE)
+    _run_id_2, bound_2, error_2 = gate.dispatch(CANDIDATE)
 
-    assert all("find-run" not in argv for argv in seen)
+    assert error_1 == error_2 == ""
+    assert bound_1 == CONSUMER_REVISION
+    assert bound_2 == consumer_c
+    request_ids = [
+        argv[argv.index("--request-id") + 1] for argv in _trigger_calls(seen)
+    ]
+    assert request_ids[0] != request_ids[1]
+    assert CONSUMER_REVISION in request_ids[0]
+    assert consumer_c in request_ids[1]
+
+
+def test_dispatch_degrades_to_a_never_reused_key_when_trunk_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Regression for the rollout deadlock: ref_sha may be a field the
+    # currently-serving control plane predates. Degrade safely instead of
+    # failing, and never reuse a proof of unknown trunk freshness.
+    seen: List[List[str]] = []
+    monkeypatch.setattr(gate, "_yoke", _resolver(seen, ["", ""]))
+
+    run_id_1, bound_1, error_1 = gate.dispatch(CANDIDATE)
+    run_id_2, bound_2, error_2 = gate.dispatch(CANDIDATE)
+
+    assert error_1 == error_2 == ""
+    assert bound_1 == bound_2 == ""
+    triggers = _trigger_calls(seen)
+    assert triggers[0][triggers[0].index("--ref") + 1] == gate.CONSUMER_TRUNK_REF
+    request_ids = [argv[argv.index("--request-id") + 1] for argv in triggers]
+    assert request_ids[0] != request_ids[1]
+
+
+def test_success_against_a_different_consumer_commit_is_unproven() -> None:
+    code, narrative, proven = gate.classify(
+        {
+            "state": "success",
+            "conclusion": "success",
+            "head_sha": CONSUMER_REVISION,
+            "html_url": "https://example.invalid/run/9",
+        },
+        candidate_sha=CANDIDATE,
+        run_id="9",
+        bound_consumer_sha="c" * 40,
+    )
+
+    assert code == gate.UNPROVEN
+    assert proven == ""
+    assert "does not match the bound pair" in narrative
+
+
+def test_trunk_is_bound_from_find_run_ref_sha(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _find(_argv, *, timeout, stdin=None):  # type: ignore[no-untyped-def]
+        return 1, (
+            '{"success": true, "result": {"found": false, "ref_sha": "'
+            + CONSUMER_REVISION
+            + '"}}'
+        ), ""
+
+    monkeypatch.setattr(gate, "_yoke", _find)
+
+    sha, error = gate.resolve_consumer_revision()
+
+    assert error == ""
+    assert sha == CONSUMER_REVISION
 
 
 def test_a_missing_scoped_credential_refuses(
