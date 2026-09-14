@@ -150,15 +150,18 @@ export function overviewRunCard(context, row, scope, options = {}) {
     "div",
     `overview-run-card is-${status.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
   );
-  // The informational card is a link to the run; a request's Approve and
-  // Reject are buttons inside it. Nesting those in the anchor would be
-  // invalid, so the link wraps what is readable and the request sits beside.
-  const link = el(documentNode, "a", "overview-run-card-link");
-  link.href = runDetailHref(context, row, scope);
+  // The card is readable text, not one big control. Its run name is the
+  // link to the run, each screenshot opens its own evidence, and a
+  // request's Approve and Reject are buttons. A card-wide anchor used to
+  // wrap everything readable, so hovering blank space lit the whole card,
+  // the text under the cursor could not be selected, and a click meant for
+  // a screenshot navigated to the run instead.
   const head = el(documentNode, "div", "overview-run-card-head");
-  head.appendChild(el(
-    documentNode, "span", "overview-run-id", row.id || row.run_id || "run",
-  ));
+  const runLink = el(
+    documentNode, "a", "overview-run-id", row.id || row.run_id || "run",
+  );
+  runLink.href = runDetailHref(context, row, scope);
+  head.appendChild(runLink);
   head.appendChild(el(
     documentNode,
     "span",
@@ -167,23 +170,22 @@ export function overviewRunCard(context, row, scope, options = {}) {
   ));
   const statusNode = statePill(documentNode, status, status);
   if (statusNode) head.appendChild(statusNode);
-  link.appendChild(head);
-  link.appendChild(el(
+  card.appendChild(head);
+  card.appendChild(el(
     documentNode, "strong", "overview-run-flow", runFlowName(options.facts, row),
   ));
   if ((row.stages || []).length) {
-    link.appendChild(deliveryStageBar(documentNode, row.stages));
+    card.appendChild(deliveryStageBar(documentNode, row.stages));
   }
   const items = carriedItems(row);
   const timing = row.completed_at || row.started_at || row.created_at;
-  link.appendChild(el(documentNode, "span", "overview-run-card-meta", [
+  card.appendChild(el(documentNode, "span", "overview-run-card-meta", [
     items.length
       ? `${items.length} ${items.length === 1 ? "item" : "items"}`
       : "environment run",
     row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
     timing ? `${status} ${relativeAgePhrase(timing)}` : status,
   ].filter(Boolean).join(" · ")));
-  card.appendChild(link);
   appendCarried(documentNode, card, row);
   const derivation = row.carried_work?.derivation;
   if (derivation && !items.length) {

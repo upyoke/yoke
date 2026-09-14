@@ -75,8 +75,9 @@ export function runFlowName(facts, row) {
 
 // The QA reviews still waiting on this reader, keyed by requirement, so a
 // verification row or an activity row can point at the Inbox card that
-// decides it. Only pending requests are served; a review already answered
-// has no request to point at.
+// decides it. The Inbox read also carries a tail of gates this reader
+// already settled, and those point at nothing: a review already answered is
+// not a review anyone is waiting on.
 export async function loadPendingReviews(context, projectIds) {
   const ids = (projectIds || []).map(Number).filter(Number.isFinite);
   const { callResults, failed } = await settledScopedCalls(context, [{
@@ -87,6 +88,7 @@ export async function loadPendingReviews(context, projectIds) {
   if (failed) return byRequirement;
   for (const row of callResults[0].envelope.result?.needs_decision || []) {
     if (row.kind !== "qa_needs_review") continue;
+    if (String(row.status || "pending") !== "pending") continue;
     const requirementId = row.subject_context?.requirement_id;
     if (requirementId != null) byRequirement.set(String(requirementId), row);
   }

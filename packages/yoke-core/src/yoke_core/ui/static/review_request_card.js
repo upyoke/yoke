@@ -158,7 +158,8 @@ function appendActions(documentNode, foot, card, row, onAct) {
     button.type = "button";
     button.setAttribute("data-action", action);
     button.addEventListener("click", (event) => {
-      // A card inside a linked run card must answer without navigating.
+      // Answering is not navigating: the answer stops here rather than
+      // reaching any host that reads a click on itself as a destination.
       if (typeof event.preventDefault === "function") event.preventDefault();
       if (typeof event.stopPropagation === "function") event.stopPropagation();
       if (action === "request_changes") composer(documentNode, card, row, action, onAct);

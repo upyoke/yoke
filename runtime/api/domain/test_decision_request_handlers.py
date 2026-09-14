@@ -120,6 +120,14 @@ def test_inbox_list_excludes_platform_owned_machine_request(monkeypatch):
     )
     monkeypatch.setattr(
         inbox_read,
+        "recently_decided_requests_for_actor",
+        lambda *_args, **_kwargs: [
+            {"kind": "machine_approval"},
+            {"kind": "deployment_stage_approval"},
+        ],
+    )
+    monkeypatch.setattr(
+        inbox_read,
         "inbox_actor_messages",
         lambda *_args, **_kwargs: {"messages": [], "pending_count": 0},
     )
@@ -133,7 +141,15 @@ def test_inbox_list_excludes_platform_owned_machine_request(monkeypatch):
     )
 
     assert outcome.primary_success is True
-    assert outcome.result_payload["needs_decision"] == [{"kind": "qa_needs_review"}]
+    # A settled gate joins the list this reader sees; a machine approval is
+    # answered on the Machines page, and only a waiting one belongs there.
+    assert outcome.result_payload["needs_decision"] == [
+        {"kind": "qa_needs_review"},
+        {"kind": "deployment_stage_approval"},
+    ]
+    assert outcome.result_payload["machine_approvals"] == [
+        {"kind": "machine_approval", "originator_actor_label": None},
+    ]
     assert outcome.result_payload["messages"] == []
     assert outcome.result_payload["pending_actor_message_count"] == 0
 

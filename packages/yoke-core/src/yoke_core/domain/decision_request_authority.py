@@ -161,6 +161,13 @@ def decision_request_authority_actor_ids(
     return tuple(sorted(actor_ids))
 
 
+# How many of an actor's own settled requests the Inbox keeps beside what
+# still waits on them. The answers themselves are permanent rows in
+# ``decision_request_decisions``; this bounds only how far back one reader
+# sees their own recent history.
+RECENTLY_DECIDED_SHOWN = 10
+
+
 def pending_requests_for_actor(
     conn: Any,
     actor_id: int,
@@ -204,9 +211,65 @@ def pending_requests_for_actor(
     return result
 
 
+def recently_decided_requests_for_actor(
+    conn: Any,
+    actor_id: int,
+    *,
+    project_ids: Optional[Iterable[int]] = None,
+    limit: int = RECENTLY_DECIDED_SHOWN,
+) -> list[dict[str, Any]]:
+    """List the settled requests this actor answered, most recent answer first.
+
+    A request the actor answered stays in ``pending_requests_for_actor`` only
+    while the gate itself is still pending. The moment the gate settles the
+    request leaves that list, so a reader who had just answered four of them
+    reloaded onto an empty history and lost the way back to what they decided.
+    Their answers are durable rows, so the settled request is read back through
+    the actor's own decision rather than remembered by the page that drew it.
+
+    A settled request offers no actions and cannot be answered again, so it
+    carries none: what it still carries is its subject, its evidence, and the
+    answer this actor gave it.
+    """
+    p = _p(conn)
+    allowed_projects = (
+        {int(value) for value in project_ids} if project_ids is not None else None
+    )
+    rows = conn.execute(
+        "SELECT d.request_id FROM decision_request_decisions d "
+        "JOIN decision_requests r ON r.id = d.request_id "
+        f"WHERE d.actor_id = {p} AND r.status <> 'pending' "
+        "ORDER BY d.decided_at DESC, d.request_id DESC",
+        (int(actor_id),),
+    ).fetchall()
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        if len(result) >= int(limit):
+            break
+        request = _request_row(conn, int(row[0]))
+        if (
+            allowed_projects is not None
+            and request["project_id"] is not None
+            and int(request["project_id"]) not in allowed_projects
+        ):
+            continue
+        reason = authority_reason(conn, request["id"], actor_id)
+        request["asked_of_you"] = reason == "asked of you"
+        request["authority_reason"] = reason
+        request["your_decision"] = actor_decision(conn, request["id"], actor_id)
+        request["decided_by_you"] = True
+        request["deciders"] = request_deciders(conn, request["id"], actor_id)
+        request["actions"] = []
+        request["can_act"] = False
+        result.append(request)
+    return result
+
+
 __all__ = [
+    "RECENTLY_DECIDED_SHOWN",
     "authority_reason",
     "decision_request_authority_actor_ids",
     "pending_requests_for_actor",
+    "recently_decided_requests_for_actor",
     "request_deciders",
 ]

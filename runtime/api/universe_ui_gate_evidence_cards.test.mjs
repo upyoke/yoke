@@ -20,6 +20,7 @@ import {
   artifactCaption,
   artifactEvidenceCard,
   artifactLabel,
+  artifactStepLabel,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/qa_evidence_artifact_view.js";
 import { evidenceStrip } from "../../packages/yoke-core/src/yoke_core/ui/static/review_evidence_strip.js";
 import { closeLightbox } from "../../packages/yoke-core/src/yoke_core/ui/static/review_lightbox.js";
@@ -52,6 +53,13 @@ test("artifact captions lead with the authored capture label", () => {
     artifactCaption(artifact),
     "Approval actions and eligibility · /inbox · step 2 · chromium",
   );
+  assert.equal(artifactStepLabel(artifact), "step 2");
+});
+
+test("a capture that recorded no step is not given one", () => {
+  assert.equal(artifactStepLabel({ metadata: { label: "Inbox" } }), "");
+  assert.equal(artifactStepLabel({ metadata: null }), "");
+  assert.equal(artifactStepLabel({ metadata: { step_index: 0 } }), "step 0");
 });
 
 test("a QA review shows what was checked, what the agent said, and each artifact", async () => {
@@ -108,7 +116,16 @@ test("a QA review loads its screenshots at once, addressed at the requirement", 
   const image = byClass(shot, "review-shot-image")[0];
   assert.ok(image.src.startsWith("data:image/png;base64,"), image.src);
   assert.equal(image.alt, "screenshot");
-  assert.equal(shot.getAttribute("aria-label"), "Open full size: screenshot");
+  // Picture and caption are two anchors to this artifact's own bytes, so
+  // each opens the evidence rather than whatever card is hosting it.
+  const picture = byClass(shot, "review-shot-open")[0];
+  const step = byClass(shot, "review-shot-step")[0];
+  assert.equal(picture.tagName, "A");
+  assert.equal(step.tagName, "A");
+  assert.equal(picture.href, image.src);
+  assert.equal(step.href, image.src);
+  assert.equal(picture.getAttribute("aria-label"), "Open full size: screenshot");
+  assert.equal(step.getAttribute("aria-label"), "Open full size: screenshot");
 });
 
 test("a thumbnail opens the picture in place, and Esc closes it", async () => {
@@ -119,7 +136,7 @@ test("a thumbnail opens the picture in place, and Esc closes it", async () => {
   // whichever document the shot belongs to.
   const shot = byClass(main, "review-shot")[0];
   const owner = shot.ownerDocument;
-  shot.dispatchEvent(new Event("click"));
+  byClass(shot, "review-shot-open")[0].dispatchEvent(new Event("click"));
 
   const lightbox = byClass(owner.body, "review-lightbox")[0];
   assert.ok(lightbox, "the picture opens in a lightbox");

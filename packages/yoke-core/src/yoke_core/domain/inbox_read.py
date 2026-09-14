@@ -9,6 +9,7 @@ from yoke_core.domain.actors import ActorError
 from yoke_core.domain.actor_message_recipients import inbox_actor_messages
 from yoke_core.domain.decision_request_authority import (
     pending_requests_for_actor,
+    recently_decided_requests_for_actor,
 )
 from yoke_core.domain.decision_request_contract import MACHINE_APPROVAL
 from yoke_core.domain.decision_request_disposition import (
@@ -58,6 +59,11 @@ def inbox_for_actor(
     beside the decision — which machine, its one-time code, who asked for
     it — is the Machines page. They travel in their own key so that page
     reads them from this one authority rather than a second one.
+
+    A short tail of the gates this actor already settled travels beside what
+    still waits, so what they just answered is still there after a reload.
+    Only the waiting gates can be answered somewhere else, so only they
+    reach the machine-approval key.
     """
     dispose_ended_decision_requests(conn, project_ids=project_ids)
     settle_operator_wake_notices(conn, actor_id=actor_id)
@@ -66,11 +72,18 @@ def inbox_for_actor(
         actor_id,
         project_ids=project_ids,
     )
+    settled = recently_decided_requests_for_actor(
+        conn,
+        actor_id,
+        project_ids=project_ids,
+    )
     actor_messages = inbox_actor_messages(
         conn, actor_id=actor_id, include_read=include_read
     )
     return {
-        "needs_decision": [row for row in decisions if row["kind"] != MACHINE_APPROVAL],
+        "needs_decision": [
+            row for row in (*decisions, *settled) if row["kind"] != MACHINE_APPROVAL
+        ],
         "machine_approvals": [
             _requester_named(conn, row)
             for row in decisions

@@ -10,6 +10,7 @@ from runtime.api.domain.decision_request_test_support import (
 from yoke_core.domain.decision_request_authority import (
     decision_request_authority_actor_ids,
     pending_requests_for_actor,
+    recently_decided_requests_for_actor,
     request_deciders,
 )
 from yoke_core.domain.decision_requests import (
@@ -199,3 +200,40 @@ def test_withdrawal_is_explicit_and_audited(conn):
     assert [
         row[0] for row in conn.execute("SELECT event_name FROM events ORDER BY id")
     ] == ["DecisionRequestCreated", "DecisionRequestWithdrawn"]
+
+
+def _settled_by_actor_four(conn):
+    request, _ = _transition_request(conn)
+    conn.execute("INSERT INTO actor_project_roles VALUES (4, 10, 2, 'later')")
+    resolve_decision_request(
+        conn,
+        request["id"],
+        actor_id=4,
+        action="approve",
+        note="Evidence checked",
+        resolved_at="2026-07-26T12:05:00Z",
+    )
+    return request
+
+
+def test_settled_requests_stay_readable_for_the_actor_who_answered(conn):
+    request = _settled_by_actor_four(conn)
+
+    assert pending_requests_for_actor(conn, 4) == []
+    decided = recently_decided_requests_for_actor(conn, 4)
+    assert [row["id"] for row in decided] == [request["id"]]
+    assert decided[0]["decided_by_you"] is True
+    assert decided[0]["your_decision"]["action"] == "approve"
+    # A settled request cannot be answered again, so it offers no way to.
+    assert decided[0]["actions"] == []
+    assert decided[0]["can_act"] is False
+    # Everyone else who could have answered it sees no history of their own.
+    assert recently_decided_requests_for_actor(conn, 2) == []
+
+
+def test_settled_history_honors_the_reader_project_scope_and_bound(conn):
+    _settled_by_actor_four(conn)
+
+    assert recently_decided_requests_for_actor(conn, 4, project_ids=[10])
+    assert recently_decided_requests_for_actor(conn, 4, project_ids=[11]) == []
+    assert recently_decided_requests_for_actor(conn, 4, limit=0) == []

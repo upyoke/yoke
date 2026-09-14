@@ -64,6 +64,16 @@ export function artifactCaption(artifact) {
   ].filter(Boolean).join(" · ");
 }
 
+// The one fact a thumbnail's caption carries: which step of its case took
+// the picture. Everything else the capture recorded stays on the artifact
+// and is read out beside the control, because four clauses under a
+// thumbnail are metadata rather than a caption. A capture that recorded no
+// step gets none invented for it.
+export function artifactStepLabel(artifact) {
+  const step = artifactMetadata(artifact)?.step_index;
+  return step === undefined || step === null ? "" : `step ${step}`;
+}
+
 export function artifactHandle(artifact) {
   if (!artifact.artifact_handle) return null;
   if (typeof artifact.artifact_handle === "object") {
@@ -307,6 +317,7 @@ export const qaEvidenceArtifactView = {
   artifactEvidenceCard,
   artifactHandle,
   artifactLabel,
+  artifactStepLabel,
   normalizeArtifact,
   showArtifactResult,
 };
