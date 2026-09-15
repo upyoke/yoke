@@ -1,4 +1,4 @@
-"""Dash done consumes current scoped acceptance, not a historical copy pass."""
+"""Dash done consumes this source's admitted copy on the completion run."""
 
 from __future__ import annotations
 
@@ -292,3 +292,36 @@ def test_required_human_pending_blocks_done_after_scoped_cases_pass(
         (original_id,),
     ).fetchone()[0]
     assert int(original_runs) == 0
+
+
+def test_passing_run_that_never_admitted_this_source_blocks_done(
+    test_db,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    item_id = 2333
+    _insert_dash(test_db, item_id=item_id, status="reviewing-implementation")
+    decoy_id = _bind_original(test_db, item_id=item_id)
+    _seed_selected_requirement_run(
+        test_db,
+        run_id="run-other-source",
+        item_id=item_id,
+        requirement_id=decoy_id,
+    )
+    _accept_member_qa(test_db, run_id="run-other-source", item_id=item_id)
+    source_id = _bind_original(test_db, item_id=item_id)
+    db_path = str(test_db.info.dsn)
+    blocked = evaluate(item_id=item_id, target_status="done", db_path=db_path)
+    assert blocked["error_code"] == "GATE_DASH_VERIFICATION_UNSATISFIED"
+    assert str(source_id) in blocked["error"]
+    outcome = _transition_done(test_db, item_id=item_id, monkeypatch=monkeypatch)
+    assert outcome.primary_success is False
+    source_runs = test_db.execute(
+        "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s",
+        (source_id,),
+    ).fetchone()[0]
+    waived = test_db.execute(
+        "SELECT waived_at FROM qa_requirements WHERE id=%s",
+        (source_id,),
+    ).fetchone()[0]
+    assert int(source_runs) == 0
+    assert waived is None

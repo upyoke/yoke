@@ -72,6 +72,7 @@ def test_intake_persists_delivery_evidence_as_existing_qa_rows() -> None:
     assert "do not wait for an environment" in text
     assert "does not re-run or waive the original" in compact
     assert "prior candidate's pass does not satisfy" in compact
+    assert "never admitted this source" in compact
     assert "item-scoped QA stage" in text
     assert "Never `update-stages`" in text
 
