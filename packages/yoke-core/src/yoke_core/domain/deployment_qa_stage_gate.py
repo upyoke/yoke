@@ -31,6 +31,30 @@ from yoke_core.domain import qa_execution_environment_target as target_authority
 
 ACCEPTANCE_QA_KIND = DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND
 
+#: A stage subject's settled answer, named where it is decided so callers
+#: do not re-derive it by reading the reason strings.
+OUTCOME_PASSED = "passed"
+OUTCOME_REJECTED = "rejected"
+OUTCOME_WAITING = "waiting"
+
+
+def _waiting(reasons: list[str]) -> dict[str, Any]:
+    return {
+        "accepted": False,
+        "outcome": OUTCOME_WAITING,
+        "reasons": reasons,
+        "request_id": None,
+    }
+
+
+def _passed() -> dict[str, Any]:
+    return {
+        "accepted": True,
+        "outcome": OUTCOME_PASSED,
+        "reasons": [],
+        "request_id": None,
+    }
+
 
 def _completed_execution(
     conn: Any,
@@ -199,7 +223,7 @@ def _settle_stage_status(
     if execution is None:
         failures.insert(0, "no completed scoped QA execution exists")
     if failures:
-        return {"accepted": False, "reasons": failures, "request_id": None}
+        return _waiting(failures)
     assert execution is not None
     obligation_failures = fulfill_admitted_obligations(
         conn,
@@ -211,21 +235,18 @@ def _settle_stage_status(
         acceptance_qa_kind=ACCEPTANCE_QA_KIND,
     )
     if obligation_failures:
-        return {
-            "accepted": False,
-            "reasons": obligation_failures,
-            "request_id": None,
-        }
+        return _waiting(obligation_failures)
     conn.execute("SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,))
     requirement_id = _acceptance_requirement(conn, subject=subject, target=target)
     if acceptance_waived(conn, requirement_id):
-        return {"accepted": True, "reasons": [], "request_id": None}
+        return _passed()
     latest = latest_verdict(conn, requirement_id)
     if latest == "pass":
-        return {"accepted": True, "reasons": [], "request_id": None}
+        return _passed()
     if latest == "fail":
         return {
             "accepted": False,
+            "outcome": OUTCOME_REJECTED,
             "reasons": [f"stage acceptance requirement #{requirement_id} was rejected"],
             "request_id": None,
         }
@@ -240,7 +261,7 @@ def _settle_stage_status(
             reason=f"all scoped cases passed under {mode}",
         )
         conn.commit()
-        return {"accepted": True, "reasons": [], "request_id": None}
+        return _passed()
     if latest != "undetermined":
         review_run_id = _record_acceptance(
             conn,
@@ -271,6 +292,7 @@ def _settle_stage_status(
     request_id = int(request["id"]) if request is not None else None
     return {
         "accepted": False,
+        "outcome": OUTCOME_WAITING,
         "reasons": [
             f"stage acceptance requirement #{requirement_id} awaits authorized human review"
         ],
@@ -278,4 +300,10 @@ def _settle_stage_status(
     }
 
 
-__all__ = ["ACCEPTANCE_QA_KIND", "deployment_qa_stage_status"]
+__all__ = [
+    "ACCEPTANCE_QA_KIND",
+    "OUTCOME_PASSED",
+    "OUTCOME_REJECTED",
+    "OUTCOME_WAITING",
+    "deployment_qa_stage_status",
+]

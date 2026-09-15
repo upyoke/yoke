@@ -56,6 +56,10 @@ PRODUCT_AUTHZ_BY_ID = {
     "project.snapshot.ensure_at": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "done_transition.finalize_local_side_effects": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "done_transition.populate_merged_at": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    # The closeout's owner delivery notice: a project-scoped write about an
+    # item, gated like the other done-transition writes rather than falling
+    # through to the side-effecting DENY default.
+    "done_transition.delivery_done_notice": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_receipt.record": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_receipt.get": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_queue.landing.observe": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),

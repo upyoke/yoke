@@ -49,6 +49,40 @@ degrading to a warning when undeliverable, because the verdict is the
 durable outcome; a requirement that is not a deployment-stage subject
 notifies nobody. Owner: `yoke_core.domain.deployment_qa_verdict_notice`.
 
+## A settled QA stage result reaches its configured audience
+
+A release has three notification surfaces and they are deliberately
+different. The stage-wait and human-verdict notices address SESSIONS —
+the agent that owes the work, or the one parked for a decision — because
+each asks somebody to act. This one addresses PEOPLE through the actor
+Inbox and asks for nothing: when a QA stage settles, it reports what was
+decided to whoever the flow said should hear it.
+
+Audience comes from the stage's own `notification` policy, which the
+flow definition already validates and which carries no ANY/ALL mode by
+construction: `roles` naming project role holders, `actors` naming
+members outright, and `item_owners` meaning the owners of the items the
+result covers. The audience is the union. An item owner who is also in
+it legitimately receives this notice AND the separate item-done notice —
+different events about different things, each with its own key, never
+folded together.
+
+Only a settled result is reported: passed, or rejected. A stage still
+waiting is not one, and reporting it would duplicate the wake that
+already addressed the agent. A stage that configured no notification, or
+one whose audience resolves to nobody, reports that rather than inventing
+a recipient. Passed and rejected carry separate keys, so a later
+rejection is its own event rather than a replacement, and the pinned
+target identity is part of the key so a distinct attempt reports
+distinctly. Reporting is best effort: the QA answer is the durable
+outcome, so a failure to report degrades to a printed warning and never
+changes the stage verdict.
+
+Owners: `yoke_core.domain.deployment_qa_result_notice`, reported from the
+pipeline's own QA-stage dispatch;
+`yoke_core.domain.deployment_item_owner` resolves an item's owning member
+for both this surface and the item-done notice.
+
 ## Done announces the delivery to the item's owner
 
 Reaching done for a delivery-carrying item sends its OWNER one

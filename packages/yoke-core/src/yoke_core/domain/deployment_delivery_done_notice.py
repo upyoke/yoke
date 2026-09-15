@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from yoke_contracts.session_control.models import RecipientSelector
-from yoke_core.domain.actors import is_human_actor
+from yoke_core.domain.deployment_item_owner import item_owner_actor
 from yoke_core.domain.session_message_service import send_message
 
 
@@ -57,24 +57,6 @@ def delivery_done_message(
         "approve and nothing to acknowledge. Its evidence is on the run: "
         f"'yoke deployment-runs get {run_id}'."
     )
-
-
-def _owner_actor(conn: Any, item_id: int) -> Optional[int]:
-    """The human member this item belongs to, or ``None``.
-
-    ``items.owner`` holds a stringified ``actors.id`` on every row the
-    current write path produced, and a legacy free-text token on older
-    ones. A token that is not a human actor id is not an owner this can
-    address, and saying so beats redirecting the notice at an agent.
-    """
-    row = conn.execute("SELECT owner FROM items WHERE id=%s", (int(item_id),)).fetchone()
-    if row is None:
-        return None
-    raw = str(row["owner"] or "").strip()
-    if not raw.isdigit():
-        return None
-    actor_id = int(raw)
-    return actor_id if is_human_actor(conn, actor_id) else None
 
 
 def _delivered_run(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
@@ -130,7 +112,7 @@ def notify_delivery_done(
             "reason": "no succeeded deployment run is attached to this item",
         }
     run_id = str(run["id"])
-    owner_actor_id = _owner_actor(conn, item_id)
+    owner_actor_id = item_owner_actor(conn, item_id)
     if owner_actor_id is None:
         return {
             "delivery": "",
