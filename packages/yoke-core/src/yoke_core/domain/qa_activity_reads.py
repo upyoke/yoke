@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 import json
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project
@@ -17,6 +17,13 @@ from yoke_core.domain.qa_execution_proof import (
     qa_run_outcome,
 )
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.qa_activity_selection import (
+    HAPPENED_AT,
+    activity_query,
+    bound_groups,
+    item_filter,
+    run_group_filter,
+)
 
 
 def _placeholder(conn: Any) -> str:
@@ -46,8 +53,25 @@ def _list_activity(
     *,
     identity: Optional[Any],
     deployment_run_id: Optional[str] = None,
+    item_ids: Optional[Iterable[int]] = None,
+    deployment_run_ids: Optional[Iterable[str]] = None,
     limit: int = 100,
-) -> list[dict]:
+) -> tuple[list[dict], Optional[dict[str, Any]]]:
+    """Return activity rows, and how an item-scoped read was bounded.
+
+    Without ``item_ids`` the read is a recency page over the whole scope and
+    ``limit`` caps it. With ``item_ids`` that page would be a defect rather
+    than a page: one busy subject filling the cap would silently hide every
+    other requested subject, so a card would report an item as having no
+    evidence and no waiting review when it has both. There ``limit`` bounds
+    each item's checks WITHIN each deployment run they name, and its run-less
+    checks as their own group, so neither another item nor another release
+    can take the rows a given card needs. The second return value names the
+    cap and exactly which items hit it — measured by fetching one row past
+    the cap, never inferred from a full-looking page. What is dropped is an
+    item's older history inside one run group; a caller that must not lose a
+    current request joins those independently rather than through these rows.
+    """
     marker = _placeholder(conn)
     params: list[Any] = []
     where = "WHERE q.plan_id IS NOT NULL"
@@ -57,26 +81,19 @@ def _list_activity(
     if deployment_run_id is not None:
         where += f" AND q.deployment_run_id={marker}"
         params.append(deployment_run_id)
-    params.append(max(1, min(int(limit), 500)))
+    where += item_filter(marker, params, item_ids)
+    where += run_group_filter(marker, params, deployment_run_ids)
+    bounded = max(1, min(int(limit), 500))
+    item_scoped = item_ids is not None
+    params.append(bounded + 1 if item_scoped else bounded)
     rows = query_rows(
         conn,
-        "SELECT q.id AS requirement_id, q.plan_id, q.plan_case_key, "
-        "q.deployment_run_id, "
-        "q.host_baseline, q.waived_at, p.slug AS plan, pr.slug AS project, "
-        "q.method_id, q.method_name, m.proof_kind, r.id AS run_id, "
-        "r.performed_by, "
-        "r.verdict, r.verdict_reason, r.case_outcome, r.capture_degraded_reason, "
-        "r.raw_result, "
-        "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at "
-        "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
-        "JOIN projects pr ON pr.id=p.project_id "
-        "LEFT JOIN qa_methods m ON m.id=q.method_id "
-        "LEFT JOIN qa_runs r ON r.id=("
-        "SELECT rr.id FROM qa_runs rr WHERE rr.qa_requirement_id=q.id "
-        "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"
-        f") {where} ORDER BY happened_at DESC, q.id DESC LIMIT {marker}",
+        activity_query(marker, where, item_scoped=item_scoped),
         tuple(params),
     )
+    selection: Optional[dict[str, Any]] = None
+    if item_scoped:
+        rows, selection = bound_groups(rows, bounded)
     # A review row rarely captures its own evidence — it embeds a
     # capture_run_id back to the immutable run that did — so evidence is
     # resolved through the same shared chain the item and plan detail pages
@@ -111,6 +128,15 @@ def _list_activity(
                 "requirement_id": int(row["requirement_id"]),
                 "run_id": run_id,
                 "deployment_run_id": row["deployment_run_id"],
+                "deployment_stage": row["deployment_stage"],
+                "item_id": (
+                    int(row["item_id"]) if row["item_id"] is not None else None
+                ),
+                "deployment_member_item_id": (
+                    int(row["deployment_member_item_id"])
+                    if row["deployment_member_item_id"] is not None
+                    else None
+                ),
                 "plan_id": int(row["plan_id"]),
                 "plan": str(row["plan"]),
                 "project": str(row["project"]),
@@ -139,7 +165,7 @@ def _list_activity(
                 "happened_at": row["happened_at"],
             }
         )
-    return result
+    return result, selection
 
 
 def _activity_summary(
@@ -147,12 +173,12 @@ def _activity_summary(
     *,
     identity: Optional[Any],
     deployment_run_id: Optional[str],
+    item_ids: Optional[Iterable[int]],
     day: Optional[date],
 ) -> dict[str, Any]:
     activity_day = day or datetime.now(timezone.utc).date()
     next_day = activity_day + timedelta(days=1)
     marker = _placeholder(conn)
-    happened_at = "COALESCE(r.completed_at, r.created_at, q.created_at)"
     params: list[Any] = []
     where = "WHERE q.plan_id IS NOT NULL"
     if identity is not None:
@@ -161,7 +187,8 @@ def _activity_summary(
     if deployment_run_id is not None:
         where += f" AND q.deployment_run_id={marker}"
         params.append(deployment_run_id)
-    where += f" AND {happened_at}>={marker} AND {happened_at}<{marker}"
+    where += item_filter(marker, params, item_ids)
+    where += f" AND {HAPPENED_AT}>={marker} AND {HAPPENED_AT}<{marker}"
     params.extend([activity_day.isoformat(), next_day.isoformat()])
     rows = query_rows(
         conn,
@@ -186,14 +213,19 @@ def list_activity(
     *,
     project: Optional[str] = None,
     deployment_run_id: Optional[str] = None,
+    item_ids: Optional[Iterable[int]] = None,
+    deployment_run_ids: Optional[Iterable[str]] = None,
     limit: int = 100,
 ) -> list[dict]:
+    """Return the rows alone; ``read_activity`` carries the bounding facts."""
     return _list_activity(
         conn,
         identity=_project_row(conn, project),
         deployment_run_id=deployment_run_id,
+        item_ids=item_ids,
+        deployment_run_ids=deployment_run_ids,
         limit=limit,
-    )
+    )[0]
 
 
 def read_activity(
@@ -201,22 +233,29 @@ def read_activity(
     *,
     project: Optional[str] = None,
     deployment_run_id: Optional[str] = None,
+    item_ids: Optional[Iterable[int]] = None,
+    deployment_run_ids: Optional[Iterable[str]] = None,
     limit: int = 100,
     day: Optional[date] = None,
 ) -> dict[str, Any]:
     """Return recent rows plus untruncated outcome counts for one UTC day."""
     identity = _project_row(conn, project)
+    rows, selection = _list_activity(
+        conn,
+        identity=identity,
+        deployment_run_id=deployment_run_id,
+        item_ids=item_ids,
+        deployment_run_ids=deployment_run_ids,
+        limit=limit,
+    )
     return {
-        "rows": _list_activity(
-            conn,
-            identity=identity,
-            deployment_run_id=deployment_run_id,
-            limit=limit,
-        ),
+        "rows": rows,
+        "item_selection": selection,
         "summary": _activity_summary(
             conn,
             identity=identity,
             deployment_run_id=deployment_run_id,
+            item_ids=item_ids,
             day=day,
         ),
     }

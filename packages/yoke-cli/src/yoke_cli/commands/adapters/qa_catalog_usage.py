@@ -14,7 +14,10 @@ USAGE_BY_FUNCTION_ID = {
     ),
     "qa.plan.list": "yoke qa plan list --project P",
     "qa.plan.get": ("yoke qa plan get PLAN_ID --project P [--deployment-run-id RUN]"),
-    "qa.activity.list": ("yoke qa activity list --project P [--deployment-run-id RUN]"),
+    "qa.activity.list": (
+        "yoke qa activity list --project P [--deployment-run-id RUN] "
+        "[--item-id N ...] [--limit N] [--json]"
+    ),
     "qa.plan.create": ("yoke qa plan create SLUG --project P --environment ENV"),
     "qa.plan_cases.replace": "yoke qa plan-cases replace --project P --plan-id N --stdin",
     "qa.registered_command.set": (
@@ -24,11 +27,9 @@ USAGE_BY_FUNCTION_ID = {
     ),
     "qa.no_tests.attest": (
         "yoke qa no-tests attest --project P "
-        "--reason \"why this project has no suite to bind\""
+        '--reason "why this project has no suite to bind"'
     ),
-    "qa.no_tests.clear": (
-        "yoke qa no-tests clear --project P --reason \"what changed\""
-    ),
+    "qa.no_tests.clear": ('yoke qa no-tests clear --project P --reason "what changed"'),
     "qa.project_default.set": (
         "yoke qa project-default set --project P --plan-id N "
         "--workflow W --transition T"

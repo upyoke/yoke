@@ -221,7 +221,10 @@ def test_compact_presentation_keeps_only_rendered_member_and_stage_facts(monkeyp
         compact=True,
     )
 
+    # ``id`` travels even here: a compact member is still the subject a
+    # reader joins that item's own QA evidence and reviews on.
     assert set(rows[0]["member_items"][0]) == {
+        "id",
         "ref",
         "title",
         "project_id",
@@ -249,7 +252,10 @@ def test_history_query_presents_flow_stages_and_derived_carried_items(
     assert row["flow"] == "release"
     assert row["flow_name"] == "Release"
     assert [stage["name"] for stage in row["stages"]] == [
-        "merged", "hosted-release", "warm-up", "complete",
+        "merged",
+        "hosted-release",
+        "warm-up",
+        "complete",
     ]
     assert all(stage["state"] == "complete" for stage in row["stages"])
     assert row["member_items"] == []

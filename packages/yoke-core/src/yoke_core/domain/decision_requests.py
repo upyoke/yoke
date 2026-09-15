@@ -17,17 +17,14 @@ from yoke_core.domain.approval_policy import (
     DEFAULT_APPROVAL_MODE,
 )
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.decision_related_evidence import related_screenshot_evidence
 from yoke_core.domain.decision_request_contract import (
     DECISION_KINDS,
-    DEPLOYMENT_STAGE_APPROVAL,
     LIFECYCLE_TRANSITION_APPROVAL,
-    QA_NEEDS_REVIEW,
     REQUEST_CREATED_EVENT,
 )
 from yoke_core.domain.decision_request_events import append_decision_event
+from yoke_core.domain.decision_request_live_evidence import live_evidence
 from yoke_core.domain.decision_request_subject_context import validate_subject_context
-from yoke_core.domain.qa_review_evidence import qa_review_artifact_context
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
@@ -45,62 +42,6 @@ def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
 
 
-def _live_evidence(
-    conn: Any,
-    kind: str,
-    context: dict[str, Any],
-    *,
-    subject_key: str,
-    project_id: Optional[int],
-) -> Optional[dict[str, Any]]:
-    """Recompute evidence live for a still-pending request.
-
-    A frozen snapshot never updates on its own; this reruns the same
-    resolution against the request's frozen subject, so a pending read sees
-    evidence recorded since -- the stored row, and every resolved or
-    withdrawn read, keep the original snapshot untouched. ``subject_key``/
-    ``project_id`` are the row's own typed identity, set once and never
-    rewritten -- matching ``run_id``/``requirement_id`` to each other alone
-    doesn't prove either agrees with the request this row actually is.
-    """
-    if kind == LIFECYCLE_TRANSITION_APPROVAL:
-        item_id = context.get("item_id")
-        if item_id is None:
-            return None
-        changes = context.get("branch_changes") or {}
-        return {
-            "evidence": related_screenshot_evidence(
-                conn, item_id=int(item_id), expected_revision=changes.get("commit_sha")
-            )
-        }
-    if kind == DEPLOYMENT_STAGE_APPROVAL:
-        run_id = context.get("run_id")
-        if run_id is None:
-            return None
-        shipping = context.get("shipping") or {}
-        return {
-            "evidence": related_screenshot_evidence(
-                conn,
-                deployment_run_id=str(run_id),
-                expected_revision=shipping.get("release_lineage"),
-            )
-        }
-    if kind == QA_NEEDS_REVIEW:
-        requirement_id = context.get("requirement_id")
-        run_id = context.get("run_id")
-        if requirement_id is None or run_id is None:
-            return None
-        if str(int(requirement_id)) != str(subject_key).strip():
-            return None
-        return qa_review_artifact_context(
-            conn,
-            requirement_id=int(requirement_id),
-            run_id=int(run_id),
-            expected_project_id=int(project_id) if project_id is not None else None,
-        )
-    return None
-
-
 def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
@@ -115,7 +56,7 @@ def _request_row(conn: Any, request_id: int) -> dict[str, Any]:
     except (TypeError, json.JSONDecodeError):
         result["subject_context"] = {}
     if result["status"] == "pending":
-        live = _live_evidence(
+        live = live_evidence(
             conn,
             result["kind"],
             result["subject_context"],

@@ -3,7 +3,15 @@
 // its checks captured.
 
 import { createDecisionResolver } from "./inbox_rows.js";
-import { overviewRunCard } from "./universe_overview_cards.js";
+import {
+  CARRIED_ITEMS_SHOWN,
+  carriedItems,
+  overviewRunCard,
+} from "./universe_overview_cards.js";
+import {
+  EMPTY_CARRIED_ITEM_FACTS,
+  loadCarriedItemEvidence,
+} from "./universe_carried_item_evidence.js";
 import {
   callError,
   OVERVIEW_CARD_LIMIT,
@@ -47,6 +55,12 @@ export async function loadDelivery(context, band, getScope) {
   const onGateAction = (gate, action, wrap, note) => resolve(
     { id: gate.request_id }, action, wrap, note,
   );
+  // A review answered inside a carried item is the same act as one answered
+  // in the Inbox, so it goes through the same resolver and the band reloads.
+  const onItemDecision = (request, action, wrap, note) => resolve(
+    request, action, wrap, note,
+  );
+  let itemFacts = EMPTY_CARRIED_ITEM_FACTS;
   const paint = () => {
     const chosen = projects.length
       ? selectedProjects(projects, getScope()) : buckets;
@@ -69,12 +83,34 @@ export async function loadDelivery(context, band, getScope) {
     band.setCount(rows.length);
     band.renderCards(
       rows.slice(0, OVERVIEW_CARD_LIMIT).map((row) => overviewRunCard(
-        context, row, getScope(), { onGateAction, facts },
+        context, row, getScope(), { onGateAction, facts, itemFacts, onItemDecision },
       )),
       "No deployment run is in flight.",
       "overview-run-grid",
     );
   };
   paint();
+  // What each carried item proved is read for the items these cards are
+  // about, which the run rows have to arrive first to name — and only for
+  // the entries a card actually lists, not the ones behind its "+N more".
+  // The cards paint without it and fill in when it lands, rather than
+  // holding the band.
+  const carried = [];
+  for (const callResult of callResults) {
+    const result = successfulResult(callResult);
+    for (const row of result?.rows || []) {
+      // Each subject travels with the run its card draws, so the read is
+      // sized by these cards rather than by every release it was ever in.
+      const runId = row.id || row.run_id;
+      for (const item of carriedItems(row).slice(0, CARRIED_ITEMS_SHOWN)) {
+        carried.push({ ...item, run_id: runId });
+      }
+    }
+  }
+  loadCarriedItemEvidence(context, carried).then((loaded) => {
+    if (!context.isMounted()) return;
+    itemFacts = loaded;
+    paint();
+  });
   return paint;
 }

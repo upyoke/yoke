@@ -64,7 +64,10 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     _read_entry(
         function_id="qa.activity.list",
-        cli_invocation=("yoke qa activity list --project P [--deployment-run-id RUN]"),
+        cli_invocation=(
+            "yoke qa activity list --project P [--deployment-run-id RUN] "
+            "[--item-id N ...] [--limit N] [--json]"
+        ),
     ),
     _read_entry(
         function_id="qa.artifact.read",

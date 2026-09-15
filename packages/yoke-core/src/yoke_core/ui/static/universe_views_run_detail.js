@@ -13,6 +13,11 @@ import { reviewRequestCard } from "./review_request_card.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
 import { KIND_LABELS } from "./review_request_presentation.js";
 import { carriedItems } from "./universe_overview_cards.js";
+import {
+  appendCarriedItemEvidence,
+  EMPTY_CARRIED_ITEM_FACTS,
+  loadCarriedItemEvidence,
+} from "./universe_carried_item_evidence.js";
 import { gateAsRequest, runGateStatus, runGates } from "./universe_run_gates.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import { RUNS_PAGE_SIZE } from "./universe_deployment_runs_loader.js";
@@ -118,8 +123,10 @@ function statusCopy(row, gate) {
   return { title: "Running", copy: `${row.current_stage || "A stage"} is running. Nothing is waiting on you.` };
 }
 
-// What the run carries, and the decision waiting on it.
-function decisionCard(context, row, project, onAct, evidenceShown) {
+// What the run carries, and the decision waiting on it. Each carried item
+// also shows its own QA and its own waiting review, which belong to the item
+// rather than to the release moving it.
+function decisionCard(context, row, project, onAct, evidenceShown, itemFacts, onItemDecision) {
   const documentNode = context.document;
   const gate = runGates(row)[0] || null;
   const card = el(documentNode, "section", "run-card");
@@ -140,6 +147,12 @@ function decisionCard(context, row, project, onAct, evidenceShown) {
       if (href) code.href = href;
       list.appendChild(code);
       list.appendChild(el(documentNode, "span", null, item.title || ""));
+      appendCarriedItemEvidence(context, list, {
+        item,
+        runId: row.id || row.run_id,
+        facts: itemFacts,
+        onDecide: onItemDecision,
+      });
     }
     card.appendChild(list);
   } else if (row.carried_work && row.carried_work.derivation?.contents_known === false) {
@@ -210,8 +223,18 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   const project = projectFor(context, row, scope);
   let checks = [];
   let artifacts = [];
+  let itemFacts = EMPTY_CARRIED_ITEM_FACTS;
   if (project) {
     let activity;
+    // The run's own checks and what its carried items proved on their own
+    // are two reads about one page; neither waits on the other.
+    const carried = loadCarriedItemEvidence(context, carriedItems(row).map(
+      (item) => ({
+        ...item,
+        project_id: item.project_id ?? project.id,
+        run_id: row.id || row.run_id,
+      }),
+    ));
     try {
       activity = await callFunction(context.client, "qa.activity.list", {
         project: String(project.id), deployment_run_id: String(runId), limit: 100,
@@ -225,6 +248,7 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
         (artifact) => ({ ...artifact, requirement_id: check.requirement_id }),
       ));
     }
+    itemFacts = await carried;
   }
   if (!context.isMounted()) return;
 
@@ -232,6 +256,11 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
     context, () => renderRunDetailView(context, main, scope, runId, navigation),
   );
   const onAct = (gate, action, node, note) => resolve({ id: gate.request_id }, action, node, note);
+  // A carried item's review is answered through the same resolver as the
+  // run's own gate, so the page reloads on either.
+  const onItemDecision = (request, action, node, note) => resolve(
+    request, action, node, note,
+  );
   const status = runGateStatus(row) || String(row.status || "unknown");
   const items = carriedItems(row);
   const page = el(documentNode, "div", "run-page");
@@ -257,7 +286,9 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   appendSteps(documentNode, page, row.stages);
   const grid = el(documentNode, "div", "run-grid");
   grid.appendChild(verificationCard(context, checks, artifacts));
-  grid.appendChild(decisionCard(context, row, project, onAct, artifacts.length > 0));
+  grid.appendChild(decisionCard(
+    context, row, project, onAct, artifacts.length > 0, itemFacts, onItemDecision,
+  ));
   page.appendChild(grid);
   main.replaceChildren(page);
 }
