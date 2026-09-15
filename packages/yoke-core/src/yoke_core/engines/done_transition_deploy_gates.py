@@ -9,9 +9,13 @@ Whether the delivery *obligation* was met at all is settled earlier, at
 step 4a, by the delivery satisfier ladder — see
 :mod:`yoke_core.engines.done_transition_satisfiers`. These guards run
 after that, and enforce the specifics of a real registered flow. An
-empty or ``*-internal`` flow reaches them already satisfied by the
-merge-only rung, which the item records; it is not an obligation these
-guards skip.
+empty flow on a pin with no release-stage redirect target, or any
+``*-internal`` flow, reaches them already satisfied by the merge-only
+rung, which the item records; it is not an obligation these guards
+skip. A pin that DOES support release-stage waiting instead resolves
+an empty flow against the project's delivery default first (see
+:mod:`yoke_core.engines.done_transition_delivery_default`), refusing
+with setup guidance rather than merge-only when nothing resolves.
 """
 
 from __future__ import annotations
@@ -20,6 +24,10 @@ from typing import Any, Dict, Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.engines.done_transition_delivery_default import (
+    freeze_resolved_delivery_flow as _freeze_resolved_delivery_flow,
+    resolve_default_delivery_flow as _resolve_default_delivery_flow,
+)
 
 
 def _parent():
@@ -84,6 +92,7 @@ def _check_deployment_flow_guard(
     delivery_stage_id: str | None,
     *,
     public_ref: str,
+    workflow_id: str = "",
 ) -> Optional[Tuple[int, str]]:
     """Post-merge deployment flow guard.
 
@@ -91,8 +100,35 @@ def _check_deployment_flow_guard(
     by the caller, so the guard renders its block narratives without opening a
     local connection on this read path.
 
+    ``delivery_stage_id`` is also the release-stage support boundary: ``None``
+    means this pin's delivery policy never redirects to a release stage (an
+    old pin, or Task/merge-only). Only a pin that DOES support release-stage
+    waiting gets the stricter resolve-or-refuse behavior below.
+
     Returns (exit_code, new_status) or None if clear.
     """
+    if not deploy_flow and delivery_stage_id is not None:
+        resolved = _resolve_default_delivery_flow(
+            item_project=item_project, workflow_id=workflow_id
+        )
+        if resolved:
+            _freeze_resolved_delivery_flow(item_id, resolved, public_ref=public_ref)
+            deploy_flow = resolved
+        else:
+            print("\n=== Delivery flow guard ===")
+            print(
+                f"Blocked: {public_ref} has no deployment flow selected, and "
+                f"project {item_project!r} has no workflow-specific or "
+                "project-wide delivery default configured for workflow "
+                f"{workflow_id!r}."
+            )
+            print(
+                "\nSet items.deployment_flow explicitly, or configure a "
+                "project delivery default (yoke workflows delivery-default "
+                "set), before this item can enter release."
+            )
+            return 7, old_status
+
     is_internal = deploy_flow.endswith("-internal") if deploy_flow else False
     if not deploy_flow or is_internal:
         # Not "no obligation" — the delivery obligation was already
