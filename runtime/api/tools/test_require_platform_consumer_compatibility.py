@@ -95,6 +95,9 @@ def test_success_that_names_no_revision_is_unproven_not_proven() -> None:
 
 
 def test_success_against_a_different_consumer_commit_is_unproven() -> None:
+    # The named branch can move past the bound commit between binding and
+    # dispatch; the recovery names a fresh run, never a mutated retry of the
+    # same pair (which `--retry-of` lineage could not carry anyway).
     code, narrative, proven = gate.classify(
         {
             "state": "success",
@@ -107,7 +110,12 @@ def test_success_against_a_different_consumer_commit_is_unproven() -> None:
 
     assert code == gate.UNPROVEN
     assert proven == ""
-    assert "does not match the bound pair" in narrative
+    assert "stale pair" in narrative
+    assert "start a new deployment run" in narrative
+    assert "fresh consumer commit" in narrative
+    assert "c" * 40 in narrative
+    assert CONSUMER_REVISION in narrative
+    assert gate.CONSUMER_TRUNK_REF in narrative
 
 
 def test_a_non_exact_pair_caller_trusts_the_run_s_own_evidence() -> None:
@@ -171,7 +179,7 @@ def test_one_candidate_can_never_adopt_another_candidate_s_run(
         f"{gate.CANDIDATE_INPUT}={CANDIDATE}"
     )
     for argv in seen:
-        assert argv[argv.index("--ref") + 1] == CONSUMER_REVISION
+        assert argv[argv.index("--ref") + 1] == gate.CONSUMER_TRUNK_REF
         assert argv[argv.index("--request-id") + 1].endswith(
             gate.CONSUMER_CHECK_WORKFLOW
         )
@@ -189,7 +197,9 @@ def test_a_different_consumer_commit_is_a_different_pair(
     request_ids = [argv[argv.index("--request-id") + 1] for argv in seen]
     assert request_ids[0] != request_ids[1]
     assert CONSUMER_REVISION in request_ids[0]
-    assert seen[1][seen[1].index("--ref") + 1] == "c" * 40
+    # Never the raw commit as the GitHub ref — HTTP 422 "No ref found".
+    assert seen[1][seen[1].index("--ref") + 1] == gate.CONSUMER_TRUNK_REF
+    assert not gate.is_full_commit_sha(seen[1][seen[1].index("--ref") + 1])
 
 
 def test_a_non_exact_pair_dispatch_never_reuses_a_stale_proof(
