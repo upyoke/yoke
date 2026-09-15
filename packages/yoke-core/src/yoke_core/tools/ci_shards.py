@@ -26,9 +26,14 @@ stale profile turns more shards into worse balance rather than better. A lagging
 profile is also invisible to :func:`profiled_size`, so it shows up as a
 selection sized far below the work it then does.
 
-:mod:`yoke_core.tools.ci_durations_refresh` rebuilds it from a full-suite CI
-run and owns what a stored second means: a group's sum is the wall seconds that
-group is expected to take, which is the unit
+Refreshing it means reading the per-test times out of the ``pytest-report.xml``
+artifact every shard of a full-suite CI run uploads — never a local sweep,
+whose machine and parallelism are not the ones being predicted. Those times are
+measured under ``-n auto``, so each carries its neighbours' contention and their
+sum exceeds the wall time the session took: store each test as its share of that
+sum applied to the wall time actually spent. Relative weights — all
+``least_duration`` reads — are untouched, and a group's stored sum stays
+readable as the wall seconds it predicts, the unit
 :data:`MIN_SHARD_PROFILE_SECONDS` is written in.
 
 ``-n auto`` mirrors ``DEFAULT_PARALLEL_WORKERS`` in
