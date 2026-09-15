@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT,
 )
+from yoke_core.domain.workflow_behavior import delivery_redirect_stage
 from yoke_core.domain.workflow_effective_policies import (
     EffectiveWorkflowPolicies,
     load_item_effective_workflow_policies,
@@ -117,7 +118,17 @@ def validate_item_qa_transition(
             f"workflow transition {transition!r} is not in "
             f"{workflow.workflow_id}@{workflow.version}"
         )
-    if qa_enforcement_signature(workflow, transition):
+    signature = qa_enforcement_signature(workflow, transition)
+    if effective.values.get("qa") == WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT:
+        # The pinned release wait carries its own qa_verification gate for
+        # the selected deployment flow's own QA -- a separate concern from
+        # this item's own optional attachment, so it never counts as a
+        # materialization gate reachable on its own for this policy.
+        release_wait = delivery_redirect_stage(workflow)
+        signature = tuple(
+            entry for entry in signature if entry[0] != release_wait
+        )
+    if signature:
         return transition, workflow
     if _selected_verification_matches(
         effective,

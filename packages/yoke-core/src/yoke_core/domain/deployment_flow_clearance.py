@@ -5,11 +5,14 @@ Shared by the done-transition engine's post-merge deployment-flow guard and
 the standalone merge boundary's terminal transition, so the two close-out
 paths read the same registered flow, the same target tier, and the same
 project delivery default rather than each guessing from the flow id's own
-name. A flow is merge-only only when either its id ends ``-internal`` (the
-existing naming convention for flows with no registration to look up) or a
-genuinely registered flow's own ``target_tier`` resolves to null -- never
-from an empty ``deployment_flow`` scalar alone, which instead falls back to
-the project's configured default before any merge-only judgment is made.
+name. A flow is merge-only only when it is genuinely registered AND its own
+``target_tier`` resolves to null -- never from the flow id's own spelling
+(an arbitrary or newly created flow must not waive a release wait by name),
+and never from an empty ``deployment_flow`` scalar alone, which instead
+falls back to the project's configured default before any merge-only
+judgment is made. A flow-name shortcut here would reproduce the documented
+deployment-guard defect of returning clear for an unproven flow
+(``docs/archive/decisions/gate-satisfier-ladders.md``).
 """
 
 from __future__ import annotations
@@ -65,8 +68,10 @@ def registered_deployment_flow_ids() -> list[str]:
 
 def deployment_flow_target_tier(deploy_flow: str) -> str:
     """One registered flow's semantic target tier; ``""`` is the merge-only
-    marker. Raises on an unread flow, matching every other read here: an
-    unread authority is not the same fact as a flow that resolved empty."""
+    marker -- an explicit ``"value": null`` in the response. Raises on an
+    unread flow, and on a response that omits the ``value`` field entirely
+    rather than naming it null: a malformed response is not the same fact
+    as a flow that was read and resolved empty."""
     resp = call_dispatcher(
         function_id="deployment_flows.get",
         target=TargetRef(kind="global"),
@@ -75,7 +80,12 @@ def deployment_flow_target_tier(deploy_flow: str) -> str:
     if not resp.success:
         message = resp.error.message if resp.error else "unknown error"
         raise RuntimeError(f"deployment_flows.get read failed: {message}")
-    value = (resp.result or {}).get("value")
+    result = resp.result or {}
+    if "value" not in result:
+        raise RuntimeError(
+            f"deployment_flows.get for {deploy_flow!r} named no 'value' field"
+        )
+    value = result["value"]
     return "" if value is None else str(value)
 
 
@@ -119,8 +129,6 @@ def resolve_delivery_clearance(
                     f"configured for workflow {workflow_id!r}."
                 ),
             )
-    if flow.endswith("-internal"):
-        return DeliveryClearance(merge_only=True, resolved_flow=flow)
     if flow not in registered_deployment_flow_ids():
         return DeliveryClearance(
             merge_only=False,

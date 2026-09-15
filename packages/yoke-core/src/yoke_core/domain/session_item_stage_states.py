@@ -24,6 +24,7 @@ from yoke_core.domain.session_item_stage_failures import (
     merge_failures,
     qa_failures,
 )
+from yoke_core.domain.workflow_behavior import delivery_redirect_stage
 from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
     workflow_runtime_from_row,
@@ -176,10 +177,15 @@ def _holder_modes(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
 
 
 def _closeout_stage(runtime: WorkflowRuntime) -> str:
+    # The pinned release wait is post-merge, so a landed-but-not-yet-closed
+    # item still stalled before that write belongs at the verification
+    # close that precedes it, not at the release wait itself.
+    excluded = set(runtime.terminal_stage_ids)
+    release_wait = delivery_redirect_stage(runtime)
+    if release_wait is not None:
+        excluded.add(release_wait)
     return next(
-        stage_id
-        for stage_id in reversed(runtime.stage_ids)
-        if stage_id not in runtime.terminal_stage_ids
+        stage_id for stage_id in reversed(runtime.stage_ids) if stage_id not in excluded
     )
 
 
@@ -198,9 +204,24 @@ def active_stage_id(
     handoff stage, the skill has taken the handoff and its first working
     stage is active. A binding with no working stage after its handoff, and
     every other posture, leave the status-derived stage active.
+
+    ``landed_open`` assumes a stale pre-merge status when it has no better
+    evidence, painting the verification close active rather than an
+    already-passed earlier stage. A status the item has already legitimately
+    reached past that close (a release wait recorded as its own real status,
+    not a merge-time guess) is trusted over the guess instead.
     """
     if landed_open:
-        return _closeout_stage(runtime)
+        closeout = _closeout_stage(runtime)
+        closeout_index = runtime.stage_index(closeout)
+        status_index = runtime.stage_index(status)
+        if (
+            status_index is not None
+            and closeout_index is not None
+            and status_index > closeout_index
+        ):
+            return status
+        return closeout
     binding = runtime.skill_binding_for_stage(status)
     if (
         binding is None

@@ -15,6 +15,7 @@ from yoke_core.domain.session_item_stage_states import (
     item_stage_states,
     primary_item_stages_by_session,
 )
+from yoke_core.domain.workflow_behavior import delivery_redirect_stage
 from yoke_core.domain.workflow_runtime import builtin_workflow_runtime
 from yoke_core.domain.work_claim_targets import make_item_target
 
@@ -47,10 +48,15 @@ def test_landed_open_item_activates_closeout_without_a_red_segment(
     workflow_id: str,
 ) -> None:
     runtime = builtin_workflow_runtime(workflow_id)
+    # The pinned release wait is post-merge, so it is excluded here exactly
+    # as the projection itself excludes it -- a landed-but-not-yet-closed
+    # item belongs at the verification close that precedes that wait.
+    excluded = set(runtime.terminal_stage_ids)
+    release_wait = delivery_redirect_stage(runtime)
+    if release_wait is not None:
+        excluded.add(release_wait)
     closeout = next(
-        stage_id
-        for stage_id in reversed(runtime.stage_ids)
-        if stage_id not in runtime.terminal_stage_ids
+        stage_id for stage_id in reversed(runtime.stage_ids) if stage_id not in excluded
     )
 
     stages = item_stage_states(

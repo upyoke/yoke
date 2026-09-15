@@ -21,9 +21,14 @@ EXPECTED_WORKFLOW_COPY = {
                 "The verification close — the agent self-checks, plus any "
                 "case a tightened posture knob added."
             ),
+            "release": (
+                "The merged candidate waits here for its selected deployment "
+                "flow's stages and verified QA; an item with no deployment "
+                "posture or flow passes straight through."
+            ),
             "done": (
                 "Result and verification evidence are recorded on the item; "
-                "delivery, when enabled, ran as an after-merge action."
+                "delivery, when required, waited at the release stage."
             ),
         },
     },
@@ -36,14 +41,20 @@ EXPECTED_WORKFLOW_COPY = {
         "stages": {
             "implementing": (
                 "The continuous slice loop — the linked document is executed "
-                "directly, and each slice may merge, migrate, and deploy; "
-                "there is no separate release stage."
+                "directly, and each slice may merge, migrate, and release "
+                "on its own; only the final closeout waits at the release "
+                "stage."
             ),
             "reviewing-implementation": (
                 "The once-per-item close — the full suite runs and the "
                 "document records what was completed, what changed, what "
                 "remains, the evidence, and how the parent strategy was "
                 "reconciled."
+            ),
+            "release": (
+                "The merged candidate waits here for its selected deployment "
+                "flow's stages and verified QA; an item with no deployment "
+                "posture or flow passes straight through."
             ),
             "done": (
                 "The execution document states completion and parent "

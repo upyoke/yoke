@@ -112,9 +112,14 @@ def lane_release_recovery_statuses(runtime: WorkflowRuntime) -> frozenset[str]:
 
     Implementation and polish handoffs that stop before a terminal stage are
     the recovery set. When those bindings land on a terminal (Dash, Blitz),
-    recovery uses the last non-terminal stage — the verification close.
+    recovery uses the last non-terminal stage — the verification close, not
+    the pinned release wait: that stage is post-merge, by which point the
+    implementation lane this recovers is already gone.
     """
-    terminals = runtime.terminal_stage_ids
+    terminals = set(runtime.terminal_stage_ids)
+    release_wait = delivery_redirect_stage(runtime)
+    if release_wait is not None:
+        terminals.add(release_wait)
     accepted: set[str] = set()
     for binding in runtime.definition.get("skill_bindings") or ():
         if str(binding["skill_id"]) not in _LANE_RELEASE_RECOVERY_SKILL_IDS:

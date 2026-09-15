@@ -75,6 +75,26 @@ def _dispatch(answers: dict[str, object]):
     return dispatch
 
 
+class TestDeploymentFlowTargetTier:
+    def test_an_explicit_null_value_is_the_merge_only_marker(self, monkeypatch):
+        monkeypatch.setattr(
+            clearance, "call_dispatcher", _dispatch({"deployment_flows.get": {"value": None}}),
+        )
+        assert clearance.deployment_flow_target_tier("custom-flow") == ""
+
+    def test_a_response_missing_the_value_field_raises_rather_than_reading_null(
+        self, monkeypatch,
+    ):
+        """A malformed response is not the same fact as a flow that
+        resolved empty -- reading it as merge-only would waive delivery
+        on a broken read instead of refusing it."""
+        monkeypatch.setattr(
+            clearance, "call_dispatcher", _dispatch({"deployment_flows.get": {}}),
+        )
+        with pytest.raises(RuntimeError, match="named no 'value' field"):
+            clearance.deployment_flow_target_tier("custom-flow")
+
+
 class TestResolveDeliveryClearance:
     def test_an_arbitrary_named_flow_with_a_real_target_tier_is_not_merge_only(
         self, monkeypatch,
@@ -130,20 +150,40 @@ class TestResolveDeliveryClearance:
         assert result.merge_only is False
         assert "not a registered deployment flow" in result.blocked_reason
 
-    def test_an_internal_suffixed_flow_stays_merge_only_by_its_own_convention(
+    def test_an_internal_suffixed_name_is_not_a_merge_only_shortcut(
+        self, monkeypatch,
+    ):
+        """Naming alone must not waive delivery -- an unregistered
+        ``-internal``-spelled flow is blocked exactly like any other typo,
+        and a registered one still answers from its own target tier."""
+        monkeypatch.setattr(
+            clearance,
+            "call_dispatcher",
+            _dispatch({"done_transition.registered_flow_ids": {"flow_ids": []}}),
+        )
+        result = clearance.resolve_delivery_clearance(
+            deploy_flow="dash-internal", item_project="yoke", workflow_id="dash",
+        )
+        assert result.merge_only is False
+        assert "not a registered deployment flow" in result.blocked_reason
+
+    def test_a_registered_internal_suffixed_flow_answers_from_its_own_tier(
         self, monkeypatch,
     ):
         monkeypatch.setattr(
             clearance,
             "call_dispatcher",
-            lambda **_k: (_ for _ in ()).throw(
-                AssertionError("an -internal flow needs no registry or tier read")
+            _dispatch(
+                {
+                    "done_transition.registered_flow_ids": {"flow_ids": ["dash-internal"]},
+                    "deployment_flows.get": {"value": "production"},
+                }
             ),
         )
         result = clearance.resolve_delivery_clearance(
             deploy_flow="dash-internal", item_project="yoke", workflow_id="dash",
         )
-        assert result.merge_only is True
+        assert result.merge_only is False
 
     def test_an_empty_flow_resolves_the_project_default_before_any_verdict(
         self, monkeypatch,
