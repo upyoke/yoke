@@ -11,7 +11,9 @@ from runtime.api.tools.session_relay_release_test_support import (
     NEXT_RELEASE,
     RELEASE,
     fake_venv,
+    pin_baseline,
     relay_instance,
+    reuse_only_runner,
     runner_for,
 )
 from yoke_core.tools.session_relay_release import (
@@ -92,21 +94,14 @@ def test_successful_pin_installs_a_wheel_then_repoints_the_active_release(
 
 
 def test_same_served_build_reuses_the_verified_install(tmp_path: Path) -> None:
-    instance = relay_instance(tmp_path)
-    calls: list[list[str]] = []
-    pin_relay_release(
-        instance=instance,
-        served_build=f"v{RELEASE}",
-        create_venv=fake_venv,
-        runner=runner_for(RELEASE, calls),
-    )
+    instance = pin_baseline(tmp_path)
     original_target = (instance.state_dir / "release").resolve()
 
     reused = pin_relay_release(
         instance=instance,
         served_build=f"v{RELEASE}",
         create_venv=lambda _path: pytest.fail("same release created another venv"),
-        runner=lambda *_args, **_kwargs: pytest.fail("same release ran pip"),
+        runner=reuse_only_runner(RELEASE),
     )
 
     assert reused.current
@@ -147,6 +142,7 @@ def test_existing_release_link_converges_to_the_stable_runtime(
         instance=instance,
         served_build=f"v{RELEASE}",
         create_venv=lambda _path: pytest.fail("working release was reinstalled"),
+        runner=reuse_only_runner(RELEASE),
     )
 
     assert status.current
@@ -279,3 +275,75 @@ def test_status_never_treats_a_stale_served_build_as_a_fresh_handshake(
     assert observed.served_build == ""
     assert not observed.current
     assert observed.error_code == RELAY_RELEASE_FETCH_FAILED
+
+
+@pytest.mark.parametrize(
+    ("probe_returncode", "probe_stdout"),
+    ((1, ""), (0, f"{NEXT_RELEASE}\n")),
+    ids=("broken_import", "wrong_version"),
+)
+def test_status_flags_a_pinned_release_that_no_longer_runs(
+    tmp_path: Path, probe_returncode: int, probe_stdout: str
+) -> None:
+    instance = pin_baseline(tmp_path)
+
+    def run(command, **_kwargs):
+        argv = list(command)
+        return subprocess.CompletedProcess(argv, probe_returncode, probe_stdout, "boom")
+
+    status = relay_release_status(instance=instance, refresh_served=False, runner=run)
+
+    assert not status.package_ready
+    assert not status.current
+    assert status.error_code == RELAY_RELEASE_INSTALL_FAILED
+
+
+def test_broken_matching_release_is_rebuilt_from_a_verified_candidate(
+    tmp_path: Path,
+) -> None:
+    instance = pin_baseline(tmp_path)
+    prior_target = (instance.state_dir / "release").resolve()
+    probed = {"count": 0}
+
+    def recovering(command, **_kwargs):
+        argv = list(command)
+        if "pip" in argv:
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        if "-c" in argv:
+            probed["count"] += 1
+            if probed["count"] == 1:
+                return subprocess.CompletedProcess(argv, 1, "", "ModuleNotFoundError")
+            return subprocess.CompletedProcess(argv, 0, f"{RELEASE}\n", "")
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    rebuilt = pin_relay_release(
+        instance=instance,
+        served_build=f"v{RELEASE}",
+        create_venv=fake_venv,
+        runner=recovering,
+    )
+
+    assert rebuilt.current
+    assert (instance.state_dir / "release").resolve() != prior_target
+
+
+def test_broken_release_rebuild_failure_keeps_the_prior_pointer(
+    tmp_path: Path,
+) -> None:
+    instance = pin_baseline(tmp_path)
+    prior_target = (instance.state_dir / "release").resolve()
+
+    def always_broken(command, **_kwargs):
+        argv = list(command)
+        return subprocess.CompletedProcess(argv, 1, "", "ModuleNotFoundError")
+
+    with pytest.raises(RelayReleaseError) as raised:
+        pin_relay_release(
+            instance=instance,
+            served_build=f"v{RELEASE}",
+            create_venv=lambda _path: (_ for _ in ()).throw(OSError("disk full")),
+            runner=always_broken,
+        )
+
+    assert raised.value.code == RELAY_RELEASE_INSTALL_FAILED
+    assert (instance.state_dir / "release").resolve() == prior_target

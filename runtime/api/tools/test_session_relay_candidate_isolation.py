@@ -66,21 +66,30 @@ def _site_packages(prefix: Path) -> Path:
     )
 
 
-def _install_metadata(site_packages: Path, release: str) -> None:
-    """Write the yoke-core distribution metadata importlib.metadata reads."""
+def _install_yoke_cli(site_packages: Path, release: str) -> None:
+    """Write a real, importable yoke_cli package plus its dist-info metadata.
+
+    A dist-info stub alone would satisfy importlib.metadata.version() without
+    proving the package it describes is actually importable -- exactly the gap
+    the runnable check exists to close.
+    """
     dist_info = site_packages / f"yoke_core-{release}.dist-info"
     dist_info.mkdir(parents=True, exist_ok=True)
     (dist_info / "METADATA").write_text(
         f"Metadata-Version: 2.1\nName: yoke-core\nVersion: {release}\n",
         encoding="utf-8",
     )
+    cli = site_packages / "yoke_cli"
+    cli.mkdir(parents=True, exist_ok=True)
+    (cli / "__init__.py").write_text("", encoding="utf-8")
+    (cli / "main.py").write_text("", encoding="utf-8")
 
 
 @pytest.fixture
 def donor_pythonpath(tmp_path: Path) -> Path:
     """A running release's site-packages, exported the way the relay does."""
     donor = tmp_path / "running-release-packages"
-    _install_metadata(donor, RUNNING_RELEASE)
+    _install_yoke_cli(donor, RUNNING_RELEASE)
     return donor
 
 
@@ -96,7 +105,7 @@ def _installing_runner(donor: Path, argv_log: list[list[str]]):
         argv_log.append(argv)
         candidate = Path(argv[0]).parent.parent
         if "pip" in argv:
-            _install_metadata(_site_packages(candidate), CANDIDATE_RELEASE)
+            _install_yoke_cli(_site_packages(candidate), CANDIDATE_RELEASE)
             (candidate / "bin" / "yoke").write_text("", encoding="utf-8")
             return subprocess.CompletedProcess(argv, 0, "", "")
         return subprocess.run(

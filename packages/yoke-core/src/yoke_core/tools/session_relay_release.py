@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import subprocess
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 import uuid
@@ -24,6 +25,7 @@ from yoke_contracts.api_urls import (
     HOSTED_PROD_API_URL,
     HOSTED_STAGE_API_URL,
 )
+from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 
 
 RELAY_LAUNCH_LINK_NAME = "venv"
@@ -216,8 +218,10 @@ def relay_release_status(
     instance: RelayInstance | None = None,
     refresh_served: bool = True,
     fetch_manifest: ManifestFetcher = manifest.fetch_env_manifest,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> RelayReleaseStatus:
-    """Inspect the active release receipt and optionally refresh the served build."""
+    """Inspect the active release receipt, verify it still runs, and optionally
+    refresh the served build."""
     selected = instance or resolve_relay_instance()
     receipt = _read_json(
         relay_active_release_path(selected.state_dir) / RELAY_RELEASE_RECEIPT_NAME
@@ -248,6 +252,20 @@ def relay_release_status(
     package_ready = bool(
         package_executable.is_file() and package_python.is_file() and pinned and served
     )
+    if package_ready:
+        broken_reason = relay_package_runnable_reason(
+            package_python,
+            pinned,
+            isolation_flag=PYTHON_ISOLATION_FLAG,
+            runner=runner,
+        )
+        if broken_reason:
+            package_ready = False
+            if not error_code:
+                error_code = RELAY_RELEASE_INSTALL_FAILED
+                error_message = (
+                    f"installed relay release {pinned} does not run: {broken_reason}"
+                )
     current = bool(
         package_ready
         and relay_launch_targets_runtime(selected.state_dir)

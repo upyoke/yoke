@@ -42,6 +42,7 @@ from yoke_core.tools.session_relay_runtime_install import (
     ensure_relay_runtime,
     subprocess_failure_detail,
 )
+from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 from yoke_core.tools import session_relay_local_install as local_install
 
 
@@ -84,7 +85,9 @@ def pin_relay_release(
                 selected.state_dir,
                 create_runtime=create_runtime,
             )
-            existing = relay_release_status(instance=selected, refresh_served=False)
+            existing = relay_release_status(
+                instance=selected, refresh_served=False, runner=runner
+            )
             if existing.package_ready and existing.pinned_release == release:
                 activate_relay_runtime(selected.state_dir)
                 _clear_failure(selected.state_dir)
@@ -222,24 +225,15 @@ def _install_candidate(
                 f"could not fetch {PRODUCT_REQUIREMENT}=={release} from "
                 f"{index}: {_command_detail(result)}",
             )
-        verified = runner(
-            [
-                str(python),
-                PYTHON_ISOLATION_FLAG,
-                "-c",
-                "from importlib.metadata import version; print(version('yoke-core'))",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
+        broken_reason = relay_package_runnable_reason(
+            python, release, isolation_flag=PYTHON_ISOLATION_FLAG, runner=runner
         )
-        executable = candidate / "bin" / "yoke"
-        if verified.returncode != 0 or verified.stdout.strip() != release:
+        if broken_reason:
             raise RelayReleaseError(
                 RELAY_RELEASE_INSTALL_FAILED,
-                f"installed relay release did not verify as {release}: "
-                f"{_command_detail(verified)}",
+                f"installed relay release did not verify as {release}: {broken_reason}",
             )
+        executable = candidate / "bin" / "yoke"
         if not executable.is_file():
             raise RelayReleaseError(
                 RELAY_RELEASE_INSTALL_FAILED,
