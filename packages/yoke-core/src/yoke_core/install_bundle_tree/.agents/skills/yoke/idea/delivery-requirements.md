@@ -69,7 +69,7 @@ yoke items scalar update PREFIX-N --field deployment_flow --value FLOW-ID
 ```
 
 Do not rewrite `deploy_defaults` or `workflows.delivery_default.set` to make
-one ticket work. Those are shared.
+a single item succeed. Those are shared.
 
 ## Persist the item-specific case
 
