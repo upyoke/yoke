@@ -7,13 +7,12 @@ consulted.
 
 Whether the delivery *obligation* was met at all is settled earlier, at
 step 4a, by the delivery satisfier ladder — see
-:mod:`yoke_core.engines.done_transition_satisfiers`. These guards run
-after that, and enforce the specifics of a real registered flow. An
-empty flow on a pin with no release-stage redirect target, or any
-``*-internal`` flow, reaches them already satisfied by the merge-only
-rung, which the item records; it is not an obligation these guards
-skip. A pin that DOES support release-stage waiting instead resolves
-an empty flow against the project's delivery default first (see
+:mod:`yoke_core.engines.done_transition_satisfiers`. These guards enforce
+the specifics of a real registered flow after that. An empty flow with
+no release-stage redirect target, or any ``*-internal`` flow, reaches
+them already satisfied by the merge-only rung. A pin that DOES support
+release-stage waiting instead resolves an empty flow against the
+project's delivery default first (see
 :mod:`yoke_core.engines.done_transition_delivery_default`), refusing
 with setup guidance rather than merge-only when nothing resolves.
 """
@@ -102,7 +101,7 @@ def _check_deployment_flow_guard(
 
     ``delivery_stage_id`` is also the release-stage support boundary: ``None``
     means this pin's delivery policy never redirects to a release stage (an
-    old pin, or Task/merge-only). Only a pin that DOES support release-stage
+    old pin, or Task/merge-only); only a pin that DOES support release-stage
     waiting gets the stricter resolve-or-refuse behavior below.
 
     Returns (exit_code, new_status) or None if clear.
@@ -112,8 +111,9 @@ def _check_deployment_flow_guard(
             item_project=item_project, workflow_id=workflow_id
         )
         if resolved:
-            _freeze_resolved_delivery_flow(item_id, resolved, public_ref=public_ref)
-            deploy_flow = resolved
+            deploy_flow = _freeze_resolved_delivery_flow(
+                item_id, resolved, public_ref=public_ref
+            )
         else:
             print("\n=== Delivery flow guard ===")
             print(

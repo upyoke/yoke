@@ -5,8 +5,6 @@ from __future__ import annotations
 from typing import Any
 from unittest import mock
 
-import pytest
-
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import deployment_qa_stage_dispatch as dispatch_mod
 from yoke_core.domain.deployment_qa_stage_dispatch import dispatch_deployment_qa_stage
@@ -89,10 +87,9 @@ def test_accepted_member_is_never_woken(test_db: Any) -> None:
     notify.assert_not_called()
 
 
-def test_run_scoped_waiting_stage_is_never_woken(test_db: Any) -> None:
-    """Run scope has no single item to wake; that is a separate, ungrounded
-    mechanism (waking steering's assigned combined-review agent) out of
-    scope here."""
+def test_run_scoped_waiting_stage_wakes_the_run_driver(test_db: Any) -> None:
+    """Run scope has no single item to wake, so it addresses the project's
+    deploy-lock driver (or steering) instead of an item claim holder."""
     _run(test_db, "run-wake-3")
     stage = {"name": "run-qa", "scope": "run"}
 
@@ -101,13 +98,45 @@ def test_run_scoped_waiting_stage_is_never_woken(test_db: Any) -> None:
             dispatch_mod, "deployment_qa_stage_status", return_value=_WAITING
         ),
         mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"),
-        mock.patch.object(dispatch_mod, "notify_item_scoped_qa_wait") as notify,
+        mock.patch.object(dispatch_mod, "notify_item_scoped_qa_wait") as item_notify,
+        mock.patch.object(
+            dispatch_mod, "notify_run_scoped_qa_wait", return_value="delivered"
+        ) as run_notify,
     ):
         rc, diag = dispatch_deployment_qa_stage(stage, run_id="run-wake-3")
 
     assert rc == -4
     assert "run: awaiting agent verdict" in diag
-    notify.assert_not_called()
+    item_notify.assert_not_called()
+    run_notify.assert_called_once()
+    assert run_notify.call_args.kwargs["run_id"] == "run-wake-3"
+    assert run_notify.call_args.kwargs["stage_name"] == "run-qa"
+    assert run_notify.call_args.kwargs["project_id"] == 1
+    assert "awaiting agent verdict" in run_notify.call_args.kwargs["reasons"]
+
+
+def test_run_scoped_wait_with_no_recipient_is_reported_visibly(
+    test_db: Any, capsys
+) -> None:
+    _run(test_db, "run-wake-5")
+    stage = {"name": "run-qa", "scope": "run"}
+
+    with (
+        mock.patch.object(
+            dispatch_mod, "deployment_qa_stage_status", return_value=_WAITING
+        ),
+        mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"),
+        mock.patch.object(
+            dispatch_mod, "notify_run_scoped_qa_wait", return_value=""
+        ),
+    ):
+        rc, diag = dispatch_deployment_qa_stage(stage, run_id="run-wake-5")
+
+    assert rc == -4
+    assert "run: awaiting agent verdict" in diag
+    out = capsys.readouterr().out
+    assert "no deploy-lock driver" in out
+    assert "Staff it manually" in out
 
 
 def test_a_wake_failure_degrades_without_losing_the_wait_result(
@@ -132,4 +161,6 @@ def test_a_wake_failure_degrades_without_losing_the_wait_result(
 
     assert rc == -4
     assert "awaiting agent verdict" in diag
-    assert "could not wake item 9604" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "could not wake a recipient for run" in out
+    assert "member 9604" in out

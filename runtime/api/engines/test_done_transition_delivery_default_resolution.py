@@ -52,30 +52,32 @@ class TestResolveDefaultDeliveryFlow:
             == ""
         )
 
-    def test_relay_failure_resolves_empty_rather_than_raising(self):
+    def test_relay_failure_raises_rather_than_reading_as_no_config(self):
         response = SimpleNamespace(
             success=False, result={}, error=SimpleNamespace(message="unavailable"),
         )
         with mock.patch.object(
             delivery_default, "call_dispatcher", return_value=response
         ):
-            assert (
+            with pytest.raises(RuntimeError, match="unavailable"):
                 delivery_default.resolve_default_delivery_flow(
                     item_project="yoke", workflow_id="dash"
                 )
-                == ""
-            )
 
 
 class TestFreezeResolvedDeliveryFlow:
     def test_writes_the_resolved_flow_onto_the_item(self):
         response = SimpleNamespace(success=True, result={}, error=None)
-        with mock.patch.object(
-            delivery_default, "call_dispatcher", return_value=response
-        ) as dispatch:
-            delivery_default.freeze_resolved_delivery_flow(
+        with (
+            mock.patch.object(delivery_default, "_query_item_field", return_value=""),
+            mock.patch.object(
+                delivery_default, "call_dispatcher", return_value=response
+            ) as dispatch,
+        ):
+            result = delivery_default.freeze_resolved_delivery_flow(
                 550, "ext-default", public_ref="EXT-550"
             )
+        assert result == "ext-default"
         assert dispatch.call_args.kwargs["function_id"] == "items.scalar.update"
         assert dispatch.call_args.kwargs["payload"] == {
             "field": "deployment_flow",
@@ -86,10 +88,28 @@ class TestFreezeResolvedDeliveryFlow:
         response = SimpleNamespace(
             success=False, result={}, error=SimpleNamespace(message="frozen item"),
         )
-        with mock.patch.object(
-            delivery_default, "call_dispatcher", return_value=response
+        with (
+            mock.patch.object(delivery_default, "_query_item_field", return_value=""),
+            mock.patch.object(
+                delivery_default, "call_dispatcher", return_value=response
+            ),
         ):
             with pytest.raises(RuntimeError, match="frozen item"):
                 delivery_default.freeze_resolved_delivery_flow(
                     551, "ext-default", public_ref="EXT-551"
                 )
+
+    def test_a_value_set_since_the_callers_earlier_read_wins_and_is_not_overwritten(
+        self,
+    ):
+        with (
+            mock.patch.object(
+                delivery_default, "_query_item_field", return_value="raced-in-value"
+            ),
+            mock.patch.object(delivery_default, "call_dispatcher") as dispatch,
+        ):
+            result = delivery_default.freeze_resolved_delivery_flow(
+                552, "ext-default", public_ref="EXT-552"
+            )
+        assert result == "raced-in-value"
+        dispatch.assert_not_called()

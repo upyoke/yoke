@@ -251,6 +251,7 @@ class TestDeploymentFlowGuardMissingFlowResolution:
             mock.patch.object(
                 done_transition_deploy_gates,
                 "_freeze_resolved_delivery_flow",
+                return_value="externalwebapp-prod-release",
             ) as freeze,
             _patch_registered_flows(["externalwebapp-prod-release"]),
             _patch_target_tier(""),
@@ -274,6 +275,38 @@ class TestDeploymentFlowGuardMissingFlowResolution:
         # Merge-only target tier means the resolved flow itself needs no run.
         assert result is None
         assert "is NOT a registered deployment flow" not in capsys.readouterr().out
+
+    def test_a_value_raced_in_since_the_earlier_read_wins_over_the_resolved_default(
+        self,
+    ):
+        """freeze_resolved_delivery_flow rereads immediately before writing;
+        the guard must use ITS returned value, not the resolved default,
+        when something else set a real value in between."""
+        with (
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_resolve_default_delivery_flow",
+                return_value="externalwebapp-prod-release",
+            ),
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_freeze_resolved_delivery_flow",
+                return_value="externalwebapp-internal",
+            ),
+        ):
+            result = done_transition._check_deployment_flow_guard(
+                item_id=543,
+                deploy_flow="",
+                skip_deploy=False,
+                item_project="externalwebapp",
+                old_status="reviewing-implementation",
+                delivery_stage_id="release",
+                public_ref="EXT-543",
+                workflow_id="dash",
+            )
+        # The raced-in value is an -internal flow, so it resolves merge-only
+        # rather than the resolved default's own target-tier path.
+        assert result is None
 
     def test_nothing_resolves_refuses_with_setup_guidance(self, capsys):
         with mock.patch.object(
