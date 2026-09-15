@@ -102,28 +102,53 @@ def _persistent_environment_producer(
 ) -> tuple[int, str, Optional[StageObservation]]:
     """Dispatch to a registered environment and record what it served.
 
-    The observed lineage is the pinned candidate, and it is honest here
-    only because of the diagnostic contract above: this producer reports an
-    observation solely when the runner returned its own verification that
-    the environment serves that candidate (health-check asserts the served
-    build against the run's pinned image tag). It reads back no URL of its
-    own — the registered environment's endpoint is configuration, which
-    ``deployment_qa_execution_target`` already cross-checks — and no
-    artifact identity.
+    Reporting the run's own pinned lineage as *observed* is only honest if
+    something actually read the served identity back, so this producer
+    checks that the runner's verification names this candidate rather than
+    trusting that it ran: the diagnostic must equal the immutable
+    ``canonical_image_tag`` derivation of the pinned lineage, which is what
+    health-check asserts the served ``build`` against. Anything else — a
+    liveness-only check, a build assertion against an explicitly
+    configured tag that is not this candidate's, a branch-HEAD fallback,
+    or a runner whose diagnostic is not a candidate identity at all — has
+    not observed this candidate, and the caller settles the receipt failed
+    rather than recording an unobserved lineage.
+
+    It reads back no URL of its own (the registered environment's endpoint
+    is configuration, which ``deployment_qa_execution_target`` already
+    cross-checks) and no artifact identity.
     """
     exec_rc, exec_diag = context.dispatch(
         dispatch_environment=context.dispatch_environment
     )
-    if exec_rc in (0, -3) and exec_diag:
+    if exec_rc not in (0, -3) or not exec_diag:
+        return exec_rc, exec_diag, None
+    if not context.release_lineage:
         return (
             exec_rc,
-            exec_diag,
-            StageObservation(
-                target_name=context.dispatch_environment,
-                observed_release_lineage=context.release_lineage,
-            ),
+            "this run pins no candidate revision, so nothing the runner "
+            "verified can identify the served candidate",
+            None,
         )
-    return exec_rc, exec_diag, None
+    from yoke_core.domain.deploy_image_tag import canonical_image_tag
+
+    expected = canonical_image_tag(context.release_lineage)
+    if exec_diag.strip() != expected:
+        return (
+            exec_rc,
+            f"the runner verified build {exec_diag.strip()!r}, which does not "
+            f"identify this run's pinned candidate (expected {expected!r}); "
+            "the served candidate was not observed",
+            None,
+        )
+    return (
+        exec_rc,
+        exec_diag,
+        StageObservation(
+            target_name=context.dispatch_environment,
+            observed_release_lineage=context.release_lineage,
+        ),
+    )
 
 
 #: Every target kind this installation can produce a verified receipt for.

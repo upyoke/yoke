@@ -22,6 +22,7 @@ import json
 from typing import Any
 
 from yoke_core.domain import deploy_pipeline_stage_receipt as dispatch_module
+from yoke_core.domain.deploy_image_tag import canonical_image_tag
 from yoke_core.domain.deployment_flow_versioning import cmd_create
 from yoke_core.domain.deployment_stage_receipts import (
     allocate_deployment_stage_receipt,
@@ -31,6 +32,8 @@ from yoke_core.domain.deployment_stage_receipts import (
 
 LINEAGE = "c" * 40
 PREVIEW_URL = "https://preview-run.example.test"
+#: The health-check diagnostic that identifies this pinned candidate.
+VERIFIED_BUILD = canonical_image_tag(LINEAGE)
 
 
 def _preview_stages() -> list[dict[str, Any]]:
@@ -219,7 +222,7 @@ def test_pinned_artifact_run_is_refused_without_allocating_a_receipt(
         stages[0],
         stages,
         run_id="run-store-pinned",
-        dispatch_return=(0, "build-42"),
+        dispatch_return=(0, VERIFIED_BUILD),
         run_artifact_identity='{"digest":"sha256:pinned"}',
     )
 
@@ -243,7 +246,7 @@ def test_environment_receipt_settles_under_the_real_validator(
         stages[0],
         stages,
         run_id="run-store-env",
-        dispatch_return=(0, "served build matches the pinned image tag"),
+        dispatch_return=(0, VERIFIED_BUILD),
     )
 
     assert rc == 0
@@ -252,9 +255,7 @@ def test_environment_receipt_settles_under_the_real_validator(
     assert receipt["status"] == "ready"
     assert receipt["observed_release_lineage"] == LINEAGE
     assert receipt["observed_artifact_identity"] is None
-    assert receipt["executor_receipt"] == (
-        "served build matches the pinned image tag"
-    )
+    assert receipt["executor_receipt"] == VERIFIED_BUILD
     # The scoped-QA consumer accepts it as this stage's evidence.
     resolved = deployment_stage_receipt_for_qa(
         test_db,

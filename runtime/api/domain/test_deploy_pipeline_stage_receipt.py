@@ -8,10 +8,15 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import deploy_pipeline_stage_receipt as target_module
+from yoke_core.domain.deploy_image_tag import canonical_image_tag
 
 
 RUN_ID = "run-receipt-wrapper"
 LINEAGE = "f" * 40
+
+#: What health-check reports having asserted the served build against when
+#: the run pins this candidate — the only diagnostic that identifies it.
+VERIFIED_BUILD = canonical_image_tag(LINEAGE)
 
 _BASE_KWARGS: Dict[str, Any] = dict(
     run_id=RUN_ID,
@@ -90,9 +95,9 @@ def test_stage_with_no_consuming_qa_dispatches_unchanged() -> None:
     stage = _stage("deploy-stage", "health-check")
     stages = [stage]
     result, allocate, complete, _latest, dispatch = _dispatch_with(
-        stage, stages, dispatch_return=(0, "build-1")
+        stage, stages, dispatch_return=(0, VERIFIED_BUILD)
     )
-    assert result == (0, "build-1")
+    assert result == (0, VERIFIED_BUILD)
     dispatch.assert_called_once()
     allocate.assert_not_called()
     complete.assert_not_called()
@@ -132,7 +137,7 @@ def test_dispatch_targets_the_flows_own_declared_environment() -> None:
     stage = _stage("deploy-stage", "health-check")
     stages = [stage, _qa_stage("deploy-stage", environment="prod")]
     _result, allocate, complete, _latest, dispatch = _dispatch_with(
-        stage, stages, dispatch_return=(0, "build-1")
+        stage, stages, dispatch_return=(0, VERIFIED_BUILD)
     )
     # The run's own environment_name is "stage" (see _BASE_KWARGS); the flow
     # declares "prod" for this stage's QA consumer, and dispatch follows it.
@@ -151,16 +156,41 @@ def test_health_check_ready_reports_its_diagnostic_as_the_executor_receipt() -> 
     stage = _stage("deploy-stage", "health-check")
     stages = [stage, _qa_stage("deploy-stage")]
     result, allocate, complete, _latest, _dispatch = _dispatch_with(
-        stage, stages, dispatch_return=(0, "build-42")
+        stage, stages, dispatch_return=(0, VERIFIED_BUILD)
     )
-    assert result == (0, "build-42")
+    assert result == (0, VERIFIED_BUILD)
     allocate.assert_called_once()
     complete.assert_called_once()
     kwargs = complete.call_args.kwargs
     assert kwargs["status"] == "ready"
-    assert kwargs["executor_receipt"] == "build-42"
+    assert kwargs["executor_receipt"] == VERIFIED_BUILD
     assert kwargs["observed_artifact_identity"] is None
     assert kwargs["observed_release_lineage"] == LINEAGE
+
+
+def test_verified_build_that_is_not_the_candidate_is_not_an_observation() -> None:
+    """A build assertion that names another tag did not observe this one."""
+    stage = _stage("deploy-stage", "health-check")
+    stages = [stage, _qa_stage("deploy-stage")]
+    result, _allocate, complete, _latest, _dispatch = _dispatch_with(
+        stage, stages, dispatch_return=(0, "build-42")
+    )
+    rc, diag = result
+    assert rc == 1
+    assert "does not identify this run's pinned candidate" in diag
+    assert complete.call_args.kwargs["status"] == "failed"
+
+
+def test_run_without_a_pinned_candidate_cannot_observe_one() -> None:
+    stage = _stage("deploy-stage", "health-check")
+    stages = [stage, _qa_stage("deploy-stage")]
+    result, _allocate, complete, _latest, _dispatch = _dispatch_with(
+        stage, stages, dispatch_return=(0, VERIFIED_BUILD), release_lineage=""
+    )
+    rc, diag = result
+    assert rc == 1
+    assert "pins no candidate revision" in diag
+    assert complete.call_args.kwargs["status"] == "failed"
 
 
 def test_run_pinning_an_unobservable_artifact_refuses_before_dispatch() -> None:
@@ -170,7 +200,7 @@ def test_run_pinning_an_unobservable_artifact_refuses_before_dispatch() -> None:
     result, allocate, complete, _latest, dispatch = _dispatch_with(
         stage,
         stages,
-        dispatch_return=(0, "build-42"),
+        dispatch_return=(0, VERIFIED_BUILD),
         run_artifact_identity="registry/yoke@sha256:cafe",
     )
     rc, diag = result

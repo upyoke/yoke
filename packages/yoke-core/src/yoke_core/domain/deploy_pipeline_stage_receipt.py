@@ -230,7 +230,9 @@ def dispatch_step_runner_with_receipt(
         return exec_rc, exec_diag
 
     if exec_rc in (0, -3):
-        failure_reason = (
+        # A producer that refused says why in its own diagnostic; only a
+        # runner that reported nothing at all gets the generic reason.
+        failure_reason = exec_diag or (
             f"stage {stage_name!r} step runner {step_runner!r} exited "
             f"{exec_rc} with no verifiable candidate evidence; that runner "
             "has no provider-specific verification wired yet and cannot "
