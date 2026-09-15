@@ -1,0 +1,219 @@
+"""Stage-receipt production wraps dispatch honestly or refuses closed."""
+
+from __future__ import annotations
+
+from typing import Any, Dict
+from unittest import mock
+
+import pytest
+
+from yoke_core.domain import deploy_pipeline_stage_receipt as target_module
+
+
+RUN_ID = "run-receipt-wrapper"
+LINEAGE = "f" * 40
+
+_BASE_KWARGS: Dict[str, Any] = dict(
+    run_id=RUN_ID,
+    member_items=["1"],
+    github_repo="owner/repo",
+    project="yoke",
+    project_repo_path="/tmp/repo",
+    branch="feature",
+    first_item="1",
+    first_item_label="YOK-1",
+    timeout_min=5,
+    fresh=False,
+    image_tag="",
+    environment_name="stage",
+    gate_branch="main",
+    release_lineage=LINEAGE,
+)
+
+
+def _stage(name: str, step_runner: str) -> Dict[str, Any]:
+    return {"name": name, "step_runner": step_runner, "stage_kind": "execution"}
+
+
+def _qa_stage(
+    source_stage: str,
+    *,
+    name: str = "release-qa",
+    kind: str = "persistent_environment",
+    environment: str = "stage",
+) -> Dict[str, Any]:
+    target: Dict[str, Any] = {"kind": kind, "source_stage": source_stage}
+    if kind == "persistent_environment":
+        target["environment"] = environment
+    return {
+        "name": name,
+        "step_runner": "qa",
+        "stage_kind": "qa",
+        "scope": "run",
+        "target": target,
+        "verdict": {"mode": "agent_only"},
+    }
+
+
+def _control_plane_mocks(*, latest: Dict[str, Any] | None = None):
+    allocate = mock.Mock(return_value={"receipt_id": 99, "attempt_number": 1, "status": "pending"})
+    complete = mock.Mock(return_value={"receipt_id": 99, "status": "ready"})
+    latest_fn = mock.Mock(return_value=latest)
+    return allocate, complete, latest_fn
+
+
+def _dispatch_with(stage, stages, *, dispatch_return=None, dispatch_side_effect=None, latest=None):
+    allocate, complete, latest_fn = _control_plane_mocks(latest=latest)
+    with mock.patch.object(target_module.control_plane, "allocate_stage_receipt", allocate), \
+         mock.patch.object(target_module.control_plane, "complete_stage_receipt", complete), \
+         mock.patch.object(target_module.control_plane, "latest_stage_receipt", latest_fn), \
+         mock.patch.object(
+             target_module,
+             "_dispatch_step_runner",
+             mock.Mock(return_value=dispatch_return, side_effect=dispatch_side_effect),
+         ) as dispatch:
+        result = target_module.dispatch_step_runner_with_receipt(
+            stage, stages=stages, **_BASE_KWARGS
+        )
+    return result, allocate, complete, latest_fn, dispatch
+
+
+def test_stage_with_no_consuming_qa_dispatches_unchanged() -> None:
+    stage = _stage("deploy-stage", "health-check")
+    stages = [stage]
+    result, allocate, complete, _latest, dispatch = _dispatch_with(
+        stage, stages, dispatch_return=(0, "build-1")
+    )
+    assert result == (0, "build-1")
+    dispatch.assert_called_once()
+    allocate.assert_not_called()
+    complete.assert_not_called()
+
+
+def test_run_preview_target_refuses_before_dispatch_for_any_runner() -> None:
+    stage = _stage("preview-stage", "ephemeral-verify")
+    stages = [stage, _qa_stage("preview-stage", kind="run_preview")]
+    result, allocate, complete, _latest, dispatch = _dispatch_with(
+        stage, stages, dispatch_return=(-3, "https://preview.example.test")
+    )
+    rc, diag = result
+    assert rc == 1
+    assert "cannot yet produce a verified receipt" in diag
+    dispatch.assert_not_called()
+    allocate.assert_not_called()
+    complete.assert_not_called()
+
+
+def test_disagreeing_qa_consumers_refuse_before_dispatch() -> None:
+    stage = _stage("deploy-stage", "health-check")
+    stages = [
+        stage,
+        _qa_stage("deploy-stage", name="stage-qa", environment="stage"),
+        _qa_stage("deploy-stage", name="prod-qa", environment="prod"),
+    ]
+    result, allocate, complete, _latest, dispatch = _dispatch_with(stage, stages)
+    rc, diag = result
+    assert rc == 1
+    assert "disagree" in diag
+    dispatch.assert_not_called()
+    allocate.assert_not_called()
+    complete.assert_not_called()
+
+
+def test_dispatch_targets_the_flows_own_declared_environment() -> None:
+    stage = _stage("deploy-stage", "health-check")
+    stages = [stage, _qa_stage("deploy-stage", environment="prod")]
+    _result, allocate, complete, _latest, dispatch = _dispatch_with(
+        stage, stages, dispatch_return=(0, "build-1")
+    )
+    # The run's own environment_name is "stage" (see _BASE_KWARGS); the flow
+    # declares "prod" for this stage's QA consumer, and dispatch follows it.
+    assert dispatch.call_args.kwargs["environment_name"] == "prod"
+    assert allocate.call_args.kwargs["target_kind"] == "persistent_environment"
+    assert complete.call_args.kwargs["target_name"] == "prod"
+
+
+def test_health_check_ready_records_verified_build_as_evidence() -> None:
+    stage = _stage("deploy-stage", "health-check")
+    stages = [stage, _qa_stage("deploy-stage")]
+    result, allocate, complete, _latest, _dispatch = _dispatch_with(
+        stage, stages, dispatch_return=(0, "build-42")
+    )
+    assert result == (0, "build-42")
+    allocate.assert_called_once()
+    complete.assert_called_once()
+    kwargs = complete.call_args.kwargs
+    assert kwargs["status"] == "ready"
+    assert kwargs["observed_artifact_identity"] == "build-42"
+    assert kwargs["observed_release_lineage"] == LINEAGE
+
+
+def test_success_with_no_diagnostic_fails_closed_regardless_of_runner() -> None:
+    """The generic evidence contract, not a hardcoded runner allowlist: any
+    step runner that succeeds without reporting a diagnostic has nothing
+    verified to back a receipt with.
+    """
+    stage = _stage("deploy-stage", "core-container-deploy")
+    stages = [stage, _qa_stage("deploy-stage")]
+    result, _allocate, complete, _latest, _dispatch = _dispatch_with(
+        stage, stages, dispatch_return=(0, "")
+    )
+    rc, diag = result
+    assert rc == 1
+    assert "no provider-specific verification wired yet" in diag
+    assert complete.call_args.kwargs["status"] == "failed"
+
+
+def test_human_approval_wait_leaves_receipt_pending() -> None:
+    stage = _stage("deploy-stage", "health-check")
+    stages = [stage, _qa_stage("deploy-stage")]
+    result, allocate, complete, _latest, _dispatch = _dispatch_with(
+        stage, stages, dispatch_return=(-2, "awaiting human approval")
+    )
+    assert result == (-2, "awaiting human approval")
+    allocate.assert_called_once()
+    complete.assert_not_called()
+
+
+def test_correlation_reuses_a_still_pending_attempt() -> None:
+    stage = _stage("deploy-stage", "health-check")
+    stages = [stage, _qa_stage("deploy-stage")]
+    _result, allocate, _complete, _latest, _dispatch = _dispatch_with(
+        stage,
+        stages,
+        dispatch_return=(0, "build-1"),
+        latest={"status": "pending", "correlation_id": "in-flight-correlation"},
+    )
+    assert allocate.call_args.kwargs["correlation_id"] == "in-flight-correlation"
+
+
+def test_correlation_is_fresh_after_a_terminal_attempt() -> None:
+    stage = _stage("deploy-stage", "health-check")
+    stages = [stage, _qa_stage("deploy-stage")]
+    _result, allocate, _complete, _latest, _dispatch = _dispatch_with(
+        stage,
+        stages,
+        dispatch_return=(0, "build-1"),
+        latest={"status": "failed", "correlation_id": "old-terminal-correlation"},
+    )
+    assert allocate.call_args.kwargs["correlation_id"] != "old-terminal-correlation"
+
+
+def test_dispatch_exception_settles_the_receipt_failed_and_reraises() -> None:
+    stage = _stage("deploy-stage", "health-check")
+    stages = [stage, _qa_stage("deploy-stage")]
+    allocate, complete, latest_fn = _control_plane_mocks()
+    with mock.patch.object(target_module.control_plane, "allocate_stage_receipt", allocate), \
+         mock.patch.object(target_module.control_plane, "complete_stage_receipt", complete), \
+         mock.patch.object(target_module.control_plane, "latest_stage_receipt", latest_fn), \
+         mock.patch.object(
+             target_module,
+             "_dispatch_step_runner",
+             mock.Mock(side_effect=RuntimeError("executor blew up")),
+         ):
+        with pytest.raises(RuntimeError, match="executor blew up"):
+            target_module.dispatch_step_runner_with_receipt(
+                stage, stages=stages, **_BASE_KWARGS
+            )
+    assert complete.call_args.kwargs["status"] == "failed"
+    assert "executor blew up" in complete.call_args.kwargs["failure_reason"]

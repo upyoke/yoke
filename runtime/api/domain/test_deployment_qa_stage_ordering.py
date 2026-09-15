@@ -206,6 +206,7 @@ def test_new_producer_attempt_invalidates_and_can_replace_prior_acceptance(
     )
     complete_deployment_stage_receipt(
         test_db,
+        run_id=run_id,
         receipt_id=int(replacement["id"]),
         correlation_id="replacement-deploy",
         status="ready",

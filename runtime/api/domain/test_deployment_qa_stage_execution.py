@@ -158,6 +158,7 @@ def _seed_run(
     )
     complete_deployment_stage_receipt(
         conn,
+        run_id=run_id,
         receipt_id=int(receipt["id"]),
         correlation_id=str(receipt["correlation_id"]),
         status="ready",

@@ -147,6 +147,15 @@ PRODUCT_AUTHZ_BY_ID = {
     "deployment_runs.execution.qa_seed": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.qa_record": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.qa_pending": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.stage_receipt_allocate": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN
+    ),
+    "deployment_runs.execution.stage_receipt_complete": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN
+    ),
+    "deployment_runs.execution.stage_receipt_latest": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN
+    ),
     "qa.case.waive": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.case_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
