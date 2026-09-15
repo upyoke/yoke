@@ -41,24 +41,78 @@ lets configuration land ahead of runtime.
 Target kinds are one axis of that answer and identity provability is the
 other, because supporting a kind is not the same as being able to
 observe one. A QA stage reads its target from an earlier stage's
-receipt, and that receipt is evidence only if the producing step runner
-returned a *verified* candidate identity rather than a diagnostic
-string. `IDENTITY_PROVING_STEP_RUNNERS` names the runners that do;
-today that is the Yoke core health check alone, which asserts the served
-`build` against the run's pinned image tag over Yoke's own health
-contract. That is a Yoke-core-shaped proof, not a generic one: a project
-deploying its own environment through its own workflow has a perfectly
-valid `persistent_environment` target behind a runner that reports what
-the workflow did rather than what the environment now serves.
+receipt, and that receipt is evidence only if something verified which
+candidate the target is actually serving. Two things can supply that,
+and either is enough.
+
+The first is the environment itself, and it is the project-agnostic one.
+When the project configures an identity path on its `health-endpoint`
+capability, the producer reads the revision back off the environment's
+own registered `environments.url` at that path and the answer is the
+observation — whatever deployed the environment. So a project that
+deploys through its own workflow has a provable `persistent_environment`
+target without Yoke-shaped health semantics.
+
+The second applies only when no such path is configured: the producing
+step runner's own verified candidate identity.
+`IDENTITY_PROVING_STEP_RUNNERS` names the runners that return one, which
+today is the Yoke core health check alone, asserting the served `build`
+against the run's pinned image tag over Yoke's own health contract. That
+is a Yoke-core-shaped proof, so it is the fallback rather than the rule,
+and it keeps every definition that predates the configured path working
+unchanged.
 
 `RUNNER_VERIFIED_TARGET_KINDS` names the kinds that take their identity
-from the runner. A kind whose producer reads the target back itself is
-deliberately excluded — the runner that deployed a preview never needed
-to prove anything — which keeps the two axes independent. A QA stage in
-that intersection behind a non-proving runner is refused at the same
-gates, reported as `unprovable_qa_identity_stages`, and refused again
-before dispatch so a definition activated before that gate existed stops
-before it changes a real environment rather than after.
+from the runner when they have no readback of their own. A kind whose
+producer reads the target back itself is deliberately excluded — the
+runner that deployed a preview never needed to prove anything — which
+keeps the two axes independent. A QA stage in that intersection, behind a
+non-proving runner *and* with no configured identity path, is refused at
+the same gates, reported as `unprovable_qa_identity_stages`, and refused
+again before dispatch so a definition activated before that gate existed
+stops before it changes a real environment rather than after.
+
+## Asking a deployed environment which revision it serves
+
+The configured proof is one reader, `served_revision_probe`, shared with
+the preview freshness check rather than duplicated per target class. It
+GETs the path, follows redirects only while they stay on the origin it
+was given, and accepts only a verified `200` whose trimmed body is one
+full 40-character revision equal to the candidate. An abbreviation, a
+placeholder such as `unknown`, an error page, a non-200 carrying the
+right body, and a redirect off the origin are each reported as what
+could not be verified — `unreachable`, `malformed`, `mismatch` — rather
+than as a match, and the response format is deliberately not negotiable:
+plain text is the contract the one live consumer already serves.
+
+Neither half of the question comes from the machine that asks it. The
+origin is the environment's own registered url and the path is project
+capability authority, both resolved server-side beside the run by
+`deployment_target_identity_config.run_target_identity` and handed to the
+release driver, which runs the candidate build and probes over the
+network but supplies neither value. The origin is selected by the same
+environment name the receipt records (`identity_origin_for`), so a
+sibling environment's host can never answer for the environment under
+test, and the consumer's own requirement that the receipt's
+`target_name` equal the QA stage's declared environment binds the
+evidence to the target QA actually runs against.
+
+Which capability carries the path is a target-class distinction, not a
+naming one: `health-endpoint.identity_path` is persistent authority and
+`ephemeral-env.identity_path` is preview authority, because a preview and
+a long-lived environment have different origins and one is no authority
+over the other. Both refuse a configured value carrying its own scheme
+or host through the same rule
+(`served_revision_probe.origin_relative_path_error`), at the point the
+value is set rather than where it is read.
+
+Absence and failure stay different answers throughout. Most projects
+publish no such endpoint, which is an answer — the runner-verified
+fallback applies and nothing is refused. A capability that cannot be
+*read* is not evidence of absence, so it refuses activation and refuses
+before dispatch, naming the read that failed, rather than reporting
+"unconfigured" and letting an unprovable definition through on the
+strength of a failed lookup.
 
 Registering a producer is therefore the whole act of widening the
 boundary: `RECEIPT_PRODUCERS` gains an entry, `SUPPORTED_TARGET_KINDS`
