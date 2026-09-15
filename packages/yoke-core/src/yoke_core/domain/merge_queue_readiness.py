@@ -63,6 +63,13 @@ class MergeQueueReadiness:
     merged: Optional[bool] = None
     closed: Optional[bool] = None
     merge_state_status: str = ""
+    #: The commit the pull request's head branch points at on origin.
+    head_sha: str = ""
+    #: The commit GitHub recorded for a merged pull request, and when. A
+    #: caller that finds a candidate already landed reports the head that
+    #: actually landed rather than the one it was holding.
+    merge_commit_sha: str = ""
+    merged_at: str = ""
     failed_checks: tuple[LandingCheck, ...] = field(default=())
     warnings: tuple[str, ...] = field(default=())
 
@@ -70,6 +77,36 @@ class MergeQueueReadiness:
     def needs_action(self) -> bool:
         """Whether this read found no live landing to wait for."""
         return self.landing_state not in (IN_FLIGHT, LANDED, NOT_STARTED)
+
+    @property
+    def queue_readable(self) -> bool:
+        """Whether the target branch's queue answered at all."""
+        return self.queue_entry_state not in (ENTRY_NOT_READ, UNREADABLE)
+
+    @property
+    def has_queue_entry(self) -> bool:
+        """Whether GitHub reports this pull request holding a queue entry."""
+        return self.queue_readable and self.queue_entry_state != ENTRY_ABSENT
+
+    @property
+    def armed(self) -> bool:
+        """Whether merge-when-ready is set and not yet consumed by an entry."""
+        return self.merge_when_ready == MERGE_WHEN_READY_ARMED
+
+    @property
+    def queue_clear(self) -> bool:
+        """Whether neither an entry nor a live arming is driving the landing.
+
+        Both halves are read facts, and both are needed: ``merge_when_ready``
+        reports ``cleared`` only when the pull request carries no arming AND
+        no entry consumed one, so the pair together is what distinguishes a
+        held candidate from one the queue is still driving.
+        """
+        return (
+            self.queue_readable
+            and self.queue_entry_state == ENTRY_ABSENT
+            and self.merge_when_ready == MERGE_WHEN_READY_CLEARED
+        )
 
     def describe(self) -> str:
         """Render the facts without treating a consumed arming as cleared."""
@@ -97,6 +134,9 @@ class MergeQueueReadiness:
             "merged": self.merged,
             "closed": self.closed,
             "merge_state_status": self.merge_state_status,
+            "head_sha": self.head_sha,
+            "merge_commit_sha": self.merge_commit_sha,
+            "merged_at": self.merged_at,
             "failed_checks": [check_payload(check) for check in self.failed_checks],
             "narrative": self.describe(),
             "warnings": list(self.warnings),
@@ -203,6 +243,9 @@ def classify_readiness(
         merge_state_status=(state.merge_state_status or "").upper()
         if state is not None
         else "",
+        head_sha=state.head_sha if state is not None else "",
+        merge_commit_sha=state.merge_commit_sha if state is not None else "",
+        merged_at=state.merged_at if state is not None else "",
         failed_checks=failed_checks,
         warnings=warnings,
     )

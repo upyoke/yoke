@@ -130,6 +130,7 @@ def execute_ci_case(
         else qa_case_ci_lane.ref_sha(checkout, source_ref)
     )
     tree = verification_tree_binding.TreeIdentity(str(checkout), head_sha)
+    target = entry_run_base or qa_case_ci_entry_run.base_branch(project, checkout)
     empty = qa_case_ci_empty_diff.record_pass_if_empty(
         case,
         checkout,
@@ -142,7 +143,7 @@ def execute_ci_case(
         branch=branch,
         head_sha=head_sha,
         tree=tree,
-        target=entry_run_base or qa_case_ci_entry_run.base_branch(project, checkout),
+        target=target,
         requirement_id=requirement_id,
         budget=budget,
     )
@@ -164,7 +165,9 @@ def execute_ci_case(
     poll_output = ""
     superseded_ci_run_id = ""
     try:
-        qa_case_ci_lane.push_lane(checkout, branch, source_ref=source_ref)
+        qa_case_ci_lane.push_lane(
+            checkout, branch, project=project, target=target, source_ref=source_ref
+        )
         with qa_case_ci_lane.github_actions_authority():
             # A resumed run is the lookup lane preparation already made, so
             # neither route asks GitHub the same question a second time.

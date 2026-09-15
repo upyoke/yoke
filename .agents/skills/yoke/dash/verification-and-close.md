@@ -119,9 +119,24 @@ free.
 For a separate point-in-time check, run `yoke github merge-queue readiness
 ITEM --json`. It reads the target branch's named queue entry with arming, so
 null arming plus `queue-entry=AWAITING_CHECKS` means consumed and in flight,
-not cleared. A retried invocation publishes any new local lane commits before
-the queue is re-armed; it refuses with exact force-with-lease recovery rather
-than report a SHA that origin does not yet hold.
+not cleared.
+
+**Hold a live candidate before correcting it.** While the pull request is
+armed or queued, every lane publish — the verification gate, the remote
+pytest selection, and the landing's own retry — refuses instead of pushing a
+commit the queue would strand on no branch. Disabling auto-merge does not
+remove an entry GitHub already formed, so the hold does both and verifies
+both are gone:
+
+```text
+yoke github merge-queue hold ITEM --json
+```
+
+It reports `held` only from that readback; `already_landed` or
+`landed_during_hold` names the commit GitHub actually merged, and anything
+else leaves the candidate live and says so. Nothing re-arms on its own —
+correct the lane, commit, re-run the verification gate against the new
+candidate, then re-run `yoke merge item`.
 
 Every way either route ends is named, and none of them is silence:
 

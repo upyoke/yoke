@@ -19,11 +19,8 @@ from yoke_core.domain.gh_rest_transport import (
     request_with_retry,
     split_repo,
 )
-from yoke_core.engines.merge_worktree_pr_queue import (
-    TrainRun,
-    read_train_run,
-    resolve_auth_detail,
-)
+from yoke_core.engines.merge_worktree_pr_queue import resolve_auth_detail
+from yoke_core.engines.merge_worktree_pr_train_run import TrainRun, read_train_run
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 FAILED_TRAIN_UNCHANGED = "failed-train-unchanged"

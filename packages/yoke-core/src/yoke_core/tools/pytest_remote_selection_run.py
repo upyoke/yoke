@@ -60,14 +60,26 @@ def _error(message: str) -> None:
     print(f"Error: {PREFIX} {message}", flush=True)
 
 
-def publish(root: Path, branch: str, head_sha: str) -> bool:
-    """Push the lane so CI can check the commit out; False names the refusal."""
+def publish(
+    root: Path, branch: str, head_sha: str, *, project: str, target: str,
+) -> bool:
+    """Push the lane so CI can check the commit out; False names the refusal.
+
+    A lane whose pull request is still armed or queued is refused rather than
+    pushed: the queue would land the head it already holds and this commit
+    would land nowhere. That refusal carries its own recovery, so it is
+    reported verbatim instead of under the remote/credential advice.
+    """
+    from yoke_core.domain.merge_queue_push_safety import LanePublishBlocked
     from yoke_core.domain.qa_case_ci_lane import push_lane
     from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
     _say(f"publishing {branch}@{head_sha[:12]} to origin")
     try:
-        push_lane(root, branch)
+        push_lane(root, branch, project=project, target=target)
+    except LanePublishBlocked as exc:
+        _error(str(exc))
+        return False
     except QaCaseExecutionError as exc:
         _error(
             f"push refused: {exc}. Fix the remote or credential, or re-run "
@@ -224,7 +236,10 @@ def run(
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> int:
     """Publish, dispatch or rejoin, await, and mirror the conclusion."""
-    if not publish(root, branch, head_sha):
+    from yoke_core.domain.qa_case_ci_entry_run import base_branch
+
+    target = base_branch(project, root)
+    if not publish(root, branch, head_sha, project=project, target=target):
         return EXIT_UNREACHABLE
     from yoke_core.domain.qa_case_ci_lane import github_actions_authority
 

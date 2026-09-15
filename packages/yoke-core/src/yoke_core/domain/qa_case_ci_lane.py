@@ -135,7 +135,10 @@ def ref_sha(checkout: Path, ref: str) -> str:
     )
 
 
-def push_lane(checkout: Path, branch: str, *, source_ref: str = "HEAD") -> None:
+def push_lane(
+    checkout: Path, branch: str, *, project: str, target: str,
+    source_ref: str = "HEAD",
+) -> None:
     """Publish the lane branch so CI can check out the tree under test.
 
     Item branches stay local until merge, so the gate has to push before
@@ -146,7 +149,19 @@ def push_lane(checkout: Path, branch: str, *, source_ref: str = "HEAD") -> None:
     checkout has not seen; the preceding fetch is what gives the lease
     something to compare against, and it is best-effort because a first
     push has no remote branch to fetch.
+
+    ``project`` and ``target`` are the landing context every publisher has to
+    declare, because this is the one place a lane reaches origin: a candidate
+    the merge queue is still holding is refused here
+    (:mod:`yoke_core.domain.merge_queue_push_safety`) rather than pushed out
+    from under the landing that already took its head.
     """
+    from yoke_core.domain import merge_queue_push_safety
+
+    merge_queue_push_safety.require_publishable_lane(
+        project=project, checkout=checkout, branch=branch, target=target,
+        head_sha=ref_sha(checkout, source_ref),
+    )
     _git(checkout, "fetch", "--quiet", "--no-tags", "origin", branch, timeout=300)
     _git_output(
         checkout, "push", "--force-with-lease", "origin",
