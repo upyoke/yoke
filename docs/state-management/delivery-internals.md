@@ -156,8 +156,28 @@ On final stage complete:
 
 Carried-work attribution is not membership: resolved riding items and bare
 commits are recorded on the run only, so they cannot enter the member-item
-lifecycle path.
+lifecycle path. It is also a per-run delta rather than candidate containment —
+a run pinned to the revision its predecessor shipped carries nothing new while
+still containing every merge that revision contains, so completion asks the
+containment question directly instead of reasoning across earlier runs.
 ```
+
+## Retrying a failed candidate
+
+`deployment_runs.create --retry-of RUN-ID` re-runs one candidate that already
+failed: the same pinned `release_lineage`, the same artifact identity, and
+therefore the same items. The retry inherits the retried run's frozen
+`deployment_run_items` — membership, delivery intent, and the requirement
+snapshot — because that snapshot is the candidate's own acceptance contract.
+It carries no verdict: what each member must still prove moves, what an
+earlier run proved does not.
+
+Membership is copied, never recomputed: re-deriving it from whatever the trunk
+holds now would attach items the retried candidate does not contain. An
+environment-level source has no members, so its retry stays environment-level.
+Naming a different revision or artifact alongside `--retry-of` is refused as
+`retry_candidate_mismatch` — a different candidate is a replacement release
+and needs its own membership decision.
 
 ## No-Flow Fast Path
 

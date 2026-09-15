@@ -9,6 +9,10 @@ from yoke_core.domain.dash_path_claim_posture import (
     activation_gate as _path_activation_gate,
     completion_gate as _path_completion_gate,
 )
+from yoke_core.domain.deployment_run_candidate_containment import (
+    UNDETERMINED as _CONTAINMENT_UNDETERMINED,
+    candidate_contains_commit,
+)
 from yoke_core.domain.dash_posture_read import (
     dict_row as _dict_row,
     failure as _failure,
@@ -166,16 +170,6 @@ def _approval_gate(
     )
 
 
-def _same_git_identity(left: str, right: str) -> bool:
-    first = left.strip().casefold()
-    second = right.strip().casefold()
-    return (
-        len(first) >= 7
-        and len(second) >= 7
-        and (first.startswith(second) or second.startswith(first))
-    )
-
-
 def _deployment_gate(
     conn: Any,
     item_id: int,
@@ -203,7 +197,8 @@ def _deployment_gate(
     marker = _p(conn)
     row = _dict_row(
         conn.execute(
-            "SELECT dr.id, dr.status, COALESCE(dr.release_lineage, '') "
+            "SELECT dr.id, dr.status, dr.project_id, "
+            "COALESCE(dr.release_lineage, '') "
             "AS release_lineage FROM deployment_runs dr "
             "JOIN deployment_run_items dri ON dri.run_id = dr.id "
             f"WHERE dri.item_id = {marker} "
@@ -229,12 +224,31 @@ def _deployment_gate(
                 else "Run the selected project delivery flow to completion."
             ),
         )
-    lineage = str(row.get("release_lineage") or "")
-    if not _same_git_identity(lineage, merge_sha):
+    # A batch has exactly one tip, so requiring the run to be pinned to this
+    # item's merge could only ever pass a release of one item; every other
+    # member would be told to redeploy until its own merge became the tip,
+    # which the batch it shipped in cannot satisfy. Containment is the fact
+    # the gate means.
+    verdict = candidate_contains_commit(
+        conn,
+        int(row["project_id"]),
+        candidate_lineage=str(row.get("release_lineage") or ""),
+        commit_sha=merge_sha,
+    )
+    if verdict.state == _CONTAINMENT_UNDETERMINED:
+        return _failure(
+            "GATE_DASH_DEPLOYMENT_CONTAINMENT_UNDETERMINED",
+            "Whether the deployed candidate contains the recorded merge could "
+            f"not be determined ({verdict.reason}).",
+            f"{verdict.recovery} Do not redeploy to make this merge the "
+            "candidate tip; the other members of that release would then fail "
+            "the same way.",
+        )
+    if not verdict.contained:
         return _failure(
             "GATE_DASH_DEPLOYMENT_LINEAGE",
-            "The successful deployment run does not target the recorded merge.",
-            "Deploy the recorded merged commit through an item-bound run.",
+            "The successful deployment run does not carry the recorded merge.",
+            "Deliver this item through a run whose candidate contains its merge.",
         )
     return None
 

@@ -104,26 +104,17 @@ def test_an_unknown_ref_is_refused_rather_than_guessed(repo: Path):
 
 
 def test_a_run_for_a_neighbouring_commit_never_matches():
-    """The server filters, and the module checks the filter."""
-    captured: dict = {}
+    """The authority already filters; this re-check is the belt on top."""
+    asked: dict = {}
 
-    def fake_get(path, *, query, token):
-        captured["path"] = path
-        captured["query"] = query
-        return {
-            "workflow_runs": [
-                _run(1, head_sha="a" * 40),
-                _run(2, head_sha="b" * 40),
-            ]
-        }
+    def fake_read(project, head_sha, workflow):
+        asked.update(project=project, head_sha=head_sha, workflow=workflow)
+        return [_run(1, head_sha="a" * 40), _run(2, head_sha="b" * 40)]
 
-    matched = watch.matching_runs(
-        "owner/name", "a" * 40, "", token="t", get=fake_get,
-    )
+    matched = watch.matching_runs("yoke", "a" * 40, "", read=fake_read)
 
     assert [run["id"] for run in matched] == [1]
-    assert captured["query"]["head_sha"] == "a" * 40
-    assert captured["path"] == "/repos/owner/name/actions/runs"
+    assert asked == {"project": "yoke", "head_sha": "a" * 40, "workflow": ""}
 
 
 def test_the_workflow_filter_reads_the_workflow_name_not_the_run_title():
@@ -138,23 +129,19 @@ def test_the_workflow_filter_reads_the_workflow_name_not_the_run_title():
     ]
     titled = dict(runs[0], display_title="yoke-ci main")
 
-    def fake_get(path, *, query, token):
-        return {"workflow_runs": [titled, runs[1]]}
+    def fake_read(project, head_sha, workflow):
+        return [titled, runs[1]]
 
-    matched = watch.matching_runs(
-        "owner/name", "a" * 40, "yoke-ci", token="t", get=fake_get,
-    )
+    matched = watch.matching_runs("yoke", "a" * 40, "yoke-ci", read=fake_read)
 
     assert [run["id"] for run in matched] == [1]
 
 
 def test_a_malformed_response_yields_no_matches_rather_than_raising():
-    def fake_get(path, *, query, token):
-        return {"workflow_runs": ["not-a-run", None]}
+    def fake_read(project, head_sha, workflow):
+        return ["not-a-run", None]
 
-    assert watch.matching_runs(
-        "owner/name", "a" * 40, "", token="t", get=fake_get,
-    ) == []
+    assert watch.matching_runs("yoke", "a" * 40, "", read=fake_read) == []
 
 
 @pytest.mark.parametrize(

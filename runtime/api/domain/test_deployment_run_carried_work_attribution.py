@@ -14,7 +14,10 @@ from pathlib import Path
 from typing import Any
 
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_core.domain import deployment_run_carried_work, deployment_runs
+from yoke_core.domain import (
+    deployment_run_carried_work_source,
+    deployment_runs,
+)
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 
 
@@ -140,7 +143,7 @@ def test_an_open_lane_forked_from_the_trunk_carries_nothing(
     )
     test_db.commit()
     monkeypatch.setattr(
-        deployment_run_carried_work,
+        deployment_run_carried_work_source,
         "checkout_for_project_id",
         lambda _project_id: repo,
     )
@@ -201,7 +204,7 @@ def test_a_cancelled_item_holding_an_open_lane_carries_nothing(
     )
     test_db.commit()
     monkeypatch.setattr(
-        deployment_run_carried_work,
+        deployment_run_carried_work_source,
         "checkout_for_project_id",
         lambda _project_id: repo,
     )

@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+from yoke_core.domain import deployment_run_create_write as create_write
 from yoke_core.domain import deployment_runs as dr
 from yoke_core.domain import deployment_runs_crud_mutate as mutate
 from yoke_core.domain.schema_common import _get_tables
@@ -77,6 +78,19 @@ class TestNextId:
         assert dr.cmd_next_id(db_path=db_path).endswith("-004")
 
 
+def _tracked_create_connections(monkeypatch) -> list:
+    """Record every connection the creation write opens."""
+    real_connect = create_write.connect
+    calls: list = []
+
+    def tracked_connect(path=None):
+        calls.append(path)
+        return real_connect(path)
+
+    monkeypatch.setattr(create_write, "connect", tracked_connect)
+    return calls
+
+
 class TestCreateRun:
     """cmd_create_run with various parameters."""
 
@@ -95,18 +109,46 @@ class TestCreateRun:
         db_path,
         monkeypatch,
     ):
-        real_connect = mutate.connect
-        calls = []
-
-        def tracked_connect(path=None):
-            calls.append(path)
-            return real_connect(path)
-
-        monkeypatch.setattr(mutate, "connect", tracked_connect)
+        calls = _tracked_create_connections(monkeypatch)
 
         mutate.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
 
         assert calls == [db_path]
+
+    def test_inherited_membership_lands_on_that_same_connection(
+        self,
+        db_path,
+        monkeypatch,
+    ):
+        """A retry's members are part of the row being created, not a sequel.
+
+        A second connection here would mean a second transaction, and a copy
+        that failed after the first one committed would leave a member-less
+        item-bound run that can never reach its own completion gate.
+        """
+        source = mutate.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
+        item_id = 8801
+        _insert_delivery_ready_item(db_path, item_id)
+        mutate.cmd_add_item(source, item_id, db_path=db_path)
+        calls = _tracked_create_connections(monkeypatch)
+
+        retry = mutate.cmd_create_run(
+            "yoke",
+            "yoke-internal",
+            db_path=db_path,
+            inherit_members_from=source,
+        )
+
+        assert calls == [db_path]
+        conn = _conn(db_path)
+        try:
+            members = conn.execute(
+                "SELECT item_id FROM deployment_run_items WHERE run_id=%s",
+                (retry,),
+            ).fetchall()
+        finally:
+            conn.close()
+        assert [int(row[0]) for row in members] == [item_id]
 
     def test_concurrent_creates_receive_distinct_ids(self, db_path):
         def create(_index):

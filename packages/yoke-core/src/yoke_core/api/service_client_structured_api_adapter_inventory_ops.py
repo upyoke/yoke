@@ -70,6 +70,10 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         cli_invocation="yoke deployment-flows describe FLOW-ID --description TEXT",
     ),
     AdapterEntry(
+        function_id="deployment_runs.carried_work.repair",
+        cli_invocation="yoke deployment-runs carried-work repair RUN-ID",
+    ),
+    AdapterEntry(
         function_id="deployment_runs.create",
         cli_invocation="yoke deployment-runs create",
     ),

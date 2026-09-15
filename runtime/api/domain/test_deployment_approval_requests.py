@@ -124,11 +124,12 @@ def test_deployment_stage_request_is_idempotent_and_runner_consumable(
         "carried": {
             "schema": 1,
             "derivation": {
-                "status": "empty",
-                # The comparison could not run — there is no predecessor —
-                # which is a different fact from a release that carries
-                # nothing, and the reader must not conflate them.
+                # No predecessor means the comparison could not run, which
+                # is a different fact from a release that carries nothing, so
+                # the status the approver reads says so outright.
+                "status": "unknown",
                 "contents_known": False,
+                "source": "none",
                 "reason": "no_prior_succeeded_run",
                 "recovery": (
                     "No action is required; this run establishes the lineage baseline."

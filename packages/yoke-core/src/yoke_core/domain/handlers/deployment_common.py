@@ -132,6 +132,8 @@ class DeploymentRunCreateResponse(BaseModel):
     release_lineage: Optional[str] = None
     artifact_identity: Optional[str] = None
     status: str
+    retry_of: Optional[str] = None
+    inherited_item_ids: list[int] = []
 
 
 class DeploymentRunStartForItemRequest(BaseModel):

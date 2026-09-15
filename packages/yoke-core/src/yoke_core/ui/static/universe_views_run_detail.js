@@ -142,9 +142,17 @@ function decisionCard(context, row, project, onAct, evidenceShown) {
       list.appendChild(el(documentNode, "span", null, item.title || ""));
     }
     card.appendChild(list);
-  } else if (row.carried_work?.derivation?.reason && !row.release_lineage) {
+  } else if (row.carried_work && row.carried_work.derivation?.contents_known === false) {
+    // An unanswered comparison and an empty release look identical once the
+    // item list is empty, so the card says which one this is and what would
+    // let it be answered.
+    const derivation = row.carried_work.derivation;
     card.appendChild(el(
-      documentNode, "p", "run-copy", "What this run carries is not known: it was started without a release lineage.",
+      documentNode,
+      "p",
+      "run-copy",
+      `What this run carries is not known (${derivation.reason || "no reason recorded"}). `
+      + (derivation.recovery || ""),
     ));
   } else if (!gate) {
     card.appendChild(el(
