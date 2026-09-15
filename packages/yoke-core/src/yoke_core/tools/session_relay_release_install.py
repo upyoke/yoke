@@ -31,6 +31,7 @@ from yoke_core.tools.session_relay_release import (
     relay_launch_executable,
     relay_runtime_executable,
     relay_runtime_python,
+    relay_release_receipt,
     relay_release_status,
     release_version_from_build,
     write_release_json,
@@ -97,6 +98,7 @@ def pin_relay_release(
                 release=release,
                 served_build=observed,
                 index=index,
+                runtime_python=runtime_python,
                 create_venv=create_venv
                 or (lambda path: create_release_venv(path, runtime_python)),
                 runner=runner,
@@ -184,6 +186,7 @@ def _install_candidate(
     release: str,
     served_build: str,
     index: str,
+    runtime_python: Path,
     create_venv: VenvCreator,
     runner: Runner,
 ) -> None:
@@ -226,7 +229,11 @@ def _install_candidate(
                 f"{index}: {_command_detail(result)}",
             )
         broken_reason = relay_package_runnable_reason(
-            python, release, isolation_flag=PYTHON_ISOLATION_FLAG, runner=runner
+            runtime_python,
+            candidate,
+            release,
+            isolation_flag=PYTHON_ISOLATION_FLAG,
+            runner=runner,
         )
         if broken_reason:
             raise RelayReleaseError(
@@ -275,9 +282,7 @@ def _release_lock(state_dir: Path) -> Iterator[None]:
 def _with_recovery(
     instance: RelayInstance, code: str, detail: str
 ) -> RelayReleaseError:
-    pinned = relay_release_status(
-        instance=instance, refresh_served=False
-    ).pinned_release
+    pinned = str(relay_release_receipt(instance.state_dir).get("pinned_release") or "")
     preservation = (
         f"kept pinned release {pinned}"
         if pinned

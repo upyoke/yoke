@@ -3,7 +3,10 @@
 The standing relay entrypoint exports PYTHONPATH at the running release's
 site-packages, so every child Python it starts inherits that release. These
 tests run real interpreters against a real candidate environment with a
-conflicting donor on PYTHONPATH: the candidate's own identity must win.
+conflicting donor on PYTHONPATH: the candidate's own identity must win. The
+verification spawns the stable runtime interpreter and selects the candidate's
+packages the way the launcher selects a release, so the candidate wins by
+being chosen, and isolation keeps the inherited environment out on top of that.
 """
 
 from __future__ import annotations
@@ -19,7 +22,10 @@ import pytest
 
 from yoke_cli.config.session_relay_instance import resolve_relay_instance
 from yoke_core.tools import session_relay_runtime_install
-from yoke_core.tools.session_relay_release import PYTHON_ISOLATION_FLAG
+from yoke_core.tools.session_relay_release import (
+    PYTHON_ISOLATION_FLAG,
+    relay_runtime_python,
+)
 from yoke_core.tools.session_relay_release_install import pin_relay_release
 
 
@@ -136,18 +142,26 @@ def test_candidate_verification_reads_the_candidate_not_the_running_release(
     assert status.pinned_release == CANDIDATE_RELEASE
 
     verification = next(argv for argv in argv_log if "-c" in argv)
+    assert verification[0] == str(relay_runtime_python(instance.state_dir))
     assert verification[1] == PYTHON_ISOLATION_FLAG
+    verified_root = Path(verification[-1])
+    assert verified_root.parent == instance.state_dir / "releases"
+    assert (instance.state_dir / "release").resolve() == verified_root
 
-    unisolated = subprocess.run(
-        verification[:1] + verification[2:],
+    inherited = subprocess.run(
+        [
+            verification[0],
+            "-c",
+            "from importlib.metadata import version; print(version('yoke-core'))",
+        ],
         check=False,
         capture_output=True,
         text=True,
         env={**os.environ, "PYTHONPATH": str(donor_pythonpath)},
     )
-    assert unisolated.stdout.strip() == RUNNING_RELEASE, (
-        "the donor no longer poisons an unisolated interpreter, so this test "
-        "would pass without the isolation flag"
+    assert inherited.stdout.strip() == RUNNING_RELEASE, (
+        "the donor no longer reaches an interpreter that inherits it, so this "
+        "test would pass without selecting the candidate's own packages"
     )
 
 

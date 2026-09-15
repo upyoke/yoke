@@ -29,6 +29,8 @@ If the manifest, index, or wheel cannot be fetched, the named
 process and pin. `yoke relay status` shows the pinned release, freshly served
 build, error, and retry command side by side.
 
+Presence is not readiness. A receipt, an executable, and a dist-info directory all survive a package environment that has stopped working -- an editable install pointed the release's `yoke_cli` at a worktree, the receipt still named the served build, and the launcher died with `ModuleNotFoundError` while status called the release current and reuse restarted into it. So readiness and reuse load the release the way the launcher does, on the stable runtime interpreter in isolated mode with that release's packages selected first, and accept it only when `yoke_cli.main` imports from inside the release and `yoke-core` reports the pinned version. A matching release that fails that load is rebuilt through the ordinary wheel-only candidate install, each candidate is loaded the same way before the atomic pointer swap, and a candidate that fails leaves the previous release pinned and running. The load is bounded and names a timeout rather than hanging its caller, and daemon liveness stays a separate question from package readiness.
+
 Source development uses `yoke relay serve-once` by hand from a claimed lane.
 That one-shot path performs a stable read before polling and refuses native
 work when the checkout is newer than the server. An `ahead` relationship is
