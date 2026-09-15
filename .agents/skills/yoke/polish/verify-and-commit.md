@@ -54,8 +54,10 @@ fixing — the individual failing tests, the changed module's paths,
 `yoke watch pytest --impacted main --bounded` (which reports an unbounded
 selection instead of widening to the full sweep, and which runs on the
 project's CI against the pushed lane commit when the project declares a
-`ci_workflow_file` capability — commit before running it, or pass `--local`
-to run it here) — then let the case run close the loop.
+`ci_workflow_file` capability — commit and let CI run it. `--local` is
+only a small targeted check expected to finish in about one minute; if it
+exceeds that, interrupt it cleanly, commit, and continue on CI) — then let
+the case run close the loop.
 Do not run the project's full sweep by hand and then re-execute the same
 tree through QA: the case executor re-runs the identical registered
 command, so only the verdict-producing run needs to happen. Do not

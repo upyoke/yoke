@@ -221,8 +221,8 @@ For each slice:
    selection (`yoke watch pytest --impacted main --bounded` here, which
    reports an unbounded selection instead of widening; for a project
    declaring `ci_workflow_file` it runs on that CI against the pushed
-   lane commit, so commit before running it, and `--local` runs it on
-   this machine instead). When a slice has an
+   lane commit, so commit and let CI run it; `--local` is only a small
+   targeted check expected to finish in about one minute). When a slice has an
    attached Command case, that case run is the slice's one full execution:
    do not run the project's full sweep by hand and then hand the same tree to
    `yoke qa case run`, which re-runs the identical registered command. It

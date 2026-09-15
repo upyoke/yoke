@@ -48,11 +48,17 @@ Local verification stays change-scoped:
   begins working on the merge that lands the workflow, not on the branch
   that authors it — until then, verify with `--local`.
 
-  `--local` — or `YOKE_PYTEST_LOCAL=1` for a whole shell — runs it here
-  instead: order-sensitive `-n 0` debugging, a tree you want to try
-  before committing, an unreachable CI. Local runs take their xdist
-  workers from one machine-wide budget rather than each claiming the
-  machine (see below).
+  `--local` — or `YOKE_PYTEST_LOCAL=1` for a whole shell — is only a
+  small targeted check expected to finish in about one minute for the
+  entire invocation (one file or a small test count does not prove a
+  fast runtime). Uncommitted work does not justify a slow local run.
+  If a local check exceeds that, interrupt it cleanly, keep the
+  capture as incomplete, commit, and run the selection on CI; do not
+  repeat or background the slow local selection. Keep `--local` for
+  order-sensitive `-n 0` debugging, machine-specific diagnostics, an
+  unreachable CI, and projects that declare no CI workflow. Local runs
+  take their xdist workers from one machine-wide budget rather than each
+  claiming the machine (see below).
 
   Selection is reverse-import reachability, hardened two ways: dotted
   module paths appearing as string literals (subprocess `-m` targets,

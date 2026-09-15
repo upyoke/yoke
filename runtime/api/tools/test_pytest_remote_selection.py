@@ -168,6 +168,7 @@ def test_dirty_tree_is_refused_with_commit_then_run(lane_repo: Path) -> None:
     assert route.exit_code == routing.EXIT_REFUSED
     assert "module.py" in route.message and "scratch.txt" in route.message
     assert "Commit, then run" in route.message
+    assert "does not justify a slow local run" in route.message
 
 
 def test_checkout_on_the_base_branch_is_refused(lane_repo: Path) -> None:
@@ -285,3 +286,4 @@ def test_remote_header_names_the_run_and_the_opt_out(tmp_path) -> None:
     assert "base=explicit paths" in header
     assert "dropped machine-local args -n 0" in header
     assert routing.LOCAL_FLAG in header
+    assert "small targeted check" in header
