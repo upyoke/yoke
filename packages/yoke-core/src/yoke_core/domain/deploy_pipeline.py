@@ -248,6 +248,7 @@ def run_pipeline(
             environment_name=environment_name,
             gate_branch=gate_branch,
             release_lineage=release_lineage,
+            run_artifact_identity=str(run.get("artifact_identity") or ""),
             sd=sd,
         )
 

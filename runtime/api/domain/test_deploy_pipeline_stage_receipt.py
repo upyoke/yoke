@@ -62,7 +62,15 @@ def _control_plane_mocks(*, latest: Dict[str, Any] | None = None):
     return allocate, complete, latest_fn
 
 
-def _dispatch_with(stage, stages, *, dispatch_return=None, dispatch_side_effect=None, latest=None):
+def _dispatch_with(
+    stage,
+    stages,
+    *,
+    dispatch_return=None,
+    dispatch_side_effect=None,
+    latest=None,
+    **overrides,
+):
     allocate, complete, latest_fn = _control_plane_mocks(latest=latest)
     with mock.patch.object(target_module.control_plane, "allocate_stage_receipt", allocate), \
          mock.patch.object(target_module.control_plane, "complete_stage_receipt", complete), \
@@ -73,7 +81,7 @@ def _dispatch_with(stage, stages, *, dispatch_return=None, dispatch_side_effect=
              mock.Mock(return_value=dispatch_return, side_effect=dispatch_side_effect),
          ) as dispatch:
         result = target_module.dispatch_step_runner_with_receipt(
-            stage, stages=stages, **_BASE_KWARGS
+            stage, stages=stages, **{**_BASE_KWARGS, **overrides}
         )
     return result, allocate, complete, latest_fn, dispatch
 
@@ -133,7 +141,13 @@ def test_dispatch_targets_the_flows_own_declared_environment() -> None:
     assert complete.call_args.kwargs["target_name"] == "prod"
 
 
-def test_health_check_ready_records_verified_build_as_evidence() -> None:
+def test_health_check_ready_reports_its_diagnostic_as_the_executor_receipt() -> None:
+    """The diagnostic is what the runner said, not an observed identity.
+
+    Recording it as ``observed_artifact_identity`` would make the receipt
+    store refuse every run that pins one, because the store compares
+    observed against pinned.
+    """
     stage = _stage("deploy-stage", "health-check")
     stages = [stage, _qa_stage("deploy-stage")]
     result, allocate, complete, _latest, _dispatch = _dispatch_with(
@@ -144,8 +158,38 @@ def test_health_check_ready_records_verified_build_as_evidence() -> None:
     complete.assert_called_once()
     kwargs = complete.call_args.kwargs
     assert kwargs["status"] == "ready"
-    assert kwargs["observed_artifact_identity"] == "build-42"
+    assert kwargs["executor_receipt"] == "build-42"
+    assert kwargs["observed_artifact_identity"] is None
     assert kwargs["observed_release_lineage"] == LINEAGE
+
+
+def test_run_pinning_an_unobservable_artifact_refuses_before_dispatch() -> None:
+    """No producer reads the served artifact back, so nothing could prove it."""
+    stage = _stage("deploy-stage", "health-check")
+    stages = [stage, _qa_stage("deploy-stage")]
+    result, allocate, complete, _latest, dispatch = _dispatch_with(
+        stage,
+        stages,
+        dispatch_return=(0, "build-42"),
+        run_artifact_identity="registry/yoke@sha256:cafe",
+    )
+    rc, diag = result
+    assert rc == 1
+    assert "pins artifact identity" in diag
+    assert "registry/yoke@sha256:cafe" in diag
+    dispatch.assert_not_called()
+    allocate.assert_not_called()
+    complete.assert_not_called()
+
+
+def test_supported_target_kinds_is_the_producer_registry() -> None:
+    """One list, so registering a producer cannot leave a constant behind."""
+    assert target_module.SUPPORTED_TARGET_KINDS == frozenset(
+        target_module.RECEIPT_PRODUCERS
+    )
+    assert target_module.ARTIFACT_OBSERVING_TARGET_KINDS <= (
+        target_module.SUPPORTED_TARGET_KINDS
+    )
 
 
 def test_success_with_no_diagnostic_fails_closed_regardless_of_runner() -> None:

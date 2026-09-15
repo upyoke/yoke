@@ -15,22 +15,103 @@ proves its own candidate identity by returning a non-empty diagnostic on
 success (each step runner's own "provider-specific verification", e.g.
 health-check's build assertion); an empty diagnostic on success means that
 runner has nothing verified to report yet and this module refuses rather
-than fabricate a "ready" receipt from a bare success code. A ``run_preview``
-target is refused outright: nothing in this installation can yet read back
-an ephemeral preview's served commit to prove it matches the pinned
-candidate, so no runner may back one until that verification exists.
+than fabricate a "ready" receipt from a bare success code.
+
+What a dispatch *observed* and what it *reported* are separate values.
+One target kind's producer can read the served URL back, another can
+read the served artifact, a third can only lean on its runner's own
+verification — so each producer returns a :class:`StageObservation`
+alongside its exit code and diagnostic, and the diagnostic travels to
+``executor_receipt`` where a human reads it. Feeding a diagnostic into an
+observed-identity field instead would make the receipt store refuse every
+run that pins the identity, because the store compares observed against
+pinned.
+
+``RECEIPT_PRODUCERS`` is the whole extension point, and its own key set is
+the supported-target-kind list, so adding a producer cannot leave a second
+constant behind. A target kind with no producer is refused before anything
+is dispatched, as is a run pinning an artifact identity no producer here
+reads back: neither could ever settle a ready receipt, and refusing first
+is cheaper than deploying and then failing the receipt.
 """
 
 from __future__ import annotations
 
 import uuid
 from collections.abc import Mapping
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional
 
 from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain.deploy_pipeline_step_runners import _dispatch_step_runner
 
-SUPPORTED_TARGET_KINDS = frozenset({"persistent_environment"})
+
+@dataclass(frozen=True)
+class StageObservation:
+    """What a receipt-producing dispatch actually read back.
+
+    ``target_name`` and ``observed_release_lineage`` are what the receipt
+    store requires of every ready receipt. ``observed_url`` and
+    ``observed_artifact_identity`` stay empty unless the producer genuinely
+    read them: the store compares an observed artifact identity against the
+    one the run pins, so a value invented here refuses the receipt.
+    """
+
+    target_name: str
+    observed_release_lineage: str
+    observed_url: str = ""
+    observed_artifact_identity: str = ""
+
+
+#: A producer dispatches one receipt-backed stage and reports what it read.
+#: ``None`` for the observation means the dispatch produced no evidence, and
+#: the caller settles the receipt as failed.
+Producer = Callable[..., "tuple[int, str, Optional[StageObservation]]"]
+
+
+def _persistent_environment_producer(
+    *,
+    dispatch: Callable[..., tuple[int, str]],
+    dispatch_environment: str,
+    release_lineage: str,
+) -> tuple[int, str, Optional[StageObservation]]:
+    """Dispatch to a registered environment and record what it served.
+
+    The observed lineage is the pinned candidate, and it is honest here
+    only because of the diagnostic contract above: this producer reports an
+    observation solely when the runner returned its own verification that
+    the environment serves that candidate (health-check asserts the served
+    build against the run's pinned image tag). It reads back no URL of its
+    own — the registered environment's endpoint is configuration, which
+    ``deployment_qa_execution_target`` already cross-checks — and no
+    artifact identity.
+    """
+    exec_rc, exec_diag = dispatch(dispatch_environment=dispatch_environment)
+    if exec_rc in (0, -3) and exec_diag:
+        return (
+            exec_rc,
+            exec_diag,
+            StageObservation(
+                target_name=dispatch_environment,
+                observed_release_lineage=release_lineage,
+            ),
+        )
+    return exec_rc, exec_diag, None
+
+
+#: Every target kind this installation can produce a verified receipt for.
+RECEIPT_PRODUCERS: Dict[str, Producer] = {
+    "persistent_environment": _persistent_environment_producer,
+}
+
+#: Derived from the registry so a new producer cannot leave this behind.
+SUPPORTED_TARGET_KINDS = frozenset(RECEIPT_PRODUCERS)
+
+#: Target kinds whose producer genuinely reads the served artifact back. A
+#: producer that starts doing so joins this set in the same change; until
+#: then a run pinning an artifact identity cannot be receipt-backed for
+#: that kind, because nothing could prove the pinned artifact was served.
+ARTIFACT_OBSERVING_TARGET_KINDS: frozenset[str] = frozenset()
 
 
 def receipt_consumer_target(
@@ -94,6 +175,7 @@ def dispatch_step_runner_with_receipt(
     environment_name: str = "",
     gate_branch: str,
     release_lineage: str,
+    run_artifact_identity: str = "",
     product_repo_path: str = "",
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
@@ -133,13 +215,26 @@ def dispatch_step_runner_with_receipt(
         return _dispatch(dispatch_environment=environment_name)
 
     target_kind = str(target.get("kind") or "")
-    if target_kind not in SUPPORTED_TARGET_KINDS:
+    producer = RECEIPT_PRODUCERS.get(target_kind)
+    if producer is None:
         return 1, (
             f"stage {stage_name!r} backs a {target_kind!r} QA target, which "
             "this installation cannot yet produce a verified receipt for "
             "(no producer proves the deployed candidate's exact commit for "
-            "that target kind); this requires an integration this rollout "
-            "does not include yet"
+            "that target kind); register a producer for that kind in "
+            "deploy_pipeline_stage_receipt.RECEIPT_PRODUCERS"
+        )
+    if run_artifact_identity and target_kind not in ARTIFACT_OBSERVING_TARGET_KINDS:
+        # The receipt store compares an observed artifact identity against
+        # the one the run pins, so this stage could only ever settle as
+        # failed. Say so before deploying anything.
+        return 1, (
+            f"stage {stage_name!r} backs a {target_kind!r} QA target for a run "
+            f"that pins artifact identity {run_artifact_identity!r}, and no "
+            "producer for that kind reads the served artifact back, so no "
+            "receipt could prove the pinned artifact was served; start the "
+            "run without a pinned artifact identity, or register an "
+            "artifact-observing producer for that target kind"
         )
 
     # Dispatch to the target the flow itself declares, not the run's single
@@ -157,7 +252,11 @@ def dispatch_step_runner_with_receipt(
     )
 
     try:
-        exec_rc, exec_diag = _dispatch(dispatch_environment=dispatch_environment)
+        exec_rc, exec_diag, observation = producer(
+            dispatch=_dispatch,
+            dispatch_environment=dispatch_environment,
+            release_lineage=release_lineage,
+        )
     except Exception as exc:
         control_plane.complete_stage_receipt(
             run_id,
@@ -173,18 +272,19 @@ def dispatch_step_runner_with_receipt(
         # pending; the resumed dispatch reuses and completes it.
         return exec_rc, exec_diag
 
-    if exec_rc in (0, -3) and exec_diag:
-        # Generic evidence contract: a receipt-producing stage proves its
-        # candidate identity by populating its own diagnostic on success.
+    if exec_rc in (0, -3) and observation is not None:
         control_plane.complete_stage_receipt(
             run_id,
             receipt_id=receipt["receipt_id"],
             correlation_id=correlation_id,
             status="ready",
-            target_name=dispatch_environment or None,
-            observed_release_lineage=release_lineage,
-            observed_artifact_identity=exec_diag,
-            executor_receipt=exec_diag,
+            target_name=observation.target_name or None,
+            observed_url=observation.observed_url or None,
+            observed_release_lineage=observation.observed_release_lineage,
+            observed_artifact_identity=(
+                observation.observed_artifact_identity or None
+            ),
+            executor_receipt=exec_diag or None,
         )
         return exec_rc, exec_diag
 
@@ -207,4 +307,11 @@ def dispatch_step_runner_with_receipt(
     return (1 if exec_rc in (0, -3) else exec_rc), failure_reason
 
 
-__all__ = ["dispatch_step_runner_with_receipt", "receipt_consumer_target"]
+__all__ = [
+    "ARTIFACT_OBSERVING_TARGET_KINDS",
+    "RECEIPT_PRODUCERS",
+    "SUPPORTED_TARGET_KINDS",
+    "StageObservation",
+    "dispatch_step_runner_with_receipt",
+    "receipt_consumer_target",
+]
