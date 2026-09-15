@@ -3,7 +3,8 @@
 Claude's result object carries structured ``backgroundTaskId``
 (``interrupted`` false). ``timedOutAfterMs`` alone and ``run_in_background``
 on tool input are not pending. A parsed failure wins. Residue older than
-the liveness window does not hold Stop.
+the liveness window does not hold Stop. A still-open background command
+followed by unrelated tools after that window is the same residue case.
 """
 
 from __future__ import annotations
@@ -231,6 +232,42 @@ def test_stale_open_bash_is_residue_not_a_hold(conn) -> None:
         ("2026-09-15T02:30:31Z", SESSION),
     )
     conn.commit()
+    assert live_stop_block_reason(conn, SESSION) is None
+
+
+def test_still_open_bash_after_later_tools_past_skew_is_residue(conn) -> None:
+    """A still-open background Bash plus later tools after 60s cannot hold.
+
+    ``open_tool_call_is_live`` compares command start to ``last_tool_call_at``.
+    That is the existing residue rule for every harness. Distinguishing a
+    still-running auto-backgrounded command from an unclosed leftover needs
+    authenticated native completion or new stored pending state — neither
+    exists at the hook boundary — so this case drops the hold on purpose.
+    """
+    _start(conn, tool_use_id=BASH_ID, tool_name="Bash", command="sleep 200")
+    _post(conn, _background_payload())
+    _start(conn, tool_use_id=READ_ID, tool_name="Read")
+    _post(
+        conn,
+        {
+            "tool_name": "Read",
+            "tool_input": {"file_path": "/tmp/x"},
+            "tool_response": {"content": "ok"},
+            "tool_use_id": READ_ID,
+            "session_id": SESSION,
+        },
+    )
+    conn.execute(
+        "UPDATE session_tool_calls SET started_at = %s "
+        "WHERE session_id = %s AND tool_use_id = %s",
+        ("2026-09-15T02:30:31Z", SESSION, BASH_ID),
+    )
+    conn.execute(
+        "UPDATE harness_sessions SET last_tool_call_at = %s WHERE session_id = %s",
+        ("2026-09-15T02:31:32Z", SESSION),
+    )
+    conn.commit()
+    assert _row(conn, BASH_ID)[0] is None
     assert live_stop_block_reason(conn, SESSION) is None
 
 

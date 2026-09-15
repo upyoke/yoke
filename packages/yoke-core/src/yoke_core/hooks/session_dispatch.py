@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -18,61 +17,6 @@ from yoke_core.hooks.session_dispatch_orientation import (
     _render_codex_orientation,
     _render_codex_reminder,
 )
-
-_TASK_NOTIFICATION_RE = re.compile(
-    r"<task-notification>.*?<tool-use-id>([^<]+)</tool-use-id>"
-    r".*?<status>(completed|failed|stopped)</status>",
-    re.DOTALL,
-)
-_SETTLE_BY_STATUS = {
-    "completed": ("HarnessToolCallCompleted", "completed", True),
-    "failed": ("HarnessToolCallFailed", "failed", True),
-    "stopped": ("HarnessToolCallCompleted", "interrupted", False),
-}
-
-
-def _settle_task_notification(context: HookContext) -> None:
-    """Close the original Bash ``tool-use-id`` from Claude's task-notification."""
-    if context.event_name not in {"UserPromptSubmit", "Notification"}:
-        return
-    payload = context.payload if isinstance(context.payload, dict) else {}
-    text = "\n".join(
-        str(payload[k])
-        for k in ("prompt", "message", "content", "notification")
-        if isinstance(payload.get(k), str) and payload[k]
-    )
-    session_id = context.session_id or str(payload.get("session_id") or "")
-    match = (
-        _TASK_NOTIFICATION_RE.search(text)
-        if session_id and "<task-notification>" in text
-        else None
-    )
-    if match is None:
-        return
-    event_name, outcome, bump = _SETTLE_BY_STATUS[match.group(2)]
-    from datetime import datetime, timezone
-
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.session_activity_state import record_tool_call_finished
-
-    now = datetime.now(timezone.utc)
-    stamp = now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
-    conn = connect()
-    try:
-        record_tool_call_finished(
-            conn,
-            session_id=session_id,
-            tool_use_id=match.group(1).strip(),
-            tool_name=None,
-            event_name=event_name,
-            outcome=outcome,
-            completed_at=stamp,
-            bump_activity=bump,
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
 
 _register_codex = _codex_lifecycle.register
 _session_begin_recovery_command = _codex_lifecycle.recovery_command
@@ -306,10 +250,6 @@ def evaluate(context: HookContext) -> HookDecision:
                 if context.executor_family == "codex" and context.event_name == "Stop"
                 else ""
             )
-        try:
-            _settle_task_notification(context)
-        except Exception:
-            pass
         if context.event_name == "SessionStart":
             from yoke_core.engines.main_checkout_sync import (
                 sync_main_checkout_at_session_start,

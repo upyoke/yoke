@@ -1,9 +1,9 @@
-"""Background Bash settles on Claude's task-notification, not TaskOutput.
+"""Quoted task-notification text must not settle a live Bash row.
 
-Completion is ``<task-notification>`` on Notification or UserPromptSubmit
-carrying the original Bash ``tool-use-id``. TaskOutput uses another id.
-A ``stopped`` notification is the session-ended cancel path; SessionEnd
-still runs the existing orphan sweep on a full schema.
+Claude settings do not subscribe ``Notification``. UserPromptSubmit stdin
+has no captured native-source discriminator at the hook boundary (the
+transcript's ``origin.kind=task-notification`` is a different record).
+Ordinary prompt/message/content XML therefore must leave the row open.
 """
 
 from __future__ import annotations
@@ -28,23 +28,12 @@ from runtime.api.test_observe_backgrounded_bash_stop import (
 
 TASK_OUTPUT_ID = "toolu_01TaskOutputOtherId"
 
-FAILED_NOTIFICATION = (
+QUOTED_NOTIFICATION = (
     "<task-notification>\n"
     "<task-id>b2w7e29pn</task-id>\n"
     f"<tool-use-id>{BASH_ID}</tool-use-id>\n"
-    "<output-file>/tmp/b2w7e29pn.output</output-file>\n"
     "<status>failed</status>\n"
-    "<summary>Background command failed with exit code 1</summary>\n"
-    "</task-notification>"
-)
-
-STOPPED_NOTIFICATION = (
-    "<task-notification>\n"
-    "<task-id>bep007lkn</task-id>\n"
-    f"<tool-use-id>{BASH_ID}</tool-use-id>\n"
-    "<status>stopped</status>\n"
-    "<summary>Background shell command didn't finish before the "
-    "previous session ended</summary>\n"
+    "<summary>example quoted in an ordinary prompt</summary>\n"
     "</task-notification>"
 )
 
@@ -71,56 +60,59 @@ def _arm_dispatch(conn, monkeypatch) -> None:
         lambda _c: ("/Users/x/yoke", "/tmp/yoke.db"),
     )
     monkeypatch.setattr(session_dispatch, "_is_yoke_target", lambda *_a: True)
-    monkeypatch.setattr(
-        session_dispatch, "_run_claude_prompt_submit", lambda *_a: ""
-    )
+    monkeypatch.setattr(session_dispatch, "_run_claude_prompt_submit", lambda *_a: "")
 
 
-def _notify(event_name: str, text: str, *, key: str) -> None:
+def _evaluate(event_name: str, payload: dict, *, family: str = "claude") -> None:
     session_dispatch.evaluate(
         HookContext(
             event_name=event_name,
-            executor_family="claude",
+            executor_family=family,
             executor_surface="cli",
-            payload={key: text, "session_id": SESSION},
+            payload=payload,
             session_id=SESSION,
             remote=True,
         )
     )
 
 
-def test_task_notification_closes_original_bash_id(conn, monkeypatch) -> None:
+def test_quoted_prompt_xml_does_not_close_bash(conn, monkeypatch) -> None:
     _start(conn, tool_use_id=BASH_ID, tool_name="Bash", command="sleep 200")
     _post(conn, _background_payload())
     _arm_dispatch(conn, monkeypatch)
-    _notify("Notification", FAILED_NOTIFICATION, key="message")
-    row = _row(conn, BASH_ID)
-    assert row[0] is not None
-    assert row[1] == "failed"
-    assert live_stop_block_reason(conn, SESSION) is None
+    _evaluate(
+        "UserPromptSubmit",
+        {"prompt": QUOTED_NOTIFICATION, "session_id": SESSION},
+    )
+    assert _row(conn, BASH_ID)[0] is None
+    assert live_stop_block_reason(conn, SESSION) == gate.REASON_LIVE_COMMAND
 
 
-def test_prompt_submit_notification_is_idempotent_with_notification(
-    conn, monkeypatch
-) -> None:
+def test_unsubscribed_notification_event_does_not_close_bash(conn, monkeypatch) -> None:
     _start(conn, tool_use_id=BASH_ID, tool_name="Bash", command="sleep 200")
     _post(conn, _background_payload())
     _arm_dispatch(conn, monkeypatch)
-    _notify("Notification", FAILED_NOTIFICATION, key="message")
-    _notify("UserPromptSubmit", FAILED_NOTIFICATION, key="prompt")
-    assert _row(conn, BASH_ID)[1] == "failed"
-    assert live_stop_block_reason(conn, SESSION) is None
+    _evaluate(
+        "Notification",
+        {"message": QUOTED_NOTIFICATION, "session_id": SESSION},
+    )
+    assert _row(conn, BASH_ID)[0] is None
+    assert live_stop_block_reason(conn, SESSION) == gate.REASON_LIVE_COMMAND
 
 
-def test_stopped_notification_closes_as_interrupted(conn, monkeypatch) -> None:
+def test_transcript_origin_on_prompt_is_not_hook_authority(conn, monkeypatch) -> None:
     _start(conn, tool_use_id=BASH_ID, tool_name="Bash", command="sleep 200")
     _post(conn, _background_payload())
     _arm_dispatch(conn, monkeypatch)
-    _notify("Notification", STOPPED_NOTIFICATION, key="message")
-    row = _row(conn, BASH_ID)
-    assert row[0] is not None
-    assert row[1] == "interrupted"
-    assert live_stop_block_reason(conn, SESSION) is None
+    _evaluate(
+        "UserPromptSubmit",
+        {
+            "prompt": QUOTED_NOTIFICATION,
+            "session_id": SESSION,
+            "origin": {"kind": "task-notification"},
+        },
+    )
+    assert _row(conn, BASH_ID)[0] is None
 
 
 def test_task_output_other_id_does_not_close_bash(conn) -> None:
