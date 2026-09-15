@@ -132,6 +132,24 @@ def test_previous_limit_is_a_required_render_parameter() -> None:
         group_session_holdings([], previous_limit=-1)
 
 
+def test_none_previous_limit_keeps_every_distinct_row() -> None:
+    grouped = group_session_holdings(
+        [
+            _holding("YOK-3", released="newest"),
+            _holding("YOK-2", released="old"),
+            _holding("YOK-1", released="oldest"),
+        ],
+        previous_limit=None,
+    )
+
+    assert [row["target"] for row in grouped["previous"]] == [
+        "YOK-3",
+        "YOK-2",
+        "YOK-1",
+    ]
+    assert grouped["previous_remainder"] == 0
+
+
 def test_observation_without_authority_target_teaches_the_fix() -> None:
     with pytest.raises(ValueError, match="derive it from the authority target"):
         group_session_holdings([{"released_at": None}], previous_limit=1)
