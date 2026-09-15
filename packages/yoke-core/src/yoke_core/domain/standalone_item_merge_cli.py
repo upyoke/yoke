@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from functools import partial
 from typing import Any, List, Optional
 
 from yoke_contracts.api.function_call import TargetRef
@@ -13,6 +14,7 @@ from yoke_core.domain.merge_preflight_github_lock_retry import (
 )
 from yoke_core.domain import close_out_control_plane_authority as close_out
 from yoke_core.domain import standalone_item_merge as merge_domain
+from yoke_core.domain import standalone_item_merge_close_out_report as report
 from yoke_core.domain import standalone_item_merge_converge as converge
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
@@ -46,11 +48,12 @@ from yoke_core.domain.terminal_lane_cleanup import record_terminal_lane_close_ou
 EVIDENCE_WORKFLOWS = frozenset({"dash"})
 
 
-def _fail(message: str, *, as_json: bool, **extra: Any) -> int:
+def _fail(message: str, *, as_json: bool, public_ref: str = "", **extra: Any) -> int:
     if as_json:
         print(json.dumps({"ok": False, "error": message, **extra}, indent=2))
     else:
         print(f"Error: {message}", file=sys.stderr)
+    report.print_outcome(kind=report.NOT_CLOSED, public_ref=public_ref, blocker=message)
     return 1
 
 
@@ -89,28 +92,29 @@ def run(argv: List[str]) -> int:
 
     item_id = int(item["id"])
     public_ref = str(item.get("public_ref") or args.item)
+    fail = partial(_fail, as_json=as_json, public_ref=public_ref)
+    announce = report.bind(session_id=str(args.session_id), dispatch=call_dispatcher)
     workflow_id = str((item.get("workflow") or {}).get("id") or "")
     status = str(item.get("status") or "")
     needs_evidence = workflow_id in EVIDENCE_WORKFLOWS and not args.skip_status
 
     unready = review_readiness_refusal(item, public_ref=public_ref)
     if unready:
-        return _fail(unready, as_json=as_json)
+        return fail(unready)
 
     if needs_evidence and not (args.result and args.verification):
-        return _fail(
+        return fail(
             f"{public_ref} uses the {workflow_id} workflow, whose terminal "
             "transition is evidence-gated: pass --result and --verification "
             "on this command (including when the merge queue already landed "
             "the branch). `yoke lifecycle transition --to done` cannot "
             "restore the work claim close-out needs. Use --skip-status to "
             "merge without closing out.",
-            as_json=as_json,
         )
 
     lane_error = lane_resolution_error(item)
     if active_lanes(item) and lane_error:
-        return _fail(f"{public_ref}: {lane_error}", as_json=as_json)
+        return fail(f"{public_ref}: {lane_error}")
 
     branch = lane_branch(item, public_ref)
     claim_error = _session_holds_claim(item_id, str(args.session_id))
@@ -131,14 +135,15 @@ def run(argv: List[str]) -> int:
                 session_id=str(args.session_id),
             )
             print(json.dumps(closed_out, indent=2, sort_keys=True))
+            announce(closed_out, kind=report.ALREADY_CLOSED, evidence_from_record=True)
             return 0
         if not recovery.claim_is_missing(claim_error):
-            return _fail(f"{public_ref}: {claim_error}", as_json=as_json)
+            return fail(f"{public_ref}: {claim_error}")
 
     try:
         repo_root, target = _resolve_checkout(item, str(args.target))
     except RuntimeError as exc:
-        return _fail(f"{public_ref}: {exc}", as_json=as_json)
+        return fail(f"{public_ref}: {exc}")
     _ensure_usable_cwd(repo_root, lane_path(item))
     project = str((item.get("project") or {}).get("slug") or "yoke")
     recorded_head = str((merge_source_lane(item) or {}).get("commit_sha") or "")
@@ -151,7 +156,7 @@ def run(argv: List[str]) -> int:
         reached_release=_reached_release(item, status),
     )
     if stale:
-        return _fail(f"{public_ref}: {stale}", as_json=as_json)
+        return fail(f"{public_ref}: {stale}")
     landed_lane = landed.landed_lane(
         item_id=item_id,
         branch=branch,
@@ -172,10 +177,7 @@ def run(argv: List[str]) -> int:
             lane=landed_lane,
         )
         if recovery_error or recovered is None:
-            return _fail(
-                f"{public_ref}: {recovery_error or 'claim recovery failed'}",
-                as_json=as_json,
-            )
+            return fail(f"{public_ref}: {recovery_error or 'claim recovery failed'}")
         item = recovery.with_recorded_head(item, recovered)
         recovered_claim = True
 
@@ -203,17 +205,19 @@ def run(argv: List[str]) -> int:
             project=project,
         )
         if refusal:
-            return _fail(f"{public_ref}: {refusal}", as_json=as_json)
+            return fail(f"{public_ref}: {refusal}")
     if not outcome.ok:
-        return _fail(
+        return fail(
             f"{public_ref}: {outcome.error}",
-            as_json=as_json,
             exit_code=outcome.exit_code,
             branch=branch,
             target=target,
         )
     if getattr(outcome, "landing_pending", False) is True:
-        pending.print_envelope(item_id, public_ref, branch, target, status, outcome)
+        landing = pending.print_envelope(
+            item_id, public_ref, branch, target, status, outcome
+        )
+        announce(landing, kind=report.LANDING_PENDING)
         return 0
 
     close_lane = landed_lane or landed.LandedLane(
@@ -237,7 +241,7 @@ def run(argv: List[str]) -> int:
             lane=close_lane,
         )
         if restore_error:
-            return _fail(f"{public_ref}: {restore_error}", as_json=as_json)
+            return fail(f"{public_ref}: {restore_error}")
 
     envelope: dict[str, Any] = {
         "ok": True,
@@ -270,6 +274,7 @@ def run(argv: List[str]) -> int:
             envelope["ok"] = False
             envelope["error"] = f"merge landed, evidence refused: {write_error}"
             print(json.dumps(envelope, indent=2, sort_keys=True))
+            announce(envelope, kind=report.NOT_CLOSED)
             return 1
         if write_warning:
             envelope["warnings"].append(write_warning)
@@ -309,9 +314,18 @@ def run(argv: List[str]) -> int:
         )
         if exit_code is not None:
             print(json.dumps(envelope, indent=2, sort_keys=True))
+            announce(
+                envelope,
+                kind=report.ALREADY_CLOSED if exit_code == 0 else report.NOT_CLOSED,
+                evidence_from_record=exit_code == 0,
+            )
             return exit_code
 
     print(json.dumps(envelope, indent=2, sort_keys=True))
+    kind, blocker = report.final_outcome(
+        envelope, source_status=status, skip_status=bool(args.skip_status)
+    )
+    announce(envelope, kind=kind, blocker=blocker)
     return 0
 
 

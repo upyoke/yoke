@@ -49,22 +49,23 @@ def print_envelope(
     target: str,
     status: str,
     outcome: Any,
-) -> None:
-    """Write the stable enqueue-exit response to stdout."""
-    print(
-        json.dumps(
-            envelope(
-                item_id=item_id,
-                public_ref=public_ref,
-                branch=branch,
-                target=target,
-                status=status,
-                outcome=outcome,
-            ),
-            indent=2,
-            sort_keys=True,
-        )
+) -> dict[str, Any]:
+    """Write the stable enqueue-exit response to stdout and return it.
+
+    The caller names the same outcome for a person afterwards, and reads
+    the facts it reports from this exact payload rather than rebuilding
+    them beside it.
+    """
+    payload = envelope(
+        item_id=item_id,
+        public_ref=public_ref,
+        branch=branch,
+        target=target,
+        status=status,
+        outcome=outcome,
     )
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return payload
 
 
 __all__ = ["clear_after_close_out", "envelope", "print_envelope"]

@@ -313,10 +313,11 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
 
     assert exit_code == 0
     assert preflight_heads == [LANE_SHA]
-    assert [name for name, _payload in calls][-2:] == [
-        "direct_workflow.dash.evidence",
-        "lifecycle.transition.execute",
-    ]
+    # Close-out confirms the work claim after transitioning, so the pair is
+    # asserted in order rather than as the tail of the call list.
+    names = [name for name, _payload in calls]
+    wrote_evidence = names.index("direct_workflow.dash.evidence")
+    assert names[wrote_evidence + 1] == "lifecycle.transition.execute"
 
 
 def test_is_landed_consults_the_remote_before_refusing(monkeypatch):
