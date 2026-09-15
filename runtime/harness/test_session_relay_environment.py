@@ -62,6 +62,42 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
     }
 
 
+def test_native_environment_strips_relay_owned_python_activation_state() -> None:
+    inherited = {
+        "PATH": (
+            "/Users/example/.yoke/relay-instances/abcd1234/venv/bin"
+            ":/Users/example/.local/bin"
+            ":/opt/homebrew/bin"
+        ),
+        "VIRTUAL_ENV": (
+            "/Users/example/.yoke/relay-instances/abcd1234/releases/deadbeef"
+        ),
+        "PYTHONPATH": (
+            "/Users/example/.yoke/relay-instances/abcd1234/releases/deadbeef"
+            "/lib/python3.13/site-packages"
+        ),
+    }
+
+    environment = native_session_environment(executor="codex", environ=inherited)
+
+    assert "VIRTUAL_ENV" not in environment
+    assert "PYTHONPATH" not in environment
+    assert environment["PATH"] == "/Users/example/.local/bin:/opt/homebrew/bin"
+
+
+def test_native_environment_preserves_path_entries_outside_relay_state_dir() -> None:
+    inherited = {
+        "PATH": "/Users/example/project/.venv/bin:/usr/bin",
+        "VIRTUAL_ENV": (
+            "/Users/example/.yoke/relay-instances/abcd1234/releases/deadbeef"
+        ),
+    }
+
+    environment = native_session_environment(executor="codex", environ=inherited)
+
+    assert environment["PATH"] == "/Users/example/project/.venv/bin:/usr/bin"
+
+
 def test_native_environment_stamps_resolved_model_for_registration() -> None:
     environment = native_session_environment(
         executor="cursor",
