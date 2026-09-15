@@ -16,7 +16,6 @@ which the conftest's ambient test DB already provides.
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run
