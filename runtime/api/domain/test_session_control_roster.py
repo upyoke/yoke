@@ -11,6 +11,7 @@ import pytest
 from runtime.api.test_constants import TEST_ITEM_ID, TEST_ITEM_REF
 from yoke_contracts.session_control.resume import (
     RESUME_NEVER_STARTED_RESULT,
+    RESUME_RUNAWAY_RESULT,
     RESUMED_COMPLETED_RESULT,
     RESUMED_RUNNING_RESULT,
 )
@@ -313,6 +314,10 @@ def test_empty_roster_has_the_complete_stable_field_contract() -> None:
         (WAKE_DELIVERED_RESULT, "2026-08-22T12:00:20Z", "wake-delivered"),
         (TURN_WITHOUT_INJECTION_RESULT, "2026-08-22T12:05:20Z", "wake-undelivered"),
         (RESUME_NEVER_STARTED_RESULT, "2026-08-22T12:20:00Z", "resumed-died"),
+        # Nothing records this any more, but rows settled before the
+        # elapsed-time ceiling was retired still hold it, and a real past
+        # failure must stay readable rather than vanish as an unknown code.
+        (RESUME_RUNAWAY_RESULT, "2026-08-22T13:00:01Z", "resumed-died"),
     ),
 )
 def test_roster_marks_the_latest_wake_delivery_state(
