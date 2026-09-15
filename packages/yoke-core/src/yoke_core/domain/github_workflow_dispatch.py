@@ -312,9 +312,8 @@ def dispatch_workflow_with_intent(
         if intent.state == "rejected":
             # Reusable pair, nothing succeeded yet; only the owner may retry.
             return _collision(
-                "this request_id's only attempt was rejected, and this actor "
-                "did not dispatch it",
-                recovery_hint="only the dispatching actor's own session may retry it",
+                "the latest attempt was rejected, and this actor did not dispatch it",
+                recovery_hint="only the original dispatching actor may retry it",
             )
         if intent.state == "pending":
             run = _correlated_run(payload, intent, token)
