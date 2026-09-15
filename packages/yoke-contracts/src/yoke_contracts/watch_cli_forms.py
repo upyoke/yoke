@@ -30,6 +30,11 @@ WATCH_CLI_TOKENS: dict[str, tuple[str, ...]] = {
     "yoke_core.tools.watch_tail": ("watch", "tail"),
 }
 
+#: Claude Bash ``timeout`` (milliseconds) already taught for headless
+#: in-turn watcher calls. Omitting timeout uses Claude's 120s default,
+#: which auto-backgrounds a still-running call.
+IN_TURN_WATCHER_TIMEOUT_MS = 600000
+
 
 def cli_form(wrapper_module: str) -> str | None:
     """Return the ``yoke watch <kind>`` invocation, or ``None`` if unmapped.
@@ -44,4 +49,4 @@ def cli_form(wrapper_module: str) -> str | None:
     return "yoke " + " ".join(tokens)
 
 
-__all__ = ["WATCH_CLI_TOKENS", "cli_form"]
+__all__ = ["IN_TURN_WATCHER_TIMEOUT_MS", "WATCH_CLI_TOKENS", "cli_form"]
