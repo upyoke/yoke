@@ -138,6 +138,15 @@ else leaves the candidate live and says so. Nothing re-arms on its own —
 correct the lane, commit, re-run the verification gate against the new
 candidate, then re-run `yoke merge item`.
 
+Every invocation also prints an explicit `[close-out]` outcome block on
+stderr, beside the phase markers, while stdout stays the JSON envelope. Its
+first line is the verdict — `PREFIX-N closed: done`, `already closed`,
+`not closed: landing pending`, or `not closed` with the blocker — and the
+lines under it name only what that run confirmed: whether the evidence
+record now holds this invocation's `--result` / `--verification` text, and
+what a live holder read says about the work claim. Read that block rather
+than inferring the outcome from exit 0.
+
 Every way either route ends is named, and none of them is silence:
 
 - **merged** — exit 0. That same command already recorded the evidence and

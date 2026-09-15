@@ -85,6 +85,28 @@ an evidence record converges on a completed envelope built from the record's own
 facts, and carries no `published` or `target` key, because neither is a fact the
 record holds. An item short of terminal still refuses: it has work left.
 
+### The mirror case again: a completion nobody could read
+
+Reporting a completion as a completion is not the same as making it visible.
+The envelope became truthful and stayed a block of JSON, and the command that
+prints it is also the only surface that reads live close-out gate state — it
+refuses with the reason, and it requires `--result` and `--verification` to
+run at all. So an operator asking "is it unblocked yet?" re-runs it, and the
+run that finally passes is the run that writes: it replaced a full account of
+a merge with the word `probe`, released the work claim, and moved the item to
+`done`, looking on the terminal exactly like the four refusals before it.
+
+So every exit names its own outcome for a person
+(`yoke_core.domain.standalone_item_merge_close_out_report`). One `[close-out]`
+block goes to stderr beside the phase markers, stdout stays the envelope, and
+the block's first line is the verdict: closed, already closed, landing
+pending, or not closed with its blocker. Under it go only the effects that
+run established — that the evidence record now carries this invocation's
+summaries, and what a live holder read says about the work claim. The claim
+line is read rather than assumed, because "the terminal transition releases
+the claim" is what usually happens, not what happened; an unreadable holder
+is named `unconfirmed` and never reported as a release.
+
 ## Why not the alternatives
 
 **Cleanup last.** Moving the worktree removal after the terminal transition is
@@ -122,3 +144,5 @@ already landed, on every member of every train.
   process is the one that finished it or a later re-entry.
 - The reseat helper is a general defense: any operation that deletes a tree the
   process may be importing from can call it before doing so.
+- Whichever of those outcomes a run reaches, it says so in one block a person
+  can read, and claims no effect it did not confirm.
