@@ -473,6 +473,12 @@
           "target": "ops/ephemeral-list.sh",
           "mode": "0755",
           "render": "install"
+        },
+        {
+          "source": "ops/frozen_preview_occupancy.py",
+          "target": "ops/frozen_preview_occupancy.py",
+          "mode": "0755",
+          "render": "copy"
         }
       ],
       "verification": [

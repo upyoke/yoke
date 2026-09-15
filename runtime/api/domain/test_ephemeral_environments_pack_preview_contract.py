@@ -92,10 +92,12 @@ def test_the_pack_shell_derives_the_engine_slug(identity: str) -> None:
     assert f"rel-{digest}" == frozen_preview_slug(identity)
 
 
-def test_the_workflow_hashes_the_identity_without_a_trailing_newline() -> None:
-    """``echo`` would append one and change every digest."""
+def test_the_workflow_hashes_the_identity_through_the_shipped_guard() -> None:
+    """One derivation, in a file the install places and the tests execute —
+    inline shell in three workflows would be three chances to drift."""
     body = _workflow("{{project_name}}-ephemeral.yml")
-    assert "printf '%s' \"$YOKE_DISPATCH_ID\" | sha256sum | cut -c1-32" in body
+    assert "ops/frozen_preview_occupancy.py resolve" in body
+    assert "sha256sum" not in body
 
 
 def test_a_release_preview_slug_is_unreachable_by_any_branch_name() -> None:
@@ -106,10 +108,13 @@ def test_a_release_preview_slug_is_unreachable_by_any_branch_name() -> None:
         assert slugify_branch(identity) != frozen
 
 
-def test_both_dispatch_inputs_are_declared_and_required_together() -> None:
+def test_both_dispatch_inputs_are_declared_and_reach_the_guard() -> None:
+    """The requirement itself is enforced in the guard and executed there;
+    what this pins is that the workflow declares both and hands both over."""
     body = _workflow("{{project_name}}-ephemeral.yml")
     assert "commit_sha:" in body and "yoke_dispatch_id:" in body
-    assert "commit_sha and yoke_dispatch_id are required together" in body
+    assert '--commit-sha "$COMMIT_SHA"' in body
+    assert '--yoke-dispatch-id "$YOKE_DISPATCH_ID"' in body
 
 
 def test_the_frozen_candidate_is_what_gets_checked_out() -> None:
@@ -133,13 +138,42 @@ def test_a_release_preview_is_never_cancelled_in_flight() -> None:
 def test_teardown_addresses_a_release_preview_by_its_identity() -> None:
     body = _workflow("{{project_name}}-ephemeral-teardown.yml")
     assert "yoke_dispatch_id:" in body
-    assert "printf '%s' \"$YOKE_DISPATCH_ID\" | sha256sum | cut -c1-32" in body
+    assert "ops/frozen_preview_occupancy.py teardown-slug" in body
 
 
-def test_branch_previews_still_slugify_their_branch() -> None:
+def test_teardown_proves_ownership_before_removing_anything() -> None:
+    """An occupancy a caller cannot prove it owns is one somebody else is
+    still being shown."""
+    body = _workflow("{{project_name}}-ephemeral-teardown.yml")
+    guard = body.index("frozen_preview_occupancy.py check-cleanup")
+    assert guard < body.index("docker compose"), "ownership is checked first"
+
+
+def test_the_deploy_claims_the_occupancy_before_any_mutation() -> None:
+    """Including the fast path, which rsyncs into the same directory: a
+    guard that runs after the write has already lost the candidate."""
+    body = _workflow("{{project_name}}-ephemeral-run.yml")
+    claim = body.index("- name: Claim the preview occupancy")
+    assert claim < body.index("- name: Create ephemeral directory")
+    assert claim < body.index("- name: Rsync app and docker-compose")
+    assert claim < body.index("- name: Deploy ephemeral environment (fast-path rebuild)")
+    # Guarded by branch_exists alone — never by the fast-path flag, which is
+    # exactly the branch that would skip it.
+    claim_step = body[claim:body.index("- name: Create ephemeral directory")]
+    assert "fast_path" not in claim_step
+
+
+def test_a_branch_slug_in_the_reserved_namespace_is_refused_again_downstream() -> None:
+    """The caller resolves it, and the reusable job refuses it anyway rather
+    than trusting whoever called it."""
+    body = _workflow("{{project_name}}-ephemeral-run.yml")
+    assert "assert-unreserved --slug" in body
+
+
+def test_branch_previews_still_deploy_their_branch_head() -> None:
     """The release path must not have changed what a development preview
     does — a push still deploys that branch's head under its own slug."""
     body = _workflow("{{project_name}}-ephemeral.yml")
     assert "branches-ignore:" in body
-    assert "tr '[:upper:]' '[:lower:]'" in body
-    assert "candidate_sha=${GITHUB_SHA}" in body
+    assert '--branch "$BRANCH_NAME"' in body
+    assert '--github-sha "$GIT_HEAD_SHA"' in body

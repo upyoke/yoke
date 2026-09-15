@@ -63,67 +63,42 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       branch_exists: ${{ steps.slug.outputs.branch_exists }}
-      branch_slug: ${{ steps.slug.outputs.branch_slug }}
+      branch_slug: ${{ steps.slug.outputs.occupancy_slug }}
       candidate_sha: ${{ steps.slug.outputs.candidate_sha }}
-      api_port: ${{ steps.ports.outputs.api_port }}
-      web_port: ${{ steps.ports.outputs.web_port }}
+      yoke_dispatch_id: ${{ steps.slug.outputs.yoke_dispatch_id }}
+      api_port: ${{ steps.slug.outputs.api_port }}
+      web_port: ${{ steps.slug.outputs.web_port }}
     steps:
+      - name: Checkout the occupancy guard
+        uses: {{checkout_action}}
+
       - name: Resolve preview slug and candidate
         id: slug
         env:
           GH_TOKEN: ${{ github.token }}
           COMMIT_SHA: ${{ github.event.inputs.commit_sha }}
           YOKE_DISPATCH_ID: ${{ github.event.inputs.yoke_dispatch_id }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          GIT_HEAD_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          if [ -n "$COMMIT_SHA" ] || [ -n "$YOKE_DISPATCH_ID" ]; then
-            # Both or neither: a candidate with no identity has nowhere to be
-            # published, and an identity with no candidate would publish a
-            # frozen preview of whatever the ref happens to point at.
-            if [ -z "$COMMIT_SHA" ] || [ -z "$YOKE_DISPATCH_ID" ]; then
-              echo "::error::commit_sha and yoke_dispatch_id are required together"
-              exit 1
+          # One resolver for both kinds of preview. It refuses a branch whose
+          # slug lands in the reserved rel- namespace, which is the only way a
+          # branch could reach a frozen preview's directory, ports and URL.
+          python3 ops/frozen_preview_occupancy.py resolve \
+            --commit-sha "$COMMIT_SHA" \
+            --yoke-dispatch-id "$YOKE_DISPATCH_ID" \
+            --branch "$BRANCH_NAME" \
+            --github-sha "$GIT_HEAD_SHA" \
+            --api-base {{api_port_base}} \
+            --web-base {{preview_web_port_base}} \
+            --port-range {{preview_port_range}} >> "$GITHUB_OUTPUT"
+          if [ -z "$COMMIT_SHA" ]; then
+            if ! gh api "repos/${GITHUB_REPOSITORY}/branches/${GITHUB_REF_NAME}" > /dev/null 2>&1; then
+              echo "Branch ${GITHUB_REF_NAME} no longer exists — skipping ephemeral deploy."
+              echo "branch_exists=false" >> "$GITHUB_OUTPUT"
             fi
-            if ! printf '%s' "$COMMIT_SHA" | grep -Eq '^[0-9a-f]{40}$'; then
-              echo "::error::commit_sha must be one full 40-hex commit SHA"
-              exit 1
-            fi
-            # Parity contract with the Yoke substrate's frozen_preview_slug:
-            # rel- plus the first 32 hex characters of the SHA-256 of the
-            # identity, hashed whole and with no trailing newline. The
-            # deploying side derives this URL before this run reports one, so
-            # a drift here points its proof at a host serving something else.
-            DIGEST=$(printf '%s' "$YOKE_DISPATCH_ID" | sha256sum | cut -c1-32)
-            echo "branch_slug=rel-$DIGEST" >> "$GITHUB_OUTPUT"
-            echo "candidate_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
-            echo "branch_exists=true" >> "$GITHUB_OUTPUT"
-            echo "Frozen release preview: rel-$DIGEST @ $COMMIT_SHA"
-            exit 0
           fi
-          SLUG=$(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-          echo "branch_slug=$SLUG" >> "$GITHUB_OUTPUT"
-          echo "candidate_sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          if gh api repos/${GITHUB_REPOSITORY}/branches/${GITHUB_REF_NAME} > /dev/null 2>&1; then
-            echo "branch_exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Branch ${GITHUB_REF_NAME} no longer exists — skipping ephemeral deploy."
-            echo "branch_exists=false" >> "$GITHUB_OUTPUT"
-          fi
-          echo "Branch preview: $SLUG"
-
-      - name: Compute port offsets
-        if: steps.slug.outputs.branch_exists == 'true'
-        id: ports
-        run: |
-          SLUG="${{ steps.slug.outputs.branch_slug }}"
-          HASH=$(echo -n "$SLUG" | sha256sum | cut -c1-8)
-          OFFSET=$(( 16#$HASH % {{preview_port_range}} ))
-          API_PORT=$(( {{api_port_base}} + OFFSET ))
-          WEB_PORT=$(( {{preview_web_port_base}} + OFFSET ))
-          echo "api_port=$API_PORT" >> "$GITHUB_OUTPUT"
-          echo "web_port=$WEB_PORT" >> "$GITHUB_OUTPUT"
-          echo "offset=$OFFSET" >> "$GITHUB_OUTPUT"
-          echo "Port offset: $OFFSET (API=$API_PORT, Web=$WEB_PORT)"
 
   deploy:
     needs: prepare
@@ -133,6 +108,7 @@ jobs:
       branch_exists: ${{ needs.prepare.outputs.branch_exists }}
       branch_slug: ${{ needs.prepare.outputs.branch_slug }}
       candidate_sha: ${{ needs.prepare.outputs.candidate_sha }}
+      yoke_dispatch_id: ${{ needs.prepare.outputs.yoke_dispatch_id }}
       api_port: ${{ needs.prepare.outputs.api_port }}
       web_port: ${{ needs.prepare.outputs.web_port }}
     secrets: inherit

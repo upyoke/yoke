@@ -12,7 +12,9 @@ on:
         required: false
         type: string
       candidate_sha:
-        description: 'Exact commit this preview serves. A frozen release preview pins one; a branch preview passes its own head.'
+        required: false
+        type: string
+      yoke_dispatch_id:
         required: false
         type: string
       api_port:
@@ -35,9 +37,6 @@ jobs:
         if: inputs.branch_exists == 'true'
         uses: {{checkout_action}}
         with:
-          # A frozen preview must keep serving the commit it was dispatched
-          # with, so it checks that commit out rather than whatever the ref
-          # points at by the time this job runs.
           ref: ${{ inputs.candidate_sha }}
 
       - name: Install rsync
@@ -98,6 +97,20 @@ jobs:
             echo "fast_path=false" >> "$GITHUB_OUTPUT"
             echo "Environment not ready ($HEALTHY) — using full provisioning path"
           fi
+
+      - name: Claim the preview occupancy
+        # Before the host is touched, fast path included: it rsyncs here too.
+        if: inputs.branch_exists == 'true'
+        env:
+          HOST: ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}
+          SLUG: ${{ inputs.branch_slug }}
+          YOKE_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail; G=ops/frozen_preview_occupancy.py
+          [ -n "$YOKE_DISPATCH_ID" ] || exec python3 "$G" assert-unreserved --slug "$SLUG"
+          AT="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@$HOST"
+          scp -o LogLevel=ERROR "$G" "$AT:~/frozen_preview_occupancy.py" && ssh -o LogLevel=ERROR "$AT" "python3 ~/frozen_preview_occupancy.py claim --preview-dir ~/{{preview_namespace}}/$SLUG --yoke-dispatch-id '$YOKE_DISPATCH_ID' --commit-sha '$CANDIDATE_SHA'"
 
       - name: Create ephemeral directory
         if: inputs.branch_exists == 'true' && steps.readiness.outputs.fast_path != 'true'

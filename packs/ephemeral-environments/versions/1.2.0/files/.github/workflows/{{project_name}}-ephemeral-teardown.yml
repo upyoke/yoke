@@ -51,30 +51,23 @@ jobs:
           echo "branch_name=$BRANCH" >> "$GITHUB_OUTPUT"
           echo "Tearing down environment for branch: $BRANCH"
 
+      - name: Checkout the occupancy guard
+        uses: {{checkout_action}}
+
       - name: Resolve the preview slug
         id: slug
         env:
           YOKE_DISPATCH_ID: ${{ github.event.inputs.yoke_dispatch_id }}
+          BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}
         run: |
           set -euo pipefail
           # A release preview is addressed by the identity it was created
-          # under, never by a branch name: a branch cannot produce a slug in
-          # the rel- namespace, so a branch teardown can never remove a
-          # candidate still under review.
-          if [ -n "$YOKE_DISPATCH_ID" ]; then
-            DIGEST=$(printf '%s' "$YOKE_DISPATCH_ID" | sha256sum | cut -c1-32)
-            echo "branch_slug=rel-$DIGEST" >> "$GITHUB_OUTPUT"
-            echo "Release preview slug: rel-$DIGEST"
-            exit 0
-          fi
-          BRANCH="${{ steps.branch.outputs.branch_name }}"
-          if [ -z "$BRANCH" ]; then
-            echo "::error::pass branch_name, or yoke_dispatch_id for a release preview"
-            exit 1
-          fi
-          SLUG=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
-          echo "branch_slug=$SLUG" >> "$GITHUB_OUTPUT"
-          echo "Branch slug: $SLUG"
+          # under, never by a branch name — and a branch may not resolve into
+          # the reserved namespace at all, so a branch teardown can never
+          # reach a candidate still under review.
+          python3 ops/frozen_preview_occupancy.py teardown-slug \
+            --yoke-dispatch-id "$YOKE_DISPATCH_ID" \
+            --branch "$BRANCH_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH
         run: |
@@ -83,9 +76,29 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
+      - name: Prove ownership before removing anything
+        env:
+          HOST: ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}
+          SSH_USER: ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}
+          SLUG: ${{ steps.slug.outputs.occupancy_slug }}
+          YOKE_DISPATCH_ID: ${{ github.event.inputs.yoke_dispatch_id }}
+        run: |
+          set -euo pipefail
+          # An occupancy a caller cannot prove it owns is one somebody else is
+          # still being shown. Refusing costs a stale preview; deleting costs
+          # the review.
+          scp -o LogLevel=ERROR ops/frozen_preview_occupancy.py \
+            "$SSH_USER@$HOST:~/frozen_preview_occupancy.py"
+          ssh -o LogLevel=ERROR "$SSH_USER@$HOST" \
+            "if [ -d ~/{{preview_namespace}}/$SLUG ]; then \
+               python3 ~/frozen_preview_occupancy.py check-cleanup \
+                 --preview-dir ~/{{preview_namespace}}/$SLUG \
+                 --yoke-dispatch-id '$YOKE_DISPATCH_ID'; \
+             fi"
+
       - name: Teardown ephemeral environment
         run: |
-          SLUG="${{ steps.slug.outputs.branch_slug }}"
+          SLUG="${{ steps.slug.outputs.occupancy_slug }}"
           HOST="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"
 
           ssh ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@"$HOST" << TEARDOWN_EOF

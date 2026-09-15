@@ -50,7 +50,23 @@ follows the same rule: pass `yoke_dispatch_id` to
 `{{project_name}}-ephemeral-teardown.yml` to remove a release preview, and
 `branch_name` to remove a branch one.
 
-Projects that need stronger guarantees — refusing to redeploy one identity
-onto a different commit, or recording who owns an occupancy before cleanup
-removes it — add that to their own installed copy. The Pack ships the naming
-and dispatch contract; ownership policy is project-owned.
+### The occupancy guard
+
+Naming alone does not protect a frozen preview, because a slug only says
+where a preview lives. `ops/frozen_preview_occupancy.py` decides whether a
+given deploy may write there, and the workflows call it rather than
+reimplementing the rules in shell:
+
+- **Before any mutation, including the fast path.** A fast-path rebuild
+  rsyncs into the same directory, so a check that runs after the write has
+  already lost the candidate. The deploy claims the occupancy first or stops.
+- **Recorded, not asserted.** `.yoke-preview-owner.json` inside the preview
+  directory holds the `yoke_dispatch_id` and `commit_sha` that created it.
+  Redeploying the same candidate under the same identity is the ordinary
+  retry; a different identity, or the same identity on a different commit, is
+  refused. An unreadable record refuses too — unverified is not unoccupied.
+- **Cleanup proves ownership.** Teardown refuses an occupancy it cannot show
+  it owns. Refusing costs a stale preview; deleting costs the review.
+- **Branch previews are untouched.** They claim nothing and prove nothing.
+  The one rule that reaches them is the reserved-name refusal, which is what
+  keeps them out of the frozen namespace in the first place.
