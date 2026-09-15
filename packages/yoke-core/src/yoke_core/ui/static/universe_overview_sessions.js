@@ -11,6 +11,10 @@ import {
   sessionsShownInActive,
   successfulResult,
 } from "./universe_overview_primitives.js";
+import {
+  holdingsDisclosureFocusId,
+  restoreHoldingsDisclosureFocus,
+} from "./universe_sessions_holdings_disclosure.js";
 import { sessionCard } from "./universe_views_sessions.js";
 import { sortSessionsSteeringFirst } from "./universe_sessions_steering.js";
 import { el } from "./universe_view_support.js";
@@ -48,6 +52,7 @@ export async function loadSessions(context, band, getScope, sessionRoster) {
       String(left.activity_at || ""),
     )));
     band.setCount(rows.length);
+    const restoreId = holdingsDisclosureFocusId(context.document, band.body);
     band.renderCards(
       rows.map((row) => sessionCard(
         context.document, row, onMessage, context.projects(), groupColors,
@@ -55,6 +60,7 @@ export async function loadSessions(context, band, getScope, sessionRoster) {
       "No session is running against this universe.",
       "overview-session-grid session-grid",
     );
+    restoreHoldingsDisclosureFocus(context.document, band.body, restoreId);
     band.body.appendChild(dialogHost);
   };
   paint();

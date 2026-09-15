@@ -17,7 +17,6 @@ from runtime.api.fixtures.session_holdings import (
     iso,
 )
 from yoke_contracts.session_holdings import steering_holding_key
-from yoke_core.domain.sessions_holdings_projection import WEB_PREVIOUS_HOLDINGS_LIMIT
 from yoke_core.domain.sessions_list_read import list_sessions
 
 
@@ -296,7 +295,7 @@ def test_item_paths_merge_into_the_same_current_item_target(test_db):
     assert current[0]["path_count"] == 1
 
 
-def test_holdings_bound_previous_rows_and_report_the_remainder(test_db):
+def test_holdings_send_every_distinct_previous_row(test_db):
     insert_session(test_db, "s-many")
     for item_id in range(101, 107):
         insert_item(test_db, id=item_id, title=f"previous {item_id}")
@@ -304,8 +303,8 @@ def test_holdings_bound_previous_rows_and_report_the_remainder(test_db):
 
     holdings = list_sessions()[0]["holdings"]
 
-    assert len(holdings["previous"]) == WEB_PREVIOUS_HOLDINGS_LIMIT
-    assert holdings["previous_remainder"] == 6 - WEB_PREVIOUS_HOLDINGS_LIMIT
+    assert len(holdings["previous"]) == 6
+    assert holdings["previous_remainder"] == 0
     assert holdings["steered"] is False
 
 

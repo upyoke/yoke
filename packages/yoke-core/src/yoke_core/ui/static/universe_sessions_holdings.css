@@ -96,3 +96,39 @@
   .session-item-stage-progress .delivery-run-stage[data-state="stopped"] {
   background: var(--yoke-warn);
 }
+
+.universe-app-root button.session-holdings-more,
+.universe-app-root button.session-holdings-docs-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.universe-app-root button.session-holdings-more:focus-visible,
+.universe-app-root button.session-holdings-docs-toggle:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 2px;
+}
+
+.universe-app-root .session-holdings-rest,
+.universe-app-root .session-holdings-docs {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.universe-app-root .session-holdings-rest[hidden],
+.universe-app-root .session-holdings-docs[hidden] {
+  display: none;
+}

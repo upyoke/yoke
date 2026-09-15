@@ -208,7 +208,7 @@ test("Sessions lists every work claim and coordination lease a session holds", a
   assert.ok(!text.includes("qa_admission"), "no raw target_kind label");
   assert.deepEqual(
     byClass(root, "session-item-link").map((node) => node.textContent),
-    ["YOK-2100", "YOK-2228"],
+    ["YOK-2228", "YOK-2100"],
   );
   assert.equal(
     byClass(root, "session-hold-target")[0].textContent, "process feed",
@@ -217,11 +217,11 @@ test("Sessions lists every work claim and coordination lease a session holds", a
   assert.equal(byClass(root, "session-work-role").length, 0);
   assert.equal(
     byClass(root, "session-item-link")[0].href,
-    "#/items/2100?project=1",
+    "#/items/2228?project=1",
   );
   assert.equal(
     byClass(root, "session-item-link")[1].href,
-    "#/items/2228?project=1",
+    "#/items/2100?project=1",
   );
   assert.deepEqual(
     byClass(root, "sessions-stats")[0].children.map(

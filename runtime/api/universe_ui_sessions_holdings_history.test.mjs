@@ -77,8 +77,11 @@ test("web tile titles the current group and leaves previous title-free", () => {
     previous: [
       item("YOK-19", "Previous title"),
       { holding_kind: "coordination", target: "QA_HOST:test-mac" },
+      item("YOK-18", "Older title"),
+      item("YOK-17", "Older still"),
+      item("YOK-16", "Oldest title"),
     ],
-    previous_remainder: 2,
+    previous_remainder: 0,
   });
 
   assert.deepEqual(
@@ -96,17 +99,24 @@ test("web tile titles the current group and leaves previous title-free", () => {
     ).length,
     0,
   );
+  const previous = byClass(rendered, "session-holdings-previous")[0];
+  const rest = byClass(previous, "session-holdings-rest")[0];
+  assert.equal(rest.hidden, true);
   assert.deepEqual(
-    byClass(
-      byClass(rendered, "session-holdings-previous")[0],
-      "session-item-link",
-    ).map((node) => node.textContent),
-    ["YOK-19"],
+    byClass(previous, "session-item-link").map((node) => node.textContent),
+    ["YOK-19", "YOK-18", "YOK-17", "YOK-16"],
+  );
+  assert.deepEqual(
+    byClass(rest, "session-item-link").map((node) => node.textContent),
+    ["YOK-17", "YOK-16"],
   );
   assert.deepEqual(
     byClass(rendered, "session-holdings-more").map((node) => node.textContent),
     ["and 2 more"],
   );
+  const more = byClass(rendered, "session-holdings-more")[0];
+  assert.equal(more.tagName, "BUTTON");
+  assert.equal(more.getAttribute("aria-expanded"), "false");
   assert.equal(byClass(rendered, "session-item-stage").length, 0);
 });
 

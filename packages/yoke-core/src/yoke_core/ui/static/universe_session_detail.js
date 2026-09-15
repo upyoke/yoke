@@ -4,6 +4,10 @@ import {
 } from "./session_message_compose_dialog.js";
 import { renderSessionControlFailure } from "./universe_session_control_data.js";
 import { renderSessionActions } from "./universe_session_actions.js";
+import {
+  holdingsDisclosureFocusId,
+  restoreHoldingsDisclosureFocus,
+} from "./universe_sessions_holdings_disclosure.js";
 import { sessionCard } from "./universe_views_sessions.js";
 import {
   el,
@@ -63,6 +67,7 @@ export function renderRegisteredSessionDetail(
     const openMessage = (targetId) => openSessionMessageCompose(
       context, dialogHost, { audience: exactSessionAudience([targetId]) },
     );
+    const restoreId = holdingsDisclosureFocusId(documentNode, content);
     content.replaceChildren(sessionCard(
       documentNode,
       row,
@@ -70,6 +75,7 @@ export function renderRegisteredSessionDetail(
       context.projects(),
       context.steeringGroupColors(),
     ));
+    restoreHoldingsDisclosureFocus(documentNode, content, restoreId);
     // Who acted on this session, as opposed to what it did itself.
     renderSessionActions(context, content, sessionId, row.project);
   };

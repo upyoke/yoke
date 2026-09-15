@@ -27,9 +27,6 @@ from yoke_core.domain.work_claim_targets import (
 )
 
 
-WEB_PREVIOUS_HOLDINGS_LIMIT = 3
-
-
 def _row_dicts(rows: Iterable[Any]) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
@@ -296,7 +293,7 @@ def _strategy_observations(conn: Any) -> dict[str, list[dict[str, Any]]]:
 def session_holdings_by_session(
     conn: Any,
     *,
-    previous_limit: int = WEB_PREVIOUS_HOLDINGS_LIMIT,
+    previous_limit: int | None = None,
     session_ids: Iterable[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Return the shared holdings model for every session with a holding."""
@@ -341,4 +338,4 @@ def session_holdings_by_session(
     return result
 
 
-__all__ = ["WEB_PREVIOUS_HOLDINGS_LIMIT", "session_holdings_by_session"]
+__all__ = ["session_holdings_by_session"]

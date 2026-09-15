@@ -7,6 +7,9 @@ import {
   steeringHoldingText,
   steeringLeadCovers,
 } from "./universe_sessions_steering.js";
+import {
+  appendHoldingsSection,
+} from "./universe_sessions_holdings_disclosure.js";
 import { el, statePill } from "./universe_view_support.js";
 import { renderStageStrip } from "./universe_stage_strip.js";
 import { relativeTime } from "./universe_time.js";
@@ -230,34 +233,21 @@ function appendAttachedEntry(documentNode, body, row, attribution) {
   body.appendChild(work);
 }
 
-function holdingsBoxKind(label) {
-  if (label === "Currently held") return "current";
-  if (label === "Previously held") return "previous";
-  return null;
-}
-
 function appendHoldingGroup(
   documentNode, body, row, label, entries, previous, projects,
 ) {
-  const boxed = holdingsBoxKind(label);
-  const group = el(
-    documentNode,
-    "div",
-    boxed
-      ? `session-holdings-group session-holdings-${boxed}`
-      : "session-holdings-group",
-  );
-  group.appendChild(el(
-    documentNode, "div", "session-holdings-label", label,
-  ));
-  const titled = previous ? null : titleHolding(entries, row);
-  for (const entry of entries) {
-    appendHoldingEntry(documentNode, group, row, entry, projects, {
-      showTitle: entry === titled,
-    });
-  }
-  body.appendChild(group);
-  return group;
+  return appendHoldingsSection(documentNode, body, {
+    label, previous, entries, projects,
+    sessionId: String(row.session_id || ""),
+    titled: previous ? null : titleHolding(entries, row),
+    attachTooltip,
+    renderMarker: () => el(documentNode, "span", "session-lock", "📜"),
+    renderRow: (parent, entry, showTitle) => {
+      appendHoldingEntry(documentNode, parent, row, entry, projects, {
+        showTitle,
+      });
+    },
+  });
 }
 
 // Whether this session holds anything at all. A hold the steering block
@@ -304,19 +294,11 @@ export function appendHoldings(documentNode, body, row, projects = []) {
   const previous = groups.previous.filter(
     (holding) => !foldedIntoSeat(holding),
   );
-  if (previous.length || groups.previousRemainder) {
-    const group = appendHoldingGroup(
+  if (previous.length) {
+    appendHoldingGroup(
       documentNode, body, row, "Previously held", previous, true,
       projects,
     );
-    if (groups.previousRemainder) {
-      group.appendChild(el(
-        documentNode,
-        "div",
-        "session-holdings-more",
-        `and ${groups.previousRemainder} more`,
-      ));
-    }
     rendered = true;
   }
   if (attribution === "filed") {

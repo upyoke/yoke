@@ -153,7 +153,7 @@ def _merge_target_entry(retained: dict[str, Any], incoming: Mapping[str, Any]) -
 def group_session_holdings(
     observations: Iterable[Mapping[str, Any]],
     *,
-    previous_limit: int,
+    previous_limit: int | None,
 ) -> dict[str, Any]:
     """Partition and bound one session's holding observations.
 
@@ -162,13 +162,17 @@ def group_session_holdings(
     first row for a target is the display row retained within its partition,
     enriched with the latest release and repeated-claim count. A current row
     always removes the same target from previous history, regardless of input
-    order. Released steering targets sort ahead of the remaining history before
-    the caller's row budget is applied.
+    order. Released steering targets sort ahead of the remaining history.
+    ``previous_limit`` is a render-surface budget; ``None`` keeps every
+    distinct previous row so a later display fold can slice without losing
+    holdings the client still needs.
     """
-    if isinstance(previous_limit, bool) or previous_limit < 0:
+    if previous_limit is not None and (
+        isinstance(previous_limit, bool) or previous_limit < 0
+    ):
         raise ValueError(
-            "previous_limit must be a non-negative integer; pass the "
-            "render surface's row budget"
+            "previous_limit must be None or a non-negative integer; pass "
+            "the render surface's row budget, or None for the complete set"
         )
 
     current: dict[str, dict[str, Any]] = {}
@@ -196,7 +200,11 @@ def group_session_holdings(
         previous.values(),
         key=lambda entry: entry.get("target_kind") != "steering",
     )
-    shown_previous = previous_rows[:previous_limit]
+    shown_previous = (
+        previous_rows
+        if previous_limit is None
+        else previous_rows[:previous_limit]
+    )
     return {
         "current": list(current.values()),
         "previous": shown_previous,

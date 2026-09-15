@@ -107,6 +107,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_steering_group_color.js": "text/javascript; charset=utf-8",
     "universe_stage_strip.js": "text/javascript; charset=utf-8",
     "universe_sessions_holdings.js": "text/javascript; charset=utf-8",
+    "universe_sessions_holdings_disclosure.js": "text/javascript; charset=utf-8",
     "universe_session_control_data.js": "text/javascript; charset=utf-8",
     "universe_session_roster_filters.js": "text/javascript; charset=utf-8",
     "universe_session_presentation.js": "text/javascript; charset=utf-8",
