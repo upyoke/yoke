@@ -1,0 +1,138 @@
+# ephemeral-deploy.yml — Deploy an ephemeral environment
+#
+# Two kinds of preview, one substrate. A branch push deploys that branch's
+# current head under the branch slug, and keeps following it. A
+# workflow_dispatch carrying commit_sha + yoke_dispatch_id deploys one frozen
+# candidate under a slug derived from that dispatch identity, so a later push
+# to any branch cannot replace it — which is what lets the preview's URL be
+# cited as evidence of the commit a reviewer saw.
+#
+# Triggers on every push except main and hotfix/** branches.
+# Derives deterministic port offsets from the branch SLUG hash for internal
+# container-to-proxy mapping:
+#   - API port: {{api_port_base}} + (hash % {{preview_port_range}})
+#   - Web port: {{preview_web_port_base}} + (hash % {{preview_port_range}})
+# Production uses {{api_port}}/{{web_port}}, so these ranges never collide.
+# Supports up to {{preview_port_range}} distinct port offsets.
+#
+# Deploy strategy: rsync (same as production), not git.
+# Each preview gets its own directory: ~/{{preview_namespace}}/<slug>/
+# with a .env copied from production and port overrides applied.
+#
+# Pack install settings:
+#   {{project_name}}         — project identifier (lowercase)
+#   {{PROJECT_NAME_UPPER}}   — project identifier (UPPER_CASE, for secret names)
+#   {{preview_namespace}}    — preview-only host resource prefix
+#   {{preview_domain}}       — wildcard domain for preview URLs
+#   Uses ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }} for SSH user (secret-based)
+#
+# Secrets required:
+#   {{PROJECT_NAME_UPPER}}_SSH_KEY  — SSH private key for droplet access
+#   {{PROJECT_NAME_UPPER}}_SSH_HOST — Droplet IP
+
+name: Deploy Ephemeral Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Frozen candidate to deploy: one full 40-hex commit SHA. Required together with yoke_dispatch_id.'
+        required: false
+        type: string
+        default: ''
+      yoke_dispatch_id:
+        description: 'Opaque dispatch correlation naming this release preview. Required together with commit_sha.'
+        required: false
+        type: string
+        default: ''
+  push:
+    branches-ignore:
+      - main
+      - 'hotfix/**'
+
+concurrency:
+  # A release preview is keyed by its dispatch identity, and is never
+  # cancelled in flight: two dispatches under one identity carry the same
+  # frozen candidate, so the later one has nothing different to deploy and
+  # the earlier one may already be serving a review.
+  group: ephemeral-${{ github.event.inputs.yoke_dispatch_id || github.ref_name }}
+  cancel-in-progress: ${{ github.event.inputs.yoke_dispatch_id == '' }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      branch_exists: ${{ steps.slug.outputs.branch_exists }}
+      branch_slug: ${{ steps.slug.outputs.branch_slug }}
+      candidate_sha: ${{ steps.slug.outputs.candidate_sha }}
+      api_port: ${{ steps.ports.outputs.api_port }}
+      web_port: ${{ steps.ports.outputs.web_port }}
+    steps:
+      - name: Resolve preview slug and candidate
+        id: slug
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ github.event.inputs.commit_sha }}
+          YOKE_DISPATCH_ID: ${{ github.event.inputs.yoke_dispatch_id }}
+        run: |
+          set -euo pipefail
+          if [ -n "$COMMIT_SHA" ] || [ -n "$YOKE_DISPATCH_ID" ]; then
+            # Both or neither: a candidate with no identity has nowhere to be
+            # published, and an identity with no candidate would publish a
+            # frozen preview of whatever the ref happens to point at.
+            if [ -z "$COMMIT_SHA" ] || [ -z "$YOKE_DISPATCH_ID" ]; then
+              echo "::error::commit_sha and yoke_dispatch_id are required together"
+              exit 1
+            fi
+            if ! printf '%s' "$COMMIT_SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+              echo "::error::commit_sha must be one full 40-hex commit SHA"
+              exit 1
+            fi
+            # Parity contract with the Yoke substrate's frozen_preview_slug:
+            # rel- plus the first 32 hex characters of the SHA-256 of the
+            # identity, hashed whole and with no trailing newline. The
+            # deploying side derives this URL before this run reports one, so
+            # a drift here points its proof at a host serving something else.
+            DIGEST=$(printf '%s' "$YOKE_DISPATCH_ID" | sha256sum | cut -c1-32)
+            echo "branch_slug=rel-$DIGEST" >> "$GITHUB_OUTPUT"
+            echo "candidate_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+            echo "branch_exists=true" >> "$GITHUB_OUTPUT"
+            echo "Frozen release preview: rel-$DIGEST @ $COMMIT_SHA"
+            exit 0
+          fi
+          SLUG=$(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
+          echo "branch_slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "candidate_sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          if gh api repos/${GITHUB_REPOSITORY}/branches/${GITHUB_REF_NAME} > /dev/null 2>&1; then
+            echo "branch_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Branch ${GITHUB_REF_NAME} no longer exists — skipping ephemeral deploy."
+            echo "branch_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Branch preview: $SLUG"
+
+      - name: Compute port offsets
+        if: steps.slug.outputs.branch_exists == 'true'
+        id: ports
+        run: |
+          SLUG="${{ steps.slug.outputs.branch_slug }}"
+          HASH=$(echo -n "$SLUG" | sha256sum | cut -c1-8)
+          OFFSET=$(( 16#$HASH % {{preview_port_range}} ))
+          API_PORT=$(( {{api_port_base}} + OFFSET ))
+          WEB_PORT=$(( {{preview_web_port_base}} + OFFSET ))
+          echo "api_port=$API_PORT" >> "$GITHUB_OUTPUT"
+          echo "web_port=$WEB_PORT" >> "$GITHUB_OUTPUT"
+          echo "offset=$OFFSET" >> "$GITHUB_OUTPUT"
+          echo "Port offset: $OFFSET (API=$API_PORT, Web=$WEB_PORT)"
+
+  deploy:
+    needs: prepare
+    if: always()
+    uses: ./.github/workflows/{{project_name}}-ephemeral-run.yml
+    with:
+      branch_exists: ${{ needs.prepare.outputs.branch_exists }}
+      branch_slug: ${{ needs.prepare.outputs.branch_slug }}
+      candidate_sha: ${{ needs.prepare.outputs.candidate_sha }}
+      api_port: ${{ needs.prepare.outputs.api_port }}
+      web_port: ${{ needs.prepare.outputs.web_port }}
+    secrets: inherit

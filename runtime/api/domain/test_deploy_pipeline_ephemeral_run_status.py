@@ -170,6 +170,8 @@ class TestEphemeralRunStatusItemless:
             repo_path="/repo",
             image_tag="",
             item_label="",
+            preview_key="",
+            revision="",
         )
         assert harness.stage_updates() == [
             "ephemeral-deploy",
@@ -221,6 +223,10 @@ class TestEphemeralRunStatusItemBound:
             repo_path="/repo",
             image_tag="",
             item_label="YOK-42",
+            # Empty on both: this stage names no run preview, so it keeps
+            # deploying its branch's head under the branch name.
+            preview_key="",
+            revision="",
         )
         assert "Ephemeral tier" in capsys.readouterr().out
         assert harness.releases == [(42, _RUN_ID)]

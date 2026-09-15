@@ -8,7 +8,12 @@ Owns:
 - ``_validate_freshness_inputs`` and ``_validate_deployed_sha`` — deployment
   freshness gating. The ``ephemeral_environments`` row is read server-side
   by ``qa.browser_context.get``; ``_validate_deployed_sha`` is the pure
-  client-side comparison over that payload.
+  client-side comparison over that payload. It reports each failure as a
+  :class:`FreshnessFailure` carrying its own reason code, because "no
+  deployment was recorded" and "the deployment serves a different commit"
+  are different problems with different recoveries, and labelling the first
+  as the second sends the reader hunting for a stale deploy that never
+  existed.
 - ``_build_code_identity`` and ``_build_run_payload`` — structured raw_result
   payload builders.
 
@@ -23,8 +28,23 @@ import json
 import re
 import socket
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+
+from yoke_core.domain.browser_qa_freshness_outcome import (
+    DEPLOYED_SHA_UNKNOWN,
+    DEPLOYMENT_RECORD_MISSING,
+    FreshnessFailure,
+    IDENTITY_CONFIG_UNREADABLE,
+    SHA_MISMATCH,
+)
+from yoke_core.domain.browser_qa_preview_identity import (
+    PreviewIdentityTarget,
+    resolve_preview_identity_target,
+    verify_preview_identity,
+)
 
 
 def _resolve_repo_root() -> str:
@@ -117,36 +137,86 @@ def _validate_deployed_sha(
     *,
     deployed_sha: Optional[str],
     deployment_recorded: bool,
-) -> Optional[str]:
-    """Validate that the ephemeral environment deployed the expected SHA.
+    identity_target: Optional[PreviewIdentityTarget] = None,
+    fetch_identity: Optional[Callable[[str], object]] = None,
+) -> Optional[FreshnessFailure]:
+    """Validate that the deployment under test is serving the expected SHA.
 
-    Pure comparison over the ``qa.browser_context.get`` payload
-    (``deployed_sha`` + ``deployment_recorded``). Returns None on success,
-    or an error message string on failure. Logs the validated branch and
-    SHA on success for auditability.
+    Primary evidence is the ``qa.browser_context.get`` payload
+    (``deployed_sha`` + ``deployment_recorded``). When no record exists at
+    all — which is the normal state for a provider that deploys previews
+    without writing one — the project's own ephemeral-env policy says where
+    its preview for this branch publishes the commit it is running, and that
+    deployment answers for itself. The origin is derived from that policy,
+    never from a URL this check was pointed at, so only the project's own
+    preview can supply the answer.
+    That proof can only ever substitute for an *absent* record: a recorded
+    mismatch stays a mismatch, because two disagreeing sources of truth are
+    a refusal, not a vote.
+
+    Returns None on success, or the :class:`FreshnessFailure` naming which
+    outcome occurred. Logs the evidence source on success, so a reader can
+    tell a stored record from a live answer.
     """
     # Lazy import so tests patching browser_qa._log apply.
     from yoke_core.domain import browser_qa as _bqa
 
     if not deployment_recorded:
-        return (
-            f"No ephemeral environment record found for branch '{expected_branch}' "
-            f"in project '{project}'. No deployment was recorded for the expected branch."
+        if identity_target is None:
+            identity_target = resolve_preview_identity_target(
+                project, expected_branch
+            )
+        if identity_target.unreadable:
+            return FreshnessFailure(
+                IDENTITY_CONFIG_UNREADABLE,
+                f"No ephemeral environment record exists for branch "
+                f"'{expected_branch}' in project '{project}', and whether its "
+                "preview publishes an identity proof could not be determined: "
+                f"{identity_target.unreadable}. That is unverified, not "
+                "unconfigured; restore access to the project's ephemeral-env "
+                "capability and re-run.",
+            )
+        if identity_target.origin:
+            return verify_preview_identity(
+                project,
+                expected_branch,
+                expected_sha,
+                target=identity_target,
+                fetch=fetch_identity,
+            )
+        return FreshnessFailure(
+            DEPLOYMENT_RECORD_MISSING,
+            f"No ephemeral environment record found for branch "
+            f"'{expected_branch}' in project '{project}', and this project "
+            "configures no identity_path, so its preview cannot be asked what "
+            "it serves. Set the ephemeral-env capability's identity_path to "
+            "the path the preview serves its own commit on (yoke projects "
+            f"capability-settings merge --project {project} --cap-type "
+            "ephemeral-env --set identity_path=/<path>), or run this check "
+            "against a deployment whose provider records what it deployed.",
         )
 
     if not deployed_sha:
-        return (
-            f"Ephemeral environment for branch '{expected_branch}' has no deployed_sha. "
-            f"No deployment was recorded for the expected branch."
+        return FreshnessFailure(
+            DEPLOYED_SHA_UNKNOWN,
+            f"Ephemeral environment for branch '{expected_branch}' in project "
+            f"'{project}' records no deployed commit, so there is nothing to "
+            "compare against; redeploy the branch so the environment records "
+            "what it served.",
         )
 
     if deployed_sha != expected_sha:
-        return (
+        return FreshnessFailure(
+            SHA_MISMATCH,
             f"Deployed SHA mismatch for branch '{expected_branch}': "
-            f"expected {expected_sha}, but environment has {deployed_sha}."
+            f"expected {expected_sha}, but environment has {deployed_sha}. "
+            "Redeploy the expected commit before running this case.",
         )
 
-    _bqa._log(f"Freshness check passed: branch={expected_branch}, sha={expected_sha}")
+    _bqa._log(
+        "Freshness check passed against the recorded deployment: "
+        f"branch={expected_branch}, sha={expected_sha}"
+    )
     return None
 
 

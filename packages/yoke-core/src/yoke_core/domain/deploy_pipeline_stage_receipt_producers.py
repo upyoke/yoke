@@ -225,8 +225,20 @@ def _persistent_environment_producer(
 
 
 #: Every target kind this installation can produce a verified receipt for.
+def _run_preview_producer(
+    context: ProducerContext,
+) -> "tuple[int, str, Optional[StageObservation]]":
+    """Defer to the preview producer, which owns the ephemeral path."""
+    from yoke_core.domain.deploy_preview_receipt_producer import (
+        run_preview_producer,
+    )
+
+    return run_preview_producer(context)
+
+
 RECEIPT_PRODUCERS: Dict[str, Producer] = {
     "persistent_environment": _persistent_environment_producer,
+    "run_preview": _run_preview_producer,
 }
 
 #: Derived from the registry so a new producer cannot leave this behind.

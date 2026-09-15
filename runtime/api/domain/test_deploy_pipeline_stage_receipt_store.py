@@ -100,6 +100,25 @@ def _seed_run(
         "ON CONFLICT(project_id,name) DO UPDATE SET url=EXCLUDED.url",
         ("2026-09-14T00:00:00Z",),
     )
+    # A preview stage names the capability that says where this project
+    # publishes previews, and flow creation now resolves that name against
+    # the project — as it already did for a persistent environment. Seeding
+    # it keeps these fixtures shaped like a real project rather than
+    # tripping a reference check they are not about.
+    if any(
+        (stage.get("target") or {}).get("capability")
+        for stage in stages
+        if isinstance(stage, dict)
+    ):
+        conn.execute(
+            "INSERT INTO project_capabilities (project_id, type, settings, created_at) "
+            "VALUES (1, 'ephemeral-env', %s, %s) ON CONFLICT DO NOTHING",
+            (
+                '{"trigger":"github-push","preview_domain":"preview.example.test",'
+                '"identity_path":"/candidate-revision"}',
+                "2026-09-14T00:00:00Z",
+            ),
+        )
     flow_id = f"flow-{run_id}"
     cmd_create(
         conn, flow_id, "yoke", flow_id, "", json.dumps(stages), status="disabled"

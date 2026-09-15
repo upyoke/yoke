@@ -11,7 +11,8 @@ by golden-vector tests in ``test_ephemeral_substrate.py``).
 Per-project policy lives in the ``ephemeral-env`` project capability:
 which project and environment own the preview host (``host_project`` and
 ``host_env``), the
-wildcard preview domain (``preview_domain``), how deploys are triggered
+wildcard preview domain (``preview_domain``, whose ``rel-`` slug namespace
+is reserved for frozen release previews), how deploys are triggered
 (``trigger``: ``"flow"`` for a core-service executor or ``"github-push"``
 for a GitHub-Actions instantiation), the project-owned deployment flow used by
 the flow trigger (``flow_id``), the port
@@ -38,6 +39,18 @@ _DEFAULT_WEB_BASE_PORT = 4000
 _DEFAULT_API_BASE_PORT = 9000
 _DEFAULT_PORT_RANGE = 100
 _DEFAULT_TTL_HOURS = 24
+
+#: Hex characters of the digest a frozen preview slug carries.
+FROZEN_PREVIEW_SLUG_DIGEST_LENGTH = 32
+#: Slugs beginning with this are reserved for frozen release previews, and
+#: nothing named any other way may land in it. A branch is free to be called
+#: anything, and one called ``rel-<32 hex>`` would otherwise slugify onto a
+#: release preview's occupancy — taking over its directory, its port and its
+#: URL, under a name whose ownership check has no frozen candidate to match.
+FROZEN_PREVIEW_SLUG_PREFIX = "rel-"
+_FROZEN_PREVIEW_SLUG_RE = re.compile(
+    rf"^{FROZEN_PREVIEW_SLUG_PREFIX}[0-9a-f]{{{FROZEN_PREVIEW_SLUG_DIGEST_LENGTH}}}$"
+)
 
 #: Sanctioned trigger models for ephemeral deploys.
 TRIGGER_FLOW = "flow"
@@ -72,6 +85,43 @@ def slugify_branch(branch: str) -> str:
                 out.append("-")
                 prev_dash = True
     return "".join(out).strip("-")
+
+
+def frozen_preview_slug(dispatch_id: str) -> str:
+    """The slug a preview of one frozen candidate is published under.
+
+    A branch preview is named for its branch, which is what lets the next
+    push replace it. A release preview must survive exactly that, so it is
+    named for the dispatch that created it instead: the deploy workflow
+    hashes the same opaque dispatch identity and serves the result, and
+    this is the side of that parity contract Yoke computes from — the
+    probe has to know the URL before the deploy reports one.
+
+    Parity contract with the deploy workflow's own derivation (locked by
+    golden vectors in ``test_ephemeral_substrate.py``): ``rel-`` followed
+    by the first 32 hex characters of the SHA-256 of the identity, hashed
+    whole rather than truncated first.
+    """
+    if not dispatch_id:
+        raise EphemeralPolicyError(
+            "a frozen preview slug needs the dispatch identity it is named "
+            "for; an empty identity would collide with every other empty one"
+        )
+    digest = hashlib.sha256(dispatch_id.encode("utf-8")).hexdigest()
+    slug = FROZEN_PREVIEW_SLUG_PREFIX + digest[:FROZEN_PREVIEW_SLUG_DIGEST_LENGTH]
+    return slug
+
+
+def is_frozen_preview_slug(slug: str) -> bool:
+    """Whether *slug* occupies the reserved frozen-preview namespace.
+
+    Every preview surface that names an occupancy some other way asks this
+    first. The reservation is only real if the paths that could collide with
+    it refuse to: a branch preview landing here would serve a moving branch
+    at a frozen candidate's URL, which is the one thing that URL promises
+    never happens.
+    """
+    return bool(_FROZEN_PREVIEW_SLUG_RE.fullmatch(slug))
 
 
 def derive_port(slug: str, base_port: int, port_range: int) -> int:
@@ -122,6 +172,12 @@ class EphemeralPolicy:
     web_base_port: int
     port_range: int
     ttl_hours: int
+    # Optional path, on the preview's own already-authorized origin, that
+    # serves the commit the preview is running. Empty means this project
+    # publishes no such proof, which is a reportable state rather than a
+    # defect: a check that needs one says it is unconfigured instead of
+    # guessing.
+    identity_path: str = ""
 
     def api_port_for(self, slug: str) -> int:
         return derive_port(slug, self.api_base_port, self.port_range)
@@ -197,6 +253,22 @@ def ephemeral_policy_from_capability(
             f"preview_domain {preview_domain!r}; provide a DNS name without "
             "a wildcard prefix or URL scheme; " + hint
         )
+    identity_path = str(cap.get("identity_path") or "")
+    if identity_path:
+        from yoke_core.domain.served_revision_probe import (
+            origin_relative_path_error,
+        )
+
+        # One rule, owned by the probe that enforces it at read time, so a
+        # value refused there is refused here where it is set.
+        path_error = origin_relative_path_error(identity_path)
+        if path_error:
+            raise EphemeralPolicyError(
+                f"project '{project}' {_CAPABILITY} capability has an "
+                f"identity_path {identity_path!r} that {path_error}. The "
+                "origin comes from the already-authorized preview target and "
+                "this setting only selects a path beneath it; " + hint
+            )
     api_base_port = _positive_int(cap, "api_base_port", _DEFAULT_API_BASE_PORT)
     web_base_port = _positive_int(cap, "web_base_port", _DEFAULT_WEB_BASE_PORT)
     port_range = _positive_int(cap, "port_range", _DEFAULT_PORT_RANGE)
@@ -228,6 +300,7 @@ def ephemeral_policy_from_capability(
         web_base_port=web_base_port,
         port_range=port_range,
         ttl_hours=ttl_hours,
+        identity_path=identity_path,
     )
 
 

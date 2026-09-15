@@ -131,9 +131,12 @@ class TestEnvStepRunnerDispatch:
                 _stage("ephemeral-deploy"), environment_name="",
             )
         assert (rc, diag) == (0, "")
+        # Empty preview_key and revision are the branch-preview contract:
+        # this stage names itself by its branch and deploys that branch's
+        # head, which a release preview overrides and nothing else may.
         deploy.assert_called_once_with(
             "yoke", branch="b", repo_path="/repo", image_tag="",
-            item_label="YOK-1",
+            item_label="YOK-1", preview_key="", revision="",
         )
 
     def test_ephemeral_deploy_config_branch_backstops_itemless_runs(self):
@@ -150,7 +153,7 @@ class TestEnvStepRunnerDispatch:
         assert rc == 0
         deploy.assert_called_once_with(
             "yoke", branch="cfg-branch", repo_path="/repo", image_tag="",
-            item_label="",
+            item_label="", preview_key="", revision="",
         )
 
     def test_unknown_step_runner_fails_loudly(self):
