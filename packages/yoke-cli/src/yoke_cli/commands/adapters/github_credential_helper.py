@@ -1,11 +1,16 @@
 """``yoke github credential-helper refresh`` — repair the local helper bundle.
 
 Client-local command (no dispatcher function id), registered in
-:mod:`yoke_cli.commands.installer_local`. Republishes the content-addressed
-git credential-helper bundle under the running interpreter's site-packages
-when a prior helper is already installed there, and does nothing otherwise —
-see :func:`yoke_cli.config.github_git_credentials.refresh_installed_helper`.
-Safe to call unconditionally after any reinstall; ``yoke update`` and
+:mod:`yoke_cli.commands.installer_local`. Rebuilds the content-addressed git
+credential-helper bundle whenever a registered checkout's git config still
+names it, whether or not the underlying file currently exists — the exact
+repair a packaged reinstall (``uv tool install --reinstall``) needs, since
+that reinstall replaces the tool virtualenv's site-packages wholesale and
+orphans any files a *previous* run wrote there at runtime, while the git
+config that still names that path survives untouched. See
+:func:`yoke_cli.config.github_repo_helper_reconnect.restore_missing_bundle`.
+A no-op when no registered checkout references a Yoke helper, so it is safe
+to call unconditionally after any reinstall; ``yoke update`` and
 ``yoke self-host upgrade`` both invoke it via the freshly installed binary
 once their own reinstall completes.
 """
@@ -16,7 +21,7 @@ import argparse
 import json
 from typing import List
 
-from yoke_cli.config import github_git_credentials
+from yoke_cli.config import github_repo_helper_reconnect
 
 __all__ = [
     "GITHUB_CREDENTIAL_HELPER_REFRESH_USAGE",
@@ -24,28 +29,25 @@ __all__ = [
 ]
 
 GITHUB_CREDENTIAL_HELPER_REFRESH_USAGE = (
-    "yoke github credential-helper refresh [--json]"
+    "yoke github credential-helper refresh [--config PATH] [--json]"
 )
 
 
 def github_credential_helper_refresh(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke github credential-helper refresh")
+    parser.add_argument("--config", dest="config_path", default=None)
     parser.add_argument("--json", dest="json_mode", action="store_true")
     parsed = parser.parse_args(args)
-    try:
-        refreshed = github_git_credentials.refresh_installed_helper()
-    except (OSError, github_git_credentials.GitHubCredentialBundleError) as exc:
-        if parsed.json_mode:
-            print(json.dumps({"refreshed": False, "error": str(exc)}))
-        else:
-            print(f"credential helper refresh failed: {exc}")
-        return 1
+    result = github_repo_helper_reconnect.restore_missing_bundle(parsed.config_path)
+    error = result.get("error")
     if parsed.json_mode:
-        print(json.dumps({"refreshed": refreshed}))
-    else:
+        print(json.dumps(result))
+    elif not result["configured"]:
         print(
-            "Refreshed the installed git credential helper bundle."
-            if refreshed
-            else "No prior git credential helper installed; nothing to refresh."
+            "No registered checkout references a git credential helper; nothing to refresh."
         )
-    return 0
+    elif result["repaired"]:
+        print("Rebuilt the git credential helper bundle a reinstall had wiped.")
+    else:
+        print(f"credential helper repair failed: {error}")
+    return 1 if error else 0

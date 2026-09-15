@@ -16,7 +16,7 @@ import shutil
 import subprocess
 from typing import Any
 
-from yoke_cli.config import github_git_credentials, install_binding
+from yoke_cli.config import github_repo_helper_reconnect, install_binding
 from yoke_cli.self_host import release_target
 
 VERSION_PROBE_TIMEOUT_SECONDS = 30.0
@@ -59,8 +59,8 @@ def run_update(*, channel: str | None = None) -> dict[str, Any]:
         # venv even when the version is unchanged, so skip that cost here —
         # this process's own site-packages is untouched, and repairing the
         # credential helper in place is cheap and always safe to retry.
-        refreshed = _refresh_helper_in_process()
-        return _result(old_version, old_version, target, refreshed)
+        repair = github_repo_helper_reconnect.restore_missing_bundle(None)
+        return _result(old_version, old_version, target, repair)
 
     try:
         installer_bytes = release_target.fetch_installer(target)
@@ -78,15 +78,21 @@ def run_update(*, channel: str | None = None) -> dict[str, Any]:
         )
 
     new_version = _probe_version(yoke_bin)
-    refreshed = _refresh_helper_via_binary(yoke_bin)
-    return _result(old_version, new_version, target, refreshed)
+    if new_version != target.version:
+        raise SelfUpdateError(
+            "the Yoke installer reported success, but the freshly installed "
+            f"`yoke --version` reports {new_version!r}, not the requested "
+            f"{target.version!r}"
+        )
+    repair = _restore_bundle_via_binary(yoke_bin)
+    return _result(old_version, new_version, target, repair)
 
 
 def _result(
     old_version: str,
     new_version: str,
     target: release_target.ReleaseTarget,
-    refreshed: bool,
+    repair: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "old_version": old_version,
@@ -94,15 +100,10 @@ def _result(
         "already_current": new_version == old_version,
         "channel": target.channel,
         "base_url": target.base_url,
-        "credential_helper_refreshed": refreshed,
+        "credential_helper_configured": repair.get("configured"),
+        "credential_helper_repaired": repair.get("repaired"),
+        "credential_helper_error": repair.get("error"),
     }
-
-
-def _refresh_helper_in_process() -> bool:
-    try:
-        return github_git_credentials.refresh_installed_helper()
-    except (OSError, github_git_credentials.GitHubCredentialBundleError):
-        return False
 
 
 def _probe_version(yoke_bin: str) -> str:
@@ -123,12 +124,12 @@ def _probe_version(yoke_bin: str) -> str:
     return completed.stdout.strip()
 
 
-def _refresh_helper_via_binary(yoke_bin: str) -> bool:
-    # Re-invoke the freshly installed binary rather than call
-    # `refresh_installed_helper()` in this process: the reinstall just
-    # rebuilt this interpreter's own site-packages on disk, and if it also
-    # picked up a different Python minor version this process's own site
-    # path no longer names what the fresh install actually wrote.
+def _restore_bundle_via_binary(yoke_bin: str) -> dict[str, Any]:
+    # Re-invoke the freshly installed binary rather than repair in this
+    # process: the reinstall just rebuilt this interpreter's own
+    # site-packages on disk, and if it also picked up a different Python
+    # minor version this process's own site path no longer names what the
+    # fresh install actually wrote.
     completed = _RUN(
         (yoke_bin, "github", "credential-helper", "refresh", "--json"),
         check=False,
@@ -137,13 +138,18 @@ def _refresh_helper_via_binary(yoke_bin: str) -> bool:
         text=True,
         timeout=VERSION_PROBE_TIMEOUT_SECONDS,
     )
-    if completed.returncode != 0:
-        return False
+    diagnostic = (completed.stderr or completed.stdout or "").strip()[-2048:]
     try:
         payload = json.loads(completed.stdout)
     except ValueError:
-        return False
-    return bool(payload.get("refreshed"))
+        payload = None
+    if not isinstance(payload, dict) or "configured" not in payload:
+        return {
+            "configured": None,
+            "repaired": False,
+            "error": diagnostic or "credential helper refresh produced no result",
+        }
+    return payload
 
 
 __all__ = ["SelfUpdateError", "run_update"]

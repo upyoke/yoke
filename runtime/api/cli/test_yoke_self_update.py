@@ -81,7 +81,9 @@ def test_already_current_skips_reinstall_but_repairs_helper_in_process(monkeypat
         lambda *_a, **_k: pytest.fail("already-current update must not reinstall"),
     )
     monkeypatch.setattr(
-        self_update.github_git_credentials, "refresh_installed_helper", lambda: True
+        self_update.github_repo_helper_reconnect,
+        "restore_missing_bundle",
+        lambda _config_path: {"configured": True, "repaired": True},
     )
 
     result = self_update.run_update()
@@ -92,7 +94,9 @@ def test_already_current_skips_reinstall_but_repairs_helper_in_process(monkeypat
         "already_current": True,
         "channel": "stable",
         "base_url": "https://distribution.example",
-        "credential_helper_refreshed": True,
+        "credential_helper_configured": True,
+        "credential_helper_repaired": True,
+        "credential_helper_error": None,
     }
 
 
@@ -124,7 +128,9 @@ def test_version_change_reinstalls_and_repairs_via_fresh_binary(monkeypatch):
         calls.append(tuple(command))
         if command[1:] == ("--version",):
             return _completed(command, stdout="0.1.1+launch.434\n")
-        return _completed(command, stdout=json.dumps({"refreshed": True}))
+        return _completed(
+            command, stdout=json.dumps({"configured": True, "repaired": True})
+        )
 
     monkeypatch.setattr(self_update, "_RUN", run)
 
@@ -143,7 +149,80 @@ def test_version_change_reinstalls_and_repairs_via_fresh_binary(monkeypatch):
     assert result["old_version"] == "0.1.1+launch.433"
     assert result["new_version"] == "0.1.1+launch.434"
     assert result["already_current"] is False
-    assert result["credential_helper_refreshed"] is True
+    assert result["credential_helper_configured"] is True
+    assert result["credential_helper_repaired"] is True
+    assert result["credential_helper_error"] is None
+
+
+def test_stale_version_after_successful_installer_run_raises(monkeypatch):
+    monkeypatch.setattr(
+        self_update.install_binding,
+        "detect",
+        lambda: _binding(KIND_PACKAGED_WHEEL, "0.1.1+launch.433"),
+    )
+    monkeypatch.setattr(
+        self_update.shutil, "which", lambda _name: "/usr/local/bin/yoke"
+    )
+    monkeypatch.setattr(
+        self_update.release_target,
+        "channel_release_target",
+        lambda **_kwargs: _target("0.1.1+launch.434"),
+    )
+    monkeypatch.setattr(
+        self_update.release_target, "fetch_installer", lambda _target: b"installer"
+    )
+    monkeypatch.setattr(
+        self_update.release_target,
+        "run_installer",
+        lambda *_a, **_k: _completed(("installer",)),
+    )
+    # The installer reported success, but the freshly resolved `yoke` binary
+    # still reports the OLD version -- a silent installer no-op/failure this
+    # must not mistake for "already current" (that branch never reinstalls).
+    monkeypatch.setattr(
+        self_update,
+        "_RUN",
+        lambda command, **_k: _completed(command, stdout="0.1.1+launch.433\n"),
+    )
+
+    with pytest.raises(self_update.SelfUpdateError) as raised:
+        self_update.run_update()
+
+    assert "0.1.1+launch.433" in str(raised.value)
+    assert "0.1.1+launch.434" in str(raised.value)
+
+
+def test_credential_repair_failure_surfaces_distinctly_from_a_legitimate_no_op(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        self_update.install_binding,
+        "detect",
+        lambda: _binding(KIND_PACKAGED_WHEEL, "0.1.1+launch.434"),
+    )
+    monkeypatch.setattr(
+        self_update.shutil, "which", lambda _name: "/usr/local/bin/yoke"
+    )
+    monkeypatch.setattr(
+        self_update.release_target,
+        "channel_release_target",
+        lambda **_kwargs: _target("0.1.1+launch.434"),
+    )
+    monkeypatch.setattr(
+        self_update.github_repo_helper_reconnect,
+        "restore_missing_bundle",
+        lambda _config_path: {
+            "configured": True,
+            "repaired": False,
+            "error": "permission denied",
+        },
+    )
+
+    result = self_update.run_update()
+
+    assert result["credential_helper_configured"] is True
+    assert result["credential_helper_repaired"] is False
+    assert result["credential_helper_error"] == "permission denied"
 
 
 def test_installer_failure_raises_with_diagnostic(monkeypatch):
@@ -187,14 +266,41 @@ def test_command_reports_update_and_repair(monkeypatch, capsys):
             "already_current": False,
             "channel": "stable",
             "base_url": "https://distribution.example",
-            "credential_helper_refreshed": True,
+            "credential_helper_configured": True,
+            "credential_helper_repaired": True,
+            "credential_helper_error": None,
         },
     )
 
     assert command.update([]) == 0
     output = capsys.readouterr().out
     assert "0.1.1+launch.433 -> 0.1.1+launch.434" in output
-    assert "Refreshed the git credential helper" in output
+    assert "Rebuilt the git credential helper bundle" in output
+
+
+def test_command_surfaces_a_repair_failure_as_a_warning_and_non_zero_exit(
+    monkeypatch,
+    capsys,
+):
+    monkeypatch.setattr(
+        command.self_update,
+        "run_update",
+        lambda **_kwargs: {
+            "old_version": "0.1.1+launch.433",
+            "new_version": "0.1.1+launch.434",
+            "already_current": False,
+            "channel": "stable",
+            "base_url": "https://distribution.example",
+            "credential_helper_configured": True,
+            "credential_helper_repaired": False,
+            "credential_helper_error": "permission denied",
+        },
+    )
+
+    assert command.update([]) == 1
+    output = capsys.readouterr().out
+    assert "0.1.1+launch.433 -> 0.1.1+launch.434" in output
+    assert "warning: git credential helper repair failed: permission denied" in output
 
 
 def test_command_error_path_prints_json_and_fails(monkeypatch, capsys):

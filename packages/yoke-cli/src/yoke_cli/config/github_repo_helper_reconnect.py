@@ -15,7 +15,8 @@ def reattach(config_path: str | Path | None) -> dict[str, int]:
     try:
         github = machine_config.github_config(config_path)
         checkouts = machine_config.all_registered_checkouts(
-            config_path, existing_only=True,
+            config_path,
+            existing_only=True,
         )
     except (OSError, machine_config.MachineConfigError):
         counts["failed"] += 1
@@ -28,7 +29,8 @@ def reattach(config_path: str | Path | None) -> dict[str, int]:
         return counts
     for root in checkouts:
         cleanup = github_git_credentials.remove_repo_helpers(
-            root, config_path=config_path,
+            root,
+            config_path=config_path,
         )
         counts["removed"] += cleanup["removed"]
         if cleanup["failed"]:
@@ -42,11 +44,14 @@ def reattach(config_path: str | Path | None) -> dict[str, int]:
             counts["skipped"] += 1
             continue
         values, read_failed = github_git_credentials._local_config_values(
-            root, helper_key,
+            root,
+            helper_key,
         )
         if read_failed or any(
-            value and not github_git_credentials._is_yoke_helper(
-                value, config_path=config_path,
+            value
+            and not github_git_credentials._is_yoke_helper(
+                value,
+                config_path=config_path,
             )
             for value in values
         ):
@@ -54,7 +59,8 @@ def reattach(config_path: str | Path | None) -> dict[str, int]:
             continue
         try:
             result = github_git_credentials.configure_repo_helper(
-                root, config_path=config_path,
+                root,
+                config_path=config_path,
             )
         except (OSError, RuntimeError):
             counts["failed"] += 1
@@ -64,6 +70,60 @@ def reattach(config_path: str | Path | None) -> dict[str, int]:
         else:
             counts["failed"] += 1
     return counts
+
+
+def restore_missing_bundle(config_path: str | Path | None) -> dict[str, object]:
+    """Rebuild the helper bundle a reinstall wiped from site-packages.
+
+    Detection reads only registered checkouts' git config, matching each
+    configured helper value against the *currently expected* helper path by
+    shape (:func:`github_git_credentials._is_yoke_helper`) rather than by
+    checking whether the underlying file exists — the file is exactly what a
+    ``uv tool install --reinstall`` just deleted, while the git config that
+    names it survives untouched. Absent any matching reference this is a
+    legitimate no-op: it never installs a helper for a machine that never
+    configured one, and it requires no GitHub App configuration to detect a
+    reference already sitting in git config.
+    """
+    try:
+        checkouts = machine_config.all_registered_checkouts(
+            config_path,
+            existing_only=True,
+        )
+    except (OSError, machine_config.MachineConfigError):
+        return {"configured": False, "repaired": False}
+    configured = any(
+        _has_yoke_helper_reference(root, config_path=config_path) for root in checkouts
+    )
+    if not configured:
+        return {"configured": False, "repaired": False}
+    try:
+        github_git_credentials.install_stable_helper()
+    except (OSError, github_git_credentials.GitHubCredentialBundleError) as exc:
+        return {"configured": True, "repaired": False, "error": str(exc)}
+    return {"configured": True, "repaired": True}
+
+
+def _has_yoke_helper_reference(root: Path, *, config_path: str | Path | None) -> bool:
+    try:
+        keys = github_repo_config.helper_keys(root)
+    except github_repo_config.GitHubRepoConfigError:
+        return False
+    for key in keys:
+        try:
+            values = github_repo_config.values(root, key)
+        except github_repo_config.GitHubRepoConfigError:
+            continue
+        if any(
+            value
+            and github_git_credentials._is_yoke_helper(
+                value,
+                config_path=config_path,
+            )
+            for value in values
+        ):
+            return True
+    return False
 
 
 def has_matching_https_remote(root: Path, *, web_url: str) -> bool | None:
@@ -80,13 +140,15 @@ def has_matching_https_remote(root: Path, *, web_url: str) -> bool | None:
             continue
         if parsed.scheme.casefold() != "https":
             continue
-        if str(parsed.hostname or "").casefold() != str(
-            urllib.parse.urlsplit(endpoint.base_url).hostname or ""
-        ).casefold():
+        if (
+            str(parsed.hostname or "").casefold()
+            != str(urllib.parse.urlsplit(endpoint.base_url).hostname or "").casefold()
+        ):
             continue
         try:
             github_origin.normalize_github_repository(
-                raw_url, web_url=endpoint.base_url,
+                raw_url,
+                web_url=endpoint.base_url,
             )
         except github_origin.GitHubApiOriginError:
             unsafe_same_host = True
@@ -95,4 +157,4 @@ def has_matching_https_remote(root: Path, *, web_url: str) -> bool | None:
     return None if unsafe_same_host else False
 
 
-__all__ = ["has_matching_https_remote", "reattach"]
+__all__ = ["has_matching_https_remote", "reattach", "restore_missing_bundle"]

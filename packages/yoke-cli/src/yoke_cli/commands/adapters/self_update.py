@@ -31,9 +31,10 @@ def update(args: List[str]) -> int:
         else:
             print(f"yoke update: {exc}")
         return 1
+    credential_error = result["credential_helper_error"]
     if parsed.json_mode:
-        print(json.dumps({"ok": True, **result}))
-        return 0
+        print(json.dumps({"ok": credential_error is None, **result}))
+        return 1 if credential_error else 0
     if result["already_current"]:
         print(
             f"Yoke is already current at v{result['new_version']} "
@@ -44,6 +45,8 @@ def update(args: List[str]) -> int:
             f"Updated Yoke {result['old_version']} -> {result['new_version']} "
             f"({result['channel']})."
         )
-    if result["credential_helper_refreshed"]:
-        print("Refreshed the git credential helper for HTTPS GitHub remotes.")
-    return 0
+    if credential_error:
+        print(f"warning: git credential helper repair failed: {credential_error}")
+    elif result["credential_helper_repaired"]:
+        print("Rebuilt the git credential helper bundle a reinstall had wiped.")
+    return 1 if credential_error else 0

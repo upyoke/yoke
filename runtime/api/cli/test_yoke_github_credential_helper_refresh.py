@@ -6,38 +6,47 @@ import json
 
 from yoke_cli.commands.adapters import github_credential_helper as command
 from yoke_cli.commands.tool_shaped import resolve_tool_shaped
-from yoke_cli.config import github_git_credentials
 
 
-def test_refresh_reports_true_when_a_prior_helper_was_republished(monkeypatch, capsys):
+def test_refresh_reports_success_when_a_missing_bundle_is_rebuilt(monkeypatch, capsys):
     monkeypatch.setattr(
-        command.github_git_credentials, "refresh_installed_helper", lambda: True
+        command.github_repo_helper_reconnect,
+        "restore_missing_bundle",
+        lambda _config_path: {"configured": True, "repaired": True},
     )
 
     assert command.github_credential_helper_refresh([]) == 0
-    assert "Refreshed" in capsys.readouterr().out
+    assert "Rebuilt" in capsys.readouterr().out
 
 
-def test_refresh_reports_false_when_nothing_was_installed(monkeypatch, capsys):
+def test_refresh_reports_no_op_when_nothing_is_configured(monkeypatch, capsys):
     monkeypatch.setattr(
-        command.github_git_credentials, "refresh_installed_helper", lambda: False
+        command.github_repo_helper_reconnect,
+        "restore_missing_bundle",
+        lambda _config_path: {"configured": False, "repaired": False},
     )
 
     assert command.github_credential_helper_refresh(["--json"]) == 0
-    assert json.loads(capsys.readouterr().out) == {"refreshed": False}
+    assert json.loads(capsys.readouterr().out) == {
+        "configured": False,
+        "repaired": False,
+    }
 
 
 def test_refresh_failure_is_reported_and_non_zero(monkeypatch, capsys):
-    def raise_bundle_error():
-        raise github_git_credentials.GitHubCredentialBundleError("disk full")
-
     monkeypatch.setattr(
-        command.github_git_credentials, "refresh_installed_helper", raise_bundle_error
+        command.github_repo_helper_reconnect,
+        "restore_missing_bundle",
+        lambda _config_path: {
+            "configured": True,
+            "repaired": False,
+            "error": "disk full",
+        },
     )
 
     assert command.github_credential_helper_refresh(["--json"]) == 1
     payload = json.loads(capsys.readouterr().out)
-    assert payload == {"refreshed": False, "error": "disk full"}
+    assert payload == {"configured": True, "repaired": False, "error": "disk full"}
 
 
 def test_credential_helper_refresh_tool_shaped_resolution():
