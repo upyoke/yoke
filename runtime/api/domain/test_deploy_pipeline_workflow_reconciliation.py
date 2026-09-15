@@ -16,7 +16,7 @@ from yoke_core.domain import (
     deploy_pipeline_github_workflow_inputs as workflow_inputs,
 )
 from yoke_core.domain.deploy_preview_dispatch_boundary import (
-    dispatched_preview_origin,
+    release_preview_origin,
 )
 from yoke_core.domain.ephemeral_substrate import (
     frozen_preview_slug,
@@ -279,7 +279,7 @@ def test_the_dispatched_correlation_resolves_the_probed_occupancy_url() -> None:
     _release_preview_dispatch(fresh=False, calls=calls)
     sent_correlation = _sent(_trigger_calls(calls)[0], "--request-id")
 
-    probed, refusal = dispatched_preview_origin(
+    probed, refusal = release_preview_origin(
         {
             "step_runner": "github-actions-workflow",
             "config": {
@@ -290,6 +290,7 @@ def test_the_dispatched_correlation_resolves_the_probed_occupancy_url() -> None:
         project=PREVIEW_PROJECT,
         run_id=PREVIEW_RUN,
         stage_name=PREVIEW_STAGE,
+        trigger="github-push",
         preview_domain=PREVIEW_DOMAIN,
     )
     assert refusal == ""

@@ -12,13 +12,14 @@ from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
     workflow_dispatch_request_id,
 )
 from yoke_core.domain.deploy_preview_dispatch_boundary import (
-    dispatched_preview_origin,
+    release_preview_identity,
     release_preview_origin,
 )
 from yoke_core.domain.ephemeral_substrate import (
     TRIGGER_FLOW,
     TRIGGER_GITHUB_PUSH,
     frozen_preview_slug,
+    is_frozen_preview_slug,
     preview_url,
 )
 
@@ -43,13 +44,14 @@ def _stage(**config):
     }
 
 
-def _resolve(stage):
-    return dispatched_preview_origin(
+def _resolve(stage, *, trigger=TRIGGER_GITHUB_PUSH, preview_domain=DOMAIN):
+    return release_preview_origin(
         stage,
         project=PROJECT,
         run_id=RUN_ID,
         stage_name=STAGE,
-        preview_domain=DOMAIN,
+        trigger=trigger,
+        preview_domain=preview_domain,
     )
 
 
@@ -120,44 +122,43 @@ class TestRefusalsBeforeAnythingDeploys:
         assert "frozen candidate" in refusal
 
     def test_a_project_with_no_preview_domain_is_refused(self):
-        origin, refusal = dispatched_preview_origin(
-            _stage(),
-            project=PROJECT,
-            run_id=RUN_ID,
-            stage_name=STAGE,
-            preview_domain="",
-        )
+        origin, refusal = _resolve(_stage(), preview_domain="")
         assert origin == ""
         assert "preview_domain" in refusal
 
 
-class TestTriggerRouting:
-    def test_the_flow_trigger_keeps_the_origin_it_already_resolved(self):
-        origin, refusal = release_preview_origin(
-            {"step_runner": "ephemeral-deploy", "config": {}},
-            project=PROJECT,
-            run_id=RUN_ID,
-            stage_name=STAGE,
-            trigger=TRIGGER_FLOW,
-            flow_origin="https://run-20260915-001.preview.example.com",
-            preview_domain=DOMAIN,
+class TestOneNameWhicheverPathDeploysIt:
+    def test_both_triggers_resolve_the_same_origin(self):
+        """One run's preview has one URL. Deriving the flow path's name some
+        other way gave it a second one that its receipt never probed — and
+        put it in a namespace a branch could reach."""
+        dispatched, _ = _resolve(_stage(), trigger=TRIGGER_GITHUB_PUSH)
+        flowed, refusal = _resolve(
+            {"step_runner": "ephemeral-deploy", "config": {}}, trigger=TRIGGER_FLOW
         )
         assert refusal == ""
-        assert origin == "https://run-20260915-001.preview.example.com"
+        assert flowed == dispatched
 
-    def test_the_workflow_trigger_ignores_the_flow_origin(self):
-        """The flow origin names a slug the deploy workflow never publishes,
-        so reusing it would probe a host that does not exist."""
-        flow_origin = "https://run-20260915-001.preview.example.com"
-        origin, refusal = release_preview_origin(
-            _stage(),
-            project=PROJECT,
-            run_id=RUN_ID,
-            stage_name=STAGE,
-            trigger=TRIGGER_GITHUB_PUSH,
-            flow_origin=flow_origin,
-            preview_domain=DOMAIN,
+    def test_the_flow_trigger_needs_no_dispatch_inputs(self):
+        """It deploys the preview itself, so there is no workflow to hand
+        the candidate to — the refusals that guard that hand-off would be
+        refusing something that never happens."""
+        _origin, refusal = _resolve(
+            {"step_runner": "ephemeral-deploy", "config": {}}, trigger=TRIGGER_FLOW
         )
         assert refusal == ""
-        assert origin != flow_origin
-        assert origin.startswith("https://rel-")
+
+    def test_the_name_always_lands_in_the_reserved_namespace(self):
+        """Which is the whole separation: a branch cannot produce this shape,
+        so a branch cannot take a release preview's occupancy."""
+        for trigger, stage in (
+            (TRIGGER_GITHUB_PUSH, _stage()),
+            (TRIGGER_FLOW, {"step_runner": "ephemeral-deploy", "config": {}}),
+        ):
+            origin, _ = _resolve(stage, trigger=trigger)
+            assert is_frozen_preview_slug(origin.split("//")[1].split(".")[0])
+
+    def test_the_identity_is_the_one_the_deploy_paths_use(self):
+        origin, _ = _resolve(_stage())
+        identity = release_preview_identity(PROJECT, RUN_ID, STAGE)
+        assert origin == preview_url(frozen_preview_slug(identity), DOMAIN)

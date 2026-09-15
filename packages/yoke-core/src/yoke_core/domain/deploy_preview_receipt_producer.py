@@ -34,7 +34,7 @@ def run_preview_producer(
 ) -> tuple[int, str, Optional[StageObservation]]:
     """Deploy this run's preview, then require it to prove the candidate."""
     from yoke_core.domain.browser_qa_preview_identity import (
-        resolve_preview_identity_target,
+        resolve_preview_policy,
     )
     from yoke_core.domain.deploy_preview_dispatch_boundary import (
         release_preview_origin,
@@ -52,7 +52,7 @@ def run_preview_producer(
             None,
         )
 
-    identity = resolve_preview_identity_target(context.project, context.run_id)
+    identity = resolve_preview_policy(context.project)
     if identity.unreadable:
         return (
             1,
@@ -62,7 +62,7 @@ def run_preview_producer(
             f"{capability!r} capability and re-run",
             None,
         )
-    if not identity.origin:
+    if identity.unconfigured:
         return (
             1,
             f"project {context.project!r} configures no identity_path on its "
@@ -84,7 +84,6 @@ def run_preview_producer(
         run_id=context.run_id,
         stage_name=context.stage_name,
         trigger=identity.trigger,
-        flow_origin=identity.origin,
         preview_domain=identity.preview_domain,
     )
     if refusal:

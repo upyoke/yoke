@@ -90,11 +90,25 @@ PORT = 9067  # derive_port golden vector for the slug above
 
 
 class Tracker:
+    """Stands in for the preview store: what was written, and what is there.
+
+    ``recorded`` is the store as the ownership guard reads it — seed it to
+    stand up a preview some other candidate already occupies, or set
+    ``unreadable`` to make the read fail to answer at all.
+    """
+
     def __init__(self):
         self.calls = []
+        self.recorded = {}
+        self.unreadable = ""
 
     def __call__(self, project, branch, updates, item_label=""):
         self.calls.append((project, branch, dict(updates), item_label))
+
+    def recorded_candidate(self, project, preview_key):
+        if self.unreadable:
+            return "", self.unreadable
+        return self.recorded.get((project, preview_key), ""), ""
 
 
 def scripted_runner():

@@ -55,12 +55,15 @@ from yoke_core.domain.deploy_environment_settings import (
     resolve_deploy_environment,
 )
 from yoke_core.domain.deploy_ephemeral_occupancy import (
+    preview_slug,
+    require_unclaimed_by_another_candidate,
     require_unreserved_teardown,
     resolve_deploy_occupancy,
 )
 from yoke_core.domain.deploy_ephemeral_files import (
     EphemeralDeployError,
     emit_ephemeral_event,
+    recorded_candidate,
     render_webapp_template,
     routing_values,
     slug_files,
@@ -89,7 +92,6 @@ from yoke_core.domain.ephemeral_substrate import (
     ephemeral_deploy_dir,
     load_ephemeral_policy,
     preview_url,
-    slugify_branch,
 )
 
 _FAILURE_CLASSES = (
@@ -120,16 +122,10 @@ def exec_ephemeral_deploy(
 ) -> int:
     """Deploy a preview environment for *project*.
 
-    A branch preview names itself by its branch and deploys whatever that
-    branch currently points at — the ordinary case, and the default when
-    neither *preview_key* nor *revision* is given.
-
-    A release preview supplies both: *preview_key* names the preview after
-    something that does not move (its deployment run), and *revision* pins
-    the exact commit deployed. That pairing is the whole point — a frozen
-    candidate named after a branch would be replaced by the next push to
-    that branch, which is exactly what a candidate under review must
-    survive.
+    A branch preview gives neither *preview_key* nor *revision* and deploys
+    whatever its branch currently points at. A release preview gives both:
+    a name that does not move, and the exact commit pinned under it. Which
+    occupancy either may claim is :mod:`deploy_ephemeral_occupancy`.
     """
     runner = runner or CommandRunner()
     slug = ""
@@ -140,7 +136,10 @@ def exec_ephemeral_deploy(
                 "[ephemeral] a valid project repo path is required for "
                 "project-owned Pack files"
             )
-        preview_key, slug = resolve_deploy_occupancy(
+        # ``slug`` stays unset until every claim check has passed, because
+        # the failure path marks whatever it names: a deploy refused from an
+        # occupancy must not stamp the candidate living there as failed.
+        preview_key, occupancy = resolve_deploy_occupancy(
             preview_key, branch=branch, revision=revision
         )
         policy = load_ephemeral_policy(project)
@@ -151,11 +150,11 @@ def exec_ephemeral_deploy(
                 f"project '{policy.host_project}' is declared render_only; "
                 f"activate its Pulumi stack ({env.stack_name}) first"
             )
-        api_port = policy.api_port_for(slug)
-        url = preview_url(slug, policy.preview_domain)
-        deploy_dir = ephemeral_deploy_dir(policy.preview_namespace, slug)
+        api_port = policy.api_port_for(occupancy)
+        url = preview_url(occupancy, policy.preview_domain)
+        deploy_dir = ephemeral_deploy_dir(policy.preview_namespace, occupancy)
         emit(
-            f"  [ephemeral] target {policy.project}/{slug} on "
+            f"  [ephemeral] target {policy.project}/{occupancy} on "
             f"{policy.host_project}/{policy.host_env} "
             f"({env.origin_host}, port {api_port})"
         )
@@ -165,6 +164,11 @@ def exec_ephemeral_deploy(
             if revision
             else resolve_branch_sha(runner, repo_path, branch)
         )
+        if revision:
+            require_unclaimed_by_another_candidate(
+                policy.project, preview_key, sha, read_recorded=recorded_candidate,
+            )
+        slug = occupancy
         tag = image_tag or canonical_image_tag(sha)
         aws_env = aws_capability_env(policy.host_project, env.aws_region)
         ensure_instance_running(runner, env, aws_env, emit)
@@ -293,7 +297,7 @@ def exec_ephemeral_teardown(
         preview_key = preview_key or branch
         if not preview_key:
             raise EphemeralDeployError("[ephemeral] --branch is required for teardown")
-        slug = slugify_branch(preview_key)
+        slug = preview_slug(preview_key, frozen=frozen)
         require_unreserved_teardown(preview_key, slug, owned=frozen)
         policy = load_ephemeral_policy(project)
         env = resolve_deploy_environment(policy.host_project, policy.host_env)

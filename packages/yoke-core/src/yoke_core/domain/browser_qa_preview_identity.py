@@ -51,16 +51,13 @@ class PreviewIdentityTarget:
     preview_domain: str = ""
 
 
-def resolve_preview_identity_target(
-    project: str, preview_key: str
-) -> PreviewIdentityTarget:
-    """Derive the preview identity endpoint from the project's own policy.
+def resolve_preview_policy(project: str) -> PreviewIdentityTarget:
+    """Read what *project* configures about previews, naming none of them.
 
-    *preview_key* is whatever names this preview in the project's own
-    scheme: a branch for a branch preview, a deployment run for a release
-    preview. Both slugify through the same derivation the wildcard router
-    and the deploy workflow use, so the origin this returns is the one the
-    preview is actually published at.
+    The origin is left empty on purpose. Callers that own a preview whose
+    name is not branch-shaped — a frozen release preview — derive their own
+    origin, and handing them a branch-shaped one to ignore is how a caller
+    ends up probing a URL nothing deployed.
     """
     import json
 
@@ -68,8 +65,6 @@ def resolve_preview_identity_target(
     from yoke_core.domain.ephemeral_substrate import (
         EphemeralPolicyError,
         ephemeral_policy_from_capability,
-        preview_url,
-        slugify_branch,
     )
 
     # Existence is asked first, and separately, because the settings read
@@ -111,8 +106,31 @@ def resolve_preview_identity_target(
     if not policy.identity_path:
         return PreviewIdentityTarget(unconfigured=True)
     return PreviewIdentityTarget(
-        origin=preview_url(slugify_branch(preview_key), policy.preview_domain),
         path=policy.identity_path,
+        trigger=policy.trigger,
+        preview_domain=policy.preview_domain,
+    )
+
+
+def resolve_preview_identity_target(
+    project: str, branch: str
+) -> PreviewIdentityTarget:
+    """Where *project*'s preview **for a branch** publishes its commit.
+
+    The branch slugifies through the same derivation the wildcard router and
+    the deploy workflow use, so this origin is the one that branch's preview
+    is actually published at. A release preview is not branch-shaped and does
+    not come through here — see
+    :func:`deploy_preview_dispatch_boundary.release_preview_origin`.
+    """
+    from yoke_core.domain.ephemeral_substrate import preview_url, slugify_branch
+
+    policy = resolve_preview_policy(project)
+    if not policy.path:
+        return policy
+    return PreviewIdentityTarget(
+        origin=preview_url(slugify_branch(branch), policy.preview_domain),
+        path=policy.path,
         trigger=policy.trigger,
         preview_domain=policy.preview_domain,
     )
@@ -166,5 +184,6 @@ def verify_preview_identity(
 __all__ = [
     "PreviewIdentityTarget",
     "resolve_preview_identity_target",
+    "resolve_preview_policy",
     "verify_preview_identity",
 ]

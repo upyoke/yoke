@@ -27,15 +27,29 @@ from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
     RECEIPT_PRODUCERS,
     SUPPORTED_TARGET_KINDS,
 )
+from yoke_core.domain.deploy_preview_dispatch_boundary import (
+    release_preview_identity,
+)
 from yoke_core.domain.ephemeral_substrate import (
     frozen_preview_slug,
+    is_frozen_preview_slug,
     preview_url,
+    slugify_branch,
 )
 
 
 SHA = "a" * 40
 OTHER_SHA = "b" * 40
-ORIGIN = "https://run-20260915-001.preview.example.test"
+RUN_ID = "run-20260915-001"
+STAGE = "preview"
+PROJECT = "testproj"
+DOMAIN = "preview.example.test"
+#: Where this run's preview lands — derived the way the producer derives it,
+#: from the release identity rather than from any readable name, so a test
+#: that passes here is asserting the same rule the code applies.
+ORIGIN = preview_url(
+    frozen_preview_slug(release_preview_identity(PROJECT, RUN_ID, STAGE)), DOMAIN
+)
 
 
 def _context(dispatch_result=(0, "preview deployed"), **overrides) -> ProducerContext:
@@ -65,15 +79,18 @@ def _context(dispatch_result=(0, "preview deployed"), **overrides) -> ProducerCo
 
 
 def _resolved(**kwargs):
-    kwargs.setdefault("trigger", "flow")
     """Pin what the project's preview policy resolves to.
 
-    The producer imports the resolver at call time, so patching it on its
-    owning module is what the running code actually sees.
+    Policy only: no origin. The producer derives this run's preview origin
+    from the release identity, so a resolver that named one would be naming
+    a different preview.
     """
+    kwargs.setdefault("trigger", "flow")
+    kwargs.setdefault("preview_domain", "preview.example.test")
+    kwargs.pop("origin", None)
     return mock.patch.object(
         preview_identity,
-        "resolve_preview_identity_target",
+        "resolve_preview_policy",
         return_value=preview_identity.PreviewIdentityTarget(**kwargs),
     )
 
@@ -88,7 +105,7 @@ class TestRunPreviewProducer:
     def test_a_proving_preview_yields_the_observation_qa_needs(self) -> None:
         """The receipt carries url, name and served revision, which is
         exactly what the consuming QA stage resolves its target from."""
-        with _resolved(origin=ORIGIN, path="/candidate-revision"), mock.patch.object(
+        with _resolved(path="/candidate-revision"), mock.patch.object(
             probe, "probe_served_revision",
             return_value=probe.ProbeOutcome(
                 f"{ORIGIN}/candidate-revision", served=SHA
@@ -102,28 +119,36 @@ class TestRunPreviewProducer:
         assert observation.target_name == "run-20260915-001"
         assert SHA in diag
 
-    def test_the_probed_origin_is_derived_from_the_run_not_a_branch(self) -> None:
-        """A candidate is frozen; a branch-keyed preview would move under it."""
-        seen: list = []
+    def test_the_probed_origin_is_out_of_any_branch_reach(self) -> None:
+        """A candidate is frozen; a branch-keyed preview would move under it.
 
-        def _resolve(project, preview_key):
-            seen.append((project, preview_key))
+        The policy read is asked only what the project configures, and is
+        given no preview to name — an origin it returned would be about a
+        different preview, and the one this receipt is about lands in the
+        reserved namespace no branch name can produce.
+        """
+        asked: list = []
+
+        def _policy(project):
+            asked.append(project)
             return preview_identity.PreviewIdentityTarget(
-                origin=ORIGIN, path="/candidate-revision"
+                path="/candidate-revision", trigger="flow", preview_domain=DOMAIN,
             )
 
         with mock.patch.object(
-            preview_identity, "resolve_preview_identity_target", _resolve
+            preview_identity, "resolve_preview_policy", _policy
         ), mock.patch.object(
             probe, "probe_served_revision",
             return_value=probe.ProbeOutcome(ORIGIN, served=SHA),
-        ):
+        ) as probed:
             producer.run_preview_producer(_context())
-        assert seen == [("testproj", "run-20260915-001")]
+        assert asked == [PROJECT]
+        assert is_frozen_preview_slug(probed.call_args.args[0].split("//")[1].split(".")[0])
+        assert slugify_branch(RUN_ID) not in probed.call_args.args[0]
 
     def test_a_preview_serving_another_commit_produces_no_receipt(self) -> None:
         """The deploy succeeded; the preview is not this candidate."""
-        with _resolved(origin=ORIGIN, path="/candidate-revision"), mock.patch.object(
+        with _resolved(path="/candidate-revision"), mock.patch.object(
             probe, "probe_served_revision",
             return_value=probe.ProbeOutcome(
                 ORIGIN, probe.MISMATCH, OTHER_SHA, served=OTHER_SHA
@@ -143,7 +168,7 @@ class TestRunPreviewProducer:
         self, outcome_kind: str, detail: str
     ) -> None:
         """Unverified is not a pass, and it is not a mismatch either."""
-        with _resolved(origin=ORIGIN, path="/candidate-revision"), mock.patch.object(
+        with _resolved(path="/candidate-revision"), mock.patch.object(
             probe, "probe_served_revision",
             return_value=probe.ProbeOutcome(ORIGIN, outcome_kind, detail),
         ):
@@ -155,7 +180,7 @@ class TestRunPreviewProducer:
     def test_a_failed_deploy_never_reaches_the_probe(self) -> None:
         """Nothing is asked of a preview that was not stood up."""
         probed: list = []
-        with _resolved(origin=ORIGIN, path="/candidate-revision"), mock.patch.object(
+        with _resolved(path="/candidate-revision"), mock.patch.object(
             probe, "probe_served_revision",
             side_effect=lambda *a, **k: probed.append(a),
         ):
@@ -211,36 +236,29 @@ class TestAProjectWhoseWorkflowDeploysThePreview:
         }
         return context
 
-    def test_it_probes_the_dispatched_origin_not_the_run_named_one(self) -> None:
-        """This is the defect the separation exists to prevent: the flow
-        origin names a slug this deploy path never publishes, so probing it
-        would read a host that does not exist — or worse, someone else's."""
+    def test_it_probes_the_one_origin_both_paths_publish(self) -> None:
+        """One run, one preview, one URL: the workflow derives the name by
+        hashing the dispatch identity it receives, and the receipt derives
+        the same name from the same identity before the deploy answers."""
         context = self._dispatching_context()
-        expected = preview_url(
-            frozen_preview_slug(
-                workflow_dispatch_request_id(
-                    context.project, context.run_id, context.stage_name
-                )
-            ),
-            "preview.example.test",
-        )
         with _resolved(
-            origin=ORIGIN,
             path="/candidate-revision",
             trigger="github-push",
-            preview_domain="preview.example.test",
         ), mock.patch.object(
             probe, "probe_served_revision",
-            return_value=probe.ProbeOutcome(
-                f"{expected}/candidate-revision", served=SHA
-            ),
+            return_value=probe.ProbeOutcome(f"{ORIGIN}/candidate-revision", served=SHA),
         ) as probed:
             rc, _diag, observation = producer.run_preview_producer(context)
         assert rc == 0
-        assert probed.call_args.args[0] == expected
+        assert probed.call_args.args[0] == ORIGIN
         assert observation is not None
-        assert observation.observed_url == expected
-        assert observation.observed_url != ORIGIN
+        assert observation.observed_url == ORIGIN
+        assert ORIGIN == preview_url(
+            frozen_preview_slug(
+                workflow_dispatch_request_id(PROJECT, RUN_ID, STAGE)
+            ),
+            DOMAIN,
+        )
 
     def test_a_stage_that_cannot_carry_the_candidate_deploys_nothing(self) -> None:
         """A stage passing no frozen revision would let the workflow resolve
@@ -249,10 +267,8 @@ class TestAProjectWhoseWorkflowDeploysThePreview:
         context = self._dispatching_context()
         context.stage["config"]["inputs"] = {}
         with _resolved(
-            origin=ORIGIN,
             path="/candidate-revision",
             trigger="github-push",
-            preview_domain="preview.example.test",
         ):
             rc, diag, observation = producer.run_preview_producer(context)
         assert (rc, observation) == (1, None)
@@ -266,10 +282,8 @@ class TestAProjectWhoseWorkflowDeploysThePreview:
         context = _context()
         context.stage["step_runner"] = "ephemeral-deploy"
         with _resolved(
-            origin=ORIGIN,
             path="/candidate-revision",
             trigger="github-push",
-            preview_domain="preview.example.test",
         ):
             rc, diag, observation = producer.run_preview_producer(context)
         assert (rc, observation) == (1, None)

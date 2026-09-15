@@ -56,5 +56,8 @@ def deploy_seams(monkeypatch):
         lambda _root, relative, values: f"rendered:{relative}",
     )
     monkeypatch.setattr(deploy_ephemeral, "track", tracker)
+    monkeypatch.setattr(
+        deploy_ephemeral, "recorded_candidate", tracker.recorded_candidate
+    )
     monkeypatch.setattr(deploy_ephemeral, "emit_ephemeral_event", lambda *a, **k: None)
     return tracker
