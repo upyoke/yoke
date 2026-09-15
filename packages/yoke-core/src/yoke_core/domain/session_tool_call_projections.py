@@ -39,11 +39,6 @@ OPEN_TOOL_CALL_COLUMN = "open_tool_call_since"
 #: Column alias for the session's most recently completed tool name.
 LAST_COMPLETED_TOOL_COLUMN = "last_completed_tool"
 
-#: Column alias for an unsettled local command (Bash/Shell) still open.
-OPEN_LOCAL_COMMAND_COLUMN = "open_local_command_since"
-
-_LOCAL_COMMAND_TOOLS = ("Bash", "Shell")
-
 
 def open_tool_call_select(conn: Any, *, session_alias: str) -> str:
     """A select expression for when a session's running tool call started.
@@ -105,28 +100,6 @@ def last_completed_tool_select(conn: Any, *, session_alias: str) -> str:
     )
 
 
-def open_local_command_select(conn: Any, *, session_alias: str) -> str:
-    """Start stamp of an open Bash/Shell row, even if a later call closed.
-
-    Auto-background leaves the original command open while the session
-    keeps working (Read, later Bash). The latest-call projection would
-    then hide it; this one is the pending-command owner the Stop gate
-    reads. Prefixed with a comma for splicing, and degrades to absence
-    without ``session_tool_calls``.
-    """
-    if not has_session_tool_calls_table(conn):
-        return f",NULL AS {OPEN_LOCAL_COMMAND_COLUMN}"
-    names = ",".join(f"'{name}'" for name in _LOCAL_COMMAND_TOOLS)
-    return (
-        ",(SELECT tc.started_at FROM session_tool_calls tc "
-        f"WHERE tc.session_id={session_alias}.session_id "
-        "AND tc.completed_at IS NULL "
-        f"AND tc.tool_name IN ({names}) "
-        "ORDER BY tc.id DESC LIMIT 1) "
-        f"AS {OPEN_LOCAL_COMMAND_COLUMN}"
-    )
-
-
 def _row_value(row: Any, key: str) -> Any:
     if hasattr(row, "get"):
         return row.get(key)
@@ -141,11 +114,10 @@ def live_stop_block_reason(conn: Any, session_id: str) -> Optional[str]:
 
     A parked session has declared it wants to be quiet and keeps that
     escape hatch. An armed Monitor still blocks after it has completed,
-    because completing that tool is what arms the waiter. An open
-    Bash/Shell row still holds only while ``open_tool_call_is_live``
-    agrees it is current work — leftover unclosed Bash from a harness
-    that never writes completions is residue, same as any other tool.
-    A live latest-open row still holds a command in flight. Neither
+    because completing that tool is what arms the waiter. A live open
+    ``session_tool_calls`` row is a command still in flight — PreToolUse
+    opened it and PostToolUse has not closed it. ``open_tool_call_is_live``
+    refuses residue from a harness that never writes completions. Neither
     reading uses the telemetry ledger.
     """
     from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
@@ -154,8 +126,7 @@ def live_stop_block_reason(conn: Any, session_id: str) -> Optional[str]:
     row = conn.execute(
         "SELECT hs.mode, hs.last_tool_call_at"
         f"{last_completed_tool_select(conn, session_alias='hs')}"
-        f"{open_tool_call_select(conn, session_alias='hs')}"
-        f"{open_local_command_select(conn, session_alias='hs')} "
+        f"{open_tool_call_select(conn, session_alias='hs')} "
         f"FROM harness_sessions hs WHERE hs.session_id={placeholder}",
         (session_id,),
     ).fetchone()
@@ -165,11 +136,6 @@ def live_stop_block_reason(conn: Any, session_id: str) -> Optional[str]:
         return None
     if str(_row_value(row, LAST_COMPLETED_TOOL_COLUMN) or "") == MONITOR_TOOL_NAME:
         return STOP_BLOCK_MONITOR
-    if open_tool_call_is_live(
-        _row_value(row, OPEN_LOCAL_COMMAND_COLUMN),
-        _row_value(row, "last_tool_call_at"),
-    ):
-        return STOP_BLOCK_LIVE_COMMAND
     if open_tool_call_is_live(
         _row_value(row, OPEN_TOOL_CALL_COLUMN),
         _row_value(row, "last_tool_call_at"),
@@ -181,12 +147,10 @@ def live_stop_block_reason(conn: Any, session_id: str) -> Optional[str]:
 __all__ = [
     "LAST_COMPLETED_TOOL_COLUMN",
     "MONITOR_TOOL_NAME",
-    "OPEN_LOCAL_COMMAND_COLUMN",
     "OPEN_TOOL_CALL_COLUMN",
     "STOP_BLOCK_LIVE_COMMAND",
     "STOP_BLOCK_MONITOR",
     "last_completed_tool_select",
     "live_stop_block_reason",
-    "open_local_command_select",
     "open_tool_call_select",
 ]

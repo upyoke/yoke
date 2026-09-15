@@ -151,9 +151,6 @@ def build_envelope(rec: EventRecord) -> Dict[str, Any]:
         "hook_event_name": rec.hook_event,
         "context": {"detail": context},
     }
-    if rec.pending_local_command:
-        envelope["pending_local_command"] = True
-
     envelope_json = json.dumps(envelope, separators=(",", ":"))
     if len(envelope_json.encode("utf-8")) > 65536:
         envelope["context"] = {
@@ -256,23 +253,10 @@ def insert_event(conn: Any, envelope: Dict[str, Any]) -> None:
 def _apply_state_and_commit(conn: Any, envelope: Dict[str, Any]) -> None:
     """Started opens a ``session_tool_calls`` row; a completion closes it.
 
-    A PostToolUse that did not settle the process (structured
-    ``backgroundTaskId`` on the tool response, with no terminal failure)
-    still records telemetry, but must not close the row the Stop gate reads.
-
     Schema-tolerant — skips cleanly on fixtures lacking the table or
     columns, the same contract ``session_activity_state`` declares.
     """
-    from yoke_core.domain.session_activity_state import (
-        COMPLETION_EVENT_NAMES,
-        apply_envelope_state,
-    )
+    from yoke_core.domain.session_activity_state import apply_envelope_state
 
-    # Skip only the close. A PreToolUse envelope must still open its row
-    # even if a payload somehow carried the pending flag.
-    skip_close = envelope.get("pending_local_command") and (
-        envelope.get("event_name") in COMPLETION_EVENT_NAMES
-    )
-    if not skip_close:
-        apply_envelope_state(conn, envelope)
+    apply_envelope_state(conn, envelope)
     conn.commit()

@@ -6,7 +6,6 @@ from yoke_contracts.turn_end_evidence import TurnEndEvidence
 from yoke_core.domain import turn_end_promised_work_gate as gate
 from yoke_core.domain.session_tool_call_projections import (
     LAST_COMPLETED_TOOL_COLUMN,
-    OPEN_LOCAL_COMMAND_COLUMN,
     OPEN_TOOL_CALL_COLUMN,
 )
 from yoke_core.hooks.types import HookContext, Outcome, Next
@@ -193,28 +192,12 @@ def test_live_open_command_blocks_stop_during_cooldown(monkeypatch) -> None:
             "mode": "dash",
             LAST_COMPLETED_TOOL_COLUMN: "Read",
             OPEN_TOOL_CALL_COLUMN: _LIVE_STAMP,
-            OPEN_LOCAL_COMMAND_COLUMN: _LIVE_STAMP,
             "last_tool_call_at": _LIVE_STAMP,
         }
     )
 
     assert gate._live_stop_block_reason(conn, "sess-1") == gate.REASON_LIVE_COMMAND
     assert not any("events" in query for query in conn.queries)
-
-
-def test_open_bash_holds_after_later_call_closed(monkeypatch) -> None:
-    _no_events(monkeypatch)
-    conn = _SessionConn(
-        {
-            "mode": "dash",
-            LAST_COMPLETED_TOOL_COLUMN: "Read",
-            OPEN_TOOL_CALL_COLUMN: None,
-            OPEN_LOCAL_COMMAND_COLUMN: _LIVE_STAMP,
-            "last_tool_call_at": _LIVE_STAMP,
-        }
-    )
-
-    assert gate._live_stop_block_reason(conn, "sess-1") == gate.REASON_LIVE_COMMAND
 
 
 def test_settled_command_does_not_block_stop(monkeypatch) -> None:
@@ -238,7 +221,6 @@ def test_residue_open_row_does_not_block_stop(monkeypatch) -> None:
             "mode": "dash",
             LAST_COMPLETED_TOOL_COLUMN: "Read",
             OPEN_TOOL_CALL_COLUMN: "2026-09-15T00:00:00Z",
-            OPEN_LOCAL_COMMAND_COLUMN: "2026-09-15T00:00:00Z",
             "last_tool_call_at": _LIVE_STAMP,
         }
     )

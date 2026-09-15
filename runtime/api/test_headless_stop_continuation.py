@@ -148,12 +148,12 @@ def test_relay_launched_claude_cli_stops_holding_at_the_cap(monkeypatch) -> None
     ]
 
 
-def test_backgrounded_bash_holds_two_stops_during_cooldown(monkeypatch) -> None:
-    """Auto-backgrounded Bash stays held across a reminder-cooldown retry.
+def test_live_open_command_holds_two_stops_during_cooldown(monkeypatch) -> None:
+    """A command still in flight holds Stop across a reminder-cooldown retry.
 
-    Completing Monitor is the waiter-armed signal; a live open command
-    row is the same class of fact for a Bash the harness backgrounded
-    without closing. The 30-minute reminder cooldown must not discard it.
+    Completing Monitor is the waiter-armed signal; a live latest-open
+    tool-call row is the same class of fact for a Bash that has not yet
+    posted completion. The 30-minute reminder cooldown must not discard it.
     """
     emitted: list[dict] = []
     _patch_live_claim(monkeypatch, emitted, relay_launched=True)
