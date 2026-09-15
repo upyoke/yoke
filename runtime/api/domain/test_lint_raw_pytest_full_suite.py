@@ -292,14 +292,14 @@ class TestExecutableCoverageIsUnchanged(unittest.TestCase):
         self.assertIsNotNone(_eval(command))
 
     def test_launcher_wrapped_shell_heredoc_still_denies(self):
-        # A compound form: the heredoc-exemption's shell veto keys on the
-        # leading word, but `env` only forwards to bash -- the body is
-        # still executed line by line.
-        command = "env bash <<'EOF'\npytest " + " ".join(
-            f"{a}/" for a in lint.full_sweep_anchors()
-        ) + "\nEOF\n"
-        mode, _, _ = _eval(command)
-        self.assertEqual(mode, "deny")
+        # A compound form: `env` only forwards to bash -- the body is
+        # still executed line by line, with or without a redirect.
+        anchors = " ".join(f"{a}/" for a in lint.full_sweep_anchors())
+        for launch in ("env bash <<'EOF'", "env bash > out.log <<'EOF'"):
+            with self.subTest(launch=launch):
+                command = f"{launch}\npytest {anchors}\nEOF\n"
+                mode, _, _ = _eval(command)
+                self.assertEqual(mode, "deny")
 
     def test_heredoc_piped_into_a_shell_still_denies(self):
         # Another compound form: the heredoc's own reader is `cat`, but

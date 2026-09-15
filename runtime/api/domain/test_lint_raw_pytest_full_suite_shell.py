@@ -90,8 +90,8 @@ class TestStripHeredocBodies(unittest.TestCase):
         self.assertNotIn("pytest", stripped)
 
     def test_body_read_by_bash_is_left_scannable(self):
-        # No redirect either, but the shell veto is what matters here:
-        # bash executes its heredoc body as commands, redirect or not.
+        # A redirect is present, but bash is not in the positive reader
+        # admit list: it executes its heredoc body as commands.
         command = "bash > out.log <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
         self.assertEqual(shell.strip_heredoc_bodies(command), command)
 
@@ -132,9 +132,15 @@ class TestStripHeredocBodies(unittest.TestCase):
         self.assertEqual(shell.strip_heredoc_bodies(command), command)
 
     def test_launcher_wrapped_shell_heredoc_is_left_scannable(self):
-        # `env` forwards to `bash`; the redirect-gate alone already
-        # excludes this (no `>` on the launch line).
+        # `env` forwards to `bash`; the reading-program admit list
+        # excludes "env" regardless of the redirect gate.
         command = "env bash <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
+        self.assertEqual(shell.strip_heredoc_bodies(command), command)
+
+    def test_launcher_wrapped_shell_heredoc_with_redirect_is_left_scannable(self):
+        # A redirect alone is not proof of an inert reader: `env` still
+        # forwards to `bash`, which executes the heredoc body.
+        command = "env bash > out.log <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
         self.assertEqual(shell.strip_heredoc_bodies(command), command)
 
     def test_operator_inside_a_quoted_string_is_not_a_heredoc(self):

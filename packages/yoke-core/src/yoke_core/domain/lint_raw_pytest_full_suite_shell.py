@@ -8,32 +8,35 @@ quoting or heredoc bodies, so text that is really a stored argument or
 file body gets treated as a fresh, executable statement.
 
 The two passes below POSITIVELY recognize the evidenced inert-write
-shapes rather than guessing from a negative signal ("not a shell
-heredoc", "line starts with a sink"): each requires an unquoted ``>``
+shapes rather than guessing from a negative signal ("not a known
+shell", "line starts with a sink"): each requires an unquoted ``>``
 (the "this becomes a file" signal) on a single, self-contained
-statement with no OTHER unquoted ``;``/``&``/``|`` riding along. A
-compound or uncertain form — a heredoc read by a launcher-wrapped or
-piped shell (``env bash <<EOF``, ``cat <<EOF | bash``), or a
-sink-leading line that also carries a second, different statement
-(``echo ok > /tmp/x; bash -c '... && pytest ...'``) — fails that shape
-and is left completely untouched, so it is scanned exactly as before
-by the guard's existing (if incomplete) segment split. Recursing into
-a quoted, genuinely executable payload (``bash -c "..."``, ``eval
-"..."``) to decide whether IT invokes pytest is deliberately out of
-scope: that is a new detection capability, not a fix to the
-false-positive shapes below.
+statement with no OTHER unquoted ``;``/``&``/``|`` riding along, AND —
+for a heredoc — that the exact reading program is one proven inert by
+the FN evidence (`cat`, `python3`), not merely absent from a shell
+denylist. A compound or uncertain form — a heredoc read by a
+launcher-wrapped or piped shell (``env bash <<EOF``, ``env bash >
+out.log <<EOF``, ``cat <<EOF | bash``), or a sink-leading line that
+also carries a second, different statement (``echo ok > /tmp/x; bash
+-c '... && pytest ...'``) — fails that shape and is left completely
+untouched, so it is scanned exactly as before by the guard's existing
+(if incomplete) segment split. Recursing into a quoted, genuinely
+executable payload (``bash -c "..."``, ``eval "..."``) to decide
+whether IT invokes pytest is deliberately out of scope: that is a new
+detection capability, not a fix to the false-positive shapes below.
 
 * :func:`strip_heredoc_bodies` removes a heredoc body only when its
   launch line is that single, self-contained, redirected-to-a-file
-  statement, and its reading program is not a shell interpreter.
-  `cat`, `python3`, and similar treat their heredoc as file content or
-  script input that may merely MENTION pytest as text; `sh`/`bash`/
-  `zsh` interpret their heredoc body as shell commands line by line, so
-  a standalone ``pytest ...`` line there is a real invocation.
+  statement AND its reading program is exactly one of
+  `_HEREDOC_DATA_READERS`. Every other reader — `sh`/`bash`/`zsh` (which
+  interpret their heredoc body as shell commands line by line, so a
+  standalone ``pytest ...`` line there is a real invocation),
+  `env`-launched anything, and anything unrecognized — is left alone,
+  redirect or not.
 * :func:`mask_data_sink_lines` blanks quoted interiors only on that
   same shape of physical line, with a known data-writing program
   (`cat`/`printf`/`echo`/`tee`) in place of a heredoc's reading
-  interpreter — the shape a QA plan-case JSON payload actually takes.
+  program — the shape a QA plan-case JSON payload actually takes.
 """
 
 from __future__ import annotations
@@ -45,9 +48,12 @@ _HEREDOC_START = re.compile(
     r"<<-?\s*(?:'(?P<sq>[^']*)'|\"(?P<dq>[^\"]*)\"|(?P<bare>[A-Za-z_]\w*))"
 )
 
-#: Interpreters that read a heredoc body as shell commands, line by
-#: line — a bare ``pytest ...`` line there is a real invocation.
-_SHELL_INTERPRETERS = frozenset({"sh", "bash", "zsh", "ksh", "dash"})
+#: Readers whose own heredoc is proven inert — the exact FN evidence
+#: (``cat`` writing a scratch file, ``python3`` printing one). Anything
+#: else, including a launcher-wrapped or unrecognized reader, is a
+#: burden-of-proof failure and is left untouched: a positive admit
+#: list, never a "not a known shell" guess.
+_HEREDOC_DATA_READERS = frozenset({"cat", "python3"})
 
 #: Programs whose ordinary job is writing their argument/stdin as data.
 _DATA_SINK_PROGRAMS = frozenset({"cat", "printf", "echo", "tee"})
@@ -163,20 +169,21 @@ def strip_heredoc_bodies(command: str) -> str:
 
     Scans for the next unquoted ``<<``/``<<-`` operator (a here-string
     ``<<<`` takes no body block and is left untouched). The body is
-    stripped only when its launch line is a single, self-contained
-    statement redirected to a file — an unquoted ``>`` present and no
-    OTHER unquoted ``;``/``&``/``|`` — the positive shape the evidenced
-    payloads take (``cat > file <<'EOF'``, ``python3 <<'EOF' > file``).
-    A launch line with no redirect (``bash <<'EOF'``, a genuine sweep;
-    ``env bash <<'EOF'``) or one riding a pipe into another program
-    (``cat <<'EOF' | bash``) fails that shape and is left untouched, so
-    its body stays scannable exactly as before — the shell-interpreter
-    check below is a second, narrower veto for the plain case, not the
-    only guard. Otherwise the full launch line is kept intact and every
-    line up to and including the terminator — tab-stripped when the
-    operator is ``<<-`` — is discarded; an unterminated heredoc
-    discards the remainder as still-open data rather than guessing
-    where it ends.
+    stripped only when BOTH hold: its launch line is a single,
+    self-contained statement redirected to a file — an unquoted ``>``
+    present and no OTHER unquoted ``;``/``&``/``|`` — and its exact
+    reading program is one proven inert by evidence (`_HEREDOC_DATA_
+    READERS`). A launch line with no redirect (``bash <<'EOF'``, a
+    genuine sweep), one riding a pipe into another program (``cat
+    <<'EOF' | bash``), or one whose reader is unrecognized or
+    launcher-wrapped even WITH a redirect (``env bash > out.log
+    <<'EOF'`` still forwards to bash, which executes the body) fails
+    this shape and is left completely untouched, so its body stays
+    scannable exactly as before. Otherwise the full launch line is kept
+    intact and every line up to and including the terminator — tab-
+    stripped when the operator is ``<<-`` — is discarded; an
+    unterminated heredoc discards the remainder as still-open data
+    rather than guessing where it ends.
     """
     out: List[str] = []
     i, n = 0, len(command)
@@ -212,7 +219,7 @@ def strip_heredoc_bodies(command: str) -> str:
         launch_line = command[line_start:line_end]
         chars = _unquoted_chars(launch_line)
         if (
-            _leading_program(command[line_start:i]) in _SHELL_INTERPRETERS
+            _leading_program(command[line_start:i]) not in _HEREDOC_DATA_READERS
             or ">" not in chars
             or (chars & {";", "&", "|"})
         ):
