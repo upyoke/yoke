@@ -27,8 +27,43 @@ from yoke_core.domain.session_relay_wake_claim import claim_wake_attempt
 from runtime.api.domain.test_session_message_support import (
     NATIVE_WAKE_SESSION_ID,
     NOW,
+    NOW_TEXT,
     message_connection,
 )
+
+
+def _unclosed(conn):
+    class _Unclosed:
+        def __init__(self, inner):
+            self._inner = inner
+
+        def close(self):
+            return None
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    return _Unclosed(conn)
+
+
+def _wake_handler(monkeypatch, conn, *, idempotency_key: str):
+    monkeypatch.setattr(
+        session_wake_handler, "open_connection", lambda: _unclosed(conn)
+    )
+    monkeypatch.setattr(
+        session_manual_wake,
+        "wait_for_session_wake_result",
+        lambda _conn, result: result,
+    )
+    monkeypatch.setattr(session_manual_wake, "utc_now", lambda: NOW)
+    return session_wake_handler.handle_session_wake(
+        FunctionCallRequest(
+            function="session_control.session.wake",
+            actor=ActorContext(actor_id="10", session_id=""),
+            target=TargetRef(kind="global"),
+            payload={"session_id": "s2", "idempotency_key": idempotency_key},
+        )
+    )
 
 
 def test_manual_wake_forces_the_stopped_route_for_an_active_session() -> None:
@@ -250,4 +285,62 @@ def test_second_explicit_wake_is_refused_inside_recipient_grace_window() -> None
     assert refused.value.code == "wake_in_flight"
     assert first["message_id"] in str(refused.value)
     assert "wake_attempt_count=1" in str(refused.value)
+    assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 1
+
+
+def test_injected_zero_attempt_notification_permits_a_new_wake(monkeypatch) -> None:
+    conn = message_connection()
+    first = _wake_handler(monkeypatch, conn, idempotency_key="delivered-notice")
+    conn.execute(
+        "UPDATE session_message_recipients SET state='injected',"
+        "injection_count=1,last_injected_at=? WHERE message_id=?",
+        (NOW_TEXT, first.result_payload["message_id"]),
+    )
+    conn.commit()
+
+    second = _wake_handler(monkeypatch, conn, idempotency_key="merge-clearance")
+
+    assert second.primary_success is True
+    assert second.result_payload["message_id"] != first.result_payload["message_id"]
+    assert second.result_payload["deduplicated"] is False
+
+
+def test_queued_explicit_wake_still_blocks_a_second_request(monkeypatch) -> None:
+    conn = message_connection()
+    first = _wake_handler(monkeypatch, conn, idempotency_key="queued-first")
+
+    second = _wake_handler(monkeypatch, conn, idempotency_key="queued-second")
+
+    assert second.primary_success is False
+    assert second.error is not None
+    assert second.error.code == "wake_in_flight"
+    assert "wake_queued" in second.error.message
+    assert first.result_payload["message_id"] in second.error.message
+    assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 1
+
+
+def test_open_native_wake_attempt_still_blocks(monkeypatch) -> None:
+    conn = message_connection()
+    first = _wake_handler(monkeypatch, conn, idempotency_key="open-attempt")
+    candidate = wake_eligible_recipients(conn, now=NOW)[0]
+    assert claim_wake_attempt(conn, candidate=candidate, now=NOW_TEXT)
+    conn.commit()
+
+    second = _wake_handler(monkeypatch, conn, idempotency_key="while-open")
+
+    assert second.primary_success is False
+    assert second.error is not None
+    assert second.error.code == "wake_in_flight"
+    assert "wake_attempt_in_progress" in second.error.message
+    assert first.result_payload["message_id"] in second.error.message
+
+
+def test_registered_wake_handler_idempotent_retry_stays_one_wake(monkeypatch) -> None:
+    conn = message_connection()
+    first = _wake_handler(monkeypatch, conn, idempotency_key="resume-once")
+    repeated = _wake_handler(monkeypatch, conn, idempotency_key="resume-once")
+
+    assert first.result_payload["message_id"] == repeated.result_payload["message_id"]
+    assert first.result_payload["deduplicated"] is False
+    assert repeated.result_payload["deduplicated"] is True
     assert conn.execute("SELECT COUNT(*) FROM session_messages").fetchone()[0] == 1

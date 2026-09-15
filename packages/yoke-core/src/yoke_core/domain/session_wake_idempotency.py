@@ -35,8 +35,10 @@ def recent_wake_blocker(
     """Return the receipt that prevents another native wake right now.
 
     A caller may exclude its deterministic message id so an exact retry can
-    deduplicate. New explicit requests also treat an older queued explicit
-    receipt as in flight, closing the gap before a relay has claimed it.
+    deduplicate. New explicit requests also treat an older still-pending
+    queued explicit receipt as in flight, closing the gap before a relay
+    has claimed it. An already-injected receipt is delivered, not queued,
+    even when it is unacknowledged and has no native wake attempt.
     A writer must hold the target harness-session row lock across this read
     and its insert; :func:`request_session_wake` does so.
     """
@@ -73,6 +75,7 @@ def recent_wake_blocker(
         elif (
             include_queued_explicit
             and attempt_count == 0
+            and str(row.get("state") or "") == "pending"
             and _explicit_wake(row.get("routing_snapshot"))
         ):
             reason = "wake_queued"
