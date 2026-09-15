@@ -253,7 +253,11 @@ def test_history_query_presents_flow_stages_and_derived_carried_items(
     ]
     assert all(stage["state"] == "complete" for stage in row["stages"])
     assert row["member_items"] == []
+    # The compact shape trims the listing but keeps the fact that the
+    # comparison ran: an empty items list with no derivation reads as an empty
+    # release even when nobody could look.
     assert row["carried_work"] == {
+        "derivation": {"status": "derived", "reason": "complete"},
         "items": [{"ref": "YOK-3080", "item_id": 3207}],
     }
 

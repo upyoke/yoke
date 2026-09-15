@@ -31,7 +31,7 @@ GITHUB_ACTIONS_SUBCOMMAND_REGISTRY: Dict[
 ] = {
     ("github-actions", "failed-log"):
         ("github_actions.failed_log", github_actions_failed_log),
-    ("github-actions", "commit-runs"):
+    ("github-actions", "commit-runs", "list"):
         ("github_actions.commit_runs.list", github_actions_commit_runs),
     ("github-actions", "check-ci"):
         ("github_actions.check_ci", _adapters.github_actions_check_ci),

@@ -14,6 +14,7 @@ WRAPPED_ROWS: Tuple[_Row, ...] = (
     _w("yoke github-actions workflow dispatch", "github_actions"),
     _w("yoke github-actions workflow dispatch-once", "github_actions"),
     _w("yoke github-actions workflow find-run", "github_actions"),
+    _w("yoke github-actions commit-runs list", "github_actions"),
     _w("yoke github-actions run jobs-count", "github_actions"),
     _w("yoke github-actions trigger", "github_actions"),
     _w("yoke github-actions trigger-once", "github_actions"),
