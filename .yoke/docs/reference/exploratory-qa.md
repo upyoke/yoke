@@ -22,11 +22,16 @@ The built-in method has these immutable properties:
 | required capabilities | `browser-control`, `test-machine` |
 | case config | `{"executor":"informed_subagent"}` or `{"executor":"naive_target_session"}` |
 
-Capability declarations are provisioning authority. Materialization resolves
-both kinds against the project capability rows and the executing harness
-session. The Test Machine connection comes from the `QA_HOST:` coordination
-lease recorded on `qa_plan_executions.machine_lease_id`; the mission does not
-open an undeclared host or browser path.
+Capability declarations are provisioning authority, and the two kinds above
+resolve differently. `test-machine` is a project registration: materialization
+resolves it against the project capability rows, and admission refuses a
+mission whose project has registered no Test Machine. `browser-control` is
+substrate Yoke installs itself, so it needs no project capability row —
+admission admits the mission and the machine that runs it provisions Node,
+Playwright, and Chromium on first use, naming what it could not provision.
+The Test Machine connection comes from the `QA_HOST:` coordination lease
+recorded on `qa_plan_executions.machine_lease_id`; the mission does not open
+an undeclared host or browser path.
 
 ## Authoring Shape
 

@@ -46,7 +46,7 @@ New qa_kinds can be added without schema changes. The column is free-form text, 
 
 ### Layer 3: capability_requirements -- What runtime access is needed?
 
-JSON array of capability slugs. The deployment pipeline checks these against `project_capabilities` before execution.
+JSON array of capability slugs. Case admission checks these against the project's `project_capabilities` rows and the executing harness session, and refuses a case whose host is missing one. The exception is substrate Yoke installs itself — today `browser-control` — which no project row can prove or withhold: admission lets it through and the machine that runs the case provisions it on first use, naming what it could not provision.
 
 ```json
 ["browser", "docker", "ssh", "repo", "github"]
