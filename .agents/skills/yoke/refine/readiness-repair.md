@@ -273,7 +273,9 @@ yoke watch pytest --impacted main --bounded
 
 That last one runs on the project's CI against the pushed lane commit
 when the project declares a `ci_workflow_file` capability, so commit
-before running it; `--local` runs it on this machine instead.
+and let CI run it. `--local` is only a small targeted check expected to
+finish in about one minute; uncommitted work does not justify a slow
+local run.
 
 Plus your project's registered verification command for the paths this repair
 touched — the anchor paths are per-project, so read them from that command (or

@@ -22,8 +22,15 @@ final QA gate` and runs the subset it could still compute. Read that as
 *keep testing what you judge relevant*, not as a signal to run everything
 now. Where the project declares a `ci_workflow_file` capability, commit;
 the gate rebases onto the base branch, pushes once, and dispatches the
-selection workflow. Do not push the lane by hand. `--local` runs the check
-here instead, under one machine-wide xdist worker budget. The full-suite
+selection workflow. Do not push the lane by hand. Use that CI runner for
+normal verification, broad selections, and selections of uncertain
+duration. `--local` is only a small targeted check expected to finish in
+about one minute for the entire invocation — one file or a small test
+count does not prove a fast runtime, and uncommitted work does not
+justify a slow local run. If a local check exceeds that, interrupt it
+cleanly, keep the capture as incomplete, commit, and run the selection
+on CI; do not repeat or background the slow local selection. Preserve
+`--local` for machine-specific diagnostics and projects without CI. The full-suite
 authority is CI on the protected merge path, which runs on the pull request
 and again on the merged commit. Fall back to a local full sweep only when CI
 is unavailable, and record that substitution in the verification evidence.

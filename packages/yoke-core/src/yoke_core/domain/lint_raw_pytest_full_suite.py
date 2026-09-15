@@ -221,7 +221,7 @@ def _format_reason(
         "worker budget where it is not, and captures its own output:\n"
         "  yoke watch pytest --impacted main --bounded   # iteration default\n"
         "  yoke watch pytest -- <paths>                  # narrower scope\n"
-        "  yoke watch pytest --local -- <paths>          # force this machine\n"
+        "  yoke watch pytest --local -- <paths>          # ~1 min targeted check\n"
         "To enumerate one CI shard without running its tests:\n"
         "  yoke watch pytest -- <CI shard args> --collect-only -q\n"
         "The item's blocking gate is its QA case run, not a hand-run sweep:\n"

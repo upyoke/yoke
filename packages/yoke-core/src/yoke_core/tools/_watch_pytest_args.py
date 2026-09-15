@@ -97,16 +97,17 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
             "project that declares its CI workflow the run executes on CI: "
             "the lane commit is pushed, the selection workflow is dispatched "
             "with (base_sha, head_sha), and the exit status mirrors the run's "
-            f"conclusion. {LOCAL_FLAG} runs on this machine instead, under "
-            "the machine-wide worker budget."
+            f"conclusion. {LOCAL_FLAG} is only a small targeted check "
+            "expected to finish in about one minute."
         ),
         epilog=(
             "Full-suite shape: pass the three anchors 'runtime/api/ "
             "runtime/harness/ tests/' — never bare 'runtime/', which "
             "demotes runtime/api/conftest.py from initial-conftest status "
             "and fails collection. The wrapper refuses bare 'runtime/'. "
-            "A remote run refuses an uncommitted tree (commit, then run) "
-            "and a checkout on the base branch; it drops -n/--numprocesses "
+            "A remote run refuses an uncommitted tree (commit, then run "
+            "on CI — uncommitted work does not justify --local) and a "
+            "checkout on the base branch; it drops -n/--numprocesses "
             "and --rootdir, which describe this machine. Exit statuses: "
             "pytest's own locally; remotely 0 success, 1 failure, 2 refused "
             "before dispatch, 3 timed out, 4 CI unreachable or dispatch "
@@ -118,11 +119,14 @@ def parse_args(argv: Sequence[str], prog: str) -> argparse.Namespace:
         LOCAL_FLAG,
         dest="local",
         action="store_true",
-        help="Run on this machine instead of the project's CI: order-"
-        "sensitive debugging (-n 0), a tree you want to try before "
-        "committing, or an unreachable CI. Local runs take their xdist "
-        f"workers from one machine-wide budget. {LOCAL_ENV}=1 does the "
-        "same for a whole shell.",
+        help=(
+            "Small targeted local check expected to finish in about one "
+            "minute — not a substitute for CI, and not justified by "
+            "uncommitted work. Keep this for order-sensitive debugging "
+            f"(-n 0), machine-specific diagnostics, or an unreachable CI. "
+            f"Local runs take their xdist workers from one machine-wide "
+            f"budget. {LOCAL_ENV}=1 does the same for a whole shell."
+        ),
     )
     parser.add_argument(
         _watch_runner.PRINT_STREAMING_PAIR_FLAG,

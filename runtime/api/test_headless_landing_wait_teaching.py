@@ -180,7 +180,7 @@ def test_worker_lifecycle_teaches_the_continuation_it_mandates():
     collapsed = _words(content)
     assert "a launched turn is the whole life of every command it starts" in collapsed
     assert "read that hand-back as completion" in collapsed
-    assert "stop early only where the command itself handed the wait off" in collapsed
+    assert "stop early only for a command-handed wait or the taught local-check interrupt" in collapsed
 
 
 def test_no_teaching_surface_reads_the_hand_back_as_the_end_of_the_call():
