@@ -11,16 +11,27 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain.deployment_run_carried_work_source import (
+    RELATION_DIVERGED,
+    CarriedWorkSource,
+    CarriedWorkSourceUnavailable,
+    open_carried_work_source,
+)
 from yoke_core.domain.deployment_run_carried_work_sources import (
     resolve_carried_items,
 )
 from yoke_core.domain.json_helper import dumps_compact, loads_text
-from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 
 
 CARRIED_WORK_FIELD = "carried_work"
 CARRIED_WORK_SCHEMA = 1
+# An answer nobody could compute is not an empty release. Readers key on the
+# status, so it is derived from the one flag that says whether the comparison
+# actually ran rather than set by hand at each exit.
+STATUS_DERIVED = "derived"
+STATUS_EMPTY = "empty"
+STATUS_UNKNOWN = "unknown"
+SOURCE_NONE = "none"
 
 
 def parse_carried_work(value: Any) -> dict[str, Any] | None:
@@ -51,6 +62,7 @@ def _empty(
     release_lineage: str = "",
     warnings: Sequence[Mapping[str, str]] = (),
     error_type: str = "",
+    source: str = SOURCE_NONE,
 ) -> dict[str, Any]:
     # An empty answer and an unanswerable question are different facts, and a
     # reader that conflates them tells an approver a release is empty when the
@@ -58,8 +70,9 @@ def _empty(
     # comparison actually ran: a run whose lineage matches its predecessor
     # genuinely carries nothing, while a missing checkout carries an unknown.
     derivation: dict[str, Any] = {
-        "status": "empty",
+        "status": STATUS_EMPTY if contents_known else STATUS_UNKNOWN,
         "contents_known": contents_known,
+        "source": source,
         "reason": reason,
         "recovery": recovery,
         "run_id": run_id,
@@ -86,15 +99,6 @@ def _previous_run(conn: Any, run_id: str, project_id: int, environment_id: Any):
         "ORDER BY completed_at DESC NULLS LAST,created_at DESC,id DESC LIMIT 1",
         (project_id, run_id, environment_id),
     ).fetchone()
-
-
-def _resolved_commit(repo_root: str, lineage: str) -> str:
-    return git.git_out(
-        repo_root,
-        "rev-parse",
-        "--verify",
-        f"{lineage}^{{commit}}",
-    )
 
 
 def derive_carried_work(
@@ -138,18 +142,21 @@ def derive_carried_work(
             previous_run_id=previous_run_id,
             release_lineage=release_lineage,
         )
-    checkout = Path(repo_root) if repo_root else checkout_for_project_id(project_id)
-    if checkout is None:
+    try:
+        source: CarriedWorkSource = open_carried_work_source(
+            conn, project_id, repo_root=repo_root
+        )
+    except CarriedWorkSourceUnavailable as exc:
         return _empty(
-            "project_checkout_unavailable",
-            "Register this project's checkout on the deployment machine, then retry.",
+            exc.reason,
+            exc.recovery,
             run_id=run_id,
             previous_run_id=previous_run_id,
             previous_lineage=previous_lineage,
             release_lineage=release_lineage,
         )
-    base = _resolved_commit(str(checkout), previous_lineage)
-    head = _resolved_commit(str(checkout), release_lineage)
+    base = source.resolve_commit(previous_lineage)
+    head = source.resolve_commit(release_lineage)
     if not base or not head:
         reason = (
             "prior_release_lineage_unreachable"
@@ -158,13 +165,27 @@ def derive_carried_work(
         )
         return _empty(
             reason,
-            "Fetch both recorded lineages into the registered checkout, then retry.",
+            "Make both recorded lineages readable from the comparison source, "
+            "then retry.",
             run_id=run_id,
             previous_run_id=previous_run_id,
             previous_lineage=previous_lineage,
             release_lineage=release_lineage,
+            source=source.origin,
         )
-    if not git.is_ancestor(str(checkout), base, head):
+    try:
+        commit_range = source.commit_range(base, head)
+    except CarriedWorkSourceUnavailable as exc:
+        return _empty(
+            exc.reason,
+            exc.recovery,
+            run_id=run_id,
+            previous_run_id=previous_run_id,
+            previous_lineage=previous_lineage,
+            release_lineage=release_lineage,
+            source=source.origin,
+        )
+    if commit_range.relation == RELATION_DIVERGED:
         return _empty(
             "release_lineages_diverged",
             "Correct the run lineage or restore its trunk ancestry, then retry.",
@@ -172,18 +193,9 @@ def derive_carried_work(
             previous_run_id=previous_run_id,
             previous_lineage=previous_lineage,
             release_lineage=release_lineage,
+            source=source.origin,
         )
-    commits = tuple(
-        line.strip()
-        for line in git.git_out(
-            str(checkout),
-            "rev-list",
-            "--first-parent",
-            "--reverse",
-            f"{base}..{head}",
-        ).splitlines()
-        if line.strip()
-    )
+    commits = commit_range.commits
     if not commits:
         return _empty(
             "no_new_commits",
@@ -193,11 +205,12 @@ def derive_carried_work(
             previous_run_id=previous_run_id,
             previous_lineage=previous_lineage,
             release_lineage=release_lineage,
+            source=source.origin,
         )
     known_items, resolved, warnings = resolve_carried_items(
         conn,
         project_id=project_id,
-        repo_root=str(checkout),
+        source=source,
         base=base,
         head=head,
         commits=commits,
@@ -213,8 +226,9 @@ def derive_carried_work(
     return {
         "schema": CARRIED_WORK_SCHEMA,
         "derivation": {
-            "status": "derived",
+            "status": STATUS_DERIVED,
             "contents_known": True,
+            "source": source.origin,
             "reason": "partial_item_resolution" if bare_commits else "complete",
             "recovery": (
                 "Inspect bare commits and restore missing merge metadata if needed."

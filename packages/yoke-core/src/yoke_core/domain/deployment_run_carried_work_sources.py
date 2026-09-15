@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
 from yoke_contracts.public_ref import format_item_ref
-from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.item_merge_receipt_document import merge_identities
@@ -217,7 +216,7 @@ def _resolve_item_metadata(
     conn: Any,
     *,
     project_id: int,
-    repo_root: str,
+    source: Any,
     base: str,
     head: str,
     commits: Sequence[str],
@@ -238,10 +237,7 @@ def _resolve_item_metadata(
         warnings=warnings,
     )
     commit_times = {
-        commit: _parse_time(
-            git.git_out(repo_root, "show", "-s", "--format=%cI", commit)
-        )
-        for commit in commits
+        commit: _parse_time(source.commit_time(commit)) for commit in commits
     }
     for row in rows:
         item_id = _cell(row, "id", 0)
@@ -260,26 +256,15 @@ def _resolve_item_metadata(
         for raw_token in (_cell(row, "commit_sha", 5), *branch_token):
             lane_token = str(raw_token or "").strip()
             if lane_token:
-                lane_commit = git.git_out(
-                    repo_root,
-                    "rev-parse",
-                    "--verify",
-                    f"{lane_token}^{{commit}}",
-                )
+                lane_commit = source.resolve_commit(lane_token)
             if lane_commit:
                 break
-        if lane_commit and not git.is_ancestor(repo_root, lane_commit, base):
-            if git.is_ancestor(repo_root, lane_commit, head):
-                for commit in commits:
-                    if git.is_ancestor(repo_root, lane_commit, commit):
-                        _add_resolution(
-                            resolved,
-                            commits,
-                            commit,
-                            item_id,
-                            known_items,
-                        )
-                        break
+        if lane_commit:
+            carrier = source.carrying_commit(
+                lane_commit, base=base, head=head, commits=commits
+            )
+            if carrier:
+                _add_resolution(resolved, commits, carrier, item_id, known_items)
         numeric_item_id = int(item_id)
         if any(numeric_item_id in item_ids for item_ids in resolved.values()):
             continue
@@ -302,7 +287,7 @@ def resolve_carried_items(
     conn: Any,
     *,
     project_id: int,
-    repo_root: str,
+    source: Any,
     base: str,
     head: str,
     commits: Sequence[str],
@@ -324,14 +309,14 @@ def resolve_carried_items(
         # forked, not who wrote it: a lane branch created from the trunk
         # decorates whatever commit the trunk was on, and reading that
         # decoration attributes a neighbour's release to the new lane.
-        source = git.git_out(repo_root, "show", "-s", "--format=%B", commit)
-        for token in _ITEM_REF.findall(source.upper()):
+        message = source.commit_message(commit)
+        for token in _ITEM_REF.findall(message.upper()):
             if token in item_tokens:
                 resolved.setdefault(commit, set()).add(item_tokens[token])
     _resolve_item_metadata(
         conn,
         project_id=project_id,
-        repo_root=repo_root,
+        source=source,
         base=base,
         head=head,
         commits=commits,
@@ -339,6 +324,7 @@ def resolve_carried_items(
         resolved=resolved,
         warnings=warnings,
     )
+    warnings.extend(source.warnings())
     return known_items, resolved, warnings
 
 

@@ -12,6 +12,10 @@ from yoke_core.domain.handlers.deployment_common import (
     require_global,
 )
 from yoke_core.domain.deploy_lock import deploy_lock_refusal
+from yoke_core.domain.deployment_run_retry_membership import (
+    candidate_mismatch_refusal,
+    inherit_retry_membership,
+)
 from yoke_core.domain.deployment_run_target_resolution import (
     EnvironmentRegistryMigrationRequired,
 )
@@ -77,12 +81,6 @@ def handle_deployment_run_create(
                 f"{key} must be a string when present",
                 jsonpath=f"$.payload.{key}",
             )
-    if retry_of and (release_lineage or artifact_identity):
-        return error(
-            "payload_invalid",
-            "retry_of cannot be combined with release_lineage or artifact_identity",
-            jsonpath="$.payload",
-        )
     if artifact_identity:
         try:
             artifact = json.loads(artifact_identity)
@@ -102,6 +100,7 @@ def handle_deployment_run_create(
 
     clean_project = project.strip()
     clean_flow = flow.strip()
+    retry_source = retry_of.strip() if retry_of else ""
 
     lock_error = deploy_lock_refusal(
         clean_project,
@@ -112,12 +111,25 @@ def handle_deployment_run_create(
         return error("deploy_lock_required", lock_error)
 
     try:
-        if retry_of:
-            release_lineage, artifact_identity = _retry_candidate(
-                retry_of.strip(),
+        if retry_source:
+            source_lineage, source_artifact = _retry_candidate(
+                retry_source,
                 project=clean_project,
                 flow=clean_flow,
             )
+            # A retry inherits the failed run's membership, which is only
+            # sound while it is the same candidate. An explicitly named
+            # revision or artifact is therefore an assertion about which
+            # candidate is being retried, and a wrong one is a replacement
+            # release rather than a retry.
+            if mismatch := candidate_mismatch_refusal(
+                source_lineage,
+                source_artifact,
+                release_lineage=(release_lineage or source_lineage),
+                artifact_identity=(artifact_identity or source_artifact),
+            ):
+                return error("retry_candidate_mismatch", mismatch, jsonpath="$.payload")
+            release_lineage, artifact_identity = source_lineage, source_artifact
         from yoke_core.domain.deployment_runs_crud_mutate import cmd_create_run
 
         create_kwargs = {
@@ -135,6 +147,10 @@ def handle_deployment_run_create(
     except ValueError as exc:
         return error("run_create_rejected", str(exc), jsonpath="$.payload")
 
+    inherited_items: tuple[int, ...] = ()
+    if retry_source:
+        inherited_items = inherit_retry_membership(retry_source, created_run_id)
+
     from yoke_core.domain.deployment_runs_crud_query import cmd_get
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
 
@@ -142,6 +158,8 @@ def handle_deployment_run_create(
     return HandlerOutcome(
         result_payload={
             "run_id": created_run_id,
+            "retry_of": retry_source or None,
+            "inherited_item_ids": list(inherited_items),
             "project": created.get("project") or clean_project,
             "flow": created.get("flow") or clean_flow,
             "target_tier": created.get("target_tier") or None,

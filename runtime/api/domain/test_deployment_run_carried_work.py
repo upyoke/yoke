@@ -8,7 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_core.domain import deployment_run_carried_work, deployment_runs
+from yoke_core.domain import (
+    deployment_run_carried_work_source,
+    deployment_runs,
+)
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 from yoke_core.domain.item_merge_receipt_document import record_entry
@@ -145,7 +148,7 @@ def test_itemless_success_records_items_and_bare_commits(
     )
     test_db.commit()
     monkeypatch.setattr(
-        deployment_run_carried_work,
+        deployment_run_carried_work_source,
         "checkout_for_project_id",
         lambda _project_id: repo,
     )
@@ -240,7 +243,7 @@ def test_unreachable_prior_lineage_records_named_empty_result(
         created_at="2026-08-30T00:07:00Z",
     )
     monkeypatch.setattr(
-        deployment_run_carried_work,
+        deployment_run_carried_work_source,
         "checkout_for_project_id",
         lambda _project_id: repo,
     )

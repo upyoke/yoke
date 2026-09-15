@@ -7,6 +7,7 @@ from yoke_core.domain.handlers import (
     deployment_common as _models,
     deployment_failure_trace as _failure_trace,
     deployment_inspection as _inspection,
+    deployment_run_carried_work_repair as _carried_work_repair,
     deployment_run_membership as _run_membership,
     deployment_run_projection as _run_projection,
     deployment_run_terminalization as _run_terminalization,
@@ -86,6 +87,22 @@ def register(registry) -> None:
         side_effects=["deployment_runs_insert"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["zero_member_environment_run"],
+        adapter_status="live",
+        claim_required_kind=None,
+    )
+    registry.register(
+        "deployment_runs.carried_work.repair",
+        _carried_work_repair.handle_deployment_run_carried_work_repair,
+        _carried_work_repair.DeploymentRunCarriedWorkRepairRequest,
+        _carried_work_repair.DeploymentRunCarriedWorkRepairResponse,
+        stability="stable",
+        owner_module=(
+            "yoke_core.domain.handlers.deployment_run_carried_work_repair"
+        ),
+        target_kinds=["workflow_run"],
+        side_effects=["deployment_runs_update"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["unknown_carried_work_only"],
         adapter_status="live",
         claim_required_kind=None,
     )

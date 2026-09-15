@@ -143,7 +143,17 @@ def present_deployment_runs(
         if include_carried_work:
             carried = parse_carried_work(row.get("carried_work"))
             if compact and carried:
+                # The compact shape drops commits and warnings, but never the
+                # fact that the comparison ran: an empty item list beside a
+                # missing derivation reads as "this release carries nothing",
+                # which is the opposite of "nobody could look".
+                derivation = carried.get("derivation") or {}
                 carried = {
+                    "derivation": {
+                        key: derivation[key]
+                        for key in ("status", "contents_known", "reason", "source")
+                        if key in derivation
+                    },
                     "items": [
                         {
                             key: item[key]
@@ -158,7 +168,7 @@ def present_deployment_runs(
                         }
                         for item in carried.get("items") or []
                         if isinstance(item, dict)
-                    ]
+                    ],
                 }
             row["carried_work"] = carried
         stage_names = _stage_names(row.pop("stages", None))

@@ -8,6 +8,9 @@ from yoke_cli.commands import flag_adapters as _adapters
 from yoke_cli.commands.adapters.deployment_flow_create import (
     deployment_flows_create,
 )
+from yoke_cli.commands.adapters.deployment_run_carried_work_repair import (
+    deployment_runs_carried_work_repair,
+)
 from yoke_cli.commands.adapters import deployment_flow_configuration as _flow_config
 from yoke_cli.commands.adapters import deployment_inspection as _inspection
 from yoke_cli.commands.adapters.deployment_run_projection import (
@@ -73,6 +76,10 @@ DEPLOYMENT_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("deployment-runs", "create"): (
         "deployment_runs.create",
         _adapters.deployment_runs_create,
+    ),
+    ("deployment-runs", "carried-work", "repair"): (
+        "deployment_runs.carried_work.repair",
+        deployment_runs_carried_work_repair,
     ),
     ("deployment-runs", "project-snapshot"): (
         "deployment_runs.project_snapshot",
