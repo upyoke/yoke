@@ -25,10 +25,12 @@ The built-in method has these immutable properties:
 Capability declarations are provisioning authority, and the two kinds above
 resolve differently. `test-machine` is a project registration: materialization
 resolves it against the project capability rows, and admission refuses a
-mission whose project has registered no Test Machine. `browser-control` is
-substrate Yoke installs itself, so it needs no project capability row —
-admission admits the mission and the machine that runs it provisions Node,
-Playwright, and Chromium on first use, naming what it could not provision.
+mission whose project has registered no Test Machine. `browser-control` needs no project
+capability row, because this method's own runner is declared to supply it on
+the host the mission walks: admission admits the mission, and the dispatch
+contract below requires the walker to run `yoke qa browser setup` on that
+target host — which installs Node, Playwright, and Chromium there on first
+use — before any browser step.
 The Test Machine connection comes from the `QA_HOST:` coordination lease
 recorded on `qa_plan_executions.machine_lease_id`; the mission does not open
 an undeclared host or browser path.

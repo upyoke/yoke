@@ -51,9 +51,12 @@ def capability_kinds(value: Any, *, subject: str = "QA method") -> tuple[str, ..
 # materializes the runtime, resolves or installs Node, runs ``npm install``,
 # probes Chromium and installs it when absent, and fails with a named reason
 # and recovery when it cannot. ``agent_mission`` walks a registered Test
-# Machine, and its dispatch contract materializes that host's browser with
-# ``yoke qa browser setup`` before any step — a remote execution host, but
-# still the one the case runs on.
+# Machine, and its dispatch contract requires the walker to run ``yoke qa
+# browser setup`` on that target host before any browser step — a remote
+# execution host, but still the one the case runs on. Nothing here is a
+# preparation gate the platform runs for either runner: the declaration says
+# who supplies the capability where the case executes, and each runner's own
+# path is what supplies it.
 #
 # Every other runner provisions nothing, so every capability kind it declares
 # stays a gate admission enforces: a Command case declaring ``browser-control``
