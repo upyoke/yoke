@@ -80,9 +80,9 @@ def test_terminal_transition_dispatches_on_the_connected_control_plane(
     _under_admission_override(monkeypatch)
     seen: list = []
 
-    def transition(**_kwargs) -> str:
+    def transition(**_kwargs) -> tuple[str, str]:
         seen.append(os.environ.get(ENV_OVERRIDE, ""))
-        return ""
+        return "done", ""
 
     monkeypatch.setattr(terminal, "transition_to_done", transition)
 
@@ -94,7 +94,7 @@ def test_terminal_transition_dispatches_on_the_connected_control_plane(
                 repo_root="/repo",
                 lane=LANE,
             )
-            == ""
+            == ("done", "")
         )
 
     assert seen == [CONNECTED]

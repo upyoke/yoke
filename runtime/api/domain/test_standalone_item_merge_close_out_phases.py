@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_git as git
@@ -54,6 +55,9 @@ def test_close_out_emits_a_phase_marker_for_each_step(monkeypatch, capsys):
     monkeypatch.setattr(merge_cli.close_out.terminal, "call_dispatcher", dispatch)
     monkeypatch.setattr(
         merge_cli.close_out.terminal.recovery, "claim_error", lambda *_a: ""
+    )
+    monkeypatch.setattr(
+        close_out_transition, "release_redirect_stage", lambda *_a: (None, ""),
     )
 
     exit_code = merge_cli.run(

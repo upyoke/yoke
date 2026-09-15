@@ -126,8 +126,13 @@ def transition_to_done(
     repo_root: str,
     lane: LandedLane,
     session_id: str = "",
-) -> str:
-    """Close the item out. Returns the refusal, or empty on success."""
+    redirect_stage_id: str | None = None,
+) -> tuple[str, str]:
+    """Close the item out, or land it at its pinned release wait.
+
+    Returns ``(new_status, refusal)`` -- see
+    :func:`standalone_item_merge_terminal.transition_to_done`.
+    """
     with connected_control_plane():
         return terminal.transition_to_done(
             item_id=item_id,
@@ -135,6 +140,7 @@ def transition_to_done(
             repo_root=repo_root,
             lane=lane,
             session_id=session_id,
+            redirect_stage_id=redirect_stage_id,
         )
 
 

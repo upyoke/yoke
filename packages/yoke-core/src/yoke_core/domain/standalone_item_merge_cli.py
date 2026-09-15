@@ -19,7 +19,12 @@ from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_release_continuation as release_flow
 from yoke_core.domain.merge_review_readiness import review_readiness_refusal
-from yoke_core.domain.standalone_item_merge_release_status import reached_release as _reached_release
+from yoke_core.domain.standalone_item_merge_close_out_transition import (
+    run_terminal_transition,
+)
+from yoke_core.domain.standalone_item_merge_release_status import (
+    reached_release as _reached_release,
+)
 from yoke_core.domain import standalone_item_merge_pending as pending
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
@@ -285,54 +290,26 @@ def run(argv: List[str]) -> int:
         envelope["warnings"].append(f"GitHub sync skipped: {sync_error}")
 
     if not args.skip_status:
-        _announce_close_out("terminal transition")
-        transition_error = close_out.transition_to_done(
+        exit_code = run_terminal_transition(
+            item=item,
             item_id=item_id,
-            source_status=status,
-            repo_root=str(repo_root),
-            lane=close_lane,
-            session_id=str(args.session_id),
-        )
-        if transition_error:
-            # A transition refused on an item another close-out has already
-            # finished is a lost race, not a failure: the landing is complete
-            # and the refusal's re-acquire hint would re-open a terminal item.
-            recorded = evidence.recorded_landing_envelope(
-                item_id,
-                public_ref=public_ref,
-                branch=branch,
-            )
-            if recorded is not None:
-                record_terminal_lane_close_out(
-                    item,
-                    recorded,
-                    target_status=evidence.CLOSED_OUT_STATUS,
-                    session_id=str(args.session_id),
-                    repo_root=repo_root,
-                    target_branch=target,
-                )
-                print(json.dumps(recorded, indent=2, sort_keys=True))
-                return 0
-            envelope["ok"] = False
-            envelope["error"] = (
-                f"merge landed and evidence recorded, but the terminal "
-                f"transition was refused: {transition_error}"
-            )
-            print(json.dumps(envelope, indent=2, sort_keys=True))
-            return 1
-        envelope["status"] = "done"
-        _announce_close_out("lane cleanup")
-        record_terminal_lane_close_out(
-            {**item, "claim": None},
-            envelope,
-            target_status="done",
+            public_ref=public_ref,
+            branch=branch,
+            target=target,
+            status=status,
+            close_lane=close_lane,
             session_id=str(args.session_id),
             repo_root=repo_root,
-            target_branch=target,
+            envelope=envelope,
+            announce=_announce_close_out,
+            close_out=close_out,
+            evidence=evidence,
+            pending=pending,
+            record_terminal_lane_close_out=record_terminal_lane_close_out,
         )
-        marker_error = pending.clear_after_close_out(item_id, item)
-        if marker_error:
-            envelope["warnings"].append(f"queue marker not cleared: {marker_error}")
+        if exit_code is not None:
+            print(json.dumps(envelope, indent=2, sort_keys=True))
+            return exit_code
 
     print(json.dumps(envelope, indent=2, sort_keys=True))
     return 0

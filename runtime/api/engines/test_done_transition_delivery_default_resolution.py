@@ -1,4 +1,9 @@
-"""Resolving and freezing a project's delivery default onto an empty item."""
+"""Freezing a project's resolved delivery default onto an empty item.
+
+Resolution itself (``resolve_default_delivery_flow``) now lives in, and is
+tested with, :mod:`yoke_core.domain.deployment_flow_clearance` -- this file
+covers only the freeze half this engine still owns.
+"""
 
 from __future__ import annotations
 
@@ -8,61 +13,6 @@ from unittest import mock
 import pytest
 
 from yoke_core.engines import done_transition_delivery_default as delivery_default
-
-
-class TestResolveDefaultDeliveryFlow:
-    def test_matches_project_and_workflow_from_the_mechanics_read(self):
-        response = SimpleNamespace(
-            success=True,
-            result={
-                "delivery_defaults": [
-                    {"project": "yoke", "workflow_id": "dash", "flow_id": "yoke-default"},
-                    {"project": "externalwebapp", "workflow_id": "dash", "flow_id": "ext-default"},
-                ]
-            },
-            error=None,
-        )
-        with mock.patch.object(
-            delivery_default, "call_dispatcher", return_value=response
-        ):
-            assert (
-                delivery_default.resolve_default_delivery_flow(
-                    item_project="externalwebapp", workflow_id="dash"
-                )
-                == "ext-default"
-            )
-
-    def test_no_match_and_empty_workflow_id_both_resolve_empty(self):
-        response = SimpleNamespace(
-            success=True, result={"delivery_defaults": []}, error=None,
-        )
-        with mock.patch.object(
-            delivery_default, "call_dispatcher", return_value=response
-        ):
-            assert (
-                delivery_default.resolve_default_delivery_flow(
-                    item_project="externalwebapp", workflow_id="dash"
-                )
-                == ""
-            )
-        assert (
-            delivery_default.resolve_default_delivery_flow(
-                item_project="externalwebapp", workflow_id=""
-            )
-            == ""
-        )
-
-    def test_relay_failure_raises_rather_than_reading_as_no_config(self):
-        response = SimpleNamespace(
-            success=False, result={}, error=SimpleNamespace(message="unavailable"),
-        )
-        with mock.patch.object(
-            delivery_default, "call_dispatcher", return_value=response
-        ):
-            with pytest.raises(RuntimeError, match="unavailable"):
-                delivery_default.resolve_default_delivery_flow(
-                    item_project="yoke", workflow_id="dash"
-                )
 
 
 class TestFreezeResolvedDeliveryFlow:

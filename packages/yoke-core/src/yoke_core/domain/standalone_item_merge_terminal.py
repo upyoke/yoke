@@ -45,13 +45,13 @@ def _relay_error(response: Any, fallback: str) -> str:
     return getattr(error, "message", None) or fallback if error else fallback
 
 
-def _execute(item_id: int, source_status: str) -> str:
+def _execute(item_id: int, source_status: str, target_status: str) -> str:
     response = call_dispatcher(
         function_id="lifecycle.transition.execute",
         target=TargetRef(kind="item", item_id=item_id),
         payload={
             "source_status": source_status,
-            "target_status": TERMINAL_STATUS,
+            "target_status": target_status,
             "reason": TRANSITION_REASON,
         },
     )
@@ -67,10 +67,24 @@ def transition_to_done(
     repo_root: str,
     lane: LandedLane,
     session_id: str = "",
-) -> str:
-    """Close the item out. Returns the refusal, or empty on success."""
+    redirect_stage_id: str | None = None,
+) -> tuple[str, str]:
+    """Close the item out, or land it at its pinned release wait.
+
+    ``redirect_stage_id`` is the caller's own resolution, from the pinned
+    delivery policy, of the one stage this status has not yet reached --
+    ``None`` when the item's delivery is already clear to close straight to
+    ``done``. Deciding this before calling means exactly one transition
+    attempt at whichever target is actually correct, rather than trying
+    ``done`` and reinterpreting any refusal (an approval gate, a transport
+    failure, a stale precondition) as license to try a different one.
+
+    Returns ``(new_status, refusal)``. ``new_status`` is the item's actual
+    resulting status -- the attempted target on success -- and is only
+    meaningful when ``refusal`` is empty.
+    """
     if source_status == TERMINAL_STATUS:
-        return ""
+        return TERMINAL_STATUS, ""
     # Either identity proves the landing: a queue or squash merge can rewrite
     # the lane head, leaving only the merge commit reachable from the target.
     landed = any(
@@ -79,7 +93,7 @@ def transition_to_done(
         if sha
     )
     if not landed:
-        return (
+        return "", (
             f"terminal transition refused: recorded merge commit "
             f"{lane.commit_sha} is not reachable from {lane.target!r}"
         )
@@ -89,12 +103,16 @@ def transition_to_done(
         )
         if recovery_error:
             if evidence.authoritative_status_is(item_id, TERMINAL_STATUS):
-                return ""
-            return (
+                return TERMINAL_STATUS, ""
+            return "", (
                 f"the merge is landed but close-out authority could not be "
                 f"recovered to finish it: {recovery_error}"
             )
-    return _execute(item_id, source_status)
+    target = redirect_stage_id or TERMINAL_STATUS
+    refusal = _execute(item_id, source_status, target)
+    if refusal:
+        return "", refusal
+    return target, ""
 
 
 __all__ = ["TERMINAL_STATUS", "TRANSITION_REASON", "transition_to_done"]

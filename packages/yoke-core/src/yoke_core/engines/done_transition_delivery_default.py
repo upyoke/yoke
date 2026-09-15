@@ -1,44 +1,20 @@
-"""Resolving and freezing a project's delivery default onto an empty item.
+"""Freezing a project's resolved delivery default onto an empty item.
 
 Split out of :mod:`done_transition_deploy_gates` to stay under the authored
-file line budget; the two helpers here are used only by that module's
-``_check_deployment_flow_guard``, at the release-stage support boundary.
+file line budget; used only by that module's ``_check_deployment_flow_guard``,
+at the release-stage support boundary. The resolution half of this boundary
+now lives in :mod:`yoke_core.domain.deployment_flow_clearance`, shared with
+the standalone merge boundary's own terminal transition; re-exported here so
+existing callers of this module keep the same name.
 """
 
 from __future__ import annotations
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-
-
-def resolve_default_delivery_flow(*, item_project: str, workflow_id: str) -> str:
-    """The project's workflow-specific or project-wide delivery default.
-
-    Reuses the already-registered ``workflows.mechanics.get`` read (its
-    ``delivery_defaults`` list already carries every project/workflow
-    combination with an effective default) rather than adding a new function
-    id for one more filtered read. A relay failure here raises, matching
-    every other read in the deployment-flow guard: an unread authority is
-    not the same fact as "nothing is configured", so it must not be reported
-    with the same setup-guidance message.
-    """
-    if not workflow_id:
-        return ""
-    resp = call_dispatcher(
-        function_id="workflows.mechanics.get",
-        target=TargetRef(kind="global"),
-        payload={},
-    )
-    if not resp.success:
-        message = resp.error.message if resp.error else "unknown error"
-        raise RuntimeError(f"workflows.mechanics.get read failed: {message}")
-    for entry in (resp.result or {}).get("delivery_defaults") or []:
-        if (
-            str(entry.get("project") or "") == item_project
-            and str(entry.get("workflow_id") or "") == workflow_id
-        ):
-            return str(entry.get("flow_id") or "")
-    return ""
+from yoke_core.domain.deployment_flow_clearance import (
+    resolve_default_delivery_flow,
+)
 
 
 def freeze_resolved_delivery_flow(item_id: int, flow_id: str, *, public_ref: str) -> str:

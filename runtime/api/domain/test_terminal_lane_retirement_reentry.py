@@ -117,7 +117,7 @@ def test_the_retirement_reads_the_checkout_the_merge_resolved(
         merge_cli.evidence, "closed_out_envelope", lambda *_a, **_k: None
     )
     monkeypatch.setattr(
-        merge_cli.close_out, "transition_to_done", lambda **_k: "claim released"
+        merge_cli.close_out, "transition_to_done", lambda **_k: ("", "claim released")
     )
     monkeypatch.setattr(merge_cli.close_out, "record_execution_evidence", _no_write)
     monkeypatch.setattr(merge_cli.merge_domain, "sync_item_to_github", lambda _i: None)
