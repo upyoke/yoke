@@ -52,10 +52,11 @@ yoke watch merge --print-streaming-pair merge-item -- ITEM --skip-status --wait
 ```
 
 The first delegates to the local engine worktree preflight. The second is
-the standalone-item merge boundary shared with Dash. Its watcher reads the
-caller's manifest capability and current reachability: a verified route gets
-the background subscription, while no route or an unknown answer stays
-in-turn. Inspect queue liveness with `yoke github merge-queue readiness ITEM
+the standalone-item merge boundary shared with Dash. With
+`--print-streaming-pair` its watcher prints — and never runs — the shape the
+caller's manifest capability selects: a verified route gets the background
+subscription, while no route or an unknown answer gets one foreground
+invocation. Run the printed command to merge. Inspect queue liveness with `yoke github merge-queue readiness ITEM
 --json`, never a bare automerge field. Non-queue routes still land inline.
 Each command has no registered
 `direct_workflow.*` function id —
@@ -256,9 +257,10 @@ For each slice:
    yoke watch merge --print-streaming-pair merge-item -- ITEM --skip-status --wait --json
    ```
 
-   Follow the reported wait mode. Only a verified `background-wake` route may
-   release to its one subscription; `in-turn` already blocks until the landing
-   finishes and expects no later completion notice. Continue only once the
+   Run the printed command; that run is the merge. Only a verified
+   `background-wake` route may release to its one subscription; the `in-turn`
+   command blocks until the landing finishes and expects no later completion
+   notice. Continue only once the
    response carries `merge_sha`. A
    queue-declared project keeps all registered lanes until the item is done.
    Only a project using the local merge engine needs to re-prepare the lane

@@ -1,19 +1,26 @@
-"""Route a watcher wait and render its background form when safe.
+"""Render the watcher invocation a caller's wait mode selects.
 
 Split from the watcher runtime so each file stays within the authored-
 file line limit: the runner owns running a command under the raw +
-progress contract, while this module owns keeping the run in-turn or
-rendering the pair a natively wakeable caller can follow.
+progress contract, while this module owns rendering the invocation the
+caller then runs itself.
+
+Rendering never runs anything. A caller asking which shape is safe for
+its harness is asking a question, and answering it by executing the
+wrapped command turns a probe into a merge, a deploy, or a test run --
+one worker probing the mode with placeholder merge evidence armed a real
+pull request. So both wait modes print: a natively wakeable caller gets
+the background command plus its progress subscription, and everyone else
+gets the single foreground invocation to hold open in its own turn.
 """
 
 from __future__ import annotations
 
-import importlib
 import os
 import shlex
 import sys
 from pathlib import Path
-from typing import Callable, Optional, Sequence, TextIO
+from typing import Optional, Sequence, TextIO
 
 from yoke_contracts.machine_config.schema import ENV_OVERRIDE
 from yoke_contracts.uv_project import uv_project_root
@@ -24,11 +31,11 @@ from yoke_core.tools.watch_tail import WRAPPER_MODULE as WATCH_TAIL_MODULE
 
 
 STREAMING_WAIT_HELP = (
-    "Choose the safe streaming wait for this caller. A harness with a native "
-    "idle-wake primitive prints the background + progress-tail pair and "
-    "exits; a headless relay-launched worker, and a harness with no or "
-    "unverified idle wake, run the watcher in this turn until it finishes. "
-    "Mints fresh capture paths."
+    "Print the safe streaming invocation for this caller and run nothing. "
+    "A harness with a native idle-wake primitive gets the background + "
+    "progress-tail pair; a headless relay-launched worker, and a harness "
+    "with no or unverified idle wake, get the single foreground invocation "
+    "to run and hold open in the current turn. Mints fresh capture paths."
 )
 
 
@@ -75,6 +82,35 @@ def _with_connection_env(invocation: str) -> str:
     return f"{ENV_OVERRIDE}={quoted} {invocation}"
 
 
+def _bound_wrapper_command(
+    *,
+    wrapper_module: str,
+    wrapper_args: Sequence[str],
+    raw_capture: Path,
+    progress_capture: Path,
+    wrapper_options: Sequence[str],
+) -> str:
+    """Return the repo-anchored wrapper command bound to both captures.
+
+    Both wait modes print this same invocation: the background shape runs
+    it detached beside a progress subscription, and the foreground shape
+    runs it in the caller's own turn. Helper-resolved capture paths
+    normally land under the temp scratch root and contain no spaces, but
+    ``YOKE_SCRATCH_ROOT`` and operator-supplied paths can, so every
+    segment is quoted to stay safe to copy-paste.
+    """
+    option_args = shlex.join(list(wrapper_options))
+    option_prefix = f"{option_args} " if option_args else ""
+    return (
+        f"cd {shlex.quote(str(_anchor_directory()))} && "
+        f"{_with_connection_env(_invocation(wrapper_module))} "
+        f"{option_prefix}"
+        f"--raw-capture {shlex.quote(str(raw_capture))} "
+        f"--progress-capture {shlex.quote(str(progress_capture))} "
+        f"-- {shlex.join(list(wrapper_args))}"
+    )
+
+
 def print_streaming_pair(
     *,
     kind: str,
@@ -102,22 +138,15 @@ def print_streaming_pair(
     locked dependencies where ambient ``python3`` would not.
     """
     stream = out or sys.stdout
-    cmd_args = shlex.join(wrapper_args)
-    option_args = shlex.join(wrapper_options)
-    option_prefix = f"{option_args} " if option_args else ""
-    # Helper-resolved capture paths normally land under the temp scratch
-    # root and contain no spaces, but ``YOKE_SCRATCH_ROOT`` and operator-
-    # supplied paths can. ``shlex.quote`` keeps the printed shell shape
-    # safe to copy-paste even when a segment contains whitespace.
     raw_q = shlex.quote(str(raw_capture))
     progress_q = shlex.quote(str(progress_capture))
     cwd_q = shlex.quote(str(_anchor_directory()))
-    bash_invocation = (
-        f"cd {cwd_q} && {_with_connection_env(_invocation(wrapper_module))} "
-        f"{option_prefix}"
-        f"--raw-capture {raw_q} "
-        f"--progress-capture {progress_q} "
-        f"-- {cmd_args}"
+    bash_invocation = _bound_wrapper_command(
+        wrapper_module=wrapper_module,
+        wrapper_args=wrapper_args,
+        raw_capture=raw_capture,
+        progress_capture=progress_capture,
+        wrapper_options=wrapper_options,
     )
     stream.write(f"# watch_{kind}: ready-to-paste streaming pair\n")
     stream.write("\n")
@@ -153,7 +182,48 @@ def print_streaming_pair(
     stream.flush()
 
 
-def run_or_print_streaming_pair(
+def print_in_turn_invocation(
+    *,
+    kind: str,
+    wrapper_module: str,
+    wrapper_args: Sequence[str],
+    raw_capture: Path,
+    progress_capture: Path,
+    wrapper_options: Sequence[str] = (),
+    out: Optional[TextIO] = None,
+) -> None:
+    """Emit the single foreground invocation an unwakeable caller runs.
+
+    There is no progress subscription here, because the caller has no
+    primitive that could resume an ended turn: the invocation itself is
+    the wait, and it must stay open until the watched command exits.
+    """
+    stream = out or sys.stdout
+    raw_q = shlex.quote(str(raw_capture))
+    bash_invocation = _bound_wrapper_command(
+        wrapper_module=wrapper_module,
+        wrapper_args=wrapper_args,
+        raw_capture=raw_capture,
+        progress_capture=progress_capture,
+        wrapper_options=wrapper_options,
+    )
+    stream.write(f"# watch_{kind}: ready-to-run foreground invocation\n")
+    stream.write("\n")
+    stream.write("# Foreground command — run it ONCE and keep the call open\n")
+    stream.write("# until it exits. Printing started nothing, so the watched\n")
+    stream.write("# command has not run yet; this invocation is the wait, and\n")
+    stream.write("# no later completion notice will arrive. If your harness\n")
+    stream.write("# hands the call back before it finishes, the command is\n")
+    stream.write("# still running: continue that same call rather than\n")
+    stream.write("# starting a second one.\n")
+    stream.write(f"{bash_invocation}\n")
+    stream.write("\n")
+    stream.write("# After completion, inspect the raw capture once for full output\n")
+    stream.write(f"tail -80 {raw_q}\n")
+    stream.flush()
+
+
+def print_wait_mode_invocation(
     *,
     kind: str,
     wrapper_module: str,
@@ -163,57 +233,59 @@ def run_or_print_streaming_pair(
     wrapper_options: Sequence[str] = (),
     out: Optional[TextIO] = None,
     wait_mode: WatchWaitMode | None = None,
-    invoke: Callable[[Sequence[str]], int] | None = None,
 ) -> int:
-    """Release only a caller whose harness can resume an ended turn.
+    """Print the invocation this caller's wait mode selects, running nothing.
 
-    Natively wakeable callers keep the existing pasteable background pair.
-    Everyone else re-enters the same wrapper without ``--print-streaming-pair``
-    and blocks in this process until the watched command exits.
+    Both branches render and return: a natively wakeable caller gets the
+    pasteable background pair, and every other caller gets the foreground
+    invocation to hold open in its own turn. Neither branch launches the
+    wrapped command, so asking which shape is safe can never merge,
+    deploy, test, or record anything by itself.
     """
     stream = out or sys.stdout
     selected = wait_mode or resolve_wait_mode()
     stream.write(f"# watch_{kind} wait_mode={selected.name}\n")
     stream.write(f"# watch_{kind} wait_reason={selected.reason}\n")
-    if not selected.waits_in_turn:
+    stream.write(
+        f"# watch_{kind} printed only — nothing has run; run the command "
+        "below to start it.\n"
+    )
+    if selected.waits_in_turn:
         stream.write(
-            f"# watch_{kind} completion wake is expected only because this "
-            "harness has a native idle-wake primitive.\n"
+            f"# watch_{kind} the printed invocation holds this turn until the "
+            "watched command exits; no completion wake is expected.\n"
         )
-        print_streaming_pair(
+        print_in_turn_invocation(
             kind=kind,
             wrapper_module=wrapper_module,
             wrapper_args=wrapper_args,
             raw_capture=raw_capture,
             progress_capture=progress_capture,
             wrapper_options=wrapper_options,
-            wake_mechanism=selected.wake_mechanism,
             out=stream,
         )
         return 0
 
     stream.write(
-        f"# watch_{kind} holding this turn until the watched command exits; "
-        "no completion wake is expected.\n"
+        f"# watch_{kind} completion wake is expected only because this "
+        "harness has a native idle-wake primitive.\n"
     )
-    stream.flush()
-    foreground_args = [
-        *wrapper_options,
-        "--raw-capture",
-        str(raw_capture),
-        "--progress-capture",
-        str(progress_capture),
-        "--",
-        *wrapper_args,
-    ]
-    entrypoint = invoke
-    if entrypoint is None:
-        entrypoint = importlib.import_module(wrapper_module).main
-    return int(entrypoint(foreground_args))
+    print_streaming_pair(
+        kind=kind,
+        wrapper_module=wrapper_module,
+        wrapper_args=wrapper_args,
+        raw_capture=raw_capture,
+        progress_capture=progress_capture,
+        wrapper_options=wrapper_options,
+        wake_mechanism=selected.wake_mechanism,
+        out=stream,
+    )
+    return 0
 
 
 __all__ = [
     "STREAMING_WAIT_HELP",
+    "print_in_turn_invocation",
     "print_streaming_pair",
-    "run_or_print_streaming_pair",
+    "print_wait_mode_invocation",
 ]

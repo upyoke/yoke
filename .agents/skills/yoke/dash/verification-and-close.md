@@ -88,7 +88,9 @@ yoke watch merge --print-streaming-pair merge-item -- ITEM --wait \
   --result "<what changed>" --verification "<checks and evidence>"
 ```
 
-Read the wrapper's `wait_mode` and reason.
+That call only prints: it merges nothing, arms nothing, and records
+nothing. Read the reported `wait_mode` and reason, then run the printed
+command exactly once — that run is the merge.
 
 A `[phase:authority] tunnel_busy ... elapsed=.../limit=...` line means a
 sibling merge still owns the machine's connected-environment tunnel lifecycle
@@ -97,13 +99,14 @@ through one more bounded replacement window and continues when the tunnel is
 free.
 
 - `background-wake` means the caller's harness can resume an ended turn. The
-  selector exits after printing the bound background command and subscription;
-  run that pair exactly once on the long-command surface your harness rules
-  name. A completion wake is expected only because the mode line recorded that
+  printed pair is the bound background command and its subscription; run that
+  pair exactly once on the long-command surface your harness rules name. A
+  completion wake is expected only because the mode line recorded that
   primitive.
-- `in-turn` means the same invocation is already holding the foreground wait
-  and will not return until landing finishes. No later completion notice is
-  expected. On Claude, set the Bash tool's `timeout` to `600000` on every
+- `in-turn` means the printed command is a single foreground invocation that
+  holds the wait and will not return until landing finishes. Run it, and keep
+  the call open. No later completion notice is expected. On Claude, set the
+  Bash tool's `timeout` to `600000` on every
   `in-turn` watcher invocation, so the harness does not move the call to a
   background task at its 120-second default. Headless Claude watcher Bash
   that omits it is denied by `lint-headless-watcher-timeout` — not a blanket

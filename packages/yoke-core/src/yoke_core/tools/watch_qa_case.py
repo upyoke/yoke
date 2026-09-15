@@ -234,8 +234,10 @@ examples:
       identically to the ``--`` form.
 
   yoke watch qa-case --print-streaming-pair -- --requirement-id 10194
-      Select the safe wait: a native idle-wake primitive gets the background
-      pair; no or unverified idle wake stays in-turn until completion.
+      Print the safe wait and run nothing: a native idle-wake primitive
+      gets the background pair; no or unverified idle wake gets the
+      foreground invocation to hold open. Run the printed command to
+      start the gate.
 
 Do NOT restate the command in the passthrough — the wrapper supplies it
 and rejects both `yoke qa case run …` and the module form before any
@@ -312,7 +314,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        return _watch_runner.run_or_print_streaming_pair(
+        return _watch_runner.print_wait_mode_invocation(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=case_args,

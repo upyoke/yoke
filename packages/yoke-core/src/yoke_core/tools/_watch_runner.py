@@ -49,8 +49,9 @@ from yoke_core.tools._watch_capture_binding import (  # noqa: F401
 )
 from yoke_core.tools._watch_streaming_pair import (  # noqa: F401
     STREAMING_WAIT_HELP,
+    print_in_turn_invocation,
     print_streaming_pair,
-    run_or_print_streaming_pair,
+    print_wait_mode_invocation,
 )
 from yoke_core.tools._watch_wait_mode import (
     HEADLESS_CONTINUATION_DIRECTIVE,

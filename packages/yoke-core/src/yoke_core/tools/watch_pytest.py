@@ -281,7 +281,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_options.append(pytest_remote_selection.LOCAL_FLAG)
         if ns.allow_tree_mismatch:
             wrapper_options.append(verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG)
-        return _watch_runner.run_or_print_streaming_pair(
+        return _watch_runner.print_wait_mode_invocation(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=pytest_args,
