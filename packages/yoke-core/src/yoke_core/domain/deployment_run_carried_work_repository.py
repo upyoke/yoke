@@ -33,6 +33,10 @@ from yoke_core.domain.project_github_auth import (
 
 COMPARE_PAGE_SIZE = 100
 COMPARE_PAGE_LIMIT = 10
+#: How many refs may be resolved through their own request. Containment asks
+#: for two, while commit attribution can offer one lane ref per item, so the
+#: budget keeps a large backlog from becoming a request per item.
+COMMIT_LOOKUP_BUDGET = 8
 _FULL_SHA_LENGTH = 40
 # GitHub reports the head side as at or behind the base for these; both mean
 # the recorded lineages do not sit on one trunk line.
@@ -49,22 +53,52 @@ class RepositoryProviderSource:
         self._token = token
         self._graph: dict[str, dict[str, Any]] = {}
         self._warnings: list[dict[str, str]] = []
+        self._resolved_refs: dict[str, str] = {}
+        self._lookups = 0
         self._unresolvable_refs = 0
 
     def resolve_commit(self, ref: str) -> str:
-        """Resolve a full commit sha; anything else needs the commit graph.
+        """Return the full object id ``ref`` names, or ``""``.
 
-        Release lineages are full commit shas by contract, and a lane's
-        recorded head is one too. A branch name is not resolvable here without
-        spending one request per candidate item, so it is reported as a
-        degraded source rather than silently attributed.
+        A full sha needs no request. Anything else — an abbreviated sha, a
+        branch, a tag — is resolved by the provider rather than padded into a
+        hash that matches nothing, which is the failure a prefix comparison
+        produces silently. Resolutions are cached and budgeted, and exhausting
+        the budget is reported as a degraded source instead of quietly
+        dropping the attribution it would have supplied.
         """
         token = str(ref or "").strip()
+        if not token:
+            return ""
         if len(token) == _FULL_SHA_LENGTH and _is_hex(token):
             return token.lower()
-        if token:
+        if token in self._resolved_refs:
+            return self._resolved_refs[token]
+        if self._lookups >= COMMIT_LOOKUP_BUDGET:
             self._unresolvable_refs += 1
-        return ""
+            return ""
+        self._lookups += 1
+        resolved = self._commit_sha(token)
+        self._resolved_refs[token] = resolved
+        if not resolved:
+            self._unresolvable_refs += 1
+        return resolved
+
+    def _commit_sha(self, ref: str) -> str:
+        """Ask the provider for one ref's commit, answering "" when it has none."""
+        request = RestRequest(
+            method="GET",
+            path=f"/repos/{self._repo}/commits/{ref}",
+        )
+        try:
+            response = request_with_retry(request, token=self._token)
+        except RestTransportError:
+            return ""
+        body = response.body
+        if not isinstance(body, Mapping):
+            return ""
+        sha = str(body.get("sha") or "").strip().lower()
+        return sha if len(sha) == _FULL_SHA_LENGTH and _is_hex(sha) else ""
 
     def commit_range(self, base: str, head: str) -> CommitRange:
         status = self._load_graph(base, head)
@@ -113,9 +147,10 @@ class RepositoryProviderSource:
                 {
                     "reason": "lane_branch_refs_unresolvable",
                     "recovery": (
-                        f"{self._unresolvable_refs} lane ref(s) were branch names "
-                        "rather than commit shas; attribution used recorded "
-                        "evidence and commit messages instead."
+                        f"{self._unresolvable_refs} lane ref(s) named no commit "
+                        f"the provider could resolve within {COMMIT_LOOKUP_BUDGET} "
+                        "lookups; attribution used recorded evidence and commit "
+                        "messages instead."
                     ),
                     "error_type": "",
                 }
@@ -257,6 +292,7 @@ def open_repository_provider_source(
 
 
 __all__ = [
+    "COMMIT_LOOKUP_BUDGET",
     "COMPARE_PAGE_LIMIT",
     "COMPARE_PAGE_SIZE",
     "RepositoryProviderSource",
