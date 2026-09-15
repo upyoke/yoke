@@ -20,6 +20,14 @@ RESUMED_DIED_RESULT = "resumed_died"
 RESUME_EXITED_NONZERO_RESULT = "resume_exited_nonzero"
 RESUME_NEVER_STARTED_RESULT = "resume_never_started"
 
+# Stored-only. Nothing produces this: the elapsed-time ceiling that did was
+# retired, because age is not evidence about a turn (see
+# ``docs/archive/decisions/resume-custody-reads-activity-not-age.md``).
+# Attempt rows recorded before that still carry it, and every reader below
+# keeps interpreting it so a real historical failure stays visible instead of
+# dropping out of the roster as an unrecognized code.
+RESUME_RUNAWAY_RESULT = "resume_runaway"
+
 # A resume that failed outright. ``resumed_completed`` is deliberately not
 # here: a resume process exiting cleanly says the turn is over, not that the
 # envelope arrived, so it leaves the attempt open for the delivery verdict in
@@ -29,6 +37,7 @@ RESUME_TERMINAL_RESULTS = frozenset(
         RESUMED_DIED_RESULT,
         RESUME_EXITED_NONZERO_RESULT,
         RESUME_NEVER_STARTED_RESULT,
+        RESUME_RUNAWAY_RESULT,
     }
 )
 # What the machine that started a resume can observe about it directly: the
@@ -64,6 +73,7 @@ __all__ = [
     "RESUME_INACTIVITY_SECONDS",
     "RESUME_NEVER_STARTED_RESULT",
     "RESUME_RELAY_SETTLEMENT_RESULTS",
+    "RESUME_RUNAWAY_RESULT",
     "RESUME_RESULT_CODES",
     "RESUME_TERMINAL_RESULTS",
     "RESUMED_COMPLETED_RESULT",

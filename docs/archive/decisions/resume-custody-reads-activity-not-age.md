@@ -34,6 +34,15 @@ activity facts alone — `resumed_died` once activity stops for the quiet window
 `resume_never_started` when there was never any, `turn_without_injection` when
 the posture or the resume process says the turn is over.
 
+## The retired result stays readable
+
+`resume_runaway` has no producer any more, and the constant is retained
+anyway. The roster projects an attempt's stored `result_code`, so dropping the
+name would not erase those rows — it would make them unrecognized, and a
+session whose latest attempt really did fail would read as though nothing had
+happened. Retaining it keeps a true historical failure visible; it revives no
+behavior, because nothing writes it and no timer remains to produce it.
+
 ## What is deliberately unchanged
 
 - **Launch-registration containment.** A native that never registered is
