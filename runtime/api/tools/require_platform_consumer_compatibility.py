@@ -45,8 +45,7 @@ from yoke_contracts.github_workflow_dispatch import (
 CONSUMER_REPO = "upyoke/platform"
 CONSUMER_PROJECT = "platform"
 CONSUMER_CHECK_WORKFLOW = "platform-release-pin-check.yml"
-#: The advisory check's best-effort ref when it has no durable authority to
-#: bind an exact commit ahead of dispatch (see ``classify``'s ``exact_pair``).
+#: The one supported named ref every dispatch targets (a bare commit 422s).
 CONSUMER_TRUNK_REF = "main"
 CANDIDATE_INPUT = "product_ref"
 
@@ -153,7 +152,7 @@ def bind_consumer_authority() -> str:
 def dispatch(
     candidate_sha: str, consumer_sha: str, *, exact_pair: bool = True,
 ) -> Tuple[str, str]:
-    """Dispatch or recover the consumer run.
+    """Dispatch or recover the consumer run onto the supported named ref.
 
     ``exact_pair`` selects the request-id shape: the publication gate shares
     one durable key per (candidate, consumer) pair, so simultaneous callers
@@ -172,7 +171,7 @@ def dispatch(
             CONSUMER_REPO,
             CONSUMER_CHECK_WORKFLOW,
             "--ref",
-            consumer_sha,
+            CONSUMER_TRUNK_REF,
             "--input",
             f"{CANDIDATE_INPUT}={candidate_sha}",
             "--request-id",
@@ -265,9 +264,11 @@ def classify(
         ), ""
     if exact_pair and proven.lower() != consumer_sha.lower():
         return UNPROVEN, (
-            f"consumer evidence does not match the bound pair: {where} "
-            f"proved {proven} for a dispatch bound to {consumer_sha} for "
-            f"product {candidate_sha}."
+            f"stale pair: {CONSUMER_TRUNK_REF} moved past the bound commit "
+            f"— {where} proved {proven}, not {consumer_sha}, for product "
+            f"{candidate_sha}. This intent stays unproven; start a new "
+            "deployment run to bind a fresh consumer commit rather than "
+            "retrying this pair."
         ), ""
     return 0, (
         f"hosted consumer builds against this candidate: product "
