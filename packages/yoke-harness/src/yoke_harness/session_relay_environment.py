@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Mapping
 
+from yoke_cli.config.session_relay_instance import RELAY_STATE_DIR_ENV
 from yoke_contracts.session_identity import ACTOR_ROLE_ENV_VAR, AMBIENT_ENV_VARS
 from yoke_contracts.session_control.resume import RESUME_ATTEMPT_ENV
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
@@ -29,55 +30,65 @@ _PARENT_HARNESS_ENV = frozenset(
         "BASH_ENV",
         "ENV",
         "ZDOTDIR",
-        # The relay entrypoint stamps these onto its own process so its
-        # imports resolve to the release it selected. Inherited by a native
-        # worker, they make that worker's own tooling (e.g. `uv run
-        # --active`) treat the relay's release as its own project
-        # environment instead of the project it is actually working in.
-        "VIRTUAL_ENV",
-        "PYTHONPATH",
     )
 )
 
 _NATIVE_AUTOMATION_SHELL = "/bin/sh"
 
 
-def _relay_owned_state_dir(env: Mapping[str, str]) -> Path | None:
-    """The relay instance's own state directory, named by its VIRTUAL_ENV.
+#: What the relay exports so its own imports resolve to the release it
+#: selected. A relay-internal Python process needs them; the foreign CLI it
+#: starts must not have them, or that CLI's project tooling (`uv run
+#: --active` is the observed case) treats the relay's release as the
+#: environment of the project it is working in.
+_RELAY_PYTHON_ACTIVATION_ENV = ("VIRTUAL_ENV", "PYTHONPATH")
 
-    The relay entrypoint sets ``VIRTUAL_ENV`` to its selected release,
-    ``<state_dir>/releases/<hash>``, so the release's grandparent is that
-    same state directory — the root every bin directory the relay puts
-    ahead of its own PATH (its launch link, runtime, and release) sits one
-    level under.
+
+def _without_relay_owned_path_entries(path_value: str, state_dir: str) -> str:
+    """Drop the search-path entries that live inside the relay's own tree.
+
+    The relay puts its launch link's ``bin`` ahead of the machine's own
+    directories so launchd can find it, and that directory holds a
+    ``python`` as well as a ``yoke``. Entries outside the relay's tree are
+    the user's and stay, including whichever installed launcher the machine
+    already resolves ``yoke`` through.
     """
-    virtual_env = env.get("VIRTUAL_ENV", "").strip()
-    if not virtual_env:
-        return None
-    state_dir = Path(virtual_env).parent.parent
-    return state_dir if state_dir.is_absolute() else None
-
-
-def _is_relay_owned_bin_dir(entry: str, *, state_dir: Path) -> bool:
-    path = Path(entry) if entry else None
-    return bool(
-        path
-        and path.is_absolute()
-        and path.name == "bin"
-        and path.parent.parent == state_dir
-    )
-
-
-def _strip_relay_owned_path_entries(path_value: str, env: Mapping[str, str]) -> str:
-    state_dir = _relay_owned_state_dir(env)
-    if state_dir is None:
-        return path_value
+    owned = Path(state_dir)
     kept = [
         entry
         for entry in path_value.split(os.pathsep)
-        if not _is_relay_owned_bin_dir(entry, state_dir=state_dir)
+        if not (
+            entry and Path(entry).is_absolute() and Path(entry).is_relative_to(owned)
+        )
     ]
     return os.pathsep.join(kept)
+
+
+def strip_relay_owned_python_state(
+    env: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Return ``env`` with nothing of the relay's own Python left in it.
+
+    Call this at the boundary where a relay-internal process starts an
+    actual foreign CLI binary — and only there. The relay's supervisor and
+    its detached workers start on the stable runtime interpreter, which has
+    no packages of its own and imports itself through exactly the
+    activation state this drops; stripping it before one of those starts
+    breaks the process rather than the leak.
+
+    The relay names the tree it owns rather than leaving it to be inferred:
+    the activation variables always go, and the search path is filtered
+    only when the relay declared its own root. That declaration is dropped
+    too, so a worker never reads it as an invitation to write there.
+    """
+    result = dict(os.environ if env is None else env)
+    for name in _RELAY_PYTHON_ACTIVATION_ENV:
+        result.pop(name, None)
+    state_dir = result.pop(RELAY_STATE_DIR_ENV, "").strip()
+    search_path = result.get("PATH", "")
+    if state_dir and search_path:
+        result["PATH"] = _without_relay_owned_path_entries(search_path, state_dir)
+    return result
 
 
 def native_session_environment(
@@ -99,8 +110,6 @@ def native_session_environment(
     binary it described. Every reader observes the surface instead.
     """
     env = dict(os.environ if environ is None else environ)
-    if "PATH" in env:
-        env["PATH"] = _strip_relay_owned_path_entries(env["PATH"], env)
     for name in _PARENT_HARNESS_ENV:
         env.pop(name, None)
     env["SHELL"] = _NATIVE_AUTOMATION_SHELL
@@ -121,4 +130,4 @@ def native_session_environment(
     return env
 
 
-__all__ = ["native_session_environment"]
+__all__ = ["native_session_environment", "strip_relay_owned_python_state"]

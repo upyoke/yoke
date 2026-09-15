@@ -17,6 +17,7 @@ from yoke_contracts.harness_cli_manifest import (
     HARNESS_CLI_MANIFESTS,
     harness_cli_probe_commands,
 )
+from yoke_harness.session_relay_environment import strip_relay_owned_python_state
 
 SURFACE_PROBE_TIMEOUT_SECONDS = 30.0
 _VERSION_PATTERN = re.compile(r"\d+(?:\.\d+)+(?:[-+._A-Za-z0-9]*)?")
@@ -133,6 +134,7 @@ def probe_cli_surface(
     try:
         completed = runner(
             [executable, *command[1:]],
+            env=strip_relay_owned_python_state(),
             capture_output=True,
             text=True,
             timeout=timeout,

@@ -25,6 +25,12 @@ RELAY_STDOUT_LOG_NAME = "relay.stdout.log"
 RELAY_STDERR_LOG_NAME = "relay.stderr.log"
 RELAY_LOG_FILE_NAMES = (RELAY_STDOUT_LOG_NAME, RELAY_STDERR_LOG_NAME)
 NON_PROD_RELAY_STATE_ROOT_NAME = "relay-instances"
+#: How a relay names the directory tree it owns to the processes it starts.
+#: The relay's runtime entrypoint exports it beside the Python activation
+#: state it sets, so a process handing off to a foreign CLI drops exactly
+#: what the relay owns instead of inferring that root from the shape of a
+#: release path. A relay that exports no activation state exports no root.
+RELAY_STATE_DIR_ENV = "YOKE_RELAY_STATE_DIR"
 _INSTANCE_DIGEST_LENGTH = 16
 
 
@@ -167,6 +173,7 @@ __all__ = [
     "NON_PROD_RELAY_STATE_ROOT_NAME",
     "PROD_RELAY_LABEL",
     "PROD_RELAY_STATE_DIR_NAME",
+    "RELAY_STATE_DIR_ENV",
     "RelayInstance",
     "RelayInstanceError",
     "prod_https_environments",

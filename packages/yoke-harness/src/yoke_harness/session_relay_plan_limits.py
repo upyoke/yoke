@@ -21,6 +21,7 @@ from yoke_contracts.session_control.plan_limits import (
     unknown_reading,
 )
 from yoke_harness.session_relay_codex_plan_limit import probe_codex_cli
+from yoke_harness.session_relay_environment import strip_relay_owned_python_state
 from yoke_harness.session_relay_failure_log import FailureReporter
 from yoke_harness.session_relay_plan_limit_http import (
     PLAN_LIMIT_PROBE_TIMEOUT_SECONDS,
@@ -170,6 +171,7 @@ def _cursor_tier_from_cli() -> dict[str, Any]:
     try:
         about = subprocess.run(
             [binary, "about", "--format", "json"],
+            env=strip_relay_owned_python_state(),
             capture_output=True,
             text=True,
             timeout=PLAN_LIMIT_PROBE_TIMEOUT_SECONDS,
