@@ -20,6 +20,9 @@ from yoke_core.domain.backlog_queries import (
 from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
 )
+from yoke_core.domain.deployment_qa_source_obligation import (
+    post_deploy_row_still_blocking,
+)
 from yoke_core.domain.backlog_batch_update import execute_batch_update
 from yoke_core.domain.backlog_post_write_sync import run_post_db_sync
 from yoke_core.domain.backlog_project_issue_migration import (
@@ -188,8 +191,8 @@ def _execute_update_once(
                 (item_dict["id"],),
             ).fetchone()
             if (qa_req_row["cnt"] if qa_req_row else 0) > 0:
-                unsatisfied_all = conn.execute(
-                    """SELECT COUNT(*) as cnt FROM qa_requirements qr
+                unsatisfied_rows = conn.execute(
+                    """SELECT qr.id, qr.qa_phase FROM qa_requirements qr
                        WHERE qr.item_id = %s AND qr.blocking_mode = 'blocking'
                        AND qr.waived_at IS NULL
                        AND NOT EXISTS (
@@ -198,10 +201,16 @@ def _execute_update_once(
                            AND qrun.verdict = 'pass'
                        )""",
                     (item_dict["id"],),
-                ).fetchone()
-                gate.unsatisfied_all_blocking = (
-                    unsatisfied_all["cnt"] if unsatisfied_all else 0
-                )
+                ).fetchall()
+                if target_status == "done":
+                    unsatisfied_rows = [
+                        row
+                        for row in unsatisfied_rows
+                        if post_deploy_row_still_blocking(
+                            conn, row, item_id=int(item_dict["id"])
+                        )
+                    ]
+                gate.unsatisfied_all_blocking = len(unsatisfied_rows)
 
         # Deployed-to validation
         if field == "deployed_to" and value:
