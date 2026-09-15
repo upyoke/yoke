@@ -185,6 +185,7 @@ def materialize_and_gate_deployment_qa_stage(
     """
     from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
     from yoke_core.domain.deployment_qa_stage_materialization import (
+        QaCasesNotSelectedError,
         materialize_deployment_qa_stage,
     )
 
@@ -224,7 +225,33 @@ def materialize_and_gate_deployment_qa_stage(
                 stage_name=str(stage["name"]),
                 member_item_id=member,
             )
+        except QaCasesNotSelectedError as exc:
+            # The default story, not a failure: this stage names no cases
+            # and nobody has selected any yet. It is a durable wait, and
+            # the agent responsible for the subject is the one who can end
+            # it — so wake them instead of failing the stage out from
+            # under them.
+            label = f"member {member}" if member is not None else "run"
+            waiting.append(f"{label}: {exc}")
+            if project_id is not None:
+                _notify_stage_wait(
+                    conn,
+                    run_id=run_id,
+                    stage_name=str(stage["name"]),
+                    member=member,
+                    item_scoped=stage.get("scope") == "item",
+                    project_id=project_id,
+                    reasons=str(exc),
+                    target_tier=target_tier,
+                    revision=revision,
+                    target_digest="",
+                    label=label,
+                )
+            continue
         except (LookupError, ValueError) as exc:
+            # Every other refusal is a real stage failure: an invalid
+            # pinned plan, an unresolvable target identity, a permission
+            # denial. None of those becomes truer by waiting.
             return 1, str(exc)
         label = f"member {member}" if member is not None else "run"
         if project_id is not None:

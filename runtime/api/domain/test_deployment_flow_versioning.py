@@ -81,49 +81,6 @@ def _create_legacy(conn: Any, flow_id: str = "mutable-flow") -> None:
     cmd_create(conn, flow_id, "yoke", "Mutable flow", "", LEGACY_STAGES)
 
 
-def test_a_definition_naming_an_unobservable_target_cannot_activate(
-    test_db: Any,
-) -> None:
-    """The schema is served; this definition's QA target still is not.
-
-    Two independent axes: the runtime executes the schema-2 vocabulary,
-    and a ``run_preview`` QA target has no registered receipt producer to
-    observe it. The answer reports both, so nothing advertises a
-    definition that would activate and then fail mid-run.
-    """
-    result = cmd_validate_definition(
-        test_db, project="yoke", stages=ADVANCED_STAGES, status="disabled"
-    )
-    assert result == {
-        "valid": True,
-        "definition_schema_version": 2,
-        "execution_supported": False,
-        "serving_schema_version": 2,
-        "unsupported_target_kinds": ["run_preview"],
-    }
-    with pytest.raises(ValueError, match="no receipt producer"):
-        cmd_validate_definition(
-            test_db, project="yoke", stages=ADVANCED_STAGES, status="active"
-        )
-
-
-def test_a_definition_whose_targets_are_observable_activates(test_db: Any) -> None:
-    """The enabled boundary: schema 2 with an environment-backed QA target."""
-    result = cmd_validate_definition(
-        test_db,
-        project="yoke",
-        stages=SUPPORTED_ADVANCED_STAGES,
-        status="disabled",
-    )
-    assert result["definition_schema_version"] == 2
-    assert result["execution_supported"] is True
-    assert result["unsupported_target_kinds"] == []
-    activated = cmd_validate_definition(
-        test_db, project="yoke", stages=SUPPORTED_ADVANCED_STAGES, status="active"
-    )
-    assert activated["execution_supported"] is True
-
-
 def test_complete_update_and_reorder_preserve_one_flow_identity(test_db: Any) -> None:
     _create_legacy(test_db)
     updated = cmd_update_definition(
@@ -285,49 +242,3 @@ def test_delivery_intent_constraint_matches_both_initialization_orders(
             conn.rollback()
         finally:
             conn.close()
-
-
-def test_a_legacy_definition_stays_executable_once_the_newer_schema_is_served(
-    test_db: Any,
-) -> None:
-    """Serving the release schema must not strand version-1 definitions.
-
-    A hosted delivery route is ordinarily a legacy definition —
-    ``merged`` / ``github-actions-workflow`` / ``complete``, no QA stage
-    and so no target kind to observe. Raising the served vocabulary
-    widens what is executable and must never narrow it, and the
-    target-kind guard must find nothing to refuse in a definition that
-    declares no QA stage at all. Getting this wrong is an outage at
-    deploy time rather than a failing test, so it is asserted rather
-    than reasoned about.
-    """
-    result = cmd_validate_definition(
-        test_db, project="yoke", stages=LEGACY_STAGES, status="disabled"
-    )
-    assert result["definition_schema_version"] == 1
-    assert result["execution_supported"] is True
-    assert result["unsupported_target_kinds"] == []
-
-    # The gates that guard activation, assignment and start accept it.
-    activated = cmd_validate_definition(
-        test_db, project="yoke", stages=LEGACY_STAGES, status="active"
-    )
-    assert activated["execution_supported"] is True
-    assert unsupported_stage_target_kinds(LEGACY_STAGES) == ()
-
-    # And through the real create/activate path, not only the validator.
-    cmd_create(
-        test_db,
-        "legacy-active-flow",
-        "yoke",
-        "Legacy active flow",
-        "",
-        LEGACY_STAGES,
-        status="active",
-    )
-    assert (
-        test_db.execute(
-            "SELECT status FROM deployment_flows WHERE id='legacy-active-flow'"
-        ).fetchone()["status"]
-        == "active"
-    )

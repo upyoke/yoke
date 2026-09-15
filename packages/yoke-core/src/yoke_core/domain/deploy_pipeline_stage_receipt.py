@@ -36,7 +36,9 @@ from typing import Any, Dict, List, Optional
 from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
     ARTIFACT_OBSERVING_TARGET_KINDS,
+    IDENTITY_PROVING_STEP_RUNNERS,
     RECEIPT_PRODUCERS,
+    RUNNER_VERIFIED_TARGET_KINDS,
     SUPPORTED_TARGET_KINDS,  # noqa: F401 — re-exported for callers and gates
     ProducerContext,
     StageObservation,  # noqa: F401 — re-exported so producers import one name
@@ -153,6 +155,21 @@ def dispatch_step_runner_with_receipt(
             "(no producer proves the deployed candidate's exact commit for "
             "that target kind); register a producer for that kind in "
             "deploy_pipeline_stage_receipt.RECEIPT_PRODUCERS"
+        )
+    if (
+        target_kind in RUNNER_VERIFIED_TARGET_KINDS
+        and step_runner not in IDENTITY_PROVING_STEP_RUNNERS
+    ):
+        # Configuration refuses this too, but a definition activated
+        # before that gate existed can still reach here — and the cost of
+        # finding out afterwards is a real environment changed by a run
+        # that can never settle its receipt.
+        return 1, (
+            f"stage {stage_name!r} backs a QA target but its step runner "
+            f"{step_runner!r} returns no verified candidate identity, so no "
+            "receipt could prove what the target now serves; register a "
+            "producer that reads the served revision for this target "
+            "through the project's configured identity capability"
         )
     if run_artifact_identity and target_kind not in ARTIFACT_OBSERVING_TARGET_KINDS:
         # The receipt store compares an observed artifact identity against

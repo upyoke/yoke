@@ -18,6 +18,7 @@ from yoke_core.domain.flow_validation import (
     validate_stages,
 )
 from yoke_core.domain.deployment_flow_target_support import (
+    require_provable_qa_identity,
     require_supported_stage_targets,
     require_supported_stage_targets_for_flow,
 )
@@ -196,6 +197,10 @@ def cmd_update_stages(
             schema_version, operation="updating this active deployment flow"
         )
         require_supported_stage_targets(
+            stages_json,
+            operation="updating this active deployment flow",
+        )
+        require_provable_qa_identity(
             stages_json,
             operation="updating this active deployment flow",
         )

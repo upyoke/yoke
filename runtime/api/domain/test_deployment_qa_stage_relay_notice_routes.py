@@ -20,10 +20,13 @@ import json
 from typing import Any
 from unittest import mock
 
+import pytest
+
 from runtime.api.domain.coordination_claim_test_support import (
     PROJECT_YOKE,
     seed_project,
 )
+from runtime.api.domain.test_deployment_qa_stage_execution import _seed_run
 from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
     HOLDER_A,
     SESSION_ACTOR_ID,
@@ -81,22 +84,17 @@ def _flow_stages() -> str:
     )
 
 
-def _seed(conn: Any) -> None:
+def _seed(conn: Any, stages_json: str | None = None) -> None:
+    """A frozen, executing run at its QA stage, with everyone it addresses.
+
+    The run itself comes from the shared seeder, which freezes the flow
+    and member requirement snapshots and settles the ready producing
+    receipt the subject contract requires — hand-rolling those is how a
+    fixture ends up failing on snapshot validity instead of on the
+    behaviour under test.
+    """
     _project(conn)
     seed_project(conn, PROJECT_YOKE, "yoke")
-    conn.execute(
-        "INSERT INTO deployment_flows(id,project_id,name,description,stages,"
-        "on_failure,created_at,definition_schema_version,status) VALUES "
-        "('flow-relay-notice',1,'flow-relay-notice','',%s,'halt',%s,2,'disabled')",
-        (_flow_stages(), "2026-09-14T00:00:00Z"),
-    )
-    conn.execute(
-        "INSERT INTO deployment_runs(id,project_id,flow,release_lineage,status,"
-        "current_stage,created_at) VALUES (%s,1,'flow-relay-notice',%s,'executing',"
-        "%s,%s)",
-        (RUN_ID, "a" * 40, STAGE, "2026-09-14T00:00:00Z"),
-    )
-    # The member item, its owner, and the agent session holding its claim.
     insert_item(
         conn,
         id=ITEM_ID,
@@ -104,10 +102,12 @@ def _seed(conn: Any) -> None:
         workflow_id="issue",
         owner=str(SESSION_ACTOR_ID),
     )
-    conn.execute(
-        "INSERT INTO deployment_run_items(run_id,item_id,added_at) "
-        "VALUES (%s,%s,%s)",
-        (RUN_ID, ITEM_ID, "2026-09-14T00:00:00Z"),
+    _seed_run(
+        conn,
+        run_id=RUN_ID,
+        stages=json.loads(stages_json or _flow_stages()),
+        members=(),
+        existing_members=(ITEM_ID,),
     )
     from yoke_core.domain.actor_permissions import ROLE_ADMIN, grant_actor_org_role
 
@@ -253,3 +253,94 @@ def test_the_relay_refuses_without_the_deploy_lock(test_db: Any) -> None:
     assert outcome.primary_success is False
     assert outcome.error is not None
     assert outcome.error.code == "deploy_lock_required"
+
+
+def _stages_without_cases(scope: str) -> str:
+    """A stage that names no cases — the default "agent chooses" story."""
+    return json.dumps(
+        [
+            {
+                "name": "deploy",
+                "step_runner": "health-check",
+                "stage_kind": "execution",
+                "scope": "run",
+            },
+            {
+                "name": STAGE,
+                "step_runner": "qa",
+                "stage_kind": "qa",
+                "scope": scope,
+                "target": {
+                    "kind": "persistent_environment",
+                    "environment": "stage",
+                    "source_stage": "deploy",
+                },
+                "verdict": {"mode": "agent_only"},
+            },
+        ]
+    )
+
+
+def test_a_stage_with_no_configured_cases_waits_and_wakes_the_item_agent(
+    test_db: Any,
+) -> None:
+    """The default story: nobody has selected cases, so the agent is woken.
+
+    Materialization genuinely runs here — nothing about it is mocked —
+    and it refuses because no cases are pinned, admitted or
+    agent-selected. That refusal is the agent's cue, not a stage
+    failure: if it returned 1 the stage would die before anyone was
+    asked to choose evidence.
+    """
+    _seed(test_db, _stages_without_cases("item"))
+
+    outcome = relay.handle_deployment_qa_stage_dispatch(_request())
+
+    assert outcome.primary_success is True, outcome.error
+    assert int(outcome.result_payload["code"]) == -4
+    assert "no pinned cases" in outcome.result_payload["message"]
+    assert f"member {ITEM_ID}" in outcome.result_payload["message"]
+    # The item's claim holder was woken to select or create the evidence.
+    key = stage_wait_idempotency_key(RUN_ID, STAGE, ITEM_ID, "")
+    assert _recipients(test_db, key) == [HOLDER_A]
+
+
+def test_a_run_scoped_stage_with_no_configured_cases_waits_and_wakes_the_driver(
+    test_db: Any,
+) -> None:
+    """Same story at run scope, addressed to the release's own driver."""
+    _seed(test_db, _stages_without_cases("run"))
+
+    outcome = relay.handle_deployment_qa_stage_dispatch(_request())
+
+    assert outcome.primary_success is True, outcome.error
+    assert int(outcome.result_payload["code"]) == -4
+    assert "no pinned cases" in outcome.result_payload["message"]
+    assert "run:" in outcome.result_payload["message"]
+    # Run scope has no member, so the deploy-lock driver is the recipient.
+    rows = test_db.execute(
+        "SELECT r.session_id FROM session_messages m "
+        "JOIN session_message_recipients r ON r.message_id = m.message_id "
+        "WHERE m.idempotency_key LIKE %s",
+        ("deployment-qa-stage-wait:%:run:%",),
+    ).fetchall()
+    assert [row["session_id"] for row in rows] == [DRIVER_SESSION]
+
+
+def test_a_broken_pinned_plan_never_reaches_the_dispatch_to_be_mistaken(
+    test_db: Any,
+) -> None:
+    """Only "nobody chose yet" waits, and the rest cannot even get here.
+
+    A stage pinning a plan that does not exist is a configuration
+    defect, and composition freeze refuses it before a run exists — so
+    it never reaches the dispatch to be misread as patience. That is why
+    the dispatch only has to classify the one condition that genuinely
+    describes unfinished agent work: everything wrong with the
+    definition itself was already refused upstream.
+    """
+    broken = json.loads(_stages_without_cases("item"))
+    broken[1]["cases"] = {"plan_id": 987654, "case_keys": ["nope"]}
+
+    with pytest.raises(LookupError, match="QA plan 987654 not found"):
+        _seed(test_db, json.dumps(broken))

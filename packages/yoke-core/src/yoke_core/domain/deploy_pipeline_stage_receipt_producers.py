@@ -165,9 +165,46 @@ SUPPORTED_TARGET_KINDS = frozenset(RECEIPT_PRODUCERS)
 #: that kind, because nothing could prove the pinned artifact was served.
 ARTIFACT_OBSERVING_TARGET_KINDS: frozenset[str] = frozenset()
 
+#: Producing step runners that return a VERIFIED candidate identity, not
+#: merely a diagnostic string.
+#:
+#: This is a narrower claim than "the runner succeeded", and the
+#: distinction is the whole point. ``health-check`` earns its place by
+#: asserting the served ``build`` against the run's pinned image tag over
+#: the Yoke core health contract (build / schema_ready / request-id echo)
+#: — a Yoke-core-shaped proof, not a generic one. Every other runner
+#: either returns nothing on success or returns prose: a
+#: ``github-actions-workflow`` stage, which is how a non-Yoke project
+#: ordinarily deploys its own environment, reports what the workflow did
+#: and cannot say which revision the target now serves. A health check
+#: pointed at an explicit ``url`` returns an empty diagnostic for the same
+#: reason: a raw endpoint carries no candidate identity to verify.
+#:
+#: So this set is what "persistent_environment is supported" actually
+#: means today, and it is deliberately not the target kind. A project
+#: whose environment is deployed by its own workflow and exposes its own
+#: served-revision endpoint needs a producer that reads that endpoint
+#: through its configured identity capability; until one is registered
+#: here, such a definition is refused before it deploys anything rather
+#: than deployed and then unable to settle a receipt.
+IDENTITY_PROVING_STEP_RUNNERS: frozenset[str] = frozenset({"health-check"})
+
+#: Target kinds whose producer takes its candidate identity FROM the
+#: producing step runner rather than reading the target back itself.
+#:
+#: For these, :data:`IDENTITY_PROVING_STEP_RUNNERS` is the binding
+#: constraint: the producer has no independent way to ask the target what
+#: it serves, so an unverified runner means an unprovable receipt. A kind
+#: whose producer performs its own readback — a preview whose served
+#: commit is fetched over HTTPS — is not listed here, because the runner
+#: that deployed it never needed to prove anything.
+RUNNER_VERIFIED_TARGET_KINDS: frozenset[str] = frozenset({"persistent_environment"})
+
 
 __all__ = [
     "ARTIFACT_OBSERVING_TARGET_KINDS",
+    "IDENTITY_PROVING_STEP_RUNNERS",
+    "RUNNER_VERIFIED_TARGET_KINDS",
     "RECEIPT_PRODUCERS",
     "SUPPORTED_TARGET_KINDS",
     "Producer",

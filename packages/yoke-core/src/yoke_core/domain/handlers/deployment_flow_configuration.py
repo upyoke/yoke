@@ -43,6 +43,7 @@ class DeploymentFlowValidateResponse(BaseModel):
     definition_schema_version: int
     execution_supported: bool
     unsupported_target_kinds: list[str] = Field(default_factory=list)
+    unprovable_qa_identity_stages: list[str] = Field(default_factory=list)
     serving_schema_version: int
 
 

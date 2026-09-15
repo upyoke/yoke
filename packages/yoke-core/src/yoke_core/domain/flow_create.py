@@ -17,6 +17,7 @@ from yoke_core.domain.deployment_flow_state import (
     validate_flow_status,
 )
 from yoke_core.domain.deployment_flow_target_support import (
+    require_provable_qa_identity,
     require_supported_stage_targets,
 )
 from yoke_core.domain.deployment_flow_policy import (
@@ -62,6 +63,10 @@ def cmd_create(
             schema_version, operation="activating this deployment flow"
         )
         require_supported_stage_targets(
+            stages_json,
+            operation="activating this deployment flow",
+        )
+        require_provable_qa_identity(
             stages_json,
             operation="activating this deployment flow",
         )

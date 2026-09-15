@@ -64,6 +64,21 @@ def _member_plans(
     return selected
 
 
+class QaCasesNotSelectedError(QaPlanError):
+    """No cases are selected for this stage subject yet.
+
+    Deliberately its own type, because it is the ONLY materialization
+    refusal that describes work an agent has not done rather than a
+    definition that is wrong. The default story is that a stage names no
+    cases and the responsible agent chooses or creates them, so a caller
+    must be able to tell "nobody has selected cases yet" — a durable wait
+    that should wake that agent — from an invalid pinned plan, an
+    unresolvable target identity, or a permission failure, all of which
+    are real stage failures. Collapsing them would either strand the
+    agent or dress a broken definition up as patience.
+    """
+
+
 def _selected_plans(
     conn: Any,
     subject: Mapping[str, Any],
@@ -108,7 +123,7 @@ def _selected_plans(
         )
         unique[key] = snapshot
     if not unique and not allow_empty:
-        raise QaPlanError(
+        raise QaCasesNotSelectedError(
             "deployment QA stage has no pinned cases; select a project QA plan "
             "for this execution and retry materialization"
         )
@@ -270,4 +285,7 @@ def materialize_deployment_qa_stage(
     }
 
 
-__all__ = ["materialize_deployment_qa_stage"]
+__all__ = [
+    "QaCasesNotSelectedError",
+    "materialize_deployment_qa_stage",
+]

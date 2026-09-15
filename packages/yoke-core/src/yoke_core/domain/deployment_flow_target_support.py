@@ -23,6 +23,31 @@ from yoke_core.domain import json_helper
 from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
 
 
+def _stage_list(stages: Any) -> list[Any]:
+    """The decoded stage list, from the list or the JSON callers hold.
+
+    Both are live shapes on the definition paths these guards cover. A
+    shape this cannot read raises rather than reporting "nothing
+    unsupported", which is the one answer that would let an unobservable
+    target through.
+    """
+    if isinstance(stages, str):
+        stages = json_helper.loads_text(stages)
+    if not isinstance(stages, list):
+        raise ValueError(
+            "deployment flow stages must be a list to check target support; "
+            f"got {type(stages).__name__}"
+        )
+    return stages
+
+
+def _is_qa_stage(stage: Mapping[str, Any]) -> bool:
+    return (
+        stage.get("stage_kind") == STAGE_KIND_QA
+        or stage.get("step_runner") == QA_STEP_RUNNER
+    )
+
+
 def unsupported_stage_target_kinds(stages: Any) -> tuple[str, ...]:
     """QA target kinds in *stages* that no receipt producer can observe.
 
@@ -43,20 +68,12 @@ def unsupported_stage_target_kinds(stages: Any) -> tuple[str, ...]:
         RECEIPT_PRODUCERS,
     )
 
-    if isinstance(stages, str):
-        stages = json_helper.loads_text(stages)
-    if not isinstance(stages, list):
-        raise ValueError(
-            "deployment flow stages must be a list to check target support; "
-            f"got {type(stages).__name__}"
-        )
+    stages = _stage_list(stages)
     unsupported: list[str] = []
     for stage in stages:
         if not isinstance(stage, Mapping):
             continue
-        if stage.get("stage_kind") != STAGE_KIND_QA and stage.get(
-            "step_runner"
-        ) != QA_STEP_RUNNER:
+        if not _is_qa_stage(stage):
             continue
         target = stage.get("target")
         if not isinstance(target, Mapping):
@@ -65,6 +82,83 @@ def unsupported_stage_target_kinds(stages: Any) -> tuple[str, ...]:
         if kind and kind not in RECEIPT_PRODUCERS and kind not in unsupported:
             unsupported.append(kind)
     return tuple(unsupported)
+
+
+def unprovable_qa_identity_stages(stages: Any) -> tuple[str, ...]:
+    """QA stages whose producing stage cannot prove a candidate identity.
+
+    Supporting a target KIND is not the same as being able to observe one,
+    and conflating them advertises more than the runtime can do. A QA stage
+    reads its target from an earlier stage's receipt, and that receipt is
+    only evidence if the producing step runner returned a *verified*
+    identity rather than a diagnostic string. Today only the Yoke core
+    health contract does that, so a project that deploys its own
+    environment through its own workflow has a perfectly valid
+    ``persistent_environment`` target that nothing here can settle.
+
+    Reported per QA stage rather than per kind, because the gap is the
+    producing runner: the same kind is supported behind one runner and not
+    behind another. Each entry names the QA stage, its source stage, and
+    that runner.
+    """
+    from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
+        IDENTITY_PROVING_STEP_RUNNERS,
+        RUNNER_VERIFIED_TARGET_KINDS,
+    )
+
+    decoded = _stage_list(stages)
+    by_name = {
+        str(stage.get("name") or ""): stage
+        for stage in decoded
+        if isinstance(stage, Mapping)
+    }
+    unprovable: list[str] = []
+    for stage in decoded:
+        if not isinstance(stage, Mapping) or not _is_qa_stage(stage):
+            continue
+        target = stage.get("target")
+        if not isinstance(target, Mapping):
+            continue
+        if str(target.get("kind") or "") not in RUNNER_VERIFIED_TARGET_KINDS:
+            # This kind's producer reads the target back itself, so the
+            # runner that deployed it owes no identity proof.
+            continue
+        source_name = str(target.get("source_stage") or "")
+        source = by_name.get(source_name)
+        runner = (
+            str(source.get("step_runner") or "") if isinstance(source, Mapping) else ""
+        )
+        if runner in IDENTITY_PROVING_STEP_RUNNERS:
+            continue
+        unprovable.append(
+            f"{str(stage.get('name') or '')!r} reads its target from "
+            f"{source_name!r}, whose step runner "
+            f"{runner or '<unresolved>'!r} returns no verified candidate "
+            "identity"
+        )
+    return tuple(unprovable)
+
+
+def require_provable_qa_identity(stages: Any, *, operation: str) -> None:
+    """Refuse a definition whose QA target identity cannot be verified.
+
+    Raised at the same gates the schema version and target kinds guard, so
+    the refusal lands before anything deploys. Deploying first and failing
+    the receipt afterwards would leave a real environment changed by a run
+    that could never complete.
+    """
+    unprovable = unprovable_qa_identity_stages(stages)
+    if not unprovable:
+        return
+    listed = "; ".join(unprovable)
+    raise ValueError(
+        f"{operation} declares QA stage(s) whose deployed identity this "
+        f"serving runtime cannot verify: {listed}. Register a receipt "
+        "producer that reads the served revision for that target through "
+        "the project's configured identity capability, and add its step "
+        "runner to deploy_pipeline_stage_receipt_producers."
+        "IDENTITY_PROVING_STEP_RUNNERS, before enabling this definition"
+    )
 
 
 def require_supported_stage_targets(stages: Any, *, operation: str) -> None:
@@ -111,11 +205,15 @@ def require_supported_stage_targets_for_flow(
     ).fetchone()
     if row is None:
         return
-    require_supported_stage_targets(str(row[0] or "[]"), operation=operation)
+    stored = str(row[0] or "[]")
+    require_supported_stage_targets(stored, operation=operation)
+    require_provable_qa_identity(stored, operation=operation)
 
 
 __all__ = [
+    "require_provable_qa_identity",
     "require_supported_stage_targets",
     "require_supported_stage_targets_for_flow",
+    "unprovable_qa_identity_stages",
     "unsupported_stage_target_kinds",
 ]

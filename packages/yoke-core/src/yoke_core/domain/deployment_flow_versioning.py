@@ -8,7 +8,9 @@ from typing import Any
 
 from yoke_core.domain import json_helper
 from yoke_core.domain.deployment_flow_target_support import (
+    require_provable_qa_identity,
     require_supported_stage_targets,
+    unprovable_qa_identity_stages,
     unsupported_stage_target_kinds,
 )
 from yoke_core.domain.deployment_flow_policy import (
@@ -103,6 +105,9 @@ def _validate_definition(conn: Any, definition: Mapping[str, Any]) -> int:
         require_supported_stage_targets(
             stages, operation="activating this deployment flow"
         )
+        require_provable_qa_identity(
+            stages, operation="activating this deployment flow"
+        )
     return schema_version
 
 
@@ -128,15 +133,20 @@ def cmd_validate_definition(
     # this runtime executes, and whether anything can observe the QA
     # targets THIS definition names. Reporting only the version would
     # advertise a definition that activates and then fails mid-run.
-    unsupported = unsupported_stage_target_kinds(json_helper.loads_text(stages))
+    decoded = json_helper.loads_text(stages)
+    unsupported = unsupported_stage_target_kinds(decoded)
+    unprovable = unprovable_qa_identity_stages(decoded)
     return {
         "valid": True,
         "definition_schema_version": schema_version,
         "execution_supported": (
-            schema_version <= CURRENT_EXECUTION_SCHEMA_VERSION and not unsupported
+            schema_version <= CURRENT_EXECUTION_SCHEMA_VERSION
+            and not unsupported
+            and not unprovable
         ),
         "serving_schema_version": CURRENT_EXECUTION_SCHEMA_VERSION,
         "unsupported_target_kinds": list(unsupported),
+        "unprovable_qa_identity_stages": list(unprovable),
     }
 
 

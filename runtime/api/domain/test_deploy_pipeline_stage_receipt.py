@@ -273,20 +273,26 @@ def test_supported_target_kinds_is_the_producer_registry() -> None:
     )
 
 
-def test_success_with_no_diagnostic_fails_closed_regardless_of_runner() -> None:
-    """The generic evidence contract, not a hardcoded runner allowlist: any
-    step runner that succeeds without reporting a diagnostic has nothing
-    verified to back a receipt with.
+def test_a_runner_that_proves_no_identity_is_refused_before_it_deploys() -> None:
+    """Refused before dispatch, not after a receipt it could never settle.
+
+    A persistent-environment producer takes its candidate identity from
+    the producing runner, so a runner that returns no verified identity
+    cannot back that target however it exits. Finding that out after the
+    dispatch would mean a real environment changed by a run that can
+    never complete.
     """
     stage = _stage("deploy-stage", "core-container-deploy")
     stages = [stage, _qa_stage("deploy-stage")]
-    result, _allocate, complete, _latest, _dispatch = _dispatch_with(
+    result, allocate, complete, _latest, dispatch = _dispatch_with(
         stage, stages, dispatch_return=(0, "")
     )
     rc, diag = result
     assert rc == 1
-    assert "no provider-specific verification wired yet" in diag
-    assert complete.call_args.kwargs["status"] == "failed"
+    assert "returns no verified candidate identity" in diag
+    dispatch.assert_not_called()
+    allocate.assert_not_called()
+    complete.assert_not_called()
 
 
 def test_human_approval_wait_leaves_receipt_pending() -> None:
