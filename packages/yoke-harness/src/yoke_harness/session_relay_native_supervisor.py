@@ -24,6 +24,7 @@ import time
 from types import FrameType
 from typing import Sequence
 
+from yoke_harness.session_relay_environment import strip_relay_owned_python_state
 from yoke_harness.session_relay_native_capture_format import (
     STATE_EXITED,
     STATE_RUNNING,
@@ -83,6 +84,7 @@ def supervise(capture: Path, native: Sequence[str]) -> int:
     try:
         process = subprocess.Popen(
             list(native),
+            env=strip_relay_owned_python_state(),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
