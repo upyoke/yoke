@@ -207,6 +207,54 @@ class TestNonPytestCommandsNamingTestFiles(unittest.TestCase):
         ))
 
 
+class TestWrittenDataIsNotAnInvocation(unittest.TestCase):
+    """FN50157: writing a pytest command string as data is not running it.
+
+    Both shapes were observed denying real QA plan-case authoring, whose
+    ``method_config.command`` field legitimately stores a project test
+    command as a JSON string value — inert text, never executed here.
+    """
+
+    def _anchor_command_field(self, joiner: str) -> str:
+        anchors = " ".join(f"{a}/" for a in lint.full_sweep_anchors())
+        return (
+            '{"method_config": {"command": "cd /repo ' + joiner +
+            ' .venv/bin/python3 -m pytest ' + anchors + ' -k \\"not live\\""}}'
+        )
+
+    def test_cat_heredoc_writing_the_command_as_json_is_not_matched(self):
+        command = (
+            "cat > scratch.json <<'EOF'\n"
+            + self._anchor_command_field("&&") + "\nEOF\n"
+        )
+        self.assertIsNone(_eval(command))
+
+    def test_python_heredoc_printing_the_command_as_json_is_not_matched(self):
+        command = (
+            "python3 <<'PYEOF' > scratch.json\n"
+            "import json\n"
+            'print(json.dumps(' + self._anchor_command_field("&&") + '))\n'
+            "PYEOF\n"
+        )
+        self.assertIsNone(_eval(command))
+
+    def test_printf_redirect_of_the_command_as_json_is_not_matched(self):
+        payload = self._anchor_command_field("&&").replace("'", "'\\''")
+        command = "printf '%s' '" + payload + "' > scratch.json"
+        self.assertIsNone(_eval(command))
+
+    def test_a_real_chained_invocation_after_the_written_data_still_denies(self):
+        # The exemption covers written data, not a real command that
+        # follows it on the same line.
+        command = (
+            "cat > scratch.json <<'EOF'\n"
+            + self._anchor_command_field("&&") + "\nEOF\n"
+            + _anchor_sweep()
+        )
+        mode, _, _ = _eval(command)
+        self.assertEqual(mode, "deny")
+
+
 class TestDecisionEnvelope(unittest.TestCase):
     def test_deny_stops_the_chain_with_a_permission_envelope(self):
         with mock.patch.object(lint, "_read_mode", return_value="deny"):
