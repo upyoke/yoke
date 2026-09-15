@@ -157,7 +157,13 @@ def do_local_merge(ctx: MergeContext) -> int:
     _run_git = mw._run_git
 
     _print("")
-    _print("Local merge mode \u2014 skipping push/PR/CI pipeline.")
+    if ctx.args.standalone:
+        _print(
+            "Local Git integration — landing onto local "
+            f"{ctx.args.target}; publication and CI belong to the outer merge."
+        )
+    else:
+        _print("Local merge mode \u2014 skipping push/PR/CI pipeline.")
 
     _print(f"Merging {ctx.args.branch} into local {ctx.args.target}...")
     _run_git(["checkout", ctx.args.target], cwd=ctx.repo_root, capture=True)

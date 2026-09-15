@@ -1,17 +1,8 @@
 """Post-push proof for a queue-less standalone landing.
 
-The local merge is already a durable fact when this boundary runs. A remote
-push can therefore only decide whether close-out is safe: green checks (or a
-bounded proof that the project has none) allow the caller's evidence and done
-transition; red or still-pending checks preserve both claim and lane for a
-follow-up commit through the same merge command. Physical retirement belongs
-to the later successful terminal boundary.
-
-The proof reads checks under the authority the merge itself ran under, passed
-in by the boundary that classified the route. Demanding a stricter authority
-here is how a landed merge came to report failure: the branch was already on
-the base branch, and the only thing that failed was asking for a machine user
-authorization the read never needed.
+Local merge is already durable here. Push plus observed checks decide
+whether close-out is safe; red or pending checks keep claim and lane.
+Proof uses the merge's own authority.
 """
 
 from __future__ import annotations
@@ -244,6 +235,21 @@ def _refusal_message(
     )
 
 
+def _publication_narration(
+    *, pushed: bool, push_warning: str, verdict: Optional[PostPushVerdict],
+) -> str:
+    if push_warning:
+        return push_warning
+    if not pushed:
+        return "Publication: no remote; merge remains local-only."
+    kind = None if verdict is None else verdict.kind
+    return {
+        None: "Publication: target pushed; post-push checks were not run.",
+        "passed": "Publication: target pushed; post-push checks passed.",
+        "no_checks": "Publication: target pushed; no post-push checks discovered.",
+    }.get(kind, "")
+
+
 def complete(
     *,
     item_id: int,
@@ -259,7 +265,6 @@ def complete(
     warnings: Sequence[str] = (),
     resume_command: str = "",
 ):
-    """Publish a landed merge and prove its checks for terminal close-out."""
     from yoke_core.domain.standalone_item_merge import (
         StandaloneMergeOutcome,
         stamp_merged_at,
@@ -294,10 +299,8 @@ def complete(
             notes.append(note)
 
     record()
+    observed: Optional[PostPushVerdict] = None
     if pushed and not merge_sha:
-        # There is no commit to ask GitHub about, so the proof is skipped
-        # rather than run against an empty ref. Say so: a silent skip reads
-        # like a clean proof.
         notes.append(
             f"post-push checks skipped: no merge commit records {branch!r} "
             f"landing on {target!r}, so there is nothing to prove. Re-run "
@@ -305,21 +308,26 @@ def complete(
             "already contain."
         )
     if pushed and merge_sha:
-        verdict = await_post_push_checks(project, merge_sha, authority)
-        if verdict.runs:
-            record(verdict.evidence)
-        if not verdict.ok:
+        observed = await_post_push_checks(project, merge_sha, authority)
+        if observed.runs:
+            record(observed.evidence)
+        if not observed.ok:
             command = resume_command or f"yoke merge item {branch}"
             return StandaloneMergeOutcome(
                 ok=False, exit_code=1, already_merged=already,
                 commit_sha=commit_sha, merge_sha=merge_sha,
                 touched_files=touched, pushed=True, output=output,
                 error=_refusal_message(
-                    verdict, merge_sha=merge_sha, resume_command=command,
+                    observed, merge_sha=merge_sha, resume_command=command,
                 ),
                 warnings=tuple(notes),
             )
 
+    narration = _publication_narration(
+        pushed=pushed, push_warning=push_warning, verdict=observed,
+    )
+    if narration:
+        output = f"{output}\n{narration}".strip() if output else narration
     if git.has_remote(repo_root):
         sync_warning = fast_forward_main_checkout(repo_root, target)
         if sync_warning:
