@@ -20,6 +20,9 @@ from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
+from yoke_core.domain.deployment_qa_admission_materialization import (
+    admitted_copy_passed_sql,
+)
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.schema_common import _table_exists
 
@@ -55,6 +58,18 @@ def approval_policy_for_transition(
     )
 
 
+def _requirement_consumed(row: Any, *, pre_merge: bool) -> bool:
+    passed = bool(row["passed"] if hasattr(row, "keys") else row[2])
+    if passed:
+        return True
+    if pre_merge:
+        return False
+    phase = str(row["qa_phase"] if hasattr(row, "keys") else row[1] or "")
+    if phase != "post_deploy":
+        return False
+    return bool(row["admitted_passed"] if hasattr(row, "keys") else row[3])
+
+
 def _verification_gate(
     conn: Any,
     *,
@@ -81,9 +96,9 @@ def _verification_gate(
     if kind == "ad_hoc":
         selector = "r.plan_id IS NULL AND r.method_id = " + marker
         selector_value = str(verification.get("method_id") or "")
-    # Pre-merge review waits only for verification-phase rows. A
-    # post_deploy / manual_acceptance case recorded on the same transition
-    # is intake storage; later `done` consumes it once the target exists.
+    # Pre-merge waits for verification only. At done, post_deploy is
+    # consumed by a passing admitted copy, not a second original run.
+    # manual_acceptance keeps its established phase gate.
     pre_merge = target_status == ITEM_POSTURE_VERIFICATION_TRANSITION
     phase_sql = "AND r.qa_phase = 'verification' " if pre_merge else ""
     params = (
@@ -92,10 +107,11 @@ def _verification_gate(
         ITEM_POSTURE_VERIFICATION_TRANSITION,
     )
     cursor = conn.execute(
-        "SELECT r.id, EXISTS("
+        "SELECT r.id, r.qa_phase, EXISTS("
         "SELECT 1 FROM qa_runs qr "
         "WHERE qr.qa_requirement_id = r.id AND qr.verdict = 'pass'"
-        ") AS passed "
+        ") AS passed, "
+        f"{admitted_copy_passed_sql(conn)} AS admitted_passed "
         "FROM qa_requirements r "
         f"WHERE r.item_id = {marker} AND {selector} "
         "AND r.blocking_mode = 'blocking' AND r.waived_at IS NULL "
@@ -123,7 +139,7 @@ def _verification_gate(
     unsatisfied = [
         int(row["id"] if hasattr(row, "keys") else row[0])
         for row in rows
-        if not bool(row["passed"] if hasattr(row, "keys") else row[1])
+        if not _requirement_consumed(row, pre_merge=pre_merge)
     ]
     if unsatisfied:
         waiting = next(
@@ -197,6 +213,7 @@ def _deployment_gate(
     conn: Any,
     item_id: int,
 ) -> Optional[dict[str, Any]]:
+    # Containment stays here so verification-phase intake can land apart.
     evidence = _evidence(conn, item_id)
     merge_sha = str((evidence or {}).get("merge_sha") or "")
     if not merge_sha:
