@@ -262,3 +262,45 @@ def test_release_updates_keep_one_runtime_and_supervised_children_on_the_pin(
     assert child["release"] == SECOND_RELEASE
     assert Path(child["module"]).resolve().is_relative_to(second_release_root)
     assert child["executable"] == str(second.runtime_python.resolve())
+
+
+def test_recovery_from_a_broken_matching_release_starts_the_rebuilt_pin(
+    tmp_path: Path,
+) -> None:
+    """A receipt that still matches the served build is not proof it runs.
+
+    Even after the reuse check catches a broken matching release and rebuilds
+    it, the stable launcher must still start on the freshly promoted pin.
+    """
+    instance = _instance(tmp_path)
+    pin_relay_release(
+        instance=instance,
+        served_build=f"v{FIRST_RELEASE}",
+        create_venv=lambda path: _fake_release(path, FIRST_RELEASE),
+        runner=_runner_for(FIRST_RELEASE),
+    )
+    broken_target = (instance.state_dir / "release").resolve()
+    probed = {"count": 0}
+
+    def recovering(command, **_kwargs):
+        argv = list(command)
+        if "-c" in argv and probed["count"] == 0:
+            probed["count"] += 1
+            return subprocess.CompletedProcess(argv, 1, "", "ModuleNotFoundError")
+        stdout = f"{FIRST_RELEASE}\n" if "-c" in argv else ""
+        return subprocess.CompletedProcess(argv, 0, stdout, "")
+
+    recovered = pin_relay_release(
+        instance=instance,
+        served_build=f"v{FIRST_RELEASE}",
+        create_venv=lambda path: _fake_release(path, FIRST_RELEASE),
+        runner=recovering,
+    )
+
+    assert recovered.current
+    rebuilt_target = (instance.state_dir / "release").resolve()
+    assert rebuilt_target != broken_target
+
+    _document, process = _start_from_plist(instance, tmp_path)
+    assert process["release"] == FIRST_RELEASE
+    assert Path(process["executable"]).resolve() == recovered.runtime_python.resolve()
