@@ -10,6 +10,7 @@ from yoke_core.domain.deployment_qa_stage_gate import deployment_qa_stage_status
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
 )
+from yoke_core.domain.deployment_qa_stage_wake import notify_item_scoped_qa_wait
 
 
 def dispatch_deployment_qa_stage(
@@ -18,7 +19,14 @@ def dispatch_deployment_qa_stage(
     """Materialize and gate every subject; ``-4`` means durable QA wait."""
     conn = connect()
     try:
-        if stage.get("scope") == "item":
+        project_row = conn.execute(
+            "SELECT project_id FROM deployment_runs WHERE id=%s", (run_id,)
+        ).fetchone()
+        project_id = int(
+            project_row["project_id"] if hasattr(project_row, "keys") else project_row[0]
+        ) if project_row else None
+        item_scoped = stage.get("scope") == "item"
+        if item_scoped:
             rows = conn.execute(
                 "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
                 (run_id,),
@@ -57,7 +65,30 @@ def dispatch_deployment_qa_stage(
                 return 1, str(exc)
             if not status["accepted"]:
                 label = f"member {member}" if member is not None else "run"
-                waiting.extend(f"{label}: {reason}" for reason in status["reasons"])
+                reasons = "; ".join(status["reasons"])
+                waiting.append(f"{label}: {reasons}")
+                if item_scoped and member is not None and project_id is not None:
+                    # A wake failure is not a QA-status failure: the stage is
+                    # genuinely still waiting either way, so a notification
+                    # hiccup degrades to "not woken" rather than aborting the
+                    # dispatch and losing the wait result already computed.
+                    try:
+                        notify_item_scoped_qa_wait(
+                            conn,
+                            run_id=run_id,
+                            stage_name=str(stage["name"]),
+                            item_id=member,
+                            project_id=project_id,
+                            reasons=reasons,
+                        )
+                        conn.commit()
+                    except Exception as exc:  # noqa: BLE001 - degrade, don't abort
+                        conn.rollback()
+                        print(
+                            f"Warning: could not wake item {member}'s claim "
+                            f"holder for run {run_id!r} stage "
+                            f"{stage['name']!r}: {exc}"
+                        )
         if waiting:
             return -4, "; ".join(waiting)
         return 0, ""
