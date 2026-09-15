@@ -57,6 +57,7 @@ def test_intake_persists_delivery_evidence_as_existing_qa_rows() -> None:
     text = (REPO / ".agents/skills/yoke/idea/delivery-requirements.md").read_text(
         encoding="utf-8"
     )
+    compact = " ".join(text.split())
     assert "qa.requirement.add" in text
     assert "--qa-phase post_deploy" in text
     assert "--target-env" in text
@@ -69,7 +70,8 @@ def test_intake_persists_delivery_evidence_as_existing_qa_rows() -> None:
     assert "actors" in text
     assert "mode=all" in text
     assert "do not wait for an environment" in text
-    assert "does not re-run or waive the original" in text
+    assert "does not re-run or waive the original" in compact
+    assert "prior candidate's pass does not satisfy" in compact
     assert "item-scoped QA stage" in text
     assert "Never `update-stages`" in text
 

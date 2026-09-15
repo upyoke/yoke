@@ -119,6 +119,46 @@ def _binding_refusal(
     return None
 
 
+def _current_acceptance(
+    conn: Any,
+    *,
+    run_id: str,
+    stage: Mapping[str, Any],
+    member: int | None,
+) -> tuple[Any, dict[str, Any]] | None:
+    rows = conn.execute(
+        "SELECT id,waived_at,execution_target_json FROM qa_requirements "
+        "WHERE deployment_run_id=%s AND deployment_stage=%s "
+        "AND COALESCE(deployment_member_item_id,0)=%s AND qa_kind=%s "
+        "ORDER BY id",
+        (
+            run_id,
+            str(stage["name"]),
+            member or 0,
+            DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
+        ),
+    ).fetchall()
+    valid: list[tuple[Any, dict[str, Any]]] = []
+    for candidate in rows:
+        candidate_id = int(
+            candidate["id"] if hasattr(candidate, "keys") else candidate[0]
+        )
+        candidate_verdict = _latest_verdict(conn, candidate_id)
+        refusal = _binding_refusal(
+            conn,
+            run_id=run_id,
+            stage=stage,
+            member=member,
+            requirement=candidate,
+            verdict=candidate_verdict,
+        )
+        if refusal is None:
+            valid.append((candidate, candidate_verdict))
+    if len(valid) != 1:
+        return None
+    return valid[0]
+
+
 def _subjects(conn: Any, run_id: str, stage: Mapping[str, Any]) -> list[int | None]:
     if stage.get("scope") != "item":
         return [None]
@@ -196,6 +236,53 @@ def prior_stage_refusals(
     return refusals
 
 
+def current_item_scoped_qa_accepted(conn: Any, *, item_id: int) -> bool:
+    """True when this item's latest run accepted every item-scoped QA stage."""
+    from yoke_core.domain.schema_common import _table_exists
+
+    required = ("deployment_runs", "deployment_run_items", "deployment_flows")
+    if not all(_table_exists(conn, table) for table in required):
+        return False
+    row = conn.execute(
+        "SELECT dr.id, df.stages FROM deployment_runs dr "
+        "JOIN deployment_run_items dri ON dri.run_id = dr.id "
+        "JOIN deployment_flows df ON df.id = dr.flow "
+        "WHERE dri.item_id = %s "
+        "ORDER BY dr.created_at DESC, dr.id DESC LIMIT 1",
+        (int(item_id),),
+    ).fetchone()
+    if row is None:
+        return False
+    run_id = str(row["id"] if hasattr(row, "keys") else row[0])
+    try:
+        stages = json.loads(str(row["stages"] if hasattr(row, "keys") else row[1]))
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(stages, list):
+        return False
+    qa_stages = [
+        dict(stage)
+        for stage in stages
+        if isinstance(stage, Mapping)
+        and stage.get("stage_kind") == "qa"
+        and stage.get("step_runner") == "qa"
+        and stage.get("scope") == "item"
+    ]
+    if not qa_stages:
+        return False
+    for stage in qa_stages:
+        current = _current_acceptance(
+            conn, run_id=run_id, stage=stage, member=int(item_id)
+        )
+        if current is None:
+            return False
+        record, latest = current
+        waived_at = record["waived_at"] if hasattr(record, "keys") else record[1]
+        if not waived_at and latest["verdict"] != "pass":
+            return False
+    return True
+
+
 def require_prior_stage_acceptance(
     conn: Any,
     *,
@@ -216,6 +303,7 @@ def require_prior_stage_acceptance(
 
 __all__ = [
     "DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND",
+    "current_item_scoped_qa_accepted",
     "prior_stage_refusals",
     "require_prior_stage_acceptance",
 ]
