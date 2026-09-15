@@ -47,8 +47,35 @@ def _human_actor(conn: Any, actor_id: int) -> None:
     )
 
 
-def _awaiting_review(conn: Any, *, run_id: str, member: int, slug: str) -> int:
-    """Take one item-scoped stage all the way to its open review request."""
+def _grant_org_membership(conn: Any, actor_id: int) -> None:
+    """Addressing a human member resolves through shared organization roles."""
+    from yoke_core.domain.actor_permissions import ROLE_ADMIN, grant_actor_org_role
+
+    for row in conn.execute("SELECT org_id FROM projects WHERE id=1").fetchall():
+        if row["org_id"] is not None:
+            grant_actor_org_role(
+                conn,
+                actor_id=actor_id,
+                org_id=int(row["org_id"]),
+                role_name=ROLE_ADMIN,
+            )
+    conn.commit()
+
+
+def _awaiting_review(
+    conn: Any,
+    *,
+    run_id: str,
+    member: int,
+    slug: str,
+    owner_actor_id: int | None = None,
+) -> int:
+    """Take one item-scoped stage all the way to its open review request.
+
+    ``owner_actor_id`` creates the member item up front so it carries an
+    owner from the start, which the run seeder then attaches without
+    creating again.
+    """
     plan_id = _plan(conn, slug)
     stages = _stages(
         plan_id,
@@ -57,7 +84,24 @@ def _awaiting_review(conn: Any, *, run_id: str, member: int, slug: str) -> int:
             "reviewers": {"mode": "all", "roles": [], "actors": [REVIEWER]},
         },
     )
-    _seed_run(conn, run_id=run_id, stages=stages, members=(member,))
+    if owner_actor_id is None:
+        _seed_run(conn, run_id=run_id, stages=stages, members=(member,))
+    else:
+        insert_item(
+            conn,
+            id=member,
+            project_sequence=member,
+            workflow_id="issue",
+            status="done",
+            owner=str(owner_actor_id),
+        )
+        _seed_run(
+            conn,
+            run_id=run_id,
+            stages=stages,
+            members=(),
+            existing_members=(member,),
+        )
     materialize_deployment_qa_stage(
         conn,
         deployment_run_id=run_id,
@@ -164,6 +208,74 @@ def test_rejection_reaches_the_holder_with_its_next_step(test_db: Any) -> None:
         stage_name="item-qa",
         member_item_id=member,
     )["accepted"]
+
+
+def test_the_qa_verdict_and_the_owner_notice_are_distinct_events(
+    test_db: Any,
+) -> None:
+    """Two events on one item, neither deduplicating the other.
+
+    The QA verdict reaches the agent that parked for it; the delivery
+    notice reaches the item's owner. An owner who is also a reviewer
+    legitimately sees both, so they carry separate keys and separate
+    recipient surfaces rather than being folded together.
+    """
+    from yoke_core.domain.deployment_delivery_done_notice import (
+        delivery_done_idempotency_key,
+        notify_delivery_done,
+    )
+
+    _project(test_db)
+    _human_actor(test_db, REVIEWER)
+    member = 9783
+    request_id = _awaiting_review(
+        test_db,
+        run_id="run-both-events",
+        member=member,
+        slug="both-events",
+        owner_actor_id=REVIEWER,
+    )
+    _hold_the_item(test_db, member)
+    resolve_decision_request(
+        test_db,
+        request_id,
+        actor_id=REVIEWER,
+        action="approve",
+        note="The deployed stage is correct.",
+    )
+    requirement_id = int(
+        test_db.execute(
+            "SELECT subject_key FROM decision_requests WHERE id=%s", (request_id,)
+        ).fetchone()["subject_key"]
+    )
+    verdict_key = verdict_idempotency_key(requirement_id, "approve")
+    assert _recipients(test_db, verdict_key) == [HOLDER_A]
+
+    # The run then finishes, and the item is announced to its owner.
+    test_db.execute(
+        "UPDATE deployment_runs SET status='succeeded',current_stage='complete',"
+        "completed_at=%s WHERE id='run-both-events'",
+        ("2026-09-14T01:00:00Z",),
+    )
+    test_db.commit()
+    _grant_org_membership(test_db, REVIEWER)
+
+    result = notify_delivery_done(test_db, item_id=member)
+    test_db.commit()
+    assert result["delivery"] == "notified"
+
+    delivery_key = delivery_done_idempotency_key(member, "run-both-events")
+    assert delivery_key != verdict_key
+    owners = test_db.execute(
+        "SELECT r.actor_id FROM session_messages m "
+        "JOIN actor_message_recipients r ON r.message_id = m.message_id "
+        "WHERE m.idempotency_key = %s",
+        (delivery_key,),
+    ).fetchall()
+    assert [int(row["actor_id"]) for row in owners] == [REVIEWER]
+    # Both events survive: neither key absorbed the other.
+    assert _bodies(test_db, verdict_key)
+    assert _bodies(test_db, delivery_key)
 
 
 def test_a_non_deployment_review_notifies_nobody(test_db: Any) -> None:

@@ -51,21 +51,35 @@ notifies nobody. Owner: `yoke_core.domain.deployment_qa_verdict_notice`.
 
 ## Done announces the delivery to the item's owner
 
-Reaching done for a delivery-carrying item sends the owner one
-informational notice naming the outcome, the destination it went to, the
-candidate revision, and the run whose evidence backs it. Nothing reads
-it: no decision, nothing to acknowledge, no gate. It goes to the same
-recipient every item-addressed notice uses — the claim holder, or the
-project's steering seat when the holder is gone — because the owning
-agent is who holds the claim at completion.
+Reaching done for a delivery-carrying item sends its OWNER one
+informational notice naming the outcome, the destination, the candidate
+revision, and the run whose evidence backs it. The owner is the human
+member `items.owner` names, reached through the actor-addressed Fleet
+path — the Inbox surface a person reads. It is deliberately not the
+session holding the item's work claim: that is an agent, agents are
+already woken for the QA stages they owe work on, and a notice that
+redirects to whichever agent holds the claim tells the wrong party while
+looking like it worked. An item whose owner does not resolve to a human
+organization member reports that and sends nothing.
+
+Nothing reads the notice: no decision, nothing to acknowledge, no gate.
+The QA-result notice is a separate event with its own key and its own
+recipient, so an owner who is also a reviewer legitimately receives both.
+
+The destination named is the one the run was observed to deliver to —
+the newest ready `deployment_stage_receipts.target_name` — rather than
+the environment the run was configured to aim at, because a journey with
+more than one environment stage aims at one and reaches each; the
+configured target answers only when nothing observed one, and the target
+tier only when neither does.
 
 An item with no succeeded run has no destination to name and is silent,
 as is one whose run failed or was cancelled. "Once at final completion"
 needs no separate guard: done happens once, the key is the item plus the
 run that delivered, and a progress-delivery member does not reach done
-from the run that carried it. A notice that cannot be delivered is
-reported by the closeout and stays retryable — it never reverses a done
-that already committed. Owners:
+from the run that carried it. Delivery failure is reported by the
+closeout and stays retryable — it never reverses a done that already
+committed, and the closeout runs only after that commit. Owners:
 `yoke_core.domain.deployment_delivery_done_notice` and the registered
 `done_transition.delivery_done_notice`, which the client-side engine
 relays to because sending is a control-plane write.

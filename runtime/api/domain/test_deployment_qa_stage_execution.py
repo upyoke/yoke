@@ -98,7 +98,14 @@ def _seed_run(
     run_id: str,
     stages: list[dict[str, Any]],
     members: tuple[int, ...],
+    existing_members: tuple[int, ...] = (),
 ) -> None:
+    """Seed a frozen schema-2 run, its members, and a ready stage receipt.
+
+    ``members`` are created here; ``existing_members`` are items the
+    caller already inserted with the status and pin its own test needs,
+    and are attached without being created again.
+    """
     _environment(conn)
     flow_id = f"flow-{run_id}"
     cmd_create(
@@ -127,14 +134,15 @@ def _seed_run(
             flow_snapshot,
         ),
     )
-    for item_id in members:
-        insert_item(
-            conn,
-            id=item_id,
-            project_sequence=item_id,
-            workflow_id="issue",
-            status="done",
-        )
+    for item_id in (*members, *existing_members):
+        if item_id in members:
+            insert_item(
+                conn,
+                id=item_id,
+                project_sequence=item_id,
+                workflow_id="issue",
+                status="done",
+            )
         member_snapshot = snapshot_member_requirements(
             conn,
             run_id=run_id,
