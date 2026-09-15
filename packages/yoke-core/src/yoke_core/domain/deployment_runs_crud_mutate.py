@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterable
-from datetime import datetime, timezone
 from typing import Optional
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain import deployment_run_lineage_rebind as lineage_rebind
 from yoke_core.domain import (
