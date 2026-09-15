@@ -182,6 +182,57 @@ def test_run_pinning_an_unobservable_artifact_refuses_before_dispatch() -> None:
     complete.assert_not_called()
 
 
+def test_registered_producer_reads_its_target_and_reports_a_url(monkeypatch) -> None:
+    """The extension point a kind-specific producer is written against.
+
+    A producer that reads a served URL and commit back must get the QA
+    target's own selector, the dispatch identity to rejoin, and the
+    project whose policy resolves the target — not a diagnostic string to
+    parse.
+    """
+    seen: Dict[str, Any] = {}
+
+    def _url_producer(context):
+        seen["target"] = dict(context.target)
+        seen["project"] = context.project
+        seen["run_id"] = context.run_id
+        seen["stage_name"] = context.stage_name
+        seen["correlation_id"] = context.correlation_id
+        seen["stage_name_from_stage"] = context.stage.get("name")
+        rc, diag = context.dispatch(dispatch_environment=context.dispatch_environment)
+        return (
+            rc,
+            diag,
+            target_module.StageObservation(
+                target_name="preview-42",
+                observed_release_lineage="e" * 40,
+                observed_url="https://preview-42.example.test/",
+            ),
+        )
+
+    monkeypatch.setitem(target_module.RECEIPT_PRODUCERS, "run_preview", _url_producer)
+    stage = _stage("deploy-stage", "ephemeral-verify")
+    stages = [stage, _qa_stage("deploy-stage", kind="run_preview")]
+    result, allocate, complete, _latest, _dispatch = _dispatch_with(
+        stage, stages, dispatch_return=(0, "preview served")
+    )
+
+    assert result == (0, "preview served")
+    assert seen["target"]["kind"] == "run_preview"
+    assert seen["target"]["source_stage"] == "deploy-stage"
+    assert seen["project"] == "yoke"
+    assert seen["run_id"] == RUN_ID
+    assert seen["stage_name"] == "deploy-stage"
+    assert seen["stage_name_from_stage"] == "deploy-stage"
+    assert seen["correlation_id"] == allocate.call_args.kwargs["correlation_id"]
+    kwargs = complete.call_args.kwargs
+    assert kwargs["status"] == "ready"
+    assert kwargs["target_name"] == "preview-42"
+    assert kwargs["observed_url"] == "https://preview-42.example.test/"
+    assert kwargs["observed_release_lineage"] == "e" * 40
+    assert kwargs["executor_receipt"] == "preview served"
+
+
 def test_supported_target_kinds_is_the_producer_registry() -> None:
     """One list, so registering a producer cannot leave a constant behind."""
     assert target_module.SUPPORTED_TARGET_KINDS == frozenset(

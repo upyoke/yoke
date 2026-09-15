@@ -21,6 +21,7 @@ diagnostic either way.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any, Optional
 
@@ -168,7 +169,7 @@ def notify_item_scoped_qa_wait(
     )
 
 
-def _resolve_run_driver_recipient(
+def resolve_run_driver_recipient(
     conn: Any, *, project_id: int
 ) -> tuple[str, int, str]:
     """The project's live deploy-lock holder, else its undocumented steering seat.
@@ -215,6 +216,52 @@ def _receipt_delivered(conn: Any, message_id: str, session_id: str) -> bool:
     return False
 
 
+def push_run_scoped_notice(
+    conn: Any,
+    *,
+    project_id: int,
+    body_for_route: Callable[[str], str],
+    idempotency_key: str,
+    now: Optional[datetime] = None,
+) -> str:
+    """Reach whoever is driving a project's release, and say whether it landed.
+
+    The run-scoped counterpart to
+    :func:`merge_queue_landing_notice.push_notice`, with the same return
+    contract: ``""`` nobody addressable, ``"undelivered"`` queued but not
+    yet reached, ``"delivered"`` reached the recipient. ``body_for_route``
+    is passed the route that found the recipient so the body can name who
+    it reached.
+    """
+    from yoke_contracts.session_control.models import RecipientSelector
+    from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
+    from yoke_core.domain.session_message_service import send_message
+
+    session_id, actor_id, route = resolve_run_driver_recipient(
+        conn, project_id=project_id
+    )
+    if not session_id:
+        return ""
+    created = send_message(
+        conn,
+        actor_id=actor_id,
+        sender_session_id=None,
+        selector=RecipientSelector(session_ids=[session_id]),
+        body=body_for_route(route),
+        idempotency_key=idempotency_key,
+        idempotency_intent_only=True,
+        now=now or datetime.now(timezone.utc),
+        commit=False,
+    )
+    message_id = str(created["message_id"])
+    mark_explicit_stopped_wake(conn, message_id=message_id, session_id=session_id)
+    return (
+        "delivered"
+        if _receipt_delivered(conn, message_id, session_id)
+        else "undelivered"
+    )
+
+
 def notify_run_scoped_qa_wait(
     conn: Any,
     *,
@@ -232,22 +279,10 @@ def notify_run_scoped_qa_wait(
     Same contract as :func:`notify_item_scoped_qa_wait`, addressed to
     whoever is driving the release instead of an attached item.
     """
-    from yoke_contracts.session_control.models import RecipientSelector
-    from yoke_core.domain.session_explicit_wake import mark_explicit_stopped_wake
-    from yoke_core.domain.session_message_service import send_message
-
-    session_id, actor_id, route = _resolve_run_driver_recipient(
-        conn, project_id=project_id
-    )
-    if not session_id:
-        return ""
-    current = now or datetime.now(timezone.utc)
-    created = send_message(
+    return push_run_scoped_notice(
         conn,
-        actor_id=actor_id,
-        sender_session_id=None,
-        selector=RecipientSelector(session_ids=[session_id]),
-        body=run_stage_wait_message(
+        project_id=project_id,
+        body_for_route=lambda route: run_stage_wait_message(
             run_id=run_id,
             stage_name=stage_name,
             target_tier=target_tier,
@@ -258,19 +293,16 @@ def notify_run_scoped_qa_wait(
         idempotency_key=run_stage_wait_idempotency_key(
             run_id, stage_name, target_digest
         ),
-        idempotency_intent_only=True,
-        now=current,
-        commit=False,
+        now=now,
     )
-    message_id = str(created["message_id"])
-    mark_explicit_stopped_wake(conn, message_id=message_id, session_id=session_id)
-    return "delivered" if _receipt_delivered(conn, message_id, session_id) else "undelivered"
 
 
 __all__ = [
     "DRIVER",
     "notify_item_scoped_qa_wait",
     "notify_run_scoped_qa_wait",
+    "push_run_scoped_notice",
+    "resolve_run_driver_recipient",
     "run_stage_wait_idempotency_key",
     "run_stage_wait_message",
     "stage_wait_idempotency_key",

@@ -166,11 +166,14 @@ or later-stage prerequisite. Run-preview readiness requires an observed URL;
 command-only persistent environments do not.
 
 Who fills those observed columns is a per-target-kind decision, registered
-in `deploy_pipeline_stage_receipt.RECEIPT_PRODUCERS`. Each producer
-dispatches its stage and returns a `StageObservation` — target name,
-observed release lineage, and optionally an observed URL and artifact
-identity — while the step runner's own diagnostic travels to
-`executor_receipt`, where a human reads it. An observed-identity column
+in `deploy_pipeline_stage_receipt.RECEIPT_PRODUCERS`. Each producer takes
+one `ProducerContext` — the stage, its QA target block, the run and stage
+names, the project, the dispatch correlation id, and the dispatch
+callable — and returns a `StageObservation`: target name, observed
+release lineage, and optionally an observed URL and artifact identity.
+The step runner's own diagnostic travels to `executor_receipt`, where a
+human reads it, so a producer that reads a served URL and commit back
+reports them structurally instead of encoding them in that one string. An observed-identity column
 left empty is not a gap to fill with whatever string is at hand: the store
 compares an observed artifact identity against the one the run pins, so an
 invented value refuses the receipt. A run that pins an artifact identity no
