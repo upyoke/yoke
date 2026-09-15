@@ -69,7 +69,10 @@ def _resume_with(response: FunctionCallResponse, *, run_id="run-qa-transport-1")
 
 def test_accepted_stage_lets_the_pipeline_continue():
     _, outcome = _dispatch_with(
-        _success(dispatch_mod.DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION, {"code": 0, "message": ""})
+        _success(
+            dispatch_mod.DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
+            {"code": 0, "message": ""},
+        )
     )
     assert outcome == (0, "")
 
