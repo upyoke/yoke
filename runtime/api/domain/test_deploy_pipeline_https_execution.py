@@ -139,8 +139,7 @@ def _qa_statuses(conn, run_id: str) -> dict[str, str]:
 
 
 def test_https_driver_preserves_approval_and_qa_through_failure_retry(
-    serving_plane,
-    monkeypatch,
+    serving_plane, monkeypatch
 ) -> None:
     conn = serving_plane["conn"]
     _replace_flow(
@@ -163,7 +162,9 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
     )
     relayed = _install_test_https(monkeypatch, serving_plane)
     monkeypatch.setattr(deploy_pipeline, "resolve_project_checkout_path", lambda _p: "")
-    monkeypatch.setattr(deploy_pipeline_failure, "_report_failure_trace", lambda _r: None)
+    monkeypatch.setattr(
+        deploy_pipeline_failure, "_report_failure_trace", lambda _r: None
+    )
 
     original_dispatch = deploy_pipeline._dispatch_step_runner
     release_fails = {"once": True}
@@ -181,7 +182,9 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
     )
     run_id = str(created["run_id"])
 
-    assert deploy_pipeline.run_pipeline(run_id) == deploy_pipeline.EXIT_AWAITING_APPROVAL
+    assert (
+        deploy_pipeline.run_pipeline(run_id) == deploy_pipeline.EXIT_AWAITING_APPROVAL
+    )
     assert _qa_statuses(conn, run_id) == {
         "approve-deploy": "pending",
         "hosted-release": "pending",
@@ -210,7 +213,9 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
             {"project": PROJECT, "flow": FLOW, "retry_of": run_id},
         )["run_id"]
     )
-    assert deploy_pipeline.run_pipeline(retry_id) == deploy_pipeline.EXIT_AWAITING_APPROVAL
+    assert (
+        deploy_pipeline.run_pipeline(retry_id) == deploy_pipeline.EXIT_AWAITING_APPROVAL
+    )
     _invoke(
         "decision_requests.resolve",
         {"request_id": _decision_request_id(conn, retry_id), "action": "approve"},
@@ -230,6 +235,60 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
         "deployment_runs.execution.qa_pending",
         "deployment_runs.stage_approval.evaluate",
     }.issubset(relayed)
+
+
+def test_a_qa_write_failure_warns_but_never_reports_a_false_pass(
+    serving_plane, monkeypatch
+) -> None:
+    """A QA-record write failure must not fabricate a passing verdict.
+
+    Recording is eventually-consistent, non-blocking: the pipeline keeps
+    going and the stage stays reported as completed. But nothing was
+    actually persisted, so the projection this gate reads must still show
+    the check unresolved — never silently "passed".
+    """
+    conn = serving_plane["conn"]
+    _replace_flow(
+        conn,
+        [
+            {"name": "preflight", "step_runner": "auto", "qa_kind": "preflight"},
+            {"name": "complete", "step_runner": "auto"},
+        ],
+    )
+    _install_test_https(monkeypatch, serving_plane)
+    monkeypatch.setattr(deploy_pipeline, "resolve_project_checkout_path", lambda _p: "")
+
+    original_record = deploy_pipeline_control_plane.record_qa_stage
+
+    def failing_record(run_id, stage, verdict, **kwargs):
+        if stage == "preflight":
+            raise deploy_pipeline_control_plane.DeploymentControlPlaneError(
+                "simulated qa_record write failure"
+            )
+        return original_record(run_id, stage, verdict, **kwargs)
+
+    monkeypatch.setattr(
+        deploy_pipeline_control_plane, "record_qa_stage", failing_record
+    )
+    run_id = str(
+        _invoke(
+            "deployment_runs.create",
+            {"project": PROJECT, "flow": FLOW, "release_lineage": LINEAGE},
+        )["run_id"]
+    )
+
+    # The write failure must not crash the driver — every stage still runs
+    # to completion — but nothing was actually recorded for "preflight", so
+    # the required-QA gate must hold the run back rather than reporting
+    # success. A warning must never read back as a passing verdict.
+    assert deploy_pipeline.run_pipeline(run_id) == deploy_pipeline.EXIT_AWAITING_QA
+    unresolved = conn.execute(
+        "SELECT status,current_stage FROM deployment_runs WHERE id=%s",
+        (run_id,),
+    ).fetchone()
+    assert tuple(unresolved) != ("succeeded", "complete")
+    statuses = _qa_statuses(conn, run_id)
+    assert statuses.get("preflight") != "passed"
 
 
 def test_local_admin_candidate_bootstraps_execution_handlers(

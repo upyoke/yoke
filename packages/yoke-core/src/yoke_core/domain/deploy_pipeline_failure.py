@@ -149,7 +149,13 @@ def fail_pipeline_stage(
         member_items,
         sd=sd,
     )
-    control_plane.record_qa_stage(run_id, stage_name, "fail")
+    try:
+        control_plane.record_qa_stage(run_id, stage_name, "fail")
+    except control_plane.DeploymentControlPlaneError as exc:
+        print(
+            f"Warning: could not record QA verdict for stage {stage_name!r}: {exc}",
+            file=sys.stderr,
+        )
     run_updates.update_run_field(run_id, "status", "failed")
     emit_event(
         "DeploymentRunFailed",

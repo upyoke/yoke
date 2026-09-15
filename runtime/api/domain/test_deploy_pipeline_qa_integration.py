@@ -287,35 +287,13 @@ class TestRunSmokeStatus:
 
 
 class TestQaRecorderIntegration:
-    """Test QA seeding and recording with a real DB but mocked shell calls."""
+    """Test QA seeding and recording against a real DB, in-process (no subprocess)."""
 
-    def test_seed_populates_requirements(self, deploy_db, monkeypatch):
+    def test_seed_populates_requirements(self, deploy_db):
         """seed-from-flow creates qa_requirements for QA-relevant stages."""
         _seed_flow(deploy_db)
         _seed_run(deploy_db, item_ids=[42])
         _seed_item(deploy_db)
-
-        def mock_yoke_db(*args, script_dir=None):
-            if "runs" in args and "get" in args and "flow" in args:
-                return "flow-test"
-            return ""
-
-        def mock_flow_db(*args, script_dir=None):
-            if "stages" in args:
-                return json.dumps(
-                    [
-                        {"name": "deploy", "step_runner": "auto"},
-                        {
-                            "name": "smoke-test",
-                            "step_runner": "auto",
-                            "qa_kind": "smoke",
-                        },
-                    ]
-                )
-            return ""
-
-        monkeypatch.setattr(deploy_qa_recorder, "_dispatch_db_router", mock_yoke_db)
-        monkeypatch.setattr(deploy_qa_recorder, "_dispatch_flow_domain", mock_flow_db)
 
         deploy_db.execute(
             "INSERT INTO qa_requirements (deployment_run_id, qa_kind, qa_phase, "
