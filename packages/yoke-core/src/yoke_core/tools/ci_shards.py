@@ -22,7 +22,19 @@ profile, and small selections stay on the one runner they already used.
 ``least_duration`` greedily assigns the slowest tests first using the committed
 timing profile, so the profile has to stay current: tests missing from it are
 treated as unknown and land wherever the greedy pass puts them, which is how a
-stale profile turns more shards into worse balance rather than better.
+stale profile turns more shards into worse balance rather than better. A lagging
+profile is also invisible to :func:`profiled_size`, so it shows up as a
+selection sized far below the work it then does.
+
+Refreshing it means reading the per-test times out of the ``pytest-report.xml``
+artifact every shard of a full-suite CI run uploads — the one place the whole
+suite is measured on the fleet that runs it, and never a local sweep. Those
+times are measured under ``-n auto``, so each one carries its neighbours'
+contention and summing them overcounts the wall time the group took; dividing
+by that same run's own ratio of session wall time to summed case time leaves
+every test's weight relative to every other untouched and keeps a stored sum
+readable as the wall seconds it predicts, which is the unit
+:data:`MIN_SHARD_PROFILE_SECONDS` is written in.
 
 ``-n auto`` mirrors ``DEFAULT_PARALLEL_WORKERS`` in
 ``runtime/api/tools/_pytest_parallel.py`` — the canonical home the local
@@ -36,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import subprocess
 import sys
@@ -55,12 +68,22 @@ DURATIONS_PATH = ".test_durations"
 OUTPUT_LOG = "pytest-output.txt"
 JUNIT_REPORT = "pytest-report.xml"
 
-# Profiled test seconds one shard is worth carrying. The profile stores
-# single-process seconds and a shard runs `-n auto`, but on this fleet a
-# shard's observed wall time tracks its profiled seconds closely enough to
-# size against them directly (8 shards x ~560 profiled seconds ran ~570s
-# each). Below this, the fixed setup stops being noise.
-MIN_SHARD_PROFILE_SECONDS = 200.0
+# Profiled test seconds one shard is worth carrying.
+#
+# Deliberately well under the ~150s break-even above, because profiled
+# seconds are a floor and a change-scoped selection is exactly where that
+# floor bites: `profiled_size` can only see tests the committed profile
+# already holds, and the tests a change adds are the ones no full-suite run
+# has measured yet. One observed selection profiled at 63s and then ran 748
+# tests in 179.55s. Refreshing the profile narrows that gap without closing
+# it — the same selection profiles at 114s against a current one — so the
+# budget stays below the break-even rather than assuming it away.
+#
+# The asymmetry settles the remaining doubt: one shard too many costs that
+# runner's fixed setup, in parallel with work that was going to run anyway,
+# while one shard too few costs the whole selection the wall time it could
+# have split.
+MIN_SHARD_PROFILE_SECONDS = 60.0
 
 
 def shard_list(count: int = SHARD_COUNT) -> list[int]:
@@ -175,11 +198,18 @@ def split_count(profiled_seconds: float, profiled_tests: int) -> int:
     """How many shards a selection of this size earns.
 
     One shard per :data:`MIN_SHARD_PROFILE_SECONDS` of profiled test time,
-    capped at the full suite's own shard count and at the number of tests the
-    profile knows about: a group holding no test at all reports "no tests ran"
-    instead of a verdict, so the count never exceeds what can fill it.
+    rounded UP: the remainder past a whole budget is real test time that has
+    to run somewhere, and because the profile undercounts, that remainder is
+    itself a floor. Rounding it down hands a selection the narrower fan-out
+    of the two readings every time.
+
+    The count is then capped at the full suite's own shard count and at the
+    number of tests the profile knows about: a group holding no test at all
+    reports "no tests ran" instead of a verdict, so the count never exceeds
+    what can fill it, and a selection with nothing profiled still runs on the
+    one shard it always did.
     """
-    earned = int(profiled_seconds // MIN_SHARD_PROFILE_SECONDS)
+    earned = math.ceil(profiled_seconds / MIN_SHARD_PROFILE_SECONDS)
     return max(1, min(SHARD_COUNT, earned, profiled_tests))
 
 
