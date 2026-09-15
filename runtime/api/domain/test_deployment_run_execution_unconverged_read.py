@@ -7,10 +7,21 @@ from typing import Any
 
 import pytest
 
+from runtime.api.domain import (
+    test_deployment_execution_serving_authority as serving_fixture,
+)
 from runtime.api.fixtures import pg_testdb
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.handlers.deployment_run_execution import _member_rows
+
+
+serving_plane = serving_fixture.serving_plane
+_call = serving_fixture._call
+PROJECT = serving_fixture.PROJECT
+FLOW = serving_fixture.FLOW
+LINEAGE = serving_fixture.LINEAGE
+ITEM_ID = serving_fixture.ITEM_ID
 
 
 def _flow(conn: Any, flow_id: str) -> None:
@@ -104,12 +115,12 @@ def test_empty_membership_unconverged_schema(test_db: Any) -> None:
 
 
 def test_populated_membership_unconverged_schema(test_db: Any) -> None:
-    """The bootstrap driver's crash before dispatch: FN50113 regression.
+    """A live table missing the additive columns degrades to ``None`` members.
 
-    A live table lacking the additive ``delivery_intent`` /
-    ``requirement_snapshot`` columns previously made ``_member_rows`` raise
-    ``UndefinedColumn`` because the SELECT list named those columns
-    unconditionally; the member row now degrades them to ``None`` instead.
+    ``_member_rows`` previously named ``delivery_intent`` /
+    ``requirement_snapshot`` unconditionally in its SELECT list, so a table
+    that had not yet converged those additive columns raised
+    ``UndefinedColumn`` before any row was ever read.
     """
     _flow(test_db, "flow-populated-unconverged")
     _run(test_db, "run-populated-unconverged", "flow-populated-unconverged")
@@ -127,5 +138,49 @@ def test_populated_membership_unconverged_schema(test_db: Any) -> None:
 
     assert len(members) == 1
     assert members[0]["item_id"] == 9502
+    assert members[0]["delivery_intent"] is None
+    assert members[0]["requirement_snapshot"] is None
+
+
+def test_execution_context_dispatch_survives_unconverged_columns(
+    serving_plane,
+) -> None:
+    """The dispatched ``deployment_runs.execution.context`` function id,
+    not just ``_member_rows`` directly, tolerates the missing columns."""
+    client = serving_plane["client"]
+    headers = serving_plane["owner_headers"]
+    session_id = serving_plane["owner_session"]
+    conn = serving_plane["conn"]
+
+    created = _call(
+        client,
+        headers,
+        session_id,
+        "deployment_runs.create",
+        payload={"project": PROJECT, "flow": FLOW, "release_lineage": LINEAGE},
+    )
+    assert created.status_code == 200, created.text
+    run_id = created.json()["result"]["run_id"]
+    _add_member(
+        conn,
+        run_id,
+        ITEM_ID,
+        delivery_intent="final",
+        requirement_snapshot=json.dumps({"requirements": []}),
+    )
+    _drop_additive_columns(conn)
+
+    context = _call(
+        client,
+        headers,
+        session_id,
+        "deployment_runs.execution.context",
+        run_id=run_id,
+    )
+
+    assert context.status_code == 200, context.text
+    members = context.json()["result"]["members"]
+    assert len(members) == 1
+    assert members[0]["item_id"] == ITEM_ID
     assert members[0]["delivery_intent"] is None
     assert members[0]["requirement_snapshot"] is None
