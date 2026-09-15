@@ -15,6 +15,9 @@ from yoke_cli.commands.adapters.github_actions_workflow import (
     github_actions_trigger,
     github_actions_trigger_once,
 )
+from yoke_cli.commands.adapters.github_actions_commit_runs import (
+    github_actions_commit_runs,
+)
 from yoke_cli.commands.adapters.github_actions_failed_log import (
     github_actions_failed_log,
 )
@@ -28,6 +31,8 @@ GITHUB_ACTIONS_SUBCOMMAND_REGISTRY: Dict[
 ] = {
     ("github-actions", "failed-log"):
         ("github_actions.failed_log", github_actions_failed_log),
+    ("github-actions", "commit-runs"):
+        ("github_actions.commit_runs.list", github_actions_commit_runs),
     ("github-actions", "check-ci"):
         ("github_actions.check_ci", _adapters.github_actions_check_ci),
     ("github-actions", "workflow", "dispatch"):

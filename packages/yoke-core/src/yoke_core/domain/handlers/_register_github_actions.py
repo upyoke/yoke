@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import (
     github_actions_check_ci,
+    github_actions_commit_runs,
     github_actions_delete,
     github_actions_failed_log,
     github_actions_get,
@@ -26,6 +27,7 @@ def register(registry) -> None:
     """Register the github_actions family handlers via the given registry."""
     for entry in (
         *github_actions_check_ci.REGISTRATIONS,
+        *github_actions_commit_runs.REGISTRATIONS,
         *github_actions_delete.REGISTRATIONS,
         *github_actions_failed_log.REGISTRATIONS,
         *github_actions_get.REGISTRATIONS,

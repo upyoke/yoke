@@ -15,10 +15,7 @@ from yoke_core.domain.function_target_row_project import (
     resolve_ouroboros_entry_project,
     slug_for_project_id,
 )
-from yoke_core.domain.project_identity import (
-    AmbiguousProjectRefError,
-    resolve_project_id,
-)
+from yoke_core.domain.project_identity import AmbiguousProjectRefError
 
 
 def resolve_ouroboros_entry_context(

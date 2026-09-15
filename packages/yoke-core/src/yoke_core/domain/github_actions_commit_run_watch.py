@@ -18,8 +18,15 @@ field, which is the workflow's own name rather than the run title.
 Reads follow :data:`CI_SUITE_SCHEDULE` so concurrent sessions share the
 project's GitHub budget. Every state change, every terminal conclusion,
 and both deadline cases emit a line, because a watcher that goes quiet is
-indistinguishable from one whose subject is still working. REST
-dispatches through the project's GitHub App auth.
+indistinguishable from one whose subject is still working.
+
+Resolving the ref is the one thing that genuinely belongs on this machine:
+it reads the checkout the caller is standing in. The run listing does not —
+GitHub App private keys live on control-plane hosts, so a project reached
+over https has no local authority to resolve, and asking for one refused
+every watch on such a machine. The listing therefore goes through the
+project's own Actions read authority, which is relayed or attended-local
+exactly as every other Actions call is.
 """
 
 from __future__ import annotations
@@ -31,20 +38,15 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
-)
 from yoke_contracts.project_defaults import default_project_for_directory
 from yoke_core.domain.gh_rest_transport import RestTransportError
-from yoke_core.domain.github_actions_rest import rest_get
+from yoke_core.domain.github_actions_commit_runs_read import (
+    CommitRunAuthorityError,
+    matching_runs,
+)
 from yoke_core.domain.github_poll_schedule import (
     CI_SUITE_SCHEDULE,
     next_read_delay,
-)
-from yoke_core.domain.project_github_auth import (
-    ProjectGithubAuthError,
-    repair_command_hint,
-    resolve_project_github_auth,
 )
 
 EXIT_SUCCESS = 0
@@ -98,42 +100,6 @@ def resolve_commit(ref: str, *, cwd: Path) -> str:
     return resolved
 
 
-def matching_runs(
-    repo: str,
-    head_sha: str,
-    workflow_name: str,
-    *,
-    token: str,
-    get: Callable[..., Any] = rest_get,
-) -> List[Dict[str, Any]]:
-    """Return the runs for exactly *head_sha*, narrowed to *workflow_name*.
-
-    The ``head_sha`` equality re-check is deliberate belt-and-braces: the
-    query already filters server-side, and this module's whole purpose is
-    that a run for a neighbouring commit must never satisfy a wait.
-    """
-    data = get(
-        f"/repos/{repo}/actions/runs",
-        query={"head_sha": head_sha, "per_page": "100"},
-        token=token,
-    )
-    if not isinstance(data, dict):
-        return []
-    runs = data.get("workflow_runs")
-    if not isinstance(runs, list):
-        return []
-    selected: List[Dict[str, Any]] = []
-    for run in runs:
-        if not isinstance(run, dict):
-            continue
-        if str(run.get("head_sha") or "") != head_sha:
-            continue
-        if workflow_name and str(run.get("name") or "") != workflow_name:
-            continue
-        selected.append(run)
-    return selected
-
-
 def _run_label(run: Dict[str, Any]) -> str:
     """Name a run by its workflow and id, never by its display title."""
     name = str(run.get("name") or "").strip() or "(unnamed workflow)"
@@ -175,7 +141,7 @@ def watch_commit_runs(
         elapsed = int(now() - start)
         try:
             runs = fetch_runs()
-        except RestTransportError as exc:
+        except (RestTransportError, CommitRunAuthorityError) as exc:
             emit(f"Error: failed to read runs for {head_sha}: {exc}")
             runs = []
 
@@ -266,8 +232,8 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument(
         "--project",
         default=None,
-        help="Project whose GitHub binding supplies the repository and "
-        "token. Defaults to the project owning the working directory.",
+        help="Project whose Actions read authority answers the run listing. "
+        "Defaults to the project owning the working directory.",
     )
     parser.add_argument(
         "--timeout",
@@ -307,25 +273,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return EXIT_USAGE
 
     project = ns.project or default_project_for_directory(cwd)
-    try:
-        auth = resolve_project_github_auth(
-            project,
-            required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
-        )
-    except ProjectGithubAuthError as exc:
-        print(f"Error: {exc.code}: {exc}", file=sys.stderr)
-        print(f"  Repair: {repair_command_hint(exc, project)}", file=sys.stderr)
-        return EXIT_AUTH
 
     def fetch_runs() -> List[Dict[str, Any]]:
-        return matching_runs(
-            auth.repo, head_sha, ns.workflow, token=auth.token,
-        )
+        return matching_runs(project, head_sha, ns.workflow)
+
+    try:
+        # One read before the loop, so a machine with no usable authority is
+        # told which authority is missing instead of watching a commit it can
+        # never see runs for until the deadline.
+        fetch_runs()
+    except CommitRunAuthorityError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_AUTH
 
     return watch_commit_runs(
         head_sha=head_sha,
         ref=ns.ref,
-        repo=auth.repo,
+        repo=f"project {project}",
         workflow_name=ns.workflow,
         fetch_runs=fetch_runs,
         emit=_emit,

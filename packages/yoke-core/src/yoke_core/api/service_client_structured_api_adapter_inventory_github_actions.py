@@ -34,6 +34,13 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
         ),
     ),
     _read_entry(
+        function_id="github_actions.commit_runs.list",
+        cli_invocation=(
+            "yoke github-actions commit-runs <commit-sha> [--workflow NAME] "
+            "--project <project>"
+        ),
+    ),
+    _read_entry(
         function_id="github_actions.workflow.find_run",
         cli_invocation=(
             "yoke github-actions find-run <owner/repo> <workflow-file> "
