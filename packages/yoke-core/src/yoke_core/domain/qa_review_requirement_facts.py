@@ -28,7 +28,8 @@ def _p(conn: Any) -> str:
 def requirement_facts(conn: Any, requirement_id: int) -> dict[str, Any]:
     p = _p(conn)
     row = conn.execute(
-        "SELECT id, item_id, epic_id, deployment_run_id, plan_id, "
+        "SELECT id, item_id, epic_id, deployment_run_id, "
+        "deployment_member_item_id, plan_id, "
         "plan_case_key, method_id, method_name, expected_outcome, qa_kind, "
         "qa_phase, target_env, success_policy "
         "FROM qa_requirements "
@@ -57,7 +58,15 @@ def requirement_facts(conn: Any, requirement_id: int) -> dict[str, Any]:
         ).fetchone()
         if method is not None:
             value["method_name"] = str(method[0])
-    item_id = value.get("item_id") or value.get("epic_id")
+    # A release's per-member check names its item in its own column rather
+    # than in ``item_id``, which the schema keeps null for anything run
+    # scoped. Resolving it here is what lets a reader address that review by
+    # the item it is about instead of only by the run it ran in.
+    item_id = (
+        value.get("item_id")
+        or value.get("epic_id")
+        or value.get("deployment_member_item_id")
+    )
     if item_id is not None:
         # The item is looked up whether or not a plan already named the
         # project: the reviewer is told which item they are judging, and a
@@ -106,6 +115,14 @@ def review_subject(requirement: dict[str, Any]) -> dict[str, Any]:
         "item_id": (
             int(requirement["item_id"])
             if requirement.get("item_id") is not None
+            else None
+        ),
+        #: The item a run-scoped check was recorded for. A reader that must
+        #: address this review by item cannot recover it from ``item_id``,
+        #: which the schema keeps null for anything run scoped.
+        "deployment_member_item_id": (
+            int(requirement["deployment_member_item_id"])
+            if requirement.get("deployment_member_item_id") is not None
             else None
         ),
         "item_ref": requirement.get("item_ref"),

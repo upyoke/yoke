@@ -207,9 +207,10 @@ def test_a_busy_item_cannot_hide_another_carried_item() -> None:
         assert per_item[4811] == 1
         # The busy item was cut short; the quiet one was not, and saying so
         # is the difference between a bounded read and a silent omission.
+        # Truncation names the group, because that is what was bounded.
         assert result["item_selection"] == {
-            "per_item_limit": 5,
-            "truncated_item_ids": [4810],
+            "per_group_limit": 5,
+            "truncated_groups": [{"item_id": 4810, "deployment_run_id": None}],
         }
 
 
@@ -289,4 +290,60 @@ def test_one_release_worth_of_checks_cannot_hide_another_release_s() -> None:
         runs = Counter(row["deployment_run_id"] for row in result["rows"])
         assert runs["run-20260101-001"] == 1, result["rows"]
         assert runs["run-20260601-009"] == 3
-        assert result["item_selection"]["truncated_item_ids"] == [4830]
+        # Only the release that overran is named, not the item at large.
+        assert result["item_selection"]["truncated_groups"] == [
+            {"item_id": 4830, "deployment_run_id": "run-20260601-009"},
+        ]
+
+
+def test_only_the_run_groups_a_caller_draws_come_back() -> None:
+    """An answer sized by a lifetime of releases is not a bounded answer.
+
+    Every release an item ever took part in is a run group, and a caller
+    drawing one card needs exactly two of them: that release, and the item's
+    own run-less checks.
+    """
+    with test_database() as conn:
+        insert_item(conn, id=4840, title="Long-lived item")
+        plan = create_plan(
+            conn, project="yoke", slug="many-releases", name="Many releases"
+        )
+        own = insert_qa_requirement(
+            conn,
+            item_id=4840,
+            plan_id=int(plan["id"]),
+            plan_case_key="item-own",
+            method_id="terminal-inspection",
+        )
+        drawn = insert_qa_requirement(
+            conn,
+            item_id=None,
+            deployment_run_id="run-20260601-009",
+            deployment_stage="release",
+            deployment_member_item_id=4840,
+            plan_id=int(plan["id"]),
+            plan_case_key="drawn-release",
+            method_id="terminal-inspection",
+        )
+        for index in range(5):
+            insert_qa_requirement(
+                conn,
+                item_id=None,
+                deployment_run_id=f"run-20250101-{index:03d}",
+                deployment_stage="release",
+                deployment_member_item_id=4840,
+                plan_id=int(plan["id"]),
+                plan_case_key=f"old-release-{index}",
+                method_id="terminal-inspection",
+            )
+
+        rows = list_activity(
+            conn,
+            project="yoke",
+            item_ids=[4840],
+            deployment_run_ids=["run-20260601-009"],
+        )
+
+        assert sorted(row["requirement_id"] for row in rows) == sorted(
+            [int(own["id"]), int(drawn["id"])]
+        )

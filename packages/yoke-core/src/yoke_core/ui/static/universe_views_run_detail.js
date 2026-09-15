@@ -229,7 +229,11 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
     // The run's own checks and what its carried items proved on their own
     // are two reads about one page; neither waits on the other.
     const carried = loadCarriedItemEvidence(context, carriedItems(row).map(
-      (item) => ({ ...item, project_id: item.project_id ?? project.id }),
+      (item) => ({
+        ...item,
+        project_id: item.project_id ?? project.id,
+        run_id: row.id || row.run_id,
+      }),
     ));
     try {
       activity = await callFunction(context.client, "qa.activity.list", {

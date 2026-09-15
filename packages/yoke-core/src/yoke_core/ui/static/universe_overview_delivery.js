@@ -99,7 +99,12 @@ export async function loadDelivery(context, band, getScope) {
   for (const callResult of callResults) {
     const result = successfulResult(callResult);
     for (const row of result?.rows || []) {
-      carried.push(...carriedItems(row).slice(0, CARRIED_ITEMS_SHOWN));
+      // Each subject travels with the run its card draws, so the read is
+      // sized by these cards rather than by every release it was ever in.
+      const runId = row.id || row.run_id;
+      for (const item of carriedItems(row).slice(0, CARRIED_ITEMS_SHOWN)) {
+        carried.push({ ...item, run_id: runId });
+      }
     }
   }
   loadCarriedItemEvidence(context, carried).then((loaded) => {

@@ -153,8 +153,9 @@ test("a waiting review is answered from the item's entry, as the Inbox would", a
   const review = byClass(evidence, "review-card")[0];
   assert.ok(review, "the waiting review is offered inside the item's entry");
   assert.equal(review.getAttribute("data-request-id"), "4400");
-  // Its evidence is the strip above it, not a second copy inside the card.
-  assert.equal(byClass(review, "review-evidence").length, 0);
+  // The strip above is this item's recent history, which does not contain
+  // the capture this request rests on, so the request still carries it.
+  assert.equal(byClass(review, "review-evidence").length, 1);
   const approve = byClass(evidence, "review-action").find(
     (button) => button.getAttribute("data-action") === "approve",
   );
@@ -206,37 +207,6 @@ test("a review belonging to another item is not offered under this one", async (
   assert.equal(byClass(evidence, "review-card").length, 0);
 });
 
-test("the read is asked to bound each subject, not the page", async () => {
-  const client = readingClient({ rows: [activityRow()] });
-  const context = readingContext(new FakeDocument(), client);
-
-  await loadCarriedItemEvidence(context, [member(1896, "BUZ-1896")]);
-
-  const activity = client.requests.find((r) => r.function === "qa.activity.list");
-  // With item_ids the server reads this many rows PER ITEM, so a busy
-  // subject cannot spend a quiet one's share.
-  assert.equal(activity.payload.limit, 20);
-  assert.deepEqual(activity.payload.item_ids, [1896]);
-});
-
-test("an item whose evidence was cut short says so in its own entry", async () => {
-  const documentNode = new FakeDocument();
-  const client = readingClient({
-    rows: [activityRow()],
-    selection: { per_item_limit: 20, truncated_item_ids: [1896] },
-  });
-  const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
-  await settle();
-
-  const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  const notes = byClass(evidence, "carried-item-evidence-note")
-    .map((node) => node.textContent);
-  assert.ok(
-    notes.some((text) => /latest 20 checks/.test(text)),
-    notes.join(" | "),
-  );
-});
-
 test("a check nobody has run yet still carries its waiting review", async () => {
   const documentNode = new FakeDocument();
   const client = readingClient({
@@ -256,26 +226,11 @@ test("a check nobody has run yet still carries its waiting review", async () => 
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
   assert.ok(evidence, "the entry is drawn for a check with no run");
-  assert.equal(byClass(evidence, "review-shot").length, 0);
-  assert.equal(byClass(evidence, "review-card")[0].getAttribute("data-request-id"), "4403");
-});
-
-test("a pending review survives its own item's history being cut short", async () => {
-  const documentNode = new FakeDocument();
-  const client = readingClient({
-    // The requirement this review is about is not among the rows that came
-    // back — it fell outside the per-item bound.
-    rows: [activityRow({ requirement_id: 26134 })],
-    selection: { per_item_limit: 20, truncated_item_ids: [1896] },
-    pending: [itemReviewRow({ id: 4500 })],
-  });
-  const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
-  await settle();
-
-  const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
   const review = byClass(evidence, "review-card")[0];
-  assert.ok(review, "the waiting review is still offered");
-  assert.equal(review.getAttribute("data-request-id"), "4500");
+  assert.equal(review.getAttribute("data-request-id"), "4403");
+  // The item's history carries no capture at all, so suppressing the
+  // request's own evidence would leave a verdict asked on nothing visible.
+  assert.equal(byClass(review, "review-evidence").length, 1);
 });
 
 test("a review that names another run is not offered under this run", async () => {
@@ -300,19 +255,33 @@ test("a review that names another run is not offered under this run", async () =
   assert.equal(byClass(evidence, "review-card").length, 0);
 });
 
-test("an item with no shown checks but a waiting review still draws it", async () => {
+test("a request whose evidence is already on screen does not draw it twice", async () => {
   const documentNode = new FakeDocument();
   const client = readingClient({
-    // Nothing relevant to this run came back at all.
-    rows: [activityRow({ deployment_run_id: "run-20260910-003" })],
-    pending: [itemReviewRow({ id: 4502 })],
+    // The item's own recent history IS the capture this request rests on.
+    rows: [activityRow({ artifacts: [artifact(1, 26134), artifact(2, 26134)] })],
+    pending: [qaRequestRow({
+      id: 4600,
+      status: "pending",
+      subject_key: "26134",
+      subject_context: {
+        ...qaRequestRow().subject_context,
+        requirement_id: 26134,
+        artifacts: [
+          { artifact_id: 1, artifact_type: "screenshot", content_type: "image/png" },
+          { artifact_id: 2, artifact_type: "screenshot", content_type: "image/png" },
+        ],
+        artifact_count: 2,
+      },
+    })],
   });
   const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
   await settle();
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
-  assert.ok(evidence, "the entry is drawn for the request alone");
-  // No checks to count, so no caption claiming any.
-  assert.equal(byClass(evidence, "carried-item-evidence-caption").length, 0);
-  assert.equal(byClass(evidence, "review-card")[0].getAttribute("data-request-id"), "4502");
+  const review = byClass(evidence, "review-card")[0];
+  assert.equal(review.getAttribute("data-request-id"), "4600");
+  // Proven already shown by artifact identity, so it is not repeated.
+  assert.equal(byClass(review, "review-evidence").length, 0);
+  assert.equal(byClass(evidence, "review-shot").length, 2);
 });

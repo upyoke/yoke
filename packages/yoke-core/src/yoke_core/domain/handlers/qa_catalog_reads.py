@@ -36,6 +36,11 @@ class ActivityListRequest(ProjectReadRequest):
     #: subjects reads their evidence rather than whatever happens to be
     #: recent. Absent reads the project; an empty list matches nothing.
     item_ids: Optional[List[int]] = Field(default=None, max_length=200)
+    #: The deployment runs a caller is drawing, so an item's answer is sized
+    #: by what is on screen rather than by how many releases it has ever been
+    #: part of. An item's run-less checks always travel. Absent reads every
+    #: run group; an empty list reads only the run-less ones.
+    deployment_run_ids: Optional[List[str]] = Field(default=None, max_length=200)
 
 
 class RowsResponse(BaseModel):
@@ -48,11 +53,18 @@ class ActivitySummaryResponse(BaseModel):
     counts: Dict[str, int]
 
 
-class ActivityItemSelection(BaseModel):
-    """How an item-scoped read was bounded, and which items it cut short."""
+class ActivityTruncatedGroup(BaseModel):
+    """One item's checks within one run group, reported as cut short."""
 
-    per_item_limit: int = Field(..., ge=1)
-    truncated_item_ids: List[int]
+    item_id: int
+    deployment_run_id: Optional[str] = None
+
+
+class ActivityItemSelection(BaseModel):
+    """How an item-scoped read was bounded, and which groups it cut short."""
+
+    per_group_limit: int = Field(..., ge=1)
+    truncated_groups: List[ActivityTruncatedGroup]
 
 
 class ActivityListResponse(RowsResponse):
@@ -182,6 +194,7 @@ def handle_activity_list(request: FunctionCallRequest) -> HandlerOutcome:
                 project=payload.project,
                 deployment_run_id=payload.deployment_run_id,
                 item_ids=payload.item_ids,
+                deployment_run_ids=payload.deployment_run_ids,
                 limit=payload.limit,
             )
     except LookupError as exc:
@@ -191,6 +204,7 @@ def handle_activity_list(request: FunctionCallRequest) -> HandlerOutcome:
 
 __all__ = [
     "ActivityItemSelection",
+    "ActivityTruncatedGroup",
     "ActivityListResponse",
     "ActivityListRequest",
     "ActivitySummaryResponse",

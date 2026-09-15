@@ -313,5 +313,6 @@ def test_activity_handler_preserves_the_additive_summary_contract() -> None:
         "project": "yoke",
         "deployment_run_id": None,
         "item_ids": None,
+        "deployment_run_ids": None,
         "limit": 6,
     }

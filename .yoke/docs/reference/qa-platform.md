@@ -1,8 +1,6 @@
 # QA Platform
 
-Yoke's QA platform replaces the legacy `reviews` table with a unified, requirement-driven quality assurance model. Every item must carry explicit QA requirements before it can enter the review lane (`reviewing-implementation` in the current lifecycle). QA results are recorded as typed runs with non-binary verdicts, artifacts, and codified success policies.
-
-Agent writes against the QA tables route through the Yoke function-call surface (`qa.requirement.add`,
+Yoke's QA platform replaces the legacy `reviews` table with a unified, requirement-driven quality assurance model. Every item must carry explicit QA requirements before it can enter the review lane (`reviewing-implementation` in the current lifecycle). QA results are recorded as typed runs with non-binary verdicts, artifacts, and codified success policies. Agent writes against the QA tables route through the Yoke function-call surface (`qa.requirement.add`,
 `qa.requirement.add_batch`, `qa.requirement.list`, `qa.requirement.get`, `qa.requirement.update`,
 `qa.plan.materialize`, `qa.run.add`, `qa.run.complete`, `qa.run.record_verdict`, `qa.run.list`,
 `qa.artifact.presign`, `qa.artifact.add`, `qa.gate_summary.run`, `qa.browser_context.get`, and
@@ -203,12 +201,9 @@ Operators inspect the public requirement read surface with `yoke qa requirement 
 
 ### Review-Complete Gate
 
-Transitioning to `reviewed-implementation` requires all blocking `verification`-phase requirements to have at least one passing run (or be waived).
-
-**Public preview:** `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json`
-
-A requirement is "satisfied" when it has at least one `qa_runs` row with `verdict='pass'`, or has
-been waived (`waived_at IS NOT NULL`).
+Transitioning to `reviewed-implementation` requires all blocking `verification`-phase requirements
+to be "satisfied": at least one `qa_runs` row with `verdict='pass'`, or waived (`waived_at IS NOT
+NULL`). **Public preview:** `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json`
 
 ### Done Gate
 
@@ -228,7 +223,7 @@ Issue and epic items must have materialized item-level requirements before enter
 
 ### Epic Task Requirements
 
-Epic tasks may carry task-level requirements for task execution and verification. Task-level blocking requirements gate that task's `reviewed-implementation` and `done` transitions. Epic tasks now mirror parent epic statuses including `release` — tasks cascade through `release` when the parent epic enters the release phase.
+Epic tasks may carry task-level requirements for task execution and verification. Task-level blocking requirements gate that task's `reviewed-implementation` and `done` transitions. Epic tasks mirror parent epic statuses including `release` — tasks cascade through `release` when the parent epic enters the release phase.
 
 ### Epic Parent Aggregation
 
@@ -262,8 +257,12 @@ items a deployment card carries — reads their evidence rather than whatever QA
 and can tell an item's own proof from what it proved inside a release. With `item_ids`, `limit`
 bounds each item's checks **within each deployment run they name**, and its run-less checks as
 their own group, so neither another item nor another release can take the rows a given card
-needs; `item_selection` reports that cap and the items it cut short. What a cut-short item loses
-is old history, never a live request: a caller joins pending reviews through their own subjects.
+needs; `deployment_run_ids` keeps the answer to the run groups a caller draws (an item's run-less
+checks always travel), so it is sized by what is on screen rather than by a lifetime of releases.
+`item_selection` reports `per_group_limit` with the `truncated_groups` it cut short, group by
+group. What a cut-short group loses is old history, never a live request: a review names its own
+item — `deployment_member_item_id` for a release's per-member check — so callers join pending
+reviews through their subjects rather than through the rows a cap may have trimmed.
 
 ## Browser Methods
 

@@ -44,6 +44,7 @@ function approvalCarriedItems(row) {
   return items.map((item) => ({
     ...item,
     project_id: item.project_id ?? row.project_id,
+    run_id: row.subject_context?.run_id,
   }));
 }
 

@@ -12,6 +12,7 @@
 
 import { evidenceStrip } from "./review_evidence_strip.js";
 import { reviewRequestCard } from "./review_request_card.js";
+import { evidenceOf } from "./review_request_presentation.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
@@ -32,10 +33,16 @@ export const EMPTY_CARRIED_ITEM_FACTS = Object.freeze({
   byItem: new Map(),
   pendingByRequirement: new Map(),
   pendingByItem: new Map(),
-  truncatedItems: new Set(),
-  perItemLimit: CHECKS_PER_ITEM,
+  truncatedGroups: new Set(),
+  perGroupLimit: CHECKS_PER_ITEM,
   failed: null,
 });
+
+// One item's checks within one deployment run — the unit the read bounds,
+// so the unit a caller can honestly report as cut short.
+function groupKey(itemId, runId) {
+  return `${itemId}|${runId || ""}`;
+}
 
 // Membership names its item `id`; derived carried work names it `item_id`.
 // Both are the same integer, and it is what evidence joins on.
@@ -44,6 +51,8 @@ export function carriedItemId(item) {
   return Number.isFinite(id) && id > 0 ? id : null;
 }
 
+// Each subject is an item drawn under one run, so the read can be sized by
+// what is on screen rather than by every release the item has ever been in.
 function subjectsByProject(items) {
   const byProject = new Map();
   for (const item of items || []) {
@@ -51,9 +60,11 @@ function subjectsByProject(items) {
     // A member whose project the reader cannot name is left out rather than
     // guessed into somebody else's project: the read is project-scoped.
     if (id === null || item.project_id == null) continue;
-    const bucket = byProject.get(String(item.project_id)) || new Set();
-    bucket.add(id);
-    byProject.set(String(item.project_id), bucket);
+    const key = String(item.project_id);
+    const bucket = byProject.get(key) || { items: new Set(), runs: new Set() };
+    bucket.items.add(id);
+    if (item.run_id) bucket.runs.add(String(item.run_id));
+    byProject.set(key, bucket);
   }
   return byProject;
 }
@@ -66,14 +77,17 @@ export async function loadCarriedItemEvidence(context, items) {
   const buckets = [...subjectsByProject(items).entries()];
   if (!buckets.length) return EMPTY_CARRIED_ITEM_FACTS;
   const calls = [];
-  for (const [project, ids] of buckets) {
-    const subjects = [...ids];
+  for (const [project, bucket] of buckets) {
+    const subjects = [...bucket.items];
     for (let at = 0; at < subjects.length; at += SUBJECTS_PER_CALL) {
       calls.push({
         functionId: "qa.activity.list",
         payload: {
           project,
           item_ids: subjects.slice(at, at + SUBJECTS_PER_CALL),
+          // The runs these cards draw. An item's run-less checks always
+          // come back; its other releases are not this page's business.
+          deployment_run_ids: [...bucket.runs],
           limit: CHECKS_PER_ITEM,
         },
       });
@@ -84,7 +98,7 @@ export async function loadCarriedItemEvidence(context, items) {
     loadPendingReviews(context, buckets.map(([project]) => Number(project))),
   ]);
   const byItem = new Map();
-  const truncatedItems = new Set();
+  const truncatedGroups = new Set();
   for (const callResult of callResults) {
     const result = callResult.status === 200 && callResult.envelope?.success
       ? callResult.envelope.result || {}
@@ -98,16 +112,16 @@ export async function loadCarriedItemEvidence(context, items) {
       rows.push(row);
       byItem.set(String(id), rows);
     }
-    for (const id of result?.item_selection?.truncated_item_ids || []) {
-      truncatedItems.add(String(id));
+    for (const group of result?.item_selection?.truncated_groups || []) {
+      truncatedGroups.add(groupKey(group.item_id, group.deployment_run_id));
     }
   }
   return {
     byItem,
     pendingByRequirement,
     pendingByItem: reviewsByItem(pendingByRequirement),
-    truncatedItems,
-    perItemLimit: CHECKS_PER_ITEM,
+    truncatedGroups,
+    perGroupLimit: CHECKS_PER_ITEM,
     failed: failed
       ? failed.envelope?.error?.message
         || "Item QA evidence could not be loaded."
@@ -150,7 +164,11 @@ export function carriedItemEvidence(facts, itemId, runId) {
 function reviewsByItem(pendingByRequirement) {
   const byItem = new Map();
   for (const request of (pendingByRequirement || new Map()).values()) {
-    const itemId = request.subject_context?.subject?.item_id;
+    const subject = request.subject_context?.subject || {};
+    // A release's per-member review names its item in its own field: the
+    // schema keeps `item_id` null for anything run scoped, so indexing only
+    // that would drop exactly the reviews a release card is about.
+    const itemId = subject.item_id ?? subject.deployment_member_item_id;
     if (itemId == null) continue;
     const requests = byItem.get(String(itemId)) || [];
     requests.push(request);
@@ -178,6 +196,13 @@ export function carriedItemReviews(facts, itemId, runId, checks) {
     if (request) requests.set(String(request.id), request);
   }
   return [...requests.values()];
+}
+
+// QA rows key an artifact `id`; a request's frozen snapshot keys it
+// `artifact_id`. Identity is the same row either way.
+function artifactKey(artifact) {
+  const id = artifact?.id ?? artifact?.artifact_id;
+  return id == null ? "" : String(id);
 }
 
 function captionOf(checks) {
@@ -222,15 +247,19 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
       documentNode, "span", "carried-item-evidence-caption", captionOf(checks),
     ));
   }
-  // The read bounds each item's own share, so what is missing here is this
-  // item's older checks — never another item's, and never silently.
-  if (facts?.truncatedItems?.has(String(itemId))) {
+  // The read bounds each item's checks within each release, so what is
+  // missing here is this item's older checks in one of the groups on screen
+  // — never another item's, never another release's, and never silently.
+  const cutShort = [groupKey(itemId, runId), groupKey(itemId, null)].some(
+    (key) => facts?.truncatedGroups?.has(key),
+  );
+  if (cutShort) {
     wrap.appendChild(el(
       documentNode,
       "span",
       "carried-item-evidence-note",
-      `Showing this item's latest ${facts.perItemLimit || CHECKS_PER_ITEM} `
-        + "checks; older ones are on the item.",
+      `Showing at most ${facts.perGroupLimit || CHECKS_PER_ITEM} checks per `
+        + "release; older ones are on the item.",
     ));
   }
   const strip = evidenceStrip(context, artifacts, {
@@ -246,12 +275,17 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
       unlinkedNote(unlinked, checks.length),
     ));
   }
+  // The strip above is this item's recent history, which is not the same
+  // thing as this request's evidence: the reviewed capture may be older than
+  // the bound, or the strip may be empty. Its own evidence is suppressed
+  // only where every artifact it rests on is demonstrably already on screen.
+  const shown = new Set(artifacts.map(artifactKey).filter(Boolean));
   for (const request of reviews) {
+    const own = evidenceOf(request).artifacts.map(artifactKey).filter(Boolean);
+    const alreadyShown = own.length > 0 && own.every((key) => shown.has(key));
     wrap.appendChild(reviewRequestCard(context, request, {
       inline: true,
-      // The strip above is this request's evidence; drawing it twice in one
-      // item entry would say the item captured it twice.
-      evidence: false,
+      evidence: !alreadyShown,
       onAct: onDecide
         ? (row, action, node, note) => onDecide(request, action, node, note)
         : null,

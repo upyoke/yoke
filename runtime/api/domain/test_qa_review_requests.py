@@ -53,6 +53,7 @@ def test_undetermined_review_request_resolves_to_human_verdict(test_db):
         "subject": {
             "kind": "item",
             "item_id": 9501,
+            "deployment_member_item_id": None,
             "item_ref": item_ref,
             "item_title": "Review QA evidence",
             "deployment_run_id": None,
