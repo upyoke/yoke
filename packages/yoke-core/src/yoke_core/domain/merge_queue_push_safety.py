@@ -20,6 +20,13 @@ push otherwise carries; a force-push is exactly the wrong recovery here.
 The check is scoped to projects that actually land through a queue, and to
 a candidate whose head differs from the commit being published: republishing
 the exact commit the queue is already holding changes nothing.
+
+Every read on the way to that answer either succeeds or refuses. A project
+that does not declare the queue, and a listing that came back empty, are
+answers; a capability probe that errored, a listing that could not be read,
+and a queue that could not be read back are not, and treating them as "no
+candidate" is what would let an outage wave through the exact push this
+guard exists to stop.
 """
 
 from __future__ import annotations
@@ -29,7 +36,10 @@ from pathlib import Path
 from yoke_core.domain.merge_queue_hold import REARM_RECOVERY
 from yoke_core.domain.merge_queue_readiness import read_merge_queue_readiness
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
-from yoke_core.engines.merge_worktree_pr_discovery import find_existing_pr
+from yoke_core.engines.merge_worktree_pr_discovery import (
+    base_ref,
+    list_branch_pull_requests,
+)
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
 #: The command that makes a live candidate safe to correct.
@@ -43,6 +53,34 @@ class LanePublishBlocked(QaCaseExecutionError):
 def _same_commit(left: str, right: str) -> bool:
     a, b = left.strip().lower(), right.strip().lower()
     return bool(a) and bool(b) and a == b
+
+
+def _unreadable(what: str, detail: str, *, branch: str, head_sha: str) -> str:
+    """Refuse a push whose safety could not be established."""
+    reason = detail or "no detail reported"
+    return (
+        f"{what} for {branch!r} could not be read ({reason}), so whether a "
+        "landing is holding this branch is unknown. Publishing "
+        f"{head_sha or 'the lane'} could orphan the commit under a landing "
+        "already in flight. Re-run once the read succeeds, or hold the "
+        f"candidate explicitly: {HOLD_COMMAND}."
+    )
+
+
+def _live_candidate_refusal(
+    readiness, *, branch: str, head_sha: str, pr_number: str
+) -> str:
+    return (
+        f"pull request {pr_number} is still holding a landing for {branch!r} "
+        f"at head {readiness.head_sha or 'unreported'} "
+        f"(queue-holding={readiness.queue_holding}, "
+        f"queue-entry={readiness.queue_entry_state}, "
+        f"merge-when-ready={readiness.merge_when_ready}). Publishing "
+        f"{head_sha or 'a new commit'} would leave the queue landing the head "
+        "it already took and the new commit on no branch. Hold it first — "
+        f"{HOLD_COMMAND} — which clears the arming, removes the entry, and "
+        f"verifies both; then {REARM_RECOVERY}."
+    )
 
 
 def lane_publish_refusal(
@@ -65,7 +103,14 @@ def lane_publish_refusal(
         project_declares_merge_queue,
     )
 
-    declared, _probe_error = project_declares_merge_queue(project)
+    declared, probe_error = project_declares_merge_queue(project)
+    if probe_error:
+        return _unreadable(
+            f"the merge-queue capability of project {project!r}",
+            probe_error,
+            branch=branch,
+            head_sha=head_sha,
+        )
     if not declared:
         return ""
     ctx = MergeContext(
@@ -73,35 +118,47 @@ def lane_publish_refusal(
         project=project,
         repo_root=str(checkout),
     )
-    _url, pr_number = find_existing_pr(ctx)
-    if not pr_number:
-        return ""
-    readiness = read_merge_queue_readiness(ctx, pr_number=pr_number, target=target)
-    if readiness.merged or _same_commit(readiness.head_sha, head_sha):
-        return ""
-    if not readiness.queue_readable:
-        return (
-            f"pull request {pr_number} for {branch!r} could not be read back "
-            f"against the {target} queue "
-            f"({'; '.join(readiness.warnings) or 'no detail reported'}), so "
-            "whether it is holding a landing is unknown. Publishing "
-            f"{head_sha or 'the lane'} could orphan the commit under a "
-            "landing already in flight. Re-run once GitHub is readable, or "
-            f"hold the candidate explicitly: {HOLD_COMMAND}."
-        )
-    if not (readiness.armed or readiness.has_queue_entry):
-        return ""
-    return (
-        f"pull request {pr_number} is still holding a landing for {branch!r} "
-        f"at head {readiness.head_sha or 'unreported'} "
-        f"(queue-holding={readiness.queue_holding}, "
-        f"queue-entry={readiness.queue_entry_state}, "
-        f"merge-when-ready={readiness.merge_when_ready}). Publishing "
-        f"{head_sha or 'a new commit'} would leave the queue landing the head "
-        "it already took and the new commit on no branch. Hold it first — "
-        f"{HOLD_COMMAND} — which clears the arming, removes the entry, and "
-        f"verifies both; then {REARM_RECOVERY}."
+    # Filtered by base as well as head: GitHub allows one open pull request
+    # per head AND base, so a head-only listing can hold several rows and the
+    # first is not necessarily the landing onto this target.
+    listing = list_branch_pull_requests(
+        ctx, query={"state": "open", "base": target}
     )
+    if not listing.readable:
+        return _unreadable(
+            f"the open pull requests onto {target}",
+            listing.error,
+            branch=branch,
+            head_sha=head_sha,
+        )
+    for row in listing.rows:
+        if base_ref(row) != target:
+            continue
+        pr_number = str(row.get("number") or "").strip()
+        if not pr_number:
+            return _unreadable(
+                f"a pull request onto {target}",
+                "the listing row carries no number",
+                branch=branch,
+                head_sha=head_sha,
+            )
+        readiness = read_merge_queue_readiness(
+            ctx, pr_number=pr_number, target=target
+        )
+        if readiness.merged or _same_commit(readiness.head_sha, head_sha):
+            continue
+        if not readiness.queue_readable:
+            return _unreadable(
+                f"pull request {pr_number} against the {target} queue",
+                "; ".join(readiness.warnings),
+                branch=branch,
+                head_sha=head_sha,
+            )
+        if readiness.armed or readiness.has_queue_entry:
+            return _live_candidate_refusal(
+                readiness, branch=branch, head_sha=head_sha, pr_number=pr_number
+            )
+    return ""
 
 
 def require_publishable_lane(

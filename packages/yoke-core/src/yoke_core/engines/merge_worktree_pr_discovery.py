@@ -23,6 +23,7 @@ absent answer means.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Optional, Tuple
 
 from yoke_contracts.github_app_installation_permissions import (
@@ -43,14 +44,40 @@ from yoke_core.engines.merge_worktree_pr_rest import (
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
-def _list_branch_prs(
+@dataclass(frozen=True)
+class BranchListing:
+    """The listing for one head branch, or why it could not be read.
+
+    A caller deciding whether it is safe to move the branch cannot treat a
+    listing it never got as a branch with no pull request: an auth failure,
+    a transport failure, and a response that is not an array all look
+    exactly like "nothing open" to a reader that only sees rows. ``error``
+    is that distinction, and an empty ``rows`` beside an empty ``error`` is
+    the genuine answer.
+    """
+
+    rows: tuple[dict[str, Any], ...] = ()
+    error: str = ""
+
+    @property
+    def readable(self) -> bool:
+        return not self.error
+
+
+def list_branch_pull_requests(
     ctx: MergeContext, *, query: dict[str, str]
-) -> list[dict[str, Any]]:
-    """Pull requests whose head is the branch, under the caller's filters."""
+) -> BranchListing:
+    """Read the branch's pull requests, naming a listing that did not happen.
+
+    ``query`` carries the caller's filters, including ``base``: GitHub allows
+    one open pull request per head AND base, so a listing filtered only by
+    head can hold several rows targeting different branches, and the first
+    of those is not necessarily the landing the caller is asking about.
+    """
     try:
         auth = resolve_auth(ctx, required_permissions=PR_READ)
-    except AuthResolutionFailed:
-        return []
+    except AuthResolutionFailed as exc:
+        return BranchListing(error=f"pull request listing unavailable: {exc}")
     owner, repo = gh_rest_transport.split_repo(auth.repo)
     req = RestRequest(
         method="GET",
@@ -59,10 +86,28 @@ def _list_branch_prs(
     )
     try:
         resp = request_with_retry(req, token=auth.token)
-    except RestTransportError:
-        return []
-    rows = resp.body if isinstance(resp.body, list) else []
-    return [row for row in rows if isinstance(row, dict)]
+    except RestTransportError as exc:
+        return BranchListing(error=f"pull request listing failed: {exc}")
+    if not isinstance(resp.body, list):
+        return BranchListing(
+            error="pull request listing returned no array of pull requests"
+        )
+    return BranchListing(
+        rows=tuple(row for row in resp.body if isinstance(row, dict))
+    )
+
+
+def base_ref(row: dict[str, Any]) -> str:
+    """The branch a listing row targets."""
+    base = row.get("base")
+    return str((base or {}).get("ref") or "").strip() if isinstance(base, dict) else ""
+
+
+def _list_branch_prs(
+    ctx: MergeContext, *, query: dict[str, str]
+) -> list[dict[str, Any]]:
+    """Pull requests whose head is the branch; an unread listing is empty."""
+    return list(list_branch_pull_requests(ctx, query=query).rows)
 
 
 def _identify(row: dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:

@@ -146,10 +146,10 @@ def _landed(
         refusal=(
             f"pull request {readiness.pr_number} already merged as "
             f"{readiness.merge_commit_sha or 'an unreported commit'}"
-            f"{f' at {readiness.merged_at}' if readiness.merged_at else ''}; there is "
-            "no candidate left to hold. Re-run `yoke merge item` to close the "
-            "item out against that merge, and open a new item for commits "
-            "made after it."
+            f"{f' at {readiness.merged_at}' if readiness.merged_at else ''}; "
+            "there is no candidate left to hold. That landing is the fact to "
+            "carry forward — continue through the item's own lifecycle from "
+            "here rather than treating the merge as an error."
         ),
     )
 

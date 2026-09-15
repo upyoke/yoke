@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import merge_queue_push_safety as safety
+from yoke_core.engines import merge_worktree_pr_discovery as discovery
 from yoke_core.domain.merge_queue_readiness import classify_readiness
 from yoke_core.engines.merge_worktree_pr_queue import PrLandingState, QueueMember
 
@@ -43,22 +44,44 @@ def _readiness(
 
 @pytest.fixture()
 def wire(monkeypatch):
-    def _wire(readiness, *, declared=True, pr_number=PR):
+    """Stub the two GitHub reads the guard makes, at their own boundaries."""
+
+    def _wire(
+        readiness,
+        *,
+        declared=True,
+        probe_error=None,
+        rows=None,
+        listing_error="",
+    ):
         monkeypatch.setattr(
             "yoke_core.domain.merge_queue_route_selection."
             "project_declares_merge_queue",
-            lambda _project: (declared, ""),
+            lambda _project: (declared, probe_error),
         )
-        monkeypatch.setattr(
-            safety, "find_existing_pr", lambda _ctx: ("url", pr_number)
+        listing = discovery.BranchListing(
+            rows=(_row(),) if rows is None else tuple(rows),
+            error=listing_error,
         )
+        seen: dict = {}
+
+        def _listing(_ctx, *, query):
+            seen["query"] = dict(query)
+            return listing
+
+        monkeypatch.setattr(safety, "list_branch_pull_requests", _listing)
         monkeypatch.setattr(
             safety,
             "read_merge_queue_readiness",
             lambda _ctx, *, pr_number, target: readiness,
         )
+        return seen
 
     return _wire
+
+
+def _row(number=PR, base=TARGET):
+    return {"number": number, "base": {"ref": base}}
 
 
 def _refusal(head_sha=NEW_HEAD):
@@ -104,13 +127,49 @@ def test_candidate_neither_armed_nor_queued_is_publishable(wire):
 def test_unreadable_queue_refuses_rather_than_assuming_it_is_safe(wire):
     wire(_readiness(armed=True, queue_readable=False))
     refusal = _refusal()
-    assert "could not be read back" in refusal
+    assert "could not be read" in refusal
+    assert "queue read failed" in refusal
     assert safety.HOLD_COMMAND in refusal
 
 
-def test_branch_with_no_pull_request_is_publishable(wire):
-    wire(_readiness(entry=True), pr_number="")
+def test_branch_with_no_open_pull_request_is_publishable(wire):
+    """An empty listing is an answer; an unread listing is not."""
+    wire(_readiness(entry=True), rows=())
     assert _refusal() == ""
+
+
+def test_unreadable_listing_refuses_instead_of_reading_as_no_candidate(wire):
+    """An auth or transport failure must not look like a branch with no landing."""
+    wire(_readiness(), listing_error="pull request listing unavailable: no token")
+    refusal = _refusal()
+    assert "could not be read" in refusal
+    assert "no token" in refusal
+    assert safety.HOLD_COMMAND in refusal
+
+
+def test_unreadable_capability_probe_refuses(wire):
+    """Not knowing whether the project queues is not the same as not queuing."""
+    wire(_readiness(), declared=False, probe_error="control plane unreachable")
+    refusal = _refusal()
+    assert "merge-queue capability" in refusal
+    assert "control plane unreachable" in refusal
+
+
+def test_the_listing_is_filtered_to_the_branch_and_the_target(wire):
+    seen = wire(_readiness(entry=True))
+    _refusal()
+    assert seen["query"] == {"state": "open", "base": TARGET}
+
+
+def test_a_pull_request_onto_another_base_never_answers_for_this_target(wire):
+    """One head can hold open pull requests onto several bases."""
+    wire(_readiness(entry=True), rows=(_row(number="99", base="release"),))
+    assert _refusal() == ""
+
+
+def test_a_listing_row_without_a_number_refuses_rather_than_guessing(wire):
+    wire(_readiness(), rows=({"base": {"ref": TARGET}},))
+    assert "could not be read" in _refusal()
 
 
 def test_project_that_does_not_route_through_the_queue_is_unaffected(wire):
@@ -150,34 +209,57 @@ def test_the_landing_publish_reports_the_block_with_its_own_recovery(monkeypatch
     assert "--force-with-lease" not in error
 
 
-def test_the_one_publish_path_runs_the_guard_before_touching_origin(monkeypatch):
-    """Every lane reaches origin through push_lane, so the guard lives there."""
+def _push_lane_guarded(monkeypatch):
+    """Drive the real publish path down to its guard; origin must stay untouched."""
     from yoke_core.domain import qa_case_ci_lane
-    from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
-    seen: dict = {}
-
-    def blocked(**kwargs):
-        seen.update(kwargs)
-        raise safety.LanePublishBlocked("candidate still live")
-
-    monkeypatch.setattr(safety, "require_publishable_lane", blocked)
     monkeypatch.setattr(
-        qa_case_ci_lane, "ref_sha", lambda _checkout, _ref: QUEUED_HEAD
+        qa_case_ci_lane, "ref_sha", lambda _checkout, _ref: NEW_HEAD
     )
     monkeypatch.setattr(
         qa_case_ci_lane,
         "_git",
         lambda *_a, **_kw: pytest.fail("origin was touched before the guard"),
     )
+    qa_case_ci_lane.push_lane(CHECKOUT, BRANCH, project="prj", target=TARGET)
 
-    with pytest.raises(QaCaseExecutionError, match="candidate still live"):
-        qa_case_ci_lane.push_lane(CHECKOUT, BRANCH, project="prj", target=TARGET)
 
-    assert seen == {
-        "project": "prj",
-        "checkout": CHECKOUT,
-        "branch": BRANCH,
-        "target": TARGET,
-        "head_sha": QUEUED_HEAD,
-    }
+def test_the_publish_path_refuses_a_live_candidate_before_touching_origin(
+    wire, monkeypatch
+):
+    """Every lane reaches origin through push_lane, so the guard lives there."""
+    wire(_readiness(entry=True))
+    with pytest.raises(safety.LanePublishBlocked, match="still holding a landing"):
+        _push_lane_guarded(monkeypatch)
+
+
+def test_the_publish_path_refuses_when_the_listing_could_not_be_read(
+    wire, monkeypatch
+):
+    """An outage must not reach origin as though the branch had no landing."""
+    wire(_readiness(), listing_error="pull request listing failed: 503")
+    with pytest.raises(safety.LanePublishBlocked, match="could not be read"):
+        _push_lane_guarded(monkeypatch)
+
+
+def test_the_publish_path_proceeds_when_nothing_is_holding_the_branch(
+    wire, monkeypatch
+):
+    """A clean listing is an answer, so the publish is allowed to happen."""
+    from yoke_core.domain import qa_case_ci_lane
+
+    wire(_readiness(), rows=())
+    calls: list = []
+    monkeypatch.setattr(
+        qa_case_ci_lane, "ref_sha", lambda _checkout, _ref: NEW_HEAD
+    )
+    monkeypatch.setattr(
+        qa_case_ci_lane, "_git", lambda *a, **_kw: calls.append(a[1])
+    )
+    monkeypatch.setattr(
+        qa_case_ci_lane,
+        "_git_output",
+        lambda *a, **_kw: calls.append(a[1]) or "",
+    )
+    qa_case_ci_lane.push_lane(CHECKOUT, BRANCH, project="prj", target=TARGET)
+    assert calls == ["fetch", "push"]
