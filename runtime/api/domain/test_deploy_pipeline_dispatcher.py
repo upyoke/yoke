@@ -11,6 +11,9 @@ import subprocess
 from unittest import mock
 
 from yoke_core.domain import deploy_pipeline_github_workflow
+from yoke_core.domain import (
+    deploy_pipeline_github_workflow_inputs as workflow_inputs,
+)
 
 
 _STAGE_CONFIG = {
@@ -190,7 +193,10 @@ class TestReconcileFromTruth:
         ) as poll_actions, mock.patch.object(
             deploy_pipeline_github_workflow, "_emit_run_event",
         ), mock.patch.object(
-            deploy_pipeline_github_workflow.uuid,
+            # The retrigger scope is minted by the shared inputs helper, which
+            # is where the release-preview exemption lives too; patching it
+            # here keeps this covering the dispatcher's branch-preview path.
+            workflow_inputs.uuid,
             "uuid4",
             return_value=mock.Mock(hex="explicit-retrigger"),
         ):
