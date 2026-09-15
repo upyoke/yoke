@@ -99,6 +99,7 @@ def _seed_run(
     stages: list[dict[str, Any]],
     members: tuple[int, ...],
     existing_members: tuple[int, ...] = (),
+    release_lineage: str = "a" * 40,
 ) -> None:
     """Seed a frozen schema-2 run, its members, and a ready stage receipt.
 
@@ -128,7 +129,7 @@ def _seed_run(
         (
             run_id,
             flow_id,
-            "a" * 40,
+            release_lineage,
             "2026-09-14T00:00:00Z",
             "2026-09-14T00:01:00Z",
             flow_snapshot,
@@ -172,7 +173,7 @@ def _seed_run(
         status="ready",
         target_name="stage",
         observed_url="https://preview.example.test",
-        observed_release_lineage="a" * 40,
+        observed_release_lineage=release_lineage,
         executor_receipt="test://deploy-ready",
         commit=False,
     )
