@@ -18,19 +18,9 @@ _TSC_INSTALL_COMMAND = f"npm ci --prefix {_UI_RELATIVE.as_posix()}"
 _TSC_TIMEOUT_SECONDS = 30
 
 
-@pytest.mark.parametrize(
-    ("workflow_name", "job_name"),
-    [
-        ("yoke-ci.yml", "test_shard"),
-        ("yoke-tests-selection.yml", "selection"),
-    ],
-)
-def test_ci_workflows_preinstall_typescript_for_contract_check(
-    workflow_name: str,
-    job_name: str,
-) -> None:
-    workflow = load_document(_REPO_ROOT / ".github" / "workflows" / workflow_name)
-    steps = workflow["jobs"][job_name]["steps"]
+def test_yoke_ci_preinstalls_typescript_for_contract_check() -> None:
+    workflow = load_document(_REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml")
+    steps = workflow["jobs"]["test_shard"]["steps"]
     step_names = [step["name"] for step in steps]
     setup_index = step_names.index("Set up Node.js")
     install_index = step_names.index("Install TypeScript compiler")

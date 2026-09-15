@@ -270,7 +270,6 @@ def test_the_posture_vocabulary_has_exactly_one_home() -> None:
         str(candidate.relative_to(repo))
         for candidate in repo.glob("packages/**/*.py")
         if candidate != contracts
-        and "build" not in candidate.parts
         and "install_bundle_tree" not in candidate.parts
         and "no-yoke-managed-host" in candidate.read_text(encoding="utf-8")
     ]
