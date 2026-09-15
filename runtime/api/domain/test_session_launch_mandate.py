@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_core.domain.session_launch_mandate import (
@@ -132,18 +133,49 @@ def test_raw_instructions_keep_an_explicit_full_body() -> None:
     assert body == "Custom full body."
 
 
-def test_raw_instructions_refuse_an_empty_body() -> None:
+def test_itemless_raw_instructions_keep_an_explicit_full_body() -> None:
     parsed = LaunchCreateRequest(
         project="yoke",
         executor_surface="cursor-cli",
-        item="YOK-12",
-        instructions="  ",
+        instructions="Custom full body.",
         compose_mandate=False,
-        idempotency_key="raw-empty",
+        idempotency_key="raw-itemless",
     )
-    with pytest.raises(SessionLaunchError) as raised:
-        compose_item_launch_instructions(SimpleNamespace(), parsed, 1)
-    assert raised.value.code == "payload_invalid"
+    assert parsed.item is None
+    body = compose_item_launch_instructions(SimpleNamespace(), parsed, 1)
+    assert body == "Custom full body."
+
+
+def test_composed_create_without_item_is_refused() -> None:
+    with pytest.raises(ValidationError):
+        LaunchCreateRequest(
+            project="yoke",
+            executor_surface="cursor-cli",
+            idempotency_key="composed-missing",
+        )
+
+
+def test_itemless_raw_without_body_is_refused() -> None:
+    with pytest.raises(ValidationError):
+        LaunchCreateRequest(
+            project="yoke",
+            executor_surface="cursor-cli",
+            compose_mandate=False,
+            instructions="  ",
+            idempotency_key="raw-empty-itemless",
+        )
+
+
+def test_raw_instructions_refuse_an_empty_body() -> None:
+    with pytest.raises(ValidationError):
+        LaunchCreateRequest(
+            project="yoke",
+            executor_surface="cursor-cli",
+            item="YOK-12",
+            instructions="  ",
+            compose_mandate=False,
+            idempotency_key="raw-empty",
+        )
 
 
 def test_unroutable_live_step_refuses_composition(monkeypatch) -> None:
