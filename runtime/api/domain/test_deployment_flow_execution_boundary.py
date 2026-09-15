@@ -28,6 +28,7 @@ from runtime.api.domain.test_deployment_flow_versioning import (
     ADVANCED_STAGES,
     LEGACY_STAGES,
     SUPPORTED_ADVANCED_STAGES,
+    _seed_ephemeral_capability,
 )
 from yoke_core.domain.deployment_flow_target_support import (
     unsupported_stage_target_kinds,
@@ -36,30 +37,46 @@ from yoke_core.domain.deployment_flow_versioning import cmd_validate_definition
 from yoke_core.domain.flow_create import cmd_create
 
 
-def test_a_definition_naming_an_unobservable_target_cannot_activate(
+def test_a_preview_definition_is_observable_and_may_activate(
     test_db: Any,
 ) -> None:
-    """The schema is served; this definition's QA target still is not.
+    """A run preview now has a producer, so both axes clear.
 
-    Two independent axes: the runtime executes the schema-2 vocabulary,
-    and a ``run_preview`` QA target has no registered receipt producer to
-    observe it. The answer reports both, so nothing advertises a
-    definition that would activate and then fail mid-run.
+    This definition was unexecutable for exactly one reason: no receipt
+    producer existed for ``run_preview``, so nothing could observe what
+    its QA stage would read. One is registered now — it deploys the run's
+    frozen candidate and reads the served revision back from the preview
+    itself — so the kind is supported, and the stage owes no separate
+    runner identity proof because the producer does that reading itself.
     """
+    _seed_ephemeral_capability(test_db)
     result = cmd_validate_definition(
         test_db, project="yoke", stages=ADVANCED_STAGES, status="disabled"
     )
     assert result["definition_schema_version"] == 2
-    assert result["execution_supported"] is False
-    assert result["unsupported_target_kinds"] == ["run_preview"]
-    # Only the kind axis flags this one. A run_preview producer reads the
-    # served commit back itself, so the runner that deployed the preview
-    # owes no identity proof — the gap here is that no producer for that
-    # kind is registered at all, which the kind axis already says.
+    assert result["unsupported_target_kinds"] == []
     assert result["unprovable_qa_identity_stages"] == []
-    with pytest.raises(ValueError, match="no receipt producer"):
+    assert result["execution_supported"] is True
+    # And the guard that held it disabled lifts with them.
+    activated = cmd_validate_definition(
+        test_db, project="yoke", stages=ADVANCED_STAGES, status="active"
+    )
+    assert activated["execution_supported"] is True
+
+
+def test_a_preview_definition_naming_no_registered_capability_is_refused(
+    test_db: Any,
+) -> None:
+    """Supporting the kind does not excuse naming a capability nobody has.
+
+    The producer resolves where a project publishes previews from that
+    capability, so a definition naming one the project never registered
+    could not be produced for — and the refusal says which name is
+    missing rather than reporting the kind as unsupported.
+    """
+    with pytest.raises(LookupError, match="capability 'ephemeral-env' is not"):
         cmd_validate_definition(
-            test_db, project="yoke", stages=ADVANCED_STAGES, status="active"
+            test_db, project="yoke", stages=ADVANCED_STAGES, status="disabled"
         )
 
 

@@ -175,8 +175,14 @@ def test_advanced_definition_is_authored_disabled_and_status_guarded(
         "WHERE id='preview-flow'"
     ).fetchone()
     assert (row["definition_schema_version"], row["status"]) == (2, "disabled")
-    with pytest.raises(ValueError, match="keep the definition disabled"):
-        cmd_set_status(test_db, "preview-flow", "active")
+    # Authored disabled, as every advanced definition is. It may now be
+    # activated deliberately, because a preview target has a receipt
+    # producer: what held it disabled was that nothing could observe it.
+    cmd_set_status(test_db, "preview-flow", "active")
+    row = test_db.execute(
+        "SELECT status FROM deployment_flows WHERE id='preview-flow'"
+    ).fetchone()
+    assert row["status"] == "active"
 
 
 def test_flow_plan_selection_is_project_scoped(test_db: Any) -> None:
