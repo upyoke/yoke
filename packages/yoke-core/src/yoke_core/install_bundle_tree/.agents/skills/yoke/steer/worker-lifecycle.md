@@ -114,12 +114,14 @@ lingering, no re-tasking, and no routine termination by the steerer. Every
 worker sends the report deliberately with `yoke say --steering`, before
 releasing any claim it still holds. Ending a turn sends no Fleet message. The
 PREFIX-N in the heading is the report identity and must name held or released
-work. One report per work leg — the turn the worker sent it in, under the claim
-it held then — reaches this seat once, so a reworded retry in that same turn
-deduplicates instead of arriving twice. A worker you resume reports its next
-completion from a later turn, so that completion is delivered rather than
-collapsed, whether the resume hands it a fresh claim or leaves an unfinished
-lane held. Never ask a worker to release a live lane just to be heard.
+work. One report per work leg reaches this seat once, so a reworded retry of the
+same completion deduplicates instead of arriving twice. A worker you resume
+reports its next completion as its own leg, delivered rather than collapsed,
+whether the resume hands it a fresh claim or leaves an unfinished lane held.
+Never ask a worker to release a live lane just to be heard. A worker resumed
+WITHOUT its session ending — told "also do X" in the same episode, on the same
+claim — is the one shape that still collapses; it is told so loudly and reports
+that completion as a substantive update instead.
 
 `yoke sessions terminate` is reserved for an unresponsive worker or explicit
 cleanup. In those exceptional cases, resolve the full session id from the

@@ -11,7 +11,7 @@ from yoke_contracts.session_control.terminal_report import (
     COLLAPSED_DIFFERING_BODY_NOTICE,
 )
 from yoke_core.domain.session_item_scope import session_claim_for_item
-from yoke_core.domain.session_message_terminal import reporting_turn_marker
+from yoke_core.domain.session_message_terminal import reporting_episode_marker
 from runtime.api.domain.test_session_message_support import (
     NOW_TEXT,
     message_connection,
@@ -36,14 +36,13 @@ def _report_count(conn) -> int:
 
 
 def _resume(conn, *, session_id: str = "s1", at: str) -> None:
-    """The worker's turn ended and a later one started, however it was woken.
+    """The worker's session ended and a wake brought it back.
 
-    ``turn_posture_at`` is what the Stop / UserPromptSubmit hook pair stamps,
-    so this is the one fixture shape for every resume route.
+    Registration stamps ``episode_started_at`` on that reactivation, so this is
+    the one fixture shape for every route that wakes an ended worker.
     """
     conn.execute(
-        "UPDATE harness_sessions SET turn_posture='running', turn_posture_at=? "
-        "WHERE session_id=?",
+        "UPDATE harness_sessions SET episode_started_at=? WHERE session_id=?",
         (at, session_id),
     )
     conn.commit()
@@ -109,7 +108,7 @@ def test_a_retained_lane_reports_its_resumed_completion() -> None:
     assert _report_count(conn) == 2
 
 
-def test_retries_inside_one_turn_still_collapse() -> None:
+def test_retries_inside_one_episode_still_collapse() -> None:
     conn = message_connection()
     _seat(conn, claim_id=10, session_id="s2")
     _resume(conn, at="2026-08-22T16:05:00.000000Z")
@@ -122,7 +121,7 @@ def test_retries_inside_one_turn_still_collapse() -> None:
     assert _report_count(conn) == 1
 
 
-def test_an_unrelated_receipt_mid_turn_does_not_open_a_leg() -> None:
+def test_an_unrelated_receipt_mid_episode_does_not_open_a_leg() -> None:
     """Receiving mail is not being resumed, so a retry after it still collapses."""
     conn = message_connection()
     _seat(conn, claim_id=10, session_id="s2")
@@ -184,7 +183,7 @@ def test_the_send_summary_stays_quiet_when_nothing_was_discarded() -> None:
     assert COLLAPSED_DIFFERING_BODY_NOTICE not in rendered.getvalue()
 
 
-def test_a_person_resuming_the_worker_opens_a_leg_like_any_other_wake() -> None:
+def test_a_wake_with_no_message_still_opens_a_leg() -> None:
     """No message is involved, and the second completion still reaches the seat."""
     conn = message_connection()
     _seat(conn, claim_id=10, session_id="s2")
@@ -203,11 +202,11 @@ def test_a_person_resuming_the_worker_opens_a_leg_like_any_other_wake() -> None:
     )
 
 
-def test_a_surface_with_no_recorded_turn_still_keys_on_its_claim() -> None:
+def test_a_session_with_no_recorded_episode_still_keys_on_its_claim() -> None:
     conn = message_connection()
     _seat(conn, claim_id=10, session_id="s2")
 
-    assert reporting_turn_marker(conn, "s1") is None
+    assert reporting_episode_marker(conn, "s1") is None
 
     first = _say_steering(conn, body=DONE_BODY)
     retry = _say_steering(conn, body=DONE_BODY)
@@ -218,3 +217,24 @@ def test_a_surface_with_no_recorded_turn_still_keys_on_its_claim() -> None:
     assert retry["message_id"] == first["message_id"]
     assert resumed["message_id"] != first["message_id"]
     assert _report_count(conn) == 2
+
+
+def test_a_tool_call_inside_one_episode_does_not_open_a_leg() -> None:
+    """Liveness stamps move constantly; the leg must not follow them."""
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+    _resume(conn, at="2026-08-22T16:05:00Z")
+
+    first = _say_steering(conn, body=DONE_BODY)
+    conn.execute(
+        "UPDATE harness_sessions SET turn_posture='running',"
+        "turn_posture_at='2026-08-22T16:06:00.000000Z',last_tool_call_at=? "
+        "WHERE session_id='s1'",
+        (NOW_TEXT,),
+    )
+    conn.commit()
+    retry = _say_steering(conn, body=f"{DONE_BODY} Merged and green.")
+
+    assert retry["message_id"] == first["message_id"]
+    assert retry["deduplicated"] is True
+    assert _report_count(conn) == 1

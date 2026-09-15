@@ -8,18 +8,21 @@ same message, so the seat is told once.
 The item in that key is the PREFIX-N named in the mandated heading, not
 whatever claim the session happens to hold.
 
-The work leg in that key is the native turn the report was sent in, plus the
-claim it was sent under. A worker acquires the item claim, works, reports, and
+The work leg in that key is the episode the report was sent in, plus the claim
+it was sent under. A worker acquires the item claim, works, reports, and
 releases, so a resume that reacquires opens a new leg — but a worker held for
 delivery or a retest keeps its claim across the resume, and must never release
-an unfinished lane merely to make its next report deliverable. What moves in
-BOTH shapes is the turn: a completion the worker was resumed to do is by
-construction in a later turn than the one it reported before, whether the
-resume arrived as a seat instruction, a native wake, or a person typing. Every
-attempt at ONE completion happens inside a single turn, because a retry after a
-refusal is the same turn continuing. Keying on session and item alone collapsed
-every later completion into the first report forever, so the second body was
-silently discarded.
+an unfinished lane merely to make its next report deliverable. The episode
+covers that second shape: a launched worker's turn ends, its session ends with
+it, and the wake that brings it back stamps a new episode, whatever the claim
+did. Nothing inside an episode moves that stamp, so every attempt at ONE
+completion shares it and retries stay exactly-once.
+
+Keying on session and item alone collapsed every later completion into the
+first report forever, so the second body was silently discarded. One shape is
+still collapsed by design rather than solved: a resume that never crossed a
+session end, on a retained claim. That report is refused delivery loudly
+through :data:`COLLAPSED_DIFFERING_BODY_NOTICE` instead of vanishing.
 """
 
 from __future__ import annotations
@@ -38,10 +41,11 @@ TERMINAL_REPORT_TOKEN = "DONE"
 COLLAPSED_DIFFERING_BODY_NOTICE = (
     "Collapsed into an earlier message under the same derived key: the body "
     "you just sent was NOT delivered, and the earlier one still stands. For a "
-    "DONE report that earlier body is this turn's completion, so a reworded "
-    "retry owes nothing more. A completion you were resumed to do is reported "
-    "from the turn that resume started, and reaches the seat on its own — "
-    "never release an unfinished lane to try to force one through."
+    "DONE report that earlier body is this leg's completion, so a reworded "
+    "retry owes nothing more. A completion you were resumed to do normally "
+    "reaches the seat on its own — never release an unfinished lane to try to "
+    "force one through. If this IS that second completion, the resume did not "
+    "cross a session end: say it in your next substantive update instead."
 )
 
 
@@ -80,29 +84,29 @@ def parse_terminal_report(body: str) -> ParsedTerminalReport | None:
     return ParsedTerminalReport(item_ref=f"{prefix}-{sequence}")
 
 
-#: Stands in for the turn half on a session whose surface has recorded no turn
-#: boundary yet, so the key shape never varies on its absence.
-UNRECORDED_TURN = "none"
+#: Stands in for the episode half on a session with no recorded episode, so
+#: the key shape never varies on its absence.
+UNRECORDED_EPISODE = "none"
 
 
 def terminal_report_idempotency_key(
     session_id: str,
     item_id: int,
     claim_id: int,
-    turn_marker: str | None = None,
+    episode_marker: str | None = None,
 ) -> str:
     """Return the key every terminal report of one work leg shares.
 
-    The leg is the turn the report was sent in plus the claim it was sent
+    The leg is the episode the report was sent in plus the claim it was sent
     under. Retries of one completion share both, while a completion the worker
-    was resumed to do differs in at least one — a later turn, a reacquired
+    was resumed to do differs in at least one — a new episode, a reacquired
     claim, or both — and reaches the seat instead of collapsing into the
     earlier report.
     """
     return (
         f"{TERMINAL_REPORT_IDEMPOTENCY_PREFIX}{session_id}:"
         f"{int(item_id)}:{int(claim_id)}:"
-        f"{turn_marker or UNRECORDED_TURN}"
+        f"{episode_marker or UNRECORDED_EPISODE}"
     )
 
 
@@ -111,7 +115,7 @@ __all__ = [
     "ParsedTerminalReport",
     "TERMINAL_REPORT_IDEMPOTENCY_PREFIX",
     "TERMINAL_REPORT_TOKEN",
-    "UNRECORDED_TURN",
+    "UNRECORDED_EPISODE",
     "is_terminal_done_report",
     "parse_terminal_report",
     "terminal_report_idempotency_key",

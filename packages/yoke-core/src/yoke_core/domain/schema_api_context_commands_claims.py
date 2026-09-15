@@ -85,7 +85,7 @@ CLAIMS_COMMANDS: list[dict] = [
             "`acknowledged`), so a queued report is never a zero-recipient failure. Acknowledgement proves receipt, not acceptance or implementation. A `DONE PREFIX-N` heading names the reported item; it "
             "must be work this session holds or released, and that item "
             "addresses the seat. Send it before releasing a still-held claim; "
-            "one report per work leg — the turn you send it in, under the claim you hold then — reaches the seat once even when a reworded retry follows in that turn, while a completion you are resumed to do is reported from a later turn and is delivered whether or not the resume hands you a fresh claim. "
+            "one report per work leg — the episode you send it in, under the claim you hold then — reaches the seat once even when a reworded retry follows, while a completion you were resumed to do is its own leg and is delivered whether or not the resume handed you a fresh claim; a resume that never crossed a session end is the one shape still collapsed, and it says so. "
             "Every worker reaches the "
             "seat deliberately with `yoke say --steering`; ending a turn "
             "sends no Fleet message. Message another session only for "
