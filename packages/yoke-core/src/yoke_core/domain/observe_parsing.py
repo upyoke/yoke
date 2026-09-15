@@ -51,6 +51,7 @@ class EventRecord:
     tool_use_id: Optional[str] = None
     turn_id: Optional[str] = None
     has_permission_decision: bool = False
+    pending_local_command: bool = False
 
     # Derived
     anomalies: List[str] = field(default_factory=list)
@@ -234,6 +235,7 @@ def parse_hook_event(
         tool_use_id=tool_use_id,
         turn_id=turn_id,
         has_permission_decision=has_permission_decision,
+        pending_local_command=_pending_local_command(data, tool_name),
     )
 
     # Explicit item ref extraction takes precedence over inferred attribution.
@@ -254,6 +256,30 @@ _BASH_HARD_FAILURE_INDICATORS: Tuple[str, ...] = (
     "command not found",
     "Permission denied",
 )
+
+
+def _pending_local_command(data: Dict[str, Any], tool_name: str) -> bool:
+    """True when PostToolUse did not settle a still-running local command.
+
+    Claude auto-background stamps structured ``backgroundTaskId`` /
+    ``timedOutAfterMs`` on the Bash result (``interrupted`` is false there).
+    Explicit ``run_in_background`` is the same class of fact. Neither is
+    inferred from the human-readable timeout sentence.
+    """
+    if tool_name not in ("Bash", "Shell"):
+        return False
+    tool_input = data.get("tool_input") or {}
+    if isinstance(tool_input, dict) and tool_input.get("run_in_background") is True:
+        return True
+    for blob in (data.get("tool_response"), data):
+        if not isinstance(blob, dict):
+            continue
+        task_id = blob.get("backgroundTaskId") or blob.get("background_task_id")
+        if isinstance(task_id, str) and task_id.strip():
+            return True
+        if blob.get("timedOutAfterMs"):
+            return True
+    return False
 
 
 def _extract_bash_command_name(command: str) -> str:

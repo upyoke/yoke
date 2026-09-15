@@ -151,6 +151,8 @@ def build_envelope(rec: EventRecord) -> Dict[str, Any]:
         "hook_event_name": rec.hook_event,
         "context": {"detail": context},
     }
+    if rec.pending_local_command:
+        envelope["pending_local_command"] = True
 
     envelope_json = json.dumps(envelope, separators=(",", ":"))
     if len(envelope_json.encode("utf-8")) > 65536:
@@ -254,10 +256,15 @@ def insert_event(conn: Any, envelope: Dict[str, Any]) -> None:
 def _apply_state_and_commit(conn: Any, envelope: Dict[str, Any]) -> None:
     """Started opens a ``session_tool_calls`` row; a completion closes it.
 
+    A PostToolUse that did not settle the process (structured
+    ``backgroundTaskId`` / timeout / ``run_in_background``) still records
+    telemetry, but must not close the row the Stop gate reads.
+
     Schema-tolerant — skips cleanly on fixtures lacking the table or
     columns, the same contract ``session_activity_state`` declares.
     """
     from yoke_core.domain.session_activity_state import apply_envelope_state
 
-    apply_envelope_state(conn, envelope)
+    if not envelope.get("pending_local_command"):
+        apply_envelope_state(conn, envelope)
     conn.commit()
