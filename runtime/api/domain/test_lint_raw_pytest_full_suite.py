@@ -207,6 +207,121 @@ class TestNonPytestCommandsNamingTestFiles(unittest.TestCase):
         ))
 
 
+class TestWrittenDataIsNotAnInvocation(unittest.TestCase):
+    """Writing a pytest command string as data is not running it.
+
+    Each shape was observed denying real QA plan-case authoring, whose
+    ``method_config.command`` field legitimately stores a project test
+    command as a JSON string value — inert text, never executed here.
+    """
+
+    def _anchor_command_field(self, joiner: str) -> str:
+        anchors = " ".join(f"{a}/" for a in lint.full_sweep_anchors())
+        return (
+            '{"method_config": {"command": "cd /repo ' + joiner +
+            ' .venv/bin/python3 -m pytest ' + anchors + ' -k \\"not live\\""}}'
+        )
+
+    def test_cat_heredoc_writing_the_command_as_json_is_not_matched(self):
+        command = (
+            "cat > scratch.json <<'EOF'\n"
+            + self._anchor_command_field("&&") + "\nEOF\n"
+        )
+        self.assertIsNone(_eval(command))
+
+    def test_python_heredoc_printing_the_command_as_json_is_not_matched(self):
+        command = (
+            "python3 <<'PYEOF' > scratch.json\n"
+            "import json\n"
+            'print(json.dumps(' + self._anchor_command_field("&&") + '))\n'
+            "PYEOF\n"
+        )
+        self.assertIsNone(_eval(command))
+
+    def test_printf_redirect_of_the_command_as_json_is_not_matched(self):
+        payload = self._anchor_command_field("&&").replace("'", "'\\''")
+        command = "printf '%s' '" + payload + "' > scratch.json"
+        self.assertIsNone(_eval(command))
+
+    def test_a_real_chained_invocation_after_the_written_data_still_denies(self):
+        # The exemption covers written data, not a real command that
+        # follows it on the same line.
+        command = (
+            "cat > scratch.json <<'EOF'\n"
+            + self._anchor_command_field("&&") + "\nEOF\n"
+            + _anchor_sweep()
+        )
+        mode, _, _ = _eval(command)
+        self.assertEqual(mode, "deny")
+
+
+class TestExecutableCoverageIsUnchanged(unittest.TestCase):
+    """Baseline-vs-candidate parity: exempting written data must not
+    narrow the coverage this guard already had for a genuinely
+    executable chain, however that coverage arose.
+
+    A heredoc read by a shell interpreter is executed as commands line
+    by line, unlike one read by ``cat``/``python3``; a shell's own
+    ``-c`` argument was already only accidentally caught (naive,
+    quote-oblivious splitting exposed a separator inside it), and stays
+    exactly as accidental — this locks in that pre-existing shape
+    rather than either fixing or losing it.
+    """
+
+    def test_bash_heredoc_running_a_real_sweep_still_denies(self):
+        command = "bash <<'EOF'\npytest " + " ".join(
+            f"{a}/" for a in lint.full_sweep_anchors()
+        ) + "\nEOF\n"
+        mode, _, _ = _eval(command)
+        self.assertEqual(mode, "deny")
+
+    def test_sh_heredoc_running_a_real_sweep_still_denies(self):
+        command = "sh <<'EOF'\npytest " + " ".join(
+            f"{a}/" for a in lint.full_sweep_anchors()
+        ) + "\nEOF\n"
+        mode, _, _ = _eval(command)
+        self.assertEqual(mode, "deny")
+
+    def test_shell_dash_c_chained_pytest_is_still_flagged(self):
+        # Locks in the pre-existing (already-incomplete) behavior: this
+        # shape was never a clean "full" deny — the naive split leaves a
+        # trailing quote glued to the last anchor — so parity means
+        # still non-None, not a newly-precise verdict.
+        anchors = " ".join(f"{a}/" for a in lint.full_sweep_anchors())
+        command = 'bash -c "cd /repo && python3 -m pytest ' + anchors + '"'
+        self.assertIsNotNone(_eval(command))
+
+    def test_launcher_wrapped_shell_heredoc_still_denies(self):
+        # A compound form: `env` only forwards to bash -- the body is
+        # still executed line by line, with or without a redirect.
+        anchors = " ".join(f"{a}/" for a in lint.full_sweep_anchors())
+        for launch in ("env bash <<'EOF'", "env bash > out.log <<'EOF'"):
+            with self.subTest(launch=launch):
+                command = f"{launch}\npytest {anchors}\nEOF\n"
+                mode, _, _ = _eval(command)
+                self.assertEqual(mode, "deny")
+
+    def test_heredoc_piped_into_a_shell_still_denies(self):
+        # Another compound form: the heredoc's own reader is `cat`, but
+        # its output is piped into `bash`, which executes it.
+        command = "cat <<'EOF' | bash\npytest " + " ".join(
+            f"{a}/" for a in lint.full_sweep_anchors()
+        ) + "\nEOF\n"
+        mode, _, _ = _eval(command)
+        self.assertEqual(mode, "deny")
+
+    def test_sink_redirect_chained_with_an_executable_statement_is_untouched(self):
+        # A data-sink-with-redirect statement chained (via `;`) with a
+        # second, different, executable statement on the same physical
+        # line must not have ITS quotes masked away by the first
+        # statement's sink/redirect shape.
+        anchors = " ".join(f"{a}/" for a in lint.full_sweep_anchors())
+        command = (
+            "echo ok > /tmp/x; bash -c 'cd /repo && pytest " + anchors + "'"
+        )
+        self.assertIsNotNone(_eval(command))
+
+
 class TestDecisionEnvelope(unittest.TestCase):
     def test_deny_stops_the_chain_with_a_permission_envelope(self):
         with mock.patch.object(lint, "_read_mode", return_value="deny"):
