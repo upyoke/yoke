@@ -29,7 +29,7 @@ def _claim_dict(
     covered_paths=("runtime/api/domain",),
     worktree_path="/tmp/yoke-worktrees/YOK-1577",
     project_repo_path="",
-    public_ref=None,
+    public_ref="YOK-1577",
 ) -> Dict:
     claim = {
         "id": claim_id,
@@ -106,10 +106,7 @@ class TestOutOfClaim:
     def test_deny_with_widen_template(self, tmp_path):
         worktree = tmp_path / "YOK-1577"
         worktree.mkdir()
-        # The live lookup always renders public_ref from its connection.
-        claim = _claim_dict(
-            worktree_path=str(worktree), public_ref="YOK-1577"
-        )
+        claim = _claim_dict(worktree_path=str(worktree))
         record = _record(
             changed_paths=("docs/never-covered.md",),
             cwd=str(worktree),
@@ -285,9 +282,8 @@ class TestTypedEvaluateEntrypoint:
         worktree.mkdir()
         monkeypatch.setattr(
             "yoke_core.domain.path_claim_pre_edit_guard.resolve_active_claim_for_session",
-            # The live lookup renders public_ref from its connection; a
-            # non-default prefix proves the recipe carries that ref rather
-            # than one assembled from the internal id.
+            # A non-default prefix proves the recipe carries the ref the
+            # lookup rendered rather than one assembled from the internal id.
             lambda session_id, conn=None, **_kwargs: _claim_dict(
                 worktree_path=str(worktree), public_ref="BUZ-4"
             ),

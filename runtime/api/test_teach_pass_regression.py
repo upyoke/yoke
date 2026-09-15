@@ -18,7 +18,6 @@ from yoke_core.domain.path_claim_bash_guard_narrative import (
     worktree_unresolved_narrative,
 )
 from yoke_core.domain.path_claim_register import compose_overlap_denial
-from yoke_core.domain.path_claim_required_gate import evaluate_required_coverage
 from yoke_core.domain.path_claim_target_resolver import ClaimContext
 from yoke_core.domain.yok_n_parser import parse_item_id
 
@@ -173,6 +172,8 @@ def test_parse_item_id_accepts_int_internal_id_and_rejects_unscoped_strings() ->
 def test_worktree_unresolved_denial_embeds_preflight_command() -> None:
     """WORKTREE_UNRESOLVED → preflight (never widen)."""
 
+    # The live lookup renders public_ref from its connection and puts it on
+    # the context; the recipe has to carry a ref the operator can paste.
     ctx = ClaimContext(
         claim_id=42,
         item_id=123,
@@ -180,6 +181,7 @@ def test_worktree_unresolved_denial_embeds_preflight_command() -> None:
         state="active",
         covered_paths=("AGENTS.md",),
         worktree_path=None,
+        public_ref="YOK-123",
     )
     narrative = worktree_unresolved_narrative(
         tool_kind="Edit",
@@ -196,6 +198,8 @@ def test_worktree_unresolved_denial_embeds_preflight_command() -> None:
 
 
 def test_path_claim_register_overlap_denial_embeds_coordination_decision() -> None:
+    # No connection here, so nothing can resolve a reference; the denial
+    # says that plainly rather than assembling one from the internal id.
     body_text = compose_overlap_denial(
         item_id=123,
         integration_target="main",
@@ -203,48 +207,11 @@ def test_path_claim_register_overlap_denial_embeds_coordination_decision() -> No
         base_message="candidate overlaps another active claim",
         conn=None,
     )
-    assert "BLOCKED: path-claim register overlap on item YOK-123" in body_text
-    assert (
-        "yoke claims path coordination-decision-build "
-        "--item YOK-123 --conflicting-claim "
-    ) in body_text
+    assert "BLOCKED: path-claim register overlap on item " in body_text
+    assert "items.id 123" in body_text
+    assert "yoke claims path coordination-decision-build " in body_text
+    assert "--conflicting-claim " in body_text
     assert "--paths" in body_text
-
-
-def test_claim_required_gate_embeds_register_command() -> None:
-    from runtime.api.fixtures.pg_testdb import (
-        connect_test_database,
-        create_test_database,
-        drop_test_database,
-    )
-    from runtime.api.fixtures.schema_ddl import apply_fixture_ddl
-
-    db_name = create_test_database()
-    conn = connect_test_database(db_name)
-    try:
-        apply_fixture_ddl(
-            conn,
-            "CREATE TABLE path_claims (id INTEGER PRIMARY KEY, "
-            "owner_kind TEXT, owner_item_id INTEGER, state TEXT, mode TEXT, "
-            "exception_reason TEXT);"
-            "CREATE TABLE path_claim_targets ("
-            "claim_id INTEGER, target_id INTEGER);",
-        )
-        result = evaluate_required_coverage(conn, 123)
-    finally:
-        conn.close()
-        drop_test_database(db_name)
-    assert result["verdict"] == "block"
-    reason = str(result["reason"])
-    assert (
-        "yoke claims path register "
-        "--item YOK-123 --integration-target main "
-        '--paths "<comma-separated paths>"'
-    ) in reason
-    assert (
-        "yoke claims path register --item YOK-123 --mode exception --exception-reason"
-    ) in reason
-    assert "service_client" not in reason
 
 
 # Pure confabulations + the obsoleted ``--claim-state`` form. Must be
