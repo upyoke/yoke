@@ -1,100 +1,49 @@
 """Stage helpers for the deployment QA recorder.
 
-Pure helpers extracted from ``deploy_qa_recorder`` so the orchestrator
-module stays under its line budget. The five exported helpers cover:
+Pure helpers shared by ``deploy_qa_recorder`` and ``deploy_qa_stage_result``:
 
-* script-dir resolution for legacy script-relative invocations,
-* subprocess dispatch into ``yoke_core.cli.db_router`` and
-  ``yoke_core.domain.flow``,
+* ``resolve_stages_json_for_run`` reads a run's flow and that flow's stage
+  list in-process, against whichever database serves the current execution
+  context (the relayed HTTPS request's bound connection, or a direct local
+  one) — no subprocess, no filesystem/checkout assumption.
 * parsing flow stage JSON to extract QA-relevant entries,
 * resolving the ``qa_kind`` for a single stage by name.
-
-Both subprocess wrappers capture stdout and return it stripped, so callers
-branch on an empty ``stdout`` to detect failure. On a non-zero exit they
-re-emit the subprocess's own stderr and return code to this process's
-stderr before returning the (empty) stdout: the deploy pipeline runs these
-helpers in-process, so that diagnostic lands in the deploy log where a
-failed ``qa requirement-add`` can actually be root-caused — rather than
-being discarded into a captured-but-dropped stderr. A subprocess that
-exceeds the dispatch timeout is reported the same way and degrades to an
-empty return rather than raising, so a slow control-plane round-trip can
-never crash the whole deploy on a best-effort QA write.
 """
 
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
-from pathlib import Path
 from typing import Dict, List, Optional
 
 from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
 
-# Per-call wall-clock budget for a single control-plane round-trip. Named so
-# both wrappers share one value and the timeout diagnostic can cite it.
-DISPATCH_TIMEOUT_S = 30
 
+def resolve_stages_json_for_run(run_id: str, *, db_path: Optional[str] = None) -> str:
+    """Return the raw stages JSON for a run's flow.
 
-def resolve_script_dir() -> str:
-    """Return the legacy skills/scripts directory used by callers."""
-    from yoke_core.api.repo_root import find_repo_root
+    Reads the run's ``flow`` field and that flow's ``stages`` column
+    in-process through the ordinary domain query functions, so the caller
+    inherits whatever database authority (bound DSN, actor identity) the
+    current execution context already carries.
 
-    return str(
-        find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"
-    )
-
-
-def _dispatch_module(module: str, args: List[str]) -> str:
-    """Run ``python3 -m <module> <args>`` and return its stripped stdout.
-
-    On failure (non-zero exit or timeout) the underlying subprocess's stderr
-    and return code are re-emitted to *this* process's stderr so the real
-    cause surfaces in the deploy log; the return value stays the stripped
-    stdout (empty on failure) to preserve the empty-means-failure contract
-    every caller already branches on.
+    Raises ``LookupError`` when the run or its flow cannot be resolved —
+    distinct from a readable flow whose stages simply don't include the
+    stage being asked about, which is the caller's own legitimate no-op to
+    interpret. Collapsing "unreadable" into "empty" would let a missing
+    run or flow read as a stage that quietly isn't QA-relevant.
     """
-    cmd = [sys.executable, "-m", module, *args]
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_runs_crud_query import cmd_get
+    from yoke_core.domain.flow import cmd_stages
+
+    flow_id = cmd_get(run_id, "flow", db_path=db_path)
+    if not flow_id:
+        raise LookupError(f"deployment run {run_id!r} not found or has no flow")
+    conn = connect(db_path)
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=DISPATCH_TIMEOUT_S
-        )
-    except subprocess.TimeoutExpired:
-        print(
-            f"  dispatch timeout: python3 -m {module} {' '.join(args)} "
-            f"exceeded {DISPATCH_TIMEOUT_S}s — treating as failure",
-            file=sys.stderr,
-        )
-        return ""
-    if result.returncode != 0:
-        detail = result.stderr.strip()
-        print(
-            f"  dispatch failure: python3 -m {module} {' '.join(args)} "
-            f"exited {result.returncode}"
-            + (f"\n{detail}" if detail else " (no stderr captured)"),
-            file=sys.stderr,
-        )
-    return result.stdout.strip()
-
-
-def dispatch_db_router(*args: str, script_dir: Optional[str] = None) -> str:
-    """Subprocess dispatch into the Python DB router.
-
-    Kept as a subprocess boundary (rather than a direct import) so the
-    recorder's CLI surface can preserve the event-emission and argument
-    parsing that ``yoke_core.cli.db_router`` performs, without taking
-    a hard import dependency on every downstream domain module.
-    """
-    return _dispatch_module("yoke_core.cli.db_router", list(args))
-
-
-def dispatch_flow_domain(*args: str, script_dir: Optional[str] = None) -> str:
-    """Subprocess dispatch into ``yoke_core.domain.flow``.
-
-    Like ``dispatch_db_router`` above, this wrapper is a pure Python
-    subprocess boundary — it never dispatches to a shell script.
-    """
-    return _dispatch_module("yoke_core.domain.flow", list(args))
+        return cmd_stages(conn, flow_id)
+    finally:
+        conn.close()
 
 
 def parse_stages_qa(stages_json: str) -> List[Dict[str, str]]:
