@@ -56,7 +56,9 @@ def _create_legacy(conn: Any, flow_id: str = "mutable-flow") -> None:
     cmd_create(conn, flow_id, "yoke", "Mutable flow", "", LEGACY_STAGES)
 
 
-def _seed_ephemeral_capability(conn: Any, project_id: int = SEED_PROJECT_IDS["yoke"]) -> None:
+def _seed_ephemeral_capability(
+    conn: Any, project_id: int = SEED_PROJECT_IDS["yoke"]
+) -> None:
     """Register the ``ephemeral-env`` capability an ADVANCED_STAGES preview
     stage names, so ``validate_stage_references`` resolves it like any other
     real project instead of refusing on a fixture gap."""
@@ -64,8 +66,11 @@ def _seed_ephemeral_capability(conn: Any, project_id: int = SEED_PROJECT_IDS["yo
         "INSERT INTO project_capabilities (project_id, type, settings, created_at) "
         "VALUES (%s, 'ephemeral-env', %s, %s) "
         "ON CONFLICT DO NOTHING",
-        (project_id, '{"trigger":"github-push","preview_domain":"preview.example.com"}',
-         "2026-01-01T00:00:00Z"),
+        (
+            project_id,
+            '{"trigger":"github-push","preview_domain":"preview.example.com"}',
+            "2026-01-01T00:00:00Z",
+        ),
     )
     conn.commit()
 
@@ -74,10 +79,16 @@ def test_run_preview_target_requires_registered_capability(test_db: Any) -> None
     # No ephemeral-env capability seeded for the "yoke" test project: a
     # run_preview stage naming it must refuse the same way an unregistered
     # persistent_environment target does, not silently validate.
-    with pytest.raises(LookupError, match="capability 'ephemeral-env' is not registered"):
+    with pytest.raises(
+        LookupError, match="capability 'ephemeral-env' is not registered"
+    ) as excinfo:
         cmd_validate_definition(
             test_db, project="yoke", stages=ADVANCED_STAGES, status="disabled"
         )
+    # The refusal teaches the fix, not just the reason: an operator reading it
+    # must not have to go hunting for how to register the capability.
+    assert "capability-settings merge" in str(excinfo.value)
+    assert "--cap-type ephemeral-env" in str(excinfo.value)
 
 
 def test_advanced_definition_validates_but_cannot_activate_yet(test_db: Any) -> None:

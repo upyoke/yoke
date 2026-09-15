@@ -283,7 +283,9 @@ def validate_stage_references(
             if not has_capability:
                 raise LookupError(
                     f"stage {index} target capability {capability!r} is not "
-                    f"registered for project {project!r}"
+                    f"registered for project {project!r}; register it with: "
+                    f"yoke projects capability-settings merge --project {project} "
+                    f"--cap-type {capability} --set <key>=<value>"
                 )
     from yoke_core.domain.deployment_requirement_snapshots import (
         validate_flow_plan_references,
