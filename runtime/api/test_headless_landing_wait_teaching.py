@@ -149,11 +149,15 @@ def test_dash_close_out_routes_every_other_landing_by_harness_wake_capability():
     assert "four-fact landing readback" in content
     assert "armed, queued, eligible, required checks" in content
     assert "never needs a hand-authored `gh` poll loop" in content
-    assert "Read the wrapper's `wait_mode` and reason" in content
+    assert "That call only prints: it merges nothing, arms nothing" in content
+    assert "run the printed command exactly once" in content
     assert "`background-wake` means the caller's harness can resume an ended turn" in (
         content
     )
-    assert "`in-turn` means the same invocation is already holding" in content
+    assert (
+        "`in-turn` means the printed command is a single foreground invocation"
+        in content
+    )
     assert "No later completion notice is expected" in content
     assert "yoke github merge-queue readiness ITEM --json" in content
     assert "queue-entry=AWAITING_CHECKS" in content
@@ -180,7 +184,10 @@ def test_worker_lifecycle_teaches_the_continuation_it_mandates():
     collapsed = _words(content)
     assert "a launched turn is the whole life of every command it starts" in collapsed
     assert "read that hand-back as completion" in collapsed
-    assert "stop early only for a command-handed wait or the taught local-check interrupt" in collapsed
+    assert (
+        "stop early only for a command-handed wait or the taught local-check interrupt"
+        in collapsed
+    )
 
 
 def test_no_teaching_surface_reads_the_hand_back_as_the_end_of_the_call():
@@ -235,13 +242,13 @@ def test_dash_close_out_names_every_way_the_in_turn_wait_ends():
 
 def test_usher_merge_step_routes_the_landing_the_same_way():
     content = _words(_read(USHER_MERGE))
-    assert "safe wait mode from the caller's manifest wake capability" in content
+    assert "prints the safe invocation for the caller's manifest wake" in content
     assert "a native idle-wake primitive gets the background subscription" in content
-    assert "harness with no or unverified idle wake stays in-turn" in content
+    assert "no or unverified idle wake gets one foreground invocation" in content
     assert "Do not choose from the executor, launch origin" in content
     assert "dash/verification-and-close.md" in content
-    assert "Only `background-wake` may release the selector" in content
-    assert "`in-turn` is already blocking" in content
+    assert "Only `background-wake` may release the caller" in content
+    assert "the `in-turn` command blocks inside the invocation you run" in content
 
 
 def test_every_launched_worker_mandate_carries_the_landing_handoff():
@@ -275,14 +282,14 @@ def test_watcher_teaching_surfaces_name_the_split_not_a_blanket_ban():
     notes = _merge_recipe()["notes"]
     assert "A relay-launched session ignores --wait" in notes
     assert "only for a harness with a native idle-wake primitive" in notes
-    assert "callers with no or unverified idle wake stay in-turn" in notes
+    assert "no or unverified idle wake get one foreground command" in notes
     assert "yoke github merge-queue readiness PREFIX-N --json" in notes
     assert "null arming with an entry means consumed" in notes
     # Phrases stay inside one source line: this reads the module text, where
     # adjacent string literals keep their quotes and escapes.
     epilog = _words(_read(WATCH_MERGE_SOURCE))
     assert "a native idle-wake primitive gets the" in epilog
-    assert "with no or unverified idle wake, stay in-turn." in epilog
+    assert "with no or unverified idle wake, get the foreground" in epilog
 
 
 def test_command_reference_conditions_any_later_completion_message():
@@ -294,7 +301,7 @@ def test_command_reference_conditions_any_later_completion_message():
         assert "a native idle-wake primitive gets the background subscription" in (
             content
         )
-        assert "harness with no or unverified idle wake blocks in-turn" in content
+        assert "no or unverified idle wake gets one foreground command" in content
         assert "rely on a later completion message only when" in content
 
 
@@ -303,7 +310,7 @@ def test_merge_wait_help_routes_from_harness_capability_not_executor_name():
     assert "Ignored for a relay-launched session" in help_text
     assert "the landing notice wakes it for close-out" in help_text
     assert "watch merge wrapper" in help_text
-    assert "no or unverified idle wake stays in-turn" in help_text
+    assert "no or unverified idle wake gets one foreground command" in help_text
     assert "only a native idle-wake primitive may release" in help_text
     assert "Codex/Cursor" not in help_text
 

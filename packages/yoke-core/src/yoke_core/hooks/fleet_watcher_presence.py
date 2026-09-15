@@ -104,13 +104,15 @@ def fleet_watcher_absent_nudge(report: str, executor_family: str) -> str:
     """One line naming the gap and the exact re-arm recipe."""
     wake = wake_capability_for_harness(canonical_harness_id(executor_family))
     recipe = (
-        " Follow the returned wait_mode; use only its declared native subscription."
+        " That prints the invocation and starts nothing; run it, using only "
+        "the native subscription its wait_mode declares."
     )
     if executor_family == "codex" and wake.idle_wake != "supported":
         recipe = (
-            " Keep the in-turn exec_command/write_stdin stream active; answer ordinary "
-            "questions in commentary and continue. An ended desktop turn has no native "
-            "background notification."
+            " That prints the invocation and starts nothing; run the printed "
+            "in-turn command and keep its exec_command/write_stdin stream "
+            "active; answer ordinary questions in commentary and continue. An "
+            "ended desktop turn has no native background notification."
         )
     return (
         "Fleet watcher is not running for this session; re-arm with "

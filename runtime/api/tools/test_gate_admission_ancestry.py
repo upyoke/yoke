@@ -288,9 +288,12 @@ def test_nested_runner_rides_parent_slot_without_cap_opt_out(
         f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
     assert elapsed < 60.0
-    # Riding never prints a wait announcement.
-    assert "waiting (" not in result.stdout
-    assert "waiting (" not in result.stderr
+    # Riding never prints an admission-wait announcement. Match the gate's
+    # own prefix rather than the bare "waiting (" suffix, which the pytest
+    # worker budget -- a different resource this run legitimately queues
+    # for -- shares with it.
+    assert "gate admission:" not in result.stdout
+    assert "gate admission:" not in result.stderr
 
 
 def test_wait_bound_refuses_a_non_positive_override(monkeypatch):

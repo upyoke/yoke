@@ -21,10 +21,11 @@ Recipe shape doctrine (current):
     design.
 
 The recipes here are also deliberately harness-neutral:
-``--print-streaming-pair`` reads the caller's manifest wake fact. A
-harness with a native idle-wake primitive gets its background
-subscription recipe; a headless relay-launched worker, and a harness
-with no or unverified idle wake, are held foreground until the watcher
+``--print-streaming-pair`` prints the invocation the caller's manifest
+wake fact selects and runs nothing itself. A harness with a native
+idle-wake primitive gets its background subscription recipe; a headless
+relay-launched worker, and a harness with no or unverified idle wake,
+get one foreground invocation to run and hold open until the watcher
 finishes. A headless caller is also told, before its command starts,
 that a call its harness hands back mid-run is still running and must be
 continued rather than read as finished. Recipe text therefore avoids naming any Claude-only primitive
@@ -57,8 +58,9 @@ WATCHERS_COMMANDS: list[dict] = [
             "project's test anchors:\n"
             "yoke watch pytest "
             "--print-streaming-pair -- <project test anchors>\n"
-            "# The wrapper prints wait_mode and why. background-wake emits "
-            "the bound pair; in-turn runs here until exit; after a "
+            "# The wrapper only prints \u2014 run the command it prints. "
+            "background-wake emits the bound pair; in-turn emits one "
+            "foreground command to hold open until exit; after a "
             "background-wake completion, tail -80 <raw-capture>.\n"
             "# Every watcher a headless relay-launched worker starts also "
             "prints a headless_continuation line: if the harness moves that "
@@ -135,14 +137,15 @@ WATCHERS_COMMANDS: list[dict] = [
         "recipe": (
             "yoke watch doctor "
             "--print-streaming-pair -- --quick\n"
-            "# background-wake prints the bound pair; in-turn blocks here."
+            "# Prints only. background-wake emits the bound pair; in-turn "
+            "emits one foreground command to run and hold open."
         ),
         "notes": (
             "Doctor must run under this wrapper — bare invocations risk "
             "the inverted-redirection trap (`2>&1 > file` silently drops "
             "stderr). The wrapper writes raw + filtered captures. Its "
             "reported wait mode says whether the sentinel wakes the caller "
-            "or the original call stays foreground until exit."
+            "or the printed command must be held foreground until exit."
         ),
     },
     {
@@ -163,10 +166,11 @@ WATCHERS_COMMANDS: list[dict] = [
             "landing, returns landing_pending=true naming the pull request, "
             "and the landing notice wakes it to re-run the same command for "
             "close-out. For every other caller merge-item --wait holds the "
-            "landing inline, and the shared wait router emits a background "
+            "landing inline, and the shared wait router prints a background "
             "subscription only for a harness with a native idle-wake "
-            "primitive; callers with no or unverified idle wake stay in-turn "
-            "until landing. `yoke github merge-queue readiness "
+            "primitive; callers with no or unverified idle wake get one "
+            "foreground command to hold open until landing. Printing merges "
+            "nothing \u2014 the merge is the printed command you run. `yoke github merge-queue readiness "
             "PREFIX-N --json` names the queue state; "
             "null arming with an entry means consumed, not cleared."
         ),
@@ -195,7 +199,7 @@ WATCHERS_COMMANDS: list[dict] = [
             "tail -80 <PATH>"
         ),
         "notes": (
-            "--print-streaming-pair chooses the safe wait mode and mints "
+            "--print-streaming-pair prints the safe wait mode and mints "
             "the capture path automatically "
             "via project_scratch_dir.mint_watcher_capture_pair "
             "(machine temp root watcher-captures/...); the explicit "
