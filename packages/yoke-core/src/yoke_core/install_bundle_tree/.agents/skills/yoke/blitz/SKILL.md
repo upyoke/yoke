@@ -57,9 +57,9 @@ its watcher prints — and never runs — the shape the caller's manifest
 capability selects: a verified route gets the background subscription, while
 no route or an unknown answer gets one foreground invocation you run. Inspect
 queue liveness with `yoke github merge-queue readiness ITEM --json`, never a
-bare automerge field. Non-queue routes still land inline. Each command has no
-registered `direct_workflow.*` function id — use them verbatim; do not invent
-function ids for them. Contract:
+bare automerge field. Non-queue routes still land inline. Each command
+has no registered `direct_workflow.*` function id — use them verbatim; do
+not invent function ids for them. Contract:
 [`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md).
 
 ## Input and invariants
