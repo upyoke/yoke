@@ -152,7 +152,13 @@ from the calling session's manifest wake capability plus current control-plane
 reachability, never from executor name or who opened the session. A verified
 wake route gets the background subscription; no route or an unknown answer keeps
 the same watcher invocation in-turn until close-out.
-Projects without merge-queue capability keep the local merge engine.
+Projects without merge-queue capability keep the local merge engine. That
+engine's inner step is local Git integration onto the target branch, not
+publication. The outer standalone boundary reports publication only from the
+push result and observed post-push checks it already recorded: a completed
+push names that fact plus the check verdict; a checkout with no remote stays
+local-only; a failed or pending push stays unresolved. Inner logs must not
+say the push/PR/CI pipeline was skipped when the outer boundary still runs it.
 
 ## Portability
 

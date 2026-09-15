@@ -91,6 +91,7 @@ def test_green_ci_records_its_conclusion_without_retiring_the_lane(monkeypatch) 
 
     assert outcome.ok
     assert recorded[-1].check_runs[0]["conclusion"] == "success"
+    assert "Publication: target pushed; post-push checks passed." in outcome.output
 
 
 def test_no_discovered_ci_leaves_lane_retirement_to_terminal_close_out(
@@ -105,6 +106,45 @@ def test_no_discovered_ci_leaves_lane_retirement_to_terminal_close_out(
     assert outcome.ok
     assert len(recorded) == 1
     assert recorded[0].check_runs == ()
+    assert "Publication: target pushed; no post-push checks discovered." in outcome.output
+
+
+def test_failed_push_stays_unresolved_in_output(monkeypatch) -> None:
+    monkeypatch.setattr(post_push.git, "git_out", lambda *_a: MERGE_SHA)
+    monkeypatch.setattr(
+        post_push.git,
+        "publish",
+        lambda *_a: (False, "merge landed locally but publishing 'main' failed: denied"),
+    )
+    monkeypatch.setattr(post_push.git, "has_remote", lambda *_a: True)
+    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item: None)
+    monkeypatch.setattr(post_push.receipts, "record", lambda *_a, **_k: "")
+    monkeypatch.setattr(
+        post_push, "fast_forward_main_checkout", lambda *_a: "",
+    )
+
+    outcome = _complete()
+
+    assert outcome.ok
+    assert not outcome.pushed
+    assert "publishing 'main' failed" in outcome.output
+    assert any("publishing 'main' failed" in warning for warning in outcome.warnings)
+    assert "skipping push/PR/CI" not in outcome.output
+
+
+def test_no_remote_publication_stays_local_only(monkeypatch) -> None:
+    monkeypatch.setattr(post_push.git, "git_out", lambda *_a: MERGE_SHA)
+    monkeypatch.setattr(post_push.git, "publish", lambda *_a: (False, ""))
+    monkeypatch.setattr(post_push.git, "has_remote", lambda *_a: False)
+    monkeypatch.setattr(merge_boundary, "stamp_merged_at", lambda _item: None)
+    monkeypatch.setattr(post_push.receipts, "record", lambda *_a, **_k: "")
+
+    outcome = _complete()
+
+    assert outcome.ok
+    assert not outcome.pushed
+    assert "Publication: no remote; merge remains local-only." in outcome.output
+    assert outcome.warnings == ()
 
 
 def test_cli_refusal_never_reaches_evidence_or_done_transition(
@@ -159,8 +199,9 @@ def test_cli_refusal_never_reaches_evidence_or_done_transition(
 
 def test_local_engine_defers_standalone_lane_removal(monkeypatch) -> None:
     removed = []
+    printed = []
     parent = SimpleNamespace(
-        _print=lambda *_a, **_k: None,
+        _print=lambda msg="", **_k: printed.append(str(msg)),
         _run_git=lambda *_a, **_k: SimpleNamespace(
             returncode=0, stdout="", stderr="",
         ),
@@ -181,6 +222,33 @@ def test_local_engine_defers_standalone_lane_removal(monkeypatch) -> None:
 
     assert local_merge.do_local_merge(ctx) == 0
     assert removed == []
+    assert not any("skipping push/PR/CI" in line for line in printed)
+    assert any("Local Git integration" in line for line in printed)
+
+
+def test_true_local_merge_names_the_skipped_publication_pipeline(monkeypatch) -> None:
+    printed = []
+    parent = SimpleNamespace(
+        _print=lambda msg="", **_k: printed.append(str(msg)),
+        _run_git=lambda *_a, **_k: SimpleNamespace(
+            returncode=0, stdout="", stderr="",
+        ),
+    )
+    monkeypatch.setattr(local_merge, "_parent", lambda: parent)
+    monkeypatch.setattr(local_merge, "_ensure_snapshot_for_project", lambda *_a: None)
+    monkeypatch.setattr(local_merge, "_schema_refresh", lambda *_a: None)
+    monkeypatch.setattr(local_merge, "_ensure_target_branch", lambda *_a: None)
+    monkeypatch.setattr(local_merge, "_remove_lane", lambda *_a: None)
+    ctx = MergeContext(
+        args=MergeArgs(branch="ITEM-7", target="main", standalone=False),
+        repo_root="/repo",
+        worktree_path="/repo/.worktrees/ITEM-7",
+        yoke_repo_root="/repo",
+    )
+
+    assert local_merge.do_local_merge(ctx) == 0
+    assert any("skipping push/PR/CI pipeline" in line for line in printed)
+    assert not any("Local Git integration" in line for line in printed)
 
 
 def test_lane_retirement_uses_the_local_target_without_a_remote(
