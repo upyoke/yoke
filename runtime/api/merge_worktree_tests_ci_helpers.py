@@ -29,6 +29,7 @@ def merge_ctx(tmp_path, *, project="yoke", item_id="42", local_verification=Fals
         worktree_path=str(tmp_path),
         args=SimpleNamespace(
             branch="YOK-42",
+            target="main",
             local_verification=local_verification,
         ),
     )

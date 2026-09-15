@@ -163,6 +163,14 @@ GITHUB_ACTIONS_ADAPTERS: Tuple[AdapterEntry, ...] = (
             "allow_auto_merge); requires Administration: write."
         ),
     ),
+    AdapterEntry(
+        function_id="github.merge_queue.hold",
+        cli_invocation="yoke github merge-queue hold ITEM [--project P]",
+        notes=(
+            "Clear merge-when-ready AND remove the queue entry, then verify "
+            "both from a readback; never re-arms."
+        ),
+    ),
     _read_entry(
         function_id="github.merge_queue.readiness",
         cli_invocation=("yoke github merge-queue readiness ITEM [--project P]"),
