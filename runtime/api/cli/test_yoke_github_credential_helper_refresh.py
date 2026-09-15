@@ -49,6 +49,23 @@ def test_refresh_failure_is_reported_and_non_zero(monkeypatch, capsys):
     assert payload == {"configured": True, "repaired": False, "error": "disk full"}
 
 
+def test_refresh_reports_an_inconclusive_result_as_a_failure(monkeypatch, capsys):
+    monkeypatch.setattr(
+        command.github_repo_helper_reconnect,
+        "restore_missing_bundle",
+        lambda _config_path: {
+            "configured": None,
+            "repaired": False,
+            "error": "could not read git config for: /some/repo",
+        },
+    )
+
+    assert command.github_credential_helper_refresh([]) == 1
+    output = capsys.readouterr().out
+    assert "credential helper repair failed" in output
+    assert "/some/repo" in output
+
+
 def test_credential_helper_refresh_tool_shaped_resolution():
     resolved = resolve_tool_shaped(["github", "credential-helper", "refresh", "--json"])
     assert resolved is not None

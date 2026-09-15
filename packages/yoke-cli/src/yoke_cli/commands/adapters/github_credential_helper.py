@@ -42,7 +42,7 @@ def github_credential_helper_refresh(args: List[str]) -> int:
     error = result.get("error")
     if parsed.json_mode:
         print(json.dumps(result))
-    elif not result["configured"]:
+    elif result["configured"] is False:
         print(
             "No registered checkout references a git credential helper; nothing to refresh."
         )

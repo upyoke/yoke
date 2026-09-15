@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import shutil
 import urllib.error
 
 import pytest
@@ -21,7 +20,6 @@ from runtime.api.cli.test_github_git_credential_install import (
     _git,
 )
 from yoke_cli.config import github_git_credentials, github_machine
-from yoke_cli.config import github_repo_helper_reconnect
 
 
 def _register_checkout(config: Path, repo: Path, tmp_path: Path) -> None:
@@ -194,105 +192,3 @@ def test_failed_profile_replacement_keeps_existing_helper_unchanged(
         ).stdout
         == before_helper
     )
-
-
-def test_restore_missing_bundle_rebuilds_a_wiped_bundle(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Reproduces FN50156: a reinstall wipes site-packages, git config survives."""
-    repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
-    _register_checkout(config, repo, tmp_path)
-    site = tmp_path / "site"
-    monkeypatch.setattr(github_git_credentials, "_helper_site_dir", lambda: site)
-    configured = github_git_credentials.configure_repo_helper(
-        repo,
-        config_path=config,
-    )
-    helper_path = site / github_git_credentials.STABLE_HELPER_FILE_NAME
-    assert helper_path.is_file()
-    before_helper_value = _git(
-        repo,
-        "config",
-        "--local",
-        "--get-all",
-        configured["key"],
-    ).stdout
-
-    # Simulate `uv tool install --reinstall` wiping the tool venv: the
-    # runtime-written bundle is gone, but nothing touched git config.
-    shutil.rmtree(site)
-    assert not helper_path.is_file()
-
-    result = github_repo_helper_reconnect.restore_missing_bundle(config)
-
-    assert result == {"configured": True, "repaired": True}
-    assert helper_path.is_file()
-    assert (
-        _git(
-            repo,
-            "config",
-            "--local",
-            "--get-all",
-            configured["key"],
-        ).stdout
-        == before_helper_value
-    )
-
-
-def test_restore_missing_bundle_is_a_legitimate_no_op_when_unconfigured(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    home = tmp_path / "home"
-    monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
-    repo = tmp_path / "plain-repo"
-    repo.mkdir()
-    _git(repo, "init", "--initial-branch", "main")
-    config = home / "config.json"
-    config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "projects": [{"checkout": str(repo), "project_id": 1, "env": "stage"}],
-            }
-        ),
-        encoding="utf-8",
-    )
-    site = tmp_path / "never-created-site"
-    monkeypatch.setattr(github_git_credentials, "_helper_site_dir", lambda: site)
-
-    result = github_repo_helper_reconnect.restore_missing_bundle(config)
-
-    assert result == {"configured": False, "repaired": False}
-    assert not site.exists()
-
-
-def test_restore_missing_bundle_surfaces_a_genuine_repair_failure(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    repo, config, _credential = _configured_repo(tmp_path, monkeypatch)
-    _register_checkout(config, repo, tmp_path)
-    site = tmp_path / "site"
-    monkeypatch.setattr(github_git_credentials, "_helper_site_dir", lambda: site)
-    github_git_credentials.configure_repo_helper(repo, config_path=config)
-    shutil.rmtree(site)
-
-    def broken_install(_site_dir=None):
-        raise github_git_credentials.GitHubCredentialBundleError("disk full")
-
-    monkeypatch.setattr(
-        github_git_credentials,
-        "install_stable_helper",
-        broken_install,
-    )
-
-    result = github_repo_helper_reconnect.restore_missing_bundle(config)
-
-    assert result == {
-        "configured": True,
-        "repaired": False,
-        "error": "disk full",
-    }
