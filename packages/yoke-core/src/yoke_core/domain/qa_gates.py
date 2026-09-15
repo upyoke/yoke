@@ -88,10 +88,10 @@ def check_verification_gate(
         return precondition
 
     where, params = target.where_clause()
-    name = target.display_name()
 
     conn = connect(db_path)
     try:
+        name = target.display_name(conn)
         # (1) Blocking-unsat scan
         rows = query_rows(
             conn,
@@ -203,10 +203,10 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
         return precondition
 
     where, params = target.where_clause()
-    name = target.display_name()
 
     conn = connect(db_path)
     try:
+        name = target.display_name(conn)
         # (1) Blocking-unsat scan
         # The original row's own passing run is selected rather than filtered
         # on, because a post_deploy row filtered out for having passed once is

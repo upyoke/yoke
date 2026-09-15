@@ -65,7 +65,7 @@ def test_unknown_item_returns_explicit_error(core_db) -> None:
     projection = build_projection(999, db_path=core_db, now=NOW)
     assert projection == {
         "ok": False,
-        "error": "item not found: YOK-999",
+        "error": "no item at items.id 999",
         "item_id": 999,
     }
 

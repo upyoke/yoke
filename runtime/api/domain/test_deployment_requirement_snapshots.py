@@ -83,7 +83,7 @@ def test_explicit_requirement_selection_rejects_foreign_item_and_run(
         test_db, item_id=None, deployment_run_id="run-foreign"
     )
 
-    with pytest.raises(ValueError, match="not owned by item 9421"):
+    with pytest.raises(ValueError, match="not owned by YOK-421"):
         cmd_add_item("run-selection", 9421, requirement_ids=[foreign_item["id"]])
     with pytest.raises(ValueError, match="belongs to deployment run 'run-foreign'"):
         cmd_add_item("run-selection", 9421, requirement_ids=[foreign_run["id"]])

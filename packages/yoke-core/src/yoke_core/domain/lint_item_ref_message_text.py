@@ -26,9 +26,11 @@ from yoke_core.domain.lint_item_ref_construction import (
     is_exempt_relpath,
 )
 
-# Modules whose interpolated token is already a public ref or an operator's
-# own argument, spelled with an ``id``-shaped name.
-_ALLOWLIST: frozenset[str] = frozenset()
+# This module carries the shape it hunts for, as the docstring example that
+# explains it. Anything else added here has to justify itself in a comment.
+_ALLOWLIST: frozenset[str] = frozenset(
+    {"packages/yoke-core/src/yoke_core/domain/lint_item_ref_message_text.py"}
+)
 
 
 # Prose naming an item, then an interpolation of something id-shaped. The

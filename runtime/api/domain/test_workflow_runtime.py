@@ -118,7 +118,7 @@ def test_runtime_exposes_definition_owned_gate_placement(test_db):
 def test_runtime_refuses_unknown_item(test_db):
     with pytest.raises(
         WorkflowRegistryError,
-        match="does not exist",
+        match="no item at items.id 992",
     ):
         load_item_workflow_runtime(test_db, 992)
 
