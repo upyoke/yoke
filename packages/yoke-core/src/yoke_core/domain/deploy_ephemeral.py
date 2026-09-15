@@ -54,6 +54,10 @@ from yoke_core.domain.deploy_environment_settings import (
     DeployEnvironmentError,
     resolve_deploy_environment,
 )
+from yoke_core.domain.deploy_ephemeral_occupancy import (
+    require_unreserved_teardown,
+    resolve_deploy_occupancy,
+)
 from yoke_core.domain.deploy_ephemeral_files import (
     EphemeralDeployError,
     emit_ephemeral_event,
@@ -130,25 +134,15 @@ def exec_ephemeral_deploy(
     runner = runner or CommandRunner()
     slug = ""
     try:
-        preview_key = preview_key or branch
-        if not preview_key:
-            raise EphemeralDeployError(
-                "[ephemeral] no preview to deploy: run item-bound (the item's "
-                "worktree branch) or pass --branch to "
-                "python3 -m yoke_core.domain.deploy_ephemeral"
-            )
-        if not revision and not branch:
-            raise EphemeralDeployError(
-                f"[ephemeral] preview '{preview_key}' names no branch and no "
-                "revision, so there is nothing to resolve a commit from; pass "
-                "the exact revision for a preview that is not branch-shaped"
-            )
         project_root = Path(repo_path).expanduser().resolve()
         if not repo_path or not project_root.is_dir():
             raise EphemeralDeployError(
                 "[ephemeral] a valid project repo path is required for "
                 "project-owned Pack files"
             )
+        preview_key, slug = resolve_deploy_occupancy(
+            preview_key, branch=branch, revision=revision
+        )
         policy = load_ephemeral_policy(project)
         env = resolve_deploy_environment(policy.host_project, policy.host_env)
         if env.activation_state == "render_only":
@@ -157,7 +151,6 @@ def exec_ephemeral_deploy(
                 f"project '{policy.host_project}' is declared render_only; "
                 f"activate its Pulumi stack ({env.stack_name}) first"
             )
-        slug = slugify_branch(preview_key)
         api_port = policy.api_port_for(slug)
         url = preview_url(slug, policy.preview_domain)
         deploy_dir = ephemeral_deploy_dir(policy.preview_namespace, slug)
@@ -280,6 +273,7 @@ def exec_ephemeral_teardown(
     *,
     branch: str = "",
     preview_key: str = "",
+    frozen: bool = False,
     runner: Optional[CommandRunner] = None,
     emit: Callable[[str], None] = _emit,
 ) -> int:
@@ -289,15 +283,20 @@ def exec_ephemeral_teardown(
     by *preview_key* for one named after something else — because a
     preview that cannot be addressed by the name it was created under
     cannot be cleaned up at all.
+
+    *frozen* says the caller is tearing down a release preview it owns,
+    which is the only way to reach the reserved slug namespace: without it
+    a caller naming that occupancy is claiming one it did not create.
     """
     runner = runner or CommandRunner()
     try:
         preview_key = preview_key or branch
         if not preview_key:
             raise EphemeralDeployError("[ephemeral] --branch is required for teardown")
+        slug = slugify_branch(preview_key)
+        require_unreserved_teardown(preview_key, slug, owned=frozen)
         policy = load_ephemeral_policy(project)
         env = resolve_deploy_environment(policy.host_project, policy.host_env)
-        slug = slugify_branch(preview_key)
         teardown_slug_project(
             runner,
             env,

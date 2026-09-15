@@ -11,7 +11,8 @@ by golden-vector tests in ``test_ephemeral_substrate.py``).
 Per-project policy lives in the ``ephemeral-env`` project capability:
 which project and environment own the preview host (``host_project`` and
 ``host_env``), the
-wildcard preview domain (``preview_domain``), how deploys are triggered
+wildcard preview domain (``preview_domain``, whose ``rel-`` slug namespace
+is reserved for frozen release previews), how deploys are triggered
 (``trigger``: ``"flow"`` for a core-service executor or ``"github-push"``
 for a GitHub-Actions instantiation), the project-owned deployment flow used by
 the flow trigger (``flow_id``), the port
@@ -41,6 +42,15 @@ _DEFAULT_TTL_HOURS = 24
 
 #: Hex characters of the digest a frozen preview slug carries.
 FROZEN_PREVIEW_SLUG_DIGEST_LENGTH = 32
+#: Slugs beginning with this are reserved for frozen release previews, and
+#: nothing named any other way may land in it. A branch is free to be called
+#: anything, and one called ``rel-<32 hex>`` would otherwise slugify onto a
+#: release preview's occupancy — taking over its directory, its port and its
+#: URL, under a name whose ownership check has no frozen candidate to match.
+FROZEN_PREVIEW_SLUG_PREFIX = "rel-"
+_FROZEN_PREVIEW_SLUG_RE = re.compile(
+    rf"^{FROZEN_PREVIEW_SLUG_PREFIX}[0-9a-f]{{{FROZEN_PREVIEW_SLUG_DIGEST_LENGTH}}}$"
+)
 
 #: Sanctioned trigger models for ephemeral deploys.
 TRIGGER_FLOW = "flow"
@@ -98,7 +108,20 @@ def frozen_preview_slug(dispatch_id: str) -> str:
             "for; an empty identity would collide with every other empty one"
         )
     digest = hashlib.sha256(dispatch_id.encode("utf-8")).hexdigest()
-    return f"rel-{digest[:FROZEN_PREVIEW_SLUG_DIGEST_LENGTH]}"
+    slug = FROZEN_PREVIEW_SLUG_PREFIX + digest[:FROZEN_PREVIEW_SLUG_DIGEST_LENGTH]
+    return slug
+
+
+def is_frozen_preview_slug(slug: str) -> bool:
+    """Whether *slug* occupies the reserved frozen-preview namespace.
+
+    Every preview surface that names an occupancy some other way asks this
+    first. The reservation is only real if the paths that could collide with
+    it refuse to: a branch preview landing here would serve a moving branch
+    at a frozen candidate's URL, which is the one thing that URL promises
+    never happens.
+    """
+    return bool(_FROZEN_PREVIEW_SLUG_RE.fullmatch(slug))
 
 
 def derive_port(slug: str, base_port: int, port_range: int) -> int:
