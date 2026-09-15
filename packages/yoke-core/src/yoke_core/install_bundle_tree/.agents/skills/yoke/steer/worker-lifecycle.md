@@ -318,7 +318,7 @@ to a background task, the child keeps running; a worker that read that
 hand-back as completion ended its turn and killed the merge it was holding,
 twice in one night, reporting success with no verdict recorded. The mandate
 therefore tells the worker to continue the handed-back call until it exits,
-and to stop early only where the command itself handed the wait off.
+and to stop early only for a command-handed wait or the taught local-check interrupt.
 
 ```text
 {ROUTED_ENTRYPOINT}

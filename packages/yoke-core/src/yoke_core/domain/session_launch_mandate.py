@@ -98,8 +98,12 @@ HEADLESS_TOOL_CONTINUATION_TEACHING = (
     "verdict. Never start a second invocation beside a live one; re-run only "
     "once the first process is verifiably gone. Stop before a command "
     "finishes only where the command itself handed the wait off — a merge "
-    "that returned landing_pending has its landing notice, and nothing else "
-    "does."
+    "that returned landing_pending has its landing notice — or, as the "
+    "explicitly taught exception, when a *local* test check has already "
+    "exceeded about one minute: interrupt that test process cleanly, keep "
+    "the capture as incomplete, commit, and continue the selection on CI. "
+    "Do not interrupt a CI-routed watcher, and do not background the slow "
+    "local selection to keep waiting."
 )
 
 
