@@ -38,6 +38,28 @@ every QA target this definition names has a producer, with
 stored and kept disabled while its producer is absent, which is what
 lets configuration land ahead of runtime.
 
+Target kinds are one axis of that answer and identity provability is the
+other, because supporting a kind is not the same as being able to
+observe one. A QA stage reads its target from an earlier stage's
+receipt, and that receipt is evidence only if the producing step runner
+returned a *verified* candidate identity rather than a diagnostic
+string. `IDENTITY_PROVING_STEP_RUNNERS` names the runners that do;
+today that is the Yoke core health check alone, which asserts the served
+`build` against the run's pinned image tag over Yoke's own health
+contract. That is a Yoke-core-shaped proof, not a generic one: a project
+deploying its own environment through its own workflow has a perfectly
+valid `persistent_environment` target behind a runner that reports what
+the workflow did rather than what the environment now serves.
+
+`RUNNER_VERIFIED_TARGET_KINDS` names the kinds that take their identity
+from the runner. A kind whose producer reads the target back itself is
+deliberately excluded — the runner that deployed a preview never needed
+to prove anything — which keeps the two axes independent. A QA stage in
+that intersection behind a non-proving runner is refused at the same
+gates, reported as `unprovable_qa_identity_stages`, and refused again
+before dispatch so a definition activated before that gate existed stops
+before it changes a real environment rather than after.
+
 Registering a producer is therefore the whole act of widening the
 boundary: `RECEIPT_PRODUCERS` gains an entry, `SUPPORTED_TARGET_KINDS`
 derives from its keys, and these gates stop refusing that kind.
@@ -83,6 +105,25 @@ waiver discharges the obligation. Sent after the resolution commits and
 degrading to a warning when undeliverable, because the verdict is the
 durable outcome; a requirement that is not a deployment-stage subject
 notifies nobody. Owner: `yoke_core.domain.deployment_qa_verdict_notice`.
+
+## A caseless QA stage waits rather than failing
+
+A stage that names no cases is the ordinary shape, not a
+misconfiguration: the agent responsible for the subject chooses or
+creates the evidence. Materialization refuses when nothing is pinned,
+admitted or agent-selected, and that refusal is the agent's cue — so it
+carries its own exception type and the dispatch treats it as a durable
+wait, adding the subject to the waiting set and waking whoever can end
+it (the member's claim holder at item scope, the release's deploy-lock
+driver at run scope).
+
+Every other materialization refusal still fails the stage. An invalid
+pinned plan, an unresolvable target identity and a permission denial do
+not become truer by waiting, and dressing them as patience would strand
+a release behind a definition nobody is going to fix. A definition
+pinning a plan that does not exist cannot even be frozen into a run —
+composition freeze refuses it — so it never reaches the dispatch to be
+misread, which is why only one condition needs classifying there.
 
 ## A settled QA stage result reaches its configured audience
 
