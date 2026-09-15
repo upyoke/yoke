@@ -10,9 +10,6 @@ import pytest
 
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain import deployment_runs_schema, schema
-from yoke_core.domain.deployment_flow_target_support import (
-    unsupported_stage_target_kinds,
-)
 from yoke_core.domain.deployment_flow_versioning import (
     cmd_reorder_stages,
     cmd_update_definition,
