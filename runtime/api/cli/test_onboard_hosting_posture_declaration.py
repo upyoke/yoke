@@ -9,9 +9,12 @@ stays inside AWS and offers only re-entry or Not now.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import pytest
+
+from yoke_core.engines.doctor_tree_scan import GENERATED_TREE_NAMES
 
 pytest.importorskip("textual")
 
@@ -258,25 +261,47 @@ def test_only_the_aws_answer_promises_a_credential() -> None:
     assert "credential" not in declared.lower()
 
 
+def _live_package_python(repo: Path) -> list[Path]:
+    """Package sources only — leftover ``packages/*/build/lib`` is output."""
+    return [
+        candidate
+        for candidate in repo.glob("packages/**/*.py")
+        if "install_bundle_tree" not in candidate.parts
+        and not GENERATED_TREE_NAMES.intersection(candidate.parts)
+    ]
+
+
 def test_the_posture_vocabulary_has_exactly_one_home() -> None:
     """Two spellings of one value is how the wizard and the engine drift."""
-    from pathlib import Path
-
     repo = Path(__file__).resolve()
     while not (repo / "pyproject.toml").exists():
         repo = repo.parent
     contracts = repo / "packages/yoke-contracts/src/yoke_contracts/hosting_posture.py"
     offenders = [
         str(candidate.relative_to(repo))
-        for candidate in repo.glob("packages/**/*.py")
+        for candidate in _live_package_python(repo)
         if candidate != contracts
-        and "install_bundle_tree" not in candidate.parts
         and "no-yoke-managed-host" in candidate.read_text(encoding="utf-8")
     ]
     assert not offenders, (
         "posture literals belong only in yoke_contracts.hosting_posture; "
         f"found in {offenders}"
     )
+
+
+def test_leftover_package_build_lib_is_not_a_second_posture_home(
+    tmp_path: Path,
+) -> None:
+    leftover = (
+        tmp_path / "packages/yoke-contracts/build/lib/yoke_contracts/hosting_posture.py"
+    )
+    leftover.parent.mkdir(parents=True)
+    leftover.write_text("no-yoke-managed-host\n", encoding="utf-8")
+    live = tmp_path / "packages/yoke-contracts/src/yoke_contracts/other.py"
+    live.parent.mkdir(parents=True)
+    live.write_text("no-yoke-managed-host\n", encoding="utf-8")
+    found = [path.relative_to(tmp_path).as_posix() for path in _live_package_python(tmp_path)]
+    assert found == ["packages/yoke-contracts/src/yoke_contracts/other.py"]
 
 
 def _ok_response():
