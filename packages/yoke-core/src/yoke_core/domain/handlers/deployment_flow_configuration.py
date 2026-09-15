@@ -42,6 +42,7 @@ class DeploymentFlowValidateResponse(BaseModel):
     valid: bool
     definition_schema_version: int
     execution_supported: bool
+    unsupported_target_kinds: list[str] = Field(default_factory=list)
     serving_schema_version: int
 
 

@@ -19,7 +19,19 @@ from yoke_core.domain.project_identity import resolve_project
 
 LEGACY_DEFINITION_SCHEMA_VERSION = 1
 RELEASE_POLICY_SCHEMA_VERSION = 2
-CURRENT_EXECUTION_SCHEMA_VERSION = LEGACY_DEFINITION_SCHEMA_VERSION
+#: The richest definition schema this serving runtime executes. Raising it
+#: is what makes those definitions activatable, assignable and startable, so
+#: it moves only when the runtime behind the whole vocabulary exists —
+#: ordered per-stage execution, scoped QA materialization and gating, stage
+#: receipts with observed evidence, the wait and verdict wakes, the
+#: configured result notification, and release-to-done acceptance.
+#:
+#: Target kinds are a SEPARATE axis and are not promised by this version:
+#: :func:`unsupported_stage_target_kinds` refuses a definition whose QA
+#: stage names a target no receipt producer can observe, at the same gates
+#: this version guards, so enabling the schema never advertises a kind that
+#: would only fail mid-run.
+CURRENT_EXECUTION_SCHEMA_VERSION = RELEASE_POLICY_SCHEMA_VERSION
 
 STAGE_KIND_EXECUTION = "execution"
 STAGE_KIND_QA = "qa"

@@ -7,6 +7,41 @@ How a merged item's release is verified and announced, across the tables
 scoped stage settles through. Those table schemas stay there; what lives
 here is the behavior that reads and writes across them.
 
+## What this runtime actually serves
+
+Two independent axes decide whether a deployment flow definition can be
+activated, assigned and started, and both are reported rather than
+assumed.
+
+`deployment_flow_policy.CURRENT_EXECUTION_SCHEMA_VERSION` is the richest
+definition *vocabulary* this runtime executes. It serves the release
+schema: ordered per-stage execution, scoped QA materialization and
+gating, stage receipts carrying observed evidence, the wait and verdict
+wakes, the configured result notification, and release-to-done
+acceptance.
+
+Target *kinds* are the other axis and the schema version promises
+nothing about them. A QA stage reads its target from an earlier stage's
+receipt, so a kind with no registered receipt producer cannot be
+executed however complete the rest of the runtime is —
+`deployment_flow_target_support.unsupported_stage_target_kinds` names
+them, and the same gates the schema version guards refuse them:
+activating, updating an active definition, assigning, and starting. That
+is why the refusal arrives before a run exists rather than mid-run after
+earlier stages have already deployed; the producer's own refusal stays
+as defense-in-depth.
+
+`deployment_flows.validate-definition` answers on both axes —
+`execution_supported` is true only when the vocabulary is served AND
+every QA target this definition names has a producer, with
+`unsupported_target_kinds` naming the gap. A definition can still be
+stored and kept disabled while its producer is absent, which is what
+lets configuration land ahead of runtime.
+
+Registering a producer is therefore the whole act of widening the
+boundary: `RECEIPT_PRODUCERS` gains an entry, `SUPPORTED_TARGET_KINDS`
+derives from its keys, and these gates stop refusing that kind.
+
 ## Release-to-done reads both QA authorities again
 
 A succeeded run is not by itself proof that an attached item may close.

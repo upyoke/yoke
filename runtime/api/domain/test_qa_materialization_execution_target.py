@@ -191,7 +191,7 @@ def _stored_digest(conn, requirement_id: int) -> str:
 
 
 def test_rematerializing_drops_a_target_the_plan_no_longer_resolves_to() -> None:
-    """AC-5: the moved binding is let go of, not carried forward."""
+    """The moved binding is let go of, not carried forward."""
     with test_database() as conn:
         result = _materialize_command_plan(conn, item_id=825)
         requirement_id = result["created_requirement_ids"][0]
