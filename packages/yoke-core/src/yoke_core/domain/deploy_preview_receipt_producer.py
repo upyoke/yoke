@@ -24,6 +24,7 @@ from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
     ProducerContext,
     StageObservation,
 )
+from yoke_core.domain.ephemeral_substrate import TRIGGER_FLOW
 
 
 def run_preview_producer(
@@ -65,6 +66,22 @@ def run_preview_producer(
             f"identity_path (yoke projects capability-settings merge --project "
             f"{context.project} --cap-type {capability} --set "
             "identity_path=/<path>)",
+            None,
+        )
+
+    if identity.trigger and identity.trigger != TRIGGER_FLOW:
+        # The other trigger deploys previews by pushing a branch and reading
+        # back the run that push started: it takes no run key and no pinned
+        # revision, so it would stand up the branch while this receipt
+        # claimed the run's frozen candidate. Refuse rather than deploy
+        # something the proof would not be about.
+        return (
+            1,
+            f"project {context.project!r} deploys previews with trigger "
+            f"{identity.trigger!r}, which deploys a branch rather than a "
+            "pinned revision, so it cannot stand up this run's frozen "
+            "candidate; a release preview needs a deploy path that accepts "
+            "the run's own key and revision",
             None,
         )
 

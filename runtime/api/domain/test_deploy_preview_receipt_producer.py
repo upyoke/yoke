@@ -55,6 +55,7 @@ def _context(dispatch_result=(0, "preview deployed"), **overrides) -> ProducerCo
 
 
 def _resolved(**kwargs):
+    kwargs.setdefault("trigger", "flow")
     """Pin what the project's preview policy resolves to.
 
     The producer imports the resolver at call time, so patching it on its
@@ -177,3 +178,24 @@ class TestRunPreviewProducer:
         rc, diag, observation = producer.run_preview_producer(context)
         assert (rc, observation) == (1, None)
         assert "names no preview capability" in diag
+
+
+class TestTriggerThatCannotCarryTheCandidate:
+    def test_a_branch_push_trigger_is_refused_before_deploying(self) -> None:
+        """Deploying a branch cannot prove a run's frozen candidate.
+
+        The push trigger stands a preview up by pushing a branch and reading
+        back the run that push started; it takes neither the run's key nor a
+        pinned revision. Standing that up and then probing the run's URL
+        would deploy one thing and claim another, so the refusal comes
+        first — and names what such a project needs.
+        """
+        context = _context()
+        with _resolved(
+            origin=ORIGIN, path="/candidate-revision", trigger="github-push"
+        ):
+            rc, diag, observation = producer.run_preview_producer(context)
+        assert (rc, observation) == (1, None)
+        assert context.dispatch.calls == []  # type: ignore[attr-defined]
+        assert "github-push" in diag
+        assert "pinned revision" in diag

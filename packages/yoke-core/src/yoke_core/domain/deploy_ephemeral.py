@@ -250,7 +250,7 @@ def exec_ephemeral_deploy(
             )
         track(
             policy.project,
-            branch,
+            preview_key,
             {"status": "running", "health_check_url": url + env.health_path},
             item_label=item_label,
         )
@@ -258,14 +258,17 @@ def exec_ephemeral_deploy(
             "DeploymentEphemeralDeployed",
             policy,
             slug,
-            {"url": url, "image_ref": image_ref, "branch": branch},
+            {"url": url, "image_ref": image_ref, "branch": preview_key},
         )
         emit(f"  [ephemeral] {policy.project}/{slug} now serving {url}")
         return 0
     except _FAILURE_CLASSES as exc:
         if slug:
+            # ``slug`` is only set once the preview key resolved, so this
+            # always marks the preview this invocation was deploying — never
+            # a branch that happens to share the invocation.
             try:
-                track(project, branch, {"status": "failed"})
+                track(project, preview_key, {"status": "failed"})
             except Exception:
                 pass
         print(f"ERROR: {exc}", file=sys.stderr, flush=True)

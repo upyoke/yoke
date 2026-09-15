@@ -40,6 +40,11 @@ class PreviewIdentityTarget:
     path: str = ""
     unconfigured: bool = False
     unreadable: str = ""
+    # How this project's previews are deployed. A release preview must be
+    # deployed by something that can take the run's own key and frozen
+    # revision, and not every trigger can, so the caller needs this to
+    # refuse rather than deploy the wrong thing.
+    trigger: str = ""
 
 
 def resolve_preview_identity_target(
@@ -104,6 +109,7 @@ def resolve_preview_identity_target(
     return PreviewIdentityTarget(
         origin=preview_url(slugify_branch(preview_key), policy.preview_domain),
         path=policy.identity_path,
+        trigger=policy.trigger,
     )
 
 
