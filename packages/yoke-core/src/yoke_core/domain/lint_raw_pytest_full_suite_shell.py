@@ -1,31 +1,34 @@
 """Shell-text preprocessing for :mod:`lint_raw_pytest_full_suite`.
 
-FN50157: the guard scanned raw command TEXT for a pytest invocation, so
-a command that only WRITES a pytest command string as data — a QA
+A command that only WRITES a pytest command string as data — a QA
 plan-case JSON payload authored via heredoc, or piped through
-``printf``/``cat`` into a scratch file — was misread as running that
-invocation. Neither shape executes anything; both embed the text as an
-inert argument or file body.
+``printf``/``cat`` into a scratch file — reads, to a naive scan, as if
+it ran that invocation: the guard's segment splitter does not respect
+quoting or heredoc bodies, so text that is really a stored argument or
+file body gets treated as a fresh, executable statement.
 
-Two narrow preprocessing passes make written data invisible to the
-classifier before it ever segments or tokenizes the command, so the
-existing segment-split-then-tokenize pipeline in the caller needs no
-architecture change:
+The two passes below are scoped as narrowly as the evidence: they
+recognize a small, explicit set of DATA-WRITING shapes and leave every
+other command untouched, so a pytest invocation genuinely chained
+after a real separator (``cmd && pytest ...``) — including one sitting
+in a shell interpreter's own heredoc body, or a quoted ``-c`` argument
+the caller intends to execute — keeps being scanned exactly as before.
+Recursing into a quoted, genuinely executable payload (``bash -c
+"..."``, ``eval "..."``) to decide whether IT invokes pytest is
+deliberately out of scope: that is a new detection capability, not a
+fix to the false-positive shapes below.
 
-* :func:`strip_heredoc_bodies` removes each heredoc body outright — it
-  is written file content, never executed shell text — regardless of
-  whether the body happens to be quoted.
-* :func:`mask_quoted_spans` blanks the interior of every remaining
-  quoted span (keeping the delimiters so a flag consuming "the next
-  token" still has one to consume), so a shell operator or a pytest
-  invocation embedded in a quoted argument — ``printf '...json...'``,
-  ``-k 'not slow'`` — never reads as executable text.
-
-Recursing into a genuinely executable quoted payload (``bash -c
-"..."``, ``eval "..."``) is deliberately out of scope: that is a new
-detection capability, not a fix to this false-positive, and the
-existing segment-split-on-a-real-separator path (``cmd && pytest ...``)
-already catches a real chained invocation without either pass below.
+* :func:`strip_heredoc_bodies` removes a heredoc body only when its
+  reading program is not a shell interpreter. `cat`, `python3`, and
+  similar treat their heredoc as file content or script input that may
+  merely MENTION pytest as text; `sh`/`bash`/`zsh` interpret their
+  heredoc body as shell commands line by line, so a standalone
+  ``pytest ...`` line there is a real invocation and stays scannable.
+* :func:`mask_data_sink_lines` blanks quoted interiors only on a
+  physical line whose leading word is a known data-writing sink
+  (`cat`/`printf`/`echo`/`tee`) redirected to a file — the shape a QA
+  plan-case JSON payload actually takes. Every other line, including a
+  genuinely executable ``bash -c "..."`` argument, is left untouched.
 """
 
 from __future__ import annotations
@@ -36,6 +39,23 @@ from typing import List, Optional
 _HEREDOC_START = re.compile(
     r"<<-?\s*(?:'(?P<sq>[^']*)'|\"(?P<dq>[^\"]*)\"|(?P<bare>[A-Za-z_]\w*))"
 )
+
+#: Interpreters that read a heredoc body as shell commands, line by
+#: line — a bare ``pytest ...`` line there is a real invocation.
+_SHELL_INTERPRETERS = frozenset({"sh", "bash", "zsh", "ksh", "dash"})
+
+#: Programs whose ordinary job is writing their argument/stdin as data.
+_DATA_SINK_PROGRAMS = frozenset({"cat", "printf", "echo", "tee"})
+
+
+def _leading_program(text: str) -> str:
+    """First non-flag, non-assignment word in *text*, or ``""``."""
+    for token in text.split():
+        token = token.lstrip("({")
+        if not token or token.startswith("-") or "=" in token:
+            continue
+        return token.rsplit("/", 1)[-1]
+    return ""
 
 
 def mask_quoted_spans(text: str) -> str:
@@ -77,15 +97,56 @@ def mask_quoted_spans(text: str) -> str:
     return "".join(out)
 
 
+def _has_unquoted_gt(line: str) -> bool:
+    """True iff ``>`` appears outside single/double quotes in *line*."""
+    i, n = 0, len(line)
+    in_single = in_double = False
+    while i < n:
+        ch = line[i]
+        if ch == "\\" and not in_single and i + 1 < n:
+            i += 2
+            continue
+        if ch == "'" and not in_double:
+            in_single = not in_single
+            i += 1
+            continue
+        if ch == '"' and not in_single:
+            in_double = not in_double
+            i += 1
+            continue
+        if not in_single and not in_double and ch == ">":
+            return True
+        i += 1
+    return False
+
+
+def mask_data_sink_lines(command: str) -> str:
+    """Blank quoted interiors on a data-sink line redirected to a file.
+
+    A line whose leading word is not a data-sink program, or that has
+    no unquoted ``>``/``>>``, is returned unchanged — including a
+    ``bash -c "... && pytest ..."`` line, whose quoted argument this
+    guard's existing segment scan already reads as ordinary text.
+    """
+    return "\n".join(
+        mask_quoted_spans(line)
+        if _leading_program(line) in _DATA_SINK_PROGRAMS and _has_unquoted_gt(line)
+        else line
+        for line in command.split("\n")
+    )
+
+
 def strip_heredoc_bodies(command: str) -> str:
-    """Remove each heredoc body from *command*; it is written data.
+    """Remove a heredoc body from *command* when it is written data.
 
     Scans for the next unquoted ``<<``/``<<-`` operator (a here-string
-    ``<<<`` takes no body block and is left untouched), keeps the full
-    launch line intact, then discards every line up to and including the
-    terminator line — tab-stripped when the operator is ``<<-``. An
-    unterminated heredoc discards the remainder as still-open data
-    rather than guessing where it ends.
+    ``<<<`` takes no body block and is left untouched). When the
+    current line's leading program is a shell interpreter, the operator
+    is left as ordinary text and its body stays scannable. Otherwise
+    the full launch line is kept intact and every line up to and
+    including the terminator — tab-stripped when the operator is
+    ``<<-`` — is discarded; an unterminated heredoc discards the
+    remainder as still-open data rather than guessing where it ends.
     """
     out: List[str] = []
     i, n = 0, len(command)
@@ -111,6 +172,11 @@ def strip_heredoc_bodies(command: str) -> str:
             or not command.startswith("<<", i)
             or command.startswith("<<<", i)
         ):
+            out.append(ch)
+            i += 1
+            continue
+        line_start = command.rfind("\n", 0, i) + 1
+        if _leading_program(command[line_start:i]) in _SHELL_INTERPRETERS:
             out.append(ch)
             i += 1
             continue
@@ -144,4 +210,4 @@ def _consume_heredoc(command: str, i: int, out: List[str]) -> Optional[int]:
     return term_match.end()
 
 
-__all__ = ["mask_quoted_spans", "strip_heredoc_bodies"]
+__all__ = ["mask_data_sink_lines", "mask_quoted_spans", "strip_heredoc_bodies"]

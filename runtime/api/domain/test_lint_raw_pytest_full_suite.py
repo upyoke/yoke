@@ -208,9 +208,9 @@ class TestNonPytestCommandsNamingTestFiles(unittest.TestCase):
 
 
 class TestWrittenDataIsNotAnInvocation(unittest.TestCase):
-    """FN50157: writing a pytest command string as data is not running it.
+    """Writing a pytest command string as data is not running it.
 
-    Both shapes were observed denying real QA plan-case authoring, whose
+    Each shape was observed denying real QA plan-case authoring, whose
     ``method_config.command`` field legitimately stores a project test
     command as a JSON string value — inert text, never executed here.
     """
@@ -253,6 +253,43 @@ class TestWrittenDataIsNotAnInvocation(unittest.TestCase):
         )
         mode, _, _ = _eval(command)
         self.assertEqual(mode, "deny")
+
+
+class TestExecutableCoverageIsUnchanged(unittest.TestCase):
+    """Baseline-vs-candidate parity: exempting written data must not
+    narrow the coverage this guard already had for a genuinely
+    executable chain, however that coverage arose.
+
+    A heredoc read by a shell interpreter is executed as commands line
+    by line, unlike one read by ``cat``/``python3``; a shell's own
+    ``-c`` argument was already only accidentally caught (naive,
+    quote-oblivious splitting exposed a separator inside it), and stays
+    exactly as accidental — this locks in that pre-existing shape
+    rather than either fixing or losing it.
+    """
+
+    def test_bash_heredoc_running_a_real_sweep_still_denies(self):
+        command = "bash <<'EOF'\npytest " + " ".join(
+            f"{a}/" for a in lint.full_sweep_anchors()
+        ) + "\nEOF\n"
+        mode, _, _ = _eval(command)
+        self.assertEqual(mode, "deny")
+
+    def test_sh_heredoc_running_a_real_sweep_still_denies(self):
+        command = "sh <<'EOF'\npytest " + " ".join(
+            f"{a}/" for a in lint.full_sweep_anchors()
+        ) + "\nEOF\n"
+        mode, _, _ = _eval(command)
+        self.assertEqual(mode, "deny")
+
+    def test_shell_dash_c_chained_pytest_is_still_flagged(self):
+        # Locks in the pre-existing (already-incomplete) behavior: this
+        # shape was never a clean "full" deny — the naive split leaves a
+        # trailing quote glued to the last anchor — so parity means
+        # still non-None, not a newly-precise verdict.
+        anchors = " ".join(f"{a}/" for a in lint.full_sweep_anchors())
+        command = 'bash -c "cd /repo && python3 -m pytest ' + anchors + '"'
+        self.assertIsNotNone(_eval(command))
 
 
 class TestDecisionEnvelope(unittest.TestCase):

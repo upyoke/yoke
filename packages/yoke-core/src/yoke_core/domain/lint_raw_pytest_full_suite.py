@@ -36,7 +36,7 @@ from typing import List, Optional, Sequence, Tuple
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
 from yoke_core.domain.lint_raw_pytest_full_suite_shell import (
-    mask_quoted_spans, strip_heredoc_bodies,
+    mask_data_sink_lines, strip_heredoc_bodies,
 )
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
@@ -187,9 +187,9 @@ def _classify(command: str) -> Optional[Tuple[str, str]]:
     if any(marker in command for marker in _ADMITTED_INVOCATIONS):
         return None
     anchors = full_sweep_anchors()
-    # Written data (a heredoc body, a quoted argument) is never a shell
-    # invocation, however much it may read like one — FN50157.
-    scannable = mask_quoted_spans(strip_heredoc_bodies(command))
+    # A data-writing heredoc body or sink-redirected line is written
+    # data, not a shell invocation, however much it may read like one.
+    scannable = mask_data_sink_lines(strip_heredoc_bodies(command))
     for segment in _SEGMENT_SPLIT.split(scannable):
         tokens = _pytest_tokens(segment)
         if tokens is None:
