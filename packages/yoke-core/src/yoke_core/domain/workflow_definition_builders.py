@@ -20,6 +20,12 @@ WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK = "required_per_task"
 WORKFLOW_PATH_SURVEY_OPTIONAL = WORKFLOW_PATH_CLAIMS_OPTIONAL
 WORKFLOW_PATH_SURVEY_REQUIRED = WORKFLOW_PATH_CLAIMS_REQUIRED
 WORKFLOW_DELIVERY_MERGE_FREE = "merge_free"
+#: Continuous per-slice deploys during implementing (unchanged), plus a
+#: release-stage wait for the final delivery before the terminal stage — the
+#: hybrid a still-implementing Blitz needs: its slices keep releasing
+#: continuously, but final closeout waits on the same release-stage gate
+#: ordinary items use.
+WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE = "continuous_slice_then_release_stage"
 WORKFLOW_QA_OPTIONAL = "optional"
 WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT = "optional_item_attachment"
 REGISTERED_WORKFLOW_SKILL_IDS = frozenset(
@@ -195,6 +201,7 @@ __all__ = [
     "WORKFLOW_PATH_SURVEY_REQUIRED",
     "WORKFLOW_WORKTREES_NONE",
     "WORKFLOW_DELIVERY_MERGE_FREE",
+    "WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE",
     "WORKFLOW_QA_OPTIONAL",
     "WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT",
     "definition_fixture",

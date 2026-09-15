@@ -47,7 +47,7 @@ def _seed_linked_blitz(
     *,
     item_id: int,
     slug: str,
-    status: str = "reviewing-implementation",
+    status: str = "release",
 ) -> None:
     insert_item(
         conn,
@@ -158,4 +158,4 @@ def test_archive_failure_rolls_back_done_and_names_recovery(
     assert "Recovery:" in result["error"]
     assert _archived_at(test_db, "WRITE-FAILURE") is None
     status = test_db.execute("SELECT status FROM items WHERE id=4105").fetchone()[0]
-    assert str(status) == "reviewing-implementation"
+    assert str(status) == "release"

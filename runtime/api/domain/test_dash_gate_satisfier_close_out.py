@@ -38,7 +38,7 @@ def test_dash_done_keeps_rung_rows_events_and_converged_facts(
         test_db,
         id=item_id,
         workflow_id="dash",
-        status="reviewing-implementation",
+        status="release",
     )
     project_id = int(
         test_db.execute(

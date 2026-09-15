@@ -79,7 +79,7 @@ def test_delivery_redirect_stage_comes_from_pinned_transition_graph(test_db):
 
 
 def test_non_release_delivery_policy_has_no_redirect_stage(test_db):
-    runtime = load_item_workflow_runtime(test_db, _create(test_db, "dash"))
+    runtime = load_item_workflow_runtime(test_db, _create(test_db, "task"))
 
     assert delivery_redirect_stage(runtime) is None
 

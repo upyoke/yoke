@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from yoke_core.domain.workflow_definition_builders import (
     IMPLEMENTATION_WORKFLOW_SKILL_IDS,
+    WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
 from yoke_core.domain.workflow_gate_catalog import GATE_PLAN_SIMULATION
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
@@ -79,9 +80,19 @@ def release_note_category(runtime: WorkflowRuntime) -> str:
     return "improvements"
 
 
+_RELEASE_STAGE_REDIRECT_POLICIES = frozenset(
+    {"release_stage", WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE}
+)
+
+
 def delivery_redirect_stage(runtime: WorkflowRuntime) -> str | None:
-    """Return the definition-owned stage that waits on delivery evidence."""
-    if runtime.policies["delivery"] != "release_stage":
+    """Return the definition-owned stage that waits on delivery evidence.
+
+    A still-implementing Blitz keeps releasing continuously per slice; only
+    its final closeout — reaching the terminal stage's predecessor — waits
+    here, exactly like an ordinary ``release_stage`` item.
+    """
+    if runtime.policies["delivery"] not in _RELEASE_STAGE_REDIRECT_POLICIES:
         return None
     predecessors = {
         str(edge["from_stage_id"])

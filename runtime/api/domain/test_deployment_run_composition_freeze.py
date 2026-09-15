@@ -200,7 +200,7 @@ def test_repeated_blitz_membership_freezes_explicit_requirements_and_intent(
         is None
     )
 
-    test_db.execute("UPDATE items SET status='reviewing-implementation' WHERE id=9311")
+    test_db.execute("UPDATE items SET status='release' WHERE id=9311")
     test_db.commit()
     _run(test_db, "run-final", "advanced-blitz", lineage="b" * 40)
     cmd_add_item("run-final", 9311, requirement_ids=[second_id])
