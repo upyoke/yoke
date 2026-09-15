@@ -244,6 +244,34 @@ resumes at `complete`, skips every stage, and finalizes.
 
 Owner: `yoke_core.domain.deployment_run_completion_preconditions`.
 
+### Release-to-done reads both QA authorities again
+
+A succeeded run is not by itself proof that an attached item may close.
+An acceptance can be rejected by a human after the run finished, a
+replacement producer receipt can retarget a stage so the earlier
+acceptance no longer answers for it, and an operator can carry an item
+toward done on recorded evidence rather than a live pass
+(`--skip-deploy`, a resume, a run left at an unexpected status). So the
+release-to-done guard re-reads both authorities for the item it is
+closing:
+
+- `deployment_run_qa`, through `done_transition.run_blocking_qa`.
+- the pinned scoped per-stage acceptance, through
+  `done_transition.run_stage_qa_acceptance` — the item's own
+  item-scoped stages plus every run-scoped stage. Another member's
+  outstanding item-scoped QA is that member's gate, not this item's.
+
+Neither is a superset of the other: a legacy definition has no scoped
+stages, and a scoped stage deliberately writes no `deployment_run_qa`
+row. An unreadable read raises rather than reporting a clear gate, and
+a universe whose schema predates the scoped vocabulary reports nothing
+owed instead of failing.
+
+Owners: `yoke_core.engines.done_transition_run_qa_gates` (the guard),
+`yoke_core.domain.deployment_qa_run_acceptance` (the per-item read),
+`yoke_core.domain.deployment_qa_stage_acceptance` (the shared
+read-only acceptance ladder the active-stage gate settles).
+
 ## Table: deployment_preview_environments
 
 Preview environment occupancy tracking for deployment runs.

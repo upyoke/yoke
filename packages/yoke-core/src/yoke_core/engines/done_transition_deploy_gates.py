@@ -27,6 +27,7 @@ from yoke_core.engines.done_transition_delivery_default import (
     freeze_resolved_delivery_flow as _freeze_resolved_delivery_flow,
     resolve_default_delivery_flow as _resolve_default_delivery_flow,
 )
+from yoke_core.engines.done_transition_run_qa_gates import check_run_qa_gates
 
 
 def _parent():
@@ -166,10 +167,12 @@ def _check_deployment_flow_guard(
     if _read_deployment_flow_target_tier(deploy_flow, required=True) == "":
         return None
 
+    # One read serves the evidence question and the QA gates below.
+    run_status, run_id = _get_latest_run_status(item_id)
+
     if skip_deploy:
         # still requires evidence
-        has_evidence = _check_deployment_evidence(item_id)
-        if not has_evidence:
+        if run_status != "succeeded":
             print("\n=== Deployment evidence guard ===")
             print(
                 f"Blocked: --skip-deploy passed for {public_ref} but no "
@@ -182,12 +185,14 @@ def _check_deployment_flow_guard(
             )
             print(f"Run '/yoke usher {public_ref}' to deploy first.")
             return 7, old_status
+        # Skipping the live pipeline never skips the QA a stage already
+        # owes: the flag waives re-running deployment, not the verdicts
+        # the run's own evidence is supposed to carry.
+        if check_run_qa_gates(item_id, run_id):
+            return 7, old_status
         print(f"Deployment evidence verified for {public_ref}.")
         print("  Skipping live deployment pipeline checks per --skip-deploy.")
         return None
-
-    # Check deployment_runs for run-based evidence
-    run_status, run_id = _get_latest_run_status(item_id)
 
     if run_status:
         if run_status == "succeeded":
@@ -196,8 +201,7 @@ def _check_deployment_flow_guard(
             if stage_error:
                 return 7, old_status
             # Check blocking QA
-            qa_error = _check_run_qa_gates(run_id)
-            if qa_error:
+            if check_run_qa_gates(item_id, run_id):
                 return 7, old_status
             print(
                 "Deployment flow guard: run succeeded, QA satisfied — proceeding to done."
@@ -247,6 +251,8 @@ def _check_deployment_flow_guard(
     if not run_status or run_status != "succeeded":
         deploy_stage = _parent()._query_item_field(item_id, "deploy_stage")
         if deploy_stage == "complete":
+            if check_run_qa_gates(item_id, run_id):
+                return 7, old_status
             print("Deployment flow guard: deploy_stage=complete — proceeding to done.")
             return None
         print("\n=== Deployment flow guard ===")
@@ -327,24 +333,3 @@ def _check_run_stage_consistency(run_id: str) -> bool:
         return True
     return False
 
-
-def _check_run_qa_gates(run_id: str) -> bool:
-    """Check blocking QA requirements on run. Returns True if error."""
-    if not run_id:
-        return False
-    blocking = _relay_read(
-        "done_transition.run_blocking_qa",
-        TargetRef(kind="global"),
-        {"run_id": run_id},
-    ).get("blocking", [])
-    if blocking:
-        print("\n=== Deployment QA guard ===")
-        print(
-            f"Blocked: Deployment run '{run_id}' succeeded but blocking "
-            "QA checks are unsatisfied:"
-        )
-        for check in blocking:
-            print(f"  - {check}")
-        print("\nSatisfy all blocking QA checks before transitioning to done.")
-        return True
-    return False

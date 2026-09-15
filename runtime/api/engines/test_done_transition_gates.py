@@ -20,7 +20,14 @@ from runtime.api.engines._done_transition_test_helpers import (
 
 
 class TestRunQaGates:
-    """TC-run-qa-gates: blocking QA requirement check."""
+    """TC-run-qa-gates: blocking QA requirement check.
+
+    These runs carry a legacy flow definition, so the scoped per-stage
+    acceptance read contributes nothing and the legacy
+    ``deployment_run_qa`` projection is the whole answer.
+    """
+
+    ITEM_ID = 5000
 
     def test_unsatisfied_blocking_qa_blocks(self, dt_db):
         db_path, _ = dt_db
@@ -36,7 +43,7 @@ class TestRunQaGates:
         conn.commit()
         conn.close()
 
-        assert done_transition._check_run_qa_gates("r5") is True
+        assert done_transition.check_run_qa_gates(self.ITEM_ID, "r5") is True
 
     def test_all_passed_qa_passes(self, dt_db):
         db_path, _ = dt_db
@@ -52,7 +59,7 @@ class TestRunQaGates:
         conn.commit()
         conn.close()
 
-        assert done_transition._check_run_qa_gates("r6") is False
+        assert done_transition.check_run_qa_gates(self.ITEM_ID, "r6") is False
 
     def test_waived_qa_passes(self, dt_db):
         db_path, _ = dt_db
@@ -68,7 +75,7 @@ class TestRunQaGates:
         conn.commit()
         conn.close()
 
-        assert done_transition._check_run_qa_gates("r7") is False
+        assert done_transition.check_run_qa_gates(self.ITEM_ID, "r7") is False
 
 
 class TestEmptyBranchGuard:

@@ -15,6 +15,7 @@ import pytest
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_core.engines import done_transition as dt
 from yoke_core.engines import done_transition_deploy_gates as deploy_gates
+from yoke_core.engines import done_transition_run_qa_gates as run_qa_gates
 
 
 def _resp(function_id, result=None, *, success=True):
@@ -25,6 +26,7 @@ def _resp(function_id, result=None, *, success=True):
 
 def _install(monkeypatch, fake):
     monkeypatch.setattr(deploy_gates, "call_dispatcher", fake)
+    monkeypatch.setattr(run_qa_gates, "call_dispatcher", fake)
     monkeypatch.setattr(
         dt, "_connect",
         lambda *a, **k: pytest.fail("must not open a bare _connect() on a read path"),
@@ -100,23 +102,58 @@ class TestRunStageConsistency:
 
 
 class TestRunQaGates:
+    """Both QA authorities are read, and either one alone can block."""
+
     def test_blocking_unsatisfied_blocks(self, monkeypatch, capsys):
         _install(monkeypatch, _router({
             "done_transition.run_blocking_qa":
                 _resp("done_transition.run_blocking_qa",
                       {"blocking": ["smoke (failed)"]}),
+            "done_transition.run_stage_qa_acceptance":
+                _resp("done_transition.run_stage_qa_acceptance", {"blocking": []}),
         }))
-        assert deploy_gates._check_run_qa_gates("run-1") is True
+        assert run_qa_gates.check_run_qa_gates(42, "run-1") is True
         out = capsys.readouterr().out
-        assert "blocking QA checks are unsatisfied" in out
+        assert "QA obligations that are unsatisfied" in out
         assert "- smoke (failed)" in out
+
+    def test_unsettled_scoped_stage_blocks(self, monkeypatch, capsys):
+        """A scoped stage verdict blocks even with the legacy table clean."""
+        _install(monkeypatch, _router({
+            "done_transition.run_blocking_qa":
+                _resp("done_transition.run_blocking_qa", {"blocking": []}),
+            "done_transition.run_stage_qa_acceptance":
+                _resp("done_transition.run_stage_qa_acceptance",
+                      {"blocking": ["stage 'stage-qa': "
+                                    "no completed scoped QA execution exists"]}),
+        }))
+        assert run_qa_gates.check_run_qa_gates(42, "run-1") is True
+        out = capsys.readouterr().out
+        assert "no completed scoped QA execution exists" in out
 
     def test_no_blocking_passes(self, monkeypatch):
         _install(monkeypatch, _router({
             "done_transition.run_blocking_qa":
                 _resp("done_transition.run_blocking_qa", {"blocking": []}),
+            "done_transition.run_stage_qa_acceptance":
+                _resp("done_transition.run_stage_qa_acceptance", {"blocking": []}),
         }))
-        assert deploy_gates._check_run_qa_gates("run-1") is False
+        assert run_qa_gates.check_run_qa_gates(42, "run-1") is False
+
+    def test_unavailable_scoped_read_raises(self, monkeypatch):
+        """An unreadable release gate is not a passing one."""
+        _install(monkeypatch, _router({
+            "done_transition.run_blocking_qa":
+                _resp("done_transition.run_blocking_qa", {"blocking": []}),
+            "done_transition.run_stage_qa_acceptance":
+                _resp("done_transition.run_stage_qa_acceptance", success=False),
+        }))
+        with pytest.raises(RuntimeError, match="run_stage_qa_acceptance read failed"):
+            run_qa_gates.check_run_qa_gates(42, "run-1")
+
+    def test_empty_run_id_short_circuits(self, monkeypatch):
+        _install(monkeypatch, lambda **k: pytest.fail("must not relay for empty run"))
+        assert run_qa_gates.check_run_qa_gates(42, "") is False
 
 
 class TestDeploymentFlowGuard:

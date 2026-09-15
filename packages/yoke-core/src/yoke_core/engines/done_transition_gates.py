@@ -294,5 +294,7 @@ from yoke_core.engines.done_transition_deploy_gates import (  # noqa: E402,F401
     _get_latest_run_status,
     _read_deployment_flow_target_tier,
     _check_run_stage_consistency,
-    _check_run_qa_gates,
+)
+from yoke_core.engines.done_transition_run_qa_gates import (  # noqa: E402,F401
+    check_run_qa_gates,
 )

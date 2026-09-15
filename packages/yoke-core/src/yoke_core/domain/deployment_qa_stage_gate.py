@@ -8,6 +8,12 @@ from typing import Any
 
 from yoke_core.domain.approval_policy import parse_approval_policy
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_qa_stage_acceptance import (
+    acceptance_waived,
+    completed_execution,
+    existing_acceptance_requirement,
+    latest_verdict,
+)
 from yoke_core.domain.deployment_qa_stage_case_failures import case_failures
 from yoke_core.domain.deployment_qa_stage_contract import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
@@ -26,17 +32,6 @@ from yoke_core.domain import qa_execution_environment_target as target_authority
 ACCEPTANCE_QA_KIND = DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND
 
 
-def _latest_verdict(conn: Any, requirement_id: int) -> str:
-    row = conn.execute(
-        "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s "
-        "ORDER BY created_at DESC,id DESC LIMIT 1",
-        (int(requirement_id),),
-    ).fetchone()
-    if row is None:
-        return ""
-    return str(row["verdict"] if hasattr(row, "keys") else row[0] or "")
-
-
 def _completed_execution(
     conn: Any,
     *,
@@ -45,20 +40,24 @@ def _completed_execution(
     member_item_id: int | None,
     execution_target_digest: str,
 ) -> dict[str, Any] | None:
-    from yoke_core.domain.qa_plan_execution_store import select_plan_execution
+    """The shared read, plus the active stage's own target re-validation.
 
-    row = conn.execute(
-        "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s "
-        "AND COALESCE(deployment_member_item_id,0)=%s "
-        "AND execution_target_digest=%s AND state='completed' "
-        "ORDER BY created_at DESC,id DESC LIMIT 1",
-        (run_id, stage_name, member_item_id or 0, execution_target_digest),
-    ).fetchone()
-    if row is None:
+    Settling stands on the run's active stage, so it can and does assert
+    the execution still belongs to the live subject. The read-only
+    counterpart in :mod:`deployment_qa_stage_acceptance` deliberately
+    omits that assertion: it runs after the run left the stage, where
+    there is no active subject to compare against, and the digest
+    predicate already proves the target identity.
+    """
+    execution = completed_execution(
+        conn,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+        execution_target_digest=execution_target_digest,
+    )
+    if execution is None:
         return None
-    execution_id = row["id"] if hasattr(row, "keys") else row[0]
-    execution = select_plan_execution(conn, str(execution_id), lock=False)
     validate_deployment_execution_target(conn, execution)
     return execution
 
@@ -69,44 +68,17 @@ def _acceptance_requirement(
     subject: Mapping[str, Any],
     target: Mapping[str, Any],
 ) -> int:
+    existing = existing_acceptance_requirement(
+        conn,
+        subject=subject,
+        target=target,
+        acceptance_qa_kind=ACCEPTANCE_QA_KIND,
+    )
+    if existing is not None:
+        return existing
     run_id = str(subject["id"])
     stage_name = str(subject["stage"]["name"])
     member = subject.get("member_item_id")
-    rows = conn.execute(
-        "SELECT id,execution_target_json,execution_target_digest "
-        "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
-        "AND COALESCE(deployment_member_item_id,0)=%s AND qa_kind=%s "
-        "ORDER BY id",
-        (run_id, stage_name, member or 0, ACCEPTANCE_QA_KIND),
-    ).fetchall()
-    expected_json = target_authority.canonical_target(target)
-    expected_digest = target_authority.target_digest(target)
-    matches = [
-        row
-        for row in rows
-        if str(row["execution_target_json"] or "") == expected_json
-        and str(row["execution_target_digest"] or "") == expected_digest
-    ]
-    if len(matches) > 1:
-        raise ValueError(
-            "deployment stage acceptance was materialized more than once; "
-            "resolve the duplicate before resuming the pipeline"
-        )
-    row = matches[0] if matches else None
-    if row is not None:
-        stored_json = row["execution_target_json"] if hasattr(row, "keys") else row[1]
-        stored_digest = (
-            row["execution_target_digest"] if hasattr(row, "keys") else row[2]
-        )
-        if (
-            str(stored_json or "") != expected_json
-            or str(stored_digest or "") != expected_digest
-        ):
-            raise ValueError(
-                "deployment stage acceptance belongs to a replaced target; "
-                "preserve it and begin the replacement stage execution"
-            )
-        return int(row["id"] if hasattr(row, "keys") else row[0])
     now = iso8601_now()
     created = conn.execute(
         "INSERT INTO qa_requirements("
@@ -126,8 +98,8 @@ def _acceptance_requirement(
             ),
             "Review the completed scoped deployment QA cases and their evidence.",
             "Every admitted case passed against the pinned deployment target.",
-            expected_json,
-            expected_digest,
+            target_authority.canonical_target(target),
+            target_authority.target_digest(target),
             now,
         ),
     ).fetchone()
@@ -246,15 +218,9 @@ def _settle_stage_status(
         }
     conn.execute("SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,))
     requirement_id = _acceptance_requirement(conn, subject=subject, target=target)
-    waiver_row = conn.execute(
-        "SELECT waived_at FROM qa_requirements WHERE id=%s", (requirement_id,)
-    ).fetchone()
-    waived_at = (
-        waiver_row["waived_at"] if hasattr(waiver_row, "keys") else waiver_row[0]
-    )
-    if waived_at:
+    if acceptance_waived(conn, requirement_id):
         return {"accepted": True, "reasons": [], "request_id": None}
-    latest = _latest_verdict(conn, requirement_id)
+    latest = latest_verdict(conn, requirement_id)
     if latest == "pass":
         return {"accepted": True, "reasons": [], "request_id": None}
     if latest == "fail":

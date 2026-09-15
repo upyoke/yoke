@@ -127,6 +127,15 @@ def register(registry) -> None:
     )
     _register_read(
         registry,
+        "done_transition.run_stage_qa_acceptance",
+        _dep.handle_run_stage_qa_acceptance,
+        _dep.RunStageQaAcceptanceRequest,
+        _dep.RunStageQaAcceptanceResponse,
+        owner_module=_DEPLOY_MODULE,
+        target_kinds=["item"],
+    )
+    _register_read(
+        registry,
         "done_transition.done_preconditions",
         _dep.handle_done_preconditions,
         _dep.DonePreconditionsRequest,
