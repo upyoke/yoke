@@ -31,10 +31,6 @@ def _human_actor(test_db, actor_id: int) -> None:
 
 
 def _agent_review_plan(test_db) -> int:
-    test_db.execute(
-        "INSERT INTO project_capabilities(project_id,type) "
-        "VALUES(1,'browser-control') ON CONFLICT DO NOTHING"
-    )
     plan = create_plan(
         test_db,
         project="yoke",

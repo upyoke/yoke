@@ -11,6 +11,7 @@ from yoke_core.domain.db_helpers import iso8601_now, query_one
 from yoke_core.domain.project_identity import resolve_project
 from yoke_core.domain.qa_method_definitions import method_metadata_for_runner
 from yoke_core.domain.qa_method_capabilities import (
+    RUNNER_HOST_PROVISIONED_CAPABILITY_KINDS,
     QaMethodCapabilityError,
     capability_kinds,
 )
@@ -23,7 +24,11 @@ _RUNNER_CONTRACTS = {
         "verdict_paths": {"automatic"},
     },
     "browser_substrate": {
-        "capabilities": ("browser-control",),
+        # A project-authored browser method may declare exactly what this
+        # runner provisions where it executes, so the two never drift apart.
+        "capabilities": RUNNER_HOST_PROVISIONED_CAPABILITY_KINDS[
+            "browser_substrate"
+        ],
         "verdict_paths": {"automatic", "agent"},
     },
 }

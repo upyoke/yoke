@@ -46,7 +46,7 @@ New qa_kinds can be added without schema changes. The column is free-form text, 
 
 ### Layer 3: capability_requirements -- What runtime access is needed?
 
-JSON array of capability slugs. The deployment pipeline checks these against `project_capabilities` before execution.
+JSON array of capability slugs. Case admission checks these against the project's `project_capabilities` rows and the executing harness session, and refuses a case whose host is missing one. The one exemption is per runner, never per kind: a kind passes admission only for a case whose own `runner_id` is declared to supply it on the machine that runs the case (`browser_substrate` starts the machine-local browser daemon, which installs the runtime it needs; `agent_mission`'s dispatch contract requires the walker to run `yoke qa browser setup` on its target host before any browser step). The same kind on any other runner is still refused — a `worktree_run` or `ci_run` case declaring `browser-control` does not pass — and kinds naming project or host authority, such as `test-machine`, are exempt for no runner at all.
 
 ```json
 ["browser", "docker", "ssh", "repo", "github"]
