@@ -9,7 +9,10 @@ So this dispatches the stage through the ephemeral machinery the project
 already uses, then reads the served revision back over the origin the
 project's own preview policy derives. The origin comes from that policy and
 the run's identity, never from anything a caller supplies, which is what
-makes the answer evidence about *this* run's preview.
+makes the answer evidence about *this* run's preview. Which machinery that
+is depends on how the project deploys previews, and either way the origin
+is settled before the deploy runs — see
+:mod:`deploy_preview_dispatch_boundary`.
 
 The preview is named for the deployment run rather than for a branch: a
 release candidate is frozen, and a preview keyed to a branch would move
@@ -24,7 +27,6 @@ from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
     ProducerContext,
     StageObservation,
 )
-from yoke_core.domain.ephemeral_substrate import TRIGGER_FLOW
 
 
 def run_preview_producer(
@@ -33,6 +35,9 @@ def run_preview_producer(
     """Deploy this run's preview, then require it to prove the candidate."""
     from yoke_core.domain.browser_qa_preview_identity import (
         resolve_preview_identity_target,
+    )
+    from yoke_core.domain.deploy_preview_dispatch_boundary import (
+        release_preview_origin,
     )
     from yoke_core.domain.served_revision_probe import probe_served_revision
 
@@ -69,21 +74,21 @@ def run_preview_producer(
             None,
         )
 
-    if identity.trigger and identity.trigger != TRIGGER_FLOW:
-        # The other trigger deploys previews by pushing a branch and reading
-        # back the run that push started: it takes no run key and no pinned
-        # revision, so it would stand up the branch while this receipt
-        # claimed the run's frozen candidate. Refuse rather than deploy
-        # something the proof would not be about.
-        return (
-            1,
-            f"project {context.project!r} deploys previews with trigger "
-            f"{identity.trigger!r}, which deploys a branch rather than a "
-            "pinned revision, so it cannot stand up this run's frozen "
-            "candidate; a release preview needs a deploy path that accepts "
-            "the run's own key and revision",
-            None,
-        )
+    # Where this run's preview will be published, settled before anything
+    # is deployed. A stage that cannot carry the run's frozen candidate to
+    # the deploy path refuses here rather than standing up a preview the
+    # proof would not be about.
+    origin, refusal = release_preview_origin(
+        context.stage,
+        project=context.project,
+        run_id=context.run_id,
+        stage_name=context.stage_name,
+        trigger=identity.trigger,
+        flow_origin=identity.origin,
+        preview_domain=identity.preview_domain,
+    )
+    if refusal:
+        return 1, refusal, None
 
     exec_rc, exec_diag = context.dispatch(
         dispatch_environment=context.dispatch_environment
@@ -92,7 +97,7 @@ def run_preview_producer(
         return exec_rc, exec_diag, None
 
     outcome = probe_served_revision(
-        identity.origin,
+        origin,
         identity.path,
         expected_sha=context.release_lineage,
     )
@@ -113,7 +118,7 @@ def run_preview_producer(
             # fields, and a name borrowed from a branch would drift.
             target_name=context.run_id,
             observed_release_lineage=outcome.served,
-            observed_url=identity.origin,
+            observed_url=origin,
         ),
     )
 

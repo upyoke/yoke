@@ -39,6 +39,9 @@ _DEFAULT_API_BASE_PORT = 9000
 _DEFAULT_PORT_RANGE = 100
 _DEFAULT_TTL_HOURS = 24
 
+#: Hex characters of the digest a frozen preview slug carries.
+FROZEN_PREVIEW_SLUG_DIGEST_LENGTH = 32
+
 #: Sanctioned trigger models for ephemeral deploys.
 TRIGGER_FLOW = "flow"
 TRIGGER_GITHUB_PUSH = "github-push"
@@ -72,6 +75,30 @@ def slugify_branch(branch: str) -> str:
                 out.append("-")
                 prev_dash = True
     return "".join(out).strip("-")
+
+
+def frozen_preview_slug(dispatch_id: str) -> str:
+    """The slug a preview of one frozen candidate is published under.
+
+    A branch preview is named for its branch, which is what lets the next
+    push replace it. A release preview must survive exactly that, so it is
+    named for the dispatch that created it instead: the deploy workflow
+    hashes the same opaque dispatch identity and serves the result, and
+    this is the side of that parity contract Yoke computes from — the
+    probe has to know the URL before the deploy reports one.
+
+    Parity contract with the deploy workflow's own derivation (locked by
+    golden vectors in ``test_ephemeral_substrate.py``): ``rel-`` followed
+    by the first 32 hex characters of the SHA-256 of the identity, hashed
+    whole rather than truncated first.
+    """
+    if not dispatch_id:
+        raise EphemeralPolicyError(
+            "a frozen preview slug needs the dispatch identity it is named "
+            "for; an empty identity would collide with every other empty one"
+        )
+    digest = hashlib.sha256(dispatch_id.encode("utf-8")).hexdigest()
+    return f"rel-{digest[:FROZEN_PREVIEW_SLUG_DIGEST_LENGTH]}"
 
 
 def derive_port(slug: str, base_port: int, port_range: int) -> int:

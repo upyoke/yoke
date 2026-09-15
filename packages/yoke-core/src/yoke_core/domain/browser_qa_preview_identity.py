@@ -45,6 +45,10 @@ class PreviewIdentityTarget:
     # revision, and not every trigger can, so the caller needs this to
     # refuse rather than deploy the wrong thing.
     trigger: str = ""
+    # The wildcard domain previews are published under. A caller that names
+    # its own slug — a release preview keyed to its dispatch rather than to
+    # a branch — composes its origin from this rather than from ``origin``.
+    preview_domain: str = ""
 
 
 def resolve_preview_identity_target(
@@ -110,6 +114,7 @@ def resolve_preview_identity_target(
         origin=preview_url(slugify_branch(preview_key), policy.preview_domain),
         path=policy.identity_path,
         trigger=policy.trigger,
+        preview_domain=policy.preview_domain,
     )
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any, Dict, Mapping
 
 #: Built-in placeholders every stage may already use. A declared external
@@ -9,6 +10,17 @@ from typing import Any, Dict, Mapping
 #: reuses one of these names would silently overwrite the run's own
 #: identity, so binding declaration refuses them by name.
 RESERVED_INPUT_PLACEHOLDERS = frozenset({"head_sha", "run_id", "target_environment"})
+
+#: Every spelling of the placeholder a stage input uses to receive the
+#: run's frozen candidate. A stage that dispatches a deploy without one of
+#: these hands the workflow no revision at all, so the workflow deploys
+#: whatever its own trigger resolves — which is not this run's candidate.
+HEAD_SHA_PLACEHOLDERS = frozenset({"{head_sha}", "$head_sha", "${head_sha}"})
+
+
+def carries_head_sha(values: Mapping[str, str]) -> bool:
+    """Whether any configured input passes the run's frozen candidate."""
+    return any(value in HEAD_SHA_PLACEHOLDERS for value in values.values())
 
 
 def workflow_inputs(config: Dict[str, Any]) -> Dict[str, str]:
@@ -105,8 +117,31 @@ def workflow_dispatch_request_id(
     return f"{base}:{retrigger_scope}"
 
 
+def fresh_retrigger_scope(*, release_preview: bool) -> str:
+    """The scope one explicit ``--fresh`` retrigger dispatches under.
+
+    One ``--fresh`` invocation is one intentional retrigger, so the scope
+    stays stable for every transport retry inside that invocation while a
+    later ``--fresh`` gets a genuinely new dispatch.
+
+    A release preview is the exception, and deliberately so: it is
+    published under a name derived from this dispatch identity, so a new
+    scope would stand the preview up at a URL the run's own receipt does
+    not probe — the dispatch would succeed and the proof would read a
+    preview that no longer exists. Retriggering it redeploys the *same*
+    preview instead, which is safe precisely because the candidate is
+    frozen: a second dispatch under the same identity can only ever carry
+    the same commit.
+    """
+    if release_preview:
+        return ""
+    return f"fresh:{uuid.uuid4().hex}"
+
+
 __all__ = [
+    "carries_head_sha",
     "config_bool",
+    "fresh_retrigger_scope",
     "resolve_workflow_inputs",
     "workflow_dispatch_request_id",
     "workflow_inputs",

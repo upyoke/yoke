@@ -89,15 +89,16 @@ def _dispatch_step_runner(
             ),
             "",
         )
+    # A stage whose own target is a run preview deploys the run's frozen
+    # candidate under the run's own name, whichever path deploys it. A branch
+    # preview — every other preview stage — keeps deploying that branch's
+    # current head under the branch name, which is what a development preview
+    # is for.
+    release_preview = str((stage.get("target") or {}).get("kind") or "") == "run_preview"
+
     if step_runner == "ephemeral-deploy":
         from yoke_core.domain.deploy_ephemeral import exec_ephemeral_deploy
 
-        # A stage whose own target is a run preview deploys the run's frozen
-        # candidate under the run's own name. A branch preview — every other
-        # ephemeral stage — keeps deploying that branch's current head under
-        # the branch name, which is what a development preview is for.
-        target = stage.get("target") or {}
-        release_preview = str(target.get("kind") or "") == "run_preview"
         return (
             exec_ephemeral_deploy(
                 project,
@@ -165,6 +166,7 @@ def _dispatch_step_runner(
             product_repo_path=product_repo_path,
             image_tag=str(config.get("image_tag", "") or image_tag or ""),
             environment_name=environment_name,
+            release_preview=release_preview,
         )
 
     print(f"Error: unknown step runner type '{step_runner}'", file=sys.stderr)

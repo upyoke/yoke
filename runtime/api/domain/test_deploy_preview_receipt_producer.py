@@ -13,13 +13,23 @@ from unittest import mock
 
 import pytest
 
+from yoke_contracts.github_workflow_dispatch import (
+    WORKFLOW_DISPATCH_CORRELATION_INPUT,
+)
 from yoke_core.domain import browser_qa_preview_identity as preview_identity
 from yoke_core.domain import deploy_preview_receipt_producer as producer
 from yoke_core.domain import served_revision_probe as probe
+from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
+    workflow_dispatch_request_id,
+)
 from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
     ProducerContext,
     RECEIPT_PRODUCERS,
     SUPPORTED_TARGET_KINDS,
+)
+from yoke_core.domain.ephemeral_substrate import (
+    frozen_preview_slug,
+    preview_url,
 )
 
 
@@ -180,22 +190,88 @@ class TestRunPreviewProducer:
         assert "names no preview capability" in diag
 
 
-class TestTriggerThatCannotCarryTheCandidate:
-    def test_a_branch_push_trigger_is_refused_before_deploying(self) -> None:
-        """Deploying a branch cannot prove a run's frozen candidate.
+class TestAProjectWhoseWorkflowDeploysThePreview:
+    """Not every project's previews are deployed by the flow itself.
 
-        The push trigger stands a preview up by pushing a branch and reading
-        back the run that push started; it takes neither the run's key nor a
-        pinned revision. Standing that up and then probing the run's URL
-        would deploy one thing and claim another, so the refusal comes
-        first — and names what such a project needs.
-        """
-        context = _context()
+    Where the project's own GitHub workflow publishes them, the run's frozen
+    candidate and the preview's name travel as dispatch inputs, and the
+    preview lands at an origin derived from that dispatch rather than from
+    the run id. The producer has to probe the one that was actually
+    deployed.
+    """
+
+    @staticmethod
+    def _dispatching_context(**overrides):
+        context = _context(**overrides)
+        context.stage["step_runner"] = "github-actions-workflow"
+        context.stage["config"] = {
+            "workflow": "webapp-ephemeral.yml",
+            "dispatch_correlation_input": WORKFLOW_DISPATCH_CORRELATION_INPUT,
+            "inputs": {"commit_sha": "{head_sha}"},
+        }
+        return context
+
+    def test_it_probes_the_dispatched_origin_not_the_run_named_one(self) -> None:
+        """This is the defect the separation exists to prevent: the flow
+        origin names a slug this deploy path never publishes, so probing it
+        would read a host that does not exist — or worse, someone else's."""
+        context = self._dispatching_context()
+        expected = preview_url(
+            frozen_preview_slug(
+                workflow_dispatch_request_id(
+                    context.project, context.run_id, context.stage_name
+                )
+            ),
+            "preview.example.test",
+        )
         with _resolved(
-            origin=ORIGIN, path="/candidate-revision", trigger="github-push"
+            origin=ORIGIN,
+            path="/candidate-revision",
+            trigger="github-push",
+            preview_domain="preview.example.test",
+        ), mock.patch.object(
+            probe, "probe_served_revision",
+            return_value=probe.ProbeOutcome(
+                f"{expected}/candidate-revision", served=SHA
+            ),
+        ) as probed:
+            rc, _diag, observation = producer.run_preview_producer(context)
+        assert rc == 0
+        assert probed.call_args.args[0] == expected
+        assert observation is not None
+        assert observation.observed_url == expected
+        assert observation.observed_url != ORIGIN
+
+    def test_a_stage_that_cannot_carry_the_candidate_deploys_nothing(self) -> None:
+        """A stage passing no frozen revision would let the workflow resolve
+        its own, so the refusal lands before the dispatch rather than after
+        a preview of the wrong commit is standing."""
+        context = self._dispatching_context()
+        context.stage["config"]["inputs"] = {}
+        with _resolved(
+            origin=ORIGIN,
+            path="/candidate-revision",
+            trigger="github-push",
+            preview_domain="preview.example.test",
         ):
             rc, diag, observation = producer.run_preview_producer(context)
         assert (rc, observation) == (1, None)
         assert context.dispatch.calls == []  # type: ignore[attr-defined]
-        assert "github-push" in diag
-        assert "pinned revision" in diag
+        assert "frozen candidate" in diag
+
+    def test_a_step_runner_that_takes_no_inputs_deploys_nothing(self) -> None:
+        """The other ephemeral runner deploys a branch from a push: it takes
+        neither the run's key nor a pinned revision, so standing it up would
+        deploy one thing while the receipt claimed another."""
+        context = _context()
+        context.stage["step_runner"] = "ephemeral-deploy"
+        with _resolved(
+            origin=ORIGIN,
+            path="/candidate-revision",
+            trigger="github-push",
+            preview_domain="preview.example.test",
+        ):
+            rc, diag, observation = producer.run_preview_producer(context)
+        assert (rc, observation) == (1, None)
+        assert context.dispatch.calls == []  # type: ignore[attr-defined]
+        assert "takes no dispatch inputs" in diag

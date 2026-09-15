@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import sys
 import time
-import uuid
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.deploy_pipeline_gates import _check_ci_gate
@@ -35,6 +34,7 @@ from yoke_core.domain.deploy_pipeline_github_workflow_dispatch import (
 )
 from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
     config_bool as _config_bool,
+    fresh_retrigger_scope as _fresh_retrigger_scope,
     resolve_workflow_inputs as _resolve_workflow_inputs,
     workflow_dispatch_request_id as _workflow_dispatch_request_id,
     workflow_inputs as _workflow_inputs,
@@ -67,6 +67,7 @@ def _dispatch_github_actions_workflow(
     product_repo_path: str = "",
     image_tag: str = "",
     environment_name: str = "",
+    release_preview: bool = False,
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
     """Handle github-actions-workflow step_runner.
@@ -187,10 +188,7 @@ def _dispatch_github_actions_workflow(
     )
     if fresh:
         print("  --fresh: skipping existing-run search, will trigger new run")
-        # One explicit --fresh invocation is one intentional retrigger. Keep
-        # the scope stable for every transport retry inside this invocation,
-        # while a later --fresh invocation gets a genuinely new dispatch.
-        retrigger_scope = f"fresh:{uuid.uuid4().hex}"
+        retrigger_scope = _fresh_retrigger_scope(release_preview=release_preview)
     elif not reconcile_by_head_sha:
         narrate_sha_only_search_skip(reconcile_disabled=True)
     elif workflow_inputs:
