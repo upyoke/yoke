@@ -122,6 +122,12 @@ class EphemeralPolicy:
     web_base_port: int
     port_range: int
     ttl_hours: int
+    # Optional path, on the preview's own already-authorized origin, that
+    # serves the commit the preview is running. Empty means this project
+    # publishes no such proof, which is a reportable state rather than a
+    # defect: a check that needs one says it is unconfigured instead of
+    # guessing.
+    identity_path: str = ""
 
     def api_port_for(self, slug: str) -> int:
         return derive_port(slug, self.api_base_port, self.port_range)
@@ -197,6 +203,15 @@ def ephemeral_policy_from_capability(
             f"preview_domain {preview_domain!r}; provide a DNS name without "
             "a wildcard prefix or URL scheme; " + hint
         )
+    identity_path = str(cap.get("identity_path") or "")
+    if identity_path and not _is_origin_relative_path(identity_path):
+        raise EphemeralPolicyError(
+            f"project '{project}' {_CAPABILITY} capability has an "
+            f"identity_path {identity_path!r} that leaves the preview's own "
+            "origin; give a path beginning with a single '/', because the "
+            "origin comes from the already-authorized preview target and the "
+            "setting only selects a path beneath it; " + hint
+        )
     api_base_port = _positive_int(cap, "api_base_port", _DEFAULT_API_BASE_PORT)
     web_base_port = _positive_int(cap, "web_base_port", _DEFAULT_WEB_BASE_PORT)
     port_range = _positive_int(cap, "port_range", _DEFAULT_PORT_RANGE)
@@ -228,6 +243,23 @@ def ephemeral_policy_from_capability(
         web_base_port=web_base_port,
         port_range=port_range,
         ttl_hours=ttl_hours,
+        identity_path=identity_path,
+    )
+
+
+def _is_origin_relative_path(value: str) -> bool:
+    """Whether *value* can only ever address the origin it is joined to.
+
+    A scheme-bearing or protocol-relative value would move the request to
+    some other host, which is exactly what the preview identity proof must
+    not allow: the origin is the authorized target, and the configured
+    value only chooses a path under it.
+    """
+    return (
+        value.startswith("/")
+        and not value.startswith("//")
+        and "://" not in value
+        and "\\" not in value
     )
 
 

@@ -96,7 +96,7 @@ class TestDeployedShaFreshness:
     """_validate_deployed_sha (pure compare) and the scenario freshness gate."""
 
     def test_sha_match_passes(self) -> None:
-        """Matching SHA passes validation and logs success."""
+        """Matching SHA passes validation and names the evidence source."""
         with mock.patch("yoke_core.domain.browser_qa._log") as mock_log:
             err = browser_qa._validate_deployed_sha(
                 "testproj", "YOK-999", "abc123",
@@ -104,7 +104,8 @@ class TestDeployedShaFreshness:
             )
         assert err is None
         mock_log.assert_called_once_with(
-            "Freshness check passed: branch=YOK-999, sha=abc123",
+            "Freshness check passed against the recorded deployment: "
+            "branch=YOK-999, sha=abc123",
         )
 
     def test_sha_mismatch_returns_error(self) -> None:

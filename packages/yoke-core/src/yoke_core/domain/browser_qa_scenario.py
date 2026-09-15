@@ -86,6 +86,23 @@ def _fetch_browser_context(
     return response.result or {}
 
 
+def _base_url_from_requirements(req_rows: list) -> str:
+    """Read the target URL a requirement's method config names, if any.
+
+    Returns "" when the rows carry none; the caller reports a missing target
+    URL in one place rather than each reader inventing its own refusal.
+    """
+    if not req_rows:
+        return ""
+    first_config = req_rows[0]["method_config"]
+    if not first_config:
+        return ""
+    try:
+        return json.loads(first_config).get("base_url", "") or ""
+    except json.JSONDecodeError:
+        return ""
+
+
 def execute_scenario(
     project: str,
     requirement_id: int,
@@ -178,6 +195,14 @@ def execute_scenario(
         {"item_id": item_id, "deployment_run_id": deployment_run_id},
     )
 
+    req_rows = context.get("requirements") or []
+    # The target URL is resolved before freshness rather than after it,
+    # because a deployment with no recorded row can still answer for itself
+    # over that URL. Resolving it here changes no precedence: an unresolved
+    # URL stays the error it already was, further down.
+    if not base_url:
+        base_url = _base_url_from_requirements(req_rows)
+
     # Step 2: Freshness validation against the context's deployed_sha
     if expected_branch and expected_sha:
         _bqa._log(f"Validating deployed SHA for branch {expected_branch}...")
@@ -187,6 +212,7 @@ def execute_scenario(
             expected_sha,
             deployed_sha=context.get("deployed_sha"),
             deployment_recorded=bool(context.get("deployment_recorded")),
+            base_url=base_url,
         )
         if freshness_error:
             _bqa._log(f"ERROR: {freshness_error.message}")
@@ -195,7 +221,6 @@ def execute_scenario(
             print(result.to_json())
             return result
 
-    req_rows = context.get("requirements") or []
     if not req_rows:
         _bqa._log(f"No browser QA requirements found for {named_subject}")
         result.note = "no_browser_requirements"
@@ -204,16 +229,7 @@ def execute_scenario(
 
     _bqa._log("Found browser requirements")
 
-    # Step 3: Resolve base_url
-    if not base_url:
-        first_config = req_rows[0]["method_config"]
-        if first_config:
-            try:
-                method_config = json.loads(first_config)
-                base_url = method_config.get("base_url", "")
-            except json.JSONDecodeError:
-                pass
-
+    # Step 3: Require the target URL resolved above
     if not base_url:
         _bqa._log(
             "ERROR: No --base-url provided and no base_url in method_config"
