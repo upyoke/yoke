@@ -65,12 +65,15 @@ def test_composed_mandate_tells_workers_to_continue_a_handed_back_call() -> None
     assert "only ending the turn kills the watcher" in teaching
     assert "Never start a second invocation beside a live one" in teaching
     # Sanctioned early stops stay named: landing handoff, plus the taught
-    # local-check interrupt so continuation is not a total ban.
+    # local-check interrupt on a project with declared CI.
     assert "a merge that returned landing_pending has its landing notice" in teaching
     assert (
-        "when a *local* test check has already exceeded about one minute"
+        "when a *local* test check on a project with declared CI has already "
+        "exceeded about one minute"
         in teaching
     )
+    assert "a machine-specific diagnostic" in teaching
+    assert "a project without CI" in teaching
 
 
 def test_the_landing_handoff_precedes_the_continuation_rule() -> None:
