@@ -78,6 +78,19 @@ def handle_projects_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     resolved_project = project
     actor_id = numeric_actor_id(request.actor.actor_id if request.actor else None)
+    # TEMP DIAGNOSTIC (YOK-3116): instrumented CI-only "project not found"
+    # investigation. Prints only nonsecret project existence/id and resolved
+    # database identity/authority observed inside the actual server handler.
+    # Remove once the root cause is fixed.
+    import os as _yok3116_os
+    import sys as _yok3116_sys
+
+    _yok3116_worker = _yok3116_os.environ.get("PYTEST_XDIST_WORKER", "master")
+    print(
+        f"[YOK-3116-DIAG] handler.projects_get.entry worker={_yok3116_worker} "
+        f"project={project!r} actor_id={actor_id}",
+        file=_yok3116_sys.stderr,
+    )
     if actor_id is not None:
         from yoke_core.domain.db_helpers import connect
         from yoke_core.domain.project_identity import resolve_project
@@ -90,6 +103,20 @@ def handle_projects_get(request: FunctionCallRequest) -> HandlerOutcome:
                 project,
                 required=False,
                 visible_project_ids=visible_project_ids,
+            )
+            _yok3116_db_row = conn.execute("SELECT current_database()").fetchone()
+            _yok3116_db_name = _yok3116_db_row[0] if _yok3116_db_row else None
+            _yok3116_exists_row = conn.execute(
+                "SELECT id, slug FROM projects WHERE slug=%s", (project,)
+            ).fetchone()
+            print(
+                f"[YOK-3116-DIAG] handler.projects_get.resolved "
+                f"worker={_yok3116_worker} project={project!r} "
+                f"actor_id={actor_id} "
+                f"visible_project_ids={sorted(visible_project_ids) if visible_project_ids is not None else None} "
+                f"identity_found={identity is not None} db={_yok3116_db_name!r} "
+                f"project_row_ignoring_visibility={_yok3116_exists_row}",
+                file=_yok3116_sys.stderr,
             )
         finally:
             conn.close()
