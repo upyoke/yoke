@@ -73,12 +73,15 @@ def test_does_not_overwrite_a_value_already_set(test_db: Any) -> None:
     assert row["deployment_flow"] == "flow-b"
 
 
-def test_a_second_racing_claim_after_the_first_commits_loses(test_db: Any) -> None:
-    """Two sequential claim_default calls for the same item: the first
-    genuinely claims it, and the second -- reflecting what a concurrent
-    request from the same claim holder would see once the first's
-    transaction commits -- sees the field already set and does not
-    overwrite it."""
+def test_a_second_sequential_claim_after_the_first_commits_sees_it_set(
+    test_db: Any,
+) -> None:
+    """Two SEQUENTIAL calls, not a concurrency proof: the first genuinely
+    claims the field, and the second -- called only after the first's
+    transaction has already committed -- reads it already set and does
+    not overwrite it. The conditional UPDATE's own WHERE clause is what
+    would also exclude a truly concurrent writer; this only checks the
+    read-after-commit half of that."""
     item_id = 9903
     insert_item(test_db, id=item_id, project_sequence=item_id, workflow_id="issue")
     _flow(test_db, "flow-a")

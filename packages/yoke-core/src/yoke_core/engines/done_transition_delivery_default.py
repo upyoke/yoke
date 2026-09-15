@@ -69,7 +69,12 @@ def freeze_resolved_delivery_flow(item_id: int, flow_id: str, *, public_ref: str
             f"items.deployment_flow.claim_default failed: {message}"
         )
     result = resp.result or {}
-    stored = str(result.get("deployment_flow") or flow_id)
+    stored = str(result.get("deployment_flow") or "")
+    if not stored:
+        raise RuntimeError(
+            "items.deployment_flow.claim_default reported success but named "
+            f"no stored deployment_flow for {public_ref}"
+        )
     if result.get("claimed"):
         print(
             f"Resolved and froze {public_ref}'s delivery flow to '{stored}' "

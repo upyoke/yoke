@@ -85,6 +85,24 @@ class TestFreezeResolvedDeliveryFlow:
         )
         assert dispatch.call_args.kwargs["payload"] == {"flow_id": "ext-default"}
 
+    def test_a_success_response_naming_no_stored_value_refuses_rather_than_guessing(
+        self,
+    ):
+        """A malformed response cannot be papered over by assuming it
+        matches the candidate this call offered."""
+        response = SimpleNamespace(
+            success=True,
+            result={"item_id": 553, "deployment_flow": "", "claimed": True},
+            error=None,
+        )
+        with mock.patch.object(
+            delivery_default, "call_dispatcher", return_value=response
+        ):
+            with pytest.raises(RuntimeError, match="named no stored deployment_flow"):
+                delivery_default.freeze_resolved_delivery_flow(
+                    553, "ext-default", public_ref="EXT-553"
+                )
+
     def test_a_refused_write_raises(self):
         response = SimpleNamespace(
             success=False, result={}, error=SimpleNamespace(message="frozen item"),

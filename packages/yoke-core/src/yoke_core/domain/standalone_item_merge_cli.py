@@ -19,6 +19,7 @@ from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_recovery as recovery
 from yoke_core.domain import standalone_item_merge_release_continuation as release_flow
 from yoke_core.domain.merge_review_readiness import review_readiness_refusal
+from yoke_core.domain.standalone_item_merge_release_status import reached_release as _reached_release
 from yoke_core.domain import standalone_item_merge_pending as pending
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.session_liveness_pump import SessionLivenessPump
@@ -142,6 +143,7 @@ def run(argv: List[str]) -> int:
         target=target,
         repo_root=str(repo_root),
         recorded_head=recorded_head,
+        reached_release=_reached_release(item, status),
     )
     if stale:
         return _fail(f"{public_ref}: {stale}", as_json=as_json)

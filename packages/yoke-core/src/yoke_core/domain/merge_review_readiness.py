@@ -33,7 +33,9 @@ from yoke_core.domain.workflow_runtime import (
 )
 
 
-def _pinned_workflow(item: dict[str, Any]) -> tuple[Optional[WorkflowRuntime], str]:
+def pinned_workflow_for_item(
+    item: dict[str, Any],
+) -> tuple[Optional[WorkflowRuntime], str]:
     """Load the definition the item pins. Returns ``(runtime, error)``.
 
     The pin is asked for exactly as the item names it, so a pin that names
@@ -77,7 +79,7 @@ def review_readiness_refusal(item: dict[str, Any], *, public_ref: str) -> str:
     cannot ask the question must not answer it with a landing.
     """
     status = str(item.get("status") or "")
-    workflow, error = _pinned_workflow(item)
+    workflow, error = pinned_workflow_for_item(item)
     if workflow is None:
         return (
             f"review readiness could not be checked because {error}. Merge "
@@ -98,4 +100,4 @@ def review_readiness_refusal(item: dict[str, Any], *, public_ref: str) -> str:
     )
 
 
-__all__ = ["review_readiness_refusal"]
+__all__ = ["pinned_workflow_for_item", "review_readiness_refusal"]
