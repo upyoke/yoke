@@ -1,10 +1,11 @@
-"""Resolve the item a terminal DONE report names, and refuse guesses."""
+"""Resolve the item and leg a terminal DONE report names, and refuse guesses."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from yoke_contracts.session_control.terminal_report import parse_terminal_report
+from yoke_core.domain import db_backend
 from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
 from yoke_core.domain.session_item_scope import (
     SessionItemScope,
@@ -70,9 +71,31 @@ def resolve_terminal_report_item(
     return claimed
 
 
+def acknowledged_authorization(conn: Any, session_id: str | None) -> str | None:
+    """The last instruction this session acknowledged, or ``None`` for no work.
+
+    A resumed worker acknowledges the message authorizing its next leg before
+    doing that work, whether or not the resume also hands it a fresh claim. So
+    a worker still holding an unfinished lane — kept for delivery or a retest —
+    reports that completion under a moved authorization rather than having to
+    release the claim to be heard.
+    """
+    if not session_id:
+        return None
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        "SELECT message_id FROM session_message_recipients "
+        f"WHERE session_id = {marker} AND state = 'acknowledged' "
+        "ORDER BY acknowledged_at DESC, message_id DESC LIMIT 1",
+        (str(session_id),),
+    ).fetchone()
+    return None if row is None else str(dict(row)["message_id"])
+
+
 __all__ = [
     "ITEM_UNKNOWN",
     "ITEM_UNRELATED",
     "ITEM_UNSPECIFIED",
+    "acknowledged_authorization",
     "resolve_terminal_report_item",
 ]

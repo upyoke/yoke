@@ -8,11 +8,16 @@ same message, so the seat is told once.
 The item in that key is the PREFIX-N named in the mandated heading, not
 whatever claim the session happens to hold.
 
-The claim in that key is the work leg. A worker acquires the item claim, works,
-reports, and releases; steering that resumes it for newly authorized work on the
-same item hands it a fresh claim, and that second completion is a genuinely new
-report the seat has never been told. Keying on session and item alone collapsed
-it into the first report forever, so the second body was silently discarded.
+The work leg in that key is the claim plus the authorization it answers. A
+worker acquires the item claim, works, reports, and releases, so a resume that
+reacquires opens a new leg — but a worker held for delivery or a retest keeps
+its claim across the resume, and must never release an unfinished lane merely
+to make its next report deliverable. What moves in BOTH shapes is the seat's
+instruction: the worker acknowledges the message authorizing the new work, and
+that acknowledged message is the leg's second half. Retries of one completion
+answer the same authorization under the same claim and still collapse into one
+message; keying on session and item alone collapsed every later completion into
+the first report forever, so the second body was silently discarded.
 """
 
 from __future__ import annotations
@@ -73,23 +78,35 @@ def parse_terminal_report(body: str) -> ParsedTerminalReport | None:
     return ParsedTerminalReport(item_ref=f"{prefix}-{sequence}")
 
 
+#: Stands in for the authorization half when the sender has acknowledged no
+#: instruction at all, so the key shape never varies on its absence.
+NO_AUTHORIZATION = "none"
+
+
 def terminal_report_idempotency_key(
-    session_id: str, item_id: int, claim_id: int
+    session_id: str,
+    item_id: int,
+    claim_id: int,
+    authorization_id: str | None = None,
 ) -> str:
     """Return the key every terminal report of one work leg shares.
 
-    The leg is the sender's claim on the named item: retries of one completion
-    share it, while a completion after a reacquire for newly authorized work
-    gets its own key and reaches the seat.
+    The leg is the sender's claim on the named item plus the last instruction
+    it acknowledged. Retries of one completion share both, while a completion
+    after a resume differs in at least one — a reacquired claim, a retained
+    claim under a newly acknowledged instruction, or both — and reaches the
+    seat instead of collapsing into the earlier report.
     """
     return (
         f"{TERMINAL_REPORT_IDEMPOTENCY_PREFIX}{session_id}:"
-        f"{int(item_id)}:{int(claim_id)}"
+        f"{int(item_id)}:{int(claim_id)}:"
+        f"{authorization_id or NO_AUTHORIZATION}"
     )
 
 
 __all__ = [
     "COLLAPSED_DIFFERING_BODY_NOTICE",
+    "NO_AUTHORIZATION",
     "ParsedTerminalReport",
     "TERMINAL_REPORT_IDEMPOTENCY_PREFIX",
     "TERMINAL_REPORT_TOKEN",

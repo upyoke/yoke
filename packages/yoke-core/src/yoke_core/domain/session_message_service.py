@@ -45,7 +45,10 @@ from yoke_core.domain.session_message_steering import (
     resolve_steering_address,
     seat_session_id,
 )
-from yoke_core.domain.session_message_terminal import resolve_terminal_report_item
+from yoke_core.domain.session_message_terminal import (
+    acknowledged_authorization,
+    resolve_terminal_report_item,
+)
 from yoke_core.domain.session_message_zero_recipients import require_recipients
 from yoke_core.domain.steering_recipient_projection import (
     previewed_steering_recipient,
@@ -225,6 +228,7 @@ def send_message(
                 sender_session_id,
                 reported_item.item_id,
                 reported_item.claim_id,
+                acknowledged_authorization(conn, sender_session_id),
             )
             if reported_item is not None and sender_session_id
             else None

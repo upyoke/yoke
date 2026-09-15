@@ -120,10 +120,11 @@ _DELIBERATE_CLOSE = (
     "the DONE heading is the report identity and must name work this session "
     "holds or released; a repeat of the same DONE is deduplicated rather "
     "than delivered twice. That one report covers this work leg — your claim "
-    "on the named item — so if you are resumed for newly authorized work on "
-    "the same item, reacquire that item's claim before reporting it and the "
-    "new report reaches the seat. A send answering `Collapsed into an earlier "
-    "message` did NOT deliver your body."
+    "on the named item plus the instruction you last acknowledged — so a "
+    "resume for newly authorized work opens a new leg and its completion "
+    "reaches the seat, whether or not the resume hands you a fresh claim; "
+    "never release an unfinished lane merely to be heard. A send answering "
+    "`Collapsed into an earlier message` did NOT deliver your body."
 )
 
 
