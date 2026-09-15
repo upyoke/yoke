@@ -142,11 +142,11 @@ def live_stop_block_reason(conn: Any, session_id: str) -> Optional[str]:
     A parked session has declared it wants to be quiet and keeps that
     escape hatch. An armed Monitor still blocks after it has completed,
     because completing that tool is what arms the waiter. An open
-    Bash/Shell row is the pending-command owner after auto-background:
-    later unrelated completions do not erase it. A live latest-open row
-    still holds for a command in flight; ``open_tool_call_is_live``
-    refuses residue from a harness that never writes completions.
-    Neither reading uses the telemetry ledger.
+    Bash/Shell row still holds only while ``open_tool_call_is_live``
+    agrees it is current work — leftover unclosed Bash from a harness
+    that never writes completions is residue, same as any other tool.
+    A live latest-open row still holds a command in flight. Neither
+    reading uses the telemetry ledger.
     """
     from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
 
@@ -165,7 +165,10 @@ def live_stop_block_reason(conn: Any, session_id: str) -> Optional[str]:
         return None
     if str(_row_value(row, LAST_COMPLETED_TOOL_COLUMN) or "") == MONITOR_TOOL_NAME:
         return STOP_BLOCK_MONITOR
-    if _row_value(row, OPEN_LOCAL_COMMAND_COLUMN):
+    if open_tool_call_is_live(
+        _row_value(row, OPEN_LOCAL_COMMAND_COLUMN),
+        _row_value(row, "last_tool_call_at"),
+    ):
         return STOP_BLOCK_LIVE_COMMAND
     if open_tool_call_is_live(
         _row_value(row, OPEN_TOOL_CALL_COLUMN),

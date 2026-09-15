@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -18,19 +19,79 @@ from yoke_core.hooks.session_dispatch_orientation import (
     _render_codex_reminder,
 )
 
+_TASK_NOTIFICATION_RE = re.compile(
+    r"<task-notification>.*?<tool-use-id>([^<]+)</tool-use-id>"
+    r".*?<status>(completed|failed|stopped)</status>",
+    re.DOTALL,
+)
+_SETTLE_BY_STATUS = {
+    "completed": ("HarnessToolCallCompleted", "completed", True),
+    "failed": ("HarnessToolCallFailed", "failed", True),
+    "stopped": ("HarnessToolCallCompleted", "interrupted", False),
+}
+
+
+def _settle_task_notification(context: HookContext) -> None:
+    """Close the original Bash ``tool-use-id`` from Claude's task-notification."""
+    if context.event_name not in {"UserPromptSubmit", "Notification"}:
+        return
+    payload = context.payload if isinstance(context.payload, dict) else {}
+    text = "\n".join(
+        str(payload[k])
+        for k in ("prompt", "message", "content", "notification")
+        if isinstance(payload.get(k), str) and payload[k]
+    )
+    session_id = context.session_id or str(payload.get("session_id") or "")
+    match = (
+        _TASK_NOTIFICATION_RE.search(text)
+        if session_id and "<task-notification>" in text
+        else None
+    )
+    if match is None:
+        return
+    event_name, outcome, bump = _SETTLE_BY_STATUS[match.group(2)]
+    from datetime import datetime, timezone
+
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.session_activity_state import record_tool_call_finished
+
+    now = datetime.now(timezone.utc)
+    stamp = now.strftime("%Y-%m-%dT%H:%M:%S.") + f"{now.microsecond // 1000:03d}Z"
+    conn = connect()
+    try:
+        record_tool_call_finished(
+            conn,
+            session_id=session_id,
+            tool_use_id=match.group(1).strip(),
+            tool_name=None,
+            event_name=event_name,
+            outcome=outcome,
+            completed_at=stamp,
+            bump_activity=bump,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 _register_codex = _codex_lifecycle.register
 _session_begin_recovery_command = _codex_lifecycle.recovery_command
 _touch = _codex_lifecycle.touch  # retained for adapter wiring tests
 
+
 def _decision(stdout: str = "") -> HookDecision:
     fields = {"stdout": stdout} if stdout else {}
-    return HookDecision(outcome=Outcome.AUDIT_ONLY, audit_fields=fields, next=Next.CONTINUE)
+    return HookDecision(
+        outcome=Outcome.AUDIT_ONLY, audit_fields=fields, next=Next.CONTINUE
+    )
+
 
 def _payload_json(payload: dict[str, Any]) -> str:
     try:
         return json.dumps(payload)
     except TypeError:
         return "{}"
+
 
 def _field(payload: dict[str, Any], name: str) -> str:
     value = payload.get(name, "")
@@ -39,6 +100,7 @@ def _field(payload: dict[str, Any], name: str) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     return str(value)
+
 
 def _root_and_db(record: HookContext) -> tuple[str, str]:
     raw = _payload_json(record.payload)
@@ -62,6 +124,7 @@ def _root_and_db(record: HookContext) -> tuple[str, str]:
     root = resolve_target_root(script_dir)
     return root, resolve_yoke_db(script_dir)
 
+
 def _is_yoke_target(root: str, db_path: str) -> bool:
     try:
         from yoke_core.hooks.target import is_yoke_target
@@ -69,6 +132,7 @@ def _is_yoke_target(root: str, db_path: str) -> bool:
         return is_yoke_target(root, db_path)
     except Exception:
         return bool(root and db_path and Path(db_path).is_file())
+
 
 def _end_session_if_empty(
     root: str,
@@ -80,8 +144,12 @@ def _end_session_if_empty(
     from yoke_core.hooks.session_end_cleanup import run_session_end_cleanup
 
     run_session_end_cleanup(
-        root, session_id, executor=executor, event_source=event_source,
+        root,
+        session_id,
+        executor=executor,
+        event_source=event_source,
     )
+
 
 def _reap_stale_sessions(record: HookContext, root: str) -> None:
     from yoke_core.hooks.session_start_stale_cleanup import (
@@ -95,12 +163,14 @@ def _reap_stale_sessions(record: HookContext, root: str) -> None:
         event_source=record.event_name,
     )
 
+
 def _first_prompt(session_id: str, *, codex: bool) -> bool:
     from yoke_core.hooks.session_dispatch_first_prompt import (
         first_prompt as _first_prompt_impl,
     )
 
     return _first_prompt_impl(session_id, codex=codex)
+
 
 def _codex_model_facts(payload: Any, thread_id: str) -> SessionModelFacts:
     """Resolve Codex's requested ask and its rollout-attested served truth.
@@ -129,15 +199,19 @@ def _run_codex_session_start(record: HookContext, root: str) -> str:
         )
     _codex.write_runtime_cache(session_id, raw)
     os.environ["YOKE_SESSION_ID"] = session_id
-    if _field(record.payload, "source") == "startup" and not _field(record.payload, "transcript_path"):
+    if _field(record.payload, "source") == "startup" and not _field(
+        record.payload, "transcript_path"
+    ):
         return ""
     if not _codex.check_and_arm_marker(_codex.session_marker_path(session_id)):
         return _render_resume_block(root, session_id, "SessionStart")
     facts = _codex_model_facts(record.payload, session_id)
     entrypoint = resolve_entrypoint()
     err = _register_codex(root, session_id, facts, entrypoint)
-    return _render_codex_orientation(session_id, root, err, facts, entrypoint) + \
-        _render_resume_block(root, session_id, "SessionStart")
+    return _render_codex_orientation(
+        session_id, root, err, facts, entrypoint
+    ) + _render_resume_block(root, session_id, "SessionStart")
+
 
 def _run_codex_prompt_submit(record: HookContext, root: str) -> str:
     from yoke_core.hooks import codex_payload as _codex
@@ -148,8 +222,12 @@ def _run_codex_prompt_submit(record: HookContext, root: str) -> str:
     session_id = _codex.resolve_session_id(raw)
     if not session_id:
         return ""
-    source = _field(record.payload, "source") or _codex.read_runtime_cache_field(session_id, "source")
-    transcript = _field(record.payload, "transcript_path") or _codex.read_runtime_cache_field(session_id, "transcript_path")
+    source = _field(record.payload, "source") or _codex.read_runtime_cache_field(
+        session_id, "source"
+    )
+    transcript = _field(
+        record.payload, "transcript_path"
+    ) or _codex.read_runtime_cache_field(session_id, "transcript_path")
     if source == "startup" and not transcript:
         return ""
     if not _first_prompt(session_id, codex=True):
@@ -161,6 +239,7 @@ def _run_codex_prompt_submit(record: HookContext, root: str) -> str:
     err = _register_codex(root, session_id, facts, entrypoint)
     telemetry.emit_harness_session_sent_first_user_prompt_submit("", session_id)
     return _render_codex_reminder(session_id, root, err, facts, entrypoint)
+
 
 def _run_claude_session_start(record: HookContext) -> None:
     from yoke_core.hooks import telemetry
@@ -174,6 +253,7 @@ def _run_claude_session_start(record: HookContext) -> None:
     telemetry.persist_session_id_to_env_file(session_id, env_file)
     _register_from_hook(raw, session_id)
 
+
 def _run_claude_prompt_submit(record: HookContext, root: str) -> str:
     from yoke_core.hooks import telemetry
     from yoke_core.hooks.registration import _register_from_hook
@@ -185,36 +265,56 @@ def _run_claude_prompt_submit(record: HookContext, root: str) -> str:
     facts = SessionModelFacts()
     if canonical:
         err, executor, _provider, facts, _entrypoint = _register_from_hook(
-            raw, session_id, transcript_path=transcript_path,
+            raw,
+            session_id,
+            transcript_path=transcript_path,
         )
     if not _first_prompt(session_id, codex=False):
         return _render_resume_block(root, session_id, "UserPromptSubmit")
     telemetry.emit_harness_session_sent_first_user_prompt_submit("", session_id)
-    return _render_claude_orientation(session_id, root, err, executor, facts) + \
-        _render_resume_block(root, session_id, "UserPromptSubmit")
+    return _render_claude_orientation(
+        session_id, root, err, executor, facts
+    ) + _render_resume_block(root, session_id, "UserPromptSubmit")
+
 
 def _run_stop(record: HookContext, root: str, db_path: str) -> str:
     from yoke_core.hooks import telemetry
 
     raw = _payload_json(record.payload)
-    if record.executor_family == "codex" and _field(record.payload, "stop_hook_active").lower() in {"true", "1"}:
+    if record.executor_family == "codex" and _field(
+        record.payload, "stop_hook_active"
+    ).lower() in {"true", "1"}:
         return "{}\n"
     session_id = telemetry.resolve_direct_session_id(raw)
     if session_id and root and _is_yoke_target(root, db_path):
         _end_session_if_empty(
-            root, session_id, executor=record.executor_family,
+            root,
+            session_id,
+            executor=record.executor_family,
             event_source=record.event_name,
         )
     return "{}\n" if record.executor_family == "codex" else ""
+
 
 def evaluate(context: HookContext) -> HookDecision:
     """Dispatch lifecycle side effects and return any harness stdout."""
     try:
         root, db_path = _root_and_db(context)
         if not root or not _is_yoke_target(root, db_path):
-            return _decision("{}\n" if context.executor_family == "codex" and context.event_name == "Stop" else "")
+            return _decision(
+                "{}\n"
+                if context.executor_family == "codex" and context.event_name == "Stop"
+                else ""
+            )
+        try:
+            _settle_task_notification(context)
+        except Exception:
+            pass
         if context.event_name == "SessionStart":
-            from yoke_core.engines.main_checkout_sync import sync_main_checkout_at_session_start
+            from yoke_core.engines.main_checkout_sync import (
+                sync_main_checkout_at_session_start,
+            )
+
             sync_main_checkout_at_session_start(root)
             if context.executor_family == "codex":
                 stdout = _run_codex_session_start(context, root)
@@ -243,5 +343,6 @@ def evaluate(context: HookContext) -> HookDecision:
     except Exception:
         return _decision()
     return _decision()
+
 
 __all__ = ["evaluate"]

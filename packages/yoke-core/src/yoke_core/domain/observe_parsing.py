@@ -235,7 +235,13 @@ def parse_hook_event(
         tool_use_id=tool_use_id,
         turn_id=turn_id,
         has_permission_decision=has_permission_decision,
-        pending_local_command=_pending_local_command(data, tool_name),
+        pending_local_command=_pending_local_command(
+            data,
+            tool_name,
+            hook_event=hook_event,
+            is_failure=is_failure,
+            exit_code=exit_code,
+        ),
     )
 
     # Explicit item ref extraction takes precedence over inferred attribution.
@@ -258,28 +264,30 @@ _BASH_HARD_FAILURE_INDICATORS: Tuple[str, ...] = (
 )
 
 
-def _pending_local_command(data: Dict[str, Any], tool_name: str) -> bool:
-    """True when PostToolUse did not settle a still-running local command.
+def _pending_local_command(
+    data: Dict[str, Any],
+    tool_name: str,
+    *,
+    hook_event: Optional[str],
+    is_failure: bool,
+    exit_code: Optional[int],
+) -> bool:
+    """True only for a PostToolUse whose *response* is still nonterminal.
 
-    Claude auto-background stamps structured ``backgroundTaskId`` /
-    ``timedOutAfterMs`` on the Bash result (``interrupted`` is false there).
-    Explicit ``run_in_background`` is the same class of fact. Neither is
-    inferred from the human-readable timeout sentence.
+    Claude auto-background stamps ``backgroundTaskId`` on the Bash result.
+    Input flags (``run_in_background``) and ``timedOutAfterMs`` alone do
+    not settle or un-settle the process. A parsed failure or nonzero exit
+    is terminal and wins.
     """
-    if tool_name not in ("Bash", "Shell"):
+    if hook_event != "PostToolUse" or tool_name not in ("Bash", "Shell"):
         return False
-    tool_input = data.get("tool_input") or {}
-    if isinstance(tool_input, dict) and tool_input.get("run_in_background") is True:
-        return True
-    for blob in (data.get("tool_response"), data):
-        if not isinstance(blob, dict):
-            continue
-        task_id = blob.get("backgroundTaskId") or blob.get("background_task_id")
-        if isinstance(task_id, str) and task_id.strip():
-            return True
-        if blob.get("timedOutAfterMs"):
-            return True
-    return False
+    if is_failure or (exit_code is not None and exit_code > 0):
+        return False
+    response = data.get("tool_response")
+    if not isinstance(response, dict) or response.get("interrupted") is True:
+        return False
+    task_id = response.get("backgroundTaskId") or response.get("background_task_id")
+    return isinstance(task_id, str) and bool(task_id.strip())
 
 
 def _extract_bash_command_name(command: str) -> str:

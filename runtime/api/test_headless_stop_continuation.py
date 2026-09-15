@@ -161,9 +161,7 @@ def test_backgrounded_bash_holds_two_stops_during_cooldown(monkeypatch) -> None:
         gate, "_live_stop_block_reason", lambda *_args: gate.REASON_LIVE_COMMAND
     )
     caps = iter((False, True))
-    monkeypatch.setattr(
-        gate, "_at_reinjection_cap", lambda *_args: next(caps)
-    )
+    monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: next(caps))
 
     first = gate.evaluate(_context("claude", "cli"))
     second = gate.evaluate(_context("claude", "cli"))

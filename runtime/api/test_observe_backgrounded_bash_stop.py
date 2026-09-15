@@ -1,9 +1,9 @@
 """Auto-backgrounded Bash PostToolUse keeps the pending session_tool_calls row.
 
-The 3116 Claude result object carried structured ``backgroundTaskId`` and
-``timedOutAfterMs`` (``interrupted`` was false). Tests drive that payload
-through parse → envelope → insert_event, then read the same
-``live_stop_block_reason`` fact the Stop gate consumes.
+Claude's result object carries structured ``backgroundTaskId``
+(``interrupted`` false). ``timedOutAfterMs`` alone and ``run_in_background``
+on tool input are not pending. A parsed failure wins. Residue older than
+the liveness window does not hold Stop.
 """
 
 from __future__ import annotations
@@ -167,20 +167,70 @@ def test_later_read_does_not_erase_pending_bash(conn) -> None:
     assert live_stop_block_reason(conn, SESSION) == gate.REASON_LIVE_COMMAND
 
 
-def test_exit_code_post_settles_the_hold(conn) -> None:
-    _start(conn, tool_use_id=BASH_ID, tool_name="Bash", command="sleep 200")
-    _post(conn, _background_payload())
-    _post(
-        conn,
+def test_timeout_ms_alone_is_not_pending() -> None:
+    rec = parse_hook_event(
         {
             "tool_name": "Bash",
             "tool_input": {"command": "sleep 200"},
-            "tool_response": {"content": "Exit code 0"},
+            "tool_response": {"timedOutAfterMs": 120000, "interrupted": False},
             "tool_use_id": BASH_ID,
-            "session_id": SESSION,
         },
+        hook_event="PostToolUse",
     )
-    assert _row(conn, BASH_ID)[0] is not None
+    assert rec is not None
+    assert rec.pending_local_command is False
+
+
+def test_run_in_background_input_is_not_pending() -> None:
+    rec = parse_hook_event(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": "sleep 200", "run_in_background": True},
+            "tool_use_id": BASH_ID,
+        },
+        hook_event="PreToolUse",
+    )
+    assert rec is None or rec.pending_local_command is False
+    rec = parse_hook_event(
+        {
+            "tool_name": "Bash",
+            "tool_input": {"command": "sleep 200", "run_in_background": True},
+            "tool_response": {"content": "running"},
+            "tool_use_id": BASH_ID,
+        },
+        hook_event="PostToolUse",
+    )
+    assert rec is not None
+    assert rec.pending_local_command is False
+
+
+def test_terminal_failure_wins_over_background_task_id(conn) -> None:
+    _start(conn, tool_use_id=BASH_ID, tool_name="Bash", command="sleep 200")
+    payload = _background_payload()
+    payload["tool_response"] = {
+        **BACKGROUND_RESULT,
+        "content": "Exit code 1",
+    }
+    _post(conn, payload)
+    row = _row(conn, BASH_ID)
+    assert row[0] is not None
+    assert row[1] == "failed"
+    assert live_stop_block_reason(conn, SESSION) is None
+
+
+def test_stale_open_bash_is_residue_not_a_hold(conn) -> None:
+    _start(conn, tool_use_id=BASH_ID, tool_name="Bash", command="sleep 200")
+    _post(conn, _background_payload())
+    conn.execute(
+        "UPDATE session_tool_calls SET started_at = %s "
+        "WHERE session_id = %s AND tool_use_id = %s",
+        ("2026-09-15T00:00:00Z", SESSION, BASH_ID),
+    )
+    conn.execute(
+        "UPDATE harness_sessions SET last_tool_call_at = %s WHERE session_id = %s",
+        ("2026-09-15T02:30:31Z", SESSION),
+    )
+    conn.commit()
     assert live_stop_block_reason(conn, SESSION) is None
 
 
