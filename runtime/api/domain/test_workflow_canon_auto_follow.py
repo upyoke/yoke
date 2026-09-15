@@ -98,6 +98,15 @@ def test_a_local_edit_stops_following_and_keeps_its_own_version(test_db):
     edited["entry_surfaces"] = [
         surface for surface in edited["entry_surfaces"] if surface != "promotion"
     ]
+    # Current dash adds a "release" stage seed generation 1 never had, so the
+    # structural-change guard requires an explicit mapping for every stage id
+    # generation 1 carried; every one of them still exists under its own id.
+    edited["stage_mapping"] = {
+        "idea": "idea",
+        "implementing": "implementing",
+        "reviewing-implementation": "reviewing-implementation",
+        "done": "done",
+    }
     published = publish_workflow_version(
         test_db,
         workflow_id="dash",
