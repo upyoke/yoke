@@ -68,6 +68,39 @@ def test_the_split_never_outnumbers_the_tests_it_knows_about() -> None:
     assert ci_shards.split_count(huge, 0) == 1
 
 
+def test_a_selection_past_a_whole_budget_earns_the_next_shard() -> None:
+    # The regression this closes: a selection sized at 63 profiled seconds
+    # took the one shard floor division bought it, then ran 748 tests in
+    # 179.55s. The remainder past a whole budget is test time that has to
+    # run somewhere, so it earns a runner instead of being dropped.
+    assert ci_shards.MIN_SHARD_PROFILE_SECONDS == 60.0
+    assert ci_shards.split_count(63.0, 494) == 2
+    assert ci_shards.split_count(60.0, 494) == 1
+    assert ci_shards.split_count(60.1, 494) == 2
+
+
+def test_a_selection_smaller_than_one_budget_stays_on_one_runner() -> None:
+    # Rounding up must not turn every tiny selection into two runners: below
+    # a whole budget there is one shard's worth of work and one shard.
+    assert ci_shards.split_count(0.4, 1) == 1
+    assert ci_shards.split_count(59.9, 500) == 1
+
+
+def test_a_selection_larger_than_the_fan_out_is_capped_at_it() -> None:
+    assert ci_shards.SHARD_COUNT == 8
+    assert ci_shards.split_count(8 * 60.0, 5_000) == 8
+    assert ci_shards.split_count(8 * 60.0 + 1, 5_000) == 8
+    assert ci_shards.split_count(50_000.0, 20_000) == 8
+
+
+def test_a_shard_earned_by_a_remainder_still_has_tests_to_fill_it() -> None:
+    # Ceiling division earns a shard from a remainder, so the profiled test
+    # count still caps the fan-out: a group with no test in it reports "no
+    # tests ran" rather than a verdict.
+    assert ci_shards.split_count(63.0, 1) == 1
+    assert ci_shards.split_count(300.0, 2) == 2
+
+
 def _profile(tmp_path: Path) -> Path:
     root = tmp_path / "repo"
     root.mkdir()
