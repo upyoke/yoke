@@ -16,11 +16,13 @@ from yoke_core.domain import github_actions_rest, github_workflow_dispatch
 from yoke_core.domain.github_workflow_dispatch import dispatch_workflow_with_intent
 from yoke_core.domain.github_workflow_dispatch_intents import (
     claim_attempt,
+    complete_intent,
     latest_intent,
 )
 from yoke_contracts.github_workflow_dispatch import workflow_dispatch_marker
 from runtime.api.domain.test_github_workflow_dispatch_fixtures import (
     REPO,
+    REQUEST_ID,
     WORKFLOW,
     build_payload,
     build_request,
@@ -150,3 +152,49 @@ def test_cross_actor_pending_with_no_correlated_run_gets_pending_advisory(
     assert outcome.primary_success is False
     assert outcome.error is not None
     assert outcome.error.code == "workflow_dispatch_pending"
+
+
+@pytest.mark.parametrize(
+    "run_response",
+    [
+        pytest.param([], id="malformed-not-a-mapping"),
+        pytest.param(
+            {"id": "not-999", "status": "completed", "conclusion": "success"},
+            id="ambiguous-run-id-mismatch",
+        ),
+        pytest.param(
+            {"id": "999", "status": "weird", "conclusion": ""},
+            id="ambiguous-unknown-state",
+        ),
+    ],
+)
+def test_cross_actor_ambiguous_run_evidence_refuses_without_posting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    run_response: Any,
+) -> None:
+    """A non-owner reading a completed intent whose GitHub evidence is
+    malformed or ambiguous is refused, exactly like an owner would be —
+    never treated as proof, and never POSTed.
+    """
+    with init_test_db(tmp_path):
+        seed_intent(owner_actor="local-operator")
+        complete_intent(
+            latest_intent(REQUEST_ID),
+            workflow_run_id="999",
+            run_url=None,
+            html_url=f"https://github.com/{REPO}/actions/runs/999",
+        )
+
+        monkeypatch.setattr(
+            github_actions_rest, "rest_get", lambda *a, **k: run_response
+        )
+        monkeypatch.setattr(github_actions_rest, "rest_post", refusing_rest_post)
+
+        outcome = dispatch_workflow_with_intent(
+            build_request("release-ci"), build_payload(), "tok"
+        )
+
+    assert outcome.primary_success is False
+    assert outcome.error is not None
+    assert outcome.error.code == "rest_transport_error"

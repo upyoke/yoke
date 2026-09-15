@@ -43,12 +43,8 @@ def _error(code: str, message: str, *, recovery_hint: str = "") -> HandlerOutcom
     )
 
 
-def _collision() -> HandlerOutcome:
-    return _error(
-        "idempotency_key_collision",
-        "request_id was already bound to a different actor, authorized "
-        "scope, or canonical workflow payload",
-    )
+def _collision(message: str, *, recovery_hint: str) -> HandlerOutcome:
+    return _error("idempotency_key_collision", message, recovery_hint=recovery_hint)
 
 
 def _response(intent: DispatchIntent, *, dispatched: bool) -> HandlerOutcome:
@@ -107,11 +103,9 @@ def _proof_reusable(
     authorization_scope: str,
     payload_checksum: str,
 ) -> bool:
-    """Proves this pair for any actor sharing (scope, payload) — not just its owner.
-
-    The local operator and the release CI job are different actors proving
-    the same producer+consumer pair; only *owning* the mutation stays
-    actor-scoped, via ``_same_logical_request``.
+    """Proves this pair for any actor sharing (scope, payload) — not just its
+    owner. Only *owning* the mutation stays actor-scoped, via
+    ``_same_logical_request``.
     """
     return (
         intent.authorization_scope == authorization_scope
@@ -308,13 +302,20 @@ def dispatch_workflow_with_intent(
     try:
         intent = latest_intent(request_id)
         if intent is not None and not _proof_reusable(intent, **scoped):
-            return _collision()
+            return _collision(
+                "request_id is bound to a different scope or payload",
+                recovery_hint="review why this call differs from the recorded attempt",
+            )
         owns = intent is not None and _same_logical_request(intent, **owned)
         if intent is None or (intent.state == "rejected" and owns):
             return _mutate(1 if intent is None else intent.attempt + 1)
         if intent.state == "rejected":
             # Reusable pair, nothing succeeded yet; only the owner may retry.
-            return _collision()
+            return _collision(
+                "this request_id's only attempt was rejected, and this actor "
+                "did not dispatch it",
+                recovery_hint="only the dispatching actor's own session may retry it",
+            )
         if intent.state == "pending":
             run = _correlated_run(payload, intent, token)
             if run is None:
