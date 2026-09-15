@@ -216,7 +216,7 @@ class TestIdentityPathIsRefusedWhereItIsSet:
                 "identity_path": escaping,
             }
         )
-        with pytest.raises(ValueError, match="leaves the preview"):
+        with pytest.raises(ValueError, match="identity_path"):
             canonicalize_capability_settings("ephemeral-env", payload)
 
     def test_an_origin_relative_value_is_accepted_and_stored(self) -> None:

@@ -43,9 +43,16 @@ class PreviewIdentityTarget:
 
 
 def resolve_preview_identity_target(
-    project: str, branch: str
+    project: str, preview_key: str
 ) -> PreviewIdentityTarget:
-    """Derive the preview identity endpoint from the project's own policy."""
+    """Derive the preview identity endpoint from the project's own policy.
+
+    *preview_key* is whatever names this preview in the project's own
+    scheme: a branch for a branch preview, a deployment run for a release
+    preview. Both slugify through the same derivation the wildcard router
+    and the deploy workflow use, so the origin this returns is the one the
+    preview is actually published at.
+    """
     import json
 
     from yoke_core.domain.control_plane_transport import relay
@@ -95,7 +102,7 @@ def resolve_preview_identity_target(
     if not policy.identity_path:
         return PreviewIdentityTarget(unconfigured=True)
     return PreviewIdentityTarget(
-        origin=preview_url(slugify_branch(branch), policy.preview_domain),
+        origin=preview_url(slugify_branch(preview_key), policy.preview_domain),
         path=policy.identity_path,
     )
 

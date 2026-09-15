@@ -204,14 +204,21 @@ def ephemeral_policy_from_capability(
             "a wildcard prefix or URL scheme; " + hint
         )
     identity_path = str(cap.get("identity_path") or "")
-    if identity_path and not _is_origin_relative_path(identity_path):
-        raise EphemeralPolicyError(
-            f"project '{project}' {_CAPABILITY} capability has an "
-            f"identity_path {identity_path!r} that leaves the preview's own "
-            "origin; give a path beginning with a single '/', because the "
-            "origin comes from the already-authorized preview target and the "
-            "setting only selects a path beneath it; " + hint
+    if identity_path:
+        from yoke_core.domain.served_revision_probe import (
+            origin_relative_path_error,
         )
+
+        # One rule, owned by the probe that enforces it at read time, so a
+        # value refused there is refused here where it is set.
+        path_error = origin_relative_path_error(identity_path)
+        if path_error:
+            raise EphemeralPolicyError(
+                f"project '{project}' {_CAPABILITY} capability has an "
+                f"identity_path {identity_path!r} that {path_error}. The "
+                "origin comes from the already-authorized preview target and "
+                "this setting only selects a path beneath it; " + hint
+            )
     api_base_port = _positive_int(cap, "api_base_port", _DEFAULT_API_BASE_PORT)
     web_base_port = _positive_int(cap, "web_base_port", _DEFAULT_WEB_BASE_PORT)
     port_range = _positive_int(cap, "port_range", _DEFAULT_PORT_RANGE)
@@ -244,22 +251,6 @@ def ephemeral_policy_from_capability(
         port_range=port_range,
         ttl_hours=ttl_hours,
         identity_path=identity_path,
-    )
-
-
-def _is_origin_relative_path(value: str) -> bool:
-    """Whether *value* can only ever address the origin it is joined to.
-
-    A scheme-bearing or protocol-relative value would move the request to
-    some other host, which is exactly what the preview identity proof must
-    not allow: the origin is the authorized target, and the configured
-    value only chooses a path under it.
-    """
-    return (
-        value.startswith("/")
-        and not value.startswith("//")
-        and "://" not in value
-        and "\\" not in value
     )
 
 
