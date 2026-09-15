@@ -20,13 +20,17 @@ from yoke_contracts.session_usage_display import (
     cost_display,
     tokens_display,
     usage_cell,
+    usage_projection,
     usage_title,
 )
 from yoke_contracts.session_usage_facts import (
     USAGE_COMPLETE,
     USAGE_PARTIAL,
+    USAGE_UNAVAILABLE,
     ModelUsage,
     SessionUsage,
+    unavailable,
+    usage_document,
 )
 
 
@@ -265,3 +269,36 @@ def test_a_caveat_is_kept_once_and_never_touches_the_token_status() -> None:
     assert usage.status == USAGE_COMPLETE
     assert usage.cost_caveat == "first caveat"
     assert usage_from_document(usage_document(usage)).cost_caveat == "first caveat"
+
+
+def test_an_unavailable_reading_keeps_its_reason_when_models_are_empty() -> None:
+    usage = unavailable(
+        "cursor beforeShellExecution payload omitted token fields (they are optional)",
+        source="cursor parent-turn stop/afterAgentResponse token fields; print-mode result usage",
+    )
+    cost = session_cost(usage, _priced)
+    note = usage_title(usage, cost)
+    projection = usage_projection(usage_document(usage))
+
+    assert tokens_display(usage) == UNREAD_DISPLAY
+    assert cost_display(cost) == UNREAD_DISPLAY
+    assert "no consumption recorded for this session yet" not in note
+    assert "unavailable:" in note
+    assert "omitted token fields" in note
+    assert "read from cursor parent-turn stop" in note
+    assert projection["usage_tokens"] is None
+    assert projection["usage_cost_usd"] is None
+    assert projection["usage_status"] == USAGE_UNAVAILABLE
+    assert projection["usage_note"] == note
+
+
+def test_an_absent_reading_still_says_nothing_was_recorded_yet() -> None:
+    note = usage_title(None, None)
+    projection = usage_projection(None)
+
+    assert note == "no consumption recorded for this session yet"
+    assert projection["usage_tokens"] is None
+    assert projection["usage_status"] is None
+    assert "no consumption recorded for this session yet" in str(
+        projection["usage_note"]
+    )
