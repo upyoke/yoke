@@ -204,7 +204,9 @@ def execute_scenario(
 
     # Step 2: Freshness validation against the context's deployed_sha
     deployment_recorded = bool(context.get("deployment_recorded"))
-    proving_origin = ""
+    # The deployment whose freshness was established — whichever source
+    # established it. Evidence may only be collected from this one.
+    verified_origin = ""
     if expected_branch and expected_sha:
         _bqa._log(f"Validating deployed SHA for branch {expected_branch}...")
         identity_target = resolve_preview_identity_target(
@@ -224,10 +226,14 @@ def execute_scenario(
             result.note = freshness_error.reason
             print(result.to_json())
             return result
+        # Whichever source established freshness names the deployment it
+        # was established about: the preview that answered for itself, or
+        # the recorded deployment's own URL. One check covers both, because
+        # it is one invariant — evidence comes from the verified deployment.
         if not deployment_recorded and identity_target.origin:
-            # Freshness was established by asking this deployment directly,
-            # so this run is only allowed to browse that deployment.
-            proving_origin = origin_of(identity_target.origin)
+            verified_origin = origin_of(identity_target.origin)
+        elif deployment_recorded and context.get("ephemeral_url"):
+            verified_origin = origin_of(str(context["ephemeral_url"]))
 
     req_rows = context.get("requirements") or []
     if not req_rows:
@@ -251,18 +257,20 @@ def execute_scenario(
         print(result.to_json())
         return result
 
-    # A freshness proof covers the deployment that answered it and no other.
+    # Freshness was established about one deployment, and covers no other.
     # Browsing somewhere else would attach "serving the expected commit" to
-    # evidence from a host nothing was asked about — so this refuses before
-    # any browser starts, rather than labelling those screenshots fresh.
-    if proving_origin and origin_of(base_url) != proving_origin:
+    # evidence from a host nothing was verified about — so this refuses
+    # before any browser starts, rather than labelling those screenshots
+    # fresh.
+    if verified_origin and origin_of(base_url) != verified_origin:
         _bqa._log(
-            "ERROR: freshness was proved by "
-            f"{proving_origin} but this run would browse "
-            f"{origin_of(base_url)}; evidence from an unproven target cannot "
-            "carry that freshness claim. Point the run at the proven "
-            "deployment, or drop the freshness arguments to collect evidence "
-            "without a freshness claim."
+            f"ERROR: freshness was verified for {verified_origin} but this "
+            f"run would browse {origin_of(base_url)}. Evidence from an "
+            "unverified target cannot carry that freshness claim. Point the "
+            "run at the verified deployment. Running without the freshness "
+            "arguments produces ordinary development evidence, which is a "
+            "different thing and cannot satisfy a required deployment QA "
+            "gate against a frozen candidate."
         )
         result.verdict = "error"
         result.note = EXECUTION_TARGET_UNAUTHORIZED

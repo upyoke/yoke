@@ -15,8 +15,13 @@ from unittest import mock
 
 import pytest
 
-from yoke_core.domain import browser_qa, browser_qa_freshness, db_backend
+from yoke_core.domain import browser_qa, browser_qa_freshness
 from yoke_core.domain import browser_qa_preview_identity as preview_identity
+from runtime.api.domain.browser_qa_ephemeral_fixtures import (
+    _placeholder,
+    ensure_ephemeral_table as _ensure_ephemeral_table,
+    seed_ephemeral_env as _seed_ephemeral_env,
+)
 from runtime.api.domain.browser_qa_test_helpers import (
     _browser_verdict_assertion,
     _patch_external_deps,
@@ -24,7 +29,6 @@ from runtime.api.domain.browser_qa_test_helpers import (
     _seed_item,
     _seed_requirement,
 )
-from yoke_core.domain.schema_init_apply import execute_schema_script
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 
 
@@ -32,65 +36,6 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 def db_path(tmp_path):
     with init_test_db(tmp_path) as path:
         yield path
-
-
-def _ensure_ephemeral_table(db_path: str) -> None:
-    """Create the ephemeral_environments table if it doesn't exist."""
-    conn = connect_test_db(db_path)
-    execute_schema_script(conn, """
-        CREATE TABLE IF NOT EXISTS ephemeral_environments (
-            id INTEGER PRIMARY KEY,
-            project_id INTEGER NOT NULL,
-            branch TEXT NOT NULL,
-            item TEXT,
-            workflow_run_id TEXT,
-            github_ref TEXT,
-            port_api INTEGER,
-            port_web INTEGER,
-            url TEXT,
-            status TEXT NOT NULL DEFAULT 'pending',
-            started_at TEXT,
-            stopped_at TEXT,
-            health_check_url TEXT,
-            deployed_sha TEXT,
-            created_at TEXT NOT NULL,
-            UNIQUE(project_id, branch)
-        );
-    """)
-    conn.execute(
-        "INSERT INTO projects (id, slug, name, public_item_prefix, created_at) "
-        "VALUES (100, 'testproj', 'Test Project', 'YOK', '2026-01-01T00:00:00Z') "
-        "ON CONFLICT(id) DO NOTHING",
-    )
-    conn.commit()
-    conn.close()
-
-
-def _placeholder(conn) -> str:
-    return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _seed_ephemeral_env(
-    db_path: str,
-    project: str,
-    branch: str,
-    deployed_sha: str = "",
-) -> int:
-    """Seed an ephemeral_environments row and return its id."""
-    _ensure_ephemeral_table(db_path)
-    conn = connect_test_db(db_path)
-    p = _placeholder(conn)
-    cur = conn.execute(
-        f"""
-        INSERT INTO ephemeral_environments (project_id, branch, deployed_sha, status, created_at)
-        VALUES ({p}, {p}, {p}, 'healthy', {p}) RETURNING id
-        """,
-        (100, branch, deployed_sha, "2026-01-01T00:00:00Z"),
-    )
-    env_id = int(cur.fetchone()[0])
-    conn.commit()
-    conn.close()
-    return env_id
 
 
 class TestDeployedShaFreshness:

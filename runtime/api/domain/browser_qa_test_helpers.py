@@ -13,6 +13,9 @@ from functools import partial
 from typing import Any, Dict, List
 from unittest import mock
 
+from runtime.api.domain.browser_qa_ephemeral_fixtures import (
+    _fetch_context_from_test_db,
+)
 from yoke_core.domain import browser_qa, db_backend
 from yoke_core.domain.workflow_registry import resolve_current_workflow_pin
 from runtime.api.fixtures.file_test_db import connect_test_db
@@ -192,69 +195,6 @@ class _FakeRunRecorder:
             metadata, actor=actor,
         )
 
-
-def _fetch_context_from_test_db(
-    project: str,
-    requirement_id: int,
-    *,
-    db_path: str,
-    item_id: int | None = None,
-    deployment_run_id: str | None = None,
-    expected_branch: str | None = None,
-    actor: Any = None,
-) -> Dict[str, Any]:
-    """Direct-DB stand-in for browser_qa._fetch_browser_context.
-
-    Mirrors the qa.browser_context.get handler's reads against the per-test
-    DB — including its one-subject rule, so a deployment-run case reads
-    through the same stand-in an item case does — without the dispatcher's
-    identity/claim machinery.
-    """
-    subject_column = "item_id" if item_id is not None else "deployment_run_id"
-    subject_value = item_id if item_id is not None else deployment_run_id
-    conn = connect_test_db(db_path)
-    p = _placeholder(conn)
-    try:
-        rows = conn.execute(
-            "SELECT id, qa_kind, method_id, method_config, expected_outcome "
-            "FROM qa_requirements "
-            f"WHERE {subject_column} = {p} AND id = {p} "
-            "AND method_id IN ('browser-check', 'browser-inspection') "
-            "AND waived_at IS NULL",
-            (subject_value, requirement_id),
-        ).fetchall()
-        requirements = [
-            {
-                "id": int(r[0]),
-                "qa_kind": str(r[1]),
-                "method_id": str(r[2]),
-                "method_config": r[3],
-                "expected_outcome": r[4],
-            }
-            for r in rows
-        ]
-        deployed_sha = None
-        deployment_recorded = False
-        if expected_branch:
-            env_rows = conn.execute(
-                "SELECT e.deployed_sha FROM ephemeral_environments e "
-                "JOIN projects pr ON e.project_id = pr.id "
-                f"WHERE pr.slug = {p} AND e.branch = {p} "
-                "ORDER BY e.id DESC LIMIT 1",
-                (project, expected_branch),
-            ).fetchall()
-            if env_rows:
-                deployment_recorded = True
-                deployed_sha = env_rows[0][0] or None
-    finally:
-        conn.close()
-    return {
-        "item_id": item_id,
-        "deployment_run_id": deployment_run_id,
-        "requirements": requirements,
-        "deployed_sha": deployed_sha,
-        "deployment_recorded": deployment_recorded,
-    }
 
 
 def _patch_external_deps(
