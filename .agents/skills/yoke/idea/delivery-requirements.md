@@ -96,8 +96,10 @@ Recording `post_deploy` on that stage stores the obligation. Pre-merge
 They do not wait for an environment that exists after merge. Frozen
 admission copies the `post_deploy` row onto the deployment-stage subject;
 scoped QA executes that copy against the observed candidate. `done`
-consumes the copy's passing run and does not re-run or waive the original
-intake row. `manual_acceptance` keeps its established phase gate.
+consumes the current run's scoped stage acceptance for that member and
+does not re-run or waive the original intake row. A prior candidate's
+pass does not satisfy a later run. `manual_acceptance` keeps its
+established phase gate.
 
 Screenshot / visual evidence:
 

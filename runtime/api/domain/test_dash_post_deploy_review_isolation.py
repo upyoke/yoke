@@ -9,10 +9,6 @@ from unittest import mock
 
 import pytest
 
-from runtime.api.domain.test_deployment_qa_admission_execution import (
-    _original_requirement,
-    _seed_selected_requirement_run,
-)
 from runtime.api.fixtures.backlog_inserts import (
     insert_item,
     insert_qa_requirement,
@@ -24,14 +20,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
-from yoke_core.domain.dash_execution import record_dash_evidence
 from yoke_core.domain.dash_posture_gate import evaluate
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_requirement_case_key,
-)
-from yoke_core.domain.deployment_qa_stage_materialization import (
-    materialize_deployment_qa_stage,
 )
 from yoke_core.domain.handlers.lifecycle_transition import handle_transition
 from yoke_core.domain.qa_workflow_binding_validation import (
@@ -205,110 +197,3 @@ def test_manual_acceptance_is_not_satisfied_by_admitted_copy(tmp_path: Path):
             db_path=db_path,
         )
         assert blocked["error_code"] == "GATE_DASH_VERIFICATION_UNSATISFIED"
-
-
-def test_admitted_copy_pass_lets_done_accept_without_original_run(
-    test_db,
-    monkeypatch: pytest.MonkeyPatch,
-):
-    from runtime.api.domain.test_status_transition_preflight import (
-        _isolate_status_effects,
-    )
-
-    _isolate_status_effects(monkeypatch)
-    item_id = 2320
-    _insert_dash(test_db, item_id=item_id, status="reviewing-implementation")
-    original_id = _original_requirement(
-        test_db, item_id=item_id, method_id="browser-inspection"
-    )
-    test_db.execute(
-        "UPDATE qa_requirements SET workflow_transition_id=%s WHERE id=%s",
-        (ITEM_POSTURE_VERIFICATION_TRANSITION, original_id),
-    )
-    test_db.commit()
-    _seed_selected_requirement_run(
-        test_db,
-        run_id="run-admitted-dash-done",
-        item_id=item_id,
-        requirement_id=original_id,
-    )
-    created = materialize_deployment_qa_stage(
-        test_db,
-        deployment_run_id="run-admitted-dash-done",
-        deployment_stage="member-qa",
-        deployment_member_item_id=item_id,
-    )
-    copy_id = int(created["created_requirement_ids"][0])
-    record_dash_evidence(
-        test_db,
-        item_id=item_id,
-        result_summary="Merged the Dash.",
-        verification_summary="Focused checks passed.",
-        verification_status="passed",
-        commit_sha="e" * 40,
-        merge_sha="d" * 40,
-        touched_files=["ui/dash.js"],
-        tree_root="/repo/.worktrees/lane",
-        tree_head_sha="abc1234",
-    )
-    db_path = str(test_db.info.dsn)
-    blocked = evaluate(
-        item_id=item_id, target_status="done", db_path=db_path
-    )
-    assert blocked["error_code"] == "GATE_DASH_VERIFICATION_UNSATISFIED"
-
-    insert_qa_run(test_db, qa_requirement_id=copy_id, verdict="pass")
-    original = test_db.execute(
-        "SELECT waived_at FROM qa_requirements WHERE id=%s",
-        (original_id,),
-    ).fetchone()
-    original_runs = test_db.execute(
-        "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s",
-        (original_id,),
-    ).fetchone()[0]
-    copy = test_db.execute(
-        "SELECT item_id, plan_case_key, execution_target_json "
-        "FROM qa_requirements WHERE id=%s",
-        (copy_id,),
-    ).fetchone()
-    assert original["waived_at"] is None
-    assert int(original_runs) == 0
-    assert copy["item_id"] is None
-    assert copy["plan_case_key"] == admitted_requirement_case_key(original_id)
-    target = json.loads(copy["execution_target_json"])
-    assert target["deployment"]["release_lineage"] == "c" * 40
-    assert evaluate(item_id=item_id, target_status="done", db_path=db_path) is None
-
-    actor_id = str(
-        test_db.execute(
-            "SELECT id FROM actors WHERE kind='human' ORDER BY id LIMIT 1"
-        ).fetchone()[0]
-    )
-    outcome = handle_transition(
-        FunctionCallRequest(
-            function="lifecycle.transition.execute",
-            actor=ActorContext(session_id="dash-session", actor_id=actor_id),
-            target=TargetRef(kind="item", item_id=item_id, project_id="yoke"),
-            payload={
-                "source_status": "reviewing-implementation",
-                "target_status": "done",
-                "reason": "release QA copy passed; original intake unused",
-            },
-        )
-    )
-    assert outcome.primary_success is True, outcome.error
-    status = test_db.execute(
-        "SELECT status FROM items WHERE id=%s",
-        (item_id,),
-    ).fetchone()[0]
-    original_runs = test_db.execute(
-        "SELECT COUNT(*) FROM qa_runs WHERE qa_requirement_id=%s",
-        (original_id,),
-    ).fetchone()[0]
-    waived = test_db.execute(
-        "SELECT waived_at FROM qa_requirements WHERE id=%s",
-        (original_id,),
-    ).fetchone()[0]
-    assert status == "done"
-    assert int(original_runs) == 0
-    assert waived is None

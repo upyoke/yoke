@@ -36,8 +36,8 @@ from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.qa_simulation_gate import (  # noqa: F401  (re-export)
     check_epic_simulation_gate,
 )
-from yoke_core.domain.deployment_qa_admission_materialization import (
-    admitted_copy_passed_sql,
+from yoke_core.domain.deployment_qa_stage_prerequisites import (
+    current_item_scoped_qa_accepted,
 )
 from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
     _browser_freshness_errors,
@@ -219,13 +219,21 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
                 WHERE qr.qa_requirement_id = r.id
                   AND qr.verdict = 'pass'
               )
-              AND NOT (
-                r.qa_phase = 'post_deploy'
-                AND {admitted_copy_passed_sql(conn)}
-              )
             """,
             params,
         )
+        if (
+            target.item_id is not None
+            and current_item_scoped_qa_accepted(conn, item_id=int(target.item_id))
+        ):
+            rows = [
+                row
+                for row in rows
+                if str(
+                    row["qa_phase"] if hasattr(row, "keys") else row[2] or ""
+                )
+                != "post_deploy"
+            ]
         if rows:
             errors = [
                 f"Error: Cannot transition {name} to 'done' -- {len(rows)} blocking QA requirement(s) unsatisfied.",
