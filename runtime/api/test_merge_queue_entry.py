@@ -204,81 +204,6 @@ def test_read_queue_members_empty_queue_is_empty_list(monkeypatch):
     assert members == []
 
 
-def _wire_runs(monkeypatch, runs):
-    monkeypatch.setattr(
-        queue_mod,
-        "resolve_auth_detail",
-        lambda ctx, perms: (_auth(), None),
-    )
-    monkeypatch.setattr(
-        queue_mod,
-        "request_with_retry",
-        lambda req, *, token, **_kw: _response({"workflow_runs": runs}),
-    )
-    monkeypatch.setattr(
-        queue_mod,
-        "project_ci_workflow_file",
-        lambda _project: "yoke-ci.yml",
-    )
-
-
-def test_read_train_run_matches_required_workflow_and_queue_ref_marker(monkeypatch):
-    _wire_runs(
-        monkeypatch,
-        [
-            {
-                "path": ".github/workflows/cla.yml",
-                "head_branch": "gh-readonly-queue/main/pr-42-def",
-                "conclusion": "success",
-                "status": "completed",
-                "head_sha": "a" * 40,
-                "html_url": "https://runs/7",
-            },
-            {
-                "path": ".github/workflows/yoke-ci.yml",
-                "head_branch": "gh-readonly-queue/main/pr-42-def",
-                "conclusion": "failure",
-                "status": "completed",
-                "head_sha": "b" * 40,
-                "html_url": "https://runs/42",
-            },
-        ],
-    )
-    run, note = queue_mod.read_train_run(_ctx(), "42")
-    assert note is None
-    assert run.conclusion == "failure"
-    assert run.head_sha == "b" * 40
-    assert run.url == "https://runs/42"
-
-
-def test_read_train_run_never_substitutes_another_trains_run(monkeypatch):
-    """Another train's green is not this pull request's, at any recency."""
-    _wire_runs(
-        monkeypatch,
-        [
-            {
-                "path": ".github/workflows/yoke-ci.yml",
-                "head_branch": "gh-readonly-queue/main/pr-7-abc",
-                "conclusion": "success",
-                "status": "completed",
-                "head_sha": "a" * 40,
-                "html_url": "https://runs/7",
-            },
-        ],
-    )
-    run, note = queue_mod.read_train_run(_ctx(), "42")
-    assert run is None
-    assert "no merge_group workflow run identified" in note
-    assert "https://runs/7" not in note
-
-
-def test_read_train_run_without_any_run_is_named(monkeypatch):
-    _wire_runs(monkeypatch, [])
-    run, note = queue_mod.read_train_run(_ctx(), "42")
-    assert run is None
-    assert "no merge_group workflow run" in note
-
-
 def test_read_pr_landing_state_includes_mergeable_state(monkeypatch):
     monkeypatch.setattr(
         queue_mod,
@@ -323,3 +248,45 @@ def test_leave_merge_queue_disarms_merge_when_ready(monkeypatch):
     result = queue_mod.leave_merge_queue(_ctx(), "7")
     assert result.success
     assert "disablePullRequestAutoMerge" in calls[-1].body["query"]
+    assert "dequeuePullRequest" not in calls[-1].body["query"]
+
+
+def test_dequeue_pull_request_removes_the_queue_entry(monkeypatch):
+    """The entry is its own mutation: GitHub takes the pull request id as ``id``."""
+    monkeypatch.setattr(queue_mod, "resolve_auth", lambda *_a, **_kw: _auth())
+    calls = []
+
+    def fake_request(req, *, token, **_kw):
+        calls.append(req)
+        if req.method == "GET":
+            return _response({"node_id": "PR_node1"})
+        return _response(
+            {
+                "data": {
+                    "dequeuePullRequest": {
+                        "mergeQueueEntry": {"enqueuedAt": "2026-09-15T00:00:00Z"}
+                    }
+                }
+            }
+        )
+
+    monkeypatch.setattr(queue_mod, "request_with_retry", fake_request)
+    result = queue_mod.dequeue_pull_request(_ctx(), "7")
+    assert result.success
+    mutation = calls[-1]
+    assert "dequeuePullRequest(input: {id: $pullRequestId})" in mutation.body["query"]
+    assert mutation.body["variables"] == {"pullRequestId": "PR_node1"}
+
+
+def test_dequeue_pull_request_refusal_stays_named(monkeypatch):
+    monkeypatch.setattr(queue_mod, "resolve_auth", lambda *_a, **_kw: _auth())
+
+    def fake_request(req, *, token, **_kw):
+        if req.method == "GET":
+            return _response({"node_id": "PR_node1"})
+        return _response({"errors": [{"message": "Pull request is not queued"}]})
+
+    monkeypatch.setattr(queue_mod, "request_with_retry", fake_request)
+    result = queue_mod.dequeue_pull_request(_ctx(), "7")
+    assert not result.success
+    assert "not queued" in (result.error_detail or "")

@@ -240,7 +240,10 @@ re-gates, and only the record-wait budget running out parks with the state it
 observed. A point-in-time check is `yoke github merge-queue readiness PREFIX-N
 --json`; never infer a stop from null `autoMergeRequest`, because an
 `AWAITING_CHECKS`, `UNMERGEABLE`, or `MERGEABLE` queue entry means its arming
-was consumed and the landing remains in flight. Do not begin deployment until
+was consumed and the landing remains in flight. To correct a candidate that is
+still live, hold it first with `yoke github merge-queue hold PREFIX-N` — which
+clears the arming, removes the entry, and verifies both — because every lane
+publish refuses while the queue is holding the head it already took. Do not begin deployment until
 the wait returns a real `merge_sha` with `landing_pending=false` or absent.
 
 **IMPROVISATION GUARD:** If lint blocks despite the audit comment, **STOP**. NEVER substitute raw done-transition or any other entrypoint for the single-lane merge call.

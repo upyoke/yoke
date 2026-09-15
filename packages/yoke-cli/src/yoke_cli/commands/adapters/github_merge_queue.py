@@ -1,4 +1,4 @@
-"""``yoke github merge-queue apply`` adapter."""
+"""``yoke github merge-queue`` adapters: apply, readiness, hold."""
 
 from __future__ import annotations
 
@@ -28,6 +28,9 @@ GITHUB_MERGE_QUEUE_APPLY_USAGE = (
 )
 GITHUB_MERGE_QUEUE_READINESS_USAGE = (
     "yoke github merge-queue readiness ITEM [--project P] [--json]"
+)
+GITHUB_MERGE_QUEUE_HOLD_USAGE = (
+    "yoke github merge-queue hold ITEM [--project P] [--session-id S] [--json]"
 )
 
 
@@ -62,6 +65,49 @@ def github_merge_queue_readiness(args: List[str]) -> int:
 
     return dispatch_and_emit(
         function_id="github.merge_queue.readiness",
+        target=item_target("item", parsed.item, parsed.project),
+        payload={},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
+def github_merge_queue_hold(args: List[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="yoke github merge-queue hold",
+        description=(
+            "Hold this item's merge-queue candidate: clear merge-when-ready, "
+            "remove the queue entry, and verify GitHub reports both gone. "
+            "Disabling auto-merge alone does not remove an entry the queue "
+            "has already taken, so a hold that cannot be read back is "
+            "reported as unheld rather than as a hold. Requires this "
+            "session to hold the item's work claim. Nothing re-arms: correct "
+            "the lane, re-run the verification gate against the new "
+            "candidate, then `yoke merge item` to arm it again. A candidate "
+            "that landed before or during the hold is reported with the "
+            "commit GitHub actually merged."
+        ),
+    )
+    parser.add_argument("item")
+    parser.add_argument("--project")
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, GITHUB_MERGE_QUEUE_HOLD_USAGE)
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, stderr) -> None:
+        result = response.result or {}
+        narrative = result.get("narrative")
+        if narrative:
+            print(narrative, file=stdout if response.success else stderr)
+        for action in result.get("actions") or []:
+            print(f"  {action}", file=stdout if response.success else stderr)
+        return None
+
+    return dispatch_and_emit(
+        function_id="github.merge_queue.hold",
         target=item_target("item", parsed.item, parsed.project),
         payload={},
         session_id=parsed.session_id,
@@ -150,7 +196,9 @@ def github_merge_queue_apply(args: List[str]) -> int:
 
 __all__ = [
     "GITHUB_MERGE_QUEUE_APPLY_USAGE",
+    "GITHUB_MERGE_QUEUE_HOLD_USAGE",
     "GITHUB_MERGE_QUEUE_READINESS_USAGE",
     "github_merge_queue_apply",
+    "github_merge_queue_hold",
     "github_merge_queue_readiness",
 ]

@@ -31,10 +31,8 @@ from yoke_core.domain.gh_rest_transport import (
     split_repo,
 )
 from yoke_core.domain.json_helper import dumps_compact
-from yoke_core.engines.merge_worktree_pr_queue import (
-    read_train_run,
-    resolve_auth_detail,
-)
+from yoke_core.engines.merge_worktree_pr_queue import resolve_auth_detail
+from yoke_core.engines.merge_worktree_pr_train_run import read_train_run
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 

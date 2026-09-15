@@ -154,6 +154,7 @@ _BY_ID: dict[str, AuthzSpec] = {
     "path_claims.conflicts.list": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "github.pr.create": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "github.merge_queue.apply": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "github.merge_queue.hold": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "github.merge_queue.readiness": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "github.release.create_next_tag": AuthzSpec(
         PROJECT,

@@ -164,7 +164,9 @@ def run_ci_verification(
     repo = ""
     try:
         repo = qa_case_ci_lane.repo_slug(cwd)
-        qa_case_ci_lane.push_lane(cwd, branch, source_ref="HEAD")
+        qa_case_ci_lane.push_lane(
+            cwd, branch, project=project, target=ctx.args.target, source_ref="HEAD"
+        )
         # Every GitHub call the gate makes stays inside this block: dispatch,
         # polling, and the head-sha read all need the same server-held App
         # authority, and one of them resolving credentials on its own is how

@@ -20,6 +20,15 @@ MERGE_WHEN_READY_ARMED = "armed"
 MERGE_WHEN_READY_CONSUMED = "consumed"
 MERGE_WHEN_READY_CLEARED = "cleared"
 
+# How an attempt to hold a candidate — clear its arming and remove its queue
+# entry — actually ended, read back rather than inferred from the mutations.
+HOLD_HELD = "held"
+HOLD_ALREADY_CLEAR = "already_clear"
+HOLD_ALREADY_LANDED = "already_landed"
+HOLD_LANDED_DURING_HOLD = "landed_during_hold"
+HOLD_NOT_HELD = "not_held"
+HOLD_UNVERIFIED = "unverified"
+
 
 __all__ = [
     "ARMED_NOT_ENQUEUED",
@@ -29,6 +38,12 @@ __all__ = [
     "ENTRY_ABSENT",
     "ENTRY_NOT_READ",
     "ENTRY_PRESENT",
+    "HOLD_ALREADY_CLEAR",
+    "HOLD_ALREADY_LANDED",
+    "HOLD_HELD",
+    "HOLD_LANDED_DURING_HOLD",
+    "HOLD_NOT_HELD",
+    "HOLD_UNVERIFIED",
     "IN_FLIGHT",
     "LANDED",
     "MERGE_WHEN_READY_ARMED",

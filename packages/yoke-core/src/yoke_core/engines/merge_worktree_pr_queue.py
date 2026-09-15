@@ -1,9 +1,11 @@
 """Merge-queue entry, membership, and landing-state reads for an item PR.
 
-Queue entry is GitHub's merge-when-ready over GraphQL.
-``leave_merge_queue`` disarms it so red required checks cannot auto-merge
-later. Membership reads power train admission; the train run read names
-the ``merge_group`` gate.
+Queue entry is GitHub's merge-when-ready over GraphQL. Arming and queue
+membership are two states, not one: GitHub consumes ``autoMergeRequest``
+when it forms the entry, so ``leave_merge_queue`` alone only clears an
+arming that has not been consumed yet. ``dequeue_pull_request`` removes the
+entry itself, and holding a candidate needs both. Membership reads power
+train admission.
 """
 
 from __future__ import annotations
@@ -12,7 +14,6 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
 from yoke_contracts.github_app_installation_permissions import (
-    GITHUB_ACTIONS_READ_PERMISSION_LEVELS as ACTIONS_READ,
     GITHUB_PULL_REQUESTS_READ_PERMISSION_LEVELS as PR_READ,
     GITHUB_PULL_REQUESTS_WRITE_PERMISSION_LEVELS as PR_WRITE,
 )
@@ -24,7 +25,6 @@ from yoke_core.domain.gh_rest_transport import (
     split_repo,
 )
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
-from yoke_core.domain.project_ci_workflow import project_ci_workflow_file
 from yoke_core.engines.merge_worktree_pr_rest import (
     AuthResolutionFailed,
     resolve_auth,
@@ -51,6 +51,16 @@ mutation($pullRequestId: ID!) {
 }
 """
 
+# ``DequeuePullRequestInput.id`` is the pull request's node id, the same id
+# the arming mutations take, so both reuse one resolution.
+_DEQUEUE_MUTATION = """
+mutation($pullRequestId: ID!) {
+  dequeuePullRequest(input: {id: $pullRequestId}) {
+    mergeQueueEntry { enqueuedAt }
+  }
+}
+"""
+
 _MERGE_QUEUE_ENTRIES_QUERY = """
 query($owner: String!, $name: String!, $branch: String!) {
   repository(owner: $owner, name: $name) {
@@ -65,10 +75,6 @@ query($owner: String!, $name: String!, $branch: String!) {
   }
 }
 """
-
-# Every branch the queue builds a train on is named under this prefix, and
-# each carries a ``pr-<number>-`` marker naming its members.
-_QUEUE_REF_PREFIX = "gh-readonly-queue/"
 
 
 @dataclass(frozen=True)
@@ -140,10 +146,10 @@ def _pr_node_id(
     return node_id, None
 
 
-def _mutate_auto_merge(
+def _mutate_pull_request(
     ctx: MergeContext, pr_num: str, mutation: str
 ) -> QueueEntryResult:
-    """Enable or disable merge-when-ready; refusals stay named."""
+    """Run one pull-request-id mutation; refusals stay named."""
     auth, auth_err = resolve_auth_detail(ctx, PR_WRITE)
     if auth_err or auth is None:
         return QueueEntryResult(success=False, pr_num=pr_num, error_detail=auth_err)
@@ -163,12 +169,27 @@ def _mutate_auto_merge(
 
 def enter_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
     """Enqueue ``pr_num`` with merge-when-ready; refusals stay named."""
-    return _mutate_auto_merge(ctx, pr_num, _ENABLE_AUTO_MERGE_MUTATION)
+    return _mutate_pull_request(ctx, pr_num, _ENABLE_AUTO_MERGE_MUTATION)
 
 
 def leave_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
-    """Disarm merge-when-ready so a later green cannot auto-merge."""
-    return _mutate_auto_merge(ctx, pr_num, _DISABLE_AUTO_MERGE_MUTATION)
+    """Disarm merge-when-ready so a later green cannot auto-merge.
+
+    Only the arming. A pull request GitHub has already taken into the queue
+    carries no arming left to clear, so this alone never removes it — see
+    :func:`dequeue_pull_request`.
+    """
+    return _mutate_pull_request(ctx, pr_num, _DISABLE_AUTO_MERGE_MUTATION)
+
+
+def dequeue_pull_request(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
+    """Remove ``pr_num``'s merge-queue entry; refusals stay named.
+
+    GitHub refuses this for a pull request that holds no entry, so callers
+    that cannot tell arming from membership read the queue first rather than
+    treating the refusal as a removal.
+    """
+    return _mutate_pull_request(ctx, pr_num, _DEQUEUE_MUTATION)
 
 
 @dataclass(frozen=True)
@@ -268,82 +289,14 @@ def read_queue_members(
     return members, None
 
 
-@dataclass(frozen=True)
-class TrainRun:
-    """The ``merge_group`` workflow run validating one train's combined head."""
-
-    status: str = ""
-    conclusion: str = ""
-    head_sha: str = ""
-    url: str = ""
-
-
-def read_train_run(
-    ctx: MergeContext, pr_num: str
-) -> tuple[Optional[TrainRun], Optional[str]]:
-    """The merge_group run covering ``pr_num``'s train.
-
-    Identified by both the queue ref's ``pr-<number>-`` marker and the
-    project's declared CI workflow. Returns ``(None, reason)`` rather than
-    substituting another workflow or train.
-    """
-    auth, auth_err = resolve_auth_detail(ctx, ACTIONS_READ)
-    if auth_err or auth is None:
-        return None, f"merge_group run lookup unavailable: {auth_err}"
-    owner, repo = split_repo(auth.repo)
-    try:
-        response = request_with_retry(
-            RestRequest(
-                method="GET",
-                path=f"/repos/{owner}/{repo}/actions/runs",
-                query={"event": "merge_group", "per_page": "30"},
-            ),
-            token=auth.token,
-        )
-    except RestTransportError as exc:
-        return None, f"merge_group run lookup failed: {exc}"
-    try:
-        workflow = project_ci_workflow_file(str(ctx.project or ""))
-    except RuntimeError as exc:
-        return None, f"merge_group workflow identity lookup failed: {exc}"
-    if not workflow:
-        return None, "merge_group workflow identity is not declared"
-    workflow_path = f".github/workflows/{workflow}"
-    body = response.body if isinstance(response.body, dict) else {}
-    marker = f"pr-{pr_num}-"
-    for run in body.get("workflow_runs") or []:
-        if not isinstance(run, dict):
-            continue
-        if str(run.get("path") or "") != workflow_path:
-            continue
-        head_branch = str(run.get("head_branch") or "")
-        if not head_branch.startswith(_QUEUE_REF_PREFIX):
-            continue
-        if marker in head_branch:
-            return (
-                TrainRun(
-                    status=str(run.get("status") or ""),
-                    conclusion=str(run.get("conclusion") or ""),
-                    head_sha=str(run.get("head_sha") or ""),
-                    url=str(run.get("html_url") or ""),
-                ),
-                None,
-            )
-    return None, (
-        f"no merge_group workflow run identified for pull request {pr_num}: "
-        f"no recent {workflow!r} queue ref carries the marker {marker!r}"
-    )
-
-
 __all__ = [
     "PrLandingState",
     "QueueEntryResult",
     "QueueMember",
-    "TrainRun",
+    "dequeue_pull_request",
     "enter_merge_queue",
     "graphql_with_auth",
     "leave_merge_queue",
     "read_pr_landing_state",
     "read_queue_members",
-    "read_train_run",
 ]
