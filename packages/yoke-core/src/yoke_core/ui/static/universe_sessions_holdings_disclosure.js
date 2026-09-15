@@ -7,7 +7,6 @@ export const CURRENT_HOLDINGS_LIMIT = 8;
 export const PREVIOUS_HOLDINGS_LIMIT = 3;
 
 const expanded = new Set();
-let focusedKey = "";
 
 export function holdingsDisclosureKey(sessionId, section) {
   return `${sessionId}\0${section}`;
@@ -15,6 +14,45 @@ export function holdingsDisclosureKey(sessionId, section) {
 
 export function isHoldingsExpanded(sessionId, section) {
   return expanded.has(holdingsDisclosureKey(sessionId, section));
+}
+
+function isHoldingsDisclosureButton(node) {
+  return Boolean(
+    node?.classList?.contains("session-holdings-more")
+    || node?.classList?.contains("session-holdings-docs-toggle"),
+  );
+}
+
+function findHoldingsDisclosureButton(root, regionId) {
+  if (!root || !regionId) return null;
+  if (
+    isHoldingsDisclosureButton(root)
+    && root.getAttribute("aria-controls") === regionId
+  ) {
+    return root;
+  }
+  for (const child of root.children || []) {
+    const found = findHoldingsDisclosureButton(child, regionId);
+    if (found) return found;
+  }
+  return null;
+}
+
+// Capture before a live card replace; restore only after the replacement
+// is in the tree, and only when the outgoing disclosure still owned focus.
+export function holdingsDisclosureFocusId(documentNode, root) {
+  const focused = documentNode?.activeElement;
+  if (!isHoldingsDisclosureButton(focused)) return "";
+  if (root && typeof root.contains === "function" && !root.contains(focused)) {
+    return "";
+  }
+  return focused.getAttribute("aria-controls") || "";
+}
+
+export function restoreHoldingsDisclosureFocus(documentNode, root, regionId) {
+  if (!regionId) return;
+  const match = findHoldingsDisclosureButton(root, regionId);
+  if (match && typeof match.focus === "function") match.focus();
 }
 
 function setHidden(node, hide) {
@@ -99,15 +137,12 @@ export function appendHoldingsMore(
   button.addEventListener("click", () => {
     if (expanded.has(key)) expanded.delete(key);
     else expanded.add(key);
-    focusedKey = key;
     const now = expanded.has(key);
     setHidden(region, !now);
     button.setAttribute("aria-expanded", now ? "true" : "false");
     button.textContent = holdingsMoreLabel(hiddenCount, now);
   });
-  button.addEventListener("focus", () => { focusedKey = key; });
   group.appendChild(button);
-  if (focusedKey === key) button.focus();
   return button;
 }
 
@@ -188,14 +223,11 @@ export function appendCountedDocuments(
   button.addEventListener("click", () => {
     if (expanded.has(key)) expanded.delete(key);
     else expanded.add(key);
-    focusedKey = key;
     const now = expanded.has(key);
     setHidden(region, !now);
     button.setAttribute("aria-expanded", now ? "true" : "false");
   });
-  button.addEventListener("focus", () => { focusedKey = key; });
   parent.appendChild(button);
   parent.appendChild(region);
-  if (focusedKey === key) button.focus();
   return button;
 }

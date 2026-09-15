@@ -1,3 +1,7 @@
+import {
+  holdingsDisclosureFocusId,
+  restoreHoldingsDisclosureFocus,
+} from "./universe_sessions_holdings_disclosure.js";
 import { callFunction, el } from "./universe_view_support.js";
 
 const HISTORY_PAGE_SIZE = 50;
@@ -88,6 +92,7 @@ export function renderSessionRows(
   documentNode, host, rows, cardFor, filtered = false, historySummary = "",
   matchedTotal = 0,
 ) {
+  const restoreId = holdingsDisclosureFocusId(documentNode, host);
   const stats = el(documentNode, "div", "stat-row sessions-stats");
   const matched = Math.max(Number(matchedTotal) || 0, rows.length);
   for (const [value, label] of metricFacts(rows, matched)) {
@@ -110,6 +115,7 @@ export function renderSessionRows(
   const grid = el(documentNode, "div", "session-grid");
   for (const row of rows) grid.appendChild(cardFor(row));
   host.appendChild(grid);
+  restoreHoldingsDisclosureFocus(documentNode, host, restoreId);
 }
 
 export function sessionsHistoryLoader(context, scope, filters, onChange) {
