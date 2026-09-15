@@ -48,7 +48,7 @@ def test_an_item_already_terminal_owes_nothing(monkeypatch):
 
     assert terminal.transition_to_done(
         item_id=7, source_status="done", repo_root="/repo", lane=LANE,
-    ) == ""
+    ) == ("done", "")
 
 
 def test_a_lost_claim_is_recovered_before_the_transition(monkeypatch):
@@ -71,7 +71,7 @@ def test_a_lost_claim_is_recovered_before_the_transition(monkeypatch):
         repo_root="/repo",
         lane=LANE,
         session_id="session-1",
-    ) == ""
+    ) == ("done", "")
     assert recovered == [LANE]
     assert [name for name, _payload in calls] == ["lifecycle.transition.execute"]
 
@@ -101,7 +101,7 @@ def test_a_concurrent_closer_that_finished_first_is_the_outcome(monkeypatch):
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=LANE,
-    ) == ""
+    ) == ("done", "")
 
 
 def test_unrecoverable_authority_names_the_landing_it_could_not_close(
@@ -123,13 +123,14 @@ def test_unrecoverable_authority_names_the_landing_it_could_not_close(
         lambda **_k: pytest.fail("no authority means no transition"),
     )
 
-    error = terminal.transition_to_done(
+    new_status, error = terminal.transition_to_done(
         item_id=7,
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=LANE,
     )
 
+    assert new_status == ""
     assert "the merge is landed" in error
     assert "another session" in error
 
@@ -142,11 +143,12 @@ def test_an_unlanded_merge_identity_is_still_refused(monkeypatch):
         lambda *_a: pytest.fail("an unlanded merge is refused before authority"),
     )
 
-    error = terminal.transition_to_done(
+    new_status, error = terminal.transition_to_done(
         item_id=7,
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=LANE,
     )
 
+    assert new_status == ""
     assert "not reachable from 'main'" in error

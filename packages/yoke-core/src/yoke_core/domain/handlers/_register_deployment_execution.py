@@ -3,6 +3,7 @@
 from yoke_core.domain.handlers import deployment_qa_stage_relay as qa_stage_relay
 from yoke_core.domain.handlers import deployment_run_execution as execution
 from yoke_core.domain.handlers import deployment_run_execution_qa as qa
+from yoke_core.domain.handlers import deployment_run_execution_receipt as receipt
 
 
 def register(registry) -> None:
@@ -71,6 +72,43 @@ def register(registry) -> None:
             response_model,
             stability="stable",
             owner_module="yoke_core.domain.handlers.deployment_run_execution_qa",
+            target_kinds=["workflow_run"],
+            side_effects=side_effects,
+            emitted_event_names=["YokeFunctionCalled"],
+            guardrails=["deploy_lock_required"],
+            adapter_status="internal",
+            claim_required_kind=None,
+        )
+    for function_id, handler, request_model, response_model, side_effects in (
+        (
+            "deployment_runs.execution.stage_receipt_allocate",
+            receipt.handle_deployment_execution_stage_receipt_allocate,
+            receipt.DeploymentExecutionStageReceiptAllocateRequest,
+            receipt.DeploymentExecutionStageReceiptAllocateResponse,
+            ["deployment_stage_receipts_insert"],
+        ),
+        (
+            "deployment_runs.execution.stage_receipt_complete",
+            receipt.handle_deployment_execution_stage_receipt_complete,
+            receipt.DeploymentExecutionStageReceiptCompleteRequest,
+            receipt.DeploymentExecutionStageReceiptCompleteResponse,
+            ["deployment_stage_receipts_update"],
+        ),
+        (
+            "deployment_runs.execution.stage_receipt_latest",
+            receipt.handle_deployment_execution_stage_receipt_latest,
+            receipt.DeploymentExecutionStageReceiptLatestRequest,
+            receipt.DeploymentExecutionStageReceiptLatestResponse,
+            [],
+        ),
+    ):
+        registry.register(
+            function_id,
+            handler,
+            request_model,
+            response_model,
+            stability="stable",
+            owner_module="yoke_core.domain.handlers.deployment_run_execution_receipt",
             target_kinds=["workflow_run"],
             side_effects=side_effects,
             emitted_event_names=["YokeFunctionCalled"],

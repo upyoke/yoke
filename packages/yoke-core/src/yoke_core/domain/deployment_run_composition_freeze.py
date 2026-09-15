@@ -13,6 +13,9 @@ from yoke_core.domain.deployment_run_carried_work import (
 )
 from yoke_core.domain.deployment_runs_schema import _run_field_available
 from yoke_core.domain.deployment_flow_policy import RELEASE_POLICY_SCHEMA_VERSION
+from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
+)
 from yoke_core.domain.deployment_requirement_snapshots import (
     snapshot_flow_requirements,
     snapshot_member_requirements,
@@ -68,7 +71,10 @@ def _default_delivery_intent(conn: Any, item_id: int) -> str:
         for edge in runtime.definition["transitions"]
         if str(edge["to_stage_id"]) in runtime.terminal_stage_ids
     }
-    if str(runtime.policies.get("delivery")) == "continuous_slice_actions" and (
+    if str(runtime.policies.get("delivery")) in (
+        "continuous_slice_actions",
+        WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
+    ) and (
         runtime.implementation_has_started(str(status))
         and str(status) not in final_predecessors
     ):
@@ -87,10 +93,10 @@ def validate_delivery_intent_for_item(
     if state is None:
         raise ValueError("progress delivery requires a pinned item workflow")
     runtime, status = state
-    if (
-        str(runtime.policies.get("delivery")) != "continuous_slice_actions"
-        or str(status) in runtime.terminal_stage_ids
-    ):
+    if str(runtime.policies.get("delivery")) not in (
+        "continuous_slice_actions",
+        WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
+    ) or str(status) in runtime.terminal_stage_ids:
         raise ValueError(
             "progress delivery is available only to a nonterminal item whose "
             "effective workflow uses continuous_slice_actions"
@@ -141,11 +147,16 @@ def _item_requires_release_membership(conn: Any, item_id: int) -> bool:
     runtime = load_item_workflow_runtime(conn, int(item_id))
     status = str(_cell(row, "status", 3))
     if status in runtime.terminal_stage_ids or status in ENGINE_TERMINAL_STAGE_IDS:
+        # A done item owes no membership and could not take one: new
+        # admission of a terminal item is rejected, and its code reaches
+        # the environment under this run's pinned release lineage
+        # instead. Listing it would demand an attach that cannot happen.
         return False
     if str(runtime.policies.get("delivery")) not in {
         "release_stage",
         "continuous_slice_actions",
         "after_merge_action",
+        WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
     }:
         return False
     from yoke_core.domain.workflow_delivery_binding_validation import (
@@ -205,7 +216,9 @@ def carried_membership_refusal(
     labels = ", ".join(render_column_item_ref(conn, item_id) for item_id in omitted)
     return (
         f"deployment run {run_id!r} omits delivery-ready carried work: {labels}; "
-        "attach every applicable member or choose a candidate that excludes its code"
+        "attach those members, or choose a candidate that excludes their code. "
+        "An already-done item is never one of them: it cannot be newly "
+        "admitted, and its code travels under the run's pinned release lineage"
     )
 
 

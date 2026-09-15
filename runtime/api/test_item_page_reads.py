@@ -73,7 +73,9 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     )
     assert item["workflow"]["stage_label"] == "reviewing implementation"
     assert item["workflow"]["skill_id"] == "dash"
-    assert item["workflow"]["next_skill_id"] is None
+    # The pinned release wait sits ahead of this item's own stage, still
+    # under the same skill's overall idea-to-done span.
+    assert item["workflow"]["next_skill_id"] == "dash"
     assert item["workflow"]["item_posture"] == {
         "verification": True,
         "file_budget": True,

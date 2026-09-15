@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
 from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_landed as landed
@@ -61,7 +62,7 @@ def test_transition_accepts_a_landing_only_the_remote_has_seen(monkeypatch):
     monkeypatch.setattr(terminal.git, "is_landed", is_landed)
     calls = _transition_calls(monkeypatch)
 
-    error = terminal.transition_to_done(
+    new_status, error = terminal.transition_to_done(
         item_id=7,
         source_status="reviewing-implementation",
         repo_root="/repo",
@@ -69,6 +70,7 @@ def test_transition_accepts_a_landing_only_the_remote_has_seen(monkeypatch):
     )
 
     assert error == ""
+    assert new_status == "done"
     assert fetched[0] == (LANE_SHA, "main")
     assert calls[0][0] == "lifecycle.transition.execute"
 
@@ -84,7 +86,7 @@ def test_transition_accepts_the_merge_commit_when_the_lane_head_was_rewritten(
     )
     calls = _transition_calls(monkeypatch)
 
-    error = terminal.transition_to_done(
+    new_status, error = terminal.transition_to_done(
         item_id=7,
         source_status="reviewing-implementation",
         repo_root="/repo",
@@ -92,6 +94,7 @@ def test_transition_accepts_the_merge_commit_when_the_lane_head_was_rewritten(
     )
 
     assert error == ""
+    assert new_status == "done"
     assert calls[0][1]["target_status"] == "done"
 
 
@@ -103,13 +106,14 @@ def test_transition_still_refuses_a_commit_no_branch_carries(monkeypatch):
 
     monkeypatch.setattr(terminal, "call_dispatcher", forbidden)
 
-    error = terminal.transition_to_done(
+    new_status, error = terminal.transition_to_done(
         item_id=7,
         source_status="reviewing-implementation",
         repo_root="/repo",
         lane=LANE,
     )
 
+    assert new_status == ""
     assert "is not reachable from 'main'" in error
 
 
@@ -170,6 +174,11 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     )
     monkeypatch.setattr(sim, "sync_item_to_github", lambda item_id: None)
     monkeypatch.setattr(terminal.git, "is_landed", lambda *_args: True)
+    # This test is about evidence/file-set ordering, not the delivery
+    # redirect: pin the target at "done" so the transition it observes
+    # matches the file-set assertions below regardless of dash's own
+    # release-stage policy.
+    monkeypatch.setattr(close_out_transition, "release_redirect_stage", lambda *_a: (None, ""))
     restored = []
     monkeypatch.setattr(
         merge_cli.recovery,
@@ -295,6 +304,7 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
     )
     monkeypatch.setattr(sim, "sync_item_to_github", lambda _item_id: None)
     monkeypatch.setattr(terminal.git, "is_landed", lambda *_a: True)
+    monkeypatch.setattr(close_out_transition, "release_redirect_stage", lambda *_a: (None, ""))
     calls = _transition_calls(monkeypatch)
 
     exit_code = merge_cli.run(

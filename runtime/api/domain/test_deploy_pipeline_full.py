@@ -168,7 +168,7 @@ class TestDeployPipelineProjectSettings:
                 return_value=0,
             ) as exec_verify,
         ):
-            rc = deploy_pipeline_step_runners._dispatch_ephemeral_verify(
+            rc, _diag = deploy_pipeline_step_runners._dispatch_ephemeral_verify(
                 {"workflow": "ephemeral.yml"},
                 name="verify",
                 run_id="run-1",

@@ -98,7 +98,15 @@ def _seed_run(
     run_id: str,
     stages: list[dict[str, Any]],
     members: tuple[int, ...],
+    existing_members: tuple[int, ...] = (),
+    release_lineage: str = "a" * 40,
 ) -> None:
+    """Seed a frozen schema-2 run, its members, and a ready stage receipt.
+
+    ``members`` are created here; ``existing_members`` are items the
+    caller already inserted with the status and pin its own test needs,
+    and are attached without being created again.
+    """
     _environment(conn)
     flow_id = f"flow-{run_id}"
     cmd_create(
@@ -121,20 +129,21 @@ def _seed_run(
         (
             run_id,
             flow_id,
-            "a" * 40,
+            release_lineage,
             "2026-09-14T00:00:00Z",
             "2026-09-14T00:01:00Z",
             flow_snapshot,
         ),
     )
-    for item_id in members:
-        insert_item(
-            conn,
-            id=item_id,
-            project_sequence=item_id,
-            workflow_id="issue",
-            status="done",
-        )
+    for item_id in (*members, *existing_members):
+        if item_id in members:
+            insert_item(
+                conn,
+                id=item_id,
+                project_sequence=item_id,
+                workflow_id="issue",
+                status="done",
+            )
         member_snapshot = snapshot_member_requirements(
             conn,
             run_id=run_id,
@@ -158,12 +167,13 @@ def _seed_run(
     )
     complete_deployment_stage_receipt(
         conn,
+        run_id=run_id,
         receipt_id=int(receipt["id"]),
         correlation_id=str(receipt["correlation_id"]),
         status="ready",
         target_name="stage",
         observed_url="https://preview.example.test",
-        observed_release_lineage="a" * 40,
+        observed_release_lineage=release_lineage,
         executor_receipt="test://deploy-ready",
         commit=False,
     )

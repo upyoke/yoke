@@ -179,6 +179,7 @@ def allocate_deployment_stage_receipt(
 def complete_deployment_stage_receipt(
     conn: Any,
     *,
+    run_id: str,
     receipt_id: int,
     correlation_id: str,
     status: str,
@@ -193,10 +194,11 @@ def complete_deployment_stage_receipt(
     """Settle one allocated attempt once; conflicting callbacks are refused."""
     if status not in RECEIPT_STATUSES - {"pending"}:
         raise ValueError("receipt completion status must be ready, failed, or cancelled")
+    run_id = _text(run_id, field="run_id")
     correlation_id = _text(correlation_id, field="correlation_id")
     try:
         cursor = conn.execute(
-            "SELECT r.*,dr.release_lineage,"
+            "SELECT r.*,dr.release_lineage,dr.status AS run_status,"
             "dr.artifact_identity AS run_artifact_identity "
             "FROM deployment_stage_receipts r "
             "JOIN deployment_runs dr ON dr.id=r.run_id WHERE r.id=%s FOR UPDATE",
@@ -205,6 +207,8 @@ def complete_deployment_stage_receipt(
         receipt = _row(cursor, cursor.fetchone())
         if receipt is None:
             raise LookupError(f"deployment stage receipt {receipt_id} not found")
+        if str(receipt["run_id"]) != run_id:
+            raise ValueError("deployment stage receipt does not belong to the authorized run")
         if str(receipt["correlation_id"]) != correlation_id:
             raise ValueError("deployment stage receipt correlation does not match")
         normalized = {
@@ -247,6 +251,11 @@ def complete_deployment_stage_receipt(
                 return receipt
             raise ValueError(
                 "deployment stage receipt is already terminal with different evidence"
+            )
+        if str(receipt["run_status"]) != "executing":
+            raise ValueError(
+                "deployment run is no longer executing; a cancelled or replaced "
+                "run cannot accept a late stage-receipt completion"
             )
         completed_at = iso8601_now()
         conn.execute(

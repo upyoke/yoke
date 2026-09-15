@@ -7,11 +7,14 @@ consulted.
 
 Whether the delivery *obligation* was met at all is settled earlier, at
 step 4a, by the delivery satisfier ladder — see
-:mod:`yoke_core.engines.done_transition_satisfiers`. These guards run
-after that, and enforce the specifics of a real registered flow. An
-empty or ``*-internal`` flow reaches them already satisfied by the
-merge-only rung, which the item records; it is not an obligation these
-guards skip.
+:mod:`yoke_core.engines.done_transition_satisfiers`. These guards enforce
+the specifics of a real registered flow after that. An empty flow with
+no release-stage redirect target, or any ``*-internal`` flow, reaches
+them already satisfied by the merge-only rung. A pin that DOES support
+release-stage waiting instead resolves an empty flow against the
+project's delivery default first (see
+:mod:`yoke_core.engines.done_transition_delivery_default`), refusing
+with setup guidance rather than merge-only when nothing resolves.
 """
 
 from __future__ import annotations
@@ -20,6 +23,11 @@ from typing import Any, Dict, Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.engines.done_transition_delivery_default import (
+    freeze_resolved_delivery_flow as _freeze_resolved_delivery_flow,
+    resolve_default_delivery_flow as _resolve_default_delivery_flow,
+)
+from yoke_core.engines.done_transition_run_qa_gates import check_run_qa_gates
 
 
 def _parent():
@@ -84,6 +92,7 @@ def _check_deployment_flow_guard(
     delivery_stage_id: str | None,
     *,
     public_ref: str,
+    workflow_id: str = "",
 ) -> Optional[Tuple[int, str]]:
     """Post-merge deployment flow guard.
 
@@ -91,8 +100,36 @@ def _check_deployment_flow_guard(
     by the caller, so the guard renders its block narratives without opening a
     local connection on this read path.
 
+    ``delivery_stage_id`` is also the release-stage support boundary: ``None``
+    means this pin's delivery policy never redirects to a release stage (an
+    old pin, or Task/merge-only); only a pin that DOES support release-stage
+    waiting gets the stricter resolve-or-refuse behavior below.
+
     Returns (exit_code, new_status) or None if clear.
     """
+    if not deploy_flow and delivery_stage_id is not None:
+        resolved = _resolve_default_delivery_flow(
+            item_project=item_project, workflow_id=workflow_id
+        )
+        if resolved:
+            deploy_flow = _freeze_resolved_delivery_flow(
+                item_id, resolved, public_ref=public_ref
+            )
+        else:
+            print("\n=== Delivery flow guard ===")
+            print(
+                f"Blocked: {public_ref} has no deployment flow selected, and "
+                f"project {item_project!r} has no workflow-specific or "
+                "project-wide delivery default configured for workflow "
+                f"{workflow_id!r}."
+            )
+            print(
+                "\nSet items.deployment_flow explicitly, or configure a "
+                "project delivery default (yoke workflows delivery-default "
+                "set), before this item can enter release."
+            )
+            return 7, old_status
+
     is_internal = deploy_flow.endswith("-internal") if deploy_flow else False
     if not deploy_flow or is_internal:
         # Not "no obligation" — the delivery obligation was already
@@ -130,10 +167,12 @@ def _check_deployment_flow_guard(
     if _read_deployment_flow_target_tier(deploy_flow, required=True) == "":
         return None
 
+    # One read serves the evidence question and the QA gates below.
+    run_status, run_id = _get_latest_run_status(item_id)
+
     if skip_deploy:
         # still requires evidence
-        has_evidence = _check_deployment_evidence(item_id)
-        if not has_evidence:
+        if run_status != "succeeded":
             print("\n=== Deployment evidence guard ===")
             print(
                 f"Blocked: --skip-deploy passed for {public_ref} but no "
@@ -146,12 +185,14 @@ def _check_deployment_flow_guard(
             )
             print(f"Run '/yoke usher {public_ref}' to deploy first.")
             return 7, old_status
+        # Skipping the live pipeline never skips the QA a stage already
+        # owes: the flag waives re-running deployment, not the verdicts
+        # the run's own evidence is supposed to carry.
+        if check_run_qa_gates(item_id, run_id):
+            return 7, old_status
         print(f"Deployment evidence verified for {public_ref}.")
         print("  Skipping live deployment pipeline checks per --skip-deploy.")
         return None
-
-    # Check deployment_runs for run-based evidence
-    run_status, run_id = _get_latest_run_status(item_id)
 
     if run_status:
         if run_status == "succeeded":
@@ -160,8 +201,7 @@ def _check_deployment_flow_guard(
             if stage_error:
                 return 7, old_status
             # Check blocking QA
-            qa_error = _check_run_qa_gates(run_id)
-            if qa_error:
+            if check_run_qa_gates(item_id, run_id):
                 return 7, old_status
             print(
                 "Deployment flow guard: run succeeded, QA satisfied — proceeding to done."
@@ -211,6 +251,8 @@ def _check_deployment_flow_guard(
     if not run_status or run_status != "succeeded":
         deploy_stage = _parent()._query_item_field(item_id, "deploy_stage")
         if deploy_stage == "complete":
+            if check_run_qa_gates(item_id, run_id):
+                return 7, old_status
             print("Deployment flow guard: deploy_stage=complete — proceeding to done.")
             return None
         print("\n=== Deployment flow guard ===")
@@ -291,24 +333,3 @@ def _check_run_stage_consistency(run_id: str) -> bool:
         return True
     return False
 
-
-def _check_run_qa_gates(run_id: str) -> bool:
-    """Check blocking QA requirements on run. Returns True if error."""
-    if not run_id:
-        return False
-    blocking = _relay_read(
-        "done_transition.run_blocking_qa",
-        TargetRef(kind="global"),
-        {"run_id": run_id},
-    ).get("blocking", [])
-    if blocking:
-        print("\n=== Deployment QA guard ===")
-        print(
-            f"Blocked: Deployment run '{run_id}' succeeded but blocking "
-            "QA checks are unsatisfied:"
-        )
-        for check in blocking:
-            print(f"  - {check}")
-        print("\nSatisfy all blocking QA checks before transitioning to done.")
-        return True
-    return False

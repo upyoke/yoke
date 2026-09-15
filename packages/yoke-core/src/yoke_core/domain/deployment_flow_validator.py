@@ -10,6 +10,9 @@ from yoke_core.domain.deployment_flow_state import (
     FLOW_STATUS_ACTIVE,
     lock_deployment_flow_rows,
 )
+from yoke_core.domain.deployment_flow_target_support import (
+    require_supported_stage_targets_for_flow,
+)
 from yoke_core.domain.deployment_flow_policy import (
     LEGACY_DEFINITION_SCHEMA_VERSION,
     require_supported_definition_schema,
@@ -156,6 +159,11 @@ def validate_and_lookup_flow_project(
         try:
             require_supported_definition_schema(
                 schema_version, operation=f"assigning deployment flow {flow_id!r}"
+            )
+            require_supported_stage_targets_for_flow(
+                conn,
+                flow_id,
+                operation=f"assigning deployment flow {flow_id!r}",
             )
         except ValueError as exc:
             return None, str(exc)

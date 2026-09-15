@@ -17,11 +17,18 @@ from yoke_core.domain.workflow_registry import (
 from yoke_core.domain.workflow_registry_sql import row_dict as _row_dict
 from yoke_core.domain.workflow_definition_builders import (
     IMPLEMENTATION_WORKFLOW_SKILL_IDS,
+    WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
 
 ENGINE_TERMINAL_STAGE_IDS = frozenset({"cancelled", "stopped"})
 ENGINE_WAIT_STAGE_IDS = frozenset({"blocked", "failed"})
 ENGINE_EXCEPTIONAL_STAGE_IDS = ENGINE_TERMINAL_STAGE_IDS | ENGINE_WAIT_STAGE_IDS
+#: Delivery policies whose second-to-last stage is a release-stage wait,
+#: whether the whole item uses it or only a still-implementing Blitz's
+#: final closeout does.
+_RELEASE_STAGE_PREDECESSOR_POLICIES = frozenset(
+    {"release_stage", WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE}
+)
 
 
 @dataclass(frozen=True)
@@ -185,11 +192,9 @@ class WorkflowRuntime:
         if stage_id in through_stages:
             return True
         position = self.stage_index(stage_id)
-        return (
-            self.policies["delivery"] == "release_stage"
-            and position is not None
-            and position == len(self.stage_ids) - 2
-        )
+        if self.policies["delivery"] not in _RELEASE_STAGE_PREDECESSOR_POLICIES:
+            return False
+        return position is not None and position == len(self.stage_ids) - 2
 
     def satisfies_stage_milestone(
         self,
@@ -206,11 +211,9 @@ class WorkflowRuntime:
         if stage_id in self.terminal_stage_ids:
             return True
         position = self.stage_index(stage_id)
-        return (
-            self.policies["delivery"] == "release_stage"
-            and position is not None
-            and position >= len(self.stage_ids) - 2
-        )
+        if self.policies["delivery"] not in _RELEASE_STAGE_PREDECESSOR_POLICIES:
+            return False
+        return position is not None and position >= len(self.stage_ids) - 2
 
     def requires_item_path_claim_probe(self, stage_id: str) -> bool:
         """Whether leaving *stage_id* activates an item-level path claim."""

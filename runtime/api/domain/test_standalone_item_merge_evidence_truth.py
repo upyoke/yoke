@@ -19,6 +19,7 @@ import pytest
 
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
+from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_git as merge_git
 from yoke_core.domain import item_merge_receipts as receipts
@@ -129,11 +130,14 @@ class TestEvidenceWriteRetry:
             return True
 
         monkeypatch.setattr(evidence, "recorded_covers_merge", covers)
+        monkeypatch.setattr(
+            close_out_transition, "release_redirect_stage", lambda *_a: (None, ""),
+        )
         transitions: list[str] = []
 
-        def transition(**_kwargs: object) -> str:
+        def transition(**_kwargs: object) -> tuple[str, str]:
             transitions.append("done")
-            return ""
+            return "done", ""
 
         monkeypatch.setattr(terminal, "transition_to_done", transition)
 
@@ -216,13 +220,14 @@ class TestTerminalTransitionConvergence:
         monkeypatch.setattr(merge_git, "is_landed", lambda *_a: True)
         monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
 
-        error = terminal.transition_to_done(
+        new_status, error = terminal.transition_to_done(
             item_id=7,
             source_status="reviewing-implementation",
             repo_root=str(tmp_path),
             lane=LandedLane(branch="lane", target="main", commit_sha="a" * 40),
         )
 
+        assert new_status == ""
         assert "connection dropped" in error
         assert calls == ["lifecycle.transition.execute"]
 
@@ -242,13 +247,14 @@ class TestTerminalTransitionConvergence:
         monkeypatch.setattr(merge_git, "is_landed", lambda *_a: True)
         monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
 
-        error = terminal.transition_to_done(
+        new_status, error = terminal.transition_to_done(
             item_id=7,
             source_status="reviewing-implementation",
             repo_root=str(tmp_path),
             lane=LandedLane(branch="lane", target="main", commit_sha="a" * 40),
         )
 
+        assert new_status == ""
         assert error == "denied"
         assert calls == ["lifecycle.transition.execute"]
 

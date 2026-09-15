@@ -127,6 +127,37 @@ def test_a_lane_carrying_new_commits_has_not_landed(monkeypatch):
     assert "fresh work item" in landed.stale_unlanded_work(**_LOOK)
 
 
+def test_reached_release_defaults_true_and_keeps_the_existing_refusal(monkeypatch):
+    """Every close-out caller passes no ``reached_release`` at all; the
+    default must keep refusing a mismatch exactly as before."""
+    _probe(
+        monkeypatch,
+        branch_exists=True,
+        head="9" * 40,
+        contains=(LANE_SHA, MERGE_SHA),
+    )
+    monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
+    assert "fresh work item" in landed.stale_unlanded_work(**_LOOK, reached_release=True)
+
+
+def test_an_item_that_has_not_reached_release_gets_its_own_mismatch_through(
+    monkeypatch,
+):
+    """The item's own live status already shows it genuinely returned
+    short of release (an agent-driven lifecycle.transition, not this
+    function's business to re-derive) -- the SAME mismatch that is
+    foreign/stale work by default is this item's own next legitimate
+    merge attempt instead."""
+    _probe(
+        monkeypatch,
+        branch_exists=True,
+        head="9" * 40,
+        contains=(LANE_SHA, MERGE_SHA),
+    )
+    monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
+    assert landed.stale_unlanded_work(**_LOOK, reached_release=False) == ""
+
+
 def test_a_squashed_head_matching_the_receipt_has_landed(monkeypatch):
     _probe(monkeypatch, branch_exists=True, head=LANE_SHA, contains=(MERGE_SHA,))
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)

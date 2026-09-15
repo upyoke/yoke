@@ -154,16 +154,26 @@ class TestDeploymentFlowGuardInvalidFlow:
         assert "No deployment flows are registered" in out
 
 
+def _patch_latest_run(status, run_id=""):
+    return mock.patch.object(
+        done_transition_deploy_gates,
+        "_get_latest_run_status",
+        return_value=(status, run_id),
+    )
+
+
+def _patch_qa_gates(blocks):
+    return mock.patch.object(
+        done_transition_deploy_gates, "check_run_qa_gates", return_value=blocks
+    )
+
+
 class TestDeploymentFlowGuardRegisteredButMissingEvidence:
     def test_registered_flow_skip_deploy_no_evidence_preserves_message(self, capsys):
         with (
             _patch_registered_flows(["externalwebapp-prod-release"]),
             _patch_target_tier("persistent"),
-            mock.patch.object(
-                done_transition_deploy_gates,
-                "_check_deployment_evidence",
-                return_value=False,
-            ),
+            _patch_latest_run(""),
         ):
             result = done_transition._check_deployment_flow_guard(
                 item_id=520,
@@ -214,3 +224,117 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
                 public_ref="YOK-530",
             )
         assert result is None
+
+
+class TestDeploymentFlowGuardMissingFlowResolution:
+    """The release-stage boundary: only a pin with a redirect target gets the
+    stricter resolve-or-refuse behavior; an old pin's empty-flow merge-only
+    pass-through is preserved exactly."""
+
+    def test_old_pin_with_no_redirect_target_keeps_merge_only_pass_through(self):
+        """delivery_stage_id=None means this pin never supported release-stage
+        waiting; an empty flow stays today's already-satisfied merge-only."""
+        with mock.patch.object(
+            done_transition_deploy_gates,
+            "_resolve_default_delivery_flow",
+            side_effect=AssertionError("an unsupported pin must not resolve a default"),
+        ):
+            result = done_transition._check_deployment_flow_guard(
+                item_id=540,
+                deploy_flow="",
+                skip_deploy=False,
+                item_project="yoke",
+                old_status="reviewing-implementation",
+                delivery_stage_id=None,
+                public_ref="YOK-540",
+                workflow_id="dash",
+            )
+        assert result is None
+
+    def test_resolved_default_is_frozen_onto_the_item_and_used(self, capsys):
+        with (
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_resolve_default_delivery_flow",
+                return_value="externalwebapp-prod-release",
+            ) as resolve,
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_freeze_resolved_delivery_flow",
+                return_value="externalwebapp-prod-release",
+            ) as freeze,
+            _patch_registered_flows(["externalwebapp-prod-release"]),
+            _patch_target_tier(""),
+        ):
+            result = done_transition._check_deployment_flow_guard(
+                item_id=541,
+                deploy_flow="",
+                skip_deploy=False,
+                item_project="externalwebapp",
+                old_status="reviewing-implementation",
+                delivery_stage_id="release",
+                public_ref="EXT-541",
+                workflow_id="dash",
+            )
+        resolve.assert_called_once_with(
+            item_project="externalwebapp", workflow_id="dash"
+        )
+        freeze.assert_called_once_with(
+            541, "externalwebapp-prod-release", public_ref="EXT-541"
+        )
+        # Merge-only target tier means the resolved flow itself needs no run.
+        assert result is None
+        assert "is NOT a registered deployment flow" not in capsys.readouterr().out
+
+    def test_a_value_raced_in_since_the_earlier_read_wins_over_the_resolved_default(
+        self,
+    ):
+        """freeze_resolved_delivery_flow rereads immediately before writing;
+        the guard must use ITS returned value, not the resolved default,
+        when something else set a real value in between."""
+        with (
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_resolve_default_delivery_flow",
+                return_value="externalwebapp-prod-release",
+            ),
+            mock.patch.object(
+                done_transition_deploy_gates,
+                "_freeze_resolved_delivery_flow",
+                return_value="externalwebapp-internal",
+            ),
+        ):
+            result = done_transition._check_deployment_flow_guard(
+                item_id=543,
+                deploy_flow="",
+                skip_deploy=False,
+                item_project="externalwebapp",
+                old_status="reviewing-implementation",
+                delivery_stage_id="release",
+                public_ref="EXT-543",
+                workflow_id="dash",
+            )
+        # The raced-in value is an -internal flow, so it resolves merge-only
+        # rather than the resolved default's own target-tier path.
+        assert result is None
+
+    def test_nothing_resolves_refuses_with_setup_guidance(self, capsys):
+        with mock.patch.object(
+            done_transition_deploy_gates,
+            "_resolve_default_delivery_flow",
+            return_value="",
+        ):
+            result = done_transition._check_deployment_flow_guard(
+                item_id=542,
+                deploy_flow="",
+                skip_deploy=False,
+                item_project="externalwebapp",
+                old_status="reviewing-implementation",
+                delivery_stage_id="release",
+                public_ref="EXT-542",
+                workflow_id="dash",
+            )
+        out = capsys.readouterr().out
+        assert result == (7, "reviewing-implementation")
+        assert "no deployment flow selected" in out
+        assert "no workflow-specific or project-wide delivery default" in out

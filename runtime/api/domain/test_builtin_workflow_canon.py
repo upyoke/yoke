@@ -30,13 +30,13 @@ from yoke_core.domain.workflow_definition_codec import definition_digest
 PINNED_CANON_GENERATION_COUNTS = {
     "issue": 6,
     "epic": 6,
-    "blitz": 8,
-    "dash": 9,
+    "blitz": 9,
+    "dash": 10,
     "task": 1,
 }
 
 PINNED_CANON_FINGERPRINT = (
-    "d8cf1a6cc157b4c66119a422faf69aef206b4fb2956b293a490df729502bac8f"
+    "a4e115e3a52de01653db85e25dc3dcc810e6c99538dde7a3373f1bf44c6185f1"
 )
 
 

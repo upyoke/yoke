@@ -88,6 +88,70 @@ def ephemeral_qa_ready(run_id: str) -> bool:
     )
 
 
+def allocate_stage_receipt(
+    run_id: str,
+    *,
+    stage_name: str,
+    correlation_id: str,
+    target_kind: str,
+    executor: str,
+) -> Dict[str, Any]:
+    """Allocate a durable per-stage receipt attempt before executor dispatch."""
+    return _call(
+        "deployment_runs.execution.stage_receipt_allocate",
+        run_id,
+        {
+            "stage_name": stage_name,
+            "correlation_id": correlation_id,
+            "target_kind": target_kind,
+            "executor": executor,
+        },
+    )
+
+
+def complete_stage_receipt(
+    run_id: str,
+    *,
+    receipt_id: int,
+    correlation_id: str,
+    status: str,
+    target_name: Optional[str] = None,
+    observed_url: Optional[str] = None,
+    observed_release_lineage: Optional[str] = None,
+    observed_artifact_identity: Optional[str] = None,
+    executor_receipt: Optional[str] = None,
+    failure_reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Settle one allocated attempt with observed evidence or a failure reason."""
+    payload: Dict[str, Any] = {
+        "receipt_id": receipt_id,
+        "correlation_id": correlation_id,
+        "status": status,
+    }
+    for key, value in (
+        ("target_name", target_name),
+        ("observed_url", observed_url),
+        ("observed_release_lineage", observed_release_lineage),
+        ("observed_artifact_identity", observed_artifact_identity),
+        ("executor_receipt", executor_receipt),
+        ("failure_reason", failure_reason),
+    ):
+        if value is not None:
+            payload[key] = value
+    return _call("deployment_runs.execution.stage_receipt_complete", run_id, payload)
+
+
+def latest_stage_receipt(run_id: str, *, stage_name: str) -> Optional[Dict[str, Any]]:
+    """Return the newest receipt attempt for a stage, or ``None`` if absent."""
+    result = _call(
+        "deployment_runs.execution.stage_receipt_latest",
+        run_id,
+        {"stage_name": stage_name},
+    )
+    receipt = result.get("receipt")
+    return dict(receipt) if isinstance(receipt, dict) else None
+
+
 def project_field(project: str, field: str) -> str:
     """Read one project field through the selected transport."""
     response = call_dispatcher(
@@ -104,8 +168,11 @@ def project_field(project: str, field: str) -> str:
 
 __all__ = [
     "DeploymentControlPlaneError",
+    "allocate_stage_receipt",
+    "complete_stage_receipt",
     "execution_context",
     "ephemeral_qa_ready",
+    "latest_stage_receipt",
     "project_field",
     "record_qa_stage",
     "seed_qa",

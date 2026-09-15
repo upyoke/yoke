@@ -163,6 +163,40 @@ def _report_closeout_failure(result, ref: str, old_status: str, exc: BaseExcepti
     )
 
 
+def _announce_delivery(item_id: int, ref: str) -> None:
+    """Tell the item's owner its delivery completed, informationally.
+
+    Runs after the status write, so nothing here can fail the transition:
+    a delivery that cannot be announced is reported and stays retryable
+    rather than reversing a done that already happened. An item with no
+    succeeded run has no destination to name and is silent.
+    """
+    try:
+        response = call_dispatcher(
+            function_id="done_transition.delivery_done_notice",
+            target=TargetRef(kind="item", item_id=int(item_id)),
+            payload={},
+        )
+    except Exception as exc:  # noqa: BLE001 - never endanger a committed done
+        print(f"Warning: could not announce {ref}'s delivery: {exc}")
+        return
+    if not response.success:
+        message = response.error.message if response.error else "unknown error"
+        print(f"Warning: could not announce {ref}'s delivery: {message}")
+        return
+    result = response.result or {}
+    run_id = str(result.get("run_id") or "")
+    if not run_id:
+        return
+    if result.get("delivery"):
+        print(f"Announced {ref}'s delivery from run {run_id} to its owner.")
+    else:
+        print(
+            f"{ref}'s delivery from run {run_id} has nobody to announce it to "
+            f"({result.get('reason') or 'no recipient'}). Staff it manually."
+        )
+
+
 def finish_done_transition(
     done_transition,
     result,
@@ -268,6 +302,8 @@ def _run_closeout(
     else:
         print("No merge commit or done-transition commit produced - skipping push.")
     result.add_step("13")
+
+    _announce_delivery(item_id, ref)
 
     print("\n=== Step 14: Report ===")
     print("==========================================")

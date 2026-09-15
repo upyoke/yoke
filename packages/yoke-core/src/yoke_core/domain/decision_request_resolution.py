@@ -60,6 +60,48 @@ def _apply_subject_resolution(
         )
 
 
+def _notify_subject_resolution(
+    conn: Any,
+    request: dict[str, Any],
+    *,
+    action: str,
+    note: Optional[str],
+) -> None:
+    """Tell whoever was waiting on this decision what it was.
+
+    Called after the resolution has committed, and deliberately: the
+    verdict is the durable outcome and a notification hiccup must not
+    endanger it. A failure degrades to a printed warning, because the
+    decision stands either way and the recipient can still read it.
+    """
+    if request["kind"] != "qa_needs_review":
+        return
+    from yoke_core.domain.deployment_qa_verdict_notice import (
+        notify_deployment_qa_verdict,
+    )
+
+    try:
+        delivery = notify_deployment_qa_verdict(
+            conn,
+            requirement_id=int(request["subject_key"]),
+            action=action,
+            note=note or "",
+        )
+        conn.commit()
+    except Exception as exc:  # noqa: BLE001 - degrade, never undo the verdict
+        conn.rollback()
+        print(
+            "Warning: could not reach the agent waiting on QA requirement "
+            f"{request['subject_key']}: {exc}"
+        )
+        return
+    if delivery == "":
+        print(
+            f"QA requirement {request['subject_key']} was resolved with nobody "
+            "addressable to tell. Staff it manually."
+        )
+
+
 def resolve_decision_request(
     conn: Any,
     request_id: int,
@@ -160,6 +202,12 @@ def resolve_decision_request(
         created_at=stamp,
     )
     conn.commit()
+    _notify_subject_resolution(
+        conn,
+        request,
+        action=str(progress.action),
+        note=progress.note,
+    )
     return _request_row(conn, request_id)
 
 

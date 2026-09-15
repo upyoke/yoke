@@ -15,6 +15,7 @@ silently rewrote it and the fleet refused to boot; see
 from __future__ import annotations
 
 from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
     WORKFLOW_FILE_BUDGET_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_SURVEY_REQUIRED,
@@ -32,8 +33,22 @@ from yoke_core.domain.workflow_gate_catalog import (
     GATE_DB_MUTATION,
     GATE_DOC_CLAIM_ACTIVATION,
     GATE_DOC_COMPLETION,
+    GATE_PATH_CLAIM_BOUNDARY,
     GATE_QA_VERIFICATION,
     GATE_WORK_CLAIM_ACTIVATION,
+)
+
+_RELEASE_STAGE = workflow_stage(
+    "release",
+    "release",
+    (
+        gate_ref(GATE_ARCHITECTURE_IMPACT),
+        gate_ref(GATE_PATH_CLAIM_BOUNDARY),
+        gate_ref(GATE_QA_VERIFICATION),
+    ),
+    "The merged candidate waits here for its selected deployment flow's "
+    "stages and verified QA; an item with no deployment posture or flow "
+    "passes straight through.",
 )
 
 _REFINEMENT_STAGES = (
@@ -75,8 +90,8 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
                 gate_ref(GATE_ARCHITECTURE_IMPACT),
             ),
             "The continuous slice loop — the linked document is executed "
-            "directly, and each slice may merge, migrate, and deploy; there "
-            "is no separate release stage.",
+            "directly, and each slice may merge, migrate, and release on "
+            "its own; only the final closeout waits at the release stage.",
         ),
         workflow_stage(
             "reviewing-implementation",
@@ -90,6 +105,7 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
             "records what was completed, what changed, what remains, the "
             "evidence, and how the parent strategy was reconciled.",
         ),
+        _RELEASE_STAGE,
         workflow_stage(
             "done",
             "done",
@@ -116,7 +132,7 @@ BLITZ_WORKFLOW_DEFINITION = definition_fixture(
         "generated_children": "none",
         "qa": "item_attachments",
         "approvals": "optional_named_gate",
-        "delivery": "continuous_slice_actions",
+        "delivery": WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
         "item_posture_allowlist": [
             "verification",
             "file_budget",
@@ -160,6 +176,7 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
             "The verification close — the agent self-checks, plus any case a "
             "tightened posture knob added.",
         ),
+        _RELEASE_STAGE,
         workflow_stage(
             "done",
             "done",
@@ -168,7 +185,7 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
                 gate_ref(GATE_DASH_EVIDENCE),
             ),
             "Result and verification evidence are recorded on the item; "
-            "delivery, when enabled, ran as an after-merge action.",
+            "delivery, when required, waited at the release stage.",
         ),
     ),
     entry_surfaces=("web_form", "cli", "harness_skill", "promotion"),
@@ -182,7 +199,7 @@ DASH_WORKFLOW_DEFINITION = definition_fixture(
         "generated_children": "none",
         "qa": WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT,
         "approvals": "none",
-        "delivery": "after_merge_action",
+        "delivery": "release_stage",
         "item_posture_allowlist": [
             "verification",
             "file_budget",

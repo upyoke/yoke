@@ -25,22 +25,27 @@ def dispatch_ephemeral_verify(
     first_item_label: str,
     step_runners: Any,
     sd: Optional[str] = None,
-) -> int:
-    """Verify a preview unless every member already passed ephemeral QA."""
+) -> tuple[int, str]:
+    """Verify a preview unless every member already passed ephemeral QA.
+
+    Returns ``(exit_code, preview_url)``; ``preview_url`` is populated only on
+    a successful verification so a durable stage receipt can record the exact
+    observed target a later QA stage reads.
+    """
     sd = sd or _resolve_script_dir()
 
     try:
         all_passed = control_plane.ephemeral_qa_ready(run_id)
     except control_plane.DeploymentControlPlaneError as exc:
         print(f"Error: could not read ephemeral QA readiness: {exc}", file=sys.stderr)
-        return 1
+        return 1, ""
 
     if all_passed:
         print(
             "  Skipping ephemeral-verify: all member items already passed "
             "ephemeral QA during conduct"
         )
-        return 0
+        return 0, ""
 
     workflow = config.get("workflow", "")
     if not github_repo:
@@ -48,14 +53,14 @@ def dispatch_ephemeral_verify(
             f"Error: no github_repo configured for project '{project}'",
             file=sys.stderr,
         )
-        return 1
+        return 1, ""
     if not branch or branch == "null":
         print(
             f"Error: no branch available for {first_item_label or first_item} -- cannot "
             "verify ephemeral deploy",
             file=sys.stderr,
         )
-        return 1
+        return 1, ""
 
     from yoke_core.domain.ephemeral_substrate import (
         EphemeralPolicyError,
@@ -66,13 +71,13 @@ def dispatch_ephemeral_verify(
         domain = load_ephemeral_policy(project).preview_domain
     except EphemeralPolicyError as exc:
         print(f"Error: {exc}", file=sys.stderr)
-        return 1
+        return 1, ""
     if not workflow:
         print(
             "Error: ephemeral-verify stage missing 'workflow' field in flow definition",
             file=sys.stderr,
         )
-        return 1
+        return 1, ""
 
     buf = io.StringIO()
     try:
@@ -87,7 +92,7 @@ def dispatch_ephemeral_verify(
             )
     except Exception as exc:  # pragma: no cover
         print(f"Error: exec_ephemeral_verify raised: {exc}", file=sys.stderr)
-        return 1
+        return 1, ""
 
     output = buf.getvalue().strip()
     if output:
@@ -96,6 +101,7 @@ def dispatch_ephemeral_verify(
     if rc == 0:
         for line in output.split("\n"):
             if line.startswith("EPHEMERAL_URL="):
+                preview_url = line.split("=", 1)[1]
                 _emit_run_event(
                     "DeploymentRunStageCompleted",
                     "completed",
@@ -103,15 +109,15 @@ def dispatch_ephemeral_verify(
                         "run_id": run_id,
                         "stage": name,
                         "result": "success",
-                        "preview_url": line.split("=", 1)[1],
+                        "preview_url": preview_url,
                     },
                     member_items=member_items,
                     project=project,
                     sd=sd,
                 )
-                return -3
+                return -3, preview_url
 
-    return rc
+    return rc, ""
 
 
 __all__ = ["dispatch_ephemeral_verify"]

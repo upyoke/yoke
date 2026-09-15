@@ -146,11 +146,12 @@ class TestProjectsGet(unittest.TestCase):
             payload={"project": "platform", "field": "id"},
         )
         identity = type("Identity", (), {"id": 3})()
+        conn = _Connection()
         with (
             patch(
                 "yoke_core.domain.db_helpers.connect",
-                return_value=_Connection(),
-            ),
+                return_value=conn,
+            ) as connect,
             patch(
                 "yoke_core.domain.handlers.projects_get.actor_visible_project_ids",
                 return_value={3},
@@ -160,9 +161,10 @@ class TestProjectsGet(unittest.TestCase):
                 return_value=identity,
             ) as resolve,
             patch(
-                "yoke_core.domain.projects_crud.cmd_get",
+                "yoke_core.domain.projects_crud._read_resolved_project",
                 return_value="3",
-            ) as get,
+            ) as read_resolved,
+            patch("yoke_core.domain.projects_crud.cmd_get") as get,
         ):
             outcome = projects_get.handle_projects_get(request)
 
@@ -171,7 +173,58 @@ class TestProjectsGet(unittest.TestCase):
         self.assertIsInstance(outcome.result_payload["value"], int)
         visible.assert_called_once()
         self.assertEqual(resolve.call_args.kwargs["visible_project_ids"], {3})
-        get.assert_called_once_with("3", field="id")
+        # The already visibility-checked identity is read through the SAME
+        # connection the resolve just used — no second, independently opened
+        # connection re-resolves the project (the source of a CI-only
+        # divergence between two connections observing the same row).
+        connect.assert_called_once()
+        read_resolved.assert_called_once_with(conn, "platform", 3, "id")
+        get.assert_not_called()
+
+    def test_authenticated_actor_read_denies_field_not_reachable_via_second_connection(
+        self,
+    ):
+        """A denied/invisible project never falls through to ``cmd_get``.
+
+        ``cmd_get`` opens its own connection and re-resolves by numeric id
+        with no visibility filter; if the handler ever called it after a
+        failed visibility check, a denied actor could read a project it
+        cannot see. The visibility refusal must short-circuit before any
+        second connection is opened.
+        """
+        class _Connection:
+            def close(self):
+                pass
+
+        request = FunctionCallRequest(
+            function="projects.get",
+            actor=ActorContext(actor_id="17", session_id="s-1"),
+            target=TargetRef(kind="global"),
+            payload={"project": "other", "field": "id"},
+        )
+        with (
+            patch(
+                "yoke_core.domain.db_helpers.connect",
+                return_value=_Connection(),
+            ) as connect,
+            patch(
+                "yoke_core.domain.handlers.projects_get.actor_visible_project_ids",
+                return_value={3},
+            ),
+            patch(
+                "yoke_core.domain.project_identity.resolve_project",
+                return_value=None,
+            ),
+            patch("yoke_core.domain.projects_crud._read_resolved_project") as read_resolved,
+            patch("yoke_core.domain.projects_crud.cmd_get") as get,
+        ):
+            outcome = projects_get.handle_projects_get(request)
+
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "not_found")
+        connect.assert_called_once()
+        read_resolved.assert_not_called()
+        get.assert_not_called()
 
     def test_authenticated_actor_cannot_read_invisible_project(self):
         class _Connection:

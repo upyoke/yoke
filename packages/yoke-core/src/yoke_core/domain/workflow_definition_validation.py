@@ -17,6 +17,7 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_PATH_CLAIMS_REQUIRED_PER_TASK,
     WORKFLOW_PATH_SURVEY_OPTIONAL,
     WORKFLOW_PATH_SURVEY_REQUIRED,
+    WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
     WORKFLOW_DELIVERY_MERGE_FREE,
     WORKFLOW_QA_OPTIONAL,
     WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT,
@@ -104,6 +105,7 @@ _POLICY_VALUES = {
             "continuous_slice_actions",
             "after_merge_action",
             WORKFLOW_DELIVERY_MERGE_FREE,
+            WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
         }
     ),
 }

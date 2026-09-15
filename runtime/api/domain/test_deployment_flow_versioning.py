@@ -49,24 +49,33 @@ ADVANCED_STAGES = json.dumps(
 )
 
 
+#: The same advanced vocabulary with a QA target this runtime can observe.
+SUPPORTED_ADVANCED_STAGES = json.dumps(
+    [
+        {
+            "name": "deploy",
+            "step_runner": "health-check",
+            "stage_kind": "execution",
+            "scope": "run",
+        },
+        {
+            "name": "release-qa",
+            "step_runner": "qa",
+            "stage_kind": "qa",
+            "scope": "run",
+            "target": {
+                "kind": "persistent_environment",
+                "environment": "development",
+                "source_stage": "deploy",
+            },
+            "verdict": {"mode": "agent_only"},
+        },
+    ]
+)
+
+
 def _create_legacy(conn: Any, flow_id: str = "mutable-flow") -> None:
     cmd_create(conn, flow_id, "yoke", "Mutable flow", "", LEGACY_STAGES)
-
-
-def test_advanced_definition_validates_but_cannot_activate_yet(test_db: Any) -> None:
-    result = cmd_validate_definition(
-        test_db, project="yoke", stages=ADVANCED_STAGES, status="disabled"
-    )
-    assert result == {
-        "valid": True,
-        "definition_schema_version": 2,
-        "execution_supported": False,
-        "serving_schema_version": 1,
-    }
-    with pytest.raises(ValueError, match="keep the definition disabled"):
-        cmd_validate_definition(
-            test_db, project="yoke", stages=ADVANCED_STAGES, status="active"
-        )
 
 
 def test_complete_update_and_reorder_preserve_one_flow_identity(test_db: Any) -> None:

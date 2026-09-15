@@ -7,7 +7,14 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.approval_policy import parse_approval_policy
-from yoke_core.domain.db_helpers import iso8601_now, query_rows
+from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_qa_stage_acceptance import (
+    acceptance_waived,
+    completed_execution,
+    existing_acceptance_requirement,
+    latest_verdict,
+)
+from yoke_core.domain.deployment_qa_stage_case_failures import case_failures
 from yoke_core.domain.deployment_qa_stage_contract import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
     deployment_qa_stage_subject,
@@ -24,82 +31,29 @@ from yoke_core.domain import qa_execution_environment_target as target_authority
 
 ACCEPTANCE_QA_KIND = DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND
 
-
-def _latest_verdict(conn: Any, requirement_id: int) -> str:
-    row = conn.execute(
-        "SELECT verdict FROM qa_runs WHERE qa_requirement_id=%s "
-        "ORDER BY created_at DESC,id DESC LIMIT 1",
-        (int(requirement_id),),
-    ).fetchone()
-    if row is None:
-        return ""
-    return str(row["verdict"] if hasattr(row, "keys") else row[0] or "")
+#: A stage subject's settled answer, named where it is decided so callers
+#: do not re-derive it by reading the reason strings.
+OUTCOME_PASSED = "passed"
+OUTCOME_REJECTED = "rejected"
+OUTCOME_WAITING = "waiting"
 
 
-def _case_failures(
-    conn: Any,
-    *,
-    run_id: str,
-    stage_name: str,
-    member_item_id: int | None,
-    execution_id: str | None,
-    execution_target_digest: str,
-) -> list[str]:
-    rows = query_rows(
-        conn,
-        "SELECT id,plan_case_key,waived_at FROM qa_requirements "
-        "WHERE deployment_run_id=%s AND deployment_stage=%s "
-        "AND COALESCE(deployment_member_item_id,0)=%s "
-        "AND method_id IS NOT NULL AND blocking_mode='blocking' "
-        "AND execution_target_digest=%s ORDER BY id",
-        (run_id, stage_name, member_item_id or 0, execution_target_digest),
-    )
-    if not rows:
-        return ["no concrete QA cases are materialized"]
-    failures: list[str] = []
-    for row in rows:
-        if row["waived_at"]:
-            continue
-        latest = conn.execute(
-            "SELECT id,verdict FROM qa_runs WHERE qa_requirement_id=%s "
-            "ORDER BY created_at DESC,id DESC LIMIT 1",
-            (int(row["id"]),),
-        ).fetchone()
-        verdict = str(latest["verdict"] if latest is not None else "")
-        if verdict != "pass":
-            failures.append(
-                f"requirement #{row['id']} ({row['plan_case_key']}) latest "
-                f"verdict is {verdict or 'missing'}"
-            )
-            continue
-        evidence_count = 0
-        if execution_id is not None:
-            result_row = conn.execute(
-                "SELECT result_json FROM qa_plan_execution_results "
-                "WHERE execution_id=%s AND requirement_id=%s",
-                (execution_id, int(row["id"])),
-            ).fetchone()
-            if result_row is not None:
-                raw_result = result_row["result_json"]
-                result = (
-                    dict(raw_result)
-                    if isinstance(raw_result, Mapping)
-                    else json.loads(str(raw_result or "{}"))
-                )
-                evidence_run_id = result.get("qa_run_id") or result.get("run_id")
-                if evidence_run_id is not None:
-                    evidence_count = int(
-                        conn.execute(
-                            "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id=%s",
-                            (int(evidence_run_id),),
-                        ).fetchone()[0]
-                    )
-        if evidence_count == 0:
-            failures.append(
-                f"requirement #{row['id']} ({row['plan_case_key']}) latest "
-                "passing result has no attached evidence"
-            )
-    return failures
+def _waiting(reasons: list[str]) -> dict[str, Any]:
+    return {
+        "accepted": False,
+        "outcome": OUTCOME_WAITING,
+        "reasons": reasons,
+        "request_id": None,
+    }
+
+
+def _passed() -> dict[str, Any]:
+    return {
+        "accepted": True,
+        "outcome": OUTCOME_PASSED,
+        "reasons": [],
+        "request_id": None,
+    }
 
 
 def _completed_execution(
@@ -110,20 +64,24 @@ def _completed_execution(
     member_item_id: int | None,
     execution_target_digest: str,
 ) -> dict[str, Any] | None:
-    from yoke_core.domain.qa_plan_execution_store import select_plan_execution
+    """The shared read, plus the active stage's own target re-validation.
 
-    row = conn.execute(
-        "SELECT id FROM qa_plan_executions WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s "
-        "AND COALESCE(deployment_member_item_id,0)=%s "
-        "AND execution_target_digest=%s AND state='completed' "
-        "ORDER BY created_at DESC,id DESC LIMIT 1",
-        (run_id, stage_name, member_item_id or 0, execution_target_digest),
-    ).fetchone()
-    if row is None:
+    Settling stands on the run's active stage, so it can and does assert
+    the execution still belongs to the live subject. The read-only
+    counterpart in :mod:`deployment_qa_stage_acceptance` deliberately
+    omits that assertion: it runs after the run left the stage, where
+    there is no active subject to compare against, and the digest
+    predicate already proves the target identity.
+    """
+    execution = completed_execution(
+        conn,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+        execution_target_digest=execution_target_digest,
+    )
+    if execution is None:
         return None
-    execution_id = row["id"] if hasattr(row, "keys") else row[0]
-    execution = select_plan_execution(conn, str(execution_id), lock=False)
     validate_deployment_execution_target(conn, execution)
     return execution
 
@@ -134,44 +92,17 @@ def _acceptance_requirement(
     subject: Mapping[str, Any],
     target: Mapping[str, Any],
 ) -> int:
+    existing = existing_acceptance_requirement(
+        conn,
+        subject=subject,
+        target=target,
+        acceptance_qa_kind=ACCEPTANCE_QA_KIND,
+    )
+    if existing is not None:
+        return existing
     run_id = str(subject["id"])
     stage_name = str(subject["stage"]["name"])
     member = subject.get("member_item_id")
-    rows = conn.execute(
-        "SELECT id,execution_target_json,execution_target_digest "
-        "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
-        "AND COALESCE(deployment_member_item_id,0)=%s AND qa_kind=%s "
-        "ORDER BY id",
-        (run_id, stage_name, member or 0, ACCEPTANCE_QA_KIND),
-    ).fetchall()
-    expected_json = target_authority.canonical_target(target)
-    expected_digest = target_authority.target_digest(target)
-    matches = [
-        row
-        for row in rows
-        if str(row["execution_target_json"] or "") == expected_json
-        and str(row["execution_target_digest"] or "") == expected_digest
-    ]
-    if len(matches) > 1:
-        raise ValueError(
-            "deployment stage acceptance was materialized more than once; "
-            "resolve the duplicate before resuming the pipeline"
-        )
-    row = matches[0] if matches else None
-    if row is not None:
-        stored_json = row["execution_target_json"] if hasattr(row, "keys") else row[1]
-        stored_digest = (
-            row["execution_target_digest"] if hasattr(row, "keys") else row[2]
-        )
-        if (
-            str(stored_json or "") != expected_json
-            or str(stored_digest or "") != expected_digest
-        ):
-            raise ValueError(
-                "deployment stage acceptance belongs to a replaced target; "
-                "preserve it and begin the replacement stage execution"
-            )
-        return int(row["id"] if hasattr(row, "keys") else row[0])
     now = iso8601_now()
     created = conn.execute(
         "INSERT INTO qa_requirements("
@@ -191,8 +122,8 @@ def _acceptance_requirement(
             ),
             "Review the completed scoped deployment QA cases and their evidence.",
             "Every admitted case passed against the pinned deployment target.",
-            expected_json,
-            expected_digest,
+            target_authority.canonical_target(target),
+            target_authority.target_digest(target),
             now,
         ),
     ).fetchone()
@@ -234,7 +165,15 @@ def deployment_qa_stage_status(
     stage_name: str,
     member_item_id: int | None,
 ) -> dict[str, Any]:
-    """Settle or describe one active stage/member acceptance boundary."""
+    """Settle or describe one stage/member acceptance boundary.
+
+    ``target_digest`` rides along: stable while this is the same wait,
+    different when the stage's own pinned target identity changes within
+    an existing retry/requirement contract -- the identity a wake notice's
+    own key needs to tell the two apart. It never authorizes swapping a
+    frozen run's candidate or membership in place; that stays a
+    replacement run's job.
+    """
     subject = deployment_qa_stage_subject(
         conn,
         run_id=run_id,
@@ -242,6 +181,29 @@ def deployment_qa_stage_status(
         member_item_id=member_item_id,
     )
     target = deployment_qa_execution_target(conn, subject)
+    digest = target_authority.target_digest(target)
+    result = _settle_stage_status(
+        conn,
+        subject=subject,
+        target=target,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+    )
+    result["target_digest"] = digest
+    return result
+
+
+def _settle_stage_status(
+    conn: Any,
+    *,
+    subject: Mapping[str, Any],
+    target: Mapping[str, Any],
+    run_id: str,
+    stage_name: str,
+    member_item_id: int | None,
+) -> dict[str, Any]:
+    """Settle or describe one active stage/member acceptance boundary."""
     current_target_digest = target_authority.target_digest(target)
     execution = _completed_execution(
         conn,
@@ -250,7 +212,7 @@ def deployment_qa_stage_status(
         member_item_id=member_item_id,
         execution_target_digest=current_target_digest,
     )
-    failures = _case_failures(
+    failures = case_failures(
         conn,
         run_id=run_id,
         stage_name=stage_name,
@@ -261,7 +223,7 @@ def deployment_qa_stage_status(
     if execution is None:
         failures.insert(0, "no completed scoped QA execution exists")
     if failures:
-        return {"accepted": False, "reasons": failures, "request_id": None}
+        return _waiting(failures)
     assert execution is not None
     obligation_failures = fulfill_admitted_obligations(
         conn,
@@ -273,27 +235,18 @@ def deployment_qa_stage_status(
         acceptance_qa_kind=ACCEPTANCE_QA_KIND,
     )
     if obligation_failures:
-        return {
-            "accepted": False,
-            "reasons": obligation_failures,
-            "request_id": None,
-        }
+        return _waiting(obligation_failures)
     conn.execute("SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE", (run_id,))
     requirement_id = _acceptance_requirement(conn, subject=subject, target=target)
-    waiver_row = conn.execute(
-        "SELECT waived_at FROM qa_requirements WHERE id=%s", (requirement_id,)
-    ).fetchone()
-    waived_at = (
-        waiver_row["waived_at"] if hasattr(waiver_row, "keys") else waiver_row[0]
-    )
-    if waived_at:
-        return {"accepted": True, "reasons": [], "request_id": None}
-    latest = _latest_verdict(conn, requirement_id)
+    if acceptance_waived(conn, requirement_id):
+        return _passed()
+    latest = latest_verdict(conn, requirement_id)
     if latest == "pass":
-        return {"accepted": True, "reasons": [], "request_id": None}
+        return _passed()
     if latest == "fail":
         return {
             "accepted": False,
+            "outcome": OUTCOME_REJECTED,
             "reasons": [f"stage acceptance requirement #{requirement_id} was rejected"],
             "request_id": None,
         }
@@ -308,7 +261,7 @@ def deployment_qa_stage_status(
             reason=f"all scoped cases passed under {mode}",
         )
         conn.commit()
-        return {"accepted": True, "reasons": [], "request_id": None}
+        return _passed()
     if latest != "undetermined":
         review_run_id = _record_acceptance(
             conn,
@@ -339,6 +292,7 @@ def deployment_qa_stage_status(
     request_id = int(request["id"]) if request is not None else None
     return {
         "accepted": False,
+        "outcome": OUTCOME_WAITING,
         "reasons": [
             f"stage acceptance requirement #{requirement_id} awaits authorized human review"
         ],
@@ -346,4 +300,10 @@ def deployment_qa_stage_status(
     }
 
 
-__all__ = ["ACCEPTANCE_QA_KIND", "deployment_qa_stage_status"]
+__all__ = [
+    "ACCEPTANCE_QA_KIND",
+    "OUTCOME_PASSED",
+    "OUTCOME_REJECTED",
+    "OUTCOME_WAITING",
+    "deployment_qa_stage_status",
+]

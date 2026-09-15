@@ -87,13 +87,14 @@ def test_terminal_transition_refuses_an_unreachable_recorded_head(
         lambda **_k: pytest.fail("lifecycle dispatcher must not be called"),
     )
 
-    error = terminal.transition_to_done(
+    new_status, error = terminal.transition_to_done(
         item_id=7,
         source_status="reviewing-implementation",
         repo_root=str(repo),
         lane=LandedLane(branch="lane", target="main", commit_sha=unreachable),
     )
 
+    assert new_status == ""
     assert "not reachable" in error
 
 

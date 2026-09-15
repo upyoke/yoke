@@ -5,6 +5,9 @@ from __future__ import annotations
 from yoke_core.domain.handlers.items_cancel import (
     REGISTRATIONS as _ITEMS_CANCEL_REGS,
 )
+from yoke_core.domain.handlers.items_deployment_flow_claim import (
+    REGISTRATIONS as _ITEMS_DEPLOYMENT_FLOW_CLAIM_REGS,
+)
 from yoke_core.domain.handlers.items_flags import (
     REGISTRATIONS as _ITEMS_FLAG_REGS,
 )
@@ -28,6 +31,7 @@ def register(registry) -> None:
         _ITEMS_SCALAR_REGS
         + _ITEMS_FLAG_REGS
         + _ITEMS_CANCEL_REGS
+        + _ITEMS_DEPLOYMENT_FLOW_CLAIM_REGS
         + _LIFECYCLE_TRANSITION_REGS
         + _LIFECYCLE_REPAIR_STATUS_REGS
         + _LIFECYCLE_SKIP_REGS

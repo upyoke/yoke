@@ -45,6 +45,14 @@ def test_the_declared_next_stage_is_allowed() -> None:
         ("dash", "blocked", "implementing"),
         # A definition that declares the jump owns it.
         ("task", "implementing", "done"),
+        # Failed QA or rejected review at the release wait sends an item
+        # back to implementing, for every workflow that owns a release
+        # stage -- the same generic backward-move-is-rework rule, no
+        # declared edge or new canon generation needed.
+        ("dash", "release", "implementing"),
+        ("blitz", "release", "implementing"),
+        ("issue", "release", "implementing"),
+        ("epic", "release", "implementing"),
     ],
 )
 def test_supported_paths_stay_open(
@@ -116,6 +124,22 @@ def test_preflight_admits_the_declared_next_stage(test_db) -> None:
     insert_item(test_db, id=8802, workflow_id="dash", status="implementing")
 
     assert _preflight(test_db, 8802, "reviewing-implementation").failure is None
+
+
+@pytest.mark.parametrize(
+    ("workflow_id", "item_id"),
+    [("dash", 8805), ("blitz", 8806), ("issue", 8807), ("epic", 8808)],
+)
+def test_preflight_admits_returning_to_implementing_from_release(
+    test_db, workflow_id: str, item_id: int
+) -> None:
+    """Failed QA or rejected review at the release wait: an ordinary
+    lifecycle.transition call, naming no special source, sends the item
+    back to implementing -- an agent decision, not an automatic mutation
+    fired off recording the failing verdict."""
+    insert_item(test_db, id=item_id, workflow_id=workflow_id, status="release")
+
+    assert _preflight(test_db, item_id, "implementing").failure is None
 
 
 def test_a_write_that_names_its_source_keeps_its_reconciliation_authority(

@@ -133,16 +133,15 @@ def test_requirement_rejects_a_stage_without_a_qa_gate():
 
 
 def test_requirement_accepts_only_stages_at_or_before_the_qa_gate():
+    """Blitz's own release stage already carries ``qa_verification``, ahead
+    of ``done`` -- ``done`` keeps its own native copy too, so proving the
+    boundary strips that one rather than relocating a gate onto release."""
     with test_database() as conn:
         definition = deepcopy(builtin_workflow_definition("blitz")["definition"])
         done_stage = definition["stages"][-1]
-        qa_gate = next(
-            gate for gate in done_stage["gates"] if gate["id"] == "qa_verification"
-        )
         done_stage["gates"] = [
             gate for gate in done_stage["gates"] if gate["id"] != "qa_verification"
         ]
-        definition["stages"][-2]["gates"].append(qa_gate)
         publish_workflow_version(
             conn,
             workflow_id="blitz",

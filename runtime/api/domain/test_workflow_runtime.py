@@ -6,6 +6,7 @@ from dataclasses import replace
 import pytest
 from psycopg.rows import tuple_row
 
+from yoke_core.domain.builtin_workflow_canon import canon_generations
 from yoke_core.domain.workflow_behavior import delivery_redirect_stage
 from yoke_core.domain.workflow_registry import (
     WorkflowRegistryError,
@@ -79,9 +80,24 @@ def test_delivery_redirect_stage_comes_from_pinned_transition_graph(test_db):
 
 
 def test_non_release_delivery_policy_has_no_redirect_stage(test_db):
-    runtime = load_item_workflow_runtime(test_db, _create(test_db, "dash"))
+    runtime = load_item_workflow_runtime(test_db, _create(test_db, "task"))
 
     assert delivery_redirect_stage(runtime) is None
+
+
+def test_an_item_pinned_to_a_pre_release_stage_dash_generation_has_no_redirect(
+    test_db,
+):
+    """A dash item pinned before generation 10 keeps its old after-merge-only
+    behavior; canon is append-only and never rewrites what an old pin means."""
+    runtime = load_item_workflow_runtime(test_db, _create(test_db))
+    old_generation = next(
+        g for g in canon_generations("dash") if g.canon_version == 9
+    )
+    old_runtime = replace(runtime, definition=old_generation.definition)
+
+    assert old_runtime.policies["delivery"] == "after_merge_action"
+    assert delivery_redirect_stage(old_runtime) is None
 
 
 def test_runtime_exposes_definition_owned_gate_placement(test_db):

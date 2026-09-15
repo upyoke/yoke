@@ -160,8 +160,8 @@ def _run_resumed(monkeypatch, *, status: str, stage: str, finish):
             "_verify_branch_merged",
         ),
         mock.patch.object(
-            deploy_pipeline,
-            "_dispatch_step_runner",
+            deploy_pipeline.stage_receipt,
+            "dispatch_step_runner_with_receipt",
             side_effect=AssertionError("stages must not re-run"),
         ),
         mock.patch.object(

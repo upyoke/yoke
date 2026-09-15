@@ -26,7 +26,7 @@ def test_claimed_dash_at_idea_paints_idea_done_and_implementing_active() -> None
     stages = item_stage_states(runtime, "idea", holder_mode="dash")
 
     assert active_stage_id(runtime, "idea", holder_mode="dash") == "implementing"
-    assert _states(stages) == ["complete", "active", "pending", "pending"]
+    assert _states(stages) == ["complete", "active", "pending", "pending", "pending"]
 
 
 @pytest.mark.parametrize("holder_mode", (None, "wait", "idea"))
@@ -38,7 +38,7 @@ def test_dash_at_idea_without_a_working_claim_keeps_idea_active(
 
     stages = item_stage_states(runtime, "idea", holder_mode=holder_mode)
 
-    assert _states(stages) == ["active", "pending", "pending", "pending"]
+    assert _states(stages) == ["active", "pending", "pending", "pending", "pending"]
 
 
 def test_issue_mid_implementation_keeps_the_status_derived_stage() -> None:
@@ -144,11 +144,13 @@ def test_projection_reads_the_claim_holder_mode() -> None:
         "active",
         "pending",
         "pending",
+        "pending",
     ]
     assert _states(
         primary_item_stages_by_session(waiting, [{"session_id": "s1"}])["s1"]
     ) == [
         "active",
+        "pending",
         "pending",
         "pending",
         "pending",
@@ -170,7 +172,9 @@ def test_projection_reads_the_holder_mode_for_a_lane_session() -> None:
         ],
     )
 
-    assert _states(stages["lane"]) == ["complete", "active", "pending", "pending"]
+    assert _states(stages["lane"]) == [
+        "complete", "active", "pending", "pending", "pending",
+    ]
 
 
 def test_projection_pins_a_launch_failure_to_the_working_stage() -> None:

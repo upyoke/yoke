@@ -7,7 +7,7 @@ import sys
 from typing import List, Optional
 
 from yoke_core.domain import deploy_pipeline_control_plane as control_plane
-from yoke_core.domain.deploy_pipeline_step_runners import _dispatch_step_runner
+from yoke_core.domain import deploy_pipeline_stage_receipt as stage_receipt
 from yoke_core.domain import deploy_pipeline_environment as deploy_env
 from yoke_core.domain import deploy_pipeline_run_updates as run_updates
 from yoke_core.domain.deploy_pipeline_gates import (
@@ -250,8 +250,9 @@ def run_pipeline(
         )
 
         # Dispatch step_runner
-        exec_rc, exec_diag = _dispatch_step_runner(
+        exec_rc, exec_diag = stage_receipt.dispatch_step_runner_with_receipt(
             stage,
+            stages=stages,
             run_id=run_id,
             member_items=member_items,
             github_repo=github_repo,
@@ -267,6 +268,8 @@ def run_pipeline(
             environment_name=environment_name,
             gate_branch=gate_branch,
             release_lineage=release_lineage,
+            run_artifact_identity=str(run.get("artifact_identity") or ""),
+            target_identity=context.get("target_identity") or {},
             sd=sd,
         )
 

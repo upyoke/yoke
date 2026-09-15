@@ -20,6 +20,7 @@ from yoke_core.domain import conflict_survey_gate
 from yoke_core.domain import db_helpers
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
+from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
 from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_landed as landed
 from yoke_core.domain import standalone_item_merge_terminal as terminal
@@ -161,6 +162,9 @@ def test_no_change_merge_records_base_identity_and_closes_dash(
         ),
     )
     monkeypatch.setattr(landed.git, "has_remote", lambda *_a: False)
+    monkeypatch.setattr(
+        close_out_transition, "release_redirect_stage", lambda *_a: (None, ""),
+    )
     receipts = []
     monkeypatch.setattr(
         landed.receipts,

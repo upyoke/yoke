@@ -232,7 +232,7 @@ def test_admin_candidate_keeps_local_scoped_qa_while_its_https_sibling_still_rel
         {DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION, RESUME_DEPLOYMENT_QA_REFUSALS_FUNCTION},
     )
 
-    original_dispatch = deploy_pipeline._dispatch_step_runner
+    original_dispatch = deploy_pipeline.stage_receipt.dispatch_step_runner_with_receipt
 
     def dispatch_stage(stage, **kwargs):
         if stage["name"] == "deploy":
@@ -247,6 +247,7 @@ def test_admin_candidate_keeps_local_scoped_qa_while_its_https_sibling_still_rel
             )
             complete_deployment_stage_receipt(
                 conn,
+                run_id=RUN_ID,
                 receipt_id=int(receipt["id"]),
                 correlation_id=str(receipt["correlation_id"]),
                 status="ready",
@@ -258,7 +259,11 @@ def test_admin_candidate_keeps_local_scoped_qa_while_its_https_sibling_still_rel
             )
         return original_dispatch(stage, **kwargs)
 
-    monkeypatch.setattr(deploy_pipeline, "_dispatch_step_runner", dispatch_stage)
+    monkeypatch.setattr(
+        deploy_pipeline.stage_receipt,
+        "dispatch_step_runner_with_receipt",
+        dispatch_stage,
+    )
 
     assert (
         deploy_pipeline.run_pipeline(RUN_ID) == deploy_pipeline.EXIT_AWAITING_APPROVAL

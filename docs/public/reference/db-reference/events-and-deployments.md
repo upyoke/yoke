@@ -165,6 +165,25 @@ newer failure, and a superseded receipt cannot revalidate an accepted execution
 or later-stage prerequisite. Run-preview readiness requires an observed URL;
 command-only persistent environments do not.
 
+Who fills those observed columns is a per-target-kind decision,
+registered in `deploy_pipeline_stage_receipt_producers.RECEIPT_PRODUCERS`.
+Each producer takes one `ProducerContext` (the stage, its QA target, the
+run and stage names, the project, the dispatch correlation id and the
+dispatch callable) and returns a `StageObservation`: target name,
+observed release lineage, optionally an observed URL and artifact
+identity. The step runner's diagnostic travels to `executor_receipt`
+instead, so a producer that reads a served URL and commit back reports
+them structurally rather than encoding them in one string. An empty
+observed-identity column is not a gap to fill with whatever string is at
+hand — the store compares observed against pinned, so an invented value
+refuses the receipt, and a run pinning an artifact identity no producer
+reads back is refused before the stage dispatches. The registry's key
+set *is* the supported-target-kind list.
+
+Release verification and notices — how release-to-done reads both QA
+authorities, who observes a stage receipt, and the verdict and owner
+notices — live in [release-delivery.md](release-delivery.md).
+
 ## Table: deployment_run_items
 
 Membership table linking items to deployment runs. Zero rows for a run are valid when the run is an environment-level deploy with no attached backlog item; do not infer failure from item-less membership after the run has started executing.

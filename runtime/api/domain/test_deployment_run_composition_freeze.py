@@ -9,7 +9,6 @@ import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item, insert_qa_requirement
 from yoke_core.domain import deployment_run_composition_freeze as composition
-from yoke_core.domain.deployment_flow_versioning import cmd_validate_definition
 from yoke_core.domain.deployment_runs_crud_mutate import (
     cmd_add_item,
     cmd_remove_item,
@@ -200,7 +199,7 @@ def test_repeated_blitz_membership_freezes_explicit_requirements_and_intent(
         is None
     )
 
-    test_db.execute("UPDATE items SET status='reviewing-implementation' WHERE id=9311")
+    test_db.execute("UPDATE items SET status='release' WHERE id=9311")
     test_db.commit()
     _run(test_db, "run-final", "advanced-blitz", lineage="b" * 40)
     cmd_add_item("run-final", 9311, requirement_ids=[second_id])
@@ -340,11 +339,3 @@ def test_membership_classification_is_terminal_and_default_safe(test_db: Any) ->
     assert composition._item_requires_release_membership(test_db, 9321)
     assert not composition._item_requires_release_membership(test_db, 9322)
     assert not composition._item_requires_release_membership(test_db, 9323)
-
-
-def test_advanced_validation_stays_configuration_only(test_db: Any) -> None:
-    _environment(test_db)
-    result = cmd_validate_definition(
-        test_db, project="yoke", stages=ADVANCED_STAGES, status="disabled"
-    )
-    assert result["execution_supported"] is False

@@ -163,7 +163,7 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
         deploy_pipeline_failure, "_report_failure_trace", lambda _r: None
     )
 
-    original_dispatch = deploy_pipeline._dispatch_step_runner
+    original_dispatch = deploy_pipeline.stage_receipt.dispatch_step_runner_with_receipt
     release_fails = {"once": True}
 
     def dispatch_stage(stage, **kwargs):
@@ -172,7 +172,11 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
             return 17, "simulated external runner failure"
         return original_dispatch(stage, **kwargs)
 
-    monkeypatch.setattr(deploy_pipeline, "_dispatch_step_runner", dispatch_stage)
+    monkeypatch.setattr(
+        deploy_pipeline.stage_receipt,
+        "dispatch_step_runner_with_receipt",
+        dispatch_stage,
+    )
     created = _invoke(
         "deployment_runs.create",
         {"project": PROJECT, "flow": FLOW, "release_lineage": LINEAGE},
