@@ -25,6 +25,11 @@ def _select_release_packages() -> None:
     sys.path.insert(0, package_path)
     os.environ["PYTHONPATH"] = package_path
     os.environ["VIRTUAL_ENV"] = str(release_root)
+    # Name the tree those two variables belong to, in the same breath as
+    # setting them. A relay child that starts a foreign CLI drops exactly
+    # what this relay owns rather than guessing that root from a release
+    # path. The install substitutes the variable's canonical name here.
+    os.environ["__YOKE_RELAY_STATE_DIR_ENV__"] = str(state_dir)
 
 
 def main() -> int:

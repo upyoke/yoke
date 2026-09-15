@@ -47,6 +47,86 @@ def test_a_group_outside_the_fan_out_refuses_rather_than_running() -> None:
         ci_shards._run_shard(0)
 
 
+def test_a_selection_too_small_to_cut_stays_on_one_runner() -> None:
+    # The fixed setup a second runner pays has to buy back more than it costs.
+    assert ci_shards.split_count(0.0, 0) == 1
+    assert ci_shards.split_count(ci_shards.MIN_SHARD_PROFILE_SECONDS - 1, 500) == 1
+
+
+def test_a_large_selection_earns_shards_up_to_the_suite_count() -> None:
+    assert ci_shards.split_count(ci_shards.MIN_SHARD_PROFILE_SECONDS * 3, 5_000) == 3
+    assert (
+        ci_shards.split_count(ci_shards.MIN_SHARD_PROFILE_SECONDS * 1_000, 50_000)
+        == ci_shards.SHARD_COUNT
+    )
+
+
+def test_the_split_never_outnumbers_the_tests_it_knows_about() -> None:
+    # A group holding no test reports "no tests ran" instead of a verdict.
+    huge = ci_shards.MIN_SHARD_PROFILE_SECONDS * 1_000
+    assert ci_shards.split_count(huge, 3) == 3
+    assert ci_shards.split_count(huge, 0) == 1
+
+
+def _profile(tmp_path: Path) -> Path:
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / ci_shards.DURATIONS_PATH).write_text(
+        json.dumps(
+            {
+                "runtime/api/test_a.py::test_one": 1.0,
+                "runtime/api/test_a.py::test_two": 2.0,
+                "runtime/harness/test_b.py::TestB::test_three": 4.0,
+                "tests/test_c.py::test_four": 8.0,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return root
+
+
+def test_profiled_size_matches_files_directories_and_node_ids(tmp_path) -> None:
+    root = _profile(tmp_path)
+    assert ci_shards.profiled_size(root, ["runtime/api/test_a.py"]) == (3.0, 2)
+    assert ci_shards.profiled_size(root, ["runtime/harness/"]) == (4.0, 1)
+    assert ci_shards.profiled_size(
+        root, ["tests/test_c.py::test_four"]
+    ) == (8.0, 1)
+    assert ci_shards.profiled_size(
+        root, ["runtime/harness/test_b.py::TestB"]
+    ) == (4.0, 1)
+    assert ci_shards.profiled_size(root, ["runtime/api/test_a.py", "tests/"]) == (
+        11.0, 3,
+    )
+
+
+def test_a_selection_the_profile_has_never_seen_is_sized_at_zero(tmp_path) -> None:
+    # An unseen test adds time this cannot measure, so the estimate is a
+    # floor: it costs a shard, never coverage.
+    root = _profile(tmp_path)
+    assert ci_shards.profiled_size(root, ["runtime/api/test_new.py"]) == (0.0, 0)
+
+
+def test_an_unreadable_profile_sizes_to_one_runner(tmp_path) -> None:
+    empty = tmp_path / "bare"
+    empty.mkdir()
+    seconds, profiled = ci_shards.profiled_size(empty, ["runtime/api/test_a.py"])
+    assert (seconds, profiled) == (0.0, 0)
+    assert ci_shards.split_count(seconds, profiled) == 1
+
+
+def test_a_shard_number_the_workflow_left_empty_is_the_unsharded_default() -> None:
+    assert ci_shards.shard_number("") == 1
+    assert ci_shards.shard_number("  ") == 1
+    assert ci_shards.shard_number("4") == 4
+
+
+def test_a_shard_number_that_is_not_one_refuses_rather_than_guessing() -> None:
+    for value in ("0", "-2", "two", "1.5"):
+        with pytest.raises(SystemExit, match="positive integer"):
+            ci_shards.shard_number(value)
+
+
 def test_the_suite_is_all_three_anchors() -> None:
     # A partial anchor demotes a package's top-level conftest and collection
     # fails, so the roots are asserted rather than left to a caller.

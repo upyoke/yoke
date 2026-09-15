@@ -7,9 +7,7 @@ import sys
 from typing import List, Optional
 
 from yoke_core.domain import deploy_pipeline_control_plane as control_plane
-from yoke_core.domain.deploy_pipeline_stage_receipt import (
-    dispatch_step_runner_with_receipt as _dispatch_step_runner,
-)
+from yoke_core.domain import deploy_pipeline_stage_receipt as stage_receipt
 from yoke_core.domain import deploy_pipeline_environment as deploy_env
 from yoke_core.domain import deploy_pipeline_run_updates as run_updates
 from yoke_core.domain.deploy_pipeline_gates import (
@@ -28,11 +26,12 @@ from yoke_core.domain.deploy_pipeline_run_context import (
     complete_run_finalization,
     resolve_project_checkout_path,
 )
-from yoke_core.domain.deployment_run_completion_preconditions import (
-    awaiting_qa_report_lines,
-)
+from yoke_core.domain import deploy_pipeline_stage_checks as stage_checks
 from yoke_core.domain.deployment_item_stamp import transition_member_to_release
-from yoke_core.domain.deploy_product_source import DeployProductSourceError, validate_itemless_product_source
+from yoke_core.domain.deploy_product_source import (
+    DeployProductSourceError,
+    validate_itemless_product_source,
+)
 from yoke_core.domain.deploy_pipeline_cli import _build_parser  # noqa: F401
 
 
@@ -42,6 +41,17 @@ EXIT_AWAITING_APPROVAL = 2
 EXIT_USAGE = 3
 EXIT_AWAITING_QA = 5
 _release_control_plane_env = deploy_env.release_control_plane_env
+
+
+def _record_qa_pass(run_id: str, stage_name: str, qa_result: str) -> None:
+    """Record a passing QA verdict; warn, don't crash an already-completed stage."""
+    try:
+        control_plane.record_qa_stage(run_id, stage_name, "pass", raw_result=qa_result)
+    except control_plane.DeploymentControlPlaneError as exc:
+        print(
+            f"  Warning: could not record QA verdict for stage '{stage_name}': {exc}",
+            file=sys.stderr,
+        )
 
 
 def run_pipeline(
@@ -85,8 +95,7 @@ def run_pipeline(
     current_stage = str(run.get("current_stage") or "")
     member_items = [str(member["item_id"]) for member in members]
     member_statuses = {
-        str(member["item_id"]): str(member.get("status") or "")
-        for member in members
+        str(member["item_id"]): str(member.get("status") or "") for member in members
     }
     first_member = members[0] if members else {}
     if not member_items:
@@ -96,7 +105,9 @@ def run_pipeline(
         print(f"Error: deployment run '{run_id}' has no flow assigned", file=sys.stderr)
         return EXIT_USAGE
     try:
-        product_source = validate_itemless_product_source(product_repo_path, image_tag, member_items)
+        product_source = validate_itemless_product_source(
+            product_repo_path, image_tag, member_items
+        )
     except (DeployProductSourceError, OSError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_USAGE
@@ -104,7 +115,10 @@ def run_pipeline(
     image_tag = product_source.image_tag if product_source else image_tag
     raw_stages = context.get("stages")
     if not isinstance(raw_stages, list):
-        print(f"Error: deployment flow '{flow_id}' not found or has no stages", file=sys.stderr)
+        print(
+            f"Error: deployment flow '{flow_id}' not found or has no stages",
+            file=sys.stderr,
+        )
         return EXIT_USAGE
     stages = _parse_stages(json.dumps(raw_stages))
     if not stages:
@@ -131,7 +145,10 @@ def run_pipeline(
     # deploy branch (environments.settings.git.branch), else the project
     # base branch. Consumed by the merged gate and the CI gate.
     gate_branch = resolve_flow_gate_branch(
-        project, target_tier, environment_name, project_repo_path,
+        project,
+        target_tier,
+        environment_name,
+        project_repo_path,
     )
 
     ok, first_item, branch = _resolve_and_verify_branch(
@@ -161,26 +178,26 @@ def run_pipeline(
                 print(f"Pipeline already complete for run {run_id}")
                 return EXIT_SUCCESS
             return complete_run_finalization(
-                run_id, flow_id, project, member_items,
-                target_tier, environment_name, sd=sd,
+                run_id,
+                flow_id,
+                project,
+                member_items,
+                target_tier,
+                environment_name,
+                sd=sd,
             )
         else:
             start_stage = current_stage
 
     if start_stage:
-        from yoke_core.domain.deployment_qa_stage_resume import (
-            resume_qa_refusal_message,
+        resume_exit = stage_checks.check_resume_qa_gate(
+            run_id=run_id,
+            start_stage=start_stage,
+            stage_failed_exit=EXIT_STAGE_FAILED,
+            awaiting_qa_exit=EXIT_AWAITING_QA,
         )
-
-        qa_refusal = resume_qa_refusal_message(
-            run_id=run_id, stages=stages, start_stage=start_stage
-        )
-        if qa_refusal:
-            print(
-                "Error: resume cannot skip required scoped QA: " + qa_refusal,
-                file=sys.stderr,
-            )
-            return EXIT_AWAITING_QA
+        if resume_exit is not None:
+            return resume_exit
 
     # --- Stage iteration ---
     found_start = not start_stage  # True if no resume point
@@ -201,9 +218,12 @@ def run_pipeline(
         if not run_started:
             run_updates.update_run_field(run_id, "status", "executing")
             _emit_run_event(
-                "DeploymentRunExecuting", "started",
+                "DeploymentRunExecuting",
+                "started",
                 {"run_id": run_id, "flow": flow_id, "project": project},
-                member_items=member_items, project=project, sd=sd,
+                member_items=member_items,
+                project=project,
+                sd=sd,
             )
             # Transition member items to release
             for sri_item in member_items:
@@ -230,7 +250,7 @@ def run_pipeline(
         )
 
         # Dispatch step_runner
-        exec_rc, exec_diag = _dispatch_step_runner(
+        exec_rc, exec_diag = stage_receipt.dispatch_step_runner_with_receipt(
             stage,
             stages=stages,
             run_id=run_id,
@@ -260,9 +280,7 @@ def run_pipeline(
             # Step runner pre-emitted the stage completion event (e.g.
             # ephemeral-verify preview URL, github-actions reconcile-from-truth).
             print(f"  Stage '{s_name}' completed successfully")
-            control_plane.record_qa_stage(
-                run_id, s_name, "pass", raw_result=qa_result,
-            )
+            _record_qa_pass(run_id, s_name, qa_result)
             continue
         if exec_rc == -4:
             print(
@@ -282,9 +300,7 @@ def run_pipeline(
                 sd=sd,
             )
             print(f"  Stage '{s_name}' completed successfully")
-            control_plane.record_qa_stage(
-                run_id, s_name, "pass", raw_result=qa_result,
-            )
+            _record_qa_pass(run_id, s_name, qa_result)
         else:
             return deploy_pipeline_failure.fail_pipeline_stage(
                 exit_code=exec_rc,
@@ -300,35 +316,26 @@ def run_pipeline(
 
     # Guard: start_stage never matched
     if not found_start:
-        print(
-            f"Error: start stage '{start_stage}' not found in flow '{flow_id}'",
-            file=sys.stderr,
-        )
-        print("Available stages:", file=sys.stderr)
-        for s in stages:
-            print(f"  {s['name']}", file=sys.stderr)
+        stage_checks.report_missing_start_stage(flow_id, start_stage, stages)
         return EXIT_USAGE
 
     # --- Pipeline complete ---
     _set_deploy_stage("complete", run_id, member_items, sd=sd)
 
-    # The run has delivered its stages; blocking QA decides whether it
-    # succeeded. Reporting here rather than letting the succeeded write
-    # refuse keeps the unresolved checks in the operator's output and
-    # skips the retry backoff, which exists for a transient write.
-    try:
-        unresolved_qa = control_plane.unresolved_qa(run_id)
-    except control_plane.DeploymentControlPlaneError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return EXIT_USAGE
-    if unresolved_qa:
-        for line in awaiting_qa_report_lines(run_id, unresolved_qa):
-            print(line, file=sys.stderr)
-        return EXIT_AWAITING_QA
+    qa_exit = stage_checks.check_unresolved_qa(
+        run_id, usage_exit=EXIT_USAGE, awaiting_qa_exit=EXIT_AWAITING_QA
+    )
+    if qa_exit is not None:
+        return qa_exit
 
     return complete_run_finalization(
-        run_id, flow_id, project, member_items,
-        target_tier, environment_name, sd=sd,
+        run_id,
+        flow_id,
+        project,
+        member_items,
+        target_tier,
+        environment_name,
+        sd=sd,
     )
 
 

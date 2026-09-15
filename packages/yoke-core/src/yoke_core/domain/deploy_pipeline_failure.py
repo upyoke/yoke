@@ -56,14 +56,17 @@ def _failure_trace_command(run_id: str) -> subprocess.CompletedProcess:
         ).strip()
         != "1"
     ):
+        detail = f" ({relay_source})" if relay_source else ""
         return subprocess.CompletedProcess(
             args=command,
             returncode=4,
             stdout="",
             stderr=(
-                "no GitHub Actions read authority is selected; set "
-                f"{poll_authority.GITHUB_ACTIONS_RELAY_ENV}=<https-env> "
-                "or use attended local authority"
+                "no GitHub Actions read authority is selected; this "
+                f"machine's active connection did not resolve one{detail}. "
+                "An ordinary active HTTPS connection is normally enough, "
+                f"or set {poll_authority.GITHUB_ACTIONS_RELAY_ENV}=<https-env> "
+                "explicitly, or use attended local authority"
             ),
         )
     command.extend(["deployment-runs", "failure-trace", run_id])
@@ -149,7 +152,13 @@ def fail_pipeline_stage(
         member_items,
         sd=sd,
     )
-    control_plane.record_qa_stage(run_id, stage_name, "fail")
+    try:
+        control_plane.record_qa_stage(run_id, stage_name, "fail")
+    except control_plane.DeploymentControlPlaneError as exc:
+        print(
+            f"Warning: could not record QA verdict for stage {stage_name!r}: {exc}",
+            file=sys.stderr,
+        )
     run_updates.update_run_field(run_id, "status", "failed")
     emit_event(
         "DeploymentRunFailed",

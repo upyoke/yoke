@@ -19,7 +19,9 @@ from yoke_core.domain.deployment_qa_result_notice import (
     OUTCOME_PASSED,
     OUTCOME_REJECTED,
 )
-from yoke_core.domain.deployment_qa_stage_dispatch import dispatch_deployment_qa_stage
+from yoke_core.domain.deployment_qa_stage_dispatch import (
+    materialize_and_gate_deployment_qa_stage,
+)
 
 _NOTIFICATION = {
     "enabled": True,
@@ -37,12 +39,16 @@ def _status(outcome: str, *, accepted: bool, reasons=()):
     }
 
 
-def _dispatch(stage, *, run_id, status):
+def _dispatch(conn, stage, *, run_id, status):
     with (
-        mock.patch.object(
-            dispatch_mod, "deployment_qa_stage_status", return_value=status
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
+            return_value=status,
         ),
-        mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"),
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_materialization"
+            ".materialize_deployment_qa_stage"
+        ),
         mock.patch.object(
             dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
         ),
@@ -55,7 +61,7 @@ def _dispatch(stage, *, run_id, status):
             return_value={"notified": [7], "message_id": "m-1", "reason": ""},
         ) as report,
     ):
-        result = dispatch_deployment_qa_stage(stage, run_id=run_id)
+        result = materialize_and_gate_deployment_qa_stage(conn, stage, run_id=run_id)
     return result, report
 
 
@@ -65,6 +71,7 @@ def test_an_accepted_item_scoped_stage_is_reported(test_db: Any) -> None:
     stage = {"name": "item-qa", "scope": "item", "notification": _NOTIFICATION}
 
     (rc, _diag), report = _dispatch(
+        test_db,
         stage,
         run_id="run-report-1",
         status=_status(OUTCOME_PASSED, accepted=True),
@@ -89,6 +96,7 @@ def test_a_rejected_item_scoped_stage_is_reported_and_still_waits(
     stage = {"name": "item-qa", "scope": "item", "notification": _NOTIFICATION}
 
     (rc, diag), report = _dispatch(
+        test_db,
         stage,
         run_id="run-report-2",
         status=_status(
@@ -106,6 +114,7 @@ def test_a_run_scoped_result_reports_the_batch(test_db: Any) -> None:
     stage = {"name": "release-qa", "scope": "run", "notification": _NOTIFICATION}
 
     (rc, _diag), report = _dispatch(
+        test_db,
         stage,
         run_id="run-report-3",
         status=_status(OUTCOME_PASSED, accepted=True),
@@ -123,6 +132,7 @@ def test_a_waiting_stage_reports_no_result(test_db: Any) -> None:
     stage = {"name": "item-qa", "scope": "item", "notification": _NOTIFICATION}
 
     (rc, _diag), report = _dispatch(
+        test_db,
         stage,
         run_id="run-report-4",
         status=_status("waiting", accepted=False, reasons=["awaiting agent verdict"]),
@@ -139,19 +149,23 @@ def test_a_report_failure_does_not_fail_the_stage(test_db: Any, capsys) -> None:
     stage = {"name": "item-qa", "scope": "item", "notification": _NOTIFICATION}
 
     with (
-        mock.patch.object(
-            dispatch_mod,
-            "deployment_qa_stage_status",
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
             return_value=_status(OUTCOME_PASSED, accepted=True),
         ),
-        mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"),
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_materialization"
+            ".materialize_deployment_qa_stage"
+        ),
         mock.patch.object(
             dispatch_mod,
             "notify_qa_stage_result",
             side_effect=RuntimeError("inbox unavailable"),
         ),
     ):
-        rc, _diag = dispatch_deployment_qa_stage(stage, run_id="run-report-5")
+        rc, _diag = materialize_and_gate_deployment_qa_stage(
+            test_db, stage, run_id="run-report-5"
+        )
 
     assert rc == 0
     assert "could not report" in capsys.readouterr().out

@@ -42,9 +42,31 @@ Missing research is not a discovery, launch, or usage gate.
 
 It does **not** own live catalog/discovery, usage/cost capture, or
 per-surface routing. Routing lives in steering `session_model_routing`.
-`proposed_tier` is a researched classification, not an operator launch
-table. Optional `operator_notes` is annotation only. There is no
+`proposed_tier` is a researched global classification, not an operator
+launch table. Optional `operator_notes` is annotation only. There is no
 `operator_preferences` field.
+
+## Global tier meaning
+
+Tiers measure capability relative to the **absolute frontier across
+providers**, not a vendor's own product ladder and not the best model a
+particular harness happens to offer.
+
+- **tier1** — frontier-equivalent families and their successors only
+  (currently Fable and Astra). Cursor currently has no tier1 model.
+- **tier2** — the band immediately below that frontier (currently Opus
+  and the latest Grok).
+- **excluded** — below the usable floor for ordinary steering
+  selections (currently Sonnet). Not an extra usable rank.
+
+A vendor flagship label, a larger version number, a higher price, or a
+new harness selector is not evidence of global tier1. Re-evaluate older
+families on every refresh; do not accumulate them in tier1/tier2 because
+they were once flagship. Do not overwrite operator-approved
+classifications with generic flagship prose. Keep identities, exact
+native selectors, supported reasoning, price, and subscription data
+distinct from the classification. Do not fabricate benchmarks or change
+pricing as part of a classification correction.
 
 ## Operator routing (annotation, not published facts)
 
@@ -52,17 +74,22 @@ Persist operator policy in `operator_notes` and in steering routing.
 Do not write it into `proposed_tier`, prices, or benchmarks.
 
 Approved 2026-09-07, future launches only (do not change an already-started
-session):
+session). Judge the **task**, supported reasoning, cost/benefit, and
+applicable quota. Do not always launch `preferred_session_models`.
 
 1. Simple edits, documentation, routine cleanup: tier2 + medium.
-2. Normal development, research, steering: tier1 + high.
+2. Normal development, research, steering: tier1 + high. Where a surface
+   has no tier1 model, use that surface's ordinary worker (Cursor: Grok).
 3. Difficult debugging or architectural decisions: tier1 + xhigh.
    Where xhigh is unsupported, use high. Resolve supported levels from
    the actual per-model/native surface facts.
 
-Cursor: Grok 4.6 first. Cursor Opus is fallback only after **confirmed**
-Grok/Cursor Models quota exhaustion. Unknown, stale, or error is not
-exhaustion. Native request string is `cursor-grok-4.6-high`.
+Claude/Codex premium models stay reserved for steering or an explicit
+operator request; `worker_tier` still routes ordinary workers to global
+tier2 (Opus / Sol), not Sonnet. Cursor: Grok 4.6 first. Cursor Opus is
+fallback only after **confirmed** Grok/Cursor Models quota exhaustion.
+Unknown, stale, or error is not exhaustion. Native request string is
+`cursor-grok-4.6-high`.
 
 ## Refresh steps
 
@@ -70,8 +97,10 @@ exhaustion. Native request string is `cursor-grok-4.6-high`.
    docs). Do not assume API dollars equal subscription percentages.
    Distinguish published multipliers from estimates; leave unpublished
    conversion unknown.
-2. Do not infer tier from release date or price alone. Do not exclude
-   Sonnet from a blanket "use stronger models at lower reasoning" claim.
+2. Classify against the global frontier meaning above. Do not infer
+   tier from release date, price, version, or "this harness's flagship"
+   alone. Re-evaluate prior families instead of retaining their old
+   rank. Sonnet stays excluded from ordinary steering selections.
 3. Unknown leaves stay null or empty. Benchmarks stay empty until a
    named public result is attached. No composite quality score.
 4. Validate the proposed record:

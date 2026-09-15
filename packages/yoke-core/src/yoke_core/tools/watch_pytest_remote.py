@@ -51,7 +51,8 @@ def header(route: RemoteRoute, kind: str) -> str:
     return (
         f"# watch_{kind} remote-selection: {route.workflow} on "
         f"{route.repo}@{route.branch} head={route.head_sha[:12]} base={base}"
-        f"{dropped}; pass {LOCAL_FLAG} to run on this machine"
+        f"{dropped}; {LOCAL_FLAG} is only a small targeted check expected "
+        "to finish in about one minute"
     )
 
 

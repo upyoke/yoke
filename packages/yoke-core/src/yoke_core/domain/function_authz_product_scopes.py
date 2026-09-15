@@ -140,9 +140,7 @@ PRODUCT_AUTHZ_BY_ID = {
     "deployment_runs.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "deployment_runs.stages": AuthzSpec(PROJECT, PERM_ITEMS_READ),
     "deployment_runs.approve": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
-    "deployment_runs.stage_approval.evaluate": AuthzSpec(
-        PROJECT, PERM_PROJECT_ADMIN
-    ),
+    "deployment_runs.stage_approval.evaluate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.context": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.update": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "deployment_runs.execution.ephemeral_qa_ready": AuthzSpec(
@@ -160,6 +158,8 @@ PRODUCT_AUTHZ_BY_ID = {
     "deployment_runs.execution.stage_receipt_latest": AuthzSpec(
         PROJECT, PERM_PROJECT_ADMIN
     ),
+    "deployment_runs.qa_stage.dispatch": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.qa_stage.resume_refusals": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "qa.case.waive": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.case_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),

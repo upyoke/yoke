@@ -10,9 +10,9 @@ Usage::
     # runs sessions, not tests.
     yoke watch pytest --impacted main --bounded
 
-    # Run on this machine instead (order-sensitive debugging, an uncommitted
-    # tree, an unreachable CI); local runs share one machine-wide worker
-    # budget.
+    # Small targeted local check expected to finish in about one minute
+    # (not justified by an uncommitted tree). Keep for order-sensitive
+    # debugging or an unreachable CI; local runs share one worker budget.
     yoke watch pytest --local --impacted main --bounded
     yoke watch pytest --local -- -n 0 runtime/api/test_x.py
 

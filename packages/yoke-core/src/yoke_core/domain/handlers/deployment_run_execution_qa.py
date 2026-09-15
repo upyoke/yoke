@@ -91,14 +91,17 @@ def handle_deployment_execution_qa_record(
         return error("payload_invalid", "stage and verdict are required")
     from yoke_core.domain.deploy_qa_recorder import cmd_record_stage_result
 
-    qa_run_id = cmd_record_stage_result(
-        resolved,
-        stage,
-        verdict,
-        raw_result=str(payload.get("raw_result") or "{}"),
-        duration_ms=payload.get("duration_ms"),
-        workflow_run=payload.get("workflow_run"),
-    )
+    try:
+        qa_run_id = cmd_record_stage_result(
+            resolved,
+            stage,
+            verdict,
+            raw_result=str(payload.get("raw_result") or "{}"),
+            duration_ms=payload.get("duration_ms"),
+            workflow_run=payload.get("workflow_run"),
+        )
+    except RuntimeError as exc:
+        return error("qa_record_failed", str(exc))
     return HandlerOutcome(
         result_payload={
             "run_id": resolved,
@@ -131,9 +134,7 @@ def handle_deployment_execution_qa_pending(
 def handle_deployment_execution_ephemeral_qa_ready(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
-    resolved = _locked_run(
-        request, "deployment_runs.execution.ephemeral_qa_ready"
-    )
+    resolved = _locked_run(request, "deployment_runs.execution.ephemeral_qa_ready")
     if isinstance(resolved, HandlerOutcome):
         return resolved
     from yoke_core.domain.db_helpers import connect, query_scalar

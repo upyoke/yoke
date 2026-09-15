@@ -44,7 +44,10 @@ from yoke_harness.session_relay_codex_app_server_client import (
 from yoke_harness.session_relay_codex_app_server_reasons import (
     app_server_failure_reason,
 )
-from yoke_harness.session_relay_environment import native_session_environment
+from yoke_harness.session_relay_environment import (
+    native_session_environment,
+    strip_relay_owned_python_state,
+)
 from yoke_harness.session_relay_failure_log import FailureReporter
 from yoke_harness.session_relay_schedule import relay_state_dir
 from yoke_harness.session_relay_surface_probes import resolve_native_cli
@@ -152,6 +155,7 @@ def probe_cursor_cli_models(*, observed_at: str) -> dict[str, Any]:
     try:
         completed = subprocess.run(
             [executable, "--list-models"],
+            env=strip_relay_owned_python_state(),
             capture_output=True,
             check=False,
             text=True,

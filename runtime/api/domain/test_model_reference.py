@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from yoke_contracts.api.function_call import (
@@ -37,22 +39,54 @@ def test_unknown_model_is_explicitly_unresearched() -> None:
     assert lookup_api_price("not-a-real-model") is None
 
 
+def _proposed_tier(model_id: str) -> str | None:
+    lookup = lookup_model_reference(model_id)
+    assert lookup.researched is True
+    assert lookup.record is not None
+    return lookup.record.proposed_tier
+
+
 def test_cursor_effort_suffix_hits_the_canonical_grok_record() -> None:
     lookup = lookup_model_reference("cursor-grok-4.6-high")
     assert lookup.researched is True
     assert lookup.record is not None
     assert lookup.record.model_id == "cursor-grok-4.6"
-    assert lookup.record.proposed_tier == "tier1"
+    assert lookup.record.proposed_tier == "tier2"
     assert "Grok 4.6" in (lookup.record.operator_notes or "")
     assert "operator_preferences" not in lookup.record.to_dict()
 
 
-def test_sonnet_is_tier2_not_excluded() -> None:
-    lookup = lookup_model_reference("claude-sonnet-5")
-    assert lookup.researched is True
-    assert lookup.record is not None
-    assert lookup.record.proposed_tier == "tier2"
-    assert lookup.record.proposed_tier != "excluded"
+def test_global_tiers_match_operator_approved_frontier() -> None:
+    assert _proposed_tier("claude-fable-5-1") == "tier1"
+    assert _proposed_tier("gpt-6-astra") == "tier1"
+    assert _proposed_tier("claude-opus-5") == "tier2"
+    assert _proposed_tier("cursor-grok-4.6") == "tier2"
+    assert _proposed_tier("gpt-5.6-sol") == "tier2"
+    assert _proposed_tier("claude-sonnet-5") == "excluded"
+    assert _proposed_tier("gpt-5.5") == "excluded"
+    cursor_tiers = {
+        record.proposed_tier
+        for record in iter_model_records()
+        if record.provider == "cursor"
+    }
+    assert "tier1" not in cursor_tiers
+
+
+def test_reference_teaching_agrees_with_global_tiers() -> None:
+    root = Path(__file__).resolve().parents[3]
+    joined = "\n".join(
+        (root / rel).read_text()
+        for rel in (
+            ".agents/skills/yoke/models/SKILL.md",
+            ".agents/skills/yoke/steer/model-selection.md",
+            "docs/public/cli-and-config.md",
+        )
+    )
+    assert "Grok 4.6 is tier 1" not in joined
+    assert "bounded-work default" not in joined
+    assert "do not exclude" not in joined.lower()
+    assert "Cursor currently has no" in joined
+    assert "claude-sonnet-5" not in joined.split("session_model_routing", 1)[-1]
 
 
 def test_claude_cache_write_fields_split_five_minute_and_one_hour() -> None:

@@ -62,15 +62,9 @@ active token. File mode atomically replaces a `0600` file and prints only token
 and actor ids; install the new secret, verify it, then revoke the prior token id.
 Without file mode, the raw token appears once in the JSON response for attended use.
 
-`YOKE_GITHUB_ACTIONS_RELAY_ENV` selects HTTPS GitHub authority independently of
-`YOKE_ENV`, which may select deployment metadata authority. Missing, malformed,
-or non-HTTPS relay selection fails closed. App keys and installation tokens do
-not belong in repo secrets, CI environments, runner disks, or workflow logs.
+`YOKE_GITHUB_ACTIONS_RELAY_ENV` selects HTTPS GitHub authority explicitly, independently of `YOKE_ENV`. Without it, deploy reuses the command's own selected connection — active HTTPS directly, or an owner-only `*-db-admin` connection's https sibling — the same resolver every https-relayed surface trusts. Malformed, non-HTTPS, or unresolvable selection fails closed. App keys and installation tokens do not belong in repo secrets, CI, or logs.
 
-Normal CI and manual deploys set `YOKE_GITHUB_ACTIONS_RELAY_ENV=<https-env>`.
-An attended release introducing/repairing the relay may instead set
-`YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1` and use sanctioned local App authority.
-Both selectors, an invalid local value, or neither selector fail pre-dispatch.
+Normal CI and manual deploys need set nothing beyond the ordinary connection; `YOKE_GITHUB_ACTIONS_RELAY_ENV=<https-env>` overrides it explicitly, and an attended relay repair may instead set `YOKE_GITHUB_ACTIONS_LOCAL_AUTHORITY=1` for sanctioned local App authority. Both selectors together, an invalid local value, or no resolvable connection fail pre-dispatch.
 
 ## CI Credential Custody
 

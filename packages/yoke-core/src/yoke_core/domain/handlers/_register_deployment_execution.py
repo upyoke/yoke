@@ -1,5 +1,6 @@
 """Register project-scoped operations used by deployment execution."""
 
+from yoke_core.domain.handlers import deployment_qa_stage_relay as qa_stage_relay
 from yoke_core.domain.handlers import deployment_run_execution as execution
 from yoke_core.domain.handlers import deployment_run_execution_qa as qa
 from yoke_core.domain.handlers import deployment_run_execution_receipt as receipt
@@ -115,6 +116,38 @@ def register(registry) -> None:
             adapter_status="internal",
             claim_required_kind=None,
         )
+    registry.register(
+        qa_stage_relay.DISPATCH_FUNCTION_ID,
+        qa_stage_relay.handle_deployment_qa_stage_dispatch,
+        qa_stage_relay.DeploymentQaStageDispatchRequest,
+        qa_stage_relay.DeploymentQaStageDispatchResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_qa_stage_relay",
+        target_kinds=["workflow_run"],
+        # Deriving on the serving build, not the driver: a release driver
+        # runs the candidate revision while the control plane it reads
+        # still runs the deployed one, so this evaluates on whichever
+        # process actually serves the database.
+        side_effects=["qa_requirements_insert"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["deploy_lock_required"],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )
+    registry.register(
+        qa_stage_relay.RESUME_FUNCTION_ID,
+        qa_stage_relay.handle_deployment_qa_stage_resume_refusals,
+        qa_stage_relay.DeploymentQaStageResumeRefusalsRequest,
+        qa_stage_relay.DeploymentQaStageResumeRefusalsResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.deployment_qa_stage_relay",
+        target_kinds=["workflow_run"],
+        side_effects=[],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=["deploy_lock_required"],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )
 
 
 __all__ = ["register"]

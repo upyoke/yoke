@@ -1,7 +1,9 @@
 """Seeded current model-reference document. Refresh by editing family modules.
 
-Prices and subscription rules are copied from public primary sources on
-CHECKED_AT. Unknown leaves stay None; an inferred rate is filled only with
+``proposed_tier`` is global capability relative to the absolute frontier
+across providers, not a vendor product ladder or the best model a harness
+offers. Prices and subscription rules are copied from public primary sources
+on CHECKED_AT. Unknown leaves stay None; an inferred rate is filled only with
 its ``estimated_fields`` label and a stated basis. API dollars are not
 subscription percentages: a plan's own metered weighting rides on the
 subscription rule as a consumption weight and is never summed with money.
@@ -37,10 +39,11 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         provider="anthropic",
         display_name="Claude Opus 5",
         aliases=("claude-opus-5-fast",),
-        proposed_tier="tier1",
+        proposed_tier="tier2",
         tier_evidence=(
-            "Anthropic current flagship for complex agentic coding. Fast mode "
-            "is a speed/price variant of the same model, not a different tier."
+            "Current Opus sits immediately below the absolute frontier "
+            "(Fable/Astra). A provider flagship label is not global tier1. "
+            "Fast mode is a speed/price variant, not a different tier."
         ),
         api_price=claude_price(
             input_usd=5.0,
@@ -58,11 +61,10 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         model_id="claude-sonnet-5",
         provider="anthropic",
         display_name="Claude Sonnet 5",
-        proposed_tier="tier2",
+        proposed_tier="excluded",
         tier_evidence=(
-            "Anthropic current high-performance coding model at $2/$10. Do not "
-            "exclude it from a blanket 'use stronger models at lower reasoning' "
-            "claim; it remains the bounded-work default."
+            "Below the usable floor for ordinary steering selections. Price "
+            "and Anthropic's own mid-ladder label are not a worker default."
         ),
         api_price=claude_price(
             input_usd=2.0,
@@ -80,10 +82,10 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         model_id="claude-opus-4-8",
         provider="anthropic",
         display_name="Claude Opus 4.8",
-        proposed_tier="tier1",
+        proposed_tier="excluded",
         tier_evidence=(
-            "Still listed on Anthropic's current pricing table at Opus rates. "
-            "No published replacement alias from Anthropic."
+            "Prior-generation Opus. Re-evaluated rather than kept as a "
+            "flagship; current Opus 5 already occupies the approved tier2 band."
         ),
         api_price=claude_price(
             input_usd=5.0,
@@ -103,11 +105,10 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         display_name="Claude Fable 5.1",
         aliases=("claude-fable-5.1",),
         proposed_tier="tier1",
-        tier_provisional=True,
         tier_evidence=(
-            "Anthropic documents Fable as next-generation long-running agent "
-            "intelligence at about 2x Opus 5 token prices. 5.1 is a separate "
-            "row on the pricing table because its cache hits are cheaper."
+            "Absolute-frontier Fable family. Operator-approved global tier1; "
+            "not inferred from price, version, or Anthropic's product ladder. "
+            "5.1 is a separate pricing row because its cache hits are cheaper."
         ),
         api_price=claude_price(
             input_usd=10.0,
@@ -127,10 +128,9 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         display_name="Claude Fable 5",
         replacement_model_id="claude-fable-5-1",
         proposed_tier="tier1",
-        tier_provisional=True,
         tier_evidence=(
-            "Prior Fable release, still listed at Fable rates. Its cache hits "
-            "are $1; the 5.1 row prices the same hit at $0.25."
+            "Prior Fable release, still the same frontier family; 5.1 is the "
+            "successor. Cache hits are $1; the 5.1 row prices that hit at $0.25."
         ),
         api_price=claude_price(
             input_usd=10.0,
@@ -150,8 +150,8 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         display_name="GPT-6 Astra",
         proposed_tier="tier1",
         tier_evidence=(
-            "OpenAI documents Astra for demanding end-to-end work and "
-            "long-horizon agentic tasks, at 2.5x the Sol input rate."
+            "Absolute-frontier Astra family. Operator-approved global tier1; "
+            "not inferred from OpenAI's flagship label or the Sol price gap."
         ),
         api_price=ApiPrice(
             input_per_million_usd=10.0,
@@ -182,8 +182,11 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-5.6-sol",
         provider="openai",
         display_name="GPT-5.6 Sol",
-        proposed_tier="tier1",
-        tier_evidence="Codex CLI documented flagship in the 5.6 family.",
+        proposed_tier="tier2",
+        tier_evidence=(
+            "Codex's current family flagship is not global tier1. Capability "
+            "immediately below Astra/Fable, with current Opus and latest Grok."
+        ),
         api_price=cursor_other_price(
             input_usd=4.0,
             cache_read=0.4,
@@ -211,8 +214,11 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-5.6-terra",
         provider="openai",
         display_name="GPT-5.6 Terra",
-        proposed_tier="tier2",
-        tier_evidence="Codex CLI documented mid-tier between Sol and Luna.",
+        proposed_tier="excluded",
+        tier_evidence=(
+            "Below the approved tier2 band. A Codex mid-ladder label does not "
+            "keep a family in tier2 after Sol occupies that band."
+        ),
         api_price=cursor_other_price(
             input_usd=2.0,
             cache_read=0.2,
@@ -237,8 +243,11 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-5.6-luna",
         provider="openai",
         display_name="GPT-5.6 Luna",
-        proposed_tier="tier2",
-        tier_evidence="Smallest 5.6 variant; bounded work, not demanding tasks.",
+        proposed_tier="excluded",
+        tier_evidence=(
+            "Smallest 5.6 variant, below the approved tier2 band. Bounded-work "
+            "marketing is not a usable steering rank."
+        ),
         api_price=cursor_other_price(
             input_usd=0.2,
             cache_read=0.02,
@@ -263,9 +272,11 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-5.5",
         provider="openai",
         display_name="GPT-5.5",
-        proposed_tier="tier1",
-        tier_provisional=True,
-        tier_evidence="Documented Codex CLI prior flagship; 5.6 Sol is current.",
+        proposed_tier="excluded",
+        tier_evidence=(
+            "Prior Codex flagship. Re-evaluated rather than accumulated in "
+            "tier1 because a vendor once called it flagship; Sol is current."
+        ),
         api_price=cursor_other_price(
             input_usd=5.0,
             cache_read=0.5,
@@ -280,8 +291,11 @@ _PROVIDER_RECORDS: tuple[ModelRecord, ...] = (
         model_id="gpt-5.4",
         provider="openai",
         display_name="GPT-5.4",
-        proposed_tier="tier2",
-        tier_evidence="Documented Codex CLI prior flagship; still listed.",
+        proposed_tier="excluded",
+        tier_evidence=(
+            "Older Codex family still listed. A prior flagship label is not "
+            "enough to remain in tier1 or tier2."
+        ),
         api_price=cursor_other_price(
             input_usd=2.5,
             cache_read=0.25,

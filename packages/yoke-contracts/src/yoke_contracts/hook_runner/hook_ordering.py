@@ -135,6 +135,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_pipe_to_truncator",
     "yoke_core.domain.lint_raw_pytest_full_suite",
     "yoke_core.domain.lint_watcher_module_form",
+    "yoke_core.domain.lint_headless_watcher_timeout",
     "yoke_core.domain.lint_if_status_capture",
     "yoke_core.domain.lint_subagent_background",
     "yoke_core.domain.lint_subagent_fleet_messaging",

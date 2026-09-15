@@ -14,7 +14,9 @@ from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import deployment_qa_stage_dispatch as dispatch_mod
-from yoke_core.domain.deployment_qa_stage_dispatch import dispatch_deployment_qa_stage
+from yoke_core.domain.deployment_qa_stage_dispatch import (
+    materialize_and_gate_deployment_qa_stage,
+)
 from yoke_core.domain.deployment_qa_stage_wake import stage_wait_idempotency_key
 from yoke_core.domain.work_claim_targets import make_item_target
 
@@ -43,11 +45,11 @@ _ACCEPTED = {"accepted": True, "reasons": [], "request_id": None}
 
 def _patched(*, status, materialize_ok: bool = True):
     patches = [
-        mock.patch.object(dispatch_mod, "deployment_qa_stage_status", return_value=status),
+        mock.patch("yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status", return_value=status),
     ]
     if materialize_ok:
         patches.append(
-            mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage")
+            mock.patch("yoke_core.domain.deployment_qa_stage_materialization.materialize_deployment_qa_stage")
         )
     return patches
 
@@ -58,15 +60,15 @@ def test_wakes_the_waiting_members_claim_holder(test_db: Any) -> None:
     stage = {"name": "item-qa", "scope": "item"}
 
     with (
-        mock.patch.object(
-            dispatch_mod, "deployment_qa_stage_status", return_value=_WAITING
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status", return_value=_WAITING
         ),
-        mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"),
+        mock.patch("yoke_core.domain.deployment_qa_stage_materialization.materialize_deployment_qa_stage"),
         mock.patch.object(
             dispatch_mod, "notify_item_scoped_qa_wait", return_value="delivered"
         ) as notify,
     ):
-        rc, diag = dispatch_deployment_qa_stage(stage, run_id="run-wake-1")
+        rc, diag = materialize_and_gate_deployment_qa_stage(test_db, stage, run_id="run-wake-1")
 
     assert rc == -4
     assert "awaiting agent verdict" in diag
@@ -84,13 +86,13 @@ def test_accepted_member_is_never_woken(test_db: Any) -> None:
     stage = {"name": "item-qa", "scope": "item"}
 
     with (
-        mock.patch.object(
-            dispatch_mod, "deployment_qa_stage_status", return_value=_ACCEPTED
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status", return_value=_ACCEPTED
         ),
-        mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"),
+        mock.patch("yoke_core.domain.deployment_qa_stage_materialization.materialize_deployment_qa_stage"),
         mock.patch.object(dispatch_mod, "notify_item_scoped_qa_wait") as notify,
     ):
-        rc, _diag = dispatch_deployment_qa_stage(stage, run_id="run-wake-2")
+        rc, _diag = materialize_and_gate_deployment_qa_stage(test_db, stage, run_id="run-wake-2")
 
     assert rc == 0
     notify.assert_not_called()
@@ -103,16 +105,16 @@ def test_run_scoped_waiting_stage_wakes_the_run_driver(test_db: Any) -> None:
     stage = {"name": "run-qa", "scope": "run"}
 
     with (
-        mock.patch.object(
-            dispatch_mod, "deployment_qa_stage_status", return_value=_WAITING
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status", return_value=_WAITING
         ),
-        mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"),
+        mock.patch("yoke_core.domain.deployment_qa_stage_materialization.materialize_deployment_qa_stage"),
         mock.patch.object(dispatch_mod, "notify_item_scoped_qa_wait") as item_notify,
         mock.patch.object(
             dispatch_mod, "notify_run_scoped_qa_wait", return_value="delivered"
         ) as run_notify,
     ):
-        rc, diag = dispatch_deployment_qa_stage(stage, run_id="run-wake-3")
+        rc, diag = materialize_and_gate_deployment_qa_stage(test_db, stage, run_id="run-wake-3")
 
     assert rc == -4
     assert "run: awaiting agent verdict" in diag
@@ -131,15 +133,15 @@ def test_run_scoped_wait_with_no_recipient_is_reported_visibly(
     stage = {"name": "run-qa", "scope": "run"}
 
     with (
-        mock.patch.object(
-            dispatch_mod, "deployment_qa_stage_status", return_value=_WAITING
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status", return_value=_WAITING
         ),
-        mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"),
+        mock.patch("yoke_core.domain.deployment_qa_stage_materialization.materialize_deployment_qa_stage"),
         mock.patch.object(
             dispatch_mod, "notify_run_scoped_qa_wait", return_value=""
         ),
     ):
-        rc, diag = dispatch_deployment_qa_stage(stage, run_id="run-wake-5")
+        rc, diag = materialize_and_gate_deployment_qa_stage(test_db, stage, run_id="run-wake-5")
 
     assert rc == -4
     assert "run: awaiting agent verdict" in diag
@@ -172,27 +174,25 @@ def test_a_same_run_repeat_dispatch_re_attempts_notify_every_poll(
     stage = {"name": "item-qa", "scope": "item"}
     key = stage_wait_idempotency_key("run-wake-6", "item-qa", item_id)
 
-    with mock.patch.object(
-        dispatch_mod,
-        "deployment_qa_stage_status",
+    with mock.patch(
+        "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
         return_value={
             "accepted": False,
             "reasons": ["2 of 3 requirements outstanding"],
             "request_id": None,
         },
-    ), mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"):
-        first = dispatch_deployment_qa_stage(stage, run_id="run-wake-6")
+    ), mock.patch("yoke_core.domain.deployment_qa_stage_materialization.materialize_deployment_qa_stage"):
+        first = materialize_and_gate_deployment_qa_stage(test_db, stage, run_id="run-wake-6")
 
-    with mock.patch.object(
-        dispatch_mod,
-        "deployment_qa_stage_status",
+    with mock.patch(
+        "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status",
         return_value={
             "accepted": False,
             "reasons": ["1 of 3 requirements outstanding"],
             "request_id": None,
         },
-    ), mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"):
-        second = dispatch_deployment_qa_stage(stage, run_id="run-wake-6")
+    ), mock.patch("yoke_core.domain.deployment_qa_stage_materialization.materialize_deployment_qa_stage"):
+        second = materialize_and_gate_deployment_qa_stage(test_db, stage, run_id="run-wake-6")
 
     assert first[0] == -4 and second[0] == -4
     assert "2 of 3" in first[1]
@@ -210,17 +210,17 @@ def test_a_wake_failure_degrades_without_losing_the_wait_result(
     stage = {"name": "item-qa", "scope": "item"}
 
     with (
-        mock.patch.object(
-            dispatch_mod, "deployment_qa_stage_status", return_value=_WAITING
+        mock.patch(
+            "yoke_core.domain.deployment_qa_stage_gate.deployment_qa_stage_status", return_value=_WAITING
         ),
-        mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"),
+        mock.patch("yoke_core.domain.deployment_qa_stage_materialization.materialize_deployment_qa_stage"),
         mock.patch.object(
             dispatch_mod,
             "notify_item_scoped_qa_wait",
             side_effect=RuntimeError("message service unavailable"),
         ),
     ):
-        rc, diag = dispatch_deployment_qa_stage(stage, run_id="run-wake-4")
+        rc, diag = materialize_and_gate_deployment_qa_stage(test_db, stage, run_id="run-wake-4")
 
     assert rc == -4
     assert "awaiting agent verdict" in diag

@@ -1,9 +1,11 @@
 """Naming the authority a deploy reads GitHub Actions status through.
 
 Live delivery reads GitHub through the project's own control plane — the
-https sibling of an owner-only ``*-db-admin`` connection — never through
-an independently deployed peer. Stage is a test environment for the live
-plane, not part of live topology.
+command's ordinary selected HTTPS connection, or, for an owner-only
+``*-db-admin`` connection, its own https sibling (the plane that holds
+the project's App binding) — never through an independently deployed
+peer. Stage is a test environment for the live plane, not part of live
+topology.
 
 A same-plane restart is survived by the poll loop's transport retries;
 GitHub itself remains the independent failure surface. Check the Actions
@@ -36,25 +38,42 @@ RESTATE_EVERY = 10
 def resolve_status_relay_env() -> Tuple[str | None, str]:
     """Return ``(relay_env, source_label)`` for GitHub Actions status.
 
-    Explicit ``YOKE_GITHUB_ACTIONS_RELAY_ENV`` always wins. Otherwise an
-    owner-only ``*-db-admin`` connection relays through its own https
-    sibling (the plane that holds the project's App binding), not a peer.
-    No sibling means the caller must set the relay explicitly or use
-    attended local authority.
+    Explicit ``YOKE_GITHUB_ACTIONS_RELAY_ENV`` always wins. Otherwise this
+    delegates to the same connection resolver every other https-relayed
+    surface trusts to name the plane that owns a request
+    (:func:`yoke_core.domain.control_plane_transport.serving_control_plane_env`):
+    the command's ordinary selected HTTPS connection is used directly, and
+    an owner-only ``*-db-admin`` connection relays through its own https
+    sibling (the plane that holds the project's App binding), never a peer.
+    No plane resolves for a local universe; the caller must set the relay
+    explicitly or use attended local authority. An unreadable or misconfigured
+    connection returns ``None`` too, but carries the resolver's own diagnostic
+    as ``source_label`` instead of a plain empty string, so a caller can teach
+    it rather than only saying nothing was selected.
     """
     explicit = os.environ.get(GITHUB_ACTIONS_RELAY_ENV, "").strip()
     if explicit:
         return explicit, GITHUB_ACTIONS_RELAY_ENV
+    from yoke_core.domain.control_plane_transport import (
+        ServingControlPlaneUnresolved,
+        serving_control_plane_env,
+    )
+
+    try:
+        owning_env = serving_control_plane_env()
+    except ServingControlPlaneUnresolved as exc:
+        return None, str(exc)
+    if not owning_env:
+        return None, ""
     active = os.environ.get(ENV_OVERRIDE, "").strip()
     if active.endswith(DB_ADMIN_ENV_SUFFIX):
-        base = active[: -len(DB_ADMIN_ENV_SUFFIX)]
-        if base:
-            return base, f"owning plane of {active}"
-    return None, ""
+        return owning_env, f"owning plane of {active}"
+    return owning_env, "the connected control plane"
 
 
 def timed_out_result(
-    cmd: List[str], timeout: int,
+    cmd: List[str],
+    timeout: int,
 ) -> subprocess.CompletedProcess:
     """Report a read that hung as a transport failure, not a dead deployment.
 
@@ -77,14 +96,11 @@ def authority_label() -> str:
     if os.environ.get(GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV, "").strip() == "1":
         return "local GitHub App authority (attended)"
     relay_env, source = resolve_status_relay_env()
-    if relay_env:
-        if source == GITHUB_ACTIONS_RELAY_ENV:
-            return f"relay through the {relay_env!r} control plane"
-        return (
-            f"relay through the {relay_env!r} owning control plane "
-            f"({source})"
-        )
-    return "relay through the connected control plane"
+    if not relay_env:
+        return "relay through the connected control plane"
+    if source.startswith("owning plane of "):
+        return f"relay through the {relay_env!r} owning control plane ({source})"
+    return f"relay through the {relay_env!r} control plane"
 
 
 def should_report(consecutive: int) -> bool:

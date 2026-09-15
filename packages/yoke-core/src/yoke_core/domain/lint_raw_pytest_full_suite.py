@@ -35,6 +35,9 @@ from typing import List, Optional, Sequence, Tuple
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
 from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_core.domain.lint_raw_pytest_full_suite_shell import (
+    mask_data_sink_lines, strip_heredoc_bodies,
+)
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 CHECK_ID = "lint-raw-pytest-full-suite"
@@ -184,7 +187,10 @@ def _classify(command: str) -> Optional[Tuple[str, str]]:
     if any(marker in command for marker in _ADMITTED_INVOCATIONS):
         return None
     anchors = full_sweep_anchors()
-    for segment in _SEGMENT_SPLIT.split(command):
+    # A data-writing heredoc body or sink-redirected line is written
+    # data, not a shell invocation, however much it may read like one.
+    scannable = mask_data_sink_lines(strip_heredoc_bodies(command))
+    for segment in _SEGMENT_SPLIT.split(scannable):
         tokens = _pytest_tokens(segment)
         if tokens is None:
             continue
@@ -215,7 +221,7 @@ def _format_reason(
         "worker budget where it is not, and captures its own output:\n"
         "  yoke watch pytest --impacted main --bounded   # iteration default\n"
         "  yoke watch pytest -- <paths>                  # narrower scope\n"
-        "  yoke watch pytest --local -- <paths>          # force this machine\n"
+        "  yoke watch pytest --local -- <paths>          # ~1 min targeted check\n"
         "To enumerate one CI shard without running its tests:\n"
         "  yoke watch pytest -- <CI shard args> --collect-only -q\n"
         "The item's blocking gate is its QA case run, not a hand-run sweep:\n"

@@ -73,12 +73,42 @@ def runner_for(release: str, calls: list[list[str]]):
     return run
 
 
+def reuse_only_runner(release: str):
+    """Answer the reuse path's runnable probe; refuse any reinstall attempt."""
+
+    def run(command, **_kwargs):
+        argv = list(command)
+        if "pip" in argv:
+            raise AssertionError(f"{release} reuse ran pip")
+        if "-c" in argv:
+            return subprocess.CompletedProcess(argv, 0, f"{release}\n", "")
+        raise AssertionError(f"unexpected reuse-path command: {argv}")
+
+    return run
+
+
+def pin_baseline(tmp_path: Path, release: str = RELEASE) -> RelayInstance:
+    """A relay instance with one genuinely runnable release already pinned."""
+    from yoke_core.tools.session_relay_release_install import pin_relay_release
+
+    instance = relay_instance(tmp_path)
+    pin_relay_release(
+        instance=instance,
+        served_build=f"v{release}",
+        create_venv=fake_venv,
+        runner=runner_for(release, []),
+    )
+    return instance
+
+
 __all__ = [
     "DEFAULT_API_URL",
     "NEXT_RELEASE",
     "RELEASE",
     "fake_venv",
+    "pin_baseline",
     "relay_instance",
+    "reuse_only_runner",
     "runner_for",
     "write_relay_config",
 ]

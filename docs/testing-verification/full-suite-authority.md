@@ -35,6 +35,12 @@ Local verification stays change-scoped:
   selection on the same commit rejoins the run already in flight rather
   than paying for a second one.
 
+  A large selection runs on several runners at once: a plan job sizes it
+  against the committed duration profile and publishes both the matrix
+  fan-out and the split count, so the shards cover it exactly once and a
+  failed shard is the run's verdict. Small selections plan one shard and
+  run as before; each shard uploads its own `pytest-output-selection-N`.
+
   It refuses rather than testing the wrong tree: an uncommitted tree (CI
   tests the pushed commit), and a checkout sitting on the base branch
   instead of a lane. It drops `-n`/`--numprocesses`/`--rootdir`, which
@@ -48,11 +54,17 @@ Local verification stays change-scoped:
   begins working on the merge that lands the workflow, not on the branch
   that authors it — until then, verify with `--local`.
 
-  `--local` — or `YOKE_PYTEST_LOCAL=1` for a whole shell — runs it here
-  instead: order-sensitive `-n 0` debugging, a tree you want to try
-  before committing, an unreachable CI. Local runs take their xdist
-  workers from one machine-wide budget rather than each claiming the
-  machine (see below).
+  `--local` — or `YOKE_PYTEST_LOCAL=1` for a whole shell — is only a
+  small targeted check expected to finish in about one minute for the
+  entire invocation (one file or a small test count does not prove a
+  fast runtime). Uncommitted work does not justify a slow local run.
+  If a local check exceeds that, interrupt it cleanly, keep the
+  capture as incomplete, commit, and run the selection on CI; do not
+  repeat or background the slow local selection. Keep `--local` for
+  order-sensitive `-n 0` debugging, machine-specific diagnostics, an
+  unreachable CI, and projects that declare no CI workflow. Local runs
+  take their xdist workers from one machine-wide budget rather than each
+  claiming the machine (see below).
 
   Selection is reverse-import reachability, hardened two ways: dotted
   module paths appearing as string literals (subprocess `-m` targets,

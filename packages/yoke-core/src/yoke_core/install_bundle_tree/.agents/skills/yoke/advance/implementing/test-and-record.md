@@ -58,7 +58,8 @@ paths, `yoke watch pytest --impacted main --bounded` (which reports an
 unbounded selection instead of widening to the full sweep, so read that verdict
 as *keep testing what you judge relevant*; for a project declaring
 `ci_workflow_file` it runs on that CI against the pushed lane commit, so commit
-before running it, and `--local` runs it here instead) — then let the plan/case
+and let CI run it. `--local` is only a small targeted check expected to finish
+in about one minute; uncommitted work does not justify a slow local run) — then let the plan/case
 run close the loop. Do not run the project's full sweep by hand and then hand the same
 tree to the executor: it re-runs the identical registered command, so only the
 verdict-producing run needs to happen. Command execution streams live to

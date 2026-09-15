@@ -105,10 +105,13 @@ free.
   and will not return until landing finishes. No later completion notice is
   expected. On Claude, set the Bash tool's `timeout` to `600000` on every
   `in-turn` watcher invocation, so the harness does not move the call to a
-  background task at its 120-second default. If it moves the call anyway, the
-  command is still running: continue that same call through the background
-  task's output until it exits. Reading that output continues the call —
-  only ending the turn kills the watcher and the child it was holding.
+  background task at its 120-second default. Headless Claude watcher Bash
+  that omits it is denied by `lint-headless-watcher-timeout` — not a blanket
+  Bash rule. If it moves the call anyway, the command is still running:
+  continue that same call through the background task's output until it
+  exits. Reading that output continues the call — only ending the turn
+  kills the watcher and the child it was holding. Existing Stop evidence
+  cannot hold after that PostToolUse completion.
 
 For a separate point-in-time check, run `yoke github merge-queue readiness
 ITEM --json`. It reads the target branch's named queue entry with arming, so

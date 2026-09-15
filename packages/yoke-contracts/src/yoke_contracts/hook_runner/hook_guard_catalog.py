@@ -121,6 +121,13 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         check_id="lint-watcher-module-form",
     ),
     GuardSpec(
+        "lint_headless_watcher_timeout",
+        f"{_MODULE_PREFIX}lint_headless_watcher_timeout",
+        False,
+        "Require the documented Claude Bash timeout on headless in-turn watcher calls.",
+        check_id="lint-headless-watcher-timeout",
+    ),
+    GuardSpec(
         "lint_if_status_capture",
         f"{_MODULE_PREFIX}lint_if_status_capture",
         False,

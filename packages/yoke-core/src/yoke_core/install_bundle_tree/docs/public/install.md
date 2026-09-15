@@ -43,8 +43,15 @@ yoke ui up           # local workbench (local mode), detached from this terminal
 # or open the Cloud dashboard after sign-in
 ```
 
-Upgrade later by re-running the same curl installer. It resolves one channel
-version for every Yoke product package.
+Upgrade later with `yoke update` — it reruns the official installer with
+onboarding disabled, honors this machine's already-configured distribution
+origin and channel, and reports the verified old and new version (or that
+you're already current). The installer itself repairs the git credential
+helper a reinstall wipes from site-packages, as the last step of every
+successful run — so re-running the curl installer directly still resolves
+the same channel version for every Yoke product package and still repairs
+the helper, just without the version-change report. Neither path touches a
+Yoke source checkout — that updates with git.
 
 The first command you run after an upgrade brings the rest of the install up
 to the new engine. A machine-local universe has its schema converged before

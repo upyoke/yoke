@@ -172,7 +172,6 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
     parsed = _parse(LaunchCreateRequest, request)
     if isinstance(parsed, HandlerOutcome):
         return parsed
-    from yoke_core.domain.session_launch_assignment import assignment_session_name
     from yoke_core.domain.session_launch_mandate import launch_request_for_create
     from yoke_core.domain.session_launch_requests import create_launch
 
@@ -191,9 +190,6 @@ def handle_launch_create(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 parsed,
                 project_id=project_id,
-                session_name=assignment_session_name(
-                    conn, public_ref=parsed.item, project_id=project_id
-                ),
                 deadline_seconds=deadline_seconds,
                 actor_id=auth.actor_id,
             ),

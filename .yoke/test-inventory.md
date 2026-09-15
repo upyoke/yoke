@@ -9,11 +9,12 @@ this file explains intent.
 
 | Surface | Command shape | Purpose |
 | --- | --- | --- |
-| Focused pytest | `python3 -m pytest <targeted files>` | Fast verification for touched Python modules. |
-| Domain pytest | `python3 -m pytest runtime/api/domain/...` | Domain behavior, schema, gates, claims, and handlers. |
-| Tool pytest | `python3 -m pytest runtime/api/tools/...` | CLI/tooling behavior, watchers, renderers, and install helpers. |
-| Codex harness pytest | `python3 -m pytest runtime/harness/codex/` | Codex harness hook payload, model resolution, and lifecycle. |
-| Full local suite | `python3 -m pytest` | Broad Postgres-backed regression proof. |
+| Change-scoped selection | `yoke watch pytest --impacted main --bounded` | Default verification; on a project with CI this runs remotely. |
+| Small targeted pytest | `yoke watch pytest --local -- <one file>` | Local only when the whole invocation is expected to finish in about one minute. |
+| Domain pytest | `yoke watch pytest -- runtime/api/domain/...` | Domain behavior; use CI unless the run is a small targeted check. |
+| Tool pytest | `yoke watch pytest -- runtime/api/tools/...` | CLI/tooling; same CI-vs-fast-local rule. |
+| Codex harness pytest | `yoke watch pytest -- runtime/harness/codex/` | Codex harness; same CI-vs-fast-local rule. |
+| Full suite | `yoke watch pytest -- runtime/api/ runtime/harness/ tests/` | CI on the protected merge path; local only as the CI-outage fallback. |
 | Render/check tools | `agents.render.check`, `atlas_render_docs --check`, related checks | Generated packet/docs drift detection. |
 
 ## Lifecycle Placement

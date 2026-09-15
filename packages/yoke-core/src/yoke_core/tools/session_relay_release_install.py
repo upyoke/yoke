@@ -31,6 +31,7 @@ from yoke_core.tools.session_relay_release import (
     relay_launch_executable,
     relay_runtime_executable,
     relay_runtime_python,
+    relay_release_receipt,
     relay_release_status,
     release_version_from_build,
     write_release_json,
@@ -42,6 +43,7 @@ from yoke_core.tools.session_relay_runtime_install import (
     ensure_relay_runtime,
     subprocess_failure_detail,
 )
+from yoke_core.tools.session_relay_package_validate import relay_package_runnable_reason
 from yoke_core.tools import session_relay_local_install as local_install
 
 
@@ -84,7 +86,9 @@ def pin_relay_release(
                 selected.state_dir,
                 create_runtime=create_runtime,
             )
-            existing = relay_release_status(instance=selected, refresh_served=False)
+            existing = relay_release_status(
+                instance=selected, refresh_served=False, runner=runner
+            )
             if existing.package_ready and existing.pinned_release == release:
                 activate_relay_runtime(selected.state_dir)
                 _clear_failure(selected.state_dir)
@@ -94,6 +98,7 @@ def pin_relay_release(
                 release=release,
                 served_build=observed,
                 index=index,
+                runtime_python=runtime_python,
                 create_venv=create_venv
                 or (lambda path: create_release_venv(path, runtime_python)),
                 runner=runner,
@@ -181,6 +186,7 @@ def _install_candidate(
     release: str,
     served_build: str,
     index: str,
+    runtime_python: Path,
     create_venv: VenvCreator,
     runner: Runner,
 ) -> None:
@@ -222,24 +228,19 @@ def _install_candidate(
                 f"could not fetch {PRODUCT_REQUIREMENT}=={release} from "
                 f"{index}: {_command_detail(result)}",
             )
-        verified = runner(
-            [
-                str(python),
-                PYTHON_ISOLATION_FLAG,
-                "-c",
-                "from importlib.metadata import version; print(version('yoke-core'))",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
+        broken_reason = relay_package_runnable_reason(
+            runtime_python,
+            candidate,
+            release,
+            isolation_flag=PYTHON_ISOLATION_FLAG,
+            runner=runner,
         )
-        executable = candidate / "bin" / "yoke"
-        if verified.returncode != 0 or verified.stdout.strip() != release:
+        if broken_reason:
             raise RelayReleaseError(
                 RELAY_RELEASE_INSTALL_FAILED,
-                f"installed relay release did not verify as {release}: "
-                f"{_command_detail(verified)}",
+                f"installed relay release did not verify as {release}: {broken_reason}",
             )
+        executable = candidate / "bin" / "yoke"
         if not executable.is_file():
             raise RelayReleaseError(
                 RELAY_RELEASE_INSTALL_FAILED,
@@ -281,9 +282,7 @@ def _release_lock(state_dir: Path) -> Iterator[None]:
 def _with_recovery(
     instance: RelayInstance, code: str, detail: str
 ) -> RelayReleaseError:
-    pinned = relay_release_status(
-        instance=instance, refresh_served=False
-    ).pinned_release
+    pinned = str(relay_release_receipt(instance.state_dir).get("pinned_release") or "")
     preservation = (
         f"kept pinned release {pinned}"
         if pinned

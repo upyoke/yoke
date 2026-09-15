@@ -13,10 +13,12 @@ tests.
 This module decides which of three things happens — run here, run on CI,
 or refuse with a named reason — and describes a remote run for the engine
 in :mod:`yoke_core.tools.pytest_remote_selection_run`. ``--local`` (or the
-equivalent environment variable) opts one run out; a project that declares
-no workflow, or a tree without the selection workflow file, runs here
-without being asked. A dirty tree is refused rather than silently tested
-without its edits: CI can only test what was pushed.
+equivalent environment variable) is only a small targeted check expected
+to finish in about one minute; uncommitted work does not justify a slow
+local run. A project that declares no workflow, or a tree without the
+selection workflow file, runs here without being asked. A dirty tree is
+refused rather than silently tested without its edits: CI can only test
+what was pushed.
 """
 
 from __future__ import annotations
@@ -269,7 +271,9 @@ def resolve_route(
         return Refusal(
             f"Error: {PREFIX} the tree has uncommitted changes ({shown}); CI "
             "tests the pushed commit, so the run would not cover them. "
-            f"Commit, then run; or re-run with {LOCAL_FLAG}.",
+            f"Commit, then run on CI. {LOCAL_FLAG} is only a small targeted "
+            "check expected to finish in about one minute; uncommitted work "
+            "does not justify a slow local run.",
             EXIT_REFUSED,
         )
     head = _git(root, "rev-parse", "HEAD")
