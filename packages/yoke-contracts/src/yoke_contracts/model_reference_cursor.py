@@ -17,21 +17,20 @@ CURSOR_RECORDS: tuple[ModelRecord, ...] = (
         provider="cursor",
         display_name="Grok 4.6",
         aliases=("grok-4.6",),
-        proposed_tier="tier1",
+        proposed_tier="tier2",
         tier_evidence=(
-            "Cursor documents Grok 4.6 as its frontier first-party model for "
-            "complex long-horizon coding. Stronger models at lower reasoning "
-            "are not a blanket replacement for second-tier Sonnet."
+            "Latest Grok is global tier2, with current Opus. Cursor has no "
+            "tier1; a harness's best offering is not evidence of global tier1."
         ),
         operator_notes=(
             "Operator routing annotation for the cursor surface only, not a "
-            "published fact and not proposed_tier. Cursor tier1 is Grok 4.6 at "
-            "high, and it is the ordinary worker model on this surface rather "
-            "than a reserved one. Claude Opus is a fallback reached only after "
-            "confirmed Cursor Models pool exhaustion; an unknown, stale, or "
-            "errored meter reading is not exhaustion. The whole per-surface "
-            "policy, including which surfaces reserve tier1 for steering, "
-            "lives in the session_model_routing machine-config key."
+            "published fact and not proposed_tier. Cursor has no global tier1 "
+            "model. Grok 4.6 at high is the ordinary worker on this surface. "
+            "Claude Opus is a fallback reached only after confirmed Cursor "
+            "Models pool exhaustion; an unknown, stale, or errored meter "
+            "reading is not exhaustion. The whole per-surface policy, including "
+            "which surfaces reserve global tier1 for steering, lives in the "
+            "session_model_routing machine-config key."
         ),
         api_price=cursor_pool_price(
             input_usd=2.0,
@@ -49,11 +48,11 @@ CURSOR_RECORDS: tuple[ModelRecord, ...] = (
         display_name="Grok 4.5",
         aliases=("grok-4.5",),
         replacement_model_id="cursor-grok-4.6",
-        proposed_tier="tier2",
+        proposed_tier="excluded",
         tier_evidence=(
-            "Still in the Cursor Models pool; Cursor names 4.6 as the successor."
+            "Prior Grok. Re-evaluated rather than kept in tier2 because 4.6 "
+            "already occupies the approved latest-Grok band."
         ),
-        tier_provisional=True,
         api_price=cursor_pool_price(
             input_usd=2.0,
             cache_read=0.5,
@@ -69,9 +68,10 @@ CURSOR_RECORDS: tuple[ModelRecord, ...] = (
         provider="cursor",
         display_name="Composer 2.5",
         aliases=("cursor-composer-2.5",),
-        proposed_tier="tier2",
+        proposed_tier="excluded",
         tier_evidence=(
-            "Cursor second-tier first-party model in the Grok included pool."
+            "Cursor first-party model below latest Grok. A second-tier "
+            "in-harness label is not global tier2."
         ),
         api_price=cursor_pool_price(
             input_usd=0.5,

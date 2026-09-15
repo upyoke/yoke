@@ -64,6 +64,8 @@ class MachineQaCaseContract(BaseModel):
     requirement_id: int = Field(ge=1)
     item_id: int | None = Field(default=None, ge=1)
     deployment_run_id: str | None = None
+    deployment_stage: str | None = None
+    deployment_member_item_id: int | None = Field(default=None, ge=1)
     plan_id: int | None
     case_key: str
     method_id: str
@@ -92,6 +94,15 @@ class MachineQaCaseContract(BaseModel):
         if (self.item_id is None) == (self.deployment_run_id is None):
             raise ValueError(
                 "Machine QA case requires one item or deployment-run subject"
+            )
+        if self.item_id is not None and (
+            self.deployment_stage is not None
+            or self.deployment_member_item_id is not None
+        ):
+            raise ValueError("item Machine QA cases cannot name deployment scope")
+        if self.deployment_member_item_id is not None and not self.deployment_stage:
+            raise ValueError(
+                "deployment member Machine QA cases require a deployment stage"
             )
         encoded_target = json.dumps(
             self.execution_target,

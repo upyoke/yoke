@@ -82,7 +82,8 @@ def test_report_injection_with_no_watcher_appends_the_nudge_line(
     assert nudge_lines == [
         "Fleet watcher is not running for this session; re-arm with "
         "`yoke watch fleet --print-streaming-pair -- --project yoke`."
-        " Follow the returned wait_mode; use only its declared native subscription."
+        " That prints the invocation and starts nothing; run it, using only "
+        "the native subscription its wait_mode declares."
     ]
 
 
@@ -135,7 +136,8 @@ def test_cursor_family_nudges_when_the_watcher_is_absent() -> None:
     assert nudged.endswith(
         "Fleet watcher is not running for this session; re-arm with "
         "`yoke watch fleet --print-streaming-pair -- --project yoke`."
-        " Follow the returned wait_mode; use only its declared native subscription."
+        " That prints the invocation and starts nothing; run it, using only "
+        "the native subscription its wait_mode declares."
     )
 
 

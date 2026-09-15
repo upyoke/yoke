@@ -217,6 +217,16 @@ class _Runner:
             and cmd[1:] == ["status", "--json"]
         ):
             return _status_ok()
+        if (
+            len(cmd) == 5
+            and cmd[0].endswith("/yoke")
+            and cmd[1:] == ["github", "credential-helper", "refresh", "--json"]
+        ):
+            # Nothing to repair on this fixture machine, so no golden screen
+            # renders a credential-helper line at all.
+            return subprocess.CompletedProcess(
+                cmd, 0, json.dumps({"configured": False, "repaired": False}), ""
+            )
         return subprocess.CompletedProcess(cmd, 0, "", "")
 
 

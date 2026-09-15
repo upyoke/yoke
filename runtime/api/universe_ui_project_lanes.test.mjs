@@ -88,6 +88,9 @@ function client(handlers = {}, requests = []) {
       if (request.function === "projects.get") return ok({ row: PROJECT_ROW });
       if (handlers[request.function]) return handlers[request.function](request);
       if (request.function === "projects.lane_summary.get") return ok(SUMMARY);
+      if (request.function === "workflows.definition.get") {
+        return ok({ title_max_length: 100 });
+      }
       throw new Error(`unexpected function ${request.function}`);
     },
   };
@@ -180,30 +183,39 @@ test("action descriptions are disclosed from the shared catalog", async (t) => {
   }
 });
 
-test("the summary is read only and teaches the harness edit path", async (t) => {
-  const root = await mountProject(t, 1, client());
-  // Scoped to the settings content: the app shell's own navigation controls
-  // are not part of what this screen offers an operator.
-  const main = byClass(root, "lane-settings")[0].parentNode;
-  assert.equal(
-    allNodes(main).filter((n) => ["BUTTON", "INPUT", "SELECT", "TEXTAREA", "FORM"]
-      .includes(n.tagName)).length,
-    0,
-    "the project settings screen must carry no write control",
-  );
-  const text = visibleText(main, "\n");
-  assert.ok(text.includes("Edit with your harness"));
-  assert.ok(text.includes("tell your agent to use"));
-  assert.ok(text.includes("yoke projects capability-settings"));
-  assert.ok(text.includes(
-    "explicit override → harness + model → model → harness → default.",
-  ));
-  // Omitted by the approved design.
-  assert.ok(!text.includes("Project lane settings"));
-  assert.ok(!text.includes("Save"));
-  assert.ok(!text.includes("Delivery defaults"));
-  assert.ok(!text.includes("Architecture"));
-});
+test(
+  "the summary is read only and teaches the harness edit path, except " +
+  "the approved title-limit editor",
+  async (t) => {
+    const root = await mountProject(t, 1, client());
+    // Scoped to the settings content: the app shell's own navigation
+    // controls are not part of what this screen offers an operator.
+    const main = byClass(root, "lane-settings")[0].parentNode;
+    const titleLimitCard = byClass(main, "project-settings-title-limit")[0];
+    assert.ok(titleLimitCard, "the approved title-limit editor is missing");
+    const titleLimitNodes = new Set(allNodes(titleLimitCard));
+
+    assert.equal(
+      allNodes(main).filter((n) => ["BUTTON", "INPUT", "SELECT", "TEXTAREA", "FORM"]
+        .includes(n.tagName) && !titleLimitNodes.has(n)).length,
+      0,
+      "only the approved title-limit editor may carry a write control",
+    );
+
+    // Every other omission still holds outside the approved editor.
+    const laneSettingsText = visibleText(byClass(main, "lane-settings")[0], "\n");
+    assert.ok(laneSettingsText.includes("Edit with your harness"));
+    assert.ok(laneSettingsText.includes("tell your agent to use"));
+    assert.ok(laneSettingsText.includes("yoke projects capability-settings"));
+    assert.ok(laneSettingsText.includes(
+      "explicit override → harness + model → model → harness → default.",
+    ));
+    assert.ok(!laneSettingsText.includes("Project lane settings"));
+    assert.ok(!laneSettingsText.includes("Save"));
+    assert.ok(!laneSettingsText.includes("Delivery defaults"));
+    assert.ok(!laneSettingsText.includes("Architecture"));
+  },
+);
 
 test("the summary follows the opened project, not a remembered filter", async (t) => {
   const requests = [];

@@ -1,11 +1,22 @@
 name: yoke-tests-selection
 
-# One change-scoped pytest selection on one runner, dispatched by
-# `yoke watch pytest` (yoke_core.tools.pytest_remote_selection_run) for a
-# project that declares its CI workflow. The runner recomputes the impacted
-# selection from (base_sha, head_sha) with the same code the wrapper uses
-# locally, so the test list is a function of the two commits, not of a
-# working tree. Its concurrency group is keyed by dispatch id and never
+# One change-scoped pytest selection, dispatched by `yoke watch pytest`
+# (yoke_core.tools.pytest_remote_selection_run) for a project that declares
+# its CI workflow. Every runner recomputes the impacted selection from
+# (base_sha, head_sha) with the same code the wrapper uses locally, so the
+# test list is a function of the two commits, not of a working tree.
+#
+# The plan job sizes that selection against the committed duration profile
+# and publishes BOTH the matrix fan-out and the split count the shards pass
+# to pytest, so the two can never disagree — a matrix narrower than the
+# split runs a fraction of the selection and still reports green. A small
+# selection plans one shard and runs exactly as it did before; a large one
+# is cut up to the full suite's own shard count, each shard still using
+# every core. Any failed shard fails the run, which is the verdict the
+# dispatching wrapper adopts. Selection runners install the same Node 22
+# + npm-ci TypeScript toolchain as yoke-ci: contract tests fail without it.
+#
+# Its concurrency group is keyed by dispatch id and never
 # cancels: yoke-ci cancels in-progress runs per ref, and a selection
 # dispatched on a lane branch must never take that lane's gate down.
 #
@@ -49,13 +60,67 @@ permissions:
   contents: read
 
 jobs:
-  selection:
-    name: selection
+  plan:
+    name: plan
     runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+      splits: ${{ steps.plan.outputs.splits }}
+    steps:
+      - name: Checkout the commit under test
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ inputs.head_sha }}
+          # Full history: the plan diffs against base_sha.
+          fetch-depth: 0
+
+      - name: Set up Python
+        # The environment the shards run in, so the plan's selection and
+        # theirs are the same computation on the same interpreter. No
+        # Postgres and no test run: the plan reads git, the import graph,
+        # and the committed duration profile.
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: uv.lock
+
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install uv
+
+      - name: Install dependencies
+        run: uv sync --all-packages --all-groups --locked
+
+      - name: Publish the shard fan-out and split count
+        id: plan
+        env:
+          SELECTION_BASE_SHA: ${{ inputs.base_sha }}
+          SELECTION_HEAD_SHA: ${{ inputs.head_sha }}
+          SELECTION_PYTEST_ARGS: ${{ inputs.pytest_args }}
+        run: >-
+          uv run python -m yoke_core.tools.ci_selection_plan
+          --write-github-output
+          --base-sha="$SELECTION_BASE_SHA"
+          --head-sha="$SELECTION_HEAD_SHA"
+          --pytest-args="$SELECTION_PYTEST_ARGS"
+
+  selection:
+    name: selection (shard ${{ matrix.shard }})
+    needs: plan
+    runs-on: ${{ fromJSON(vars.YOKE_LINUX_RUNS_ON || '["ubuntu-latest"]') }}
+    strategy:
+      # Every shard reports: a cancelled sibling would lose the log and the
+      # artifact for tests that were still the selection's own coverage.
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.plan.outputs.shards) }}
     env:
       # Hand-launched Postgres (not services:) so durability can be disabled;
-      # the name is run-scoped so shared self-hosted hosts never collide.
-      PG_CONTAINER: yoke-selection-pg-${{ github.run_id }}
+      # the name is run- and shard-scoped so shared self-hosted hosts never
+      # collide.
+      PG_CONTAINER: yoke-selection-pg-${{ github.run_id }}-${{ matrix.shard }}
     steps:
       - name: Checkout the commit under test
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -79,6 +144,14 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --all-packages --all-groups --locked
+
+      - name: Set up Node.js
+        # Same toolchain full CI installs: selected TypeScript contract
+        # tests fail here without it, even on a one-shard plan.
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: "22", cache: npm, cache-dependency-path: packages/yoke-core/src/yoke_core/ui/package-lock.json}
+      - name: Install TypeScript compiler
+        run: npm ci --prefix packages/yoke-core/src/yoke_core/ui
 
       - name: Register libpython with the system loader cache
         # Tests spawn python3 with a cleaned env (merge engine, installer
@@ -137,6 +210,10 @@ jobs:
           SELECTION_BASE_SHA: ${{ inputs.base_sha }}
           SELECTION_HEAD_SHA: ${{ inputs.head_sha }}
           SELECTION_PYTEST_ARGS: ${{ inputs.pytest_args }}
+          # Both from the plan job's one sizing pass, so this shard's split
+          # and the matrix that produced it are the same number.
+          SELECTION_SPLITS: ${{ needs.plan.outputs.splits }}
+          SELECTION_GROUP: ${{ matrix.shard }}
         # Attached `--option=value`, because a dispatched pytest argument is
         # itself dash-prefixed: separated, a lone `-q` reads as another option
         # and the run dies on argument parsing before pytest starts.
@@ -145,12 +222,14 @@ jobs:
           --base-sha="$SELECTION_BASE_SHA"
           --head-sha="$SELECTION_HEAD_SHA"
           --pytest-args="$SELECTION_PYTEST_ARGS"
+          --splits="$SELECTION_SPLITS"
+          --group="$SELECTION_GROUP"
 
       - name: Upload pytest output
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pytest-output-selection
+          name: pytest-output-selection-${{ matrix.shard }}
           path: pytest-output.txt
           retention-days: 7
           if-no-files-found: warn

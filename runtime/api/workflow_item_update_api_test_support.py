@@ -29,6 +29,15 @@ from yoke_core.domain.yoke_function_registry import (
 )
 
 TASKS_SCHEMA = """
+CREATE TABLE projects (
+    id INTEGER PRIMARY KEY, slug TEXT UNIQUE, name TEXT,
+    default_branch TEXT DEFAULT 'main', public_item_prefix TEXT DEFAULT 'YOK'
+);
+INSERT INTO projects (id, slug, name) VALUES (1, 'yoke', 'Yoke');
+CREATE TABLE project_capabilities (
+    id INTEGER PRIMARY KEY, project_id INTEGER, type TEXT, settings TEXT,
+    created_at TEXT
+);
 CREATE TABLE items (
     id INTEGER PRIMARY KEY, workflow_id TEXT, workflow_version_id INTEGER,
     project_id INTEGER DEFAULT 1

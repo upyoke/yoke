@@ -179,6 +179,8 @@ def run(args: List[str]) -> int:
     subject = parser.add_mutually_exclusive_group(required=True)
     subject.add_argument("--item")
     subject.add_argument("--deployment-run-id")
+    parser.add_argument("--stage")
+    parser.add_argument("--member")
     parser.add_argument("--transition")
     parser.add_argument("--plan")
     parser.add_argument("--project")
@@ -220,12 +222,14 @@ def run(args: List[str]) -> int:
         parser.error("--item requires --transition")
     if parsed.item and parsed.plan:
         parser.error("--item uses attached plans and does not accept --plan")
-    if parsed.deployment_run_id and not parsed.plan:
+    if parsed.deployment_run_id and not parsed.plan and not parsed.stage:
         parser.error("--deployment-run-id requires --plan")
     if parsed.deployment_run_id and parsed.transition:
         parser.error("--deployment-run-id does not accept --transition")
     if parsed.deployment_run_id and not parsed.project:
         parser.error("--deployment-run-id requires --project")
+    if parsed.member and not parsed.stage:
+        parser.error("--member requires --stage")
 
     from yoke_core.api.service_client_structured_api_adapter import build_actor
 
@@ -235,6 +239,8 @@ def run(args: List[str]) -> int:
             public_ref=parsed.item,
             transition_id=parsed.transition,
             deployment_run_id=parsed.deployment_run_id,
+            deployment_stage=parsed.stage,
+            deployment_member=parsed.member,
             plan=parsed.plan,
             project=parsed.project,
             base_url=parsed.base_url,

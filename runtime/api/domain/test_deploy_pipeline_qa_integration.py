@@ -287,35 +287,13 @@ class TestRunSmokeStatus:
 
 
 class TestQaRecorderIntegration:
-    """Test QA seeding and recording with a real DB but mocked shell calls."""
+    """Test QA seeding and recording against a real DB, in-process (no subprocess)."""
 
-    def test_seed_populates_requirements(self, deploy_db, monkeypatch):
+    def test_seed_populates_requirements(self, deploy_db):
         """seed-from-flow creates qa_requirements for QA-relevant stages."""
         _seed_flow(deploy_db)
         _seed_run(deploy_db, item_ids=[42])
         _seed_item(deploy_db)
-
-        def mock_yoke_db(*args, script_dir=None):
-            if "runs" in args and "get" in args and "flow" in args:
-                return "flow-test"
-            return ""
-
-        def mock_flow_db(*args, script_dir=None):
-            if "stages" in args:
-                return json.dumps(
-                    [
-                        {"name": "deploy", "step_runner": "auto"},
-                        {
-                            "name": "smoke-test",
-                            "step_runner": "auto",
-                            "qa_kind": "smoke",
-                        },
-                    ]
-                )
-            return ""
-
-        monkeypatch.setattr(deploy_qa_recorder, "_dispatch_db_router", mock_yoke_db)
-        monkeypatch.setattr(deploy_qa_recorder, "_dispatch_flow_domain", mock_flow_db)
 
         deploy_db.execute(
             "INSERT INTO qa_requirements (deployment_run_id, qa_kind, qa_phase, "
@@ -330,6 +308,25 @@ class TestQaRecorderIntegration:
             db_path=os.environ["YOKE_DB"],
         )
         assert count == 0  # Already seeded
+
+    def test_seed_reports_error_not_zero_for_a_missing_flow_row(self, deploy_db):
+        """A run whose flow row is missing is an error, not "nothing to seed".
+
+        cmd_stages raises LookupError specifically when the flow is not
+        found — distinct from a found flow with no QA-relevant stages,
+        which legitimately returns 0.
+        """
+        deploy_db.execute(
+            "INSERT INTO deployment_runs (id, project_id, flow, status) "
+            "VALUES ('run-missing-flow', 1, 'flow-does-not-exist', 'created')",
+        )
+        deploy_db.commit()
+
+        count = deploy_qa_recorder.cmd_seed_from_flow(
+            "run-missing-flow",
+            db_path=os.environ["YOKE_DB"],
+        )
+        assert count == -1
 
     def test_get_requirement_after_seed(self, deploy_db):
         """get-requirement returns the ID of a seeded requirement."""

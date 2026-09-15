@@ -14,6 +14,7 @@ from typing import IO, Any
 
 from yoke_contracts.self_host_bootstrap_output import redact_api_tokens
 from yoke_harness.session_relay_codex import NativePhase
+from yoke_harness.session_relay_environment import strip_relay_owned_python_state
 
 # Imported from where it is defined rather than from the inventory module
 # that re-exports it: inventory reads plan limits, and a plan-limit probe
@@ -138,7 +139,7 @@ class _Client:
             self.process = subprocess.Popen(
                 [resolved, "app-server", "--stdio"],
                 cwd=checkout,
-                env=env,
+                env=strip_relay_owned_python_state(env),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=self.stderr_file or subprocess.DEVNULL,

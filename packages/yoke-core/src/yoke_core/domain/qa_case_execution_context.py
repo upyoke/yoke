@@ -13,6 +13,7 @@ from yoke_core.domain.item_worktree_resolution import (
 from yoke_core.domain.qa_method_capabilities import (
     QaMethodCapabilityError,
     capability_kinds,
+    host_provisioned_capability_kinds,
     missing_capability_kinds,
 )
 from yoke_contracts.machine_config.capability_secrets import (
@@ -77,6 +78,7 @@ def get_case_execution_context(
     row = query_one(
         conn,
         "SELECT q.id AS requirement_id, q.item_id, q.deployment_run_id, "
+        "q.deployment_stage,q.deployment_member_item_id, "
         "q.plan_id, "
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
@@ -169,10 +171,29 @@ def get_case_execution_context(
             available_capabilities,
             subject=f"QA requirement {requirement_id}",
         )
-        if missing_capabilities:
+        # Substrate this case's own runner installs where it executes is
+        # proved by that machine, not by a project row, so admission lets it
+        # through and the runner provisions it on first use. Refusing here
+        # instead would make installed, working browser tooling unusable
+        # until somebody declared an otherwise empty capability by hand. A
+        # runner that provisions nothing keeps every gate it had.
+        provisioned_on_the_host = set(
+            host_provisioned_capability_kinds(
+                method_snapshot["runner_id"],
+                missing_capabilities,
+                subject=f"QA requirement {requirement_id}",
+            )
+        )
+        unavailable_capabilities = tuple(
+            kind
+            for kind in missing_capabilities
+            if kind not in provisioned_on_the_host
+        )
+        if unavailable_capabilities:
             raise QaCaseExecutionError(
                 f"QA case requirement {requirement_id} cannot run; execution host "
-                "is missing required capabilities: " + ", ".join(missing_capabilities)
+                "is missing required capabilities: "
+                + ", ".join(unavailable_capabilities)
             )
     case_key = (
         str(row["plan_case_key"])
@@ -183,6 +204,12 @@ def get_case_execution_context(
         "requirement_id": int(row["requirement_id"]),
         "item_id": (int(row["item_id"]) if row["item_id"] is not None else None),
         "deployment_run_id": row["deployment_run_id"],
+        "deployment_stage": row["deployment_stage"],
+        "deployment_member_item_id": (
+            int(row["deployment_member_item_id"])
+            if row["deployment_member_item_id"] is not None
+            else None
+        ),
         "plan_id": plan_id,
         "case_key": case_key,
         "method_id": str(row["method_id"]),
@@ -223,7 +250,7 @@ def get_case_execution_context(
         )
         if evidence:
             context["lane_commit_sha"] = evidence.get("commit_sha")
-    if plan_id is not None:
+    if plan_id is not None or row["deployment_stage"] is not None:
         raw_target = row["execution_target_json"]
         if not raw_target or not row["execution_target_digest"]:
             raise QaCaseExecutionError(

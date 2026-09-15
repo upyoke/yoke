@@ -114,3 +114,14 @@ def test_live_verification_teaching_uses_supported_sequential_and_lint_forms() -
         assert "--no-parallel" not in text
     assert "yoke dev ruff-changed --base <ref>" in _read(REPO / "AGENTS.md")
     assert '"ruff==0.15.20"' in _read(REPO / "pyproject.toml")
+
+
+def test_verification_teaching_does_not_treat_uncommitted_as_local_reason() -> None:
+    agents = _read(REPO / "AGENTS.md")
+    assert "uncommitted work does not justify" in agents
+    assert "small targeted check expected to finish in about one minute" in agents
+    session = _read(REPO / "runtime" / "harness" / "claude" / "rules" / "session.md")
+    assert "not justified by an uncommitted tree" in session
+    inventory = _read(REPO / ".yoke" / "test-inventory.md")
+    assert "python3 -m pytest <targeted files>" not in inventory
+    assert "expected to finish in about one minute" in inventory

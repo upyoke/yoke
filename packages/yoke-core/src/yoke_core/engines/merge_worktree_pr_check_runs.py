@@ -96,6 +96,17 @@ class LandingCheck:
         return f"{self.name}={verdict}" + (f" ({self.url})" if self.url else "")
 
 
+def check_payload(check: LandingCheck) -> dict[str, Any]:
+    """The transport-safe projection of one check, shared by every reader."""
+    return {
+        "name": check.name,
+        "status": check.status,
+        "conclusion": check.conclusion,
+        "required": check.required,
+        "url": check.url,
+    }
+
+
 def read_landing_checks(
     ctx: MergeContext,
     head_sha: str,
@@ -223,4 +234,9 @@ def read_required_checks(
     return tuple(check for _started, check in latest.values()), None
 
 
-__all__ = ["LandingCheck", "read_landing_checks", "read_required_checks"]
+__all__ = [
+    "LandingCheck",
+    "check_payload",
+    "read_landing_checks",
+    "read_required_checks",
+]

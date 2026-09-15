@@ -14,6 +14,7 @@ from typing import Any, Optional
 from yoke_contracts.title_policy import TitleProject, title_length_error
 
 from yoke_core.domain.epic_parsing import _placeholder
+from yoke_core.domain.project_title_policy import resolve_title_max_length
 
 
 def item_project(conn: Any, item_id: Any) -> TitleProject:
@@ -44,10 +45,12 @@ def item_title_length_error(
     subject: str = "Title",
 ) -> Optional[str]:
     """Why *title* is too long for the project owning *item_id*."""
+    owning_project = item_project(conn, item_id)
     return title_length_error(
         title,
-        project=item_project(conn, item_id),
+        project=owning_project,
         subject=subject,
+        limit=resolve_title_max_length(conn, owning_project),
     )
 
 

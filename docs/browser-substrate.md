@@ -311,9 +311,9 @@ All Node.js dependencies are declared in `packages/yoke-harness/src/yoke_harness
 
 ## Setup
 
-Browser setup is on demand, not at install time. The first `yoke qa browser`
-execution provisions everything; `yoke qa browser status` reports readiness
-and `yoke qa browser setup` materializes the runtime.
+Browser setup is on demand, not at install time: the first `yoke qa browser`
+execution provisions everything. QA admission knows that, so a Browser case
+needs no `browser-control` project capability row to reach this machine.
 
 `yoke qa browser setup` materializes the packaged sources into
 `~/.yoke/browser-runtime/`, resolves the Node toolchain, runs `npm install`

@@ -31,6 +31,7 @@ class MergeQueueReadinessResponse(BaseModel):
     merged: Optional[bool]
     closed: Optional[bool]
     merge_state_status: str
+    failed_checks: List[Dict[str, Any]] = Field(default_factory=list)
     narrative: str
     warnings: List[str] = Field(default_factory=list)
 

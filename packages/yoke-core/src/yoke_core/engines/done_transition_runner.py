@@ -279,6 +279,7 @@ def run(
         old_status,
         delivery_redirect_stage(workflow),
         public_ref=public_ref,
+        workflow_id=workflow.workflow_id,
     )
     if deploy_guard is not None:
         exit_code, new_status = deploy_guard

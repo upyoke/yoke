@@ -83,7 +83,8 @@ def _record_verdict(
 ) -> int:
     p = marker(conn)
     require_agent_undetermined_evidence(
-        conn, performed_by="agent",
+        conn,
+        performed_by="agent",
         verdict=verdict,
         run_ids=(int(case["capture_run_id"]),),
     )
@@ -138,46 +139,6 @@ def _record_verdict(
 
     touch_for_qa_requirement(conn, int(case["requirement_id"]))
     return run_id
-
-
-def _ensure_requests(
-    conn: Any,
-    *,
-    bundle_id: str,
-    verdicts: Mapping[int, tuple[str, str]],
-    run_ids: Mapping[int, int],
-    reviewer_actor_id: str | None,
-    reviewer_session_id: str,
-) -> dict[int, int]:
-    p = marker(conn)
-    requests: dict[int, int] = {}
-    for requirement_id, (verdict, rationale) in verdicts.items():
-        if verdict != UNDETERMINED_VERDICT:
-            continue
-        from yoke_core.domain.qa_review_requests import ensure_qa_review_request
-
-        request, _created = ensure_qa_review_request(
-            conn,
-            requirement_id=requirement_id,
-            run_id=run_ids[requirement_id],
-            originator_actor_id=(
-                int(reviewer_actor_id)
-                if reviewer_actor_id and str(reviewer_actor_id).isdigit()
-                else None
-            ),
-            session_id=reviewer_session_id,
-            commit=False,
-        )
-        if request is None:
-            continue
-        request_id = int(request["id"])
-        requests[requirement_id] = request_id
-        conn.execute(
-            "UPDATE qa_plan_review_verdicts SET decision_request_id="
-            f"{p} WHERE bundle_id={p} AND requirement_id={p}",
-            (request_id, bundle_id, requirement_id),
-        )
-    return requests
 
 
 def _emit_review_events(
@@ -296,7 +257,11 @@ def submit_plan_review(
             raise QaPlanReviewError(
                 "completed agent review is missing durable verdict rows"
             )
-        requests = _ensure_requests(
+        from yoke_core.domain.qa_plan_review_requests import (
+            ensure_plan_review_requests,
+        )
+
+        requests = ensure_plan_review_requests(
             conn,
             bundle_id=bundle_id,
             verdicts=validated,

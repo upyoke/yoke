@@ -10,11 +10,13 @@ glue, never an agent CLI surface), so they need no CLI adapter row.
 
 from __future__ import annotations
 
+from yoke_core.domain.handlers import done_transition_delivery_notice as _notice
 from yoke_core.domain.handlers import done_transition_deploy_reads as _dep
 from yoke_core.domain.handlers import done_transition_item_reads as _item
 
 _ITEM_MODULE = "yoke_core.domain.handlers.done_transition_item_reads"
 _DEPLOY_MODULE = "yoke_core.domain.handlers.done_transition_deploy_reads"
+_NOTICE_MODULE = "yoke_core.domain.handlers.done_transition_delivery_notice"
 
 
 def _register_read(
@@ -44,6 +46,20 @@ def _register_read(
 
 
 def register(registry) -> None:
+    registry.register(
+        "done_transition.delivery_done_notice",
+        _notice.handle_delivery_done_notice,
+        _notice.DeliveryDoneNoticeRequest,
+        _notice.DeliveryDoneNoticeResponse,
+        stability="stable",
+        owner_module=_NOTICE_MODULE,
+        target_kinds=["item"],
+        side_effects=["session_message"],
+        emitted_event_names=["YokeFunctionCalled"],
+        guardrails=[],
+        adapter_status="internal",
+        claim_required_kind=None,
+    )
     _register_read(
         registry,
         "done_transition.item_context",
@@ -124,6 +140,15 @@ def register(registry) -> None:
         _dep.RunBlockingQaResponse,
         owner_module=_DEPLOY_MODULE,
         target_kinds=["global"],
+    )
+    _register_read(
+        registry,
+        "done_transition.run_stage_qa_acceptance",
+        _dep.handle_run_stage_qa_acceptance,
+        _dep.RunStageQaAcceptanceRequest,
+        _dep.RunStageQaAcceptanceResponse,
+        owner_module=_DEPLOY_MODULE,
+        target_kinds=["item"],
     )
     _register_read(
         registry,

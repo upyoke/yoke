@@ -1,14 +1,12 @@
-"""Pipeline stamp caller + db_router shim refusal.
+"""Pipeline member stamps preserve internal item identity.
 
 Proves the deploy-pipeline helpers address member items by integer
 ``items.id`` (including a non-default-project row whose public sequence
-is a different number) and that ``_yoke_db`` no longer swallows a
-non-zero router exit.
+is a different number).
 """
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -17,11 +15,7 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain import deploy_pipeline_run_updates as run_updates
-from yoke_core.domain.deploy_pipeline_reporting import (
-    DeployPipelineCommandError,
-    _set_deploy_stage,
-    _yoke_db,
-)
+from yoke_core.domain.deploy_pipeline_reporting import _set_deploy_stage
 from yoke_core.domain.deployment_item_stamp import (
     DeploymentItemStampError,
     stamp_item_field,
@@ -103,17 +97,3 @@ def test_set_deploy_stage_stamps_member_then_run(db, monkeypatch):
     assert seen == [
         ("run-20260822-001", "current_stage", "warm-up"),
     ]
-
-
-def test_yoke_db_raises_on_nonzero(monkeypatch):
-    def _fail(_cmd, timeout=60):
-        return subprocess.CompletedProcess(
-            args=_cmd, returncode=1, stdout="", stderr="no such item",
-        )
-
-    monkeypatch.setattr(
-        "yoke_core.domain.deploy_pipeline_reporting._run_cmd",
-        _fail,
-    )
-    with pytest.raises(DeployPipelineCommandError, match="no such item"):
-        _yoke_db("items", "update", "12", "deploy_stage", "complete")

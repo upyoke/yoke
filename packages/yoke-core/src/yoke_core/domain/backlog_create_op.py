@@ -182,6 +182,8 @@ def execute_create(
                     ),
                 }
 
+        from yoke_core.domain.project_title_policy import resolve_title_max_length
+
         result = mutations.prepare_create(
             title=title,
             workflow=workflow_runtime,
@@ -190,6 +192,7 @@ def execute_create(
             deployment_flow=deployment_flow,
             flow_project=flow_project,
             status=status,
+            title_max_length=resolve_title_max_length(conn, project_identity.id),
         )
 
         if not result.success:

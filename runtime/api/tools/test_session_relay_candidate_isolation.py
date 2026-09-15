@@ -3,7 +3,10 @@
 The standing relay entrypoint exports PYTHONPATH at the running release's
 site-packages, so every child Python it starts inherits that release. These
 tests run real interpreters against a real candidate environment with a
-conflicting donor on PYTHONPATH: the candidate's own identity must win.
+conflicting donor on PYTHONPATH: the candidate's own identity must win. The
+verification spawns the stable runtime interpreter and selects the candidate's
+packages the way the launcher selects a release, so the candidate wins by
+being chosen, and isolation keeps the inherited environment out on top of that.
 """
 
 from __future__ import annotations
@@ -19,7 +22,10 @@ import pytest
 
 from yoke_cli.config.session_relay_instance import resolve_relay_instance
 from yoke_core.tools import session_relay_runtime_install
-from yoke_core.tools.session_relay_release import PYTHON_ISOLATION_FLAG
+from yoke_core.tools.session_relay_release import (
+    PYTHON_ISOLATION_FLAG,
+    relay_runtime_python,
+)
 from yoke_core.tools.session_relay_release_install import pin_relay_release
 
 
@@ -66,21 +72,30 @@ def _site_packages(prefix: Path) -> Path:
     )
 
 
-def _install_metadata(site_packages: Path, release: str) -> None:
-    """Write the yoke-core distribution metadata importlib.metadata reads."""
+def _install_yoke_cli(site_packages: Path, release: str) -> None:
+    """Write a real, importable yoke_cli package plus its dist-info metadata.
+
+    A dist-info stub alone would satisfy importlib.metadata.version() without
+    proving the package it describes is actually importable -- exactly the gap
+    the runnable check exists to close.
+    """
     dist_info = site_packages / f"yoke_core-{release}.dist-info"
     dist_info.mkdir(parents=True, exist_ok=True)
     (dist_info / "METADATA").write_text(
         f"Metadata-Version: 2.1\nName: yoke-core\nVersion: {release}\n",
         encoding="utf-8",
     )
+    cli = site_packages / "yoke_cli"
+    cli.mkdir(parents=True, exist_ok=True)
+    (cli / "__init__.py").write_text("", encoding="utf-8")
+    (cli / "main.py").write_text("", encoding="utf-8")
 
 
 @pytest.fixture
 def donor_pythonpath(tmp_path: Path) -> Path:
     """A running release's site-packages, exported the way the relay does."""
     donor = tmp_path / "running-release-packages"
-    _install_metadata(donor, RUNNING_RELEASE)
+    _install_yoke_cli(donor, RUNNING_RELEASE)
     return donor
 
 
@@ -96,7 +111,7 @@ def _installing_runner(donor: Path, argv_log: list[list[str]]):
         argv_log.append(argv)
         candidate = Path(argv[0]).parent.parent
         if "pip" in argv:
-            _install_metadata(_site_packages(candidate), CANDIDATE_RELEASE)
+            _install_yoke_cli(_site_packages(candidate), CANDIDATE_RELEASE)
             (candidate / "bin" / "yoke").write_text("", encoding="utf-8")
             return subprocess.CompletedProcess(argv, 0, "", "")
         return subprocess.run(
@@ -127,18 +142,26 @@ def test_candidate_verification_reads_the_candidate_not_the_running_release(
     assert status.pinned_release == CANDIDATE_RELEASE
 
     verification = next(argv for argv in argv_log if "-c" in argv)
+    assert verification[0] == str(relay_runtime_python(instance.state_dir))
     assert verification[1] == PYTHON_ISOLATION_FLAG
+    verified_root = Path(verification[-1])
+    assert verified_root.parent == instance.state_dir / "releases"
+    assert (instance.state_dir / "release").resolve() == verified_root
 
-    unisolated = subprocess.run(
-        verification[:1] + verification[2:],
+    inherited = subprocess.run(
+        [
+            verification[0],
+            "-c",
+            "from importlib.metadata import version; print(version('yoke-core'))",
+        ],
         check=False,
         capture_output=True,
         text=True,
         env={**os.environ, "PYTHONPATH": str(donor_pythonpath)},
     )
-    assert unisolated.stdout.strip() == RUNNING_RELEASE, (
-        "the donor no longer poisons an unisolated interpreter, so this test "
-        "would pass without the isolation flag"
+    assert inherited.stdout.strip() == RUNNING_RELEASE, (
+        "the donor no longer reaches an interpreter that inherits it, so this "
+        "test would pass without selecting the candidate's own packages"
     )
 
 

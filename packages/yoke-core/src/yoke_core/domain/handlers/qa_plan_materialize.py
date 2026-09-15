@@ -17,6 +17,8 @@ class MaterializeRequest(BaseModel):
     transition_id: Optional[str] = Field(default=None, min_length=1)
     plan: Optional[str] = Field(default=None, min_length=1)
     project: Optional[str] = Field(default=None, min_length=1)
+    deployment_stage: Optional[str] = Field(default=None, min_length=1)
+    deployment_member: Optional[str] = Field(default=None, min_length=1)
 
 
 class RematerializeRequest(BaseModel):
@@ -77,7 +79,7 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                         "deployment run id is required",
                         "$.target",
                     )
-                if payload.plan is None:
+                if payload.plan is None and payload.deployment_stage is None:
                     return _error(
                         "payload_invalid",
                         "deployment-run materialization requires plan",
@@ -89,12 +91,37 @@ def handle_materialize(request: FunctionCallRequest) -> HandlerOutcome:
                         "deployment-run materialization has no workflow transition",
                         "$.payload.transition_id",
                     )
-                result = materialize_for_deployment_run(
-                    conn,
-                    deployment_run_id=str(run_id),
-                    plan=payload.plan,
-                    project=payload.project,
-                )
+                if payload.deployment_stage is not None:
+                    from yoke_core.domain.deployment_qa_stage_materialization import (
+                        materialize_deployment_qa_stage,
+                    )
+                    from yoke_core.domain.project_identity import resolve_item_id
+
+                    member_id = (
+                        resolve_item_id(conn, payload.deployment_member)
+                        if payload.deployment_member is not None
+                        else None
+                    )
+                    if payload.deployment_member is not None and member_id is None:
+                        return _error(
+                            "payload_invalid",
+                            f"deployment member {payload.deployment_member!r} not found",
+                            "$.payload.deployment_member",
+                        )
+                    result = materialize_deployment_qa_stage(
+                        conn,
+                        deployment_run_id=str(run_id),
+                        deployment_stage=payload.deployment_stage,
+                        deployment_member_item_id=member_id,
+                        agent_plan=payload.plan,
+                    )
+                else:
+                    result = materialize_for_deployment_run(
+                        conn,
+                        deployment_run_id=str(run_id),
+                        plan=payload.plan,
+                        project=payload.project,
+                    )
             else:
                 return _error(
                     "target_invalid",

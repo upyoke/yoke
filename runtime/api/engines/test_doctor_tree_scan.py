@@ -67,6 +67,15 @@ def test_pruned_directory_names_are_never_entered(monkeypatch, tmp_path: Path) -
     assert "build" not in entered
 
 
+def test_leftover_package_build_lib_is_skipped_even_without_an_explicit_prune(
+    tmp_path: Path,
+) -> None:
+    _touch(tmp_path / "packages" / "yoke-contracts" / "build" / "lib" / "copy.py")
+    _touch(tmp_path / "packages" / "yoke-contracts" / "src" / "real.py")
+
+    assert [path.name for path in iter_tree_files(tmp_path, "*.py")] == ["real.py"]
+
+
 def test_pattern_matches_file_names_case_sensitively(tmp_path: Path) -> None:
     _touch(tmp_path / "Dockerfile.web")
     _touch(tmp_path / "dockerfile.api")

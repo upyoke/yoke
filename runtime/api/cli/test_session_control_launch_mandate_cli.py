@@ -89,3 +89,63 @@ def test_launch_create_stdin_without_raw_is_optional_extras(monkeypatch) -> None
     assert payload["instructions"] == "Also reopen the failed QA case."
     assert "compose_mandate" not in payload
     assert calls[0]["sensitive_values"] == ("Also reopen the failed QA case.",)
+
+
+def test_launch_create_itemless_raw_omits_item(monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(
+        launches, "dispatch_and_emit", lambda **kwargs: calls.append(kwargs) or 0
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO("Custom full body."))
+    assert (
+        launches.session_launch_create(
+            [
+                "--project",
+                "yoke",
+                "--surface",
+                "cursor-cli",
+                "--stdin",
+                "--raw-instructions",
+                "--idempotency-key",
+                "raw-itemless",
+            ]
+        )
+        == 0
+    )
+    payload = calls[0]["payload"]
+    assert "item" not in payload
+    assert payload["instructions"] == "Custom full body."
+    assert payload["compose_mandate"] is False
+
+
+def test_launch_create_composed_without_item_is_usage_error() -> None:
+    assert (
+        launches.session_launch_create(
+            [
+                "--project",
+                "yoke",
+                "--surface",
+                "cursor-cli",
+                "--idempotency-key",
+                "composed-missing",
+            ]
+        )
+        == 2
+    )
+
+
+def test_launch_create_itemless_raw_without_body_is_usage_error() -> None:
+    assert (
+        launches.session_launch_create(
+            [
+                "--project",
+                "yoke",
+                "--surface",
+                "cursor-cli",
+                "--raw-instructions",
+                "--idempotency-key",
+                "raw-empty",
+            ]
+        )
+        == 2
+    )

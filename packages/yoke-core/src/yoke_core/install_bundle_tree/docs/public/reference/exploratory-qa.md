@@ -22,11 +22,18 @@ The built-in method has these immutable properties:
 | required capabilities | `browser-control`, `test-machine` |
 | case config | `{"executor":"informed_subagent"}` or `{"executor":"naive_target_session"}` |
 
-Capability declarations are provisioning authority. Materialization resolves
-both kinds against the project capability rows and the executing harness
-session. The Test Machine connection comes from the `QA_HOST:` coordination
-lease recorded on `qa_plan_executions.machine_lease_id`; the mission does not
-open an undeclared host or browser path.
+Capability declarations are provisioning authority, and the two kinds above
+resolve differently. `test-machine` is a project registration: materialization
+resolves it against the project capability rows, and admission refuses a
+mission whose project has registered no Test Machine. `browser-control` needs no project
+capability row, because this method's own runner is declared to supply it on
+the host the mission walks: admission admits the mission, and the dispatch
+contract below requires the walker to run `yoke qa browser setup` on that
+target host — which installs Node, Playwright, and Chromium there on first
+use — before any browser step.
+The Test Machine connection comes from the `QA_HOST:` coordination lease
+recorded on `qa_plan_executions.machine_lease_id`; the mission does not open
+an undeclared host or browser path.
 
 ## Authoring Shape
 

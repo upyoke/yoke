@@ -11,14 +11,17 @@ Subcommands (CLI)::
     python3 -m yoke_core.domain.deploy_qa_recorder get-requirement <run-id> <qa-kind>
     python3 -m yoke_core.domain.deploy_qa_recorder run-smoke-status <run-id>
 
-The stage helpers (``_resolve_script_dir``, ``_dispatch_db_router``,
-``_dispatch_flow_domain``, ``_parse_stages_qa``,
-``_resolve_qa_kind_for_stage``) live in
+Every command reads/writes QA rows in-process through the ordinary domain
+functions (``qa_requirements.cmd_requirement_add``,
+``deployment_runs_qa.cmd_qa_add``, ...) rather than shelling out to a
+sibling CLI. A relayed HTTPS request handler and a local admin connection
+alike inherit whatever database/actor authority the current execution
+context already carries; a spawned subprocess would not. The stage helpers
+(``_parse_stages_qa``, ``_resolve_qa_kind_for_stage``) live in
 ``yoke_core.domain.deploy_qa_stage_helpers`` and the largest command
-(``cmd_record_stage_result``) lives in
-``yoke_core.domain.deploy_qa_stage_result``. They are re-exported as
-module-level attributes here so test monkeypatches against
-``deploy_qa_recorder._dispatch_*`` continue to reach every call site.
+(``cmd_record_stage_result``) lives in ``yoke_core.domain.deploy_qa_stage_result``.
+They are re-exported as module-level attributes here so existing test
+patches against ``deploy_qa_recorder._parse_stages_qa`` etc. keep working.
 
 Exit codes: 0 success, 1 error, 2 usage error.
 """
@@ -26,27 +29,19 @@ Exit codes: 0 success, 1 error, 2 usage error.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import sys
 from typing import List, Optional
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain.deploy_qa_stage_helpers import (
-    dispatch_db_router,
-    dispatch_flow_domain,
     parse_stages_qa,
     resolve_qa_kind_for_stage,
-    resolve_script_dir,
 )
 from yoke_core.domain.deploy_qa_stage_result import cmd_record_stage_result
 
 # Module-level aliases — load-bearing for test monkeypatch reachability.
-# ``cmd_record_stage_result`` (in ``deploy_qa_stage_result``) and
-# ``cmd_seed_from_flow`` (below) both resolve the dispatch helpers via these
-# attributes at call time, so ``monkeypatch.setattr(deploy_qa_recorder,
-# "_dispatch_db_router", ...)`` reaches every call site.
-_resolve_script_dir = resolve_script_dir
-_dispatch_db_router = dispatch_db_router
-_dispatch_flow_domain = dispatch_flow_domain
 _parse_stages_qa = parse_stages_qa
 _resolve_qa_kind_for_stage = resolve_qa_kind_for_stage
 
@@ -55,33 +50,46 @@ _resolve_qa_kind_for_stage = resolve_qa_kind_for_stage
 # Core commands
 # ---------------------------------------------------------------------------
 
+
 def cmd_seed_from_flow(
     run_id: str,
     *,
     db_path: Optional[str] = None,
-    script_dir: Optional[str] = None,
 ) -> int:
     """Seed QA requirements from a deployment run's flow stages.
 
-    Returns the count of newly seeded requirements.
+    Returns the count of newly seeded requirements, or ``-1`` when the run's
+    flow could not be read or a discovered QA stage failed to seed — a
+    caller must not treat a negative return as "nothing to do".
     """
-    sd = script_dir or _resolve_script_dir()
+    from yoke_core.domain.deployment_runs_crud_query import cmd_get
+    from yoke_core.domain.deployment_runs_qa import cmd_qa_add
+    from yoke_core.domain.flow import cmd_stages
+    from yoke_core.domain.qa_requirements import cmd_requirement_add
 
-    # Read flow from run
-    flow_id = _dispatch_db_router("runs", "get", run_id, "flow", script_dir=sd)
+    flow_id = cmd_get(run_id, "flow", db_path=db_path)
     if not flow_id:
         print(f"Error: could not read flow for run '{run_id}'", file=sys.stderr)
         return -1
 
-    stages_json = _dispatch_flow_domain("stages", flow_id, script_dir=sd)
-    if not stages_json:
-        print(f"No stages found for flow '{flow_id}'", file=sys.stderr)
-        return 0
+    flow_conn = connect(db_path)
+    try:
+        try:
+            stages_json = cmd_stages(flow_conn, flow_id)
+        except LookupError as exc:
+            # The run's own flow field named a flow row that does not
+            # exist — a real error (normally prevented by the flow FK, but
+            # never one to read back as "nothing to seed").
+            print(f"Error: flow '{flow_id}' not found: {exc}", file=sys.stderr)
+            return -1
+    finally:
+        flow_conn.close()
 
     qa_stages = _parse_stages_qa(stages_json)
 
     conn = connect(db_path)
     seeded = 0
+    failed_stages: List[str] = []
     try:
         for qs in qa_stages:
             # Idempotent: check existing
@@ -92,32 +100,46 @@ def cmd_seed_from_flow(
                 (run_id, qs["qa_kind"]),
             )
             if existing:
-                print(f"  QA requirement already seeded for {qs['qa_kind']} (id={existing})")
+                print(
+                    f"  QA requirement already seeded for {qs['qa_kind']} (id={existing})"
+                )
                 continue
 
-            # Create via CLI (preserves shell contract for events etc.)
-            req_id = _dispatch_db_router(
-                "qa", "requirement-add",
-                "--deployment-run-id", run_id,
-                "--qa-kind", qs["qa_kind"],
-                "--qa-phase", "post_deploy",
-                "--blocking-mode", "blocking",
-                "--requirement-source", "flow_derived",
-                "--success-policy", qs["success_policy"],
-                script_dir=sd,
-            )
-            if req_id:
-                _dispatch_db_router(
-                    "runs", "qa-add", run_id, qs["name"], "flow_default", "1",
-                    script_dir=sd,
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    req_id = cmd_requirement_add(
+                        db_path=db_path,
+                        deployment_run_id=run_id,
+                        qa_kind=qs["qa_kind"],
+                        qa_phase="post_deploy",
+                        blocking_mode="blocking",
+                        requirement_source="flow_derived",
+                        success_policy=qs["success_policy"],
+                    )
+            except SystemExit as exc:
+                print(
+                    f"  Error: failed to seed QA requirement for stage "
+                    f"'{qs['name']}' (exit {exc.code})",
+                    file=sys.stderr,
                 )
-                print(f"  Seeded QA requirement: {qs['qa_kind']} (req_id={req_id}, stage={qs['name']})")
-                seeded += 1
-            else:
-                print(f"  Warning: failed to seed QA requirement for stage '{qs['name']}'", file=sys.stderr)
+                failed_stages.append(qs["name"])
+                continue
+
+            cmd_qa_add(run_id, qs["name"], "flow_default", 1, db_path=db_path)
+            print(
+                f"  Seeded QA requirement: {qs['qa_kind']} (req_id={req_id}, stage={qs['name']})"
+            )
+            seeded += 1
     finally:
         conn.close()
 
+    if failed_stages:
+        print(
+            "Error: failed to seed QA requirement(s) for stage(s): "
+            f"{', '.join(failed_stages)}",
+            file=sys.stderr,
+        )
+        return -1
     if seeded == 0:
         print("No new QA requirements seeded (already up to date or no QA stages)")
     else:
@@ -188,16 +210,22 @@ def cmd_run_smoke_status(
         conn.close()
 
 
-def cmd_update_progress_view(*, script_dir: Optional[str] = None) -> None:
-    """Delegate to ``python3 -m yoke_core.domain.flow init``."""
-    sd = script_dir or _resolve_script_dir()
-    _dispatch_flow_domain("init", script_dir=sd)
+def cmd_update_progress_view(*, db_path: Optional[str] = None) -> None:
+    """Ensure item_progress_view carries the smoke_qa_status column."""
+    from yoke_core.domain.flow import cmd_init
+
+    conn = connect(db_path)
+    try:
+        cmd_init(conn)
+    finally:
+        conn.close()
     print("Updated item_progress_view with smoke_qa_status column")
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -242,15 +270,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0 if result >= 0 else 1
 
     if args.subcmd == "record-stage-result":
-        qa_run_id = cmd_record_stage_result(
-            args.run_id,
-            args.stage_name,
-            args.verdict,
-            raw_result=args.raw_result,
-            duration_ms=args.duration_ms,
-            workflow_run=args.workflow_run,
-        )
-        return 0 if qa_run_id is not None else 1
+        try:
+            cmd_record_stage_result(
+                args.run_id,
+                args.stage_name,
+                args.verdict,
+                raw_result=args.raw_result,
+                duration_ms=args.duration_ms,
+                workflow_run=args.workflow_run,
+            )
+        except RuntimeError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        return 0
 
     if args.subcmd == "get-requirement":
         cmd_get_requirement(args.run_id, args.qa_kind)

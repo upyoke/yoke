@@ -14,13 +14,19 @@ from runtime.api.domain.test_session_message_support import (
     message_connection,
     selector,
 )
+from runtime.api.domain.test_steering_role_addressed_messages import (
+    PROJECT_SCOPE,
+    _say_steering,
+    _seat,
+)
 
 
 @pytest.fixture(autouse=True)
 def _fixed_delivery_clock(monkeypatch) -> None:
-    from yoke_core.domain import session_message_delivery
+    from yoke_core.domain import session_message_delivery, session_message_page
 
     monkeypatch.setattr(session_message_delivery, "utc_now", lambda: NOW)
+    monkeypatch.setattr(session_message_page, "utc_now", lambda: NOW)
 
 
 def _message(
@@ -138,3 +144,65 @@ def test_invalid_settled_cursor_names_the_recovery() -> None:
 
     assert raised.value.code == "cursor_invalid"
     assert "clear it" in str(raised.value)
+
+
+def test_page_counts_a_parked_steering_message_as_actionable() -> None:
+    """A role-addressed row with no seat is still open mail, not settled."""
+    conn = message_connection()
+    sent = _say_steering(conn)
+
+    page = read_message_page(
+        conn, actor_id=11, caller_session_id=None, state="unacknowledged"
+    )
+
+    assert page["actionable_count"] == 1
+    assert [row["message_id"] for row in page["messages"]] == [sent["message_id"]]
+    assert page["messages"][0]["needs_attention"] is True
+
+
+def test_page_counts_a_row_delivered_by_drain_as_actionable() -> None:
+    """``hand_to_seat`` never writes a session recipient for the new seat."""
+    conn = message_connection()
+    sent = _say_steering(conn)
+    _seat(conn, claim_id=11, session_id="s4")
+    from yoke_core.domain.steering_message_drain import drain_to_seat
+
+    drain_to_seat(
+        conn,
+        scope=PROJECT_SCOPE,
+        project_id=1,
+        session_id="s4",
+        claim_id=11,
+        descriptor="alpha",
+        now=NOW,
+    )
+    conn.commit()
+
+    page = read_message_page(
+        conn, actor_id=11, caller_session_id=None, state="unacknowledged"
+    )
+
+    assert page["actionable_count"] == 1
+    assert [row["message_id"] for row in page["messages"]] == [sent["message_id"]]
+
+
+def test_an_expired_steering_message_reads_settled_not_actionable(monkeypatch) -> None:
+    """A steering row cannot itself carry ``expired``; the message's own
+    expiry is what must settle it once nobody can act on it anymore."""
+    from datetime import timedelta as _timedelta
+
+    from yoke_core.domain import session_message_page
+
+    conn = message_connection()
+    sent = _say_steering(conn)
+
+    monkeypatch.setattr(
+        session_message_page, "utc_now", lambda: NOW + _timedelta(hours=25)
+    )
+    page = read_message_page(
+        conn, actor_id=11, caller_session_id=None, state="unacknowledged"
+    )
+
+    assert page["actionable_count"] == 0
+    assert [row["message_id"] for row in page["messages"]] == [sent["message_id"]]
+    assert page["messages"][0]["needs_attention"] is False

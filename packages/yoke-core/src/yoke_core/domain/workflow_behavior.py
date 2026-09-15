@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from yoke_core.domain.workflow_definition_builders import (
     IMPLEMENTATION_WORKFLOW_SKILL_IDS,
+    WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
 from yoke_core.domain.workflow_gate_catalog import GATE_PLAN_SIMULATION
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
@@ -79,9 +80,19 @@ def release_note_category(runtime: WorkflowRuntime) -> str:
     return "improvements"
 
 
+_RELEASE_STAGE_REDIRECT_POLICIES = frozenset(
+    {"release_stage", WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE}
+)
+
+
 def delivery_redirect_stage(runtime: WorkflowRuntime) -> str | None:
-    """Return the definition-owned stage that waits on delivery evidence."""
-    if runtime.policies["delivery"] != "release_stage":
+    """Return the definition-owned stage that waits on delivery evidence.
+
+    A still-implementing Blitz keeps releasing continuously per slice; only
+    its final closeout — reaching the terminal stage's predecessor — waits
+    here, exactly like an ordinary ``release_stage`` item.
+    """
+    if runtime.policies["delivery"] not in _RELEASE_STAGE_REDIRECT_POLICIES:
         return None
     predecessors = {
         str(edge["from_stage_id"])
@@ -101,9 +112,14 @@ def lane_release_recovery_statuses(runtime: WorkflowRuntime) -> frozenset[str]:
 
     Implementation and polish handoffs that stop before a terminal stage are
     the recovery set. When those bindings land on a terminal (Dash, Blitz),
-    recovery uses the last non-terminal stage — the verification close.
+    recovery uses the last non-terminal stage — the verification close, not
+    the pinned release wait: that stage is post-merge, by which point the
+    implementation lane this recovers is already gone.
     """
-    terminals = runtime.terminal_stage_ids
+    terminals = set(runtime.terminal_stage_ids)
+    release_wait = delivery_redirect_stage(runtime)
+    if release_wait is not None:
+        terminals.add(release_wait)
     accepted: set[str] = set()
     for binding in runtime.definition.get("skill_bindings") or ():
         if str(binding["skill_id"]) not in _LANE_RELEASE_RECOVERY_SKILL_IDS:

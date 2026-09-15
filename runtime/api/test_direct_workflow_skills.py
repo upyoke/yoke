@@ -142,7 +142,8 @@ def test_blitz_skill_carries_slice_and_document_completion_contract():
     ):
         assert required in normalized
     assert "verified route gets the background subscription" in normalized
-    assert "no route or an unknown answer stays in-turn" in normalized
+    assert "no route or an unknown answer gets one foreground invocation" in normalized
+    assert "prints \u2014 and never runs \u2014 the shape" in normalized
     assert "through the project's protected merge path" not in content
 
 

@@ -94,8 +94,7 @@ QA gates are bypassed. Complete the run with its verdict, or waive the
 requirement, while the item claim is still active; terminal records are not
 correctable afterward.
 
-A deployment run can instead own one named plan directly, without inventing
-an item or workflow transition:
+A deployment run can instead own one named plan directly, without inventing an item or workflow transition. Frozen stage/member execution is documented in [Deployment QA Stage Execution](qa-platform/deployment-stage-execution.md):
 
 ```text
 yoke qa plan run \
@@ -313,8 +312,9 @@ that iteration selection also runs off-machine — `yoke watch pytest` and
 the generic runner push the lane commit, dispatch the project's selection
 workflow against it with the merge base, and adopt its conclusion — so
 the workstation serves sessions while CI runs tests. `--local` (or
-`YOKE_PYTEST_LOCAL=1`) runs one here instead; a remote run refuses an
-uncommitted tree and a checkout on the base branch.
+`YOKE_PYTEST_LOCAL=1`) is only a small targeted check expected to finish
+in about one minute; uncommitted work does not justify a slow local run.
+A remote run refuses an uncommitted tree — commit, then run on CI.
 Queue landing (`yoke merge item --wait`) returns immediately when the
 pull request's required checks have already concluded red with nothing in
 flight — that is a terminal required-check failure, not a record-wait timeout.

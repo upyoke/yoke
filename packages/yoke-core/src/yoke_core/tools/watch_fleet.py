@@ -90,11 +90,14 @@ calling session's manifest wake fact:
   subscription exits on the wrapper's sentinel and may wake the caller.
 
   as a headless relay-launched worker, or with no or unverified idle
-  wake: it reports `wait_mode=in-turn` and immediately runs the wrapper
-  foreground,
-  bounding the pass with `--duration` so it returns to the caller. A
-  foreground pass sees every line the armed shape would, only inside one
-  turn instead of across idle time.
+  wake: it reports `wait_mode=in-turn` and prints the single foreground
+  invocation to run and hold open in this turn, bounding the pass with
+  `--duration` so it returns to the caller. A foreground pass sees every
+  line the armed shape would, only inside one turn instead of across
+  idle time.
+
+Either way the flag only prints. Nothing starts until you run the
+printed command.
 
 The wrapper is a local read. It delivers nothing to anyone, and no
 report depends on it running.
@@ -171,7 +174,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        return _watch_runner.run_or_print_streaming_pair(
+        return _watch_runner.print_wait_mode_invocation(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=passthrough,

@@ -120,6 +120,66 @@ def test_a_seat_lists_the_role_addressed_mail_it_holds() -> None:
     assert listed[0]["steering_recipient"]["session_id"] == "s2"
 
 
+def test_an_unfiltered_list_reaches_an_authorized_reader_for_a_parked_row() -> None:
+    """The steering branch used to appear only when a session filter did.
+
+    Actor 10 is the sender, so it would see this regardless; actor 11 has
+    no session/human tie to the message at all -- only project read access
+    -- so this exercises the same fallback every other recipient kind
+    already had.
+    """
+    conn = message_connection()
+    sent = _say_steering(conn)
+
+    listed = list_messages(
+        conn, actor_id=11, caller_session_id=None, state="unacknowledged"
+    )
+
+    assert sent["message_id"] in [row["message_id"] for row in listed]
+
+
+def test_an_unfiltered_list_reaches_an_authorized_reader_for_a_drained_row() -> None:
+    """A row handed to a seat on acquire carries no session-recipient row.
+
+    ``hand_to_seat`` only ever updates the durable role row, so this is the
+    ``delivered`` case that has nothing in ``session_message_recipients`` at
+    all -- it must be found through the steering branch or not at all.
+    """
+    conn = message_connection()
+    sent = _say_steering(conn)
+    _seat(conn, claim_id=11, session_id="s4")
+    drain_to_seat(
+        conn,
+        scope=PROJECT_SCOPE,
+        project_id=1,
+        session_id="s4",
+        claim_id=11,
+        descriptor="alpha",
+        now=NOW,
+    )
+    conn.commit()
+
+    listed = list_messages(
+        conn, actor_id=11, caller_session_id=None, state="unacknowledged"
+    )
+
+    assert sent["message_id"] in [row["message_id"] for row in listed]
+
+
+def test_an_unfiltered_list_still_hides_a_parked_row_from_an_unauthorized_reader() -> (
+    None
+):
+    """Widening candidacy must not widen who is actually authorized to read."""
+    conn = message_connection()
+    _say_steering(conn)
+
+    listed = list_messages(
+        conn, actor_id=13, caller_session_id=None, state="unacknowledged"
+    )
+
+    assert listed == []
+
+
 def test_a_project_seat_inherits_a_report_no_document_covers() -> None:
     """The coverage difference a project-level seat is acquired for.
 

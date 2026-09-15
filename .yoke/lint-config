@@ -39,6 +39,10 @@ lint_raw_pytest_full_suite=deny
 # exists; this keeps the migration from stopping at documentation changes.
 lint_watcher_module_form=deny
 
+# Require the documented Claude Bash timeout on headless in-turn watcher
+# calls. Not a blanket Bash timeout.
+lint_headless_watcher_timeout=deny
+
 # Refuse `$?` capture immediately after an `if` compound.
 lint_if_status_capture=deny
 

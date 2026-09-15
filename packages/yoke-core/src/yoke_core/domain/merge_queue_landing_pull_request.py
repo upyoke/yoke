@@ -82,6 +82,7 @@ def _publish_lane_head(ctx: MergeContext, *, lane_head: str) -> Optional[str]:
         already_published = bool(remote_sha)
     if already_published:
         return None
+    from yoke_core.domain.merge_queue_push_safety import LanePublishBlocked
     from yoke_core.domain.qa_case_ci_lane import push_lane
     from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
@@ -90,8 +91,15 @@ def _publish_lane_head(ctx: MergeContext, *, lane_head: str) -> Optional[str]:
         push_lane(
             Path(ctx.repo_root),
             ctx.args.branch,
+            project=str(ctx.project or ""),
+            target=ctx.args.target,
             source_ref=source,
         )
+    except LanePublishBlocked as exc:
+        # The candidate the queue is holding is still live. Its own refusal
+        # names the hold; the force-with-lease recovery below would push the
+        # correction out from under that landing instead.
+        return str(exc)
     except QaCaseExecutionError as exc:
         if not remote_sha:
             return (

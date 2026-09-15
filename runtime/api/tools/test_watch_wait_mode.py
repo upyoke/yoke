@@ -1,4 +1,8 @@
-"""A watcher releases a caller whose harness can resume an ended turn.
+"""Which wait shape a watcher selects for the caller that asked.
+
+Selection decides which invocation the caller is handed, never whether
+the watched command runs — printing runs nothing in either mode, which
+``test_watch_print_only_contract`` pins.
 
 The deciding fact is the harness's own native background-command notification
 primitive, recorded in the wake registry. Yoke's ability to reach the session
@@ -10,18 +14,13 @@ and a harness with no or unverified idle wake keep the wait in turn.
 
 from __future__ import annotations
 
-from pathlib import Path
-import sys
-
 import pytest
 
 from yoke_contracts.harness_wake_capability import HarnessWakeCapability
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
-from yoke_core.tools import _watch_streaming_pair, watch_doctor, watch_fleet
 from yoke_core.tools import _watch_wait_mode
 from yoke_core.tools._watch_wait_mode import (
     HEADLESS_CONTINUATION_DIRECTIVE,
-    WatchWaitMode,
     resolve_wait_mode,
     wait_mode_for_session,
 )
@@ -187,93 +186,6 @@ def test_the_continuation_directive_names_the_hand_back_and_the_recovery() -> No
     assert "Reading the background task's output continues the call" in directive
     assert "only ending the turn kills this watcher" in directive
     assert "Never start a second invocation beside a live one" in directive
-
-
-@pytest.mark.parametrize(
-    ("watcher", "engine_builder", "mode"),
-    [
-        (
-            watch_fleet,
-            "_probe_argv",
-            wait_mode_for_session(
-                _session("codex", surface="codex-cli", wake_available=True)
-            ),
-        ),
-        (watch_doctor, "_doctor_argv", wait_mode_for_session(None)),
-    ],
-)
-def test_in_turn_mode_runs_two_watchers_through_child_completion(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-    watcher,
-    engine_builder: str,
-    mode: WatchWaitMode,
-) -> None:
-    marker = tmp_path / f"{watcher.KIND}.finished"
-    raw = tmp_path / f"{watcher.KIND}.raw"
-    progress = tmp_path / f"{watcher.KIND}.progress"
-    child = [
-        sys.executable,
-        "-c",
-        (
-            "import pathlib, time; time.sleep(0.05); "
-            f"pathlib.Path({str(marker)!r}).write_text('done')"
-        ),
-    ]
-    monkeypatch.setattr(
-        _watch_streaming_pair,
-        "resolve_wait_mode",
-        lambda: mode,
-    )
-    monkeypatch.setattr(
-        watcher._watch_runner,
-        "mint_capture_paths",
-        lambda kind: (raw, progress),
-    )
-    monkeypatch.setattr(watcher, engine_builder, lambda args: child)
-
-    assert watcher.main(["--print-streaming-pair"]) == 0
-
-    output = capsys.readouterr().out
-    assert marker.read_text() == "done"
-    assert f"# watch_{watcher.KIND} wait_mode=in-turn" in output
-    assert "holding this turn until the watched command exits" in output
-    assert "no completion wake is expected" in output
-
-
-def test_wakeable_watcher_exits_to_its_conditional_completion_wake(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    raw = tmp_path / "fleet.raw"
-    progress = tmp_path / "fleet.progress"
-    mode = wait_mode_for_session(
-        _session("claude-code", surface="claude-cli", wake_available=True)
-    )
-    monkeypatch.setattr(
-        _watch_streaming_pair,
-        "resolve_wait_mode",
-        lambda: mode,
-    )
-    monkeypatch.setattr(
-        watch_fleet._watch_runner,
-        "mint_capture_paths",
-        lambda kind: (raw, progress),
-    )
-    monkeypatch.setattr(
-        watch_fleet,
-        "_probe_argv",
-        lambda args: pytest.fail("wake mode must return before running the child"),
-    )
-
-    assert watch_fleet.main(["--print-streaming-pair"]) == 0
-
-    output = capsys.readouterr().out
-    assert "# watch_fleet wait_mode=background-wake" in output
-    assert "completion wake is expected only because this harness" in output
-    assert "yoke watch tail" in output
 
 
 @pytest.mark.parametrize("surface", ["codex-cli", "codex-desktop"])

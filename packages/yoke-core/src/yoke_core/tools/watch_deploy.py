@@ -7,24 +7,20 @@ hand-authored a capture-and-grep pair whose paired Monitor had no exit
 sentinel and kept running after the deploy finished.
 
 The wrapper drives the same module the ``yoke deployment-runs execute``
-adapter drives, and repeats that adapter's owner-only connection guard:
-the run row lives on a control-plane ``-db-admin`` connection, and
-reaching the engine through this wrapper must not become a way around
-the check that says so.
+adapter drives and repeats its self-deploy authority check before starting
+the watcher.
 """
 
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import sys
 from pathlib import Path
 from typing import Sequence
 
-from yoke_contracts.machine_config.schema import (
-    DB_ADMIN_ENV_SUFFIX,
-    ENV_OVERRIDE,
+from yoke_cli.commands.adapters.deployment_execution_authority import (
+    execution_connection_error,
 )
 from yoke_contracts.deployment_itemless_teaching import (
     FINALIZATION_PENDING_PREFIX,
@@ -135,22 +131,10 @@ def _build_deploy_progress_pattern() -> re.Pattern[str]:
 DEPLOY_PROGRESS_PATTERN = _build_deploy_progress_pattern()
 
 
-def owner_only_connection_error() -> str | None:
-    """Refusal text when the active env is not an owner-only connection.
-
-    Mirrors the ``yoke deployment-runs execute`` adapter: the run row is
-    readable only through the control plane's ``-db-admin`` connection, and
-    a wrapper that skipped this would turn into the unguarded path.
-    """
-    active_env = os.environ.get(ENV_OVERRIDE, "").strip()
-    if active_env.endswith(DB_ADMIN_ENV_SUFFIX):
-        return None
-    return (
-        "watch_deploy: deployment execution requires an explicit owner-only "
-        "connection, for example `yoke --env prod-db-admin watch deploy -- "
-        "RUN-ID`. --env names the CONTROL-PLANE holding the run row, not the "
-        "environment being deployed to."
-    )
+def deployment_connection_error(run_id: str) -> str | None:
+    """Mirror the execute adapter's ordinary/self-deploy distinction."""
+    refusal = execution_connection_error(run_id)
+    return f"watch_deploy: {refusal}" if refusal else None
 
 
 def _engine_argv(args: Sequence[str]) -> list[str]:
@@ -235,7 +219,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
 
     if ns.print_streaming_pair:
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        return _watch_runner.run_or_print_streaming_pair(
+        return _watch_runner.print_wait_mode_invocation(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=passthrough,
@@ -244,13 +228,12 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_options=_watch_digest.streaming_pair_options(flush_seconds),
         )
 
-    refusal = owner_only_connection_error()
-    if refusal is not None:
-        sys.stderr.write(refusal + "\n")
-        return 2
-
     if not passthrough:
         sys.stderr.write("watch_deploy: missing run id\n")
+        return 2
+    refusal = deployment_connection_error(passthrough[0])
+    if refusal is not None:
+        sys.stderr.write(refusal + "\n")
         return 2
 
     raw_path, progress_path = _watch_runner.bind_capture_paths(ns, KIND)

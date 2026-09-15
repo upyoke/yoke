@@ -114,8 +114,14 @@ lingering, no re-tasking, and no routine termination by the steerer. Every
 worker sends the report deliberately with `yoke say --steering`, before
 releasing any claim it still holds. Ending a turn sends no Fleet message. The
 PREFIX-N in the heading is the report identity and must name held or released
-work. One report per session and named item reaches this seat once, so a
-reworded retry deduplicates instead of arriving twice.
+work. One report per work leg reaches this seat once, so a reworded retry of the
+same completion deduplicates instead of arriving twice. A worker you resume
+reports its next completion as its own leg, delivered rather than collapsed,
+whether the resume hands it a fresh claim or leaves an unfinished lane held.
+Never ask a worker to release a live lane just to be heard. A worker resumed
+WITHOUT its session ending — told "also do X" in the same episode, on the same
+claim — is the one shape that still collapses; it is told so loudly and reports
+that completion as a substantive update instead.
 
 `yoke sessions terminate` is reserved for an unresponsive worker or explicit
 cleanup. In those exceptional cases, resolve the full session id from the
@@ -196,14 +202,15 @@ the first command named.
 ## Launcher recipe
 
 Preview is mandatory. Do not create until preview returns
-`launchable=true` for the chosen CLI surface. CLI surface only. One item.
-`session_control.launch.create` composes the canonical single-item mandate
-server-side from the item ref and the charge-schedule route. Every worker
-reports deliberately with `yoke say --steering`. The mandate carries no
-session id: the report is addressed to the steering ROLE. Do not hand-assemble
-the worker body.
-Optional extras append after that mandate via `--stdin`. Use
-`--raw-instructions` only for a non-standard full body.
+`launchable=true` for the chosen CLI surface. CLI surface only. Composed
+mandates require `--item`; `session_control.launch.create` composes the
+canonical single-item mandate server-side from that ref and the
+charge-schedule route. Itemless launches use `--raw-instructions` with a
+nonempty `--stdin` body and skip item lookup, terminal-item checks, and
+item-derived naming. Every worker reports deliberately with
+`yoke say --steering`. The mandate carries no session id: the report is
+addressed to the steering ROLE. Do not hand-assemble the worker body.
+Optional extras append after a composed mandate via `--stdin`.
 
 ```text
 yoke session-control launch create \
@@ -217,10 +224,25 @@ yoke session-control launch create \
   --json
 ```
 
+Itemless raw-instructions (explicit body, no `--item`):
+
+```text
+yoke session-control launch create \
+  --project {_project} \
+  --surface {_surface} \
+  --raw-instructions --stdin \
+  --idempotency-key "steer:{_project}:raw:{_surface}:{_model}:{_effort}:{_context}" \
+  --model {_model} \
+  --reasoning-effort {_effort} \
+  --context-window {_context} \
+  --json
+```
+
 Managed `claude-*` launches are local-only per launch: Yoke disables Claude
-Remote Control without changing the operator's normal Claude settings. The
-display name is derived from `{ITEM}` plus its authoritative backlog title;
-the instruction body never becomes a title or command-line argument.
+Remote Control without changing the operator's normal Claude settings. A
+composed launch's display name is derived from `{ITEM}` plus its
+authoritative backlog title; the instruction body never becomes a title or
+command-line argument. Itemless launches omit that name.
 
 Retain the returned `launch_id` and `deadline_at`. By that deadline, require
 `state=succeeded` and a non-empty `registered_session_id`:
@@ -302,7 +324,7 @@ to a background task, the child keeps running; a worker that read that
 hand-back as completion ended its turn and killed the merge it was holding,
 twice in one night, reporting success with no verdict recorded. The mandate
 therefore tells the worker to continue the handed-back call until it exits,
-and to stop early only where the command itself handed the wait off.
+and to stop early only for a command-handed wait or the taught local-check interrupt.
 
 ```text
 {ROUTED_ENTRYPOINT}
@@ -311,7 +333,7 @@ Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST ac
 
 You are a headless command that cannot be prompted again, so a merge-queue landing is not yours to wait out: it outlasts your turn, and a wait that dies with the turn leaves the branch landed and the item open. Your merge arms the landing and returns landing_pending=true with the pull request named, whether or not you passed --wait. That is the handoff, not a failure. Report the pull request, stop deliberately, and say you are waiting on landing. The control-plane landing notice wakes you: re-run the same `yoke merge item` command then and it completes close-out. A stopped landing arrives the same way and names its recovery (usually rebase, re-run the verification gate, re-run the command); a stale server landing record names its last refresh and repair step. Never replace either with local GitHub polling, and never report a landing you did not read. A separate check uses `yoke github merge-queue readiness PREFIX-N --json`: the named queue-entry state decides whether null arming was consumed or cleared.
 
-A tool call that outlives its yield is still running. When your harness moves a long command to a background task or hands back a continuation handle, that is the harness handing the call back, not an interruption: the child and whatever it is waiting on are still alive. Continue that same call through your harness's continuation surface until it exits and you have read its outcome — reading the background task's output continues the call, and only ending the turn kills the watcher and the child it was holding, which lands as a killed capture with no recorded verdict. Never start a second invocation beside a live one; re-run only once the first process is verifiably gone. Stop before a command finishes only where the command itself handed the wait off — a merge that returned landing_pending has its landing notice, and nothing else does.
+A tool call that outlives its yield is still running. When your harness moves a long command to a background task or hands back a continuation handle, that is the harness handing the call back, not an interruption: the child and whatever it is waiting on are still alive. Continue that same call through your harness's continuation surface until it exits and you have read its outcome — reading the background task's output continues the call, and only ending the turn kills the watcher and the child it was holding, which lands as a killed capture with no recorded verdict. Never start a second invocation beside a live one; re-run only once the first process is verifiably gone. Stop before a command finishes only where the command itself handed the wait off — a merge that returned landing_pending has its landing notice — or, as the explicitly taught exception, when a *local* test check on a project with declared CI has already exceeded about one minute: interrupt that test process cleanly, keep the capture as incomplete, commit, and continue the selection on that project's CI. Do not interrupt a CI-routed watcher, a machine-specific diagnostic, or a local run on a project without CI, and do not background the slow local selection to keep waiting.
 
 Ending a turn sends no Fleet message. Send the DONE report deliberately with `yoke say --steering` — lead with `DONE PREFIX-N <one-line summary>` naming work this session holds or released, then what landed, what is blocked, and what you need — before ending the session.
 ```

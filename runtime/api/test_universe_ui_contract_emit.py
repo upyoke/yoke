@@ -18,13 +18,10 @@ _TSC_INSTALL_COMMAND = f"npm ci --prefix {_UI_RELATIVE.as_posix()}"
 _TSC_TIMEOUT_SECONDS = 30
 
 
-def test_yoke_ci_preinstalls_typescript_for_contract_check() -> None:
-    workflow = load_document(_REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml")
-    steps = workflow["jobs"]["test_shard"]["steps"]
+def _assert_preinstalls_typescript(steps: list) -> None:
     step_names = [step["name"] for step in steps]
     setup_index = step_names.index("Set up Node.js")
     install_index = step_names.index("Install TypeScript compiler")
-
     assert setup_index < install_index
     assert steps[setup_index]["with"] == {
         "node-version": "22",
@@ -32,6 +29,18 @@ def test_yoke_ci_preinstalls_typescript_for_contract_check() -> None:
         "cache-dependency-path": f"{_UI_RELATIVE.as_posix()}/package-lock.json",
     }
     assert steps[install_index]["run"] == _TSC_INSTALL_COMMAND
+
+
+def test_yoke_ci_preinstalls_typescript_for_contract_check() -> None:
+    workflow = load_document(_REPO_ROOT / ".github" / "workflows" / "yoke-ci.yml")
+    _assert_preinstalls_typescript(workflow["jobs"]["test_shard"]["steps"])
+
+
+def test_selection_ci_preinstalls_typescript_for_contract_check() -> None:
+    workflow = load_document(
+        _REPO_ROOT / ".github" / "workflows" / "yoke-tests-selection.yml"
+    )
+    _assert_preinstalls_typescript(workflow["jobs"]["selection"]["steps"])
 
 
 def test_universe_app_contract_tsc_outputs_are_current(tmp_path: Path) -> None:

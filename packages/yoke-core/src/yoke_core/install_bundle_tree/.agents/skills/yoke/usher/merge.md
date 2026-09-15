@@ -222,24 +222,28 @@ still follows the exit-code halt rules below.
 
 **Streaming-wrapper form:** A merge is a long command, so per the Command
 Output streaming rule it runs under the watcher wrapper. The canonical call
-above includes `--wait` and reports its safe wait mode from the caller's
-manifest wake capability: a native idle-wake primitive gets the background
-subscription pair; a harness with no or unverified idle wake stays in-turn
-until the command finishes. Do not choose from the executor, launch origin,
-whether a person opened the session, or whether Yoke can reach it over a
-relay.
+above includes `--wait` and, with `--print-streaming-pair`, prints the safe
+invocation for the caller's manifest wake capability without merging
+anything: a native idle-wake primitive gets the background subscription
+pair; a harness with no or unverified idle wake gets one foreground
+invocation. Run the printed command exactly once — that run is the merge.
+Do not choose from the executor, launch origin, whether a person opened the
+session, or whether Yoke can reach it over a relay.
 
 **Queue wait:** follow the reported mode exactly as
 [`../dash/verification-and-close.md`](../dash/verification-and-close.md)
-step 7 spells out. Only `background-wake` may release the selector and expect
-its one armed subscription to resume the caller; `in-turn` is already blocking
-inside the original invocation and expects no later completion notice. Merged
+step 7 spells out. Only `background-wake` may release the caller and expect
+its one armed subscription to resume it; the `in-turn` command blocks inside
+the invocation you run and expects no later completion notice. Merged
 continues delivery in the same execution, a stopped landing rebases and
 re-gates, and only the record-wait budget running out parks with the state it
 observed. A point-in-time check is `yoke github merge-queue readiness PREFIX-N
 --json`; never infer a stop from null `autoMergeRequest`, because an
 `AWAITING_CHECKS`, `UNMERGEABLE`, or `MERGEABLE` queue entry means its arming
-was consumed and the landing remains in flight. Do not begin deployment until
+was consumed and the landing remains in flight. To correct a candidate that is
+still live, hold it first with `yoke github merge-queue hold PREFIX-N` — which
+clears the arming, removes the entry, and verifies both — because every lane
+publish refuses while the queue is holding the head it already took. Do not begin deployment until
 the wait returns a real `merge_sha` with `landing_pending=false` or absent.
 
 **IMPROVISATION GUARD:** If lint blocks despite the audit comment, **STOP**. NEVER substitute raw done-transition or any other entrypoint for the single-lane merge call.

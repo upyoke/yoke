@@ -27,22 +27,6 @@ _AUTH_ADAPTER_CODES = frozenset({"project_auth_error", "rest_auth_error"})
 _MISSING_WORKFLOW_CODE = "workflow_not_found"
 
 
-def _active_item_lane_branch(public_ref: str) -> str:
-    """Return the primary active universal lane branch for one run member.
-
-    ``public_ref`` is a ``deployment_run_items.item_id`` value — the bare
-    internal ``items.id`` — so it is threaded straight through as an
-    integer, never prefix-stripped.
-    """
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.item_worktrees import primary_item_worktree
-
-    item_id = int(str(public_ref).strip())
-    with connect() as conn:
-        lane = primary_item_worktree(conn, item_id)
-    return str((lane or {}).get("branch") or "")
-
-
 def resolve_flow_gate_branch(
     project: str,
     target_tier: str,
@@ -81,6 +65,8 @@ def _resolve_and_verify_branch(
     project_repo_path: str,
     *,
     target_branch: str,
+    first_branch: str = "",
+    first_item_label: str = "",
     sd: Optional[str] = None,
 ) -> Tuple[bool, str, str]:
     """Resolve the first member item's branch; verify it landed on *target_branch*.
@@ -93,7 +79,7 @@ def _resolve_and_verify_branch(
     if not member_items:
         return True, "", ""
     first_item = member_items[0]
-    branch = _active_item_lane_branch(first_item)
+    branch = first_branch
     if not target_branch:
         # Ephemeral tier: the deploy subject IS the unmerged worktree
         # branch, so there is no gate branch to verify against.
@@ -106,7 +92,10 @@ def _resolve_and_verify_branch(
     if not os.path.isdir(os.path.join(check_repo, ".git")):
         r = _run_cmd(["git", "rev-parse", "--show-toplevel"])
         check_repo = r.stdout.strip() or "."
-    ok, msg = _verify_branch_merged(branch, first_item, check_repo, target_branch)
+    ok, msg = _verify_branch_merged(
+        branch, first_item, check_repo, target_branch,
+        public_ref=first_item_label,
+    )
     if msg:
         print(msg, file=sys.stderr if not ok else sys.stdout)
     return ok, first_item, branch
@@ -128,12 +117,18 @@ def _verify_branch_merged(
     first_item: str,
     repo_path: str,
     target_branch: str,
+    *,
+    public_ref: str = "",
 ) -> Tuple[bool, str]:
     """Check that branch commits exist on *target_branch*.
 
     Returns (ok, message).  ``ok=True`` means proceed.
     """
-    public_ref = item_ref_for_id(int(first_item)) if str(first_item).isdigit() else str(first_item)
+    public_ref = public_ref or (
+        item_ref_for_id(int(first_item))
+        if str(first_item).isdigit()
+        else str(first_item)
+    )
     grep_pattern = _merge_evidence_pattern(public_ref, str(first_item))
     if not branch or branch == "null":
         return True, (

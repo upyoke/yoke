@@ -16,6 +16,12 @@ def _fixture(conn: Any) -> None:
     stages = json.dumps(
         [
             {
+                "name": "deploy",
+                "step_runner": "auto",
+                "stage_kind": "execution",
+                "scope": "run",
+            },
+            {
                 "name": "item-qa",
                 "step_runner": "qa",
                 "stage_kind": "qa",
@@ -23,6 +29,7 @@ def _fixture(conn: Any) -> None:
                 "target": {
                     "kind": "persistent_environment",
                     "environment": "stage",
+                    "source_stage": "deploy",
                 },
                 "verdict": {"mode": "agent_only"},
             }

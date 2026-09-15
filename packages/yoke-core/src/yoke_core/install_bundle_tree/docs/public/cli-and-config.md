@@ -71,43 +71,48 @@ will run it:
 {
   "session_model_routing": {
     "cursor-cli": {
-      "tier1": "cursor-grok-4.6-high",
-      "tier2": "cursor-grok-4.6-medium",
+      "tier2": "cursor-grok-4.6-high",
       "excluded": ["cursor-auto"],
       "fallbacks": ["claude-opus-5-thinking-high"]
     },
     "claude-cli": {
-      "tier1": "claude-opus-5",
-      "tier2": "claude-sonnet-5",
+      "tier1": "claude-fable-5-1",
+      "tier2": "claude-opus-5",
       "worker_tier": "tier2"
     },
     "codex-cli": {
       "tier1": "gpt-6-astra",
-      "tier2": "gpt-5.6-terra",
+      "tier2": "gpt-5.6-sol",
       "worker_tier": "tier2"
     }
   }
 }
 ```
 
-`tier1` is the model for demanding, ambiguous, or high-consequence work;
-`tier2` is for bounded work a cheaper model already handles. `excluded` models
-are never launched. A `fallbacks` entry is reachable only when the preferred
-model's own billing pool is confirmed empty — an unreadable meter, a low
-headroom reading, or room in a different pool is not confirmation, so a
-fallback never starts spending a separate allowance by accident. Every key is
-optional and a surface with no entry keeps the defaults above.
+Tiers are global capability relative to the absolute frontier, not a vendor
+ladder and not the best model a harness happens to offer. `tier1` is
+frontier-equivalent (Fable/Astra or successors); `tier2` is the band
+immediately below (current Opus and latest Grok). Models below that,
+including Sonnet, are `excluded` — not extra usable ranks. Cursor currently
+has no `tier1` model; latest Grok stays `tier2`. A `fallbacks` entry is
+reachable only when the preferred model's own billing pool is confirmed
+empty — an unreadable meter, a low headroom reading, or room in a different
+pool is not confirmation, so a fallback never starts spending a separate
+allowance by accident. Every key is optional and a surface with no entry
+keeps the defaults above.
 
-`worker_tier` is how a surface reserves its tier-1 model: ordinary work placed
-on that surface routes to the named tier whatever the work kind asked for,
-while the steering seat still takes tier1, as does a launch that names its
-model explicitly. The example above reserves the Claude and Codex tier-1
-models for steering or an explicit instruction and routes ordinary work to
-tier2, and leaves the Cursor surface unreserved so its tier-1 model is the
-ordinary worker there, with the Claude fallback reachable only on confirmed
-pool exhaustion. That split is a machine-local operator choice, not a Yoke
-default: a surface with no `worker_tier` routes every work kind to the tier
-that kind asks for.
+`worker_tier` is how a surface reserves its global tier-1 model: ordinary
+work placed on that surface routes to the named tier whatever the work kind
+asked for, while the steering seat still takes tier1, as does a launch that
+names its model explicitly. The example above reserves Claude and Codex
+tier-1 models for steering or an explicit instruction and routes ordinary
+workers to global tier2 (Opus / Sol), not Sonnet. Cursor omits `tier1` and
+leaves Grok as the ordinary worker, with the Claude fallback reachable only
+on confirmed pool exhaustion. That split is a machine-local operator choice,
+not a Yoke default: a surface with no `worker_tier` routes every work kind
+to the tier that kind asks for. Steering still judges the task, supported
+reasoning, cost/benefit, and applicable quota rather than always launching
+`preferred_session_models`.
 
 `yoke session-control launch preview --model M` reports each machine's quota
 in the pool `M` actually bills to, under `REQUESTED MODEL POOL`, and ranks

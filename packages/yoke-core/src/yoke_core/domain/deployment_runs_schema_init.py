@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Optional
 
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.deployment_stage_receipts import (
+    DEPLOYMENT_STAGE_RECEIPTS_SQL,
+)
 from yoke_core.domain.schema_common import (
     _add_column_if_not_exists,
     _column_exists,
@@ -88,6 +91,7 @@ def cmd_init(db_path: Optional[str] = None) -> None:
                 UNIQUE(project_id, env_name)
             )
             """,
+            DEPLOYMENT_STAGE_RECEIPTS_SQL,
         ):
             conn.execute(statement)
         for column in (

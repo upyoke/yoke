@@ -71,9 +71,11 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         dest="local",
         action="store_true",
         help=(
-            "Run on this machine instead of the project's CI: order-sensitive "
-            "debugging, a tree you want to try before committing, or an "
-            f"unreachable CI. {LOCAL_ENV}=1 does the same for a whole shell."
+            "Small targeted local check expected to finish in about one "
+            "minute — not a substitute for CI, and not justified by "
+            "uncommitted work. Keep this for order-sensitive debugging, "
+            "machine-specific diagnostics, or an unreachable CI. "
+            f"{LOCAL_ENV}=1 does the same for a whole shell."
         ),
     )
     parser.add_argument(

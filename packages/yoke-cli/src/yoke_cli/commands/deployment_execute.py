@@ -1,15 +1,7 @@
-"""Client-local deployment-run executor.
-
-The run record belongs to an owner-only Postgres connection while GitHub App
-operations relay through that connection's HTTPS sibling. Keeping this as a
-tool-shaped command gives operators one stable installed entrypoint instead
-of requiring a source checkout, an editable import, and two coordinated
-environment variables.
-"""
+"""Client-local deployment-run executor."""
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from typing import Callable, Dict, List, Tuple
@@ -17,21 +9,20 @@ from typing import Callable, Dict, List, Tuple
 from yoke_contracts.deployment_itemless_teaching import (
     INTERRUPTED_RUN_RECOVERY,
 )
-from yoke_contracts.machine_config.schema import (
-    DB_ADMIN_ENV_SUFFIX,
-    ENV_OVERRIDE,
+from yoke_cli.commands.adapters.deployment_execution_authority import (
+    execution_connection_error,
 )
 
 AdapterFn = Callable[[List[str]], int]
 DEPLOYMENT_RUNS_EXECUTE_USAGE = (
-    "yoke --env CONTROL-PLANE-ENV-db-admin deployment-runs execute RUN-ID "
+    "yoke --env CONTROL-PLANE-ENV deployment-runs execute RUN-ID "
     "[--timeout MIN] [--from-stage STAGE] [--fresh] "
     "[--product-repo-path PATH --image-tag TAG]"
 )
 
 
 def deployment_runs_execute(args: List[str]) -> int:
-    """Execute or resume a run through the selected admin connection."""
+    """Execute or resume a run through the selected control plane."""
     if args in (["-h"], ["--help"]):
         print(f"usage: {DEPLOYMENT_RUNS_EXECUTE_USAGE}")
         print(
@@ -46,24 +37,25 @@ def deployment_runs_execute(args: List[str]) -> int:
             "those items, so passing the flag there is refused rather than "
             "ignored: it would otherwise read as having pinned a checkout "
             "that the run never consulted.\n\n"
-            "--env names the CONTROL-PLANE env holding the run row, not the "
+            "--env names the CONTROL-PLANE holding the run row, not the "
             "environment being deployed to. The target environment is fixed "
             "on the run at create time (--environment overrides the flow's "
             "registered target). One control plane usually serves every "
             "target, so a stage-targeted run and a prod-targeted run are "
-            "both driven through the same <control-plane>-db-admin env; the "
+            "both driven through the same control-plane env; the "
             "run output names both as release_control_plane=... target=...\n\n"
+            "Ordinary external delivery works over HTTPS. A serving-API "
+            "self-deploy is refused on HTTPS and names the paired local "
+            "*-db-admin connection that keeps run state writable while the "
+            "API is replaced.\n\n"
             f"{INTERRUPTED_RUN_RECOVERY}"
         )
         return 0
-    active_env = os.environ.get(ENV_OVERRIDE, "").strip()
-    if not active_env.endswith(DB_ADMIN_ENV_SUFFIX):
-        print(
-            "error: deployment-runs execute requires an explicit owner-only "
-            "connection, for example `yoke --env prod-db-admin "
-            "deployment-runs execute RUN-ID`",
-            file=sys.stderr,
-        )
+    if not args or not args[0].startswith("run-"):
+        print("error: deployment-runs execute requires RUN-ID", file=sys.stderr)
+        return 2
+    if refusal := execution_connection_error(args[0]):
+        print(f"error: {refusal}", file=sys.stderr)
         return 2
 
     completed = subprocess.run(

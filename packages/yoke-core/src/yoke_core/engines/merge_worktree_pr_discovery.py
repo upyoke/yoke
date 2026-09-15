@@ -23,6 +23,7 @@ absent answer means.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Optional, Tuple
 
 from yoke_contracts.github_app_installation_permissions import (
@@ -43,14 +44,40 @@ from yoke_core.engines.merge_worktree_pr_rest import (
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
-def _list_branch_prs(
+@dataclass(frozen=True)
+class BranchListing:
+    """The listing for one head branch, or why it could not be read.
+
+    A caller deciding whether it is safe to move the branch cannot treat a
+    listing it never got as a branch with no pull request: an auth failure,
+    a transport failure, and a response that is not an array all look
+    exactly like "nothing open" to a reader that only sees rows. ``error``
+    is that distinction, and an empty ``rows`` beside an empty ``error`` is
+    the genuine answer.
+    """
+
+    rows: tuple[dict[str, Any], ...] = ()
+    error: str = ""
+
+    @property
+    def readable(self) -> bool:
+        return not self.error
+
+
+def list_branch_pull_requests(
     ctx: MergeContext, *, query: dict[str, str]
-) -> list[dict[str, Any]]:
-    """Pull requests whose head is the branch, under the caller's filters."""
+) -> BranchListing:
+    """Read the branch's pull requests, naming a listing that did not happen.
+
+    ``query`` carries the caller's filters, including ``base``: GitHub allows
+    one open pull request per head AND base, so a listing filtered only by
+    head can hold several rows targeting different branches, and the first
+    of those is not necessarily the landing the caller is asking about.
+    """
     try:
         auth = resolve_auth(ctx, required_permissions=PR_READ)
-    except AuthResolutionFailed:
-        return []
+    except AuthResolutionFailed as exc:
+        return BranchListing(error=f"pull request listing unavailable: {exc}")
     owner, repo = gh_rest_transport.split_repo(auth.repo)
     req = RestRequest(
         method="GET",
@@ -59,10 +86,47 @@ def _list_branch_prs(
     )
     try:
         resp = request_with_retry(req, token=auth.token)
-    except RestTransportError:
-        return []
-    rows = resp.body if isinstance(resp.body, list) else []
-    return [row for row in rows if isinstance(row, dict)]
+    except RestTransportError as exc:
+        return BranchListing(error=f"pull request listing failed: {exc}")
+    if not isinstance(resp.body, list):
+        return BranchListing(
+            error="pull request listing returned no array of pull requests"
+        )
+    rows: list[dict[str, Any]] = []
+    for row in resp.body:
+        if not isinstance(row, dict):
+            # Dropping the entry would turn a malformed response into a
+            # shorter listing, and a listing of one malformed entry into an
+            # empty one — which reads as "this branch has no pull request".
+            return BranchListing(
+                error=(
+                    "pull request listing carried an entry that is not a "
+                    f"pull request object ({type(row).__name__})"
+                )
+            )
+        rows.append(row)
+    return BranchListing(rows=tuple(rows))
+
+
+def base_ref(row: dict[str, Any]) -> Optional[str]:
+    """The branch a listing row targets, or ``None`` when it does not say.
+
+    A row whose ``base`` is absent, is not an object, or carries no ``ref``
+    is not a row targeting some other branch — it is a row that did not
+    answer. A caller that treats those the same reads a malformed response
+    as "nothing is holding this branch".
+    """
+    base = row.get("base")
+    if not isinstance(base, dict):
+        return None
+    return str(base.get("ref") or "").strip() or None
+
+
+def _list_branch_prs(
+    ctx: MergeContext, *, query: dict[str, str]
+) -> list[dict[str, Any]]:
+    """Pull requests whose head is the branch; an unread listing is empty."""
+    return list(list_branch_pull_requests(ctx, query=query).rows)
 
 
 def _identify(row: dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:

@@ -13,6 +13,10 @@ from yoke_core.domain.schema_common import (
 )
 from yoke_core.domain.schema_init_apply import execute_schema_script
 from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
+from yoke_core.domain.qa_deployment_scope_schema import (
+    DEPLOYMENT_SCOPE_COLUMNS,
+    REQUIREMENT_SCOPE_INDEX_SQL,
+)
 
 
 QA_CATALOG_TABLES_SQL = """
@@ -115,6 +119,7 @@ CREATE INDEX IF NOT EXISTS idx_qa_item_attachments_plan
 """
 
 _REQUIREMENT_COLUMNS = (
+    *DEPLOYMENT_SCOPE_COLUMNS,
     ("plan_id", "INTEGER REFERENCES qa_plans(id)"),
     ("plan_case_key", "TEXT"),
     ("case_position", "INTEGER"),
@@ -291,14 +296,7 @@ def create_qa_catalog_tables(
         "COALESCE(host_baseline, ''), workflow_transition_id"
         ") WHERE item_id IS NOT NULL AND plan_id IS NOT NULL"
     )
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS "
-        "idx_qa_requirement_deployment_materialization "
-        "ON qa_requirements("
-        "deployment_run_id, plan_id, plan_case_key, "
-        "COALESCE(host_baseline, '')"
-        ") WHERE deployment_run_id IS NOT NULL AND plan_id IS NOT NULL"
-    )
+    execute_schema_script(conn, REQUIREMENT_SCOPE_INDEX_SQL)
     if commit:
         conn.commit()
 

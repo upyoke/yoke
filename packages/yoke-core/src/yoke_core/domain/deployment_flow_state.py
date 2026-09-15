@@ -9,6 +9,9 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_run_target_resolution import (
     coerce_target_environment_id,
 )
+from yoke_core.domain.deployment_flow_target_support import (
+    require_supported_stage_targets_for_flow,
+)
 from yoke_core.domain.deployment_flow_policy import (
     LEGACY_DEFINITION_SCHEMA_VERSION,
     require_supported_definition_schema,
@@ -88,6 +91,9 @@ def require_flow_for_new_run(
             schema_version = int(version_row[0] or LEGACY_DEFINITION_SCHEMA_VERSION)
     require_supported_definition_schema(
         schema_version, operation=f"starting deployment flow {flow_id!r}"
+    )
+    require_supported_stage_targets_for_flow(
+        conn, flow_id, operation=f"starting deployment flow {flow_id!r}"
     )
     return flow_project_id, target_tier, target_environment_id
 

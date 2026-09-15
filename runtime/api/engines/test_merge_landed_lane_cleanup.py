@@ -220,7 +220,11 @@ def test_landed_lane_records_the_row_release(landed_lane, monkeypatch):
     calls: list[tuple] = []
 
     def dispatch(*, function_id, target, payload):
-        calls.append((function_id, target.item_id, payload))
+        # The residue check also relays a project-declared-paths lookup
+        # (``projects.capability_settings.get``); only the row-release call
+        # is this test's subject.
+        if function_id == "item_worktrees.release_merged_lane":
+            calls.append((function_id, target.item_id, payload))
         return SimpleNamespace(success=True, result={}, error=None)
 
     monkeypatch.setattr(

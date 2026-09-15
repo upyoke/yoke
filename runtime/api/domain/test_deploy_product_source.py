@@ -4,25 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 import subprocess
-from unittest import mock
 
 import pytest
 
 from yoke_core.domain import deploy_product_source
 from yoke_core.domain import deploy_pipeline
 
-
-@pytest.fixture(autouse=True)
-def holding_the_deploy_lock():
-    """Run the pipeline as the session holding the project deploy lock.
-
-    Executing a run is gated on that claim; these tests are about the
-    stage machinery, and the gate has its own coverage.
-    """
-    with mock.patch.object(
-        deploy_pipeline, "deploy_lock_refusal", return_value=None,
-    ):
-        yield
 
 def _git(repo: Path, *args: str) -> str:
     result = subprocess.run(
@@ -110,14 +97,19 @@ def test_product_source_is_itemless_only(tmp_path: Path) -> None:
 
 
 def test_pipeline_rejects_product_source_on_item_bound_run(monkeypatch) -> None:
-    def fake_yoke_db(*args, sd=None):
-        if args[:2] == ("runs", "get"):
-            return "run-1|platform|flow|prod||created|"
-        if args[:2] == ("runs", "items"):
-            return "run-1|42"
-        return ""
-
-    monkeypatch.setattr(deploy_pipeline, "_yoke_db", fake_yoke_db)
+    monkeypatch.setattr(
+        deploy_pipeline.control_plane,
+        "execution_context",
+        lambda _run_id: {
+            "run": {
+                "project": "platform",
+                "flow": "flow",
+                "status": "created",
+            },
+            "members": [{"item_id": 42, "public_ref": "PLAT-42"}],
+            "stages": [],
+        },
+    )
 
     rc = deploy_pipeline.run_pipeline(
         "run-1", product_repo_path="/product", image_tag="abc123",

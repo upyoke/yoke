@@ -85,7 +85,7 @@ def test_pending_retry_pushes_new_commits_before_reporting_ok(monkeypatch):
     stale = "f" * 40
     pushed: dict = {}
 
-    def push(checkout, branch, *, source_ref="HEAD"):
+    def push(checkout, branch, *, project="", target="", source_ref="HEAD"):
         pushed.update(checkout=str(checkout), branch=branch, source_ref=source_ref)
 
     outcome = _pending_retry(monkeypatch, remote_sha=stale, push=push)

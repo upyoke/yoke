@@ -86,7 +86,7 @@ def test_push_lane_publishes_the_head_under_the_lane_name(tmp_path):
     subprocess.run(["git", "init", "-q", "--bare", str(origin)], check=True)
     checkout = _repo(tmp_path, remote=str(origin))
 
-    lane.push_lane(checkout, "PRJ-9")
+    lane.push_lane(checkout, "PRJ-9", project="", target="main")
 
     published = subprocess.run(
         ["git", "-C", str(origin), "rev-parse", "refs/heads/PRJ-9"],
@@ -103,7 +103,7 @@ def test_push_lane_reports_a_failed_push(tmp_path):
     checkout = _repo(tmp_path, remote=str(tmp_path / "missing.git"))
 
     with pytest.raises(QaCaseExecutionError, match="pushing lane branch"):
-        lane.push_lane(checkout, "PRJ-9")
+        lane.push_lane(checkout, "PRJ-9", project="", target="main")
 
 
 def test_workflow_file_requires_a_declaration():

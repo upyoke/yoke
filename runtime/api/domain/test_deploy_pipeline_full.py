@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 import subprocess
 from unittest import mock
 
@@ -30,19 +29,23 @@ class TestParseStagesQa:
     """Unit tests for stage QA parsing."""
 
     def test_explicit_qa_kind(self):
-        stages = json.dumps([
-            {"name": "deploy", "step_runner": "auto"},
-            {"name": "verify", "step_runner": "auto", "qa_kind": "health_check"},
-        ])
+        stages = json.dumps(
+            [
+                {"name": "deploy", "step_runner": "auto"},
+                {"name": "verify", "step_runner": "auto", "qa_kind": "health_check"},
+            ]
+        )
         result = deploy_qa_recorder._parse_stages_qa(stages)
         assert len(result) == 1
         assert result[0]["qa_kind"] == "health_check"
         assert result[0]["name"] == "verify"
 
     def test_inferred_smoke_kind(self):
-        stages = json.dumps([
-            {"name": "smoke-test", "step_runner": "auto"},
-        ])
+        stages = json.dumps(
+            [
+                {"name": "smoke-test", "step_runner": "auto"},
+            ]
+        )
         result = deploy_qa_recorder._parse_stages_qa(stages)
         assert len(result) == 1
         assert result[0]["qa_kind"] == "smoke"
@@ -53,67 +56,59 @@ class TestParseStagesQa:
         assert result == []
 
     def test_custom_success_policy(self):
-        stages = json.dumps([
-            {"name": "smoke", "step_runner": "auto", "qa_kind": "smoke",
-             "success_policy": "All tests green"},
-        ])
+        stages = json.dumps(
+            [
+                {
+                    "name": "smoke",
+                    "step_runner": "auto",
+                    "qa_kind": "smoke",
+                    "success_policy": "All tests green",
+                },
+            ]
+        )
         result = deploy_qa_recorder._parse_stages_qa(stages)
         assert result[0]["success_policy"] == "All tests green"
 
     def test_default_success_policy(self):
-        stages = json.dumps([
-            {"name": "smoke", "step_runner": "auto", "qa_kind": "smoke"},
-        ])
+        stages = json.dumps(
+            [
+                {"name": "smoke", "step_runner": "auto", "qa_kind": "smoke"},
+            ]
+        )
         result = deploy_qa_recorder._parse_stages_qa(stages)
         assert "conclusion=success" in result[0]["success_policy"]
 
 
 class TestResolveQaKind:
-
     def test_explicit_kind_in_config(self):
         stages = json.dumps([{"name": "health", "qa_kind": "health_check"}])
-        assert deploy_qa_recorder._resolve_qa_kind_for_stage(stages, "health") == "health_check"
+        assert (
+            deploy_qa_recorder._resolve_qa_kind_for_stage(stages, "health")
+            == "health_check"
+        )
 
     def test_inferred_smoke_from_name(self):
         stages = json.dumps([{"name": "smoke-test"}])
-        assert deploy_qa_recorder._resolve_qa_kind_for_stage(stages, "smoke-test") == "smoke"
+        assert (
+            deploy_qa_recorder._resolve_qa_kind_for_stage(stages, "smoke-test")
+            == "smoke"
+        )
 
     def test_unknown_stage_returns_empty(self):
         stages = json.dumps([{"name": "deploy"}])
         assert deploy_qa_recorder._resolve_qa_kind_for_stage(stages, "deploy") == ""
 
     def test_fallback_smoke_when_stage_not_in_config(self):
-        assert deploy_qa_recorder._resolve_qa_kind_for_stage("[]", "smoke-check") == "smoke"
+        assert (
+            deploy_qa_recorder._resolve_qa_kind_for_stage("[]", "smoke-check")
+            == "smoke"
+        )
 
     def test_invalid_json(self):
-        assert deploy_qa_recorder._resolve_qa_kind_for_stage("not-json", "smoke") == "smoke"
-
-
-class TestRecordStageResult:
-
-    def test_non_qa_stage_is_debug_only(self, monkeypatch, caplog, capsys):
-        monkeypatch.setattr(
-            deploy_qa_recorder, "_dispatch_db_router",
-            lambda *args, **kwargs: "flow-1",
+        assert (
+            deploy_qa_recorder._resolve_qa_kind_for_stage("not-json", "smoke")
+            == "smoke"
         )
-        monkeypatch.setattr(
-            deploy_qa_recorder, "_dispatch_flow_domain",
-            lambda *args, **kwargs: json.dumps([
-                {"name": "merged", "step_runner": "auto"},
-            ]),
-        )
-
-        with caplog.at_level(
-            logging.DEBUG,
-            logger="yoke_core.domain.deploy_qa_stage_result",
-        ):
-            result = deploy_qa_recorder.cmd_record_stage_result(
-                "run-1", "merged", "pass", script_dir="/tmp"
-            )
-
-        assert result is None
-        assert capsys.readouterr() == ("", "")
-        assert "not a QA stage" in caplog.text
 
 
 # ===========================================================================
@@ -122,7 +117,6 @@ class TestRecordStageResult:
 
 
 class TestDeployPipeline:
-
     def test_release_control_plane_uses_active_environment(self, monkeypatch):
         monkeypatch.setenv("YOKE_ENV", "prod-db-admin")
 
@@ -142,10 +136,15 @@ class TestDeployPipelineProjectSettings:
         )
         completed = _fake_cp(0, "success", "")
         with mock.patch.object(
-            deploy_pipeline_reporting, "_run_cmd", return_value=completed,
+            deploy_pipeline_reporting,
+            "_run_cmd",
+            return_value=completed,
         ) as run_cmd:
             result = deploy_pipeline_reporting._github_actions(
-                "poll", "owner/repo", "123", project="externalwebapp",
+                "poll",
+                "owner/repo",
+                "123",
+                project="externalwebapp",
             )
 
         assert result is completed
@@ -154,23 +153,22 @@ class TestDeployPipelineProjectSettings:
 
     def test_ephemeral_verify_reads_domain_from_ephemeral_policy(self):
         policy = mock.Mock(preview_domain="externalwebapp.example.com")
-        with mock.patch.object(
-            deploy_pipeline_step_runners,
-            "connect",
-            return_value=mock.Mock(close=lambda: None),
-        ), mock.patch.object(
-            deploy_pipeline_step_runners,
-            "query_scalar",
-            return_value=0,
-        ), mock.patch(
-            "yoke_core.domain.ephemeral_substrate.load_ephemeral_policy",
-            return_value=policy,
-        ), mock.patch.object(
-            deploy_pipeline_step_runners._step_runners,
-            "exec_ephemeral_verify",
-            return_value=0,
-        ) as exec_verify:
-            rc = deploy_pipeline_step_runners._dispatch_ephemeral_verify(
+        with (
+            mock.patch(
+                "yoke_core.domain.deploy_pipeline_control_plane.ephemeral_qa_ready",
+                return_value=False,
+            ),
+            mock.patch(
+                "yoke_core.domain.ephemeral_substrate.load_ephemeral_policy",
+                return_value=policy,
+            ),
+            mock.patch.object(
+                deploy_pipeline_step_runners._step_runners,
+                "exec_ephemeral_verify",
+                return_value=0,
+            ) as exec_verify,
+        ):
+            rc, _diag = deploy_pipeline_step_runners._dispatch_ephemeral_verify(
                 {"workflow": "ephemeral.yml"},
                 name="verify",
                 run_id="run-1",
@@ -180,24 +178,34 @@ class TestDeployPipelineProjectSettings:
                 project_repo_path="",
                 branch="feature",
                 first_item="42",
+                first_item_label="EXT-42",
                 sd="/tmp/sd",
             )
 
         assert rc == 0
         exec_verify.assert_called_once_with(
-            "owner/repo", "feature", "ephemeral.yml", "externalwebapp.example.com", "",
+            "owner/repo",
+            "feature",
+            "ephemeral.yml",
+            "externalwebapp.example.com",
+            "",
             project="externalwebapp",
         )
 
 
 class TestParseStages:
-
     def test_basic_parse(self):
-        stages_json = json.dumps([
-            {"name": "deploy", "step_runner": "auto"},
-            {"name": "smoke", "step_runner": "github-actions-workflow",
-             "workflow": "smoke.yml", "dispatch_correlation_input": "yoke_dispatch_id"},
-        ])
+        stages_json = json.dumps(
+            [
+                {"name": "deploy", "step_runner": "auto"},
+                {
+                    "name": "smoke",
+                    "step_runner": "github-actions-workflow",
+                    "workflow": "smoke.yml",
+                    "dispatch_correlation_input": "yoke_dispatch_id",
+                },
+            ]
+        )
         result = deploy_pipeline._parse_stages(stages_json)
         assert len(result) == 2
         assert result[0]["name"] == "deploy"
@@ -206,14 +214,22 @@ class TestParseStages:
 
 
 class TestPipelineCLI:
-
     def test_cli_parser(self):
         parser = deploy_pipeline._build_parser()
-        args = parser.parse_args([
-            "run-test-001", "--timeout", "60", "--from-stage", "deploy",
-            "--fresh", "--image-tag", "abc123def456",
-            "--product-repo-path", "/repo",
-        ])
+        args = parser.parse_args(
+            [
+                "run-test-001",
+                "--timeout",
+                "60",
+                "--from-stage",
+                "deploy",
+                "--fresh",
+                "--image-tag",
+                "abc123def456",
+                "--product-repo-path",
+                "/repo",
+            ]
+        )
         assert args.primary_arg == "run-test-001"
         assert args.timeout == 60
         assert args.from_stage == "deploy"
@@ -234,14 +250,20 @@ class TestPipelineCLI:
         run = mock.Mock(return_value=0)
         monkeypatch.setattr(deploy_pipeline, "run_pipeline", run)
 
-        assert deploy_pipeline.main([
-            "run-test-001", "--product-repo-path", "/pinned",
-        ]) == 0
+        assert (
+            deploy_pipeline.main(
+                [
+                    "run-test-001",
+                    "--product-repo-path",
+                    "/pinned",
+                ]
+            )
+            == 0
+        )
         assert run.call_args.kwargs["product_repo_path"] == "/pinned"
 
 
 class TestQaRecorderCLI:
-
     def test_seed_from_flow_parser(self):
         parser = deploy_qa_recorder._build_parser()
         args = parser.parse_args(["seed-from-flow", "run-1"])
@@ -250,12 +272,20 @@ class TestQaRecorderCLI:
 
     def test_record_stage_result_parser(self):
         parser = deploy_qa_recorder._build_parser()
-        args = parser.parse_args([
-            "record-stage-result", "run-1", "smoke", "pass",
-            "--raw-result", '{"key": "val"}',
-            "--duration-ms", "1234",
-            "--workflow-run", "99",
-        ])
+        args = parser.parse_args(
+            [
+                "record-stage-result",
+                "run-1",
+                "smoke",
+                "pass",
+                "--raw-result",
+                '{"key": "val"}',
+                "--duration-ms",
+                "1234",
+                "--workflow-run",
+                "99",
+            ]
+        )
         assert args.subcmd == "record-stage-result"
         assert args.verdict == "pass"
         assert args.duration_ms == "1234"
@@ -266,7 +296,6 @@ class TestQaRecorderCLI:
 
 
 class TestBackfillCLI:
-
     def test_dry_run_flag(self):
         parser = argparse.ArgumentParser()
         parser.add_argument("--dry-run", action="store_true")
@@ -274,7 +303,9 @@ class TestBackfillCLI:
         assert args.dry_run is True
 
 
-def _fake_cp(returncode: int, stdout: str = "", stderr: str = "") -> subprocess.CompletedProcess:
+def _fake_cp(
+    returncode: int, stdout: str = "", stderr: str = ""
+) -> subprocess.CompletedProcess:
     return subprocess.CompletedProcess(
         args=["gh", "poll"], returncode=returncode, stdout=stdout, stderr=stderr
     )

@@ -12,6 +12,8 @@ item_id INTEGER -- nullable; FK to items(id)
 epic_id INTEGER -- nullable; FK to epic_tasks(epic_id)
 task_num INTEGER -- nullable; FK to epic_tasks(task_num)
 deployment_run_id TEXT -- nullable; FK -> deployment_runs(id)
+deployment_stage TEXT -- nullable; pinned deployment QA stage
+deployment_member_item_id INTEGER -- nullable; attached item for item-scoped stage QA
 qa_kind TEXT NOT NULL -- free-form: implementation_review, simulation, smoke, e2e, visual-regression, etc.
 qa_phase TEXT NOT NULL -- CHECK: verification | post_deploy | manual_acceptance
 target_env TEXT -- semantic: local | preview | ephemeral | prod
@@ -25,9 +27,9 @@ waiver_rationale TEXT -- why waived
 created_at TEXT NOT NULL
 ```
 
-**Polymorphic FK constraint:** Exactly one of (`item_id`), (`epic_id` + `task_num`), or (`deployment_run_id`) must be non-NULL. Enforced by CHECK constraint (same pattern as `reviews`).
+**Polymorphic FK constraint:** Exactly one of (`item_id`), (`epic_id` + `task_num`), or (`deployment_run_id`) must be non-NULL. Deployment rows are legacy when stage/member are both NULL; scoped rows require a stage and use a member only for item scope. Enforced by CHECK constraint.
 
-**Indexes:** `idx_qa_requirements_item(item_id)`, `idx_qa_requirements_epic(epic_id, task_num)`, `idx_qa_requirements_deployment(deployment_run_id)`
+**Indexes:** Base subject indexes remain on item, epic task, and deployment run. Plan-case materialization uses separate partial unique indexes for legacy run, run+stage, and run+stage+member subjects. Scoped keys include the execution-target digest after plan, case key, and host baseline so a superseding receipt preserves old evidence while allowing a fresh exact-target execution.
 
 ### success_policy JSON Schema
 
@@ -92,8 +94,7 @@ concerns:
 
 Every downstream gate that filters `verdict='pass'` (status-transition, pre-merge, pre-deploy, flow-gate updates) therefore gates on inspection outcome, not capture.
 
-**Browser run freshness:** For Browser method cases, the QA gate checks that
-passing runs are **fresh** — i.e., their `created_at` is at or after the
+**Browser run freshness:** For Browser method cases, the QA gate checks that passing runs are **fresh** — i.e., their `created_at` is at or after the
 latest commit timestamp on the item's branch. If an Engineer retry changes
 code after a Browser case was recorded, the prior passing run is stale and
 does not satisfy the gate. This prevents evidence for a different deployed

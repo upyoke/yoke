@@ -9,6 +9,7 @@ from typing import Any, Mapping, Optional
 from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.title_policy import title_length_error
 from yoke_core.domain import db_backend
+from yoke_core.domain.project_title_policy import resolve_title_max_length
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.field_note_dash_promotion_reads import (
     promoted_dash_by_field_note_ids,
@@ -79,17 +80,19 @@ def ensure_field_note_dash_promotion_schema(conn: Any) -> None:
 
 def _promotion_row(conn: Any, entry_id: int) -> Optional[dict[str, Any]]:
     marker = _p(conn)
-    return _row_dict(conn.execute(
-        "SELECT d.entry_id, d.state, d.item_id AS dash_item_id, "
-        "d.failure_reason, d.title, d.created_at, "
-        "i.project_sequence, p.slug AS project_slug, "
-        "p.public_item_prefix FROM ouroboros_entry_dispositions d "
-        "LEFT JOIN items i ON i.id = d.item_id "
-        "LEFT JOIN projects p ON p.id = i.project_id "
-        f"WHERE d.entry_id = {marker} "
-        f"AND d.disposition_kind = {marker}",
-        (int(entry_id), "promote_to_dash"),
-    ))
+    return _row_dict(
+        conn.execute(
+            "SELECT d.entry_id, d.state, d.item_id AS dash_item_id, "
+            "d.failure_reason, d.title, d.created_at, "
+            "i.project_sequence, p.slug AS project_slug, "
+            "p.public_item_prefix FROM ouroboros_entry_dispositions d "
+            "LEFT JOIN items i ON i.id = d.item_id "
+            "LEFT JOIN projects p ON p.id = i.project_id "
+            f"WHERE d.entry_id = {marker} "
+            f"AND d.disposition_kind = {marker}",
+            (int(entry_id), "promote_to_dash"),
+        )
+    )
 
 
 def _completed(row: dict[str, Any], *, created: bool) -> FieldNotePromotion:
@@ -108,21 +111,21 @@ def _completed(row: dict[str, Any], *, created: bool) -> FieldNotePromotion:
 
 def _field_note(conn: Any, entry_id: int) -> dict[str, Any]:
     marker = _p(conn)
-    row = _row_dict(conn.execute(
-        "SELECT o.id, o.category, o.body, o.project_id, "
-        "p.slug AS project_slug, t.slug AS target_project_slug "
-        "FROM ouroboros_entries o "
-        "LEFT JOIN projects p ON p.id = o.project_id "
-        "LEFT JOIN projects t ON t.id = o.target_project_id "
-        f"WHERE o.id = {marker}",
-        (int(entry_id),),
-    ))
+    row = _row_dict(
+        conn.execute(
+            "SELECT o.id, o.category, o.body, o.project_id, "
+            "p.slug AS project_slug, t.slug AS target_project_slug "
+            "FROM ouroboros_entries o "
+            "LEFT JOIN projects p ON p.id = o.project_id "
+            "LEFT JOIN projects t ON t.id = o.target_project_id "
+            f"WHERE o.id = {marker}",
+            (int(entry_id),),
+        )
+    )
     if row is None:
         raise FieldNotePromotionError(f"field note {entry_id} does not exist")
     if not str(row["category"]).startswith("field-note-"):
-        raise FieldNotePromotionError(
-            f"ouroboros entry {entry_id} is not a field note"
-        )
+        raise FieldNotePromotionError(f"ouroboros entry {entry_id} is not a field note")
     return row
 
 
@@ -171,8 +174,13 @@ def _reserve(
             f"failure_reason = NULL, "
             f"updated_at = {marker} WHERE entry_id = {marker}",
             (
-                title, instruction, actor_id, session_id, project_override,
-                now, int(entry_id),
+                title,
+                instruction,
+                actor_id,
+                session_id,
+                project_override,
+                now,
+                int(entry_id),
             ),
         )
         conn.commit()
@@ -258,7 +266,11 @@ def promote_field_note_to_dash(
         raise FieldNotePromotionError(
             "field note has no project; pass the target project explicitly"
         )
-    too_long = title_length_error(clean_title, project=selected_project)
+    too_long = title_length_error(
+        clean_title,
+        project=selected_project,
+        limit=resolve_title_max_length(conn, selected_project),
+    )
     if too_long:
         raise FieldNotePromotionError(too_long)
     if not try_hold_promotion_reservation(conn, entry_id):
@@ -297,6 +309,7 @@ def promote_field_note_to_dash(
         if orphan_id is not None:
             return _finish(conn, entry_id, orphan_id, created=False)
         from yoke_core.domain.backlog_create_op import execute_create
+
         result = execute_create(
             title=clean_title,
             workflow="dash",

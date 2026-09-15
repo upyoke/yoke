@@ -18,6 +18,8 @@ QA_TABLES: dict[str, dict] = {
             ("epic_id", "INTEGER"),
             ("task_num", "INTEGER"),
             ("deployment_run_id", "TEXT"),
+            ("deployment_stage", "TEXT"),
+            ("deployment_member_item_id", "INTEGER"),
             ("qa_kind", "TEXT"),
             ("qa_phase", "TEXT"),
             ("target_env", "TEXT"),
@@ -57,8 +59,25 @@ QA_TABLES: dict[str, dict] = {
             "is NO `is_blocking` column. Primary key is `id`, not "
             "`requirement_id`; requirement rows do not carry `status` "
             "or `last_known_result`. "
+            "Deployment requirements may additionally bind the frozen stage "
+            "and optional attached member through `deployment_stage` and "
+            "`deployment_member_item_id`; both stay NULL on legacy run subjects. "
             "`capability_requirements` is a canonical JSON array of capability "
-            "kinds; `[]` means the case has no capability prerequisite. "
+            "kinds; `[]` means the case has no capability prerequisite. Case "
+            "admission resolves those kinds against the project's "
+            "`project_capabilities` rows plus the harness session's manifest, "
+            "except for kinds this case's OWN `runner_id` is declared to supply "
+            "where it executes (`qa_method_capabilities."
+            "RUNNER_HOST_PROVISIONED_CAPABILITY_KINDS`: `browser_substrate`, "
+            "whose daemon start installs the browser runtime on this machine, "
+            "and `agent_mission`, whose dispatch contract requires the walker to "
+            "run `yoke qa browser setup` on its target host). No project row "
+            "proves or withholds those, so admission admits them and each "
+            "runner's own path supplies them on first use; adding an empty "
+            "`browser-control` project row is a stale workaround, not the "
+            "contract. The exemption is per runner, never per kind: a "
+            "`worktree_run` or `ci_run` case declaring `browser-control` is "
+            "still refused, and `test-machine` stays a gate for every runner. "
             "The aggregate discriminator is `qa_kind` "
             "(values like `ac_verification` / `implementation_review`) — "
             "there is no `kind` and no `requirement_type` column; "

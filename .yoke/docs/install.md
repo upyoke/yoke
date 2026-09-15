@@ -25,9 +25,9 @@ unsupported; WSL follows the Linux path.
 Anything the wizard already finds — a checkout carrying Yoke files, a
 repository that already has a project, a checkout already mapped on this
 machine — is announced before you answer anything, and connecting to what
-exists is the default. Text selection and copy work normally, and on any
-screen showing a URL or a one-time code the footer names a copy key (`^y`)
-and an open-in-browser key (`^o`).
+exists is the default. The mouse scrolls and clicks normally; on any screen
+showing a URL or a one-time code the footer names a copy key (`^y`) and an
+open-in-browser key (`^o`) instead of a native drag-select.
 
 Flags: `--yes` for non-interactive apply; `--local` or `--connect URL` to skip
 the destination picker.
@@ -43,8 +43,15 @@ yoke ui up           # local workbench (local mode), detached from this terminal
 # or open the Cloud dashboard after sign-in
 ```
 
-Upgrade later by re-running the same curl installer. It resolves one channel
-version for every Yoke product package.
+Upgrade later with `yoke update` — it reruns the official installer with
+onboarding disabled, honors this machine's already-configured distribution
+origin and channel, and reports the verified old and new version (or that
+you're already current). The installer itself repairs the git credential
+helper a reinstall wipes from site-packages, as the last step of every
+successful run — so re-running the curl installer directly still resolves
+the same channel version for every Yoke product package and still repairs
+the helper, just without the version-change report. Neither path touches a
+Yoke source checkout — that updates with git.
 
 The first command you run after an upgrade brings the rest of the install up
 to the new engine. A machine-local universe has its schema converged before

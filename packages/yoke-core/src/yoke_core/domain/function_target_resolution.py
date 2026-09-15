@@ -102,10 +102,11 @@ def resolve_project_context(
     if process_context is not None:
         return process_context
     target = request.target
-    if target.deployment_run_id is not None:
+    deployment_run_id = target.deployment_run_id or target.workflow_run_id
+    if deployment_run_id is not None:
         deployment_project = resolve_deployment_run_project(
             conn,
-            str(target.deployment_run_id),
+            str(deployment_run_id),
         )
         if deployment_project is None:
             return None

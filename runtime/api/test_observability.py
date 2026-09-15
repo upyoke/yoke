@@ -2,14 +2,53 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import json
 import logging
 import sys
+from typing import Any
 
 import pytest
 
 from yoke_core.api import observability
 from yoke_core.api import observability_otel
+
+
+@pytest.fixture
+def owned_meter_providers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[list[Any]]:
+    try:
+        from opentelemetry import metrics
+    except ImportError:
+        yield []
+        return
+    logger = logging.getLogger("yoke.api.metrics")
+    handlers = list(logger.handlers)
+    level = logger.level
+    propagate = logger.propagate
+    providers: list[Any] = []
+    shutdown_provider_ids: set[int] = set()
+    monkeypatch.setattr(metrics, "set_meter_provider", providers.append)
+    try:
+        yield providers
+    finally:
+        try:
+            for provider in providers:
+                provider.shutdown()
+                shutdown_provider_ids.add(id(provider))
+        finally:
+            for handler in tuple(logger.handlers):
+                if handler not in handlers:
+                    logger.removeHandler(handler)
+                    handler.close()
+            logger.handlers[:] = handlers
+            logger.setLevel(level)
+            logger.propagate = propagate
+        assert logger.handlers == handlers
+        assert logger.level == level
+        assert logger.propagate is propagate
+        assert shutdown_provider_ids == {id(provider) for provider in providers}
 
 
 def test_json_log_formatter_emits_canonical_fields() -> None:
@@ -156,15 +195,19 @@ def test_request_log_extra_uses_canonical_envelope_fields() -> None:
     assert extra["context"]["api_token_id"] == 4
 
 
-def test_hosted_environment_enables_log_metric_export() -> None:
+def test_hosted_environment_enables_log_metric_export(
+    owned_meter_providers: list[Any],
+) -> None:
     enabled, reason = observability.configure_otel(
         None, env={"YOKE_ENVIRONMENT": "prod"}
     )
     if reason.startswith("missing_dependency"):
         assert enabled is False
+        assert owned_meter_providers == []
         return
     assert enabled is True
     assert reason == "exporting:log"
+    assert len(owned_meter_providers) == 1
 
 
 def test_hosted_can_disable_log_metrics() -> None:

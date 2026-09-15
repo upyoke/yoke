@@ -1,21 +1,27 @@
 """Stage-result recording for the deployment QA recorder.
 
 Owns ``cmd_record_stage_result`` — the largest single command of the
-recorder. The implementation looks up the dispatch helpers and the
-script-dir resolver via the ``deploy_qa_recorder`` module at call time
-so that test monkeypatches against ``deploy_qa_recorder._dispatch_*``
-remain authoritative even though the function lives here.
+recorder. It reads/writes qa_requirements, qa_runs, qa_artifacts, and the
+deployment_run_qa projection in-process through the ordinary domain
+functions, so it inherits whatever database/actor authority the current
+execution context (a relayed HTTPS request handler, or a direct local
+connection) already carries.
 """
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import logging
 import sys
 from typing import Any, Dict, Optional
 
 from yoke_core.domain.db_helpers import connect, query_scalar
-from yoke_core.domain.deploy_qa_stage_helpers import resolve_qa_kind_for_stage
+from yoke_core.domain.deploy_qa_stage_helpers import (
+    resolve_qa_kind_for_stage,
+    resolve_stages_json_for_run,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -29,28 +35,30 @@ def cmd_record_stage_result(
     duration_ms: Optional[str] = None,
     workflow_run: Optional[str] = None,
     db_path: Optional[str] = None,
-    script_dir: Optional[str] = None,
 ) -> Optional[str]:
     """Record a QA run for a deployment stage.
 
-    Returns the qa_run_id on success, or None on failure.
+    Returns the qa_run_id on success, or ``None`` when ``stage_name`` is not
+    a QA stage — a legitimate no-op. Raises ``RuntimeError`` when a QA
+    stage's result could not be recorded, or when the run/flow itself could
+    not be resolved at all, so a caller never mistakes a missing run or a
+    write failure for quiet success.
     """
-    # Resolve dispatch helpers via the orchestrator module at call time so
-    # ``monkeypatch.setattr(deploy_qa_recorder, "_dispatch_db_router", ...)``
-    # remains authoritative for callers of this function.
-    from yoke_core.domain import deploy_qa_recorder as _recorder
+    from yoke_core.domain.deployment_runs_qa import cmd_qa_add, cmd_qa_update
+    from yoke_core.domain.qa_artifact_ops import cmd_artifact_add
+    from yoke_core.domain.qa_execution import cmd_run_add
+    from yoke_core.domain.qa_requirements import cmd_requirement_add
 
-    sd = script_dir or _recorder._resolve_script_dir()
-
-    # Resolve qa_kind from flow config
-    flow_id = _recorder._dispatch_db_router("runs", "get", run_id, "flow", script_dir=sd)
-    stages_json = _recorder._dispatch_flow_domain("stages", flow_id, script_dir=sd) if flow_id else ""
+    try:
+        stages_json = resolve_stages_json_for_run(run_id, db_path=db_path)
+    except LookupError as exc:
+        raise RuntimeError(
+            f"could not resolve flow/stages for run {run_id!r}: {exc}"
+        ) from exc
     qa_kind = resolve_qa_kind_for_stage(stages_json, stage_name)
 
     if not qa_kind:
-        _logger.debug(
-            "Stage %r is not a QA stage; no verdict to record", stage_name
-        )
+        _logger.debug("Stage %r is not a QA stage; no verdict to record", stage_name)
         return None
 
     conn = connect(db_path)
@@ -64,35 +72,48 @@ def cmd_record_stage_result(
         )
 
         if not req_id:
-            print(f"Warning: no qa_requirement found for run={run_id} kind={qa_kind} — seeding now",
-                  file=sys.stderr)
-            req_id_str = _recorder._dispatch_db_router(
-                "qa", "requirement-add",
-                "--deployment-run-id", run_id,
-                "--qa-kind", qa_kind,
-                "--qa-phase", "post_deploy",
-                "--blocking-mode", "blocking",
-                "--requirement-source", "flow_derived",
-                "--success-policy", "Workflow completes with conclusion=success",
-                script_dir=sd,
+            print(
+                f"Warning: no qa_requirement found for run={run_id} kind={qa_kind} — seeding now",
+                file=sys.stderr,
             )
-            if not req_id_str:
-                print(f"Error: failed to seed qa_requirement for stage '{stage_name}'", file=sys.stderr)
-                return None
-            req_id = req_id_str
-            _recorder._dispatch_db_router("runs", "qa-add", run_id, stage_name, "flow_default", "1", script_dir=sd)
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    req_id = cmd_requirement_add(
+                        db_path=db_path,
+                        deployment_run_id=run_id,
+                        qa_kind=qa_kind,
+                        qa_phase="post_deploy",
+                        blocking_mode="blocking",
+                        requirement_source="flow_derived",
+                        success_policy="Workflow completes with conclusion=success",
+                    )
+            except SystemExit as exc:
+                raise RuntimeError(
+                    f"failed to seed qa_requirement for stage {stage_name!r} "
+                    f"(exit {exc.code})"
+                ) from exc
+            cmd_qa_add(run_id, stage_name, "flow_default", 1, db_path=db_path)
 
         # Read success_policy
-        success_policy = query_scalar(
-            conn,
-            "SELECT COALESCE(success_policy, '') FROM qa_requirements WHERE id=%s",
-            (req_id,),
-        ) or ""
+        success_policy = (
+            query_scalar(
+                conn,
+                "SELECT COALESCE(success_policy, '') FROM qa_requirements WHERE id=%s",
+                (req_id,),
+            )
+            or ""
+        )
     finally:
         conn.close()
 
     # Map verdict
-    verdict_map = {"pass": "pass", "success": "pass", "fail": "fail", "failure": "fail", "error": "error"}
+    verdict_map = {
+        "pass": "pass",
+        "success": "pass",
+        "fail": "fail",
+        "failure": "fail",
+        "error": "error",
+    }
     run_verdict = verdict_map.get(verdict, verdict)
 
     # Build enriched result JSON
@@ -109,40 +130,52 @@ def cmd_record_stage_result(
         base["success_policy"] = success_policy
     enriched_result = json.dumps(base)
 
-    # Record qa_run via CLI
-    run_add_args = [
-        "qa", "run-add",
-        "--requirement-id", str(req_id),
-        "--performed-by", "github-actions",
-        "--qa-kind", qa_kind,
-        "--verdict", run_verdict,
-        "--raw-result", enriched_result,
-    ]
-    if duration_ms:
-        run_add_args += ["--duration-ms", duration_ms]
-
-    qa_run_id = _recorder._dispatch_db_router(*run_add_args, script_dir=sd)
-    if not qa_run_id:
-        print(f"Error: failed to record qa_run for stage '{stage_name}'", file=sys.stderr)
-        return None
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            qa_run_id = cmd_run_add(
+                db_path=db_path,
+                requirement_id=int(req_id),
+                performed_by="github-actions",
+                qa_kind=qa_kind,
+                verdict=run_verdict,
+                raw_result=enriched_result,
+                duration_ms=int(duration_ms) if duration_ms else None,
+            )
+    except SystemExit as exc:
+        raise RuntimeError(
+            f"failed to record qa_run for stage {stage_name!r} (exit {exc.code})"
+        ) from exc
 
     # Attach log artifact
     artifact_meta: Dict[str, Any] = {"stage": stage_name, "qa_kind": qa_kind}
     if workflow_run:
         artifact_meta["workflow_run_id"] = workflow_run
 
-    _recorder._dispatch_db_router(
-        "qa", "artifact-add",
-        "--run-id", qa_run_id,
-        "--artifact-type", "log",
-        "--content-type", "application/json",
-        "--metadata", json.dumps(artifact_meta),
-        script_dir=sd,
-    )
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            cmd_artifact_add(
+                db_path=db_path,
+                run_id=qa_run_id,
+                artifact_type="log",
+                content_type="application/json",
+                metadata=json.dumps(artifact_meta),
+            )
+    except SystemExit as exc:
+        raise RuntimeError(
+            f"failed to attach qa_run artifact for stage {stage_name!r} "
+            f"(exit {exc.code})"
+        ) from exc
 
     # Update deployment_run_qa projection
     drqa_status = "passed" if run_verdict == "pass" else "failed"
-    _recorder._dispatch_db_router("runs", "qa-update", run_id, stage_name, drqa_status, script_dir=sd)
+    qa_update_error = cmd_qa_update(run_id, stage_name, drqa_status, db_path=db_path)
+    if qa_update_error:
+        raise RuntimeError(
+            "failed to update deployment_run_qa projection for stage "
+            f"{stage_name!r}: {qa_update_error}"
+        )
 
-    print(f"Recorded QA: stage={stage_name} verdict={run_verdict} req={req_id} run={qa_run_id} projection={drqa_status}")
-    return qa_run_id
+    print(
+        f"Recorded QA: stage={stage_name} verdict={run_verdict} req={req_id} run={qa_run_id} projection={drqa_status}"
+    )
+    return str(qa_run_id)

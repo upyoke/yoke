@@ -110,22 +110,22 @@ item; it folds resolve-target, create-run, enrollment, and composition
 validation into a single invocation:
 
 ```bash
-yoke --env {control-plane}-db-admin deployment-runs start-for-item {item-id} \
+yoke --env {control-plane} deployment-runs start-for-item {item-id} \
     [--project {project}] [--flow {flow}] [--environment {environment}] \
     [--release-lineage {lineage-id}] [--created-by {actor}]
 ```
 
-Create and start-for-item require the owner-only local-postgres connection
-(not the HTTPS product plane) so run rows stay writable when that plane is
-the deploy target. Use the same `*-db-admin` env that execute will use.
+Create and start-for-item use the selected control-plane transport. Ordinary
+external delivery is supported over HTTPS. A serving-API self-deploy requires
+the paired local `*-db-admin` env named by the executor's refusal.
 
 For every remaining item in the `(project, flow)` group, attach its public
 reference through the guarded membership command, then validate the complete
 batch before execution:
 
 ```bash
-yoke --env {control-plane}-db-admin deployment-runs add-item {run-id} PREFIX-N
-yoke --env {control-plane}-db-admin deployment-runs validate-composition {run-id}
+yoke --env {control-plane} deployment-runs add-item {run-id} PREFIX-N
+yoke --env {control-plane} deployment-runs validate-composition {run-id}
 ```
 
 Both commands require the same project deploy lock. Enrollment resolves the
@@ -157,11 +157,15 @@ The pipeline owns that resolution and enforces the same gate internally
 
 ```bash
 if [ "$_pre_merge_verified" = "1" ] && [ -n "$_eph_next_stage" ]; then
- yoke --env prod-db-admin deployment-runs execute {run-id} --from-stage "$_eph_next_stage"
+ yoke --env {control-plane} deployment-runs execute {run-id} --from-stage "$_eph_next_stage"
 else
- yoke --env prod-db-admin deployment-runs execute {run-id}
+ yoke --env {control-plane} deployment-runs execute {run-id}
 fi
 ```
+
+If execution refuses because the target is the selected control plane's own
+serving API, rerun through the paired local `*-db-admin` env named in that
+refusal. Do not switch transports for an ordinary external target.
 
 **Exit 0:** Run done-transition for each item: `yoke watch merge done-transition -- PREFIX-N --skip-deploy`
 

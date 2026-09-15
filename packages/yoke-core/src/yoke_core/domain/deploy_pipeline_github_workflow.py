@@ -7,14 +7,20 @@ dispatch table stays small; the dispatcher delegates the
 
 from __future__ import annotations
 
-import re
 import sys
 import time
 import uuid
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain.deploy_pipeline_gates import _check_ci_gate
+from yoke_core.domain.deploy_pipeline_github_workflow_bindings import (
+    resolve_declared_input_bindings,
+)
+from yoke_core.domain.deploy_pipeline_github_workflow_lineage import (
+    resolve_publish_sha as _lineage_resolve_publish_sha,
+    resolve_release_lineage_sha as _lineage_resolve_release_lineage_sha,
+    verify_release_sha_in_checkout as _lineage_verify_release_sha_in_checkout,
+)
 from yoke_core.domain.deploy_pipeline_github_workflow_reconciliation import (
     _WorkflowReconciliationError,
     _dispatch_correlation_input,
@@ -22,6 +28,7 @@ from yoke_core.domain.deploy_pipeline_github_workflow_reconciliation import (
     _found_run_id,
     narrate_sha_only_search_skip,
     run_correlated_or_oneshot_trigger,
+    trigger_with_binding_collision_retry,
 )
 from yoke_core.domain.deploy_pipeline_github_workflow_dispatch import (
     trigger_with_recovery_retries,
@@ -94,13 +101,10 @@ def _dispatch_github_actions_workflow(
         )
     raw_workflow_inputs = _workflow_inputs(config)
     # The ref names which branch of the DEPLOY repo (github_repo) to run the
-    # workflow file from — not a product branch. When the deploy repo and the
-    # product repo are the same (legacy), gate_branch happened to exist in both;
-    # once they split (operator ops repo holding dispatch-only workflows on its
-    # default branch vs. a product repo with its own stage branch), gate_branch
-    # is absent from the deploy repo and the dispatch 422s. gate_branch stays
-    # the source-sha/CI-gate branch (a product concept) below; the workflow ref
-    # defaults to the deploy repo's default branch where the file lives.
+    # workflow file from, not a product branch — a split deploy/product repo
+    # has no gate_branch on the deploy side, so the workflow ref defaults to
+    # the deploy repo's own default branch instead. gate_branch stays the
+    # separate source-sha/CI-gate branch (a product concept) used below.
     workflow_ref = str(config.get("ref", "") or "main")
     default_timeout_min = (
         max(timeout_min, CORRELATED_WORKFLOW_TIMEOUT_MIN)
@@ -149,9 +153,30 @@ def _dispatch_github_actions_workflow(
         if sha_error:
             print(f"Error: {sha_error}", file=sys.stderr)
             return 1, sha_error
+
+    # Declared external input bindings (e.g. a hosted consumer's trunk sha)
+    # resolve before the reconciliation block below, which reads
+    # workflow_inputs' truthiness. A `--fresh` retrigger mints its own
+    # request id (nothing durable to recover yet); every other call
+    # recovers a prior bound pair before resolving fresh.
+    input_bindings = config.get("input_bindings") or {}
+    bound_inputs: Dict[str, str] = {}
+    binding_request_id = (
+        _workflow_dispatch_request_id(project, run_id, name)
+        if correlation_input and not fresh
+        else ""
+    )
+    if input_bindings:
+        bound_inputs, binding_error = resolve_declared_input_bindings(
+            input_bindings, request_id=binding_request_id,
+        )
+        if binding_error:
+            print(f"Error: {binding_error}", file=sys.stderr)
+            return 1, binding_error
+
     workflow_inputs = _resolve_workflow_inputs(
         raw_workflow_inputs, head_sha=head_sha, run_id=run_id,
-        target_environment=environment_name,
+        target_environment=environment_name, bound=bound_inputs,
     )
 
     ga_run_id = ""
@@ -183,33 +208,46 @@ def _dispatch_github_actions_workflow(
             return 1, diagnostic
 
     if not ga_run_id and not already_complete:
-        r, ga_run_id, _dispatched = run_correlated_or_oneshot_trigger(
-            github_actions=_github_actions,
-            trigger_with_retries=trigger_with_recovery_retries,
-            github_repo=github_repo,
-            workflow=workflow,
-            workflow_ref=workflow_ref,
-            workflow_inputs=workflow_inputs,
-            request_id=(
-                _workflow_dispatch_request_id(
-                    project, run_id, name, retrigger_scope=retrigger_scope,
-                )
-                if correlation_input
-                else ""
-            ),
-            correlation_input=correlation_input,
-            project=project,
-            sd=sd,
-            timeout_sec=timeout_sec,
+        def _trigger(inputs: Dict[str, str]) -> tuple[Any, str, Optional[bool]]:
+            return run_correlated_or_oneshot_trigger(
+                github_actions=_github_actions,
+                trigger_with_retries=trigger_with_recovery_retries,
+                github_repo=github_repo,
+                workflow=workflow,
+                workflow_ref=workflow_ref,
+                workflow_inputs=inputs,
+                request_id=(
+                    _workflow_dispatch_request_id(
+                        project, run_id, name, retrigger_scope=retrigger_scope,
+                    )
+                    if correlation_input
+                    else ""
+                ),
+                correlation_input=correlation_input,
+                project=project,
+                sd=sd,
+                timeout_sec=timeout_sec,
+            )
+
+        r, ga_run_id, _dispatched, workflow_inputs, binding_error = (
+            trigger_with_binding_collision_retry(
+                _trigger, workflow_inputs,
+                input_bindings=input_bindings,
+                binding_request_id=binding_request_id,
+                resolve_bindings=resolve_declared_input_bindings,
+                resolve_workflow_inputs=_resolve_workflow_inputs,
+                raw_workflow_inputs=raw_workflow_inputs,
+                head_sha=head_sha, run_id=run_id,
+                target_environment=environment_name,
+            )
         )
+        if binding_error:
+            print(f"Error: {binding_error}", file=sys.stderr)
+            return 1, binding_error
         if not ga_run_id or r.returncode != 0:
             if not reconcile_by_head_sha or not head_sha or workflow_inputs:
                 diagnostic = (r.stderr or r.stdout or "").strip()
-                return (
-                    1,
-                    diagnostic
-                    or f"could not trigger workflow run for '{workflow}'",
-                )
+                return 1, diagnostic or f"could not trigger workflow run for '{workflow}'"
             print("  Trigger failed, retrying find-run with backoff...")
             reconciliation_errors: list[str] = []
             for attempt in range(1, 7):
@@ -218,24 +256,18 @@ def _dispatch_github_actions_workflow(
                     project=project, sd=sd,
                 )
                 try:
-                    ga_run_id = _found_run_id(
-                        r,
-                        workflow=workflow,
-                        head_sha=head_sha,
-                    )
+                    ga_run_id = _found_run_id(r, workflow=workflow, head_sha=head_sha)
                 except _WorkflowReconciliationError as exc:
                     reconciliation_errors.append(str(exc))
                     print(
-                        "  Workflow run lookup failed while reconciling the "
-                        f"dispatch (attempt {attempt}/6): {exc}",
+                        f"  Workflow run lookup failed (attempt {attempt}/6): {exc}",
                         file=sys.stderr,
                     )
                     ga_run_id = ""
                 if ga_run_id:
                     break
                 print(f"  Waiting for workflow run to appear... (attempt {attempt}/6)")
-                # Not a status poll: whether a dispatch registered a run yet is an answer that moves in seconds.
-                time.sleep(5)
+                time.sleep(5)  # Registration is an answer that moves in seconds.
             if not ga_run_id and reconciliation_errors:
                 diagnostic = (r.stderr or r.stdout or "").strip()
                 return 1, (
@@ -277,187 +309,39 @@ def _dispatch_github_actions_workflow(
 
 
 def _resolve_release_lineage_sha(
-    release_lineage: str,
-    project_repo_path: str,
-    gate_branch: str,
+    release_lineage: str, project_repo_path: str, gate_branch: str,
 ) -> tuple[str, str]:
-    """Resolve a run's immutable lineage without consulting a branch head.
-
-    Current runs bind directly to a full commit SHA. Historical release runs
-    bind to an annotated release tag; for those, use only the remote tag's
-    peeled commit. A lightweight tag is refused because it lacks the governed
-    annotated-release boundary expected by the hosted release train.
-    """
-    lineage = release_lineage.strip()
-    if not lineage:
-        return "", (
-            "github-actions-workflow requires the deployment run to carry "
-            "an immutable release_lineage commit SHA or annotated release tag"
-        )
-    if re.fullmatch(r"[0-9a-f]{40}", lineage):
-        checkout_error = _verify_release_sha_in_checkout(
-            lineage,
-            project_repo_path,
-            gate_branch,
-        )
-        if checkout_error:
-            return "", checkout_error
-        return lineage, ""
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+~-]{0,127}", lineage):
-        return "", (
-            "deployment run release_lineage is neither an exact 40-character "
-            "lowercase Git commit SHA nor a safe annotated release tag"
-        )
-
-    repo = project_repo_path or "."
-    peeled_ref = f"refs/tags/{lineage}^{{}}"
-    result = _run_cmd(
-        [
-            "git", "-C", repo, "ls-remote", "origin",
-            f"refs/tags/{lineage}", peeled_ref,
-        ]
-    )
-    if result.returncode != 0:
-        return "", (
-            f"could not resolve annotated release tag '{lineage}' from origin"
-        )
-    peeled = [
-        fields[0]
-        for raw_line in result.stdout.splitlines()
-        if len(fields := raw_line.split()) == 2
-        and fields[1] == peeled_ref
-        and re.fullmatch(r"[0-9a-f]{40}", fields[0])
-    ]
-    if len(set(peeled)) != 1:
-        return "", (
-            f"release_lineage '{lineage}' does not resolve to exactly one "
-            "annotated release-tag commit on origin"
-        )
-    return peeled[0], ""
-
-
-def _checkout_provenance(project_repo_path: str) -> str:
-    """Name where the project checkout path came from, for error messages."""
-    if project_repo_path:
-        return (
-            "resolved from the machine-config projects mapping "
-            "(~/.yoke/config.json) for this project under the active env"
-        )
-    return (
-        "the current working directory — no machine-config projects mapping "
-        "matched this project under the active env"
+    """Thin wrapper passing this module's own patchable `_run_cmd` through
+    to `deploy_pipeline_github_workflow_lineage`, which owns the resolution."""
+    return _lineage_resolve_release_lineage_sha(
+        release_lineage, project_repo_path, gate_branch, run_cmd=_run_cmd,
     )
 
 
 def _verify_release_sha_in_checkout(
-    release_sha: str,
-    project_repo_path: str,
-    gate_branch: str,
+    release_sha: str, project_repo_path: str, gate_branch: str,
 ) -> str:
-    """Prove ``release_sha`` is an available commit without following a ref.
-
-    Item-bound run creation separately proves that its selected commit is the
-    configured environment branch head.  Execution and resume must remain
-    independent of that branch afterward: an environment-level run may select
-    any branch, and a saved commit stays authoritative when refs move.
-    """
-    del gate_branch
-    repo = project_repo_path or "."
-    # A worktree's .git is a file, a primary checkout's a directory — exists()
-    # covers both. A dead path here is almost always a stale machine-config
-    # mapping (for example, one that pointed into a since-removed worktree).
-    if not (Path(repo).expanduser() / ".git").exists():
-        return (
-            f"project repository checkout '{repo}' "
-            f"({_checkout_provenance(project_repo_path)}) is missing or not "
-            "a git checkout; repair or remove that projects entry, or "
-            "restore the checkout"
-        )
-    commit_ref = f"{release_sha}^{{commit}}"
-    present = _run_cmd(["git", "-C", repo, "cat-file", "-e", commit_ref])
-    if present.returncode == 0:
-        return ""
-    fetched = _run_cmd([
-        "git", "-C", repo, "fetch", "--quiet", "--no-tags", "origin",
-        release_sha,
-    ])
-    if fetched.returncode == 0:
-        present = _run_cmd([
-            "git", "-C", repo, "cat-file", "-e", commit_ref,
-        ])
-    if present.returncode != 0:
-        # Sha-addressed fetches need the server to advertise arbitrary
-        # objects, which GitHub does not; a plain ref fetch reaches every
-        # pushed commit, so try that before giving up.
-        _run_cmd(["git", "-C", repo, "fetch", "--quiet", "--no-tags", "origin"])
-        present = _run_cmd([
-            "git", "-C", repo, "cat-file", "-e", commit_ref,
-        ])
-    if present.returncode != 0:
-        return (
-            f"deployment run release_lineage {release_sha} is not a commit "
-            f"available from the project repository at '{repo}' "
-            f"({_checkout_provenance(project_repo_path)}), even after "
-            "fetching origin"
-        )
-    return ""
+    """Thin wrapper — see `deploy_pipeline_github_workflow_lineage`."""
+    return _lineage_verify_release_sha_in_checkout(
+        release_sha, project_repo_path, gate_branch, run_cmd=_run_cmd,
+    )
 
 
 def _resolve_publish_sha(
-    project_repo_path: str,
-    gate_branch: str,
-    *,
-    image_tag: str = "",
+    project_repo_path: str, gate_branch: str, *, image_tag: str = "",
 ) -> tuple[str, str]:
-    """Resolve the publish source from an explicit product pin when supplied.
-
-    Unpinned legacy callers retain remote deploy-branch resolution; worktree
-    flows without a gate branch use their local HEAD.
-    """
-    if image_tag:
-        from yoke_core.domain.deploy_product_source import (
-            DeployProductSourceError,
-            resolve_product_commit,
-        )
-
-        try:
-            return resolve_product_commit(project_repo_path, image_tag), ""
-        except DeployProductSourceError as exc:
-            return "", str(exc)
-    if gate_branch:
-        repo = project_repo_path or "."
-        result = _run_cmd(
-            ["git", "-C", repo, "ls-remote", "origin", f"refs/heads/{gate_branch}"]
-        )
-        sha = ""
-        if result.returncode == 0 and result.stdout.strip():
-            sha = result.stdout.split()[0].strip()
-        if not sha:
-            return "", (
-                f"could not resolve the deployed SHA for branch "
-                f"'{gate_branch}' on origin — the branch is missing from the "
-                f"remote or unreachable; push '{gate_branch}' before publishing"
-            )
-        return sha, ""
-    command = ["git", "rev-parse", "HEAD"]
-    if project_repo_path:
-        command[1:1] = ["-C", project_repo_path]
-    sha = _run_cmd(command).stdout.strip()
-    return sha, ""
+    """Thin wrapper — see `deploy_pipeline_github_workflow_lineage`."""
+    return _lineage_resolve_publish_sha(
+        project_repo_path, gate_branch, image_tag=image_tag, run_cmd=_run_cmd,
+    )
 
 
 def _find_existing_workflow_run(
-    github_repo: str,
-    workflow: str,
-    head_sha: str,
-    *,
-    project: str,
-    sd: Optional[str],
+    github_repo: str, workflow: str, head_sha: str,
+    *, project: str, sd: Optional[str],
 ) -> tuple[str, bool, str]:
     return _reconcile_existing_workflow_run(
-        github_repo,
-        workflow,
-        head_sha,
+        github_repo, workflow, head_sha,
         project=project,
         sd=sd,
         github_actions=_github_actions,

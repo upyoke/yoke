@@ -35,6 +35,10 @@ from yoke_core.domain.strategy_docs_schema import (
     STRATEGY_DOCS_CREATE_TABLE_SQL,
 )
 from yoke_core.domain.workflow_schema import ensure_workflow_registry_tables
+from yoke_core.domain.qa_deployment_scope_schema import (
+    REQUIREMENT_SUBJECT_CONSTRAINT,
+    REQUIREMENT_SUBJECT_EXPRESSION,
+)
 
 
 def create_core_tables(conn: Any) -> None:
@@ -226,6 +230,8 @@ def create_core_tables(conn: Any) -> None:
           epic_id INTEGER,
           task_num INTEGER,
           deployment_run_id TEXT,
+          deployment_stage TEXT,
+          deployment_member_item_id INTEGER,
           qa_kind TEXT NOT NULL,
           qa_phase TEXT NOT NULL CHECK(qa_phase IN ('verification','post_deploy','manual_acceptance')),
           target_env TEXT,
@@ -238,11 +244,8 @@ def create_core_tables(conn: Any) -> None:
           waiver_rationale TEXT,
           waiver_source TEXT,
           created_at TEXT NOT NULL,
-          CHECK (
-            (item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NULL) OR
-            (item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND deployment_run_id IS NULL) OR
-            (item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NOT NULL)
-          )
+          CONSTRAINT {REQUIREMENT_SUBJECT_CONSTRAINT}
+            CHECK ({REQUIREMENT_SUBJECT_EXPRESSION})
         );
         CREATE INDEX IF NOT EXISTS idx_qa_requirements_item ON qa_requirements(item_id);
         CREATE INDEX IF NOT EXISTS idx_qa_requirements_epic ON qa_requirements(epic_id, task_num);

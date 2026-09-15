@@ -6,6 +6,14 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from yoke_core.domain import json_helper
+from yoke_core.domain.deployment_flow_target_support import (
+    configured_identity_path,
+    require_provable_qa_identity,
+    require_supported_stage_targets,
+    unprovable_qa_identity_stages,
+    unsupported_stage_target_kinds,
+)
 from yoke_core.domain.deployment_flow_policy import (
     CURRENT_EXECUTION_SCHEMA_VERSION,
     definition_schema_version,
@@ -95,6 +103,15 @@ def _validate_definition(conn: Any, definition: Mapping[str, Any]) -> int:
         require_supported_definition_schema(
             schema_version, operation="activating this deployment flow"
         )
+        require_supported_stage_targets(
+            stages, operation="activating this deployment flow"
+        )
+        require_provable_qa_identity(
+            stages,
+            operation="activating this deployment flow",
+            conn=conn,
+            project=project,
+        )
     return schema_version
 
 
@@ -116,11 +133,31 @@ def cmd_validate_definition(
         "status": status,
     }
     schema_version = _validate_definition(conn, definition)
+    # Two independent axes, and the answer promises both: the vocabulary
+    # this runtime executes, and whether anything can observe the QA
+    # targets THIS definition names. Reporting only the version would
+    # advertise a definition that activates and then fails mid-run.
+    decoded = json_helper.loads_text(stages)
+    unsupported = unsupported_stage_target_kinds(decoded)
+    # The same configuration the activation gate reads, so a preview of a
+    # definition and the gate that admits it can never disagree about
+    # whether this project's environments can prove what they serve.
+    identity = configured_identity_path(conn, project)
+    unprovable = unprovable_qa_identity_stages(
+        decoded, identity_path_configured=identity.configured
+    )
     return {
         "valid": True,
         "definition_schema_version": schema_version,
-        "execution_supported": schema_version <= CURRENT_EXECUTION_SCHEMA_VERSION,
+        "identity_config_error": identity.error,
+        "execution_supported": (
+            schema_version <= CURRENT_EXECUTION_SCHEMA_VERSION
+            and not unsupported
+            and not unprovable
+        ),
         "serving_schema_version": CURRENT_EXECUTION_SCHEMA_VERSION,
+        "unsupported_target_kinds": list(unsupported),
+        "unprovable_qa_identity_stages": list(unprovable),
     }
 
 

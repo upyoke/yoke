@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from yoke_core.domain.handlers import github_pr_create, github_release_tag
 from yoke_core.domain.handlers import github_merge_queue_apply
+from yoke_core.domain.handlers import github_merge_queue_hold
 from yoke_core.domain.handlers import github_merge_queue_readiness
 
 
@@ -19,6 +20,7 @@ def register(registry) -> None:
         *github_pr_create.REGISTRATIONS,
         *github_release_tag.REGISTRATIONS,
         *github_merge_queue_apply.REGISTRATIONS,
+        *github_merge_queue_hold.REGISTRATIONS,
         *github_merge_queue_readiness.REGISTRATIONS,
     ):
         registry.register(**entry)

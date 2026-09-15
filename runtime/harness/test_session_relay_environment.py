@@ -4,9 +4,22 @@ from __future__ import annotations
 
 import json
 
+from yoke_cli.config.session_relay_instance import RELAY_STATE_DIR_ENV
 from yoke_contracts.session_identity import ACTOR_ROLE_ENV_VAR, AMBIENT_ENV_VARS
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
-from yoke_harness.session_relay_environment import native_session_environment
+from yoke_harness.session_relay_environment import (
+    native_session_environment,
+    strip_relay_owned_python_state,
+)
+
+
+RELAY_STATE_DIR = "/Users/example/.yoke/relay-instances/abcd1234"
+RELAY_RELEASE = f"{RELAY_STATE_DIR}/releases/deadbeef"
+RELAY_PYTHON_STATE = {
+    RELAY_STATE_DIR_ENV: RELAY_STATE_DIR,
+    "VIRTUAL_ENV": RELAY_RELEASE,
+    "PYTHONPATH": f"{RELAY_RELEASE}/lib/python3.13/site-packages",
+}
 
 
 def test_native_environment_replaces_parent_identity_and_surface_facts() -> None:
@@ -60,6 +73,59 @@ def test_native_environment_replaces_parent_identity_and_surface_facts() -> None
         "launch_id": "12345678-1234-4234-8234-123456789abc",
         "attestation": "one-time-secret",
     }
+
+
+def test_a_foreign_binary_is_started_with_none_of_the_relay_python_state() -> None:
+    environment = strip_relay_owned_python_state(
+        {
+            "PATH": (
+                f"{RELAY_STATE_DIR}/venv/bin"
+                f":{RELAY_STATE_DIR}/runtime/bin"
+                ":/Users/example/.local/bin"
+                ":/opt/homebrew/bin"
+            ),
+            "HOME": "/Users/example",
+            **RELAY_PYTHON_STATE,
+        }
+    )
+
+    assert "VIRTUAL_ENV" not in environment
+    assert "PYTHONPATH" not in environment
+    # The declaration goes too: a worker that could read it could write there.
+    assert RELAY_STATE_DIR_ENV not in environment
+    # Everything outside the relay's own tree is the user's, including the
+    # directory the machine's installed `yoke` launcher lives in.
+    assert environment["PATH"] == "/Users/example/.local/bin:/opt/homebrew/bin"
+    assert environment["HOME"] == "/Users/example"
+
+
+def test_a_search_path_the_relay_never_claimed_is_left_alone() -> None:
+    environment = strip_relay_owned_python_state(
+        {
+            "PATH": "/Users/example/project/.venv/bin:/usr/bin",
+            "VIRTUAL_ENV": "/Users/example/project/.venv",
+        }
+    )
+
+    assert "VIRTUAL_ENV" not in environment
+    assert environment["PATH"] == "/Users/example/project/.venv/bin:/usr/bin"
+
+
+def test_the_relay_supervisor_keeps_the_state_its_own_imports_resolve_through() -> None:
+    """The launcher process is not the boundary; stripping here breaks it.
+
+    A supervisor and a detached worker both start on the stable runtime
+    interpreter, which carries no packages of its own and reaches the
+    selected release only through the variables below.
+    """
+    environment = native_session_environment(
+        executor="codex",
+        environ={"PATH": f"{RELAY_STATE_DIR}/venv/bin:/usr/bin", **RELAY_PYTHON_STATE},
+    )
+
+    assert environment["VIRTUAL_ENV"] == RELAY_PYTHON_STATE["VIRTUAL_ENV"]
+    assert environment["PYTHONPATH"] == RELAY_PYTHON_STATE["PYTHONPATH"]
+    assert environment["PATH"] == f"{RELAY_STATE_DIR}/venv/bin:/usr/bin"
 
 
 def test_native_environment_stamps_resolved_model_for_registration() -> None:

@@ -2,8 +2,9 @@
 
 The public CLI starts a child process so the merge engine can own signals and
 exit status without importing engine internals into the command registry. This
-runtime binds the machine's GitHub App user authorization, then
-selects the same-universe local Postgres connection before loading the engine.
+runtime binds the machine's GitHub App user authorization, then keeps the
+operator-selected control plane — HTTPS dispatch or local Postgres — before
+loading the engine. Ordinary hosted merge does not substitute a paired admin.
 """
 
 from __future__ import annotations
@@ -11,7 +12,6 @@ from __future__ import annotations
 import argparse
 from contextlib import contextmanager
 import importlib
-import os
 import sys
 from typing import Any, Callable, Iterator, List, Optional
 
@@ -23,12 +23,9 @@ from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.github_auth_transience import TransientGitHubAuthError
 from yoke_contracts.github_origin import GitHubApiEndpoint
 from yoke_contracts.machine_config.schema import (
-    DB_ADMIN_ENV_SUFFIX,
-    ENV_OVERRIDE,
     POSTGRES_TRANSPORTS,
     TRANSPORT_HTTPS,
     MachineConfigContractError,
-    same_universe_db_admin_env,
 )
 
 
@@ -47,12 +44,16 @@ class TransientLocalMergeGithubAuthorityError(
 
 
 class LocalMergeControlPlaneAuthorityError(LocalMergeAuthorityError):
-    """The local merge process cannot reach its universe through Postgres."""
+    """The local merge process cannot bind its selected control plane."""
+
+
+def _help_requested(argv: List[str]) -> bool:
+    return "--help" in argv or "-h" in argv
 
 
 def _work_claim_lookup(argv: List[str]) -> Optional[dict[str, Any]]:
-    """Read the item holder before an HTTPS connection yields to DB admin."""
-    if not argv or "--help" in argv or "-h" in argv:
+    """Read the item holder over the already-selected authenticated transport."""
+    if not argv or _help_requested(argv):
         return None
     parser = argparse.ArgumentParser(add_help=False, exit_on_error=False)
     parser.add_argument("item")
@@ -132,15 +133,15 @@ def machine_github_user_authority() -> Iterator[None]:
 
 
 def _confirm_selected_control_plane(authority: str) -> None:
-    """Refuse before the merge starts when the selected control plane is down.
+    """Refuse before merge when selected local Postgres is unreachable.
 
-    Selecting the connection is not the same as reaching it. A local Postgres
-    sibling normally sits behind an SSH forward, and a forward that has died —
-    a changed network, a slept machine — answers the *first* dispatched call
-    of the merge rather than this one, which is how a merge came to fail
-    halfway through with a tunnel error after its control plane had silently
-    moved underneath it. Probing here restarts a recoverable forward and turns
-    an unrecoverable one into a refusal that costs nothing.
+    HTTPS merge stays on authenticated dispatch and does not probe a tunnel.
+    A local Postgres connection normally sits behind an SSH forward; a dead
+    forward would otherwise fail the first in-process call mid-merge.
+    Probing here restarts a recoverable forward and turns an unrecoverable
+    one into a refusal that costs nothing. Connection acquisition still
+    self-heals through ``db_backend.connect``; this extra wait covers one
+    bounded ``TunnelReplacementContended`` window before the engine loads.
     """
     try:
         readiness = importlib.import_module("yoke_core.domain.connected_env_readiness")
@@ -192,10 +193,18 @@ def _confirm_selected_control_plane(authority: str) -> None:
 
 @contextmanager
 def same_universe_control_plane_authority() -> Iterator[tuple[str, str]]:
-    """Select local Postgres for the same universe before merge admission."""
+    """Keep the operator-selected control plane for merge admission.
+
+    Git, the filesystem, and machine GitHub authorization stay local.
+    Database authority uses the already-authenticated dispatcher: a local
+    Postgres connection stays local, and an HTTPS product connection stays
+    HTTPS. Ordinary hosted merge does not substitute a paired admin sibling.
+    Source-dev self-maintenance keeps an explicitly selected admin connection
+    because that selection is already local Postgres. Local Postgres still
+    proves reachability before the engine loads; HTTPS does not probe a tunnel.
+    """
 
     try:
-        config = machine_config.load_config()
         selected = machine_config.active_env()
         connection = machine_config.active_connection()
     except (machine_config.MachineConfigError, MachineConfigContractError) as exc:
@@ -204,50 +213,34 @@ def same_universe_control_plane_authority() -> Iterator[tuple[str, str]]:
         ) from exc
     transport = str(connection.get("transport") or "").strip()
     if transport in POSTGRES_TRANSPORTS:
+        _confirm_selected_control_plane(selected)
         yield selected, selected
         return
-    if transport != TRANSPORT_HTTPS:
-        raise LocalMergeControlPlaneAuthorityError(
-            f"local merge requires local Postgres before QA admission; "
-            f"connected env {selected!r} uses unsupported transport {transport!r}"
-        )
-    authority = same_universe_db_admin_env(config, selected)
-    if not authority:
-        raise LocalMergeControlPlaneAuthorityError(
-            f"local merge requires same-universe local Postgres before QA "
-            f"admission; connected env {selected!r} uses HTTPS but has no "
-            f"configured {selected + DB_ADMIN_ENV_SUFFIX!r} sibling"
-        )
-    previous = os.environ.get(ENV_OVERRIDE)
-    os.environ[ENV_OVERRIDE] = authority
-    try:
-        _confirm_selected_control_plane(authority)
-        yield selected, authority
-    finally:
-        if previous is None:
-            os.environ.pop(ENV_OVERRIDE, None)
-        else:
-            os.environ[ENV_OVERRIDE] = previous
+    if transport == TRANSPORT_HTTPS:
+        yield selected, selected
+        return
+    raise LocalMergeControlPlaneAuthorityError(
+        f"local merge requires a configured HTTPS or local Postgres "
+        f"control plane; connected env {selected!r} uses unsupported "
+        f"transport {transport!r}"
+    )
 
 
 def run(argv: List[str]) -> int:
     """Load the engine under its GitHub and control-plane authorities."""
 
+    if _help_requested(argv):
+        merge_cli = importlib.import_module(
+            "yoke_core.domain.standalone_item_merge_cli"
+        )
+        return int(merge_cli.main(argv))
+
     with machine_github_user_authority():
         claim_lookup = _work_claim_lookup(argv)
-        with same_universe_control_plane_authority() as (selected, authority):
-            if selected != authority:
-                print(
-                    f"[phase:authority] control plane: {selected} -> {authority}",
-                    file=sys.stderr,
-                    flush=True,
-                )
+        with same_universe_control_plane_authority() as (selected, _authority):
             merge_cli = importlib.import_module(
                 "yoke_core.domain.standalone_item_merge_cli"
             )
-            # The override above governs merge admission. Close-out
-            # semantics belong to the connection the operator selected,
-            # so name it for the engine before the merge starts.
             close_out = importlib.import_module(
                 "yoke_core.domain.close_out_control_plane_authority"
             )

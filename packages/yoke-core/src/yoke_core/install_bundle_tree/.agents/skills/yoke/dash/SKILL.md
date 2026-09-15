@@ -29,6 +29,7 @@ function-call envelope:
 | `workflow.execution_instruction.resolve` | Global target; named workflow and project; read-only matching instructions | `yoke workflow execution-instruction resolve --workflow W --project P` |
 | `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
 | `github.merge_queue.readiness` | Item target; empty payload; reads PR and target-branch queue without mutation | `yoke github merge-queue readiness ITEM --json` |
+| `github.merge_queue.hold` | Item target; empty payload; clears merge-when-ready, removes the queue entry, and verifies both before a correction is pushed | `yoke github merge-queue hold ITEM --json` |
 | `claims.work.acquire` | Item target; `reason` | `yoke claims work acquire --item ITEM --reason TEXT` |
 | `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
 | `items.structured_field.section_upsert` | Item target; a posture-enabled File Budget section | `yoke items structured-field section-upsert ITEM --section "File Budget" ...` |
@@ -39,7 +40,7 @@ function-call envelope:
 | `qa.requirement.list` | Item target; empty payload — the materialized requirement ids | `yoke qa requirement list --item ITEM --json` |
 | `qa.requirement.add` | Item target; selected method, executable case contract, and workflow transition | `yoke qa requirement add --item ITEM ...` |
 | `lifecycle.transition.execute` | Item target; `source_status`, `target_status`, and `reason` | `yoke lifecycle transition ITEM --from STATUS --to STATUS --reason TEXT` |
-| `deployment_runs.start_for_item` | Item target; selected/default flow and merged release lineage | `yoke --env <control-plane>-db-admin deployment-runs start-for-item ITEM ...` |
+| `deployment_runs.start_for_item` | Item target; selected/default flow and merged release lineage | `yoke --env <control-plane> deployment-runs start-for-item ITEM ...`; use paired `*-db-admin` only for a serving-API self-deploy |
 | `direct_workflow.dash.evidence` | `result_summary`, `verification_summary`, `verification_status`, `commit_sha`, `merge_sha`, `touched_files`, and `no_changes` | `yoke direct-workflow dash evidence ITEM ...` |
 | `claims.work.release` | Current item or claim target; `reason` | `yoke claims work release --item ITEM --reason TEXT` |
 | `direct_workflow.dash.escalate` | `issue_title`, `findings`, and optional `priority` | `yoke direct-workflow dash escalate ITEM ...` |

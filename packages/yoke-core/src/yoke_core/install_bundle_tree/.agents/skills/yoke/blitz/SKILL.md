@@ -51,15 +51,16 @@ yoke direct-workflow worktree prepare ITEM --workflow blitz
 yoke watch merge --print-streaming-pair merge-item -- ITEM --skip-status --wait
 ```
 
-The first delegates to the local engine worktree preflight. The second is
-the standalone-item merge boundary shared with Dash. Its watcher reads the
-caller's manifest capability and current reachability: a verified route gets
-the background subscription, while no route or an unknown answer stays
-in-turn. Inspect queue liveness with `yoke github merge-queue readiness ITEM
---json`, never a bare automerge field. Non-queue routes still land inline.
-Each command has no registered
-`direct_workflow.*` function id —
-use them verbatim; do not invent function ids for them. Contract:
+The first delegates to the local engine worktree preflight. The second is the
+standalone-item merge boundary shared with Dash. With `--print-streaming-pair`
+its watcher prints — and never runs — the shape the caller's manifest
+capability selects: a verified route gets the background subscription, while
+no route or an unknown answer gets one foreground invocation you run. Inspect
+queue liveness with `yoke github merge-queue readiness ITEM --json`, never a
+bare automerge field, and clear a live candidate with
+`yoke github merge-queue hold ITEM` before correcting it. Non-queue routes
+still land inline. Each command has no registered `direct_workflow.*` function
+id — use them verbatim; do not invent function ids for them. Contract:
 [`docs/archive/decisions/standalone-item-merge.md`](../../../../docs/archive/decisions/standalone-item-merge.md).
 
 ## Input and invariants
@@ -221,8 +222,8 @@ For each slice:
    selection (`yoke watch pytest --impacted main --bounded` here, which
    reports an unbounded selection instead of widening; for a project
    declaring `ci_workflow_file` it runs on that CI against the pushed
-   lane commit, so commit before running it, and `--local` runs it on
-   this machine instead). When a slice has an
+   lane commit, so commit and let CI run it; `--local` is only a small
+   targeted check expected to finish in about one minute). When a slice has an
    attached Command case, that case run is the slice's one full execution:
    do not run the project's full sweep by hand and then hand the same tree to
    `yoke qa case run`, which re-runs the identical registered command. It
@@ -256,10 +257,10 @@ For each slice:
    yoke watch merge --print-streaming-pair merge-item -- ITEM --skip-status --wait --json
    ```
 
-   Follow the reported wait mode. Only a verified `background-wake` route may
-   release to its one subscription; `in-turn` already blocks until the landing
-   finishes and expects no later completion notice. Continue only once the
-   response carries `merge_sha`. A
+   Run the printed command; that run is the merge. Only a verified
+   `background-wake` route may release to its one subscription; the `in-turn`
+   command blocks until the landing finishes and expects no later completion
+   notice. Continue only once the response carries `merge_sha`. A
    queue-declared project keeps all registered lanes until the item is done.
    Only a project using the local merge engine needs to re-prepare the lane
    before the next slice, because that engine's cleanup deletes the landed

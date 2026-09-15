@@ -66,13 +66,6 @@
   text-transform: uppercase;
 }
 
-/* A partial figure is dimmed rather than hidden: it is still the best answer
-   available, and the trailing mark plus this weight say so without costing
-   the row a word of explanation. */
-.universe-app-root .usage-stat.is-partial .usage-stat-value {
-  color: color-mix(in srgb, var(--yoke-ink) 55%, transparent);
-}
-
 @media (max-width: 760px) {
   .universe-app-root .usage-stats {
     flex-wrap: wrap;

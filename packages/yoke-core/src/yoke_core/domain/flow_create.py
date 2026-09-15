@@ -16,6 +16,10 @@ from yoke_core.domain.deployment_flow_state import (
     FLOW_STATUS_ACTIVE,
     validate_flow_status,
 )
+from yoke_core.domain.deployment_flow_target_support import (
+    require_provable_qa_identity,
+    require_supported_stage_targets,
+)
 from yoke_core.domain.deployment_flow_policy import (
     definition_schema_version,
     require_supported_definition_schema,
@@ -57,6 +61,16 @@ def cmd_create(
     if normalized_status == FLOW_STATUS_ACTIVE:
         require_supported_definition_schema(
             schema_version, operation="activating this deployment flow"
+        )
+        require_supported_stage_targets(
+            stages_json,
+            operation="activating this deployment flow",
+        )
+        require_provable_qa_identity(
+            stages_json,
+            operation="activating this deployment flow",
+            conn=conn,
+            project=project,
         )
     validate_stage_references(conn, project=project, stages_json=stages_json)
     target_environment_id = resolve_flow_target(

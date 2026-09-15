@@ -84,6 +84,14 @@ def require_runtime_target(target: Mapping[str, Any]) -> None:
     """Refuse cross-environment dispatch in hosted Stage and Production."""
     if is_project_execution_target(target):
         return
+    from yoke_core.domain.deployment_qa_execution_target import (
+        is_deployment_execution_target,
+    )
+
+    if is_deployment_execution_target(target):
+        # Deployment QA records remain on the connected control plane while
+        # cases intentionally observe a different deployed target.
+        return
     environment = target.get("environment")
     if not isinstance(environment, Mapping):
         raise QaExecutionTargetError("QA execution target has no environment identity")

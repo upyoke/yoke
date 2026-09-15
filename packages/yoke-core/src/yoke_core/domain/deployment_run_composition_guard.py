@@ -44,8 +44,32 @@ def mutable_field_refusal(
     return None
 
 
+def terminal_run_refusal(
+    run_id: str, status: str, *, advancing_to: str, action: str
+) -> Optional[str]:
+    """Refuse a write that would advance a cancelled run.
+
+    Only ``cancelled`` is a deliberate, final stop: an operator (or the
+    pipeline itself) means "this work is superseded, do not continue."
+    ``failed`` is not the same guarantee -- reactivating a failed run back
+    to ``executing`` is an established, tested retry-in-place recovery
+    path (composition freeze is already idempotent for exactly this: see
+    :func:`deployment_run_composition_freeze.freeze_run_composition`), and
+    ``succeeded`` evidence keeps flowing in (post-deploy QA, bookkeeping)
+    after the pipeline itself marks the run done. Rewriting the SAME
+    already-cancelled value is a harmless no-op, not an attempted revival.
+    """
+    if status != "cancelled" or advancing_to == status:
+        return None
+    return (
+        f"Error: deployment run '{run_id}' is cancelled; a cancelled run "
+        f"cannot {action}"
+    )
+
+
 __all__ = [
     "frozen_mutation_refusal",
     "has_frozen_composition",
     "mutable_field_refusal",
+    "terminal_run_refusal",
 ]

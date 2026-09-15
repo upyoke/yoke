@@ -115,9 +115,16 @@ def _remove_lane(ctx: MergeContext) -> None:
             return
 
     _chdir_out_of_doomed_worktree(ctx)
+    from yoke_core.engines.lane_residue_declared_paths import (
+        declared_disposable_roots_for_project,
+    )
     from yoke_core.engines.merge_worktree_cleanliness import clear_lane_residue
 
-    residue = clear_lane_residue(_run_git, ctx.worktree_path)
+    residue = clear_lane_residue(
+        _run_git,
+        ctx.worktree_path,
+        declared_disposable_roots_for_project(ctx.project),
+    )
     if not residue.disposable:
         _print(
             f"WARNING: Preserving worktree {ctx.worktree_path}: {residue.reason}",
@@ -150,7 +157,13 @@ def do_local_merge(ctx: MergeContext) -> int:
     _run_git = mw._run_git
 
     _print("")
-    _print("Local merge mode \u2014 skipping push/PR/CI pipeline.")
+    if ctx.args.standalone:
+        _print(
+            "Local Git integration — landing onto local "
+            f"{ctx.args.target}; publication and CI belong to the outer merge."
+        )
+    else:
+        _print("Local merge mode \u2014 skipping push/PR/CI pipeline.")
 
     _print(f"Merging {ctx.args.branch} into local {ctx.args.target}...")
     _run_git(["checkout", ctx.args.target], cwd=ctx.repo_root, capture=True)

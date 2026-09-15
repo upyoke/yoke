@@ -103,9 +103,6 @@ def _request(
 def _materialize_mission(conn: Any, *, item_id: int) -> int:
     create_governed_tables(conn)
     sync_machine_qa_pack_methods(conn)
-    conn.execute(
-        "INSERT INTO project_capabilities(project_id,type) VALUES(1,'browser-control')"
-    )
     plan = create_plan(
         conn,
         project="yoke",

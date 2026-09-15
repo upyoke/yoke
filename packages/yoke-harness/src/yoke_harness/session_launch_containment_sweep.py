@@ -9,6 +9,11 @@ outlives the registration deadline names such a process, and this reaps it.
 Delivery removes the record, so a native that registered and read its mandate
 is never in scope here: it has authority, and watching it for death is the
 relay liveness poll's job through the launch handle.
+
+Detached resumes are supervised on a different question — not whether they
+have authority but whether they are still working — so they are contained for
+going quiet or for no longer being the process the record names, and never for
+elapsed time. See ``docs/archive/decisions/resume-custody-reads-activity-not-age.md``.
 """
 
 from __future__ import annotations
@@ -22,10 +27,7 @@ import time
 
 from yoke_contracts.organization_contract.fleet_keys import FLEET_KEY_SPECS
 from yoke_contracts.process_ancestry import process_start_time
-from yoke_contracts.session_control.resume import (
-    RESUME_INACTIVITY_SECONDS,
-    RESUME_RUNAWAY_SECONDS,
-)
+from yoke_contracts.session_control.resume import RESUME_INACTIVITY_SECONDS
 from yoke_harness.session_launch_containment import (
     MAX_RECORD_BYTES,
     supervised_records,
@@ -99,27 +101,39 @@ def contain_stranded_launch_natives(
             kind = "launch"
         reason = "registration_timeout"
         if kind == "resume":
-            activity_at = payload.get("last_activity_at")
-            last_activity = float(activity_at) if isinstance(activity_at, int) else 0.0
-            capture_path = payload.get("capture_path")
-            if isinstance(capture_path, str) and capture_path:
-                try:
-                    last_activity = max(
-                        last_activity, Path(capture_path).stat().st_mtime
-                    )
-                except OSError:
-                    pass
-            runaway = current - recorded_at >= RESUME_RUNAWAY_SECONDS
-            inactive = current - last_activity >= RESUME_INACTIVITY_SECONDS
-            if not runaway and not inactive:
+            # A resume is judged on whether it is still working, never on how
+            # long it has been at it: the record's own age says nothing about
+            # the turn, and reaping on it killed live workers mid-task.
+            if current - _resume_activity_at(payload) < RESUME_INACTIVITY_SECONDS:
                 continue
-            reason = "runaway" if runaway else "inactivity"
+            reason = "inactivity"
         elif current - recorded_at < ttl_seconds:
             continue
         outcome = _contain_payload(path, payload, kind=kind, reason=reason)
         if outcome is not None:
             outcomes.append(outcome)
     return outcomes
+
+
+def _resume_activity_at(payload: dict[str, object]) -> float:
+    """The newest moment this resume proved it was alive.
+
+    Two facts carry that proof, and both are written by the native itself:
+    the custody stamp each of its hooks refreshes, and the mtime of the
+    capture its output lands in. Absent or unreadable evidence never stands
+    in for activity — it leaves the epoch floor in place, so a resume that can
+    prove nothing is contained on the next sweep rather than living forever
+    behind a missing file.
+    """
+    activity_at = payload.get("last_activity_at")
+    latest = float(activity_at) if isinstance(activity_at, int) else 0.0
+    capture_path = payload.get("capture_path")
+    if isinstance(capture_path, str) and capture_path:
+        try:
+            latest = max(latest, Path(capture_path).stat().st_mtime)
+        except OSError:
+            pass
+    return latest
 
 
 def contain_launch_native(

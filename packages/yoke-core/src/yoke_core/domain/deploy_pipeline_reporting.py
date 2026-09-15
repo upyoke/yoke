@@ -51,9 +51,7 @@ def _github_actions(
     # source-dev/operator bootstraps use the same typed adapter with a
     # narrow local-only dispatcher.
     del sd
-    local_authority = os.environ.get(
-        GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV, ""
-    ).strip()
+    local_authority = os.environ.get(GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV, "").strip()
     explicit_relay_env = os.environ.get(GITHUB_ACTIONS_RELAY_ENV, "").strip()
     if explicit_relay_env and local_authority:
         return subprocess.CompletedProcess(
@@ -94,10 +92,7 @@ def _github_actions(
                 args=list(args),
                 returncode=poll_authority.TRANSPORT_FAILURE_RETURNCODE,
                 stdout="",
-                stderr=(
-                    "Error: https GitHub Actions relay is misconfigured: "
-                    f"{exc}\n"
-                ),
+                stderr=(f"Error: https GitHub Actions relay is misconfigured: {exc}\n"),
             )
     if relay_env and https is None:
         return subprocess.CompletedProcess(
@@ -126,15 +121,19 @@ def _github_actions(
             timeout=timeout,
         )
     if not local_authority:
+        detail = f" ({relay_source})" if relay_source else ""
         return subprocess.CompletedProcess(
             args=list(args),
             returncode=poll_authority.TRANSPORT_FAILURE_RETURNCODE,
             stdout="",
             stderr=(
-                "Error: no GitHub Actions authority selected; set "
-                f"{GITHUB_ACTIONS_RELAY_ENV}=<https-env> for the project's "
-                "own control plane (the https sibling of an owner-only "
-                "*-db-admin connection), or "
+                "Error: no GitHub Actions authority selected; this "
+                f"machine's active connection did not resolve one{detail}. "
+                "An ordinary active HTTPS connection (`yoke connection set "
+                "<env> --api-url ...`) is normally enough, or set "
+                f"{GITHUB_ACTIONS_RELAY_ENV}=<https-env> explicitly (the "
+                "https sibling of an owner-only *-db-admin connection also "
+                "works), or "
                 f"{GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV}=1 for an attended "
                 "control-plane bootstrap\n"
             ),
@@ -156,43 +155,9 @@ def _github_actions(
 def _resolve_script_dir() -> str:
     from yoke_core.api.repo_root import find_repo_root
 
-    return str(find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts")
-
-
-class DeployPipelineCommandError(RuntimeError):
-    """A pipeline db_router / flow / project command exited non-zero."""
-
-
-def _require_cmd_ok(
-    r: subprocess.CompletedProcess, *, argv: List[str],
-) -> str:
-    if r.returncode != 0:
-        detail = (r.stderr or r.stdout or "").strip() or "(no output)"
-        raise DeployPipelineCommandError(
-            f"pipeline command {argv!r} failed (exit {r.returncode}): {detail}"
-        )
-    return r.stdout.strip()
-
-
-def _yoke_db(*args: str, sd: Optional[str] = None) -> str:
-    # Route through the Python db_router entrypoint. A non-zero exit is a
-    # hard failure — swallowing stderr here is how a missed item stamp
-    # used to print as success.
-    del sd
-    argv = [sys.executable, "-m", "yoke_core.cli.db_router", *args]
-    return _require_cmd_ok(_run_cmd(argv), argv=argv)
-
-
-def _flow_db(*args: str, sd: Optional[str] = None) -> str:
-    del sd
-    argv = [sys.executable, "-m", "yoke_core.domain.flow", *args]
-    return _require_cmd_ok(_run_cmd(argv), argv=argv)
-
-
-def _project_db(*args: str, sd: Optional[str] = None) -> str:
-    del sd
-    argv = [sys.executable, "-m", "yoke_core.domain.projects", *args]
-    return _require_cmd_ok(_run_cmd(argv), argv=argv)
+    return str(
+        find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"
+    )
 
 
 def _parse_stages(stages_json: str) -> List[Dict[str, Any]]:
@@ -216,6 +181,7 @@ def _parse_stages(stages_json: str) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Dual-write deploy_stage
 # ---------------------------------------------------------------------------
+
 
 def _set_deploy_stage(
     stage: str,
@@ -283,7 +249,11 @@ def _poll_github_actions(
             return 1, f"Error: GitHub Actions poll timed out after {timeout_sec}s"
 
         r = _github_actions(
-            "poll", github_repo, run_id, project=project, sd=sd,
+            "poll",
+            github_repo,
+            run_id,
+            project=project,
+            sd=sd,
         )
         output = r.stdout.strip()
         stderr = (r.stderr or "").strip()
@@ -317,9 +287,7 @@ def _poll_github_actions(
                     f"{stderr or output}"
                 )
             elif poll_authority.should_report(transport_retries):
-                print(
-                    poll_authority.stall_message(run_id, transport_retries)
-                )
+                print(poll_authority.stall_message(run_id, transport_retries))
             time.sleep(interval)
         else:
             unclassified_retries += 1

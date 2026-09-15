@@ -4,7 +4,8 @@ Extracted from ``doctor_hc_meta`` to keep that module under the file-line cap.
 This sibling owns the backlog-quality and schema-validation HCs:
 
 - ``hc_frontmatter_schema`` — backlog frontmatter schema validation.
-- ``hc_title_length`` — per-project title limits (items + epic tasks).
+- ``hc_title_length`` — configured per-project title-limit settings below
+  the minimum.
 - ``hc_backlog_quality`` — stale ideas, short titles, missing bodies.
 - ``hc_epic_validation`` — per-epic DB validation (task numbering, statuses).
 
@@ -18,10 +19,11 @@ import re
 from pathlib import Path
 from typing import List
 
-from yoke_contracts.title_policy import title_max_length
+from yoke_contracts.title_policy import title_max_length_setting_error
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.project_policy_capabilities import project_policy_value
 from yoke_core.domain.idea_body_completeness import is_idea_body_incomplete
 from yoke_core.domain.item_workflow_validation import (
     invalid_item_workflow_stages,
@@ -78,72 +80,22 @@ def hc_frontmatter_schema(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         rec.record("HC-frontmatter-schema", "Backlog frontmatter schema", "PASS", "")
 
 
-def _project_title_limits(conn) -> dict:
-    """Each project's effective title limit, keyed by project id."""
-    return {
-        int(row["id"]): title_max_length(int(row["id"]))
-        for row in query_rows(conn, "SELECT id FROM projects")
-    }
-
-
 def hc_title_length(conn, args: DoctorArgs, rec: RecordCollector) -> None:
-    """HC-title-length: titles longer than their project's limit."""
+    """HC-title-length: a project's configured title limit below the minimum.
+
+    Reuses the same validator the settings-save path enforces, so a stored
+    value can only be flagged here by writing around that path (a direct
+    DB edit, or a value stored before the minimum existed).
+    """
     issues: List[str] = []
-    limits = _project_title_limits(conn)
-    # The scan prefilters at the smallest limit any project resolves to, so
-    # a project with a tighter limit than its neighbours still has every
-    # over-length row read back and judged against its own number.
-    floor = min(limits.values(), default=title_max_length())
-
-    def _limit_for(row) -> int:
-        """A task whose parent item is missing still gets judged, at the floor."""
-        return limits.get(row["project_id"], floor)
-
-    def _over(row) -> bool:
-        return int(row["title_len"]) > _limit_for(row)
-
-    placeholder = _p(conn)
-    item_rows = [
-        row
-        for row in query_rows(
-            conn,
-            "SELECT id, project_id, length(title) AS title_len "
-            f"FROM items WHERE length(title) > {placeholder} "
-            "ORDER BY length(title) DESC",
-            (floor,),
-        )
-        if _over(row)
-    ]
-    if item_rows:
-        labels = "\n".join(
-            f"{render_item_ref(conn, int(r['id']))} ({r['title_len']} chars, "
-            f"limit {_limit_for(r)})"
-            for r in item_rows
-        )
-        issues.append(f"{len(item_rows)} item(s) over the title limit:\n{labels}")
-
-    task_rows = [
-        row
-        for row in query_rows(
-            conn,
-            "SELECT t.epic_id, t.task_num, i.project_id, "
-            "length(t.title) AS title_len "
-            "FROM epic_tasks t LEFT JOIN items i ON i.id = t.epic_id "
-            f"WHERE length(t.title) > {placeholder} "
-            "ORDER BY length(t.title) DESC",
-            (floor,),
-        )
-        if _over(row)
-    ]
-    if task_rows:
-        labels = "\n".join(
-            f"Epic {r['epic_id']} task {r['task_num']} ({r['title_len']} chars, "
-            f"limit {_limit_for(r)})"
-            for r in task_rows
-        )
-        issues.append(
-            f"{len(task_rows)} epic task(s) over the title limit:\n{labels}"
-        )
+    for row in query_rows(conn, "SELECT id FROM projects ORDER BY id"):
+        project_id = int(row["id"])
+        configured = project_policy_value(conn, project_id, "title_max_length")
+        if configured is None:
+            continue
+        error = title_max_length_setting_error(configured)
+        if error:
+            issues.append(f"- project {project_id}: {error}")
 
     if issues:
         rec.record(

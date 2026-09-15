@@ -2,9 +2,8 @@
 
 from pathlib import Path
 
-from yoke_core.domain import db_helpers
 from yoke_core.domain.deploy_core_container_image import CoreDeployError
-from yoke_core.domain.project_checkout_locations import checkout_for_project
+from yoke_core.domain.project_checkout_locations import checkout_for_project_slug
 
 
 def project_source_root(project: str, repo_path: str | Path = "") -> Path:
@@ -13,11 +12,7 @@ def project_source_root(project: str, repo_path: str | Path = "") -> Path:
     if repo_path:
         root = Path(repo_path).expanduser().resolve()
     else:
-        conn = db_helpers.connect()
-        try:
-            checkout = checkout_for_project(conn, project)
-        finally:
-            conn.close()
+        checkout = checkout_for_project_slug(project)
         if checkout is None:
             raise CoreDeployError(
                 f"[core-deploy] project {project!r} has no machine-local checkout; "

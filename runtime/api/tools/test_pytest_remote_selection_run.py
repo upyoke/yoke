@@ -18,7 +18,12 @@ from yoke_core.tools import pytest_remote_selection_run as engine
 
 def _run(monkeypatch, *, conclusion: str, publish_ok=True, dispatched=("42", engine.DISPATCHED)):
     seen: dict = {}
-    monkeypatch.setattr(engine, "publish", lambda root, branch, head: publish_ok)
+    monkeypatch.setattr(
+        engine, "publish", lambda root, branch, head, **_kw: publish_ok
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.qa_case_ci_entry_run.base_branch", lambda _p, _r: "main"
+    )
     monkeypatch.setattr(engine, "dispatch", lambda **kwargs: dispatched)
     monkeypatch.setattr(engine, "await_conclusion", lambda **kwargs: conclusion)
     monkeypatch.setattr(

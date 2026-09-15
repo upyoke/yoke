@@ -8,7 +8,8 @@ projects, even when one project has several document seats):
 yoke watch fleet --print-streaming-pair -- --project {_project}
 ```
 
-Use the existing returned `wait_mode` and reason. The selector reads the
+That call only prints — it starts no watcher. Read the returned `wait_mode`
+and reason, then run the printed command exactly once. The selector reads the
 calling harness's declared wake capability and the relay marker a headless
 worker carries — its launch context on the turn the relay started, its
 resume-attempt id on every turn the relay restarted after that one. Native
@@ -19,7 +20,7 @@ background notifications.
 
 - `background-wake`: arm the printed background command and native subscription
   once, using only the mechanism declared for this harness.
-- `in-turn`: the invocation already runs the watcher in this turn. Keep its
+- `in-turn`: run the printed foreground invocation in this turn. Keep its
   tool stream attached and handle incoming work without ending the turn.
 
 <!-- YOKE:HARNESS claude start -->

@@ -140,8 +140,16 @@ def test_short_workflows_make_coverage_holes_and_closures_explicit():
     blitz = _gate_pairs("blitz")
     dash = _gate_pairs("dash")
 
-    assert not any(gate == "path_claim_boundary" for _, gate in blitz)
-    assert not any(gate == "path_claim_boundary" for _, gate in dash)
+    # The shared release stage is the one place both short workflows gate
+    # on a live path claim, ahead of the deployment flow it waits on.
+    assert not any(
+        gate == "path_claim_boundary" for stage, gate in blitz if stage != "release"
+    )
+    assert not any(
+        gate == "path_claim_boundary" for stage, gate in dash if stage != "release"
+    )
+    assert ("release", "path_claim_boundary") in blitz
+    assert ("release", "path_claim_boundary") in dash
     assert not any(
         stage == "refining-idea" and gate == "db_mutation" for stage, gate in dash
     )

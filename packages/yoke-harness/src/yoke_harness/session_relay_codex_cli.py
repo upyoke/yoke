@@ -18,6 +18,7 @@ from yoke_harness.session_relay_codex_invocation import (
     codex_base_command,
     codex_launch_environment,
 )
+from yoke_harness.session_relay_environment import strip_relay_owned_python_state
 from yoke_harness.session_relay_detached_worker import MAX_HANDOFF_BYTES
 from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 from yoke_harness.session_relay_inventory import (
@@ -172,7 +173,7 @@ class CodexCliTransport:
             process = subprocess.Popen(
                 command,
                 cwd=request.checkout,
-                env=codex_launch_environment(request),
+                env=strip_relay_owned_python_state(codex_launch_environment(request)),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

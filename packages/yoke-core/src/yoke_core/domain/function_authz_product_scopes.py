@@ -56,6 +56,10 @@ PRODUCT_AUTHZ_BY_ID = {
     "project.snapshot.ensure_at": AuthzSpec(PROJECT, PERM_PROJECT_INSTALL),
     "done_transition.finalize_local_side_effects": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "done_transition.populate_merged_at": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
+    # The closeout's owner delivery notice: a project-scoped write about an
+    # item, gated like the other done-transition writes rather than falling
+    # through to the side-effecting DENY default.
+    "done_transition.delivery_done_notice": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_receipt.record": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_receipt.get": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "merge_queue.landing.observe": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
@@ -127,6 +131,35 @@ PRODUCT_AUTHZ_BY_ID = {
     "workflow.execution_instruction.delete": AuthzSpec(ORG, PERM_ORG_ADMIN),
     "workflow.execution_instruction.resolve": AuthzSpec(ACTOR_SESSION, None),
     "workflow.execution_instruction.list": AuthzSpec(ACTOR_SESSION, None),
+    # Deployment definitions remain organization-administered, while a
+    # project's owner may create and drive only that project's run rows.
+    "deployment_runs.create": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.start_for_item": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.continue_for_item": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.resolve_target": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.get": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "deployment_runs.stages": AuthzSpec(PROJECT, PERM_ITEMS_READ),
+    "deployment_runs.approve": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.stage_approval.evaluate": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.context": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.update": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.ephemeral_qa_ready": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN
+    ),
+    "deployment_runs.execution.qa_seed": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.qa_record": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.qa_pending": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.execution.stage_receipt_allocate": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN
+    ),
+    "deployment_runs.execution.stage_receipt_complete": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN
+    ),
+    "deployment_runs.execution.stage_receipt_latest": AuthzSpec(
+        PROJECT, PERM_PROJECT_ADMIN
+    ),
+    "deployment_runs.qa_stage.dispatch": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
+    "deployment_runs.qa_stage.resume_refusals": AuthzSpec(PROJECT, PERM_PROJECT_ADMIN),
     "qa.case.waive": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.case_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),
     "qa.plan_execution.begin": AuthzSpec(PROJECT, PERM_ITEMS_WRITE),

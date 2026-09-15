@@ -16,6 +16,11 @@ from __future__ import annotations
 
 from typing import Dict, Tuple
 
+from yoke_contracts.title_policy import (
+    DEFAULT_TITLE_MAX_LENGTH,
+    TITLE_MAX_LENGTH_MINIMUM,
+)
+
 # The two capability rows that carry DB-owned project configuration. Named
 # here so the machine-settings registry can point at the real authority
 # without importing upward into the core package.
@@ -23,6 +28,11 @@ PROJECT_POLICY_CAPABILITY = "project-policy"
 SESSION_ROUTING_CAPABILITY = "session-routing"
 
 RECOGNIZED_PROJECT_KEYS: Dict[str, Tuple[str, str]] = {
+    "title_max_length": (
+        str(DEFAULT_TITLE_MAX_LENGTH),
+        "title character limit enforced on item/epic-task creation and "
+        f"title edits (minimum {TITLE_MAX_LENGTH_MINIMUM})",
+    ),
     "base_branch": (
         "main",
         "trunk branch worktrees branch from and merges land on",

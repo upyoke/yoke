@@ -14,6 +14,9 @@ from dataclasses import dataclass
 from typing import Any, Mapping, MutableMapping, Sequence
 
 from yoke_contracts.board.policy_settings import board_settings_defaults
+from yoke_contracts.project_contract.disposable_generated_paths_policy import (
+    DISPOSABLE_GENERATED_PATHS_DEFAULT,
+)
 from yoke_contracts.project_contract.project_keys import (
     LOCAL_PROJECT_KEYS,
     PROJECT_POLICY_CAPABILITY,
@@ -31,6 +34,7 @@ from yoke_core.domain.project_session_routing_defaults import (
 
 _INT_POLICY_KEYS = frozenset(
     {
+        "title_max_length",
         "wip_cap",
         "merge_conflict_threshold",
         "max_attempts",
@@ -94,6 +98,7 @@ def project_policy_defaults(
     if resolved_base_branch:
         defaults["base_branch"] = resolved_base_branch
     defaults["board"] = board_settings_defaults()
+    defaults["disposable_generated_paths"] = list(DISPOSABLE_GENERATED_PATHS_DEFAULT)
     return defaults
 
 

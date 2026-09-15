@@ -59,9 +59,14 @@ class DispatchIntent:
     workflow_run_id: str
     run_url: Optional[str]
     html_url: Optional[str]
+    #: The exact inputs this attempt's POST carried, already durably stored
+    #: at claim time — a recovering caller reads what was actually bound
+    #: rather than re-resolving and risking a changed logical request.
+    inputs: Mapping[str, str]
 
 
 def _row_to_intent(row: Any) -> DispatchIntent:
+    raw_inputs = json_helper.loads_text(str(row[10] or "{}"))
     return DispatchIntent(
         request_id=str(row[0]),
         attempt=int(row[1]),
@@ -73,6 +78,7 @@ def _row_to_intent(row: Any) -> DispatchIntent:
         workflow_run_id=str(row[7] or ""),
         run_url=str(row[8]) if row[8] else None,
         html_url=str(row[9]) if row[9] else None,
+        inputs=raw_inputs if isinstance(raw_inputs, dict) else {},
     )
 
 
@@ -85,7 +91,7 @@ def latest_intent(request_id: str) -> Optional[DispatchIntent]:
             row = conn.execute(
                 f"SELECT request_id, attempt, actor_id, authorization_scope, "
                 "payload_checksum, correlation_id, state, workflow_run_id, "
-                f"run_url, html_url FROM {INTENT_TABLE} "
+                f"run_url, html_url, inputs FROM {INTENT_TABLE} "
                 "WHERE request_id = %s ORDER BY attempt DESC LIMIT 1",
                 (request_id,),
             ).fetchone()
@@ -203,6 +209,7 @@ def complete_intent(
         workflow_run_id=workflow_run_id,
         run_url=run_url,
         html_url=html_url,
+        inputs=intent.inputs,
     )
 
 

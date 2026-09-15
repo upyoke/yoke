@@ -7,6 +7,9 @@ from datetime import datetime, timezone
 from typing import Any, TextIO
 
 from yoke_contracts.session_control.liveness import ENDED_CAUSE_KILLED
+from yoke_contracts.session_control.terminal_report import (
+    COLLAPSED_DIFFERING_BODY_NOTICE,
+)
 from yoke_cli.commands.adapters.session_control_attempt_output import (
     write_attempts,
 )
@@ -281,6 +284,8 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
             actor_recipients=result.get("actor_recipients") or [],
             steering_recipient=result.get("steering_recipient"),
         )
+        if result.get("collapsed_differing_body"):
+            print(COLLAPSED_DIFFERING_BODY_NOTICE, file=stdout)
         if message_id:
             print(f"Track delivery: yoke messages get {message_id}", file=stdout)
         return

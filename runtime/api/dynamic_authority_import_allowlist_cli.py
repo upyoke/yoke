@@ -98,8 +98,9 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.connected_env_readiness",
     ): (
         "machine_local_connection_custody",
-        "prove the selected control plane is reachable before the merge runs "
-        "under it, so a dead SSH forward refuses instead of failing mid-merge",
+        "prove selected local Postgres is reachable before the merge runs "
+        "under it, so a dead SSH forward refuses instead of failing mid-merge; "
+        "HTTPS merge stays on authenticated dispatch and does not probe",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",
@@ -113,9 +114,9 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "yoke_core.domain.close_out_control_plane_authority",
     ): (
         "client_local_execution",
-        "name the operator's connection for the engine before the merge "
-        "override replaces it, so close-out semantics stay with the control "
-        "plane rather than with whichever engine build this child imported",
+        "name the operator's selected connection for close-out so semantics "
+        "stay with that control plane rather than with whichever engine this "
+        "child imported",
     ),
     (
         "packages/yoke-cli/src/yoke_cli/transport/local_github_dispatch.py",
@@ -232,6 +233,13 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
     ): (
         "client_local_diagnostics",
         "stdin prose-vs-claim detection needs no control-plane DB",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/pulumi_stack_config_loader.py",
+        "yoke_core.domain.project_renderer_settings_snapshot",
+    ): (
+        "local_engine_activation",
+        "local-postgres aggregate renderer settings use the installed engine",
     ),
 }
 

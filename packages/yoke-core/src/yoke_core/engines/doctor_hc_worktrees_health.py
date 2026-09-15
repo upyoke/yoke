@@ -22,6 +22,7 @@ from yoke_core.engines.merge_landed_lane_cleanup import (
     assess_landed_lane,
     prune_landed_lane,
 )
+from yoke_core.engines.lane_residue_declared_paths import declared_disposable_roots
 from yoke_core.engines.merge_worktree_cleanliness import assess_lane_residue
 from yoke_core.engines.merge_prune_authority import (
     item_cleanup_authority_blocks_prune,
@@ -78,7 +79,9 @@ def _worktree_entries(porcelain: str) -> List[dict]:
         elif line.startswith("branch "):
             current["branch"] = line[len("branch ") :].removeprefix("refs/heads/")
         elif line == "locked" or line.startswith("locked "):
-            current["locked"] = line.removeprefix("locked").strip() or "no reason recorded"
+            current["locked"] = (
+                line.removeprefix("locked").strip() or "no reason recorded"
+            )
         elif line == "" and current:
             entries.append(current)
             current = {}
@@ -136,10 +139,13 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
             continue
         root = str(repo_root or Path(wt_path).parents[1])
 
-        # Named ignored caches are disposable; anything else is lane content.
+        # Named or project-declared ignored caches are disposable; anything
+        # else is lane content.
         residue = None
         if Path(wt_path).is_dir():
-            residue = assess_lane_residue(_git_for_repo(root), wt_path)
+            residue = assess_lane_residue(
+                _git_for_repo(root), wt_path, declared_disposable_roots(root)
+            )
             if not residue.disposable:
                 issues.append(
                     f"- Worktree {branch} at {wt_path} holds content cleanup "
@@ -186,13 +192,17 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                     emit=lambda *_a, **_kw: None,
                 )
                 if not preserved:
-                    fixed.append(f"- Fixed: removed terminal lane {branch} at {wt_path} — {public_ref}")
+                    fixed.append(
+                        f"- Fixed: removed terminal lane {branch} at {wt_path} — {public_ref}"
+                    )
                     continue
                 category, label = "preserved", preserved[0]
             stranded.setdefault(category, []).append(
                 f"{public_ref}: {detail}" if detail else public_ref
             )
-            issues.append(f"- Terminal-item lane: {branch} at {wt_path} — {public_ref} is {owner['status']}; {label}")
+            issues.append(
+                f"- Terminal-item lane: {branch} at {wt_path} — {public_ref} is {owner['status']}; {label}"
+            )
 
     # Directories under .worktrees that git no longer registers.
     if repo_root:
@@ -216,7 +226,9 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
                 for owner in owners:
                     if owner["status"] in _TERMINAL:
                         public_ref = render_item_ref(conn, owner["item_id"])
-                        stranded.setdefault("unregistered directory", []).append(public_ref)
+                        stranded.setdefault("unregistered directory", []).append(
+                            public_ref
+                        )
                         issues.append(
                             f"- Stale worktree directory: {child_str} "
                             f"— {public_ref} is {owner['status']} "
@@ -237,7 +249,11 @@ def hc_worktree_health(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         did = row["item_id"]
         branch = row["branch"]
         br = _base._run(["git", "rev-parse", "--verify", branch])
-        if repo_root and br.returncode == 0 and branch not in {entry.get("branch", "") for entry in entries}:
+        if (
+            repo_root
+            and br.returncode == 0
+            and branch not in {entry.get("branch", "") for entry in entries}
+        ):
             authority_block = _authority_block(conn, int(did))
             assessment = assess_landed_lane(
                 repo_root=str(repo_root),

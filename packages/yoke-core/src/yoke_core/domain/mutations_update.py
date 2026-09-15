@@ -5,6 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
+)
+
 from .mutation_fields import (
     DONE_CLEANUP_FIELDS,
     SUPPORTED_UPDATE_FIELDS,
@@ -18,6 +22,14 @@ from .mutation_fields import (
     validate_frozen,
     validate_priority,
     validate_title,
+)
+
+#: Delivery policies whose done transition must go through the usher
+#: done-transition ceremony rather than a raw status mutation — every policy
+#: that waits on a release-stage gate before the terminal stage, including a
+#: still-implementing Blitz's final closeout.
+_RELEASE_CEREMONY_DELIVERY_POLICIES = frozenset(
+    {"release_stage", WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE}
 )
 
 
@@ -60,7 +72,7 @@ def prepare_update(
     # --- Field-specific validation ---
 
     if field_name == "title":
-        err = validate_title(value, project=item.project)
+        err = validate_title(value, project=item.project, limit=gate.title_max_length)
         if err:
             return MutationResult(
                 success=False,
@@ -116,7 +128,7 @@ def prepare_update(
                     )
 
         # Done-ceremony nonce gate: mutation layer trusts caller assertion
-        if value == "done" and workflow.policies["delivery"] == "release_stage":
+        if value == "done" and workflow.policies["delivery"] in _RELEASE_CEREMONY_DELIVERY_POLICIES:
             if not gate.force and not gate.done_nonce_verified:
                 return MutationResult(
                     success=False,

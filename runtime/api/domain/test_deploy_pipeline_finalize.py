@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 from unittest import mock
 
@@ -13,28 +12,15 @@ from yoke_core.domain import (
     deploy_pipeline_gates,
     deploy_pipeline_run_context as run_context,
     deploy_pipeline_run_updates as run_updates,
-    deploy_qa_recorder,
 )
 
-
-@pytest.fixture(autouse=True)
-def holding_the_deploy_lock():
-    """Run the pipeline as the session holding the project deploy lock.
-
-    Executing a run is gated on that claim; these tests are about the
-    stage machinery, and the gate has its own coverage.
-    """
-    with mock.patch.object(
-        deploy_pipeline, "deploy_lock_refusal", return_value=None,
-    ):
-        yield
 
 def test_run_update_uses_in_process_registered_mutation(monkeypatch):
     update = mock.Mock(return_value=None)
     spawn = mock.Mock(side_effect=AssertionError("must not spawn"))
     monkeypatch.setattr(
-        run_updates.deployment_runs_crud_mutate,
-        "cmd_update",
+        run_updates.deploy_pipeline_control_plane,
+        "update_run_field",
         update,
     )
     monkeypatch.setattr(subprocess, "run", spawn)
@@ -119,26 +105,23 @@ def test_complete_run_finalization_returns_pending_exit(monkeypatch, capsys):
 
 def _run_resumed(monkeypatch, *, status: str, stage: str, finish):
     run_id = "run-env-001"
-    stages = json.dumps(
-        [
+    context = {
+        "run": {
+            "id": run_id,
+            "project": "yoke",
+            "flow": "flow-env",
+            "target_tier": "persistent",
+            "target_environment": "stage",
+            "release_lineage": "d" * 40,
+            "status": status,
+            "current_stage": stage,
+        },
+        "members": [],
+        "stages": [
             {"name": "merged", "step_runner": "auto"},
             {"name": "complete", "step_runner": "auto"},
-        ]
-    )
-
-    def fake_yoke_db(*args, sd=None):
-        if args[:2] == ("runs", "get"):
-            return (
-                f"{run_id}|yoke|flow-env|persistent|stage|{'d' * 40}|{status}|{stage}"
-            )
-        return ""
-
-    def fake_flow_db(*args, sd=None):
-        if args[0] == "stages":
-            return stages
-        if args[0] == "get":
-            return "stage"
-        return ""
+        ],
+    }
 
     monkeypatch.setenv("YOKE_ENV", "prod")
     with (
@@ -153,19 +136,19 @@ def _run_resumed(monkeypatch, *, status: str, stage: str, finish):
             return_value=mock.Mock(repo_path="/pinned/product", image_tag="abc"),
         ),
         mock.patch.object(
-            deploy_pipeline,
-            "_yoke_db",
-            side_effect=fake_yoke_db,
+            deploy_pipeline.control_plane,
+            "execution_context",
+            return_value=context,
         ),
         mock.patch.object(
-            deploy_pipeline,
-            "_flow_db",
-            side_effect=fake_flow_db,
-        ),
-        mock.patch.object(
-            deploy_pipeline,
-            "_project_db",
+            deploy_pipeline.control_plane,
+            "project_field",
             return_value="",
+        ),
+        mock.patch.object(
+            deploy_pipeline.control_plane,
+            "seed_qa",
+            return_value=0,
         ),
         mock.patch.object(
             deploy_pipeline,
@@ -173,23 +156,13 @@ def _run_resumed(monkeypatch, *, status: str, stage: str, finish):
             return_value="/repo",
         ),
         mock.patch.object(
-            deploy_pipeline,
-            "resolve_flow_target",
-            return_value=("persistent", "stage"),
-        ),
-        mock.patch.object(
             deploy_pipeline_gates,
             "_verify_branch_merged",
         ),
         mock.patch.object(
-            deploy_pipeline,
-            "_dispatch_step_runner",
+            deploy_pipeline.stage_receipt,
+            "dispatch_step_runner_with_receipt",
             side_effect=AssertionError("stages must not re-run"),
-        ),
-        mock.patch.object(
-            deploy_qa_recorder,
-            "cmd_seed_from_flow",
-            return_value=0,
         ),
         mock.patch.object(
             deploy_pipeline,

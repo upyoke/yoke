@@ -48,6 +48,7 @@ def _owned_case(
     execution = lock_plan_execution(conn, parsed.execution_id)
     require_plan_execution_owner(
         execution,
+        conn=conn,
         item_id=item_id,
         deployment_run_id=deployment_run_id,
         actor_id=request.actor.actor_id,
@@ -207,7 +208,7 @@ def _normalized_result(
     result: dict[str, Any],
 ) -> dict[str, Any]:
     return {
-        "plan_id": int(case["plan_id"]),
+        "plan_id": (int(case["plan_id"]) if case.get("plan_id") is not None else None),
         "case_key": str(case["case_key"]),
         "case_position": int(case["case_position"]),
         "baseline_position": int(case["baseline_position"]),

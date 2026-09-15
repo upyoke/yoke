@@ -51,11 +51,7 @@ curl -fsSL https://upyoke.com/install | sh
 yoke --version
 ```
 
-To upgrade later, rerun the same curl installer. It resolves one channel
-version for every Yoke product package, selects the Yoke index ahead of an
-explicit public PyPI default, and ignores ambient uv index settings for that
-resolver run. Direct multi-index `uv tool install` commands are not a supported
-install surface.
+To upgrade later, run `yoke update` — it reruns the official installer (onboarding disabled) against this machine's already-configured distribution origin and channel, verifies the version before and after, and refuses non-destructively against a Yoke source checkout (update that tree with git instead). The installer itself repairs the git credential helper a reinstall wipes from site-packages, as the last step of every successful run, so a repair failure fails the installer (and `yoke update` with it) the same way a product-boundary-audit failure does. You can also rerun the same curl installer directly; it still upgrades and repairs the helper the same way, just without the old/new version report or the source-checkout guard. Either path resolves one channel version for every Yoke product package, selects the Yoke index ahead of an explicit public PyPI default, and ignores ambient uv index settings for that resolver run. Direct multi-index `uv tool install` commands are not a supported install surface.
 
 Upgrading replaces the engine and nothing else, so the first command served
 after it finishes the job. A machine-local universe is converged to the new
@@ -149,11 +145,11 @@ entries selected via `yoke env use` or `--env`.
 
 `yoke onboard` is a full-screen wizard. A fixed header and stepper stay on
 screen — Install/PATH, Account, GitHub, Project, Review — while the body
-changes; you move through it with the arrow keys, redrawing in place. It runs
-with terminal mouse reporting off, so ordinary text selection and copy work
-everywhere; on any screen showing a URL or a one-time code the footer names a
-copy key (`^y`) and an open-in-browser key (`^o`), and a screen carrying both
-a code and a link cycles to the next one on each copy. Whatever onboarding
+changes; you move through it with the arrow keys, wheel/trackpad, or the
+scrollbar, redrawing in place. Mouse reporting stays on for that, at the
+cost of native drag-select; any screen showing a URL or a one-time code
+names a copy key (`^y`) and an open-in-browser key (`^o`) instead, and a
+screen carrying both cycles to the next one on each copy. Whatever onboarding
 already finds — a checkout that carries a Yoke layer, a repository that
 already has a project, a checkout already mapped here — is announced as the
 headline before any choice, with connecting to it as the default answer and

@@ -104,7 +104,7 @@ def test_landing_publishes_a_branch_origin_has_never_seen(monkeypatch):
     )
     pushed: dict = {}
 
-    def push(checkout, branch, *, source_ref="HEAD"):
+    def push(checkout, branch, *, project="", target="", source_ref="HEAD"):
         order.append("push")
         pushed.update(checkout=str(checkout), branch=branch, source_ref=source_ref)
 
@@ -128,7 +128,7 @@ def test_landing_publishes_when_origin_holds_a_different_head(monkeypatch):
     )
     pushed: dict = {}
 
-    def push(checkout, branch, *, source_ref="HEAD"):
+    def push(checkout, branch, *, project="", target="", source_ref="HEAD"):
         order.append("push")
         pushed.update(checkout=str(checkout), branch=branch, source_ref=source_ref)
 
@@ -296,7 +296,7 @@ def test_an_open_pull_request_publishes_a_new_lane_head(monkeypatch):
     )
     pushed: dict = {}
 
-    def push(checkout, branch, *, source_ref="HEAD"):
+    def push(checkout, branch, *, project="", target="", source_ref="HEAD"):
         pushed.update(checkout=str(checkout), branch=branch, source_ref=source_ref)
 
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", push)

@@ -2,7 +2,7 @@
 
 The done-transition deployment guards and the final done-preconditions
 bundle read the control plane (``deployment_flows``, ``deployment_runs`` /
-``deployment_run_items``, ``deployment_run_qa``, plus the item scalar and
+``deployment_run_items``, ``deployment_run_qa``, the scoped per-stage QA acceptance, plus the item scalar and
 ``shepherd_verdicts`` reads inside the preconditions bundle) by opening a
 local ``connect()``, which fails over an https control plane. These
 handlers relay those reads server-side while the engine keeps every guard
@@ -58,6 +58,14 @@ class RunBlockingQaRequest(BaseModel):
 
 
 class RunBlockingQaResponse(BaseModel):
+    blocking: List[str] = Field(default_factory=list)
+
+
+class RunStageQaAcceptanceRequest(BaseModel):
+    run_id: str = Field(..., min_length=1)
+
+
+class RunStageQaAcceptanceResponse(BaseModel):
     blocking: List[str] = Field(default_factory=list)
 
 
@@ -218,6 +226,45 @@ def handle_run_blocking_qa(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_run_stage_qa_acceptance(request: FunctionCallRequest) -> HandlerOutcome:
+    """Return the run's unsettled scoped stage verdicts for this item.
+
+    Wraps :func:`yoke_core.domain.deployment_qa_run_acceptance.item_qa_acceptance_blockers`
+    unchanged; the engine prints the reasons and blocks when the list is
+    non-empty. A legacy flow definition has no scoped stages and returns
+    an empty list, so the legacy ``deployment_run_qa`` projection stays
+    the only QA authority for those runs.
+    """
+    item_id = _require_item_id(request)
+    if item_id is None:
+        return _err(
+            "target_invalid", "run_stage_qa_acceptance requires target.item_id"
+        )
+    try:
+        body = RunStageQaAcceptanceRequest.model_validate(request.payload)
+    except Exception as exc:  # noqa: BLE001 - surface a structured payload error
+        return _err(
+            "payload_invalid", f"run_stage_qa_acceptance payload invalid: {exc}"
+        )
+
+    from yoke_core.domain.deployment_qa_run_acceptance import (
+        item_qa_acceptance_blockers,
+    )
+
+    try:
+        with _connect_rw() as conn:
+            blocking = item_qa_acceptance_blockers(
+                conn, run_id=body.run_id, item_id=item_id
+            )
+    except Exception as exc:  # noqa: BLE001 - surfaced so the guard aborts
+        return _err("run_stage_qa_acceptance_failed", str(exc))
+
+    return HandlerOutcome(
+        result_payload={"blocking": list(blocking)},
+        primary_success=True,
+    )
+
+
 def handle_done_preconditions(request: FunctionCallRequest) -> HandlerOutcome:
     """Evaluate the four done-preconditions and return ``(allowed, reason)``.
 
@@ -262,6 +309,8 @@ __all__ = [
     "RegisteredFlowIdsResponse",
     "RunBlockingQaRequest",
     "RunBlockingQaResponse",
+    "RunStageQaAcceptanceRequest",
+    "RunStageQaAcceptanceResponse",
     "RunStageRequest",
     "RunStageResponse",
     "handle_done_preconditions",
@@ -269,4 +318,5 @@ __all__ = [
     "handle_registered_flow_ids",
     "handle_run_blocking_qa",
     "handle_run_stage",
+    "handle_run_stage_qa_acceptance",
 ]

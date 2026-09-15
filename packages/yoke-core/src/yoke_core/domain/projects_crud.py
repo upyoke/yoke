@@ -107,6 +107,73 @@ def cmd_create(
 # ---------------------------------------------------------------------------
 
 
+def _read_resolved_project(
+    conn,
+    project_id: str,
+    numeric_project_id: int,
+    field: Optional[str] = None,
+) -> Optional[str]:
+    """Read a row/field for an already-resolved project, on its own connection.
+
+    Split out of :func:`cmd_get` so a caller that already holds a
+    visibility-checked identity and an open connection (``handle_projects_get``)
+    reads through that SAME connection instead of a second, independently
+    opened one re-resolving the same project — closing the window where two
+    connections could observe the row differently.
+    """
+    project_fields, project_select, _ = _parent_constants()
+    if field:
+        if field not in project_fields:
+            # hint messages now point at the Python CLI entrypoint.
+            _caps_hint = (
+                f"Hint: for capabilities, use: python3 -m yoke_core.domain.projects "
+                f"capability-list {project_id}"
+            )
+            _settings_hint = (
+                f"Hint: for capability settings, use: python3 -m yoke_core.domain.projects "
+                f"capability-get-settings {project_id} <type>"
+            )
+            _secrets_hint = (
+                f"Hint: for secrets, use: python3 -m yoke_core.domain.projects "
+                f"capability-get-secret {project_id} <type> <key>"
+            )
+            hints = {
+                "capabilities": _caps_hint,
+                "capability": _caps_hint,
+                "caps": _caps_hint,
+                "settings": _settings_hint,
+                "secrets": _secrets_hint,
+                "secret": _secrets_hint,
+                "config": _settings_hint,
+            }
+            msg = f"Error: projects get: unknown field '{field}' on projects table.\n"
+            msg += f"  Valid fields: {' '.join(project_fields)}"
+            hint = hints.get(field)
+            if hint:
+                msg += f"\n  {hint}"
+            raise ValueError(msg)
+
+        exists = query_scalar(
+            conn, "SELECT COUNT(*) FROM projects WHERE id=%s", (numeric_project_id,)
+        )
+        if not exists:
+            return None
+
+        val = query_scalar(
+            conn, f"SELECT {field} FROM projects WHERE id=%s", (numeric_project_id,)
+        )
+        return str(val) if val is not None else ""
+    else:
+        row = query_one(
+            conn,
+            f"SELECT {project_select} FROM projects WHERE id=%s",
+            (numeric_project_id,),
+        )
+        if row is None:
+            return None
+        return _pipe_row(row)
+
+
 def cmd_get(
     project_id: str,
     field: Optional[str] = None,
@@ -118,65 +185,12 @@ def cmd_get(
         Pipe-delimited row (all fields) or single field value.
         ``None`` if not found.
     """
-    project_fields, project_select, _ = _parent_constants()
     conn = connect(db_path)
     try:
         ident = resolve_project(conn, project_id, required=False)
         if ident is None:
             return None
-        numeric_project_id = ident.id
-        if field:
-            if field not in project_fields:
-                # hint messages now point at the Python CLI entrypoint.
-                _caps_hint = (
-                    f"Hint: for capabilities, use: python3 -m yoke_core.domain.projects "
-                    f"capability-list {project_id}"
-                )
-                _settings_hint = (
-                    f"Hint: for capability settings, use: python3 -m yoke_core.domain.projects "
-                    f"capability-get-settings {project_id} <type>"
-                )
-                _secrets_hint = (
-                    f"Hint: for secrets, use: python3 -m yoke_core.domain.projects "
-                    f"capability-get-secret {project_id} <type> <key>"
-                )
-                hints = {
-                    "capabilities": _caps_hint,
-                    "capability": _caps_hint,
-                    "caps": _caps_hint,
-                    "settings": _settings_hint,
-                    "secrets": _secrets_hint,
-                    "secret": _secrets_hint,
-                    "config": _settings_hint,
-                }
-                msg = (
-                    f"Error: projects get: unknown field '{field}' on projects table.\n"
-                )
-                msg += f"  Valid fields: {' '.join(project_fields)}"
-                hint = hints.get(field)
-                if hint:
-                    msg += f"\n  {hint}"
-                raise ValueError(msg)
-
-            exists = query_scalar(
-                conn, "SELECT COUNT(*) FROM projects WHERE id=%s", (numeric_project_id,)
-            )
-            if not exists:
-                return None
-
-            val = query_scalar(
-                conn, f"SELECT {field} FROM projects WHERE id=%s", (numeric_project_id,)
-            )
-            return str(val) if val is not None else ""
-        else:
-            row = query_one(
-                conn,
-                f"SELECT {project_select} FROM projects WHERE id=%s",
-                (numeric_project_id,),
-            )
-            if row is None:
-                return None
-            return _pipe_row(row)
+        return _read_resolved_project(conn, project_id, ident.id, field)
     finally:
         conn.close()
 

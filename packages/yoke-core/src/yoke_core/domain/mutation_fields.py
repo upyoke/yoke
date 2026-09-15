@@ -135,11 +135,16 @@ def validate_title(
     title: str,
     *,
     project: TitleProject = None,
+    limit: Optional[int] = None,
 ) -> Optional[str]:
-    """Validate title against *project*'s policy. Error message or None."""
+    """Validate title against *project*'s policy. Error message or None.
+
+    *limit* is a project-specific limit the DB-aware adapter already
+    resolved; omitting it falls back to the shipped default.
+    """
     if not title or not title.strip():
         return "Field 'title' is required"
-    return title_length_error(title, project=project)
+    return title_length_error(title, project=project, limit=limit)
 
 
 def validate_priority(priority: str) -> Optional[str]:
@@ -245,6 +250,9 @@ class GateContext:
             Callers using this escape hatch must preserve invariants outside
             the mutation layer.
         qa_bypass: True if QA gates should be bypassed.
+        title_max_length: DB-resolved title-length limit for the item's
+            project, pre-loaded when the update touches ``title``. None if
+            not loaded (falls back to the shipped default).
     """
 
     epic_task_count: Optional[int] = None
@@ -255,3 +263,4 @@ class GateContext:
     done_nonce_verified: bool = False
     force: bool = False
     qa_bypass: bool = False
+    title_max_length: Optional[int] = None

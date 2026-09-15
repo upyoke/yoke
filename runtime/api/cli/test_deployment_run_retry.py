@@ -30,11 +30,6 @@ def test_retry_of_dispatches_the_source_run_without_resolving_a_moving_ref():
         patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}),
         patch(
             "yoke_cli.commands.adapters.deployment_run_create."
-            "https_product_plane_create_error",
-            return_value=None,
-        ),
-        patch(
-            "yoke_cli.commands.adapters.deployment_run_create."
             "resolve_commit_lineage",
         ) as resolve_lineage,
         patch(
@@ -82,11 +77,6 @@ def test_retry_of_runs_the_pin_regression_guard():
     with (
         patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}),
         patch(
-            "yoke_cli.commands.adapters.deployment_run_create."
-            "https_product_plane_create_error",
-            return_value=None,
-        ),
-        patch(
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             side_effect=dispatch,
         ),
@@ -113,11 +103,6 @@ def test_retry_of_runs_the_pin_regression_guard():
 
 def test_retry_of_refuses_when_the_pin_guard_reports_regression():
     with (
-        patch(
-            "yoke_cli.commands.adapters.deployment_run_create."
-            "https_product_plane_create_error",
-            return_value=None,
-        ),
         patch("yoke_cli.commands._helpers.ensure_handlers_loaded"),
         patch(
             "yoke_cli.commands.adapters.deployment_run_create."
@@ -139,11 +124,6 @@ def test_retry_of_refuses_when_the_pin_guard_reports_regression():
 def test_retry_of_allow_pin_regression_reaches_the_guard():
     with (
         patch.dict("os.environ", {"YOKE_SESSION_ID": "test-session"}),
-        patch(
-            "yoke_cli.commands.adapters.deployment_run_create."
-            "https_product_plane_create_error",
-            return_value=None,
-        ),
         patch(
             "yoke_core.domain.yoke_function_dispatch.dispatch",
             return_value=FunctionCallResponse(
@@ -172,17 +152,12 @@ def test_retry_of_allow_pin_regression_reaches_the_guard():
 
 
 def test_retry_of_rejects_a_second_lineage_source():
-    with patch(
-        "yoke_cli.commands.adapters.deployment_run_create."
-        "https_product_plane_create_error",
-        return_value=None,
-    ):
-        stderr = io.StringIO()
-        with redirect_stderr(stderr):
-            rc = cli_main([
-                "deployment-runs", "create", "yoke", "hosted-release",
-                "--retry-of", "run-20260810-001",
-                "--source-ref", "origin/main",
-            ])
+    stderr = io.StringIO()
+    with redirect_stderr(stderr):
+        rc = cli_main([
+            "deployment-runs", "create", "yoke", "hosted-release",
+            "--retry-of", "run-20260810-001",
+            "--source-ref", "origin/main",
+        ])
     assert rc == 2
     assert "cannot be combined" in stderr.getvalue()

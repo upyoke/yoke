@@ -120,11 +120,24 @@ def stale_unlanded_work(
     target: str,
     repo_root: str,
     recorded_head: str = "",
+    reached_release: bool = True,
 ) -> str:
     """Why this close-out must not run, or empty when the landing still matches.
 
     A target-contained receipt merge SHA proves the landing. Its source commit
     can match squash re-entry; any other uncontained head is new work.
+
+    ``reached_release`` is the item's own live position relative to its
+    pinned release wait: ``True`` (the default, and every close-out
+    caller's meaning) treats an uncontained head as foreign or stale, same
+    as always. A caller that has already confirmed the SAME item's status
+    genuinely returned short of that wait -- a fix in progress after a
+    failed release-stage QA verdict, repeating its own review/CI/merge
+    (the item's normal lifecycle, not this function's business to
+    re-derive) -- passes ``False`` so its own next legitimate merge is not
+    read as someone else's foreign work on a reused branch name. It never
+    changes what counts as a match; it only lets a genuine mismatch pass
+    when the item's own state already accounts for it.
     """
     current = current_candidate(repo_root, branch, recorded_head)
     receipt = receipts.load(item_id, branch, target)
@@ -136,6 +149,8 @@ def stale_unlanded_work(
     if git.containing_ref(repo_root, current, target):
         return ""
     if _replayed_base_ref(repo_root, current, target, receipt):
+        return ""
+    if not reached_release:
         return ""
     named = ", ".join(sorted(sha[:12] for sha in identities))
     return (

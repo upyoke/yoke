@@ -14,13 +14,26 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.approval_policy import parse_approval_policy
-from yoke_core.domain.db_helpers import query_scalar
-from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.deployment_flow_stage_references import (
+    validate_stage_references,
+)
 
 
 LEGACY_DEFINITION_SCHEMA_VERSION = 1
 RELEASE_POLICY_SCHEMA_VERSION = 2
-CURRENT_EXECUTION_SCHEMA_VERSION = LEGACY_DEFINITION_SCHEMA_VERSION
+#: The richest definition schema this serving runtime executes. Raising it
+#: is what makes those definitions activatable, assignable and startable, so
+#: it moves only when the runtime behind the whole vocabulary exists —
+#: ordered per-stage execution, scoped QA materialization and gating, stage
+#: receipts with observed evidence, the wait and verdict wakes, the
+#: configured result notification, and release-to-done acceptance.
+#:
+#: Target kinds are a SEPARATE axis and are not promised by this version:
+#: :func:`unsupported_stage_target_kinds` refuses a definition whose QA
+#: stage names a target no receipt producer can observe, at the same gates
+#: this version guards, so enabling the schema never advertises a kind that
+#: would only fail mid-run.
+CURRENT_EXECUTION_SCHEMA_VERSION = RELEASE_POLICY_SCHEMA_VERSION
 
 STAGE_KIND_EXECUTION = "execution"
 STAGE_KIND_QA = "qa"
@@ -136,12 +149,45 @@ def _validate_target(
             f"{path}.kind must be one of: {', '.join(sorted(TARGET_KINDS))}"
         )
     if kind == "persistent_environment":
-        extra = set(target) - {"kind", "environment"}
+        extra = set(target) - {"kind", "environment", "source_stage"}
         environment = target.get("environment")
         if extra:
             raise ValueError(f"{path} has unknown fields: {sorted(extra)}")
         if not isinstance(environment, str) or not environment.strip():
             raise ValueError(f"{path}.environment must be a non-empty name")
+        source_stage = target.get("source_stage")
+        if stage_kind == STAGE_KIND_QA:
+            if not isinstance(source_stage, str) or not source_stage.strip():
+                raise ValueError(
+                    f"{path}.source_stage must name the earlier stage that "
+                    "produced this target receipt"
+                )
+            if source_stage not in prior_stages:
+                raise ValueError(
+                    f"{path}.source_stage must name an earlier stage, got "
+                    f"{source_stage!r}"
+                )
+            source = prior_stages[source_stage]
+            if source.get("stage_kind") == STAGE_KIND_QA or source.get(
+                "step_runner"
+            ) == QA_STEP_RUNNER:
+                raise ValueError(
+                    f"{path}.source_stage must name an earlier receipt-producing "
+                    "non-QA stage"
+                )
+            source_target = source.get("target")
+            if isinstance(source_target, Mapping) and (
+                source_target.get("kind") != kind
+                or source_target.get("environment") != environment
+            ):
+                raise ValueError(
+                    f"{path}.source_stage targets a different environment"
+                )
+        elif source_stage is not None:
+            raise ValueError(
+                f"{path}.source_stage is only valid when a QA stage consumes "
+                "an earlier receipt"
+            )
         return
 
     extra = set(target) - {"kind", "capability", "source_stage"}
@@ -238,60 +284,6 @@ def validate_release_stage_policy(stages: list[dict[str, Any]]) -> int:
 def definition_schema_version(stages_json: str) -> int:
     stages = json.loads(stages_json)
     return validate_release_stage_policy(stages)
-
-
-def validate_stage_references(
-    conn: Any,
-    *,
-    project: str,
-    stages_json: str,
-) -> None:
-    """Require every stage target and reusable QA plan to belong to the project."""
-    stages = json.loads(stages_json)
-    ident = resolve_project(conn, project)
-    assert ident is not None
-    from yoke_core.domain.environment_reference import resolve
-
-    for index, stage in enumerate(stages):
-        target = stage.get("target") if isinstance(stage, Mapping) else None
-        if not isinstance(target, Mapping):
-            continue
-        kind = target.get("kind")
-        if kind == "persistent_environment":
-            environment = str(target.get("environment") or "")
-            try:
-                resolve(conn, project_id=ident.id, name=environment)
-            except LookupError as exc:
-                raise LookupError(
-                    f"stage {index} target environment {environment!r} is not "
-                    f"registered for project {project!r}"
-                ) from exc
-        elif kind == "run_preview":
-            capability = target.get("capability")
-            if not capability:
-                # A source_stage reference chains to an earlier run_preview
-                # stage, which was already validated on its own turn through
-                # this loop; nothing further to resolve here.
-                continue
-            capability = str(capability)
-            has_capability = query_scalar(
-                conn,
-                "SELECT COUNT(*) FROM project_capabilities "
-                "WHERE project_id=%s AND type=%s",
-                (ident.id, capability),
-            )
-            if not has_capability:
-                raise LookupError(
-                    f"stage {index} target capability {capability!r} is not "
-                    f"registered for project {project!r}; register it with: "
-                    f"yoke projects capability-settings merge --project {project} "
-                    f"--cap-type {capability} --set <key>=<value>"
-                )
-    from yoke_core.domain.deployment_requirement_snapshots import (
-        validate_flow_plan_references,
-    )
-
-    validate_flow_plan_references(conn, project_id=ident.id, stages=stages)
 
 
 def require_supported_definition_schema(

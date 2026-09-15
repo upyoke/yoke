@@ -190,7 +190,15 @@ def message_recipient_match_clause(
     session_id: str | None,
     actor_id: int,
 ) -> tuple[str, list[Any]]:
-    """Build the shared recipient/state predicate for message list reads."""
+    """Build the shared recipient/state predicate for message list reads.
+
+    The steering branch is unconditional: a role-addressed row has a
+    recipient whether or not any session is holding it -- ``awaiting_seat``
+    with no seat at all, or ``delivered`` to a seat that was handed it on
+    acquire and never got a session-recipient row of its own. Narrowing to
+    ``sr.seat_session_id`` only kicks in when the caller filtered to one
+    exact session, matching the plain session-recipient branch above it.
+    """
     session_state, session_params = _session_state_clause(marker, state)
     session_filter = ""
     if session_id is not None:
@@ -201,15 +209,19 @@ def message_recipient_match_clause(
         f"r.message_id=m.message_id AND {session_state}{session_filter})"
     ]
     params = list(session_params)
+    steering_state, steering_params = _steering_state_clause(marker, state)
+    seat_filter = ""
+    seat_params: list[Any] = []
     if session_id is not None:
-        steering_state, steering_params = _steering_state_clause(marker, state)
-        branches.append(
-            "EXISTS (SELECT 1 FROM actor_message_recipients sr "
-            f"WHERE sr.message_id=m.message_id AND sr.recipient_kind={marker} "
-            f"AND sr.seat_session_id={marker} AND {steering_state})"
-        )
-        params.extend([STEERING_KIND, session_id, *steering_params])
-    else:
+        seat_filter = f" AND sr.seat_session_id={marker}"
+        seat_params.append(session_id)
+    branches.append(
+        "EXISTS (SELECT 1 FROM actor_message_recipients sr "
+        f"WHERE sr.message_id=m.message_id AND sr.recipient_kind={marker} "
+        f"AND {steering_state}{seat_filter})"
+    )
+    params.extend([STEERING_KIND, *steering_params, *seat_params])
+    if session_id is None:
         actor_state, actor_params = _actor_state_clause(marker, state)
         branches.append(
             "EXISTS (SELECT 1 FROM actor_message_recipients ar "
@@ -248,7 +260,19 @@ def list_message_ids(
 
 
 def recipient_project_ids(details: dict[str, Any]) -> set[int]:
-    return {int(row["project_id"]) for row in details.get("recipients", [])}
+    """Every project a message reached, session/human and steering alike.
+
+    A steering-only message carries no ``session_message_recipients`` row
+    at all -- its reach is the durable role-addressed row's own project --
+    so the project-authorized fallback in ``message_visible`` would
+    otherwise see an empty set and refuse a reader who can read that
+    project just as it would any other recipient kind.
+    """
+    project_ids = {int(row["project_id"]) for row in details.get("recipients", [])}
+    steering = details.get("steering_recipient")
+    if steering is not None:
+        project_ids.add(int(steering["project_id"]))
+    return project_ids
 
 
 def public_recipients(details: dict[str, Any]) -> list[dict[str, Any]]:

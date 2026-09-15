@@ -87,6 +87,8 @@ def require_plan_execution_subject(
     *,
     item_id: int | None = None,
     deployment_run_id: str | None = None,
+    deployment_stage: str | None = None,
+    deployment_member_item_id: int | None = None,
 ) -> None:
     """Bind an execution mutation to exactly the subject the caller named."""
     if (item_id is None) == (deployment_run_id is None):
@@ -99,13 +101,24 @@ def require_plan_execution_subject(
         execution.get("deployment_run_id") or ""
     ) != str(deployment_run_id):
         _fail("QA plan execution belongs to a different deployment run")
+    if deployment_stage is not None and str(
+        execution.get("deployment_stage") or ""
+    ) != str(deployment_stage):
+        _fail("QA plan execution belongs to a different deployment stage")
+    if deployment_member_item_id is not None and int(
+        execution.get("deployment_member_item_id") or 0
+    ) != int(deployment_member_item_id):
+        _fail("QA plan execution belongs to a different deployment member")
 
 
 def require_plan_execution_owner(
     execution: Mapping[str, Any],
     *,
+    conn: Any | None = None,
     item_id: int | None = None,
     deployment_run_id: str | None = None,
+    deployment_stage: str | None = None,
+    deployment_member_item_id: int | None = None,
     actor_id: str | None,
     session_id: str,
 ) -> None:
@@ -116,9 +129,22 @@ def require_plan_execution_owner(
         execution,
         item_id=item_id,
         deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage,
+        deployment_member_item_id=deployment_member_item_id,
     )
     if not same_owner(execution, actor_id=actor_id, session_id=session_id):
         _fail("QA plan execution belongs to a different actor or session")
+    if execution.get("deployment_stage") is not None:
+        if conn is None:
+            _fail("scoped deployment QA mutation requires database authority")
+        from yoke_core.domain.deployment_qa_execution_target import (
+            validate_deployment_execution_target,
+        )
+
+        try:
+            validate_deployment_execution_target(conn, execution)
+        except ValueError as exc:
+            _fail(str(exc))
 
 
 def require_plan_execution_abandon_authority(

@@ -7,6 +7,7 @@ import sys
 from contextlib import redirect_stdout
 from typing import Any, Dict, List, Optional
 
+from yoke_core.domain import deploy_pipeline_control_plane as control_plane
 from yoke_core.domain.deploy_pipeline_events import emit_run_event as _emit_run_event
 from yoke_core.domain.deploy_pipeline_reporting import _resolve_script_dir
 
@@ -21,41 +22,30 @@ def dispatch_ephemeral_verify(
     project: str,
     branch: str,
     first_item: str,
+    first_item_label: str,
     step_runners: Any,
-    connect_fn: Any,
-    query_scalar_fn: Any,
     sd: Optional[str] = None,
-) -> int:
-    """Verify a preview unless every member already passed ephemeral QA."""
+) -> tuple[int, str]:
+    """Verify a preview unless every member already passed ephemeral QA.
+
+    Returns ``(exit_code, preview_url)``; ``preview_url`` is populated only on
+    a successful verification so a durable stage receipt can record the exact
+    observed target a later QA stage reads.
+    """
     sd = sd or _resolve_script_dir()
 
-    all_passed = True
-    from yoke_core.domain.qa_constants import browser_requirement_predicate
-
-    conn = connect_fn()
     try:
-        for item_id in member_items:
-            count = query_scalar_fn(
-                conn,
-                "SELECT COUNT(*) FROM qa_runs qr "
-                "JOIN qa_requirements qreq ON qr.qa_requirement_id = qreq.id "
-                "WHERE qreq.item_id = %s AND "
-                f"{browser_requirement_predicate('qreq')} "
-                "AND qreq.qa_phase = 'verification' AND qr.verdict = 'pass'",
-                (item_id,),
-            )
-            if not count:
-                all_passed = False
-                break
-    finally:
-        conn.close()
+        all_passed = control_plane.ephemeral_qa_ready(run_id)
+    except control_plane.DeploymentControlPlaneError as exc:
+        print(f"Error: could not read ephemeral QA readiness: {exc}", file=sys.stderr)
+        return 1, ""
 
     if all_passed:
         print(
             "  Skipping ephemeral-verify: all member items already passed "
             "ephemeral QA during conduct"
         )
-        return 0
+        return 0, ""
 
     workflow = config.get("workflow", "")
     if not github_repo:
@@ -63,16 +53,14 @@ def dispatch_ephemeral_verify(
             f"Error: no github_repo configured for project '{project}'",
             file=sys.stderr,
         )
-        return 1
+        return 1, ""
     if not branch or branch == "null":
-        from yoke_core.domain.deploy_pipeline_labels import item_label
-
         print(
-            f"Error: no branch available for {item_label(first_item)} -- cannot "
+            f"Error: no branch available for {first_item_label or first_item} -- cannot "
             "verify ephemeral deploy",
             file=sys.stderr,
         )
-        return 1
+        return 1, ""
 
     from yoke_core.domain.ephemeral_substrate import (
         EphemeralPolicyError,
@@ -83,13 +71,13 @@ def dispatch_ephemeral_verify(
         domain = load_ephemeral_policy(project).preview_domain
     except EphemeralPolicyError as exc:
         print(f"Error: {exc}", file=sys.stderr)
-        return 1
+        return 1, ""
     if not workflow:
         print(
             "Error: ephemeral-verify stage missing 'workflow' field in flow definition",
             file=sys.stderr,
         )
-        return 1
+        return 1, ""
 
     buf = io.StringIO()
     try:
@@ -104,7 +92,7 @@ def dispatch_ephemeral_verify(
             )
     except Exception as exc:  # pragma: no cover
         print(f"Error: exec_ephemeral_verify raised: {exc}", file=sys.stderr)
-        return 1
+        return 1, ""
 
     output = buf.getvalue().strip()
     if output:
@@ -113,6 +101,7 @@ def dispatch_ephemeral_verify(
     if rc == 0:
         for line in output.split("\n"):
             if line.startswith("EPHEMERAL_URL="):
+                preview_url = line.split("=", 1)[1]
                 _emit_run_event(
                     "DeploymentRunStageCompleted",
                     "completed",
@@ -120,15 +109,15 @@ def dispatch_ephemeral_verify(
                         "run_id": run_id,
                         "stage": name,
                         "result": "success",
-                        "preview_url": line.split("=", 1)[1],
+                        "preview_url": preview_url,
                     },
                     member_items=member_items,
                     project=project,
                     sd=sd,
                 )
-                return -3
+                return -3, preview_url
 
-    return rc
+    return rc, ""
 
 
 __all__ = ["dispatch_ephemeral_verify"]

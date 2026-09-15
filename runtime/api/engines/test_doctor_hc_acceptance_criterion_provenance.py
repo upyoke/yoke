@@ -265,6 +265,25 @@ class TestRenderedAdapterCoverage(unittest.TestCase):
         self.assertEqual(result.result, "FAIL", result.detail)
 
 
+class TestGeneratedBuildOutput(unittest.TestCase):
+    def test_stale_package_build_lib_is_not_a_finding(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _write(
+                root,
+                "packages/yoke-contracts/build/lib/yoke_contracts/copied.py",
+                f'"""{_LABEL}: leftover wheel staging, not live source."""\n',
+            )
+            _write(
+                root,
+                "packages/yoke-contracts/src/yoke_contracts/live.py",
+                '"""Live source without a criterion label."""\n',
+            )
+            result = _only_result(_run_hc(root))
+
+        self.assertEqual(result.result, "PASS", result.detail)
+
+
 class TestSelfSkip(unittest.TestCase):
     def test_skips_when_no_repo_root(self) -> None:
         rec = RecordCollector()

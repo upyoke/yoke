@@ -13,6 +13,8 @@ def build_plan_execution_target(
     public_ref: Optional[str],
     transition_id: Optional[str],
     deployment_run_id: Optional[str],
+    deployment_stage: Optional[str],
+    deployment_member: Optional[str],
     plan: Optional[str],
     project: Optional[str],
 ) -> tuple[TargetRef, dict[str, str]]:
@@ -40,7 +42,9 @@ def build_plan_execution_target(
         raise QaPlanExecutionError(
             "deployment-run QA plan execution has no workflow transition"
         )
-    if not plan:
+    if deployment_member and not deployment_stage:
+        raise QaPlanExecutionError("deployment member requires deployment stage")
+    if not deployment_stage and not plan:
         raise QaPlanExecutionError("deployment-run QA plan execution requires plan")
     return (
         TargetRef(
@@ -48,7 +52,10 @@ def build_plan_execution_target(
             deployment_run_id=str(deployment_run_id),
             project_id=project,
         ),
-        {},
+        {
+            **({"deployment_stage": deployment_stage} if deployment_stage else {}),
+            **({"deployment_member": deployment_member} if deployment_member else {}),
+        },
     )
 
 

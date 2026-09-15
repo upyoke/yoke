@@ -7,6 +7,7 @@ from yoke_core.domain.gh_rest_transport_models import RestResponse
 from yoke_core.domain.json_helper import loads_text
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.engines import merge_worktree_pr_queue as queue_mod
+from yoke_core.engines import merge_worktree_pr_train_run as train_run_mod
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
 
@@ -24,7 +25,7 @@ def _response(body) -> RestResponse:
 
 def _wire_transport(monkeypatch, *, runs):
     """Serve the PR read here and the merge_group run read where it lives."""
-    for module in (receipt_mod, queue_mod):
+    for module in (receipt_mod, queue_mod, train_run_mod):
         monkeypatch.setattr(
             module, "resolve_auth_detail", lambda ctx, perms: (_auth(), None),
         )
@@ -37,9 +38,9 @@ def _wire_transport(monkeypatch, *, runs):
         return _response({"workflow_runs": runs})
 
     monkeypatch.setattr(receipt_mod, "request_with_retry", fake_request)
-    monkeypatch.setattr(queue_mod, "request_with_retry", fake_request)
+    monkeypatch.setattr(train_run_mod, "request_with_retry", fake_request)
     monkeypatch.setattr(
-        queue_mod, "project_ci_workflow_file", lambda _project: "yoke-ci.yml",
+        train_run_mod, "project_ci_workflow_file", lambda _project: "yoke-ci.yml",
     )
 
 

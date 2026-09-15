@@ -28,7 +28,7 @@ from yoke_core.domain.merge_queue_readback_outcomes import (
     UNREADABLE,
 )
 from yoke_core.domain.session_message_types import row_dict
-from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
+from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck, check_payload
 
 
 @dataclass(frozen=True)
@@ -62,7 +62,7 @@ class LandingRecord:
             "queue_holding": self.queue_holding,
             "queue_entry_state": self.queue_entry_state,
             "merge_when_ready": self.merge_when_ready,
-            "failed_checks": [_check_payload(check) for check in self.failed_checks],
+            "failed_checks": [check_payload(check) for check in self.failed_checks],
             "narrative": self.narrative,
             "disarm_note": self.disarm_note,
             "observed_at": self.observed_at,
@@ -72,16 +72,6 @@ class LandingRecord:
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _check_payload(check: LandingCheck) -> dict[str, Any]:
-    return {
-        "name": check.name,
-        "status": check.status,
-        "conclusion": check.conclusion,
-        "required": check.required,
-        "url": check.url,
-    }
 
 
 def _decode_checks(raw: Any) -> tuple[LandingCheck, ...]:
@@ -198,7 +188,7 @@ def write_landing_record(conn: Any, record: LandingRecord) -> None:
     """Upsert one observation, preserving ``changed_at`` when facts match."""
     p = _p(conn)
     checks = json.dumps(
-        [_check_payload(check) for check in record.failed_checks],
+        [check_payload(check) for check in record.failed_checks],
         sort_keys=True,
         separators=(",", ":"),
     )

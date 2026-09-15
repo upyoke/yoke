@@ -2,14 +2,12 @@
 
 Yoke's QA platform replaces the legacy `reviews` table with a unified, requirement-driven quality assurance model. Every item must carry explicit QA requirements before it can enter the review lane (`reviewing-implementation` in the current lifecycle). QA results are recorded as typed runs with non-binary verdicts, artifacts, and codified success policies.
 
-Agent writes against the QA tables route through the Yoke function-call
-surface (`qa.requirement.add`, `qa.requirement.add_batch`,
+Agent writes against the QA tables route through the Yoke function-call surface (`qa.requirement.add`, `qa.requirement.add_batch`,
 `qa.requirement.list`, `qa.requirement.get`, `qa.requirement.update`,
 `qa.plan.materialize`, `qa.run.add`,
 `qa.run.complete`, `qa.run.record_verdict`, `qa.run.list`,
 `qa.artifact.presign`, `qa.artifact.add`, `qa.gate_summary.run`,
-`qa.browser_context.get`, and `qa.case_execution.begin`). The public
-`yoke qa ...` commands (for example `yoke qa requirement list`) are the retained
+`qa.browser_context.get`, and `qa.case_execution.begin`). The public `yoke qa ...` commands (for example `yoke qa requirement list`) are the retained
 operator/debug adapters that dispatch the matching function ids. See
 [.yoke/docs/reference/db-reference/functions.md](db-reference/functions.md) for the envelope.
 Render the operator-readable Atlas of registered surfaces locally with
@@ -48,7 +46,7 @@ New qa_kinds can be added without schema changes. The column is free-form text, 
 
 ### Layer 3: capability_requirements -- What runtime access is needed?
 
-JSON array of capability slugs. The deployment pipeline checks these against `project_capabilities` before execution.
+JSON array of capability slugs. Case admission checks these against the project's `project_capabilities` rows and the executing harness session, and refuses a case whose host is missing one. The one exemption is per runner, never per kind: a kind passes admission only for a case whose own `runner_id` is declared to supply it on the machine that runs the case (`browser_substrate` starts the machine-local browser daemon, which installs the runtime it needs; `agent_mission`'s dispatch contract requires the walker to run `yoke qa browser setup` on its target host before any browser step). The same kind on any other runner is still refused — a `worktree_run` or `ci_run` case declaring `browser-control` does not pass — and kinds naming project or host authority, such as `test-machine`, are exempt for no runner at all.
 
 ```json
 ["browser", "docker", "ssh", "repo", "github"]
@@ -72,6 +70,8 @@ item_id INTEGER -- nullable; FK to items(id)
 epic_id INTEGER -- nullable; FK to epic_tasks(epic_id)
 task_num INTEGER -- nullable; FK to epic_tasks(task_num)
 deployment_run_id TEXT -- nullable; no FK (deployment_runs table deferred)
+deployment_stage TEXT -- nullable; pinned schema-2 QA stage on a deployment subject
+deployment_member_item_id INTEGER -- nullable; attached member for item-scoped stage QA
 qa_kind TEXT NOT NULL -- free-form: implementation_review, simulation, smoke, e2e, visual-regression, etc.
 qa_phase TEXT NOT NULL -- CHECK: verification | post_deploy | manual_acceptance
 target_env TEXT -- semantic: local | preview | ephemeral | prod
@@ -86,17 +86,17 @@ waiver_source TEXT -- 'operator' or 'agent'
 created_at TEXT NOT NULL
 ```
 
-**Polymorphic FK constraint:** Exactly one of (`item_id`), (`epic_id` + `task_num`), or (`deployment_run_id`) must be non-NULL:
+**Polymorphic FK constraint:** Exactly one of (`item_id`), (`epic_id` + `task_num`), or (`deployment_run_id`) must be non-NULL. Deployment subjects are either legacy (`deployment_stage` and member both NULL), run-scoped (stage set, member NULL), or item-scoped (stage and member set):
 
 ```sql
 CHECK (
- (item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NULL) OR
- (item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND deployment_run_id IS NULL) OR
- (item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NOT NULL)
+ (item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NULL AND deployment_stage IS NULL AND deployment_member_item_id IS NULL) OR
+ (item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND deployment_run_id IS NULL AND deployment_stage IS NULL AND deployment_member_item_id IS NULL) OR
+ (item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NOT NULL AND ((deployment_stage IS NULL AND deployment_member_item_id IS NULL) OR deployment_stage IS NOT NULL))
 )
 ```
 
-**Indexes:** `idx_qa_requirements_item(item_id)`, `idx_qa_requirements_epic(epic_id, task_num)`, `idx_qa_requirements_deployment(deployment_run_id)`
+**Indexes:** Base subject indexes remain on item, epic task, and deployment run. Plan-case materialization uses separate partial unique indexes for legacy run, run+stage, and run+stage+member subjects. Scoped keys include the execution-target digest after plan, case key, and host baseline so a superseding receipt preserves old evidence while allowing a fresh exact-target execution.
 
 ### qa_runs
 

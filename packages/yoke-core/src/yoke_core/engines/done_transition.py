@@ -31,7 +31,7 @@ from yoke_core.engines.done_transition_gates import (  # noqa: F401
     _check_deployment_evidence,
     _get_latest_run_status,
     _check_run_stage_consistency,
-    _check_run_qa_gates,
+    check_run_qa_gates,
 )
 from yoke_core.engines.done_transition_cascade import (  # noqa: F401
     _populate_merged_at,

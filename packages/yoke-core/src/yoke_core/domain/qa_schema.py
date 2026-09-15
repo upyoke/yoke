@@ -25,6 +25,10 @@ from yoke_core.domain.qa_plan_execution_schema import (
 from yoke_core.domain.qa_plan_review_schema import (
     QA_PLAN_REVIEW_SCHEMA_SQL,
 )
+from yoke_core.domain.qa_deployment_scope_schema import (
+    REQUIREMENT_SUBJECT_CONSTRAINT,
+    REQUIREMENT_SUBJECT_EXPRESSION,
+)
 from yoke_core.domain.schema_common import (
     _column_exists,
     _get_check_constraint_defs,
@@ -38,13 +42,15 @@ from yoke_core.domain.schema_init_apply import execute_schema_script
 # ---------------------------------------------------------------------------
 
 _QA_SCHEMA = (
-    """
+    f"""
 CREATE TABLE IF NOT EXISTS qa_requirements (
     id INTEGER PRIMARY KEY,
     item_id INTEGER,
     epic_id INTEGER,
     task_num INTEGER,
     deployment_run_id TEXT,
+    deployment_stage TEXT,
+    deployment_member_item_id INTEGER,
     qa_kind TEXT NOT NULL,
     qa_phase TEXT NOT NULL CHECK(qa_phase IN ('verification','post_deploy','manual_acceptance')),
     target_env TEXT,
@@ -72,11 +78,8 @@ CREATE TABLE IF NOT EXISTS qa_requirements (
     expected_outcome TEXT,
     method_config TEXT,
     created_at TEXT NOT NULL,
-    CHECK (
-        (item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NULL) OR
-        (item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND deployment_run_id IS NULL) OR
-        (item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NOT NULL)
-    )
+    CONSTRAINT {REQUIREMENT_SUBJECT_CONSTRAINT}
+        CHECK ({REQUIREMENT_SUBJECT_EXPRESSION})
 );
 CREATE INDEX IF NOT EXISTS idx_qa_requirements_item ON qa_requirements(item_id);
 CREATE INDEX IF NOT EXISTS idx_qa_requirements_epic ON qa_requirements(epic_id, task_num);
@@ -201,6 +204,8 @@ def _migrate_qa_vocab(conn) -> None:
         return
 
     snapshot_columns = (
+        "deployment_stage",
+        "deployment_member_item_id",
         "plan_id",
         "plan_case_key",
         "case_position",
@@ -235,6 +240,8 @@ def _migrate_qa_vocab(conn) -> None:
             epic_id INTEGER,
             task_num INTEGER,
             deployment_run_id TEXT,
+            deployment_stage TEXT,
+            deployment_member_item_id INTEGER,
             qa_kind TEXT NOT NULL,
             qa_phase TEXT NOT NULL CHECK(qa_phase IN ('verification','post_deploy','manual_acceptance')),
             target_env TEXT,
@@ -262,18 +269,16 @@ def _migrate_qa_vocab(conn) -> None:
             expected_outcome TEXT,
             method_config TEXT,
             created_at TEXT NOT NULL,
-            CHECK (
-                (item_id IS NOT NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NULL) OR
-                (item_id IS NULL AND epic_id IS NOT NULL AND task_num IS NOT NULL AND deployment_run_id IS NULL) OR
-                (item_id IS NULL AND epic_id IS NULL AND task_num IS NULL AND deployment_run_id IS NOT NULL)
-            )
+            CONSTRAINT {REQUIREMENT_SUBJECT_CONSTRAINT}
+                CHECK ({REQUIREMENT_SUBJECT_EXPRESSION})
         );
 
         INSERT INTO qa_requirements (
             id, item_id, epic_id, task_num, deployment_run_id, qa_kind, qa_phase,
             target_env, blocking_mode, requirement_source, success_policy,
             capability_requirements, suite_id, waived_at, waiver_rationale,
-            waiver_source, plan_id, plan_case_key, case_position,
+            waiver_source, deployment_stage, deployment_member_item_id,
+            plan_id, plan_case_key, case_position,
             baseline_position, method_id, method_name, runner_id,
             verdict_path, host_baseline,
             entry_surface, required_completion, workflow_transition_id,

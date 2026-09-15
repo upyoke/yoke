@@ -211,9 +211,11 @@ def _parse_args(
             f"  {prog} merge-worktree -- PREFIX-N\n"
             f"  {prog} done-transition -- PREFIX-N\n"
             "--wait holds the landing inline. Invoke it with\n"
-            "--print-streaming-pair: a native idle-wake primitive gets the\n"
-            "background pair; headless relay-launched workers, and harnesses\n"
-            "with no or unverified idle wake, stay in-turn."
+            "--print-streaming-pair to print the safe shape without\n"
+            "merging anything: a native idle-wake primitive gets the\n"
+            "background pair; headless relay-launched workers, and\n"
+            "harnesses with no or unverified idle wake, get the foreground\n"
+            "invocation to hold open. Run the printed command to merge."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,
@@ -311,7 +313,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
                 )
                 return 2
         raw_path, progress_path = _watch_runner.mint_capture_paths(KIND)
-        return _watch_runner.run_or_print_streaming_pair(
+        return _watch_runner.print_wait_mode_invocation(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=sub_args,

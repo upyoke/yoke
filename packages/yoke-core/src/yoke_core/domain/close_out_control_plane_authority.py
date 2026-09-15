@@ -1,9 +1,7 @@
 """Close an item out on the control plane the session is connected to.
 
-The standalone merge selects the same-universe local Postgres connection
-before it loads the engine, because merge admission needs a database this
-process can lock. That override also decides *which build* executes every
-control-plane write the close-out then makes: a non-https connection
+Ordinary hosted merge keeps the operator-selected control plane. An HTTPS
+product connection stays HTTPS and relays. A local Postgres connection
 dispatches in-process, so the evidence record and the terminal transition
 are resolved by whatever engine this process imported — for a source lane,
 the code as of the branch's base commit; for an installed client, whatever
@@ -23,13 +21,12 @@ the connected control plane, whose build is the one the fleet governs.
 Everything the merge itself needs (admission, git, GitHub) keeps the local
 authority the merge runtime bound for it.
 
-The connected env is *bound* by that runtime rather than re-derived here,
-because the override it installs replaces an explicit ``--env`` the
-operator may have passed; re-reading the machine config would silently
-answer with the default connection and close the item out in the wrong
-universe. With no binding — a direct engine call, or a universe that never
-switched — these context managers do nothing and the caller's connection
-stands.
+The connected env is *bound* by the merge runtime rather than re-derived
+here, so an admission-time env override cannot silently replace an explicit
+``--env``. Re-reading the machine config would answer with the default
+connection and close the item out in the wrong universe. With no binding —
+a direct engine call, or a universe that never switched — these context
+managers do nothing and the caller's connection stands.
 """
 
 from __future__ import annotations
@@ -45,9 +42,7 @@ from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import standalone_item_merge_terminal as terminal
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 
-_CONNECTED_ENV: ContextVar[str] = ContextVar(
-    "yoke_close_out_connected_env", default=""
-)
+_CONNECTED_ENV: ContextVar[str] = ContextVar("yoke_close_out_connected_env", default="")
 
 
 @contextlib.contextmanager
@@ -131,8 +126,13 @@ def transition_to_done(
     repo_root: str,
     lane: LandedLane,
     session_id: str = "",
-) -> str:
-    """Close the item out. Returns the refusal, or empty on success."""
+    redirect_stage_id: str | None = None,
+) -> tuple[str, str]:
+    """Close the item out, or land it at its pinned release wait.
+
+    Returns ``(new_status, refusal)`` -- see
+    :func:`standalone_item_merge_terminal.transition_to_done`.
+    """
     with connected_control_plane():
         return terminal.transition_to_done(
             item_id=item_id,
@@ -140,6 +140,7 @@ def transition_to_done(
             repo_root=repo_root,
             lane=lane,
             session_id=session_id,
+            redirect_stage_id=redirect_stage_id,
         )
 
 

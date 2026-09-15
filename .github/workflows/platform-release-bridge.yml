@@ -33,6 +33,10 @@ on:
         description: "Yoke deployment run that owns this promotion"
         required: true
         type: string
+      consumer_sha:
+        description: "Hosted consumer commit bound by the deploy pipeline's own driver before dispatch"
+        required: true
+        type: string
       yoke_dispatch_id:
         description: "Opaque Yoke dispatch correlation token"
         required: true
@@ -102,17 +106,21 @@ jobs:
       # the host does not implement passes every check on this side and
       # refuses during promotion, after the artifact is already public. So
       # the real host is built here against the exact commit being released
-      # and the consumer trunk bound before dispatch, so simultaneous
-      # stage/prod callers join one proof of that pair. Platform's
-      # promotion-time check remains the final backstop behind this one.
+      # and the exact consumer commit this run was dispatched with —
+      # resolved once by the deploy pipeline's own driver before dispatch
+      # (a plain git ls-remote against Platform's registered checkout, no
+      # dependency on this release's own not-yet-served API). Simultaneous
+      # stage/prod callers proving the identical pair join one proof.
+      # Platform's promotion-time check remains the final backstop.
       - name: Prove the hosted consumer against the exact release candidate
         id: consumer_proof
         env:
           YOKE_PLATFORM_RELEASE_API_TOKEN: ${{ secrets.YOKE_PLATFORM_RELEASE_API_TOKEN }}
           PRODUCT_SHA: ${{ inputs.product_sha }}
+          CONSUMER_SHA: ${{ inputs.consumer_sha }}
         run: |
           python3 -m runtime.api.tools.require_platform_consumer_compatibility \
-            --candidate-sha "$PRODUCT_SHA"
+            --candidate-sha "$PRODUCT_SHA" --consumer-sha "$CONSUMER_SHA"
 
       - name: Create or recover the immutable annotated release tag
         id: release

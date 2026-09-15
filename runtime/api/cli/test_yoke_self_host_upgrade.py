@@ -84,6 +84,37 @@ def test_channel_target_binds_version_commit_image_and_installer(monkeypatch):
     assert target.image == pinned_server_image(source_commit)
 
 
+def test_run_installer_writes_pinned_args_and_cleans_up_temp_file(
+    selected_release, monkeypatch
+):
+    seen_commands = []
+
+    def run(command, **_kwargs):
+        assert Path(command[1]).read_bytes() == b"installer source"
+        seen_commands.append(tuple(command))
+        return _completed(command)
+
+    monkeypatch.setattr(release_target, "_RUN", run)
+
+    completed = release_target.run_installer(
+        selected_release, b"installer source", extra_args=("--dry-run",)
+    )
+
+    assert completed.returncode == 0
+    [command] = seen_commands
+    assert command[0] == sys.executable
+    assert command[2:] == (
+        "--version",
+        selected_release.version,
+        "--yes",
+        "--no-onboard",
+        "--base-url",
+        selected_release.base_url,
+        "--dry-run",
+    )
+    assert not Path(command[1]).exists(), "temp installer file must be cleaned up"
+
+
 def test_plan_is_read_only_and_names_every_step(
     initialized_bundle, selected_release, monkeypatch
 ):
@@ -127,6 +158,7 @@ def test_upgrade_moves_cli_pin_pull_and_restart_as_one_ordered_pair(
         return _completed(command)
 
     monkeypatch.setattr(upgrade, "_RUN", run)
+    monkeypatch.setattr(release_target, "_RUN", run)
     report = upgrade.execute_upgrade(_plan(initialized_bundle, selected_release))
 
     assert calls[0][0][0] == sys.executable
@@ -155,7 +187,7 @@ def test_installer_failure_preserves_old_pin_and_skips_compose(
         calls.append(tuple(command))
         return _completed(command, returncode=7, stderr="resolver unavailable")
 
-    monkeypatch.setattr(upgrade, "_RUN", fail_install)
+    monkeypatch.setattr(release_target, "_RUN", fail_install)
     with pytest.raises(upgrade.SelfHostUpgradeError) as raised:
         upgrade.execute_upgrade(_plan(initialized_bundle, selected_release))
 
@@ -180,6 +212,7 @@ def test_pull_failure_keeps_paired_cli_and_pin_with_exact_recovery(
         return _completed(command)
 
     monkeypatch.setattr(upgrade, "_RUN", fail_pull)
+    monkeypatch.setattr(release_target, "_RUN", fail_pull)
     with pytest.raises(upgrade.SelfHostUpgradeError) as raised:
         upgrade.execute_upgrade(_plan(initialized_bundle, selected_release))
 

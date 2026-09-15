@@ -297,12 +297,12 @@ def run_wizard(
         ) from exc
 
     app = OnboardWizardApp(defaults=defaults, apply_report=apply_report)
-    # Mouse reporting stays off: with it on, the terminal hands drags to the
-    # app, so an ordinary drag-select + copy of a URL or one-time code selects
-    # nothing and beeps. The wizard is keyboard-driven — the scroll keys move
-    # an overflowing step, and the copy and open keys carry the strings that
-    # matter — so nothing is lost, and native selection works everywhere.
-    app.run(mouse=False)
+    # Mouse reporting stays on so the wheel/trackpad and the visible scrollbar
+    # move an overflowing step on every terminal. That costs native drag-select
+    # of a URL or one-time code (the terminal hands drags to the app instead),
+    # but every screen showing one already carries a keyboard-driven copy: ^y
+    # copies the exact string and ^o opens a link, so nothing is lost.
+    app.run()
     if app.cancelled:
         return WizardRunResult(
             exit_code=130,

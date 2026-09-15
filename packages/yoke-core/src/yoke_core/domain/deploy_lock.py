@@ -1,7 +1,8 @@
 """One deploy lock per project, required to create or execute a run.
 
-Any box holding an owner-only connection can drive a deployment run, and
-nothing used to stop two of them driving the same project at once — two
+Any authenticated project owner can drive a deployment run through its
+selected control plane, and nothing used to stop two drivers racing the same
+project — two
 pipelines racing one environment, or a stage promotion overtaking the
 production promotion it was supposed to precede. This module is the gate
 that makes that impossible: creating a run and executing one both refuse

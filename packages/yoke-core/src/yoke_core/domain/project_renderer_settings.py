@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import json
 from typing import Any, Dict, Iterable, Mapping, Sequence
 
-from yoke_core.domain import db_backend, db_helpers
+from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project
 
 
@@ -199,12 +199,17 @@ def select_primary_environment(
 
 
 def load_project_renderer_settings(project: str) -> ProjectRendererSettings:
-    """Load the DB-backed renderer settings snapshot for *project*."""
-    conn = db_helpers.connect()
-    try:
-        return _load_project_renderer_settings(conn, project)
-    finally:
-        conn.close()
+    """Load renderer settings from the selected control-plane transport."""
+    from yoke_cli.commands.pulumi_stack_config_loader import (
+        load_project_renderer_settings_snapshot,
+    )
+    from yoke_core.domain.project_renderer_settings_snapshot import (
+        settings_from_stack_config,
+    )
+
+    return settings_from_stack_config(
+        load_project_renderer_settings_snapshot(project)
+    )
 
 
 def _load_project_renderer_settings(

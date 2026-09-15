@@ -88,7 +88,9 @@ yoke watch merge --print-streaming-pair merge-item -- ITEM --wait \
   --result "<what changed>" --verification "<checks and evidence>"
 ```
 
-Read the wrapper's `wait_mode` and reason.
+That call only prints: it merges nothing, arms nothing, and records
+nothing. Read the reported `wait_mode` and reason, then run the printed
+command exactly once — that run is the merge.
 
 A `[phase:authority] tunnel_busy ... elapsed=.../limit=...` line means a
 sibling merge still owns the machine's connected-environment tunnel lifecycle
@@ -97,25 +99,44 @@ through one more bounded replacement window and continues when the tunnel is
 free.
 
 - `background-wake` means the caller's harness can resume an ended turn. The
-  selector exits after printing the bound background command and subscription;
-  run that pair exactly once on the long-command surface your harness rules
-  name. A completion wake is expected only because the mode line recorded that
+  printed pair is the bound background command and its subscription; run that
+  pair exactly once on the long-command surface your harness rules name. A
+  completion wake is expected only because the mode line recorded that
   primitive.
-- `in-turn` means the same invocation is already holding the foreground wait
-  and will not return until landing finishes. No later completion notice is
-  expected. On Claude, set the Bash tool's `timeout` to `600000` on every
+- `in-turn` means the printed command is a single foreground invocation that
+  holds the wait and will not return until landing finishes. Run it, and keep
+  the call open. No later completion notice is expected. On Claude, set the
+  Bash tool's `timeout` to `600000` on every
   `in-turn` watcher invocation, so the harness does not move the call to a
-  background task at its 120-second default. If it moves the call anyway, the
-  command is still running: continue that same call through the background
-  task's output until it exits. Reading that output continues the call —
-  only ending the turn kills the watcher and the child it was holding.
+  background task at its 120-second default. Headless Claude watcher Bash
+  that omits it is denied by `lint-headless-watcher-timeout` — not a blanket
+  Bash rule. If it moves the call anyway, the command is still running:
+  continue that same call through the background task's output until it
+  exits. Reading that output continues the call — only ending the turn
+  kills the watcher and the child it was holding. Existing Stop evidence
+  cannot hold after that PostToolUse completion.
 
 For a separate point-in-time check, run `yoke github merge-queue readiness
 ITEM --json`. It reads the target branch's named queue entry with arming, so
 null arming plus `queue-entry=AWAITING_CHECKS` means consumed and in flight,
-not cleared. A retried invocation publishes any new local lane commits before
-the queue is re-armed; it refuses with exact force-with-lease recovery rather
-than report a SHA that origin does not yet hold.
+not cleared.
+
+**Hold a live candidate before correcting it.** While the pull request is
+armed or queued, every lane publish — the verification gate, the remote
+pytest selection, and the landing's own retry — refuses instead of pushing a
+commit the queue would strand on no branch. Disabling auto-merge does not
+remove an entry GitHub already formed, so the hold does both and verifies
+both are gone:
+
+```text
+yoke github merge-queue hold ITEM --json
+```
+
+It reports `held` only from that readback; `already_landed` or
+`landed_during_hold` names the commit GitHub actually merged, and anything
+else leaves the candidate live and says so. Nothing re-arms on its own —
+correct the lane, commit, re-run the verification gate against the new
+candidate, then re-run `yoke merge item`.
 
 Every way either route ends is named, and none of them is silence:
 
@@ -157,12 +178,13 @@ yoke merge item ITEM --skip-status --json
 ```
 
 Start item-bound delivery for the returned `merge_sha`, run it through the
-project executor, and wait for `succeeded`. Create requires the same-universe
-owner-only local-postgres env (not the HTTPS product plane) — the same
-`*-db-admin` connection execute uses:
+project executor, and wait for `succeeded`. Use the selected control-plane
+connection for ordinary external delivery, including HTTPS. Only when the
+target is that control plane's own serving API should you switch to the paired
+local `*-db-admin` connection named by the executor's refusal:
 
 ```text
-yoke --env <control-plane>-db-admin deployment-runs start-for-item ITEM \
+yoke --env <control-plane> deployment-runs start-for-item ITEM \
   --release-lineage <merge-sha> --json
 ```
 
@@ -218,8 +240,12 @@ When a report to the steering seat is still owed, send it BEFORE that
 release. `yoke say --steering` addresses the seat covering the item you hold,
 and falls back to the item you last held in this session, so the report
 resolves either side of close-out; sending first keeps the live claim as the
-address. One terminal report per session and item reaches the seat once, so a
-reworded retry deduplicates rather than arriving twice. Ending a turn sends no
+address. One terminal report per work leg reaches the seat once, so a reworded
+retry of the same completion deduplicates rather than arriving twice, and a
+send answering `Collapsed into an earlier message` did not deliver the body you
+just sent. A completion you are resumed to do is its own leg and is delivered,
+whether or not the resume hands you a fresh claim; never release an unfinished
+lane merely to be heard. Ending a turn sends no
 Fleet message; every worker uses this deliberate route regardless of launch
 origin.
 

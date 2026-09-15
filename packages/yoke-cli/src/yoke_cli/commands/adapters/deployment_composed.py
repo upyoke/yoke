@@ -15,9 +15,6 @@ from yoke_cli.commands._helpers import (
     run_id_receipt,
     usage_error,
 )
-from yoke_cli.commands.adapters.deployment_owner_authority import (
-    https_product_plane_create_error,
-)
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 from yoke_contracts.api.function_call import TargetRef
 
@@ -33,7 +30,7 @@ DEPLOYMENT_FLOWS_DESCRIBE_USAGE = (
     "[--session-id S] [--json]"
 )
 DEPLOYMENT_RUNS_START_FOR_ITEM_USAGE = (
-    "yoke --env <control-plane>-db-admin deployment-runs start-for-item ITEM "
+    "yoke deployment-runs start-for-item ITEM "
     "[--project P] [--flow F] [--environment ENV] "
     "[--release-lineage LINEAGE] [--created-by WHO] "
     "[--session-id S] [--json]"
@@ -133,11 +130,8 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
         prog="yoke deployment-runs start-for-item",
         description=(
             "Compose target resolution, run creation, item membership, "
-            "and composition validation for one item. Requires the "
-            "same-universe owner-only local-postgres env "
-            "(`yoke --env <control-plane>-db-admin ...`); the HTTPS product "
-            "plane refuses create so run rows stay writable when that plane "
-            "is the deploy target."
+            "and composition validation for one item on the selected "
+            "control-plane transport."
         ),
     )
     parser.add_argument("item")
@@ -153,12 +147,6 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
     )
     if parsed is None:
         return 2
-    owner_error = https_product_plane_create_error(
-        "deployment-runs start-for-item",
-    )
-    if owner_error is not None:
-        print(f"Error: {owner_error}", file=sys.stderr)
-        return 1
     payload = {
         key: value
         for key in (

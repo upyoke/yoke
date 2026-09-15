@@ -2,10 +2,13 @@
 
 A lane directory is disposable when git reports nothing in it except caches
 this module can name — build output, virtualenvs, interpreter and tool
-caches. Tracked edits and untracked files are work. Ignored content that is
-*not* a named cache is unknown rather than worthless: a local database, a
-credential file, and an operator's scratch notes are all ignored, and none
-of them is the repository's to delete.
+caches — or paths the owning project declared through its
+``disposable_generated_paths`` policy (see
+``yoke_core.engines.lane_residue_declared_paths``). Tracked edits and
+untracked files are work. Ignored content that is *not* a named or declared
+cache is unknown rather than worthless: a local database, a credential
+file, and an operator's scratch notes are all ignored, and none of them is
+the repository's to delete.
 
 Landing cleanup, the machine-wide merged-lane sweep, the epic merge
 boundary, and the doctor lane report all read this one classification, so a
@@ -48,10 +51,16 @@ class LaneResidueAssessment:
     reason: str = ""
 
 
-def _cache_root(relative_path: str) -> PurePosixPath | None:
+def _cache_root(
+    relative_path: str,
+    declared_roots: frozenset[PurePosixPath] = frozenset(),
+) -> PurePosixPath | None:
     path = PurePosixPath(relative_path.rstrip("/"))
     if path.is_absolute() or not path.parts or ".." in path.parts:
         return None
+    for declared in declared_roots:
+        if path == declared or path.is_relative_to(declared):
+            return declared
     for index, part in enumerate(path.parts):
         if part in _DISPOSABLE_DIR_NAMES or part.endswith(".egg-info"):
             return PurePosixPath(*path.parts[: index + 1])
@@ -82,13 +91,15 @@ def _kept(reason: str, precious_paths: tuple[str, ...] = ()) -> LaneResidueAsses
 
 
 def assess_lane_residue(
-    run_git: Callable[..., Any], worktree_path: str | Path
+    run_git: Callable[..., Any],
+    worktree_path: str | Path,
+    declared_roots: frozenset[PurePosixPath] = frozenset(),
 ) -> LaneResidueAssessment:
     """Classify a lane without changing it.
 
-    A disposable result means every status entry is a named ignored cache,
-    no cache path escapes the lane, and none of them contains the
-    interpreter running the cleanup.
+    A disposable result means every status entry is a named or
+    project-declared ignored cache, no cache path escapes the lane, and
+    none of them contains the interpreter running the cleanup.
     """
     root = Path(worktree_path).resolve()
     current = _status(run_git, root)
@@ -103,7 +114,7 @@ def assess_lane_residue(
         if not line.startswith("!! "):
             precious.append(path)
             continue
-        cache_root = _cache_root(path)
+        cache_root = _cache_root(path, declared_roots)
         if cache_root is None:
             unknown.append(path)
         else:
@@ -128,16 +139,18 @@ def assess_lane_residue(
 
 
 def clear_lane_residue(
-    run_git: Callable[..., Any], worktree_path: str | Path
+    run_git: Callable[..., Any],
+    worktree_path: str | Path,
+    declared_roots: frozenset[PurePosixPath] = frozenset(),
 ) -> LaneResidueAssessment:
-    """Remove only named ignored caches, then prove the lane holds nothing.
+    """Remove only named or declared ignored caches, then prove the lane holds nothing.
 
     The returned assessment is the verdict callers report: disposable means
     the directory is now empty of everything git can see and may be removed
     without force. Anything else names what survived and why.
     """
     root = Path(worktree_path).resolve()
-    assessment = assess_lane_residue(run_git, root)
+    assessment = assess_lane_residue(run_git, root, declared_roots)
     if not assessment.disposable:
         return assessment
     for relative in sorted(

@@ -33,7 +33,10 @@ from yoke_cli.config.onboard_wizard_flow import WizardFlow
 from yoke_cli.config.onboard_wizard_flow_apply import ApplyFlow
 from yoke_cli.config.onboard_wizard_flow_board_art import BoardArtFlow
 from yoke_cli.config.onboard_wizard_flow_clone import CloneFlow
-from yoke_cli.config.onboard_wizard_flow_connect import ConnectFlow, HostedMachineConnectFlow
+from yoke_cli.config.onboard_wizard_flow_connect import (
+    ConnectFlow,
+    HostedMachineConnectFlow,
+)
 from yoke_cli.config.onboard_wizard_flow_destination import DestinationFlow
 from yoke_cli.config.onboard_wizard_flow_dev import DevFlow
 from yoke_cli.config.onboard_wizard_flow_github import MachineGithubFlow
@@ -54,10 +57,27 @@ from yoke_cli.config.onboard_wizard_widgets import (
 
 
 class OnboardWizardApp(
-    CheckingFlow, PathFlow, DestinationFlow, HostedMachineConnectFlow, ConnectFlow, MachineGithubFlow,
-    ProjectGitFlow, WizardFlow, ApplyFlow, CloneFlow, DevFlow, ManualPublishFlow,
-    PublishFlow, HostingFlow, BoardArtFlow, InputEntry, BodyScrollFlow,
-    CopyOpenFlow, StoredConnectionHydration, ViewHelpers, App[None],
+    CheckingFlow,
+    PathFlow,
+    DestinationFlow,
+    HostedMachineConnectFlow,
+    ConnectFlow,
+    MachineGithubFlow,
+    ProjectGitFlow,
+    WizardFlow,
+    ApplyFlow,
+    CloneFlow,
+    DevFlow,
+    ManualPublishFlow,
+    PublishFlow,
+    HostingFlow,
+    BoardArtFlow,
+    InputEntry,
+    BodyScrollFlow,
+    CopyOpenFlow,
+    StoredConnectionHydration,
+    ViewHelpers,
+    App[None],
 ):
     CSS_PATH = "onboard_wizard.tcss"
     # The arrow bindings only reach the body when no list or input is focused:
@@ -134,8 +154,7 @@ class OnboardWizardApp(
             mode=(defaults.mode or "quick"),
             apply=defaults.apply,
             project_mode=(
-                defaults.project_mode
-                or onboard_project.PROJECT_MODE_MACHINE_ONLY
+                defaults.project_mode or onboard_project.PROJECT_MODE_MACHINE_ONLY
             ),
             project_checkout=defaults.project_checkout,
         )
@@ -159,9 +178,10 @@ class OnboardWizardApp(
         yield Stepper(id="onboard-stepper")
         yield self._divider()
         # Non-focusable: a scroll container that can take focus would steal it
-        # from the active SelectionList/Input and leave Enter dead. Plain-glyph
-        # terminals hide the scrollbar in the stylesheet and keep the keyboard
-        # scroll keys.
+        # from the active SelectionList/Input on a body click and leave Enter
+        # dead. on_click then refocuses the active control for header/footer/
+        # label clicks too. Plain-glyph terminals hide the scrollbar in the
+        # stylesheet and keep the keyboard scroll keys.
         yield VerticalScroll(id=BODY_ID, can_focus=False)
         yield self._divider()
         yield Static(chrome.footer(), id="onboard-footer", markup=True)
@@ -257,6 +277,23 @@ class OnboardWizardApp(
             # screen the operator just left.
             self._set_copy_targets(view.copy_targets)
 
+    def _refocus_body(self) -> None:
+        """Move focus to the body's first focusable child (SelectionList/Input).
+
+        The body is a non-focusable VerticalScroll or plain-glyph Vertical.
+        Empty body space would otherwise clear focus off the active list,
+        leaving the highlighted row while Enter silently no-ops. Re-running
+        the body mount focus rule keeps Enter live after any click.
+        """
+        body = self.query_one(f"#{BODY_ID}")
+        self._focus_first(list(body.children))
+
+    def on_click(self, event: Any) -> None:
+        # Any click that lands on the body chrome (the non-focusable scroll
+        # container, the header/stepper/footer, or a static label) restores
+        # focus to the active control so Enter never goes dead.
+        self._refocus_body()
+
     def _plainify_widgets(self, widgets: list[Static]) -> None:
         for widget in widgets:
             if isinstance(widget, Static) and not isinstance(widget, Stepper):
@@ -303,5 +340,6 @@ class OnboardWizardApp(
         if handler is not None:
             handler(message.value)
         await self._apply_pending_swap()
+
 
 __all__ = ["OnboardWizardApp"]

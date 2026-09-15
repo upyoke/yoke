@@ -10,9 +10,9 @@ Usage::
     # runs sessions, not tests.
     yoke watch pytest --impacted main --bounded
 
-    # Run on this machine instead (order-sensitive debugging, an uncommitted
-    # tree, an unreachable CI); local runs share one machine-wide worker
-    # budget.
+    # Small targeted local check expected to finish in about one minute
+    # (not justified by an uncommitted tree). Keep for order-sensitive
+    # debugging or an unreachable CI; local runs share one worker budget.
     yoke watch pytest --local --impacted main --bounded
     yoke watch pytest --local -- -n 0 runtime/api/test_x.py
 
@@ -281,7 +281,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = DEFAULT_PROG) -> int:
             wrapper_options.append(pytest_remote_selection.LOCAL_FLAG)
         if ns.allow_tree_mismatch:
             wrapper_options.append(verification_tree_binding.ALLOW_TREE_MISMATCH_FLAG)
-        return _watch_runner.run_or_print_streaming_pair(
+        return _watch_runner.print_wait_mode_invocation(
             kind=KIND,
             wrapper_module=WRAPPER_MODULE,
             wrapper_args=pytest_args,

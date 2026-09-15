@@ -96,37 +96,49 @@ def slug_files(
 
 def track(project: str, branch: str, updates: dict, item_label: str = "") -> None:
     """Create/update the preview's ``ephemeral_environments`` row."""
-    from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.ephemeral_env import cmd_create, cmd_update
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
-    with connect() as conn:
-        env_id = int(cmd_create(conn, project, branch, item=item_label))
-        for field, value in updates.items():
-            cmd_update(conn, env_id, field, value)
+    created = call_dispatcher(
+        function_id="ephemeral_env.create",
+        target=TargetRef(kind="global"),
+        payload={"project": project, "branch": branch, "item": item_label},
+    )
+    if not created.success:
+        detail = created.error.message if created.error else "request failed"
+        raise EphemeralDeployError(f"[ephemeral] tracking create failed: {detail}")
+    env_id = int((created.result or {}).get("env_id") or 0)
+    if env_id <= 0:
+        raise EphemeralDeployError(
+            "[ephemeral] tracking create returned no environment id"
+        )
+    for field, value in updates.items():
+        updated = call_dispatcher(
+            function_id="ephemeral_env.update",
+            target=TargetRef(kind="global"),
+            payload={"env_id": env_id, "field": field, "value": str(value)},
+        )
+        if not updated.success:
+            detail = updated.error.message if updated.error else "request failed"
+            raise EphemeralDeployError(
+                f"[ephemeral] tracking update {field} failed: {detail}"
+            )
 
 
 def emit_ephemeral_event(
     name: str, policy: EphemeralPolicy, slug: str, context: dict
 ) -> None:
     """Record through the canonical emitter (best-effort)."""
-    import sys
+    from yoke_core.domain.deploy_pipeline_events import emit_deployment_event
 
-    try:
-        from yoke_core.domain.events import emit_event
-
-        emit_event(
-            name,
-            event_kind="lifecycle",
-            event_type="deployment_run",
-            source_type="system",
-            severity="STATUS",
-            project=policy.project,
-            outcome="completed",
-            environment=f"ephemeral-{slug}",
-            context=context,
-        )
-    except Exception as exc:  # pragma: no cover - telemetry is best-effort
-        print(
-            f"  [ephemeral] warning: event emission failed: {exc}",
-            file=sys.stderr,
-        )
+    emit_deployment_event(
+        name,
+        event_kind="lifecycle",
+        event_type="deployment_run",
+        source_type="system",
+        severity="STATUS",
+        project=policy.project,
+        outcome="completed",
+        environment=f"ephemeral-{slug}",
+        context=context,
+    )

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
 from yoke_contracts.session_control.recipient_selector import RecipientSelector
@@ -94,6 +94,9 @@ class MessageSendResponse(BaseModel):
     actor_recipients: List[ActorMessageRecipient] = Field(default_factory=list)
     recipient_count: int
     deduplicated: bool = False
+    #: A dedupe that discarded a DIFFERENT body than the one it matched, so a
+    #: caller never reads a collapsed send as a newly delivered one.
+    collapsed_differing_body: bool = False
     steering_recipient: Optional[SteeringMessageRecipient] = None
 
 
@@ -166,7 +169,7 @@ class LaunchPreviewRequest(BaseModel):
 
 
 class LaunchCreateRequest(LaunchPreviewRequest):
-    item: str = Field(min_length=1, max_length=64)
+    item: Optional[str] = Field(default=None, min_length=1, max_length=64)
     instructions: str = ""
     compose_mandate: bool = True
     idempotency_key: str
@@ -177,6 +180,15 @@ class LaunchCreateRequest(LaunchPreviewRequest):
         max_length=64,
         pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$",
     )
+
+    @model_validator(mode="after")
+    def _item_or_raw_body(self) -> "LaunchCreateRequest":
+        if self.compose_mandate:
+            if not (self.item or "").strip():
+                raise ValueError("composed launches require item")
+        elif not str(self.instructions or "").strip():
+            raise ValueError("raw instruction launches require non-empty instructions")
+        return self
 
 
 class LaunchMutationRequest(BaseModel):

@@ -6,7 +6,7 @@ from yoke_core.domain.merge_queue_failed_train import (
     FAILED_TRAIN_UNCHANGED,
     unchanged_failed_train_refusal,
 )
-from yoke_core.engines.merge_worktree_pr_queue import TrainRun
+from yoke_core.engines.merge_worktree_pr_train_run import TrainRun
 
 BASE_SHA = "3" * 40
 TRAIN_SHA = "4" * 40

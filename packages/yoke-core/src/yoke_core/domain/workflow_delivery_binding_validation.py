@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.workflow_definition_builders import (
+    WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
+)
 from yoke_core.domain.workflow_item_binding_validation import (
     WorkflowItemBindingError,
     item_binding_runtime_state,
@@ -31,7 +34,7 @@ def delivery_ready_for_stage(runtime: WorkflowRuntime, status: str) -> bool:
         ]
         valid = [value for value in starts if value is not None]
         return bool(valid) and position >= min(valid)
-    if policy == "continuous_slice_actions":
+    if policy in ("continuous_slice_actions", WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE):
         return runtime.implementation_has_started(status)
     if policy == "after_merge_action":
         return position >= len(runtime.stage_ids) - 2

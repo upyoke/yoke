@@ -98,8 +98,14 @@ HEADLESS_TOOL_CONTINUATION_TEACHING = (
     "verdict. Never start a second invocation beside a live one; re-run only "
     "once the first process is verifiably gone. Stop before a command "
     "finishes only where the command itself handed the wait off — a merge "
-    "that returned landing_pending has its landing notice, and nothing else "
-    "does."
+    "that returned landing_pending has its landing notice — or, as the "
+    "explicitly taught exception, when a *local* test check on a project "
+    "with declared CI has already exceeded about one minute: interrupt "
+    "that test process cleanly, keep the capture as incomplete, commit, "
+    "and continue the selection on that project's CI. Do not interrupt a "
+    "CI-routed watcher, a machine-specific diagnostic, or a local run on "
+    "a project without CI, and do not background the slow local selection "
+    "to keep waiting."
 )
 
 
@@ -113,7 +119,11 @@ _DELIBERATE_CLOSE = (
     "resolves from the item you last held in this session. The PREFIX-N in "
     "the DONE heading is the report identity and must name work this session "
     "holds or released; a repeat of the same DONE is deduplicated rather "
-    "than delivered twice."
+    "than delivered twice. A completion you are later RESUMED to do is its "
+    "own leg and reaches the seat on its own, whether or not that resume "
+    "hands you a fresh claim — never release an unfinished lane to force "
+    "one through. A send answering `Collapsed into an earlier message` did "
+    "NOT deliver your body; read it rather than assume you reported."
 )
 
 
@@ -224,9 +234,15 @@ def compose_item_launch_instructions(
                 "instructions must be non-empty",
             )
         return body
-    entrypoint, remaining_legs = _route_for_item(conn, parsed.item, project_id)
+    public_ref = parsed.item
+    if not public_ref:
+        raise SessionLaunchError(
+            "payload_invalid",
+            "composed launches require item",
+        )
+    entrypoint, remaining_legs = _route_for_item(conn, public_ref, project_id)
     return compose_single_item_mandate(
-        public_ref=parsed.item,
+        public_ref=public_ref,
         entrypoint=entrypoint,
         remaining_legs=remaining_legs,
         extras=parsed.instructions,
@@ -251,13 +267,13 @@ def _instructions_for_create(
         from yoke_core.domain.session_launch_store import get_launch_by_dedupe
 
         existing = get_launch_by_dedupe(conn, actor_id, parsed.idempotency_key)
-    if existing is None or parsed.compose_mandate:
+    if parsed.item and (existing is None or parsed.compose_mandate):
         from yoke_core.domain.session_launch_assignment import (
             refuse_terminal_assigned_item,
         )
 
         refuse_terminal_assigned_item(
-            conn, public_ref=parsed.item, project_id=project_id
+            conn, public_ref=str(parsed.item), project_id=project_id
         )
     return compose_item_launch_instructions(conn, parsed, project_id)
 
@@ -267,11 +283,17 @@ def launch_request_for_create(
     parsed: LaunchCreateRequest,
     *,
     project_id: int,
-    session_name: str,
     deadline_seconds: int,
     actor_id: int | None = None,
+    session_name: str | None = None,
 ) -> LaunchRequest:
     """Build the domain launch request, composing the mandate when requested."""
+    if session_name is None and parsed.item:
+        from yoke_core.domain.session_launch_assignment import assignment_session_name
+
+        session_name = assignment_session_name(
+            conn, public_ref=parsed.item, project_id=project_id
+        )
     return LaunchRequest(
         project_id=project_id,
         executor_surface=parsed.executor_surface,
