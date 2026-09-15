@@ -8,7 +8,12 @@ Owns:
 - ``_validate_freshness_inputs`` and ``_validate_deployed_sha`` — deployment
   freshness gating. The ``ephemeral_environments`` row is read server-side
   by ``qa.browser_context.get``; ``_validate_deployed_sha`` is the pure
-  client-side comparison over that payload.
+  client-side comparison over that payload. It reports each failure as a
+  :class:`FreshnessFailure` carrying its own reason code, because "no
+  deployment was recorded" and "the deployment serves a different commit"
+  are different problems with different recoveries, and labelling the first
+  as the second sends the reader hunting for a stale deploy that never
+  existed.
 - ``_build_code_identity`` and ``_build_run_payload`` — structured raw_result
   payload builders.
 
@@ -23,8 +28,31 @@ import json
 import re
 import socket
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+
+#: No ``ephemeral_environments`` row exists for the branch at all.
+DEPLOYMENT_RECORD_MISSING = "deployment_record_missing"
+#: A row exists, but it records no deployed commit to compare against.
+DEPLOYED_SHA_UNKNOWN = "deployed_sha_unknown"
+#: A recorded deployed commit genuinely differs from the expected one.
+SHA_MISMATCH = "sha_mismatch"
+
+
+@dataclass(frozen=True)
+class FreshnessFailure:
+    """Why a deployment freshness check refused, in both registers.
+
+    ``reason`` is the stable code recorded on the run and read by tooling;
+    ``message`` is the human sentence naming the branch, the commits, and
+    what to do next. They are one object so a caller cannot record a reason
+    that disagrees with the message it printed.
+    """
+
+    reason: str
+    message: str
 
 
 def _resolve_repo_root() -> str:
@@ -117,33 +145,42 @@ def _validate_deployed_sha(
     *,
     deployed_sha: Optional[str],
     deployment_recorded: bool,
-) -> Optional[str]:
+) -> Optional[FreshnessFailure]:
     """Validate that the ephemeral environment deployed the expected SHA.
 
     Pure comparison over the ``qa.browser_context.get`` payload
     (``deployed_sha`` + ``deployment_recorded``). Returns None on success,
-    or an error message string on failure. Logs the validated branch and
-    SHA on success for auditability.
+    or the :class:`FreshnessFailure` naming which of the three distinct
+    outcomes occurred. Logs the validated branch and SHA on success for
+    auditability.
     """
     # Lazy import so tests patching browser_qa._log apply.
     from yoke_core.domain import browser_qa as _bqa
 
     if not deployment_recorded:
-        return (
+        return FreshnessFailure(
+            DEPLOYMENT_RECORD_MISSING,
             f"No ephemeral environment record found for branch '{expected_branch}' "
-            f"in project '{project}'. No deployment was recorded for the expected branch."
+            f"in project '{project}'. Nothing recorded a deployment for that "
+            "branch, so no commit could be compared; deploy the branch, or "
+            "point the check at the target that is actually serving it.",
         )
 
     if not deployed_sha:
-        return (
-            f"Ephemeral environment for branch '{expected_branch}' has no deployed_sha. "
-            f"No deployment was recorded for the expected branch."
+        return FreshnessFailure(
+            DEPLOYED_SHA_UNKNOWN,
+            f"Ephemeral environment for branch '{expected_branch}' in project "
+            f"'{project}' records no deployed commit, so there is nothing to "
+            "compare against; redeploy the branch so the environment records "
+            "what it served.",
         )
 
     if deployed_sha != expected_sha:
-        return (
+        return FreshnessFailure(
+            SHA_MISMATCH,
             f"Deployed SHA mismatch for branch '{expected_branch}': "
-            f"expected {expected_sha}, but environment has {deployed_sha}."
+            f"expected {expected_sha}, but environment has {deployed_sha}. "
+            "Redeploy the expected commit before running this case.",
         )
 
     _bqa._log(f"Freshness check passed: branch={expected_branch}, sha={expected_sha}")

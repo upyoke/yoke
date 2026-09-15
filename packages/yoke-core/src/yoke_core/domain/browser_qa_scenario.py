@@ -189,9 +189,9 @@ def execute_scenario(
             deployment_recorded=bool(context.get("deployment_recorded")),
         )
         if freshness_error:
-            _bqa._log(f"ERROR: {freshness_error}")
+            _bqa._log(f"ERROR: {freshness_error.message}")
             result.verdict = "error"
-            result.note = "sha_mismatch"
+            result.note = freshness_error.reason
             print(result.to_json())
             return result
 

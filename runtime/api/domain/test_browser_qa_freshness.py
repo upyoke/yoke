@@ -15,7 +15,7 @@ from unittest import mock
 
 import pytest
 
-from yoke_core.domain import browser_qa, db_backend
+from yoke_core.domain import browser_qa, browser_qa_freshness, db_backend
 from runtime.api.domain.browser_qa_test_helpers import (
     _browser_verdict_assertion,
     _patch_external_deps,
@@ -114,27 +114,36 @@ class TestDeployedShaFreshness:
             deployed_sha="old111", deployment_recorded=True,
         )
         assert err is not None
-        assert "old111" in err
-        assert "new222" in err
+        assert err.reason == browser_qa_freshness.SHA_MISMATCH
+        assert "old111" in err.message
+        assert "new222" in err.message
 
-    def test_no_env_row_returns_error(self) -> None:
-        """Missing env row returns clear 'no deployment recorded' error."""
+    def test_no_env_row_is_not_reported_as_a_mismatch(self) -> None:
+        """An absent record is its own outcome, never a SHA mismatch.
+
+        Collapsing the two sends the reader hunting for a stale deploy that
+        never existed — the environment served the right commit, nothing
+        recorded that it had.
+        """
         err = browser_qa._validate_deployed_sha(
             "testproj", "YOK-999", "abc123",
             deployed_sha=None, deployment_recorded=False,
         )
         assert err is not None
-        assert "No ephemeral environment record" in err
-        assert "YOK-999" in err
+        assert err.reason == browser_qa_freshness.DEPLOYMENT_RECORD_MISSING
+        assert err.reason != browser_qa_freshness.SHA_MISMATCH
+        assert "No ephemeral environment record" in err.message
+        assert "YOK-999" in err.message
 
-    def test_empty_deployed_sha_returns_error(self) -> None:
-        """Env row exists but deployed_sha is empty."""
+    def test_empty_deployed_sha_is_its_own_reason(self) -> None:
+        """A row with no recorded commit is neither absent nor mismatched."""
         err = browser_qa._validate_deployed_sha(
             "testproj", "YOK-999", "abc123",
             deployed_sha=None, deployment_recorded=True,
         )
         assert err is not None
-        assert "no deployed_sha" in err
+        assert err.reason == browser_qa_freshness.DEPLOYED_SHA_UNKNOWN
+        assert "records no deployed commit" in err.message
 
     def test_execute_scenario_blocks_on_sha_mismatch(self, db_path: str) -> None:
         """Execute_scenario hard-blocks when SHA doesn't match."""
@@ -168,7 +177,7 @@ class TestDeployedShaFreshness:
                 patcher.stop()
 
         assert result.verdict == "error"
-        assert result.note == "sha_mismatch"
+        assert result.note == browser_qa_freshness.SHA_MISMATCH
 
     def test_execute_scenario_rejects_partial_freshness_inputs(self, db_path: str) -> None:
         """Polish: partial freshness args must fail closed instead of skipping validation."""
