@@ -133,6 +133,12 @@ def _dispatch_step_runner(
         )
 
         return dispatch_deployment_stage_approval(run_id, name)
+    if step_runner == "qa":
+        from yoke_core.domain.deployment_qa_stage_dispatch import (
+            dispatch_deployment_qa_stage,
+        )
+
+        return dispatch_deployment_qa_stage(stage, run_id=run_id)
     if step_runner == "github-actions-workflow":
         rehearsal_rc, rehearsal_diag = (
             deploy_pipeline_schema_rehearsal.ensure_before_dispatch(
@@ -286,12 +292,8 @@ def _dispatch_warm_up(
 
     outcome = warm_up_environment(
         str(config.get("connection_env", "") or ""),
-        function_id=str(
-            config.get("function", "") or DEFAULT_WARM_UP_FUNCTION
-        ),
-        timeout_s=float(
-            config.get("timeout_s", 0) or DEFAULT_WARM_UP_TIMEOUT_S
-        ),
+        function_id=str(config.get("function", "") or DEFAULT_WARM_UP_FUNCTION),
+        timeout_s=float(config.get("timeout_s", 0) or DEFAULT_WARM_UP_TIMEOUT_S),
     )
     print(f"exec-warm-up: {outcome.detail}")
     if not outcome.ok:

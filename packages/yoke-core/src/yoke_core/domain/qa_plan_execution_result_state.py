@@ -23,7 +23,7 @@ _PLAN_STATE_PRECEDENCE = {
 def plan_order(case: dict[str, Any]) -> dict[str, Any]:
     """Return the immutable ordering fields persisted with a case result."""
     return {
-        "plan_id": int(case["plan_id"]),
+        "plan_id": (int(case["plan_id"]) if case.get("plan_id") is not None else None),
         "case_key": str(case["case_key"]),
         "case_position": int(case["case_position"]),
         "baseline_position": int(case["baseline_position"]),

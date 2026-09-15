@@ -96,7 +96,7 @@ def _review_case(
         )
     return {
         "requirement_id": requirement_id,
-        "plan_id": int(case["plan_id"]),
+        "plan_id": (int(case["plan_id"]) if case.get("plan_id") is not None else None),
         "case_key": str(case["case_key"]),
         "case_position": int(case["case_position"]),
         "baseline_position": int(case["baseline_position"]),
@@ -302,6 +302,8 @@ def begin_plan_review(
         "subject": {
             "item_id": execution.get("item_id"),
             "deployment_run_id": execution.get("deployment_run_id"),
+            "deployment_stage": execution.get("deployment_stage"),
+            "deployment_member_item_id": execution.get("deployment_member_item_id"),
         },
         "cases": cases,
     }

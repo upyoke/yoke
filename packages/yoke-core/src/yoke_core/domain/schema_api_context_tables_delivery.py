@@ -1,8 +1,8 @@
 """``project`` topic delivery-lane table entries for the schema cheat sheet.
 
 Sibling of :mod:`schema_api_context_tables` (which combines per-topic
-dicts into the canonical ``CANONICAL_TABLES``). Holds deployment_flows,
-deployment_runs, deployment_run_items, ephemeral_environments.
+dicts into the canonical ``CANONICAL_TABLES``). Holds deployment flows,
+runs, stage receipts, run items, and ephemeral environments.
 
 Pure data only — no I/O or DB connections.
 """
@@ -115,6 +115,35 @@ DELIVERY_TABLES: dict[str, dict] = {
             "the UTC day's maximum numeric suffix plus one, and inserts under "
             "the same transaction with the primary key as a collision guard. "
             "`runs next-id` is only a non-reserving preview."
+        ),
+    },
+    "deployment_stage_receipts": {
+        "columns": [
+            ("id", "INTEGER"),
+            ("run_id", "TEXT"),
+            ("stage_name", "TEXT"),
+            ("attempt_number", "INTEGER"),
+            ("correlation_id", "TEXT"),
+            ("target_kind", "TEXT"),
+            ("target_name", "TEXT"),
+            ("status", "TEXT"),
+            ("observed_url", "TEXT"),
+            ("observed_release_lineage", "TEXT"),
+            ("observed_artifact_identity", "TEXT"),
+            ("executor", "TEXT"),
+            ("executor_receipt", "TEXT"),
+            ("failure_reason", "TEXT"),
+            ("created_at", "TEXT"),
+            ("completed_at", "TEXT"),
+        ],
+        "notes": (
+            "Durable ordered observations from non-QA deployment attempts. "
+            "Allocate attempt identity before dispatch. Identical correlation "
+            "replay is idempotent; terminal callbacks are immutable and "
+            "failures preserve recovery reasons. Scoped QA accepts only the "
+            "newest ready receipt for its pinned `source_stage`, exact target "
+            "and release lineage, and any pinned artifact identity. Older or "
+            "superseded success never satisfies QA; events are telemetry."
         ),
     },
     "deployment_run_items": {

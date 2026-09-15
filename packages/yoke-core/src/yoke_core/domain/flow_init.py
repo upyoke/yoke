@@ -15,6 +15,9 @@ from yoke_core.domain.schema_common import (
 from yoke_core.domain.deployment_runs_schema_init import (
     DELIVERY_INTENT_COLUMN_SQL,
 )
+from yoke_core.domain.deployment_stage_receipts import (
+    ensure_deployment_stage_receipt_schema,
+)
 
 
 def _ensure_flow_schema(conn) -> None:
@@ -117,6 +120,9 @@ def _ensure_flow_schema(conn) -> None:
             "requirement_snapshot",
         ):
             _add_column_if_not_exists(conn, "deployment_run_items", column, "TEXT")
+
+    if _table_exists(conn, "deployment_runs"):
+        ensure_deployment_stage_receipt_schema(conn)
 
     # Add deployment_flow / deploy_stage to items (idempotent).
     # NOTE: SQLite silently drops the inline `REFERENCES` clause on

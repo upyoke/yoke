@@ -33,6 +33,9 @@ def build_execution_roster(
     item_id: int | None = None,
     transition_id: str | None = None,
     deployment_run_id: str | None = None,
+    deployment_stage: str | None = None,
+    deployment_member_item_id: int | None = None,
+    execution_target_digest: str | None = None,
     host_capability_kinds: Any | None = None,
 ) -> list[dict[str, Any]]:
     """Capture the complete immutable execution context in server order."""
@@ -46,6 +49,9 @@ def build_execution_roster(
         item_id=item_id,
         transition_id=transition_id,
         deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage,
+        deployment_member_item_id=deployment_member_item_id,
+        execution_target_digest=execution_target_digest,
     )
     roster: list[dict[str, Any]] = []
     for ordinal, order in enumerate(ordered):
@@ -88,6 +94,8 @@ def live_plan_execution_id(
     item_id: int | None = None,
     transition_id: str | None = None,
     deployment_run_id: str | None = None,
+    deployment_stage: str | None = None,
+    deployment_member_item_id: int | None = None,
 ) -> str | None:
     """Return the current live execution id across supported row factories."""
     placeholder = marker(conn)
@@ -99,8 +107,16 @@ def live_plan_execution_id(
         where = f"item_id={placeholder} AND transition_id={placeholder}"
         params: tuple[Any, ...] = (int(item_id), str(transition_id))
     else:
-        where = f"deployment_run_id={placeholder}"
-        params = (str(deployment_run_id),)
+        where = (
+            f"deployment_run_id={placeholder} "
+            f"AND COALESCE(deployment_stage,'')={placeholder} "
+            f"AND COALESCE(deployment_member_item_id,0)={placeholder}"
+        )
+        params = (
+            str(deployment_run_id),
+            deployment_stage or "",
+            deployment_member_item_id or 0,
+        )
     cursor = conn.execute(
         "SELECT id FROM qa_plan_executions "
         f"WHERE {where} "
@@ -136,6 +152,8 @@ def select_plan_execution(
         row["item_id"] = int(row["item_id"])
     if row.get("machine_lease_id") is not None:
         row["machine_lease_id"] = int(row["machine_lease_id"])
+    if row.get("deployment_member_item_id") is not None:
+        row["deployment_member_item_id"] = int(row["deployment_member_item_id"])
     try:
         roster = json.loads(str(row["roster_json"]))
     except (TypeError, ValueError) as exc:
@@ -211,6 +229,8 @@ def converge_plan_execution_insert_race(
     item_id: int | None,
     transition_id: str | None,
     deployment_run_id: str | None = None,
+    deployment_stage: str | None = None,
+    deployment_member_item_id: int | None = None,
     actor_id: str | None,
     session_id: str,
     digest: str,
@@ -223,6 +243,8 @@ def converge_plan_execution_insert_race(
         item_id=item_id,
         transition_id=transition_id,
         deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage,
+        deployment_member_item_id=deployment_member_item_id,
     )
     if concurrent_id is None:
         conn.rollback()
@@ -280,6 +302,8 @@ def plan_execution_view(
             int(execution["item_id"]) if execution.get("item_id") is not None else None
         ),
         "deployment_run_id": execution.get("deployment_run_id"),
+        "deployment_stage": execution.get("deployment_stage"),
+        "deployment_member_item_id": execution.get("deployment_member_item_id"),
         "transition_id": execution.get("transition_id"),
         "state": str(execution["state"]),
         "roster_digest": str(execution["roster_digest"]),

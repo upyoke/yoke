@@ -77,6 +77,7 @@ def get_case_execution_context(
     row = query_one(
         conn,
         "SELECT q.id AS requirement_id, q.item_id, q.deployment_run_id, "
+        "q.deployment_stage,q.deployment_member_item_id, "
         "q.plan_id, "
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
@@ -183,6 +184,12 @@ def get_case_execution_context(
         "requirement_id": int(row["requirement_id"]),
         "item_id": (int(row["item_id"]) if row["item_id"] is not None else None),
         "deployment_run_id": row["deployment_run_id"],
+        "deployment_stage": row["deployment_stage"],
+        "deployment_member_item_id": (
+            int(row["deployment_member_item_id"])
+            if row["deployment_member_item_id"] is not None
+            else None
+        ),
         "plan_id": plan_id,
         "case_key": case_key,
         "method_id": str(row["method_id"]),
@@ -223,7 +230,7 @@ def get_case_execution_context(
         )
         if evidence:
             context["lane_commit_sha"] = evidence.get("commit_sha")
-    if plan_id is not None:
+    if plan_id is not None or row["deployment_stage"] is not None:
         raw_target = row["execution_target_json"]
         if not raw_target or not row["execution_target_digest"]:
             raise QaCaseExecutionError(

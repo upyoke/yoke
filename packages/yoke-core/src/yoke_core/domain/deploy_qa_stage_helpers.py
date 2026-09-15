@@ -29,6 +29,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
+
 # Per-call wall-clock budget for a single control-plane round-trip. Named so
 # both wrappers share one value and the timeout diagnostic can cite it.
 DISPATCH_TIMEOUT_S = 30
@@ -38,7 +40,9 @@ def resolve_script_dir() -> str:
     """Return the legacy skills/scripts directory used by callers."""
     from yoke_core.api.repo_root import find_repo_root
 
-    return str(find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts")
+    return str(
+        find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"
+    )
 
 
 def _dispatch_module(module: str, args: List[str]) -> str:
@@ -102,6 +106,15 @@ def parse_stages_qa(stages_json: str) -> List[Dict[str, str]]:
     stages = json.loads(stages_json)
     qa_stages: List[Dict[str, str]] = []
     for s in stages:
+        if (
+            s.get("stage_kind") == STAGE_KIND_QA
+            or s.get("step_runner") == QA_STEP_RUNNER
+        ):
+            # Scoped release QA materializes and settles through
+            # qa_requirements/qa_runs.  The legacy deployment_run_qa table is
+            # only a projection for schema-1 flow checks, never a second
+            # authority for advanced stage acceptance.
+            continue
         name = s.get("name", "")
         qa_kind = s.get("qa_kind", "")
         success_policy = s.get("success_policy", "")
@@ -110,11 +123,13 @@ def parse_stages_qa(stages_json: str) -> List[Dict[str, str]]:
         if qa_kind:
             if not success_policy:
                 success_policy = "Workflow completes with conclusion=success"
-            qa_stages.append({
-                "name": name,
-                "qa_kind": qa_kind,
-                "success_policy": success_policy,
-            })
+            qa_stages.append(
+                {
+                    "name": name,
+                    "qa_kind": qa_kind,
+                    "success_policy": success_policy,
+                }
+            )
     return qa_stages
 
 
@@ -126,6 +141,11 @@ def resolve_qa_kind_for_stage(stages_json: str, stage_name: str) -> str:
         stages = []
     for s in stages:
         if s.get("name") == stage_name:
+            if (
+                s.get("stage_kind") == STAGE_KIND_QA
+                or s.get("step_runner") == QA_STEP_RUNNER
+            ):
+                return ""
             qk = s.get("qa_kind", "")
             if not qk and "smoke" in stage_name:
                 qk = "smoke"

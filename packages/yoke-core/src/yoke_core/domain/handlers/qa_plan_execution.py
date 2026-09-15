@@ -17,6 +17,8 @@ class PlanExecutionBeginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     transition_id: str | None = Field(default=None, min_length=1)
+    deployment_stage: str | None = Field(default=None, min_length=1)
+    deployment_member: str | None = Field(default=None, min_length=1)
     machine: str | None = Field(default=None, min_length=1)
     #: Resume a mission walk the stale sweep settled while its walker was
     #: parked: same roster, own runs, and no case reaches a host baseline.
@@ -43,6 +45,8 @@ class PlanExecutionStateResponse(BaseModel):
     execution_id: str
     item_id: int | None = None
     deployment_run_id: str | None = None
+    deployment_stage: str | None = None
+    deployment_member_item_id: int | None = None
     transition_id: str | None = None
     state: str
     roster_digest: str
@@ -109,11 +113,22 @@ def handle_plan_execution_begin(
 
     conn = connect()
     try:
+        member_item_id = None
+        if parsed.deployment_member is not None:
+            from yoke_core.domain.project_identity import resolve_item_id
+
+            member_item_id = resolve_item_id(conn, parsed.deployment_member)
+            if member_item_id is None:
+                raise QaPlanExecutionStateError(
+                    f"deployment member {parsed.deployment_member!r} not found"
+                )
         execution = begin_plan_execution(
             conn,
             item_id=item_id,
             deployment_run_id=deployment_run_id,
             transition_id=parsed.transition_id,
+            deployment_stage=parsed.deployment_stage,
+            deployment_member_item_id=member_item_id,
             machine=parsed.machine,
             continue_mission=parsed.continue_mission,
             actor_id=request.actor.actor_id,
@@ -145,19 +160,25 @@ def _owned_execution(
         require_plan_execution_owner,
     )
 
-    subject = {
-        "item_id": item_id,
-        "deployment_run_id": deployment_run_id,
-        "actor_id": request.actor.actor_id,
-        "session_id": request.actor.session_id,
-    }
     conn = connect()
     try:
         execution = lock_plan_execution(conn, parsed.execution_id)
+        subject = {
+            "item_id": item_id,
+            "deployment_run_id": deployment_run_id,
+            "actor_id": request.actor.actor_id,
+            "session_id": request.actor.session_id,
+        }
         if abandoning:
             require_plan_execution_abandon_authority(conn, execution, **subject)
         else:
-            require_plan_execution_owner(execution, **subject)
+            require_plan_execution_owner(
+                execution,
+                conn=conn,
+                deployment_stage=execution.get("deployment_stage"),
+                deployment_member_item_id=execution.get("deployment_member_item_id"),
+                **subject,
+            )
 
     except ValueError as exc:
         conn.rollback()

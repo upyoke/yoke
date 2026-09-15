@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import json
 import sys
 from typing import List, Optional
@@ -32,10 +31,9 @@ from yoke_core.domain.deploy_pipeline_run_context import (
 from yoke_core.domain.deployment_run_completion_preconditions import (
     awaiting_qa_report_lines,
 )
-from yoke_core.domain.deployment_item_stamp import (
-    transition_member_to_release,
-)
+from yoke_core.domain.deployment_item_stamp import transition_member_to_release
 from yoke_core.domain.deploy_product_source import DeployProductSourceError, validate_itemless_product_source
+from yoke_core.domain.deploy_pipeline_cli import _build_parser  # noqa: F401
 
 
 EXIT_SUCCESS = 0
@@ -98,9 +96,7 @@ def run_pipeline(
         print(f"Error: deployment run '{run_id}' has no flow assigned", file=sys.stderr)
         return EXIT_USAGE
     try:
-        product_source = validate_itemless_product_source(
-            product_repo_path, image_tag, member_items,
-        )
+        product_source = validate_itemless_product_source(product_repo_path, image_tag, member_items)
     except (DeployProductSourceError, OSError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_USAGE
@@ -171,6 +167,21 @@ def run_pipeline(
         else:
             start_stage = current_stage
 
+    if start_stage:
+        from yoke_core.domain.deployment_qa_stage_resume import (
+            resume_qa_refusal_message,
+        )
+
+        qa_refusal = resume_qa_refusal_message(
+            run_id=run_id, stages=stages, start_stage=start_stage
+        )
+        if qa_refusal:
+            print(
+                "Error: resume cannot skip required scoped QA: " + qa_refusal,
+                file=sys.stderr,
+            )
+            return EXIT_AWAITING_QA
+
     # --- Stage iteration ---
     found_start = not start_stage  # True if no resume point
     run_started = run_status != "created"
@@ -205,9 +216,17 @@ def run_pipeline(
 
         # Emit stage started
         _emit_run_event(
-            "DeploymentRunStageStarted", "started",
-            {"run_id": run_id, "stage": s_name, "step_runner": stage["step_runner"], "flow": flow_id},
-            member_items=member_items, project=project, sd=sd,
+            "DeploymentRunStageStarted",
+            "started",
+            {
+                "run_id": run_id,
+                "stage": s_name,
+                "step_runner": stage["step_runner"],
+                "flow": flow_id,
+            },
+            member_items=member_items,
+            project=project,
+            sd=sd,
         )
 
         # Dispatch step_runner
@@ -243,13 +262,22 @@ def run_pipeline(
                 run_id, s_name, "pass", raw_result=qa_result,
             )
             continue
+        if exec_rc == -4:
+            print(
+                f"  Stage '{s_name}' is awaiting scoped QA: {exec_diag}",
+                file=sys.stderr,
+            )
+            return EXIT_AWAITING_QA
 
         # Handle result
         if exec_rc == 0:
             _emit_run_event(
-                "DeploymentRunStageCompleted", "completed",
+                "DeploymentRunStageCompleted",
+                "completed",
                 {"run_id": run_id, "stage": s_name, "result": "success"},
-                member_items=member_items, project=project, sd=sd,
+                member_items=member_items,
+                project=project,
+                sd=sd,
             )
             print(f"  Stage '{s_name}' completed successfully")
             control_plane.record_qa_stage(
@@ -270,7 +298,10 @@ def run_pipeline(
 
     # Guard: start_stage never matched
     if not found_start:
-        print(f"Error: start stage '{start_stage}' not found in flow '{flow_id}'", file=sys.stderr)
+        print(
+            f"Error: start stage '{start_stage}' not found in flow '{flow_id}'",
+            file=sys.stderr,
+        )
         print("Available stages:", file=sys.stderr)
         for s in stages:
             print(f"  {s['name']}", file=sys.stderr)
@@ -294,40 +325,15 @@ def run_pipeline(
         return EXIT_AWAITING_QA
 
     return complete_run_finalization(
-        run_id, flow_id, project, member_items, target_tier,
-        environment_name, sd=sd,
+        run_id, flow_id, project, member_items,
+        target_tier, environment_name, sd=sd,
     )
-
-
-def _build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="deploy-pipeline",
-        description="Deployment pipeline orchestrator",
-    )
-    p.add_argument("primary_arg", help="run-ID")
-    p.add_argument("--timeout", type=int, default=30, help="Timeout in minutes")
-    p.add_argument("--from-stage", default="", help="Resume from this stage")
-    p.add_argument("--fresh", action="store_true", help="Skip existing-run search")
-    p.add_argument("--product-repo-path", default="", help="Pinned product checkout for an itemless environment deploy")
-    p.add_argument(
-        "--image-tag",
-        default="",
-        help="Explicit core image tag for item-less environment deploys",
-    )
-    return p
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = _build_parser()
-    args = parser.parse_args(argv)
-    return run_pipeline(
-        args.primary_arg,
-        timeout_min=args.timeout,
-        from_stage=args.from_stage,
-        fresh=args.fresh,
-        image_tag=args.image_tag,
-        product_repo_path=args.product_repo_path,
-    )
+    from yoke_core.domain.deploy_pipeline_cli import main as cli_main
+
+    return cli_main(argv, runner=run_pipeline)
 
 
 if __name__ == "__main__":

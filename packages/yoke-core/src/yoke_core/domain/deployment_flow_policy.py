@@ -135,12 +135,45 @@ def _validate_target(
             f"{path}.kind must be one of: {', '.join(sorted(TARGET_KINDS))}"
         )
     if kind == "persistent_environment":
-        extra = set(target) - {"kind", "environment"}
+        extra = set(target) - {"kind", "environment", "source_stage"}
         environment = target.get("environment")
         if extra:
             raise ValueError(f"{path} has unknown fields: {sorted(extra)}")
         if not isinstance(environment, str) or not environment.strip():
             raise ValueError(f"{path}.environment must be a non-empty name")
+        source_stage = target.get("source_stage")
+        if stage_kind == STAGE_KIND_QA:
+            if not isinstance(source_stage, str) or not source_stage.strip():
+                raise ValueError(
+                    f"{path}.source_stage must name the earlier stage that "
+                    "produced this target receipt"
+                )
+            if source_stage not in prior_stages:
+                raise ValueError(
+                    f"{path}.source_stage must name an earlier stage, got "
+                    f"{source_stage!r}"
+                )
+            source = prior_stages[source_stage]
+            if source.get("stage_kind") == STAGE_KIND_QA or source.get(
+                "step_runner"
+            ) == QA_STEP_RUNNER:
+                raise ValueError(
+                    f"{path}.source_stage must name an earlier receipt-producing "
+                    "non-QA stage"
+                )
+            source_target = source.get("target")
+            if isinstance(source_target, Mapping) and (
+                source_target.get("kind") != kind
+                or source_target.get("environment") != environment
+            ):
+                raise ValueError(
+                    f"{path}.source_stage targets a different environment"
+                )
+        elif source_stage is not None:
+            raise ValueError(
+                f"{path}.source_stage is only valid when a QA stage consumes "
+                "an earlier receipt"
+            )
         return
 
     extra = set(target) - {"kind", "capability", "source_stage"}

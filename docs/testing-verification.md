@@ -94,8 +94,7 @@ QA gates are bypassed. Complete the run with its verdict, or waive the
 requirement, while the item claim is still active; terminal records are not
 correctable afterward.
 
-A deployment run can instead own one named plan directly, without inventing
-an item or workflow transition:
+A deployment run can instead own one named plan directly, without inventing an item or workflow transition. Frozen stage/member execution is documented in [Deployment QA Stage Execution](qa-platform/deployment-stage-execution.md):
 
 ```text
 yoke qa plan run \

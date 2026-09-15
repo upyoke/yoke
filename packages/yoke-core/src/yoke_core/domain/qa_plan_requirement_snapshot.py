@@ -100,7 +100,8 @@ def require_runnable_case(case: Any) -> dict:
         validate_method_config,
     )
 
-    config = json.loads(str(case["method_config"] or "{}"))
+    raw_config = case["method_config"] or {}
+    config = dict(raw_config) if isinstance(raw_config, Mapping) else json.loads(str(raw_config))
     try:
         return validate_method_config(str(case["config_contract_id"]), config)
     except QaMethodConfigError as exc:
@@ -112,6 +113,8 @@ def insert_requirement(
     *,
     item_id: Optional[int] = None,
     deployment_run_id: Optional[str] = None,
+    deployment_stage: Optional[str] = None,
+    deployment_member_item_id: Optional[int] = None,
     transition_id: Optional[str] = None,
     plan: Any,
     attachment: dict,
@@ -124,11 +127,10 @@ def insert_requirement(
     """Insert one immutable plan-case snapshot, returning its new id."""
     marker = _placeholder(conn)
     policy_id = case["success_policy_id"] or plan["success_policy_id"]
-    params = (
-        json.loads(str(case["success_policy_params"]))
-        if case["success_policy_params"] is not None
-        else json.loads(str(plan["success_policy_params"]))
-    )
+    raw_params = case["success_policy_params"]
+    if raw_params is None:
+        raw_params = plan["success_policy_params"]
+    params = dict(raw_params) if isinstance(raw_params, Mapping) else json.loads(str(raw_params))
     method_config = require_runnable_case(case)
     require_case_target(
         {
@@ -142,18 +144,21 @@ def insert_requirement(
     )
     row = conn.execute(
         "INSERT INTO qa_requirements("
-        "item_id, deployment_run_id, qa_kind, qa_phase, blocking_mode, "
+        "item_id, deployment_run_id, deployment_stage, "
+        "deployment_member_item_id, qa_kind, qa_phase, blocking_mode, "
         "requirement_source, success_policy, capability_requirements, "
         "plan_id, plan_case_key, case_position, baseline_position, "
         "method_id, method_name, runner_id, verdict_path, host_baseline, "
         "entry_surface, required_completion, "
         "workflow_transition_id, instructions, expected_outcome, "
         "method_config, execution_target_json, execution_target_digest, created_at"
-        f") VALUES ({', '.join([marker] * 26)}) "
+        f") VALUES ({', '.join([marker] * 28)}) "
         "ON CONFLICT DO NOTHING RETURNING id",
         (
             item_id,
             deployment_run_id,
+            deployment_stage,
+            deployment_member_item_id,
             "plan_case",
             str(attachment["qa_phase"]),
             "blocking",
@@ -226,11 +231,10 @@ def refresh_requirement(
     """Refresh a materialized case without severing its run history."""
     marker = _placeholder(conn)
     policy_id = case["success_policy_id"] or plan["success_policy_id"]
-    params = (
-        json.loads(str(case["success_policy_params"]))
-        if case["success_policy_params"] is not None
-        else json.loads(str(plan["success_policy_params"]))
-    )
+    raw_params = case["success_policy_params"]
+    if raw_params is None:
+        raw_params = plan["success_policy_params"]
+    params = dict(raw_params) if isinstance(raw_params, Mapping) else json.loads(str(raw_params))
     method_config = require_runnable_case(case)
     require_case_target(
         {
@@ -292,10 +296,13 @@ def existing_requirement_id(
     *,
     item_id: Optional[int] = None,
     deployment_run_id: Optional[str] = None,
+    deployment_stage: Optional[str] = None,
+    deployment_member_item_id: Optional[int] = None,
     plan_id: int,
     case_key: str,
     baseline: Optional[str],
     transition_id: Optional[str] = None,
+    execution_target_digest: Optional[str] = None,
 ) -> Optional[int]:
     """Resolve the snapshot that won a concurrent idempotent insert."""
     marker = _placeholder(conn)
@@ -305,20 +312,29 @@ def existing_requirement_id(
     subject_value: int | str = (
         int(item_id) if item_id is not None else str(deployment_run_id)
     )
+    target_clause = (
+        f"AND execution_target_digest={marker} "
+        if execution_target_digest is not None
+        else ""
+    )
+    params: tuple[Any, ...] = (
+        subject_value, deployment_stage or "", deployment_member_item_id or 0,
+        plan_id, case_key, baseline or "", transition_id or "",
+    )
+    if execution_target_digest is not None:
+        params += (execution_target_digest,)
     row = query_one(
         conn,
         "SELECT id FROM qa_requirements "
-        f"WHERE {subject_column}={marker} AND plan_id={marker} "
+        f"WHERE {subject_column}={marker} "
+        f"AND COALESCE(deployment_stage, '')={marker} "
+        f"AND COALESCE(deployment_member_item_id, 0)={marker} "
+        f"AND plan_id={marker} "
         f"AND plan_case_key={marker} "
         f"AND COALESCE(host_baseline, '')={marker} "
-        f"AND COALESCE(workflow_transition_id, '')={marker}",
-        (
-            subject_value,
-            plan_id,
-            case_key,
-            baseline or "",
-            transition_id or "",
-        ),
+        f"AND COALESCE(workflow_transition_id, '')={marker} "
+        f"{target_clause}",
+        params,
     )
     return int(row["id"]) if row is not None else None
 

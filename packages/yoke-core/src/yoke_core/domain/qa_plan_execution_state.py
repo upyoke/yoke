@@ -44,34 +44,15 @@ from yoke_core.domain.qa_plan_execution_target_snapshot import (
     execution_target_for_roster,
     require_execution_target,
 )
+from yoke_core.domain.qa_plan_execution_roster import (
+    expected_plan_case,
+    validate_roster_machine,
+)
 
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
     rollback_workflow_binding_write_errors,
 )
-
-
-def _validate_roster_machine(
-    conn: Any, roster: list[dict[str, Any]], machine: str | None
-) -> None:
-    from yoke_core.domain.machine_qa_case_machine import (
-        require_registered_machine,
-        resolve_plan_machine,
-    )
-
-    selected = resolve_plan_machine(roster, machine)
-    machine_projects = {
-        int(row["project_id"])
-        for row in roster
-        if row.get("runner_id") in {"host_control", "agent_mission"}
-    }
-    for project_id in machine_projects:
-        require_registered_machine(
-            conn,
-            project_id=project_id,
-            machine=selected,
-            subject="run pin" if machine else "case constraint",
-        )
 
 
 @rollback_workflow_binding_write_errors
@@ -81,6 +62,8 @@ def begin_plan_execution(
     item_id: int | None = None,
     transition_id: str | None = None,
     deployment_run_id: str | None = None,
+    deployment_stage: str | None = None,
+    deployment_member_item_id: int | None = None,
     machine: str | None = None,
     continue_mission: bool = False,
     actor_id: str | None,
@@ -111,6 +94,28 @@ def begin_plan_execution(
         raise QaPlanExecutionStateError(
             "deployment-run QA plan execution has no workflow transition"
         )
+    if deployment_member_item_id is not None and deployment_stage is None:
+        raise QaPlanExecutionStateError("deployment member requires deployment stage")
+    expected_deployment_target = None
+    expected_deployment_target_digest = None
+    if deployment_stage is not None:
+        from yoke_core.domain.deployment_qa_execution_target import (
+            deployment_qa_execution_target,
+        )
+        from yoke_core.domain.deployment_qa_stage_contract import (
+            deployment_qa_stage_subject,
+        )
+
+        subject = deployment_qa_stage_subject(
+            conn,
+            run_id=str(deployment_run_id),
+            stage_name=deployment_stage,
+            member_item_id=deployment_member_item_id,
+        )
+        expected_deployment_target = deployment_qa_execution_target(conn, subject)
+        from yoke_core.domain.qa_execution_environment_target import target_digest
+
+        expected_deployment_target_digest = target_digest(expected_deployment_target)
     if item_id is not None:
         lock_item_workflow_bindings(conn, (int(item_id),))
     from yoke_core.domain.qa_case_execution_context import (
@@ -126,16 +131,27 @@ def begin_plan_execution(
         item_id=item_id,
         transition_id=transition_id,
         deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage,
+        deployment_member_item_id=deployment_member_item_id,
+        execution_target_digest=expected_deployment_target_digest,
         host_capability_kinds=host_capabilities,
     )
-    _validate_roster_machine(conn, roster, machine)
+    validate_roster_machine(conn, roster, machine)
     digest = roster_digest(roster)
     execution_target, execution_target_digest = execution_target_for_roster(roster)
+    if expected_deployment_target is not None and canonical(
+        execution_target
+    ) != canonical(expected_deployment_target):
+        raise QaPlanExecutionStateError(
+            "materialized QA roster does not match the active deployment target"
+        )
     existing_id = live_plan_execution_id(
         conn,
         item_id=item_id,
         transition_id=transition_id,
         deployment_run_id=deployment_run_id,
+        deployment_stage=deployment_stage,
+        deployment_member_item_id=deployment_member_item_id,
     )
     continues_execution_id = (
         resolve_continuation_source(
@@ -144,6 +160,8 @@ def begin_plan_execution(
             item_id=item_id,
             transition_id=transition_id,
             deployment_run_id=deployment_run_id,
+            deployment_stage=deployment_stage,
+            deployment_member_item_id=deployment_member_item_id,
         )
         if continue_mission
         else None
@@ -177,9 +195,12 @@ def begin_plan_execution(
                 item_id=item_id,
                 transition_id=transition_id,
                 deployment_run_id=deployment_run_id,
+                deployment_stage=deployment_stage,
+                deployment_member_item_id=deployment_member_item_id,
+                execution_target_digest=expected_deployment_target_digest,
                 host_capability_kinds=host_capabilities,
             )
-            _validate_roster_machine(conn, roster, machine)
+            validate_roster_machine(conn, roster, machine)
             digest = roster_digest(roster)
             execution_target, execution_target_digest = execution_target_for_roster(
                 roster
@@ -191,16 +212,19 @@ def begin_plan_execution(
     try:
         conn.execute(
             "INSERT INTO qa_plan_executions("
-            "id,item_id,deployment_run_id,transition_id,actor_id,session_id,"
+            "id,item_id,deployment_run_id,deployment_stage,"
+            "deployment_member_item_id,transition_id,actor_id,session_id,"
             "roster_digest,"
             "roster_json,execution_target_json,execution_target_digest,"
             "continues_execution_id,"
             "cursor_ordinal,state,created_at,heartbeat_at"
-            f") VALUES ({', '.join([placeholder] * 15)})",
+            f") VALUES ({', '.join([placeholder] * 17)})",
             (
                 execution_id,
                 int(item_id) if item_id is not None else None,
                 deployment_run_id,
+                deployment_stage,
+                deployment_member_item_id,
                 transition_id,
                 actor_id,
                 session_id,
@@ -221,6 +245,8 @@ def begin_plan_execution(
             item_id=item_id,
             transition_id=transition_id,
             deployment_run_id=deployment_run_id,
+            deployment_stage=deployment_stage,
+            deployment_member_item_id=deployment_member_item_id,
             actor_id=actor_id,
             session_id=session_id,
             digest=digest,
@@ -228,30 +254,6 @@ def begin_plan_execution(
         )
     conn.commit()
     return select_plan_execution(conn, execution_id, lock=False)
-
-
-def expected_plan_case(
-    execution: Mapping[str, Any],
-    *,
-    ordinal: int,
-    requirement_id: int,
-    allow_replay: bool = False,
-) -> dict[str, Any]:
-    """Validate an ordinal and return its immutable roster case."""
-    cursor = int(execution["cursor_ordinal"])
-    if ordinal != cursor and not (allow_replay and ordinal < cursor):
-        raise QaPlanExecutionStateError(
-            f"QA plan execution expects ordinal {cursor}, not {ordinal}"
-        )
-    roster = execution["roster"]
-    if ordinal < 0 or ordinal >= len(roster):
-        raise QaPlanExecutionStateError("QA plan execution ordinal is out of range")
-    case = dict(roster[ordinal])
-    if int(case["requirement_id"]) != int(requirement_id):
-        raise QaPlanExecutionStateError(
-            "QA plan execution ordinal targets a different requirement"
-        )
-    return case
 
 
 def advance_plan_execution(
