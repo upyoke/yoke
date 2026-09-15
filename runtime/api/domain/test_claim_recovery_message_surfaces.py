@@ -50,18 +50,22 @@ def test_actor_facing_recovery_surfaces_do_not_teach_lower_level_clients() -> No
 
 
 def test_path_ownership_denial_uses_public_acquire_and_holder_reads() -> None:
+    # The live raiser renders the ref from its connection and passes it, so
+    # a non-default prefix here proves the recipe carries that ref rather
+    # than one assembled from the internal id.
     denial = OwnershipDenial(
         action="widen",
         item_id=81,
         claim_id=9,
         caller_session_id="caller",
         holder_session_id="holder",
+        public_ref="BUZ-4",
     )
 
-    safe_recipe = 'yoke claims work acquire --item YOK-81 --reason "<intent>"'
+    safe_recipe = 'yoke claims work acquire --item BUZ-4 --reason "<intent>"'
     assert safe_recipe in denial.message
     assert "--reason <intent>" not in denial.message
-    assert "yoke claims work holder-get YOK-81" in denial.message
+    assert "yoke claims work holder-get BUZ-4" in denial.message
     assert denial.context()["recovery"].startswith("yoke claims work acquire")
     assert "service_client" not in denial.message
 

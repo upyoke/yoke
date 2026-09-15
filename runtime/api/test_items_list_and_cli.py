@@ -140,7 +140,9 @@ class TestCLIMain:
         rc = main(["row", "999"])
         assert rc == 1
         err = capsys.readouterr().err
-        assert "not found" in err
+        # The token resolved to nothing, so the refusal echoes what was
+        # typed rather than naming a reference it could not resolve.
+        assert "no item for 999" in err
 
     def test_list_subcommand(self, db_with_item, monkeypatch, capsys):
         monkeypatch.setenv("YOKE_DB", db_with_item)

@@ -193,8 +193,10 @@ class TestPersistAndVerify:
         with pytest.raises(SystemExit):
             persist_and_verify("1511", "integration", sim_output)
         err = capsys.readouterr().err
-        assert "YOK-1511" in err
-        assert "YOK-1513" in err
+        # Neither epic has an identity row here, so the refusal names each
+        # by the id it was handed rather than a reference it never resolved.
+        assert "items.id 1511" in err
+        assert "items.id 1513" in err
         assert "integration" in err
 
     def test_missing_epic_body_rejected(self):
@@ -211,8 +213,10 @@ class TestPersistAndVerify:
         with pytest.raises(SystemExit):
             persist_and_verify("1511", "plan", sim_output)
         err = capsys.readouterr().err
-        assert "YOK-1511" in err
-        assert "EPIC: YOK-1511" in err
+        # The fixture epic has no identity row, so the refusal names the id
+        # it was handed rather than a reference it could not resolve.
+        assert "items.id 1511" in err
+        assert "EPIC: " in err
 
     def test_epic_check_runs_before_upsert(self):
         """Wrong-epic must reject BEFORE simulation_upsert is invoked."""

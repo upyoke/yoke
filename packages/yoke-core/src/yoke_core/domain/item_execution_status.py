@@ -127,7 +127,7 @@ def build_projection(
         if item is None:
             return {
                 "ok": False,
-                "error": f"item not found: {render_item_ref(conn, item_id)}",
+                "error": f"no item at items.id {item_id}",
                 "item_id": item_id,
             }
         item_dict = _item_dict(item, render_item_ref(conn, item_id))

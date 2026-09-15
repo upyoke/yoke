@@ -25,8 +25,8 @@ from typing import List
 
 from yoke_core.domain.lint_item_ref_construction import (
     RefLiteralHit,
-    _SCAN_ROOTS,
-    _is_exempt,
+    SCAN_ROOTS,
+    is_exempt_relpath,
 )
 
 
@@ -53,7 +53,7 @@ def scan_bare_internal_cli_token(repo_root: Path) -> List[RefLiteralHit]:
     """Return every bare-id-as-item-ref CLI construction in shippable source."""
     root = repo_root.resolve()
     hits: List[RefLiteralHit] = []
-    for scan_root in _SCAN_ROOTS:
+    for scan_root in SCAN_ROOTS:
         base = root / scan_root
         if not base.is_dir():
             continue
@@ -62,7 +62,7 @@ def scan_bare_internal_cli_token(repo_root: Path) -> List[RefLiteralHit]:
                 rel = path.resolve().relative_to(root).as_posix()
             except ValueError:
                 continue
-            if _is_exempt(rel):
+            if is_exempt_relpath(rel):
                 continue
             try:
                 source = path.read_text(encoding="utf-8")

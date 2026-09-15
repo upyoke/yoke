@@ -24,20 +24,25 @@ from yoke_core.domain.work_claim_targets import (
 )
 
 
-def test_render_claim_target_with_int_item_id() -> None:
-    assert _render_claim_target(1577, None, None) == "YOK-1577"
-
-
 def test_render_claim_target_with_prefixed_item_ref() -> None:
+    """A claim that already carries its ref renders it unchanged."""
     assert _render_claim_target("YOK-1577", None, None) == "YOK-1577"
 
 
-def test_render_claim_target_with_numeric_string_adds_prefix() -> None:
-    assert _render_claim_target("1577", None, None) == "YOK-1577"
+def test_render_claim_target_without_a_db_declines_to_invent_a_ref() -> None:
+    """An internal id is not a reference, and no read is available to make one."""
+    rendered = _render_claim_target(1577, None, None)
+
+    assert rendered.startswith("<unresolved item ref:")
+    assert "no control-plane read" in rendered
+    assert not rendered.startswith("YOK-1577")
 
 
-def test_render_claim_target_with_epic_task() -> None:
-    assert _render_claim_target(None, 1577, 4) == "YOK-1577 T004"
+def test_render_claim_target_epic_task_without_a_db_keeps_the_task_number() -> None:
+    rendered = _render_claim_target(None, 1577, 4)
+
+    assert rendered.endswith(" T004")
+    assert "<unresolved item ref:" in rendered
 
 
 def test_render_claim_target_without_coordinates_is_unknown() -> None:

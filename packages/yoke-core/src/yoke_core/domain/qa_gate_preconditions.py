@@ -191,9 +191,9 @@ def target_gate_precondition_result(
     if gate_result is not None:
         return gate_result
     where, params = target.where_clause()
-    name = target.display_name()
     conn = connect(db_path)
     try:
+        name = target.display_name(conn)
         gate_result = requirement_set_result(
             conn,
             target=target,

@@ -324,7 +324,7 @@ def load_item_workflow_runtime(
     )
     row = _row_dict(cursor, cursor.fetchone())
     if row is None:
-        raise WorkflowRegistryError(f"no item at items.id {item_id}")
+        raise WorkflowRegistryError(f"no item at items.id {item_id} — item does not exist")
     values = dict(row)
     if (
         values.get("workflow_id") is None

@@ -27,6 +27,7 @@ from yoke_core.domain.qa_gate_summary import (
 )
 from yoke_core.domain.qa_review_requests import QaReviewWait
 from runtime.api.domain.qa_gate_summary_test_fixtures import (  # noqa: F401
+    SUMMARY_EPIC_REF,
     add_artifact,
     add_requirement,
     add_run,
@@ -300,5 +301,5 @@ def test_epic_task_target(qa_db):
         qa_db,
         transition_name="reviewed-implementation",
     )
-    assert summary["target"] == "epic 833/task 5"
+    assert summary["target"] == f"{SUMMARY_EPIC_REF}/task 5"
     assert summary["satisfied"] is True

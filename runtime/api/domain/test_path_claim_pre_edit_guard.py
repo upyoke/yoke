@@ -106,7 +106,10 @@ class TestOutOfClaim:
     def test_deny_with_widen_template(self, tmp_path):
         worktree = tmp_path / "YOK-1577"
         worktree.mkdir()
-        claim = _claim_dict(worktree_path=str(worktree))
+        # The live lookup always renders public_ref from its connection.
+        claim = _claim_dict(
+            worktree_path=str(worktree), public_ref="YOK-1577"
+        )
         record = _record(
             changed_paths=("docs/never-covered.md",),
             cwd=str(worktree),
@@ -282,8 +285,11 @@ class TestTypedEvaluateEntrypoint:
         worktree.mkdir()
         monkeypatch.setattr(
             "yoke_core.domain.path_claim_pre_edit_guard.resolve_active_claim_for_session",
+            # The live lookup renders public_ref from its connection; a
+            # non-default prefix proves the recipe carries that ref rather
+            # than one assembled from the internal id.
             lambda session_id, conn=None, **_kwargs: _claim_dict(
-                worktree_path=str(worktree)
+                worktree_path=str(worktree), public_ref="BUZ-4"
             ),
         )
         monkeypatch.setattr(
@@ -314,7 +320,7 @@ class TestTypedEvaluateEntrypoint:
         assert (
             "yoke claims path widen --claim-id 99 "
             '--add-paths docs/oof.md --reason "cover target path" '
-            "--item YOK-1577"
+            "--item BUZ-4"
         ) in hook["permissionDecisionReason"]
 
     def test_evaluate_returns_noop_when_no_record(self):
