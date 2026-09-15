@@ -126,9 +126,10 @@ def _transition_done(conn, *, item_id: int, monkeypatch: pytest.MonkeyPatch):
             actor=ActorContext(session_id="dash-session", actor_id=actor_id),
             target=TargetRef(kind="item", item_id=item_id, project_id="yoke"),
             payload={
-                "source_status": "reviewing-implementation",
+                "source_status": "release",
                 "target_status": "done",
                 "reason": "current scoped acceptance consumed intake",
+                "done_nonce_verified": True,
             },
         )
     )
@@ -139,7 +140,7 @@ def test_stale_candidate_pass_does_not_satisfy_current_pending_copy(
     monkeypatch: pytest.MonkeyPatch,
 ):
     item_id = 2330
-    _insert_dash(test_db, item_id=item_id, status="reviewing-implementation")
+    _insert_dash(test_db, item_id=item_id, status="release")
     original_id = _bind_original(test_db, item_id=item_id)
     _seed_selected_requirement_run(
         test_db,
@@ -190,7 +191,7 @@ def test_current_scoped_acceptance_lets_done_accept_without_original_run(
     monkeypatch: pytest.MonkeyPatch,
 ):
     item_id = 2331
-    _insert_dash(test_db, item_id=item_id, status="reviewing-implementation")
+    _insert_dash(test_db, item_id=item_id, status="release")
     original_id = _bind_original(test_db, item_id=item_id)
     _seed_selected_requirement_run(
         test_db,
@@ -243,7 +244,7 @@ def test_required_human_pending_blocks_done_after_scoped_cases_pass(
         "(%s,'human','2026-09-14T00:00:00Z') ON CONFLICT(id) DO NOTHING",
         (reviewer,),
     )
-    _insert_dash(test_db, item_id=item_id, status="reviewing-implementation")
+    _insert_dash(test_db, item_id=item_id, status="release")
     original_id = _bind_original(test_db, item_id=item_id)
     _seed_selected_requirement_run(
         test_db,
@@ -299,7 +300,7 @@ def test_passing_run_that_never_admitted_this_source_blocks_done(
     monkeypatch: pytest.MonkeyPatch,
 ):
     item_id = 2333
-    _insert_dash(test_db, item_id=item_id, status="reviewing-implementation")
+    _insert_dash(test_db, item_id=item_id, status="release")
     decoy_id = _bind_original(test_db, item_id=item_id)
     _seed_selected_requirement_run(
         test_db,
