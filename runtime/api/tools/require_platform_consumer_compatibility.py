@@ -49,7 +49,7 @@ CONSUMER_CHECK_WORKFLOW = "platform-release-pin-check.yml"
 CONSUMER_TRUNK_REF = "main"
 CANDIDATE_INPUT = "product_ref"
 
-#: Scoped API token for the consumer project's GitHub binding.
+#: CI-only token for this helper's connection bootstrap, not local dispatch.
 CONSUMER_TOKEN_ENV = "YOKE_PLATFORM_RELEASE_API_TOKEN"
 
 #: A connection of its own, so binding it never disturbs whichever
@@ -125,9 +125,9 @@ def bind_consumer_authority() -> str:
     token = os.environ.get(CONSUMER_TOKEN_ENV, "").strip()
     if not token:
         return (
-            f"no scoped consumer credential in {CONSUMER_TOKEN_ENV}; the "
-            "release train provides it, and nothing can reach the consumer's "
-            "check without it."
+            f"{CONSUMER_TOKEN_ENV} is CI-only for this helper's bootstrap; "
+            "the release train provides it. Local verification uses "
+            "`yoke github-actions trigger` on the authenticated project route."
         )
     code, stdout, stderr = _yoke(
         [
