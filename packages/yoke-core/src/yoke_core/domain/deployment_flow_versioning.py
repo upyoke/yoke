@@ -8,6 +8,7 @@ from typing import Any
 
 from yoke_core.domain import json_helper
 from yoke_core.domain.deployment_flow_target_support import (
+    configured_identity_path,
     require_provable_qa_identity,
     require_supported_stage_targets,
     unprovable_qa_identity_stages,
@@ -106,7 +107,10 @@ def _validate_definition(conn: Any, definition: Mapping[str, Any]) -> int:
             stages, operation="activating this deployment flow"
         )
         require_provable_qa_identity(
-            stages, operation="activating this deployment flow"
+            stages,
+            operation="activating this deployment flow",
+            conn=conn,
+            project=project,
         )
     return schema_version
 
@@ -135,10 +139,17 @@ def cmd_validate_definition(
     # advertise a definition that activates and then fails mid-run.
     decoded = json_helper.loads_text(stages)
     unsupported = unsupported_stage_target_kinds(decoded)
-    unprovable = unprovable_qa_identity_stages(decoded)
+    # The same configuration the activation gate reads, so a preview of a
+    # definition and the gate that admits it can never disagree about
+    # whether this project's environments can prove what they serve.
+    identity = configured_identity_path(conn, project)
+    unprovable = unprovable_qa_identity_stages(
+        decoded, identity_path_configured=identity.configured
+    )
     return {
         "valid": True,
         "definition_schema_version": schema_version,
+        "identity_config_error": identity.error,
         "execution_supported": (
             schema_version <= CURRENT_EXECUTION_SCHEMA_VERSION
             and not unsupported

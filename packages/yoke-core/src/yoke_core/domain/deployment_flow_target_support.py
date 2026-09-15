@@ -84,17 +84,26 @@ def unsupported_stage_target_kinds(stages: Any) -> tuple[str, ...]:
     return tuple(unsupported)
 
 
-def unprovable_qa_identity_stages(stages: Any) -> tuple[str, ...]:
+def unprovable_qa_identity_stages(
+    stages: Any, *, identity_path_configured: bool = False
+) -> tuple[str, ...]:
     """QA stages whose producing stage cannot prove a candidate identity.
 
     Supporting a target KIND is not the same as being able to observe one,
     and conflating them advertises more than the runtime can do. A QA stage
     reads its target from an earlier stage's receipt, and that receipt is
     only evidence if the producing step runner returned a *verified*
-    identity rather than a diagnostic string. Today only the Yoke core
-    health contract does that, so a project that deploys its own
-    environment through its own workflow has a perfectly valid
-    ``persistent_environment`` target that nothing here can settle.
+    identity rather than a diagnostic string.
+
+    Two things can supply that identity, and either is enough.
+    ``identity_path_configured`` says the project configures a served
+    revision path on its identity capability, in which case the
+    environment proves itself and the runner that deployed it owes
+    nothing — which is how a project that deploys its own environment
+    through its own workflow gets a provable persistent target. Without
+    that path the only remaining evidence is the producing step runner's
+    own verified candidate identity, which today only the Yoke core
+    health contract returns.
 
     Reported per QA stage rather than per kind, because the gap is the
     producing runner: the same kind is supported behind one runner and not
@@ -123,6 +132,10 @@ def unprovable_qa_identity_stages(stages: Any) -> tuple[str, ...]:
             # This kind's producer reads the target back itself, so the
             # runner that deployed it owes no identity proof.
             continue
+        if identity_path_configured:
+            # The environment answers for itself at the project's
+            # configured path, so nothing here rests on the runner.
+            continue
         source_name = str(target.get("source_stage") or "")
         source = by_name.get(source_name)
         runner = (
@@ -139,25 +152,64 @@ def unprovable_qa_identity_stages(stages: Any) -> tuple[str, ...]:
     return tuple(unprovable)
 
 
-def require_provable_qa_identity(stages: Any, *, operation: str) -> None:
+def configured_identity_path(conn: Any, project: Any) -> Any:
+    """This project's configured served-revision path, for the gates.
+
+    Kept here so every definition gate asks the one question the same way,
+    and so a caller holding no connection — a pure stage-shape check —
+    gets the strict answer rather than a silently permissive one.
+    """
+    from yoke_core.domain.deployment_target_identity_config import (
+        ConfiguredIdentityPath,
+        persistent_identity_path,
+    )
+
+    if conn is None or project in (None, ""):
+        return ConfiguredIdentityPath()
+    try:
+        project_id = int(project)
+    except (TypeError, ValueError):
+        from yoke_core.domain.project_identity import resolve_project_id
+
+        project_id = resolve_project_id(conn, str(project))
+    return persistent_identity_path(conn, project_id)
+
+
+def require_provable_qa_identity(
+    stages: Any, *, operation: str, conn: Any = None, project: Any = None
+) -> None:
     """Refuse a definition whose QA target identity cannot be verified.
 
     Raised at the same gates the schema version and target kinds guard, so
     the refusal lands before anything deploys. Deploying first and failing
     the receipt afterwards would leave a real environment changed by a run
     that could never complete.
+
+    A project configuring a served-revision path on its identity
+    capability makes its persistent targets provable whatever deployed
+    them, so the gate reads that configuration wherever the caller holds a
+    connection. Reading it is itself refusable: an identity capability
+    that cannot be read is not an absent one, and activating on the
+    strength of a failed read is the case this gate exists to prevent.
     """
-    unprovable = unprovable_qa_identity_stages(stages)
+    configured = configured_identity_path(conn, project)
+    if configured.error:
+        raise ValueError(
+            f"{operation} cannot be checked for provable QA identity: "
+            f"{configured.error}"
+        )
+    unprovable = unprovable_qa_identity_stages(
+        stages, identity_path_configured=configured.configured
+    )
     if not unprovable:
         return
     listed = "; ".join(unprovable)
     raise ValueError(
         f"{operation} declares QA stage(s) whose deployed identity this "
-        f"serving runtime cannot verify: {listed}. Register a receipt "
-        "producer that reads the served revision for that target through "
-        "the project's configured identity capability, and add its step "
-        "runner to deploy_pipeline_stage_receipt_producers."
-        "IDENTITY_PROVING_STEP_RUNNERS, before enabling this definition"
+        f"serving runtime cannot verify: {listed}. Either configure the "
+        "project's served-revision identity path so the environment proves "
+        "itself, or use a producing step runner that returns a verified "
+        "candidate identity, before enabling this definition"
     )
 
 
@@ -201,16 +253,18 @@ def require_supported_stage_targets_for_flow(
         return
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
-        f"SELECT stages FROM deployment_flows WHERE id={marker}", (flow_id,)
+        f"SELECT stages,project_id FROM deployment_flows WHERE id={marker}",
+        (flow_id,),
     ).fetchone()
     if row is None:
         return
     stored = str(row[0] or "[]")
     require_supported_stage_targets(stored, operation=operation)
-    require_provable_qa_identity(stored, operation=operation)
+    require_provable_qa_identity(stored, operation=operation, conn=conn, project=row[1])
 
 
 __all__ = [
+    "configured_identity_path",
     "require_provable_qa_identity",
     "require_supported_stage_targets",
     "require_supported_stage_targets_for_flow",

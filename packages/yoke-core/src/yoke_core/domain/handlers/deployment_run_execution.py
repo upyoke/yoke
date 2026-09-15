@@ -19,6 +19,12 @@ class DeploymentExecutionContextResponse(BaseModel):
     run: Dict[str, Any]
     members: List[Dict[str, Any]]
     stages: List[Dict[str, Any]]
+    # How this run's persistent QA targets can prove what they serve:
+    # the project's configured served-revision path and the registered url
+    # of each environment its QA stages name. Resolved here because both
+    # are control-plane authority — a driver that read them from its own
+    # machine would prove nothing about the environment.
+    target_identity: Dict[str, Any] = {}
 
 
 class DeploymentExecutionUpdateRequest(BaseModel):
@@ -106,7 +112,9 @@ def handle_deployment_execution_context(
     from yoke_core.domain.deployment_runs_crud_query import cmd_get
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
     from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_target_identity_config import run_target_identity
     from yoke_core.domain.flow import cmd_stages
+    from yoke_core.domain.project_identity import resolve_project_id
 
     raw = cmd_get(resolved_run_id)
     if raw is None:
@@ -116,6 +124,12 @@ def handle_deployment_execution_context(
     try:
         with connect() as conn:
             stages = json.loads(cmd_stages(conn, str(run["flow"])))
+            target_identity = run_target_identity(
+                conn,
+                project_id=resolve_project_id(conn, str(run["project"])),
+                stages=stages,
+                target_environment=str(run.get("target_environment") or ""),
+            )
     except (LookupError, ValueError, json.JSONDecodeError) as exc:
         return error("execution_context_invalid", str(exc))
     return HandlerOutcome(
@@ -123,6 +137,7 @@ def handle_deployment_execution_context(
             "run": run,
             "members": _member_rows(resolved_run_id),
             "stages": stages,
+            "target_identity": target_identity,
         },
         primary_success=True,
     )

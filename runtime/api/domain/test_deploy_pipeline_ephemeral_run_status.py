@@ -1,7 +1,8 @@
 """Run/stage state coherence for ephemeral-deploy through the real pipeline.
 
 Pure-unit like the sibling pipeline tests (every control-plane seam mocked), but the
-step_runner dispatch layer is REAL: ``run_pipeline`` -> ``_dispatch_step_runner``
+step_runner dispatch layer is REAL: ``run_pipeline`` ->
+``dispatch_step_runner_with_receipt``
 -> mocked ``exec_ephemeral_deploy``. Proves the new step_runner advances the
 existing ``deployment_runs`` stage/status state coherently, emits the
 stage events, halts the chain on failure, and receives the worktree-tier
@@ -27,6 +28,7 @@ _STAGES = [
     },
     {"name": "complete", "step_runner": "auto"},
 ]
+
 
 class _Harness:
     """Mocked control-plane harness recording run mutations and events."""

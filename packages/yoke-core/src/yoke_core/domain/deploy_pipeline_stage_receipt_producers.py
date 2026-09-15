@@ -87,25 +87,78 @@ class ProducerContext:
     image_tag: str = ""
     project_repo_path: str = ""
     github_repo: str = ""
+    # The origin authorized to answer for this dispatch's target and the
+    # path beneath it that serves the revision, both resolved from control
+    # plane authority (``deployment_target_identity_config``) rather than
+    # from the driver's machine. Empty means this project configures no
+    # such proof for persistent targets, which is an answer: the producer
+    # falls back to what its step runner verified.
+    identity_origin: str = ""
+    identity_path: str = ""
 
 
 #: A producer dispatches one receipt-backed stage and reports what it read.
 #: ``None`` for the observation means the dispatch produced no evidence, and
 #: the caller settles the receipt as failed.
-Producer = Callable[
-    [ProducerContext], "tuple[int, str, Optional[StageObservation]]"
-]
+Producer = Callable[[ProducerContext], "tuple[int, str, Optional[StageObservation]]"]
 
 
-def _persistent_environment_producer(
-    context: ProducerContext,
+def _served_revision_observation(
+    context: ProducerContext, exec_rc: int, exec_diag: str
 ) -> tuple[int, str, Optional[StageObservation]]:
-    """Dispatch to a registered environment and record what it served.
+    """Ask the environment itself which revision it is now serving.
+
+    This is the project-agnostic proof: whatever deployed the environment,
+    the environment answers for itself over the origin its own registered
+    row names, at the path its project configured. So a project that
+    deploys through its own workflow gets a provable persistent target
+    without Yoke-shaped health semantics, and the answer is evidence about
+    this environment because neither the origin nor the path can be
+    supplied by a caller.
+    """
+    from yoke_core.domain.served_revision_probe import probe_served_revision
+
+    if not context.identity_origin:
+        return (
+            exec_rc,
+            f"environment {context.dispatch_environment!r} has no registered "
+            "url, so the served-revision path this project configures has no "
+            "origin authorized to answer for it; register the environment's "
+            "url before running QA against it",
+            None,
+        )
+    outcome = probe_served_revision(
+        context.identity_origin,
+        context.identity_path,
+        expected_sha=context.release_lineage,
+    )
+    if not outcome.proved:
+        return (
+            exec_rc,
+            f"the deployed environment did not prove this candidate: "
+            f"{outcome.kind} ({outcome.detail}) at {outcome.url}",
+            None,
+        )
+    return (
+        exec_rc,
+        f"{exec_diag or 'stage completed'}; the environment served "
+        f"{outcome.served} at {outcome.url}",
+        StageObservation(
+            target_name=context.dispatch_environment,
+            observed_release_lineage=outcome.served,
+        ),
+    )
+
+
+def _runner_verified_observation(
+    context: ProducerContext, exec_rc: int, exec_diag: str
+) -> tuple[int, str, Optional[StageObservation]]:
+    """Take the candidate identity from what the step runner verified.
 
     Reporting the run's own pinned lineage as *observed* is only honest if
-    something actually read the served identity back, so this producer
-    checks that the runner's verification names this candidate rather than
-    trusting that it ran: the diagnostic must equal the immutable
+    something actually read the served identity back, so this checks that
+    the runner's verification names this candidate rather than trusting
+    that it ran: the diagnostic must equal the immutable
     ``canonical_image_tag`` derivation of the pinned lineage, which is what
     health-check asserts the served ``build`` against. Anything else — a
     liveness-only check, a build assertion against an explicitly
@@ -113,23 +166,9 @@ def _persistent_environment_producer(
     or a runner whose diagnostic is not a candidate identity at all — has
     not observed this candidate, and the caller settles the receipt failed
     rather than recording an unobserved lineage.
-
-    It reads back no URL of its own (the registered environment's endpoint
-    is configuration, which ``deployment_qa_execution_target`` already
-    cross-checks) and no artifact identity.
     """
-    exec_rc, exec_diag = context.dispatch(
-        dispatch_environment=context.dispatch_environment
-    )
-    if exec_rc not in (0, -3) or not exec_diag:
+    if not exec_diag:
         return exec_rc, exec_diag, None
-    if not context.release_lineage:
-        return (
-            exec_rc,
-            "this run pins no candidate revision, so nothing the runner "
-            "verified can identify the served candidate",
-            None,
-        )
     from yoke_core.domain.deploy_image_tag import canonical_image_tag
 
     expected = canonical_image_tag(context.release_lineage)
@@ -149,6 +188,40 @@ def _persistent_environment_producer(
             observed_release_lineage=context.release_lineage,
         ),
     )
+
+
+def _persistent_environment_producer(
+    context: ProducerContext,
+) -> tuple[int, str, Optional[StageObservation]]:
+    """Dispatch to a registered environment and record what it served.
+
+    Two proofs, one preferred. When the project configures a served
+    revision path, the environment is asked directly and its own answer is
+    the observation — project-agnostic, and independent of which runner
+    deployed it. With no such path configured, the only remaining evidence
+    is what the producing step runner itself verified, which is why a
+    definition resting on that path is refused unless its runner returns a
+    verified candidate identity.
+
+    It reads back no URL of its own (the registered environment's endpoint
+    is configuration, which ``deployment_qa_execution_target`` already
+    cross-checks) and no artifact identity.
+    """
+    exec_rc, exec_diag = context.dispatch(
+        dispatch_environment=context.dispatch_environment
+    )
+    if exec_rc not in (0, -3):
+        return exec_rc, exec_diag, None
+    if not context.release_lineage:
+        return (
+            exec_rc,
+            "this run pins no candidate revision, so nothing can identify "
+            "the served candidate",
+            None,
+        )
+    if context.identity_path:
+        return _served_revision_observation(context, exec_rc, exec_diag)
+    return _runner_verified_observation(context, exec_rc, exec_diag)
 
 
 #: Every target kind this installation can produce a verified receipt for.

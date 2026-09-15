@@ -203,6 +203,8 @@ def cmd_update_stages(
         require_provable_qa_identity(
             stages_json,
             operation="updating this active deployment flow",
+            conn=conn,
+            project=project,
         )
     conn.execute(
         "UPDATE deployment_flows SET stages=%s, definition_schema_version=%s "

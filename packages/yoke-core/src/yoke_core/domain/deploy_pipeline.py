@@ -269,6 +269,7 @@ def run_pipeline(
             gate_branch=gate_branch,
             release_lineage=release_lineage,
             run_artifact_identity=str(run.get("artifact_identity") or ""),
+            target_identity=context.get("target_identity") or {},
             sd=sd,
         )
 

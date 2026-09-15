@@ -44,6 +44,7 @@ from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
     StageObservation,  # noqa: F401 — re-exported so producers import one name
 )
 from yoke_core.domain.deploy_pipeline_step_runners import _dispatch_step_runner
+from yoke_core.domain.deployment_target_identity_config import identity_origin_for
 
 
 def receipt_consumer_target(
@@ -108,6 +109,7 @@ def dispatch_step_runner_with_receipt(
     gate_branch: str,
     release_lineage: str,
     run_artifact_identity: str = "",
+    target_identity: Optional[Mapping[str, Any]] = None,
     product_repo_path: str = "",
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
@@ -156,20 +158,42 @@ def dispatch_step_runner_with_receipt(
             "that target kind); register a producer for that kind in "
             "deploy_pipeline_stage_receipt.RECEIPT_PRODUCERS"
         )
+    # Dispatch to the target the flow itself declares, not the run's single
+    # `target_environment` default — that default only applies to stages no
+    # QA stage constrains.
+    dispatch_environment = str(target.get("environment") or "") or environment_name
+
+    identity = dict(target_identity or {})
+    identity_error = str(identity.get("error") or "")
+    if identity_error:
+        # An unreadable identity capability is not an absent one: proceeding
+        # would deploy on the strength of a read that failed.
+        return 1, (
+            f"stage {stage_name!r} backs a QA target and this project's "
+            f"served-revision configuration could not be read: "
+            f"{identity_error}"
+        )
+    identity_path = str(identity.get("identity_path") or "")
+    identity_origin = identity_origin_for(identity, dispatch_environment)
     if (
         target_kind in RUNNER_VERIFIED_TARGET_KINDS
+        and not identity_path
         and step_runner not in IDENTITY_PROVING_STEP_RUNNERS
     ):
-        # Configuration refuses this too, but a definition activated
-        # before that gate existed can still reach here — and the cost of
-        # finding out afterwards is a real environment changed by a run
-        # that can never settle its receipt.
+        # With a configured served-revision path the environment proves
+        # itself and the runner owes nothing, which is why this refusal is
+        # conditional on there being no such path. Configuration refuses
+        # this case too, but a definition activated before that gate
+        # existed can still reach here — and the cost of finding out
+        # afterwards is a real environment changed by a run that can never
+        # settle its receipt.
         return 1, (
             f"stage {stage_name!r} backs a QA target but its step runner "
-            f"{step_runner!r} returns no verified candidate identity, so no "
-            "receipt could prove what the target now serves; register a "
-            "producer that reads the served revision for this target "
-            "through the project's configured identity capability"
+            f"{step_runner!r} returns no verified candidate identity and "
+            "this project configures no served-revision path for persistent "
+            "targets, so no receipt could prove what the target now serves; "
+            "configure the project's identity capability path or use a step "
+            "runner that verifies the candidate it deployed"
         )
     if run_artifact_identity and target_kind not in ARTIFACT_OBSERVING_TARGET_KINDS:
         # The receipt store compares an observed artifact identity against
@@ -183,11 +207,6 @@ def dispatch_step_runner_with_receipt(
             "run without a pinned artifact identity, or register an "
             "artifact-observing producer for that target kind"
         )
-
-    # Dispatch to the target the flow itself declares, not the run's single
-    # `target_environment` default — that default only applies to stages no
-    # QA stage constrains.
-    dispatch_environment = str(target.get("environment") or "") or environment_name
 
     correlation_id = _next_correlation_id(run_id, stage_name)
     receipt = control_plane.allocate_stage_receipt(
@@ -213,6 +232,8 @@ def dispatch_step_runner_with_receipt(
                 image_tag=image_tag,
                 project_repo_path=project_repo_path,
                 github_repo=github_repo,
+                identity_origin=identity_origin,
+                identity_path=identity_path,
             )
         )
     except Exception as exc:
@@ -239,9 +260,7 @@ def dispatch_step_runner_with_receipt(
             target_name=observation.target_name or None,
             observed_url=observation.observed_url or None,
             observed_release_lineage=observation.observed_release_lineage,
-            observed_artifact_identity=(
-                observation.observed_artifact_identity or None
-            ),
+            observed_artifact_identity=(observation.observed_artifact_identity or None),
             executor_receipt=exec_diag or None,
         )
         return exec_rc, exec_diag

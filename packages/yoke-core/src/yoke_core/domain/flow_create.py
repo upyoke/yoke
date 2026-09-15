@@ -69,6 +69,8 @@ def cmd_create(
         require_provable_qa_identity(
             stages_json,
             operation="activating this deployment flow",
+            conn=conn,
+            project=project,
         )
     validate_stage_references(conn, project=project, stages_json=stages_json)
     target_environment_id = resolve_flow_target(
