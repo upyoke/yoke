@@ -36,39 +36,21 @@ class DeploymentExecutionUpdateResponse(BaseModel):
 def _require_execution_lock(
     request: FunctionCallRequest, resolved_run_id: str
 ) -> Optional[HandlerOutcome]:
-    """The one gate every execution-scoped call (context, stage receipts,
-    QA seed/record/pending, field updates) passes through.
-
-    Checking the run's own status here, alongside the existing driver
-    lock, means a late callback -- a QA verdict, a stage receipt, a field
-    update -- from a driver who still legitimately holds the project's
-    deploy lock cannot record anything against a run an operator has
-    since terminalized: the run itself, not just who is allowed to touch
-    it, decides whether there is still anything to advance.
-    """
-    from yoke_core.domain.db_helpers import connect, query_one
+    from yoke_core.domain.db_helpers import connect, query_scalar
     from yoke_core.domain.deploy_lock import DeployLockError, require_deploy_lock
-    from yoke_core.domain.runs import is_active_run
 
     with connect() as conn:
-        run = query_one(
+        project_id = query_scalar(
             conn,
-            "SELECT project_id, status FROM deployment_runs WHERE id=%s",
+            "SELECT project_id FROM deployment_runs WHERE id=%s",
             (resolved_run_id,),
         )
-        if run is None:
+        if project_id is None:
             return error("not_found", f"deployment run {resolved_run_id!r} not found")
-        status = str(run["status"])
-        if not is_active_run(status):
-            return error(
-                "run_terminalized",
-                f"deployment run {resolved_run_id!r} has terminal status "
-                f"{status!r} and cannot record further execution evidence.",
-            )
         try:
             require_deploy_lock(
                 conn,
-                int(run["project_id"]),
+                int(project_id),
                 session_id=request.actor.session_id,
                 operation="deployment run execution",
             )

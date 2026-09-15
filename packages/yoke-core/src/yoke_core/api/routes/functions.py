@@ -67,7 +67,6 @@ _ERROR_TO_STATUS: Dict[str, int] = {
     "claim_not_held": 409,
     "claim_not_found": 404,
     "claim_error": 409,
-    "run_terminalized": 409,
     "hook_context": 403,
     "operator_override_required": 409,
     "human_operator_required": 403,

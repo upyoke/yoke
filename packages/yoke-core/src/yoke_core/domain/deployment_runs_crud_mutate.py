@@ -22,9 +22,11 @@ from yoke_core.domain.deployment_run_composition_guard import (
     frozen_mutation_refusal,
     has_frozen_composition,
     mutable_field_refusal,
+    terminal_run_refusal,
 )
 from yoke_core.domain.project_identity import resolve_project_id
 from yoke_core.domain.deployment_flow_state import require_flow_for_new_run
+from yoke_core.domain.deployment_runs_lock import lock_run, lock_run_with_stable_membership
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
@@ -33,22 +35,9 @@ from yoke_core.domain.workflow_delivery_binding_validation import (
     validate_deployment_run_items,
 )
 
-_RUN_MEMBERSHIP_LOCK_RETRIES = 5
-
-
-def _lock_run(conn, run_id: str) -> Optional[str]:
-    suffix = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
-    row = conn.execute(
-        f"SELECT status FROM deployment_runs WHERE id=%s{suffix}",
-        (run_id,),
-    ).fetchone()
-    if row is None:
-        return None
-    return str(row["status"] if hasattr(row, "keys") else row[0])
-
 
 def _require_composable_run(conn, run_id: str) -> None:
-    status = _lock_run(conn, run_id)
+    status = lock_run(conn, run_id)
     if status is None:
         raise LookupError(f"deployment run '{run_id}' not found")
     if status != "created":
@@ -58,35 +47,6 @@ def _require_composable_run(conn, run_id: str) -> None:
         )
     if has_frozen_composition(conn, run_id):
         raise ValueError(frozen_mutation_refusal(run_id, "membership")[7:])
-
-
-def _run_item_ids(conn, run_id: str) -> tuple[int, ...]:
-    rows = conn.execute(
-        "SELECT item_id FROM deployment_run_items WHERE run_id=%s ORDER BY item_id",
-        (run_id,),
-    ).fetchall()
-    return tuple(
-        int(row["item_id"]) if hasattr(row, "keys") else int(row[0]) for row in rows
-    )
-
-
-def _lock_run_with_stable_membership(
-    conn,
-    run_id: str,
-) -> tuple[Optional[str], tuple[int, ...]]:
-    """Lock workflow bindings before the run and reject a stale member snapshot."""
-    for _attempt in range(_RUN_MEMBERSHIP_LOCK_RETRIES):
-        item_ids = _run_item_ids(conn, run_id)
-        lock_item_workflow_bindings(conn, item_ids)
-        status = _lock_run(conn, run_id)
-        if status is None:
-            return None, ()
-        if _run_item_ids(conn, run_id) == item_ids:
-            return status, item_ids
-        conn.rollback()
-    raise RuntimeError(
-        f"deployment run '{run_id}' membership changed repeatedly while locking"
-    )
 
 
 def cmd_next_id(db_path: Optional[str] = None) -> str:
@@ -270,11 +230,15 @@ def cmd_update(
     conn = connect(db_path)
     try:
         if field == "status":
-            status, item_ids = _lock_run_with_stable_membership(conn, run_id)
+            status, item_ids = lock_run_with_stable_membership(conn, run_id)
             if status is None:
                 return f"Error: deployment run '{run_id}' not found"
             if value not in VALID_STATUSES:
                 return f"Error: invalid status '{value}'"
+            if refusal := terminal_run_refusal(
+                run_id, status, advancing_to=value, action="change status"
+            ):
+                return refusal
             if value == "created" and has_frozen_composition(conn, run_id):
                 return frozen_mutation_refusal(run_id, "status")
             if value in {"created", "executing"}:
@@ -330,9 +294,15 @@ def cmd_update(
         ):
             return refusal
         else:
-            status = _lock_run(conn, run_id)
+            status = lock_run(conn, run_id)
             if status is None:
                 return f"Error: deployment run '{run_id}' not found"
+            if field == "current_stage" and (
+                refusal := terminal_run_refusal(
+                    run_id, status, advancing_to=value, action="advance to a new stage"
+                )
+            ):
+                return refusal
             if field in {"artifact_identity", "composition_resolution"} and (
                 refusal := mutable_field_refusal(conn, run_id, field, status)
             ):

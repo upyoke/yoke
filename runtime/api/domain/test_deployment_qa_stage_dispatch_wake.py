@@ -5,9 +5,18 @@ from __future__ import annotations
 from typing import Any
 from unittest import mock
 
+from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
+    HOLDER_A,
+    _claim,
+    _project,
+    _recipients,
+    seed_session,
+)
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import deployment_qa_stage_dispatch as dispatch_mod
 from yoke_core.domain.deployment_qa_stage_dispatch import dispatch_deployment_qa_stage
+from yoke_core.domain.deployment_qa_stage_wake import stage_wait_idempotency_key
+from yoke_core.domain.work_claim_targets import make_item_target
 
 
 def _run(conn: Any, run_id: str) -> None:
@@ -137,6 +146,60 @@ def test_run_scoped_wait_with_no_recipient_is_reported_visibly(
     out = capsys.readouterr().out
     assert "no deploy-lock driver" in out
     assert "Staff it manually" in out
+
+
+def test_a_same_run_repeat_dispatch_re_attempts_notify_every_poll(
+    test_db: Any,
+) -> None:
+    """The pipeline re-polls a waiting stage repeatedly within one run;
+    dispatch tries to notify on every poll (the real recipient/message
+    path, not mocked) rather than remembering "already tried once" for
+    itself. A second attempt with different reasons text is a harmless
+    dedupe at the message layer -- covered directly in
+    test_deployment_qa_stage_wake_delivery.py -- not a dispatch-level
+    collision."""
+    _project(test_db)
+    _run(test_db, "run-wake-6")
+    item_id = 9606
+    _member(test_db, "run-wake-6", item_id)
+    seed_session(test_db, HOLDER_A)
+    _claim(
+        test_db,
+        session_id=HOLDER_A,
+        target_kind="item",
+        scope_json=make_item_target(item_id).scope_json(),
+    )
+    stage = {"name": "item-qa", "scope": "item"}
+    key = stage_wait_idempotency_key("run-wake-6", "item-qa", item_id)
+
+    with mock.patch.object(
+        dispatch_mod,
+        "deployment_qa_stage_status",
+        return_value={
+            "accepted": False,
+            "reasons": ["2 of 3 requirements outstanding"],
+            "request_id": None,
+        },
+    ), mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"):
+        first = dispatch_deployment_qa_stage(stage, run_id="run-wake-6")
+
+    with mock.patch.object(
+        dispatch_mod,
+        "deployment_qa_stage_status",
+        return_value={
+            "accepted": False,
+            "reasons": ["1 of 3 requirements outstanding"],
+            "request_id": None,
+        },
+    ), mock.patch.object(dispatch_mod, "materialize_deployment_qa_stage"):
+        second = dispatch_deployment_qa_stage(stage, run_id="run-wake-6")
+
+    assert first[0] == -4 and second[0] == -4
+    assert "2 of 3" in first[1]
+    assert "1 of 3" in second[1]
+    # Both polls attempted delivery; the message store kept exactly the
+    # first one under the stable (run, stage, item) key.
+    assert _recipients(test_db, key) == [HOLDER_A]
 
 
 def test_a_wake_failure_degrades_without_losing_the_wait_result(

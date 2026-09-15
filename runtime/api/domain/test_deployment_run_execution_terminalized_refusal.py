@@ -1,11 +1,12 @@
-"""A terminalized run refuses further execution-scoped writes.
+"""A cancelled run refuses further advancement, but stays readable.
 
-The project's deploy-lock driver stays the same session across a whole
-release pair; terminalizing a run (an operator canceling it, or the
-pipeline itself failing it) must stop that SAME still-authorized driver
-from later recording a stage receipt or QA verdict against it as if the
-run were still live -- a late callback must not grant success to a run
-that is already closed.
+Only ``cancelled`` is a deliberate, final stop (an operator or the
+pipeline itself declaring "this work is superseded"); a still-legitimate
+driver holding the project's deploy lock must not be able to record a new
+status, a new stage, or a late stage-receipt completion against a run an
+operator has since cancelled -- while diagnostics (reading the run's own
+context) and the pipeline's own established failed-run retry-in-place
+recovery stay untouched.
 """
 
 from __future__ import annotations
@@ -16,24 +17,11 @@ from runtime.api.domain.test_deployment_execution_serving_authority import (
     _call,
     serving_plane,
 )
-from yoke_core.domain.actor_permissions import ROLE_ADMIN, grant_actor_org_role
 
 __all__ = ["serving_plane"]  # re-exported fixture; silence unused-import lints
 
 
-def test_a_terminalized_run_refuses_further_execution_writes(serving_plane) -> None:
-    client = serving_plane["client"]
-    headers = serving_plane["owner_headers"]
-    session_id = serving_plane["owner_session"]
-
-    # Terminalizing is an org-admin act; the project-owner role serving_plane
-    # otherwise grants is not enough on its own.
-    grant_actor_org_role(
-        serving_plane["conn"], actor_id=serving_plane["owner_id"], org_id=1,
-        role_name=ROLE_ADMIN,
-    )
-    serving_plane["conn"].commit()
-
+def _create_and_cancel(client, headers, session_id) -> str:
     created = _call(
         client,
         headers,
@@ -44,6 +32,23 @@ def test_a_terminalized_run_refuses_further_execution_writes(serving_plane) -> N
     assert created.status_code == 200, created.text
     run_id = created.json()["result"]["run_id"]
 
+    started = _call(
+        client,
+        headers,
+        session_id,
+        "deployment_runs.execution.update",
+        run_id=run_id,
+        payload={"field": "status", "value": "executing"},
+    )
+    assert started.status_code == 200, started.text
+    return run_id
+
+
+def _terminalize(client, headers, session_id, conn, actor_id, run_id: str) -> None:
+    from yoke_core.domain.actor_permissions import ROLE_ADMIN, grant_actor_org_role
+
+    grant_actor_org_role(conn, actor_id=actor_id, org_id=1, role_name=ROLE_ADMIN)
+    conn.commit()
     terminalized = _call(
         client,
         headers,
@@ -54,23 +59,103 @@ def test_a_terminalized_run_refuses_further_execution_writes(serving_plane) -> N
     )
     assert terminalized.status_code == 200, terminalized.text
 
-    for function_id, payload in (
-        ("deployment_runs.execution.context", {}),
-        (
-            "deployment_runs.execution.update",
-            {"field": "current_stage", "value": "approve-deploy"},
-        ),
-        (
-            "deployment_runs.execution.qa_record",
-            {"stage": "hosted-release", "verdict": "pass"},
-        ),
-        ("deployment_runs.execution.qa_seed", {}),
-    ):
+
+def test_a_cancelled_run_refuses_further_status_and_stage_advancement(
+    serving_plane,
+) -> None:
+    client = serving_plane["client"]
+    headers = serving_plane["owner_headers"]
+    session_id = serving_plane["owner_session"]
+
+    run_id = _create_and_cancel(client, headers, session_id)
+    _terminalize(
+        client, headers, session_id, serving_plane["conn"], serving_plane["owner_id"], run_id
+    )
+
+    for field, value in (("status", "executing"), ("current_stage", "hosted-release")):
         response = _call(
-            client, headers, session_id, function_id, run_id=run_id, payload=payload
+            client,
+            headers,
+            session_id,
+            "deployment_runs.execution.update",
+            run_id=run_id,
+            payload={"field": field, "value": value},
         )
-        assert response.status_code == 409, response.text
+        assert response.status_code == 400, response.text
         body = response.json()
-        assert body["success"] is False, (function_id, body)
-        assert body["error"]["code"] == "run_terminalized", (function_id, body)
-        assert "cancelled" in body["error"]["message"]
+        assert body["success"] is False, (field, body)
+        assert "cancelled" in body["error"]["message"], (field, body)
+
+
+def test_a_cancelled_runs_context_stays_readable(serving_plane) -> None:
+    client = serving_plane["client"]
+    headers = serving_plane["owner_headers"]
+    session_id = serving_plane["owner_session"]
+
+    run_id = _create_and_cancel(client, headers, session_id)
+    _terminalize(
+        client, headers, session_id, serving_plane["conn"], serving_plane["owner_id"], run_id
+    )
+
+    context = _call(
+        client, headers, session_id, "deployment_runs.execution.context", run_id=run_id
+    )
+    assert context.status_code == 200, context.text
+    assert context.json()["result"]["run"]["status"] == "cancelled"
+
+
+def test_a_late_stage_receipt_completion_is_refused_once_cancelled(
+    serving_plane,
+) -> None:
+    client = serving_plane["client"]
+    headers = serving_plane["owner_headers"]
+    session_id = serving_plane["owner_session"]
+
+    run_id = _create_and_cancel(client, headers, session_id)
+    staged = _call(
+        client,
+        headers,
+        session_id,
+        "deployment_runs.execution.update",
+        run_id=run_id,
+        payload={"field": "current_stage", "value": "hosted-release"},
+    )
+    assert staged.status_code == 200, staged.text
+    allocated = _call(
+        client,
+        headers,
+        session_id,
+        "deployment_runs.execution.stage_receipt_allocate",
+        run_id=run_id,
+        payload={
+            "stage_name": "hosted-release",
+            "correlation_id": "corr-1",
+            "target_kind": "run_preview",
+            "executor": "github-actions",
+        },
+    )
+    assert allocated.status_code == 200, allocated.text
+    receipt_id = allocated.json()["result"]["receipt_id"]
+
+    _terminalize(
+        client, headers, session_id, serving_plane["conn"], serving_plane["owner_id"], run_id
+    )
+
+    completed = _call(
+        client,
+        headers,
+        session_id,
+        "deployment_runs.execution.stage_receipt_complete",
+        run_id=run_id,
+        payload={
+            "receipt_id": receipt_id,
+            "correlation_id": "corr-1",
+            "status": "ready",
+            "target_name": "prod",
+            "observed_release_lineage": "e" * 40,
+        },
+    )
+    assert completed.status_code == 400, completed.text
+    body = completed.json()
+    assert body["success"] is False
+    assert "no longer executing" in body["error"]["message"]
