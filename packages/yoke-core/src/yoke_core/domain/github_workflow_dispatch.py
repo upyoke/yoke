@@ -43,6 +43,14 @@ def _error(code: str, message: str, *, recovery_hint: str = "") -> HandlerOutcom
     )
 
 
+def _collision() -> HandlerOutcome:
+    return _error(
+        "idempotency_key_collision",
+        "request_id was already bound to a different actor, authorized "
+        "scope, or canonical workflow payload",
+    )
+
+
 def _response(intent: DispatchIntent, *, dispatched: bool) -> HandlerOutcome:
     return HandlerOutcome(
         result_payload={
@@ -85,9 +93,28 @@ def _same_logical_request(
     authorization_scope: str,
     payload_checksum: str,
 ) -> bool:
+    """Owns the mutation: this exact actor's own dispatch of this pair."""
     return (
         intent.actor_id == actor_id
         and intent.authorization_scope == authorization_scope
+        and intent.payload_checksum == payload_checksum
+    )
+
+
+def _proof_reusable(
+    intent: DispatchIntent,
+    *,
+    authorization_scope: str,
+    payload_checksum: str,
+) -> bool:
+    """Proves this pair for any actor sharing (scope, payload) — not just its owner.
+
+    The local operator and the release CI job are different actors proving
+    the same producer+consumer pair; only *owning* the mutation stays
+    actor-scoped, via ``_same_logical_request``.
+    """
+    return (
+        intent.authorization_scope == authorization_scope
         and intent.payload_checksum == payload_checksum
     )
 
@@ -107,7 +134,8 @@ def _correlated_run(payload: Any, intent: DispatchIntent, token: str) -> Any:
             token=token,
         )
         if not isinstance(data, dict) or not isinstance(
-            data.get("workflow_runs"), list,
+            data.get("workflow_runs"),
+            list,
         ):
             raise ValueError("workflow correlation lookup returned malformed data")
         runs = data["workflow_runs"]
@@ -180,7 +208,11 @@ def _claim_and_post(
     attempt: int,
 ) -> HandlerOutcome:
     correlation_id = _correlation_id(
-        request_id, actor_id, authorization_scope, payload_checksum, attempt,
+        request_id,
+        actor_id,
+        authorization_scope,
+        payload_checksum,
+        attempt,
     )
     claimed = claim_attempt(
         request_id=request_id,
@@ -262,30 +294,27 @@ def dispatch_workflow_with_intent(
         )
     request_id, actor_id, authorization_scope = scope
     payload_checksum = idempotency_payload_checksum(request)
+    scoped = {
+        "authorization_scope": authorization_scope,
+        "payload_checksum": payload_checksum,
+    }
+    owned = {"actor_id": actor_id, **scoped}
+
+    def _mutate(attempt: int) -> HandlerOutcome:
+        return _claim_and_post(
+            request, payload, token, request_id=request_id, attempt=attempt, **owned
+        )
+
     try:
         intent = latest_intent(request_id)
-        if intent is not None and not _same_logical_request(
-            intent,
-            actor_id=actor_id,
-            authorization_scope=authorization_scope,
-            payload_checksum=payload_checksum,
-        ):
-            return _error(
-                "idempotency_key_collision",
-                "request_id was already bound to a different actor, authorized "
-                "scope, or canonical workflow payload",
-            )
-        if intent is None or intent.state == "rejected":
-            return _claim_and_post(
-                request,
-                payload,
-                token,
-                request_id=request_id,
-                actor_id=actor_id,
-                authorization_scope=authorization_scope,
-                payload_checksum=payload_checksum,
-                attempt=1 if intent is None else intent.attempt + 1,
-            )
+        if intent is not None and not _proof_reusable(intent, **scoped):
+            return _collision()
+        owns = intent is not None and _same_logical_request(intent, **owned)
+        if intent is None or (intent.state == "rejected" and owns):
+            return _mutate(1 if intent is None else intent.attempt + 1)
+        if intent.state == "rejected":
+            # Reusable pair, nothing succeeded yet; only the owner may retry.
+            return _collision()
         if intent.state == "pending":
             run = _correlated_run(payload, intent, token)
             if run is None:
@@ -299,18 +328,11 @@ def dispatch_workflow_with_intent(
                 )
             intent = _complete_from_run(intent, run)
         classification = _exact_run_classification(payload, intent, token)
-        if classification != "failed":
+        if classification != "failed" or not owns:
+            # Non-owner reuses the read (failure included); only the owner
+            # auto-retriggers a mutation it actually owns.
             return _response(intent, dispatched=False)
-        return _claim_and_post(
-            request,
-            payload,
-            token,
-            request_id=request_id,
-            actor_id=actor_id,
-            authorization_scope=authorization_scope,
-            payload_checksum=payload_checksum,
-            attempt=intent.attempt + 1,
-        )
+        return _mutate(intent.attempt + 1)
     except DispatchIntentStoreError as exc:
         return _error("workflow_dispatch_state_unavailable", str(exc))
     except (TypeError, ValueError) as exc:
