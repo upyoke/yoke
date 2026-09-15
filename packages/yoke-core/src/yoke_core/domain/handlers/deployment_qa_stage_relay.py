@@ -3,14 +3,18 @@
 The deploy driver runs wherever it was started, often with no local
 database authority (an ordinary project deploy works over HTTPS only), so
 ``deployment_qa_stage_dispatch.dispatch_deployment_qa_stage`` and
-``deployment_qa_stage_resume.resume_qa_refusal_message`` always relay here
-instead of opening a connection client-side. This module is where the
-verdict is actually computed, against the database that serves it.
+``deployment_qa_stage_resume.resume_qa_refusal_message`` reach these
+handlers through the connection-keyed function-call dispatcher — locally
+in-process for an admin-bootstrapped driver, relayed for an ordinary HTTPS
+one. This module is where the verdict is actually computed, against the
+database that serves it, and where every caller-supplied stage name is
+resolved against the run's own stored flow rather than trusted verbatim.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict
+import json
+from typing import Any, Dict, List, Union
 
 from pydantic import BaseModel
 
@@ -36,8 +40,29 @@ def _locked_run(request: FunctionCallRequest, function_id: str):
     return _require_execution_lock(request, resolved) or resolved
 
 
+def _stored_stages_for_run(
+    conn: Any, resolved: str
+) -> Union[List[Dict[str, Any]], HandlerOutcome]:
+    """Read the run's own flow-derived stage list — never the caller's copy.
+
+    A client-supplied stage (or stage list) is data a caller could omit or
+    alter; every scoped-QA check evaluates against what the run's stored
+    flow actually declares.
+    """
+    from yoke_core.domain.deployment_runs_crud_query import cmd_get
+    from yoke_core.domain.flow import cmd_stages
+
+    flow_id = cmd_get(resolved, "flow")
+    if not flow_id:
+        return error("not_found", f"deployment run {resolved!r} has no flow")
+    try:
+        return json.loads(cmd_stages(conn, flow_id))
+    except LookupError as exc:
+        return error("not_found", str(exc))
+
+
 class DeploymentQaStageDispatchRequest(BaseModel):
-    stage: Dict[str, Any]
+    stage_name: str
 
 
 class DeploymentQaStageDispatchResponse(BaseModel):
@@ -62,17 +87,29 @@ def handle_deployment_qa_stage_dispatch(
     if isinstance(resolved, HandlerOutcome):
         return resolved
     payload = request.payload or {}
-    stage = payload.get("stage")
-    if not isinstance(stage, dict) or not stage.get("name"):
+    stage_name = payload.get("stage_name")
+    if not isinstance(stage_name, str) or not stage_name.strip():
         return error(
             "payload_invalid",
-            f"{DISPATCH_FUNCTION_ID} requires payload.stage naming the stage",
-            jsonpath="$.payload.stage",
+            f"{DISPATCH_FUNCTION_ID} requires payload.stage_name",
+            jsonpath="$.payload.stage_name",
         )
     from yoke_core.domain.db_helpers import connect
 
     conn = connect()
     try:
+        # The stage's scope/config is derived from the run's own stored
+        # flow, never trusted from the caller: a client-supplied stage
+        # object could name a scope the run's real flow never declared.
+        stages = _stored_stages_for_run(conn, resolved)
+        if isinstance(stages, HandlerOutcome):
+            return stages
+        stage = next((s for s in stages if s.get("name") == stage_name.strip()), None)
+        if stage is None:
+            return error(
+                "not_found",
+                f"deployment run {resolved!r} has no stage named {stage_name!r}",
+            )
         code, message = materialize_and_gate_deployment_qa_stage(
             conn, stage, run_id=resolved
         )
@@ -99,24 +136,12 @@ def handle_deployment_qa_stage_resume_refusals(
             jsonpath="$.payload.start_stage",
         )
     from yoke_core.domain.db_helpers import connect
-    from yoke_core.domain.deployment_runs_crud_query import cmd_get
-    from yoke_core.domain.flow import cmd_stages
 
-    # The stage list is derived from the run's own stored flow, never
-    # trusted from the caller: a client-supplied (or altered/empty) stage
-    # list would let a resume read as "no scoped QA outstanding" without
-    # ever consulting what the run actually gates on.
-    flow_id = cmd_get(resolved, "flow")
-    if not flow_id:
-        return error("not_found", f"deployment run {resolved!r} has no flow")
     conn = connect()
     try:
-        try:
-            import json
-
-            stages = json.loads(cmd_stages(conn, flow_id))
-        except LookupError as exc:
-            return error("not_found", str(exc))
+        stages = _stored_stages_for_run(conn, resolved)
+        if isinstance(stages, HandlerOutcome):
+            return stages
         refusals = prior_deployment_qa_refusals(
             conn, run_id=resolved, stages=stages, start_stage=start_stage.strip()
         )

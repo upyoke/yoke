@@ -1,12 +1,14 @@
 """Deployment runner dispatch for scoped QA stages.
 
 Materializing and gating a scoped QA stage reads/writes qa_requirements and
-qa_runs on the database that serves this control plane. The deploy driver
-runs wherever an operator (or a headless deploy runner) started it, often
-with no local database authority at all — an ordinary project deploy works
-over HTTPS only. So this always dispatches to the serving build rather than
-connecting here, mirroring
-``deployment_stage_approval_dispatch.dispatch_deployment_stage_approval``.
+qa_runs through the registered function-call dispatcher, the same
+connection-keyed path ``deploy_pipeline_control_plane`` uses for every other
+execution-owned write: an explicitly selected local database authority (an
+admin-bootstrapped driver) dispatches in-process through the registered
+handler, while an ordinary HTTPS-connected driver relays to whatever build
+is actively serving that connection. There is no fallback for an old
+serving build that has not registered this function id — the caller reads
+that refusal like any other unsupported operation.
 ``materialize_and_gate_deployment_qa_stage`` is the server-side
 implementation the relayed handler calls; it takes a live connection the
 caller already holds.
@@ -83,23 +85,28 @@ def dispatch_deployment_qa_stage(
 ) -> tuple[int, str]:
     """Deployment step-runner adapter for one scoped QA stage.
 
-    Always dispatches to the build that SERVES this control plane's
-    database — the driver may hold no local database authority at all.
+    Dispatches through the connection-keyed function-call transport: an
+    admin-bootstrapped driver executes the registered handler locally, an
+    ordinary HTTPS-connected driver relays to whatever build is actively
+    serving that connection. Only the stage name crosses the wire — the
+    handler re-derives the stage's full scope/config from the run's own
+    stored flow rather than trusting this caller's copy of it.
     """
     from yoke_contracts.api.function_call import TargetRef
-    from yoke_core.domain.control_plane_transport import serving_authority
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
-    try:
-        result = serving_authority(
-            DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
-            {"stage": dict(stage)},
-            TargetRef(kind="workflow_run", workflow_run_id=run_id),
-        )
-    except RuntimeError as exc:
+    response = call_dispatcher(
+        function_id=DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
+        target=TargetRef(kind="workflow_run", workflow_run_id=run_id),
+        payload={"stage_name": str(stage.get("name") or "")},
+    )
+    if not response.success:
+        message = response.error.message if response.error else "request failed"
         return 1, (
             f"deployment QA stage {stage.get('name')!r} could not be "
-            f"dispatched on the serving control plane: {exc}"
+            f"dispatched: {message}"
         )
+    result = dict(response.result or {})
     return int(result.get("code", 1)), str(result.get("message") or "")
 
 

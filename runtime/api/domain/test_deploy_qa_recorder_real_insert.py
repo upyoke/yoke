@@ -24,7 +24,12 @@ from yoke_core.domain import deploy_qa_recorder
 
 def _flow_derived_stages() -> list[dict[str, Any]]:
     return [
-        {"name": "deploy", "step_runner": "auto", "stage_kind": "execution", "scope": "run"},
+        {
+            "name": "deploy",
+            "step_runner": "auto",
+            "stage_kind": "execution",
+            "scope": "run",
+        },
         {
             "name": "distribution-publish",
             "step_runner": "github-actions-workflow",

@@ -8,16 +8,12 @@ its shared fixtures and helpers.
 
 from __future__ import annotations
 
-import io
-import urllib.error
-
 from runtime.api.domain.test_deploy_pipeline_https_execution import (
     FLOW,
     LINEAGE,
     PROJECT,
-    _decision_request_id,
+    _install_test_https,
     _invoke,
-    _RelayResponse,
     _replace_flow,
     serving_plane,  # noqa: F401 - pytest fixture re-export
 )
@@ -26,7 +22,6 @@ from yoke_cli.commands.adapters.deployment_execution_authority import (
 )
 from yoke_cli.transport import dispatcher as client_dispatcher
 from yoke_cli.transport import https as https_transport
-from yoke_cli.transport.https import HttpsConnection
 from yoke_core.domain import deploy_pipeline, deploy_pipeline_control_plane
 
 
@@ -55,92 +50,41 @@ def _bootstrap_admin_env(monkeypatch, plane) -> None:
     )
 
 
-def test_admin_candidate_relays_approval_and_resume_to_the_serving_plane(
+_SCOPED_QA_STAGES = [
+    {"name": "merged", "step_runner": "auto"},
+    {
+        "name": "scoped-item-check",
+        "step_runner": "qa",
+        "stage_kind": "qa",
+        "scope": "item",
+    },
+    {
+        "name": "scoped-run-check",
+        "step_runner": "qa",
+        "stage_kind": "qa",
+        "scope": "run",
+    },
+    {"name": "complete", "step_runner": "auto"},
+]
+
+
+def test_admin_candidate_dispatches_scoped_qa_stages_locally(
     serving_plane,  # noqa: F811 - fixture re-export, this is the intended shadow
     monkeypatch,
 ) -> None:
-    """A mixed-build admin driver relays approval and scoped-QA resume.
+    """An admin-connected candidate evaluates scoped-QA stages in-process.
 
-    The release driver holds a direct admin door into the database (it is
-    deploying a candidate build), while the deployed build's own API is
-    the named https sibling that must evaluate the approval verdict and
-    the resume's scoped-QA facts — mirroring the self-deploy scenario
-    dispatch_deployment_stage_approval already relies on. Both the
-    pre-existing approval dispatch and the new resume gate route through
-    that same named plane rather than either failing or evaluating
-    against the candidate's own code.
+    No https connection is reachable at all (mirrors
+    test_local_admin_candidate_bootstraps_execution_handlers below): any
+    attempt to relay raises. Scoped-QA dispatch and resume still succeed,
+    proving they went through the same connection-keyed call_dispatcher
+    path deploy_pipeline_control_plane uses for every other
+    execution-owned operation, landing on the local in-process handler
+    rather than failing for want of a serving plane.
     """
     conn = serving_plane["conn"]
-    _replace_flow(
-        conn,
-        [
-            {"name": "preflight", "step_runner": "auto", "qa_kind": "preflight"},
-            {
-                "name": "approve-deploy",
-                "step_runner": "human-approval",
-                "qa_kind": "approval",
-                "approvals": {"roles": ["owner"], "actors": []},
-            },
-            {"name": "complete", "step_runner": "auto"},
-        ],
-    )
-    _admin_driver_env(monkeypatch, serving_plane)
-
-    client = serving_plane["client"]
-    token = serving_plane["owner_headers"]["Authorization"].split(" ", 1)[1]
-    serving_connection = HttpsConnection(
-        api_url="https://serving-build.example", token=token, env="prod"
-    )
-    relayed: list[str] = []
-
-    def open_no_redirect(request, timeout=None):
-        del timeout
-        import json as _json
-
-        payload = _json.loads(request.data.decode("utf-8"))
-        relayed.append(str(payload["function"]))
-        response = client.post(
-            "/v1/functions/call",
-            headers={
-                "Authorization": request.get_header("Authorization"),
-                "Content-Type": "application/json",
-            },
-            json=payload,
-        )
-        if response.status_code >= 400:
-            raise urllib.error.HTTPError(
-                request.full_url,
-                response.status_code,
-                response.reason_phrase,
-                dict(response.headers),
-                io.BytesIO(response.content),
-            )
-        return _RelayResponse(response.content, dict(response.headers))
-
-    def resolve_https_connection(*, explicit_env=None):
-        # The admin driver's own ambient connection is not an https plane
-        # at all (matching _bootstrap_admin_env); only an explicitly named
-        # lookup for the serving build's own env resolves to anything.
-        return serving_connection if explicit_env == "prod" else None
-
-    from yoke_cli.config import machine_config
-
-    monkeypatch.setattr(https_transport, "open_no_redirect", open_no_redirect)
-    monkeypatch.setattr(
-        https_transport, "resolve_https_connection", resolve_https_connection
-    )
-    monkeypatch.setattr(https_transport, "record_outcome", lambda *_a, **_k: None)
-    monkeypatch.setattr(machine_config, "active_env", lambda *a, **k: "prod-db-admin")
-    monkeypatch.setattr(
-        machine_config,
-        "load_config",
-        lambda *a, **k: {
-            "connections": {
-                "prod": {"transport": "https"},
-                "prod-db-admin": {"transport": "local-postgres"},
-            }
-        },
-    )
+    _replace_flow(conn, _SCOPED_QA_STAGES)
+    _bootstrap_admin_env(monkeypatch, serving_plane)
 
     run_id = str(
         _invoke(
@@ -149,27 +93,86 @@ def test_admin_candidate_relays_approval_and_resume_to_the_serving_plane(
         )["run_id"]
     )
     assert execution_connection_error(run_id) is None
-    # First pass pauses at the approval stage and persists current_stage,
-    # so the second call below is a genuine resume, not a fresh run.
-    assert (
-        deploy_pipeline.run_pipeline(run_id) == deploy_pipeline.EXIT_AWAITING_APPROVAL
+
+    from yoke_core.domain.deployment_qa_stage_dispatch import (
+        dispatch_deployment_qa_stage,
     )
-    _invoke(
-        "decision_requests.resolve",
-        {"request_id": _decision_request_id(conn, run_id), "action": "approve"},
+    from yoke_core.domain.deployment_qa_stage_resume import resume_qa_refusal_message
+
+    # Nothing is materialized yet, so the run's own stored flow — read
+    # locally, never relayed — is what produces each verdict below.
+    code, message = dispatch_deployment_qa_stage(
+        {"name": "scoped-item-check"}, run_id=run_id
     )
-    assert deploy_pipeline.run_pipeline(run_id) == deploy_pipeline.EXIT_SUCCESS
-    succeeded = conn.execute(
-        "SELECT status,current_stage FROM deployment_runs WHERE id=%s",
-        (run_id,),
-    ).fetchone()
-    assert tuple(succeeded) == ("succeeded", "complete")
-    assert "deployment_runs.stage_approval.evaluate" in relayed
-    # The resume gate evaluates on every resume, scoped-QA or not — this
-    # flow has no scoped-QA stage, so the relayed message is empty, but
-    # the relay itself (not a local connect()) is what mixed-build safety
-    # depends on.
-    assert "deployment_runs.qa_stage.resume_refusals" in relayed
+    assert code == 1
+    assert "item-scoped QA stage has no attached run members" in message
+
+    refusal = resume_qa_refusal_message(run_id=run_id, start_stage="complete")
+    assert "scoped-run-check" in refusal
+    assert "0 current acceptance records" in refusal
+
+
+def test_https_driver_gets_a_genuine_unknown_function_refusal_from_an_old_build(
+    serving_plane,  # noqa: F811 - fixture re-export, this is the intended shadow
+    monkeypatch,
+) -> None:
+    """An ordinary HTTPS-connected driver relays normally and is refused.
+
+    dispatch_deployment_qa_stage/resume_qa_refusal_message carry no
+    special-case "unknown function" handling of their own — they read
+    call_dispatcher's ordinary success/failure response exactly like every
+    other execution-owned operation. Hiding the two function ids from the
+    server-side registry lookup simulates a serving build that predates
+    them (an old, pre-scoped-QA build) and proves the caller reaches the
+    dispatcher's own genuine "not registered" refusal, unmodified.
+    """
+    conn = serving_plane["conn"]
+    _replace_flow(conn, _SCOPED_QA_STAGES)
+    _install_test_https(monkeypatch, serving_plane)
+
+    from yoke_core.domain import yoke_function_dispatch
+    from yoke_core.domain.deployment_qa_stage_dispatch import (
+        DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
+        dispatch_deployment_qa_stage,
+    )
+    from yoke_core.domain.deployment_qa_stage_resume import (
+        RESUME_DEPLOYMENT_QA_REFUSALS_FUNCTION,
+        resume_qa_refusal_message,
+    )
+
+    real_lookup = yoke_function_dispatch.lookup
+    missing_on_the_old_build = {
+        DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION,
+        RESUME_DEPLOYMENT_QA_REFUSALS_FUNCTION,
+    }
+
+    def lookup_on_an_old_build(function_id: str):
+        if function_id in missing_on_the_old_build:
+            return None
+        return real_lookup(function_id)
+
+    monkeypatch.setattr(yoke_function_dispatch, "lookup", lookup_on_an_old_build)
+
+    run_id = str(
+        _invoke(
+            "deployment_runs.create",
+            {"project": PROJECT, "flow": FLOW, "release_lineage": LINEAGE},
+        )["run_id"]
+    )
+
+    code, message = dispatch_deployment_qa_stage(
+        {"name": "scoped-item-check"}, run_id=run_id
+    )
+    assert code == 1
+    assert "is not registered" in message
+    assert DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION in message
+
+    try:
+        resume_qa_refusal_message(run_id=run_id, start_stage="complete")
+        raise AssertionError("expected RuntimeError")
+    except RuntimeError as exc:
+        assert "is not registered" in str(exc)
+        assert RESUME_DEPLOYMENT_QA_REFUSALS_FUNCTION in str(exc)
 
 
 def test_local_admin_candidate_bootstraps_execution_handlers(
