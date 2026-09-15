@@ -68,6 +68,9 @@ def test_intake_persists_delivery_evidence_as_existing_qa_rows() -> None:
     assert "yoke workflows item-posture amend" in text
     assert "actors" in text
     assert "mode=all" in text
+    assert "do not wait for an environment" in text
+    assert "item-scoped QA stage" in text
+    assert "Never `update-stages`" in text
 
 
 def test_explicit_approval_requires_this_operator_not_human_if_unsure() -> None:
@@ -82,6 +85,9 @@ def test_explicit_approval_requires_this_operator_not_human_if_unsure() -> None:
     assert "explicitly conditional" in compact
     assert "compatible reviewer requirement" in compact
     assert "Do not replace a matching policy" in compact
+    assert "item-scoped QA stage" in compact
+    assert "persistent_environment" in compact
+    assert "Never `update-stages`" in compact
 
 
 def test_dash_routes_intake_screenshot_to_delivery_requirements() -> None:

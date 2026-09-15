@@ -82,12 +82,19 @@ the method before `qa.requirement.add` will accept the row:
 Issue / Epic / Blitz already carry a `qa_verification` gate; do not invent a
 Dash-style posture there.
 
-Bind `--workflow-transition` to a stage in the pinned workflow that currently
-has a reachable `qa_verification` gate (Dash: `reviewing-implementation` after
-the method is selected). `--qa-phase` and `--target-env` carry the release vs
-pre-merge distinction; do not wait for a future `release` stage to record the
-request. If add refuses a missing selector, report that exact field to
-steering — do not create a parallel table.
+Bind `--workflow-transition` to a stage that currently has a reachable
+`qa_verification` gate, or Dash's selected-method review stage. Dash after the
+method is selected: `reviewing-implementation`. Issue / Epic / Blitz: the
+earliest stage that already carries `qa_verification` (`reviewed-implementation`
+on Issue). `--qa-phase` and `--target-env` carry the release vs pre-merge
+distinction; do not wait for a future `release` stage to record the request.
+If add refuses a missing selector, report that exact field to steering — do
+not create a parallel table.
+
+Recording `post_deploy` on that stage stores the obligation. Pre-merge
+`qa_verification` and Dash's review gate wait only for `verification` rows.
+They do not wait for an environment that exists after merge. Later `done`
+(and item-scoped deploy QA) consume `post_deploy`.
 
 Screenshot / visual evidence:
 
@@ -117,16 +124,23 @@ An evidence-only request does **not** add approval, `--approval-on-done`,
 or a human reviewer.
 
 "Have me approve it" requires `verdict.mode=required_human` on the
-selected flow whose `reviewers` require **this operator** (`actors` +
-`mode=all`), not an `ANY` role policy someone else can satisfy. Missing
-reviewer policy makes that configuration invalid. `human_if_unsure` can
-pass without asking the operator; reserve it for an explicitly
-conditional review request ("ask me if you're unsure").
+**item-scoped QA stage** whose `target` is the requested persistent
+environment (`scope: item`, `target.kind=persistent_environment`,
+`environment: ENV`). That stage's `reviewers` require **this operator**
+(`actors` + `mode=all`), not an `ANY` role policy someone else can satisfy,
+and not a run-scoped QA stage or a non-QA execution stage. Missing reviewer
+policy makes that configuration invalid. `human_if_unsure` can pass
+without asking the operator; reserve it for an explicitly conditional
+review request ("ask me if you're unsure").
 
 When the selected flow already has a compatible reviewer requirement that
-already requires this operator at `required_human`, keep it. Do not
-replace a matching policy, and do not weaken `required_human` to
-`human_if_unsure`.
+already requires this operator at `required_human` on that environment's
+item-QA stage, keep it. Do not replace a matching policy, and do not
+weaken `required_human` to `human_if_unsure`.
 
-Configure the flow through `yoke deployment-flows create` /
-`update-stages` (validate first); do not build a fallback reviewer system.
+If the candidate is referenced by a run, immutable history, or a shared
+project/workflow default, `yoke deployment-flows create` a new
+item-only definition (validate first), then
+`yoke items scalar update PREFIX-N --field deployment_flow --value FLOW-ID`.
+Never `update-stages` a shared, referenced, or immutable definition. Do not
+build a fallback reviewer system.

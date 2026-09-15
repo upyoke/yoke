@@ -16,6 +16,12 @@ def test_onboard_validates_serving_runtime_before_enabling_a_flow() -> None:
     assert "yoke workflows mechanics get --json" in text
     assert "do not invent a stage environment" in text
     assert "ephemeral-env" in text
+    for workflow in ("dash", "issue", "epic", "blitz"):
+        assert (
+            f"yoke workflows delivery-default set --project {{project}} "
+            f"--workflow {workflow} --flow {{project}}-merge-only"
+        ) in text
+    assert "leftover workflow-specific row overrides" in text
 
 
 def test_onboard_profile_keeps_task_exempt_and_preview_guarded() -> None:

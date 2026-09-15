@@ -180,8 +180,10 @@ yoke workflows mechanics get --json
 
 Never `--apply-to-all`: Task stays exempt even if an old mapping contains a
 flow. Do not silently modify a definition another project or item already
-uses. On rerun, if those reads already match the confirmed profile, skip
-create/set.
+uses. On rerun, read `yoke workflows mechanics get --json` and confirm
+dash, issue, epic, and blitz `delivery_defaults` match the confirmed
+default — a leftover workflow-specific row overrides the project default.
+Skip create/set only when all four already match.
 
 A persistent flow names exactly one registered environment; an ephemeral flow (`--target-tier ephemeral`) deploys per-run preview substrate and names none; a merge-only flow declares neither. Propose preview only when the project actually has ephemeral-env capability **and** validate reports `execution_supported=true` for that definition. Retire a route with `yoke deployment-flows set-status {flow_id} disabled` — a definition a run has referenced is immutable, so a changed route is a retirement plus a new flow, and history stays readable.
 
@@ -197,6 +199,8 @@ yoke deployment-flows get {project}-merge-only target_tier
 yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"deploy_defaults","attachment":"project","payload":{"deployment_flow":"{project}-merge-only"}}]'
 yoke workflows delivery-default set --project {project} --workflow dash --flow {project}-merge-only
 yoke workflows delivery-default set --project {project} --workflow issue --flow {project}-merge-only
+yoke workflows delivery-default set --project {project} --workflow epic --flow {project}-merge-only
+yoke workflows delivery-default set --project {project} --workflow blitz --flow {project}-merge-only
 yoke project-structure deploy-defaults get --project {project}
 yoke workflows mechanics get --json
 ```
