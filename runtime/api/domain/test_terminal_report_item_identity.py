@@ -94,9 +94,15 @@ def test_reworded_retry_of_the_named_item_is_the_same_report() -> None:
 
     first = _say_steering(conn, body=DONE_BODY)
     retry = _say_steering(conn, body=f"{DONE_BODY} Merged and green.")
+    exact = _say_steering(conn, body=DONE_BODY)
 
     assert retry["message_id"] == first["message_id"]
     assert retry["deduplicated"] is True
+    # The reworded body was discarded, so the caller is told rather than left
+    # reading a collapse as a delivery.
+    assert retry["collapsed_differing_body"] is True
+    assert exact["message_id"] == first["message_id"]
+    assert "collapsed_differing_body" not in exact
     assert _message_count(conn) == 1
 
 

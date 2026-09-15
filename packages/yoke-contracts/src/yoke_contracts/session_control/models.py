@@ -94,6 +94,9 @@ class MessageSendResponse(BaseModel):
     actor_recipients: List[ActorMessageRecipient] = Field(default_factory=list)
     recipient_count: int
     deduplicated: bool = False
+    #: A dedupe that discarded a DIFFERENT body than the one it matched, so a
+    #: caller never reads a collapsed send as a newly delivered one.
+    collapsed_differing_body: bool = False
     steering_recipient: Optional[SteeringMessageRecipient] = None
 
 

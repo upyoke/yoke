@@ -119,7 +119,11 @@ _DELIBERATE_CLOSE = (
     "resolves from the item you last held in this session. The PREFIX-N in "
     "the DONE heading is the report identity and must name work this session "
     "holds or released; a repeat of the same DONE is deduplicated rather "
-    "than delivered twice."
+    "than delivered twice. A completion you are later RESUMED to do is its "
+    "own leg and reaches the seat on its own, whether or not that resume "
+    "hands you a fresh claim — never release an unfinished lane to force "
+    "one through. A send answering `Collapsed into an earlier message` did "
+    "NOT deliver your body; read it rather than assume you reported."
 )
 
 

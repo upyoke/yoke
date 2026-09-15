@@ -1,10 +1,11 @@
-"""Resolve the item a terminal DONE report names, and refuse guesses."""
+"""Resolve the item and leg a terminal DONE report names, and refuse guesses."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from yoke_contracts.session_control.terminal_report import parse_terminal_report
+from yoke_core.domain import db_backend
 from yoke_core.domain.item_ref_resolution import internal_ids_for_refs
 from yoke_core.domain.session_item_scope import (
     SessionItemScope,
@@ -70,9 +71,42 @@ def resolve_terminal_report_item(
     return claimed
 
 
+def reporting_episode_marker(conn: Any, session_id: str | None) -> str | None:
+    """When this session's current episode began, or ``None`` if unrecorded.
+
+    ``episode_started_at`` is refreshed only where registration reactivates a
+    session that had ENDED, which is how a launched worker is resumed: its turn
+    ends, the session ends with it, and the wake that brings it back stamps a
+    new episode. Nothing inside an episode moves it — not a tool call, not a
+    message the session receives and acknowledges — so every attempt at one
+    completion reads the same value and retries stay exactly-once.
+
+    What it does NOT separate is a resume that never crossed a session end: an
+    interactive worker told "also do X" mid-episode, still holding its claim,
+    reads the same marker. That completion collapses into the earlier report
+    and says so through the collapsed-body notice rather than vanishing.
+    """
+    if not session_id:
+        return None
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    try:
+        row = conn.execute(
+            "SELECT episode_started_at FROM harness_sessions "
+            f"WHERE session_id={marker}",
+            (str(session_id),),
+        ).fetchone()
+    except db_backend.operational_error_types(conn):
+        return None
+    if row is None:
+        return None
+    started = dict(row)["episode_started_at"]
+    return None if not started else str(started)
+
+
 __all__ = [
     "ITEM_UNKNOWN",
     "ITEM_UNRELATED",
     "ITEM_UNSPECIFIED",
+    "reporting_episode_marker",
     "resolve_terminal_report_item",
 ]

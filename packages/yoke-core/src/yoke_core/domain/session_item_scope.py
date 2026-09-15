@@ -21,18 +21,26 @@ from yoke_core.domain.work_claim_targets import TARGET_KIND_ITEM, decode_scope
 
 @dataclass(frozen=True)
 class SessionItemScope:
-    """The item naming a session's work, and the project that holds it."""
+    """The item naming a session's work, the project, and the claim leg.
+
+    ``claim_id`` is the acquire-work-report-release cycle this scope resolved
+    from. A resumed session that reacquires the same item for newly authorized
+    work resolves a different claim, which is how a second completion is told
+    apart from a retry of the first.
+    """
 
     item_id: int
     project_id: int
     live: bool
+    claim_id: int
 
 
 def _claim_rows(conn: Any, session_id: str) -> list[Any]:
     """Live item claims first, then this session's released item claims."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     return conn.execute(
-        "SELECT wc.scope AS scope, wc.released_at AS released_at "
+        "SELECT wc.id AS claim_id, wc.scope AS scope, "
+        "wc.released_at AS released_at "
         "FROM work_claims wc "
         f"WHERE wc.session_id = {marker} AND wc.target_kind = {marker} "
         "ORDER BY (wc.released_at IS NULL) DESC, wc.released_at DESC, "
@@ -59,6 +67,7 @@ def _scope_from_claim(conn: Any, record: dict[str, Any]) -> SessionItemScope | N
         item_id=item_id,
         project_id=int(dict(item)["project_id"]),
         live=record["released_at"] is None,
+        claim_id=int(record["claim_id"]),
     )
 
 
