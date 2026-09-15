@@ -15,7 +15,7 @@ prove moves, what an earlier run proved does not.
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence
+from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import connect, iso8601_now
 

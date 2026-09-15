@@ -25,6 +25,12 @@ from yoke_core.domain.function_target_row_project import (
     resolve_work_claim_project,
     slug_for_project_id,
 )
+from yoke_core.domain.function_target_coordination_claim_project import (
+    resolve_coordination_claim_project_context,
+)
+from yoke_core.domain.function_target_ouroboros_entry_project import (
+    resolve_ouroboros_entry_context,
+)
 from yoke_core.domain.function_unresolved_project import (
     ProjectNotRegisteredError,
     control_plane_label,
@@ -66,11 +72,19 @@ def resolve_project_context(
     if entry.function_id.startswith("ouroboros.entry.") and request.payload.get(
         "entry_id"
     ):
-        return _resolve_ouroboros_entry_context(
+        return resolve_ouroboros_entry_context(
             conn,
             request,
             visible_project_ids=visible_project_ids,
         )
+    if entry.function_id.startswith("claims.coordination_claim."):
+        coordination_context = resolve_coordination_claim_project_context(
+            conn,
+            request,
+            visible_project_ids=visible_project_ids,
+        )
+        if coordination_context is not None:
+            return coordination_context
     if request.target.claim_id is not None:
         claim_context = resolve_work_claim_project(
             conn,
@@ -225,48 +239,6 @@ def _resolve_github_actions_project_context(
             payload_ref, plane=control_plane_label(),
         ) from exc
     return project_id, slug_for_project_id(conn, project_id)
-
-
-def _resolve_ouroboros_entry_context(
-    conn: Any,
-    request: FunctionCallRequest,
-    *,
-    visible_project_ids: Collection[int] | None = None,
-) -> tuple[int, str] | None:
-    """Resolve an entry-targeted Ouroboros op's project from the entry row.
-
-    The row is the authority: a caller's project — ``--project``, or the
-    ambient checkout the client CLI attaches — may confirm it but never
-    redirect it, so an id from one project can't be written while authorized
-    as another. Only an entry belonging to no project falls through to the
-    caller's, since no row authority exists to prefer.
-    """
-    try:
-        entry_id = int(request.payload["entry_id"])
-    except (TypeError, ValueError):
-        return None
-    row_context = resolve_ouroboros_entry_project(conn, entry_id)
-    hint = (
-        request.target.project_id
-        or request.payload.get("project_id")
-        or request.payload.get("project")
-    )
-    if hint:
-        try:
-            hinted_id = resolve_authorized_project_id(
-                conn,
-                str(hint),
-                visible_project_ids,
-            )
-        except AmbiguousProjectRefError:
-            raise
-        except LookupError:
-            return None
-        if row_context is not None and hinted_id != row_context[0]:
-            return None
-        if row_context is None:
-            return hinted_id, slug_for_project_id(conn, hinted_id)
-    return row_context
 
 
 def _resolve_process_target_project_context(

@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import (
-    insert_deployment_run,
     insert_item,
     insert_qa_requirement,
     insert_qa_run,
