@@ -17,8 +17,6 @@ from yoke_contracts.session_control.evidence import redacted_evidence_document
 from yoke_contracts.session_control.resume import (
     RESUME_INACTIVITY_SECONDS,
     RESUME_NEVER_STARTED_RESULT,
-    RESUME_RUNAWAY_RESULT,
-    RESUME_RUNAWAY_SECONDS,
     RESUMED_COMPLETED_RESULT,
     RESUMED_DIED_RESULT,
 )
@@ -106,8 +104,10 @@ def _delivery_outcome(
         (value for value in (posture_at, tool_at) if value is not None),
         default=None,
     )
-    if current - started >= timedelta(seconds=RESUME_RUNAWAY_SECONDS):
-        return RESUME_RUNAWAY_RESULT
+    # Elapsed time since the resume started is deliberately absent here. A
+    # turn that is still stamping posture or tool calls is working, however
+    # long it has been running, and settling it as a failure would both
+    # falsify the record and mark a healthy session for containment.
     inactivity = timedelta(seconds=RESUME_INACTIVITY_SECONDS)
     if latest_activity is not None and current - latest_activity >= inactivity:
         return RESUMED_DIED_RESULT

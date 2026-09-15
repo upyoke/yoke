@@ -16,7 +16,6 @@ from runtime.api.domain.test_session_relay import (
 )
 from yoke_contracts.session_control.resume import (
     RESUME_NEVER_STARTED_RESULT,
-    RESUME_RUNAWAY_RESULT,
     RESUMED_DIED_RESULT,
     RESUMED_RUNNING_RESULT,
 )
@@ -141,15 +140,16 @@ def test_a_finished_resume_that_delivered_nothing_is_named_a_failure() -> None:
             RESUMED_DIED_RESULT,
         ),
         (None, None, "2026-08-22T12:20:01Z", RESUME_NEVER_STARTED_RESULT),
+        # Hours of silence is still exactly one fact: the turn stopped.
         (
-            "2026-08-22T12:59:30Z",
+            "2026-08-22T12:01:00Z",
             None,
-            "2026-08-22T13:00:01Z",
-            RESUME_RUNAWAY_RESULT,
+            "2026-08-22T15:00:00Z",
+            RESUMED_DIED_RESULT,
         ),
     ),
 )
-def test_inactivity_and_runaway_settle_truthful_failure(
+def test_inactivity_settles_truthful_failure(
     posture_at: str | None,
     tool_at: str | None,
     now: str,
@@ -167,6 +167,22 @@ def test_inactivity_and_runaway_settle_truthful_failure(
         "SELECT completed_at,result_code FROM session_message_attempts"
     ).fetchone()
     assert tuple(row) == (now, expected)
+
+
+def test_active_turn_past_an_hour_keeps_its_attempt_open() -> None:
+    """Elapsed time is not a verdict: a working turn stays open, not failed."""
+    conn = _connection()
+    conn.execute(
+        "UPDATE harness_sessions SET turn_posture='running',turn_posture_at=?,"
+        "last_tool_call_at=? WHERE session_id='target'",
+        ("2026-08-22T14:58:00Z", "2026-08-22T14:59:30Z"),
+    )
+
+    assert reconcile_spawned_wake_attempts(conn, now="2026-08-22T15:00:00Z") == 0
+    row = conn.execute(
+        "SELECT completed_at,result_code FROM session_message_attempts"
+    ).fetchone()
+    assert tuple(row) == (None, RESUMED_RUNNING_RESULT)
 
 
 def test_recent_running_activity_keeps_attempt_open() -> None:

@@ -6,17 +6,19 @@ from __future__ import annotations
 RESUME_ATTEMPT_ENV = "YOKE_HEADLESS_RESUME_ATTEMPT_ID"
 
 # A resume may legitimately spend several minutes reasoning without a tool
-# hook. Custody therefore reacts only to a sustained quiet window, while the
-# absolute ceiling remains a separate last-resort runaway guard.
+# hook, and a productive turn may legitimately run for hours. Custody
+# therefore reacts to a sustained quiet window and to process identity, and
+# to nothing else: how long a resume has been running is not evidence about
+# whether it is working, and reading it as such terminated live workers
+# mid-turn. A native that keeps stamping activity keeps its process; one that
+# goes quiet for this window, or whose pid no longer names it, is contained.
 RESUME_INACTIVITY_SECONDS = 20 * 60
-RESUME_RUNAWAY_SECONDS = 60 * 60
 
 RESUMED_RUNNING_RESULT = "resumed_running"
 RESUMED_COMPLETED_RESULT = "resumed_completed"
 RESUMED_DIED_RESULT = "resumed_died"
 RESUME_EXITED_NONZERO_RESULT = "resume_exited_nonzero"
 RESUME_NEVER_STARTED_RESULT = "resume_never_started"
-RESUME_RUNAWAY_RESULT = "resume_runaway"
 
 # A resume that failed outright. ``resumed_completed`` is deliberately not
 # here: a resume process exiting cleanly says the turn is over, not that the
@@ -27,7 +29,6 @@ RESUME_TERMINAL_RESULTS = frozenset(
         RESUMED_DIED_RESULT,
         RESUME_EXITED_NONZERO_RESULT,
         RESUME_NEVER_STARTED_RESULT,
-        RESUME_RUNAWAY_RESULT,
     }
 )
 # What the machine that started a resume can observe about it directly: the
@@ -64,8 +65,6 @@ __all__ = [
     "RESUME_NEVER_STARTED_RESULT",
     "RESUME_RELAY_SETTLEMENT_RESULTS",
     "RESUME_RESULT_CODES",
-    "RESUME_RUNAWAY_RESULT",
-    "RESUME_RUNAWAY_SECONDS",
     "RESUME_TERMINAL_RESULTS",
     "RESUMED_COMPLETED_RESULT",
     "RESUMED_DIED_RESULT",
