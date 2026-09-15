@@ -16,6 +16,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import browser_qa, browser_qa_freshness, db_backend
+from yoke_core.domain import browser_qa_preview_identity as preview_identity
 from runtime.api.domain.browser_qa_test_helpers import (
     _browser_verdict_assertion,
     _patch_external_deps,
@@ -129,6 +130,9 @@ class TestDeployedShaFreshness:
         err = browser_qa._validate_deployed_sha(
             "testproj", "YOK-999", "abc123",
             deployed_sha=None, deployment_recorded=False,
+            identity_target=preview_identity.PreviewIdentityTarget(
+                unconfigured=True
+            ),
         )
         assert err is not None
         assert err.reason == browser_qa_freshness.DEPLOYMENT_RECORD_MISSING
@@ -204,7 +208,19 @@ class TestDeployedShaFreshness:
         )
         _ensure_ephemeral_table(db_path)
 
-        patches = _patch_external_deps(db_path)
+        # A project that publishes no identity proof: the scenario must
+        # carry the missing-record reason through rather than relabelling
+        # it. Pinned here because the resolver reads the control plane, and
+        # this test is about the caller, not about that read.
+        patches = _patch_external_deps(db_path) + [
+            mock.patch(
+                "yoke_core.domain.browser_qa_freshness."
+                "resolve_preview_identity_target",
+                return_value=preview_identity.PreviewIdentityTarget(
+                    unconfigured=True
+                ),
+            )
+        ]
         for patcher in patches:
             patcher.start()
         try:

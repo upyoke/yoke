@@ -37,12 +37,13 @@ from yoke_core.domain.browser_qa_freshness_outcome import (
     DEPLOYED_SHA_UNKNOWN,
     DEPLOYMENT_RECORD_MISSING,
     FreshnessFailure,
+    IDENTITY_CONFIG_UNREADABLE,
     SHA_MISMATCH,
 )
-from yoke_core.domain.browser_qa_served_identity import (
-    IdentityRead,
-    configured_identity_path,
-    verify_served_identity,
+from yoke_core.domain.browser_qa_preview_identity import (
+    PreviewIdentityTarget,
+    resolve_preview_identity_target,
+    verify_preview_identity,
 )
 
 
@@ -136,17 +137,19 @@ def _validate_deployed_sha(
     *,
     deployed_sha: Optional[str],
     deployment_recorded: bool,
-    base_url: str = "",
-    identity_path: Optional[str] = None,
-    fetch_identity: Optional[Callable[[str], "IdentityRead"]] = None,
+    identity_target: Optional[PreviewIdentityTarget] = None,
+    fetch_identity: Optional[Callable[[str], object]] = None,
 ) -> Optional[FreshnessFailure]:
     """Validate that the deployment under test is serving the expected SHA.
 
     Primary evidence is the ``qa.browser_context.get`` payload
     (``deployed_sha`` + ``deployment_recorded``). When no record exists at
     all — which is the normal state for a provider that deploys previews
-    without writing one — the project's configured identity path lets the
-    deployment answer for itself over its own already-authorized origin.
+    without writing one — the project's own ephemeral-env policy says where
+    its preview for this branch publishes the commit it is running, and that
+    deployment answers for itself. The origin is derived from that policy,
+    never from a URL this check was pointed at, so only the project's own
+    preview can supply the answer.
     That proof can only ever substitute for an *absent* record: a recorded
     mismatch stays a mismatch, because two disagreeing sources of truth are
     a refusal, not a vote.
@@ -159,29 +162,35 @@ def _validate_deployed_sha(
     from yoke_core.domain import browser_qa as _bqa
 
     if not deployment_recorded:
-        if identity_path is None:
-            identity_path = configured_identity_path(project)
-        if identity_path and base_url:
-            return verify_served_identity(
+        if identity_target is None:
+            identity_target = resolve_preview_identity_target(
+                project, expected_branch
+            )
+        if identity_target.unreadable:
+            return FreshnessFailure(
+                IDENTITY_CONFIG_UNREADABLE,
+                f"No ephemeral environment record exists for branch "
+                f"'{expected_branch}' in project '{project}', and whether its "
+                "preview publishes an identity proof could not be determined: "
+                f"{identity_target.unreadable}. That is unverified, not "
+                "unconfigured; restore access to the project's ephemeral-env "
+                "capability and re-run.",
+            )
+        if identity_target.origin:
+            return verify_preview_identity(
                 project,
                 expected_branch,
                 expected_sha,
-                base_url=base_url,
-                identity_path=identity_path,
+                target=identity_target,
                 fetch=fetch_identity,
             )
         return FreshnessFailure(
             DEPLOYMENT_RECORD_MISSING,
             f"No ephemeral environment record found for branch "
-            f"'{expected_branch}' in project '{project}', and no identity "
-            "proof was available to ask the deployment itself"
-            + (
-                ", because this project configures no identity_path"
-                if not identity_path
-                else ", because this check resolved no target URL to ask"
-            )
-            + ". Set the ephemeral-env capability's identity_path to a path "
-            "the preview serves its own commit on (yoke projects "
+            f"'{expected_branch}' in project '{project}', and this project "
+            "configures no identity_path, so its preview cannot be asked what "
+            "it serves. Set the ephemeral-env capability's identity_path to "
+            "the path the preview serves its own commit on (yoke projects "
             f"capability-settings merge --project {project} --cap-type "
             "ephemeral-env --set identity_path=/<path>), or run this check "
             "against a deployment whose provider records what it deployed.",

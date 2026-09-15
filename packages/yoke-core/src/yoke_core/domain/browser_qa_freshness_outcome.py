@@ -23,6 +23,10 @@ SHA_MISMATCH = "sha_mismatch"
 IDENTITY_PROOF_UNAVAILABLE = "identity_proof_unavailable"
 #: The identity endpoint answered with something that is not a commit SHA.
 IDENTITY_PROOF_MALFORMED = "identity_proof_malformed"
+#: The project's identity configuration could not be read — denied,
+#: unavailable, or malformed. Distinct from configuring none, because a
+#: project that could not be asked never declined anything.
+IDENTITY_CONFIG_UNREADABLE = "identity_config_unreadable"
 
 
 @dataclass(frozen=True)
@@ -41,6 +45,7 @@ class FreshnessFailure:
 
 __all__ = [
     "DEPLOYED_SHA_UNKNOWN",
+    "IDENTITY_CONFIG_UNREADABLE",
     "DEPLOYMENT_RECORD_MISSING",
     "IDENTITY_PROOF_MALFORMED",
     "IDENTITY_PROOF_UNAVAILABLE",
