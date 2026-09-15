@@ -65,10 +65,14 @@ def _member_rows(run_id_value: str) -> List[Dict[str, Any]]:
     from yoke_core.domain.project_identity import render_item_ref
 
     with connect() as conn:
+        # A star-select never names delivery_intent/requirement_snapshot
+        # explicitly, so a live table that has not yet converged those
+        # additive columns just omits them from the row instead of raising
+        # UndefinedColumn — the member dict's existing .get() calls below
+        # already treat an absent column as unset.
         rows = query_rows(
             conn,
-            "SELECT dri.item_id,i.status,dri.delivery_intent,"
-            "dri.requirement_snapshot FROM deployment_run_items dri "
+            "SELECT dri.*,i.status FROM deployment_run_items dri "
             "JOIN items i ON i.id=dri.item_id WHERE dri.run_id=%s "
             "ORDER BY dri.item_id",
             (run_id_value,),
