@@ -18,7 +18,12 @@ from __future__ import annotations
 from typing import Optional
 
 from yoke_contracts.session_usage_cost import COST_COMPLETE, SessionCost
-from yoke_contracts.session_usage_facts import USAGE_COMPLETE, SessionUsage
+from yoke_contracts.session_usage_facts import (
+    USAGE_COMPLETE,
+    USAGE_PARTIAL,
+    USAGE_UNAVAILABLE,
+    SessionUsage,
+)
 
 
 #: Marks a figure computed from an incomplete reading. Placed after the
@@ -91,8 +96,17 @@ def usage_title(usage: Optional[SessionUsage], cost: Optional[SessionCost]) -> s
     rather than consumption of any subscription plan.
     """
     parts: list[str] = []
-    if usage is None or not usage.models:
+    if usage is None or (not usage.models and not usage.reason and not usage.source):
         parts.append("no consumption recorded for this session yet")
+    elif not usage.models:
+        if usage.source:
+            parts.append(f"read from {usage.source}")
+        if usage.reason:
+            label = {
+                USAGE_PARTIAL: "partial",
+                USAGE_UNAVAILABLE: "unavailable",
+            }.get(usage.status)
+            parts.append(f"{label}: {usage.reason}" if label else usage.reason)
     else:
         parts.append(f"{usage.billable_tokens():,} tokens recorded")
         if usage.source:
