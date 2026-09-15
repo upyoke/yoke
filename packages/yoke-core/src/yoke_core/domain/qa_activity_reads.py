@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 import json
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import resolve_project
@@ -41,11 +41,40 @@ def _project_row(conn: Any, project: Optional[str]) -> Optional[Any]:
     return identity
 
 
+def _item_filter(
+    marker: str,
+    params: list[Any],
+    item_ids: Optional[Iterable[int]],
+) -> str:
+    """Narrow to the QA a set of items owns, however each row is attached.
+
+    An item-attached requirement names its item directly and records no
+    deployment run; a run's per-member check names the member instead. A
+    caller asking for one item's evidence means both, so neither shape is
+    silently missing from what it reads back.
+
+    Asking for no items is not the same as asking for every item: an empty
+    selection matches nothing rather than widening to the whole project.
+    """
+    if item_ids is None:
+        return ""
+    wanted = sorted({int(value) for value in item_ids})
+    if not wanted:
+        return " AND 1 = 0"
+    markers = ", ".join(marker for _ in wanted)
+    params.extend(wanted)
+    params.extend(wanted)
+    return (
+        f" AND (q.item_id IN ({markers}) OR q.deployment_member_item_id IN ({markers}))"
+    )
+
+
 def _list_activity(
     conn: Any,
     *,
     identity: Optional[Any],
     deployment_run_id: Optional[str] = None,
+    item_ids: Optional[Iterable[int]] = None,
     limit: int = 100,
 ) -> list[dict]:
     marker = _placeholder(conn)
@@ -57,11 +86,13 @@ def _list_activity(
     if deployment_run_id is not None:
         where += f" AND q.deployment_run_id={marker}"
         params.append(deployment_run_id)
+    where += _item_filter(marker, params, item_ids)
     params.append(max(1, min(int(limit), 500)))
     rows = query_rows(
         conn,
         "SELECT q.id AS requirement_id, q.plan_id, q.plan_case_key, "
-        "q.deployment_run_id, "
+        "q.deployment_run_id, q.deployment_stage, q.item_id, "
+        "q.deployment_member_item_id, "
         "q.host_baseline, q.waived_at, p.slug AS plan, pr.slug AS project, "
         "q.method_id, q.method_name, m.proof_kind, r.id AS run_id, "
         "r.performed_by, "
@@ -111,6 +142,15 @@ def _list_activity(
                 "requirement_id": int(row["requirement_id"]),
                 "run_id": run_id,
                 "deployment_run_id": row["deployment_run_id"],
+                "deployment_stage": row["deployment_stage"],
+                "item_id": (
+                    int(row["item_id"]) if row["item_id"] is not None else None
+                ),
+                "deployment_member_item_id": (
+                    int(row["deployment_member_item_id"])
+                    if row["deployment_member_item_id"] is not None
+                    else None
+                ),
                 "plan_id": int(row["plan_id"]),
                 "plan": str(row["plan"]),
                 "project": str(row["project"]),
@@ -147,6 +187,7 @@ def _activity_summary(
     *,
     identity: Optional[Any],
     deployment_run_id: Optional[str],
+    item_ids: Optional[Iterable[int]],
     day: Optional[date],
 ) -> dict[str, Any]:
     activity_day = day or datetime.now(timezone.utc).date()
@@ -161,6 +202,7 @@ def _activity_summary(
     if deployment_run_id is not None:
         where += f" AND q.deployment_run_id={marker}"
         params.append(deployment_run_id)
+    where += _item_filter(marker, params, item_ids)
     where += f" AND {happened_at}>={marker} AND {happened_at}<{marker}"
     params.extend([activity_day.isoformat(), next_day.isoformat()])
     rows = query_rows(
@@ -186,12 +228,14 @@ def list_activity(
     *,
     project: Optional[str] = None,
     deployment_run_id: Optional[str] = None,
+    item_ids: Optional[Iterable[int]] = None,
     limit: int = 100,
 ) -> list[dict]:
     return _list_activity(
         conn,
         identity=_project_row(conn, project),
         deployment_run_id=deployment_run_id,
+        item_ids=item_ids,
         limit=limit,
     )
 
@@ -201,6 +245,7 @@ def read_activity(
     *,
     project: Optional[str] = None,
     deployment_run_id: Optional[str] = None,
+    item_ids: Optional[Iterable[int]] = None,
     limit: int = 100,
     day: Optional[date] = None,
 ) -> dict[str, Any]:
@@ -211,12 +256,14 @@ def read_activity(
             conn,
             identity=identity,
             deployment_run_id=deployment_run_id,
+            item_ids=item_ids,
             limit=limit,
         ),
         "summary": _activity_summary(
             conn,
             identity=identity,
             deployment_run_id=deployment_run_id,
+            item_ids=item_ids,
             day=day,
         ),
     }

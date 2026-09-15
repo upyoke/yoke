@@ -182,7 +182,10 @@ def present_deployment_runs(
             run_members = [
                 {
                     key: member[key]
-                    for key in ("ref", "title", "project_id", "project_sequence")
+                    # ``id`` travels even in the compact shape: it is what a
+                    # reader joins this member's own QA evidence and reviews
+                    # on, and a ref cannot stand in for it.
+                    for key in ("id", "ref", "title", "project_id", "project_sequence")
                 }
                 for member in run_members
             ]

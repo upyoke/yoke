@@ -2,15 +2,14 @@
 
 Yoke's QA platform replaces the legacy `reviews` table with a unified, requirement-driven quality assurance model. Every item must carry explicit QA requirements before it can enter the review lane (`reviewing-implementation` in the current lifecycle). QA results are recorded as typed runs with non-binary verdicts, artifacts, and codified success policies.
 
-Agent writes against the QA tables route through the Yoke function-call surface (`qa.requirement.add`, `qa.requirement.add_batch`,
-`qa.requirement.list`, `qa.requirement.get`, `qa.requirement.update`,
-`qa.plan.materialize`, `qa.run.add`,
-`qa.run.complete`, `qa.run.record_verdict`, `qa.run.list`,
-`qa.artifact.presign`, `qa.artifact.add`, `qa.gate_summary.run`,
-`qa.browser_context.get`, and `qa.case_execution.begin`). The public `yoke qa ...` commands (for example `yoke qa requirement list`) are the retained
-operator/debug adapters that dispatch the matching function ids. See
-[.yoke/docs/reference/db-reference/functions.md](db-reference/functions.md) for the envelope.
-Render the operator-readable Atlas of registered surfaces locally with
+Agent writes against the QA tables route through the Yoke function-call surface (`qa.requirement.add`,
+`qa.requirement.add_batch`, `qa.requirement.list`, `qa.requirement.get`, `qa.requirement.update`,
+`qa.plan.materialize`, `qa.run.add`, `qa.run.complete`, `qa.run.record_verdict`, `qa.run.list`,
+`qa.artifact.presign`, `qa.artifact.add`, `qa.gate_summary.run`, `qa.browser_context.get`, and
+`qa.case_execution.begin`). The public `yoke qa ...` commands (for example `yoke qa requirement list`)
+are the retained operator/debug adapters that dispatch the matching function ids. See
+[.yoke/docs/reference/db-reference/functions.md](db-reference/functions.md) for the envelope. Render
+the operator-readable Atlas of registered surfaces locally with
 `python3 -m yoke_core.tools.atlas_render_docs render`.
 
 ## Four-Layer Model
@@ -136,16 +135,15 @@ created_at TEXT NOT NULL
 
 **Index:** `idx_qa_artifacts_run(qa_run_id)`
 
-**Artifact handles:** `artifact_handle` is the only file reference — a typed
-JSON document naming where bytes live. All submitted files and inline bytes use
-the configured project S3 store; upload completes before its row is recorded.
-Only a genuinely unconfigured bucket selects permanent server-local storage;
-hosted tenants use `YOKE_QA_ARTIFACT_BROKER_URL`, `YOKE_QA_ARTIFACT_BROKER_TOKEN_FILE`, `YOKE_QA_ARTIFACT_BUCKET`, and immutable `YOKE_QA_ARTIFACT_PREFIX` settings.
-Invalid configured storage returns its real error without a row or local
-downgrade. Existing readable local handles and repo baselines remain supported,
-but bare paths are refused. Gates check local files and accept valid S3 handles
-structurally without an added network call.
-
+**Artifact handles:** `artifact_handle` is the only file reference — a typed JSON document naming
+where bytes live. All submitted files and inline bytes use the configured project S3 store; upload
+completes before its row is recorded. Only a genuinely unconfigured bucket selects permanent
+server-local storage; hosted tenants use `YOKE_QA_ARTIFACT_BROKER_URL`,
+`YOKE_QA_ARTIFACT_BROKER_TOKEN_FILE`, `YOKE_QA_ARTIFACT_BUCKET`, and immutable
+`YOKE_QA_ARTIFACT_PREFIX` settings. Invalid configured storage returns its real error without a row
+or local downgrade. Existing readable local handles and repo baselines remain supported, but bare
+paths are refused. Gates check local files and accept valid S3 handles structurally without an
+added network call.
 
 ## success_policy JSON Schema
 
@@ -172,12 +170,11 @@ The `success_policy` column on `qa_requirements` stores a JSON object defining w
 | `ephemeral` | Short-lived branch/item-scoped environment |
 | `prod` | Production environment |
 
-Notes:
-- `preview` and `ephemeral` are distinct -- one is not shorthand for the other.
-- Concrete preview names (staging, qa, shmaging) are preview-environment names, not separate `target_env` enum values.
-- Preview environments may participate in delivery-time targeting; ephemeral environments are branch/item-scoped validation infrastructure.
-- Not every project has every target environment.
-- Detailed browser-environment semantics are canonical.
+Notes: `preview` and `ephemeral` are distinct -- one is not shorthand for the other. Concrete preview
+names (staging, qa, shmaging) are preview-environment names, not separate `target_env` enum values.
+Preview environments may participate in delivery-time targeting; ephemeral environments are
+branch/item-scoped validation infrastructure. Not every project has every target environment, and
+detailed browser-environment semantics are canonical.
 
 ## Blocking Modes
 
@@ -245,9 +242,8 @@ An epic parent item cannot become `reviewed-implementation` until:
 
 ### Deployment Run Requirements
 
-Deployment runs may materialize a named project plan as run-level
-requirements. These are flow- or release-scoped post-deploy requirements
-that prove release health:
+Deployment runs may materialize a named project plan as run-level requirements. These are flow- or
+release-scoped post-deploy requirements that prove release health:
 
 ```text
 yoke qa plan run \
@@ -256,15 +252,19 @@ yoke qa plan run \
   --project <project>
 ```
 
-The run is the durable execution subject. Materialization and execution do
-not create a synthetic item: the immutable roster, serial Test Mac lease,
-QA runs, artifacts, and verdicts all remain bound through
-`qa_requirements.deployment_run_id`.
-Run-scoped reads stay explicit: `qa.plan.get` filters every case proof to
-the run, `qa.activity.list` returns and filters the same field,
-`qa.browser_context.get` takes a `deployment_run` target and scopes its
-case read to that run, and `qa.artifact.read` resolves evidence through
-the run's owning project.
+The run is the durable execution subject. Materialization and execution do not create a
+synthetic item: the immutable roster, serial Test Mac lease, QA runs, artifacts, and verdicts
+all remain bound through `qa_requirements.deployment_run_id`. Run-scoped reads stay explicit:
+`qa.plan.get` filters every case proof to the run, `qa.activity.list` returns and filters the
+same field, `qa.browser_context.get` takes a `deployment_run` target and scopes its case read
+to that run, and `qa.artifact.read` resolves evidence through the run's owning project.
+
+Item-scoped reads are the other half, because an item-attached requirement records no
+deployment run at all: `qa.activity.list` also takes `item_ids` (absent reads the project; an
+empty list matches nothing), and every row reports `item_id`, `deployment_member_item_id`,
+`deployment_stage`, and `deployment_run_id`. A surface showing a known set of subjects — the
+items a deployment card carries — reads their evidence rather than whatever QA is most recent,
+and can tell an item's own proof from what it proved inside a release.
 
 ## Browser Methods
 

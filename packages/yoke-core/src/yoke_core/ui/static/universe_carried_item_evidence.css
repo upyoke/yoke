@@ -1,0 +1,30 @@
+/* What one carried item proved, and the review it still owes, drawn inside
+   that item's own entry in a deployment card's Carries box. Both hosts lay
+   their entries out as a two-column grid of reference and title, so this
+   block takes a row of its own beneath them rather than crowding either. */
+.universe-app-root .carried-item-evidence {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+  padding-left: 8px;
+  border-left: 2px solid var(--yoke-border);
+}
+.universe-app-root .carried-item-evidence-caption {
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+/* Evidence whose deployment association was never recorded says so where it
+   is shown, so nobody reads it as this run's proof. */
+.universe-app-root .carried-item-evidence-note {
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .carried-item-evidence .review-card.inline {
+  margin-top: 2px;
+}

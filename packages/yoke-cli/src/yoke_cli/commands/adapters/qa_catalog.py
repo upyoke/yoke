@@ -191,19 +191,19 @@ def qa_plan_get(args: List[str]) -> int:
 
 
 def qa_activity_list(args: List[str]) -> int:
-    usage = (
-        "yoke qa activity list --project P "
-        "[--deployment-run-id RUN] [--limit N] [--json]"
-    )
+    usage = USAGE_BY_FUNCTION_ID["qa.activity.list"]
 
     def configure(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--deployment-run-id")
+        parser.add_argument("--item-id", action="append", type=int, default=[])
         parser.add_argument("--limit", type=int, default=100)
 
     def payload(parsed: argparse.Namespace) -> dict[str, Any]:
         result: dict[str, Any] = {"limit": parsed.limit}
         if parsed.deployment_run_id:
             result["deployment_run_id"] = parsed.deployment_run_id
+        if parsed.item_id:
+            result["item_ids"] = list(parsed.item_id)
         return result
 
     return _global(

@@ -29,6 +29,10 @@ class PlanGetRequest(ProjectReadRequest):
 class ActivityListRequest(ProjectReadRequest):
     limit: int = Field(default=100, ge=1, le=500)
     deployment_run_id: Optional[str] = Field(default=None, min_length=1)
+    #: Narrows to the QA these items own, so a reader showing a known set of
+    #: subjects reads their evidence rather than whatever happens to be
+    #: recent. Absent reads the project; an empty list matches nothing.
+    item_ids: Optional[List[int]] = Field(default=None, max_length=200)
 
 
 class RowsResponse(BaseModel):
@@ -165,6 +169,7 @@ def handle_activity_list(request: FunctionCallRequest) -> HandlerOutcome:
                 conn,
                 project=payload.project,
                 deployment_run_id=payload.deployment_run_id,
+                item_ids=payload.item_ids,
                 limit=payload.limit,
             )
     except LookupError as exc:

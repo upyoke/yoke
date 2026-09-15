@@ -37,7 +37,7 @@ function runRow(overrides = {}) {
   };
 }
 
-function runClient(row, activityRows = []) {
+function runClient(row, activityRows = [], itemActivityRows = []) {
   const requests = [];
   return {
     requests,
@@ -59,7 +59,13 @@ function runClient(row, activityRows = []) {
         });
       }
       if (request.function === "qa.activity.list") {
-        return okEnvelope({ summary: { total: 0, counts: {} }, rows: activityRows });
+        return okEnvelope({
+          summary: { total: 0, counts: {} },
+          rows: request.payload.item_ids ? itemActivityRows : activityRows,
+        });
+      }
+      if (request.function === "inbox.list") {
+        return okEnvelope({ needs_decision: [] });
       }
       if (request.function === "qa.artifact.read") {
         return okEnvelope({
@@ -111,10 +117,18 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   assert.deepEqual(read.payload, {
     page: { page_size: 50, search: "run-20260726-001", projects: ["1"] },
   });
-  const activity = client.requests.find((request) => request.function === "qa.activity.list");
-  assert.deepEqual(activity.payload, {
-    project: "1", deployment_run_id: "run-20260726-001", limit: 100,
-  });
+  // Two QA reads, because the page reports two different facts: what this
+  // run's own checks found, and what each carried item proved on its own —
+  // which an item-attached requirement records against no run at all.
+  const activity = client.requests.filter(
+    (request) => request.function === "qa.activity.list",
+  ).map((request) => request.payload);
+  assert.ok(activity.some((payload) => (
+    payload.deployment_run_id === "run-20260726-001" && payload.project === "1"
+  )), JSON.stringify(activity));
+  assert.ok(activity.some((payload) => (
+    Array.isArray(payload.item_ids) && payload.item_ids.includes(2262)
+  )), JSON.stringify(activity));
 
   assert.equal(byClass(root, "run-eyebrow")[0].textContent, "yoke · prod");
   assert.equal(byClass(root, "run-title")[0].textContent, "Hosted release");
@@ -176,4 +190,32 @@ test("a run the scope does not hold says so rather than drawing an empty page", 
   assert.match(text, /There is no run called run-nope in this scope/);
   assert.equal(byClass(root, "review-link")[0].href, "#/deployments?project=1");
   mounted.unmount();
+});
+
+test("a carried item's own QA is shown beside that item, labelled as its own", async (t) => {
+  // The item's requirement records no deployment run, which is exactly the
+  // shape a run-keyed read drops. The page carries it under the item.
+  const client = runClient(runRow(), [], [{
+    requirement_id: 26134, run_id: 28095, deployment_run_id: null,
+    deployment_stage: null, item_id: 2262, deployment_member_item_id: null,
+    plan_id: 7, plan: "release-readiness", project: "yoke",
+    case_key: "marketing-pages-visual", method_name: "Browser inspection",
+    outcome: "undetermined", evidence_count: 1,
+    happened_at: "2026-07-26T10:05:00Z",
+    artifacts: [{ id: 17882, artifact_type: "screenshot", content_type: "image/png" }],
+  }]);
+  const { root } = await mountAt(t, "#/deployments/run-20260726-001?project=1", client);
+  await settle();
+
+  const evidence = byClass(byClass(root, "run-items")[0], "carried-item-evidence")[0];
+  assert.ok(evidence, "the carried item carries its own evidence");
+  assert.match(
+    byClass(evidence, "carried-item-evidence-caption")[0].textContent,
+    /1 check · 1 undetermined/,
+  );
+  assert.equal(byClass(evidence, "review-shot").length, 1);
+  assert.match(
+    byClass(evidence, "carried-item-evidence-note")[0].textContent,
+    /no deployment run/,
+  );
 });

@@ -7,6 +7,7 @@ import { deliveryStageBar, workflowBadge } from "./universe_secondary_primitives
 import { relativeAgePhrase } from "./universe_time.js";
 import { appendRunGates, runGateStatus, runGates } from "./universe_run_gates.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
+import { appendCarriedItemEvidence } from "./universe_carried_item_evidence.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
 import { el, statePill } from "./universe_view_support.js";
 
@@ -106,7 +107,13 @@ export function runDetailHref(context, row, scope) {
 // honest "+N more" for the rest. Membership is who the pipeline moves to
 // done; for an environment run that owns nothing the derived contents stand
 // in, and a run that carries nothing says so in its meta line instead.
-export function appendCarried(documentNode, host, row) {
+//
+// Each entry also carries what that one item proved and what it still owes a
+// reviewer, because that is the item's own fact rather than the release's:
+// `options.facts` is the carried-item evidence read once for the whole band,
+// and `options.onDecide` answers a review from here.
+export function appendCarried(context, host, row, options = {}) {
+  const documentNode = context.document;
   const items = carriedItems(row);
   if (!items.length) return null;
   const batch = el(documentNode, "div", "overview-run-batch");
@@ -117,9 +124,15 @@ export function appendCarried(documentNode, host, row) {
     `Carries · ${items.length} item${items.length === 1 ? "" : "s"}`,
   ));
   for (const item of items.slice(0, CARRIED_ITEMS_SHOWN)) {
-    const member = el(documentNode, "span", "overview-run-member");
+    const member = el(documentNode, "div", "overview-run-member");
     member.appendChild(el(documentNode, "code", null, carriedReference(item)));
     member.appendChild(el(documentNode, "span", null, item.title || ""));
+    appendCarriedItemEvidence(context, member, {
+      item,
+      runId: row.id || row.run_id,
+      facts: options.facts,
+      onDecide: options.onDecide,
+    });
     batch.appendChild(member);
   }
   if (items.length > CARRIED_ITEMS_SHOWN) {
@@ -138,7 +151,8 @@ export function appendCarried(documentNode, host, row) {
 // the request it folds in reads its evidence through the client, so a card
 // that only knew how to create elements could show that evidence existed
 // and never let the approver open it. `options.facts` carries the flow
-// names and QA checks read once for the whole band.
+// names and QA checks read once for the whole band, and `options.itemFacts`
+// the same for what each carried item proved on its own.
 export function overviewRunCard(context, row, scope, options = {}) {
   const documentNode = context.document;
   // A run stopped at a gate is not executing and not failed. Its own status
@@ -186,7 +200,10 @@ export function overviewRunCard(context, row, scope, options = {}) {
     row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
     timing ? `${status} ${relativeAgePhrase(timing)}` : status,
   ].filter(Boolean).join(" · ")));
-  appendCarried(documentNode, card, row);
+  appendCarried(context, card, row, {
+    facts: options.itemFacts,
+    onDecide: options.onItemDecision,
+  });
   const derivation = row.carried_work?.derivation;
   if (derivation && !items.length) {
     card.appendChild(el(
