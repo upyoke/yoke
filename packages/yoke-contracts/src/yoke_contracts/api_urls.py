@@ -22,6 +22,9 @@ AWS_BOOTSTRAP_TEMPLATE_STAGE_URL = (
 # Hosted-channel-aware surfaces also use it to select their matching artifact
 # authority; the CloudFormation bootstrap link maps it to a regional S3 origin.
 DISTRIBUTION_BASE_URL_ENV = "YOKE_INSTALL_BASE_URL"
+# Environment override for the release channel name, read by the public
+# installer and every surface that reruns it (self-host upgrade, `yoke update`).
+RELEASE_CHANNEL_ENV = "YOKE_CHANNEL"
 HOSTED_PROD_API_URL = "https://app.upyoke.com/api/orgs/upyoke"
 HOSTED_STAGE_API_URL = "https://app.stage.upyoke.com/api/orgs/upyoke-stage-1"
 HOSTED_PLATFORM_URL = "https://app.upyoke.com"
@@ -54,6 +57,7 @@ __all__ = [
     "UNIVERSE_EXPORT_PATH",
     "DISTRIBUTION_BASE_URL_ENV",
     "DISTRIBUTION_PROD_URL",
+    "RELEASE_CHANNEL_ENV",
     "DISTRIBUTION_STAGE_URL",
     "HOSTED_PROD_API_URL",
     "HOSTED_STAGE_API_URL",

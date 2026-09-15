@@ -19,6 +19,11 @@ from yoke_cli.commands.adapters.aws import (
     aws_exec,
     aws_preflight,
 )
+from yoke_cli.commands.adapters.github_credential_helper import (
+    GITHUB_CREDENTIAL_HELPER_REFRESH_USAGE,
+    github_credential_helper_refresh,
+)
+from yoke_cli.commands.adapters.self_update import UPDATE_USAGE, update
 from yoke_cli.commands.adapters.path_doctor import (
     path_check,
     path_fix,
@@ -51,6 +56,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("github", "connect"): github_connect,
     ("github", "disconnect"): github_disconnect,
     ("github", "status"): github_status,
+    ("github", "credential-helper", "refresh"): github_credential_helper_refresh,
     ("dev", "setup"): dev_setup,
     ("dev", "run"): source_dev_run,
     ("dev", "ruff-changed"): ruff_changed,
@@ -66,6 +72,7 @@ TOOL_SHAPED_SUBCOMMANDS: Dict[Tuple[str, ...], AdapterFn] = {
     ("project", "import"): project_import,
     ("runner-fleet", "exec"): runner_fleet_exec,
     ("pulumi", "exec"): pulumi_exec,
+    ("update",): update,
     ("vps", "status"): vps_status,
     ("vps", "stop"): vps_stop,
     ("vps", "start"): vps_start,
@@ -88,6 +95,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
     "yoke github connect": "yoke github connect [--replace] [--add-installation] [--config PATH] [--json]",
     "yoke github disconnect": "yoke github disconnect [--config PATH] [--json]",
     "yoke github status": "yoke github status [--offline] [--json]",
+    "yoke github credential-helper refresh": GITHUB_CREDENTIAL_HELPER_REFRESH_USAGE,
     "yoke dev setup": "yoke dev setup [CHECKOUT]",
     "yoke dev run": "yoke dev run -- <command>",
     "yoke dev ruff-changed": ("yoke dev ruff-changed --base REF [--format-check]"),
@@ -106,6 +114,7 @@ TOOL_SHAPED_USAGE: Dict[str, str] = {
         "yoke runner-fleet exec --project PROJECT "
         "--settings-file STACK_CONFIG_JSON -- <command...>"
     ),
+    "yoke update": UPDATE_USAGE,
     "yoke pulumi exec": (
         "yoke pulumi exec --project NAME --stack STACK -- "
         "<init|preview|refresh|import|up|stack output args>"

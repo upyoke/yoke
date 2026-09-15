@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import shlex
 import stat
 import subprocess
-import sys
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -115,36 +112,16 @@ def _fetch_installer(plan: UpgradePlan) -> bytes:
 
 
 def _install_cli(plan: UpgradePlan, installer: bytes) -> None:
-    path = ""
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="wb", prefix="yoke-self-host-upgrade-", suffix=".py", delete=False
-        ) as handle:
-            handle.write(installer)
-            path = handle.name
-        command = (
-            sys.executable,
-            path,
-            "--version",
-            plan.target.version,
-            "--yes",
-            "--no-onboard",
-            "--base-url",
-            plan.target.base_url,
+        completed = release_target.run_installer(
+            plan.target, installer, timeout=INSTALL_TIMEOUT_SECONDS
         )
-        completed = _run_capture(command, timeout=INSTALL_TIMEOUT_SECONDS)
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except release_target.ReleaseTargetError as exc:
         raise SelfHostUpgradeError(
             "cli-install",
             "The CLI installer could not complete; the bundle pin was not changed.",
             (_diagnostic(str(exc)), _retry_command(plan)),
         ) from exc
-    finally:
-        if path:
-            try:
-                os.unlink(path)
-            except OSError:
-                pass
     if completed.returncode != 0:
         raise SelfHostUpgradeError(
             "cli-install",
