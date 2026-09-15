@@ -31,14 +31,14 @@ LAUNCH_PREVIEW_USAGE = (
 )
 LAUNCH_CREATE_USAGE = (
     "yoke session-control launch create --project P --surface S "
-    "--item PREFIX-N --idempotency-key K [--stdin] [--raw-instructions] "
+    "[--item PREFIX-N] --idempotency-key K [--stdin] [--raw-instructions] "
     "[--machine M] [--model M] [--reasoning-effort E] [--context-window N] "
     "[--presentation P] "
     "[--allow-surface-fallback] [--list-models] [--json]"
 )
 SESSIONS_CREATE_USAGE = (
     "yoke sessions create --project P --surface S "
-    "(--preview | --item PREFIX-N --idempotency-key K [--stdin] [--raw-instructions]) "
+    "(--preview | --idempotency-key K [--item PREFIX-N] [--stdin] [--raw-instructions]) "
     "[--machine M] [--model M] [--reasoning-effort E] [--context-window N] "
     "[--presentation P] "
     "[--allow-surface-fallback] [--list-models] [--json]"
@@ -195,18 +195,20 @@ def _create(args: List[str], *, alias: bool) -> int:
         )
     if not parsed.idempotency_key:
         return usage_error("launch create requires --idempotency-key")
-    if not parsed.item:
-        return usage_error("launch create requires --item PREFIX-N")
     instructions = read_stdin_payload(parsed) or ""
-    if parsed.raw_instructions and not instructions.strip():
-        return usage_error("raw instruction launches require non-empty --stdin")
+    if parsed.raw_instructions:
+        if not instructions.strip():
+            return usage_error("raw instruction launches require non-empty --stdin")
+    elif not parsed.item:
+        return usage_error("launch create requires --item PREFIX-N")
     payload = {
         **selector,
         "instructions": instructions,
         "idempotency_key": parsed.idempotency_key,
-        "item": parsed.item,
         "sender_surface": CLI_SENDER_SURFACE,
     }
+    if parsed.item:
+        payload["item"] = parsed.item
     if parsed.raw_instructions:
         payload["compose_mandate"] = False
     if parsed.presentation:

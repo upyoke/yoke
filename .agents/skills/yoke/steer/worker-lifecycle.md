@@ -196,14 +196,15 @@ the first command named.
 ## Launcher recipe
 
 Preview is mandatory. Do not create until preview returns
-`launchable=true` for the chosen CLI surface. CLI surface only. One item.
-`session_control.launch.create` composes the canonical single-item mandate
-server-side from the item ref and the charge-schedule route. Every worker
-reports deliberately with `yoke say --steering`. The mandate carries no
-session id: the report is addressed to the steering ROLE. Do not hand-assemble
-the worker body.
-Optional extras append after that mandate via `--stdin`. Use
-`--raw-instructions` only for a non-standard full body.
+`launchable=true` for the chosen CLI surface. CLI surface only. Composed
+mandates require `--item`; `session_control.launch.create` composes the
+canonical single-item mandate server-side from that ref and the
+charge-schedule route. Itemless launches use `--raw-instructions` with a
+nonempty `--stdin` body and skip item lookup, terminal-item checks, and
+item-derived naming. Every worker reports deliberately with
+`yoke say --steering`. The mandate carries no session id: the report is
+addressed to the steering ROLE. Do not hand-assemble the worker body.
+Optional extras append after a composed mandate via `--stdin`.
 
 ```text
 yoke session-control launch create \
@@ -217,10 +218,25 @@ yoke session-control launch create \
   --json
 ```
 
+Itemless raw-instructions (explicit body, no `--item`):
+
+```text
+yoke session-control launch create \
+  --project {_project} \
+  --surface {_surface} \
+  --raw-instructions --stdin \
+  --idempotency-key "steer:{_project}:raw:{_surface}:{_model}:{_effort}:{_context}" \
+  --model {_model} \
+  --reasoning-effort {_effort} \
+  --context-window {_context} \
+  --json
+```
+
 Managed `claude-*` launches are local-only per launch: Yoke disables Claude
-Remote Control without changing the operator's normal Claude settings. The
-display name is derived from `{ITEM}` plus its authoritative backlog title;
-the instruction body never becomes a title or command-line argument.
+Remote Control without changing the operator's normal Claude settings. A
+composed launch's display name is derived from `{ITEM}` plus its
+authoritative backlog title; the instruction body never becomes a title or
+command-line argument. Itemless launches omit that name.
 
 Retain the returned `launch_id` and `deadline_at`. By that deadline, require
 `state=succeeded` and a non-empty `registered_session_id`:
