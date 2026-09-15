@@ -147,6 +147,10 @@ def _item_requires_release_membership(conn: Any, item_id: int) -> bool:
     runtime = load_item_workflow_runtime(conn, int(item_id))
     status = str(_cell(row, "status", 3))
     if status in runtime.terminal_stage_ids or status in ENGINE_TERMINAL_STAGE_IDS:
+        # A done item owes no membership and could not take one: new
+        # admission of a terminal item is rejected, and its code reaches
+        # the environment under this run's pinned release lineage
+        # instead. Listing it would demand an attach that cannot happen.
         return False
     if str(runtime.policies.get("delivery")) not in {
         "release_stage",
@@ -212,7 +216,9 @@ def carried_membership_refusal(
     labels = ", ".join(render_column_item_ref(conn, item_id) for item_id in omitted)
     return (
         f"deployment run {run_id!r} omits delivery-ready carried work: {labels}; "
-        "attach every applicable member or choose a candidate that excludes its code"
+        "attach those members, or choose a candidate that excludes their code. "
+        "An already-done item is never one of them: it cannot be newly "
+        "admitted, and its code travels under the run's pinned release lineage"
     )
 
 

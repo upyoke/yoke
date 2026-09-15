@@ -154,16 +154,26 @@ class TestDeploymentFlowGuardInvalidFlow:
         assert "No deployment flows are registered" in out
 
 
+def _patch_latest_run(status, run_id=""):
+    return mock.patch.object(
+        done_transition_deploy_gates,
+        "_get_latest_run_status",
+        return_value=(status, run_id),
+    )
+
+
+def _patch_qa_gates(blocks):
+    return mock.patch.object(
+        done_transition_deploy_gates, "check_run_qa_gates", return_value=blocks
+    )
+
+
 class TestDeploymentFlowGuardRegisteredButMissingEvidence:
     def test_registered_flow_skip_deploy_no_evidence_preserves_message(self, capsys):
         with (
             _patch_registered_flows(["externalwebapp-prod-release"]),
             _patch_target_tier("persistent"),
-            mock.patch.object(
-                done_transition_deploy_gates,
-                "_check_deployment_evidence",
-                return_value=False,
-            ),
+            _patch_latest_run(""),
         ):
             result = done_transition._check_deployment_flow_guard(
                 item_id=520,
