@@ -11,6 +11,12 @@ It never rewrites a record that was derived, never invents attribution, and
 never reports success when the fresh answer is still unknown — the refusal
 names the reason the second attempt failed so the missing authority is the
 thing that gets fixed.
+
+Deriving takes as long as a repository read, and the run stays writable
+throughout: a completion or a sibling repair can land a real answer in that
+window. The write is therefore conditional on the record still being the
+unknown one this call read, so a derivation that arrived first is reported
+rather than overwritten.
 """
 
 from __future__ import annotations
@@ -25,6 +31,7 @@ from yoke_core.domain.deployment_run_carried_work import (
     derive_carried_work_safely,
     parse_carried_work,
 )
+from yoke_core.domain import db_backend
 from yoke_core.domain.handlers.deployment_common import error, run_id
 from yoke_core.domain.json_helper import dumps_compact
 
@@ -59,8 +66,12 @@ def handle_deployment_run_carried_work_repair(
 
     conn = connect(None)
     try:
+        # Reading the row for update keeps a concurrent completion out of the
+        # derivation window where the backend supports it; the conditional
+        # write below is what makes the swap safe on every backend.
+        lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
         row = conn.execute(
-            f"SELECT {CARRIED_WORK_FIELD} FROM deployment_runs WHERE id=%s",
+            f"SELECT {CARRIED_WORK_FIELD} FROM deployment_runs WHERE id=%s{lock}",
             (resolved_run_id,),
         ).fetchone()
         if row is None:
@@ -69,7 +80,8 @@ def handle_deployment_run_carried_work_repair(
                 f"deployment run {resolved_run_id!r} not found",
                 jsonpath="$.target.workflow_run_id",
             )
-        stored = parse_carried_work(row[0] if not hasattr(row, "keys") else row[CARRIED_WORK_FIELD])
+        raw_stored = row[0] if not hasattr(row, "keys") else row[CARRIED_WORK_FIELD]
+        stored = parse_carried_work(raw_stored)
         if stored is None:
             return error(
                 "carried_work_absent",
@@ -95,10 +107,20 @@ def handle_deployment_run_carried_work_repair(
                 f"{fresh.get('recovery') or ''}".strip(),
                 jsonpath="$.target.workflow_run_id",
             )
-        conn.execute(
-            f"UPDATE deployment_runs SET {CARRIED_WORK_FIELD}=%s WHERE id=%s",
-            (dumps_compact(repaired), resolved_run_id),
+        updated = conn.execute(
+            f"UPDATE deployment_runs SET {CARRIED_WORK_FIELD}=%s "
+            f"WHERE id=%s AND {CARRIED_WORK_FIELD}=%s",
+            (dumps_compact(repaired), resolved_run_id, raw_stored),
         )
+        if getattr(updated, "rowcount", 1) == 0:
+            conn.rollback()
+            return error(
+                "carried_work_changed_during_repair",
+                f"deployment run {resolved_run_id!r} gained a different "
+                "carried-work record while this repair was deriving; re-read "
+                "the run before repairing it again",
+                jsonpath="$.target.workflow_run_id",
+            )
         conn.commit()
         return HandlerOutcome(
             result_payload={

@@ -22,6 +22,9 @@ from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.domain import deployment_run_carried_work_source
 from yoke_core.domain.deployment_run_carried_work import parse_carried_work
+from yoke_core.domain.handlers import (
+    deployment_run_carried_work_repair as repair_module,
+)
 from yoke_core.domain.handlers.deployment_run_carried_work_repair import (
     handle_deployment_run_carried_work_repair,
 )
@@ -238,3 +241,56 @@ def test_an_unknown_run_is_not_found(repair_db_path: str):
 
     assert outcome.primary_success is False
     assert outcome.error.code == "not_found"
+
+
+def test_a_record_that_changed_under_the_repair_is_reported_not_overwritten(
+    repair_db_path: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The write is conditional on the record this call actually read.
+
+    Deriving takes as long as a repository read, and the run stays writable
+    through it. On Postgres the row lock keeps another connection out of that
+    window; the conditional write is the backend-independent backstop, and it
+    is what this drives — the stored record is changed underneath the repair,
+    so the update matches nothing and the answer already there survives.
+    """
+    repo, baseline, tip = _repository(tmp_path)
+    _seed(repair_db_path, baseline=baseline, tip=tip, stored=UNKNOWN_RECORD)
+    monkeypatch.setattr(
+        deployment_run_carried_work_source,
+        "checkout_for_project_id",
+        lambda _project_id: repo,
+    )
+    landed_first = {
+        "schema": 1,
+        "derivation": {
+            "status": "derived",
+            "contents_known": True,
+            "source": "repository_provider",
+            "reason": "complete",
+            "run_id": "run-repair-candidate",
+        },
+        "items": [],
+        "commits": ["landed-first"],
+        "warnings": [],
+    }
+    real_derive = repair_module.derive_carried_work_safely
+
+    def derive_then_change_the_record(conn, run_id):
+        payload = real_derive(conn, run_id)
+        conn.execute(
+            "UPDATE deployment_runs SET carried_work=%s WHERE id=%s",
+            (dumps_compact(landed_first), run_id),
+        )
+        return payload
+
+    monkeypatch.setattr(
+        repair_module, "derive_carried_work_safely", derive_then_change_the_record
+    )
+
+    outcome = _repair()
+
+    assert outcome.primary_success is False
+    assert outcome.error.code == "carried_work_changed_during_repair"

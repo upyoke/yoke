@@ -15,9 +15,9 @@ prove moves, what an earlier run proved does not.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
-from yoke_core.domain.db_helpers import connect, iso8601_now
+from yoke_core.domain.db_helpers import iso8601_now
 
 
 MEMBER_COLUMNS = (
@@ -45,50 +45,48 @@ def frozen_members(conn: Any, run_id: str) -> list[dict[str, Any]]:
     ]
 
 
-def inherit_retry_membership(
+def copy_frozen_members(
+    conn: Any,
     source_run_id: str,
     target_run_id: str,
-    *,
-    db_path: Optional[str] = None,
 ) -> tuple[int, ...]:
-    """Copy the retried run's members onto the retry. Returns the item ids.
+    """Copy the retried run's members onto the retry, in the caller's transaction.
+
+    The caller owns the commit, so a failure here rolls the new run back with
+    the membership rather than leaving a member-less retry that can never
+    satisfy its own completion gate.
 
     An environment-level source has no members, so its retry stays
     environment-level: the empty copy is the correct answer rather than a
     reason to look elsewhere for membership.
     """
-    conn = connect(db_path)
-    try:
-        members = frozen_members(conn, source_run_id)
-        added_at = iso8601_now()
-        for member in members:
-            conn.execute(
-                "INSERT INTO deployment_run_items "
-                "(run_id, item_id, added_at, delivery_intent, "
-                "requirement_selection, requirement_snapshot) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (
-                    target_run_id,
-                    member["item_id"],
-                    added_at,
-                    member["delivery_intent"],
-                    member["requirement_selection"],
-                    member["requirement_snapshot"],
-                ),
-            )
-        conn.commit()
-        return tuple(int(member["item_id"]) for member in members)
-    finally:
-        conn.close()
+    members = frozen_members(conn, source_run_id)
+    added_at = iso8601_now()
+    for member in members:
+        conn.execute(
+            "INSERT INTO deployment_run_items "
+            "(run_id, item_id, added_at, delivery_intent, "
+            "requirement_selection, requirement_snapshot) "
+            "VALUES (%s, %s, %s, %s, %s, %s)",
+            (
+                target_run_id,
+                member["item_id"],
+                added_at,
+                member["delivery_intent"],
+                member["requirement_selection"],
+                member["requirement_snapshot"],
+            ),
+        )
+    return tuple(int(member["item_id"]) for member in members)
 
 
 def candidate_mismatch_refusal(
     source_lineage: str,
-    source_artifact: Optional[str],
+    source_artifact: str | None,
     *,
     release_lineage: str,
-    artifact_identity: Optional[str],
-) -> Optional[str]:
+    artifact_identity: str | None,
+) -> str | None:
     """Refuse a retry whose candidate is not the one that failed.
 
     Inheriting membership is only sound because the candidate is identical. A
@@ -117,6 +115,6 @@ def _normalized(value: Any) -> str:
 __all__ = [
     "MEMBER_COLUMNS",
     "candidate_mismatch_refusal",
+    "copy_frozen_members",
     "frozen_members",
-    "inherit_retry_membership",
 ]

@@ -11,6 +11,7 @@ from yoke_core.domain.deployment_run_carried_work_source import (
     RELATION_AHEAD,
     RELATION_DIVERGED,
     CarriedWorkSourceUnavailable,
+    CommitRange,
 )
 from yoke_core.domain.gh_rest_transport_errors import RestTransportError
 
@@ -271,3 +272,42 @@ def test_an_incomplete_comparison_is_unknown_rather_than_empty(
         source.commit_range(BASE, TIP)
 
     assert raised.value.reason == "repository_provider_comparison_incomplete"
+
+
+def test_a_listing_without_the_head_it_was_asked_about_is_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """The producer-shaped trap: a complete-looking body for another range.
+
+    Status is recognized, the count matches the listing, and every entry is
+    well formed — but the head is absent, so the first-parent walk finds
+    nothing and the run would be recorded as carrying nothing at all.
+    """
+    source, _recorder = _source(
+        monkeypatch,
+        [
+            {
+                "status": "ahead",
+                "total_commits": 1,
+                "commits": [_commit("e" * 40, parents=(BASE,))],
+            }
+        ],
+    )
+
+    with pytest.raises(CarriedWorkSourceUnavailable) as raised:
+        source.commit_range(BASE, TIP)
+
+    assert raised.value.reason == "repository_provider_comparison_incomplete"
+    assert TIP in raised.value.recovery
+
+
+def test_an_identical_comparison_is_an_empty_range_not_an_unread_one(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A run pinned to its predecessor's revision genuinely carries nothing."""
+    source, _recorder = _source(
+        monkeypatch,
+        [{"status": "identical", "total_commits": 0, "commits": []}],
+    )
+
+    assert source.commit_range(BASE, BASE) == CommitRange(RELATION_AHEAD, ())

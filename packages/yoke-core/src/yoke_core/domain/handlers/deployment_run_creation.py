@@ -14,7 +14,6 @@ from yoke_core.domain.handlers.deployment_common import (
 from yoke_core.domain.deploy_lock import deploy_lock_refusal
 from yoke_core.domain.deployment_run_retry_membership import (
     candidate_mismatch_refusal,
-    inherit_retry_membership,
 )
 from yoke_core.domain.deployment_run_target_resolution import (
     EnvironmentRegistryMigrationRequired,
@@ -43,6 +42,20 @@ def _retry_candidate(run_id: str, *, project: str, flow: str) -> tuple[str, str 
         raise ValueError(f"retry source {run_id!r} has no pinned release lineage")
     artifact = str(source.get("artifact_identity") or "").strip() or None
     return lineage, artifact
+
+
+def _member_item_ids(run_id: str) -> tuple[int, ...]:
+    """Read back what the creation transaction actually committed."""
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_run_retry_membership import frozen_members
+
+    conn = connect(None)
+    try:
+        return tuple(
+            int(member["item_id"]) for member in frozen_members(conn, run_id)
+        )
+    finally:
+        conn.close()
 
 
 def handle_deployment_run_create(
@@ -139,6 +152,8 @@ def handle_deployment_run_create(
         }
         if artifact_identity is not None:
             create_kwargs["artifact_identity"] = artifact_identity
+        if retry_source:
+            create_kwargs["inherit_members_from"] = retry_source
         created_run_id = cmd_create_run(clean_project, clean_flow, **create_kwargs)
     except EnvironmentRegistryMigrationRequired as exc:
         return error(exc.code, str(exc))
@@ -147,9 +162,7 @@ def handle_deployment_run_create(
     except ValueError as exc:
         return error("run_create_rejected", str(exc), jsonpath="$.payload")
 
-    inherited_items: tuple[int, ...] = ()
-    if retry_source:
-        inherited_items = inherit_retry_membership(retry_source, created_run_id)
+    inherited_items = _member_item_ids(created_run_id) if retry_source else ()
 
     from yoke_core.domain.deployment_runs_crud_query import cmd_get
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS

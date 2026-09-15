@@ -66,6 +66,19 @@ def _failed_run(db_path: str, *, run_id: str, member_ids: tuple[int, ...]) -> No
         conn.close()
 
 
+def _runs(db_path: str) -> list[str]:
+    conn = connect_test_db(db_path)
+    try:
+        return [
+            str(row[0])
+            for row in conn.execute(
+                "SELECT id FROM deployment_runs ORDER BY id"
+            ).fetchall()
+        ]
+    finally:
+        conn.close()
+
+
 def _members(db_path: str, run_id: str) -> list[tuple]:
     conn = connect_test_db(db_path)
     try:
@@ -155,3 +168,29 @@ def test_a_fresh_run_inherits_nothing(retry_db_path: str):
     assert outcome.primary_success, outcome.error
     assert outcome.result_payload["retry_of"] is None
     assert _members(retry_db_path, outcome.result_payload["run_id"]) == []
+
+
+def test_a_membership_copy_failure_leaves_no_usable_empty_retry(
+    retry_db_path: str,
+):
+    """The recovery must not reintroduce the defect it recovers from.
+
+    A run committed before its membership is copied survives the copy failing,
+    and a member-less item-bound run is exactly what can never reach its own
+    completion gate — so the two writes are one transaction and a failure
+    leaves no run behind at all.
+    """
+    _failed_run(retry_db_path, run_id="run-failed-e", member_ids=(4105,))
+    before = _runs(retry_db_path)
+
+    boom = RuntimeError("membership copy failed mid-transaction")
+    with patch(
+        "yoke_core.domain.deployment_run_create_write.copy_frozen_members",
+        side_effect=boom,
+    ):
+        with pytest.raises(RuntimeError, match="membership copy failed"):
+            _create(
+                {"project": "yoke", "flow": "retry-flow", "retry_of": "run-failed-e"}
+            )
+
+    assert _runs(retry_db_path) == before

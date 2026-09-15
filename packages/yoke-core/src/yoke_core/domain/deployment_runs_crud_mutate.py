@@ -13,19 +13,20 @@ from yoke_core.domain import deployment_run_lineage_rebind as lineage_rebind
 from yoke_core.domain import (
     deployment_run_completion_preconditions as completion_preconditions,
 )
+from yoke_core.domain.deployment_run_create_write import (
+    cmd_create_run,
+    cmd_next_id,
+)
 from yoke_core.domain.deployment_runs_schema import (
     UPDATABLE_FIELDS,
     VALID_STATUSES,
 )
-from yoke_core.domain.deployment_run_insert import insert_run
 from yoke_core.domain.deployment_run_composition_guard import (
     frozen_mutation_refusal,
     has_frozen_composition,
     mutable_field_refusal,
     terminal_run_refusal,
 )
-from yoke_core.domain.project_identity import resolve_project_id
-from yoke_core.domain.deployment_flow_state import require_flow_for_new_run
 from yoke_core.domain.deployment_runs_lock import lock_run, lock_run_with_stable_membership
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
@@ -47,108 +48,6 @@ def _require_composable_run(conn, run_id: str) -> None:
         )
     if has_frozen_composition(conn, run_id):
         raise ValueError(frozen_mutation_refusal(run_id, "membership")[7:])
-
-
-def cmd_next_id(db_path: Optional[str] = None) -> str:
-    """Preview the next run ID for today without reserving it."""
-    conn = connect(db_path)
-    try:
-        return _next_run_id(conn, datetime.now(timezone.utc))
-    finally:
-        conn.close()
-
-
-def _next_run_id(conn, now: datetime) -> str:
-    """Return max numeric suffix + 1 for *now*'s UTC day."""
-    today = now.astimezone(timezone.utc).strftime("%Y%m%d")
-    prefix = f"run-{today}-"
-    rows = conn.execute(
-        "SELECT id FROM deployment_runs WHERE id LIKE %s",
-        (f"{prefix}%",),
-    ).fetchall()
-    pattern = re.compile(rf"^{re.escape(prefix)}([0-9]+)$")
-    suffixes = [
-        int(match.group(1))
-        for row in rows
-        if (match := pattern.fullmatch(str(row[0]))) is not None
-    ]
-    return f"{prefix}{max(suffixes, default=0) + 1:03d}"
-
-
-def _refuse_run_that_cannot_execute(
-    conn, flow: str, release_lineage: Optional[str]
-) -> None:
-    """Apply the dispatch stage's lineage requirement at creation time."""
-    from yoke_core.domain import deployment_run_lineage_requirement as lineage
-    from yoke_core.domain.json_helper import loads_text
-
-    row = conn.execute(
-        "SELECT stages FROM deployment_flows WHERE id = %s", (flow,)
-    ).fetchone()
-    stages = loads_text(row[0]) if row and row[0] else []
-    lineage.require_lineage_for_stages(stages, release_lineage, flow=flow)
-
-
-def cmd_create_run(
-    project: str,
-    flow: str,
-    environment: Optional[str] = None,
-    release_lineage: Optional[str] = None,
-    created_by: str = "operator",
-    artifact_identity: Optional[str] = None,
-    db_path: Optional[str] = None,
-) -> str:
-    """Create a new deployment run. Returns the generated run ID.
-
-    ``environment`` (a registered name) overrides the flow's registered
-    target; tier and environment otherwise copy from the flow definition.
-    """
-    conn = connect(db_path)
-    try:
-        if db_backend.connection_is_postgres(conn):
-            conn.execute("LOCK TABLE deployment_runs IN SHARE ROW EXCLUSIVE MODE")
-        project_id = resolve_project_id(conn, project)
-        _flow_project_id, target_tier, target_environment_id = require_flow_for_new_run(
-            conn,
-            flow,
-            project_id=project_id,
-        )
-        if environment:
-            from yoke_core.domain.environment_delivery_record import (
-                require_registered_environment,
-            )
-
-            target_tier = "persistent"
-            target_environment_id = require_registered_environment(
-                conn,
-                project_id,
-                environment,
-            )
-
-        _refuse_run_that_cannot_execute(conn, flow, release_lineage)
-
-        # Allocation and insertion share this serialized transaction. The
-        # standalone next-id command remains a non-reserving preview.
-        run_id = _next_run_id(conn, datetime.now(timezone.utc))
-
-        inserted = insert_run(
-            conn,
-            run_id=run_id,
-            project_id=project_id,
-            flow=flow,
-            target_tier=target_tier,
-            target_environment_id=target_environment_id,
-            release_lineage=release_lineage,
-            created_by=created_by,
-            created_at=iso8601_now(),
-            artifact_identity=artifact_identity,
-        )
-        if inserted is None:
-            raise RuntimeError(f"deployment run ID {run_id} was claimed concurrently")
-        conn.commit()
-        return run_id
-    finally:
-        conn.close()
 
 
 def cmd_add_item(
@@ -316,3 +215,12 @@ def cmd_update(
         return None
     finally:
         conn.close()
+
+
+__all__ = [
+    "cmd_add_item",
+    "cmd_create_run",
+    "cmd_next_id",
+    "cmd_remove_item",
+    "cmd_update",
+]

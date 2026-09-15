@@ -22,6 +22,15 @@ from yoke_core.domain.deployment_run_carried_work_source import (
 # older lineage: a head carrying it is ahead of it, or identical to it.
 CONTAINING_STATUSES = frozenset({"ahead", "identical"})
 DIVERGED_STATUSES = frozenset({"behind", "diverged"})
+FULL_SHA_LENGTH = 40
+
+
+def incomplete(detail: str) -> CarriedWorkSourceUnavailable:
+    """Build the one refusal every unread comparison fact raises."""
+    return CarriedWorkSourceUnavailable(
+        "repository_provider_comparison_incomplete",
+        f"{detail}; retry once the provider is healthy.",
+    )
 
 
 def relation(status: str) -> str:
@@ -33,10 +42,9 @@ def relation(status: str) -> str:
 def require_status(body: Mapping[str, Any]) -> str:
     status = str(body.get("status") or "").strip()
     if status not in CONTAINING_STATUSES and status not in DIVERGED_STATUSES:
-        raise CarriedWorkSourceUnavailable(
-            "repository_provider_comparison_incomplete",
-            f"The comparison reported status {status!r}, which this reader "
-            "does not recognize; retry once the provider is healthy.",
+        raise incomplete(
+            f"the comparison reported status {status!r}, which this reader "
+            "does not recognize"
         )
     return status
 
@@ -44,23 +52,58 @@ def require_status(body: Mapping[str, Any]) -> str:
 def require_total(body: Mapping[str, Any]) -> int:
     total = body.get("total_commits")
     if isinstance(total, bool) or not isinstance(total, int) or total < 0:
-        raise CarriedWorkSourceUnavailable(
-            "repository_provider_comparison_incomplete",
-            "The comparison omitted its commit total; retry once the provider "
-            "is healthy.",
-        )
+        raise incomplete("the comparison omitted its commit total")
     return total
 
 
 def require_commits(body: Mapping[str, Any]) -> list[Any]:
     commits = body.get("commits")
     if not isinstance(commits, list):
-        raise CarriedWorkSourceUnavailable(
-            "repository_provider_comparison_incomplete",
-            "The comparison omitted its commit listing; retry once the "
-            "provider is healthy.",
-        )
+        raise incomplete("the comparison omitted its commit listing")
     return commits
+
+
+def recorded_commit(entry: Any) -> dict[str, dict[str, Any]]:
+    """Read one commit entry, refusing one that cannot carry the graph.
+
+    Skipping a malformed entry loses the fact that it was malformed: the
+    first-parent walk and the attribution reachability both read parents,
+    so an entry recorded without them truncates a chain silently and the
+    result reads as a shorter release rather than an unread one. Every
+    commit strictly between two lineages has a parent — a root commit
+    cannot be in a range whose base is its own ancestor — so an entry
+    without one is a broken comparison, not a boundary.
+    """
+    if not isinstance(entry, Mapping):
+        raise incomplete("the comparison listed a commit that is not an object")
+    sha = str(entry.get("sha") or "").strip().lower()
+    if len(sha) != FULL_SHA_LENGTH or not is_hex(sha):
+        raise incomplete(
+            f"the comparison listed a commit with an unusable sha {sha!r}"
+        )
+    commit = entry.get("commit")
+    commit = commit if isinstance(commit, Mapping) else {}
+    committer = commit.get("committer")
+    committer = committer if isinstance(committer, Mapping) else {}
+    parents = entry.get("parents")
+    if not isinstance(parents, list):
+        raise incomplete(f"the comparison listed commit {sha} without parents")
+    parent_shas = tuple(
+        str(parent.get("sha") or "").strip().lower()
+        for parent in parents
+        if isinstance(parent, Mapping) and parent.get("sha")
+    )
+    if not parent_shas:
+        raise incomplete(
+            f"the comparison listed commit {sha} with no usable parent"
+        )
+    return {
+        sha: {
+            "message": str(commit.get("message") or ""),
+            "committed_at": str(committer.get("date") or ""),
+            "parents": parent_shas,
+        }
+    }
 
 
 def is_hex(value: str) -> bool:
@@ -74,7 +117,9 @@ def is_hex(value: str) -> bool:
 __all__ = [
     "CONTAINING_STATUSES",
     "DIVERGED_STATUSES",
+    "incomplete",
     "is_hex",
+    "recorded_commit",
     "relation",
     "require_commits",
     "require_status",

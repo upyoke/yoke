@@ -23,7 +23,10 @@ from yoke_core.domain.deployment_run_carried_work_source import (
     CommitRange,
 )
 from yoke_core.domain.deployment_run_compare_response import (
+    FULL_SHA_LENGTH,
+    incomplete,
     is_hex,
+    recorded_commit,
     relation,
     require_commits,
     require_status,
@@ -44,7 +47,6 @@ COMPARE_PAGE_LIMIT = 10
 #: for two, while commit attribution can offer one lane ref per item, so the
 #: budget keeps a large backlog from becoming a request per item.
 COMMIT_LOOKUP_BUDGET = 8
-_FULL_SHA_LENGTH = 40
 
 
 class RepositoryProviderSource:
@@ -75,7 +77,7 @@ class RepositoryProviderSource:
         token = str(ref or "").strip()
         if not token:
             return ""
-        if len(token) == _FULL_SHA_LENGTH and is_hex(token):
+        if len(token) == FULL_SHA_LENGTH and is_hex(token):
             return token.lower()
         if token in self._resolved_refs:
             return self._resolved_refs[token]
@@ -103,7 +105,7 @@ class RepositoryProviderSource:
         if not isinstance(body, Mapping):
             return ""
         sha = str(body.get("sha") or "").strip().lower()
-        return sha if len(sha) == _FULL_SHA_LENGTH and is_hex(sha) else ""
+        return sha if len(sha) == FULL_SHA_LENGTH and is_hex(sha) else ""
 
     def lineage_relation(self, base: str, head: str) -> str:
         """Answer ancestry from the comparison's own status.
@@ -199,16 +201,14 @@ class RepositoryProviderSource:
             total = require_total(body)
             page_commits = require_commits(body)
             for entry in page_commits:
-                self._record(entry)
+                self._graph.update(recorded_commit(entry))
             if len(self._graph) >= total or not page_commits:
                 break
         if len(self._graph) != total:
-            raise CarriedWorkSourceUnavailable(
-                "repository_provider_comparison_incomplete",
-                f"The comparison declares {total} commit(s) and this reader "
+            raise incomplete(
+                f"the comparison declares {total} commit(s) and this reader "
                 f"holds {len(self._graph)} after paging up to "
-                f"{COMPARE_PAGE_LIMIT * COMPARE_PAGE_SIZE}; record "
-                "composition_resolution for this run instead.",
+                f"{COMPARE_PAGE_LIMIT * COMPARE_PAGE_SIZE}"
             )
         self._compare_statuses[(base, head)] = status
         return status
@@ -236,42 +236,31 @@ class RepositoryProviderSource:
             )
         return body
 
-    def _record(self, entry: Any) -> None:
-        if not isinstance(entry, Mapping):
-            return
-        sha = str(entry.get("sha") or "").strip().lower()
-        if not sha:
-            return
-        commit = entry.get("commit")
-        commit = commit if isinstance(commit, Mapping) else {}
-        committer = commit.get("committer")
-        committer = committer if isinstance(committer, Mapping) else {}
-        parents = entry.get("parents")
-        parent_shas = tuple(
-            str(parent.get("sha") or "").strip().lower()
-            for parent in (parents if isinstance(parents, list) else [])
-            if isinstance(parent, Mapping) and parent.get("sha")
-        )
-        self._graph[sha] = {
-            "message": str(commit.get("message") or ""),
-            "committed_at": str(committer.get("date") or ""),
-            "parents": parent_shas,
-        }
-
     def _first_parent_chain(self, base: str, head: str) -> tuple[str, ...]:
         """Walk first parents from ``head`` while still inside the range.
 
         The graph holds exactly what is reachable from ``head`` and not from
         ``base``, which is the same stopping rule git applies for
-        ``rev-list --first-parent base..head``.
+        ``rev-list --first-parent base..head``. The walk therefore has to
+        start at ``head``: a non-empty comparison whose listing does not
+        contain the commit it was asked about describes some other range, and
+        walking it would report an empty release rather than an unread one.
         """
         del base
         chain: list[str] = []
         cursor = head.lower()
+        if not self._graph:
+            return ()
+        if cursor not in self._graph:
+            raise incomplete(
+                f"the comparison listed {len(self._graph)} commit(s) but not "
+                f"{cursor}, the head it was asked about"
+            )
         while cursor in self._graph and cursor not in chain:
             chain.append(cursor)
-            parents = self._graph[cursor]["parents"]
-            cursor = parents[0] if parents else ""
+            # ``_record`` refuses a parentless entry, so leaving the graph is
+            # the only way this walk ends: that is the base side of the range.
+            cursor = self._graph[cursor]["parents"][0]
         chain.reverse()
         return tuple(chain)
 
