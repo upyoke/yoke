@@ -39,9 +39,9 @@ from yoke_core.domain.machine_qa_capability_settings import (
     replace_test_machine_settings,
 )
 from yoke_core.domain.project_identity import (
-    DEFAULT_PUBLIC_ITEM_PREFIX,
     render_item_ref,
     resolve_project,
+    unresolved_item_ref,
 )
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.machine_verification_schema import ensure_test_machine_schema
@@ -129,7 +129,7 @@ def _holder_item(
     if row is None:
         return None
     item_id = int(row[0])
-    ref = f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
+    ref = unresolved_item_ref(item_id)
     if (
         _table_exists(conn, "projects")
         and all(

@@ -24,7 +24,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain.path_claim_bash_parser import (
     Mutation,
     SUPPRESSION_TOKEN,
@@ -42,7 +42,7 @@ def worktree_preflight_template(
     item_id: int, public_ref: Optional[str] = None
 ) -> str:
     """Return the canonical worktree_preflight CLI line for an item."""
-    ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
+    ref = public_ref or unresolved_item_ref(item_id)
     return (
         "  yoke dev run -- python3 -m yoke_core.domain.worktree_preflight "
         f"--item {ref}"

@@ -227,9 +227,7 @@ def classify_items(
         yok_id = format_item_ref(
             project_slug,
             public_item_prefix,
-            project_sequence,
-            item_id=int(item_id_raw),
-        )
+            project_sequence)
 
         eff_epic: Optional[int] = (
             int(numid) if generated_children == "epic_tasks" else None

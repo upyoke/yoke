@@ -19,9 +19,9 @@ from yoke_core.domain.project_github_auth import (
     resolve_project_github_auth,
 )
 from yoke_core.domain.project_identity import (
-    DEFAULT_PUBLIC_ITEM_PREFIX,
     item_project_join_select,
     render_item_ref,
+    unresolved_item_ref,
 )
 from yoke_core.domain.yok_n_parser import parse_item_argument
 
@@ -82,7 +82,7 @@ def _item_ref(item_id: str | int, *, conn: Any) -> str:
     try:
         return render_item_ref(conn, int(item_id))
     except Exception:
-        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
+        return unresolved_item_ref(item_id)
 
 
 def _item_context(

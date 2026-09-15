@@ -28,7 +28,7 @@ import os
 import sys
 from typing import Any, Literal, Optional, TextIO
 
-from yoke_core.domain.project_identity import DEFAULT_PUBLIC_ITEM_PREFIX, render_item_ref
+from yoke_core.domain.project_identity import render_item_ref, unresolved_item_ref
 from yoke_core.domain.project_scratch_dir import ephemeral_payload
 
 GITHUB_BODY_BUDGET_BYTES: int = 62000
@@ -95,20 +95,20 @@ def _truncate(text: str, limit: int = _TITLE_TRUNCATE_CHARS) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
-def _fallback_public_ref(public_ref: int | str) -> str:
-    text = str(public_ref).strip()
-    if text.isdigit():
-        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{text}"
-    return text or f"{DEFAULT_PUBLIC_ITEM_PREFIX}-0"
+def _fallback_public_ref(public_ref: int | str, *, consulted: bool = True) -> str:
+    text = str(public_ref).strip()  # a digit-only token is an internal id
+    if text and not text.isdigit():
+        return text
+    return unresolved_item_ref(text or None, consulted=consulted)
 
 
 def _public_ref(conn: Optional[Any], item_id: int) -> str:
     if conn is None:
-        return _fallback_public_ref(item_id)
+        return _fallback_public_ref(item_id, consulted=False)
     try:
         return render_item_ref(conn, item_id)
     except Exception:
-        return _fallback_public_ref(item_id)
+        return _fallback_public_ref(item_id, consulted=True)
 
 
 def _evidence_summary(

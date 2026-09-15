@@ -57,8 +57,7 @@ def plan_attachment_rows(conn: Any, plan_id: int) -> list[dict]:
             prefix = row.pop("public_item_prefix")
             sequence = row.pop("project_sequence")
             row["public_ref"] = format_item_ref(
-                row["project"], prefix, sequence, item_id=int(row["item_id"])
-            )
+                row["project"], prefix, sequence)
         result.append(row)
     return result
 

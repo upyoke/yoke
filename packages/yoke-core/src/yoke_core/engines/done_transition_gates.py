@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.qa_gates import check_epic_simulation_gate
 from yoke_core.domain.worktree import resolve_main_root
@@ -42,7 +42,7 @@ def _ref(item_id: int, public_ref: Optional[str] = None) -> str:
         with connect() as conn:
             return render_item_ref(conn, item_id)
     except Exception:
-        return format_item_ref(None, None, None, item_id=item_id)
+        return unresolved_item_ref(item_id)
 
 
 def _resolve_repo_root() -> Path:

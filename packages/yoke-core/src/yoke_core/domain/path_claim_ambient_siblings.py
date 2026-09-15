@@ -295,9 +295,7 @@ def _format_row(row: AmbientSiblingRow) -> List[str]:
         format_item_ref(
             None,
             row.public_item_prefix or None,
-            row.project_sequence,
-            item_id=row.item_id,
-        )
+            row.project_sequence)
         if row.item_id is not None
         else "?"
     )

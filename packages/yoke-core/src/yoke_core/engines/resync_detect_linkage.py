@@ -135,9 +135,7 @@ def stage1_linkage(
         public_ref = format_item_ref(
             item_project,
             ref_prefix,
-            ref_sequence,
-            item_id=item_pk,
-        )
+            ref_sequence)
         padded = str(item_pk).zfill(3)
         item_file = os.path.join(backlog_dir, f"{padded}.md")
         orphan = LocalOrphan(

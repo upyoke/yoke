@@ -224,9 +224,7 @@ def observe_pending_landings(
         public_ref = format_item_ref(
             row["slug"],
             row["public_item_prefix"],
-            row["project_sequence"],
-            item_id=item_id,
-        )
+            row["project_sequence"])
         notice_in_progress = False
         try:
             if observation.kind == EJECTED:

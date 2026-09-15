@@ -27,8 +27,8 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims import IncompatibleOverlap, PathClaimError
 from yoke_core.domain.path_claims_read import _blocking_conflicts_for
 from yoke_core.domain.project_identity import (
-    DEFAULT_PUBLIC_ITEM_PREFIX,
     render_item_ref,
+    unresolved_item_ref,
 )
 
 
@@ -48,15 +48,15 @@ def _display_item_ref(conn: Optional[Any], item_id: int) -> str:
 
     ``conn`` is optional (the dispatch handler passes ``None`` under
     unit tests, and the overlap fixtures omit the ``items``/``projects``
-    join), so a missing connection or failed lookup degrades to the
-    default-prefix ref rather than raising inside the denial path.
+    join), so a missing connection or failed lookup says the ref is
+    unresolved rather than raising inside the denial path.
     """
     if conn is not None:
         try:
             return render_item_ref(conn, int(item_id))
         except Exception:  # noqa: BLE001 - denial composition must not raise.
             pass
-    return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
+    return unresolved_item_ref(int(item_id), consulted=conn is not None)
 
 
 def compose_overlap_denial(

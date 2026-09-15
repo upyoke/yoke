@@ -40,13 +40,13 @@ def item_ref_for_id(item_id: int) -> str:
     than paying for a second one.
 
     Never raises: many call sites are warning/dry-run notices that must survive
-    an unreachable control plane, so an unopenable connection degrades to the
-    default-prefix form the renderer itself falls back to.
+    an unreachable control plane, so an unopenable connection reports the ref
+    as unresolved for want of a read rather than inventing one from the id.
     """
     from yoke_core.domain import db_helpers
     from yoke_core.domain.project_identity import (
-        DEFAULT_PUBLIC_ITEM_PREFIX,
         render_item_ref,
+        unresolved_item_ref,
     )
 
     try:
@@ -58,9 +58,9 @@ def item_ref_for_id(item_id: int) -> str:
             return render_item_ref(conn, int(item_id))
     except RemoteControlPlaneConnectionError:
         # Outside Exception on purpose — https authority has no local DB.
-        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
+        return unresolved_item_ref(int(item_id), consulted=False)
     except Exception:
-        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
+        return unresolved_item_ref(int(item_id), consulted=False)
 
 
 __all__ = [

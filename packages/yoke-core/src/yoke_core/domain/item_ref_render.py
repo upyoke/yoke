@@ -8,16 +8,19 @@ projection, a drift-review delta — reads that set in one statement through
 single-id :func:`yoke_core.domain.project_identity.render_item_ref` is the
 one-element case of the same projection.
 
-Rows that resolve to no item (or a schema with no ``projects`` table) fall
-back to ``{DEFAULT_PUBLIC_ITEM_PREFIX}-{id}``, matching the single-id
-renderer.
+An id that resolves to no item (or a schema with no ``projects`` table)
+renders :func:`unresolved_item_ref` — a bracketed, self-describing phrase,
+never a ref built from the internal id. The two numbers are unrelated:
+``items.id 3273`` and ``project_sequence 1896`` can name the same row, so a
+fabricated ``PREFIX-3273`` both hides the real ref and names whichever
+*other* item owns sequence 3273 in the default-prefix project.
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
-from yoke_contracts.public_ref import DEFAULT_PUBLIC_ITEM_PREFIX, format_item_ref
+from yoke_contracts.public_ref import format_item_ref, unresolved_item_ref
 
 from yoke_core.domain.db_backend import connection_is_postgres
 
@@ -28,11 +31,6 @@ FROM items i
 JOIN projects p ON p.id = i.project_id
 WHERE i.id IN ({placeholders})
 """
-
-
-def fallback_item_ref(item_id: int) -> str:
-    """Return the ref used when no identity row backs ``item_id``."""
-    return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
 
 
 def _row_value(row: Any, key: str, index: int) -> Any:
@@ -96,11 +94,16 @@ def render_item_refs(
     refs: Dict[int, str] = {}
     for row in fetch_item_ref_rows(conn, sql, ids):
         item_id = int(_row_value(row, "id", 0))
+        sequence = _row_value(row, "project_sequence", 3)
+        if sequence is None:
+            # A row without its own sequence has no ref to render; leaving it
+            # out keeps it in the unresolved bucket instead of borrowing the
+            # internal id for the number.
+            continue
         refs[item_id] = format_item_ref(
             _row_value(row, "slug", 1),
             _row_value(row, "public_item_prefix", 2),
-            _row_value(row, "project_sequence", 3),
-            item_id=item_id,
+            sequence,
         )
     return refs
 
@@ -121,11 +124,10 @@ class ItemRefLookup:
     one-query-per-item render impossible to write.
 
     ``consulted`` records whether a database was available to answer at all,
-    because the two unresolved cases mean different things: an id with no
-    identity row renders as the prefix+id fallback, while a caller with no
-    connection renders the bare internal id — a public-looking ref from a
-    lookup that never happened would be wrong for any item whose project
-    sequence diverges from its internal id.
+    because the two unresolved cases mean different things and
+    :func:`unresolved_item_ref` names each one. Neither renders a ref: a
+    public-looking ref from a lookup that never happened would be wrong for
+    any item whose project sequence diverges from its internal id.
     """
 
     __slots__ = ("_refs", "_consulted")
@@ -147,13 +149,13 @@ class ItemRefLookup:
         rendered = self._refs.get(value)
         if rendered:
             return rendered
-        return fallback_item_ref(value) if self._consulted else str(value)
+        return unresolved_item_ref(value, consulted=self._consulted)
 
 
 __all__ = [
     "ITEM_REF_PROJECTION_SQL",
     "ItemRefLookup",
-    "fallback_item_ref",
+    "unresolved_item_ref",
     "fetch_item_ref_rows",
     "render_item_ref_lookup",
     "render_item_refs",
