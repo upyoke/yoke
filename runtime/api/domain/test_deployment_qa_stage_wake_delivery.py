@@ -1,8 +1,11 @@
-"""The item-scoped and run-scoped QA wait notices, delivered for real.
+"""The item-scoped QA wait notice, delivered for real.
 
 Exercises the actual recipient resolution and message insert — not a
 mocked ``push_notice`` — so a wiring defect in claim/session lookup or in
 :mod:`yoke_core.domain.session_message_service` itself would show up here.
+The run-scoped counterpart lives in
+``test_deployment_qa_stage_wake_run_scoped_delivery.py``, sharing these
+same helpers, to keep each file under the authored line budget.
 """
 
 from __future__ import annotations
@@ -11,7 +14,6 @@ from typing import Any
 
 from runtime.api.domain.coordination_claim_test_support import (
     PROJECT_YOKE,
-    deploy_target,
     seed_project,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
@@ -21,16 +23,11 @@ from yoke_core.domain.actor_permissions import (
     seed_roles_and_permissions,
 )
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.deployment_qa_stage_wake import (
-    notify_item_scoped_qa_wait,
-    notify_run_scoped_qa_wait,
-)
+from yoke_core.domain.deployment_qa_stage_wake import notify_item_scoped_qa_wait
 from yoke_core.domain.work_claim_targets import make_item_target
 
 HOLDER_A = "sess-holder-a"
 HOLDER_B = "sess-holder-b"
-STEERING_SESSION = "sess-steering"
-DRIVER_SESSION = "sess-driver"
 
 #: The actor id every ``seed_session`` row carries.
 SESSION_ACTOR_ID = 2
@@ -234,89 +231,87 @@ def test_a_later_holder_change_does_not_get_a_second_notice(test_db: Any) -> Non
     assert _recipients(test_db, key) == [HOLDER_A]
 
 
-def test_run_scoped_wake_reaches_the_deploy_lock_driver(test_db: Any) -> None:
+def test_repeat_dispatch_after_reasons_change_does_not_collide(test_db: Any) -> None:
+    """A stage rechecked while still waiting recomputes ``reasons`` fresh
+    each time; the notice's identity (run, stage, item) does not depend on
+    that text, so a second check with different wording is a dedupe, not
+    an ``idempotency_conflict`` raise."""
     _project(test_db)
-    seed_session(test_db, DRIVER_SESSION)
-    target = deploy_target(PROJECT_YOKE, "yoke")
+    item_id = 9704
+    insert_item(test_db, id=item_id, project_sequence=item_id, workflow_id="issue")
+    seed_session(test_db, HOLDER_A)
     _claim(
         test_db,
-        session_id=DRIVER_SESSION,
-        target_kind=target.kind,
-        scope_json=target.scope_json(),
+        session_id=HOLDER_A,
+        target_kind="item",
+        scope_json=make_item_target(item_id).scope_json(),
     )
+    from yoke_core.domain.deployment_qa_stage_wake import stage_wait_idempotency_key
 
-    result = notify_run_scoped_qa_wait(
+    key = stage_wait_idempotency_key("run-wd-3b", "item-qa", item_id)
+
+    notify_item_scoped_qa_wait(
         test_db,
-        run_id="run-wd-4",
-        stage_name="run-qa",
+        run_id="run-wd-3b",
+        stage_name="item-qa",
+        item_id=item_id,
         project_id=PROJECT_YOKE,
-        reasons="awaiting agent verdict",
-        target_tier="ephemeral",
-        revision="b" * 40,
+        reasons="2 of 3 requirements outstanding",
+    )
+    # Does not raise even though the text below differs from the first call.
+    notify_item_scoped_qa_wait(
+        test_db,
+        run_id="run-wd-3b",
+        stage_name="item-qa",
+        item_id=item_id,
+        project_id=PROJECT_YOKE,
+        reasons="1 of 3 requirements outstanding",
     )
 
-    assert result in ("delivered", "undelivered")
-    from yoke_core.domain.deployment_qa_stage_wake import run_stage_wait_idempotency_key
-
-    key = run_stage_wait_idempotency_key("run-wd-4", "run-qa")
-    assert _recipients(test_db, key) == [DRIVER_SESSION]
+    assert _recipients(test_db, key) == [HOLDER_A]
     [body] = _bodies(test_db, key)
-    assert "run-wd-4" in body
-    assert "ephemeral" in body
+    assert "2 of 3 requirements outstanding" in body
 
 
-def test_run_scoped_wake_falls_back_to_the_plain_project_steering_seat(
-    test_db: Any,
-) -> None:
+def test_a_later_deployment_attempt_gets_its_own_fresh_notice(test_db: Any) -> None:
+    """A new deploy attempt runs under a new ``run_id``, which is already a
+    distinct key -- no separate attempt-identity concept is needed for a
+    fresh notice to go out."""
     _project(test_db)
-    seed_session(test_db, STEERING_SESSION)
+    item_id = 9705
+    insert_item(test_db, id=item_id, project_sequence=item_id, workflow_id="issue")
+    seed_session(test_db, HOLDER_A)
     _claim(
         test_db,
-        session_id=STEERING_SESSION,
-        target_kind="steering",
-        scope_json='{"project_id": %d}' % PROJECT_YOKE,
+        session_id=HOLDER_A,
+        target_kind="item",
+        scope_json=make_item_target(item_id).scope_json(),
     )
+    from yoke_core.domain.deployment_qa_stage_wake import stage_wait_idempotency_key
 
-    result = notify_run_scoped_qa_wait(
+    first_key = stage_wait_idempotency_key("run-attempt-1", "item-qa", item_id)
+    second_key = stage_wait_idempotency_key("run-attempt-2", "item-qa", item_id)
+
+    notify_item_scoped_qa_wait(
         test_db,
-        run_id="run-wd-5",
-        stage_name="run-qa",
+        run_id="run-attempt-1",
+        stage_name="item-qa",
+        item_id=item_id,
         project_id=PROJECT_YOKE,
-        reasons="awaiting agent verdict",
+        reasons="first attempt's evidence still missing",
     )
-
-    assert result in ("delivered", "undelivered")
-    from yoke_core.domain.deployment_qa_stage_wake import run_stage_wait_idempotency_key
-
-    key = run_stage_wait_idempotency_key("run-wd-5", "run-qa")
-    assert _recipients(test_db, key) == [STEERING_SESSION]
-
-
-def test_run_scoped_wake_does_not_guess_among_document_scoped_seats(
-    test_db: Any,
-) -> None:
-    """A project can carry a steering seat narrowed to one strategy document
-    (e.g. a release-planning doc) alongside -- or instead of -- its plain
-    seat. Run-scoped work names no document, so it must not be routed to a
-    document-narrowed seat as if it were the project's general seat."""
-    _project(test_db)
-    seed_session(test_db, STEERING_SESSION)
-    _claim(
+    notify_item_scoped_qa_wait(
         test_db,
-        session_id=STEERING_SESSION,
-        target_kind="steering",
-        scope_json='{"project_id": %d, "document": "RELEASES"}' % PROJECT_YOKE,
-    )
-
-    result = notify_run_scoped_qa_wait(
-        test_db,
-        run_id="run-wd-6",
-        stage_name="run-qa",
+        run_id="run-attempt-2",
+        stage_name="item-qa",
+        item_id=item_id,
         project_id=PROJECT_YOKE,
-        reasons="awaiting agent verdict",
+        reasons="second attempt's evidence still missing",
     )
 
-    assert result == ""
-    from yoke_core.domain.deployment_qa_stage_wake import run_stage_wait_idempotency_key
-
-    assert _recipients(test_db, run_stage_wait_idempotency_key("run-wd-6", "run-qa")) == []
+    assert _recipients(test_db, first_key) == [HOLDER_A]
+    assert _recipients(test_db, second_key) == [HOLDER_A]
+    [first_body] = _bodies(test_db, first_key)
+    [second_body] = _bodies(test_db, second_key)
+    assert "first attempt's evidence still missing" in first_body
+    assert "second attempt's evidence still missing" in second_body

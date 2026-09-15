@@ -46,12 +46,25 @@ def freeze_resolved_delivery_flow(item_id: int, flow_id: str, *, public_ref: str
     """Write a resolved default onto the item exactly once, before it is used.
 
     Rereads the item's current ``deployment_flow`` immediately before
-    writing: an explicit value set between the caller's earlier empty read
-    and this call wins, and this returns that winning value instead of
-    overwriting it. ``items.scalar.update`` requires the item's own work
-    claim, so the only session that can race this write at all is this
-    same done-transition session's own earlier read — this closes exactly
-    that staleness window rather than adding a new versioning scheme.
+    writing and returns that value untouched when it is already non-empty,
+    instead of overwriting it with the resolved default.
+
+    No caller other than the one holding this item's live work claim can
+    make that value non-empty out from under this reread at all:
+    ``items.scalar.update`` (the only write path onto ``deployment_flow``)
+    declares ``claim_required_kind="item"`` with no bypass for that kind
+    (see ``yoke_function_dispatch_claims.py``), and ``work_claims`` carries
+    a database-enforced unique index on the live claim per item
+    (``idx_work_claims_active_item``, ``WHERE released_at IS NULL AND
+    target_kind='item'``) — so at most one session ever holds this item's
+    claim, and it is the same session running this done-transition. The
+    reread exists to close a same-session, same-claim ordering gap
+    instead: this session's own earlier read (in the done-transition
+    runner, before this guard ran) can be stale by the time this freeze
+    attempt executes, e.g. an operator set the field explicitly, through
+    this same claimed session, in between. There is no cross-session race
+    to exclude with a transaction or a new CAS field, because the claim
+    system already excludes it structurally.
 
     Once a value lands, ``deployment_flow`` is non-empty and every later
     evaluation — including a later change to the project's default — takes
