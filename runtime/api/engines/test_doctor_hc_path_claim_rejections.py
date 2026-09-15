@@ -40,6 +40,19 @@ CREATE TABLE path_claims (
 """
 
 
+# The findings name items by reference, so the rows that reference is read
+# from exist alongside the events under audit.
+_ITEMS_IDENTITY_DDL = """
+CREATE TABLE IF NOT EXISTS items (
+    id INTEGER PRIMARY KEY,
+    project_id INTEGER,
+    project_sequence INTEGER,
+    title TEXT DEFAULT '',
+    status TEXT DEFAULT 'idea'
+);
+"""
+
+
 def _apply_schema() -> None:
     """``apply_schema`` strategy for the HC's minimal events + dep + claim DDL.
 
@@ -58,6 +71,7 @@ def _apply_schema() -> None:
     try:
         _create_events_table(conn)
         seed_project_identities(conn)
+        apply_fixture_ddl(conn, _ITEMS_IDENTITY_DDL)
         apply_fixture_ddl(conn, _ITEM_DEPS_DDL)
         apply_fixture_ddl(conn, _PATH_CLAIMS_DDL)
         conn.commit()
@@ -81,6 +95,16 @@ def _now_iso(offset_minutes: int = 0) -> str:
     ).isoformat()
 
 
+def _ensure_item(conn, item_id: int) -> None:
+    """The finding names the item by reference, so the row it reads exists."""
+    conn.execute(
+        "INSERT INTO items (id, project_id, project_sequence, title, status)"
+        " VALUES (%s, 1, %s, 'fixture', 'implementing')"
+        " ON CONFLICT (id) DO NOTHING",
+        (item_id, item_id),
+    )
+
+
 def _insert_blocked_event(
     conn,
     *,
@@ -89,6 +113,7 @@ def _insert_blocked_event(
     blocking_claim_id: int | None = None,
     created_at: str | None = None,
 ) -> None:
+    _ensure_item(conn, item_id)
     envelope = json.dumps({
         "context": {
             "reason": reason,

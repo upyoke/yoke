@@ -43,11 +43,22 @@ class TestGateTarget:
         assert params == (833, 5)
 
     def test_display_name_item(self, monkeypatch):
+        # The name is read from the connection the gate itself reads, never
+        # an ambient one — a gate runs against a caller-supplied database.
         monkeypatch.setattr(
-            "yoke_core.domain.project_identity_item_ref.item_ref_for_id",
-            lambda item_id: f"YOK-{item_id}",
+            "yoke_core.domain.project_identity.render_item_ref",
+            lambda conn, item_id: f"YOK-{item_id}",
         )
-        assert GateTarget(item_id=TEST_ITEM_ID).display_name() == TEST_ITEM_REF
+        conn = object()
+        assert GateTarget(item_id=TEST_ITEM_ID).display_name(conn) == TEST_ITEM_REF
 
-    def test_display_name_epic(self):
-        assert GateTarget(epic_id=833, task_num=5).display_name() == "epic 833/task 5"
+    def test_display_name_epic(self, monkeypatch):
+        monkeypatch.setattr(
+            "yoke_core.domain.project_identity.render_item_ref",
+            lambda conn, item_id: f"YOK-{item_id}",
+        )
+        conn = object()
+        assert (
+            GateTarget(epic_id=833, task_num=5).display_name(conn)
+            == "YOK-833/task 5"
+        )

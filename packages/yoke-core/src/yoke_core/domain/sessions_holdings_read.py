@@ -31,7 +31,6 @@ from yoke_core.domain.sessions_holdings_claim_facts import (
     steered_document_slugs,
 )
 from yoke_core.domain.coordination_claim_keys import key_for_target
-from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def render_claim_target(
@@ -56,7 +55,12 @@ def render_claim_target(
             return str(found["public_ref"]), dict(found)
         return unresolved_item_ref(item_num), {}
     if kind == "epic_task":
-        epic_ref = item_ref_for_id(claim.get("epic_id"))
+        epic_id = claim.get("epic_id")
+        facts = item_facts.get(int(epic_id)) if epic_id is not None else None
+        epic_ref = (
+            str(facts["public_ref"]) if facts
+            else unresolved_item_ref(epic_id)
+        )
         return f"{epic_ref} task {claim.get('task_num')}", {}
     if kind == "steering":
         steering = work_claim_target_from_row(claim)
@@ -94,11 +98,14 @@ def active_claims_by_session(
         claim = dict(row)
         raw_by_session.setdefault(str(claim["session_id"]), []).append(claim)
 
+    # An epic id is an item id, so both kinds resolve through the one
+    # prefetch rather than one connection per epic-task claim.
     claimed_items = [
-        int(claim["item_id"])
+        int(claim[column])
         for claims in raw_by_session.values()
         for claim in claims
-        if claim.get("target_kind") == "item" and claim["item_id"] is not None
+        for kind, column in (("item", "item_id"), ("epic_task", "epic_id"))
+        if claim.get("target_kind") == kind and claim.get(column) is not None
     ]
     item_facts = claimed_item_facts(conn, claimed_items)
     doc_slugs = steered_document_slugs(
