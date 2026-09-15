@@ -22,6 +22,13 @@ from yoke_core.domain.deployment_run_carried_work_source import (
     CarriedWorkSourceUnavailable,
     CommitRange,
 )
+from yoke_core.domain.deployment_run_compare_response import (
+    is_hex,
+    relation,
+    require_commits,
+    require_status,
+    require_total,
+)
 from yoke_core.domain.function_target_row_project import slug_for_project_id
 from yoke_core.domain.gh_rest_transport import RestRequest, request_with_retry
 from yoke_core.domain.gh_rest_transport_errors import RestTransportError
@@ -38,9 +45,6 @@ COMPARE_PAGE_LIMIT = 10
 #: budget keeps a large backlog from becoming a request per item.
 COMMIT_LOOKUP_BUDGET = 8
 _FULL_SHA_LENGTH = 40
-# GitHub reports the head side as at or behind the base for these; both mean
-# the recorded lineages do not sit on one trunk line.
-_DIVERGED_STATUSES = frozenset({"behind", "diverged"})
 
 
 class RepositoryProviderSource:
@@ -54,6 +58,7 @@ class RepositoryProviderSource:
         self._graph: dict[str, dict[str, Any]] = {}
         self._warnings: list[dict[str, str]] = []
         self._resolved_refs: dict[str, str] = {}
+        self._compare_statuses: dict[tuple[str, str], str] = {}
         self._lookups = 0
         self._unresolvable_refs = 0
 
@@ -70,7 +75,7 @@ class RepositoryProviderSource:
         token = str(ref or "").strip()
         if not token:
             return ""
-        if len(token) == _FULL_SHA_LENGTH and _is_hex(token):
+        if len(token) == _FULL_SHA_LENGTH and is_hex(token):
             return token.lower()
         if token in self._resolved_refs:
             return self._resolved_refs[token]
@@ -98,13 +103,31 @@ class RepositoryProviderSource:
         if not isinstance(body, Mapping):
             return ""
         sha = str(body.get("sha") or "").strip().lower()
-        return sha if len(sha) == _FULL_SHA_LENGTH and _is_hex(sha) else ""
+        return sha if len(sha) == _FULL_SHA_LENGTH and is_hex(sha) else ""
+
+    def lineage_relation(self, base: str, head: str) -> str:
+        """Answer ancestry from the comparison's own status.
+
+        Ancestry is one field, so it is read from the first page alone: a
+        comparison spanning more commits than this reader pages is still a
+        truthful ancestry answer, and blocking it on the listing would refuse
+        exactly the long-lived repositories that need it most.
+        """
+        return relation(self._compare_status(base, head))
 
     def commit_range(self, base: str, head: str) -> CommitRange:
         status = self._load_graph(base, head)
-        if status in _DIVERGED_STATUSES:
+        if relation(status) == RELATION_DIVERGED:
             return CommitRange(RELATION_DIVERGED, ())
         return CommitRange(RELATION_AHEAD, self._first_parent_chain(base, head))
+
+    def _compare_status(self, base: str, head: str) -> str:
+        cached = self._compare_statuses.get((base, head))
+        if cached is not None:
+            return cached
+        status = require_status(self._compare_page(base, head, 1))
+        self._compare_statuses[(base, head)] = status
+        return status
 
     def commit_message(self, sha: str) -> str:
         commit = self._graph.get(sha.lower(), {})
@@ -160,25 +183,34 @@ class RepositoryProviderSource:
     # -- graph loading -----------------------------------------------------
 
     def _load_graph(self, base: str, head: str) -> str:
+        """Page the full commit listing, refusing an incomplete comparison.
+
+        Every structural gap here is a reason to answer "unknown" rather than
+        "empty": a body with no commit total, no listing, or fewer commits
+        than it declares has not told this reader what the range holds, and
+        recording that as an empty release is the exact confusion carried work
+        exists to avoid.
+        """
         status = ""
         total = 0
         for page in range(1, COMPARE_PAGE_LIMIT + 1):
             body = self._compare_page(base, head, page)
-            status = str(body.get("status") or "")
-            total = int(body.get("total_commits") or 0)
-            commits = body.get("commits")
-            page_commits = list(commits) if isinstance(commits, list) else []
+            status = require_status(body)
+            total = require_total(body)
+            page_commits = require_commits(body)
             for entry in page_commits:
                 self._record(entry)
             if len(self._graph) >= total or not page_commits:
                 break
-        if len(self._graph) < total:
+        if len(self._graph) != total:
             raise CarriedWorkSourceUnavailable(
-                "carried_range_exceeds_provider_page_limit",
-                f"The comparison spans {total} commits, beyond the "
-                f"{COMPARE_PAGE_LIMIT * COMPARE_PAGE_SIZE} this reader pages; "
-                "record composition_resolution for this run instead.",
+                "repository_provider_comparison_incomplete",
+                f"The comparison declares {total} commit(s) and this reader "
+                f"holds {len(self._graph)} after paging up to "
+                f"{COMPARE_PAGE_LIMIT * COMPARE_PAGE_SIZE}; record "
+                "composition_resolution for this run instead.",
             )
+        self._compare_statuses[(base, head)] = status
         return status
 
     def _compare_page(self, base: str, head: str, page: int) -> Mapping[str, Any]:
@@ -260,14 +292,6 @@ class RepositoryProviderSource:
                     return True
                 stack.append(parent)
         return False
-
-
-def _is_hex(value: str) -> bool:
-    try:
-        int(value, 16)
-    except ValueError:
-        return False
-    return True
 
 
 def open_repository_provider_source(

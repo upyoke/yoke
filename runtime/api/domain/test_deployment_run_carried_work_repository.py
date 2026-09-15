@@ -73,12 +73,14 @@ def test_every_compare_status_maps_to_one_lineage_relation(
     older lineage, so a candidate carrying the base reads ``ahead``. Reversing
     it would refuse exactly the releases that must pass.
     """
-    source, _recorder = _source(
+    source, recorder = _source(
         monkeypatch,
         [{"status": status, "total_commits": 0, "commits": []}],
     )
 
-    assert source.commit_range(BASE, TIP).relation == relation
+    assert source.lineage_relation(BASE, TIP) == relation
+    # One page answers ancestry; the listing is a different question.
+    assert len(recorder.paths) == 1
 
 
 def test_the_first_parent_range_is_walked_out_of_the_compared_graph(
@@ -204,4 +206,68 @@ def test_a_comparison_beyond_the_page_budget_refuses_instead_of_truncating(
     with pytest.raises(CarriedWorkSourceUnavailable) as raised:
         source.commit_range(BASE, TIP)
 
-    assert raised.value.reason == "carried_range_exceeds_provider_page_limit"
+    assert raised.value.reason == "repository_provider_comparison_incomplete"
+
+
+def test_a_range_too_large_to_list_still_answers_ancestry(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """A long history is not a reason to refuse a truthful ancestry answer."""
+    source, recorder = _source(
+        monkeypatch,
+        [
+            {
+                "status": "ahead",
+                "total_commits": 10_000,
+                "commits": [_commit(TIP, parents=(BASE,))],
+            }
+        ],
+    )
+
+    assert source.lineage_relation(BASE, TIP) == RELATION_AHEAD
+    assert len(recorder.paths) == 1
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"total_commits": 0, "commits": []},
+        {"status": "", "total_commits": 0, "commits": []},
+        {"status": "unrecognised", "total_commits": 0, "commits": []},
+    ],
+    ids=["status-absent", "status-empty", "status-unknown"],
+)
+def test_an_unrecognized_status_is_unknown_rather_than_contained(
+    monkeypatch: pytest.MonkeyPatch,
+    body: dict[str, Any],
+):
+    """A status this reader cannot read is evidence of nothing."""
+    source, _recorder = _source(monkeypatch, [body])
+
+    with pytest.raises(CarriedWorkSourceUnavailable) as raised:
+        source.lineage_relation(BASE, TIP)
+
+    assert raised.value.reason == "repository_provider_comparison_incomplete"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"status": "ahead", "commits": []},
+        {"status": "ahead", "total_commits": "two", "commits": []},
+        {"status": "ahead", "total_commits": 0},
+        {"status": "ahead", "total_commits": 2, "commits": []},
+    ],
+    ids=["total-absent", "total-not-a-count", "listing-absent", "listing-short"],
+)
+def test_an_incomplete_comparison_is_unknown_rather_than_empty(
+    monkeypatch: pytest.MonkeyPatch,
+    body: dict[str, Any],
+):
+    """A body that never said what the range holds has not said it is empty."""
+    source, _recorder = _source(monkeypatch, [body] * provider.COMPARE_PAGE_LIMIT)
+
+    with pytest.raises(CarriedWorkSourceUnavailable) as raised:
+        source.commit_range(BASE, TIP)
+
+    assert raised.value.reason == "repository_provider_comparison_incomplete"

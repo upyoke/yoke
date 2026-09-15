@@ -58,6 +58,9 @@ class CarriedWorkSource(Protocol):
     def resolve_commit(self, ref: str) -> str:
         """Return the full commit sha for ``ref``, or ``""`` when unresolvable."""
 
+    def lineage_relation(self, base: str, head: str) -> str:
+        """Return whether ``head`` carries ``base``, without listing commits."""
+
     def commit_range(self, base: str, head: str) -> CommitRange:
         """Return the first-parent commits from ``base`` to ``head``."""
 
@@ -94,8 +97,15 @@ class LocalCheckoutSource:
             self._repo_root, "rev-parse", "--verify", f"{ref}^{{commit}}"
         )
 
+    def lineage_relation(self, base: str, head: str) -> str:
+        return (
+            RELATION_AHEAD
+            if git.is_ancestor(self._repo_root, base, head)
+            else RELATION_DIVERGED
+        )
+
     def commit_range(self, base: str, head: str) -> CommitRange:
-        if not git.is_ancestor(self._repo_root, base, head):
+        if self.lineage_relation(base, head) == RELATION_DIVERGED:
             return CommitRange(RELATION_DIVERGED, ())
         commits = tuple(
             line.strip()

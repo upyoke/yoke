@@ -86,7 +86,10 @@ def candidate_contains_commit(
             source=source.origin,
         )
     try:
-        relation = source.commit_range(resolved_merge, resolved_candidate).relation
+        # Ancestry is one fact about the comparison, so it never waits on the
+        # commit listing: a repository whose range is larger than a reader
+        # pages still answers this truthfully.
+        relation = source.lineage_relation(resolved_merge, resolved_candidate)
     except CarriedWorkSourceUnavailable as exc:
         return ContainmentVerdict(UNDETERMINED, exc.reason, exc.recovery, source.origin)
     state = CONTAINED if relation == RELATION_AHEAD else NOT_CONTAINED
