@@ -17,9 +17,9 @@ from yoke_core.domain.flow_validation import (
     require_human_approval_addresses,
     validate_stages,
 )
-from yoke_core.domain import json_helper
 from yoke_core.domain.deployment_flow_target_support import (
     require_supported_stage_targets,
+    require_supported_stage_targets_for_flow,
 )
 from yoke_core.domain.deployment_flow_policy import (
     definition_schema_version,
@@ -244,16 +244,8 @@ def cmd_set_status(conn, flow_id: str, status: str) -> str:
         require_supported_definition_schema(
             int(schema_version or 1), operation="activating this deployment flow"
         )
-        require_supported_stage_targets(
-            json_helper.loads_text(
-                query_scalar(
-                    conn,
-                    "SELECT stages FROM deployment_flows WHERE id=%s",
-                    (flow_id,),
-                )
-                or "[]"
-            ),
-            operation="activating this deployment flow",
+        require_supported_stage_targets_for_flow(
+            conn, flow_id, operation="activating this deployment flow"
         )
     conn.execute(
         "UPDATE deployment_flows SET status=%s WHERE id=%s",

@@ -88,7 +88,34 @@ def require_supported_stage_targets(stages: Any, *, operation: str) -> None:
     )
 
 
+def require_supported_stage_targets_for_flow(
+    conn: Any, flow_id: str, *, operation: str
+) -> None:
+    """Check a stored definition's target kinds, by flow id.
+
+    The three gates that hold only a flow id read its stages through
+    here so the read happens one way. A schema with no ``stages`` column
+    cannot express a QA target at all, so there is nothing to refuse and
+    nothing to read — that is a different answer from "the read failed",
+    and it is why the column is checked rather than the query being
+    wrapped in a blanket except.
+    """
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.schema_common import _column_exists
+
+    if not _column_exists(conn, "deployment_flows", "stages"):
+        return
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        f"SELECT stages FROM deployment_flows WHERE id={marker}", (flow_id,)
+    ).fetchone()
+    if row is None:
+        return
+    require_supported_stage_targets(str(row[0] or "[]"), operation=operation)
+
+
 __all__ = [
     "require_supported_stage_targets",
+    "require_supported_stage_targets_for_flow",
     "unsupported_stage_target_kinds",
 ]
