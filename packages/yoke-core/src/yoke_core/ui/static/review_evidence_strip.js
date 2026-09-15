@@ -216,12 +216,27 @@ function onMachineChip(documentNode, artifact) {
 
 // `artifacts` accepts either shape callers hold — QA rows keyed `id`, gate
 // projections keyed `artifact_id` — and `requirementId` fills in for
-// projections that carry none of their own.
-export function evidenceStrip(context, artifacts, options = {}) {
-  const documentNode = context.document;
-  const rows = (Array.isArray(artifacts) ? artifacts : [])
+// projections that carry none of their own. An artifact whose identity does
+// not normalize is not drawable and is dropped here rather than downstream.
+export function normalizedArtifacts(artifacts, options = {}) {
+  return (Array.isArray(artifacts) ? artifacts : [])
     .map((raw) => normalizeArtifact(raw, options.requirementId))
     .filter((artifact) => Number.isFinite(artifact.id));
+}
+
+// What a strip actually puts on screen for these options: the same rows, cut
+// at the same limit, because everything past it is folded behind "+N more"
+// and is not visible until someone clicks. A caller that suppresses its own
+// evidence as "already shown" has to mean exactly this set — meaning the
+// whole input instead hides a request's evidence that was never drawn.
+export function drawnArtifacts(artifacts, options = {}) {
+  return normalizedArtifacts(artifacts, options)
+    .slice(0, options.limit ?? EVIDENCE_SHOWN);
+}
+
+export function evidenceStrip(context, artifacts, options = {}) {
+  const documentNode = context.document;
+  const rows = normalizedArtifacts(artifacts, options);
   if (!rows.length) {
     if (!options.emptyNote) return null;
     const none = el(documentNode, "div", "review-evidence-none", options.emptyNote);
@@ -256,4 +271,8 @@ export function evidenceStrip(context, artifacts, options = {}) {
   return strip;
 }
 
-export const reviewEvidenceStrip = { evidenceStrip };
+export const reviewEvidenceStrip = {
+  drawnArtifacts,
+  evidenceStrip,
+  normalizedArtifacts,
+};

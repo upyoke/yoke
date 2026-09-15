@@ -281,7 +281,42 @@ test("a request whose evidence is already on screen does not draw it twice", asy
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
   const review = byClass(evidence, "review-card")[0];
   assert.equal(review.getAttribute("data-request-id"), "4600");
-  // Proven already shown by artifact identity, so it is not repeated.
+  // Proven already shown by artifact identity, so it is not repeated. Both
+  // sit inside the three the strip draws, so both are genuinely on screen.
   assert.equal(byClass(review, "review-evidence").length, 0);
   assert.equal(byClass(evidence, "review-shot").length, 2);
+});
+
+test("a request whose evidence sits behind +N more still draws it", async () => {
+  const documentNode = new FakeDocument();
+  const client = readingClient({
+    // Five captures, of which the strip draws three; this request rests on
+    // the fourth, which nobody has seen until they click.
+    rows: [activityRow({
+      artifacts: [1, 2, 3, 4, 5].map((id) => artifact(id, 26134)),
+    })],
+    pending: [qaRequestRow({
+      id: 4601,
+      status: "pending",
+      subject_key: "26134",
+      subject_context: {
+        ...qaRequestRow().subject_context,
+        requirement_id: 26134,
+        artifacts: [
+          { artifact_id: 4, artifact_type: "screenshot", content_type: "image/png" },
+        ],
+        artifact_count: 1,
+      },
+    })],
+  });
+  const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
+  await settle();
+
+  const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
+  const review = byClass(evidence, "review-card")[0];
+  assert.equal(review.getAttribute("data-request-id"), "4601");
+  // Passed to the strip is not the same as drawn by it: three are on screen
+  // and the rest are folded away, so this request keeps its own evidence.
+  assert.equal(byClass(evidence, "review-more").length, 1);
+  assert.equal(byClass(review, "review-evidence").length, 1);
 });

@@ -10,7 +10,11 @@
 // a picture that proves nothing about this run is never presented as if it
 // did.
 
-import { evidenceStrip } from "./review_evidence_strip.js";
+import {
+  drawnArtifacts,
+  evidenceStrip,
+  normalizedArtifacts,
+} from "./review_evidence_strip.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import { evidenceOf } from "./review_request_presentation.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
@@ -198,13 +202,6 @@ export function carriedItemReviews(facts, itemId, runId, checks) {
   return [...requests.values()];
 }
 
-// QA rows key an artifact `id`; a request's frozen snapshot keys it
-// `artifact_id`. Identity is the same row either way.
-function artifactKey(artifact) {
-  const id = artifact?.id ?? artifact?.artifact_id;
-  return id == null ? "" : String(id);
-}
-
 function captionOf(checks) {
   const counts = new Map();
   // Where a check records the stage it ran at, the caption keeps it: that is
@@ -262,10 +259,10 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
         + "release; older ones are on the item.",
     ));
   }
-  const strip = evidenceStrip(context, artifacts, {
-    compact: true,
-    limit: CARRIED_EVIDENCE_SHOWN,
-  });
+  // One options object for the strip and for what counts as on screen, so
+  // the two can never disagree about how much of this evidence is visible.
+  const stripOptions = { compact: true, limit: CARRIED_EVIDENCE_SHOWN };
+  const strip = evidenceStrip(context, artifacts, stripOptions);
   if (strip) wrap.appendChild(strip);
   if (unlinked) {
     wrap.appendChild(el(
@@ -278,11 +275,20 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   // The strip above is this item's recent history, which is not the same
   // thing as this request's evidence: the reviewed capture may be older than
   // the bound, or the strip may be empty. Its own evidence is suppressed
-  // only where every artifact it rests on is demonstrably already on screen.
-  const shown = new Set(artifacts.map(artifactKey).filter(Boolean));
+  // only where every artifact it rests on is demonstrably already on screen
+  // — drawn, not merely passed in, since the strip folds everything past its
+  // limit behind "+N more" where nobody has seen it yet.
+  const shown = new Set(
+    (strip ? drawnArtifacts(artifacts, stripOptions) : []).map(
+      (artifact) => String(artifact.id),
+    ),
+  );
   for (const request of reviews) {
-    const own = evidenceOf(request).artifacts.map(artifactKey).filter(Boolean);
-    const alreadyShown = own.length > 0 && own.every((key) => shown.has(key));
+    const evidence = evidenceOf(request);
+    const own = normalizedArtifacts(evidence.artifacts, {
+      requirementId: evidence.requirementId,
+    }).map((artifact) => String(artifact.id));
+    const alreadyShown = own.length > 0 && own.every((id) => shown.has(id));
     wrap.appendChild(reviewRequestCard(context, request, {
       inline: true,
       evidence: !alreadyShown,
