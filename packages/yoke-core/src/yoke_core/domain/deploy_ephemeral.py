@@ -73,6 +73,10 @@ from yoke_core.domain.deploy_ephemeral_remote import (
     teardown_slug_project,
     verify_slug_health,
 )
+from yoke_core.domain.deploy_ephemeral_revision import (
+    resolve_branch_sha,
+    verify_revision,
+)
 from yoke_core.domain.deploy_image_tag import canonical_image_tag
 from yoke_core.domain.deploy_remote import CommandRunner, aws_capability_env
 from yoke_core.domain.ephemeral_substrate import (
@@ -98,21 +102,6 @@ def _emit(line: str) -> None:
     print(line, flush=True)
 
 
-def _resolve_branch_sha(runner: CommandRunner, repo_path: str, branch: str) -> str:
-    """The branch's local commit SHA — the worktree tier deploys local code."""
-    if not repo_path:
-        raise EphemeralDeployError(
-            "[ephemeral] no project repo path available to resolve the branch SHA"
-        )
-    result = runner.run(["git", "-C", repo_path, "rev-parse", branch], timeout=30)
-    if not result.ok or not result.stdout.strip():
-        raise EphemeralDeployError(
-            f"[ephemeral] could not resolve branch '{branch}' in "
-            f"{repo_path}: {result.stderr.strip()}"
-        )
-    return result.stdout.strip()
-
-
 def exec_ephemeral_deploy(
     project: str,
     *,
@@ -120,18 +109,39 @@ def exec_ephemeral_deploy(
     repo_path: str = "",
     image_tag: str = "",
     item_label: str = "",
+    preview_key: str = "",
+    revision: str = "",
     runner: Optional[CommandRunner] = None,
     emit: Callable[[str], None] = _emit,
 ) -> int:
-    """Deploy *branch* of *project* as an isolated preview environment."""
+    """Deploy a preview environment for *project*.
+
+    A branch preview names itself by its branch and deploys whatever that
+    branch currently points at — the ordinary case, and the default when
+    neither *preview_key* nor *revision* is given.
+
+    A release preview supplies both: *preview_key* names the preview after
+    something that does not move (its deployment run), and *revision* pins
+    the exact commit deployed. That pairing is the whole point — a frozen
+    candidate named after a branch would be replaced by the next push to
+    that branch, which is exactly what a candidate under review must
+    survive.
+    """
     runner = runner or CommandRunner()
     slug = ""
     try:
-        if not branch:
+        preview_key = preview_key or branch
+        if not preview_key:
             raise EphemeralDeployError(
-                "[ephemeral] no branch to deploy: run item-bound (the item's "
+                "[ephemeral] no preview to deploy: run item-bound (the item's "
                 "worktree branch) or pass --branch to "
                 "python3 -m yoke_core.domain.deploy_ephemeral"
+            )
+        if not revision and not branch:
+            raise EphemeralDeployError(
+                f"[ephemeral] preview '{preview_key}' names no branch and no "
+                "revision, so there is nothing to resolve a commit from; pass "
+                "the exact revision for a preview that is not branch-shaped"
             )
         project_root = Path(repo_path).expanduser().resolve()
         if not repo_path or not project_root.is_dir():
@@ -147,7 +157,7 @@ def exec_ephemeral_deploy(
                 f"project '{policy.host_project}' is declared render_only; "
                 f"activate its Pulumi stack ({env.stack_name}) first"
             )
-        slug = slugify_branch(branch)
+        slug = slugify_branch(preview_key)
         api_port = policy.api_port_for(slug)
         url = preview_url(slug, policy.preview_domain)
         deploy_dir = ephemeral_deploy_dir(policy.preview_namespace, slug)
@@ -157,7 +167,11 @@ def exec_ephemeral_deploy(
             f"({env.origin_host}, port {api_port})"
         )
 
-        sha = _resolve_branch_sha(runner, repo_path, branch)
+        sha = (
+            verify_revision(runner, repo_path, revision)
+            if revision
+            else resolve_branch_sha(runner, repo_path, branch)
+        )
         tag = image_tag or canonical_image_tag(sha)
         aws_env = aws_capability_env(policy.host_project, env.aws_region)
         ensure_instance_running(runner, env, aws_env, emit)
@@ -198,7 +212,7 @@ def exec_ephemeral_deploy(
         )
         track(
             policy.project,
-            branch,
+            preview_key,
             {"port_api": str(api_port), "url": url, "deployed_sha": sha},
             item_label=item_label,
         )
@@ -262,17 +276,25 @@ def exec_ephemeral_teardown(
     project: str,
     *,
     branch: str = "",
+    preview_key: str = "",
     runner: Optional[CommandRunner] = None,
     emit: Callable[[str], None] = _emit,
 ) -> int:
-    """Tear down *branch*'s preview: compose down, volumes, dir, DB row."""
+    """Tear down a preview: compose down, volumes, dir, DB row.
+
+    Named the same way it was deployed — by branch for a branch preview,
+    by *preview_key* for one named after something else — because a
+    preview that cannot be addressed by the name it was created under
+    cannot be cleaned up at all.
+    """
     runner = runner or CommandRunner()
     try:
-        if not branch:
+        preview_key = preview_key or branch
+        if not preview_key:
             raise EphemeralDeployError("[ephemeral] --branch is required for teardown")
         policy = load_ephemeral_policy(project)
         env = resolve_deploy_environment(policy.host_project, policy.host_env)
-        slug = slugify_branch(branch)
+        slug = slugify_branch(preview_key)
         teardown_slug_project(
             runner,
             env,
@@ -280,9 +302,9 @@ def exec_ephemeral_teardown(
             compose_project_name(policy.preview_namespace, slug),
             emit,
         )
-        track(policy.project, branch, {"status": "stopped"})
+        track(policy.project, preview_key, {"status": "stopped"})
         emit_ephemeral_event(
-            "DeploymentEphemeralTorndown", policy, slug, {"branch": branch}
+            "DeploymentEphemeralTorndown", policy, slug, {"branch": preview_key}
         )
         return 0
     except _FAILURE_CLASSES as exc:

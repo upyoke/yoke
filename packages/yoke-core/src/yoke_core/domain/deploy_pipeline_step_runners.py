@@ -92,6 +92,12 @@ def _dispatch_step_runner(
     if step_runner == "ephemeral-deploy":
         from yoke_core.domain.deploy_ephemeral import exec_ephemeral_deploy
 
+        # A stage whose own target is a run preview deploys the run's frozen
+        # candidate under the run's own name. A branch preview — every other
+        # ephemeral stage — keeps deploying that branch's current head under
+        # the branch name, which is what a development preview is for.
+        target = stage.get("target") or {}
+        release_preview = str(target.get("kind") or "") == "run_preview"
         return (
             exec_ephemeral_deploy(
                 project,
@@ -99,6 +105,8 @@ def _dispatch_step_runner(
                 repo_path=project_repo_path,
                 image_tag=str(config.get("image_tag", "") or ""),
                 item_label=first_item_label,
+                preview_key=run_id if release_preview else "",
+                revision=release_lineage if release_preview else "",
             ),
             "",
         )

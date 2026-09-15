@@ -156,7 +156,6 @@ class TestRunPreviewProducer:
 
     def test_an_unconfigured_project_refuses_before_deploying(self) -> None:
         """Standing a preview up that cannot be proved wastes the deploy."""
-        dispatched: list = []
         context = _context()
         with _resolved(unconfigured=True):
             rc, diag, observation = producer.run_preview_producer(context)
