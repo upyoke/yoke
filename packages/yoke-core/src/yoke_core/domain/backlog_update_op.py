@@ -20,6 +20,9 @@ from yoke_core.domain.backlog_queries import (
 from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
 )
+from yoke_core.domain.deployment_qa_admission_materialization import (
+    admitted_copy_passed_sql,
+)
 from yoke_core.domain.backlog_batch_update import execute_batch_update
 from yoke_core.domain.backlog_post_write_sync import run_post_db_sync
 from yoke_core.domain.backlog_project_issue_migration import (
@@ -189,13 +192,17 @@ def _execute_update_once(
             ).fetchone()
             if (qa_req_row["cnt"] if qa_req_row else 0) > 0:
                 unsatisfied_all = conn.execute(
-                    """SELECT COUNT(*) as cnt FROM qa_requirements qr
+                    f"""SELECT COUNT(*) as cnt FROM qa_requirements qr
                        WHERE qr.item_id = %s AND qr.blocking_mode = 'blocking'
                        AND qr.waived_at IS NULL
                        AND NOT EXISTS (
                            SELECT 1 FROM qa_runs qrun
                            WHERE qrun.qa_requirement_id = qr.id
                            AND qrun.verdict = 'pass'
+                       )
+                       AND NOT (
+                           qr.qa_phase = 'post_deploy'
+                           AND {admitted_copy_passed_sql(conn, source_alias="qr")}
                        )""",
                     (item_dict["id"],),
                 ).fetchone()

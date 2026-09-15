@@ -14,6 +14,39 @@ from yoke_core.domain.qa_execution_environment_target import (
 from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_plan_requirement_snapshot import require_existing_target
 from yoke_core.domain.db_helpers import query_rows
+from yoke_core.domain.schema_common import _column_exists
+
+ADMITTED_REQUIREMENT_CASE_PREFIX = "admitted-requirement-"
+
+
+def admitted_requirement_case_key(source_id: int) -> str:
+    """Stable case key for a frozen-admission copy of an intake row."""
+    return f"{ADMITTED_REQUIREMENT_CASE_PREFIX}{int(source_id)}"
+
+
+def admitted_copy_passed_sql(conn: Any, *, source_alias: str = "r") -> str:
+    """SQL fragment: the intake row has a passing frozen-admission copy."""
+    if not _column_exists(conn, "qa_requirements", "plan_case_key"):
+        return "FALSE"
+    prefix = ADMITTED_REQUIREMENT_CASE_PREFIX.replace("'", "''")
+    member_pred = ""
+    if _column_exists(conn, "qa_requirements", "deployment_member_item_id"):
+        member_pred = (
+            f"AND COALESCE(copy.deployment_member_item_id, 0) = "
+            f"{source_alias}.item_id "
+        )
+    return (
+        "EXISTS("
+        "SELECT 1 FROM qa_requirements copy "
+        "JOIN qa_runs copy_run ON copy_run.qa_requirement_id = copy.id "
+        "AND copy_run.verdict = 'pass' "
+        "WHERE copy.item_id IS NULL AND copy.plan_id IS NULL "
+        f"AND copy.plan_case_key = '{prefix}' || CAST({source_alias}.id AS TEXT) "
+        "AND copy.qa_phase = 'post_deploy' "
+        "AND copy.blocking_mode = 'blocking' "
+        "AND copy.waived_at IS NULL "
+        f"{member_pred})"
+    )
 
 
 def _target_environment(target: Mapping[str, Any]) -> str:
@@ -69,7 +102,7 @@ def materialize_admitted_requirement(
     source_id = int(requirement.get("id") or 0)
     if source_id < 1:
         raise QaPlanError("frozen member QA requirement has no source identity")
-    case_key = f"admitted-requirement-{source_id}"
+    case_key = admitted_requirement_case_key(source_id)
     existing = conn.execute(
         "SELECT id,execution_target_json,execution_target_digest "
         "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
@@ -302,6 +335,9 @@ def fulfill_admitted_obligations(
 
 
 __all__ = [
+    "ADMITTED_REQUIREMENT_CASE_PREFIX",
+    "admitted_copy_passed_sql",
+    "admitted_requirement_case_key",
     "fulfill_admitted_obligations",
     "materialize_admitted_requirement",
     "member_requirements",
