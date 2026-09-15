@@ -69,9 +69,9 @@ def _do_merge(
         )
         actual = (br.stdout or "").strip()
         if actual and actual != lane_branch:
-            from yoke_contracts.public_ref import format_item_ref
+            from yoke_contracts.public_ref import unresolved_item_ref
 
-            ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
+            ref = public_ref or unresolved_item_ref(item_id)
             print(f"Warning: branch mismatch for {ref}", file=sys.stderr)
             print(f"  Stored:  {lane_branch}", file=sys.stderr)
             print(f"  Actual:  {actual}", file=sys.stderr)
@@ -275,9 +275,9 @@ def _handle_already_done(
     public_ref: Optional[str] = None,
 ) -> int:
     """Handle already-completed items with a tiny idempotent fast path."""
-    from yoke_contracts.public_ref import format_item_ref
+    from yoke_contracts.public_ref import unresolved_item_ref
 
-    ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
+    ref = public_ref or unresolved_item_ref(item_id)
     print(
         f"Pre-flight: {ref} is already completed (status=done, "
         "worktree cleared)."

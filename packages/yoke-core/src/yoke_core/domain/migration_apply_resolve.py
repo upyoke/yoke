@@ -153,9 +153,7 @@ def _resolve_profile_or_raise(item: Mapping[str, Any]) -> Dict[str, Any]:
     public_ref = format_item_ref(
         item.get("project"),
         item.get("public_item_prefix"),
-        item.get("project_sequence"),
-        item_id=item["id"],
-    )
+        item.get("project_sequence"))
     raw = item.get("db_mutation_profile")
     parsed = _safe_parse_json_dict(raw)
     if not parsed or parsed.get("state") == STATE_NONE:

@@ -6,7 +6,7 @@ import sys
 from typing import Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import db_backend
 from yoke_core.engines import done_transition_github_sync
@@ -224,7 +224,7 @@ def finish_done_transition(
     closeout still has to import or read has to happen while the tree is
     still on disk.
     """
-    ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
+    ref = public_ref or unresolved_item_ref(item_id)
     try:
         _run_closeout(
             done_transition,

@@ -178,9 +178,7 @@ def get_item_detail(item_id: int) -> dict[str, Any]:
             "public_ref": format_item_ref(
                 row["project"],
                 row["public_item_prefix"],
-                row["project_sequence"],
-                item_id=item_id,
-            ),
+                row["project_sequence"]),
             "title": str(row["title"]),
             "status": str(row["status"]),
             "priority": str(row.get("priority") or ""),

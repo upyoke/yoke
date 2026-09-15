@@ -98,9 +98,7 @@ def landing_readbacks(
                 public_ref=format_item_ref(
                     row["slug"],
                     row["public_item_prefix"],
-                    row["project_sequence"],
-                    item_id=item_id,
-                ),
+                    row["project_sequence"]),
                 status=str(row["status"]),
                 readiness=readiness,
             )

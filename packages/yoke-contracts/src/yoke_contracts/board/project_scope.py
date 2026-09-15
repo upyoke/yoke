@@ -14,8 +14,8 @@ from contextvars import ContextVar
 from typing import Any, Tuple
 
 from yoke_contracts.public_ref import (
-    DEFAULT_PUBLIC_ITEM_PREFIX,
     format_item_ref,
+    unresolved_item_ref,
 )
 
 _VISIBLE_PROJECT_IDS: ContextVar[tuple[int, ...] | None] = ContextVar(
@@ -133,9 +133,9 @@ def public_ref(db: Any, item_id: int) -> str:
         (int(item_id),),
     )
     if not rows:
-        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
+        return unresolved_item_ref(int(item_id))
     slug, prefix, sequence = rows[0]
-    return format_item_ref(slug, prefix, sequence, item_id=int(item_id))
+    return format_item_ref(slug, prefix, sequence)
 
 
 __all__ = [

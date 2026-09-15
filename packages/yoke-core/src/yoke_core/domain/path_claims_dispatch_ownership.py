@@ -23,9 +23,8 @@ from typing import Any, Dict, Optional
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims_dispatch_io import print_error
 from yoke_core.domain.project_identity import (
-    DEFAULT_PUBLIC_ITEM_PREFIX,
-    format_item_ref,
     render_item_ref,
+    unresolved_item_ref,
 )
 from yoke_core.api.service_client_shared_session_resolver import (
     current_session_id as _current_session_id,
@@ -49,10 +48,10 @@ class OwnershipDenial(Exception):
         self.action = action
         self.item_id = int(item_id)
         # Live callers pass the canonical public ref rendered from a conn;
-        # a conn-less construction falls back to the default-prefix form of
-        # the internal id (mirrors ``render_item_ref``'s own fallback).
-        self.public_ref = public_ref or format_item_ref(
-            None, DEFAULT_PUBLIC_ITEM_PREFIX, self.item_id, item_id=self.item_id
+        # a conn-less construction has no identity read to render from, so
+        # the denial says so rather than naming a ref it did not resolve.
+        self.public_ref = public_ref or unresolved_item_ref(
+            self.item_id, consulted=False
         )
         self.claim_id = int(claim_id) if claim_id is not None else None
         self.caller_session_id = caller_session_id or ""

@@ -19,7 +19,7 @@ from yoke_contracts.board.sections_sessions_rendering import (
     _claims_for_session,
     _render_claim_target,
 )
-from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_contracts.session_holdings import (
     SESSION_PATH_HOLDING_KEY,
     coordination_holding_key,
@@ -41,7 +41,7 @@ def _item_target(db: BoardDBLike, item_id: int) -> str:
     try:
         return public_ref(db, item_id)
     except Exception:
-        return format_item_ref(None, None, None, item_id=item_id)
+        return unresolved_item_ref(item_id)
 
 
 def _work_key(claim: Tuple, target: str) -> str:

@@ -13,8 +13,8 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.project_identity import (
-    DEFAULT_PUBLIC_ITEM_PREFIX,
     render_item_ref,
+    unresolved_item_ref,
 )
 
 
@@ -48,8 +48,8 @@ def _display_item_ref(conn: Optional[Any], item_id: int) -> str:
     The report runs every read on one shared connection, and some fixtures
     build a minimal ``items`` schema without the ``projects`` join that
     :func:`render_item_ref` needs. On Postgres a failed lookup aborts the
-    surrounding transaction, so roll it back and fall back to the
-    default-prefix ref rather than poisoning the rest of the report.
+    surrounding transaction, so roll it back and report the ref as
+    unresolved rather than poisoning the rest of the report.
     """
     if conn is not None:
         try:
@@ -59,4 +59,4 @@ def _display_item_ref(conn: Optional[Any], item_id: int) -> str:
                 conn.rollback()
             except Exception:  # noqa: BLE001 - best-effort transaction reset.
                 pass
-    return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
+    return unresolved_item_ref(int(item_id), consulted=conn is not None)
