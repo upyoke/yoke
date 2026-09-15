@@ -88,15 +88,16 @@ def recorded_commit(entry: Any) -> dict[str, dict[str, Any]]:
     parents = entry.get("parents")
     if not isinstance(parents, list):
         raise incomplete(f"the comparison listed commit {sha} without parents")
-    parent_shas = tuple(
-        str(parent.get("sha") or "").strip().lower()
-        for parent in parents
-        if isinstance(parent, Mapping) and parent.get("sha")
-    )
-    if not parent_shas:
+    if not parents:
         raise incomplete(
             f"the comparison listed commit {sha} with no usable parent"
         )
+    # Parent ORDER is the whole meaning of a first-parent walk, so a parent
+    # that cannot be read is never dropped: skipping an unreadable first
+    # parent promotes the second one into its place and the walk follows a
+    # merged side branch as though it were the trunk, reporting a different
+    # release rather than an unread one.
+    parent_shas = tuple(_parent_sha(parent, sha, index) for index, parent in enumerate(parents))
     return {
         sha: {
             "message": str(commit.get("message") or ""),
@@ -104,6 +105,19 @@ def recorded_commit(entry: Any) -> dict[str, dict[str, Any]]:
             "parents": parent_shas,
         }
     }
+
+
+def _parent_sha(parent: Any, sha: str, index: int) -> str:
+    """Read one parent at its own position, holding it to the commit's bar."""
+    candidate = ""
+    if isinstance(parent, Mapping):
+        candidate = str(parent.get("sha") or "").strip().lower()
+    if len(candidate) != FULL_SHA_LENGTH or not is_hex(candidate):
+        raise incomplete(
+            f"the comparison listed commit {sha} with an unusable parent "
+            f"{candidate!r} at position {index}"
+        )
+    return candidate
 
 
 def is_hex(value: str) -> bool:

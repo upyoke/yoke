@@ -24,6 +24,9 @@ TIP = "c" * 40
         {"sha": TIP, "commit": {}},
         {"sha": TIP, "commit": {}, "parents": []},
         {"sha": TIP, "commit": {}, "parents": [{"ref": "no-sha"}]},
+        {"sha": TIP, "commit": {}, "parents": [{"sha": "garbage"}]},
+        {"sha": TIP, "commit": {}, "parents": [{"sha": BASE[:8]}]},
+        {"sha": TIP, "commit": {}, "parents": ["not-an-object"]},
     ],
     ids=[
         "entry-not-an-object",
@@ -31,7 +34,10 @@ TIP = "c" * 40
         "sha-unusable",
         "parents-absent",
         "parents-empty",
-        "parents-without-shas",
+        "parent-without-sha",
+        "parent-sha-not-hex",
+        "parent-sha-abbreviated",
+        "parent-not-an-object",
     ],
 )
 def test_a_commit_entry_that_cannot_carry_the_graph_is_unknown(entry: Any):
@@ -66,3 +72,36 @@ def test_a_well_formed_entry_reads_into_one_graph_node():
             "parents": (BASE,),
         }
     }
+
+
+def test_an_unreadable_first_parent_is_never_dropped_for_the_second():
+    """Parent order is the whole meaning of a first-parent walk.
+
+    Filtering the unreadable entry out promotes the second parent into first
+    position, and the walk then follows a merged side branch as though it
+    were the trunk — reporting a different release rather than an unread one.
+    """
+    with pytest.raises(CarriedWorkSourceUnavailable) as raised:
+        recorded_commit(
+            {
+                "sha": TIP,
+                "commit": {},
+                "parents": [{"ref": "missing-sha"}, {"sha": BASE}],
+            }
+        )
+
+    assert raised.value.reason == "repository_provider_comparison_incomplete"
+    assert "position 0" in raised.value.recovery
+
+
+def test_a_readable_parent_list_keeps_the_order_it_arrived_in():
+    second = "d" * 40
+    node = recorded_commit(
+        {
+            "sha": TIP,
+            "commit": {},
+            "parents": [{"sha": BASE}, {"sha": second}],
+        }
+    )
+
+    assert node[TIP]["parents"] == (BASE, second)

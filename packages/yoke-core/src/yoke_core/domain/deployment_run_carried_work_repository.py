@@ -258,8 +258,8 @@ class RepositoryProviderSource:
             )
         while cursor in self._graph and cursor not in chain:
             chain.append(cursor)
-            # ``_record`` refuses a parentless entry, so leaving the graph is
-            # the only way this walk ends: that is the base side of the range.
+            # ``recorded_commit`` refuses an unreadable parent, so leaving
+            # the graph is the only way this walk ends: the base side.
             cursor = self._graph[cursor]["parents"][0]
         chain.reverse()
         return tuple(chain)
