@@ -12,9 +12,9 @@ shapes rather than guessing from a negative signal ("not a known
 shell", "line starts with a sink"): each requires an unquoted ``>``
 (the "this becomes a file" signal) on a single, self-contained
 statement with no OTHER unquoted ``;``/``&``/``|`` riding along, AND —
-for a heredoc — that the exact reading program is one proven inert by
-the FN evidence (`cat`, `python3`), not merely absent from a shell
-denylist. A compound or uncertain form — a heredoc read by a
+for a heredoc — that the exact reading program is one of the two known
+to only write or print its input (`cat`, `python3`), not merely absent
+from a shell denylist. A compound or uncertain form — a heredoc read by a
 launcher-wrapped or piped shell (``env bash <<EOF``, ``env bash >
 out.log <<EOF``, ``cat <<EOF | bash``), or a sink-leading line that
 also carries a second, different statement (``echo ok > /tmp/x; bash
@@ -48,11 +48,11 @@ _HEREDOC_START = re.compile(
     r"<<-?\s*(?:'(?P<sq>[^']*)'|\"(?P<dq>[^\"]*)\"|(?P<bare>[A-Za-z_]\w*))"
 )
 
-#: Readers whose own heredoc is proven inert — the exact FN evidence
-#: (``cat`` writing a scratch file, ``python3`` printing one). Anything
-#: else, including a launcher-wrapped or unrecognized reader, is a
-#: burden-of-proof failure and is left untouched: a positive admit
-#: list, never a "not a known shell" guess.
+#: Readers whose own heredoc is proven inert: ``cat`` writing it to a
+#: scratch file, ``python3`` printing one. Anything else, including a
+#: launcher-wrapped or unrecognized reader, is a burden-of-proof
+#: failure and is left untouched: a positive admit list, never a
+#: "not a known shell" guess.
 _HEREDOC_DATA_READERS = frozenset({"cat", "python3"})
 
 #: Programs whose ordinary job is writing their argument/stdin as data.
