@@ -100,6 +100,32 @@ def test_profiled_size_matches_files_directories_and_node_ids(tmp_path) -> None:
     )
 
 
+def test_profiled_size_treats_equivalent_path_spellings_as_the_same_work(
+    tmp_path,
+) -> None:
+    root = _profile(tmp_path)
+    expected = ci_shards.profiled_size(root, ["runtime/api/"])
+    assert expected == (3.0, 2)
+    assert ci_shards.profiled_size(root, ["./runtime/api/"]) == expected
+    assert ci_shards.profiled_size(root, [str(root / "runtime" / "api")]) == expected
+    assert ci_shards.profiled_size(
+        root, ["./runtime/api/test_a.py::test_one"]
+    ) == (1.0, 1)
+    whole = (15.0, 4)
+    assert ci_shards.profiled_size(root, ["."]) == whole
+    assert ci_shards.profiled_size(root, [str(root)]) == whole
+
+
+def test_profiled_size_drops_targets_outside_the_checkout(tmp_path) -> None:
+    root = _profile(tmp_path)
+    outsider = tmp_path / "elsewhere" / "runtime" / "api"
+    outsider.mkdir(parents=True)
+    assert ci_shards.profiled_size(root, [str(outsider)]) == (0.0, 0)
+    assert ci_shards.profiled_size(
+        root, [str(outsider), "runtime/api/"]
+    ) == (3.0, 2)
+
+
 def test_a_selection_the_profile_has_never_seen_is_sized_at_zero(tmp_path) -> None:
     # An unseen test adds time this cannot measure, so the estimate is a
     # floor: it costs a shard, never coverage.

@@ -13,7 +13,8 @@ name: yoke-tests-selection
 # selection plans one shard and runs exactly as it did before; a large one
 # is cut up to the full suite's own shard count, each shard still using
 # every core. Any failed shard fails the run, which is the verdict the
-# dispatching wrapper adopts.
+# dispatching wrapper adopts. Selection runners install the same Node 22
+# + npm-ci TypeScript toolchain as yoke-ci: contract tests fail without it.
 #
 # Its concurrency group is keyed by dispatch id and never
 # cancels: yoke-ci cancels in-progress runs per ref, and a selection
@@ -143,6 +144,14 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --all-packages --all-groups --locked
+
+      - name: Set up Node.js
+        # Same toolchain full CI installs: selected TypeScript contract
+        # tests fail here without it, even on a one-shard plan.
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with: {node-version: "22", cache: npm, cache-dependency-path: packages/yoke-core/src/yoke_core/ui/package-lock.json}
+      - name: Install TypeScript compiler
+        run: npm ci --prefix packages/yoke-core/src/yoke_core/ui
 
       - name: Register libpython with the system loader cache
         # Tests spawn python3 with a cleaned env (merge engine, installer

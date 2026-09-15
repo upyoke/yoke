@@ -36,10 +36,11 @@ Local verification stays change-scoped:
   than paying for a second one.
 
   A large selection runs on several runners at once: a plan job sizes it
-  against the committed duration profile and publishes both the matrix
-  fan-out and the split count, so the shards cover it exactly once and a
-  failed shard is the run's verdict. Small selections plan one shard and
-  run as before; each shard uploads its own `pytest-output-selection-N`.
+  against the committed duration profile using one spelling of each path
+  and publishes the matrix and split count, so shards cover it once and a
+  failed shard is the run's verdict. Small selections plan one shard;
+  each uploads `pytest-output-selection-N`. Selection CI installs the
+  same Node/tsc toolchain as full CI.
 
   It refuses rather than testing the wrong tree: an uncommitted tree (CI
   tests the pushed commit), and a checkout sitting on the base branch
