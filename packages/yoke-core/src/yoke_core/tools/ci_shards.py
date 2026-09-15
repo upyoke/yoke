@@ -26,14 +26,9 @@ stale profile turns more shards into worse balance rather than better. A lagging
 profile is also invisible to :func:`profiled_size`, so it shows up as a
 selection sized far below the work it then does.
 
-Refreshing it means reading the per-test times out of the ``pytest-report.xml``
-artifact every shard of a full-suite CI run uploads — the one place the whole
-suite is measured on the fleet that runs it, and never a local sweep. Those
-times are measured under ``-n auto``, so each one carries its neighbours'
-contention and summing them overcounts the wall time the group took; dividing
-by that same run's own ratio of session wall time to summed case time leaves
-every test's weight relative to every other untouched and keeps a stored sum
-readable as the wall seconds it predicts, which is the unit
+:mod:`yoke_core.tools.ci_durations_refresh` rebuilds it from a full-suite CI
+run and owns what a stored second means: a group's sum is the wall seconds that
+group is expected to take, which is the unit
 :data:`MIN_SHARD_PROFILE_SECONDS` is written in.
 
 ``-n auto`` mirrors ``DEFAULT_PARALLEL_WORKERS`` in
@@ -68,21 +63,15 @@ DURATIONS_PATH = ".test_durations"
 OUTPUT_LOG = "pytest-output.txt"
 JUNIT_REPORT = "pytest-report.xml"
 
-# Profiled test seconds one shard is worth carrying.
-#
-# Deliberately well under the ~150s break-even above, because profiled
-# seconds are a floor and a change-scoped selection is exactly where that
-# floor bites: `profiled_size` can only see tests the committed profile
-# already holds, and the tests a change adds are the ones no full-suite run
-# has measured yet. One observed selection profiled at 63s and then ran 748
-# tests in 179.55s. Refreshing the profile narrows that gap without closing
-# it — the same selection profiles at 114s against a current one — so the
-# budget stays below the break-even rather than assuming it away.
-#
-# The asymmetry settles the remaining doubt: one shard too many costs that
-# runner's fixed setup, in parallel with work that was going to run anyway,
-# while one shard too few costs the whole selection the wall time it could
-# have split.
+# Profiled test seconds one shard is worth carrying, deliberately well under
+# the ~150s break-even above. Profiled seconds are a floor: `profiled_size`
+# sees only tests the committed profile already holds, and the tests a change
+# adds are exactly the ones no full-suite run has measured yet, so a
+# change-scoped selection always profiles at less than it runs. Budgeting at
+# the break-even would assume that gap away. Erring low is also the cheaper
+# side to be wrong on — one shard too many costs that runner's fixed setup
+# beside work that was going to run anyway, one too few costs the selection
+# the wall time it could have split.
 MIN_SHARD_PROFILE_SECONDS = 60.0
 
 
