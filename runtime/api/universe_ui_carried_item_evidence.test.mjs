@@ -16,149 +16,21 @@ import test from "node:test";
 
 import { byClass, FakeDocument, settle } from "./universe_ui_dom_test_support.mjs";
 import { qaRequestRow } from "./universe_ui_inbox_test_support.mjs";
-import { overviewRunCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_overview_cards.js";
+import {
+  activityRow,
+  artifact,
+  cardFor,
+  itemReviewRow,
+  member,
+  memberEntry,
+  readingClient,
+  readingContext,
+  RUN_ID,
+} from "./universe_ui_carried_item_test_support.mjs";
 import {
   carriedItemEvidence,
   loadCarriedItemEvidence,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js";
-
-const RUN_ID = "run-20260910-009";
-const PNG = "iVBORw0KGgo=";
-
-function artifact(id, requirementId) {
-  return {
-    id,
-    artifact_type: "screenshot",
-    content_type: "image/png",
-    requirement_id: requirementId,
-    metadata: { label: `shot-${id}`, step_index: id },
-  };
-}
-
-function activityRow(overrides = {}) {
-  return {
-    requirement_id: 26134,
-    run_id: 28095,
-    deployment_run_id: null,
-    deployment_stage: null,
-    item_id: 1896,
-    deployment_member_item_id: null,
-    plan_id: 7,
-    plan: "release-readiness",
-    project: "yoke",
-    case_key: "marketing-pages-visual",
-    method_name: "Browser inspection",
-    outcome: "undetermined",
-    artifacts: [artifact(17882, 26134), artifact(17883, 26134)],
-    evidence_count: 2,
-    happened_at: "2026-09-10T09:00:00Z",
-    ...overrides,
-  };
-}
-
-function runRow(items) {
-  return {
-    id: RUN_ID,
-    project: "yoke",
-    status: "failed",
-    flow: "yoke-hosted-stage-consumer-bound",
-    target_environment: "stage",
-    created_at: "2026-09-10T10:00:00Z",
-    stages: [{ name: "release", state: "failed" }],
-    gates: [],
-    member_items: items,
-  };
-}
-
-function member(id, ref, overrides = {}) {
-  return {
-    id,
-    ref,
-    title: `${ref} title`,
-    project_id: 1,
-    project_sequence: id,
-    ...overrides,
-  };
-}
-
-// A client that answers the two reads the carried-item evidence needs, and
-// records every request so a case can assert what was actually asked for.
-function readingClient({ rows = [], pending = [], resolves = [] } = {}) {
-  const requests = [];
-  return {
-    requests,
-    resolves,
-    async call(request) {
-      requests.push(request);
-      if (request.function === "qa.activity.list") {
-        const wanted = new Set((request.payload.item_ids || []).map(Number));
-        return {
-          status: 200,
-          envelope: {
-            success: true,
-            result: {
-              rows: rows.filter((row) => wanted.has(
-                Number(row.item_id ?? row.deployment_member_item_id),
-              )),
-              summary: { day: "2026-09-10", total: rows.length, counts: {} },
-            },
-          },
-        };
-      }
-      if (request.function === "inbox.list") {
-        return {
-          status: 200,
-          envelope: { success: true, result: { needs_decision: pending } },
-        };
-      }
-      if (request.function === "decision_requests.resolve") {
-        resolves.push(request.payload);
-        return { status: 200, envelope: { success: true, result: {} } };
-      }
-      if (request.function === "qa.artifact.read") {
-        return {
-          status: 200,
-          envelope: {
-            success: true,
-            result: {
-              disposition: "ready",
-              content_type: "image/png",
-              content_base64: PNG,
-            },
-          },
-        };
-      }
-      throw new Error(`unexpected function ${request.function}`);
-    },
-  };
-}
-
-function readingContext(documentNode, client) {
-  return {
-    document: documentNode,
-    capabilities: {},
-    client,
-    isMounted: () => true,
-    projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
-  };
-}
-
-async function cardFor(documentNode, items, client, onItemDecision = null) {
-  const context = readingContext(documentNode, client);
-  const itemFacts = await loadCarriedItemEvidence(context, items);
-  return {
-    itemFacts,
-    card: overviewRunCard(context, runRow(items), ["1"], {
-      facts: { evidence: new Map(), flowNames: new Map(), failed: null },
-      itemFacts,
-      onItemDecision,
-    }),
-  };
-}
-
-function memberEntry(card, index = 0) {
-  return byClass(card, "overview-run-member")[index];
-}
 
 test("evidence is read for the carried items, not for whatever is recent", async () => {
   const client = readingClient({ rows: [activityRow()] });
@@ -332,4 +204,115 @@ test("a review belonging to another item is not offered under this one", async (
 
   const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
   assert.equal(byClass(evidence, "review-card").length, 0);
+});
+
+test("the read is asked to bound each subject, not the page", async () => {
+  const client = readingClient({ rows: [activityRow()] });
+  const context = readingContext(new FakeDocument(), client);
+
+  await loadCarriedItemEvidence(context, [member(1896, "BUZ-1896")]);
+
+  const activity = client.requests.find((r) => r.function === "qa.activity.list");
+  // With item_ids the server reads this many rows PER ITEM, so a busy
+  // subject cannot spend a quiet one's share.
+  assert.equal(activity.payload.limit, 20);
+  assert.deepEqual(activity.payload.item_ids, [1896]);
+});
+
+test("an item whose evidence was cut short says so in its own entry", async () => {
+  const documentNode = new FakeDocument();
+  const client = readingClient({
+    rows: [activityRow()],
+    selection: { per_item_limit: 20, truncated_item_ids: [1896] },
+  });
+  const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
+  await settle();
+
+  const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
+  const notes = byClass(evidence, "carried-item-evidence-note")
+    .map((node) => node.textContent);
+  assert.ok(
+    notes.some((text) => /latest 20 checks/.test(text)),
+    notes.join(" | "),
+  );
+});
+
+test("a check nobody has run yet still carries its waiting review", async () => {
+  const documentNode = new FakeDocument();
+  const client = readingClient({
+    // No qa_run, so no artifacts — the review is exactly what is waiting.
+    rows: [activityRow({ run_id: null, outcome: "queued", artifacts: [] })],
+    pending: [qaRequestRow({
+      id: 4403,
+      status: "pending",
+      subject_key: "26134",
+      subject_context: {
+        ...qaRequestRow().subject_context, requirement_id: 26134,
+      },
+    })],
+  });
+  const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
+  await settle();
+
+  const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
+  assert.ok(evidence, "the entry is drawn for a check with no run");
+  assert.equal(byClass(evidence, "review-shot").length, 0);
+  assert.equal(byClass(evidence, "review-card")[0].getAttribute("data-request-id"), "4403");
+});
+
+test("a pending review survives its own item's history being cut short", async () => {
+  const documentNode = new FakeDocument();
+  const client = readingClient({
+    // The requirement this review is about is not among the rows that came
+    // back — it fell outside the per-item bound.
+    rows: [activityRow({ requirement_id: 26134 })],
+    selection: { per_item_limit: 20, truncated_item_ids: [1896] },
+    pending: [itemReviewRow({ id: 4500 })],
+  });
+  const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
+  await settle();
+
+  const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
+  const review = byClass(evidence, "review-card")[0];
+  assert.ok(review, "the waiting review is still offered");
+  assert.equal(review.getAttribute("data-request-id"), "4500");
+});
+
+test("a review that names another run is not offered under this run", async () => {
+  const documentNode = new FakeDocument();
+  const client = readingClient({
+    rows: [activityRow({ requirement_id: 26134 })],
+    pending: [itemReviewRow({
+      id: 4501,
+      subject_context: {
+        ...itemReviewRow().subject_context,
+        subject: {
+          ...itemReviewRow().subject_context.subject,
+          deployment_run_id: "run-20260910-003",
+        },
+      },
+    })],
+  });
+  const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
+  await settle();
+
+  const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
+  assert.equal(byClass(evidence, "review-card").length, 0);
+});
+
+test("an item with no shown checks but a waiting review still draws it", async () => {
+  const documentNode = new FakeDocument();
+  const client = readingClient({
+    // Nothing relevant to this run came back at all.
+    rows: [activityRow({ deployment_run_id: "run-20260910-003" })],
+    pending: [itemReviewRow({ id: 4502 })],
+  });
+  const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
+  await settle();
+
+  const evidence = byClass(memberEntry(card), "carried-item-evidence")[0];
+  assert.ok(evidence, "the entry is drawn for the request alone");
+  // No checks to count, so no caption claiming any.
+  assert.equal(byClass(evidence, "carried-item-evidence-caption").length, 0);
+  assert.equal(byClass(evidence, "review-card")[0].getAttribute("data-request-id"), "4502");
 });

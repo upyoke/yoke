@@ -27,6 +27,9 @@ class PlanGetRequest(ProjectReadRequest):
 
 
 class ActivityListRequest(ProjectReadRequest):
+    #: Without ``item_ids`` this caps the whole recency page. With them it
+    #: caps rows PER ITEM, so one busy subject cannot crowd another out of
+    #: the answer, and ``item_selection`` reports what that cost.
     limit: int = Field(default=100, ge=1, le=500)
     deployment_run_id: Optional[str] = Field(default=None, min_length=1)
     #: Narrows to the QA these items own, so a reader showing a known set of
@@ -45,8 +48,17 @@ class ActivitySummaryResponse(BaseModel):
     counts: Dict[str, int]
 
 
+class ActivityItemSelection(BaseModel):
+    """How an item-scoped read was bounded, and which items it cut short."""
+
+    per_item_limit: int = Field(..., ge=1)
+    truncated_item_ids: List[int]
+
+
 class ActivityListResponse(RowsResponse):
     summary: ActivitySummaryResponse
+    #: Present only for an ``item_ids`` read, whose bounding is per item.
+    item_selection: Optional[ActivityItemSelection] = None
 
 
 class MethodGetResponse(BaseModel):
@@ -178,6 +190,7 @@ def handle_activity_list(request: FunctionCallRequest) -> HandlerOutcome:
 
 
 __all__ = [
+    "ActivityItemSelection",
     "ActivityListResponse",
     "ActivityListRequest",
     "ActivitySummaryResponse",

@@ -28,3 +28,22 @@
 .universe-app-root .carried-item-evidence .review-card.inline {
   margin-top: 2px;
 }
+
+/* The same block inside an Inbox release approval, where it is supporting
+   context rather than the decision: the note that says so leads it, and each
+   carried entry keeps the two-column shape the deployment cards use. */
+.universe-app-root .approval-carried {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 6px;
+  background: var(--yoke-bg);
+}
+.universe-app-root .approval-carried-note {
+  margin: 0;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}

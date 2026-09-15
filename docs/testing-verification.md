@@ -121,9 +121,9 @@ resolves the Inbox request. A case that did not run records failure or
 `blocked_on_precondition` and returns to its scheduler without human work.
 When reading the result, pass `deployment_run_id` to `qa.plan.get` to avoid
 mixing another item or run's latest proof into the plan view.
-`qa.activity.list` carries that field on every row and filters on it, and
-takes `item_ids` for the other direction — one item's own checks, which need
-no deployment run; `qa.artifact.read` resolves evidence from the run's project.
+`qa.activity.list` carries that field on every row and filters on it, and takes
+`item_ids` for the other direction — one item's own checks, which need no deployment run, bounded
+per item so no subject crowds out another; `qa.artifact.read` resolves evidence from the run's project.
 
 ## Capabilities and secrets
 

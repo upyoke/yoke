@@ -15,13 +15,14 @@ import { reviewRequestCard } from "./review_request_card.js";
 import { loadPendingReviews } from "./universe_run_evidence.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
-// The most rows one read returns, and how many subjects share it: together
-// they leave every subject in a call room for many more checks than an item
-// accumulates, so what comes back is the subjects' whole QA rather than the
-// most recent slice of it. A view showing more items than one call holds
-// asks again rather than dropping the rest, because a silently truncated
-// subject list reads as an item with no evidence at all.
-const ITEM_ACTIVITY_LIMIT = 500;
+// How many checks one item may contribute, and how many items share a call.
+// The read bounds `limit` PER ITEM for an `item_ids` request, so a busy
+// subject cannot spend another subject's share and leave it looking like an
+// item with no evidence and no waiting review. An item that has more than
+// this comes back cut short and named, which the entry then says out loud.
+// A view showing more items than one call holds asks again rather than
+// dropping the rest, for the same reason.
+const CHECKS_PER_ITEM = 20;
 const SUBJECTS_PER_CALL = 50;
 
 // An item entry is a line in a card, not a gallery.
@@ -30,6 +31,9 @@ const CARRIED_EVIDENCE_SHOWN = 3;
 export const EMPTY_CARRIED_ITEM_FACTS = Object.freeze({
   byItem: new Map(),
   pendingByRequirement: new Map(),
+  pendingByItem: new Map(),
+  truncatedItems: new Set(),
+  perItemLimit: CHECKS_PER_ITEM,
   failed: null,
 });
 
@@ -70,7 +74,7 @@ export async function loadCarriedItemEvidence(context, items) {
         payload: {
           project,
           item_ids: subjects.slice(at, at + SUBJECTS_PER_CALL),
-          limit: ITEM_ACTIVITY_LIMIT,
+          limit: CHECKS_PER_ITEM,
         },
       });
     }
@@ -80,21 +84,30 @@ export async function loadCarriedItemEvidence(context, items) {
     loadPendingReviews(context, buckets.map(([project]) => Number(project))),
   ]);
   const byItem = new Map();
+  const truncatedItems = new Set();
   for (const callResult of callResults) {
     const result = callResult.status === 200 && callResult.envelope?.success
       ? callResult.envelope.result || {}
       : null;
     for (const row of result?.rows || []) {
+      // The same rule the read partitions on, so what it bounded per item
+      // and what this groups per item are the same set.
       const id = row.item_id ?? row.deployment_member_item_id;
       if (id == null) continue;
       const rows = byItem.get(String(id)) || [];
       rows.push(row);
       byItem.set(String(id), rows);
     }
+    for (const id of result?.item_selection?.truncated_item_ids || []) {
+      truncatedItems.add(String(id));
+    }
   }
   return {
     byItem,
     pendingByRequirement,
+    pendingByItem: reviewsByItem(pendingByRequirement),
+    truncatedItems,
+    perItemLimit: CHECKS_PER_ITEM,
     failed: failed
       ? failed.envelope?.error?.message
         || "Item QA evidence could not be loaded."
@@ -130,11 +143,36 @@ export function carriedItemEvidence(facts, itemId, runId) {
   return { checks, artifacts, unlinked };
 }
 
-// The reviews still waiting on this reader for these very checks. Keying off
-// the checks already selected above is what keeps another item's — or
-// another run's — request from being offered here.
-export function carriedItemReviews(facts, checks) {
+// A waiting review names the item it is about, so the reviews for an item
+// are known without consulting its checks at all. That independence is the
+// point: bounding an item's history is a choice about old thumbnails, and it
+// must never be allowed to take a live request off the page with them.
+function reviewsByItem(pendingByRequirement) {
+  const byItem = new Map();
+  for (const request of (pendingByRequirement || new Map()).values()) {
+    const itemId = request.subject_context?.subject?.item_id;
+    if (itemId == null) continue;
+    const requests = byItem.get(String(itemId)) || [];
+    requests.push(request);
+    byItem.set(String(itemId), requests);
+  }
+  return byItem;
+}
+
+// The reviews still waiting on this reader for this item in this run. The
+// item's own reviews come from the request index, so a truncated history
+// cannot hide one; the checks on screen add the reviews whose request names
+// a run rather than an item, which is how a release's per-member check is
+// addressed. Either way a request recorded against a different run belongs
+// to that run and is not offered here.
+export function carriedItemReviews(facts, itemId, runId, checks) {
   const requests = new Map();
+  const wanted = String(runId || "");
+  for (const request of facts?.pendingByItem?.get(String(itemId)) || []) {
+    const recorded = String(request.subject_context?.subject?.deployment_run_id || "");
+    if (recorded && recorded !== wanted) continue;
+    requests.set(String(request.id), request);
+  }
   for (const check of checks) {
     const request = facts?.pendingByRequirement?.get(String(check.requirement_id));
     if (request) requests.set(String(request.id), request);
@@ -175,13 +213,26 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   const itemId = carriedItemId(item);
   if (itemId === null) return null;
   const { checks, artifacts, unlinked } = carriedItemEvidence(facts, itemId, runId);
-  const reviews = carriedItemReviews(facts, checks);
+  const reviews = carriedItemReviews(facts, itemId, runId, checks);
   if (!checks.length && !reviews.length) return null;
   const documentNode = context.document;
   const wrap = el(documentNode, "div", "carried-item-evidence");
-  wrap.appendChild(el(
-    documentNode, "span", "carried-item-evidence-caption", captionOf(checks),
-  ));
+  if (checks.length) {
+    wrap.appendChild(el(
+      documentNode, "span", "carried-item-evidence-caption", captionOf(checks),
+    ));
+  }
+  // The read bounds each item's own share, so what is missing here is this
+  // item's older checks — never another item's, and never silently.
+  if (facts?.truncatedItems?.has(String(itemId))) {
+    wrap.appendChild(el(
+      documentNode,
+      "span",
+      "carried-item-evidence-note",
+      `Showing this item's latest ${facts.perItemLimit || CHECKS_PER_ITEM} `
+        + "checks; older ones are on the item.",
+    ));
+  }
   const strip = evidenceStrip(context, artifacts, {
     compact: true,
     limit: CARRIED_EVIDENCE_SHOWN,

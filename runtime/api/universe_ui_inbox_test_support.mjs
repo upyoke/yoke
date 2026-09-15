@@ -150,7 +150,7 @@ export function messageRow(overrides = {}) {
   };
 }
 
-export function inboxClient(needsRows = null) {
+export function inboxClient(needsRows = null, itemActivityRows = []) {
   const requests = [];
   let needs = needsRows ? [...needsRows] : [requestRow()];
   let messages = [messageRow()];
@@ -163,6 +163,17 @@ export function inboxClient(needsRows = null) {
           needs_decision: structuredClone(needs),
           messages: structuredClone(messages),
           pending_actor_message_count: messages.length,
+        });
+      }
+      // A release approval reads what its carried items proved, scoped to
+      // exactly the subjects the tile lists.
+      if (request.function === "qa.activity.list") {
+        const wanted = new Set((request.payload.item_ids || []).map(Number));
+        return ok({
+          rows: itemActivityRows.filter((row) => wanted.has(
+            Number(row.item_id ?? row.deployment_member_item_id),
+          )),
+          summary: { day: "2026-07-26", total: itemActivityRows.length, counts: {} },
         });
       }
       if (request.function === "decision_requests.resolve") {
@@ -203,10 +214,10 @@ export function inboxClient(needsRows = null) {
   };
 }
 
-export function renderInbox(scope = "all", needsRows = null) {
+export function renderInbox(scope = "all", needsRows = null, itemActivityRows = []) {
   const documentNode = new FakeDocument();
   const main = documentNode.createElement("main");
-  const client = inboxClient(needsRows);
+  const client = inboxClient(needsRows, itemActivityRows);
   renderInboxView({
     document: documentNode,
     client,

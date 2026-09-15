@@ -13,6 +13,7 @@ rather than whatever QA happens to be most recent.
 
 from __future__ import annotations
 
+from collections import Counter
 import json
 
 from runtime.api.fixtures.backlog_inserts import insert_item
@@ -21,7 +22,7 @@ from runtime.api.fixtures.backlog_qa_inserts import (
     insert_qa_run,
 )
 from runtime.api.fixtures.pg_testdb import test_database
-from yoke_core.domain.qa_activity_reads import list_activity
+from yoke_core.domain.qa_activity_reads import list_activity, read_activity
 from yoke_core.domain.qa_plan_management import create_plan
 
 
@@ -147,3 +148,145 @@ def test_activity_asked_for_no_items_returns_no_rows() -> None:
 
         assert list_activity(conn, project="yoke", item_ids=[]) == []
         assert list_activity(conn, project="yoke") != []
+
+
+def test_a_busy_item_cannot_hide_another_carried_item() -> None:
+    """One subject's volume must never cost another subject its evidence.
+
+    A single recency page over several subjects is a defect rather than a
+    page: the busiest item fills the cap and every other requested item
+    reads back as having no evidence and no waiting review, which is
+    exactly the state a card would then report to an approver.
+    """
+    with test_database() as conn:
+        insert_item(conn, id=4810, title="Busy item")
+        insert_item(conn, id=4811, title="Quiet item")
+        plan = create_plan(
+            conn, project="yoke", slug="busy-subject", name="Busy subject"
+        )
+        quiet = insert_qa_requirement(
+            conn,
+            item_id=4811,
+            plan_id=int(plan["id"]),
+            plan_case_key="quiet-case",
+            method_id="terminal-inspection",
+            created_at="2026-01-01T00:00:00Z",
+        )
+        insert_qa_run(
+            conn,
+            qa_requirement_id=int(quiet["id"]),
+            performed_by="host_control",
+            verdict="pass",
+            created_at="2026-01-01T00:00:00Z",
+        )
+        # Every one of these is newer than the quiet item's only check, so
+        # under a single shared cap they would take the whole page.
+        for index in range(12):
+            busy = insert_qa_requirement(
+                conn,
+                item_id=4810,
+                plan_id=int(plan["id"]),
+                plan_case_key=f"busy-case-{index}",
+                method_id="terminal-inspection",
+                created_at=f"2026-06-{index + 1:02d}T00:00:00Z",
+            )
+            insert_qa_run(
+                conn,
+                qa_requirement_id=int(busy["id"]),
+                performed_by="host_control",
+                verdict="pass",
+                created_at=f"2026-06-{index + 1:02d}T00:00:00Z",
+            )
+
+        result = read_activity(conn, project="yoke", item_ids=[4810, 4811], limit=5)
+
+        subjects = {row["item_id"] for row in result["rows"]}
+        assert subjects == {4810, 4811}, result["rows"]
+        per_item = Counter(row["item_id"] for row in result["rows"])
+        assert per_item[4810] == 5
+        assert per_item[4811] == 1
+        # The busy item was cut short; the quiet one was not, and saying so
+        # is the difference between a bounded read and a silent omission.
+        assert result["item_selection"] == {
+            "per_item_limit": 5,
+            "truncated_item_ids": [4810],
+        }
+
+
+def test_a_requirement_with_no_run_stays_visible() -> None:
+    """A check nobody has run yet is what a pending review is attached to."""
+    with test_database() as conn:
+        insert_item(conn, id=4820, title="Awaiting review")
+        plan = create_plan(conn, project="yoke", slug="no-run-yet", name="No run yet")
+        requirement = insert_qa_requirement(
+            conn,
+            item_id=4820,
+            plan_id=int(plan["id"]),
+            plan_case_key="never-run",
+            method_id="terminal-inspection",
+        )
+
+        rows = list_activity(conn, project="yoke", item_ids=[4820])
+
+        assert [row["requirement_id"] for row in rows] == [int(requirement["id"])]
+        assert rows[0]["run_id"] is None
+        assert rows[0]["artifacts"] == []
+
+
+def test_one_release_worth_of_checks_cannot_hide_another_release_s() -> None:
+    """Bounding an item as a whole would cut the rows a card needs.
+
+    A card draws one run. If the read bounds the item across every run it
+    ever took part in, the busiest release's checks arrive newest and the
+    rows belonging to the run actually being drawn never reach the caller
+    that would have filtered to them.
+    """
+    with test_database() as conn:
+        insert_item(conn, id=4830, title="Carried by several releases")
+        plan = create_plan(
+            conn, project="yoke", slug="several-releases", name="Several releases"
+        )
+        older = insert_qa_requirement(
+            conn,
+            item_id=None,
+            deployment_run_id="run-20260101-001",
+            deployment_stage="release",
+            deployment_member_item_id=4830,
+            plan_id=int(plan["id"]),
+            plan_case_key="older-release",
+            method_id="terminal-inspection",
+            created_at="2026-01-01T00:00:00Z",
+        )
+        insert_qa_run(
+            conn,
+            qa_requirement_id=int(older["id"]),
+            performed_by="host_control",
+            verdict="pass",
+            created_at="2026-01-01T00:00:00Z",
+        )
+        for index in range(8):
+            newer = insert_qa_requirement(
+                conn,
+                item_id=None,
+                deployment_run_id="run-20260601-009",
+                deployment_stage="release",
+                deployment_member_item_id=4830,
+                plan_id=int(plan["id"]),
+                plan_case_key=f"newer-release-{index}",
+                method_id="terminal-inspection",
+                created_at=f"2026-06-{index + 1:02d}T00:00:00Z",
+            )
+            insert_qa_run(
+                conn,
+                qa_requirement_id=int(newer["id"]),
+                performed_by="host_control",
+                verdict="pass",
+                created_at=f"2026-06-{index + 1:02d}T00:00:00Z",
+            )
+
+        result = read_activity(conn, project="yoke", item_ids=[4830], limit=3)
+
+        runs = Counter(row["deployment_run_id"] for row in result["rows"])
+        assert runs["run-20260101-001"] == 1, result["rows"]
+        assert runs["run-20260601-009"] == 3
+        assert result["item_selection"]["truncated_item_ids"] == [4830]

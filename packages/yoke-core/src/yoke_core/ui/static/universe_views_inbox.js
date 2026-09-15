@@ -15,6 +15,10 @@ import {
   emptyRow,
 } from "./inbox_rows.js";
 import { reviewRequestCard } from "./review_request_card.js";
+import {
+  appendCarriedItemEvidence,
+  loadCarriedItemEvidence,
+} from "./universe_carried_item_evidence.js";
 
 export { inboxPresentation } from "./inbox_presentation.js";
 
@@ -30,6 +34,56 @@ function projectLabel(context, row) {
   ));
   const label = rowLabel || project?.slug || project?.name || row.project_id;
   return label == null ? "" : String(label);
+}
+
+// The items a release approval would ship. The snapshot names them by id
+// and ref; the project is the request's own, since a run belongs to one.
+function approvalCarriedItems(row) {
+  if (row.kind !== "deployment_stage_approval") return [];
+  const items = row.subject_context?.carried?.items || [];
+  return items.map((item) => ({
+    ...item,
+    project_id: item.project_id ?? row.project_id,
+  }));
+}
+
+// A release approval decides a deployment, not the QA its carried items
+// recorded. Showing that QA here is supporting context for the person
+// approving, so the block says which decision it is not: each item review
+// under it is its own request, answered on its own terms.
+function appendApprovalCarried(context, card, row, facts, onDecide) {
+  const items = approvalCarriedItems(row);
+  if (!items.length) return;
+  const documentNode = context.document;
+  const wrap = el(documentNode, "div", "approval-carried");
+  wrap.appendChild(el(
+    documentNode,
+    "span",
+    "overview-run-batch-title",
+    `Carries · ${items.length} item${items.length === 1 ? "" : "s"}`,
+  ));
+  wrap.appendChild(el(
+    documentNode,
+    "p",
+    "approval-carried-note",
+    "Supporting context. Approving this deployment does not approve these "
+      + "items' QA — each review below is its own request.",
+  ));
+  for (const item of items) {
+    const entry = el(documentNode, "div", "overview-run-member");
+    entry.appendChild(el(
+      documentNode, "code", null, item.ref || `item ${item.item_id}`,
+    ));
+    entry.appendChild(el(documentNode, "span", null, item.title || ""));
+    appendCarriedItemEvidence(context, entry, {
+      item,
+      runId: row.subject_context?.run_id,
+      facts,
+      onDecide,
+    });
+    wrap.appendChild(entry);
+  }
+  card.appendChild(wrap);
 }
 
 function cardList(documentNode, body, cards, emptyText) {
@@ -95,9 +149,17 @@ export function renderInboxView(context, main, scope) {
     const done = [...served, ...answered.values()];
 
     waiting.setCount(pending.length);
-    cardList(documentNode, waiting.body, pending.map((row) => reviewRequestCard(
-      context, row, { onAct: resolve, projectLabel: rowProject(row) },
-    )), "Nothing is waiting on you.");
+    const cards = new Map();
+    cardList(documentNode, waiting.body, pending.map((row) => {
+      const card = reviewRequestCard(
+        context, row, { onAct: resolve, projectLabel: rowProject(row) },
+      );
+      cards.set(row, card);
+      return card;
+    }), "Nothing is waiting on you.");
+    // What each carried item proved is a second read, so the Inbox paints
+    // its decisions first and fills that context in when it lands.
+    appendCarriedContext(pending, cards);
 
     const messageRows = result.messages || [];
     messages.setCount(Number(result.pending_actor_message_count || 0));
@@ -113,6 +175,19 @@ export function renderInboxView(context, main, scope) {
     cardList(documentNode, decided.body, done.map((row) => reviewRequestCard(
       context, row, { compact: true, projectLabel: rowProject(row) },
     )), "");
+  };
+
+  // One batched read for every release approval on the page, then the
+  // shared carried-item renderer — the same loader and the same entry the
+  // deployment cards use, so the association labels cannot drift apart.
+  const appendCarriedContext = async (pending, cards) => {
+    const subjects = pending.flatMap(approvalCarriedItems);
+    if (!subjects.length) return;
+    const facts = await loadCarriedItemEvidence(context, subjects);
+    if (!context.isMounted()) return;
+    for (const [row, card] of cards) {
+      appendApprovalCarried(context, card, row, facts, resolve);
+    }
   };
 
   const resolveOnServer = createDecisionResolver(context, load);

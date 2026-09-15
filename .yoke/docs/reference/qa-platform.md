@@ -51,8 +51,6 @@ JSON array of capability slugs. Case admission checks these against the project'
 ["browser", "docker", "ssh", "repo", "github"]
 ```
 
-An empty array or NULL means no special capabilities are required.
-
 ### Layer 4: success_policy -- What counts as success?
 
 JSON object defining the acceptance criteria for the QA requirement. Supports non-binary, statistical, and composite assessments. See [success_policy JSON Schema](#success_policy-json-schema) below.
@@ -200,9 +198,8 @@ detailed browser-environment semantics are canonical.
 
 When an item or task transitions to `reviewing-implementation`, the system checks that at least one `qa_requirements` row exists. If zero exist, the transition is rejected with a clear error message.
 
-**Implementation:** `yoke_core.domain.qa_gates` enforces this during the
-lifecycle transition. Operators can inspect the public requirement read surface
-with `yoke qa requirement list --item PREFIX-N`.
+**Implementation:** `yoke_core.domain.qa_gates` enforces this during the lifecycle transition.
+Operators inspect the public requirement read surface with `yoke qa requirement list --item PREFIX-N`.
 
 ### Review-Complete Gate
 
@@ -210,9 +207,8 @@ Transitioning to `reviewed-implementation` requires all blocking `verification`-
 
 **Public preview:** `yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json`
 
-A requirement is "satisfied" if:
-- It has at least one `qa_runs` row with `verdict='pass'`, OR
-- It has been waived (`waived_at IS NOT NULL`)
+A requirement is "satisfied" when it has at least one `qa_runs` row with `verdict='pass'`, or has
+been waived (`waived_at IS NOT NULL`).
 
 ### Done Gate
 
@@ -236,9 +232,8 @@ Epic tasks may carry task-level requirements for task execution and verification
 
 ### Epic Parent Aggregation
 
-An epic parent item cannot become `reviewed-implementation` until:
-- All blocking epic-task verification requirements are satisfied
-- All blocking epic-level requirements are satisfied
+An epic parent item cannot become `reviewed-implementation` until every blocking epic-task
+verification requirement and every blocking epic-level requirement is satisfied.
 
 ### Deployment Run Requirements
 
@@ -264,7 +259,11 @@ deployment run at all: `qa.activity.list` also takes `item_ids` (absent reads th
 empty list matches nothing), and every row reports `item_id`, `deployment_member_item_id`,
 `deployment_stage`, and `deployment_run_id`. A surface showing a known set of subjects — the
 items a deployment card carries — reads their evidence rather than whatever QA is most recent,
-and can tell an item's own proof from what it proved inside a release.
+and can tell an item's own proof from what it proved inside a release. With `item_ids`, `limit`
+bounds each item's checks **within each deployment run they name**, and its run-less checks as
+their own group, so neither another item nor another release can take the rows a given card
+needs; `item_selection` reports that cap and the items it cut short. What a cut-short item loses
+is old history, never a live request: a caller joins pending reviews through their own subjects.
 
 ## Browser Methods
 

@@ -69,6 +69,50 @@ def _item_filter(
     )
 
 
+_HAPPENED_AT = "COALESCE(r.completed_at, r.created_at, q.created_at)"
+
+_ACTIVITY_COLUMNS = (
+    "q.id AS requirement_id, q.plan_id, q.plan_case_key, "
+    "q.deployment_run_id, q.deployment_stage, q.item_id, "
+    "q.deployment_member_item_id, "
+    "q.host_baseline, q.waived_at, p.slug AS plan, pr.slug AS project, "
+    "q.method_id, q.method_name, m.proof_kind, r.id AS run_id, "
+    "r.performed_by, "
+    "r.verdict, r.verdict_reason, r.case_outcome, r.capture_degraded_reason, "
+    "r.raw_result, "
+    f"{_HAPPENED_AT} AS happened_at"
+)
+
+_ACTIVITY_SOURCE = (
+    "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
+    "JOIN projects pr ON pr.id=p.project_id "
+    "LEFT JOIN qa_methods m ON m.id=q.method_id "
+    "LEFT JOIN qa_runs r ON r.id=("
+    "SELECT rr.id FROM qa_runs rr WHERE rr.qa_requirement_id=q.id "
+    "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1)"
+)
+
+#: Which item a row belongs to. An item-attached requirement names its item;
+#: a run's per-member check names the member instead. Readers group by the
+#: same rule, so what the query bounds and what a caller shows agree.
+_SUBJECT = "COALESCE(q.item_id, q.deployment_member_item_id)"
+
+#: What an item-scoped read bounds: each item's checks WITHIN each deployment
+#: run they were recorded against, with the item's own run-less checks as
+#: their own group. Bounding an item as a whole would let its busiest release
+#: cut off the very rows another release's card needs — the read would drop
+#: them before the caller could filter to the run it is drawing, so a card
+#: would report nothing for an item that has evidence for exactly that run.
+_SUBJECT_GROUP = f"{_SUBJECT}, q.deployment_run_id"
+
+
+def _subject_of(row: Any) -> Optional[int]:
+    value = row["item_id"]
+    if value is None:
+        value = row["deployment_member_item_id"]
+    return None if value is None else int(value)
+
+
 def _list_activity(
     conn: Any,
     *,
@@ -76,7 +120,22 @@ def _list_activity(
     deployment_run_id: Optional[str] = None,
     item_ids: Optional[Iterable[int]] = None,
     limit: int = 100,
-) -> list[dict]:
+) -> tuple[list[dict], Optional[dict[str, Any]]]:
+    """Return activity rows, and how an item-scoped read was bounded.
+
+    Without ``item_ids`` the read is a recency page over the whole scope and
+    ``limit`` caps it. With ``item_ids`` that page would be a defect rather
+    than a page: one busy subject filling the cap would silently hide every
+    other requested subject, so a card would report an item as having no
+    evidence and no waiting review when it has both. There ``limit`` bounds
+    each item's checks WITHIN each deployment run they name, and its run-less
+    checks as their own group, so neither another item nor another release
+    can take the rows a given card needs. The second return value names the
+    cap and exactly which items hit it — measured by fetching one row past
+    the cap, never inferred from a full-looking page. What is dropped is an
+    item's older history inside one run group; a caller that must not lose a
+    current request joins those independently rather than through these rows.
+    """
     marker = _placeholder(conn)
     params: list[Any] = []
     where = "WHERE q.plan_id IS NOT NULL"
@@ -87,27 +146,43 @@ def _list_activity(
         where += f" AND q.deployment_run_id={marker}"
         params.append(deployment_run_id)
     where += _item_filter(marker, params, item_ids)
-    params.append(max(1, min(int(limit), 500)))
-    rows = query_rows(
-        conn,
-        "SELECT q.id AS requirement_id, q.plan_id, q.plan_case_key, "
-        "q.deployment_run_id, q.deployment_stage, q.item_id, "
-        "q.deployment_member_item_id, "
-        "q.host_baseline, q.waived_at, p.slug AS plan, pr.slug AS project, "
-        "q.method_id, q.method_name, m.proof_kind, r.id AS run_id, "
-        "r.performed_by, "
-        "r.verdict, r.verdict_reason, r.case_outcome, r.capture_degraded_reason, "
-        "r.raw_result, "
-        "COALESCE(r.completed_at, r.created_at, q.created_at) AS happened_at "
-        "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
-        "JOIN projects pr ON pr.id=p.project_id "
-        "LEFT JOIN qa_methods m ON m.id=q.method_id "
-        "LEFT JOIN qa_runs r ON r.id=("
-        "SELECT rr.id FROM qa_runs rr WHERE rr.qa_requirement_id=q.id "
-        "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"
-        f") {where} ORDER BY happened_at DESC, q.id DESC LIMIT {marker}",
-        tuple(params),
-    )
+    bounded = max(1, min(int(limit), 500))
+    if item_ids is None:
+        params.append(bounded)
+        sql = (
+            f"SELECT {_ACTIVITY_COLUMNS} {_ACTIVITY_SOURCE} {where} "
+            f"ORDER BY happened_at DESC, q.id DESC LIMIT {marker}"
+        )
+    else:
+        params.append(bounded + 1)
+        sql = (
+            f"SELECT * FROM (SELECT {_ACTIVITY_COLUMNS}, ROW_NUMBER() OVER ("
+            f"PARTITION BY {_SUBJECT_GROUP} "
+            f"ORDER BY {_HAPPENED_AT} DESC, q.id DESC"
+            f") AS item_rank {_ACTIVITY_SOURCE} {where}) ranked "
+            f"WHERE item_rank<={marker} "
+            "ORDER BY happened_at DESC, requirement_id DESC"
+        )
+    rows = query_rows(conn, sql, tuple(params))
+    selection: Optional[dict[str, Any]] = None
+    if item_ids is not None:
+        kept: list[Any] = []
+        counts: Counter = Counter()
+        truncated: set[int] = set()
+        for row in rows:
+            subject = _subject_of(row)
+            group = (subject, row["deployment_run_id"])
+            counts[group] += 1
+            if counts[group] > bounded:
+                if subject is not None:
+                    truncated.add(subject)
+                continue
+            kept.append(row)
+        rows = kept
+        selection = {
+            "per_item_limit": bounded,
+            "truncated_item_ids": sorted(truncated),
+        }
     # A review row rarely captures its own evidence — it embeds a
     # capture_run_id back to the immutable run that did — so evidence is
     # resolved through the same shared chain the item and plan detail pages
@@ -179,7 +254,7 @@ def _list_activity(
                 "happened_at": row["happened_at"],
             }
         )
-    return result
+    return result, selection
 
 
 def _activity_summary(
@@ -231,13 +306,14 @@ def list_activity(
     item_ids: Optional[Iterable[int]] = None,
     limit: int = 100,
 ) -> list[dict]:
+    """Return the rows alone; ``read_activity`` carries the bounding facts."""
     return _list_activity(
         conn,
         identity=_project_row(conn, project),
         deployment_run_id=deployment_run_id,
         item_ids=item_ids,
         limit=limit,
-    )
+    )[0]
 
 
 def read_activity(
@@ -251,14 +327,16 @@ def read_activity(
 ) -> dict[str, Any]:
     """Return recent rows plus untruncated outcome counts for one UTC day."""
     identity = _project_row(conn, project)
+    rows, selection = _list_activity(
+        conn,
+        identity=identity,
+        deployment_run_id=deployment_run_id,
+        item_ids=item_ids,
+        limit=limit,
+    )
     return {
-        "rows": _list_activity(
-            conn,
-            identity=identity,
-            deployment_run_id=deployment_run_id,
-            item_ids=item_ids,
-            limit=limit,
-        ),
+        "rows": rows,
+        "item_selection": selection,
         "summary": _activity_summary(
             conn,
             identity=identity,
