@@ -108,42 +108,55 @@ def restore_missing_bundle(config_path: str | Path | None) -> dict[str, object]:
             "repaired": False,
             "error": f"could not read machine config: {exc}",
         }
+    # Classify every registered checkout before acting: a confirmed match
+    # earlier in the list must not short-circuit past an unresolved
+    # reference later in it, or that unresolved checkout is silently
+    # dropped from a result that reads as clean.
+    matched = False
     ambiguous: str | None = None
     unreadable: list[Path] = []
     for root in checkouts:
         outcome = _classify_helper_reference(root, config_path=config_path)
         if outcome == "match":
-            try:
-                github_git_credentials.install_stable_helper()
-            except (
-                OSError,
-                github_git_credentials.GitHubCredentialBundleError,
-            ) as exc:
-                return {"configured": True, "repaired": False, "error": str(exc)}
-            return {"configured": True, "repaired": True}
-        if outcome == "ambiguous" and ambiguous is None:
+            matched = True
+        elif outcome == "ambiguous" and ambiguous is None:
             ambiguous = str(root)
         elif outcome == "unreadable":
             unreadable.append(root)
+
+    unresolved = _unresolved_reference_error(ambiguous, unreadable)
+    if not matched:
+        if unresolved is not None:
+            return {"configured": None, "repaired": False, "error": unresolved}
+        return {"configured": False, "repaired": False}
+
+    try:
+        github_git_credentials.install_stable_helper()
+    except (OSError, github_git_credentials.GitHubCredentialBundleError) as exc:
+        error = str(exc)
+        if unresolved is not None:
+            error = f"{error}; also unresolved: {unresolved}"
+        return {"configured": True, "repaired": False, "error": error}
+    if unresolved is not None:
+        return {"configured": True, "repaired": True, "error": unresolved}
+    return {"configured": True, "repaired": True}
+
+
+def _unresolved_reference_error(
+    ambiguous: str | None,
+    unreadable: list[Path],
+) -> str | None:
     if ambiguous is not None:
-        return {
-            "configured": None,
-            "repaired": False,
-            "error": (
-                f"{ambiguous} names a git credential helper that looks like "
-                "Yoke's but its prior runtime path is gone, so it cannot be "
-                "verified; reconnect GitHub (yoke github connect) or repair "
-                "that checkout's git config manually"
-            ),
-        }
+        return (
+            f"{ambiguous} names a git credential helper that looks like "
+            "Yoke's but its prior runtime path is gone, so it cannot be "
+            "verified; reconnect GitHub (yoke github connect) or repair "
+            "that checkout's git config manually"
+        )
     if unreadable:
         names = ", ".join(str(path) for path in unreadable)
-        return {
-            "configured": None,
-            "repaired": False,
-            "error": f"could not read git config for: {names}",
-        }
-    return {"configured": False, "repaired": False}
+        return f"could not read git config for: {names}"
+    return None
 
 
 def _classify_helper_reference(

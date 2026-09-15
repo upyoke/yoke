@@ -45,8 +45,8 @@ def update(args: List[str]) -> int:
             f"Updated Yoke {result['old_version']} -> {result['new_version']} "
             f"({result['channel']})."
         )
+    if result["credential_helper_repaired"]:
+        print("Rebuilt the git credential helper bundle a reinstall had wiped.")
     if credential_error:
         print(f"warning: git credential helper repair failed: {credential_error}")
-    elif result["credential_helper_repaired"]:
-        print("Rebuilt the git credential helper bundle a reinstall had wiped.")
     return 1 if credential_error else 0

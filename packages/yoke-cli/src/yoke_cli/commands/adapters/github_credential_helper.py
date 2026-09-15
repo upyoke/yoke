@@ -46,8 +46,9 @@ def github_credential_helper_refresh(args: List[str]) -> int:
         print(
             "No registered checkout references a git credential helper; nothing to refresh."
         )
-    elif result["repaired"]:
-        print("Rebuilt the git credential helper bundle a reinstall had wiped.")
     else:
-        print(f"credential helper repair failed: {error}")
+        if result["repaired"]:
+            print("Rebuilt the git credential helper bundle a reinstall had wiped.")
+        if error:
+            print(f"credential helper repair failed: {error}")
     return 1 if error else 0

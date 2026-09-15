@@ -221,3 +221,91 @@ def test_restore_missing_bundle_reports_unreadable_machine_config_distinctly(
     assert result["configured"] is None
     assert result["repaired"] is False
     assert "machine config" in result["error"]
+
+
+def _register_checkouts(config: Path, repos: list[Path], tmp_path: Path) -> None:
+    payload = json.loads(config.read_text(encoding="utf-8"))
+    payload.update(
+        {
+            "active_env": "stage",
+            "connections": {
+                "stage": {
+                    "transport": "https",
+                    "api_url": "https://stage.yoke.example",
+                    "credential_source": {
+                        "kind": "token_file",
+                        "path": str(tmp_path / "actor.token"),
+                    },
+                }
+            },
+            "projects": [
+                {"checkout": str(repo), "project_id": 1, "env": "stage"}
+                for repo in repos
+            ],
+        }
+    )
+    config.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _write_ambiguous_reference(repo: Path, config: Path, tmp_path: Path) -> None:
+    gone_python = tmp_path / "gone-runtime" / "bin" / "python3.11"
+    gone_helper = (
+        tmp_path
+        / "gone-runtime"
+        / "site-packages"
+        / github_git_credentials.STABLE_HELPER_FILE_NAME
+    )
+    value = f"!{gone_python} {gone_helper} --config {config}"
+    _git(
+        repo,
+        "config",
+        "--local",
+        github_git_credentials.GITHUB_CREDENTIAL_HELPER_KEY,
+        value,
+    )
+
+
+def _assert_mixed_checkout_repair(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    match_first: bool,
+) -> None:
+    """A known-repairable checkout and an unresolvable one, in either order:
+    the repair still happens, and the unresolved checkout is still reported
+    rather than dropped by a result that reads as a clean success."""
+    repo_match, config, _credential = _configured_repo(tmp_path, monkeypatch)
+    repo_ambiguous = tmp_path / "ambiguous-repo"
+    repo_ambiguous.mkdir()
+    _git(repo_ambiguous, "init", "--initial-branch", "main")
+    ordered = (
+        [repo_match, repo_ambiguous] if match_first else [repo_ambiguous, repo_match]
+    )
+    _register_checkouts(config, ordered, tmp_path)
+
+    site = tmp_path / "site"
+    monkeypatch.setattr(github_git_credentials, "_helper_site_dir", lambda: site)
+    github_git_credentials.configure_repo_helper(repo_match, config_path=config)
+    shutil.rmtree(site)
+    _write_ambiguous_reference(repo_ambiguous, config, tmp_path)
+
+    result = github_repo_helper_reconnect.restore_missing_bundle(config)
+
+    assert result["configured"] is True
+    assert result["repaired"] is True
+    assert str(repo_ambiguous) in result["error"]
+    assert (site / github_git_credentials.STABLE_HELPER_FILE_NAME).is_file()
+
+
+def test_restore_missing_bundle_repairs_and_reports_unresolved_match_first(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_mixed_checkout_repair(tmp_path, monkeypatch, match_first=True)
+
+
+def test_restore_missing_bundle_repairs_and_reports_unresolved_ambiguous_first(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _assert_mixed_checkout_repair(tmp_path, monkeypatch, match_first=False)
