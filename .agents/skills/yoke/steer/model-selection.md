@@ -10,7 +10,9 @@ live one.
 ## Three kinds of work, and nothing finer
 
 Judge the item you are about to staff against these three. There is no
-complexity field to fill in, no score to compute, and no fourth case:
+complexity field to fill in, no score to compute, and no fourth case.
+Do not always launch `preferred_session_models`; the task, supported
+reasoning, cost/benefit, and applicable quota still decide.
 
 | The work is | Default tier | At effort |
 |---|---|---|
@@ -23,36 +25,41 @@ vendor's highest level for work that does not need it changes nothing about
 the outcome and empties a shared allowance faster. Where `xhigh` is not
 published for the model you chose, ask for `high` instead.
 
-Tier 1 is the operator's premium model. Tier 2 is the ordinary-worker model
-where the operator reserves tier 1 for steering. The configured worker tier
-changes only the model tier: normal and difficult work still ask for `high`
-and `xhigh`. Difficulty alone never promotes a worker above that configured
-tier. Anything ranked below tier 2 is excluded, not ranked — a model nobody
-would choose does not need a score.
+Tiers are **global capability**, not a provider product ladder and not the
+best model a harness happens to offer. Tier 1 is the absolute frontier
+(Fable/Astra or equivalent successors). Tier 2 is the band immediately
+below (current Opus and latest Grok). Anything below that — including
+Sonnet — is excluded, not ranked. Cursor currently has no tier 1 model;
+do not relabel latest Grok as tier 1 because it is Cursor's best offering.
 
 On this installation, `claude-cli` and `codex-cli` set `worker_tier` to
-`tier2`. Their new worker launches therefore use tier 2 for all three work
-kinds. Steering may use tier 1, and an explicit operator request for tier 1
-or a specific tier-1 model is direct authorization for that launch. If the
-configured tier-2 model is unavailable, report that fact; never promote
-silently. Cursor has no worker-tier override and keeps the policy below.
+`tier2`. Their new worker launches therefore use global tier 2 (Opus /
+Sol) for all three work kinds, not Sonnet. Steering may use tier 1, and
+an explicit operator request for tier 1 or a specific tier-1 model is
+direct authorization for that launch. If the configured tier-2 model is
+unavailable, report that fact; never promote silently. Cursor has no
+worker-tier override and keeps the Grok-first policy below.
 
 ## Which model each tier means
 
 The operator's per-surface routing preference answers that, in
-`~/.yoke/config.json`:
+`~/.yoke/config.json`. The example uses the global meaning; it is
+teaching, not a rewrite of the installed machine file:
 
 ```json
 "session_model_routing": {
   "claude-cli": {
+    "tier1": "claude-fable-5-1",
+    "tier2": "claude-opus-5",
     "worker_tier": "tier2"
   },
   "codex-cli": {
+    "tier1": "gpt-6-astra",
+    "tier2": "gpt-5.6-sol",
     "worker_tier": "tier2"
   },
   "cursor-cli": {
-    "tier1": "cursor-grok-4.6-high",
-    "tier2": "cursor-grok-4.6-medium",
+    "tier2": "cursor-grok-4.6-high",
     "excluded": ["cursor-auto"],
     "fallbacks": ["claude-opus-5-thinking-high"]
   }
@@ -62,7 +69,7 @@ The operator's per-surface routing preference answers that, in
 `excluded` models are never launched. `fallbacks` are the only models a
 preferred model may hand off to, and only under the rule below. A surface with
 no entry keeps whatever per-surface default it already had — blank is a
-complete answer, not a gap to fill.
+complete answer, not a gap to fill. Cursor omits `tier1` because it has none.
 
 Effort levels come from what the specific **model** publishes, which can be
 narrower than what the surface accepts. Read the model's own
@@ -89,8 +96,8 @@ the models previously observed and remains visibly stale.
 
 Cursor bills two included pools at once. `cursor-grok-*` and `composer-*`
 selections draw on **Cursor Models**; everything else draws on **Other
-Models**. Grok 4.6 is tier 1 on Cursor. Opus on Cursor is a fallback and
-nothing else.
+Models**. Latest Grok is global tier 2 and the ordinary Cursor worker. Opus
+on Cursor is a fallback and nothing else.
 
 Reach for the fallback only when the **Cursor Models** pool is confirmed
 empty. Three things that are not confirmation:
@@ -129,15 +136,19 @@ the surface publishes it — no research is required first, and missing research
 never gates a launch.
 
 - **Follow the vendor's own replacement metadata.** A model entry's
-  `replaced_by` names its successor; adopt it for new launches. Never infer a
-  ranking from a name or a version number — a bigger number is not evidence of
-  a better model.
+  `replaced_by` names its successor. Adopt a successor into **tier1 only
+  when it is frontier-equivalent** to current Fable/Astra. Never infer a
+  rank from a name, a version number, a price, or "this harness's new
+  flagship."
+- **Re-evaluate the prior family.** A successor does not leave the old
+  model in tier1/tier2 just because a vendor still labels it flagship.
 - **Classify provisionally when research is behind.** A reliable provider
-  description is enough to place a new family under the standing tier policy
-  until the researched reference catches up. Mark it as provisional when you
-  record the decision.
-- **Operator preference outranks a proposed tier.** The researched reference
-  proposes; the operator's `session_model_routing` decides.
+  description is enough to place a new family under the standing global
+  tier policy until the researched reference catches up. Mark it as
+  provisional when you record the decision.
+- **Operator preference outranks a proposed tier.** The researched
+  reference proposes; the operator's `session_model_routing` decides.
+  That is still a per-launch judgment, not a blanket default.
 
 ## Selection survives a resume
 
