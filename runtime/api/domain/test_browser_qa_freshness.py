@@ -179,6 +179,50 @@ class TestDeployedShaFreshness:
         assert result.verdict == "error"
         assert result.note == browser_qa_freshness.SHA_MISMATCH
 
+    def test_execute_scenario_reports_a_missing_record_as_its_own_reason(
+        self, db_path: str
+    ) -> None:
+        """The scenario path must carry the reason, not relabel it.
+
+        The helper-level tests above cannot catch a caller that hardcodes one
+        note for every freshness outcome — that is exactly the defect this
+        guards, and it lived here rather than in the helper. No ephemeral
+        row is seeded, so a caller collapsing outcomes would report a SHA
+        mismatch for a deployment nothing ever recorded.
+        """
+        _seed_item(db_path, 501)
+        req_id = _seed_requirement(
+            db_path, 501, "browser-check",
+            {
+                "base_url": "http://localhost:9999",
+                "steps": [
+                    {"action": "navigate", "route": "/"},
+                    _browser_verdict_assertion(),
+                ],
+            },
+        )
+        _ensure_ephemeral_table(db_path)
+
+        patches = _patch_external_deps(db_path)
+        for patcher in patches:
+            patcher.start()
+        try:
+            result = browser_qa.execute_scenario(
+                item_id=501,
+                project="testproj",
+                requirement_id=req_id,
+                base_url="http://localhost:9999",
+                expected_branch="YOK-501",
+                expected_sha="fresh_sha",
+            )
+        finally:
+            for patcher in reversed(patches):
+                patcher.stop()
+
+        assert result.verdict == "error"
+        assert result.note == browser_qa_freshness.DEPLOYMENT_RECORD_MISSING
+        assert result.note != browser_qa_freshness.SHA_MISMATCH
+
     def test_execute_scenario_rejects_partial_freshness_inputs(self, db_path: str) -> None:
         """Polish: partial freshness args must fail closed instead of skipping validation."""
         _seed_item(db_path, 502)
