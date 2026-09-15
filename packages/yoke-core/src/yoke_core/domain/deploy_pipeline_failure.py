@@ -56,14 +56,17 @@ def _failure_trace_command(run_id: str) -> subprocess.CompletedProcess:
         ).strip()
         != "1"
     ):
+        detail = f" ({relay_source})" if relay_source else ""
         return subprocess.CompletedProcess(
             args=command,
             returncode=4,
             stdout="",
             stderr=(
-                "no GitHub Actions read authority is selected; set "
-                f"{poll_authority.GITHUB_ACTIONS_RELAY_ENV}=<https-env> "
-                "or use attended local authority"
+                "no GitHub Actions read authority is selected; this "
+                f"machine's active connection did not resolve one{detail}. "
+                "An ordinary active HTTPS connection is normally enough, "
+                f"or set {poll_authority.GITHUB_ACTIONS_RELAY_ENV}=<https-env> "
+                "explicitly, or use attended local authority"
             ),
         )
     command.extend(["deployment-runs", "failure-trace", run_id])

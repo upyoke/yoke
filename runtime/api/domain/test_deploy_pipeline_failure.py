@@ -83,11 +83,17 @@ def test_failure_trace_uses_the_owning_https_control_plane(monkeypatch) -> None:
         raising=False,
     )
     completed = _completed(0, "Terminal failing job: build", "")
-    with mock.patch.object(
-        deploy_pipeline_failure.reporting,
-        "_run_cmd",
-        return_value=completed,
-    ) as run_cmd:
+    with (
+        mock.patch(
+            "yoke_core.domain.control_plane_transport.serving_control_plane_env",
+            return_value="prod",
+        ),
+        mock.patch.object(
+            deploy_pipeline_failure.reporting,
+            "_run_cmd",
+            return_value=completed,
+        ) as run_cmd,
+    ):
         result = deploy_pipeline_failure._failure_trace_command("run-1")
 
     assert result is completed
@@ -105,10 +111,16 @@ def test_failure_trace_timeout_returns_a_diagnosed_partial_failure(monkeypatch) 
         deploy_pipeline_failure.poll_authority.GITHUB_ACTIONS_RELAY_ENV,
         raising=False,
     )
-    with mock.patch.object(
-        deploy_pipeline_failure.reporting,
-        "_run_cmd",
-        side_effect=subprocess.TimeoutExpired(cmd=[], timeout=180),
+    with (
+        mock.patch(
+            "yoke_core.domain.control_plane_transport.serving_control_plane_env",
+            return_value="",
+        ),
+        mock.patch.object(
+            deploy_pipeline_failure.reporting,
+            "_run_cmd",
+            side_effect=subprocess.TimeoutExpired(cmd=[], timeout=180),
+        ),
     ):
         result = deploy_pipeline_failure._failure_trace_command("run-1")
 
