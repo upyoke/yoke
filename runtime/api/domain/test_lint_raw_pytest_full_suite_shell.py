@@ -70,6 +70,17 @@ class TestMaskDataSinkLines(unittest.TestCase):
         self.assertNotIn("pytest", lines[0])
         self.assertIn("pytest", lines[1])
 
+    def test_a_second_chained_statement_on_the_same_line_is_left_untouched(self):
+        # `echo ok > /tmp/x` alone would qualify, but the `;` means a
+        # second, different statement rides the same physical line --
+        # that statement's own quoting is not this sink's to touch.
+        line = "echo ok > /tmp/x; bash -c 'pytest tests/'"
+        self.assertEqual(shell.mask_data_sink_lines(line), line)
+
+    def test_a_pipe_on_the_same_line_is_left_untouched(self):
+        line = "cat 'pytest tests/' > out.json | tee copy.json"
+        self.assertEqual(shell.mask_data_sink_lines(line), line)
+
 
 class TestStripHeredocBodies(unittest.TestCase):
     def test_body_read_by_cat_is_removed_but_launch_line_survives(self):
@@ -79,21 +90,23 @@ class TestStripHeredocBodies(unittest.TestCase):
         self.assertNotIn("pytest", stripped)
 
     def test_body_read_by_bash_is_left_scannable(self):
-        command = "bash <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
+        # No redirect either, but the shell veto is what matters here:
+        # bash executes its heredoc body as commands, redirect or not.
+        command = "bash > out.log <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
         self.assertEqual(shell.strip_heredoc_bodies(command), command)
 
     def test_body_read_by_sh_is_left_scannable(self):
-        command = "sh <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
+        command = "sh > out.log <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
         self.assertEqual(shell.strip_heredoc_bodies(command), command)
 
     def test_text_after_the_terminator_is_preserved(self):
-        command = "cat <<EOF\nbody\nEOF\necho done\n"
+        command = "cat > out.txt <<EOF\nbody\nEOF\necho done\n"
         stripped = shell.strip_heredoc_bodies(command)
         self.assertIn("echo done", stripped)
         self.assertNotIn("body", stripped)
 
     def test_dash_variant_strips_leading_tabs_on_terminator(self):
-        command = "cat <<-EOF\n\tpytest tests/\n\tEOF\n"
+        command = "cat > out.txt <<-EOF\n\tpytest tests/\n\tEOF\n"
         stripped = shell.strip_heredoc_bodies(command)
         self.assertNotIn("pytest", stripped)
 
@@ -102,9 +115,27 @@ class TestStripHeredocBodies(unittest.TestCase):
         self.assertEqual(shell.strip_heredoc_bodies(command), command)
 
     def test_unterminated_heredoc_discards_the_remainder(self):
-        command = "cat <<EOF\npytest tests/ runtime/api/"
+        command = "cat > out.txt <<EOF\npytest tests/ runtime/api/"
         stripped = shell.strip_heredoc_bodies(command)
         self.assertNotIn("pytest", stripped)
+
+    def test_heredoc_with_no_redirect_is_left_scannable(self):
+        # Not proven to be writing a file, so left completely alone --
+        # positive recognition, not "any non-shell heredoc is data".
+        command = "cat <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
+        self.assertEqual(shell.strip_heredoc_bodies(command), command)
+
+    def test_heredoc_piped_into_another_program_is_left_scannable(self):
+        # `cat` reads the heredoc, but its output feeds `bash`, which
+        # executes it -- no redirect on the launch line either.
+        command = "cat <<'EOF' | bash\npytest tests/ runtime/api/\nEOF\n"
+        self.assertEqual(shell.strip_heredoc_bodies(command), command)
+
+    def test_launcher_wrapped_shell_heredoc_is_left_scannable(self):
+        # `env` forwards to `bash`; the redirect-gate alone already
+        # excludes this (no `>` on the launch line).
+        command = "env bash <<'EOF'\npytest tests/ runtime/api/\nEOF\n"
+        self.assertEqual(shell.strip_heredoc_bodies(command), command)
 
     def test_operator_inside_a_quoted_string_is_not_a_heredoc(self):
         command = 'grep -n "python3 - <<" file.py'

@@ -7,28 +7,33 @@ it ran that invocation: the guard's segment splitter does not respect
 quoting or heredoc bodies, so text that is really a stored argument or
 file body gets treated as a fresh, executable statement.
 
-The two passes below are scoped as narrowly as the evidence: they
-recognize a small, explicit set of DATA-WRITING shapes and leave every
-other command untouched, so a pytest invocation genuinely chained
-after a real separator (``cmd && pytest ...``) — including one sitting
-in a shell interpreter's own heredoc body, or a quoted ``-c`` argument
-the caller intends to execute — keeps being scanned exactly as before.
-Recursing into a quoted, genuinely executable payload (``bash -c
-"..."``, ``eval "..."``) to decide whether IT invokes pytest is
-deliberately out of scope: that is a new detection capability, not a
-fix to the false-positive shapes below.
+The two passes below POSITIVELY recognize the evidenced inert-write
+shapes rather than guessing from a negative signal ("not a shell
+heredoc", "line starts with a sink"): each requires an unquoted ``>``
+(the "this becomes a file" signal) on a single, self-contained
+statement with no OTHER unquoted ``;``/``&``/``|`` riding along. A
+compound or uncertain form — a heredoc read by a launcher-wrapped or
+piped shell (``env bash <<EOF``, ``cat <<EOF | bash``), or a
+sink-leading line that also carries a second, different statement
+(``echo ok > /tmp/x; bash -c '... && pytest ...'``) — fails that shape
+and is left completely untouched, so it is scanned exactly as before
+by the guard's existing (if incomplete) segment split. Recursing into
+a quoted, genuinely executable payload (``bash -c "..."``, ``eval
+"..."``) to decide whether IT invokes pytest is deliberately out of
+scope: that is a new detection capability, not a fix to the
+false-positive shapes below.
 
 * :func:`strip_heredoc_bodies` removes a heredoc body only when its
-  reading program is not a shell interpreter. `cat`, `python3`, and
-  similar treat their heredoc as file content or script input that may
-  merely MENTION pytest as text; `sh`/`bash`/`zsh` interpret their
-  heredoc body as shell commands line by line, so a standalone
-  ``pytest ...`` line there is a real invocation and stays scannable.
-* :func:`mask_data_sink_lines` blanks quoted interiors only on a
-  physical line whose leading word is a known data-writing sink
-  (`cat`/`printf`/`echo`/`tee`) redirected to a file — the shape a QA
-  plan-case JSON payload actually takes. Every other line, including a
-  genuinely executable ``bash -c "..."`` argument, is left untouched.
+  launch line is that single, self-contained, redirected-to-a-file
+  statement, and its reading program is not a shell interpreter.
+  `cat`, `python3`, and similar treat their heredoc as file content or
+  script input that may merely MENTION pytest as text; `sh`/`bash`/
+  `zsh` interpret their heredoc body as shell commands line by line, so
+  a standalone ``pytest ...`` line there is a real invocation.
+* :func:`mask_data_sink_lines` blanks quoted interiors only on that
+  same shape of physical line, with a known data-writing program
+  (`cat`/`printf`/`echo`/`tee`) in place of a heredoc's reading
+  interpreter — the shape a QA plan-case JSON payload actually takes.
 """
 
 from __future__ import annotations
@@ -97,12 +102,19 @@ def mask_quoted_spans(text: str) -> str:
     return "".join(out)
 
 
-def _has_unquoted_gt(line: str) -> bool:
-    """True iff ``>`` appears outside single/double quotes in *line*."""
-    i, n = 0, len(line)
+#: Characters this module's guards look for outside quotes: ``>`` is the
+#: positive "written to a file" signal; ``;``/``&``/``|`` each end one
+#: statement, so any of them means another statement rides along.
+_WATCHED_CHARS = frozenset({">", ";", "&", "|"})
+
+
+def _unquoted_chars(text: str) -> frozenset[str]:
+    """Return the subset of `_WATCHED_CHARS` appearing outside quotes."""
+    found: set = set()
+    i, n = 0, len(text)
     in_single = in_double = False
     while i < n:
-        ch = line[i]
+        ch = text[i]
         if ch == "\\" and not in_single and i + 1 < n:
             i += 2
             continue
@@ -114,39 +126,57 @@ def _has_unquoted_gt(line: str) -> bool:
             in_double = not in_double
             i += 1
             continue
-        if not in_single and not in_double and ch == ">":
-            return True
+        if not in_single and not in_double and ch in _WATCHED_CHARS:
+            found.add(ch)
         i += 1
-    return False
+    return frozenset(found)
 
 
 def mask_data_sink_lines(command: str) -> str:
-    """Blank quoted interiors on a data-sink line redirected to a file.
+    """Blank quoted interiors on a standalone data-sink line.
 
-    A line whose leading word is not a data-sink program, or that has
-    no unquoted ``>``/``>>``, is returned unchanged — including a
-    ``bash -c "... && pytest ..."`` line, whose quoted argument this
-    guard's existing segment scan already reads as ordinary text.
+    A line qualifies only when it is a single, self-contained statement:
+    its leading word is a data-sink program, it has an unquoted ``>``,
+    and it carries no OTHER unquoted ``;``/``&``/``|`` — the positive
+    shape a QA plan-case JSON payload actually takes
+    (``printf '...' > file``). Anything else is returned unchanged,
+    including ``echo ok > /tmp/x; bash -c '... && pytest ...'``, whose
+    second statement is a different, uncertain command riding the same
+    physical line, and ``bash -c "... && pytest ..."`` on its own,
+    whose quoted argument this guard's existing segment scan already
+    reads as ordinary text.
     """
-    return "\n".join(
-        mask_quoted_spans(line)
-        if _leading_program(line) in _DATA_SINK_PROGRAMS and _has_unquoted_gt(line)
-        else line
-        for line in command.split("\n")
-    )
+    out_lines = []
+    for line in command.split("\n"):
+        chars = _unquoted_chars(line)
+        qualifies = (
+            _leading_program(line) in _DATA_SINK_PROGRAMS
+            and ">" in chars
+            and not (chars & {";", "&", "|"})
+        )
+        out_lines.append(mask_quoted_spans(line) if qualifies else line)
+    return "\n".join(out_lines)
 
 
 def strip_heredoc_bodies(command: str) -> str:
     """Remove a heredoc body from *command* when it is written data.
 
     Scans for the next unquoted ``<<``/``<<-`` operator (a here-string
-    ``<<<`` takes no body block and is left untouched). When the
-    current line's leading program is a shell interpreter, the operator
-    is left as ordinary text and its body stays scannable. Otherwise
-    the full launch line is kept intact and every line up to and
-    including the terminator — tab-stripped when the operator is
-    ``<<-`` — is discarded; an unterminated heredoc discards the
-    remainder as still-open data rather than guessing where it ends.
+    ``<<<`` takes no body block and is left untouched). The body is
+    stripped only when its launch line is a single, self-contained
+    statement redirected to a file — an unquoted ``>`` present and no
+    OTHER unquoted ``;``/``&``/``|`` — the positive shape the evidenced
+    payloads take (``cat > file <<'EOF'``, ``python3 <<'EOF' > file``).
+    A launch line with no redirect (``bash <<'EOF'``, a genuine sweep;
+    ``env bash <<'EOF'``) or one riding a pipe into another program
+    (``cat <<'EOF' | bash``) fails that shape and is left untouched, so
+    its body stays scannable exactly as before — the shell-interpreter
+    check below is a second, narrower veto for the plain case, not the
+    only guard. Otherwise the full launch line is kept intact and every
+    line up to and including the terminator — tab-stripped when the
+    operator is ``<<-`` — is discarded; an unterminated heredoc
+    discards the remainder as still-open data rather than guessing
+    where it ends.
     """
     out: List[str] = []
     i, n = 0, len(command)
@@ -176,7 +206,16 @@ def strip_heredoc_bodies(command: str) -> str:
             i += 1
             continue
         line_start = command.rfind("\n", 0, i) + 1
-        if _leading_program(command[line_start:i]) in _SHELL_INTERPRETERS:
+        line_end = command.find("\n", i)
+        if line_end == -1:
+            line_end = n
+        launch_line = command[line_start:line_end]
+        chars = _unquoted_chars(launch_line)
+        if (
+            _leading_program(command[line_start:i]) in _SHELL_INTERPRETERS
+            or ">" not in chars
+            or (chars & {";", "&", "|"})
+        ):
             out.append(ch)
             i += 1
             continue

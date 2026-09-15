@@ -291,6 +291,36 @@ class TestExecutableCoverageIsUnchanged(unittest.TestCase):
         command = 'bash -c "cd /repo && python3 -m pytest ' + anchors + '"'
         self.assertIsNotNone(_eval(command))
 
+    def test_launcher_wrapped_shell_heredoc_still_denies(self):
+        # A compound form: the heredoc-exemption's shell veto keys on the
+        # leading word, but `env` only forwards to bash -- the body is
+        # still executed line by line.
+        command = "env bash <<'EOF'\npytest " + " ".join(
+            f"{a}/" for a in lint.full_sweep_anchors()
+        ) + "\nEOF\n"
+        mode, _, _ = _eval(command)
+        self.assertEqual(mode, "deny")
+
+    def test_heredoc_piped_into_a_shell_still_denies(self):
+        # Another compound form: the heredoc's own reader is `cat`, but
+        # its output is piped into `bash`, which executes it.
+        command = "cat <<'EOF' | bash\npytest " + " ".join(
+            f"{a}/" for a in lint.full_sweep_anchors()
+        ) + "\nEOF\n"
+        mode, _, _ = _eval(command)
+        self.assertEqual(mode, "deny")
+
+    def test_sink_redirect_chained_with_an_executable_statement_is_untouched(self):
+        # A data-sink-with-redirect statement chained (via `;`) with a
+        # second, different, executable statement on the same physical
+        # line must not have ITS quotes masked away by the first
+        # statement's sink/redirect shape.
+        anchors = " ".join(f"{a}/" for a in lint.full_sweep_anchors())
+        command = (
+            "echo ok > /tmp/x; bash -c 'cd /repo && pytest " + anchors + "'"
+        )
+        self.assertIsNotNone(_eval(command))
+
 
 class TestDecisionEnvelope(unittest.TestCase):
     def test_deny_stops_the_chain_with_a_permission_envelope(self):
