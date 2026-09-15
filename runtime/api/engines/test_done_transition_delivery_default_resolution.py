@@ -67,49 +67,54 @@ class TestResolveDefaultDeliveryFlow:
 
 class TestFreezeResolvedDeliveryFlow:
     def test_writes_the_resolved_flow_onto_the_item(self):
-        response = SimpleNamespace(success=True, result={}, error=None)
-        with (
-            mock.patch.object(delivery_default, "_query_item_field", return_value=""),
-            mock.patch.object(
-                delivery_default, "call_dispatcher", return_value=response
-            ) as dispatch,
-        ):
+        response = SimpleNamespace(
+            success=True,
+            result={"item_id": 550, "deployment_flow": "ext-default", "claimed": True},
+            error=None,
+        )
+        with mock.patch.object(
+            delivery_default, "call_dispatcher", return_value=response
+        ) as dispatch:
             result = delivery_default.freeze_resolved_delivery_flow(
                 550, "ext-default", public_ref="EXT-550"
             )
         assert result == "ext-default"
-        assert dispatch.call_args.kwargs["function_id"] == "items.scalar.update"
-        assert dispatch.call_args.kwargs["payload"] == {
-            "field": "deployment_flow",
-            "value": "ext-default",
-        }
+        assert (
+            dispatch.call_args.kwargs["function_id"]
+            == "items.deployment_flow.claim_default"
+        )
+        assert dispatch.call_args.kwargs["payload"] == {"flow_id": "ext-default"}
 
     def test_a_refused_write_raises(self):
         response = SimpleNamespace(
             success=False, result={}, error=SimpleNamespace(message="frozen item"),
         )
-        with (
-            mock.patch.object(delivery_default, "_query_item_field", return_value=""),
-            mock.patch.object(
-                delivery_default, "call_dispatcher", return_value=response
-            ),
+        with mock.patch.object(
+            delivery_default, "call_dispatcher", return_value=response
         ):
             with pytest.raises(RuntimeError, match="frozen item"):
                 delivery_default.freeze_resolved_delivery_flow(
                     551, "ext-default", public_ref="EXT-551"
                 )
 
-    def test_a_value_set_since_the_callers_earlier_read_wins_and_is_not_overwritten(
-        self,
-    ):
-        with (
-            mock.patch.object(
-                delivery_default, "_query_item_field", return_value="raced-in-value"
-            ),
-            mock.patch.object(delivery_default, "call_dispatcher") as dispatch,
-        ):
+    def test_a_value_raced_in_since_the_callers_earlier_read_wins(self):
+        """The conditional UPDATE inside claim_default did not apply
+        (claimed=False), so the response's own reread value -- not the
+        resolved candidate this call offered -- is the winning one."""
+        response = SimpleNamespace(
+            success=True,
+            result={
+                "item_id": 552,
+                "deployment_flow": "raced-in-value",
+                "claimed": False,
+            },
+            error=None,
+        )
+        with mock.patch.object(
+            delivery_default, "call_dispatcher", return_value=response
+        ) as dispatch:
             result = delivery_default.freeze_resolved_delivery_flow(
                 552, "ext-default", public_ref="EXT-552"
             )
         assert result == "raced-in-value"
-        dispatch.assert_not_called()
+        dispatch.assert_called_once()

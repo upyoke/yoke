@@ -7,7 +7,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.approval_policy import parse_approval_policy
-from yoke_core.domain.db_helpers import iso8601_now, query_rows
+from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_qa_stage_case_failures import case_failures
 from yoke_core.domain.deployment_qa_stage_contract import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
     deployment_qa_stage_subject,
@@ -34,72 +35,6 @@ def _latest_verdict(conn: Any, requirement_id: int) -> str:
     if row is None:
         return ""
     return str(row["verdict"] if hasattr(row, "keys") else row[0] or "")
-
-
-def _case_failures(
-    conn: Any,
-    *,
-    run_id: str,
-    stage_name: str,
-    member_item_id: int | None,
-    execution_id: str | None,
-    execution_target_digest: str,
-) -> list[str]:
-    rows = query_rows(
-        conn,
-        "SELECT id,plan_case_key,waived_at FROM qa_requirements "
-        "WHERE deployment_run_id=%s AND deployment_stage=%s "
-        "AND COALESCE(deployment_member_item_id,0)=%s "
-        "AND method_id IS NOT NULL AND blocking_mode='blocking' "
-        "AND execution_target_digest=%s ORDER BY id",
-        (run_id, stage_name, member_item_id or 0, execution_target_digest),
-    )
-    if not rows:
-        return ["no concrete QA cases are materialized"]
-    failures: list[str] = []
-    for row in rows:
-        if row["waived_at"]:
-            continue
-        latest = conn.execute(
-            "SELECT id,verdict FROM qa_runs WHERE qa_requirement_id=%s "
-            "ORDER BY created_at DESC,id DESC LIMIT 1",
-            (int(row["id"]),),
-        ).fetchone()
-        verdict = str(latest["verdict"] if latest is not None else "")
-        if verdict != "pass":
-            failures.append(
-                f"requirement #{row['id']} ({row['plan_case_key']}) latest "
-                f"verdict is {verdict or 'missing'}"
-            )
-            continue
-        evidence_count = 0
-        if execution_id is not None:
-            result_row = conn.execute(
-                "SELECT result_json FROM qa_plan_execution_results "
-                "WHERE execution_id=%s AND requirement_id=%s",
-                (execution_id, int(row["id"])),
-            ).fetchone()
-            if result_row is not None:
-                raw_result = result_row["result_json"]
-                result = (
-                    dict(raw_result)
-                    if isinstance(raw_result, Mapping)
-                    else json.loads(str(raw_result or "{}"))
-                )
-                evidence_run_id = result.get("qa_run_id") or result.get("run_id")
-                if evidence_run_id is not None:
-                    evidence_count = int(
-                        conn.execute(
-                            "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id=%s",
-                            (int(evidence_run_id),),
-                        ).fetchone()[0]
-                    )
-        if evidence_count == 0:
-            failures.append(
-                f"requirement #{row['id']} ({row['plan_case_key']}) latest "
-                "passing result has no attached evidence"
-            )
-    return failures
 
 
 def _completed_execution(
@@ -234,7 +169,15 @@ def deployment_qa_stage_status(
     stage_name: str,
     member_item_id: int | None,
 ) -> dict[str, Any]:
-    """Settle or describe one active stage/member acceptance boundary."""
+    """Settle or describe one stage/member acceptance boundary.
+
+    ``target_digest`` rides along: stable while this is the same wait,
+    different when the stage's own pinned target identity changes within
+    an existing retry/requirement contract -- the identity a wake notice's
+    own key needs to tell the two apart. It never authorizes swapping a
+    frozen run's candidate or membership in place; that stays a
+    replacement run's job.
+    """
     subject = deployment_qa_stage_subject(
         conn,
         run_id=run_id,
@@ -242,6 +185,29 @@ def deployment_qa_stage_status(
         member_item_id=member_item_id,
     )
     target = deployment_qa_execution_target(conn, subject)
+    digest = target_authority.target_digest(target)
+    result = _settle_stage_status(
+        conn,
+        subject=subject,
+        target=target,
+        run_id=run_id,
+        stage_name=stage_name,
+        member_item_id=member_item_id,
+    )
+    result["target_digest"] = digest
+    return result
+
+
+def _settle_stage_status(
+    conn: Any,
+    *,
+    subject: Mapping[str, Any],
+    target: Mapping[str, Any],
+    run_id: str,
+    stage_name: str,
+    member_item_id: int | None,
+) -> dict[str, Any]:
+    """Settle or describe one active stage/member acceptance boundary."""
     current_target_digest = target_authority.target_digest(target)
     execution = _completed_execution(
         conn,
@@ -250,7 +216,7 @@ def deployment_qa_stage_status(
         member_item_id=member_item_id,
         execution_target_digest=current_target_digest,
     )
-    failures = _case_failures(
+    failures = case_failures(
         conn,
         run_id=run_id,
         stage_name=stage_name,

@@ -30,14 +30,28 @@ from yoke_core.domain.merge_queue_landing_notice import HOLDER, STEERING, push_n
 DRIVER = "driver"
 
 
-def stage_wait_idempotency_key(run_id: str, stage_name: str, item_id: int) -> str:
-    """One notice per run/stage/item, however many times the stage is checked."""
-    return f"deployment-qa-stage-wait:{run_id}:{stage_name}:{item_id}"
+def stage_wait_idempotency_key(
+    run_id: str, stage_name: str, item_id: int, target_digest: str = ""
+) -> str:
+    """One notice per run/stage/item/attempt.
+
+    ``target_digest`` is the stage's own pinned-target identity
+    (:func:`deployment_qa_stage_gate.deployment_qa_stage_status`'s
+    ``target_digest``): stable across every recheck of the SAME wait, and
+    different when the pinned target changes within the stage's existing
+    retry/requirement contract. Folding it in means a genuinely distinct
+    attempt gets its own notice instead of being silently absorbed by an
+    earlier wait's key -- it does not authorize swapping a frozen run's
+    candidate; that stays a replacement run's job.
+    """
+    return f"deployment-qa-stage-wait:{run_id}:{stage_name}:{item_id}:{target_digest}"
 
 
-def run_stage_wait_idempotency_key(run_id: str, stage_name: str) -> str:
-    """One notice per run/stage, mirroring the item-scoped key with no member."""
-    return f"deployment-qa-stage-wait:{run_id}:{stage_name}:run"
+def run_stage_wait_idempotency_key(
+    run_id: str, stage_name: str, target_digest: str = ""
+) -> str:
+    """One notice per run/stage/attempt, mirroring the item-scoped key."""
+    return f"deployment-qa-stage-wait:{run_id}:{stage_name}:run:{target_digest}"
 
 
 def _execution_context(*, target_tier: str, revision: str) -> str:
@@ -117,6 +131,7 @@ def notify_item_scoped_qa_wait(
     reasons: str,
     target_tier: str = "",
     revision: str = "",
+    target_digest: str = "",
     now: Optional[datetime] = None,
 ) -> str:
     """Wake the item's claim holder (or steering) that its QA stage is waiting.
@@ -124,9 +139,11 @@ def notify_item_scoped_qa_wait(
     ``""`` means nobody was addressable, ``"undelivered"`` means queued but
     not yet reached, ``"delivered"`` means it reached the recipient —
     matching :func:`push_notice`'s own contract. The idempotency key is
-    stable per (run, stage, item), so a stage rechecked on every pipeline
-    retry sends exactly one notice per distinct wait; a genuinely new
-    deploy attempt runs under a new ``run_id`` and so is a new key.
+    stable per (run, stage, item, target_digest), so a stage rechecked on
+    every pipeline retry sends exactly one notice per distinct wait; a new
+    deploy attempt (a new ``run_id``) or a distinct pinned target within
+    the stage's own existing retry/requirement contract (a new
+    ``target_digest``) is always a fresh key.
     """
     from yoke_core.domain.project_identity import render_item_ref
 
@@ -144,7 +161,9 @@ def notify_item_scoped_qa_wait(
             reasons=reasons,
             route=route,
         ),
-        idempotency_key=stage_wait_idempotency_key(run_id, stage_name, item_id),
+        idempotency_key=stage_wait_idempotency_key(
+            run_id, stage_name, item_id, target_digest
+        ),
         now=now or datetime.now(timezone.utc),
     )
 
@@ -205,6 +224,7 @@ def notify_run_scoped_qa_wait(
     reasons: str,
     target_tier: str = "",
     revision: str = "",
+    target_digest: str = "",
     now: Optional[datetime] = None,
 ) -> str:
     """Wake the project's deploy-lock driver (or steering) for a run-scoped wait.
@@ -235,7 +255,9 @@ def notify_run_scoped_qa_wait(
             reasons=reasons,
             route=route,
         ),
-        idempotency_key=run_stage_wait_idempotency_key(run_id, stage_name),
+        idempotency_key=run_stage_wait_idempotency_key(
+            run_id, stage_name, target_digest
+        ),
         idempotency_intent_only=True,
         now=current,
         commit=False,

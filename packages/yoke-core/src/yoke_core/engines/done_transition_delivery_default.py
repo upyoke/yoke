@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
-from yoke_core.engines.done_transition_runtime import _query_item_field
 
 
 def resolve_default_delivery_flow(*, item_project: str, workflow_id: str) -> str:
@@ -45,48 +44,38 @@ def resolve_default_delivery_flow(*, item_project: str, workflow_id: str) -> str
 def freeze_resolved_delivery_flow(item_id: int, flow_id: str, *, public_ref: str) -> str:
     """Write a resolved default onto the item exactly once, before it is used.
 
-    Rereads the item's current ``deployment_flow`` immediately before
-    writing and returns that value untouched when it is already non-empty,
-    instead of overwriting it with the resolved default.
-
-    No caller other than the one holding this item's live work claim can
-    make that value non-empty out from under this reread at all:
-    ``items.scalar.update`` (the only write path onto ``deployment_flow``)
-    declares ``claim_required_kind="item"`` with no bypass for that kind
-    (see ``yoke_function_dispatch_claims.py``), and ``work_claims`` carries
-    a database-enforced unique index on the live claim per item
-    (``idx_work_claims_active_item``, ``WHERE released_at IS NULL AND
-    target_kind='item'``) — so at most one session ever holds this item's
-    claim, and it is the same session running this done-transition. The
-    reread exists to close a same-session, same-claim ordering gap
-    instead: this session's own earlier read (in the done-transition
-    runner, before this guard ran) can be stale by the time this freeze
-    attempt executes, e.g. an operator set the field explicitly, through
-    this same claimed session, in between. There is no cross-session race
-    to exclude with a transaction or a new CAS field, because the claim
-    system already excludes it structurally.
+    Calls ``items.deployment_flow.claim_default``, whose conditional
+    ``UPDATE ... WHERE deployment_flow IS NULL OR deployment_flow=''``
+    (checked by rowcount in the same transaction that reads it) is the
+    actual exclusion boundary — not this call's own earlier empty read,
+    which can go stale between that read and this write. An explicit
+    operator reassignment of an already-set item keeps going through
+    ``items.scalar.update`` unconditionally elsewhere; this path exists
+    only to resolve an empty field, so it can never clobber one.
 
     Once a value lands, ``deployment_flow`` is non-empty and every later
     evaluation — including a later change to the project's default — takes
     the item-level value instead of resolving fresh, so a frozen item is
     never silently rerouted.
     """
-    current = _query_item_field(item_id, "deployment_flow")
-    if current:
-        return current
     resp = call_dispatcher(
-        function_id="items.scalar.update",
+        function_id="items.deployment_flow.claim_default",
         target=TargetRef(kind="item", item_id=int(item_id)),
-        payload={"field": "deployment_flow", "value": flow_id},
+        payload={"flow_id": flow_id},
     )
     if not resp.success:
         message = resp.error.message if resp.error else "unknown error"
-        raise RuntimeError(f"items.scalar.update(deployment_flow) failed: {message}")
-    print(
-        f"Resolved and froze {public_ref}'s delivery flow to '{flow_id}' from "
-        "the project's configured default."
-    )
-    return flow_id
+        raise RuntimeError(
+            f"items.deployment_flow.claim_default failed: {message}"
+        )
+    result = resp.result or {}
+    stored = str(result.get("deployment_flow") or flow_id)
+    if result.get("claimed"):
+        print(
+            f"Resolved and froze {public_ref}'s delivery flow to '{stored}' "
+            "from the project's configured default."
+        )
+    return stored
 
 
 __all__ = ["freeze_resolved_delivery_flow", "resolve_default_delivery_flow"]

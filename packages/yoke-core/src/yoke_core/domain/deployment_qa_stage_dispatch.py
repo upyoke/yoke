@@ -45,6 +45,7 @@ def _notify_stage_wait(
     reasons: str,
     target_tier: str,
     revision: str,
+    target_digest: str,
     label: str,
 ) -> None:
     """Wake the right recipient for one waiting subject, and log the miss.
@@ -65,6 +66,7 @@ def _notify_stage_wait(
             reasons=reasons,
             target_tier=target_tier,
             revision=revision,
+            target_digest=target_digest,
         )
     else:
         no_recipient = "no deploy-lock driver and no covering project steering seat"
@@ -76,6 +78,7 @@ def _notify_stage_wait(
             reasons=reasons,
             target_tier=target_tier,
             revision=revision,
+            target_digest=target_digest,
         )
     try:
         delivery = notify()
@@ -155,6 +158,7 @@ def dispatch_deployment_qa_stage(
                     reasons=reasons,
                     target_tier=target_tier,
                     revision=revision,
+                    target_digest=str(status.get("target_digest") or ""),
                     label=label,
                 )
         if waiting:
