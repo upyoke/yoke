@@ -64,6 +64,7 @@ def _verification_gate(
     *,
     item_id: int,
     verification: Mapping[str, Any],
+    target_status: str,
 ) -> Optional[dict[str, Any]]:
     if not all(
         _table_exists(conn, table)
@@ -84,6 +85,16 @@ def _verification_gate(
     if kind == "ad_hoc":
         selector = "r.plan_id IS NULL AND r.method_id = " + marker
         selector_value = str(verification.get("method_id") or "")
+    # Pre-merge review waits only for verification-phase rows. A
+    # post_deploy / manual_acceptance case recorded on the same transition
+    # is intake storage; later `done` consumes it once the target exists.
+    pre_merge = target_status == ITEM_POSTURE_VERIFICATION_TRANSITION
+    phase_sql = "AND r.qa_phase = 'verification' " if pre_merge else ""
+    params = (
+        int(item_id),
+        selector_value,
+        ITEM_POSTURE_VERIFICATION_TRANSITION,
+    )
     cursor = conn.execute(
         "SELECT r.id, EXISTS("
         "SELECT 1 FROM qa_runs qr "
@@ -93,15 +104,21 @@ def _verification_gate(
         f"WHERE r.item_id = {marker} AND {selector} "
         "AND r.blocking_mode = 'blocking' AND r.waived_at IS NULL "
         f"AND r.workflow_transition_id = {marker} "
+        f"{phase_sql}"
         "ORDER BY r.id",
-        (
-            int(item_id),
-            selector_value,
-            ITEM_POSTURE_VERIFICATION_TRANSITION,
-        ),
+        params,
     )
     rows = cursor.fetchall()
     if not rows:
+        if pre_merge and conn.execute(
+            "SELECT 1 FROM qa_requirements r "
+            f"WHERE r.item_id = {marker} AND {selector} "
+            "AND r.blocking_mode = 'blocking' AND r.waived_at IS NULL "
+            f"AND r.workflow_transition_id = {marker} "
+            "AND r.qa_phase <> 'verification' LIMIT 1",
+            params,
+        ).fetchone():
+            return None
         return _failure(
             "GATE_DASH_VERIFICATION_REQUIRED",
             "The selected Dash verification is not bound to a blocking QA case.",
@@ -277,6 +294,7 @@ def evaluate(
                 conn,
                 item_id=int(item_id),
                 verification=verification,
+                target_status=target_status,
             )
             if blocked is not None:
                 return blocked
