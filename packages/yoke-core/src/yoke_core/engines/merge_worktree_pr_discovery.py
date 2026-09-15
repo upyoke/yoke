@@ -92,15 +92,34 @@ def list_branch_pull_requests(
         return BranchListing(
             error="pull request listing returned no array of pull requests"
         )
-    return BranchListing(
-        rows=tuple(row for row in resp.body if isinstance(row, dict))
-    )
+    rows: list[dict[str, Any]] = []
+    for row in resp.body:
+        if not isinstance(row, dict):
+            # Dropping the entry would turn a malformed response into a
+            # shorter listing, and a listing of one malformed entry into an
+            # empty one — which reads as "this branch has no pull request".
+            return BranchListing(
+                error=(
+                    "pull request listing carried an entry that is not a "
+                    f"pull request object ({type(row).__name__})"
+                )
+            )
+        rows.append(row)
+    return BranchListing(rows=tuple(rows))
 
 
-def base_ref(row: dict[str, Any]) -> str:
-    """The branch a listing row targets."""
+def base_ref(row: dict[str, Any]) -> Optional[str]:
+    """The branch a listing row targets, or ``None`` when it does not say.
+
+    A row whose ``base`` is absent, is not an object, or carries no ``ref``
+    is not a row targeting some other branch — it is a row that did not
+    answer. A caller that treats those the same reads a malformed response
+    as "nothing is holding this branch".
+    """
     base = row.get("base")
-    return str((base or {}).get("ref") or "").strip() if isinstance(base, dict) else ""
+    if not isinstance(base, dict):
+        return None
+    return str(base.get("ref") or "").strip() or None
 
 
 def _list_branch_prs(

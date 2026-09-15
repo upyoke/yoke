@@ -132,7 +132,15 @@ def lane_publish_refusal(
             head_sha=head_sha,
         )
     for row in listing.rows:
-        if base_ref(row) != target:
+        row_base = base_ref(row)
+        if row_base is None:
+            return _unreadable(
+                f"a pull request onto {target}",
+                "a listing row carries no readable base branch",
+                branch=branch,
+                head_sha=head_sha,
+            )
+        if row_base != target:
             continue
         pr_number = str(row.get("number") or "").strip()
         if not pr_number:
