@@ -165,23 +165,34 @@ newer failure, and a superseded receipt cannot revalidate an accepted execution
 or later-stage prerequisite. Run-preview readiness requires an observed URL;
 command-only persistent environments do not.
 
-Who fills those observed columns is a per-target-kind decision, registered
-in `deploy_pipeline_stage_receipt.RECEIPT_PRODUCERS`. Each producer takes
-one `ProducerContext` — the stage, its QA target block, the run and stage
-names, the project, the dispatch correlation id, and the dispatch
-callable — and returns a `StageObservation`: target name, observed
-release lineage, and optionally an observed URL and artifact identity.
-The step runner's own diagnostic travels to `executor_receipt`, where a
-human reads it, so a producer that reads a served URL and commit back
-reports them structurally instead of encoding them in that one string. An observed-identity column
-left empty is not a gap to fill with whatever string is at hand: the store
-compares an observed artifact identity against the one the run pins, so an
-invented value refuses the receipt. A run that pins an artifact identity no
-registered producer reads back is therefore refused before the stage
-dispatches, naming the pinned identity and its two recoveries, rather than
-deploying and then failing the receipt. The registry's key set *is* the
-supported-target-kind list, so registering a producer cannot leave a stale
-constant behind.
+Who fills those observed columns is a per-target-kind decision,
+registered in `deploy_pipeline_stage_receipt_producers.RECEIPT_PRODUCERS`.
+Each producer takes one `ProducerContext` (the stage, its QA target, the
+run and stage names, the project, the dispatch correlation id and the
+dispatch callable) and returns a `StageObservation`: target name,
+observed release lineage, optionally an observed URL and artifact
+identity. The step runner's diagnostic travels to `executor_receipt`
+instead, so a producer that reads a served URL and commit back reports
+them structurally rather than encoding them in one string. An empty
+observed-identity column is not a gap to fill with whatever string is at
+hand — the store compares observed against pinned, so an invented value
+refuses the receipt, and a run pinning an artifact identity no producer
+reads back is refused before the stage dispatches. The registry's key
+set *is* the supported-target-kind list.
+
+### A human verdict reaches the agent that parked for it
+
+A stage whose verdict policy requires a human opens a review request and
+waits, and the agent that supplied the evidence parks. Resolving a
+`qa_needs_review` request whose requirement is a deployment-stage subject
+sends one notice to the recipient the wait itself addressed: the member's
+claim holder or the project's steering seat, or the deploy-lock driver for
+a run-scoped stage. It names the run, stage, subject, outcome and the next
+step — an approval releases the parked agent, a rejection hands it work, a
+waiver discharges the obligation. Sent after the resolution commits and
+degrading to a warning when undeliverable, because the verdict is the
+durable outcome; a requirement that is not a deployment-stage subject
+notifies nobody. Owner: `yoke_core.domain.deployment_qa_verdict_notice`.
 
 ## Table: deployment_run_items
 

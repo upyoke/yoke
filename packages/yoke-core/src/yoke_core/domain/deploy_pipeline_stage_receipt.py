@@ -193,6 +193,9 @@ def dispatch_step_runner_with_receipt(
                 correlation_id=correlation_id,
                 dispatch_environment=dispatch_environment,
                 release_lineage=release_lineage,
+                image_tag=image_tag,
+                project_repo_path=project_repo_path,
+                github_repo=github_repo,
             )
         )
     except Exception as exc:

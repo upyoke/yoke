@@ -52,11 +52,27 @@ class ProducerContext:
     a diagnostic string. Adding a field touches no existing producer, and
     every producer still names exactly the inputs it uses.
 
-    ``target`` is the consuming QA stage's own target block, the only
-    place a kind-specific selector (a capability, a preview policy) can
-    live. ``dispatch_environment`` is meaningful only to a kind whose
-    target names a registered environment; for any other kind it is the
-    run's default and a producer should ignore it.
+    ``target`` is the *consuming* QA stage's target: it names the kind
+    and, on a QA stage, always the ``source_stage`` that produces it —
+    ``deployment_flow_policy._validate_target`` requires exactly one of
+    ``capability`` or ``source_stage`` and requires ``source_stage`` on a
+    QA stage, so a QA target can never carry a kind-specific selector. A
+    selector lives on the *producing* stage's own target block, which is
+    this stage, reachable as ``context.stage["target"]`` — and the same
+    validator guarantees it is there, because a preview-consuming QA
+    stage must name an earlier execution stage whose target is a
+    ``run_preview`` with a non-empty capability.
+
+    ``dispatch_environment`` is meaningful only to a kind whose target
+    names a registered environment; for any other kind it is the run's
+    default, which names the wrong thing, and a producer should ignore it.
+
+    ``image_tag`` and ``project_repo_path`` are here because they exist
+    nowhere else a producer could read them: the pipeline computes the
+    image tag from its resolved product source, and the checkout path is
+    driver-local, not a control-plane fact. ``github_repo`` is derivable
+    from the project, and is passed anyway because the caller already
+    holds it.
     """
 
     dispatch: Callable[..., tuple[int, str]]
@@ -68,6 +84,9 @@ class ProducerContext:
     correlation_id: str
     dispatch_environment: str
     release_lineage: str
+    image_tag: str = ""
+    project_repo_path: str = ""
+    github_repo: str = ""
 
 
 #: A producer dispatches one receipt-backed stage and reports what it read.

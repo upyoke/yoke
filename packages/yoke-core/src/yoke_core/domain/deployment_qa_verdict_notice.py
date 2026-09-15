@@ -54,12 +54,12 @@ def verdict_message(
     """
     outcome = {
         "approve": "was approved",
-        "request_changes": "was rejected",
+        "reject": "was rejected",
         "waive": "was waived",
     }.get(action, f"was resolved as {action!r}")
     next_step = {
         "approve": "the stage can advance; resume the run",
-        "request_changes": (
+        "reject": (
             "address the rejection on this stage's target and record fresh "
             "evidence before the stage can advance"
         ),
