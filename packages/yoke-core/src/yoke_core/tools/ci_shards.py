@@ -94,6 +94,38 @@ def shard_number(value: str, *, default: int = 1) -> int:
     return int(text)
 
 
+def normalize_profile_target(root: Path, target: str) -> str | None:
+    """Repo-relative profile spelling for *target*, or None if outside *root*.
+
+    The committed profile keys are repo-relative node ids. Equivalent
+    ``./relative``, in-checkout absolute, node-id, ``.`` and checkout-root
+    spellings must therefore collapse to the same path before matching.
+    A target that resolves outside *root* is dropped so it cannot silently
+    match unrelated profile data.
+    """
+    root = root.resolve()
+    path_text, sep, node = target.partition("::")
+    suffix = f"::{node}" if sep else ""
+    text = path_text.strip()
+    if not text or text == ".":
+        return f".{suffix}" if suffix else "."
+    relative = text[2:] if text.startswith("./") else text
+    while relative.startswith("./"):
+        relative = relative[2:]
+    if not relative or relative == ".":
+        candidate = root
+    else:
+        candidate = Path(relative) if Path(relative).is_absolute() else (root / relative)
+    try:
+        rel = candidate.resolve().relative_to(root)
+    except ValueError:
+        return None
+    rel_text = rel.as_posix()
+    if rel_text == ".":
+        return f".{suffix}" if suffix else "."
+    return rel_text + suffix
+
+
 def profiled_size(root: Path, targets: Sequence[str]) -> tuple[float, int]:
     """Profiled seconds and profiled test count for *targets*.
 
@@ -108,9 +140,16 @@ def profiled_size(root: Path, targets: Sequence[str]) -> tuple[float, int]:
         )
     except (OSError, ValueError):
         return 0.0, 0
-    files = {target for target in targets if target.endswith(".py")}
+    normalized = [
+        spelling
+        for target in targets
+        if (spelling := normalize_profile_target(root, target)) is not None
+    ]
+    if any(spelling == "." or spelling.startswith(".::") for spelling in normalized):
+        return sum(float(duration) for duration in durations.values()), len(durations)
+    files = {target for target in normalized if target.endswith(".py")}
     others = tuple(
-        target.rstrip("/") for target in targets if not target.endswith(".py")
+        target.rstrip("/") for target in normalized if not target.endswith(".py")
     )
     seconds = 0.0
     profiled = 0
@@ -215,6 +254,7 @@ __all__ = [
     "emit_output_lines",
     "fan_out_lines",
     "main",
+    "normalize_profile_target",
     "profiled_size",
     "pytest_command",
     "shard_list",

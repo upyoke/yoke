@@ -41,13 +41,17 @@ def iter_tree_files(
 ) -> Iterator[Path]:
     """Yield files under *base* whose name matches *pattern*.
 
-    Directories named in *prune_dir_names* are never descended into. Anything
-    removed while the walk runs is skipped instead of ending the scan.
+    Directories named in *prune_dir_names* are never descended into, and
+    :data:`GENERATED_TREE_NAMES` are always skipped too: leftover
+    ``packages/*/build/lib`` on a reused workspace mirrors source and is
+    not live tree. Anything removed while the walk runs is skipped
+    instead of ending the scan.
     """
+    skipped = frozenset(prune_dir_names) | GENERATED_TREE_NAMES
     for directory, dirnames, filenames in os.walk(
         base, onerror=_tolerate_removed_directory
     ):
-        dirnames[:] = sorted(name for name in dirnames if name not in prune_dir_names)
+        dirnames[:] = sorted(name for name in dirnames if name not in skipped)
         for filename in sorted(filenames):
             if fnmatchcase(filename, pattern):
                 yield Path(directory) / filename
