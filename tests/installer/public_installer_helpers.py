@@ -62,6 +62,13 @@ class RecordingRunner:
         override = self.responses.get(tuple(argv))
         if override is not None:
             return override
+        if argv[1:] == ["github", "credential-helper", "refresh", "--json"]:
+            # Every install.py completion calls this unconditionally now, and
+            # most fixture machines have nothing configured to repair; a test
+            # exercising the repair itself overrides this via `responses`.
+            return subprocess.CompletedProcess(
+                argv, 0, json.dumps({"configured": False, "repaired": False}), ""
+            )
         return subprocess.CompletedProcess(argv, self.rc, self.stdout, self.stderr)
 
 

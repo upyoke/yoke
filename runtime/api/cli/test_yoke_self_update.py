@@ -100,7 +100,9 @@ def test_already_current_skips_reinstall_but_repairs_helper_in_process(monkeypat
     }
 
 
-def test_version_change_reinstalls_and_repairs_via_fresh_binary(monkeypatch):
+def _stub_version_change(
+    monkeypatch, *, installer_rc: int = 0, installer_stderr: str = ""
+) -> None:
     monkeypatch.setattr(
         self_update.install_binding,
         "detect",
@@ -109,9 +111,10 @@ def test_version_change_reinstalls_and_repairs_via_fresh_binary(monkeypatch):
     monkeypatch.setattr(
         self_update.shutil, "which", lambda _name: "/usr/local/bin/yoke"
     )
-    target = _target("0.1.1+launch.434")
     monkeypatch.setattr(
-        self_update.release_target, "channel_release_target", lambda **_kwargs: target
+        self_update.release_target,
+        "channel_release_target",
+        lambda **_kwargs: _target("0.1.1+launch.434"),
     )
     monkeypatch.setattr(
         self_update.release_target, "fetch_installer", lambda _target: b"installer"
@@ -119,39 +122,53 @@ def test_version_change_reinstalls_and_repairs_via_fresh_binary(monkeypatch):
     monkeypatch.setattr(
         self_update.release_target,
         "run_installer",
-        lambda _target, _bytes, **_kwargs: _completed(("installer",)),
+        lambda _target, _bytes, **_kwargs: _completed(
+            ("installer",), returncode=installer_rc, stderr=installer_stderr
+        ),
     )
 
+
+def test_version_change_reinstall_success_has_no_independent_repair_signal(
+    monkeypatch,
+):
+    """The installer performs and enforces its own credential-helper repair
+    as part of a successful run; this module must not repeat it, and a
+    successful reinstall carries no independent repair signal to report."""
+    _stub_version_change(monkeypatch)
     calls = []
 
     def run(command, **_kwargs):
         calls.append(tuple(command))
-        if command[1:] == ("--version",):
-            return _completed(command, stdout="0.1.1+launch.434\n")
-        return _completed(
-            command, stdout=json.dumps({"configured": True, "repaired": True})
-        )
+        return _completed(command, stdout="0.1.1+launch.434\n")
 
     monkeypatch.setattr(self_update, "_RUN", run)
 
     result = self_update.run_update()
 
-    assert calls == [
-        ("/usr/local/bin/yoke", "--version"),
-        (
-            "/usr/local/bin/yoke",
-            "github",
-            "credential-helper",
-            "refresh",
-            "--json",
-        ),
-    ]
+    # No second subprocess call for the repair: only the version probe runs.
+    assert calls == [("/usr/local/bin/yoke", "--version")]
     assert result["old_version"] == "0.1.1+launch.433"
     assert result["new_version"] == "0.1.1+launch.434"
     assert result["already_current"] is False
-    assert result["credential_helper_configured"] is True
-    assert result["credential_helper_repaired"] is True
+    assert result["credential_helper_configured"] is None
+    assert result["credential_helper_repaired"] is None
     assert result["credential_helper_error"] is None
+
+
+def test_version_change_installer_repair_failure_raises_via_exit_code(monkeypatch):
+    """A credential-helper repair failure fails the installer itself (the
+    same way a product-boundary-audit failure does), so a non-zero exit
+    from a repair failure must reach `yoke update` as a real failure too."""
+    _stub_version_change(
+        monkeypatch,
+        installer_rc=1,
+        installer_stderr="credential helper repair failed: permission denied",
+    )
+
+    with pytest.raises(self_update.SelfUpdateError) as raised:
+        self_update.run_update()
+
+    assert "permission denied" in str(raised.value)
 
 
 def test_stale_version_after_successful_installer_run_raises(monkeypatch):

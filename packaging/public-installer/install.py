@@ -254,11 +254,15 @@ class Installer:
         yoke_bin = self._resolve_installed_yoke_bin()
         installed_version = self._smoke_yoke(yoke_bin)
         display = _display_version(installed_version)
+        # Readiness comes only after every required check passes: a
+        # product-boundary or credential-helper repair failure must never
+        # print a "ready" screen before raising.
+        self._product_boundary_audit(expected_version=version, yoke_bin=yoke_bin)
+        self._repair_credential_helper(yoke_bin)
         if already:
             print(self._say(f"Yoke v{display} already installed"), file=self.stdout)
         else:
             print(self._say(f"Yoke v{display} is ready"), file=self.stdout)
-        self._product_boundary_audit(expected_version=version, yoke_bin=yoke_bin)
         self._advise_path()
 
     def install_command(
@@ -460,6 +464,47 @@ class Installer:
         _verify_product_package_presence(runtime)
         if expected_version:
             _verify_product_package_versions(runtime, expected_version)
+
+    def _repair_credential_helper(self, yoke_bin: str) -> None:
+        """Rebuild the git credential-helper bundle this install just wiped.
+
+        ``uv tool install --reinstall --force`` (used for every install and
+        upgrade, not just version changes) rebuilds the tool virtualenv's
+        site-packages wholesale, orphaning any content-addressed helper
+        bundle a previous run wrote there at runtime while the git config
+        that still names that path survives untouched. Re-invoking the
+        freshly installed binary (not this process, which runs under
+        whatever interpreter fetched this script) is required: this
+        process's own site path does not necessarily match what was just
+        installed. A no-op when no registered checkout references a Yoke
+        helper. A genuine repair failure fails this install/update the same
+        way a product-boundary-audit failure does: readiness requires the
+        repair to have completed, not merely been attempted.
+        """
+        argv = [yoke_bin, "github", "credential-helper", "refresh", "--json"]
+        result = self.capture_runner(argv)
+        if result.returncode != 0:
+            raise InstallError(_format_command_failure(argv, result))
+        diagnostic = (result.stderr or result.stdout or "").strip()[-2048:]
+        try:
+            payload = json.loads(result.stdout)
+        except (ValueError, TypeError):
+            payload = None
+        if not isinstance(payload, dict) or "configured" not in payload:
+            raise InstallError(
+                "credential helper repair produced no result: "
+                f"{diagnostic or 'no diagnostic output'}"
+            )
+        error = payload.get("error")
+        if error:
+            raise InstallError(f"credential helper repair failed: {error}")
+        if payload.get("repaired"):
+            print(
+                self._say(
+                    "Rebuilt the git credential helper bundle this install wiped."
+                ),
+                file=self.stdout,
+            )
 
     def _advise_path(self) -> None:
         if self.which("yoke") is not None:

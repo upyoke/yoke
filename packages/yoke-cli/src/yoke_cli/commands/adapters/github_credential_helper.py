@@ -10,9 +10,15 @@ orphans any files a *previous* run wrote there at runtime, while the git
 config that still names that path survives untouched. See
 :func:`yoke_cli.config.github_repo_helper_reconnect.restore_missing_bundle`.
 A no-op when no registered checkout references a Yoke helper, so it is safe
-to call unconditionally after any reinstall; ``yoke update`` and
-``yoke self-host upgrade`` both invoke it via the freshly installed binary
-once their own reinstall completes.
+to call unconditionally after any reinstall. The public installer
+(``packaging/public-installer/install.py``) invokes it via the freshly
+installed binary as the last step of every successful run, whether run
+directly (``curl | sh``) or by ``yoke update``'s own reinstall; a genuine
+repair failure there fails that run the same way a product-boundary-audit
+failure does. ``yoke update``'s already-current fast path, which skips
+rerunning the installer entirely, calls
+:func:`yoke_cli.config.github_repo_helper_reconnect.restore_missing_bundle`
+directly instead.
 """
 
 from __future__ import annotations
