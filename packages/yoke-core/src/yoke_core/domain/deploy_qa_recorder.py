@@ -77,8 +77,11 @@ def cmd_seed_from_flow(
         try:
             stages_json = cmd_stages(flow_conn, flow_id)
         except LookupError as exc:
-            print(f"No stages found for flow '{flow_id}': {exc}", file=sys.stderr)
-            return 0
+            # The run's own flow field named a flow row that does not
+            # exist — a real error (normally prevented by the flow FK, but
+            # never one to read back as "nothing to seed").
+            print(f"Error: flow '{flow_id}' not found: {exc}", file=sys.stderr)
+            return -1
     finally:
         flow_conn.close()
 

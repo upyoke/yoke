@@ -16,7 +16,6 @@ from typing import Any, Optional
 def check_resume_qa_gate(
     *,
     run_id: str,
-    stages: list[dict[str, Any]],
     start_stage: str,
     stage_failed_exit: int,
     awaiting_qa_exit: int,
@@ -26,14 +25,14 @@ def check_resume_qa_gate(
     Returns an exit code when the resume must stop here, or ``None`` when
     it may proceed. A transport/authority failure evaluating the check is
     distinct from an empty result — conflating the two would let an
-    unreachable serving plane read as "no scoped QA is outstanding".
+    unreachable serving plane read as "no scoped QA is outstanding". The
+    serving side derives the stage list from the run's own stored flow;
+    this caller supplies only the resume point.
     """
     from yoke_core.domain.deployment_qa_stage_resume import resume_qa_refusal_message
 
     try:
-        qa_refusal = resume_qa_refusal_message(
-            run_id=run_id, stages=stages, start_stage=start_stage
-        )
+        qa_refusal = resume_qa_refusal_message(run_id=run_id, start_stage=start_stage)
     except RuntimeError as exc:
         print(
             f"Error: could not evaluate scoped QA resume gate: {exc}", file=sys.stderr

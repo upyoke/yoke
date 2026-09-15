@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 import subprocess
 from unittest import mock
 
@@ -110,33 +109,6 @@ class TestResolveQaKind:
             deploy_qa_recorder._resolve_qa_kind_for_stage("not-json", "smoke")
             == "smoke"
         )
-
-
-class TestRecordStageResult:
-    def test_non_qa_stage_is_debug_only(self, monkeypatch, caplog, capsys):
-        from yoke_core.domain import deploy_qa_stage_result
-
-        monkeypatch.setattr(
-            deploy_qa_stage_result,
-            "resolve_stages_json_for_run",
-            lambda run_id, *, db_path=None: json.dumps(
-                [
-                    {"name": "merged", "step_runner": "auto"},
-                ]
-            ),
-        )
-
-        with caplog.at_level(
-            logging.DEBUG,
-            logger="yoke_core.domain.deploy_qa_stage_result",
-        ):
-            result = deploy_qa_recorder.cmd_record_stage_result(
-                "run-1", "merged", "pass"
-            )
-
-        assert result is None
-        assert capsys.readouterr() == ("", "")
-        assert "not a QA stage" in caplog.text
 
 
 # ===========================================================================

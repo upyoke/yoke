@@ -40,7 +40,8 @@ def cmd_record_stage_result(
 
     Returns the qa_run_id on success, or ``None`` when ``stage_name`` is not
     a QA stage — a legitimate no-op. Raises ``RuntimeError`` when a QA
-    stage's result could not be recorded, so a caller never mistakes a
+    stage's result could not be recorded, or when the run/flow itself could
+    not be resolved at all, so a caller never mistakes a missing run or a
     write failure for quiet success.
     """
     from yoke_core.domain.deployment_runs_qa import cmd_qa_add, cmd_qa_update
@@ -48,7 +49,12 @@ def cmd_record_stage_result(
     from yoke_core.domain.qa_execution import cmd_run_add
     from yoke_core.domain.qa_requirements import cmd_requirement_add
 
-    stages_json = resolve_stages_json_for_run(run_id, db_path=db_path)
+    try:
+        stages_json = resolve_stages_json_for_run(run_id, db_path=db_path)
+    except LookupError as exc:
+        raise RuntimeError(
+            f"could not resolve flow/stages for run {run_id!r}: {exc}"
+        ) from exc
     qa_kind = resolve_qa_kind_for_stage(stages_json, stage_name)
 
     if not qa_kind:

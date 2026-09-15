@@ -19,12 +19,18 @@ from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_Q
 
 
 def resolve_stages_json_for_run(run_id: str, *, db_path: Optional[str] = None) -> str:
-    """Return the raw stages JSON for a run's flow, or ``""`` if unresolvable.
+    """Return the raw stages JSON for a run's flow.
 
     Reads the run's ``flow`` field and that flow's ``stages`` column
     in-process through the ordinary domain query functions, so the caller
     inherits whatever database authority (bound DSN, actor identity) the
     current execution context already carries.
+
+    Raises ``LookupError`` when the run or its flow cannot be resolved —
+    distinct from a readable flow whose stages simply don't include the
+    stage being asked about, which is the caller's own legitimate no-op to
+    interpret. Collapsing "unreadable" into "empty" would let a missing
+    run or flow read as a stage that quietly isn't QA-relevant.
     """
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.deployment_runs_crud_query import cmd_get
@@ -32,13 +38,10 @@ def resolve_stages_json_for_run(run_id: str, *, db_path: Optional[str] = None) -
 
     flow_id = cmd_get(run_id, "flow", db_path=db_path)
     if not flow_id:
-        return ""
+        raise LookupError(f"deployment run {run_id!r} not found or has no flow")
     conn = connect(db_path)
     try:
-        try:
-            return cmd_stages(conn, flow_id)
-        except LookupError:
-            return ""
+        return cmd_stages(conn, flow_id)
     finally:
         conn.close()
 

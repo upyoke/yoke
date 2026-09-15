@@ -309,6 +309,25 @@ class TestQaRecorderIntegration:
         )
         assert count == 0  # Already seeded
 
+    def test_seed_reports_error_not_zero_for_a_missing_flow_row(self, deploy_db):
+        """A run whose flow row is missing is an error, not "nothing to seed".
+
+        cmd_stages raises LookupError specifically when the flow is not
+        found — distinct from a found flow with no QA-relevant stages,
+        which legitimately returns 0.
+        """
+        deploy_db.execute(
+            "INSERT INTO deployment_runs (id, project_id, flow, status) "
+            "VALUES ('run-missing-flow', 1, 'flow-does-not-exist', 'created')",
+        )
+        deploy_db.commit()
+
+        count = deploy_qa_recorder.cmd_seed_from_flow(
+            "run-missing-flow",
+            db_path=os.environ["YOKE_DB"],
+        )
+        assert count == -1
+
     def test_get_requirement_after_seed(self, deploy_db):
         """get-requirement returns the ID of a seeded requirement."""
         deploy_db.execute(

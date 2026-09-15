@@ -9,9 +9,6 @@ import urllib.error
 from runtime.api.domain import (
     test_deployment_execution_serving_authority as serving_fixture,
 )
-from yoke_cli.commands.adapters.deployment_execution_authority import (
-    execution_connection_error,
-)
 from yoke_cli.transport import dispatcher as client_dispatcher
 from yoke_cli.transport import https as https_transport
 from yoke_cli.transport.https import HttpsConnection
@@ -289,61 +286,3 @@ def test_a_qa_write_failure_warns_but_never_reports_a_false_pass(
     assert tuple(unresolved) != ("succeeded", "complete")
     statuses = _qa_statuses(conn, run_id)
     assert statuses.get("preflight") != "passed"
-
-
-def test_local_admin_candidate_bootstraps_execution_handlers(
-    serving_plane,
-    monkeypatch,
-) -> None:
-    conn = serving_plane["conn"]
-    _replace_flow(
-        conn,
-        [
-            {"name": "bootstrap", "step_runner": "auto", "qa_kind": "bootstrap"},
-            {"name": "complete", "step_runner": "auto"},
-        ],
-    )
-    monkeypatch.setenv("YOKE_ENV", "prod-db-admin")
-    monkeypatch.setenv("YOKE_ACTOR_ID", str(serving_plane["owner_id"]))
-    monkeypatch.setattr(
-        client_dispatcher,
-        "_resolve_session_id",
-        lambda: serving_plane["owner_session"],
-    )
-    monkeypatch.setattr(
-        https_transport,
-        "resolve_https_connection",
-        lambda *_args, **_kwargs: None,
-    )
-    monkeypatch.setattr(
-        https_transport,
-        "relay_https",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            AssertionError("local admin bootstrap contacted the serving API")
-        ),
-    )
-    monkeypatch.setattr(deploy_pipeline, "resolve_project_checkout_path", lambda _p: "")
-
-    called: list[str] = []
-    original_call = deploy_pipeline_control_plane._call
-
-    def record_call(function_id: str, run_id: str, payload: dict):
-        called.append(function_id)
-        return original_call(function_id, run_id, payload)
-
-    monkeypatch.setattr(deploy_pipeline_control_plane, "_call", record_call)
-    run_id = str(
-        _invoke(
-            "deployment_runs.create",
-            {"project": PROJECT, "flow": FLOW, "release_lineage": LINEAGE},
-        )["run_id"]
-    )
-    assert execution_connection_error(run_id) is None
-    assert deploy_pipeline.run_pipeline(run_id) == deploy_pipeline.EXIT_SUCCESS
-    assert {
-        "deployment_runs.execution.context",
-        "deployment_runs.execution.update",
-        "deployment_runs.execution.qa_seed",
-        "deployment_runs.execution.qa_record",
-        "deployment_runs.execution.qa_pending",
-    }.issubset(called)

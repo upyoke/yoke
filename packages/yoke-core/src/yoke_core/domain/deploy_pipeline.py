@@ -192,7 +192,6 @@ def run_pipeline(
     if start_stage:
         resume_exit = stage_checks.check_resume_qa_gate(
             run_id=run_id,
-            stages=stages,
             start_stage=start_stage,
             stage_failed_exit=EXIT_STAGE_FAILED,
             awaiting_qa_exit=EXIT_AWAITING_QA,

@@ -39,9 +39,8 @@ def _resume_with(monkeypatch, result, *, run_id="run-serving-qa-1"):
     recorder = _RecordedCall(result)
     monkeypatch.setattr(resume_mod, "serving_authority", recorder, raising=False)
     monkeypatch.setattr(control_plane_transport, "serving_authority", recorder)
-    stages = [{"name": "member-qa", "step_runner": "qa", "stage_kind": "qa"}]
     message = resume_mod.resume_qa_refusal_message(
-        run_id=run_id, stages=stages, start_stage="release-qa"
+        run_id=run_id, start_stage="release-qa"
     )
     return recorder, message
 
@@ -53,7 +52,8 @@ def test_accepted_stage_lets_the_pipeline_continue(monkeypatch):
 
 def test_durable_qa_wait_is_reported_verbatim(monkeypatch):
     recorder, outcome = _dispatch_with(
-        monkeypatch, {"code": -4, "message": "member 9: no concrete QA cases are materialized"}
+        monkeypatch,
+        {"code": -4, "message": "member 9: no concrete QA cases are materialized"},
     )
     assert outcome == (-4, "member 9: no concrete QA cases are materialized")
     function_id, payload, target = recorder.calls[0]
@@ -89,7 +89,9 @@ def test_resume_refusals_are_reported_verbatim(monkeypatch):
     assert message == "member 9: no passing case"
     function_id, payload, target = recorder.calls[0]
     assert function_id == resume_mod.RESUME_DEPLOYMENT_QA_REFUSALS_FUNCTION
-    assert payload["start_stage"] == "release-qa"
+    # No stage list: the serving side derives it from the run's own stored
+    # flow rather than trusting one from this caller.
+    assert payload == {"start_stage": "release-qa"}
     assert target.workflow_run_id == "run-serving-qa-1"
 
 
@@ -102,10 +104,9 @@ def test_an_unreachable_serving_plane_raises_rather_than_a_false_clear(monkeypat
     recorder = _RecordedCall(RuntimeError("relay refused: no route"))
     monkeypatch.setattr(resume_mod, "serving_authority", recorder, raising=False)
     monkeypatch.setattr(control_plane_transport, "serving_authority", recorder)
-    stages = [{"name": "member-qa", "step_runner": "qa", "stage_kind": "qa"}]
     try:
         resume_mod.resume_qa_refusal_message(
-            run_id="run-serving-qa-1", stages=stages, start_stage="release-qa"
+            run_id="run-serving-qa-1", start_stage="release-qa"
         )
         raise AssertionError("expected RuntimeError")
     except RuntimeError as exc:
@@ -129,9 +130,13 @@ def test_the_registered_functions_are_reachable_from_the_dispatcher():
     from yoke_core.domain.handlers.__init_register__ import register_all_handlers
 
     register_all_handlers()  # idempotent; populates the registry if empty
-    assert yoke_function_registry.lookup(
-        dispatch_mod.DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION
-    ) is not None
-    assert yoke_function_registry.lookup(
-        resume_mod.RESUME_DEPLOYMENT_QA_REFUSALS_FUNCTION
-    ) is not None
+    assert (
+        yoke_function_registry.lookup(
+            dispatch_mod.DISPATCH_DEPLOYMENT_QA_STAGE_FUNCTION
+        )
+        is not None
+    )
+    assert (
+        yoke_function_registry.lookup(resume_mod.RESUME_DEPLOYMENT_QA_REFUSALS_FUNCTION)
+        is not None
+    )
