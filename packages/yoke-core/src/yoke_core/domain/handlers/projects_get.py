@@ -74,65 +74,36 @@ def handle_projects_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     from yoke_core.domain.project_public_prefix import typed_project_field
     from yoke_core.domain.projects import PROJECT_FIELDS
-    from yoke_core.domain.projects_crud import cmd_get
+    from yoke_core.domain.projects_crud import _read_resolved_project, cmd_get
 
-    resolved_project = project
     actor_id = numeric_actor_id(request.actor.actor_id if request.actor else None)
-    # TEMP DIAGNOSTIC (YOK-3116): instrumented CI-only "project not found"
-    # investigation. Prints only nonsecret project existence/id and resolved
-    # database identity/authority observed inside the actual server handler.
-    # Remove once the root cause is fixed.
-    import os as _yok3116_os
-    import sys as _yok3116_sys
-
-    _yok3116_worker = _yok3116_os.environ.get("PYTEST_XDIST_WORKER", "master")
-    print(
-        f"[YOK-3116-DIAG] handler.projects_get.entry worker={_yok3116_worker} "
-        f"project={project!r} actor_id={actor_id}",
-        file=_yok3116_sys.stderr,
-    )
-    if actor_id is not None:
-        from yoke_core.domain.db_helpers import connect
-        from yoke_core.domain.project_identity import resolve_project
-
-        conn = connect()
-        try:
-            visible_project_ids = actor_visible_project_ids(conn, actor_id)
-            identity = resolve_project(
-                conn,
-                project,
-                required=False,
-                visible_project_ids=visible_project_ids,
-            )
-            _yok3116_db_row = conn.execute("SELECT current_database()").fetchone()
-            _yok3116_db_name = _yok3116_db_row[0] if _yok3116_db_row else None
-            _yok3116_exists_row = conn.execute(
-                "SELECT id, slug FROM projects WHERE slug=%s", (project,)
-            ).fetchone()
-            print(
-                f"[YOK-3116-DIAG] handler.projects_get.resolved "
-                f"worker={_yok3116_worker} project={project!r} "
-                f"actor_id={actor_id} "
-                f"visible_project_ids={sorted(visible_project_ids) if visible_project_ids is not None else None} "
-                f"identity_found={identity is not None} db={_yok3116_db_name!r} "
-                f"project_row_ignoring_visibility={_yok3116_exists_row}",
-                file=_yok3116_sys.stderr,
-            )
-        finally:
-            conn.close()
-        if identity is None:
-            return HandlerOutcome(
-                primary_success=False,
-                error=FunctionError(
-                    code="not_found",
-                    message=f"project '{project}' not found",
-                    jsonpath="$.payload.project",
-                ),
-            )
-        resolved_project = str(identity.id)
-
     try:
-        raw = cmd_get(resolved_project, field=field)
+        if actor_id is not None:
+            from yoke_core.domain.db_helpers import connect
+            from yoke_core.domain.project_identity import resolve_project
+
+            conn = connect()
+            try:
+                visible_project_ids = actor_visible_project_ids(conn, actor_id)
+                identity = resolve_project(
+                    conn,
+                    project,
+                    required=False,
+                    visible_project_ids=visible_project_ids,
+                )
+                if identity is None:
+                    raw = None
+                else:
+                    # Read through the SAME connection the visibility-scoped
+                    # resolve just used, instead of re-resolving the project
+                    # on a second, independently opened connection — closing
+                    # the window where the two could observe the row
+                    # differently.
+                    raw = _read_resolved_project(conn, project, identity.id, field)
+            finally:
+                conn.close()
+        else:
+            raw = cmd_get(project, field=field)
     except ValueError:
         return HandlerOutcome(
             primary_success=False,

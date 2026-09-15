@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import io
 import json
-import os
-import sys
 import urllib.error
 
 from runtime.api.domain import (
@@ -140,31 +138,6 @@ def _qa_statuses(conn, run_id: str) -> dict[str, str]:
     return {str(row[0]): str(row[1]) for row in rows}
 
 
-def _yok3116_diag(conn, label: str, run_id: str) -> None:
-    """TEMP DIAGNOSTIC (YOK-3116): client "before request" snapshot.
-
-    Prints only nonsecret project existence/id and resolved database
-    identity/authority as observed from this test process, immediately
-    before dispatching ``run_pipeline``. Remove once the root cause of the
-    CI-only "project not found" failure is fixed.
-    """
-    worker = os.environ.get("PYTEST_XDIST_WORKER", "master")
-    db_row = conn.execute("SELECT current_database()").fetchone()
-    project_row = conn.execute(
-        "SELECT id, slug FROM projects WHERE slug=%s", (PROJECT,)
-    ).fetchone()
-    run_row = conn.execute(
-        "SELECT id, project_id, status FROM deployment_runs WHERE id=%s",
-        (run_id,),
-    ).fetchone()
-    print(
-        f"[YOK-3116-DIAG] test.{label} worker={worker} run_id={run_id!r} "
-        f"db={db_row[0] if db_row else None!r} "
-        f"project_row={project_row} run_row={run_row}",
-        file=sys.stderr,
-    )
-
-
 def test_https_driver_preserves_approval_and_qa_through_failure_retry(
     serving_plane,
     monkeypatch,
@@ -208,7 +181,6 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
     )
     run_id = str(created["run_id"])
 
-    _yok3116_diag(conn, "https_driver.first_run_pipeline", run_id)
     assert deploy_pipeline.run_pipeline(run_id) == deploy_pipeline.EXIT_AWAITING_APPROVAL
     assert _qa_statuses(conn, run_id) == {
         "approve-deploy": "pending",
@@ -220,7 +192,6 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
         {"request_id": _decision_request_id(conn, run_id), "action": "approve"},
     )
 
-    _yok3116_diag(conn, "https_driver.second_run_pipeline", run_id)
     assert deploy_pipeline.run_pipeline(run_id) == deploy_pipeline.EXIT_STAGE_FAILED
     failed = conn.execute(
         "SELECT status,current_stage FROM deployment_runs WHERE id=%s",
@@ -239,13 +210,11 @@ def test_https_driver_preserves_approval_and_qa_through_failure_retry(
             {"project": PROJECT, "flow": FLOW, "retry_of": run_id},
         )["run_id"]
     )
-    _yok3116_diag(conn, "https_driver.retry_run_pipeline", retry_id)
     assert deploy_pipeline.run_pipeline(retry_id) == deploy_pipeline.EXIT_AWAITING_APPROVAL
     _invoke(
         "decision_requests.resolve",
         {"request_id": _decision_request_id(conn, retry_id), "action": "approve"},
     )
-    _yok3116_diag(conn, "https_driver.retry_run_pipeline_after_approval", retry_id)
     assert deploy_pipeline.run_pipeline(retry_id) == deploy_pipeline.EXIT_SUCCESS
     succeeded = conn.execute(
         "SELECT status,current_stage FROM deployment_runs WHERE id=%s",
@@ -311,7 +280,6 @@ def test_local_admin_candidate_bootstraps_execution_handlers(
         )["run_id"]
     )
     assert execution_connection_error(run_id) is None
-    _yok3116_diag(conn, "local_admin_candidate.run_pipeline", run_id)
     assert deploy_pipeline.run_pipeline(run_id) == deploy_pipeline.EXIT_SUCCESS
     assert {
         "deployment_runs.execution.context",

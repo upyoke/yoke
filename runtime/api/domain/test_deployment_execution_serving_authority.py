@@ -7,7 +7,6 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from runtime.api.domain.yok3116_diag import diag as _yok3116_diag
 from runtime.api.fixtures import pg_testdb
 from yoke_contracts.api.function_call import (
     ActorContext,
@@ -105,7 +104,6 @@ def _call(
 @pytest.fixture()
 def serving_plane():
     with pg_testdb.test_database() as conn:
-        _yok3116_diag(conn, "fixture.serving_plane.setup.entry", PROJECT)
         seed_roles_and_permissions(conn)
         project_id = resolve_project_id(conn, PROJECT)
         stages = json.dumps(
@@ -159,7 +157,6 @@ def serving_plane():
             reason="external item deployment test",
         )
         conn.commit()
-        _yok3116_diag(conn, "fixture.serving_plane.setup.committed", PROJECT)
         with TestClient(app_factory.create_app()) as client:
             yield {
                 "client": client,
@@ -175,7 +172,6 @@ def serving_plane():
                     "Authorization": f"Bearer {other_token.raw_token}"
                 },
             }
-            _yok3116_diag(conn, "fixture.serving_plane.teardown.post_yield", PROJECT)
 
 
 def test_project_only_owner_creates_pauses_resumes_fails_and_retries(
