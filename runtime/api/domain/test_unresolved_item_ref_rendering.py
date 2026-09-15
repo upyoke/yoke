@@ -114,3 +114,28 @@ def test_format_refuses_to_borrow_a_number_for_a_missing_sequence():
     assert format_item_ref("externalwebapp", "EXT", EXTERNAL_SEQUENCE) == (
         f"EXT-{EXTERNAL_SEQUENCE}"
     )
+
+
+def test_message_text_scan_flags_an_internal_id_presented_as_a_reference(tmp_path):
+    """The guard that keeps this class of defect from re-entering the tree."""
+    from yoke_core.domain.lint_item_ref_message_text import (
+        scan_message_text_item_ids,
+    )
+
+    source = tmp_path / "packages" / "pkg"
+    source.mkdir(parents=True)
+    (source / "leaks.py").write_text(
+        'def a(item_id):\n'
+        '    return f"item {item_id} is terminal"\n'
+        'def b(item_id):\n'
+        '    return f"register --item {item_id} first"\n'
+        'def c(item_id):\n'
+        '    return f"row is items.id {item_id}"\n'
+        'def d(conn, item_id):\n'
+        '    return f"item {render_item_ref(conn, item_id)} is terminal"\n',
+        encoding="utf-8",
+    )
+
+    hits = scan_message_text_item_ids(tmp_path)
+
+    assert [hit.line for hit in hits] == [2, 4]

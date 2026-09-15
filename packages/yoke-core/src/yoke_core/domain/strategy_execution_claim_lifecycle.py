@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.strategy_execution_state import (
     StrategyDocClaimAuthorizationError,
     StrategyDocClaimConflictError,
@@ -41,7 +42,7 @@ def acquire_strategy_doc_claim(
     item_claim = _active_item_claim(conn, item_id)
     if item_claim is None or str(item_claim["session_id"]) != session_id:
         raise StrategyDocClaimAuthorizationError(
-            f"session {session_id!r} does not hold item {item_id}'s active claim"
+            f"session {session_id!r} does not hold {render_item_ref(conn, item_id)}'s active claim"
         )
     marker = _marker(conn)
     link = _row(
@@ -53,7 +54,7 @@ def acquire_strategy_doc_claim(
     )
     if link is None:
         raise StrategyExecutionLinkError(
-            f"Blitz item {item_id} has no execution document"
+            f"Blitz {render_item_ref(conn, item_id)} has no execution document"
         )
     registered_at = iso8601_now()
     inserted = _row(
@@ -157,7 +158,7 @@ def release_strategy_doc_claim(
     claim = active_strategy_doc_claim(conn, item_id=int(item_id))
     if claim is None:
         raise StrategyExecutionLinkError(
-            f"item {item_id} has no active strategy-document claim"
+            f"{render_item_ref(conn, item_id)} has no active strategy-document claim"
         )
     if break_glass and terminal_lifecycle:
         raise StrategyDocClaimAuthorizationError(
@@ -215,7 +216,7 @@ def release_strategy_doc_claim(
     )
     if int(cursor.rowcount or 0) != 1:
         raise StrategyExecutionLinkError(
-            f"item {item_id}'s strategy-document claim is no longer active"
+            f"{render_item_ref(conn, item_id)}'s strategy-document claim is no longer active"
         )
     if commit:
         conn.commit()

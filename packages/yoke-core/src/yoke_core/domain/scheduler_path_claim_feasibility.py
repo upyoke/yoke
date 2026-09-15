@@ -167,7 +167,7 @@ def probe_advance_feasibility(
     if candidate is None:
         return FeasibilityVerdict(
             outcome=FeasibilityOutcome.NO_CLAIM,
-            reason=f"no planned path-claim found for item {item_id}",
+            reason=f"no planned path-claim found for {render_item_ref(conn, item_id)}",
         )
     claim_id, integration_target = candidate
     target_ids = _fetch_claim_target_ids(conn, claim_id)

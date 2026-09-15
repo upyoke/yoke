@@ -17,6 +17,8 @@ from yoke_core.domain.conflict_survey import (
     reserve_conflict_survey_record,
     survey_conflicts,
 )
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
+from yoke_core.domain.project_identity import render_item_ref
 
 
 class SurveyPathSize(BaseModel):
@@ -90,12 +92,12 @@ def handle_survey(
             (item_id,),
         ).fetchone()
         if row is None:
-            return _error("unknown_item", f"item {item_id} does not exist")
+            return _error("unknown_item", f"no item at items.id {item_id}")
         workflow_id = str(row[0])
         if workflow_id != expected_workflow:
             return _error(
                 "workflow_mismatch",
-                f"item {item_id} uses workflow {workflow_id!r}, "
+                f"{render_item_ref(conn, item_id)} uses workflow {workflow_id!r}, "
                 f"not {expected_workflow!r}",
             )
         if payload.no_changes and expected_workflow != "dash":
@@ -147,6 +149,9 @@ def handle_survey(
                 reservation=reservation,
             )
             return _error("survey_refused", str(exc))
+    owner_refs = render_item_ref_lookup(
+        conn, [blocker.owner_item_id for blocker in survey.blockers]
+    )
     return HandlerOutcome(
         result_payload=SurveyResponse(
             item_id=item_id,
@@ -157,6 +162,7 @@ def handle_survey(
                 {
                     "kind": blocker.kind,
                     "owner_item_id": blocker.owner_item_id,
+                    "owner_public_ref": owner_refs(blocker.owner_item_id),
                     "path": blocker.path,
                     "state": blocker.state,
                     "detail": blocker.detail,

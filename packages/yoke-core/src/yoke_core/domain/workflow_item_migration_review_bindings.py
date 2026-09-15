@@ -25,6 +25,7 @@ from yoke_core.domain.workflow_item_migration_qa_phase_anchor import (
     qa_conflict,
 )
 from yoke_core.domain.workflow_runtime import WorkflowRuntime
+from yoke_core.domain.project_identity import render_item_ref
 
 QA_REQUIREMENT_BINDING_KIND = "QA requirement"
 
@@ -233,7 +234,7 @@ def _qa_conflicts(
 
 def _reached_gate_conflicts(
     *,
-    item_id: int,
+    item_ref: str,
     source: WorkflowRuntime,
     target: WorkflowRuntime,
     posture: Mapping[str, Any],
@@ -264,7 +265,7 @@ def _reached_gate_conflicts(
             detail = f"an unsatisfied {gate_id!r} gate{mode_suffix}"
             conflicts.append(
                 f"target introduces {detail} at reached stage "
-                f"{stage_id!r} for item {item_id}"
+                f"{stage_id!r} for {item_ref}"
             )
 
         source_approval = (
@@ -294,7 +295,7 @@ def _reached_gate_conflicts(
         ):
             conflicts.append(
                 f"target introduces unsatisfied approval semantics at "
-                f"reached stage {stage_id!r} for item {item_id}"
+                f"reached stage {stage_id!r} for {item_ref}"
             )
 
         source_qa_gate = (
@@ -310,7 +311,7 @@ def _reached_gate_conflicts(
         if target_qa_gate and source_qa_gate != target_qa_gate:
             conflicts.append(
                 f"target introduces an unsatisfied QA gate at reached stage "
-                f"{stage_id!r} for item {item_id}"
+                f"{stage_id!r} for {item_ref}"
             )
     return conflicts
 
@@ -335,7 +336,7 @@ def review_binding_conflicts(
     conflicts.extend(_qa_conflicts(conn, item_id=item_id, source=source, target=target))
     conflicts.extend(
         _reached_gate_conflicts(
-            item_id=item_id,
+            item_ref=render_item_ref(conn, item_id),
             source=source,
             target=target,
             posture=posture,

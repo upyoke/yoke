@@ -22,6 +22,7 @@ from yoke_contracts.machine_qa_execution import (
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_method_capabilities import capability_kinds
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.capability_type_definitions import (
     capability_type_definition,
 )
@@ -39,7 +40,6 @@ from yoke_core.domain.machine_qa_capability_settings import (
     replace_test_machine_settings,
 )
 from yoke_core.domain.project_identity import (
-    render_item_ref,
     resolve_project,
     unresolved_item_ref,
 )

@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.item_worktrees import release_item_worktrees
 from yoke_core.domain.strategy_execution import (
     active_strategy_doc_claim,
@@ -173,7 +174,7 @@ def release_for_terminal_transition(
     )
     if live_status != target_status:
         raise RuntimeError(
-            f"terminal cleanup expected item {item_id} at {target_status!r}; "
+            f"terminal cleanup expected {render_item_ref(conn, item_id)} at {target_status!r}; "
             f"found {live_status!r}"
         )
 

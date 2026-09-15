@@ -24,6 +24,7 @@ from yoke_core.engines.merge_worktree_prepare_state import (  # noqa: F401
     extract_generated_files,
     prune_agent_worktrees,
 )
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def _parent():
@@ -175,7 +176,7 @@ def resolve_context(args: MergeArgs) -> MergeContext:
         except Exception as exc:
             if args.item_id is not None:
                 raise RuntimeError(
-                    f"could not resolve project checkout for item {ctx.item_id}"
+                    f"could not resolve project checkout for {item_ref_for_id(ctx.item_id)}"
                 ) from exc
 
     if args.expected_repo_root:

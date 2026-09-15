@@ -196,7 +196,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         if ctx.item_id is not None:
             _print(
                 "  FAIL: Integration dependency gate unavailable for "
-                f"item {ctx.item_id}",
+                f"{item_ref_for_id(ctx.item_id)}",
                 err=True,
             )
             fail = True
@@ -256,7 +256,12 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
                 target=TargetRef(kind="global"),
                 payload={
                     "project": project,
-                    "fields": ["internal_id", "status", "db_mutation_profile"],
+                    "fields": [
+                        "id",
+                        "internal_id",
+                        "status",
+                        "db_mutation_profile",
+                    ],
                 },
             )
         except Exception:  # noqa: BLE001 - item-bound gate fails closed below.
@@ -264,7 +269,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         if items_resp is None or not items_resp.success:
             _print(
                 "  FAIL: Migration-history item roster unavailable for "
-                f"item {ctx.item_id}",
+                f"{item_ref_for_id(ctx.item_id)}",
                 err=True,
             )
             fail = True

@@ -28,6 +28,7 @@ from yoke_core.domain.path_claims_dependency_resolver_coordination import (
     items_are_coordination_only,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.project_identity import render_item_ref
 
 DIRECT_WORKFLOW_IDS = frozenset({"blitz", "dash"})
 
@@ -86,11 +87,11 @@ def _item(conn: Any, item_id: int) -> dict[str, Any]:
         )
     )
     if not rows:
-        raise LookupError(f"item {item_id} does not exist")
+        raise LookupError(f"no item at items.id {item_id}")
     row = rows[0]
     if str(row["workflow_id"]) not in DIRECT_WORKFLOW_IDS:
         raise ValueError(
-            f"item {item_id} uses workflow {row['workflow_id']!r}; "
+            f"{render_item_ref(conn, item_id)} uses workflow {row['workflow_id']!r}; "
             "conflict survey is for Dash and Blitz execution"
         )
     return row

@@ -286,7 +286,7 @@ def resolve_item_actor(conn: Any, item_id: int) -> tuple[Optional[int], Optional
         (int(item_id),),
     ).fetchone()
     if row is None:
-        return None, f"item {item_id} not found"
+        return None, f"no item at items.id {item_id}"
     actor_value = row[0]
     if actor_value in (None, ""):
         return None, "item has no owner/source actor for path-claim activation"

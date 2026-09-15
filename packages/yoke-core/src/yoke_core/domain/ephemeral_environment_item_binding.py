@@ -131,7 +131,7 @@ def stop_item_environments(conn: Any, *, item_id: int) -> int:
         (int(item_id),),
     ).fetchone()
     if item is None:
-        raise ValueError(f"item {item_id} does not exist")
+        raise ValueError(f"no item at items.id {item_id}")
     project_id = int(_row_value(item, "project_id", 0))
     labels = tuple(
         sorted(

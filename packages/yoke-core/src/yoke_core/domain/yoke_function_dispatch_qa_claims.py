@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def _placeholder(conn: Any) -> str:
@@ -149,7 +150,8 @@ def qa_subject_claim_verdict(
     return (
         False,
         "claim_required",
-        f"no active claim by session {actor_session!r} on item {target_id}",
+        f"no active claim by session {actor_session!r} on "
+            f"{item_ref_for_id(target_id)}",
     )
 
 

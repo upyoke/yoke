@@ -23,6 +23,7 @@ from yoke_core.domain.handlers.direct_workflow_survey import (
     SurveyResponse,
     handle_survey,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 class EvidenceRequest(BaseModel):
@@ -141,7 +142,7 @@ def _dash_project(conn: Any, item_id: int) -> tuple[str, int]:
         (item_id,),
     ).fetchone()
     if row is None:
-        raise ValueError(f"item {item_id} is not a Dash")
+        raise ValueError(f"{render_item_ref(conn, item_id)} is not a Dash")
     return str(row[0]), int(row[1])
 
 

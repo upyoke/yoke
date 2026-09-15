@@ -224,7 +224,7 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
                 (int(item_id),),
             )
             if item is None:
-                raise LookupError(f"item {item_id} not found")
+                raise LookupError(f"no item at items.id {item_id}")
             project_id = int(item["project_id"])
             project = str(item["project"])
             if has_attached_plans(

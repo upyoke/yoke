@@ -87,7 +87,7 @@ def _item_state(conn: Any, item_id: int) -> tuple[str, str]:
         (int(item_id),),
     ).fetchone()
     if row is None:
-        raise MergedAtCorrectionError(f"item {item_id} does not exist")
+        raise MergedAtCorrectionError(f"no item at items.id {item_id}")
     return (
         str(_row_value(row, "status", 0) or ""),
         str(_row_value(row, "merged_at", 1) or ""),

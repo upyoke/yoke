@@ -22,8 +22,8 @@ from typing import Any, Dict, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims_dispatch_io import print_error
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.project_identity import (
-    render_item_ref,
     unresolved_item_ref,
 )
 from yoke_core.api.service_client_shared_session_resolver import (

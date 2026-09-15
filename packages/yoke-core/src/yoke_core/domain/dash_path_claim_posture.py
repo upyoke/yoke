@@ -14,6 +14,7 @@ from yoke_core.domain.dash_posture_read import (
     posture,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.project_identity import render_item_ref
 
 
 _NON_TERMINAL_CLAIM_STATES = ("planned", "blocked", "active")
@@ -91,7 +92,7 @@ def ensure_survey_path_claim(
         joined = ",".join(paths)
         raise ValueError(
             "Selected Dash path-claims posture has no registered coverage. "
-            f"Register it first: yoke claims path register --item {item_id} "
+            f"Register it first: yoke claims path register --item {render_item_ref(conn, item_id)} "
             f"--paths {joined}"
         )
     if missing:

@@ -37,6 +37,7 @@ from typing import Any, Callable, Iterable
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_declared_paths import TERMINAL_STATUSES
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.merge_queue_enqueue_verification import (
     LandingReadback,
     read_landing,
@@ -214,7 +215,7 @@ def observe_pending_landings(
                 conn.commit()
         except Exception as exc:
             conn.rollback()
-            cycle_errors.append(f"item {item_id}: {exc}")
+            cycle_errors.append(f"{render_item_ref(conn, item_id)}: {exc}")
             continue
         if readback.state_error:
             continue
@@ -317,7 +318,7 @@ def observe_pending_landings(
             conn.commit()
         except Exception as exc:
             conn.rollback()
-            detail = f"item {item_id}: {exc}"
+            detail = f"{render_item_ref(conn, item_id)}: {exc}"
             if notice_in_progress:
                 result.setdefault("notice_errors", []).append(
                     {"item_id": item_id, "pr_number": pr_number, "error": str(exc)}

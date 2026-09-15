@@ -9,6 +9,7 @@ from yoke_core.domain.path_claims_actor_resolution import (
     ActorResolutionUnavailable,
     resolve_actor_for_caller,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 class PathClaimRegistrationError(Exception):
@@ -44,7 +45,7 @@ def fetch_item_project_id(conn: Any, item_id: int) -> int:
     project_id = row[0] if not hasattr(row, "keys") else row["project_id"]
     if not project_id:
         raise ItemHasNoProject(
-            f"item {item_id} has no project_id; cannot resolve canonical paths"
+            f"{render_item_ref(conn, item_id)} has no project_id; cannot resolve canonical paths"
         )
     return int(project_id)
 

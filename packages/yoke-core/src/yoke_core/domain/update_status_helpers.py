@@ -186,7 +186,8 @@ def _verify_claim(epic_id: int, task_num: str, *, stderr: TextIO) -> None:
     if rc != 0:
         reason = (result or {}).get("reason") or "claim verification failed"
         print(
-            f"Error: Claim verification denied for epic {epic_id} task {task_num}: {reason}",
+            f"Error: Claim verification denied for "
+            f"{item_ref_for_id(epic_id_int)} task {task_num}: {reason}",
             file=stderr,
         )
         print(

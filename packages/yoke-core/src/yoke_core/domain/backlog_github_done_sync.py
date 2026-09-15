@@ -44,6 +44,7 @@ from yoke_core.domain.backlog_github_fetch import (
 )
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
 from yoke_core.domain import project_label_policy
+from yoke_core.domain.project_identity_item_ref import item_subject_ref
 
 
 def _issue_snapshot(issue_num: int, repo: str, project: str) -> tuple[list[str], str]:
@@ -104,7 +105,7 @@ def _relay_done_sync(
     except RuntimeError as exc:
         print(f"Error: done sync failed for {item_id}: {exc}", file=stderr)
         return 1
-    print(f"Done sync: item {result.get('item_id', item_id)} (relayed)", file=stdout)
+    print(f"Done sync: {item_subject_ref(item_id)} (relayed)", file=stdout)
     return int(result.get("exit_code", 0))
 
 
@@ -130,7 +131,7 @@ def sync_done_item(
         try:
             item_pk = _resolve_item_id(item_id, conn=conn)
         except ValueError:
-            print(f"Error: Item {item_id} not found", file=stderr)
+            print(f"Error: no item for {item_id!r}", file=stderr)
             return 1
         public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():

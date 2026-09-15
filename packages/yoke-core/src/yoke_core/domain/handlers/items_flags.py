@@ -131,7 +131,7 @@ def _prepare(
     state = _load_state(int(target.item_id))
     if state is None:
         return None, None, None, _error(
-            "not_found", f"item {target.item_id} not found"
+            "not_found", f"no item at items.id {target.item_id}"
         )
     return int(target.item_id), payload, state, None
 

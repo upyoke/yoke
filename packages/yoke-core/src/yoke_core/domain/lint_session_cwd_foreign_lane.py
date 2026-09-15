@@ -38,6 +38,7 @@ from yoke_core.domain.lint_session_cwd_read_only_signatures import (
     GIT_LISTING_SUBS,
     git_subcommand_index,
 )
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 FAILURE_CLASS = "foreign_lane"
 
@@ -122,7 +123,7 @@ def build_denial_message(
     payload: Mapping[str, Any] | None = None,
 ) -> str:
     """Name the lane, its holder, what is still allowed, and the way out."""
-    owner = occupant.public_ref or f"item {occupant.item_id}"
+    owner = occupant.public_ref or item_ref_for_id(occupant.item_id)
     acquire_ref = occupant.public_ref or "PREFIX-N"
     is_write = _payload_is_write(payload)
     verb = "write" if is_write else "read"

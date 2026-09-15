@@ -46,7 +46,7 @@ def validate_task_binding_target(
     """Lock and validate the item pin and generated task before mutation."""
     locked = lock_optional_item_workflow_binding(conn, int(item_id))
     if locked and int(item_id) not in locked:
-        raise PathClaimTaskBindingError(f"item {item_id} does not exist")
+        raise PathClaimTaskBindingError(f"no item at items.id {item_id}")
     effective = load_item_effective_workflow_policies(conn, int(item_id))
     runtime = effective.runtime
     if effective.path_claims != REQUIRED_PER_TASK:

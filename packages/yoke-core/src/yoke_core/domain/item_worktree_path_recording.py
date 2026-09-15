@@ -7,6 +7,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
@@ -75,7 +76,7 @@ def record_item_worktree_path(
     if owner is not None:
         raise ValueError(
             f"active worktree path {clean_path!r} is already owned by "
-            f"item {owner['item_id']} branch {owner['branch']!r}"
+            f"{render_item_ref(conn, owner['item_id'])} branch {owner['branch']!r}"
         )
     conn.execute(
         "UPDATE item_worktrees "

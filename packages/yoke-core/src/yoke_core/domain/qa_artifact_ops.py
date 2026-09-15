@@ -30,6 +30,7 @@ from yoke_core.domain.qa_artifact_handle import (
     serialize_handle,
 )
 from yoke_core.domain.qa_constants import _pipe_row
+from yoke_core.domain.project_identity import render_item_ref
 
 
 _ART_SELECT = (
@@ -258,7 +259,7 @@ def cmd_artifact_list(
         print(line)
         lines.append(line)
     if not lines and item_id is not None:
-        print(f"No artifacts found for item {item_id}")
+        print(f"No artifacts found for {render_item_ref(conn, item_id)}")
     return lines
 
 

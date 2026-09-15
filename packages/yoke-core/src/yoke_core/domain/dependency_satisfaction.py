@@ -24,6 +24,7 @@ from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
     builtin_workflow_runtime,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 @dataclass(frozen=True)
@@ -116,7 +117,7 @@ def require_authorable_satisfaction(
         (int(blocking_item_id),),
     ).fetchone()
     if row is None:
-        raise LookupError(f"blocking item {blocking_item_id} not found")
+        raise LookupError(f"blocking {render_item_ref(conn, blocking_item_id)} not found")
     try:
         require_registered_environment(
             conn,

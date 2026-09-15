@@ -25,9 +25,9 @@ from typing import Any, Iterable, List, Optional, Sequence
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.path_claims import IncompatibleOverlap, PathClaimError
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.path_claims_read import _blocking_conflicts_for
 from yoke_core.domain.project_identity import (
-    render_item_ref,
     unresolved_item_ref,
 )
 

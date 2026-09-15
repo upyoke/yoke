@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.qa_plan_execution_result_state import QaPlanExecutionError
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_execution_store import QaPlanExecutionStateError
 
 
@@ -26,7 +27,7 @@ def ordered_plan_requirements(
     if item_id is not None:
         where = f"item_id={marker} AND workflow_transition_id={marker}"
         params: tuple[Any, ...] = (int(item_id), str(transition_id))
-        subject = f"item {item_id} transition {transition_id!r}"
+        subject = f"{render_item_ref(conn, item_id)} transition {transition_id!r}"
     else:
         if deployment_member_item_id is not None and deployment_stage is None:
             raise QaPlanExecutionError("deployment member requires deployment stage")

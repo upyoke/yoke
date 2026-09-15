@@ -140,7 +140,7 @@ def handle_execution_link(request: FunctionCallRequest) -> HandlerOutcome:
             "SELECT project_id FROM items WHERE id = %s", (item_id,),
         ).fetchone()
         if row is None:
-            return _error("unknown_item", f"item {item_id} does not exist")
+            return _error("unknown_item", f"no item at items.id {item_id}")
         document_project_id = int(row[0])
         if payload.project:
             from yoke_core.domain.project_identity import resolve_project_id

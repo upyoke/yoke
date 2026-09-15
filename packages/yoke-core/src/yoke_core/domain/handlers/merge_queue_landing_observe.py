@@ -19,6 +19,7 @@ from yoke_core.domain.merge_queue_landing_refresh import (
     record_age_seconds,
 )
 from yoke_core.domain.session_message_types import row_dict, utc_now
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 class ObserveLandingRequest(BaseModel):
@@ -74,7 +75,7 @@ def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
                 (item_id,),
             ).fetchone()
             if row is None:
-                return _error("target_not_found", f"item {item_id} not found")
+                return _error("target_not_found", f"no item at items.id {item_id}")
             item = row_dict(row)
             project_id = int(item["project_id"])
             pr_number = str(item.get("merge_queue_pr_number") or "")
@@ -107,7 +108,7 @@ def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:  # noqa: BLE001 - named server-side refusal
         return _error(
             "landing_observation_failed",
-            f"server landing observation failed for item {item_id}: {exc}",
+            f"server landing observation failed for {item_ref_for_id(item_id)}: {exc}",
         )
 
     return HandlerOutcome(

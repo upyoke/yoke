@@ -32,6 +32,7 @@ from yoke_core.domain.workflow_delivery_binding_validation import (
     validate_deployment_run_item,
     validate_deployment_run_items,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def _require_composable_run(conn, run_id: str) -> None:
@@ -88,7 +89,7 @@ def cmd_add_item(
             (run_id, item_id, iso8601_now(), intent, selection),
         )
         conn.commit()
-        return f"Added item {item_id} to run {run_id}"
+        return f"Added {render_item_ref(conn, item_id)} to run {run_id}"
     finally:
         conn.close()
 
@@ -104,7 +105,7 @@ def cmd_remove_item(run_id: str, item_id: int, db_path: Optional[str] = None) ->
             (run_id, item_id),
         )
         conn.commit()
-        return f"Removed item {item_id} from run {run_id}"
+        return f"Removed {render_item_ref(conn, item_id)} from run {run_id}"
     finally:
         conn.close()
 

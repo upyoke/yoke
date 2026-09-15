@@ -173,7 +173,7 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
             (item_id,),
         ).fetchone()
         if item is None:
-            return _error("not_found", f"item {item_id} was not found")
+            return _error("not_found", f"no item at items.id {item_id}")
         status = str(item["status"] if hasattr(item, "keys") else item[0])
         runtime = load_item_workflow_runtime(conn, item_id)
         accepted = lane_release_recovery_statuses(runtime)
