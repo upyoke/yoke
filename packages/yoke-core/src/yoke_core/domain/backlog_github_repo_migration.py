@@ -13,6 +13,7 @@ import sys
 from typing import Any, Optional, TextIO
 
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain import github_rest
 from yoke_core.domain.backlog_github_fetch import _close_if_owned, _open_conn, _p
@@ -21,7 +22,6 @@ from yoke_core.domain.project_github_auth import (
     resolve_project_github_auth,
 )
 from yoke_core.domain.project_identity import (
-    render_item_ref,
     unresolved_item_ref,
 )
 

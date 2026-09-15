@@ -148,7 +148,7 @@ def persist_and_verify(
 
     if parsed.epic_id is None:
         _err(
-            f"No epic ID attested in Simulator output for epic {cli_epic_id} phase {phase}. "
+            f"No epic ID attested in Simulator output for {cli_epic_ref} phase {phase}. "
             f"Expected an `EPIC: {cli_epic_ref}` line near the verdict, or a "
             f"`# Simulation Report: {cli_epic_ref}` heading."
         )
@@ -169,7 +169,7 @@ def persist_and_verify(
         try:
             _epic_domain.simulation_upsert(conn, epic_id, phase, simulator_output)
         except Exception as exc:
-            _err(f"simulation-upsert failed for epic {epic_id} phase {phase}: {exc}")
+            _err(f"simulation-upsert failed for {cli_epic_ref} phase {phase}: {exc}")
             raise SystemExit(10)
 
         try:
@@ -177,7 +177,7 @@ def persist_and_verify(
         except LookupError:
             _err(
                 f"No persisted simulation record found after upsert for "
-                f"epic {epic_id} phase {phase}."
+                f"{cli_epic_ref} phase {phase}."
             )
             raise SystemExit(11)
 
@@ -187,12 +187,12 @@ def persist_and_verify(
 
     if persisted_verdict == "UNDETERMINED":
         reason = fields[6] if len(fields) > 6 else "reason unavailable"
-        _err(f"Persisted verdict is undetermined for epic {epic_id} phase {phase}: "
+        _err(f"Persisted verdict is undetermined for {cli_epic_ref} phase {phase}: "
              f"{reason}. Local parse was '{local_verdict}'.")
         raise SystemExit(12)
 
     if persisted_verdict != local_verdict:
-        _err(f"Parser mismatch for epic {epic_id} phase {phase}. "
+        _err(f"Parser mismatch for {cli_epic_ref} phase {phase}. "
              f"Local='{local_verdict}', persisted='{persisted_verdict}'.")
         raise SystemExit(13)
 
@@ -200,7 +200,7 @@ def persist_and_verify(
         from yoke_core.domain.conduct_reviewed_handoff import run as _handoff_run
         _handoff_rc = _handoff_run(int(epic_id))
         if _handoff_rc == 0:
-            print(f"Auto-handoff: epic {epic_id} → reviewed-implementation "
+            print(f"Auto-handoff: {cli_epic_ref} → reviewed-implementation "
                   f"(source=auto-transition:simulation)")
         elif _handoff_rc == 1:
             # Pre-condition not met (parent not at reviewing-implementation) —
@@ -208,7 +208,7 @@ def persist_and_verify(
             pass
         else:
             _err(
-                f"Auto-handoff failed for epic {epic_id} after verified simulation "
+                f"Auto-handoff failed for {cli_epic_ref} after verified simulation "
                 f"persist (exit {_handoff_rc}). Partial success is not allowed."
             )
             raise SystemExit(15)

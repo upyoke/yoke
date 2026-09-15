@@ -13,6 +13,7 @@ always passes.
 from __future__ import annotations
 
 from typing import Optional
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 DIRECT_EVIDENCE_WORKFLOWS = frozenset({"dash", "task"})
 
@@ -49,7 +50,8 @@ def evidence_workflow_mismatch(workflow_id: str, item_id: int) -> Optional[str]:
     if str(workflow_id) in DIRECT_EVIDENCE_WORKFLOWS:
         return None
     return (
-        f"item {item_id} uses workflow {workflow_id!r}, not a direct-evidence workflow"
+        f"{item_ref_for_id(item_id)} uses workflow {workflow_id!r}, "
+        "not a direct-evidence workflow"
     )
 
 

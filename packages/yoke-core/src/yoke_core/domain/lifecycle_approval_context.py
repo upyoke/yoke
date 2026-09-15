@@ -29,7 +29,7 @@ def load_lifecycle_item(conn: Any, item_id: int) -> dict[str, Any]:
         (item_id,),
     ).fetchone()
     if row is None:
-        raise LookupError(f"item {item_id} does not exist")
+        raise LookupError(f"no item at items.id {item_id}")
     return {key: row[key] for key in row.keys()}
 
 

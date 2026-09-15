@@ -76,7 +76,7 @@ def _load_boundary_context(conn: Any, item_id: int) -> dict:
         (item_id,),
     ).fetchone()
     if row is None:
-        raise BoundaryProofError(f"item {item_id} was not found")
+        raise BoundaryProofError(f"no item at items.id {item_id}")
     claims = [
         _canonical_claim(claim_projection(conn, claim_id))
         for claim_id, _target in claims_for_boundary(conn, item_id)

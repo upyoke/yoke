@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from yoke_core.domain.db_helpers import iso8601_now, query_rows
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_execution_environment_target import (
     resolve_plan_execution_target,
 )
@@ -86,7 +87,7 @@ def rematerialize_for_item(
         require_existing_target(
             plan_rows,
             execution_target=execution_target,
-            subject=f"item {item_id} transition {transition_id!r}",
+            subject=f"{render_item_ref(conn, item_id)} transition {transition_id!r}",
         )
         existing_ids = {
             (str(row["plan_case_key"]), row["host_baseline"]): int(row["id"])
@@ -139,7 +140,7 @@ def rematerialize_for_item(
                             conn,
                             requirement_id=requirement_id,
                             execution_target=execution_target,
-                            subject=f"item {item_id} transition {transition_id!r}",
+                            subject=f"{render_item_ref(conn, item_id)} transition {transition_id!r}",
                         )
                 else:
                     refresh_requirement(

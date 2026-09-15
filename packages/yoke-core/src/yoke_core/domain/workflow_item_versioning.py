@@ -60,7 +60,7 @@ def _inspect_item_workflow_pin(
         )
     )
     if item is None:
-        raise WorkflowRegistryError(f"item {item_id} does not exist")
+        raise WorkflowRegistryError(f"no item at items.id {item_id}")
     policy = worktree_lane_policy(runtime)
     lanes = (
         list_item_worktrees(conn, int(item_id), active_only=True)

@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Optional, Union
 
 from yoke_core.domain.yok_n_parser import parse_item_argument
+from yoke_core.domain.project_identity import render_item_ref, unresolved_item_ref
 
 
 def resolve_cli_item_ref(
@@ -44,10 +45,6 @@ def item_ref_for_id(item_id: int) -> str:
     as unresolved for want of a read rather than inventing one from the id.
     """
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.project_identity import (
-        render_item_ref,
-        unresolved_item_ref,
-    )
 
     try:
         from yoke_contracts.control_plane_locality import (
@@ -63,7 +60,20 @@ def item_ref_for_id(item_id: int) -> str:
         return unresolved_item_ref(int(item_id), consulted=False)
 
 
+def item_subject_ref(token: int | str) -> str:
+    """Name an item from a token that is either an id or a public ref.
+
+    Boundary surfaces (browser QA, sync CLIs, relayed handlers) accept both
+    shapes from their caller. A public ref already names the item, so it
+    passes through; a bare id is resolved through :func:`item_ref_for_id`
+    so the text a person reads is never the storage key.
+    """
+    text = str(token).strip()
+    return item_ref_for_id(int(text)) if text.isdigit() else text
+
+
 __all__ = [
     "item_ref_for_id",
+    "item_subject_ref",
     "resolve_cli_item_ref",
 ]

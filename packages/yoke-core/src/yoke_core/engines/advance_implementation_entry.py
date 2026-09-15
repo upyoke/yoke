@@ -200,7 +200,7 @@ def run(
         return 1
     item = _read_item(item_id_int)
     if item is None:
-        print(f"ERROR: item {item_id!r} not found.", file=sys.stderr)
+        print(f"ERROR: no item for {item_id!r}.", file=sys.stderr)
         return 2
 
     pre_status = item.get("status") or ""

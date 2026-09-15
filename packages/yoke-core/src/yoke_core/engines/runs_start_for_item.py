@@ -21,6 +21,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 from yoke_core.domain.deploy_lock import AMBIENT_SESSION, deploy_lock_refusal
 from yoke_core.domain.deployment_runs_crud_mutate import (
     cmd_add_item,
@@ -145,7 +146,7 @@ def start_for_item(
             project=resolved_project,
             flow=resolved_flow,
             item_ids=[item_id],
-            error=f"item {item_id} has no project; cannot start deploy run",
+            error=f"{item_ref_for_id(item_id)} has no project; cannot start run",
             error_phase=PHASE_RESOLVE,
         )
     if not resolved_flow:
@@ -214,7 +215,7 @@ def start_for_item(
             lineage_error = f"release-lineage binding failed: {exc}"
         if lineage_error == NO_LOCAL_CHECKOUT:
             lineage_error = (
-                f"item {item_id} targets stage but project "
+                f"{item_ref_for_id(item_id)} targets stage but project "
                 f"'{resolved_project}' has no machine-local checkout to bind a "
                 "release lineage; pass --release-lineage explicitly"
             )

@@ -12,6 +12,7 @@ from yoke_core.domain.strategy_doc_claim_exclusion import (
 )
 from yoke_core.domain.strategy_docs_schema import STRATEGY_DOCS_TABLE
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_core.domain.project_identity import render_item_ref
 
 
 BLITZ_DOCUMENT_ARCHIVE_FAILURE = "GATE_BLITZ_DOCUMENT_ARCHIVE_FAILED"
@@ -84,7 +85,7 @@ def archive_completed_blitz_document(
                 raise BlitzDocumentArchiveError(
                     "the completed Blitz still owns its execution-document claim"
                 )
-            retained_ref = str(live.get("public_ref") or f"item {live['item_id']}")
+            retained_ref = str(live.get("public_ref") or render_item_ref(conn, live['item_id']))
             return BlitzDocumentArchiveReceipt(
                 slug=slug,
                 changed=False,
@@ -104,7 +105,7 @@ def archive_completed_blitz_document(
         cause = str(exc)
     raise BlitzDocumentArchiveError(
         f"{BLITZ_DOCUMENT_ARCHIVE_FAILURE}: could not archive strategy "
-        f"document {slug!r} while completing Blitz item {item_id}; the done "
+        f"document {slug!r} while completing Blitz {render_item_ref(conn, item_id)}; the done "
         "transition was rolled back. Recovery: restore strategy-document "
         "write availability, then retry the reviewing-implementation -> done "
         f"transition. Cause: {cause}"

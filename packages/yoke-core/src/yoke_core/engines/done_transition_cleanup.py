@@ -15,6 +15,7 @@ from yoke_core.engines.branch_landed_evidence import (
 )
 from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
 from yoke_core.engines.remote_branch_cleanup import delete_remote_branch_if_merged
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def _parent():
@@ -142,7 +143,8 @@ def _cleanup_stale_branches(
         return False
     for reason in preserved:
         print(
-            f"  item {item_id}, path {project_repo / '.worktrees' / branch}: {reason}"
+            f"  {item_ref_for_id(item_id)}, "
+            f"path {project_repo / '.worktrees' / branch}: {reason}"
         )
     if (
         lane_branch.startswith("trial/")

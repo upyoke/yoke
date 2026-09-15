@@ -80,7 +80,7 @@ def sync_item(
         try:
             item_pk = _resolve_item_id(item_id, conn=conn)
         except ValueError:
-            print(f"Error: Item {item_id} not found in database", file=stderr)
+            print(f"Error: no item for {item_id!r} in database", file=stderr)
             return 1
         public_ref = _item_ref(item_pk, conn=conn)
 

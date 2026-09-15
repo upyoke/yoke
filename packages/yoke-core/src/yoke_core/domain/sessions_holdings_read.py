@@ -31,6 +31,7 @@ from yoke_core.domain.sessions_holdings_claim_facts import (
     steered_document_slugs,
 )
 from yoke_core.domain.coordination_claim_keys import key_for_target
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def render_claim_target(
@@ -55,7 +56,8 @@ def render_claim_target(
             return str(found["public_ref"]), dict(found)
         return unresolved_item_ref(item_num), {}
     if kind == "epic_task":
-        return f"epic {claim.get('epic_id')} task {claim.get('task_num')}", {}
+        epic_ref = item_ref_for_id(claim.get("epic_id"))
+        return f"{epic_ref} task {claim.get('task_num')}", {}
     if kind == "steering":
         steering = work_claim_target_from_row(claim)
         return steering.render(), {

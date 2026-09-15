@@ -116,7 +116,7 @@ def _write_landing_marker(
                 (item_id,),
             ).fetchone()
             if row is None:
-                return _err("target_not_found", f"item {item_id} not found")
+                return _err("target_not_found", f"no item at items.id {item_id}")
             same_pr = str(row[0] or "") == pr_number
             recorded_enqueued_at = str(row[1]) if same_pr and row[1] else enqueued_at
             landed_at = str(row[2] or "") if same_pr else ""

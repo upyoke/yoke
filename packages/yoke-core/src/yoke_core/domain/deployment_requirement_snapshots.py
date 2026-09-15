@@ -14,6 +14,7 @@ from yoke_core.domain.deployment_requirement_snapshot_format import (
     semantic_row,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.project_identity import render_item_ref
 
 
 SNAPSHOT_SCHEMA = 1
@@ -193,7 +194,7 @@ def _requirement_snapshot(
         )
     if int(requirement.get("item_id") or 0) != int(item_id):
         raise ValueError(
-            f"QA requirement {requirement_id} is not owned by item {item_id}"
+            f"QA requirement {requirement_id} is not owned by {render_item_ref(conn, item_id)}"
         )
     if raw_requirement.get("waived_at") is not None:
         raise ValueError(f"QA requirement {requirement_id} is waived")
@@ -224,7 +225,7 @@ def snapshot_member_requirements(
         f"SELECT project_id FROM items WHERE id={_p(conn)}", (int(item_id),)
     ).fetchone()
     if item_row is None:
-        raise LookupError(f"item {item_id} not found")
+        raise LookupError(f"no item at items.id {item_id}")
     project_id = int(
         item_row["project_id"] if hasattr(item_row, "keys") else item_row[0]
     )
@@ -237,7 +238,7 @@ def snapshot_member_requirements(
         ).fetchone()
         if attached is None:
             raise ValueError(
-                f"QA plan {plan_id} is not attached to item {item_id}; attach it "
+                f"QA plan {plan_id} is not attached to {render_item_ref(conn, item_id)}; attach it "
                 "before selecting it for release admission"
             )
         plans.append(

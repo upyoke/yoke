@@ -85,7 +85,7 @@ def _project_id(conn: Any, item_id: int) -> int:
     ).fetchone()
     if row is None:
         raise PathClaimsUnreadable(
-            f"item {item_id} has no row in items; the boundary gate cannot "
+            f"{render_item_ref(conn, item_id)} has no row in items; the boundary gate cannot "
             "resolve the project whose facts the integration ladder needs"
         )
     return int(row[0])

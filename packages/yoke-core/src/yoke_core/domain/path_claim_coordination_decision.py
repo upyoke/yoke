@@ -62,7 +62,7 @@ def _read_spec(item_id: int) -> str:
     if spec != "":
         return spec
     if query_item(item_id, "id") == "":
-        raise ValueError(f"item {item_id} not found")
+        raise ValueError(f"no item at items.id {item_id}")
     return ""
 
 

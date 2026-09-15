@@ -226,7 +226,7 @@ Once an item reaches a terminal stage its records are frozen. This is
 deliberate, not an oversight, and it is enforced structurally rather than by
 convention: the ordinary scalar-write path requires the item's work claim,
 and a work claim cannot be acquired against a terminal item
-(`INVALID_CLAIM: item N is terminal at workflow stage 'done'`). `--force`
+(`INVALID_CLAIM: PREFIX-N is terminal at workflow stage 'done'`). `--force`
 bypasses the frozen-item and gate guards, not the claim check.
 
 The same stance governs the adjacent record types — an unsettled QA record

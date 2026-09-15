@@ -164,7 +164,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         elif args.command == "row":
             result = query_item_row(args.id)
             if result is None:
-                print(f"Error: item {args.id} not found", file=sys.stderr)
+                print(f"Error: no item for {args.id!r}", file=sys.stderr)
                 return 1
             print(result)
             return 0

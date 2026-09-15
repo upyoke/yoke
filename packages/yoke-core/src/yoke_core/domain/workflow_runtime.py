@@ -19,6 +19,7 @@ from yoke_core.domain.workflow_definition_builders import (
     IMPLEMENTATION_WORKFLOW_SKILL_IDS,
     WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 ENGINE_TERMINAL_STAGE_IDS = frozenset({"cancelled", "stopped"})
 ENGINE_WAIT_STAGE_IDS = frozenset({"blocked", "failed"})
@@ -323,7 +324,7 @@ def load_item_workflow_runtime(
     )
     row = _row_dict(cursor, cursor.fetchone())
     if row is None:
-        raise WorkflowRegistryError(f"item {item_id} does not exist")
+        raise WorkflowRegistryError(f"no item at items.id {item_id}")
     values = dict(row)
     if (
         values.get("workflow_id") is None
@@ -331,7 +332,7 @@ def load_item_workflow_runtime(
         or values.get("version") is None
     ):
         raise WorkflowRegistryError(
-            f"item {item_id} has no complete workflow-version pin"
+            f"{render_item_ref(conn, item_id)} has no complete workflow-version pin"
         )
     return _runtime_from_row(row)
 

@@ -21,6 +21,7 @@ import json
 from typing import Any, Callable, Mapping, Optional
 
 from yoke_core.domain.dash_posture_read import marker, posture as read_posture
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.item_posture_amend_guards import (
     ItemPostureAmendError,
@@ -74,7 +75,7 @@ def _item_row(conn: Any, item_id: int) -> dict[str, Any]:
     )
     row = cursor.fetchone()
     if row is None:
-        raise LookupError(f"item {item_id} does not exist")
+        raise LookupError(f"no item at items.id {item_id}")
     columns = [str(column[0]) for column in cursor.description]
     return dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
 
@@ -186,7 +187,7 @@ def amend_item_posture(
     status = str(item["status"])
     if status in runtime.terminal_stage_ids or status in ENGINE_TERMINAL_STAGE_IDS:
         raise ItemPostureAmendError(
-            f"item {item_id} is at terminal stage {status!r}; every posture "
+            f"{render_item_ref(conn, item_id)} is at terminal stage {status!r}; every posture "
             "gate has already run, so an amendment would change nothing. "
             "File the follow-on work as its own item."
         )

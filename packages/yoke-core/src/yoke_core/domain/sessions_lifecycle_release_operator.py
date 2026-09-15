@@ -10,6 +10,7 @@ records the human reason verbatim.
 """
 
 from __future__ import annotations
+from yoke_core.domain.project_identity import render_item_ref
 
 import os
 from typing import Any, Dict, Optional
@@ -120,7 +121,7 @@ def operator_override_release_claim(
         if discovered is None:
             raise SessionError(
                 "NOT_FOUND",
-                f"No active claim found for item {item_id}"
+                f"No active claim found for {render_item_ref(conn, item_id)}"
                 + (f" in session {session_id}" if session_id else "")
                 + ".",
             )
@@ -135,7 +136,7 @@ def operator_override_release_claim(
         if row is None:
             raise SessionError(
                 "NOT_FOUND",
-                f"No active claim found for item {item_id}"
+                f"No active claim found for {render_item_ref(conn, item_id)}"
                 + (f" in session {session_id}" if session_id else "")
                 + ".",
             )
@@ -146,7 +147,7 @@ def operator_override_release_claim(
             raise SessionError(
                 "CLAIM_CHANGED",
                 f"Active claim holder changed while preparing the override "
-                f"for item {item_id}; retry the command.",
+                f"for {render_item_ref(conn, item_id)}; retry the command.",
             )
         found_session_id = row["session_id"]
 

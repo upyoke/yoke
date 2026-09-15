@@ -51,6 +51,7 @@ from yoke_core.domain.projects_trunk import (
     resolve_trunk_safe,
 )
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
+from yoke_core.domain.project_identity import render_item_ref
 
 
 class IntegrationTargetUnresolvable(PathClaimRegistrationError):
@@ -125,7 +126,7 @@ def resolve_and_validate_integration_target(
     if not candidate:
         if not project_id:
             raise IntegrationTargetUnresolvable(
-                f"item {item_id!r} resolves to no project, so no trunk can "
+                f"{render_item_ref(conn, item_id)} resolves to no project, so no trunk can "
                 "be resolved for the omitted --integration-target. Pass "
                 "--integration-target explicitly."
             )

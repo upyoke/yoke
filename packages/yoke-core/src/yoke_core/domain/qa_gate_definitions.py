@@ -44,7 +44,7 @@ class GateTarget:
             from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
             return item_ref_for_id(int(self.item_id))
-        return f"epic {self.epic_id}/task {self.task_num}"
+        return f"{item_ref_for_id(int(self.epic_id))}/task {self.task_num}"
 
 
 @dataclass

@@ -16,6 +16,7 @@ from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
     load_item_workflow_runtime,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 COMPLETED_ITEM_STAGE_ID = "done"
@@ -69,17 +70,17 @@ def _validate_deployment_run_item_state(
     item_flow = item["deployment_flow"] if hasattr(item, "keys") else item[1]
     if item_project != run_project:
         raise WorkflowItemBindingError(
-            f"item {item_id} project does not match deployment run {run_id}"
+            f"{render_item_ref(conn, item_id)} project does not match deployment run {run_id}"
         )
     if item_flow and str(item_flow) != run_flow:
         raise WorkflowItemBindingError(
-            f"item {item_id} selects deployment flow {item_flow!r}, not {run_flow!r}"
+            f"{render_item_ref(conn, item_id)} selects deployment flow {item_flow!r}, not {run_flow!r}"
         )
     if allow_completed and status == COMPLETED_ITEM_STAGE_ID:
         return
     if not delivery_ready_for_stage(runtime, status):
         raise WorkflowItemBindingError(
-            f"item {item_id} workflow {runtime.workflow_id}@{runtime.version} "
+            f"{render_item_ref(conn, item_id)} workflow {runtime.workflow_id}@{runtime.version} "
             f"is not delivery-ready at stage {status!r}"
         )
 

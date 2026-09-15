@@ -41,6 +41,7 @@ from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def _p(conn: Any) -> str:
@@ -145,7 +146,7 @@ def _update_epic_checkbox(
     final_body, mode = select_body_for_github_transform(
         body=new_body,
         item_fields={
-            "title": f"epic {epic_id}",
+            "title": render_item_ref(conn, epic_id),
             "status": "implementing",
             "workflow_id": "epic",
             "project": project,

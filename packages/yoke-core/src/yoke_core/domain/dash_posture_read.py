@@ -22,7 +22,7 @@ def item_row(conn: Any, item_id: int) -> dict[str, Any]:
     )
     row = cursor.fetchone()
     if row is None:
-        raise LookupError(f"item {item_id} does not exist")
+        raise LookupError(f"no item at items.id {item_id}")
     columns = [str(column[0]) for column in cursor.description]
     return dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
 

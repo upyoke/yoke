@@ -67,7 +67,7 @@ def handle_claim_default_deployment_flow(request: FunctionCallRequest) -> Handle
             (item_id,),
         ).fetchone()
         if row is None:
-            return _error("not_found", f"item {item_id} not found")
+            return _error("not_found", f"no item at items.id {item_id}")
         item_project = str(row["project"] if hasattr(row, "keys") else row[0])
         flow_project, err = validate_and_lookup_flow_project(conn, flow_id, item_project)
         if err:

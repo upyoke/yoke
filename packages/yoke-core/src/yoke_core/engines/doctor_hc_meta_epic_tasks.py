@@ -59,7 +59,7 @@ def hc_empty_task_worktree(conn, args: DoctorArgs, rec: RecordCollector) -> None
     )
 
     issues = [
-        f"- epic {r['epic_id']} task {r['task_num']}: status='{r['status']}' "
+        f"- {render_item_ref(conn, r['epic_id'])} task {r['task_num']}: status='{r['status']}' "
         "but no active lane is linked"
         for r in rows
     ]
@@ -80,7 +80,7 @@ def hc_orphan_epic_tasks(conn, args: DoctorArgs, rec: RecordCollector) -> None:
         "WHERE NOT EXISTS (SELECT 1 FROM items i WHERE i.id = et.epic_id) "
         "ORDER BY et.epic_id, et.task_num",
     )
-    issues = [f"- epic {r['epic_id']} task {r['task_num']}: parent item does not exist" for r in rows]
+    issues = [f"- {render_item_ref(conn, r['epic_id'])} task {r['task_num']}: parent item does not exist" for r in rows]
 
     if issues:
         rec.record("HC-orphan-epic-tasks", "Orphan epic tasks", "WARN", "\n".join(issues))

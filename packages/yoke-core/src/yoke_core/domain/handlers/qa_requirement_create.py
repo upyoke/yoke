@@ -47,6 +47,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
 )
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 class QaRequirementAddRequest(BaseModel):
@@ -261,7 +262,7 @@ def handle_qa_requirement_add_batch(
             return _error(
                 "payload_invalid",
                 f"row {idx} names item_id={row_item} but the claim-verified "
-                f"target is item {item_id}; one batch covers one item",
+                f"target is {item_ref_for_id(item_id)}; one batch covers one item",
                 jsonpath=f"{jsonpath}.item_id",
             )
         for foreign in ("epic_id", "task_num", "deployment_run_id"):

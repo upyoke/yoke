@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Optional, Sequence, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def item_worktree_authority_is_https() -> bool:
@@ -222,7 +223,8 @@ def provisioning_project(
     if slug:
         return slug, ""
     return "", (
-        f"worktree provisioning has no project for item {item_id}: "
+        f"worktree provisioning has no project for "
+        f"{item_ref_for_id(item_id)}: "
         "dependency setup, validation surfaces, and the browser cache are "
         "project-scoped, and provisioning under a guessed project prepares "
         "the lane for the wrong repository. Pass the item's project "

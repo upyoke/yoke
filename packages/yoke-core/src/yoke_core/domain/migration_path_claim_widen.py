@@ -21,6 +21,7 @@ from yoke_core.domain.migration_model_capability import (
 from yoke_core.domain.path_claims import ClaimNotFound, PathClaimError
 from yoke_core.domain.path_project_relative import invalid_project_relative_paths
 from yoke_core.domain.workflow_item_binding_lock import lock_path_claim_workflow_binding
+from yoke_core.domain.project_identity import render_item_ref
 
 
 class MigrationPathClaimError(PathClaimError):
@@ -89,7 +90,7 @@ def lock_claim_for_widen(
     item_id = int(row[1])
     if expected_item_id is not None and item_id != int(expected_item_id):
         raise MigrationPathClaimError(
-            f"claim {claim_id} belongs to item {item_id}, not target item "
+            f"claim {claim_id} belongs to {render_item_ref(conn, item_id)}, not target item "
             f"{int(expected_item_id)}"
         )
     return MigrationPathClaimContext(

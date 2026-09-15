@@ -33,6 +33,7 @@ from yoke_core.domain.browser_qa_preview_identity import (
 from yoke_core.domain.browser_qa_requirement import _process_requirement
 from yoke_core.domain.browser_qa_results import ScenarioResult
 from yoke_core.domain.qa_artifacts import case_artifact_subject
+from yoke_core.domain.project_identity_item_ref import item_subject_ref
 from yoke_core.domain.served_revision_probe import origin_of
 
 
@@ -169,7 +170,7 @@ def execute_scenario(
 
     # Step 1: One batched context read (requirements + freshness row)
     named_subject = (
-        f"item {item_id}"
+        item_subject_ref(item_id)
         if item_id is not None
         else f"deployment run {deployment_run_id}"
     )

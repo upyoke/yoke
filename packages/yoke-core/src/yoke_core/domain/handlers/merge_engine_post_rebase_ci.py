@@ -90,7 +90,7 @@ def _ensure_merge_gate_ci_requirement(
         (int(item_id),),
     )
     if item is None:
-        raise LookupError(f"item {item_id} not found")
+        raise LookupError(f"no item at items.id {item_id}")
     project_id = int(item["project_id"])
     config = validate_method_config("command-ci", {
         "command": command or list_registered_commands_for_project_id(
