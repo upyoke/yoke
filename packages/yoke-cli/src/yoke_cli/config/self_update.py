@@ -1,17 +1,22 @@
 """Client-local logic behind ``yoke update``.
 
 Reruns the official public installer (onboarding disabled) against this
-machine's already-configured distribution origin and channel, verifies the
-installed version before and after, and repairs the git credential helper
-that reinstall wipes from site-packages (``uv tool install --reinstall``
-rebuilds the tool virtualenv from the wheel, discarding the content-addressed
-bundle :mod:`yoke_cli.config.github_git_credentials` wrote there at runtime,
-while the git config that still names that path survives untouched).
+machine's already-configured distribution origin and channel, then verifies
+the installed version. Reinstalling the git credential helper is the public
+installer's own job (``packaging/public-installer/install.py``, run in-process
+by ``curl | sh`` and here alike): it repairs the bundle every reinstall wipes
+from site-packages, and enforces that repair as part of its own readiness --
+a repair failure fails the installer itself, surfacing here as the existing
+non-zero installer exit code. This module never repeats that repair for a
+reinstall; it has no independent repair signal of its own to report once the
+installer has succeeded. The one exception is the already-current fast path
+below, which skips rerunning the installer entirely (to avoid the reinstall
+cost) and so repairs in-process instead, since there is no installer run to
+own that step here.
 """
 
 from __future__ import annotations
 
-import json
 import shutil
 import subprocess
 from typing import Any
@@ -21,6 +26,15 @@ from yoke_cli.self_host import release_target
 
 VERSION_PROBE_TIMEOUT_SECONDS = 30.0
 _RUN = subprocess.run
+
+# A successful reinstall carries no independent credential-helper signal:
+# the installer performed and enforced that repair itself (a failure there
+# is a non-zero installer exit, handled above as a SelfUpdateError).
+_INSTALLER_OWNED_REPAIR: dict[str, Any] = {
+    "configured": None,
+    "repaired": None,
+    "error": None,
+}
 
 
 class SelfUpdateError(RuntimeError):
@@ -71,6 +85,9 @@ def run_update(*, channel: str | None = None) -> dict[str, Any]:
     except release_target.ReleaseTargetError as exc:
         raise SelfUpdateError(str(exc)) from exc
     if completed.returncode != 0:
+        # Covers every installer-owned failure, credential-helper repair
+        # included: the installer raises the same way a product-boundary
+        # audit failure does, so its exit code is the one signal needed.
         diagnostic = (completed.stderr or completed.stdout or "").strip()[-2048:]
         raise SelfUpdateError(
             f"the Yoke installer failed (exit {completed.returncode}): "
@@ -84,8 +101,7 @@ def run_update(*, channel: str | None = None) -> dict[str, Any]:
             f"`yoke --version` reports {new_version!r}, not the requested "
             f"{target.version!r}"
         )
-    repair = _restore_bundle_via_binary(yoke_bin)
-    return _result(old_version, new_version, target, repair)
+    return _result(old_version, new_version, target, _INSTALLER_OWNED_REPAIR)
 
 
 def _result(
@@ -122,34 +138,6 @@ def _probe_version(yoke_bin: str) -> str:
             f"{(completed.stderr or completed.stdout or '').strip()[-2048:]}"
         )
     return completed.stdout.strip()
-
-
-def _restore_bundle_via_binary(yoke_bin: str) -> dict[str, Any]:
-    # Re-invoke the freshly installed binary rather than repair in this
-    # process: the reinstall just rebuilt this interpreter's own
-    # site-packages on disk, and if it also picked up a different Python
-    # minor version this process's own site path no longer names what the
-    # fresh install actually wrote.
-    completed = _RUN(
-        (yoke_bin, "github", "credential-helper", "refresh", "--json"),
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        timeout=VERSION_PROBE_TIMEOUT_SECONDS,
-    )
-    diagnostic = (completed.stderr or completed.stdout or "").strip()[-2048:]
-    try:
-        payload = json.loads(completed.stdout)
-    except ValueError:
-        payload = None
-    if not isinstance(payload, dict) or "configured" not in payload:
-        return {
-            "configured": None,
-            "repaired": False,
-            "error": diagnostic or "credential helper refresh produced no result",
-        }
-    return payload
 
 
 __all__ = ["SelfUpdateError", "run_update"]
