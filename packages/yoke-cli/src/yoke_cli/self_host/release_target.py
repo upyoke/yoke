@@ -6,6 +6,8 @@ import json
 import os
 import re
 import subprocess
+import sys
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -15,6 +17,7 @@ from typing import Any, Callable
 from yoke_contracts.api_urls import (
     DISTRIBUTION_BASE_URL_ENV,
     DISTRIBUTION_PROD_URL,
+    RELEASE_CHANNEL_ENV,
 )
 from yoke_contracts.engine_version import local_handshake_version
 from yoke_contracts.install_binding import source_checkout_root
@@ -22,6 +25,7 @@ from yoke_contracts.server_image import pinned_server_image
 
 DEFAULT_RELEASE_CHANNEL = "stable"
 FETCH_TIMEOUT_SECONDS = 60.0
+INSTALLER_RUN_TIMEOUT_SECONDS = 600.0
 
 _SOURCE_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _CHANNEL = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
@@ -88,7 +92,7 @@ def channel_release_target(
 ) -> ReleaseTarget:
     """Resolve one distribution channel to its lockstep upgrade target."""
     selected_channel = str(
-        channel or os.environ.get("YOKE_CHANNEL") or DEFAULT_RELEASE_CHANNEL
+        channel or os.environ.get(RELEASE_CHANNEL_ENV) or DEFAULT_RELEASE_CHANNEL
     ).strip()
     if not _CHANNEL.fullmatch(selected_channel):
         raise ReleaseTargetError(
@@ -147,6 +151,58 @@ def fetch_installer(target: ReleaseTarget) -> bytes:
     if not target.installer_url:
         raise ReleaseTargetError("release target has no installer endpoint")
     return _FETCH_BYTES(target.installer_url)
+
+
+def run_installer(
+    target: ReleaseTarget,
+    installer_bytes: bytes,
+    *,
+    extra_args: tuple[str, ...] = (),
+    timeout: float = INSTALLER_RUN_TIMEOUT_SECONDS,
+) -> subprocess.CompletedProcess[str]:
+    """Run a previously fetched installer, pinned to *target*'s exact version.
+
+    Every caller passes ``--yes --no-onboard`` and a resolved version, so a
+    reinstall this pins never re-resolves the channel a second time. The
+    installer script has no dependencies beyond the standard library, so it
+    runs under the caller's own interpreter rather than a fresh ``uv``
+    environment. Callers fetch the bytes separately via :func:`fetch_installer`
+    so a fetch failure and a run failure stay distinguishable.
+    """
+    path = ""
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb", prefix="yoke-installer-", suffix=".py", delete=False
+        ) as handle:
+            handle.write(installer_bytes)
+            path = handle.name
+        command = (
+            sys.executable,
+            path,
+            "--version",
+            target.version,
+            "--yes",
+            "--no-onboard",
+            "--base-url",
+            target.base_url,
+            *extra_args,
+        )
+        return _RUN(
+            command,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ReleaseTargetError(f"the Yoke installer could not run: {exc}") from exc
+    finally:
+        if path:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
 
 def _source_checkout_target(base_url: str) -> ReleaseTarget:
@@ -260,4 +316,5 @@ __all__ = [
     "channel_release_target",
     "current_release_target",
     "fetch_installer",
+    "run_installer",
 ]

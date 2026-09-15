@@ -22,6 +22,8 @@ PERMANENT_ROWS: Tuple[_Row, ...] = (
     _p("yoke github connect", "github", REASON_TOOL_SHAPED),
     _p("yoke github disconnect", "github", REASON_TOOL_SHAPED),
     _p("yoke github status", "github", REASON_TOOL_SHAPED),
+    _p("yoke github credential-helper refresh", "github", REASON_TOOL_SHAPED),
+    _p("yoke update", "update", REASON_TOOL_SHAPED),
     _p("yoke dev setup", "dev", REASON_TOOL_SHAPED),
     _p("yoke dev db-admin setup", "dev", REASON_TOOL_SHAPED),
     _p("yoke dev path-snapshot-prewarm", "dev", REASON_TOOL_SHAPED),
