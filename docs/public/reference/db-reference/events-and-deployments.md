@@ -113,11 +113,38 @@ A run copies the internal `target_tier` and `target_environment_id` from its flo
 Successful completion also compares this run's immutable `release_lineage`
 with the previous succeeded run for the same project and target environment.
 The resulting `carried_work` object keeps item matches under `items` and
-unresolved first-parent commits as bare SHAs under `commits`. Its
-`derivation.reason` names explicit empty cases such as no prior run or an
-unreachable lineage. This record never enrolls those items in
-`deployment_run_items` and never changes their lifecycle state. Historical
-runs remain unset; recording is forward-only.
+unresolved first-parent commits as bare SHAs under `commits`. This record
+never enrolls those items in `deployment_run_items` and never changes their
+lifecycle state. Historical runs remain unset; recording is forward-only.
+
+The comparison runs wherever the completion does. A machine holding the
+project's registered checkout reads git directly; anywhere else — including a
+control plane serving an HTTPS-only project, which holds no checkout of it and
+never will — the same comparison runs over the project's own authorized
+repository binding. `derivation.source` names which answered (`checkout`,
+`repository_provider`, or `none`).
+
+**An empty release and an unanswerable comparison are different facts.**
+`derivation.contents_known` is true only when the comparison actually ran, and
+`derivation.status` is derived from it: `derived` when commits were attributed,
+`empty` when the run genuinely carries nothing, and `unknown` when nobody could
+look. `derivation.reason` names the case and `derivation.recovery` names the
+repair. Readers must not treat `unknown` as `empty`: an unknown record also
+suppresses the omitted-delivery-ready-member scan at composition freeze, so a
+run carrying unadmitted work would pass unexamined.
+
+A record is written once and then frozen, which is right for a comparison that
+ran and wrong for one that could not. `deployment_runs.carried_work.repair`
+(CLI: `yoke deployment-runs carried-work repair RUN-ID`) replaces exactly that
+case: it refuses a record that was derived, refuses to write a second
+unanswerable derivation, and names the reason the retry still failed.
+
+Completion gates ask whether the deployed candidate **contains** an item's
+recorded merge, not whether it equals it — a batch has one tip, so equality
+could only ever complete a single-item release. That ancestry read uses the
+same comparison source and needs no commit listing, so a history longer than
+the reader pages still answers truthfully. An unreadable comparison refuses by
+its own name rather than reporting the merge absent.
 
 Definition-schema-v2 runs freeze admission before execution. The candidate
 `release_lineage` must be a full commit SHA; every nonterminal delivery-ready
