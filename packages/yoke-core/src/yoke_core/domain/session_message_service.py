@@ -46,7 +46,7 @@ from yoke_core.domain.session_message_steering import (
     seat_session_id,
 )
 from yoke_core.domain.session_message_terminal import (
-    acknowledged_authorization,
+    reporting_turn_marker,
     resolve_terminal_report_item,
 )
 from yoke_core.domain.session_message_zero_recipients import require_recipients
@@ -228,7 +228,7 @@ def send_message(
                 sender_session_id,
                 reported_item.item_id,
                 reported_item.claim_id,
-                acknowledged_authorization(conn, sender_session_id),
+                reporting_turn_marker(conn, sender_session_id),
             )
             if reported_item is not None and sender_session_id
             else None

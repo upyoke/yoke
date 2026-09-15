@@ -71,31 +71,34 @@ def resolve_terminal_report_item(
     return claimed
 
 
-def acknowledged_authorization(conn: Any, session_id: str | None) -> str | None:
-    """The last instruction this session acknowledged, or ``None`` for no work.
+def reporting_turn_marker(conn: Any, session_id: str | None) -> str | None:
+    """When this session's native turn posture last moved, or ``None``.
 
-    A resumed worker acknowledges the message authorizing its next leg before
-    doing that work, whether or not the resume also hands it a fresh claim. So
-    a worker still holding an unfinished lane — kept for delivery or a retest —
-    reports that completion under a moved authorization rather than having to
-    release the claim to be heard.
+    ``turn_posture_at`` advances only on the hook events that bound a turn —
+    ``Stop`` and ``SessionEnd`` end one, ``UserPromptSubmit`` starts the next —
+    and never on a tool call. So every attempt at one completion reads the same
+    value, while a completion the worker was resumed to do reads a later one,
+    whether the resume arrived as a seat instruction, a native wake, or a
+    person typing. Nothing a session merely RECEIVES moves it, so an unrelated
+    message this session acknowledged mid-turn does not open a leg.
     """
     if not session_id:
         return None
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
-        "SELECT message_id FROM session_message_recipients "
-        f"WHERE session_id = {marker} AND state = 'acknowledged' "
-        "ORDER BY acknowledged_at DESC, message_id DESC LIMIT 1",
+        f"SELECT turn_posture_at FROM harness_sessions WHERE session_id={marker}",
         (str(session_id),),
     ).fetchone()
-    return None if row is None else str(dict(row)["message_id"])
+    if row is None:
+        return None
+    stamped = dict(row)["turn_posture_at"]
+    return None if not stamped else str(stamped)
 
 
 __all__ = [
     "ITEM_UNKNOWN",
     "ITEM_UNRELATED",
     "ITEM_UNSPECIFIED",
-    "acknowledged_authorization",
+    "reporting_turn_marker",
     "resolve_terminal_report_item",
 ]
