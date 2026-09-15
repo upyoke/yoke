@@ -243,6 +243,9 @@ def test_a_missing_scoped_credential_refuses(
     unavailable = gate.bind_consumer_authority()
 
     assert gate.CONSUMER_TOKEN_ENV in unavailable
+    assert "CI-only" in unavailable
+    assert "yoke github-actions trigger" in unavailable
+    assert "nothing can reach" not in unavailable
 
 
 def test_a_short_candidate_sha_is_refused_before_anything_is_dispatched(
