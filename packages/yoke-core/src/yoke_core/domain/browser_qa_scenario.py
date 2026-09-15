@@ -24,9 +24,16 @@ import json
 from typing import Any, Dict, Optional
 
 from yoke_contracts.api.function_call import ActorContext
+from yoke_core.domain.browser_qa_freshness_outcome import (
+    EXECUTION_TARGET_UNAUTHORIZED,
+)
+from yoke_core.domain.browser_qa_preview_identity import (
+    resolve_preview_identity_target,
+)
 from yoke_core.domain.browser_qa_requirement import _process_requirement
 from yoke_core.domain.browser_qa_results import ScenarioResult
 from yoke_core.domain.qa_artifacts import case_artifact_subject
+from yoke_core.domain.served_revision_probe import origin_of
 
 
 def _fetch_browser_context(
@@ -196,14 +203,20 @@ def execute_scenario(
     )
 
     # Step 2: Freshness validation against the context's deployed_sha
+    deployment_recorded = bool(context.get("deployment_recorded"))
+    proving_origin = ""
     if expected_branch and expected_sha:
         _bqa._log(f"Validating deployed SHA for branch {expected_branch}...")
+        identity_target = resolve_preview_identity_target(
+            project, expected_branch
+        )
         freshness_error = _bqa._validate_deployed_sha(
             project,
             expected_branch,
             expected_sha,
             deployed_sha=context.get("deployed_sha"),
-            deployment_recorded=bool(context.get("deployment_recorded")),
+            deployment_recorded=deployment_recorded,
+            identity_target=identity_target,
         )
         if freshness_error:
             _bqa._log(f"ERROR: {freshness_error.message}")
@@ -211,6 +224,10 @@ def execute_scenario(
             result.note = freshness_error.reason
             print(result.to_json())
             return result
+        if not deployment_recorded and identity_target.origin:
+            # Freshness was established by asking this deployment directly,
+            # so this run is only allowed to browse that deployment.
+            proving_origin = origin_of(identity_target.origin)
 
     req_rows = context.get("requirements") or []
     if not req_rows:
@@ -231,6 +248,24 @@ def execute_scenario(
         )
         result.verdict = "error"
         result.note = "no_base_url"
+        print(result.to_json())
+        return result
+
+    # A freshness proof covers the deployment that answered it and no other.
+    # Browsing somewhere else would attach "serving the expected commit" to
+    # evidence from a host nothing was asked about — so this refuses before
+    # any browser starts, rather than labelling those screenshots fresh.
+    if proving_origin and origin_of(base_url) != proving_origin:
+        _bqa._log(
+            "ERROR: freshness was proved by "
+            f"{proving_origin} but this run would browse "
+            f"{origin_of(base_url)}; evidence from an unproven target cannot "
+            "carry that freshness claim. Point the run at the proven "
+            "deployment, or drop the freshness arguments to collect evidence "
+            "without a freshness claim."
+        )
+        result.verdict = "error"
+        result.note = EXECUTION_TARGET_UNAUTHORIZED
         print(result.to_json())
         return result
 

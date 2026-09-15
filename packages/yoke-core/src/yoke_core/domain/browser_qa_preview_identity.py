@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from yoke_core.domain import served_revision_probe as probe
 from yoke_core.domain.browser_qa_freshness_outcome import (
     FreshnessFailure,
-    IDENTITY_CONFIG_UNREADABLE,
     IDENTITY_PROOF_MALFORMED,
     IDENTITY_PROOF_UNAVAILABLE,
     SHA_MISMATCH,

@@ -23,6 +23,10 @@ SHA_MISMATCH = "sha_mismatch"
 IDENTITY_PROOF_UNAVAILABLE = "identity_proof_unavailable"
 #: The identity endpoint answered with something that is not a commit SHA.
 IDENTITY_PROOF_MALFORMED = "identity_proof_malformed"
+#: Freshness was established by asking one deployment, and the run was
+#: then pointed at a different one. Evidence collected there would carry a
+#: freshness claim nothing proved about it.
+EXECUTION_TARGET_UNAUTHORIZED = "execution_target_unauthorized"
 #: The project's identity configuration could not be read — denied,
 #: unavailable, or malformed. Distinct from configuring none, because a
 #: project that could not be asked never declined anything.
@@ -45,6 +49,7 @@ class FreshnessFailure:
 
 __all__ = [
     "DEPLOYED_SHA_UNKNOWN",
+    "EXECUTION_TARGET_UNAUTHORIZED",
     "IDENTITY_CONFIG_UNREADABLE",
     "DEPLOYMENT_RECORD_MISSING",
     "IDENTITY_PROOF_MALFORMED",
