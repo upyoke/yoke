@@ -14,6 +14,11 @@ paying off until the fixed cost stops being noise. Below roughly 150s of tests
 per shard the overhead crosses 20% and the profile's existing imbalance gets
 relatively worse.
 
+The whole suite is always worth :data:`SHARD_COUNT` shards. A change-scoped
+selection is not: it can be three tests or most of the suite, so
+:func:`split_count` sizes it against that same fixed cost from the committed
+profile, and small selections stay on the one runner they already used.
+
 ``least_duration`` greedily assigns the slowest tests first using the committed
 timing profile, so the profile has to stay current: tests missing from it are
 treated as unknown and land wherever the greedy pass puts them, which is how a
@@ -30,6 +35,7 @@ uses every core inside each shard.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -49,16 +55,93 @@ DURATIONS_PATH = ".test_durations"
 OUTPUT_LOG = "pytest-output.txt"
 JUNIT_REPORT = "pytest-report.xml"
 
+# Profiled test seconds one shard is worth carrying. The profile stores
+# single-process seconds and a shard runs `-n auto`, but on this fleet a
+# shard's observed wall time tracks its profiled seconds closely enough to
+# size against them directly (8 shards x ~560 profiled seconds ran ~570s
+# each). Below this, the fixed setup stops being noise.
+MIN_SHARD_PROFILE_SECONDS = 200.0
 
-def shard_list() -> list[int]:
+
+def shard_list(count: int = SHARD_COUNT) -> list[int]:
     """The shard numbers, one per matrix job."""
-    return list(range(1, SHARD_COUNT + 1))
+    return list(range(1, count + 1))
 
 
 def fan_out_lines() -> list[str]:
     """The ``key=value`` lines the workflow reads back as a job output."""
     shards = ",".join(str(shard) for shard in shard_list())
     return [f"shards=[{shards}]"]
+
+
+def emit_output_lines(lines: Sequence[str], *, write_github_output: bool) -> None:
+    """Append *lines* to ``$GITHUB_OUTPUT``, or print them when there is none."""
+    destination = os.environ.get("GITHUB_OUTPUT") if write_github_output else None
+    if destination:
+        with Path(destination).open("a", encoding="utf-8") as handle:
+            handle.write("".join(f"{line}\n" for line in lines))
+        return
+    print("\n".join(lines))
+
+
+def shard_number(value: str, *, default: int = 1) -> int:
+    """A shard number a workflow passed; empty means the unsharded default."""
+    text = (value or "").strip()
+    if not text:
+        return default
+    if not text.isdigit() or int(text) < 1:
+        raise SystemExit(f"a shard number must be a positive integer, got {value!r}")
+    return int(text)
+
+
+def profiled_size(root: Path, targets: Sequence[str]) -> tuple[float, int]:
+    """Profiled seconds and profiled test count for *targets*.
+
+    Node ids in the committed profile are repo-relative, so a selected file,
+    a directory, and a single node id all match by prefix. Tests the profile
+    has never seen are invisible here, which makes this a floor: an
+    underestimate costs a shard, never coverage.
+    """
+    try:
+        durations = json.loads(
+            (root / DURATIONS_PATH).read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return 0.0, 0
+    files = {target for target in targets if target.endswith(".py")}
+    others = tuple(
+        target.rstrip("/") for target in targets if not target.endswith(".py")
+    )
+    seconds = 0.0
+    profiled = 0
+    for node_id, duration in durations.items():
+        path = node_id.split("::", 1)[0]
+        if path in files or _matches_target(node_id, path, others):
+            seconds += float(duration)
+            profiled += 1
+    return seconds, profiled
+
+
+def _matches_target(node_id: str, path: str, targets: Sequence[str]) -> bool:
+    """Whether *node_id* is under any directory or node-id target."""
+    return any(
+        node_id == target
+        or node_id.startswith(f"{target}::")
+        or path.startswith(f"{target}/")
+        for target in targets
+    )
+
+
+def split_count(profiled_seconds: float, profiled_tests: int) -> int:
+    """How many shards a selection of this size earns.
+
+    One shard per :data:`MIN_SHARD_PROFILE_SECONDS` of profiled test time,
+    capped at the full suite's own shard count and at the number of tests the
+    profile knows about: a group holding no test at all reports "no tests ran"
+    instead of a verdict, so the count never exceeds what can fill it.
+    """
+    earned = int(profiled_seconds // MIN_SHARD_PROFILE_SECONDS)
+    return max(1, min(SHARD_COUNT, earned, profiled_tests))
 
 
 def pytest_command(group: int) -> list[str]:
@@ -115,15 +198,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     if args.command == "fan-out":
-        lines = fan_out_lines()
-        destination = os.environ.get("GITHUB_OUTPUT") if (
-            args.write_github_output
-        ) else None
-        if destination:
-            with Path(destination).open("a", encoding="utf-8") as handle:
-                handle.write("".join(f"{line}\n" for line in lines))
-        else:
-            print("\n".join(lines))
+        emit_output_lines(
+            fan_out_lines(), write_github_output=args.write_github_output
+        )
         return 0
     return _run_shard(args.group)
 
@@ -131,13 +208,18 @@ def main(argv: Sequence[str] | None = None) -> int:
 __all__ = [
     "DURATIONS_PATH",
     "JUNIT_REPORT",
+    "MIN_SHARD_PROFILE_SECONDS",
     "OUTPUT_LOG",
     "SHARD_COUNT",
     "SUITE_PATHS",
+    "emit_output_lines",
     "fan_out_lines",
     "main",
+    "profiled_size",
     "pytest_command",
     "shard_list",
+    "shard_number",
+    "split_count",
 ]
 
 

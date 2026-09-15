@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -37,6 +38,11 @@ def committed_repo(tmp_path: Path) -> Path:
     _git(root, "add", ".")
     _git(root, "commit", "-q", "-m", "one")
     return root
+
+
+def test_positional_args_are_the_collection_targets() -> None:
+    assert runner.positional_args(["-k", "expr", "-q", "a.py", "b/"]) == ["a.py", "b/"]
+    assert runner.positional_args(["-k", "a.py"]) == []
 
 
 def test_pytest_command_uses_every_runner_core_unless_told_otherwise() -> None:
@@ -152,12 +158,24 @@ def test_main_parses_shell_quoted_pytest_args(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(runner, "run_selection", fake_run)
     code = runner.main([
         "--root", str(tmp_path), "--base-sha=" + "b" * 40, "--head-sha=" + "a" * 40,
-        "--pytest-args=-q -k 'x y'",
+        "--pytest-args=-q -k 'x y'", "--splits=4", "--group=2",
     ])
     assert code == 0
     assert seen == {
-        "base_sha": "b" * 40, "expected_head_sha": "a" * 40, "passthrough": ["-q", "-k", "x y"],
+        "base_sha": "b" * 40, "expected_head_sha": "a" * 40,
+        "passthrough": ["-q", "-k", "x y"], "splits": 4, "group": 2,
     }
+
+
+def test_an_unsharded_dispatch_leaves_the_split_values_empty(monkeypatch, tmp_path) -> None:
+    """The plan sizes most selections at one shard, and passes empty strings."""
+    seen: dict = {}
+    monkeypatch.setattr(runner, "run_selection", lambda root, **kwargs: seen.update(kwargs))
+    runner.main([
+        "--root", str(tmp_path), "--base-sha=", "--head-sha=", "--pytest-args=a.py",
+        "--splits=", "--group=",
+    ])
+    assert (seen["splits"], seen["group"]) == (1, 1)
 
 
 SELECTION_WORKFLOW = repo_root() / ".github" / "workflows" / "yoke-tests-selection.yml"
@@ -200,6 +218,8 @@ def _dispatched_argv(pytest_args: Sequence[str], tmp_path: Path) -> list[str]:
             "SELECTION_BASE_SHA": "b" * 40,
             "SELECTION_HEAD_SHA": "a" * 40,
             "SELECTION_PYTEST_ARGS": shlex.join(pytest_args),
+            "SELECTION_SPLITS": "4",
+            "SELECTION_GROUP": "2",
         },
     )
     return json.loads(completed.stdout)
@@ -226,3 +246,41 @@ def test_dispatched_pytest_args_survive_the_workflow_boundary(
     assert shlex.split(parsed.pytest_args) == pytest_args
     assert parsed.base_sha == "b" * 40
     assert parsed.head_sha == "a" * 40
+    assert (parsed.splits, parsed.group) == ("4", "2")
+
+
+def _selection_workflow() -> dict:
+    return load_document(SELECTION_WORKFLOW)
+
+
+def test_the_matrix_and_the_split_both_come_from_the_plan_job() -> None:
+    # A matrix narrower than the split runs a fraction of the selection and
+    # still reports green, so neither number is written in the workflow.
+    workflow = SELECTION_WORKFLOW.read_text(encoding="utf-8")
+    jobs = _selection_workflow()["jobs"]
+    selection = jobs["selection"]
+    assert jobs["plan"]["outputs"] == {
+        "shards": "${{ steps.plan.outputs.shards }}",
+        "splits": "${{ steps.plan.outputs.splits }}",
+    }
+    assert selection["needs"] == "plan"
+    assert selection["strategy"]["matrix"]["shard"] == (
+        "${{ fromJSON(needs.plan.outputs.shards) }}"
+    )
+    run_step = next(
+        step for step in selection["steps"] if MODULE_INVOCATION in step.get("run", "")
+    )
+    assert run_step["env"]["SELECTION_SPLITS"] == "${{ needs.plan.outputs.splits }}"
+    assert run_step["env"]["SELECTION_GROUP"] == "${{ matrix.shard }}"
+    assert re.search(r"--splits[= ]\d", workflow) is None
+    assert re.search(r"shard:\s*\[", workflow) is None
+
+
+def test_every_shard_reports_and_keeps_its_own_evidence() -> None:
+    selection = _selection_workflow()["jobs"]["selection"]
+    assert selection["strategy"]["fail-fast"] is False
+    upload = next(
+        step for step in selection["steps"] if "upload-artifact" in step.get("uses", "")
+    )
+    assert upload["with"]["name"] == "pytest-output-selection-${{ matrix.shard }}"
+    assert "${{ matrix.shard }}" in selection["env"]["PG_CONTAINER"]

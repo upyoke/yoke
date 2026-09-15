@@ -35,6 +35,12 @@ Local verification stays change-scoped:
   selection on the same commit rejoins the run already in flight rather
   than paying for a second one.
 
+  A large selection runs on several runners at once: a plan job sizes it
+  against the committed duration profile and publishes both the matrix
+  fan-out and the split count, so the shards cover it exactly once and a
+  failed shard is the run's verdict. Small selections plan one shard and
+  run as before; each shard uploads its own `pytest-output-selection-N`.
+
   It refuses rather than testing the wrong tree: an uncommitted tree (CI
   tests the pushed commit), and a checkout sitting on the base branch
   instead of a lane. It drops `-n`/`--numprocesses`/`--rootdir`, which
