@@ -1,4 +1,4 @@
-"""Monitor-armed and live-command Stop holds do not spend the promised-work cap."""
+"""Monitor-armed Stop is held and does not spend the promised-work cap."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from yoke_contracts.turn_end_evidence import TurnEndEvidence
 from yoke_core.domain import turn_end_promised_work_gate as gate
 from yoke_core.domain.session_tool_call_projections import (
     LAST_COMPLETED_TOOL_COLUMN,
-    OPEN_TOOL_CALL_COLUMN,
 )
 from yoke_core.hooks.types import HookContext, Outcome, Next
 
@@ -31,7 +30,7 @@ def _present() -> TurnEndEvidence:
     return TurnEndEvidence(available=True, present=True, question=False)
 
 
-def _patch(monkeypatch, *, at_cap: bool, block_reason: str | None) -> list[dict]:
+def _patch(monkeypatch, *, at_cap: bool, monitor_armed: bool) -> list[dict]:
     monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: _Conn())
     monkeypatch.setattr(gate, "session_was_relay_launched", lambda conn, sid: False)
     monkeypatch.setattr(
@@ -40,7 +39,9 @@ def _patch(monkeypatch, *, at_cap: bool, block_reason: str | None) -> list[dict]
         lambda conn, sid: {"item_id": 42, "status": "implementing"},
     )
     monkeypatch.setattr(gate, "_at_reinjection_cap", lambda conn, sid, item_id: at_cap)
-    monkeypatch.setattr(gate, "_live_stop_block_reason", lambda conn, sid: block_reason)
+    monkeypatch.setattr(
+        gate, "_armed_monitor_blocks_stop", lambda conn, sid: monitor_armed
+    )
     captured: list[dict] = []
     monkeypatch.setattr(
         gate, "_emit_deferred", lambda **kwargs: captured.append(kwargs)
@@ -50,7 +51,7 @@ def _patch(monkeypatch, *, at_cap: bool, block_reason: str | None) -> list[dict]
 
 def test_monitor_armed_holds_even_at_cap(monkeypatch) -> None:
     monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
-    captured = _patch(monkeypatch, at_cap=True, block_reason=gate.REASON_MONITOR_ARMED)
+    captured = _patch(monkeypatch, at_cap=True, monitor_armed=True)
     decision = gate.evaluate(_ctx())
     assert decision.outcome is Outcome.DENY
     assert decision.block is True
@@ -74,9 +75,7 @@ def test_monitor_armed_does_not_call_cap(monkeypatch) -> None:
         lambda conn, sid: {"item_id": 7, "status": "implementing"},
     )
     monkeypatch.setattr(gate, "_at_reinjection_cap", _cap)
-    monkeypatch.setattr(
-        gate, "_live_stop_block_reason", lambda conn, sid: gate.REASON_MONITOR_ARMED
-    )
+    monkeypatch.setattr(gate, "_armed_monitor_blocks_stop", lambda conn, sid: True)
     captured: list[dict] = []
     monkeypatch.setattr(
         gate, "_emit_deferred", lambda **kwargs: captured.append(kwargs)
@@ -88,46 +87,10 @@ def test_monitor_armed_does_not_call_cap(monkeypatch) -> None:
 
 def test_parked_or_non_monitor_still_respects_cap(monkeypatch) -> None:
     monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
-    captured = _patch(monkeypatch, at_cap=True, block_reason=None)
+    captured = _patch(monkeypatch, at_cap=True, monitor_armed=False)
     decision = gate.evaluate(_ctx())
     assert decision.outcome is Outcome.ALLOW
     assert captured[0]["reason"] == gate.REASON_CAP_REACHED
-
-
-def test_live_command_holds_even_at_cap(monkeypatch) -> None:
-    monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
-    captured = _patch(monkeypatch, at_cap=True, block_reason=gate.REASON_LIVE_COMMAND)
-    decision = gate.evaluate(_ctx())
-    assert decision.outcome is Outcome.DENY
-    assert decision.message == gate.LIVE_COMMAND_DIRECTIVE
-    assert captured[0]["reason"] == gate.REASON_LIVE_COMMAND
-    assert captured[0]["cap_reached"] is False
-
-
-def test_live_command_does_not_call_cap(monkeypatch) -> None:
-    monkeypatch.setattr(gate, "_evidence_for", lambda ctx: _present())
-
-    def _cap(*_args, **_kwargs) -> bool:
-        raise AssertionError("cap must not run while a local command is live")
-
-    monkeypatch.setattr("yoke_core.domain.db_helpers.connect", lambda: _Conn())
-    monkeypatch.setattr(gate, "session_was_relay_launched", lambda conn, sid: False)
-    monkeypatch.setattr(
-        gate,
-        "_live_claim",
-        lambda conn, sid: {"item_id": 7, "status": "implementing"},
-    )
-    monkeypatch.setattr(gate, "_at_reinjection_cap", _cap)
-    monkeypatch.setattr(
-        gate, "_live_stop_block_reason", lambda conn, sid: gate.REASON_LIVE_COMMAND
-    )
-    captured: list[dict] = []
-    monkeypatch.setattr(
-        gate, "_emit_deferred", lambda **kwargs: captured.append(kwargs)
-    )
-    decision = gate.evaluate(_ctx())
-    assert decision.outcome is Outcome.DENY
-    assert captured[0]["reason"] == gate.REASON_LIVE_COMMAND
 
 
 class _Rows:
@@ -180,63 +143,3 @@ def test_armed_helper_false_when_the_last_call_was_something_else(
     conn = _SessionConn({"mode": "dash", LAST_COMPLETED_TOOL_COLUMN: "Bash"})
 
     assert gate._armed_monitor_blocks_stop(conn, "sess-1") is False
-
-
-_LIVE_STAMP = "2026-09-15T02:30:31Z"
-
-
-def test_live_open_command_blocks_stop_during_cooldown(monkeypatch) -> None:
-    _no_events(monkeypatch)
-    conn = _SessionConn(
-        {
-            "mode": "dash",
-            LAST_COMPLETED_TOOL_COLUMN: "Read",
-            OPEN_TOOL_CALL_COLUMN: _LIVE_STAMP,
-            "last_tool_call_at": _LIVE_STAMP,
-        }
-    )
-
-    assert gate._live_stop_block_reason(conn, "sess-1") == gate.REASON_LIVE_COMMAND
-    assert not any("events" in query for query in conn.queries)
-
-
-def test_settled_command_does_not_block_stop(monkeypatch) -> None:
-    _no_events(monkeypatch)
-    conn = _SessionConn(
-        {
-            "mode": "dash",
-            LAST_COMPLETED_TOOL_COLUMN: "Bash",
-            OPEN_TOOL_CALL_COLUMN: None,
-            "last_tool_call_at": _LIVE_STAMP,
-        }
-    )
-
-    assert gate._live_stop_block_reason(conn, "sess-1") is None
-
-
-def test_residue_open_row_does_not_block_stop(monkeypatch) -> None:
-    _no_events(monkeypatch)
-    conn = _SessionConn(
-        {
-            "mode": "dash",
-            LAST_COMPLETED_TOOL_COLUMN: "Read",
-            OPEN_TOOL_CALL_COLUMN: "2026-09-15T00:00:00Z",
-            "last_tool_call_at": _LIVE_STAMP,
-        }
-    )
-
-    assert gate._live_stop_block_reason(conn, "sess-1") is None
-
-
-def test_parked_session_does_not_block_on_live_command(monkeypatch) -> None:
-    _no_events(monkeypatch)
-    conn = _SessionConn(
-        {
-            "mode": "parked",
-            LAST_COMPLETED_TOOL_COLUMN: "Read",
-            OPEN_TOOL_CALL_COLUMN: _LIVE_STAMP,
-            "last_tool_call_at": _LIVE_STAMP,
-        }
-    )
-
-    assert gate._live_stop_block_reason(conn, "sess-1") is None

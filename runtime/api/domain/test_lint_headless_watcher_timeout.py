@@ -75,9 +75,13 @@ class TestScope(unittest.TestCase):
         self.assertIsNone(_eval("yoke items get YOK-1 body"))
 
     def test_dev_run_watcher_is_in_scope(self):
-        self.assertIsNotNone(
-            _eval("yoke dev run -- yoke watch doctor -- --quick")
-        )
+        self.assertIsNotNone(_eval("yoke dev run -- yoke watch doctor -- --quick"))
+
+    def test_quoted_prose_is_clean(self):
+        self.assertIsNone(_eval("echo yoke watch pytest"))
+
+    def test_global_env_flag_before_watch_is_in_scope(self):
+        self.assertIsNotNone(_eval("yoke --env prod watch pytest"))
 
     def test_non_bash_is_clean(self):
         payload = _payload()
@@ -85,7 +89,9 @@ class TestScope(unittest.TestCase):
         with mock.patch.object(lint, "_read_mode", return_value="deny"):
             self.assertIsNone(
                 lint.evaluate_payload(
-                    payload, executor_family="claude", environ=HEADLESS,
+                    payload,
+                    executor_family="claude",
+                    environ=HEADLESS,
                 )
             )
 

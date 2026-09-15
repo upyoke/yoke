@@ -17,19 +17,14 @@ writer module declares.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
-from yoke_core.domain import db_backend
 from yoke_core.domain.session_activity_state import has_session_tool_calls_table
 
 #: The waiter tool whose arming both the Stop gate and the orphan-waiter
 #: detector recognise. It lives beside the projection that surfaces it so
 #: neither reader has to import the other.
 MONITOR_TOOL_NAME = "Monitor"
-
-#: Stop-hold reasons derived from ``session_tool_calls``, not telemetry.
-STOP_BLOCK_MONITOR = "monitor_waiter_live"
-STOP_BLOCK_LIVE_COMMAND = "live_local_command"
 
 
 #: Column alias every reader of the open-call fact uses, so the predicate
@@ -100,57 +95,10 @@ def last_completed_tool_select(conn: Any, *, session_alias: str) -> str:
     )
 
 
-def _row_value(row: Any, key: str) -> Any:
-    if hasattr(row, "get"):
-        return row.get(key)
-    try:
-        return row[key]
-    except (KeyError, IndexError, TypeError):
-        return None
-
-
-def live_stop_block_reason(conn: Any, session_id: str) -> Optional[str]:
-    """Why Stop must be held: armed Monitor, live open command, or neither.
-
-    A parked session has declared it wants to be quiet and keeps that
-    escape hatch. An armed Monitor still blocks after it has completed,
-    because completing that tool is what arms the waiter. A live open
-    ``session_tool_calls`` row is a command still in flight — PreToolUse
-    opened it and PostToolUse has not closed it. ``open_tool_call_is_live``
-    refuses residue from a harness that never writes completions. Neither
-    reading uses the telemetry ledger.
-    """
-    from yoke_core.domain.session_reclaim_progress import open_tool_call_is_live
-
-    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    row = conn.execute(
-        "SELECT hs.mode, hs.last_tool_call_at"
-        f"{last_completed_tool_select(conn, session_alias='hs')}"
-        f"{open_tool_call_select(conn, session_alias='hs')} "
-        f"FROM harness_sessions hs WHERE hs.session_id={placeholder}",
-        (session_id,),
-    ).fetchone()
-    if row is None:
-        return None
-    if str(_row_value(row, "mode") or "") == "parked":
-        return None
-    if str(_row_value(row, LAST_COMPLETED_TOOL_COLUMN) or "") == MONITOR_TOOL_NAME:
-        return STOP_BLOCK_MONITOR
-    if open_tool_call_is_live(
-        _row_value(row, OPEN_TOOL_CALL_COLUMN),
-        _row_value(row, "last_tool_call_at"),
-    ):
-        return STOP_BLOCK_LIVE_COMMAND
-    return None
-
-
 __all__ = [
     "LAST_COMPLETED_TOOL_COLUMN",
     "MONITOR_TOOL_NAME",
     "OPEN_TOOL_CALL_COLUMN",
-    "STOP_BLOCK_LIVE_COMMAND",
-    "STOP_BLOCK_MONITOR",
     "last_completed_tool_select",
-    "live_stop_block_reason",
     "open_tool_call_select",
 ]

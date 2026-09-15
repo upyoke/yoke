@@ -82,7 +82,7 @@ def test_relay_launched_claude_cli_holds_its_unfinished_work(monkeypatch) -> Non
     """
     emitted: list[dict] = []
     _patch_live_claim(monkeypatch, emitted, relay_launched=True)
-    monkeypatch.setattr(gate, "_live_stop_block_reason", lambda *_args: None)
+    monkeypatch.setattr(gate, "_armed_monitor_blocks_stop", lambda *_args: False)
     monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: False)
 
     decision = gate.evaluate(_context("claude", "cli"))
@@ -137,7 +137,7 @@ def test_relay_launched_claude_cli_stops_holding_at_the_cap(monkeypatch) -> None
     """The reinjection cap still bounds the hold on a relay worker."""
     emitted: list[dict] = []
     _patch_live_claim(monkeypatch, emitted, relay_launched=True)
-    monkeypatch.setattr(gate, "_live_stop_block_reason", lambda *_args: None)
+    monkeypatch.setattr(gate, "_armed_monitor_blocks_stop", lambda *_args: False)
     monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: True)
 
     decision = gate.evaluate(_context("claude", "cli"))
@@ -146,33 +146,6 @@ def test_relay_launched_claude_cli_stops_holding_at_the_cap(monkeypatch) -> None
     assert [(entry["reason"], entry["cap_reached"]) for entry in emitted] == [
         (gate.REASON_CAP_REACHED, True)
     ]
-
-
-def test_live_open_command_holds_two_stops_during_cooldown(monkeypatch) -> None:
-    """A command still in flight holds Stop across a reminder-cooldown retry.
-
-    Completing Monitor is the waiter-armed signal; a live latest-open
-    tool-call row is the same class of fact for a Bash that has not yet
-    posted completion. The 30-minute reminder cooldown must not discard it.
-    """
-    emitted: list[dict] = []
-    _patch_live_claim(monkeypatch, emitted, relay_launched=True)
-    monkeypatch.setattr(
-        gate, "_live_stop_block_reason", lambda *_args: gate.REASON_LIVE_COMMAND
-    )
-    caps = iter((False, True))
-    monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: next(caps))
-
-    first = gate.evaluate(_context("claude", "cli"))
-    second = gate.evaluate(_context("claude", "cli"))
-
-    assert first.outcome is Outcome.DENY
-    assert second.outcome is Outcome.DENY
-    assert [entry["reason"] for entry in emitted] == [
-        gate.REASON_LIVE_COMMAND,
-        gate.REASON_LIVE_COMMAND,
-    ]
-    assert first.message == gate.LIVE_COMMAND_DIRECTIVE
 
 
 @pytest.mark.parametrize(
@@ -217,7 +190,7 @@ def test_operator_opened_cli_still_denies_with_actual_check_identity(
 ) -> None:
     emitted: list[dict] = []
     _patch_live_claim(monkeypatch, emitted)
-    monkeypatch.setattr(gate, "_live_stop_block_reason", lambda *_args: None)
+    monkeypatch.setattr(gate, "_armed_monitor_blocks_stop", lambda *_args: False)
     monkeypatch.setattr(gate, "_at_reinjection_cap", lambda *_args: False)
 
     decision = gate.evaluate(_context(executor, entrypoint))

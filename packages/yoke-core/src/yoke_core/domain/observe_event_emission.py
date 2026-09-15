@@ -151,6 +151,7 @@ def build_envelope(rec: EventRecord) -> Dict[str, Any]:
         "hook_event_name": rec.hook_event,
         "context": {"detail": context},
     }
+
     envelope_json = json.dumps(envelope, separators=(",", ":"))
     if len(envelope_json.encode("utf-8")) > 65536:
         envelope["context"] = {

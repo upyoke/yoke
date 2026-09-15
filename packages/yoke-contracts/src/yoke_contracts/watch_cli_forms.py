@@ -31,7 +31,8 @@ WATCH_CLI_TOKENS: dict[str, tuple[str, ...]] = {
 }
 
 #: Claude Bash ``timeout`` (milliseconds) already taught for headless
-#: in-turn watcher calls. Below this, Claude auto-backgrounds at 120s.
+#: in-turn watcher calls. Omitting timeout uses Claude's 120s default,
+#: which auto-backgrounds a still-running call.
 IN_TURN_WATCHER_TIMEOUT_MS = 600000
 
 
