@@ -48,6 +48,12 @@ EVIDENCE_WRITTEN_NOTE = (
 
 HOLDER_FUNCTION = "claims.work.holder_get"
 
+# An item the command could not resolve has no public reference to name, and
+# the token the caller typed is not one: echoing it in the ref position would
+# present whatever was passed — an internal id included — as this item's
+# public ref. The blocker still quotes the token inside its own message.
+UNRESOLVED_REF = "unresolved item"
+
 
 def _headline(public_ref: str, kind: str, status: str) -> str:
     if kind == CLOSED:
@@ -70,27 +76,16 @@ def _evidence_line(recorded: bool, *, from_record: bool) -> str:
     return f"evidence saved: yes — {EVIDENCE_WRITTEN_NOTE}"
 
 
-def claim_state(
-    item_id: int,
+def _read_claim_state(
+    item_id: Any,
     session_id: str,
     dispatch: Callable[..., Any],
 ) -> str:
-    """What a live holder read says this run left behind on the item.
-
-    The terminal transition releases the item's work claim inside its own
-    transaction, so the release is the control plane's fact to report rather
-    than this command's to assume. An unreadable holder is named as
-    unconfirmed; it is never reported as a release.
-    """
-    try:
-        with close_out.connected_control_plane():
-            response = dispatch(
-                function_id=HOLDER_FUNCTION,
-                target=TargetRef(kind="item", item_id=int(item_id)),
-                payload={},
-            )
-    except Exception as exc:  # noqa: BLE001 - any unread holder is unconfirmed
-        return f"unconfirmed ({exc})"
+    response = dispatch(
+        function_id=HOLDER_FUNCTION,
+        target=TargetRef(kind="item", item_id=int(item_id)),
+        payload={},
+    )
     if not getattr(response, "success", False):
         error = getattr(response, "error", None)
         detail = getattr(error, "message", None) or f"{HOLDER_FUNCTION} refused"
@@ -101,11 +96,39 @@ def claim_state(
     holder = result.get("holder")
     if holder is None:
         return "released"
-    holder_session = str((holder or {}).get("session_id") or "")
+    if not isinstance(holder, Mapping):
+        return f"unconfirmed ({HOLDER_FUNCTION} returned a malformed holder)"
+    holder_session = str(holder.get("session_id") or "")
     caller = session_id or str(resolve_ambient_session_id() or "")
     if holder_session and holder_session == caller:
         return "still held by this session"
     return f"held by session {holder_session or 'unknown'}"
+
+
+def claim_state(
+    item_id: Any,
+    session_id: str,
+    dispatch: Callable[..., Any],
+) -> str:
+    """What a live holder read says this run left behind on the item.
+
+    The terminal transition releases the item's work claim inside its own
+    transaction, so the release is the control plane's fact to report rather
+    than this command's to assume.
+
+    The whole read is contained, not just the call: by the time it runs the
+    merge has landed and the item is closed out, so an unreachable relay, a
+    holder shape this build does not expect, or an unresolvable ambient
+    identity must not raise out of the line whose job is to say the
+    close-out succeeded — reporting an outcome cannot become the thing that
+    breaks it. Every one of those answers ``unconfirmed``, and nothing is
+    ever reported as a release without a holder read that returned none.
+    """
+    try:
+        with close_out.connected_control_plane():
+            return _read_claim_state(item_id, session_id, dispatch)
+    except Exception as exc:  # noqa: BLE001 - reporting never fails a close-out
+        return f"unconfirmed ({exc})"
 
 
 def outcome_lines(
@@ -120,7 +143,7 @@ def outcome_lines(
 ) -> list[str]:
     """Render the outcome block from what this run actually established."""
     record: Mapping[str, Any] = envelope or {}
-    ref = public_ref or str(record.get("public_ref") or "item")
+    ref = public_ref or str(record.get("public_ref") or UNRESOLVED_REF)
     lines = [_headline(ref, kind, str(record.get("status") or ""))]
     reason = blocker or str(record.get("error") or "")
     if reason:
@@ -136,7 +159,7 @@ def outcome_lines(
         lines.append(_evidence_line(bool(recorded), from_record=evidence_from_record))
     item_id = record.get("item_id")
     if dispatch is not None and item_id is not None:
-        lines.append(f"work claim: {claim_state(int(item_id), session_id, dispatch)}")
+        lines.append(f"work claim: {claim_state(item_id, session_id, dispatch)}")
     for warning in record.get("warnings") or ():
         lines.append(f"warning: {warning}")
     return [lines[0], *(f"  {line}" for line in lines[1:])]
@@ -209,6 +232,7 @@ __all__: Sequence[str] = (
     "LANDING_PENDING",
     "LINE_PREFIX",
     "NOT_CLOSED",
+    "UNRESOLVED_REF",
     "bind",
     "claim_state",
     "final_outcome",

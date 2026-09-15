@@ -58,7 +58,9 @@ def _item(status: str = "reviewing-implementation") -> dict:
     }
 
 
-def _run_close_out(monkeypatch, *, holder=None, argv=None) -> None:
+def _run_close_out(
+    monkeypatch, *, holder=None, argv=None, holder_dispatch=None
+) -> None:
     """Drive a complete merge whose close-out reaches the terminal status."""
     item = _item()
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
@@ -93,6 +95,8 @@ def _run_close_out(monkeypatch, *, holder=None, argv=None) -> None:
 
     def dispatch(*, function_id, target, payload=None, **_kw):
         if function_id == report.HOLDER_FUNCTION:
+            if holder_dispatch is not None:
+                return holder_dispatch(function_id=function_id, target=target)
             return _response({"holder": holder})
         return _response()
 
@@ -264,3 +268,70 @@ def test_a_re_entry_on_an_already_done_item_does_not_claim_the_close():
     )
 
     assert kind == report.ALREADY_CLOSED
+
+
+def test_a_malformed_holder_cannot_turn_a_closed_item_into_a_failure(
+    monkeypatch, capsys
+):
+    """Reporting runs after the item is closed; it must not raise there."""
+
+    def malformed(**_kw):
+        return _response({"holder": ["not", "a", "mapping"]})
+
+    _run_close_out(monkeypatch, holder_dispatch=malformed)
+
+    block = _outcome_block(capsys.readouterr().err)
+    assert block[0] == "ITEM-1 closed: done"
+    assert (
+        f"  work claim: unconfirmed ({report.HOLDER_FUNCTION} returned a malformed holder)"
+        in block
+    )
+
+
+def test_a_holder_read_that_raises_cannot_fail_a_closed_item(monkeypatch, capsys):
+    def raised(**_kw):
+        raise RuntimeError("relay socket closed")
+
+    _run_close_out(monkeypatch, holder_dispatch=raised)
+
+    block = _outcome_block(capsys.readouterr().err)
+    assert block[0] == "ITEM-1 closed: done"
+    assert "  work claim: unconfirmed (relay socket closed)" in block
+
+
+@pytest.mark.parametrize(
+    "holder", ("a-session-string", ["list"], 7, {"no_session": True})
+)
+def test_a_holder_shape_this_build_does_not_expect_is_unconfirmed(holder):
+    state = report.claim_state(7, SESSION, _holder_dispatch(holder))
+
+    assert state.startswith("unconfirmed") or state == "held by session unknown"
+
+
+def test_an_unresolvable_ambient_identity_is_unconfirmed(monkeypatch):
+    def raised():
+        raise RuntimeError("no ambient session")
+
+    monkeypatch.setattr(report, "resolve_ambient_session_id", raised)
+    state = report.claim_state(
+        7, "", _holder_dispatch({"session_id": "other", "item_id": 7})
+    )
+
+    assert state == "unconfirmed (no ambient session)"
+
+
+def test_an_unusable_item_id_is_unconfirmed_rather_than_raised():
+    def unreached(**_kw):  # pragma: no cover - the conversion fails first
+        raise AssertionError("dispatch should not be reached")
+
+    assert report.claim_state("not-an-id", SESSION, unreached).startswith(
+        "unconfirmed ("
+    )
+
+
+def test_an_unresolved_item_is_not_given_a_public_reference(capsys):
+    merge_cli._fail("could not resolve item '9999': no such item", as_json=False)
+
+    block = _outcome_block(capsys.readouterr().err)
+    assert block[0] == f"{report.UNRESOLVED_REF} not closed"
+    assert "  blocker: could not resolve item '9999': no such item" in block

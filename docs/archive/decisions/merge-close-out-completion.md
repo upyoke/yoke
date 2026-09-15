@@ -107,6 +107,13 @@ line is read rather than assumed, because "the terminal transition releases
 the claim" is what usually happens, not what happened; an unreadable holder
 is named `unconfirmed` and never reported as a release.
 
+That read is contained rather than merely attempted, and the containment is
+the point: it runs after the merge has landed and the item is closed out, so
+an unreachable relay, a holder shape the running build does not expect, or an
+unresolvable ambient identity must not raise out of the line whose job is to
+say the close-out succeeded. The block that exists to stop a completion from
+looking like a refusal would otherwise be able to turn one into a refusal.
+
 ## Why not the alternatives
 
 **Cleanup last.** Moving the worktree removal after the terminal transition is

@@ -88,11 +88,7 @@ def run(argv: List[str]) -> int:
 
     item, error = _resolve_item(str(args.item), args.project)
     if error:
-        return _fail(
-            f"could not resolve item {args.item!r}: {error}",
-            as_json=as_json,
-            public_ref=str(args.item),
-        )
+        return _fail(f"could not resolve item {args.item!r}: {error}", as_json=as_json)
 
     item_id = int(item["id"])
     public_ref = str(item.get("public_ref") or args.item)
