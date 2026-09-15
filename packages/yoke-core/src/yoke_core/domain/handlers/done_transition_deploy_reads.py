@@ -26,6 +26,9 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.deployment_qa_source_obligation import (
+    latest_deployment_run_for_item,
+)
 
 
 class RegisteredFlowIdsRequest(BaseModel):
@@ -142,26 +145,12 @@ def handle_latest_deployment_run(request: FunctionCallRequest) -> HandlerOutcome
 
     try:
         with _connect_rw() as conn:
-            marker = _placeholder(conn)
-            row = conn.execute(
-                "SELECT dr.id, dr.status FROM deployment_runs dr "
-                "JOIN deployment_run_items dri ON dr.id = dri.run_id "
-                f"WHERE dri.item_id = {marker} "
-                "ORDER BY dr.created_at DESC LIMIT 1",
-                (item_id,),
-            ).fetchone()
+            payload = latest_deployment_run_for_item(conn, item_id)
     except Exception as exc:  # noqa: BLE001 - surfaced so the guard aborts
         return _err("latest_deployment_run_failed", str(exc))
 
-    if not row:
-        return HandlerOutcome(
-            result_payload={"run_id": "", "status": ""},
-            primary_success=True,
-        )
-    run_id = row["id"] if hasattr(row, "keys") else row[0]
-    status = row["status"] if hasattr(row, "keys") else row[1]
     return HandlerOutcome(
-        result_payload={"run_id": str(run_id or ""), "status": str(status or "")},
+        result_payload=payload,
         primary_success=True,
     )
 
