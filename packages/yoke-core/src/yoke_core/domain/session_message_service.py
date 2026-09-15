@@ -29,6 +29,7 @@ from yoke_core.domain.session_message_selectors import (
 )
 from yoke_core.domain.session_message_store import (
     begin_message_mutation,
+    body_sha256,
     insert_message,
 )
 from yoke_core.domain.session_message_queries import get_message, list_messages
@@ -220,7 +221,11 @@ def send_message(
             expiry_limits.append(actor_limits.expiry_hours)
         validate_body(body, max_body_bytes=min(body_limits))
         terminal_key = (
-            terminal_report_idempotency_key(sender_session_id, reported_item.item_id)
+            terminal_report_idempotency_key(
+                sender_session_id,
+                reported_item.item_id,
+                reported_item.claim_id,
+            )
             if reported_item is not None and sender_session_id
             else None
         )
@@ -270,6 +275,8 @@ def send_message(
             ),
             "deduplicated": not created,
         }
+        if not created and details.get("body_sha256") != body_sha256(body):
+            result["collapsed_differing_body"] = True
         if steering is not None:
             result["steering_recipient"] = steering
         return result

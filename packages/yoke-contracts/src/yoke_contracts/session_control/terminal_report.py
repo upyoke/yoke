@@ -1,11 +1,18 @@
-"""The one-per-item close-out report a worker sends when its work is done.
+"""The one-per-work-leg close-out report a worker sends when its work is done.
 
 A retry after a refusal may reword a terminal DONE report. Keying the message
-plane's existing idempotency on the sender session, item, and terminal state
-makes every deliberate attempt the same message, so the seat is told once.
+plane's existing idempotency on the sender session, item, and the work claim
+the report is sent under makes every deliberate attempt at ONE completion the
+same message, so the seat is told once.
 
 The item in that key is the PREFIX-N named in the mandated heading, not
 whatever claim the session happens to hold.
+
+The claim in that key is the work leg. A worker acquires the item claim, works,
+reports, and releases; steering that resumes it for newly authorized work on the
+same item hands it a fresh claim, and that second completion is a genuinely new
+report the seat has never been told. Keying on session and item alone collapsed
+it into the first report forever, so the second body was silently discarded.
 """
 
 from __future__ import annotations
@@ -19,6 +26,16 @@ from yoke_contracts.public_ref import parse_public_item_ref
 TERMINAL_REPORT_IDEMPOTENCY_PREFIX = "steering-done:"
 #: The token the mandated report opens with: ``DONE PREFIX-N <summary>``.
 TERMINAL_REPORT_TOKEN = "DONE"
+#: Said when a derived key collapses a send whose body differs from the stored
+#: one, so a discarded body is never read as a delivered one.
+COLLAPSED_DIFFERING_BODY_NOTICE = (
+    "Collapsed into an earlier message under the same derived key: the body "
+    "you just sent was NOT delivered, and the earlier one still stands. For a "
+    "DONE report that earlier body is this work leg's completion, so a "
+    "reworded retry owes nothing more — but newly authorized work on the same "
+    "item is a new leg: acquire that item's claim again before reporting it, "
+    "or the report collapses into this one too."
+)
 
 
 def _first_nonempty_line(body: str) -> str:
@@ -56,12 +73,23 @@ def parse_terminal_report(body: str) -> ParsedTerminalReport | None:
     return ParsedTerminalReport(item_ref=f"{prefix}-{sequence}")
 
 
-def terminal_report_idempotency_key(session_id: str, item_id: int) -> str:
-    """Return the key every terminal report of one session on one item shares."""
-    return f"{TERMINAL_REPORT_IDEMPOTENCY_PREFIX}{session_id}:{int(item_id)}"
+def terminal_report_idempotency_key(
+    session_id: str, item_id: int, claim_id: int
+) -> str:
+    """Return the key every terminal report of one work leg shares.
+
+    The leg is the sender's claim on the named item: retries of one completion
+    share it, while a completion after a reacquire for newly authorized work
+    gets its own key and reaches the seat.
+    """
+    return (
+        f"{TERMINAL_REPORT_IDEMPOTENCY_PREFIX}{session_id}:"
+        f"{int(item_id)}:{int(claim_id)}"
+    )
 
 
 __all__ = [
+    "COLLAPSED_DIFFERING_BODY_NOTICE",
     "ParsedTerminalReport",
     "TERMINAL_REPORT_IDEMPOTENCY_PREFIX",
     "TERMINAL_REPORT_TOKEN",

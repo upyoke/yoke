@@ -1,10 +1,18 @@
-"""Terminal DONE reports bind identity to the named PREFIX-N heading."""
+"""Terminal DONE reports bind identity to the heading's item and work leg."""
 
 from __future__ import annotations
 
+import io
+
 import pytest
 
-from yoke_contracts.session_control.terminal_report import parse_terminal_report
+from yoke_cli.commands.adapters.session_control_human_output import (
+    write_message_result,
+)
+from yoke_contracts.session_control.terminal_report import (
+    COLLAPSED_DIFFERING_BODY_NOTICE,
+    parse_terminal_report,
+)
 from yoke_core.domain.session_item_scope import session_claim_for_item
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_terminal import (
@@ -39,6 +47,16 @@ def _hold_beta(conn, *, session_id: str = "s1", claim_id: int = 8) -> None:
     conn.execute(
         "INSERT INTO work_claims (id,session_id,target_kind,scope,claimed_at) "
         "VALUES (?,?,'item','{\"item_id\":201}',?)",
+        (claim_id, session_id, NOW_TEXT),
+    )
+    conn.commit()
+
+
+def _reacquire_alpha(conn, *, session_id: str = "s1", claim_id: int = 20) -> None:
+    """Steering resumed the worker, so it holds ALP-1 on a fresh claim."""
+    conn.execute(
+        "INSERT INTO work_claims (id,session_id,target_kind,scope,claimed_at) "
+        "VALUES (?,?,'item','{\"item_id\":101}',?)",
         (claim_id, session_id, NOW_TEXT),
     )
     conn.commit()
@@ -94,10 +112,57 @@ def test_reworded_retry_of_the_named_item_is_the_same_report() -> None:
 
     first = _say_steering(conn, body=DONE_BODY)
     retry = _say_steering(conn, body=f"{DONE_BODY} Merged and green.")
+    exact = _say_steering(conn, body=DONE_BODY)
+
+    assert retry["message_id"] == first["message_id"]
+    assert retry["deduplicated"] is True
+    # The reworded body was discarded, so the caller is told rather than left
+    # reading a collapse as a delivery.
+    assert retry["collapsed_differing_body"] is True
+    assert exact["message_id"] == first["message_id"]
+    assert "collapsed_differing_body" not in exact
+    assert _message_count(conn) == 1
+
+
+def test_a_completion_after_reacquire_is_a_new_report() -> None:
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+
+    first = _say_steering(conn, body=DONE_BODY)
+    _release_item_claim(conn)
+    _reacquire_alpha(conn)
+    second = _say_steering(conn, body="DONE ALP-1 resumed follow-up landed.")
+
+    assert second["message_id"] != first["message_id"]
+    assert second["deduplicated"] is False
+    assert _message_count(conn) == 2
+    assert [r["session_id"] for r in second["recipients"]] == ["s2"]
+    assert _steering_row(conn, second["message_id"])["sender_item_id"] == 101
+
+
+def test_a_retry_after_close_out_released_the_leg_still_collapses() -> None:
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+
+    first = _say_steering(conn, body=DONE_BODY)
+    _release_item_claim(conn)
+    retry = _say_steering(conn, body=DONE_BODY)
 
     assert retry["message_id"] == first["message_id"]
     assert retry["deduplicated"] is True
     assert _message_count(conn) == 1
+
+
+def test_another_session_reporting_the_same_item_is_its_own_leg() -> None:
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+    _reacquire_alpha(conn, session_id="s4", claim_id=21)
+
+    first = _say_steering(conn, body=DONE_BODY)
+    other = _say_steering(conn, sender="s4", body=DONE_BODY)
+
+    assert other["message_id"] != first["message_id"]
+    assert _message_count(conn) == 2
 
 
 def test_unrelated_and_unknown_headings_refuse_instead_of_guessing() -> None:
@@ -163,3 +228,26 @@ def test_a_session_less_done_report_is_refused() -> None:
             now=NOW,
         )
     assert raised.value.code == ITEM_UNSPECIFIED
+
+
+def test_the_send_summary_names_a_collapse_that_discarded_the_body() -> None:
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+    _say_steering(conn, body=DONE_BODY)
+    retry = _say_steering(conn, body=f"{DONE_BODY} Merged and green.")
+
+    rendered = io.StringIO()
+    write_message_result(retry, rendered)
+
+    assert COLLAPSED_DIFFERING_BODY_NOTICE in rendered.getvalue()
+
+
+def test_the_send_summary_stays_quiet_when_nothing_was_discarded() -> None:
+    conn = message_connection()
+    _seat(conn, claim_id=10, session_id="s2")
+    sent = _say_steering(conn, body=DONE_BODY)
+
+    rendered = io.StringIO()
+    write_message_result(sent, rendered)
+
+    assert COLLAPSED_DIFFERING_BODY_NOTICE not in rendered.getvalue()

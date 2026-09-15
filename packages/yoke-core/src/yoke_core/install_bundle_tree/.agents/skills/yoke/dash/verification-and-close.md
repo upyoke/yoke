@@ -222,8 +222,11 @@ When a report to the steering seat is still owed, send it BEFORE that
 release. `yoke say --steering` addresses the seat covering the item you hold,
 and falls back to the item you last held in this session, so the report
 resolves either side of close-out; sending first keeps the live claim as the
-address. One terminal report per session and item reaches the seat once, so a
-reworded retry deduplicates rather than arriving twice. Ending a turn sends no
+address. One terminal report per work leg — the claim you hold on that item —
+reaches the seat once, so a reworded retry deduplicates rather than arriving
+twice, and a send answering `Collapsed into an earlier message` did not
+deliver the body you just sent. Newly authorized work on the same item is a
+new leg: reacquire that item's claim before reporting it. Ending a turn sends no
 Fleet message; every worker uses this deliberate route regardless of launch
 origin.
 
