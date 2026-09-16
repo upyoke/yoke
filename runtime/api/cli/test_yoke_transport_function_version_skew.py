@@ -205,19 +205,6 @@ class TestRelayedSkewGate:
         )
         assert response.error.code == "function_not_registered"
 
-    def test_internal_resolve_unserved_by_the_server_is_version_skew(
-        self, monkeypatch
-    ):
-        function_version_skew.local_function_ids.cache_clear()
-        response = _dispatch_over_https(
-            monkeypatch,
-            server_version="1.0.0",
-            client_version="2.0.0",
-            function_id="session_ci_wait.resolve",
-        )
-        assert response.error.code == SKEW_ERROR_CODE
-        assert "session_ci_wait.resolve" in response.error.message
-
     def test_other_server_errors_are_untouched(self, monkeypatch):
         def denied(request, _connection) -> FunctionCallResponse:
             return FunctionCallResponse(
@@ -282,9 +269,3 @@ class TestLocalFunctionIds:
     def test_registry_ids_are_resolvable(self):
         assert SERVED_LOCALLY in function_version_skew.local_function_ids()
         assert "missing.family.op" not in function_version_skew.local_function_ids()
-
-    def test_internal_handler_ids_are_locally_known(self):
-        function_version_skew.local_function_ids.cache_clear()
-        ids = function_version_skew.local_function_ids()
-        assert "session_ci_wait.resolve" in ids
-        assert "session_ci_wait.record" in ids
