@@ -29,13 +29,11 @@ from typing import Any, Iterable, Mapping
 from yoke_cli.project_install import checkout_gate
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import installed_output_paths
+from yoke_cli.project_install import publication_commit_parent as parent_read
 
 NOT_AN_INSTALLER_COMMIT = "not an installer commit"
 PATHS_UNREADABLE = "its changed paths could not be read"
 _MAX_NAMED_PATHS = 3
-_PARENT_PRESENT = "present"
-_PARENT_ABSENT = "absent"
-_PARENT_UNREADABLE = "unreadable"
 
 
 @dataclass(frozen=True)
@@ -231,43 +229,17 @@ def _changed_outside_block(repo_root: Path, sha: str, path: str) -> bool:
 
     The install owns one marked region of a co-owned file, so the proof is a
     comparison of everything else: identical outside the block means the
-    commit stayed inside the install's territory. An unreadable result is
-    treated as changed, because a proof that cannot be performed is not one.
+    commit stayed inside the install's territory. An unreadable result at
+    either end is treated as changed, because a proof that cannot be
+    performed is not one.
     """
-    after, after_read = _blob(repo_root, f"{sha}:{path}")
+    after, after_read = parent_read.blob(repo_root, f"{sha}:{path}")
     if not after_read:
         return True
-    before, parent = _parent_text(repo_root, sha, path)
-    if parent == _PARENT_UNREADABLE:
+    before, parent = parent_read.parent_text(repo_root, sha, path)
+    if parent == parent_read.UNREADABLE:
         return True
     return _operator_text(before) != _operator_text(after)
-
-
-def _parent_text(repo_root: Path, sha: str, path: str) -> tuple[str, str]:
-    """The file's text before this commit, and how that reading ended.
-
-    Genuine absence and an unreadable parent are the same failed blob read,
-    and they are opposite answers: absence means the commit created the file
-    and the operator had no text in it, while an unreadable parent means the
-    comparison could not be performed at all. Reading them as one would let
-    any git failure present itself as "there was nothing here before" and
-    clear the way for a destructive reconcile, so the tree is asked directly
-    — a commit with no parent had nothing before it, a listed path is read,
-    an unlisted one was absent, and a listing that itself fails is the
-    refusal.
-    """
-    parent = checkout_gate.run_git(repo_root, "rev-parse", "--verify", f"{sha}^")
-    if parent.returncode != 0:
-        return "", _PARENT_ABSENT
-    listed = checkout_gate.run_git(
-        repo_root, "ls-tree", "--name-only", f"{sha}^", "--", path,
-    )
-    if listed.returncode != 0:
-        return "", _PARENT_UNREADABLE
-    if not listed.stdout.strip():
-        return "", _PARENT_ABSENT
-    before, read = _blob(repo_root, f"{sha}^:{path}")
-    return (before, _PARENT_PRESENT) if read else ("", _PARENT_UNREADABLE)
 
 
 def _operator_text(text: str) -> str:
@@ -287,13 +259,6 @@ def _operator_text(text: str) -> str:
         return text.strip()
     start, end = span
     return (text[:start] + text[end:]).strip()
-
-
-def _blob(repo_root: Path, revision_path: str) -> tuple[str, bool]:
-    shown = checkout_gate.run_git(repo_root, "show", revision_path)
-    if shown.returncode != 0:
-        return "", False
-    return shown.stdout, True
 
 
 def _named(paths: list[str]) -> str:

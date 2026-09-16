@@ -4,15 +4,13 @@ Publication may replace the commits a branch carries, so it must first
 establish that they are its own. These cover what that proof must refuse: a
 commit wearing the installer's title over someone else's changes, a commit
 list that could not be read, and — for a file the install only co-owns — a
-change to the operator's text around its managed block. The last of those
-rests on reading the file as its parent held it, so the two ways that read
-can come back empty are covered apart: a commit that created the file is
-still ours, and a parent git could not read refuses.
+change to the operator's text around its managed block. The reading that
+last one rests on — the file as the commit's parent held it — has its own
+coverage beside this file.
 """
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -22,13 +20,11 @@ from yoke_cli.project_install import publication_reconcile as reconcile
 from yoke_cli.project_install import runner
 
 from runtime.api.cli.project_install_publication_test_support import (
-    MANAGED_BLOCK,
     STALE_BLOCK,
     agents_markdown,
     bind_bundle,
     git,
     managed_bundle,
-    managed_markdown_only,
     remote_world,
     rewrite_outside_block,
 )
@@ -205,82 +201,3 @@ def test_a_change_confined_to_the_managed_block_stays_ours(
     )
 
     assert unproven == ()
-
-
-
-def test_a_commit_that_created_the_co_owned_file_is_still_ours(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Nothing existed before, so nothing outside the block was changed.
-
-    The proof compares the operator's text before and after. Where the
-    commit created the file that comparison has no "before", and reading
-    the missing parent as an operator edit would refuse the install its own
-    first write of a co-owned file.
-    """
-    world = remote_world(tmp_path)
-    bind_bundle(monkeypatch, managed_bundle())
-    runner.install(world.checkout, project_id=7, publish=False)
-    territory = ownership.installer_territory(world.checkout)
-    git(world.checkout, "rm", "-q", "AGENTS.md")
-    git(world.checkout, "commit", "-q", "-m", "operator drops the file")
-    parent = git(world.checkout, "rev-parse", "HEAD").stdout.strip()
-    (world.checkout / "AGENTS.md").write_text(
-        managed_markdown_only(MANAGED_BLOCK), encoding="utf-8",
-    )
-    git(world.checkout, "add", "-A")
-    git(world.checkout, "commit", "-q", "-m", "Install Yoke operating layer 9.9.9")
-    recreated = git(world.checkout, "rev-parse", "HEAD").stdout.strip()
-
-    unproven = ownership.unproven_commits(
-        ownership.read_local_only_commits(world.checkout, parent, recreated)[0],
-        territory,
-        repo_root=world.checkout,
-    )
-
-    assert unproven == ()
-
-
-def test_an_unreadable_parent_refuses_rather_than_claiming_creation(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A failed parent read is not evidence the file did not exist.
-
-    Genuine absence and an unreadable parent arrive as the same failure, and
-    they are opposite answers: absence clears the commit, while an unreadable
-    parent means the comparison never happened. Treating both as absence
-    would let any git failure authorize a destructive reconcile.
-    """
-    world = remote_world(tmp_path)
-    bind_bundle(monkeypatch, managed_bundle())
-    runner.install(world.checkout, project_id=7, publish=False)
-    territory = ownership.installer_territory(world.checkout)
-    (world.checkout / "AGENTS.md").write_text(
-        agents_markdown(STALE_BLOCK), encoding="utf-8",
-    )
-    git(world.checkout, "add", "-A")
-    git(world.checkout, "commit", "-q", "-m", "Install Yoke operating layer 9.9.8")
-    parent = git(world.checkout, "rev-parse", "HEAD~1").stdout.strip()
-    local = git(world.checkout, "rev-parse", "HEAD").stdout.strip()
-    commits = ownership.read_local_only_commits(world.checkout, parent, local)[0]
-    real_run_git = ownership.checkout_gate.run_git
-
-    def unreadable_parent_tree(
-        repo_root: Path, *args: str,
-    ) -> subprocess.CompletedProcess[str]:
-        if args and args[0] == "ls-tree":
-            return subprocess.CompletedProcess(
-                ["git", "ls-tree"], 128, "", "fatal: bad object",
-            )
-        return real_run_git(repo_root, *args)
-
-    monkeypatch.setattr(
-        ownership.checkout_gate, "run_git", unreadable_parent_tree,
-    )
-
-    unproven = ownership.unproven_commits(
-        commits, territory, repo_root=world.checkout,
-    )
-
-    assert len(unproven) == 1
-    assert "outside the managed block" in unproven[0]
