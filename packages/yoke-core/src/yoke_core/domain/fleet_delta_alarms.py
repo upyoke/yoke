@@ -227,16 +227,18 @@ def _starved_minutes(row: EnvelopeRow, current: FleetSnapshot) -> int | None:
         # worker is the false alarm this exclusion exists to stop.
         return None
     if (
-        recipient.activity_at is not None
+        recipient.last_tool_call_at is not None
         and row.created_at is not None
-        and recipient.activity_at > row.created_at
+        and recipient.last_tool_call_at > row.created_at
     ):
+        # Composite activity_at folds in heartbeat; only a tool call is
+        # progress the recovery plane would treat as a live hook route.
         return None
     return waiting
 
 
 def starved_envelope_alarms(current: FleetSnapshot, state: DeltaState) -> list[str]:
-    """Undelivered envelopes whose recipient has gone quiet since the send."""
+    """Undelivered envelopes whose recipient has made no tool call since send."""
     lines: list[str] = []
     live: set[str] = set()
     for key in sorted(current.envelopes):

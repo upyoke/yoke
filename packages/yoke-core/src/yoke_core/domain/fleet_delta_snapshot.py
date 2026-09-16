@@ -65,6 +65,7 @@ class SessionRow:
     ended: bool
     terminated: bool
     activity_at: datetime | None
+    last_tool_call_at: datetime | None = None
     claimed_items: tuple[str, ...] = ()
 
     @property
@@ -161,6 +162,7 @@ def session_rows(result: Mapping[str, Any]) -> dict[str, SessionRow]:
             ended=bool(raw.get("ended_at")),
             terminated=bool(raw.get("terminated_at")),
             activity_at=parse_timestamp(raw.get("activity_at")),
+            last_tool_call_at=parse_timestamp(raw.get("last_tool_call_at")),
             claimed_items=tuple(ref for ref in claims if ref),
         )
     return rows

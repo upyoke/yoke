@@ -137,6 +137,11 @@ def render_session_roster_rows(
                 "liveness": state,
                 "ended_cause": cause,
                 "activity_at": activity_at,
+                "last_tool_call_at": (
+                    str(row["last_tool_call_at"])
+                    if row.get("last_tool_call_at")
+                    else None
+                ),
                 "execution_lane": row.get("execution_lane"),
                 **presentation,
                 "mode": row.get("mode"),
