@@ -30,35 +30,34 @@ export function appendSessionPresentation(documentNode, body, row) {
 }
 
 // Two short statuses, held apart because they answer different questions: the
-// release carrying this session's item, and where that item is in its own
-// workflow. Folded together they read as one state and hide the common case
-// where an item is fine and its release is not.
-const RUN_STATE_LABELS = {
-  created: "not started",
-  executing: "running",
-  succeeded: "done",
-  failed: "stopped",
-  cancelled: "cancelled",
-};
-
-function activeStageName(stages) {
-  const active = (stages || []).find((stage) => stage.state === "active")
-    || (stages || []).find((stage) => stage.state === "failed");
-  return active ? String(active.name) : "";
-}
-
+// release carrying this session's item, and what that item's own QA inside
+// that release found. Folded together they read as one state and hide the
+// common case where an item is fine and its release is not.
+//
+// Both halves print the values the control plane stores. A run status and a
+// QA outcome are enum values other surfaces gate on and search by, so a
+// friendlier word here would be a vocabulary a reader cannot match against
+// anything else — and "done" for `succeeded` or "stopped" for `failed` reads
+// as a different fact, not a shorter one.
 export function deliveryStatusLabels(row) {
   const labels = [];
   const delivery = row.primary_item_delivery;
-  if (delivery?.run_id) {
-    const state = RUN_STATE_LABELS[delivery.status] || String(delivery.status || "");
+  if (!delivery?.run_id) return labels;
+  // The newest run is not automatically the one in flight: when every run
+  // carrying this item is over, the card says which reading it is giving.
+  const lead = delivery.live ? "Run" : "Last run";
+  labels.push({
+    key: "run",
+    text: `${lead}: ${[delivery.stage, delivery.status].filter(Boolean).join(" · ")}`,
+  });
+  // The item half is this member's own QA inside that run. Its workflow stage
+  // is a different fact, and the card's stage strip already draws it.
+  if (delivery.item_qa) {
     labels.push({
-      key: "run",
-      text: `Run: ${[delivery.stage, state].filter(Boolean).join(" · ")}`,
+      key: "item",
+      text: `Item QA: ${String(delivery.item_qa).replaceAll("_", " ")}`,
     });
   }
-  const stage = activeStageName(row.primary_item_stages);
-  if (stage) labels.push({ key: "item", text: `Item: ${stage}` });
   return labels;
 }
 

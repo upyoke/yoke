@@ -3,6 +3,12 @@ import test from "node:test";
 
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
+  selectionRoute,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_selection_routes.js";
+import {
+  createProjectSelection,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_project_selection.js";
+import {
   FakeDocument,
   allNodes,
   byClass,
@@ -244,4 +250,30 @@ test("empty and history-only scopes explain what can happen next", async (t) => 
   assert.deepEqual(cardNames(historyOnly.root), ["Alpha Legacy"]);
   assert.equal(detailHeading(historyOnly.root), "Alpha Legacy");
   historyOnly.mounted.unmount();
+});
+
+test("a tabbed destination keeps its tab when the route is rebuilt", () => {
+  // A scope change on a run page rebuilds the hash. The drill-in has to stay
+  // in the second segment: putting it in the tab slot rewrote
+  // `#/deployments/runs/<run id>` to `#/deployments/<run id>`, which still
+  // drew the run and still lost the tab its breadcrumb returns to.
+  const state = createProjectSelection(null);
+  state.seed("deployments", ["1"]);
+  assert.equal(
+    selectionRoute(
+      { view: "deployments", tab: "runs", detail: "run-20260726-001" },
+      state, "1", "#/deployments/runs/run-20260726-001?project=1",
+    ),
+    "#/deployments/runs/run-20260726-001?project=1&selection=1",
+  );
+  // A tab with no drill-in keeps the tab and takes the remembered selection.
+  assert.equal(
+    selectionRoute({ view: "deployments", tab: "runs", detail: null }, state),
+    "#/deployments/runs?project=1",
+  );
+  // An untabbed destination still spends its one segment on the drill-in.
+  assert.equal(
+    selectionRoute({ view: "items", tab: null, detail: "42" }, state, "2"),
+    "#/items/42?project=2&selection=all",
+  );
 });
