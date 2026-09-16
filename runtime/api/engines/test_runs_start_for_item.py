@@ -25,6 +25,7 @@ from yoke_core.engines.runs_start_for_item import (
     StartForItemResult,
     start_for_item,
 )
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 @pytest.fixture(autouse=True)
@@ -136,7 +137,9 @@ def test_missing_deployment_flow_short_circuits():
 
 def test_missing_flow_refusal_carries_the_flow_selection_recovery():
     helpers, resolve, create, add, validate = _patches(item_row=("yoke", None))
-    recovery = "item 42 has no deployment_flow; pass --flow with one of: to-prod"
+    # The refusal names the item the way a reader sees it, so the describer
+    # is handed the rendered reference rather than the internal id.
+    recovery = "PREFIX-N has no deployment_flow; pass --flow with one of: to-prod"
     describe = mock.patch.object(
         composer, "_describe_missing_flow", return_value=recovery,
     )
@@ -144,7 +147,7 @@ def test_missing_flow_refusal_carries_the_flow_selection_recovery():
         result = start_for_item(42)
     assert result.ok is False
     assert result.error == recovery
-    describe_m.assert_called_once_with(42, "yoke")
+    describe_m.assert_called_once_with(item_ref_for_id(42), "yoke")
 
 
 def test_resolve_target_raise_is_captured():
