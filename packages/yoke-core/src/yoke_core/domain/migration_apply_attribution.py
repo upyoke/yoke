@@ -2,8 +2,9 @@
 
 A completed ``migration_audit`` row that omits session, actor, branch, or
 commit is not an audit record. Callers that cannot establish those four
-fields fail before any apply rather than writing nulls. Existing null rows
-are left as they are — this module does not backfill.
+fields fail before mutation rather than writing nulls. A current database
+owes no mutation, so gathering those fields must not refuse a no-op boot.
+Existing null rows are left as they are — this module does not backfill.
 
 ``model_name`` on the same row is a declared migration model. Execution
 lanes (including the unresolved-lane sentinel) are refused unless that
@@ -92,24 +93,24 @@ def collect_boot_attribution(
     applied_by: str,
     running_version: str,
     worktree: Optional[Path] = None,
-) -> Dict[str, str]:
-    """Attribution for the boot-converge apply, which has no harness session.
+) -> Dict[str, Any]:
+    """Gather boot-converge identity. Incomplete fields stay empty.
 
     The process identity is ``applied_by`` (typically ``boot-converge``).
     Branch and commit come from the checkout when git is there, otherwise
-    the running artifact version and a boot branch marker. Empty on both
-    sides still fails closed.
+    the running artifact version and a boot branch marker. Validation belongs
+    to ``apply_pending`` after it knows there is pending work — a source tree
+    with no artifact version and no resolvable commit must still boot a
+    current database.
     """
     actor = (applied_by or "").strip()
     branch, commit = git_branch_and_commit(worktree or Path.cwd())
-    return require_attribution(
-        {
-            "session_id": actor,
-            "actor_id": actor,
-            "source_branch": branch or BOOT_BRANCH_WHEN_UNRESOLVED,
-            "source_commit": commit or (running_version or "").strip() or None,
-        }
-    )
+    return {
+        "session_id": actor,
+        "actor_id": actor,
+        "source_branch": branch or BOOT_BRANCH_WHEN_UNRESOLVED,
+        "source_commit": commit or (running_version or "").strip() or None,
+    }
 
 
 def collect_operator_attribution(

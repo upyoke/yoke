@@ -123,7 +123,7 @@ def apply_pending(
     ledger: LedgerContract,
     applied_by: str,
     running_version: str,
-    attribution: Mapping[str, str],
+    attribution: Mapping[str, Any],
     model_name: str,
     backup_root: Optional[Path] = None,
     backup_target_dsn: Optional[str] = None,
@@ -162,17 +162,19 @@ def apply_pending(
     if not history:
         return ApplyOutcome(applied=(), restore_point=None)
 
-    provenance = require_attribution(attribution)
-    model = refuse_lane_as_model_name(model_name)
-
     # A permanent name whose recorded non-NULL digest differs is corruption,
     # not pending work. Refuse before the current fast-path or any restore.
     require_matching_content_identity(conn, history, ledger)
 
     # Cheap probe first. The overwhelming majority of boots are current, and
-    # they should cost two queries and take no lock at all.
+    # they should cost two queries and take no lock at all. Attribution and
+    # model_name are apply-time obligations: a current database must not
+    # refuse because the process cannot name a commit.
     if not pending_entries(conn, history, ledger):
         return ApplyOutcome(applied=(), restore_point=None)
+
+    provenance = require_attribution(attribution)
+    model = refuse_lane_as_model_name(model_name)
 
     restore_point = migration_restore_point.establish(
         conn,

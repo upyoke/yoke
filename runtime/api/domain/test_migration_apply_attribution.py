@@ -18,6 +18,7 @@ from yoke_contracts.session_lane import UNRESOLVED_EXECUTION_LANE
 from yoke_core.domain.migration_apply_attribution import (
     IncompleteAttributionError,
     LaneAsModelNameError,
+    collect_boot_attribution,
     collect_operator_attribution,
     refuse_lane_as_model_name,
     require_attribution,
@@ -66,6 +67,69 @@ def test_apply_refuses_before_mutating_when_attribution_is_missing(
             applied_by="test",
             running_version="",
             attribution={},
+            external_restore_point=RESTORE_POINT,
+        )
+
+    assert marks(conn) == []
+    assert conn.execute("SELECT count(*) FROM migration_audit").fetchone()[0] == 0
+
+
+def test_collect_boot_attribution_does_not_refuse_an_unnameable_commit() -> None:
+    gathered = collect_boot_attribution(
+        applied_by="boot-converge",
+        running_version="",
+        worktree=Path("/no/such/worktree"),
+    )
+    assert gathered["session_id"] == "boot-converge"
+    assert gathered["actor_id"] == "boot-converge"
+    assert gathered["source_branch"] == "boot"
+    assert gathered["source_commit"] is None
+
+
+def test_detached_source_boot_applies_when_current(tmp_path: Path) -> None:
+    conn = connection()
+    history = build_history(tmp_path, "0001_first")
+    conn.execute(
+        "INSERT INTO applied_migrations "
+        "(migration_name, applied_at, applied_by) "
+        "VALUES ('0001_first', 'now', 'test')"
+    )
+    gathered = collect_boot_attribution(
+        applied_by="boot-converge",
+        running_version="",
+        worktree=Path("/no/such/worktree"),
+    )
+
+    outcome = apply_pending(
+        conn,
+        history=history,
+        applied_by="boot-converge",
+        running_version="",
+        attribution=gathered,
+    )
+
+    assert outcome.applied == ()
+    assert marks(conn) == []
+
+
+def test_detached_source_boot_refuses_before_mutating_pending_work(
+    tmp_path: Path,
+) -> None:
+    conn = connection()
+    history = build_history(tmp_path, "0001_first")
+    gathered = collect_boot_attribution(
+        applied_by="boot-converge",
+        running_version="",
+        worktree=Path("/no/such/worktree"),
+    )
+
+    with pytest.raises(IncompleteAttributionError, match="source_commit"):
+        apply_pending(
+            conn,
+            history=history,
+            applied_by="boot-converge",
+            running_version="",
+            attribution=gathered,
             external_restore_point=RESTORE_POINT,
         )
 
