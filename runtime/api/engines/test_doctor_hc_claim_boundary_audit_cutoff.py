@@ -26,6 +26,7 @@ from runtime.api.fixtures.file_test_db import (
     connect_test_db,
     init_test_db,
 )
+from yoke_core.domain.project_seed_test_helpers import seed_project_identities
 from yoke_core.domain.work_claim_targets import make_item_target
 
 
@@ -73,6 +74,12 @@ def _add_claim(
     item_id: int,
     claimed_at: str = "2026-05-17T11:00:00Z",
 ) -> None:
+    # The finding names the item by reference, so the claim's item exists
+    # with the identity the renderer reads.
+    from runtime.api.fixtures.backlog import insert_item
+
+    seed_project_identities(conn)
+    insert_item(conn, id=item_id, project_sequence=item_id, title="fixture")
     conn.execute(
         "INSERT INTO work_claims (session_id, target_kind, scope,"
         " claimed_at, last_heartbeat)"

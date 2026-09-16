@@ -118,9 +118,7 @@ def read_test_machine_facts(
                 format_item_ref(
                     row["slug"],
                     row["public_item_prefix"],
-                    row["project_sequence"],
-                    item_id=int(row["item_id"]),
-                ),
+                    row["project_sequence"]),
             )
         active_items = {
             key: refs_by_session.get(session_id)

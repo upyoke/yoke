@@ -14,7 +14,7 @@ import os
 from typing import Any, TextIO
 
 from yoke_core.domain import epic_task_sync
-from yoke_core.domain.project_identity import DEFAULT_PUBLIC_ITEM_PREFIX, render_item_ref
+from yoke_core.domain.project_identity import render_item_ref, unresolved_item_ref
 from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
@@ -55,7 +55,7 @@ def _sync_task_children(
     try:
         public_ref = render_item_ref(conn, int(item_id))
     except Exception:
-        public_ref = f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
+        public_ref = unresolved_item_ref()
     return epic_task_sync.sync_epic_tasks(
         public_ref,
         conn=conn,

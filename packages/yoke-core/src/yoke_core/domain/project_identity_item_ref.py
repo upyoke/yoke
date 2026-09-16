@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Optional, Union
 
 from yoke_core.domain.yok_n_parser import parse_item_argument
+from yoke_core.domain.project_identity import render_item_ref, unresolved_item_ref
 
 
 def resolve_cli_item_ref(
@@ -40,14 +41,10 @@ def item_ref_for_id(item_id: int) -> str:
     than paying for a second one.
 
     Never raises: many call sites are warning/dry-run notices that must survive
-    an unreachable control plane, so an unopenable connection degrades to the
-    default-prefix form the renderer itself falls back to.
+    an unreachable control plane, so an unopenable connection reports the ref
+    as unresolved for want of a read rather than inventing one from the id.
     """
     from yoke_core.domain import db_helpers
-    from yoke_core.domain.project_identity import (
-        DEFAULT_PUBLIC_ITEM_PREFIX,
-        render_item_ref,
-    )
 
     try:
         from yoke_contracts.control_plane_locality import (
@@ -58,12 +55,25 @@ def item_ref_for_id(item_id: int) -> str:
             return render_item_ref(conn, int(item_id))
     except RemoteControlPlaneConnectionError:
         # Outside Exception on purpose — https authority has no local DB.
-        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
+        return unresolved_item_ref(consulted=False)
     except Exception:
-        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{int(item_id)}"
+        return unresolved_item_ref(consulted=False)
+
+
+def item_subject_ref(token: int | str) -> str:
+    """Name an item from a token that is either an id or a public ref.
+
+    Boundary surfaces (browser QA, sync CLIs, relayed handlers) accept both
+    shapes from their caller. A public ref already names the item, so it
+    passes through; a bare id is resolved through :func:`item_ref_for_id`
+    so the text a person reads is never the storage key.
+    """
+    text = str(token).strip()
+    return item_ref_for_id(int(text)) if text.isdigit() else text
 
 
 __all__ = [
     "item_ref_for_id",
+    "item_subject_ref",
     "resolve_cli_item_ref",
 ]

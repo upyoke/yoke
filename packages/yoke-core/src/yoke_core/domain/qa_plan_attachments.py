@@ -6,6 +6,7 @@ import json
 from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.qa_plan_management import (
     QaPlanError,
     _placeholder,
@@ -37,6 +38,7 @@ from yoke_core.domain.qa_plan_project_defaults import (
     unset_project_default,
 )
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 PROJECT_DEFAULT_QA_POLICIES = frozenset(
@@ -73,7 +75,7 @@ def attach_plan_to_item(
         (int(item_id),),
     )
     if item is None:
-        raise QaPlanError(f"item {item_id} not found")
+        raise QaPlanError(ITEM_NOT_FOUND)
     if int(item["project_id"]) != int(plan["project_id"]):
         raise QaPlanError("plan and item must belong to the same project")
     lock_item_workflow_bindings(conn, (int(item_id),))
@@ -122,7 +124,7 @@ def _attached_plans(
         (item_id,),
     )
     if item is None:
-        raise QaPlanError(f"item {item_id} not found")
+        raise QaPlanError(ITEM_NOT_FOUND)
     attachments: dict[int, dict] = {}
     if workflow_uses_project_testing_defaults(conn, int(item_id)):
         for row in query_rows(
@@ -200,7 +202,7 @@ def materialize_for_item(
         existing_ids = require_existing_target(
             existing_rows,
             execution_target=execution_target,
-            subject=f"item {item_id} transition {transition_id!r}",
+            subject=f"{render_item_ref(conn, item_id)} transition {transition_id!r}",
         )
         if existing_ids:
             snapshots[plan_id] = (
@@ -267,7 +269,7 @@ def materialize_for_item(
                             conn,
                             requirement_id=requirement_id,
                             execution_target=execution_target,
-                            subject=(f"item {item_id} transition {transition_id!r}"),
+                            subject=(f"{render_item_ref(conn, item_id)} transition {transition_id!r}"),
                         )
                     )
     if commit:

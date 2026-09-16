@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.public_ref import unresolved_item_ref
+from yoke_core.domain.worktree_naming import legacy_worktree_name
 
 
 def _parent():
@@ -108,10 +109,17 @@ def _verify_recovery_evidence(
     )
     if origin_check.returncode != 0:
         target_ref = base_branch
-    legacy_ref = format_item_ref(None, None, None, item_id=item_id)
-    search_refs = [public_ref or legacy_ref]
-    if public_ref and public_ref != legacy_ref:
-        search_refs.append(legacy_ref)
+    # A SEARCH KEY, never shown. Merge commits for a lane carry its branch
+    # name, and lanes predating public-ref naming are recorded under the
+    # legacy shape, so this is how their evidence is still found. It has to
+    # stay item-specific: the unresolved display phrase would match any
+    # commit that happens to quote it and accept another item's merge as
+    # this item's evidence — and match nothing at all the rest of the time,
+    # which is a guard that only ever fails open or useless.
+    legacy_ref = legacy_worktree_name(item_id)
+    search_refs = [ref for ref in (public_ref, legacy_ref) if ref]
+    if len(search_refs) == 2 and search_refs[0] == search_refs[1]:
+        search_refs.pop()
     for search_ref in search_refs:
         log_check = _parent()._run_git(
             [
@@ -143,7 +151,7 @@ def _handle_resume_from_step6(
     if not _verify_recovery_evidence(
         item_id, project_repo, base_branch, public_ref=public_ref
     ):
-        ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
+        ref = public_ref or unresolved_item_ref()
         print(
             f"\nError: {ref} has no active worktree lane and no merge "
             f"evidence found on origin/{base_branch}.\n"

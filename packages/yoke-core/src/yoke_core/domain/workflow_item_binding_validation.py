@@ -6,6 +6,7 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_PATH_CLAIMS_OPTIONAL,
     WORKFLOW_PATH_CLAIMS_REQUIRED,
@@ -24,6 +25,7 @@ from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_STEERING,
     WorkClaimTarget,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 _ITEM_CLAIM_OWNERSHIP_POLICIES = frozenset(
     {
@@ -63,17 +65,17 @@ def item_binding_runtime_state(
         (int(item_id),),
     ).fetchone()
     if row is None:
-        raise WorkflowItemBindingError(f"item {item_id} does not exist")
+        raise WorkflowItemBindingError(ITEM_NOT_FOUND)
     runtime = load_item_workflow_runtime(conn, int(item_id))
     status = str(row["status"] if hasattr(row, "keys") else row[0])
     if status in runtime.terminal_stage_ids or status in ENGINE_TERMINAL_STAGE_IDS:
         raise WorkflowItemBindingError(
-            f"item {item_id} is terminal at workflow stage {status!r}"
+            f"{render_item_ref(conn, item_id)} is terminal at workflow stage {status!r}"
         )
     if status not in ENGINE_WAIT_STAGE_IDS:
         if status not in runtime.stage_ids:
             raise WorkflowItemBindingError(
-                f"item {item_id} has undeclared workflow stage {status!r}"
+                f"{render_item_ref(conn, item_id)} has undeclared workflow stage {status!r}"
             )
         if runtime.skill_for_stage(status) is None:
             raise WorkflowItemBindingError(

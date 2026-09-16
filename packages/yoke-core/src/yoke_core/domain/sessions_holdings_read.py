@@ -23,7 +23,7 @@ from yoke_core.domain.work_claim_targets import (
     from_row as work_claim_target_from_row,
     scope_int_sql,
 )
-from yoke_contracts.public_ref import DEFAULT_PUBLIC_ITEM_PREFIX, format_item_ref
+from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_contracts.coordination_claim_keys import COORDINATION_TARGET_KINDS
 from yoke_core.domain.sessions_holdings_claim_facts import (
     claimed_item_facts,
@@ -53,15 +53,15 @@ def render_claim_target(
         found = item_facts.get(item_num)
         if found is not None:
             return str(found["public_ref"]), dict(found)
-        fallback = format_item_ref(
-            None,
-            DEFAULT_PUBLIC_ITEM_PREFIX,
-            None,
-            item_id=item_num,
-        )
-        return fallback, {}
+        return unresolved_item_ref(), {}
     if kind == "epic_task":
-        return f"epic {claim.get('epic_id')} task {claim.get('task_num')}", {}
+        epic_id = claim.get("epic_id")
+        facts = item_facts.get(int(epic_id)) if epic_id is not None else None
+        epic_ref = (
+            str(facts["public_ref"]) if facts
+            else unresolved_item_ref()
+        )
+        return f"{epic_ref} task {claim.get('task_num')}", {}
     if kind == "steering":
         steering = work_claim_target_from_row(claim)
         return steering.render(), {
@@ -98,11 +98,14 @@ def active_claims_by_session(
         claim = dict(row)
         raw_by_session.setdefault(str(claim["session_id"]), []).append(claim)
 
+    # An epic id is an item id, so both kinds resolve through the one
+    # prefetch rather than one connection per epic-task claim.
     claimed_items = [
-        int(claim["item_id"])
+        int(claim[column])
         for claims in raw_by_session.values()
         for claim in claims
-        if claim.get("target_kind") == "item" and claim["item_id"] is not None
+        for kind, column in (("item", "item_id"), ("epic_task", "epic_id"))
+        if claim.get("target_kind") == kind and claim.get(column) is not None
     ]
     item_facts = claimed_item_facts(conn, claimed_items)
     doc_slugs = steered_document_slugs(

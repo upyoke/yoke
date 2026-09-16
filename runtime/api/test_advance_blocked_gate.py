@@ -13,15 +13,28 @@ from yoke_core.domain.advance_blocked_gate import evaluate
 def conn():
     name = pg_testdb.create_test_database()
     c = pg_testdb.connect_test_database(name)
+    # The refusal names the item inside an unblock recipe, so the fixture
+    # carries the identity that reference is read from.
     apply_fixture_ddl(
         c,
         """
+        CREATE TABLE projects (
+            id INTEGER PRIMARY KEY,
+            slug TEXT,
+            public_item_prefix TEXT
+        );
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
+            project_id INTEGER,
+            project_sequence INTEGER,
             blocked INTEGER DEFAULT 0,
             blocked_reason TEXT
         );
         """,
+    )
+    c.execute(
+        "INSERT INTO projects (id, slug, public_item_prefix) "
+        "VALUES (1, 'yoke', 'YOK')"
     )
     yield c
     c.close()
@@ -30,8 +43,10 @@ def conn():
 
 def _add(conn, item_id, blocked=0, reason=None):
     conn.execute(
-        "INSERT INTO items (id, blocked, blocked_reason) VALUES (%s, %s, %s)",
-        (item_id, blocked, reason),
+        "INSERT INTO items "
+        "(id, project_id, project_sequence, blocked, blocked_reason) "
+        "VALUES (%s, 1, %s, %s, %s)",
+        (item_id, item_id, blocked, reason),
     )
 
 

@@ -58,10 +58,13 @@ def _do_merge(
     # Resolve actual branch from worktree directory. Lanes live at
     # .worktrees/<branch>, so locate the directory from the recorded branch
     # (public ref or legacy name) rather than reconstructing YOK-{internal_id}.
-    from yoke_core.domain.worktree_naming import worktree_name_for_item
+    from yoke_core.domain.worktree_naming import legacy_worktree_name
 
     actual_branch = lane_branch
-    wt_name = lane_branch or worktree_name_for_item(None, item_id)
+    # Locating a lane that already exists, not naming a new one: an
+    # unrecorded lane predates public-ref naming, so it is on disk under the
+    # legacy shape.
+    wt_name = lane_branch or legacy_worktree_name(item_id)
     wt_dir = project_repo / ".worktrees" / wt_name
     if wt_dir.is_dir():
         br = _parent()._run_git(
@@ -69,9 +72,9 @@ def _do_merge(
         )
         actual = (br.stdout or "").strip()
         if actual and actual != lane_branch:
-            from yoke_contracts.public_ref import format_item_ref
+            from yoke_contracts.public_ref import unresolved_item_ref
 
-            ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
+            ref = public_ref or unresolved_item_ref()
             print(f"Warning: branch mismatch for {ref}", file=sys.stderr)
             print(f"  Stored:  {lane_branch}", file=sys.stderr)
             print(f"  Actual:  {actual}", file=sys.stderr)
@@ -275,9 +278,9 @@ def _handle_already_done(
     public_ref: Optional[str] = None,
 ) -> int:
     """Handle already-completed items with a tiny idempotent fast path."""
-    from yoke_contracts.public_ref import format_item_ref
+    from yoke_contracts.public_ref import unresolved_item_ref
 
-    ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
+    ref = public_ref or unresolved_item_ref()
     print(
         f"Pre-flight: {ref} is already completed (status=done, "
         "worktree cleared)."

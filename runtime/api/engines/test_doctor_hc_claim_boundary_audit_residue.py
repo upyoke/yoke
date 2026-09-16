@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (
+from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (  # noqa: F401 - env is a fixture
     _add_claim,
     _add_event,
     _add_session,
@@ -16,11 +16,18 @@ from runtime.api.engines.test_doctor_hc_claim_boundary_audit import (
 
 
 def _add_item(conn: Any, item_id: int, status: str) -> None:
+    """Seed one item with its identity, reusable across cases.
+
+    The cases share one database, so a row an earlier case already
+    seeded is brought to the status this one needs rather than
+    colliding on the primary key.
+    """
     p = _p(conn)
     conn.execute(
         "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, project_id,"
         " project_sequence, created_at, updated_at)"
-        f" VALUES ({p}, {p}, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), {p}, 'medium', 1, {p}, {p}, {p})",
+        f" VALUES ({p}, {p}, 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), {p}, 'medium', 1, {p}, {p}, {p})"
+        " ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status",
         (
             item_id, f"YOK-{item_id}", status, item_id,
             "2026-05-17T10:00:00Z", "2026-05-17T10:00:00Z",
@@ -29,7 +36,7 @@ def _add_item(conn: Any, item_id: int, status: str) -> None:
     conn.commit()
 
 
-def test_done_item_no_live_claim_renders_as_historical_residue(env):
+def test_done_item_no_live_claim_renders_as_historical_residue(env):  # noqa: F811
     conn = env["conn"]
     caller = _sid("r")
     _add_item(conn, 915, "done")
@@ -47,7 +54,7 @@ def test_done_item_no_live_claim_renders_as_historical_residue(env):
     assert "YOK-915" in result.detail
 
 
-def test_done_item_live_holder_mismatch_remains_failure(env):
+def test_done_item_live_holder_mismatch_remains_failure(env):  # noqa: F811
     conn = env["conn"]
     holder, other = _sid("s"), _sid("t")
     _add_item(conn, 916, "done")
@@ -66,7 +73,7 @@ def test_done_item_live_holder_mismatch_remains_failure(env):
     assert holder in result.detail and other in result.detail
 
 
-def test_qa_requirement_list_is_not_mutation(env):
+def test_qa_requirement_list_is_not_mutation(env):  # noqa: F811
     conn = env["conn"]
     caller = _sid("u")
     _add_session(conn, caller)

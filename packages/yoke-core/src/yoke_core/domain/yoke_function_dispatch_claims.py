@@ -47,6 +47,7 @@ from yoke_core.domain.yoke_function_dispatch_claims_resolve import (
     session_claim_id_for_target as _session_claim_id_for_target,
 )
 from yoke_core.domain.yoke_function_registry import RegistryEntry
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def who_claims_for_item(item_id: int) -> Optional[Dict[str, Any]]:
@@ -234,7 +235,7 @@ def verify_claim(
                 if process_key:
                     shape = f"process {process_key}"
                 elif target.kind == "item":
-                    shape = f"item {target.item_id}"
+                    shape = item_ref_for_id(target.item_id)
                 else:
                     shape = (
                         f"epic_task ({target.epic_id}, {target.task_num})"

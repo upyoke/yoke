@@ -15,6 +15,7 @@ from yoke_core.engines.branch_landed_evidence import (
 )
 from yoke_core.engines.merge_landed_lane_cleanup import prune_landed_lane
 from yoke_core.engines.remote_branch_cleanup import delete_remote_branch_if_merged
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def _parent():
@@ -119,9 +120,11 @@ def _cleanup_stale_branches(
             )
             return False
 
-    from yoke_core.domain.worktree_naming import worktree_name_for_item
+    from yoke_core.domain.worktree_naming import legacy_worktree_name
 
-    branch = lane_branch or worktree_name_for_item(None, item_id)
+    # Finding the lane to clean up, not naming one: an unrecorded lane
+    # predates public-ref naming and sits under the legacy shape.
+    branch = lane_branch or legacy_worktree_name(item_id)
     if not _branch_exists(project_repo, branch):
         return _delete_remote_for_lane(project_repo, branch, base_branch)
 
@@ -142,7 +145,8 @@ def _cleanup_stale_branches(
         return False
     for reason in preserved:
         print(
-            f"  item {item_id}, path {project_repo / '.worktrees' / branch}: {reason}"
+            f"  {item_ref_for_id(item_id)}, "
+            f"path {project_repo / '.worktrees' / branch}: {reason}"
         )
     if (
         lane_branch.startswith("trial/")

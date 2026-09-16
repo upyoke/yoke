@@ -103,9 +103,12 @@ def run_preflight(
     prepare_path_claims: Optional[Callable[[], Optional[str]]] = None,
 ) -> WorktreePreflightOutcome:
     """Run the harness-universal advance implementation-entry preflight."""
+    from yoke_contracts.public_ref import unresolved_item_ref
     from yoke_core.domain.claim_recovery import canonical_item_ref
 
-    public_ref = canonical_item_ref(item_id) or str(item_id)
+    # This name reaches the claim and path-claim refusals below, so an
+    # unresolvable item says so rather than showing its storage key.
+    public_ref = canonical_item_ref(item_id) or unresolved_item_ref()
     # The worktree/branch name is the item's public ref; a recorded active
     # lane (if any) locates an existing worktree created under either the
     # public-ref or legacy naming scheme so re-entry never mis-detects it.

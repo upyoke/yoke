@@ -94,7 +94,7 @@ def hc_validation_no_qa_reqs(conn, args: DoctorArgs, rec: RecordCollector) -> No
     )
     for row in task_rows:
         issues.append(
-            f"- Epic {row['epic_id']}/task {row['task_num']}: '{row['title']}' "
+            f"- {render_item_ref(conn, row['epic_id'])}/task {row['task_num']}: '{row['title']}' "
             f"— in reviewing-implementation with zero qa_requirements"
         )
 

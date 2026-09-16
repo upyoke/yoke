@@ -21,6 +21,7 @@ from yoke_contracts.public_ref import (  # noqa: F401
     DEFAULT_PUBLIC_ITEM_PREFIX,
     format_item_ref,
     parse_public_item_ref,
+    unresolved_item_ref,
 )
 from yoke_contracts.project_defaults import DEFAULT_PROJECT_SLUG  # noqa: F401
 
@@ -263,16 +264,26 @@ def render_item_ref(
 
     The one-element case of :func:`item_ref_render.render_item_refs`; any
     caller rendering a set uses that batch entry point instead so the read
-    stays one statement.
+    stays one statement. This is also the renderer every human-visible
+    message uses to name an item, so that operator-facing text never carries
+    a bare ``items.id``; an id no identity row backs renders
+    :func:`unresolved_item_ref` rather than a ref.
     """
     del qualify
-    from yoke_core.domain.item_ref_render import fallback_item_ref, render_item_refs
+    from yoke_core.domain.item_ref_render import render_item_refs
 
     rendered = render_item_refs(conn, [item_id]).get(int(item_id))
     if rendered is None:
         if required:
-            raise LookupError(f"item identity not found: {item_id}")
-        return fallback_item_ref(int(item_id))
+            # Strict: callers that cannot proceed without a reference still
+            # get an exception. It carries no number, because an exception
+            # message is read by a person exactly like any other output and
+            # the storage key names a different item to them.
+            raise LookupError(
+                f"item identity not found: "
+                f"{unresolved_item_ref(consulted=conn is not None)}"
+            )
+        return unresolved_item_ref(consulted=conn is not None)
     return rendered
 
 
@@ -318,5 +329,6 @@ __all__ = [
     "resolve_project_for_public_prefix",
     "resolve_project_id",
     "resolve_project_slug",
+    "unresolved_item_ref",
     "row_value",
 ]

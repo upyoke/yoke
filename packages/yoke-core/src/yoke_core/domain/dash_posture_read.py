@@ -6,6 +6,7 @@ import json
 from typing import Any, Mapping, Optional
 
 from yoke_core.domain import db_backend
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 def marker(conn: Any) -> str:
@@ -22,7 +23,7 @@ def item_row(conn: Any, item_id: int) -> dict[str, Any]:
     )
     row = cursor.fetchone()
     if row is None:
-        raise LookupError(f"item {item_id} does not exist")
+        raise LookupError(ITEM_NOT_FOUND)
     columns = [str(column[0]) for column in cursor.description]
     return dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
 

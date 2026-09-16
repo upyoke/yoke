@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 
 @dataclass
@@ -39,12 +39,19 @@ class GateTarget:
             return "item_id = %s", (self.item_id,)
         return "epic_id = %s AND task_num = %s", (self.epic_id, self.task_num)
 
-    def display_name(self) -> str:
-        if self.item_id is not None:
-            from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+    def display_name(self, conn: Any) -> str:
+        """Name this target the way an operator reads it.
 
-            return item_ref_for_id(int(self.item_id))
-        return f"epic {self.epic_id}/task {self.task_num}"
+        The reference comes from the connection the gate is reading, not
+        an ambient one: a QA gate runs against a caller-supplied database,
+        and resolving identity anywhere else would name a different item.
+        """
+        from yoke_core.domain.project_identity import render_item_ref
+
+        if self.item_id is not None:
+            return render_item_ref(conn, int(self.item_id))
+        epic_ref = render_item_ref(conn, int(self.epic_id))
+        return f"{epic_ref}/task {self.task_num}"
 
 
 @dataclass

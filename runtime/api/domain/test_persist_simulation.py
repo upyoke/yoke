@@ -193,9 +193,16 @@ class TestPersistAndVerify:
         with pytest.raises(SystemExit):
             persist_and_verify("1511", "integration", sim_output)
         err = capsys.readouterr().err
-        assert "YOK-1511" in err
-        assert "YOK-1513" in err
+        # Neither epic has an identity row here, so the refusal says each
+        # reference is unresolved and shows no number: a storage key printed
+        # where a reference belongs names whichever item owns it as a
+        # sequence. What the refusal must still carry is the phase and the
+        # attesting source, which is what the operator acts on.
+        assert err.count("unresolved item ref") == 2
+        assert "1511" not in err
+        assert "1513" not in err
         assert "integration" in err
+        assert "source=epic_line" in err
 
     def test_missing_epic_body_rejected(self):
         sim_output = (
@@ -211,8 +218,11 @@ class TestPersistAndVerify:
         with pytest.raises(SystemExit):
             persist_and_verify("1511", "plan", sim_output)
         err = capsys.readouterr().err
-        assert "YOK-1511" in err
-        assert "EPIC: YOK-1511" in err
+        # The fixture epic has no identity row, so the refusal says the
+        # reference is unresolved rather than printing the storage key.
+        assert "unresolved item ref" in err
+        assert "1511" not in err
+        assert "EPIC: " in err
 
     def test_epic_check_runs_before_upsert(self):
         """Wrong-epic must reject BEFORE simulation_upsert is invoked."""

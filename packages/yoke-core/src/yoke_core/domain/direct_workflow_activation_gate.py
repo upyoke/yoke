@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.item_worktrees import (
     list_item_worktrees,
     validate_item_worktree_roles,
@@ -73,7 +74,7 @@ def _activation_prerequisites(
         )
         return _failure(
             code,
-            f"Item {item_id} {detail}; activation belongs to "
+            f"{render_item_ref(conn, item_id)} {detail}; activation belongs to "
             f"session {clean_session!r}.",
             "Acquire the item work claim or coordinate with its holder.",
         )
@@ -85,14 +86,14 @@ def _activation_prerequisites(
     if not _table_exists(conn, "item_worktrees"):
         return _failure(
             code,
-            f"Item {item_id} has no universal worktree registry.",
+            f"{render_item_ref(conn, item_id)} has no universal worktree registry.",
             "Prepare the direct-workflow worktree before activation.",
         )
     lanes = list_item_worktrees(conn, int(item_id), active_only=True)
     if not lanes:
         return _failure(
             code,
-            f"Item {item_id} has no active registered worktree lane.",
+            f"{render_item_ref(conn, item_id)} has no active registered worktree lane.",
             "Prepare the direct-workflow worktree before activation.",
         )
     try:
@@ -106,7 +107,7 @@ def _activation_prerequisites(
     if any(not str(lane.get("path") or "").strip() for lane in lanes):
         return _failure(
             code,
-            f"Item {item_id} has a registered lane without a worktree path.",
+            f"{render_item_ref(conn, item_id)} has a registered lane without a worktree path.",
             "Create or reuse every registered lane before activation.",
         )
     return None

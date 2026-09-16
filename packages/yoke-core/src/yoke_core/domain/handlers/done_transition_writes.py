@@ -45,6 +45,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class FinalizeLocalSideEffectsRequest(BaseModel):
@@ -191,7 +192,7 @@ def handle_populate_merged_at(request: FunctionCallRequest) -> HandlerOutcome:
     except Exception as exc:  # noqa: BLE001 - surfaced so the caller aborts
         return _err("populate_merged_at_failed", str(exc))
     if row is None:
-        return _err("target_not_found", f"item {item_id} not found")
+        return _err("target_not_found", ITEM_NOT_FOUND)
 
     return HandlerOutcome(
         result_payload={"item_id": item_id, "merged_at": str(row[0] or "")},

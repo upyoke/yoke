@@ -22,6 +22,7 @@ from yoke_core.engines.done_transition_branch_lookup import (
 )
 from yoke_core.engines.done_transition_runtime import _reseat_runtime_paths
 from yoke_core.engines.done_transition_satisfiers import check_done_satisfiers
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 def _parent():
@@ -88,7 +89,7 @@ def run(
     print(f"YOKE_REPO_ROOT={repo_root}")
     context = load_done_item_context_over_transport(item_id)
     if context is None:
-        print(f"Error: Item {item_id} not found.", file=sys.stderr)
+        print(f"Error: {ITEM_NOT_FOUND}.", file=sys.stderr)
         return result.fail(result_file, 2, "2")
 
     public_ref = context.public_ref
@@ -307,7 +308,8 @@ def run(
             file=sys.stderr,
         )
         print(
-            f"Re-run `python3 -m yoke_core.engines.done_transition {item_id}` "
+            "Re-run `python3 -m yoke_core.engines.done_transition "
+            f"{public_ref}` "
             "to resume from step 6.",
             file=sys.stderr,
         )

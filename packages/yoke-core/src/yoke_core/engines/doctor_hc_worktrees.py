@@ -41,6 +41,8 @@ from yoke_core.engines.doctor_hc_worktrees_branches import (  # noqa: F401
     hc_branch_divergence,
     hc_stale_remote_branches,
 )
+from yoke_contracts.public_ref import parse_public_item_ref
+from yoke_core.domain.worktree_naming import legacy_worktree_name
 
 
 # Slugs for delegated sync HCs (dispatched to resync engine)
@@ -162,8 +164,21 @@ def hc_cross_project_commits(conn, args: DoctorArgs, rec: RecordCollector) -> No
         item_id = row["id"]
         public_ref = render_item_ref(conn, int(item_id))
         project = row["project"]
+        # Search keys, not display. The rendered ref is the phrase when no
+        # identity resolves, and grepping that would match any commit
+        # quoting it while finding nothing the rest of the time — so the
+        # item's own legacy identity rides along, the way the merge
+        # recovery guard and the deploy evidence gate both do.
+        prefix, sequence = parse_public_item_ref(public_ref)
+        keys = {legacy_worktree_name(int(item_id))}
+        if prefix is not None and sequence is not None:
+            keys.add(public_ref)
+        search_keys = sorted(keys)
         # Find commits on base branch referencing this item
-        log_cmd = ["git", "log", "main", "--oneline", f"--grep={public_ref}", "--format=%H"]
+        log_cmd = [
+            "git", "log", "main", "--oneline", "-E",
+            f"--grep={'|'.join(search_keys)}", "--format=%H",
+        ]
         if min_commit_date:
             log_cmd.append(f"--since={min_commit_date}")
         cr = _base._run(log_cmd)

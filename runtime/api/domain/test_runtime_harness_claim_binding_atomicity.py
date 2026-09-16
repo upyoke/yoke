@@ -28,6 +28,7 @@ from yoke_core.domain.workflow_item_binding_lock import (
 from yoke_core.domain.workflow_item_versioning import migrate_item_workflow_pin
 from yoke_core.domain.workflow_registry import publish_workflow_version
 from yoke_core.domain.work_claim_targets import decode_scope, make_item_target
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 def _join(worker: threading.Thread) -> None:
@@ -314,7 +315,7 @@ def test_runtime_claim_rejects_terminal_item_after_parent_lock(test_db) -> None:
 def test_runtime_claim_rejects_nonexistent_item(test_db) -> None:
     _register(test_db, session_id="runtime-missing-item-session")
 
-    with pytest.raises(PermissionError, match="does not exist"):
+    with pytest.raises(PermissionError, match=ITEM_NOT_FOUND):
         runtime_claims.cmd_claim(
             test_db,
             "runtime-missing-item-session",

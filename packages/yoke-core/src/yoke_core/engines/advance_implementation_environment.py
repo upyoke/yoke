@@ -65,10 +65,14 @@ def _item_label(conn, item: Dict[str, Any]) -> str:
     item_id = item.get("id")
     if not item_id:
         return ""
-    from yoke_core.domain.project_identity import render_item_ref
+    from yoke_core.domain.item_ref_render import render_item_refs
 
     try:
-        return render_item_ref(conn, int(item_id))
+        # A stored label the environment binding matches on later, not
+        # message text: an id no identity row backs keeps the bare id that
+        # binding already looks up, never the display phrase.
+        resolved = render_item_refs(conn, [int(item_id)]).get(int(item_id))
+        return resolved or str(item_id)
     except Exception:
         return str(item_id)
 

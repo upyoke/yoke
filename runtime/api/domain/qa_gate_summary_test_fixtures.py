@@ -69,7 +69,36 @@ CREATE TABLE qa_plan_review_verdicts (
     review_run_id INTEGER NOT NULL,
     verdict TEXT NOT NULL
 );
+
+-- The summary names its target by reference, so the fixture carries the
+-- identity the renderer reads. The sequence differs from the internal id
+-- on purpose: a summary that printed items.id would name another item.
+CREATE TABLE projects (
+    id INTEGER PRIMARY KEY,
+    slug TEXT,
+    public_item_prefix TEXT
+);
+CREATE TABLE items (
+    id INTEGER PRIMARY KEY,
+    project_id INTEGER,
+    project_sequence INTEGER
+);
 """
+
+SUMMARY_ITEM_ID = 42
+SUMMARY_ITEM_SEQUENCE = 742
+SUMMARY_ITEM_REF = "YOK-742"
+SUMMARY_EPIC_ID = 833
+SUMMARY_EPIC_SEQUENCE = 931
+SUMMARY_EPIC_REF = "YOK-931"
+
+_SUMMARY_IDENTITY_ROWS = (
+    "INSERT INTO projects (id, slug, public_item_prefix) "
+    "VALUES (1, 'yoke', 'YOK');\n"
+    "INSERT INTO items (id, project_id, project_sequence) "
+    f"VALUES ({SUMMARY_ITEM_ID}, 1, {SUMMARY_ITEM_SEQUENCE}),"
+    f" ({SUMMARY_EPIC_ID}, 1, {SUMMARY_EPIC_SEQUENCE});"
+)
 
 # A pre-migration DB shape: a table exists, but none of the qa_* tables do.
 _PLACEHOLDER_SCHEMA = "CREATE TABLE _placeholder (id INTEGER);"
@@ -83,6 +112,7 @@ def _apply_summary_schema() -> None:
     conn = db_backend.connect()
     try:
         execute_schema_script(conn, _SUMMARY_SCHEMA)
+        execute_schema_script(conn, _SUMMARY_IDENTITY_ROWS)
         conn.commit()
     finally:
         conn.close()

@@ -16,7 +16,7 @@ import re
 import sys
 
 from yoke_core.domain.db_helpers import connect, query_one
-from yoke_core.domain.project_identity import format_item_ref, render_item_ref
+from yoke_core.domain.project_identity import render_item_ref, unresolved_item_ref
 from yoke_core.domain.qa_gate_definitions import GateResult
 from yoke_core.domain.sql_json import json_get
 
@@ -56,7 +56,7 @@ def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
         try:
             epic_ref = render_item_ref(conn, epic_id)
         except Exception:
-            epic_ref = format_item_ref(None, None, None, item_id=epic_id)
+            epic_ref = unresolved_item_ref()
         # Simulation data lives in qa_runs joined to qa_requirements
         # (qa_kind='simulation', phase in success_policy JSON).
         # Result is derived: verdict 'pass' -> CLEAN, 'fail' -> GAPS FOUND.

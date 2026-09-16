@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.steering_scope_membership import LINK_TABLE as LINK_TABLE_NAME
 from yoke_core.domain.strategy_execution_state import (
     BLITZ_WORKFLOW_ID,
@@ -172,7 +173,7 @@ def live_execution_refusal(
     )
     if execution is None:
         return None
-    reference = execution["public_ref"] or f"item {execution['item_id']}"
+    reference = execution["public_ref"] or render_item_ref(conn, execution['item_id'])
     held = (
         "holds the document claim"
         if execution["holds_document_claim"]

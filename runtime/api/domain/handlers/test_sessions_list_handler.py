@@ -135,6 +135,11 @@ class TestClaimsAndAttribution:
         assert claims[0]["reason"] == "implementation"
 
     def test_process_and_epic_task_targets_render(self, test_db):
+        from runtime.api.fixtures.backlog import insert_item
+
+        # An epic is an item, so its hold names it by reference too; the
+        # divergent sequence proves the number is not the internal id.
+        insert_item(test_db, id=9, project_sequence=910, title="epic")
         _insert_session(test_db, "s-typed", last_heartbeat=_iso())
         process_target = make_process_target(PROCESS_FEED, "yoke")
         test_db.execute(
@@ -161,7 +166,7 @@ class TestClaimsAndAttribution:
         # Every hold names itself in its target, because the card that
         # reads this adds no kind label of its own.
         assert targets["process"] == f"process {PROCESS_FEED}"
-        assert targets["epic_task"] == "epic 9 task 3"
+        assert targets["epic_task"] == "YOK-910 task 3"
 
     def test_system_actor_attribution_is_honest(self, test_db):
         row = test_db.execute(
@@ -193,10 +198,13 @@ class TestClaimsAndAttribution:
         assert rows["s-resolverless"]["actor_label"] is None
 
     def test_current_item_renders_display_form(self, test_db):
+        from runtime.api.fixtures.backlog import insert_item
+
+        insert_item(test_db, id=17, project_sequence=170, title="on item")
         _insert_session(
             test_db, "s-on-item", last_heartbeat=_iso(), current_item_id="17"
         )
-        assert list_sessions()[0]["current_item"] == "YOK-17"
+        assert list_sessions()[0]["current_item"] == "YOK-170"
 
     def test_roster_renders_public_ref_not_internal_id(self, test_db):
         from runtime.api.fixtures.backlog import insert_item

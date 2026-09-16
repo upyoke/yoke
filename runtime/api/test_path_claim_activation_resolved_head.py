@@ -18,21 +18,18 @@ import pytest
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_contracts.api.function_call import (
-    ActorContext,
-    FunctionCallRequest,
-    TargetRef,
+    ActorContext, FunctionCallRequest, TargetRef,
 )
 from yoke_core.domain import advance_path_claim_activation as _activation
 from yoke_core.domain.actors import seed_human_actor
 from yoke_core.domain.advance_path_claim_activation import (
-    resolve_item_actor,
-    run_activation_phase,
+    resolve_item_actor, run_activation_phase,
 )
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.handlers.claims_path_activation import (
-    handle_activation_run,
-    handle_survey_ensure,
+    handle_activation_run, handle_survey_ensure,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 @pytest.fixture
@@ -159,7 +156,10 @@ class TestResolveItemActor:
         try:
             resolved, error = resolve_item_actor(conn, 424242)
             assert resolved is None
-            assert "not found" in error
+            # No row backs that id, and the id is not a reference: the
+            # error states the fact and shows no number.
+            assert ITEM_NOT_FOUND in error
+            assert "424242" not in error
         finally:
             conn.close()
 
@@ -291,7 +291,8 @@ class TestSurveyEnsureHandler:
         )
         assert outcome.primary_success is False
         assert outcome.error.code == "survey_ensure_failed"
-        assert "yoke claims path register --item 7130" in outcome.error.message
+        recipe = "yoke claims path register --item YOK-7130"
+        assert recipe in outcome.error.message
         conn = connect_test_db(db)
         try:
             assert conn.execute(

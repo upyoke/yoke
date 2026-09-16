@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 MERGED_AT_CORRECTION_EVENT = "OperatorMergedAtCorrection"
 
@@ -87,7 +88,7 @@ def _item_state(conn: Any, item_id: int) -> tuple[str, str]:
         (int(item_id),),
     ).fetchone()
     if row is None:
-        raise MergedAtCorrectionError(f"item {item_id} does not exist")
+        raise MergedAtCorrectionError(ITEM_NOT_FOUND)
     return (
         str(_row_value(row, "status", 0) or ""),
         str(_row_value(row, "merged_at", 1) or ""),

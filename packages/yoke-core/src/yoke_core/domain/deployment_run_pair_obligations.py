@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
-from yoke_core.domain.item_ref_columns import render_column_item_ref
+from yoke_core.domain.project_identity import render_item_ref
 
 
 PAIR_GATE_POINT = "integration"
@@ -91,7 +91,7 @@ def split_pending_pair_merges(
                 PairObligation(
                     dependent_item_id=int(dependent),
                     blocking_item_id=int(blocker),
-                    blocking_ref=render_column_item_ref(conn, blocker),
+                    blocking_ref=render_item_ref(conn, int(blocker)),
                     reason=str(verdict.reason),
                 )
             )

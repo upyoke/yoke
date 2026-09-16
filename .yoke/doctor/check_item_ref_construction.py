@@ -13,6 +13,10 @@ Occurrences already present are grandfathered in
 ``item_ref_construction_baseline.BASELINE``. A listed source file's maintainer
 must reduce its allowance whenever that file changes; any NEW or over-baseline
 occurrence FAILs so the anti-pattern cannot re-enter the tree.
+
+``lint_item_ref_message_text`` covers the case with no literal in it at all —
+an ``items.id`` interpolated into message text, which a reader takes for a
+reference. That scan carries no baseline: the tree is clean and stays clean.
 """
 
 from __future__ import annotations
@@ -23,6 +27,10 @@ from yoke_contracts.public_ref import DEFAULT_PUBLIC_ITEM_PREFIX
 from yoke_core.domain.item_ref_construction_baseline import baseline_counts
 from yoke_core.domain.lint_item_ref_bare_cli_token import (
     scan_bare_internal_cli_token,
+)
+from yoke_core.domain.lint_item_ref_message_text import (
+    scan_display_ref_search_keys,
+    scan_message_text_item_ids,
 )
 from yoke_core.domain.lint_item_ref_construction import (
     counts_by_relpath,
@@ -57,6 +65,8 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
     policy_hits = scan_parser_policy(repo_root)
     stale_policy = stale_parser_policy_allowances(repo_root)
     cli_hits = scan_bare_internal_cli_token(repo_root)
+    message_hits = scan_message_text_item_ids(repo_root)
+    search_key_hits = scan_display_ref_search_keys(repo_root)
 
     offenders: list[str] = []
     allowed_counts = baseline_counts()
@@ -75,6 +85,8 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
         and not policy_hits
         and not stale_policy
         and not cli_hits
+        and not message_hits
+        and not search_key_hits
     ):
         rec.record(_SLUG, _TITLE, "PASS", "")
         return
@@ -106,6 +118,17 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
         offender_lines.append(
             f"- {rel}:{hit.line}: bare-id CLI token: {hit.snippet}"
         )
+    for hit in message_hits:
+        rel = hit.path.relative_to(repo_root.resolve()).as_posix()
+        offender_lines.append(
+            f"- {rel}:{hit.line}: items.id in message text: {hit.snippet}"
+        )
+    for hit in search_key_hits:
+        rel = hit.path.relative_to(repo_root.resolve()).as_posix()
+        offender_lines.append(
+            f"- {rel}:{hit.line}: display renderer used as a git search "
+            f"key: {hit.snippet}"
+        )
 
     rec.record(
         _SLUG,
@@ -113,8 +136,10 @@ def hc_item_ref_construction(conn, args: DoctorArgs, rec: RecordCollector) -> No
         "FAIL",
         "Item-ref parser policy drift. Use render_item_ref / "
         "format_item_ref for display and resolve_item_id for lookups; never "
-        "build or parse a ref inline, and never pass str(item_id) to an "
-        "items CLI / sync_done_item boundary:\n" + "\n".join(offender_lines),
+        "build or parse a ref inline, never pass str(item_id) to an "
+        "items CLI / sync_done_item boundary, and never interpolate an "
+        "never interpolate an items.id into message text a person reads, and never build a git search key from a display renderer:\n"
+        + "\n".join(offender_lines),
     )
 
 # Slug and display name are the ones this check has always reported under.

@@ -13,6 +13,7 @@ from yoke_core.domain.workflow_registry import (
     resolve_current_workflow_pin,
 )
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 def _create(test_db, workflow_id: str = "issue") -> int:
@@ -118,7 +119,7 @@ def test_runtime_exposes_definition_owned_gate_placement(test_db):
 def test_runtime_refuses_unknown_item(test_db):
     with pytest.raises(
         WorkflowRegistryError,
-        match="does not exist",
+        match=ITEM_NOT_FOUND,
     ):
         load_item_workflow_runtime(test_db, 992)
 

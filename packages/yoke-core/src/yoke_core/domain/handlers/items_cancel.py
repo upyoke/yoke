@@ -31,6 +31,7 @@ from yoke_core.domain.handlers.items_flags_claim import (
     _acquire_for_caller,
     _release_acquired,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class CancelRequest(BaseModel):
@@ -124,7 +125,7 @@ def handle_cancel(request: FunctionCallRequest) -> HandlerOutcome:
     item_id = int(target.item_id)
     state = _load_state(item_id)
     if state is None:
-        return _error("not_found", f"item {item_id} not found")
+        return _error("not_found", ITEM_NOT_FOUND)
     public_ref = str(state["public_ref"])
     from yoke_core.domain.backlog_cancellation import normalize_cancellation_reason
 

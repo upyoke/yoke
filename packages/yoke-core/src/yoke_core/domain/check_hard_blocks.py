@@ -195,6 +195,10 @@ def _blocker_lines(
     if not blockers:
         return output
 
+    from yoke_core.domain.project_identity import (
+        render_item_ref,
+        unresolved_item_ref,
+    )
     from yoke_core.domain.yok_n_parser import parse_item_id_or_none
 
     for blocking_item, gate_point, satisfaction in blockers:
@@ -204,9 +208,15 @@ def _blocker_lines(
         # unblocking the dependent.
         dep_item = None if dep_num is None else _query_item(conn, dep_num)
         if dep_item is None:
+            # The stored token is an internal id, which names nothing to a
+            # reader; a blocker that resolves to no item says so instead.
             output.append(
                 "BLOCKED|%s|missing|<unknown>|%s|%s"
-                % (blocking_item, gate_point, satisfaction)
+                % (
+                    unresolved_item_ref(),
+                    gate_point,
+                    satisfaction,
+                )
             )
             continue
         verdict = _evaluate_item_satisfaction(satisfaction, dep_item, conn)
@@ -215,7 +225,7 @@ def _blocker_lines(
         output.append(
             "BLOCKED|%s|%s|%s|%s|%s|%s"
             % (
-                blocking_item,
+                render_item_ref(conn, dep_num),
                 dep_item.get("status") or "",
                 dep_item.get("title") or "",
                 gate_point,

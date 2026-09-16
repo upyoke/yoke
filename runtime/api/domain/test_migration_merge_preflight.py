@@ -109,7 +109,7 @@ def test_gate_names_non_terminal_item_holding_same_ordinal(
     decision = _evaluate(repo, rows)
 
     assert not decision.passed
-    assert "item 2 is non-terminal" in decision.errors[0]
+    assert f"{rows[1]['id']} is non-terminal" in decision.errors[0]
     assert "ordinal 14" in decision.errors[0]
     assert "0014_other_lane" in decision.errors[0]
 

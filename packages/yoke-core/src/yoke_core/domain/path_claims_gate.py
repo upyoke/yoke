@@ -22,6 +22,7 @@ branch is for tooling robustness rather than a production guarantee.
 """
 
 from __future__ import annotations
+from yoke_core.domain.project_identity import render_item_ref
 
 from typing import Any, List, Optional
 
@@ -99,7 +100,7 @@ def check_worktree_create_gate(
         return
     summary = ", ".join(f"id={cid} state={state}" for cid, state in pending)
     raise PathClaimGateBlocked(
-        f"item {item_id} has unreleased path claim(s) that have not "
+        f"{render_item_ref(conn, item_id)} has unreleased path claim(s) that have not "
         f"acquired the door lock: {summary}. Activate or cancel before "
         "opening a worktree."
     )

@@ -60,8 +60,9 @@ class TestOrphanedActiveItems:
         conn = _make_conn()
         conn.execute(
             "INSERT INTO items "
-            "(id, title, workflow_id, workflow_version_id, status, merged_at) "
-            "VALUES (30, 'Merged at set', 'issue', "
+            "(id, project_id, project_sequence, title, workflow_id, "
+            "workflow_version_id, status, merged_at) "
+            "VALUES (30, 1, 30, 'Merged at set', 'issue', "
             "(SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', "
             "'2026-03-01T10:00:00Z')"
         )
@@ -76,12 +77,12 @@ class TestOrphanedActiveItems:
         """T7: Items in done/cancelled status are not flagged."""
         conn = _make_conn()
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, merged_at) "
-            "VALUES (70, 'Done item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', '2026-03-01T10:00:00Z')"
+            "INSERT INTO items (id, project_id, project_sequence, title, workflow_id, workflow_version_id, status, merged_at)"
+            "VALUES (70, 1, 70, 'Done item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'done', '2026-03-01T10:00:00Z')"
         )
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
-            "VALUES (71, 'Cancelled item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'cancelled')"
+            "INSERT INTO items (id, project_id, project_sequence, title, workflow_id, workflow_version_id, status)"
+            "VALUES (71, 1, 71, 'Cancelled item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'cancelled')"
         )
         rec = _run_hc(hc_orphaned_active_items, conn)
         assert _result(rec).result == "PASS"
@@ -91,12 +92,12 @@ class TestOrphanedActiveItems:
         conn = _make_conn()
         # Two items with merged_at set
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, merged_at) "
-            "VALUES (80, 'Orphan 1', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '2026-03-01T10:00:00Z')"
+            "INSERT INTO items (id, project_id, project_sequence, title, workflow_id, workflow_version_id, status, merged_at)"
+            "VALUES (80, 1, 80, 'Orphan 1', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '2026-03-01T10:00:00Z')"
         )
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, merged_at) "
-            "VALUES (81, 'Orphan 2', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '2026-03-01T10:00:00Z')"
+            "INSERT INTO items (id, project_id, project_sequence, title, workflow_id, workflow_version_id, status, merged_at)"
+            "VALUES (81, 1, 81, 'Orphan 2', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', '2026-03-01T10:00:00Z')"
         )
         rec = _run_hc(hc_orphaned_active_items, conn)
         assert _result(rec).result == "WARN"
@@ -109,8 +110,8 @@ class TestOrphanedActiveItems:
         # Items in pre-work states with merged_at would be unusual,
         # but the HC only looks at items past the "implementing" stage
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status) "
-            "VALUES (110, 'Idea item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea')"
+            "INSERT INTO items (id, project_id, project_sequence, title, workflow_id, workflow_version_id, status)"
+            "VALUES (110, 1, 110, 'Idea item', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'idea')"
         )
         rec = _run_hc(hc_orphaned_active_items, conn)
         assert _result(rec).result == "PASS"
@@ -145,8 +146,9 @@ class TestOrphanedActiveItems:
         conn = _make_conn()
         conn.execute(
             "INSERT INTO items "
-            "(id, title, workflow_id, workflow_version_id, status, merged_at) "
-            "VALUES (40, 'Both signals', 'issue', "
+            "(id, project_id, project_sequence, title, workflow_id, "
+            "workflow_version_id, status, merged_at) "
+            "VALUES (40, 1, 40, 'Both signals', 'issue', "
             "(SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', "
             "'2026-03-01T10:00:00Z')"
         )

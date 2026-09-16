@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional, Tuple
 
 from yoke_contracts.api.function_call import TargetRef
-from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.public_ref import unresolved_item_ref
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 
@@ -109,7 +109,7 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     # public_ref the relay already returned; otherwise format from the id.
     public_ref = (
         ac.get("public_ref")
-        or format_item_ref(None, None, None, item_id=int(item_id))
+        or unresolved_item_ref()
     )
     if title is None:
         return False, f"{public_ref} not found in DB."

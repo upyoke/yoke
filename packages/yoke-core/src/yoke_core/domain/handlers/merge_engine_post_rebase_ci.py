@@ -29,6 +29,7 @@ from yoke_core.domain.qa_command_plans import (
     list_registered_commands_for_project_id,
 )
 from yoke_core.domain.qa_method_config_validation import validate_method_config
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class RecordPostRebaseCiRunRequest(BaseModel):
@@ -90,7 +91,7 @@ def _ensure_merge_gate_ci_requirement(
         (int(item_id),),
     )
     if item is None:
-        raise LookupError(f"item {item_id} not found")
+        raise LookupError(ITEM_NOT_FOUND)
     project_id = int(item["project_id"])
     config = validate_method_config("command-ci", {
         "command": command or list_registered_commands_for_project_id(

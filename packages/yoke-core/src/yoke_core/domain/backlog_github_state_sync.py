@@ -76,7 +76,7 @@ def close_issue(
         try:
             item_pk = _resolve_item_id(item_id, conn=conn)
         except ValueError:
-            print(f"Error: Item {item_id} not found", file=stderr)
+            print(f"Error: no item for {item_id!r}", file=stderr)
             return 1
         public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():
@@ -177,7 +177,7 @@ def reopen_issue(
         try:
             item_pk = _resolve_item_id(item_id, conn=conn)
         except ValueError:
-            print(f"Error: Item {item_id} not found", file=stderr)
+            print(f"Error: no item for {item_id!r}", file=stderr)
             return 1
         public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():

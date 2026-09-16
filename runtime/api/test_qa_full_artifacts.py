@@ -121,6 +121,32 @@ class TestArtifactList:
         lines = qa.cmd_artifact_list(db_path=db_path)
         assert len(lines) == 2
 
+    def test_empty_item_listing_names_the_item_after_the_conn_closes(
+        self, db_path, capsys,
+    ):
+        """Regression: the empty-list message ran against a closed handle.
+
+        cmd_artifact_list closes its connection in a finally, and the
+        message naming the item printed after that — so an item-scoped
+        listing with no artifacts queried a connection that was gone. No
+        mock here: this exercises the real close.
+        """
+        req_id = add_bound_requirement(
+            db_path=db_path,
+            item_id=100,
+            qa_kind="smoke",
+            qa_phase="verification",
+        )
+        assert req_id
+        capsys.readouterr()
+
+        lines = qa.cmd_artifact_list(db_path=db_path, item_id=100)
+
+        assert lines == []
+        out = capsys.readouterr().out
+        # The label resolved, which only a live connection could do.
+        assert "No artifacts found for YOK-100" in out
+
     def test_list_by_run(self, db_path, capsys):
         req_id = add_bound_requirement(
             db_path=db_path,

@@ -13,7 +13,6 @@ from typing import List
 
 from yoke_core.domain import db_backend, machine_config
 from yoke_core.domain.db_helpers import query_rows, query_scalar
-from yoke_core.domain.item_ref_columns import render_column_item_ref
 
 import yoke_core.engines.doctor_report as _base
 
@@ -21,6 +20,7 @@ from yoke_core.engines.doctor_report import (
     DoctorArgs,
     RecordCollector,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def _p(conn) -> str:
@@ -29,8 +29,7 @@ def _p(conn) -> str:
 
 def hc_null_project_items(conn, args: DoctorArgs, rec: RecordCollector) -> None:
     """HC-null-project-items: NULL project items."""
-    from yoke_core.domain.project_identity import render_item_ref
-
+    
     rows = query_rows(
         conn,
         "SELECT id, title FROM items "
@@ -143,8 +142,8 @@ def hc_cancelled_blocker_dependencies(
 
     issues: List[str] = []
     for row in rows:
-        dependent = render_column_item_ref(conn, row[0])
-        blocking = render_column_item_ref(conn, row[1])
+        dependent = render_item_ref(conn, int(row[0]))
+        blocking = render_item_ref(conn, int(row[1]))
         gate_point = row[2]
         satisfaction = row[3]
         resolution = row[4]

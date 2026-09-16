@@ -22,7 +22,7 @@ from yoke_core.domain.dependency_types import is_coordination_only
 from yoke_core.domain.dependency_workflow_context import (
     workflow_from_joined_values,
 )
-from yoke_core.domain.item_ref_columns import render_column_item_ref
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
@@ -135,9 +135,12 @@ def _gating_blockers(
         )
         if verdict.satisfied:
             continue
+        # Both are internal ids and both are read, so they render through
+        # the display renderer rather than the column canonicalizer, whose
+        # job is to return something that parses back.
         blockers[dependent] = {
-            "item": render_column_item_ref(conn, dependent),
-            "blocking_item": render_column_item_ref(conn, row["blocking_item_id"]),
+            "item": render_item_ref(conn, dependent),
+            "blocking_item": render_item_ref(conn, int(row["blocking_item_id"])),
             "gate_point": str(row["gate_point"]),
             "blocking_status": str(row["blocking_status"] or ""),
         }

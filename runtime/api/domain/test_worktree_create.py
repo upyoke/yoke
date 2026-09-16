@@ -32,6 +32,7 @@ from runtime.api.domain.worktree_test_helpers import (
 from yoke_contracts.project_contract.file_line_policy import item_base_config_key
 from runtime.api.fixtures.file_test_db import connect_test_db
 from runtime.api.fixtures.machine_config_test import register_machine_checkout
+from runtime.api.domain.worktree_test_helpers import seed_lane_item
 
 
 def _placeholder(conn) -> str:
@@ -132,6 +133,7 @@ class TestCreateWorktree:
         # Worktree creation no longer binds a session-scope envelope.
         # The session's authority over the new worktree comes from its
         # active work_claims, validated per call by lint_session_cwd.
+        seed_lane_item(yoke_db, 50)
         result = create_worktree(
             50,
             project="yoke",
@@ -146,6 +148,7 @@ class TestCreateWorktree:
         assert not hasattr(result, "scope_message")
 
     def test_idempotency(self, git_repo, yoke_db):
+        seed_lane_item(yoke_db, 42)
         result1 = create_worktree(42, project="yoke", repo_root=str(git_repo),
                                    config_path=str(git_repo / "runtime" / "config"))
         result2 = create_worktree(42, project="yoke", repo_root=str(git_repo),
@@ -165,6 +168,7 @@ class TestCreateWorktree:
         subprocess.run(["git", "checkout", "main"], cwd=str(git_repo),
                         check=True, capture_output=True)
 
+        seed_lane_item(yoke_db, 99)
         result = create_worktree(
             99, base_branch="feature", project="yoke", repo_root=str(git_repo),
             config_path=str(git_repo / "runtime" / "config"),
@@ -180,6 +184,8 @@ class TestCreateWorktree:
         cfg.write_text("worktrees_dir=.worktrees\nmax_active_worktrees=2\n")
         config_path = str(cfg)
 
+        for lane_item in (1, 2, 3):
+            seed_lane_item(yoke_db, lane_item)
         create_worktree(1, project="yoke", repo_root=str(git_repo), config_path=config_path)
         create_worktree(2, project="yoke", repo_root=str(git_repo), config_path=config_path)
         result = create_worktree(

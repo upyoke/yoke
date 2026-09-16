@@ -29,7 +29,7 @@ def _claim_dict(
     covered_paths=("runtime/api/domain",),
     worktree_path="/tmp/yoke-worktrees/YOK-1577",
     project_repo_path="",
-    public_ref=None,
+    public_ref="YOK-1577",
 ) -> Dict:
     claim = {
         "id": claim_id,
@@ -282,8 +282,10 @@ class TestTypedEvaluateEntrypoint:
         worktree.mkdir()
         monkeypatch.setattr(
             "yoke_core.domain.path_claim_pre_edit_guard.resolve_active_claim_for_session",
+            # A non-default prefix proves the recipe carries the ref the
+            # lookup rendered rather than one assembled from the internal id.
             lambda session_id, conn=None, **_kwargs: _claim_dict(
-                worktree_path=str(worktree)
+                worktree_path=str(worktree), public_ref="BUZ-4"
             ),
         )
         monkeypatch.setattr(
@@ -314,7 +316,7 @@ class TestTypedEvaluateEntrypoint:
         assert (
             "yoke claims path widen --claim-id 99 "
             '--add-paths docs/oof.md --reason "cover target path" '
-            "--item YOK-1577"
+            "--item BUZ-4"
         ) in hook["permissionDecisionReason"]
 
     def test_evaluate_returns_noop_when_no_record(self):

@@ -63,9 +63,7 @@ def cmd_backlog_list_cli(args: list[str]) -> int:
             display_id = format_item_ref(
                 row["project_slug"],
                 row["public_item_prefix"],
-                row["project_sequence"],
-                item_id=row["id"],
-            )
+                row["project_sequence"])
             display_title = (row["title"] or "")[:50]
             print(
                 f"{display_id:<8} {display_title:<50} "

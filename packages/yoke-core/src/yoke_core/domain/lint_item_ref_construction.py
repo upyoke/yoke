@@ -22,6 +22,9 @@ project-blind prefix regex, or a numeric-tail coercion, each of which reads an
 operator's token as an internal id. Both carry exact-path allowances, and
 :func:`stale_parser_policy_allowances` reports the ones whose legacy read is
 gone so the allowances shrink with the code.
+
+The third direction, where no ref literal appears at all, belongs to
+:mod:`yoke_core.domain.lint_item_ref_message_text`.
 """
 
 from __future__ import annotations
@@ -33,7 +36,7 @@ from typing import Any, Iterable, List, Optional, Sequence, Tuple
 
 # Roots that hold shippable Python source. Prose (``*.md``) is the domain of
 # ``HC-historical-yok-n-cruft``; this scanner is code-only.
-_SCAN_ROOTS: Tuple[str, ...] = ("packages", "runtime")
+SCAN_ROOTS: Tuple[str, ...] = ("packages", "runtime")
 
 # Path substrings that mark a file as out of scope. Tests and fixtures author
 # synthetic refs on purpose; build trees are generated copies.
@@ -106,7 +109,7 @@ def _is_test_file(rel_posix: str) -> bool:
     )
 
 
-def _is_exempt(rel_posix: str) -> bool:
+def is_exempt_relpath(rel_posix: str) -> bool:
     if rel_posix in _EXEMPT_RELPATHS:
         return True
     if _is_test_file(rel_posix):
@@ -151,7 +154,7 @@ def scan(
         return []
     root = repo_root.resolve()
     hits: List[RefLiteralHit] = []
-    for scan_root in _SCAN_ROOTS:
+    for scan_root in SCAN_ROOTS:
         base = root / scan_root
         if not base.is_dir():
             continue
@@ -160,7 +163,7 @@ def scan(
                 rel = path.resolve().relative_to(root).as_posix()
             except ValueError:
                 continue
-            if _is_exempt(rel):
+            if is_exempt_relpath(rel):
                 continue
             try:
                 text = path.read_text(encoding="utf-8")
@@ -184,7 +187,7 @@ def scan_parser_policy(repo_root: Path) -> List[RefLiteralHit]:
     """Return implicit-internal opt-outs and project-blind regex parsers."""
     root = repo_root.resolve()
     hits: List[RefLiteralHit] = []
-    for scan_root in _SCAN_ROOTS:
+    for scan_root in SCAN_ROOTS:
         base = root / scan_root
         if not base.is_dir():
             continue
@@ -193,7 +196,7 @@ def scan_parser_policy(repo_root: Path) -> List[RefLiteralHit]:
                 rel = path.resolve().relative_to(root).as_posix()
             except ValueError:
                 continue
-            if _is_exempt(rel):
+            if is_exempt_relpath(rel):
                 continue
             try:
                 lines = path.read_text(encoding="utf-8").splitlines()

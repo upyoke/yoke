@@ -7,6 +7,9 @@ from typing import Any, Optional
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 #: The one workflow whose items execute a strategy document.
@@ -57,7 +60,7 @@ def _item_row(conn: Any, item_id: int) -> dict[str, Any]:
         )
     )
     if row is None:
-        raise StrategyExecutionLinkError(f"item {item_id} does not exist")
+        raise StrategyExecutionLinkError(ITEM_NOT_FOUND)
     return row
 
 
@@ -65,7 +68,7 @@ def _require_blitz_item(conn: Any, item_id: int) -> dict[str, Any]:
     item = _item_row(conn, item_id)
     if str(item["workflow_id"]) != BLITZ_WORKFLOW_ID:
         raise StrategyExecutionLinkError(
-            f"item {item_id} uses workflow {item['workflow_id']!r}; "
+            f"{render_item_ref(conn, item_id)} uses workflow {item['workflow_id']!r}; "
             "only Blitz items link execution strategy documents"
         )
     return item
@@ -114,7 +117,9 @@ def claim_holder_label(claim: dict[str, Any]) -> str:
     """Name the holder the way a refusal message should say it."""
     if str(claim.get("owner_kind")) == "session":
         return f"session {claim.get('owner_session_id')!r}"
-    reference = claim.get("public_ref") or f"item {claim.get('owner_item_id')}"
+    reference = claim.get("public_ref") or item_ref_for_id(
+        claim["owner_item_id"]
+    )
     title = claim.get("item_title")
     return f"{reference} ({title})" if title else str(reference)
 

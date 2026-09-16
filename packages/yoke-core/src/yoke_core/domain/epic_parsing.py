@@ -12,6 +12,7 @@ from typing import Any, List
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_scalar
+from yoke_core.domain.project_identity import render_item_ref
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +95,7 @@ def _validate_epic_exists(conn, epic_id: int) -> None:
         (epic_id,),
     )
     if count == 0:
-        raise LookupError(f"epic item {epic_id} not found in epic_tasks table")
+        raise LookupError(f"epic {render_item_ref(conn, epic_id)} not found in epic_tasks table")
 
 
 def _require_task_exists(conn, epic_id: str, task_num: int) -> None:

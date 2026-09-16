@@ -33,6 +33,7 @@ from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
 )
+from yoke_core.domain import backlog_github_compact_pending_flag as _compact_flag
 
 
 def sync_body(
@@ -65,7 +66,7 @@ def sync_body(
         try:
             item_pk = _resolve_item_id(item_id, conn=conn)
         except ValueError:
-            print(f"Error: Item {item_id} not found", file=stderr)
+            print(f"Error: no item for {item_id!r}", file=stderr)
             return 1
         public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():
@@ -146,8 +147,8 @@ def sync_body(
 
         # Item-side sync state: stamp the compact-pending flag when the
         # mirror went compact; clear it when a full body landed.
-        _budget.record_sync_mode(conn, int(item_pk), mode)
-        _budget.emit_compact_notice(mode, int(item_pk), stderr)
+        _compact_flag.record_sync_mode(conn, int(item_pk), mode)
+        _budget.emit_compact_notice(mode, public_ref, stderr)
         print(f"Synced body: {public_ref} → {github_issue}", file=stdout)
         return 0
     finally:
@@ -175,7 +176,7 @@ def sync_title(
         try:
             item_pk = _resolve_item_id(item_id, conn=conn)
         except ValueError:
-            print(f"Error: Item {item_id} not found", file=stderr)
+            print(f"Error: no item for {item_id!r}", file=stderr)
             return 1
         public_ref = _item_ref(item_pk, conn=conn)
         if _bgs()._dry_run():

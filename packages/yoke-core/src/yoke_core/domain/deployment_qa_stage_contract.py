@@ -16,6 +16,7 @@ from yoke_core.domain.deployment_qa_stage_prerequisites import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
     require_prior_stage_acceptance,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def _p(conn: Any) -> str:
@@ -157,7 +158,7 @@ def deployment_qa_stage_subject(
         member = _row(cursor, cursor.fetchone())
         if member is None:
             raise ValueError(
-                f"item {member_item_id} is not an attached member of run {run_id!r}"
+                f"{render_item_ref(conn, member_item_id)} is not an attached member of run {run_id!r}"
             )
         if int(member["project_id"]) != int(run["project_id"]):
             raise ValueError("deployment member belongs to another project")

@@ -13,6 +13,7 @@ import sys
 from typing import Any, Optional, TextIO
 
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain import github_rest
 from yoke_core.domain.backlog_github_fetch import _close_if_owned, _open_conn, _p
@@ -21,8 +22,7 @@ from yoke_core.domain.project_github_auth import (
     resolve_project_github_auth,
 )
 from yoke_core.domain.project_identity import (
-    DEFAULT_PUBLIC_ITEM_PREFIX,
-    render_item_ref,
+    unresolved_item_ref,
 )
 
 
@@ -30,15 +30,15 @@ def _display_item_ref(conn: Optional[Any], item_id: str) -> str:
     """Public item ref for operator log lines.
 
     ``conn`` may be ``None`` (the CLI migrate path passes no connection),
-    so a missing connection or failed lookup degrades to the
-    default-prefix ref rather than raising inside a log line.
+    so a missing connection or failed lookup says the ref is unresolved
+    rather than raising inside a log line or inventing one.
     """
     if conn is not None:
         try:
             return render_item_ref(conn, int(item_id))
         except Exception:  # noqa: BLE001 - log rendering must not raise.
             pass
-    return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
+    return unresolved_item_ref(consulted=conn is not None)
 
 
 def _list_issue_comments(*, project: str, number: int) -> list[dict]:

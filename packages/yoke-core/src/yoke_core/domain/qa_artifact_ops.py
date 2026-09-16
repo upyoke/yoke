@@ -30,6 +30,7 @@ from yoke_core.domain.qa_artifact_handle import (
     serialize_handle,
 )
 from yoke_core.domain.qa_constants import _pipe_row
+from yoke_core.domain.project_identity import render_item_ref
 
 
 _ART_SELECT = (
@@ -212,6 +213,10 @@ def cmd_artifact_list(
     filesystem path).
     """
     conn = connect(path=db_path)
+    # The empty-list message names the item, and it prints after the
+    # connection is closed — so the name is resolved here, while there is
+    # still a connection to resolve it with, and only when it is needed.
+    empty_item_label = ""
     try:
         if item_id is not None:
             # Join through qa_runs → qa_requirements to find all artifacts for an item
@@ -226,6 +231,8 @@ def cmd_artifact_list(
                 "ORDER BY a.id",
                 (item_id,),
             )
+            if not rows:
+                empty_item_label = render_item_ref(conn, item_id)
         else:
             where = "1=1"
             params: tuple = ()
@@ -258,7 +265,7 @@ def cmd_artifact_list(
         print(line)
         lines.append(line)
     if not lines and item_id is not None:
-        print(f"No artifacts found for item {item_id}")
+        print(f"No artifacts found for {empty_item_label}")
     return lines
 
 

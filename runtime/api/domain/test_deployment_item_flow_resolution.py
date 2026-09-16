@@ -34,8 +34,8 @@ def _patches(flow_ids, *, project_found=True, resolve_raises=None):
 def test_refusal_names_the_projects_selectable_flows():
     conn, connect, project = _patches(["to-prod", "to-stage"])
     with connect, project:
-        message = describe_missing_flow(42, "yoke")
-    assert message.startswith(f"item 42 {NO_FLOW_HEAD}")
+        message = describe_missing_flow("YOK-42", "yoke")
+    assert message.startswith(f"YOK-42 {NO_FLOW_HEAD}")
     assert "'yoke' declares no delivery default" in message
     assert "--flow with one of: to-prod, to-stage" in message
     conn.close.assert_called_once()
@@ -44,7 +44,7 @@ def test_refusal_names_the_projects_selectable_flows():
 def test_refusal_reads_only_the_projects_active_flows():
     conn, connect, project = _patches(["to-prod"])
     with connect, project:
-        describe_missing_flow(42, "yoke")
+        describe_missing_flow("YOK-42", "yoke")
     sql, params = conn.execute.call_args.args
     assert "FROM deployment_flows" in sql
     assert params == (7, "active")
@@ -53,7 +53,7 @@ def test_refusal_reads_only_the_projects_active_flows():
 def test_refusal_without_active_flows_asks_for_a_declaration():
     _conn, connect, project = _patches([])
     with connect, project:
-        message = describe_missing_flow(42, "yoke")
+        message = describe_missing_flow("YOK-42", "yoke")
     assert "no active deployment flow to select" in message
     assert "Declare a flow for the project" in message
     # An empty roster makes --flow a dead end, so it is not offered alone.
@@ -63,8 +63,8 @@ def test_refusal_without_active_flows_asks_for_a_declaration():
 def test_refusal_for_an_unknown_project_does_not_send_the_operator_to_declare():
     _conn, connect, project = _patches([], project_found=False)
     with connect, project:
-        message = describe_missing_flow(42, "ghost")
-    assert message == f"item 42 {NO_FLOW_HEAD}: project 'ghost' does not exist."
+        message = describe_missing_flow("YOK-42", "ghost")
+    assert message == f"YOK-42 {NO_FLOW_HEAD}: project 'ghost' does not exist."
 
 
 def test_refusal_survives_an_unresolvable_project():
@@ -72,6 +72,6 @@ def test_refusal_survives_an_unresolvable_project():
         [], resolve_raises=LookupError("slug names more than one project"),
     )
     with connect, project:
-        message = describe_missing_flow(42, "yoke")
-    assert message == f"item 42 {NO_FLOW_HEAD}"
+        message = describe_missing_flow("YOK-42", "yoke")
+    assert message == f"YOK-42 {NO_FLOW_HEAD}"
     conn.close.assert_called_once()

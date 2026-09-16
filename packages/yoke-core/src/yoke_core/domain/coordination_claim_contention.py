@@ -1,6 +1,7 @@
 """Holder liveness and user-facing evidence for shared-operation waits."""
 
 from __future__ import annotations
+from yoke_core.domain.project_identity import render_item_ref
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -107,7 +108,7 @@ def describe_claim_contention(
     current = current.astimezone(timezone.utc)
     item_owned = claim.owner_item_id is not None
     holder = (
-        f"item {claim.owner_item_id}" if item_owned else f"session {claim.session_id}"
+        render_item_ref(conn, claim.owner_item_id) if item_owned else f"session {claim.session_id}"
     )
     heartbeat_at = claim.last_heartbeat or claim.claimed_at
     heartbeat_age = _age_seconds(heartbeat_at, current)

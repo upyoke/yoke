@@ -28,6 +28,8 @@ from yoke_core.domain.conflict_survey import (
     read_recorded_survey_state,
     survey_conflicts,
 )
+from yoke_core.domain.item_ref_render import render_item_ref_lookup
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class ConflictSurveyStatusRequest(BaseModel):
@@ -96,7 +98,7 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
             "SELECT workflow_id FROM items WHERE id = %s", (item_id,),
         ).fetchone()
         if row is None:
-            return _error("unknown_item", f"item {item_id} does not exist")
+            return _error("unknown_item", ITEM_NOT_FOUND)
         workflow_id = str(row[0])
         record = read_recorded_survey_state(conn, item_id)
         if record.state != DURABLE_RECORDED:
@@ -127,6 +129,11 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
             )
         except (LookupError, ValueError) as exc:
             return _error("survey_refused", str(exc))
+        # Inside the connection's lifetime: `with connect()` closes on
+        # exit, and this read is what names each blocker in the response.
+        owner_refs = render_item_ref_lookup(
+            conn, [blocker.owner_item_id for blocker in survey.blockers]
+        )
     return HandlerOutcome(
         result_payload=ConflictSurveyStatusResponse(
             item_id=item_id,
@@ -143,6 +150,7 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
                 {
                     "kind": blocker.kind,
                     "owner_item_id": blocker.owner_item_id,
+                    "owner_public_ref": owner_refs(blocker.owner_item_id),
                     "path": blocker.path,
                     "state": blocker.state,
                     "detail": blocker.detail,

@@ -18,6 +18,12 @@ from yoke_core.api.service_client_sessions_frontier import (
 
 
 _ITEM_NUM = 1785
+_OTHER_ITEM_NUM = 1786
+
+
+def _title(item_id: int) -> str:
+    """The step title, which carries the item identity as data."""
+    return f"{item_id} title"
 
 
 def _make_step(item_id: int, rank: int) -> ScheduledStep:
@@ -27,7 +33,7 @@ def _make_step(item_id: int, rank: int) -> ScheduledStep:
         workflow_version_id=1,
         workflow_version=1,
         status="refined-idea",
-        title=f"{item_id} title",
+        title=_title(item_id),
         priority="medium",
         next_step=NextStep.ADVANCE,
         rank=rank,
@@ -38,7 +44,7 @@ def _make_step(item_id: int, rank: int) -> ScheduledStep:
 def _schedule_with_two_candidates() -> SchedulerResult:
     steps = [
         _make_step(_ITEM_NUM, rank=0),
-        _make_step(1786, rank=1),
+        _make_step(_OTHER_ITEM_NUM, rank=1),
     ]
     return SchedulerResult(
         project_scope=["yoke"],
@@ -53,22 +59,31 @@ def test_frontier_filter_uses_typed_internal_skip_ids():
     schedule = _schedule_with_two_candidates()
 
     baseline = build_frontier_state_from_schedule(schedule)
-    # Conn-less frontier build falls back to bare internal-id strings.
-    assert baseline.selected_item == str(_ITEM_NUM)
+    # These fields are presentation-facing references. A conn-less build has
+    # no identity read to make one from, so it says so and shows no number:
+    # the storage key is not a reference and reads as one to whoever sees it.
+    assert "no control-plane read" in baseline.selected_item
+    assert str(_ITEM_NUM) not in baseline.selected_item
 
     filtered = build_frontier_state_from_schedule(
         schedule, skip_memory_item_ids={_ITEM_NUM},
     )
-    assert str(_ITEM_NUM) not in filtered.runnable_items
-    assert filtered.runnable_items == ["1786"]
-    assert filtered.selected_item == "1786"
+    assert len(filtered.runnable_items) == 1
+    assert filtered.selected_item == filtered.runnable_items[0]
+    # Which step survived is read from the typed schedule data the context
+    # carries, because two unresolvable refs render the same phrase.
+    assert filtered.scheduler_context["title"] == _title(_OTHER_ITEM_NUM)
 
 
 def test_frontier_filter_no_skip_memory_runs_all_candidates():
     """Baseline: no skip-memory means every assignable step survives."""
     schedule = _schedule_with_two_candidates()
     filtered = build_frontier_state_from_schedule(schedule)
-    assert filtered.runnable_items == [str(_ITEM_NUM), "1786"]
+    assert len(filtered.runnable_items) == 2
+    assert filtered.scheduler_context["title"] == _title(_ITEM_NUM)
+    for rendered in filtered.runnable_items:
+        assert str(_ITEM_NUM) not in rendered
+        assert str(_OTHER_ITEM_NUM) not in rendered
 
 
 def test_summarise_skip_memory_preserves_typed_item_id():

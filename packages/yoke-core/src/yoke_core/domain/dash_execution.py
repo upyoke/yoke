@@ -36,6 +36,7 @@ from yoke_contracts.dash_evidence_status import (
     is_passing as _status_is_passing,
     rejection_message as _status_rejection_message,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 DASH_EVIDENCE_SECTION = "Execution Evidence"
 DASH_ESCALATION_SECTION = "Dash Escalation"
@@ -74,7 +75,7 @@ def _require_evidence_workflow(conn: Any, item_id: int) -> dict[str, Any]:
         )
     )
     if row is None:
-        raise LookupError(f"item {item_id} does not exist")
+        raise LookupError(ITEM_NOT_FOUND)
     mismatch = evidence_workflow_mismatch(str(row["workflow_id"]), int(item_id))
     if mismatch:
         raise ValueError(mismatch)

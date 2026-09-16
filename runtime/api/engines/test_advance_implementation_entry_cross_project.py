@@ -149,7 +149,6 @@ def test_worktree_preflight_resolves_project_checkout(monkeypatch):
         worktree_preflight, "activate_path_claims",
         lambda item_id: (True, "", []),
     )
-
     result = worktree_preflight.run_preflight(item_id=42, project="externalwebapp",
                                               no_worktree=True)
     assert result.ok is True

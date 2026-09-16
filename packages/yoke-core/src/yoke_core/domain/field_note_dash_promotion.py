@@ -102,9 +102,7 @@ def _completed(row: dict[str, Any], *, created: bool) -> FieldNotePromotion:
         dash_item_ref=format_item_ref(
             row["project_slug"],
             row["public_item_prefix"],
-            row["project_sequence"],
-            item_id=int(row["dash_item_id"]),
-        ),
+            row["project_sequence"]),
         created=created,
     )
 

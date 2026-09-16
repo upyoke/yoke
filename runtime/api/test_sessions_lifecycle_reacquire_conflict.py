@@ -22,6 +22,8 @@ from pathlib import Path
 from unittest import mock
 
 from yoke_core.domain import db_backend
+
+from runtime.api.reacquire_identity_test_support import _CREATE_IDENTITY
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from runtime.api.sessions_api_stale_test_helpers import apply_ddl_statements
 from yoke_core.domain.sessions_lifecycle_reactivation import (
@@ -105,7 +107,11 @@ def _apply_reacquire_schema() -> None:
     conn = db_backend.connect()
     try:
         apply_ddl_statements(
-            conn, _CREATE_SESSIONS, _CREATE_WORK_CLAIMS, _CREATE_EVENTS
+            conn,
+            _CREATE_SESSIONS,
+            _CREATE_WORK_CLAIMS,
+            _CREATE_EVENTS,
+            _CREATE_IDENTITY,
         )
         conn.commit()
     finally:

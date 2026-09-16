@@ -27,6 +27,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 class RequiredGateRequest(BaseModel):
@@ -148,7 +149,7 @@ def handle_activation_run(request: FunctionCallRequest) -> HandlerOutcome:
         if other_session:
             return _err(
                 "work_claim_conflict",
-                f"work claim for item {item_id} held by session "
+                f"work claim for {render_item_ref(conn, item_id)} held by session "
                 f"'{other_session}'; activation refused to avoid stranded "
                 "path claims",
             )

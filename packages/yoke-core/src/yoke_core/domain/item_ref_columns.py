@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.item_ref_render import render_item_refs
 
 _PROBE_SQL = (
     "SELECT rp.public_item_prefix, ri.project_sequence "
@@ -75,14 +75,25 @@ def render_column_item_ref(conn: Any, value: Any) -> str:
 
     A token the public-ref lookup cannot answer falls back to reading
     its numeric tail as an internal id before rendering. A token with
-    no backing row renders the same text it arrived with.
+    no backing row renders the same text it arrived with: callers feed
+    this result back through :func:`resolve_column_item_ref`, so it has
+    to stay a token. The message phrase display surfaces show for an
+    unresolvable id would not parse back.
+
+    That fallback is internal normalization and never display text. A
+    token that arrived as a bare id comes back as a bare id, which reads
+    to a person as a reference to whichever item owns that number as a
+    sequence. Text a person reads names an item through
+    :func:`yoke_core.domain.project_identity.render_item_ref`, which says
+    plainly that it could not resolve one.
     """
     item_id = resolve_column_item_ref(conn, value)
     if item_id is None:
         item_id = _numeric_tail(value)
     if item_id is None:
         return str(value).strip().upper()
-    return render_item_ref(conn, item_id)
+    rendered = render_item_refs(conn, [item_id]).get(item_id)
+    return rendered or str(value).strip().upper()
 
 
 __all__ = [

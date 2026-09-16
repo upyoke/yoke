@@ -24,9 +24,9 @@ def _subject(item_id: Optional[int]) -> str:
         with db_helpers.connect() as conn:
             return render_item_ref(conn, item_id)
     except Exception:  # noqa: BLE001 - display fallback only
-        from yoke_contracts.public_ref import DEFAULT_PUBLIC_ITEM_PREFIX
+        from yoke_contracts.public_ref import unresolved_item_ref
 
-        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{item_id}"
+        return unresolved_item_ref(consulted=False)
 
 
 def format_rehearse(

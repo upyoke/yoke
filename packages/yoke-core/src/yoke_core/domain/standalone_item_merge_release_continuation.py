@@ -30,6 +30,7 @@ from yoke_core.engines.runs_continue_for_item import (
     OUTCOME_WAITING,
     continue_for_item,
 )
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def continue_prepared_release(
@@ -48,7 +49,8 @@ def continue_prepared_release(
         return None, (
             f"prepared release continuation could not be evaluated: {exc}. "
             "The merge is complete; re-run this command, or check with "
-            f"`yoke deployment-runs find-by-item {item_id} --status created`"
+            f"`yoke deployment-runs find-by-item {item_ref_for_id(item_id)} "
+        "--status created`"
         )
     if outcome.outcome == OUTCOME_NONE:
         return None, ""

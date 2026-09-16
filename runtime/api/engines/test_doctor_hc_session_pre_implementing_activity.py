@@ -40,10 +40,15 @@ def _make_pre_impl_conn() -> Any:
     (status + claimed_at + events)."""
     return _disposable_pg_db(
         """
+        CREATE TABLE projects (
+            id INTEGER PRIMARY KEY, slug TEXT, public_item_prefix TEXT
+        );
+        INSERT INTO projects (id, slug, public_item_prefix)
+        VALUES (1, 'yoke', 'YOK');
         CREATE TABLE items (
             id INTEGER PRIMARY KEY, status TEXT,
-            project_id INTEGER DEFAULT 1, workflow_id TEXT,
-            workflow_version_id INTEGER
+            project_id INTEGER DEFAULT 1, project_sequence INTEGER,
+            workflow_id TEXT, workflow_version_id INTEGER
         );
         CREATE TABLE workflow_versions (
             id INTEGER PRIMARY KEY, workflow_id TEXT, version INTEGER,
@@ -91,11 +96,13 @@ def _add_pre_impl_claim(
     )
     conn.execute(
         "INSERT INTO items "
-        "(id, status, project_id, workflow_id, workflow_version_id) "
-        "VALUES (%s, %s, 1, %s, %s)",
+        "(id, status, project_id, project_sequence, workflow_id,"
+        " workflow_version_id) "
+        "VALUES (%s, %s, 1, %s, %s, %s)",
         (
             item_id,
             status,
+            item_id,
             workflow_id,
             workflow_version_id,
         ),

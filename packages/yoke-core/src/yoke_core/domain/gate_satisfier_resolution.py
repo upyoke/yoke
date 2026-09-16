@@ -14,6 +14,7 @@ from typing import Any, Dict, Mapping, Tuple
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.gate_satisfier_facts import load_project_facts
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.gate_satisfier_facts import (
     OBSERVED_MERGE_RECORDED,
     OBSERVED_NO_IMPLEMENTATION_BRANCH,
@@ -67,7 +68,7 @@ def _item_project(conn: Any, item_id: int) -> tuple[int, str]:
     ).fetchone()
     if row is None:
         raise ItemResolutionTargetMissing(
-            f"item {item_id} has no project row, so the satisfier registry "
+            f"{render_item_ref(conn, item_id)} has no project row, so the satisfier registry "
             "cannot be resolved"
         )
     return int(row[0]), str(row[1] or "")

@@ -213,7 +213,7 @@ def run(args: List[str]) -> int:
             (owner_item_id, kind),
             {
                 "kind": kind,
-                "public_ref": f"item {owner_item_id}",
+                "public_ref": str(blocker.get("owner_public_ref") or ""),
                 "status": str(blocker.get("state") or "unknown"),
                 "shared_paths": [],
                 "routes": {

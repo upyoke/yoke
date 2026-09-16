@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
-from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain.path_claim_active_claim_lookup import (
     _pick_chain_for_target,
 )
@@ -54,7 +54,7 @@ def widen_template(
     """
     cid = claim_id if claim_id is not None else "<claim_id>"
     item = public_ref or (
-        format_item_ref(None, None, None, item_id=item_id)
+        unresolved_item_ref()
         if item_id is not None
         else "YOK-N"
     )

@@ -16,7 +16,6 @@ from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pair
 from yoke_core.domain.deployment_run_pair_obligations import (
     split_pending_pair_merges,
 )
-from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.project_identity import (
     render_item_ref,
     resolve_project,
@@ -39,8 +38,14 @@ _LEGACY_DELIVERY_READY_STAGES = frozenset({"implemented", "release", "done"})
 
 
 def _item_label(conn, item_id: int, detail: str) -> str:
-    public_ref = render_item_ref(conn, int(item_id), required=True)
-    return f"{public_ref} ({detail})"
+    """Name one item in a refusal listing.
+
+    Not strict: this builds the list of items blocking a run, so an entry
+    whose identity will not resolve says so and the operator still sees
+    every other blocker. Raising here would replace the whole answer with
+    one lookup failure.
+    """
+    return f"{render_item_ref(conn, int(item_id))} ({detail})"
 
 
 def _not_delivery_ready(conn, rows, *, allow_completed: bool = False) -> list[str]:
@@ -175,8 +180,8 @@ def cmd_validate_composition(
             ] + blocked
         if blocked:
             items_str = ", ".join(
-                f"{render_column_item_ref(conn, dependent)} (blocked by "
-                f"{render_column_item_ref(conn, blocker)}: {verdict.reason})"
+                f"{render_item_ref(conn, int(dependent))} (blocked by "
+                f"{render_item_ref(conn, int(blocker))}: {verdict.reason})"
                 for dependent, blocker, verdict in blocked
             )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")
@@ -274,8 +279,8 @@ def cmd_check_batch_compatibility(
         )
         if blocked:
             items_str = ", ".join(
-                f"{render_column_item_ref(conn, dependent)} (blocked by "
-                f"{render_column_item_ref(conn, blocker)}: {verdict.reason})"
+                f"{render_item_ref(conn, int(dependent))} (blocked by "
+                f"{render_item_ref(conn, int(blocker))}: {verdict.reason})"
                 for dependent, blocker, verdict in blocked
             )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")

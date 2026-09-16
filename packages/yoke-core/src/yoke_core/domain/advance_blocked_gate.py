@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from yoke_contracts.public_ref import format_item_ref
+from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain import db_backend
 from yoke_core.domain.queries import is_blocked
 
@@ -49,7 +49,7 @@ def render_blocked_narrative(
     already hold the blocked flag + reason from a relayed read, so both
     paths surface identical text.
     """
-    ref = public_ref or format_item_ref(None, None, None, item_id=item_id)
+    ref = public_ref or unresolved_item_ref()
     rendered = (
         f"**Blocked:** {ref} has items.blocked=1 — "
         f"the operator-set blocked flag refuses forward progression. "

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
+from yoke_core.domain.project_identity import render_item_ref
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -68,7 +69,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         if other_session:
             print(
-                f"BLOCKED: work claim for item {item_id} held by "
+                f"BLOCKED: work claim for {render_item_ref(conn, item_id)} held by "
                 f"session '{other_session}'; activation refused to "
                 "avoid stranded path claims",
                 file=sys.stderr,

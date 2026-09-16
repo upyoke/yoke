@@ -169,6 +169,9 @@ class TestDependencyGate:
         assert outcome.error is not None
         assert outcome.error.code == "dependency_gate_failed"
         assert "item identity not found" in outcome.error.message
+        # The refusal reaches an operator, so it names no storage key.
+        assert "999999" not in outcome.error.message
+        assert "999_999" not in outcome.error.message
 
     def test_failed_typed_item_identity_read_fails_closed(
         self, db, monkeypatch: pytest.MonkeyPatch,

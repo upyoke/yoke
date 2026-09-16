@@ -16,6 +16,13 @@ DEFAULT_PUBLIC_ITEM_PREFIX = "YOK"
 _PUBLIC_REF_RE = re.compile(r"^(?P<prefix>[A-Za-z][A-Za-z0-9]*)-(?P<seq>\d+)$")
 _BARE_SEQUENCE_RE = re.compile(r"^\d+$")
 
+#: The refusal raised when an item id matches no row. There is no row, so
+#: there is no reference to render, and the storage key is not one: a reader
+#: shown that number reads it as a name, and it names whichever item owns it
+#: as a sequence. A caller that needs the key to triage carries it in its own
+#: structured payload — an event field, a log record — never in this text.
+ITEM_NOT_FOUND = "no item for the requested reference"
+
 
 def format_item_ref(
     project_slug: Any,
@@ -23,15 +30,49 @@ def format_item_ref(
     project_sequence: Any,
     *,
     qualify: bool = False,
-    item_id: Optional[int] = None,
 ) -> str:
+    """Format one project-scoped reference from its own two identity parts.
+
+    A sequence this cannot read is :func:`unresolved_item_ref`, never a
+    number borrowed from elsewhere: ``items.id`` and ``project_sequence``
+    are independent counters, so substituting one for the other prints a
+    reference that names a different item.
+    """
     del project_slug, qualify
     prefix = str(public_item_prefix or DEFAULT_PUBLIC_ITEM_PREFIX)
     try:
         sequence = int(project_sequence)
     except (TypeError, ValueError):
-        sequence = int(item_id) if item_id is not None else 0
+        return unresolved_item_ref()
     return f"{prefix}-{sequence}"
+
+
+def unresolved_item_ref(requested: Any = None, *, consulted: bool = True) -> str:
+    """Return the phrase that stands in for an unresolvable reference.
+
+    Human-visible text names an item by its public reference or says plainly
+    that it could not resolve one. It never carries ``items.id``: the storage
+    key reads as a reference to whoever sees it, and the two counters are
+    independent, so the number shown would name a different item. The
+    internal key belongs to structured diagnostics — event and telemetry
+    payloads carry it as their own bare integer field — and stays out of
+    every rendered phrase.
+
+    ``requested`` is the token the caller was already handed, echoed only
+    when it is a full ``PREFIX-N`` reference that simply did not resolve:
+    that much is useful to the reader and cannot be an internal key. A bare
+    number is not a reference — it names a sequence with no project, which is
+    exactly the shape ``items.id`` has — so it renders the plain label.
+
+    ``consulted`` separates the two empty outcomes: a read that found no
+    identity row, and a caller that had no connection to read with. The
+    bracketed shape keeps the phrase from being pasted back as a reference.
+    """
+    reason = "no project identity row" if consulted else "no control-plane read"
+    prefix, sequence = parse_public_item_ref(requested)
+    if prefix is None or sequence is None:
+        return f"<unresolved item ref: {reason}>"
+    return f"<unresolved item ref: {reason}, requested {prefix}-{sequence}>"
 
 
 def parse_public_item_ref(text: Any) -> Tuple[Optional[str], Optional[int]]:

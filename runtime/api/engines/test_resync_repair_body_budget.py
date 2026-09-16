@@ -22,7 +22,19 @@ _OVER_BUDGET = "x" * (_budget.GITHUB_BODY_BUDGET_BYTES + 500)
 # Minimal schema the repair helper reads. ``CAST(... AS INTEGER)`` on Postgres
 # is satisfied by the identity-translated ``id`` column; the explicit
 # columns mirror the production epic_tasks/items shape the readback queries.
-_ITEMS_DDL = "CREATE TABLE items (id INTEGER PRIMARY KEY, github_issue TEXT)"
+# The mirror names the parent epic by reference, so the identity that
+# reference is read from is part of the fixture.
+_PROJECTS_DDL = (
+    "CREATE TABLE projects ("
+    " id INTEGER PRIMARY KEY, slug TEXT, public_item_prefix TEXT)"
+)
+_ITEMS_DDL = (
+    "CREATE TABLE items ("
+    " id INTEGER PRIMARY KEY,"
+    " project_id INTEGER,"
+    " project_sequence INTEGER,"
+    " github_issue TEXT)"
+)
 _EPIC_TASKS_DDL = (
     "CREATE TABLE epic_tasks ("
     " id INTEGER PRIMARY KEY,"
@@ -56,6 +68,11 @@ def _apply_repair_schema() -> None:
 
     conn = db_backend.connect()
     try:
+        conn.execute(_PROJECTS_DDL)
+        conn.execute(
+            "INSERT INTO projects (id, slug, public_item_prefix)"
+            " VALUES (1, 'yoke', 'YOK')"
+        )
         conn.execute(_ITEMS_DDL)
         conn.execute(_EPIC_TASKS_DDL)
         conn.execute(_EVENTS_DDL)
@@ -66,8 +83,9 @@ def _apply_repair_schema() -> None:
 
 def _seed_repair_rows(conn, *, item_id, github_issue, epic_id, task_num, title, body):
     conn.execute(
-        "INSERT INTO items (id, github_issue) VALUES (%s, %s)",
-        (item_id, github_issue),
+        "INSERT INTO items (id, project_id, project_sequence, github_issue)"
+        " VALUES (%s, 1, %s, %s)",
+        (item_id, item_id, github_issue),
     )
     conn.execute(
         "INSERT INTO epic_tasks (id, epic_id, task_num, title, status, body) "

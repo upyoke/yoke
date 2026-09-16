@@ -44,7 +44,13 @@ def _patch_steps(
     activate_outcome=(True, "", [39]),
     dirty_outcome=(False, "", []),
     create_result=None,
+    branch_and_lane=("YOK-9001", None),
 ):
+    # Naming has its own coverage in test_worktree_public_ref_naming and now
+    # refuses rather than inventing a name, so it is patched like the rest.
+    monkeypatch.setattr(
+        wp, "resolve_item_branch_and_lane", lambda item_id: branch_and_lane
+    )
     monkeypatch.setattr(wp, "claim_work", lambda item_id: claim_outcome)
     monkeypatch.setattr(wp, "activate_path_claims", lambda item_id: activate_outcome)
     blocked, kind, paths = dirty_outcome
@@ -133,6 +139,8 @@ class TestBlocks:
         monkeypatch,
     ):
         calls = []
+        monkeypatch.setattr(
+            wp, "resolve_item_branch_and_lane", lambda _i: ("YOK-9001", None))
         monkeypatch.setattr(
             wp,
             "claim_work",

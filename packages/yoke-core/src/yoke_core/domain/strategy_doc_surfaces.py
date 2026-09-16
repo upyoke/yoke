@@ -117,9 +117,7 @@ def list_strategy_surfaces(conn: Any, project_id: int) -> list[dict[str, Any]]:
                 format_item_ref(
                     values["project_slug"],
                     values["public_item_prefix"],
-                    values["execution_item_sequence"],
-                    item_id=int(values["execution_item_id"]),
-                )
+                    values["execution_item_sequence"])
                 if values["execution_item_id"] is not None else None
             ),
             "execution_state": (

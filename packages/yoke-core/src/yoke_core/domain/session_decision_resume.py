@@ -10,6 +10,7 @@ from .session_decision_freshness import (
     evaluate_freshness,
 )
 from .session_decision_lane_gate import LaneGateVerdict, evaluate_lane_gate
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 
 def decide_resume_action(
@@ -98,7 +99,7 @@ def decide_resume_action(
             return NextAction(
                 action=ActionKind.WAIT,
                 reason=(
-                    f"Claimed item {claim.item_id} moved to "
+                    f"Claimed {item_ref_for_id(claim.item_id)} moved to "
                     f"'{verdict.current_status}' before dispatch; live "
                     f"required_path is not serviceable by this lane/session."
                 ),

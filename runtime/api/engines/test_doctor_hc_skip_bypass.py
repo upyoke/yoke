@@ -20,7 +20,19 @@ def _ts(offset_seconds: int = 0, *, anchor: datetime | None = None) -> str:
 def _apply_schema() -> None:
     conn = connect_test_db("")
     try:
+        # The finding names the item by reference, so the identity that
+        # reference is read from is part of the fixture.
         apply_fixture_ddl(conn, """
+            CREATE TABLE projects (
+                id INTEGER PRIMARY KEY, slug TEXT, public_item_prefix TEXT
+            );
+            INSERT INTO projects (id, slug, public_item_prefix)
+            VALUES (1, 'yoke', 'YOK');
+            CREATE TABLE items (
+                id INTEGER PRIMARY KEY,
+                project_id INTEGER,
+                project_sequence INTEGER
+            );
             CREATE TABLE item_status_transitions (
                 id INTEGER PRIMARY KEY,
                 item_id INTEGER NOT NULL,
@@ -47,6 +59,11 @@ def _record(
     *,
     source: str = "backlog-registry",
 ) -> None:
+    conn.execute(
+        "INSERT INTO items (id, project_id, project_sequence)"
+        " VALUES (%s, 1, %s) ON CONFLICT (id) DO NOTHING",
+        (item_id, item_id),
+    )
     conn.execute(
         "INSERT INTO item_status_transitions "
         "(item_id, from_status, to_status, source, created_at) "

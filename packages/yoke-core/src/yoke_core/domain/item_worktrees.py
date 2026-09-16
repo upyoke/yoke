@@ -6,6 +6,7 @@ from typing import Any, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.workflow_behavior import (
     LANE_IMPLEMENTATION,
     LANE_INTEGRATION,
@@ -116,7 +117,7 @@ def record_item_worktree(
         ):
             raise ValueError(
                 f"active worktree path {clean_path!r} is already owned by "
-                f"item {owner['item_id']} branch {owner['branch']!r}"
+                f"{render_item_ref(conn, owner['item_id'])} branch {owner['branch']!r}"
             )
 
     now = iso8601_now()
@@ -306,14 +307,14 @@ def validate_item_worktree_roles(conn: Any, item_id: int) -> None:
     disallowed = roles - policy.allowed_roles
     if disallowed:
         raise ValueError(
-            f"item {item_id} has lanes disallowed by "
+            f"{render_item_ref(conn, item_id)} has lanes disallowed by "
             f"{runtime.workflow_id}@{runtime.version}: {sorted(disallowed)}"
         )
     if active:
         missing = policy.required_roles - roles
         if missing:
             raise ValueError(
-                f"item {item_id} lacks required worktree lanes for "
+                f"{render_item_ref(conn, item_id)} lacks required worktree lanes for "
                 f"{runtime.workflow_id}@{runtime.version}: {sorted(missing)}"
             )
 

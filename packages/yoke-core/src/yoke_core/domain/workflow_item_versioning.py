@@ -31,6 +31,7 @@ from yoke_core.domain.workflow_runtime import (
     load_item_workflow_runtime,
     workflow_runtime_from_row,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 def _placeholder(conn: Any) -> str:
@@ -60,7 +61,7 @@ def _inspect_item_workflow_pin(
         )
     )
     if item is None:
-        raise WorkflowRegistryError(f"item {item_id} does not exist")
+        raise WorkflowRegistryError(ITEM_NOT_FOUND)
     policy = worktree_lane_policy(runtime)
     lanes = (
         list_item_worktrees(conn, int(item_id), active_only=True)

@@ -23,6 +23,7 @@ from runtime.api.domain.coordination_claim_test_support import (
     migration_target,
     qa_target,
     qualification_target,
+    seed_item,
     seed_project,
     seed_session,
 )
@@ -40,6 +41,9 @@ def db_path(tmp_path):
                 seed_session(conn, session_id)
             seed_session(conn, "sess-other", PROJECT_OTHER)
             seed_session(conn, "sess-dead", PROJECT_YOKE, ended=True)
+            # Contention messages name the holding item by reference.
+            for item_id in (7, 8):
+                seed_item(conn, item_id)
         finally:
             conn.close()
         yield path
@@ -97,7 +101,7 @@ class TestContentionEvidence:
             assert not isinstance(
                 exc.value, coordination_claims.CoordinationClaimStaleHolderError
             )
-            assert "held by item 7" in str(exc.value)
+            assert "held by YOK-7" in str(exc.value)
         finally:
             conn.close()
 

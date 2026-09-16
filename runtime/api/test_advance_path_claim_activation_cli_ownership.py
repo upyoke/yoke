@@ -30,7 +30,7 @@ class TestWorkClaimOwnership:
         )
         captured = capsys.readouterr()
         assert rc == 1
-        assert "BLOCKED: work claim for item 1594" in captured.err
+        assert "BLOCKED: work claim for YOK-1594" in captured.err
         assert "other-live" in captured.err
         assert "avoid stranded path claims" in captured.err
         stub.assert_not_called()

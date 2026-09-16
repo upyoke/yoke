@@ -34,7 +34,7 @@ class TestGenerateReport:
         """Report includes branch table for epics with unmerged branches."""
         conn = connect_test_db(tmp_db)
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (100, 'Test Epic', 'implementing')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (100, 1, 100, 'Test Epic', 'implementing')"
         )
         seed_merge_audit_task(
             conn,
@@ -70,7 +70,7 @@ class TestGenerateReport:
         """Report handles epic with multiple distinct worktree branches."""
         conn = connect_test_db(tmp_db)
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (150, 'Multi-WT', 'implementing')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (150, 1, 150, 'Multi-WT', 'implementing')"
         )
         seed_merge_audit_task(
             conn,
@@ -104,10 +104,10 @@ class TestGenerateReport:
         """Report scoped to a single epic only includes that epic."""
         conn = connect_test_db(tmp_db)
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (200, 'Epic A', 'implementing')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (200, 1, 200, 'Epic A', 'implementing')"
         )
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (201, 'Epic B', 'implementing')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (201, 1, 201, 'Epic B', 'implementing')"
         )
         seed_merge_audit_task(
             conn,
@@ -151,7 +151,7 @@ class TestWarnings:
         """All tasks done but item not done shows warning."""
         conn = connect_test_db(tmp_db)
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (300, 'Epic Done', 'implementing')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (300, 1, 300, 'Epic Done', 'implementing')"
         )
         seed_merge_audit_task(
             conn,
@@ -176,7 +176,7 @@ class TestWarnings:
         """No warning when all tasks done AND item is done."""
         conn = connect_test_db(tmp_db)
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (310, 'Done Done', 'done')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (310, 1, 310, 'Done Done', 'done')"
         )
         seed_merge_audit_task(
             conn,
@@ -200,7 +200,7 @@ class TestWarnings:
         """Missing integration simulation shows warning."""
         conn = connect_test_db(tmp_db)
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (400, 'No Sim', 'implementing')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (400, 1, 400, 'No Sim', 'implementing')"
         )
         seed_merge_audit_task(
             conn,
@@ -225,7 +225,7 @@ class TestWarnings:
         """Simulation present shows result, no missing warning."""
         conn = connect_test_db(tmp_db)
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (500, 'Has Sim', 'implementing')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (500, 1, 500, 'Has Sim', 'implementing')"
         )
         seed_merge_audit_task(
             conn,
@@ -253,7 +253,7 @@ class TestWarnings:
         """Failed simulation result displayed."""
         conn = connect_test_db(tmp_db)
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (501, 'Fail Sim', 'implementing')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (501, 1, 501, 'Fail Sim', 'implementing')"
         )
         seed_merge_audit_task(
             conn,
@@ -284,7 +284,7 @@ class TestStandaloneBranches:
         """Standalone YOK-* branches with status done are reported."""
         conn = connect_test_db(tmp_db)
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (50, 'Done Item', 'done')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (50, 1, 50, 'Done Item', 'done')"
         )
         seed_merge_audit_lane(
             conn,
@@ -309,7 +309,7 @@ class TestStandaloneBranches:
         """Standalone branches for non-done items are not shown."""
         conn = connect_test_db(tmp_db)
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (51, 'Active', 'implementing')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (51, 1, 51, 'Active', 'implementing')"
         )
         conn.commit()
         conn.close()
@@ -325,7 +325,7 @@ class TestStandaloneBranches:
         """Standalone branches are not shown when filtering by epic."""
         conn = connect_test_db(tmp_db)
         conn.execute(
-            "INSERT INTO items (id, title, status) VALUES (52, 'Done', 'done')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status) VALUES (52, 1, 52, 'Done', 'done')"
         )
         conn.commit()
         conn.close()

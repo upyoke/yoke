@@ -28,7 +28,7 @@ import os
 import sys
 from typing import Any, Literal, Optional, TextIO
 
-from yoke_core.domain.project_identity import DEFAULT_PUBLIC_ITEM_PREFIX, render_item_ref
+from yoke_core.domain.project_identity import render_item_ref, unresolved_item_ref
 from yoke_core.domain.project_scratch_dir import ephemeral_payload
 
 GITHUB_BODY_BUDGET_BYTES: int = 62000
@@ -95,20 +95,20 @@ def _truncate(text: str, limit: int = _TITLE_TRUNCATE_CHARS) -> str:
     return text[: limit - 1].rstrip() + "…"
 
 
-def _fallback_public_ref(public_ref: int | str) -> str:
-    text = str(public_ref).strip()
-    if text.isdigit():
-        return f"{DEFAULT_PUBLIC_ITEM_PREFIX}-{text}"
-    return text or f"{DEFAULT_PUBLIC_ITEM_PREFIX}-0"
+def _fallback_public_ref(public_ref: int | str, *, consulted: bool = True) -> str:
+    text = str(public_ref).strip()  # a digit-only token is an internal id
+    if text and not text.isdigit():
+        return text
+    return unresolved_item_ref(consulted=consulted)
 
 
 def _public_ref(conn: Optional[Any], item_id: int) -> str:
     if conn is None:
-        return _fallback_public_ref(item_id)
+        return _fallback_public_ref(item_id, consulted=False)
     try:
         return render_item_ref(conn, item_id)
     except Exception:
-        return _fallback_public_ref(item_id)
+        return _fallback_public_ref(item_id, consulted=True)
 
 
 def _evidence_summary(
@@ -159,7 +159,7 @@ def render_compact_mirror(
     status = str(item_fields.get("status") or "")
     workflow_id = str(item_fields.get("workflow_id") or "")
     subject_kind = str(item_fields.get("subject_kind") or "")
-    subject_ref = _fallback_public_ref(item_fields.get("identity") or _public_ref(conn, item_id))
+    subject_ref = compact_subject_ref(item_fields, conn, item_id)
     body_command = str(
         item_fields.get("body_command")
         or f"python3 -m yoke_core.cli.db_router items get {subject_ref} body"
@@ -255,15 +255,29 @@ def select_and_write_body_file(
     return str(body_path), mode
 
 
+def compact_subject_ref(
+    item_fields: dict[str, Any], conn: Optional[Any], item_id: int,
+) -> str:
+    """Name the mirror's subject the way its body and its notice both do."""
+    return _fallback_public_ref(
+        item_fields.get("identity") or _public_ref(conn, item_id)
+    )
+
+
 def emit_compact_notice(
     mode: SyncMode,
-    item_id: int | str,
+    item_ref: str,
     out: TextIO = sys.stderr,
 ) -> None:
-    """Write a one-line notice to ``out`` when ``mode == "compact"``."""
+    """Write a one-line notice to ``out`` when ``mode == "compact"``.
+
+    The caller passes the reference it already resolved for the mirror it
+    just wrote — this notice has no connection of its own to name the item
+    with, and an internal id here would read as a reference.
+    """
     if mode == "compact":
         print(
-            f"Note: {_fallback_public_ref(item_id)} body exceeded GitHub budget; "
+            f"Note: {item_ref} body exceeded GitHub budget; "
             "synced compact mirror instead.",
             file=out,
         )
@@ -277,74 +291,14 @@ def unlink_quiet(path: str) -> None:
         pass
 
 
-# Compact-pending flag — items.github_body_compact_pending: non-NULL ISO
-# timestamp = the item's last successful body sync landed the compact
-# mirror. Set by a compact sync, cleared by a full-body sync; the repair
-# pass (`backfill-oversized-bodies`) reads it as its candidate queue
-# (retired pattern: scanning telemetry envelopes for failure markers).
-
-
-def record_sync_mode(conn: Optional[Any], item_id: int, mode: SyncMode) -> None:
-    """Stamp/clear ``github_body_compact_pending`` after a successful sync.
-
-    Best-effort: minimal fixture DBs without the column are tolerated
-    (savepoint keeps the caller's transaction clean). Commits via the
-    caller's connection.
-    """
-    if conn is None:
-        return
-    from yoke_core.domain import db_backend
-    from yoke_core.domain.db_helpers import iso8601_now
-
-    p = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    value = iso8601_now() if mode == "compact" else None
-    try:
-        conn.execute("SAVEPOINT github_body_compact_pending")
-        conn.execute(
-            f"UPDATE items SET github_body_compact_pending = {p} "
-            f"WHERE id = {p}",
-            (value, int(item_id)),
-        )
-        conn.execute("RELEASE SAVEPOINT github_body_compact_pending")
-        conn.commit()
-    except Exception:
-        try:
-            conn.execute("ROLLBACK TO SAVEPOINT github_body_compact_pending")
-            conn.execute("RELEASE SAVEPOINT github_body_compact_pending")
-        except Exception:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-
-
-def list_compact_pending_item_ids(conn: Any) -> list[int]:
-    """GitHub-linked items whose mirror is currently the compact fallback."""
-    try:
-        rows = conn.execute(
-            "SELECT id FROM items "
-            "WHERE github_body_compact_pending IS NOT NULL "
-            "AND github_issue IS NOT NULL AND github_issue <> '' "
-            "ORDER BY id"
-        ).fetchall()
-    except Exception:
-        try:
-            conn.rollback()
-        except Exception:
-            pass
-        return []
-    return [int(r[0]) for r in rows]
-
-
 __all__ = [
     "GITHUB_BODY_BUDGET_BYTES",
     "SyncMode",
     "body_exceeds_budget",
-    "list_compact_pending_item_ids",
-    "record_sync_mode",
     "render_compact_mirror",
     "select_body_for_github",
     "select_and_write_body_file",
+    "compact_subject_ref",
     "emit_compact_notice",
     "unlink_quiet",
 ]

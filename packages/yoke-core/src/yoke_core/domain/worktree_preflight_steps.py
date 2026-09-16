@@ -38,24 +38,38 @@ CWD_MODE_STATIC = "static"
 def resolve_item_branch_and_lane(item_id: int) -> Tuple[str, Optional[str]]:
     """Return ``(branch_name, recorded_active_lane_path)`` for an item.
 
-    ``branch_name`` is the item's public ref (falls back to the legacy
-    ``YOK-{item_id}`` form when the public sequence cannot be read).
+    ``branch_name`` is the item's public ref.
     ``recorded_active_lane_path`` is the path of the item's active primary
     lane when one exists — so re-entry detects a worktree created under either
     the public-ref scheme or the legacy ``YOK-{internal_id}`` scheme, instead
-    of reconstructing a name that may not match what is on disk.
-    """
-    from yoke_core.domain.worktree_naming import worktree_name_for_item
+    of reconstructing a name that may not match what is on disk. A recorded
+    lane's own branch always wins, unrenamed.
 
+    This reports a name; it does not mint one, and preflight runs that create
+    no lane at all (``--no-worktree``) still need the rest of the envelope. So
+    an unresolvable reference with no recorded lane yields an empty branch
+    rather than a refusal — lane creation refuses at the point it would name
+    something, in :func:`resolve_worktree_lanes_for_item`.
+    """
+    from yoke_core.domain.worktree_naming import (
+        ItemWorktreeIdentityUnresolved,
+        worktree_name_for_item,
+    )
+
+    branch = ""
+    lane = None
     try:
         from yoke_core.domain.db_helpers import connect
         from yoke_core.domain.item_worktrees import primary_item_worktree
 
         with connect() as conn:
-            branch = worktree_name_for_item(conn, item_id)
             lane = primary_item_worktree(conn, int(item_id))
+            try:
+                branch = worktree_name_for_item(conn, item_id)
+            except ItemWorktreeIdentityUnresolved:
+                branch = ""
     except Exception:  # noqa: BLE001 - degrade if DB unavailable
-        return worktree_name_for_item(None, item_id), None
+        lane = None
     branch_out = branch
     path_out = None
     if lane:

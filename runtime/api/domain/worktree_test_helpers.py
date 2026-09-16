@@ -144,3 +144,37 @@ def yoke_db(tmp_path: Path) -> Iterator[str]:
     """
     with init_test_db(tmp_path, apply_schema=apply_yoke_db_schema) as db_path:
         yield db_path
+
+
+def seed_lane_item(
+    db_path: str,
+    item_id: int,
+    *,
+    workflow_id: str = "issue",
+    project_sequence: int | None = None,
+) -> str:
+    """Give an item the identity its lane name is minted from.
+
+    A lane is named by the item's own prefix and sequence, so a test that
+    creates one needs the item to exist — provisioning a lane for an item
+    the control plane has never heard of is refused, not guessed at. The
+    sequence defaults to something other than the internal id so a name
+    assembled from the id would fail the caller's assertion loudly rather
+    than pass by coincidence. Returns the public ref the lane will carry.
+    """
+    from runtime.api.fixtures.file_test_db import connect_test_db
+
+    sequence = item_id % 10_000 + 1 if project_sequence is None else project_sequence
+    conn = connect_test_db(db_path)
+    try:
+        conn.execute(
+            "INSERT INTO items (id, title, status, project_id, project_sequence) "
+            "VALUES (%s, 'lane fixture', 'refined-idea', 1, %s) "
+            "ON CONFLICT (id) DO UPDATE SET project_sequence = EXCLUDED.project_sequence",
+            (int(item_id), int(sequence)),
+        )
+        pin_test_item_workflow(conn, int(item_id), workflow_id)
+        conn.commit()
+    finally:
+        conn.close()
+    return f"YOK-{sequence}"

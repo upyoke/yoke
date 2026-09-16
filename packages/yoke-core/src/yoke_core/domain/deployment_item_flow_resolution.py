@@ -41,14 +41,15 @@ def _selectable_flow_ids(conn, project_id: int) -> list:
     return [str(row[0]) for row in rows]
 
 
-def describe_missing_flow(item_id: int, project: str) -> str:
+def describe_missing_flow(item_ref: str, project: str) -> str:
     """Explain an unresolved delivery flow and name the way out of it.
 
     A run is attempted long after the filing that left the flow unset, so
     the refusal carries what it takes to get past it rather than only the
-    fact that it stopped.
+    fact that it stopped. The caller passes the item's already-rendered
+    reference; this read is about the project's flows, not identity.
     """
-    head = f"item {item_id} {NO_FLOW_HEAD}"
+    head = f"{item_ref} {NO_FLOW_HEAD}"
     conn = db_helpers.connect()
     try:
         identity = resolve_project(conn, project, required=False)

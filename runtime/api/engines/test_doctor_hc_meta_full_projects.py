@@ -162,11 +162,13 @@ class TestCancelledBlockerDependenciesMeta:
 
     def test_pass_no_rows(self):
         conn = _make_conn()
+        _seed_project(conn, "yoke")
         rec = _run_hc(hc_cancelled_blocker_dependencies, conn)
         assert _result(rec).result == "PASS"
 
     def test_pass_blocker_not_cancelled(self):
         conn = _make_conn()
+        _seed_project(conn, "yoke")
         conn.execute(
             "INSERT INTO items (id, title, status, resolution) "
             "VALUES (500, 'Parent', 'implementing', NULL)"
@@ -185,13 +187,14 @@ class TestCancelledBlockerDependenciesMeta:
         """Canonical shape: blocker cancelled,
         resolution=obsolete, no resolution_ref."""
         conn = _make_conn()
+        _seed_project(conn, "yoke")
         conn.execute(
-            "INSERT INTO items (id, title, status, resolution, resolution_ref) "
-            "VALUES (1269, 'Cancelled blocker', 'cancelled', 'obsolete', NULL)"
+            "INSERT INTO items (id, project_id, project_sequence, title, status, resolution, resolution_ref)"
+            "VALUES (1269, 1, 4101, 'Cancelled blocker', 'cancelled', 'obsolete', NULL)"
         )
         conn.execute(
-            "INSERT INTO items (id, title, status) "
-            "VALUES (1270, 'Dependent', 'refined-idea')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status)"
+            "VALUES (1270, 1, 4102, 'Dependent', 'refined-idea')"
         )
         conn.execute(
             "INSERT INTO item_dependencies "
@@ -203,7 +206,7 @@ class TestCancelledBlockerDependenciesMeta:
         rec = _run_hc(hc_cancelled_blocker_dependencies, conn)
         res = _result(rec)
         assert res.result == "WARN"
-        assert "YOK-1270 <- YOK-1269" in res.detail
+        assert "YOK-4102 <- YOK-4101" in res.detail
         assert "gate=integration" in res.detail
         assert "satisfaction=fact:merged" in res.detail
         assert "resolution=obsolete" in res.detail
@@ -211,13 +214,14 @@ class TestCancelledBlockerDependenciesMeta:
     def test_warn_cancelled_blocker_fixture_1210_1211(self):
         """Canonical shape from the spec."""
         conn = _make_conn()
+        _seed_project(conn, "yoke")
         conn.execute(
-            "INSERT INTO items (id, title, status, resolution, resolution_ref) "
-            "VALUES (1211, 'Cancelled blocker', 'cancelled', 'obsolete', NULL)"
+            "INSERT INTO items (id, project_id, project_sequence, title, status, resolution, resolution_ref)"
+            "VALUES (1211, 1, 4104, 'Cancelled blocker', 'cancelled', 'obsolete', NULL)"
         )
         conn.execute(
-            "INSERT INTO items (id, title, status) "
-            "VALUES (1210, 'Dependent', 'refined-idea')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status)"
+            "VALUES (1210, 1, 4103, 'Dependent', 'refined-idea')"
         )
         conn.execute(
             "INSERT INTO item_dependencies "
@@ -229,21 +233,22 @@ class TestCancelledBlockerDependenciesMeta:
         rec = _run_hc(hc_cancelled_blocker_dependencies, conn)
         res = _result(rec)
         assert res.result == "WARN"
-        assert "YOK-1210 <- YOK-1211" in res.detail
+        assert "YOK-4103 <- YOK-4104" in res.detail
 
     def test_warn_lists_multiple_rows(self):
         conn = _make_conn()
+        _seed_project(conn, "yoke")
         conn.execute(
-            "INSERT INTO items (id, title, status, resolution) "
-            "VALUES (100, 'Cancelled A', 'cancelled', 'obsolete')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status, resolution)"
+            "VALUES (100, 1, 4105, 'Cancelled A', 'cancelled', 'obsolete')"
         )
         conn.execute(
-            "INSERT INTO items (id, title, status, resolution) "
-            "VALUES (101, 'Cancelled B', 'cancelled', 'wontfix')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status, resolution)"
+            "VALUES (101, 1, 4106, 'Cancelled B', 'cancelled', 'wontfix')"
         )
         conn.execute(
-            "INSERT INTO items (id, title, status) "
-            "VALUES (200, 'Dependent A', 'idea'), (201, 'Dependent B', 'idea')"
+            "INSERT INTO items (id, project_id, project_sequence, title, status)"
+            "VALUES (200, 1, 4107, 'Dependent A', 'idea'), (201, 1, 4108, 'Dependent B', 'idea')"
         )
         p = _p(conn)
         for dep, blk in ((200, 100), (201, 101)):
@@ -259,5 +264,5 @@ class TestCancelledBlockerDependenciesMeta:
         res = _result(rec)
         assert res.result == "WARN"
         assert res.detail.count("\n") == 1  # two lines joined by one newline
-        assert "YOK-200 <- YOK-100" in res.detail
-        assert "YOK-201 <- YOK-101" in res.detail
+        assert "YOK-4107 <- YOK-4105" in res.detail
+        assert "YOK-4108 <- YOK-4106" in res.detail

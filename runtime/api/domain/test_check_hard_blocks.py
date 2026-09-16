@@ -220,7 +220,12 @@ class TestEvaluateBlockers(unittest.TestCase):
         self._insert_dep(42, 99, "integration", "fact:merged")
         lines = mod.evaluate_blockers(42)
         self.assertEqual(len(lines), 1)
-        self.assertIn("YOK-99", lines[0])
+        # Nothing backs 99, so the line says the reference is unresolved and
+        # carries no number: a storage key in the reference position names
+        # whichever item owns it as a sequence. The dependent still learns
+        # that a blocker of theirs is missing, which is what they act on.
+        self.assertIn("unresolved item ref", lines[0])
+        self.assertNotIn("99", lines[0])
         self.assertIn("missing", lines[0])
 
     def test_status_implemented_satisfied(self) -> None:

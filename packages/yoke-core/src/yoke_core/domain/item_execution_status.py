@@ -41,6 +41,7 @@ from yoke_core.domain.item_execution_status_helpers import (
     normalize_item_id,
     worktree_state,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 def _row_value(row: Any, key: str, index: int) -> Any:
@@ -127,7 +128,7 @@ def build_projection(
         if item is None:
             return {
                 "ok": False,
-                "error": f"item not found: {render_item_ref(conn, item_id)}",
+                "error": ITEM_NOT_FOUND,
                 "item_id": item_id,
             }
         item_dict = _item_dict(item, render_item_ref(conn, item_id))

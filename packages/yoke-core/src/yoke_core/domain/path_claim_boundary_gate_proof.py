@@ -34,6 +34,7 @@ from yoke_core.domain.path_claim_boundary_proof_validation import (
     PROOF_KIND,
     validate_proof,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 def _canonical_claim(claim: Dict[str, Any]) -> dict:
@@ -76,7 +77,7 @@ def _load_boundary_context(conn: Any, item_id: int) -> dict:
         (item_id,),
     ).fetchone()
     if row is None:
-        raise BoundaryProofError(f"item {item_id} was not found")
+        raise BoundaryProofError(ITEM_NOT_FOUND)
     claims = [
         _canonical_claim(claim_projection(conn, claim_id))
         for claim_id, _target in claims_for_boundary(conn, item_id)

@@ -6,6 +6,8 @@ from __future__ import annotations
 import json
 
 from runtime.api.domain.qa_gate_summary_test_fixtures import (  # noqa: F401
+    SUMMARY_ITEM_ID,
+    SUMMARY_ITEM_REF,
     add_requirement,
     qa_db,
 )
@@ -63,7 +65,9 @@ def test_cli_json_output_is_valid_json(qa_db, capsys):
     )
     assert rc == 0
     parsed = json.loads(capsys.readouterr().out)
-    assert parsed["target"] == "YOK-42"
+    # The item's sequence differs from its internal id, so this
+    # proves the summary names the reference rather than the key.
+    assert parsed["target"] == SUMMARY_ITEM_REF
     assert parsed["transition"] == "reviewed-implementation"
     assert parsed["e2e_unsatisfied_count"] == 1
 

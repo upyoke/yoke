@@ -23,6 +23,7 @@ from .mutation_fields import (
     validate_priority,
     validate_title,
 )
+from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 #: Delivery policies whose done transition must go through the usher
 #: done-transition ceremony rather than a raw status mutation — every policy
@@ -89,7 +90,7 @@ def prepare_update(
             return MutationResult(
                 success=False,
                 error=(
-                    f"Item {item.id} has no loaded workflow-version pin; "
+                    f"{item_ref_for_id(item.id)} has no loaded workflow-version pin; "
                     "status validation cannot proceed."
                 ),
                 error_code="WORKFLOW_PIN_REQUIRED",

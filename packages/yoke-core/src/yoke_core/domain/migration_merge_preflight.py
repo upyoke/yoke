@@ -27,6 +27,8 @@ from yoke_core.domain.migration_model_capability import (
     validate as validate_capability,
 )
 from yoke_core.domain.migration_model_capability_defaults import resolve_model
+from yoke_contracts.public_ref import unresolved_item_ref
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 @dataclass(frozen=True)
@@ -108,6 +110,7 @@ def _collision_errors(
             continue
         if other_id == item_id or str(row.get("status") or "") not in _NON_TERMINAL_STATUSES:
             continue
+        other_ref = _row_public_ref(row)
         other = _profile(row.get("db_mutation_profile"))
         if other is None:
             continue
@@ -116,18 +119,22 @@ def _collision_errors(
                 capability_settings_json, str(other["model_name"])
             )
         except HistoryError as exc:
-            errors.append(f"item {other_id} cannot resolve migration history: {exc}")
+            errors.append(
+                f"{other_ref} cannot resolve migration history: {exc}"
+            )
             continue
         if other_modules_dir != current_modules_dir:
             continue
         try:
             other_numbered = _numbered_modules(other)
         except HistoryError as exc:
-            errors.append(f"item {other_id} has malformed migration ordering: {exc}")
+            errors.append(
+                f"{other_ref} has malformed migration ordering: {exc}"
+            )
             continue
         for ordinal in sorted(current.keys() & other_numbered.keys()):
             errors.append(
-                f"item {other_id} is non-terminal and also holds migration "
+                f"{other_ref} is non-terminal and also holds migration "
                 f"ordinal {ordinal}: {other_numbered[ordinal]!r} conflicts "
                 f"with {current[ordinal]!r}"
             )
@@ -147,6 +154,17 @@ def _row_item_id(row: Mapping[str, Any]) -> int | None:
         return int(raw)
     except ValueError:
         return None
+
+
+def _row_public_ref(row: Mapping[str, Any]) -> str:
+    """Name a roster row the way an operator reads it.
+
+    The listing projects ``id`` as the item's public ref whenever the caller
+    asks for that field; a row from a caller that did not has no reference
+    to show, and says so rather than printing ``internal_id``.
+    """
+    ref = str(row.get("id") or "").strip()
+    return ref or unresolved_item_ref()
 
 
 def _row_for_item(
@@ -191,7 +209,9 @@ def evaluate_migration_merge(
     materialized = tuple(rows)
     current_row = _row_for_item(materialized, item_id)
     if current_row is None:
-        return MigrationMergeGate(True, (f"item {item_id} is absent from items.list",))
+        return MigrationMergeGate(
+            True, (f"{ITEM_NOT_FOUND}: it is absent from items.list",)
+        )
     current_profile = _profile(current_row.get("db_mutation_profile"))
     if (
         current_profile is None

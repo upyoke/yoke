@@ -19,6 +19,8 @@ from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
     load_item_workflow_runtime,
 )
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 @dataclass(frozen=True)
@@ -129,7 +131,7 @@ def load_item_effective_workflow_policies(
         (int(item_id),),
     ).fetchone()
     if row is None:
-        raise LookupError(f"item {item_id} does not exist")
+        raise LookupError(ITEM_NOT_FOUND)
     raw = row["workflow_posture"] if hasattr(row, "keys") else row[0]
     if isinstance(raw, Mapping):
         posture = dict(raw)
@@ -138,10 +140,10 @@ def load_item_effective_workflow_policies(
             parsed = json.loads(str(raw or "{}"))
         except (TypeError, ValueError) as exc:
             raise ValueError(
-                f"item {item_id} has invalid workflow posture"
+                f"{render_item_ref(conn, item_id)} has invalid workflow posture"
             ) from exc
         if not isinstance(parsed, Mapping):
-            raise ValueError(f"item {item_id} workflow posture is not an object")
+            raise ValueError(f"{render_item_ref(conn, item_id)} workflow posture is not an object")
         posture = dict(parsed)
     return resolve_effective_workflow_policies(runtime, posture)
 

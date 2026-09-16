@@ -12,6 +12,7 @@ from yoke_core.domain.worktree_provision import (
     provision_worktree,
 )
 from yoke_core.domain.worktree_reuse import classify_reusable_worktree
+from runtime.api.domain.worktree_test_helpers import seed_lane_item
 
 
 def _git(cwd: str, *args: str) -> subprocess.CompletedProcess:
@@ -39,6 +40,7 @@ def test_non_worktree_directory_is_refused(tmp_path: Path) -> None:
 
 
 def test_healthy_worktree_is_preexisting(git_repo: Path, yoke_db: str) -> None:
+    seed_lane_item(yoke_db, 24121)
     first = create_worktree(
         24121,
         project="yoke",
@@ -55,6 +57,7 @@ def test_empty_index_and_missing_files_are_repaired_on_reuse(
     git_repo: Path,
     yoke_db: str,
 ) -> None:
+    seed_lane_item(yoke_db, 24122)
     first = create_worktree(
         24122,
         project="yoke",

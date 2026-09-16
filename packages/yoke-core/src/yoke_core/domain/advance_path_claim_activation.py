@@ -28,6 +28,7 @@ from yoke_core.domain.path_claims_blocked_coordination_repair import (
 from yoke_core.domain.path_claims_register import activate_with_events
 from yoke_core.domain.project_checkout_locations import checkout_for_project_id
 from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 @dataclass
@@ -286,7 +287,7 @@ def resolve_item_actor(conn: Any, item_id: int) -> tuple[Optional[int], Optional
         (int(item_id),),
     ).fetchone()
     if row is None:
-        return None, f"item {item_id} not found"
+        return None, ITEM_NOT_FOUND
     actor_value = row[0]
     if actor_value in (None, ""):
         return None, "item has no owner/source actor for path-claim activation"

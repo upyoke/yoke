@@ -72,9 +72,9 @@ def _public_item_ref(item_id: int, db_path: Optional[str]) -> str:
         with connect(db_path) as conn:
             return render_item_ref(conn, item_id)
     except Exception:
-        from yoke_contracts.public_ref import format_item_ref
+        from yoke_contracts.public_ref import unresolved_item_ref
 
-        return format_item_ref(None, None, None, item_id=item_id)
+        return unresolved_item_ref()
 
 
 def cmd_upsert(

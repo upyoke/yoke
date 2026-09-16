@@ -25,6 +25,7 @@ from yoke_core.domain import (
     db_backend,
 )
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
+from yoke_core.domain import backlog_github_compact_pending_flag as compact_flag
 
 
 _OK_AUTH = ProjectGithubAuth(
@@ -148,11 +149,11 @@ class TestRecordSyncMode:
             db, id=77, workflow_id="issue", status="idea", project="externalwebapp",
             github_issue="#77", spec="# body",
         )
-        body_budget.record_sync_mode(db, 77, "compact")
-        assert body_budget.list_compact_pending_item_ids(db) == [77]
-        body_budget.record_sync_mode(db, 77, "full")
-        assert body_budget.list_compact_pending_item_ids(db) == []
+        compact_flag.record_sync_mode(db, 77, "compact")
+        assert compact_flag.list_compact_pending_item_ids(db) == [77]
+        compact_flag.record_sync_mode(db, 77, "full")
+        assert compact_flag.list_compact_pending_item_ids(db) == []
         db.close()
 
     def test_none_conn_is_noop(self):
-        body_budget.record_sync_mode(None, 1, "compact")
+        compact_flag.record_sync_mode(None, 1, "compact")

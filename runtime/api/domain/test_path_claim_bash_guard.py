@@ -18,7 +18,7 @@ def _claim_dict(
     state: str = "active",
     covered_paths: tuple = ("runtime/api/domain",),
     worktree_path: str = "/tmp/yoke-worktrees/YOK-1577",
-    public_ref: str | None = None,
+    public_ref: str | None = "YOK-1577",
 ) -> Dict:
     claim = {
         "id": claim_id,

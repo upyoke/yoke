@@ -76,14 +76,13 @@ def _member_item_refs(
         if not branch or branch in refs:
             continue
         try:
-            item_id = int(values.get("item_id"))
+            sequence = int(values.get("project_sequence"))
         except (TypeError, ValueError):
             continue
         refs[branch] = format_item_ref(
             values.get("project_slug"),
             values.get("public_item_prefix"),
-            values.get("project_sequence"),
-            item_id=item_id,
+            sequence,
         )
     return refs, None
 

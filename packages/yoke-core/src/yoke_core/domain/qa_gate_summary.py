@@ -76,7 +76,7 @@ def render_gate_summary(
         )
 
     summary: Dict[str, Any] = {
-        "target": target.display_name(),
+        "target": "",
         "transition": transition_name,
         "qa_tables_present": True,
         "no_requirements": False,
@@ -87,6 +87,14 @@ def render_gate_summary(
         "tree_freshness_checked": False,
         "requirements": [],
     }
+
+    # The target's reference comes from the database this gate reads, so it
+    # is resolved here rather than from an ambient control plane.
+    identity_conn = connect(db_path)
+    try:
+        summary["target"] = target.display_name(identity_conn)
+    finally:
+        identity_conn.close()
 
     if not _qa_tables_exist(db_path):
         summary["qa_tables_present"] = False
