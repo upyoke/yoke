@@ -130,7 +130,7 @@ def test_refuses_a_hook_context(test_db, monkeypatch):
 
 
 def test_refuses_an_unknown_item(test_db):
-    with pytest.raises(MergedAtCorrectionError, match="does not exist"):
+    with pytest.raises(MergedAtCorrectionError, match="no item at items.id"):
         operator_correct_merged_at(test_db, ITEM_ID, LANDED_AT, REASON)
 
 

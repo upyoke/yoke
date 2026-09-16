@@ -285,8 +285,10 @@ class TestRecoveryGapAbsorption:
                     mock.Mock(returncode=0, stdout="abc123\n"),  # verify
                     mock.Mock(returncode=0, stdout="0\n"),  # rev-list --count
                 ]
+                # The runner passes the ref it rendered; the recovery
+                # command in the narrative has to be runnable.
                 code = done_transition._check_empty_branch(
-                    "YOK-99", Path("/tmp"), "main", 99
+                    "YOK-99", Path("/tmp"), "main", 99, public_ref="YOK-99"
                 )
 
         stderr_output = f.getvalue()

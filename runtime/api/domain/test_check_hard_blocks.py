@@ -220,7 +220,9 @@ class TestEvaluateBlockers(unittest.TestCase):
         self._insert_dep(42, 99, "integration", "fact:merged")
         lines = mod.evaluate_blockers(42)
         self.assertEqual(len(lines), 1)
-        self.assertIn("YOK-99", lines[0])
+        # Nothing backs 99, so the line says the reference is unresolved
+        # rather than printing the storage key as one.
+        self.assertIn("items.id 99", lines[0])
         self.assertIn("missing", lines[0])
 
     def test_status_implemented_satisfied(self) -> None:

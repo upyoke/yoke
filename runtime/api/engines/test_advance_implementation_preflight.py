@@ -46,7 +46,12 @@ TEST_ITEM_ID = 42
 
 _PASS_RESULTS: Dict[str, Dict[str, Any]] = {
     _HARD_BLOCKS: {"blockers": []},
-    _AC_PRESENCE: {"canonical": 3, "unlabeled": 0, "title": "T"},
+    _AC_PRESENCE: {
+        "canonical": 3,
+        "unlabeled": 0,
+        "title": "T",
+        "public_ref": f"YOK-{TEST_ITEM_ID}",
+    },
     _FILE_BUDGET: {"verdict": "pass", "reason": "covered"},
     _SPEC_COVERAGE: {"is_blocked": False, "missing_paths": []},
 }
@@ -197,7 +202,14 @@ def test_hard_blocks_short_circuits_before_later_gates(monkeypatch):
 def test_missing_item_narrative_preserved(monkeypatch):
     _install(
         monkeypatch,
-        {_AC_PRESENCE: {"canonical": 0, "unlabeled": 0, "title": None}},
+        {
+            _AC_PRESENCE: {
+                "canonical": 0,
+                "unlabeled": 0,
+                "title": None,
+                "public_ref": f"YOK-{TEST_ITEM_ID}",
+            }
+        },
     )
     ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
     assert ok is False
@@ -207,7 +219,14 @@ def test_missing_item_narrative_preserved(monkeypatch):
 def test_no_acceptance_criteria_narrative_preserved(monkeypatch):
     calls = _install(
         monkeypatch,
-        {_AC_PRESENCE: {"canonical": 0, "unlabeled": 0, "title": "T"}},
+        {
+            _AC_PRESENCE: {
+                "canonical": 0,
+                "unlabeled": 0,
+                "title": "T",
+                "public_ref": f"YOK-{TEST_ITEM_ID}",
+            }
+        },
     )
     ok, narrative = gates._run_preflight_gates(TEST_ITEM_ID, force=False)
     assert ok is False

@@ -23,7 +23,14 @@ CREATE TABLE work_claims (
  scope TEXT NOT NULL,
  claimed_at TEXT, last_heartbeat TEXT, released_at TEXT
 );
-CREATE TABLE items (id INTEGER PRIMARY KEY, status TEXT NOT NULL);
+CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT, public_item_prefix TEXT);
+INSERT INTO projects (id, slug, public_item_prefix) VALUES (1, 'yoke', 'YOK');
+CREATE TABLE items (
+    id INTEGER PRIMARY KEY,
+    project_id INTEGER,
+    project_sequence INTEGER,
+    status TEXT NOT NULL
+);
 CREATE TABLE harness_sessions (
  session_id TEXT PRIMARY KEY, mode TEXT, ended_at TEXT, last_heartbeat TEXT
 );
@@ -83,9 +90,11 @@ def _seed(
         f"VALUES ({p}, {p}, {p}, {p})",
         (session_id, mode, _iso_ago(0) if ended else None, _iso_ago(minutes_ago)),
     )
+    # The finding names the item by reference, so the row it reads exists.
     conn.execute(
-        f"INSERT INTO items (id, status) VALUES ({p}, {p})",
-        (item_id, status),
+        f"INSERT INTO items (id, project_id, project_sequence, status)"
+        f" VALUES ({p}, 1, {p}, {p})",
+        (item_id, item_id, status),
     )
     conn.execute(
         "INSERT INTO work_claims (id, session_id, target_kind, scope, "
