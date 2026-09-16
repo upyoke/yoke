@@ -34,6 +34,10 @@ from yoke_core.domain.merge_queue_readback_outcomes import (
     HOLD_LANDED_DURING_HOLD,
     HOLD_NOT_HELD,
     HOLD_UNVERIFIED,
+    HOLD_USER_AUTHORITY_REQUIRED,
+)
+from yoke_core.domain.project_github_auth_tokens import (
+    bound_local_github_user_token_provider,
 )
 from yoke_core.domain.merge_queue_readiness import (
     MergeQueueReadiness,
@@ -44,12 +48,25 @@ from yoke_core.engines.merge_worktree_pr_queue import (
     dequeue_pull_request,
     leave_merge_queue,
 )
+from yoke_core.engines.merge_worktree_pr_rest import GITHUB_AUTHORITY_USER
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 #: Act, read back, act once more on what the readback showed. A third pass
 #: would be chasing a queue that is moving faster than the hold can read it,
 #: which is a refusal to report rather than a loop to widen.
 _MAX_PASSES = 2
+
+#: Why a hold can refuse before touching GitHub, and where it can succeed.
+#: A person armed the candidate, so only that person's authorization can
+#: take the arming back; a relayed hold runs where no such authorization
+#: exists and says so rather than acting as the App and being refused by
+#: GitHub with nothing named.
+USER_AUTHORITY_RECOVERY = (
+    "disarming a candidate a person armed needs that person's GitHub "
+    "authorization, and this process has none bound; run `yoke github "
+    "merge-queue hold` from the machine holding the authorization that "
+    "armed it"
+)
 
 #: What a holder does next, once the candidate is actually held.
 REARM_RECOVERY = (
@@ -77,7 +94,7 @@ class LandingHold:
 
     def describe(self) -> str:
         """One line naming the outcome, the readback, and what is next."""
-        observed = (self.after or self.before)
+        observed = self.after or self.before
         readback = observed.describe() if observed is not None else "unread"
         tail = f" {self.refusal}" if self.refusal else f" Next: {REARM_RECOVERY}."
         return (
@@ -113,13 +130,30 @@ def _note(label: str, result: QueueEntryResult) -> str:
 def _act(ctx: MergeContext, readiness: MergeQueueReadiness) -> tuple[str, ...]:
     """Run the mutations the readback says are still needed."""
     notes: list[str] = []
+    # The hold boundary has already proven a person's authorization is
+    # bound, so these name it rather than inheriting the installation
+    # default the landing observer relies on.
     if readiness.armed:
         notes.append(
-            _note("disarm merge-when-ready", leave_merge_queue(ctx, readiness.pr_number))
+            _note(
+                "disarm merge-when-ready",
+                leave_merge_queue(
+                    ctx,
+                    readiness.pr_number,
+                    required_authority=GITHUB_AUTHORITY_USER,
+                ),
+            )
         )
     if readiness.has_queue_entry:
         notes.append(
-            _note("dequeue entry", dequeue_pull_request(ctx, readiness.pr_number))
+            _note(
+                "dequeue entry",
+                dequeue_pull_request(
+                    ctx,
+                    readiness.pr_number,
+                    required_authority=GITHUB_AUTHORITY_USER,
+                ),
+            )
         )
     return tuple(notes)
 
@@ -154,9 +188,7 @@ def _landed(
     )
 
 
-def hold_landing(
-    ctx: MergeContext, *, pr_number: str, target: str
-) -> LandingHold:
+def hold_landing(ctx: MergeContext, *, pr_number: str, target: str) -> LandingHold:
     """Clear ``pr_number``'s arming and queue entry, and verify both cleared."""
     before = read_merge_queue_readiness(ctx, pr_number=pr_number, target=target)
     if before.merged:
@@ -171,13 +203,25 @@ def hold_landing(
             after=before,
         )
 
+    # Checked after the readback so a candidate that already landed or is
+    # already clear still reports that, and before any mutation so a
+    # process without a person's authorization changes nothing.
+    if bound_local_github_user_token_provider() is None:
+        return LandingHold(
+            outcome=HOLD_USER_AUTHORITY_REQUIRED,
+            held=False,
+            pr_number=pr_number,
+            target=target,
+            before=before,
+            after=before,
+            refusal=USER_AUTHORITY_RECOVERY,
+        )
+
     actions: list[str] = []
     observed = before
     for _pass in range(_MAX_PASSES):
         actions.extend(_act(ctx, observed))
-        observed = read_merge_queue_readiness(
-            ctx, pr_number=pr_number, target=target
-        )
+        observed = read_merge_queue_readiness(ctx, pr_number=pr_number, target=target)
         if observed.merged:
             return _landed(
                 observed,

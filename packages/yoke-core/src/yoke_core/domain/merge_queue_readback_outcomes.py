@@ -28,6 +28,9 @@ HOLD_ALREADY_LANDED = "already_landed"
 HOLD_LANDED_DURING_HOLD = "landed_during_hold"
 HOLD_NOT_HELD = "not_held"
 HOLD_UNVERIFIED = "unverified"
+#: The hold never reached GitHub: undoing an arming a person created needs
+#: that person's authorization, and this process has none bound.
+HOLD_USER_AUTHORITY_REQUIRED = "user_authority_required"
 
 
 __all__ = [
@@ -44,6 +47,7 @@ __all__ = [
     "HOLD_LANDED_DURING_HOLD",
     "HOLD_NOT_HELD",
     "HOLD_UNVERIFIED",
+    "HOLD_USER_AUTHORITY_REQUIRED",
     "IN_FLIGHT",
     "LANDED",
     "MERGE_WHEN_READY_ARMED",
