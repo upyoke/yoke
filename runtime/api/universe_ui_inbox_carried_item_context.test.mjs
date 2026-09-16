@@ -103,10 +103,10 @@ test("a run whose lineage is unknown still lists the members it declares", async
   const carried = byClass(main, "approval-carried")[0];
   assert.ok(carried, "declared membership is still a known fact");
   assert.match(
-    byClass(carried, "overview-run-batch-title")[0].textContent,
+    byClass(carried, "release-batch-title")[0].textContent,
     /Carries · 2 items/,
   );
-  const entries = byClass(carried, "overview-run-member");
+  const entries = byClass(carried, "release-member");
   // Membership names each item as `item_ref`; the entry reads it the same
   // way it reads a derived row's `ref`.
   assert.deepEqual(
