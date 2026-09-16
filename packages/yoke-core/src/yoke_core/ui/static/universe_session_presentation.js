@@ -50,12 +50,16 @@ export function deliveryStatusLabels(row) {
     key: "run",
     text: `${lead}: ${[delivery.stage, delivery.status].filter(Boolean).join(" · ")}`,
   });
-  // The item half is this member's own QA inside that run. Its workflow stage
-  // is a different fact, and the card's stage strip already draws it.
+  // The item half is this member's own scoped QA standing inside that run.
+  // Its workflow stage is a different fact, and the card's stage strip
+  // already draws it. The reason rides as the pill's title rather than its
+  // text: one sentence naming a stage and a requirement is what a reader
+  // needs once they have already noticed the stage is not clear.
   if (delivery.item_qa) {
     labels.push({
       key: "item",
-      text: `Item QA: ${String(delivery.item_qa).replaceAll("_", " ")}`,
+      text: `Item QA: ${delivery.item_qa}`,
+      detail: delivery.item_qa_reason || "",
     });
   }
   return labels;
@@ -66,9 +70,11 @@ export function appendSessionDeliveryStatus(documentNode, body, row) {
   if (!labels.length) return;
   const line = el(documentNode, "div", "session-delivery");
   for (const label of labels) {
-    line.appendChild(el(
+    const pill = el(
       documentNode, "span", `session-delivery-pill is-${label.key}`, label.text,
-    ));
+    );
+    if (label.detail) pill.setAttribute("title", label.detail);
+    line.appendChild(pill);
   }
   body.appendChild(line);
 }

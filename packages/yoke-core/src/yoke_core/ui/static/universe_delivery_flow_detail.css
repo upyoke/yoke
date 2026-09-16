@@ -92,7 +92,7 @@
 
 .universe-app-root .delivery-flow-pipeline {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 9px;
   margin: 0;
   padding: 0;
@@ -111,9 +111,60 @@
   background: linear-gradient(145deg, var(--yoke-surface), var(--yoke-bg));
 }
 
+.universe-app-root .delivery-flow-stage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .universe-app-root .delivery-flow-stage-index {
   color: var(--yoke-accent);
   font: 700 9px/1 var(--yoke-font-mono);
+}
+
+.universe-app-root .delivery-flow-stage-kind {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--yoke-surface-2);
+  color: var(--yoke-muted);
+  font: 650 9px/1.4 var(--yoke-font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.universe-app-root .delivery-flow-stage.is-qa .delivery-flow-stage-kind {
+  background: var(--yoke-accent-weak);
+  color: var(--yoke-accent);
+}
+
+/* Label above value: a stage card is narrow, and a side-by-side term list
+   wraps into an unreadable zig-zag at phone width. */
+.universe-app-root .delivery-flow-stage-policy {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.universe-app-root .delivery-flow-stage-policy-row {
+  display: grid;
+  gap: 1px;
+}
+
+.universe-app-root .delivery-flow-stage-policy dt {
+  color: var(--yoke-muted);
+  font-size: 9.5px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.universe-app-root .delivery-flow-stage-policy dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--yoke-ink-2);
+  font-size: 10.5px;
+  line-height: 1.45;
 }
 
 .universe-app-root .delivery-flow-stage-name {
@@ -148,7 +199,7 @@
   }
 
   .universe-app-root .delivery-flow-pipeline {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -156,9 +207,3 @@
   border-color: var(--yoke-accent-line);
 }
 
-.universe-app-root .delivery-flow-stage-approvers {
-  color: var(--yoke-ink-2);
-  font-size: 10.5px;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}

@@ -7,10 +7,10 @@ only way to tell was to open the run.
 
 Two rules shape what this answers:
 
-Statuses travel as they are stored. A run's ``status`` and a member's QA
-outcome are enum values other surfaces record, gate on and search by, so this
-projection carries them unchanged rather than translating them into a
-friendlier vocabulary a reader cannot match against anything else.
+Statuses travel as they are stored. A run's ``stage`` and ``status`` are
+values other surfaces record, gate on and search by, so this projection
+carries them unchanged rather than translating them into a friendlier
+vocabulary a reader cannot match against anything else.
 
 The newest run is not automatically the current delivery. A cancelled or
 failed release stays in the history of every item it carried, so reporting
@@ -19,10 +19,13 @@ one in flight. The live run is the newest non-terminal one; when there is
 none, the newest terminal run is reported as history and says so, so a
 reader can tell "riding this release" from "the last one it rode".
 
-The item half is the member's own QA state inside that run — not its
-workflow stage, which the card's stage strip already draws. Two members of
-one run held by one session keep their own QA states, because they are
-separate executions.
+The item half is the member's own scoped QA standing inside that run — not
+its workflow stage, which the card's stage strip already draws. It is read
+from the acceptance projection the release-to-done gate consults, so it is a
+current fact rather than a scan of everything the member ever recorded: a
+case that failed and was rerun to a pass is accepted, and one stage's
+failure never answers for another stage. Two members of one run held by one
+session keep their own standings, because the obligations are their own.
 """
 
 from __future__ import annotations
@@ -30,7 +33,6 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.qa_execution_proof import qa_run_outcome
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_item_stage_states import primary_item_ids
 
@@ -83,57 +85,35 @@ def _chosen_run(runs: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 def _member_qa(
     conn: Any, pairs: Sequence[tuple[str, int]]
-) -> dict[tuple[str, int], str]:
-    """The QA outcome each member recorded inside its own run.
+) -> dict[tuple[str, int], dict[str, Any]]:
+    """Each member's scoped QA standing in its run, read where it is settled.
 
-    A member with several cases in one run reports the one a reader must act
-    on first: a failure outranks a review, which outranks work still running,
-    which outranks a pass. Reporting only the newest row would hide a failed
-    case behind a later passing one.
+    The authority is the same acceptance projection the release-to-done gate
+    consults, so "accepted" means here exactly what it means there. That
+    matters because QA standing is a current fact with a history behind it: a
+    case that failed and was rerun to a pass is accepted, and one stage's
+    failure never answers for another stage's target. A reader that scanned
+    every execution a member ever recorded and kept the worst would pin a
+    member to a superseded failure it had already fixed, and would carry a
+    stage failure into a production gate that never ran it.
     """
-    if not pairs or not all(
-        _table_exists(conn, name) for name in ("qa_requirements", "qa_runs")
-    ):
-        return {}
-    marker = _marker(conn)
-    run_ids = sorted({run_id for run_id, _ in pairs})
-    item_ids = sorted({item_id for _, item_id in pairs})
-    run_places = ", ".join(marker for _ in run_ids)
-    item_places = ", ".join(marker for _ in item_ids)
-    rows = conn.execute(
-        "SELECT q.deployment_run_id, q.deployment_member_item_id, q.waived_at, "
-        "r.verdict, r.case_outcome, r.execution_status "
-        "FROM qa_requirements q "
-        "LEFT JOIN qa_runs r ON r.qa_requirement_id = q.id "
-        f"WHERE q.deployment_run_id IN ({run_places}) "
-        f"AND q.deployment_member_item_id IN ({item_places}) "
-        "ORDER BY q.id, r.id",
-        (*run_ids, *item_ids),
-    ).fetchall()
-    #: Lower sorts first: what a reader has to answer for comes before what
-    #: is already settled.
-    urgency = {
-        "failed": 0,
-        "needs_review": 1,
-        "unsure": 1,
-        "undetermined": 1,
-        "running": 2,
-        "waiting": 2,
-        "queued": 3,
-        "waived": 4,
-        "passed": 5,
-    }
-    worst: dict[tuple[str, int], str] = {}
-    for row in rows:
-        key = (
-            str(row["deployment_run_id"]),
-            int(row["deployment_member_item_id"]),
-        )
-        outcome = qa_run_outcome(row)
-        current = worst.get(key)
-        if current is None or urgency.get(outcome, 3) < urgency.get(current, 3):
-            worst[key] = outcome
-    return worst
+    from yoke_core.domain.deployment_qa_run_acceptance import item_release_qa
+
+    standing: dict[tuple[str, int], dict[str, Any]] = {}
+    for run_id, item_id in pairs:
+        try:
+            release_qa = item_release_qa(conn, run_id=run_id, item_id=item_id)
+        except (LookupError, ValueError):
+            # An unreadable gate is not a passing one; the card says nothing
+            # rather than implying this member's QA is clear.
+            continue
+        if not release_qa.scoped:
+            continue
+        standing[(run_id, item_id)] = {
+            "state": "accepted" if release_qa.accepted else "not accepted",
+            "reason": release_qa.blockers[0] if release_qa.blockers else None,
+        }
+    return standing
 
 
 def primary_item_delivery_by_session(
@@ -153,11 +133,14 @@ def primary_item_delivery_by_session(
         run = chosen.get(item_id)
         if run is None:
             continue
+        standing = qa.get((run["run_id"], item_id))
         projected[session_id] = {
             **run,
-            # Absent QA is absent, not a pass: a member with no recorded case
-            # in this run has nothing to report rather than nothing wrong.
-            "item_qa": qa.get((run["run_id"], item_id)),
+            # Absent is absent, not a pass: a release with no scoped QA
+            # answering for this member has nothing to report rather than
+            # nothing wrong.
+            "item_qa": standing["state"] if standing else None,
+            "item_qa_reason": standing["reason"] if standing else None,
         }
     return projected
 

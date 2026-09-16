@@ -106,7 +106,9 @@ def workflows_definition_get(args: List[str]) -> int:
                 file=stdout,
             )
         for flow in result.get("flows") or []:
-            stage_names = ",".join(flow.get("stage_names") or [])
+            stage_names = ",".join(
+                str(stage.get("name") or "") for stage in flow.get("stages") or []
+            )
             print(
                 "flow|"
                 + "|".join(
@@ -114,8 +116,7 @@ def workflows_definition_get(args: List[str]) -> int:
                     for value in (
                         flow.get("id"),
                         flow.get("name"),
-                        flow.get("target_environment")
-                        or flow.get("target_tier"),
+                        flow.get("target_environment") or flow.get("target_tier"),
                         flow.get("on_failure"),
                         stage_names,
                         flow.get("project"),

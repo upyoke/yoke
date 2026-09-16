@@ -1,5 +1,5 @@
 import { el, statePill } from "./universe_view_support.js";
-import { renderDeliveryFlowDetail } from "./universe_delivery_flow_approvals.js";
+import { renderDeliveryFlowDetail } from "./universe_delivery_flow_detail.js";
 
 function flowName(row) {
   return row.name || row.id || "Unnamed flow";
@@ -9,7 +9,7 @@ function flowStatus(row) {
 }
 
 function stagesFor(row) {
-  return Array.isArray(row.stage_names) ? row.stage_names : [];
+  return (Array.isArray(row.stages) ? row.stages : []).map((stage) => stage.name);
 }
 function searchableText(row) {
   return [

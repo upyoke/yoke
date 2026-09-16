@@ -1,9 +1,12 @@
-// Who may approve a flow's human-approval stages is read here and configured
-// by command: a flow definition is authored and versioned outside the
-// dashboard, and a page that could rewrite one would be a second authority
-// over an artifact a run freezes.
+// One flow definition, read-only: its metadata and the ordered pipeline a run
+// freezes when it references the flow. A definition is authored and versioned
+// by command, and a page that could rewrite one would be a second authority
+// over an artifact runs already depend on.
 import { el, statePill } from "./universe_view_support.js";
-import { ROLE_LABELS } from "./workflow_mechanics_data.js";
+import {
+  stageKindLabel,
+  stagePolicyList,
+} from "./universe_delivery_flow_stage_policy.js";
 
 function flowName(row) {
   return row.name || row.id || "Unnamed flow";
@@ -12,19 +15,7 @@ function flowStatus(row) {
   return String(row.status || "unknown").toLowerCase();
 }
 function stagesFor(row) {
-  return Array.isArray(row.stage_names) ? row.stage_names : [];
-}
-function approvalByName(row) {
-  const entries = Array.isArray(row.approval_stages) ? row.approval_stages : [];
-  return new Map(entries.map((stage) => [stage.name, stage]));
-}
-function whoMayApprove(approvals) {
-  const who = [
-    ...(approvals?.roles || []).map((role) => ROLE_LABELS[role] || role),
-    ...(approvals?.actors || []).map((actorId) => `actor ${actorId}`),
-  ];
-  if (!who.length) return "No one configured";
-  return who.join(approvals?.mode === "all" ? " and " : " or ");
+  return Array.isArray(row.stages) ? row.stages : [];
 }
 function metadataFact(documentNode, label, value) {
   const fact = el(documentNode, "div", "delivery-flow-fact");
@@ -35,7 +26,6 @@ function metadataFact(documentNode, label, value) {
 
 function renderPipeline(documentNode, row) {
   const stages = stagesFor(row);
-  const addressed = approvalByName(row);
   const region = el(documentNode, "section", "delivery-flow-pipeline-region");
   region.appendChild(el(documentNode, "h4", null, "Pipeline"));
   if (!stages.length) {
@@ -48,31 +38,34 @@ function renderPipeline(documentNode, row) {
     return region;
   }
   const pipeline = el(documentNode, "ol", "delivery-flow-pipeline");
-  pipeline.setAttribute("aria-label", `Flow stages: ${stages.join(", ")}`);
+  pipeline.setAttribute(
+    "aria-label",
+    `Flow stages: ${stages.map((stage) => stage.name).join(", ")}`,
+  );
   for (const [index, stage] of stages.entries()) {
     const item = el(documentNode, "li", "delivery-flow-stage");
-    const addressedStage = addressed.get(stage);
-    if (addressedStage) item.classList.add("is-approval");
-    item.appendChild(el(
+    if (stage.stage_kind === "qa") item.classList.add("is-qa");
+    if (stage.approvals || stage.verdict) item.classList.add("is-approval");
+    const head = el(documentNode, "div", "delivery-flow-stage-head");
+    head.appendChild(el(
       documentNode,
       "span",
       "delivery-flow-stage-index",
       String(index + 1).padStart(2, "0"),
     ));
+    const kind = stageKindLabel(stage);
+    if (kind) {
+      head.appendChild(el(documentNode, "span", "delivery-flow-stage-kind", kind));
+    }
+    item.appendChild(head);
     item.appendChild(el(
       documentNode,
       "span",
       "delivery-flow-stage-name",
-      stage,
+      stage.name,
     ));
-    if (addressedStage) {
-      item.appendChild(el(
-        documentNode,
-        "span",
-        "delivery-flow-stage-approvers",
-        whoMayApprove(addressedStage.approvals),
-      ));
-    }
+    const policy = stagePolicyList(documentNode, stage);
+    if (policy) item.appendChild(policy);
     pipeline.appendChild(item);
   }
   region.appendChild(pipeline);

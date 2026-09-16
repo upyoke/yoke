@@ -24,17 +24,17 @@ const FLOWS = [
   {
     id: "alpha-release", name: "Alpha Release", project: "alpha",
     status: "active", target_tier: "persistent", target_environment: "prod",
-    on_failure: "halt", stage_names: ["build", "verify"],
+    on_failure: "halt", stages: [{ name: "build" }, { name: "verify" }],
   },
   {
     id: "alpha-legacy", name: "Alpha Legacy", project: "alpha",
     status: "disabled", target_tier: "persistent", target_environment: "stage",
-    on_failure: "continue", stage_names: ["archive"],
+    on_failure: "continue", stages: [{ name: "archive" }],
   },
   {
     id: "beta-promote", name: "Beta Promote", project: "beta",
     status: "active", target_tier: "ephemeral", target_environment: null,
-    on_failure: "halt", stage_names: ["package", "promote", "observe"],
+    on_failure: "halt", stages: [{ name: "package" }, { name: "promote" }, { name: "observe" }],
   },
 ];
 

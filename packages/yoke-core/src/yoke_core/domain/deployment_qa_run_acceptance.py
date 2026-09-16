@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -89,7 +90,9 @@ def _pinned_qa_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
     ).fetchone()
     if row is None:
         raise LookupError(f"deployment run {run_id!r} not found")
-    schema_version = row["definition_schema_version"] if hasattr(row, "keys") else row[0]
+    schema_version = (
+        row["definition_schema_version"] if hasattr(row, "keys") else row[0]
+    )
     raw_stages = row["stages"] if hasattr(row, "keys") else row[1]
     if int(schema_version or 1) != RELEASE_POLICY_SCHEMA_VERSION:
         return []
@@ -108,12 +111,46 @@ def _pinned_qa_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
     ]
 
 
-def item_qa_acceptance_blockers(
-    conn: Any, *, run_id: str, item_id: int
-) -> list[str]:
+@dataclass(frozen=True)
+class ItemReleaseQa:
+    """One item's scoped QA standing inside one run.
+
+    ``scoped`` is the fact a bare blocker list cannot carry: a legacy
+    definition owes nothing because it has no scoped QA vocabulary at all,
+    which is a different answer from every obligation being accepted, and a
+    reader that showed both as "clear" would report QA on a release that
+    never ran any.
+    """
+
+    scoped: bool
+    blockers: tuple[str, ...]
+
+    @property
+    def accepted(self) -> bool:
+        return self.scoped and not self.blockers
+
+
+def item_release_qa(conn: Any, *, run_id: str, item_id: int) -> ItemReleaseQa:
+    """This item's scoped QA standing in the run, as it already stands."""
+    stages = _pinned_qa_stages(conn, str(run_id))
+    return ItemReleaseQa(
+        scoped=bool(stages),
+        blockers=tuple(_stage_blockers(conn, str(run_id), int(item_id), stages)),
+    )
+
+
+def item_qa_acceptance_blockers(conn: Any, *, run_id: str, item_id: int) -> list[str]:
     """Every unsatisfied scoped QA verdict this item still owes in the run."""
+    return list(
+        item_release_qa(conn, run_id=str(run_id), item_id=int(item_id)).blockers
+    )
+
+
+def _stage_blockers(
+    conn: Any, run_id: str, item_id: int, stages: list[dict[str, Any]]
+) -> list[str]:
     blockers: list[str] = []
-    for stage in _pinned_qa_stages(conn, str(run_id)):
+    for stage in stages:
         stage_name = str(stage.get("name") or "")
         item_scoped = stage.get("scope") == "item"
         member_item_id = int(item_id) if item_scoped else None
@@ -140,4 +177,4 @@ def item_qa_acceptance_blockers(
     return blockers
 
 
-__all__ = ["item_qa_acceptance_blockers"]
+__all__ = ["ItemReleaseQa", "item_qa_acceptance_blockers", "item_release_qa"]

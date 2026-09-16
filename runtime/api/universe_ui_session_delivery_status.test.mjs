@@ -1,6 +1,8 @@
 // A session card answers two questions with two short statuses: where the
-// release carrying its item stands, and what that item's own QA inside that
-// release found. Both print the values the control plane stores.
+// release carrying its item stands, and whether that item's own scoped QA
+// inside that release is accepted. The run half prints the values the
+// control plane stores; the QA half prints the acceptance projection's own
+// answer, with the blocking reason carried as the pill's title.
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -22,14 +24,22 @@ test("the release and the member's own QA are two statuses, each short", () => {
   const body = render({
     primary_item_delivery: {
       run_id: "run-20260726-001", status: "executing", stage: "item-qa",
-      live: true, item_qa: "needs_review",
+      live: true, item_qa: "not accepted",
+      item_qa_reason: "stage 'item-qa': stage acceptance requirement #12 "
+        + "awaits authorized human review",
     },
     primary_item_stages: [{ name: "awaiting review", state: "active" }],
   });
 
   assert.deepEqual(
     byClass(body, "session-delivery-pill").map((node) => node.textContent),
-    ["Run: item-qa · executing", "Item QA: needs review"],
+    ["Run: item-qa · executing", "Item QA: not accepted"],
+  );
+  // Which stage, and what it is waiting on — too long for a pill, and
+  // exactly what a reader wants once the pill has caught their eye.
+  assert.match(
+    byClass(body, "session-delivery-pill")[1].getAttribute("title"),
+    /stage 'item-qa'.*awaits authorized human review/,
   );
 });
 
@@ -37,17 +47,31 @@ test("stored statuses print as stored, not as a friendlier vocabulary", () => {
   // `succeeded` and `failed` are the enum values every other surface gates on
   // and searches by; "done" and "stopped" would be different words for facts
   // a reader cannot then match anywhere else.
-  for (const [status, qa] of [["succeeded", "passed"], ["failed", "failed"]]) {
+  for (const status of ["succeeded", "failed"]) {
     const labels = deliveryStatusLabels({
       primary_item_delivery: {
-        run_id: "run-1", status, stage: "complete", live: false, item_qa: qa,
+        run_id: "run-1", status, stage: "complete", live: false,
+        item_qa: "accepted",
       },
     });
     assert.deepEqual(
       labels.map((label) => label.text),
-      [`Last run: complete · ${status}`, `Item QA: ${qa}`],
+      [`Last run: complete · ${status}`, "Item QA: accepted"],
     );
   }
+});
+
+test("an accepted member carries no blocking reason to explain", () => {
+  const body = render({
+    primary_item_delivery: {
+      run_id: "run-4", status: "executing", stage: "production", live: true,
+      item_qa: "accepted", item_qa_reason: null,
+    },
+  });
+  assert.equal(
+    byClass(body, "session-delivery-pill")[1].getAttribute("title"),
+    null,
+  );
 });
 
 test("a finished release is labelled as the last one, not the current one", () => {
@@ -66,9 +90,10 @@ test("a finished release is labelled as the last one, not the current one", () =
   assert.equal(history[0].text, "Last run: stage-deploy · cancelled");
 });
 
-test("a member with no recorded QA in its run reports only the run", () => {
-  // Absent QA is absent. Rendering nothing there is the honest answer; a
-  // placeholder would read as a state the member never recorded.
+test("a release with no scoped QA for this member reports only the run", () => {
+  // Absent is absent. A release whose flow declares no QA stage answering for
+  // this member has nothing to report; a placeholder would read as checks
+  // that release never carried.
   const labels = deliveryStatusLabels({
     primary_item_delivery: {
       run_id: "run-3", status: "executing", stage: "stage-deploy", live: true,

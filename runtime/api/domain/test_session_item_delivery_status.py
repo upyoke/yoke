@@ -1,9 +1,9 @@
 """The release carrying a session's held item, and that member's own QA.
 
-Two rules are pinned here because both were wrong in an earlier shape: the
-newest run is not automatically the current delivery, and a member's QA state
-is its own — two members of one run, held by one session, keep separate
-answers.
+Pinned here because it was wrong in an earlier shape: the newest run is not
+automatically the current delivery. The member's QA half is read from the
+acceptance projection the release gate consults, so its own regressions live
+beside that authority in ``test_session_item_release_qa``.
 """
 
 from __future__ import annotations
@@ -68,19 +68,6 @@ def _connection(*, with_runs: bool = True) -> sqlite3.Connection:
                 run_id TEXT,
                 item_id INTEGER
             );
-            CREATE TABLE qa_requirements (
-                id INTEGER PRIMARY KEY,
-                deployment_run_id TEXT,
-                deployment_member_item_id INTEGER,
-                waived_at TEXT
-            );
-            CREATE TABLE qa_runs (
-                id INTEGER PRIMARY KEY,
-                qa_requirement_id INTEGER,
-                verdict TEXT,
-                case_outcome TEXT,
-                execution_status TEXT
-            );
             """
         )
     conn.execute("INSERT INTO projects VALUES (1,'yoke','Yoke','YOK')")
@@ -130,26 +117,6 @@ def _run(
         conn.execute("INSERT INTO deployment_run_items VALUES (?,?)", (run_id, item_id))
 
 
-def _case(
-    conn: sqlite3.Connection,
-    requirement_id: int,
-    run_id: str,
-    item_id: int,
-    *,
-    verdict: str | None = None,
-    case_outcome: str | None = None,
-    execution_status: str | None = None,
-) -> None:
-    conn.execute(
-        "INSERT INTO qa_requirements VALUES (?,?,?,NULL)",
-        (requirement_id, run_id, item_id),
-    )
-    conn.execute(
-        "INSERT INTO qa_runs VALUES (?,?,?,?,?)",
-        (requirement_id, requirement_id, verdict, case_outcome, execution_status),
-    )
-
-
 def test_the_live_release_wins_over_a_newer_finished_one() -> None:
     # A cancelled release stays in an item's history. Reporting the newest row
     # would present an abandoned candidate as the one in flight.
@@ -183,38 +150,17 @@ def test_statuses_are_carried_as_stored() -> None:
     assert delivery["stage"] == "production"
 
 
-def test_two_members_of_one_run_keep_their_own_qa_states() -> None:
-    conn = _connection()
-    _run(conn, "run-001", "executing", "item-qa", "2026-09-01T10:00:00Z", items=(7, 8))
-    _case(conn, 1, "run-001", 7, verdict="fail")
-    _case(conn, 2, "run-001", 8, verdict="pass")
-
-    projected = primary_item_delivery_by_session(
-        conn, [{"session_id": "s1"}, {"session_id": "s2"}]
-    )
-    assert projected["s1"]["item_qa"] == "failed"
-    assert projected["s2"]["item_qa"] == "passed"
-    # Both are riding the same release, which is the point of holding them apart.
-    assert projected["s1"]["run_id"] == projected["s2"]["run_id"] == "run-001"
-
-
-def test_a_member_with_several_cases_reports_the_one_needing_an_answer() -> None:
-    # A later passing case must not hide an earlier failure.
-    conn = _connection()
-    _run(conn, "run-001", "executing", "item-qa", "2026-09-01T10:00:00Z")
-    _case(conn, 1, "run-001", 7, verdict="fail")
-    _case(conn, 2, "run-001", 7, verdict="pass")
-
-    delivery = primary_item_delivery_by_session(conn, [{"session_id": "s1"}])["s1"]
-    assert delivery["item_qa"] == "failed"
-
-
-def test_a_member_with_no_recorded_case_reports_no_qa_state() -> None:
+def test_a_universe_with_no_scoped_qa_reports_no_item_qa() -> None:
+    # Scoped QA standing is read from the acceptance projection, which has
+    # nothing to answer for a run whose flow declares no QA stage. Absent is
+    # absent: reporting "accepted" here would claim a release passed checks
+    # it never carried.
     conn = _connection()
     _run(conn, "run-001", "executing", "stage-deploy", "2026-09-01T10:00:00Z")
 
     delivery = primary_item_delivery_by_session(conn, [{"session_id": "s1"}])["s1"]
     assert delivery["item_qa"] is None
+    assert delivery["item_qa_reason"] is None
 
 
 def test_an_item_no_release_carries_reports_nothing() -> None:
