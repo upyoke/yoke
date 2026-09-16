@@ -9,10 +9,6 @@ import pytest
 from yoke_core.domain.installer_campaign_execution_target import (
     installer_campaign_cases_for_target,
 )
-from yoke_core.domain.installer_campaign_plan_common import (
-    CHOOSE_PRODUCTION_KEYS,
-    CHOOSE_STAGE_KEYS,
-)
 from yoke_core.domain.machine_qa_method_contracts import (
     validate_machine_method_config,
 )
@@ -35,16 +31,15 @@ def _target(environment: str) -> dict:
 
 
 @pytest.mark.parametrize(
-    "environment, expected_channel, expected_destination_keys",
+    "environment, expected_channel",
     [
-        ("stage", "latest", CHOOSE_STAGE_KEYS),
-        ("prod", "stable", CHOOSE_PRODUCTION_KEYS),
+        ("stage", "latest"),
+        ("prod", "stable"),
     ],
 )
 def test_hosted_environment_projects_its_release_channel(
     environment,
     expected_channel,
-    expected_destination_keys,
 ) -> None:
     target = _target(environment)
     endpoints = target["endpoints"]
@@ -55,25 +50,9 @@ def test_hosted_environment_projects_its_release_channel(
     assert endpoints["release_channel"] == expected_channel
     assert f"YOKE_CHANNEL={expected_channel}" in rendered
     assert f'"channel": "{expected_channel}"' in rendered
-    destination_actions = [
-        action
-        for case in cases
-        for config in case.get("method_config", {})
-        .get(
-            "baseline_configs",
-            {},
-        )
-        .values()
-        for action in config.get("actions", [])
-        if action.get("step") == "destination-picker"
-    ]
-    assert destination_actions
-    assert {action["target_environment"] for action in destination_actions} == {
-        target["environment"]["name"]
-    }
-    assert {tuple(action["keys"]) for action in destination_actions} == {
-        expected_destination_keys
-    }
+    assert "destination-picker" not in rendered
+    assert str(endpoints["app_url"]) in rendered
+    assert "YOKE_ONBOARD_DESTINATION=" in rendered
 
 
 @pytest.mark.parametrize("environment", ["stage", "prod"])

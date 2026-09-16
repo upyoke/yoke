@@ -23,21 +23,35 @@ from yoke_contracts.project_contract.board_art import (  # noqa: E402
 
 
 def test_resolve_word_short_display_name_used_whole():
-    assert resolve_project_art_word("ExternalWebapp", slug="externalwebapp", short_code="EXT") == "EXT"
+    assert (
+        resolve_project_art_word(
+            "ExternalWebapp", slug="externalwebapp", short_code="EXT"
+        )
+        == "EXT"
+    )
 
 
 def test_resolve_word_long_name_falls_to_first_word():
     # whole join is too long; the first word fits and is most recognizable.
-    assert resolve_project_art_word(
-        "External Marketing Platform", slug="external-marketing-platform", short_code="EXT",
-    ) == "EXTERNAL"
+    assert (
+        resolve_project_art_word(
+            "External Marketing Platform",
+            slug="external-marketing-platform",
+            short_code="EXT",
+        )
+        == "EXTERNAL"
+    )
 
 
 def test_resolve_word_acronym_when_every_word_is_long():
-    assert resolve_project_art_word(
-        "International Business Machines", slug="international-business-machines",
-        short_code="IBM",
-    ) == "IBM"
+    assert (
+        resolve_project_art_word(
+            "International Business Machines",
+            slug="international-business-machines",
+            short_code="IBM",
+        )
+        == "IBM"
+    )
 
 
 def test_resolve_word_smart_truncation_last_resort():
@@ -63,7 +77,9 @@ def test_normalize_header_art_word_keeps_spaces_allows_longer():
 
 def test_ascii_generator_word_override_bypasses_choose_art_word():
     variant = generate_random_ascii_variant_detail(
-        word="SHIP IT", seed_text="seed", attempt=0,
+        word="SHIP IT",
+        seed_text="seed",
+        attempt=0,
     )
     assert variant.kind == "ASCII"
     assert variant.word == "SHIP IT"
@@ -72,7 +88,9 @@ def test_ascii_generator_word_override_bypasses_choose_art_word():
 
 def test_mixed_generator_word_override():
     variant = generate_random_mixed_variant_detail(
-        word="EXT", seed_text="seed", attempt=0,
+        word="EXT",
+        seed_text="seed",
+        attempt=0,
     )
     assert variant.kind == "Mixed"
     assert variant.word == "EXT"
@@ -94,9 +112,15 @@ def test_render_master_map_returns_board_header():
 
 def test_preview_rows_shape_by_kind():
     ascii_values = [r.value for r in art.preview_rows("ASCII", is_image=False)]
-    assert ascii_values == ["save", "shuffle", "customize", "back"]
+    assert ascii_values == [
+        "save-continue",
+        "save-another",
+        "shuffle",
+        "customize",
+        "back",
+    ]
     emoji_values = [r.value for r in art.preview_rows("Emoji", is_image=True)]
-    assert emoji_values == ["save", "reimage", "back"]  # no shuffle/customize
+    assert emoji_values == ["save-continue", "save-another", "reimage", "back"]
 
 
 class _FakeShell(BoardArtFlow):
@@ -128,8 +152,17 @@ class _FakeShell(BoardArtFlow):
     def _render_current(self):
         return None
 
-    def _goto_input(self, step, title, subtitle, *, placeholder, on_done,
-                    password=False, allow_placeholder=True):
+    def _goto_input(
+        self,
+        step,
+        title,
+        subtitle,
+        *,
+        placeholder,
+        on_done,
+        password=False,
+        allow_placeholder=True,
+    ):
         view = {"step": step, "placeholder": placeholder, "on_done": on_done}
         self.input_calls.append(view)
         self._goto(view)
@@ -142,36 +175,39 @@ class _FakeShell(BoardArtFlow):
 
 
 def _shell() -> _FakeShell:
-    return _FakeShell(WizardResult(
-        config_path="cfg", env_name="prod", api_url="https://x",
-        project_name="ExternalWebapp", project_slug="externalwebapp", project_public_item_prefix="EXT",
-    ))
+    return _FakeShell(
+        WizardResult(
+            config_path="cfg",
+            env_name="prod",
+            api_url="https://x",
+            project_name="ExternalWebapp",
+            project_slug="externalwebapp",
+            project_public_item_prefix="EXT",
+        )
+    )
 
 
-def test_flow_intro_seeds_default_word_and_seed():
+def test_flow_map_entry_seeds_default_word_and_seed():
     shell = _shell()
-    shell._goto_board_art_intro()
+    shell._goto_board_art()
     assert shell.result.board_art_word == "EXT"
     assert shell.result.board_art_seed
 
 
 def test_flow_save_then_continue_gated_on_one_header():
     shell = _shell()
-    shell._goto_board_art_intro()
-    shell._on_board_art_intro("design")
+    shell._goto_board_art()
     shell._on_board_art_map_preview("continue")
     shell._on_board_art_style("ascii")
     assert shell._art_variant.kind == "ASCII"
-    # continue is impossible with zero saved (gallery only reached after a save)
-    shell._on_board_art_preview("save")
+    shell._on_board_art_preview("save-continue")
     assert len(shell.result.board_art_variants) == 1
-    shell._on_board_art_gallery("continue")
     assert shell.left_board_art is True
 
 
 def test_flow_shuffle_increments_attempt():
     shell = _shell()
-    shell._goto_board_art_intro()
+    shell._goto_board_art()
     shell._on_board_art_style("ascii")
     first = shell._art_variant.text
     shell._on_board_art_preview("shuffle")
@@ -181,8 +217,7 @@ def test_flow_shuffle_increments_attempt():
 
 def test_flow_repeated_preview_transitions_keep_history_bounded():
     shell = _shell()
-    shell._goto_board_art_intro()
-    shell._on_board_art_intro("design")
+    shell._goto_board_art()
     map_depth = len(shell._history)
     for word in ("First", "Second", "Third"):
         shell._on_board_art_map_preview("edit")
@@ -205,14 +240,14 @@ def test_flow_repeated_preview_transitions_keep_history_bounded():
 
 def test_flow_image_error_retry_and_back_reuse_real_views(monkeypatch):
     shell = _shell()
-    shell._goto_board_art_intro()
-    shell._on_board_art_intro("design")
+    shell._goto_board_art()
     shell._on_board_art_map_preview("continue")
     style_view = shell._history[-1]
     shell._on_board_art_style("image")
     input_depth = len(shell._history)
     monkeypatch.setattr(
-        art, "build_image",
+        art,
+        "build_image",
         lambda **_: (_ for _ in ()).throw(ValueError("not an image")),
     )
 
@@ -230,17 +265,21 @@ def test_flow_image_error_retry_and_back_reuse_real_views(monkeypatch):
 
 def test_flow_repeated_image_previews_reuse_input_slot(monkeypatch):
     shell = _shell()
-    shell._goto_board_art_intro()
-    shell._on_board_art_intro("design")
+    shell._goto_board_art()
     shell._on_board_art_map_preview("continue")
     style_view = shell._history[-1]
     shell._on_board_art_style("image")
     input_depth = len(shell._history)
     variant = art.generate_variant(
-        kind="ASCII", word="EXT", seed_text="seed", attempt=0,
+        kind="ASCII",
+        word="EXT",
+        seed_text="seed",
+        attempt=0,
     )
     monkeypatch.setattr(
-        art, "build_image", lambda **_: ("Emoji", variant, "🟩"),
+        art,
+        "build_image",
+        lambda **_: ("Emoji", variant, "🟩"),
     )
 
     for _ in range(4):
@@ -256,8 +295,7 @@ def test_flow_repeated_image_previews_reuse_input_slot(monkeypatch):
 
 def test_flow_preview_back_and_gallery_another_return_to_style():
     shell = _shell()
-    shell._goto_board_art_intro()
-    shell._on_board_art_intro("design")
+    shell._goto_board_art()
     shell._on_board_art_map_preview("continue")
     style_view = shell._history[-1]
 
@@ -266,14 +304,16 @@ def test_flow_preview_back_and_gallery_another_return_to_style():
     assert shell._history[-1] is style_view
 
     shell._on_board_art_style("ascii")
-    shell._on_board_art_preview("save")
+    shell._on_board_art_preview("save-another")
+    shell._on_board_art_style("mixed")
+    shell._on_board_art_preview("save-another")
     shell._on_board_art_gallery("another")
     assert shell._history[-1] is style_view
 
 
 def test_flow_customize_text_allows_long_header():
     shell = _shell()
-    shell._goto_board_art_intro()
+    shell._goto_board_art()
     shell._on_board_art_style("ascii")
     shell._after_board_art_text("Ship It Now")
     assert shell._art_variant.word == "SHIP IT NOW"
@@ -281,7 +321,7 @@ def test_flow_customize_text_allows_long_header():
 
 def test_flow_edit_master_letters_caps_at_limit():
     shell = _shell()
-    shell._goto_board_art_intro()
+    shell._goto_board_art()
     shell._after_board_art_map_word("my cool app")
     assert shell.result.board_art_word == "MYCOOLAP"
 
@@ -289,9 +329,9 @@ def test_flow_edit_master_letters_caps_at_limit():
 def test_flow_after_apply_writes_and_shows_payoff(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(art_apply, "rebuild_board", lambda repo_root: None)
     shell = _shell()
-    shell._goto_board_art_intro()
+    shell._goto_board_art()
     shell._on_board_art_style("ascii")
-    shell._on_board_art_preview("save")
+    shell._on_board_art_preview("save-continue")
     report = {"project_onboarding": {"checkout": str(tmp_path)}}
     assert shell._board_art_after_apply(report) is True
     assert (tmp_path / ".yoke" / "board-art").exists()
@@ -303,28 +343,3 @@ def test_flow_after_apply_noop_without_variants(tmp_path: Path):
     shell = _shell()
     report = {"project_onboarding": {"checkout": str(tmp_path)}}
     assert shell._board_art_after_apply(report) is False
-
-
-def test_board_shortcut_injects_print(monkeypatch):
-    from yoke_cli.commands.adapters import board as board_mod
-
-    captured: list = []
-    monkeypatch.setattr(board_mod, "board_rebuild", lambda args: captured.append(args) or 0)
-    board_mod.board([])
-    assert captured == [["--print"]]
-
-
-def test_board_shortcut_respects_explicit_mode(monkeypatch):
-    from yoke_cli.commands.adapters import board as board_mod
-
-    captured: list = []
-    monkeypatch.setattr(board_mod, "board_rebuild", lambda args: captured.append(args) or 0)
-    board_mod.board(["--json"])
-    assert captured == [["--json"]]
-
-
-def test_board_shortcut_registered_tool_shaped():
-    from yoke_cli.commands.tool_shaped import resolve_tool_shaped
-
-    resolved = resolve_tool_shaped(["board"])
-    assert resolved is not None

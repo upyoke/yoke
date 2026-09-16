@@ -1,21 +1,17 @@
 """Smart detection of an existing local Yoke source checkout.
 
-The "Develop Yoke itself" flow prefers an existing checkout over cloning. It
+The "Edit Yoke source" flow prefers an existing checkout over cloning. It
 looks in two places: the source path of the running ``yoke`` install (an
 editable/source install points its package at the repo), and a small set of
 common checkout directories. A candidate counts only when it is a Yoke source
-checkout whose ``origin`` remote points at Yoke's GitHub repo, so a same-named
-unrelated repo is never adopted.
+checkout by its source layout. The remote may be any contributor fork.
 """
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import yoke_cli
-from yoke_cli.config import project_git_prerequisite
-from yoke_cli.config.yoke_dev_access import YOKE_GITHUB_REPO
 from yoke_cli.project_install import source_dev
 
 # Common places a contributor keeps their Yoke checkout, in preference order.
@@ -23,40 +19,8 @@ from yoke_cli.project_install import source_dev
 _COMMON_CHECKOUT_DIRS = ("~/code/yoke", "~/yoke", "~/dev/yoke")
 
 
-def _origin_url(root: Path) -> str:
-    project_git_prerequisite.require_git_available()
-    result = subprocess.run(
-        ["git", "remote", "get-url", "origin"],
-        cwd=root,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    return result.stdout.strip() if result.returncode == 0 else ""
-
-
-def origin_is_yoke(root: Path) -> bool:
-    """True when ``root``'s git ``origin`` points at Yoke's GitHub repo.
-
-    Matches both HTTPS (``…/upyoke/yoke(.git)``) and SSH
-    (``git@github.com:upyoke/yoke(.git)``) origin forms.
-    """
-    url = _origin_url(root)
-    if not url:
-        return False
-    normalized = url.removesuffix(".git")
-    return normalized.endswith("/" + YOKE_GITHUB_REPO) or normalized.endswith(
-        ":" + YOKE_GITHUB_REPO
-    )
-
-
 def _is_adoptable_checkout(root: Path) -> bool:
-    return (
-        root.is_dir()
-        and source_dev.is_yoke_source_checkout(root)
-        and origin_is_yoke(root)
-    )
+    return root.is_dir() and source_dev.is_yoke_source_checkout(root)
 
 
 def _install_source_root() -> Path | None:
@@ -99,11 +63,15 @@ def detect_yoke_checkouts() -> list[Path]:
     return found
 
 
-def preflight_dev_checkout(checkout: str) -> str | None:
-    """Return a recoverable error for an invalid source-dev checkout target."""
+def preflight_dev_checkout(checkout: str, *, cloning: bool = False) -> str | None:
+    """Return recovery for an invalid checkout or clone target."""
     path = Path(checkout).expanduser()
     if not path.exists():
-        return None
+        return (
+            None
+            if cloning
+            else f"{path} does not exist. Choose Clone Yoke source to create it."
+        )
     if not path.is_dir():
         return (
             f"{path} exists but is not a folder. Choose an empty folder to "
@@ -113,8 +81,12 @@ def preflight_dev_checkout(checkout: str) -> str | None:
         non_empty = any(path.iterdir())
     except OSError as exc:
         return f"Couldn't inspect {path}: {exc}"
-    if not non_empty or source_dev.is_yoke_source_checkout(path):
+    if source_dev.is_yoke_source_checkout(path):
         return None
+    if not non_empty and cloning:
+        return None
+    if not non_empty:
+        return "That folder is empty. Choose Clone Yoke source and provide its repository URL."
     return (
         f"{path} already has files, but it is not a Yoke source checkout. "
         "Choose an empty folder to clone Yoke into, or point at an existing "
@@ -124,6 +96,5 @@ def preflight_dev_checkout(checkout: str) -> str | None:
 
 __all__ = [
     "detect_yoke_checkouts",
-    "origin_is_yoke",
     "preflight_dev_checkout",
 ]

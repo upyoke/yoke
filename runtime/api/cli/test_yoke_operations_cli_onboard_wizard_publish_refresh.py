@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from yoke_contracts import github_app_installation_permissions
 
-from runtime.api.cli.onboard_wizard_test_helpers import submit_public_item_prefix
 from runtime.api.cli.test_yoke_operations_cli_onboard_wizard_publish_capability import (
     _body_text,
     _github_config,
@@ -54,7 +54,12 @@ def test_manual_create_refresh_selects_exact_repo_and_continues_in_run(
         },
     ]
     github["installations"][0].update(
-        {"account_login": "acme", "permissions": {"contents": "write"}}
+        {
+            "account_login": "acme",
+            "permissions": dict(
+                github_app_installation_permissions.REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS
+            ),
+        }
     )
     monkeypatch.setattr(machine_config, "github_config", lambda _path: github)
     monkeypatch.setattr(publish_flow.webbrowser, "open", opened.append)
@@ -76,6 +81,8 @@ def test_manual_create_refresh_selects_exact_repo_and_continues_in_run(
     app.result.project_checkout = "/home/code/widget"
     app.result.project_slug = "widget"
     app.result.project_name = "Widget"
+    app.result.project_default_branch = "main"
+    app.result.project_public_item_prefix = "WIDG"
     app.result.destination = onboard_destinations.DESTINATION_LOCAL
     app.result.api_url = ""
 
@@ -91,12 +98,14 @@ def test_manual_create_refresh_selects_exact_repo_and_continues_in_run(
             assert "acme/manual-target" in body
             assert "other/widget" in body
             await pilot.press("enter")  # pick acme/manual-target
-            await pilot.press("enter")  # default branch
-            await submit_public_item_prefix(pilot)
+            assert "How should Yoke manage this project on GitHub?" in _body_text(app)
             await pilot.press("enter")  # GitHub binding
-            await pilot.press("enter")  # exact-repository access
+            await pilot.pause()
+            assert "Here's your progress map." in _body_text(app)
             await complete_board_art(pilot)
+            assert "Connect your hosting provider?" in _body_text(app)
             await skip_hosting(pilot)
+            assert "Review what Yoke will save." in _body_text(app)
             await pilot.press("enter")
             await pilot.pause()
 

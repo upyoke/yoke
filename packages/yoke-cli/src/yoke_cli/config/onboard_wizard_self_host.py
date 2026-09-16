@@ -98,13 +98,11 @@ def goto_self_host_server(shell: _Shell) -> None:
 
 def _preview_lines(setup: server.SelfHostSetup) -> list[str]:
     return [
-        f"Bundle directory: {setup.directory}",
-        f"Local URL: {setup.url}",
-        f"Port: {setup.port} (loopback only)",
-        "Requires Docker and the Docker Compose plugin; Yoke will not install them.",
-        "Start writes the bundle and Compose files, then runs `docker compose up -d`.",
-        f"After verification, the owner-only {setup.env_name} connection becomes active.",
-        "You own networking: VPN/tailnet, LAN, or port-forwarding and TLS as needed.",
+        f"Docker Compose · local-only URL {setup.url}",
+        f"Files: {setup.directory}",
+        "Start writes the bundle and runs `docker compose up -d`.",
+        "Requires Docker + Compose; Yoke does not install them.",
+        "You own reachable networking and TLS for team access.",
     ]
 
 
@@ -262,13 +260,9 @@ def _admin_token_file_lines(setup: server.SelfHostSetup) -> list[str]:
 def _complete_lines(setup: server.SelfHostSetup) -> list[str]:
     lines = [
         f"Local URL: {setup.url}",
-        f"Port: {setup.port}",
-        f"Bundle directory: {setup.directory}",
-        *_admin_token_file_lines(setup),
         f"Connection: {setup.env_name} is active on this machine.",
-        "Share only a server URL your teammates can actually reach.",
-        "Mint a separate token for each teammate; never share this admin token.",
-        "Networking stays operator-owned: VPN/tailnet, LAN, or port-forwarding and TLS.",
+        f"Admin token path: {first_boot_token.token_drop_path(setup.directory)}",
+        "Team access is not configured: provide a reachable URL + TLS and mint one token per teammate.",
     ]
     if machine_may_sleep():
         lines.append(SLEEP_WARNING)
@@ -302,6 +296,8 @@ def _select_connection(shell: _Shell, setup: server.SelfHostSetup) -> None:
     shell.result.token_file = setup.token_file
     shell.result.token_source_kind = "token_file"
     shell.result.yoke_token_verification = setup.connection
+    shell.result.same_host_self_host = True
+    shell.result.self_host_directory = str(setup.directory)
     shell._stored_yoke_token_available = True
 
 

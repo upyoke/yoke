@@ -12,10 +12,6 @@ from yoke_contracts.api_urls import (
 from yoke_core.domain.installer_campaign_current_text_cases import (
     CURRENT_TEXT_INSTALLER_CAMPAIGN_CASES,
 )
-from yoke_core.domain.installer_campaign_plan_common import (
-    CHOOSE_PRODUCTION_KEYS,
-    CHOOSE_STAGE_KEYS,
-)
 from yoke_core.domain.qa_execution_environment_target import require_case_target
 
 
@@ -71,48 +67,6 @@ def _project(value: Any, target: Mapping[str, Any]) -> Any:
     return value
 
 
-def _target_destination_keys(target: Mapping[str, Any]) -> list[str]:
-    environment = str(target["environment"]["name"]).lower()
-    if environment == "stage":
-        selected = CHOOSE_STAGE_KEYS
-    elif environment == "prod":
-        selected = CHOOSE_PRODUCTION_KEYS
-    else:
-        raise ValueError(
-            f"installer campaign does not support environment {environment!r}"
-        )
-    return list(selected)
-
-
-def _bind_destination_actions(
-    cases: list[dict[str, Any]],
-    target: Mapping[str, Any],
-) -> None:
-    keys = _target_destination_keys(target)
-    environment = str(target["environment"]["name"])
-    for case in cases:
-        raw_config = case.get("method_config")
-        if not isinstance(raw_config, dict):
-            continue
-        variants = raw_config.get("baseline_configs")
-        configs = (
-            list(variants.values()) if isinstance(variants, dict) else [raw_config]
-        )
-        for config in configs:
-            if not isinstance(config, dict):
-                continue
-            actions = config.get("actions")
-            if not isinstance(actions, list):
-                continue
-            for action in actions:
-                if (
-                    isinstance(action, dict)
-                    and action.get("step") == "destination-picker"
-                ):
-                    action["keys"] = list(keys)
-                    action["target_environment"] = environment
-
-
 def installer_campaign_cases_for_target(
     target: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
@@ -127,7 +81,6 @@ def installer_campaign_cases_for_target(
         str(target["endpoints"]["release_channel"]),
     )
     assert isinstance(cases, list)
-    _bind_destination_actions(cases, target)
     for case in cases:
         require_case_target(case, target)
     return cases

@@ -23,7 +23,7 @@ _PROJECT_MODE_LABELS = {
     onboard_project.PROJECT_MODE_CLONE_REMOTE: "a clone of a GitHub repo",
     onboard_project.PROJECT_MODE_IMPORT_REMOTE: "an imported GitHub repo",
     onboard_project.PROJECT_MODE_LOCAL_CHECKOUT: "an existing folder",
-    onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN: "the Yoke source checkout",
+    onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE: "the Yoke source checkout",
 }
 _CLONE_OUTCOME_LABELS = {
     CLONE_OUTCOME_MAKE_IT_MINE: " and re-home it onto a new repo we'll create",
@@ -88,7 +88,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Register this machine in the machine registry"
     if action == "project-source-choice":
         mode, _, outcome = target.partition(":")
-        if mode == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN:
+        if mode == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE:
             # The core DB records the Yoke PROJECT, not this checkout's path —
             # the path is registered in ~/.yoke/config.json (see the separate
             # project-checkout-register line).
@@ -146,7 +146,7 @@ def friendly_line(action: str, target: str, project_name: str = "") -> str:
         return "Install Git commit guards (pre-commit, pre-merge-commit, post-commit)"
     if action == "project-write-board-art":
         return "Write your board art, rebuild BOARD.md, and commit the art"
-    if action == "project-source-dev-admin":
+    if action == "activate-yoke-source":
         return f"Set up the Yoke source checkout at {target}"
     if action == "project-github-auth-choice":
         if target == "existing-project":

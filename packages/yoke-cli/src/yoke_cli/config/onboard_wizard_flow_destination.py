@@ -38,11 +38,7 @@ from yoke_cli.config.onboard_wizard_local_universe_summary import (
     local_universe_summary_lines,
     local_universe_summary_rows,
 )
-from yoke_cli.config.onboard_wizard_self_host import (
-    NO_SERVER_GUIDANCE,
-    goto_self_host_server,
-)
-from yoke_cli.config.onboard_wizard_palette import BRAND
+from yoke_cli.config.onboard_wizard_self_host import goto_self_host_server
 from yoke_cli.config.onboard_wizard_widgets import (
     STEP_CONNECT,
     STEP_CONNECT_LABEL,
@@ -196,6 +192,7 @@ class DestinationFlow:
             self._account_step_label = STEP_CONNECT_LABEL
             goto_self_host_server(self)
             return
+        self.result.same_host_self_host = False
         hosted_env = HOSTED_ROW_ENVS.get(choice)
         if choice == DESTINATION_HOSTED and self._api_url_preset:
             # ``--connect`` resolves both hosted platform URLs to the shared
@@ -221,12 +218,15 @@ class DestinationFlow:
             self.result.env_name = DEFAULT_SIGN_IN_ENV
         if choice == DESTINATION_SERVER:
             if self.result.api_url and not is_hosted_url(self.result.api_url):
-                self._goto_token_source()
+                if self.result.token or self.result.token_file:
+                    self._goto_token_source()
+                else:
+                    self._goto_server_connection_form()
                 return
             # A hosted URL left behind by an earlier hosted visit is not a
             # team server; collect the real one.
             self.result.api_url = ""
-            self._goto_server_url_input()
+            self._goto_server_connection_form()
             return
         if is_hosted_url(self.result.api_url) and self._stored_yoke_token_available:
             # A previously browser-approved connection may reuse its owner-only
@@ -283,7 +283,9 @@ class DestinationFlow:
         self._return_to_destination_picker()
 
     def _return_to_destination_picker(
-        self: _Shell, *, drop_current: bool = True,
+        self: _Shell,
+        *,
+        drop_current: bool = True,
     ) -> None:
         """Land on the picker this run showed, or open one when none was shown.
 
@@ -304,16 +306,6 @@ class DestinationFlow:
         self._goto_destination_picker()
 
     # ── server destination: URL, then token ─────────────────
-    def _goto_server_url_input(self: _Shell) -> None:
-        self._goto_input(
-            STEP_CONNECT,
-            f"Enter your {BRAND} server URL.",
-            "Where your team's Yoke lives — e.g. https://api.mycompany.com. "
-            + NO_SERVER_GUIDANCE,
-            placeholder="https://api.mycompany.com",
-            allow_placeholder=False,
-            on_done=self._after_api_url,
-        )
 
 
 __all__ = [

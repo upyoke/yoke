@@ -7,10 +7,8 @@ from runtime.api.domain.installer_campaign_test_support import (
     terminal_configs,
 )
 from yoke_cli.config import onboard_machine_github
-from yoke_cli.config.onboard_destination_rows import (
-    DESTINATION_ROWS,
-    HOSTED_STAGE_ROW,
-)
+from yoke_cli.config.onboard_destination_rows import DESTINATION_ROWS
+from yoke_cli.config.onboard_destinations import DESTINATION_HOSTED
 from yoke_cli.config.onboard_project_modes import PROJECT_MODE_MACHINE_ONLY
 from yoke_cli.config.onboard_wizard_steps import MACHINE_GITHUB_ROWS, MODE_ROWS
 from yoke_contracts.api_urls import (
@@ -64,14 +62,9 @@ def test_terminal_cases_use_current_stage_and_browser_approval_surfaces() -> Non
     )
     for config in cold_configs.values():
         actions = {action["step"]: action for action in config["actions"]}
-        assert actions["destination-picker-frame"]["ready_text"] == [
-            "Where should this Yoke universe live?",
-        ]
-        assert actions["destination-picker-frame"]["ready_timeout_seconds"] == 180
-        assert tuple(actions["destination-picker"]["keys"]) == selection_keys(
-            DESTINATION_ROWS,
-            HOSTED_STAGE_ROW,
-        )
+        assert "destination-picker" not in actions
+        assert "YOKE_ONBOARD_DESTINATION=" in cold["entry_surface"]
+        assert HOSTED_STAGE_PLATFORM_URL in cold["entry_surface"]
         assert actions["browser-approval"].get("keys", []) == []
         assert actions["review"].get("keys", []) == []
 
@@ -81,7 +74,7 @@ def test_terminal_cases_use_current_stage_and_browser_approval_surfaces() -> Non
         "Sign in and choose an organization."
         in (hosted["method_config"]["expected_text"])
     )
-    assert hosted["required_completion"] == "hosted-connected"
+    assert hosted["required_completion"] == "machine-github"
 
     path = cases["path-repair"]
     assert path["method_config"]["execution_mode"] == "ssh-command"
@@ -130,8 +123,6 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
     approval_to_review = [
         ("browser-approval", ()),
         ("operator-browser-approval", ("Enter",)),
-        ("hosted-connected", ()),
-        ("continue-hosted-connected", ("Enter",)),
         ("machine-github", ()),
         ("machine-github-backlog", backlog_keys),
         ("project-mode", ()),
@@ -152,10 +143,9 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         actions = {action["step"]: action for action in config["actions"]}
         approval = actions["operator-browser-approval"]
         assert approval["operator_gate"] == "machine_browser_approval"
-        assert approval["completion_text"] == ["Yoke token connected."]
+        assert approval["completion_text"] == ["Connect GitHub?"]
         assert approval["gate_timeout_seconds"] == 600
         assert "wait_seconds" not in approval
-        assert actions["hosted-connected"]["ready_text"] == ["Yoke token connected."]
         assert actions["machine-github-backlog"]["ready_text"] == ["Connect GitHub?"]
         assert actions["project-mode"]["ready_timeout_seconds"] == 45
         assert actions["project-mode-machine-only"]["ready_timeout_seconds"] == 45
@@ -178,7 +168,7 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         ("continue-path", ("Enter",)),
         ("browser-approval", ()),
         ("operator-browser-approval", ("Enter",)),
-        ("hosted-connected", ()),
+        ("machine-github", ()),
     ]
     hosted_actions = {action["step"]: action for action in hosted_config["actions"]}
     assert (
@@ -196,7 +186,7 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
     }
     assert "wait_seconds" not in handoff_actions["apply"]
     assert handoff_actions["apply-complete"]["ready_timeout_seconds"] == 180
-    assert hosted_actions["hosted-connected"]["ready_text"] == ["Yoke token connected."]
+    assert hosted_actions["machine-github"]["ready_text"] == ["Connect GitHub?"]
 
     connect_wait_config = cases["connect-wait"]["method_config"]
     assert action_signature(connect_wait_config) == [
@@ -217,8 +207,6 @@ def test_hosted_actions_pin_send_before_capture_transitions() -> None:
         ("continue-path", ("Enter",)),
         ("browser-approval", ()),
         ("operator-browser-approval", ("Enter",)),
-        ("hosted-connected", ()),
-        ("continue-hosted-connected", ("Enter",)),
         ("machine-github", ()),
         ("machine-github-backlog", backlog_keys),
         ("review-frame", ()),
@@ -298,7 +286,8 @@ def test_inspection_and_machine_state_cases_are_semantic() -> None:
 
 
 def test_product_rows_and_action_boundaries_select_the_intended_targets() -> None:
-    assert DESTINATION_ROWS[4].value == HOSTED_STAGE_ROW
+    assert [row.value for row in DESTINATION_ROWS].count(DESTINATION_HOSTED) == 1
+    assert all("stage" not in row.label.casefold() for row in DESTINATION_ROWS)
     assert MACHINE_GITHUB_ROWS[1].value == onboard_machine_github.CHOICE_SKIP
     assert MODE_ROWS[4].value == PROJECT_MODE_MACHINE_ONLY
 

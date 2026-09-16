@@ -5,8 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from runtime.api.cli.project_onboarding_test_helpers import ProjectOnboardApi, run_git
 from yoke_cli import main as yoke_operations_cli
+
+pytestmark = pytest.mark.usefixtures("stub_onboard_session_relay")
 
 
 def test_onboard_yes_writes_machine_config_and_project_handoff(

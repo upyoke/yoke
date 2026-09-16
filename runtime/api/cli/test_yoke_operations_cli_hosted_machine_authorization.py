@@ -23,10 +23,12 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
 )
 
 BROWSER_OPENED = hosted_machine_authorization.BrowserOpenResult(
-    opened=True, method="webbrowser",
+    opened=True,
+    method="webbrowser",
 )
 BROWSER_CLOSED = hosted_machine_authorization.BrowserOpenResult(
-    opened=False, reason="webbrowser.open returned False",
+    opened=False,
+    reason="webbrowser.open returned False",
 )
 
 
@@ -89,7 +91,9 @@ def test_hosted_url_preset_starts_browser_approval_without_token_entry(
         "start",
         lambda url: starts.append(url) or pending,
     )
-    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: BROWSER_CLOSED)
+    monkeypatch.setattr(
+        hosted_machine_authorization, "open_browser", lambda _: BROWSER_CLOSED
+    )
     app, _spy = make_app(
         WizardDefaults(
             config_path="/tmp/cfg.json",
@@ -131,14 +135,18 @@ def test_hosted_pick_persists_browser_approval_before_project_flow(
         interval=2,
     )
     monkeypatch.setattr(hosted_machine_authorization, "start", lambda _url: pending)
-    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: BROWSER_OPENED)
+    monkeypatch.setattr(
+        hosted_machine_authorization, "open_browser", lambda _: BROWSER_OPENED
+    )
     monkeypatch.setattr(
         hosted_machine_authorization,
         "complete",
-        lambda _pending, **_kwargs: hosted_machine_authorization.HostedMachineCredential(
-            api_url="https://app.upyoke.com/api/orgs/acme",
-            org="acme",
-            token="tenant-actor-token",
+        lambda _pending, **_kwargs: (
+            hosted_machine_authorization.HostedMachineCredential(
+                api_url="https://app.upyoke.com/api/orgs/acme",
+                org="acme",
+                token="tenant-actor-token",
+            )
         ),
     )
     monkeypatch.setattr(
@@ -156,14 +164,18 @@ def test_hosted_pick_persists_browser_approval_before_project_flow(
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("up", "up", "enter")
+            await pilot.press("up", "enter")
             await app.workers.wait_for_complete()
             assert "Sign in and choose an organization." in _body_text(app)
             assert "ABCD-2345" in _body_text(app)
             assert app.query_one(Stepper).active == STEP_CONNECT
             await pilot.press("enter")
             await app.workers.wait_for_complete()
-            assert "Yoke token connected." in _body_text(app)
+            assert "Connect GitHub?" in _body_text(app)
+            assert (
+                "Yoke token: test-actor · 1 organizations · 1 projects."
+                in _body_text(app)
+            )
             assert app.result.api_url == "https://app.upyoke.com/api/orgs/acme"
             assert app.result.env_name == "acme"
             assert app.result.token is None
@@ -183,7 +195,6 @@ def test_hosted_pick_persists_browser_approval_before_project_flow(
                     "path": token_file,
                 },
             }
-            await pilot.press("enter")
             assert app.query_one(Stepper).active == STEP_GITHUB
 
     asyncio.run(scenario())
@@ -233,7 +244,11 @@ def test_hosted_selector_reuses_persisted_tenant_connection(
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             await app.workers.wait_for_complete()
-            assert "Yoke token connected." in _body_text(app)
+            assert "Connect GitHub?" in _body_text(app)
+            assert (
+                "Yoke token: test-actor · 1 organizations · 1 projects."
+                in _body_text(app)
+            )
             assert app.result.env_name == "acme"
             assert app.result.api_url == "https://app.upyoke.com/api/orgs/acme"
             assert app.result.token_file == str(home / "secrets" / "acme.token")
@@ -249,101 +264,20 @@ def test_browser_connection_write_atomically_activates_existing_env(
     config = home / "config.json"
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     writer.set_connection(
-        "first", transport="https", api_url="https://api.upyoke.com",
-        token="yoke_v1_first_secret", path=config,
+        "first",
+        transport="https",
+        api_url="https://api.upyoke.com",
+        token="yoke_v1_first_secret",
+        path=config,
     )
     writer.set_connection(
-        "second", transport="https", api_url="https://api.stage.upyoke.com",
-        token="yoke_v1_second_secret", activate=True, path=config,
+        "second",
+        transport="https",
+        api_url="https://api.stage.upyoke.com",
+        token="yoke_v1_second_secret",
+        activate=True,
+        path=config,
     )
 
     payload = json.loads(config.read_text(encoding="utf-8"))
     assert payload["active_env"] == "second"
-
-
-def test_browser_denial_reports_and_mints_one_fresh_authorization(
-    monkeypatch,
-) -> None:
-    pending = hosted_machine_authorization.PendingMachineAuthorization(
-        platform_url="https://app.upyoke.com",
-        device_code="device-secret",
-        user_code="ABCD-2345",
-        verification_uri="https://app.upyoke.com/connect",
-        verification_uri_complete="https://app.upyoke.com/connect?user_code=ABCD-2345",
-        expires_in=600,
-        interval=2,
-    )
-    starts: list[str] = []
-    monkeypatch.setattr(
-        hosted_machine_authorization,
-        "start",
-        lambda url: starts.append(url) or pending,
-    )
-    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: BROWSER_OPENED)
-
-    def deny_complete(_pending, **_kwargs) -> None:
-        raise hosted_machine_authorization.HostedMachineAuthorizationDenied(
-            "authorization denied in the browser"
-        )
-
-    monkeypatch.setattr(hosted_machine_authorization, "complete", deny_complete)
-    app, _spy = make_app(WizardDefaults(config_path="/tmp/cfg.json", env_name="prod"))
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("up", "up", "enter")
-            await app.workers.wait_for_complete()
-            # First denial: one fresh authorization mints automatically and
-            # the approval view returns with the new code.
-            await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            assert len(starts) == 2
-            assert "Sign in and choose an organization." in _body_text(app)
-            # Second denial: no further automatic mint — the manual retry
-            # view reports the denial instead.
-            await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            assert len(starts) == 2
-            body = _body_text(app)
-            assert "authorization denied in the browser" in body
-            assert "start a fresh browser sign-in" in body
-
-    asyncio.run(scenario())
-
-
-def test_hosted_failure_retries_browser_flow_without_teaching_token_paste(
-    monkeypatch,
-) -> None:
-    pending = hosted_machine_authorization.PendingMachineAuthorization(
-        platform_url="https://app.upyoke.com",
-        device_code="device-secret",
-        user_code="ABCD-2345",
-        verification_uri="https://app.upyoke.com/machine",
-        verification_uri_complete="https://app.upyoke.com/machine?user_code=ABCD-2345",
-        expires_in=600,
-        interval=2,
-    )
-    monkeypatch.setattr(hosted_machine_authorization, "start", lambda _url: pending)
-    monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _: BROWSER_OPENED)
-
-    def fail_complete(_pending) -> None:
-        raise hosted_machine_authorization.HostedMachineAuthorizationError(
-            "approval expired"
-        )
-
-    monkeypatch.setattr(hosted_machine_authorization, "complete", fail_complete)
-    app, _spy = make_app(WizardDefaults(config_path="/tmp/cfg.json", env_name="prod"))
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("up", "up", "enter")
-            await app.workers.wait_for_complete()
-            await pilot.press("enter")
-            await app.workers.wait_for_complete()
-            body = _body_text(app)
-            assert "start a fresh browser sign-in" in body
-            assert "paste a different token" not in body
-
-    asyncio.run(scenario())

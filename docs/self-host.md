@@ -273,6 +273,21 @@ its own defaults degrades with an `application_role_default_not_persisted`
 line on stderr rather than refusing to serve. Confirm
 the running source identity through the `build` field on `GET /v1/health`.
 
+### Run a server from an edited Yoke checkout
+
+Choosing **Edit Yoke source** in the wizard always activates that checkout for
+the local CLI and harness. When the destination is guided self-hosting on the
+same machine, the wizard also uses the existing local-core
+`--from-checkout PATH --build` path so the private server image contains that
+checkout's code. Connecting the edited client to an already-running team
+server or upyoke.com does not replace its image; the remote server keeps its
+deployed build.
+
+The ordinary published-image bundle remains pinned to `YOKE_SERVER_IMAGE`.
+Building a custom image from the repository Dockerfile and selecting that
+private/local image is still supported, but editing a checkout does not
+silently repoint an unrelated remote bundle.
+
 ## Take it back off
 
 `yoke self-host teardown` removes the install. It always stops and removes the

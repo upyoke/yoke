@@ -72,12 +72,19 @@ def test_clone_existing_yoke_project_offers_binding_upgrade(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)
             )
             body = _body_text(app)
-            assert title == "Existing Yoke project found: externalwebapp."
+            assert title == "Existing project found: ExternalWebapp."
+            await pilot.press("down")  # Review details
+            await pilot.press("enter")
+            await pilot.pause()
+            body = _body_text(app)
             assert (
                 "The Yoke core database already has a project for this GitHub repo."
                 in body
             )
-            assert "Yoke core database: matched GitHub repo example-org/externalwebapp." in body
+            assert (
+                "Yoke core database: matched GitHub repo example-org/externalwebapp."
+                in body
+            )
             assert "Local machine: no existing Yoke project metadata was used." in body
             # Announced before a folder has been named, so there is no clone
             # target to report yet — that is the point of moving it earlier.

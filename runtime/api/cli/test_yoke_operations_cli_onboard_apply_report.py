@@ -1,11 +1,10 @@
-from __future__ import annotations
-
 import json
 from pathlib import Path
 
 import pytest
 
 from yoke_cli.commands.adapters import onboard as onboard_adapter
+from yoke_cli.config import onboard_apply_connection
 from yoke_cli.config import onboard_apply_report
 from yoke_cli.config import onboard_wizard
 
@@ -43,10 +42,12 @@ def test_apply_report_writes_statuses_and_redacts_tokens(
 
     writer.step_started("create-or-validate-dir", "/tmp/home")
     writer.step_done("create-or-validate-dir", "/tmp/home")
-    writer.fail(RuntimeError(
-        "Authorization: Bearer ghs_secret token=supersecret "
-        "https://octo:ghs_urlsecret@github.com/acme/widget.git"
-    ))
+    writer.fail(
+        RuntimeError(
+            "Authorization: Bearer ghs_secret token=supersecret "
+            "https://octo:ghs_urlsecret@github.com/acme/widget.git"
+        )
+    )
 
     payload = json.loads(Path(writer.summary()["path"]).read_text(encoding="utf-8"))
     assert payload["schema"] == onboard_apply_report.SCHEMA_NAME
@@ -123,20 +124,24 @@ def test_adapter_converts_apply_failure_to_typed_report(
             )
         return _preview()
 
-    monkeypatch.setattr(onboard_adapter.onboard_config, "build_report", fake_build_report)
+    monkeypatch.setattr(
+        onboard_adapter.onboard_config, "build_report", fake_build_report
+    )
 
     with pytest.raises(onboard_wizard.WizardApplyError) as raised:
-        onboard_adapter._apply_with_durable_report({
-            "config_path": "/tmp/home/config.json",
-            "env_name": "stage",
-            "api_url": "https://api.stage.upyoke.com",
-            "token": "yoke-secret",
-            "token_source_kind": "prompt",
-            "mode": "quick",
-            "apply": True,
-            "check_identity": True,
-            "project_mode": "machine-only",
-        })
+        onboard_adapter._apply_with_durable_report(
+            {
+                "config_path": "/tmp/home/config.json",
+                "env_name": "stage",
+                "api_url": "https://api.stage.upyoke.com",
+                "token": "yoke-secret",
+                "token_source_kind": "prompt",
+                "mode": "quick",
+                "apply": True,
+                "check_identity": True,
+                "project_mode": "machine-only",
+            }
+        )
 
     assert raised.value.report_path
     payload = json.loads(Path(raised.value.report_path).read_text(encoding="utf-8"))
@@ -157,7 +162,9 @@ def test_noninteractive_failure_prints_report_summary(
             raise onboard_adapter.onboard_config.OnboardError("repo already exists")
         return _preview()
 
-    monkeypatch.setattr(onboard_adapter.onboard_config, "build_report", fake_build_report)
+    monkeypatch.setattr(
+        onboard_adapter.onboard_config, "build_report", fake_build_report
+    )
 
     report = onboard_adapter._build_report(
         config_path="/tmp/home/config.json",
@@ -203,25 +210,28 @@ def test_noninteractive_machine_config_write_failure_prints_report_summary(
     config = tmp_path / "home" / "config.json"
 
     def fail_set_connection(*_args, **_kwargs):
-        raise onboard_adapter.MachineConfigWriteError(
-            "couldn't write machine config"
-        )
+        raise onboard_adapter.MachineConfigWriteError("couldn't write machine config")
 
     monkeypatch.setattr(
-        onboard_adapter.onboard_config.writer,
+        onboard_apply_connection.writer,
         "set_connection",
         fail_set_connection,
     )
 
-    rc = onboard_adapter.onboard([
-        "--config", str(config),
-        "--env", "stage",
-        "--api-url", "https://yoke.example.test",
-        "yoke-secret",
-        "--yes",
-        "--json",
-        "--skip-identity-check",
-    ])
+    rc = onboard_adapter.onboard(
+        [
+            "--config",
+            str(config),
+            "--env",
+            "stage",
+            "--api-url",
+            "https://yoke.example.test",
+            "yoke-secret",
+            "--yes",
+            "--json",
+            "--skip-identity-check",
+        ]
+    )
 
     assert rc == 1
     captured = capsys.readouterr()
@@ -260,25 +270,27 @@ def test_apply_failure_outside_onboard_error_finalizes_report(
 
     def fake_build_report(**kwargs):
         if kwargs.get("apply"):
-            raise _PublishLikeError(
-                "a repo named o/r already exists and has content"
-            )
+            raise _PublishLikeError("a repo named o/r already exists and has content")
         return _preview()
 
-    monkeypatch.setattr(onboard_adapter.onboard_config, "build_report", fake_build_report)
+    monkeypatch.setattr(
+        onboard_adapter.onboard_config, "build_report", fake_build_report
+    )
 
     with pytest.raises(onboard_wizard.WizardApplyError) as raised:
-        onboard_adapter._apply_with_durable_report({
-            "config_path": "/tmp/home/config.json",
-            "env_name": "stage",
-            "api_url": "https://api.stage.upyoke.com",
-            "token": "yoke-secret",
-            "token_source_kind": "prompt",
-            "mode": "quick",
-            "apply": True,
-            "check_identity": True,
-            "project_mode": "machine-only",
-        })
+        onboard_adapter._apply_with_durable_report(
+            {
+                "config_path": "/tmp/home/config.json",
+                "env_name": "stage",
+                "api_url": "https://api.stage.upyoke.com",
+                "token": "yoke-secret",
+                "token_source_kind": "prompt",
+                "mode": "quick",
+                "apply": True,
+                "check_identity": True,
+                "project_mode": "machine-only",
+            }
+        )
 
     assert raised.value.report_path
     assert raised.value.resume_command
@@ -312,15 +324,16 @@ def test_report_resume_hints_reference_real_run_id(
 def test_fail_leaves_no_step_orphaned_at_running(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """build_report can mark a coarse pair running together before a blocking
-    call; on failure the last running step is the failure point and the earlier
-    one is done — never left stuck at running."""
+    """A failed coarse pair leaves no step stuck at running."""
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(tmp_path / "home"))
     preview = {
-        "plan": {"project": {"name": "widget"}, "steps": [
-            {"action": "project-source-choice", "target": "create-repo:"},
-            {"action": "project-create-checkout", "target": "/home/u/code/widget"},
-        ]},
+        "plan": {
+            "project": {"name": "widget"},
+            "steps": [
+                {"action": "project-source-choice", "target": "create-repo:"},
+                {"action": "project-create-checkout", "target": "/home/u/code/widget"},
+            ],
+        },
     }
     writer = onboard_apply_report.ApplyReportWriter.start(preview, {})
     writer.step_started("project-source-choice", "create-repo:")
@@ -331,7 +344,6 @@ def test_fail_leaves_no_step_orphaned_at_running(
     statuses = {s["step_id"]: s["status"] for s in payload["steps"]}
     assert "running" not in statuses.values()
     assert payload["final_status"] == "failed"
-    # The later (deeper) step is the attributed failure; the earlier handed off.
     assert statuses["00-project-source-choice"] == "done"
     assert statuses["01-project-create-checkout"] == "failed"
     assert payload["failed_step"] == "01-project-create-checkout"

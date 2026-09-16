@@ -21,6 +21,7 @@ from yoke_cli.config.onboard_wizard_checkout_inspection_screen import (
 )
 from yoke_cli.config.onboard_wizard_existing_project_detected import (
     CHOICE_CONNECT,
+    CHOICE_DETAILS,
     CHOICE_NEW_PROJECT,
     DETECTED_ROWS,
     ExistingProjectDetectedFlow,
@@ -57,6 +58,7 @@ def test_an_existing_project_is_announced_and_connected_by_default() -> None:
     assert _first_row_value(DETECTED_ROWS) == CHOICE_CONNECT
     assert {row.value for row in DETECTED_ROWS} == {
         CHOICE_CONNECT,
+        CHOICE_DETAILS,
         CHOICE_NEW_PROJECT,
     }
 
@@ -87,7 +89,7 @@ class _DetectionShell(ExistingProjectDetectedFlow):
     def _after_existing_project_ready(self) -> None:
         self.continued += 1
 
-    def _goto_slug(self) -> None:
+    def _goto_project_details(self) -> None:
         self.slug_prompts += 1
 
     def _goto_clone_folder(self) -> None:
@@ -169,7 +171,9 @@ def test_a_mapped_checkout_is_announced_and_reused_by_default(
     shell = _StoredProjectShell(
         [
             machine_config.ConfiguredProject(
-                checkout=tmp_path, project_id=4, entry={},
+                checkout=tmp_path,
+                project_id=4,
+                entry={},
             )
         ]
     )

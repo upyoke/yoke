@@ -33,7 +33,6 @@ Yoke found a connection in machine config. Reuse it, or choose another home.
   A team server
   Set this machine up as a self-hosting server
   upyoke.com
-  stage.upyoke.com
 ```
 
 **User:** This machine (local already). Universe summary:

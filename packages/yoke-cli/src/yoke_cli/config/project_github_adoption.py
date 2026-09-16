@@ -42,7 +42,7 @@ PROJECT_SURFACE_BY_OPERATION = {
     "project.import": "projects.create",
     "project.clone-existing": "projects.get",
     "onboard.project": "project.upsert",
-    "onboard.source-dev-admin": "project.upsert",
+    "onboard.edit-yoke-source": "project.upsert",
 }
 
 

@@ -217,12 +217,12 @@ def _branch(
     if command in _PROJECT_INSTALL:
         return "project-install-https-bundle"
     if command == "yoke dev db-admin setup":
-        return "named-https-control-plane-read-plus-source-dev-admin-local"
+        return "named-https-control-plane-read-plus-edit-yoke-source-local"
     by_disposition = {
         PRODUCT_CLIENT: "product-client-local",
         HTTPS_RELAY: "https-relay",
         HOOK_LOCAL_SUBSET: "hook-local-or-https-relay",
-        SOURCE_DEV_ADMIN: "source-dev-admin-local",
+        SOURCE_DEV_ADMIN: "edit-yoke-source-local",
         OPERATOR_DEBUG_PERMANENT: "operator-debug-command",
         LEGACY_DELETE: "legacy-command-shaped",
     }

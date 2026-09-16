@@ -33,7 +33,6 @@ from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     make_app,
     skip_hosting,
     stub_path_doctor,
-    submit_public_item_prefix,
     type_text,
 )
 
@@ -128,6 +127,7 @@ def test_cancel_at_finish_does_not_apply() -> None:
             for _ in range(4):  # project: move to machine-only
                 await pilot.press("down")
             await pilot.press("enter")  # project: machine-only
+            await pilot.press("down")  # finish: move to Show all changes
             await pilot.press("down")  # finish: move to Cancel
             await pilot.press("enter")
             await pilot.pause()
@@ -152,12 +152,12 @@ def test_local_checkout_collects_project_fields() -> None:
             )  # project: existing folder (default, local-checkout)
             await type_text(pilot, "/home/code/widget")  # checkout path
             await pilot.press("enter")
-            await pilot.press("enter")  # slug placeholder -> widget
-            await pilot.press("enter")  # name placeholder
+            await pilot.press("enter")  # project ID -> widget
+            await pilot.press("enter")  # display name -> widget
+            await pilot.press("enter")  # default branch -> main
+            await pilot.press("enter")  # item prefix -> WIDGET
             await pilot.press("down")  # publish prompt: move to No
             await pilot.press("enter")  # publish: No — keep local
-            await pilot.press("enter")  # default branch main
-            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
@@ -172,7 +172,7 @@ def test_local_checkout_collects_project_fields() -> None:
     assert applied["project_slug"] == "widget"
     assert applied["project_name"] == "widget"
     assert applied["project_default_branch"] == "main"
-    assert applied["project_public_item_prefix"] == "WIDG"
+    assert applied["project_public_item_prefix"] == "WIDGET"
 
 
 def test_keystrokes_during_transition_reach_the_new_input() -> None:
@@ -241,16 +241,16 @@ def test_fast_type_enter_type_across_inputs_collects_both_values() -> None:
             # First input: checkout path, typed fast then Enter.
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
-            # Second input (slug) immediately: replace the suggested value with
+            # First form field (project ID): replace the suggested value with
             # a custom one back to back, no pause.
             await pilot.press("ctrl+u")
             await type_text(pilot, "wdgt")
-            await pilot.press("enter")  # slug submit
-            await pilot.press("enter")  # name placeholder
+            await pilot.press("enter")  # project ID
+            await pilot.press("enter")  # display name
+            await pilot.press("enter")  # default branch
+            await pilot.press("enter")  # item prefix
             await pilot.press("down")  # publish prompt: move to No
             await pilot.press("enter")  # publish: No — keep local
-            await pilot.press("enter")  # default branch main
-            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply

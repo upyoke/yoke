@@ -59,6 +59,7 @@ class _FormField:
     placeholder: str
     password: bool = False
     validate: Callable[[str], str | None] | None = None
+    initial_value: str = ""
 
     @property
     def input_id(self) -> str:

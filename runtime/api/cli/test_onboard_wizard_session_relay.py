@@ -76,8 +76,9 @@ def test_setup_complete_repeats_all_relay_facts() -> None:
         )
     )
 
+    assert "✓ Session relay ready" in rendered
     for line in onboard_session_relay.setup_complete_lines(local_destination=False):
-        assert line in rendered
+        assert line not in rendered
 
 
 def test_setup_complete_names_the_local_relay_build_source() -> None:
@@ -89,10 +90,9 @@ def test_setup_complete_names_the_local_relay_build_source() -> None:
         )
     )
 
-    assert "installed Yoke" in rendered
-    assert "no" in rendered and "API token" in rendered
-    # The served-release wording belongs to the https destinations only.
-    assert "release served by its selected environment" not in rendered
+    assert "✓ Session relay ready" in rendered
+    assert "installed Yoke" not in rendered
+    assert "API token" not in rendered
 
 
 def test_setup_complete_says_a_satisfied_relay_was_left_running() -> None:
@@ -110,8 +110,9 @@ def test_setup_complete_says_a_satisfied_relay_was_left_running() -> None:
         )
     )
 
-    assert "already installed and current" in rendered
-    assert "left it running" in rendered
+    assert "✓ Session relay ready" in rendered
+    assert "already installed and current" not in rendered
+    assert "left it running" not in rendered
 
 
 def test_setup_complete_stays_silent_when_no_relay_was_installed() -> None:

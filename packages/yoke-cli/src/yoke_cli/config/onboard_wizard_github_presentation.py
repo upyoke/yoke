@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Mapping, Protocol
 
+from yoke_cli.config.onboard_wizard_widgets import SelectionRow
+
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View
 
@@ -102,6 +104,55 @@ def success_details(report: Mapping[str, Any]) -> list[str]:
         details.append("Required GitHub App permissions: ready.")
     details.append("Saved on this machine. Use `yoke github disconnect` to remove it.")
     return details
+
+
+def success_summary_lines(report: Mapping[str, Any]) -> list[str]:
+    """Compact verified facts; the exhaustive access inventory stays optional."""
+    identity = report.get("identity")
+    app = report.get("app")
+    access = report.get("access")
+    permissions = report.get("permissions")
+    login = (
+        str(identity.get("login") or "unknown")
+        if isinstance(identity, Mapping)
+        else "unknown"
+    )
+    slug = str(app.get("slug") or "Yoke") if isinstance(app, Mapping) else "Yoke"
+    installation_count = (
+        len(access.get("installations") or []) if isinstance(access, Mapping) else 0
+    )
+    repository_count = (
+        int(access.get("repo_count") or 0) if isinstance(access, Mapping) else 0
+    )
+    ready = bool(isinstance(permissions, Mapping) and permissions.get("usable") is True)
+    return [
+        f"GitHub user: {login} · App: {slug}",
+        f"Access: {installation_count} installations · {repository_count} repositories",
+        f"Required permissions: {'ready' if ready else 'needs attention'}",
+        "Credential custody: saved owner-only on this machine.",
+    ]
+
+
+def success_body(report: Mapping[str, Any], *, show_details: bool) -> list:
+    from yoke_cli.config import onboard_wizard_steps as steps
+
+    rows = [
+        SelectionRow("continue", "Continue", "go to project setup"),
+        SelectionRow(
+            "details",
+            "Hide repository access" if show_details else "Review repository access",
+            "return to the summary"
+            if show_details
+            else "exact installations and repositories",
+        ),
+    ]
+    return steps.verification_body(
+        "GitHub connected.",
+        success_message(report),
+        success_details(report) if show_details else success_summary_lines(report),
+        rows,
+        ok=True,
+    )
 
 
 class MachineGithubShell(Protocol):  # pragma: no cover - structural typing only

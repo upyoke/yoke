@@ -74,9 +74,7 @@ class CheckoutInspectionFlow:
         )
         return layer.scan(root)
 
-    def _show_checkout_inspection(
-        self: _Shell, scan: layer.InstalledLayerScan
-    ) -> None:
+    def _show_checkout_inspection(self: _Shell, scan: layer.InstalledLayerScan) -> None:
         """Ask only when there is something to decide.
 
         A clean repository has no layer to keep or remove, so a screen there
@@ -88,15 +86,46 @@ class CheckoutInspectionFlow:
         if not scan.present:
             self._after_checkout_inspected()
             return
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: screen.inspection_body(scan),
-            self._on_checkout_inspection,
-        ))
+        self._checkout_layer_scan = scan
+        self._checkout_layer_details = False
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: screen.inspection_body(
+                    scan,
+                    show_details=getattr(self, "_checkout_layer_details", False),
+                ),
+                self._on_checkout_inspection,
+            )
+        )
 
     def _on_checkout_inspection(self: _Shell, choice: str) -> None:
+        if choice == "details":
+            self._checkout_layer_details = not self._checkout_layer_details
+            self._render_current()
+            return
+        if choice == layer.LAYER_DECISION_REMOVE:
+            from yoke_cli.config.onboard_wizard_app import _View
+
+            scan = self._checkout_layer_scan
+            self._goto(
+                _View(
+                    STEP_PROJECT,
+                    lambda: screen.removal_confirmation_body(scan),
+                    self._on_checkout_removal_confirmation,
+                )
+            )
+            return
         if choice in layer.LAYER_DECISIONS:
             self.result.project_clone_existing_layer_decision = choice
+        self._after_checkout_inspected()
+
+    def _on_checkout_removal_confirmation(self: _Shell, choice: str) -> None:
+        self.result.project_clone_existing_layer_decision = (
+            layer.LAYER_DECISION_REMOVE
+            if choice == "confirm-remove"
+            else layer.LAYER_DECISION_KEEP
+        )
         self._after_checkout_inspected()
 
     def _after_checkout_inspected(self: _Shell) -> None:
@@ -110,21 +139,23 @@ class CheckoutInspectionFlow:
     def _goto_checkout_fetch_error(self: _Shell, exc: BaseException) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "Couldn't fetch the repository.",
-                str(exc),
-                [
-                    "Check the repository URL, your GitHub access, and the "
-                    "network connection.",
-                    "Choosing a different folder starts the fetch again.",
-                ],
-                screen.FETCH_ERROR_ROWS,
-                ok=False,
-            ),
-            self._on_checkout_fetch_error,
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: steps.verification_body(
+                    "Couldn't fetch the repository.",
+                    str(exc),
+                    [
+                        "Check the repository URL, your GitHub access, and the "
+                        "network connection.",
+                        "Choosing a different folder starts the fetch again.",
+                    ],
+                    screen.FETCH_ERROR_ROWS,
+                    ok=False,
+                ),
+                self._on_checkout_fetch_error,
+            )
+        )
 
     def _on_checkout_fetch_error(self: _Shell, choice: str) -> None:
         if choice == "retry":

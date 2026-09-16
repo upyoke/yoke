@@ -1,12 +1,4 @@
-"""Shared pilot scaffolding for the ``yoke onboard`` wizard flow suites.
-
-The flow tests split across sibling modules (core flow, back-navigation) to stay
-under the per-file line limit; this module holds the fixtures, the build_report
-spy, the app factory, and the literal-key typing helper they all reuse.
-``build_report`` is spied at the wizard boundary so no scenario performs a real
-machine or Yoke core database write, and the PATH doctor is stubbed so no
-scenario spawns a login shell.
-"""
+"""Shared offline pilot scaffolding for the ``yoke onboard`` wizard suites."""
 
 from __future__ import annotations
 
@@ -20,17 +12,15 @@ from yoke_cli.config.onboard_wizard_app import OnboardWizardApp
 
 
 def stub_checkout_fetch(monkeypatch, *, scan=None) -> None:
-    """Resolve the Project-step fetch without git, to a clean scan by default.
-
-    Pass ``scan`` to drive the inspection screen a repository already carrying
-    a Yoke operating layer would show.
-    """
+    """Resolve Project fetch without git; pass ``scan`` for an installed layer."""
     monkeypatch.setattr(
         inspection.CheckoutInspectionFlow,
         "_materialize_checkout",
-        lambda self: scan
-        or installed_layer.InstalledLayerScan(
-            Path(str(self.result.project_checkout or ""))
+        lambda self: (
+            scan
+            or installed_layer.InstalledLayerScan(
+                Path(str(self.result.project_checkout or ""))
+            )
         ),
     )
 
@@ -56,11 +46,7 @@ def all_clear_diagnosis() -> path_doctor.PathDiagnosis:
 
 
 def stub_path_doctor(monkeypatch) -> None:
-    """Keep the PATH step deterministic: no subprocess, nothing needs fixing.
-
-    The flow tests drive Connect onward, so the PATH step renders its all-clear
-    "Continue" row and never spawns a login shell.
-    """
+    """Keep PATH deterministic and already healthy without subprocesses."""
     monkeypatch.setattr(path_doctor, "diagnose", lambda **_: all_clear_diagnosis())
     monkeypatch.setattr(
         path_doctor,
@@ -84,10 +70,7 @@ def stub_path_doctor(monkeypatch) -> None:
 
 
 def stub_board_art(monkeypatch) -> None:
-    """Keep the board-art step's apply side-effects offline: the real run writes
-    ``.yoke/board-art`` into the checkout, rebuilds the board, and commits the
-    art, but flow scenarios apply against a spy report with no real checkout, so
-    all three are no-ops here."""
+    """Keep board-art apply side effects offline for flow scenarios."""
     from yoke_cli.config import onboard_wizard_board_art_apply as art_apply
 
     monkeypatch.setattr(art_apply, "write_board_art", lambda *a, **k: None)
@@ -186,7 +169,8 @@ def stub_preflight_clear(monkeypatch) -> None:
     from yoke_cli.config.onboard_preflight import PreflightResult
 
     monkeypatch.setattr(
-        WizardFlow, "_review_preflight",
+        WizardFlow,
+        "_review_preflight",
         lambda self: PreflightResult(problems=[], notes=[]),
     )
 
@@ -231,11 +215,13 @@ def stub_source_branch(
     )
 
     monkeypatch.setattr(
-        project_git_transport, "remote_default_branch",
+        project_git_transport,
+        "remote_default_branch",
         lambda url, token=None, github_web_url=None: branch,
     )
     monkeypatch.setattr(
-        project_git_transport, "remote_is_reachable",
+        project_git_transport,
+        "remote_is_reachable",
         lambda url, token=None, github_web_url=None: reachable,
     )
 
@@ -246,26 +232,21 @@ async def advance_past_path(pilot) -> None:
 
 
 async def complete_board_art(pilot) -> None:
-    """Walk the board-art step from its intro to the Hosting step.
+    """Walk the board-art step from its map to the Hosting step.
 
     Real-project onboarding routes project -> board art -> hosting -> Finish,
-    and the gallery's Continue needs at least one saved header. This takes the
-    shortest valid path: accept the default map, generate one ASCII header,
-    save it, and continue. Scenarios that don't care about art call this once,
-    then :func:`skip_hosting` to reach the review screen.
+    and saving the first header can continue directly. Scenarios that don't
+    care about art call this once, then :func:`skip_hosting` to reach review.
     """
-    await pilot.press("enter")  # intro: "Let's design it"
     await pilot.press("enter")  # map: "Looks good — continue"
     await pilot.press("enter")  # style: ASCII (first row)
-    await pilot.press("enter")  # preview: "Save to board"
-    await pilot.press("down")   # gallery: move to "Continue"
-    await pilot.press("enter")  # gallery: "Continue" -> hosting
+    await pilot.press("enter")  # preview: "Save and continue" -> hosting
 
 
 async def skip_hosting(pilot) -> None:
     """Choose provider-level "Decide later", landing on Review."""
-    await pilot.press("down")   # hosting: past "I host this myself"
-    await pilot.press("down")   # hosting: move to "Decide later"
+    await pilot.press("down")  # hosting: past "I host this myself"
+    await pilot.press("down")  # hosting: move to "Decide later"
     await pilot.press("enter")  # hosting: decide later -> Finish
 
 
@@ -292,10 +273,12 @@ class Spy:
             "project_mode": kwargs["project_mode"],
             "applied": bool(kwargs["apply"]),
             "config_path": kwargs["config_path"],
-            "plan": {"steps": [
-                {"action": "create-or-validate-dir", "target": "/home/.yoke"},
-                {"action": "set-active-env", "target": kwargs["env_name"]},
-            ]},
+            "plan": {
+                "steps": [
+                    {"action": "create-or-validate-dir", "target": "/home/.yoke"},
+                    {"action": "set-active-env", "target": kwargs["env_name"]},
+                ]
+            },
             "identity": {"checked": False, "ok": None},
             "next_steps": [],
         }
@@ -311,8 +294,11 @@ class Spy:
 def make_app(defaults: WizardDefaults | None = None) -> tuple[OnboardWizardApp, Spy]:
     spy = Spy()
     app = OnboardWizardApp(
-        defaults=defaults or WizardDefaults(
-            config_path="/tmp/cfg.json", env_name="prod", api_url="https://api.test",
+        defaults=defaults
+        or WizardDefaults(
+            config_path="/tmp/cfg.json",
+            env_name="prod",
+            api_url="https://api.test",
             token="actor-token",
         ),
         apply_report=spy,
@@ -321,8 +307,12 @@ def make_app(defaults: WizardDefaults | None = None) -> tuple[OnboardWizardApp, 
 
 
 _KEY_NAMES = {
-    "/": "slash", "-": "minus", ".": "full_stop", ":": "colon",
-    "@": "at", "_": "underscore",
+    "/": "slash",
+    "-": "minus",
+    ".": "full_stop",
+    ":": "colon",
+    "@": "at",
+    "_": "underscore",
 }
 
 
@@ -336,6 +326,25 @@ async def type_text(pilot, text: str) -> None:
 
 
 async def submit_public_item_prefix(pilot, prefix: str = "WIDG") -> None:
-    """Type a required public item prefix. The field has no derived default."""
-    await type_text(pilot, prefix)
+    """Replace the prefilled item prefix and submit the project-details form."""
+    from textual.widgets import Input
+
+    focused = pilot.app.focused
+    assert isinstance(focused, Input)
+    focused.value = prefix
+    focused.cursor_position = len(prefix)
     await pilot.press("enter")
+
+
+async def accept_project_details(
+    pilot,
+    *,
+    branch_from_source: bool = False,
+    prefix: str = "WIDG",
+) -> None:
+    """Accept the prefilled identity fields, then set the requested prefix."""
+    await pilot.press("enter")  # project id
+    await pilot.press("enter")  # display name
+    if not branch_from_source:
+        await pilot.press("enter")  # default branch
+    await submit_public_item_prefix(pilot, prefix)

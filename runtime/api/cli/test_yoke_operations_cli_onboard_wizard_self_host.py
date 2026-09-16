@@ -107,10 +107,10 @@ def test_picker_preview_is_exact_and_does_not_mutate_before_start(
             assert str(tmp_path.parent) not in text  # no synthetic test path copy
             assert "yoke-server" in text
             assert server.LOCAL_SERVER_URL in text
-            assert "Port: 8765 (loopback only)" in text
-            assert "Requires Docker and the Docker Compose plugin" in text
+            assert "local-only URL" in text
+            assert "Requires Docker + Compose" in text
             assert "docker compose up -d" in text
-            assert "VPN/tailnet, LAN, or port-forwarding" in text
+            assert "reachable networking and TLS" in text
             assert calls == []
             await pilot.press("down", "enter")
             await pilot.pause()
@@ -138,12 +138,10 @@ def test_success_shows_handoff_and_continue_rejoins_project_setup(
             token_file = str(
                 first_boot_token.token_drop_path(app._self_host_setup.directory)
             )
-            assert f"Admin token file: {token_file}" in text
-            assert "reusable administrator identity" in text
-            assert "never printed here" in text
+            assert f"Admin token path: {token_file}" in text
             assert "self-host is active on this machine" in text
-            assert "Mint a separate token for each teammate" in text
-            assert "Share only a server URL your teammates can actually reach" in text
+            assert "provide a reachable URL + TLS" in text
+            assert "mint one token per teammate" in text
             assert flow.SLEEP_WARNING in text
             assert app.result.destination == DESTINATION_SERVER
             assert app.result.api_url == server.LOCAL_SERVER_URL

@@ -10,7 +10,6 @@ from typing import Any
 from yoke_core.domain.installer_campaign_cases import INSTALLER_CAMPAIGN_CASES
 from yoke_core.domain.installer_campaign_plan_common import (
     APPLY_SUCCESS_TEXT,
-    HOSTED_CONNECTED_TEXT,
     MACHINE_GITHUB_TEXT,
     PARENT_HANDOFF_TEXT,
     REVIEW_TEXT,
@@ -18,8 +17,6 @@ from yoke_core.domain.installer_campaign_plan_common import (
 
 
 _READY_TEXT_BY_STEP = {
-    "hosted-connected": HOSTED_CONNECTED_TEXT,
-    "continue-hosted-connected": HOSTED_CONNECTED_TEXT,
     "machine-github": MACHINE_GITHUB_TEXT,
     "machine-github-backlog": MACHINE_GITHUB_TEXT,
     "review": REVIEW_TEXT,
@@ -29,7 +26,7 @@ _READY_TEXT_BY_STEP = {
     "exit-apply-success": APPLY_SUCCESS_TEXT,
     "complete-onboarding": PARENT_HANDOFF_TEXT,
 }
-_EXTENDED_READY_STEPS = {"hosted-connected", "apply-complete"}
+_EXTENDED_READY_STEPS = {"machine-github", "apply-complete"}
 _REDUNDANT_HOSTED_PROJECT_STEPS = {
     "project-mode",
     "project-mode-machine-only",

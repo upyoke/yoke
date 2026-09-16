@@ -14,9 +14,8 @@ def local_universe_summary_lines(state: dict[str, Any]) -> list[str]:
     lines: list[str]
     if status == local_universe_setup.LOCAL_UNIVERSE_VERIFY:
         lines = [
-            "Yoke found an existing local universe connection in ~/.yoke.",
-            "Apply verifies the existing database and preserves its projects, "
-            "items, settings, and secrets.",
+            "Existing private universe: ~/.yoke · embedded Postgres · no account.",
+            "Apply verifies it and preserves projects, items, settings, and secrets.",
         ]
         if not state.get("active"):
             lines.append("Apply also makes the local universe your active environment.")
@@ -30,15 +29,10 @@ def local_universe_summary_lines(state: dict[str, Any]) -> list[str]:
         ]
     else:
         lines = [
-            "Apply creates a private local universe under ~/.yoke "
-            "(embedded Postgres, the full Yoke schema).",
-            "Future reinstalls preserve this database by default; starting "
-            "fresh is an explicit export/reset decision.",
+            "No account is required.",
+            "Private data: ~/.yoke · database: embedded Postgres.",
+            "Reinstalling Yoke preserves this universe by default.",
         ]
-    lines.append(
-        "Same engine as a team server or upyoke.com — move later with a dump "
-        "and restore."
-    )
     return lines
 
 

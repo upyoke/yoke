@@ -25,12 +25,12 @@ from yoke_cli.config import onboard_wizard_flow  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
+    accept_project_details,
     advance_past_path,
     complete_board_art,
     make_app,
     skip_hosting,
     stub_path_doctor,
-    submit_public_item_prefix,
     type_text,
 )
 from runtime.api.cli.onboard_wizard_github_app_test_support import (  # noqa: E402
@@ -48,7 +48,8 @@ def _stub_path_doctor(monkeypatch):
 @pytest.fixture(autouse=True)
 def _stub_github_app(monkeypatch, _stub_path_doctor):
     monkeypatch.setattr(
-        onboard_wizard_flow, "fetch_repo_owners",
+        onboard_wizard_flow,
+        "fetch_repo_owners",
         lambda api_url, token: [
             github_publish.RepoOwner("octocat", "user"),
             github_publish.RepoOwner("acme-inc", "organization"),
@@ -78,13 +79,11 @@ def test_local_checkout_offers_publish_and_creates_request(monkeypatch) -> None:
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, "/home/code/widget")  # checkout
             await pilot.press("enter")
-            await pilot.press("enter")  # slug placeholder -> widget
-            await pilot.press("enter")  # name placeholder
+            await accept_project_details(pilot)
             await pilot.press("enter")  # publish: Yes (preselected)
-            await pilot.press("enter")  # owner picker: octocat (first row)
+            await pilot.press("down")  # owner picker: octocat (sorted second)
+            await pilot.press("enter")
             await pilot.press("enter")  # repo name placeholder -> widget
-            await pilot.press("enter")  # default branch main
-            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
@@ -115,12 +114,9 @@ def test_publish_no_keeps_it_local(monkeypatch) -> None:
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name
-            await pilot.press("down")   # publish: move to No
+            await accept_project_details(pilot)
+            await pilot.press("down")  # publish: move to No
             await pilot.press("enter")  # publish: No — keep local
-            await pilot.press("enter")  # default branch main
-            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply (no project github step)
@@ -143,15 +139,11 @@ def test_owner_picker_routes_org_with_user_login() -> None:
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CREATE_REPO)
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name
+            await accept_project_details(pilot)
             await pilot.press("enter")  # publish: Yes
-            await pilot.press("down")   # owner picker: move to acme-inc
-            await pilot.press("enter")  # pick acme-inc (org)
+            await pilot.press("enter")  # owner picker: acme-inc (sorted first)
             await type_text(pilot, "thing")  # repo name
             await pilot.press("enter")
-            await pilot.press("enter")  # default branch main
-            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
@@ -177,11 +169,18 @@ def test_owner_picker_routes_org_with_user_login() -> None:
 def test_remote_already_present_auto_skips_publish(tmp_path: Path) -> None:
     checkout = tmp_path / "already-remote"
     checkout.mkdir()
-    subprocess.run(["git", "init", str(checkout)], check=True,
-                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    subprocess.run(
+        ["git", "init", str(checkout)],
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     subprocess.run(
         ["git", "remote", "add", "origin", "git@github.com:owner/repo.git"],
-        cwd=checkout, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        cwd=checkout,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
     app, spy = make_app()
 
@@ -191,9 +190,10 @@ def test_remote_already_present_auto_skips_publish(tmp_path: Path) -> None:
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, str(checkout))
             await pilot.press("enter")
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name -> publish prompt auto-skipped
-            await submit_public_item_prefix(pilot)
+            await accept_project_details(pilot, branch_from_source=True)
+            assert "How should Yoke manage this project on GitHub?" in str(
+                list(app._history[-1].builder())[0].render()
+            )
             await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
@@ -241,7 +241,10 @@ def test_changed_checkout_origin_back_returns_to_project_name(
             await app.workers.wait_for_complete()
             subprocess.run(
                 [
-                    "git", "remote", "set-url", "origin",
+                    "git",
+                    "remote",
+                    "set-url",
+                    "origin",
                     "git@github.com:owner/changed.git",
                 ],
                 cwd=checkout,
@@ -249,14 +252,13 @@ def test_changed_checkout_origin_back_returns_to_project_name(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name
+            await accept_project_details(pilot, branch_from_source=True)
             await pilot.pause(0.2)
             assert "Checkout origin changed" in current_view_title()
             await pilot.press("down")  # Back
             await pilot.press("enter")
             await pilot.pause(0.2)
-            assert "Give it a friendly name" in current_view_title()
+            assert "Project details" in current_view_title()
 
     asyncio.run(scenario())
 
@@ -268,17 +270,14 @@ def test_no_app_connection_publish_no_keeps_it_local() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
+            await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")  # continue without GitHub
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name -> publish prompt IS shown now
-            await pilot.press("down")   # publish: move to No
+            await accept_project_details(pilot)
+            await pilot.press("down")  # publish: move to No
             await pilot.press("enter")  # publish: No — keep local
-            await pilot.press("enter")  # default branch main
-            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
@@ -312,8 +311,7 @@ def test_owner_picker_error_back_returns_to_publish_choice(monkeypatch) -> None:
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_CREATE_REPO)
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name
+            await accept_project_details(pilot)
             await pilot.press("enter")  # publish: Yes
             await app.workers.wait_for_complete()
             await pilot.pause(0.2)

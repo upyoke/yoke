@@ -35,11 +35,7 @@ def platform_url_for_connection(api_url: object, env_name: object) -> str:
         onboard_destinations.ENV_PRODUCTION,
         onboard_destinations.ENV_STAGE,
     }
-    if (
-        selected_env
-        and named_env in hosted_selectors
-        and selected_env != named_env
-    ):
+    if selected_env and named_env in hosted_selectors and selected_env != named_env:
         raise ValueError(
             f"hosted URL selects {selected_env!r}, but environment selects "
             f"{named_env!r}"
@@ -107,7 +103,8 @@ class HostedMachineConnectFlow:
                 reason=browser.reason,
             )
             self._goto_hosted_machine_approval(
-                pending, browser_status_line(browser, log_path),
+                pending,
+                browser_status_line(browser, log_path),
             )
 
         title = (
@@ -141,7 +138,8 @@ class HostedMachineConnectFlow:
         """Esc during a hosted check: nothing to release, the code expires on its own."""
         self._hosted_machine_authorization = None
         onboard_wizard_diagnostics.record(
-            self.result.config_path, "browser-approval-cancelled",
+            self.result.config_path,
+            "browser-approval-cancelled",
         )
         self._return_to_destination_picker(drop_current=False)
 
@@ -152,7 +150,16 @@ class HostedMachineConnectFlow:
     ) -> list[str]:
         # The complete URL carries the code, so it is the one to open; the bare
         # /connect page asks for the code again or shows an unrelated screen.
+        stage_warning = (
+            [
+                "Stage is test-only and disposable.",
+                "Do not use it for live operations or durable control-plane state.",
+            ]
+            if pending.platform_url == HOSTED_STAGE_PLATFORM_URL
+            else []
+        )
         return [
+            *stage_warning,
             f"One-time code: {pending.user_code}",
             f"Open: {pending.verification_uri_complete}",
             browser_line,
@@ -165,7 +172,9 @@ class HostedMachineConnectFlow:
         return (
             CopyTarget("the one-time code", pending.user_code),
             CopyTarget(
-                "the approval link", pending.verification_uri_complete, is_url=True,
+                "the approval link",
+                pending.verification_uri_complete,
+                is_url=True,
             ),
         )
 
@@ -176,23 +185,26 @@ class HostedMachineConnectFlow:
     ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(
-            STEP_CONNECT,
-            lambda: steps.verification_body(
-                "Sign in and choose an organization.",
-                "Approve this machine in your browser, then continue here.",
-                [
-                    *self._approval_detail_lines(pending, browser_line),
-                    "One organization is connected at a time; run onboarding again to add another.",
-                ],
-                steps.VERIFY_OK_ROWS,
-                ok=True,
-            ),
-            lambda _choice: self._poll_hosted_machine_authorization(
-                pending, browser_line,
-            ),
-            copy_targets=self._approval_copy_targets(pending),
-        ))
+        self._goto(
+            _View(
+                STEP_CONNECT,
+                lambda: steps.verification_body(
+                    "Sign in and choose an organization.",
+                    "Approve this machine in your browser, then continue here.",
+                    [
+                        *self._approval_detail_lines(pending, browser_line),
+                        "One organization is connected at a time; run onboarding again to add another.",
+                    ],
+                    steps.VERIFY_OK_ROWS,
+                    ok=True,
+                ),
+                lambda _choice: self._poll_hosted_machine_authorization(
+                    pending,
+                    browser_line,
+                ),
+                copy_targets=self._approval_copy_targets(pending),
+            )
+        )
 
     def _poll_hosted_machine_authorization(
         self: _Shell,
@@ -207,7 +219,9 @@ class HostedMachineConnectFlow:
             str,
         ]:
             credential = hosted_machine_authorization.complete(
-                pending, sleep=stop.wait, cancelled=stop.is_set,
+                pending,
+                sleep=stop.wait,
+                cancelled=stop.is_set,
             )
             verification = yoke_token_verify.verify(
                 credential.api_url,
@@ -221,9 +235,7 @@ class HostedMachineConnectFlow:
                 activate=True,
                 path=self.result.config_path,
             )
-            token_file = str(
-                connection["connection"]["credential_source"]["path"]
-            )
+            token_file = str(connection["connection"]["credential_source"]["path"])
             return credential, verification, token_file
 
         def _success(value: Any) -> None:
@@ -238,7 +250,8 @@ class HostedMachineConnectFlow:
 
         def _error(exc: BaseException) -> None:
             if isinstance(
-                exc, hosted_machine_authorization.HostedMachineAuthorizationDenied,
+                exc,
+                hosted_machine_authorization.HostedMachineAuthorizationDenied,
             ):
                 self._goto_hosted_machine_denied(str(exc))
             else:
@@ -281,21 +294,23 @@ class HostedMachineConnectFlow:
         from yoke_cli.config.onboard_wizard_app import _View
 
         self._hosted_machine_authorization = None
-        self._goto(_View(
-            STEP_CONNECT,
-            lambda: steps.verification_body(
-                "Browser sign-in did not finish.",
-                message,
-                ["Check your network, then start a fresh one-time authorization."],
-                steps.HOSTED_MACHINE_RETRY_ROWS,
-                ok=False,
-            ),
-            lambda choice: (
-                self._start_hosted_machine_authorization(replace_current=True)
-                if choice == "retry"
-                else self._return_to_destination_picker()
-            ),
-        ))
+        self._goto(
+            _View(
+                STEP_CONNECT,
+                lambda: steps.verification_body(
+                    "Browser sign-in did not finish.",
+                    message,
+                    ["Check your network, then start a fresh one-time authorization."],
+                    steps.HOSTED_MACHINE_RETRY_ROWS,
+                    ok=False,
+                ),
+                lambda choice: (
+                    self._start_hosted_machine_authorization(replace_current=True)
+                    if choice == "retry"
+                    else self._return_to_destination_picker()
+                ),
+            )
+        )
 
 
 __all__ = [

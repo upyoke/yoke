@@ -156,6 +156,13 @@ def recovery_commands(setup: SelfHostSetup) -> list[str]:
     ]
 
 
+def stop_preserving_bundle(
+    directory: Path, executable: str
+) -> subprocess.CompletedProcess[str]:
+    """Stop the guided published-image stack without deleting its files or volume."""
+    return _compose(executable, directory, ("down",), timeout=120.0)
+
+
 def _ensure_wizard_bundle(setup: SelfHostSetup) -> None:
     if setup.bundle_created:
         bundle.validate_existing_bundle(directory=str(setup.directory))

@@ -16,6 +16,7 @@ from yoke_cli.config import onboard_destinations
 from yoke_contracts.api_urls import HOSTED_PROD_API_URL
 from yoke_contracts.machine_config.schema import DEFAULT_TRANSPORT
 
+pytestmark = pytest.mark.usefixtures("stub_onboard_session_relay")
 
 LOCAL = local_universe_setup.LOCAL_ENV
 FAKE_DSN = "postgresql://yoke@/yoke?host=/fake/local-universe/sock"

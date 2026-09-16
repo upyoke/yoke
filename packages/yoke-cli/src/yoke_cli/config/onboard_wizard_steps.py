@@ -1,11 +1,4 @@
-"""Body builders, option rows, and pure helpers for the onboarding wizard.
-
-Each ``*_body`` returns the list of widgets a step mounts into the redraw-in-
-place body container. The row constants are the arrow-key option sets; the
-classifier buckets ``build_report``'s write-plan steps into machine /
-Yoke-core-database / repo-local / source-dev-admin groups for the Finish
-preview.
-"""
+"""Wizard bodies, rows, and helpers grouped by their final write scope."""
 
 from __future__ import annotations
 
@@ -19,9 +12,6 @@ from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_project
 from yoke_cli.config.project_github_adoption import GITHUB_ADOPTION_APP_BINDING
 from yoke_cli.config.onboard_wizard_project_fields import (
-    PREFIX_PROMPT_SUBTITLE,
-    PREFIX_PROMPT_TITLE,
-    prefix_from_slug,
     reset_project_fields,
     reset_project_publish_fields,
     slug_from_checkout,
@@ -37,7 +27,9 @@ from yoke_cli.config.onboard_wizard_apply_steps import (  # noqa: F401
     APPLY_SUCCESS_ROWS,
     apply_failure_body,
     apply_progress_body,
+    apply_progress_lines,
     apply_different_folder_body,
+    apply_step_group,
     apply_step_line,
     apply_success_body,
     apply_success_body_from_report,
@@ -90,9 +82,9 @@ MODE_ROWS = [
         "new folder, optionally also created on GitHub",
     ),
     SelectionRow(
-        onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
-        "Develop Yoke itself",
-        "advanced · contributors",
+        onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE,
+        "Edit Yoke source",
+        "use a checkout or clone any fork · dogfood or contribute",
     ),
     SelectionRow(
         onboard_project.PROJECT_MODE_MACHINE_ONLY,
@@ -247,9 +239,12 @@ def error_body(message: str) -> list[Static]:
     return [
         Static("✗ Couldn't build your setup plan.", classes="onboard-title-error"),
         Static("", classes="onboard-spacer"),
-        Static(escape(message), classes="onboard-plan-line"),
-        Static("", classes="onboard-spacer"),
-        Static("Press esc to go back and fix that answer.", classes="onboard-note"),
+        Static(f"Cause: {escape(message)}", classes="onboard-plan-line"),
+        Static("What to do", classes="onboard-title"),
+        Static(
+            "Press Esc, correct the affected answer, then return to Review.",
+            classes="onboard-plan-line",
+        ),
     ]
 
 
@@ -271,7 +266,8 @@ def verification_body(
         widgets = [
             Static(f"✗ {escape(title)}", classes="onboard-title-error"),
             Static("", classes="onboard-spacer"),
-            Static(escape(message), classes="onboard-plan-line"),
+            Static(f"Cause: {escape(message)}", classes="onboard-plan-line"),
+            Static("What to do", classes="onboard-title"),
         ]
     widgets.extend(
         Static(f"  • {escape(line)}", classes="onboard-plan-line")
@@ -288,12 +284,16 @@ def finish_body(
     problems: list[str] | None = None,
     notes: list[str] | None = None,
     machine_github_saved: bool = False,
+    show_all: bool = False,
+    status_lines: list[str] | None = None,
 ) -> list[Static]:
     return review_steps.finish_body(
         plan,
         problems=problems,
         notes=notes,
         machine_github_saved=machine_github_saved,
+        show_all=show_all,
+        status_lines=status_lines,
         heading=_heading,
     )
 
@@ -335,9 +335,6 @@ __all__ = [
     "error_body",
     "finish_body",
     "input_body",
-    "PREFIX_PROMPT_SUBTITLE",
-    "PREFIX_PROMPT_TITLE",
-    "prefix_from_slug",
     "project_mode_body",
     "render_write_plan",
     "render_reuse_summary",

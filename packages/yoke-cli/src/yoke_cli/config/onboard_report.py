@@ -23,7 +23,7 @@ _PROJECT_ACTION = {
     onboard_project.PROJECT_MODE_CLONE_REMOTE: "project-clone-remote",
     onboard_project.PROJECT_MODE_IMPORT_REMOTE: "project-import-remote",
     onboard_project.PROJECT_MODE_LOCAL_CHECKOUT: "project-onboard-local-checkout",
-    onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN: "project-source-dev-admin",
+    onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE: "activate-yoke-source",
 }
 
 
@@ -43,6 +43,7 @@ def build_plan(
     reuse: dict[str, Any] | None = None,
     local_destination: bool = False,
     harness_posture: bool = True,
+    same_host_self_host: bool = False,
 ) -> dict[str, Any]:
     reuse = dict(reuse or {})
     steps = onboard_path_plan.steps(path_repair)
@@ -106,6 +107,13 @@ def build_plan(
     steps.extend(onboard_machine_registry.plan_steps())
     if project_mode == PROJECT_MODE_MACHINE_ONLY:
         steps.append({"action": "stop-before-project-or-github", "target": mode})
+    elif project_mode == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE:
+        checkout = str(project_inputs.get("checkout") or "")
+        if project_inputs.get("remote_url"):
+            steps.append({"action": "clone-yoke-source", "target": checkout})
+        steps.append({"action": "activate-yoke-source", "target": checkout})
+        if same_host_self_host:
+            steps.append({"action": "run-yoke-server-from-source", "target": checkout})
     else:
         if not reuse.get("project_identity"):
             steps.append(
@@ -230,14 +238,8 @@ def source_choice_target(project_mode: str, project_inputs: dict[str, Any]) -> s
 
 
 def next_steps(cfg_path: Path, project_mode: str) -> list[str]:
-    if project_mode == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN:
-        # Onboard apply already editable-installed packages/* and laid down the
-        # source-link dev layer. The editable `yoke` takes effect in a NEW
-        # process, so the only remaining step is opening a fresh shell.
-        return [
-            f"yoke status --config {cfg_path}",
-            "Open a new terminal so `yoke` runs from this checkout",
-        ]
+    if project_mode == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE:
+        return [f"yoke status --config {cfg_path}"]
     if project_mode != PROJECT_MODE_MACHINE_ONLY:
         return [
             f"yoke status --config {cfg_path}",

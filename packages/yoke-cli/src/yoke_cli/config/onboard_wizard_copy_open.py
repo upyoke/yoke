@@ -12,13 +12,15 @@ from __future__ import annotations
 
 from typing import Iterable, Protocol
 
-from textual.widgets import Static
+from textual.widgets import Input, Static
 
 from yoke_cli.config import onboard_clipboard
 from yoke_cli.config import onboard_wizard_chrome as chrome
 from yoke_cli.config.hosted_machine_browser import open_url
 from yoke_cli.config.onboard_terminal import glyphs
+from yoke_cli.config.onboard_wizard_body_scroll import BODY_ID
 from yoke_cli.config.onboard_wizard_state import CopyTarget
+from yoke_cli.config.onboard_wizard_widgets import SelectionList
 
 FOOTER_ID = "onboard-footer"
 
@@ -29,6 +31,8 @@ NOTHING_TO_OPEN_NOTE = "No link on this screen to open."
 class _Shell(Protocol):  # pragma: no cover - structural typing only
     def query_one(self, selector: str, expect_type=None): ...
 
+    def _footer_mode(self) -> str: ...
+
 
 class CopyOpenFlow:
     """The shell's clipboard and browser keys, bound to the current view."""
@@ -37,6 +41,26 @@ class CopyOpenFlow:
     _copy_targets: tuple[CopyTarget, ...] = ()
     _copy_cursor: int = 0
     _footer_note: str | None = None
+
+    def _footer_mode(self: _Shell) -> str:
+        if getattr(self, "_applying", False):
+            return "applying"
+        if getattr(self, "_checking", False):
+            return (
+                "checking-cancellable"
+                if getattr(self, "_checking_cancel", None)
+                else "checking"
+            )
+        try:
+            body = self.query_one(f"#{BODY_ID}")
+        except Exception:
+            return "plain"
+        children = getattr(body, "children", ())
+        if any(isinstance(widget, Input) for widget in children):
+            return "input"
+        if any(isinstance(widget, SelectionList) for widget in children):
+            return "choices"
+        return "plain"
 
     def _set_copy_targets(self: _Shell, targets: Iterable[CopyTarget]) -> None:
         self._copy_targets = tuple(targets)
@@ -47,6 +71,7 @@ class CopyOpenFlow:
     def _render_footer(self: _Shell) -> None:
         self.query_one(f"#{FOOTER_ID}", Static).update(
             chrome.footer(
+                mode=self._footer_mode(),
                 copy_label=self._copy_hint_label(),
                 open_label=self._open_hint_label(),
                 note=self._footer_note,
@@ -68,7 +93,8 @@ class CopyOpenFlow:
 
     def _current_open_target(self: _Shell) -> CopyTarget | None:
         return next(
-            (target for target in self._copy_targets if target.is_url), None,
+            (target for target in self._copy_targets if target.is_url),
+            None,
         )
 
     def _note(self: _Shell, text: str) -> None:

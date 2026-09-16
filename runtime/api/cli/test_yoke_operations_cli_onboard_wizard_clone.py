@@ -23,11 +23,11 @@ from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import project_clone_support as clone  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
+    accept_project_details,
     advance_past_path,
     complete_board_art,
     make_app,
     skip_hosting,
-    submit_public_item_prefix,
     type_text,
 )
 from runtime.api.cli.onboard_wizard_github_app_test_support import (  # noqa: E402
@@ -61,13 +61,11 @@ def test_clone_it_keeps_origin_on_source() -> None:
         async with app.run_test() as pilot:
             await _to_clone_outcome(app, pilot)
             await pilot.press("enter")  # "Clone it" (default, first row)
-            await pilot.press("enter")  # slug placeholder
-            await pilot.press("enter")  # name placeholder
+            await accept_project_details(pilot, branch_from_source=True)
             # just-clone records the source repo and routes through project
             # github auth (origin stays the source); reuse-machine then finish.
             # No "default branch" prompt for a clone — it's detected from the
             # source at the URL step, so the name input lands straight on prefix.
-            await submit_public_item_prefix(pilot)
             await select_connected_repository(app, pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
@@ -92,23 +90,21 @@ def test_duplicate_private_always_keeps_upstream_skips_upstream_screen() -> None
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await _to_clone_outcome(app, pilot)
-            await pilot.press("down")   # move to "Duplicate it"
+            await pilot.press("down")  # move to "Duplicate it"
             await pilot.press("enter")
             await pilot.press("enter")  # new-repo visibility: Private (default)
             await pilot.pause()
             # Visibility lands directly on the name input — there is NO
             # keep-upstream selection screen in between.
-            assert app.query_one("#onboard-input", Input) is not None
+            assert app.query_one("#onboard-input-slug", Input) is not None
             title = next(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)
             )
-            assert title == "Name your project."
-            await pilot.press("enter")  # slug placeholder -> widgets
-            await pilot.press("enter")  # name placeholder
-            await pilot.press("enter")  # owner picker: octocat (first)
+            assert title == "Project details."
+            await accept_project_details(pilot, branch_from_source=True)
+            await pilot.press("down")  # owner picker: octocat (sorted second)
+            await pilot.press("enter")
             await pilot.press("enter")  # repo name placeholder -> widgets
-            # Clone path skips the default-branch prompt (detected at URL step).
-            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
@@ -138,16 +134,14 @@ def test_duplicate_public_visibility_sets_public_publish() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await _to_clone_outcome(app, pilot)
-            await pilot.press("down")   # "Duplicate it"
+            await pilot.press("down")  # "Duplicate it"
             await pilot.press("enter")
-            await pilot.press("down")   # new-repo visibility: move to Public
+            await pilot.press("down")  # new-repo visibility: move to Public
             await pilot.press("enter")  # -> name input (no keep-upstream screen)
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name
-            await pilot.press("enter")  # owner picker: octocat
+            await accept_project_details(pilot, branch_from_source=True)
+            await pilot.press("down")  # owner picker: octocat (sorted second)
+            await pilot.press("enter")
             await pilot.press("enter")  # repo name
-            # clone skips the default-branch prompt
-            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
@@ -174,13 +168,10 @@ def test_fork_builds_clone_plan_with_app_access() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await _to_clone_outcome(app, pilot)
-            await pilot.press("down")   # move to "Duplicate it"
-            await pilot.press("down")   # move to "Fork it"
+            await pilot.press("down")  # move to "Duplicate it"
+            await pilot.press("down")  # move to "Fork it"
             await pilot.press("enter")  # outcome: Fork it
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name
-            # clone skips the default-branch prompt
-            await submit_public_item_prefix(pilot)
+            await accept_project_details(pilot, branch_from_source=True)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply
@@ -207,19 +198,22 @@ def test_back_from_duplicate_to_clone_clears_future_publish_state() -> None:
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await _to_clone_outcome(app, pilot)
-            await pilot.press("down")   # "Duplicate it"
+            await pilot.press("down")  # "Duplicate it"
             await pilot.press("enter")
             await pilot.press("enter")  # private visibility
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name -> owner picker
-            await pilot.press("enter")  # owner
+            await accept_project_details(pilot, branch_from_source=True)
+            await pilot.press("down")  # owner: octocat (sorted second)
+            await pilot.press("enter")
             await pilot.press("enter")  # repo name -> prefix
-            for _ in range(6):
+            for _ in range(8):
+                if "How do you want to copy" in " ".join(
+                    str(w.render())
+                    for w in app.query("#onboard-body Static").results(Static)
+                ):
+                    break
                 await pilot.press("escape")
             await pilot.press("enter")  # outcome: Clone it
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name
-            await submit_public_item_prefix(pilot)
+            await accept_project_details(pilot, branch_from_source=True)
             await select_connected_repository(app, pilot)
             await complete_board_art(pilot)
             await skip_hosting(pilot)  # hosting: skip -> Finish
@@ -246,19 +240,16 @@ def test_duplicate_without_app_connection_falls_back_to_just_clone(monkeypatch) 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("down")   # machine github: Skip for now
+            await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")  # continue without GitHub
             await pick_mode(pilot, onboard_project.PROJECT_MODE_CLONE_REMOTE)
             await type_text(pilot, "git@github.com:acme/widgets.git")  # remote first
             await pilot.press("enter")  # remote -> clone-folder input
             await pilot.press("enter")  # accept default folder -> clone-outcome
-            await pilot.press("down")   # "Duplicate it"
+            await pilot.press("down")  # "Duplicate it"
             await pilot.press("enter")
             await pilot.press("enter")  # new-repo visibility: Private (default)
-            await pilot.press("enter")  # slug (no keep-upstream screen)
-            await pilot.press("enter")  # name -> no App, falls back to just-clone
-            # clone skips the default-branch prompt
-            await submit_public_item_prefix(pilot)
+            await accept_project_details(pilot, branch_from_source=True)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply (no project github step)

@@ -16,7 +16,6 @@ from textual.widgets import Static
 
 from yoke_cli.config import onboard_wizard_steps as steps
 from yoke_cli.config.github_repository_create import REPOSITORY_CONTENT_MISMATCH
-from yoke_cli.config.onboard_terminal import plain_text
 from yoke_cli.config.onboard_error_friendly import (
     friendly_permission_error,
     friendly_publish_error,
@@ -41,7 +40,9 @@ class ApplyFlow:
         self._applying = True
         self._goto_applying()
         self.run_worker(
-            self._apply_in_thread, thread=True, exclusive=True,
+            self._apply_in_thread,
+            thread=True,
+            exclusive=True,
             group="onboard-apply",
         )
 
@@ -54,6 +55,7 @@ class ApplyFlow:
                 "action": ref.action,
                 "target": ref.target,
                 "label": ref.label,
+                "group": steps.apply_step_group(ref.action),
                 "status": "pending",
             }
             for ref in onboard_apply_report.steps_from_preview(self._review_plan)
@@ -92,14 +94,15 @@ class ApplyFlow:
         if step is None:
             return
         step["status"] = status
+        lines = steps.apply_progress_lines(self._apply_steps)
         try:
-            row = self.query_one(f"#applystep-{step['step_id']}", Static)
+            self.query_one("#apply-overall", Static).update(lines["overall"])
+            self.query_one("#apply-current", Static).update(lines["current"])
+            for key in ("machine", "core", "project", "source"):
+                if key in lines:
+                    self.query_one(f"#apply-group-{key}", Static).update(lines[key])
         except Exception:  # noqa: BLE001 - body not mounted yet; model still updates
             return
-        text = steps.apply_step_line(step)
-        if getattr(self, "_plain_glyphs", False):
-            text = plain_text(text)
-        row.update(text)
 
     def _match_apply_step(self, action: str, target: str) -> dict | None:
         for step in self._apply_steps:
@@ -142,14 +145,13 @@ class ApplyFlow:
             self.failed_step = exc.failed_step
             self.report_path = exc.report_path
             self.resume_command = exc.resume_command
-        self.last_error = friendly_publish_error(
-            friendly_permission_error(str(exc))
-        )
+        self.last_error = friendly_publish_error(friendly_permission_error(str(exc)))
         self._goto_apply_failure()
 
     def _goto_apply_failure(self) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
+        self._apply_failure_details = False
         self._replace_current(
             _View(STEP_FINISH, self._build_apply_failure, self._on_apply_failure)
         )
@@ -163,12 +165,15 @@ class ApplyFlow:
             resume_command=self.resume_command,
             retryable=_apply_error_retryable(self.last_error),
             can_resume=_can_resume_run(run_id),
-            can_use_different_folder=(
-                _preservable_checkout_path(run_id) is not None
-            ),
+            can_use_different_folder=(_preservable_checkout_path(run_id) is not None),
+            show_details=getattr(self, "_apply_failure_details", False),
         )
 
     def _on_apply_failure(self, choice: str) -> None:
+        if choice == "technical-details":
+            self._apply_failure_details = not self._apply_failure_details
+            self._render_current()
+            return
         if choice == "retry":
             self._start_apply()
             return
@@ -241,7 +246,8 @@ class ApplyFlow:
             return
         try:
             result = onboard_apply_resume.preserve_checkout_for_new_target(
-                run_id, confirmed=True,
+                run_id,
+                confirmed=True,
             )
         except onboard_apply_resume.OnboardApplyResumeError as exc:
             self._show_apply_recovery_error(exc)
@@ -256,9 +262,7 @@ class ApplyFlow:
         asyncio.ensure_future(self.action_back())
 
     def _show_apply_recovery_error(self, exc: BaseException | str) -> None:
-        self.last_error = friendly_publish_error(
-            friendly_permission_error(str(exc))
-        )
+        self.last_error = friendly_publish_error(friendly_permission_error(str(exc)))
         self._goto_apply_failure()
 
     def _goto_apply_success(self) -> None:
@@ -270,7 +274,8 @@ class ApplyFlow:
 
     def _build_apply_success(self) -> list:
         return steps.apply_success_body_from_report(
-            self.report_path, getattr(self, "_applied_report", None),
+            self.report_path,
+            getattr(self, "_applied_report", None),
             board_art_committed=getattr(self, "_board_art_committed", False),
         )
 
@@ -290,10 +295,7 @@ def _apply_error_retryable(message: str | None) -> bool:
     succeed on a second attempt.
     """
     text = (message or "").lower()
-    if (
-        "already exists and has content" in text
-        or REPOSITORY_CONTENT_MISMATCH in text
-    ):
+    if "already exists and has content" in text or REPOSITORY_CONTENT_MISMATCH in text:
         return False
     return True
 

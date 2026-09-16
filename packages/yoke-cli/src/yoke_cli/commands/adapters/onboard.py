@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 from typing import List
 
 from yoke_cli.commands._helpers import attach_field_note_footer, parse_or_usage_error
 from yoke_cli.commands.adapters import onboard_apply
 from yoke_cli.commands.adapters import onboard_destination_args
 from yoke_cli.commands.adapters import onboard_hosted_authorization as hosted_auth
+from yoke_cli.commands.adapters import onboard_interactive
 from yoke_cli.commands.adapters import onboard_project_args
 from yoke_cli.commands.adapters import onboard_resume
 from yoke_cli.commands.adapters.onboard_github_requests import (
@@ -30,7 +30,6 @@ from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_apply_resume
 from yoke_cli.config import onboard_wizard
 from yoke_cli.config import github_user_tokens
-from yoke_cli.config import yoke_dev_access
 
 
 ONBOARD_USAGE = (
@@ -75,7 +74,7 @@ def onboard(args: List[str]) -> int:
         "--post-install",
         dest="post_install",
         action="store_true",
-        help="launched straight after install; show the install-summary screen",
+        help="launched straight after install; show version status on PATH readiness",
     )
     parser.add_argument(
         "--skip-harness-permissions",
@@ -213,7 +212,6 @@ def onboard(args: List[str]) -> int:
             file=sys.stderr,
         )
         return 2
-    source_dev_defaults = _source_dev_project_defaults(parsed.project_mode)
     report = _build_report(
         config_path=config_path,
         env_name=env_name,
@@ -230,12 +228,10 @@ def onboard(args: List[str]) -> int:
         project_mode=parsed.project_mode or onboard_config.PROJECT_MODE_MACHINE_ONLY,
         project_remote_url=parsed.project_remote_url,
         project_checkout=parsed.project_checkout,
-        project_slug=parsed.project_slug or source_dev_defaults.get("slug"),
-        project_name=parsed.project_name or source_dev_defaults.get("name"),
+        project_slug=parsed.project_slug,
+        project_name=parsed.project_name,
         project_org=parsed.project_org,
-        project_github_repo=(
-            parsed.project_github_repo or source_dev_defaults.get("github_repo")
-        ),
+        project_github_repo=parsed.project_github_repo,
         project_github_repository_id=getattr(
             parsed,
             "project_github_repository_id",
@@ -246,16 +242,11 @@ def onboard(args: List[str]) -> int:
             "project_github_installation_id",
             None,
         ),
-        project_default_branch=(
-            parsed.project_default_branch or source_dev_defaults.get("default_branch")
-        ),
+        project_default_branch=parsed.project_default_branch,
         project_default_branch_source=(
             getattr(parsed, "project_default_branch_source", None)
         ),
-        project_public_item_prefix=(
-            parsed.project_public_item_prefix
-            or source_dev_defaults.get("public_item_prefix")
-        ),
+        project_public_item_prefix=parsed.project_public_item_prefix,
         existing_project_id=getattr(parsed, "existing_project_id", None),
         existing_project_match_source=getattr(
             parsed,
@@ -292,18 +283,6 @@ def onboard(args: List[str]) -> int:
             stream=sys.stderr if parsed.json_mode else sys.stdout,
         )
     return 0
-
-
-def _source_dev_project_defaults(project_mode: str | None) -> dict[str, str]:
-    if project_mode != onboard_config.PROJECT_MODE_SOURCE_DEV_ADMIN:
-        return {}
-    return {
-        "slug": yoke_dev_access.YOKE_PROJECT_SLUG,
-        "name": yoke_dev_access.YOKE_PROJECT_NAME,
-        "github_repo": yoke_dev_access.YOKE_GITHUB_REPO,
-        "default_branch": yoke_dev_access.YOKE_DEFAULT_BRANCH,
-        "public_item_prefix": yoke_dev_access.YOKE_PUBLIC_ITEM_PREFIX,
-    }
 
 
 def _should_prompt(
@@ -348,82 +327,17 @@ def _run_wizard(
     selected_mode: str,
     destination: str | None,
 ) -> int:
-    """Launch the full-screen Textual wizard; apply on a single confirm."""
-    defaults = onboard_wizard.WizardDefaults(
-        config_path=str(machine_config.config_path(parsed.config_path)),
-        env_name=env_name or None,
-        api_url=parsed.api_url,
-        destination=destination,
-        token=parsed.token,
-        token_file=parsed.token_file,
-        mode=selected_mode if (parsed.quick or parsed.advanced) else None,
-        project_mode=parsed.project_mode,
-        project_checkout=parsed.project_checkout,
-        apply=parsed.apply,
-        post_install=parsed.post_install,
+    return onboard_interactive.run_wizard(
+        parsed,
+        env_name,
+        selected_mode,
+        destination,
+        apply_with_report=_apply_with_durable_report,
+        print_failure=_print_failure_summary,
     )
 
-    def apply_report(kwargs: dict, tui_progress=None) -> dict:
-        if parsed.skip_identity_check:
-            kwargs = {**kwargs, "check_identity": False}
-        if parsed.resume_run_id:
-            kwargs = {
-                **kwargs,
-                "resume_run_id": parsed.resume_run_id,
-                "resume_payload": parsed.resume_payload,
-            }
-        return _apply_with_durable_report(kwargs, tui_progress=tui_progress)
 
-    try:
-        result = onboard_wizard.run_wizard(defaults, apply_report=apply_report)
-    except onboard_wizard.WizardCancelled as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
-    if result.error:
-        _print_failure_summary(result)
-        return 1
-    if result.cancelled and result.machine_github_saved:
-        print(
-            "GitHub App authorization remains saved on this machine. Run "
-            "`yoke github disconnect` to remove it.",
-            file=sys.stderr,
-        )
-    _finish_pending_dev_install(parsed.config_path)
-    return result.exit_code
-
-
-def _finish_pending_dev_install(config_path: str | None, *, stream=None) -> None:
-    """Run the deferred "Develop Yoke itself" editable install AFTER the wizard UI
-    has closed.
-
-    ``uv pip install -e`` deletes the product wheel this process runs from, so
-    everything here stays plain stdlib (print) — never touch yoke_cli after the
-    editable install. dev_setup + project_onboard_apply are imported lazily so the
-    adapter's import order can't matter.
-    """
-    from yoke_cli.config import dev_setup
-    from yoke_cli.config import project_onboard_apply
-
-    stream = stream or sys.stdout
-    root = project_onboard_apply.pop_pending_dev_install(config_path)
-    if not root:
-        return
-    print(
-        "\nFinalizing the Yoke dev install (pointing `yoke` at this checkout)…",
-        file=stream,
-    )
-    outcome = dev_setup.run_editable_install_step(Path(root))
-    if outcome.get("ok"):
-        print(
-            f"✓ Dev environment ready. Open a new terminal so `yoke` runs from {root}.",
-            file=stream,
-        )
-    else:
-        print(f"⚠ Couldn't finish the dev install: {outcome.get('error')}", file=stream)
-        print(
-            f"  Finish it with: yoke dev setup {root} --editable-install --yes",
-            file=stream,
-        )
+_finish_pending_dev_install = onboard_interactive.finish_pending_source_install
 
 _apply_with_durable_report = onboard_apply.apply_with_durable_report
 _print_failure_summary = onboard_apply.print_failure_summary
