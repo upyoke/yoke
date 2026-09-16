@@ -193,12 +193,14 @@ export function overviewRunCard(context, row, scope, options = {}) {
   }
   const items = carriedItems(row);
   const timing = row.completed_at || row.started_at || row.created_at;
+  // The pill above already carries the status; repeating it here spent the
+  // card's one meta line saying the same word twice.
   card.appendChild(el(documentNode, "span", "overview-run-card-meta", [
     items.length
       ? `${items.length} ${items.length === 1 ? "item" : "items"}`
       : "environment run",
     row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
-    timing ? `${status} ${relativeAgePhrase(timing)}` : status,
+    timing ? relativeAgePhrase(timing) : null,
   ].filter(Boolean).join(" · ")));
   appendCarried(context, card, row, {
     facts: options.itemFacts,

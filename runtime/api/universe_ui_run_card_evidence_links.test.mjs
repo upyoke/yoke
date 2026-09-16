@@ -104,6 +104,18 @@ test("the run name is the card's link, and the card itself is not one", () => {
   assert.equal(byClass(card, "overview-run-environment")[0].tagName, "SPAN");
 });
 
+test("the card's meta line says the status once, and the pill is where", () => {
+  const documentNode = new FakeDocument();
+  const card = runCard(documentNode, []);
+
+  // The status pill above carries the state; the meta line carries what the
+  // pill cannot — what the release holds, its candidate, and when it moved.
+  assert.equal(byClass(card, "pill")[0].textContent, "executing");
+  const meta = byClass(card, "overview-run-card-meta")[0].textContent;
+  assert.doesNotMatch(meta, /executing/);
+  assert.match(meta, /^environment run · /);
+});
+
 test("a run card's screenshot opens its own evidence, not the run", async () => {
   const documentNode = new FakeDocument();
   const card = runCard(documentNode, [screenshotArtifact()]);
