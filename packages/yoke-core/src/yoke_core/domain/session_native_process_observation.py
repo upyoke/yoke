@@ -6,11 +6,15 @@ visible until something accounts for it.
 
 Two things account for it.  Later activity proves a replacement process took
 over.  And a native that exited normally under a session waiting on purpose
-is the ordinary end of a headless command rather than a disappearance: that
-row is quiet by declaration, and its own reason describes it better than an
-alarm does.  Nothing else accounts for anything — a non-zero exit, and an
-exit nobody measured, still read as gone whatever wait is declared, because
-hiding a crash behind a park is how a dead worker goes unnoticed.
+-- parked, awaiting a queue landing, or a turn already marked waiting whose
+stamp belongs to the current episode -- is the ordinary end of a headless
+command rather than a disappearance: that row is quiet by declaration, and
+its own reason describes it better than an alarm does.  Mode remaining dash,
+or a work claim still held, does not turn that completed wait into a
+disappearance.  Nothing else accounts for anything — a non-zero exit, an
+exit nobody measured, and a waiting stamp from a prior episode or with no
+chronology, still read as gone, because hiding a later disappearance behind
+a leftover wait is how a dead worker goes unnoticed.
 
 A repeat of the same report accounts for nothing either.  A machine keeps its
 record of a dead process until the control plane ends the session, so a
@@ -113,6 +117,25 @@ def _exited_normally(evidence: Mapping[str, Any]) -> bool:
     if isinstance(code, bool) or not isinstance(code, int):
         return False
     return code == NORMAL_NATIVE_EXIT_CODE
+
+
+def _current_waiting_turn(row: Mapping[str, Any]) -> bool:
+    """Waiting accounts for a death only when its stamp is this episode's.
+
+    Stop/SessionEnd write waiting; UserPromptSubmit writes running. Activity
+    strictly later than the death already superseded it before this runs.
+    A wait with no ``turn_posture_at``, or one stamped before
+    ``episode_started_at``, is a prior turn's leftover and cannot hide a
+    later disappearance. Parked and landing waits are live session state
+    and do not use this path.
+    """
+    if row.get("turn_posture") != "waiting":
+        return False
+    posture_at = parse_timestamp(row.get("turn_posture_at"))
+    if posture_at is None:
+        return False
+    episode = parse_timestamp(row.get("episode_started_at"))
+    return episode is None or posture_at >= episode
 
 
 def record_native_process_gone(
@@ -231,9 +254,11 @@ def current_native_process_observation(
     """Return process-gone evidence unless something accounts for the death.
 
     ``landing_wait`` is the caller's ``item_awaiting_landing`` fact from the
-    holdings it already loaded; the parked half of the same question is on
-    the row itself.  It defaults to the alerting side, so a caller that never
-    asked cannot silence an alarm by omission.
+    holdings it already loaded; parked mode and current-episode waiting-turn
+    posture are on the row itself.  A clean native exit after the turn
+    already stopped is the wait, not a disappearance, even when mode is
+    still dash and a claim is held.  It defaults to the alerting side, so a
+    caller that never asked cannot silence an alarm by omission.
     """
     observed = parse_timestamp(row.get(NATIVE_PROCESS_GONE_AT_COLUMN))
     if observed is None:
@@ -249,9 +274,10 @@ def current_native_process_observation(
     if activity and max(activity) > observed:
         return None
     evidence = _decoded_evidence(row.get(NATIVE_PROCESS_GONE_EVIDENCE_COLUMN))
-    if (landing_wait or session_is_parked(row.get("mode"))) and _exited_normally(
-        evidence
-    ):
+    declared_wait = (
+        landing_wait or session_is_parked(row.get("mode")) or _current_waiting_turn(row)
+    )
+    if declared_wait and _exited_normally(evidence):
         return None
     return {
         "state": NATIVE_PROCESS_GONE_STATE,

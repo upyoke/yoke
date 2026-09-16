@@ -83,6 +83,7 @@ def claim_holders(
     placeholders = ",".join(marker for _ in session_ids)
     rows = conn.execute(
         "SELECT session_id,mode,quiet_reason,last_tool_call_at,last_heartbeat,episode_started_at,"
+        "turn_posture,turn_posture_at,"
         "native_process_gone_at,native_process_gone_evidence,"
         "EXISTS(SELECT 1 FROM session_launches l "
         "WHERE l.registered_session_id=harness_sessions.session_id) AS launch_recorded "
