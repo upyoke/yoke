@@ -211,7 +211,8 @@ class TestSyncItem:
         stderr = io.StringIO()
         rc = backlog_github_sync.sync_item("EXT-999", conn=db, stderr=stderr)
         assert rc == 1
-        assert "not found" in stderr.getvalue()
+        # The token resolved to nothing, so the error echoes what was typed.
+        assert "no item for 'EXT-999'" in stderr.getvalue()
         db.close()
 
     def test_creates_new_issue_renders_owner_label(self):

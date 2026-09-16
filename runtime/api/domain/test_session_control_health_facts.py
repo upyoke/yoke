@@ -30,7 +30,9 @@ def conn() -> sqlite3.Connection:
     connection.row_factory = sqlite3.Row
     connection.executescript(
         """
-        CREATE TABLE projects (id INTEGER PRIMARY KEY, slug TEXT, prefix TEXT);
+        CREATE TABLE projects (
+            id INTEGER PRIMARY KEY, slug TEXT, public_item_prefix TEXT
+        );
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             project_id INTEGER,
