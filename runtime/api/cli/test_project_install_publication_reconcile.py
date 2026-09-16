@@ -40,71 +40,101 @@ def _isolated_machine_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.delenv("YOKE_ENV", raising=False)
 
 
-def test_install_records_the_shared_freshness_reading_it_generated_against(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+def test_a_behind_branch_is_fast_forwarded_before_anything_is_generated(
+    tmp_path: Path,
 ) -> None:
     world = remote_world(tmp_path)
     advanced = world.advance_remote(
         path="teammate.md", content="landed first\n", message="teammate change",
     )
-    bind_bundle(monkeypatch)
 
-    report = runner.install(world.checkout, project_id=7)
+    outcome = reconcile.bring_branch_current(world.checkout, branch="main")
 
-    upstream = report["checkout"]["upstream"]
-    assert upstream["state"] == "fast_forwarded"
-    assert upstream["verified"] is True
-    assert upstream["local_branch_current"] is True
-    assert upstream["upstream_sha"] == advanced
+    assert outcome["status"] == "fast_forwarded"
+    assert outcome["remote_sha"] == advanced
+    assert git(world.checkout, "rev-parse", "main").stdout.strip() == advanced
     assert (world.checkout / "teammate.md").is_file()
 
 
-def test_an_unreadable_remote_degrades_the_install_rather_than_refusing_it(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Install materializes a local layer, so an offline machine still gets it.
-
-    Preparation refuses an unverifiable remote because a lane would have no
-    revision to start from. This consumer degrades instead and lets
-    publication carry the refusal, so the operator is never told the remote
-    holds a layer it never received.
-    """
-    world = remote_world(tmp_path)
-    git(world.checkout, "remote", "set-url", "origin", str(tmp_path / "gone.git"))
-    bind_bundle(monkeypatch)
-
-    report = runner.install(world.checkout, project_id=7)
-
-    upstream = report["checkout"]["upstream"]
-    assert upstream["verified"] is False
-    assert upstream["state"] == "fetch_failed"
-    assert any(
-        warning.startswith("upstream freshness:")
-        for warning in report.get("warnings", [])
-    )
-    assert report["commit"]["status"] == "created"
-    assert report["publication"]["status"] == publication_outcome.PENDING
-
-
-def test_publication_refuses_to_guess_among_several_untracked_remotes(
+def test_a_current_branch_is_reported_current_and_left_alone(
     tmp_path: Path,
 ) -> None:
     world = remote_world(tmp_path)
-    git(world.checkout, "remote", "add", "mirror", str(world.remote))
-    git(world.checkout, "config", "--unset", "branch.main.remote")
+    before = git(world.checkout, "rev-parse", "main").stdout.strip()
 
-    state = reconcile.read_remote_state(world.checkout, branch="main")
+    outcome = reconcile.bring_branch_current(world.checkout, branch="main")
 
-    assert state.status == reconcile.REMOTE_UNRESOLVED
-    assert "set-upstream-to" in state.detail
+    assert outcome["status"] == reconcile.CURRENT
+    assert git(world.checkout, "rev-parse", "main").stdout.strip() == before
+
+
+def test_local_commits_the_remote_lacks_are_reported_never_rewritten(
+    tmp_path: Path,
+) -> None:
+    world = remote_world(tmp_path)
+    (world.checkout / "operator.md").write_text("mine\n", encoding="utf-8")
+    git(world.checkout, "add", "-A")
+    git(world.checkout, "commit", "-q", "-m", "operator work")
+    local = git(world.checkout, "rev-parse", "main").stdout.strip()
+
+    outcome = reconcile.bring_branch_current(world.checkout, branch="main")
+
+    assert outcome["status"] == reconcile.AHEAD
+    assert git(world.checkout, "rev-parse", "main").stdout.strip() == local
+    assert (world.checkout / "operator.md").is_file()
+
+
+def test_a_diverged_branch_keeps_both_sides_and_is_named_diverged(
+    tmp_path: Path,
+) -> None:
+    world = remote_world(tmp_path)
+    world.advance_remote(
+        path="teammate.md", content="theirs\n", message="teammate change",
+    )
+    (world.checkout / "operator.md").write_text("mine\n", encoding="utf-8")
+    git(world.checkout, "add", "-A")
+    git(world.checkout, "commit", "-q", "-m", "operator work")
+    local = git(world.checkout, "rev-parse", "main").stdout.strip()
+
+    outcome = reconcile.bring_branch_current(world.checkout, branch="main")
+
+    assert outcome["status"] == reconcile.DIVERGED
+    assert git(world.checkout, "rev-parse", "main").stdout.strip() == local
 
 
 def test_a_checkout_with_no_remote_reports_no_remote(tmp_path: Path) -> None:
     root = local_only_checkout(tmp_path)
 
-    state = reconcile.read_remote_state(root, branch="main")
+    outcome = reconcile.bring_branch_current(root, branch="main")
 
-    assert state.status == reconcile.NO_REMOTE
+    assert outcome["status"] == reconcile.NO_REMOTE
+
+
+def test_freshness_is_skipped_when_the_publish_branch_is_not_checked_out(
+    tmp_path: Path,
+) -> None:
+    world = remote_world(tmp_path)
+    world.advance_remote(
+        path="teammate.md", content="theirs\n", message="teammate change",
+    )
+    git(world.checkout, "switch", "-q", "-c", "side")
+
+    outcome = reconcile.bring_branch_current(world.checkout, branch="main")
+
+    assert outcome["status"] == publication_outcome.SKIPPED
+    assert "side" in outcome["reason"]
+
+
+def test_an_unreadable_remote_is_named_rather_than_assumed_current(
+    tmp_path: Path,
+) -> None:
+    world = remote_world(tmp_path)
+    git(world.checkout, "remote", "set-url", "origin", str(tmp_path / "gone.git"))
+
+    outcome = reconcile.bring_branch_current(world.checkout, branch="main")
+
+    assert outcome["status"] == reconcile.FETCH_FAILED
+    assert outcome["detail"]
 
 
 def test_reconcile_regenerates_current_content_over_the_older_sides(
@@ -223,7 +253,7 @@ def test_a_behind_clone_publishes_a_child_of_the_current_remote_tip(
 
     report = runner.install(world.checkout, project_id=7)
 
-    assert report["checkout"]["upstream"]["state"] == "fast_forwarded"
+    assert report["checkout"]["upstream"]["status"] == "fast_forwarded"
     assert report["publication"]["status"] == publication_outcome.PUBLISHED
     parents = git(
         world.checkout, "rev-parse", f"{report['commit']['sha']}^",
