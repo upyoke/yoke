@@ -78,9 +78,14 @@ def capture_artifacts(
 
 
 def case_artifact_read_commands(cases: Any) -> list[str]:
-    """Every review case's artifact read commands, in bundle order."""
+    """Every review case's artifact read commands, in bundle order.
+
+    Derived from the case's own requirement and each artifact id rather
+    than read off the artifact: a bundle is persisted JSON, so the ones
+    stored before artifacts carried their read command still dispatch.
+    """
     return [
-        str(artifact["read_command"])
+        artifact_read_command(int(case["requirement_id"]), int(artifact["id"]))
         for case in cases
         for artifact in case.get("artifacts", [])
     ]
