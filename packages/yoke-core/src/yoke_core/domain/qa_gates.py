@@ -39,6 +39,7 @@ from yoke_core.domain.qa_simulation_gate import (  # noqa: F401  (re-export)
 from yoke_core.domain.deployment_qa_source_obligation import (
     row_unsatisfied_at_done,
 )
+from yoke_core.domain.qa_done_gate_refusal import done_gate_refusal_errors
 from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
     _browser_freshness_errors,
     _browser_run_is_fresh,
@@ -237,22 +238,9 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
                 if row_unsatisfied_at_done(conn, row, item_id=int(target.item_id))
             ]
         if rows:
-            errors = [
-                f"Error: Cannot transition {name} to 'done' -- {len(rows)} blocking QA requirement(s) unsatisfied.",
-                "  All blocking requirements must have a passing run or be waived.",
-                "  Satisfy each requirement or use the registered waiver "
-                "surface with explicit authorization.",
-            ]
-            for row in rows:
-                waiting = requirement_awaits_human_review(conn, int(row["id"]))
-                errors.extend(
-                    [f"  - {waiting.detail}", f"    {waiting.recovery}"]
-                    if waiting
-                    else [
-                        f"  - Requirement #{row['id']} ({row['qa_kind']}, phase={row['qa_phase']}): no passing run"
-                    ]
-                )
-            return GateResult(passed=False, errors=errors)
+            return GateResult(
+                passed=False, errors=done_gate_refusal_errors(conn, rows, name=name),
+            )
 
         # (2) Artifact-disk existence
         if repo_root:

@@ -148,7 +148,7 @@ class TestCheckDoneGate:
             ("project operator", "project owner"),
         )
         with mock.patch(
-            "yoke_core.domain.qa_gates.requirement_awaits_human_review",
+            "yoke_core.domain.qa_done_gate_refusal.requirement_awaits_human_review",
             return_value=waiting,
         ):
             result = check_done_gate(GateTarget(item_id=42), qa_db)

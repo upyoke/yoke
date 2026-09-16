@@ -13,6 +13,7 @@ from typing import Any, Mapping, Optional
 
 from yoke_core.domain.dash_posture_read import failure as _failure, marker as _p
 from yoke_core.domain.deployment_qa_source_obligation import (
+    POST_DEPLOY_RECOVERY,
     blocking_row_unsatisfied_at_done,
 )
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
@@ -119,12 +120,16 @@ def verification_gate(
             "The selected Dash verification is not bound to a blocking QA case.",
             "Author or materialize the selected case for the review transition.",
         )
-    unsatisfied = [
-        int(row["id"] if hasattr(row, "keys") else row[0])
+    unsatisfied_rows = [
+        row
         for row in rows
         if not _requirement_consumed(
             conn, row, pre_merge=pre_merge, item_id=int(item_id)
         )
+    ]
+    unsatisfied = [
+        int(row["id"] if hasattr(row, "keys") else row[0])
+        for row in unsatisfied_rows
     ]
     if unsatisfied:
         waiting = next(
@@ -139,11 +144,21 @@ def verification_gate(
             return _failure(
                 "GATE_DASH_QA_REVIEW_REQUIRED", waiting.detail, waiting.recovery
             )
+        # Executing the case again is the recovery for a case that has not
+        # run. It is the wrong instruction for a post_deploy row, whose
+        # answer comes from delivery rather than from another run.
+        post_deploy = any(
+            str(row["qa_phase"] if hasattr(row, "keys") else row[1] or "")
+            == "post_deploy"
+            for row in unsatisfied_rows
+        )
         return _failure(
             "GATE_DASH_VERIFICATION_UNSATISFIED",
-            "Selected Dash QA requirement(s) lack a passing run: "
+            "Selected Dash QA requirement(s) are not satisfied here: "
             + ", ".join(str(value) for value in unsatisfied),
-            "Execute each requirement through the registered QA case runner.",
+            POST_DEPLOY_RECOVERY
+            if post_deploy
+            else "Execute each requirement through the registered QA case runner.",
         )
     return None
 

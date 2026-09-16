@@ -21,7 +21,7 @@ from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
 )
 from yoke_core.domain.deployment_qa_source_obligation import (
-    unsatisfied_blocking_count,
+    unsatisfied_blocking,
 )
 from yoke_core.domain.backlog_batch_update import execute_batch_update
 from yoke_core.domain.backlog_post_write_sync import run_post_db_sync
@@ -183,9 +183,11 @@ def _execute_update_once(
 
         if target_status:
             gate.has_merged_at = bool(item_dict.get("merged_at"))
-            gate.unsatisfied_all_blocking = unsatisfied_blocking_count(
+            blocking = unsatisfied_blocking(
                 conn, item_id=int(item_dict["id"]), target_status=target_status
             )
+            gate.unsatisfied_all_blocking = blocking.count
+            gate.unsatisfied_includes_post_deploy = blocking.includes_post_deploy
 
         # Deployed-to validation
         if field == "deployed_to" and value:

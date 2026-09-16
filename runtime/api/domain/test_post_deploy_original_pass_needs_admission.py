@@ -51,14 +51,30 @@ def _record_evidence(conn, *, item_id: int) -> None:
 
 
 def _assert_every_done_consumer_refuses(conn, *, item_id: int, source_id: int) -> None:
+    """Each consumer refuses, and each names a recovery that can actually
+    clear the row. "Execute the case" cannot: the row may already have a
+    passing run, and running it again records another one against the same
+    unchanged candidate."""
     db_path = str(conn.info.dsn)
     blocked = evaluate(item_id=item_id, target_status="done", db_path=db_path)
     assert blocked is not None
     assert blocked["error_code"] == "GATE_DASH_VERIFICATION_UNSATISFIED"
     assert str(source_id) in blocked["error"]
+    assert "registered QA case runner" not in blocked["remediation_hint"]
+    _assert_teaches_the_way_out(blocked["remediation_hint"])
+
     shared = check_done_gate(GateTarget(item_id=item_id), db_path)
     assert shared.passed is False
     assert any(f"#{source_id}" in error for error in shared.errors)
+    assert any("not accepted on the completion run" in e for e in shared.errors)
+    _assert_teaches_the_way_out("\n".join(shared.errors))
+
+
+def _assert_teaches_the_way_out(text: str) -> None:
+    assert "admitted" in text
+    assert "target_env" in text
+    assert "waive" in text
+    assert "permanently" not in text
 
 
 def test_an_original_pass_without_any_completion_run_still_blocks_done(
@@ -78,6 +94,9 @@ def test_an_original_pass_without_any_completion_run_still_blocks_done(
     )
     outcome = _transition_done(test_db, item_id=item_id, monkeypatch=monkeypatch)
     assert outcome.primary_success is False
+    # The status write refuses before the shared gate runs, so its own
+    # message is the one an operator reads first and must carry the recovery.
+    _assert_teaches_the_way_out(outcome.error.message)
     status = test_db.execute(
         "SELECT status FROM items WHERE id=%s", (item_id,)
     ).fetchone()[0]

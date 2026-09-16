@@ -239,6 +239,9 @@ class GateContext:
             None if not applicable (non-epic items).
         unsatisfied_all_blocking: Count of all blocking requirements
             (any phase) without a passing run or waiver.
+        unsatisfied_includes_post_deploy: Whether any of those is a
+            post_deploy row, which is cleared by delivery or an authorized
+            waiver rather than by executing the case again.
         has_merged_at: Whether the item has a non-null merged_at.
         valid_deploy_envs: List of valid deployment environments for the
             item's project. None if not loaded.
@@ -257,6 +260,7 @@ class GateContext:
 
     epic_task_count: Optional[int] = None
     unsatisfied_all_blocking: int = 0
+    unsatisfied_includes_post_deploy: bool = False
     has_merged_at: bool = False
     valid_deploy_envs: Optional[List[str]] = None
     flow_project: Optional[str] = None

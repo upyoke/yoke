@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -21,6 +22,19 @@ from yoke_core.domain.deployment_qa_stage_contract import (
     deployment_qa_stage_subject,
 )
 from yoke_core.domain.schema_common import _table_exists
+
+# A post_deploy row that already passed once is not re-runnable into
+# satisfaction, so "execute the case" is the wrong instruction and
+# "permanently blocked" is wrong too: there are two real ways out, and
+# both are configuration or authority rather than another run.
+POST_DEPLOY_RECOVERY = (
+    "A post_deploy obligation is satisfied by the completion run's admitted "
+    "copy, so re-running the intake row cannot clear it. Deliver the item "
+    "through a flow whose stage target matches the requirement's target_env "
+    "so the run admits and accepts it, correcting whichever of the two is "
+    "wrong when they disagree; or waive the requirement through the "
+    "registered waiver surface with explicit authorization."
+)
 
 
 def latest_deployment_run_for_item(conn: Any, item_id: int) -> dict[str, str]:
@@ -149,8 +163,23 @@ def row_unsatisfied_at_done(conn: Any, row: Any, *, item_id: int) -> bool:
     )
 
 
-def unsatisfied_blocking_count(conn: Any, *, item_id: int, target_status: str) -> int:
-    """How many of the item's blocking requirements are still unsatisfied.
+@dataclass(frozen=True)
+class UnsatisfiedBlocking:
+    """The item's still-unsatisfied blocking requirements, and their shape.
+
+    ``includes_post_deploy`` is what a refusal needs in order to name the
+    right recovery: a post_deploy row is cleared by delivery or by a waiver,
+    never by executing the case again.
+    """
+
+    count: int = 0
+    includes_post_deploy: bool = False
+
+
+def unsatisfied_blocking(
+    conn: Any, *, item_id: int, target_status: str
+) -> UnsatisfiedBlocking:
+    """Which of the item's blocking requirements are still unsatisfied.
 
     At ``done`` each row is answered by :func:`row_unsatisfied_at_done`, so a
     ``post_deploy`` row is judged on its completion-run admitted copy. At every
@@ -165,7 +194,7 @@ def unsatisfied_blocking_count(conn: Any, *, item_id: int, target_status: str) -
         (int(item_id),),
     ).fetchone()
     if not (present["cnt"] if present else 0):
-        return 0
+        return UnsatisfiedBlocking()
     rows = conn.execute(
         "SELECT qr.id, qr.qa_phase, EXISTS("
         "SELECT 1 FROM qa_runs qrun "
@@ -176,16 +205,27 @@ def unsatisfied_blocking_count(conn: Any, *, item_id: int, target_status: str) -
         (int(item_id),),
     ).fetchall()
     if target_status != "done":
-        return sum(1 for row in rows if not row["passed"])
-    return sum(
-        1 for row in rows if row_unsatisfied_at_done(conn, row, item_id=int(item_id))
+        unsatisfied = [row for row in rows if not row["passed"]]
+    else:
+        unsatisfied = [
+            row
+            for row in rows
+            if row_unsatisfied_at_done(conn, row, item_id=int(item_id))
+        ]
+    return UnsatisfiedBlocking(
+        count=len(unsatisfied),
+        includes_post_deploy=any(
+            str(row["qa_phase"] or "") == "post_deploy" for row in unsatisfied
+        ),
     )
 
 
 __all__ = [
+    "POST_DEPLOY_RECOVERY",
+    "UnsatisfiedBlocking",
     "blocking_row_unsatisfied_at_done",
     "latest_deployment_run_for_item",
     "row_unsatisfied_at_done",
     "source_obligation_consumed",
-    "unsatisfied_blocking_count",
+    "unsatisfied_blocking",
 ]
