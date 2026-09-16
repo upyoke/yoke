@@ -277,6 +277,41 @@ def test_a_normal_exit_with_no_wait_declared_still_reads_as_gone():
     assert current_native_process_observation(row) is not None
 
 
+@pytest.mark.parametrize(
+    "extra,expect_gone",
+    [({"exit_code": 0}, False), ({"exit_code": 1}, True), ({}, True)],
+    ids=["clean", "crash", "unmeasured"],
+)
+def test_a_waiting_turn_accounts_only_for_a_clean_exit(extra, expect_gone):
+    """Mode dash plus a held claim do not alarm a completed waiting turn."""
+    row = _row(turn_posture="waiting", native_process_gone_evidence=_evidence(**extra))
+
+    assert (current_native_process_observation(row) is not None) is expect_gone
+
+
+def test_later_activity_still_supersedes_a_waiting_turns_death():
+    row = _row(
+        turn_posture="waiting",
+        native_process_gone_evidence=_evidence(exit_code=0),
+        last_heartbeat=RESUMED_AT,
+        last_tool_call_at=RESUMED_AT,
+    )
+
+    assert current_native_process_observation(row) is None
+
+
+def test_stale_prior_turn_waiting_does_not_hide_a_later_crash():
+    """A prior turn's waiting posture cannot swallow a later non-zero exit."""
+    row = _row(
+        turn_posture="waiting",
+        turn_posture_at="2026-09-09T11:00:00Z",
+        episode_started_at="2026-09-09T11:30:00Z",
+        native_process_gone_evidence=_evidence(exit_code=1),
+    )
+
+    assert current_native_process_observation(row) is not None
+
+
 def test_an_armed_item_reports_its_holder_is_waiting_on_the_landing(conn):
     """The fact rides the read that already loads every claimed item's row."""
     claim_work(conn, session_id=_session(conn, "sess-armed-landing"), item_id=9301)

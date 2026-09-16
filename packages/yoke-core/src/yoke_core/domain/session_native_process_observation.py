@@ -6,11 +6,14 @@ visible until something accounts for it.
 
 Two things account for it.  Later activity proves a replacement process took
 over.  And a native that exited normally under a session waiting on purpose
-is the ordinary end of a headless command rather than a disappearance: that
-row is quiet by declaration, and its own reason describes it better than an
-alarm does.  Nothing else accounts for anything — a non-zero exit, and an
-exit nobody measured, still read as gone whatever wait is declared, because
-hiding a crash behind a park is how a dead worker goes unnoticed.
+-- parked, awaiting a queue landing, or a turn already marked waiting -- is
+the ordinary end of a headless command rather than a disappearance: that row
+is quiet by declaration, and its own reason describes it better than an
+alarm does.  Mode remaining dash, or a work claim still held, does not turn
+that completed wait into a disappearance.  Nothing else accounts for
+anything — a non-zero exit, and an exit nobody measured, still read as gone
+whatever wait is declared, because hiding a crash behind a wait is how a
+dead worker goes unnoticed.
 
 A repeat of the same report accounts for nothing either.  A machine keeps its
 record of a dead process until the control plane ends the session, so a
@@ -231,9 +234,11 @@ def current_native_process_observation(
     """Return process-gone evidence unless something accounts for the death.
 
     ``landing_wait`` is the caller's ``item_awaiting_landing`` fact from the
-    holdings it already loaded; the parked half of the same question is on
-    the row itself.  It defaults to the alerting side, so a caller that never
-    asked cannot silence an alarm by omission.
+    holdings it already loaded; parked mode and waiting-turn posture are on
+    the row itself.  A clean native exit after the turn already stopped is
+    the wait, not a disappearance, even when mode is still dash and a claim
+    is held.  It defaults to the alerting side, so a caller that never asked
+    cannot silence an alarm by omission.
     """
     observed = parse_timestamp(row.get(NATIVE_PROCESS_GONE_AT_COLUMN))
     if observed is None:
@@ -249,9 +254,12 @@ def current_native_process_observation(
     if activity and max(activity) > observed:
         return None
     evidence = _decoded_evidence(row.get(NATIVE_PROCESS_GONE_EVIDENCE_COLUMN))
-    if (landing_wait or session_is_parked(row.get("mode"))) and _exited_normally(
-        evidence
-    ):
+    declared_wait = (
+        landing_wait
+        or session_is_parked(row.get("mode"))
+        or row.get("turn_posture") == "waiting"
+    )
+    if declared_wait and _exited_normally(evidence):
         return None
     return {
         "state": NATIVE_PROCESS_GONE_STATE,
