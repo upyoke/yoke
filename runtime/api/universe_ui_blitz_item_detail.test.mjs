@@ -63,15 +63,51 @@ test("Blitz detail route renders the full execution-document composition", async
         envelope: { success: true, result: { disposition: "unavailable" } },
       };
     }
+    if (request.function === "sessions.list") {
+      return {
+        status: 200,
+        envelope: {
+          success: true,
+          result: {
+            rows: [{
+              session_id: "session-z", executor: "codex-cli", project_id: 7,
+              liveness: "active", mode: "blitz", holdings: { current: [] },
+            }],
+          },
+        },
+      };
+    }
+    if (request.function === "deployment_runs.find_by_item") {
+      return {
+        status: 200,
+        envelope: {
+          success: true,
+          result: {
+            item_id: 51,
+            fields: ["id", "status", "current_stage", "created_at"],
+            rows: [
+              { id: "run-20260726-002", status: "succeeded",
+                current_stage: "complete", created_at: "2026-07-26T12:00:00Z" },
+              { id: "run-20260725-001", status: "succeeded",
+                current_stage: "complete", created_at: "2026-07-25T12:00:00Z" },
+            ],
+          },
+        },
+      };
+    }
     throw new Error(`unexpected function ${request.function}`);
   }), root, "7", "ACM-22");
   await settle();
 
   assert.deepEqual(
-    requests.map((request) => request.function),
+    requests.map((request) => request.function).sort(),
     // The verification rows also ask which of their reviews still wait on
-    // this reader, so a pending one can point at its Inbox card.
-    ["items.detail.get", "strategy.execution.get", "qa.artifact.read", "inbox.list"],
+    // this reader, so a pending one can point at its Inbox card; the page
+    // also reads who holds the claim and which releases carried the work.
+    [
+      "deployment_runs.find_by_item", "inbox.list", "items.detail.get",
+      "qa.artifact.read", "sessions.list", "strategy.execution.get",
+    ],
   );
   const rendered = itemText(root);
   assert.match(rendered, /Execution document/);
@@ -93,6 +129,16 @@ test("Blitz detail route renders the full execution-document composition", async
   assert.match(rendered, /Integration main session/);
   assert.match(rendered, /Migrations governed/);
   assert.match(rendered, /\/yoke blitz ACM-22/);
+  // Delivery history reads newest first, and the claim holder's own session
+  // card stands under the facts rather than a second, smaller rendering.
+  assert.deepEqual(
+    byClass(root, "item-delivery-run").map((node) => node.children[0].textContent),
+    ["run-20260726-002", "run-20260725-001"],
+  );
+  assert.equal(byClass(root, "session-card").length, 1);
+  assert.equal(
+    byClass(root, "session-card")[0].attributes.get("data-session-id"), "session-z",
+  );
   assert.doesNotMatch(rendered, /Build one shell/);
   assert.doesNotMatch(rendered, /Overall narrative/);
   assert.deepEqual(
@@ -109,10 +155,12 @@ test("Blitz detail route renders the full execution-document composition", async
       "governed",
     ],
   );
+  // Lane pills only: the claim holder's session card carries a status pill
+  // of its own, and it is about the session rather than about a lane.
   const lanePills = byClass(root, "pill").filter(
     (node) => ["active", "committed"].includes(
       node.attributes.get("data-state"),
-    ),
+    ) && !node.className.includes("session-status-pill"),
   );
   assert.deepEqual(
     lanePills.map((node) => [node.className, node.textContent]),

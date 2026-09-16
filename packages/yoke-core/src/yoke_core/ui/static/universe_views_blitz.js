@@ -18,6 +18,8 @@ import {
   readablePolicyValue,
   workflowPanel,
 } from "./workflow_view_primitives.js";
+import { itemClaimantPanel } from "./item_view_claimant.js";
+import { itemDeliveryPanel } from "./item_view_delivery.js";
 
 const LANE_STATE_PRESENTATION = {
   active: { tone: "running", label: "active" },
@@ -260,6 +262,9 @@ function blitzPosturePanel(documentNode, item) {
 function renderLoadedBlitz(context, main, item, execution) {
   const documentNode = context.document;
   const progressLog = progressIfPresent(documentNode, item);
+  // A Blitz ships in slices, so its delivery history is the readable record
+  // of how far it has got — and the session holding it is who to ask.
+  const claimant = itemClaimantPanel(context, item);
   const host = el(documentNode, "div", "item-detail blitz-detail");
   host.appendChild(itemHeading(documentNode, item));
   host.appendChild(detailColumns(
@@ -274,6 +279,8 @@ function renderLoadedBlitz(context, main, item, execution) {
     ],
     [
       blitzFactsPanel(documentNode, item),
+      ...(claimant ? [claimant] : []),
+      itemDeliveryPanel(context, item),
       blitzPosturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),

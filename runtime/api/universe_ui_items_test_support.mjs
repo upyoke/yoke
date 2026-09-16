@@ -10,6 +10,10 @@ export function itemContext(documentNode, call) {
     projects: () => [{
       id: 7, slug: "acme", name: "Acme", emoji: "🐜",
     }],
+    // The app context every view is handed; the claim holder's session card
+    // is tinted from the same roster-wide color map the Sessions roster uses.
+    steeringGroupColors: () => new Map(),
+    navigate: () => {},
     capabilities: {},
   };
 }

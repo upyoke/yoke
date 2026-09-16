@@ -21,6 +21,7 @@ import {
   withoutMarkdownSections,
 } from "./item_view_primitives.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
+import { itemDeliveryPanel } from "./item_view_delivery.js";
 
 function issuePanels(context, documentNode, item) {
   const spec = item.narrative.spec || item.narrative.body;
@@ -47,6 +48,7 @@ function issuePanels(context, documentNode, item) {
     [
       factsPanel(documentNode, item),
       verificationPanel(context, item),
+      itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       progressPanel(documentNode, item),
@@ -118,6 +120,7 @@ function epicPanels(context, documentNode, item) {
     [
       factsPanel(documentNode, item),
       verificationPanel(context, item),
+      itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),
@@ -169,6 +172,7 @@ function dashPanels(context, documentNode, item) {
     [
       factsPanel(documentNode, item),
       ...(origin ? [origin] : []),
+      itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),
@@ -216,6 +220,7 @@ function fallbackPanels(context, documentNode, item) {
     [
       factsPanel(documentNode, item),
       verificationPanel(context, item),
+      itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),
