@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Callable
 
 from yoke_core.domain.session_ci_wait_record import record_ci_run_wait
+from yoke_core.domain.session_ci_wait_record import resolve_received_wait
 from yoke_core.domain.session_ci_wait_schema import CI_WAIT_MERGE_VERIFICATION
 
 
@@ -56,4 +57,9 @@ def record_wait_and_warn(
         )
 
 
-__all__ = ["record_wait_and_warn"]
+def resolve_if_received(*, run_id: str, conclusion: str) -> None:
+    """Drop the wake once this merge poll already received success or failure."""
+    resolve_received_wait(run_id=run_id, conclusion=conclusion)
+
+
+__all__ = ["record_wait_and_warn", "resolve_if_received"]

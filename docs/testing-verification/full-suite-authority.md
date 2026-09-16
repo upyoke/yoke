@@ -140,16 +140,16 @@ capture for that signal, then re-run the gate.
 
 **A stopped turn is woken with the verdict rather than left to notice
 it.** Every CI dispatch — the QA case gate and `yoke watch pytest`'s
-remote selection alike — records the run against the session that
-dispatched it (`session_ci_wait.record`). When the turn watching that run
-has ended, the control-plane sweep in
-`yoke_core.domain.session_ci_wait_observer` reads the conclusion on the
-relay cadence and pushes one message carrying the verdict, the run URL,
-the commit, and the command that resumes the wait; a session whose turn is
-still in flight is left alone, because it is reading the run itself. So
-the re-run above is what a woken session does *with* the verdict, not how
-it learns there is one. The notice rides the ordinary session-message path
-and reaches every harness the same way.
+remote selection alike — records the run (`session_ci_wait.record`). A
+watcher that receives success or failure marks that wait notified
+(`session_ci_wait.resolve`) so the sweep does not repeat it; a watcher
+that dies first leaves the wait pending. Once the watching turn has
+ended, `yoke_core.domain.session_ci_wait_observer` reads the conclusion
+on the relay cadence and pushes one message carrying the verdict, the
+run URL, the commit, and the continue command; an in-flight turn is left
+alone because it is reading the run itself. The re-run above is what a
+woken session does *with* the verdict. The notice rides the ordinary
+session-message path and reaches every harness the same way.
 
 The CI budget is wall clock spanning the push, the pull request, the
 Actions queue, and the suite — not execution alone the way a local

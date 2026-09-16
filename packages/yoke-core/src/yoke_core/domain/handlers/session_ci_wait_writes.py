@@ -22,6 +22,8 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_core.domain.qa_case_ci_conclusion import BINDING_CONCLUSIONS
+from yoke_core.domain.session_ci_wait_observer import apply_received_wait
 from yoke_core.domain.session_ci_wait_schema import CI_WAIT_KINDS
 from yoke_core.domain.session_message_types import timestamp, utc_now
 
@@ -47,6 +49,17 @@ class RecordCiWaitResponse(BaseModel):
     project_id: int
     run_id: str
     recorded: bool
+
+
+class ResolveCiWaitRequest(BaseModel):
+    run_id: str = Field(..., min_length=1, description="GitHub Actions run id.")
+    conclusion: str = Field(..., description="The verdict the watcher received.")
+
+
+class ResolveCiWaitResponse(BaseModel):
+    session_id: str
+    run_id: str
+    resolved: bool
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -125,6 +138,50 @@ def handle_record_ci_wait(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
+def handle_resolve_ci_wait(request: FunctionCallRequest) -> HandlerOutcome:
+    """Mark the calling session's wait notified after it received the verdict."""
+    session_id = request.actor.session_id or ""
+    if not session_id:
+        return _err(
+            "session_required",
+            "session_ci_wait.resolve names the session that received the "
+            "verdict, so it requires an ambient harness session",
+        )
+    try:
+        body = ResolveCiWaitRequest.model_validate(request.payload or {})
+    except ValidationError as exc:
+        return _err("payload_invalid", f"ci wait payload invalid: {exc}")
+    if body.conclusion not in BINDING_CONCLUSIONS:
+        return _err(
+            "payload_invalid",
+            f"conclusion must be one of {', '.join(sorted(BINDING_CONCLUSIONS))}, "
+            f"got {body.conclusion!r}",
+        )
+
+    now = timestamp(utc_now())
+    try:
+        with _connect_rw() as conn:
+            resolved = apply_received_wait(
+                conn,
+                session_id=session_id,
+                run_id=body.run_id,
+                conclusion=body.conclusion,
+                now=now,
+            )
+            conn.commit()
+    except Exception as exc:  # noqa: BLE001 - advisory gate-side warning
+        return _err("ci_wait_resolve_failed", str(exc))
+
+    return HandlerOutcome(
+        result_payload={
+            "session_id": session_id,
+            "run_id": body.run_id,
+            "resolved": resolved,
+        },
+        primary_success=True,
+    )
+
+
 def _insert(
     conn: Any,
     p: str,
@@ -168,5 +225,8 @@ def _insert(
 __all__ = [
     "RecordCiWaitRequest",
     "RecordCiWaitResponse",
+    "ResolveCiWaitRequest",
+    "ResolveCiWaitResponse",
     "handle_record_ci_wait",
+    "handle_resolve_ci_wait",
 ]

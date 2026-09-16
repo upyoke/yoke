@@ -99,3 +99,18 @@ def test_a_failed_registration_with_no_item_still_names_the_run(monkeypatch):
 
     assert "re-run the same `yoke merge item` command" in warnings[0]
     assert "run 55" in warnings[0]
+
+
+def test_resolve_if_received_forwards_the_poll_conclusion(monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        merge_ci_verification_wait,
+        "resolve_received_wait",
+        lambda **kwargs: seen.append(kwargs) or "",
+    )
+
+    merge_ci_verification_wait.resolve_if_received(
+        run_id="55", conclusion="failure",
+    )
+
+    assert seen == [{"run_id": "55", "conclusion": "failure"}]

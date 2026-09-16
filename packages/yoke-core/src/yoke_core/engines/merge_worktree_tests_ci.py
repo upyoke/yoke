@@ -275,6 +275,10 @@ def run_ci_verification(
 
     duration_ms = int((time.monotonic() - started) * 1000)
     conclusion = known_conclusion or conclusion_from_poll(exit_code, poll_output)
+    if not known_conclusion:
+        merge_ci_verification_wait.resolve_if_received(
+            run_id=ci_run_id, conclusion=conclusion,
+        )
     run_url = f"https://github.com/{repo}/actions/runs/{ci_run_id}"
     verdict = "pass" if conclusion == "success" else "fail"
     raw_result = json.dumps(

@@ -17,7 +17,7 @@ from yoke_core.tools import pytest_remote_selection_run as engine
 
 
 def _run(monkeypatch, *, conclusion: str, publish_ok=True, dispatched=("42", engine.DISPATCHED)):
-    seen: dict = {}
+    seen: dict = {"resolve": []}
     monkeypatch.setattr(
         engine, "publish", lambda root, branch, head, **_kw: publish_ok
     )
@@ -28,6 +28,14 @@ def _run(monkeypatch, *, conclusion: str, publish_ok=True, dispatched=("42", eng
     monkeypatch.setattr(engine, "await_conclusion", lambda **kwargs: conclusion)
     monkeypatch.setattr(
         engine, "relay_failed_log", lambda **kwargs: seen.setdefault("failed_log", kwargs),
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.session_ci_wait_record.record_ci_run_wait",
+        lambda **_kwargs: "",
+    )
+    monkeypatch.setattr(
+        "yoke_core.domain.session_ci_wait_record.resolve_received_wait",
+        lambda **kwargs: seen["resolve"].append(kwargs) or "",
     )
     code = engine.run(
         root=Path("/tmp/lane"), project="yoke", workflow="sel.yml", repo="acme/widgets",
@@ -60,6 +68,7 @@ def test_exit_status_mirrors_the_conclusion(monkeypatch, capsys, conclusion, exi
         assert seen["failed_log"]["run_id"] == "42"
     if conclusion not in ("success", "failure"):
         assert "reached no verdict" in out
+    assert seen["resolve"] == [{"run_id": "42", "conclusion": conclusion}]
 
 
 def test_publish_refusal_stops_before_dispatch(monkeypatch) -> None:
