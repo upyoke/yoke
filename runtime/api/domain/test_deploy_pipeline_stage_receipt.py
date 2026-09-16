@@ -103,7 +103,7 @@ def test_stage_with_no_consuming_qa_dispatches_unchanged() -> None:
     complete.assert_not_called()
 
 
-def test_run_preview_target_refuses_before_dispatch_for_any_runner() -> None:
+def test_run_preview_without_a_capability_refuses_before_dispatch() -> None:
     stage = _stage("preview-stage", "ephemeral-verify")
     stages = [stage, _qa_stage("preview-stage", kind="run_preview")]
     result, allocate, complete, _latest, dispatch = _dispatch_with(
@@ -111,10 +111,10 @@ def test_run_preview_target_refuses_before_dispatch_for_any_runner() -> None:
     )
     rc, diag = result
     assert rc == 1
-    assert "cannot yet produce a verified receipt" in diag
+    assert "names no preview capability" in diag
     dispatch.assert_not_called()
-    allocate.assert_not_called()
-    complete.assert_not_called()
+    complete.assert_called_once()
+    assert complete.call_args.kwargs["status"] == "failed"
 
 
 def test_disagreeing_qa_consumers_refuse_before_dispatch() -> None:

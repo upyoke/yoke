@@ -14,7 +14,9 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.approval_policy import parse_approval_policy
-from yoke_core.domain.project_identity import resolve_project
+from yoke_core.domain.deployment_flow_stage_references import (
+    validate_stage_references,
+)
 
 
 LEGACY_DEFINITION_SCHEMA_VERSION = 1
@@ -282,39 +284,6 @@ def validate_release_stage_policy(stages: list[dict[str, Any]]) -> int:
 def definition_schema_version(stages_json: str) -> int:
     stages = json.loads(stages_json)
     return validate_release_stage_policy(stages)
-
-
-def validate_stage_references(
-    conn: Any,
-    *,
-    project: str,
-    stages_json: str,
-) -> None:
-    """Require every stage target and reusable QA plan to belong to the project."""
-    stages = json.loads(stages_json)
-    ident = resolve_project(conn, project)
-    assert ident is not None
-    from yoke_core.domain.environment_reference import resolve
-
-    for index, stage in enumerate(stages):
-        target = stage.get("target") if isinstance(stage, Mapping) else None
-        if not isinstance(target, Mapping):
-            continue
-        if target.get("kind") != "persistent_environment":
-            continue
-        environment = str(target.get("environment") or "")
-        try:
-            resolve(conn, project_id=ident.id, name=environment)
-        except LookupError as exc:
-            raise LookupError(
-                f"stage {index} target environment {environment!r} is not registered "
-                f"for project {project!r}"
-            ) from exc
-    from yoke_core.domain.deployment_requirement_snapshots import (
-        validate_flow_plan_references,
-    )
-
-    validate_flow_plan_references(conn, project_id=ident.id, stages=stages)
 
 
 def require_supported_definition_schema(

@@ -125,6 +125,34 @@ def track(project: str, branch: str, updates: dict, item_label: str = "") -> Non
             )
 
 
+def recorded_candidate(project: str, preview_key: str) -> tuple[str, str]:
+    """Return ``(deployed_sha, unreadable)`` for a preview already recorded.
+
+    The two empty strings mean the same thing only by accident, so they are
+    kept apart: no row is an answer — nothing occupies this preview — while
+    a read that could not run is not, and a caller that treated the second
+    as the first would claim an occupancy it never checked.
+    """
+    from yoke_contracts.api.function_call import TargetRef
+    from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+
+    try:
+        found = call_dispatcher(
+            function_id="ephemeral_env.get",
+            target=TargetRef(kind="global"),
+            payload={"project": project, "branch": preview_key},
+        )
+    except Exception as exc:
+        return "", f"preview lookup failed: {exc}"
+    if not found.success:
+        code = found.error.code if found.error else ""
+        if code == "not_found":
+            return "", ""
+        detail = found.error.message if found.error else "request failed"
+        return "", f"preview lookup failed: {detail}"
+    return str((found.result or {}).get("deployed_sha") or ""), ""
+
+
 def emit_ephemeral_event(
     name: str, policy: EphemeralPolicy, slug: str, context: dict
 ) -> None:

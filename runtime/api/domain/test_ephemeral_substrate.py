@@ -13,6 +13,7 @@ from yoke_core.domain.ephemeral_substrate import (
     derive_port,
     ephemeral_deploy_dir,
     ephemeral_policy_from_capability,
+    frozen_preview_slug,
     preview_url,
     slugify_branch,
 )
@@ -26,6 +27,29 @@ class TestSlugifyBranch:
         assert slugify_branch("ephemeral substrate preview") == (
             "ephemeral-substrate-preview"
         )
+
+
+class TestFrozenPreviewSlug:
+    def test_golden_vectors_lock_the_cross_runtime_algorithm(self):
+        """Literal expectations: parity with the deploy workflow's own
+        derivation. Yoke computes the preview's URL before the deploy
+        reports one, so a drift here sends the receipt's proof to a host
+        that is serving something else — or nothing."""
+        assert frozen_preview_slug("deploy:buzz:run-20260915-001:preview") == (
+            "rel-f4f7ee0a04a2f88f0b62216e23d42249"
+        )
+        assert frozen_preview_slug("a") == "rel-ca978112ca1bbdcafac231b39a23dc4d"
+
+    def test_hashes_the_whole_identity_rather_than_a_prefix(self):
+        """Truncating first and hashing after would collide every identity
+        sharing a prefix — every stage of one run, for instance."""
+        long_one = "deploy:p:run-20260915-001:" + "x" * 64
+        long_two = "deploy:p:run-20260915-001:" + "x" * 63 + "y"
+        assert frozen_preview_slug(long_one) != frozen_preview_slug(long_two)
+
+    def test_refuses_an_empty_identity(self):
+        with pytest.raises(EphemeralPolicyError, match="dispatch identity"):
+            frozen_preview_slug("")
 
 
 class TestDerivePort:

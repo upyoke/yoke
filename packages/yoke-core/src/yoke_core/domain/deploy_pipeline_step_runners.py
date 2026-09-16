@@ -6,6 +6,9 @@ import sys
 from typing import Any, Dict, List, Optional
 
 from yoke_core.domain import deploy_pipeline_schema_rehearsal
+from yoke_core.domain.deploy_preview_dispatch_boundary import (
+    release_preview_identity,
+)
 from yoke_core.domain.deploy_ephemeral_verify import dispatch_ephemeral_verify
 from yoke_core.domain.deploy_health_check import dispatch_health_check
 from yoke_core.domain.deploy_pipeline_github_workflow import (
@@ -89,6 +92,21 @@ def _dispatch_step_runner(
             ),
             "",
         )
+    # A stage whose own target is a run preview deploys the run's frozen
+    # candidate, named for the release rather than for a branch, whichever
+    # path deploys it. A branch preview — every other preview stage — keeps
+    # deploying that branch's current head under the branch name, which is
+    # what a development preview is for.
+    release_preview = str((stage.get("target") or {}).get("kind") or "") == "run_preview"
+    # One identity for both deploy paths. The project's own deploy workflow
+    # receives exactly this string as its dispatch correlation and names the
+    # preview by hashing it, so deriving the flow path's name any other way
+    # would put two frozen previews of one run in two different namespaces —
+    # and a readable one lands where a branch of that name could reach it.
+    release_identity = (
+        release_preview_identity(project, run_id, name) if release_preview else ""
+    )
+
     if step_runner == "ephemeral-deploy":
         from yoke_core.domain.deploy_ephemeral import exec_ephemeral_deploy
 
@@ -99,6 +117,8 @@ def _dispatch_step_runner(
                 repo_path=project_repo_path,
                 image_tag=str(config.get("image_tag", "") or ""),
                 item_label=first_item_label,
+                preview_key=release_identity,
+                revision=release_lineage if release_preview else "",
             ),
             "",
         )
@@ -157,6 +177,7 @@ def _dispatch_step_runner(
             product_repo_path=product_repo_path,
             image_tag=str(config.get("image_tag", "") or image_tag or ""),
             environment_name=environment_name,
+            release_preview=release_preview,
         )
 
     print(f"Error: unknown step runner type '{step_runner}'", file=sys.stderr)

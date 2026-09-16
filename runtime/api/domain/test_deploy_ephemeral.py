@@ -3,146 +3,24 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 from unittest import mock
 
-import pytest
 
 from yoke_core.domain import deploy_ephemeral
 from yoke_core.domain import deploy_ephemeral_files
 from yoke_core.domain import deploy_ephemeral_remote as remote
-from yoke_core.domain.deploy_environment_settings import DeployEnvironment
 from yoke_core.domain.deploy_remote import CommandResult
-from yoke_core.domain.ephemeral_substrate import EphemeralPolicy
 from runtime.api.domain.test_deploy_remote import FakeRunner
 from runtime.api.domain.deploy_ephemeral_test_support import (
+    PORT as _PORT,
+    SHA as _SHA,
+    SLUG as _SLUG,
+    env as _env,
+    policy as _policy,
     install_ephemeral_project_source,
+    scripted_runner as _scripted_runner,
 )
-
-
-def _policy(**overrides):
-    values = dict(
-        project="yoke",
-        host_project="platform",
-        preview_namespace="yoke-preview",
-        trigger="flow",
-        flow_id="yoke-branch-preview",
-        preview_domain="preview.example.com",
-        host_env="stage",
-        api_base_port=9000,
-        web_base_port=4000,
-        port_range=100,
-        ttl_hours=24,
-    )
-    values.update(overrides)
-    return EphemeralPolicy(**values)
-
-
-def _env(**overrides) -> DeployEnvironment:
-    values = dict(
-        project="platform",
-        deploy_namespace="platform",
-        env_name="stage",
-        site_id="yoke-api",
-        api_host="api.stage.example.com",
-        origin_host="origin.stage.example.com",
-        origin_port=80,
-        ssh_user="ubuntu",
-        ssh_key_path="/keys/origin-example.pem",
-        aws_region="us-east-1",
-        aws_account_id="123456789012",
-        repository_name="yoke-core",
-        api_port=8765,
-        health_path="/v1/health",
-        stack_name="yoke-stage",
-        activation_state="active",
-        state_backend="s3://yoke-pulumi-state?region=us-east-1",
-        database_name="yoke_stage",
-    )
-    values.update(overrides)
-    return DeployEnvironment(**values)
-
-
-_SHA = "1234567890abcdef1234567890abcdef12345678"
-_SLUG = "ephemeral-substrate-preview"
-_PORT = 9067  # derive_port golden vector for the slug above
-
-
-class _Tracker:
-    def __init__(self):
-        self.calls = []
-
-    def __call__(self, project, branch, updates, item_label=""):
-        self.calls.append((project, branch, dict(updates), item_label))
-
-
-@pytest.fixture
-def deploy_seams(monkeypatch):
-    """Mock every non-runner seam so command plans drive the assertions."""
-    tracker = _Tracker()
-    monkeypatch.setattr(deploy_ephemeral, "load_ephemeral_policy", lambda p: _policy())
-    monkeypatch.setattr(
-        deploy_ephemeral,
-        "resolve_deploy_environment",
-        lambda p, e: _env(),
-    )
-    monkeypatch.setattr(
-        deploy_ephemeral, "aws_capability_env", lambda p, r: {"AWS": "1"}
-    )
-    monkeypatch.setattr(
-        deploy_ephemeral,
-        "ensure_instance_running",
-        lambda runner, env, aws_env, emit: None,
-    )
-    monkeypatch.setattr(
-        deploy_ephemeral,
-        "wait_ssh_reachable",
-        lambda runner, env, emit: None,
-    )
-    monkeypatch.setattr(
-        deploy_ephemeral,
-        "ensure_image_in_registry",
-        lambda runner, env, aws_env, repo_path, tag, emit: f"reg/yoke-core:{tag}",
-    )
-    monkeypatch.setattr(
-        deploy_ephemeral,
-        "wait_container_healthy",
-        lambda runner, env, name, emit: None,
-    )
-    monkeypatch.setattr(
-        deploy_ephemeral,
-        "render_webapp_template",
-        lambda _root, relative, values: f"rendered:{relative}",
-    )
-    monkeypatch.setattr(deploy_ephemeral, "track", tracker)
-    monkeypatch.setattr(deploy_ephemeral, "emit_ephemeral_event", lambda *a, **k: None)
-    return tracker
-
-
-def _scripted_runner():
-    """Results in step_runner call order (branch sha + remote convergence)."""
-    return FakeRunner(
-        [
-            CommandResult(0, _SHA + "\n", ""),  # git rev-parse branch
-            CommandResult(0, "", ""),  # tls cert probe (present)
-            CommandResult(0, "", ""),  # njs package probe (present)
-            CommandResult(0, "", ""),  # njs dir mkdir
-            CommandResult(0, "", ""),  # njs script push
-            CommandResult(0, "", ""),  # nginx site push
-            CommandResult(0, "", ""),  # nginx activate
-            CommandResult(0, "", ""),  # cleanup script push
-            CommandResult(0, "", ""),  # cleanup cron push
-            CommandResult(0, "cafe01\n", ""),  # existing db-password read
-            CommandResult(0, "", ""),  # slug dir prepare
-            CommandResult(0, "", ""),  # compose push
-            CommandResult(0, "", ""),  # db-password push
-            CommandResult(0, "", ""),  # .env push
-            CommandResult(0, "", ""),  # dsn push
-            CommandResult(0, "", ""),  # compose pull
-            CommandResult(0, "bootstrap complete", ""),  # in-container bootstrap
-            CommandResult(0, "", ""),  # compose up
-            CommandResult(0, "x-request-id: RID", ""),  # slug health (patched id)
-        ]
-    )
 
 
 class TestExecEphemeralDeploy:

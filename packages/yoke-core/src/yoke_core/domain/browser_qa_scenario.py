@@ -24,9 +24,16 @@ import json
 from typing import Any, Dict, Optional
 
 from yoke_contracts.api.function_call import ActorContext
+from yoke_core.domain.browser_qa_freshness_outcome import (
+    EXECUTION_TARGET_UNAUTHORIZED,
+)
+from yoke_core.domain.browser_qa_preview_identity import (
+    resolve_preview_identity_target,
+)
 from yoke_core.domain.browser_qa_requirement import _process_requirement
 from yoke_core.domain.browser_qa_results import ScenarioResult
 from yoke_core.domain.qa_artifacts import case_artifact_subject
+from yoke_core.domain.served_revision_probe import origin_of
 
 
 def _fetch_browser_context(
@@ -84,6 +91,23 @@ def _fetch_browser_context(
         message = response.error.message if response.error else ""
         raise RuntimeError(f"qa.browser_context.get failed ({code}): {message}")
     return response.result or {}
+
+
+def _base_url_from_requirements(req_rows: list) -> str:
+    """Read the target URL a requirement's method config names, if any.
+
+    Returns "" when the rows carry none; the caller reports a missing target
+    URL in one place rather than each reader inventing its own refusal.
+    """
+    if not req_rows:
+        return ""
+    first_config = req_rows[0]["method_config"]
+    if not first_config:
+        return ""
+    try:
+        return json.loads(first_config).get("base_url", "") or ""
+    except json.JSONDecodeError:
+        return ""
 
 
 def execute_scenario(
@@ -179,21 +203,37 @@ def execute_scenario(
     )
 
     # Step 2: Freshness validation against the context's deployed_sha
+    deployment_recorded = bool(context.get("deployment_recorded"))
+    # The deployment whose freshness was established — whichever source
+    # established it. Evidence may only be collected from this one.
+    verified_origin = ""
     if expected_branch and expected_sha:
         _bqa._log(f"Validating deployed SHA for branch {expected_branch}...")
+        identity_target = resolve_preview_identity_target(
+            project, expected_branch
+        )
         freshness_error = _bqa._validate_deployed_sha(
             project,
             expected_branch,
             expected_sha,
             deployed_sha=context.get("deployed_sha"),
-            deployment_recorded=bool(context.get("deployment_recorded")),
+            deployment_recorded=deployment_recorded,
+            identity_target=identity_target,
         )
         if freshness_error:
-            _bqa._log(f"ERROR: {freshness_error}")
+            _bqa._log(f"ERROR: {freshness_error.message}")
             result.verdict = "error"
-            result.note = "sha_mismatch"
+            result.note = freshness_error.reason
             print(result.to_json())
             return result
+        # Whichever source established freshness names the deployment it
+        # was established about: the preview that answered for itself, or
+        # the recorded deployment's own URL. One check covers both, because
+        # it is one invariant — evidence comes from the verified deployment.
+        if not deployment_recorded and identity_target.origin:
+            verified_origin = origin_of(identity_target.origin)
+        elif deployment_recorded and context.get("ephemeral_url"):
+            verified_origin = origin_of(str(context["ephemeral_url"]))
 
     req_rows = context.get("requirements") or []
     if not req_rows:
@@ -206,13 +246,7 @@ def execute_scenario(
 
     # Step 3: Resolve base_url
     if not base_url:
-        first_config = req_rows[0]["method_config"]
-        if first_config:
-            try:
-                method_config = json.loads(first_config)
-                base_url = method_config.get("base_url", "")
-            except json.JSONDecodeError:
-                pass
+        base_url = _base_url_from_requirements(req_rows)
 
     if not base_url:
         _bqa._log(
@@ -220,6 +254,26 @@ def execute_scenario(
         )
         result.verdict = "error"
         result.note = "no_base_url"
+        print(result.to_json())
+        return result
+
+    # Freshness was established about one deployment, and covers no other.
+    # Browsing somewhere else would attach "serving the expected commit" to
+    # evidence from a host nothing was verified about — so this refuses
+    # before any browser starts, rather than labelling those screenshots
+    # fresh.
+    if verified_origin and origin_of(base_url) != verified_origin:
+        _bqa._log(
+            f"ERROR: freshness was verified for {verified_origin} but this "
+            f"run would browse {origin_of(base_url)}. Evidence from an "
+            "unverified target cannot carry that freshness claim. Point the "
+            "run at the verified deployment. Running without the freshness "
+            "arguments produces ordinary development evidence, which is a "
+            "different thing and cannot satisfy a required deployment QA "
+            "gate against a frozen candidate."
+        )
+        result.verdict = "error"
+        result.note = EXECUTION_TARGET_UNAUTHORIZED
         print(result.to_json())
         return result
 
