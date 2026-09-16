@@ -52,8 +52,8 @@ Which form to use
         --verification-plan self-host-server-clean-room \\
         --reason "mission scheduled onto this item"
       yoke workflows item-posture amend PREFIX-N \\
-        --verification-method implementation_review \\
-        --reason "review-only close"
+        --verification-method command \\
+        --reason "command verification close"
 
   Any other key, by name and JSON value:
 
