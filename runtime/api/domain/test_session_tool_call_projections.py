@@ -1,4 +1,4 @@
-"""Latest tool-call projections read the newest started row, not MAX(id)."""
+"""Tool-call projections keep MAX(id) open and completed_at last-finished."""
 
 from __future__ import annotations
 
@@ -28,8 +28,6 @@ def _conn() -> sqlite3.Connection:
           started_at TEXT NOT NULL,
           completed_at TEXT
         );
-        CREATE INDEX idx_session_tool_calls_session_started
-          ON session_tool_calls(session_id, started_at);
         INSERT INTO harness_sessions VALUES ('sess-1');
         """
     )
@@ -62,7 +60,7 @@ def _project(conn: sqlite3.Connection) -> sqlite3.Row:
     return conn.execute(sql).fetchone()
 
 
-def test_open_call_is_the_newest_started_row_when_still_open() -> None:
+def test_open_call_is_the_highest_id_row_when_still_open() -> None:
     conn = _conn()
     _add(conn, row_id=1, tool="Read", started="t1", completed="t2")
     _add(conn, row_id=2, tool="Monitor", started="t3", completed=None)
@@ -71,7 +69,7 @@ def test_open_call_is_the_newest_started_row_when_still_open() -> None:
     assert row[LAST_COMPLETED_TOOL_COLUMN] == "Read"
 
 
-def test_completed_newest_row_clears_open_call() -> None:
+def test_completed_highest_id_clears_open_call() -> None:
     conn = _conn()
     _add(conn, row_id=1, tool="Read", started="t1", completed="t2")
     _add(conn, row_id=2, tool="Monitor", started="t3", completed="t4")
@@ -87,6 +85,32 @@ def test_older_open_row_does_not_count_after_a_newer_completed_call() -> None:
     row = _project(conn)
     assert row[OPEN_TOOL_CALL_COLUMN] is None
     assert row[LAST_COMPLETED_TOOL_COLUMN] == "Edit"
+
+
+def test_older_call_that_finishes_later_is_last_completed() -> None:
+    conn = _conn()
+    _add(conn, row_id=1, tool="Read", started="t1", completed="t4")
+    _add(conn, row_id=2, tool="Edit", started="t2", completed="t3")
+    row = _project(conn)
+    assert row[OPEN_TOOL_CALL_COLUMN] is None
+    assert row[LAST_COMPLETED_TOOL_COLUMN] == "Read"
+
+
+def test_same_completed_at_uses_higher_id() -> None:
+    conn = _conn()
+    _add(conn, row_id=1, tool="Read", started="t1", completed="t9")
+    _add(conn, row_id=2, tool="Edit", started="t2", completed="t9")
+    row = _project(conn)
+    assert row[LAST_COMPLETED_TOOL_COLUMN] == "Edit"
+
+
+def test_backdated_start_on_higher_id_still_owns_open_call() -> None:
+    conn = _conn()
+    _add(conn, row_id=1, tool="Read", started="t2", completed="t3")
+    _add(conn, row_id=2, tool="Monitor", started="t0", completed=None)
+    row = _project(conn)
+    assert row[OPEN_TOOL_CALL_COLUMN] == "t0"
+    assert row[LAST_COMPLETED_TOOL_COLUMN] == "Read"
 
 
 def test_missing_tool_call_table_projects_absence() -> None:

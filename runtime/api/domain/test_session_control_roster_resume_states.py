@@ -1,4 +1,4 @@
-"""Latest wake-attempt resume state is one SQL row per session."""
+"""Latest wake-attempt resume state includes attempts with no recipient."""
 
 from __future__ import annotations
 
@@ -105,18 +105,28 @@ def _attempt(
     message_id: str,
     result_code: str,
     started_at: str,
+    with_recipient: bool = True,
 ) -> None:
-    conn.execute(
-        "INSERT INTO session_message_recipients VALUES (?,?,?,?,?)",
-        (message_id, "session-1", "injected", started_at, 0),
-    )
+    if with_recipient:
+        conn.execute(
+            "INSERT INTO session_message_recipients VALUES (?,?,?,?,?)",
+            (message_id, "session-1", "injected", started_at, 0),
+        )
     conn.execute(
         "INSERT INTO session_message_attempts VALUES (?,?,?,?,?,?)",
         (attempt_id, message_id, "session-1", result_code, started_at, None),
     )
 
 
-def test_resume_state_uses_the_newest_attempt_via_recipient_join() -> None:
+def _resume(conn: sqlite3.Connection) -> str:
+    return session_control_roster_result(
+        [_row()],
+        conn=conn,
+        now=NOW,
+    )["rows"][0]["resume_state"]
+
+
+def test_resume_state_uses_the_newest_attempt() -> None:
     conn = _conn()
     _attempt(
         conn,
@@ -132,9 +142,44 @@ def test_resume_state_uses_the_newest_attempt_via_recipient_join() -> None:
         result_code=WAKE_DELIVERED_RESULT,
         started_at="2026-08-22T12:00:10Z",
     )
-    row = session_control_roster_result(
-        [_row()],
-        conn=conn,
-        now=NOW,
-    )["rows"][0]
-    assert row["resume_state"] == "wake-delivered"
+    assert _resume(conn) == "wake-delivered"
+
+
+def test_orphan_attempt_without_recipient_still_counts() -> None:
+    conn = _conn()
+    _attempt(
+        conn,
+        attempt_id="old",
+        message_id="msg-old",
+        result_code=RESUMED_RUNNING_RESULT,
+        started_at="2026-08-22T11:00:00Z",
+    )
+    _attempt(
+        conn,
+        attempt_id="orphan",
+        message_id="msg-orphan",
+        result_code=WAKE_DELIVERED_RESULT,
+        started_at="2026-08-22T12:00:10Z",
+        with_recipient=False,
+    )
+    assert _resume(conn) == "wake-delivered"
+
+
+def test_same_started_at_uses_higher_attempt_id() -> None:
+    conn = _conn()
+    stamp = "2026-08-22T12:00:10Z"
+    _attempt(
+        conn,
+        attempt_id="aaa",
+        message_id="msg-a",
+        result_code=RESUMED_RUNNING_RESULT,
+        started_at=stamp,
+    )
+    _attempt(
+        conn,
+        attempt_id="zzz",
+        message_id="msg-z",
+        result_code=WAKE_DELIVERED_RESULT,
+        started_at=stamp,
+    )
+    assert _resume(conn) == "wake-delivered"
