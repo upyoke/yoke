@@ -59,6 +59,11 @@ def _wire_close_out(monkeypatch, *, already: bool, cleanup_result=()):
         ),
     )
     monkeypatch.setattr(merge_cli.evidence, "record", lambda **_k: "")
+    monkeypatch.setattr(
+        merge_cli.release_flow,
+        "continue_prepared_release",
+        lambda **_k: (None, ""),
+    )
     monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda *_a: None)
     monkeypatch.setattr(
         close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",)),
