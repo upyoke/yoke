@@ -59,21 +59,38 @@ _UNDETERMINED_RECOVERY = (
 def local_function_ids() -> frozenset:
     """Function ids this CLI build can dispatch, from its own registries.
 
+    The CLI adapter table is not the whole dispatch surface. Internal
+    functions have no subcommand and still go through HTTPS
+    ``/v1/functions/call``; the handler registry is the same table the
+    serving API loads at lifespan. An internal id this build registers
+    is a version-skew fact when the relay answers
+    ``function_not_registered``.
+
     Lazily imported so the transport layer stays importable on a machine
-    whose command registries fail to load; an empty set simply disables
-    the gate, which then leaves the server's original error alone.
+    whose registries fail to load; an empty set simply disables the
+    gate, which then leaves the server's original error alone.
     """
+    ids: set[str] = set()
     try:
         from yoke_cli.commands.registry import (
             SUBCOMMAND_ALIAS_REGISTRY,
             SUBCOMMAND_REGISTRY,
         )
     except Exception:
-        return frozenset()
-    ids = {function_id for function_id, _adapter in SUBCOMMAND_REGISTRY.values()}
-    ids.update(
-        function_id for function_id, _adapter in SUBCOMMAND_ALIAS_REGISTRY.values()
-    )
+        pass
+    else:
+        ids.update(function_id for function_id, _adapter in SUBCOMMAND_REGISTRY.values())
+        ids.update(
+            function_id for function_id, _adapter in SUBCOMMAND_ALIAS_REGISTRY.values()
+        )
+    try:
+        from yoke_core.domain.handlers.__init_register__ import register_all_handlers
+        from yoke_core.domain.yoke_function_registry import list_entries
+
+        register_all_handlers()
+        ids.update(entry.function_id for entry in list_entries())
+    except Exception:
+        pass
     return frozenset(ids)
 
 

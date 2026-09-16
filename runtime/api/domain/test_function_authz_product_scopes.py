@@ -109,6 +109,16 @@ def test_execution_instruction_resolve_is_an_authenticated_read() -> None:
     assert spec.permission_key is None
 
 
+def test_session_ci_wait_writes_are_actor_session() -> None:
+    record = PRODUCT_AUTHZ_BY_ID["session_ci_wait.record"]
+    resolve = PRODUCT_AUTHZ_BY_ID["session_ci_wait.resolve"]
+
+    assert record.scope == ACTOR_SESSION
+    assert resolve.scope == ACTOR_SESSION
+    assert record.permission_key is None
+    assert resolve.permission_key is None
+
+
 def test_merge_queue_marker_writes_use_project_item_write_authority() -> None:
     mark = PRODUCT_AUTHZ_BY_ID["merge_queue.landing_pending.mark"]
     clear = PRODUCT_AUTHZ_BY_ID["merge_queue.landing_pending.clear"]
