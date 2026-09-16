@@ -231,6 +231,22 @@
   text-align: right;
 }
 
+/* One QA case as a page: its facts, the contract it was held to, the
+   evidence it captured, and the decision it may still be waiting on. */
+.qa-case-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.qa-case-stage-policy { color: var(--yoke-muted); }
+.qa-case-reason {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--yoke-ink-2);
+}
+.qa-case-reason strong { color: var(--yoke-ink); font-weight: 600; }
+
 @media (max-width: 860px) {
   .qa-detail-grid,
   .qa-plan-detail-grid {

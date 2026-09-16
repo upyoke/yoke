@@ -210,39 +210,15 @@ test("Activity labels every merged row with its owning project", async () => {
     byClass(root, "qa-activity-project").map((node) => node.textContent),
     ["beta", "alpha"],
   );
+  // The Plan cell opens the plan; the Case cell opens that case run, which
+  // is what the row is about.
   assert.deepEqual(
     byClass(root, "qa-activity-link").map((node) => node.href),
-    ["#/qa-plans/2?project=2", "#/qa-plans/1?project=1"],
+    [
+      "#/qa-plans/2?project=2", "#/qa-activity/2?project=2",
+      "#/qa-plans/1?project=1", "#/qa-activity/1?project=1",
+    ],
   );
-});
-
-test("a run evidence route requests only that deployment run", async () => {
-  const documentNode = new FakeDocument();
-  const root = documentNode.createElement("main");
-  const requests = [];
-  let detailLabel = "";
-  await renderQaActivity({
-    document: documentNode,
-    projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
-    isMounted: () => true,
-    navigate: () => {},
-    client: {
-      async call(request) {
-        requests.push(request);
-        return ok({ summary: { total: 0, counts: {} }, rows: [] });
-      },
-    },
-  }, root, ["1"], "run-20260910-006", {
-    setDetailLabel(value) { detailLabel = value; },
-  });
-
-  assert.deepEqual(requests[0].payload, {
-    project: "1",
-    limit: 100,
-    deployment_run_id: "run-20260910-006",
-  });
-  assert.equal(detailLabel, "run-20260910-006");
-  assert.match(visibleText(root, " "), /Evidence for run-20260910-006/);
 });
 
 test("a row's linked artifacts render as thumbnails, and a pending review points at the Inbox", async () => {

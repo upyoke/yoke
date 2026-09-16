@@ -159,9 +159,12 @@ function renderActivityTable(context, body, rows, scope, pending) {
   }
   table.appendChild(head);
   for (const row of rows) {
+    // The row is about this case run, so opening it opens the case. Its plan
+    // is a different subject and keeps its own link in the Plan cell.
     const href = qaRoute(
-      context, "plans", String(row.plan_id), row.project,
+      context, "activity", String(row.requirement_id), row.project,
     );
+    const planHref = qaRoute(context, "plans", String(row.plan_id), row.project);
     const tr = el(documentNode, "tr", "qa-clickable-row");
     tr.addEventListener("click", (event) => {
       if (event.target?.closest?.("a")) return;
@@ -169,7 +172,7 @@ function renderActivityTable(context, body, rows, scope, pending) {
     });
     const plan = el(documentNode, "td");
     const planLink = el(documentNode, "a", "mono qa-activity-link", row.plan);
-    planLink.href = href;
+    planLink.href = planHref;
     plan.appendChild(planLink);
     tr.appendChild(plan);
     if (projectColumn) {
@@ -182,7 +185,11 @@ function renderActivityTable(context, body, rows, scope, pending) {
     }
     const caseLabel = row.host_baseline
       ? `${row.case_key} @${row.host_baseline}` : row.case_key;
-    tr.appendChild(el(documentNode, "td", "mono", caseLabel));
+    const caseCell = el(documentNode, "td", "mono");
+    const caseLink = el(documentNode, "a", "qa-activity-link", caseLabel);
+    caseLink.href = href;
+    caseCell.appendChild(caseLink);
+    tr.appendChild(caseCell);
     tr.appendChild(el(
       documentNode, "td", null, row.method_name || row.method_id || "—",
     ));
@@ -201,23 +208,14 @@ function renderActivityTable(context, body, rows, scope, pending) {
   body.appendChild(tableWrap(documentNode, table));
 }
 
-export async function renderQaActivity(
-  context, main, scope, deploymentRunId = null, navigation = {},
-) {
-  deploymentRunId = typeof deploymentRunId === "string" ? deploymentRunId : null;
+export async function renderQaActivity(context, main, scope) {
   const documentNode = context.document;
   main.replaceChildren(el(
     documentNode, "p", "empty", "loading QA activity…",
   ));
   const [{ callResults, failed }, pending] = await Promise.all([
     loadProjectCalls(
-      context,
-      scope,
-      "qa.activity.list",
-      {
-        limit: deploymentRunId ? 100 : RECENT_ACTIVITY_LIMIT,
-        ...(deploymentRunId ? { deployment_run_id: deploymentRunId } : {}),
-      },
+      context, scope, "qa.activity.list", { limit: RECENT_ACTIVITY_LIMIT },
     ),
     loadPendingReviews(
       context, scope === "all" ? context.projects().map((row) => row.id) : scope,
@@ -233,7 +231,7 @@ export async function renderQaActivity(
   ).sort((left, right) =>
     String(right.happened_at || "").localeCompare(
       String(left.happened_at || ""),
-    )).slice(0, deploymentRunId ? 100 : RECENT_ACTIVITY_LIMIT);
+    )).slice(0, RECENT_ACTIVITY_LIMIT);
   const summary = aggregateSummaries(callResults);
   const counts = summary.counts;
   const stats = el(documentNode, "div", "qa-stats");
@@ -260,9 +258,7 @@ export async function renderQaActivity(
     documentNode,
     "span",
     "qa-panel-context",
-    deploymentRunId
-      ? `Evidence for ${deploymentRunId}`
-      : "requirements, runs and artifacts rendered as one outcome",
+    "requirements, runs and artifacts rendered as one outcome",
   ));
   panel.appendChild(header);
   const body = el(documentNode, "div", "panel-body");
@@ -276,7 +272,4 @@ export async function renderQaActivity(
     "explicit reason; missing evidence never renders as a satisfied outcome.";
   panel.appendChild(note);
   main.replaceChildren(stats, panel);
-  if (deploymentRunId && typeof navigation.setDetailLabel === "function") {
-    navigation.setDetailLabel(deploymentRunId);
-  }
 }

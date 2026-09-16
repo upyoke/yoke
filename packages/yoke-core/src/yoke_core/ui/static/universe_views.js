@@ -36,6 +36,7 @@ import {
 } from "./universe_views_projects.js";
 import {
   renderQaActivity,
+  renderQaCaseDetail,
   renderQaMethodDetail,
   renderQaMethods,
   renderQaPlanDetail,
@@ -78,7 +79,11 @@ export const DETAIL_RENDERERS = {
   machines: renderMachineDetail,
   "qa-methods": fromDrillInProject(renderQaMethodDetail),
   "qa-plans": fromDrillInProject(renderQaPlanDetail),
-  "qa-activity": fromDrillInProject(renderQaActivity),
+  // Opening an Activity row IS opening that case: its own record, the
+  // stage execution that judged it, and the evidence it captured. It reads
+  // one project's row rather than a scope, so it takes the drill-in project
+  // as given.
+  "qa-activity": renderQaCaseDetail,
   // Opening a run row IS opening the run: the page it lands on reads the
   // same run row the table did, plus the QA activity recorded against it.
   deployments: fromDrillInProject(renderRunDetailView),
