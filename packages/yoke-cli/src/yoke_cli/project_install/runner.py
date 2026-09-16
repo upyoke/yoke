@@ -34,17 +34,14 @@ from yoke_cli.commands.adapters.project_snapshot import (
 )
 from yoke_cli.project_install import files as files_layer
 from yoke_cli.project_install import git_hooks as git_hooks_layer
-from yoke_cli.project_install.bundle_apply import apply_bundle
-from yoke_cli.project_install.file_line_managed_exceptions import (
-    ensure_managed_file_line_exceptions,
-)
-from yoke_cli.project_install.file_line_config_migration import (
-    migrate_file_line_exceptions,
-)
-from yoke_cli.project_install.hooks_path_check import (
-    collect_hooks_path_warnings,
-)
 from yoke_cli.project_install import checkout_gate
+from yoke_cli.project_install import repository_layer
+# Re-exported: ``project_install`` and the source-dev refresh path both reach
+# the bundle write through this module's name.
+from yoke_cli.project_install.bundle_apply import apply_bundle
+from yoke_cli.project_install import publication
+from yoke_cli.project_install import publication_outcome
+from yoke_cli.project_install import publication_reconcile
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_cli.project_install import source_dev
 from yoke_cli.project_install.files import (
@@ -74,11 +71,17 @@ def install(
     force: bool = False,
     commit: bool = True,
     require_default_branch: bool = True,
+    publish: bool = True,
 ) -> Dict[str, Any]:
     """Install (or refresh — same code path) the project-local layer.
 
     ``mode`` is retained for compatibility with direct callers; source-link
     setup now routes to ``yoke dev setup``.
+
+    The run generates against current upstream, commits the paths it owns,
+    and then publishes that commit to the branch's remote. ``publish=False``
+    keeps the commit local — the shape onboarding uses, because it configures
+    the checkout's Git credentials only after the install has written.
     """
     root = files_layer.resolve_repo_root(repo_root)
     resolved_mode, reason = source_dev.resolve_mode(root, mode)
@@ -109,6 +112,12 @@ def install(
         force=force,
         require_default_branch=require_branch,
     )
+    # Generate against the revision the remote actually holds: a layer built
+    # on a stale base is committed as current and then has to be reconciled
+    # by hand in every other clone.
+    checkout["upstream"] = publication_reconcile.bring_branch_current(
+        root, branch=checkout.get("branch") or default_branch,
+    )
     preflight_apply(root, bundle, files_layer.load_manifest(root) or {}, {})
     # Register between bundle resolution and apply: the fetch has already
     # validated the project id against the env (a 404 aborts before any
@@ -119,22 +128,13 @@ def install(
     registered = _register_in_machine_config(
         root, resolved_id, config_path, explicit_given
     )
-    report = apply_bundle(root, bundle, operation=operation, source=source)
-    report["codex_hook_trust"] = _mint_codex_hook_trust(root)
-    # A clean copy install can still be shadowed at commit time: a
-    # core.hooksPath override sends git elsewhere, or a missing `yoke`
-    # launcher leaves the shims unable to exec. Surface both loudly.
-    if resolved_mode == MODE_COPY:
-        report.setdefault("warnings", []).extend(collect_hooks_path_warnings(root))
-    # Runs after apply so the seeded .yoke/project.config exists to move into.
-    report["file_line_config_migration"] = migrate_file_line_exceptions(root)
-    # The install writes the managed rules files AND the gate that measures
-    # them, so it also owns exempting them — otherwise a project's first
-    # commit fails on the install's own output.
-    report["file_line_managed_exceptions"] = ensure_managed_file_line_exceptions(
-        root,
-        _managed_markdown_paths(bundle),
-    )
+
+    def regenerate() -> Dict[str, Any]:
+        return repository_layer.write_repository_layer(
+            root, bundle, operation=operation, source=source, mode=resolved_mode,
+        )
+
+    report = regenerate()
     report["snapshot_sync"] = sync_local_snapshot_for_write(
         project=str(resolved_id),
         repo_root=str(root),
@@ -170,25 +170,18 @@ def install(
         skip=not commit,
         operation=operation,
     )
-    return report
-
-
-def _mint_codex_hook_trust(root: Path) -> Dict[str, object]:
-    """Trust only the Codex hooks file the completed install just authored."""
-    from yoke_contracts.codex_hook_trust_store import (
-        CodexHookTrustStoreError,
-        hooks_file_for,
-        mint_installed_checkout_trust,
-        retrust_recovery,
+    report["publication"] = publication.publish_installed_layer(
+        root,
+        report,
+        commit=report["commit"],
+        default_branch=str(checkout.get("branch") or ""),
+        operation=operation,
+        regenerate=regenerate,
+        project_slug=str(bundle.get("project_slug") or "") or None,
+        publish=publish,
     )
-
-    try:
-        return mint_installed_checkout_trust(root).payload()
-    except CodexHookTrustStoreError as exc:
-        raise ProjectInstallError(
-            f"Codex hook trust mint failed for {hooks_file_for(root)}: {exc}. "
-            f"Recovery: {retrust_recovery(root)}"
-        ) from exc
+    publication_outcome.announce(report)
+    return report
 
 
 def refresh(
@@ -201,6 +194,7 @@ def refresh(
     force: bool = False,
     commit: bool = True,
     require_default_branch: bool = True,
+    publish: bool = True,
 ) -> Dict[str, Any]:
     return install(
         repo_root,
@@ -212,6 +206,7 @@ def refresh(
         force=force,
         commit=commit,
         require_default_branch=require_default_branch,
+        publish=publish,
     )
 
 
@@ -253,29 +248,6 @@ def _resolve_project_id(
         "will register the checkout mapping in machine config), or run "
         "`yoke project register` first"
     )
-
-
-def _managed_markdown_paths(bundle: dict) -> list[str]:
-    """Repo-relative paths of the rules files this bundle manages.
-
-    Read from the bundle rather than hardcoded so the exemption set tracks
-    whatever the server declares as managed-markdown targets. A bundle from
-    an older server carries no targets and yields nothing to exempt.
-    """
-    managed = bundle.get("managed_markdown")
-    if not isinstance(managed, dict):
-        return []
-    targets = managed.get("targets")
-    if not isinstance(targets, list):
-        return []
-    paths: list[str] = []
-    for target in targets:
-        if not isinstance(target, dict):
-            continue
-        rel = target.get("path")
-        if isinstance(rel, str) and rel:
-            paths.append(rel)
-    return paths
 
 
 def _register_in_machine_config(

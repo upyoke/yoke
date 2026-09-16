@@ -33,6 +33,22 @@ from yoke_cli.project_install.installed_output_paths import (
 )
 
 FALLBACK_DEFAULT_BRANCH = "main"
+INSTALL_COMMIT_PREFIX = "Install Yoke operating layer "
+REFRESH_COMMIT_PREFIX = "Refresh installed Yoke operating layer to "
+
+
+def is_installer_commit_message(message: str) -> bool:
+    """True when ``message`` is one this module authored.
+
+    Publication needs to know which unpushed commits on the default branch
+    are the installer's own, because those are the only ones it may replace
+    while reconciling with an advanced remote, and the only ones it may
+    publish without having been asked to publish the operator's work.
+    """
+    subject = str(message or "").strip()
+    return subject.startswith(INSTALL_COMMIT_PREFIX) or subject.startswith(
+        REFRESH_COMMIT_PREFIX
+    )
 
 
 def assert_ready_for_write(
@@ -43,10 +59,10 @@ def assert_ready_for_write(
     require_default_branch: bool = True,
 ) -> dict[str, Any]:
     """Refuse an unsafe git checkout, or no-op when the target is not git."""
-    if not _is_git_checkout(repo_root):
+    if not is_git_checkout(repo_root):
         return {"status": "skipped", "reason": "not a git checkout"}
-    dirty = _porcelain(repo_root)
-    branch = _current_branch(repo_root)
+    dirty = porcelain(repo_root)
+    branch = current_branch(repo_root)
     wanted = str(default_branch or FALLBACK_DEFAULT_BRANCH).strip() or (
         FALLBACK_DEFAULT_BRANCH
     )
@@ -109,7 +125,7 @@ def commit_paths(
     """
     if skip:
         return {"status": "skipped", "reason": "no-commit"}
-    if not _is_git_checkout(repo_root):
+    if not is_git_checkout(repo_root):
         return {"status": "skipped", "reason": "not a git checkout"}
     owned = normalized(paths)
     local_views = _ignored_outputs(repo_root, owned)
@@ -118,23 +134,23 @@ def commit_paths(
         "untracked_local_outputs": sorted(local_views),
         "untracked_from_index": untracked_from_index,
     }
-    dirty = {_porcelain_path(line) for line in _porcelain(repo_root)}
+    dirty = {_porcelain_path(line) for line in porcelain(repo_root)}
     to_stage = [
         path for path in owned if path in dirty and path not in local_views
     ]
     if not to_stage and not untracked_from_index:
         return {"status": "nothing_to_commit", "paths": [], **views}
     for path in to_stage:
-        added = _run_git(repo_root, "add", "-A", "--", path)
+        added = run_git(repo_root, "add", "-A", "--", path)
         if added.returncode != 0:
             raise ProjectInstallError(
                 "could not stage bundle output "
                 f"{path}: {added.stderr.strip() or added.stdout.strip()}"
             )
-    cached = _run_git(repo_root, "diff", "--cached", "--quiet")
+    cached = run_git(repo_root, "diff", "--cached", "--quiet")
     if cached.returncode == 0:
         return {"status": "nothing_to_commit", "paths": to_stage, **views}
-    committed = _run_git(
+    committed = run_git(
         repo_root,
         *commit_identity_args(repo_root),
         "-c",
@@ -150,7 +166,7 @@ def commit_paths(
             "could not commit bundle output: "
             f"{detail}. set git user.name/user.email or pass --no-commit"
         )
-    sha = _run_git(repo_root, "rev-parse", "HEAD").stdout.strip()
+    sha = run_git(repo_root, "rev-parse", "HEAD").stdout.strip()
     return {
         "status": "created",
         "sha": sha,
@@ -170,9 +186,9 @@ def assert_paths_committed(repo_root: Path, paths: list[str]) -> list[str]:
     the recovery instead. Returns the paths it verified.
     """
     wanted = normalized(paths)
-    if not wanted or not _is_git_checkout(repo_root):
+    if not wanted or not is_git_checkout(repo_root):
         return wanted
-    dirty = {_porcelain_path(line) for line in _porcelain(repo_root)}
+    dirty = {_porcelain_path(line) for line in porcelain(repo_root)}
     left = [path for path in wanted if path in dirty]
     if left:
         listed = "\n".join(f"  {path}" for path in left)
@@ -196,7 +212,7 @@ def _ignored_outputs(repo_root: Path, paths: list[str]) -> set[str]:
     """
     if not paths:
         return set()
-    result = _run_git_input(
+    result = run_git_input(
         repo_root, "\0".join(paths), "check-ignore", "-z", "--no-index", "--stdin",
     )
     if result.returncode not in (0, 1):
@@ -220,7 +236,7 @@ def _untrack_local_views(repo_root: Path, views: set[str]) -> list[str]:
     """
     tracked = _tracked_paths(repo_root, views)
     for path in tracked:
-        removed = _run_git(repo_root, "rm", "--cached", "--quiet", "--", path)
+        removed = run_git(repo_root, "rm", "--cached", "--quiet", "--", path)
         if removed.returncode != 0:
             detail = removed.stderr.strip() or removed.stdout.strip()
             raise ProjectInstallError(
@@ -232,31 +248,31 @@ def _untrack_local_views(repo_root: Path, views: set[str]) -> list[str]:
 def _tracked_paths(repo_root: Path, paths: set[str]) -> list[str]:
     if not paths:
         return []
-    listed = _run_git(repo_root, "ls-files", "-z", "--", *sorted(paths))
+    listed = run_git(repo_root, "ls-files", "-z", "--", *sorted(paths))
     if listed.returncode != 0:
         detail = listed.stderr.strip() or listed.stdout.strip() or "git ls-files failed"
         raise ProjectInstallError(f"could not read tracked paths: {detail}")
     return [path for path in listed.stdout.split("\0") if path]
 
 
-def _is_git_checkout(repo_root: Path) -> bool:
+def is_git_checkout(repo_root: Path) -> bool:
     try:
-        result = _run_git(repo_root, "rev-parse", "--is-inside-work-tree")
+        result = run_git(repo_root, "rev-parse", "--is-inside-work-tree")
     except OSError:
         return False
     return result.returncode == 0 and result.stdout.strip() == "true"
 
 
-def _current_branch(repo_root: Path) -> str | None:
-    result = _run_git(repo_root, "symbolic-ref", "--quiet", "--short", "HEAD")
+def current_branch(repo_root: Path) -> str | None:
+    result = run_git(repo_root, "symbolic-ref", "--quiet", "--short", "HEAD")
     branch = result.stdout.strip()
     if result.returncode != 0 or not branch:
         return None
     return branch
 
 
-def _porcelain(repo_root: Path) -> list[str]:
-    result = _run_git(
+def porcelain(repo_root: Path) -> list[str]:
+    result = run_git(
         repo_root, "status", "--porcelain", "--untracked-files=all",
     )
     if result.returncode != 0:
@@ -277,20 +293,20 @@ def _porcelain_path(line: str) -> str:
 def commit_identity_args(repo_root: Path) -> list[str]:
     """Fill user.name/email only when the checkout has none."""
     args: list[str] = []
-    if not _run_git(repo_root, "config", "--get", "user.email").stdout.strip():
+    if not run_git(repo_root, "config", "--get", "user.email").stdout.strip():
         args.extend(["-c", "user.email=yoke-install@localhost"])
-    if not _run_git(repo_root, "config", "--get", "user.name").stdout.strip():
+    if not run_git(repo_root, "config", "--get", "user.name").stdout.strip():
         args.extend(["-c", "user.name=Yoke"])
     return args
 
 
 def _commit_message(operation: str, version: str) -> str:
     if operation == "refresh":
-        return f"Refresh installed Yoke operating layer to {version}"
-    return f"Install Yoke operating layer {version}"
+        return f"{REFRESH_COMMIT_PREFIX}{version}"
+    return f"{INSTALL_COMMIT_PREFIX}{version}"
 
 
-def _run_git(repo_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def run_git(repo_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["git", "-C", str(repo_root), *args],
         capture_output=True,
@@ -299,7 +315,7 @@ def _run_git(repo_root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _run_git_input(
+def run_git_input(
     repo_root: Path, stdin: str, *args: str,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -313,9 +329,16 @@ def _run_git_input(
 
 __all__ = [
     "FALLBACK_DEFAULT_BRANCH",
+    "INSTALL_COMMIT_PREFIX",
+    "REFRESH_COMMIT_PREFIX",
     "assert_paths_committed",
     "assert_ready_for_write",
     "commit_identity_args",
     "commit_paths",
     "commit_touched_paths",
+    "current_branch",
+    "is_git_checkout",
+    "is_installer_commit_message",
+    "porcelain",
+    "run_git",
 ]

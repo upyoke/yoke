@@ -21,20 +21,26 @@ from yoke_cli.commands._helpers import (
 )
 from yoke_cli.config.machine_config import MachineConfigError
 from yoke_cli.config.writer import MachineConfigWriteError
+from yoke_cli.project_install import publication_outcome
 from yoke_cli.project_install import runner as project_install_runner
 from yoke_cli.project_install.files import ProjectInstallError
 from yoke_contracts.machine_config.schema import MachineConfigContractError
 
 PROJECT_INSTALL_USAGE = (
     "yoke project install [REPO_ROOT] [--project-id N] [--config PATH] "
-    "[--force] [--no-commit] [--json]"
+    "[--force] [--no-commit] [--no-publish] [--json]"
 )
 PROJECT_REFRESH_USAGE = (
     "yoke project refresh [REPO_ROOT] [--project-id N] [--config PATH] "
-    "[--force] [--no-commit] "
+    "[--force] [--no-commit] [--no-publish] "
     "[--source-checkout PATH] [--project-slug SLUG] "
     "[--manifest-from PATH] [--apply] [--json]"
 )
+
+# Exit 0 means the layer is installed AND on its remote. A run that wrote and
+# committed the layer but could not publish it is neither a success nor an
+# install failure, so it gets its own status rather than borrowing either.
+PUBLICATION_PENDING_EXIT = 3
 PROJECT_UNINSTALL_USAGE = (
     "yoke project uninstall [REPO_ROOT] [--config PATH] [--json]"
 )
@@ -60,6 +66,16 @@ def _install_parser(prog: str) -> argparse.ArgumentParser:
         dest="no_commit",
         action="store_true",
         help="Write the bundle without committing the touched paths.",
+    )
+    parser.add_argument(
+        "--no-publish",
+        dest="no_publish",
+        action="store_true",
+        help=(
+            "Commit the touched paths without pushing them to the branch's "
+            "remote. A run that tries and cannot exits "
+            f"{PUBLICATION_PENDING_EXIT} and names the recovery."
+        ),
     )
     parser.add_argument("--json", dest="json_mode", action="store_true")
     attach_field_note_footer(parser)
@@ -120,6 +136,7 @@ def _run_install(args: List[str], usage: str, prog: str,
         mode=None,
         force=parsed.force,
         commit=not parsed.no_commit,
+        publish=not parsed.no_publish,
     ))
 
 
@@ -170,6 +187,7 @@ def project_refresh(args: List[str]) -> int:
         mode=None,
         force=parsed.force,
         commit=not parsed.no_commit,
+        publish=not parsed.no_publish,
     ))
 
 
@@ -198,6 +216,8 @@ def _run(operation) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(result, indent=2))
+    if publication_outcome.is_publication_pending(result):
+        return PUBLICATION_PENDING_EXIT
     return 0
 
 
@@ -216,6 +236,7 @@ def _install_errors():
 
 __all__ = [
     "PROJECT_INSTALL_USAGE",
+    "PUBLICATION_PENDING_EXIT",
     "PROJECT_REFRESH_USAGE",
     "PROJECT_UNINSTALL_USAGE",
     "project_install",

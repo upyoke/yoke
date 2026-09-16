@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_cli.project_install import repository_layer
 from yoke_cli.project_install import runner
 from yoke_core.domain.project_install_test_helpers import make_bundle
 
@@ -90,13 +91,13 @@ def install_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         lambda *_args, **_kwargs: False,
     )
     monkeypatch.setattr(
-        runner,
+        repository_layer,
         "apply_bundle",
         lambda *_args, **_kwargs: {},
     )
     monkeypatch.setattr(
-        runner,
-        "_mint_codex_hook_trust",
+        repository_layer,
+        "mint_codex_hook_trust",
         lambda *_args: {"changed": False},
     )
     monkeypatch.setattr(

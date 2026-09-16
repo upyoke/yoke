@@ -323,6 +323,14 @@ Install never writes credentials into the repo. Edited project contract files
 are preserved on refresh. Strategy files are DB-rendered views and survive
 uninstall. Generated board views remain generated output.
 
+Install then publishes its own commit: it fast-forwards the branch onto its
+remote before generating, commits, and pushes. A protected branch gets a
+`yoke-install/<sha>` branch and a pull request instead; a push that cannot
+land reports `publication_pending` with the commit and recovery, and exits
+`3`. Onboarding defers this until it has configured the checkout's Git
+credential helper, so the wizard publishes rather than leaving you an
+unpushed commit.
+
 ## Source-Dev/Admin and Server-Only Leftovers
 
 These are not external-project onboarding steps:
