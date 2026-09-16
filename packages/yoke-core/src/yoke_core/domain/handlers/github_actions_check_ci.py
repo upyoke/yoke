@@ -6,6 +6,12 @@ via :mod:`yoke_core.domain.gh_rest_transport`, classifies the result
 into one of the canonical advisory states (``passed`` / ``failed`` /
 ``running`` / ``no_runs``), and returns the structured payload.
 
+An empty ``branch`` means "any ref": the run is then selected by
+``head_sha`` alone, which is how a candidate frozen without a branch of
+its own — an ephemeral preview — is verified. One of the two must be
+present; asking for neither is refused rather than answered with the
+workflow's newest unrelated run.
+
 GitHub Actions ``queued`` collapses into ``running`` by operator policy:
 pre-run and in-progress share one "work in flight"
 classification.
@@ -49,10 +55,18 @@ class CheckCiRequest(BaseModel):
     workflow: WorkflowIdentifier = Field(
         ..., description="Workflow file (e.g. ci.yml)."
     )
-    branch: str = Field("main", description="Branch to inspect (default: main).")
+    branch: str = Field(
+        "main",
+        description=(
+            "Branch to inspect (default: main); empty inspects any ref and "
+            "requires head_sha."
+        ),
+    )
     head_sha: str = Field(
         "",
-        description="Exact commit SHA to inspect within the branch.",
+        description=(
+            "Exact commit SHA to inspect; required when branch is empty."
+        ),
     )
     project: str = Field(
         ..., min_length=1,
@@ -202,6 +216,8 @@ def handle_check_ci(request: FunctionCallRequest) -> HandlerOutcome:
             head_sha=payload.head_sha,
             token=resolved.token,
         )
+    except ValueError as exc:
+        return _bad_request(str(exc), jsonpath="$.payload.head_sha")
     except RestNotFoundError as exc:
         return _workflow_missing(payload.workflow, payload.repo, str(exc))
     except RestAuthError as exc:

@@ -251,6 +251,22 @@ class TestLatestWorkflowRun:
         assert "branch=main" in calls[0]
         assert "head_sha=deadbeef" in calls[0]
 
+    def test_selects_by_exact_head_sha_without_a_branch(self, monkeypatch):
+        with _fake_urls(monkeypatch, [{"workflow_runs": []}]) as calls:
+            github_actions_rest.latest_workflow_run(
+                "o/r", "ci.yml", branch="", head_sha="deadbeef", token="ghs_x",
+            )
+        # An absent branch is omitted, never sent as an empty branch name,
+        # which GitHub matches against nothing.
+        assert "branch=" not in calls[0]
+        assert "head_sha=deadbeef" in calls[0]
+
+    def test_refuses_a_lookup_that_names_no_commit_or_branch(self):
+        with pytest.raises(ValueError, match="needs a branch or a head_sha"):
+            github_actions_rest.latest_workflow_run(
+                "o/r", "ci.yml", branch="", token="ghs_x",
+            )
+
     def test_propagates_rest_error(self, monkeypatch):
         import urllib.error
 

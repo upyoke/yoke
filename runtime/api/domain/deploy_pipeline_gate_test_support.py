@@ -15,6 +15,36 @@ PASSED_RESPONSE = {
 }
 
 
+def ci_response(state: str) -> subprocess.CompletedProcess:
+    """Render one typed check-ci adapter response in the given state."""
+    return subprocess.CompletedProcess(
+        args=[],
+        returncode=0,
+        stdout=json.dumps({"success": True, "result": {"state": state}}),
+        stderr="",
+    )
+
+
+def commit_file(repo, filename: str, content: str) -> str:
+    """Commit *content* into *repo* and return the resulting commit sha."""
+    (repo / filename).write_text(content, encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo), "add", filename], check=True)
+    subprocess.run(
+        [
+            "git", "-C", str(repo),
+            "-c", "user.name=release-ci-test",
+            "-c", "user.email=release-ci-test@example.invalid",
+            "commit", "-q", "--no-gpg-sign", "-m", f"Update {filename}",
+        ],
+        check=True,
+    )
+    result = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True, capture_output=True, text=True,
+    )
+    return result.stdout.strip()
+
+
 @contextmanager
 def stub_ci_adapter(
     response=None,

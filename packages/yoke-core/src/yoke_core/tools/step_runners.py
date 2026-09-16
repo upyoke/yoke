@@ -245,10 +245,10 @@ def _gh_runs_for_workflow(
     """Return the most recent workflow run metadata, or ``None``.
 
     bearer-token via :func:`github_actions_rest.latest_workflow_run` when
-    queried by branch. ``commit_sha`` lookups go through a thin REST
-    call because the helper only exposes the branch path; both shapes
-    return the same upstream ``workflow_runs[0]`` envelope so callers
-    read ``id`` / ``status`` / ``conclusion`` / ``created_at`` unchanged.
+    queried by branch. A ``commit_sha`` lookup stays a thin REST call so a
+    preview whose workflow is absent reports "no run yet" rather than
+    raising; both shapes return the same upstream ``workflow_runs[0]``
+    envelope, read as ``id`` / ``status`` / ``conclusion`` / ``created_at``.
     """
     if not branch and not commit_sha:
         return None

@@ -68,6 +68,40 @@ class TestCiGate:
         assert "--wait" in github_actions.call_args.args
         assert "--json" in github_actions.call_args.args
 
+    def test_ci_gate_verifies_a_branchless_candidate_by_exact_commit(self):
+        with stub_ci_adapter() as github_actions:
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo",
+                "yoke",
+                30,
+                branch="",
+                head_sha="a" * 40,
+                sd="/tmp/sd",
+            )
+
+        assert passed is True
+        assert message == "  CI gate: aaaaaaaaaaaa CI passed"
+        args = github_actions.call_args.args
+        # The empty branch is sent explicitly: an absent flag would let the
+        # adapter default to main and filter out the frozen candidate.
+        assert args[args.index("--branch") + 1] == ""
+        assert args[args.index("--head-sha") + 1] == "a" * 40
+
+    def test_ci_gate_refuses_when_no_branch_and_no_commit_are_named(self):
+        with stub_ci_adapter() as github_actions:
+            passed, message = deploy_pipeline_gates._check_ci_gate(
+                "owner/repo",
+                "yoke",
+                30,
+                branch="",
+                sd="/tmp/sd",
+            )
+
+        assert passed is False
+        assert "neither a gate branch nor a release commit" in message
+        assert "Recovery:" in message
+        github_actions.assert_not_called()
+
     def test_ci_gate_reads_failed_state_in_successful_adapter_response(self):
         response = {
             "success": True,
@@ -103,7 +137,7 @@ class TestCiGate:
             )
 
         assert passed is False
-        assert "main branch CI has failed" in message
+        assert "CI has failed for main@deadbeef" in message
 
     def test_ci_gate_does_not_call_adapter_error_a_test_failure(self):
         response = {
@@ -216,7 +250,7 @@ class TestCiGate:
             )
 
         assert passed is False
-        assert "main branch CI timed out (30s)" in message
+        assert "CI timed out for main@deadbeef (30s)" in message
 
     def test_ci_gate_blocks_auth_exit(self):
         with (
