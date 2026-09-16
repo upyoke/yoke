@@ -23,17 +23,19 @@ rather than overwrite unexpected local modifications.
 
 from __future__ import annotations
 
-import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from yoke_cli.config import credentialed_git
 from yoke_cli.project_install import checkout_gate
 from yoke_cli.project_install.files import ProjectInstallError
 
-NETWORK_GIT_TIMEOUT_SECONDS = 120
 FALLBACK_REMOTE = "origin"
+# The registered machine setting every engine git command already waits on;
+# its default lives in the settings registry, not in a literal here.
+GIT_TIMEOUT_SETTING_KEY = "git_command_timeout"
 
 NOT_A_GIT_CHECKOUT = "not_a_git_checkout"
 NO_REMOTE = "no_remote"
@@ -84,35 +86,27 @@ class RemoteState:
 
 def network_git(
     repo_root: Path, *args: str,
-) -> subprocess.CompletedProcess[str]:
-    """Run a git command that talks to the remote, never interactively.
+) -> subprocess.CompletedProcess:
+    """Run a git command that reaches the remote, with the stored credential.
 
-    ``GIT_TERMINAL_PROMPT=0`` turns a missing credential into a named failure
-    instead of a command that blocks forever on a prompt no install has a
-    terminal for, and the timeout bounds an unreachable host.
+    Publication fetches and pushes, so it goes through the one place an
+    engine contacts a remote rather than inheriting whatever credentials the
+    surrounding shell happens to carry. A missing credential comes back as a
+    failed result naming what restores it, never as a prompt no install has a
+    terminal to answer, and the timeout bounds an unreachable host.
     """
-    env = dict(os.environ)
-    env["GIT_TERMINAL_PROMPT"] = "0"
-    env.setdefault("GIT_ASKPASS", "")
-    try:
-        return subprocess.run(
-            ["git", "-C", str(repo_root), *args],
-            capture_output=True,
-            text=True,
-            check=False,
-            env=env,
-            timeout=NETWORK_GIT_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired:
-        return subprocess.CompletedProcess(
-            args=list(args),
-            returncode=124,
-            stdout="",
-            stderr=(
-                f"git {args[0] if args else 'remote'} exceeded "
-                f"{NETWORK_GIT_TIMEOUT_SECONDS}s against the remote"
-            ),
-        )
+    from yoke_contracts.machine_config.settings_keys import (
+        machine_setting_default,
+    )
+    from yoke_core.domain import runtime_settings
+
+    return credentialed_git.run(
+        ["-C", str(repo_root), *args],
+        timeout=runtime_settings.get_seconds(
+            GIT_TIMEOUT_SETTING_KEY,
+            int(machine_setting_default(GIT_TIMEOUT_SETTING_KEY)),
+        ),
+    )
 
 
 def publish_remote(repo_root: Path, branch: str) -> str | None:
@@ -328,7 +322,7 @@ __all__ = [
     "CURRENT",
     "DIVERGED",
     "FETCH_FAILED",
-    "NETWORK_GIT_TIMEOUT_SECONDS",
+    "GIT_TIMEOUT_SETTING_KEY",
     "NO_REMOTE",
     "NOT_A_GIT_CHECKOUT",
     "REMOTE_BRANCH_MISSING",
