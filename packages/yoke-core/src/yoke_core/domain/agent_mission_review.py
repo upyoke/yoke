@@ -12,6 +12,7 @@ from yoke_contracts.machine_qa_terminal_bridge import (
 )
 from yoke_contracts.qa_mission_scratch import mission_scratch_path
 from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
+from yoke_core.domain.qa_review_evidence import case_artifact_read_commands
 
 
 def _subject_flag(subject: Mapping[str, Any]) -> str:
@@ -209,13 +210,7 @@ def agent_mission_dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]
         for case in cases
         if case.get("capture_runner") != "agent_mission"
     ]
-    artifact_read_commands = [
-        "yoke qa artifact read "
-        f"--requirement-id {int(case['requirement_id'])} "
-        f"--artifact-id {int(artifact['id'])}"
-        for case in cases
-        for artifact in case.get("artifacts", [])
-    ]
+    artifact_read_commands = case_artifact_read_commands(cases)
     if authority_bound:
         prompt = (
             f"Own exploratory QA bundle {bundle_id} ({digest}) as the main "

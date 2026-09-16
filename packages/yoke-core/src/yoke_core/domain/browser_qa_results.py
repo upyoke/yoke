@@ -1,9 +1,10 @@
 """Browser QA result dataclasses and the local logger.
 
-Hosts ``RunResult`` and ``ScenarioResult`` (returned to callers and serialized
-to stdout JSON) plus the ``_log`` helper that prefixes stderr messages. These
-are the smallest stable surface in the Browser QA orchestrator and have no
-internal collaborators, so they live in their own sibling module.
+Hosts ``RequirementOutcome``, ``RunResult`` and ``ScenarioResult`` (returned
+to callers and serialized to stdout JSON) plus the ``_log`` helper that
+prefixes stderr messages. These are the smallest stable surface in the
+Browser QA orchestrator and have no internal collaborators, so they live in
+their own sibling module.
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ import json
 import sys
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+
+from yoke_contracts.qa_artifact_read import artifact_read_command
 
 
 @dataclass
@@ -22,6 +25,7 @@ class RunResult:
     qa_run_id: Optional[int] = None
     execution_status: Optional[str] = None
     artifacts: List[str] = field(default_factory=list)
+    artifact_ids: List[int] = field(default_factory=list)
     errors: str = ""
     expected_screenshots: int = 0
     recorded_screenshots: int = 0
@@ -37,7 +41,15 @@ class RunResult:
             d["qa_run_id"] = self.qa_run_id
         if self.execution_status is not None:
             d["execution_status"] = self.execution_status
+        # The capture paths below are this process's scratch, which the
+        # reviewer's own path guard refuses; the registered ids and their
+        # read commands are what a reviewer can actually open.
         d["artifacts"] = self.artifacts
+        d["artifact_ids"] = self.artifact_ids
+        d["artifact_reads"] = [
+            artifact_read_command(self.requirement_id, artifact_id)
+            for artifact_id in self.artifact_ids
+        ]
         if self.errors:
             d["errors"] = self.errors
         if self.expected_screenshots > 0:
@@ -46,6 +58,22 @@ class RunResult:
         if self.code_identity:
             d["code_identity"] = self.code_identity
         return d
+
+
+@dataclass
+class RequirementOutcome:
+    """Outcome of processing a single qa_requirement.
+
+    Returned by ``_process_requirement`` to ``execute_scenario`` so the latter
+    can update its aggregate ``ScenarioResult`` (verdict, executed/skipped
+    counters, runs list) without sharing mutable state with the loop.
+    """
+
+    run_result: RunResult
+    skipped: bool = False
+    executed: bool = False
+    capture_failed: bool = False
+    env_failure: bool = False
 
 
 @dataclass

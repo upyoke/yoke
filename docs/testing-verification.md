@@ -226,9 +226,9 @@ and refuses, and how to read a probe that fails:
 ## Evidence
 
 The QA screen renders case outcomes and artifacts through the registered
-artifact read surface. Durable handles use authorized short-lived downloads;
-machine-local handles render on the owning machine and appear elsewhere as an
-explicit on-machine or not-portable state.
+artifact read surface, which lands bytes at a readable path it reports as
+`path`; captures and review bundles hand back that command. Durable handles
+presign short-lived downloads; the rest reads as on-machine or not portable.
 
 ```text
 yoke qa activity list --project <project>

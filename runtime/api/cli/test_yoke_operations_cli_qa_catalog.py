@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import io
 from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
@@ -16,7 +17,9 @@ TEST_ITEM_ID = 42
 TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 
-def _run(*argv: str, stdin: str = "") -> tuple[int, FunctionCallRequest]:
+def _run(
+    *argv: str, stdin: str = "", result: dict | None = None
+) -> tuple[int, FunctionCallRequest]:
     captured: list[FunctionCallRequest] = []
 
     def dispatch(request: FunctionCallRequest) -> FunctionCallResponse:
@@ -26,7 +29,7 @@ def _run(*argv: str, stdin: str = "") -> tuple[int, FunctionCallRequest]:
             function=request.function,
             request_id=request.request_id,
             version=request.version,
-            result={},
+            result=dict(result or {}),
         )
 
     with (
@@ -237,8 +240,9 @@ def test_project_default_and_item_attachment_use_distinct_targets() -> None:
     assert item_request.payload["plan_id"] == 17
 
 
-def test_artifact_read_uses_requirement_target() -> None:
-    result, request = _run(
+def test_artifact_read_uses_requirement_target(tmp_path) -> None:
+    destination = tmp_path / "evidence.png"
+    code, request = _run(
         "qa",
         "artifact",
         "read",
@@ -246,12 +250,22 @@ def test_artifact_read_uses_requirement_target() -> None:
         "31",
         "--artifact-id",
         "4",
+        "--output",
+        str(destination),
+        result={
+            "disposition": "ready",
+            "content_type": "image/png",
+            "content_base64": base64.b64encode(b"PNG").decode("ascii"),
+        },
     )
-    assert result == 0
+    assert code == 0
     assert request.function == "qa.artifact.read"
     assert request.target.kind == "qa_requirement"
     assert request.target.qa_requirement_id == 31
     assert request.payload == {"artifact_id": 4}
+    # A read that dispatches the right envelope but lands no bytes has not
+    # answered the caller, so the command reports failure -- pin both.
+    assert destination.read_bytes() == b"PNG"
 
 
 def test_case_replace_rejects_non_array_json_without_dispatch() -> None:

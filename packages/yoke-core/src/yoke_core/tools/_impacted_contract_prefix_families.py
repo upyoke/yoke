@@ -75,6 +75,10 @@ PRODUCT_CLI_BOUNDARY_TESTS = (
     "runtime/api/cli/test_session_control_selector_help.py",
     "runtime/api/cli/test_yoke_cli_manifest.py",
     "runtime/api/cli/test_yoke_operations_cli.py",
+    # Same envelope contract for the QA family, split into its own sibling.
+    # It reaches the adapters only through cli_main, which reachability does
+    # not walk into, so a behavioral change in an adapter is invisible to it.
+    "runtime/api/cli/test_yoke_operations_cli_qa_catalog.py",
     "runtime/api/cli/test_yoke_product_boundary_fault_injection.py",
     "runtime/api/cli/test_yoke_product_boundary_hooks.py",
     "runtime/api/cli/test_yoke_product_boundary_install_fault_injection.py",

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import base64
 import io
+import json
 from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
 from unittest.mock import patch
 
 from yoke_cli.main import main as cli_main
 from yoke_cli.qa_artifact_download import ArtifactDownloadError, download_artifact
 from yoke_contracts.api.function_call import FunctionCallResponse
+from yoke_contracts.free_paths import is_under_free_path_prefix
 
 
 def _response(result: dict) -> FunctionCallResponse:
@@ -146,3 +150,87 @@ def test_output_fails_when_authorized_bytes_cannot_be_downloaded(tmp_path) -> No
 
     assert code == 1
     assert "download timed out" in error.getvalue()
+
+
+def _read_without_output(result: dict, out: io.StringIO, err: io.StringIO) -> int:
+    with (
+        patch(
+            "yoke_cli.commands.adapters.qa_execution_subjects.call_dispatcher",
+            return_value=_response(result),
+        ),
+        patch(
+            "yoke_cli.commands.adapters.qa_execution_subjects.ensure_handlers_loaded"
+        ),
+        redirect_stdout(out),
+        redirect_stderr(err),
+    ):
+        return cli_main(
+            [
+                "qa",
+                "artifact",
+                "read",
+                "--requirement-id",
+                "31",
+                "--artifact-id",
+                "4",
+                "--json",
+            ]
+        )
+
+
+def test_read_without_output_lands_bytes_at_a_guard_admitted_path() -> None:
+    out = io.StringIO()
+    code = _read_without_output(
+        {
+            "disposition": "ready",
+            "content_type": "image/png",
+            "content_base64": base64.b64encode(b"PNG").decode("ascii"),
+        },
+        out,
+        io.StringIO(),
+    )
+
+    assert code == 0
+    landed = Path(json.loads(out.getvalue())["result"]["path"])
+    assert landed.read_bytes() == b"PNG"
+    assert landed.suffix == ".png"
+    # The whole point of the default: a reviewer may open what it names.
+    assert is_under_free_path_prefix(landed)
+    landed.unlink()
+
+
+def test_read_without_output_drops_the_inline_copy_of_landed_bytes() -> None:
+    out = io.StringIO()
+    code = _read_without_output(
+        {
+            "disposition": "ready",
+            "content_type": "image/png",
+            "content_base64": base64.b64encode(b"PNG").decode("ascii"),
+        },
+        out,
+        io.StringIO(),
+    )
+
+    assert code == 0
+    result = json.loads(out.getvalue())["result"]
+    assert "content_base64" not in result
+    Path(result["path"]).unlink()
+
+
+def test_read_names_the_disposition_when_no_bytes_can_be_landed() -> None:
+    err = io.StringIO()
+    code = _read_without_output(
+        {
+            "disposition": "evidence_on_machine",
+            "machine": "test-mac-01",
+            "detail": "the evidence bytes are not present on this machine",
+        },
+        io.StringIO(),
+        err,
+    )
+
+    assert code == 1
+    message = err.getvalue()
+    assert "evidence_on_machine" in message
+    assert "test-mac-01" in message
+    assert "not present on this machine" in message

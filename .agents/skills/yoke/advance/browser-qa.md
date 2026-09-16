@@ -104,6 +104,14 @@ After all Browser cases are resolved, use the typed gate summary for the
 transition. Continue only when the union of every blocking materialized and ad
 hoc requirement passes or is waived.
 
-Evidence review uses `yoke qa artifact read --requirement-id N --artifact-id N`.
-That surface returns inline local evidence or a short-lived durable URL and
-reports non-portable/on-machine evidence explicitly.
+Evidence review uses `yoke qa artifact read --requirement-id N --artifact-id N`,
+which the capture itself hands you: every completed capture reports
+`artifact_ids` and one ready `artifact_reads` command per screenshot, and
+every review bundle carries the same command on each artifact. Run it as
+given — it lands the bytes at a path you may open and reports that path
+under `path`, so nothing has to be discovered or invented. Pass
+`--output PATH` only to choose a different destination. The capture's own
+`artifacts` paths are the capturing process's scratch and your path guard
+refuses them; `path` is the address to open. Evidence that is not portable
+(on another machine, or too large to inline) is reported explicitly and
+lands nothing.

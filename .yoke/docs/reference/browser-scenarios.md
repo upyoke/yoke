@@ -146,13 +146,18 @@ is no screenshot-to-AC bridge; the Browser case itself is the blocking proof.
 
 ## Evidence and gates
 
-Read captured evidence with:
+Read captured evidence with the command the capture already reported under
+`artifact_reads`:
 
 ```bash
 yoke qa artifact read \
   --requirement-id <requirement-id> \
   --artifact-id <artifact-id>
 ```
+
+It lands the bytes under this machine's temp root and reports that path as
+`path`; open that, not the capture's own `artifacts` scratch paths. Add
+`--output PATH` to choose the destination yourself.
 
 The transition remains blocked until every blocking, materialized or explicit
 requirement has passed or been waived. Capture success alone is not a visual

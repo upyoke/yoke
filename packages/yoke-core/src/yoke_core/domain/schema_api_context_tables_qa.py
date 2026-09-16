@@ -198,7 +198,17 @@ QA_TABLES: dict[str, dict] = {
             "credentials, and foreign-prefix S3 handles are refused. "
             "Direct local handles must already be readable server evidence; "
             "qa.artifact.add ingests their bytes through the same storage "
-            "policy before recording the row."
+            "policy before recording the row. Reading evidence back: "
+            "`yoke qa artifact read --requirement-id N --artifact-id N` "
+            "lands the bytes at a path your own path guard admits and "
+            "reports it as `path`; `--output PATH` picks a different "
+            "destination. Do NOT open a capture's reported `artifacts` "
+            "paths or `artifact_handle.path` — both address the capturing "
+            "machine's per-run scratch, which the session-cwd guard refuses "
+            "from a lane-claimed session. Capture completion reports "
+            "`artifact_ids` plus a ready `artifact_reads` command per "
+            "artifact, and review bundles carry `read_command` on each "
+            "artifact, so the id never has to be hunted for."
         ),
     },
 }
