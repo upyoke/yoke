@@ -47,19 +47,23 @@ def test_an_ordinary_message_is_not_a_notice() -> None:
 
 
 def test_the_inbox_read_carries_the_notice_kind_of_each_message() -> None:
-    classified = classify_messages([
-        {"message_id": "m1", "idempotency_key": None},
-        {
-            "message_id": "m2",
-            "idempotency_key": delivery_done_idempotency_key(51, "run-20260726-001"),
-        },
-        {
-            "message_id": "m3",
-            "idempotency_key": qa_result_idempotency_key(
-                "run-20260726-001", "item-qa", 51, "passed"
-            ),
-        },
-    ])
+    classified = classify_messages(
+        [
+            {"message_id": "m1", "idempotency_key": None},
+            {
+                "message_id": "m2",
+                "idempotency_key": delivery_done_idempotency_key(
+                    51, "run-20260726-001"
+                ),
+            },
+            {
+                "message_id": "m3",
+                "idempotency_key": qa_result_idempotency_key(
+                    "run-20260726-001", "item-qa", 51, "passed"
+                ),
+            },
+        ]
+    )
     assert [row["notice_kind"] for row in classified] == [
         None,
         DELIVERY_DONE_NOTICE_KIND,
