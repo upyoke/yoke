@@ -96,15 +96,10 @@ BASELINE: dict[str, dict[str, object]] = {
         "reason": "token_recognition",
         "note": "filter quoted strings that look like item refs during audit extract",
     },
-    "packages/yoke-core/src/yoke_core/domain/worktree_lane_plan.py": {
+    "packages/yoke-core/src/yoke_core/domain/worktree_preflight_steps.py": {
         "count": 1,
         "reason": "doc_comment_only",
-        "note": "documents fallback when public sequence cannot be read",
-    },
-    "packages/yoke-core/src/yoke_core/domain/worktree_preflight_steps.py": {
-        "count": 2,
-        "reason": "doc_comment_only",
-        "note": "documents dual public-ref and legacy worktree naming schemes",
+        "note": "documents the legacy scheme a recorded lane may still use",
     },
     "packages/yoke-core/src/yoke_core/engines/doctor_hc_meta_lifecycle.py": {
         "count": 2,
