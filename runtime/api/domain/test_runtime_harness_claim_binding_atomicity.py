@@ -314,7 +314,7 @@ def test_runtime_claim_rejects_terminal_item_after_parent_lock(test_db) -> None:
 def test_runtime_claim_rejects_nonexistent_item(test_db) -> None:
     _register(test_db, session_id="runtime-missing-item-session")
 
-    with pytest.raises(PermissionError, match="does not exist"):
+    with pytest.raises(PermissionError, match="no item at items.id"):
         runtime_claims.cmd_claim(
             test_db,
             "runtime-missing-item-session",
