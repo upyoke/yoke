@@ -10,8 +10,11 @@ import { createDecisionResolver } from "./inbox_rows.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { deploymentRunsHref } from "./universe_navigation.js";
 import { reviewRequestCard } from "./review_request_card.js";
-import { evidenceStrip } from "./review_evidence_strip.js";
 import { KIND_LABELS } from "./review_request_presentation.js";
+import {
+  appendSteps,
+  verificationCard,
+} from "./universe_run_verification.js";
 import { carriedItems } from "./universe_work_cards.js";
 import {
   appendCarriedItemEvidence,
@@ -35,8 +38,6 @@ import {
   settledScopedCalls,
 } from "./universe_view_support.js";
 
-const STEP_MARKS = { complete: "✓", active: "◔", failed: "✕", stopped: "■" };
-
 function projectFor(context, row, scope) {
   const projects = context.projects();
   return projects.find((candidate) => (
@@ -46,74 +47,6 @@ function projectFor(context, row, scope) {
   )) || (Array.isArray(scope) && scope.length === 1
     ? projects.find((candidate) => String(candidate.id) === String(scope[0]))
     : null);
-}
-
-function appendSteps(documentNode, host, stages) {
-  const steps = el(documentNode, "div", "run-steps");
-  (stages || []).forEach((stage, index) => {
-    const state = String(stage.state || "pending");
-    const step = el(documentNode, "div", `run-step is-${state}`);
-    step.appendChild(el(documentNode, "i", null, STEP_MARKS[state] || String(index + 1)));
-    step.appendChild(el(documentNode, "span", null, String(stage.name)));
-    // A stage that failed says so on its own row; the mark alone left a
-    // reader to tell four states apart by glyph.
-    if (state !== "pending" && state !== "complete") {
-      step.appendChild(el(documentNode, "span", "run-step-state", state));
-    }
-    if (stage.failure) {
-      step.appendChild(el(
-        documentNode, "span", "run-step-failure", String(stage.failure),
-      ));
-    }
-    steps.appendChild(step);
-  });
-  host.appendChild(steps);
-}
-
-function outcomeOf(check) {
-  return String(check.outcome || "queued").replaceAll("_", " ");
-}
-
-// What the run's checks found, and the pictures they took.
-function verificationCard(context, checks, artifacts) {
-  const documentNode = context.document;
-  const card = el(documentNode, "section", "run-card");
-  const heading = el(documentNode, "h2", null, "Verification");
-  if (checks.length) {
-    const passed = checks.filter((check) => check.outcome === "passed").length;
-    heading.appendChild(el(
-      documentNode,
-      `span`,
-      `run-verdict ${passed === checks.length ? "is-approved" : "is-rejected"}`,
-      `${passed} of ${checks.length} passed`,
-    ));
-  }
-  card.appendChild(heading);
-  if (!checks.length) {
-    card.appendChild(el(
-      documentNode, "p", "run-copy", "No checks were recorded on this run.",
-    ));
-  }
-  for (const check of checks) {
-    const line = el(documentNode, "div", `run-check is-${outcomeOf(check).replace(/ /g, "-")}`);
-    line.appendChild(el(documentNode, "i", null, check.outcome === "passed" ? "✓" : "✕"));
-    line.appendChild(el(
-      documentNode, "b", null, [check.case_key, check.method_name].filter(Boolean).join(" · "),
-    ));
-    line.appendChild(el(documentNode, "span", null, outcomeOf(check)));
-    // An agent's reason can run to a paragraph; it folds under the check so
-    // the list stays a list and the reason stays one click away.
-    if (check.verdict_reason) {
-      const reason = el(documentNode, "details", "run-check-reason");
-      reason.appendChild(el(documentNode, "summary", null, "What the agent said"));
-      reason.appendChild(el(documentNode, "p", null, String(check.verdict_reason)));
-      line.appendChild(reason);
-    }
-    card.appendChild(line);
-  }
-  const strip = evidenceStrip(context, artifacts, { compact: true });
-  if (strip) card.appendChild(strip);
-  return card;
 }
 
 function statusCopy(row, gate) {
@@ -341,7 +274,7 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   // Verification is full width below them: a check's reason and the pictures
   // it took are the widest thing on the page.
   const grid = el(documentNode, "div", "run-grid");
-  grid.appendChild(verificationCard(context, checks, artifacts));
+  grid.appendChild(verificationCard(context, checks));
   grid.appendChild(runIdentityCard(context, row, environment));
   page.appendChild(grid);
   main.replaceChildren(page);

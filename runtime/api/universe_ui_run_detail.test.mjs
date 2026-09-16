@@ -182,6 +182,11 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   const verification = byClass(root, "run-grid")[0].children[0];
   assert.equal(byClass(verification, "run-verdict")[0].textContent, "1 of 1 passed");
   assert.ok(byClass(verification, "run-check")[0].textContent.includes("smoke · Browser check"));
+  // The picture sits under the check that recorded it, not in a pool at the
+  // foot of the card where a reader would have to guess which check took it.
+  const check = byClass(verification, "run-check")[0];
+  assert.equal(byClass(check, "run-check-evidence").length, 1);
+  assert.equal(byClass(check, "review-shot").length, 1);
   assert.equal(byClass(verification, "review-shot").length, 1);
   // The decision: what the run carries, and the request folded in.
   const decision = byClass(root, "run-work")[0];

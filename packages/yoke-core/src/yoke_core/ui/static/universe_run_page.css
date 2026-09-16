@@ -197,15 +197,47 @@
 }
 .universe-app-root .run-verdict.is-approved { background: var(--yoke-good-bg); color: var(--yoke-good); }
 .universe-app-root .run-verdict.is-rejected { background: var(--yoke-crit-bg); color: var(--yoke-crit); }
+/* A check, its verdict, and the pictures it took, in that order down one
+   row: mark, subject, outcome, then anything it recorded, indented under
+   the subject it belongs to. */
 .universe-app-root .run-check {
-  display: flex;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   gap: 10px;
-  padding: 8px 0;
+  align-items: start;
+  padding: 14px 0;
   border-top: 1px solid var(--yoke-border);
-  font-size: 13px;
+  font-size: 14px;
 }
-.universe-app-root .run-check b { flex: 1; font-weight: 600; }
+/* A verdict reason can run to a paragraph, so it folds under the check it
+   belongs to and takes the width of that check's own column. */
+.universe-app-root .run-check-reason {
+  grid-column: 2 / -1;
+  max-width: none;
+  color: var(--yoke-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.universe-app-root .run-check-reason > summary {
+  color: var(--yoke-link);
+  cursor: pointer;
+  font-weight: 600;
+}
+.universe-app-root .run-check-evidence {
+  display: grid;
+  grid-column: 2 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: none;
+  margin-top: 4px;
+}
+.universe-app-root .run-check-evidence .review-shot {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.universe-app-root .run-check b { font-weight: 600; overflow-wrap: anywhere; }
 .universe-app-root .run-check span { color: var(--yoke-muted); }
 .universe-app-root .run-check i { color: var(--yoke-crit); font-style: normal; }
 .universe-app-root .run-check.is-passed i { color: var(--yoke-good); }
