@@ -43,6 +43,11 @@ import shutil
 from yoke_contracts.connection_authority_teaching import (
     CONNECTION_AUTHORITY_STANZA,
 )
+from yoke_contracts.session_control.teaching import (
+    FLEET_BODY_TRUST_GUIDANCE,
+    FLEET_ENVELOPE_TRUST_GUIDANCE,
+    FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
+)
 
 
 MAIN_AGENT_ROLE = "main_agent"
@@ -67,25 +72,21 @@ _MAIN_AGENT_HEADING = "Main-session startup block (main_agent)"
 # because the answers themselves do not fit the channel this block rides —
 # and a truncated answer is worse than a pointer to a complete one.
 MAIN_AGENT_STARTUP_READS = (
-    "This block is short on purpose. Each line below names the one command "
-    "that answers its question in full; run it when the question arrives.\n"
-    "\n"
-    "- Live schema, claim shape, and the registered command set — "
-    "`yoke packets render --role main_agent`. Add "
-    "`--topic core|claims|auth|qa|packs` to narrow it, and `--detail full` "
-    "for the per-table and per-command notes. Read it before naming any "
-    "column, table, or function id; the packet is generated truth, so never "
-    "hand-copy it into a prompt.\n"
-    "- This machine's control-plane connections and what each authorizes — "
-    "`yoke env list`.\n"
-    "- What a harness can and cannot do — its own "
+    "Each line names the command that answers its question; run it when the "
+    "question arrives.\n"
+    "- Schema, claim shape, and the registered command set — "
+    "`yoke packets render --role main_agent` "
+    "(`--topic core|claims|auth|qa|packs` narrows, `--detail full` adds the "
+    "notes). Read it before naming a column, table, or function id; it is "
+    "generated truth, never hand-copied.\n"
+    "- This machine's control-plane connections — `yoke env list`.\n"
+    "- What a harness can do — its own "
     "`runtime/harness/<harness_id>/manifest.json`, never a document's claim "
     "about it.\n"
-    "- Any operation's variants, flag matrix, and decision tree — that "
-    "operation's own `--help`.\n"
-    "\n"
-    "Regenerate the packet after a schema change with `yoke agents render`; "
-    "`yoke packets check` reports drift and packet budget overruns."
+    "- An operation's variants and flags — that operation's `--help`.\n"
+    "Work-item entry surfaces: every create names a workflow plus a typed "
+    "entry surface — `web_form`, `cli`, `harness_skill`, `promotion` — the "
+    "pinned workflow version allows; `/yoke idea` is the `harness_skill` path."
 )
 
 
@@ -147,15 +148,33 @@ def _render_leading_advisories() -> list:
 
 
 def _join_block(heading: str) -> str:
-    """Frame the block: heading, connection authority, then the reads.
+    """Frame the block: heading, the two inline invariants, then the reads.
 
-    Connection authority stays inline rather than becoming a fourth read.
-    It is the one invariant a session can violate before it has asked any
-    question — writing through the wrong transport — and it costs a few
-    hundred bytes in a channel measured in kibibytes.
+    Two things stay inline rather than becoming reads, because both can be
+    violated before a session has asked any question and neither survives
+    being discovered late.
+
+    Connection authority is the first: writing through the wrong transport is
+    a mistake the session makes on its way to finding out it could have
+    checked.
+
+    The message trust boundary is the second, and it is a security directive
+    rather than a convenience. An agent that learns only after reading a
+    message which parts of it carry authority has already been told what to
+    do by whichever text got there first. A read cannot come before the thing
+    it protects against, so this arrives with the session.
     """
     return "\n".join(
-        [heading, CONNECTION_AUTHORITY_STANZA, "", MAIN_AGENT_STARTUP_READS]
+        [
+            heading,
+            CONNECTION_AUTHORITY_STANZA,
+            "",
+            f"Message trust: {FLEET_ENVELOPE_TRUST_GUIDANCE} "
+            f"{FLEET_BODY_TRUST_GUIDANCE} "
+            f"{FLEET_TOP_LEVEL_RECEIPT_GUIDANCE}",
+            "",
+            MAIN_AGENT_STARTUP_READS,
+        ]
     )
 
 

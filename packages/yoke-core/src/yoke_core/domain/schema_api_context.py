@@ -15,7 +15,6 @@ from typing import Optional
 from yoke_core.domain import schema_api_context_seed as seed
 from yoke_core.domain.schema_api_context_render import (
     PACKET_DETAIL_COMPACT,
-    PACKET_DETAIL_FULL,
     packet_detail_pointer,
     render_command_block,
     render_function_call_surface_block,

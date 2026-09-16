@@ -7,10 +7,11 @@ both files under the 350-line authored cap.
 from __future__ import annotations
 
 from yoke_core.domain import schema_api_context as sac
+from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
 def _main_body() -> str:
-    return sac.render_role_packet("main_agent")
+    return sac.render_role_packet("main_agent", detail=PACKET_DETAIL_FULL)
 
 
 def test_harness_sessions_executor_canonical_only_taught() -> None:

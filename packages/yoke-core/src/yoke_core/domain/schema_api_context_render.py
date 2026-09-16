@@ -149,6 +149,13 @@ def render_function_call_surface_block() -> list[str]:
         "`sys.path` or set `PYTHONPATH`; `/tmp` imports are not the "
         "agent path.",
         "",
+        "",
+        "**Registered write function ids** (dispatch through these, never a "
+        "guessed name): "
+        + ", ".join(f"`{fid}`" for fid in seed.AGENT_WRITE_FUNCTION_IDS)
+        + ". Each has a CLI adapter under the reversible grammar "
+        "(dots→spaces, underscores→hyphens).",
+        "",
         "**`harness_id` enum:** `claude-code | codex | cursor` (on "
         "`harness_sessions.executor`). Variants `claude-desktop` / "
         "`claude-vscode` / `codex-desktop` / `cursor-desktop` / `cursor-cli` "

@@ -32,6 +32,7 @@ __all__ = [
     "ROLE_TOPICS",
     "TOPICS",
     "TOPIC_TABLES",
+    "AGENT_WRITE_FUNCTION_IDS",
     "PACKET_LINE_BUDGET_PER_ROLE",
     "PACKET_LINE_BUDGET_AGGREGATE",
     "PACKET_BYTE_BUDGET_PER_ROLE",
@@ -102,6 +103,22 @@ ROLE_TOPICS: dict[str, tuple[str, ...]] = {
     "simulator_agent": ("core", "claims"),
     "boss_agent": ("core", "claims"),
 }
+
+
+# The registered write function ids every packet names. They are the shape an
+# agent dispatches through, so they belong in the compact body beside the table
+# and column names: a confabulated function id fails exactly like a
+# confabulated column, and both used to live only in the long-form notes.
+# ``doctor_registry_tier_discipline`` requires the packet to enumerate them.
+AGENT_WRITE_FUNCTION_IDS: tuple[str, ...] = (
+    "items.structured_field.replace",
+    "items.progress_log.append",
+    "lifecycle.transition.execute",
+    "claims.work.acquire",
+    "claims.work.release",
+    "claims.path.register",
+    "db_claim.amend",
+)
 
 
 # Topics that exist (for validator + CLI flag completion).

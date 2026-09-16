@@ -6,6 +6,9 @@ the release-train shape, the flag matrices, and the incidents that
 produced them. Repo-internal — it is not part of the install bundle,
 because none of it is true of a project that merely uses Yoke.
 
+## CLA signatures branch — Hard Rule
+- **`origin/cla-signatures` is permanent governance state, not a leftover lane.** The CLA Assistant workflow appends signatures there and the required `signature-check` status reads them. Never delete, force-push, reset, or prune it during cleanup — divergence from `main` with no merge-base is expected — and leave it unprotected so the workflow can write.
+
 ## Repo file layout
 
 Repo-relative paths:

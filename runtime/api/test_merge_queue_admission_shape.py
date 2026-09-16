@@ -25,6 +25,7 @@ from yoke_core.domain.merge_queue_admission_shape import (
 )
 from yoke_core.domain.item_dependency import cmd_dependency_add
 from yoke_core.domain.item_dependency_read import DEPENDENCY_LIST_COLUMNS
+from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
 def _items_get_request(item_id, fields):
@@ -48,7 +49,7 @@ def _dep_list_request(item_id):
 def test_core_packet_teaches_real_envelopes_and_wrong_guesses():
     from yoke_core.domain import schema_api_context as sac
 
-    body = sac.render_topic_packet("core")
+    body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
     assert "result.fields.db_mutation_profile" in body
     assert "top-level ``db_mutation_profile``" in body
     assert "projects `direction`/`other_item`" in body

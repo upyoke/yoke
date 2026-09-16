@@ -119,14 +119,37 @@ class TestRenderRequiredFiles:
 
 
 class TestRenderCompact:
-    def test_includes_doctrine_and_files(self, spec_dir):
+    def test_includes_the_required_files(self, spec_dir):
         root, _, spec = spec_dir
         result = render_compact(root, spec)
-        assert "Prompt Doctrine:" in result
-        assert "Be the giant" in result
-        assert "Critical Runtime Invariants:" in result
-        assert "worktree paths db" in result
+        assert "Read before editing:" in result
         assert "- AGENTS.md" in result
+
+    def test_omits_teaching_the_rules_file_already_delivers(self, spec_dir):
+        """Doctrine and the control-plane invariants are not repeated here.
+
+        This body rides a hook reply with a 2,500-byte Codex ceiling, and the
+        same session loads both from the rules file on disk. Spending the
+        inline channel on a second copy displaced the trust-boundary and
+        authority teaching every top-level session is required to receive.
+        ``render_full`` still carries them.
+        """
+        root, _, spec = spec_dir
+        result = render_compact(root, spec)
+        assert "Prompt Doctrine:" not in result
+        assert "Critical Runtime Invariants:" not in result
+
+    def test_names_the_packet_rather_than_embedding_it(self, spec_dir):
+        """This render feeds a hook reply, so it points at the packet.
+
+        Embedding the packet body here is what pushed the composed reply past
+        every harness inline ceiling; the schema anchors it used to carry are
+        asserted against the packet itself, where they live.
+        """
+        root, _, spec = spec_dir
+        result = render_compact(root, spec)
+        assert "yoke packets render --role main_agent" in result
+        assert "**Schema cheat sheet:**" not in result
 
 
 class TestRenderFull:
@@ -134,7 +157,7 @@ class TestRenderFull:
         root, _, spec = spec_dir
         result = render_full(root, spec)
         assert "=== Critical Runtime Invariants ===" in result
-        assert "worktree paths db" in result
+        assert "yoke packets render --role main_agent" in result
         assert "=== AGENTS.md ===" in result
         assert "# Claude rules" in result
         assert "=== Echo test ===" in result
@@ -163,7 +186,7 @@ class TestCLI:
         root, spec_path, _ = spec_dir
         main(["render-compact", "--spec", str(spec_path), "--root", str(root)])
         out = capsys.readouterr().out
-        assert "Critical Runtime Invariants:" in out
+        assert "Read before editing:" in out
         assert "Read before editing:" in out
 
     def test_unknown_mode(self, spec_dir):

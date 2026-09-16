@@ -21,11 +21,12 @@ import sqlite3
 
 from yoke_core.domain import schema_api_context as sac
 from yoke_core.domain.schema_api_context_commands_claims import CLAIMS_COMMANDS
+from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
 def test_claims_packet_teaches_path_claims_join_and_state_enum() -> None:
     """The packet teaches the physical path-claim join and state enum."""
-    body = sac.render_topic_packet("claims")
+    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
     assert "JOIN path_claim_targets pct ON pct.claim_id = pc.id" in body
     assert "JOIN path_targets ptarget ON ptarget.id = pct.target_id" in body
     assert "there is no `path_claims.paths`" in body
@@ -40,7 +41,7 @@ def test_claims_packet_teaches_release_work_claim_variants() -> None:
     The registered adapter supports one claim by item, claim id, or
     epic-task identity, plus session-scoped handoff cleanup.
     """
-    body = sac.render_topic_packet("claims")
+    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
     assert "yoke claims work release --item PREFIX-N --reason TEXT" in body
     assert "yoke claims work release --claim-id <id> --reason TEXT" in body
     assert "yoke claims work release --epic-id E --task-num K --reason TEXT" in body
@@ -53,7 +54,7 @@ def test_claims_packet_teaches_spec_rewrite_pattern() -> None:
     Acquire → structured-field replace → release sequence, all via the
     Tier-1 grammar (current).
     """
-    body = sac.render_topic_packet("claims")
+    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
     assert (
         "yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress" in body
     )
@@ -63,7 +64,7 @@ def test_claims_packet_teaches_spec_rewrite_pattern() -> None:
 
 
 def test_claims_packet_teaches_scoped_steering_claim_lifecycle() -> None:
-    body = sac.render_topic_packet("claims")
+    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
     assert 'steering={"project_id":N}' in body
     assert '{"project_id":N,"document":SLUG}' in body
     assert (

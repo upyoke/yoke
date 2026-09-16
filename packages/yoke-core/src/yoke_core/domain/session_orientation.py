@@ -173,9 +173,12 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
     branch = _git_line(root, ["branch", "--show-current"])
     if branch:
         lines.append(f"Current branch: {branch}")
-    commits = _git_line(root, ["log", "--oneline", "-3"])
+    # One commit, not three: this block rides the inline hook channel, which
+    # Codex caps at 2,500 bytes, and the required authority and trust teaching
+    # comes first. `git log` is one command away for the rest.
+    commits = _git_line(root, ["log", "--oneline", "-1"])
     if commits:
-        lines.extend(["", "Recent commits:", commits])
+        lines.extend(["", "Recent commit:", commits])
     if (root / ".yoke" / "BOARD.md").is_file():
         lines.extend(["", "Board available at .yoke/BOARD.md"])
     lines.extend(_startup_block_lines())

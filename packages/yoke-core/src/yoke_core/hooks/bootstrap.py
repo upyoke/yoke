@@ -127,19 +127,19 @@ def render_required_files(spec: dict, extra_files: Optional[List[str]] = None) -
 
 
 def render_compact(root: Path, spec: dict, extra_files: Optional[List[str]] = None) -> str:
-    """Render compact orientation (doctrine + file list + main_agent packet)."""
+    """Render compact orientation: required files plus the startup block.
+
+    This body rides a hook reply, and Codex caps that channel at its
+    ``additionalContextLimit`` default of 2,500 bytes. The prompt doctrine and
+    the control-plane invariants are therefore NOT repeated here: they already
+    reach the same session through the rules file it loads from disk, and
+    spending the inline channel on a second copy displaced the trust-boundary
+    and authority teaching every top-level session is required to receive.
+    ``render_full`` still carries both, because it is a deliberate read with
+    no such ceiling.
+    """
     required, _ = resolve_files(spec, extra_files)
-    lines: List[str] = []
-    short = doctrine_short(root)
-    if short:
-        lines.append("Prompt Doctrine:")
-        lines.append(short)
-        lines.append("")
-    lines.append("Critical Runtime Invariants:")
-    for invariant in CRITICAL_RUNTIME_INVARIANTS:
-        lines.append(f"- {invariant}")
-    lines.append("")
-    lines.append("Read before editing:")
+    lines: List[str] = ["Read before editing:"]
     for path in existing(root, required):
         lines.append(f"- {path}")
     append_main_agent_compact(lines)
