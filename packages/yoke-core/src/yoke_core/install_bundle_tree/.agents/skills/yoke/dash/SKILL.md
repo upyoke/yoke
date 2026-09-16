@@ -11,8 +11,8 @@ merge, and delivery in this session. Dash is defined by that execution
 structure, not by size — it carries a one-line correction and a very large
 change alike. A new instruction is filed and executed immediately; an item
 reference resumes an existing Dash. Dash uses ordinary item, claim, worktree,
-lifecycle, QA, merge, and deployment surfaces; it does not route through
-`/yoke idea`.
+lifecycle, QA, merge, and deployment surfaces.
+It does not route through `/yoke idea`.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
