@@ -272,6 +272,53 @@ def test_managed_block_and_operator_text_both_reach_the_remote(
     assert OPERATOR_TEXT.strip() in published
 
 
+def test_ambiguous_remotes_report_pending_rather_than_local_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Several remotes and no tracking record is not a local-only project.
+
+    Reporting it as a skipped success would tell the operator the install
+    finished cleanly while the layer sits unpublished on their machine.
+    """
+    world = remote_world(tmp_path)
+    git(world.checkout, "remote", "add", "mirror", str(world.remote))
+    git(world.checkout, "config", "--unset", "branch.main.remote")
+    bind_bundle(monkeypatch)
+    before = world.remote_tip()
+
+    report = runner.install(world.checkout, project_id=7)
+
+    publication = report["publication"]
+    assert publication["status"] == publication_outcome.PENDING
+    assert "2 remotes are configured" in publication["detail"]
+    assert "--set-upstream-to" in publication["recovery"]
+    assert publication["commit"] == report["commit"]["sha"]
+    assert world.remote_tip() == before
+
+
+def test_a_disguised_operator_commit_is_never_pushed_on_their_behalf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An installer subject over unowned changes does not license a push."""
+    world = remote_world(tmp_path)
+    bind_bundle(monkeypatch)
+    runner.install(world.checkout, project_id=7)
+    published = world.remote_tip()
+    (world.checkout / "operator_notes.md").write_text("mine\n", encoding="utf-8")
+    git(world.checkout, "add", "-A")
+    git(world.checkout, "commit", "-q", "-m", "Refresh installed Yoke operating layer to 9.9.9")
+
+    report = runner.refresh(world.checkout, project_id=7)
+
+    publication = report["publication"]
+    assert publication["status"] == publication_outcome.PENDING
+    assert any(
+        "operator_notes.md" in line
+        for line in publication["detail"].splitlines()
+    )
+    assert world.remote_tip() == published
+
+
 def _config_path(tmp_path: Path) -> Path:
     return tmp_path / "machine-home" / "config.json"
 

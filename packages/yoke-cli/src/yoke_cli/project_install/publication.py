@@ -30,6 +30,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
+from yoke_cli.project_install import publication_commit_ownership as ownership
+from yoke_cli.project_install import publication_eligibility as eligibility
 from yoke_cli.project_install import publication_outcome as outcome_layer
 from yoke_cli.project_install import publication_pull_request as proposal_layer
 from yoke_cli.project_install import publication_reconcile as reconcile_layer
@@ -72,10 +74,29 @@ def publish_installed_layer(
             "status": outcome_layer.SKIPPED,
             "reason": "no publish branch was resolved for this checkout",
         }
-    remote = reconcile_layer.publish_remote(repo_root, branch)
-    if remote is None:
+    remote, configured = reconcile_layer.resolve_publish_remote(
+        repo_root, branch,
+    )
+    if remote is None and configured == 0:
         return {"status": outcome_layer.SKIPPED,
                 "reason": outcome_layer.LOCAL_ONLY_REASON}
+    if remote is None:
+        return outcome_layer.pending(
+            repo_root,
+            remote="",
+            branch=branch,
+            detail=(
+                f"{configured} remotes are configured and none is recorded as "
+                f"tracking {branch}, so there is no remote to publish to"
+            ),
+            recovery=(
+                "the installed layer is committed but was not pushed, because "
+                "guessing which remote to publish to is worse than saying "
+                f"which record is missing. recipe: `git branch "
+                f"--set-upstream-to=<remote>/{branch} {branch}`, then re-run "
+                "the install"
+            ),
+        )
     return _publish_to_remote(
         repo_root,
         report,
@@ -84,6 +105,7 @@ def publish_installed_layer(
         operation=operation,
         regenerate=regenerate,
         project_slug=project_slug,
+        owned_paths=ownership.installer_owned_paths(repo_root, report),
     )
 
 
@@ -119,10 +141,13 @@ def _publish_to_remote(
     operation: str,
     regenerate: Callable[[], dict[str, Any]] | None,
     project_slug: str | None,
+    owned_paths: frozenset[str],
 ) -> dict[str, Any]:
     reconciled: dict[str, Any] | None = None
     for attempt in range(1, MAX_PUSH_ATTEMPTS + 1):
-        eligible = _push_eligibility(repo_root, branch=branch, remote=remote)
+        eligible = eligibility.push_eligibility(
+            repo_root, branch=branch, remote=remote, owned_paths=owned_paths,
+        )
         if eligible["status"] != outcome_layer.ELIGIBLE:
             return outcome_layer.with_reconcile(eligible, reconciled)
         pushed = reconcile_layer.network_git(
@@ -160,6 +185,7 @@ def _publish_to_remote(
                 operation=operation,
                 regenerate=regenerate,
                 detail=detail,
+                owned_paths=owned_paths,
             )
             if outcome is not None:
                 return outcome_layer.with_reconcile(outcome, reconciled)
@@ -199,6 +225,7 @@ def _reconcile_stale_branch(
     operation: str,
     regenerate: Callable[[], dict[str, Any]] | None,
     detail: str,
+    owned_paths: frozenset[str],
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Move onto the advanced remote tip and regenerate, or name the blocker.
 
@@ -227,6 +254,7 @@ def _reconcile_stale_branch(
         remote=remote,
         regenerate=regenerate,
         operation=operation,
+        owned_paths=owned_paths,
     )
     status = record.get("status")
     if status == "regenerated":
@@ -256,58 +284,6 @@ def _reconcile_stale_branch(
         ),
         record,
     )
-
-
-def _push_eligibility(
-    repo_root: Path, *, branch: str, remote: str,
-) -> dict[str, Any]:
-    """Refuse to publish anything but the installer's own unpushed commits."""
-    state = reconcile_layer.read_remote_state(
-        repo_root, branch=branch, remote=remote,
-    )
-    if state.status == reconcile_layer.CURRENT:
-        return outcome_layer.already_published(
-            remote=remote, branch=branch, commit=state.local_sha,
-        )
-    if state.status == reconcile_layer.BEHIND:
-        return outcome_layer.already_published(
-            remote=remote,
-            branch=branch,
-            commit=state.local_sha,
-            detail=f"{remote}/{branch} already carries this checkout's commits",
-        )
-    if state.status == reconcile_layer.FETCH_FAILED:
-        return outcome_layer.pending(
-            repo_root,
-            remote=remote,
-            branch=branch,
-            detail=state.detail,
-            recovery=(
-                f"the remote could not be read. recipe: restore access to "
-                f"{remote}, then `git push {remote} {branch}`"
-            ),
-        )
-    operator = state.operator_commits
-    if operator:
-        listed = "\n".join(f"  {line}" for line in operator)
-        return outcome_layer.pending(
-            repo_root,
-            remote=remote,
-            branch=branch,
-            detail=(
-                f"{branch} carries commits {remote}/{branch} does not, and "
-                f"they are not this installer's:\n{listed}"
-            ),
-            recovery=(
-                "the installed layer is committed but was not pushed, "
-                "because pushing would publish those commits too. recipe: "
-                f"publish or drop them yourself, then `git push {remote} "
-                f"{branch}`"
-            ),
-        )
-    return {
-        "status": outcome_layer.ELIGIBLE, "remote": remote, "branch": branch,
-    }
 
 
 __all__ = ["MAX_PUSH_ATTEMPTS", "publish_installed_layer",

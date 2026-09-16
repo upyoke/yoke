@@ -68,6 +68,43 @@ def owned_paths(report: Mapping[str, Any] | None) -> list[str]:
     return normalized(paths)
 
 
+def manifest_owned_paths(manifest: Mapping[str, Any] | None) -> list[str]:
+    """Return the repo-relative paths a RECORDED install claims as its own.
+
+    The sibling :func:`owned_paths` answers that for one run's report. This
+    answers it for the install already on disk, which is what a later run
+    has when it must decide whether a commit it did not make touched only
+    installer territory. Path-keyed manifest sections contribute their keys;
+    list-valued ones contribute their entries.
+    """
+    manifest = manifest if isinstance(manifest, Mapping) else {}
+    paths: list[str] = []
+    for key in (
+        "files",
+        "contract_files",
+        "strategy_files",
+        "git_hook_hashes",
+        "hook_entries",
+        "managed_markdown",
+    ):
+        section = manifest.get(key)
+        if isinstance(section, Mapping):
+            paths.extend(str(path) for path in section if path)
+    paths.extend(_string_list(manifest.get("created_settings_files")))
+    paths.append(MANIFEST_REL)
+    paths.extend(HOOK_SETTINGS)
+    paths.extend(
+        (
+            GITIGNORE_REL,
+            YOKE_GITIGNORE_REL,
+            RETIRED_EXCEPTIONS_REL,
+            PROJECT_CONFIG_REL,
+        )
+    )
+    paths.extend(CURSOR_CONFIG_RELS)
+    return normalized(paths)
+
+
 def normalized(paths: list[str]) -> list[str]:
     """De-duplicate repo-relative paths, dropping empties and git internals."""
     ordered: list[str] = []
@@ -91,6 +128,7 @@ def _string_list(value: Any) -> list[str]:
 
 __all__ = [
     "GITIGNORE_REL",
+    "manifest_owned_paths",
     "HOOK_SETTINGS",
     "RETIRED_EXCEPTIONS_REL",
     "YOKE_GITIGNORE_REL",

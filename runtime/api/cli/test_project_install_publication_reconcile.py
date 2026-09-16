@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from yoke_cli.project_install import publication_commit_ownership as ownership
 from yoke_cli.project_install import publication_outcome
 from yoke_cli.project_install import publication_reconcile as reconcile
 from yoke_cli.project_install import repository_layer
@@ -112,6 +113,7 @@ def test_reconcile_regenerates_current_content_over_the_older_sides(
 ) -> None:
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch, managed_bundle())
+    runner.install(world.checkout, project_id=7, publish=False)
     installer_commit = _commit_stale_layer(world.checkout)
     world.advance_remote(
         path="AGENTS.md",
@@ -136,6 +138,7 @@ def test_reconcile_regenerates_current_content_over_the_older_sides(
         remote="origin",
         regenerate=regenerate,
         operation="install",
+        owned_paths=ownership.installer_owned_paths(world.checkout),
     )
 
     assert outcome["status"] == "regenerated"
@@ -168,10 +171,11 @@ def test_reconcile_refuses_when_the_operator_owns_a_local_commit(
         remote="origin",
         regenerate=lambda: pytest.fail("regeneration must not run"),
         operation="install",
+        owned_paths=ownership.installer_owned_paths(world.checkout),
     )
 
-    assert outcome["status"] == "operator_commits_present"
-    assert any("operator work" in line for line in outcome["operator_commits"])
+    assert outcome["status"] == "unproven_commits_present"
+    assert any("operator work" in line for line in outcome["unproven_commits"])
     assert "git pull --rebase origin main" in outcome["recovery"]
     assert git(world.checkout, "rev-parse", "main").stdout.strip() == local
 
@@ -187,6 +191,7 @@ def test_reconcile_reports_already_published_when_the_remote_has_it(
         remote="origin",
         regenerate=lambda: pytest.fail("regeneration must not run"),
         operation="install",
+        owned_paths=ownership.installer_owned_paths(world.checkout),
     )
 
     assert outcome["status"] == "already_published"
@@ -231,6 +236,75 @@ def test_a_behind_clone_publishes_a_child_of_the_current_remote_tip(
     assert parents == advanced
     assert world.remote_subjects()[0].startswith("Install Yoke operating layer")
     assert (world.checkout / "teammate.md").is_file()
+
+
+def test_an_installer_subject_over_unowned_changes_is_not_treated_as_ours(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A matching subject is not proof; the diff has to stay in our territory.
+
+    Anyone can type the installer's commit message. Replacing a commit on
+    that basis alone would discard, or publish, work that is not ours.
+    """
+    world = remote_world(tmp_path)
+    bind_bundle(monkeypatch)
+    runner.install(world.checkout, project_id=7, publish=False)
+    owned = ownership.installer_owned_paths(world.checkout)
+    (world.checkout / "operator_notes.md").write_text("mine\n", encoding="utf-8")
+    git(world.checkout, "add", "-A")
+    git(world.checkout, "commit", "-q", "-m", "Install Yoke operating layer 9.9.9")
+    disguised = git(world.checkout, "rev-parse", "HEAD").stdout.strip()
+    world.advance_remote(
+        path="teammate.md", content="theirs\n", message="teammate change",
+    )
+
+    outcome = reconcile.reconcile_by_regeneration(
+        world.checkout,
+        branch="main",
+        remote="origin",
+        regenerate=lambda: pytest.fail("regeneration must not run"),
+        operation="install",
+        owned_paths=owned,
+    )
+
+    assert outcome["status"] == "unproven_commits_present"
+    assert any(
+        "operator_notes.md" in line for line in outcome["unproven_commits"]
+    )
+    assert git(world.checkout, "rev-parse", "main").stdout.strip() == disguised
+    assert (world.checkout / "operator_notes.md").is_file()
+
+
+def test_an_unreadable_commit_list_refuses_instead_of_reading_as_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No commits and unreadable commits are different answers."""
+    world = remote_world(tmp_path)
+    bind_bundle(monkeypatch)
+    runner.install(world.checkout, project_id=7, publish=False)
+    world.advance_remote(
+        path="teammate.md", content="theirs\n", message="teammate change",
+    )
+    monkeypatch.setattr(
+        ownership,
+        "read_local_only_commits",
+        lambda *_a, **_k: ((), False, "could not read the commits: git log exploded"),
+    )
+    before = git(world.checkout, "rev-parse", "main").stdout.strip()
+
+    outcome = reconcile.reconcile_by_regeneration(
+        world.checkout,
+        branch="main",
+        remote="origin",
+        regenerate=lambda: pytest.fail("regeneration must not run"),
+        operation="install",
+        owned_paths=frozenset(),
+    )
+
+    assert outcome["status"] == "local_commits_unreadable"
+    assert outcome["commits_read"] is False
+    assert "git log exploded" in outcome["recovery"]
+    assert git(world.checkout, "rev-parse", "main").stdout.strip() == before
 
 
 def _commit_stale_layer(checkout: Path) -> str:

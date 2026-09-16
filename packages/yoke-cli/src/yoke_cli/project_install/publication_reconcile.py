@@ -35,6 +35,7 @@ from typing import Any, Callable
 
 from yoke_cli.config import repo_upstream_git as upstream_git
 from yoke_cli.project_install import checkout_gate
+from yoke_cli.project_install import publication_commit_ownership as ownership
 from yoke_cli.project_install.files import ProjectInstallError
 
 
@@ -61,16 +62,12 @@ class RemoteState:
     local_sha: str = ""
     remote_sha: str = ""
     detail: str = ""
-    local_only: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    local_only: tuple[ownership.LocalCommit, ...] = field(default_factory=tuple)
+    commits_read: bool = True
 
-    @property
-    def operator_commits(self) -> tuple[str, ...]:
-        """Local-only commits this installer did not author, newest first."""
-        return tuple(
-            f"{sha[:12]} {subject}"
-            for sha, subject in self.local_only
-            if not checkout_gate.is_installer_commit_message(subject)
-        )
+    def unproven_commits(self, owned: frozenset[str]) -> tuple[str, ...]:
+        """Local-only commits publication may not treat as its own."""
+        return ownership.unproven_commits(self.local_only, owned)
 
     def payload(self) -> dict[str, Any]:
         return {
@@ -79,9 +76,8 @@ class RemoteState:
             "branch": self.branch,
             "local_sha": self.local_sha,
             "remote_sha": self.remote_sha,
-            "local_only_commits": [
-                f"{sha[:12]} {subject}" for sha, subject in self.local_only
-            ],
+            "local_only_commits": [commit.label for commit in self.local_only],
+            "commits_read": self.commits_read,
             **({"detail": self.detail} if self.detail else {}),
         }
 
@@ -102,17 +98,20 @@ def network_git(
     )
 
 
-def publish_remote(repo_root: Path, branch: str) -> str | None:
-    """Return the remote this branch publishes to, or None when local-only.
+def resolve_publish_remote(
+    repo_root: Path, branch: str,
+) -> tuple[str | None, int]:
+    """Return the remote this branch publishes to and how many are configured.
 
     The shared resolver reads git's own records — the branch's tracking
     remote, the push default, then a sole configured remote — and returns
-    empty rather than guessing among several. Publication keeps that
-    strictness: pushing the layer to a remote nobody nominated is worse than
-    saying which record is missing.
+    empty rather than guessing among several. Both halves matter to the
+    caller: no name with no remotes configured is a local-only project, while
+    no name with remotes configured is an ambiguity that must be reported
+    rather than treated as local-only.
     """
-    name, _configured = upstream_git.resolve_remote(str(repo_root), branch)
-    return name or None
+    name, configured = upstream_git.resolve_remote(str(repo_root), branch)
+    return (name or None), configured
 
 
 def read_remote_state(
@@ -124,7 +123,7 @@ def read_remote_state(
     resolved = remote
     configured = 0
     if not resolved:
-        resolved, configured = upstream_git.resolve_remote(str(repo_root), branch)
+        resolved, configured = resolve_publish_remote(repo_root, branch)
     if not resolved:
         return RemoteState(
             NO_REMOTE if configured == 0 else REMOTE_UNRESOLVED,
@@ -180,13 +179,18 @@ def read_remote_state(
         status = BEHIND
     else:
         status = CURRENT
+    commits, commits_read, commits_detail = ownership.read_local_only_commits(
+        repo_root, remote_sha, local_sha,
+    )
     return RemoteState(
         status,
         remote=resolved,
         branch=branch,
         local_sha=local_sha,
         remote_sha=remote_sha,
-        local_only=_local_only_commits(repo_root, remote_sha, local_sha),
+        detail=commits_detail,
+        local_only=commits,
+        commits_read=commits_read,
     )
 
 
@@ -228,8 +232,13 @@ def reconcile_by_regeneration(
     remote: str | None,
     regenerate: Callable[[], dict[str, Any]],
     operation: str,
+    owned_paths: frozenset[str],
 ) -> dict[str, Any]:
     """Move onto the advanced remote tip, regenerate, and re-commit.
+
+    ``owned_paths`` is the installer's own territory: the branch is moved
+    only when every commit the remote lacks is provably this installer's,
+    which means a matching subject AND a diff confined to those paths.
 
     Returns the outcome plus the fresh commit result. ``regenerate`` re-runs
     the bundle write on the updated base; its report is what the replacement
@@ -244,16 +253,29 @@ def reconcile_by_regeneration(
         return state.payload()
     if state.status == AHEAD:
         return {**state.payload(), "status": "remote_did_not_advance"}
-    operator = state.operator_commits
-    if operator:
-        listed = "\n".join(f"  {line}" for line in operator)
+    if not state.commits_read:
         return {
             **state.payload(),
-            "status": "operator_commits_present",
-            "operator_commits": list(operator),
+            "status": "local_commits_unreadable",
             "recovery": (
-                f"{branch} carries commits {state.remote}/{branch} does not, "
-                f"so the installed layer was not rebased onto it:\n{listed}\n"
+                f"{state.detail}. Nothing was moved or regenerated, because a "
+                f"branch whose commits cannot be listed cannot be shown to "
+                f"carry only this installer's work. recipe: repair the "
+                f"checkout so `git log {state.remote}/{branch}..{branch}` "
+                "succeeds, then re-run the install"
+            ),
+        }
+    unproven = state.unproven_commits(owned_paths)
+    if unproven:
+        listed = "\n".join(f"  {line}" for line in unproven)
+        return {
+            **state.payload(),
+            "status": "unproven_commits_present",
+            "unproven_commits": list(unproven),
+            "recovery": (
+                f"{branch} carries commits that are not provably this "
+                f"installer's, so the installed layer was not rebased onto "
+                f"{state.remote}/{branch}:\n{listed}\n"
                 f"recipe: publish or rebase those commits yourself "
                 f"(`git pull --rebase {state.remote} {branch}` then "
                 f"`git push {state.remote} {branch}`), then re-run the "
@@ -278,22 +300,6 @@ def _rev_parse(repo_root: Path, revision: str) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
-def _local_only_commits(
-    repo_root: Path, remote_sha: str, local_sha: str,
-) -> tuple[tuple[str, str], ...]:
-    listed = checkout_gate.run_git(
-        repo_root, "log", "--format=%H%x00%s", f"{remote_sha}..{local_sha}",
-    )
-    if listed.returncode != 0:
-        return ()
-    commits: list[tuple[str, str]] = []
-    for line in listed.stdout.splitlines():
-        sha, _, subject = line.partition("\0")
-        if sha.strip():
-            commits.append((sha.strip(), subject.strip()))
-    return tuple(commits)
-
-
 __all__ = [
     "AHEAD",
     "BEHIND",
@@ -307,7 +313,7 @@ __all__ = [
     "RemoteState",
     "move_branch_onto",
     "network_git",
-    "publish_remote",
+    "resolve_publish_remote",
     "read_remote_state",
     "reconcile_by_regeneration",
 ]
