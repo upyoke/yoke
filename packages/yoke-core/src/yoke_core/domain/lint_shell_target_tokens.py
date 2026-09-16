@@ -70,6 +70,15 @@ _ANONYMOUS_TEMP_LEAF = "tmp.XXXXXXXXXX"
 _TEMP_ROOT_FLAGS = frozenset({"-t", "--tmpdir"})
 _TEMP_ROOT_VALUE_FLAG = "-p"
 _TMPDIR_EQUALS_PREFIX = "--tmpdir="
+_CLI_FILE_PARAM_PREFIXES = ("file://", "fileb://")
+
+
+def unwrap_cli_file_param(token: str) -> str:
+    """Map AWS CLI ``file://`` / ``fileb://`` parameter loading to the path."""
+    for prefix in _CLI_FILE_PARAM_PREFIXES:
+        if token.startswith(prefix):
+            return token[len(prefix):]
+    return token
 
 
 def is_path_like(token: str) -> bool:
@@ -141,7 +150,10 @@ def path_target_from_token(
 ) -> Optional[str]:
     """Return the absolute path ``token`` names, or ``None`` for no verdict."""
     expanded = expand_variables(token, bindings)
-    if expanded is None or not is_path_like(expanded):
+    if expanded is None:
+        return None
+    expanded = unwrap_cli_file_param(expanded)
+    if not is_path_like(expanded):
         return None
     return expanded
 
@@ -165,7 +177,7 @@ def resolve_path_operands(
         if expanded is None:
             unresolved = True
             continue
-        resolved.append(expanded)
+        resolved.append(unwrap_cli_file_param(expanded))
     return resolved, unresolved
 
 
@@ -278,4 +290,5 @@ __all__ = [
     "shell_command_segments",
     "shell_variable_bindings",
     "split_command_segments",
+    "unwrap_cli_file_param",
 ]

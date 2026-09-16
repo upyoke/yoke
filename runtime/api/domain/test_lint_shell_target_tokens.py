@@ -32,10 +32,18 @@ from yoke_core.domain.lint_shell_target_tokens import (
     expand_variables,
     path_target_from_token,
     shell_variable_bindings,
+    unwrap_cli_file_param,
 )
 
 
 CAPTURE_TEMPLATE = "/tmp/yoke-cmd.XXXXXX"
+
+
+def test_cli_file_param_unwraps_to_the_loaded_path():
+    assert unwrap_cli_file_param("file:///tmp/group.txt") == "/tmp/group.txt"
+    assert unwrap_cli_file_param("fileb:///tmp/group.txt") == "/tmp/group.txt"
+    assert path_target_from_token("file:///tmp/group.txt", {}) == "/tmp/group.txt"
+    assert path_target_from_token("/tmp/group.txt", {}) == "/tmp/group.txt"
 
 
 def _capture_first(command: str, template: str = CAPTURE_TEMPLATE) -> str:
