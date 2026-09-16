@@ -59,11 +59,16 @@ def branchless_dispatch_message(
         "GitHub runs a workflow from a branch or tag, never from a bare "
         "commit, so dispatching here would verify a different revision "
         "than the frozen one.\n\n"
-        "Recovery:\n"
-        f"  1. Point a branch or tag at {head_sha} in {github_repo}, push "
-        f"it, then re-run the deployment\n"
-        f"  2. Or run {workflow} against {head_sha} by hand and re-run the "
-        "deployment, which reads that run by exact commit\n"
+        "Recovery, in order — a ref alone starts no run, so stopping "
+        "early returns to this same refusal:\n"
+        f"  1. Create or move a branch or tag in {github_repo} so it "
+        f"resolves to {head_sha}, and push it\n"
+        f"  2. Dispatch {workflow} explicitly on that ref\n"
+        f"  3. Confirm the resulting run's head commit is {head_sha}; a "
+        "ref that moved first runs a different commit, which this gate "
+        "will not accept\n"
+        "  4. Re-run the deployment, which reads that run by exact "
+        "commit\n"
     )
 
 
