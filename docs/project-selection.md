@@ -1,9 +1,9 @@
 # Project selection in the shared app
 
 The top navigation remembers All, one project, or a set of projects
-**independently for each destination** — Sessions, Inbox, Overview, and every
-other screen each keep their own selection across navigation, reload, and a
-second tab. Changing one screen's selection never rewrites another's. Global
+**independently for each destination** — Strategy, Frontier, Shipping,
+Sessions, Inbox, and every other screen each keep their own selection across
+navigation, reload, and a second tab. Changing one screen's selection never rewrites another's. Global
 screens keep the selection visible and label their content as universe-wide.
 A screen needing one project has a separate **Focus project** control;
 changing it does not replace the remembered selection.

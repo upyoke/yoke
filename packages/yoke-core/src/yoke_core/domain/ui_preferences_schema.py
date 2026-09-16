@@ -1,6 +1,6 @@
 """Schema DDL for per-actor UI preferences and Overview activation facts.
 
-Owns two additive tables behind the workbench Overview's activation
+Owns two additive tables behind the workbench's onboarding
 modules:
 
 * ``actor_ui_preferences`` — generic per-actor key/value preferences.

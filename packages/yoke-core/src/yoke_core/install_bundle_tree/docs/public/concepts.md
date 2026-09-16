@@ -46,9 +46,12 @@ Every item pins an immutable workflow version. Built-ins:
 
 See [Workflows](workflows.md) and [reference/lifecycle.md](reference/lifecycle.md).
 
-## Workbench tabs
+## Workbench destinations
 
-The universe workbench sidenav is the operator map: Overview, Inbox, Strategy,
-Frontier, Items, Sessions, Delivery, QA, Workflows, Capabilities, Events,
-Doctor, Ouroboros, Projects, Access, Packs, GitHub, settings, Members, Billing.
-This docs set follows that map.
+The universe workbench sidenav is the operator map, in three groups. Focus is
+the working day: Strategy, Frontier, Shipping, Machines, Sessions, Inbox.
+Settings is what persists: Universe, Workflows, Projects, GitHub, Actors,
+Members, Billing. Diagnostics is the drawer, closed until you open it: Items,
+Deployments, Environments, Databases, QA methods, QA plans, QA activity,
+Capabilities, Packs, Architecture, Messages, Launches, Events, Doctor,
+Ouroboros. This docs set follows that map.

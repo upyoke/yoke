@@ -25,7 +25,7 @@ def test_approval_targets_the_exact_code_tab_and_visible_button() -> None:
         commands.append(command)
         return _completed(
             command,
-            stdout="approved|https://app.stage.upyoke.com/orgs/acme#/overview\n",
+            stdout="approved|https://app.stage.upyoke.com/orgs/acme#/frontier\n",
         )
 
     result = approve_machine_in_safari(

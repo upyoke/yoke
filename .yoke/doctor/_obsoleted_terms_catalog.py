@@ -33,6 +33,7 @@ from yoke_core.engines import (
     doctor_hc_obsoleted_terms_item_dependency as _item_dep_terms,
 )
 from yoke_core.engines import doctor_hc_obsoleted_terms_plan_limits as _plan_limit_terms
+from yoke_project_checks import _obsoleted_terms_workbench as _workbench_terms
 from yoke_project_checks._obsoleted_terms_subject_paths import (
     MIGRATION_RETIREMENT_SUBJECT_PATHS,
     QA_PACKET_TEACHING_PATHS,
@@ -210,6 +211,7 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
     _RETIRED_FLOW_RECONCILE_FUNCTION_PATTERN,
     _RETIRED_FLOW_DECLARATION_MODULE_PATTERN,
     _RETIRED_FLOW_DECLARATION_CONTRACT_PATTERN,
+    *_workbench_terms.WORKBENCH_RETIREMENT_PATTERNS,
     *_browser_terms.BROWSER_RETIREMENT_PATTERNS,
     *_pack_terms.PACK_RETIREMENT_PATTERNS,
     *_db_terms.DB_AUTHORITY_RETIREMENT_PATTERNS,
@@ -218,6 +220,7 @@ OBSOLETED_TERM_PATTERNS: tuple[str, ...] = (
 )
 
 OBSOLETED_TERM_LABELS: dict[str, str] = {
+    **_workbench_terms.WORKBENCH_RETIREMENT_LABELS,
     **_coordination_terms.COORDINATION_LEASE_RETIREMENT_LABELS,
     _RETIRED_FLOW_RECONCILE_CLI_PATTERN: (
         "retired file-driven deployment-flow reconcile CLI "
