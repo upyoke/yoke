@@ -46,6 +46,12 @@ def open_tool_call_select(conn: Any, *, session_alias: str) -> str:
     no hook runs inside a tool call, so a long call and a stopped route
     are indistinguishable without this.
 
+    Newest means the existing ``(session_id, started_at)`` index
+    backward, ``LIMIT 1``: a correlated ``MAX(id)`` walks
+    ``session_tool_calls_pkey`` with a session filter and cannot stop at
+    that session's newest row. ``started_at`` is assigned at insert, so
+    it matches insert order on sequential calls.
+
     The expression is prefixed with a comma for splicing into a select
     list, and degrades to a constant absence on a fixture with no
     ``session_tool_calls`` table, matching this module's schema-tolerance
@@ -54,11 +60,10 @@ def open_tool_call_select(conn: Any, *, session_alias: str) -> str:
     if not has_session_tool_calls_table(conn):
         return f",NULL AS {OPEN_TOOL_CALL_COLUMN}"
     return (
-        ",(SELECT tc.started_at FROM session_tool_calls tc "
+        ",(SELECT CASE WHEN tc.completed_at IS NULL THEN tc.started_at END "
+        "FROM session_tool_calls tc "
         f"WHERE tc.session_id={session_alias}.session_id "
-        "AND tc.completed_at IS NULL "
-        "AND tc.id=(SELECT MAX(tc2.id) FROM session_tool_calls tc2 "
-        f"WHERE tc2.session_id={session_alias}.session_id)) "
+        "ORDER BY tc.started_at DESC LIMIT 1) "
         f"AS {OPEN_TOOL_CALL_COLUMN}"
     )
 
@@ -74,9 +79,11 @@ def last_completed_tool_select(conn: Any, *, session_alias: str) -> str:
 
     ``session_tool_calls`` already records every call's identity, name,
     and completion, so the fact needs no new storage; it needs the query
-    pointed at the state that owns it. Ordered by ``completed_at`` then
-    ``id`` because two calls can share a stamp at second resolution and
-    the later row is the later call.
+    pointed at the state that owns it. Walk ``(session_id, started_at)``
+    newest-first and skip rows that are still open or unnamed; a sort on
+    ``completed_at`` cannot use that index and materializes the session's
+    whole history. Sequential calls assign ``started_at`` at insert, so
+    the newest started completed row is the last finished tool.
 
     The expression is prefixed with a comma for splicing into a select
     list, and degrades to a constant absence on a fixture with no
@@ -90,7 +97,7 @@ def last_completed_tool_select(conn: Any, *, session_alias: str) -> str:
         f"WHERE tc.session_id={session_alias}.session_id "
         "AND tc.completed_at IS NOT NULL "
         "AND tc.tool_name IS NOT NULL AND tc.tool_name <> '' "
-        "ORDER BY tc.completed_at DESC, tc.id DESC LIMIT 1) "
+        "ORDER BY tc.started_at DESC LIMIT 1) "
         f"AS {LAST_COMPLETED_TOOL_COLUMN}"
     )
 

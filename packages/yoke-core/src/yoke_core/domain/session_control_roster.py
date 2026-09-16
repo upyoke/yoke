@@ -16,6 +16,7 @@ from yoke_contracts.session_control.wake_delivery import (
     wake_roster_state,
 )
 from yoke_core.domain import db_backend
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.session_control_diagnostics import session_diagnostics
 from yoke_core.domain.session_control_health_facts import session_health_facts
@@ -159,13 +160,29 @@ def _resume_states(
         return {}
     marker = _marker(conn)
     result_markers = ",".join(marker for _ in WAKE_ATTEMPT_ROSTER_RESULTS)
+    session_markers = ",".join(marker for _ in ids)
+    via_recipients = _column_exists(
+        conn, "session_message_attempts", "message_id"
+    ) and _table_exists(conn, "session_message_recipients")
+    # Recipients lead (session_id, ...); attempts-only seq-scans the table.
+    attempt_from = (
+        "FROM session_message_attempts a "
+        "JOIN session_message_recipients r "
+        "ON a.message_id=r.message_id AND a.target_session_id=r.session_id "
+        "WHERE r.session_id IN ("
+        if via_recipients
+        else "FROM session_message_attempts a WHERE a.target_session_id IN ("
+    )
     rows = conn.execute(
-        "SELECT target_session_id,result_code FROM session_message_attempts "
-        "WHERE target_session_id IN ("
-        + ",".join(marker for _ in ids)
-        + ") AND result_code IN ("
+        "SELECT target_session_id,result_code FROM ("
+        "SELECT a.target_session_id,a.result_code,"
+        "ROW_NUMBER() OVER (PARTITION BY a.target_session_id "
+        "ORDER BY a.started_at DESC,a.attempt_id DESC) AS row_num "
+        + attempt_from
+        + session_markers
+        + ") AND a.result_code IN ("
         + result_markers
-        + ") ORDER BY started_at DESC,attempt_id DESC",
+        + ")) latest WHERE row_num=1",
         (*ids, *sorted(WAKE_ATTEMPT_ROSTER_RESULTS)),
     ).fetchall()
     states: dict[str, str] = {}
