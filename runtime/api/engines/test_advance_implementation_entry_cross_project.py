@@ -149,14 +149,6 @@ def test_worktree_preflight_resolves_project_checkout(monkeypatch):
         worktree_preflight, "activate_path_claims",
         lambda item_id: (True, "", []),
     )
-    # This case is about which checkout the lane resolves in, not what the
-    # lane is called; naming has its own coverage and now refuses rather
-    # than inventing a name, so it is patched like the other steps.
-    monkeypatch.setattr(
-        worktree_preflight, "resolve_item_branch_and_lane",
-        lambda item_id: ("EXT-7", None),
-    )
-
     result = worktree_preflight.run_preflight(item_id=42, project="externalwebapp",
                                               no_worktree=True)
     assert result.ok is True

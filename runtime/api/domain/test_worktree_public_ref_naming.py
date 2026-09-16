@@ -19,6 +19,7 @@ from yoke_core.domain.item_worktree_resolution import (
     resolve_item_id_by_worktree_name,
 )
 from yoke_core.domain.item_worktree_schema import ensure_item_worktree_schema
+from yoke_core.domain.item_worktrees import record_item_worktree
 from yoke_core.domain.worktree import create_worktree
 from yoke_core.domain.worktree_lane_plan import (
     resolve_worktree_lanes_for_item,
@@ -29,7 +30,10 @@ from yoke_core.domain.worktree_naming import (
     legacy_worktree_name,
     worktree_name_for_item,
 )
-from runtime.api.domain.worktree_test_helpers import pin_test_item_workflow
+from runtime.api.domain.worktree_test_helpers import (
+    pin_test_item_workflow,
+    seed_lane_item,
+)
 
 
 def test_worktree_named_by_public_ref_and_resolves_back(
@@ -199,3 +203,65 @@ def test_create_reports_the_refusal_instead_of_creating_a_lane(
     assert result.error
     assert result.branch == ""
     assert "99249" not in (result.error or "")
+
+
+def test_recorded_lanes_survive_an_unreadable_sequence(git_repo, yoke_db):
+    """A complete recorded lane is returned even when no name could be minted.
+
+    Reading lanes that already exist must not depend on being able to name a
+    new one: the branch is whatever it was created as, and refusing here
+    would lose an item its lane over a name nothing was going to mint.
+    """
+    internal_id = 99250
+    seed_lane_item(yoke_db, internal_id, project_sequence=5150)
+    conn = connect_test_db(yoke_db)
+    try:
+        ensure_item_worktree_schema(conn)
+        record_item_worktree(
+            conn,
+            item_id=internal_id,
+            branch="EXT-legacy-lane",
+            path=str(git_repo / ".worktrees" / "EXT-legacy-lane"),
+            lane_role="implementation",
+        )
+        # Strip the identity the mint would need, leaving the lane
+        # recorded. Production allows a null sequence — the batch
+        # renderer skips such rows — while this fixture constrains it,
+        # so relax it to the production shape first.
+        conn.execute("ALTER TABLE items ALTER COLUMN project_sequence DROP NOT NULL")
+        conn.execute(
+            "UPDATE items SET project_sequence = NULL WHERE id = %s",
+            (internal_id,),
+        )
+        conn.commit()
+        with pytest.raises(ItemWorktreeIdentityUnresolved):
+            worktree_name_for_item(conn, internal_id)
+    finally:
+        conn.close()
+
+    lanes = resolve_worktree_lanes_for_item(
+        internal_id, str(git_repo), ".worktrees", yoke_db,
+    )
+
+    assert [lane[0] for lane in lanes] == ["EXT-legacy-lane"]
+
+
+def test_a_required_new_lane_still_refuses_without_identity(git_repo, yoke_db):
+    """The refusal is kept for the case that would actually mint a name."""
+    internal_id = 99251
+    seed_lane_item(yoke_db, internal_id, project_sequence=5151)
+    conn = connect_test_db(yoke_db)
+    try:
+        conn.execute("ALTER TABLE items ALTER COLUMN project_sequence DROP NOT NULL")
+        conn.execute(
+            "UPDATE items SET project_sequence = NULL WHERE id = %s",
+            (internal_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    with pytest.raises(ItemWorktreeIdentityUnresolved):
+        resolve_worktree_lanes_for_item(
+            internal_id, str(git_repo), ".worktrees", yoke_db,
+        )

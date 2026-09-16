@@ -45,16 +45,18 @@ def resolve_item_branch_and_lane(item_id: int) -> Tuple[str, Optional[str]]:
     of reconstructing a name that may not match what is on disk. A recorded
     lane's own branch always wins, unrenamed.
 
-    Raises :class:`ItemWorktreeIdentityUnresolved` when no reference resolves
-    and no lane is recorded, because the branch this returns is the name a
-    lane gets created under.
+    This reports a name; it does not mint one, and preflight runs that create
+    no lane at all (``--no-worktree``) still need the rest of the envelope. So
+    an unresolvable reference with no recorded lane yields an empty branch
+    rather than a refusal — lane creation refuses at the point it would name
+    something, in :func:`resolve_worktree_lanes_for_item`.
     """
     from yoke_core.domain.worktree_naming import (
         ItemWorktreeIdentityUnresolved,
         worktree_name_for_item,
     )
 
-    branch: Optional[str] = None
+    branch = ""
     lane = None
     try:
         from yoke_core.domain.db_helpers import connect
@@ -65,17 +67,9 @@ def resolve_item_branch_and_lane(item_id: int) -> Tuple[str, Optional[str]]:
             try:
                 branch = worktree_name_for_item(conn, item_id)
             except ItemWorktreeIdentityUnresolved:
-                branch = None
-    except ItemWorktreeIdentityUnresolved:
-        raise
+                branch = ""
     except Exception:  # noqa: BLE001 - degrade if DB unavailable
         lane = None
-    if branch is None and not (lane and lane.get("branch")):
-        raise ItemWorktreeIdentityUnresolved(
-            "cannot name a worktree lane: the item's project prefix and "
-            "sequence do not resolve and no lane is recorded for it"
-        )
-    branch = branch or ""
     branch_out = branch
     path_out = None
     if lane:

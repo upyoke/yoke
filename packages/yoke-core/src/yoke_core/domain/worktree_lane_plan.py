@@ -54,7 +54,9 @@ def resolve_worktree_lanes_for_item(
     :class:`ItemWorktreeIdentityUnresolved` rather than planning a lane under
     a name assembled from the storage key. Lanes already recorded in
     ``item_worktrees`` (and any ``authoritative_lanes`` passed in) are
-    returned under the names they were created with, unrenamed.
+    returned under the names they were created with, unrenamed, and reading
+    them never depends on a name being mintable — the refusal happens where
+    a new lane is named, not before.
     """
     if authoritative_lanes is not None:
         role_order = {
@@ -89,6 +91,7 @@ def resolve_worktree_lanes_for_item(
         ) from exc
     try:
         marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+
         if (
             conn.execute(
                 f"SELECT 1 FROM items WHERE id = {marker}",
@@ -96,12 +99,25 @@ def resolve_worktree_lanes_for_item(
             ).fetchone()
             is None
         ):
+            # No row means no lane policy either, so this refuses ahead of
+            # both rather than failing later with a less specific message.
             raise ItemWorktreeIdentityUnresolved(
                 "cannot plan a worktree lane: no item backs the requested "
                 "reference, so it has no prefix or sequence to name one with"
             )
-        wt_name = worktree_name_for_item(conn, int(item_id))
-        wt_path = os.path.join(repo_root, worktrees_dir, wt_name)
+
+        def mint_new_lane() -> Tuple[str, str]:
+            """Name a lane that does not exist yet, or refuse.
+
+            Only the branches below that ADD a lane call this. A lane already
+            recorded in ``item_worktrees`` is returned under the name it was
+            created with, so an item whose public sequence has become
+            unreadable keeps its lanes instead of losing them to a refusal
+            about a name nothing was going to mint.
+            """
+            name = worktree_name_for_item(conn, int(item_id))
+            return name, os.path.join(repo_root, worktrees_dir, name)
+
         runtime = load_item_workflow_runtime(conn, int(item_id))
         policy = worktree_lane_policy(runtime)
         existing_rows = conn.execute(
@@ -132,16 +148,19 @@ def resolve_worktree_lanes_for_item(
                 LANE_INTEGRATION in policy.required_roles
                 and LANE_INTEGRATION not in present_roles
             ):
+                wt_name, wt_path = mint_new_lane()
                 resolved.insert(
                     0,
                     (wt_name, wt_path, LANE_INTEGRATION, 0),
                 )
             return resolved
         if LANE_IMPLEMENTATION in policy.allowed_roles:
+            wt_name, wt_path = mint_new_lane()
             return [
                 (wt_name, wt_path, LANE_IMPLEMENTATION, 0),
             ]
         if policy.required_roles == frozenset({LANE_WORKER}):
+            wt_name, wt_path = mint_new_lane()
             return [(wt_name, wt_path, LANE_WORKER, 0)]
         return []
     finally:
