@@ -225,6 +225,8 @@ def undelivered_messages(
                    s.last_tool_call_at AS last_tool_call_at,
                    s.last_heartbeat AS last_heartbeat,
                    s.episode_started_at AS episode_started_at,
+                   s.turn_posture AS turn_posture,
+                   s.turn_posture_at AS turn_posture_at,
                    s.mode AS mode,
                    s.native_process_gone_at AS native_process_gone_at,
                    s.native_process_gone_evidence AS native_process_gone_evidence,

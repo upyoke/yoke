@@ -284,7 +284,11 @@ def test_a_normal_exit_with_no_wait_declared_still_reads_as_gone():
 )
 def test_a_waiting_turn_accounts_only_for_a_clean_exit(extra, expect_gone):
     """Mode dash plus a held claim do not alarm a completed waiting turn."""
-    row = _row(turn_posture="waiting", native_process_gone_evidence=_evidence(**extra))
+    row = _row(
+        turn_posture="waiting",
+        turn_posture_at="2026-09-09T12:00:00Z",
+        native_process_gone_evidence=_evidence(**extra),
+    )
 
     assert (current_native_process_observation(row) is not None) is expect_gone
 
@@ -300,15 +304,18 @@ def test_later_activity_still_supersedes_a_waiting_turns_death():
     assert current_native_process_observation(row) is None
 
 
-def test_stale_prior_turn_waiting_does_not_hide_a_later_crash():
-    """A prior turn's waiting posture cannot swallow a later non-zero exit."""
+@pytest.mark.parametrize(
+    "stamp,episode",
+    [(None, "2026-09-09T11:00:00Z"), ("2026-09-09T11:00:00Z", "2026-09-09T11:30:00Z")],
+    ids=["unstamped", "prior-episode"],
+)
+def test_stale_waiting_does_not_hide_a_later_clean_exit(stamp, episode):
     row = _row(
         turn_posture="waiting",
-        turn_posture_at="2026-09-09T11:00:00Z",
-        episode_started_at="2026-09-09T11:30:00Z",
-        native_process_gone_evidence=_evidence(exit_code=1),
+        turn_posture_at=stamp,
+        episode_started_at=episode,
+        native_process_gone_evidence=_evidence(exit_code=0),
     )
-
     assert current_native_process_observation(row) is not None
 
 
