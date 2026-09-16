@@ -1,7 +1,7 @@
 """Decide whether preparation may start from this checkout's default branch.
 
 The freshness reading itself belongs to
-:mod:`yoke_core.domain.repo_upstream_freshness`; what that reading means
+:mod:`yoke_cli.config.repo_upstream_freshness`; what that reading means
 for preparation belongs here, because the two branches of preparation ask
 different questions of it.
 
@@ -23,7 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional
 
-from yoke_core.domain.repo_upstream_freshness import (
+from yoke_cli.config.repo_upstream_freshness import (
     UpstreamFreshness,
     refresh_base_branch,
 )

@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain import repo_upstream_freshness as freshness
-from yoke_core.domain.repo_upstream_freshness import refresh_base_branch
+from yoke_cli.config import repo_upstream_freshness as freshness
+from yoke_cli.config.repo_upstream_freshness import refresh_base_branch
 
 
 def _git(cwd: Path, *args: str) -> str:

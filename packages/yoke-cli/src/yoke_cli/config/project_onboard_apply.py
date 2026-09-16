@@ -18,6 +18,8 @@ from yoke_cli.config.project_onboard_support import (
     ProjectOnboardError,
     project_from_result,
 )
+from yoke_cli.project_install import publication
+from yoke_cli.project_install import publication_outcome
 from yoke_cli.project_install import runner as install_runner
 
 
@@ -94,6 +96,9 @@ def finish_after_dispatch(
             # Reviewed apply; the folder may be a just-cloned or
             # just-inited tree with leftover install dirt.
             force=True,
+            # The checkout's Git credential helper is configured below, after
+            # this call, so the install cannot push through it yet.
+            publish=False,
         )
         github = machine_config.github_config(config_path)
         web_url = str(github.get("web_url") or "")
@@ -109,6 +114,14 @@ def finish_after_dispatch(
                 root,
                 config_path=config_path,
             )
+        # Onboarding leaves the operator with a checkout whose layer is on the
+        # remote, not one carrying an unpushed commit they never made.
+        install["publication"] = publication.publish_onboarded_layer(
+            root,
+            install,
+            default_branch=str((install.get("checkout") or {}).get("branch") or ""),
+        )
+        publication_outcome.announce(install)
     except Exception:
         if mapping_needed:
             onboard_apply_progress.emit(

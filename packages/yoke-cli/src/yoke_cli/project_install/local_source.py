@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any
 
 from yoke_cli.project_install import files as files_layer
+from yoke_cli.project_install import publication_outcome
+from yoke_cli.project_install import repository_layer
 from yoke_cli.project_install import runner
 from yoke_cli.project_install import source_dev
 from yoke_cli.project_install.local_source_preview import (
@@ -99,7 +101,7 @@ def refresh_from_source(
         prior_manifest=prior_manifest,
         preserved_manifest_files=preserved_files,
     )
-    report["codex_hook_trust"] = runner._mint_codex_hook_trust(root)
+    report["codex_hook_trust"] = repository_layer.mint_codex_hook_trust(root)
     report.update(
         {
             "preview": False,
@@ -122,6 +124,13 @@ def refresh_from_source(
         skip=not commit,
         operation="refresh",
     )
+    # This path builds an unshipped bundle from a local Yoke checkout, so the
+    # commit it makes is a local experiment: publishing it would push content
+    # no released Yoke version renders.
+    report["publication"] = {
+        "status": publication_outcome.SKIPPED,
+        "reason": publication_outcome.SOURCE_DEV_REASON,
+    }
     return report
 
 

@@ -1,7 +1,7 @@
 """Git mechanics for reading and advancing a checkout's default branch.
 
 The freshness policy — what a comparison means and what to tell the caller
-— lives in :mod:`yoke_core.domain.repo_upstream_freshness`. This module is
+— lives in :mod:`yoke_cli.config.repo_upstream_freshness`. This module is
 only the git side of it: naming the remote and branch from git's own
 records rather than assuming either, reading the comparison, and advancing
 a local branch by a fast-forward that can lose nothing.
@@ -12,8 +12,13 @@ from __future__ import annotations
 import subprocess
 from typing import Tuple
 
-FETCH_TIMEOUT_SECONDS = 120
+from yoke_cli.config import credentialed_git
+
 READ_TIMEOUT_SECONDS = 30
+# Reaching the remote is bounded by the registered machine setting every
+# engine git command already waits on, so the number has one home instead of
+# a copy here and another wherever else git talks to a remote.
+NETWORK_TIMEOUT_SETTING_KEY = "git_command_timeout"
 
 
 def git(
@@ -22,9 +27,22 @@ def git(
     timeout: int = READ_TIMEOUT_SECONDS,
 ) -> subprocess.CompletedProcess:
     """Run one git command in ``repo_root`` with the credential it needs."""
-    from yoke_cli.config import credentialed_git
-
     return credentialed_git.run(["-C", repo_root, *args], timeout=timeout)
+
+
+def network_timeout_seconds() -> int:
+    """Seconds one git command that reaches the remote may run."""
+    from yoke_contracts.machine_config.runtime import read_settings
+    from yoke_contracts.machine_config.settings_keys import (
+        machine_setting_default,
+    )
+
+    default = int(machine_setting_default(NETWORK_TIMEOUT_SETTING_KEY))
+    try:
+        configured = int(read_settings().get(NETWORK_TIMEOUT_SETTING_KEY, ""))
+    except (TypeError, ValueError):
+        return default
+    return configured if configured > 0 else default
 
 
 def out(result: subprocess.CompletedProcess) -> str:
@@ -103,7 +121,7 @@ def fetch_branch(
         "--no-tags",
         remote,
         f"+refs/heads/{base_branch}:{tracking_ref(remote, base_branch)}",
-        timeout=FETCH_TIMEOUT_SECONDS,
+        timeout=network_timeout_seconds(),
     )
 
 
@@ -147,13 +165,14 @@ def fast_forward(
 
 
 __all__ = [
-    "FETCH_TIMEOUT_SECONDS",
+    "NETWORK_TIMEOUT_SETTING_KEY",
     "READ_TIMEOUT_SECONDS",
     "branch_checkout_path",
     "count_ahead_behind",
     "fast_forward",
     "fetch_branch",
     "git",
+    "network_timeout_seconds",
     "out",
     "reason",
     "resolve_base_branch",

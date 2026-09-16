@@ -3,7 +3,7 @@
 Both moments ask the same question the preparation surfaces ask — is this
 checkout's default branch current with its remote, and can it be brought
 current without touching anything local — so both delegate to the one
-implementation in :mod:`yoke_core.domain.repo_upstream_freshness` rather
+implementation in :mod:`yoke_cli.config.repo_upstream_freshness` rather
 than carrying a second one. A landed merge is never unwound by local state:
 local commits and uncommitted changes are preserved, and whatever stopped
 the update comes back as an advisory naming its own recovery.
@@ -11,7 +11,7 @@ the update comes back as an advisory naming its own recovery.
 
 from __future__ import annotations
 
-from yoke_core.domain.repo_upstream_freshness import refresh_base_branch
+from yoke_cli.config.repo_upstream_freshness import refresh_base_branch
 
 NOT_SYNCED = "main checkout not fast-forwarded"
 

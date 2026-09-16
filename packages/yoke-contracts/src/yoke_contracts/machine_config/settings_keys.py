@@ -109,7 +109,7 @@ MACHINE_SETTING_KEYS: Dict[str, Tuple[str, str]] = {
     ),
     "git_command_timeout": (
         "120",
-        "seconds one merge-path git command may run",
+        "seconds one engine git command may run (merge, install publication)",
     ),
     "post_merge_rebase_timeout": (
         "120",
