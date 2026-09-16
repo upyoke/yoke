@@ -202,6 +202,34 @@ def reachable_tests(changed: Sequence[str], index: ImportIndex) -> set[str] | No
     return {rel for rel in reached if rel in index.module_of and is_test_file(rel)}
 
 
+def tests_importing_tests(
+    tests: Iterable[str], index: ImportIndex
+) -> frozenset[str]:
+    """Close the shared-helper edge between test modules.
+
+    A test module is also a source: siblings import its fixtures, seeding
+    helpers, and stage lists by name. Selecting one without them covers the
+    change where the helper is DEFINED and not where it is used, and the
+    callers that need this are the ones that fall back to an importer's
+    direct tests — a set whose members are frequently helper providers.
+    Transitive, because a helper module may itself be reached through
+    another test module. :func:`reachable_tests` already walks these edges;
+    this exists for the narrower paths that do not.
+    """
+    closed = set(tests)
+    frontier = [rel for rel in closed]
+    while frontier:
+        module = index.module_of.get(frontier.pop())
+        if module is None:
+            continue
+        for importer in index.importers.get(module, ()):
+            if importer in closed or not is_test_file(importer):
+                continue
+            closed.add(importer)
+            frontier.append(importer)
+    return frozenset(closed)
+
+
 def bounded_importer_tests(
     changed: Iterable[str],
     index: ImportIndex,
@@ -233,7 +261,9 @@ def bounded_importer_tests(
                     tests.update(own)
                 continue
             tests.update(branch)
-    return frozenset(tests)
+    # The caller re-checks the bound on the result, so closing the
+    # test-helper edge here cannot smuggle a near-total set through.
+    return tests_importing_tests(tests, index)
 
 
 def build_import_index(repo_root: Path) -> ImportIndex:
@@ -278,4 +308,5 @@ __all__ = [
     "is_test_file",
     "module_name_for",
     "reachable_tests",
+    "tests_importing_tests",
 ]
