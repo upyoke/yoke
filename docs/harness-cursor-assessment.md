@@ -23,9 +23,11 @@ implementation; hook payloads and event coverage are vendor-owned.*
   blocked the agent's command *with `--force` active*; the model received the
   structured `agent_message` and did not retry; `postToolUseFailure` fired
   with `failure_type=permission_denied`.
-- **Zero enablement ceremony.** A project `.cursor/hooks.json` fired on the
-  first run in a directory never opened in the IDE — no approval step (Codex
-  requires in-app hook approval; Claude requires the settings schema).
+- **Zero enablement ceremony.** Project `.cursor/hooks.json` fired on first
+  run in a never-opened directory — no hook-approval step. Official hooks docs
+  (2026-09-16, https://cursor.com/docs/hooks) auto-load project hooks in a
+  trusted workspace and do not document a separate approval or reapproval
+  prompt (Codex: in-app hook approval; Claude: settings schema).
 - **Context injection works where Yoke needs it**: `sessionStart` and
   `postToolUse` both accepted `additional_context` (measured; the vendor's
   own on-disk hook guide omits `sessionStart` from its output cheat sheet).

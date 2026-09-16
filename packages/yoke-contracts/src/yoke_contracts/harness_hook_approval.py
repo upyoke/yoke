@@ -2,13 +2,29 @@
 
 A harness runs Yoke's hook chain only after the operator approves it when
 that harness has a readable approval gate. Codex records a per-hook
-``trusted_hash`` keyed by the hook file's path and content. Cursor still
-shows an approval prompt, but that receipt is not machine-readable.
-Claude Code does not gate hooks on folder-trust on the probed builds.
-A harness with no gate is absent from the mapping below. When a gate
-exists and approval is missing, the harness simply never runs the hooks,
-so nothing errors and the session looks ordinary while none of its
-telemetry is written.
+``trusted_hash`` keyed by the hook file's path and content. Claude Code
+does not gate hooks on folder-trust on the probed builds. Cursor is
+absent for the same reason Claude is: there is no machine-readable
+hook-approval receipt, and teaching a prompt the vendor does not
+document would invent a gate.
+
+Cited 2026-09-16 from https://cursor.com/docs/hooks: project
+``.cursor/hooks.json`` automatically loads in a trusted workspace;
+hooks require that trust for security; Cursor reloads ``hooks.json`` on
+save. The page does not document a hook-specific approval or reapproval
+prompt. Desktop and CLI both fire hooks (CLI omits some events);
+cloud agents load project hooks; user-level ``~/.cursor/hooks.json``
+is not available to cloud agents. Workspace trust
+(https://cursor.com/docs/agent/security) is a separate VS Code gate,
+disabled by default — not a hook-approval prompt. Absence from docs is
+not a runtime guarantee that some build cannot prompt; it is why this
+mapping must not invent one. Measured first-run in a never-opened
+directory (``docs/harness-cursor-assessment.md``) had zero enablement
+ceremony.
+
+A harness with a gate whose approval is missing simply never runs the
+hooks, so nothing errors and the session looks ordinary while none of
+its telemetry is written.
 
 Two surfaces in different packages have to agree about that gate:
 
@@ -29,14 +45,15 @@ from __future__ import annotations
 from typing import Dict, Mapping, Optional
 
 
+#: Official Cursor hooks page used to keep Cursor out of this mapping.
+CURSOR_HOOKS_DOC_URL = "https://cursor.com/docs/hooks"
+CURSOR_HOOKS_DOC_RETRIEVED = "2026-09-16"
+
+
 HARNESS_HOOK_APPROVAL: Dict[str, Mapping[str, str]] = {
     "codex": {
         "trust_surface": "Codex's hook-trust prompt",
         "grant_scope": ("per project checkout and per hook-file content hash"),
-    },
-    "cursor": {
-        "trust_surface": "Cursor's hooks approval prompt",
-        "grant_scope": "per project folder",
     },
 }
 """Canonical harness id -> its hook-approval gate.
@@ -69,4 +86,10 @@ def trust_teaching(harness_id: str) -> Optional[str]:
     )
 
 
-__all__ = ["HARNESS_HOOK_APPROVAL", "hook_approval", "trust_teaching"]
+__all__ = [
+    "CURSOR_HOOKS_DOC_RETRIEVED",
+    "CURSOR_HOOKS_DOC_URL",
+    "HARNESS_HOOK_APPROVAL",
+    "hook_approval",
+    "trust_teaching",
+]

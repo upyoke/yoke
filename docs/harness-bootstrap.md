@@ -332,9 +332,9 @@ Codex-specific sidecar metadata (`agents/openai.yaml`) is intentionally absent f
 
 ## 6. Hook Approval
 
-Installing hook glue does not make it run. A harness with a readable approval gate fails **silently** when approval is missing: the harness runs the session normally and simply never invokes the hooks. Nothing errors, so the failure has to be inferred from what is absent — no tool telemetry, no heartbeats past registration, a board that reads idle while the session is working, and a session id later commands cannot find because the CLI's ensure-register probe wrote the only row that exists.
+Installing hook glue does not make it run. A harness with a readable approval gate fails **silently** when approval is missing: the session looks ordinary while no telemetry is written.
 
-Each harness's gate is declared once, in `yoke_contracts.harness_hook_approval`, with the surface where approval is granted and what the grant is keyed to. A harness absent from that mapping has no gate — Claude Code is absent because folder-trust does not gate hooks on the probed builds. Two surfaces read the declaration rather than branching on a harness id:
+Each harness's gate is declared once, in `yoke_contracts.harness_hook_approval`. A harness absent from that mapping has no gate. Claude Code is absent because folder-trust does not gate hooks. Cursor is absent because official hooks docs (2026-09-16, https://cursor.com/docs/hooks) auto-load project `.cursor/hooks.json` in a trusted workspace and do not document a hook-approval or reapproval prompt; measured first-run had zero enablement ceremony. Workspace trust is a separate, default-off security gate. Two surfaces read the declaration rather than branching on a harness id:
 
 | Reader | What it does with the declaration |
 |--------|-----------------------------------|

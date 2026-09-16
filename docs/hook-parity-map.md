@@ -74,6 +74,8 @@ A linked worktree has a different literal hooks path, so preparation mirrors onl
 
 **Claude Code has no equivalent per-path hook gate.** Its per-project records in `~/.claude.json` carry a directory-level `hasTrustDialogAccepted` flag and no per-hook hash store, so hooks from a project's `.claude/settings.json` fire once the directory is trusted. A Claude session rooted at a worktree would prompt the one-time directory trust dialog and then run its hooks normally; there is no silent hash-keyed dead zone to mirror around.
 
+**Cursor has no documented hook-approval prompt.** Official hooks docs (cited 2026-09-16, https://cursor.com/docs/hooks) say project `.cursor/hooks.json` automatically loads in a trusted workspace, reloads on save, and requires workspace trust for security. They do not document a hook-specific approval or reapproval prompt. Desktop and CLI both fire hooks (CLI omits some events, below); cloud agents load project hooks, while user-level `~/.cursor/hooks.json` is not available in cloud agents. Workspace trust is a separate VS Code gate, not a Yoke-owned hook-approval receipt, so inventory reports Cursor `approval_state=not_applicable` like Claude.
+
 ### Cursor coverage
 
 Cursor's hook surface is a near-superset of the tested cross-harness tier, with camelCase native event names mapped to canonical verbs in the rendered `runtime/harness/cursor/hooks.json` (surfaced as `.cursor/hooks.json`). Measured facts (Cursor IDE 3.14.7 / cursor-agent 2026.07.23; full matrix in [Cursor Harness Integration Assessment](harness-cursor-assessment.md)):

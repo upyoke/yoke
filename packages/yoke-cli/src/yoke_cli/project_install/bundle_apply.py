@@ -157,9 +157,10 @@ def apply_bundle(
         if result["removed"]:
             hooks_removed[settings_rel] = result["removed"]
         hook_entries[settings_rel] = hooks_layer.provided_records(subtree)
-        # A harness re-requires approval whenever the glue it hashed
-        # changes, so a fresh write and an entry-level update owe the
-        # operator the same sentence — and a no-op reconcile owes none.
+        # Codex re-requires approval whenever the glue it hashed changes,
+        # so a fresh write and an entry-level update owe the operator the
+        # same sentence — and a no-op reconcile owes none. Harnesses with
+        # no gate contribute no sentence.
         teaching = hook_trust_report.teaching_for_hooks_key(hooks_key)
         if teaching and (result["added"] or result["removed"]):
             hook_trust.append(teaching)
