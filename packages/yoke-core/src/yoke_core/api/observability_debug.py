@@ -21,6 +21,9 @@ from yoke_core.domain.time_parse import parse_timestamp_utc
 DEBUG_SCOPE_ENV = "YOKE_API_DEBUG_SCOPE"
 DEBUG_UNTIL_ENV = "YOKE_API_DEBUG_UNTIL"
 DEBUG_MAX_RECORDS_ENV = "YOKE_API_DEBUG_MAX_RECORDS"
+API_LOGGER_NAME = "yoke.api"
+_BUDGET_CHECKED_ATTR = "_yoke_debug_budget_checked"
+_BUDGET_ALLOWED_ATTR = "_yoke_debug_budget_allowed"
 
 SCOPE_KINDS = ("function", "session", "service", "request")
 DEFAULT_MAX_RECORDS = 200
@@ -53,7 +56,12 @@ class DebugCampaign:
 
 
 class DebugCaptureFilter(logging.Filter):
-    """Drop DEBUG unless a live campaign matches, or process DEBUG is set."""
+    """Drop DEBUG unless a live campaign matches, or process DEBUG is set.
+
+    Attach this to the emitting *handler*. Logger filters on a parent do not
+    see records created by child loggers; those skip ancestor ``Logger.filter``
+    and only pass through parent handlers.
+    """
 
     def __init__(self, configured_level: int) -> None:
         super().__init__()
@@ -65,7 +73,12 @@ class DebugCaptureFilter(logging.Filter):
         campaign = parse_debug_campaign()
         if campaign is None:
             return record.levelno >= self.configured_level
-        return debug_detail_allowed(context_from_record(record))
+        if getattr(record, _BUDGET_CHECKED_ATTR, False):
+            return bool(getattr(record, _BUDGET_ALLOWED_ATTR, False))
+        allowed = debug_detail_allowed(context_from_record(record))
+        setattr(record, _BUDGET_CHECKED_ATTR, True)
+        setattr(record, _BUDGET_ALLOWED_ATTR, allowed)
+        return allowed
 
 
 def parse_debug_campaign(
@@ -172,6 +185,7 @@ def _parse_max_records(raw: object) -> int:
 
 
 __all__ = [
+    "API_LOGGER_NAME",
     "DEBUG_MAX_RECORDS_ENV",
     "DEBUG_SCOPE_ENV",
     "DEBUG_UNTIL_ENV",

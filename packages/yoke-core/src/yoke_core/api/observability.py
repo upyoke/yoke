@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
 from yoke_core.api.observability_debug import (
+    API_LOGGER_NAME,
     DebugCampaign,
     DebugCaptureFilter,
     debug_detail_allowed,
@@ -100,33 +101,55 @@ def configure_structured_logging(
     target = sys.stderr if stream is None else stream
     root = logging.getLogger()
     configured_level = getattr(logging, str(level).upper(), logging.INFO)
-    emit_level = configured_level
-    if parse_debug_campaign() is not None:
-        emit_level = min(configured_level, logging.DEBUG)
-    root.setLevel(emit_level)
-    _install_debug_filter(root, configured_level)
+    campaign = parse_debug_campaign()
+    handler_level = configured_level
+    if campaign is not None:
+        handler_level = min(configured_level, logging.DEBUG)
+    # Keep root at the operator-configured level. Raising root to DEBUG
+    # would enable every library's debug records; the campaign only lifts
+    # the Yoke API logger and the JSON handler, which the handler filter
+    # then gates. Child loggers (yoke.api.dispatch) propagate into that
+    # handler — logger filters on root never see those records.
+    root.setLevel(configured_level)
+    _strip_logger_debug_filters(root)
+    api_logger = logging.getLogger(API_LOGGER_NAME)
+    api_logger.setLevel(logging.DEBUG if campaign is not None else logging.NOTSET)
 
     for handler in root.handlers:
         if getattr(handler, _JSON_HANDLER_MARKER, False):
-            handler.setLevel(emit_level)
-            handler.setFormatter(JsonLogFormatter())
+            _bind_json_handler(handler, handler_level, configured_level)
             return
 
     handler = logging.StreamHandler(target)
     setattr(handler, _JSON_HANDLER_MARKER, True)
-    handler.setLevel(emit_level)
-    handler.setFormatter(JsonLogFormatter())
+    _bind_json_handler(handler, handler_level, configured_level)
     root.addHandler(handler)
 
 
-def _install_debug_filter(root: logging.Logger, configured_level: int) -> None:
-    for existing in root.filters:
+def _bind_json_handler(
+    handler: logging.Handler,
+    handler_level: int,
+    configured_level: int,
+) -> None:
+    handler.setLevel(handler_level)
+    handler.setFormatter(JsonLogFormatter())
+    _install_debug_filter(handler, configured_level)
+
+
+def _install_debug_filter(handler: logging.Handler, configured_level: int) -> None:
+    for existing in handler.filters:
         if getattr(existing, _DEBUG_FILTER_MARKER, False):
             existing.configured_level = configured_level
             return
     filt = DebugCaptureFilter(configured_level)
     setattr(filt, _DEBUG_FILTER_MARKER, True)
-    root.addFilter(filt)
+    handler.addFilter(filt)
+
+
+def _strip_logger_debug_filters(logger: logging.Logger) -> None:
+    for existing in tuple(logger.filters):
+        if getattr(existing, _DEBUG_FILTER_MARKER, False):
+            logger.removeFilter(existing)
 
 
 def configure_observability(

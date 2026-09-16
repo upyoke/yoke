@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import io
 import logging
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from yoke_core.api import observability
 from yoke_core.api.observability_debug import (
     DEBUG_MAX_RECORDS_ENV,
     DEBUG_SCOPE_ENV,
@@ -151,6 +153,104 @@ def test_process_debug_without_campaign_still_emits() -> None:
         exc_info=None,
     )
     assert filt.filter(record) is True
+
+
+def test_handler_filter_consumes_budget_once_per_record(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(DEBUG_SCOPE_ENV, "function:items.get.run")
+    monkeypatch.setenv(DEBUG_UNTIL_ENV, _until())
+    monkeypatch.setenv(DEBUG_MAX_RECORDS_ENV, "1")
+    filt = DebugCaptureFilter(logging.INFO)
+    record = logging.LogRecord(
+        name="yoke.api.dispatch",
+        level=logging.DEBUG,
+        pathname=__file__,
+        lineno=1,
+        msg="dispatch.debug",
+        args=(),
+        exc_info=None,
+    )
+    record.function = "items.get.run"
+    assert filt.filter(record) is True
+    assert filt.filter(record) is True
+    assert debug_records_emitted() == 1
+
+
+def _configure_child_capture(
+    monkeypatch: pytest.MonkeyPatch,
+    stream: io.StringIO,
+    *,
+    scope: str,
+    until: str,
+    max_records: str | None = None,
+) -> logging.Logger:
+    monkeypatch.setenv(DEBUG_SCOPE_ENV, scope)
+    monkeypatch.setenv(DEBUG_UNTIL_ENV, until)
+    if max_records is not None:
+        monkeypatch.setenv(DEBUG_MAX_RECORDS_ENV, max_records)
+    root = logging.getLogger()
+    api = logging.getLogger("yoke.api")
+    monkeypatch.setattr(root, "handlers", [])
+    monkeypatch.setattr(root, "filters", [])
+    monkeypatch.setattr(root, "level", root.level)
+    monkeypatch.setattr(api, "level", api.level)
+    observability.configure_structured_logging(level="INFO", stream=stream)
+    return logging.getLogger("yoke.api.dispatch")
+
+
+def test_configured_child_logger_mismatch_keeps_info(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stream = io.StringIO()
+    child = _configure_child_capture(
+        monkeypatch, stream, scope="function:items.get.run", until=_until(),
+    )
+    child.debug("dispatch.debug", extra={"function": "items.list.run"})
+    child.info("still-info", extra={"function": "items.list.run"})
+    logging.getLogger("unrelated.library").debug("library-debug")
+    text = stream.getvalue()
+    assert "dispatch.debug" not in text
+    assert "library-debug" not in text
+    assert "still-info" in text
+
+
+def test_configured_child_logger_cap_keeps_info(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stream = io.StringIO()
+    child = _configure_child_capture(
+        monkeypatch,
+        stream,
+        scope="function:items.get.run",
+        until=_until(),
+        max_records="1",
+    )
+    extra = {"function": "items.get.run"}
+    child.debug("first-debug", extra=extra)
+    child.debug("second-debug", extra=extra)
+    child.info("still-info", extra=extra)
+    text = stream.getvalue()
+    assert "first-debug" in text
+    assert "second-debug" not in text
+    assert "still-info" in text
+
+
+def test_configured_child_logger_expiry_keeps_info(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stream = io.StringIO()
+    child = _configure_child_capture(
+        monkeypatch,
+        stream,
+        scope="function:items.get.run",
+        until="2000-01-01T00:00:00Z",
+    )
+    child.debug("dispatch.debug", extra={"function": "items.get.run"})
+    child.info("still-info", extra={"function": "items.get.run"})
+    text = stream.getvalue()
+    assert "dispatch.debug" not in text
+    assert "still-info" in text
 
 
 def test_debug_does_not_put_request_id_on_metrics() -> None:

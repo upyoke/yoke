@@ -44,7 +44,10 @@ YOKE_API_DEBUG_MAX_RECORDS=200                # default 200, cap 2000
 
 While the campaign is live, matching DEBUG records emit (including one
 `FunctionDispatchDebug` log per in-scope dispatch) with `request_id` /
-`session_id` / `function`. After `UNTIL` or the record cap, capture
+`session_id` / `function`. Enforcement lives on the JSON log handler, so
+child loggers such as `yoke.api.dispatch` cannot bypass it. Root stays at
+`YOKE_API_LOG_LEVEL` (INFO by default); the campaign does not enable
+unrelated libraries' DEBUG output. After `UNTIL` or the record cap, capture
 stops even if the process keeps running. Unmatched DEBUG is dropped.
 INFO/ERROR logs and metrics are unchanged. Campaign env never becomes a
 metric attribute.
