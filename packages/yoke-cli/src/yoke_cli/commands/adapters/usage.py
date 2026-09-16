@@ -176,12 +176,11 @@ from yoke_cli.commands.adapters.project_github_binding import (
 from yoke_cli.commands.adapters.usage_qa import QA_ADAPTER_USAGE
 from yoke_cli.commands.adapters.board import BOARD_REBUILD_USAGE
 from yoke_cli.commands.adapters.render import (
-    AGENTS_RENDER_CHECK_USAGE,
-    AGENTS_RENDER_USAGE,
-    BOARD_DATA_GET_USAGE,
-    PACKETS_BUDGET_GET_USAGE,
-    PACKETS_CHECK_USAGE,
-    PACKETS_RENDER_USAGE,
+    AGENTS_RENDER_CHECK_USAGE, AGENTS_RENDER_USAGE, BOARD_DATA_GET_USAGE,
+)
+from yoke_cli.commands.adapters.packets import (
+    PACKETS_BUDGET_GET_USAGE, PACKETS_CHECK_USAGE, PACKETS_RENDER_USAGE,
+    PACKETS_STARTUP_DELIVERY_GET_USAGE,
 )
 from yoke_cli.commands.adapters.usage_extensions import extend_adapter_usage
 from yoke_cli.commands.adapters.strategy import (
@@ -251,6 +250,7 @@ ADAPTER_USAGE: Dict[str, str] = {
     "packets.render.run": PACKETS_RENDER_USAGE,
     "packets.check.run": PACKETS_CHECK_USAGE,
     "packets.budget.get": PACKETS_BUDGET_GET_USAGE,
+    "packets.startup_delivery.get": PACKETS_STARTUP_DELIVERY_GET_USAGE,
     "board.rebuild.run": BOARD_REBUILD_USAGE,
     "board.data.get": BOARD_DATA_GET_USAGE,
     "lint.config.show": LINT_CONFIG_SHOW_USAGE,

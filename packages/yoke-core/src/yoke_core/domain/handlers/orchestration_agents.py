@@ -47,7 +47,13 @@ class AgentsRenderRunResponse(BaseModel):
     results: Dict[str, str]
 
 
-def _resolve_target_root(payload_root: Optional[str]) -> Path:
+def resolve_target_root(payload_root: Optional[str]) -> Path:
+    """Resolve the checkout a repo-tree handler acts on.
+
+    Shared with the sibling read handlers in this package: an explicit
+    payload root wins, then the session's own reader root, then this
+    machine's main repo root.
+    """
     if payload_root:
         return Path(str(payload_root))
     from yoke_core.domain.agents_render_workspace import require_reader_root
@@ -67,7 +73,7 @@ def handle_agents_render_run(request: FunctionCallRequest) -> HandlerOutcome:
     payload_root = payload.get("target_root")
     dry_run = bool(payload.get("dry_run", False))
     try:
-        target_root = _resolve_target_root(payload_root)
+        target_root = resolve_target_root(payload_root)
     except Exception as exc:
         return HandlerOutcome(
             primary_success=False,
@@ -128,7 +134,7 @@ def handle_agents_render_check(request: FunctionCallRequest) -> HandlerOutcome:
     payload = request.payload or {}
     payload_root = payload.get("target_root")
     try:
-        target_root = _resolve_target_root(payload_root)
+        target_root = resolve_target_root(payload_root)
     except Exception as exc:
         return HandlerOutcome(
             primary_success=False,

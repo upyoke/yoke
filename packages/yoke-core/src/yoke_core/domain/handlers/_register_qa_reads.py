@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import (
+    _register_packets,
     _register_qa_requirement_runs,
     doctor_last_run as _doctor_last_run,
     items_listing as _items_listing,
@@ -15,7 +16,6 @@ from yoke_core.domain.handlers import (
     project_structure as _ps,
     orchestration as _orch,
     orchestration_agents as _orch_agents,
-    orchestration_packet_budget as _orch_budget,
 )
 
 
@@ -204,6 +204,7 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind=None,
     )
+    _register_packets.register(registry)
     _register_qa_requirement_runs.register(registry)
     registry.register(
         "project_structure.patch.apply",
@@ -249,48 +250,6 @@ def register(registry) -> None:
         adapter_status="live",
         claim_required_kind=None,
         ambient_session_required=False,
-    )
-    registry.register(
-        "packets.render.run",
-        _orch.handle_packets_render,
-        _orch.PacketsRenderRequest,
-        _orch.PacketsRenderResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.orchestration",
-        target_kinds=["global"],
-        side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
-        guardrails=[],
-        adapter_status="live",
-        claim_required_kind=None,
-    )
-    registry.register(
-        "packets.check.run",
-        _orch.handle_packets_check,
-        _orch.PacketsCheckRequest,
-        _orch.PacketsCheckResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.orchestration",
-        target_kinds=["global"],
-        side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
-        guardrails=[],
-        adapter_status="live",
-        claim_required_kind=None,
-    )
-    registry.register(
-        "packets.budget.get",
-        _orch_budget.handle_packets_budget_get,
-        _orch_budget.PacketsBudgetGetRequest,
-        _orch_budget.PacketsBudgetGetResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.orchestration_packet_budget",
-        target_kinds=["global"],
-        side_effects=[],
-        emitted_event_names=["YokeFunctionCalled"],
-        guardrails=[],
-        adapter_status="live",
-        claim_required_kind=None,
     )
     registry.register(
         "agents.render.run",

@@ -15,10 +15,10 @@ from yoke_cli.commands.adapters.lifecycle_repair import lifecycle_repair_status
 from yoke_cli.commands.adapters.migration_content_identity import (
     migration_content_identity_verify,
 )
-from yoke_cli.commands.adapters.render import packets_budget_get
 from yoke_cli.commands.adapters.claims_path_change import claims_path_amend
 from yoke_cli.commands.adapters.config import env_list
 from yoke_cli.commands.adapters.config_actor_binding import config_bind_actor
+from yoke_cli.commands.registry_render import RENDER_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_token_normalization import expanded_hyphen_routes
 from yoke_cli.commands.registry_deployment import DEPLOYMENT_SUBCOMMAND_REGISTRY
 from yoke_cli.commands.registry_ephemeral_env import EPHEMERAL_ENV_SUBCOMMAND_REGISTRY
@@ -132,16 +132,7 @@ SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ),
     ("charge", "schedule"): ("charge.schedule", _adapters.charge_schedule),
     ("frontier", "list"): ("frontier.list", _adapters.frontier_list),
-    ("agents", "render"): ("agents.render.run", _adapters.agents_render),
-    ("agents", "render", "check"): (
-        "agents.render.check",
-        _adapters.agents_render_check,
-    ),
-    ("packets", "render"): ("packets.render.run", _adapters.packets_render),
-    ("packets", "check"): ("packets.check.run", _adapters.packets_check),
-    ("packets", "budget", "get"): ("packets.budget.get", packets_budget_get),
-    ("board", "rebuild"): ("board.rebuild.run", _adapters.board_rebuild),
-    ("board", "data", "get"): ("board.data.get", _adapters.board_data_get),
+    **RENDER_SUBCOMMAND_REGISTRY,
     ("lint", "config", "show"): ("lint.config.show", _adapters.lint_config_show),
     ("hook", "evaluate"): ("hook.evaluate.run", _adapters.hook_evaluate),
     **QA_SUBCOMMAND_REGISTRY,

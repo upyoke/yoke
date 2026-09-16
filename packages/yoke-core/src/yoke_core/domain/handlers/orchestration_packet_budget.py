@@ -1,12 +1,12 @@
-"""Packet line-budget read handler.
+"""Packet budget read handler.
 
 Function id registered here:
 
-- ``packets.budget.get`` — returns each packet role's configured line
-  budget, its current rendered usage, and the remaining headroom, plus the
-  same three figures for the aggregate corpus. Read-only; renders the
-  packets it measures, so it runs client-local like its ``packets.render`` /
-  ``packets.check`` siblings.
+- ``packets.budget.get`` — returns each packet role's configured line and
+  byte budgets, its current rendered usage on both axes, and the remaining
+  headroom on each, plus the same figures for the aggregate corpus.
+  Read-only; renders the packets it measures, so it runs client-local like
+  its ``packets.render`` / ``packets.check`` siblings.
 
 Sibling of :mod:`orchestration`, which hosts the rest of the packet family
 and is at the authored-file line cap.
@@ -31,11 +31,17 @@ class PacketsBudgetGetRequest(BaseModel):
 
 class PacketsBudgetGetResponse(BaseModel):
     roles: List[Dict[str, Any]]
-    per_role_budget: int
-    aggregate_budget: int
+    per_role_line_budget: int
+    per_role_byte_budget: int
+    aggregate_line_budget: int
+    aggregate_byte_budget: int
     aggregate_lines: int
-    aggregate_characters: int
-    aggregate_headroom: int
+    aggregate_bytes: int
+    aggregate_estimated_tokens: int
+    aggregate_line_headroom: int
+    aggregate_byte_headroom: int
+    aggregate_over_line_budget: bool
+    aggregate_over_byte_budget: bool
     aggregate_over_budget: bool
 
 

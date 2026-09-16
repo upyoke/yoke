@@ -22,6 +22,38 @@ from yoke_core.domain.schema_api_context_json_schemas import (
 )
 
 
+# Two rendering depths, because the packet serves two jobs that used to be
+# fused. ``compact`` is the spine every session needs on arrival: the
+# invariants, the canonical recipes, and the table/column listing that keeps
+# an agent from confabulating a column name. ``full`` adds the long-form
+# per-table and per-command notes — the worked wrong guesses and the
+# operational caveats — which are worth reading at the moment they apply and
+# are pure weight before it. Rendering the full body by default put 107,818
+# bytes into an 8,192-byte channel, so the depth that arrives is the default
+# and the depth that explains is one command away.
+PACKET_DETAIL_COMPACT = "compact"
+PACKET_DETAIL_FULL = "full"
+PACKET_DETAILS: tuple[str, ...] = (PACKET_DETAIL_COMPACT, PACKET_DETAIL_FULL)
+
+
+def packet_detail_pointer(role: str, topic: str) -> str:
+    """Return the one line naming where a compact block's notes live."""
+    return (
+        f"_Compact depth. Per-table and per-command notes for this topic — "
+        f"the caveats and the wrong guesses they correct — read with_ "
+        f"`yoke packets render --role {role} --topic {topic} --detail full`."
+    )
+
+
+def _validate_detail(detail: str) -> str:
+    if detail not in PACKET_DETAILS:
+        raise ValueError(
+            f"unknown packet detail {detail!r}; expected one of "
+            f"{', '.join(PACKET_DETAILS)}"
+        )
+    return detail
+
+
 def render_invariant_block() -> list[str]:
     return [
         "**Control-plane DB invariant:** Yoke control-plane authority "
@@ -151,7 +183,19 @@ def render_json_nested_schema_block(topic: str) -> list[str]:
     return out
 
 
-def render_command_block(topic: str, *, role: str = "main_agent") -> list[str]:
+def render_command_block(
+    topic: str,
+    *,
+    role: str = "main_agent",
+    detail: str = PACKET_DETAIL_COMPACT,
+) -> list[str]:
+    """Render one topic's wrapper commands at the requested depth.
+
+    Both depths carry every command and its exact recipe — dropping a
+    command would make the packet lie about what exists. Compact drops only
+    the explanatory note beside each recipe.
+    """
+    _validate_detail(detail)
     rows = [
         command
         for command in seed.WRAPPER_COMMANDS
@@ -165,7 +209,7 @@ def render_command_block(topic: str, *, role: str = "main_agent") -> list[str]:
     for row in rows:
         out.append(f"- _{row['purpose']}_")
         out.append(f"  - `{row['recipe']}`")
-        if row.get("notes"):
+        if detail == PACKET_DETAIL_FULL and row.get("notes"):
             out.append(f"  - {row['notes']}")
     return out
 
@@ -173,7 +217,16 @@ def render_command_block(topic: str, *, role: str = "main_agent") -> list[str]:
 def render_table_block(
     topic: str,
     resolve_columns: Callable[[str], list[tuple[str, str]]],
+    *,
+    detail: str = PACKET_DETAIL_COMPACT,
 ) -> list[str]:
+    """Render one topic's schema cheat sheet at the requested depth.
+
+    Both depths carry every table and every column name, which is the
+    anti-confabulation surface the packet exists for. Compact drops the
+    long-form note under each table.
+    """
+    _validate_detail(detail)
     tables = seed.TOPIC_TABLES.get(topic, ())
     if not tables:
         return []
@@ -183,12 +236,16 @@ def render_table_block(
         col_str = ", ".join(name for name, _ in cols)
         notes = seed.CANONICAL_TABLES[table].get("notes", "")
         out.append(f"- **`{table}`** — `{col_str}`")
-        if notes:
+        if detail == PACKET_DETAIL_FULL and notes:
             out.append(f"  - {notes}")
     return out
 
 
 __all__ = [
+    "PACKET_DETAILS",
+    "PACKET_DETAIL_COMPACT",
+    "PACKET_DETAIL_FULL",
+    "packet_detail_pointer",
     "render_invariant_block",
     "render_function_call_surface_block",
     "render_item_entry_surface_block",
