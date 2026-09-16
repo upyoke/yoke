@@ -23,7 +23,7 @@ CLI: exit 0 (envelope to stdout), exit 1 (sanctioned block, narrative
 to stderr), exit 2 (usage / bad-input).
 
 Before the lane or laneless work begins, the default branch is brought
-current with its remote (:mod:`yoke_core.domain.repo_upstream_freshness`):
+current with its remote (:mod:`yoke_cli.config.repo_upstream_freshness`):
 a new lane starts from the verified upstream revision, a resumed lane is
 only reported on, an unreadable remote refuses rather than fall back to
 local, and laneless work refuses on a branch that is behind.

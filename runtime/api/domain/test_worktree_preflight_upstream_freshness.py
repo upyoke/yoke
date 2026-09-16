@@ -16,7 +16,7 @@ import pytest
 from yoke_core.api import (
     service_client_structured_api_adapter as structured_api_adapter,
 )
-from yoke_core.domain import repo_upstream_freshness as freshness
+from yoke_cli.config import repo_upstream_freshness as freshness
 from yoke_core.domain import worktree_create
 from yoke_core.domain import worktree_preflight as wp
 from yoke_core.domain import worktree_preflight_steps as steps

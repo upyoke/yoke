@@ -1,11 +1,9 @@
 """Read the publish branch's remote, and reconcile it by regeneration.
 
 The installer generates a managed layer and commits it onto the checkout's
-default branch. That branch can be older than the remote either because the
-checkout was never brought current or because the remote advanced while this
-run was writing, and both resolve the same way: move the local branch onto
-the remote tip, then let the caller REGENERATE the managed layer on that new
-base.
+default branch. Between that commit and its push the remote can advance, and
+this module resolves that: move the local branch onto the remote tip, then
+let the caller REGENERATE the managed layer on that new base.
 
 Regeneration — not a merge preference — is what makes the result correct. A
 ``merge -X theirs`` keeps whatever non-conflicting content the older side
@@ -13,6 +11,13 @@ added, so a block this Yoke version no longer renders survives the merge and
 the operator cleans it by hand afterwards. Re-running the bundle write on the
 updated base produces exactly the content this version renders, and the
 managed-block mechanics preserve the operator's own text around it.
+
+Bringing a branch current BEFORE work starts is the shared project freshness
+contract (:mod:`yoke_cli.config.repo_upstream_freshness`), which the install
+calls once; this module is publication-time only. The git mechanics it needs
+— naming the tracking remote, fetching, and comparing — come from that
+contract's :mod:`yoke_cli.config.repo_upstream_git` sibling rather than a
+second implementation of reaching a remote.
 
 Nothing here force-pushes and nothing here rewrites work the operator has not
 published. Commits the remote lacks are replaced only when every one of them
@@ -28,17 +33,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-from yoke_cli.config import credentialed_git
+from yoke_cli.config import repo_upstream_git as upstream_git
 from yoke_cli.project_install import checkout_gate
 from yoke_cli.project_install.files import ProjectInstallError
 
-FALLBACK_REMOTE = "origin"
-# The registered machine setting every engine git command already waits on;
-# its default lives in the settings registry, not in a literal here.
-GIT_TIMEOUT_SETTING_KEY = "git_command_timeout"
 
 NOT_A_GIT_CHECKOUT = "not_a_git_checkout"
 NO_REMOTE = "no_remote"
+REMOTE_UNRESOLVED = "remote_unresolved"
 REMOTE_BRANCH_MISSING = "remote_branch_missing"
 FETCH_FAILED = "fetch_failed"
 CURRENT = "current"
@@ -89,55 +91,28 @@ def network_git(
 ) -> subprocess.CompletedProcess:
     """Run a git command that reaches the remote, with the stored credential.
 
-    Publication fetches and pushes, so it goes through the one place an
-    engine contacts a remote rather than inheriting whatever credentials the
-    surrounding shell happens to carry. A missing credential comes back as a
-    failed result naming what restores it, never as a prompt no install has a
-    terminal to answer, and the timeout bounds an unreachable host.
+    One place an engine contacts a remote, shared with the upstream freshness
+    reads: the stored credential reaches the fetch and the push alike, a
+    missing one comes back as a failed result naming what restores it rather
+    than a prompt no install has a terminal to answer, and the bound is the
+    registered machine setting rather than a copy of it here.
     """
-    return credentialed_git.run(
-        ["-C", str(repo_root), *args], timeout=_git_timeout_seconds(),
+    return upstream_git.git(
+        str(repo_root), *args, timeout=upstream_git.network_timeout_seconds(),
     )
-
-
-def _git_timeout_seconds() -> int:
-    """Seconds one publication git command may run.
-
-    Reads the same registered machine setting the merge engine's git commands
-    use, through the contracts reader rather than the engine wrapper over it:
-    the installed product CLI ships without the engine, so an engine import
-    here would fail in exactly the installs publication exists to serve.
-    """
-    from yoke_contracts.machine_config.runtime import read_settings
-    from yoke_contracts.machine_config.settings_keys import (
-        machine_setting_default,
-    )
-
-    default = int(machine_setting_default(GIT_TIMEOUT_SETTING_KEY))
-    try:
-        configured = int(read_settings().get(GIT_TIMEOUT_SETTING_KEY, ""))
-    except (TypeError, ValueError):
-        return default
-    return configured if configured > 0 else default
 
 
 def publish_remote(repo_root: Path, branch: str) -> str | None:
-    """Return the remote this branch publishes to, or None when local-only."""
-    configured = checkout_gate.run_git(
-        repo_root, "config", "--get", f"branch.{branch}.remote",
-    ).stdout.strip()
-    listed = [
-        name
-        for name in checkout_gate.run_git(
-            repo_root, "remote",
-        ).stdout.splitlines()
-        if name.strip()
-    ]
-    if configured and configured in listed:
-        return configured
-    if FALLBACK_REMOTE in listed:
-        return FALLBACK_REMOTE
-    return listed[0] if listed else None
+    """Return the remote this branch publishes to, or None when local-only.
+
+    The shared resolver reads git's own records — the branch's tracking
+    remote, the push default, then a sole configured remote — and returns
+    empty rather than guessing among several. Publication keeps that
+    strictness: pushing the layer to a remote nobody nominated is worse than
+    saying which record is missing.
+    """
+    name, _configured = upstream_git.resolve_remote(str(repo_root), branch)
+    return name or None
 
 
 def read_remote_state(
@@ -146,13 +121,29 @@ def read_remote_state(
     """Fetch the branch's remote ref and classify local against it."""
     if not checkout_gate.is_git_checkout(repo_root):
         return RemoteState(NOT_A_GIT_CHECKOUT)
-    resolved = remote or publish_remote(repo_root, branch)
+    resolved = remote
+    configured = 0
     if not resolved:
-        return RemoteState(NO_REMOTE, branch=branch)
-    fetched = network_git(repo_root, "fetch", "--quiet", resolved, branch)
+        resolved, configured = upstream_git.resolve_remote(str(repo_root), branch)
+    if not resolved:
+        return RemoteState(
+            NO_REMOTE if configured == 0 else REMOTE_UNRESOLVED,
+            branch=branch,
+            detail=(
+                ""
+                if configured == 0
+                else (
+                    f"none of the {configured} configured remotes is recorded "
+                    f"as tracking {branch}, so there is no remote to publish "
+                    f"to. recipe: `git branch --set-upstream-to=<remote>/"
+                    f"{branch} {branch}`"
+                )
+            ),
+        )
+    fetched = upstream_git.fetch_branch(str(repo_root), resolved, branch)
     local_sha = _rev_parse(repo_root, branch)
     if fetched.returncode != 0:
-        detail = fetched.stderr.strip() or fetched.stdout.strip()
+        detail = upstream_git.reason(fetched)
         lowered = detail.lower()
         missing = any(
             signature in lowered for signature in _MISSING_REF_SIGNATURES
@@ -164,24 +155,31 @@ def read_remote_state(
             local_sha=local_sha,
             detail=detail,
         )
-    remote_sha = _rev_parse(repo_root, "FETCH_HEAD")
-    if not remote_sha or not local_sha:
+    tracking = upstream_git.tracking_ref(resolved, branch)
+    remote_sha = _rev_parse(repo_root, tracking)
+    read, ahead, behind, compare_detail = upstream_git.count_ahead_behind(
+        str(repo_root), local_sha, tracking,
+    )
+    if not remote_sha or not local_sha or not read:
         return RemoteState(
             FETCH_FAILED,
             remote=resolved,
             branch=branch,
             local_sha=local_sha,
             remote_sha=remote_sha,
-            detail="the fetched remote tip or the local branch tip is unreadable",
+            detail=(
+                compare_detail
+                or "the fetched remote tip or the local branch tip is unreadable"
+            ),
         )
-    if remote_sha == local_sha:
-        status = CURRENT
-    elif _is_ancestor(repo_root, local_sha, remote_sha):
-        status = BEHIND
-    elif _is_ancestor(repo_root, remote_sha, local_sha):
-        status = AHEAD
-    else:
+    if ahead and behind:
         status = DIVERGED
+    elif ahead:
+        status = AHEAD
+    elif behind:
+        status = BEHIND
+    else:
+        status = CURRENT
     return RemoteState(
         status,
         remote=resolved,
@@ -221,32 +219,6 @@ def move_branch_onto(repo_root: Path, *, branch: str, sha: str) -> None:
                 f"recipe: `git switch {branch}` in that checkout, resolve the "
                 "reported state, then re-run the install"
             )
-
-
-def bring_branch_current(
-    repo_root: Path, *, branch: str, remote: str | None = None,
-) -> dict[str, Any]:
-    """Fast-forward the publish branch onto its remote when it owns no commits.
-
-    The installer's own consumption of the shared project freshness contract:
-    generate against the revision the remote actually holds, so the commit
-    this run makes is a child of current upstream rather than of a stale base.
-    A branch carrying commits the remote lacks is reported, never rewritten.
-    """
-    on_branch = checkout_gate.current_branch(repo_root)
-    if on_branch != branch:
-        return {
-            "status": "skipped",
-            "reason": (
-                f"checkout is on {on_branch or 'detached HEAD'}, not the "
-                f"publish branch {branch}"
-            ),
-        }
-    state = read_remote_state(repo_root, branch=branch, remote=remote)
-    if state.status != BEHIND:
-        return state.payload()
-    move_branch_onto(repo_root, branch=branch, sha=state.remote_sha)
-    return {**state.payload(), "status": "fast_forwarded"}
 
 
 def reconcile_by_regeneration(
@@ -306,12 +278,6 @@ def _rev_parse(repo_root: Path, revision: str) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
-def _is_ancestor(repo_root: Path, ancestor: str, descendant: str) -> bool:
-    return checkout_gate.run_git(
-        repo_root, "merge-base", "--is-ancestor", ancestor, descendant,
-    ).returncode == 0
-
-
 def _local_only_commits(
     repo_root: Path, remote_sha: str, local_sha: str,
 ) -> tuple[tuple[str, str], ...]:
@@ -334,12 +300,11 @@ __all__ = [
     "CURRENT",
     "DIVERGED",
     "FETCH_FAILED",
-    "GIT_TIMEOUT_SETTING_KEY",
     "NO_REMOTE",
+    "REMOTE_UNRESOLVED",
     "NOT_A_GIT_CHECKOUT",
     "REMOTE_BRANCH_MISSING",
     "RemoteState",
-    "bring_branch_current",
     "move_branch_onto",
     "network_git",
     "publish_remote",

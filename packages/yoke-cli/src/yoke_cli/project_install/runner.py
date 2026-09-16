@@ -41,7 +41,6 @@ from yoke_cli.project_install import repository_layer
 from yoke_cli.project_install.bundle_apply import apply_bundle
 from yoke_cli.project_install import publication
 from yoke_cli.project_install import publication_outcome
-from yoke_cli.project_install import publication_reconcile
 from yoke_cli.project_install.preflight import preflight_apply
 from yoke_cli.project_install import source_dev
 from yoke_cli.project_install.files import (
@@ -112,12 +111,8 @@ def install(
         force=force,
         require_default_branch=require_branch,
     )
-    # Generate against the revision the remote actually holds: a layer built
-    # on a stale base is committed as current and then has to be reconciled
-    # by hand in every other clone.
-    checkout["upstream"] = publication_reconcile.bring_branch_current(
-        root, branch=checkout.get("branch") or default_branch,
-    )
+    upstream = _bring_branch_current(root, checkout.get("branch") or default_branch)
+    checkout["upstream"] = upstream
     preflight_apply(root, bundle, files_layer.load_manifest(root) or {}, {})
     # Register between bundle resolution and apply: the fetch has already
     # validated the project id against the env (a 404 aborts before any
@@ -135,6 +130,8 @@ def install(
         )
 
     report = regenerate()
+    if upstream.get("warning"):
+        report.setdefault("warnings", []).append(upstream["warning"])
     report["snapshot_sync"] = sync_local_snapshot_for_write(
         project=str(resolved_id),
         repo_root=str(root),
@@ -208,6 +205,45 @@ def refresh(
         require_default_branch=require_default_branch,
         publish=publish,
     )
+
+
+def _bring_branch_current(repo_root: Path, branch: str) -> Dict[str, Any]:
+    """Generate against verified-current upstream, or record why it could not.
+
+    The shared project freshness contract owns the fetch and the safe
+    fast-forward. This call site owns one decision it deliberately does not
+    delegate: preparation REFUSES when the remote cannot be read, because a
+    lane then has no legitimate revision to start from, while install
+    materializes a LOCAL layer and refusing would deny an offline machine the
+    very thing it asked for. So the run degrades, records the reason as a
+    warning, and lets publication carry the refusal — an unreachable remote
+    ends as a pending publication naming the fetch failure, never as a claim
+    that the remote holds the layer.
+
+    ``local_branch_current`` is the signal kept here rather than
+    ``lane_base_is_current``: this run commits onto the checked-out branch in
+    place instead of cutting a lane, so what matters is whether THAT branch
+    holds everything the remote does. A branch that is behind reports false
+    here even though a lane cut from the fetched upstream would be current.
+    """
+    from yoke_cli.config import repo_upstream_freshness
+
+    freshness = repo_upstream_freshness.refresh_base_branch(str(repo_root), branch)
+    payload: Dict[str, Any] = {
+        "state": freshness.state,
+        "remote": freshness.remote,
+        "branch": freshness.base_branch,
+        "verified": freshness.verified,
+        "local_branch_current": freshness.local_branch_current,
+        "upstream_sha": freshness.upstream_sha,
+        "ahead": freshness.ahead,
+        "behind": freshness.behind,
+    }
+    if freshness.note:
+        payload["note"] = freshness.note
+        if freshness.needs_attention:
+            payload["warning"] = freshness.note
+    return payload
 
 
 def _resolve_project_id(
