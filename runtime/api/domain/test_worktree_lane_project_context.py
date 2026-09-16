@@ -236,9 +236,12 @@ def test_creation_refuses_when_no_project_resolves(tmp_path, monkeypatch):
 
     assert result.created is False
     # No identity row backs 9103 here, so the refusal says the reference
-    # is unresolved rather than printing the storage key as one.
+    # is unresolved rather than printing the storage key as one — the
+    # operator reads a number as a reference whatever labels it.
     assert "has no project for" in (result.error or "")
-    assert "items.id 9103" in (result.error or "")
+    assert "unresolved item ref" in (result.error or "")
+    assert "items.id" not in (result.error or "")
+    assert "9103" not in (result.error or "")
     assert "--project <slug>" in (result.error or "")
 
 

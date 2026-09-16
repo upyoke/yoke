@@ -9,7 +9,6 @@ from yoke_core.domain.drift_review import (
     DriftReviewResult,
     _get_checkpoint_start,
     _get_delivered_items,
-    should_trigger_review,
 )
 from yoke_core.domain.drift_review_assess import (
     _classify_drift,
@@ -82,11 +81,16 @@ def _insert_drift_item(
     priority: str,
     project: str = "yoke",
     merged_at: Optional[str] = None,
+    project_sequence: Optional[int] = None,
 ) -> None:
+    """Insert one delivered item, identity included. A case asserting a
+    rendered reference passes its own ``project_sequence`` so the
+    assertion cannot pass by the two counters coinciding."""
     p = _placeholder(conn)
     columns = "id, title, priority, project_id, project_sequence"
     values = f"{p}, {p}, {p}, {p}, {p}"
-    params = [item_id, title, priority, _project_id(project), item_id]
+    sequence = item_id if project_sequence is None else project_sequence
+    params = [item_id, title, priority, _project_id(project), sequence]
     if merged_at is not None:
         columns += ", merged_at"
         values += f", {p}"
@@ -114,36 +118,6 @@ class _DriftDbCase(unittest.TestCase):
     def _make_db(self):
         """Backend-aware connection to this test's drift-review DB."""
         return connect_test_db(self._db_path)
-
-
-class TestShouldTriggerReview(_DriftDbCase):
-    """Trigger heuristic tests."""
-
-    def test_empty_delta_no_trigger(self):
-        assert should_trigger_review([]) is False
-
-    def test_single_low_no_trigger(self):
-        items = [{"id": 1, "priority": "low"}]
-        assert should_trigger_review(items, threshold=5) is False
-
-    def test_single_high_immediate_trigger(self):
-        items = [{"id": 1, "priority": "high"}]
-        assert should_trigger_review(items) is True
-
-    def test_weight_threshold(self):
-        items = [
-            {"id": 1, "priority": "medium"},  # 2
-            {"id": 2, "priority": "medium"},  # 2
-            {"id": 3, "priority": "low"},     # 1
-        ]
-        assert should_trigger_review(items, threshold=5) is True
-
-    def test_below_threshold(self):
-        items = [
-            {"id": 1, "priority": "low"},   # 1
-            {"id": 2, "priority": "low"},   # 1
-        ]
-        assert should_trigger_review(items, threshold=5) is False
 
 
 class TestGetCheckpointStart(_DriftDbCase):
@@ -279,12 +253,24 @@ class TestClassifyDrift(_DriftDbCase):
 
     def test_result_shape(self):
         conn = self._make_db()
-        items = [{"id": 1, "title": "Fix stuff", "priority": "low", "delivered_at": "2026-04-02T12:00:00Z"}]
+        # The delivered item is named by its own sequence, which here is
+        # deliberately not its internal id: a result built from the id would
+        # list whichever other item owns that number.
+        internal_id, sequence = 1, 604
+        _insert_drift_item(
+            conn,
+            internal_id,
+            "Fix stuff",
+            "low",
+            merged_at="2026-04-02T12:00:00Z",
+            project_sequence=sequence,
+        )
+        items = [{"id": internal_id, "title": "Fix stuff", "priority": "low", "delivered_at": "2026-04-02T12:00:00Z"}]
         result = _classify_drift(conn, "yoke", items, "2026-04-01T00:00:00Z")
         assert isinstance(result, DriftReviewResult)
         assert result.checkpoint_start == "2026-04-01T00:00:00Z"
         assert result.reviewed_through == "2026-04-02T12:00:00Z"
-        assert result.delivered_items == ["YOK-1"]
+        assert result.delivered_items == [f"YOK-{sequence}"]
 
     def test_to_dict(self):
         result = DriftReviewResult(
