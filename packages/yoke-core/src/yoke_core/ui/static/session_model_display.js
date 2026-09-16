@@ -9,20 +9,9 @@
  * tags: served wins, else the labelled ask, else nothing.
  */
 
-export const REQUESTED_LABEL = " (requested)";
+import { compactTokens } from "./session_usage_display.js";
 
-function compactTokenCount(value) {
-  if (value === null || value === undefined) return "";
-  const count = Number(value);
-  if (!Number.isFinite(count) || count <= 0) return "";
-  const scale = count >= 1_000_000
-    ? [1_000_000, "m"]
-    : count >= 1_000 ? [1_000, "k"] : null;
-  if (!scale) return String(Math.round(count));
-  const scaled = count / scale[0];
-  const precision = scaled < 10 && !Number.isInteger(scaled) ? 1 : 0;
-  return `${scaled.toFixed(precision).replace(/\.0$/, "")}${scale[1]}`;
-}
+export const REQUESTED_LABEL = " (requested)";
 
 function compactEffort(value) {
   const effort = String(value ?? "").trim();
@@ -61,7 +50,7 @@ export function sessionModelFactTags(row) {
       "context-window",
       row?.context_window_tokens,
       row?.requested_context_window_tokens,
-      compactTokenCount,
+      compactTokens,
     ),
   ].filter(Boolean);
 }

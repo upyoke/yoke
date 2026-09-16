@@ -33,8 +33,10 @@ function finiteCount(value) {
 export function compactTokens(value) {
   const count = finiteCount(value);
   if (count === null) return "";
-  const scale = count >= 1_000_000
-    ? [1_000_000, "m"]
+  const scale = count >= 1_000_000_000
+    ? [1_000_000_000, "b"]
+    : count >= 1_000_000
+      ? [1_000_000, "m"]
     : count >= 1_000 ? [1_000, "k"] : null;
   if (!scale) return String(Math.round(count));
   const scaled = count / scale[0];
