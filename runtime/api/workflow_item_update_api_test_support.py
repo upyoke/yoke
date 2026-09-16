@@ -40,7 +40,7 @@ CREATE TABLE project_capabilities (
 );
 CREATE TABLE items (
     id INTEGER PRIMARY KEY, workflow_id TEXT, workflow_version_id INTEGER,
-    project_id INTEGER DEFAULT 1
+    project_id INTEGER DEFAULT 1, project_sequence INTEGER
 );
 CREATE TABLE item_worktrees (
     id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL, branch TEXT NOT NULL,
@@ -93,11 +93,16 @@ def add_task(conn, epic_id, task_num, title, **kwargs):
         is None
     ):
         workflow_id, version_id = resolve_current_workflow_pin(conn, "epic")
+        # The epic needs its own sequence: recording a worker lane may
+        # mint the integration lane branch, which is named from the
+        # item's public reference and refuses without one. It is
+        # deliberately not the internal id.
         conn.execute(
             "INSERT INTO items "
-            "(id, workflow_id, workflow_version_id, project_id) "
-            f"VALUES ({p}, {p}, {p}, 1)",
-            (int(epic_id), workflow_id, version_id),
+            "(id, workflow_id, workflow_version_id, project_id, "
+            "project_sequence) "
+            f"VALUES ({p}, {p}, {p}, 1, {p})",
+            (int(epic_id), workflow_id, version_id, int(epic_id) % 1000 + 7),
         )
     worktree = kwargs.get("worktree", "")
     lane_id = None
