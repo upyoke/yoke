@@ -262,6 +262,10 @@
 }
 
 .universe-app-root .content {
+  /* Views inside size themselves against the pane they are in, not the
+     window: the sidebar and the hosted frame both change how much room a
+     page has without changing the viewport at all. */
+  container: dashboard-content / inline-size;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;

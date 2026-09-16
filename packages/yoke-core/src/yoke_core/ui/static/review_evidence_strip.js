@@ -8,6 +8,9 @@
 // inline. Nothing is drawn from a count alone.
 
 import {
+  appendMoreDisclosure,
+} from "./universe_sessions_holdings_disclosure.js";
+import {
   artifactCaption,
   artifactHandle,
   artifactLabel,
@@ -267,14 +270,19 @@ export function evidenceStrip(context, artifacts, options = {}) {
   for (const artifact of rows.slice(0, limit)) strip.appendChild(draw(artifact));
   const rest = rows.slice(limit);
   if (rest.length) {
-    const more = el(documentNode, "button", "review-more", `+${rest.length} more`);
-    more.type = "button";
-    more.addEventListener("click", (event) => {
-      if (typeof event.stopPropagation === "function") event.stopPropagation();
-      strip.removeChild(more);
-      for (const artifact of rest) strip.appendChild(draw(artifact));
+    // Opened AND closable: expanding used to consume the control, so a strip
+    // of twenty screenshots could be widened but never narrowed again.
+    const region = el(documentNode, "div", "review-evidence-rest");
+    region.setAttribute("role", "region");
+    region.setAttribute("aria-label", "More evidence");
+    for (const artifact of rest) region.appendChild(draw(artifact));
+    strip.appendChild(region);
+    appendMoreDisclosure(documentNode, strip, {
+      key: `evidence:${rows.map((artifact) => artifact.id).join(",")}`,
+      hiddenCount: rest.length,
+      region,
+      className: "review-more",
     });
-    strip.appendChild(more);
   }
   return strip;
 }

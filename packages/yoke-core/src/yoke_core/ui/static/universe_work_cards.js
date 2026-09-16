@@ -13,6 +13,9 @@ import { evidenceStrip } from "./review_evidence_strip.js";
 import { appendCarriedItemEvidence } from "./universe_carried_item_evidence.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
 import { itemClaimantControl } from "./universe_item_claimant.js";
+import {
+  appendMoreDisclosure,
+} from "./universe_sessions_holdings_disclosure.js";
 import { itemStatusDisclosure } from "./universe_item_status_pill.js";
 import { renderStageStrip } from "./universe_stage_strip.js";
 import { el, statePill } from "./universe_view_support.js";
@@ -138,7 +141,7 @@ export function appendCarried(context, host, row, options = {}) {
     "release-batch-title",
     `Carries · ${items.length} item${items.length === 1 ? "" : "s"}`,
   ));
-  for (const item of items.slice(0, CARRIED_ITEMS_SHOWN)) {
+  const memberFor = (item) => {
     const member = el(documentNode, "div", "release-member");
     member.appendChild(el(documentNode, "code", null, carriedReference(item)));
     member.appendChild(el(documentNode, "span", null, item.title || ""));
@@ -149,15 +152,28 @@ export function appendCarried(context, host, row, options = {}) {
       onDecide: options.onDecide,
     });
     for (const id of drawn?.requestIds || []) drawnRequests.add(id);
-    batch.appendChild(member);
+    return member;
+  };
+  for (const item of items.slice(0, CARRIED_ITEMS_SHOWN)) {
+    batch.appendChild(memberFor(item));
   }
+  // The rest are here rather than counted: "+6 more" named a number and
+  // left the six unreachable from the card that named them.
   if (items.length > CARRIED_ITEMS_SHOWN) {
-    batch.appendChild(el(
-      documentNode,
-      "span",
-      "release-member-more",
-      `+${items.length - CARRIED_ITEMS_SHOWN} more carried by this release`,
-    ));
+    const region = el(documentNode, "div", "release-member-rest");
+    region.setAttribute("role", "region");
+    region.setAttribute("aria-label", "More carried items");
+    for (const item of items.slice(CARRIED_ITEMS_SHOWN)) {
+      region.appendChild(memberFor(item));
+    }
+    batch.appendChild(region);
+    appendMoreDisclosure(documentNode, batch, {
+      key: `release-carried:${row.id || row.run_id}`,
+      hiddenCount: items.length - CARRIED_ITEMS_SHOWN,
+      region,
+      label: "carried by this release",
+      className: "release-member-more",
+    });
   }
   host.appendChild(batch);
   return { node: batch, requestIds: drawnRequests };

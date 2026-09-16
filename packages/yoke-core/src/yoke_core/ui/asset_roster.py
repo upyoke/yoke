@@ -241,6 +241,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "review_request.css": "text/css; charset=utf-8",
     "review_lightbox.css": "text/css; charset=utf-8",
     "universe_run_page.css": "text/css; charset=utf-8",
+    "universe_run_rosters.css": "text/css; charset=utf-8",
     "items.css": "text/css; charset=utf-8",
     "item_foundations.css": "text/css; charset=utf-8",
     "item_roster.css": "text/css; charset=utf-8",

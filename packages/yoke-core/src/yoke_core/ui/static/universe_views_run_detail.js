@@ -51,11 +51,20 @@ function projectFor(context, row, scope) {
 function appendSteps(documentNode, host, stages) {
   const steps = el(documentNode, "div", "run-steps");
   (stages || []).forEach((stage, index) => {
-    if (index) steps.appendChild(el(documentNode, "span", "run-arrow", "→"));
     const state = String(stage.state || "pending");
-    const step = el(documentNode, "span", `run-step is-${state}`);
+    const step = el(documentNode, "div", `run-step is-${state}`);
     step.appendChild(el(documentNode, "i", null, STEP_MARKS[state] || String(index + 1)));
     step.appendChild(el(documentNode, "span", null, String(stage.name)));
+    // A stage that failed says so on its own row; the mark alone left a
+    // reader to tell four states apart by glyph.
+    if (state !== "pending" && state !== "complete") {
+      step.appendChild(el(documentNode, "span", "run-step-state", state));
+    }
+    if (stage.failure) {
+      step.appendChild(el(
+        documentNode, "span", "run-step-failure", String(stage.failure),
+      ));
+    }
     steps.appendChild(step);
   });
   host.appendChild(steps);
@@ -170,6 +179,7 @@ function decisionCard(context, row, project, onAct, evidenceShown, itemFacts, on
     (candidate) => !drawnRequests.has(String(candidate.request_id)),
   ) || null;
   const { title, copy } = statusCopy(row, gate || gates[0] || null);
+  card.classList.add("run-work");
   card.appendChild(el(documentNode, "h2", null, title));
   if (copy) card.appendChild(el(documentNode, "p", "run-copy", copy));
   if (items.length) {
@@ -290,35 +300,49 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   const status = runGateStatus(row) || String(row.status || "unknown");
   const items = carriedItems(row);
   const page = el(documentNode, "div", "run-page");
-  page.appendChild(el(
-    documentNode, "div", "run-eyebrow",
-    [project?.slug || row.project, row.target_environment || row.target_tier].filter(Boolean).join(" · "),
-  ));
+  // Where you came from, what this is, and the facts that place it — one row
+  // at a width that holds them. The run's own id is not repeated here: the
+  // breadcrumb already ends on it.
   const head = el(documentNode, "div", "run-head");
-  const copy = el(documentNode, "div");
+  if (navigation.breadcrumb) head.appendChild(navigation.breadcrumb);
+  const copy = el(documentNode, "div", "run-head-copy");
   copy.appendChild(el(
     documentNode, "h1", "run-title", read.flows.get(String(row.flow)) || row.flow || "Deployment run",
   ));
   // The candidate commit lives on the Identity card whole; a truncated copy
   // here read like a second, shorter identity.
   copy.appendChild(el(documentNode, "div", "run-sub", [
+    project?.slug || row.project,
+    row.target_environment || row.target_tier,
     items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : "no attached items",
-    String(row.id),
+    row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
   ].filter(Boolean).join(" · ")));
   head.appendChild(copy);
   head.appendChild(el(
     documentNode, "span", `run-badge is-${status.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`, status,
   ));
   page.appendChild(head);
-  appendSteps(documentNode, page, row.stages);
-  const grid = el(documentNode, "div", "run-grid");
-  grid.appendChild(runIdentityCard(context, row, environment));
-  grid.appendChild(verificationCard(context, checks, artifacts));
+
+  // Stages beside the work they are moving: an open vertical rail, so which
+  // stage the run is in is read down one column rather than along a row of
+  // arrows that wrapped once a flow had six of them.
+  const top = el(documentNode, "div", "run-top");
+  const stages = el(documentNode, "section", "run-card run-stages");
+  stages.appendChild(el(documentNode, "h2", null, "Stages"));
+  appendSteps(documentNode, stages, row.stages);
+  top.appendChild(stages);
   const decision = decisionCard(
     context, row, project, onAct, artifacts.length > 0, itemFacts, onItemDecision,
   );
   appendRunAftermath(context, decision, row, project, siblings);
-  grid.appendChild(decision);
+  top.appendChild(decision);
+  page.appendChild(top);
+
+  // Verification is full width below them: a check's reason and the pictures
+  // it took are the widest thing on the page.
+  const grid = el(documentNode, "div", "run-grid");
+  grid.appendChild(verificationCard(context, checks, artifacts));
+  grid.appendChild(runIdentityCard(context, row, environment));
   page.appendChild(grid);
   main.replaceChildren(page);
 }
