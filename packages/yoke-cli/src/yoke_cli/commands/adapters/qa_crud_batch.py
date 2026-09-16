@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import Any, Dict, List
+from typing import List
 
 from yoke_cli.commands._helpers import (
     add_json_arg,
@@ -119,8 +119,6 @@ def qa_requirement_add_batch(args: List[str]) -> int:
 
 
 __all__ = [
-    "QA_REQUIREMENT_ADD_USAGE",
     "QA_REQUIREMENT_ADD_BATCH_USAGE",
-    "qa_requirement_add",
     "qa_requirement_add_batch",
 ]

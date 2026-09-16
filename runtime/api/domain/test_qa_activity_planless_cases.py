@@ -99,9 +99,7 @@ def test_run_attached_case_without_a_plan_is_read_back() -> None:
             verdict="pass",
         )
 
-        rows = list_activity(
-            conn, project="yoke", deployment_run_id="run-20260916-901"
-        )
+        rows = list_activity(conn, project="yoke", deployment_run_id="run-20260916-901")
 
         assert _requirement_ids(rows) == {int(requirement["id"])}
         # The run carries the project scope its plan used to supply.
@@ -155,3 +153,35 @@ def test_day_summary_counts_the_same_cases_the_rows_show() -> None:
 
         assert result["summary"]["total"] == 1
         assert result["summary"]["counts"] == {"passed": 1}
+
+
+def test_a_planless_case_reports_its_current_attempt_not_an_older_one() -> None:
+    """A re-run supersedes; the row a surface shows is the latest attempt."""
+    with test_database() as conn:
+        insert_item(conn, id=5250, title="Re-run item")
+        requirement = insert_qa_requirement(
+            conn,
+            item_id=5250,
+            qa_kind="method_case",
+            method_id="browser-inspection",
+        )
+        insert_qa_run(
+            conn,
+            qa_requirement_id=int(requirement["id"]),
+            performed_by="host_control",
+            verdict="fail",
+            created_at="2026-09-16T09:00:00Z",
+        )
+        current = insert_qa_run(
+            conn,
+            qa_requirement_id=int(requirement["id"]),
+            performed_by="host_control",
+            verdict="pass",
+            created_at="2026-09-16T11:00:00Z",
+        )
+
+        rows = list_activity(conn, project="yoke", item_ids=[5250])
+        row = next(r for r in rows if r["requirement_id"] == int(requirement["id"]))
+
+        assert row["run_id"] == int(current["id"])
+        assert row["outcome"] == "passed"

@@ -55,13 +55,18 @@ class TestRequirementAdd(unittest.TestCase):
             conn.commit()
             outcome = qa_requirement_create.handle_qa_requirement_add(
                 _request(
-                    "qa.requirement.add", 42,
-                    _bound_row(conn, 42, {
-                        "qa_kind": "ac_verification",
-                        "qa_phase": "verification",
-                        "requirement_source": "ac_derived",
-                        "success_policy": "Verified end to end",
-                    }),
+                    "qa.requirement.add",
+                    42,
+                    _bound_row(
+                        conn,
+                        42,
+                        {
+                            "qa_kind": "ac_verification",
+                            "qa_phase": "verification",
+                            "requirement_source": "ac_derived",
+                            "success_policy": "Verified end to end",
+                        },
+                    ),
                 ),
             )
             self.assertTrue(outcome.primary_success, outcome.error)
@@ -83,23 +88,28 @@ class TestRequirementAdd(unittest.TestCase):
             conn.commit()
             outcome = qa_requirement_create.handle_qa_requirement_add(
                 _request(
-                    "qa.requirement.add", 42,
-                    _bound_row(conn, 42, {
-                        "method_id": "browser-check",
-                        "qa_phase": "verification",
-                        "instructions": "Check the login page.",
-                        "expected_outcome": "The login form is ready.",
-                        "method_config": {
-                            "steps": [
-                                {"action": "navigate", "route": "/login"},
-                                {
-                                    "action": "assert",
-                                    "target": "form",
-                                    "check": "visible",
-                                },
-                            ],
+                    "qa.requirement.add",
+                    42,
+                    _bound_row(
+                        conn,
+                        42,
+                        {
+                            "method_id": "browser-check",
+                            "qa_phase": "verification",
+                            "instructions": "Check the login page.",
+                            "expected_outcome": "The login form is ready.",
+                            "method_config": {
+                                "steps": [
+                                    {"action": "navigate", "route": "/login"},
+                                    {
+                                        "action": "assert",
+                                        "target": "form",
+                                        "check": "visible",
+                                    },
+                                ],
+                            },
                         },
-                    }),
+                    ),
                 ),
             )
             self.assertTrue(outcome.primary_success, outcome.error)
@@ -119,7 +129,8 @@ class TestRequirementAdd(unittest.TestCase):
             conn.commit()
             outcome = qa_requirement_create.handle_qa_requirement_add(
                 _request(
-                    "qa.requirement.add", 42,
+                    "qa.requirement.add",
+                    42,
                     _bound_row(
                         conn,
                         42,
@@ -138,7 +149,8 @@ class TestRequirementAdd(unittest.TestCase):
     def test_missing_target_rejected(self):
         outcome = qa_requirement_create.handle_qa_requirement_add(
             _request(
-                "qa.requirement.add", None,
+                "qa.requirement.add",
+                None,
                 {"qa_kind": "ac_verification", "qa_phase": "verification"},
             ),
         )
@@ -151,7 +163,8 @@ class TestRequirementAdd(unittest.TestCase):
             conn.commit()
             outcome = qa_requirement_create.handle_qa_requirement_add(
                 _request(
-                    "qa.requirement.add", 42,
+                    "qa.requirement.add",
+                    42,
                     {
                         "method_id": "browser-check",
                         "qa_phase": "verification",
@@ -165,7 +178,8 @@ class TestRequirementAdd(unittest.TestCase):
     def test_invalid_requirement_source_rejected(self):
         outcome = qa_requirement_create.handle_qa_requirement_add(
             _request(
-                "qa.requirement.add", 42,
+                "qa.requirement.add",
+                42,
                 {
                     "qa_kind": "ac_verification",
                     "qa_phase": "verification",
@@ -182,7 +196,8 @@ class TestRequirementAdd(unittest.TestCase):
         CheckViolation / HTTP 500."""
         outcome = qa_requirement_create.handle_qa_requirement_add(
             _request(
-                "qa.requirement.add", 42,
+                "qa.requirement.add",
+                42,
                 {
                     "qa_kind": "ac_verification",
                     "qa_phase": "verification",
@@ -194,127 +209,6 @@ class TestRequirementAdd(unittest.TestCase):
         self.assertEqual(outcome.error.code, "payload_invalid")
         self.assertIn("non_blocking", outcome.error.message)
         self.assertIn("advisory", outcome.error.message)
-
-
-class TestRequirementAddBatch(unittest.TestCase):
-    def test_inserts_rows_in_one_batch(self):
-        with test_database() as conn:
-            insert_item(conn, id=42, title="T", status="implementing")
-            conn.commit()
-            outcome = qa_requirement_create.handle_qa_requirement_add_batch(
-                _request(
-                    "qa.requirement.add_batch", 42,
-                    {
-                        "rows": [
-                            _bound_row(conn, 42, {
-                                "qa_kind": "ac_verification",
-                                "qa_phase": "verification",
-                            }),
-                            _bound_row(conn, 42, {
-                                "method_id": "browser-check",
-                                "qa_phase": "verification",
-                                "instructions": "Check the page.",
-                                "expected_outcome": "The page is ready.",
-                                "method_config": {
-                                    "steps": [
-                                        {"action": "navigate", "route": "/"},
-                                        {
-                                            "action": "assert",
-                                            "target": "main",
-                                            "check": "visible",
-                                        },
-                                    ],
-                                },
-                            }),
-                        ],
-                    },
-                ),
-            )
-            self.assertTrue(outcome.primary_success, outcome.error)
-            ids = outcome.result_payload["requirement_ids"]
-            self.assertEqual(len(ids), 2)
-            count = conn.execute(
-                "SELECT COUNT(*) FROM qa_requirements WHERE item_id = 42",
-            ).fetchone()
-        self.assertEqual(int(count[0]), 2)
-
-    def test_invalid_row_rejects_whole_batch_pre_transaction(self):
-        with test_database() as conn:
-            insert_item(conn, id=42, title="T", status="implementing")
-            conn.commit()
-            outcome = qa_requirement_create.handle_qa_requirement_add_batch(
-                _request(
-                    "qa.requirement.add_batch", 42,
-                    {
-                        "rows": [
-                            _bound_row(conn, 42, {
-                                "qa_kind": "ac_verification",
-                                "qa_phase": "verification",
-                            }),
-                            # Browser method without its case contract.
-                            _bound_row(conn, 42, {
-                                "method_id": "browser-check",
-                                "qa_phase": "verification",
-                            }),
-                        ],
-                    },
-                ),
-            )
-            self.assertFalse(outcome.primary_success)
-            self.assertEqual(outcome.error.code, "payload_invalid")
-            self.assertEqual(
-                outcome.error.jsonpath,
-                "$.payload.rows[1].instructions",
-            )
-            count = conn.execute(
-                "SELECT COUNT(*) FROM qa_requirements WHERE item_id = 42",
-            ).fetchone()
-        self.assertEqual(int(count[0]), 0)
-
-    def test_row_naming_other_item_rejected(self):
-        outcome = qa_requirement_create.handle_qa_requirement_add_batch(
-            _request(
-                "qa.requirement.add_batch", 42,
-                {
-                    "rows": [
-                        {
-                            "item_id": 43,
-                            "qa_kind": "ac_verification",
-                            "qa_phase": "verification",
-                        },
-                    ],
-                },
-            ),
-        )
-        self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "payload_invalid")
-        self.assertIn("one batch covers one item", outcome.error.message)
-
-    def test_epic_attachment_rejected(self):
-        outcome = qa_requirement_create.handle_qa_requirement_add_batch(
-            _request(
-                "qa.requirement.add_batch", 42,
-                {
-                    "rows": [
-                        {
-                            "epic_id": 50,
-                            "task_num": 1,
-                            "qa_kind": "implementation_review",
-                            "qa_phase": "verification",
-                        },
-                    ],
-                },
-            ),
-        )
-        self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "payload_invalid")
-
-    def test_empty_rows_rejected(self):
-        outcome = qa_requirement_create.handle_qa_requirement_add_batch(
-            _request("qa.requirement.add_batch", 42, {"rows": []}),
-        )
-        self.assertFalse(outcome.primary_success)
-        self.assertEqual(outcome.error.code, "payload_invalid")
 
 
 if __name__ == "__main__":

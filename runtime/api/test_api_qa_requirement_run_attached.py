@@ -10,6 +10,7 @@ about the run it names.
 
 from __future__ import annotations
 
+import json
 import unittest
 
 from yoke_core.domain.handlers import qa_requirement_create
@@ -97,15 +98,19 @@ class TestRunAttachedRequirementAdd(unittest.TestCase):
         with test_database() as conn:
             run_id = _run_with_member(conn)
             outcome = qa_requirement_create.handle_qa_requirement_add(
-                _request(run_id, {
-                    **BROWSER_CASE,
-                    "deployment_stage": "stage-smoke",
-                    "deployment_member_item": "YOK-6110",
-                }),
+                _request(
+                    run_id,
+                    {
+                        **BROWSER_CASE,
+                        "deployment_stage": "stage-smoke",
+                        "deployment_member_item": "YOK-6110",
+                    },
+                ),
             )
             self.assertTrue(outcome.primary_success, outcome.error)
             self.assertEqual(
-                outcome.result_payload["deployment_member_item_id"], 6110,
+                outcome.result_payload["deployment_member_item_id"],
+                6110,
             )
             row = conn.execute(
                 "SELECT deployment_stage, deployment_member_item_id "
@@ -131,9 +136,13 @@ class TestRunAttachedRequirementAdd(unittest.TestCase):
         with test_database() as conn:
             run_id = _run_with_member(conn, run_id="run-20260916-952")
             outcome = qa_requirement_create.handle_qa_requirement_add(
-                _request(run_id, {
-                    **BROWSER_CASE, "deployment_stage": "not-a-stage",
-                }),
+                _request(
+                    run_id,
+                    {
+                        **BROWSER_CASE,
+                        "deployment_stage": "not-a-stage",
+                    },
+                ),
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
@@ -143,11 +152,14 @@ class TestRunAttachedRequirementAdd(unittest.TestCase):
         with test_database() as conn:
             run_id = _run_with_member(conn, run_id="run-20260916-953")
             outcome = qa_requirement_create.handle_qa_requirement_add(
-                _request(run_id, {
-                    **BROWSER_CASE,
-                    "deployment_stage": "stage-smoke",
-                    "deployment_member_item": "YOK-9999",
-                }),
+                _request(
+                    run_id,
+                    {
+                        **BROWSER_CASE,
+                        "deployment_stage": "stage-smoke",
+                        "deployment_member_item": "YOK-9999",
+                    },
+                ),
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
@@ -157,9 +169,13 @@ class TestRunAttachedRequirementAdd(unittest.TestCase):
         with test_database() as conn:
             run_id = _run_with_member(conn, run_id="run-20260916-954")
             outcome = qa_requirement_create.handle_qa_requirement_add(
-                _request(run_id, {
-                    **BROWSER_CASE, "deployment_member_item": "YOK-6110",
-                }),
+                _request(
+                    run_id,
+                    {
+                        **BROWSER_CASE,
+                        "deployment_member_item": "YOK-6110",
+                    },
+                ),
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.jsonpath, "$.payload.deployment_stage")
@@ -168,9 +184,13 @@ class TestRunAttachedRequirementAdd(unittest.TestCase):
         with test_database() as conn:
             run_id = _run_with_member(conn, run_id="run-20260916-955")
             outcome = qa_requirement_create.handle_qa_requirement_add(
-                _request(run_id, {
-                    "qa_kind": "smoke", "qa_phase": "post_deploy",
-                }),
+                _request(
+                    run_id,
+                    {
+                        "qa_kind": "smoke",
+                        "qa_phase": "post_deploy",
+                    },
+                ),
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.jsonpath, "$.payload.method_id")
@@ -179,18 +199,22 @@ class TestRunAttachedRequirementAdd(unittest.TestCase):
         with test_database() as conn:
             run_id = _run_with_member(conn, run_id="run-20260916-956")
             outcome = qa_requirement_create.handle_qa_requirement_add(
-                _request(run_id, {
-                    **BROWSER_CASE,
-                    "workflow_transition_id": "reviewed-implementation",
-                }),
+                _request(
+                    run_id,
+                    {
+                        **BROWSER_CASE,
+                        "workflow_transition_id": "reviewed-implementation",
+                    },
+                ),
             )
         self.assertFalse(outcome.primary_success)
         self.assertEqual(
-            outcome.error.jsonpath, "$.payload.workflow_transition_id",
+            outcome.error.jsonpath,
+            "$.payload.workflow_transition_id",
         )
 
     def test_unknown_run_is_not_found(self):
-        with test_database() as conn:
+        with test_database():
             outcome = qa_requirement_create.handle_qa_requirement_add(
                 _request("run-20260916-999", dict(BROWSER_CASE)),
             )
@@ -221,3 +245,70 @@ class TestItemTargetRejectsRunFields(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRunAttachedCaseRoundtrip(unittest.TestCase):
+    """Create, list, record a verdict, and read the case back.
+
+    Each leg is the same registered surface an item case uses, which is the
+    point: a release check authored by hand is not a second QA model with
+    its own reads.
+    """
+
+    def test_authored_case_lists_records_a_verdict_and_reads_back(self):
+        from yoke_core.domain.handlers import qa_reads, qa_run
+        from yoke_core.domain.qa_activity_reads import list_activity
+
+        with test_database() as conn:
+            run_id = _run_with_member(conn, run_id="run-20260916-960")
+            created = qa_requirement_create.handle_qa_requirement_add(
+                _request(run_id, dict(BROWSER_CASE)),
+            )
+            self.assertTrue(created.primary_success, created.error)
+            requirement_id = created.result_payload["requirement_id"]
+
+            listed = qa_reads.handle_qa_requirement_list(
+                FunctionCallRequest(
+                    function="qa.requirement.list",
+                    actor=ActorContext(actor_id="op", session_id="s-1"),
+                    target=TargetRef(kind="deployment_run", deployment_run_id=run_id),
+                    payload={},
+                ),
+            )
+            self.assertTrue(listed.primary_success, listed.error)
+            self.assertEqual(
+                [row["id"] for row in listed.result_payload["rows"]],
+                [requirement_id],
+            )
+
+            recorded = qa_run.handle_qa_run_record_verdict(
+                FunctionCallRequest(
+                    function="qa.run.record_verdict",
+                    actor=ActorContext(actor_id="op", session_id="s-1"),
+                    target=TargetRef(
+                        kind="qa_requirement", qa_requirement_id=requirement_id
+                    ),
+                    payload={
+                        "performed_by": "host_control",
+                        "verdict": "pass",
+                        # A blocking pass names the tree it verified; the
+                        # run-attached case is held to the same rule.
+                        "raw_result": json.dumps(
+                            {"verification_tree": {"head_sha": "a" * 40}}
+                        ),
+                    },
+                ),
+            )
+            self.assertTrue(recorded.primary_success, recorded.error)
+
+            rows = list_activity(conn, project="yoke", deployment_run_id=run_id)
+
+        self.assertEqual(
+            [row["requirement_id"] for row in rows],
+            [requirement_id],
+        )
+        self.assertEqual(rows[0]["outcome"], "passed")
+        self.assertEqual(rows[0]["method_id"], "browser-check")
+        # The case never had a plan, and the read says so rather than
+        # inventing one.
+        self.assertIsNone(rows[0]["plan_id"])

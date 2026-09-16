@@ -147,9 +147,7 @@ def _list_activity(
                 "plan_id": (
                     int(row["plan_id"]) if row["plan_id"] is not None else None
                 ),
-                "plan": (
-                    str(row["plan"]) if row["plan"] is not None else None
-                ),
+                "plan": (str(row["plan"]) if row["plan"] is not None else None),
                 "project": str(row["project"]),
                 "case_key": (
                     str(row["plan_case_key"])

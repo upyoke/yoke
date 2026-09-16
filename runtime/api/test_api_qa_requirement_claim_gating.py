@@ -28,26 +28,30 @@ class TestRegistryClaimGating(unittest.TestCase):
         )
 
         register_all_handlers()
-        entries = {
-            e.function_id: e for e in yoke_function_registry.list_entries()
-        }
+        entries = {e.function_id: e for e in yoke_function_registry.list_entries()}
         self.assertEqual(
-            entries["qa.requirement.add"].claim_required_kind, "qa_subject",
+            entries["qa.requirement.add"].claim_required_kind,
+            "qa_subject",
         )
         self.assertEqual(
             tuple(entries["qa.requirement.add"].target_kinds),
             ("item", "deployment_run"),
         )
         self.assertEqual(
-            entries["qa.requirement.add_batch"].claim_required_kind, "item",
+            entries["qa.requirement.add_batch"].claim_required_kind,
+            "item",
         )
         for fid in ("qa.requirement.add", "qa.requirement.add_batch"):
             self.assertIn("claim_required", entries[fid].guardrails, fid)
             self.assertEqual(
-                entries[fid].side_effects, ("qa_requirements_insert",), fid,
+                entries[fid].side_effects,
+                ("qa_requirements_insert",),
+                fid,
             )
         for fid in (
-            "qa.requirement.list", "qa.requirement.get", "qa.run.list",
+            "qa.requirement.list",
+            "qa.requirement.get",
+            "qa.run.list",
             "qa.gate_summary.run",
         ):
             self.assertIsNone(entries[fid].claim_required_kind, fid)

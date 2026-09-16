@@ -120,9 +120,7 @@ def qa_requirement_add(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
-    subject.add_argument(
-        "--item", help="Target item (PREFIX-N or number)."
-    )
+    subject.add_argument("--item", help="Target item (PREFIX-N or number).")
     subject.add_argument(
         "--deployment-run",
         dest="deployment_run",
@@ -289,3 +287,9 @@ def qa_requirement_add(args: List[str]) -> int:
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )
+
+
+__all__ = [
+    "QA_REQUIREMENT_ADD_USAGE",
+    "qa_requirement_add",
+]
