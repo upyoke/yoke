@@ -84,9 +84,21 @@ export const DETAIL_RENDERERS = {
   // one project's row rather than a scope, so it takes the drill-in project
   // as given.
   "qa-activity": renderQaCaseDetail,
-  // Opening a run row IS opening the run: the page it lands on reads the
-  // same run row the table did, plus the QA activity recorded against it.
-  deployments: fromDrillInProject(renderRunDetailView),
+  // What a Deployments drill-in means depends on the tab it hangs off.
+  // Opening a run row IS opening the run: the page it lands on reads the same
+  // run row the table did, plus the QA activity recorded against it. A flow
+  // link instead opens the Flows tab on that definition, keeping the tab
+  // strip and the catalog beside it rather than replacing the page.
+  deployments: (context, main, project, detail, navigation) => (
+    navigation?.tab === "flows"
+      ? renderDeploymentsView(
+        context, main, project === null ? null : [String(project)],
+        { tab: "flows", detail },
+      )
+      : fromDrillInProject(renderRunDetailView)(
+        context, main, project, detail, navigation,
+      )
+  ),
 };
 
 // A destination is live exactly when it has a renderer here.

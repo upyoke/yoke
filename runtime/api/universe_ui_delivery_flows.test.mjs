@@ -252,6 +252,25 @@ test("empty and history-only scopes explain what can happen next", async (t) => 
   historyOnly.mounted.unmount();
 });
 
+test("a flow deep link opens the Flows tab on that definition", async (t) => {
+  // The drill-in under the Flows tab is a definition, not a run: routing it
+  // to the run page reported "there is no run called <flow id>" while the
+  // breadcrumb still said Flows.
+  const { root, mounted } = await mountFlows(
+    t, flowClient(), "#/deployments/flows/alpha-legacy?project=1",
+  );
+
+  assert.equal(byClass(root, "delivery-flow-detail-title").length, 1);
+  assert.equal(
+    byClass(root, "delivery-flow-detail-title")[0].children[0].textContent,
+    "Alpha Legacy",
+  );
+  // A retired definition is still what the link named, so the catalog opens
+  // showing history rather than falling back to the first active flow.
+  assert.match(byClass(root, "delivery-flow-id")[0].textContent, /alpha-legacy/);
+  mounted.unmount();
+});
+
 test("a tabbed destination keeps its tab when the route is rebuilt", () => {
   // A scope change on a run page rebuilds the hash. The drill-in has to stay
   // in the second segment: putting it in the tab slot rewrote
