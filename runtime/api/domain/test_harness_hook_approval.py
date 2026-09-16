@@ -96,6 +96,16 @@ def test_cursor_absence_cites_official_hooks_docs():
     assert CURSOR_HOOKS_DOC_RETRIEVED in text
     assert "trusted workspace" in text
     assert "reapproval" in text or "re-approval" in text
+    assert "declared hook-specific approval" in text
+    assert "absent for the same reason Claude is" not in text
+    assert "there is no machine-readable" not in text
+
+
+def test_mapping_absence_is_not_proof_of_no_trust_gate():
+    bootstrap = (_REPO / "docs" / "harness-bootstrap.md").read_text(encoding="utf-8")
+    assert "A harness absent from that mapping has no gate." not in bootstrap
+    assert "no declared hook-specific approval requirement" in bootstrap
+    assert "not proof there is no trust gate" in bootstrap
 
 
 def test_stale_cursor_hook_approval_teaching_is_absent():

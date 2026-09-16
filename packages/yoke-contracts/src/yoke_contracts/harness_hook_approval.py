@@ -4,9 +4,12 @@ A harness runs Yoke's hook chain only after the operator approves it when
 that harness has a readable approval gate. Codex records a per-hook
 ``trusted_hash`` keyed by the hook file's path and content. Claude Code
 does not gate hooks on folder-trust on the probed builds. Cursor is
-absent for the same reason Claude is: there is no machine-readable
-hook-approval receipt, and teaching a prompt the vendor does not
-document would invent a gate.
+absent because vendor docs do not declare a hook-specific approval
+requirement — not because an unreadable receipt proves there is no
+trust gate. That unreadability is why an invented Cursor prompt used
+to be declared here. Teaching a prompt the vendor does not document
+would invent a hook-approval gate. Workspace trust remains a separate
+gate.
 
 Cited 2026-09-16 from https://cursor.com/docs/hooks: project
 ``.cursor/hooks.json`` automatically loads in a trusted workspace;
@@ -35,8 +38,9 @@ Two surfaces in different packages have to agree about that gate:
   needs the remediation to name the harness's own approval surface.
 
 Both read the declarations below instead of branching on a harness id, so
-a harness with no entry has no gate and neither surface invents a step for
-it. Lives in ``yoke-contracts`` because the installer package and the
+a harness with no entry has no declared hook-specific approval
+requirement, and neither surface invents a hook-approval step for it.
+Lives in ``yoke-contracts`` because the installer package and the
 engine never import each other, and both render the same wording.
 """
 
@@ -60,20 +64,21 @@ HARNESS_HOOK_APPROVAL: Dict[str, Mapping[str, str]] = {
 
 ``trust_surface`` names where the operator grants approval; ``grant_scope``
 says what the grant is keyed to, which is what makes an update re-require
-it. A harness absent from this mapping has no approval gate.
+it. A harness absent from this mapping has no declared hook-specific
+approval requirement.
 """
 
 
 def hook_approval(harness_id: str) -> Optional[Mapping[str, str]]:
-    """Return the harness's approval gate, or ``None`` when it has none."""
+    """Return the declared hook-specific approval gate, or ``None``."""
     return HARNESS_HOOK_APPROVAL.get(str(harness_id or "").strip().lower())
 
 
 def trust_teaching(harness_id: str) -> Optional[str]:
     """The operator-owned approval sentence for this harness's glue.
 
-    ``None`` for a harness with no approval gate, so callers stay free of
-    harness-id branching.
+    ``None`` when no hook-specific approval requirement is declared, so
+    callers stay free of harness-id branching.
     """
     gate = hook_approval(harness_id)
     if gate is None:
