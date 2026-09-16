@@ -74,7 +74,7 @@ def _public_item_ref(item_id: int, db_path: Optional[str]) -> str:
     except Exception:
         from yoke_contracts.public_ref import unresolved_item_ref
 
-        return unresolved_item_ref(item_id)
+        return unresolved_item_ref()
 
 
 def cmd_upsert(

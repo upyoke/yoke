@@ -55,9 +55,9 @@ def item_ref_for_id(item_id: int) -> str:
             return render_item_ref(conn, int(item_id))
     except RemoteControlPlaneConnectionError:
         # Outside Exception on purpose — https authority has no local DB.
-        return unresolved_item_ref(int(item_id), consulted=False)
+        return unresolved_item_ref(consulted=False)
     except Exception:
-        return unresolved_item_ref(int(item_id), consulted=False)
+        return unresolved_item_ref(consulted=False)
 
 
 def item_subject_ref(token: int | str) -> str:

@@ -224,7 +224,7 @@ def finish_done_transition(
     closeout still has to import or read has to happen while the tree is
     still on disk.
     """
-    ref = public_ref or unresolved_item_ref(item_id)
+    ref = public_ref or unresolved_item_ref()
     try:
         _run_closeout(
             done_transition,

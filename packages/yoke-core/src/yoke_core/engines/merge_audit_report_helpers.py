@@ -59,4 +59,4 @@ def _display_item_ref(conn: Optional[Any], item_id: int) -> str:
                 conn.rollback()
             except Exception:  # noqa: BLE001 - best-effort transaction reset.
                 pass
-    return unresolved_item_ref(int(item_id), consulted=conn is not None)
+    return unresolved_item_ref(consulted=conn is not None)

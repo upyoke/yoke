@@ -149,7 +149,7 @@ class ItemRefLookup:
         rendered = self._refs.get(value)
         if rendered:
             return rendered
-        return unresolved_item_ref(value, consulted=self._consulted)
+        return unresolved_item_ref(consulted=self._consulted)
 
 
 __all__ = [

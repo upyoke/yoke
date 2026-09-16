@@ -276,7 +276,7 @@ def render_item_ref(
     if rendered is None:
         if required:
             raise LookupError(f"item identity not found: {item_id}")
-        return unresolved_item_ref(int(item_id), consulted=conn is not None)
+        return unresolved_item_ref(consulted=conn is not None)
     return rendered
 
 

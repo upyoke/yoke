@@ -42,7 +42,7 @@ def worktree_preflight_template(
     item_id: int, public_ref: Optional[str] = None
 ) -> str:
     """Return the canonical worktree_preflight CLI line for an item."""
-    ref = public_ref or unresolved_item_ref(item_id)
+    ref = public_ref or unresolved_item_ref()
     return (
         "  yoke dev run -- python3 -m yoke_core.domain.worktree_preflight "
         f"--item {ref}"

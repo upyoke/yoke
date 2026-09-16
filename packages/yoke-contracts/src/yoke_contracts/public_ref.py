@@ -40,21 +40,32 @@ def format_item_ref(
     return f"{prefix}-{sequence}"
 
 
-def unresolved_item_ref(item_id: Any = None, *, consulted: bool = True) -> str:
+def unresolved_item_ref(requested: Any = None, *, consulted: bool = True) -> str:
     """Return the phrase that stands in for an unresolvable reference.
 
     Human-visible text names an item by its public reference or says plainly
-    that it could not resolve one — it never falls back to a bare
-    ``items.id``, which reads as a reference to whoever sees it.
+    that it could not resolve one. It never carries ``items.id``: the storage
+    key reads as a reference to whoever sees it, and the two counters are
+    independent, so the number shown would name a different item. The
+    internal key belongs to structured diagnostics — event and telemetry
+    payloads carry it as their own bare integer field — and stays out of
+    every rendered phrase.
+
+    ``requested`` is the token the caller was already handed, echoed only
+    when it is a full ``PREFIX-N`` reference that simply did not resolve:
+    that much is useful to the reader and cannot be an internal key. A bare
+    number is not a reference — it names a sequence with no project, which is
+    exactly the shape ``items.id`` has — so it renders the plain label.
+
     ``consulted`` separates the two empty outcomes: a read that found no
     identity row, and a caller that had no connection to read with. The
-    bracketed shape keeps the phrase from being pasted back as a reference,
-    and ``items.id`` rides along, when known, as the diagnostic handle.
+    bracketed shape keeps the phrase from being pasted back as a reference.
     """
     reason = "no project identity row" if consulted else "no control-plane read"
-    if item_id is None:
+    prefix, sequence = parse_public_item_ref(requested)
+    if prefix is None or sequence is None:
         return f"<unresolved item ref: {reason}>"
-    return f"<unresolved item ref: {reason}, items.id {item_id}>"
+    return f"<unresolved item ref: {reason}, requested {prefix}-{sequence}>"
 
 
 def parse_public_item_ref(text: Any) -> Tuple[Optional[str], Optional[int]]:

@@ -108,7 +108,7 @@ def _verify_recovery_evidence(
     )
     if origin_check.returncode != 0:
         target_ref = base_branch
-    legacy_ref = unresolved_item_ref(item_id)
+    legacy_ref = unresolved_item_ref()
     search_refs = [public_ref or legacy_ref]
     if public_ref and public_ref != legacy_ref:
         search_refs.append(legacy_ref)
@@ -143,7 +143,7 @@ def _handle_resume_from_step6(
     if not _verify_recovery_evidence(
         item_id, project_repo, base_branch, public_ref=public_ref
     ):
-        ref = public_ref or unresolved_item_ref(item_id)
+        ref = public_ref or unresolved_item_ref()
         print(
             f"\nError: {ref} has no active worktree lane and no merge "
             f"evidence found on origin/{base_branch}.\n"

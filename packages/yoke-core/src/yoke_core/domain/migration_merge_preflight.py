@@ -163,7 +163,7 @@ def _row_public_ref(row: Mapping[str, Any]) -> str:
     to show, and says so rather than printing ``internal_id``.
     """
     ref = str(row.get("id") or "").strip()
-    return ref or unresolved_item_ref(_row_item_id(row))
+    return ref or unresolved_item_ref()
 
 
 def _row_for_item(

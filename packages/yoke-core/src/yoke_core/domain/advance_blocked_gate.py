@@ -49,7 +49,7 @@ def render_blocked_narrative(
     already hold the blocked flag + reason from a relayed read, so both
     paths surface identical text.
     """
-    ref = public_ref or unresolved_item_ref(item_id)
+    ref = public_ref or unresolved_item_ref()
     rendered = (
         f"**Blocked:** {ref} has items.blocked=1 — "
         f"the operator-set blocked flag refuses forward progression. "

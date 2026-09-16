@@ -69,18 +69,37 @@ def test_unresolvable_id_renders_a_phrase_rather_than_a_ref():
 
     rendered = render_item_ref(conn, missing)
 
-    assert rendered == unresolved_item_ref(missing)
+    assert rendered == unresolved_item_ref()
     assert "unresolved item ref" in rendered
     assert "no project identity row" in rendered
     assert not rendered.startswith("YOK-")
+    assert str(missing) not in rendered
 
 
 def test_unresolved_phrase_cannot_be_mistaken_for_a_ref():
     """The phrase is bracketed so nothing round-trips it as a token."""
-    phrase = unresolved_item_ref(7)
+    phrase = unresolved_item_ref()
 
     assert phrase.startswith("<") and phrase.endswith(">")
     assert "-7" not in phrase
+
+
+def test_unresolved_phrase_never_carries_the_storage_key():
+    """Visible text is 100% free of ``items.id`` — the reader sees a name."""
+    for consulted in (True, False):
+        for requested in (None, COLLIDING_INTERNAL_ID, str(EXTERNAL_INTERNAL_ID)):
+            phrase = unresolved_item_ref(requested, consulted=consulted)
+
+            assert "items.id" not in phrase
+            assert not any(ch.isdigit() for ch in phrase)
+
+
+def test_unresolved_phrase_keeps_a_public_token_it_could_not_resolve():
+    """A ref the caller was handed is the one number worth echoing back."""
+    phrase = unresolved_item_ref(f"EXT-{EXTERNAL_SEQUENCE}")
+
+    assert f"EXT-{EXTERNAL_SEQUENCE}" in phrase
+    assert "items.id" not in phrase
 
 
 def test_an_unread_lookup_says_so_instead_of_naming_a_row():
@@ -89,9 +108,7 @@ def test_an_unread_lookup_says_so_instead_of_naming_a_row():
 
     assert "no project identity row" in consulted(EXTERNAL_INTERNAL_ID)
     assert "no control-plane read" in unread(EXTERNAL_INTERNAL_ID)
-    assert str(EXTERNAL_INTERNAL_ID) not in unread(EXTERNAL_INTERNAL_ID).split(
-        "items.id "
-    )[0]
+    assert str(EXTERNAL_INTERNAL_ID) not in unread(EXTERNAL_INTERNAL_ID)
 
 
 def test_batch_render_omits_rows_without_their_own_sequence():

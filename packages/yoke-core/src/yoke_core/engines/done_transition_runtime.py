@@ -165,7 +165,7 @@ def _update_item_direct(
         message = resp.error.message if resp.error else "unknown error"
     from yoke_contracts.public_ref import unresolved_item_ref
 
-    ref = public_ref or unresolved_item_ref(item_id)
+    ref = public_ref or unresolved_item_ref()
     print(
         f"Warning: backlog update {field}={value} for {ref} "
         f"failed: {message}",

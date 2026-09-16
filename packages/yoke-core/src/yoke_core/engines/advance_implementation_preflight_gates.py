@@ -109,7 +109,7 @@ def _run_preflight_gates(item_id: int, *, force: bool) -> Tuple[bool, str]:
     # public_ref the relay already returned; otherwise format from the id.
     public_ref = (
         ac.get("public_ref")
-        or unresolved_item_ref(int(item_id))
+        or unresolved_item_ref()
     )
     if title is None:
         return False, f"{public_ref} not found in DB."

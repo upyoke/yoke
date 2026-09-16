@@ -36,6 +36,9 @@ def test_render_claim_target_without_a_db_declines_to_invent_a_ref() -> None:
     assert rendered.startswith("<unresolved item ref:")
     assert "no control-plane read" in rendered
     assert not rendered.startswith("YOK-1577")
+    # The storage key stays out of the phrase entirely: a reader who sees
+    # a number reads it as a reference whatever label sits beside it.
+    assert "1577" not in rendered
 
 
 def test_render_claim_target_epic_task_without_a_db_keeps_the_task_number() -> None:

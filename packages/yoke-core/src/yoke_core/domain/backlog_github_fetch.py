@@ -82,7 +82,7 @@ def _item_ref(item_id: str | int, *, conn: Any) -> str:
     try:
         return render_item_ref(conn, int(item_id))
     except Exception:
-        return unresolved_item_ref(item_id)
+        return unresolved_item_ref()
 
 
 def _item_context(

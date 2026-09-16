@@ -42,7 +42,7 @@ def _ref(item_id: int, public_ref: Optional[str] = None) -> str:
         with connect() as conn:
             return render_item_ref(conn, item_id)
     except Exception:
-        return unresolved_item_ref(item_id)
+        return unresolved_item_ref()
 
 
 def _resolve_repo_root() -> Path:

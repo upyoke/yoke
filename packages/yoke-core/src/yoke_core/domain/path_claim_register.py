@@ -56,7 +56,7 @@ def _display_item_ref(conn: Optional[Any], item_id: int) -> str:
             return render_item_ref(conn, int(item_id))
         except Exception:  # noqa: BLE001 - denial composition must not raise.
             pass
-    return unresolved_item_ref(int(item_id), consulted=conn is not None)
+    return unresolved_item_ref(consulted=conn is not None)
 
 
 def compose_overlap_denial(

@@ -41,7 +41,7 @@ def _item_target(db: BoardDBLike, item_id: int) -> str:
     try:
         return public_ref(db, item_id)
     except Exception:
-        return unresolved_item_ref(item_id)
+        return unresolved_item_ref()
 
 
 def _work_key(claim: Tuple, target: str) -> str:

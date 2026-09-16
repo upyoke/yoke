@@ -26,7 +26,7 @@ def _subject(item_id: Optional[int]) -> str:
     except Exception:  # noqa: BLE001 - display fallback only
         from yoke_contracts.public_ref import unresolved_item_ref
 
-        return unresolved_item_ref(item_id, consulted=False)
+        return unresolved_item_ref(consulted=False)
 
 
 def format_rehearse(

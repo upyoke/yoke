@@ -33,7 +33,7 @@ def _context_item_ref(ctx) -> str:
     reads the ref the context already carries; with none, it says the
     reference is unresolved rather than printing the internal id as one.
     """
-    return ctx.public_ref or unresolved_item_ref(ctx.item_id)
+    return ctx.public_ref or unresolved_item_ref()
 
 
 def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:

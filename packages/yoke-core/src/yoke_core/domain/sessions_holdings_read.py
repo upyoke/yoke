@@ -53,13 +53,13 @@ def render_claim_target(
         found = item_facts.get(item_num)
         if found is not None:
             return str(found["public_ref"]), dict(found)
-        return unresolved_item_ref(item_num), {}
+        return unresolved_item_ref(), {}
     if kind == "epic_task":
         epic_id = claim.get("epic_id")
         facts = item_facts.get(int(epic_id)) if epic_id is not None else None
         epic_ref = (
             str(facts["public_ref"]) if facts
-            else unresolved_item_ref(epic_id)
+            else unresolved_item_ref()
         )
         return f"{epic_ref} task {claim.get('task_num')}", {}
     if kind == "steering":

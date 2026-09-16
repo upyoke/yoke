@@ -174,7 +174,7 @@ def verify(item_id: int) -> tuple[int, dict]:
     Returns ``(exit_code, result_dict)`` where the dict is the JSON
     payload written to stdout by ``main``.
     """
-    public_ref = canonical_item_ref(item_id) or unresolved_item_ref(item_id)
+    public_ref = canonical_item_ref(item_id) or unresolved_item_ref()
     session_id = _resolve_session_id()
     bypass_source = _resolve_bypass()
 

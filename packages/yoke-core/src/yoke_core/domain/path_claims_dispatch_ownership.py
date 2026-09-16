@@ -50,9 +50,7 @@ class OwnershipDenial(Exception):
         # Live callers pass the canonical public ref rendered from a conn;
         # a conn-less construction has no identity read to render from, so
         # the denial says so rather than naming a ref it did not resolve.
-        self.public_ref = public_ref or unresolved_item_ref(
-            self.item_id, consulted=False
-        )
+        self.public_ref = public_ref or unresolved_item_ref(consulted=False)
         self.claim_id = int(claim_id) if claim_id is not None else None
         self.caller_session_id = caller_session_id or ""
         self.holder_session_id = holder_session_id or None

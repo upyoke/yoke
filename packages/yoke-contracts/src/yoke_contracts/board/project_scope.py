@@ -133,7 +133,7 @@ def public_ref(db: Any, item_id: int) -> str:
         (int(item_id),),
     )
     if not rows:
-        return unresolved_item_ref(int(item_id))
+        return unresolved_item_ref()
     slug, prefix, sequence = rows[0]
     return format_item_ref(slug, prefix, sequence)
 

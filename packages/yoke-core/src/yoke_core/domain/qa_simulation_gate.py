@@ -56,7 +56,7 @@ def check_epic_simulation_gate(epic_id: int, db_path: str) -> GateResult:
         try:
             epic_ref = render_item_ref(conn, epic_id)
         except Exception:
-            epic_ref = unresolved_item_ref(epic_id)
+            epic_ref = unresolved_item_ref()
         # Simulation data lives in qa_runs joined to qa_requirements
         # (qa_kind='simulation', phase in success_policy JSON).
         # Result is derived: verdict 'pass' -> CLEAN, 'fail' -> GAPS FOUND.

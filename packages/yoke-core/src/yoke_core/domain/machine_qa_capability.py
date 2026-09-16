@@ -129,7 +129,7 @@ def _holder_item(
     if row is None:
         return None
     item_id = int(row[0])
-    ref = unresolved_item_ref(item_id)
+    ref = unresolved_item_ref()
     if (
         _table_exists(conn, "projects")
         and all(

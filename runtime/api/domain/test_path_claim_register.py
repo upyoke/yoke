@@ -8,29 +8,37 @@ next move is one paste.
 
 from __future__ import annotations
 
+from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain.path_claim_register import compose_overlap_denial
+
+# The denial composes with no connection under these tests, so there is no
+# identity to read and nothing to name the item by.
+UNREADABLE_INTERNAL_ID = 123
 
 
 class TestComposeOverlapDenialNoConflicts:
     """When the conflict scan finds no rows (e.g. conn=None under unit
-    tests), the body still names the item + integration target and emits
-    the resolution-command template with placeholders so the contract
-    shape is visible."""
+    tests), the body names the integration target and emits the
+    resolution-command template with placeholders so the contract shape
+    is visible. With no connection there is no identity read, so the item
+    position says it could not resolve one rather than minting a ref out
+    of the storage key the caller passed."""
 
     def test_includes_header_and_resolution_command(self) -> None:
         body = compose_overlap_denial(
-            item_id=123,
+            item_id=UNREADABLE_INTERNAL_ID,
             integration_target="main",
             candidate_target_ids=[],
             base_message="overlap reason text",
             conn=None,
         )
         assert "BLOCKED: path-claim register overlap" in body
-        assert "YOK-123" in body
+        assert unresolved_item_ref(consulted=False) in body
+        assert str(UNREADABLE_INTERNAL_ID) not in body
         assert "integration_target='main'" in body
         assert "overlap reason text" in body
         assert "yoke claims path coordination-decision-build" in body
-        assert "--item YOK-123" in body
+        assert f"--item {unresolved_item_ref(consulted=False)}" in body
 
     def test_no_conflicts_uses_placeholder_claim_id(self) -> None:
         body = compose_overlap_denial(
@@ -44,6 +52,14 @@ class TestComposeOverlapDenialNoConflicts:
         # what to substitute.
         assert "<claim-id>" in body
         assert "<paths>" in body
+
+
+# The overlapping item's public sequence is its own counter, so a denial
+# that printed the internal id would name a different item to the reader.
+PROJECT_ID = 1
+ITEM_PREFIX = "YOK"
+OVERLAP_INTERNAL_ID = 42
+OVERLAP_SEQUENCE = 17
 
 
 class TestComposeOverlapDenialWithConflicts:
@@ -92,7 +108,30 @@ class TestComposeOverlapDenialWithConflicts:
                 gate_point TEXT,
                 source TEXT
             );
+            CREATE TABLE projects (
+                id INTEGER PRIMARY KEY,
+                slug TEXT NOT NULL,
+                public_item_prefix TEXT NOT NULL
+            );
+            CREATE TABLE items (
+                id INTEGER PRIMARY KEY,
+                project_id INTEGER NOT NULL,
+                project_sequence INTEGER
+            );
         """)
+        # The denial names the item by its public ref, so the identity the
+        # renderer reads has to exist here; its sequence is deliberately its
+        # own, not the internal id repeated back.
+        conn.execute(
+            "INSERT INTO projects (id, slug, public_item_prefix) "
+            "VALUES (%s, %s, %s)",
+            (PROJECT_ID, "yoke", ITEM_PREFIX),
+        )
+        conn.execute(
+            "INSERT" + " INTO items (id, project_id, project_sequence) "
+            "VALUES (%s, %s, %s)",
+            (OVERLAP_INTERNAL_ID, PROJECT_ID, OVERLAP_SEQUENCE),
+        )
         conn.execute("INSERT INTO path_targets VALUES (10, 'a.py', 'file', NULL, 'observed')")
         conn.execute("INSERT INTO path_targets VALUES (11, 'b.py', 'file', NULL, 'observed')")
         # Conflicting active claim covering both targets.
@@ -124,7 +163,7 @@ class TestComposeOverlapDenialWithConflicts:
         read_mod.classify_overlap = _stub
         try:
             body = compose_overlap_denial(
-                item_id=42,
+                item_id=OVERLAP_INTERNAL_ID,
                 integration_target="main",
                 candidate_target_ids=[10, 11],
                 base_message="overlap on main",
@@ -134,7 +173,8 @@ class TestComposeOverlapDenialWithConflicts:
             read_mod.classify_overlap = original
             conn.close()
 
-        assert "YOK-42" in body
+        assert f"{ITEM_PREFIX}-{OVERLAP_SEQUENCE}" in body
+        assert str(OVERLAP_INTERNAL_ID) not in body
         assert "claim 200" in body
         assert "a.py" in body and "b.py" in body
         # Resolution command points at the first conflicting claim.

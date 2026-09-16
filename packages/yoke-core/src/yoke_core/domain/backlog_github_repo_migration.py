@@ -38,7 +38,7 @@ def _display_item_ref(conn: Optional[Any], item_id: str) -> str:
             return render_item_ref(conn, int(item_id))
         except Exception:  # noqa: BLE001 - log rendering must not raise.
             pass
-    return unresolved_item_ref(item_id, consulted=conn is not None)
+    return unresolved_item_ref(consulted=conn is not None)
 
 
 def _list_issue_comments(*, project: str, number: int) -> list[dict]:

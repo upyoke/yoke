@@ -213,7 +213,7 @@ def _blocker_lines(
             output.append(
                 "BLOCKED|%s|missing|<unknown>|%s|%s"
                 % (
-                    unresolved_item_ref(dep_num if dep_num is not None else blocking_item),
+                    unresolved_item_ref(),
                     gate_point,
                     satisfaction,
                 )

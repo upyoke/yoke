@@ -99,7 +99,7 @@ def _fallback_public_ref(public_ref: int | str, *, consulted: bool = True) -> st
     text = str(public_ref).strip()  # a digit-only token is an internal id
     if text and not text.isdigit():
         return text
-    return unresolved_item_ref(text or None, consulted=consulted)
+    return unresolved_item_ref(consulted=consulted)
 
 
 def _public_ref(conn: Optional[Any], item_id: int) -> str:

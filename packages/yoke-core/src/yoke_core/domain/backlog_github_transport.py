@@ -55,7 +55,7 @@ def _sync_task_children(
     try:
         public_ref = render_item_ref(conn, int(item_id))
     except Exception:
-        public_ref = unresolved_item_ref(item_id)
+        public_ref = unresolved_item_ref()
     return epic_task_sync.sync_epic_tasks(
         public_ref,
         conn=conn,

@@ -133,14 +133,14 @@ def _render_claim_target(
         item_str = str(item_id)
         if _RENDERED_ITEM_REF_RE.match(item_str):
             return item_str
-        return unresolved_item_ref(item_str, consulted=db is not None)
+        return unresolved_item_ref(consulted=db is not None)
     if epic_id is not None and task_num is not None:
         if db is not None:
             try:
                 return f"{public_ref(db, int(epic_id))} T{task_num:03d}"
             except Exception:
                 pass
-        epic_ref = unresolved_item_ref(epic_id, consulted=db is not None)
+        epic_ref = unresolved_item_ref(consulted=db is not None)
         return f"{epic_ref} T{task_num:03d}"
     if kind:
         return f"{kind}:{_compact_scope(payload)}"

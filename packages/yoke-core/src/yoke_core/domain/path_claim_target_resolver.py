@@ -54,7 +54,7 @@ def widen_template(
     """
     cid = claim_id if claim_id is not None else "<claim_id>"
     item = public_ref or (
-        unresolved_item_ref(item_id)
+        unresolved_item_ref()
         if item_id is not None
         else "YOK-N"
     )
