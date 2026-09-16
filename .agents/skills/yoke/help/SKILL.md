@@ -28,7 +28,7 @@ COMMANDS
  /yoke steer [STRATEGY-DOC-SLUG] [--project P ...] Direct-mode: itemless steering loop over a strategy doc, defaulting to CURRENT-PLAN
  /yoke onboard [--project P] [--run-id RUN] Make a wired project execution-ready (strategy, profile, Packs, hosting, envs, gated first deploy, seeded work)
  /yoke idea [--workflow issue|epic|blitz|task] {title} Capture a new backlog item
- /yoke dash "instruction" | PREFIX-N File and execute instruction-sized work, or resume a Dash
+ /yoke dash "instruction" | PREFIX-N File and execute instruction-led work directly, or resume a Dash
  /yoke blitz PREFIX-N Execute a refined Blitz from its single linked strategy document
  /yoke shepherd PREFIX-N Drive an epic through quality-gated planning to planned
  /yoke conduct PREFIX-N Engineer/Tester loop for a single epic

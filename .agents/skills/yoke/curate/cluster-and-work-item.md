@@ -97,12 +97,12 @@ Before presenting the cluster, verify the problem still exists in the current co
  - **Likely resolved**
  - **Inconclusive**
 
-### c. Size the output
+### c. Choose the output shape
 
-Pick the smaller output that still covers the cluster:
+Pick by how the cluster is executed, not by how big it is:
 
 - **Dash** — the cluster names one concrete repair a single session can carry out from a written instruction: a recipe naming the wrong flag, a stale doc reference, an unhelpful denial message, a missing `--help` body. This is the common case for field-note clusters.
-- **Work item** — the cluster names a root cause that needs crafted acceptance criteria, design work, or more than one delivery slice.
+- **Work item** — the cluster names a root cause that needs agreed acceptance criteria to settle, or a generated task graph across parallel lanes. Volume alone does not qualify: a large repair stated as one instruction is still a Dash.
 
 ### d. Resolve the filing contract
 

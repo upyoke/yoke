@@ -18,9 +18,9 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Philosophy
 
-**Two outputs, sized to the cluster.** Most field-note clusters describe one
-concrete, instruction-sized repair. Those go straight to a Dash, whose
-promotion links the note to its output. Resolve the note or cluster's project,
+**Two outputs, by execution shape.** Most field-note clusters describe one
+concrete repair a session can state as an instruction and execute directly.
+Those go straight to a Dash, whose promotion links the note to its output. Resolve the note or cluster's project,
 call registered `workflow.execution_instruction.resolve`, and apply every
 returned instruction before finalizing the promotion title or instruction:
 
@@ -29,7 +29,7 @@ yoke workflow execution-instruction resolve --workflow dash --project {project}
 yoke ouroboros field-note promote {entry-id} --title "{specific title}" [--instruction "{what to do}"]
 ```
 
-Reach for `/yoke idea` only when the cluster names a root cause that needs crafted acceptance criteria, design work, or more than one delivery slice.
+Reach for `/yoke idea` only when the cluster needs a structure a Dash does not give it — crafted acceptance criteria to agree on, or a generated task graph across parallel lanes. Volume alone does not: a large repair stated as one instruction is still a Dash.
 
 **Field-notes are the primary channel.** Agents call `ouroboros.field_note.append` (CLI adapter: `yoke ouroboros field-note append --kind {failed|new|unclear|observation} --evidence TEXT`) when a recipe failed, was missing, or was unclear, and when they notice a minor bug best held as a supporting record. Read them through the dedicated reader — it is indexed on the entry table, needs no time window, and is always bounded (default newest 50). Count first, then page:
 
