@@ -212,18 +212,22 @@ def _seed_resolved_instruction(conn) -> int:
     return instruction_id
 
 
-def test_item_detail_returns_instructions_as_a_separate_field(monkeypatch):
-    conn = _UnclosableConnection(_connection())
-    instruction_id = _seed_resolved_instruction(conn)
+def _detail_outcome(monkeypatch, conn, payload):
     monkeypatch.setattr(db_helpers, "connect", lambda *a, **k: conn)
-
     request = FunctionCallRequest(
         function="items.detail.get",
         actor=ActorContext(actor_id="7", session_id="session-ops"),
         target=TargetRef(kind="item", item_id=51),
-        payload={},
+        payload=payload,
     )
-    outcome = item_page_reads.handle_item_detail_get(request)
+    return item_page_reads.handle_item_detail_get(request)
+
+
+def test_item_detail_returns_instructions_as_a_separate_field(monkeypatch):
+    conn = _UnclosableConnection(_connection())
+    instruction_id = _seed_resolved_instruction(conn)
+
+    outcome = _detail_outcome(monkeypatch, conn, {"include": ["narrative"]})
 
     assert outcome.primary_success
     resolved = outcome.result_payload["execution_instructions"]
@@ -231,6 +235,23 @@ def test_item_detail_returns_instructions_as_a_separate_field(monkeypatch):
     # The item read model itself stays untouched — the block is a sibling
     # field, so structured-field writes can never round-trip it back.
     assert "execution_instructions" not in outcome.result_payload["item"]
+
+
+def test_item_detail_names_the_instructions_a_content_free_read_withholds(
+    monkeypatch,
+):
+    conn = _UnclosableConnection(_connection())
+    _seed_resolved_instruction(conn)
+
+    outcome = _detail_outcome(monkeypatch, conn, {})
+
+    assert outcome.primary_success
+    assert outcome.result_payload["execution_instructions"] == []
+    index = outcome.result_payload["item"]["content_index"]
+    assert index["execution_instructions"]["count"] == 1
+    assert "workflow execution-instruction resolve" in (
+        index["execution_instructions"]["read"]
+    )
 
 
 def test_items_get_attaches_instructions_only_for_body_reads(monkeypatch):

@@ -18,6 +18,10 @@ from yoke_cli.commands._helpers import (
     split_comma,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.item_content_sections import (
+    DEFAULT_DETAIL_SECTIONS,
+    DETAIL_INCLUDE_SECTIONS,
+)
 
 
 ITEMS_OVERVIEW_LIST_USAGE = (
@@ -34,8 +38,17 @@ ITEMS_OVERVIEW_LIST_DESCRIPTION = (
     "cannot be combined with the paged inputs."
 )
 ITEMS_DETAIL_GET_USAGE = (
-    "yoke items detail get ITEM [--project P] [--json]"
+    "yoke items detail get ITEM [--project P] "
+    "[--include narrative,body,progress_log] [--full] [--json]"
 )
+ITEMS_DETAIL_GET_DESCRIPTION = (
+    "Read one item's workflow-aware detail. The spec and the operator "
+    "execution instructions come with the default read; the rendered body "
+    "and the Progress Log do not, because item.content_index already names "
+    "every stored section with its size and the exact command that returns "
+    "it. Name sections with --include, or --full for all of them."
+)
+
 ITEMS_PUBLIC_REF_LOOKUP_USAGE = (
     "yoke items public-ref lookup --id N [--id N ...] [--json]"
 )
@@ -136,30 +149,52 @@ def items_overview_list(args: List[str]) -> int:
 def items_detail_get(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke items detail get",
-        description="Read the workflow-aware detail projection for one item.",
+        description=ITEMS_DETAIL_GET_DESCRIPTION,
     )
     parser.add_argument("item")
     parser.add_argument("--project")
+    parser.add_argument(
+        "--include",
+        help=(
+            "Comma-separated content sections to serve in full: "
+            f"{', '.join(DETAIL_INCLUDE_SECTIONS)}. Replaces the default "
+            f"({', '.join(DEFAULT_DETAIL_SECTIONS)}) rather than adding to "
+            "it; pass an empty value for the index alone."
+        ),
+    )
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Serve every content section, whatever --include names.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_DETAIL_GET_USAGE)
     if parsed is None:
         return 2
+    if parsed.full:
+        include = list(DETAIL_INCLUDE_SECTIONS)
+    elif parsed.include is None:
+        include = list(DEFAULT_DETAIL_SECTIONS)
+    else:
+        include = split_comma(parsed.include)
 
     def _human_writer(response, stdout, stderr) -> None:
         if not response.success:
             return None
-        result = response.result or {}
-        stdout.write(render_execution_instruction_block(
-            result.get("execution_instructions") or []
-        ))
+        result = dict(response.result or {})
+        # The operator block renders the instruction prose above the item, so
+        # carrying the same text inside the printed result would send it
+        # twice. The content index still names the count and the read.
+        instructions = result.pop("execution_instructions", None) or []
+        stdout.write(render_execution_instruction_block(instructions))
         print(json.dumps(result, sort_keys=True), file=stdout)
         return None
 
     return dispatch_and_emit(
         function_id="items.detail.get",
         target=item_target("item", parsed.item, parsed.project),
-        payload={},
+        payload={"include": include},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,

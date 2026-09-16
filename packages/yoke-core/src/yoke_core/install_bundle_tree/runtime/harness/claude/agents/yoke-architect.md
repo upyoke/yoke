@@ -110,6 +110,11 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 
 **Wrapper commands (prefer over raw SQL):**
 
+- _Read one item's posture, then the content you need_
+  - `yoke items detail get PREFIX-N --json
+yoke items detail get PREFIX-N --include body --json
+yoke items detail get PREFIX-N --full --json`
+  - The detail read answers what the item IS — status, workflow, effective policies, claim, lanes, QA, merge queue — and serves its prose only for the sections named. The default serves ``narrative`` (the stored fields) plus the operator execution instructions that travel with item content; ``body`` and ``progress_log`` stay out, because the body re-renders the same fields and the Progress Log has its own read. ``result.item.content_index`` names every section the item actually holds with its line/byte size and the exact command that returns it, including ``content_index.execution_instructions`` (``count`` plus the ``workflow execution-instruction resolve`` command) — so an empty ``execution_instructions`` list means withheld when that count is non-zero, and no instruction at all when it is zero. An unknown ``--include`` name is refused by name. Reach for ``yoke items get PREFIX-N <field>`` when one field is the whole question; the detail read is for posture.
 - _Read structured item field(s) — concrete examples_
   - `yoke items get PREFIX-N status title workflow_id github_issue
 yoke items get PREFIX-N spec`
@@ -136,7 +141,7 @@ yoke items structured-field replace PREFIX-N --field test_results --stdin < PATH
   - `# Other additive transforms:
 yoke items structured-field append-addendum PREFIX-N --field spec --heading "Implementation Notes" --content-file PATH --json
 yoke items structured-field section-upsert PREFIX-N --section "Acceptance Criteria" --content-file PATH --json`
-  - Progress Log append has its own claimed, atomic recipe in this packet. These additive variants route through registered ``yoke items structured-field ...`` adapters. ``section-upsert`` reports ``verification=ok`` only when the named section is reachable from ``items get PREFIX-N body --section`` / ``items.detail.get`` ``narrative.body``. The wrong guess that a section without ``--ordering`` is stored but omitted from the rendered body is stale — NULL ordering still renders.
+  - Progress Log append has its own claimed, atomic recipe in this packet. These additive variants route through registered ``yoke items structured-field ...`` adapters. ``section-upsert`` reports ``verification=ok`` only when the named section is reachable from ``items get PREFIX-N body --section`` / ``items.detail.get`` with ``include`` naming ``body``. The wrong guess that a section without ``--ordering`` is stored but omitted from the rendered body is stale — NULL ordering still renders.
 - _List item dependencies (both directions)_
   - `yoke items dependency list PREFIX-N`
   - Canonical agent shape (function id ``items.dependency.list``); works over https. Typed rows project ``direction`` and ``other_item`` (plus gate_point, satisfaction, source, …). Storage is ``dependent_item_id``/``blocking_item_id``; those are not list keys — reading them from the handler result drops rows. Use over raw SQL; guessed columns are not the canonical schema. Satisfaction accepts status:done, status:implemented, fact:merged, or fact:deployed:<environment-name>. Choose merged when trunk is enough; choose deployed when the dependent needs the blocker running in that registered environment.

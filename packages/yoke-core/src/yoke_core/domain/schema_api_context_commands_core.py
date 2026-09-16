@@ -32,6 +32,34 @@ from __future__ import annotations
 CORE_COMMANDS: list[dict] = [
     {
         "topic": "core",
+        "purpose": "Read one item's posture, then the content you need",
+        "recipe": (
+            "yoke items detail get PREFIX-N --json\n"
+            "yoke items detail get PREFIX-N --include body --json\n"
+            "yoke items detail get PREFIX-N --full --json"
+        ),
+        "notes": (
+            "The detail read answers what the item IS — status, workflow, "
+            "effective policies, claim, lanes, QA, merge queue — and serves "
+            "its prose only for the sections named. The default serves "
+            "``narrative`` (the stored fields) plus the operator execution "
+            "instructions that travel with item content; ``body`` and "
+            "``progress_log`` stay out, because the body re-renders the same "
+            "fields and the Progress Log has its own read. "
+            "``result.item.content_index`` names every section the item "
+            "actually holds with its line/byte size and the exact command "
+            "that returns it, including "
+            "``content_index.execution_instructions`` (``count`` plus the "
+            "``workflow execution-instruction resolve`` command) — so an "
+            "empty ``execution_instructions`` list means withheld when that "
+            "count is non-zero, and no instruction at all when it is zero. "
+            "An unknown ``--include`` name is refused by name. Reach for "
+            "``yoke items get PREFIX-N <field>`` when one field is the whole "
+            "question; the detail read is for posture."
+        ),
+    },
+    {
+        "topic": "core",
         "purpose": "Read structured item field(s) — concrete examples",
         "recipe": (
             "yoke items get PREFIX-N status title workflow_id github_issue\n"
@@ -145,7 +173,8 @@ CORE_COMMANDS: list[dict] = [
             "``yoke items structured-field ...`` adapters. "
             "``section-upsert`` reports ``verification=ok`` only when the "
             "named section is reachable from ``items get PREFIX-N body "
-            "--section`` / ``items.detail.get`` ``narrative.body``. The "
+            "--section`` / ``items.detail.get`` with ``include`` naming "
+            "``body``. The "
             "wrong guess that a section without ``--ordering`` is stored "
             "but omitted from the rendered body is stale — NULL ordering "
             "still renders."
