@@ -46,13 +46,16 @@ def gate_upstream_for_preparation(
 ) -> UpstreamGate:
     """Read the remote and say whether this preparation may proceed.
 
-    An empty ``repo_root`` yields an empty gate: a laneless item whose
-    project resolves to no local checkout has no branch to be behind. The
-    branch read is the one the item's project declares, never a guess.
+    The branch read is the one the item's project declares, and only that
+    one. An item with no project — the folder-project floor case — resolves
+    no default branch, and whatever checkout the caller happens to be
+    standing in is not a substitute for one: gating on it would refuse work
+    over the freshness of a repository the item has nothing to do with. No
+    checkout or no declared branch therefore yields an empty gate.
     """
-    if not repo_root:
-        return UpstreamGate()
     declared = str((item.get("project") or {}).get("default_branch") or "")
+    if not repo_root or not declared:
+        return UpstreamGate()
     freshness = refresh_base_branch(repo_root, declared)
     if not freshness.verified:
         return UpstreamGate(freshness, BLOCK_UPSTREAM_UNVERIFIED, freshness.note)

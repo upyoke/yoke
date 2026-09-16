@@ -13,10 +13,14 @@ from types import SimpleNamespace
 
 import pytest
 
+from yoke_core.api import (
+    service_client_structured_api_adapter as structured_api_adapter,
+)
 from yoke_core.domain import repo_upstream_freshness as freshness
 from yoke_core.domain import worktree_create
 from yoke_core.domain import worktree_preflight as wp
 from yoke_core.domain import worktree_preflight_steps as steps
+from yoke_core.domain import worktree_preflight_upstream as gate
 
 DEFAULT_BRANCH = "trunk"
 ITEM_ID = 9101
@@ -69,6 +73,20 @@ def _patch_preflight(
     monkeypatch, *, lane_path: str = "", recorded_lane=None, created: bool = True
 ):
     """Stand in for the control-plane steps the freshness step sits between."""
+    # The gate reads the branch the item's project declares, so the item
+    # detail has to carry one for any of this to be exercised at all.
+    item = {
+        "id": ITEM_ID,
+        "public_ref": f"YOK-{ITEM_ID}",
+        "blocked": False,
+        "project": {"default_branch": DEFAULT_BRANCH},
+        "workflow": {"policies": {"worktrees": "single_implementation_lane"}},
+    }
+    monkeypatch.setattr(
+        structured_api_adapter,
+        "call_dispatcher",
+        lambda **_kwargs: SimpleNamespace(success=True, result={"item": item}, error=None),
+    )
     monkeypatch.setattr(
         wp, "resolve_item_branch_and_lane", lambda _i: (f"YOK-{ITEM_ID}", recorded_lane)
     )
@@ -230,3 +248,24 @@ def test_a_second_preparation_reads_the_remote_again(project, monkeypatch):
 
     assert f"upstream:{freshness.STATE_FAST_FORWARDED}" in second.actions_taken
     assert passed["base_branch"] == remote_sha
+
+
+def test_an_item_with_no_project_gates_on_nothing(project, monkeypatch):
+    """The floor case: no declared branch, so no repository to gate on."""
+    _advance_remote(project)
+    fetched: list[str] = []
+    monkeypatch.setattr(
+        freshness.upstream_git,
+        "fetch_branch",
+        lambda *a, **k: fetched.append("fetch"),
+    )
+
+    outcome = gate.gate_upstream_for_preparation(
+        str(project.root), {}, no_worktree=True
+    )
+
+    assert outcome.freshness is None
+    assert outcome.block_kind == ""
+    # The checkout the caller stands in is not the item's project, so it is
+    # never read at all.
+    assert fetched == []
