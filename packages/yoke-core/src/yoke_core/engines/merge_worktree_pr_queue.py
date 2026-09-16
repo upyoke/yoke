@@ -27,6 +27,7 @@ from yoke_core.domain.gh_rest_transport import (
 from yoke_core.domain.project_github_auth import ProjectGithubAuth
 from yoke_core.engines.merge_worktree_pr_rest import (
     AuthResolutionFailed,
+    GITHUB_AUTHORITY_INSTALLATION,
     resolve_auth,
 )
 from yoke_core.engines.merge_worktree_pr_graphql import (
@@ -96,10 +97,20 @@ class QueueMember:
 
 
 def resolve_auth_detail(
-    ctx: MergeContext, required_permissions: Any
+    ctx: MergeContext,
+    required_permissions: Any,
+    *,
+    required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
 ) -> tuple[Optional[ProjectGithubAuth], Optional[str]]:
     try:
-        return resolve_auth(ctx, required_permissions=required_permissions), None
+        return (
+            resolve_auth(
+                ctx,
+                required_permissions=required_permissions,
+                required_authority=required_authority,
+            ),
+            None,
+        )
     except AuthResolutionFailed as exc:
         detail = str(exc)
         if exc.hint:
@@ -147,10 +158,22 @@ def _pr_node_id(
 
 
 def _mutate_pull_request(
-    ctx: MergeContext, pr_num: str, mutation: str
+    ctx: MergeContext,
+    pr_num: str,
+    mutation: str,
+    *,
+    required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
 ) -> QueueEntryResult:
-    """Run one pull-request-id mutation; refusals stay named."""
-    auth, auth_err = resolve_auth_detail(ctx, PR_WRITE)
+    """Run one pull-request-id mutation; refusals stay named.
+
+    ``required_authority`` stays the installation by default, because the
+    landing observer disarms as unattended automation on the serving side
+    where no operator authorization exists. A caller whose policy requires
+    an operator to stand behind the mutation names that authority instead.
+    """
+    auth, auth_err = resolve_auth_detail(
+        ctx, PR_WRITE, required_authority=required_authority
+    )
     if auth_err or auth is None:
         return QueueEntryResult(success=False, pr_num=pr_num, error_detail=auth_err)
     node_id, node_err = _pr_node_id(auth, pr_num)
@@ -172,24 +195,41 @@ def enter_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
     return _mutate_pull_request(ctx, pr_num, _ENABLE_AUTO_MERGE_MUTATION)
 
 
-def leave_merge_queue(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
+def leave_merge_queue(
+    ctx: MergeContext,
+    pr_num: str,
+    *,
+    required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
+) -> QueueEntryResult:
     """Disarm merge-when-ready so a later green cannot auto-merge.
 
     Only the arming. A pull request GitHub has already taken into the queue
     carries no arming left to clear, so this alone never removes it — see
     :func:`dequeue_pull_request`.
     """
-    return _mutate_pull_request(ctx, pr_num, _DISABLE_AUTO_MERGE_MUTATION)
+    return _mutate_pull_request(
+        ctx,
+        pr_num,
+        _DISABLE_AUTO_MERGE_MUTATION,
+        required_authority=required_authority,
+    )
 
 
-def dequeue_pull_request(ctx: MergeContext, pr_num: str) -> QueueEntryResult:
+def dequeue_pull_request(
+    ctx: MergeContext,
+    pr_num: str,
+    *,
+    required_authority: str = GITHUB_AUTHORITY_INSTALLATION,
+) -> QueueEntryResult:
     """Remove ``pr_num``'s merge-queue entry; refusals stay named.
 
     GitHub refuses this for a pull request that holds no entry, so callers
     that cannot tell arming from membership read the queue first rather than
     treating the refusal as a removal.
     """
-    return _mutate_pull_request(ctx, pr_num, _DEQUEUE_MUTATION)
+    return _mutate_pull_request(
+        ctx, pr_num, _DEQUEUE_MUTATION, required_authority=required_authority
+    )
 
 
 @dataclass(frozen=True)

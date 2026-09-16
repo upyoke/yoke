@@ -161,21 +161,31 @@ def _resolve_script_dir() -> str:
 
 
 def _parse_stages(stages_json: str) -> List[Dict[str, Any]]:
-    """Parse flow stages JSON into dicts with name, step_runner, and config.
+    """Normalize flow stages JSON into the one stage shape execution reads.
 
-    Every stage carries an explicit ``name`` and ``step_runner``, which
-    ``deployment_runs.current_stage``, ``--from-stage`` resume, and stage
-    telemetry address it by.
+    A stage keeps every field its definition declared, because the fields
+    that decide where a stage deploys and what proof it owes — ``target``,
+    ``stage_kind``, ``scope`` — are read off the stage itself by the
+    receipt layer and the preview producer. Reducing a stage to three keys
+    here made a scoped QA stage's target invisible, so the stage it named
+    as its receipt source dispatched to the run's default environment and
+    produced no receipt at all.
+
+    Normalization adds only what execution addresses a stage by: ``name``
+    and ``step_runner`` as strings, for ``deployment_runs.current_stage``,
+    ``--from-stage`` resume, and stage telemetry; and ``config`` as the
+    same stage under the name each step runner reads its own fields from.
+    Persisted runner fields are top-level — there is no nested ``config``
+    object in a stored stage, and operator writes refuse one.
     """
-    stages = json.loads(stages_json)
-    return [
-        {
-            "name": str(s.get("name", "") or ""),
-            "step_runner": str(s.get("step_runner", "") or ""),
-            "config": s,
-        }
-        for s in stages
-    ]
+    normalized: List[Dict[str, Any]] = []
+    for raw_stage in json.loads(stages_json):
+        stage = dict(raw_stage)
+        stage["name"] = str(raw_stage.get("name", "") or "")
+        stage["step_runner"] = str(raw_stage.get("step_runner", "") or "")
+        stage["config"] = raw_stage
+        normalized.append(stage)
+    return normalized
 
 
 # ---------------------------------------------------------------------------

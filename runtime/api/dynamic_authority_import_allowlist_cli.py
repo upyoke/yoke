@@ -80,6 +80,22 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "bind arbitrary development commands to the session's claimed lane",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/merge_queue_hold_local_runtime.py",
+        "yoke_core.domain.merge_queue_hold",
+    ): (
+        "client_local_execution",
+        "hold a live merge-queue candidate in the child that binds the "
+        "operator's GitHub authorization, which the serving side does not have",
+    ),
+    (
+        "packages/yoke-cli/src/yoke_cli/commands/merge_queue_hold_local_runtime.py",
+        "yoke_core.engines.merge_worktree_prepare",
+    ): (
+        "client_local_execution",
+        "build the merge context that hold carries, addressing the pull "
+        "request the registered readiness read resolved",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/merge_item_local_runtime.py",
         "yoke_core.domain.project_github_auth",
     ): (

@@ -81,6 +81,10 @@ _STAGES = [
         "step_runner": "auto",
         "stage_kind": "execution",
         "scope": "run",
+        # A run_preview QA target must name an earlier stage whose own
+        # target is a preview with a capability, so the stage the QA stage
+        # below consumes declares one.
+        "target": {"kind": "run_preview", "capability": "ephemeral-env"},
     },
     {
         "name": "item-qa",
@@ -257,6 +261,9 @@ def test_admin_candidate_keeps_local_scoped_qa_while_its_https_sibling_still_rel
                 executor_receipt="test://deploy-ready",
                 commit=True,
             )
+            # This test owns the ready receipt above; standing the preview
+            # up for real is a different subject and has no substrate here.
+            return 0, "test://deploy-ready"
         return original_dispatch(stage, **kwargs)
 
     monkeypatch.setattr(
