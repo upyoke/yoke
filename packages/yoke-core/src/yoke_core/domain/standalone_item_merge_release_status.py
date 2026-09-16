@@ -3,7 +3,7 @@
 Split out of :mod:`standalone_item_merge_cli` to stay under the authored
 file line budget; used there to decide whether a mismatched branch head at
 the merge boundary is foreign/stale work or this same item's own next
-legitimate merge attempt after genuinely returning short of release, and to
+legitimate merge while still short of a declared release wait, and to
 resolve the declared route the terminal transition walks.
 """
 
@@ -107,8 +107,8 @@ def reached_release(item: dict[str, Any], status: str) -> bool:
     concept, or on a definition read that fails -- both keep
     ``stale_unlanded_work``'s existing foreign/stale-work refusal exactly
     as it already behaves. Only a workflow that both owns a release wait
-    AND whose item has genuinely returned short of it (a fix in progress
-    after a failed release-stage verdict) answers ``False``.
+    AND whose item is still short of it (a fix in progress after a failed
+    release-stage verdict) answers ``False``.
     """
     workflow, error = pinned_workflow_for_item(item)
     if workflow is None or error:

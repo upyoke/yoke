@@ -121,12 +121,13 @@ it records the identified merge-group run as the item's `ci_run` proof before
 execution evidence is evaluated. It never republishes the lane or re-enters
 the pull request. Close-out first compares the current lane candidate to the
 recorded landing identity; matching it is enough even when a squash is not an
-ancestor of the base. New commits after that landing are refused when the item
-has reached its pinned release wait or the work is foreign — file a
-fresh work item so they get their own merge identity — and the lane is left in
-place. Same-item correction before that wait is supported: return to
-implementation, then a fresh review and merge. Do not reset unlanded
-corrections. Missing proof leaves the already-landed item open with a
+ancestor of the base. New commits after that landing are refused when close-out
+treats them as foreign or stale — the default, including when no release
+stage is declared — file a fresh work item so they get their own merge
+identity — and the lane is left in place. Same-item correction continues
+on the same item and lane: re-verify, review, and run the governed merge
+again, subject to the pinned workflow. Do not prescribe a stage change
+or reset unlanded corrections. Missing proof leaves the already-landed item open with a
 retry instruction, rather than silently classifying it as a local merge. The
 marker makes that handoff visible and idempotent. The record keeps the named
 `queue_holding`, `queue_entry_state`, and `merge_when_ready` outcomes alongside
