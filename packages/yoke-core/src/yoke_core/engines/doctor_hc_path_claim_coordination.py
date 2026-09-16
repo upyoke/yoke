@@ -25,10 +25,10 @@ from __future__ import annotations
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
-from yoke_core.domain.item_ref_columns import render_column_item_ref
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.domain.project_identity import render_item_ref
 
 
 _HC_NAME = "HC-path-claim-coordination-rationale"
@@ -161,8 +161,8 @@ def _flag_empty_rationale(conn) -> list[str]:
     for row in rows:
         flagged.append(
             f"item_dependencies.id={row['id']} "
-            f"{render_column_item_ref(conn, row['dependent_item_id'])} <-> "
-            f"{render_column_item_ref(conn, row['blocking_item_id'])} "
+            f"{render_item_ref(conn, int(row['dependent_item_id']))} <-> "
+            f"{render_item_ref(conn, int(row['blocking_item_id']))} "
             "carries empty rationale"
         )
     return flagged

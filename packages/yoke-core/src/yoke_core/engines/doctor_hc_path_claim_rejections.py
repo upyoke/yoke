@@ -18,12 +18,12 @@ from __future__ import annotations
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
-from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.sql_json import json_get
 from yoke_core.domain.time_sql import now_sql
 
 import yoke_core.engines.doctor_report as _base
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
+from yoke_core.domain.project_identity import render_item_ref
 
 
 _HC_NAME = "HC-path-claim-register-rejected-with-deps"
@@ -114,7 +114,7 @@ def hc_path_claim_register_rejected_with_deps(
     for row in flagged[:10]:
         item = int(row["item_id"])
         issues.append(
-            f"  - {render_column_item_ref(conn, item)} at {row['at']} "
+            f"  - {render_item_ref(conn, item)} at {row['at']} "
             f"(blocking claim {row['blocking_claim_id']}): {row['reason']}"
         )
     if len(flagged) > 10:

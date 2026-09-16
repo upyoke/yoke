@@ -52,13 +52,17 @@ _PROSE_ITEM_ID_RE = re.compile(
 
 # An interpolation naming one of these has already been through the renderer
 # (or arrived as a public ref), so the number it prints is a reference.
+# ``render_column_item_ref`` is deliberately absent: it canonicalizes a
+# storage token whose output is fed back to ``resolve_column_item_ref``, so
+# an unresolvable token comes back as the bare token it arrived as. That is
+# correct for round-tripping and wrong for a person reading it, so message
+# text names an item through the display renderer instead.
 _RENDERED_REF_TOKENS: Tuple[str, ...] = (
     "_ref",
     "ref_",
     "public_ref",
     "render_item_ref",
     "render_item_refs",
-    "render_column_item_ref",
     "item_ref_for_id",
     "unresolved_item_ref",
 )

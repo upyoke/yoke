@@ -79,6 +79,13 @@ def render_column_item_ref(conn: Any, value: Any) -> str:
     this result back through :func:`resolve_column_item_ref`, so it has
     to stay a token. The message phrase display surfaces show for an
     unresolvable id would not parse back.
+
+    That fallback is internal normalization and never display text. A
+    token that arrived as a bare id comes back as a bare id, which reads
+    to a person as a reference to whichever item owns that number as a
+    sequence. Text a person reads names an item through
+    :func:`yoke_core.domain.project_identity.render_item_ref`, which says
+    plainly that it could not resolve one.
     """
     item_id = resolve_column_item_ref(conn, value)
     if item_id is None:

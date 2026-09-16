@@ -41,7 +41,7 @@ from yoke_core.domain.deployment_run_pair_obligations import (
     split_runs_by_target_environment,
 )
 from yoke_core.domain.deployment_runs_validation import cmd_validate_composition
-from yoke_core.domain.item_ref_columns import render_column_item_ref
+from yoke_core.domain.project_identity import render_item_ref
 
 
 #: No prepared run is waiting on this item. The ordinary case for an ordinary
@@ -251,7 +251,7 @@ def continue_for_item(
                 ok=False,
                 outcome=OUTCOME_WAITING,
                 error=(
-                    f"item {render_column_item_ref(conn, item_id)} advances "
+                    f"item {render_item_ref(conn, int(item_id))} advances "
                     f"more than one prepared run for the same target "
                     f"environment ({groups}); only one of them can be that "
                     "environment's release. Cancel the runs that no longer "

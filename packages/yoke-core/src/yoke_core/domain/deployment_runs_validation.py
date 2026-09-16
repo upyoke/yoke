@@ -16,7 +16,6 @@ from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pair
 from yoke_core.domain.deployment_run_pair_obligations import (
     split_pending_pair_merges,
 )
-from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.project_identity import (
     render_item_ref,
     resolve_project,
@@ -175,8 +174,8 @@ def cmd_validate_composition(
             ] + blocked
         if blocked:
             items_str = ", ".join(
-                f"{render_column_item_ref(conn, dependent)} (blocked by "
-                f"{render_column_item_ref(conn, blocker)}: {verdict.reason})"
+                f"{render_item_ref(conn, int(dependent))} (blocked by "
+                f"{render_item_ref(conn, int(blocker))}: {verdict.reason})"
                 for dependent, blocker, verdict in blocked
             )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")
@@ -274,8 +273,8 @@ def cmd_check_batch_compatibility(
         )
         if blocked:
             items_str = ", ".join(
-                f"{render_column_item_ref(conn, dependent)} (blocked by "
-                f"{render_column_item_ref(conn, blocker)}: {verdict.reason})"
+                f"{render_item_ref(conn, int(dependent))} (blocked by "
+                f"{render_item_ref(conn, int(blocker))}: {verdict.reason})"
                 for dependent, blocker, verdict in blocked
             )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")

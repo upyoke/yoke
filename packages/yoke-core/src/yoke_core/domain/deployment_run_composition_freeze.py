@@ -20,7 +20,6 @@ from yoke_core.domain.deployment_requirement_snapshots import (
     snapshot_flow_requirements,
     snapshot_member_requirements,
 )
-from yoke_core.domain.item_ref_columns import render_column_item_ref
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.workflow_delivery_binding_validation import (
     COMPLETED_ITEM_STAGE_ID,
@@ -33,6 +32,7 @@ from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
     load_item_workflow_runtime,
 )
+from yoke_core.domain.project_identity import render_item_ref
 
 
 DELIVERY_INTENT_PROGRESS = "progress"
@@ -213,7 +213,9 @@ def carried_membership_refusal(
     )
     if not omitted:
         return None
-    labels = ", ".join(render_column_item_ref(conn, item_id) for item_id in omitted)
+    labels = ", ".join(
+        render_item_ref(conn, int(item_id)) for item_id in omitted
+    )
     return (
         f"deployment run {run_id!r} omits delivery-ready carried work: {labels}; "
         "attach those members, or choose a candidate that excludes their code. "
