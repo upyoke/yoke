@@ -16,6 +16,8 @@ from yoke_core.api.observability import (
     record_histogram,
 )
 
+_METRIC_SPAN_KEYS = ("yoke.function", "yoke.function_version")
+
 
 def _read_monotonic() -> float:
     return time.monotonic()
@@ -42,18 +44,17 @@ def elapsed_duration_ms(started: float | None) -> int | None:
 @contextmanager
 def dispatch_observation(request: Any) -> Iterator[Any]:
     started = start_duration_measurement()
-    attributes = _span_attributes(request)
+    span_attributes = _span_attributes(request)
     state = {"outcome": "exception"}
 
     def mark(response: FunctionCallResponse) -> None:
         state["outcome"] = "success" if response.success else "error"
 
     try:
-        with observation_span("yoke.function.dispatch", attributes):
+        with observation_span("yoke.function.dispatch", span_attributes):
             yield mark
     finally:
-        metric_attributes = dict(attributes)
-        metric_attributes["yoke.outcome"] = state["outcome"]
+        metric_attributes = _metric_attributes(span_attributes, state["outcome"])
         record_counter(
             "yoke.function.dispatch.calls",
             attributes=metric_attributes,
@@ -81,3 +82,13 @@ def _span_attributes(request: Any) -> Dict[str, Any]:
             "yoke.request_id": request.get("request_id"),
         }
     return {"yoke.function": type(request).__name__}
+
+
+def _metric_attributes(span_attributes: Dict[str, Any], outcome: str) -> Dict[str, Any]:
+    attributes = {
+        key: span_attributes[key]
+        for key in _METRIC_SPAN_KEYS
+        if span_attributes.get(key) is not None
+    }
+    attributes["yoke.outcome"] = outcome
+    return attributes
