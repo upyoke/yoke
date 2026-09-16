@@ -24,22 +24,24 @@ test("the release and the member's own QA are two statuses, each short", () => {
   const body = render({
     primary_item_delivery: {
       run_id: "run-20260726-001", status: "executing", stage: "item-qa",
-      live: true, item_qa: "not accepted",
-      item_qa_reason: "stage 'item-qa': stage acceptance requirement #12 "
-        + "awaits authorized human review",
+      live: true, item_qa: "awaiting review",
+      item_qa_stage: "preview-item-qa",
+      item_qa_reason:
+        "stage acceptance requirement #12 awaits authorized human review",
     },
     primary_item_stages: [{ name: "awaiting review", state: "active" }],
   });
 
   assert.deepEqual(
     byClass(body, "session-delivery-pill").map((node) => node.textContent),
-    ["Run: item-qa · executing", "Item QA: not accepted"],
+    ["Run: item-qa · executing", "Item QA: awaiting review"],
   );
-  // Which stage, and what it is waiting on — too long for a pill, and
-  // exactly what a reader wants once the pill has caught their eye.
-  assert.match(
+  // The wait itself is on the pill, where a phone reader sees it. Which
+  // stage and the sentence behind it ride in the title.
+  assert.equal(
     byClass(body, "session-delivery-pill")[1].getAttribute("title"),
-    /stage 'item-qa'.*awaits authorized human review/,
+    "preview-item-qa: stage acceptance requirement #12 awaits authorized "
+      + "human review",
   );
 });
 
@@ -65,7 +67,8 @@ test("an accepted member carries no blocking reason to explain", () => {
   const body = render({
     primary_item_delivery: {
       run_id: "run-4", status: "executing", stage: "production", live: true,
-      item_qa: "accepted", item_qa_reason: null,
+      item_qa: "accepted", item_qa_stage: "preview-item-qa",
+      item_qa_reason: "",
     },
   });
   assert.equal(
@@ -90,10 +93,10 @@ test("a finished release is labelled as the last one, not the current one", () =
   assert.equal(history[0].text, "Last run: stage-deploy · cancelled");
 });
 
-test("a release with no scoped QA for this member reports only the run", () => {
-  // Absent is absent. A release whose flow declares no QA stage answering for
-  // this member has nothing to report; a placeholder would read as checks
-  // that release never carried.
+test("a release that has reached no item QA stage reports only the run", () => {
+  // Absent is absent. A release standing before its first item QA stage has
+  // nothing to report for this member; a placeholder would read as a check
+  // nobody has run yet.
   const labels = deliveryStatusLabels({
     primary_item_delivery: {
       run_id: "run-3", status: "executing", stage: "stage-deploy", live: true,

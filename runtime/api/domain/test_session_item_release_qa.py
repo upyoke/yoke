@@ -1,11 +1,16 @@
 """What a session card may say about its held item's QA inside a release.
 
-QA standing is a current fact with a history behind it. An earlier shape of
-this reader scanned every execution a member had ever recorded and kept the
-worst one, which pinned a member to a failure it had already fixed and let
-one stage's failure answer for another stage's target. The reader now asks
-the same acceptance projection the release-to-done gate asks, so the cases
-here are the ones that distinguish a current answer from an all-history one.
+Two earlier shapes of this reader were wrong in the same direction: both
+answered a broader question than a card asks. The first scanned every
+execution a member had ever recorded and kept the worst, pinning a member to
+a failure it had already fixed. The second walked every QA stage the run had
+pinned, so a healthy member read "not accepted" because a production check
+nobody had run yet was still outstanding, and a run-scoped gate the whole
+batch was waiting on read as this member's own problem.
+
+The reader now asks the per-stage acceptance authority the release gate asks,
+about one stage: the item-scoped QA stage the run has actually reached. The
+cases here are the ones that separate that answer from the broader two.
 """
 
 from __future__ import annotations
@@ -22,7 +27,18 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
     _stages,
 )
 from yoke_core.domain.db_helpers import iso8601_now
-from yoke_core.domain.deployment_qa_run_acceptance import item_release_qa
+from runtime.api.domain.test_deployment_qa_stage_ordering import (
+    _qa_stage as _ordered_qa_stage,
+)
+from yoke_core.domain.deployment_qa_run_acceptance import (
+    current_item_qa,
+    item_qa_acceptance_blockers,
+)
+
+
+def _standing(conn: Any, run_id: str, item_id: int, stage: str = "item-qa"):
+    """The card's reading, at the stage the run is standing on."""
+    return current_item_qa(conn, run_id=run_id, item_id=item_id, current_stage=stage)
 
 
 def _record_verdict(conn: Any, requirement_id: int, verdict: str) -> None:
@@ -47,14 +63,14 @@ def test_a_case_that_failed_and_was_rerun_to_a_pass_is_accepted(test_db) -> None
     _settle(test_db, run_id="run-retry", stage="item-qa", member=9901)
     requirement_id = _acceptance_requirement_id(test_db, "run-retry", "item-qa")
     _record_verdict(test_db, requirement_id, "fail")
-    assert not item_release_qa(test_db, run_id="run-retry", item_id=9901).accepted
+    assert not _standing(test_db, "run-retry", 9901).accepted
 
     # Same requirement, answered again. The newest verdict is the answer.
     _record_verdict(test_db, requirement_id, "pass")
 
-    standing = item_release_qa(test_db, run_id="run-retry", item_id=9901)
-    assert standing.scoped
-    assert standing.accepted
+    standing = _standing(test_db, "run-retry", 9901)
+    assert standing.stage == "item-qa"
+    assert standing.state == "accepted"
     assert standing.blockers == ()
 
 
@@ -65,11 +81,12 @@ def test_a_rejected_acceptance_names_the_stage_it_blocks(test_db) -> None:
     requirement_id = _acceptance_requirement_id(test_db, "run-rejected", "item-qa")
     _record_verdict(test_db, requirement_id, "fail")
 
-    standing = item_release_qa(test_db, run_id="run-rejected", item_id=9902)
-    assert not standing.accepted
-    # The reason a reader needs is which stage is unclear, not a bare word.
-    assert "item-qa" in standing.blockers[0]
-    assert "rejected" in standing.blockers[0]
+    standing = _standing(test_db, "run-rejected", 9902)
+    # The state is the word a card shows; the stage and the sentence are what
+    # a reader opens next. All three travel rather than one standing in.
+    assert standing.state == "rejected"
+    assert standing.stage == "item-qa"
+    assert "rejected" in standing.reason
 
 
 def test_a_waiver_discharges_the_stage_rather_than_hiding_it(test_db) -> None:
@@ -84,7 +101,7 @@ def test_a_waiver_discharges_the_stage_rather_than_hiding_it(test_db) -> None:
     )
     test_db.commit()
 
-    assert item_release_qa(test_db, run_id="run-waived", item_id=9903).accepted
+    assert _standing(test_db, "run-waived", 9903).accepted
 
 
 def test_one_member_failing_leaves_its_sibling_accepted(test_db) -> None:
@@ -99,17 +116,16 @@ def test_one_member_failing_leaves_its_sibling_accepted(test_db) -> None:
     )
     _settle(test_db, run_id="run-siblings", stage="item-qa", member=9904)
 
-    assert item_release_qa(test_db, run_id="run-siblings", item_id=9904).accepted
-    outstanding = item_release_qa(test_db, run_id="run-siblings", item_id=9905)
-    assert not outstanding.accepted
-    assert "no completed scoped QA execution exists" in outstanding.blockers[0]
+    assert _standing(test_db, "run-siblings", 9904).accepted
+    outstanding = _standing(test_db, "run-siblings", 9905)
+    assert outstanding.state == "not yet run"
+    assert "no completed scoped QA execution exists" in outstanding.reason
 
 
-def test_a_legacy_release_reports_no_scoped_qa_rather_than_a_clear_one(
-    test_db,
-) -> None:
-    # A flow with no QA stage owes nothing, which is a different answer from
-    # every obligation being met — and the card must not conflate them.
+def test_a_release_with_no_item_qa_stage_reports_nothing(test_db) -> None:
+    # A flow with no item-scoped QA stage owes this member nothing there,
+    # which is a different answer from every obligation being met — and the
+    # card must not conflate them.
     stages = [
         {
             "name": "deploy",
@@ -126,7 +142,58 @@ def test_a_legacy_release_reports_no_scoped_qa_rather_than_a_clear_one(
     ]
     _seed_run(test_db, run_id="run-legacy", stages=stages, members=(9906,))
 
-    standing = item_release_qa(test_db, run_id="run-legacy", item_id=9906)
-    assert standing.scoped is False
-    assert standing.accepted is False
-    assert standing.blockers == ()
+    assert _standing(test_db, "run-legacy", 9906, stage="deploy") is None
+
+
+def _multi_stage(plan_id: int) -> list:
+    """Item QA, then a shared release gate, then a production check."""
+    return [
+        {
+            "name": "deploy",
+            "step_runner": "auto",
+            "stage_kind": "execution",
+            "scope": "run",
+        },
+        _ordered_qa_stage("item-qa", plan_id),
+        _ordered_qa_stage("release-qa", plan_id, "run"),
+        _ordered_qa_stage("production-qa", plan_id, "run"),
+    ]
+
+
+def test_a_passed_item_stage_is_accepted_while_production_qa_is_unstarted(
+    test_db,
+) -> None:
+    # The whole point of the narrowing. A production check nobody has run is
+    # the release's remaining work, not this member's, and reporting it on
+    # the item pill marks every healthy item unclear until the run finishes.
+    plan_id = _plan(test_db, "future-prod-smoke")
+    _seed_run(
+        test_db, run_id="run-future", stages=_multi_stage(plan_id), members=(9907,)
+    )
+    _settle(test_db, run_id="run-future", stage="item-qa", member=9907)
+
+    standing = _standing(test_db, "run-future", 9907)
+    assert standing.stage == "item-qa"
+    assert standing.state == "accepted"
+    # The release gate still sees the unfinished stages; only the card does not.
+    assert item_qa_acceptance_blockers(test_db, run_id="run-future", item_id=9907)
+
+
+def test_a_pending_run_scoped_gate_is_not_this_members_item_qa(test_db) -> None:
+    # A run-scoped stage is the batch's shared wait. Two members riding one
+    # release would both read "not accepted" from it, which says nothing
+    # about either of them.
+    plan_id = _plan(test_db, "shared-gate-smoke")
+    _seed_run(
+        test_db, run_id="run-shared", stages=_multi_stage(plan_id), members=(9908,)
+    )
+    _settle(test_db, run_id="run-shared", stage="item-qa", member=9908)
+    test_db.execute(
+        "UPDATE deployment_runs SET current_stage='release-qa' WHERE id=%s",
+        ("run-shared",),
+    )
+    test_db.commit()
+
+    standing = _standing(test_db, "run-shared", 9908, stage="release-qa")
+    assert standing.stage == "item-qa"
+    assert standing.state == "accepted"

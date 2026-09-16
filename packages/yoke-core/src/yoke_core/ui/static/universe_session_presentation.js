@@ -50,16 +50,21 @@ export function deliveryStatusLabels(row) {
     key: "run",
     text: `${lead}: ${[delivery.stage, delivery.status].filter(Boolean).join(" · ")}`,
   });
-  // The item half is this member's own scoped QA standing inside that run.
-  // Its workflow stage is a different fact, and the card's stage strip
-  // already draws it. The reason rides as the pill's title rather than its
-  // text: one sentence naming a stage and a requirement is what a reader
-  // needs once they have already noticed the stage is not clear.
+  // The item half is this member's standing at the item QA stage answering
+  // for it now. The pill carries the state itself — "awaiting review" and
+  // "rejected" are different waits and a reader on a phone has to be able to
+  // tell them apart without hovering. Which stage, and the sentence behind
+  // the state, ride as the title for whoever wants the detail.
   if (delivery.item_qa) {
     labels.push({
       key: "item",
       text: `Item QA: ${delivery.item_qa}`,
-      detail: delivery.item_qa_reason || "",
+      // Only a blocked state has anything further to say; an accepted one
+      // would otherwise carry a tooltip repeating a stage name.
+      detail: delivery.item_qa_reason
+        ? [delivery.item_qa_stage, delivery.item_qa_reason]
+          .filter(Boolean).join(": ")
+        : "",
     });
   }
   return labels;

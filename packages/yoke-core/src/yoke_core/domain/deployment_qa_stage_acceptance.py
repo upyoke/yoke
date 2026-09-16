@@ -17,6 +17,7 @@ be active.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.deployment_qa_stage_case_failures import case_failures
@@ -121,21 +122,50 @@ def existing_acceptance_requirement(
     return int(row["id"] if hasattr(row, "keys") else row[0])
 
 
-def stage_acceptance_blockers(
+#: What one stage subject's acceptance currently is, in one word. Closed
+#: because surfaces render it directly: a card has room for a state, not for
+#: the sentence that explains it.
+STAGE_ACCEPTED = "accepted"
+STAGE_NOT_RUN = "not yet run"
+STAGE_FAILED = "failed"
+STAGE_INCOMPLETE = "incomplete"
+STAGE_UNSETTLED = "not settled"
+STAGE_REJECTED = "rejected"
+STAGE_AWAITING_REVIEW = "awaiting review"
+
+
+@dataclass(frozen=True)
+class StageAcceptance:
+    """One stage subject's acceptance, as a state and the reasons behind it."""
+
+    state: str
+    blockers: tuple[str, ...]
+
+    @property
+    def accepted(self) -> bool:
+        return self.state == STAGE_ACCEPTED
+
+
+def stage_acceptance(
     conn: Any,
     *,
     subject: Mapping[str, Any],
     target: Mapping[str, Any],
     acceptance_qa_kind: str,
-) -> list[str]:
-    """Every reason this stage subject is not yet accepted (``[]`` = accepted).
+) -> StageAcceptance:
+    """Where this stage subject stands, read without settling anything.
 
-    The same ladder :mod:`deployment_qa_stage_gate` settles, read without
-    settling: concrete case evidence, then the admitted aggregate
-    obligations, then the acceptance requirement's own verdict. An
-    acceptance requirement that was never materialized blocks -- the
-    reader never creates one, because creating it is the active stage's
-    job and a missing one means the stage was never settled at all.
+    The same ladder :mod:`deployment_qa_stage_gate` settles, read as it
+    already stands: concrete case evidence, then the admitted aggregate
+    obligations, then the acceptance requirement's own verdict. An acceptance
+    requirement that was never materialized blocks -- the reader never
+    creates one, because creating it is the active stage's job and a missing
+    one means the stage was never settled at all.
+
+    One walk answers both shapes a caller needs. A gate wants the sentences,
+    a card wants the word, and deriving either from the other -- by matching
+    on blocker text, or by walking the ladder twice -- is how the two
+    surfaces start disagreeing about what "accepted" means.
     """
     run_id = str(subject["id"])
     stage_name = str(subject["stage"]["name"])
@@ -157,10 +187,12 @@ def stage_acceptance_blockers(
         execution_target_digest=digest,
     )
     if execution is None:
-        failures.insert(0, "no completed scoped QA execution exists")
+        return StageAcceptance(
+            STAGE_NOT_RUN,
+            ("no completed scoped QA execution exists", *failures),
+        )
     if failures:
-        return failures
-    assert execution is not None
+        return StageAcceptance(STAGE_FAILED, tuple(failures))
     obligation_failures = fulfill_admitted_obligations(
         conn,
         run_id=run_id,
@@ -171,7 +203,7 @@ def stage_acceptance_blockers(
         acceptance_qa_kind=acceptance_qa_kind,
     )
     if obligation_failures:
-        return obligation_failures
+        return StageAcceptance(STAGE_INCOMPLETE, tuple(obligation_failures))
     requirement_id = existing_acceptance_requirement(
         conn,
         subject=subject,
@@ -179,26 +211,60 @@ def stage_acceptance_blockers(
         acceptance_qa_kind=acceptance_qa_kind,
     )
     if requirement_id is None:
-        return [
-            "stage acceptance was never settled against this deployment target"
-        ]
+        return StageAcceptance(
+            STAGE_UNSETTLED,
+            ("stage acceptance was never settled against this deployment target",),
+        )
     if acceptance_waived(conn, requirement_id):
-        return []
+        return StageAcceptance(STAGE_ACCEPTED, ())
     latest = latest_verdict(conn, requirement_id)
     if latest == "pass":
-        return []
+        return StageAcceptance(STAGE_ACCEPTED, ())
     if latest == "fail":
-        return [f"stage acceptance requirement #{requirement_id} was rejected"]
-    return [
-        f"stage acceptance requirement #{requirement_id} awaits authorized "
-        "human review"
-    ]
+        return StageAcceptance(
+            STAGE_REJECTED,
+            (f"stage acceptance requirement #{requirement_id} was rejected",),
+        )
+    return StageAcceptance(
+        STAGE_AWAITING_REVIEW,
+        (
+            f"stage acceptance requirement #{requirement_id} awaits authorized "
+            "human review",
+        ),
+    )
+
+
+def stage_acceptance_blockers(
+    conn: Any,
+    *,
+    subject: Mapping[str, Any],
+    target: Mapping[str, Any],
+    acceptance_qa_kind: str,
+) -> list[str]:
+    """Every reason this stage subject is not yet accepted (``[]`` = accepted)."""
+    return list(
+        stage_acceptance(
+            conn,
+            subject=subject,
+            target=target,
+            acceptance_qa_kind=acceptance_qa_kind,
+        ).blockers
+    )
 
 
 __all__ = [
+    "STAGE_ACCEPTED",
+    "STAGE_AWAITING_REVIEW",
+    "STAGE_FAILED",
+    "STAGE_INCOMPLETE",
+    "STAGE_NOT_RUN",
+    "STAGE_REJECTED",
+    "STAGE_UNSETTLED",
+    "StageAcceptance",
     "acceptance_waived",
     "completed_execution",
     "existing_acceptance_requirement",
     "latest_verdict",
+    "stage_acceptance",
     "stage_acceptance_blockers",
 ]

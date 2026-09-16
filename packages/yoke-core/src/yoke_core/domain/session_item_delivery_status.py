@@ -19,13 +19,14 @@ one in flight. The live run is the newest non-terminal one; when there is
 none, the newest terminal run is reported as history and says so, so a
 reader can tell "riding this release" from "the last one it rode".
 
-The item half is the member's own scoped QA standing inside that run — not
-its workflow stage, which the card's stage strip already draws. It is read
-from the acceptance projection the release-to-done gate consults, so it is a
-current fact rather than a scan of everything the member ever recorded: a
-case that failed and was rerun to a pass is accepted, and one stage's
-failure never answers for another stage. Two members of one run held by one
-session keep their own standings, because the obligations are their own.
+The item half is this member's standing at the item QA stage now answering
+for it — not its workflow stage, which the card's stage strip already draws,
+and not the release's whole QA ledger. It reads the same per-stage acceptance
+the release-to-done gate reads, narrowed twice: to item-scoped stages,
+because a run-scoped gate is the batch's shared wait that the run half
+already reports, and to a stage the run has reached, because a production
+check nobody has run yet is not this member's outstanding work. Two members
+of one run held by one session keep their own standings.
 """
 
 from __future__ import annotations
@@ -84,34 +85,37 @@ def _chosen_run(runs: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 def _member_qa(
-    conn: Any, pairs: Sequence[tuple[str, int]]
+    conn: Any, subjects: Sequence[tuple[str, int, str]]
 ) -> dict[tuple[str, int], dict[str, Any]]:
-    """Each member's scoped QA standing in its run, read where it is settled.
+    """Each member's standing at the item QA stage now answering for it.
 
-    The authority is the same acceptance projection the release-to-done gate
-    consults, so "accepted" means here exactly what it means there. That
-    matters because QA standing is a current fact with a history behind it: a
-    case that failed and was rerun to a pass is accepted, and one stage's
-    failure never answers for another stage's target. A reader that scanned
-    every execution a member ever recorded and kept the worst would pin a
-    member to a superseded failure it had already fixed, and would carry a
-    stage failure into a production gate that never ran it.
+    The authority is the same per-stage acceptance the release gate reads, so
+    "accepted" means here exactly what it means there. Two narrowings make it
+    an item fact rather than a release one: only item-scoped stages count,
+    because a run-scoped gate is the batch's shared wait and the run half
+    already reports it; and only a stage the run has reached counts, because
+    a production check nobody has run yet is not this member's outstanding
+    work. Within that stage, history stays history — a case that failed and
+    was rerun to a pass is accepted.
     """
-    from yoke_core.domain.deployment_qa_run_acceptance import item_release_qa
+    from yoke_core.domain.deployment_qa_run_acceptance import current_item_qa
 
     standing: dict[tuple[str, int], dict[str, Any]] = {}
-    for run_id, item_id in pairs:
+    for run_id, item_id, current_stage in subjects:
         try:
-            release_qa = item_release_qa(conn, run_id=run_id, item_id=item_id)
+            answer = current_item_qa(
+                conn, run_id=run_id, item_id=item_id, current_stage=current_stage
+            )
         except (LookupError, ValueError):
             # An unreadable gate is not a passing one; the card says nothing
             # rather than implying this member's QA is clear.
             continue
-        if not release_qa.scoped:
+        if answer is None:
             continue
         standing[(run_id, item_id)] = {
-            "state": "accepted" if release_qa.accepted else "not accepted",
-            "reason": release_qa.blockers[0] if release_qa.blockers else None,
+            "state": answer.state,
+            "stage": answer.stage,
+            "reason": answer.reason,
         }
     return standing
 
@@ -127,7 +131,10 @@ def primary_item_delivery_by_session(
         for item_id, runs in by_item.items()
         if (run := _chosen_run(runs)) is not None
     }
-    qa = _member_qa(conn, [(run["run_id"], item_id) for item_id, run in chosen.items()])
+    qa = _member_qa(
+        conn,
+        [(run["run_id"], item_id, run["stage"]) for item_id, run in chosen.items()],
+    )
     projected: dict[str, Mapping[str, Any]] = {}
     for session_id, item_id in selected.items():
         run = chosen.get(item_id)
@@ -136,10 +143,11 @@ def primary_item_delivery_by_session(
         standing = qa.get((run["run_id"], item_id))
         projected[session_id] = {
             **run,
-            # Absent is absent, not a pass: a release with no scoped QA
-            # answering for this member has nothing to report rather than
-            # nothing wrong.
+            # Absent is absent, not a pass: a release that has reached no
+            # item QA stage answering for this member has nothing to report
+            # rather than nothing wrong.
             "item_qa": standing["state"] if standing else None,
+            "item_qa_stage": standing["stage"] if standing else None,
             "item_qa_reason": standing["reason"] if standing else None,
         }
     return projected
