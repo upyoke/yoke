@@ -57,15 +57,15 @@ from yoke_core.engines.merge_worktree_prepare import MergeContext
 _MAX_PASSES = 2
 
 #: Why a hold can refuse before touching GitHub, and where it can succeed.
-#: A person armed the candidate, so only that person's authorization can
-#: take the arming back; a relayed hold runs where no such authorization
-#: exists and says so rather than acting as the App and being refused by
-#: GitHub with nothing named.
+#: Holding a live candidate is an operator act, so this requires the
+#: operator's bound GitHub authorization rather than falling back to the
+#: installation. A relayed hold runs where no such authorization exists
+#: and says so instead of substituting the App, whose attempt was observed
+#: refused with nothing named.
 USER_AUTHORITY_RECOVERY = (
-    "disarming a candidate a person armed needs that person's GitHub "
-    "authorization, and this process has none bound; run `yoke github "
-    "merge-queue hold` from the machine holding the authorization that "
-    "armed it"
+    "holding a live candidate requires bound operator GitHub "
+    "authorization, and this process has none; run `yoke github "
+    "merge-queue hold` from the machine that holds it"
 )
 
 #: What a holder does next, once the candidate is actually held.
@@ -130,7 +130,7 @@ def _note(label: str, result: QueueEntryResult) -> str:
 def _act(ctx: MergeContext, readiness: MergeQueueReadiness) -> tuple[str, ...]:
     """Run the mutations the readback says are still needed."""
     notes: list[str] = []
-    # The hold boundary has already proven a person's authorization is
+    # The hold boundary has already proven operator authorization is
     # bound, so these name it rather than inheriting the installation
     # default the landing observer relies on.
     if readiness.armed:
@@ -205,7 +205,7 @@ def hold_landing(ctx: MergeContext, *, pr_number: str, target: str) -> LandingHo
 
     # Checked after the readback so a candidate that already landed or is
     # already clear still reports that, and before any mutation so a
-    # process without a person's authorization changes nothing.
+    # process without bound operator authorization changes nothing.
     if bound_local_github_user_token_provider() is None:
         return LandingHold(
             outcome=HOLD_USER_AUTHORITY_REQUIRED,

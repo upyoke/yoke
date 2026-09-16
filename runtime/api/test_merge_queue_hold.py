@@ -201,8 +201,8 @@ def test_hold_never_rearms(wire):
     assert hold_mod.REARM_RECOVERY.startswith("correct the lane")
 
 
-def test_hold_declares_the_authority_of_the_person_who_armed_it(wire):
-    """The mutations name a person, not the App that the observer uses."""
+def test_hold_declares_operator_authority_for_its_mutations(wire):
+    """The mutations name operator authority, not the observer's installation."""
     recorder = wire([_readiness(armed=True, entry=True), _readiness()])
 
     outcome = _hold()
@@ -214,9 +214,10 @@ def test_hold_declares_the_authority_of_the_person_who_armed_it(wire):
 def test_hold_without_bound_user_authority_refuses_before_mutating(wire):
     """A relayed hold changes nothing and names where it can succeed.
 
-    The serving side has no person's authorization, so acting there would
-    resolve the App and be refused by GitHub with nothing named. Refusing
-    first leaves the candidate exactly as it was.
+    The serving side has no operator authorization, so acting there
+    substitutes the installation; one such attempt was observed refused by
+    GitHub with nothing named. Refusing first leaves the candidate exactly
+    as it was.
     """
     recorder = wire([_readiness(armed=True, entry=True)])
 
@@ -229,11 +230,12 @@ def test_hold_without_bound_user_authority_refuses_before_mutating(wire):
     # The readback still happened, so the report describes the live candidate.
     assert recorder.calls == ["read"]
     assert outcome.before is not None and outcome.before.armed is True
-    assert "from the machine holding the authorization" in outcome.describe()
+    assert "from the machine that holds it" in outcome.describe()
+    assert "bound operator GitHub authorization" in outcome.describe()
 
 
 def test_a_landed_candidate_reports_the_landing_without_needing_user_authority(wire):
-    """Ownership of the arming is irrelevant once GitHub has merged it."""
+    """A merged candidate is reported from the readback, authorization or not."""
     wire([_readiness(merged=True)])
 
     outcome = _hold_without_user_authority()

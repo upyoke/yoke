@@ -168,8 +168,8 @@ def _mutate_pull_request(
 
     ``required_authority`` stays the installation by default, because the
     landing observer disarms as unattended automation on the serving side
-    where no person's authorization exists. A caller undoing an arming a
-    person created passes that person's authority instead.
+    where no operator authorization exists. A caller whose policy requires
+    an operator to stand behind the mutation names that authority instead.
     """
     auth, auth_err = resolve_auth_detail(
         ctx, PR_WRITE, required_authority=required_authority

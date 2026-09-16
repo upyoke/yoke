@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -97,23 +99,26 @@ def github_merge_queue_hold(args: List[str]) -> int:
     if parsed is None:
         return 2
 
-    def _human_writer(response, stdout, stderr) -> None:
-        result = response.result or {}
-        narrative = result.get("narrative")
-        if narrative:
-            print(narrative, file=stdout if response.success else stderr)
-        for action in result.get("actions") or []:
-            print(f"  {action}", file=stdout if response.success else stderr)
-        return None
-
-    return dispatch_and_emit(
-        function_id="github.merge_queue.hold",
-        target=item_target("item", parsed.item, parsed.project),
-        payload={},
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-        human_writer=_human_writer,
+    # Policy requires bound operator GitHub authorization for a hold, and
+    # that authorization exists only on the operator's machine, so the
+    # mutation runs in a child that binds it. Ownership, project
+    # authorization, the readback, and the durable record all stay on the
+    # control plane, reached from that child as registered reads.
+    forwarded: List[str] = [parsed.item]
+    if parsed.project:
+        forwarded.extend(["--project", parsed.project])
+    if parsed.json_mode:
+        forwarded.append("--json")
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "yoke_cli.commands.merge_queue_hold_local_runtime",
+            *forwarded,
+        ],
+        check=False,
     )
+    return completed.returncode
 
 
 def github_merge_queue_apply(args: List[str]) -> int:
