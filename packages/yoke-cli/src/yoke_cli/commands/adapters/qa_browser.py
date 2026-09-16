@@ -32,6 +32,11 @@ from yoke_cli.commands.adapters.qa_artifact_cli import (
     qa_artifact_presign,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.qa_execution_status import (
+    EXECUTION_STATUS_HELP,
+    EXECUTION_STATUS_USAGE_TOKEN,
+    VALID_EXECUTION_STATUSES,
+)
 
 
 QA_BROWSER_CONTEXT_GET_USAGE = (
@@ -106,7 +111,8 @@ AGENT_UNDETERMINED_HELP = (
 
 QA_RUN_ADD_USAGE = (
     "yoke qa run add --requirement-id N --performed-by TYPE "
-    "[--qa-kind KIND] [--verdict V] [--verdict-reason REASON] [--execution-status S] "
+    "[--qa-kind KIND] [--verdict V] [--verdict-reason REASON] "
+    f"[--execution-status {EXECUTION_STATUS_USAGE_TOKEN}] "
     "[--raw-result TEXT] [--duration-ms N] [--session-id S] [--json]"
 )
 
@@ -148,8 +154,9 @@ def qa_run_add(args: List[str]) -> int:
     parser.add_argument(
         "--execution-status",
         dest="execution_status",
+        choices=VALID_EXECUTION_STATUSES,
         default=None,
-        help="Optional execution status.",
+        help=EXECUTION_STATUS_HELP,
     )
     parser.add_argument(
         "--raw-result",
@@ -196,7 +203,8 @@ def qa_run_add(args: List[str]) -> int:
 
 QA_RUN_COMPLETE_USAGE = (
     "yoke qa run complete --requirement-id N --run-id N "
-    "[--verdict V] [--verdict-reason REASON] [--execution-status S] [--raw-result TEXT] "
+    "[--verdict V] [--verdict-reason REASON] "
+    f"[--execution-status {EXECUTION_STATUS_USAGE_TOKEN}] [--raw-result TEXT] "
     "[--duration-ms N] [--session-id S] [--json]"
 )
 
@@ -231,8 +239,9 @@ def qa_run_complete(args: List[str]) -> int:
     parser.add_argument(
         "--execution-status",
         dest="execution_status",
+        choices=VALID_EXECUTION_STATUSES,
         default=None,
-        help="Execution status to set.",
+        help=EXECUTION_STATUS_HELP,
     )
     parser.add_argument(
         "--raw-result",

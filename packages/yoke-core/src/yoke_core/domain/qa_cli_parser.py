@@ -9,6 +9,10 @@ from yoke_core.domain.qa_gate_summary import (
 )
 from yoke_core.domain import qa_requirement_policy_validation as _qap
 from yoke_core.domain.qa_undetermined_evidence import UNDETERMINED_VERDICT_HELP
+from yoke_contracts.qa_execution_status import (
+    EXECUTION_STATUS_HELP,
+    VALID_EXECUTION_STATUSES,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -111,8 +115,8 @@ def build_parser() -> argparse.ArgumentParser:
     rna.add_argument("--verdict-reason", help=UNDETERMINED_VERDICT_HELP)
     rna.add_argument(
         "--execution-status",
-        choices=("captured", "capture_failed"),
-        help="Browser capture outcome, distinct from quality verdict.",
+        choices=VALID_EXECUTION_STATUSES,
+        help=EXECUTION_STATUS_HELP,
     )
     rna.add_argument("--score", type=float)
     rna.add_argument("--confidence", type=float)
@@ -145,8 +149,8 @@ def build_parser() -> argparse.ArgumentParser:
     rc.add_argument("--verdict-reason", help=UNDETERMINED_VERDICT_HELP)
     rc.add_argument(
         "--execution-status",
-        choices=("captured", "capture_failed"),
-        help="Browser capture outcome, distinct from quality verdict.",
+        choices=VALID_EXECUTION_STATUSES,
+        help=EXECUTION_STATUS_HELP,
     )
     rc_raw = rc.add_mutually_exclusive_group()
     add_text_file_pair(rc_raw, "--raw-result", "--raw-result-file", dest="raw_result")
