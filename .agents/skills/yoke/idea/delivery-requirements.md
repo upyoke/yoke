@@ -99,8 +99,11 @@ scoped QA executes that copy against the observed candidate. `done`
 consumes that admitted copy on the completion run
 (`done_transition.latest_deployment_run`) when the shared stage
 acceptance ladder accepts it, and does not re-run or waive the original
-intake row. A prior candidate's pass does not satisfy a later run. A
-completion run that never admitted this source does not satisfy it.
+intake row. A prior candidate's pass does not satisfy a later run --
+including a passing run recorded on the original intake row itself, which
+proves whatever was deployed when it ran. A completion run that never
+admitted this source does not satisfy it, and neither does the absence of
+any run at all.
 `manual_acceptance` keeps its established phase gate.
 
 Screenshot / visual evidence:
@@ -131,9 +134,16 @@ An evidence-only request does **not** add approval, `--approval-on-done`,
 or a human reviewer.
 
 "Have me approve it" requires `verdict.mode=required_human` on the
-**item-scoped QA stage** whose `target` is the requested persistent
-environment (`scope: item`, `target.kind=persistent_environment`,
-`environment: ENV`). That stage's `reviewers` require **this operator**
+**item-scoped QA stage** (`scope: item`) whose `target` is the deployed
+thing the operator asked to approve. Match the target to the stage the
+selected flow actually configures — read it, do not assume a kind:
+
+| Stage the flow configures | The QA stage's `target` |
+|---|---|
+| A persistent environment | `target.kind=persistent_environment`, `environment: ENV` |
+| A release preview of the run's candidate | `target.kind=run_preview`, which names no environment |
+
+That stage's `reviewers` require **this operator**
 (`actors` + `mode=all`), not an `ANY` role policy someone else can satisfy,
 and not a run-scoped QA stage or a non-QA execution stage. Missing reviewer
 policy makes that configuration invalid. `human_if_unsure` can pass
@@ -141,7 +151,7 @@ without asking the operator; reserve it for an explicitly conditional
 review request ("ask me if you're unsure").
 
 When the selected flow already has a compatible reviewer requirement that
-already requires this operator at `required_human` on that environment's
+already requires this operator at `required_human` on that same target's
 item-QA stage, keep it. Do not replace a matching policy, and do not
 weaken `required_human` to `human_if_unsure`.
 

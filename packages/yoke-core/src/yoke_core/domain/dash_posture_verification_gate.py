@@ -13,7 +13,7 @@ from typing import Any, Mapping, Optional
 
 from yoke_core.domain.dash_posture_read import failure as _failure, marker as _p
 from yoke_core.domain.deployment_qa_source_obligation import (
-    source_obligation_consumed,
+    blocking_row_unsatisfied_at_done,
 )
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.qa_workflow_binding_validation import (
@@ -29,17 +29,24 @@ def _requirement_consumed(
     pre_merge: bool,
     item_id: int,
 ) -> bool:
+    """Whether this blocking row is satisfied at the boundary being crossed.
+
+    Pre-merge is the original row's own passing run and nothing else. At done
+    the shared source-obligation reading decides, and it is asked even for a
+    row that has passed: a ``post_deploy`` row's own pass proves the candidate
+    that was deployed when it ran, not the one being closed out.
+    """
     passed = bool(row["passed"] if hasattr(row, "keys") else row[2])
-    if passed:
-        return True
     if pre_merge:
-        return False
+        return passed
     phase = str(row["qa_phase"] if hasattr(row, "keys") else row[1] or "")
-    if phase != "post_deploy":
-        return False
     source_id = int(row["id"] if hasattr(row, "keys") else row[0])
-    return source_obligation_consumed(
-        conn, item_id=int(item_id), source_requirement_id=source_id
+    return not blocking_row_unsatisfied_at_done(
+        conn,
+        item_id=int(item_id),
+        source_requirement_id=source_id,
+        qa_phase=phase,
+        original_passed=passed,
     )
 
 

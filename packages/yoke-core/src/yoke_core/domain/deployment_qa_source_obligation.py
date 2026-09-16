@@ -94,23 +94,98 @@ def source_obligation_consumed(
     return latest_verdict(conn, copy_id) == "pass"
 
 
-def post_deploy_row_still_blocking(conn: Any, row: Any, *, item_id: int) -> bool:
-    """True when a blocking row still counts at done (unconsumed post_deploy)."""
+def blocking_row_unsatisfied_at_done(
+    conn: Any,
+    *,
+    item_id: int,
+    source_requirement_id: int,
+    qa_phase: str,
+    original_passed: bool,
+) -> bool:
+    """True when this blocking intake row still holds ``done``.
+
+    A ``post_deploy`` row is answered by the admitted copy on the completion
+    run and by nothing else -- ``original_passed`` is deliberately ignored for
+    it. That row's own passing run was recorded against whatever candidate was
+    deployed when it ran, so honouring it here would let a prior candidate's
+    proof close out the release actually being delivered, which is the exact
+    substitution frozen admission exists to prevent. An item with no succeeded
+    completion run, or whose admitted copy is missing, rejected, or stale, has
+    no such proof and keeps blocking.
+
+    Every other phase keeps its established meaning, where the original row's
+    own passing run is the satisfaction: pre-merge verification proves the
+    branch, and manual acceptance proves itself.
+    """
+    if qa_phase != "post_deploy":
+        return not original_passed
+    return not source_obligation_consumed(
+        conn, item_id=int(item_id), source_requirement_id=int(source_requirement_id)
+    )
+
+
+def row_unsatisfied_at_done(conn: Any, row: Any, *, item_id: int) -> bool:
+    """:func:`blocking_row_unsatisfied_at_done` over a queried requirement row.
+
+    The row carries ``id``, ``qa_phase``, and ``passed`` -- the last being
+    whether the ORIGINAL requirement has any passing run. Callers select it
+    rather than filtering on it in SQL, because a ``post_deploy`` row filtered
+    out for having passed once is a row this predicate never gets to refuse.
+    """
     if hasattr(row, "keys"):
         phase = str(row["qa_phase"] or "")
         source_id = int(row["id"])
+        passed = bool(row["passed"])
     else:
-        phase = str(row[-1] or "")
+        phase = str(row[1] or "")
         source_id = int(row[0])
-    if phase != "post_deploy":
-        return True
-    return not source_obligation_consumed(
-        conn, item_id=int(item_id), source_requirement_id=source_id
+        passed = bool(row[2])
+    return blocking_row_unsatisfied_at_done(
+        conn,
+        item_id=int(item_id),
+        source_requirement_id=source_id,
+        qa_phase=phase,
+        original_passed=passed,
+    )
+
+
+def unsatisfied_blocking_count(conn: Any, *, item_id: int, target_status: str) -> int:
+    """How many of the item's blocking requirements are still unsatisfied.
+
+    At ``done`` each row is answered by :func:`row_unsatisfied_at_done`, so a
+    ``post_deploy`` row is judged on its completion-run admitted copy. At every
+    other target the original row's own passing run is the answer.
+
+    The requirement count keeps the blocking scan off databases with no QA rows
+    at all, whose minimal schema need not carry every column that scan reads.
+    """
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    present = conn.execute(
+        f"SELECT COUNT(*) as cnt FROM qa_requirements WHERE item_id = {marker}",
+        (int(item_id),),
+    ).fetchone()
+    if not (present["cnt"] if present else 0):
+        return 0
+    rows = conn.execute(
+        "SELECT qr.id, qr.qa_phase, EXISTS("
+        "SELECT 1 FROM qa_runs qrun "
+        "WHERE qrun.qa_requirement_id = qr.id AND qrun.verdict = 'pass'"
+        ") AS passed FROM qa_requirements qr "
+        f"WHERE qr.item_id = {marker} AND qr.blocking_mode = 'blocking' "
+        "AND qr.waived_at IS NULL",
+        (int(item_id),),
+    ).fetchall()
+    if target_status != "done":
+        return sum(1 for row in rows if not row["passed"])
+    return sum(
+        1 for row in rows if row_unsatisfied_at_done(conn, row, item_id=int(item_id))
     )
 
 
 __all__ = [
+    "blocking_row_unsatisfied_at_done",
     "latest_deployment_run_for_item",
-    "post_deploy_row_still_blocking",
+    "row_unsatisfied_at_done",
     "source_obligation_consumed",
+    "unsatisfied_blocking_count",
 ]

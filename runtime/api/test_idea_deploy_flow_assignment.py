@@ -72,6 +72,7 @@ def test_intake_persists_delivery_evidence_as_existing_qa_rows() -> None:
     assert "do not wait for an environment" in text
     assert "does not re-run or waive the original" in compact
     assert "prior candidate's pass does not satisfy" in compact
+    assert "passing run recorded on the original intake row itself" in compact
     assert "never admitted this source" in compact
     assert "item-scoped QA stage" in text
     assert "Never `update-stages`" in text
@@ -90,7 +91,12 @@ def test_explicit_approval_requires_this_operator_not_human_if_unsure() -> None:
     assert "compatible reviewer requirement" in compact
     assert "Do not replace a matching policy" in compact
     assert "item-scoped QA stage" in compact
+    # The target kind is the flow's configured stage, not a fixed one: a
+    # release-preview stage approves a run_preview target and names no
+    # environment, so teaching only the persistent kind misconfigures it.
     assert "persistent_environment" in compact
+    assert "run_preview" in compact
+    assert "do not assume a kind" in compact
     assert "Never `update-stages`" in compact
 
 

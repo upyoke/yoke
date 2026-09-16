@@ -21,7 +21,7 @@ from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
 )
 from yoke_core.domain.deployment_qa_source_obligation import (
-    post_deploy_row_still_blocking,
+    unsatisfied_blocking_count,
 )
 from yoke_core.domain.backlog_batch_update import execute_batch_update
 from yoke_core.domain.backlog_post_write_sync import run_post_db_sync
@@ -183,34 +183,9 @@ def _execute_update_once(
 
         if target_status:
             gate.has_merged_at = bool(item_dict.get("merged_at"))
-            # The requirement count keeps the blocking scan off databases with
-            # no QA rows at all, whose minimal schema need not carry every
-            # column that scan reads.
-            qa_req_row = conn.execute(
-                "SELECT COUNT(*) as cnt FROM qa_requirements WHERE item_id = %s",
-                (item_dict["id"],),
-            ).fetchone()
-            if (qa_req_row["cnt"] if qa_req_row else 0) > 0:
-                unsatisfied_rows = conn.execute(
-                    """SELECT qr.id, qr.qa_phase FROM qa_requirements qr
-                       WHERE qr.item_id = %s AND qr.blocking_mode = 'blocking'
-                       AND qr.waived_at IS NULL
-                       AND NOT EXISTS (
-                           SELECT 1 FROM qa_runs qrun
-                           WHERE qrun.qa_requirement_id = qr.id
-                           AND qrun.verdict = 'pass'
-                       )""",
-                    (item_dict["id"],),
-                ).fetchall()
-                if target_status == "done":
-                    unsatisfied_rows = [
-                        row
-                        for row in unsatisfied_rows
-                        if post_deploy_row_still_blocking(
-                            conn, row, item_id=int(item_dict["id"])
-                        )
-                    ]
-                gate.unsatisfied_all_blocking = len(unsatisfied_rows)
+            gate.unsatisfied_all_blocking = unsatisfied_blocking_count(
+                conn, item_id=int(item_dict["id"]), target_status=target_status
+            )
 
         # Deployed-to validation
         if field == "deployed_to" and value:
