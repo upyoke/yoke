@@ -109,6 +109,9 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 - **Every workflow stays itself.** Read each item's pinned `workflow_id` and
   the scheduler's `next_step`; never convert or re-file incoming work to make
   it Dash-shaped. One worker owns that one item across its routed legs.
+  Before declaring a capability absent or filing follow-up work, verify
+  that pinned workflow (`yoke workflows item get PREFIX-N --json`) and the
+  full command path; a named refusal is evidence, a guess is not.
 - **Dash is the filing default, not the steering boundary.** New work filed by
   the steerer uses Dash unless it is genuinely laneless, merge-free Task work
   (`yoke task TITLE INSTRUCTION --execution-instructions-considered`), needs

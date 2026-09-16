@@ -22,8 +22,11 @@ at the merge commit rather than at the work.
 Close-out therefore compares the current lane candidate to those recorded
 identities before it stamps, records, or cleans. Matching the recorded
 candidate is the same landing even when a squash is not an ancestor of the
-base. A different candidate that the base does not contain is new work: the
-recovery is a fresh work item with its own merge identity, not this close-out.
+base. A different candidate that the base does not contain is new work.
+When this same item has not reached its pinned release wait, that is its
+own next merge — return to implementation, then a fresh review and merge.
+When the item has reached that wait, or the commits are foreign, file a
+fresh work item; do not reset unlanded corrections.
 
 Rebasing after a landing is neither of those, and it is the case sha reads
 cannot see: the base holds the work, the lane holds new shas for the same
@@ -155,9 +158,12 @@ def stale_unlanded_work(
     named = ", ".join(sorted(sha[:12] for sha in identities))
     return (
         f"branch {branch!r} head {current[:12]} is not the recorded landing "
-        f"({named}); file a fresh work item so the new commits get their own "
-        "merge identity. Close-out will not declare them delivered or clean "
-        "this lane"
+        f"({named}). This item has reached its pinned release wait, so the "
+        "commits are foreign or stale work — file a fresh work item so they "
+        "get their own merge identity. Same-item correction before that wait "
+        "returns to implementation for a fresh review and merge; do not "
+        "reset unlanded corrections. Close-out will not declare them delivered "
+        "or clean this lane"
     )
 
 

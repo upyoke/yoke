@@ -74,3 +74,68 @@ def test_a_failed_marker_write_does_not_fail_the_landing(monkeypatch):
     assert landing_pr_mod.ensure_landing_pull_request(
         ctx(repo_root=CHECKOUT), "YOK-200", lane_head=LANE_SHA, item_id=7
     ) == ("42", None)
+
+
+def test_a_create_failure_is_preserved_when_a_stale_pull_request_is_also_present(
+    monkeypatch,
+):
+    """A hard create failure is the refusal, even if a merged pull request
+    for earlier commits is also on the branch. The stale listing is context,
+    not a second-merge prohibition, and reset is never recovery."""
+    from yoke_core.engines.merge_worktree_pr_rest import PrCreateResult
+
+    create_detail = "HTTP 422: Validation Failed — Head sha cannot be resolved"
+    monkeypatch.setattr(
+        landing_pr_mod,
+        "find_landable_pull_request",
+        lambda _ctx, lane_head="": (
+            None,
+            None,
+            "pull request 42 merged head aaaa, not the lane head bbbb",
+        ),
+    )
+    monkeypatch.setattr(
+        landing_pr_mod,
+        "create_pr",
+        lambda _ctx, **_kw: PrCreateResult(
+            pr_url="", pr_num="", error_detail=create_detail
+        ),
+    )
+
+    pr_num, error = landing_pr_mod.ensure_landing_pull_request(
+        ctx(), "YOK-200", lane_head=LANE_SHA
+    )
+
+    assert pr_num == ""
+    assert create_detail in error
+    assert "carries commits beyond the pull request that merged it" in error
+    assert "reset the lane" not in error.lower()
+
+
+def test_a_stale_listing_without_a_hard_create_failure_does_not_recommend_reset(
+    monkeypatch,
+):
+    from yoke_core.engines.merge_worktree_pr_rest import PrCreateResult
+
+    monkeypatch.setattr(
+        landing_pr_mod,
+        "find_landable_pull_request",
+        lambda _ctx, lane_head="": (
+            None,
+            None,
+            "pull request 7 merged head aaaa, not the lane head bbbb",
+        ),
+    )
+    monkeypatch.setattr(
+        landing_pr_mod,
+        "create_pr",
+        lambda _ctx, **_kw: PrCreateResult(
+            pr_url="", pr_num="", already_exists=True
+        ),
+    )
+    pr_num, error = landing_pr_mod.ensure_landing_pull_request(
+        ctx(), "YOK-200", lane_head=LANE_SHA
+    )
+    assert pr_num == ""
+    assert "carries commits beyond the pull request that merged it" in error
+    assert "reset the lane" not in error.lower()
