@@ -76,6 +76,14 @@ export function appendActorMessageRow(context, body, message, acknowledge) {
     "inbox-message-body",
     String(message.body || "Message body unavailable"),
   ));
+  const link = el(documentNode, "a", "review-link", "Messages");
+  link.href = "#/messages";
+  main.appendChild(link);
+  wrap.appendChild(main);
+  // Who sent it and when, in a column of their own on the right. They used
+  // to trail the body, so a long message pushed its own attribution off the
+  // end of a paragraph and the acknowledgement after that.
+  const aside = el(documentNode, "div", "inbox-message-sender");
   const meta = el(documentNode, "div", "inbox-message-meta");
   meta.appendChild(el(
     documentNode,
@@ -83,24 +91,17 @@ export function appendActorMessageRow(context, body, message, acknowledge) {
     null,
     noticeLabel ? "Informational" : `From ${senderDescription(message)}`,
   ));
-  if (message.created_at) {
-    meta.appendChild(el(documentNode, "span", null, " · "));
-    meta.appendChild(relativeTime(documentNode, message.created_at));
-  }
-  meta.appendChild(el(documentNode, "span", null, " · "));
-  const link = el(documentNode, "a", "review-link", "Messages");
-  link.href = "#/messages";
-  meta.appendChild(link);
-  main.appendChild(meta);
-  wrap.appendChild(main);
+  if (message.created_at) meta.appendChild(relativeTime(documentNode, message.created_at));
+  aside.appendChild(meta);
   if (message.actor_receipt?.state === "pending") {
     const button = el(
       documentNode, "button", "inbox-read", noticeLabel ? "Dismiss" : "Acknowledge",
     );
     button.type = "button";
     button.addEventListener("click", () => acknowledge(message.message_id, button));
-    wrap.appendChild(button);
+    aside.appendChild(button);
   }
+  wrap.appendChild(aside);
   body.appendChild(wrap);
 }
 

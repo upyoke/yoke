@@ -275,10 +275,7 @@ test("a carried item's own QA is shown beside that item, labelled as its own", a
     /1 check · 1 undetermined/,
   );
   assert.equal(byClass(evidence, "review-shot").length, 1);
-  assert.match(
-    byClass(evidence, "carried-item-evidence-note")[0].textContent,
-    /no deployment run/,
-  );
+  assert.equal(byClass(evidence, "carried-item-evidence-note").length, 0);
 });
 
 test("a member's QA review is offered once, on that member's row", async (t) => {

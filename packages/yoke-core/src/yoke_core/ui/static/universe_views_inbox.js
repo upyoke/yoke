@@ -17,11 +17,17 @@ import {
 } from "./inbox_rows.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import {
+  appendMoreDisclosure,
+} from "./universe_sessions_holdings_disclosure.js";
+import {
   appendCarriedItemEvidence,
   loadCarriedItemEvidence,
 } from "./universe_carried_item_evidence.js";
 
 export { inboxPresentation } from "./inbox_presentation.js";
+
+// How many carried items an approval lists before it offers the rest.
+const CARRIED_ITEMS_VISIBLE = 4;
 
 function projectLabel(context, row) {
   const projects = typeof context.projects === "function"
@@ -73,9 +79,9 @@ function approvalCarried(row) {
 }
 
 // A release approval decides a deployment, not the QA its carried items
-// recorded. Showing that QA here is supporting context for the person
-// approving, so the block says which decision it is not: each item review
-// under it is its own request, answered on its own terms.
+// recorded. That separation is structural — each item review under this
+// block is its own request with its own answer — so the block carries it in
+// its shape rather than in a sentence repeated on every card that has one.
 function appendApprovalCarried(context, card, row, facts, onDecide) {
   const { items, basis } = approvalCarried(row);
   if (!items.length) return;
@@ -87,18 +93,20 @@ function appendApprovalCarried(context, card, row, facts, onDecide) {
     "release-batch-title",
     `Carries · ${items.length} item${items.length === 1 ? "" : "s"}`,
   ));
-  wrap.appendChild(el(
-    documentNode,
-    "p",
-    "approval-carried-note",
-    (basis === CARRIED_BASIS_MEMBERSHIP
-      ? "This run's declared members; its release lineage could not be "
-        + "derived, so trunk changes beyond these are unknown. "
-      : "")
-      + "Supporting context. Approving this deployment does not approve these "
-      + "items' QA — each review below is its own request.",
-  ));
-  for (const item of items) {
+  // Only when the list is narrower than it looks. The sentence about this
+  // approval not approving the items' QA is gone — the block's shape says
+  // that now — but a list that could not be derived from release lineage is
+  // a fact about the data, not an explanation of the layout.
+  if (basis === CARRIED_BASIS_MEMBERSHIP) {
+    wrap.appendChild(el(
+      documentNode,
+      "p",
+      "approval-carried-note",
+      "This run's declared members; its release lineage could not be "
+      + "derived, so trunk changes beyond these are unknown.",
+    ));
+  }
+  const entryFor = (item) => {
     const entry = el(documentNode, "div", "release-member");
     entry.appendChild(el(
       documentNode, "code", null, item.ref || `item ${item.item_id}`,
@@ -110,7 +118,28 @@ function appendApprovalCarried(context, card, row, facts, onDecide) {
       facts,
       onDecide,
     });
-    wrap.appendChild(entry);
+    return entry;
+  };
+  for (const item of items.slice(0, CARRIED_ITEMS_VISIBLE)) {
+    wrap.appendChild(entryFor(item));
+  }
+  // A release of twenty items used to draw twenty entries with their
+  // evidence, which is a wall rather than a card. The rest are still here,
+  // one press away, and none of them is dropped.
+  if (items.length > CARRIED_ITEMS_VISIBLE) {
+    const region = el(documentNode, "div", "release-member-rest");
+    region.setAttribute("role", "region");
+    region.setAttribute("aria-label", "More carried items");
+    for (const item of items.slice(CARRIED_ITEMS_VISIBLE)) {
+      region.appendChild(entryFor(item));
+    }
+    wrap.appendChild(region);
+    appendMoreDisclosure(documentNode, wrap, {
+      key: `inbox-carried:${row.id}`,
+      hiddenCount: items.length - CARRIED_ITEMS_VISIBLE,
+      region,
+      label: "carried items",
+    });
   }
   card.appendChild(wrap);
 }

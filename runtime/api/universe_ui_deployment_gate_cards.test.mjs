@@ -150,10 +150,9 @@ test("an unsettled consequence is its own top-level answer", async () => {
     byClass(main, "review-title")[0].textContent,
     "Approve review example",
   );
-  assert.equal(
-    byClass(main, "review-effect")[0].textContent,
-    "Deployment effect is unknown. Treat this as a deploy decision.",
-  );
+  // An unknown effect says nothing rather than something: the alternative
+  // was a sentence that told an approver only that nobody knew.
+  assert.equal(byClass(main, "review-effect").length, 0);
   const body = gateText(main);
   assert.ok(!body.includes("Why this deploys nothing"), body);
   assert.ok(!body.includes("merge-only"), body);
