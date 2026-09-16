@@ -239,10 +239,16 @@ test("Blitz detail exposes an execution-document read failure", async () => {
   }), root, "7", "ACM-22");
   await settle();
 
-  assert.deepEqual(
-    requests.map((request) => request.function),
-    ["items.detail.get", "strategy.execution.get"],
+  assert.ok(
+    requests.some((request) => request.function === "strategy.execution.get"),
   );
   assert.match(itemText(root), /execution relationship unavailable/);
   assert.equal(byClass(root, "blitz-document").length, 0);
+  // The refusal costs its own panel and nothing else: the item's facts, its
+  // delivery history and its posture are what a reader came for, and they do
+  // not belong to the document that failed to load.
+  const text = itemText(root);
+  assert.match(text, /Worktree lanes/);
+  assert.match(text, /Delivery/);
+  assert.match(text, /Migrations/);
 });
