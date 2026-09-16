@@ -47,6 +47,7 @@ def gate_upstream_for_preparation(
     item: Mapping[str, Any],
     *,
     no_worktree: bool,
+    skip: bool = False,
 ) -> UpstreamGate:
     """Read the remote and say whether this preparation may proceed.
 
@@ -55,8 +56,13 @@ def gate_upstream_for_preparation(
     no default branch, and whatever checkout the caller happens to be
     standing in is not a substitute for one: gating on it would refuse work
     over the freshness of a repository the item has nothing to do with. No
-    checkout or no declared branch therefore yields an empty gate.
+    checkout or no declared branch therefore yields an empty gate. A
+    recorded no-change skip is not laneless work: there is no lane to cut
+    and no default-branch commit, so the remote is not this preparation's
+    question.
     """
+    if skip:
+        return UpstreamGate()
     declared = str((item.get("project") or {}).get("default_branch") or "")
     if not repo_root or not declared:
         return UpstreamGate()

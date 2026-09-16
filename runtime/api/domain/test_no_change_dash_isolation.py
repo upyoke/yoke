@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
+from types import SimpleNamespace
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.fixtures.session_holdings import insert_item_claim, insert_session
@@ -17,14 +18,27 @@ from yoke_contracts.conflict_survey import DURABLE_RECORDED
 from yoke_core.domain import db_helpers
 from yoke_core.domain import direct_workflow_activation_gate as activation
 from yoke_core.domain import direct_workflow_worktree_preflight as preflight
+from yoke_core.domain import worktree_create
+from yoke_core.domain import worktree_preflight as wp
+from yoke_core.domain import worktree_preflight_upstream as upstream
 from yoke_core.domain.handlers.direct_workflow_execution import handle_dash_survey
+from yoke_core.domain.repo_upstream_freshness import STATE_CURRENT, UpstreamFreshness
 from yoke_core.domain.workflow_behavior import WorktreeLanePolicy
-from yoke_core.domain.worktree_preflight_outcome import WorktreePreflightOutcome
+from yoke_core.domain.worktree_preflight_repo_resolution import PreflightLaneTarget
 
 _LANE_REQUIRED = WorktreeLanePolicy(
     allowed_roles=frozenset({"implementation"}),
     required_roles=frozenset({"implementation"}),
 )
+_ITEM = {
+    "id": 7102,
+    "public_ref": "YOK-7102",
+    "workflow": {
+        "id": "dash",
+        "policies": {"worktrees": "single_implementation_lane"},
+    },
+    "project": {"slug": "yoke", "default_branch": "main"},
+}
 
 
 @contextmanager
@@ -51,62 +65,100 @@ def _survey_status(*, no_changes: bool) -> dict:
     }
 
 
-def _capture_prepare(monkeypatch, *, no_changes: bool) -> dict:
-    captured: dict = {}
+def _ok(function_id: str, result: dict) -> FunctionCallResponse:
+    return FunctionCallResponse(
+        success=True, function=function_id, version="v1", result=result
+    )
+
+
+def _install_real_prepare(monkeypatch, *, no_changes: bool) -> dict:
+    """Drive the real preflight; explode git/create on a no-change survey."""
+    captured: dict = {"create": [], "git": []}
 
     def _dispatch(*, function_id, **_kwargs):
         if function_id == "items.detail.get":
-            return FunctionCallResponse(
-                success=True,
-                function=function_id,
-                version="v1",
-                result={"item": {"id": 7102, "workflow": {"id": "dash"}}},
-            )
+            return _ok(function_id, {"item": _ITEM})
         if function_id == "direct_workflow.conflict_survey.status":
-            return FunctionCallResponse(
-                success=True,
-                function=function_id,
-                version="v1",
-                result=_survey_status(no_changes=no_changes),
-            )
+            return _ok(function_id, _survey_status(no_changes=no_changes))
+        if function_id == "claims.work.holder_get":
+            return _ok(function_id, {"holder": {"session_id": "session"}})
+        if function_id == "claims.path.survey_ensure":
+            return _ok(function_id, {})
         raise AssertionError(function_id)
 
     monkeypatch.setattr(
         "yoke_core.api.service_client_structured_api_adapter.call_dispatcher",
         _dispatch,
     )
+    monkeypatch.setattr(
+        wp, "resolve_item_branch_and_lane", lambda _id: ("YOK-7102", None)
+    )
+    monkeypatch.setattr(wp, "_normalize_repo_root", lambda candidate: candidate)
+    monkeypatch.setattr(wp, "claim_work", lambda _id: (True, "(already owned)"))
+    monkeypatch.setattr(wp, "activate_path_claims", lambda _id: (True, "", []))
+    monkeypatch.setattr(
+        "yoke_core.domain.worktree_preflight_repo_resolution.resolve_preflight_lane_target",
+        lambda **_k: PreflightLaneTarget(
+            repo_root="/tmp/yoke-no-change-repo", project_slug="yoke"
+        ),
+    )
+    monkeypatch.setattr(
+        wp,
+        "evaluate_dirty_main_for_item",
+        lambda *_a, **_k: SimpleNamespace(
+            blocked=False,
+            kind="",
+            narrative="",
+            needed_paths=(),
+            source_root_prefixes=(),
+            warning_note="",
+        ),
+    )
 
-    def fake_preflight(**kwargs):
-        captured.update(kwargs)
-        out = WorktreePreflightOutcome(ok=True, item_id=7102)
-        if kwargs.get("no_worktree"):
-            out.actions_taken.append("worktree:skipped")
-        else:
-            out.worktree_path = "/repo/.worktrees/ITEM"
-            out.actions_taken.append("worktree:created")
-        return out
+    def _create(**kwargs):
+        captured["create"].append(kwargs)
+        if no_changes:
+            raise AssertionError("create_worktree must not run for a no-change survey")
+        return worktree_create.CreateWorktreeResult(
+            path="/tmp/yoke-no-change-repo/.worktrees/YOK-7102",
+            branch="YOK-7102",
+            created=True,
+        )
 
-    monkeypatch.setattr(preflight, "run_preflight", fake_preflight)
+    def _git(*_a, **_k):
+        captured["git"].append(True)
+        if no_changes:
+            raise AssertionError("git fetch must not run for a no-change survey")
+        return UpstreamFreshness(
+            state=STATE_CURRENT,
+            verified=True,
+            local_branch_current=True,
+            lane_base_is_current=True,
+            lane_base_ref="main",
+        )
+
+    monkeypatch.setattr(worktree_create, "create_worktree", _create)
+    monkeypatch.setattr(upstream, "refresh_base_branch", _git)
     return captured
 
 
 def test_no_change_prepare_skips_the_git_lane(monkeypatch, capsys):
-    captured = _capture_prepare(monkeypatch, no_changes=True)
+    captured = _install_real_prepare(monkeypatch, no_changes=True)
 
     assert preflight.run(["YOK-7102", "--workflow", "dash", "--json"]) == 0
-    assert captured["no_worktree"] is True
-    assert captured["prepare_path_claims"] is None
+    assert captured["create"] == []
+    assert captured["git"] == []
     envelope = json.loads(capsys.readouterr().out)
     assert "worktree:skipped" in envelope["actions_taken"]
     assert any("no-change" in note for note in envelope["notes"])
 
 
 def test_path_survey_prepare_still_creates_a_lane(monkeypatch, capsys):
-    captured = _capture_prepare(monkeypatch, no_changes=False)
+    captured = _install_real_prepare(monkeypatch, no_changes=False)
 
     assert preflight.run(["YOK-7102", "--workflow", "dash", "--json"]) == 0
-    assert captured["no_worktree"] is False
-    assert captured["prepare_path_claims"] is not None
+    assert captured["create"]
+    assert captured["git"]
     envelope = json.loads(capsys.readouterr().out)
     assert "worktree:created" in envelope["actions_taken"]
 
@@ -121,15 +173,6 @@ def _force_lane_policy(monkeypatch) -> None:
 
 
 def _claimed_dash(test_db, item_id: int, session_id: str) -> None:
-    test_db.execute(
-        "CREATE TABLE IF NOT EXISTS item_sections ("
-        "item_id INTEGER NOT NULL REFERENCES items(id), "
-        "section_name TEXT NOT NULL, content TEXT NOT NULL, "
-        "ordering INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, "
-        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, "
-        "PRIMARY KEY(item_id, section_name))"
-    )
-    test_db.commit()
     insert_item(test_db, id=item_id, workflow_id="dash", title="No change")
     insert_session(test_db, session_id)
     insert_item_claim(test_db, session_id, item_id)
@@ -168,14 +211,20 @@ def test_path_survey_activation_still_requires_a_worktree(test_db, monkeypatch):
         _request(
             "direct_workflow.dash.survey",
             item_id,
-            {"paths": ["src/x.py"], "path_sizes": [{
-                "path": "src/x.py",
-                "current_line_count": 10,
-                "remaining_headroom": 340,
-                "at_or_over_limit": False,
-                "limit": 350,
-                "classification": "authored",
-            }], "no_changes": False},
+            {
+                "paths": ["src/x.py"],
+                "path_sizes": [
+                    {
+                        "path": "src/x.py",
+                        "current_line_count": 10,
+                        "remaining_headroom": 340,
+                        "at_or_over_limit": False,
+                        "limit": 350,
+                        "classification": "authored",
+                    }
+                ],
+                "no_changes": False,
+            },
         )
     )
     assert recorded.primary_success is True

@@ -76,6 +76,7 @@ def run_preflight(
     session_id: str = "",
     actual_cwd: str = "",
     no_worktree: bool = False,
+    skip_upstream: bool = False,
     prepare_path_claims: Optional[Callable[[], Optional[str]]] = None,
 ) -> WorktreePreflightOutcome:
     """Run the harness-universal advance implementation-entry preflight."""
@@ -205,7 +206,9 @@ def run_preflight(
     )
 
     # Step 2.5 — upstream freshness, and what it means for this preparation.
-    gate = gate_upstream_for_preparation(repo_root, item, no_worktree=no_worktree)
+    gate = gate_upstream_for_preparation(
+        repo_root, item, no_worktree=no_worktree, skip=skip_upstream
+    )
     freshness = gate.freshness
     if freshness is not None:
         out.actions_taken.append(f"upstream:{freshness.state}")
