@@ -156,9 +156,11 @@ class TestRetryRecomputeMirrorsIncident:
         assert action is not None
         assert action.action == ActionKind.CHARGE
         # Without a rendering connection the frontier has no reference to
-        # show, and says so rather than presenting the internal id as one.
-        assert "items.id 1723" in action.context["selected_item"]
+        # show, and says so without a number: the id names a different item
+        # to whoever reads it. The claim invariant below still checks the
+        # typed scope, which is where the identity actually lives.
         assert "no control-plane read" in action.context["selected_item"]
+        assert "1723" not in action.context["selected_item"]
         ok, err = validate_charge_claim_invariant(
             action,
             {"target_kind": "item", "scope": {"item_id": 1723}},

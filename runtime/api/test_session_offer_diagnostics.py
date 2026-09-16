@@ -136,10 +136,10 @@ def test_wip_saturated_candidates_name_cap_active_count_and_occupants():
         "no control-plane read" in occupant
         for occupant in wip_entry["occupying_items"]
     )
-    assert [
-        occupant for occupant in wip_entry["occupying_items"]
-        if "items.id 901" in occupant or "items.id 902" in occupant
-    ] == wip_entry["occupying_items"]
+    assert all(
+        "901" not in occupant and "902" not in occupant
+        for occupant in wip_entry["occupying_items"]
+    )
     assert len(wip_entry["eliminated_items"]) == 3
     assert offer_diagnostics["top_eliminator"] == {
         "filter": "wip_cap",

@@ -208,7 +208,8 @@ def test_path_claim_register_overlap_denial_embeds_coordination_decision() -> No
         conn=None,
     )
     assert "BLOCKED: path-claim register overlap on item " in body_text
-    assert "items.id 123" in body_text
+    assert "unresolved item ref" in body_text
+    assert "123" not in body_text
     assert "yoke claims path coordination-decision-build " in body_text
     assert "--conflicting-claim " in body_text
     assert "--paths" in body_text
