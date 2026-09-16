@@ -19,22 +19,14 @@ from yoke_contracts.github_workflow_dispatch import (
 from yoke_core.domain import browser_qa_preview_identity as preview_identity
 from yoke_core.domain import deploy_preview_receipt_producer as producer
 from yoke_core.domain import served_revision_probe as probe
-from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
-    workflow_dispatch_request_id,
-)
 from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
     ProducerContext,
     RECEIPT_PRODUCERS,
     SUPPORTED_TARGET_KINDS,
 )
-from yoke_core.domain.deploy_preview_dispatch_boundary import (
-    release_preview_identity,
-)
 from yoke_core.domain.ephemeral_substrate import (
-    frozen_preview_slug,
-    is_frozen_preview_slug,
+    is_release_preview_slug,
     preview_url,
-    slugify_branch,
 )
 
 
@@ -44,12 +36,9 @@ RUN_ID = "run-20260915-001"
 STAGE = "preview"
 PROJECT = "testproj"
 DOMAIN = "preview.example.test"
-#: Where this run's preview lands — derived the way the producer derives it,
-#: from the release identity rather than from any readable name, so a test
-#: that passes here is asserting the same rule the code applies.
-ORIGIN = preview_url(
-    frozen_preview_slug(release_preview_identity(PROJECT, RUN_ID, STAGE)), DOMAIN
-)
+#: Where this run's preview lands: the run's own id, published verbatim by
+#: whichever path deploys it.
+ORIGIN = preview_url(RUN_ID, DOMAIN)
 
 
 def _context(dispatch_result=(0, "preview deployed"), **overrides) -> ProducerContext:
@@ -143,8 +132,9 @@ class TestRunPreviewProducer:
         ) as probed:
             producer.run_preview_producer(_context())
         assert asked == [PROJECT]
-        assert is_frozen_preview_slug(probed.call_args.args[0].split("//")[1].split(".")[0])
-        assert slugify_branch(RUN_ID) not in probed.call_args.args[0]
+        assert is_release_preview_slug(
+            probed.call_args.args[0].split("//")[1].split(".")[0]
+        )
 
     def test_a_preview_serving_another_commit_produces_no_receipt(self) -> None:
         """The deploy succeeded; the preview is not this candidate."""
@@ -220,9 +210,8 @@ class TestAProjectWhoseWorkflowDeploysThePreview:
 
     Where the project's own GitHub workflow publishes them, the run's frozen
     candidate and the preview's name travel as dispatch inputs, and the
-    preview lands at an origin derived from that dispatch rather than from
-    the run id. The producer has to probe the one that was actually
-    deployed.
+    workflow publishes that name verbatim. The producer has to probe the one
+    that was actually deployed.
     """
 
     @staticmethod
@@ -232,14 +221,17 @@ class TestAProjectWhoseWorkflowDeploysThePreview:
         context.stage["config"] = {
             "workflow": "webapp-ephemeral.yml",
             "dispatch_correlation_input": WORKFLOW_DISPATCH_CORRELATION_INPUT,
-            "inputs": {"commit_sha": "{head_sha}"},
+            "inputs": {
+                "commit_sha": "{head_sha}",
+                "preview_slug": "{preview_slug}",
+            },
         }
         return context
 
     def test_it_probes_the_one_origin_both_paths_publish(self) -> None:
-        """One run, one preview, one URL: the workflow derives the name by
-        hashing the dispatch identity it receives, and the receipt derives
-        the same name from the same identity before the deploy answers."""
+        """One run, one preview, one URL: the workflow publishes the name it
+        is handed, and the receipt knows that name before the deploy
+        answers, because both read it off the run."""
         context = self._dispatching_context()
         with _resolved(
             path="/candidate-revision",
@@ -253,12 +245,7 @@ class TestAProjectWhoseWorkflowDeploysThePreview:
         assert probed.call_args.args[0] == ORIGIN
         assert observation is not None
         assert observation.observed_url == ORIGIN
-        assert ORIGIN == preview_url(
-            frozen_preview_slug(
-                workflow_dispatch_request_id(PROJECT, RUN_ID, STAGE)
-            ),
-            DOMAIN,
-        )
+        assert ORIGIN == preview_url(RUN_ID, DOMAIN)
 
     def test_a_stage_that_cannot_carry_the_candidate_deploys_nothing(self) -> None:
         """A stage passing no frozen revision would let the workflow resolve

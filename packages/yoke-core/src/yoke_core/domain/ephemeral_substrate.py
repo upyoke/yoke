@@ -8,15 +8,14 @@ nginx njs router and GitHub Actions prepare job installed by the
 Python is absent; this module is the source of truth they must match (locked
 by golden-vector tests in ``test_ephemeral_substrate.py``).
 
-Per-project policy lives in the ``ephemeral-env`` project capability:
-which project and environment own the preview host (``host_project`` and
-``host_env``), the
-wildcard preview domain (``preview_domain``, whose ``rel-`` slug namespace
-is reserved for frozen release previews), how deploys are triggered
-(``trigger``: ``"flow"`` for a core-service executor or ``"github-push"``
-for a GitHub-Actions instantiation), the project-owned deployment flow used by
-the flow trigger (``flow_id``), the port
-ranges, and the teardown TTL.
+Per-project policy lives in the ``ephemeral-env`` project capability: which
+project and environment own the preview host (``host_project`` and
+``host_env``), the wildcard preview domain (``preview_domain``, whose
+deployment-run slug namespace is reserved for release previews), how deploys
+are triggered (``trigger``: ``"flow"`` for a core-service executor or
+``"github-push"`` for a GitHub-Actions instantiation), the project-owned
+deployment flow used by the flow trigger (``flow_id``), the port ranges, and
+the teardown TTL.
 """
 
 from __future__ import annotations
@@ -40,17 +39,15 @@ _DEFAULT_API_BASE_PORT = 9000
 _DEFAULT_PORT_RANGE = 100
 _DEFAULT_TTL_HOURS = 24
 
-#: Hex characters of the digest a frozen preview slug carries.
-FROZEN_PREVIEW_SLUG_DIGEST_LENGTH = 32
-#: Slugs beginning with this are reserved for frozen release previews, and
-#: nothing named any other way may land in it. A branch is free to be called
-#: anything, and one called ``rel-<32 hex>`` would otherwise slugify onto a
-#: release preview's occupancy — taking over its directory, its port and its
-#: URL, under a name whose ownership check has no frozen candidate to match.
-FROZEN_PREVIEW_SLUG_PREFIX = "rel-"
-_FROZEN_PREVIEW_SLUG_RE = re.compile(
-    rf"^{FROZEN_PREVIEW_SLUG_PREFIX}[0-9a-f]{{{FROZEN_PREVIEW_SLUG_DIGEST_LENGTH}}}$"
+#: A release preview is published under its deployment run's own id, so the
+#: URL a reviewer is handed reads as the release being reviewed. The shape is
+#: reserved: a branch called ``run-20260916-014`` would otherwise slugify
+#: onto one, taking its directory, port and URL.
+RELEASE_PREVIEW_SLUG_RE = re.compile(
+    r"^run-[0-9]{8}-[0-9]{3,}(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$"
 )
+#: The slug is the preview host's leftmost label; longer resolves nowhere.
+MAX_PREVIEW_SLUG_LENGTH = 63
 
 #: Sanctioned trigger models for ephemeral deploys.
 TRIGGER_FLOW = "flow"
@@ -87,41 +84,63 @@ def slugify_branch(branch: str) -> str:
     return "".join(out).strip("-")
 
 
-def frozen_preview_slug(dispatch_id: str) -> str:
-    """The slug a preview of one frozen candidate is published under.
+def release_preview_slug(run_id: str, discriminator: str = "") -> str:
+    """The slug this run's release preview is published under.
 
     A branch preview is named for its branch, which is what lets the next
     push replace it. A release preview must survive exactly that, so it is
-    named for the dispatch that created it instead: the deploy workflow
-    hashes the same opaque dispatch identity and serves the result, and
-    this is the side of that parity contract Yoke computes from — the
-    probe has to know the URL before the deploy reports one.
-
-    Parity contract with the deploy workflow's own derivation (locked by
-    golden vectors in ``test_ephemeral_substrate.py``): ``rel-`` followed
-    by the first 32 hex characters of the SHA-256 of the identity, hashed
-    whole rather than truncated first.
+    named for the deployment run instead: one run, one preview, one URL,
+    identical on every retry because a run id never moves. The slug is the
+    whole identity rather than a derivation from one — the deploy workflow
+    receives this exact string and publishes it verbatim, so there is no
+    algorithm for the two sides to drift apart on, which is what happened
+    when each hashed a different value and Yoke probed a host nothing had
+    deployed. *discriminator* names one preview among several in a single
+    run, and only a flow deploying more than one carries it;
+    ``deployment_flow_policy`` requires a distinct one per stage.
     """
-    if not dispatch_id:
+    run_id = (run_id or "").strip()
+    if not run_id:
         raise EphemeralPolicyError(
-            "a frozen preview slug needs the dispatch identity it is named "
-            "for; an empty identity would collide with every other empty one"
+            "a release preview slug needs the deployment run it is named for"
         )
-    digest = hashlib.sha256(dispatch_id.encode("utf-8")).hexdigest()
-    slug = FROZEN_PREVIEW_SLUG_PREFIX + digest[:FROZEN_PREVIEW_SLUG_DIGEST_LENGTH]
+    discriminator = (discriminator or "").strip()
+    return require_release_preview_slug(
+        f"{run_id}-{discriminator}" if discriminator else run_id
+    )
+
+
+def require_release_preview_slug(slug: str) -> str:
+    """Return *slug* when it is a publishable release-preview name.
+
+    Checked where it is built and again where it is used: the slug is both a
+    hostname label and a directory on the preview host, so anything else
+    publishes nowhere and claims an unaddressable occupancy.
+    """
+    if not is_release_preview_slug(slug):
+        raise EphemeralPolicyError(
+            f"release preview slug {slug!r} is not the reserved release "
+            "shape run-YYYYMMDD-NNN[-discriminator]; a release preview is "
+            "named for its run, and only that namespace is protected from "
+            "a branch of the same name"
+        )
+    if len(slug) > MAX_PREVIEW_SLUG_LENGTH:
+        raise EphemeralPolicyError(
+            f"release preview slug {slug!r} is {len(slug)} characters, over "
+            f"the {MAX_PREVIEW_SLUG_LENGTH}-character DNS label limit it is "
+            "published as; shorten the stage's preview_discriminator"
+        )
     return slug
 
 
-def is_frozen_preview_slug(slug: str) -> bool:
-    """Whether *slug* occupies the reserved frozen-preview namespace.
+def is_release_preview_slug(slug: str) -> bool:
+    """Whether *slug* occupies the reserved release-preview namespace.
 
     Every preview surface that names an occupancy some other way asks this
-    first. The reservation is only real if the paths that could collide with
-    it refuse to: a branch preview landing here would serve a moving branch
-    at a frozen candidate's URL, which is the one thing that URL promises
-    never happens.
+    first: a branch preview landing here would serve a moving branch at a
+    frozen candidate's URL, the one thing that URL promises never happens.
     """
-    return bool(_FROZEN_PREVIEW_SLUG_RE.fullmatch(slug))
+    return bool(RELEASE_PREVIEW_SLUG_RE.fullmatch(slug))
 
 
 def derive_port(slug: str, base_port: int, port_range: int) -> int:

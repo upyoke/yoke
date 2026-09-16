@@ -1,0 +1,129 @@
+# ephemeral-deploy.yml — Deploy an ephemeral environment
+#
+# Two kinds of preview, one substrate. A branch push deploys that branch's
+# current head under the branch slug, and keeps following it. A
+# workflow_dispatch carrying commit_sha + preview_slug deploys one frozen
+# candidate under exactly the name the dispatcher recorded, so a later push
+# to any branch cannot replace it — which is what lets the preview's URL be
+# cited as evidence of the commit a reviewer saw.
+#
+# Triggers on every push except main and hotfix/** branches.
+# Derives deterministic port offsets from the branch SLUG hash for internal
+# container-to-proxy mapping:
+#   - API port: {{api_port_base}} + (hash % {{preview_port_range}})
+#   - Web port: {{preview_web_port_base}} + (hash % {{preview_port_range}})
+# Production uses {{api_port}}/{{web_port}}, so these ranges never collide.
+# Supports up to {{preview_port_range}} distinct port offsets.
+#
+# Deploy strategy: rsync (same as production), not git.
+# Each preview gets its own directory: ~/{{preview_namespace}}/<slug>/
+# with a .env copied from production and port overrides applied.
+#
+# Pack install settings:
+#   {{project_name}}         — project identifier (lowercase)
+#   {{PROJECT_NAME_UPPER}}   — project identifier (UPPER_CASE, for secret names)
+#   {{preview_namespace}}    — preview-only host resource prefix
+#   {{preview_domain}}       — wildcard domain for preview URLs
+#   Uses ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }} for SSH user (secret-based)
+#
+# Secrets required:
+#   {{PROJECT_NAME_UPPER}}_SSH_KEY  — SSH private key for droplet access
+#   {{PROJECT_NAME_UPPER}}_SSH_HOST — Droplet IP
+
+name: Deploy Ephemeral Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Frozen candidate to deploy: one full 40-hex commit SHA. Required together with preview_slug.'
+        required: false
+        type: string
+        default: ''
+      preview_slug:
+        description: 'Recorded name of this release preview (run-YYYYMMDD-NNN[-discriminator]). Published verbatim. Required together with commit_sha.'
+        required: false
+        type: string
+        default: ''
+      yoke_dispatch_id:
+        description: 'Opaque dispatch correlation for response-loss recovery. Never names the preview.'
+        required: false
+        type: string
+        default: ''
+  push:
+    branches-ignore:
+      - main
+      - 'hotfix/**'
+
+concurrency:
+  # A release preview is keyed by its own recorded name, and is never
+  # cancelled in flight: two dispatches under one name carry the same frozen
+  # candidate, so the later one has nothing different to deploy and the
+  # earlier one may already be serving a review. Keying on the dispatch
+  # correlation instead would let a retry run beside the deploy it repeats,
+  # because that token is per-attempt.
+  group: ephemeral-${{ github.event.inputs.preview_slug || github.ref_name }}
+  cancel-in-progress: ${{ github.event.inputs.preview_slug == '' }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      branch_exists: ${{ steps.slug.outputs.branch_exists }}
+      branch_slug: ${{ steps.slug.outputs.occupancy_slug }}
+      candidate_sha: ${{ steps.slug.outputs.candidate_sha }}
+      preview_slug: ${{ steps.slug.outputs.preview_slug }}
+      api_port: ${{ steps.ports.outputs.api_port }}
+      web_port: ${{ steps.ports.outputs.web_port }}
+    steps:
+      - name: Checkout the occupancy guard
+        uses: {{checkout_action}}
+
+      - name: Resolve preview slug and candidate
+        id: slug
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_SHA: ${{ github.event.inputs.commit_sha }}
+          PREVIEW_SLUG: ${{ github.event.inputs.preview_slug }}
+          BRANCH_NAME: ${{ github.ref_name }}
+          GIT_HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # One resolver for both kinds of preview. It refuses a branch whose
+          # slug lands in the reserved run-named namespace, the only way a
+          # branch could reach a frozen preview's directory, ports and URL.
+          python3 ops/frozen_preview_occupancy.py resolve \
+            --commit-sha "$COMMIT_SHA" \
+            --preview-slug "$PREVIEW_SLUG" \
+            --branch "$BRANCH_NAME" \
+            --github-sha "$GIT_HEAD_SHA" >> "$GITHUB_OUTPUT"
+          if [ -z "$COMMIT_SHA" ]; then
+            if ! gh api "repos/${GITHUB_REPOSITORY}/branches/${GITHUB_REF_NAME}" > /dev/null 2>&1; then
+              echo "Branch ${GITHUB_REF_NAME} no longer exists — skipping ephemeral deploy."
+              echo "branch_exists=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Compute port offsets
+        if: steps.slug.outputs.branch_exists == 'true'
+        id: ports
+        env:
+          SLUG: ${{ steps.slug.outputs.occupancy_slug }}
+        run: |
+          HASH=$(printf '%s' "$SLUG" | sha256sum | cut -c1-8)
+          OFFSET=$(( 16#$HASH % {{preview_port_range}} ))
+          echo "api_port=$(( {{api_port_base}} + OFFSET ))" >> "$GITHUB_OUTPUT"
+          echo "web_port=$(( {{preview_web_port_base}} + OFFSET ))" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: prepare
+    if: always()
+    uses: ./.github/workflows/{{project_name}}-ephemeral-run.yml
+    with:
+      branch_exists: ${{ needs.prepare.outputs.branch_exists }}
+      branch_slug: ${{ needs.prepare.outputs.branch_slug }}
+      candidate_sha: ${{ needs.prepare.outputs.candidate_sha }}
+      preview_slug: ${{ needs.prepare.outputs.preview_slug }}
+      api_port: ${{ needs.prepare.outputs.api_port }}
+      web_port: ${{ needs.prepare.outputs.web_port }}
+    secrets: inherit

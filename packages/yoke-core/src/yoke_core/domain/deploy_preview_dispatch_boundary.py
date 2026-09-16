@@ -6,44 +6,53 @@ that workflow do it — and a release preview needs the same two things from
 either: the frozen candidate to deploy, and a name that does not move while
 the candidate is under review.
 
-**One identity names it, whichever path deploys it.** Both derive the
-preview from :func:`release_preview_identity`, so one run's preview has one
-name and one URL regardless of who stood it up. That also keeps it inside
-the reserved slug namespace, which is what a branch cannot reach: naming the
-flow path's preview by its readable run id instead put it somewhere a branch
-of that name could take over.
+**One recorded identity names it, whichever path deploys it.** Both take the
+preview's name from :func:`release_preview_identity`, which is the
+deployment run's own id, so one run's preview has one name and one URL
+regardless of who stood it up. The name is carried to the deploy workflow
+verbatim, as its own input, rather than derived on each side from something
+else: naming it after the generic dispatch correlation token instead gave
+Yoke and the workflow two different hosts, because that token is scoped to a
+dispatch attempt and is replaced before the POST.
 
 Everything project-specific stays configured. Which input carries the
-candidate is the stage's own ``inputs`` map, the domain is the project's
-``ephemeral-env`` capability, and the derivation from identity to slug is
-the substrate's parity contract that the ephemeral-environments Pack
-workflow mirrors. Nothing here names a project.
+candidate and which carries the preview name are the stage's own ``inputs``
+map, and the domain is the project's ``ephemeral-env`` capability. Nothing
+here names a project.
 
-The dispatched path needs one more check the flow path does not: that the
-stage, as configured, actually carries those two things to the workflow. A
-stage dispatching the deploy workflow without the frozen candidate lets that
+The dispatched path needs checks the flow path does not: that the stage, as
+configured, actually carries those two things to the workflow. A stage
+dispatching the deploy workflow without the frozen candidate lets that
 workflow resolve its own revision, and the receipt would then read a preview
-of something else and call it proof.
+of something else and call it proof; a stage that carries no preview name
+lets the workflow choose one, which is the drift this contract exists to
+close.
 """
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import re
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from yoke_contracts.github_workflow_dispatch import (
     WORKFLOW_DISPATCH_CORRELATION_INPUT,
 )
 from yoke_core.domain.deploy_pipeline_github_workflow_inputs import (
+    PREVIEW_SLUG_PLACEHOLDER,
     carries_head_sha,
-    workflow_dispatch_request_id,
+    carries_preview_slug,
     workflow_inputs,
 )
 from yoke_core.domain.ephemeral_substrate import (
     TRIGGER_FLOW,
-    frozen_preview_slug,
     preview_url,
+    release_preview_slug,
 )
+
+#: One hostname label segment: a discriminator is published as part of the
+#: preview's own subdomain, so it may hold nothing a DNS label cannot.
+PREVIEW_DISCRIMINATOR_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 #: The step runner that can carry a frozen candidate and a preview name to a
 #: project's own deploy workflow. The other ephemeral step runner deploys a
@@ -51,16 +60,61 @@ from yoke_core.domain.ephemeral_substrate import (
 DISPATCHING_STEP_RUNNER = "github-actions-workflow"
 
 
-def release_preview_identity(project: str, run_id: str, stage_name: str) -> str:
+def preview_discriminator(stage: Mapping[str, Any]) -> str:
+    """The stage's own name for its preview among several in one run."""
+    target = stage.get("target") or {}
+    if not isinstance(target, Mapping):
+        return ""
+    return str(target.get("preview_discriminator") or "").strip()
+
+
+def preview_discriminator_error(value: Any) -> str:
+    """Return why *value* cannot be published as a discriminator, or ""."""
+    if isinstance(value, str) and PREVIEW_DISCRIMINATOR_RE.fullmatch(value):
+        return ""
+    return (
+        "preview_discriminator must be a lowercase hyphen-separated label; "
+        "it is published as part of the preview hostname"
+    )
+
+
+def distinct_previews_error(previews: Sequence[tuple[str, str]]) -> str:
+    """Return why these preview stages would collide, or "".
+
+    A release preview is named for its deployment run, which is what keeps
+    its URL readable and stable across retries. A run deploying two of them
+    therefore needs each stage to say which preview it owns, or both claim
+    the same occupancy and the second replaces the first mid-review.
+    """
+    if len(previews) < 2:
+        return ""
+    unnamed = sorted(name for name, discriminator in previews if not discriminator)
+    if unnamed:
+        return (
+            f"stages {unnamed} each deploy a release preview in the same run, "
+            "so each needs its own target.preview_discriminator; without one "
+            "they resolve to the same run-named preview and the second "
+            "replaces the first"
+        )
+    values = [discriminator for _, discriminator in previews]
+    if len(set(values)) != len(values):
+        return (
+            "release preview stages must declare distinct "
+            f"target.preview_discriminator values, got {sorted(values)}"
+        )
+    return ""
+
+
+def release_preview_identity(stage: Mapping[str, Any], *, run_id: str) -> str:
     """The one name this run's preview is known by, on every path.
 
-    It is the stage's dispatch correlation because a project's own deploy
-    workflow already receives exactly that string and hashes it to name what
-    it publishes. Deploying the same preview through the flow path under a
-    different identity would give one run's preview two URLs, only one of
-    which its receipt ever probes.
+    It is the deployment run's id because that is what the preview is a
+    preview *of*: it is recorded before anything deploys, it does not move
+    while the candidate is reviewed, and it reads as the release in the URL
+    a reviewer is sent. A flow that deploys more than one preview in a run
+    distinguishes them with each stage's own discriminator.
     """
-    return workflow_dispatch_request_id(project, run_id, stage_name)
+    return release_preview_slug(run_id, preview_discriminator(stage))
 
 
 def require_dispatch_carries_candidate(
@@ -84,18 +138,26 @@ def require_dispatch_carries_candidate(
     if correlation != WORKFLOW_DISPATCH_CORRELATION_INPUT:
         return (
             f"stage {stage_name!r} declares dispatch correlation input "
-            f"{correlation or 'none'!r}, so the deploy workflow receives no "
-            "dispatch identity to name this preview after; a release preview "
-            "is addressed by that identity, so set "
-            f"dispatch_correlation_input: {WORKFLOW_DISPATCH_CORRELATION_INPUT} "
-            "on the stage"
+            f"{correlation or 'none'!r}, so a dispatch whose response is lost "
+            "could not be recovered and would redeploy this run's preview "
+            f"blind; set dispatch_correlation_input: "
+            f"{WORKFLOW_DISPATCH_CORRELATION_INPUT} on the stage"
         )
-    if not carries_head_sha(workflow_inputs(config)):
+    values = workflow_inputs(config)
+    if not carries_head_sha(values):
         return (
             f"stage {stage_name!r} passes no input carrying this run's frozen "
             "candidate, so the deploy workflow would resolve its own revision "
             "and the receipt would prove a preview of something else; bind the "
             "workflow's revision input to {head_sha}"
+        )
+    if not carries_preview_slug(values):
+        return (
+            f"stage {stage_name!r} passes no input carrying this run's preview "
+            "name, so the deploy workflow would name the preview itself and "
+            "the receipt would probe a different host than the one deployed; "
+            "bind the workflow's preview name input to "
+            f"{PREVIEW_SLUG_PLACEHOLDER}"
         )
     return ""
 
@@ -126,14 +188,16 @@ def release_preview_origin(
             "its previews are published at cannot be derived and nothing could "
             "be probed"
         )
-    slug = frozen_preview_slug(
-        release_preview_identity(project, run_id, stage_name)
-    )
+    slug = release_preview_identity(stage, run_id=run_id)
     return preview_url(slug, preview_domain), ""
 
 
 __all__ = [
     "DISPATCHING_STEP_RUNNER",
+    "PREVIEW_DISCRIMINATOR_RE",
+    "distinct_previews_error",
+    "preview_discriminator",
+    "preview_discriminator_error",
     "release_preview_identity",
     "release_preview_origin",
     "require_dispatch_carries_candidate",

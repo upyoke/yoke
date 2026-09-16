@@ -18,16 +18,19 @@ from yoke_core.domain import (
 from yoke_core.domain.deploy_preview_dispatch_boundary import (
     release_preview_origin,
 )
-from yoke_core.domain.ephemeral_substrate import (
-    frozen_preview_slug,
-    preview_url,
-)
+from yoke_core.domain.ephemeral_substrate import preview_url
 
 LINEAGE = "a" * 40
 PREVIEW_PROJECT = "webapp"
 PREVIEW_RUN = "run-20260915-001"
 PREVIEW_STAGE = "release-preview"
 PREVIEW_DOMAIN = "preview.example.test"
+#: The stage a release preview is dispatched from, and the name it carries.
+PREVIEW_STAGE_CONFIG = {
+    "workflow": "webapp-ephemeral.yml",
+    "dispatch_correlation_input": WORKFLOW_DISPATCH_CORRELATION_INPUT,
+    "inputs": {"commit_sha": "{head_sha}", "preview_slug": "{preview_slug}"},
+}
 
 
 def _result(
@@ -224,11 +227,7 @@ def _release_preview_dispatch(*, fresh: bool, calls: list) -> None:
         workflow, "_poll_github_actions", return_value=(0, "success"),
     ):
         result = workflow._dispatch_github_actions_workflow(
-            {
-                "workflow": "webapp-ephemeral.yml",
-                "dispatch_correlation_input": WORKFLOW_DISPATCH_CORRELATION_INPUT,
-                "inputs": {"commit_sha": "{head_sha}"},
-            },
+            dict(PREVIEW_STAGE_CONFIG),
             name=PREVIEW_STAGE,
             run_id=PREVIEW_RUN,
             member_items=[],
@@ -239,7 +238,7 @@ def _release_preview_dispatch(*, fresh: bool, calls: list) -> None:
             fresh=fresh,
             gate_branch="main",
             release_lineage=LINEAGE,
-            release_preview=True,
+            preview_slug=PREVIEW_RUN,
             sd="/tmp/sd",
         )
     assert result == (0, "")
@@ -253,39 +252,44 @@ def _sent(call: tuple[str, ...], flag: str) -> str:
     return call[call.index(flag) + 1]
 
 
-def test_a_release_preview_dispatch_carries_candidate_and_correlation() -> None:
+def test_a_release_preview_dispatch_carries_candidate_and_name() -> None:
     """Both, together, or the deploy is not about this run's candidate.
 
-    The revision input is what pins the commit the preview serves, and the
-    correlation is what the deploy workflow names the preview after. Sending
-    one without the other stands up a preview whose URL or whose contents
-    the receipt cannot account for.
+    The revision input pins the commit the preview serves, and the preview
+    name input decides the host it is published at. Sending one without the
+    other stands up a preview whose URL or whose contents the receipt cannot
+    account for. This reads the inputs actually placed on the wire, because
+    the defect this closes lived between the resolved inputs and the POST.
     """
     calls: list = []
     _release_preview_dispatch(fresh=False, calls=calls)
     call = _trigger_calls(calls)[0]
     assert f"commit_sha={LINEAGE}" in call
+    assert f"preview_slug={PREVIEW_RUN}" in call
     assert _sent(call, "--correlation-input") == WORKFLOW_DISPATCH_CORRELATION_INPUT
     assert _sent(call, "--request-id") == workflow_inputs.workflow_dispatch_request_id(
         PREVIEW_PROJECT, PREVIEW_RUN, PREVIEW_STAGE
     )
 
 
-def test_the_dispatched_correlation_resolves_the_probed_occupancy_url() -> None:
-    """The one identity, read off the wire, has to name the URL the receipt
-    probes — otherwise the dispatch deploys to one host and the proof reads
-    another."""
+def test_the_dispatched_name_is_the_probed_occupancy_url() -> None:
+    """The name read off the wire has to be the URL the receipt probes —
+    otherwise the dispatch deploys to one host and the proof reads another,
+    which is exactly what a correlation-derived name produced."""
     calls: list = []
     _release_preview_dispatch(fresh=False, calls=calls)
-    sent_correlation = _sent(_trigger_calls(calls)[0], "--request-id")
+    call = _trigger_calls(calls)[0]
+    sent_slug = next(
+        value.split("=", 1)[1]
+        for value in call
+        if value.startswith("preview_slug=")
+    )
 
     probed, refusal = release_preview_origin(
         {
             "step_runner": "github-actions-workflow",
-            "config": {
-                "dispatch_correlation_input": WORKFLOW_DISPATCH_CORRELATION_INPUT,
-                "inputs": {"commit_sha": "{head_sha}"},
-            },
+            "target": {"kind": "run_preview", "capability": "ephemeral-env"},
+            "config": PREVIEW_STAGE_CONFIG,
         },
         project=PREVIEW_PROJECT,
         run_id=PREVIEW_RUN,
@@ -294,21 +298,18 @@ def test_the_dispatched_correlation_resolves_the_probed_occupancy_url() -> None:
         preview_domain=PREVIEW_DOMAIN,
     )
     assert refusal == ""
-    assert probed == preview_url(frozen_preview_slug(sent_correlation), PREVIEW_DOMAIN)
+    assert probed == preview_url(sent_slug, PREVIEW_DOMAIN)
 
 
 def test_a_fresh_release_preview_retrigger_keeps_the_same_occupancy() -> None:
-    """``--fresh`` on an ordinary stage mints a new scope so GitHub starts a
-    new run. Doing that to a release preview would publish it at a second
-    URL while the receipt kept probing the first, and the deploy workflow
-    reuses an occupancy only for the same correlation — which is safe here
-    because the candidate is frozen."""
+    """``--fresh`` mints a new dispatch scope so GitHub starts a new run.
+    The preview's name does not come from that scope, so both dispatches
+    still publish the same occupancy — safe because the candidate is frozen,
+    and the deploy workflow reuses an occupancy for the same name and commit."""
     calls: list = []
     _release_preview_dispatch(fresh=True, calls=calls)
     _release_preview_dispatch(fresh=True, calls=calls)
-    sent = [_sent(call, "--request-id") for call in _trigger_calls(calls)]
-    base = workflow_inputs.workflow_dispatch_request_id(
-        PREVIEW_PROJECT, PREVIEW_RUN, PREVIEW_STAGE
-    )
-    assert sent == [base, base]
-    assert len({frozen_preview_slug(one) for one in sent}) == 1
+    triggered = _trigger_calls(calls)
+    request_ids = [_sent(call, "--request-id") for call in triggered]
+    assert len(set(request_ids)) == 2
+    assert all(f"preview_slug={PREVIEW_RUN}" in call for call in triggered)

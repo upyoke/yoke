@@ -13,8 +13,9 @@ from yoke_core.domain.ephemeral_substrate import (
     derive_port,
     ephemeral_deploy_dir,
     ephemeral_policy_from_capability,
-    frozen_preview_slug,
+    is_release_preview_slug,
     preview_url,
+    release_preview_slug,
     slugify_branch,
 )
 
@@ -29,27 +30,40 @@ class TestSlugifyBranch:
         )
 
 
-class TestFrozenPreviewSlug:
-    def test_golden_vectors_lock_the_cross_runtime_algorithm(self):
-        """Literal expectations: parity with the deploy workflow's own
-        derivation. Yoke computes the preview's URL before the deploy
-        reports one, so a drift here sends the receipt's proof to a host
-        that is serving something else — or nothing."""
-        assert frozen_preview_slug("deploy:buzz:run-20260915-001:preview") == (
-            "rel-f4f7ee0a04a2f88f0b62216e23d42249"
+class TestReleasePreviewSlug:
+    def test_a_preview_is_named_for_its_deployment_run(self):
+        """Verbatim, because the deploy workflow publishes this exact string.
+        A derivation is something the two sides can disagree about, and the
+        receipt then probes a host nothing deployed."""
+        assert release_preview_slug("run-20260915-001") == "run-20260915-001"
+
+    def test_a_second_preview_in_one_run_carries_its_discriminator(self):
+        assert release_preview_slug("run-20260915-001", "web") == (
+            "run-20260915-001-web"
         )
-        assert frozen_preview_slug("a") == "rel-ca978112ca1bbdcafac231b39a23dc4d"
 
-    def test_hashes_the_whole_identity_rather_than_a_prefix(self):
-        """Truncating first and hashing after would collide every identity
-        sharing a prefix — every stage of one run, for instance."""
-        long_one = "deploy:p:run-20260915-001:" + "x" * 64
-        long_two = "deploy:p:run-20260915-001:" + "x" * 63 + "y"
-        assert frozen_preview_slug(long_one) != frozen_preview_slug(long_two)
+    def test_the_reserved_namespace_is_exactly_that_shape(self):
+        """A branch resolving into it would take a frozen preview's
+        directory, port and URL, so the shape has to be recognisable."""
+        assert is_release_preview_slug("run-20260915-001")
+        assert is_release_preview_slug("run-20260915-0012-web-two")
+        assert not is_release_preview_slug("run-2026915-001")
+        assert not is_release_preview_slug("release-20260915-001")
+        assert not is_release_preview_slug("run-20260915-001-")
 
-    def test_refuses_an_empty_identity(self):
-        with pytest.raises(EphemeralPolicyError, match="dispatch identity"):
-            frozen_preview_slug("")
+    def test_refuses_an_empty_run(self):
+        with pytest.raises(EphemeralPolicyError, match="deployment run"):
+            release_preview_slug("")
+
+    def test_refuses_a_name_outside_the_reserved_namespace(self):
+        with pytest.raises(EphemeralPolicyError, match="reserved release shape"):
+            release_preview_slug("preview-for-main")
+
+    def test_refuses_a_discriminator_that_overruns_the_dns_label(self):
+        """The slug is published as one hostname label, so a longer one
+        resolves nowhere."""
+        with pytest.raises(EphemeralPolicyError, match="DNS label limit"):
+            release_preview_slug("run-20260915-001", "a" * 60)
 
 
 class TestDerivePort:

@@ -67,7 +67,7 @@ def _dispatch_github_actions_workflow(
     product_repo_path: str = "",
     image_tag: str = "",
     environment_name: str = "",
-    release_preview: bool = False,
+    preview_slug: str = "",
     sd: Optional[str] = None,
 ) -> tuple[int, str]:
     """Handle github-actions-workflow step_runner.
@@ -177,7 +177,8 @@ def _dispatch_github_actions_workflow(
 
     workflow_inputs = _resolve_workflow_inputs(
         raw_workflow_inputs, head_sha=head_sha, run_id=run_id,
-        target_environment=environment_name, bound=bound_inputs,
+        target_environment=environment_name, preview_slug=preview_slug,
+        bound=bound_inputs,
     )
 
     ga_run_id = ""
@@ -188,7 +189,7 @@ def _dispatch_github_actions_workflow(
     )
     if fresh:
         print("  --fresh: skipping existing-run search, will trigger new run")
-        retrigger_scope = _fresh_retrigger_scope(release_preview=release_preview)
+        retrigger_scope = _fresh_retrigger_scope()
     elif not reconcile_by_head_sha:
         narrate_sha_only_search_skip(reconcile_disabled=True)
     elif workflow_inputs:
@@ -237,6 +238,7 @@ def _dispatch_github_actions_workflow(
                 raw_workflow_inputs=raw_workflow_inputs,
                 head_sha=head_sha, run_id=run_id,
                 target_environment=environment_name,
+                preview_slug=preview_slug,
             )
         )
         if binding_error:

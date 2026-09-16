@@ -60,7 +60,10 @@ from yoke_core.domain.deployment_stage_receipts import (
 )
 
 ITEM_ID = 9201
-RUN_ID = "run-mixed-build-901"
+#: Deployment run ids are allocated as run-YYYYMMDD-NNN and nothing else
+#: mints them, so a release preview named for its run only resolves for
+#: an id of that shape.
+RUN_ID = "run-20260915-901"
 
 _STAGES = [
     {
