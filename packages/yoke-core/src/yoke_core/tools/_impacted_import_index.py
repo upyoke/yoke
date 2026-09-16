@@ -202,9 +202,7 @@ def reachable_tests(changed: Sequence[str], index: ImportIndex) -> set[str] | No
     return {rel for rel in reached if rel in index.module_of and is_test_file(rel)}
 
 
-def tests_importing_tests(
-    tests: Iterable[str], index: ImportIndex
-) -> frozenset[str]:
+def tests_importing_tests(tests: Iterable[str], index: ImportIndex) -> frozenset[str]:
     """Close the shared-helper edge between test modules.
 
     A test module is also a source: siblings import its fixtures, seeding
