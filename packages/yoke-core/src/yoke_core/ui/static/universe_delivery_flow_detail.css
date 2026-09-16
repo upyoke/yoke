@@ -152,10 +152,6 @@
   }
 }
 
-.universe-app-root .delivery-flow-edit-approvals {
-  margin-top: 12px;
-}
-
 .universe-app-root .delivery-flow-stage.is-approval {
   border-color: var(--yoke-accent-line);
 }

@@ -96,7 +96,7 @@ function zeroState(documentNode, title, copy, className = "") {
   empty.appendChild(el(documentNode, "p", null, copy));
   return empty;
 }
-export function renderDeliveryFlowExplorer(body, panel, sourceRows, options = {}) {
+export function renderDeliveryFlowExplorer(body, panel, sourceRows) {
   const documentNode = body.ownerDocument;
   const rows = sortedRows(sourceRows);
   panel.classList.add("delivery-flow-panel");
@@ -151,9 +151,7 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, options = {}
   workspace.appendChild(browser);
   workspace.appendChild(detail);
   explorer.appendChild(workspace);
-  const dialogHost = el(documentNode, "div", "workflow-dialog-host");
   body.appendChild(explorer);
-  body.appendChild(dialogHost);
 
   let cardByRow = new Map();
   const visibleRows = () => rows.filter((row) => {
@@ -245,11 +243,7 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, options = {}
       }
       list.appendChild(group);
     }
-    renderDeliveryFlowDetail(documentNode, detail, state.selected, {
-      client: options.client,
-      reload: options.reload,
-      host: dialogHost,
-    });
+    renderDeliveryFlowDetail(documentNode, detail, state.selected);
   };
 
   search.addEventListener("input", () => {

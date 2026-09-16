@@ -177,7 +177,6 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "machine.settings.set",
         "strategy.revision.restore",
         "deployment_runs.terminalize",
-        "deployment_flows.update_stages",
     }
 )
 

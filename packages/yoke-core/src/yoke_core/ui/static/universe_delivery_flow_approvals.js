@@ -1,7 +1,9 @@
-import { callFunction, el, statePill } from "./universe_view_support.js";
+// Who may approve a flow's human-approval stages is read here and configured
+// by command: a flow definition is authored and versioned outside the
+// dashboard, and a page that could rewrite one would be a second authority
+// over an artifact a run freezes.
+import { el, statePill } from "./universe_view_support.js";
 import { ROLE_LABELS } from "./workflow_mechanics_data.js";
-import { openApprovalEditor } from "./workflow_mechanics_dialogs.js";
-import { button } from "./workflow_view_primitives.js";
 
 function flowName(row) {
   return row.name || row.id || "Unnamed flow";
@@ -77,104 +79,7 @@ function renderPipeline(documentNode, row) {
   return region;
 }
 
-function unwrapResult(callResult, fallback) {
-  if (callResult.status === 200 && callResult.envelope?.success) {
-    return callResult.envelope.result || {};
-  }
-  throw new Error(
-    callResult.envelope?.error?.message || fallback,
-  );
-}
-
-async function loadApprovers(client) {
-  try {
-    const result = unwrapResult(
-      await callFunction(client, "workflows.mechanics.get", {}),
-      "Could not load named approvers.",
-    );
-    return result.approvers || [];
-  } catch {
-    return [];
-  }
-}
-
-function applyApprovalGates(stages, gates) {
-  return stages.map((stage) => {
-    if (stage.step_runner !== "human-approval") return stage;
-    const gate = gates[stage.name] || { roles: [], actors: [], mode: "any" };
-    return {
-      ...stage,
-      approvals: {
-        roles: [...gate.roles],
-        actors: [...gate.actors],
-        mode: gate.mode === "all" ? "all" : "any",
-      },
-    };
-  });
-}
-
-async function saveFlowApprovals(client, flowId, gates) {
-  const read = unwrapResult(
-    await callFunction(
-      client, "deployment_flows.stages", { flow_id: flowId },
-    ),
-    "Could not read flow stages.",
-  );
-  let stages = read.stages;
-  if (typeof stages === "string") stages = JSON.parse(stages);
-  if (!Array.isArray(stages)) {
-    throw new Error("Flow stages are not a JSON array.");
-  }
-  unwrapResult(
-    await callFunction(client, "deployment_flows.update_stages", {
-      flow_id: flowId,
-      stages: JSON.stringify(applyApprovalGates(stages, gates)),
-    }),
-    "Could not save stage approvals.",
-  );
-}
-
-export function openDeliveryFlowApprovalEditor({
-  documentNode, host, row, client, reload,
-}) {
-  const stages = Array.isArray(row.approval_stages) ? row.approval_stages : [];
-  if (!stages.length || !client || !host) return;
-  const close = () => { host.replaceChildren(); };
-  const source = Object.fromEntries(stages.map((stage) => [
-    stage.name,
-    {
-      roles: [...(stage.approvals?.roles || [])],
-      actors: [...(stage.approvals?.actors || [])].map(Number),
-      mode: stage.approvals?.mode === "all" ? "all" : "any",
-    },
-  ]));
-  loadApprovers(client).then((approvers) => {
-    openApprovalEditor({
-      documentNode,
-      host,
-      data: { approvers },
-      close,
-      subjects: stages.map((stage) => ({ id: stage.name, label: stage.name })),
-      source,
-      title: `Stage approvals — ${flowName(row)}`,
-      subjectLabel: "Stage",
-      impact:
-        "Saving updates who may approve this flow's human-approval stages. " +
-        "Runs already in flight keep the snapshot they started with.",
-      requireEverySubject: true,
-      confirmText: "Save stage approvals",
-      save: async (gates) => {
-        await saveFlowApprovals(client, row.id, gates);
-        close();
-        if (reload) await reload();
-      },
-    });
-  });
-}
-
-export function renderDeliveryFlowDetail(
-  documentNode, detail, row, options = {},
-) {
+export function renderDeliveryFlowDetail(documentNode, detail, row) {
   detail.replaceChildren();
   if (!row) {
     detail.classList.add("is-empty");
@@ -205,25 +110,6 @@ export function renderDeliveryFlowDetail(
     "delivery-flow-id",
     row.id || "identity unavailable",
   ));
-  const approvalStages = Array.isArray(row.approval_stages)
-    ? row.approval_stages : [];
-  if (approvalStages.length && options.client && options.host) {
-    const edit = button(
-      documentNode,
-      "Edit who may approve",
-      "workflow-button delivery-flow-edit-approvals",
-    );
-    edit.addEventListener("click", () => {
-      openDeliveryFlowApprovalEditor({
-        documentNode,
-        host: options.host,
-        row,
-        client: options.client,
-        reload: options.reload,
-      });
-    });
-    header.appendChild(edit);
-  }
   detail.appendChild(header);
   detail.setAttribute("aria-labelledby", "delivery-flow-detail-heading");
 

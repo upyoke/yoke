@@ -96,17 +96,26 @@ function buttonByText(root, text) {
   );
 }
 
-test("ungated flows do not offer a stage-approval editor", async (t) => {
+test("a flow with no human-approval stage names no approvers", async (t) => {
   const { root, mounted } = await mountFlows(t, flowClient([UNGATED]));
-  assert.equal(buttonByText(root, "Edit who may approve"), undefined);
   assert.equal(byClass(root, "delivery-flow-stage-approvers").length, 0);
   mounted.unmount();
 });
 
-test("human-approval stages show who may approve and publish through update_stages",
+test("human-approval stages name who may approve, and offer no way to change it",
   async (t) => {
     const client = flowClient([GATED]);
     const { root, mounted } = await mountFlows(t, client);
+
+    assert.equal(
+      byClass(root, "delivery-flow-stage-approvers")[0].textContent,
+      "project operator",
+    );
+    // A flow definition is authored and versioned by command, and a run
+    // freezes the one it referenced. The page that reads a definition offers
+    // no control that would rewrite it, and asks for nothing it would need
+    // to — the named-approver roster is an editor's read.
+    assert.equal(buttonByText(root, "Edit who may approve"), undefined);
     assert.equal(
       client.requests.filter(
         (request) => request.function === "workflows.mechanics.get",
@@ -114,76 +123,11 @@ test("human-approval stages show who may approve and publish through update_stag
       0,
     );
     assert.equal(
-      byClass(root, "delivery-flow-stage-approvers")[0].textContent,
-      "project operator",
-    );
-    buttonByText(root, "Edit who may approve").dispatchEvent(new Event("click"));
-    await settle();
-    assert.equal(
-      byClass(root, "workflow-dialog-title")[0].textContent,
-      "Stage approvals — Alpha Release",
-    );
-    assert.equal(
       client.requests.filter(
-        (request) => request.function === "workflows.mechanics.get",
+        (request) => request.function === "deployment_flows.update_stages",
       ).length,
-      1,
+      0,
     );
-    byClass(root, "workflow-checkbox")[0].children[0]
-      .dispatchEvent(new Event("change"));
-    buttonByText(root, "Save stage approvals")
-      .dispatchEvent(new Event("click"));
-    await settle();
-    const update = client.requests.find(
-      (request) => request.function === "deployment_flows.update_stages",
-    );
-    assert.equal(update.payload.flow_id, "alpha-release");
-    assert.deepEqual(JSON.parse(update.payload.stages)[0].approvals, {
-      roles: ["operator", "owner"],
-      actors: [],
-      mode: "any",
-    });
-    assert.equal(JSON.parse(update.payload.stages)[1].step_runner, "auto");
-    mounted.unmount();
-  },
-);
-
-function modeSelect(root) {
-  const selects = allNodes(root).filter((node) => node.tagName === "SELECT");
-  return selects[selects.length - 1];
-}
-
-test("the every-approver switch publishes onto the stage and reads back as and",
-  async (t) => {
-    const client = flowClient([GATED]);
-    const { root, mounted } = await mountFlows(t, client);
-    buttonByText(root, "Edit who may approve").dispatchEvent(new Event("click"));
-    await settle();
-    assert.deepEqual(
-      modeSelect(root).children.map((node) => node.textContent),
-      ["Any one of them settles it", "All of them, one decision each"],
-    );
-    byClass(root, "workflow-checkbox")[0].children[0]
-      .dispatchEvent(new Event("change"));
-    const mode = modeSelect(root);
-    mode.value = "all";
-    mode.dispatchEvent(new Event("change"));
-    await settle();
-    assert.equal(
-      byClass(root, "workflow-approval-help")[0].textContent,
-      "Every box checked here must approve approve-prod",
-    );
-    buttonByText(root, "Save stage approvals")
-      .dispatchEvent(new Event("click"));
-    await settle();
-    const update = client.requests.find(
-      (request) => request.function === "deployment_flows.update_stages",
-    );
-    assert.deepEqual(JSON.parse(update.payload.stages)[0].approvals, {
-      roles: ["operator", "owner"],
-      actors: [],
-      mode: "all",
-    });
     mounted.unmount();
   },
 );
