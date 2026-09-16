@@ -127,7 +127,11 @@ def existing_acceptance_requirement(
 #: the sentence that explains it.
 STAGE_ACCEPTED = "accepted"
 STAGE_NOT_RUN = "not yet run"
-STAGE_FAILED = "failed"
+#: Every reason the case rung can give — a case that failed, one still
+#: undetermined, one missing its evidence — shares this state, because
+#: the rung reports sentences rather than verdicts and calling an
+#: undetermined case "failed" would assert a verdict nobody recorded.
+STAGE_CASES_UNRESOLVED = "cases unresolved"
 STAGE_INCOMPLETE = "incomplete"
 STAGE_UNSETTLED = "not settled"
 STAGE_REJECTED = "rejected"
@@ -192,7 +196,7 @@ def stage_acceptance(
             ("no completed scoped QA execution exists", *failures),
         )
     if failures:
-        return StageAcceptance(STAGE_FAILED, tuple(failures))
+        return StageAcceptance(STAGE_CASES_UNRESOLVED, tuple(failures))
     obligation_failures = fulfill_admitted_obligations(
         conn,
         run_id=run_id,
@@ -255,7 +259,7 @@ def stage_acceptance_blockers(
 __all__ = [
     "STAGE_ACCEPTED",
     "STAGE_AWAITING_REVIEW",
-    "STAGE_FAILED",
+    "STAGE_CASES_UNRESOLVED",
     "STAGE_INCOMPLETE",
     "STAGE_NOT_RUN",
     "STAGE_REJECTED",
