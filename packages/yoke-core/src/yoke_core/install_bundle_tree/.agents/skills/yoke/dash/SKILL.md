@@ -301,7 +301,7 @@ Never remove a required file merely to make the survey clear.
 Run this immediately after recording the survey above — before reading
 further file contents, tracing implementation details, or making any edit.
 
-Prepare the ordinary item lane:
+Prepare the item lane (a `--no-changes` survey skips creation):
 
 ```text
 yoke direct-workflow worktree prepare ITEM --workflow dash --json
@@ -333,9 +333,9 @@ yoke lifecycle transition ITEM --from idea --to implementing --reason "Dash exec
 
 The live `conflict_survey` gate requires a recorded, readable touch set and
 re-evaluates current contacts, but an overlap does not block the transition.
-The `work_claim_activation` gate still verifies that this session owns the
-active item claim and that the item has its registered implementation
-worktree. Read and resolve every survey advisory through the choices above.
+The `work_claim_activation` gate verifies this session owns the item claim.
+`--no-changes` skips the git lane; otherwise the item needs its worktree.
+Read and resolve every survey advisory through the choices above.
 
 ### 4-7. Execute, verify, and close
 

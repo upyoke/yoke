@@ -11,6 +11,15 @@ produce a diff. Record that exact outcome with
 `yoke direct-workflow dash survey ITEM --no-changes --json` wherever the
 sequence below requires the actual touch set; never substitute a placeholder.
 
+When that survey is recorded, still run worktree prepare: the engine skips
+the git lane, dependency install, and upstream isolation (`worktree:skipped`).
+That skip is survey evidence, not `worktrees=none`. If the finding later
+needs edits, replace the survey with the real paths first, then re-run
+prepare so isolation happens before any edit. Do not invent SHAs, CI, a
+merge, or a deploy. Close through `yoke direct-workflow dash evidence`
+with `--no-changes`. Keep required QA, approvals, and delivery policy;
+empty optional Dash QA/delivery is the existing close-out repair.
+
 ### 5. Bind the committed tree, verify, and close review
 
 Iterate with the change-scoped check — impacted-test selection over the

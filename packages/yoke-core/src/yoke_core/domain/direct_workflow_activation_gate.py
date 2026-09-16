@@ -5,12 +5,13 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.conflict_survey import read_recorded_survey
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.item_worktrees import (
     list_item_worktrees,
     validate_item_worktree_roles,
 )
+from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.strategy_execution import (
     StrategyDocClaimConflictError,
@@ -43,7 +44,11 @@ def _activation_prerequisites(
     session_id: Optional[str],
     gate_name: str,
 ) -> Optional[dict]:
-    """Require this session's live item claim and a policy-valid worktree."""
+    """Require this session's live item claim and a policy-valid worktree.
+
+    A recorded no-changes survey satisfies the worktree half: isolation
+    stays deferred until a later path survey requires it.
+    """
     clean_session = str(session_id or "").strip()
     code = f"GATE_{gate_name}_UNSATISFIED"
     if not clean_session:
@@ -78,6 +83,11 @@ def _activation_prerequisites(
             f"session {clean_session!r}.",
             "Acquire the item work claim or coordinate with its holder.",
         )
+    recorded = read_recorded_survey(conn, int(item_id))
+    if recorded and recorded.get("no_changes") is True:
+        # Survey evidence, not worktrees=none: skip the git lane until a
+        # later path survey requires isolation before any edit.
+        return None
     # A workflow that requires no lane has nothing further to activate: the
     # work claim above is the whole gate, and the item never gets a worktree.
     runtime = load_item_workflow_runtime(conn, int(item_id))
@@ -121,7 +131,7 @@ def evaluate_work_claim_activation(
     session_id: Optional[str],
     conn: Optional[Any] = None,
 ) -> Optional[dict]:
-    """Require the real Dash item claim and implementation worktree."""
+    """Require the real Dash item claim; skip the worktree on no-changes."""
     gate_conn = conn if conn is not None else connect(db_path)
     try:
         return _activation_prerequisites(
