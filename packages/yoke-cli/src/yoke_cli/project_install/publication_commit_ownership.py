@@ -181,17 +181,26 @@ def _changed_outside_block(repo_root: Path, sha: str, path: str) -> bool:
     if not before_read:
         # The commit created the file; the operator had no text there yet.
         before = ""
-    return _outside_block(before) != _outside_block(after)
+    return _operator_text(before) != _operator_text(after)
 
 
-def _outside_block(text: str) -> str:
+def _operator_text(text: str) -> str:
+    """The file with the managed block removed, edge whitespace normalized.
+
+    Inserting the block into a file that already had prose, or stripping it
+    back out, moves the operator's text against the file edges without
+    changing a word of it — so a byte comparison would read the install's
+    own first commit as an operator edit and refuse to publish it. Trimming
+    only the outer whitespace keeps every interior change visible, which is
+    where an actual edit to their prose shows up.
+    """
     from yoke_contracts.project_contract.managed_block import block_span
 
     span = block_span(text)
     if span is None:
-        return text
+        return text.strip()
     start, end = span
-    return text[:start] + text[end:]
+    return (text[:start] + text[end:]).strip()
 
 
 def _blob(repo_root: Path, revision_path: str) -> tuple[str, bool]:
