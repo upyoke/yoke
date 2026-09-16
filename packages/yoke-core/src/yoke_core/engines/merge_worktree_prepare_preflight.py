@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.classify_dirty_files import is_yoke_managed_pattern
+from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
 if TYPE_CHECKING:  # the cycle-free half of the prepare<->preflight pair
@@ -24,6 +25,16 @@ if TYPE_CHECKING:  # the cycle-free half of the prepare<->preflight pair
 def _parent():
     from yoke_core.engines import merge_worktree as _mw
     return _mw
+
+def _context_item_ref(ctx) -> str:
+    """Name the merging item without opening a connection.
+
+    Every relayed gate on this path resolves server-side, so the preflight
+    reads the ref the context already carries; with none, it says the
+    reference is unresolved rather than printing the internal id as one.
+    """
+    return ctx.public_ref or unresolved_item_ref(ctx.item_id)
+
 
 def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
     """Run preflight checks. Returns (exit_code, message) on failure, None on success."""
@@ -196,7 +207,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         if ctx.item_id is not None:
             _print(
                 "  FAIL: Integration dependency gate unavailable for "
-                f"{item_ref_for_id(ctx.item_id)}",
+                f"{_context_item_ref(ctx)}",
                 err=True,
             )
             fail = True
@@ -269,7 +280,7 @@ def preflight_checks(ctx: MergeContext) -> Optional[Tuple[int, str]]:
         if items_resp is None or not items_resp.success:
             _print(
                 "  FAIL: Migration-history item roster unavailable for "
-                f"{item_ref_for_id(ctx.item_id)}",
+                f"{_context_item_ref(ctx)}",
                 err=True,
             )
             fail = True

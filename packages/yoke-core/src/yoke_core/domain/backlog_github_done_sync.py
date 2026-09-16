@@ -45,6 +45,7 @@ from yoke_core.domain.backlog_github_fetch import (
 from yoke_core.domain.project_github_auth import resolve_project_github_auth
 from yoke_core.domain import project_label_policy
 from yoke_core.domain.project_identity_item_ref import item_subject_ref
+from yoke_core.domain import backlog_github_compact_pending_flag as _compact_flag
 
 
 def _issue_snapshot(issue_num: int, repo: str, project: str) -> tuple[list[str], str]:
@@ -244,9 +245,8 @@ def sync_done_item(
             print(f"Error: Failed to update {github_issue}: {edit.stderr}", file=stderr)
             return 1
         # Item-mirror sync state: stamp/clear the compact-pending flag.
-        from yoke_core.domain import backlog_github_body_budget as _budget
 
-        _budget.record_sync_mode(conn, int(item_pk), edit.mode)
+        _compact_flag.record_sync_mode(conn, int(item_pk), edit.mode)
 
         target_repo = auth.repo
         if add_labels:

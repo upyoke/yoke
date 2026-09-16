@@ -100,7 +100,9 @@ def _create_issue_with_body_budget(
     except github_rest.RestTransportError as exc:
         print(f"Error: REST create_issue failed: {exc}", file=stderr)
         return None
-    _budget.emit_compact_notice(mode, item_id, stderr)
+    _budget.emit_compact_notice(
+        mode, _budget.compact_subject_ref(item_fields, conn, item_id), stderr,
+    )
     return issue
 
 

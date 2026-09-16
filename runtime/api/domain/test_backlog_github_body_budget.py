@@ -58,8 +58,26 @@ CREATE TABLE item_status_transitions (
     actor_id INTEGER,
     project_id INTEGER,
     created_at TEXT NOT NULL
-)
+);
+-- The compact mirror names its subject by reference, so the identity that
+-- reference is read from is part of the fixture. The sequence differs from
+-- the internal id: a header showing items.id would name another item.
+CREATE TABLE projects (
+    id INTEGER PRIMARY KEY,
+    slug TEXT,
+    public_item_prefix TEXT
+);
+INSERT INTO projects (id, slug, public_item_prefix) VALUES (1, 'yoke', 'YOK');
+CREATE TABLE items (
+    id INTEGER PRIMARY KEY,
+    project_id INTEGER,
+    project_sequence INTEGER
+);
+INSERT INTO items (id, project_id, project_sequence) VALUES (42, 1, 420)
 """
+
+MIRROR_ITEM_ID = 42
+MIRROR_ITEM_REF = "YOK-420"
 
 
 def _disposable_conn(ddl: Optional[str] = None) -> Any:
@@ -102,17 +120,19 @@ class TestRenderCompactMirror:
             "status": "implementing",
             "workflow_id": "issue",
         }
-        out = bb.render_compact_mirror(fields, conn=evidence_conn, item_id=42)
-        assert "[YOK-42] My Title" in out
-        assert "YOK-42" in out
+        out = bb.render_compact_mirror(
+            fields, conn=evidence_conn, item_id=MIRROR_ITEM_ID
+        )
+        assert f"[{MIRROR_ITEM_REF}] My Title" in out
+        assert MIRROR_ITEM_REF in out
         assert "yoke" in out
         assert "implementing" in out
         assert (
-            "python3 -m yoke_core.cli.db_router items get YOK-42 body"
+            f"python3 -m yoke_core.cli.db_router items get {MIRROR_ITEM_REF} body"
             in out
         )
         # Lifecycle commands include the implementing-phase entry.
-        assert "/yoke advance YOK-42 reviewing-implementation" in out
+        assert f"/yoke advance {MIRROR_ITEM_REF} reviewing-implementation" in out
         # Evidence summary present.
         assert "latest transition: refined-idea -> implementing" in out
 
@@ -120,8 +140,10 @@ class TestRenderCompactMirror:
         self, evidence_conn: Any,
     ):
         fields = {"title": "x", "status": "unknown-status", "workflow_id": "issue"}
-        out = bb.render_compact_mirror(fields, conn=evidence_conn, item_id=1)
-        assert "/yoke do YOK-1" in out
+        out = bb.render_compact_mirror(
+            fields, conn=evidence_conn, item_id=MIRROR_ITEM_ID
+        )
+        assert f"/yoke do {MIRROR_ITEM_REF}" in out
 
     def test_missing_evidence_falls_back_to_no_recent_evidence(self):
         empty = _disposable_conn(_TRANSITIONS_DDL)
@@ -204,7 +226,7 @@ class TestSelectBodyForGithub:
         )
         assert mode == "compact"
         assert bb.body_exceeds_budget(chosen) is False
-        assert "YOK-42" in chosen
+        assert MIRROR_ITEM_REF in chosen
 
 
 class TestSelectAndWriteBodyFile:
@@ -241,7 +263,7 @@ class TestSelectAndWriteBodyFile:
             assert mode == "compact"
             with open(path, "r", encoding="utf-8") as f:
                 content = f.read()
-            assert "YOK-42" in content
+            assert MIRROR_ITEM_REF in content
             assert "DB" in content
             assert bb.body_exceeds_budget(content) is False
         finally:
@@ -251,11 +273,13 @@ class TestSelectAndWriteBodyFile:
 class TestEmitCompactNotice:
     def test_emits_only_on_compact_mode(self, capsys):
         import sys
-        bb.emit_compact_notice("full", 42, sys.stderr)
+        # The caller passes the reference it already resolved for the
+        # mirror it wrote; the notice has no connection of its own.
+        bb.emit_compact_notice("full", MIRROR_ITEM_REF, sys.stderr)
         captured = capsys.readouterr()
         assert captured.err == ""
 
-        bb.emit_compact_notice("compact", 42, sys.stderr)
+        bb.emit_compact_notice("compact", MIRROR_ITEM_REF, sys.stderr)
         captured = capsys.readouterr()
-        assert "YOK-42" in captured.err
+        assert MIRROR_ITEM_REF in captured.err
         assert "compact mirror" in captured.err

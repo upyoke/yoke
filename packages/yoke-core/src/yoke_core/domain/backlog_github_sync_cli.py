@@ -22,6 +22,7 @@ from yoke_core.domain.render_body import build_body
 from yoke_core.domain.yok_n_parser import parse_item_argument
 from yoke_core.domain.work_claim_targets import scope_int_sql
 from yoke_core.domain.project_identity_item_ref import item_subject_ref
+from yoke_core.domain import backlog_github_compact_pending_flag as _compact_flag
 
 
 _MUTATING_MODES = {
@@ -182,7 +183,7 @@ def _select_compact_pending_candidates(conn: Any) -> list[int]:
     inferring this work queue from body-too-long markers in
     ``HarnessToolCallCompleted`` telemetry envelopes.
     """
-    return _budget.list_compact_pending_item_ids(conn)
+    return _compact_flag.list_compact_pending_item_ids(conn)
 
 
 def _select_oversized_current_candidates(

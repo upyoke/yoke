@@ -132,7 +132,9 @@ def _select_body_for_create(
         conn=None,
         item_id=_task_id_for_mirror(parent_id, int(et_tnum)),
     )
-    _budget.emit_compact_notice(mode, int(et_tnum), stderr)
+    _budget.emit_compact_notice(
+        mode, _writer.epic_task_identity(epic_ref, et_tnum), stderr,
+    )
     return selected
 
 

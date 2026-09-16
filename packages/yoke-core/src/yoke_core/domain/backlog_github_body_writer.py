@@ -89,7 +89,9 @@ def update_issue_body_typed(
         )
 
     if stderr is not None:
-        _budget.emit_compact_notice(mode, item_fields.get("identity") or item_id, stderr)
+        _budget.emit_compact_notice(
+            mode, _budget.compact_subject_ref(item_fields, conn, item_id), stderr,
+        )
 
     return BodyWriteResult(returncode=0, mode=mode, stdout="", stderr="")
 

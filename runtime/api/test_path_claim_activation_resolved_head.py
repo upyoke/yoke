@@ -159,7 +159,7 @@ class TestResolveItemActor:
         try:
             resolved, error = resolve_item_actor(conn, 424242)
             assert resolved is None
-            assert "not found" in error
+            assert "items.id 424242" in error  # no ref backs that id
         finally:
             conn.close()
 
@@ -291,7 +291,8 @@ class TestSurveyEnsureHandler:
         )
         assert outcome.primary_success is False
         assert outcome.error.code == "survey_ensure_failed"
-        assert "yoke claims path register --item 7130" in outcome.error.message
+        recipe = "yoke claims path register --item YOK-7130"
+        assert recipe in outcome.error.message
         conn = connect_test_db(db)
         try:
             assert conn.execute(

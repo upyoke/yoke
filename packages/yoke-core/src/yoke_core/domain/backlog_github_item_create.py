@@ -21,8 +21,8 @@ import sys
 from typing import Any, Optional, TextIO
 
 from yoke_core.domain.backlog_github_sync_accessor import bgs as _bgs
-from yoke_core.domain import backlog_github_body_budget as _budget
-from yoke_core.domain import github_rest
+from yoke_core.domain import backlog_github_compact_pending_flag as _compact_flag
+from yoke_core.domain import backlog_github_body_budget as _budget, github_rest
 from yoke_core.domain.actors import actor_name_or_passthrough
 from yoke_core.domain.backlog_github_fetch import (
     _close_if_owned,
@@ -80,7 +80,7 @@ def sync_item(
         try:
             item_pk = _resolve_item_id(item_id, conn=conn)
         except ValueError:
-            print(f"Error: no item for {item_id!r} in database", file=stderr)
+            print(f"Error: no item for {item_id!r}", file=stderr)
             return 1
         public_ref = _item_ref(item_pk, conn=conn)
 
@@ -301,8 +301,8 @@ def sync_item(
             print(f"Error: issue create failed: {exc}", file=stderr)
             return 1
 
-        _budget.record_sync_mode(conn, int(item_pk), body_mode)
-        _budget.emit_compact_notice(body_mode, int(item_pk), stderr)
+        _compact_flag.record_sync_mode(conn, int(item_pk), body_mode)
+        _budget.emit_compact_notice(body_mode, public_ref, stderr)
 
         issue_num = created.number
         if not issue_num:

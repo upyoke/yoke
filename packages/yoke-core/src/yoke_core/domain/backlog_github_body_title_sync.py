@@ -33,6 +33,7 @@ from yoke_core.domain.project_github_auth import (
     ProjectGithubAuthError,
     resolve_project_github_auth,
 )
+from yoke_core.domain import backlog_github_compact_pending_flag as _compact_flag
 
 
 def sync_body(
@@ -146,8 +147,8 @@ def sync_body(
 
         # Item-side sync state: stamp the compact-pending flag when the
         # mirror went compact; clear it when a full body landed.
-        _budget.record_sync_mode(conn, int(item_pk), mode)
-        _budget.emit_compact_notice(mode, int(item_pk), stderr)
+        _compact_flag.record_sync_mode(conn, int(item_pk), mode)
+        _budget.emit_compact_notice(mode, public_ref, stderr)
         print(f"Synced body: {public_ref} → {github_issue}", file=stdout)
         return 0
     finally:
