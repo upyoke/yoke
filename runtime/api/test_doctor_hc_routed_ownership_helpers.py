@@ -59,8 +59,14 @@ CREATE TABLE work_claims (
     reason_intent TEXT,
     release_reason_intent TEXT
 );
+CREATE TABLE projects (
+    id INTEGER PRIMARY KEY, slug TEXT, public_item_prefix TEXT
+);
+INSERT INTO projects (id, slug, public_item_prefix) VALUES (1, 'yoke', 'YOK');
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
+    project_id INTEGER,
+    project_sequence INTEGER,
     status TEXT NOT NULL DEFAULT 'idea'
 );
 """
@@ -149,6 +155,8 @@ def _insert_released_claim(
     release_reason: str = "released",
     release_reason_intent: Optional[str] = None,
 ) -> int:
+    # The finding names the claim's item by reference.
+    _insert_item(conn, item_id, "refined-idea")
     p = _p(conn)
     target = make_item_target(item_id)
     row = conn.execute(
@@ -175,9 +183,12 @@ def _insert_released_claim(
 
 def _insert_item(conn: Any, item_id: int, status: str) -> None:
     p = _p(conn)
+    # The finding names the item by reference, so its identity is seeded.
     conn.execute(
-        f"INSERT INTO items (id, status) VALUES ({p}, {p})",
-        (item_id, status),
+        f"INSERT INTO items (id, project_id, project_sequence, status)"
+        f" VALUES ({p}, 1, {p}, {p})"
+        " ON CONFLICT (id) DO NOTHING",
+        (item_id, item_id, status),
     )
     conn.commit()
 

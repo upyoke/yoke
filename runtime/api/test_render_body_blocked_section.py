@@ -25,8 +25,15 @@ def _items_conn(ddl: str):
 def conn():
     c = _items_conn(
         """
+        CREATE TABLE projects (
+            id INTEGER PRIMARY KEY, slug TEXT, public_item_prefix TEXT
+        );
+        INSERT INTO projects (id, slug, public_item_prefix)
+        VALUES (1, 'yoke', 'YOK');
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
+            project_id INTEGER,
+            project_sequence INTEGER,
             title TEXT,
             blocked INTEGER DEFAULT 0,
             blocked_reason TEXT,
@@ -40,9 +47,13 @@ def conn():
 
 def _add(conn, item_id, blocked=0, blocked_reason=None, updated_at=None):
     conn.execute(
-        "INSERT INTO items (id, title, blocked, blocked_reason, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s)",
-        (item_id, f"Item {item_id}", blocked, blocked_reason, updated_at),
+        "INSERT INTO items (id, project_id, project_sequence, title, blocked,"
+        " blocked_reason, updated_at) "
+        "VALUES (%s, 1, %s, %s, %s, %s, %s)",
+        (
+            item_id, item_id, f"Item {item_id}", blocked, blocked_reason,
+            updated_at,
+        ),
     )
 
 

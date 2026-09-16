@@ -44,9 +44,14 @@ def worktree_name_for_item(conn: Optional[Any], item_id: int) -> str:
             if _table_exists(conn, "projects") and _column_exists(
                 conn, "items", "project_sequence"
             ):
-                from yoke_core.domain.project_identity import render_item_ref
+                from yoke_core.domain.item_ref_render import render_item_refs
 
-                name = render_item_ref(conn, item_id)
+                # A name, not message text: the batch reader answers with
+                # nothing for an id no identity row backs, which is the
+                # degraded case this function falls back for. The display
+                # renderer would hand back its unresolved phrase, and a
+                # branch cannot be named that.
+                name = render_item_refs(conn, [item_id]).get(item_id)
                 if name:
                     return name
         except Exception:  # noqa: BLE001 - degrade to legacy name on any failure
