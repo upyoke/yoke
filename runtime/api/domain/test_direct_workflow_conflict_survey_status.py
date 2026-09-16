@@ -4,15 +4,13 @@ Two proofs, one per connection mode:
 
 * In-process: the ``direct_workflow.conflict_survey.status`` handler run
   directly against a seeded Postgres ``test_db`` returns the recorded
-  survey plus a fresh conflict re-check (found / not-found / contacts).
-  This is the local-Postgres in-process dispatch path.
+  survey plus a fresh conflict re-check (found / not-found / contacts),
+  which is the local-Postgres in-process dispatch path.
 
 * Relay routing: ``direct_workflow_worktree_preflight.run`` drives its
-  control-plane reads through ``call_dispatcher`` (``items.detail.get``
-  then ``direct_workflow.conflict_survey.status``) and rebuilds missing
-  or incomplete survey refusals -- with no bare ``connect()`` on the hot
-  path. Overlap-contact advisories live in
-  ``test_conflict_survey_claim_advisory``.
+  control-plane reads through ``call_dispatcher`` (``items.detail.get`` then
+  ``direct_workflow.conflict_survey.status``) and rebuilds missing or
+  incomplete survey refusals, with no bare ``connect()`` on the hot path.
 """
 
 from __future__ import annotations
@@ -21,6 +19,8 @@ import json
 from contextlib import contextmanager
 
 import pytest
+
+from runtime.api.domain.closing_connection_test_support import closing_connection
 
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import db_helpers
@@ -62,6 +62,15 @@ def _status_request(item_id: int) -> FunctionCallRequest:
         target=TargetRef(kind="item", item_id=item_id),
         payload={},
     )
+
+
+def _call_status_closing(monkeypatch, test_db, item_id: int):
+    @contextmanager
+    def _use():
+        with closing_connection(test_db) as proxy:
+            yield proxy
+    monkeypatch.setattr(db_helpers, "connect", _use)
+    return status_mod.handle_conflict_survey_status(_status_request(item_id))
 
 
 def _call_status(monkeypatch, test_db, item_id: int):
@@ -313,3 +322,29 @@ def test_run_errors_on_workflow_mismatch(monkeypatch):
 
     # The mismatch is caught after items.detail.get, before the survey read.
     assert dispatcher.routed_ids == ["items.detail.get"]
+
+
+def test_status_names_blockers_before_the_connection_closes(
+    test_db, monkeypatch,
+):
+    """Regression: the blocker names were read after the block exited."""
+    insert_item(test_db, id=3205, workflow_id="dash", title="Contended")
+    insert_item(
+        test_db,
+        id=3206,
+        workflow_id="dash",
+        title="Registered work",
+        spec="## File Budget\n\n- `src/late_read.py`\n",
+    )
+    recorded = survey_conflicts(
+        test_db, item_id=3205, touch_paths=["src/late_read.py"],
+    )
+    assert recorded.clear is False
+    record_conflict_survey(test_db, recorded)
+
+    outcome = _call_status_closing(monkeypatch, test_db, 3205)
+
+    assert outcome.primary_success is True
+    blockers = outcome.result_payload["blockers"]
+    assert blockers
+    assert all(blocker["owner_public_ref"] for blocker in blockers)
