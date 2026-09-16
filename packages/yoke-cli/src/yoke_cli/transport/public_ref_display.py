@@ -11,6 +11,10 @@ import json
 import sys
 from typing import Any, Mapping, TextIO
 
+from yoke_cli.transport.receipt_compaction import (
+    compact_receipt,
+    omission_advisory,
+)
 from yoke_contracts.api.function_call import FunctionCallResponse, TargetRef
 
 
@@ -156,7 +160,10 @@ def _default_human_writer(
     response: FunctionCallResponse, stdout: TextIO, stderr: TextIO
 ) -> None:
     if response.success:
-        print(json.dumps(response.result, sort_keys=True), file=stdout)
+        display, omitted = compact_receipt(response.result)
+        print(json.dumps(display, sort_keys=True), file=stdout)
+        if omitted:
+            print(omission_advisory(omitted), file=stderr)
         for warning in response.warnings:
             print(
                 f"warning: {warning.code} ({warning.step}): {warning.detail}",
