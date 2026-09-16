@@ -274,7 +274,9 @@ export function shippingRunCard(context, row, scope, options = {}) {
   // run with no open request shows what its QA checks captured instead.
   if (!runGates(row).length) {
     const artifacts = runEvidence(options.facts, row.id || row.run_id).artifacts;
-    const strip = evidenceStrip(context, artifacts, { compact: true });
+    const strip = evidenceStrip(
+      context, artifacts, { compact: true, stepCaptionsOnly: true },
+    );
     if (strip) {
       const wrap = el(documentNode, "div", "shipping-run-evidence");
       wrap.appendChild(el(documentNode, "span", "release-batch-title", "QA evidence"));

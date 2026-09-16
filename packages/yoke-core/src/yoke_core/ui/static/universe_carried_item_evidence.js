@@ -258,7 +258,9 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   }
   // One options object for the strip and for what counts as on screen, so
   // the two can never disagree about how much of this evidence is visible.
-  const stripOptions = { compact: true, limit: CARRIED_EVIDENCE_SHOWN };
+  const stripOptions = {
+    compact: true, limit: CARRIED_EVIDENCE_SHOWN, stepCaptionsOnly: true,
+  };
   const strip = evidenceStrip(context, artifacts, stripOptions);
   if (strip) wrap.appendChild(strip);
   // The strip above is this item's recent history, which is not the same

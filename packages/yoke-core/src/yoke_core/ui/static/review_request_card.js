@@ -89,6 +89,9 @@ function appendEvidence(context, card, row, compact) {
   const evidence = evidenceOf(row);
   const strip = evidenceStrip(context, evidence.artifacts, {
     compact,
+    // Inside a decision card a thumbnail is a glance, not a filing: the
+    // caption says which step it came from or says nothing.
+    stepCaptionsOnly: true,
     requirementId: evidence.requirementId,
     // A QA review with nothing behind it must say so: a verdict on nothing
     // is the case the warning exists for. A release or work approval whose

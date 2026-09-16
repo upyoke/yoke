@@ -50,11 +50,18 @@
   overflow-wrap: anywhere;
   font-family: var(--yoke-font-mono);
 }
+/* A reference is a link, and reads as one on hover — but a grid where every
+   card's first line is underlined reads as a page of links rather than a
+   page of work. */
 .universe-app-root .work-item-card-ref,
 .universe-app-root .shipping-run-id {
   color: var(--yoke-accent);
   font-size: 11px;
   font-weight: 700;
+  text-decoration: none;
+}
+.universe-app-root .work-item-card-ref:hover {
+  text-decoration: underline;
 }
 .universe-app-root .work-item-card-title {
   display: block;

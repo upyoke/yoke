@@ -57,8 +57,18 @@ function captionOf(artifact) {
 
 // What the caption reads: the step this picture was taken at, or the
 // artifact's own name when the capture recorded no step.
-function shotLabel(artifact) {
-  return artifactStepLabel(artifact) || artifactLabel(artifact);
+//
+// `stepCaptionsOnly` drops that fallback, for the surfaces where a picture
+// rides inside a card rather than standing on its own: a stored filename
+// under a 104px thumbnail names the file rather than the moment, wraps to
+// two lines at that width, and repeats under every picture in the strip.
+// The identity is not lost there — it stays the image's alt text and the
+// figure's title, and the full artifact detail is one press away in the
+// viewer. A surface whose subject IS the artifact keeps the name.
+function shotLabel(artifact, stepCaptionsOnly) {
+  const step = artifactStepLabel(artifact);
+  if (step) return step;
+  return stepCaptionsOnly ? "" : artifactLabel(artifact);
 }
 
 function decodeText(base64) {
@@ -136,7 +146,7 @@ function markUnavailable(documentNode, figure, outcome) {
 // long caption the capture recorded stays on the figure's title, where it
 // tells the reader which picture this is without becoming four lines of
 // metadata under a thumbnail.
-function screenshot(context, artifact) {
+function screenshot(context, artifact, stepCaptionsOnly) {
   const documentNode = context.document;
   const caption = captionOf(artifact);
   const figure = el(documentNode, "figure", "review-shot");
@@ -147,12 +157,14 @@ function screenshot(context, artifact) {
   image.alt = caption;
   picture.appendChild(image);
   figure.appendChild(picture);
-  const figcaption = el(documentNode, "figcaption", "review-shot-caption");
-  const step = el(
-    documentNode, "a", "review-shot-step", shotLabel(artifact),
-  );
-  figcaption.appendChild(step);
-  figure.appendChild(figcaption);
+  const label = shotLabel(artifact, stepCaptionsOnly);
+  const step = label
+    ? el(documentNode, "a", "review-shot-step", label) : null;
+  if (step) {
+    const figcaption = el(documentNode, "figcaption", "review-shot-caption");
+    figcaption.appendChild(step);
+    figure.appendChild(figcaption);
+  }
   void readArtifact(context, artifact).then((response) => {
     const outcome = readOutcome(response);
     if (!outcome.ready) {
@@ -166,7 +178,7 @@ function screenshot(context, artifact) {
       if (typeof event.stopPropagation === "function") event.stopPropagation();
       openImageLightbox(documentNode, outcome.source, caption);
     };
-    for (const control of [picture, step]) {
+    for (const control of [picture, step].filter(Boolean)) {
       control.href = outcome.source;
       control.target = "_blank";
       control.rel = "noopener";
@@ -263,7 +275,9 @@ export function evidenceStrip(context, artifacts, options = {}) {
   const draw = (artifact) => {
     const local = artifactHandle(artifact)?.backend === "local";
     if (hosted && local) return onMachineChip(documentNode, artifact);
-    if (isImage(artifact)) return screenshot(context, artifact);
+    if (isImage(artifact)) {
+      return screenshot(context, artifact, options.stepCaptionsOnly);
+    }
     return textChip(context, artifact);
   };
   const limit = options.limit ?? EVIDENCE_SHOWN;
