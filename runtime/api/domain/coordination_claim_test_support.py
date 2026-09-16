@@ -28,6 +28,20 @@ def seed_project(conn: Any, project_id: int, slug: str) -> None:
     conn.commit()
 
 
+def seed_item(conn: Any, item_id: int, project_id: int = PROJECT_YOKE) -> None:
+    """Seed one item so a contention message can name it by reference."""
+    from runtime.api.fixtures.backlog import insert_item
+
+    insert_item(
+        conn,
+        id=item_id,
+        project=str(project_id),
+        project_sequence=item_id,
+        title=f"item {item_id}",
+    )
+    conn.commit()
+
+
 def seed_session(
     conn: Any,
     session_id: str,
@@ -80,6 +94,7 @@ __all__ = [
     "migration_target",
     "qa_target",
     "qualification_target",
+    "seed_item",
     "seed_project",
     "seed_session",
 ]

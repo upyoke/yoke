@@ -25,10 +25,21 @@ CREATE TABLE actors (
     id INTEGER PRIMARY KEY,
     name TEXT
 );
+CREATE TABLE projects (
+    id INTEGER PRIMARY KEY,
+    slug TEXT,
+    public_item_prefix TEXT
+);
+INSERT INTO projects (id, slug, public_item_prefix) VALUES (1, 'yoke', 'YOK');
 CREATE TABLE items (
     id INTEGER PRIMARY KEY,
+    project_id INTEGER,
+    project_sequence INTEGER,
     title TEXT
 );
+-- The verdict names the sibling item by reference, so the rows exist.
+INSERT INTO items (id, project_id, project_sequence, title)
+VALUES (42, 1, 42, 'candidate'), (43, 1, 43, 'sibling');
 CREATE TABLE harness_sessions (
     session_id TEXT PRIMARY KEY
 );
