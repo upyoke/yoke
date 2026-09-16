@@ -38,7 +38,7 @@ Run Yoke core and Postgres on your own server.
   bundle, captures first boot, waits until the server answers `/v1/health`,
   and activates the owner-only local connection.
 - Wizard on another machine: pick **A team server** and enter its reachable URL
-  plus a token. The guided host screen teaches the handoff without configuring
+  plus either a pasted token or token-file path in the same form. The guided host screen teaches the handoff without configuring
   VPN/tailnet, LAN, port-forwarding, or TLS for you.
 - Manual/operator path: `yoke self-host init` writes the same published Compose
   bundle; [`docs/self-host.md`](https://github.com/upyoke/yoke/blob/main/docs/self-host.md)
@@ -51,6 +51,13 @@ Run Yoke core and Postgres on your own server.
 Yoke is Fair Source (FSL-1.1-ALv2). Use, modify, and self-host; the license
 converts to Apache 2.0 after its fixed window. Public source:
 [github.com/upyoke/yoke](https://github.com/upyoke/yoke).
+
+The wizard's **Edit Yoke source** row accepts an existing checkout or any
+public fork. That checkout powers the local CLI and harness, and powers the
+in-process engine in Local mode. If the same machine is also the guided
+self-host, Yoke uses its existing checkout build/start path for the server
+image. Existing remote self-hosted and Cloud servers are not redeployed by
+this choice; they continue running their deployed build.
 
 ## Switching later
 

@@ -8,6 +8,7 @@ import pytest
 
 pytest.importorskip("textual")
 
+from yoke_contracts import github_app_installation_permissions  # noqa: E402
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
     advance_past_path,
     complete_board_art,
@@ -77,7 +78,9 @@ def test_existing_backlog_project_can_bind_detected_checkout_origin(
                     "installation_id": 7,
                     "account_login": "example-org",
                     "repository_selection": "selected",
-                    "permissions": {"contents": "write"},
+                    "permissions": dict(
+                        github_app_installation_permissions.REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS
+                    ),
                 }
             ],
             "repositories": [
@@ -102,14 +105,13 @@ def test_existing_backlog_project_can_bind_detected_checkout_origin(
             await pilot.press("enter")
             await app.workers.wait_for_complete()
             await pilot.pause()
-            assert "Existing Yoke project found: legacy." in _body_text(app)
+            assert "Existing project found: Legacy." in _body_text(app)
             await pilot.press("enter")  # continue to GitHub adoption
             await pilot.pause()
             assert "How should Yoke manage this project on GitHub?" in _body_text(app)
             await pilot.press("enter")  # use connected installation
             await pilot.pause()
-            assert "repository access found" in _body_text(app)
-            await pilot.press("enter")
+            assert "Here's your progress map." in _body_text(app)
             await complete_board_art(pilot)
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")
@@ -161,7 +163,9 @@ def test_new_project_keeps_existing_origin_and_reaches_binding(
                     "installation_id": 7,
                     "account_login": "example-org",
                     "repository_selection": "selected",
-                    "permissions": {"contents": "write"},
+                    "permissions": dict(
+                        github_app_installation_permissions.REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS
+                    ),
                 }
             ],
             "repositories": [
@@ -191,7 +195,8 @@ def test_new_project_keeps_existing_origin_and_reaches_binding(
             await pilot.pause()
             assert "How should Yoke manage this project on GitHub?" in _body_text(app)
             await pilot.press("enter")
-            await pilot.press("enter")
+            await pilot.pause()
+            assert "Here's your progress map." in _body_text(app)
             await complete_board_art(pilot)
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")

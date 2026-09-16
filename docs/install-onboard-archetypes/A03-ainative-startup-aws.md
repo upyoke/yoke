@@ -22,7 +22,8 @@ it maps onto the existing account.
 
 ## Transcript — wizard
 
-Install summary Continue. PATH OK Continue.
+PATH opens directly; the already-ready status continues without an install
+congratulations screen.
 
 Account — two honest lanes:
 
@@ -58,17 +59,10 @@ manages **in the wizard** (not chat). No IAM user creation link appears. Save
 & verify uses the same owner-only `aws-admin` storage and in-process STS check
 as the guided route.
 
-```
-✔ AWS identity verified · aws-admin saved
-  Account       {account}
-  Identity      {identity}
-  Stored at     ~/.yoke/secrets/capability-secrets/acme-app/aws-admin/
-CI never sees this key — deploys federate through short-lived OIDC
-roles that Yoke provisions from it during /yoke onboard.
-  Continue to Review
-```
-
-**User:** Continue. Review Apply.
+Successful verification advances directly to Review. Review names the AWS
+account, verified identity, and that `aws-admin` was saved locally. The exact
+credential path and OIDC explanation appear only in **Show all changes**.
+Failures remain on an actionable recovery screen.
 
 Hand-off: Claude Code, Codex, or Cursor; `/yoke onboard`.
 
@@ -126,7 +120,7 @@ binding `command-ci` to a deploy-only YAML.
 
 | Requirement | Declare | Refusal | Instead |
 |---|---|---|---|
-| AWS apply | Hosting verified + step 7 explicit yes | Gate default No; `deferred` does not block seed | Do not assign persistent default flow until apply succeeded |
+| AWS apply | AWS identity summarized in Review + step 7 explicit yes | Gate default No; `deferred` does not block seed | Do not assign persistent default flow until apply succeeded |
 | Existing CI | `.github/workflows` is a **hint**, not a Yoke flow | Do not fail onboard if Actions already deploy | Map or ignore; never dual-write two production pipelines silently |
 | Migration | Step-2 governed-database box; step 5 writes the `migration_model` capability or records the model to attach once the stack exists | Rehearsal refuses HTTPS product connections | Attach-later is recorded on `migration-model-setup`; idea items that mutate DB need a DB claim |
 

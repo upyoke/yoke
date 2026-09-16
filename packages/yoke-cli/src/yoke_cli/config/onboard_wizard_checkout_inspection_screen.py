@@ -18,12 +18,25 @@ from yoke_cli.config.onboard_wizard_widgets import SelectionRow
 # answer, so it sits below rather than under the cursor.
 LAYER_ROWS = [
     SelectionRow(
-        installed_layer.LAYER_DECISION_KEEP, "Keep them",
+        installed_layer.LAYER_DECISION_KEEP,
+        "Keep/update",
         "install over what is already there",
     ),
+    SelectionRow("details", "Review exact locations", "every detected Yoke file group"),
     SelectionRow(
-        installed_layer.LAYER_DECISION_REMOVE, "Remove them",
+        installed_layer.LAYER_DECISION_REMOVE,
+        "Remove/reinstall",
         "delete the Yoke files and commit, then install fresh",
+    ),
+]
+REMOVE_CONFIRM_ROWS = [
+    SelectionRow(
+        "confirm-remove",
+        "Remove and reinstall",
+        "commit deletions, then install a fresh layer",
+    ),
+    SelectionRow(
+        "cancel-remove", "Keep/update instead", "preserve files and install over them"
     ),
 ]
 FETCH_ERROR_ROWS = [
@@ -60,7 +73,11 @@ def inspection_lines(scan: installed_layer.InstalledLayerScan) -> list[str]:
     ]
 
 
-def inspection_body(scan: installed_layer.InstalledLayerScan) -> list[Static]:
+def inspection_body(
+    scan: installed_layer.InstalledLayerScan,
+    *,
+    show_details: bool = False,
+) -> list[Static]:
     """Announce the layer already there, then ask what to do with it.
 
     Finding an existing operating layer is a discovery, not a fault, so the
@@ -72,15 +89,43 @@ def inspection_body(scan: installed_layer.InstalledLayerScan) -> list[Static]:
         if scan.source_engine_release
         else ""
     )
+    locations = sorted({str(group.rel).split("/", 1)[0] for group in scan.groups})
+    categories = sorted({str(group.kind).replace("_", " ") for group in scan.groups})
+    details = [
+        f"Files: {scan.file_count} · locations: {len(locations)} · categories: {len(categories)}",
+        f"Locations: {', '.join(locations)}",
+        f"Categories: {', '.join(categories)}",
+        "Keep/update preserves the layer and installs over it.",
+        "Remove/reinstall commits the Yoke-file deletions before installing fresh.",
+    ]
+    if show_details:
+        details.extend(inspection_lines(scan))
+    rows = list(LAYER_ROWS)
+    if show_details:
+        rows[1] = SelectionRow("details", "Hide exact locations", "return to summary")
     return verification_body(
         "This repository already has Yoke files in it.",
         f"{scan.root} carries a Yoke operating layer{release} — "
         f"{_file_phrase(scan.file_count)}. Yoke will keep them and install over "
         "what is there. Removing them instead commits the deletion first, so "
         "the install that follows starts from a clean repository.",
-        inspection_lines(scan),
-        LAYER_ROWS,
+        details,
+        rows,
         ok=True,
+    )
+
+
+def removal_confirmation_body(scan: installed_layer.InstalledLayerScan) -> list[Static]:
+    return verification_body(
+        "Remove the existing Yoke layer?",
+        "This deletes only the detected Yoke-owned files or entries, commits those deletions, and then installs a fresh layer.",
+        [
+            f"Checkout: {scan.root}",
+            f"Affected: {_file_phrase(scan.file_count)} across {len(scan.groups)} groups.",
+            "Your non-Yoke files and non-Yoke hook/settings entries are preserved.",
+        ],
+        REMOVE_CONFIRM_ROWS,
+        ok=False,
     )
 
 
@@ -97,4 +142,5 @@ __all__ = [
     "LAYER_ROWS",
     "inspection_body",
     "inspection_lines",
+    "removal_confirmation_body",
 ]

@@ -115,9 +115,12 @@ def test_usher_reconcile_forwards_to_engine_main() -> None:
         "yoke_cli.commands.usher_reconcile.importlib.import_module",
         return_value=module,
     ):
-        assert cli_main(
-            ["usher", "reconcile-github", TEST_ITEM_REF, "--workflow-run-id", "99"]
-        ) == 7
+        assert (
+            cli_main(
+                ["usher", "reconcile-github", TEST_ITEM_REF, "--workflow-run-id", "99"]
+            )
+            == 7
+        )
 
     assert calls == [[TEST_ITEM_REF, "--workflow-run-id", "99"]]
 
@@ -153,7 +156,7 @@ def test_product_boundary_inventory_classifies_recovery_commands() -> None:
         row = rows[shell_form]
         assert row.disposition == boundary_inventory.SOURCE_DEV_ADMIN
         assert row.function_id is None
-        assert row.transport_branch == "source-dev-admin-local"
+        assert row.transport_branch == "edit-yoke-source-local"
         assert {edge.classification for edge in row.import_edges} == {
             "source_dev_admin"
         }

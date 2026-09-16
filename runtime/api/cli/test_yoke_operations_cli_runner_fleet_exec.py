@@ -192,7 +192,7 @@ def test_tool_shaped_and_boundary_inventories_register_command():
     }
     boundary = rows["yoke runner-fleet exec"]
     assert boundary.disposition == product_boundary_inventory.SOURCE_DEV_ADMIN
-    assert boundary.transport_branch == "source-dev-admin-local"
+    assert boundary.transport_branch == "edit-yoke-source-local"
     assert boundary.config_required == (
         "versioned project stack-config snapshot plus child command"
     )

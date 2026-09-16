@@ -35,11 +35,11 @@ import, or local-checkout modes.
 
 ## 2. Onboard the Machine
 
-`yoke onboard` is a full-screen wizard — Install/PATH, Account, GitHub,
-Project, Review — driven by the arrow keys, redrawing in place. The Account
+`yoke onboard` is a full-screen wizard — Install, Account, GitHub, Project,
+Hosting, Review — driven by the arrow keys, redrawing in place. The Account
 step opens on a deployment-destination picker: where should this Yoke live —
 this machine (the free local universe, no account), an existing team server
-(your own reachable URL plus a token), guided self-host setup on this machine,
+(one form for your reachable URL and a pasted token or token-file path), guided self-host setup on this machine,
 or upyoke.com (hosted sign-in). The guided route previews Docker, the default
 bundle directory, loopback URL/port, Compose work, and operator-owned networking
 before writing. It captures first boot, waits until the server answers

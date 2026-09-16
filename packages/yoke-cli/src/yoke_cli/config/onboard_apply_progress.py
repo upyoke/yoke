@@ -10,7 +10,7 @@ from yoke_cli.config.onboard_project_modes import (
     PROJECT_MODE_CREATE_REPO,
     PROJECT_MODE_IMPORT_REMOTE,
     PROJECT_MODE_LOCAL_CHECKOUT,
-    PROJECT_MODE_SOURCE_DEV_ADMIN,
+    PROJECT_MODE_EDIT_YOKE_SOURCE,
 )
 
 ProgressCallback = Callable[[str, str, str], None]
@@ -59,8 +59,8 @@ def project_action_for_mode(project_mode: str) -> str:
         return "project-import-remote"
     if project_mode == PROJECT_MODE_LOCAL_CHECKOUT:
         return "project-onboard-local-checkout"
-    if project_mode == PROJECT_MODE_SOURCE_DEV_ADMIN:
-        return "project-source-dev-admin"
+    if project_mode == PROJECT_MODE_EDIT_YOKE_SOURCE:
+        return "activate-yoke-source"
     return "project-onboard"
 
 

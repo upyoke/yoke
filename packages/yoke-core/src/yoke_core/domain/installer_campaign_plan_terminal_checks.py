@@ -10,11 +10,10 @@ from yoke_core.domain.installer_campaign_plan_common import (
     BROWSER_PRIMARY_POST_CHECKS,
     CHOOSE_BACKLOG_KEYS,
     CHOOSE_MACHINE_ONLY_KEYS,
-    CHOOSE_STAGE_KEYS,
     DUAL_HOST_BASELINES,
     FRESH_HOST,
-    HOSTED_CONNECTED_TEXT,
     HOSTED_STAGE_ONBOARD,
+    MACHINE_GITHUB_TEXT,
     PARENT_HANDOFF_TEXT,
     PATH_READY_TEXT,
     PATH_REPAIR_COMMAND,
@@ -31,9 +30,6 @@ from yoke_core.domain.installer_campaign_plan_common import (
 )
 
 
-_DESTINATION_PICKER_TEXT = ("Where should this Yoke universe live?",)
-
-
 def _browser_approval_actions() -> list[dict[str, Any]]:
     return [
         action("browser-approval"),
@@ -41,10 +37,10 @@ def _browser_approval_actions() -> list[dict[str, Any]]:
             "operator-browser-approval",
             "Enter",
             operator_gate="machine_browser_approval",
-            completion_text=HOSTED_CONNECTED_TEXT,
+            completion_text=MACHINE_GITHUB_TEXT,
             gate_timeout_seconds=600,
         ),
-        action("hosted-connected"),
+        action("machine-github"),
     ]
 
 
@@ -58,13 +54,7 @@ def _hosted_completion_actions(
         actions.append(transition("uv-consent", "Enter", wait_seconds=90))
     else:
         actions.append(transition("installer-running", wait_seconds=45))
-    actions.extend(
-        [
-            action("install-summary"),
-            transition("continue-install-summary", "Enter"),
-            action("path-diagnosis"),
-        ]
-    )
+    actions.append(action("path-diagnosis"))
     if path_needs_repair:
         actions.extend(
             [
@@ -77,19 +67,7 @@ def _hosted_completion_actions(
         actions.append(transition("continue-path", "Enter"))
     actions.extend(
         [
-            action(
-                "destination-picker-frame",
-                ready_text=_DESTINATION_PICKER_TEXT,
-                ready_timeout_seconds=180,
-            ),
-            transition(
-                "destination-picker",
-                *CHOOSE_STAGE_KEYS,
-                wait_seconds=10,
-            ),
             *_browser_approval_actions(),
-            transition("continue-hosted-connected", "Enter"),
-            action("machine-github"),
             transition("machine-github-backlog", *CHOOSE_BACKLOG_KEYS),
             action("project-mode"),
             transition(
@@ -126,15 +104,13 @@ def _cold_start_config(
         expected_text=(
             "Starting Yoke onboard",
             *path_text,
-            *_DESTINATION_PICKER_TEXT,
             *BROWSER_APPROVAL_TEXT,
-            "Yoke token connected.",
+            *MACHINE_GITHUB_TEXT,
             *REVIEW_TEXT,
             *APPLY_SUCCESS_TEXT,
             *PARENT_HANDOFF_TEXT,
         ),
         capture_checkpoints=(
-            "install-summary",
             "browser-approval",
             "review",
             "apply-complete",
@@ -199,8 +175,9 @@ HOSTED_CONNECT = terminal_case(
         "authorization. No operator browser action is needed."
     ),
     expected_outcome=(
-        "The browser approval screen opens the Stage platform and returns to a "
-        "verified Yoke token connection without asking for a pasted token."
+        "The browser approval screen opens the Stage platform and advances "
+        "directly to GitHub setup with compact verified-connection status, "
+        "without asking for a pasted token."
     ),
     method_config=terminal_recipe(
         actions=(
@@ -211,9 +188,9 @@ HOSTED_CONNECT = terminal_case(
         expected_text=(
             "Yoke is already on your PATH.",
             *BROWSER_APPROVAL_TEXT,
-            "Yoke token connected.",
+            *MACHINE_GITHUB_TEXT,
         ),
-        capture_checkpoints=("browser-approval", "hosted-connected"),
+        capture_checkpoints=("browser-approval", "machine-github"),
         notes=(
             "Use the live Stage browser-approval protocol; the setup clears "
             "stored auth temporarily so credential reuse cannot bypass it."
@@ -226,7 +203,7 @@ HOSTED_CONNECT = terminal_case(
         post_checks=BROWSER_PRIMARY_POST_CHECKS,
     ),
     entry_surface=HOSTED_STAGE_ONBOARD,
-    required_completion="hosted-connected",
+    required_completion="machine-github",
 )
 
 
@@ -282,8 +259,6 @@ APPLY_HANDOFF = terminal_case(
     method_config=terminal_recipe(
         actions=(
             transition("installer-running", wait_seconds=45),
-            action("install-summary"),
-            transition("continue-install-summary", "Enter"),
             action("path-diagnosis"),
             transition("continue-path", "Enter"),
             action("local-universe"),
@@ -309,7 +284,6 @@ APPLY_HANDOFF = terminal_case(
             *PARENT_HANDOFF_TEXT,
         ),
         capture_checkpoints=(
-            "install-summary",
             "local-universe",
             "review",
             "apply-complete",

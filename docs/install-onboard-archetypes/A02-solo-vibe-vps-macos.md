@@ -23,8 +23,7 @@ Launches `yoke onboard --post-install`.
 
 ## Transcript — wizard
 
-PATH: Continue on the install summary; PATH already OK →
-`{brand} is already on your PATH.` / `Continue`.
+PATH begins directly with `{brand} is already on your PATH.` / `Continue`.
 
 Account: **This machine.** Universe summary Continue.
 
@@ -80,9 +79,9 @@ AWS is the one Yoke can run for you; hosting it yourself is a fine answer.
   Decide later           /yoke onboard asks again
 ```
 
-**User:** I host this myself. The next screen collects the optional note
-`DigitalOcean droplet`, then records the no-Yoke-managed-host posture without
-showing AWS credential boxes.
+**User:** I host this myself. The choice immediately records the settled
+no-Yoke-managed-host posture and opens Review; there is no optional location
+note screen and no AWS credential box.
 
 Review: Apply. GitHub already saved subtitle may be
 `Machine GitHub authorization is already saved; only the remaining setup writes wait for Apply.`

@@ -20,12 +20,12 @@ from yoke_cli.config import onboard_wizard_project_screens as screens  # noqa: E
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
+    accept_project_details,
     advance_past_path,
     complete_board_art,
     make_app,
     skip_hosting,
     stub_path_doctor,
-    submit_public_item_prefix,
     type_text,
 )
 
@@ -113,13 +113,10 @@ def test_unavailable_app_publish_opens_github_and_keeps_project_local(
             await pilot.press("enter")  # project mode: create-repo
             await type_text(pilot, "/home/code/demo")
             await pilot.press("enter")
-            await pilot.press("enter")  # slug placeholder -> demo
-            await pilot.press("enter")  # name placeholder
+            await accept_project_details(pilot)
             await pilot.press("enter")  # publish: Yes (preselected)
             await pilot.press("down")  # manual recovery: disabled
             await pilot.press("enter")  # App publishing unavailable: disabled
-            await pilot.press("enter")  # default branch main
-            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply

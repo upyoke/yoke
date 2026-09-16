@@ -42,35 +42,49 @@ class StoredProjectFlow:
         rows: list[SelectionRow] = []
         for index, project in enumerate(self._stored_project_checkouts):
             checkout = str(project.checkout)
-            rows.append(SelectionRow(
-                f"stored:{index}", checkout, f"project id {project.project_id}",
-            ))
+            rows.append(
+                SelectionRow(
+                    f"stored:{index}",
+                    checkout,
+                    f"project id {project.project_id}",
+                )
+            )
             if _is_yoke_source_checkout(project.checkout):
-                rows.append(SelectionRow(
-                    f"source-dev:{index}",
-                    "Develop Yoke itself",
-                    f"use {checkout} as the source checkout",
-                ))
-        rows.extend((
-            SelectionRow(
-                "other", "Choose another project", "show all project options",
-            ),
-            SelectionRow(
-                "none", "Don't set up a project now", "just the machine",
-            ),
-        ))
+                rows.append(
+                    SelectionRow(
+                        f"source-dev:{index}",
+                        "Edit Yoke source",
+                        f"use {checkout} as the source checkout",
+                    )
+                )
+        rows.extend(
+            (
+                SelectionRow(
+                    "other",
+                    "Choose another project",
+                    "show all project options",
+                ),
+                SelectionRow(
+                    "none",
+                    "Don't set up a project now",
+                    "just the machine",
+                ),
+            )
+        )
         # The detection is the headline, and the first saved checkout is the
         # answer under the cursor; the other paths sit below it.
         saved = len(self._stored_project_checkouts)
         noun = "project" if saved == 1 else "projects"
-        self._goto(self._selection_view(
-            STEP_PROJECT,
-            f"{saved} Yoke {noun} already set up on this machine.",
-            "Yoke will use the selected checkout as it stands. Choosing "
-            "another path leaves these mappings untouched.",
-            rows,
-            self._on_stored_project_choice,
-        ))
+        self._goto(
+            self._selection_view(
+                STEP_PROJECT,
+                f"{saved} Yoke {noun} already set up on this machine.",
+                "Yoke will use the selected checkout as it stands. Choosing "
+                "another path leaves these mappings untouched.",
+                rows,
+                self._on_stored_project_choice,
+            )
+        )
 
     def _on_stored_project_choice(self: _Shell, choice: str) -> None:
         if choice == "other":
@@ -87,7 +101,7 @@ class StoredProjectFlow:
             steps.reset_project_fields(self.result)
             self._preset_dev_checkout = str(project.checkout)
             self.result.project_checkout = str(project.checkout)
-            self._on_project_mode(onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN)
+            self._on_project_mode(onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE)
             return
         if choice.startswith("stored:"):
             project = self._selected_stored_project(choice)
@@ -97,7 +111,8 @@ class StoredProjectFlow:
         self._goto_project_mode()
 
     def _selected_stored_project(
-        self: _Shell, choice: str,
+        self: _Shell,
+        choice: str,
     ) -> machine_config.ConfiguredProject | None:
         try:
             return self._stored_project_checkouts[int(choice.split(":", 1)[1])]

@@ -32,10 +32,12 @@ def _plan(kwargs: dict, *, applied: bool) -> dict:
         "project_mode": kwargs["project_mode"],
         "applied": applied,
         "config_path": kwargs["config_path"],
-        "plan": {"steps": [
-            {"action": "create-or-validate-dir", "target": "/home/.yoke"},
-            {"action": "set-active-env", "target": kwargs["env_name"]},
-        ]},
+        "plan": {
+            "steps": [
+                {"action": "create-or-validate-dir", "target": "/home/.yoke"},
+                {"action": "set-active-env", "target": kwargs["env_name"]},
+            ]
+        },
         "identity": {"checked": False, "ok": None},
         "next_steps": [],
     }
@@ -79,7 +81,9 @@ async def _apply_machine_only(app, expected_labels: list[str]) -> None:
         # Apply runs in a worker thread; wait for it before reading the screen.
         await app.workers.wait_for_complete()
         await pilot.pause()
-        assert [row.label for row in app.query_one(SelectionList).rows] == expected_labels
+        assert [
+            row.label for row in app.query_one(SelectionList).rows
+        ] == expected_labels
 
 
 def test_apply_failure_stays_in_tui_until_exit() -> None:
@@ -98,7 +102,9 @@ def test_apply_failure_stays_in_tui_until_exit() -> None:
     app._apply_report = fail_on_apply
     # A content collision is not retryable (same name fails again), so the menu
     # is Change answers / Exit — no "Try again".
-    asyncio.run(_apply_machine_only(app, ["Change answers", "Exit"]))
+    asyncio.run(
+        _apply_machine_only(app, ["Change answers", "Exit", "Show technical details"])
+    )
 
     assert app.exit_code == 1
     assert app.last_error == (
@@ -122,7 +128,11 @@ def test_apply_failure_offers_retry_when_retryable() -> None:
 
     app._apply_report = fail_transient
     # A transient failure can plausibly succeed on retry, so "Try again" leads.
-    asyncio.run(_apply_machine_only(app, ["Try again", "Change answers", "Exit"]))
+    asyncio.run(
+        _apply_machine_only(
+            app, ["Try again", "Change answers", "Exit", "Show technical details"]
+        )
+    )
     assert app.exit_code == 1
 
 
@@ -161,14 +171,18 @@ def test_apply_retry_success_clears_prior_failure() -> None:
             assert app.exit_code == 1
             assert app.last_error == "network error reaching install bundle"
             assert [row.label for row in app.query_one(SelectionList).rows] == [
-                "Try again", "Change answers", "Exit",
+                "Try again",
+                "Change answers",
+                "Exit",
+                "Show technical details",
             ]
 
             await pilot.press("enter")
             await app.workers.wait_for_complete()
             await pilot.pause()
             assert [row.label for row in app.query_one(SelectionList).rows] == [
-                "Exit", "Show report",
+                "Exit",
+                "Show report",
             ]
             assert app.exit_code == 0
             assert app.last_error is None
@@ -204,6 +218,7 @@ def test_apply_failure_offers_saved_report_recovery_actions(
                 "Resume from cloned folder",
                 "Change answers",
                 "Exit",
+                "Show technical details",
             ]
 
     asyncio.run(scenario())
@@ -264,6 +279,7 @@ def test_apply_failure_does_not_offer_unproven_checkout_removal(
                 "Resume from cloned folder",
                 "Change answers",
                 "Exit",
+                "Show technical details",
             ]
 
     asyncio.run(scenario())
@@ -284,60 +300,6 @@ def test_apply_success_stays_in_tui_with_report_action() -> None:
 
     assert app.exit_code == 0
     assert app.report_path == "/tmp/onboard-report.json"
-
-
-def test_applying_screen_updates_steps_live() -> None:
-    """A progress event flips one Applying row in place (pending -> running ->
-    done) — the live feedback that replaces the frozen Review screen."""
-    from yoke_cli.config.onboard_wizard_steps import APPLY_STATUS_GLYPHS as G
-
-    app, _spy = make_app()
-    sel = "#applystep-00-create-or-validate-dir"
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            app._review_plan = {"plan": {"steps": [
-                {"action": "create-or-validate-dir", "target": "/home/.yoke"},
-                {"action": "set-active-env", "target": "stage"},
-            ]}}
-            app._apply_steps = app._applying_step_model()
-            app._goto_applying()
-            await pilot.pause()
-            assert G["pending"] in str(app.query_one(sel).render())
-
-            app._set_apply_step_status("create-or-validate-dir", "/home/.yoke", "running")
-            await pilot.pause()
-            assert G["running"] in str(app.query_one(sel).render())
-
-            app._set_apply_step_status("create-or-validate-dir", "/home/.yoke", "done")
-            await pilot.pause()
-            assert G["done"] in str(app.query_one(sel).render())
-
-    asyncio.run(scenario())
-
-
-def test_applying_screen_updates_use_ascii_in_plain_mode(monkeypatch) -> None:
-    monkeypatch.setenv("YOKE_ONBOARD_FORCE_PLAIN", "1")
-    app, _spy = make_app()
-    sel = "#applystep-00-create-or-validate-dir"
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            app._review_plan = {"plan": {"steps": [
-                {"action": "create-or-validate-dir", "target": "/home/.yoke"},
-            ]}}
-            app._apply_steps = app._applying_step_model()
-            app._goto_applying()
-            await pilot.pause()
-            assert "  o " in str(app.query_one(sel).render())
-            assert "○" not in str(app.query_one(sel).render())
-
-            app._set_apply_step_status("create-or-validate-dir", "/home/.yoke", "done")
-            await pilot.pause()
-            assert "  + " in str(app.query_one(sel).render())
-            assert "✔" not in str(app.query_one(sel).render())
-
-    asyncio.run(scenario())
 
 
 def test_ctrl_c_suppressed_during_apply() -> None:

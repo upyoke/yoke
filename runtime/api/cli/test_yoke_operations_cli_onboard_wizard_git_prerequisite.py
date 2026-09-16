@@ -29,9 +29,7 @@ def _stub_path_doctor(monkeypatch):
 
 
 def _title(app) -> str:
-    return next(
-        str(w.render()) for w in app.query(".onboard-title").results(Static)
-    )
+    return next(str(w.render()) for w in app.query(".onboard-title").results(Static))
 
 
 def _body_text(app) -> str:
@@ -92,14 +90,16 @@ def _force_linux(monkeypatch) -> None:
         onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
         onboard_project.PROJECT_MODE_CLONE_REMOTE,
         onboard_project.PROJECT_MODE_CREATE_REPO,
-        onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
+        onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE,
     ],
 )
 def test_project_modes_fail_fast_when_git_is_missing(monkeypatch, mode: str) -> None:
     app, _spy = make_app()
     _force_linux(monkeypatch)
     monkeypatch.setattr(
-        project_git_prerequisite.shutil, "which", _git_missing_dnf_available,
+        project_git_prerequisite.shutil,
+        "which",
+        _git_missing_dnf_available,
     )
 
     async def scenario() -> None:
@@ -304,7 +304,9 @@ def test_project_git_retry_and_back_do_not_accumulate_recovery_views(
     app, _spy = make_app()
     _force_linux(monkeypatch)
     monkeypatch.setattr(
-        project_git_prerequisite.shutil, "which", _git_missing_dnf_available,
+        project_git_prerequisite.shutil,
+        "which",
+        _git_missing_dnf_available,
     )
 
     async def scenario() -> None:

@@ -33,6 +33,7 @@ def header() -> str:
 
 def footer(
     *,
+    mode: str = "choices",
     copy_label: str | None = None,
     open_label: str | None = None,
     note: str | None = None,
@@ -43,15 +44,27 @@ def footer(
     did, and belongs where the operator's eye already is.
     """
     marks = glyphs()
-    hints = [
-        (marks.footer_navigate, "navigate"),
-        (marks.footer_select, "select"),
-    ]
+    if mode == "applying":
+        hints = [("…", "applying · please wait")]
+    elif mode == "checking":
+        hints = [("…", "checking · please wait")]
+    elif mode == "checking-cancellable":
+        hints = [("esc", "cancel check"), ("^c", "quit")]
+    elif mode == "input":
+        hints = [(marks.footer_select, "next")]
+    elif mode == "plain":
+        hints = []
+    else:
+        hints = [
+            (marks.footer_navigate, "navigate"),
+            (marks.footer_select, "select"),
+        ]
     if copy_label:
         hints.append((COPY_KEY_GLYPH, copy_label))
     if open_label:
         hints.append((OPEN_KEY_GLYPH, open_label))
-    hints.extend((("esc", "back"), ("^c", "quit")))
+    if mode not in {"applying", "checking", "checking-cancellable"}:
+        hints.extend((("esc", "back"), ("^c", "quit")))
     line = "     ".join(_footer_hint(glyph, label) for glyph, label in hints)
     if not note:
         return line

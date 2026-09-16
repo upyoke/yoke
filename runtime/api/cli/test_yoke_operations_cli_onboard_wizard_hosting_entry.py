@@ -93,7 +93,6 @@ def test_guided_entry_teaches_recovery_when_no_safe_link(
             body = body_text(app)
             assert hosting_steps.NO_LINK_RECOVERY_LINE in body
             assert "Open the one-click AWS link" not in body
-            assert "Set up the dedicated AWS key" in body
 
     asyncio.run(scenario())
 

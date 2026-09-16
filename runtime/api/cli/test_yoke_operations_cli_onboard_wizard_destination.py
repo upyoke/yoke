@@ -109,8 +109,9 @@ def test_local_pick_swaps_sign_in_for_universe_summary() -> None:
             await pilot.press("enter")
             text = _body_text(app)
             assert "Your Yoke lives on this machine." in text
-            assert "Apply creates a private local universe under ~/.yoke" in text
-            assert "Future reinstalls preserve this database by default" in text
+            assert "No account is required" in text
+            assert "Private data: ~/.yoke" in text
+            assert "Reinstalling Yoke preserves this universe by default" in text
             assert app.result.destination == DESTINATION_LOCAL
             assert app.result.env_name == local_universe_setup.LOCAL_ENV
             assert app.result.api_url == ""
@@ -141,10 +142,8 @@ def test_local_pick_names_existing_universe_on_rerun(tmp_path: Path) -> None:
             await pilot.press("enter")
             text = _body_text(app)
             assert "Your Yoke lives on this machine." in text
-            assert (
-                "Yoke found an existing local universe connection in ~/.yoke." in text
-            )
-            assert "Apply verifies the existing database and preserves" in text
+            assert "Existing private universe: ~/.yoke" in text
+            assert "preserves projects, items, settings, and secrets" in text
             assert app.query_one(SelectionList).rows[0].label == "Use existing"
             summary_depth = len(app._history)
             await pilot.press("down")  # Back
@@ -159,7 +158,7 @@ def test_local_pick_names_existing_universe_on_rerun(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
-def test_server_pick_collects_url_then_token() -> None:
+def test_server_pick_shows_one_form_with_an_explicit_token_source() -> None:
     app, _spy = make_app(_picker_defaults(token=None))
 
     async def scenario() -> None:
@@ -168,14 +167,17 @@ def test_server_pick_collects_url_then_token() -> None:
             await pilot.press("down")  # picker: local -> A team server
             await pilot.press("enter")
             text = _body_text(app)
-            assert "Enter your Yoke server URL." in text
+            assert "Connect to your Yoke team server." in text
             assert "No server yet? Paste the install one-liner" in text
+            assert "Server URL" in text
+            assert "Paste token" in text
+            assert "Token file" in text
             await type_text(pilot, "https://yoke.acme.test")
-            await pilot.press("enter")
+            await pilot.press("enter")  # URL -> token-source selector
+            await pilot.press("enter")  # Paste token -> masked token field
             await pilot.pause()
             assert app.result.destination == DESTINATION_SERVER
-            assert app.result.api_url == "https://yoke.acme.test"
-            assert "Provide your Yoke API token." in _body_text(app)
+            assert "API token" in _body_text(app)
 
     asyncio.run(scenario())
 

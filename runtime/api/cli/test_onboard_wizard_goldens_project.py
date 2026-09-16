@@ -29,6 +29,7 @@ from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
     render,
 )
 from yoke_cli.config import onboard_machine_github  # noqa: E402
+from yoke_cli.config import github_publish  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 from yoke_cli.config import onboard_wizard_flow  # noqa: E402
 from yoke_cli.config import project_git_probe  # noqa: E402
@@ -50,7 +51,8 @@ def _stub_source_branch(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        project_git_transport, "remote_default_branch",
+        project_git_transport,
+        "remote_default_branch",
         lambda url, token=None, github_web_url=None: "main",
     )
 
@@ -66,7 +68,9 @@ def test_project_source_select() -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._goto_project_mode()
 
-    assert_golden("project_source_select", render(app, drive, title="yoke onboard · Project"))
+    assert_golden(
+        "project_source_select", render(app, drive, title="yoke onboard · Project")
+    )
 
 
 def test_project_folder_input() -> None:
@@ -75,18 +79,20 @@ def test_project_folder_input() -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._on_project_mode(onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
 
-    assert_golden("project_folder_input", render(app, drive, title="yoke onboard · Project"))
+    assert_golden(
+        "project_folder_input", render(app, drive, title="yoke onboard · Project")
+    )
 
 
-def test_project_name_input() -> None:
+def test_project_details() -> None:
     app = make_app()
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a.result.project_mode = onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
         a.result.project_checkout = "~/code/my-project"
-        a._goto_slug()
+        a._goto_project_details()
 
-    assert_golden("project_name_input", render(app, drive, title="yoke onboard · Project"))
+    assert_golden("project_details", render(app, drive, title="yoke onboard · Project"))
 
 
 def test_project_publish_prompt() -> None:
@@ -99,18 +105,56 @@ def test_project_publish_prompt() -> None:
         a.result.project_name = "My Project"
         a._goto_publish_prompt()
 
-    assert_golden("project_publish_prompt", render(app, drive, title="yoke onboard · Project"))
+    assert_golden(
+        "project_publish_prompt", render(app, drive, title="yoke onboard · Project")
+    )
 
 
 def test_project_owner_picker(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(onboard_wizard_flow, "fetch_repo_owners", lambda *_a, **_k: OWNERS)
+    monkeypatch.setattr(
+        onboard_wizard_flow, "fetch_repo_owners", lambda *_a, **_k: OWNERS
+    )
     app = make_app()
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a.result.project_publish_to_github = True
         a._show_owner_picker(OWNERS)
 
-    assert_golden("project_owner_picker", render(app, drive, title="yoke onboard · Project"))
+    assert_golden(
+        "project_owner_picker", render(app, drive, title="yoke onboard · Project")
+    )
+
+
+def test_project_owner_picker_long() -> None:
+    owners = [
+        github_publish.RepoOwner(
+            login=f"account-{index:02d}",
+            kind="user" if index == 0 else "organization",
+        )
+        for index in range(12)
+    ]
+    app = make_app()
+
+    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
+        a.result.project_publish_to_github = True
+        a._show_owner_picker(owners)
+
+    assert_golden(
+        "project_owner_picker_long",
+        render(app, drive, title="yoke onboard · Project"),
+    )
+
+
+def test_project_private_repo_empty() -> None:
+    app = make_app()
+
+    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
+        a._goto_private_repo_empty()
+
+    assert_golden(
+        "project_private_repo_empty",
+        render(app, drive, title="yoke onboard · Project"),
+    )
 
 
 def test_project_repo_name() -> None:
@@ -122,21 +166,9 @@ def test_project_repo_name() -> None:
         a._authenticated_github_login = "beebauman"
         a._on_owner_pick("acme-inc")
 
-    assert_golden("project_repo_name", render(app, drive, title="yoke onboard · Project"))
-
-
-def test_project_branch_prefix_input() -> None:
-    # The default-branch and issue-prefix entries render as TWO sequential
-    # single-input views with distinct titles (onboard_wizard_flow `_after_repo`
-    # -> `_after_branch`). This golden captures the first — the default-branch
-    # input.
-    app = make_app()
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a.result.project_slug = "my-project"
-        a._after_repo("")
-
-    assert_golden("project_branch_prefix_input", render(app, drive, title="yoke onboard · Project"))
+    assert_golden(
+        "project_repo_name", render(app, drive, title="yoke onboard · Project")
+    )
 
 
 def test_project_github_auth() -> None:
@@ -151,7 +183,9 @@ def test_project_github_auth() -> None:
         a.result.machine_github_verification = {"ok": True, "ready": True}
         a._after_prefix("PROJ")
 
-    assert_golden("project_github_auth", render(app, drive, title="yoke onboard · Project"))
+    assert_golden(
+        "project_github_auth", render(app, drive, title="yoke onboard · Project")
+    )
 
 
 def test_project_clone_url_input() -> None:
@@ -162,7 +196,9 @@ def test_project_clone_url_input() -> None:
         # public/private split is skipped straight to the URL paste).
         a._on_project_mode(onboard_project.PROJECT_MODE_CLONE_REMOTE)
 
-    assert_golden("project_clone_url_input", render(app, drive, title="yoke onboard · Project"))
+    assert_golden(
+        "project_clone_url_input", render(app, drive, title="yoke onboard · Project")
+    )
 
 
 def test_project_clone_folder() -> None:
@@ -175,7 +211,9 @@ def test_project_clone_folder() -> None:
         a.result.project_mode = onboard_project.PROJECT_MODE_CLONE_REMOTE
         a._after_remote("https://github.com/acme/widgets.git")
 
-    assert_golden("project_clone_folder", render(app, drive, title="yoke onboard · Project"))
+    assert_golden(
+        "project_clone_folder", render(app, drive, title="yoke onboard · Project")
+    )
 
 
 def test_project_clone_outcome() -> None:
@@ -186,7 +224,9 @@ def test_project_clone_outcome() -> None:
         a.result.project_remote_url = "https://github.com/acme/widgets.git"
         a._goto_clone_outcome()
 
-    assert_golden("project_clone_outcome", render(app, drive, title="yoke onboard · Project"))
+    assert_golden(
+        "project_clone_outcome", render(app, drive, title="yoke onboard · Project")
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -200,7 +240,9 @@ def test_finish_review_full() -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._goto_finish()
 
-    assert_golden("finish_review_full", render(app, drive, title="yoke onboard · Review"))
+    assert_golden(
+        "finish_review_full", render(app, drive, title="yoke onboard · Review")
+    )
 
 
 def test_finish_review_empty() -> None:
@@ -209,12 +251,16 @@ def test_finish_review_empty() -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._goto_finish()
 
-    assert_golden("finish_review_empty", render(app, drive, title="yoke onboard · Review"))
+    assert_golden(
+        "finish_review_empty", render(app, drive, title="yoke onboard · Review")
+    )
 
 
 def test_finish_error() -> None:
     def _boom(_kw: dict[str, Any]) -> Any:
-        raise RuntimeError("A custom API URL is required when the environment is Custom.")
+        raise RuntimeError(
+            "A custom API URL is required when the environment is Custom."
+        )
 
     app = make_app(apply_report=_boom)
 
@@ -231,7 +277,9 @@ def test_finish_apply_success() -> None:
         a.report_path = "~/.yoke/onboarding-runs/apply-reports/run-test.json"
         a._goto_apply_success()
 
-    assert_golden("finish_apply_success", render(app, drive, title="yoke onboard · Review"))
+    assert_golden(
+        "finish_apply_success", render(app, drive, title="yoke onboard · Review")
+    )
 
 
 def test_finish_applying() -> None:
@@ -241,24 +289,41 @@ def test_finish_applying() -> None:
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._apply_steps = [
-            {"step_id": "00-create-or-validate-dir",
-             "action": "create-or-validate-dir", "target": "/home/.yoke",
-             "label": "Create your Yoke home folder at ~/.yoke",
-             "status": "done"},
-            {"step_id": "01-set-active-env", "action": "set-active-env",
-             "target": "stage", "label": 'Make "stage" your active environment',
-             "status": "done"},
-            {"step_id": "02-project-create-checkout",
-             "action": "project-create-checkout", "target": "~/code/widget",
-             "label": "Create the project at ~/code/widget", "status": "running"},
-            {"step_id": "03-project-install-scaffold",
-             "action": "project-install-scaffold", "target": "",
-             "label": "Install the Yoke project scaffold (.yoke/)",
-             "status": "pending"},
-            {"step_id": "04-project-write-board-art",
-             "action": "project-write-board-art", "target": "",
-             "label": "Write your board art, rebuild BOARD.md, and commit the art",
-             "status": "pending"},
+            {
+                "step_id": "00-create-or-validate-dir",
+                "action": "create-or-validate-dir",
+                "target": "/home/.yoke",
+                "label": "Create your Yoke home folder at ~/.yoke",
+                "status": "done",
+            },
+            {
+                "step_id": "01-set-active-env",
+                "action": "set-active-env",
+                "target": "stage",
+                "label": 'Make "stage" your active environment',
+                "status": "done",
+            },
+            {
+                "step_id": "02-project-create-checkout",
+                "action": "project-create-checkout",
+                "target": "~/code/widget",
+                "label": "Create the project at ~/code/widget",
+                "status": "running",
+            },
+            {
+                "step_id": "03-project-install-scaffold",
+                "action": "project-install-scaffold",
+                "target": "",
+                "label": "Install the Yoke project scaffold (.yoke/)",
+                "status": "pending",
+            },
+            {
+                "step_id": "04-project-write-board-art",
+                "action": "project-write-board-art",
+                "target": "",
+                "label": "Write your board art, rebuild BOARD.md, and commit the art",
+                "status": "pending",
+            },
         ]
         a._goto_applying()
 
@@ -277,4 +342,6 @@ def test_finish_apply_failure() -> None:
         a.resume_command = "yoke onboard"
         a._goto_apply_failure()
 
-    assert_golden("finish_apply_failure", render(app, drive, title="yoke onboard · Review"))
+    assert_golden(
+        "finish_apply_failure", render(app, drive, title="yoke onboard · Review")
+    )

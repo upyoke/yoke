@@ -71,7 +71,7 @@ def test_the_subtitle_does_not_present_aws_as_the_only_world() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_declaring_reaches_a_screen_that_asks_for_no_credential() -> None:
+def test_declaring_records_the_posture_and_goes_directly_to_review() -> None:
     app, _spy = make_app()
 
     async def action(a: Any, pilot: Any) -> None:
@@ -80,45 +80,12 @@ def test_declaring_reaches_a_screen_that_asks_for_no_credential() -> None:
         await pilot.pause()
 
     screen = drive(app, action)
-    assert hosting_steps.HOSTING_NO_MANAGED_HOST_TITLE in screen
+    assert "Review what Yoke will save." in screen
     assert "Access key ID" not in screen
     assert "Secret access key" not in screen
-
-
-def test_declaring_records_the_posture_and_the_optional_provider_note() -> None:
-    app, _spy = make_app()
-
-    async def action(a: Any, pilot: Any) -> None:
-        await reach_provider_screen(a, pilot)
-        a._on_hosting_provider_choice(DECLARED_ROW)
-        await pilot.pause()
-        a._after_no_managed_host_note(
-            {
-                hosting_steps.HOSTING_PROVIDER_NOTE_FIELD.key: "  Render  ",
-            }
-        )
-        await pilot.pause()
-
-    drive(app, action)
     assert app.result.hosting_choice == (hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST)
-    assert app.result.hosting_provider_note == "Render"
-    assert app.result.hosting_verification is None
-
-
-def test_an_empty_provider_note_stays_absent_rather_than_blank() -> None:
-    app, _spy = make_app()
-
-    async def action(a: Any, pilot: Any) -> None:
-        await reach_provider_screen(a, pilot)
-        a._after_no_managed_host_note(
-            {
-                hosting_steps.HOSTING_PROVIDER_NOTE_FIELD.key: "   ",
-            }
-        )
-        await pilot.pause()
-
-    drive(app, action)
     assert app.result.hosting_provider_note is None
+    assert app.result.hosting_verification is None
 
 
 def test_deciding_later_stays_undecided_and_names_no_provider() -> None:
@@ -133,19 +100,6 @@ def test_deciding_later_stays_undecided_and_names_no_provider() -> None:
     drive(app, action)
     assert app.result.hosting_choice == hosting_posture.POSTURE_UNDECIDED
     assert app.result.hosting_provider_note is None
-
-
-def test_backing_out_returns_to_the_connect_screen() -> None:
-    app, _spy = make_app()
-
-    async def action(a: Any, pilot: Any) -> None:
-        await reach_provider_screen(a, pilot)
-        a._on_hosting_provider_choice(DECLARED_ROW)
-        await pilot.pause()
-        a._on_no_managed_host_choice("back")
-        await pilot.pause()
-
-    assert hosting_steps.HOSTING_PROVIDER_TITLE in drive(app, action)
 
 
 def test_back_from_aws_sign_in_returns_to_the_provider_level() -> None:
@@ -300,7 +254,9 @@ def test_leftover_package_build_lib_is_not_a_second_posture_home(
     live = tmp_path / "packages/yoke-contracts/src/yoke_contracts/other.py"
     live.parent.mkdir(parents=True)
     live.write_text("no-yoke-managed-host\n", encoding="utf-8")
-    found = [path.relative_to(tmp_path).as_posix() for path in _live_package_python(tmp_path)]
+    found = [
+        path.relative_to(tmp_path).as_posix() for path in _live_package_python(tmp_path)
+    ]
     assert found == ["packages/yoke-contracts/src/yoke_contracts/other.py"]
 
 

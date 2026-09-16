@@ -27,10 +27,8 @@ from yoke_cli.config import onboard_project  # noqa: E402
 _TITLE = "yoke onboard · Hosting"
 # Pinned so the link's version segment is deterministic; the golden normalizer
 # rewrites it to {{VERSION}}, and a fixed length keeps the SVG coordinates
-# stable the way the install-summary gate does.
+# stable the way the PATH-readiness gate does.
 _PINNED_VERSION = "0.1.0"
-_STUB_ACCOUNT = "123456789012"
-_STUB_IDENTITY = "yoke-aws-admin"
 
 
 @pytest.fixture(autouse=True)
@@ -79,16 +77,21 @@ def test_hosting_aws_sign_in() -> None:
     assert_golden("hosting_aws_sign_in", render(app, drive, title=_TITLE))
 
 
-def test_hosting_verified() -> None:
+def test_hosting_guided_credentials() -> None:
     app = make_app()
 
     async def drive(a: Any, _pilot: Any) -> None:
         _seed_project(a)
-        a._goto_hosting_verified(
-            aws_admin_capability.CallerIdentity(
-                account=_STUB_ACCOUNT,
-                identity=_STUB_IDENTITY,
-            )
-        )
+        a._goto_hosting_credentials(guided=True)
 
-    assert_golden("hosting_verified", render(app, drive, title=_TITLE))
+    assert_golden("hosting_guided_credentials", render(app, drive, title=_TITLE))
+
+
+def test_hosting_existing_credentials() -> None:
+    app = make_app()
+
+    async def drive(a: Any, _pilot: Any) -> None:
+        _seed_project(a)
+        a._goto_hosting_credentials(guided=False)
+
+    assert_golden("hosting_existing_credentials", render(app, drive, title=_TITLE))

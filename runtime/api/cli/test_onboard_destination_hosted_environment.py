@@ -1,11 +1,4 @@
-"""The destination picker carries the hosted environment choice.
-
-Picking a home used to take two screens: a destination, then a separate
-"which hosted environment" question whose only row was production. The
-environment now rides the picker row, so `upyoke.com` and `stage.upyoke.com`
-are two rows of one question and the browser connect leg opens whichever
-platform the row named.
-"""
+"""The public picker offers production; explicit URLs can select stage."""
 
 from __future__ import annotations
 
@@ -32,7 +25,6 @@ from yoke_cli.config.onboard_destinations import (
 from yoke_cli.config.onboard_destination_rows import (
     DESTINATION_ROWS,
     HOSTED_ROW_ENVS,
-    HOSTED_STAGE_ROW,
     SELF_HOST_SERVER_ROW,
 )
 from yoke_cli.config.onboard_wizard_flow_hosted_machine import platform_url_for_env
@@ -55,26 +47,23 @@ def _destination_args(connect_url: str, env_name: str | None = None):
     )
 
 
-def test_picker_offers_both_hosted_platforms_as_rows() -> None:
+def test_picker_offers_only_production_hosting() -> None:
     values = [row.value for row in DESTINATION_ROWS]
     assert values == [
         DESTINATION_LOCAL,
         DESTINATION_SERVER,
         SELF_HOST_SERVER_ROW,
         DESTINATION_HOSTED,
-        HOSTED_STAGE_ROW,
     ]
 
 
-def test_hosted_rows_name_the_platform_they_connect_to() -> None:
+def test_hosted_row_names_the_production_platform() -> None:
     labels = {row.value: row.label for row in DESTINATION_ROWS}
     assert labels[DESTINATION_HOSTED] == "upyoke.com"
-    assert labels[HOSTED_STAGE_ROW] == "stage.upyoke.com"
 
 
-def test_each_hosted_row_selects_its_environment() -> None:
+def test_public_hosted_row_selects_production() -> None:
     assert HOSTED_ROW_ENVS[DESTINATION_HOSTED] == ENV_PRODUCTION
-    assert HOSTED_ROW_ENVS[HOSTED_STAGE_ROW] == ENV_STAGE
 
 
 def test_connect_leg_opens_the_platform_the_row_named() -> None:

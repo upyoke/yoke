@@ -50,7 +50,7 @@ class ProjectGithubAccessFlow:
         self.result.project_github_adoption_preserve = False
         self.result.project_github_repository_id = None
         self.result.project_github_installation_id = None
-        self._goto_board_art_intro()
+        self._goto_board_art()
         return True
 
     def _on_project_github(self, choice: str) -> None:
@@ -72,7 +72,7 @@ class ProjectGithubAccessFlow:
         self.result.project_github_repository_id = None
         self.result.project_github_installation_id = None
         if choice == "skip":
-            self._goto_board_art_intro()
+            self._goto_board_art()
 
     def _connected_project_repository(self) -> dict[str, Any] | None:
         repo = str(self.result.project_github_repo or "").casefold()
@@ -158,7 +158,7 @@ class ProjectGithubAccessFlow:
             self.result.project_github_adoption_preserve = False
             self.result.project_github_repository_id = None
             self.result.project_github_installation_id = None
-            self._goto_board_art_intro()
+            self._goto_board_art()
             return
         asyncio.ensure_future(self.action_back())
 
@@ -197,8 +197,6 @@ class ProjectGithubAccessFlow:
         )
 
     def _show_project_github_access(self, repository: dict[str, Any]) -> None:
-        from yoke_cli.config.onboard_wizard_app import _View
-
         usable, details = self._project_installation_status(repository)
         if not usable:
             self._goto_project_github_access()
@@ -217,19 +215,7 @@ class ProjectGithubAccessFlow:
         self.result.project_github_adoption_preserve = False
         self.result.project_github_repository_id = repository_id
         self.result.project_github_installation_id = installation_id
-        self._goto(
-            _View(
-                STEP_PROJECT,
-                lambda: steps.verification_body(
-                    "GitHub App repository access found.",
-                    "This project can use the selected App installation.",
-                    details,
-                    steps.VERIFY_OK_ROWS,
-                    ok=True,
-                ),
-                lambda _choice: self._goto_board_art_intro(),
-            )
-        )
+        self._goto_board_art()
 
     def _project_installation_status(
         self,
@@ -257,9 +243,9 @@ class ProjectGithubAccessFlow:
         if not missing:
             return True, ["Required repository permissions: satisfied."]
         labels = ", ".join(str(item.get("label")) for item in missing)
-        return True, [
+        return False, [
             f"Required repository permissions still missing: {labels}.",
-            "The binding can be recorded; affected automation stays unavailable.",
+            "Update the GitHub App permissions, then choose Check access again.",
         ]
 
 

@@ -16,10 +16,6 @@ from textual.widgets import Static
 from yoke_cli.config.onboard_wizard_steps import _heading
 from yoke_cli.config.onboard_wizard_widgets import SelectionList, SelectionRow
 
-BOARD_ART_INTRO_ROWS = [
-    SelectionRow("design", "Let's design it", "a progress map + at least one header"),
-]
-
 BOARD_ART_STYLE_ROWS = [
     SelectionRow("ascii", "ASCII", "bold figlet lettering"),
     SelectionRow("mixed", "Mixed", "lettering + an emoji column"),
@@ -37,12 +33,17 @@ def _art_block(art_text: str) -> Static:
     # must render as a plain Rich Text with markup disabled and no soft-wrap; the
     # ``onboard-art`` rule lets a too-wide row scroll rather than reflow.
     return Static(
-        Text(art_text, no_wrap=True), markup=False, classes="onboard-art",
+        Text(art_text, no_wrap=True),
+        markup=False,
+        classes="onboard-art",
     )
 
 
 def art_screen_body(
-    title: str, subtitle: str | None, art_text: str, rows: list[SelectionRow],
+    title: str,
+    subtitle: str | None,
+    art_text: str,
+    rows: list[SelectionRow],
 ) -> list[Static]:
     """A board-art screen: heading, the rendered art, then the option rows."""
     return [
@@ -53,33 +54,68 @@ def art_screen_body(
     ]
 
 
-def board_art_gallery_body(variants: list[Any]) -> list[Static]:
+def board_art_gallery_body(
+    variants: list[Any], *, details: bool = False
+) -> list[Static]:
     count = len(variants)
-    noun = "header" if count == 1 else "headers"
+    counts: dict[str, int] = {}
+    for variant in variants:
+        kind = str(getattr(variant, "kind", "Header"))
+        counts[kind] = counts.get(kind, 0) + 1
+    recent = variants[-1]
     widgets = _heading(
         f"Your headers — {count} saved.",
-        "Add more, or continue. Each rebuild rotates the map and your headers.",
+        "Each rebuild rotates the progress map and these headers.",
     )
-    for index, variant in enumerate(variants, start=1):
-        bits = [variant.kind]
-        if getattr(variant, "word", ""):
-            bits.append(f'"{variant.word}"')
-        if getattr(variant, "font", None):
-            bits.append(variant.font)
-        widgets.append(
-            Static(f"  {index}. " + " · ".join(bits), classes="onboard-plan-line")
+    widgets.append(
+        Static(
+            "By style: "
+            + " · ".join(f"{kind} {total}" for kind, total in sorted(counts.items())),
+            classes="onboard-plan-line",
         )
+    )
+    widgets.append(
+        Static(
+            f"Most recent: {getattr(recent, 'kind', 'Header')} · {getattr(recent, 'word', '') or 'project default'}",
+            classes="onboard-plan-line",
+        )
+    )
+    if details:
+        for index, variant in enumerate(variants, start=1):
+            bits = [
+                str(variant.kind),
+                f'"{getattr(variant, "word", "") or "project default"}"',
+            ]
+            if getattr(variant, "font", None):
+                bits.append(str(variant.font))
+            widgets.append(
+                Static(f"  {index}. " + " · ".join(bits), classes="onboard-plan-line")
+            )
     widgets.append(Static("", classes="onboard-spacer"))
-    rows = [SelectionRow("another", "Generate another", "back to styles")]
-    if count >= 1:
-        rows.append(SelectionRow("continue", "Continue", f"{count} {noun} saved"))
+    rows = [
+        SelectionRow("continue", "Continue", f"{count} headers saved"),
+        SelectionRow("another", "Add another", "back to styles"),
+        SelectionRow(
+            "details",
+            "Hide saved headers" if details else "Review saved headers",
+            "exact list and removal controls",
+        ),
+    ]
+    if details:
+        rows.extend(
+            SelectionRow(
+                f"remove:{index}",
+                f"Remove header {index + 1}",
+                "delete this saved variant",
+            )
+            for index in range(count)
+        )
     widgets.append(SelectionList(rows))
     return widgets
 
 
 __all__ = [
     "BOARD_ART_IMAGE_RETRY_ROWS",
-    "BOARD_ART_INTRO_ROWS",
     "BOARD_ART_STYLE_ROWS",
     "art_screen_body",
     "board_art_gallery_body",

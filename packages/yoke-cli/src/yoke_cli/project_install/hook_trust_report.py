@@ -18,7 +18,7 @@ from typing import Any, List, Mapping, Optional
 
 from yoke_contracts.harness_hook_approval import trust_teaching
 
-#: Install-report key holding the approval sentences for this run.
+#: Install-report key holding any operator-owned approval sentences for this run.
 REPORT_KEY = "harness_hook_trust"
 
 #: Which harness owns each bundle hook subtree, so the teaching is selected
@@ -28,14 +28,14 @@ HARNESS_ID_BY_HOOKS_KEY = {
     "codex_hooks": "codex",
     "cursor_hooks": "cursor",
 }
-INSTALL_MINTED_HARNESSES = frozenset({"codex"})
+AUTOMATIC_HOOK_HARNESSES = frozenset({"codex", "cursor"})
 
 
 def teaching_for_hooks_key(hooks_key: str) -> Optional[str]:
     """The approval sentence this subtree's harness owes, or ``None``."""
     harness_id = HARNESS_ID_BY_HOOKS_KEY[hooks_key]
     return (
-        None if harness_id in INSTALL_MINTED_HARNESSES else trust_teaching(harness_id)
+        None if harness_id in AUTOMATIC_HOOK_HARNESSES else trust_teaching(harness_id)
     )
 
 
@@ -69,7 +69,7 @@ def report_lines(install_report: Any) -> List[str]:
 
 __all__ = [
     "HARNESS_ID_BY_HOOKS_KEY",
-    "INSTALL_MINTED_HARNESSES",
+    "AUTOMATIC_HOOK_HARNESSES",
     "REPORT_KEY",
     "harness_ids_written",
     "report_lines",

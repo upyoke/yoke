@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import Any, Optional
 import webbrowser
 
 from yoke_contracts import github_origin
@@ -21,59 +21,38 @@ from yoke_cli.config.onboard_wizard_flow_checkout_inspection import (
     CheckoutInspectionFlow,
 )
 from yoke_cli.config.onboard_wizard_flow_clone_source import CloneSourceFlow
+from yoke_cli.config.onboard_wizard_flow_protocols import CloneFlowShell as _Shell
 from yoke_cli.config.onboard_wizard import github_connected
 from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT
 
 
 fetch_private_repos = onboard_wizard_clone_visibility.fetch_private_repos
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
-    from yoke_cli.config.onboard_wizard_app import _View
-
-class _Shell(Protocol):  # pragma: no cover - structural typing only
-    result: Any
-
-    def _goto(self, view: "_View") -> None: ...
-    def _selection_view(self, step, title, subtitle, rows, on_select) -> "_View": ...
-    def _goto_input(self, step, title, subtitle, *, placeholder, on_done,
-                    password: bool = False,
-                    allow_placeholder: bool = True,
-                    validate=None,
-                    initial_value: str = "") -> None: ...
-    def _goto_slug(self) -> None: ...
-    def _goto_owner_picker(self) -> None: ...
-    def _after_repo(self, value: str) -> None: ...
-    def _goto_project_mode(self) -> None: ...
-    def _run_checking(self, **kwargs) -> None: ...
-    def _after_existing_project_ready(self) -> None: ...
-    def _materialize_and_inspect_checkout(self) -> None: ...
-    async def action_back(self) -> None: ...
-
 
 class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
     # ── Clone visibility (public / private split) ───────────
 
     def _goto_clone_visibility(self: _Shell) -> None:
-        # Listing private repos needs connected GitHub authorization. Without it,
-        # the private branch can't enumerate anything, so the visibility screen
-        # is omitted entirely and the clone path stays on the original paste-URL
-        # input rather than offering a row that dead-ends.
         if not github_connected(self.result):
             self._goto_clone_url_input()
             return
-        self._goto(self._selection_view(
-            STEP_PROJECT,
-            "Is the repo public or private?",
-            "Public repos clone from a URL; private ones come from your GitHub account.",
-            project_screens.CLONE_VISIBILITY_ROWS, self._on_clone_visibility,
-        ))
+        self._goto(
+            self._selection_view(
+                STEP_PROJECT,
+                "Is the repo public or private?",
+                "Public repos clone from a URL; private ones come from your GitHub account.",
+                project_screens.CLONE_VISIBILITY_ROWS,
+                self._on_clone_visibility,
+            )
+        )
 
     def _on_clone_visibility(self: _Shell, choice: str) -> None:
         onboard_wizard_clone_visibility.route_visibility(self, choice)
 
     def _goto_clone_url_input(self: _Shell) -> None:
         self._goto_input(
-            STEP_PROJECT, onboard_github_copy.CLONE_FROM_GITHUB_TITLE,
+            STEP_PROJECT,
+            onboard_github_copy.CLONE_FROM_GITHUB_TITLE,
             onboard_github_copy.CLONE_FROM_GITHUB_SUBTITLE,
             placeholder=f"{github_state.clone_web_url(self.result)}/acme/project.git",
             on_done=self._after_remote,
@@ -110,11 +89,13 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
         if not repos:
             self._goto_private_repo_empty()
             return
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: project_screens.repo_picker_body(repos),
-            self._on_private_repo_pick,
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: project_screens.repo_picker_body(repos),
+                self._on_private_repo_pick,
+            )
+        )
 
     def _on_private_repo_pick(self: _Shell, choice: str) -> None:
         self._after_remote(choice)
@@ -123,21 +104,23 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
         from yoke_cli.config.onboard_wizard_app import _View
 
         access_url = github_state.repository_access_url(self.result)
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "No private repositories are available to Yoke.",
-                "The connected GitHub App cannot currently access a private repo.",
-                [
-                    "Choose private repositories in the App installation, then "
-                    "return here and check again.",
-                    f"GitHub App access URL: {access_url}",
-                ],
-                steps.PRIVATE_REPO_EMPTY_ROWS,
-                ok=False,
-            ),
-            self._on_private_repo_empty,
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: steps.verification_body(
+                    "No private repositories are available to Yoke.",
+                    "The connected GitHub App cannot currently access a private repo.",
+                    [
+                        "Choose private repositories in the App installation, then "
+                        "return here and check again.",
+                        f"GitHub App access URL: {access_url}",
+                    ],
+                    steps.PRIVATE_REPO_EMPTY_ROWS,
+                    ok=False,
+                ),
+                self._on_private_repo_empty,
+            )
+        )
 
     def _on_private_repo_empty(self: _Shell, choice: str) -> None:
         if choice == "manage":
@@ -154,20 +137,22 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
     def _goto_private_repo_picker_error(self: _Shell, exc: BaseException) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: steps.verification_body(
-                "Couldn't load private repos.",
-                str(exc),
-                [
-                    "Check GitHub App authorization, GitHub availability, "
-                    "and the network connection."
-                ],
-                steps.PROBE_RETRY_ROWS,
-                ok=False,
-            ),
-            self._on_private_repo_picker_error,
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: steps.verification_body(
+                    "Couldn't load private repos.",
+                    str(exc),
+                    [
+                        "Check GitHub App authorization, GitHub availability, "
+                        "and the network connection."
+                    ],
+                    steps.PROBE_RETRY_ROWS,
+                    ok=False,
+                ),
+                self._on_private_repo_picker_error,
+            )
+        )
 
     def _on_private_repo_picker_error(self: _Shell, choice: str) -> None:
         if choice == "retry":
@@ -184,7 +169,8 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
         )
         slug = repo.rsplit("/", 1)[-1] if repo else "my-project"
         self._goto_input(
-            STEP_PROJECT, "Where should Yoke clone it?",
+            STEP_PROJECT,
+            "Where should Yoke clone it?",
             "Yoke clones the repo into this new folder. Press Enter to accept "
             "the default.",
             placeholder=f"~/code/{slug}",
@@ -233,11 +219,13 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
     def _goto_resume_or_choose_folder(self: _Shell, checkout: str) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: project_screens.resume_existing_clone_body(checkout),
-            self._on_resume_or_choose_folder,
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: project_screens.resume_existing_clone_body(checkout),
+                self._on_resume_or_choose_folder,
+            )
+        )
 
     def _on_resume_or_choose_folder(self: _Shell, choice: str) -> None:
         if choice != "resume":
@@ -249,16 +237,7 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
     # ── Clone outcome (clone path only) ─────────────────────
 
     def _source_push_access(self: _Shell) -> Optional[bool]:
-        """Probe whether GitHub authorization can push to the source repo.
-
-        Runs the non-mutating write probe (``can_write_repo``) against the
-        cloned source's ``owner/repo``. Returns True when authorization can push
-        to it (writable variant), False or None otherwise (read-only variant —
-        the safe default, since "Clone it" has no side effects when in doubt).
-        Returns None without connected GitHub authorization or a recognizable
-        source repo: there is nothing to probe, so the read-only variant shows.
-        Single seam so tests patch one method.
-        """
+        """Return whether connected GitHub authorization can push to the source."""
         source_repo = project_screens.default_repo(
             self.result.project_remote_url,
             web_url=github_state.clone_web_url(self.result),
@@ -266,7 +245,9 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
         if not source_repo:
             return None
         return github_app_machine_access.repository_permission(
-            source_repo, "contents", ACCESS_WRITE,
+            source_repo,
+            "contents",
+            ACCESS_WRITE,
             config_path=self.result.config_path,
         )
 
@@ -294,16 +275,18 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
 
         remote = self.result.project_remote_url
         has_token = github_state.fork_ready(self.result, remote)
-        self._goto(_View(
-            STEP_PROJECT,
-            lambda: project_screens.clone_outcome_body(
-                remote,
-                has_token=has_token,
-                push_access=push_access,
-                web_url=github_state.clone_web_url(self.result),
-            ),
-            self._on_clone_outcome,
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: project_screens.clone_outcome_body(
+                    remote,
+                    has_token=has_token,
+                    push_access=push_access,
+                    web_url=github_state.clone_web_url(self.result),
+                ),
+                self._on_clone_outcome,
+            )
+        )
 
     def _on_clone_outcome(self: _Shell, choice: str) -> None:
         self.result.project_clone_outcome = choice
@@ -311,27 +294,22 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
             self._goto_new_repo_visibility()
             return
         steps.reset_project_publish_fields(self.result)
-        self._goto_slug()
+        self._goto_project_details()
 
     def _goto_new_repo_visibility(self: _Shell) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(
-            STEP_PROJECT,
-            project_screens.new_repo_visibility_body,
-            self._on_new_repo_visibility,
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                project_screens.new_repo_visibility_body,
+                self._on_new_repo_visibility,
+            )
+        )
 
     def _on_new_repo_visibility(self: _Shell, choice: str) -> None:
-        # "Duplicate it" always keeps the source as a pull-only ``upstream``
-        # remote (``project_clone_keep_upstream`` stays at its True default), so
-        # the new repo can pull from the original even when it has a different
-        # visibility — a private copy of a public original. Route straight to the
-        # name + owner-picker path the publish/fork outcomes use.
-        self.result.project_publish_private = (
-            choice == project_screens.NEW_REPO_PRIVATE
-        )
-        self._goto_slug()
+        self.result.project_publish_private = choice == project_screens.NEW_REPO_PRIVATE
+        self._goto_project_details()
 
     def _after_name_clone(self: _Shell) -> None:
         """Route the clone path after the project name is entered.
@@ -348,7 +326,9 @@ class CloneFlow(CheckoutInspectionFlow, CloneSourceFlow):
             == clone_support.CLONE_OUTCOME_MAKE_IT_MINE
         ):
             if not github_connected(self.result):
-                self.result.project_clone_outcome = clone_support.CLONE_OUTCOME_JUST_CLONE
+                self.result.project_clone_outcome = (
+                    clone_support.CLONE_OUTCOME_JUST_CLONE
+                )
                 steps.reset_project_publish_fields(self.result)
                 self._after_repo("")
                 return

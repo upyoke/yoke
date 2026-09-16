@@ -17,6 +17,11 @@ from textual.widgets import Static
 from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config.onboard_terminal import RICH_GLYPHS, glyphs
 from yoke_cli.config import onboard_session_relay
+from yoke_cli.config.onboard_wizard_plan_review import (
+    _CORE_ACTIONS,
+    _MACHINE_ACTIONS,
+    _REPO_ACTIONS,
+)
 from yoke_cli.config.onboard_wizard_widgets import SelectionList, SelectionRow
 from yoke_cli.project_install import hook_trust_report
 
@@ -82,23 +87,65 @@ def apply_step_line(step: dict[str, Any]) -> str:
     return f"  {glyph} {escape(str(step.get('label', '')))}"
 
 
-def apply_progress_body(steps: list[dict[str, Any]]) -> list[Static]:
-    """Live 'Applying...' screen: one row per plan step with a status glyph.
+def apply_step_group(action: str) -> str:
+    if action in _MACHINE_ACTIONS:
+        return "machine"
+    if action in _REPO_ACTIONS:
+        return "project"
+    if action in _CORE_ACTIONS:
+        return "core"
+    return "source" if "source" in action else "core"
 
-    Each row carries a stable id (``applystep-<step_id>``) so the apply worker
-    can flip a single row pending -> running -> done/skipped/failed in place
-    without re-mounting the whole body.
-    """
+
+def apply_progress_lines(steps: list[dict[str, Any]]) -> dict[str, str]:
+    done_states = {"done", "skipped"}
+    completed = sum(step.get("status") in done_states for step in steps)
+    current = next(
+        (
+            str(step.get("label") or "")
+            for step in steps
+            if step.get("status") == "running"
+        ),
+        "Waiting for the next operation…"
+        if completed < len(steps)
+        else "Finalizing report…",
+    )
+    lines = {
+        "overall": f"Overall: {completed} of {len(steps)} complete",
+        "current": f"Current: {current}",
+    }
+    for key, label in (
+        ("machine", "Machine"),
+        ("core", "Core"),
+        ("project", "Project"),
+        ("source", "Source"),
+    ):
+        group = [step for step in steps if step.get("group") == key]
+        if group:
+            finished = sum(step.get("status") in done_states for step in group)
+            lines[key] = f"  {label}: {finished}/{len(group)}"
+    return lines
+
+
+def apply_progress_body(steps: list[dict[str, Any]]) -> list[Static]:
+    """Fixed-height grouped progress; the report retains exact step history."""
+    lines = apply_progress_lines(steps)
     widgets: list[Static] = [
         Static("Applying your setup.", classes="onboard-title"),
         Static("", classes="onboard-spacer"),
+        Static(lines["overall"], id="apply-overall", classes="onboard-plan-line"),
     ]
-    for step in steps:
-        widgets.append(Static(
-            apply_step_line(step),
-            id=f"applystep-{step['step_id']}",
-            classes="onboard-plan-line",
-        ))
+    for key in ("machine", "core", "project", "source"):
+        if key in lines:
+            widgets.append(
+                Static(lines[key], id=f"apply-group-{key}", classes="onboard-plan-line")
+            )
+    widgets.extend(
+        [
+            Static("", classes="onboard-spacer"),
+            Static(lines["current"], id="apply-current", classes="onboard-plan-line"),
+        ]
+    )
     return widgets
 
 
@@ -111,22 +158,27 @@ def apply_failure_body(
     retryable: bool = False,
     can_resume: bool = False,
     can_use_different_folder: bool = False,
+    show_details: bool = False,
 ) -> list[Static]:
     widgets = [
         Static("✗ Couldn't finish setup.", classes="onboard-title-error"),
         Static("", classes="onboard-spacer"),
-        Static(escape(message), classes="onboard-plan-line"),
+        Static(f"Cause: {escape(message)}", classes="onboard-plan-line"),
+        Static("What to do", classes="onboard-title"),
+        Static(
+            "Choose the first recovery action below that applies. Completed work and the durable report are preserved.",
+            classes="onboard-plan-line",
+        ),
     ]
-    if failed_step:
+    if show_details and failed_step:
         widgets.append(
             Static(f"Failed step: {escape(failed_step)}", classes="onboard-note")
         )
-    widgets.append(Static("", classes="onboard-spacer"))
-    if report_path:
+    if show_details and report_path:
         widgets.append(
             Static(f"Report: {escape(report_path)}", classes="onboard-plan-line")
         )
-    if resume_command:
+    if show_details and resume_command:
         widgets.append(
             Static(f"Resume: {escape(resume_command)}", classes="onboard-note")
         )
@@ -136,6 +188,14 @@ def apply_failure_body(
         can_resume=can_resume,
         can_use_different_folder=can_use_different_folder,
     )
+    if failed_step or report_path or resume_command:
+        rows.append(
+            SelectionRow(
+                "technical-details",
+                "Hide technical details" if show_details else "Show technical details",
+                "step id, report path, and resume command",
+            )
+        )
     widgets.append(SelectionList(rows))
     return widgets
 
@@ -158,9 +218,7 @@ def apply_different_folder_body(
             Static(f"Checkout: {escape(checkout_path)}", classes="onboard-plan-line")
         )
     if report_path:
-        widgets.append(
-            Static(f"Report: {escape(report_path)}", classes="onboard-note")
-        )
+        widgets.append(Static(f"Report: {escape(report_path)}", classes="onboard-note"))
     widgets.append(Static("", classes="onboard-spacer"))
     widgets.append(SelectionList(APPLY_DIFFERENT_FOLDER_CONFIRM_ROWS))
     return widgets
@@ -186,9 +244,7 @@ def apply_success_body_from_report(
     return apply_success_body(
         report_path,
         hook_trust_report.report_lines(
-            project_report.get("install")
-            if isinstance(project_report, dict)
-            else None
+            project_report.get("install") if isinstance(project_report, dict) else None
         ),
         relay_lines=onboard_session_relay.report_complete_lines(relay),
         registry_lines=onboard_machine_registry.summary_lines(
@@ -215,14 +271,9 @@ def apply_success_body(
         ),
     ]
     if board_art_committed:
-        widgets.append(
-            Static(BOARD_ART_COMMITTED_LINE, classes="onboard-plan-line")
-        )
+        widgets.append(Static("✓ Board art ready", classes="onboard-plan-line"))
     if relay_lines:
-        widgets.append(Static("", classes="onboard-spacer"))
-        widgets.extend(
-            Static(escape(line), classes="onboard-plan-line") for line in relay_lines
-        )
+        widgets.append(Static("✓ Session relay ready", classes="onboard-plan-line"))
     # A machine that connected is set up whatever the registry decided, so a
     # refusal is named here with its recovery instead of failing the apply.
     for line in registry_lines:

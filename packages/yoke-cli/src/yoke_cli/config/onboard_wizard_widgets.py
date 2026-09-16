@@ -92,7 +92,9 @@ class Stepper(Static):
             if index:
                 line.append(f" {marks.step_connector} ", style="#6e7681")
             state = stepper_mark(
-                step_id, active=self.active, github_complete=github_complete,
+                step_id,
+                active=self.active,
+                github_complete=github_complete,
             )
             if state == "done":
                 line.append(f"{marks.step_done} {label}", style="bold #3fb950")
@@ -110,10 +112,18 @@ class _OptionRow(Static):
         super().__init__()
         self._row = row
 
+    def set_row(self, row: SelectionRow) -> None:
+        self._row = row
+        self.refresh()
+
     def render(self) -> Text:
         selected = self.has_class("-selected")
         width = max(self.size.width, 40)
         return _option_row_text(self._row, selected=selected, width=width)
+
+
+class _SelectionDescription(Static):
+    """Wrapped explanation for the option currently under the cursor."""
 
 
 def _option_row_text(row: SelectionRow, *, selected: bool, width: int) -> Text:
@@ -144,7 +154,9 @@ def _option_row_text(row: SelectionRow, *, selected: bool, width: int) -> Text:
         hint_text.truncate(room, overflow="ellipsis")
         if plain:
             hint_text = Text(plain_text(hint_text.plain))
-    line.append(" " * (width - cell_len(prefix) - cell_len(label) - cell_len(hint_text.plain)))
+    line.append(
+        " " * (width - cell_len(prefix) - cell_len(label) - cell_len(hint_text.plain))
+    )
     line.append(hint_text.plain, style="" if selected else "dim")
     return line
 
@@ -181,6 +193,7 @@ class SelectionList(Vertical, can_focus=True):
     def compose(self) -> ComposeResult:
         for row in self._rows:
             yield _OptionRow(row)
+        yield _SelectionDescription(classes="onboard-selection-detail")
 
     def on_mount(self) -> None:
         self._sync_selection()
@@ -215,6 +228,10 @@ class SelectionList(Vertical, can_focus=True):
             if index == self.cursor:
                 # A list taller than the body follows its cursor.
                 option.scroll_visible(animate=False)
+        detail = self.query_one(_SelectionDescription)
+        hint = self._rows[self.cursor].hint if self._rows else ""
+        detail.update(hint)
+        detail.display = bool(hint)
 
 
 def _step_index(step_id: str) -> int:

@@ -9,7 +9,6 @@ import pytest
 from yoke_cli.commands.adapters import onboard_github_requests
 from yoke_cli.config import onboard_machine_github
 from yoke_cli.config import onboard_destinations
-from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_project_github_inputs
 from yoke_cli.config import onboard_reuse_state
 from yoke_cli.config import onboard_wizard_github_state as github_state
@@ -25,13 +24,17 @@ def test_wizard_uses_inflight_service_before_apply(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     seen: dict[str, object] = {}
-    result = type("Result", (), {
-        "machine_github_choice": onboard_machine_github.CHOICE_CONNECT,
-        "machine_github_verification": {"ok": True, "ready": True},
-        "config_path": "/tmp/yoke-config.json",
-        "api_url": "https://api.stage.upyoke.com",
-        "destination": onboard_destinations.DESTINATION_HOSTED,
-    })()
+    result = type(
+        "Result",
+        (),
+        {
+            "machine_github_choice": onboard_machine_github.CHOICE_CONNECT,
+            "machine_github_verification": {"ok": True, "ready": True},
+            "config_path": "/tmp/yoke-config.json",
+            "api_url": "https://api.stage.upyoke.com",
+            "destination": onboard_destinations.DESTINATION_HOSTED,
+        },
+    )()
     monkeypatch.setattr(
         github_state.machine_config,
         "github_config",
@@ -65,9 +68,13 @@ def test_noninteractive_onboard_uses_requested_service_before_apply(
         lambda **kwargs: seen.update(kwargs) or _Token(),
     )
 
-    assert onboard_github_requests.github_user_access_token(
-        parsed, required=True,
-    ) == "transient-user-access"
+    assert (
+        onboard_github_requests.github_user_access_token(
+            parsed,
+            required=True,
+        )
+        == "transient-user-access"
+    )
     assert seen == {
         "config_path": "/tmp/yoke-config.json",
         "service_api_url": "https://team.yoke.example",
@@ -134,13 +141,17 @@ def test_wizard_explicit_local_scope_does_not_infer_active_connection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     seen: dict[str, object] = {}
-    result = type("Result", (), {
-        "machine_github_choice": onboard_machine_github.CHOICE_CONNECT,
-        "machine_github_verification": {"ok": True, "ready": True},
-        "config_path": "/tmp/yoke-config.json",
-        "api_url": "",
-        "destination": onboard_destinations.DESTINATION_LOCAL,
-    })()
+    result = type(
+        "Result",
+        (),
+        {
+            "machine_github_choice": onboard_machine_github.CHOICE_CONNECT,
+            "machine_github_verification": {"ok": True, "ready": True},
+            "config_path": "/tmp/yoke-config.json",
+            "api_url": "",
+            "destination": onboard_destinations.DESTINATION_LOCAL,
+        },
+    )()
     monkeypatch.setattr(
         github_state.machine_config,
         "github_config",
@@ -200,27 +211,6 @@ def test_apply_hydration_keeps_selected_service_scope(
     }
 
 
-def test_source_dev_token_keeps_explicit_local_scope(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    seen: dict[str, object] = {}
-    monkeypatch.setattr(
-        onboard_project.github_local_user_access,
-        "access_token",
-        lambda **kwargs: seen.update(kwargs) or _Token(),
-    )
-
-    assert onboard_project._github_user_access_token(
-        "/tmp/yoke-config.json",
-        local_connection_selected=True,
-    ) == "transient-user-access"
-    assert seen == {
-        "config_path": "/tmp/yoke-config.json",
-        "service_api_url": None,
-        "local_connection_selected": True,
-    }
-
-
 @pytest.mark.parametrize(
     ("service_api_url", "local_connection_selected"),
     ((None, True), ("https://api.stage.upyoke.com", False)),
@@ -243,11 +233,6 @@ def test_final_apply_binding_keeps_the_selected_connection_scope(
         project_onboard_apply,
         "project_mapping_needs_write",
         lambda *_args, **_kwargs: False,
-    )
-    monkeypatch.setattr(
-        project_onboard_apply.source_dev,
-        "is_yoke_source_checkout",
-        lambda _root: False,
     )
     monkeypatch.setattr(
         project_onboard_apply.install_runner,
@@ -302,18 +287,24 @@ def test_reuse_requires_exact_selected_service_profile(tmp_path) -> None:
         "authorization_source": {"kind": "github_app"},
     }
 
-    assert onboard_reuse_state._machine_github_matches(
-        payload,
-        requested,
-        service_api_url="https://api.stage.upyoke.com",
-        local_connection_selected=False,
-    ) is False
-    assert onboard_reuse_state._machine_github_matches(
-        payload,
-        requested,
-        service_api_url="https://api.prod.upyoke.com",
-        local_connection_selected=False,
-    ) is True
+    assert (
+        onboard_reuse_state._machine_github_matches(
+            payload,
+            requested,
+            service_api_url="https://api.stage.upyoke.com",
+            local_connection_selected=False,
+        )
+        is False
+    )
+    assert (
+        onboard_reuse_state._machine_github_matches(
+            payload,
+            requested,
+            service_api_url="https://api.prod.upyoke.com",
+            local_connection_selected=False,
+        )
+        is True
+    )
 
 
 def test_reuse_distinguishes_explicit_local_from_hosted(tmp_path) -> None:
@@ -334,15 +325,21 @@ def test_reuse_distinguishes_explicit_local_from_hosted(tmp_path) -> None:
         "authorization_source": {"kind": "github_app"},
     }
 
-    assert onboard_reuse_state._machine_github_matches(
-        payload,
-        requested,
-        service_api_url=None,
-        local_connection_selected=True,
-    ) is True
-    assert onboard_reuse_state._machine_github_matches(
-        payload,
-        requested,
-        service_api_url="https://api.upyoke.com",
-        local_connection_selected=False,
-    ) is False
+    assert (
+        onboard_reuse_state._machine_github_matches(
+            payload,
+            requested,
+            service_api_url=None,
+            local_connection_selected=True,
+        )
+        is True
+    )
+    assert (
+        onboard_reuse_state._machine_github_matches(
+            payload,
+            requested,
+            service_api_url="https://api.upyoke.com",
+            local_connection_selected=False,
+        )
+        is False
+    )

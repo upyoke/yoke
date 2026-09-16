@@ -15,6 +15,8 @@ from yoke_cli.config import onboard_project
 from yoke_cli.config.project_clone_support import ClonePlan
 from yoke_cli.config.project_publish_support import PublishRequest
 
+pytestmark = pytest.mark.usefixtures("stub_onboard_session_relay")
+
 
 def _preview() -> dict:
     return {

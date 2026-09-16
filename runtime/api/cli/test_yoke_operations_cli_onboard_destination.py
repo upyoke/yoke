@@ -25,6 +25,8 @@ from yoke_cli.config import onboard_apply_snapshot
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import writer
 
+pytestmark = pytest.mark.usefixtures("stub_onboard_session_relay")
+
 FAKE_DSN = "postgresql://yoke@/yoke?host=/fake/local-universe/sock"
 LOCAL = local_universe_setup.LOCAL_ENV
 

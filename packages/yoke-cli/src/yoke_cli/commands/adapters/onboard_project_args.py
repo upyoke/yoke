@@ -26,10 +26,14 @@ def add_project_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--project-org", dest="project_org", default=None)
     parser.add_argument("--github-repo", dest="project_github_repo", default=None)
     parser.add_argument(
-        "--default-branch", dest="project_default_branch", default=None,
+        "--default-branch",
+        dest="project_default_branch",
+        default=None,
     )
     parser.add_argument(
-        "--public-item-prefix", dest="project_public_item_prefix", default=None,
+        "--public-item-prefix",
+        dest="project_public_item_prefix",
+        default=None,
     )
     parser.add_argument(
         "--existing-yoke-layer",
@@ -44,10 +48,12 @@ def add_project_args(parser: argparse.ArgumentParser) -> None:
         default=None,
         help=onboard_github_copy.PROJECT_GITHUB_SETUP_HELP,
     )
+
+
 def project_prompt_missing(parsed: argparse.Namespace) -> bool:
     if parsed.project_mode == onboard_config.PROJECT_MODE_MACHINE_ONLY:
         return False
-    if parsed.project_mode == onboard_config.PROJECT_MODE_SOURCE_DEV_ADMIN:
+    if parsed.project_mode == onboard_config.PROJECT_MODE_EDIT_YOKE_SOURCE:
         return not parsed.project_checkout
     required = [
         parsed.project_checkout,

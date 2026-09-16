@@ -31,23 +31,12 @@ def _seed_project(app: Any) -> None:
     app.result.project_public_item_prefix = "EXT"
 
 
-def test_art_intro() -> None:
-    app = make_app()
-
-    async def drive(a: Any, _pilot: Any) -> None:
-        _seed_project(a)
-        a._goto_board_art_intro()
-
-    assert_golden("art_intro", render(app, drive, title=_TITLE))
-
-
 def test_art_map_preview() -> None:
     app = make_app()
 
     async def drive(a: Any, _pilot: Any) -> None:
         _seed_project(a)
-        a._goto_board_art_intro()
-        a._on_board_art_intro("design")
+        a._goto_board_art()
 
     assert_golden("art_map_preview", render(app, drive, title=_TITLE))
 
@@ -57,8 +46,7 @@ def test_art_style() -> None:
 
     async def drive(a: Any, _pilot: Any) -> None:
         _seed_project(a)
-        a._goto_board_art_intro()
-        a._on_board_art_intro("design")
+        a._goto_board_art()
         a._on_board_art_map_preview("continue")
 
     assert_golden("art_style", render(app, drive, title=_TITLE))
@@ -69,8 +57,7 @@ def test_art_ascii_preview() -> None:
 
     async def drive(a: Any, _pilot: Any) -> None:
         _seed_project(a)
-        a._goto_board_art_intro()
-        a._on_board_art_intro("design")
+        a._goto_board_art()
         a._on_board_art_map_preview("continue")
         a._on_board_art_style("ascii")
 
@@ -82,8 +69,7 @@ def test_art_mixed_preview() -> None:
 
     async def drive(a: Any, _pilot: Any) -> None:
         _seed_project(a)
-        a._goto_board_art_intro()
-        a._on_board_art_intro("design")
+        a._goto_board_art()
         a._on_board_art_map_preview("continue")
         a._on_board_art_style("mixed")
 
@@ -95,10 +81,11 @@ def test_art_gallery() -> None:
 
     async def drive(a: Any, _pilot: Any) -> None:
         _seed_project(a)
-        a._goto_board_art_intro()
-        a._on_board_art_intro("design")
+        a._goto_board_art()
         a._on_board_art_map_preview("continue")
         a._on_board_art_style("ascii")
-        a._on_board_art_preview("save")
+        a._on_board_art_preview("save-another")
+        a._on_board_art_style("mixed")
+        a._on_board_art_preview("save-another")
 
     assert_golden("art_gallery", render(app, drive, title=_TITLE))

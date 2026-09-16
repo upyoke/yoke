@@ -41,3 +41,27 @@ def _clear_inherited_launch_context(monkeypatch):
     from yoke_harness.session_launch_handoff import LAUNCH_CONTEXT_ENV
 
     monkeypatch.delenv(LAUNCH_CONTEXT_ENV, raising=False)
+
+
+@pytest.fixture()
+def stub_onboard_session_relay(monkeypatch):
+    """Keep generic onboarding tests off the separately tested relay installer."""
+    from yoke_cli.config import onboard_session_relay
+
+    def _apply(
+        progress,
+        report,
+        *,
+        local_destination,
+        config_path=None,
+        environment=None,
+    ):
+        del progress, local_destination, config_path, environment
+        report["session_relay"] = {
+            "planned": True,
+            "installed": True,
+            "reused": False,
+            "local_build": False,
+        }
+
+    monkeypatch.setattr(onboard_session_relay, "apply", _apply)

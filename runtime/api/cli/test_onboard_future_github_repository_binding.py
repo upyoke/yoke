@@ -45,13 +45,15 @@ def test_future_created_repository_defers_binding_identity_until_apply(
 ) -> None:
     github = {
         "repositories": [],
-        "installations": [{
-            "installation_id": 7,
-            "account_login": "octocat",
-            "permissions": {"administration": "write"},
-            "suspended": False,
-            "repository_selection": "all",
-        }],
+        "installations": [
+            {
+                "installation_id": 7,
+                "account_login": "octocat",
+                "permissions": {"administration": "write"},
+                "suspended": False,
+                "repository_selection": "all",
+            }
+        ],
     }
     monkeypatch.setattr(machine_config, "github_config", lambda _path: github)
     app, _spy = make_app()
@@ -68,7 +70,7 @@ def test_future_created_repository_defers_binding_identity_until_apply(
         async with app.run_test() as pilot:
             app._after_prefix("WIDG")
             await pilot.pause()
-            assert "Give your board a face" in _body_text(app)
+            assert "Here's your progress map." in _body_text(app)
 
     asyncio.run(scenario())
 
@@ -94,7 +96,7 @@ def test_future_fork_discards_source_binding_identity() -> None:
         async with app.run_test() as pilot:
             app._after_prefix("WIDG")
             await pilot.pause()
-            assert "Give your board a face" in _body_text(app)
+            assert "Here's your progress map." in _body_text(app)
 
     asyncio.run(scenario())
 

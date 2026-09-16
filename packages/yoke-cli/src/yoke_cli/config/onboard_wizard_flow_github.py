@@ -17,8 +17,7 @@ from yoke_cli.config.onboard_wizard_state import CopyTarget
 from yoke_cli.config.onboard_wizard_step_ids import STEP_GITHUB
 from yoke_cli.config.onboard_wizard_github_presentation import (
     MachineGithubShell as _Shell,
-    success_details as _success_details,
-    success_message as _success_message,
+    success_body as _success_body,
 )
 
 
@@ -40,11 +39,13 @@ class MachineGithubFlow:
 
     def _goto_machine_github(self: _Shell) -> None:
         steps = _wizard_steps()
+        status = str(getattr(self, "_connection_status_line", "") or "")
         self._goto(
             self._selection_view(
                 STEP_GITHUB,
                 onboard_github_copy.MACHINE_GITHUB_TITLE,
                 onboard_github_copy.MACHINE_GITHUB_SUBTITLE
+                + (f" {status}" if status else "")
                 + (
                     " The existing machine connection stays saved if this run "
                     "continues disabled."
@@ -166,20 +167,28 @@ class MachineGithubFlow:
     ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        steps = _wizard_steps()
+        self._github_success_report = dict(report)
+        self._github_success_details = False
         self._goto(
             _View(
                 STEP_GITHUB,
-                lambda: steps.verification_body(
-                    "GitHub connected.",
-                    _success_message(report),
-                    _success_details(report),
-                    steps.VERIFY_OK_ROWS,
-                    ok=True,
-                ),
-                lambda _choice: self._goto_project_mode(),
+                self._build_machine_github_success,
+                self._on_machine_github_success,
             )
         )
+
+    def _build_machine_github_success(self: _Shell) -> list:
+        return _success_body(
+            getattr(self, "_github_success_report", {}),
+            show_details=getattr(self, "_github_success_details", False),
+        )
+
+    def _on_machine_github_success(self: _Shell, choice: str) -> None:
+        if choice == "details":
+            self._github_success_details = not self._github_success_details
+            self._render_current()
+            return
+        self._goto_project_mode()
 
     def _goto_machine_github_pending(self: _Shell, report: dict[str, Any]) -> None:
         from yoke_cli.config.onboard_wizard_app import _View

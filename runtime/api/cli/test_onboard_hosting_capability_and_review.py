@@ -146,7 +146,8 @@ def test_a_saved_credential_moves_out_of_the_write_plan() -> None:
     )
 
     assert all(
-        step["action"] != hosting_posture.HOSTING_POSTURE_ACTION for step in plan["steps"]
+        step["action"] != hosting_posture.HOSTING_POSTURE_ACTION
+        for step in plan["steps"]
     )
     assert onboard_reuse_feedback.grouped_lines_for_plan(plan)["machine"] == [
         "The aws-admin hosting credential (2 values, redacted · saved at Save & verify)"
@@ -157,7 +158,7 @@ def test_a_saved_credential_moves_out_of_the_write_plan() -> None:
     "project_mode",
     [
         onboard_project.PROJECT_MODE_MACHINE_ONLY,
-        onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
+        onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE,
     ],
 )
 def test_runs_without_a_deploy_target_plan_no_hosting_row(project_mode: str) -> None:
@@ -168,7 +169,8 @@ def test_runs_without_a_deploy_target_plan_no_hosting_row(project_mode: str) -> 
     )
 
     assert all(
-        step["action"] != hosting_posture.HOSTING_POSTURE_ACTION for step in plan["steps"]
+        step["action"] != hosting_posture.HOSTING_POSTURE_ACTION
+        for step in plan["steps"]
     )
     assert onboard_project_modes.offers_hosting_credential(project_mode) is False
 
@@ -251,8 +253,19 @@ def test_review_shows_already_saved_state_before_the_apply_plan() -> None:
         notes=[],
         machine_github_saved=False,
     )
-    rendered = [str(w.render()) for w in widgets if isinstance(w, Static)]
+    summary = [str(w.render()) for w in widgets if isinstance(w, Static)]
+    assert any("changes to apply" in line for line in summary)
+    assert not any(line.startswith("Already") for line in summary)
+    assert not any(line.startswith("Apply —") for line in summary)
 
+    expanded = steps.finish_body(
+        _review_plan({"token_reference": True, "aws_admin": True}),
+        problems=[],
+        notes=[],
+        machine_github_saved=False,
+        show_all=True,
+    )
+    rendered = [str(w.render()) for w in expanded if isinstance(w, Static)]
     already = next(i for i, line in enumerate(rendered) if line.startswith("Already"))
     apply_group = next(
         i for i, line in enumerate(rendered) if line.startswith("Apply —")
