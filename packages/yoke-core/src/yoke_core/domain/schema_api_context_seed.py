@@ -198,13 +198,15 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # recipe. The long-form per-table and per-command notes are rendered only at
 # ``--detail full``, read deliberately at the moment they apply, and carry no
 # budget at all.
-PACKET_LINE_BUDGET_PER_ROLE: int = 260
-PACKET_LINE_BUDGET_AGGREGATE: int = 1500
-PACKET_BYTE_BUDGET_PER_ROLE: int = 30000
-PACKET_BYTE_BUDGET_AGGREGATE: int = 180000
+PACKET_LINE_BUDGET_PER_ROLE: int = 340
+PACKET_LINE_BUDGET_AGGREGATE: int = 2100
+PACKET_BYTE_BUDGET_PER_ROLE: int = 31000
+PACKET_BYTE_BUDGET_AGGREGATE: int = 192000
 
 # Ratchet budget for one rendered subagent body: the condensed role prose
 # plus its compact packet. A subagent body is read from a file rather than
 # composed into a hook reply, so no observed truncation point bounds it —
-# this is purely the measured-today ceiling that keeps it from regrowing.
+# this is purely the measured figure that keeps it from regrowing. Measured:
+# the largest body spends 58,981 bytes, down from 168,187 when every role
+# carried the full packet plus its conditional references inline.
 AGENT_PROMPT_BYTE_BUDGET: int = 60000

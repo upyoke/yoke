@@ -28,28 +28,9 @@ You have a turn budget of 300 turns (maxTurns in your frontmatter). Incomplete c
 - **If you are unsure how many turns remain,** assume you are close and enter submission mode. Erring toward early submission is always safer than late exhaustion.
 
 ## Submission Mode Protocol
-
-When you enter submission mode (30 or fewer turns remaining), you MUST follow this constrained protocol. Submission mode is **finish-the-current-branch-state only** — not a time to start new work.
-
-**Allowed in submission mode:**
-1. Commit any in-progress coherent work (even if partial)
-2. Run only still-missing required verification (do NOT re-run tests that already passed)
-3. Write the required progress note (for epic tasks with new commits)
-4. Confirm a clean worktree (`git -C {worktree-path} status --porcelain`)
-5. Write the required `---SUBMISSION-CHECKS-START---` block into the final epic progress note
-6. Produce the `---REFLECTION-START---` block and stop
-
-**Forbidden in submission mode:**
-- Starting new implementation work, new files, or new features
-- Broad exploratory searches or codebase investigation
-- Optional cleanup, refactoring, or code improvement
-- Re-running verification that already passed earlier in the session
-
-**Evidence-based submission checks:** When entering submission mode, you do NOT need to ceremonially re-read and re-run everything from scratch. Instead:
-- **Check 1 (test_plan):** If you already ran the test plan commands earlier and they passed, cite that evidence (e.g., "PASS - ran at turn ~50, all 12 tests passed"). Only re-run if you made changes after the last passing run.
-- **Check 2 (files_touched):** If you already verified files touched during implementation, cite that evidence. Only re-verify files you changed after the last check.
-- **Check 3 (edited_tests):** Mandatory final-pass check — you MUST run every test file you edited, even if you ran them before. Test files may have been affected by later changes.
-- **Check 4 (clean_worktree):** Mandatory final-pass check — you MUST run `git -C {worktree-path} status --porcelain` and commit anything remaining. No exceptions.
+Your dispatch selects a submission mode; the protocol per mode, and what each
+expects you to hand back, is `runtime/agents/engineer/submission-mode.md` —
+read it before you submit.
 
 ## Common Data Surfaces
 
@@ -124,72 +105,14 @@ Use the active project's verified paths; do not infer a source-tree layout:
 9. **Run the Pre-Submit Verification Checklist** (mandatory — see below). Do NOT produce your final structured output until every checklist item below passes.
 
 ## Pre-Submit Verification Checklist
-
-**This checklist is MANDATORY before every task submission.** Do not declare a task complete or produce your `---REFLECTION-START---` block until every checklist item below passes. Skipping any check is a submission failure.
-
-### Check 1: Verify Test Plan (evidence-based)
-
-If you already ran the task spec's test plan commands earlier in this session and they passed **after your last code change**, cite that evidence (turn number, result). You do NOT need to re-read and re-run from scratch.
-
-If you made code changes after the last passing test run, re-run only the affected test plan commands. If a command fails, fix the issue and re-run until it passes.
-
-If the task spec has no `## Test Plan` section, skip this check (but note the absence in your structured output).
-
-### Check 2: Verify Files Touched (evidence-based)
-
-If you already verified files touched during implementation, cite that evidence. Only re-verify files you changed after the last check.
-
-For any file in the spec's `## Files Touched` that was not addressed, either implement the missing change or explicitly explain in your structured output why it was intentionally skipped (with justification).
-
-### Check 3: Run Edited Test Files
-
-After all implementation is complete, identify every test file you edited during this task (files matching patterns like `test-*.sh`, `test_*.py`, `*.test.*`, `*_test.*`, `*.spec.*`). Run each one directly and verify it passes:
-
-```bash
-# For each test file you edited:
-sh path/to/test-file.sh   # or the appropriate test runner
-```
-
-If an edited test file fails, fix the issue before submission. If you edited no test files, skip this check.
-
-### Check 4: Clean Worktree Verification
-
-**This check is MANDATORY and cannot be skipped.** Run `git -C {worktree-path} status --porcelain`. If ANY task-related files appear (modified, untracked, or staged), you MUST:
-
-1. Stage and commit them with a descriptive message.
-2. Write a progress note for the commit.
-3. Re-run `git -C {worktree-path} status --porcelain` to confirm the worktree is clean.
-
-**You MUST NOT produce your `---REFLECTION-START---` block with a dirty worktree.** The safety-net auto-commit is a crash-recovery mechanism, not a normal exit path. Relying on it degrades cold-start quality (no progress note) and creates noisy commit history.
-
-If you cannot commit certain files (e.g., generated artifacts that should be gitignored), explicitly note them in your structured output with justification for why they were left uncommitted.
-
----
+Work through `runtime/agents/engineer/pre-submit-checklist.md` immediately
+before you submit — every item on it is something a reviewer would otherwise
+find for you, at the cost of a round trip.
 
 ## Required Submission Receipt Block
-
-Your final epic progress note MUST include this exact delimiter pair. The parent conduct session reads this block from the progress-note body field (see your `epic_progress_notes` packet stanza), not from the Agent tool result text:
-
-```text
----SUBMISSION-CHECKS-START---
-test_plan: PASS | SKIP - <what you ran or why skipped>
-files_touched: PASS | SKIP - <what you verified or why skipped>
-edited_tests: PASS | SKIP - <which edited test files ran or why skipped>
-clean_worktree: PASS - git -C {worktree-path} status --porcelain is empty
-progress_notes: PASS | SKIP - <epic note evidence or why skipped>
-file_budget: PASS | SKIP - <evidence that authored files are at or below 350 lines, or why skipped>
----SUBMISSION-CHECKS-END---
-```
-
-Rules:
-- `clean_worktree` MUST be `PASS`. There is no skip form.
-- `test_plan`, `files_touched`, and `edited_tests` may be `SKIP` only when the task spec genuinely lacks that section or you edited no test files.
-- `progress_notes` is `PASS` for epic tasks whenever you made a commit during this attempt; `SKIP` only for non-epic work or attempts with no new commits. `file_budget` is `PASS` when you created or grew authored code AND every authored file is at or below the 350-line hard limit (`yoke_core.domain.file_line_check`); `SKIP` only when no authored code was created or grown. When dispatch declares File Budget enabled, read the parent item's `## File Budget` section before writing the first new file; when disabled, use the dispatched execution scope without requiring that section. Missing line, malformed line, `FAIL`, or `UNKNOWN` re-dispatches the same attempt.
-- This block is parsed by conduct from the DB. Missing block, missing lines, or any `FAIL`/non-`PASS` `clean_worktree` result blocks the item from advancing to `validate`.
-
-Do not paraphrase the field names. Use the exact keys above so the parent conduct session can verify them reliably. You may repeat the block in your final chat response, but the DB progress note is the authoritative receipt.
-
----
+Every submission carries a receipt block; an absent or partial one sends the
+work back. Exact shape and required fields:
+`runtime/agents/engineer/submission-receipt.md` — read it before submitting.
 
 ## Path Resolution
 
@@ -226,16 +149,10 @@ Recurring telemetry signal: engineer `cd <worktree> && <cmd>` patterns account f
 <!-- YOKE:DB-PACKET end -->
 
 ## Path-Claim Discipline
-
-**Proactive workflow — widen BEFORE writing, not after the deny.** The per-tool-call `Write` / `Edit` / `git commit` deny is the safety net for forgotten widens; the primary workflow is widen-first. Run these steps at the start of each implementation slice, and again before any sibling-module create/edit that was not in the original slice:
-
-1. **Read your active claim's coverage.** The dispatch prompt's claim block lists the covered paths (`declared_paths` / `declared_targets` from `path-claim-list`); confirm directly with `yoke claims path list --item PREFIX-N --state active` if you need the current state. Treat the listed paths as your write budget.
-2. **Widen before the first uncovered write.** Before creating any new file or editing any file outside the listed coverage, call `claims.path.widen` (typed envelope in the claims packet above; canonical CLI is `yoke claims path widen --claim-id N --add-paths PATH1,PATH2,... --reason "<why>" --item PREFIX-N`). The `--claim-id` is required — read it from the `path-claim-list` output above. Bundle multiple new paths into a single widen call when the rationale is the same. The Write/Edit/commit deny is the safety net for forgotten widens, not the primary workflow entry — if you hit it, you skipped this step.
-3. **Merges from `main` need the same treatment.** Merges routinely touch files outside the original claim; widen first, then commit the merge.
-
-**`path-claim-override` is last resort.** Reserved for irreducible live collisions and requires **explicit operator approval**. You do not self-authorize the override mid-dispatch. If `claims.path.widen` is itself blocked because another active claim covers the same paths, that is a coordination event — surface it to the parent conduct/polish session and stop. Do not use override to make the obstacle go away.
-
-The same proactive rule applies to verification failures: if a test fix touches a file outside the claim, widen first and add the appropriate dependency edge per AGENTS.md `## Verification Failure Ownership — Hard Rule`. Override only with explicit operator approval.
+Edit only inside your claimed paths; a required file outside them is widened
+or escalated, never silently dropped. Full coverage contract and the
+sanctioned routes: `runtime/agents/engineer/path-claim-discipline.md` — read
+it before touching an unclaimed path.
 
 ## Progress Notes
 
@@ -257,17 +174,9 @@ rm -f "$_body_file"
 Progress notes are stored in the `epic_progress_notes` table, rendered into the parent epic body, and automatically synced to the GitHub issue. The final progress note for each attempt is the durable submission receipt.
 
 ## Root-Cause Analysis Protocol
-
-When you encounter a test failure or unexpected error, you MUST diagnose before fixing. Do NOT pattern-match on error text and jump to a fix. Follow these steps in order:
-
-1. **Read the failing assertion.** What exactly is being checked? What value was expected vs received?
-2. **Query the events table for context.** Check recent tool call telemetry and anomalies: `yoke events tail --limit 20` or `yoke events anomalies --since "2 hours ago"`. Anomaly flags (nonzero_exit, benign_failure) and timing data may reveal upstream failures that caused the current symptom.
-3. **Trace the code path.** Follow the function, table, schema, or data flow from the failing assertion back to the source code that creates, populates, or configures it. Read the actual source — don't guess from the error message.
-4. **Identify the discrepancy.** State explicitly: "The test expects X, but the code actually does Y." For example: "Test expects TABLE but init creates VIEW", or "Test checks column `foo` but migration renamed it to `bar`."
-5. **Write down the root cause** before writing any fix. Include it in your progress notes. Frame the root cause as what the SYSTEM should change to prevent recurrence — not "I made a mistake" but "the task spec referenced a nonexistent function" or "the dispatch context was missing the DB schema." If you cannot state the root cause in one sentence, you haven't finished investigating.
-6. **Only then write the fix** — and verify it addresses the root cause, not just the symptom. A correct fix changes the minimum code necessary to resolve the discrepancy identified in step 4.
-
-**Why this matters:** You are good at writing code once you understand the problem. The failure mode is spending multiple attempts guessing at fixes because you never investigated the root cause. One investigation cycle is cheaper than three fix-retry cycles.
+Never fix a failure you cannot explain. The full protocol — and the shapes
+that look like a root cause but are not — is
+`runtime/agents/engineer/root-cause-analysis.md`; read it before you fix.
 
 ## DB Schema Changes & Live-State ACs
 

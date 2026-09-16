@@ -103,114 +103,20 @@ When reading files >200 lines, use the Read tool's `offset` and `limit` paramete
    - Does it export the specified names with the correct types/signatures?
    - Does the behavior match the description?
 
-4. **Path tracing (beyond this task).** After verifying interface contracts against the spec, trace the key paths this code will participate in:
+4. **Trace the key paths this code participates in,** beyond the task's own
+   contracts — a change that satisfies its spec can still break the path it
+   sits on. The full procedure, including the worked cases that decide close
+   calls, is `runtime/agents/tester/path-tracing.md`; read it before tracing.
 
-   - **Export verification:** Do the *actual* exports match the interface contract exactly? Not just "does the function exist" but: is the export named or default? Are the argument types exact? Does the return type match? Are optional fields actually optional?
-   - **Runtime assumptions:** Are there assumptions about the runtime environment that aren't guaranteed? File/directory existence, environment variable dependencies, external service availability, path assumptions (absolute vs relative, CWD expectations).
-   - **Downstream compatibility:** When downstream tasks consume this code, will the *actual* implementation match what they expect? Read the "Expects" contracts of dependent tasks (file paths provided in the dispatch prompt) and verify the implementation matches their expectations, not just this task's "Provides" spec.
-
-   Flag path-tracing concerns in a separate section of the validation report. A task can **PASS** tests but still have integration **warnings** that should be noted for the operator.
-
-4a. **Prose-only detection heuristic.** Before running the test suite, check whether the diff contains ONLY non-executable file types. If so, the full test suite is structurally unnecessary — markdown changes cannot cause shell script test regressions.
-
-   **Procedure:**
-   1. Compute the list of changed files from the diff:
-      ```bash
-      # For standalone issues or full-branch diffs:
-      git diff main...HEAD --name-only
-      # For epic per-task diffs (if TASK_BASELINE is provided):
-      git diff {TASK_BASELINE}..HEAD --name-only
-      ```
-   2. Extract the file extensions and check against the **prose-only allowlist**: `.md`
-   3. If ALL changed files have extensions on the allowlist (or the diff is empty):
-      - **Skip the full test suite** (steps 5, 5a, 5b).
-      - Log in your validation report: "Prose-only change detected ({N} .md files). Skipping test suite — regressions structurally impossible."
-      - In the Regression Analysis section, write: "Skipped — prose-only change, no executable files modified."
-      - **Still run acceptance criteria verification** (steps 1-4 and 6-7 proceed normally).
-   4. If ANY changed file has an extension NOT on the allowlist (e.g., `.sh`, `.py`, `.json`, `.yaml`, or no extension): proceed to step 5 for risk-scoped test selection. Files with no extension are treated as executable (not on the allowlist).
-
-   **Important:** The allowlist starts with `.md` only — do not expand it without evidence.
-
-4b. **Project test command selection.** If your dispatch prompt includes a `Project Test Commands` block, use those commands instead of file-based test discovery. Project-provided commands take precedence because they encode project-specific knowledge about how to run tests (build steps, environment setup, test runners, etc.).
-
-   **Procedure:**
-   1. Check whether the dispatch prompt contains a `Project Test Commands` block with `Quick`, `Full`, and/or `E2E` entries.
-   2. If present and non-empty, use the project commands as your primary test execution method:
-      - **Quick:** Use for fast smoke tests during initial validation. Suitable for step 5 test selection when the change scope is narrow.
-      - **Full:** Use for comprehensive test runs. Suitable for step 5 when the blast radius is wide or when "no regressions" is an acceptance criterion.
-      - **E2E:** Defers to step 4c (ephemeral E2E validation). Do not run E2E commands directly in step 5.
-   3. If the `Project Test Commands` block is absent or all entries are empty, fall back to file-based test discovery in step 5.
-   4. Log which command source you used (project commands vs. file-based discovery) in the "Test Commands Used" section of your validation report.
-
-   **Important:** Project commands and file-based discovery are mutually exclusive for a given test run. When project commands are available, do not also run file-based discovered tests unless the project commands are insufficient to cover the changed code.
-
-4c. **E2E execution against ephemeral URL.** This step runs AFTER unit and integration tests pass (steps 4b/5). If unit or integration tests failed, skip E2E entirely — the verdict is already FAIL.
-
-   **Prerequisites — graceful skip when not applicable:**
-   - If the dispatch prompt does not include an `Ephemeral URL` line, or the value is `"none"` or empty: skip this step. Log: "E2E skipped — no ephemeral URL provided."
-   - If the `Project Test Commands` block has no `E2E` entry, or the E2E command is empty: skip this step. Log: "E2E skipped — no E2E test command configured."
-   - Both conditions must be satisfied to proceed. If either is missing, skip gracefully.
-
-   **Procedure:**
-   1. Extract the ephemeral URL from the dispatch prompt (`Ephemeral URL: {url}`).
-   2. Extract the E2E command from the `Project Test Commands` block (`E2E: {command}`).
-   3. Run the E2E command with `BASE_URL` injected:
-      ```bash
-      BASE_URL={ephemeral_url} {e2e_command}
-      ```
-   4. If the command exits with a non-zero status, E2E tests have failed.
-
-   **Failure reporting:** When E2E tests fail, collect and report:
-   - **Test names:** Each failing test's name or description (parsed from the test runner output).
-   - **Error messages:** The assertion or error message for each failure.
-   - **Artifact paths:** Paths to Playwright artifacts — screenshots (`*.png`), traces (`*.zip`), and videos if present. These are typically found in a `test-results/` or `playwright-report/` directory relative to the project root. List each artifact path so the operator can inspect them.
-
-   **Verdict impact:** If E2E tests fail, the overall verdict is **FAIL** — even if all unit and integration tests passed. E2E failures indicate the deployed application does not behave correctly, which is a blocking issue.
-
-5. **Select and run tests.** Use your judgement to decide which tests to run based on your understanding of the change's scope and risk. All selected tests must pass. Do not default to running every test file — think about what could actually break.
-
-   Guidelines for test selection:
-   - **Always run** tests whose names match changed files or changed command surfaces (e.g., changing a project-provided command means running that command's matching test) and any tests listed in the task's acceptance criteria.
-   - **Consider running** tests for scripts that source or depend on the changed code. `grep -rl` on changed filenames in the test directory can help identify these.
-   - **Escalate to broader runs** when your judgement says the blast radius warrants it — e.g., changes to core infrastructure, shared helpers, DB schema, or wide-reaching refactors. For Yoke code, prefer `yoke watch pytest --impacted main --bounded` (`--bounded` reports an unbounded selection instead of widening to the full sweep, because the item's QA case run is the one full execution for that tree). For a project declaring `ci_workflow_file` it executes on that project's CI by default against the pushed lane commit, so it costs this machine nothing and refuses an uncommitted tree. `--local` is only a small targeted check expected to finish in about one minute; uncommitted work does not justify a slow local run. The full three-anchor sweep is CI's job on the protected merge path and returns locally only as the CI-outage fallback. A single leaf script getting a new feature almost certainly doesn't need 90+ test files.
-
-   Log your test selection reasoning in the validation report: what you chose to run, why, and what you considered but excluded.
-
-   **Capture-first test output discipline.** Never pipe a live test-suite invocation directly to `tail` or `head` — this silently discards failure context. Always capture test output to a temp file first, then inspect:
-   ```bash
-   _tmp=$(mktemp /tmp/yoke-test.XXXXXX)
-   sh {test-command} >"$_tmp" 2>&1; _rc=$?
-   tail -50 "$_tmp"                          # inspect captured output
-   grep -E "FAIL|ERROR|error" "$_tmp" || true # extract failures
-   rm -f "$_tmp"
-   exit "$_rc"
-   ```
-   Post-capture `tail`/`head` usage on the temp file is fine.
-
-   **For long runs, stream progress via the foreground watcher wrapper.** When the expected runtime exceeds ~60s, run `yoke watch pytest -- <pytest args>` (or the subcommand-shaped `yoke watch merge done-transition <args>` / `yoke watch merge merge-worktree <args>` for merges) as a single foreground `Bash` invocation. The wrapper blocks within the same tool call, owns the progress regex, and writes a raw capture for post-completion inspection. This gives early-failure signal — stop the run on FAIL/ERROR instead of waiting for the full suite.
-<!-- YOKE:HARNESS claude start -->
-
-   **Subagent dispatched turns are foreground-only — never arm a background `Bash` task paired with `Monitor` and end the turn.** Dispatched subagent turns are atomic: a `Monitor` wake fired after this turn ends has nowhere to deliver, so the subagent suspends with an `agentId: <id> (use SendMessage with to: '<id>' to continue this agent)` envelope and the parent dispatch deadlocks. The watcher wrapper above runs foreground inside a single `Bash` tool call and exits before the turn does — that is the canonical long-command shape for subagents. After completion, inspect the helper-resolved raw capture (the path `--print-streaming-pair` emits, minted by `yoke_core.domain.project_scratch_dir.watcher_capture_path(...)` under the machine temp root's watcher-captures directory) with `tail -80`. If you passed `--raw-capture <path>` to pin the capture file to a known location (CI / artifact collection), inspect that path instead. If the turn budget cannot accommodate the foreground run, surface a tighter dispatch scope to the parent session — do not arm background work and return. See `session.md` `## Tool Constraints` for the full rule.
-
-   Example (preferred — foreground watcher wrapper writes raw + filtered progress captures to the helper-resolved scratch root):
-   ```bash
-   # No --raw-capture: the wrapper mints both raw + progress captures via
-   # project_scratch_dir.mint_watcher_capture_pair("pytest") and prints
-   # the resolved paths. Inspect those after exit.
-   yoke watch pytest --impacted main --bounded
-   # --impacted needs no project paths. Full-sweep anchor paths are per-project:
-   # read them from the project's registered verification command (or project
-   # rules file) rather than hardcoding another project's layout.
-   # Operator carve-out: pass --raw-capture <PATH> to pin to a known path
-   # (CI / artifact collection). The helper-resolved default is preferred.
-   ```
-<!-- YOKE:HARNESS end -->
-
-5a. **Baseline-validated regression detection.** When the task acceptance criteria include "no regressions" or "existing tests still pass," do NOT simply compare failure counts between main and the branch — they can match by coincidence when a pre-existing failure is fixed while a new regression is introduced.
-
-   **Read and follow the embedded Baseline-Validated Regression Detection reference** for the full procedure: change-scope triage (cosmetic-only vs. logic-affecting), portable baseline capture against the worktree-safe main checkout, baseline trust validation, branch capture, harness-vs-product failure classification, signature matching for shared-name failures, the trust-level verdict assessment, and the targeted-validation fallback when the baseline is red. The verdict rules in that reference feed back into your validation report's Regression Analysis section.
-
-5b. **Check worktree cleanliness.** After tests complete, verify the worktree has no unexpected artifacts left behind by the Engineer's test scripts. Run `git status --porcelain` in the worktree and compare against the task's "Files touched" list. Any unexpected untracked files or directories (especially nested directory trees from captured command output) should be flagged as a test artifact leak — this is a **FAIL** condition.
+5. **Select and run tests by judgement, not by default.** All selected tests
+   must pass, and running every test file is not the goal — think about what
+   could actually break. The selection procedure, execution shapes, and
+   failure attribution are `runtime/agents/tester/test-selection.md`; read it
+   before selecting. When the acceptance criteria say "no regressions" or
+   "existing tests still pass," the procedure that actually establishes that
+   is `runtime/agents/tester/regression-detection.md` — matching failure
+   counts between main and the branch prove nothing, so read it rather than
+   comparing totals.
 
 6. **Verify documentation.** Check that every doc listed in "Documentation Requirements" was actually created or updated.
 

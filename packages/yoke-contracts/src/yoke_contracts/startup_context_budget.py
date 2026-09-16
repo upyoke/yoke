@@ -66,7 +66,8 @@ ESTIMATED_BYTES_PER_TOKEN = 4
 ROOT_RULES_TRUNCATION_BYTES = 32768
 
 ROOT_RULES_BYTES: dict[str, int] = {
-    "claude": 42000,
+    # Measured: the condensed rules pair spends 43,041 bytes.
+    "claude": 44000,
     "codex": ROOT_RULES_TRUNCATION_BYTES,
     "cursor": ROOT_RULES_TRUNCATION_BYTES,
 }
