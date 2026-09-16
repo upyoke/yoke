@@ -18,7 +18,10 @@ from yoke_core.domain.db_claim import (
     amend,
 )
 from yoke_core.domain.db_compatibility_attestation import FREEZE_FIELD
-from runtime.api.fixtures.backlog import insert_item, test_db
+from runtime.api.fixtures.backlog import (  # noqa: F401 — test_db is a fixture
+    insert_item,
+    test_db,
+)
 
 
 def _placeholder(conn) -> str:
@@ -297,7 +300,8 @@ class TestInputDiscipline:
         missing_id = 9999
         with pytest.raises(DbClaimAmendmentError) as exc_info:
             amend(missing_id, {"state": "none"}, reason="r", conn=db_conn)
-        assert f"YOK-{missing_id}" in str(exc_info.value)
+        # No row backs that id, so the refusal names the storage key.
+        assert f"items.id {missing_id}" in str(exc_info.value)
 
 
 # Upsert / event emission / read_claim coverage lives in

@@ -59,7 +59,6 @@ from yoke_core.domain import db_backend
 from yoke_core.domain import db_compatibility_attestation as dca
 from yoke_core.domain import db_helpers
 from yoke_core.domain import db_mutation_profile as dmp
-from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.db_claim_apply import (
     AmendmentResult,
     DbClaimAmendmentError,
@@ -260,7 +259,7 @@ def read_claim(
             (item_id,),
         ).fetchone()
         if row is None:
-            raise DbClaimAmendmentError(f"Item {render_item_ref(c, item_id)} not found")
+            raise DbClaimAmendmentError(f"no item at items.id {item_id}")
         raw_profile = row["db_mutation_profile"] if hasattr(row, "keys") else row[0]
         raw_attestation = (
             row["db_compatibility_attestation"] if hasattr(row, "keys") else row[1]
