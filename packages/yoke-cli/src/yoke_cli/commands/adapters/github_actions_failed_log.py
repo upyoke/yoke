@@ -1,4 +1,4 @@
-"""``yoke github-actions failed-log`` — sanctioned CI failure-log read."""
+"""``yoke github-actions failed-log`` — every failed job of one CI run."""
 
 from __future__ import annotations
 
@@ -56,10 +56,16 @@ def github_actions_failed_log(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke github-actions failed-log",
         description=(
-            "Fetch failed-step log output for a workflow run via bearer-token "
-            "REST (no host gh binary). Pass an explicit run id, or omit it "
-            "and supply --workflow with optional --head-sha (default: "
-            "resolved HEAD of the current checkout)."
+            "Report every failed job of a workflow run via bearer-token REST "
+            "(no host gh binary). Each failed job — every shard of a matrix "
+            "included — gets its own labelled block carrying the job name, "
+            "job id, conclusion, GitHub job URL, and its own log tail, so "
+            "one shard's output never displaces another's. A job whose log "
+            "GitHub cannot hand over (expired, missing, or permission "
+            "denied) is still reported by name with that reason. Pass an "
+            "explicit run id, or omit it and supply --workflow with optional "
+            "--head-sha (default: resolved HEAD of the current checkout). "
+            "--json adds the per-job structure alongside the report."
         ),
     )
     parser.add_argument("repo")
@@ -76,7 +82,16 @@ def github_actions_failed_log(args: List[str]) -> int:
         dest="head_sha",
         help="Commit to inspect (default: HEAD of the current checkout).",
     )
-    parser.add_argument("--tail-lines", type=int, default=50, dest="tail_lines")
+    parser.add_argument(
+        "--tail-lines",
+        type=int,
+        default=50,
+        dest="tail_lines",
+        help=(
+            "Log lines to show PER failed job (default: 50). Raise it to "
+            "read further back in every job's log."
+        ),
+    )
     parser.add_argument("--project", required=True)
     add_session_arg(parser)
     add_json_arg(parser)

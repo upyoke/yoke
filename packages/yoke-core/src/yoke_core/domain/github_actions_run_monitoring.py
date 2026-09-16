@@ -6,10 +6,16 @@ import sys
 import time
 from typing import Any, Callable, Dict, Optional
 
+from yoke_contracts.github_app_installation_permissions import (
+    GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+)
 from yoke_core.domain.gh_rest_transport import (
     RestAuthError,
     RestTransportError,
 )
+from yoke_core.domain.github_actions_failed_job_report import build_failed_job_report
+from yoke_core.domain.github_actions_failed_jobs import collect_failed_jobs
+from yoke_core.domain.github_actions_rest import resolve_token
 from yoke_core.domain.github_poll_schedule import (
     CI_SUITE_SCHEDULE,
     next_read_delay,
@@ -18,7 +24,6 @@ from yoke_core.domain.github_poll_schedule import (
 GetLatestRun = Callable[[], Optional[Dict[str, Any]]]
 CheckAuth = Callable[[], None]
 Sleep = Callable[[float], None]
-FetchFailedLog = Callable[[str, str], Dict[str, str]]
 
 # Canonical check-ci wait semantics, shared by the module CLI form and
 # the ``yoke github-actions check-ci`` flag adapter's CLIENT-side wait
@@ -39,7 +44,6 @@ __all__ = [
     "CHECK_CI_DEFAULT_TIMEOUT_SEC",
     "check_ci_command",
     "failed_log_command",
-    "format_failed_log_output",
 ]
 
 
@@ -106,42 +110,29 @@ def check_ci_command(
         sleep(next_read_delay(elapsed, CI_SUITE_SCHEDULE))
 
 
-def format_failed_log_output(
-    per_job: Dict[str, str],
-    *,
-    tail_lines: int,
-) -> tuple[str, bool] | None:
-    """Return ``(output, truncated)`` or ``None`` when no log text exists."""
-    log_text = _join_job_logs(per_job)
-    if not log_text:
-        return None
-    lines = log_text.splitlines()
-    truncated = len(lines) > tail_lines
-    if truncated:
-        lines = lines[-tail_lines:]
-        prefix = f"... (showing last {tail_lines} lines of failed-step output)\n"
-        return prefix + "\n".join(lines), True
-    return "\n".join(lines), False
-
-
 def failed_log_command(
     repo: str,
     run_id: str,
     *,
     tail_lines: int,
-    check_auth: CheckAuth,
-    fetch_log: FetchFailedLog,
+    project: str,
 ) -> None:
-    """Fetch a concise failed-step log tail and exit with legacy CLI code.
+    """Print every failed job of *run_id* and exit with the legacy CLI code.
 
-    Uses the REST ZIP-logs endpoint via :mod:`github_actions_logs` with
-    automatic per-job fallback on ZIP 404. The caller supplies a fetcher
-    already bound to explicit project auth and the verified repository.
+    Exit 0 once the report is written — including a run with no failed
+    jobs, which is a readable answer rather than a failure — and 1 when
+    the jobs or logs could not be read at all. A single job whose log
+    GitHub would not hand over is reported inside the run's report, not
+    as a failure of the read.
     """
-    check_auth()
+    token = resolve_token(
+        project,
+        repo,
+        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
+    )
 
     try:
-        per_job = fetch_log(repo, run_id)
+        jobs = collect_failed_jobs(repo, run_id, token=token)
     except RestAuthError as exc:
         # Never log the token. RestAuthError.message carries only
         # HTTP status + body snippet (no Authorization header).
@@ -157,30 +148,8 @@ def failed_log_command(
         )
         sys.exit(1)
 
-    formatted = format_failed_log_output(per_job, tail_lines=tail_lines)
-    if formatted is None:
-        print("(no failed-step output captured)", file=sys.stderr)
-        sys.exit(1)
-
-    output, _truncated = formatted
-    print(output)
+    report = build_failed_job_report(
+        jobs, repo=repo, run_id=run_id, tail_lines=tail_lines,
+    )
+    print(report.output)
     sys.exit(0)
-
-
-def _join_job_logs(per_job: Dict[str, str]) -> str:
-    """Join multiple job logs into one block for tail-trimming.
-
-    The ZIP path's top-level entries carry per-step prefixes inline, so
-    callers only need a stable separator between jobs. A blank line
-    between sorted job blocks keeps the tail-trim deterministic when
-    more than one job failed.
-    """
-    if not per_job:
-        return ""
-    blocks = []
-    for name in sorted(per_job):
-        body = per_job[name].strip("\n")
-        if not body:
-            continue
-        blocks.append(body)
-    return "\n\n".join(blocks).strip()

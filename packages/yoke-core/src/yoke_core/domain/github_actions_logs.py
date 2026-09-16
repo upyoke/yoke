@@ -12,10 +12,11 @@ Public surfaces:
 
 - :func:`fetch_failed_log_zip` — raw bytes, no parse.
 - :func:`parse_failed_log_zip` — bytes → ``{job_name: log_text}``.
-- :func:`fetch_failed_log` — composes the two with a per-job fallback
-  when the ZIP endpoint returns 404 (re-run only kept per-job logs).
 - :func:`fetch_job_log` — fetches one exact job, including an earlier
   failed attempt that a later rerun replaced in the run-level listing.
+
+Which jobs of a run to read, and how to report them, belongs to
+:mod:`github_actions_failed_jobs`.
 
 Errors surface as the typed :class:`gh_rest_transport.RestTransportError`
 hierarchy. No host ``gh`` binary required.
@@ -26,7 +27,7 @@ from __future__ import annotations
 import urllib.error
 import urllib.parse
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
 
 from yoke_cli.transport.response_deadline_open import (
     ResponseOpenDeadlineError,
@@ -54,7 +55,6 @@ from yoke_core.domain.gh_rest_operation_deadline import (
     require_remaining,
     wait_before_retry,
 )
-from yoke_core.domain.github_actions_rest import rest_get
 from yoke_core.domain.github_response_safety import (
     GITHUB_SMALL_RESPONSE_LIMIT_BYTES,
     GitHubResponseTooLargeError,
@@ -104,7 +104,6 @@ sleep = _sleep
 __all__ = [
     "fetch_failed_log_zip",
     "parse_failed_log_zip",
-    "fetch_failed_log",
     "fetch_job_log",
 ]
 
@@ -260,56 +259,6 @@ def _is_retryable(exc: RestTransportError) -> bool:
     return exc.status in _RETRYABLE_HTTP_STATUSES
 
 
-def fetch_failed_log(repo: str, run_id: int | str, *, token: str) -> Dict[str, str]:
-    """Fetch + parse failed-job logs with per-job fallback on ZIP 404.
-
-    Returns ``{job_name: log_text}`` for failed jobs only. The run-log ZIP
-    endpoint contains every job's top-level log, so this function first
-    lists the run's jobs and uses that metadata to preserve the previous
-    failed-log semantics.
-    """
-    failed_names = _failed_job_names(repo, run_id, token=token)
-    if not failed_names:
-        return {}
-    try:
-        zip_bytes = fetch_failed_log_zip(repo, run_id, token=token)
-    except RestNotFoundError:
-        return _per_job_fallback(repo, run_id, token=token)
-    logs = {
-        name: redact_exact_secrets(body, (token,))
-        for name, body in parse_failed_log_zip(zip_bytes).items()
-    }
-    return {name: body for name, body in logs.items() if name in failed_names}
-
-
-def _run_jobs(repo: str, run_id: int | str, *, token: str) -> List[Dict[str, Any]]:
-    listing = rest_get(
-        f"/repos/{repo}/actions/runs/{run_id}/jobs",
-        query={"per_page": "100"},
-        token=token,
-    )
-    if not isinstance(listing, dict):
-        return []
-    raw = listing.get("jobs")
-    if not isinstance(raw, list):
-        return []
-    return [j for j in raw if isinstance(j, dict)]
-
-
-def _failed_job_names(repo: str, run_id: int | str, *, token: str) -> set[str]:
-    failed = [
-        j
-        for j in _run_jobs(repo, run_id, token=token)
-        if str(j.get("conclusion") or "") == "failure"
-    ]
-    names: set[str] = set()
-    for job in failed:
-        name = str(job.get("name") or "").strip()
-        if name:
-            names.add(name)
-    return names
-
-
 def fetch_job_log(repo: str, job_id: int | str, *, token: str) -> str:
     """Fetch and redact the plain-text log for one exact Actions job."""
     headers = {
@@ -326,20 +275,3 @@ def fetch_job_log(repo: str, job_id: int | str, *, token: str) -> str:
         deadline=deadline_after(_FETCH_TIMEOUT_SECONDS),
     )
     return redact_exact_secrets(body.decode("utf-8", errors="replace"), (token,))
-
-
-def _per_job_fallback(repo: str, run_id: int | str, *, token: str) -> Dict[str, str]:
-    """Fetch each failed job's log individually when the ZIP 404s."""
-    jobs = _run_jobs(repo, run_id, token=token)
-    failed = [j for j in jobs if str(j.get("conclusion") or "") == "failure"]
-    result: Dict[str, str] = {}
-    for job in failed:
-        job_id = job.get("id")
-        if job_id in (None, ""):
-            continue
-        job_name = str(job.get("name") or f"job-{job_id}")
-        try:
-            result[job_name] = fetch_job_log(repo, job_id, token=token)
-        except RestNotFoundError:
-            continue
-    return result

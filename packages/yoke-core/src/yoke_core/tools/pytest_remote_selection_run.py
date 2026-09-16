@@ -38,7 +38,7 @@ from yoke_core.tools.pytest_remote_selection import (
 #: Wall-clock ceiling for one selection run: queue wait, runner setup, and
 #: a selection that is a small fraction of the suite.
 DEFAULT_TIMEOUT_SECONDS = 1800
-#: Lines of the failed step's log relayed into the local capture.
+#: Log lines relayed into the local capture per failed job.
 FAILED_LOG_TAIL_LINES = 150
 #: How a run came to be the one this invocation reports on.
 DISPATCHED = "dispatched"
@@ -180,7 +180,12 @@ def await_conclusion(
 
 
 def relay_failed_log(*, project: str, repo: str, run_id: str) -> None:
-    """Print the failed step's log tail so the FAILED lines reach the capture."""
+    """Print every failed job's log tail so each shard's FAILED lines land.
+
+    A sharded selection fails in several jobs at once, and the read below
+    reports each of them separately, so the capture carries every failing
+    shard rather than whichever one sorted last.
+    """
     from yoke_core.domain.deploy_pipeline_reporting import _github_actions
 
     result = _github_actions(
@@ -191,7 +196,7 @@ def relay_failed_log(*, project: str, repo: str, run_id: str) -> None:
     if result.returncode != 0 or not text:
         detail = (result.stderr or "").strip() or "no output"
         _say(
-            f"failed-step log unavailable ({detail}); inspect with "
+            f"failed-job logs unavailable ({detail}); inspect with "
             f"`yoke github-actions failed-log {repo} {run_id} --project {project}`"
         )
         return

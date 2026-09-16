@@ -4,10 +4,13 @@ Covers:
 
 - ZIP fetch success returns the raw archive bytes.
 - ZIP parse extracts per-job text from top-level ``<n>_<name>.txt`` entries.
-- ZIP 404 routes through the per-job text endpoint fallback.
+- The per-job text endpoint reads one exact job.
 - 401 / 403 raise typed :class:`RestAuthError`.
 - 5xx surfaces after the shared retry budget.
 - Empty / malformed ZIP returns an empty dict (no crash).
+
+Which jobs of a run are read, and how they are reported, is covered by
+``test_github_actions_failed_jobs.py``.
 """
 
 from __future__ import annotations
@@ -237,7 +240,7 @@ class TestParseFailedLogZip:
         assert github_actions_logs.parse_failed_log_zip(b"") == {}
 
 
-class TestFetchFailedLog:
+class TestFetchJobLog:
     def test_fetch_job_log_reads_exact_failed_attempt(self, monkeypatch):
         calls = _install_urlopen(monkeypatch, [b"authentication required\n"])
 
@@ -249,100 +252,3 @@ class TestFetchFailedLog:
 
         assert result == "authentication required\n"
         assert "/actions/jobs/99067752381/logs" in calls[0]
-
-    def test_composes_fetch_and_parse(self, monkeypatch):
-        import json
-
-        zip_bytes = _build_zip(
-            {"1_build.txt": "compile failed", "2_test.txt": "tests passed"}
-        )
-        _install_urlopen(monkeypatch, [zip_bytes])
-        jobs_payload = {
-            "jobs": [
-                {"id": 10, "name": "build", "conclusion": "failure"},
-                {"id": 11, "name": "test", "conclusion": "success"},
-            ]
-        }
-
-        from yoke_core.domain import gh_rest_transport
-
-        def _fake_rest_urlopen(request, timeout=None):
-            return _FakeResponse(json.dumps(jobs_payload).encode("utf-8"))
-
-        monkeypatch.setattr(gh_rest_transport, "urlopen", _fake_rest_urlopen)
-
-        result = github_actions_logs.fetch_failed_log("o/r", "123", token="ghs_x")
-
-        assert result == {"build": "compile failed"}
-
-    def test_zip_404_falls_back_to_per_job(self, monkeypatch):
-        # First call: GET /runs/{id}/logs → 404
-        # Second call: GET /runs/{id}/jobs → JSON listing
-        # Third call: GET /jobs/{job_id}/logs → bytes
-        import json
-
-        jobs_payload = {
-            "jobs": [
-                {"id": 999, "name": "build", "conclusion": "failure"},
-                {"id": 1000, "name": "test", "conclusion": "success"},
-            ]
-        }
-
-        # The rest_get for jobs listing goes through gh_rest_transport, which
-        # has its own urlopen seam. We monkeypatch BOTH module seams here.
-        from yoke_core.domain import gh_rest_transport
-
-        outer_calls: List[str] = []
-        outer_iter = iter(
-            [
-                _make_http_error(404),  # ZIP fetch
-                b"build job log body\n",  # job 999 text
-            ]
-        )
-
-        def _fake_logs_urlopen(request, timeout=None):
-            outer_calls.append(
-                request.full_url if hasattr(request, "full_url") else str(request)
-            )
-            payload = next(outer_iter)
-            if isinstance(payload, Exception):
-                raise payload
-            return _FakeResponse(payload)
-
-        monkeypatch.setattr(github_actions_logs, "urlopen", _fake_logs_urlopen)
-        monkeypatch.setattr(github_actions_logs, "sleep", lambda _s: None)
-
-        def _fake_rest_urlopen(request, timeout=None):
-            return _FakeResponse(json.dumps(jobs_payload).encode("utf-8"))
-
-        monkeypatch.setattr(gh_rest_transport, "urlopen", _fake_rest_urlopen)
-
-        result = github_actions_logs.fetch_failed_log("o/r", "123", token="ghs_x")
-
-        # Only the failed job's log should be present.
-        assert result == {"build": "build job log body\n"}
-        # ZIP endpoint + per-job text endpoint were both hit.
-        assert any("/runs/123/logs" in c for c in outer_calls)
-        assert any("/jobs/999/logs" in c for c in outer_calls)
-
-    def test_zip_404_no_failed_jobs_returns_empty(self, monkeypatch):
-        import json
-
-        from yoke_core.domain import gh_rest_transport
-
-        jobs_payload = {"jobs": [{"id": 1, "name": "ok", "conclusion": "success"}]}
-
-        def _fake_logs_urlopen(request, timeout=None):
-            raise _make_http_error(404)
-
-        monkeypatch.setattr(github_actions_logs, "urlopen", _fake_logs_urlopen)
-        monkeypatch.setattr(github_actions_logs, "sleep", lambda _s: None)
-
-        def _fake_rest_urlopen(request, timeout=None):
-            return _FakeResponse(json.dumps(jobs_payload).encode("utf-8"))
-
-        monkeypatch.setattr(gh_rest_transport, "urlopen", _fake_rest_urlopen)
-
-        result = github_actions_logs.fetch_failed_log("o/r", "123", token="ghs_x")
-
-        assert result == {}
