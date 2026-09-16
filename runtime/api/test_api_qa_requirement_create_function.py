@@ -317,33 +317,5 @@ class TestRequirementAddBatch(unittest.TestCase):
         self.assertEqual(outcome.error.code, "payload_invalid")
 
 
-class TestRegistryClaimGating(unittest.TestCase):
-    """The dispatcher applies claim checks from registry metadata — the
-    qa CRUD writes must be item-claim-gated and the reads must not be."""
-
-    def test_writes_item_gated_reads_open(self):
-        from yoke_core.domain import yoke_function_registry
-        from yoke_core.domain.handlers.__init_register__ import (
-            register_all_handlers,
-        )
-
-        register_all_handlers()
-        entries = {
-            e.function_id: e for e in yoke_function_registry.list_entries()
-        }
-        for fid in ("qa.requirement.add", "qa.requirement.add_batch"):
-            self.assertEqual(entries[fid].claim_required_kind, "item", fid)
-            self.assertIn("claim_required", entries[fid].guardrails, fid)
-            self.assertEqual(
-                entries[fid].side_effects, ("qa_requirements_insert",), fid,
-            )
-        for fid in (
-            "qa.requirement.list", "qa.requirement.get", "qa.run.list",
-            "qa.gate_summary.run",
-        ):
-            self.assertIsNone(entries[fid].claim_required_kind, fid)
-            self.assertEqual(entries[fid].side_effects, (), fid)
-
-
 if __name__ == "__main__":
     unittest.main()

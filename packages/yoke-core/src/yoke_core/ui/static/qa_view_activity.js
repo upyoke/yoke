@@ -106,6 +106,32 @@ function evidenceCell(context, documentNode, row) {
   return td;
 }
 
+// A case attached straight to an item or a deployment run has no plan, so
+// the cell says so rather than linking to a plan page that does not exist.
+// A missing plan is a real attachment shape here, not a failed lookup.
+function planCell(context, documentNode, row) {
+  const td = el(documentNode, "td");
+  if (row.plan_id == null) {
+    td.appendChild(el(documentNode, "span", "secondary-muted", "no plan"));
+    return td;
+  }
+  const link = el(
+    documentNode, "a", "mono qa-activity-link", row.plan || String(row.plan_id),
+  );
+  link.href = qaRoute(context, "plans", String(row.plan_id), row.project);
+  td.appendChild(link);
+  return td;
+}
+
+// What names this case in the table. A plan-backed case is named by its case
+// key; a planless one has none, so it falls back to the method that defines
+// what it executes, and to its own id when even that is absent.
+function caseLabelOf(row) {
+  const name = row.case_key || row.method_name || row.method_id
+    || `case ${row.requirement_id}`;
+  return row.host_baseline ? `${name} @${row.host_baseline}` : name;
+}
+
 // Whether a person still has to answer for this row. Only a pending review
 // is served, so the cell either points at the Inbox card or says the row
 // needs nobody.
@@ -139,7 +165,7 @@ function renderActivityTable(context, body, rows, scope, pending) {
   const documentNode = context.document;
   if (!rows.length) {
     body.appendChild(el(
-      documentNode, "p", "empty", "No materialized case activity yet.",
+      documentNode, "p", "empty", "No QA case activity yet.",
     ));
     return;
   }
@@ -167,17 +193,12 @@ function renderActivityTable(context, body, rows, scope, pending) {
     const href = qaRoute(
       context, "activity", String(row.requirement_id), row.project,
     );
-    const planHref = qaRoute(context, "plans", String(row.plan_id), row.project);
     const tr = el(documentNode, "tr", "qa-clickable-row");
     tr.addEventListener("click", (event) => {
       if (event.target?.closest?.("a")) return;
       context.navigate(href);
     });
-    const plan = el(documentNode, "td");
-    const planLink = el(documentNode, "a", "mono qa-activity-link", row.plan);
-    planLink.href = planHref;
-    plan.appendChild(planLink);
-    tr.appendChild(plan);
+    tr.appendChild(planCell(context, documentNode, row));
     if (projectColumn) {
       tr.appendChild(el(
         documentNode,
@@ -186,8 +207,7 @@ function renderActivityTable(context, body, rows, scope, pending) {
         projectColumn.value(row),
       ));
     }
-    const caseLabel = row.host_baseline
-      ? `${row.case_key} @${row.host_baseline}` : row.case_key;
+    const caseLabel = caseLabelOf(row);
     const caseCell = el(documentNode, "td", "mono");
     const caseLink = el(documentNode, "a", "qa-activity-link", caseLabel);
     caseLink.href = href;
