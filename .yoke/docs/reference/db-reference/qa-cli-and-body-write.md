@@ -86,7 +86,7 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT [--source operator\|agent] [--force]` | Waive a requirement with a recorded rationale |
 | `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [--head-sha SHA] [opts]` | Insert a run; blocking passes are commit-bound |
-| `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--execution-status S] [opts]` | Complete a previously recorded run |
+| `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--execution-status captured\|capture_failed] [opts]` | Complete a previously recorded run |
 | `yoke qa run record-verdict` | `--requirement-id N --performed-by T --verdict V [opts]` | Record a one-shot verdict |
 | `yoke qa run list` | `[--requirement-id N]` | List runs |
 | `yoke qa run get` | `--run-id N [--project P]` | Get one run |

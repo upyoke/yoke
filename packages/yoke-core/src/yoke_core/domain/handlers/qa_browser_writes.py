@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_contracts.api.function_call import FunctionCallRequest, HandlerOutcome
+from yoke_contracts.qa_execution_status import execution_status_error
 from yoke_core.domain.handlers.qa import _error, _p
 from yoke_core.domain.handlers.qa_artifact_add import handle_qa_artifact_add
 from yoke_core.domain.handlers.qa_browser_write_models import (
@@ -54,6 +55,12 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
     except ValueError as exc:
         return _error("payload_invalid", str(exc), jsonpath="$.payload.verdict_reason")
+    if status_issue := execution_status_error(execution_status):
+        return _error(
+            "payload_invalid",
+            status_issue,
+            jsonpath="$.payload.execution_status",
+        )
     conn = connect()
     try:
         p = _p(conn)
@@ -194,6 +201,12 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         verdict_reason = normalized_verdict_reason(verdict, verdict_reason)
     except ValueError as exc:
         return _error("payload_invalid", str(exc), jsonpath="$.payload.verdict_reason")
+    if status_issue := execution_status_error(execution_status):
+        return _error(
+            "payload_invalid",
+            status_issue,
+            jsonpath="$.payload.execution_status",
+        )
     conn = connect()
     try:
         p = _p(conn)

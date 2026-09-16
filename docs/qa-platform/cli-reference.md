@@ -64,7 +64,7 @@ yoke qa run add \
  --requirement-id 1 --performed-by agent --qa-kind implementation_review \
  --verdict pass --raw-result "Tester review passed"
 yoke qa run complete \
- --requirement-id 1 --run-id 10 --verdict pass --execution-status completed
+ --requirement-id 1 --run-id 10 --verdict pass --execution-status captured
 yoke qa run record-verdict \
  --requirement-id 1 --performed-by agent --verdict pass
 
@@ -108,7 +108,7 @@ run owns its delivery context.
 | `yoke qa requirement update` | `--requirement-id N --field FIELD (--value VALUE \| --null)` | Update one mutable field |
 | `yoke qa requirement waive` | `--requirement-id N --rationale TEXT` | Authorize progress without recording a passing verdict |
 | `yoke qa run add` | `--requirement-id N --performed-by T [--qa-kind K] [--verdict V] [--verdict-reason R] [--head-sha SHA] [opts]` | Start a run before attaching evidence; blocking passes stamp `verification_tree.head_sha` |
-| `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--verdict-reason R] [--execution-status S] [opts]` | Complete a run; agent `undetermined` requires a linked artifact and halts for owner/operator review |
+| `yoke qa run complete` | `--requirement-id N --run-id N [--verdict V] [--verdict-reason R] [--execution-status captured\|capture_failed] [opts]` | Complete a run; agent `undetermined` requires a linked artifact and halts for owner/operator review |
 | `yoke qa run record-verdict` | `--requirement-id N --performed-by T --verdict V [--verdict-reason R] [opts]` | One-shot verdict; agent `undetermined` is refused because this surface cannot attach evidence |
 | `yoke qa run list` | `[--requirement-id N]` | List runs |
 | `yoke qa artifact presign` | `--requirement-id N --run-id N --filename NAME [--content-type CT]` | Mint a durable upload target |
