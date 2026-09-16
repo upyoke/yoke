@@ -1,4 +1,4 @@
-"""Handler for ``github_actions.failed_log`` — failed-step log tail."""
+"""Handler for ``github_actions.failed_log`` — every failed job of a run."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from yoke_core.domain.handlers.github_actions_set import (
     _transport_failed,
     _validate_and_resolve,
 )
-from yoke_core.domain.github_actions_run_monitoring import format_failed_log_output
+from yoke_core.domain.github_actions_failed_job_report import build_failed_job_report
 
 
 class FailedLogRequest(BaseModel):
@@ -28,6 +28,7 @@ class FailedLogRequest(BaseModel):
     workflow: Optional[WorkflowIdentifier] = None
     branch: str = Field("main")
     head_sha: str = Field("")
+    # Applied per failed job, so one shard's tail never displaces another's.
     tail_lines: int = Field(50, ge=1)
 
     @model_validator(mode="after")
@@ -37,10 +38,25 @@ class FailedLogRequest(BaseModel):
         return self
 
 
+class FailedJobSummary(BaseModel):
+    job_id: str
+    name: str
+    conclusion: str
+    html_url: str
+    log_status: str
+    log_detail: str
+    log_line_count: int
+    shown_line_count: int
+    truncated: bool
+
+
 class FailedLogResponse(BaseModel):
     run_id: str
     output: str
     truncated: bool = False
+    failed_job_count: int = 0
+    logs_available_count: int = 0
+    jobs: List[FailedJobSummary] = Field(default_factory=list)
 
 
 def _resolve_run_id(
@@ -88,10 +104,10 @@ def handle_failed_log(request: FunctionCallRequest) -> HandlerOutcome:
     assert run_id is not None
 
     from yoke_core.domain.gh_rest_transport import RestAuthError, RestTransportError
-    from yoke_core.domain.github_actions_logs import fetch_failed_log
+    from yoke_core.domain.github_actions_failed_jobs import collect_failed_jobs
 
     try:
-        per_job = fetch_failed_log(payload.repo, run_id, token=token)
+        jobs = collect_failed_jobs(payload.repo, run_id, token=token)
     except RestAuthError as exc:
         return _transport_failed(
             f"GitHub auth failure fetching logs for run {run_id}: {exc}",
@@ -99,16 +115,20 @@ def handle_failed_log(request: FunctionCallRequest) -> HandlerOutcome:
     except RestTransportError as exc:
         return _transport_failed(f"failed to fetch logs for run {run_id}: {exc}")
 
-    formatted = format_failed_log_output(per_job, tail_lines=payload.tail_lines)
-    if formatted is None:
-        return _transport_failed("(no failed-step output captured)")
-
-    output, truncated = formatted
+    report = build_failed_job_report(
+        jobs,
+        repo=payload.repo,
+        run_id=run_id,
+        tail_lines=payload.tail_lines,
+    )
     return HandlerOutcome(
         result_payload=FailedLogResponse(
             run_id=run_id,
-            output=output,
-            truncated=truncated,
+            output=report.output,
+            truncated=report.truncated,
+            failed_job_count=report.failed_job_count,
+            logs_available_count=report.logs_available_count,
+            jobs=[FailedJobSummary(**job) for job in report.jobs],
         ).model_dump(),
         primary_success=True,
     )
@@ -133,6 +153,7 @@ REGISTRATIONS: List[Dict[str, Any]] = [
 
 
 __all__ = [
+    "FailedJobSummary",
     "FailedLogRequest",
     "FailedLogResponse",
     "REGISTRATIONS",

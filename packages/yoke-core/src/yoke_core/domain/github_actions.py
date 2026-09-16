@@ -7,7 +7,8 @@ repository matches that binding;
 
 All REST calls dispatch through :mod:`yoke_core.domain.gh_rest_transport` via
 :mod:`yoke_core.domain.github_actions_rest` (workflow-run JSON) and
-:mod:`yoke_core.domain.github_actions_logs` (failed-log ZIP bytes).
+:mod:`yoke_core.domain.github_actions_failed_jobs` (every failed job of
+a run, with its log).
 No host ``gh`` binary required.
 
 Exit codes: 0 success, 1 failed/error, 2 waiting, 3 in-progress/timeout,
@@ -258,41 +259,6 @@ def cmd_check_ci(
         sys.exit(1)
 
 
-def cmd_failed_log(
-    repo: str,
-    run_id: str,
-    tail_lines: int = 50,
-    *,
-    project: str,
-) -> None:
-    """Fetch failed-step log tail. Exit 0=ok / 1=fail / 4=auth.
-
-    Dispatches the run-logs ZIP endpoint via
-    :mod:`yoke_core.domain.github_actions_logs`; per-job text fallback
-    activates automatically when the ZIP endpoint 404s. Token resolution
-    runs once here so the auth-failure exit code stays distinct from
-    fetch failures inside the inner command.
-    """
-    token = resolve_token(
-        project,
-        repo,
-        required_permissions=GITHUB_ACTIONS_READ_PERMISSION_LEVELS,
-    )
-
-    from yoke_core.domain.github_actions_logs import fetch_failed_log
-
-    def _bound_fetch(_repo: str, _run_id: str) -> Dict[str, str]:
-        return fetch_failed_log(_repo, _run_id, token=token)
-
-    failed_log_command(
-        repo,
-        run_id,
-        tail_lines=tail_lines,
-        check_auth=lambda: None,
-        fetch_log=_bound_fetch,
-    )
-
-
 def main(argv: Optional[List[str]] = None) -> None:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -337,7 +303,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         )
 
     elif args.subcmd == "failed-log":
-        cmd_failed_log(
+        failed_log_command(
             args.repo, args.run_id, tail_lines=args.tail_lines,
             project=args.project,
         )

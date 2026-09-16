@@ -70,7 +70,7 @@ class TestCli:
             )
 
     def test_failed_log_args(self):
-        with mock.patch.object(github_actions, "cmd_failed_log") as m:
+        with mock.patch.object(github_actions, "failed_log_command") as m:
             try:
                 github_actions.main([
                     "failed-log", "o/r", "555", "--tail-lines", "25",
@@ -83,7 +83,7 @@ class TestCli:
             )
 
     def test_failed_log_default_tail(self):
-        with mock.patch.object(github_actions, "cmd_failed_log") as m:
+        with mock.patch.object(github_actions, "failed_log_command") as m:
             try:
                 github_actions.main([
                     "failed-log", "o/r", "555", "--project", "externalwebapp",
