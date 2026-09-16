@@ -79,6 +79,14 @@ def test_an_acceptance_shows_the_evidence_its_cases_captured(test_db) -> None:
     # The summary says where the pictures came from, so a reviewer is not left
     # to guess whether the acceptance captured them itself.
     assert "cases this acceptance covers" in context["evidence_summary"]
+    # Each one keeps the requirement that captured it: reading an artifact is
+    # authorized against its own requirement, so borrowed evidence that
+    # claimed the acceptance's id would refuse to load on the page.
+    borrowed = next(
+        item for item in context["artifacts"] if item["artifact_id"] == artifact_id
+    )
+    assert borrowed["requirement_id"] == case_id
+    assert borrowed["requirement_id"] != acceptance_id
 
 
 def test_one_members_captures_never_back_another_members_acceptance(

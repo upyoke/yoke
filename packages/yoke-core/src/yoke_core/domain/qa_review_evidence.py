@@ -156,7 +156,7 @@ def _covered_case_artifacts(
     rows = query_rows(
         conn,
         "SELECT a.id, a.artifact_type, a.content_type, a.artifact_handle, "
-        "a.metadata FROM qa_artifacts a "
+        "a.metadata, c.id AS requirement_id FROM qa_artifacts a "
         "JOIN qa_runs r ON r.id = a.qa_run_id "
         "JOIN qa_requirements c ON c.id = r.qa_requirement_id "
         "JOIN qa_requirements q ON q.deployment_run_id = c.deployment_run_id "
@@ -176,6 +176,11 @@ def _covered_case_artifacts(
             "content_type": _row_value(row, "content_type"),
             "artifact_handle": _row_value(row, "artifact_handle"),
             "metadata": _metadata(_row_value(row, "metadata")),
+            # The case that captured it, not the acceptance that covers it.
+            # Reading an artifact is authorized against its own requirement,
+            # so an acceptance's borrowed evidence has to keep saying whose
+            # it is or every thumbnail refuses to load.
+            "requirement_id": int(_row_value(row, "requirement_id")),
         }
         for row in rows
     ]
