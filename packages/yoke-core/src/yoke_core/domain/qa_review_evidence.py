@@ -13,6 +13,9 @@ from typing import Any
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
+from yoke_core.domain.deployment_qa_stage_prerequisites import (
+    DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
+)
 from yoke_core.domain.qa_execution_proof import qa_evidence_run_id
 from yoke_core.domain.qa_review_requirement_facts import requirement_facts
 from yoke_core.domain.schema_common import _table_exists
@@ -113,6 +116,18 @@ def qa_review_artifact_context(
         for row in artifact_rows
     ]
     if not artifacts:
+        artifacts = _covered_case_artifacts(conn, marker, requirement_id)
+        if artifacts:
+            kinds = sorted({artifact["artifact_type"] for artifact in artifacts})
+            return {
+                "artifacts": artifacts,
+                "artifact_count": len(artifacts),
+                "evidence_state": "attached",
+                "evidence_summary": (
+                    f"{len(artifacts)} artifact(s) captured by the cases this "
+                    f"acceptance covers: {', '.join(kinds)}"
+                ),
+            }
         return empty
     artifact_kinds = sorted({artifact["artifact_type"] for artifact in artifacts})
     return {
@@ -123,6 +138,47 @@ def qa_review_artifact_context(
             f"{len(artifacts)} attached artifact(s): {', '.join(artifact_kinds)}"
         ),
     }
+
+
+def _covered_case_artifacts(
+    conn: Any, marker: str, requirement_id: int
+) -> list[dict[str, Any]]:
+    """The artifacts backing a stage acceptance, from the cases it covers.
+
+    A stage acceptance records an aggregate verdict and captures nothing of
+    its own, so reading only its own run reports "no evidence attached" on a
+    stage whose cases captured screenshots — and asks a reviewer to rule on
+    nothing while the pictures they need sit one join away. The cases it
+    covers are the ones admitted against the same run, stage, member and
+    frozen execution target: exactly the set the gate aggregated to raise
+    this review.
+    """
+    rows = query_rows(
+        conn,
+        "SELECT a.id, a.artifact_type, a.content_type, a.artifact_handle, "
+        "a.metadata FROM qa_artifacts a "
+        "JOIN qa_runs r ON r.id = a.qa_run_id "
+        "JOIN qa_requirements c ON c.id = r.qa_requirement_id "
+        "JOIN qa_requirements q ON q.deployment_run_id = c.deployment_run_id "
+        "AND q.deployment_stage = c.deployment_stage "
+        "AND COALESCE(q.deployment_member_item_id, 0) "
+        "= COALESCE(c.deployment_member_item_id, 0) "
+        "AND q.execution_target_digest = c.execution_target_digest "
+        f"WHERE q.id = {marker} AND q.qa_kind = {marker} "
+        "AND c.method_id IS NOT NULL "
+        "ORDER BY a.id",
+        (int(requirement_id), DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND),
+    )
+    return [
+        {
+            "artifact_id": int(_row_value(row, "id")),
+            "artifact_type": str(_row_value(row, "artifact_type")),
+            "content_type": _row_value(row, "content_type"),
+            "artifact_handle": _row_value(row, "artifact_handle"),
+            "metadata": _metadata(_row_value(row, "metadata")),
+        }
+        for row in rows
+    ]
 
 
 __all__ = ["qa_review_artifact_context"]

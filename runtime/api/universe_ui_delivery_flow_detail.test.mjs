@@ -217,7 +217,7 @@ test("an item-scoped QA stage says what it checks and who rules on it",
     assert.equal(item["Runs on"], "the preview preview-deploy built");
     assert.equal(item.Cases, "plan 7 · preview-url-compare");
     assert.equal(item.Verdict, "a person decides, always — project owner");
-    assert.equal(item.Notifies, "each item's owner");
+    assert.equal(item.Notify, "each item's owner");
     mounted.unmount();
   },
 );
@@ -232,7 +232,7 @@ test("a run-scoped QA stage separates deciding from being told", async (t) => {
   // agent_only carries no reviewers; the operator is on the notice list and
   // reading that as authority is exactly the confusion the two lines prevent.
   assert.equal(release.Verdict, "the agent decides");
-  assert.equal(release.Notifies, "project operator");
+  assert.equal(release.Notify, "project operator");
   mounted.unmount();
 });
 

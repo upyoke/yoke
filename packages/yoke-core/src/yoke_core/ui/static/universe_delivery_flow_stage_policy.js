@@ -88,7 +88,7 @@ function policyLines(stage) {
     ["Runs on", targetPhrase(stage.target)],
     ["Cases", casesPhrase(stage.cases)],
     ["Verdict", verdictPhrase(stage.verdict)],
-    ["Notifies", notificationPhrase(stage.notification)],
+    ["Notify", notificationPhrase(stage.notification)],
     ["Approval", approvers],
   ].filter(([, value]) => value);
 }

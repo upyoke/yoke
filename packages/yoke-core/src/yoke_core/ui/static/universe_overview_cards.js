@@ -115,7 +115,10 @@ export function runDetailHref(context, row, scope) {
 export function appendCarried(context, host, row, options = {}) {
   const documentNode = context.document;
   const items = carriedItems(row);
-  if (!items.length) return null;
+  // Which requests these member rows took responsibility for, so a caller
+  // drawing the release's gates beside them does not draw one of them twice.
+  const drawnRequests = new Set();
+  if (!items.length) return { node: null, requestIds: drawnRequests };
   const batch = el(documentNode, "div", "overview-run-batch");
   batch.appendChild(el(
     documentNode,
@@ -127,12 +130,13 @@ export function appendCarried(context, host, row, options = {}) {
     const member = el(documentNode, "div", "overview-run-member");
     member.appendChild(el(documentNode, "code", null, carriedReference(item)));
     member.appendChild(el(documentNode, "span", null, item.title || ""));
-    appendCarriedItemEvidence(context, member, {
+    const drawn = appendCarriedItemEvidence(context, member, {
       item,
       runId: row.id || row.run_id,
       facts: options.facts,
       onDecide: options.onDecide,
     });
+    for (const id of drawn?.requestIds || []) drawnRequests.add(id);
     batch.appendChild(member);
   }
   if (items.length > CARRIED_ITEMS_SHOWN) {
@@ -144,7 +148,7 @@ export function appendCarried(context, host, row, options = {}) {
     ));
   }
   host.appendChild(batch);
-  return batch;
+  return { node: batch, requestIds: drawnRequests };
 }
 
 // A run card takes the whole view context rather than just its document:
@@ -202,7 +206,7 @@ export function overviewRunCard(context, row, scope, options = {}) {
     row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
     timing ? relativeAgePhrase(timing) : null,
   ].filter(Boolean).join(" · ")));
-  appendCarried(context, card, row, {
+  const carried = appendCarried(context, card, row, {
     facts: options.itemFacts,
     onDecide: options.onItemDecision,
   });
@@ -215,7 +219,9 @@ export function overviewRunCard(context, row, scope, options = {}) {
       [derivation.status, derivation.reason].filter(Boolean).join(" — "),
     ));
   }
-  appendRunGates(context, card, row.gates, options.onGateAction);
+  appendRunGates(context, card, row.gates, options.onGateAction, {
+    drawnRequestIds: carried.requestIds,
+  });
   // The request folded in above already shows the evidence it rests on; a
   // run with no open request shows what its QA checks captured instead.
   if (!runGates(row).length) {

@@ -27,7 +27,9 @@ const REQUIREMENT = {
   plan_case_key: "preview-url-compare",
   method_id: "browser-check",
   method_name: "Browser check",
-  target_env: "stage",
+  target_env: null,
+  execution_environment: "demo-preview",
+  execution_candidate_revision: "aa11bb22cc33dd44ee55ff6677889900aabbccdd",
   verdict_path: "agent",
   instructions: "Open the stage preview and compare the release banner.",
   expected_outcome: "The banner names the candidate revision.",
@@ -159,15 +161,20 @@ test("a case page names its subject, its stage execution, and its contract", asy
   // Subject is the item's public ref, not the internal id the case stores.
   assert.match(facts[0], /YOK-2228/);
   assert.equal(facts[1], "item");
-  assert.equal(facts[2], "stage");
+  // The environment its frozen target names, not the project's current one:
+  // a run preview registers no environment of its own.
+  assert.equal(facts[2], "demo-preview");
   // The verdict policy is attributed to the stage that set it.
   assert.match(facts[3], /run-20260726-001 · stage-item-qa/);
   assert.match(facts[3], /verdict required human \(set by this stage\)/);
   assert.equal(facts[4], "Browser check");
   assert.equal(facts[5], "failed");
+  // The candidate its target froze sits with the rest of the case facts, so
+  // a reviewer is not asked which build the screenshot below came from.
+  assert.equal(facts[7], "aa11bb22cc33dd44ee55ff6677889900aabbccdd");
   // The contract the case was held to, and what the agent said about it.
-  assert.match(facts[7], /Open the stage preview/);
-  assert.match(facts[8], /banner names the candidate revision/);
+  assert.match(facts[8], /Open the stage preview/);
+  assert.match(facts[9], /banner names the candidate revision/);
   assert.match(
     byClass(root, "qa-case-reason")[0].textContent,
     /What the agent said: The banner named the previous revision\./,

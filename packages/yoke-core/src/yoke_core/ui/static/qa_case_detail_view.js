@@ -213,7 +213,15 @@ export async function renderQaCaseDetail(
     ["Subject", subjectNode(documentNode, project, requirement, row, subjectItem)],
     ["Scope", requirement.deployment_member_item_id || requirement.item_id
       ? "item" : requirement.deployment_run_id ? "release" : "standalone"],
-    ["Environment", requirement.target_env || "not recorded"],
+    // The environment the check was pointed at, as its frozen execution
+    // target names it. A release check against a run preview registers no
+    // environment of its own, and reading the project's current one instead
+    // would name a place this case never ran.
+    [
+      "Environment",
+      requirement.execution_environment || requirement.target_env
+        || "not recorded",
+    ],
     ["Stage execution", stageNode(documentNode, project, requirement, stage)],
     ["Method", row?.method_name || requirement.method_name || requirement.method_id],
     [
@@ -235,6 +243,11 @@ export async function renderQaCaseDetail(
     facts.push([
       "Earlier executions",
       `${earlier.length} before this one`,
+    ]);
+  }
+  if (requirement.execution_candidate_revision) {
+    facts.push([
+      "Candidate", String(requirement.execution_candidate_revision),
     ]);
   }
   if (row?.host_baseline) facts.push(["Host baseline", String(row.host_baseline)]);

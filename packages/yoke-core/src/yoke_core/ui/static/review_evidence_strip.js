@@ -11,6 +11,7 @@ import {
   artifactCaption,
   artifactHandle,
   artifactLabel,
+  artifactLocation,
   artifactStepLabel,
   normalizeArtifact,
 } from "./qa_evidence_artifact_view.js";
@@ -40,8 +41,15 @@ function isImage(artifact) {
     || artifact.artifact_type.toLowerCase().includes("screenshot");
 }
 
+// The title a reader hovers or opens: what the capture recorded about the
+// picture, then where the bytes live. The location is here and not on the
+// caption, so one screenshot does not print somebody's home directory under
+// every thumbnail in every section that shows it.
 function captionOf(artifact) {
-  return artifactCaption(artifact) || artifactLabel(artifact);
+  return [
+    artifactCaption(artifact) || artifactLabel(artifact),
+    artifactLocation(artifact),
+  ].filter(Boolean).join(" — ");
 }
 
 // What the caption reads: the step this picture was taken at, or the

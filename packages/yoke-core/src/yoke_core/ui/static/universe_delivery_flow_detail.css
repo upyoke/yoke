@@ -93,6 +93,10 @@
 .universe-app-root .delivery-flow-pipeline {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  /* Each card is as tall as its own policy. Stretching a two-line execution
+     stage to match a six-line QA stage beside it fills the pipeline with
+     empty boxes and hides how much more one stage declares than another. */
+  align-items: start;
   gap: 9px;
   margin: 0;
   padding: 0;
@@ -102,7 +106,6 @@
 .universe-app-root .delivery-flow-stage {
   position: relative;
   display: grid;
-  min-height: 82px;
   /* Top-aligned: stage cards in one row hold different amounts of policy,
      and spreading each card's own content to its full height puts the same
      label at a different altitude in every column. */
