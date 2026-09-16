@@ -61,10 +61,32 @@ def free_temp_root() -> Path:
     return root if is_under_free_path_prefix(root) else FALLBACK_FREE_TEMP_ROOT
 
 
+def private_free_path(filename: str, *, prefix: str) -> Path:
+    """Return *filename* inside a fresh private directory a guard admits.
+
+    The temp root is shared with every other process on the machine and
+    with every control plane this one talks to, so a path composed from
+    a caller's own identifiers is not unique there: database ids repeat
+    across universes, and a name another process can predict is a name
+    it can occupy first. ``mkdtemp`` answers both -- it creates an
+    unguessable directory owned by this user at mode 0700 and fails
+    rather than reusing one -- so the caller keeps a readable filename
+    without the enclosing path being guessable.
+
+    Callers create the file themselves; only the directory exists here.
+    """
+    if not filename or Path(filename).parts != (filename,) or filename in {".", ".."}:
+        raise ValueError(f"private scratch filename must be one segment: {filename!r}")
+    root = free_temp_root()
+    root.mkdir(parents=True, exist_ok=True)
+    return Path(tempfile.mkdtemp(prefix=prefix, dir=root)) / filename
+
+
 __all__ = [
     "DEV_FAMILY_PREFIX",
     "FALLBACK_FREE_TEMP_ROOT",
     "STATIC_FREE_PATH_PREFIXES",
     "free_temp_root",
     "is_under_free_path_prefix",
+    "private_free_path",
 ]

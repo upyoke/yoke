@@ -13,11 +13,10 @@ handle's address comes from ``qa_artifact_handle.handle_address``.
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from yoke_contracts.free_paths import free_temp_root
+from yoke_contracts.free_paths import free_temp_root, private_free_path
 from yoke_core.domain import machine_config, project_scratch_dir
 from yoke_core.domain.qa_artifact_handle import (
     QA_ARTIFACT_STORAGE_KIND,
@@ -126,11 +125,9 @@ def stage_recovery_copy(content: bytes, filename: str) -> Path:
     path.
     """
 
-    root = recovery_copy_root()
-    root.mkdir(parents=True, exist_ok=True)
-    staged = Path(
-        tempfile.mkdtemp(prefix=_RECOVERY_COPY_PREFIX, dir=root)
-    ) / safe_segment(filename)
+    staged = private_free_path(
+        safe_segment(filename), prefix=_RECOVERY_COPY_PREFIX
+    )
     staged.write_bytes(content)
     return staged
 

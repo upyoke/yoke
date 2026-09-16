@@ -117,10 +117,11 @@ def qa_artifact_read(args: List[str]) -> int:
     parser.add_argument(
         "--output",
         help=(
-            "Where to land the evidence bytes. Defaults to a readable path "
-            "under this machine's temp root, which the command reports, so "
-            "a reviewer can open the file without choosing a destination "
-            "its own path guard would refuse."
+            "Where to land the evidence bytes. Defaults to a fresh private "
+            "directory under this machine's temp root, so a reviewer can "
+            "open the file without choosing a destination its own path "
+            "guard would refuse. The destination differs on every read -- "
+            "read it back from the reported path rather than composing it."
         ),
     )
     add_session_arg(parser)

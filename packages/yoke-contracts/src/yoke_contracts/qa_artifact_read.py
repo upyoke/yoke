@@ -6,8 +6,8 @@ holding a lane claim — so the path a capture reports is not a path its
 reviewer can open, and a reviewer handed only paths has to discover the
 portable route before it can look at anything. The portable route is the
 recorded artifact id through ``yoke qa artifact read``, which lands the
-bytes under :func:`yoke_contracts.free_paths.free_temp_root`, a directory
-every guard already admits.
+bytes in a fresh private directory under the machine temp root, which
+every guard already admits, and reports where they landed.
 
 Every surface that hands an agent a captured artifact — capture
 completion, the agent review bundle, the owner decision context — names
@@ -20,11 +20,11 @@ from __future__ import annotations
 import mimetypes
 from pathlib import Path
 
-from yoke_contracts.free_paths import free_temp_root
+from yoke_contracts.free_paths import private_free_path
 
 
-#: Directory name under the free temp root where read bytes land.
-ARTIFACT_READ_DIR_NAME = "yoke-qa-artifacts"
+#: Names the private per-read directory the bytes land inside.
+ARTIFACT_READ_DIR_PREFIX = "yoke-qa-artifact."
 
 #: Used when the recorded content type names no known extension.
 DEFAULT_ARTIFACT_SUFFIX = ".bin"
@@ -49,20 +49,20 @@ def artifact_read_destination(
     artifact_id: int,
     *,
     content_type: str | None = None,
-    create_parent: bool = True,
 ) -> Path:
-    """Return where ``yoke qa artifact read`` lands *artifact_id*'s bytes.
+    """Return a fresh private path for *artifact_id*'s bytes.
 
-    The name is a function of the artifact id alone, so re-reading the
-    same artifact converges on one file instead of littering the root.
+    A new directory per read rather than one path per artifact id,
+    because an id is unique only within the control plane that issued
+    it: the same number names different evidence on another connection,
+    and one shared temp root would let the second read overwrite the
+    first. The caller reports the path this returns, so the reader is
+    told where the bytes actually landed rather than deducing it.
     """
-    suffix = _suffix_for(content_type)
-    path = free_temp_root() / ARTIFACT_READ_DIR_NAME / (
-        f"qa-artifact-{int(artifact_id)}{suffix}"
+    return private_free_path(
+        f"qa-artifact-{int(artifact_id)}{_suffix_for(content_type)}",
+        prefix=ARTIFACT_READ_DIR_PREFIX,
     )
-    if create_parent:
-        path.parent.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 def _suffix_for(content_type: str | None) -> str:
@@ -79,7 +79,7 @@ def _suffix_for(content_type: str | None) -> str:
 
 
 __all__ = [
-    "ARTIFACT_READ_DIR_NAME",
+    "ARTIFACT_READ_DIR_PREFIX",
     "DEFAULT_ARTIFACT_SUFFIX",
     "artifact_read_command",
     "artifact_read_destination",
