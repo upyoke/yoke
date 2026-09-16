@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.browser_qa_contract import (
@@ -14,27 +13,12 @@ from yoke_contracts.browser_qa_contract import (
     is_browser_assertion,
 )
 from yoke_contracts.api.function_call import ActorContext
-from yoke_core.domain.browser_qa_results import RunResult
+from yoke_core.domain.browser_qa_results import RequirementOutcome, RunResult
 from yoke_core.domain.qa_artifacts import (
     artifact_directory,
     build_metadata,
 )
 from yoke_core.domain.qa_constants import INVALID_BROWSER_METHOD_LABEL
-
-@dataclass
-class RequirementOutcome:
-    """Outcome of processing a single qa_requirement.
-
-    Returned by ``_process_requirement`` to ``execute_scenario`` so the latter
-    can update its aggregate ``ScenarioResult`` (verdict, executed/skipped
-    counters, runs list) without sharing mutable state with the loop.
-    """
-
-    run_result: RunResult
-    skipped: bool = False
-    executed: bool = False
-    capture_failed: bool = False
-    env_failure: bool = False
 
 
 def _process_requirement(
@@ -145,6 +129,7 @@ def _process_requirement(
     run_execution_status = "captured"
     run_verdict: Optional[str] = None
     run_artifacts: List[str] = []
+    run_artifact_ids: List[int] = []
     step_errors = ""
     current_route = "/"
     expected_screenshots = 0
@@ -262,8 +247,11 @@ def _process_requirement(
                 continue
             if art_id:
                 # Capture scratch remains available for in-session inspection;
-                # the recorded evidence already lives in durable storage.
+                # the recorded evidence already lives in durable storage, and
+                # the registered id is the only handle a later reviewer can
+                # turn back into readable bytes.
                 run_artifacts.append(os.path.abspath(str(apath)))
+                run_artifact_ids.append(int(art_id))
                 step_had_valid_artifact = True
 
         if (
@@ -316,6 +304,8 @@ def _process_requirement(
             execution_status=run_execution_status,
             errors=step_errors,
             artifacts=run_artifacts,
+            requirement_id=req_id,
+            artifact_ids=run_artifact_ids,
             expected_screenshots=expected_screenshots,
             recorded_screenshots=recorded_screenshots,
         ),
@@ -337,6 +327,7 @@ def _process_requirement(
         qa_run_id=run_id,
         execution_status=run_execution_status,
         artifacts=run_artifacts,
+        artifact_ids=run_artifact_ids,
         errors=step_errors,
         expected_screenshots=expected_screenshots,
         recorded_screenshots=recorded_screenshots,

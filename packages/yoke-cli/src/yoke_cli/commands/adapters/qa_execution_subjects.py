@@ -25,6 +25,7 @@ from yoke_cli.transport.dispatcher import (
 )
 from yoke_cli.qa_artifact_download import ArtifactDownloadError, download_artifact
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.qa_artifact_read import artifact_read_destination
 
 
 def qa_plan_materialize_for_item(args: List[str]) -> int:
@@ -113,28 +114,25 @@ def qa_artifact_read(args: List[str]) -> int:
     )
     parser.add_argument("--requirement-id", type=int, required=True)
     parser.add_argument("--artifact-id", type=int, required=True)
-    parser.add_argument("--output")
+    parser.add_argument(
+        "--output",
+        help=(
+            "Where to land the evidence bytes. Defaults to a readable path "
+            "under this machine's temp root, which the command reports, so "
+            "a reviewer can open the file without choosing a destination "
+            "its own path guard would refuse."
+        ),
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    if not parsed.output:
-        return dispatch_and_emit(
-            function_id="qa.artifact.read",
-            target=TargetRef(
-                kind="qa_requirement",
-                qa_requirement_id=parsed.requirement_id,
-            ),
-            payload={"artifact_id": parsed.artifact_id},
-            session_id=parsed.session_id,
-            json_mode=parsed.json_mode,
-        )
     return _artifact_read_to_path(parsed)
 
 
 def _artifact_read_to_path(parsed: Any) -> int:
-    """Dispatch the read, then land bytes at ``--output`` when present."""
+    """Dispatch the read, then land the bytes where the caller can open them."""
     ensure_handlers_loaded()
     response = call_dispatcher(
         function_id="qa.artifact.read",
@@ -145,9 +143,16 @@ def _artifact_read_to_path(parsed: Any) -> int:
         payload={"artifact_id": parsed.artifact_id},
         actor=build_actor(session_id=parsed.session_id),
     )
-    dest = Path(parsed.output).expanduser()
     result = response.result if response.success else None
     if isinstance(result, dict):
+        dest = (
+            Path(parsed.output).expanduser()
+            if parsed.output
+            else artifact_read_destination(
+                parsed.artifact_id,
+                content_type=result.get("content_type"),
+            )
+        )
         encoded = result.get("content_base64")
         source = result.get("path")
         if encoded:
@@ -162,12 +167,29 @@ def _artifact_read_to_path(parsed: Any) -> int:
                 return 1
         else:
             print(
-                "yoke qa artifact read: no portable bytes to write to --output",
+                "yoke qa artifact read: artifact "
+                f"{parsed.artifact_id} has no portable bytes to land "
+                f"(disposition={result.get('disposition') or 'unknown'}"
+                f"{_disposition_detail(result)}). Re-run the case on the "
+                "machine holding the evidence, or record the bytes with "
+                "`yoke qa artifact add --content-file PATH` so the read "
+                "surface can serve them.",
                 file=sys.stderr,
             )
             return 1
         result["path"] = str(dest.resolve())
+        # The file IS the delivery, so the inline copy would only make the
+        # reader page a base64 blob to reach the path that already holds it.
+        result.pop("content_base64", None)
     return emit_response(response, json_mode=parsed.json_mode)
+
+
+def _disposition_detail(result: dict) -> str:
+    """Render the read handler's own explanation when it gave one."""
+    detail = result.get("detail")
+    machine = result.get("machine")
+    parts = [str(part) for part in (detail, machine) if part]
+    return f"; {'; '.join(parts)}" if parts else ""
 
 
 __all__ = [

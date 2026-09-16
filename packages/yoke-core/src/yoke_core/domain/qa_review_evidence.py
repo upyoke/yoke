@@ -11,6 +11,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.qa_artifact_read import artifact_read_command
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_one, query_rows
 from yoke_core.domain.deployment_qa_stage_prerequisites import (
@@ -40,6 +41,49 @@ def _metadata(raw: Any) -> dict[str, Any]:
     except (TypeError, ValueError):
         return {}
     return value if isinstance(value, dict) else {}
+
+
+def capture_artifacts(
+    conn: Any,
+    *,
+    requirement_id: int,
+    run_id: int,
+) -> list[dict[str, Any]]:
+    """Return one capture run's artifacts with the command that opens each.
+
+    The recorded handle addresses the capturing machine's own disk, which
+    is the wrong address for every reviewer who is not that process. The
+    read command is the portable one: it names the registered id, works
+    from either transport, and lands bytes where the caller may read them.
+    """
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    return [
+        {
+            "id": int(_row_value(row, "id")),
+            "artifact_type": str(_row_value(row, "artifact_type")),
+            "content_type": _row_value(row, "content_type"),
+            "artifact_handle": _row_value(row, "artifact_handle"),
+            "metadata": _metadata(_row_value(row, "metadata")),
+            "read_command": artifact_read_command(
+                int(requirement_id), int(_row_value(row, "id"))
+            ),
+        }
+        for row in query_rows(
+            conn,
+            "SELECT id,artifact_type,content_type,artifact_handle,metadata "
+            f"FROM qa_artifacts WHERE qa_run_id={marker} ORDER BY id",
+            (int(run_id),),
+        )
+    ]
+
+
+def case_artifact_read_commands(cases: Any) -> list[str]:
+    """Every review case's artifact read commands, in bundle order."""
+    return [
+        str(artifact["read_command"])
+        for case in cases
+        for artifact in case.get("artifacts", [])
+    ]
 
 
 def qa_review_artifact_context(
@@ -112,6 +156,9 @@ def qa_review_artifact_context(
             "content_type": _row_value(row, "content_type"),
             "artifact_handle": _row_value(row, "artifact_handle"),
             "metadata": _metadata(_row_value(row, "metadata")),
+            "read_command": artifact_read_command(
+                int(requirement_id), int(_row_value(row, "id"))
+            ),
         }
         for row in artifact_rows
     ]
@@ -212,21 +259,33 @@ def _covered_case_artifacts(
         f"qa_run_id FROM qa_artifacts WHERE qa_run_id IN ({places}) ORDER BY id",
         tuple(run_ids),
     )
-    return [
-        {
-            "artifact_id": int(_row_value(row, "id")),
-            "artifact_type": str(_row_value(row, "artifact_type")),
-            "content_type": _row_value(row, "content_type"),
-            "artifact_handle": _row_value(row, "artifact_handle"),
-            "metadata": _metadata(_row_value(row, "metadata")),
-            # The case that captured it, not the acceptance that covers it.
-            # Reading an artifact is authorized against its own requirement,
-            # so an acceptance's borrowed evidence has to keep saying whose
-            # it is or every thumbnail refuses to load.
-            "requirement_id": admitted[int(_row_value(row, "qa_run_id"))],
-        }
-        for row in rows
-    ]
+    covered = []
+    for row in rows:
+        artifact_id = int(_row_value(row, "id"))
+        # The case that captured it, not the acceptance that covers it.
+        # Reading an artifact is authorized against its own requirement,
+        # so an acceptance's borrowed evidence has to keep saying whose
+        # it is or every thumbnail refuses to load -- and its read command
+        # has to name that same requirement.
+        owning_requirement = admitted[int(_row_value(row, "qa_run_id"))]
+        covered.append(
+            {
+                "artifact_id": artifact_id,
+                "artifact_type": str(_row_value(row, "artifact_type")),
+                "content_type": _row_value(row, "content_type"),
+                "artifact_handle": _row_value(row, "artifact_handle"),
+                "metadata": _metadata(_row_value(row, "metadata")),
+                "requirement_id": owning_requirement,
+                "read_command": artifact_read_command(
+                    int(owning_requirement), artifact_id
+                ),
+            }
+        )
+    return covered
 
 
-__all__ = ["qa_review_artifact_context"]
+__all__ = [
+    "capture_artifacts",
+    "case_artifact_read_commands",
+    "qa_review_artifact_context",
+]

@@ -7,8 +7,12 @@ import json
 from typing import Any, Mapping
 from uuid import uuid4
 
-from yoke_core.domain.db_helpers import iso8601_now, query_one, query_rows
+from yoke_core.domain.db_helpers import iso8601_now, query_one
 from yoke_core.domain.dispatch_descriptors import DispatchDescriptor
+from yoke_core.domain.qa_review_evidence import (
+    capture_artifacts,
+    case_artifact_read_commands,
+)
 from yoke_core.domain.qa_plan_execution_store import (
     canonical,
     marker,
@@ -45,25 +49,6 @@ def _capture_run(
         "AND completed_at IS NOT NULL",
         (int(capture_run_id), int(requirement_id)),
     )
-
-
-def _artifacts(conn: Any, run_id: int) -> list[dict[str, Any]]:
-    p = marker(conn)
-    return [
-        {
-            "id": int(row["id"]),
-            "artifact_type": str(row["artifact_type"]),
-            "content_type": row["content_type"],
-            "artifact_handle": row["artifact_handle"],
-            "metadata": _json_object(row["metadata"]),
-        }
-        for row in query_rows(
-            conn,
-            "SELECT id,artifact_type,content_type,artifact_handle,metadata "
-            f"FROM qa_artifacts WHERE qa_run_id={p} ORDER BY id",
-            (int(run_id),),
-        )
-    ]
 
 
 def _review_case(
@@ -111,7 +96,9 @@ def _review_case(
         "capture_runner": str(capture["performed_by"]),
         "capture_degraded_reason": capture["capture_degraded_reason"],
         "transcript": _json_object(capture["raw_result"]),
-        "artifacts": _artifacts(conn, int(capture["id"])),
+        "artifacts": capture_artifacts(
+            conn, requirement_id=requirement_id, run_id=int(capture["id"])
+        ),
         "qa_kind": str(capture["qa_kind"]),
     }
 
@@ -181,13 +168,7 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
         if subject.get("item_id") is not None
         else f"--deployment-run-id {subject['deployment_run_id']}"
     )
-    artifact_read_commands = [
-        "yoke qa artifact read "
-        f"--requirement-id {int(case['requirement_id'])} "
-        f"--artifact-id {int(artifact['id'])}"
-        for case in cases
-        for artifact in case.get("artifacts", [])
-    ]
+    artifact_read_commands = case_artifact_read_commands(cases)
     if authority_bound:
         prompt = (
             f"Review QA bundle {bundle_id} ({digest}) for immutable target "
@@ -199,11 +180,11 @@ def _dispatch_contract(bundle: Mapping[str, Any]) -> dict[str, Any]:
             "verdict from capture status. Undetermined spends an owner/operator "
             "review and halts the item; choose it only for attached evidence, "
             "and name what could not be established and why. Use only the "
-            "supplied artifact-read "
-            "commands for bytes that are not directly available "
-            "(add --output PATH to land bytes on disk; prefer the result "
-            "path key — artifact_handle.path may be a dead /tmp location), "
-            "and refuse a missing or different target authority."
+            "supplied artifact-read commands for bytes that are not directly "
+            "available — each lands the file and reports its path under the "
+            "result path key, which is the only address you may open; "
+            "artifact_handle.path names the capturing machine's disk. Refuse "
+            "a missing or different target authority."
         )
         submit_command = (
             f"yoke qa plan review-submit {subject_flag} "

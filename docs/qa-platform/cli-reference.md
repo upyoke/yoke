@@ -82,7 +82,9 @@ yoke qa artifact add \
  --requirement-id 1 --run-id 10 --artifact-type screenshot \
  --content-type image/png --filename capture.png --content-file PATH
 
-# Resolve one artifact through the transport-safe evidence read surface
+# Resolve one artifact through the transport-safe evidence read surface.
+# It lands the bytes under this machine's temp root and reports that
+# path as `path`; --output PATH chooses a different destination.
 yoke qa artifact read --requirement-id 1 --artifact-id 10 --json
 ```
 
@@ -113,7 +115,7 @@ run owns its delivery context.
 | `yoke qa run list` | `[--requirement-id N]` | List runs |
 | `yoke qa artifact presign` | `--requirement-id N --run-id N --filename NAME [--content-type CT]` | Mint a durable upload target |
 | `yoke qa artifact add` | `--requirement-id N --run-id N --artifact-type T (--artifact-handle JSON \| --content-base64 B64 --filename NAME \| --content-file PATH) [opts]` | Insert artifact evidence from a typed handle or inline bytes |
-| `yoke qa artifact read` | `--requirement-id N --artifact-id N [--json]` | Resolve durable, local, or explicitly stranded evidence without exposing secrets |
+| `yoke qa artifact read` | `--requirement-id N --artifact-id N [--output PATH] [--json]` | Land one artifact's bytes at a readable path (default under the machine temp root) and report it; stranded or on-machine evidence is named explicitly |
 
 Dispatcher commands use 0 for success, 1 for a dispatch/not-found failure,
 and 2 for usage errors. The client-local case runners use 0 for pass, 1 for

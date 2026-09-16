@@ -6,6 +6,10 @@ import os
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Sequence
 
+from yoke_contracts.free_paths import (
+    DEV_FAMILY_PREFIX,
+    STATIC_FREE_PATH_PREFIXES as _STATIC_FREE_PATH_PREFIXES,
+)
 from yoke_core.domain.lint_session_cwd_home import (
     expand_machine_home,
     home_free_path_prefixes,
@@ -19,21 +23,14 @@ def _abs(*parts: str) -> str:
     return os.path.join(_ROOT, *parts)
 
 
-# Static free-path allowlist: OS temp dirs, discard devices, harness
-# transcript/attachment stores, and the machine-config file no Yoke path
-# claim should own. Watcher-minted capture paths under the live machine
-# scratch root are allowlisted separately by
-# :func:`is_yoke_watcher_capture_path` so ``dispatch-inputs`` and other
-# scratch subtrees keep their own authority rules.
-DEV_FAMILY_PREFIX = _abs("dev")
-
-_STATIC_FREE_PATH_PREFIXES = (
-    _abs("tmp"),
-    _abs("private", "tmp"),
-    _abs("var", "folders"),
-    _abs("private", "var", "folders"),
-    DEV_FAMILY_PREFIX,
-)
+# The static free-path allowlist (OS temp dirs and the discard family) is
+# shared with every writer that must choose a destination the guard will
+# admit, so it lives in ``yoke_contracts.free_paths``. Harness
+# transcript/attachment stores and the machine-config file are added here
+# per executing machine by ``home_free_path_prefixes``. Watcher-minted
+# capture paths under the live machine scratch root are allowlisted
+# separately by :func:`is_yoke_watcher_capture_path` so ``dispatch-inputs``
+# and other scratch subtrees keep their own authority rules.
 
 FREE_PATH_PREFIXES = (*_STATIC_FREE_PATH_PREFIXES, *home_free_path_prefixes())
 

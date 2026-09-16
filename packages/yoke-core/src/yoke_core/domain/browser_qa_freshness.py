@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
+from yoke_contracts.qa_artifact_read import artifact_read_command
 from yoke_core.domain.browser_qa_freshness_outcome import (
     DEPLOYED_SHA_UNKNOWN,
     DEPLOYMENT_RECORD_MISSING,
@@ -243,6 +244,8 @@ def _build_run_payload(
     execution_status: Optional[str] = None,
     errors: str = "",
     artifacts: Optional[List[str]] = None,
+    requirement_id: Optional[int] = None,
+    artifact_ids: Optional[List[int]] = None,
     expected_screenshots: int = 0,
     recorded_screenshots: int = 0,
     note: Optional[str] = None,
@@ -262,7 +265,16 @@ def _build_run_payload(
     if errors:
         payload["errors"] = errors
     if artifacts:
+        # Machine-local capture scratch: useful to the capturing process,
+        # refused by the path guard of the session that reviews it later.
         payload["artifacts"] = artifacts
+    if artifact_ids:
+        payload["artifact_ids"] = list(artifact_ids)
+        if requirement_id is not None:
+            payload["artifact_reads"] = [
+                artifact_read_command(int(requirement_id), int(artifact_id))
+                for artifact_id in artifact_ids
+            ]
     if expected_screenshots > 0:
         payload["expected_screenshots"] = expected_screenshots
         payload["recorded_screenshots"] = recorded_screenshots

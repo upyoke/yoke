@@ -208,6 +208,9 @@ def test_bundle_is_immutable_complete_and_does_not_ask_a_human() -> None:
                             }
                         ),
                         "metadata": {"checkpoint": "review-frame"},
+                        "read_command": bundle["dispatch"][
+                            "artifact_read_commands"
+                        ][0],
                     }
                 ],
                 "qa_kind": "plan_case",
