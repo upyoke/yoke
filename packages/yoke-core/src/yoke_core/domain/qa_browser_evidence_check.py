@@ -11,16 +11,24 @@ Evidence presence is handle-typed: ``local`` handles must exist on this
 machine's disk; well-formed ``s3`` handles are present by construction
 (the upload completed before the row was recorded) and gates deliberately
 add no network round-trips. Malformed handles fail the gate loudly.
+
+``repo_root`` is optional because a control plane serving a customer
+project holds no checkout of it. Durable evidence is readable there;
+:mod:`qa_browser_checkout_free_proof` names the requirements whose proof
+is not, so the gate refuses about those specifically rather than about
+every Browser case at once.
 """
 
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 from typing import Optional
 
 from yoke_core.domain.db_helpers import query_rows, query_scalar
 from yoke_core.domain.qa_artifact_handle import (
     ArtifactHandleError,
+    BACKEND_LOCAL,
     handle_address,
     is_present,
     parse_handle,
@@ -150,6 +158,13 @@ def check_browser_evidence_present(
     return GateResult(passed=False, errors=errors)
 
 
+def _unresolvable_without_checkout(handle: dict, repo_root: Optional[str]) -> bool:
+    """True for a checkout-relative local handle on a host with no checkout."""
+    if repo_root or handle["backend"] != BACKEND_LOCAL:
+        return False
+    return not Path(str(handle.get("path") or "")).is_absolute()
+
+
 def check_browser_artifact_disk(
     conn,
     *,
@@ -157,7 +172,7 @@ def check_browser_artifact_disk(
     params: tuple,
     name: str,
     transition_name: str,
-    repo_root: str,
+    repo_root: Optional[str],
     qa_phase: Optional[str] = None,
     bypass_hint: Optional[str] = None,
 ) -> Optional[GateResult]:
@@ -233,6 +248,17 @@ def check_browser_artifact_disk(
         except ArtifactHandleError as exc:
             print(
                 f"  - malformed artifact handle ({exc}): {raw}",
+                file=sys.stderr,
+            )
+            missing_count += 1
+            continue
+        if _unresolvable_without_checkout(handle, repo_root):
+            # Resolving it against this process's directory would invent an
+            # address nobody recorded, and a hit there would be a different
+            # file that happens to share a relative name.
+            print(
+                "  - artifact recorded at a checkout-relative path this host "
+                f"cannot resolve (artifact_handle: {raw})",
                 file=sys.stderr,
             )
             missing_count += 1

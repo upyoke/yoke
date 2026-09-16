@@ -7,6 +7,7 @@ hoisted to a directory-wide conftest because they are scoped to qa_gates.
 
 from __future__ import annotations
 
+import json
 from unittest import mock
 
 from runtime.api.domain.qa_gates_reviewed_impl_test_support import (
@@ -24,6 +25,18 @@ from yoke_core.domain.qa_gates import (
 )
 
 pytest_plugins = ("runtime.api.domain.qa_gates_reviewed_impl_fixture",)
+
+_CAPTURED_SHA = "b" * 40
+_DURABLE_HANDLE = {
+    "backend": "s3",
+    "bucket": "test-artifacts",
+    "key": "tenants/1/qa-artifacts/testproj/42/screenshot.png",
+}
+
+
+def _stamped_result(sha: str, branch: str = "feature-branch") -> str:
+    """A capture payload carrying the exact revision it was taken against."""
+    return json.dumps({"code_identity": {"branch": branch, "sha": sha}})
 
 
 class TestCheckReviewedImplementationGate:
@@ -82,21 +95,74 @@ class TestCheckReviewedImplementationGate:
         assert not result.passed
         assert any("substrate evidence" in e for e in result.errors)
 
-    def test_tc_browser_without_git_root_refuses_by_name(self, qa_db):
-        _add_requirement(
+    def test_tc_unstamped_capture_without_checkout_refuses_by_name(self, qa_db):
+        """A capture naming no revision can only be judged from a checkout."""
+        req_id = _add_requirement(
             qa_db,
             qa_kind="plan_case",
             method_id="browser-check",
         )
+        run_id = _add_run(qa_db, req_id, "pass", performed_by="browser_substrate")
+        _add_artifact(qa_db, run_id, handle=_DURABLE_HANDLE)
         with mock.patch(
             "yoke_core.domain.qa_gates._resolve_repo_root",
             return_value=None,
         ):
             result = check_reviewed_implementation_gate(GateTarget(item_id=42), qa_db)
         assert not result.passed
-        assert any("GATE_QA_BROWSER_GIT_ROOT_REQUIRED" in e for e in result.errors)
+        joined = "\n".join(result.errors)
+        assert "GATE_QA_BROWSER_PROOF_NEEDS_CHECKOUT" in joined
+        assert f"Requirement #{req_id}" in joined
+        assert "no exact revision" in joined
 
-    def test_tc_no_git_root_is_not_applicable_without_browser_methods(self, qa_db):
+    def test_tc_durable_stamped_proof_passes_without_a_checkout(self, qa_db):
+        """Durable evidence plus an exact revision needs no customer checkout."""
+        req_id = _add_requirement(
+            qa_db,
+            qa_kind="plan_case",
+            method_id="browser-check",
+        )
+        run_id = _add_run(
+            qa_db,
+            req_id,
+            "pass",
+            performed_by="browser_substrate",
+            raw_result=_stamped_result(_CAPTURED_SHA),
+        )
+        _add_artifact(qa_db, run_id, handle=_DURABLE_HANDLE)
+        with mock.patch(
+            "yoke_core.domain.qa_gates._resolve_repo_root",
+            return_value=None,
+        ):
+            result = check_reviewed_implementation_gate(GateTarget(item_id=42), qa_db)
+        assert result.passed, result.errors
+
+    def test_tc_checkout_relative_evidence_without_checkout_refuses(self, qa_db):
+        """A path relative to the checkout is unreadable where there is none."""
+        req_id = _add_requirement(
+            qa_db,
+            qa_kind="plan_case",
+            method_id="browser-check",
+        )
+        run_id = _add_run(
+            qa_db,
+            req_id,
+            "pass",
+            performed_by="browser_substrate",
+            raw_result=_stamped_result(_CAPTURED_SHA),
+        )
+        _add_artifact(qa_db, run_id, handle="artifacts/screenshot.png")
+        with mock.patch(
+            "yoke_core.domain.qa_gates._resolve_repo_root",
+            return_value=None,
+        ):
+            result = check_reviewed_implementation_gate(GateTarget(item_id=42), qa_db)
+        assert not result.passed
+        joined = "\n".join(result.errors)
+        assert "GATE_QA_BROWSER_PROOF_NEEDS_CHECKOUT" in joined
+        assert "checkout-relative path" in joined
+
+    def test_tc_no_checkout_is_not_applicable_without_browser_methods(self, qa_db):
         req_id = _add_requirement(qa_db)
         _add_run(qa_db, req_id, "pass")
         with mock.patch(

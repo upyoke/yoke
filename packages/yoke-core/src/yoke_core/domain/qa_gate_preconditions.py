@@ -6,8 +6,7 @@ import os
 import sys
 from typing import Optional
 
-from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
-from yoke_core.domain.qa_constants import browser_requirement_predicate
+from yoke_core.domain.db_helpers import connect, query_scalar
 from yoke_core.domain.qa_gate_definitions import GateResult, GateTarget
 from yoke_core.domain.schema_common import _table_exists
 
@@ -15,7 +14,7 @@ from yoke_core.domain.schema_common import _table_exists
 QA_BYPASS_ENV = "YOKE_QA_GATE_BYPASS"
 QA_BYPASS_FORBIDDEN = "GATE_QA_BYPASS_FORBIDDEN"
 QA_SCHEMA_MISSING = "GATE_QA_SCHEMA_MISSING"
-QA_BROWSER_GIT_ROOT_REQUIRED = "GATE_QA_BROWSER_GIT_ROOT_REQUIRED"
+QA_BROWSER_PROOF_NEEDS_CHECKOUT = "GATE_QA_BROWSER_PROOF_NEEDS_CHECKOUT"
 
 QA_CORE_TABLES = ("qa_requirements", "qa_runs")
 QA_LIFECYCLE_GATE_TABLES = (
@@ -135,7 +134,7 @@ def requirement_set_result(
     )
 
 
-def browser_git_root_result(
+def browser_checkout_free_proof_result(
     conn,
     *,
     where: str,
@@ -145,34 +144,39 @@ def browser_git_root_result(
     repo_root: Optional[str],
     qa_phase: Optional[str],
 ) -> Optional[GateResult]:
-    """Refuse Browser-method gates that cannot verify checkout-local proof."""
+    """Refuse Browser-method gates whose proof a checkout-less host cannot read.
+
+    A control plane serving a customer project holds no checkout of it, so
+    refusing every Browser case for that reason alone strands releases whose
+    evidence is durable, authorized, and revision-stamped — exactly the
+    evidence this gate exists to accept. Only the requirements whose proof
+    genuinely needs the checkout are named here, each with why.
+    """
     if repo_root:
         return None
-    phase_sql = " AND r.qa_phase = 'verification'" if qa_phase else ""
-    rows = query_rows(
-        conn,
-        f"""
-        SELECT r.id, r.method_id FROM qa_requirements r
-        WHERE {where}{phase_sql}
-          AND r.waived_at IS NULL
-          AND {browser_requirement_predicate("r")}
-        ORDER BY r.id
-        """,
-        params,
+    from yoke_core.domain.qa_browser_checkout_free_proof import (
+        checkout_bound_proof_findings,
     )
-    if not rows:
+
+    findings = checkout_bound_proof_findings(
+        conn, where=where, params=params, qa_phase=qa_phase
+    )
+    if not findings:
         return None
     errors = [
-        f"{QA_BROWSER_GIT_ROOT_REQUIRED}: Cannot transition {name} to "
-        f"'{transition_name}' because Browser QA exists but no git root is "
-        "available for artifact and freshness checks.",
-        "  Recovery: run the transition from the project's git checkout so "
-        "`git rev-parse --show-toplevel` succeeds, then rerun Browser QA.",
+        f"{QA_BROWSER_PROOF_NEEDS_CHECKOUT}: Cannot transition {name} to "
+        f"'{transition_name}' because {len(findings)} Browser requirement(s) "
+        "carry proof that cannot be read without a checkout of the project, "
+        "and this host has none.",
+        "  Recovery: re-run each named case through `yoke qa case run "
+        "--requirement-id <REQ_ID> --expected-branch <BRANCH> --expected-sha "
+        "<SHA>`, which records the exact revision and uploads its evidence to "
+        "durable storage; or run the transition from the project's own "
+        "checkout.",
     ]
     errors.extend(
-        f"  - Requirement #{row['id']} ({row['method_id']}): Browser method "
-        "requires a git-root-bound check"
-        for row in rows
+        f"  - Requirement #{requirement_id} ({method_id}): {reason}"
+        for requirement_id, method_id, reason in findings
     )
     return GateResult(passed=False, errors=errors)
 
@@ -184,9 +188,9 @@ def target_gate_precondition_result(
     transition_name: str,
     qa_phase: Optional[str],
     repo_root: Optional[str] = None,
-    check_browser_git_root: bool = False,
+    check_browser_proof: bool = False,
 ) -> Optional[GateResult]:
-    """Apply schema, requirement-set, and optional Browser-root checks."""
+    """Apply schema, requirement-set, and optional Browser-proof checks."""
     gate_result = qa_gate_precondition_result(db_path)
     if gate_result is not None:
         return gate_result
@@ -203,9 +207,9 @@ def target_gate_precondition_result(
             transition_name=transition_name,
             qa_phase=qa_phase,
         )
-        if gate_result is not None or not check_browser_git_root:
+        if gate_result is not None or not check_browser_proof:
             return gate_result
-        return browser_git_root_result(
+        return browser_checkout_free_proof_result(
             conn,
             where=where,
             params=params,
@@ -219,13 +223,13 @@ def target_gate_precondition_result(
 
 
 __all__ = [
-    "QA_BROWSER_GIT_ROOT_REQUIRED",
+    "QA_BROWSER_PROOF_NEEDS_CHECKOUT",
     "QA_BYPASS_ENV",
     "QA_BYPASS_FORBIDDEN",
     "QA_CORE_TABLES",
     "QA_LIFECYCLE_GATE_TABLES",
     "QA_SCHEMA_MISSING",
-    "browser_git_root_result",
+    "browser_checkout_free_proof_result",
     "qa_bypass_result",
     "qa_gate_precondition_result",
     "qa_schema_result",

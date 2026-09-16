@@ -27,9 +27,6 @@ from yoke_contracts.api.function_call import ActorContext
 from yoke_core.domain.browser_qa_freshness_outcome import (
     EXECUTION_TARGET_UNAUTHORIZED,
 )
-from yoke_core.domain.browser_qa_preview_identity import (
-    resolve_preview_identity_target,
-)
 from yoke_core.domain.browser_qa_requirement import _process_requirement
 from yoke_core.domain.browser_qa_results import ScenarioResult
 from yoke_core.domain.qa_artifacts import case_artifact_subject
@@ -203,23 +200,18 @@ def execute_scenario(
         {"item_id": item_id, "deployment_run_id": deployment_run_id},
     )
 
-    # Step 2: Freshness validation against the context's deployed_sha
-    deployment_recorded = bool(context.get("deployment_recorded"))
+    # Step 2: Freshness validation against the deployment this case is about
     # The deployment whose freshness was established — whichever source
     # established it. Evidence may only be collected from this one.
     verified_origin = ""
     if expected_branch and expected_sha:
-        _bqa._log(f"Validating deployed SHA for branch {expected_branch}...")
-        identity_target = resolve_preview_identity_target(
-            project, expected_branch
-        )
-        freshness_error = _bqa._validate_deployed_sha(
+        _bqa._log(f"Validating the deployment serving {expected_sha}...")
+        freshness_error, verified_origin = _bqa._establish_deployment_freshness(
             project,
             expected_branch,
             expected_sha,
-            deployed_sha=context.get("deployed_sha"),
-            deployment_recorded=deployment_recorded,
-            identity_target=identity_target,
+            context=context,
+            deployment_run_id=deployment_run_id,
         )
         if freshness_error:
             _bqa._log(f"ERROR: {freshness_error.message}")
@@ -227,14 +219,6 @@ def execute_scenario(
             result.note = freshness_error.reason
             print(result.to_json())
             return result
-        # Whichever source established freshness names the deployment it
-        # was established about: the preview that answered for itself, or
-        # the recorded deployment's own URL. One check covers both, because
-        # it is one invariant — evidence comes from the verified deployment.
-        if not deployment_recorded and identity_target.origin:
-            verified_origin = origin_of(identity_target.origin)
-        elif deployment_recorded and context.get("ephemeral_url"):
-            verified_origin = origin_of(str(context["ephemeral_url"]))
 
     req_rows = context.get("requirements") or []
     if not req_rows:

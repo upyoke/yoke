@@ -68,7 +68,7 @@ class TestExecutionTargetBinding:
         started: list = []
         patches = _patch_external_deps(db_path) + [
             mock.patch(
-                "yoke_core.domain.browser_qa_scenario."
+                "yoke_core.domain.browser_qa_freshness."
                 "resolve_preview_identity_target",
                 return_value=preview_identity.PreviewIdentityTarget(
                     origin=origin, path="/candidate-revision"

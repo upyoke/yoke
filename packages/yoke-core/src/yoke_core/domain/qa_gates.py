@@ -82,7 +82,7 @@ def check_verification_gate(
         transition_name=transition_name,
         qa_phase="verification",
         repo_root=repo_root,
-        check_browser_git_root=True,
+        check_browser_proof=True,
     )
     if precondition is not None:
         return precondition
@@ -137,20 +137,21 @@ def check_verification_gate(
         if evidence_result is not None:
             return evidence_result
 
-        # (3) Artifact-disk existence
-        if repo_root:
-            disk_result = check_browser_artifact_disk(
-                conn,
-                where=where,
-                params=params,
-                name=name,
-                transition_name=transition_name,
-                repo_root=repo_root,
-                qa_phase="verification",
-                bypass_hint=None,
-            )
-            if disk_result is not None:
-                return disk_result
+        # (3) Evidence accessibility. Durable handles answer without a
+        # checkout, and the precondition above already refused the ones
+        # that would need it, so this runs whether or not there is one.
+        disk_result = check_browser_artifact_disk(
+            conn,
+            where=where,
+            params=params,
+            name=name,
+            transition_name=transition_name,
+            repo_root=repo_root,
+            qa_phase="verification",
+            bypass_hint=None,
+        )
+        if disk_result is not None:
+            return disk_result
 
         # (4) Browser-freshness — prefer explicit SHA, fall back to timestamp.
         latest_code = _resolve_latest_code_ref(target, db_path)
@@ -197,7 +198,7 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
         transition_name="done",
         qa_phase=None,
         repo_root=repo_root,
-        check_browser_git_root=True,
+        check_browser_proof=True,
     )
     if precondition is not None:
         return precondition
@@ -242,20 +243,19 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
                 passed=False, errors=done_gate_refusal_errors(conn, rows, name=name),
             )
 
-        # (2) Artifact-disk existence
-        if repo_root:
-            disk_result = check_browser_artifact_disk(
-                conn,
-                where=where,
-                params=params,
-                name=name,
-                transition_name="done",
-                repo_root=repo_root,
-                qa_phase=None,
-                bypass_hint=None,
-            )
-            if disk_result is not None:
-                return disk_result
+        # (2) Evidence accessibility — durable handles need no checkout.
+        disk_result = check_browser_artifact_disk(
+            conn,
+            where=where,
+            params=params,
+            name=name,
+            transition_name="done",
+            repo_root=repo_root,
+            qa_phase=None,
+            bypass_hint=None,
+        )
+        if disk_result is not None:
+            return disk_result
 
         # (3) Browser-freshness
         latest_code = _resolve_latest_code_ref(target, db_path)
