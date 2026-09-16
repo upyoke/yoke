@@ -9,7 +9,11 @@ import {
   byClass,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
-import { ok } from "./universe_ui_inbox_test_support.mjs";
+import { inboxSection, ok } from "./universe_ui_inbox_test_support.mjs";
+
+const messagesCount = (main) => byClass(
+  inboxSection(main, "messages"), "overview-section-count",
+)[0].textContent;
 
 function actorMessage() {
   return {
@@ -58,7 +62,7 @@ test("Inbox badges human messages and acknowledges through the shared receipt", 
 
   assert.equal(byClass(main, "inbox-message").length, 1);
   assert.match(byClass(main, "inbox-message")[0].textContent, /ben \(human, dashboard\)/);
-  assert.equal(byClass(main, "overview-section-count")[1].textContent, "1");
+  assert.equal(messagesCount(main), "1");
   byClass(main, "inbox-read").find(
     (button) => button.textContent === "Acknowledge",
   ).dispatchEvent(new Event("click"));
@@ -68,7 +72,7 @@ test("Inbox badges human messages and acknowledges through the shared receipt", 
     (request) => request.function === "session_control.message.acknowledge",
   ).payload, { message_id: "33333333-3333-4333-8333-333333333333" });
   assert.equal(byClass(main, "inbox-message").length, 0);
-  assert.equal(byClass(main, "overview-section-count")[1].textContent, "0");
+  assert.equal(messagesCount(main), "0");
 });
 
 test("Messages tab badges and acknowledges the signed-in actor receipt", async () => {

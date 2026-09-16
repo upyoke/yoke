@@ -13,6 +13,7 @@ import {
   appendRowError,
   createDecisionResolver,
   emptyRow,
+  NOTICE_LABELS,
 } from "./inbox_rows.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import {
@@ -101,10 +102,16 @@ function cardList(documentNode, body, cards, emptyText) {
 export function renderInboxView(context, main, scope) {
   const documentNode = context.document;
   const waiting = overviewSection(documentNode, "inbox-waiting", "Waiting on you");
+  // A delivery notice asks for nothing, so it does not belong beside the
+  // decisions that do, and it does not belong among messages a person sent
+  // either — reading one as the other is how a report gets answered and a
+  // question gets dismissed.
+  const notices = overviewSection(documentNode, "inbox-notices", "Notices");
   const messages = overviewSection(documentNode, "inbox-messages", "Messages");
   const decided = overviewSection(documentNode, "inbox-decided", "Decided");
   const host = el(documentNode, "div", "inbox-sections");
   host.appendChild(waiting);
+  host.appendChild(notices);
   host.appendChild(messages);
   host.appendChild(decided);
   main.replaceChildren(host);
@@ -136,7 +143,7 @@ export function renderInboxView(context, main, scope) {
     );
     if (!context.isMounted()) return;
     if (failed) {
-      for (const section of [waiting, messages, decided]) {
+      for (const section of [waiting, notices, messages, decided]) {
         section.body.replaceChildren();
         renderError(section.body, failed);
       }
@@ -162,8 +169,22 @@ export function renderInboxView(context, main, scope) {
     // its decisions first and fills that context in when it lands.
     appendCarriedContext(pending, cards);
 
-    const messageRows = result.messages || [];
-    messages.setCount(Number(result.pending_actor_message_count || 0));
+    const allMessages = result.messages || [];
+    const noticeRows = allMessages.filter((row) => NOTICE_LABELS[row.notice_kind]);
+    const messageRows = allMessages.filter((row) => !NOTICE_LABELS[row.notice_kind]);
+    const pendingIn = (rows) => rows.filter(
+      (row) => row.actor_receipt?.state === "pending",
+    ).length;
+
+    // No notices means no section, the same way nothing decided means none.
+    notices.setCount(pendingIn(noticeRows));
+    notices.hidden = !noticeRows.length;
+    notices.body.replaceChildren();
+    for (const row of noticeRows) {
+      appendActorMessageRow(context, notices.body, row, acknowledgeMessage);
+    }
+
+    messages.setCount(pendingIn(messageRows));
     messages.body.replaceChildren();
     if (!messageRows.length) emptyRow(documentNode, messages.body, "No unread messages.");
     for (const row of messageRows) {
