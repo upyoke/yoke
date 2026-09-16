@@ -1,5 +1,10 @@
 """Whether the deployment a run-bound Browser case names proves the candidate.
 
+The judgment is present-tense on purpose. A persistent environment is mutable
+and shared, so what a run deployed to it is not what it is serving once a
+later run replaces that deployment, and only asking it now can tell them
+apart.
+
 Sibling to ``test_browser_qa_deployment_identity.py``, which covers the
 server-side resolution these judge over. Split because the two are different
 questions — which deployment, and what it is serving — and each grew its own
@@ -18,7 +23,6 @@ from yoke_core.domain.browser_qa_deployment_identity import (
 )
 
 
-RUN_ID = "run-20260101-042"
 DEPLOYED_SHA = "c" * 40
 OTHER_SHA = "d" * 40
 ENVIRONMENT = "prod"
@@ -35,35 +39,8 @@ def _fixture_fetch(body: str, *, status: int = 200, error: str = ""):
 class TestIdentityJudgment:
     """Whether the resolved deployment proves the candidate under test."""
 
-    def test_a_recorded_observation_proves_the_candidate(self):
-        failure = validate_deployment_identity(
-            RUN_ID,
-            DEPLOYED_SHA,
-            target=DeploymentUnderTest(
-                environment=ENVIRONMENT,
-                origin=ENVIRONMENT_URL,
-                observed_sha=DEPLOYED_SHA,
-            ),
-        )
-        assert failure is None
-
-    def test_a_recorded_observation_of_another_commit_refuses(self):
-        failure = validate_deployment_identity(
-            RUN_ID,
-            DEPLOYED_SHA,
-            target=DeploymentUnderTest(
-                environment=ENVIRONMENT,
-                origin=ENVIRONMENT_URL,
-                observed_sha=OTHER_SHA,
-            ),
-        )
-        assert failure is not None
-        assert failure.reason == outcome.SHA_MISMATCH
-        assert OTHER_SHA in failure.message
-
     def test_the_environment_may_answer_for_itself(self):
         failure = validate_deployment_identity(
-            RUN_ID,
             DEPLOYED_SHA,
             target=DeploymentUnderTest(
                 environment=ENVIRONMENT,
@@ -86,7 +63,6 @@ class TestIdentityJudgment:
         self, body, status, error, expected
     ):
         failure = validate_deployment_identity(
-            RUN_ID,
             DEPLOYED_SHA,
             target=DeploymentUnderTest(
                 environment=ENVIRONMENT,
@@ -100,7 +76,6 @@ class TestIdentityJudgment:
 
     def test_an_environment_that_cannot_be_asked_names_what_is_missing(self):
         no_path = validate_deployment_identity(
-            RUN_ID,
             DEPLOYED_SHA,
             target=DeploymentUnderTest(
                 environment=ENVIRONMENT, origin=ENVIRONMENT_URL
@@ -111,7 +86,6 @@ class TestIdentityJudgment:
         assert "identity_path" in no_path.message
 
         no_url = validate_deployment_identity(
-            RUN_ID,
             DEPLOYED_SHA,
             target=DeploymentUnderTest(
                 environment=ENVIRONMENT, identity_path=IDENTITY_PATH
@@ -123,7 +97,6 @@ class TestIdentityJudgment:
 
     def test_unreadable_configuration_is_not_reported_as_unconfigured(self):
         failure = validate_deployment_identity(
-            RUN_ID,
             DEPLOYED_SHA,
             target=DeploymentUnderTest(
                 environment=ENVIRONMENT,
@@ -136,9 +109,52 @@ class TestIdentityJudgment:
 
     def test_an_unresolved_run_refuses_with_its_own_reason(self):
         failure = validate_deployment_identity(
-            RUN_ID,
             DEPLOYED_SHA,
             target=DeploymentUnderTest(unresolved="run names no deployment"),
         )
         assert failure is not None
         assert failure.reason == outcome.DEPLOYMENT_TARGET_UNRESOLVED
+
+    def test_a_later_release_to_the_same_environment_refuses(self):
+        """Run A deployed A; run B has since replaced it; A's QA must refuse.
+
+        The environment is shared and mutable, so the reading is what it
+        serves now, not what run A once delivered to it. Browsing B while
+        stamping the evidence A is the substitution this refuses.
+        """
+        failure = validate_deployment_identity(
+            DEPLOYED_SHA,
+            target=DeploymentUnderTest(
+                environment=ENVIRONMENT,
+                origin=ENVIRONMENT_URL,
+                identity_path=IDENTITY_PATH,
+            ),
+            fetch=_fixture_fetch(OTHER_SHA),
+        )
+        assert failure is not None
+        assert failure.reason == outcome.SHA_MISMATCH
+        assert OTHER_SHA in failure.message
+
+    def test_the_environment_is_asked_on_every_call(self):
+        """No stored answer stands in for the reading, so none can go stale."""
+        asked: list[str] = []
+
+        def _record(url: str):
+            asked.append(url)
+            return probe.ServedRevisionRead(status=200, body=DEPLOYED_SHA)
+
+        target = DeploymentUnderTest(
+            environment=ENVIRONMENT,
+            origin=ENVIRONMENT_URL,
+            identity_path=IDENTITY_PATH,
+        )
+        assert validate_deployment_identity(
+            DEPLOYED_SHA, target=target, fetch=_record,
+        ) is None
+        assert validate_deployment_identity(
+            DEPLOYED_SHA, target=target, fetch=_record,
+        ) is None
+        assert asked == [
+            f"{ENVIRONMENT_URL}{IDENTITY_PATH}",
+            f"{ENVIRONMENT_URL}{IDENTITY_PATH}",
+        ]

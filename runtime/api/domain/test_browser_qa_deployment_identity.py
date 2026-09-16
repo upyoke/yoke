@@ -8,8 +8,9 @@ captured at all.
 
 The server read runs for real here against a disposable database, because
 resolving *which* deployment is under test is exactly the boundary that was
-wrong. Only the external answer — what a deployment says it is serving — is a
-fixture.
+wrong. What that deployment is SERVING is a separate, present-tense question
+its sibling suite covers; resolution deliberately carries no stored answer to
+it.
 """
 
 from __future__ import annotations
@@ -59,30 +60,15 @@ def _configure_identity_path(conn, path: str = IDENTITY_PATH) -> None:
     )
 
 
-def _record_stage_observation(
-    conn,
-    *,
-    served: str,
-    status: str = "ready",
-    run_id: str = RUN_ID,
-    target_name: str = ENVIRONMENT,
-    artifact_identity: str | None = None,
-) -> None:
+def _record_stage_observation(conn, *, served: str) -> None:
+    """A ready receipt for this run and environment — deliberately ignored."""
     conn.execute(
         "INSERT INTO deployment_stage_receipts("
         "run_id,stage_name,attempt_number,correlation_id,target_kind,"
-        "target_name,status,observed_release_lineage,"
-        "observed_artifact_identity,executor,created_at,"
-        "completed_at) VALUES (%s,'deploy',1,%s,'persistent_environment',"
-        "%s,%s,%s,%s,'test','2026-01-01T00:00:00Z','2026-01-01T00:00:01Z')",
-        (
-            run_id,
-            f"corr-{run_id}",
-            target_name,
-            status,
-            served,
-            artifact_identity,
-        ),
+        "target_name,status,observed_release_lineage,executor,created_at,"
+        "completed_at) VALUES (%s,'deploy',1,'corr-1','persistent_environment',"
+        "%s,'ready',%s,'test','2026-01-01T00:00:00Z','2026-01-01T00:00:01Z')",
+        (RUN_ID, ENVIRONMENT, served),
     )
 
 
@@ -102,7 +88,25 @@ def _seed_run(conn, *, environment_id: int | None) -> None:
 class TestServerResolution:
     """What the control plane reports about the deployment under test."""
 
-    def test_run_subject_reports_its_environment_and_observation(self):
+    def test_run_subject_reports_its_environment_and_how_to_ask_it(self):
+        with test_database() as conn:
+            environment_id = _register_environment(conn)
+            _seed_run(conn, environment_id=environment_id)
+            _configure_identity_path(conn)
+            conn.commit()
+            target = resolve_deployment_under_test(conn, RUN_ID)
+        assert target.environment == ENVIRONMENT
+        assert target.origin == ENVIRONMENT_URL
+        assert target.identity_path == IDENTITY_PATH
+
+    def test_no_stored_revision_is_carried_for_the_judgment_to_reuse(self):
+        """A ready receipt says what was served THEN, so it is not carried.
+
+        The environment this run deployed is shared and mutable: a later run
+        replaces what it serves while this receipt keeps naming this run's
+        candidate. Carrying it would hand the freshness judgment a stale
+        answer, so resolution reports only where to ask.
+        """
         with test_database() as conn:
             environment_id = _register_environment(conn)
             _seed_run(conn, environment_id=environment_id)
@@ -110,34 +114,15 @@ class TestServerResolution:
             _record_stage_observation(conn, served=DEPLOYED_SHA)
             conn.commit()
             target = resolve_deployment_under_test(conn, RUN_ID)
-        assert target.environment == ENVIRONMENT
-        assert target.origin == ENVIRONMENT_URL
-        assert target.identity_path == IDENTITY_PATH
-        assert target.observed_sha == DEPLOYED_SHA
-
-    def test_a_pending_attempt_is_not_an_observation(self):
-        with test_database() as conn:
-            environment_id = _register_environment(conn)
-            _seed_run(conn, environment_id=environment_id)
-            _record_stage_observation(conn, served=DEPLOYED_SHA, status="pending")
-            conn.commit()
-            target = resolve_deployment_under_test(conn, RUN_ID)
-        assert target.observed_sha == ""
-
-    def test_requested_lineage_is_never_reported_as_observed(self):
-        """The run pins a candidate; nothing here says it is being served."""
-        with test_database() as conn:
-            environment_id = _register_environment(conn)
-            _seed_run(conn, environment_id=environment_id)
-            conn.commit()
-            target = resolve_deployment_under_test(conn, RUN_ID)
-        assert target.observed_sha == ""
+            payload = target.as_payload()
+        assert "observed_sha" not in payload
+        assert DEPLOYED_SHA not in str(payload)
 
     def test_context_read_returns_the_target_and_no_preview_fields(self):
         with test_database() as conn:
             environment_id = _register_environment(conn)
             _seed_run(conn, environment_id=environment_id)
-            _record_stage_observation(conn, served=DEPLOYED_SHA)
+            _configure_identity_path(conn)
             conn.execute(
                 "INSERT INTO qa_requirements(id,deployment_run_id,qa_kind,"
                 "qa_phase,blocking_mode,method_id,method_config,created_at) "
@@ -161,66 +146,12 @@ class TestServerResolution:
                     },
                 ),
             ).result_payload
-        assert result["deployment_target"]["observed_sha"] == DEPLOYED_SHA
         assert result["deployment_target"]["environment"] == ENVIRONMENT
+        assert result["deployment_target"]["identity_path"] == IDENTITY_PATH
         # The branch-preview fields describe a preview this run never made.
         assert result["deployment_recorded"] is False
         assert result["deployed_sha"] is None
         assert result["ephemeral_url"] is None
-
-    def test_another_environments_receipt_is_not_this_deployments_proof(self):
-        with test_database() as conn:
-            environment_id = _register_environment(conn)
-            _seed_run(conn, environment_id=environment_id)
-            _record_stage_observation(
-                conn, served=DEPLOYED_SHA, target_name="stage"
-            )
-            conn.commit()
-            target = resolve_deployment_under_test(conn, RUN_ID)
-        assert target.observed_sha == ""
-
-    def test_another_runs_receipt_is_not_this_runs_proof(self):
-        with test_database() as conn:
-            environment_id = _register_environment(conn)
-            _seed_run(conn, environment_id=environment_id)
-            insert_deployment_run(
-                conn, id="run-20260101-099", status="succeeded",
-            )
-            _record_stage_observation(
-                conn, served=DEPLOYED_SHA, run_id="run-20260101-099"
-            )
-            conn.commit()
-            target = resolve_deployment_under_test(conn, RUN_ID)
-        assert target.observed_sha == ""
-
-    def test_a_receipt_observing_another_artifact_is_not_accepted(self):
-        """A run that pins an artifact is proven only by that artifact."""
-        with test_database() as conn:
-            environment_id = _register_environment(conn)
-            insert_deployment_run(
-                conn,
-                id=RUN_ID,
-                status="succeeded",
-                release_lineage=OTHER_SHA,
-                target_tier="persistent",
-                target_environment_id=environment_id,
-                artifact_identity="sha256:pinned",
-            )
-            _record_stage_observation(
-                conn, served=DEPLOYED_SHA, artifact_identity="sha256:other",
-            )
-            conn.commit()
-            target = resolve_deployment_under_test(conn, RUN_ID)
-        assert target.observed_sha == ""
-
-    def test_an_abbreviated_observation_is_not_a_commit(self):
-        with test_database() as conn:
-            environment_id = _register_environment(conn)
-            _seed_run(conn, environment_id=environment_id)
-            _record_stage_observation(conn, served=DEPLOYED_SHA[:12])
-            conn.commit()
-            target = resolve_deployment_under_test(conn, RUN_ID)
-        assert target.observed_sha == ""
 
     def test_an_unregistered_run_resolves_to_nothing(self):
         with test_database() as conn:

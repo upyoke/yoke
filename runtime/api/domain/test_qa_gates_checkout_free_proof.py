@@ -171,3 +171,40 @@ class TestReviewedImplementationGateWithoutCheckout:
         ):
             result = check_reviewed_implementation_gate(GateTarget(item_id=42), qa_db)
         assert result.passed
+
+    def test_a_capture_cannot_be_the_revision_it_is_judged_against(self, qa_db):
+        """A run's own recorded revision is withheld from the comparison.
+
+        The revision set is drawn from what recorded the item's delivery. One
+        of its sources reaches back into the blocking runs themselves once a
+        queue landing is recorded, and a freshness check fed that source would
+        measure every capture against its own SHA. Here the only revision the
+        item records is the lane head, and a capture of some other commit is
+        refused rather than accepted on its own authority.
+        """
+        req_id = _add_requirement(
+            qa_db,
+            qa_kind="plan_case",
+            method_id="browser-check",
+        )
+        run_id = _add_run(
+            qa_db,
+            req_id,
+            "pass",
+            performed_by="browser_substrate",
+            raw_result=_stamped_result(_SUPERSEDED_SHA),
+        )
+        _add_artifact(qa_db, run_id, handle=_DURABLE_HANDLE)
+        _record_lane_revision(qa_db, _CAPTURED_SHA)
+        from yoke_core.domain.qa_browser_checkout_free_proof import (
+            recorded_item_revisions,
+        )
+        from runtime.api.fixtures.file_test_db import connect_test_db
+
+        conn = connect_test_db(qa_db)
+        try:
+            revisions = recorded_item_revisions(conn, 42)
+        finally:
+            conn.close()
+        assert _SUPERSEDED_SHA not in revisions
+        assert _CAPTURED_SHA in revisions

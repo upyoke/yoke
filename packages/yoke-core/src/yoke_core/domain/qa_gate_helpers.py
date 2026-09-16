@@ -9,14 +9,13 @@ from __future__ import annotations
 
 import os
 import subprocess
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
-from yoke_core.domain.db_helpers import connect, query_one, query_rows
+from yoke_core.domain.db_helpers import connect, query_one
 from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
 from yoke_core.domain.project_checkout_locations import checkout_for_project
-from yoke_core.domain.qa_constants import INVALID_BROWSER_METHOD_LABEL
 from yoke_core.domain.qa_gate_definitions import GateTarget, LatestCodeRef
 from yoke_core.domain.schema_common import _table_exists
 

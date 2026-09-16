@@ -185,8 +185,18 @@ def _lane_sha(conn: Any, item_id: int) -> str:
     return str(_row_value(row, "commit_sha", 0) or "").strip() if row else ""
 
 
-def accepted_merging_shas(conn: Any, item_id: int) -> tuple[str, ...]:
-    """Every head a terminal blocking run may be recorded against."""
+def accepted_merging_shas(
+    conn: Any, item_id: int, *, include_blocking_heads: bool = True
+) -> tuple[str, ...]:
+    """Every head a terminal blocking run may be recorded against.
+
+    ``include_blocking_heads=False`` withholds the one source drawn from the
+    blocking runs themselves. A caller JUDGING those runs must exclude it, or
+    a run's own recorded revision would be among the revisions it is checked
+    against and every run would vouch for itself. The terminal gate keeps it:
+    there the train receipt has already proven the merged tree, and the
+    question is which heads that covers rather than whether a run is current.
+    """
     receipts = _receipt_shas(conn, item_id)
     ci_runs = _passing_ci_raw_results(conn, item_id)
     candidates = [
@@ -195,7 +205,7 @@ def accepted_merging_shas(conn: Any, item_id: int) -> tuple[str, ...]:
         *ci_run_identity_shas(ci_runs),
         _lane_sha(conn, item_id),
     ]
-    if queue_batch_covers_receipt(ci_runs, receipts):
+    if include_blocking_heads and queue_batch_covers_receipt(ci_runs, receipts):
         candidates.extend(_passing_blocking_heads(conn, item_id))
     return tuple(dict.fromkeys(sha for sha in candidates if sha))
 

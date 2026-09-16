@@ -8,21 +8,22 @@ registered environment the run targeted. Asking the preview question about a
 production run addresses a host nothing deployed, which is how a succeeded
 release ends up unable to have its own visual QA captured.
 
-Two sources can answer, in this order, and neither is the lineage the run
-*requested*:
+One source answers what it is serving, and only one can: the environment
+itself, asked now, over the project's configured served-revision proof for
+persistent targets — the ``health-endpoint`` capability's ``identity_path``
+beneath the environment's own registered url, read through
+:mod:`served_revision_probe`.
 
-- the durable observation a receipt-producing stage already recorded for
-  that environment (``deployment_stage_receipts.observed_release_lineage``),
-  which is what the environment answered when the pipeline asked it; and
-- the project's configured served-revision proof for persistent targets —
-  the ``health-endpoint`` capability's ``identity_path`` beneath the
-  environment's own registered url — read live through
-  :mod:`served_revision_probe`.
-
-``deployment_runs.release_lineage`` is the candidate the run was asked to
-deliver. Reading it as proof would let a run that pinned a commit vouch for
-serving it, which is precisely the substitution the observation exists to
-prevent, so it is never consulted here.
+Two stored values look like answers and are not. ``release_lineage`` is the
+candidate the run was *asked* to deliver, so reading it as proof would let a
+run vouch for itself. A ready ``deployment_stage_receipts`` row is stronger —
+something did read the environment back — but it records what was served
+*then*, and a persistent environment is mutable and shared: after a later run
+replaces production, the earlier run's receipt still says what that run
+deployed, while the site now serves something else. Accepting it would let QA
+browse the newer deployment and stamp the evidence with the older revision.
+Which deployment a run is about comes from durable identity; what that
+deployment is serving is only ever a present-tense reading.
 """
 
 from __future__ import annotations
@@ -45,8 +46,6 @@ from yoke_core.domain.deployment_target_identity_config import (
     IDENTITY_PATH_KEY,
     persistent_identity_path,
 )
-from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.served_revision_probe import is_full_revision
 
 
 @dataclass(frozen=True)
@@ -55,9 +54,8 @@ class DeploymentUnderTest:
 
     ``origin`` is the environment's own registered url and nothing else: it
     is the single host authorized both to answer for this environment and to
-    be browsed under this run's freshness claim. ``observed_sha`` is a
-    durable observation, empty when no receipt-producing stage recorded one.
-    ``unresolved`` means the run itself does not name a deployment to test,
+    be browsed under this run's freshness claim. ``unresolved`` means the run
+    itself does not name a deployment to test,
     which is a different answer from "it names one that cannot prove itself".
     """
 
@@ -65,7 +63,6 @@ class DeploymentUnderTest:
     origin: str = ""
     identity_path: str = ""
     identity_error: str = ""
-    observed_sha: str = ""
     unresolved: str = ""
 
     def as_payload(self) -> dict[str, Any]:
@@ -74,7 +71,6 @@ class DeploymentUnderTest:
             "origin": self.origin,
             "identity_path": self.identity_path,
             "identity_error": self.identity_error,
-            "observed_sha": self.observed_sha,
             "unresolved": self.unresolved,
         }
 
@@ -92,7 +88,6 @@ class DeploymentUnderTest:
             origin=str(payload.get("origin") or ""),
             identity_path=str(payload.get("identity_path") or ""),
             identity_error=str(payload.get("identity_error") or ""),
-            observed_sha=str(payload.get("observed_sha") or ""),
             unresolved=str(payload.get("unresolved") or ""),
         )
 
@@ -109,53 +104,12 @@ def _scalar(row: Any, index: int, key: str) -> Any:
     return row[key] if hasattr(row, "keys") else row[index]
 
 
-def _observed_release_lineage(
-    conn: Any, run_id: str, environment: str, pinned_artifact: str
-) -> str:
-    """The newest ready receipt THIS run recorded for THIS environment.
-
-    Every part of that binding is load-bearing, because a receipt vouches
-    only for the dispatch that produced it: another run's attempt, another
-    environment's, or one that never reached ``ready`` says nothing about
-    this deployment. Only a ``ready`` receipt carries an observation at all
-    — the table's own constraint requires a target name and an observed
-    lineage for that status.
-
-    When the run pins an artifact identity, a receipt observing a different
-    one is a different artifact and is not this run's evidence. Where the run
-    pins none, none is required: that is the existing receipt contract, not
-    a looser one.
-    """
-    if not _table_exists(conn, "deployment_stage_receipts"):
-        return ""
-    marker = _p(conn)
-    row = conn.execute(
-        "SELECT observed_release_lineage,observed_artifact_identity "
-        "FROM deployment_stage_receipts "
-        f"WHERE run_id={marker} AND status='ready' "
-        f"AND target_kind='persistent_environment' AND target_name={marker} "
-        "ORDER BY attempt_number DESC, id DESC LIMIT 1",
-        (str(run_id), str(environment)),
-    ).fetchone()
-    if row is None:
-        return ""
-    if pinned_artifact:
-        observed_artifact = str(
-            _scalar(row, 1, "observed_artifact_identity") or ""
-        ).strip()
-        if observed_artifact != pinned_artifact:
-            return ""
-    served = str(_scalar(row, 0, "observed_release_lineage") or "").strip()
-    # An abbreviation or a label identifies a prefix, not a commit.
-    return served if is_full_revision(served) else ""
-
-
 def resolve_deployment_under_test(conn: Any, run_id: str) -> DeploymentUnderTest:
     """Resolve the deployment *run_id* targeted, from control-plane authority."""
     marker = _p(conn)
     run = conn.execute(
-        "SELECT project_id,target_environment_id,artifact_identity "
-        f"FROM deployment_runs WHERE id={marker}",
+        "SELECT project_id,target_environment_id FROM deployment_runs "
+        f"WHERE id={marker}",
         (str(run_id),),
     ).fetchone()
     if run is None:
@@ -196,55 +150,30 @@ def resolve_deployment_under_test(conn: Any, run_id: str) -> DeploymentUnderTest
         origin=str(_scalar(environment, 1, "url") or "").strip(),
         identity_path=configured.path,
         identity_error=configured.error,
-        observed_sha=_observed_release_lineage(
-            conn,
-            str(run_id),
-            name,
-            str(_scalar(run, 2, "artifact_identity") or "").strip(),
-        ),
     )
 
 
 def validate_deployment_identity(
-    run_id: str,
     expected_sha: str,
     *,
     target: DeploymentUnderTest,
     fetch: Optional[Callable[[str], object]] = None,
 ) -> Optional[FreshnessFailure]:
-    """Judge whether the run's deployment is serving *expected_sha*.
+    """Judge whether the run's deployment is serving *expected_sha* NOW.
 
-    Returns ``None`` when it is proven, logging which source proved it so a
-    reader can tell a recorded observation from a live answer.
+    Returns ``None`` only when the environment itself said so on this call.
     """
     from yoke_core.domain import browser_qa as _bqa
 
     if target.unresolved:
         return FreshnessFailure(DEPLOYMENT_TARGET_UNRESOLVED, target.unresolved)
 
-    if target.observed_sha:
-        if target.observed_sha != expected_sha:
-            return FreshnessFailure(
-                SHA_MISMATCH,
-                f"Deployment run {run_id} observed environment "
-                f"{target.environment!r} serving {target.observed_sha}, not the "
-                f"expected {expected_sha}. This is what the deploying stage "
-                "read back from the environment itself; run the case against "
-                "the candidate that deployment actually delivered.",
-            )
-        _bqa._log(
-            "Freshness check passed against the deployment stage's recorded "
-            f"observation: environment={target.environment}, sha={expected_sha}"
-        )
-        return None
-
     if target.identity_error:
         return FreshnessFailure(
             IDENTITY_CONFIG_UNREADABLE,
-            f"Deployment run {run_id} recorded no observation for environment "
-            f"{target.environment!r}, and whether the project publishes an "
-            f"identity proof could not be determined: {target.identity_error}. "
-            "That is unverified, not unconfigured; restore access to the "
+            f"Whether environment {target.environment!r} publishes an identity "
+            f"proof could not be determined: {target.identity_error}. That is "
+            "unverified, not unconfigured; restore access to the "
             f"{IDENTITY_CAPABILITY} capability and re-run.",
         )
 
@@ -259,10 +188,12 @@ def validate_deployment_identity(
         )
         return FreshnessFailure(
             DEPLOYMENT_RECORD_MISSING,
-            f"Deployment run {run_id} recorded no observation for environment "
-            f"{target.environment!r}, and it cannot be asked what it serves "
-            f"because {missing}. Register the environment's url (yoke projects "
-            "environment ...) and set the served-revision path (yoke projects "
+            f"Environment {target.environment!r} cannot be asked what it is "
+            f"serving, because {missing}. A deployment record says what a run "
+            "delivered when it ran, which a later release to the same "
+            "environment silently outdates, so it is not accepted in place of "
+            "asking. Register the environment's url (yoke projects environment "
+            "...) and set the served-revision path (yoke projects "
             f"capability-merge-settings <project> {IDENTITY_CAPABILITY} --set "
             f"{IDENTITY_PATH_KEY}=/<path>), then re-run this case.",
         )
@@ -273,8 +204,7 @@ def validate_deployment_identity(
     if outcome.kind == probe.UNREACHABLE:
         return FreshnessFailure(
             IDENTITY_PROOF_UNAVAILABLE,
-            f"Deployment run {run_id} recorded no observation for environment "
-            f"{target.environment!r}, and the environment could not answer at "
+            f"Environment {target.environment!r} could not answer at "
             f"{outcome.url}: {outcome.detail}. Nothing here proves what is "
             "deployed, so this is unverified rather than stale; confirm the "
             "environment is up and serving that path.",
@@ -290,9 +220,10 @@ def validate_deployment_identity(
         return FreshnessFailure(
             SHA_MISMATCH,
             f"The environment at {outcome.url} is serving {outcome.served}, not "
-            f"the expected {expected_sha}. This is the commit it reported about "
-            "itself, not a stored record; deploy the expected commit before "
-            "running this case.",
+            f"the expected {expected_sha}. This is the commit it reported "
+            "about itself just now, so a later release to this environment has "
+            "replaced what the run under test deployed; run this case against "
+            "the deployment that is actually live.",
         )
     _bqa._log(
         "Freshness check passed against the revision served at "

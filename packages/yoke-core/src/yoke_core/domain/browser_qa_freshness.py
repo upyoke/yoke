@@ -249,10 +249,7 @@ def _establish_deployment_freshness(
     if deployment_run_id is not None:
         target = DeploymentUnderTest.from_payload(context.get("deployment_target"))
         failure = validate_deployment_identity(
-            str(deployment_run_id),
-            expected_sha,
-            target=target,
-            fetch=fetch_identity,
+            expected_sha, target=target, fetch=fetch_identity,
         )
         if failure is not None:
             return failure, ""

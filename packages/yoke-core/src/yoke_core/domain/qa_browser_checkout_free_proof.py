@@ -49,11 +49,21 @@ from yoke_core.domain.served_revision_probe import is_full_revision
 
 
 def recorded_item_revisions(conn, item_id: Optional[int]) -> tuple[str, ...]:
-    """Every revision this control plane records for *item_id*, newest intent first."""
+    """Every revision this control plane records for *item_id*, newest intent first.
+
+    Drawn from what recorded the item's DELIVERY — execution evidence, merge
+    receipts, CI run identities, the lane head — and never from the blocking
+    runs being judged against it, which is why the blocking-head source is
+    withheld. Including it would let a browser capture's own recorded revision
+    into the set its freshness is measured by, so a stale capture would prove
+    itself current.
+    """
     if item_id is None:
         return ()
     try:
-        return accepted_merging_shas(conn, int(item_id))
+        return accepted_merging_shas(
+            conn, int(item_id), include_blocking_heads=False
+        )
     except Exception:
         # A minimal-schema universe carries none of these tables; that is no
         # recorded revision, which the callers already treat as unjudgeable.
