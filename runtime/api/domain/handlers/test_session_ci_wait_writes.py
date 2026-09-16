@@ -78,7 +78,8 @@ def test_resolve_rejects_a_non_binding_conclusion() -> None:
 
 
 def test_resolve_marks_the_calling_session_wait_notified(
-    waiting_connection, monkeypatch,
+    waiting_connection,  # noqa: F811 - pytest fixture reuse of imported name
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr(
         writes, "_connect_rw", lambda: _ConnCM(waiting_connection)
