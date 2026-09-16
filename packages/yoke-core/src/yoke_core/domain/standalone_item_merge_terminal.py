@@ -103,12 +103,15 @@ def transition_to_done(
         return TERMINAL_STATUS, ""
     # Either identity proves the landing: a queue or squash merge can rewrite
     # the lane head, leaving only the merge commit reachable from the target.
-    landed = any(
-        git.is_landed(repo_root, sha, lane.target)
-        for sha in (lane.commit_sha, lane.merge_sha)
-        if sha
+    # A no-change / agent-attested floor records no SHA; there is nothing
+    # to locate on the target, and inspecting an empty identity would treat
+    # a genuine no-change close as unlanded.
+    identities = tuple(
+        sha for sha in (lane.commit_sha, lane.merge_sha) if sha
     )
-    if not landed:
+    if identities and not any(
+        git.is_landed(repo_root, sha, lane.target) for sha in identities
+    ):
         return "", (
             f"terminal transition refused: recorded merge commit "
             f"{lane.commit_sha} is not reachable from {lane.target!r}"

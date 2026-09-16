@@ -263,7 +263,6 @@ def run(args: List[str]) -> int:
             session_id=parsed.session_id,
             actual_cwd=os.getcwd(),
             no_worktree=skip_lane,
-            skip_upstream=skip_lane,
             prepare_path_claims=claim_preparer,
         )
         if skip_lane and outcome.ok:

@@ -72,8 +72,8 @@ def _ok(function_id: str, result: dict) -> FunctionCallResponse:
 
 
 def _install_real_prepare(monkeypatch, *, no_changes: bool) -> dict:
-    """Drive the real preflight; explode git/create on a no-change survey."""
-    captured: dict = {"create": [], "git": []}
+    """Drive the real preflight; explode create_worktree on a no-change survey."""
+    captured: dict = {"create": [], "git": [], "path_claim": []}
 
     def _dispatch(*, function_id, **_kwargs):
         if function_id == "items.detail.get":
@@ -83,6 +83,7 @@ def _install_real_prepare(monkeypatch, *, no_changes: bool) -> dict:
         if function_id == "claims.work.holder_get":
             return _ok(function_id, {"holder": {"session_id": "session"}})
         if function_id == "claims.path.survey_ensure":
+            captured["path_claim"].append(True)
             return _ok(function_id, {})
         raise AssertionError(function_id)
 
@@ -127,8 +128,6 @@ def _install_real_prepare(monkeypatch, *, no_changes: bool) -> dict:
 
     def _git(*_a, **_k):
         captured["git"].append(True)
-        if no_changes:
-            raise AssertionError("git fetch must not run for a no-change survey")
         return UpstreamFreshness(
             state=STATE_CURRENT,
             verified=True,
@@ -147,9 +146,11 @@ def test_no_change_prepare_skips_the_git_lane(monkeypatch, capsys):
 
     assert preflight.run(["YOK-7102", "--workflow", "dash", "--json"]) == 0
     assert captured["create"] == []
-    assert captured["git"] == []
+    assert captured["path_claim"] == []
+    assert captured["git"]
     envelope = json.loads(capsys.readouterr().out)
     assert "worktree:skipped" in envelope["actions_taken"]
+    assert f"upstream:{STATE_CURRENT}" in envelope["actions_taken"]
     assert any("no-change" in note for note in envelope["notes"])
 
 
