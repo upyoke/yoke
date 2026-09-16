@@ -311,16 +311,16 @@ that test*. Every CI failure gets triaged against that claim before
 anything else:
 
 - **The failing test was not in the local selection** — the reachability
-  model missed a dependency edge. That is a selector defect, never noise.
-  Root-cause the coupling the import graph could not see (the residual
-  blind spots for `.py`-only changes are non-import coupling: subprocess
-  module invocations, string-target patching, runtime string dispatch),
-  then extend the index modeling or the trigger set that composes
+  model missed a dependency edge — unless `scope=bounded_deferral`, which
+  truncates correct edges and drops tests above a broadly imported module.
+  Otherwise it is a selector defect, never noise: root-cause the coupling
+  the import graph could not see (non-import coupling — subprocess module
+  invocations, string-target patching, runtime string dispatch), then
+  extend the index modeling or the trigger set composing
   `FULL_SWEEP_TRIGGERS` — `SHARED_TEST_FIXTURE_PATHS` for pytest
-  infrastructure, `TEST_TOOLING_PATHS` for the selection and run
-  machinery — **and add a regression test to the selector's own tests in
-  the same fix**. The selector only stays trustworthy if every
-  counterexample tightens it.
+  infrastructure, `TEST_TOOLING_PATHS` for the selection and run machinery —
+  **and add a regression test to the selector's own tests in the same fix**.
+  The selector only stays trustworthy if every counterexample tightens it.
 - **The failing test was selected and passed locally** — an environment
   difference, not a selection miss: CI runs Python 3.10 and 3.13 shards
   on Linux while local runs one interpreter on macOS, plus concurrency,
