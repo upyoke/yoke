@@ -48,13 +48,8 @@ from yoke_core.engines.runs_continue_for_item import (
 CONTINUE_FUNCTION = "deployment_runs.continue_for_item"
 
 
-def _item_target(item_id: int, public_ref: str) -> TargetRef:
-    named = public_ref.strip()
-    return TargetRef(
-        kind="item",
-        item_id=int(item_id),
-        public_ref=named or None,
-    )
+def _item_target(item_id: int) -> TargetRef:
+    return TargetRef(kind="item", item_id=int(item_id))
 
 
 def _inspect_clause(public_ref: str) -> str:
@@ -125,7 +120,7 @@ def continue_prepared_release(
         with connected_control_plane():
             response = call_dispatcher(
                 function_id=CONTINUE_FUNCTION,
-                target=_item_target(item_id, named),
+                target=_item_target(item_id),
                 payload={},
                 actor=build_actor(session_id=session_id or None),
             )
