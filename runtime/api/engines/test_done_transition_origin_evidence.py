@@ -99,3 +99,68 @@ class TestVerifyRecoveryEvidence:
                 42, Path("/tmp"), "main"
             )
         assert result is True
+
+
+class TestRecoveryEvidenceSearchKeys:
+    """What the recovery guard greps for must identify THIS item.
+
+    The keys are search keys, not display text. A guard that searches the
+    generic unresolved phrase matches nothing in the ordinary case and, in
+    the case where some commit message quotes it, accepts an unrelated
+    merge as this item's evidence.
+    """
+
+    def _greps(self, mock_git) -> list[str]:
+        return [
+            arg
+            for call in mock_git.call_args_list
+            for arg in call.args[0]
+            if isinstance(arg, str) and arg.startswith("--grep=")
+        ]
+
+    def test_searches_the_public_ref_and_the_legacy_identity(self):
+        with mock.patch.object(done_transition, "_run_git") as mock_git:
+            mock_git.side_effect = [
+                mock.Mock(returncode=0, stdout=""),   # fetch origin main
+                mock.Mock(returncode=0, stdout="a\n"),  # rev-parse origin/main
+                mock.Mock(returncode=0, stdout=""),   # grep public ref — miss
+                mock.Mock(returncode=0, stdout=""),   # grep legacy identity — miss
+            ]
+            found = done_transition._verify_recovery_evidence(
+                4242, Path("/tmp"), "main", public_ref="YOK-77",
+            )
+
+        assert found is False
+        assert self._greps(mock_git) == ["--grep=YOK-77", "--grep=YOK-4242"]
+
+    def test_never_searches_the_generic_unresolved_phrase(self):
+        """Without a public ref it still searches this item, not a phrase."""
+        with mock.patch.object(done_transition, "_run_git") as mock_git:
+            mock_git.side_effect = [
+                mock.Mock(returncode=0, stdout=""),   # fetch origin main
+                mock.Mock(returncode=0, stdout="a\n"),  # rev-parse origin/main
+                mock.Mock(returncode=0, stdout=""),   # grep legacy identity — miss
+            ]
+            found = done_transition._verify_recovery_evidence(
+                4242, Path("/tmp"), "main",
+            )
+
+        assert found is False
+        greps = self._greps(mock_git)
+        assert greps == ["--grep=YOK-4242"]
+        assert not any("unresolved item ref" in grep for grep in greps)
+
+    def test_a_legacy_named_merge_commit_is_still_found(self):
+        """The historical lookup this guard exists for keeps working."""
+        with mock.patch.object(done_transition, "_run_git") as mock_git:
+            mock_git.side_effect = [
+                mock.Mock(returncode=0, stdout=""),   # fetch origin main
+                mock.Mock(returncode=0, stdout="a\n"),  # rev-parse origin/main
+                mock.Mock(returncode=0, stdout=""),   # grep public ref — miss
+                mock.Mock(returncode=0, stdout="9f2 Merge branch 'YOK-4242'\n"),
+            ]
+            found = done_transition._verify_recovery_evidence(
+                4242, Path("/tmp"), "main", public_ref="YOK-77",
+            )
+
+        assert found is True
