@@ -101,11 +101,29 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
     ],
   );
   assert.equal(byClass(root, "qa-clickable-row").length, 6);
+  const columns = ["Plan", "Case", "Method", "Outcome", "Evidence", "Review", "When"];
   assert.deepEqual(
     allNodes(byClass(root, "qa-activity-table")[0])
       .filter((node) => node.tagName === "TH")
       .map((node) => node.textContent),
-    ["Plan", "Case", "Method", "Outcome", "Evidence", "Review", "When"],
+    columns,
+  );
+  // Each cell names its column, which is what lets a phone stack the row
+  // rather than push Outcome, Evidence and Review off the right edge.
+  assert.ok(
+    byClass(root, "qa-activity-table")[0].classList.contains("table-stacks-narrow"),
+  );
+  assert.deepEqual(
+    allNodes(byClass(root, "qa-clickable-row")[0])
+      .filter((node) => node.tagName === "TD")
+      .map((node) => node.attributes.get("data-label")),
+    columns,
+  );
+  // And the row a reader taps opens that exact case, which is the only way
+  // to reach its evidence once the columns are stacked.
+  assert.equal(
+    byClass(root, "qa-activity-link")[1].href,
+    "#/qa-activity/32?project=1",
   );
   assert.deepEqual(
     client.requests.find(

@@ -1,6 +1,7 @@
 import { attachTooltip } from "./universe_tooltip.js";
 import {
   el,
+  labelCellsByColumn,
   withProjectColumn,
 } from "./universe_view_support.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
@@ -142,7 +143,9 @@ function renderActivityTable(context, body, rows, scope, pending) {
     ));
     return;
   }
-  const table = el(documentNode, "table", "items qa-activity-table");
+  const table = el(
+    documentNode, "table", "items qa-activity-table table-stacks-narrow",
+  );
   const columns = withProjectColumn([
     { label: "Plan" },
     { label: "Case" },
@@ -203,6 +206,11 @@ function renderActivityTable(context, body, rows, scope, pending) {
     const when = el(documentNode, "td");
     when.appendChild(relativeTimeNode(documentNode, row.happened_at));
     tr.appendChild(when);
+    // Seven columns do not fit a phone. Each cell keeps its column's name so
+    // the row can stack, because the facts a reader opens this screen for —
+    // the outcome, its evidence, whether it is waiting on a review — are the
+    // ones a horizontal scroller puts off the right edge.
+    labelCellsByColumn(tr, columns.map((column) => column.label));
     table.appendChild(tr);
   }
   body.appendChild(tableWrap(documentNode, table));

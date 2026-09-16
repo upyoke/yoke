@@ -3,7 +3,7 @@
 // evidence its checks captured.
 
 import { itemDrillInHref } from "./universe_item_routes.js";
-import { el, statePill } from "./universe_view_support.js";
+import { el, labelCellsByColumn, statePill } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 import { renderStageStrip } from "./universe_stage_strip.js";
 import { runGateStatus, runGates } from "./universe_run_gates.js";
@@ -99,7 +99,9 @@ export function renderRunsTable(context, body, rows, options) {
     return;
   }
   const wrap = el(documentNode, "div", "table-wrap");
-  const table = el(documentNode, "table", "items delivery-runs-table");
+  const table = el(
+    documentNode, "table", "items delivery-runs-table table-stacks-narrow",
+  );
   const head = el(documentNode, "tr");
   for (const label of RUN_TABLE_COLUMNS) head.appendChild(el(documentNode, "th", null, label));
   table.appendChild(head);
@@ -145,16 +147,7 @@ export function renderRunsTable(context, body, rows, options) {
     const when = el(documentNode, "td");
     when.appendChild(relativeTime(documentNode, runTimestamp(row)));
     tr.appendChild(when);
-    // Each cell carries its column's name. A phone cannot show eight columns
-    // side by side, so the narrow layout stacks them and prints the name
-    // beside the value — the alternative is a table whose status and stage
-    // progress sit off the right edge where nobody scrolls to find them.
-    // Spread first: a live `HTMLCollection` is iterable but has no
-    // `entries()`, so indexing it directly works in the test document and
-    // throws in a browser.
-    [...tr.children].forEach((cell, index) => {
-      cell.setAttribute("data-label", RUN_TABLE_COLUMNS[index] || "");
-    });
+    labelCellsByColumn(tr, RUN_TABLE_COLUMNS);
     table.appendChild(tr);
   }
   wrap.appendChild(table);
