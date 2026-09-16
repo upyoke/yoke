@@ -86,6 +86,10 @@ test("session model facts show served values and hide a matching request", () =>
     sessionModelFactTags({ reasoning_effort: "xhigh" }),
     [{ kind: "reasoning-effort", label: "XHIGH", requested: false }],
   );
+  assert.deepEqual(
+    sessionModelFactTags({ context_window_tokens: 4_442_000_000 }),
+    [{ kind: "context-window", label: "4.4b", requested: false }],
+  );
 });
 
 test("requested-only facts render labelled; both-null renders nothing", () => {

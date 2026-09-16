@@ -51,6 +51,7 @@ test("compact figures stay readable at every scale", () => {
   assert.equal(compactTokens(1_500), "1.5k");
   assert.equal(compactTokens(23_000), "23k");
   assert.equal(compactTokens(1_280_000), "1.3m");
+  assert.equal(compactTokens(4_442_000_000), "4.4b");
   assert.equal(compactUsd(0.42), "$0.42");
   assert.equal(compactUsd(3.5), "$3.5");
   assert.equal(compactUsd(1234), "$1,234");
