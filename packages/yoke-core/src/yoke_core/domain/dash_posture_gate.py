@@ -22,6 +22,7 @@ from yoke_core.domain.dash_posture_read import (
 )
 from yoke_core.domain.dash_posture_verification_gate import verification_gate
 from yoke_core.domain.db_helpers import connect
+from yoke_core.domain.deploy_pipeline_environment import watch_deploy_command
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
@@ -144,8 +145,7 @@ def _deployment_gate(
                 else "The latest item-bound deployment run has not succeeded."
             ),
             (
-                f"Execute it: yoke --env <control-plane>-db-admin watch "
-                f"deploy -- {row['id']}"
+                f"Execute it: {watch_deploy_command(str(row['id']))}"
                 if prepared
                 else "Run the selected project delivery flow to completion."
             ),

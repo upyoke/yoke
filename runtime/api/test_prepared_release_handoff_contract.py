@@ -10,11 +10,14 @@ a reader that does not exist fails here instead of at the one moment the
 hand-off matters — when no session holds the deploy lock and the message is
 the only thing left carrying the release.
 
-The execute recipe is checked for the mistake that makes it useless: naming a
-connection derived from the project or the deployment target. ``--env`` names
-the CONTROL PLANE holding the run row; one control plane serves every target,
-so a label built from either of those points an operator at a connection this
-machine has never heard of.
+The execute recipe is checked for the two mistakes that make it useless. The
+first is naming a connection derived from the project or the deployment
+target: ``--env`` names the CONTROL PLANE holding the run row, one control
+plane serves every target, and a label built from either of those points an
+operator at a connection this machine has never heard of. The second is
+naming the admin sibling of that control plane, which ordinary delivery never
+needs and a project relaying to someone else's control plane cannot obtain
+at all.
 """
 
 from __future__ import annotations
@@ -27,10 +30,10 @@ from yoke_contracts.session_control.recipient_selector import (
     STEERING_SCOPE_PROJECT_KEY,
     RecipientSelector,
 )
-from yoke_core.engines.runs_release_handoff import (
+from yoke_core.domain.deploy_pipeline_environment import (
     CONTROL_PLANE_ENV_PLACEHOLDER,
-    compose_handoff_body,
 )
+from yoke_core.engines.runs_release_handoff import compose_handoff_body
 
 
 PROJECT_ID = 1
@@ -81,9 +84,17 @@ class TestTheNoHolderSelector:
         assert selector.steering is False
 
 
+RELAYED_CONTROL_PLANE = "prod"
+
+
 class TestTheExecuteRecipe:
     @pytest.fixture
-    def body(self) -> str:
+    def body(self, monkeypatch: pytest.MonkeyPatch) -> str:
+        """The hand-off as composed on a machine relaying to a control plane."""
+        monkeypatch.setattr(
+            "yoke_core.engines.runs_release_handoff._control_plane_env",
+            lambda: RELAYED_CONTROL_PLANE,
+        )
         return compose_handoff_body(
             project_slug=PROJECT_SLUG,
             run_id=RUN_ID,
@@ -95,15 +106,29 @@ class TestTheExecuteRecipe:
     ) -> None:
         assert f"{PROJECT_SLUG}{DB_ADMIN_ENV_SUFFIX}" not in body
 
-    def test_the_recipe_names_an_admin_connection(self, body: str) -> None:
-        assert DB_ADMIN_ENV_SUFFIX in body
+    def test_the_recipe_names_the_selected_control_plane_connection(
+        self, body: str
+    ) -> None:
+        assert f"yoke --env {RELAYED_CONTROL_PLANE} watch deploy -- {RUN_ID}" in body
+
+    def test_the_recipe_does_not_send_the_driver_after_admin_credentials(
+        self, body: str
+    ) -> None:
+        """Ordinary delivery drives over the connection that holds the run.
+
+        Only a deploy replacing this control plane's own serving API needs
+        the paired admin connection, and the executor names that case when
+        it refuses — so the hand-off must not ask for control-plane database
+        credentials the driver does not need and may not be able to get.
+        """
+        assert DB_ADMIN_ENV_SUFFIX not in body
 
     def test_an_unresolvable_machine_still_teaches_the_shape(
-        self, body: str, monkeypatch: pytest.MonkeyPatch
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """With no resolvable pairing the recipe is a placeholder, not a guess."""
+        """With no resolvable connection the recipe is a placeholder, not a guess."""
         monkeypatch.setattr(
-            "yoke_core.engines.runs_release_handoff._control_plane_admin_env",
+            "yoke_core.engines.runs_release_handoff._control_plane_env",
             lambda: "",
         )
         unresolved = compose_handoff_body(
@@ -112,6 +137,7 @@ class TestTheExecuteRecipe:
             release_lineage=MERGE_COMMIT,
         )
         assert CONTROL_PLANE_ENV_PLACEHOLDER in unresolved
+        assert DB_ADMIN_ENV_SUFFIX not in unresolved
         assert f"{PROJECT_SLUG}{DB_ADMIN_ENV_SUFFIX}" not in unresolved
 
     def test_the_body_names_the_run_and_the_commit_it_will_deploy(

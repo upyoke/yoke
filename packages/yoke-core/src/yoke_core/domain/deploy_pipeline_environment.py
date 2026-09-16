@@ -1,4 +1,4 @@
-"""Deployment pipeline release-control-plane environment labels."""
+"""Deployment pipeline release-control-plane environment labels and recipes."""
 
 import os
 
@@ -6,6 +6,10 @@ from yoke_contracts.machine_config.schema import (
     DB_ADMIN_ENV_SUFFIX,
     ENV_OVERRIDE,
 )
+
+#: Stands in for the control-plane connection wherever the reader's machine is
+#: unknown, so a recipe teaches the shape rather than naming a wrong universe.
+CONTROL_PLANE_ENV_PLACEHOLDER = "<control-plane>"
 
 
 def _normalize_release_control_plane_env(value: str) -> str:
@@ -23,6 +27,21 @@ def release_control_plane_env() -> str:
     return "unbound"
 
 
+def watch_deploy_command(run_id: str, env: str = "") -> str:
+    """The execute recipe for *run_id*, naming a control-plane connection.
+
+    Ordinary delivery runs over whichever connection holds the run row,
+    HTTPS included. Only a deploy replacing that control plane's own serving
+    API needs the paired local ``*-db-admin`` connection, and the executor
+    refuses that one case by name at the moment it applies. Naming the admin
+    connection up front instead would send every operator looking for
+    control-plane database credentials they do not need — and that a managed
+    project, whose control plane is someone else's, cannot obtain at all.
+    """
+    connection = str(env or "").strip() or CONTROL_PLANE_ENV_PLACEHOLDER
+    return f"yoke --env {connection} watch deploy -- {run_id}"
+
+
 def run_not_found_message(run_id: str) -> str:
     """Refuse a missing run by naming the control plane that was read.
 
@@ -36,8 +55,13 @@ def run_not_found_message(run_id: str) -> str:
         f"'{release_control_plane_env()}' control plane. Runs are recorded "
         "on the control plane that created them; for a hosted deploy that "
         "is the release control plane, not the target environment's. Retry "
-        "against that control plane's db-admin env."
+        "with `--env` selecting that control plane."
     )
 
 
-__all__ = ["release_control_plane_env", "run_not_found_message"]
+__all__ = [
+    "CONTROL_PLANE_ENV_PLACEHOLDER",
+    "release_control_plane_env",
+    "run_not_found_message",
+    "watch_deploy_command",
+]
