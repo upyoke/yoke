@@ -1,9 +1,14 @@
 """The local hold runtime: authority read first, mutation local, clear proven.
 
-Every control-plane call it makes is a read, so these pin that a server
-older than this change is never asked for vocabulary it lacks: the hold
-function is called only after a readback already showed the candidate
-clear, and never as a way to discover whether acting is allowed.
+Ownership and resolution come from reads, so these pin that a server older
+than this change is never asked for vocabulary it lacks: the registered
+hold is called only after a readback already showed the candidate clear,
+and never as a way to discover whether acting is allowed.
+
+That registered hold is itself a mutation against a live pull request, so
+these also pin that its result is read back — a candidate that lands or
+re-arms around it is reported as that, not as the held verdict this
+runtime had already proven a moment earlier.
 """
 
 from __future__ import annotations
@@ -92,7 +97,7 @@ def _noop():
 
 
 def _local_hold(actions=("disarm merge-when-ready: ok",)):
-    return lambda _item, _readiness: SimpleNamespace(actions=tuple(actions))
+    return lambda _readiness: SimpleNamespace(actions=tuple(actions))
 
 
 class TestOwnershipIsReadBeforeAnythingElse:
@@ -118,17 +123,25 @@ class TestTheHoldFunctionIsNeverAnAuthorizationProbe:
     def test_nothing_is_recorded_until_a_readback_shows_it_clear(
         self, plane, monkeypatch
     ) -> None:
-        recorder = plane(readbacks=[_readback(armed=True, entry=True), _readback()])
+        recorder = plane(
+            readbacks=[
+                _readback(armed=True, entry=True),
+                _readback(),
+                _readback(),
+            ]
+        )
         monkeypatch.setattr(runtime, "_hold_locally", _local_hold())
 
         assert runtime.run([ITEM]) == 0
 
-        # Claim, readback, local mutation, confirming readback, then record.
+        # Claim, readback, local mutation, confirming readback, record, and
+        # the final read that decides the verdict.
         assert recorder.calls == [
             runtime._CLAIM_HOLDER_FUNCTION,
             runtime._READINESS_FUNCTION,
             runtime._READINESS_FUNCTION,
             runtime._HOLD_FUNCTION,
+            runtime._READINESS_FUNCTION,
         ]
 
     def test_a_still_live_candidate_is_not_held_and_records_nothing(
@@ -146,12 +159,82 @@ class TestTheHoldFunctionIsNeverAnAuthorizationProbe:
     def test_an_older_server_refusing_the_record_still_reports_held(
         self, plane, monkeypatch
     ) -> None:
-        """Clear was already proven, so the record is evidence, not the verdict."""
-        recorder = plane(readbacks=[_readback(armed=True), _readback()])
+        """A refused record is noted; the final read is what decides."""
+        recorder = plane(readbacks=[_readback(armed=True), _readback(), _readback()])
         recorder.hold_refused = True
         monkeypatch.setattr(runtime, "_hold_locally", _local_hold())
 
         assert runtime.run([ITEM]) == 0
+
+
+class TestTheRecordingMutationIsItselfReadBack:
+    """It mutates a live pull request, so it can be overtaken."""
+
+    def test_a_candidate_that_lands_during_the_record_reports_the_landing(
+        self, plane, monkeypatch
+    ) -> None:
+        plane(
+            readbacks=[
+                _readback(armed=True),
+                _readback(),
+                _readback(merged=True),
+            ]
+        )
+        monkeypatch.setattr(runtime, "_hold_locally", _local_hold())
+
+        assert runtime.run([ITEM, "--json"]) == 1
+
+    def test_a_candidate_live_again_after_the_record_is_not_held(
+        self, plane, monkeypatch, capsys
+    ) -> None:
+        plane(
+            readbacks=[
+                _readback(armed=True),
+                _readback(),
+                _readback(armed=True),
+            ]
+        )
+        monkeypatch.setattr(runtime, "_hold_locally", _local_hold())
+
+        assert runtime.run([ITEM, "--json"]) == 1
+
+        printed = capsys.readouterr().out
+        assert '"outcome": "not_held"' in printed
+        assert "do not push" in printed
+
+    def test_a_failed_final_read_after_the_record_is_unverified(
+        self, plane, monkeypatch, capsys
+    ) -> None:
+        plane(
+            readbacks=[
+                _readback(armed=True),
+                _readback(),
+                "control plane unreachable",
+            ]
+        )
+        monkeypatch.setattr(runtime, "_hold_locally", _local_hold())
+
+        assert runtime.run([ITEM, "--json"]) == 1
+
+        printed = capsys.readouterr().out
+        assert '"outcome": "unverified"' in printed
+        assert "final readback failed" in printed
+        assert "do not push" in printed
+
+    def test_a_final_read_about_a_different_candidate_is_unverified(
+        self, plane, monkeypatch, capsys
+    ) -> None:
+        """A readback naming another pull request proves nothing about this one."""
+        moved = _readback()
+        moved["pr_number"] = "9999"
+        plane(readbacks=[_readback(armed=True), _readback(), moved])
+        monkeypatch.setattr(runtime, "_hold_locally", _local_hold())
+
+        assert runtime.run([ITEM, "--json"]) == 1
+
+        printed = capsys.readouterr().out
+        assert '"outcome": "unverified"' in printed
+        assert "different candidate" in printed
 
 
 class TestUnconfirmedLocalActionsAreNeverReportedHeld:

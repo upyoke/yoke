@@ -7,16 +7,21 @@ runtime binds it, keeps the operator-selected control plane, and calls the
 same ``hold_landing`` the registered function calls.
 
 Authority stays on the control plane. Ownership is the registered work-claim
-holder read, project authorization and the resolved pull request come from
-the registered readiness read, and the confirming readback is that same
-registered read afterwards. None of them is a mutation, so nothing here
-depends on the serving build carrying this runtime's own vocabulary — a
-server older than this change answers all three exactly as a current one
-does.
+holder read, and project authorization plus the resolved pull request come
+from the registered readiness read; neither asks the serving build for this
+runtime's own vocabulary, so a server older than this change answers both
+exactly as a current one does.
 
-A hold that mutated locally and then could not be confirmed remotely is
-reported unverified with its local actions retained, never as held: the
-candidate may be live, and the caller must not push against it.
+The registered hold that records the outcome durably is itself a mutation
+against a live pull request, not an audit write, so it can land or re-arm
+between this runtime's proof and its own attempt. Its outcome is therefore
+read, and a further authoritative readiness decides the verdict — pinned to
+the same project, pull request, and target the first read resolved, because
+a readback about a different candidate proves nothing about this one.
+
+A hold whose result cannot be confirmed is reported unverified with its
+local actions retained, never as held: the candidate may be live, and the
+caller must not push against it.
 """
 
 from __future__ import annotations
@@ -44,8 +49,10 @@ _CLAIM_HOLDER_FUNCTION = "claims.work.holder_get"
 #: Project authorization, the resolved pull request, and the authoritative
 #: queue readback all come from this one registered read.
 _READINESS_FUNCTION = "github.merge_queue.readiness"
-#: Durable confirmation, used only once a readback already showed the
-#: candidate clear, so it never doubles as an authorization probe.
+#: Records the outcome durably. Called only once a readback already showed
+#: the candidate clear, so it never doubles as an authorization probe — but
+#: it mutates a live pull request, so its result is read back like any
+#: other mutation.
 _HOLD_FUNCTION = "github.merge_queue.hold"
 
 
@@ -106,13 +113,23 @@ def _queue_clear(readiness: Dict[str, Any]) -> bool:
     )
 
 
-def _hold_locally(item: str, readiness: Dict[str, Any]) -> Any:
+def _identity_drift(first: Dict[str, Any], last: Dict[str, Any]) -> str:
+    """Name any field that makes the two reads describe different candidates."""
+    for field in ("project", "pr_number", "target"):
+        if str(first.get(field) or "") != str(last.get(field) or ""):
+            return f"{field} was {first.get(field)!r} and is now {last.get(field)!r}"
+    return ""
+
+
+def _hold_locally(readiness: Dict[str, Any]) -> Any:
     """Run the existing hold against GitHub under this process's authority."""
     hold_mod = importlib.import_module("yoke_core.domain.merge_queue_hold")
     prepare = importlib.import_module("yoke_core.engines.merge_worktree_prepare")
+    # No head branch: a hold addresses the pull request by number, and the
+    # registered readiness handler builds its own context the same way.
     ctx = prepare.MergeContext(
         args=prepare.MergeArgs(
-            branch=str(readiness.get("branch") or item),
+            branch="",
             target=str(readiness.get("target") or ""),
         ),
         project=str(readiness.get("project") or ""),
@@ -139,7 +156,7 @@ def run(argv: List[str]) -> int:
         if _queue_clear(before):
             return _emit(parsed, "already_clear", before, held=True, actions=())
 
-        local = _hold_locally(parsed.item, before)
+        local = _hold_locally(before)
         actions = tuple(local.actions)
 
         # The candidate's real state after the local mutations, read from the
@@ -159,7 +176,9 @@ def run(argv: List[str]) -> int:
                 ),
             )
         if after.get("merged"):
-            return _emit(parsed, "landed_during_hold", after, held=False, actions=actions)
+            return _emit(
+                parsed, "landed_during_hold", after, held=False, actions=actions
+            )
         if not _queue_clear(after):
             return _emit(
                 parsed,
@@ -173,18 +192,69 @@ def run(argv: List[str]) -> int:
                 ),
             )
 
-        # Clear is already proven, so this records the outcome durably
-        # without its answer being what decides anything.
-        confirmation = ""
+        # Clear is proven, so this records the outcome durably — but it is a
+        # mutation against a live pull request and can be overtaken, so the
+        # verdict comes from a final authoritative read, not from here.
         try:
             recorded = _call(_HOLD_FUNCTION, parsed.item, parsed.project)
             confirmation = str(recorded.get("outcome") or "")
         except HoldRefused as exc:
             confirmation = f"not recorded ({exc})"
+        try:
+            final = _readiness(parsed.item, parsed.project)
+        except HoldRefused as exc:
+            return _emit(
+                parsed,
+                "unverified",
+                after,
+                held=False,
+                actions=actions,
+                confirmation=confirmation,
+                refusal=(
+                    f"the record was attempted but the final readback failed "
+                    f"({exc}); treat the candidate as live and do not push"
+                ),
+            )
+        drift = _identity_drift(before, final)
+        if drift:
+            return _emit(
+                parsed,
+                "unverified",
+                final,
+                held=False,
+                actions=actions,
+                confirmation=confirmation,
+                refusal=(
+                    f"the final readback describes a different candidate "
+                    f"({drift}); treat this one as live and do not push"
+                ),
+            )
+        if final.get("merged"):
+            return _emit(
+                parsed,
+                "landed_during_hold",
+                final,
+                held=False,
+                actions=actions,
+                confirmation=confirmation,
+            )
+        if not _queue_clear(final):
+            return _emit(
+                parsed,
+                "not_held",
+                final,
+                held=False,
+                actions=actions,
+                confirmation=confirmation,
+                refusal=(
+                    "the candidate is live again after the record; it is not "
+                    "held, so do not push a correction against it"
+                ),
+            )
         return _emit(
             parsed,
             "held",
-            after,
+            final,
             held=True,
             actions=actions,
             confirmation=confirmation,
