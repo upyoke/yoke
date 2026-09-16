@@ -66,6 +66,7 @@ from yoke_core.domain.db_claim_apply import (
     _missing_required_authored_fields,
     _safe_parse,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 # Keys that belong to the profile half of the unified payload.
@@ -259,7 +260,7 @@ def read_claim(
             (item_id,),
         ).fetchone()
         if row is None:
-            raise DbClaimAmendmentError(f"no item at items.id {item_id}")
+            raise DbClaimAmendmentError(ITEM_NOT_FOUND)
         raw_profile = row["db_mutation_profile"] if hasattr(row, "keys") else row[0]
         raw_attestation = (
             row["db_compatibility_attestation"] if hasattr(row, "keys") else row[1]

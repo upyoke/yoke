@@ -29,6 +29,7 @@ from yoke_core.domain.conflict_survey import (
     survey_conflicts,
 )
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class ConflictSurveyStatusRequest(BaseModel):
@@ -97,7 +98,7 @@ def handle_conflict_survey_status(request: FunctionCallRequest) -> HandlerOutcom
             "SELECT workflow_id FROM items WHERE id = %s", (item_id,),
         ).fetchone()
         if row is None:
-            return _error("unknown_item", f"no item at items.id {item_id}")
+            return _error("unknown_item", ITEM_NOT_FOUND)
         workflow_id = str(row[0])
         record = read_recorded_survey_state(conn, item_id)
         if record.state != DURABLE_RECORDED:

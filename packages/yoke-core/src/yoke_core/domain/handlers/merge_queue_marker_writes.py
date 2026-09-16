@@ -30,6 +30,7 @@ from yoke_contracts.api.function_call import (
     HandlerOutcome,
 )
 from yoke_core.domain.merge_queue_landing_record import delete_landing_record
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class MarkLandingPendingRequest(BaseModel):
@@ -116,7 +117,7 @@ def _write_landing_marker(
                 (item_id,),
             ).fetchone()
             if row is None:
-                return _err("target_not_found", f"no item at items.id {item_id}")
+                return _err("target_not_found", ITEM_NOT_FOUND)
             same_pr = str(row[0] or "") == pr_number
             recorded_enqueued_at = str(row[1]) if same_pr and row[1] else enqueued_at
             landed_at = str(row[2] or "") if same_pr else ""

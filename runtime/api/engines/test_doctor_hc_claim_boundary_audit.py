@@ -78,7 +78,10 @@ def _add_claim(conn, sid: str, item_id: int, claimed_at: str = "2026-05-17T11:30
     from runtime.api.fixtures.backlog import insert_item
 
     seed_project_identities(conn)
-    insert_item(conn, id=item_id, project_sequence=item_id, title="fixture")
+    try:
+        insert_item(conn, id=item_id, project_sequence=item_id, title="fixture")
+    except Exception:  # noqa: BLE001 - the case may have seeded it already
+        conn.rollback()
     p = _p(conn)
     conn.execute(
         f"INSERT INTO work_claims (session_id, target_kind, scope, claimed_at, last_heartbeat, released_at) VALUES ({p}, 'item', {p}, {p}, {p}, {p})",

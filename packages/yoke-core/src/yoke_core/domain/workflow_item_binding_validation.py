@@ -25,6 +25,7 @@ from yoke_core.domain.work_claim_targets import (
     TARGET_KIND_STEERING,
     WorkClaimTarget,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 _ITEM_CLAIM_OWNERSHIP_POLICIES = frozenset(
     {
@@ -64,7 +65,7 @@ def item_binding_runtime_state(
         (int(item_id),),
     ).fetchone()
     if row is None:
-        raise WorkflowItemBindingError(f"no item at items.id {item_id}")
+        raise WorkflowItemBindingError(ITEM_NOT_FOUND)
     runtime = load_item_workflow_runtime(conn, int(item_id))
     status = str(row["status"] if hasattr(row, "keys") else row[0])
     if status in runtime.terminal_stage_ids or status in ENGINE_TERMINAL_STAGE_IDS:

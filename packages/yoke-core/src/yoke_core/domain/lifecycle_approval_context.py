@@ -12,6 +12,7 @@ from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
 from yoke_core.domain.decision_related_evidence import related_screenshot_evidence
 from yoke_core.domain.item_json_sections import read_json_section
 from yoke_core.domain.schema_common import _table_exists
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 def _p(conn: Any) -> str:
@@ -29,7 +30,7 @@ def load_lifecycle_item(conn: Any, item_id: int) -> dict[str, Any]:
         (item_id,),
     ).fetchone()
     if row is None:
-        raise LookupError(f"no item at items.id {item_id}")
+        raise LookupError(ITEM_NOT_FOUND)
     return {key: row[key] for key in row.keys()}
 
 

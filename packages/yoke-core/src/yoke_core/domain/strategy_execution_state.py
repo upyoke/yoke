@@ -9,6 +9,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.work_claim_targets import scope_int_sql
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 #: The one workflow whose items execute a strategy document.
@@ -59,7 +60,7 @@ def _item_row(conn: Any, item_id: int) -> dict[str, Any]:
         )
     )
     if row is None:
-        raise StrategyExecutionLinkError(f"no item at items.id {item_id}")
+        raise StrategyExecutionLinkError(ITEM_NOT_FOUND)
     return row
 
 

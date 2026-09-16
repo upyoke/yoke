@@ -38,6 +38,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain.handlers.items_flags_claim import (
     _ClaimRefused, _acquire_for_caller, _release_acquired,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +132,7 @@ def _prepare(
     state = _load_state(int(target.item_id))
     if state is None:
         return None, None, None, _error(
-            "not_found", f"no item at items.id {target.item_id}"
+            "not_found", ITEM_NOT_FOUND
         )
     return int(target.item_id), payload, state, None
 

@@ -28,6 +28,7 @@ from yoke_core.domain.migration_model_capability import (
 )
 from yoke_core.domain.migration_model_capability_defaults import resolve_model
 from yoke_contracts.public_ref import unresolved_item_ref
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 @dataclass(frozen=True)
@@ -209,7 +210,7 @@ def evaluate_migration_merge(
     current_row = _row_for_item(materialized, item_id)
     if current_row is None:
         return MigrationMergeGate(
-            True, (f"items.id {item_id} is absent from items.list",)
+            True, (f"{ITEM_NOT_FOUND}: it is absent from items.list",)
         )
     current_profile = _profile(current_row.get("db_mutation_profile"))
     if (

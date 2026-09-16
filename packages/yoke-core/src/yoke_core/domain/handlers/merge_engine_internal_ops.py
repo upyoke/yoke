@@ -41,6 +41,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class PruneAuthorityRequest(BaseModel):
@@ -224,7 +225,7 @@ def handle_post_rebase_requirement(request: FunctionCallRequest) -> HandlerOutco
                 (int(item_id),),
             )
             if item is None:
-                raise LookupError(f"no item at items.id {item_id}")
+                raise LookupError(ITEM_NOT_FOUND)
             project_id = int(item["project_id"])
             project = str(item["project"])
             if has_attached_plans(

@@ -21,6 +21,11 @@ _ITEM_NUM = 1785
 _OTHER_ITEM_NUM = 1786
 
 
+def _title(item_id: int) -> str:
+    """The step title, which carries the item identity as data."""
+    return f"{item_id} title"
+
+
 def _make_step(item_id: int, rank: int) -> ScheduledStep:
     return ScheduledStep(
         item_id=item_id,
@@ -28,7 +33,7 @@ def _make_step(item_id: int, rank: int) -> ScheduledStep:
         workflow_version_id=1,
         workflow_version=1,
         status="refined-idea",
-        title=f"{item_id} title",
+        title=_title(item_id),
         priority="medium",
         next_step=NextStep.ADVANCE,
         rank=rank,
@@ -55,18 +60,19 @@ def test_frontier_filter_uses_typed_internal_skip_ids():
 
     baseline = build_frontier_state_from_schedule(schedule)
     # These fields are presentation-facing references. A conn-less build has
-    # no identity read to make one from, so it says so — the internal id
-    # rides along as the diagnostic handle, never as the reference itself.
+    # no identity read to make one from, so it says so and shows no number:
+    # the storage key is not a reference and reads as one to whoever sees it.
     assert "no control-plane read" in baseline.selected_item
-    assert f"items.id {_ITEM_NUM}" in baseline.selected_item
+    assert str(_ITEM_NUM) not in baseline.selected_item
 
     filtered = build_frontier_state_from_schedule(
         schedule, skip_memory_item_ids={_ITEM_NUM},
     )
     assert len(filtered.runnable_items) == 1
-    assert f"items.id {_ITEM_NUM}" not in filtered.runnable_items[0]
-    assert f"items.id {_OTHER_ITEM_NUM}" in filtered.runnable_items[0]
     assert filtered.selected_item == filtered.runnable_items[0]
+    # Which step survived is read from the typed schedule data the context
+    # carries, because two unresolvable refs render the same phrase.
+    assert filtered.scheduler_context["title"] == _title(_OTHER_ITEM_NUM)
 
 
 def test_frontier_filter_no_skip_memory_runs_all_candidates():
@@ -74,8 +80,10 @@ def test_frontier_filter_no_skip_memory_runs_all_candidates():
     schedule = _schedule_with_two_candidates()
     filtered = build_frontier_state_from_schedule(schedule)
     assert len(filtered.runnable_items) == 2
-    assert f"items.id {_ITEM_NUM}" in filtered.runnable_items[0]
-    assert f"items.id {_OTHER_ITEM_NUM}" in filtered.runnable_items[1]
+    assert filtered.scheduler_context["title"] == _title(_ITEM_NUM)
+    for rendered in filtered.runnable_items:
+        assert str(_ITEM_NUM) not in rendered
+        assert str(_OTHER_ITEM_NUM) not in rendered
 
 
 def test_summarise_skip_memory_preserves_typed_item_id():

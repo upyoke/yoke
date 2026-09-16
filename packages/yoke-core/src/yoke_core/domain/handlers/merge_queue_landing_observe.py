@@ -20,6 +20,7 @@ from yoke_core.domain.merge_queue_landing_refresh import (
 )
 from yoke_core.domain.session_message_types import row_dict, utc_now
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class ObserveLandingRequest(BaseModel):
@@ -75,7 +76,7 @@ def handle_observe_landing(request: FunctionCallRequest) -> HandlerOutcome:
                 (item_id,),
             ).fetchone()
             if row is None:
-                return _error("target_not_found", f"no item at items.id {item_id}")
+                return _error("target_not_found", ITEM_NOT_FOUND)
             item = row_dict(row)
             project_id = int(item["project_id"])
             pr_number = str(item.get("merge_queue_pr_number") or "")

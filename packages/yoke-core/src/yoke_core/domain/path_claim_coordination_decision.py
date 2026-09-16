@@ -19,6 +19,7 @@ from yoke_core.domain.dependency_types import GatePoint, Satisfaction
 from yoke_core.domain.items_queries import query_item
 from yoke_core.domain.path_registry import ancestors_of, target_at
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 _DEFAULT_SPEC_TRUNCATION_BYTES = 4096
@@ -62,7 +63,7 @@ def _read_spec(item_id: int) -> str:
     if spec != "":
         return spec
     if query_item(item_id, "id") == "":
-        raise ValueError(f"no item at items.id {item_id}")
+        raise ValueError(ITEM_NOT_FOUND)
     return ""
 
 

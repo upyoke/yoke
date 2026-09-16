@@ -20,6 +20,7 @@ from yoke_core.domain.workflow_runtime import (
     load_item_workflow_runtime,
 )
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 @dataclass(frozen=True)
@@ -130,7 +131,7 @@ def load_item_effective_workflow_policies(
         (int(item_id),),
     ).fetchone()
     if row is None:
-        raise LookupError(f"no item at items.id {item_id}")
+        raise LookupError(ITEM_NOT_FOUND)
     raw = row["workflow_posture"] if hasattr(row, "keys") else row[0]
     if isinstance(raw, Mapping):
         posture = dict(raw)

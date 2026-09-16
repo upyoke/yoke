@@ -38,6 +38,7 @@ from yoke_core.domain.qa_plan_project_defaults import (
     unset_project_default,
 )
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 PROJECT_DEFAULT_QA_POLICIES = frozenset(
@@ -74,7 +75,7 @@ def attach_plan_to_item(
         (int(item_id),),
     )
     if item is None:
-        raise QaPlanError(f"no item at items.id {item_id}")
+        raise QaPlanError(ITEM_NOT_FOUND)
     if int(item["project_id"]) != int(plan["project_id"]):
         raise QaPlanError("plan and item must belong to the same project")
     lock_item_workflow_bindings(conn, (int(item_id),))
@@ -123,7 +124,7 @@ def _attached_plans(
         (item_id,),
     )
     if item is None:
-        raise QaPlanError(f"no item at items.id {item_id}")
+        raise QaPlanError(ITEM_NOT_FOUND)
     attachments: dict[int, dict] = {}
     if workflow_uses_project_testing_defaults(conn, int(item_id)):
         for row in query_rows(

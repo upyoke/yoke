@@ -28,6 +28,7 @@ from yoke_core.domain.item_execution_status_helpers import (
 )
 from yoke_core.domain.workflow_registry_sql import marker as _p
 from yoke_core.domain.work_claim_targets import make_item_target
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 _conn = connect_test_db
@@ -65,7 +66,7 @@ def test_unknown_item_returns_explicit_error(core_db) -> None:
     projection = build_projection(999, db_path=core_db, now=NOW)
     assert projection == {
         "ok": False,
-        "error": "no item at items.id 999",
+        "error": ITEM_NOT_FOUND,
         "item_id": 999,
     }
 

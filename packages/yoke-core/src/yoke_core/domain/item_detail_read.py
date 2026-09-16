@@ -24,6 +24,7 @@ from yoke_core.domain.workflow_effective_policies import (
     resolve_effective_workflow_policies,
 )
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 _NARRATIVE_FIELDS = (
     "spec",
@@ -165,7 +166,7 @@ def get_item_detail(item_id: int) -> dict[str, Any]:
             )
         )
         if row is None:
-            raise LookupError(f"no item at items.id {item_id}")
+            raise LookupError(ITEM_NOT_FOUND)
         narrative = {field: str(row.get(field) or "") for field in _NARRATIVE_FIELDS}
         narrative["body"] = build_body(conn, item_id) or ""
         file_budget_paths = extract_file_budget_paths(

@@ -22,6 +22,7 @@ from runtime.api.fixtures.backlog import (  # noqa: F401 — test_db is a fixtur
     insert_item,
     test_db,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 def _placeholder(conn) -> str:
@@ -300,8 +301,13 @@ class TestInputDiscipline:
         missing_id = 9999
         with pytest.raises(DbClaimAmendmentError) as exc_info:
             amend(missing_id, {"state": "none"}, reason="r", conn=db_conn)
-        # No row backs that id, so the refusal names the storage key.
-        assert f"items.id {missing_id}" in str(exc_info.value)
+        # No row backs that id, so there is no reference to name — and the
+        # storage key is not one. Whichever not-found path answers, the
+        # refusal carries neither the key nor the number.
+        message = str(exc_info.value)
+        assert "not found" in message or ITEM_NOT_FOUND in message
+        assert "items.id" not in message
+        assert str(missing_id) not in message
 
 
 # Upsert / event emission / read_claim coverage lives in

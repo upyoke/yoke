@@ -18,6 +18,7 @@ from yoke_core.domain.item_merge_provenance_operator import (
     MergedAtCorrectionHookContextError,
     operator_correct_merged_at,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 ITEM_ID = 4101
 LANDED_AT = "2026-08-01T18:42:00Z"
@@ -130,7 +131,7 @@ def test_refuses_a_hook_context(test_db, monkeypatch):
 
 
 def test_refuses_an_unknown_item(test_db):
-    with pytest.raises(MergedAtCorrectionError, match="no item at items.id"):
+    with pytest.raises(MergedAtCorrectionError, match=ITEM_NOT_FOUND):
         operator_correct_merged_at(test_db, ITEM_ID, LANDED_AT, REASON)
 
 

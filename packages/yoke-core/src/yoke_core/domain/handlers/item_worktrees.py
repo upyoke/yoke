@@ -22,6 +22,7 @@ from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
 from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class ItemWorktreeLane(BaseModel):
@@ -173,7 +174,7 @@ def handle_release(request: FunctionCallRequest) -> HandlerOutcome:
             (item_id,),
         ).fetchone()
         if item is None:
-            return _error("not_found", f"no item at items.id {item_id}")
+            return _error("not_found", ITEM_NOT_FOUND)
         status = str(item["status"] if hasattr(item, "keys") else item[0])
         runtime = load_item_workflow_runtime(conn, item_id)
         accepted = lane_release_recovery_statuses(runtime)

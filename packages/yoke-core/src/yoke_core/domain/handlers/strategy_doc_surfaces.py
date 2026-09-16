@@ -40,6 +40,7 @@ from yoke_core.domain.strategy_execution_events import (
     CLAIM_RELEASED_EVENT,
     REVISION_RESTORED_EVENT,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 def _error(code: str, message: str) -> HandlerOutcome:
@@ -140,7 +141,7 @@ def handle_execution_link(request: FunctionCallRequest) -> HandlerOutcome:
             "SELECT project_id FROM items WHERE id = %s", (item_id,),
         ).fetchone()
         if row is None:
-            return _error("unknown_item", f"no item at items.id {item_id}")
+            return _error("unknown_item", ITEM_NOT_FOUND)
         document_project_id = int(row[0])
         if payload.project:
             from yoke_core.domain.project_identity import resolve_project_id

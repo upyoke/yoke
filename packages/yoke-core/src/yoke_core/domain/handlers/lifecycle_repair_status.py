@@ -27,6 +27,7 @@ from yoke_contracts.api.function_call import (
 from yoke_core.domain import db_backend
 from yoke_core.domain.handlers.items_scalar import _map_error_code
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class LifecycleRepairStatusRequest(BaseModel):
@@ -100,7 +101,7 @@ def handle_repair_status(request: FunctionCallRequest) -> HandlerOutcome:
     item_id = int(target.item_id)
     state = _read_item_state(item_id)
     if state is None:
-        return _error("target_not_found", f"No item at items.id {item_id}.")
+        return _error("target_not_found", ITEM_NOT_FOUND)
     current, workflow = state
 
     if payload.source_status and payload.source_status != current:

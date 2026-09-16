@@ -43,6 +43,7 @@ from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
     load_item_workflow_runtime,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 AMENDED_EVENT_NAME = "ItemWorkflowPostureAmended"
@@ -75,7 +76,7 @@ def _item_row(conn: Any, item_id: int) -> dict[str, Any]:
     )
     row = cursor.fetchone()
     if row is None:
-        raise LookupError(f"no item at items.id {item_id}")
+        raise LookupError(ITEM_NOT_FOUND)
     columns = [str(column[0]) for column in cursor.description]
     return dict(row) if hasattr(row, "keys") else dict(zip(columns, row))
 

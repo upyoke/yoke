@@ -19,6 +19,7 @@ from yoke_core.domain.conflict_survey import (
 )
 from yoke_core.domain.item_ref_render import render_item_ref_lookup
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class SurveyPathSize(BaseModel):
@@ -92,7 +93,7 @@ def handle_survey(
             (item_id,),
         ).fetchone()
         if row is None:
-            return _error("unknown_item", f"no item at items.id {item_id}")
+            return _error("unknown_item", ITEM_NOT_FOUND)
         workflow_id = str(row[0])
         if workflow_id != expected_workflow:
             return _error(

@@ -23,6 +23,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 class ClaimDefaultDeploymentFlowRequest(BaseModel):
@@ -67,7 +68,7 @@ def handle_claim_default_deployment_flow(request: FunctionCallRequest) -> Handle
             (item_id,),
         ).fetchone()
         if row is None:
-            return _error("not_found", f"no item at items.id {item_id}")
+            return _error("not_found", ITEM_NOT_FOUND)
         item_project = str(row["project"] if hasattr(row, "keys") else row[0])
         flow_project, err = validate_and_lookup_flow_project(conn, flow_id, item_project)
         if err:

@@ -16,6 +16,13 @@ DEFAULT_PUBLIC_ITEM_PREFIX = "YOK"
 _PUBLIC_REF_RE = re.compile(r"^(?P<prefix>[A-Za-z][A-Za-z0-9]*)-(?P<seq>\d+)$")
 _BARE_SEQUENCE_RE = re.compile(r"^\d+$")
 
+#: The refusal raised when an item id matches no row. There is no row, so
+#: there is no reference to render, and the storage key is not one: a reader
+#: shown that number reads it as a name, and it names whichever item owns it
+#: as a sequence. A caller that needs the key to triage carries it in its own
+#: structured payload — an event field, a log record — never in this text.
+ITEM_NOT_FOUND = "no item for the requested reference"
+
 
 def format_item_ref(
     project_slug: Any,

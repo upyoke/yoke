@@ -20,6 +20,7 @@ from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE,
 )
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 ENGINE_TERMINAL_STAGE_IDS = frozenset({"cancelled", "stopped"})
 ENGINE_WAIT_STAGE_IDS = frozenset({"blocked", "failed"})
@@ -324,7 +325,7 @@ def load_item_workflow_runtime(
     )
     row = _row_dict(cursor, cursor.fetchone())
     if row is None:
-        raise WorkflowRegistryError(f"no item at items.id {item_id} — item does not exist")
+        raise WorkflowRegistryError(ITEM_NOT_FOUND)
     values = dict(row)
     if (
         values.get("workflow_id") is None

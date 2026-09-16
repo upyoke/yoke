@@ -9,6 +9,7 @@ from typing import Any, Iterable, Optional
 from uuid import uuid4
 
 from yoke_contracts import conflict_survey as survey_contract
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 from yoke_core.domain import db_backend
 from yoke_core.domain.conflict_survey_blockers import (
     direct_workflow_blockers,
@@ -24,8 +25,7 @@ from yoke_core.domain.conflict_survey_declared_paths import (
 from yoke_core.domain.conflict_survey_models import ConflictMatch, ConflictSurvey
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.path_claims_dependency_resolver_coordination import (
-    has_forward_serial_edge,
-    items_are_coordination_only,
+    has_forward_serial_edge, items_are_coordination_only,
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.project_identity import render_item_ref
@@ -87,7 +87,7 @@ def _item(conn: Any, item_id: int) -> dict[str, Any]:
         )
     )
     if not rows:
-        raise LookupError(f"no item at items.id {item_id}")
+        raise LookupError(ITEM_NOT_FOUND)
     row = rows[0]
     if str(row["workflow_id"]) not in DIRECT_WORKFLOW_IDS:
         raise ValueError(

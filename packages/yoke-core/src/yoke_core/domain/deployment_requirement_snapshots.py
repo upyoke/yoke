@@ -15,6 +15,7 @@ from yoke_core.domain.deployment_requirement_snapshot_format import (
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.project_identity import render_item_ref
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 SNAPSHOT_SCHEMA = 1
@@ -225,7 +226,7 @@ def snapshot_member_requirements(
         f"SELECT project_id FROM items WHERE id={_p(conn)}", (int(item_id),)
     ).fetchone()
     if item_row is None:
-        raise LookupError(f"no item at items.id {item_id}")
+        raise LookupError(ITEM_NOT_FOUND)
     project_id = int(
         item_row["project_id"] if hasattr(item_row, "keys") else item_row[0]
     )
