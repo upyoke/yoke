@@ -4,9 +4,8 @@
 A preview's slug is its occupancy: the deploy directory, the derived ports
 and the public URL all follow from it, so two previews resolving to one slug
 are not two previews — the second replaces the first. For a branch preview
-that is the point; for a frozen release preview it is the one thing that
-must never happen, because its URL gets cited as evidence that a reviewer
-saw one specific commit.
+that is the point; for a frozen release preview it is the one thing that must
+never happen, because its URL is cited as evidence of one specific commit.
 
 A frozen preview is therefore named by the deployment run that created it,
 and that name arrives already decided: the dispatcher sends ``preview_slug``
@@ -15,8 +14,9 @@ derivation is something the two sides can disagree about — and they did,
 each hashing a different value until the deployed host and the probed host
 were two different machines. That namespace is closed to branches, as is the
 shape previews published before it still occupy here. The occupancy record —
-not the caller's arguments — decides whether a deploy may write there, and
-cleanup refuses to remove one it cannot prove it owns.
+not the caller's arguments — decides whether a deploy may write there;
+cleanup refuses to remove one it cannot prove it owns, and a claim refuses
+an occupancy holding content that records no owner at all.
 
 Subcommands: ``resolve``, ``claim``, ``assert-unreserved``,
 ``check-cleanup``, ``teardown-slug``."""
@@ -42,6 +42,10 @@ RELEASE_SLUG_RE = re.compile(
 #: candidate's URL. Nothing new is published under it.
 RETAINED_SLUG_RE = re.compile(r"^rel-[0-9a-f]{32}$")
 UNREADABLE = "occupancy owner metadata is unreadable. Do not reuse or delete."
+UNOWNED_CONTENT = (
+    "this release occupancy holds content but records no owner, so what it "
+    "serves cannot be established. Do not reuse or delete; inspect the host."
+)
 RETIRED_OWNER = (
     "this occupancy predates run-named previews; retire it through the "
     "teardown of the Pack version that published it, which owns its identity."
@@ -98,9 +102,7 @@ def branch_slug(branch_name: str) -> str:
     """Slugify a branch, refusing one that lands in a reserved namespace.
 
     A branch may be named anything, including the exact shape a frozen
-    preview uses, and deploying it would take that preview's directory,
-    ports and URL.
-    """
+    preview uses, and deploying it would take its directory, ports and URL."""
     slug = re.sub(r"[^a-z0-9]+", "-", _safe(branch_name, "branch").lower()).strip("-")
     if not slug:
         raise FrozenPreviewError(
@@ -111,12 +113,12 @@ def branch_slug(branch_name: str) -> str:
 
 
 def read_owner(preview_dir: Path) -> dict | None:
-    """The recorded owner, or ``None`` when nothing occupies this slug.
+    """The recorded owner, or ``None`` when no record is stored here.
 
     An unreadable record is neither, and refuses: treating it as unoccupied
     is how a candidate under review gets overwritten. So does a record this
-    path cannot address, left by the naming before it.
-    """
+    path cannot address. ``None`` means only that no record is stored — a
+    branch occupancy never stores one."""
     path = preview_dir / OWNER_FILENAME
     if not path.is_file():
         return None
@@ -138,13 +140,16 @@ def assert_reuse_or_refuse(preview_dir: Path, preview_slug: str, commit_sha: str
     """Decide whether this deploy may write into *preview_dir*.
 
     Redeploying the same candidate under the same name is the ordinary retry
-    that makes a lost dispatch safe to repeat; anything else replaces what
-    some reviewer is looking at.
-    """
+    that makes a lost dispatch safe to repeat; anything else replaces what a
+    reviewer is looking at."""
     expected_slug = require_preview_slug(preview_slug)
     expected_sha = require_commit_sha(commit_sha)
     existing = read_owner(preview_dir)
     if existing is None:
+        # Content with no record is unverified, not unoccupied: adopting it
+        # rsyncs over a candidate whose record was lost, not over free space.
+        if preview_dir.is_dir() and any(preview_dir.iterdir()):
+            raise FrozenPreviewError("unknown_ownership", UNOWNED_CONTENT)
         return "create"
     if existing["preview_slug"] != expected_slug:
         raise FrozenPreviewError(
@@ -166,8 +171,7 @@ def read_fields(count: int, stream=None) -> list[str]:
     Slugs and revisions arrive this way rather than inside a remote command
     string, where a value containing a quote would end its argument and run
     whatever followed — nothing here is parsed by a shell. Exactly, because a
-    token carrying a newline would shift every field after it.
-    """
+    token carrying a newline would shift every field after it."""
     raw = (stream or sys.stdin).read().split("\n")
     if raw and raw[-1] == "":
         # Exactly one: the writer's terminator. Dropping every trailing blank
@@ -186,8 +190,7 @@ def occupancy_dir(preview_root: str, preview_slug: str, supplied_slug: str) -> P
     """The directory this name owns, refusing a slug it does not match.
 
     A caller free to name any slug could claim any occupancy, so the
-    preview's own name is the authority.
-    """
+    preview's own name is the authority."""
     supplied = _safe(supplied_slug, "slug")
     if not _safe(preview_slug, "preview_slug"):
         assert_unreserved(supplied)
@@ -210,8 +213,8 @@ def claim(preview_dir: Path, preview_slug: str, commit_sha: str) -> str:
 
 
 def assert_unreserved(slug: str) -> None:
-    """Refuse a reserved branch occupancy — again, because the deploy does
-    not trust whoever resolved it."""
+    """Refuse a reserved branch occupancy — the deploy does not trust
+    whoever resolved it."""
     value = _safe(slug, "slug")
     if RELEASE_SLUG_RE.fullmatch(value) or RETAINED_SLUG_RE.fullmatch(value):
         raise FrozenPreviewError(
@@ -312,13 +315,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.command == "claim":
             preview_slug, commit_sha, slug = read_fields(3)
-            print(
-                claim(
-                    occupancy_dir(args.preview_root, preview_slug, slug),
-                    preview_slug,
-                    commit_sha,
-                )
-            )
+            where = occupancy_dir(args.preview_root, preview_slug, slug)
+            print(claim(where, preview_slug, commit_sha))
         elif args.command == "assert-unreserved":
             assert_unreserved(args.slug)
             print("ok")
@@ -330,16 +328,10 @@ def main(argv: list[str] | None = None) -> int:
             print("ok")
         else:
             named = _safe(args.preview_slug, "preview_slug")
-            _emit(
-                {
-                    "occupancy_slug": (
-                        require_preview_slug(named)
-                        if named
-                        else branch_slug(args.branch)
-                    ),
-                    "preview_slug": named,
-                }
+            resolved = (
+                require_preview_slug(named) if named else branch_slug(args.branch)
             )
+            _emit({"occupancy_slug": resolved, "preview_slug": named})
     except FrozenPreviewError as exc:
         print(f"ERROR [{exc.code}]: {exc}", file=sys.stderr)
         return 1
