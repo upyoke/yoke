@@ -46,6 +46,7 @@ from yoke_core.domain.deployment_target_identity_config import (
     persistent_identity_path,
 )
 from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.served_revision_probe import is_full_revision
 
 
 @dataclass(frozen=True)
@@ -108,32 +109,53 @@ def _scalar(row: Any, index: int, key: str) -> Any:
     return row[key] if hasattr(row, "keys") else row[index]
 
 
-def _observed_release_lineage(conn: Any, run_id: str, environment: str) -> str:
-    """The newest ready receipt this run recorded for *environment*.
+def _observed_release_lineage(
+    conn: Any, run_id: str, environment: str, pinned_artifact: str
+) -> str:
+    """The newest ready receipt THIS run recorded for THIS environment.
 
-    Only a ``ready`` receipt carries an observation at all — the table's own
-    constraint requires a target name and an observed lineage for that status
-    — so a pending, failed, or cancelled attempt correctly answers nothing.
+    Every part of that binding is load-bearing, because a receipt vouches
+    only for the dispatch that produced it: another run's attempt, another
+    environment's, or one that never reached ``ready`` says nothing about
+    this deployment. Only a ``ready`` receipt carries an observation at all
+    — the table's own constraint requires a target name and an observed
+    lineage for that status.
+
+    When the run pins an artifact identity, a receipt observing a different
+    one is a different artifact and is not this run's evidence. Where the run
+    pins none, none is required: that is the existing receipt contract, not
+    a looser one.
     """
     if not _table_exists(conn, "deployment_stage_receipts"):
         return ""
     marker = _p(conn)
     row = conn.execute(
-        "SELECT observed_release_lineage FROM deployment_stage_receipts "
+        "SELECT observed_release_lineage,observed_artifact_identity "
+        "FROM deployment_stage_receipts "
         f"WHERE run_id={marker} AND status='ready' "
         f"AND target_kind='persistent_environment' AND target_name={marker} "
         "ORDER BY attempt_number DESC, id DESC LIMIT 1",
         (str(run_id), str(environment)),
     ).fetchone()
-    return str(_scalar(row, 0, "observed_release_lineage") or "").strip()
+    if row is None:
+        return ""
+    if pinned_artifact:
+        observed_artifact = str(
+            _scalar(row, 1, "observed_artifact_identity") or ""
+        ).strip()
+        if observed_artifact != pinned_artifact:
+            return ""
+    served = str(_scalar(row, 0, "observed_release_lineage") or "").strip()
+    # An abbreviation or a label identifies a prefix, not a commit.
+    return served if is_full_revision(served) else ""
 
 
 def resolve_deployment_under_test(conn: Any, run_id: str) -> DeploymentUnderTest:
     """Resolve the deployment *run_id* targeted, from control-plane authority."""
     marker = _p(conn)
     run = conn.execute(
-        "SELECT project_id,target_environment_id FROM deployment_runs "
-        f"WHERE id={marker}",
+        "SELECT project_id,target_environment_id,artifact_identity "
+        f"FROM deployment_runs WHERE id={marker}",
         (str(run_id),),
     ).fetchone()
     if run is None:
@@ -174,7 +196,12 @@ def resolve_deployment_under_test(conn: Any, run_id: str) -> DeploymentUnderTest
         origin=str(_scalar(environment, 1, "url") or "").strip(),
         identity_path=configured.path,
         identity_error=configured.error,
-        observed_sha=_observed_release_lineage(conn, str(run_id), name),
+        observed_sha=_observed_release_lineage(
+            conn,
+            str(run_id),
+            name,
+            str(_scalar(run, 2, "artifact_identity") or "").strip(),
+        ),
     )
 
 

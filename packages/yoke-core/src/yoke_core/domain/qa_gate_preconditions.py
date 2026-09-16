@@ -137,6 +137,7 @@ def requirement_set_result(
 def browser_checkout_free_proof_result(
     conn,
     *,
+    item_id: Optional[int],
     where: str,
     params: tuple,
     name: str,
@@ -159,7 +160,7 @@ def browser_checkout_free_proof_result(
     )
 
     findings = checkout_bound_proof_findings(
-        conn, where=where, params=params, qa_phase=qa_phase
+        conn, item_id=item_id, where=where, params=params, qa_phase=qa_phase
     )
     if not findings:
         return None
@@ -211,6 +212,7 @@ def target_gate_precondition_result(
             return gate_result
         return browser_checkout_free_proof_result(
             conn,
+            item_id=target.item_id,
             where=where,
             params=params,
             name=name,

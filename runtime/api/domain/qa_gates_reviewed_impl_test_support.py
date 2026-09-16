@@ -64,6 +64,13 @@ CREATE TABLE qa_artifacts (
     artifact_handle TEXT,
     metadata TEXT
 );
+CREATE TABLE item_worktrees (
+    id INTEGER PRIMARY KEY,
+    item_id INTEGER,
+    branch TEXT,
+    state TEXT,
+    commit_sha TEXT
+);
 CREATE TABLE qa_plan_review_bundles (
     id TEXT PRIMARY KEY,
     state TEXT NOT NULL
@@ -163,6 +170,18 @@ def add_artifact(db_path, run_id, handle=None):
     conn.close()
 
 
+def record_lane_revision(db_path, sha, item_id=TEST_ITEM_ID):
+    """Give the item a revision the control plane records without a checkout."""
+    conn = connect_test_db(db_path)
+    conn.execute(
+        "INSERT INTO item_worktrees (item_id, branch, state, commit_sha) "
+        "VALUES (%s, 'feature-branch', 'active', %s)",
+        (item_id, sha),
+    )
+    conn.commit()
+    conn.close()
+
+
 def link_agent_review(
     db_path,
     *,
@@ -192,4 +211,5 @@ __all__ = [
     "add_requirement",
     "add_run",
     "link_agent_review",
+    "record_lane_revision",
 ]
