@@ -9,7 +9,9 @@ from typing import Any, Dict, Mapping
 #: input binding (see :mod:`deploy_pipeline_github_workflow_bindings`) that
 #: reuses one of these names would silently overwrite the run's own
 #: identity, so binding declaration refuses them by name.
-RESERVED_INPUT_PLACEHOLDERS = frozenset({"head_sha", "run_id", "target_environment"})
+RESERVED_INPUT_PLACEHOLDERS = frozenset(
+    {"head_sha", "run_id", "target_environment", "preview_slug"}
+)
 
 #: Every spelling of the placeholder a stage input uses to receive the
 #: run's frozen candidate. A stage that dispatches a deploy without one of
@@ -17,10 +19,24 @@ RESERVED_INPUT_PLACEHOLDERS = frozenset({"head_sha", "run_id", "target_environme
 #: whatever its own trigger resolves — which is not this run's candidate.
 HEAD_SHA_PLACEHOLDERS = frozenset({"{head_sha}", "$head_sha", "${head_sha}"})
 
+#: The canonical spelling of the placeholder a release-preview stage binds
+#: its deploy workflow's preview-name input to, and every spelling accepted.
+#: A stage that passes none of these leaves the workflow to name the preview
+#: itself, which is how the deployed host and the probed host came apart.
+PREVIEW_SLUG_PLACEHOLDER = "{preview_slug}"
+PREVIEW_SLUG_PLACEHOLDERS = frozenset(
+    {PREVIEW_SLUG_PLACEHOLDER, "$preview_slug", "${preview_slug}"}
+)
+
 
 def carries_head_sha(values: Mapping[str, str]) -> bool:
     """Whether any configured input passes the run's frozen candidate."""
     return any(value in HEAD_SHA_PLACEHOLDERS for value in values.values())
+
+
+def carries_preview_slug(values: Mapping[str, str]) -> bool:
+    """Whether any configured input passes this run's preview name."""
+    return any(value in PREVIEW_SLUG_PLACEHOLDERS for value in values.values())
 
 
 def workflow_inputs(config: Dict[str, Any]) -> Dict[str, str]:
@@ -50,6 +66,7 @@ def resolve_workflow_inputs(
     head_sha: str,
     run_id: str = "",
     target_environment: str = "",
+    preview_slug: str = "",
     bound: Mapping[str, str] = {},  # noqa: B006 - read-only, never mutated
 ) -> Dict[str, str]:
     """Resolve supported deployment-run placeholders in workflow inputs.
@@ -58,6 +75,9 @@ def resolve_workflow_inputs(
     deploys to, resolved from the flow's typed environment reference. A
     dispatched workflow that hands an environment coordinate back to a Yoke
     surface must receive that name, never a workflow's own display label.
+    ``preview_slug`` is the recorded name of this run's release preview, for
+    a stage that deploys one; the workflow publishes it verbatim, so the host
+    Yoke probes and the host the workflow stood up are the same string.
     ``bound`` carries a stage's declared external input bindings (see
     :mod:`deploy_pipeline_github_workflow_bindings`), each usable the same
     way as the three built-in placeholders below. A binding sharing a
@@ -79,6 +99,9 @@ def resolve_workflow_inputs(
         "{target_environment}": target_environment,
         "$target_environment": target_environment,
         "${target_environment}": target_environment,
+        "{preview_slug}": preview_slug,
+        "$preview_slug": preview_slug,
+        "${preview_slug}": preview_slug,
     }
     for key, value in bound.items():
         replacements[f"{{{key}}}"] = value
@@ -117,29 +140,25 @@ def workflow_dispatch_request_id(
     return f"{base}:{retrigger_scope}"
 
 
-def fresh_retrigger_scope(*, release_preview: bool) -> str:
+def fresh_retrigger_scope() -> str:
     """The scope one explicit ``--fresh`` retrigger dispatches under.
 
     One ``--fresh`` invocation is one intentional retrigger, so the scope
     stays stable for every transport retry inside that invocation while a
-    later ``--fresh`` gets a genuinely new dispatch.
-
-    A release preview is the exception, and deliberately so: it is
-    published under a name derived from this dispatch identity, so a new
-    scope would stand the preview up at a URL the run's own receipt does
-    not probe — the dispatch would succeed and the proof would read a
-    preview that no longer exists. Retriggering it redeploys the *same*
-    preview instead, which is safe precisely because the candidate is
-    frozen: a second dispatch under the same identity can only ever carry
-    the same commit.
+    later ``--fresh`` gets a genuinely new dispatch. A release preview needs
+    no exemption: its name comes from the deployment run rather than from
+    the dispatch, so a new scope redeploys the *same* preview — safe
+    precisely because the candidate is frozen and a second dispatch under
+    one run can only ever carry the same commit.
     """
-    if release_preview:
-        return ""
     return f"fresh:{uuid.uuid4().hex}"
 
 
 __all__ = [
+    "PREVIEW_SLUG_PLACEHOLDER",
+    "PREVIEW_SLUG_PLACEHOLDERS",
     "carries_head_sha",
+    "carries_preview_slug",
     "config_bool",
     "fresh_retrigger_scope",
     "resolve_workflow_inputs",

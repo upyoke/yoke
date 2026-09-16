@@ -28,7 +28,6 @@ from yoke_core.domain.deploy_preview_dispatch_boundary import (
 )
 from yoke_core.domain.ephemeral_substrate import (
     TRIGGER_GITHUB_PUSH,
-    frozen_preview_slug,
     preview_url,
 )
 from yoke_core.domain.served_revision_probe import ProbeOutcome
@@ -103,7 +102,7 @@ def _preview_stage() -> Dict[str, Any]:
         "stage_kind": "execution",
         "workflow": "deploy-preview.yml",
         "dispatch_correlation_input": "yoke_dispatch_id",
-        "inputs": {"revision": "{head_sha}"},
+        "inputs": {"revision": "{head_sha}", "preview_slug": "{preview_slug}"},
         "target": {"kind": "run_preview", "capability": "ephemeral-env"},
     }
 
@@ -178,7 +177,10 @@ class TestNormalizationPreservesTheStageContract:
         stages = _persisted(_preview_stage())
 
         assert stages[0]["config"]["workflow"] == "deploy-preview.yml"
-        assert stages[0]["config"]["inputs"] == {"revision": "{head_sha}"}
+        assert stages[0]["config"]["inputs"] == {
+            "revision": "{head_sha}",
+            "preview_slug": "{preview_slug}",
+        }
 
 
 class TestScopedTargetReachesReceiptProduction:
@@ -206,9 +208,7 @@ class TestScopedTargetReachesReceiptProduction:
             _qa_stage("release-preview", {"kind": "run_preview"}),
         )
         expected_origin = preview_url(
-            frozen_preview_slug(
-                release_preview_identity(PROJECT, RUN_ID, "release-preview")
-            ),
+            release_preview_identity(_preview_stage(), run_id=RUN_ID),
             PREVIEW_DOMAIN,
         )
 
@@ -325,7 +325,7 @@ class TestPreviewDeployCarriesTheFrozenCandidate:
         assert rc == 0
         assert deploy.call_args.kwargs["revision"] == LINEAGE
         assert deploy.call_args.kwargs["preview_key"] == release_preview_identity(
-            PROJECT, RUN_ID, "release-preview"
+            stages[0], run_id=RUN_ID
         )
 
     def test_branch_preview_still_deploys_the_branch_head(self) -> None:

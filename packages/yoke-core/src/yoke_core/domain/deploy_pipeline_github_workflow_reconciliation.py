@@ -115,6 +115,7 @@ def trigger_with_binding_collision_retry(
     head_sha: str,
     run_id: str,
     target_environment: str,
+    preview_slug: str = "",
 ) -> "tuple[Any, str, Optional[bool], Dict[str, str], str]":
     """Trigger once; recover and retry once on a declared-binding collision.
 
@@ -148,7 +149,8 @@ def trigger_with_binding_collision_retry(
             return result, run_id_out, dispatched, workflow_inputs, binding_error
         workflow_inputs = resolve_workflow_inputs(
             raw_workflow_inputs, head_sha=head_sha, run_id=run_id,
-            target_environment=target_environment, bound=bound_inputs,
+            target_environment=target_environment, preview_slug=preview_slug,
+            bound=bound_inputs,
         )
         result, run_id_out, dispatched = trigger(workflow_inputs)
     return result, run_id_out, dispatched, workflow_inputs, ""

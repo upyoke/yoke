@@ -16,13 +16,17 @@ from yoke_core.domain.deploy_ephemeral_occupancy import preview_slug
 from yoke_core.domain.deploy_preview_dispatch_boundary import (
     release_preview_identity,
 )
-from yoke_core.domain.ephemeral_substrate import is_frozen_preview_slug
+from yoke_core.domain.ephemeral_substrate import is_release_preview_slug
 from runtime.api.domain.deploy_ephemeral_test_support import (
     SHA as _SHA,
-    SLUG as _SLUG,
     install_ephemeral_project_source,
     scripted_runner as _scripted_runner,
 )
+
+#: The producing stage a release preview's name is read from.
+_PREVIEW_STAGE = {"target": {"kind": "run_preview", "capability": "ephemeral-env"}}
+#: A release preview's name is its deployment run, published verbatim.
+_RELEASE_PREVIEW = "run-20260915-004"
 
 
 class TestPreviewTrackingKey:
@@ -46,7 +50,7 @@ class TestPreviewTrackingKey:
         rc = deploy_ephemeral.exec_ephemeral_deploy(
             "yoke",
             branch="some-branch",
-            preview_key=_SLUG,
+            preview_key=_RELEASE_PREVIEW,
             revision=_SHA,
             repo_path=str(project_root),
             runner=runner,
@@ -54,7 +58,7 @@ class TestPreviewTrackingKey:
         )
         assert rc == 0
         keys = {call[1] for call in deploy_seams.calls}
-        assert keys == {_SLUG}, "a branch name must never appear as a tracking key"
+        assert keys == {_RELEASE_PREVIEW}, "a branch name is never a tracking key"
         assert deploy_seams.calls[-1][2]["status"] == "running"
 
     def test_a_failed_release_preview_marks_only_its_own_key(
@@ -72,7 +76,7 @@ class TestPreviewTrackingKey:
         rc = deploy_ephemeral.exec_ephemeral_deploy(
             "yoke",
             branch="some-branch",
-            preview_key=_SLUG,
+            preview_key=_RELEASE_PREVIEW,
             revision=_SHA,
             repo_path=str(project_root),
             runner=runner,
@@ -80,20 +84,20 @@ class TestPreviewTrackingKey:
         )
         assert rc == 1
         keys = {call[1] for call in deploy_seams.calls}
-        assert keys == {_SLUG}, "a failure must not mark an unrelated branch"
+        assert keys == {_RELEASE_PREVIEW}, "a failure never marks another branch"
         assert deploy_seams.calls[-1][2]["status"] == "failed"
 
 
 class TestTheReservedFrozenNamespace:
-    """A branch may be named anything; the frozen namespace belongs to runs.
+    """A branch may be named anything; the run-named space belongs to runs.
 
-    A preview at ``rel-<32 hex>`` promises that what it serves does not move
-    while a candidate is under review. A branch slugifying onto that name
-    would take over its directory, its port and its URL and serve a moving
-    branch from them, so the branch-shaped paths refuse to land there.
+    A preview at ``run-YYYYMMDD-NNN`` promises that what it serves does not
+    move while a candidate is under review. A branch slugifying onto that
+    name would take over its directory, its port and its URL and serve a
+    moving branch from them, so the branch-shaped paths refuse to land there.
     """
 
-    COLLIDING = "rel-" + "f" * 32
+    COLLIDING = "run-20260915-002"
 
     def test_a_branch_preview_cannot_take_over_a_frozen_occupancy(
         self, deploy_seams, monkeypatch, tmp_path
@@ -171,7 +175,7 @@ class TestOccupancyOwnershipIsRead:
     by the preview already recorded there, not by the arguments passed in.
     """
 
-    IDENTITY = "deploy:yoke:run-20260915-001:preview"
+    IDENTITY = "run-20260915-003"
     OTHER_SHA = "b" * 40
 
     def _deploy(self, monkeypatch, tmp_path, revision):
@@ -243,15 +247,17 @@ class TestOccupancyOwnershipIsRead:
 
 
 class TestABranchNamedForARunCannotReachItsPreview:
-    """The collision the flow path used to have, driven end to end.
+    """The collision a run-named preview could have, driven end to end.
 
-    A flow-trigger release preview was named by slugifying its run id, so a
-    branch called ``run-20260915-001`` resolved to the same occupancy and
-    deployed a moving branch over a candidate under review. Both deploys run
-    here against one preview store, and the occupancies must stay disjoint.
+    A release preview is named for its run, so a branch called
+    ``run-20260915-001`` would slugify onto the same occupancy and deploy a
+    moving branch over a candidate under review. Both deploys run here
+    against one preview store: the branch one refuses, and an ordinary
+    branch keeps its own occupancy.
     """
 
     RUN_ID = "run-20260915-001"
+    BRANCH = "feature/preview-check"
 
     def _run(self, deploy_seams, monkeypatch, tmp_path, **kwargs):
         project_root = install_ephemeral_project_source(tmp_path)
@@ -271,26 +277,37 @@ class TestABranchNamedForARunCannotReachItsPreview:
     def test_the_two_previews_occupy_different_slugs(
         self, deploy_seams, monkeypatch, tmp_path
     ):
-        identity = release_preview_identity("yoke", self.RUN_ID, "preview")
+        identity = release_preview_identity(_PREVIEW_STAGE, run_id=self.RUN_ID)
         frozen = preview_slug(identity, frozen=True)
-        branch = preview_slug(self.RUN_ID, frozen=False)
+        branch = preview_slug(self.BRANCH, frozen=False)
         assert frozen != branch
-        assert is_frozen_preview_slug(frozen)
-        assert not is_frozen_preview_slug(branch)
+        assert is_release_preview_slug(frozen)
+        assert not is_release_preview_slug(branch)
+
+    def test_a_branch_named_for_the_run_refuses_instead_of_deploying(
+        self, deploy_seams, monkeypatch, tmp_path
+    ):
+        """It resolves to the release preview's own occupancy, so the only
+        safe answer is to refuse — deploying would replace the candidate a
+        reviewer is looking at."""
+        assert self._run(
+            deploy_seams, monkeypatch, tmp_path, branch=self.RUN_ID,
+        ) == 1
+        assert deploy_seams.calls == []
 
     def test_deploying_both_leaves_the_candidate_serving_its_own_commit(
         self, deploy_seams, monkeypatch, tmp_path
     ):
         """The branch deploy succeeds — it is a legitimate branch — and the
         release preview's recorded commit is untouched by it."""
-        identity = release_preview_identity("yoke", self.RUN_ID, "preview")
+        identity = release_preview_identity(_PREVIEW_STAGE, run_id=self.RUN_ID)
         assert self._run(
             deploy_seams, monkeypatch, tmp_path,
             branch="main", preview_key=identity, revision=_SHA,
         ) == 0
         assert self._run(
-            deploy_seams, monkeypatch, tmp_path, branch=self.RUN_ID,
+            deploy_seams, monkeypatch, tmp_path, branch=self.BRANCH,
         ) == 0
         recorded = {key: u for _p, key, u, _i in deploy_seams.calls if "deployed_sha" in u}
         assert recorded[identity]["deployed_sha"] == _SHA
-        assert set(recorded) == {identity, self.RUN_ID}
+        assert set(recorded) == {identity, self.BRANCH}

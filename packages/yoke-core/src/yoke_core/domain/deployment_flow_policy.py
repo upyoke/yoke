@@ -14,6 +14,10 @@ from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain.approval_policy import parse_approval_policy
+from yoke_core.domain.deploy_preview_dispatch_boundary import (
+    distinct_previews_error,
+    preview_discriminator_error,
+)
 from yoke_core.domain.deployment_flow_stage_references import (
     validate_stage_references,
 )
@@ -190,11 +194,24 @@ def _validate_target(
             )
         return
 
-    extra = set(target) - {"kind", "capability", "source_stage"}
+    extra = set(target) - {
+        "kind", "capability", "source_stage", "preview_discriminator",
+    }
     if extra:
         raise ValueError(f"{path} has unknown fields: {sorted(extra)}")
     capability = target.get("capability")
     source_stage = target.get("source_stage")
+    discriminator = target.get("preview_discriminator")
+    if discriminator is not None:
+        if source_stage:
+            raise ValueError(
+                f"{path}.preview_discriminator names one preview among several "
+                "a run deploys, so it belongs on the stage that deploys the "
+                "preview, not on the QA stage consuming its receipt"
+            )
+        error = preview_discriminator_error(discriminator)
+        if error:
+            raise ValueError(f"{path}.{error}")
     if bool(capability) == bool(source_stage):
         raise ValueError(f"{path} must name exactly one of capability or source_stage")
     if capability is not None and (
@@ -227,6 +244,7 @@ def _validate_target(
 def validate_release_stage_policy(stages: list[dict[str, Any]]) -> int:
     """Validate advanced policy fields and return the required schema version."""
     seen: dict[str, Mapping[str, Any]] = {}
+    previews: list[tuple[str, str]] = []
     required_version = LEGACY_DEFINITION_SCHEMA_VERSION
     for index, stage in enumerate(stages):
         name = str(stage.get("name") or "")
@@ -252,6 +270,15 @@ def validate_release_stage_policy(stages: list[dict[str, Any]]) -> int:
                 prior_stages={key: value for key, value in seen.items() if key != name},
                 stage_kind=str(stage_kind),
             )
+            target = stage["target"]
+            if (
+                isinstance(target, Mapping)
+                and target.get("kind") == "run_preview"
+                and target.get("capability")
+            ):
+                previews.append(
+                    (name, str(target.get("preview_discriminator") or ""))
+                )
         if stage_kind == STAGE_KIND_EXECUTION:
             if stage.get("step_runner") == QA_STEP_RUNNER:
                 raise ValueError(f"{path} execution stage cannot use the QA runner")
@@ -278,6 +305,9 @@ def validate_release_stage_policy(stages: list[dict[str, Any]]) -> int:
         _validate_verdict(stage["verdict"], path=f"{path}.verdict")
         if "notification" in stage:
             _validate_notification(stage["notification"], path=f"{path}.notification")
+    collision = distinct_previews_error(previews)
+    if collision:
+        raise ValueError(collision)
     return required_version
 
 

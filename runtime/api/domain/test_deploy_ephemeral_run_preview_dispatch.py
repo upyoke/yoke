@@ -22,10 +22,14 @@ from yoke_core.domain.deploy_preview_dispatch_boundary import (
     release_preview_identity,
     release_preview_origin,
 )
-from yoke_core.domain.deploy_ephemeral_occupancy import preview_slug
+from yoke_core.domain.deploy_ephemeral_files import EphemeralDeployError
+from yoke_core.domain.deploy_ephemeral_occupancy import (
+    preview_slug,
+    resolve_deploy_occupancy,
+)
 from yoke_core.domain.ephemeral_substrate import (
     TRIGGER_FLOW,
-    is_frozen_preview_slug,
+    is_release_preview_slug,
     preview_url,
     slugify_branch,
 )
@@ -83,7 +87,8 @@ class TestReleasePreviewDispatch:
         commit the run pinned — not whatever the branch points at."""
         seen = _dispatch(_stage({"kind": "run_preview", "capability": "ephemeral-env"}))
         assert seen["preview_key"] == release_preview_identity(
-            "testproj", RUN_ID, "preview-deploy"
+            _stage({"kind": "run_preview", "capability": "ephemeral-env"}),
+            run_id=RUN_ID,
         )
         assert seen["revision"] == CANDIDATE
 
@@ -117,15 +122,17 @@ class TestReleasePreviewDispatch:
         assert refusal == ""
         assert deployed == probed
 
-    def test_the_deployed_name_is_out_of_any_branch_reach(self) -> None:
-        """A branch named for the run — ``run-20260915-001`` — used to
-        slugify onto exactly this occupancy and overwrite the candidate
-        under review. The frozen derivation is what puts it beyond reach."""
+    def test_a_branch_named_for_the_run_is_refused_rather_than_served(self) -> None:
+        """The preview is named for the run, so a branch called
+        ``run-20260915-001`` slugifies onto exactly this occupancy. The
+        reservation is what stops it: the branch deploy refuses instead of
+        overwriting the candidate under review."""
         seen = _dispatch(_stage({"kind": "run_preview", "capability": "ephemeral-env"}))
         frozen = preview_slug(str(seen["preview_key"]), frozen=True)
-        assert is_frozen_preview_slug(frozen)
-        assert slugify_branch(RUN_ID) != frozen
-        assert not is_frozen_preview_slug(slugify_branch(RUN_ID))
+        assert is_release_preview_slug(frozen)
+        assert slugify_branch(RUN_ID) == frozen
+        with pytest.raises(EphemeralDeployError, match="reserved for frozen"):
+            resolve_deploy_occupancy("", branch=RUN_ID, revision="")
 
 
 class TestBranchPreviewDispatchIsUnchanged:

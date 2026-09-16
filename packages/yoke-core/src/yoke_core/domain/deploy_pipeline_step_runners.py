@@ -98,13 +98,13 @@ def _dispatch_step_runner(
     # deploying that branch's current head under the branch name, which is
     # what a development preview is for.
     release_preview = str((stage.get("target") or {}).get("kind") or "") == "run_preview"
-    # One identity for both deploy paths. The project's own deploy workflow
-    # receives exactly this string as its dispatch correlation and names the
-    # preview by hashing it, so deriving the flow path's name any other way
-    # would put two frozen previews of one run in two different namespaces —
-    # and a readable one lands where a branch of that name could reach it.
+    # One recorded identity for both deploy paths: the run's own id. The
+    # project's own deploy workflow receives exactly this string and
+    # publishes it verbatim, so the host Yoke probes is the host that was
+    # deployed — deriving either side from the dispatch correlation instead
+    # named two different hosts, because that token is per-attempt.
     release_identity = (
-        release_preview_identity(project, run_id, name) if release_preview else ""
+        release_preview_identity(stage, run_id=run_id) if release_preview else ""
     )
 
     if step_runner == "ephemeral-deploy":
@@ -177,7 +177,7 @@ def _dispatch_step_runner(
             product_repo_path=product_repo_path,
             image_tag=str(config.get("image_tag", "") or image_tag or ""),
             environment_name=environment_name,
-            release_preview=release_preview,
+            preview_slug=release_identity,
         )
 
     print(f"Error: unknown step runner type '{step_runner}'", file=sys.stderr)
