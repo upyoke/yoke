@@ -34,6 +34,12 @@ from yoke_core.tools._impacted_path_references import (
     resolve_named_path,
 )
 from yoke_core.tools._impacted_selection import is_effectively_full
+from yoke_core.tools._impacted_symbol_exports import (
+    ModuleSymbols,
+    imported_symbol_references,
+    module_symbols,
+    reexport_edges,
+)
 
 _PACKAGE_SOURCE_MARKER = "/src/"
 #: Project-local checks live here and import under
@@ -270,6 +276,11 @@ def build_import_index(repo_root: Path) -> ImportIndex:
     # Path literals resolve to modules only once every file is known, so
     # they are collected here and folded in after the scan.
     path_references: list[tuple[str, set[str]]] = []
+    # A name is followed to its defining module only once every module's
+    # own symbol table is known, so both sides are collected here and the
+    # edges folded in after the scan.
+    symbols: dict[str, ModuleSymbols] = {}
+    symbol_references: dict[str, set[tuple[str, str]]] = {}
     for path in _iter_source_files(repo_root):
         rel = path.relative_to(repo_root).as_posix()
         module = module_name_for(rel)
@@ -285,6 +296,11 @@ def build_import_index(repo_root: Path) -> ImportIndex:
         named_paths = named_path_references(tree)
         if named_paths:
             path_references.append((rel, named_paths))
+        if module:
+            symbols[module] = module_symbols(tree, module)
+        named_symbols = imported_symbol_references(tree, module)
+        if named_symbols:
+            symbol_references[rel] = named_symbols
     by_file_name: dict[str, set[str]] = {}
     for rel in module_of:
         by_file_name.setdefault(rel.rsplit("/", 1)[-1], set()).add(rel)
@@ -293,6 +309,8 @@ def build_import_index(repo_root: Path) -> ImportIndex:
             referenced_module = resolve_named_path(named, module_of, by_file_name)
             if referenced_module:
                 importers.setdefault(referenced_module, set()).add(rel)
+    for defining, referring in reexport_edges(symbol_references, symbols).items():
+        importers.setdefault(defining, set()).update(referring)
     return ImportIndex(importers=importers, module_of=module_of)
 
 

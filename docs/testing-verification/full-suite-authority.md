@@ -67,22 +67,22 @@ Local verification stays change-scoped:
   take their xdist workers from one machine-wide budget rather than each
   claiming the machine (see below).
 
-  Selection is reverse-import reachability, hardened three ways: dotted module
+  Selection is reverse-import reachability, hardened four ways: dotted module
   paths in string literals (subprocess `-m` targets, patch targets, registry
   keys) are dependency edges; so is a `.py` path a file names, whole or
-  composed (`ROOT / "pkg" / "thing.py"`), when it names one file; and an
-  always-run floor of contract tests runs on every selection (CLI registry,
-  operation inventory, adapter parity, Atlas integrity, generated-artifact
-  parity/drift, plus a fresh-universe birth from the published engine wheel).
-  A changed or added test file is selected unconditionally before reachability
-  runs — including when a bounded run defers a near-total remainder — so the
-  branch's own tests cannot be dropped for the floor alone.
-  Every member but the last is fast; that one builds an artifact and boots
-  a database, and it is on the floor precisely because a deferred test is
-  how the engine last shipped unable to create one. The conservative
-  full-sweep fallback (non-Python changes,
-  conftest or shared-fixture edits, test tooling) still catches anything
-  reachability cannot bound.
+  composed (`ROOT / "pkg" / "thing.py"`), when it names one file; an imported
+  NAME resolves through re-export chains to its defining module (aliases and
+  star re-exports too); and an always-run floor of contract tests runs on
+  every selection (CLI registry, operation inventory, adapter parity, Atlas
+  integrity, generated-artifact parity/drift, plus a fresh-universe birth from
+  the published engine wheel). A changed or added test file is selected
+  unconditionally before reachability runs — including when a bounded run
+  defers a near-total remainder — so the branch's own tests cannot be dropped
+  for the floor alone. Every member but the last is fast; that one builds an
+  artifact and boots a database, and is on the floor because a deferred test
+  is how the engine last shipped unable to make one. The conservative
+  full-sweep fallback (non-Python changes, conftest or shared-fixture edits,
+  test tooling) still catches what reachability cannot bound.
 - **At the review gate** — the project-default plan case blocks the
   transition when verification fails. Because this project declares a
   `ci_workflow_file` capability, that case registers on the `command-ci`
