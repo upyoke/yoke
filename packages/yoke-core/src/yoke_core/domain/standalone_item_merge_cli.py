@@ -282,8 +282,7 @@ def run(argv: List[str]) -> int:
 
     _announce_close_out("prepared release")
     release_fragment, release_warning = release_flow.continue_prepared_release(
-        item_id=item_id,
-        session_id=str(args.session_id),
+        item_id=item_id, session_id=str(args.session_id), public_ref=public_ref,
     )
     if release_fragment is not None:
         envelope["prepared_release"] = release_fragment
