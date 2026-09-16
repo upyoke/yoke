@@ -37,10 +37,11 @@ from yoke_core.domain.ephemeral_substrate import (
 )
 
 #: The shape release previews were published under before they were named
-#: for their run. Yoke never publishes another one, and never addresses an
-#: existing one — they are removed on the host by hand — but the shape stays
-#: reserved so a branch cannot deploy over or tear down one that is still
-#: serving a review.
+#: for their run. Yoke never publishes another one and never addresses an
+#: existing one: an occupancy of this shape is retired through the teardown
+#: of the Pack version that published it, which still derives its slug from
+#: the identity that created it. The shape stays reserved meanwhile, so a
+#: branch cannot deploy over or tear down one that is still serving a review.
 RETAINED_PREVIEW_SLUG_RE = re.compile(r"^rel-[0-9a-f]{32}$")
 
 

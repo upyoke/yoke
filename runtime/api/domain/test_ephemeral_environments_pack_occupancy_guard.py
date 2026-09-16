@@ -129,17 +129,17 @@ class TestClaimingAnOccupancy:
         assert refused.returncode == 1
         assert "unknown_ownership" in refused.stderr
 
-    def test_a_record_this_guard_cannot_address_says_so(self, tmp_path: Path) -> None:
-        """A preview published before run-named occupancies is still on the
-        host. Reporting it as damaged would send an operator hunting; it is
-        simply not addressable here, and it is not deleted either."""
+    def test_a_retired_record_names_its_retirement(self, tmp_path: Path) -> None:
+        # An ownership-verified teardown for it still exists, in the Pack
+        # version that published it; not naming that path sends an operator
+        # to delete it by hand.
         owner = _owner_file(tmp_path, PREVIEW)
         owner.parent.mkdir(parents=True)
         owner.write_text(json.dumps({"yoke_dispatch_id": "yd-1", "commit_sha": SHA}))
         refused = _claim(tmp_path, PREVIEW, SHA)
         assert refused.returncode == 1
         assert "retired_ownership" in refused.stderr
-        assert "remove it on the host" in refused.stderr
+        assert "Pack version that published it" in refused.stderr
         assert owner.exists()
 
 

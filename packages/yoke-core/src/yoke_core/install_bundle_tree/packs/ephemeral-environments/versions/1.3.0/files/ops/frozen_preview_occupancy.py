@@ -43,8 +43,8 @@ RELEASE_SLUG_RE = re.compile(
 RETAINED_SLUG_RE = re.compile(r"^rel-[0-9a-f]{32}$")
 UNREADABLE = "occupancy owner metadata is unreadable. Do not reuse or delete."
 RETIRED_OWNER = (
-    "this occupancy predates run-named previews and is not addressable by "
-    "preview_slug. Do not reuse or delete it here; remove it on the host."
+    "this occupancy predates run-named previews; retire it through the "
+    "teardown of the Pack version that published it, which owns its identity."
 )
 
 
