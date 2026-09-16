@@ -1,96 +1,49 @@
-"""Conservatively advance a project's main checkout after a landing."""
+"""Advance a project's default-branch checkout at session start and landings.
+
+Both moments ask the same question the preparation surfaces ask — is this
+checkout's default branch current with its remote, and can it be brought
+current without touching anything local — so both delegate to the one
+implementation in :mod:`yoke_core.domain.repo_upstream_freshness` rather
+than carrying a second one. A landed merge is never unwound by local state:
+local commits and uncommitted changes are preserved, and whatever stopped
+the update comes back as an advisory naming its own recovery.
+"""
 
 from __future__ import annotations
 
-import subprocess
-from typing import Callable, Optional
+from yoke_core.domain.repo_upstream_freshness import refresh_base_branch
 
-from yoke_cli.config import credentialed_git
-
-
-Runner = Callable[..., subprocess.CompletedProcess[str]]
+NOT_SYNCED = "main checkout not fast-forwarded"
 
 
-def _git(
-    repo_root: str,
-    args: tuple[str, ...],
-    *,
-    run: Optional[Runner],
-) -> subprocess.CompletedProcess[str]:
-    if run is not None:
-        return run(
-            ["git", "-C", repo_root, *args],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    return credentialed_git.run(["-C", repo_root, *args])
+def fast_forward_main_checkout(repo_root: str, target: str) -> str:
+    """Bring ``target`` current with its remote; return an advisory.
 
-
-def origin_default_branch(repo_root: str, *, run: Optional[Runner] = None) -> str:
-    """Return the branch ``origin/HEAD`` names, or empty if unknown."""
-    ref = _git(
-        repo_root, ("symbolic-ref", "--short", "refs/remotes/origin/HEAD"), run=run
-    )
-    if ref.returncode != 0:
-        return ""
-    current = ref.stdout.strip()
-    prefix = "origin/"
-    return current[len(prefix):] if current.startswith(prefix) else current
-
-
-def fast_forward_main_checkout(
-    repo_root: str,
-    target: str,
-    *,
-    run: Optional[Runner] = None,
-) -> str:
-    """Fast-forward a checkout on ``target``; return an advisory.
-
-    A landed merge is never unwound by local-checkout state. The mutation is
-    ``pull --ff-only`` after the checkout is on ``target`` and has no
-    tracked local changes. Untracked files are left for git: they only
-    fail the pull when an incoming commit would overwrite one, and that
-    failure is returned as the advisory.
+    Empty when there was nothing to report: the branch was already current,
+    or it fast-forwarded cleanly. A landing calls this after publishing, so
+    the advisory is a warning on an otherwise successful merge, never a
+    failure of it.
     """
-    branch = _git(repo_root, ("branch", "--show-current"), run=run)
-    current = branch.stdout.strip() if branch.returncode == 0 else ""
-    if current != target:
-        reason = f"checkout is on {current or 'detached HEAD'}, not {target}"
-        return f"main checkout not fast-forwarded: {reason}"
-
-    status = _git(
-        repo_root, ("status", "--porcelain", "--untracked-files=no"), run=run
-    )
-    if status.returncode != 0:
-        return "main checkout not fast-forwarded: cleanliness could not be read"
-    if status.stdout.strip():
-        return "main checkout not fast-forwarded: checkout has local changes"
-
-    pulled = _git(repo_root, ("pull", "--ff-only", "origin", target), run=run)
-    if pulled.returncode == 0:
-        return ""
-    detail = (pulled.stderr or pulled.stdout).strip().splitlines()
-    reason = detail[-1] if detail else "git pull --ff-only failed"
-    return f"main checkout not fast-forwarded: {reason}"
-
-
-def sync_main_checkout_at_session_start(
-    repo_root: str,
-    *,
-    run: Optional[Runner] = None,
-) -> str:
-    """Advance the default-branch checkout once; never raise."""
     if not repo_root:
-        return "main checkout not fast-forwarded: checkout root is missing"
-    target = origin_default_branch(repo_root, run=run)
-    if not target:
-        return "main checkout not fast-forwarded: origin default branch unknown"
-    return fast_forward_main_checkout(repo_root, target, run=run)
+        return f"{NOT_SYNCED}: checkout root is missing"
+    freshness = refresh_base_branch(repo_root, target, use_cache=False)
+    if not freshness.needs_attention:
+        return ""
+    return f"{NOT_SYNCED}: {freshness.note}"
+
+
+def sync_main_checkout_at_session_start(repo_root: str) -> str:
+    """Advance the default-branch checkout once; never raise.
+
+    The branch is the one the checkout's own remote publishes as its
+    default, so a project whose default is not ``main`` syncs the branch it
+    actually uses.
+    """
+    return fast_forward_main_checkout(repo_root, "")
 
 
 __all__ = [
+    "NOT_SYNCED",
     "fast_forward_main_checkout",
-    "origin_default_branch",
     "sync_main_checkout_at_session_start",
 ]

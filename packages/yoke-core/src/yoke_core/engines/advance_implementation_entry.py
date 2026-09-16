@@ -259,6 +259,11 @@ def run(
                            "actions_taken": list(wt.actions_taken)})
     summary["worktree_path"] = wt.worktree_path
     summary["branch"] = wt.branch
+    # Upstream freshness and static-cwd advisories reach the operator only
+    # if the orchestrator carries the preflight's notes into its own output.
+    summary["notes"] = list(wt.notes)
+    for note in wt.notes:
+        print(note, file=sys.stderr)
 
     # Environment ----------------------------------------------
     t0 = time.monotonic()

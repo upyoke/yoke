@@ -26,11 +26,12 @@ class _WtStub:
     """Stand-in for WorktreePreflightOutcome."""
     def __init__(self, *, ok=True, branch="YOK-42",
                  worktree_path="/tmp/yok-42", actions=None,
-                 block_kind="", narrative=""):
+                 block_kind="", narrative="", notes=None):
         self.ok, self.branch = ok, branch
         self.worktree_path = worktree_path
         self.actions_taken = list(actions or ["worktree:created"])
         self.block_kind, self.narrative = block_kind, narrative
+        self.notes = list(notes or [])
 
 
 def _ok_response():
@@ -165,7 +166,8 @@ def test_run_happy_path_flips_status_in_one_call(
     _patch_run_preflight(monkeypatch, stub=_WtStub(
         branch="YOK-99", worktree_path="/tmp/yok-99",
         actions=["work-claim:acquired", "path-claim:no-op",
-                 "worktree:created"]))
+                 "upstream:fast_forwarded", "worktree:created"],
+        notes=["upstream freshness: trunk fast-forwarded 2 commit(s)"]))
     dispatch_calls: List[Dict[str, Any]] = []
     _patch_dispatch(monkeypatch, calls=dispatch_calls)
     out = io.StringIO()
@@ -174,6 +176,11 @@ def test_run_happy_path_flips_status_in_one_call(
     assert summary["pre_status"] == "refined-idea"
     assert summary["post_status"] == "implementing"
     assert summary["worktree_path"] == "/tmp/yok-99"
+    # The preflight's advisories — upstream freshness among them — are only
+    # visible to an operator if the orchestrator carries them out.
+    assert summary["notes"] == [
+        "upstream freshness: trunk fast-forwarded 2 commit(s)"
+    ]
     assert emits.phases() == ["preflight", "worktree", "environment",
                               "finalize"]
     outcomes = emits.outcomes()

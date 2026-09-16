@@ -17,6 +17,7 @@ from typing import Optional, Sequence, Tuple
 
 from yoke_core.domain import project_settings, runtime_settings
 from yoke_core.domain.project_checkout_locations import checkout_for_project_slug
+from yoke_core.domain.repo_upstream_freshness import refresh_base_branch
 from yoke_core.domain.worktree_create_db import (
     check_path_claim_gate,
     item_worktree_authority_is_https,
@@ -135,6 +136,9 @@ def create_worktree(
     if config_path is None:
         config_path = _resolve_config_path(repo_root)
 
+    # An explicit base is the caller's own choice and is taken as given. A
+    # resolved one is brought current first: a lane cut from a stale default
+    # branch starts the work behind, and nothing says so until the merge.
     if base_branch is None:
         if project:
             base_branch = (
@@ -147,6 +151,9 @@ def create_worktree(
                 "base_branch",
                 config_path=config_path,
             )
+        base_branch = (
+            refresh_base_branch(repo_root, base_branch).lane_base_ref or base_branch
+        )
 
     wt_dir = project_settings.get_project_str(
         repo_root,

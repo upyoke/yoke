@@ -1,103 +1,139 @@
-"""A landing may advance only a clean main checkout on its target branch."""
+"""A landing and a session start advance a checkout only when it is safe.
+
+Both surfaces delegate to the shared upstream-freshness primitive, so these
+cases exercise real repositories rather than a canned command sequence: the
+question is what happens to the checkout, not which git verbs run.
+"""
 
 from __future__ import annotations
 
 import subprocess
+from pathlib import Path
 
+import pytest
+
+from yoke_core.domain import repo_upstream_freshness as freshness
 from yoke_core.engines.main_checkout_sync import (
+    NOT_SYNCED,
     fast_forward_main_checkout,
     sync_main_checkout_at_session_start,
 )
 
-
-def _result(returncode: int = 0, stdout: str = "", stderr: str = ""):
-    return subprocess.CompletedProcess([], returncode, stdout, stderr)
+DEFAULT_BRANCH = "trunk"
 
 
-def _runner(responses, calls):
-    def run(command, **_kwargs):
-        calls.append(command)
-        return responses.pop(0)
-    return run
+def _git(cwd: Path, *args: str) -> str:
+    done = subprocess.run(
+        ["git", "-C", str(cwd), *args], capture_output=True, text=True, check=True
+    )
+    return done.stdout.strip()
 
 
-def test_clean_target_checkout_uses_only_pull_for_the_mutation():
-    calls: list[list[str]] = []
-    warning = fast_forward_main_checkout(
-        "/tmp/repo", "main",
-        run=_runner([_result(stdout="main\n"), _result(), _result()], calls),
+def _commit(repo: Path, name: str, body: str) -> str:
+    (repo / name).write_text(body)
+    _git(repo, "add", name)
+    _git(repo, "commit", "-q", "-m", f"add {name}")
+    return _git(repo, "rev-parse", "HEAD")
+
+
+@pytest.fixture(autouse=True)
+def _clear_cache():
+    freshness.reset_cache()
+    yield
+    freshness.reset_cache()
+
+
+@pytest.fixture
+def landed(tmp_path: Path):
+    """A checkout whose remote has moved on, as it has after a landing."""
+    origin = tmp_path / "origin.git"
+    seed = tmp_path / "seed"
+    subprocess.run(
+        ["git", "init", "-q", "--bare", f"--initial-branch={DEFAULT_BRANCH}", str(origin)],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "init", "-q", f"--initial-branch={DEFAULT_BRANCH}", str(seed)], check=True
+    )
+    _git(seed, "config", "user.email", "test@example.com")
+    _git(seed, "config", "user.name", "Test")
+    _commit(seed, "README.md", "seed\n")
+    _git(seed, "remote", "add", "origin", str(origin))
+    _git(seed, "push", "-q", "-u", "origin", DEFAULT_BRANCH)
+    checkout = tmp_path / "checkout"
+    subprocess.run(["git", "clone", "-q", str(origin), str(checkout)], check=True)
+    _git(checkout, "config", "user.email", "test@example.com")
+    _git(checkout, "config", "user.name", "Test")
+    landed_sha = _commit(seed, "landed.txt", "the merge\n")
+    _git(seed, "push", "-q", "origin", DEFAULT_BRANCH)
+    return checkout, landed_sha
+
+
+def test_clean_checkout_advances_to_the_landed_commit(landed):
+    checkout, landed_sha = landed
+
+    advisory = fast_forward_main_checkout(str(checkout), DEFAULT_BRANCH)
+
+    assert advisory == ""
+    assert _git(checkout, "rev-parse", DEFAULT_BRANCH) == landed_sha
+
+
+def test_unrelated_local_edit_is_kept_and_the_checkout_still_advances(landed):
+    checkout, landed_sha = landed
+    (checkout / "scratch.txt").write_text("mine\n")
+
+    advisory = fast_forward_main_checkout(str(checkout), DEFAULT_BRANCH)
+
+    assert advisory == ""
+    assert _git(checkout, "rev-parse", DEFAULT_BRANCH) == landed_sha
+    assert (checkout / "scratch.txt").read_text() == "mine\n"
+
+
+def test_edit_that_blocks_the_update_is_a_named_advisory(landed, tmp_path):
+    checkout, _landed_sha = landed
+    before = _git(checkout, "rev-parse", DEFAULT_BRANCH)
+    (checkout / "landed.txt").write_text("conflicting local edit\n")
+
+    advisory = fast_forward_main_checkout(str(checkout), DEFAULT_BRANCH)
+
+    assert advisory.startswith(NOT_SYNCED)
+    assert "commit or stash" in advisory
+    assert _git(checkout, "rev-parse", DEFAULT_BRANCH) == before
+    assert (checkout / "landed.txt").read_text() == "conflicting local edit\n"
+
+
+def test_off_branch_checkout_still_advances_the_branch_it_left(landed):
+    checkout, landed_sha = landed
+    _git(checkout, "checkout", "-q", "-b", "lane")
+
+    advisory = fast_forward_main_checkout(str(checkout), DEFAULT_BRANCH)
+
+    assert advisory == ""
+    assert _git(checkout, "rev-parse", DEFAULT_BRANCH) == landed_sha
+    assert _git(checkout, "branch", "--show-current") == "lane"
+
+
+def test_local_commits_are_reported_and_never_replayed(landed):
+    checkout, _landed_sha = landed
+    local_sha = _commit(checkout, "local.txt", "mine\n")
+
+    advisory = fast_forward_main_checkout(str(checkout), DEFAULT_BRANCH)
+
+    assert advisory.startswith(NOT_SYNCED)
+    assert "rebase" in advisory
+    assert _git(checkout, "rev-parse", DEFAULT_BRANCH) == local_sha
+
+
+def test_missing_checkout_root_is_a_named_advisory():
+    assert fast_forward_main_checkout("", DEFAULT_BRANCH) == (
+        f"{NOT_SYNCED}: checkout root is missing"
     )
 
-    assert warning == ""
-    assert calls[-1] == [
-        "git", "-C", "/tmp/repo", "pull", "--ff-only", "origin", "main",
-    ]
 
+def test_session_start_syncs_the_branch_the_remote_declares(landed):
+    checkout, landed_sha = landed
 
-def test_dirty_checkout_is_not_touched():
-    calls: list[list[str]] = []
-    warning = fast_forward_main_checkout(
-        "/tmp/repo", "main",
-        run=_runner([_result(stdout="main\n"), _result(stdout=" M local.py\n")], calls),
-    )
+    advisory = sync_main_checkout_at_session_start(str(checkout))
 
-    assert warning == "main checkout not fast-forwarded: checkout has local changes"
-    assert all("pull" not in call for call in calls)
-
-
-def test_off_branch_checkout_is_not_touched():
-    calls: list[list[str]] = []
-    warning = fast_forward_main_checkout(
-        "/tmp/repo", "main",
-        run=_runner([_result(stdout="feature\n")], calls),
-    )
-
-    assert warning == "main checkout not fast-forwarded: checkout is on feature, not main"
-    assert all("pull" not in call for call in calls)
-
-
-def test_untracked_files_do_not_block_the_fast_forward():
-    calls: list[list[str]] = []
-    warning = fast_forward_main_checkout(
-        "/tmp/repo", "main",
-        run=_runner([_result(stdout="main\n"), _result(), _result()], calls),
-    )
-
-    assert warning == ""
-    assert calls[1] == [
-        "git", "-C", "/tmp/repo", "status", "--porcelain", "--untracked-files=no",
-    ]
-    assert calls[-1][-4:] == ["pull", "--ff-only", "origin", "main"]
-
-
-def test_session_start_sync_uses_origin_head_and_does_not_raise():
-    calls: list[list[str]] = []
-    warning = sync_main_checkout_at_session_start(
-        "/tmp/repo",
-        run=_runner(
-            [
-                _result(stdout="origin/main\n"),
-                _result(stdout="main\n"),
-                _result(),
-                _result(),
-            ],
-            calls,
-        ),
-    )
-
-    assert warning == ""
-    assert calls[0][-3:] == [
-        "symbolic-ref", "--short", "refs/remotes/origin/HEAD",
-    ]
-
-
-def test_failed_fast_forward_is_a_named_advisory():
-    warning = fast_forward_main_checkout(
-        "/tmp/repo", "main",
-        run=_runner(
-            [_result(stdout="main\n"), _result(), _result(1, stderr="not possible\n")],
-            [],
-        ),
-    )
-
-    assert warning == "main checkout not fast-forwarded: not possible"
+    assert advisory == ""
+    assert _git(checkout, "rev-parse", DEFAULT_BRANCH) == landed_sha

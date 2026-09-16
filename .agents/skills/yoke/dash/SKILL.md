@@ -323,7 +323,13 @@ live `working_directory` when Shell would inherit a worktree or deleted
 path. The preparation call reuses the item work claim already held
 since step 1 (reporting `work-claim:already-owned`, or acquiring it if
 absent), validates selected path-claim coverage against the survey,
-activates those claims, and creates or reuses the registered worktree.
+activates those claims, brings the project's default branch current with the
+remote that tracks it, and creates or reuses the registered worktree. A new
+lane is cut from the fetched upstream revision, so the work does not start
+behind; local commits the remote lacks are preserved and reported instead,
+and an existing lane is never reset or rebased on re-entry. Read the
+`upstream freshness:` note in the envelope: it names what was observed and,
+where something stood in the way of the update, the recovery.
 
 Activate through the shared lifecycle interpreter:
 
