@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  renderDeliveryRunsView,
+  renderDeploymentsView,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_delivery.js";
 import {
   FakeDocument,
@@ -54,7 +54,7 @@ test("active run terminalization requires a reason and uses shared authority", a
     },
   };
 
-  renderDeliveryRunsView(context, main, "all");
+  renderDeploymentsView(context, main, "all", { tab: "runs" });
   await settle();
   assert.equal(byClass(main, "delivery-run-terminalize").length, 1);
   byClass(main, "delivery-run-terminalize")[0].dispatchEvent(
@@ -114,7 +114,7 @@ test("terminal runs do not expose the action", async () => {
       },
     },
   };
-  renderDeliveryRunsView(context, main, "all");
+  renderDeploymentsView(context, main, "all", { tab: "runs" });
   await settle();
   assert.equal(byClass(main, "delivery-run-terminalize").length, 0);
 });

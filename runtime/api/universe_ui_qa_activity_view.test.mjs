@@ -101,11 +101,29 @@ test("Activity folds hidden QA plumbing into readable outcomes", async (t) => {
     ],
   );
   assert.equal(byClass(root, "qa-clickable-row").length, 6);
+  const columns = ["Plan", "Case", "Method", "Outcome", "Evidence", "Review", "When"];
   assert.deepEqual(
     allNodes(byClass(root, "qa-activity-table")[0])
       .filter((node) => node.tagName === "TH")
       .map((node) => node.textContent),
-    ["Plan", "Case", "Method", "Outcome", "Evidence", "Review", "When"],
+    columns,
+  );
+  // Each cell names its column, which is what lets a phone stack the row
+  // rather than push Outcome, Evidence and Review off the right edge.
+  assert.ok(
+    byClass(root, "qa-activity-table")[0].classList.contains("table-stacks-narrow"),
+  );
+  assert.deepEqual(
+    allNodes(byClass(root, "qa-clickable-row")[0])
+      .filter((node) => node.tagName === "TD")
+      .map((node) => node.attributes.get("data-label")),
+    columns,
+  );
+  // And the row a reader taps opens that exact case, which is the only way
+  // to reach its evidence once the columns are stacked.
+  assert.equal(
+    byClass(root, "qa-activity-link")[1].href,
+    "#/qa-activity/32?project=1",
   );
   assert.deepEqual(
     client.requests.find(
@@ -210,39 +228,15 @@ test("Activity labels every merged row with its owning project", async () => {
     byClass(root, "qa-activity-project").map((node) => node.textContent),
     ["beta", "alpha"],
   );
+  // The Plan cell opens the plan; the Case cell opens that case run, which
+  // is what the row is about.
   assert.deepEqual(
     byClass(root, "qa-activity-link").map((node) => node.href),
-    ["#/qa-plans/2?project=2", "#/qa-plans/1?project=1"],
+    [
+      "#/qa-plans/2?project=2", "#/qa-activity/2?project=2",
+      "#/qa-plans/1?project=1", "#/qa-activity/1?project=1",
+    ],
   );
-});
-
-test("a run evidence route requests only that deployment run", async () => {
-  const documentNode = new FakeDocument();
-  const root = documentNode.createElement("main");
-  const requests = [];
-  let detailLabel = "";
-  await renderQaActivity({
-    document: documentNode,
-    projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
-    isMounted: () => true,
-    navigate: () => {},
-    client: {
-      async call(request) {
-        requests.push(request);
-        return ok({ summary: { total: 0, counts: {} }, rows: [] });
-      },
-    },
-  }, root, ["1"], "run-20260910-006", {
-    setDetailLabel(value) { detailLabel = value; },
-  });
-
-  assert.deepEqual(requests[0].payload, {
-    project: "1",
-    limit: 100,
-    deployment_run_id: "run-20260910-006",
-  });
-  assert.equal(detailLabel, "run-20260910-006");
-  assert.match(visibleText(root, " "), /Evidence for run-20260910-006/);
 });
 
 test("a row's linked artifacts render as thumbnails, and a pending review points at the Inbox", async () => {

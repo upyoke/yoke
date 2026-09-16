@@ -294,3 +294,40 @@
 .universe-app-root .item-proof-link-out:hover {
   text-decoration: underline;
 }
+
+/* How the item ships: the flow it is bound to, then every release that has
+   carried it, newest first. */
+.universe-app-root .item-delivery-flow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+  margin-bottom: 10px;
+}
+.universe-app-root .item-delivery-label {
+  color: var(--yoke-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.universe-app-root .item-delivery-flow-source { color: var(--yoke-muted); }
+.universe-app-root .item-delivery-default {
+  color: var(--yoke-muted);
+  text-decoration: none;
+}
+.universe-app-root .item-delivery-default:hover { color: var(--yoke-ink); }
+.universe-app-root .item-delivery-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.universe-app-root .item-delivery-run {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+.universe-app-root .item-delivery-stage,
+.universe-app-root .item-delivery-when { color: var(--yoke-muted); }

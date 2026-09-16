@@ -8,7 +8,7 @@
 
 import { createDecisionResolver } from "./inbox_rows.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
-import { buildUniverseRoute } from "./universe_navigation.js";
+import { deploymentRunsHref } from "./universe_navigation.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
 import { KIND_LABELS } from "./review_request_presentation.js";
@@ -19,6 +19,12 @@ import {
   loadCarriedItemEvidence,
 } from "./universe_carried_item_evidence.js";
 import { gateAsRequest, runGateStatus, runGates } from "./universe_run_gates.js";
+import {
+  appendRunAftermath,
+  loadRunTarget,
+  loadSiblingRuns,
+  runIdentityCard,
+} from "./universe_run_identity.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import { RUNS_PAGE_SIZE } from "./universe_deployment_runs_loader.js";
 import {
@@ -128,32 +134,45 @@ function statusCopy(row, gate) {
 // rather than to the release moving it.
 function decisionCard(context, row, project, onAct, evidenceShown, itemFacts, onItemDecision) {
   const documentNode = context.document;
-  const gate = runGates(row)[0] || null;
   const card = el(documentNode, "section", "run-card");
-  const { title, copy } = statusCopy(row, gate);
+  const items = carriedItems(row);
+  // The member rows are drawn first because the release-level gate is
+  // chosen from what they did NOT take: a member-scoped QA review belongs to
+  // its member's row, and drawing it again here would offer one decision
+  // twice on one page, with two sets of buttons.
+  const drawnRequests = new Set();
+  const list = el(documentNode, "div", "run-items");
+  for (const item of items) {
+    const ref = item.ref || item.public_ref || item.item_ref || `item ${item.item_id}`;
+    const href = itemDrillInHref({
+      projectId: item.project_id ?? project?.id,
+      projectSequence: item.project_sequence,
+      publicRef: ref,
+    });
+    const code = el(documentNode, href ? "a" : "code", "mono", ref);
+    if (href) code.href = href;
+    list.appendChild(code);
+    list.appendChild(el(documentNode, "span", null, item.title || ""));
+    const drawn = appendCarriedItemEvidence(context, list, {
+      item,
+      runId: row.id || row.run_id,
+      facts: itemFacts,
+      onDecide: onItemDecision,
+    });
+    for (const id of drawn?.requestIds || []) drawnRequests.add(id);
+  }
+  // Two different questions. The heading asks whether anything on this page
+  // is waiting on somebody, which a member's own review answers just as well
+  // as a release-level one; the block below asks which request this card
+  // still has to draw itself.
+  const gates = runGates(row);
+  const gate = gates.find(
+    (candidate) => !drawnRequests.has(String(candidate.request_id)),
+  ) || null;
+  const { title, copy } = statusCopy(row, gate || gates[0] || null);
   card.appendChild(el(documentNode, "h2", null, title));
   if (copy) card.appendChild(el(documentNode, "p", "run-copy", copy));
-  const items = carriedItems(row);
   if (items.length) {
-    const list = el(documentNode, "div", "run-items");
-    for (const item of items) {
-      const ref = item.ref || item.public_ref || item.item_ref || `item ${item.item_id}`;
-      const href = itemDrillInHref({
-        projectId: item.project_id ?? project?.id,
-        projectSequence: item.project_sequence,
-        publicRef: ref,
-      });
-      const code = el(documentNode, href ? "a" : "code", "mono", ref);
-      if (href) code.href = href;
-      list.appendChild(code);
-      list.appendChild(el(documentNode, "span", null, item.title || ""));
-      appendCarriedItemEvidence(context, list, {
-        item,
-        runId: row.id || row.run_id,
-        facts: itemFacts,
-        onDecide: onItemDecision,
-      });
-    }
     card.appendChild(list);
   } else if (row.carried_work && row.carried_work.derivation?.contents_known === false) {
     // An unanswered comparison and an empty release look identical once the
@@ -214,7 +233,7 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
     loading.renderEnvelopes([], (body) => {
       body.appendChild(el(documentNode, "p", "empty", `There is no run called ${runId} in this scope.`));
       const back = el(documentNode, "a", "review-link", "Back to Deployments");
-      back.href = buildUniverseRoute("deployments", Array.isArray(scope) ? scope.join(",") : null);
+      back.href = deploymentRunsHref(Array.isArray(scope) ? scope.join(",") : null);
       body.appendChild(back);
     });
     return;
@@ -261,6 +280,13 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   const onItemDecision = (request, action, node, note) => resolve(
     request, action, node, note,
   );
+  // The run's binding and what else carried its work are two more reads about
+  // one page; the aftermath block is the only thing that waits on them.
+  const [environment, siblings] = await Promise.all([
+    loadRunTarget(context, project, row.target_environment),
+    loadSiblingRuns(context, project, carriedItems(row), runId),
+  ]);
+  if (!context.isMounted()) return;
   const status = runGateStatus(row) || String(row.status || "unknown");
   const items = carriedItems(row);
   const page = el(documentNode, "div", "run-page");
@@ -273,9 +299,10 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   copy.appendChild(el(
     documentNode, "h1", "run-title", read.flows.get(String(row.flow)) || row.flow || "Deployment run",
   ));
+  // The candidate commit lives on the Identity card whole; a truncated copy
+  // here read like a second, shorter identity.
   copy.appendChild(el(documentNode, "div", "run-sub", [
     items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : "no attached items",
-    row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
     String(row.id),
   ].filter(Boolean).join(" · ")));
   head.appendChild(copy);
@@ -285,10 +312,13 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   page.appendChild(head);
   appendSteps(documentNode, page, row.stages);
   const grid = el(documentNode, "div", "run-grid");
+  grid.appendChild(runIdentityCard(context, row, environment));
   grid.appendChild(verificationCard(context, checks, artifacts));
-  grid.appendChild(decisionCard(
+  const decision = decisionCard(
     context, row, project, onAct, artifacts.length > 0, itemFacts, onItemDecision,
-  ));
+  );
+  appendRunAftermath(context, decision, row, project, siblings);
+  grid.appendChild(decision);
   page.appendChild(grid);
   main.replaceChildren(page);
 }

@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from yoke_core.domain.handlers.qa import _error, _p
 from yoke_core.domain.qa_constants import REQ_COLUMNS, RUN_COLUMNS
+from yoke_core.domain.qa_review_requirement_facts import frozen_target_facts
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
@@ -112,18 +113,23 @@ def handle_qa_requirement_get(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         row = query_one(
             conn,
-            f"SELECT {', '.join(REQ_COLUMNS)} FROM qa_requirements "
-            f"WHERE id = {_p(conn)}",
+            f"SELECT {', '.join((*REQ_COLUMNS, 'execution_target_json'))} "
+            f"FROM qa_requirements WHERE id = {_p(conn)}",
             (int(req_id),),
         )
     finally:
         conn.close()
     if row is None:
         return _error("not_found", f"requirement {req_id} not found")
+    requirement = {col: row[col] for col in REQ_COLUMNS}
+    # What this check was actually pointed at, read from the target it froze
+    # rather than from whatever the project's environments say today. A
+    # release check against a run preview names no registered environment in
+    # its own column, and a page that fell back to the current one would
+    # report a different environment than the one that was checked.
+    requirement.update(frozen_target_facts(row["execution_target_json"]))
     return HandlerOutcome(
-        result_payload={
-            "requirement": {col: row[col] for col in REQ_COLUMNS},
-        },
+        result_payload={"requirement": requirement},
         primary_success=True,
     )
 
@@ -233,9 +239,13 @@ def handle_qa_run_get(request: FunctionCallRequest) -> HandlerOutcome:
                 f"WHERE r.id = {p} AND COALESCE(i.project_id, dr.project_id) = {p}",
                 (int(run_id), int(project_id)),
             )
-            if row is None and query_one(
-                conn, f"SELECT id FROM qa_runs WHERE id = {p}", (int(run_id),)
-            ) is not None:
+            if (
+                row is None
+                and query_one(
+                    conn, f"SELECT id FROM qa_runs WHERE id = {p}", (int(run_id),)
+                )
+                is not None
+            ):
                 return _error(
                     "project_mismatch",
                     f"run {run_id} does not belong to project {project_ref!r}",

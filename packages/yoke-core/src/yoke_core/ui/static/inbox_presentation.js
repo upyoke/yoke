@@ -1,4 +1,8 @@
-import { buildUniverseRoute } from "./universe_navigation.js";
+import {
+  buildUniverseRoute,
+  deploymentRunHref,
+  deploymentRunsHref,
+} from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 
 export const KIND_PRESENTATION = {
@@ -28,7 +32,9 @@ export function subjectHref(row) {
   const facts = row.subject_context || {};
   if (facts.href) return String(facts.href);
   if (row.kind === "deployment_stage_approval") {
-    return buildUniverseRoute("deployments", row.project_id);
+    return facts.run_id
+      ? deploymentRunHref(row.project_id, facts.run_id)
+      : deploymentRunsHref(row.project_id);
   }
   if (row.kind === "qa_needs_review") {
     if (facts.plan_id) {
@@ -68,7 +74,7 @@ export function decisionLinks(row) {
   if (row.kind === "deployment_stage_approval" && facts.run_id) {
     links.push({
       label: String(facts.run_id),
-      href: buildUniverseRoute("deployments", row.project_id),
+      href: deploymentRunHref(row.project_id, facts.run_id),
     });
   }
   if (row.kind === "qa_needs_review") {
@@ -77,7 +83,7 @@ export function decisionLinks(row) {
     if (subject.deployment_run_id) {
       links.push({
         label: String(subject.deployment_run_id),
-        href: buildUniverseRoute("deployments", row.project_id),
+        href: deploymentRunHref(row.project_id, subject.deployment_run_id),
       });
     }
     if (facts.plan_id) {

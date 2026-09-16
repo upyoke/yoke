@@ -3,6 +3,12 @@ import test from "node:test";
 
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
+  selectionRoute,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_selection_routes.js";
+import {
+  createProjectSelection,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_project_selection.js";
+import {
   FakeDocument,
   allNodes,
   byClass,
@@ -18,17 +24,17 @@ const FLOWS = [
   {
     id: "alpha-release", name: "Alpha Release", project: "alpha",
     status: "active", target_tier: "persistent", target_environment: "prod",
-    on_failure: "halt", stage_names: ["build", "verify"],
+    on_failure: "halt", stages: [{ name: "build" }, { name: "verify" }],
   },
   {
     id: "alpha-legacy", name: "Alpha Legacy", project: "alpha",
     status: "disabled", target_tier: "persistent", target_environment: "stage",
-    on_failure: "continue", stage_names: ["archive"],
+    on_failure: "continue", stages: [{ name: "archive" }],
   },
   {
     id: "beta-promote", name: "Beta Promote", project: "beta",
     status: "active", target_tier: "ephemeral", target_environment: null,
-    on_failure: "halt", stage_names: ["package", "promote", "observe"],
+    on_failure: "halt", stages: [{ name: "package" }, { name: "promote" }, { name: "observe" }],
   },
 ];
 
@@ -61,7 +67,7 @@ function flowClient(flows = FLOWS) {
   };
 }
 
-async function mountFlows(t, client, hash = "#/flows") {
+async function mountFlows(t, client, hash = "#/deployments/flows") {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -72,6 +78,27 @@ async function mountFlows(t, client, hash = "#/flows") {
   await settle();
   return { documentNode, root, mounted };
 }
+
+test("Deployments opens on Flows under one route head", async (t) => {
+  const { root, mounted } = await mountFlows(
+    t, flowClient(), "#/deployments?project=1",
+  );
+
+  const head = byClass(root, "page-head")[0];
+  assert.equal(byClass(head, "title")[0].textContent, "Deployments");
+  const tabs = byClass(root, "tab-link");
+  assert.deepEqual(tabs.map((tab) => tab.textContent), ["Flows", "Runs"]);
+  // No tab segment means the first tab, and each tab links to its own route.
+  assert.deepEqual(
+    tabs.map((tab) => tab.classList.contains("active")), [true, false],
+  );
+  assert.deepEqual(tabs.map((tab) => tab.href), [
+    "#/deployments/flows?project=1",
+    "#/deployments/runs?project=1",
+  ]);
+  assert.equal(byClass(root, "panel-title")[0]?.textContent ?? "Flows", "Flows");
+  mounted.unmount();
+});
 
 function cardNames(root) {
   return byClass(root, "delivery-flow-card-name").map((node) => node.textContent);
@@ -194,7 +221,7 @@ test("search covers project, target, and stage text with a recoverable no-result
 test("project scoping stays server-side while each browse item names its project", async (t) => {
   const client = flowClient();
   const { root, mounted } = await mountFlows(
-    t, client, "#/flows?project=2",
+    t, client, "#/deployments/flows?project=2",
   );
   assert.deepEqual(
     client.requests.filter((request) => request.function === "workflows.definition.get"),
@@ -223,4 +250,49 @@ test("empty and history-only scopes explain what can happen next", async (t) => 
   assert.deepEqual(cardNames(historyOnly.root), ["Alpha Legacy"]);
   assert.equal(detailHeading(historyOnly.root), "Alpha Legacy");
   historyOnly.mounted.unmount();
+});
+
+test("a flow deep link opens the Flows tab on that definition", async (t) => {
+  // The drill-in under the Flows tab is a definition, not a run: routing it
+  // to the run page reported "there is no run called <flow id>" while the
+  // breadcrumb still said Flows.
+  const { root, mounted } = await mountFlows(
+    t, flowClient(), "#/deployments/flows/alpha-legacy?project=1",
+  );
+
+  assert.equal(byClass(root, "delivery-flow-detail-title").length, 1);
+  assert.equal(
+    byClass(root, "delivery-flow-detail-title")[0].children[0].textContent,
+    "Alpha Legacy",
+  );
+  // A retired definition is still what the link named, so the catalog opens
+  // showing history rather than falling back to the first active flow.
+  assert.match(byClass(root, "delivery-flow-id")[0].textContent, /alpha-legacy/);
+  mounted.unmount();
+});
+
+test("a tabbed destination keeps its tab when the route is rebuilt", () => {
+  // A scope change on a run page rebuilds the hash. The drill-in has to stay
+  // in the second segment: putting it in the tab slot rewrote
+  // `#/deployments/runs/<run id>` to `#/deployments/<run id>`, which still
+  // drew the run and still lost the tab its breadcrumb returns to.
+  const state = createProjectSelection(null);
+  state.seed("deployments", ["1"]);
+  assert.equal(
+    selectionRoute(
+      { view: "deployments", tab: "runs", detail: "run-20260726-001" },
+      state, "1", "#/deployments/runs/run-20260726-001?project=1",
+    ),
+    "#/deployments/runs/run-20260726-001?project=1&selection=1",
+  );
+  // A tab with no drill-in keeps the tab and takes the remembered selection.
+  assert.equal(
+    selectionRoute({ view: "deployments", tab: "runs", detail: null }, state),
+    "#/deployments/runs?project=1",
+  );
+  // An untabbed destination still spends its one segment on the drill-in.
+  assert.equal(
+    selectionRoute({ view: "items", tab: null, detail: "42" }, state, "2"),
+    "#/items/42?project=2&selection=all",
+  );
 });

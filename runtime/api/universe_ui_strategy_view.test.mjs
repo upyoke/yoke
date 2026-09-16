@@ -343,6 +343,7 @@ test("Blitz detail is a thin system-fact shell around the live document", async 
   assert.match(rendered, /Migrations governed/);
   assert.match(rendered, /\/yoke blitz YOK-2001/);
   assert.doesNotMatch(rendered, /THIS PLAN BODY MUST NOT BE COPIED/);
-  assert.equal(requests[0].function, "strategy.execution.get");
-  assert.equal(requests[0].target.public_ref, "YOK-2001");
+  // The page draws before this read lands, so it is not necessarily first.
+  const read = requests.find((r) => r.function === "strategy.execution.get");
+  assert.equal(read.target.public_ref, "YOK-2001");
 });

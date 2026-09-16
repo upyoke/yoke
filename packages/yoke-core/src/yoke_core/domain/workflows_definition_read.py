@@ -32,8 +32,7 @@ FLOW_FIELDS = (
     "target_environment",
     "status",
     "on_failure",
-    "stage_names",
-    "approval_stages",
+    "stages",
     "project",
 )
 
@@ -61,41 +60,50 @@ def _stage_names(raw_stages: Any) -> List[str]:
     return names
 
 
-def _approval_stages(raw_stages: Any) -> List[dict[str, Any]]:
-    """Human-approval stages and their configured addresses, if any."""
+#: Per-stage keys the richer definition schema adds on top of a bare
+#: execution step. Served verbatim when present so a reader sees the
+#: policy the run will freeze, not a paraphrase of it.
+_STAGE_POLICY_KEYS = (
+    "stage_kind",
+    "scope",
+    "target",
+    "cases",
+    "verdict",
+    "notification",
+    "approvals",
+)
+
+
+def _flow_stages(raw_stages: Any) -> List[dict[str, Any]]:
+    """Each stage with the release policy it declares, in pipeline order.
+
+    A legacy stage carries only its name and step runner; a richer one also
+    carries its kind, scope, target, case selection, verdict authority and
+    notification policy. Both shapes travel through one list so the reader
+    does not have to join two projections to see one pipeline.
+    """
     try:
         stages = loads_text(raw_stages) if isinstance(raw_stages, str) else raw_stages
     except ValueError:
         return []
     if not isinstance(stages, list):
         return []
-    result: List[dict[str, Any]] = []
+    served: List[dict[str, Any]] = []
     for stage in stages:
         if not isinstance(stage, dict):
             continue
-        if stage.get("step_runner") != "human-approval":
+        label = stage.get("name") or stage.get("kind")
+        if not label:
             continue
-        name = stage.get("name")
-        if not name:
-            continue
-        approvals = (
-            stage.get("approvals")
-            if isinstance(
-                stage.get("approvals"),
-                dict,
-            )
-            else {"roles": [], "actors": []}
-        )
-        result.append(
-            {
-                "name": str(name),
-                "approvals": {
-                    "roles": list(approvals.get("roles") or []),
-                    "actors": list(approvals.get("actors") or []),
-                },
-            }
-        )
-    return result
+        entry: dict[str, Any] = {"name": str(label)}
+        runner = stage.get("step_runner")
+        if runner:
+            entry["step_runner"] = str(runner)
+        for key in _STAGE_POLICY_KEYS:
+            if key in stage:
+                entry[key] = stage[key]
+        served.append(entry)
+    return served
 
 
 def get_workflows_definition(
@@ -140,8 +148,7 @@ def get_workflows_definition(
                     "target_environment": row.get("target_environment"),
                     "status": row.get("status"),
                     "on_failure": row.get("on_failure"),
-                    "stage_names": _stage_names(row.get("stages")),
-                    "approval_stages": _approval_stages(row.get("stages")),
+                    "stages": _flow_stages(row.get("stages")),
                     "project": row.get("project"),
                 }
             )

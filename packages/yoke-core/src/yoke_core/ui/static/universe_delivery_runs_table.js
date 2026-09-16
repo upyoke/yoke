@@ -3,7 +3,7 @@
 // evidence its checks captured.
 
 import { itemDrillInHref } from "./universe_item_routes.js";
-import { el, statePill } from "./universe_view_support.js";
+import { el, labelCellsByColumn, statePill } from "./universe_view_support.js";
 import { relativeTime } from "./universe_time.js";
 import { renderStageStrip } from "./universe_stage_strip.js";
 import { runGateStatus, runGates } from "./universe_run_gates.js";
@@ -99,7 +99,9 @@ export function renderRunsTable(context, body, rows, options) {
     return;
   }
   const wrap = el(documentNode, "div", "table-wrap");
-  const table = el(documentNode, "table", "items delivery-runs-table");
+  const table = el(
+    documentNode, "table", "items delivery-runs-table table-stacks-narrow",
+  );
   const head = el(documentNode, "tr");
   for (const label of RUN_TABLE_COLUMNS) head.appendChild(el(documentNode, "th", null, label));
   table.appendChild(head);
@@ -145,6 +147,7 @@ export function renderRunsTable(context, body, rows, options) {
     const when = el(documentNode, "td");
     when.appendChild(relativeTime(documentNode, runTimestamp(row)));
     tr.appendChild(when);
+    labelCellsByColumn(tr, RUN_TABLE_COLUMNS);
     table.appendChild(tr);
   }
   wrap.appendChild(table);

@@ -71,9 +71,13 @@ async function mountAt(t, hash, client) {
 }
 
 test("a destination's second segment is a drill-in, and only where one exists", () => {
-  // There is no facet segment left to compete with a drill-in: every facet
-  // that earned a name is a destination with its own entry.
-  for (const entry of NAV) assert.equal(entry.tabs, undefined, entry.id);
+  // Only a destination that declares tabs spends its first segment on one;
+  // everywhere else a facet that earned a name is its own entry, so the
+  // segment is a drill-in.
+  assert.deepEqual(
+    NAV.filter((entry) => entry.tabs).map((entry) => entry.id),
+    ["deployments"],
+  );
   for (const entry of NAV) assert.equal(entry.summary, undefined, entry.id);
   // A drill-in renderer only hangs off a destination that exists.
   for (const viewId of Object.keys(DETAIL_RENDERERS)) {
@@ -82,13 +86,34 @@ test("a destination's second segment is a drill-in, and only where one exists", 
 });
 
 test("routes round-trip, and an unknown view falls back without its segment", () => {
-  assert.deepEqual(parseUniverseRoute("#/flows?project=3"), {
-    view: "flows", tab: null, detail: null, project: "3", selection: null,
+  assert.deepEqual(parseUniverseRoute("#/environments?project=3"), {
+    view: "environments", tab: null, detail: null, project: "3", selection: null,
   });
-  assert.equal(buildUniverseRoute("flows", "3"), "#/flows?project=3");
+  assert.equal(
+    buildUniverseRoute("environments", "3"), "#/environments?project=3",
+  );
   assert.deepEqual(parseUniverseRoute("#/deployments"), {
     view: "deployments", tab: null, detail: null, project: null, selection: null,
   });
+  // A tabbed destination spends its first segment on the tab and its second
+  // on the drill-in under it.
+  assert.deepEqual(parseUniverseRoute("#/deployments/runs?project=3"), {
+    view: "deployments", tab: "runs", detail: null, project: "3", selection: null,
+  });
+  assert.deepEqual(
+    parseUniverseRoute("#/deployments/runs/run-20260101-001"),
+    {
+      view: "deployments",
+      tab: "runs",
+      detail: "run-20260101-001",
+      project: null,
+      selection: null,
+    },
+  );
+  assert.equal(
+    buildUniverseRoute("deployments", "3", "runs", "run-20260101-001"),
+    "#/deployments/runs/run-20260101-001?project=3",
+  );
   // A second segment is a drill-in now, so it survives on a view that exists…
   assert.equal(parseUniverseRoute("#/qa-plans/7?project=2").detail, "7");
   // …and falls with the view when that view does not.
@@ -146,7 +171,7 @@ test("a deep-linked destination is the active nav item and keeps its scope", asy
 
 test("a destination's page head names the destination, not a parent view", async (t) => {
   const client = deliveryClient();
-  const { root, mounted } = await mountAt(t, "#/deployments?project=1", client);
+  const { root, mounted } = await mountAt(t, "#/environments?project=1", client);
 
   const content = byClass(root, "content")[0];
   assert.ok(content.children[0].classList.contains("page-head"));
@@ -154,7 +179,7 @@ test("a destination's page head names the destination, not a parent view", async
     (child) => !child.classList.contains("tab-bar"),
   ));
   const head = content.children[0];
-  assert.equal(byClass(head, "title")[0].textContent, "Deployments");
+  assert.equal(byClass(head, "title")[0].textContent, "Environments");
   assert.equal(byClass(head, "subtitle").length, 0);
   mounted.unmount();
 });
@@ -210,7 +235,7 @@ test("Runs fills from deployment runs, newest first, with grounded status pills"
       throw new Error(`unexpected function ${request.function}`);
     },
   };
-  const { root, mounted } = await mountAt(t, "#/deployments?project=1", client);
+  const { root, mounted } = await mountAt(t, "#/deployments/runs?project=1", client);
 
   // The paged read carries the view's scope inside its opt-in page envelope
   // and keeps the proxy's server-side global target default.

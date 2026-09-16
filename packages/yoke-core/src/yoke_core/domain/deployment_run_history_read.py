@@ -25,6 +25,9 @@ RUN_HISTORY_FIELDS = (
     "started_at",
     "completed_at",
     "carried_work",
+    "release_lineage",
+    "artifact_identity",
+    "composition_frozen_at",
     "member_items",
     "stages",
     "gates",
@@ -123,6 +126,11 @@ def _source(conn: Any) -> tuple[str, str]:
             f"{column('started_at')} AS started_at",
             f"{column('completed_at')} AS completed_at",
             f"{column('carried_work')} AS carried_work",
+            # The identity a run froze. Without these three scalars a reader
+            # cannot tell whether evidence still answers for the run.
+            f"{column('release_lineage')} AS release_lineage",
+            f"{column('artifact_identity')} AS artifact_identity",
+            f"{column('composition_frozen_at')} AS composition_frozen_at",
             "df.stages",
         )
     )

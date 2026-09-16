@@ -194,7 +194,10 @@ export function mountUniverseApp(rootNode, options = {}) {
       scopeHost.replaceChildren(picker);
       setScopeVisible(true);
     }
+    // `tab` travels: a tabbed destination's drill-in means different things
+    // under different tabs, and its renderer decides which.
     const breadcrumbNavigation = (breadcrumb) => ({
+      tab: route.tab,
       setDetailLabel(label) {
         if (!mounted || main.children[0] !== breadcrumb) return;
         breadcrumb.children[breadcrumb.children.length - 1].textContent =
@@ -277,15 +280,11 @@ export function mountUniverseApp(rootNode, options = {}) {
       const detailHost = el(documentNode, "div", "view-host");
       const breadcrumb = createBreadcrumb(
         documentNode, entry, selectionParam(scopeSelections.selectionFor(entry.id)), route.detail,
+        (entry.tabs || []).find((candidate) => candidate.id === route.tab) || null,
       );
       main.replaceChildren(breadcrumb, detailHost);
-      detailRenderer(
-        context,
-        detailHost,
-        detailProject,
-        route.detail,
-        breadcrumbNavigation(breadcrumb),
-      );
+      detailRenderer(context, detailHost, detailProject, route.detail,
+        breadcrumbNavigation(breadcrumb));
       return;
     }
     // The picker lives in the top chrome. A separate view-owned host still
@@ -296,6 +295,9 @@ export function mountUniverseApp(rootNode, options = {}) {
       pageHead, ...beforeScopeSections(entry), aboveScope, viewHost,
     );
     const handle = renderer(context, viewHost, scope, { aboveScope,
+      // A tabbed destination reads which of its facets the route names; an
+      // untabbed one is handed null and ignores it.
+      tab: route.tab,
       hidePageHead() {
         if (!mounted || main.children[0] !== pageHead) return;
         configurePageHead(documentNode, pageHead, { title: null });

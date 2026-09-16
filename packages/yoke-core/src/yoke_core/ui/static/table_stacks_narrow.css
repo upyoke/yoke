@@ -1,0 +1,69 @@
+/* A wide table on a phone. Columns past the third sit off the right edge of
+   a horizontal scroller, which is where a reader stops looking — and for a
+   release or a QA run the facts they came for (status, outcome, evidence)
+   are exactly the ones out there. A table marked to stack turns each row
+   into a block and prints every column's name beside its value. The markup
+   stays a table; only the narrow layout changes. */
+@media (max-width: 720px) {
+  /* Panels keep their tables scrollably wide so columns survive. A stacked
+     table has no columns to keep, and inheriting that floor is what pushes
+     its content past the right edge. */
+  .universe-app-root .table-wrap > table.table-stacks-narrow,
+  .universe-app-root .qa-table-wrap > table.table-stacks-narrow,
+  .universe-app-root .delivery-facet-panel .table-wrap > table.table-stacks-narrow {
+    min-width: 0;
+  }
+
+  .universe-app-root .table-stacks-narrow,
+  .universe-app-root .table-stacks-narrow tbody,
+  .universe-app-root .table-stacks-narrow tr,
+  .universe-app-root .table-stacks-narrow td {
+    display: block;
+    width: auto;
+    min-width: 0;
+  }
+
+  /* The header row's labels move onto the cells themselves. */
+  .universe-app-root .table-stacks-narrow tr:first-child {
+    display: none;
+  }
+
+  .universe-app-root .table-stacks-narrow tr {
+    margin-bottom: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--yoke-border);
+  }
+
+  .universe-app-root .table-stacks-narrow td {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 4px 10px;
+    align-items: baseline;
+    justify-items: start;
+    padding: 4px 0;
+    border: 0;
+  }
+
+  .universe-app-root .table-stacks-narrow td::before {
+    content: attr(data-label);
+    color: var(--yoke-muted);
+    font-size: 9.5px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* Every value sits in the value column, however many a cell holds: a
+     status cell carries its pill and its action, and letting the second one
+     fall back into the label column breaks the alignment this exists for. */
+  .universe-app-root .table-stacks-narrow td > * {
+    grid-column: 2;
+    max-width: 100%;
+  }
+
+  /* An evidence strip already wraps; it has to be told the width to wrap
+     against, or it sizes itself to its thumbnails and overflows. */
+  .universe-app-root .table-stacks-narrow .review-evidence {
+    width: 100%;
+  }
+}

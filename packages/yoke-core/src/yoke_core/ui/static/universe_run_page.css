@@ -153,6 +153,48 @@
   font-size: 13.5px;
 }
 .universe-app-root .run-items .mono { color: var(--yoke-muted); text-decoration: none; }
+/* The four facts a release is frozen to, as a label/value grid. A commit and
+   an artifact id are read character by character, so they get their own row
+   rather than being packed into a subtitle. */
+.universe-app-root .run-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 14px;
+  margin-top: 4px;
+  font-size: 12.5px;
+}
+.universe-app-root .run-fact-label {
+  color: var(--yoke-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  padding-top: 1px;
+}
+.universe-app-root .run-fact-value {
+  color: var(--yoke-ink);
+  overflow-wrap: anywhere;
+}
+.universe-app-root .run-target-name { color: var(--yoke-muted); }
+.universe-app-root .run-target-url { color: var(--yoke-accent); text-decoration: none; }
+.universe-app-root .run-target-url:hover { text-decoration: underline; }
+/* What a stopped release leaves behind, and the releases that carried the
+   same work afterwards. */
+.universe-app-root .run-siblings {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+.universe-app-root .run-sibling {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-size: 12px;
+}
+.universe-app-root .run-sibling span { color: var(--yoke-muted); }
+.universe-app-root .run-aftermath { margin-top: 10px; }
+
 .universe-app-root .run-copy {
   margin: 0;
   color: var(--yoke-ink-2);

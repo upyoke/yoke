@@ -165,8 +165,16 @@ def ensure_qa_review_request(
         raise ValueError("undetermined QA run is missing its required reason")
     # The exact tree the run judged. A reviewer looking at a screenshot has to
     # know which revision produced it, or they are approving a picture of some
-    # build. Runs that record no code identity say so rather than guess.
-    code_revision = recorded_head_sha(reason_row[1] if reason_row else None) or None
+    # build. An item's own check records that identity in its result; a
+    # release check does not, because its candidate belongs to the run and is
+    # already frozen on the execution target the check was materialized
+    # against. Reading it there is the same fact from the record that holds
+    # it, not a guess — and a requirement with neither still says so.
+    code_revision = (
+        recorded_head_sha(reason_row[1] if reason_row else None)
+        or requirement.get("candidate_revision")
+        or None
+    )
     # The handle travels with the projection because the gate surfaces draw
     # each artifact through the same reader QA detail uses: it names the
     # file and says up front when the bytes only exist on the capture

@@ -87,13 +87,34 @@ export function artifactHandle(artifact) {
   }
 }
 
+// The last segment of a stored location. A caption names the evidence; the
+// directories above it are the capture machine's business, and printing them
+// turns a thumbnail's label into somebody's home directory.
+function storedName(value) {
+  const text = String(value || "").replace(/\/+$/, "");
+  return text ? text.split("/").at(-1) : "";
+}
+
 export function artifactLabel(artifact) {
   const authored = artifactMetadata(artifact)?.label;
   if (authored) return String(authored);
   const handle = artifactHandle(artifact);
   if (!handle) return artifact.artifact_type;
-  const key = handle.key ? String(handle.key).split("/").at(-1) : null;
-  return handle.filename || key || handle.path || artifact.artifact_type;
+  return (
+    handle.filename
+    || storedName(handle.key)
+    || storedName(handle.path)
+    || artifact.artifact_type
+  );
+}
+
+// Where the bytes actually are, for the reader who needs to go find them.
+// Kept off the caption and available beside it, because provenance is a
+// detail a reviewer asks for rather than one they read four times over.
+export function artifactLocation(artifact) {
+  const handle = artifactHandle(artifact);
+  if (!handle) return "";
+  return String(handle.path || handle.key || handle.url || "");
 }
 
 // What a gate card knows about storage before it reads anything. A gate
@@ -317,6 +338,7 @@ export const qaEvidenceArtifactView = {
   artifactEvidenceCard,
   artifactHandle,
   artifactLabel,
+  artifactLocation,
   artifactStepLabel,
   normalizeArtifact,
   showArtifactResult,

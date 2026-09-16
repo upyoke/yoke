@@ -21,6 +21,16 @@ import {
   withoutMarkdownSections,
 } from "./item_view_primitives.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
+import { itemClaimantPanel } from "./item_view_claimant.js";
+import { itemDeliveryPanel } from "./item_view_delivery.js";
+
+// Who holds an item is a fact about the item, not about one workflow, so
+// every detail shape carries the holder's own session card when a live claim
+// names a session. An unclaimed item has no panel rather than an empty one.
+function claimantPanels(context, item) {
+  const panel = itemClaimantPanel(context, item);
+  return panel ? [panel] : [];
+}
 
 function issuePanels(context, documentNode, item) {
   const spec = item.narrative.spec || item.narrative.body;
@@ -46,7 +56,9 @@ function issuePanels(context, documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
+      ...claimantPanels(context, item),
       verificationPanel(context, item),
+      itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       progressPanel(documentNode, item),
@@ -117,7 +129,9 @@ function epicPanels(context, documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
+      ...claimantPanels(context, item),
       verificationPanel(context, item),
+      itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),
@@ -168,7 +182,9 @@ function dashPanels(context, documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
+      ...claimantPanels(context, item),
       ...(origin ? [origin] : []),
+      itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),
@@ -176,7 +192,7 @@ function dashPanels(context, documentNode, item) {
   );
 }
 
-function taskPanels(documentNode, item) {
+function taskPanels(context, documentNode, item) {
   const progressLog = progressIfPresent(documentNode, item);
   return detailColumns(
     documentNode,
@@ -191,6 +207,7 @@ function taskPanels(documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
+      ...claimantPanels(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),
@@ -215,7 +232,9 @@ function fallbackPanels(context, documentNode, item) {
     ],
     [
       factsPanel(documentNode, item),
+      ...claimantPanels(context, item),
       verificationPanel(context, item),
+      itemDeliveryPanel(context, item),
       posturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),
@@ -247,7 +266,7 @@ export function renderWorkflowItemDetail(context, main, item) {
   } else if (workflowId === "dash") {
     host.appendChild(dashPanels(context, documentNode, item));
   } else if (workflowId === "task") {
-    host.appendChild(taskPanels(documentNode, item));
+    host.appendChild(taskPanels(context, documentNode, item));
   } else {
     host.appendChild(fallbackPanels(context, documentNode, item));
   }

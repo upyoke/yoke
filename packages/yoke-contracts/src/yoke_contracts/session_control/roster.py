@@ -29,6 +29,7 @@ SESSION_CONTROL_ROSTER_DISPLAY_FIELDS = (
     "steering_scope",
     "steering_group_session_id",
     "primary_item_stages",
+    "primary_item_delivery",
 )
 
 

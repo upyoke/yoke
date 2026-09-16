@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain import db_backend
@@ -37,7 +38,11 @@ from yoke_core.domain.deployment_flow_policy import (
     RELEASE_POLICY_SCHEMA_VERSION,
     STAGE_KIND_QA,
 )
-from yoke_core.domain.deployment_qa_stage_acceptance import stage_acceptance_blockers
+from yoke_core.domain.deployment_qa_stage_acceptance import (
+    STAGE_ACCEPTED,
+    stage_acceptance,
+    stage_acceptance_blockers,
+)
 from yoke_core.domain.deployment_qa_stage_contract import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
     deployment_qa_stage_subject,
@@ -76,8 +81,15 @@ def _scoped_qa_storage_present(conn: Any) -> bool:
     )
 
 
-def _pinned_qa_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
-    """The run's own pinned QA stages, or ``[]`` for a legacy definition."""
+def _is_qa_stage(stage: Mapping[str, Any]) -> bool:
+    return (
+        stage.get("stage_kind") == STAGE_KIND_QA
+        or stage.get("step_runner") == QA_STEP_RUNNER
+    )
+
+
+def _pinned_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
+    """Every stage the run pinned, in order, or ``[]`` for a legacy flow."""
     if not _scoped_qa_storage_present(conn):
         return []
     marker = _p(conn)
@@ -89,7 +101,9 @@ def _pinned_qa_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
     ).fetchone()
     if row is None:
         raise LookupError(f"deployment run {run_id!r} not found")
-    schema_version = row["definition_schema_version"] if hasattr(row, "keys") else row[0]
+    schema_version = (
+        row["definition_schema_version"] if hasattr(row, "keys") else row[0]
+    )
     raw_stages = row["stages"] if hasattr(row, "keys") else row[1]
     if int(schema_version or 1) != RELEASE_POLICY_SCHEMA_VERSION:
         return []
@@ -97,23 +111,110 @@ def _pinned_qa_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
         stages = json.loads(str(raw_stages))
     except (TypeError, ValueError) as exc:
         raise ValueError("deployment flow stages are invalid JSON") from exc
-    return [
-        dict(stage)
-        for stage in stages
-        if isinstance(stage, Mapping)
-        and (
-            stage.get("stage_kind") == STAGE_KIND_QA
-            or stage.get("step_runner") == QA_STEP_RUNNER
-        )
+    return [dict(stage) for stage in stages if isinstance(stage, Mapping)]
+
+
+def _pinned_qa_stages(conn: Any, run_id: str) -> list[dict[str, Any]]:
+    """The run's own pinned QA stages, or ``[]`` for a legacy definition."""
+    return [stage for stage in _pinned_stages(conn, run_id) if _is_qa_stage(stage)]
+
+
+@dataclass(frozen=True)
+class ItemStageQa:
+    """One member's standing at the item QA stage it is answerable for now.
+
+    A card asks a narrower question than the release gate does. The gate must
+    know whether every scoped obligation in the run is met, future stages
+    included, because that is what closing the item means. A card is saying
+    where this member stands *today*: folding a production QA stage the run
+    has not reached into that answer reports every healthy item as unclear,
+    and folding a run-scoped stage into it reports the batch's shared wait as
+    this member's own problem. Shared progress is the run's to show.
+    """
+
+    stage: str
+    state: str
+    blockers: tuple[str, ...]
+
+    @property
+    def accepted(self) -> bool:
+        return self.state == STAGE_ACCEPTED
+
+    @property
+    def reason(self) -> str:
+        return self.blockers[0] if self.blockers else ""
+
+
+def _applicable_item_stage(
+    stages: list[dict[str, Any]], current_stage: str
+) -> dict[str, Any] | None:
+    """The item-scoped QA stage this member is answerable for right now.
+
+    The one the run is standing on, else the last one it has already passed.
+    Before the run reaches any, there is no item QA to report — which is not
+    the same as reporting that none passed.
+    """
+    item_stages = [
+        (index, stage)
+        for index, stage in enumerate(stages)
+        if _is_qa_stage(stage) and stage.get("scope") == "item"
     ]
+    if not item_stages:
+        return None
+    positions = {
+        str(stage.get("name") or ""): index for index, stage in enumerate(stages)
+    }
+    # An unrecognized current stage (a finished run's terminal label) means
+    # the run is past every stage it pinned, so the last one answers.
+    here = positions.get(str(current_stage), len(stages))
+    reached = [stage for index, stage in item_stages if index <= here]
+    return reached[-1] if reached else None
 
 
-def item_qa_acceptance_blockers(
-    conn: Any, *, run_id: str, item_id: int
+def current_item_qa(
+    conn: Any, *, run_id: str, item_id: int, current_stage: str
+) -> ItemStageQa | None:
+    """This member's standing at the item QA stage now answering for it."""
+    stage = _applicable_item_stage(_pinned_stages(conn, str(run_id)), current_stage)
+    if stage is None:
+        return None
+    stage_name = str(stage.get("name") or "")
+    subject = deployment_qa_stage_subject(
+        conn,
+        run_id=str(run_id),
+        stage_name=stage_name,
+        member_item_id=int(item_id),
+        require_active=False,
+    )
+    acceptance = stage_acceptance(
+        conn,
+        subject=subject,
+        target=deployment_qa_execution_target(conn, subject),
+        acceptance_qa_kind=DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
+    )
+    return ItemStageQa(
+        stage=stage_name,
+        state=acceptance.state,
+        blockers=acceptance.blockers,
+    )
+
+
+def item_qa_acceptance_blockers(conn: Any, *, run_id: str, item_id: int) -> list[str]:
+    """Every unsatisfied scoped QA verdict this item still owes in the run.
+
+    Release-wide on purpose: closing an item means the whole run answered for
+    it, so this walks every pinned QA stage rather than only the current one.
+    """
+    return _stage_blockers(
+        conn, str(run_id), int(item_id), _pinned_qa_stages(conn, str(run_id))
+    )
+
+
+def _stage_blockers(
+    conn: Any, run_id: str, item_id: int, stages: list[dict[str, Any]]
 ) -> list[str]:
-    """Every unsatisfied scoped QA verdict this item still owes in the run."""
     blockers: list[str] = []
-    for stage in _pinned_qa_stages(conn, str(run_id)):
+    for stage in stages:
         stage_name = str(stage.get("name") or "")
         item_scoped = stage.get("scope") == "item"
         member_item_id = int(item_id) if item_scoped else None
@@ -140,4 +241,4 @@ def item_qa_acceptance_blockers(
     return blockers
 
 
-__all__ = ["item_qa_acceptance_blockers"]
+__all__ = ["ItemStageQa", "current_item_qa", "item_qa_acceptance_blockers"]

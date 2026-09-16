@@ -31,13 +31,14 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from yoke_contracts.session_control.models import RecipientSelector
+from yoke_core.domain.delivery_notice_kind import DELIVERY_DONE_NOTICE_PREFIX
 from yoke_core.domain.deployment_item_owner import item_owner_actor
 from yoke_core.domain.session_message_service import send_message
 
 
 def delivery_done_idempotency_key(item_id: int, run_id: str) -> str:
     """One notice per item and the run that delivered it."""
-    return f"delivery-done:{item_id}:{run_id}"
+    return f"{DELIVERY_DONE_NOTICE_PREFIX}{item_id}:{run_id}"
 
 
 def delivery_done_message(

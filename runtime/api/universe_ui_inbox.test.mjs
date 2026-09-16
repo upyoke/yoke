@@ -13,26 +13,28 @@ import {
 } from "./universe_ui_dom_test_support.mjs";
 
 import {
+  inboxSection as section,
   messageRow,
   ok,
   renderInbox,
   requestRow,
 } from "./universe_ui_inbox_test_support.mjs";
 
-test("Inbox renders its three sections, the served counts, and one card shape", async () => {
+test("Inbox renders its sections, the served counts, and one card shape", async () => {
   const { client, main } = renderInbox(["10"]);
   await settle();
 
   assert.deepEqual(
     byClass(main, "overview-section-title").map((node) => node.textContent),
-    ["Waiting on you", "Messages", "Decided"],
+    ["Waiting on you", "Notices", "Messages", "Decided"],
   );
   assert.deepEqual(
     byClass(main, "overview-section-count").map((node) => node.textContent),
-    ["1", "1", "0"],
+    ["1", "0", "1", "0"],
   );
-  // Nothing has been decided, so the section is not on the page.
-  assert.equal(byClass(main, "overview-section")[2].hidden, true);
+  // No notice and nothing decided, so neither section is on the page.
+  assert.equal(section(main, "notices").hidden, true);
+  assert.equal(section(main, "decided").hidden, true);
   assert.equal(byClass(main, "review-card").length, 1);
   assert.equal(byClass(main, "inbox-message").length, 1);
   assert.deepEqual(client.requests[0], {
@@ -94,7 +96,7 @@ test("decision buttons call engine actions and keep the answered card on the pag
     "Nothing is waiting on you.");
   // The server no longer lists the request; the page still shows what was
   // decided, small and without actions, until the reader leaves.
-  const decided = byClass(main, "overview-section")[2];
+  const decided = section(main, "decided");
   assert.equal(decided.hidden, false);
   const card = byClass(decided, "review-card")[0];
   assert.ok(card.classList.contains("compact"), card.className);
@@ -191,7 +193,7 @@ test("a refused resolution re-enables the card and is not remembered as decided"
   await settle();
   assert.ok(actions.every((node) => !node.disabled));
   assert.equal(byClass(main, "inbox-row-error")[0].textContent, "try again");
-  assert.equal(byClass(main, "overview-section")[2].hidden, true);
+  assert.equal(section(main, "decided").hidden, true);
 });
 
 test("acknowledging a message clears it from the served list", async () => {
@@ -253,7 +255,7 @@ test("message acknowledgement failures stay visible and retryable", async () => 
 
 test("all four request kinds link to their one subject home", () => {
   const cases = [
-    ["deployment_stage_approval", "deployment_stage", {}, "#/deployments?project=10"],
+    ["deployment_stage_approval", "deployment_stage", {}, "#/deployments/runs?project=10"],
     [
       "qa_needs_review",
       "qa_requirement",
@@ -297,7 +299,7 @@ test("an every-approver gate the viewer answered sits under Decided with its pro
     })]);
     await settle();
     assert.equal(byClass(main, "inbox-empty")[0].textContent, "Nothing is waiting on you.");
-    const decided = byClass(main, "overview-section")[2];
+    const decided = section(main, "decided");
     const card = byClass(decided, "review-card")[0];
     assert.equal(
       byClass(card, "review-who")[0].textContent,

@@ -95,13 +95,25 @@ test("the run name is the card's link, and the card itself is not one", () => {
   const runName = byClass(card, "overview-run-id")[0];
   assert.equal(runName.tagName, "A");
   assert.equal(runName.textContent, "run-20260910-006");
-  assert.equal(runName.href, "#/deployments/run-20260910-006?project=1");
+  assert.equal(runName.href, "#/deployments/runs/run-20260910-006?project=1");
   // Everything else the card reads out is text, so there is nothing between
   // the reader and selecting it.
   assert.deepEqual(
     byClass(card, "overview-run-flow").map((node) => node.tagName), ["STRONG"],
   );
   assert.equal(byClass(card, "overview-run-environment")[0].tagName, "SPAN");
+});
+
+test("the card's meta line says the status once, and the pill is where", () => {
+  const documentNode = new FakeDocument();
+  const card = runCard(documentNode, []);
+
+  // The status pill above carries the state; the meta line carries what the
+  // pill cannot — what the release holds, its candidate, and when it moved.
+  assert.equal(byClass(card, "pill")[0].textContent, "executing");
+  const meta = byClass(card, "overview-run-card-meta")[0].textContent;
+  assert.doesNotMatch(meta, /executing/);
+  assert.match(meta, /^environment run · /);
 });
 
 test("a run card's screenshot opens its own evidence, not the run", async () => {

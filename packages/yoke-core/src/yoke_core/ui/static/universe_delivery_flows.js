@@ -1,5 +1,5 @@
 import { el, statePill } from "./universe_view_support.js";
-import { renderDeliveryFlowDetail } from "./universe_delivery_flow_approvals.js";
+import { renderDeliveryFlowDetail } from "./universe_delivery_flow_detail.js";
 
 function flowName(row) {
   return row.name || row.id || "Unnamed flow";
@@ -9,7 +9,7 @@ function flowStatus(row) {
 }
 
 function stagesFor(row) {
-  return Array.isArray(row.stage_names) ? row.stage_names : [];
+  return (Array.isArray(row.stages) ? row.stages : []).map((stage) => stage.name);
 }
 function searchableText(row) {
   return [
@@ -96,7 +96,7 @@ function zeroState(documentNode, title, copy, className = "") {
   empty.appendChild(el(documentNode, "p", null, copy));
   return empty;
 }
-export function renderDeliveryFlowExplorer(body, panel, sourceRows, options = {}) {
+export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId = null) {
   const documentNode = body.ownerDocument;
   const rows = sortedRows(sourceRows);
   panel.classList.add("delivery-flow-panel");
@@ -114,10 +114,16 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, options = {}
   const disabledCount = rows.filter(
     (row) => flowStatus(row) === "disabled",
   ).length;
+  // A route naming a flow opens on it, including a disabled one — a link to
+  // a retired definition should land on that definition rather than silently
+  // on whichever active flow happens to sort first.
+  const routed = selectedId
+    ? rows.find((row) => String(row.id) === String(selectedId)) || null
+    : null;
   const state = {
     query: "",
-    showHistory: false,
-    selected: rows.find((row) => flowStatus(row) !== "disabled") || null,
+    showHistory: Boolean(routed && flowStatus(routed) === "disabled"),
+    selected: routed || rows.find((row) => flowStatus(row) !== "disabled") || null,
   };
   const explorer = el(documentNode, "div", "delivery-flow-explorer");
   const toolbar = el(documentNode, "div", "delivery-flow-toolbar");
@@ -151,9 +157,7 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, options = {}
   workspace.appendChild(browser);
   workspace.appendChild(detail);
   explorer.appendChild(workspace);
-  const dialogHost = el(documentNode, "div", "workflow-dialog-host");
   body.appendChild(explorer);
-  body.appendChild(dialogHost);
 
   let cardByRow = new Map();
   const visibleRows = () => rows.filter((row) => {
@@ -245,11 +249,7 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, options = {}
       }
       list.appendChild(group);
     }
-    renderDeliveryFlowDetail(documentNode, detail, state.selected, {
-      client: options.client,
-      reload: options.reload,
-      host: dialogHost,
-    });
+    renderDeliveryFlowDetail(documentNode, detail, state.selected);
   };
 
   search.addEventListener("input", () => {

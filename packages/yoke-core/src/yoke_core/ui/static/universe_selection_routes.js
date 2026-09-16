@@ -24,8 +24,16 @@ export function withProjectSelection(hash, selections) {
 export function selectionRoute(route, selections, project = null, sourceHash = "") {
   const focusRoute = route.detail || navEntry(route.view).scope === SCOPE_SINGLE;
   const selection = selections.selectionFor(route.view);
+  // A tabbed destination spends its first path segment on the tab, so the
+  // drill-in has to travel in the second one. Rebuilding with the drill-in in
+  // the tab slot silently dropped the tab: a scope change on a run page
+  // rewrote `#/deployments/runs/<run id>` to `#/deployments/<run id>`, which
+  // still rendered the run and still lost the tab its breadcrumb returns to.
   const hash = buildUniverseRoute(
-    route.view, focusRoute ? project : selectionParam(selection), route.detail,
+    route.view,
+    focusRoute ? project : selectionParam(selection),
+    route.tab || route.detail,
+    route.tab ? route.detail : null,
   );
   const [path, query = ""] = hash.split("?");
   const params = new URLSearchParams(sourceHash.split("?")[1] || "");

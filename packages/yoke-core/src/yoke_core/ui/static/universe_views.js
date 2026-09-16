@@ -8,10 +8,7 @@ import {
   renderCapabilitiesView,
   renderCapabilityDetail,
 } from "./universe_views_capabilities.js";
-import {
-  renderDeliveryFlowsView,
-  renderDeliveryRunsView,
-} from "./universe_views_delivery.js";
+import { renderDeploymentsView } from "./universe_views_delivery.js";
 import {
   renderDeliveryDatabasesView,
   renderDeliveryEnvironmentsView,
@@ -39,6 +36,7 @@ import {
 } from "./universe_views_projects.js";
 import {
   renderQaActivity,
+  renderQaCaseDetail,
   renderQaMethodDetail,
   renderQaMethods,
   renderQaPlanDetail,
@@ -81,16 +79,34 @@ export const DETAIL_RENDERERS = {
   machines: renderMachineDetail,
   "qa-methods": fromDrillInProject(renderQaMethodDetail),
   "qa-plans": fromDrillInProject(renderQaPlanDetail),
-  "qa-activity": fromDrillInProject(renderQaActivity),
-  // Opening a run row IS opening the run: the page it lands on reads the
-  // same run row the table did, plus the QA activity recorded against it.
-  deployments: fromDrillInProject(renderRunDetailView),
+  // Opening an Activity row IS opening that case: its own record, the
+  // stage execution that judged it, and the evidence it captured. It reads
+  // one project's row rather than a scope, so it takes the drill-in project
+  // as given.
+  "qa-activity": renderQaCaseDetail,
+  // What a Deployments drill-in means depends on the tab it hangs off.
+  // Opening a run row IS opening the run: the page it lands on reads the same
+  // run row the table did, plus the QA activity recorded against it. A flow
+  // link instead opens the Flows tab on that definition, keeping the tab
+  // strip and the catalog beside it rather than replacing the page.
+  deployments: (context, main, project, detail, navigation) => (
+    navigation?.tab === "flows"
+      ? renderDeploymentsView(
+        context, main, project === null ? null : [String(project)],
+        { tab: "flows", detail },
+      )
+      : fromDrillInProject(renderRunDetailView)(
+        context, main, project, detail, navigation,
+      )
+  ),
 };
 
 // A destination is live exactly when it has a renderer here.
-// Every facet that earned a name is a destination. A tab was one facet of a
-// view's single concept; a facet an operator navigates to is a destination,
-// and calling it a tab only hid it one level down.
+// Most facets that earned a name are destinations: a facet an operator
+// navigates to deserves its own sidebar entry, and calling it a tab only hid
+// it one level down. A destination keeps tabs only where its facets are two
+// readings of one subject — Deployments, whose Flows define what its Runs
+// execute — and then the renderer below reads `chrome.tab` to pick one.
 export const VIEW_RENDERERS = {
   overview: renderOverviewView,
   sessions: renderSessionsView,
@@ -104,9 +120,8 @@ export const VIEW_RENDERERS = {
 
   strategy: renderStrategyView,
   items: renderItemsView,
-  deployments: renderDeliveryRunsView,
+  deployments: renderDeploymentsView,
   environments: renderDeliveryEnvironmentsView,
-  flows: renderDeliveryFlowsView,
   databases: renderDeliveryDatabasesView,
   "qa-methods": renderQaMethods,
   "qa-plans": renderQaPlans,

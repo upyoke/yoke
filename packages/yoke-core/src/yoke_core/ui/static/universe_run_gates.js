@@ -29,9 +29,17 @@ export function gateAsRequest(gate) {
   };
 }
 
-export function appendRunGates(context, card, gates, onAct) {
+// ``options.drawnRequestIds`` names the requests a caller has already put on
+// the page — a member's own review, drawn on that member's row. Skipping them
+// here is what keeps one decision from appearing twice on one card with two
+// sets of Approve controls.
+export function appendRunGates(context, card, gates, onAct, options = {}) {
   const documentNode = context.document;
-  const rows = (gates || []).filter((gate) => RUN_GATE_KINDS.has(gate.kind));
+  const drawn = options.drawnRequestIds || new Set();
+  const rows = (gates || []).filter(
+    (gate) => RUN_GATE_KINDS.has(gate.kind)
+      && !drawn.has(String(gate.request_id)),
+  );
   if (!rows.length) return null;
   const host = el(documentNode, "div", "run-requests");
   for (const gate of rows) {

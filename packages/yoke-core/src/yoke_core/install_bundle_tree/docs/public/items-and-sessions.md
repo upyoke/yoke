@@ -96,10 +96,21 @@ labelled incomparable.
   the people or the role who can. A card you already answered reports your
   own decision instead of offering an action you cannot take twice; any
   rejection ends it outright
-- **Deployments** rows open the run page: the flow, the stages, the checks
-  the run's QA recorded with their evidence, what the run carries, and the
-  decision waiting on it. QA activity rows and an item's Verification rows
-  point a review still waiting on you back at its Inbox card
+- **Deployments** is one page with Flows first and Runs second. A Runs row
+  opens the run page: what the release is frozen to, the flow, the stages,
+  the checks the run's QA recorded with their evidence, what the run
+  carries, and the decision waiting on it. A stopped release says what it
+  keeps and names the releases that carried the same work after it
+- **QA activity** rows open the case: its subject, the contract it had to
+  prove, the stage execution whose verdict policy judged it, and what it
+  captured. An item's Verification rows point a review still waiting on you
+  back at its Inbox card
+- The Inbox keeps delivery notices — a QA stage result, an item completing —
+  in their own section. They report and ask nothing, so each names which of
+  the two events it is and is dismissed rather than answered
+- An item page says how it ships: the flow it is bound to, and each release
+  that carried it, newest first. A session card says where its release has
+  got to and where its item has, as two short statuses
 - A desktop conversation cannot be resumed for you, so a message waiting in
   one raises a notice asking you to open that chat. The notice is derived
   from the waiting message, so it settles itself the moment the wait ends —

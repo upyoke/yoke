@@ -49,6 +49,8 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "ouroboros.entry.list",
         "board.data.get",
         "deployment_runs.list",
+        "deployment_runs.find_by_item",
+        "deployment_runs.stages",
         "deployment_flows.stages",
         "sessions.list",
         "machine.list",
@@ -69,6 +71,8 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "qa.plan.list",
         "qa.plan.get",
         "qa.activity.list",
+        "qa.requirement.get",
+        "qa.run.list",
         "qa.artifact.read",
         "inbox.list",
         "workflow.execution_instruction.list",
@@ -177,7 +181,6 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "machine.settings.set",
         "strategy.revision.restore",
         "deployment_runs.terminalize",
-        "deployment_flows.update_stages",
     }
 )
 

@@ -12,6 +12,7 @@ from yoke_core.domain.decision_request_authority import (
     recently_decided_requests_for_actor,
 )
 from yoke_core.domain.decision_request_contract import MACHINE_APPROVAL
+from yoke_core.domain.delivery_notice_kind import classify_messages
 from yoke_core.domain.decision_request_disposition import (
     dispose_ended_decision_requests,
 )
@@ -80,6 +81,9 @@ def inbox_for_actor(
     actor_messages = inbox_actor_messages(
         conn, actor_id=actor_id, include_read=include_read
     )
+    # A delivery notice reports; a message from a person may ask, and the
+    # Inbox draws them apart.
+    messages = classify_messages(actor_messages["messages"])
     return {
         "needs_decision": [
             row for row in (*decisions, *settled) if row["kind"] != MACHINE_APPROVAL
@@ -89,7 +93,7 @@ def inbox_for_actor(
             for row in decisions
             if row["kind"] == MACHINE_APPROVAL
         ],
-        "messages": actor_messages["messages"],
+        "messages": messages,
         "pending_actor_message_count": actor_messages["pending_count"],
     }
 

@@ -13,6 +13,7 @@ import test from "node:test";
 
 import { byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import {
+  inboxSection as section,
   ok,
   qaRequestRow,
   renderInbox,
@@ -31,10 +32,8 @@ function settledRow(overrides = {}) {
   });
 }
 
-// The Inbox draws Waiting on you, Messages and Decided in that order.
-const WAITING = 0;
-const DECIDED = 2;
-const section = (main, index) => byClass(main, "overview-section")[index];
+const WAITING = "waiting";
+const DECIDED = "decided";
 
 test("a settled request the server still serves survives a reload", async () => {
   // A freshly loaded page remembers nothing, so anything in the decided

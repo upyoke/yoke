@@ -18,7 +18,10 @@ import {
   sessionPrimaryStatus,
 } from "./universe_session_diagnostics.js";
 import { appendSessionAge } from "./universe_session_age.js";
-import { appendSessionPresentation } from "./universe_session_presentation.js";
+import {
+  appendSessionDeliveryStatus,
+  appendSessionPresentation,
+} from "./universe_session_presentation.js";
 import { appendSessionUsage } from "./universe_session_usage.js";
 import {
   appendSteeringHoldings,
@@ -153,6 +156,7 @@ export function sessionCard(
   // say stays silent — the card is never rebuilt in a simpler shape, so an
   // ended session reads against a live one without translation.
   appendSteeringHoldings(documentNode, body, row, projects);
+  appendSessionDeliveryStatus(documentNode, body, row);
   appendSessionPresentation(documentNode, body, row);
   appendHoldings(documentNode, body, row, projects);
   appendSessionAge(documentNode, body, row);

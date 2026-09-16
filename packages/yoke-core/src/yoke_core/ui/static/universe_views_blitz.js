@@ -18,6 +18,8 @@ import {
   readablePolicyValue,
   workflowPanel,
 } from "./workflow_view_primitives.js";
+import { itemClaimantPanel } from "./item_view_claimant.js";
+import { itemDeliveryPanel } from "./item_view_delivery.js";
 
 const LANE_STATE_PRESENTATION = {
   active: { tone: "running", label: "active" },
@@ -37,14 +39,23 @@ function worktreeLanePill(documentNode, state) {
   return pill;
 }
 
-function executionDocumentPanel(documentNode, item, document) {
+// The panel and the host its read fills. Returning both lets the page draw
+// before the document arrives, so a read that never lands costs this panel
+// and not the item's facts, claim, delivery and posture beside it.
+function executionDocumentPanel(documentNode) {
   const { panel, body } = workflowPanel(documentNode, "Execution document");
+  const host = el(documentNode, "div", "blitz-document-host");
+  host.appendChild(el(documentNode, "p", "empty", "reading execution document…"));
+  body.appendChild(host);
+  return { panel, host };
+}
+
+function executionDocumentBody(documentNode, item, document) {
   if (!document) {
-    body.appendChild(el(
+    return el(
       documentNode, "p", "empty",
       "No execution strategy document is linked.",
-    ));
-    return panel;
+    );
   }
   const card = el(documentNode, "a", "blitz-document");
   card.href = buildUniverseRoute(
@@ -75,8 +86,7 @@ function executionDocumentPanel(documentNode, item, document) {
     document.execution_claim ? "🔒 claimed" : "available",
   );
   if (pill) card.appendChild(pill);
-  body.appendChild(card);
-  return panel;
+  return card;
 }
 
 function worktreeLanesPanel(documentNode, item) {
@@ -257,46 +267,55 @@ function blitzPosturePanel(documentNode, item) {
   return panel;
 }
 
-function renderLoadedBlitz(context, main, item, execution) {
+function renderBlitzBody(context, main, item) {
   const documentNode = context.document;
   const progressLog = progressIfPresent(documentNode, item);
+  // The session holding the item is who to ask about it; a Blitz ships in
+  // slices, so its delivery history is the readable record of how far it got.
+  const claimant = itemClaimantPanel(context, item);
+  const { panel: executionPanel, host: executionHost } =
+    executionDocumentPanel(documentNode);
   const host = el(documentNode, "div", "item-detail blitz-detail");
   host.appendChild(itemHeading(documentNode, item));
   host.appendChild(detailColumns(
     documentNode,
     [
-      executionDocumentPanel(
-        documentNode, item, execution.execution_document,
-      ),
+      executionPanel,
       ...filledNarrativePanels(documentNode, item),
       worktreeLanesPanel(documentNode, item),
       verificationPanel(context, item),
     ],
     [
       blitzFactsPanel(documentNode, item),
+      ...(claimant ? [claimant] : []),
+      itemDeliveryPanel(context, item),
       blitzPosturePanel(documentNode, item),
       commandPanel(documentNode, item),
       ...(progressLog ? [progressLog] : []),
     ],
   ));
   main.replaceChildren(host);
+  return executionHost;
 }
 
 export function renderBlitzItemDetail(context, main, item) {
-  const loading = section(context.document, "Execution document");
-  main.replaceChildren(loading);
+  const documentNode = context.document;
+  // The page draws first and the execution document fills its own panel
+  // after. Loading the whole detail behind that one read meant a refused or
+  // slow read replaced the item's facts, claim, delivery and posture with an
+  // error card — every panel on the page lost to a document one of them was
+  // about.
+  const executionHost = renderBlitzBody(context, main, item);
   loadSection(
     context,
-    loading,
+    { renderEnvelope: (callResult, render) => render(executionHost, callResult) },
     "strategy.execution.get",
     {},
-    (_body, callResult) => {
-      renderLoadedBlitz(
-        context,
-        main,
-        item,
-        (callResult.envelope.result || {}).execution || {},
-      );
+    (body, callResult) => {
+      const execution = (callResult.envelope.result || {}).execution || {};
+      body.replaceChildren(executionDocumentBody(
+        documentNode, item, execution.execution_document,
+      ));
     },
     {
       kind: "item",

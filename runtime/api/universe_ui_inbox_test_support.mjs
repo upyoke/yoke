@@ -1,5 +1,13 @@
 import { renderInboxView } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_inbox.js";
-import { FakeDocument } from "./universe_ui_dom_test_support.mjs";
+import { FakeDocument, byClass } from "./universe_ui_dom_test_support.mjs";
+
+// Inbox sections are addressed by the fold key they carry rather than by
+// position, so adding one between them cannot silently retarget a read.
+export function inboxSection(main, key) {
+  return byClass(main, "overview-section").find(
+    (node) => node.attributes.get("data-fold") === `section:inbox-${key}`,
+  );
+}
 
 export const ok = (result) => ({
   status: 200, envelope: { success: true, result },

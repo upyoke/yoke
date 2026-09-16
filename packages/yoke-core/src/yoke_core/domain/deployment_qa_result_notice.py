@@ -27,6 +27,7 @@ from typing import Any, Optional
 
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain.deployment_item_owner import item_owner_actor
+from yoke_core.domain.delivery_notice_kind import QA_RESULT_NOTICE_PREFIX
 from yoke_core.domain.session_message_service import send_message
 
 #: A stage result worth reporting. A stage still waiting is not one: the
@@ -46,7 +47,7 @@ def qa_result_idempotency_key(
     """One notice per stage subject, outcome, and pinned-target attempt."""
     subject = "run" if member_item_id is None else str(member_item_id)
     return (
-        f"deployment-qa-stage-result:{run_id}:{stage_name}:{subject}:"
+        f"{QA_RESULT_NOTICE_PREFIX}{run_id}:{stage_name}:{subject}:"
         f"{outcome}:{target_digest}"
     )
 

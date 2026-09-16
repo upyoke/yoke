@@ -171,16 +171,12 @@ class TestTitleLimit:
     """The read a client form caps its title input from."""
 
     def test_the_effective_limit_is_served(self, test_db):
-        assert (
-            get_workflows_definition(project="yoke")["title_max_length"]
-            == title_max_length("yoke")
-        )
+        assert get_workflows_definition(project="yoke")[
+            "title_max_length"
+        ] == title_max_length("yoke")
 
     def test_an_unnamed_project_still_serves_a_limit(self, test_db):
-        assert (
-            get_workflows_definition()["title_max_length"]
-            == title_max_length()
-        )
+        assert get_workflows_definition()["title_max_length"] == title_max_length()
 
     def test_the_served_limit_follows_the_policy(self, test_db, monkeypatch):
         """A form reading this response cannot be left on a stale number."""
@@ -190,9 +186,7 @@ class TestTitleLimit:
     def test_the_handler_serves_it_too(self, test_db):
         outcome = handle_workflows_definition_get(_request({"project": "yoke"}))
         assert outcome.primary_success
-        assert outcome.result_payload["title_max_length"] == title_max_length(
-            "yoke"
-        )
+        assert outcome.result_payload["title_max_length"] == title_max_length("yoke")
 
 
 class TestFlows:
@@ -235,13 +229,15 @@ class TestFlows:
         assert scoped[0]["status"] == "active"
         assert scoped[0]["on_failure"] == "halt"
         assert scoped[0]["project"] == "yoke"
-        assert scoped[0]["stage_names"] == ["merged", "complete"]
-        assert scoped[0]["approval_stages"] == []
+        assert scoped[0]["stages"] == [
+            {"name": "merged", "step_runner": "auto"},
+            {"name": "complete", "step_runner": "auto"},
+        ]
 
         by_id = get_workflows_definition(project=str(yoke_id))["flows"]
         assert [flow["id"] for flow in by_id] == ["alpha-release"]
 
-    def test_unparseable_stages_serve_an_empty_name_list(self, test_db):
+    def test_unparseable_stages_serve_an_empty_stage_list(self, test_db):
         yoke_id = _project_id(test_db, "yoke")
         _insert_flow(
             test_db,
@@ -252,8 +248,7 @@ class TestFlows:
         )
         flows = get_workflows_definition(project="yoke")["flows"]
         assert flows[0]["id"] == "broken-stages"
-        assert flows[0]["stage_names"] == []
-        assert flows[0]["approval_stages"] == []
+        assert flows[0]["stages"] == []
 
     def test_human_approval_stages_include_configured_addresses(self, test_db):
         yoke_id = _project_id(test_db, "yoke")
@@ -274,11 +269,13 @@ class TestFlows:
             ),
         )
         flows = get_workflows_definition(project="yoke")["flows"]
-        assert flows[0]["approval_stages"] == [
+        assert flows[0]["stages"] == [
+            {"name": "build", "step_runner": "auto"},
             {
                 "name": "approve-prod",
+                "step_runner": "human-approval",
                 "approvals": {"roles": ["owner"], "actors": [2]},
-            }
+            },
         ]
 
 

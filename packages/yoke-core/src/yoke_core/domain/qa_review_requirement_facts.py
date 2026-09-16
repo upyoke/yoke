@@ -19,10 +19,52 @@ from typing import Any
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain import db_backend
+from yoke_core.domain.json_helper import loads_text
 
 
 def _p(conn: Any) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def frozen_target_facts(execution_target_json: Any) -> dict[str, Any]:
+    """The deployment facts a requirement froze at materialization.
+
+    A release check's environment and candidate are not on the requirement's
+    own columns — a run preview has no registered environment row to name in
+    ``target_env``, and the candidate belongs to the run. Both are already
+    recorded on the execution target the check was materialized against,
+    which is the same document the gate judges against. Reading them there
+    reports what was actually checked; reading the project's current
+    environment instead would report what is true now, which is not the same
+    claim and is exactly what a frozen target exists to prevent.
+    """
+    try:
+        target = loads_text(execution_target_json or "") or {}
+    except ValueError:
+        target = {}
+    if not isinstance(target, dict):
+        target = {}
+    environment = target.get("environment")
+    deployment = target.get("deployment")
+    return {
+        "execution_environment": (
+            environment.get("name") if isinstance(environment, dict) else None
+        )
+        or None,
+        "execution_candidate_revision": (
+            deployment.get("release_lineage") if isinstance(deployment, dict) else None
+        )
+        or None,
+        "execution_observed_url": target.get("observed_url") or None,
+    }
+
+
+def _apply_frozen_target(value: dict[str, Any]) -> None:
+    facts = frozen_target_facts(value.get("execution_target_json"))
+    if not value.get("target_env"):
+        value["target_env"] = facts["execution_environment"]
+    value["candidate_revision"] = facts["execution_candidate_revision"]
+    value["observed_url"] = facts["execution_observed_url"]
 
 
 def requirement_facts(conn: Any, requirement_id: int) -> dict[str, Any]:
@@ -31,7 +73,7 @@ def requirement_facts(conn: Any, requirement_id: int) -> dict[str, Any]:
         "SELECT id, item_id, epic_id, deployment_run_id, "
         "deployment_member_item_id, plan_id, "
         "plan_case_key, method_id, method_name, expected_outcome, qa_kind, "
-        "qa_phase, target_env, success_policy "
+        "qa_phase, target_env, success_policy, execution_target_json "
         "FROM qa_requirements "
         f"WHERE id = {p}",
         (int(requirement_id),),
@@ -39,6 +81,7 @@ def requirement_facts(conn: Any, requirement_id: int) -> dict[str, Any]:
     if row is None:
         raise LookupError(f"QA requirement {requirement_id} does not exist")
     value = {key: row[key] for key in row.keys()}
+    _apply_frozen_target(value)
     if value.get("plan_id") is not None:
         project = conn.execute(
             f"SELECT project_id, name FROM qa_plans WHERE id = {p}",
@@ -157,4 +200,9 @@ def is_agent_verdict(conn: Any, requirement_id: int, performed_by: Any) -> bool:
     return str(verdict_path or "") == "agent"
 
 
-__all__ = ["is_agent_verdict", "requirement_facts", "review_subject"]
+__all__ = [
+    "frozen_target_facts",
+    "is_agent_verdict",
+    "requirement_facts",
+    "review_subject",
+]

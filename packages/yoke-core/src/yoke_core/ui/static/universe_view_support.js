@@ -289,3 +289,16 @@ export function whoColumn(capabilities) {
     isMachine,
   };
 }
+
+
+// Give each cell its column's name, so a table marked `table-stacks-narrow`
+// can print that name beside the value when the row stacks on a phone. The
+// labels come from the header the table already built rather than from a
+// second list, because a table whose labels and columns drift apart mislabels
+// every row on exactly the screen where the header is hidden.
+export function labelCellsByColumn(row, labels) {
+  [...row.children].forEach((cell, index) => {
+    cell.setAttribute("data-label", String(labels[index] ?? ""));
+  });
+  return row;
+}
