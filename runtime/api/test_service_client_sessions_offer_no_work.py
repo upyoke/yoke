@@ -214,11 +214,12 @@ class TestSessionOfferNoWork:
             selected_step=steps[0],
         )
 
-        # No skip filter: both runnable, selected is the higher-priority item.
+        # No skip filter: both runnable. Conn-less, the reference fields say
+        # they could not resolve and carry no number, so which candidate is
+        # selected is read from the typed schedule data instead.
         baseline = build_frontier_state_from_schedule(schedule)
-        # Conn-less frontier build falls back to bare internal-id strings.
-        assert baseline.runnable_items == ["10", "13"]
-        assert baseline.selected_item == "10"
+        assert len(baseline.runnable_items) == 2
+        assert baseline.scheduler_context["title"] == "blocked"
 
         # With the selected id in skip memory: it is dropped from
         # runnable_items, and the next-ranked item is promoted into
@@ -228,8 +229,8 @@ class TestSessionOfferNoWork:
             schedule,
             skip_memory_item_ids={10},
         )
-        assert filtered.runnable_items == ["13"]
-        assert filtered.selected_item == "13"
+        assert len(filtered.runnable_items) == 1
+        assert filtered.scheduler_context["title"] == "unblocked"
         assert filtered.scheduler_context["next_step"] == "advance"
         assert filtered.scheduler_context["workflow_id"] == "issue"
 
