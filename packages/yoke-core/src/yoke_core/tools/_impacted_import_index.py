@@ -36,6 +36,7 @@ from yoke_core.tools._impacted_path_references import (
 from yoke_core.tools._impacted_selection import is_effectively_full
 from yoke_core.tools._impacted_symbol_exports import (
     ModuleSymbols,
+    containing_package,
     imported_symbol_references,
     module_symbols,
     reexport_edges,
@@ -296,9 +297,10 @@ def build_import_index(repo_root: Path) -> ImportIndex:
         named_paths = named_path_references(tree)
         if named_paths:
             path_references.append((rel, named_paths))
+        package = containing_package(rel, module)
         if module:
-            symbols[module] = module_symbols(tree, module)
-        named_symbols = imported_symbol_references(tree, module)
+            symbols[module] = module_symbols(tree, package)
+        named_symbols = imported_symbol_references(tree, package)
         if named_symbols:
             symbol_references[rel] = named_symbols
     by_file_name: dict[str, set[str]] = {}

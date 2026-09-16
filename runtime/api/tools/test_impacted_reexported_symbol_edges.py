@@ -203,3 +203,70 @@ def test_the_definer_change_selects_the_test_end_to_end(tmp_path: Path) -> None:
 
     assert selection.full_sweep is False
     assert "runtime/api/test_behaviour.py" in selection.files
+
+
+def test_a_later_import_wins_over_an_earlier_definition(tmp_path: Path) -> None:
+    root = _tiny_repo(tmp_path)
+    _write(root, _DEFINER, _DEFINER_BODY)
+    # The import runs last, so it is what the facade hands out — the
+    # earlier definition is dead by the time anything imports from here.
+    _write(
+        root,
+        "runtime/api/facade.py",
+        "def behaviour():\n    return 2\n\n\nfrom runtime.api.definer import behaviour\n",
+    )
+    _write(
+        root,
+        "runtime/api/test_behaviour.py",
+        "from runtime.api.facade import behaviour\n\ndef test_it():\n    pass\n",
+    )
+
+    assert _selects(root, _DEFINER, "runtime/api/test_behaviour.py")
+
+
+def test_a_package_init_reexports_its_own_submodule(tmp_path: Path) -> None:
+    root = _tiny_repo(tmp_path)
+    definer = "runtime/api/pack/impl.py"
+    _write(root, "runtime/api/pack/__init__.py", "from .impl import behaviour\n")
+    _write(root, definer, _DEFINER_BODY)
+    _write(
+        root,
+        "runtime/api/test_behaviour.py",
+        "from runtime.api.pack import behaviour\n\ndef test_it():\n    pass\n",
+    )
+
+    # ``.impl`` inside ``pack/__init__.py`` is ``pack.impl``, not a
+    # top-level ``impl`` — the package is the init module's own name.
+    assert _selects(root, definer, "runtime/api/test_behaviour.py")
+
+
+def test_a_nested_package_init_reexports_its_own_submodule(tmp_path: Path) -> None:
+    root = _tiny_repo(tmp_path)
+    definer = "runtime/api/pack/inner/impl.py"
+    _write(root, "runtime/api/pack/__init__.py", "")
+    _write(root, "runtime/api/pack/inner/__init__.py", "from .impl import behaviour\n")
+    _write(root, definer, _DEFINER_BODY)
+    _write(
+        root,
+        "runtime/api/test_behaviour.py",
+        "from runtime.api.pack.inner import behaviour\n\ndef test_it():\n    pass\n",
+    )
+
+    assert _selects(root, definer, "runtime/api/test_behaviour.py")
+
+
+def test_a_relative_import_from_a_plain_module_still_resolves(tmp_path: Path) -> None:
+    root = _tiny_repo(tmp_path)
+    definer = "runtime/api/pack/impl.py"
+    _write(root, "runtime/api/pack/__init__.py", "")
+    _write(root, "runtime/api/pack/facade.py", "from .impl import behaviour\n")
+    _write(root, definer, _DEFINER_BODY)
+    _write(
+        root,
+        "runtime/api/test_behaviour.py",
+        "from runtime.api.pack.facade import behaviour\n\ndef test_it():\n    pass\n",
+    )
+
+    # A plain module's package is its parent, which this must keep right
+    # while the init case is fixed.
+    assert _selects(root, definer, "runtime/api/test_behaviour.py")

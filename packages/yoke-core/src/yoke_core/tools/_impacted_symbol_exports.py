@@ -32,20 +32,41 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 
+#: Where a name came from: ``None`` for a binding written in the module
+#: itself, or the ``(source module, name there)`` it was imported under.
+Binding = "tuple[str, str] | None"
+
 
 @dataclass
 class ModuleSymbols:
-    """What a module defines, and where it got the rest of its names."""
+    """The names a module hands out, and where each one last came from."""
 
-    #: Names bound by this module's own statements.
-    defines: set[str] = field(default_factory=set)
-    #: Local name -> (source module, name in that module).
-    imported: dict[str, tuple[str, str]] = field(default_factory=dict)
+    #: Local name -> its LAST module-level binding. Order matters: a
+    #: module that defines a name and then imports one over it hands out
+    #: the import, and the reverse hands out the definition, so the map
+    #: keeps whichever statement ran last rather than both.
+    bindings: dict = field(default_factory=dict)
     #: Modules whose whole public surface this module re-exports.
     star_sources: list[str] = field(default_factory=list)
 
 
-def module_symbols(tree: ast.AST, own_module: "str | None") -> ModuleSymbols:
+def containing_package(rel: str, module: "str | None") -> str:
+    """The package a file's relative imports resolve against.
+
+    A package's ``__init__`` IS its package, so ``from .impl import x``
+    there means ``pkg.impl``. Every other module resolves against its
+    parent. Taking the parent in both cases silently walks one level too
+    far up for every re-export a package front door performs, which is
+    where library-shaped code puts most of them.
+    """
+    if not module:
+        return ""
+    if rel.endswith("/__init__.py") or rel == "__init__.py":
+        return module
+    return module.rsplit(".", 1)[0] if "." in module else ""
+
+
+def module_symbols(tree: ast.AST, package: str) -> ModuleSymbols:
     """The symbol table for one parsed module.
 
     Only module-level bindings count. A name bound inside a function is
@@ -53,16 +74,16 @@ def module_symbols(tree: ast.AST, own_module: "str | None") -> ModuleSymbols:
     one would attach edges to whichever file happened to reuse the name.
     """
     symbols = ModuleSymbols()
-    package = own_module.rsplit(".", 1)[0] if own_module and "." in own_module else ""
-    body = getattr(tree, "body", [])
-    for node in body:
+    for node in getattr(tree, "body", []):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            symbols.defines.add(node.name)
+            symbols.bindings[node.name] = None
         elif isinstance(node, ast.Assign):
             for target in node.targets:
-                symbols.defines.update(_bound_names(target))
+                for name in _bound_names(target):
+                    symbols.bindings[name] = None
         elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
-            symbols.defines.update(_bound_names(node.target))
+            for name in _bound_names(node.target):
+                symbols.bindings[name] = None
         elif isinstance(node, ast.ImportFrom):
             _record_from_import(node, symbols, package)
         elif isinstance(node, ast.Import):
@@ -71,7 +92,7 @@ def module_symbols(tree: ast.AST, own_module: "str | None") -> ModuleSymbols:
                 # plain form binds the top package, which the module
                 # graph already covers.
                 if alias.asname:
-                    symbols.imported[alias.asname] = (alias.name, "")
+                    symbols.bindings[alias.asname] = (alias.name, "")
     return symbols
 
 
@@ -100,7 +121,7 @@ def _record_from_import(
             continue
         # The alias is how this module hands the name out; the original
         # is what to look for upstream.
-        symbols.imported[alias.asname or alias.name] = (source, alias.name)
+        symbols.bindings[alias.asname or alias.name] = (source, alias.name)
 
 
 def _absolute_source(node: ast.ImportFrom, package: str) -> str:
@@ -115,16 +136,13 @@ def _absolute_source(node: ast.ImportFrom, package: str) -> str:
     return f"{ancestor}.{base}" if base else ancestor
 
 
-def imported_symbol_references(
-    tree: ast.AST, own_module: "str | None"
-) -> set[tuple[str, str]]:
+def imported_symbol_references(tree: ast.AST, package: str) -> set[tuple[str, str]]:
     """``(module, name)`` pairs a file imports by name, at any depth.
 
     Unlike the defining side, this walks the whole tree: a test that
     imports the surface it exercises inside the test function is the
     ordinary shape, not an exception.
     """
-    package = own_module.rsplit(".", 1)[0] if own_module and "." in own_module else ""
     found: set[tuple[str, str]] = set()
     for node in ast.walk(tree):
         if not isinstance(node, ast.ImportFrom):
@@ -188,17 +206,14 @@ class SymbolResolver:
         name: str,
         active: set[tuple[str, str]],
     ) -> frozenset[str]:
-        if name in symbols.defines:
-            return frozenset({source})
-        upstream = symbols.imported.get(name)
-        if upstream is not None:
+        if name in symbols.bindings:
+            upstream = symbols.bindings[name]
+            if upstream is None:
+                return frozenset({source})
             origin, original = upstream
             if not original:
                 # ``import pkg.mod as m`` — the alias IS the module.
                 return frozenset({origin}) if origin in self._symbols else frozenset()
-            # A module can both import a name and rebind it; the import
-            # entry is what another module receives when it is not
-            # redefined here, which ``defines`` above already answered.
             return self._resolve(origin, original, active)
         # Sorted so a name two star-imports could supply resolves the
         # same way on every run.
@@ -231,6 +246,7 @@ def reexport_edges(
 __all__ = [
     "ModuleSymbols",
     "SymbolResolver",
+    "containing_package",
     "imported_symbol_references",
     "module_symbols",
     "reexport_edges",
