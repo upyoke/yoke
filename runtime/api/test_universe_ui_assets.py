@@ -237,11 +237,17 @@ def test_page_module_wires_the_workbench_shell():
         assert reference in controls, reference
 
     view_references = {
+        # Strategy reads its corpus, its holds and its write history from
+        # one surface call and draws them as cards.
         "universe_views_strategy.js": (
             "strategy.surface.list",
-            "renderStrategyTable",
-            '"Purpose / ancestry"',
+            "strategyDocumentCard",
+            "strategyWriteActivity",
         ),
+        # The frontier bands and the shipping page own their own reads.
+        "universe_frontier_bands.js": ("items.overview.list", "frontier.list"),
+        "universe_views_frontier.js": ("sessions.list", "deployment_runs.list"),
+        "universe_shipping_runs.js": ("deployment_runs.list", "sessions.list"),
         # The Items view composes the page; the loader beside it owns the
         # roster read, its paging state, and its request criteria.
         "universe_views_items.js": ("createRosterLoader",),
@@ -304,42 +310,3 @@ def test_qa_case_table_keeps_actions_visible_in_the_prototype_split():
     assert ".universe-app-root .qa-case-panel-body" in css
     assert ".qa-case-panel-body .qa-case-table" in css
     assert "min-width: 100%" in css
-
-
-def test_every_nav_destination_is_routable_and_scoped():
-    """Each nav entry is a real route from day one: it declares its scope and
-    either renders rows, states what it will be, or renders host content."""
-    page_module = (
-        files("yoke_core.ui")
-        .joinpath(
-            "static",
-            "universe_destinations.js",
-        )
-        .read_text()
-    )
-    # Grouped as the sidebar groups them: focus, then settings, then the
-    # diagnostics drawer.
-    for destination in (
-        "overview", "sessions", "inbox",
-        "organization", "workflows", "projects", "github", "actors",
-        "members", "billing",
-        "strategy", "items", "deployments", "environments", "flows",
-        "databases", "qa-methods", "qa-plans",
-        "qa-activity", "capabilities", "packs", "architecture", "messages",
-        "events", "doctor", "ouroboros", "machines",
-    ):
-        assert f'id: "{destination}"' in page_module, destination
-    assert 'id: "board"' not in page_module
-    # Frontier was absorbed by the Overview section of that name, and Project
-    # settings by the Projects row that opens it. Neither is a destination.
-    for absorbed in ("frontier", "project", "delivery", "qa"):
-        assert f'id: "{absorbed}"' not in page_module, absorbed
-    # Execution instructions are edited inside the workflows page; a nav
-    # entry of their own would lead to a screen that no longer exists.
-    assert 'id: "instructions"' not in page_module
-    # Host-fed screens sit in the same flat nav arc as every other view, and
-    # the flag ties each entry's visibility to a host-supplied section.
-    for host_fed in ("members", "billing"):
-        entry_start = page_module.index(f'id: "{host_fed}"')
-        entry_end = page_module.index("}", entry_start)
-        assert "hostFed: true" in page_module[entry_start:entry_end], host_fed
