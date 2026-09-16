@@ -280,8 +280,7 @@ def run(
             timeout_seconds=timeout_seconds,
         )
         from yoke_core.domain.session_ci_wait_record import resolve_received_wait
-        warning = resolve_received_wait(run_id=run_id, conclusion=conclusion)
-        if warning:
+        if warning := resolve_received_wait(run_id=run_id, conclusion=conclusion):
             _say(warning)
         if conclusion != "success":
             relay_failed_log(project=project, repo=repo, run_id=run_id)
