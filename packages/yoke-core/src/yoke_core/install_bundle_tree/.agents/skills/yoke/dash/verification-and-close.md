@@ -220,9 +220,9 @@ and claim for the later close-out; the envelope's `status` names that stage,
 and this is a completed merge, not a failure. When the resolved flow
 discharges delivery at the merge — a flow with no target tier — the close-out
 transitions through every declared stage to `done`, so the release stage runs
-its own gates on the way. Report the `status` the envelope carries rather than
-assuming either outcome, and never start a deployment run to move an item that
-its own flow says needs none.
+its own gates on the way. Read the `[close-out]` block and the envelope's
+`status` rather than assuming either outcome, and never start a deployment run
+to move an item that its own flow says needs none.
 
 Add `--no-changes` for a genuine no-change result. When the merge is already
 recorded and only the close-out remains — after a deployment run, after
