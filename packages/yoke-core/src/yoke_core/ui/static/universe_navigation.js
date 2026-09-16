@@ -98,6 +98,21 @@ export function deploymentRunsHref(project) {
   );
 }
 
+export function deploymentFlowsHref(project) {
+  return buildUniverseRoute(
+    "deployments", project == null ? null : String(project), "flows",
+  );
+}
+
+export function deploymentFlowHref(project, flowId) {
+  return buildUniverseRoute(
+    "deployments",
+    project == null ? null : String(project),
+    "flows",
+    String(flowId),
+  );
+}
+
 export function deploymentRunHref(project, runId) {
   return buildUniverseRoute(
     "deployments",

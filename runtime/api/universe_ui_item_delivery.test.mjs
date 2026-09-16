@@ -20,7 +20,7 @@ import {
 
 const ok = (result) => ({ status: 200, envelope: { success: true, result } });
 
-function deliveryClient(item, runs, requests) {
+function deliveryClient(item, runs, requests, deliveryDefaults = []) {
   return async (request) => {
     requests.push(request);
     if (request.function === "items.detail.get") return ok({ item });
@@ -36,6 +36,12 @@ function deliveryClient(item, runs, requests) {
     }
     if (request.function === "inbox.list") return ok({ needs_decision: [] });
     if (request.function === "sessions.list") return ok({ rows: [] });
+    if (request.function === "workflows.mechanics.get") {
+      return ok({
+        delivery_defaults: deliveryDefaults,
+        testing_defaults: [], approvers: [],
+      });
+    }
     if (request.function === "epic_tasks.list.run") return ok({ tasks: [] });
     throw new Error(`unexpected function ${request.function}`);
   };
@@ -72,12 +78,66 @@ test("a Dash item lists its releases newest first and names its flow", async () 
     byClass(root, "item-delivery-run")[0].children[0].href,
     "#/deployments/runs/run-20260726-002?project=7",
   );
+  // The flow the item names deep-links to that definition, not to the catalog.
   const flow = byClass(root, "item-delivery-flow")[0];
   assert.equal(flow.children[1].textContent, "acme-stage-then-prod");
-  assert.equal(flow.children[1].href, "#/deployments/flows?project=7");
+  assert.equal(
+    flow.children[1].href, "#/deployments/flows/acme-stage-then-prod?project=7",
+  );
+  assert.equal(flow.children[2].textContent, "selected on this item");
 });
 
-test("an item with no release says so, and an unselected flow is not no flow", async () => {
+test("an item with no selection names the project default it actually resolves", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const dash = detailItem("dash");
+  dash.deployment_flow = null;
+  renderItemDetailView(
+    itemContext(documentNode, deliveryClient(dash, [], [], [
+      { project_id: 7, project: "acme", workflow_id: "dash",
+        flow_id: "acme-default-flow" },
+      { project_id: 7, project: "acme", workflow_id: "issue",
+        flow_id: "acme-issue-flow" },
+    ])),
+    root, "7", "ACM-22",
+  );
+  await settle();
+  await settle();
+
+  // The effective binding is read, not asserted, and it is the row for this
+  // item's own workflow.
+  const flow = byClass(root, "item-delivery-flow")[0];
+  assert.equal(flow.children[1].textContent, "acme-default-flow");
+  assert.equal(
+    flow.children[1].href, "#/deployments/flows/acme-default-flow?project=7",
+  );
+  assert.equal(
+    flow.children[2].textContent, "this project's default for its workflow",
+  );
+});
+
+test("a project declaring no default for the workflow says so", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const dash = detailItem("dash");
+  dash.deployment_flow = null;
+  renderItemDetailView(
+    itemContext(documentNode, deliveryClient(dash, [], [], [
+      { project_id: 7, project: "acme", workflow_id: "issue",
+        flow_id: "acme-issue-flow" },
+    ])),
+    root, "7", "ACM-22",
+  );
+  await settle();
+  await settle();
+
+  assert.match(
+    byClass(root, "item-delivery-default")[0].textContent,
+    /declares no default for this workflow/,
+  );
+});
+
+test("an item no release has carried says so", async () => {
   const documentNode = new FakeDocument();
   const root = documentNode.createElement("div");
   const dash = detailItem("dash");
@@ -89,10 +149,6 @@ test("an item with no release says so, and an unselected flow is not no flow", a
   await settle();
 
   assert.match(itemText(root), /No release has carried this item\./);
-  assert.match(
-    byClass(root, "item-delivery-default")[0].textContent,
-    /none selected on this item — its workflow's project default applies/,
-  );
 });
 
 test("a Task item gains no delivery panel from a project default", async () => {

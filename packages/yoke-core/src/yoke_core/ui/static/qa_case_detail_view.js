@@ -38,11 +38,26 @@ async function read(context, functionId, payload, target) {
   }
 }
 
-// The activity read is keyed by subject, not by requirement, so the case's
-// own record names the subject to read and the row is picked out of it. A
-// standalone case names neither, and falls back to the project's recency
-// page — which is where a subject-less case is listed anyway.
-async function loadActivityRow(context, project, requirement, requirementId) {
+// Every execution this case recorded, newest first. The activity table joins
+// each requirement to its LATEST run alone, so it can say what happened most
+// recently and never what happened before that; the case's own run list is
+// the complete record, and a repeated execution belongs on the page rather
+// than being replaced by the one that followed it.
+async function loadExecutions(context, requirementId) {
+  const result = await read(
+    context, "qa.run.list", { requirement_id: Number(requirementId) },
+    { kind: "qa_requirement", qa_requirement_id: Number(requirementId) },
+  );
+  return [...(result?.rows || [])].sort(
+    (left, right) => Number(right.id || 0) - Number(left.id || 0),
+  );
+}
+
+// Artifacts are resolved through the activity read's shared evidence chain,
+// which is keyed by subject rather than by requirement. When that read does
+// not carry this case, evidence is unavailable — which is a different answer
+// from the case never having run, and the page must not confuse them.
+async function loadEvidenceRow(context, project, requirement, requirementId) {
   const payloads = [];
   if (requirement?.item_id) {
     payloads.push({ project, item_ids: [Number(requirement.item_id)] });
@@ -50,7 +65,11 @@ async function loadActivityRow(context, project, requirement, requirementId) {
   if (requirement?.deployment_run_id) {
     payloads.push({ project, deployment_run_id: String(requirement.deployment_run_id) });
   }
-  payloads.push({ project, limit: 200 });
+  if (requirement?.deployment_member_item_id) {
+    payloads.push({
+      project, item_ids: [Number(requirement.deployment_member_item_id)],
+    });
+  }
   for (const payload of payloads) {
     const result = await read(context, "qa.activity.list", payload);
     const row = (result?.rows || []).find(
@@ -59,6 +78,19 @@ async function loadActivityRow(context, project, requirement, requirementId) {
     if (row) return row;
   }
   return null;
+}
+
+// The outcome an execution recorded, in the vocabulary every QA surface uses.
+function executionOutcome(run) {
+  if (!run) return null;
+  const caseOutcome = String(run.case_outcome || "").trim();
+  if (caseOutcome) return caseOutcome.replaceAll(" ", "_");
+  const verdict = String(run.verdict || "").trim().toLowerCase();
+  if (verdict === "pass") return "passed";
+  if (verdict === "fail" || verdict === "error") return "failed";
+  if (verdict === "undetermined") return "needs_review";
+  const status = String(run.execution_status || "").trim().toLowerCase();
+  return status || "queued";
 }
 
 // The subject's own id, not a name a reader can use: a requirement carries
@@ -149,8 +181,9 @@ export async function renderQaCaseDetail(
     return;
   }
   const subjectId = subjectItemId(requirement, null);
-  const [row, stages, pending, subjectItem] = await Promise.all([
-    loadActivityRow(context, String(project), requirement, requirementId),
+  const [executions, row, stages, pending, subjectItem] = await Promise.all([
+    loadExecutions(context, requirementId),
+    loadEvidenceRow(context, String(project), requirement, requirementId),
     requirement.deployment_run_id
       ? read(context, "deployment_runs.stages", {}, {
         kind: "workflow_run",
@@ -161,6 +194,11 @@ export async function renderQaCaseDetail(
     loadSubjectItem(context, project, subjectId),
   ]);
   if (!context.isMounted()) return;
+  // The newest execution is the case's current answer; the ones before it are
+  // its history, and both come from the case's own complete run list rather
+  // than from a page of recent activity that may not carry either.
+  const latest = executions[0] || null;
+  const earlier = executions.slice(1);
   const stage = (stages?.stages || []).find(
     (candidate) => String(candidate.name) === String(requirement.deployment_stage),
   ) || null;
@@ -180,12 +218,25 @@ export async function renderQaCaseDetail(
     ["Method", row?.method_name || requirement.method_name || requirement.method_id],
     [
       "Outcome",
-      row
-        ? outcomeNode(documentNode, row.outcome, row.capture_degraded_reason)
-        : "no run recorded",
+      latest
+        ? outcomeNode(
+          documentNode, executionOutcome(latest), latest.capture_degraded_reason,
+        )
+        : "never run",
     ],
-    ["Recorded", row?.happened_at ? relativeAgePhrase(row.happened_at) : "never run"],
+    [
+      "Recorded",
+      latest?.completed_at || latest?.created_at
+        ? relativeAgePhrase(latest.completed_at || latest.created_at)
+        : "never run",
+    ],
   ];
+  if (earlier.length) {
+    facts.push([
+      "Earlier executions",
+      `${earlier.length} before this one`,
+    ]);
+  }
   if (row?.host_baseline) facts.push(["Host baseline", String(row.host_baseline)]);
   if (requirement.waived_at) {
     facts.push(["Waived", String(requirement.waiver_rationale || requirement.waived_at)]);
@@ -213,8 +264,8 @@ export async function renderQaCaseDetail(
   });
   if (strip) body.appendChild(strip);
   for (const [label, value] of [
-    ["What the agent said", row?.verdict_reason],
-    ["Capture degraded", row?.capture_degraded_reason],
+    ["What the agent said", latest?.verdict_reason || row?.verdict_reason],
+    ["Capture degraded", latest?.capture_degraded_reason],
     ["Blocked on precondition", row?.precondition_reason],
   ]) {
     if (!value) continue;
@@ -223,8 +274,23 @@ export async function renderQaCaseDetail(
     line.appendChild(el(documentNode, "span", null, String(value)));
     body.appendChild(line);
   }
-  if (!strip && !body.children.length) {
-    body.appendChild(el(documentNode, "p", "empty", "No evidence was captured."));
+  // Evidence the shared chain could not resolve is unavailable, which is a
+  // different fact from a case that never ran and from one that captured
+  // nothing. Each says which it is rather than sharing one empty state.
+  if (latest && !row) {
+    body.appendChild(el(
+      documentNode,
+      "p",
+      "empty",
+      "This execution's evidence could not be resolved from here.",
+    ));
+  } else if (!strip && !body.children.length) {
+    body.appendChild(el(
+      documentNode,
+      "p",
+      "empty",
+      latest ? "No evidence was captured." : "This case has never run.",
+    ));
   }
   evidence.appendChild(body);
   host.appendChild(evidence);

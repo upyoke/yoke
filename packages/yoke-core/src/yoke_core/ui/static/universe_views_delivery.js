@@ -159,7 +159,7 @@ function renderDeliveryRunsView(context, main, scope) {
   loader.start();
 }
 
-function renderDeliveryFlowsView(context, main, scope) {
+function renderDeliveryFlowsView(context, main, scope, selectedFlowId = null) {
   const documentNode = context.document;
   const panel = section(documentNode, "Flows");
   main.replaceChildren(panel);
@@ -173,7 +173,7 @@ function renderDeliveryFlowsView(context, main, scope) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.flows);
-      renderDeliveryFlowExplorer(body, panel, rows);
+      renderDeliveryFlowExplorer(body, panel, rows, selectedFlowId);
     },
   );
 }
@@ -211,5 +211,5 @@ export function renderDeploymentsView(context, main, scope, chrome = {}) {
   const strip = deploymentTabStrip(documentNode, scope, activeTab);
   const body = el(documentNode, "div", "tab-body");
   main.replaceChildren(strip, body);
-  TAB_RENDERERS[activeTab](context, body, scope);
+  TAB_RENDERERS[activeTab](context, body, scope, chrome.detail || null);
 }

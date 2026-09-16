@@ -35,6 +35,22 @@ const REQUIREMENT = {
   waiver_rationale: null,
 };
 
+// The case's own executions, which the run list serves complete. The activity
+// table joins a requirement to its latest run alone, so the page reads this
+// rather than trusting a page of recent activity to carry the case at all.
+const EXECUTION = {
+  id: 44,
+  qa_requirement_id: 9001,
+  performed_by: "browser",
+  verdict: "fail",
+  case_outcome: "failed",
+  execution_status: "captured",
+  verdict_reason: "The banner named the previous revision.",
+  capture_degraded_reason: null,
+  created_at: "2026-07-26T10:05:00Z",
+  completed_at: "2026-07-26T10:05:00Z",
+};
+
 const ACTIVITY_ROW = {
   requirement_id: 9001,
   run_id: 44,
@@ -72,6 +88,9 @@ function caseContext(documentNode, requests, overrides = {}) {
         }
         if (request.function === "qa.activity.list") {
           return ok({ rows: overrides.rows ?? [ACTIVITY_ROW] });
+        }
+        if (request.function === "qa.run.list") {
+          return ok({ rows: overrides.runs ?? [EXECUTION] });
         }
         if (request.function === "deployment_runs.stages") {
           return ok({
@@ -154,6 +173,67 @@ test("a case page names its subject, its stage execution, and its contract", asy
     /What the agent said: The banner named the previous revision\./,
   );
   assert.equal(byClass(root, "review-shot").length, 1);
+});
+
+test("a repeated case keeps its history instead of only its newest run", async () => {
+  // The activity table joins a requirement to its latest run alone, so a case
+  // run twice would otherwise look like it ran once.
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("main");
+  const requests = [];
+  await renderQaCaseDetail(
+    caseContext(documentNode, requests, {
+      runs: [
+        { ...EXECUTION, id: 51, verdict: "pass", case_outcome: "passed",
+          verdict_reason: null, completed_at: "2026-07-26T12:00:00Z" },
+        { ...EXECUTION, id: 44 },
+      ],
+    }),
+    root, "1", "9001",
+  );
+  await settle();
+
+  // The complete run list is read by requirement, not by subject recency.
+  assert.deepEqual(
+    requests.find((r) => r.function === "qa.run.list").payload,
+    { requirement_id: 9001 },
+  );
+  const facts = values(root);
+  // Newest execution is the current answer; the earlier one is still counted.
+  assert.equal(facts[5], "passed");
+  assert.equal(facts[7], "1 before this one");
+});
+
+test("an execution whose evidence is out of reach does not read as never run", async () => {
+  // A case whose subject the activity read does not carry still ran; saying
+  // "never run" there would deny an execution the run list can see.
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("main");
+  await renderQaCaseDetail(
+    caseContext(documentNode, [], { rows: [] }), root, "1", "9001",
+  );
+  await settle();
+
+  const facts = values(root);
+  assert.equal(facts[5], "failed");
+  assert.notEqual(facts[6], "never run");
+  assert.match(
+    byClass(root, "empty")[0].textContent,
+    /evidence could not be resolved/,
+  );
+});
+
+test("a case that truly never ran says so", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("main");
+  await renderQaCaseDetail(
+    caseContext(documentNode, [], { runs: [], rows: [] }), root, "1", "9001",
+  );
+  await settle();
+
+  const facts = values(root);
+  assert.equal(facts[5], "never run");
+  assert.equal(facts[6], "never run");
 });
 
 test("a standalone case keeps its own subject rather than borrowing a release", async () => {

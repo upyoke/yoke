@@ -96,7 +96,7 @@ function zeroState(documentNode, title, copy, className = "") {
   empty.appendChild(el(documentNode, "p", null, copy));
   return empty;
 }
-export function renderDeliveryFlowExplorer(body, panel, sourceRows) {
+export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId = null) {
   const documentNode = body.ownerDocument;
   const rows = sortedRows(sourceRows);
   panel.classList.add("delivery-flow-panel");
@@ -114,10 +114,16 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows) {
   const disabledCount = rows.filter(
     (row) => flowStatus(row) === "disabled",
   ).length;
+  // A route naming a flow opens on it, including a disabled one — a link to
+  // a retired definition should land on that definition rather than silently
+  // on whichever active flow happens to sort first.
+  const routed = selectedId
+    ? rows.find((row) => String(row.id) === String(selectedId)) || null
+    : null;
   const state = {
     query: "",
-    showHistory: false,
-    selected: rows.find((row) => flowStatus(row) !== "disabled") || null,
+    showHistory: Boolean(routed && flowStatus(routed) === "disabled"),
+    selected: routed || rows.find((row) => flowStatus(row) !== "disabled") || null,
   };
   const explorer = el(documentNode, "div", "delivery-flow-explorer");
   const toolbar = el(documentNode, "div", "delivery-flow-toolbar");

@@ -77,6 +77,15 @@ test("Blitz detail route renders the full execution-document composition", async
         },
       };
     }
+    if (request.function === "workflows.mechanics.get") {
+      return {
+        status: 200,
+        envelope: {
+          success: true,
+          result: { delivery_defaults: [], testing_defaults: [], approvers: [] },
+        },
+      };
+    }
     if (request.function === "deployment_runs.find_by_item") {
       return {
         status: 200,
@@ -107,6 +116,7 @@ test("Blitz detail route renders the full execution-document composition", async
     [
       "deployment_runs.find_by_item", "inbox.list", "items.detail.get",
       "qa.artifact.read", "sessions.list", "strategy.execution.get",
+      "workflows.mechanics.get",
     ],
   );
   const rendered = itemText(root);

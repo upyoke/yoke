@@ -7,36 +7,73 @@
 // question is almost always "did the last one land".
 
 import {
-  buildUniverseRoute,
+  deploymentFlowHref,
+  deploymentFlowsHref,
   deploymentRunHref,
 } from "./universe_navigation.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
 import { callFunction, el, statePill } from "./universe_view_support.js";
 
-function flowLine(documentNode, item) {
-  const flowsHref = buildUniverseRoute(
-    "deployments", String(item.project.id), "flows",
-  );
+// The definition this item would ship through. An explicit selection on the
+// item wins; otherwise the effective per-project, per-workflow default the
+// mechanics read serves is the answer. Neither is guessed: when the read
+// carries no default for this item's workflow and project, the panel says the
+// binding is unresolved rather than asserting one applies.
+function flowLine(documentNode, item, resolved) {
   const line = el(documentNode, "div", "item-delivery-flow");
-  if (item.deployment_flow) {
-    line.appendChild(el(documentNode, "span", "item-delivery-label", "Flow"));
-    const link = el(documentNode, "a", "mono", String(item.deployment_flow));
-    link.href = flowsHref;
+  line.appendChild(el(documentNode, "span", "item-delivery-label", "Flow"));
+  if (resolved?.flowId) {
+    const link = el(documentNode, "a", "mono", String(resolved.flowId));
+    link.href = deploymentFlowHref(item.project.id, resolved.flowId);
     line.appendChild(link);
+    line.appendChild(el(
+      documentNode,
+      "span",
+      "item-delivery-flow-source",
+      resolved.source === "item"
+        ? "selected on this item"
+        : "this project's default for its workflow",
+    ));
     return line;
   }
-  // No selection on the item is not "no flow": the project default for its
-  // workflow applies, and saying which one that is belongs to the workflow's
-  // own mechanics rather than to a guess made here.
-  line.appendChild(el(documentNode, "span", "item-delivery-label", "Flow"));
-  const fallback = el(
+  const unresolved = el(
     documentNode, "a", "item-delivery-default",
-    "none selected on this item — its workflow's project default applies",
+    resolved?.reason === "unreadable"
+      ? "not selected on this item — its project default could not be read"
+      : "not selected on this item, and its project declares no default for "
+        + "this workflow",
   );
-  fallback.href = flowsHref;
-  line.appendChild(fallback);
+  unresolved.href = deploymentFlowsHref(item.project.id);
+  line.appendChild(unresolved);
   return line;
+}
+
+// The effective binding, read from the same delivery defaults the Workflows
+// mechanics screen shows. An unreadable read is reported as unreadable.
+async function resolveFlow(context, item) {
+  if (item.deployment_flow) {
+    return { flowId: String(item.deployment_flow), source: "item" };
+  }
+  let result = null;
+  try {
+    const read = await callFunction(context.client, "workflows.mechanics.get", {});
+    if (read.status === 200 && read.envelope.success) {
+      result = read.envelope.result || {};
+    }
+  } catch {
+    result = null;
+  }
+  if (!result) return { flowId: null, reason: "unreadable" };
+  const workflowId = String(item.workflow?.id || "");
+  const match = (result.delivery_defaults || []).find((row) => (
+    String(row.workflow_id) === workflowId
+    && (String(row.project_id) === String(item.project.id)
+      || String(row.project) === String(item.project.slug))
+  ));
+  return match
+    ? { flowId: String(match.flow_id), source: "project_default" }
+    : { flowId: null, reason: "none_declared" };
 }
 
 function deliveryRow(documentNode, item, run) {
@@ -72,9 +109,15 @@ function newestFirst(rows) {
 export function itemDeliveryPanel(context, item) {
   const documentNode = context.document;
   const { panel, body } = workflowPanel(documentNode, "Delivery");
-  body.appendChild(flowLine(documentNode, item));
+  const flow = el(documentNode, "div", "item-delivery-flow-host");
+  flow.appendChild(el(documentNode, "span", "item-muted", "resolving flow…"));
+  body.appendChild(flow);
   const runs = el(documentNode, "div", "item-delivery-runs", "loading releases…");
   body.appendChild(runs);
+  resolveFlow(context, item).then((resolved) => {
+    if (!context.isMounted()) return;
+    flow.replaceChildren(flowLine(documentNode, item, resolved));
+  });
   (async () => {
     let result = null;
     try {

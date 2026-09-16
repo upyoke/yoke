@@ -194,7 +194,10 @@ export function mountUniverseApp(rootNode, options = {}) {
       scopeHost.replaceChildren(picker);
       setScopeVisible(true);
     }
+    // `tab` travels: a tabbed destination's drill-in means different things
+    // under different tabs, and its renderer decides which.
     const breadcrumbNavigation = (breadcrumb) => ({
+      tab: route.tab,
       setDetailLabel(label) {
         if (!mounted || main.children[0] !== breadcrumb) return;
         breadcrumb.children[breadcrumb.children.length - 1].textContent =
@@ -280,13 +283,8 @@ export function mountUniverseApp(rootNode, options = {}) {
         (entry.tabs || []).find((candidate) => candidate.id === route.tab) || null,
       );
       main.replaceChildren(breadcrumb, detailHost);
-      detailRenderer(
-        context,
-        detailHost,
-        detailProject,
-        route.detail,
-        breadcrumbNavigation(breadcrumb),
-      );
+      detailRenderer(context, detailHost, detailProject, route.detail,
+        breadcrumbNavigation(breadcrumb));
       return;
     }
     // The picker lives in the top chrome. A separate view-owned host still

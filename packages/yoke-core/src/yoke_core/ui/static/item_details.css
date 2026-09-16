@@ -311,6 +311,7 @@
   letter-spacing: 0.05em;
   font-weight: 600;
 }
+.universe-app-root .item-delivery-flow-source { color: var(--yoke-muted); }
 .universe-app-root .item-delivery-default {
   color: var(--yoke-muted);
   text-decoration: none;
