@@ -65,9 +65,13 @@ class RemoteState:
     local_only: tuple[ownership.LocalCommit, ...] = field(default_factory=tuple)
     commits_read: bool = True
 
-    def unproven_commits(self, owned: frozenset[str]) -> tuple[str, ...]:
+    def unproven_commits(
+        self, territory: ownership.InstallerTerritory, repo_root: Path,
+    ) -> tuple[str, ...]:
         """Local-only commits publication may not treat as its own."""
-        return ownership.unproven_commits(self.local_only, owned)
+        return ownership.unproven_commits(
+            self.local_only, territory, repo_root=repo_root,
+        )
 
     def payload(self) -> dict[str, Any]:
         return {
@@ -232,13 +236,14 @@ def reconcile_by_regeneration(
     remote: str | None,
     regenerate: Callable[[], dict[str, Any]],
     operation: str,
-    owned_paths: frozenset[str],
+    territory: ownership.InstallerTerritory,
 ) -> dict[str, Any]:
     """Move onto the advanced remote tip, regenerate, and re-commit.
 
-    ``owned_paths`` is the installer's own territory: the branch is moved
-    only when every commit the remote lacks is provably this installer's,
-    which means a matching subject AND a diff confined to those paths.
+    ``territory`` is the installer's own: the branch is moved only when
+    every commit the remote lacks is provably this installer's — a matching
+    subject, a diff confined to files it owns whole, and for a co-owned
+    managed-markdown file, no change outside its block.
 
     Returns the outcome plus the fresh commit result. ``regenerate`` re-runs
     the bundle write on the updated base; its report is what the replacement
@@ -265,7 +270,7 @@ def reconcile_by_regeneration(
                 "succeeds, then re-run the install"
             ),
         }
-    unproven = state.unproven_commits(owned_paths)
+    unproven = state.unproven_commits(territory, repo_root)
     if unproven:
         listed = "\n".join(f"  {line}" for line in unproven)
         return {

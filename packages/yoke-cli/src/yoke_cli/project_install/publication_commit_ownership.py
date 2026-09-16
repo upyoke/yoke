@@ -31,6 +31,20 @@ _MAX_NAMED_PATHS = 3
 
 
 @dataclass(frozen=True)
+class InstallerTerritory:
+    """What the install owns, split by how much of a file that is.
+
+    ``whole_files`` the install writes end to end. ``managed_regions`` it
+    co-owns with the operator: one marked block is the install's and every
+    line around it is theirs, so a change there is only the install's when
+    the text outside the block is untouched.
+    """
+
+    whole_files: frozenset[str] = frozenset()
+    managed_regions: frozenset[str] = frozenset()
+
+
+@dataclass(frozen=True)
 class LocalCommit:
     """One commit the remote lacks, with the paths it changed."""
 
@@ -44,16 +58,19 @@ class LocalCommit:
         return f"{self.sha[:12]} {self.subject}"
 
 
-def installer_owned_paths(
+def installer_territory(
     repo_root: Path, report: Mapping[str, Any] | None = None,
-) -> frozenset[str]:
-    """Every repo path the install on disk, plus this run, claims as its own."""
-    recorded = installed_output_paths.manifest_owned_paths(
-        files_layer.load_manifest(repo_root)
+) -> InstallerTerritory:
+    """What the install on disk, plus this run, claims — whole files and regions."""
+    manifest = files_layer.load_manifest(repo_root)
+    regions = frozenset(
+        installed_output_paths.managed_region_paths(manifest, report)
     )
-    return frozenset(recorded) | frozenset(
-        installed_output_paths.owned_paths(report)
-    )
+    whole = (
+        frozenset(installed_output_paths.manifest_owned_paths(manifest))
+        | frozenset(installed_output_paths.owned_paths(report))
+    ) - regions
+    return InstallerTerritory(whole_files=whole, managed_regions=regions)
 
 
 def read_local_only_commits(
@@ -105,36 +122,98 @@ def _changed_paths(repo_root: Path, sha: str) -> tuple[tuple[str, ...], bool]:
 
 
 def unproven_commits(
-    commits: tuple[LocalCommit, ...], owned: frozenset[str],
+    commits: tuple[LocalCommit, ...],
+    territory: InstallerTerritory,
+    *,
+    repo_root: Path,
 ) -> tuple[str, ...]:
     """Name every commit publication may not treat as its own, with why."""
     unproven: list[str] = []
     for commit in commits:
-        reason = _unproven_reason(commit, owned)
+        reason = _unproven_reason(commit, territory, repo_root)
         if reason:
             unproven.append(f"{commit.label} — {reason}")
     return tuple(unproven)
 
 
-def _unproven_reason(commit: LocalCommit, owned: frozenset[str]) -> str:
+def _unproven_reason(
+    commit: LocalCommit, territory: InstallerTerritory, repo_root: Path,
+) -> str:
     if not checkout_gate.is_installer_commit_message(commit.subject):
         return NOT_AN_INSTALLER_COMMIT
     if not commit.paths_read:
         return PATHS_UNREADABLE
-    outside = sorted(path for path in commit.changed_paths if path not in owned)
-    if not outside:
-        return ""
-    named = ", ".join(outside[:_MAX_NAMED_PATHS])
-    if len(outside) > _MAX_NAMED_PATHS:
-        named = f"{named}, and {len(outside) - _MAX_NAMED_PATHS} more"
-    return f"it changes paths the install does not own ({named})"
+    foreign: list[str] = []
+    operator_text: list[str] = []
+    for path in commit.changed_paths:
+        if path in territory.whole_files:
+            continue
+        if path not in territory.managed_regions:
+            foreign.append(path)
+            continue
+        if _changed_outside_block(repo_root, commit.sha, path):
+            operator_text.append(path)
+    if foreign:
+        return (
+            "it changes paths the install does not own "
+            f"({_named(sorted(foreign))})"
+        )
+    if operator_text:
+        return (
+            "it changes the operator's own text outside the managed block "
+            f"({_named(sorted(operator_text))})"
+        )
+    return ""
+
+
+def _changed_outside_block(repo_root: Path, sha: str, path: str) -> bool:
+    """True when this commit altered anything around the managed block.
+
+    The install owns one marked region of a co-owned file, so the proof is a
+    comparison of everything else: identical outside the block means the
+    commit stayed inside the install's territory. An unreadable result is
+    treated as changed, because a proof that cannot be performed is not one.
+    """
+    after, after_read = _blob(repo_root, f"{sha}:{path}")
+    if not after_read:
+        return True
+    before, before_read = _blob(repo_root, f"{sha}^:{path}")
+    if not before_read:
+        # The commit created the file; the operator had no text there yet.
+        before = ""
+    return _outside_block(before) != _outside_block(after)
+
+
+def _outside_block(text: str) -> str:
+    from yoke_contracts.project_contract.managed_block import block_span
+
+    span = block_span(text)
+    if span is None:
+        return text
+    start, end = span
+    return text[:start] + text[end:]
+
+
+def _blob(repo_root: Path, revision_path: str) -> tuple[str, bool]:
+    shown = checkout_gate.run_git(repo_root, "show", revision_path)
+    if shown.returncode != 0:
+        return "", False
+    return shown.stdout, True
+
+
+def _named(paths: list[str]) -> str:
+    named = ", ".join(paths[:_MAX_NAMED_PATHS])
+    if len(paths) > _MAX_NAMED_PATHS:
+        named = f"{named}, and {len(paths) - _MAX_NAMED_PATHS} more"
+    return named
 
 
 __all__ = [
     "NOT_AN_INSTALLER_COMMIT",
     "read_local_only_commits",
     "PATHS_UNREADABLE",
+    "InstallerTerritory",
     "LocalCommit",
-    "installer_owned_paths",
+    "installer_territory",
     "unproven_commits",
 ]

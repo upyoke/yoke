@@ -76,6 +76,12 @@ def manifest_owned_paths(manifest: Mapping[str, Any] | None) -> list[str]:
     has when it must decide whether a commit it did not make touched only
     installer territory. Path-keyed manifest sections contribute their keys;
     list-valued ones contribute their entries.
+
+    Managed-markdown files are deliberately absent: the install owns one
+    marked block inside each of them and the operator owns everything
+    around it, so naming the whole path here would hand a caller ownership
+    of text that is not the install's. :func:`managed_region_paths` answers
+    for those, and a caller proving ownership must treat them separately.
     """
     manifest = manifest if isinstance(manifest, Mapping) else {}
     paths: list[str] = []
@@ -85,7 +91,6 @@ def manifest_owned_paths(manifest: Mapping[str, Any] | None) -> list[str]:
         "strategy_files",
         "git_hook_hashes",
         "hook_entries",
-        "managed_markdown",
     ):
         section = manifest.get(key)
         if isinstance(section, Mapping):
@@ -102,6 +107,26 @@ def manifest_owned_paths(manifest: Mapping[str, Any] | None) -> list[str]:
         )
     )
     paths.extend(CURSOR_CONFIG_RELS)
+    return normalized(paths)
+
+
+def managed_region_paths(
+    manifest: Mapping[str, Any] | None,
+    report: Mapping[str, Any] | None = None,
+) -> list[str]:
+    """Return the co-owned files where the install owns only its block.
+
+    Both sides of the same question, in one place: the files a recorded
+    install manages and the ones this run wrote. Ownership of these paths is
+    region-scoped, never whole-file.
+    """
+    manifest = manifest if isinstance(manifest, Mapping) else {}
+    report = report if isinstance(report, Mapping) else {}
+    paths: list[str] = []
+    section = manifest.get("managed_markdown")
+    if isinstance(section, Mapping):
+        paths.extend(str(path) for path in section if path)
+    paths.extend(_string_list(report.get("managed_markdown_written")))
     return normalized(paths)
 
 
@@ -128,6 +153,7 @@ def _string_list(value: Any) -> list[str]:
 
 __all__ = [
     "GITIGNORE_REL",
+    "managed_region_paths",
     "manifest_owned_paths",
     "HOOK_SETTINGS",
     "RETIRED_EXCEPTIONS_REL",

@@ -105,7 +105,7 @@ def publish_installed_layer(
         operation=operation,
         regenerate=regenerate,
         project_slug=project_slug,
-        owned_paths=ownership.installer_owned_paths(repo_root, report),
+        territory=ownership.installer_territory(repo_root, report),
     )
 
 
@@ -141,12 +141,12 @@ def _publish_to_remote(
     operation: str,
     regenerate: Callable[[], dict[str, Any]] | None,
     project_slug: str | None,
-    owned_paths: frozenset[str],
+    territory: ownership.InstallerTerritory,
 ) -> dict[str, Any]:
     reconciled: dict[str, Any] | None = None
     for attempt in range(1, MAX_PUSH_ATTEMPTS + 1):
         eligible = eligibility.push_eligibility(
-            repo_root, branch=branch, remote=remote, owned_paths=owned_paths,
+            repo_root, branch=branch, remote=remote, territory=territory,
         )
         if eligible["status"] != outcome_layer.ELIGIBLE:
             return outcome_layer.with_reconcile(eligible, reconciled)
@@ -185,7 +185,7 @@ def _publish_to_remote(
                 operation=operation,
                 regenerate=regenerate,
                 detail=detail,
-                owned_paths=owned_paths,
+                territory=territory,
             )
             if outcome is not None:
                 return outcome_layer.with_reconcile(outcome, reconciled)
@@ -225,7 +225,7 @@ def _reconcile_stale_branch(
     operation: str,
     regenerate: Callable[[], dict[str, Any]] | None,
     detail: str,
-    owned_paths: frozenset[str],
+    territory: ownership.InstallerTerritory,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Move onto the advanced remote tip and regenerate, or name the blocker.
 
@@ -254,7 +254,7 @@ def _reconcile_stale_branch(
         remote=remote,
         regenerate=regenerate,
         operation=operation,
-        owned_paths=owned_paths,
+        territory=territory,
     )
     status = record.get("status")
     if status == "regenerated":

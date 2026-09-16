@@ -136,6 +136,24 @@ def agents_markdown(block: str) -> str:
     return f"{render_block(block)}\n\n{OPERATOR_TEXT}"
 
 
+def rewrite_outside_block(target: Path, operator_text: str) -> None:
+    """Replace only the operator's text, keeping the managed block verbatim.
+
+    The install owns the marked region and the operator owns everything
+    around it, so this writes the change a person makes to their own prose
+    in a file the install also writes into.
+    """
+    from yoke_contracts.project_contract.managed_block import block_span
+
+    current = target.read_text(encoding="utf-8")
+    span = block_span(current)
+    assert span is not None, f"{target} carries no managed block to preserve"
+    start, end = span
+    target.write_text(
+        f"{current[start:end]}\n\n{operator_text}", encoding="utf-8",
+    )
+
+
 def managed_bundle(block: str = MANAGED_BLOCK) -> dict:
     """A bundle that also renders one managed block into ``AGENTS.md``."""
     bundle = make_bundle()
@@ -173,4 +191,5 @@ __all__ = [
     "local_only_checkout",
     "managed_bundle",
     "remote_world",
+    "rewrite_outside_block",
 ]

@@ -14,12 +14,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from yoke_cli.project_install import publication_commit_ownership as ownership
 from yoke_cli.project_install import publication_outcome as outcome_layer
 from yoke_cli.project_install import publication_reconcile as reconcile_layer
 
 
 def push_eligibility(
-    repo_root: Path, *, branch: str, remote: str, owned_paths: frozenset[str],
+    repo_root: Path,
+    *,
+    branch: str,
+    remote: str,
+    territory: ownership.InstallerTerritory,
 ) -> dict[str, Any]:
     """Refuse to publish anything but the installer's own unpushed commits."""
     state = reconcile_layer.read_remote_state(
@@ -61,7 +66,7 @@ def push_eligibility(
                 "install"
             ),
         )
-    unproven = state.unproven_commits(owned_paths)
+    unproven = state.unproven_commits(territory, repo_root)
     if unproven:
         listed = "\n".join(f"  {line}" for line in unproven)
         return outcome_layer.pending(
