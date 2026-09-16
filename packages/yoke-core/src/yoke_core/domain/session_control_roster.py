@@ -159,13 +159,19 @@ def _resume_states(
         return {}
     marker = _marker(conn)
     result_markers = ",".join(marker for _ in WAKE_ATTEMPT_ROSTER_RESULTS)
+    # Attempts without a matching recipient still count; a recipients
+    # join would drop those rows. Latest is started_at, then attempt_id.
     rows = conn.execute(
-        "SELECT target_session_id,result_code FROM session_message_attempts "
+        "SELECT target_session_id,result_code FROM ("
+        "SELECT target_session_id,result_code,"
+        "ROW_NUMBER() OVER (PARTITION BY target_session_id "
+        "ORDER BY started_at DESC,attempt_id DESC) AS row_num "
+        "FROM session_message_attempts "
         "WHERE target_session_id IN ("
         + ",".join(marker for _ in ids)
         + ") AND result_code IN ("
         + result_markers
-        + ") ORDER BY started_at DESC,attempt_id DESC",
+        + ")) latest WHERE row_num=1",
         (*ids, *sorted(WAKE_ATTEMPT_ROSTER_RESULTS)),
     ).fetchall()
     states: dict[str, str] = {}
