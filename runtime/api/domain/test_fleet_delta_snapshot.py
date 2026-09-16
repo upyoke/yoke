@@ -28,6 +28,7 @@ def test_session_rows_read_the_roster_rows_key() -> None:
                 "executor_surface": "claude-cli",
                 "mode": "steer",
                 "activity_at": "2026-08-28T17:00:00Z",
+                "last_tool_call_at": "2026-08-28T16:55:00Z",
                 "ended_at": None,
                 "terminated_at": None,
                 "quiet_reason": None,
@@ -44,6 +45,7 @@ def test_session_rows_read_the_roster_rows_key() -> None:
     assert row.lifecycle == "live"
     assert row.parked is False
     assert row.activity_at == datetime(2026, 8, 28, 17, 0, tzinfo=timezone.utc)
+    assert row.last_tool_call_at == datetime(2026, 8, 28, 16, 55, tzinfo=timezone.utc)
     assert row.claimed_items == ("YOK-2571",), "only item claims are holdings"
 
 
@@ -65,6 +67,7 @@ def test_a_parked_session_and_an_ended_session_are_distinct_facts() -> None:
     }
     rows = session_rows(result)
     assert rows["p"].parked is True and rows["p"].lifecycle == "live"
+    assert rows["p"].last_tool_call_at is None
     assert rows["e"].lifecycle == "ended"
     assert rows["t"].lifecycle == "terminated"
 

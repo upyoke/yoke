@@ -72,6 +72,7 @@ class TestLivenessDerivation:
         assert rows[0]["session_id"] == "s-tooling"
         assert rows[0]["liveness"] == "active"
         assert rows[0]["activity_at"] == recent_tool_call
+        assert rows[0]["last_tool_call_at"] == recent_tool_call
 
     def test_process_gone_evidence_is_current_only_until_later_activity(self, test_db):
         old = _iso(_LONG_AGO_MINUTES)

@@ -13,6 +13,7 @@ SESSION_LIST_FIELDS = (
     "liveness",
     "ended_cause",
     "activity_at",
+    "last_tool_call_at",
     "execution_lane",
     "lane_label",
     "lane_glyph",

@@ -180,10 +180,30 @@ def test_starved_envelope_excludes_recipients_whose_session_ended() -> None:
 def test_starved_envelope_excludes_a_recipient_that_acted_since_the_send() -> None:
     row = _envelope()
     snapshot = _snapshot(
-        sessions={"a": _session("a", activity_at=NOW, claimed_items=())},
+        sessions={
+            "a": _session(
+                "a", activity_at=NOW, last_tool_call_at=NOW, claimed_items=()
+            )
+        },
         envelopes={row.key: row},
     )
     assert starved_envelope_alarms(snapshot, DeltaState()) == []
+
+
+def test_starved_envelope_heartbeat_is_not_progress() -> None:
+    """A fresh heartbeat, or no tool-call stamp, does not hide a stuck send."""
+    row = _envelope()
+    heartbeat = _session(
+        "a",
+        activity_at=NOW,
+        last_tool_call_at=row.created_at - timedelta(hours=1),
+        claimed_items=(),
+    )
+    missing = _session("a", activity_at=NOW, claimed_items=())
+    for recipient in (heartbeat, missing):
+        snapshot = _snapshot(sessions={"a": recipient}, envelopes={row.key: row})
+        fired = starved_envelope_alarms(snapshot, DeltaState())
+        assert fired and "ALARM starved-envelope" in fired[0]
 
 
 def test_starved_envelope_ignores_injected_and_recent_envelopes() -> None:
