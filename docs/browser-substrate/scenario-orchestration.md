@@ -29,6 +29,18 @@ yoke qa case run \
 delivery flows. They bind the evidence to the deployed code identity; do not
 omit them to bypass freshness validation.
 
+Which deployment is asked comes from the case's own subject, never from the
+branch alone. An item case is about that branch's preview, and is answered by
+the recorded ephemeral environment or, when none exists, by the preview
+publishing its own commit at the project's `ephemeral-env` `identity_path`. A
+case attached to a deployment run is about the environment that run targeted,
+and is answered by the release lineage a ready stage receipt observed for it
+or, failing that, by the environment publishing its own commit at the
+project's `health-endpoint` `identity_path` beneath that environment's
+registered url. The lineage a run *requested* is never proof of what it
+serves. Evidence may then be collected only from the deployment that answered:
+browsing anywhere else refuses before a browser starts.
+
 ## Case authority
 
 `qa.case_execution.begin` authorizes and returns the immutable materialized
