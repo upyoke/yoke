@@ -30,6 +30,7 @@ from yoke_core.domain.flow_create import cmd_create
 from yoke_core.domain.flow_target import resolve_flow_target
 from yoke_core.domain.flow_validation import (
     require_human_approval_addresses,
+    require_top_level_runner_fields,
     validate_stages,
 )
 
@@ -84,6 +85,7 @@ def _validate_definition(conn: Any, definition: Mapping[str, Any]) -> int:
     stages = str(definition["stages"])
     validate_stages(stages)
     require_human_approval_addresses(stages)
+    require_top_level_runner_fields(stages)
     project = str(definition["project"])
     validate_stage_references(conn, project=project, stages_json=stages)
     on_failure = str(definition.get("on_failure") or "halt")

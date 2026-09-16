@@ -15,6 +15,7 @@ from yoke_core.domain.db_helpers import (
 )
 from yoke_core.domain.flow_validation import (
     require_human_approval_addresses,
+    require_top_level_runner_fields,
     validate_stages,
 )
 from yoke_core.domain.deployment_flow_target_support import (
@@ -180,6 +181,7 @@ def cmd_update_stages(
     """
     validate_stages(stages_json)
     require_human_approval_addresses(stages_json)
+    require_top_level_runner_fields(stages_json)
     locked = lock_deployment_flow_rows(
         conn,
         (flow_id,),

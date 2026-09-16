@@ -260,6 +260,8 @@ UNIQUE(project_id, name)
 
 Every stage object requires `name` (string) and `step_runner` (string, closed set). Valid step runner types: `auto`, `health-check`, `warm-up`, `environment-activate`, `core-container-deploy`, `ephemeral-deploy`, `ephemeral-teardown`, `ephemeral-verify`, `human-approval`, `github-actions-workflow`. A database is brought up to its code by the boot converge that starts the container, so applying a migration is not a deployment stage and there is no stage `kind` vocabulary.
 
+Every stage declares its runner fields at the top level, beside `name` and `step_runner`; a stage carrying a nested `config` object is refused on write, because the pipeline builds a stage's runner config from the stage itself and nested fields would never reach the runner. Normalization for execution keeps the stage the definition declared, so `target`, `stage_kind`, and `scope` are readable by the receipt layer and the preview producer. Python owner: `yoke_core.domain.flow_validation`.
+
 Definition schema v2 adds release-policy configuration without changing the
 schema-v1 executor. Every v2 stage declares `stage_kind` (`execution` or `qa`)
 and scope. QA stages use `step_runner: "qa"`, target a persistent environment or

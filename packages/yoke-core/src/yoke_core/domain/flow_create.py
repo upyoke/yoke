@@ -28,6 +28,7 @@ from yoke_core.domain.deployment_flow_policy import (
 from yoke_core.domain.flow_target import resolve_flow_target
 from yoke_core.domain.flow_validation import (
     require_human_approval_addresses,
+    require_top_level_runner_fields,
     validate_stages,
 )
 from yoke_core.domain.project_identity import resolve_project
@@ -56,6 +57,7 @@ def cmd_create(
     """
     validate_stages(stages_json)
     require_human_approval_addresses(stages_json)
+    require_top_level_runner_fields(stages_json)
     normalized_status = validate_flow_status(status)
     schema_version = definition_schema_version(stages_json)
     if normalized_status == FLOW_STATUS_ACTIVE:
