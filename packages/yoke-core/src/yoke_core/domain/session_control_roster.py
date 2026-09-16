@@ -19,6 +19,9 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.session_list_fields import SESSION_LIST_FIELDS
 from yoke_core.domain.session_control_diagnostics import session_diagnostics
 from yoke_core.domain.session_control_health_facts import session_health_facts
+from yoke_core.domain.session_item_delivery_status import (
+    primary_item_delivery_by_session,
+)
 from yoke_core.domain.session_item_stage_states import (
     primary_item_stages_by_session,
 )
@@ -196,6 +199,7 @@ def _project_row(
     health: Mapping[str, Any],
     steering: Mapping[str, Any],
     primary_item_stages: list[dict[str, Any]],
+    primary_item_delivery: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     merged = {**row, **identity}
     machine_id = str(merged.get("machine_id") or "")
@@ -240,6 +244,7 @@ def _project_row(
         **health,
         **steering,
         "primary_item_stages": primary_item_stages,
+        "primary_item_delivery": dict(primary_item_delivery or {}) or None,
     }
 
 
@@ -276,6 +281,7 @@ def session_control_roster_result(
         health = session_health_facts(conn, rows, identities)
         steering = steering_visibility(conn, rows, now=now)
         stage_states = primary_item_stages_by_session(conn, rows)
+        deliveries = primary_item_delivery_by_session(conn, rows)
         projected = [
             _project_row(
                 row,
@@ -290,6 +296,7 @@ def session_control_roster_result(
                 primary_item_stages=stage_states.get(
                     str(row.get("session_id") or ""), []
                 ),
+                primary_item_delivery=deliveries.get(str(row.get("session_id") or "")),
             )
             for row in rows
         ]

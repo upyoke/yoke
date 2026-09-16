@@ -39,9 +39,7 @@ def _p(conn: Any) -> str:
 def _session_ids(rows: Iterable[Mapping[str, Any]]) -> tuple[str, ...]:
     return tuple(
         dict.fromkeys(
-            str(row.get("session_id") or "")
-            for row in rows
-            if row.get("session_id")
+            str(row.get("session_id") or "") for row in rows if row.get("session_id")
         )
     )
 
@@ -102,7 +100,7 @@ def _focused_item_id(conn: Any, row: Mapping[str, Any]) -> int | None:
     return int(found) if found is not None else None
 
 
-def _primary_item_ids(
+def primary_item_ids(
     conn: Any,
     rows: list[dict[str, Any]],
 ) -> dict[str, int]:
@@ -138,9 +136,7 @@ def _item_rows(conn: Any, item_ids: Sequence[int]) -> dict[int, dict[str, Any]]:
         "i.workflow_version_id,v.version,v.definition_json,v.definition_digest,"
         "p.public_item_prefix FROM items i JOIN workflow_versions v "
         "ON v.id=i.workflow_version_id JOIN projects p ON p.id=i.project_id "
-        "WHERE i.id IN ("
-        + ",".join(marker for _ in item_ids)
-        + ")",
+        "WHERE i.id IN (" + ",".join(marker for _ in item_ids) + ")",
         tuple(item_ids),
     ).fetchall()
     result: dict[int, dict[str, Any]] = {}
@@ -279,10 +275,11 @@ def item_stage_states(
 
 
 def primary_item_stages_by_session(
-    conn: Any, rows: list[dict[str, Any]],
+    conn: Any,
+    rows: list[dict[str, Any]],
 ) -> dict[str, list[dict[str, Any]]]:
     """Project the primary held item's stage strip for each roster session."""
-    selected = _primary_item_ids(conn, rows)
+    selected = primary_item_ids(conn, rows)
     items = _item_rows(conn, tuple(dict.fromkeys(selected.values())))
     item_ids = tuple(items)
     qa = qa_failures(conn, item_ids)
@@ -326,6 +323,7 @@ def primary_item_stages_by_session(
 
 __all__ = [
     "active_stage_id",
+    "primary_item_ids",
     "item_stage_states",
     "primary_item_stages_by_session",
 ]
