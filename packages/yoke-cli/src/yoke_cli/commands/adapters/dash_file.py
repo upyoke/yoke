@@ -1,6 +1,6 @@
 """``yoke dash TITLE INSTRUCTION`` filing adapter.
 
-Files one instruction-sized item through ``items.create``. Kept beside the
+Files one instruction-led item through ``items.create``. Kept beside the
 Dash execution adapters rather than inside them: filing is the only Dash
 surface a plain terminal reaches, and it is the only one that names a
 workflow, a posture, and a strategy document.

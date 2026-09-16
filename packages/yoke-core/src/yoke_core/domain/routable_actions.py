@@ -54,7 +54,7 @@ _PRESENTATION: Dict[str, Tuple[str, str]] = {
     "shepherd": ("Shepherd", "Plan work through its quality gates."),
     "advance": ("Advance", "Move work to its next lifecycle stage."),
     "conduct": ("Conduct", "Execute an epic's implementation tasks."),
-    "dash": ("Dash", "Complete a small, instruction-sized change."),
+    "dash": ("Dash", "Execute one instruction end to end, whatever its size."),
     "blitz": ("Blitz", "Execute substantial work from a standing plan."),
     "refine": ("Refine", "Improve a work item's specification."),
     "polish": ("Polish", "Review and finish implementation."),

@@ -75,10 +75,10 @@ Without `--workflow`, classify the eligible definitions by policy:
   `generated_children=none`, `worktrees=single_implementation_lane`, and an
   `advance` skill binding.
 - Recommend the unique task-graph workflow with
-  `generated_children=epic_tasks` only when the work clearly needs:
-- Multiple parallel worktrees
-- A spec plus task decomposition
-- More than ~2 hours of focused work
+  `generated_children=epic_tasks` only when the work structurally needs it —
+  multiple parallel worktrees, or a spec plus task decomposition. Size,
+  duration, and file count are not signals: a large change one session can
+  execute from a single instruction stays in the direct-execution workflow.
 
 If the work is borderline, ask one binary question using the two matched
 workflow display names: "This looks like it might need task decomposition.

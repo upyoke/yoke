@@ -7,7 +7,7 @@ testing and delivery defaults.
 
 | Workflow | Use | Typical path |
 |---|---|---|
-| **Dash** | Instruction-sized work | file → implement → verify → merge → done |
+| **Dash** | Direct execution from one instruction, any size | file → implement → verify → merge → done |
 | **Issue** | Bounded change | idea → refine → advance → polish → usher |
 | **Epic** | Multi-task | idea → shepherd → conduct → polish → usher |
 | **Blitz** | Document-led | idea → refine (link one strategy doc) → blitz → done |

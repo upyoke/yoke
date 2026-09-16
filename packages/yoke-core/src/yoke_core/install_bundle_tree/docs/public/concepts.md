@@ -39,7 +39,7 @@ Every item pins an immutable workflow version. Built-ins:
 
 | Workflow | For |
 |---|---|
-| **Dash** | One instruction, execute end to end |
+| **Dash** | One instruction, execute end to end — small through very large |
 | **Issue** | Bounded change; item body is the spec |
 | **Epic** | Architect decomposition + task lanes |
 | **Blitz** | Document-led plan as integrated slices |

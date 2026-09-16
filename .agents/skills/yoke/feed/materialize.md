@@ -97,8 +97,10 @@ Replace `%keyword%` with 2-3 distinctive words from the proposed title. Check mu
 ### 3A.2 Resolve The Filing Contract
 
 Resolve the target project and workflow before finalizing a candidate's title
-or body context. Instruction-sized entries use `dash`; larger entries use the
-eligible workflow selected by `/yoke idea` policy (`issue` or `epic`). Keep
+or body context. An entry a session can execute directly from one instruction
+uses `dash`, whatever its size; an entry needing agreed acceptance criteria or
+a generated task graph uses the eligible workflow selected by `/yoke idea`
+policy (`issue` or `epic`). Keep
 those values as `_project` and `_workflow`, then call the registered
 `workflow.execution_instruction.resolve` read:
 
@@ -134,12 +136,13 @@ The `/yoke idea` pipeline handles:
 - GitHub issue creation and sync
 - Body generation with AC normalization
 
-**Instruction-sized work files as a Dash, not an Issue.** Before invoking
-`/yoke idea`, classify the materialization entry:
+**Instruction-led work files as a Dash, not an Issue.** Before invoking
+`/yoke idea`, classify the materialization entry by execution shape, not by
+size — a large change stated as one instruction is still a Dash:
 
-- The outcome is one concrete change a single session can state as an
-  instruction — no crafted acceptance criteria, no design work, no task
-  decomposition — **and** the strategic context fits in that instruction:
+- The outcome is one coherent change a single session can state as an
+  instruction — no acceptance criteria to agree on, no generated task graph —
+  **and** the strategic context fits in that instruction:
   file it with the Dash filing adapter instead, so the item carries the
   instruction as its complete scope:
 
@@ -154,9 +157,9 @@ The `/yoke idea` pipeline handles:
   --execution-instructions-considered --json`. Task has no optional
   verification, path-claim, approval, or deployment posture; use Dash if any
   of those or a git lane is required.
-- Anything needing a spec, acceptance criteria, design, or more than one
-  delivery slice: invoke `/yoke idea --workflow ${_workflow}` with the
-  workflow already resolved above.
+- Anything needing a spec, agreed acceptance criteria, or a generated task
+  graph across parallel lanes: invoke `/yoke idea --workflow ${_workflow}`
+  with the workflow already resolved above.
 
 Record Dash- and Task-filed items in `_materialized_items` like idea-filed ones.
 

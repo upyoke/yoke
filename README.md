@@ -237,7 +237,7 @@ Stage executor types: `auto`, `health-check`, `warm-up`, `environment-activate`,
 | Command                         | Purpose                                                                                  |
 | ------------------------------- | ---------------------------------------------------------------------------------------- |
 | `/yoke idea {title}`          | Create a backlog item.                                                                   |
-| `yoke dash {title} {instruction}` | File an instruction-sized Dash from the CLI.                                         |
+| `yoke dash {title} {instruction}` | File an instruction-led Dash from the CLI.                                           |
 | `/yoke dash {instruction \| YOK-N}` | File-and-execute or resume a Dash.                                                  |
 | `/yoke blitz YOK-N`           | Execute a document-led Blitz in integrated slices.                                       |
 | `/yoke conduct YOK-N`          | Execute: sync → engineer → test → simulate → merge.                                     |

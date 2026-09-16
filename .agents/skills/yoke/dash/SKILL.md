@@ -1,15 +1,18 @@
 ---
 name: dash
-description: "File or execute instruction-sized Dash work through survey, isolation, verification, merge, and evidence."
+description: "File or execute instruction-led Dash work through survey, isolation, verification, merge, and evidence."
 argument-hint: "\"instruction\" | {PREFIX-N}"
 ---
 
 # /yoke dash
 
-Execute one instruction-sized work item end to end. A new instruction is
-filed and executed immediately; an item reference resumes an existing Dash.
-Dash uses ordinary item, claim, worktree, lifecycle, QA, merge, and
-deployment surfaces. It does not route through `/yoke idea`.
+Execute one instruction directly, end to end: implementation, verification,
+merge, and delivery in this session. Dash is defined by that execution
+structure, not by size — it carries a one-line correction and a very large
+change alike. A new instruction is filed and executed immediately; an item
+reference resumes an existing Dash. Dash uses ordinary item, claim, worktree,
+lifecycle, QA, merge, and deployment surfaces.
+It does not route through `/yoke idea`.
 
 <!-- BEGIN GENERATED: field-note-directive -->
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
@@ -98,11 +101,11 @@ for the laneless, merge-free alternative with no optional gate posture.
   `/yoke refine` on acquire; release is conditional on what close-out
   already did.
 - Perform all writes in the registered item worktree, never in main.
-- Keep the survey in step 2 minimal: read only enough to name the touch
-  set, not to understand or fix it. Record the survey and prepare the
-  worktree (step 3) immediately afterward, before any deeper reading or
-  edit — a long investigation that never paused to record survey and
-  isolate is a Dash that started implementing on main.
+- Keep the survey in step 2 minimal: read only enough to name the touch set,
+  not to understand or fix it. Record the survey and prepare the worktree
+  (step 3) immediately afterward, before any deeper reading or edit — a long
+  investigation that never paused to survey and isolate is a Dash that
+  started implementing on main.
 - An item belonging to another project prepares its lane in THAT
   project's checkout: worktree preparation resolves the item's project
   machine mapping (`yoke project register <checkout> --project-id <id>`
@@ -115,13 +118,13 @@ for the laneless, merge-free alternative with no optional gate posture.
   the operator owns, so follow **Escalate** below rather than writing
   into that repo from here.
 - Survey contacts are advisories: proceed or yield after reading each one.
-- Do not create child items. If the instruction has grown into planning or
-  multi-slice work, halt and discuss escalation with the operator. Escalation
-  files one Issue through normal intake and cancels the Dash, so the decision
-  to escalate belongs to the operator, not to this session. This halt is a
-  deliberate exception to the kick-off-and-walk-away default: escalation
-  creates a new work item and is a scope judgment, not routine execution.
-  Only run the escalation operation after the operator explicitly agrees.
+- Size is not a reason to leave Dash. Plan, coordinate across files, and
+  implement in as many incremental steps as the instruction needs — all here.
+  The operator chose this workflow; never propose another because the work
+  turned out large.
+- Do not create child items. Raise a different workflow only for a concrete
+  structural need — parallel worktrees or a generated task graph — or when the
+  operator asks. Escalation cancels the Dash, so halt and discuss it first.
 - Consume the central `workflows.item.get` effective-policy projection before
   authoring or gating File Budget and path claims. Each axis remains
   independent; do not reconstruct it from raw policies or posture.
@@ -280,9 +283,10 @@ For every reported survey contact, read the advisory and choose:
   release the work claim and present the holder, paths, and evidence to the
   operator; do not create a dependency or attestation, or continue editing
   through uncertainty;
-- if the required work is no longer instruction-sized,
-  stop and follow **Escalate** below, which halts for operator agreement
-  before anything is filed.
+- if the survey reveals a decision boundary — an unclear requirement, work in
+  another project, missing authorization, or a conflicting requirement — stop
+  and follow **Escalate** below, which asks the question and keeps the Dash. A
+  larger-than-expected touch set is not such a boundary.
 
 Selected path-claim posture is a separate coverage obligation, never a remedy
 for a survey contact. When effective path claims are enabled, keep the inferred
@@ -341,7 +345,6 @@ and terminal close-out sequence.
 
 ## Escalate
 
-Read [`escalate.md`](escalate.md) completely as soon as the required outcome
-needs crafted acceptance criteria, substantial design, durable multi-file
-coordination, or multiple delivery slices, then follow its halt-and-propose
-sequence before any Issue is filed or the Dash is cancelled.
+Read [`escalate.md`](escalate.md) completely at a decision boundary, or when
+the operator raises conversion. It separates asking a question and keeping the
+Dash from converting it, which only an operator's agreement reaches.
