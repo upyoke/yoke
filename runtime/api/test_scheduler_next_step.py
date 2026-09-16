@@ -35,7 +35,16 @@ class TestAdvanceFeasibilityProbeRewrite:
 
     _SCHEMA = """
     CREATE TABLE actors (id INTEGER PRIMARY KEY, name TEXT);
-    CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT);
+    CREATE TABLE projects (
+        id INTEGER PRIMARY KEY, slug TEXT, public_item_prefix TEXT
+    );
+    INSERT INTO projects (id, slug, public_item_prefix) VALUES (1, 'yoke', 'YOK');
+    CREATE TABLE items (
+        id INTEGER PRIMARY KEY,
+        project_id INTEGER,
+        project_sequence INTEGER,
+        title TEXT
+    );
     CREATE TABLE harness_sessions (session_id TEXT PRIMARY KEY);
     CREATE TABLE path_targets (
         id INTEGER PRIMARY KEY, project_id TEXT NOT NULL, kind TEXT NOT NULL,
@@ -93,6 +102,12 @@ class TestAdvanceFeasibilityProbeRewrite:
             "'2026-05-19T00:00:00Z', 'observed')"
         )
         for claim_id, item_id in ((500, 42), (501, 43)):
+            # The reroute names the conflicting item by reference.
+            conn.execute(
+                "INSERT INTO items (id, project_id, project_sequence, title)"
+                " VALUES (%s, 1, %s, 'fixture')",
+                (item_id, item_id),
+            )
             conn.execute(
                 "INSERT INTO path_claims (id, state, mode, owner_kind, owner_item_id, "
                 "registered_by_actor_id, integration_target, registered_at) "
