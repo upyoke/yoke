@@ -22,6 +22,7 @@ from functools import partial
 from typing import Any, Callable, Optional, Sequence
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.public_ref import unresolved_item_ref
 from yoke_core.domain import close_out_control_plane_authority as close_out
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.standalone_item_merge_evidence import CLOSED_OUT_STATUS
@@ -51,8 +52,11 @@ HOLDER_FUNCTION = "claims.work.holder_get"
 # An item the command could not resolve has no public reference to name, and
 # the token the caller typed is not one: echoing it in the ref position would
 # present whatever was passed — an internal id included — as this item's
-# public ref. The blocker still quotes the token inside its own message.
-UNRESOLVED_REF = "unresolved item"
+# public ref. The blocker still quotes the token inside its own message. The
+# phrase itself comes from the one formatter every unresolvable reference
+# renders through, so this outcome block reads the same as the rest of the
+# product rather than inventing a second wording for the same fact.
+UNRESOLVED_REF = unresolved_item_ref()
 
 
 def _headline(public_ref: str, kind: str, status: str) -> str:
