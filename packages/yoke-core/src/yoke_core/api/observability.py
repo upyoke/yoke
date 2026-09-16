@@ -20,6 +20,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Mapping, Optional
 
+from yoke_core.api.observability_debug import (
+    DebugCampaign,
+    DebugCaptureFilter,
+    debug_detail_allowed,
+    parse_debug_campaign,
+)
 from yoke_core.api.observability_metrics import record_counter, record_histogram
 from yoke_core.api.observability_otel import (
     configure_otel,
@@ -32,6 +38,7 @@ REQUEST_ID_HEADER = "x-request-id"
 REQUEST_ID_STATE_ATTR = "yoke_request_id"
 
 _JSON_HANDLER_MARKER = "_yoke_json_log_handler"
+_DEBUG_FILTER_MARKER = "_yoke_debug_capture_filter"
 
 CANONICAL_LOG_FIELDS = (
     "event_name",
@@ -46,6 +53,7 @@ CANONICAL_LOG_FIELDS = (
     "actor_id",
     "session_id",
     "request_id",
+    "function",
     "item_id",
     "task_num",
     "trace_id",
@@ -91,20 +99,34 @@ def configure_structured_logging(
     """Configure root logging for structured stderr emission."""
     target = sys.stderr if stream is None else stream
     root = logging.getLogger()
-    normalized_level = getattr(logging, str(level).upper(), logging.INFO)
-    root.setLevel(normalized_level)
+    configured_level = getattr(logging, str(level).upper(), logging.INFO)
+    emit_level = configured_level
+    if parse_debug_campaign() is not None:
+        emit_level = min(configured_level, logging.DEBUG)
+    root.setLevel(emit_level)
+    _install_debug_filter(root, configured_level)
 
     for handler in root.handlers:
         if getattr(handler, _JSON_HANDLER_MARKER, False):
-            handler.setLevel(normalized_level)
+            handler.setLevel(emit_level)
             handler.setFormatter(JsonLogFormatter())
             return
 
     handler = logging.StreamHandler(target)
     setattr(handler, _JSON_HANDLER_MARKER, True)
-    handler.setLevel(normalized_level)
+    handler.setLevel(emit_level)
     handler.setFormatter(JsonLogFormatter())
     root.addHandler(handler)
+
+
+def _install_debug_filter(root: logging.Logger, configured_level: int) -> None:
+    for existing in root.filters:
+        if getattr(existing, _DEBUG_FILTER_MARKER, False):
+            existing.configured_level = configured_level
+            return
+    filt = DebugCaptureFilter(configured_level)
+    setattr(filt, _DEBUG_FILTER_MARKER, True)
+    root.addFilter(filt)
 
 
 def configure_observability(
@@ -216,6 +238,7 @@ def request_log_extra(
 
 
 __all__ = [
+    "DebugCampaign",
     "JsonLogFormatter",
     "ObservabilitySetup",
     "REQUEST_ID_HEADER",
@@ -223,10 +246,12 @@ __all__ = [
     "configure_observability",
     "configure_otel",
     "configure_structured_logging",
+    "debug_detail_allowed",
     "environment_name",
     "new_request_id",
     "now_ms",
     "observation_span",
+    "parse_debug_campaign",
     "record_counter",
     "record_histogram",
     "request_log_extra",

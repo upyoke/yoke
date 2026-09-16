@@ -40,6 +40,7 @@ aws logs filter-log-events --log-group-name /yoke/stage/core \
 Expected CloudWatch evidence: hook relay requests return HTTP `200`, include the
 expected actor/token/request ids, and the error scan is clean.
 
-For cost-safe metric export, request correlation, and time-bounded log/event
-collection, see [`api-observability.md`](api-observability.md). Do not put
-request IDs on EMF metric attributes.
+For cost-safe metric export, request correlation, and in-process scoped
+debug campaigns (`YOKE_API_DEBUG_SCOPE` / `_UNTIL` / `_MAX_RECORDS`), see
+[`api-observability.md`](api-observability.md). Do not put request IDs on
+EMF metric attributes.

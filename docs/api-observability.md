@@ -31,36 +31,50 @@ Disable the log sink with `YOKE_OTEL_LOG_METRICS=0`. Force it on
 ## Targeted diagnostics
 
 Metrics stay bounded. Correlation lives on structured logs, traces, and
-control-plane events:
+control-plane events. Capture is gated in-process by a campaign on the
+existing `YOKE_API_*` env family — not by filtering historical reads.
 
-- Every HTTP request logs `request_id` on `HttpRequestCompleted`.
-- Function dispatch records `request_id` on `YokeFunctionCalled` events
-  and on the OTel span (when a trace sink exists).
-- Unexpected handler failures emit one bounded
-  `FunctionCallHandlerFailed` log (`function_failure_observability`).
+Set all three (until is required; missing or past until is off):
 
-Collect a window, then stop. Do not leave a process-wide debug mode on.
+```bash
+YOKE_API_DEBUG_SCOPE=function:items.get.run   # or session:<id> | request:<id> | service:<name>
+YOKE_API_DEBUG_UNTIL=2026-09-16T22:00:00Z     # ISO-8601; auto-expires, no restart
+YOKE_API_DEBUG_MAX_RECORDS=200                # default 200, cap 2000
+```
 
-Hosted logs (operator AWS credentials, not the test Mac):
+While the campaign is live, matching DEBUG records emit (including one
+`FunctionDispatchDebug` log per in-scope dispatch) with `request_id` /
+`session_id` / `function`. After `UNTIL` or the record cap, capture
+stops even if the process keeps running. Unmatched DEBUG is dropped.
+INFO/ERROR logs and metrics are unchanged. Campaign env never becomes a
+metric attribute.
+
+Producers that want extra payload (for example a full function result on
+`YokeFunctionCalled`) call the same gate, default off:
+
+```python
+from yoke_core.api.observability import debug_detail_allowed
+
+if debug_detail_allowed({
+    "function": function_id,
+    "session_id": session_id,
+    "request_id": request_id,
+    "service": service_name(),
+}):
+    ...  # copy bounded extra detail
+```
+
+`YOKE_API_LOG_LEVEL=DEBUG` without a campaign remains the local
+restart-to-clear path. Do not leave it on in hosted processes.
+
+Query windows still help read what was captured:
 
 ```bash
 aws logs filter-log-events --log-group-name /yoke/<env>/core \
   --start-time <epoch-ms> --end-time <epoch-ms> \
   --filter-pattern '"<request-id-or-session-id>"'
-```
-
-Control-plane events, any install:
-
-```bash
 yoke events query --session <session-id> --since '<start>' --until '<end>' --limit 100
-yoke events query --item PREFIX-N --since '<start>' --limit 100
 ```
-
-`--since`/`--until` and CloudWatch `--start-time`/`--end-time` are the
-duration bound. `--limit` and the failure logger's 160-character value
-cap bound output. There is no in-process auto-expiring DEBUG overlay;
-raise `YOKE_API_LOG_LEVEL=DEBUG` or `YOKE_OTEL_CONSOLE_EXPORT=1` only
-for a local/self-host session you will restart to clear.
 
 OTLP traces: set `OTEL_EXPORTER_OTLP_ENDPOINT`. Hosted EMF mode does not
 export spans.
@@ -75,3 +89,6 @@ export spans.
 | `YOKE_OTEL_CONSOLE_EXPORT` | Local console traces/metrics |
 | `YOKE_OTEL_SERVICE_NAME` / `YOKE_SERVICE_NAME` | Resource service name |
 | `YOKE_API_LOG_LEVEL` | Process log level (`INFO` default) |
+| `YOKE_API_DEBUG_SCOPE` | `function:` / `session:` / `request:` / `service:` campaign |
+| `YOKE_API_DEBUG_UNTIL` | Required ISO-8601 end; past or missing disables capture |
+| `YOKE_API_DEBUG_MAX_RECORDS` | Capture cap (default 200, hard cap 2000) |
