@@ -33,7 +33,10 @@ class TestBacklogEmitEventNonFatal:
 
         captured = capsys.readouterr()
         assert "event emission skipped" in captured.err
-        assert "999" in captured.err
+        # The warning names the item the way a reader sees it. Nothing here
+        # resolves a reference, so it says so rather than printing the id.
+        assert "unresolved item ref" in captured.err
+        assert "999" not in captured.err
 
     def test_normal_emit_still_uses_native_emitter(self):
         """When imports work, backlog._emit_event still calls the emitter."""
