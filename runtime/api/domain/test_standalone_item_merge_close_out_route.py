@@ -1,10 +1,12 @@
-"""The merge boundary lands at its pinned release wait, not at ``done``.
+"""The merge boundary walks the close-out route its pinned delivery resolves.
 
 Exercises the actual CLI orchestration (``yoke merge item``'s ``run()``),
-not just the isolated redirect-target resolution already covered in
-``test_standalone_item_merge_release_status.py``: a redirect must report the
-item's real resulting status and must not run the ``done``-only lane/claim
-retirement, while a resolved-clear item still gets both.
+not just the isolated route resolution already covered in
+``test_standalone_item_merge_close_out_route_resolution.py``: an item landing
+at its release wait must report that real resulting status and must not run
+the ``done``-only lane/claim retirement, a resolved-clear item still gets
+both, and a merge-only item whose pinned graph routes through a release wait
+transitions through every declared stage on the way.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
+from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
@@ -35,7 +38,7 @@ def _item() -> dict:
     }
 
 
-def _wire(monkeypatch, *, redirect_stage_id):
+def _wire(monkeypatch, *, route):
     item = _item()
     monkeypatch.setattr(merge_cli, "_resolve_item", lambda *_a: (item, ""))
     monkeypatch.setattr(merge_cli, "_session_holds_claim", lambda *_a: "")
@@ -74,8 +77,7 @@ def _wire(monkeypatch, *, redirect_stage_id):
 
     monkeypatch.setattr(merge_cli.close_out.terminal, "call_dispatcher", dispatch)
     monkeypatch.setattr(
-        close_out_transition, "release_redirect_stage",
-        lambda *_a: (redirect_stage_id, ""),
+        close_out_transition, "close_out_route", lambda *_a: route,
     )
     retirements: list = []
     monkeypatch.setattr(
@@ -99,7 +101,9 @@ def _run():
 def test_a_pending_release_wait_lands_there_and_keeps_the_lane_and_claim(
     monkeypatch, capsys,
 ) -> None:
-    calls, retirements, cleared = _wire(monkeypatch, redirect_stage_id="release")
+    calls, retirements, cleared = _wire(
+        monkeypatch, route=CloseOutRoute(stages=("release",)),
+    )
 
     exit_code = _run()
 
@@ -108,6 +112,7 @@ def test_a_pending_release_wait_lands_there_and_keeps_the_lane_and_claim(
     assert envelope["status"] == "release"
     payloads = dict(calls)
     assert payloads["lifecycle.transition.execute"]["target_status"] == "release"
+    assert payloads["lifecycle.transition.execute"]["done_nonce_verified"] is False
     assert retirements == []
     assert cleared == []
 
@@ -115,7 +120,9 @@ def test_a_pending_release_wait_lands_there_and_keeps_the_lane_and_claim(
 def test_a_delivery_already_clear_still_closes_out_and_retires_the_lane(
     monkeypatch, capsys,
 ) -> None:
-    calls, retirements, cleared = _wire(monkeypatch, redirect_stage_id=None)
+    calls, retirements, cleared = _wire(
+        monkeypatch, route=CloseOutRoute(stages=("done",)),
+    )
 
     exit_code = _run()
 
@@ -131,7 +138,7 @@ def test_a_delivery_already_clear_still_closes_out_and_retires_the_lane(
 def test_mid_progress_work_stays_at_its_own_status(monkeypatch, capsys) -> None:
     """A still-implementing Blitz slice: not forced to release by stage
     order alone, and not treated as an error either."""
-    calls, retirements, cleared = _wire(monkeypatch, redirect_stage_id="reviewing-implementation")
+    calls, retirements, cleared = _wire(monkeypatch, route=CloseOutRoute())
 
     exit_code = _run()
 
@@ -142,6 +149,81 @@ def test_mid_progress_work_stays_at_its_own_status(monkeypatch, capsys) -> None:
     assert retirements == []
     assert cleared == []
 
+
+def test_a_merge_only_item_walks_every_declared_stage_to_done(
+    monkeypatch, capsys,
+) -> None:
+    """A release-bearing pinned graph declares no shortcut to ``done``, so a
+    merge whose delivery is already discharged transitions through the
+    release wait -- running that stage's own gates -- and asserts the
+    done-transition ceremony it has just performed."""
+    calls, retirements, cleared = _wire(
+        monkeypatch,
+        route=CloseOutRoute(
+            stages=("release", "done"), delivery_discharged=True,
+        ),
+    )
+
+    exit_code = _run()
+
+    assert exit_code == 0
+    envelope = json.loads(capsys.readouterr().out)
+    assert envelope["status"] == "done"
+    transitions = [
+        payload for function_id, payload in calls
+        if function_id == "lifecycle.transition.execute"
+    ]
+    assert [
+        (payload["source_status"], payload["target_status"])
+        for payload in transitions
+    ] == [("reviewing-implementation", "release"), ("release", "done")]
+    assert [payload["done_nonce_verified"] for payload in transitions] == [
+        False, True,
+    ]
+    assert len(retirements) == 1
+    assert cleared == [7]
+
+
+def test_a_refused_step_stops_the_walk_and_reports_the_refusal(
+    monkeypatch, capsys,
+) -> None:
+    """The stage in between is a real transition with real gates: when it
+    refuses, the close-out reports that refusal rather than carrying on to a
+    terminal status the item never legally reached."""
+    calls, retirements, cleared = _wire(
+        monkeypatch,
+        route=CloseOutRoute(
+            stages=("release", "done"), delivery_discharged=True,
+        ),
+    )
+
+    def refuse_release(*, function_id, payload=None, **_kw):
+        calls.append((function_id, payload))
+        if payload and payload.get("target_status") == "release":
+            return SimpleNamespace(
+                success=False,
+                result={},
+                error=SimpleNamespace(message="blocking QA requirement unsatisfied"),
+            )
+        raise AssertionError("the walk must stop at the refused stage")
+
+    monkeypatch.setattr(
+        merge_cli.close_out.terminal, "call_dispatcher", refuse_release,
+    )
+    monkeypatch.setattr(
+        merge_cli.evidence,
+        "recorded_landing_envelope",
+        lambda *_a, **_k: None,
+    )
+
+    exit_code = _run()
+
+    envelope = json.loads(capsys.readouterr().out)
+    assert exit_code == 1
+    assert envelope["ok"] is False
+    assert "blocking QA requirement unsatisfied" in envelope["error"]
+    assert retirements == []
+    assert cleared == []
 
 def test_an_unresolved_delivery_clearance_refuses_rather_than_guesses(
     monkeypatch, capsys,
@@ -173,8 +255,11 @@ def test_an_unresolved_delivery_clearance_refuses_rather_than_guesses(
         merge_cli.release_flow, "continue_prepared_release", lambda **_k: (None, ""),
     )
     monkeypatch.setattr(
-        close_out_transition, "release_redirect_stage",
-        lambda *_a: (None, "the pinned workflow definition could not be read"),
+        close_out_transition,
+        "close_out_route",
+        lambda *_a: CloseOutRoute(
+            error="the pinned workflow definition could not be read",
+        ),
     )
     monkeypatch.setattr(
         merge_cli.close_out.terminal,

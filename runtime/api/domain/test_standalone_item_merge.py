@@ -10,6 +10,7 @@ import pytest
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
 from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
+from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_lane as sim_lane
 from yoke_core.domain import item_merge_receipts as receipts
 
@@ -291,7 +292,7 @@ class TestCloseOutOrdering:
         )
         monkeypatch.setattr(sim_cli.evidence, "record", lambda **_k: "")
         monkeypatch.setattr(
-            close_out_transition, "release_redirect_stage", lambda *_a: (None, ""),
+            close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",)),
         )
         monkeypatch.setattr(
             sim_cli.close_out, "transition_to_done",

@@ -126,7 +126,8 @@ def transition_to_done(
     repo_root: str,
     lane: LandedLane,
     session_id: str = "",
-    redirect_stage_id: str | None = None,
+    stages: tuple[str, ...] = (terminal.TERMINAL_STATUS,),
+    delivery_discharged: bool = False,
 ) -> tuple[str, str]:
     """Close the item out, or land it at its pinned release wait.
 
@@ -140,7 +141,8 @@ def transition_to_done(
             repo_root=repo_root,
             lane=lane,
             session_id=session_id,
-            redirect_stage_id=redirect_stage_id,
+            stages=stages,
+            delivery_discharged=delivery_discharged,
         )
 
 

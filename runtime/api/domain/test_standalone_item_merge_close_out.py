@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
+from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_landed as landed
@@ -178,7 +179,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     # redirect: pin the target at "done" so the transition it observes
     # matches the file-set assertions below regardless of dash's own
     # release-stage policy.
-    monkeypatch.setattr(close_out_transition, "release_redirect_stage", lambda *_a: (None, ""))
+    monkeypatch.setattr(close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",)))
     restored = []
     monkeypatch.setattr(
         merge_cli.recovery,
@@ -304,7 +305,7 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
     )
     monkeypatch.setattr(sim, "sync_item_to_github", lambda _item_id: None)
     monkeypatch.setattr(terminal.git, "is_landed", lambda *_a: True)
-    monkeypatch.setattr(close_out_transition, "release_redirect_stage", lambda *_a: (None, ""))
+    monkeypatch.setattr(close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",)))
     calls = _transition_calls(monkeypatch)
 
     exit_code = merge_cli.run(

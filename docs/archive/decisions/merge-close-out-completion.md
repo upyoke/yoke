@@ -134,6 +134,68 @@ cannot be the contract: under a merge queue the combined head is only knowable
 after the merge, so the requirement would be to re-verify a tree that has
 already landed, on every member of every train.
 
+## The merge-only item that could not finish
+
+A fourth mechanism produced the same wreckage from the opposite direction, and
+it needed no failure at all to fire.
+
+Whether an item still owes a deployment is the registered flow's answer: a
+flow whose `target_tier` is null discharges delivery at the merge, which is
+what every project's internal flow is for. The close-out read that verdict and
+targeted `done` directly. But a `release_stage` pinned definition declares a
+strictly linear graph — `... -> reviewing-implementation -> release -> done` —
+with no edge that skips its release wait, and the merge boundary is edge-checked
+because it names no status-write source. So the merge landed, evidence was
+recorded, and the terminal transition was refused for a transition the
+definition does not declare. Advancing the one declared stage the refusal
+named then hit the second wall: `release -> done` needs the done-transition
+ceremony nonce, whose only holder is the deploy ceremony this item has no
+deployment to run. A close-out that read "delivery discharged" could not
+discharge it.
+
+**Delivery clearance decides the whole route before the first transition, and
+a merge that is the whole of an item's delivery asserts the ceremony it
+performed.** `standalone_item_merge_release_status.close_out_route` returns the
+ordered declared stages to walk plus whether delivery is discharged, and
+`standalone_item_merge_terminal.transition_to_done` transitions once per
+declared edge. A merge-only item walks `release -> done`, so the release
+stage runs its own gates — its QA verification, its path-claim boundary —
+rather than being skipped by a jump the definition never declared, and only
+the terminal step carries `done_nonce_verified`, exactly as the deploy engine
+asserts it after running its ceremony. An item whose flow names a real target
+tier is never marked discharged: its route stops at the release wait, and the
+nonce gate keeps holding `done` for the deploy that owes it.
+
+Resolving the route up front is what keeps the two facts from disagreeing
+again. Deciding per step would have to re-ask "is delivery clear?" from the
+release stage, where the honest answer for a waiting item and a discharged one
+is the same stage id; the difference is the flow's verdict, which only the
+first reading still has. So the clearance read leads even when the item is
+already standing at the release wait — that is the re-entry case, and the flow
+still owns the answer there. The one status that asks nothing is the terminal
+one: an item already closed out owes its lane a retirement, not a route, and
+an unconfigured flow must not turn that into a refusal on finished work.
+
+### Why not the alternatives
+
+**Mint the nonce for any close-out.** The nonce exists so a bare command line
+cannot write `status=done`. Asserting it whenever the merge boundary targets
+the terminal stage would also release every delivery-required item waiting at
+its release stage, because that item's route targets `done` too — the nonce
+gate is what holds it there today. Binding the assertion to the flow's
+merge-only verdict is the difference between "this path ran the ceremony" and
+"this path skips ceremonies".
+
+**Land at the release wait and stop.** Correct for an item that owes a deploy,
+and a dead end for one that does not: nothing would ever come back for it, so
+the operator finishes by hand — the wreckage this document exists to prevent.
+
+**Declare a `reviewing-implementation -> done` edge for merge-only pins.** A
+pinned definition is immutable and a flow is chosen per item, so the shortcut
+would have to exist on every release-bearing definition and be legal for items
+that must not take it. The stage is not the thing to remove; running its gates
+on the way through is the point.
+
 ## Consequences
 
 - A queue-landed item carries the same landing identity a locally merged one
@@ -153,3 +215,11 @@ already landed, on every member of every train.
   process may be importing from can call it before doing so.
 - Whichever of those outcomes a run reaches, it says so in one block a person
   can read, and claims no effect it did not confirm.
+- An item whose registered flow discharges delivery at the merge reaches
+  `done` through its own declared stages, with no deployment run started for
+  bookkeeping and no hand-written status.
+- An item whose flow names a real target tier still stops at its release wait
+  and still needs the deploy ceremony to reach `done`.
+- A step that refuses mid-route stops the walk and reports that refusal; the
+  item stands at the last stage it legally reached, and re-running the same
+  merge command resumes from there.

@@ -213,6 +213,17 @@ yoke merge item ITEM \
   --json
 ```
 
+The status the command reports is the pinned definition's, not a fixed
+`done`. When the item's registered deployment flow still owes a delivery, the
+close-out lands the item at that definition's release wait and keeps the lane
+and claim for the later close-out; the envelope's `status` names that stage,
+and this is a completed merge, not a failure. When the resolved flow
+discharges delivery at the merge — a flow with no target tier — the close-out
+transitions through every declared stage to `done`, so the release stage runs
+its own gates on the way. Report the `status` the envelope carries rather than
+assuming either outcome, and never start a deployment run to move an item that
+its own flow says needs none.
+
 Add `--no-changes` for a genuine no-change result. When the merge is already
 recorded and only the close-out remains — after a deployment run, after
 approval, or after a queue landing that has not reached `done` — re-run the

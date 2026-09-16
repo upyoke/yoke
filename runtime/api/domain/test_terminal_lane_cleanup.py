@@ -8,6 +8,7 @@ from pathlib import Path
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
+from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain import terminal_lane_cleanup
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
@@ -60,7 +61,7 @@ def _wire_close_out(monkeypatch, *, already: bool, cleanup_result=()):
     monkeypatch.setattr(merge_cli.evidence, "record", lambda **_k: "")
     monkeypatch.setattr(merge_domain, "sync_item_to_github", lambda *_a: None)
     monkeypatch.setattr(
-        close_out_transition, "release_redirect_stage", lambda *_a: (None, ""),
+        close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",)),
     )
     monkeypatch.setattr(
         merge_cli.close_out,
