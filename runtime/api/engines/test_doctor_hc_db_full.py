@@ -25,6 +25,12 @@ from runtime.api.engines._doctor_hc_db_full_test_helpers import (
 )
 
 
+# The finding names the item by its public reference, and that sequence is
+# its own counter — not the internal id repeated back.
+LEGACY_INTERNAL_ID = 1
+LEGACY_SEQUENCE = 388
+
+
 def _unconstrained_priority_conn():
     """Items table without the priority CHECK constraint, simulating
     legacy rows with NULL/invalid priority values."""
@@ -38,8 +44,15 @@ def _unconstrained_priority_conn():
         CREATE TABLE items (
             id INTEGER PRIMARY KEY, title TEXT, workflow_id TEXT,
             workflow_version_id INTEGER, status TEXT,
-            priority TEXT, spec TEXT, created_at TEXT, updated_at TEXT
+            priority TEXT, spec TEXT, created_at TEXT, updated_at TEXT,
+            project_id INTEGER NOT NULL DEFAULT 1, project_sequence INTEGER
         );
+        CREATE TABLE projects (
+            id INTEGER PRIMARY KEY, slug TEXT NOT NULL,
+            public_item_prefix TEXT NOT NULL
+        );
+        INSERT INTO projects (id, slug, public_item_prefix)
+        VALUES (1, 'yoke', 'YOK');
         """,
     )
     from yoke_core.domain.workflow_registry import converge_builtin_workflows
@@ -97,15 +110,16 @@ class TestHCBacklogQualityFull:
         """
         conn = _unconstrained_priority_conn()
         conn.execute(
-            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, spec, created_at, updated_at) "
-            "VALUES (1, 'A valid title with enough length', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', "
-            "NULL, 'Some body content', '2099-01-01T00:00:00Z', '2099-01-01T00:00:00Z')"
+            "INSERT INTO items (id, title, workflow_id, workflow_version_id, status, priority, spec, created_at, updated_at, project_sequence) "
+            "VALUES (%s, 'A valid title with enough length', 'issue', (SELECT current_version_id FROM workflows WHERE id='issue'), 'implementing', "
+            "NULL, 'Some body content', '2099-01-01T00:00:00Z', '2099-01-01T00:00:00Z', %s)",
+            (LEGACY_INTERNAL_ID, LEGACY_SEQUENCE),
         )
         conn.commit()
         rec = _run_hc(hc_backlog_quality, conn)
         r = _result(rec)
         assert r.result in ("WARN", "FAIL")
-        assert "YOK-1: missing priority" in r.detail
+        assert f"YOK-{LEGACY_SEQUENCE}: missing priority" in r.detail
         conn.close()
 
     def test_custom_stale_days_config(self, test_db, tmp_path):
