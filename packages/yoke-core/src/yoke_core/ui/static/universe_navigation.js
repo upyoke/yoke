@@ -20,30 +20,49 @@ export function universeNavScope(view) {
   return navEntry(view).scope;
 }
 
+// The tabs a destination declares, and the one it opens on. A destination
+// without tabs answers an empty list, so every caller can ask without
+// knowing which kind it holds.
+export function navTabs(view) {
+  return navEntry(view).tabs || [];
+}
+
+export function defaultTabFor(view) {
+  return navTabs(view)[0]?.id || null;
+}
+
 // Project carries list selection or resource focus; selection separates the
 // remembered scope from detail/focus when both must travel in one URL.
 //
-// The optional second segment is a drill-in: one row of the view, reached from
-// that row. There is no tab segment. A tab was one facet of a view's single
-// concept, and every facet that earned a name is now a destination with its
-// own entry — which is what a facet an operator navigates to actually is.
-// A drill-in is still not a destination: it has no entry, and its parent view
-// stays the active one.
+// A path segment after the view is a tab when the destination declares that
+// tab, and a drill-in otherwise: one row of the view, reached from that row.
+// Most destinations declare no tabs, because a facet an operator navigates to
+// deserves its own sidebar entry. A destination declares tabs only where its
+// facets are two readings of one subject — Deployments, whose Flows define
+// what its Runs execute. A tabbed destination's drill-in follows its tab, so
+// a run reads `#/deployments/runs/<run id>` and its breadcrumb can name the
+// tab it came from. A drill-in is still not a destination: it has no entry,
+// and its parent view stays the active one.
 export function parseUniverseRoute(hash) {
   const raw = String(hash || "").replace(/^#\/?/, "");
   const [pathPart, queryPart] = raw.split("?");
-  const [viewPart, segmentPart] = pathPart.split("/");
+  const [viewPart, firstSegment, secondSegment] = pathPart.split("/");
   const view = NAV.some((entry) => entry.id === viewPart)
     ? viewPart : NAV[0].id;
   const query = new URLSearchParams(queryPart || "");
   const project = query.get("project");
   const selection = query.get("selection");
-  // An unknown view falls back to the first destination, and its detail
-  // segment falls with it rather than being carried onto a view that never
-  // asked for one.
-  const detail = (view === viewPart && segmentPart)
-    ? decodeURIComponent(segmentPart) : null;
-  return { view, tab: null, detail, project, selection };
+  // An unknown view falls back to the first destination, and its path
+  // segments fall with it rather than being carried onto a view that never
+  // asked for them.
+  const segments = view === viewPart
+    ? [firstSegment, secondSegment].filter(Boolean).map(decodeURIComponent)
+    : [];
+  const tabs = navTabs(view);
+  const tab = tabs.some((entry) => entry.id === segments[0])
+    ? segments[0] : null;
+  const detail = (tab ? segments[1] : segments[0]) || null;
+  return { view, tab, detail, project, selection };
 }
 
 export function buildUniverseRoute(
@@ -64,6 +83,28 @@ export function buildUniverseRoute(
     ? `?project=${encodeURIComponent(project).replace(/%2C/g, ",")}`
     : "";
   return `#/${resolvedView}${segmentPart}${detailPart}${query}`;
+}
+
+// Deployments keeps its runs on one tab and a single run hangs off it, so one
+// builder owns that two-segment shape rather than every caller repeating the
+// tab id beside a run id.
+export const DEPLOYMENT_RUNS_TAB = "runs";
+
+export function deploymentRunsHref(project) {
+  return buildUniverseRoute(
+    "deployments",
+    project == null ? null : String(project),
+    DEPLOYMENT_RUNS_TAB,
+  );
+}
+
+export function deploymentRunHref(project, runId) {
+  return buildUniverseRoute(
+    "deployments",
+    project == null ? null : String(project),
+    DEPLOYMENT_RUNS_TAB,
+    String(runId),
+  );
 }
 
 // The route encoding of a resolved scope: absent for "all" (an unfiltered

@@ -61,7 +61,6 @@ test("navigation is three groups, and every entry declares one", () => {
       ["items", "≣", "Items", "multi", "diagnostics"],
       ["deployments", "⬈", "Deployments", "multi", "diagnostics"],
       ["environments", "◇", "Environments", "multi", "diagnostics"],
-      ["flows", "⇉", "Flows", "multi", "diagnostics"],
       ["databases", "▤", "Databases", "multi", "diagnostics"],
       ["qa-methods", "◉", "QA methods", "multi", "diagnostics"],
       ["qa-plans", "◎", "QA plans", "multi", "diagnostics"],
@@ -78,11 +77,16 @@ test("navigation is three groups, and every entry declares one", () => {
   );
 });
 
-test("no destination declares tabs, and the group order is fixed", () => {
-  // A tab was one facet of a view's single concept. Every facet that earned a
-  // name is a destination now, so a surviving `tabs` roster would be a second
-  // way to reach something the sidebar already reaches.
-  for (const entry of NAV) assert.equal(entry.tabs, undefined, entry.id);
+test("Deployments is the one destination with tabs, Flows first", () => {
+  // A facet that earned a name is a destination, so tabs stay the exception:
+  // Deployments keeps them because a flow definition and a run of it are two
+  // readings of one subject, and the definition is what an operator opens.
+  const tabbed = NAV.filter((entry) => entry.tabs);
+  assert.deepEqual(tabbed.map((entry) => entry.id), ["deployments"]);
+  assert.deepEqual(
+    tabbed[0].tabs,
+    [{ id: "flows", label: "Flows" }, { id: "runs", label: "Runs" }],
+  );
   assert.deepEqual(NAV_GROUPS.map((group) => group.id),
     ["focus", "settings", "diagnostics"]);
 });
@@ -129,7 +133,7 @@ test("Runs is one eight-column table whose rows open the run page", async (t) =>
       throw new Error(`unexpected function ${request.function}`);
     },
   };
-  const { root, mounted } = await mountAt(t, "#/deployments", client);
+  const { root, mounted } = await mountAt(t, "#/deployments/runs", client);
 
   // "all" is one unfiltered call over the whole universe.
   assert.deepEqual(
@@ -160,7 +164,7 @@ test("Runs is one eight-column table whose rows open the run page", async (t) =>
   assert.equal(byClass(root, "delivery-run-id")[0].textContent, "run-20260101-001");
   assert.equal(
     byClass(root, "delivery-run-title")[0].href,
-    "#/deployments/run-20260101-001?project=2",
+    "#/deployments/runs/run-20260101-001?project=2",
   );
   assert.equal(byClass(root, "delivery-run-card").length, 0);
   assert.deepEqual(
@@ -232,7 +236,7 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
   };
   const { root, mounted } = await mountAt(
     t,
-    "#/deployments?project=1",
+    "#/deployments/runs?project=1",
     client,
   );
 
@@ -247,7 +251,7 @@ test("an approval-paused table row links its item and Inbox decision", async (t)
   assert.equal(byClass(root, "delivery-member")[0].title, "Ship the release");
   assert.equal(
     byClass(root, "delivery-run-title")[0].href,
-    "#/deployments/run-20260726-001?project=1",
+    "#/deployments/runs/run-20260726-001?project=1",
   );
   // A suspended run reports its request, not the status it held when it
   // stopped.
@@ -312,7 +316,7 @@ test("a page-shaped list row shows flow, stages, and derived carried items", asy
       throw new Error(`unexpected function ${request.function}`);
     },
   };
-  const { root, mounted } = await mountAt(t, "#/deployments?project=1", client);
+  const { root, mounted } = await mountAt(t, "#/deployments/runs?project=1", client);
   const cells = allNodes(root).filter((node) => node.tagName === "TD").map(cellText);
 
   assert.equal(
@@ -329,7 +333,7 @@ test("a page-shaped list row shows flow, stages, and derived carried items", asy
   );
   assert.equal(
     byClass(root, "delivery-run-title")[0].href,
-    "#/deployments/run-20260911-001?project=1",
+    "#/deployments/runs/run-20260911-001?project=1",
   );
   mounted.unmount();
 });

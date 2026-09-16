@@ -253,7 +253,7 @@ test("message acknowledgement failures stay visible and retryable", async () => 
 
 test("all four request kinds link to their one subject home", () => {
   const cases = [
-    ["deployment_stage_approval", "deployment_stage", {}, "#/deployments?project=10"],
+    ["deployment_stage_approval", "deployment_stage", {}, "#/deployments/runs?project=10"],
     [
       "qa_needs_review",
       "qa_requirement",

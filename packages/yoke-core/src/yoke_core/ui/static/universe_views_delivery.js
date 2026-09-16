@@ -1,5 +1,7 @@
 import {
   buildUniverseRoute,
+  defaultTabFor,
+  navTabs,
   serializeScope,
 } from "./universe_navigation.js";
 import {
@@ -17,7 +19,7 @@ import {
 import { renderRunsTable } from "./universe_delivery_runs_table.js";
 import { EMPTY_RUN_FACTS, loadRunFacts } from "./universe_run_evidence.js";
 
-export function renderDeliveryRunsView(context, main, scope) {
+function renderDeliveryRunsView(context, main, scope) {
   const documentNode = context.document;
   const panel = section(documentNode, "Runs");
   panel.classList.add("delivery-facet-panel");
@@ -157,7 +159,7 @@ export function renderDeliveryRunsView(context, main, scope) {
   loader.start();
 }
 
-export function renderDeliveryFlowsView(context, main, scope) {
+function renderDeliveryFlowsView(context, main, scope) {
   const documentNode = context.document;
   const panel = section(documentNode, "Flows");
   main.replaceChildren(panel);
@@ -177,4 +179,40 @@ export function renderDeliveryFlowsView(context, main, scope) {
       });
     },
   );
+}
+
+const TAB_RENDERERS = {
+  flows: renderDeliveryFlowsView,
+  runs: renderDeliveryRunsView,
+};
+
+// Flows and Runs read one subject from two ends, so the page keeps both and
+// the route names which one is open. Flows leads because a definition is what
+// an operator opens first: it says what every run under it will do.
+function deploymentTabStrip(documentNode, scope, activeTab) {
+  const strip = el(documentNode, "div", "tab-bar");
+  strip.setAttribute("role", "tablist");
+  for (const tab of navTabs("deployments")) {
+    const link = el(
+      documentNode,
+      "a",
+      `tab-link${tab.id === activeTab ? " active" : ""}`,
+      tab.label,
+    );
+    link.href = buildUniverseRoute("deployments", serializeScope(scope), tab.id);
+    link.setAttribute("role", "tab");
+    link.setAttribute("aria-selected", tab.id === activeTab ? "true" : "false");
+    strip.appendChild(link);
+  }
+  return strip;
+}
+
+export function renderDeploymentsView(context, main, scope, chrome = {}) {
+  const documentNode = context.document;
+  const activeTab = TAB_RENDERERS[chrome.tab]
+    ? chrome.tab : defaultTabFor("deployments");
+  const strip = deploymentTabStrip(documentNode, scope, activeTab);
+  const body = el(documentNode, "div", "tab-body");
+  main.replaceChildren(strip, body);
+  TAB_RENDERERS[activeTab](context, body, scope);
 }

@@ -95,7 +95,7 @@ test("the run name is the card's link, and the card itself is not one", () => {
   const runName = byClass(card, "overview-run-id")[0];
   assert.equal(runName.tagName, "A");
   assert.equal(runName.textContent, "run-20260910-006");
-  assert.equal(runName.href, "#/deployments/run-20260910-006?project=1");
+  assert.equal(runName.href, "#/deployments/runs/run-20260910-006?project=1");
   // Everything else the card reads out is text, so there is nothing between
   // the reader and selecting it.
   assert.deepEqual(

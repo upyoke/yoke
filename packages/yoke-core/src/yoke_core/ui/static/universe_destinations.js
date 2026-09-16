@@ -104,16 +104,20 @@ export const NAV = [
     id: "items", icon: "≣", label: "Items", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
   },
+  // Flows and Runs are two views of one subject: a definition says what a
+  // deployment does, a run is one execution of it. They are tabs rather than
+  // two destinations because reading a run almost always means reading the
+  // definition behind it, and the definition is what an operator opens first.
   {
     id: "deployments", icon: "⬈", label: "Deployments", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
+    tabs: [
+      { id: "flows", label: "Flows" },
+      { id: "runs", label: "Runs" },
+    ],
   },
   {
     id: "environments", icon: "◇", label: "Environments", scope: SCOPE_MULTI,
-    group: GROUP_DIAGNOSTICS,
-  },
-  {
-    id: "flows", icon: "⇉", label: "Flows", scope: SCOPE_MULTI,
     group: GROUP_DIAGNOSTICS,
   },
   {

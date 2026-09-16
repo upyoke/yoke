@@ -61,7 +61,7 @@ function flowClient(flows = FLOWS) {
   };
 }
 
-async function mountFlows(t, client, hash = "#/flows") {
+async function mountFlows(t, client, hash = "#/deployments/flows") {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -72,6 +72,27 @@ async function mountFlows(t, client, hash = "#/flows") {
   await settle();
   return { documentNode, root, mounted };
 }
+
+test("Deployments opens on Flows under one route head", async (t) => {
+  const { root, mounted } = await mountFlows(
+    t, flowClient(), "#/deployments?project=1",
+  );
+
+  const head = byClass(root, "page-head")[0];
+  assert.equal(byClass(head, "title")[0].textContent, "Deployments");
+  const tabs = byClass(root, "tab-link");
+  assert.deepEqual(tabs.map((tab) => tab.textContent), ["Flows", "Runs"]);
+  // No tab segment means the first tab, and each tab links to its own route.
+  assert.deepEqual(
+    tabs.map((tab) => tab.classList.contains("active")), [true, false],
+  );
+  assert.deepEqual(tabs.map((tab) => tab.href), [
+    "#/deployments/flows?project=1",
+    "#/deployments/runs?project=1",
+  ]);
+  assert.equal(byClass(root, "panel-title")[0]?.textContent ?? "Flows", "Flows");
+  mounted.unmount();
+});
 
 function cardNames(root) {
   return byClass(root, "delivery-flow-card-name").map((node) => node.textContent);
@@ -194,7 +215,7 @@ test("search covers project, target, and stage text with a recoverable no-result
 test("project scoping stays server-side while each browse item names its project", async (t) => {
   const client = flowClient();
   const { root, mounted } = await mountFlows(
-    t, client, "#/flows?project=2",
+    t, client, "#/deployments/flows?project=2",
   );
   assert.deepEqual(
     client.requests.filter((request) => request.function === "workflows.definition.get"),

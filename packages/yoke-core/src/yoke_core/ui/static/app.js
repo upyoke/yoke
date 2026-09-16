@@ -277,6 +277,7 @@ export function mountUniverseApp(rootNode, options = {}) {
       const detailHost = el(documentNode, "div", "view-host");
       const breadcrumb = createBreadcrumb(
         documentNode, entry, selectionParam(scopeSelections.selectionFor(entry.id)), route.detail,
+        (entry.tabs || []).find((candidate) => candidate.id === route.tab) || null,
       );
       main.replaceChildren(breadcrumb, detailHost);
       detailRenderer(
@@ -296,6 +297,9 @@ export function mountUniverseApp(rootNode, options = {}) {
       pageHead, ...beforeScopeSections(entry), aboveScope, viewHost,
     );
     const handle = renderer(context, viewHost, scope, { aboveScope,
+      // A tabbed destination reads which of its facets the route names; an
+      // untabbed one is handed null and ignores it.
+      tab: route.tab,
       hidePageHead() {
         if (!mounted || main.children[0] !== pageHead) return;
         configurePageHead(documentNode, pageHead, { title: null });

@@ -8,7 +8,7 @@
 
 import { createDecisionResolver } from "./inbox_rows.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
-import { buildUniverseRoute } from "./universe_navigation.js";
+import { deploymentRunsHref } from "./universe_navigation.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
 import { KIND_LABELS } from "./review_request_presentation.js";
@@ -214,7 +214,7 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
     loading.renderEnvelopes([], (body) => {
       body.appendChild(el(documentNode, "p", "empty", `There is no run called ${runId} in this scope.`));
       const back = el(documentNode, "a", "review-link", "Back to Deployments");
-      back.href = buildUniverseRoute("deployments", Array.isArray(scope) ? scope.join(",") : null);
+      back.href = deploymentRunsHref(Array.isArray(scope) ? scope.join(",") : null);
       body.appendChild(back);
     });
     return;

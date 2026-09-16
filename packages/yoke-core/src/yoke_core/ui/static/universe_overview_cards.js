@@ -1,7 +1,10 @@
 // Card renderers for the three live objects on the Overview frontier: items,
 // sessions (rendered by the Sessions module), and deployment runs.
 
-import { buildUniverseRoute } from "./universe_navigation.js";
+import {
+  buildUniverseRoute,
+  deploymentRunHref,
+} from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { deliveryStageBar, workflowBadge } from "./universe_secondary_primitives.js";
 import { relativeAgePhrase } from "./universe_time.js";
@@ -97,10 +100,7 @@ export function runProjectId(context, row, scope) {
 }
 
 export function runDetailHref(context, row, scope) {
-  const projectId = runProjectId(context, row, scope);
-  return buildUniverseRoute(
-    "deployments", projectId == null ? null : String(projectId), row.id || row.run_id,
-  );
+  return deploymentRunHref(runProjectId(context, row, scope), row.id || row.run_id);
 }
 
 // What the run carries, listed on the card: the first few items, and an

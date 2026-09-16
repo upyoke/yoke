@@ -8,10 +8,7 @@ import {
   renderCapabilitiesView,
   renderCapabilityDetail,
 } from "./universe_views_capabilities.js";
-import {
-  renderDeliveryFlowsView,
-  renderDeliveryRunsView,
-} from "./universe_views_delivery.js";
+import { renderDeploymentsView } from "./universe_views_delivery.js";
 import {
   renderDeliveryDatabasesView,
   renderDeliveryEnvironmentsView,
@@ -88,9 +85,11 @@ export const DETAIL_RENDERERS = {
 };
 
 // A destination is live exactly when it has a renderer here.
-// Every facet that earned a name is a destination. A tab was one facet of a
-// view's single concept; a facet an operator navigates to is a destination,
-// and calling it a tab only hid it one level down.
+// Most facets that earned a name are destinations: a facet an operator
+// navigates to deserves its own sidebar entry, and calling it a tab only hid
+// it one level down. A destination keeps tabs only where its facets are two
+// readings of one subject — Deployments, whose Flows define what its Runs
+// execute — and then the renderer below reads `chrome.tab` to pick one.
 export const VIEW_RENDERERS = {
   overview: renderOverviewView,
   sessions: renderSessionsView,
@@ -104,9 +103,8 @@ export const VIEW_RENDERERS = {
 
   strategy: renderStrategyView,
   items: renderItemsView,
-  deployments: renderDeliveryRunsView,
+  deployments: renderDeploymentsView,
   environments: renderDeliveryEnvironmentsView,
-  flows: renderDeliveryFlowsView,
   databases: renderDeliveryDatabasesView,
   "qa-methods": renderQaMethods,
   "qa-plans": renderQaPlans,

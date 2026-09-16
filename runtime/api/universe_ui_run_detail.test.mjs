@@ -110,7 +110,7 @@ test("the run page reads the run by id and draws it in the page's shape", async 
     happened_at: "2026-07-26T10:05:00Z",
     artifacts: [{ id: 41, artifact_type: "screenshot", content_type: "image/png" }],
   }]);
-  const { root, mounted } = await mountAt(t, "#/deployments/run-20260726-001?project=1", client);
+  const { root, mounted } = await mountAt(t, "#/deployments/runs/run-20260726-001?project=1", client);
 
   // One run, found by its id through the same paged read the table uses.
   const read = client.requests.find((request) => request.function === "deployment_runs.list");
@@ -171,7 +171,7 @@ test("a run with nothing waiting says what it is doing instead", async (t) => {
     completed_at: new Date().toISOString(),
     stages: [{ name: "build", state: "complete" }, { name: "release", state: "complete" }],
   }));
-  const { root, mounted } = await mountAt(t, "#/deployments/run-20260726-001?project=1", client);
+  const { root, mounted } = await mountAt(t, "#/deployments/runs/run-20260726-001?project=1", client);
   assert.equal(byClass(root, "run-badge")[0].textContent, "succeeded");
   const decision = byClass(root, "run-card")[1];
   assert.ok(decision.textContent.includes("Succeeded"), decision.textContent);
@@ -185,10 +185,10 @@ test("a run with nothing waiting says what it is doing instead", async (t) => {
 
 test("a run the scope does not hold says so rather than drawing an empty page", async (t) => {
   const client = runClient(null);
-  const { root, mounted } = await mountAt(t, "#/deployments/run-nope?project=1", client);
+  const { root, mounted } = await mountAt(t, "#/deployments/runs/run-nope?project=1", client);
   const text = allNodes(root).map((node) => node.textContent || "").join(" ");
   assert.match(text, /There is no run called run-nope in this scope/);
-  assert.equal(byClass(root, "review-link")[0].href, "#/deployments?project=1");
+  assert.equal(byClass(root, "review-link")[0].href, "#/deployments/runs?project=1");
   mounted.unmount();
 });
 
@@ -204,7 +204,7 @@ test("a carried item's own QA is shown beside that item, labelled as its own", a
     happened_at: "2026-07-26T10:05:00Z",
     artifacts: [{ id: 17882, artifact_type: "screenshot", content_type: "image/png" }],
   }]);
-  const { root } = await mountAt(t, "#/deployments/run-20260726-001?project=1", client);
+  const { root } = await mountAt(t, "#/deployments/runs/run-20260726-001?project=1", client);
   await settle();
 
   const evidence = byClass(byClass(root, "run-items")[0], "carried-item-evidence")[0];
