@@ -313,17 +313,17 @@ control plane has no local capability database to inspect and skips that step
 silently. Governed migration rehearsal remains the validation authority when
 the instruction changes a database model.
 
-Use the returned absolute `worktree_path` for every read, edit, test, and
-git command. Keep the Cursor agent rooted on the main project checkout —
-do not call `move_agent_to_root` (or otherwise remount the chat) into
-`.worktrees/...`. Yoke worktrees are code lanes, not the conversation home;
-remounting assigns a new Cursor conversation id and, after the lane is
-removed, leaves Shell stuck on a deleted cwd (`ENOENT`). Pass an explicit
-live `working_directory` when Shell would inherit a worktree or deleted
-path. The preparation call reuses the item work claim already held
-since step 1 (reporting `work-claim:already-owned`, or acquiring it if
-absent), validates selected path-claim coverage against the survey,
-activates those claims, and creates or reuses the registered worktree.
+Use the returned absolute `worktree_path` for every read, edit, test, and git
+command. Keep the Cursor agent rooted on the main project checkout — do not call
+`move_agent_to_root` (or otherwise remount the chat) into `.worktrees/...`. Yoke
+worktrees are code lanes, not the conversation home; remounting assigns a new
+Cursor conversation id and, after the lane is removed, leaves Shell stuck on a
+deleted cwd (`ENOENT`). Pass an explicit live `working_directory` when Shell
+would inherit a worktree or deleted path. The preparation call reuses the item
+work claim already held since step 1 (reporting `work-claim:already-owned`, or
+acquiring it if absent), validates selected path-claim coverage against the
+survey, activates those claims, brings the project's default branch current with
+the remote that tracks it, and creates or reuses the registered worktree.
 
 Activate through the shared lifecycle interpreter:
 

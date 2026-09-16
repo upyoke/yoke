@@ -32,11 +32,12 @@ class _WtStub:
     """Stand-in for WorktreePreflightOutcome."""
     def __init__(self, *, ok=True, branch="YOK-42",
                  worktree_path="/Users/dev/externalwebapp/.worktrees/YOK-42",
-                 actions=None, block_kind="", narrative=""):
+                 actions=None, block_kind="", narrative="", notes=None):
         self.ok, self.branch = ok, branch
         self.worktree_path = worktree_path
         self.actions_taken = list(actions or ["worktree:created"])
         self.block_kind, self.narrative = block_kind, narrative
+        self.notes = list(notes or [])
 
 
 def _ok_response():
