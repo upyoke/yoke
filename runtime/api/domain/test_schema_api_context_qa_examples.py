@@ -92,13 +92,15 @@ def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
     assert "precedes a qa_verification gate" in body
     assert '{"min_runs":N,"min_pass":N}' in body
     assert "every row must include `workflow_transition_id`" in body
-    # Epic-task / deployment-run attachment stays operator-debug; only the
-    # deployment-run form may omit a workflow binding.
+    # The same command attaches a case to a release, so the packet teaches
+    # that form rather than sending an agent to an operator-debug CLI.
+    assert "--deployment-run run-YYYYMMDD-NNN" in body
+    assert "A run-attached case requires `--method-id`" in body
+    assert "authorized by the run's project scope" in body
+    # Epic-task attachment is the one shape that stays operator-debug.
     assert (
         "requirement-add --epic-id E --task-num K --workflow-transition STAGE"
     ) in body
-    assert "Deployment-run attachment is operator-debug only" in body
-    assert "may omit the transition" in body
 
 
 @pytest.mark.parametrize("role", ("engineer_agent", "tester_agent"))

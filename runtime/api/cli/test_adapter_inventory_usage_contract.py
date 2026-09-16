@@ -14,9 +14,9 @@ from yoke_cli.commands.adapters.item_worktrees import (
 from yoke_cli.commands.adapters.item_worktree_create import (
     ITEM_WORKTREES_CREATE_USAGE,
 )
-from yoke_cli.commands.adapters.qa_crud import (
+from yoke_cli.commands.adapters.qa_crud import QA_REQUIREMENT_ADD_USAGE
+from yoke_cli.commands.adapters.qa_crud_batch import (
     QA_REQUIREMENT_ADD_BATCH_USAGE,
-    QA_REQUIREMENT_ADD_USAGE,
 )
 from yoke_cli.commands.adapters.qa_read import (
     QA_GATE_SUMMARY_USAGE,

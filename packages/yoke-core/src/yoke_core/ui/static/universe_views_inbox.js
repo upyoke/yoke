@@ -37,16 +37,39 @@ function projectLabel(context, row) {
   return label == null ? "" : String(label);
 }
 
-// The items a release approval would ship. The snapshot names them by id
-// and ref; the project is the request's own, since a run belongs to one.
-function approvalCarriedItems(row) {
-  if (row.kind !== "deployment_stage_approval") return [];
-  const items = row.subject_context?.carried?.items || [];
-  return items.map((item) => ({
-    ...item,
-    project_id: item.project_id ?? row.project_id,
-    run_id: row.subject_context?.run_id,
-  }));
+// What this approval ships, and on whose authority the list is known.
+//
+// Two different records answer that. Derived lineage — the trunk changes
+// between this release and the last — is the fuller answer, and it is the
+// one shown whenever the deriver could compute it. When it could not (no
+// commit lineage to compare, no checkout to read), its item list is empty,
+// and an empty derivation is not an empty release: the run's own explicit
+// membership is still a known fact, and reading the unknown as "carries
+// nothing" hid the very item a reviewer was asked to look at. So membership
+// is the fallback, and the block says which of the two it is showing.
+//
+// Membership rows name the item as `item_ref`; derived rows name it `ref`.
+// Both are normalized here so one renderer draws either shape.
+const CARRIED_BASIS_DERIVED = "derived";
+const CARRIED_BASIS_MEMBERSHIP = "membership";
+
+function approvalCarried(row) {
+  if (row.kind !== "deployment_stage_approval") {
+    return { items: [], basis: null };
+  }
+  const context = row.subject_context || {};
+  const derived = context.carried?.items || [];
+  const basis = derived.length ? CARRIED_BASIS_DERIVED : CARRIED_BASIS_MEMBERSHIP;
+  const source = derived.length ? derived : (context.batch?.items || []);
+  return {
+    basis,
+    items: source.map((item) => ({
+      ...item,
+      ref: item.ref || item.item_ref,
+      project_id: item.project_id ?? row.project_id,
+      run_id: context.run_id,
+    })),
+  };
 }
 
 // A release approval decides a deployment, not the QA its carried items
@@ -54,7 +77,7 @@ function approvalCarriedItems(row) {
 // approving, so the block says which decision it is not: each item review
 // under it is its own request, answered on its own terms.
 function appendApprovalCarried(context, card, row, facts, onDecide) {
-  const items = approvalCarriedItems(row);
+  const { items, basis } = approvalCarried(row);
   if (!items.length) return;
   const documentNode = context.document;
   const wrap = el(documentNode, "div", "approval-carried");
@@ -68,7 +91,11 @@ function appendApprovalCarried(context, card, row, facts, onDecide) {
     documentNode,
     "p",
     "approval-carried-note",
-    "Supporting context. Approving this deployment does not approve these "
+    (basis === CARRIED_BASIS_MEMBERSHIP
+      ? "This run's declared members; its release lineage could not be "
+        + "derived, so trunk changes beyond these are unknown. "
+      : "")
+      + "Supporting context. Approving this deployment does not approve these "
       + "items' QA — each review below is its own request.",
   ));
   for (const item of items) {
@@ -203,7 +230,7 @@ export function renderInboxView(context, main, scope) {
   // shared carried-item renderer — the same loader and the same entry the
   // deployment cards use, so the association labels cannot drift apart.
   const appendCarriedContext = async (pending, cards) => {
-    const subjects = pending.flatMap(approvalCarriedItems);
+    const subjects = pending.flatMap((row) => approvalCarried(row).items);
     if (!subjects.length) return;
     const facts = await loadCarriedItemEvidence(context, subjects);
     if (!context.isMounted()) return;

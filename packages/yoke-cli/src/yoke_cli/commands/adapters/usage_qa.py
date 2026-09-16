@@ -12,9 +12,9 @@ from yoke_cli.commands.adapters.qa import (
     QA_REQUIREMENT_UPDATE_USAGE,
     QA_RUN_RECORD_VERDICT_USAGE,
 )
-from yoke_cli.commands.adapters.qa_crud import (
+from yoke_cli.commands.adapters.qa_crud import QA_REQUIREMENT_ADD_USAGE
+from yoke_cli.commands.adapters.qa_crud_batch import (
     QA_REQUIREMENT_ADD_BATCH_USAGE,
-    QA_REQUIREMENT_ADD_USAGE,
 )
 from yoke_cli.commands.adapters.qa_read import (
     QA_GATE_SUMMARY_USAGE,

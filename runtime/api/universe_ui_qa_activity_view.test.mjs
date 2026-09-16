@@ -293,3 +293,52 @@ test("a row's linked artifacts render as thumbnails, and a pending review points
   assert.equal(byClass(review, "review-pill")[0].textContent, "needs your review →");
   assert.equal(byClass(review, "review-pill")[0].href, "#/inbox?project=1");
 });
+
+test("a case attached without a plan reads as such and is named by its method", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("main");
+  await renderQaActivity({
+    document: documentNode,
+    projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
+    isMounted: () => true,
+    navigate: () => {},
+    capabilities: {},
+    client: {
+      async call(request) {
+        if (request.function === "inbox.list") {
+          return ok({ needs_decision: [], messages: [] });
+        }
+        return ok({
+          summary: { total: 1, counts: { passed: 1 } },
+          // An item's own ad hoc verification: no plan, so no case key
+          // either. Both read as absent rather than as a plan the table
+          // failed to name.
+          rows: [{
+            requirement_id: 26759,
+            plan_id: null,
+            plan: null,
+            project: "yoke",
+            case_key: null,
+            method_id: "browser-inspection",
+            method_name: "Browser inspection",
+            outcome: "passed",
+            evidence_count: 0,
+            proof_summary: "",
+            happened_at: "2026-09-16T12:00:00Z",
+          }],
+        });
+      },
+    },
+  }, root, "all");
+  await settle();
+
+  // The Plan cell says there is none, and offers no link to a plan page
+  // that does not exist.
+  const row = byClass(root, "qa-clickable-row")[0];
+  assert.equal(row.children[0].children[0].textContent, "no plan");
+  assert.equal(byClass(row, "qa-activity-link").length, 1);
+  // The case is named by what executes it, and still opens its own page.
+  const caseLink = byClass(row, "qa-activity-link")[0];
+  assert.equal(caseLink.textContent, "Browser inspection");
+  assert.equal(caseLink.href, "#/qa-activity/26759?project=1");
+});

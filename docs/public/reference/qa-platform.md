@@ -242,6 +242,8 @@ yoke qa plan run \
   --project <project>
 ```
 
+One case at a time, with no plan, is the same `qa.requirement.add` an item uses, targeted at the run instead — authoring shapes, refusals, and which cases the shared activity read returns are in [case-attachment.md](qa-platform/case-attachment.md).
+
 The run is the durable execution subject. Materialization and execution do not create a
 synthetic item: the immutable roster, serial Test Mac lease, QA runs, artifacts, and verdicts
 all remain bound through `qa_requirements.deployment_run_id`. Run-scoped reads stay explicit:

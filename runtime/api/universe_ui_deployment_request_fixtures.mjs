@@ -252,6 +252,35 @@ export function undeterminedContentsRequestRow(overrides = {}) {
   };
 }
 
+// A run that declares its members while its release lineage cannot be
+// derived at all. Both facts are true at once — the pipeline was told
+// exactly which items it owns, and nothing could compare trunk against a
+// previous release — so a card reading only the derivation reports the
+// release as carrying nothing and hides the very item a reviewer was asked
+// to look at.
+export function undeterminedLineageWithMembersRequestRow(overrides = {}) {
+  const row = deploymentRequestRow(overrides);
+  return {
+    ...row,
+    subject_context: {
+      ...row.subject_context,
+      carried: {
+        schema: 1,
+        derivation: {
+          status: "unknown",
+          contents_known: false,
+          source: "none",
+          reason: "current_release_lineage_missing",
+          recovery: "Start the run with an immutable commit release_lineage.",
+        },
+        items: [],
+        commits: [],
+        warnings: [],
+      },
+    },
+  };
+}
+
 // A sign-off stage at the end of a flow: the release has already run, and
 // approving completes the run rather than deploying anything.
 export function signOffRequestRow(overrides = {}) {

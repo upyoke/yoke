@@ -94,12 +94,16 @@ def register(registry) -> None:
         _qa_create.QaRequirementAddResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.qa_requirement_create",
-        target_kinds=["item"],
+        # One authoring surface for both subjects a case can answer for.
+        # ``qa_subject`` is the policy the rest of QA already writes under:
+        # an item case needs the session's live item claim, a run case is
+        # authorized by the run's own project scope.
+        target_kinds=["item", "deployment_run"],
         side_effects=["qa_requirements_insert"],
         emitted_event_names=["YokeFunctionCalled", "QARequirementCreated"],
-        guardrails=["claim_required"],
+        guardrails=["claim_required", "project_scope_required"],
         adapter_status="live",
-        claim_required_kind="item",
+        claim_required_kind="qa_subject",
     )
     registry.register(
         "qa.requirement.add_batch",

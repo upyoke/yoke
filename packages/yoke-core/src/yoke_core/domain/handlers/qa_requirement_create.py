@@ -8,13 +8,16 @@ Validation reuses the shared domain surfaces
 :mod:`yoke_core.domain.qa_constants` normalizers); event emission goes
 through :func:`yoke_core.domain.qa_events.emit_qa_requirement_event`.
 
-Scope: the typed surface is **item-attached only** — ``target.kind="item"``
-is the claim anchor (``claim_required_kind="item"`` matches the V3 qa
-write gating). Epic-task-attached and deployment-run-attached creation
-keep the operator-debug domain CLI
+Scope: ``add`` serves two attachment shapes through one function id and
+one claim policy. ``target.kind="item"`` anchors an item case on the
+session's live item claim; ``target.kind="deployment_run"`` anchors a
+run case on that run's own project scope, which is the same
+``claim_required_kind="qa_subject"`` policy every other QA write already
+uses — the run-attached half lives in
+:mod:`yoke_core.domain.handlers.qa_requirement_deployment_run_create`.
+Epic-task attachment keeps the operator-debug domain CLI
 (``python3 -m yoke_core.domain.qa requirement-add --epic-id ...
---workflow-transition STAGE``)
-because the dispatcher claim matrix verifies one claim target per call.
+--workflow-transition STAGE``).
 
 ``add_batch`` accepts rows for the TARGET item only: rows may omit
 ``item_id`` (defaulted from the target) and any row naming a different
@@ -30,10 +33,15 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 from yoke_core.domain.handlers.qa import _error, _p
+from yoke_core.domain.handlers.qa_requirement_deployment_run_create import (
+    handle_deployment_run_requirement_add,
+)
 from yoke_core.domain.handlers.qa_requirement_insert import (
     INSERT_SQL,
+    RequirementSubject,
     insert_params,
 )
+from yoke_core.domain.handlers.qa_requirement_row_validation import validate_row
 from yoke_core.domain.handlers.qa_requirement_method_validation import (
     validate_method_requirement,
 )
@@ -63,108 +71,59 @@ class QaRequirementAddRequest(BaseModel):
     instructions: Optional[str] = None
     expected_outcome: Optional[str] = None
     method_config: Optional[Dict[str, Any]] = None
-    workflow_transition_id: str
+    #: An item-attached case names the pinned workflow stage it governs. A
+    #: run-attached one is governed by its deployment run instead, so the
+    #: field is absent there rather than filled with a stage it does not
+    #: answer to.
+    workflow_transition_id: Optional[str] = None
+    #: Run-attached only: which stage of the run the case is about, and
+    #: which member item within that stage — named as the run carries it,
+    #: by public ref or item id. Both are refused on an item-attached call,
+    #: whose subject is the item itself.
+    deployment_stage: Optional[str] = None
+    deployment_member_item: Optional[str] = None
 
 
 class QaRequirementAddResponse(BaseModel):
     requirement_id: int
-    item_id: int
-
-
-def _validate_row(row: Dict[str, Any], jsonpath: str) -> Optional[HandlerOutcome]:
-    """Validate one add/add-batch row and return an error outcome or None.
-
-    Mutates *row* in place through the canonical field normalizers.
-    """
-    from yoke_core.domain.qa_constants import (
-        VALID_BLOCKING_MODES,
-        _normalize_qa_kind,
-        _normalize_qa_phase,
-    )
-    from yoke_core.domain.qa_requirement_policy_validation import (
-        validate_requirement_source,
-        validate_success_policy,
-    )
-
-    method_id = row.get("method_id")
-    qa_kind = row.get("qa_kind")
-    if (
-        isinstance(method_id, str)
-        and method_id.strip()
-        and isinstance(qa_kind, str)
-        and qa_kind.strip()
-    ):
-        return _error(
-            "payload_invalid",
-            "qa_kind and method_id are mutually exclusive",
-            jsonpath=jsonpath,
-        )
-    qa_phase = row.get("qa_phase")
-    if isinstance(method_id, str) and method_id.strip():
-        row["method_id"] = method_id.strip()
-        row["qa_kind"] = "method_case"
-    elif not isinstance(qa_kind, str) or not qa_kind:
-        return _error(
-            "payload_invalid",
-            "qa_kind or method_id is required",
-            jsonpath=f"{jsonpath}.qa_kind",
-        )
-    if not isinstance(qa_phase, str) or not qa_phase:
-        return _error(
-            "payload_invalid",
-            "qa_phase is required",
-            jsonpath=f"{jsonpath}.qa_phase",
-        )
-    if not row.get("method_id"):
-        row["qa_kind"] = _normalize_qa_kind(str(qa_kind))
-    row["qa_phase"] = _normalize_qa_phase(qa_phase)
-
-    blocking_mode = str(row.get("blocking_mode") or "blocking")
-    if blocking_mode not in VALID_BLOCKING_MODES:
-        return _error(
-            "payload_invalid",
-            "blocking_mode must be one of "
-            f"{', '.join(VALID_BLOCKING_MODES)} (got {blocking_mode!r})",
-            jsonpath=f"{jsonpath}.blocking_mode",
-        )
-
-    source_errors = validate_requirement_source(
-        str(row.get("requirement_source") or "explicit"),
-    )
-    if source_errors:
-        return _error(
-            "payload_invalid",
-            "; ".join(source_errors),
-            jsonpath=f"{jsonpath}.requirement_source",
-        )
-    policy_errors = validate_success_policy(
-        row["qa_kind"],
-        row.get("success_policy"),
-    )
-    if policy_errors:
-        return _error(
-            "payload_invalid",
-            "; ".join(policy_errors),
-            jsonpath=f"{jsonpath}.success_policy",
-        )
-    return None
+    #: The subject the new case is attached to: an item, or a deployment run
+    #: and optionally one stage and member inside it. Exactly one of the two
+    #: identities is populated, matching the row that was written.
+    item_id: Optional[int] = None
+    deployment_run_id: Optional[str] = None
+    deployment_stage: Optional[str] = None
+    deployment_member_item_id: Optional[int] = None
 
 
 def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
+    """Create one case against whichever subject the target names."""
     from yoke_core.domain.db_helpers import connect, iso8601_now
     from yoke_core.domain.qa_events import emit_qa_requirement_event
 
+    if request.target.kind == "deployment_run":
+        return handle_deployment_run_requirement_add(request)
     item_id = request.target.item_id
     if item_id is None:
         return _error(
             "target_invalid",
-            "qa.requirement.add requires target.item_id (item-attached "
-            "creation; epic-task / deployment-run attachment is the "
-            "operator-debug domain CLI: python3 -m yoke_core.domain.qa "
-            "requirement-add)",
+            "qa.requirement.add requires target.item_id for an item-attached "
+            "case, or target.kind='deployment_run' with "
+            "target.deployment_run_id for a run-attached one (epic-task "
+            "attachment is the operator-debug domain CLI: python3 -m "
+            "yoke_core.domain.qa requirement-add)",
         )
     row = dict(request.payload or {})
-    invalid = _validate_row(row, "$.payload")
+    for run_only in ("deployment_stage", "deployment_member_item"):
+        if row.get(run_only) is not None:
+            return _error(
+                "payload_invalid",
+                f"{run_only} describes a deployment run's own case; an "
+                "item-attached case is subject to its item. Target the run "
+                "with target.kind='deployment_run' instead.",
+                jsonpath=f"$.payload.{run_only}",
+            )
+        row.pop(run_only, None)
+    invalid = validate_row(row, "$.payload")
     if invalid is not None:
         return invalid
 
@@ -185,7 +144,7 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
         p = _p(conn)
         cur = conn.execute(
             INSERT_SQL.format(p=p),
-            insert_params(int(item_id), row, iso8601_now()),
+            insert_params(RequirementSubject.for_item(item_id), row, iso8601_now()),
         )
         inserted_id = int(cur.fetchone()[0])
         conn.commit()
@@ -269,12 +228,12 @@ def handle_qa_requirement_add_batch(
             if row.get(foreign) is not None:
                 return _error(
                     "payload_invalid",
-                    f"row {idx} sets {foreign}; the typed batch surface is "
-                    "item-attached only (operator-debug domain CLI covers "
-                    "other attachments)",
+                    f"row {idx} sets {foreign}; the batch surface is "
+                    "item-attached only. Author a run case one at a time "
+                    "with target.kind='deployment_run'.",
                     jsonpath=f"{jsonpath}.{foreign}",
                 )
-        invalid = _validate_row(row, jsonpath)
+        invalid = validate_row(row, jsonpath)
         if invalid is not None:
             return invalid
         normalized.append(row)
@@ -306,7 +265,7 @@ def handle_qa_requirement_add_batch(
                     return invalid
                 cur = conn.execute(
                     INSERT_SQL.format(p=p),
-                    insert_params(int(item_id), row, now_iso),
+                    insert_params(RequirementSubject.for_item(item_id), row, now_iso),
                 )
                 inserted_ids.append(int(cur.fetchone()[0]))
             conn.commit()

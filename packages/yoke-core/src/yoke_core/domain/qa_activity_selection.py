@@ -77,9 +77,35 @@ ACTIVITY_COLUMNS = (
     f"{HAPPENED_AT} AS happened_at"
 )
 
+#: Which requirements an activity read is about, and which it leaves out.
+#: A case is executable when it names a registered method — that is true of
+#: every plan-backed case and equally true of one attached straight to an
+#: item or a deployment run without a plan. Requiring a plan instead made a
+#: storage detail decide visibility: an item's own ad hoc verification, and
+#: every standalone run case, recorded passing runs and screenshots that no
+#: surface could read back. What stays out is the method-less bookkeeping
+#: row — an acceptance-criterion marker that never executes, so it has no
+#: run, no verdict, and no evidence to show.
+EXECUTABLE_REQUIREMENT = "(q.plan_id IS NOT NULL OR q.method_id IS NOT NULL)"
+
+#: Which project a requirement belongs to, however it is attached. A
+#: plan-backed row inherits its plan's project; a planless row takes it from
+#: the subject it names — its item, its epic, or its deployment run. The
+#: projects join stays inner, so a row whose project cannot be resolved this
+#: way is readable by nobody rather than by every tenant.
+PROJECT_OF_REQUIREMENT = "COALESCE(p.project_id, si.project_id, dr.project_id)"
+
+#: What a project-scoped read filters on. It is the resolved project above,
+#: read off the joined row, so plan-backed and planless rows are scoped by
+#: one rule rather than by whichever table happens to carry the id.
+PROJECT_FILTER_COLUMN = "pr.id"
+
 ACTIVITY_SOURCE = (
-    "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
-    "JOIN projects pr ON pr.id=p.project_id "
+    "FROM qa_requirements q "
+    "LEFT JOIN qa_plans p ON p.id=q.plan_id "
+    "LEFT JOIN items si ON si.id=COALESCE(q.item_id, q.epic_id) "
+    "LEFT JOIN deployment_runs dr ON dr.id=q.deployment_run_id "
+    f"JOIN projects pr ON pr.id={PROJECT_OF_REQUIREMENT} "
     "LEFT JOIN qa_methods m ON m.id=q.method_id "
     "LEFT JOIN qa_runs r ON r.id=("
     "SELECT rr.id FROM qa_runs rr WHERE rr.qa_requirement_id=q.id "
@@ -162,7 +188,10 @@ def bound_groups(
 __all__ = [
     "ACTIVITY_COLUMNS",
     "ACTIVITY_SOURCE",
+    "EXECUTABLE_REQUIREMENT",
     "HAPPENED_AT",
+    "PROJECT_FILTER_COLUMN",
+    "PROJECT_OF_REQUIREMENT",
     "SUBJECT",
     "SUBJECT_GROUP",
     "activity_query",

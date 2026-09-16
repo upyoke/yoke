@@ -1,4 +1,4 @@
-"""Recent QA plan activity rows and daily outcome summaries."""
+"""Recent executable QA activity rows and daily outcome summaries."""
 
 from __future__ import annotations
 
@@ -18,7 +18,10 @@ from yoke_core.domain.qa_execution_proof import (
 )
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.qa_activity_selection import (
+    ACTIVITY_SOURCE,
+    EXECUTABLE_REQUIREMENT,
     HAPPENED_AT,
+    PROJECT_FILTER_COLUMN,
     activity_query,
     bound_groups,
     item_filter,
@@ -74,9 +77,9 @@ def _list_activity(
     """
     marker = _placeholder(conn)
     params: list[Any] = []
-    where = "WHERE q.plan_id IS NOT NULL"
+    where = f"WHERE {EXECUTABLE_REQUIREMENT}"
     if identity is not None:
-        where += f" AND p.project_id={marker}"
+        where += f" AND {PROJECT_FILTER_COLUMN}={marker}"
         params.append(int(identity.id))
     if deployment_run_id is not None:
         where += f" AND q.deployment_run_id={marker}"
@@ -137,10 +140,20 @@ def _list_activity(
                     if row["deployment_member_item_id"] is not None
                     else None
                 ),
-                "plan_id": int(row["plan_id"]),
-                "plan": str(row["plan"]),
+                # A case attached without a plan has no plan and no case
+                # key. Both stay null rather than being rendered as the
+                # string "None", so a reader can tell "no plan" from a plan
+                # whose name it failed to read.
+                "plan_id": (
+                    int(row["plan_id"]) if row["plan_id"] is not None else None
+                ),
+                "plan": (str(row["plan"]) if row["plan"] is not None else None),
                 "project": str(row["project"]),
-                "case_key": str(row["plan_case_key"]),
+                "case_key": (
+                    str(row["plan_case_key"])
+                    if row["plan_case_key"] is not None
+                    else None
+                ),
                 "host_baseline": row["host_baseline"],
                 "method_id": row["method_id"],
                 "method_name": row["method_name"],
@@ -180,9 +193,9 @@ def _activity_summary(
     next_day = activity_day + timedelta(days=1)
     marker = _placeholder(conn)
     params: list[Any] = []
-    where = "WHERE q.plan_id IS NOT NULL"
+    where = f"WHERE {EXECUTABLE_REQUIREMENT}"
     if identity is not None:
-        where += f" AND p.project_id={marker}"
+        where += f" AND {PROJECT_FILTER_COLUMN}={marker}"
         params.append(int(identity.id))
     if deployment_run_id is not None:
         where += f" AND q.deployment_run_id={marker}"
@@ -192,12 +205,9 @@ def _activity_summary(
     params.extend([activity_day.isoformat(), next_day.isoformat()])
     rows = query_rows(
         conn,
-        "SELECT q.waived_at, r.verdict, r.case_outcome "
-        "FROM qa_requirements q JOIN qa_plans p ON p.id=q.plan_id "
-        "LEFT JOIN qa_runs r ON r.id=("
-        "SELECT rr.id FROM qa_runs rr WHERE rr.qa_requirement_id=q.id "
-        "ORDER BY rr.created_at DESC, rr.id DESC LIMIT 1"
-        f") {where}",
+        # The same source the row read uses, so a day's counts cover exactly
+        # the checks the rows show rather than a narrower set of their own.
+        f"SELECT q.waived_at, r.verdict, r.case_outcome {ACTIVITY_SOURCE} {where}",
         tuple(params),
     )
     counts = Counter(qa_run_outcome(row) for row in rows)

@@ -145,12 +145,13 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.requirement.add",
-        "yoke qa requirement add --item PREFIX-N "
+        "yoke qa requirement add (--item PREFIX-N | --deployment-run RUN-ID) "
         "(--qa-kind KIND | --method-id METHOD) "
         "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
         "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
         "[--required-capability KIND ...] [--suite-id ID] "
-        "--workflow-transition STAGE [--session-id S] [--json]",
+        "[--workflow-transition STAGE] [--deployment-stage STAGE] "
+        "[--deployment-member-item PREFIX-N] [--session-id S] [--json]",
     ),
     AdapterEntry(
         "qa.requirement.add_batch",

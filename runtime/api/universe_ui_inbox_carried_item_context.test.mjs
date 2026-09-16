@@ -12,6 +12,7 @@ import { byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import { renderInbox } from "./universe_ui_inbox_test_support.mjs";
 import {
   deploymentRequestRow,
+  undeterminedLineageWithMembersRequestRow,
 } from "./universe_ui_deployment_request_fixtures.mjs";
 import {
   activityRow,
@@ -85,6 +86,44 @@ test("approving the release is not approving the items under it", async () => {
     (request) => request.function === "decision_requests.resolve",
   );
   assert.deepEqual(resolved.map((request) => request.payload.request_id), [12]);
+});
+
+test("a run whose lineage is unknown still lists the members it declares", async () => {
+  const { main } = renderInbox(
+    "all",
+    [undeterminedLineageWithMembersRequestRow()],
+    [
+      activityRow({
+        item_id: 2712,
+        requirement_id: 31200,
+        artifacts: [artifact(31900, 31200)],
+        outcome: "passed",
+      }),
+    ],
+  );
+  await settle();
+
+  const carried = byClass(main, "approval-carried")[0];
+  assert.ok(carried, "declared membership is still a known fact");
+  assert.match(
+    byClass(carried, "overview-run-batch-title")[0].textContent,
+    /Carries · 2 items/,
+  );
+  const entries = byClass(carried, "overview-run-member");
+  // Membership names each item as `item_ref`; the entry reads it the same
+  // way it reads a derived row's `ref`.
+  assert.deepEqual(
+    entries.map((entry) => entry.children[0].textContent),
+    ["YOK-2712", "YOK-2707"],
+  );
+  // The block says which of the two records it is showing, rather than
+  // letting an approver read declared membership as derived contents.
+  assert.match(
+    byClass(carried, "approval-carried-note")[0].textContent,
+    /release lineage could not be derived/,
+  );
+  // And the member's own evidence is drawn from the same read.
+  assert.equal(byClass(entries[0], "review-shot").length, 1);
 });
 
 // A review names the item it is about, so bounding an item's older checks

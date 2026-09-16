@@ -12,6 +12,7 @@ from typing import Callable, Dict, List, Tuple
 from yoke_cli.commands.adapters import qa as _qa
 from yoke_cli.commands.adapters import qa_browser as _qa_browser
 from yoke_cli.commands.adapters import qa_crud as _qa_crud
+from yoke_cli.commands.adapters import qa_crud_batch as _qa_crud_batch
 from yoke_cli.commands.adapters import qa_read as _qa_read
 
 AdapterFn = Callable[[List[str]], int]
@@ -48,7 +49,7 @@ QA_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("qa", "requirement", "add"): ("qa.requirement.add", _qa_crud.qa_requirement_add),
     ("qa", "requirement", "add-batch"): (
         "qa.requirement.add_batch",
-        _qa_crud.qa_requirement_add_batch,
+        _qa_crud_batch.qa_requirement_add_batch,
     ),
     ("qa", "run", "list"): ("qa.run.list", _qa_read.qa_run_list),
     ("qa", "run", "get"): ("qa.run.get", _qa_read.qa_run_get),
