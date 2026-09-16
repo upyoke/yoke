@@ -68,6 +68,51 @@ _RENDERED_REF_TOKENS: Tuple[str, ...] = (
 )
 
 
+# A git search key built from a display renderer. The renderers answer with
+# the unresolved phrase when nothing resolves, and a history search for that
+# phrase matches nothing in the ordinary case while matching EVERY item in
+# the case where some commit quotes it. A search key names one item or the
+# search is not worth running: the public ref, or the item's own legacy
+# identity for history written before refs were rendered.
+_SEARCH_KEY_RE = re.compile(r"--grep=\{([^{}]*)\}")
+_DISPLAY_RENDERERS: Tuple[str, ...] = (
+    "render_item_ref",
+    "unresolved_item_ref",
+    "item_ref_for_id",
+)
+
+
+def scan_display_ref_search_keys(repo_root: Path) -> List[RefLiteralHit]:
+    """Return every git search key built from a display renderer."""
+    root = repo_root.resolve()
+    hits: List[RefLiteralHit] = []
+    for scan_root in SCAN_ROOTS:
+        base = root / scan_root
+        if not base.is_dir():
+            continue
+        for path in sorted(base.rglob("*.py")):
+            try:
+                rel = path.resolve().relative_to(root).as_posix()
+            except ValueError:
+                continue
+            if is_exempt_relpath(rel) or rel in _ALLOWLIST:
+                continue
+            try:
+                lines = path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            for lineno, raw in enumerate(lines, start=1):
+                for match in _SEARCH_KEY_RE.finditer(raw):
+                    expression = match.group(1)
+                    if any(name in expression for name in _DISPLAY_RENDERERS):
+                        hits.append(
+                            RefLiteralHit(
+                                path.resolve(), lineno, raw.strip()[:160]
+                            )
+                        )
+    return hits
+
+
 def scan_message_text_item_ids(repo_root: Path) -> List[RefLiteralHit]:
     """Return every internal item id interpolated into message text.
 
@@ -110,4 +155,4 @@ def scan_message_text_item_ids(repo_root: Path) -> List[RefLiteralHit]:
                     )
     return hits
 
-__all__ = ["scan_message_text_item_ids"]
+__all__ = ["scan_display_ref_search_keys", "scan_message_text_item_ids"]

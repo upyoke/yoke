@@ -203,3 +203,33 @@ def test_deployment_validation_lists_an_unresolvable_item_generically():
     assert "unresolved item ref" in label
     assert "status=implementing" in label
     assert str(missing) not in label
+
+
+def test_search_key_scan_flags_a_display_renderer_used_as_a_grep(tmp_path):
+    """The guard for the defect class review found twice.
+
+    A history search built from a display renderer matches nothing when
+    the ref resolves to the unresolved phrase, and matches every item when
+    some commit quotes that phrase.
+    """
+    from yoke_core.domain.lint_item_ref_message_text import (
+        scan_display_ref_search_keys,
+    )
+
+    source = tmp_path / "packages" / "pkg"
+    source.mkdir(parents=True)
+    (source / "search.py").write_text(
+        'def leaks(conn, item_id):\n'
+        '    return ["log", f"--grep={render_item_ref(conn, item_id)}"]\n'
+        'def also_leaks():\n'
+        '    return ["log", f"--grep={unresolved_item_ref()}"]\n'
+        'def fine(item_id, public_ref):\n'
+        '    return ["log", f"--grep={legacy_worktree_name(item_id)}"]\n'
+        'def also_fine(lane_branch):\n'
+        '    return ["log", f"--grep={lane_branch}"]\n',
+        encoding="utf-8",
+    )
+
+    hits = scan_display_ref_search_keys(tmp_path)
+
+    assert [hit.line for hit in hits] == [2, 4]
