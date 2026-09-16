@@ -40,7 +40,10 @@ from yoke_core.domain.actor_message_recipients import (
 from yoke_core.domain.actor_render import render_actor_name
 from yoke_core.domain.actors import SYSTEM_COMPONENT_YOKE_CORE, seed_system_actor
 from yoke_core.domain.session_message_authorization import project_policy
-from yoke_core.domain.session_message_starvation import undelivered_since_send
+from yoke_core.domain.session_message_starvation import (
+    awaiting_injection,
+    hook_ran_since_send,
+)
 from yoke_core.domain.session_message_store import insert_message
 from yoke_core.domain.session_message_types import parse_timestamp
 
@@ -58,8 +61,8 @@ def wake_notice_settled_reason(row: Mapping[str, Any]) -> str | None:
     """Why this envelope no longer needs a person, or ``None`` while it does.
 
     The facts are the surface's declared wake authority, whether the
-    conversation is still open, and the same "no hook has run since the
-    send" evidence a native escalation reads. Naming which one answered is
+    conversation is still open, whether anything has attached the envelope,
+    and whether a hook has run since the send. Naming which one answered is
     what the settled notice records, so a reader learns why the card went
     away rather than only that it did.
 
@@ -70,7 +73,9 @@ def wake_notice_settled_reason(row: Mapping[str, Any]) -> str | None:
     envelope itself is still waiting on a delivery defect with its own
     probe record. Settling on ``conversation_resumed`` retires the ask
     without claiming a delivery that has not happened, and nothing here
-    touches the original receipt either way.
+    touches the original receipt either way. That weaker fact retires an
+    ask made of a person; it is never what decides a native escalation,
+    which reads the recipient's present silence instead.
     """
     if native_wake_supported(str(row.get("executor_surface") or "")):
         return "surface_wakes_natively"
@@ -78,7 +83,7 @@ def wake_notice_settled_reason(row: Mapping[str, Any]) -> str | None:
         return "target_session_ended"
     if parse_timestamp(row.get("message_created_at")) is None:
         return None
-    if undelivered_since_send(row):
+    if awaiting_injection(row) and not hook_ran_since_send(row):
         return None
     state = str(row.get("state") or "")
     if state and state != "pending":

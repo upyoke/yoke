@@ -32,13 +32,41 @@ is not slow — it is absent.
 The receipt carries the evidence, so nothing has to be inferred about the
 session's inner state. Zero injections past the acknowledgement grace window
 says little on its own; a session with no work to do also injects nothing.
-What closes it is the recipient's own clock: **no tool call since the message
-was created** means no hook has run for that session since it arrived, and a
-hook is the only thing that could have attached the envelope. The window is
-measured from that last tool call rather than from the send, so silence the
-recipient had already accrued counts — see
+What closes it is the recipient's own clock: **a full window with no tool
+call** means no hook is running for that session now, and a hook is the only
+thing that could attach the envelope. The window is measured from the last
+tool call rather than from the send, so silence the recipient had already
+accrued counts — see
 [`wake-attempt-and-diagnosis.md`](wake-attempt-and-diagnosis.md) for why
 counting from the send abandoned four steering waits in one night.
+
+## Later activity delays the window; it does not end the wait
+
+The first form of that test asked whether any tool call had happened *since
+the send*, and disqualified the receipt outright when one had: a hook had
+run and declined to attach the envelope, which is a delivery defect with its
+own probe record rather than an absent route, and resuming the session would
+not fix the defect. That is true only while the session keeps calling tools.
+
+A correction reached a worker mid-flight. Two later turns ran their own
+hooks without attaching it, the worker finished and exited cleanly, and the
+envelope then sat pending at zero injections *and zero wake attempts* until
+a person resumed the session by hand — because one tool call in the window
+between the send and that exit had disqualified it permanently, while the
+route it described had ended minutes later.
+
+So eligibility reads the present absence of a route. Activity after the send
+moves the silence window forward, and a recipient that has since been quiet
+for a full one escalates like any other. Two properties make that safe. A
+session still calling tools is never silent for a window, so the ordinary
+served case is untouched. And the resume gives the envelope a fresh turn,
+which is exactly what a declined injection never got — bounded, as every
+escalation is, by one wake per recipient per window.
+
+The same clause lived in the steering report's *is an attempt owed* test,
+where it labelled a receipt the plane was escalating as merely waiting. It
+is gone from both: a report that disagrees with the plane about the same
+receipt sends the seat after the wrong thing.
 
 At that point the wake escalates to the stopped-session native-resume path,
 even though liveness still reads active. The predicate lives in

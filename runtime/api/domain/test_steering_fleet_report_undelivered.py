@@ -34,6 +34,11 @@ from yoke_core.domain.steering_fleet_report_delivery_states import (
 from yoke_core.domain.steering_fleet_report_undelivered import undelivered_messages
 
 
+#: A turn that ran after :data:`LONG_AGO` and attached nothing, then stopped
+#: — hours of silence before :data:`NOW`.
+AFTER_THE_SEND = "2026-08-26T09:30:00Z"
+
+
 @pytest.fixture
 def fleet(test_db):
     """Two ordinary workers, quiet since before any message was sent."""
@@ -73,11 +78,14 @@ def test_a_zero_attempt_envelope_is_owed_on_the_recipients_own_silence(fleet):
     assert rows[0].diagnostic == ""
 
 
-def test_a_recipient_that_has_run_a_tool_since_the_send_is_waiting(fleet):
-    """A hook has run since the send, so the next one attaches it.
+def test_a_recipient_that_is_still_running_tool_calls_is_waiting(fleet):
+    """Its hooks are running, so the next one attaches this.
 
     This is the ordinary case, and it must not read as a failure: the seat
-    acting on it would chase a delivery that is about to happen anyway.
+    acting on it would chase a delivery that is about to happen anyway. What
+    keeps it waiting is the recipient's recent tool call, not the fact that
+    one happened after the send — once those stop for a full window the
+    plane escalates the same receipt, and this view says so with it.
     """
     seed_message(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
     fleet.execute(
@@ -91,6 +99,26 @@ def test_a_recipient_that_has_run_a_tool_since_the_send_is_waiting(fleet):
     assert [entry.delivery_state for entry in rows] == [AWAITING_ATTEMPT]
     assert rows[0].needs_seat_action is False
     assert rows[0].in_delivery is True
+
+
+def test_a_recipient_that_ran_a_tool_and_then_stopped_is_owed_an_attempt(fleet):
+    """One hook that declined the envelope does not settle its wait.
+
+    The plane escalates this receipt once the recipient's own silence passes
+    the window, so a view that read the earlier tool call as an exemption
+    would keep calling it waiting while a resume was already in flight.
+    """
+    seed_message(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
+    fleet.execute(
+        "UPDATE harness_sessions SET last_tool_call_at = %s WHERE session_id = %s",
+        (AFTER_THE_SEND, ANSWERER),
+    )
+    fleet.commit()
+
+    rows = undelivered_messages(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert [entry.delivery_state for entry in rows] == [NEVER_ATTEMPTED]
+    assert rows[0].needs_seat_action is True
 
 
 def test_an_envelope_still_inside_the_delivery_sla_reads_as_waiting(fleet):
