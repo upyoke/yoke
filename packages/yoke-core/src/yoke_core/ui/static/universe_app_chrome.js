@@ -264,7 +264,11 @@ export function createWorkbenchChrome({
   // the screen: the content behind it is inert so a tap or a Tab cannot
   // reach it, and closing returns focus to the control that opened it
   // rather than dropping it at the top of the document.
-  const setNavigationOpen = (open) => {
+  // `returnFocus` is what dismissing the drawer means as against navigating
+  // out of it: a Close, a scrim press or Escape leaves the reader where they
+  // were, so focus goes back to the control that opened it. Following a
+  // destination does not, because focus belongs to the page that opened.
+  const setNavigationOpen = (open, { returnFocus = false } = {}) => {
     const shown = Boolean(open);
     shell.classList.toggle("side-open", shown);
     documentNode.body?.classList.toggle("side-open", shown);
@@ -275,17 +279,23 @@ export function createWorkbenchChrome({
     navigationToggle.setAttribute(
       "aria-label", shown ? "Close navigation" : "Open navigation",
     );
-    if (!shown && navEl.contains(documentNode.activeElement)) {
-      navigationToggle.focus?.();
-    }
+    if (!shown && returnFocus) navigationToggle.focus?.();
   };
   navigationToggle.addEventListener("click", () => {
     setNavigationOpen(
       navigationToggle.getAttribute("aria-expanded") !== "true",
     );
   });
-  navigationScrim.addEventListener("click", () => setNavigationOpen(false));
-  navigationClose.addEventListener("click", () => setNavigationOpen(false));
+  // Only a drawer that was open has focus to hand back. Escape is a
+  // document-wide gesture that other surfaces answer too, so taking focus to
+  // the hamburger on every press would steal it from whichever surface the
+  // reader actually closed.
+  const dismiss = () => {
+    if (navigationToggle.getAttribute("aria-expanded") !== "true") return;
+    setNavigationOpen(false, { returnFocus: true });
+  };
+  navigationScrim.addEventListener("click", dismiss);
+  navigationClose.addEventListener("click", dismiss);
   for (const link of navLinks.values()) {
     link.addEventListener("click", () => setNavigationOpen(false));
   }
@@ -295,7 +305,7 @@ export function createWorkbenchChrome({
   // route render.
   const disposeRevealPanels = armRevealPanelDismissal(documentNode);
   const onEscape = (event) => {
-    if (event.key === "Escape") setNavigationOpen(false);
+    if (event.key === "Escape") dismiss();
   };
   documentNode.defaultView.addEventListener("keydown", onEscape);
 
