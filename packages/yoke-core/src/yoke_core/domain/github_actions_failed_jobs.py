@@ -22,10 +22,7 @@ from yoke_core.domain.gh_rest_transport import (
     RestNotFoundError,
     RestTransportError,
 )
-from yoke_core.domain.github_actions_log_archive import (
-    ActionsLogArchiveError,
-    parse_failed_log_zip,
-)
+from yoke_core.domain.github_actions_log_archive import parse_failed_log_zip
 from yoke_core.domain.github_actions_logs import fetch_failed_log_zip, fetch_job_log
 from yoke_core.domain.github_actions_rest import rest_get
 from yoke_core.domain.github_response_safety import redact_exact_secrets
@@ -121,14 +118,17 @@ def collect_failed_jobs(
 def _archive_logs(repo: str, run_id: int | str, *, token: str) -> Dict[str, str]:
     """Whole-run log archive as ``{job_name: text}``, empty when unusable.
 
-    An absent or over-limit archive is not fatal: every job missing from
-    this mapping is fetched individually by job id, so the archive is a
-    bulk shortcut rather than the only source.
+    The archive is a bulk shortcut, never the only source, so NO failure
+    reaching it is fatal: refused, unreachable, absent, and over-limit
+    archives all yield an empty mapping. Every job missing from it is
+    then fetched individually by job id, which either returns that job's
+    log or gives it a named per-job reason — both of which beat losing
+    the whole inventory to one archive-wide refusal.
     """
     try:
         zip_bytes = fetch_failed_log_zip(repo, run_id, token=token)
         parsed = parse_failed_log_zip(zip_bytes)
-    except (RestNotFoundError, ActionsLogArchiveError):
+    except RestTransportError:
         return {}
     return {
         name: redact_exact_secrets(body, (token,)) for name, body in parsed.items()

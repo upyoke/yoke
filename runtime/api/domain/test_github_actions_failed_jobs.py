@@ -210,6 +210,51 @@ class TestCollectFailedJobs:
         assert job.log_status == LOG_PERMISSION_DENIED
         assert "Actions read" in job.log_detail
 
+    def test_refused_archive_still_reports_every_job_from_its_own_log(
+        self, monkeypatch
+    ):
+        """A 403 on the whole-run archive must not cost the job inventory."""
+        _install_job_listings(
+            monkeypatch,
+            [{"total_count": 2, "jobs": [_job(0, "build"), _job(1, "test")]}],
+        )
+        _install_log_responses(
+            monkeypatch,
+            [_http_error(403, b"forbidden"), b"build boom\n", b"test boom\n"],
+        )
+
+        jobs = {job.name: job for job in collect_failed_jobs("o/r", "1", token="ghs_x")}
+
+        assert set(jobs) == {"build", "test"}
+        assert jobs["build"].log_text == "build boom\n"
+        assert jobs["test"].log_text == "test boom\n"
+        assert {job.log_status for job in jobs.values()} == {LOG_AVAILABLE}
+
+    def test_unreachable_archive_still_reports_every_job_by_name_and_reason(
+        self, monkeypatch
+    ):
+        """Archive and per-job logs both refused: name each job, not one error."""
+        _install_job_listings(
+            monkeypatch,
+            [{"total_count": 2, "jobs": [_job(0, "build"), _job(1, "test")]}],
+        )
+        _install_log_responses(
+            monkeypatch,
+            [
+                _http_error(500, b"upstream"),
+                _http_error(500, b"upstream"),
+                _http_error(500, b"upstream"),
+                _http_error(403, b"forbidden"),
+                _http_error(403, b"forbidden"),
+            ],
+        )
+
+        jobs = {job.name: job for job in collect_failed_jobs("o/r", "1", token="ghs_x")}
+
+        assert set(jobs) == {"build", "test"}
+        assert {job.log_status for job in jobs.values()} == {LOG_PERMISSION_DENIED}
+        assert all("Actions read" in job.log_detail for job in jobs.values())
+
     def test_missing_archive_falls_back_to_every_job_by_id(self, monkeypatch):
         _install_job_listings(
             monkeypatch,

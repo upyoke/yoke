@@ -31,7 +31,7 @@ def _failed(name: str, body: str, **overrides: Any) -> FailedJob:
         "job_id": "900",
         "name": name,
         "conclusion": "failure",
-        "html_url": f"https://github.com/o/r/actions/runs/123/job/900",
+        "html_url": "https://github.com/o/r/actions/runs/123/job/900",
         "log_text": body,
         "log_status": LOG_AVAILABLE,
         "log_detail": "",
