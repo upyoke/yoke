@@ -43,15 +43,11 @@ def test_a_case_that_failed_and_was_rerun_to_a_pass_is_accepted(test_db) -> None
     # The regression that motivated the rewrite: a member whose requirement
     # failed once stayed failed forever, however many times it was rerun.
     plan_id = _plan(test_db, "retry-smoke")
-    _seed_run(
-        test_db, run_id="run-retry", stages=_stages(plan_id), members=(9901,)
-    )
+    _seed_run(test_db, run_id="run-retry", stages=_stages(plan_id), members=(9901,))
     _settle(test_db, run_id="run-retry", stage="item-qa", member=9901)
     requirement_id = _acceptance_requirement_id(test_db, "run-retry", "item-qa")
     _record_verdict(test_db, requirement_id, "fail")
-    assert not item_release_qa(
-        test_db, run_id="run-retry", item_id=9901
-    ).accepted
+    assert not item_release_qa(test_db, run_id="run-retry", item_id=9901).accepted
 
     # Same requirement, answered again. The newest verdict is the answer.
     _record_verdict(test_db, requirement_id, "pass")
@@ -64,9 +60,7 @@ def test_a_case_that_failed_and_was_rerun_to_a_pass_is_accepted(test_db) -> None
 
 def test_a_rejected_acceptance_names_the_stage_it_blocks(test_db) -> None:
     plan_id = _plan(test_db, "rejected-smoke")
-    _seed_run(
-        test_db, run_id="run-rejected", stages=_stages(plan_id), members=(9902,)
-    )
+    _seed_run(test_db, run_id="run-rejected", stages=_stages(plan_id), members=(9902,))
     _settle(test_db, run_id="run-rejected", stage="item-qa", member=9902)
     requirement_id = _acceptance_requirement_id(test_db, "run-rejected", "item-qa")
     _record_verdict(test_db, requirement_id, "fail")
@@ -80,9 +74,7 @@ def test_a_rejected_acceptance_names_the_stage_it_blocks(test_db) -> None:
 
 def test_a_waiver_discharges_the_stage_rather_than_hiding_it(test_db) -> None:
     plan_id = _plan(test_db, "waived-smoke")
-    _seed_run(
-        test_db, run_id="run-waived", stages=_stages(plan_id), members=(9903,)
-    )
+    _seed_run(test_db, run_id="run-waived", stages=_stages(plan_id), members=(9903,))
     _settle(test_db, run_id="run-waived", stage="item-qa", member=9903)
     requirement_id = _acceptance_requirement_id(test_db, "run-waived", "item-qa")
     _record_verdict(test_db, requirement_id, "fail")

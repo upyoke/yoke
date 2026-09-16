@@ -103,7 +103,10 @@
   position: relative;
   display: grid;
   min-height: 82px;
-  align-content: space-between;
+  /* Top-aligned: stage cards in one row hold different amounts of policy,
+     and spreading each card's own content to its full height puts the same
+     label at a different altitude in every column. */
+  align-content: start;
   gap: 12px;
   padding: 12px;
   border: 1px solid var(--yoke-border);
