@@ -4,9 +4,12 @@ Extracted from :mod:`yoke_function_dispatch` so the dispatcher routing
 path stays under file-line budget. All three dispatcher-owned event
 names route through :func:`yoke_core.domain.events.emit_event`:
 
-- ``YokeFunctionCalled`` — one per call. Carries function id, version,
-  target, payload byte count + checksum, guardrail outcomes, verification
-  status, sync status, and the handler's contributed event ids.
+- ``YokeFunctionCalled`` — one per call. Carries compact metadata only:
+  function id, version, target, payload and result byte counts plus
+  checksums, guardrail outcomes, verification status, sync status, the
+  handler's contributed event ids, and — when the call failed — bounded
+  error details. It never copies the result document itself; see
+  :func:`emit_called` for where the full result does live.
 - ``DispatcherIdempotencyReplay`` — fired when a prior ``(function,
   request_id)`` is replayed.
 - ``DispatcherDownstreamDegraded`` — fired when at least one
@@ -18,6 +21,9 @@ The three event names are seeded into ``event_registry`` by
 :func:`emit_called` also writes the ``function_call_ledger`` row for a
 successful side-effecting call (the idempotency dedup state the dispatcher
 replays from) — events stay telemetry; the ledger owns the replay decision.
+The ledger write runs BEFORE the emission so a telemetry failure can never
+skip it: ``emit_event`` re-raises ``RetiredEventNameError``, and with the
+old ordering that raise left a committed mutation with no replay row.
 """
 
 from __future__ import annotations
@@ -36,6 +42,11 @@ from yoke_contracts.api.function_call import (
     FunctionCallResponse,
     FunctionWarning,
     HandlerOutcome,
+)
+from yoke_core.domain.yoke_function_dispatch_failure_context import (
+    clip,
+    clipped_warning,
+    error_event_context,
 )
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
@@ -101,10 +112,19 @@ def emit_called(
     unregistered-session provenance marking). Event attribution
     (``session_id``) always uses the bound session.
     """
-    # result_byte_count/result_checksum are deliberately separate scalar
-    # keys: when a big result (e.g. strategy render file texts) trips the
-    # envelope cap, the value-aware shrink replaces "result" with a
-    # marker but the size/checksum scalars survive for audits.
+    # Routine telemetry carries the result's SIZE and DIGEST, never the
+    # document. Over the most recent 2,000 production calls the copied
+    # result was 8,876,530 of 11,982,526 envelope characters (74%), and
+    # no reader consumed it: the caller already holds the result on the
+    # response, and a ledgered call keeps it in ``function_call_ledger``.
+    # Exceptional detailed capture belongs behind a scoped, expiring,
+    # record-capped debug campaign, never in the routine INFO event.
+    # TODO(YOK-3206): once YOK-3195 lands
+    # `yoke_core.api.observability.debug_detail_allowed`, guard a
+    # `context["result"] = dict(response.result)` on it here, passing
+    # function, session_id, request_id, and service. Blocked only on that
+    # module existing; the compact shape below is what a false answer —
+    # and every routine call — must keep producing.
     result_bytes, result_hash = serialize_payload(dict(response.result))
     context = {
         "function": entry.function_id,
@@ -122,7 +142,6 @@ def emit_called(
         "sync_status": "degraded" if response.warnings else "ok",
         "event_ids": list(outcome.handler_event_ids),
         "request_id": request.request_id,
-        "result": dict(response.result),
         "result_byte_count": result_bytes,
         "result_checksum": result_hash,
         "intent": request.intent,
@@ -130,6 +149,28 @@ def emit_called(
     }
     if identity_context:
         context.update(identity_context)
+    context.update(error_event_context(response.error))
+    # Idempotency state is the operational owner of the replay decision,
+    # so it is written BEFORE the disposable telemetry below: `emit_event`
+    # re-raises RetiredEventNameError, and emitting first let that raise
+    # strand a committed mutation with no ledger row. First write wins;
+    # calls without a request_id skip, and side-effect-free entries are
+    # never ledgered — reads are naturally idempotent and their results
+    # (e.g. board.data.get) can be large. Failed outcomes are also never
+    # ledgered: the ledger stores only a result dict, not the failure
+    # envelope, so replaying one would incorrectly turn it into success
+    # and permanently suppress a safe retry.
+    if (
+        entry.side_effects
+        and response.success
+        and "handler_managed_idempotency" not in entry.guardrails
+    ):
+        record_call(
+            request.request_id, entry.function_id, dict(response.result),
+            actor_id=str(request.actor.actor_id or ""),
+            authorization_scope=authorization_scope,
+            payload_checksum=idempotency_payload_checksum,
+        )
     emit_event(
         "YokeFunctionCalled",
         event_kind=_KIND,
@@ -152,25 +193,6 @@ def emit_called(
     # history, attributed to the caller's actor — otherwise a worker's own
     # history cannot say who woke, held, or ended it.
     record_session_action(request, entry.function_id, response, project=project)
-    # Idempotency state rides the same flow as the telemetry emission:
-    # the ledger row is what `_idempotency_lookup` replays on request_id
-    # reuse. First write wins; calls without a request_id skip, and
-    # side-effect-free entries are never ledgered — reads are naturally
-    # idempotent and their results (e.g. board.data.get) can be large. Failed
-    # outcomes are also never ledgered: the ledger stores only a result dict,
-    # not the failure envelope, so replaying one would incorrectly turn it
-    # into success and permanently suppress a safe retry.
-    if (
-        entry.side_effects
-        and response.success
-        and "handler_managed_idempotency" not in entry.guardrails
-    ):
-        record_call(
-            request.request_id, entry.function_id, dict(response.result),
-            actor_id=str(request.actor.actor_id or ""),
-            authorization_scope=authorization_scope,
-            payload_checksum=idempotency_payload_checksum,
-        )
 
 
 def emit_idempotency_replay(
@@ -215,10 +237,14 @@ def emit_downstream_degraded(
     permission_key: Optional[str] = None,
     project: Optional[str] = None,
 ) -> None:
-    """Emit ``DispatcherDownstreamDegraded`` for one or more warnings."""
+    """Emit ``DispatcherDownstreamDegraded`` for one or more warnings.
+
+    Each warning's free-form ``detail`` is clipped by
+    :func:`yoke_function_dispatch_failure_context.clipped_warning`.
+    """
     context: Dict[str, Any] = {
         "function": entry.function_id,
-        "warnings": [w.model_dump() for w in warnings],
+        "warnings": [clipped_warning(w) for w in warnings],
     }
     if identity_context:
         context.update(identity_context)
@@ -255,7 +281,7 @@ def emit_permission_denied(
         "request_id": request.request_id,
         "target": request.target.model_dump(exclude_none=True),
         "authz": "denied",
-        "message": message,
+        "message": clip(message)[0],
     }
     if identity_context:
         context.update(identity_context)

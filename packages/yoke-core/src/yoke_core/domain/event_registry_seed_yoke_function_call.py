@@ -5,9 +5,13 @@ lifecycle events. The events-registry audit will refuse to write unless
 each carries an ``active`` row in ``event_registry``. This module
 pre-registers all four in one idempotent pass:
 
-- ``YokeFunctionCalled`` — one per call. Carries function id, version,
-  target, payload byte count + checksum, guardrail outcomes, verification
-  status, sync status, and handler-supplied event ids. Identity-binder
+- ``YokeFunctionCalled`` — one per call. Carries compact metadata only:
+  function id, version, target, payload and result byte counts plus
+  checksums, guardrail outcomes, verification status, sync status,
+  handler-supplied event ids, and bounded error details on a failed
+  call. The result document itself never rides this event — the caller
+  holds it on the response and ``function_call_ledger`` holds it for a
+  replayable call. Identity-binder
   findings ride the context on every dispatcher event:
   ``session_override`` (+ the divergent ``ambient_session_id``) marks the
   operator-debug explicit-session path, and ``provenance_unverified``
