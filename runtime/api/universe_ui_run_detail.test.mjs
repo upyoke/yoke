@@ -280,3 +280,65 @@ test("a carried item's own QA is shown beside that item, labelled as its own", a
     /no deployment run/,
   );
 });
+
+test("a member's QA review is offered once, on that member's row", async (t) => {
+  // The release card draws each member with its own pending reviews, and the
+  // same request also arrives in the run's gate list. Drawing both put one
+  // decision on the page twice, with two sets of Approve buttons.
+  const review = {
+    id: 5150,
+    kind: "qa_needs_review",
+    status: "pending",
+    project_id: 1,
+    subject_context: {
+      requirement_id: 9,
+      run_id: 5,
+      subject: {
+        kind: "deployment_run",
+        deployment_member_item_id: 2262,
+        item_ref: "YOK-2228",
+        deployment_run_id: "run-20260726-001",
+      },
+      verdict_reason: "the banner named the previous revision",
+      artifacts: [],
+      artifact_count: 0,
+    },
+    actions: ["reject", "approve"],
+    deciders: [],
+    can_act: true,
+    decided_by_you: false,
+    your_decision: null,
+  };
+  const client = runClient(runRow({
+    gates: [{
+      request_id: review.id, kind: review.kind,
+      subject_context: review.subject_context, actions: review.actions,
+      approval_progress: {}, can_act: true, authority_reason: "project owner",
+      deciders: [], your_decision: null, decided_by_you: false,
+    }],
+  }));
+  const inbox = client.call.bind(client);
+  client.call = async (request) => (
+    request.function === "inbox.list"
+      ? okEnvelope({ needs_decision: [review] })
+      : inbox(request)
+  );
+  const { root, mounted } = await mountAt(
+    t, "#/deployments/runs/run-20260726-001?project=1", client,
+  );
+
+  const approvals = allNodes(root).filter(
+    (node) => node.tagName === "BUTTON" && node.textContent === "Approve",
+  );
+  assert.equal(approvals.length, 1, "one decision, one Approve control");
+  // And it is the member's row that owns it, not a second release-level copy.
+  const memberRow = byClass(root, "carried-item-evidence")[0];
+  assert.ok(memberRow, "the member row draws its own review");
+  assert.equal(
+    allNodes(memberRow).filter(
+      (node) => node.tagName === "BUTTON" && node.textContent === "Approve",
+    ).length,
+    1,
+  );
+  mounted.unmount();
+});

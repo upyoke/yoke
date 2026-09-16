@@ -237,6 +237,10 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   const { checks, artifacts, unlinked } = carriedItemEvidence(facts, itemId, runId);
   const reviews = carriedItemReviews(facts, itemId, runId, checks);
   if (!checks.length && !reviews.length) return null;
+  // Which requests this section takes responsibility for. A caller drawing
+  // the same release's gates alongside has to know, or one decision is
+  // offered twice on one page with two sets of buttons.
+  const drawnRequests = new Set(reviews.map((request) => String(request.id)));
   const documentNode = context.document;
   const wrap = el(documentNode, "div", "carried-item-evidence");
   if (checks.length) {
@@ -298,7 +302,7 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
     }));
   }
   host.appendChild(wrap);
-  return wrap;
+  return { node: wrap, requestIds: drawnRequests };
 }
 
 export const universeCarriedItemEvidence = {
