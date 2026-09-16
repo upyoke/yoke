@@ -7,9 +7,11 @@ public refs. Both read as an item name and neither is one: ``items.id`` and
 whichever other item owns it.
 
 Message text therefore names an item through ``render_item_ref`` (or the
-public ref it was already handed). Code that genuinely means the storage key
-writes ``items.id {item_id}``, which this scan reads as the label it is and
-leaves alone. The companion
+public ref it was already handed), and where no reference resolves it says so
+without a number. Writing ``items.id {item_id}`` does not rescue the number:
+the label does not travel with it in the reader's head, so this scan flags
+that shape too, and code that genuinely needs the key for triage carries it
+in a structured payload rather than in visible text. The companion
 :mod:`yoke_core.domain.lint_item_ref_construction` covers the two directions
 that do carry a literal ref prefix.
 """
@@ -34,12 +36,18 @@ _ALLOWLIST: frozenset[str] = frozenset(
 
 
 # Prose naming an item, then an interpolation of something id-shaped. The
-# lookbehind keeps ``items.id {item_id}`` out: there the word is followed by
-# ``.id``, which labels the number as the storage key rather than presenting
-# it as a reference.
+# third alternative is the storage key written out as itself: labelling the
+# number ``items.id`` does not stop a reader treating it as this item's
+# name, and the number names whichever item owns it as a sequence, so the
+# label buys nothing and the key stays out of visible text entirely. A
+# caller that needs it for triage carries it in a structured payload, which
+# is not message text and is not scanned. SQL comparing the column
+# (``WHERE items.id = {p}``) puts an operator between the two and does not
+# match.
 _PROSE_ITEM_ID_RE = re.compile(
     r"(?<![\w.])(?:[Ii]tem|[Ee]pic)s?[ \t]+\{([^{}]*)\}"
     r"|--(?:item|epic)[ =]\{([^{}]*)\}"
+    r"|items\.id[ \t]+\{([^{}]*)\}"
 )
 
 # An interpolation naming one of these has already been through the renderer
@@ -85,7 +93,9 @@ def scan_message_text_item_ids(repo_root: Path) -> List[RefLiteralHit]:
                 if 'f"' not in raw and "f'" not in raw:
                     continue
                 for match in _PROSE_ITEM_ID_RE.finditer(raw):
-                    expression = match.group(1) or match.group(2) or ""
+                    expression = (
+                        match.group(1) or match.group(2) or match.group(3) or ""
+                    )
                     lowered = expression.lower()
                     if "id" not in lowered:
                         continue

@@ -149,10 +149,16 @@ def test_message_text_scan_flags_an_internal_id_presented_as_a_reference(tmp_pat
         'def c(item_id):\n'
         '    return f"row is items.id {item_id}"\n'
         'def d(conn, item_id):\n'
-        '    return f"item {render_item_ref(conn, item_id)} is terminal"\n',
+        '    return f"item {render_item_ref(conn, item_id)} is terminal"\n'
+        'def e(conn, p, item_id):\n'
+        '    return conn.execute(f"SELECT 1 WHERE items.id = {p}", (item_id,))\n',
         encoding="utf-8",
     )
 
     hits = scan_message_text_item_ids(tmp_path)
 
-    assert [hit.line for hit in hits] == [2, 4]
+    # Lines 2 and 4 present the id as a name; line 6 labels it the storage
+    # key, which the reader still reads as one. Line 8 renders a reference
+    # and line 10 compares the column in SQL — neither is visible text
+    # naming an item.
+    assert [hit.line for hit in hits] == [2, 4, 6]
