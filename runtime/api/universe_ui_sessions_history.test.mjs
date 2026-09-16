@@ -110,13 +110,13 @@ test("ended history is lazy, cursor-paged, and excluded from bulk audiences", as
     throw new Error(`unexpected function ${request.function}`);
   });
   // The app-wide roster refreshes once at boot and once again alongside
-  // this view's own scoped load; the machines panel's own durable
-  // 24h-usage read fires alongside that scoped load too.
+  // this view's own scoped load; the page's own durable 24h spend read
+  // fires beside them.
   assert.deepEqual(requests.filter((request) => request.function === "sessions.list"), [
     { function: "sessions.list", payload: { open: true, per_project: true } },
-    { function: "sessions.list", payload: { usage_last_24h: true, projects: ["1"] } },
     { function: "sessions.list", payload: { open: true, projects: ["1"] } },
     { function: "sessions.list", payload: { open: true, per_project: true } },
+    { function: "sessions.list", payload: { usage_last_24h: true, projects: ["1"] } },
   ]);
   assert.deepEqual(cardIds(root), ["open-active", "open-stale"]);
 

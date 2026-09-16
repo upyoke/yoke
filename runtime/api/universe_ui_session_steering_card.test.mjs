@@ -43,9 +43,10 @@ const steering = {
   strategy_docs: ["CURRENT-PLAN"],
 };
 
-test("a live seat leads with the Steering box and designed corner symbol", () => {
+test("a live seat leads with the Steering box and its designed symbol", () => {
   const rendered = card(new FakeDocument(), { current: [steering] });
   const lead = byClass(rendered, "session-steering-lead")[0];
+  const heading = byClass(lead, "session-steering-heading")[0];
   const symbol = byClass(lead, "session-steering-symbol")[0];
   assert.equal(symbol.textContent, "");
   const svg = symbol.children[0];
@@ -59,11 +60,12 @@ test("a live seat leads with the Steering box and designed corner symbol", () =>
   );
   assert.equal(symbol.getAttribute("aria-hidden"), "true");
   assert.equal(symbol.getAttribute("aria-label"), null);
-  // The symbol leads the box so it lands in the corner, not inline with
-  // the label the operator reads first.
-  assert.equal(lead.children[0], symbol);
+  // Mark and label are one heading, in that order: the mark qualifies the
+  // word beside it rather than floating in the block's corner.
+  assert.equal(lead.children[0], heading);
+  assert.equal(heading.children[0], symbol);
   assert.equal(
-    byClass(lead, "session-steering-lead-label")[0].textContent, "Steering",
+    heading.children[1].textContent, "Steering",
   );
   assert.equal(
     byClass(lead, "session-steering-wide")[0].textContent, "Project-wide",
@@ -99,20 +101,18 @@ test("the group hue lightly fills the worker label and never the card itself", (
   // No rule may paint a card background from the group color: held,
   // previously-held, and status colors own the card surface.
   assert.doesNotMatch(css, /\.session-card[^{]*\{[^}]*background/);
+  // The seat's own block and the worker's row both carry the group hue on
+  // their edge rather than on the card behind them.
   assert.match(
     css,
-    /\.session-steered-badge \{[\s\S]*?background: color-mix\([\s\S]*?14%/,
+    /border: 1px dashed var\(--session-steering-color, var\(--yoke-accent\)\)/,
   );
   assert.match(
     css,
-    /\.session-steered-badge \{[\s\S]*?color: var\(--session-steering-color/,
+    /\.session-steering-lead-label \{[\s\S]*?color: var\(--session-steering-color/,
   );
   assert.match(
-    css,
-    /border-left: 3px solid var\(--session-steering-color, var\(--yoke-accent\)\)/,
-  );
-  assert.match(
-    css, /\.session-steering-symbol \{[\s\S]*?position: absolute/,
+    css, /\.session-steered-row \{[\s\S]*?flex-direction: row/,
   );
   assert.match(css, /\.steering-symbol svg \{[\s\S]*?height: 14px/);
   assert.match(css, /\.steering-symbol svg \{[\s\S]*?width: auto/);
@@ -131,6 +131,9 @@ function coveredWorkerCard(liveness = "active") {
       holdings: { current: [], previous: [], previous_remainder: 0 },
       messageability: { messageable: false },
       steering_group_session_id: "seat-1",
+      steering_group_scope: {
+        project: "yoke", project_id: 1, strategy_docs: ["CURRENT-PLAN"],
+      },
     },
     () => {},
     [{ id: 1, slug: "yoke" }],
@@ -138,36 +141,36 @@ function coveredWorkerCard(liveness = "active") {
   );
 }
 
-test("a covered worker leads its usage row with the group label", () => {
+test("a covered worker carries a row naming what it is steered from", () => {
   const rendered = coveredWorkerCard();
-  const badge = byClass(rendered, "session-steered-badge")[0];
-  assert.equal(byClass(badge, "session-steered-text")[0].textContent, "Steered");
-  // The same steering artwork the seat's box carries, not a second mark.
-  assert.equal(badge.children[0].children[0].tagName, "SVG");
-  assert.equal(byClass(rendered, "session-top")[0].children.includes(badge), false);
-  // First in the usage row, followed by inline token and cost groups.
-  const usage = byClass(rendered, "session-usage-line")[0];
-  assert.equal(usage.children[0], badge);
-  assert.deepEqual(
-    byClass(usage, "usage-stat-unit").map((node) => node.textContent),
-    ["tokens", "cost"],
+  const row = byClass(rendered, "session-steered-row")[0];
+  assert.equal(
+    byClass(row, "session-steering-lead-label")[0].textContent, "Steered",
   );
+  // The same steering artwork the seat's box carries, not a second mark.
+  assert.equal(row.children[0].children[0].tagName, "SVG");
+  // The seat's own document, from the seat's own scope.
+  assert.equal(
+    byClass(row, "session-steering-docs")[0].textContent, "CURRENT-PLAN",
+  );
+  // It sits above the work it covers, not inside the usage line.
+  assert.equal(byClass(rendered, "session-usage-line")[0].children.includes(row), false);
   assert.equal(rendered.getAttribute("data-steering-group"), "seat-1");
 });
 
-test("a stale covered worker keeps both its group label and its stale class", () => {
+test("a stale covered worker keeps both its steered row and its stale class", () => {
   const rendered = coveredWorkerCard("stale");
-  assert.equal(byClass(rendered, "session-steered-badge").length, 1);
+  assert.equal(byClass(rendered, "session-steered-row").length, 1);
   assert.ok(rendered.classList.contains("is-stale"));
 });
 
-test("the seat itself carries no worker label, and an unsteered card none", () => {
+test("the seat itself carries no steered row, and an unsteered card none", () => {
   const seat = card(new FakeDocument(), { current: [steering] });
-  assert.equal(byClass(seat, "session-steered-badge").length, 0);
+  assert.equal(byClass(seat, "session-steered-row").length, 0);
   assert.equal(byClass(seat, "session-steering-lead").length, 1);
 
   const unsteered = card(new FakeDocument(), { current: [] });
-  assert.equal(byClass(unsteered, "session-steered-badge").length, 0);
+  assert.equal(byClass(unsteered, "session-steered-row").length, 0);
 });
 
 function steeringWorkerRow(sessionId, groupSessionId) {

@@ -12,23 +12,22 @@
   font-size: 12px;
 }
 
-/* Sessions carries three stat tiles, not the shared row's four, and each
-   is one line: three numbers do not need the Overview tile's height. */
+/* Five facts: how much of the filtered roster is on screen, what it holds,
+   who is running it, and the 24-hour spend window beside them. The window is
+   a different measurement from the three counts, which is why its two tiles
+   name it on their own labels. */
 .universe-app-root .sessions-stats {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
-
-.universe-app-root .sessions-stats .stat {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 9px 13px;
+.universe-app-root .sessions-usage-scope {
+  margin: 0 0 14px;
+  color: var(--yoke-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
-
-.universe-app-root .sessions-stats .stat .n { font-size: 17px; font-weight: 700; }
-.universe-app-root .sessions-stats .stat .l { margin-top: 0; color: var(--yoke-muted); font-size: 11px; font-weight: 400; }
 
 .universe-app-root .sessions-empty {
   margin: 0;

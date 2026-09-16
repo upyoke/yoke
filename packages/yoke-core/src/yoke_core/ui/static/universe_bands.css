@@ -109,20 +109,10 @@
   color: var(--yoke-muted);
   font-size: 12px;
 }
-/* Cards fill the row they are in rather than stopping at a fixed maximum:
-   a grid that capped its columns left a ragged strip of empty page beside
-   three cards and called it a layout. The minimum is what decides how many
-   fit; the available width decides how wide they are. */
+/* Column tracks and gaps are the final responsive layer's, shared by every
+   card collection; this sheet owns only how a band's own cards align. */
 .universe-app-root .work-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-  gap: 16px;
   align-items: stretch;
-}
-.universe-app-root .work-session-grid,
-.universe-app-root .session-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
-  gap: 16px;
 }
 /* A card matches the tallest ordinary card in its row, and its contents stay
    at the top: stretching the card is a grid decision, and distributing the

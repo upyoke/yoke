@@ -85,9 +85,11 @@ test("Currently held boxes in green while Previously held stays grey", () => {
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions_steering.css",
     import.meta.url,
   ), "utf8");
+  // The steering block carries the group hue on a dashed edge of its own,
+  // distinct from the solid left rule the holdings boxes use.
   assert.match(
     steering,
-    /border-left: 3px solid var\(--session-steering-color, var\(--yoke-accent\)\)/,
+    /border: 1px dashed var\(--session-steering-color, var\(--yoke-accent\)\)/,
   );
   assert.match(
     css,

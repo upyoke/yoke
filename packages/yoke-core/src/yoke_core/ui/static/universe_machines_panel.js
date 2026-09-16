@@ -17,6 +17,7 @@ import {
 } from "./universe_machines_meters.js";
 import { surfaceRow } from "./universe_machines_limits.js";
 import { appendMachineUsage, fetchRecentUsageRows } from "./universe_machines_usage.js";
+import { appendMachineWork } from "./universe_machine_work.js";
 import { machinesById, registeredMachineRelays } from "./universe_machines_roster.js";
 import {
   renderSessionControlFailure,
@@ -153,6 +154,12 @@ export function machineCard(documentNode, relay, sessions, options = {}) {
   for (const surface of LAUNCHABLE_SURFACES) {
     card.appendChild(surfaceRow(documentNode, relay, surface));
   }
+  // What the machine is carrying right now, from the open roster the page
+  // read. A page that did not read one shows capacity alone rather than
+  // implying the machine is idle.
+  appendMachineWork(
+    documentNode, card, relay, options.openSessions, options.projectRows,
+  );
   if (options.showManagement) {
     card.appendChild(managementBar(documentNode, relay, options));
   }
@@ -187,6 +194,8 @@ export function renderMachinesPanel(context, host, relays, options = {}) {
       owner: machine.owner,
       onRetire: options.onRetire,
       showManagement: options.showManagement,
+      openSessions: options.openSessions,
+      projectRows: options.projectRows,
     }));
   }
   panel.appendChild(grid);

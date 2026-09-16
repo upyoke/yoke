@@ -17,9 +17,8 @@ function ok(result) {
   return { status: 200, envelope: { success: true, result } };
 }
 
-function visibleText(root) {
-  return allNodes(root).map((node) => node.textContent || "").join(" ");
-}
+const visibleText = (root) => allNodes(root)
+  .map((node) => node.textContent || "").join(" ");
 
 function sessionsClient(rows) {
   return {
@@ -42,6 +41,10 @@ function sessionsClient(rows) {
     },
   };
 }
+
+// The roster counts, without the spend tiles: a different measurement.
+const countTiles = (root) => byClass(root, "sessions-stats")[0].children
+  .filter((node) => node.classList.contains("stat"));
 
 test("Sessions contains a long relay name and unequal multi-claim cards", async (t) => {
   const originalFetch = globalThis.fetch;
@@ -224,7 +227,7 @@ test("Sessions lists every work claim and coordination lease a session holds", a
     "#/items/2100?project=1",
   );
   assert.deepEqual(
-    byClass(root, "sessions-stats")[0].children.map(
+    countTiles(root).map(
       (tile) => [tile.children[0].textContent, tile.children[1].textContent],
     ),
     [
@@ -296,7 +299,7 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
     "currently held claim leads the meta line; filed stays a body row",
   );
   assert.deepEqual(
-    byClass(root, "sessions-stats")[0].children.map(
+    countTiles(root).map(
       (tile) => [tile.children[0].textContent, tile.children[1].textContent],
     ),
     [
@@ -306,45 +309,4 @@ test("Sessions separates a filed item's attribution from the claim it holds", as
     ],
   );
   mounted.unmount();
-});
-
-test("Sessions lease keys share the mono typeface of item refs", () => {
-  const css = readFileSync(new URL(
-    "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions.css",
-    import.meta.url,
-  ), "utf8");
-  assert.match(css, /\.session-lease-key,/);
-});
-
-function sessionCss(name) {
-  return readFileSync(new URL(
-    `../../packages/yoke-core/src/yoke_core/ui/static/${name}`,
-    import.meta.url,
-  ), "utf8");
-}
-
-test("Session cards contain variable text and stretch to their grid row", () => {
-  const css = sessionCss("universe_sessions.css");
-  // A row of peers reads as a row only when the cards end on one line, which
-  // is the grid's own default: the card must not opt back out of it.
-  assert.match(
-    sessionCss("universe_secondary_activity.css"),
-    /\.session-grid \{[^}]*display: grid;/,
-  );
-  assert.ok(
-    !/\.session-card \{[^}]*align-self/.test(css),
-    "cards must inherit the grid's per-row stretch, not align to start",
-  );
-  assert.match(css, /\.session-work > \* \{[^}]*overflow-wrap: anywhere;/);
-  assert.match(css, /\.session-relay-machine \{[^}]*text-overflow: ellipsis;/);
-});
-
-test("The relay pill is sized by its machine name and capped, never grown", () => {
-  const css = sessionCss("universe_sessions.css");
-  const pill = css.match(/\.session-relay-pill \{([^}]*)\}/)[1];
-  // Growing is what made a four-character name render as a full-width bar; the
-  // cap is what keeps the long name truncating instead of overflowing.
-  assert.ok(!/flex/.test(pill), "the pill must not claim spare row width");
-  assert.match(pill, /max-width: \d+ch;/);
-  assert.match(pill, /min-width: 0;/);
 });

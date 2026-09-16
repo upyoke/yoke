@@ -121,10 +121,6 @@
   color: inherit;
 }
 
-.universe-app-root .strategy-doc-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-  gap: 16px;
-}
 .universe-app-root .strategy-doc-prefix {
   display: inline-flex;
   flex: none;

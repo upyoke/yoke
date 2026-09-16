@@ -16,7 +16,6 @@
    card grid on the page shares — this file only adds what that rule
    deliberately leaves local. */
 .universe-app-root .machines-grid {
-  gap: 12px;
   align-items: start;
 }
 .machine-card {

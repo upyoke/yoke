@@ -121,13 +121,17 @@
 }
 
 /* Card collections size columns from the grid's own inline size, not the
-   viewport. auto-fill plus a readable max keeps two-up when the content
-   pane allows it (sidebar open or collapsed) and refuses to stretch one
-   card into a full-width reading surface. min(100%, min-track) stacks on
-   a pane narrower than the track without clipping. */
+   viewport. The minimum is what decides how many fit; the available width
+   decides how wide they are, so three cards fill their row instead of
+   stopping at a fixed maximum and leaving a ragged strip of page beside
+   them. min(100%, min-track) stacks on a pane narrower than the track
+   without clipping.
+
+   The minimums differ by what the card has to hold: a document card carries
+   a slug and a summary, a work or session card carries a head plus rows, and
+   a machine card carries meters and surface rows that do not compress. */
 .universe-app-root {
-  --yoke-card-track-min: 268px;
-  --yoke-card-track-max: 360px;
+  --yoke-card-track-min: 300px;
 }
 .universe-app-root .session-grid,
 .universe-app-root .work-card-grid,
@@ -136,14 +140,15 @@
 .universe-app-root .machines-grid {
   display: grid;
   grid-template-columns: repeat(
-    auto-fill,
-    minmax(min(100%, var(--yoke-card-track-min)), var(--yoke-card-track-max))
+    auto-fill, minmax(min(100%, var(--yoke-card-track-min)), 1fr)
   );
-  justify-content: start;
+  gap: 16px;
 }
 .universe-app-root .strategy-doc-grid {
-  --yoke-card-track-min: 300px;
-  --yoke-card-track-max: 390px;
+  --yoke-card-track-min: 280px;
+}
+.universe-app-root .machines-grid {
+  --yoke-card-track-min: 440px;
 }
 .universe-app-root .navigation-toggle {
   padding: 9px;

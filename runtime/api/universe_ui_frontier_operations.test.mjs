@@ -135,14 +135,22 @@ test("Active membership follows live claims, not lifecycle status", async (t) =>
 
 test("the final responsive layer caps grids and owns compact behavior", () => {
   const staticUrl = "../../packages/yoke-core/src/yoke_core/ui/static/";
-  const bands = readFileSync(new URL(
-    `${staticUrl}universe_bands.css`, import.meta.url,
-  ), "utf8");
   const responsive = readFileSync(new URL(
     `${staticUrl}universe_responsive.css`, import.meta.url,
   ), "utf8");
-  // Cards fill their row; only the minimum is fixed.
-  assert.match(bands, /minmax\(min\(100%, 300px\), 1fr\)/);
+  // Cards fill their row; only the minimum is fixed, and it differs by what
+  // the card has to hold.
+  assert.match(
+    responsive,
+    /minmax\(min\(100%, var\(--yoke-card-track-min\)\), 1fr\)/,
+  );
+  assert.match(responsive, /--yoke-card-track-min: 300px/);
+  assert.match(
+    responsive, /\.strategy-doc-grid \{\s*--yoke-card-track-min: 280px/,
+  );
+  assert.match(
+    responsive, /\.machines-grid \{\s*--yoke-card-track-min: 440px/,
+  );
   for (const contract of [
     "@media (max-width: 1180px)",
     "@media (max-width: 980px)",

@@ -1,4 +1,10 @@
 import {
+  usageSummaryCostDisplay,
+  usageSummaryScope,
+  usageSummaryTokenDisplay,
+} from "./session_usage_display.js";
+import { usageStatTile } from "./universe_usage_stats.js";
+import {
   holdingsDisclosureFocusId,
   restoreHoldingsDisclosureFocus,
 } from "./universe_sessions_holdings_disclosure.js";
@@ -69,6 +75,29 @@ function shownValue(shown, matched) {
     : shown.toLocaleString();
 }
 
+// The two spend figures, or an honest absence. A window with no reading is
+// not a window with a zero in it: an unread total shown as 0 says the fleet
+// spent nothing, which is the opposite of what happened.
+function appendSessionUsageFacts(documentNode, stats, usage) {
+  if (!usage) return;
+  const summary = usage.summary;
+  const partial = Boolean(summary?.partial);
+  for (const stat of [
+    {
+      fact: "tokens",
+      value: usageSummaryTokenDisplay(summary),
+      unit: "24h tokens",
+      partial,
+    },
+    {
+      fact: "cost",
+      value: usageSummaryCostDisplay(summary),
+      unit: "24h API cost",
+      partial,
+    },
+  ]) stats.appendChild(usageStatTile(documentNode, stat));
+}
+
 function metricFacts(rows, matched) {
   const claimedItems = new Set(rows.flatMap(
     (row) => (Array.isArray(row.holdings?.current) ? row.holdings.current : [])
@@ -90,7 +119,7 @@ function metricFacts(rows, matched) {
 
 export function renderSessionRows(
   documentNode, host, rows, cardFor, filtered = false, historySummary = "",
-  matchedTotal = 0,
+  matchedTotal = 0, usage = null,
 ) {
   const restoreId = holdingsDisclosureFocusId(documentNode, host);
   const stats = el(documentNode, "div", "stat-row sessions-stats");
@@ -101,7 +130,21 @@ export function renderSessionRows(
     tile.appendChild(el(documentNode, "div", "l", label));
     stats.appendChild(tile);
   }
+  // Spend is a different measurement from the three counts beside it: those
+  // follow the roster's own filters, while these answer for a fixed 24-hour
+  // window over the projects in scope. The window is named on each label so
+  // the two cannot be read as one reading.
+  appendSessionUsageFacts(documentNode, stats, usage);
   host.replaceChildren(stats);
+  const coverage = usage?.summary && usageSummaryScope(usage.summary);
+  if (usage?.note || coverage) {
+    host.appendChild(el(
+      documentNode,
+      "p",
+      "sessions-usage-scope",
+      [usage?.note, coverage].filter(Boolean).join(" · "),
+    ));
+  }
   if (historySummary) host.appendChild(el(
     documentNode, "p", "sessions-history-status", historySummary,
   ));
