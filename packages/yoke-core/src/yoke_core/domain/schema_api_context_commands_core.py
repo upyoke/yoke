@@ -35,7 +35,6 @@ CORE_COMMANDS: list[dict] = [
         "purpose": "Read one item's posture, then the content you need",
         "recipe": (
             "yoke items detail get PREFIX-N --json\n"
-            "yoke items detail get PREFIX-N --include body --json\n"
             "yoke items detail get PREFIX-N --full --json"
         ),
         "notes": (
@@ -53,7 +52,9 @@ CORE_COMMANDS: list[dict] = [
             "``workflow execution-instruction resolve`` command) — so an "
             "empty ``execution_instructions`` list means withheld when that "
             "count is non-zero, and no instruction at all when it is zero. "
-            "An unknown ``--include`` name is refused by name. Reach for "
+            "``--include narrative,body,progress_log`` names sections "
+            "explicitly and replaces the default; an unknown name is "
+            "refused by name. Reach for "
             "``yoke items get PREFIX-N <field>`` when one field is the whole "
             "question; the detail read is for posture."
         ),
@@ -89,11 +90,22 @@ CORE_COMMANDS: list[dict] = [
     },
     {
         "topic": "core",
-        "purpose": "Inspect a Yoke item's rendered body (GitHub issue surrogate)",
-        "recipe": ("yoke items get PREFIX-N body"),
+        "purpose": (
+            "Inspect a Yoke item's rendered body, whole or one section "
+            "(GitHub issue surrogate)"
+        ),
+        "recipe": (
+            "yoke items get PREFIX-N body\n"
+            'yoke items get PREFIX-N body --section "## Section Name"'
+        ),
         "notes": (
             "The rendered body is the source of truth for work-item content "
             "and is auto-synced to the GitHub issue via bearer-token REST. "
+            "The registered section filter returns just the named "
+            "``## Section Name`` block between that heading and the next "
+            "``## ``; use it for a large body whose full render exceeds the "
+            "read budget. A missing section returns an empty body with a "
+            "stderr advisory and exit 0. "
             "items.github_issue stores '#NNNN' format and is for outbound "
             "linking only — Yoke automation never shells out to ``gh`` "
             "to read or write the issue; the function-call surface and "
@@ -126,18 +138,6 @@ CORE_COMMANDS: list[dict] = [
             "operator-debug break-glass fallback inside a Yoke checkout, "
             "not the agent default. ``work_claims`` has no ``state`` or "
             "``worktree_path`` columns."
-        ),
-    },
-    {
-        "topic": "core",
-        "purpose": "Read one section of an item's rendered body",
-        "recipe": ('yoke items get PREFIX-N body --section "## Section Name"'),
-        "notes": (
-            "Registered body-section filter. Returns just the named "
-            "``## Section Name`` block between that heading and the "
-            "next ``## ``. Use for large work-item bodies whose full "
-            "render exceeds the read budget. Missing section returns "
-            "an empty body with a stderr advisory; exit 0."
         ),
     },
     {
@@ -195,17 +195,10 @@ CORE_COMMANDS: list[dict] = [
             "Satisfaction accepts status:done, status:implemented, "
             "fact:merged, or fact:deployed:<environment-name>. Choose merged "
             "when trunk is enough; choose deployed when the dependent needs "
-            "the blocker running in that registered environment."
-        ),
-    },
-    {
-        "topic": "core",
-        "purpose": "Route serial dependency mutations to authoring packets",
-        "recipe": ("Use the dependency authoring recipes in the claims packet."),
-        "notes": (
+            "the blocker running in that registered environment. "
             "Dependency add/update/remove are authoring-time surfaces; "
             "their registered command adapters land in the claims/path-"
-            "claim authoring packet instead of the compact core packet. "
+            "claim authoring packet instead of this compact core packet. "
             "They still route through registered function ids "
             "``items.dependency.add/update/remove``."
         ),
