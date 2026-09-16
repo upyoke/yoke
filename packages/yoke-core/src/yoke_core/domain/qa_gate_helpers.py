@@ -7,17 +7,15 @@ code-ref resolution, code-identity extraction, and browser-freshness helpers.
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
-from yoke_core.domain.db_helpers import connect, query_one, query_rows
+from yoke_core.domain.db_helpers import connect, query_one
 from yoke_core.domain.item_worktree_resolution import (
     primary_item_worktree_branch_sql,
 )
 from yoke_core.domain.project_checkout_locations import checkout_for_project
-from yoke_core.domain.qa_constants import INVALID_BROWSER_METHOD_LABEL
 from yoke_core.domain.qa_gate_definitions import GateTarget, LatestCodeRef
 from yoke_core.domain.schema_common import _table_exists
 
@@ -96,9 +94,35 @@ def _resolve_target_branch_project(
 
 
 def _resolve_latest_code_ref(
+    target: GateTarget, db_path: str, *, repo_root: Optional[str] = None
+) -> LatestCodeRef:
+    """Resolve the revision a browser run must have been captured against.
+
+    A checkout answers this, because the branch itself is the truth. A
+    control plane serving a customer project has none, and silently skipping
+    the comparison there would accept a capture of any age, so the revisions
+    this control plane records for the item answer instead.
+
+    That substitution is deliberately confined to hosts with no checkout at
+    all. Where one exists and git still cannot name a revision — an item with
+    no lane, a branch that is gone — the answer stays "unknown", exactly as
+    it has been; treating it as the recorded revision there would newly call
+    older captures stale for a reason that has nothing to do with them.
+    """
+    from yoke_core.domain.qa_browser_checkout_free_proof import (
+        recorded_latest_code_ref,
+    )
+
+    resolved = _git_latest_code_ref(target, db_path)
+    if repo_root or resolved.sha or resolved.timestamp:
+        return resolved
+    return recorded_latest_code_ref(target, db_path, branch=resolved.branch)
+
+
+def _git_latest_code_ref(
     target: GateTarget, db_path: str
 ) -> LatestCodeRef:
-    """Resolve the latest branch / SHA / timestamp on the target branch."""
+    """Resolve the latest branch / SHA / timestamp from the project checkout."""
     override_ts = os.environ.get("YOKE_QA_GATE_COMMIT_TS")
     override_sha = os.environ.get("YOKE_QA_GATE_COMMIT_SHA")
     override_branch = os.environ.get("YOKE_QA_GATE_BRANCH")
@@ -194,140 +218,12 @@ def _resolve_repo_root() -> Optional[str]:
     return None
 
 
-def _extract_code_identity(raw_result: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
-    """Extract browser QA code identity from raw_result JSON when present."""
-    if not raw_result:
-        return None, None
-    try:
-        payload = json.loads(raw_result)
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return None, None
-    if not isinstance(payload, dict):
-        return None, None
-    code_identity = payload.get("code_identity")
-    if not isinstance(code_identity, dict):
-        return None, None
-    branch = code_identity.get("branch")
-    sha = code_identity.get("sha")
-    return (
-        str(branch) if branch else None,
-        str(sha) if sha else None,
-    )
-
-
-def _browser_run_is_fresh(run_row, latest_code: LatestCodeRef) -> bool:
-    """Return True when a passing browser run matches the latest code."""
-    _, run_sha = _extract_code_identity(run_row["raw_result"])
-    if latest_code.sha and run_sha == latest_code.sha:
-        return True
-    created_at = run_row["created_at"] or ""
-    if latest_code.timestamp and created_at >= latest_code.timestamp:
-        return True
-    return False
-
-
-def _latest_browser_run(conn, requirement_id: int):
-    """Return the latest passing browser-substrate run for a requirement."""
-    return query_one(
-        conn,
-        """
-        SELECT id, created_at, raw_result
-        FROM qa_runs
-        WHERE qa_requirement_id = %s
-          AND verdict = 'pass'
-          AND performed_by <> 'agent'
-        ORDER BY created_at DESC, id DESC
-        LIMIT 1
-        """,
-        (requirement_id,),
-    )
-
-
-def _collect_stale_browser_requirements(
-    conn,
-    *,
-    where: str,
-    params: tuple,
-    latest_code: LatestCodeRef,
-    qa_phase: Optional[str] = "verification",
-) -> List[Tuple[int, str, Optional[str], Optional[str]]]:
-    """Return Browser method cases whose latest pass misses latest code."""
-    from yoke_core.domain.qa_constants import browser_requirement_predicate
-
-    phase_sql = ""
-    phase_params: tuple = ()
-    if qa_phase is not None:
-        phase_sql = "AND r.qa_phase = %s"
-        phase_params = (qa_phase,)
-    req_rows = query_rows(
-        conn,
-        f"""
-        SELECT r.id, r.method_id
-        FROM qa_requirements r
-        WHERE {where}
-          {phase_sql}
-          AND r.blocking_mode = 'blocking'
-          AND r.waived_at IS NULL
-          AND {browser_requirement_predicate("r")}
-          AND EXISTS (
-            SELECT 1 FROM qa_runs qr
-            WHERE qr.qa_requirement_id = r.id
-              AND qr.verdict = 'pass'
-              AND qr.performed_by <> 'agent'
-          )
-        """,
-        (*params, *phase_params),
-    )
-    stale: List[Tuple[int, str, Optional[str], Optional[str]]] = []
-    for row in req_rows:
-        latest_run = _latest_browser_run(conn, int(row["id"]))
-        if latest_run is None:
-            continue
-        if _browser_run_is_fresh(latest_run, latest_code):
-            continue
-        _, run_sha = _extract_code_identity(latest_run["raw_result"])
-        stale.append(
-            (
-                int(row["id"]),
-                str(row["method_id"] or INVALID_BROWSER_METHOD_LABEL),
-                str(latest_run["created_at"] or "") or None,
-                run_sha,
-            )
-        )
-    return stale
-
-
-def _browser_freshness_errors(
-    *,
-    name: str,
-    transition_name: str,
-    latest_code: LatestCodeRef,
-    stale_rows: List[Tuple[int, str, Optional[str], Optional[str]]],
-    bypass_hint: Optional[str] = None,
-) -> List[str]:
-    """Build a user-facing stale browser evidence error block."""
-    errors = [
-        f"Error: Cannot transition {name} to '{transition_name}' -- {len(stale_rows)} browser requirement(s) have only stale passing runs.",
-        "  Browser runs must match the latest code on the branch.",
-    ]
-    if latest_code.branch:
-        errors.append(f"  Branch: {latest_code.branch}")
-    if latest_code.sha:
-        errors.append(f"  Latest SHA: {latest_code.sha}")
-    if latest_code.timestamp:
-        errors.append(f"  Latest commit: {latest_code.timestamp}")
-    errors.append(
-        "  Re-run each materialized Browser case with `yoke qa case run "
-        "--requirement-id <REQ_ID>` to generate fresh passing runs."
-    )
-    if bypass_hint:
-        errors.append(bypass_hint)
-    for req_id, method_id, latest_run_at, run_sha in stale_rows:
-        detail = (
-            f"  - Requirement #{req_id} ({method_id}): latest passing run at "
-            f"{latest_run_at or '<unknown>'}"
-        )
-        if run_sha:
-            detail += f", run SHA {run_sha}"
-        errors.append(detail)
-    return errors
+# Staleness judgment over those resolved revisions lives in its own module;
+# re-exported here because the gates and their suites import it by this path.
+from yoke_core.domain.qa_browser_freshness_check import (  # noqa: E402,F401
+    _browser_freshness_errors,
+    _browser_run_is_fresh,
+    _collect_stale_browser_requirements,
+    _extract_code_identity,
+    _latest_browser_run,
+)

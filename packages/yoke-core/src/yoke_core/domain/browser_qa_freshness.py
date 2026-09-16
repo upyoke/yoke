@@ -5,6 +5,9 @@ Owns:
 - ``_resolve_repo_root`` — repo-root filesystem utility used by the
   orchestrator.
 - ``_validate_reachability`` — DNS + HTTP probe of the target base URL.
+- ``_establish_deployment_freshness`` — picks the question to ask from the
+  case's own subject (a run's registered environment, or an item's branch
+  preview) and reports the origin whose proof the answer covers.
 - ``_validate_freshness_inputs`` and ``_validate_deployed_sha`` — deployment
   freshness gating. The ``ephemeral_environments`` row is read server-side
   by ``qa.browser_context.get``; ``_validate_deployed_sha`` is the pure
@@ -40,11 +43,16 @@ from yoke_core.domain.browser_qa_freshness_outcome import (
     IDENTITY_CONFIG_UNREADABLE,
     SHA_MISMATCH,
 )
+from yoke_core.domain.browser_qa_deployment_identity import (
+    DeploymentUnderTest,
+    validate_deployment_identity,
+)
 from yoke_core.domain.browser_qa_preview_identity import (
     PreviewIdentityTarget,
     resolve_preview_identity_target,
     verify_preview_identity,
 )
+from yoke_core.domain.served_revision_probe import origin_of
 
 
 def _resolve_repo_root() -> str:
@@ -218,6 +226,56 @@ def _validate_deployed_sha(
         f"branch={expected_branch}, sha={expected_sha}"
     )
     return None
+
+
+def _establish_deployment_freshness(
+    project: str,
+    expected_branch: str,
+    expected_sha: str,
+    *,
+    context: Dict[str, Any],
+    deployment_run_id: Optional[str],
+    fetch_identity: Optional[Callable[[str], object]] = None,
+) -> tuple[Optional[FreshnessFailure], str]:
+    """Prove the deployment under test, and name the origin that proof covers.
+
+    Which deployment that is comes from the case's own subject, never from
+    the branch alone: a case attached to a deployment run verifies the
+    environment that run targeted, while an item case verifies the branch's
+    preview. Returns the failure (or ``None``) together with the origin the
+    established freshness covers — empty when nothing was established, so
+    the caller binds execution only to a target something answered for.
+    """
+    if deployment_run_id is not None:
+        target = DeploymentUnderTest.from_payload(context.get("deployment_target"))
+        failure = validate_deployment_identity(
+            expected_sha, target=target, fetch=fetch_identity,
+        )
+        if failure is not None:
+            return failure, ""
+        return None, origin_of(target.origin) if target.origin else ""
+
+    identity_target = resolve_preview_identity_target(project, expected_branch)
+    deployment_recorded = bool(context.get("deployment_recorded"))
+    failure = _validate_deployed_sha(
+        project,
+        expected_branch,
+        expected_sha,
+        deployed_sha=context.get("deployed_sha"),
+        deployment_recorded=deployment_recorded,
+        identity_target=identity_target,
+        fetch_identity=fetch_identity,
+    )
+    if failure is not None:
+        return failure, ""
+    # Whichever source established freshness names the deployment it was
+    # established about: the preview that answered for itself, or the
+    # recorded deployment's own URL.
+    if not deployment_recorded and identity_target.origin:
+        return None, origin_of(identity_target.origin)
+    if deployment_recorded and context.get("ephemeral_url"):
+        return None, origin_of(str(context["ephemeral_url"]))
+    return None, ""
 
 
 def _build_code_identity(

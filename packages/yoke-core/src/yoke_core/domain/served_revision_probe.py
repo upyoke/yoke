@@ -68,6 +68,15 @@ class ProbeOutcome:
         return not self.kind
 
 
+def is_full_revision(value: str) -> bool:
+    """True when *value* is a full 40-character commit SHA.
+
+    The same rule wherever a revision claims to identify a commit: an
+    abbreviation identifies a prefix, and a prefix is not proof.
+    """
+    return bool(_FULL_SHA.match(str(value or "").strip()))
+
+
 def origin_of(url: str) -> str:
     """The scheme-and-host a URL addresses, lowercased."""
     parsed = urllib.parse.urlsplit(url)
@@ -159,7 +168,7 @@ def probe_served_revision(
     if read.error or read.status != 200:
         return ProbeOutcome(url, UNREACHABLE, read.error or f"HTTP {read.status}")
     served = read.body.strip()
-    if not _FULL_SHA.match(served):
+    if not is_full_revision(served):
         return ProbeOutcome(url, MALFORMED, repr(served[:80]))
     if served != expected_sha:
         return ProbeOutcome(url, MISMATCH, served, served=served)
@@ -175,6 +184,7 @@ __all__ = [
     "ProbeOutcome",
     "ServedRevisionRead",
     "fetch_served_revision",
+    "is_full_revision",
     "join_origin_path",
     "origin_of",
     "origin_relative_path_error",

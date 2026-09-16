@@ -13,8 +13,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-#: No ``ephemeral_environments`` row exists for the branch at all.
+#: Nothing records what the deployment under test serves, and it publishes
+#: no identity proof to be asked — no ``ephemeral_environments`` row for the
+#: branch, or no stage observation and no configured path for a run's
+#: environment.
 DEPLOYMENT_RECORD_MISSING = "deployment_record_missing"
+#: The subject names no deployment to verify at all: a deployment run that
+#: is not registered, or that targets no registered environment. Distinct
+#: from a deployment that cannot prove itself, because there is nothing here
+#: to ask.
+DEPLOYMENT_TARGET_UNRESOLVED = "deployment_target_unresolved"
 #: A row exists, but it records no deployed commit to compare against.
 DEPLOYED_SHA_UNKNOWN = "deployed_sha_unknown"
 #: A deployed commit genuinely differs from the expected one.
@@ -49,6 +57,7 @@ class FreshnessFailure:
 
 __all__ = [
     "DEPLOYED_SHA_UNKNOWN",
+    "DEPLOYMENT_TARGET_UNRESOLVED",
     "EXECUTION_TARGET_UNAUTHORIZED",
     "IDENTITY_CONFIG_UNREADABLE",
     "DEPLOYMENT_RECORD_MISSING",

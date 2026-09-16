@@ -68,8 +68,16 @@ class GateResult:
 
 @dataclass(frozen=True)
 class LatestCodeRef:
-    """Latest code identity for a target branch."""
+    """Latest code identity for a target branch.
+
+    ``accepted_shas`` carries every revision a run may legitimately have
+    verified when more than one is authoritative — a merge produces a lane
+    head, an integrated head, and a queue-entry head, and demanding one of
+    them satisfy every requirement would call proven evidence stale. It is
+    empty when a single ``sha`` is the whole answer.
+    """
 
     branch: Optional[str] = None
     sha: Optional[str] = None
     timestamp: Optional[str] = None
+    accepted_shas: tuple[str, ...] = ()

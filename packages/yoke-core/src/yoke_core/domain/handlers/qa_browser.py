@@ -5,11 +5,15 @@ on the client machine (Playwright daemon, screenshots) while every DB leg
 routes through registered function ids:
 
 - ``qa.browser_context.get`` (this module) — one requirement-scoped read:
-  the named Browser-method case plus (when ``expected_branch`` is
-  supplied) the latest ``ephemeral_environments.deployed_sha`` for the
-  freshness gate and the branch's latest recorded ephemeral preview URL
-  (``ephemeral_url`` — the advance gate-entry read that replaces raw
-  client SQL).
+  the named Browser-method case plus whichever deployment the case is
+  about. For an item case that is the branch preview: (when
+  ``expected_branch`` is supplied) the latest
+  ``ephemeral_environments.deployed_sha`` for the freshness gate and the
+  branch's latest recorded ephemeral preview URL (``ephemeral_url`` — the
+  advance gate-entry read that replaces raw client SQL). For a
+  deployment-run case it is instead the environment that run targeted,
+  returned as ``deployment_target``; the preview fields stay empty there,
+  because a run's deployment is not found by slugifying a branch.
 - ``qa.run.add`` / ``qa.run.complete`` / ``qa.artifact.add`` — the write
   half, hosted in the companion module
   :mod:`yoke_core.domain.handlers.qa_browser_writes` so each file stays
@@ -36,6 +40,9 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
 )
+from yoke_core.domain.browser_qa_deployment_identity import (
+    resolve_deployment_under_test,
+)
 
 
 class QaBrowserContextGetRequest(BaseModel):
@@ -51,8 +58,14 @@ class QaBrowserContextGetResponse(BaseModel):
     deployed_sha: Optional[str] = None
     deployment_recorded: bool = False
     # Latest non-empty ephemeral_environments.url for (project, branch);
-    # None when no preview URL was ever recorded for the branch.
+    # None when no preview URL was ever recorded for the branch. The three
+    # fields above describe a branch preview and are meaningful only for an
+    # item case.
     ephemeral_url: Optional[str] = None
+    # For a deployment-run case: the environment that run targeted, what a
+    # receipt-producing stage observed it serving, and where it publishes
+    # its own revision. None for an item case.
+    deployment_target: Optional[Dict[str, Any]] = None
 
 
 def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcome:
@@ -114,7 +127,16 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
         deployed_sha: Optional[str] = None
         deployment_recorded = False
         ephemeral_url: Optional[str] = None
-        if expected_branch:
+        deployment_target: Optional[Dict[str, Any]] = None
+        if deployment_run_id is not None:
+            # A run's deployment is the environment it targeted. Reading the
+            # branch's preview rows here would answer about a host this run
+            # never deployed, which is how a succeeded production release
+            # ends up unable to prove itself.
+            deployment_target = resolve_deployment_under_test(
+                conn, str(deployment_run_id)
+            ).as_payload()
+        elif expected_branch:
             project_id = resolve_project_id(conn, project)
             env_rows = query_rows(
                 conn,
@@ -156,6 +178,7 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
             "deployed_sha": deployed_sha,
             "deployment_recorded": deployment_recorded,
             "ephemeral_url": ephemeral_url,
+            "deployment_target": deployment_target,
         },
         primary_success=True,
     )
