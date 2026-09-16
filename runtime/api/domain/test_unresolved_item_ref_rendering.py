@@ -12,6 +12,8 @@ from __future__ import annotations
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 from yoke_contracts.public_ref import format_item_ref, unresolved_item_ref
@@ -162,3 +164,42 @@ def test_message_text_scan_flags_an_internal_id_presented_as_a_reference(tmp_pat
     # and line 10 compares the column in SQL — neither is visible text
     # naming an item.
     assert [hit.line for hit in hits] == [2, 4, 6]
+
+
+def test_required_rendering_refuses_without_naming_the_storage_key():
+    """Strict callers still get an exception, carrying no number.
+
+    An exception message is read by a person exactly like any other output,
+    so ``required=True`` refuses with the same phrase the non-strict path
+    renders rather than with the id it was handed.
+    """
+    conn = make_test_db()
+    _seed(conn)
+    missing = EXTERNAL_INTERNAL_ID + COLLIDING_INTERNAL_ID
+
+    with pytest.raises(LookupError) as exc_info:
+        render_item_ref(conn, missing, required=True)
+
+    message = str(exc_info.value)
+    assert "unresolved item ref" in message
+    assert str(missing) not in message
+    assert "items.id" not in message
+
+
+def test_deployment_validation_lists_an_unresolvable_item_generically():
+    """The refusal listing survives an entry whose identity will not render.
+
+    Naming blockers is the whole point of the listing, so one unresolvable
+    entry must not replace every other blocker with a lookup failure.
+    """
+    from yoke_core.domain.deployment_runs_validation import _item_label
+
+    conn = make_test_db()
+    _seed(conn)
+    missing = EXTERNAL_INTERNAL_ID + COLLIDING_INTERNAL_ID
+
+    label = _item_label(conn, missing, "status=implementing")
+
+    assert "unresolved item ref" in label
+    assert "status=implementing" in label
+    assert str(missing) not in label

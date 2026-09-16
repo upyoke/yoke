@@ -38,8 +38,14 @@ _LEGACY_DELIVERY_READY_STAGES = frozenset({"implemented", "release", "done"})
 
 
 def _item_label(conn, item_id: int, detail: str) -> str:
-    public_ref = render_item_ref(conn, int(item_id), required=True)
-    return f"{public_ref} ({detail})"
+    """Name one item in a refusal listing.
+
+    Not strict: this builds the list of items blocking a run, so an entry
+    whose identity will not resolve says so and the operator still sees
+    every other blocker. Raising here would replace the whole answer with
+    one lookup failure.
+    """
+    return f"{render_item_ref(conn, int(item_id))} ({detail})"
 
 
 def _not_delivery_ready(conn, rows, *, allow_completed: bool = False) -> list[str]:

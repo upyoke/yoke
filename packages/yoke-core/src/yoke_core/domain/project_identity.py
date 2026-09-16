@@ -275,7 +275,14 @@ def render_item_ref(
     rendered = render_item_refs(conn, [item_id]).get(int(item_id))
     if rendered is None:
         if required:
-            raise LookupError(f"item identity not found: {item_id}")
+            # Strict: callers that cannot proceed without a reference still
+            # get an exception. It carries no number, because an exception
+            # message is read by a person exactly like any other output and
+            # the storage key names a different item to them.
+            raise LookupError(
+                f"item identity not found: "
+                f"{unresolved_item_ref(consulted=conn is not None)}"
+            )
         return unresolved_item_ref(consulted=conn is not None)
     return rendered
 
