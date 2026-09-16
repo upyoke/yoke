@@ -57,9 +57,7 @@ def _attach(conn: Any, qa_run_id: int, handle: str) -> int:
 
 def test_an_acceptance_shows_the_evidence_its_cases_captured(test_db) -> None:
     plan_id = _plan(test_db, "acceptance-evidence")
-    _seed_run(
-        test_db, run_id="run-evidence", stages=_stages(plan_id), members=(9920,)
-    )
+    _seed_run(test_db, run_id="run-evidence", stages=_stages(plan_id), members=(9920,))
     _settle(test_db, run_id="run-evidence", stage="item-qa", member=9920)
     case_id = _case_requirement_ids(test_db, "run-evidence", 9920)[0]
     artifact_id = _attach(
@@ -135,9 +133,7 @@ def test_a_release_check_names_the_candidate_its_target_froze(test_db) -> None:
     # and it is already on the execution target the check was materialized
     # against. "Revision not recorded" was a reader looking in one place.
     plan_id = _plan(test_db, "acceptance-revision")
-    _seed_run(
-        test_db, run_id="run-revision", stages=_stages(plan_id), members=(9923,)
-    )
+    _seed_run(test_db, run_id="run-revision", stages=_stages(plan_id), members=(9923,))
     _settle(test_db, run_id="run-revision", stage="item-qa", member=9923)
     acceptance_id = _acceptance_requirement_id(test_db, "run-revision", "item-qa")
 
