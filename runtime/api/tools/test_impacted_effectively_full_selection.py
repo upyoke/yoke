@@ -165,3 +165,134 @@ def test_unmapped_file_does_not_drop_python_reachability(tmp_path: Path) -> None
         "impacted-selection scope=bounded_deferral rule=unmapped_file_kind "
         "triggers=docs/lifecycle.md "
     )
+
+
+def _broad_importer_repo(tmp_path: Path) -> tuple[Path, str]:
+    """A changed module one hop under a consumer whose branch is near-total.
+
+    This is the shape that puts selection on the direct-tests fallback: the
+    consumer itself is narrow, but a hub above it makes its transitive
+    branch near-total, so the fallback contributes the consumer's own
+    direct tests rather than its branch.
+    """
+    root = _tiny_repo(tmp_path)
+    changed = "runtime/api/changed_core.py"
+    _write(root, changed, "VALUE = 1\n")
+    _write(root, "runtime/api/consumer.py", "from runtime.api import changed_core\n")
+    _write(root, "runtime/api/hub.py", "from runtime.api import consumer\n")
+    for number in range(impacted_tests.MIN_EFFECTIVELY_FULL_FILE_UNIVERSE):
+        _write(
+            root, f"runtime/api/test_hub_{number}.py", "from runtime.api import hub\n"
+        )
+    return root, changed
+
+
+def test_bounded_deferral_reaches_tests_through_a_sibling_s_helpers(
+    tmp_path: Path,
+) -> None:
+    """A test module is also a source: its importers are impacted too.
+
+    The direct-tests fallback contributes the test that imports the changed
+    consumer, and that test is frequently where siblings keep their shared
+    fixtures and seeding helpers. Stopping there covers the module that
+    DEFINES a helper and none of the ones that use it.
+    """
+    root, changed = _broad_importer_repo(tmp_path)
+    _write(
+        root,
+        "runtime/api/test_seed_helpers.py",
+        "from runtime.api import consumer\n\ndef seed():\n    return consumer\n",
+    )
+    _write(
+        root,
+        "runtime/api/test_helper_user.py",
+        "from runtime.api.test_seed_helpers import seed\n",
+    )
+    _write(
+        root,
+        "runtime/api/test_helper_user_second_hop.py",
+        "from runtime.api.test_helper_user import seed\n",
+    )
+
+    bounded = select(
+        ["docs/lifecycle.md", changed], build_import_index(root), bounded=True
+    )
+
+    assert bounded.bounded_deferral is True
+    assert "runtime/api/test_seed_helpers.py" in bounded.files
+    # Both hops: the sibling importing the helper, and the one importing it.
+    assert "runtime/api/test_helper_user.py" in bounded.files
+    assert "runtime/api/test_helper_user_second_hop.py" in bounded.files
+    # Still bounded — the hub's fanout is not pulled in behind them.
+    assert "runtime/api/test_hub_0.py" not in bounded.files
+
+
+def test_helper_closure_terminates_on_a_cycle_without_duplicating(
+    tmp_path: Path,
+) -> None:
+    """Test modules importing each other terminate and appear once."""
+    root, changed = _broad_importer_repo(tmp_path)
+    _write(
+        root,
+        "runtime/api/test_cycle_first.py",
+        "from runtime.api import consumer\nfrom runtime.api import test_cycle_second\n",
+    )
+    _write(
+        root,
+        "runtime/api/test_cycle_second.py",
+        "from runtime.api import test_cycle_first\n",
+    )
+
+    bounded = select(
+        ["docs/lifecycle.md", changed], build_import_index(root), bounded=True
+    )
+
+    assert "runtime/api/test_cycle_first.py" in bounded.files
+    assert "runtime/api/test_cycle_second.py" in bounded.files
+    assert len(bounded.files) == len(set(bounded.files))
+
+
+def test_helper_closure_still_obeys_the_caller_s_bound(tmp_path: Path) -> None:
+    """Closing the helper edge cannot smuggle a near-total set through.
+
+    The closure widens the importer set, so the bound the caller already
+    applies to that set is what keeps a widely-imported test helper from
+    re-expanding a deferred selection into the full suite. The users here
+    import the hub as well, so they are what makes the consumer's branch
+    near-total AND what the closure would add — the set has to dominate
+    the universe for the caller's bound to have anything to refuse.
+    """
+    root = _tiny_repo(tmp_path)
+    changed = "runtime/api/changed_core.py"
+    _write(root, changed, "VALUE = 1\n")
+    _write(root, "runtime/api/consumer.py", "from runtime.api import changed_core\n")
+    _write(root, "runtime/api/hub.py", "from runtime.api import consumer\n")
+    _write(
+        root,
+        "runtime/api/test_shared_fixtures.py",
+        "from runtime.api import consumer\n\ndef fixture():\n    return consumer\n",
+    )
+    for number in range(120):
+        _write(
+            root,
+            f"runtime/api/test_fixture_user_{number}.py",
+            "from runtime.api import hub\n"
+            "from runtime.api.test_shared_fixtures import fixture\n",
+        )
+
+    index = build_import_index(root)
+    total = sum(is_test_file(path) for path in index.module_of)
+    # The closure's own result is near-total here, which is precisely the
+    # case the caller is responsible for refusing.
+    assert is_effectively_full(
+        len(
+            impacted_tests.bounded_importer_tests((changed,), index, total_files=total)
+        ),
+        total,
+    )
+
+    bounded = select(["docs/lifecycle.md", changed], index, bounded=True)
+
+    assert bounded.bounded_deferral is True
+    assert "runtime/api/test_fixture_user_0.py" not in bounded.files
+    assert not is_effectively_full(len(bounded.files), total)
