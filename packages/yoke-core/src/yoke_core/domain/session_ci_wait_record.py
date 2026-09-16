@@ -14,6 +14,7 @@ from typing import Any, Callable
 
 from yoke_contracts.api.function_call import TargetRef
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
+from yoke_core.domain.qa_case_ci_conclusion import BINDING_CONCLUSIONS
 
 
 def ambient_session_id() -> str:
@@ -72,4 +73,39 @@ def record_ci_run_wait(
     return f"ci wait not recorded: {detail}"
 
 
-__all__ = ["ambient_session_id", "record_ci_run_wait"]
+def resolve_received_wait(
+    *,
+    run_id: str,
+    conclusion: str,
+    dispatch: Callable[..., Any] = call_dispatcher,
+    session_id: str | None = None,
+) -> str:
+    """Mark this session's wait notified after the watcher received *conclusion*.
+
+    Only success and failure count: those are the verdicts the watcher
+    printed, and they are what a later sweep would otherwise wake this
+    session to repeat. A timeout, cancel, or poll error leaves the wait
+    pending so a genuinely owed notice still lands. Returns ``""`` when
+    there is nothing to resolve or the write succeeded, and a warning
+    otherwise — the run the caller just mirrored continues either way.
+    """
+    if conclusion not in BINDING_CONCLUSIONS:
+        return ""
+    if not (session_id if session_id is not None else ambient_session_id()):
+        return ""
+    try:
+        response = dispatch(
+            function_id="session_ci_wait.resolve",
+            target=TargetRef(kind="global"),
+            payload={"run_id": str(run_id), "conclusion": conclusion},
+        )
+    except Exception as exc:  # noqa: BLE001 - the run continues regardless
+        return f"ci wait not resolved: {exc}"
+    if getattr(response, "success", False):
+        return ""
+    error = getattr(response, "error", None)
+    detail = str(getattr(error, "message", None) or "ci wait resolve failed")
+    return f"ci wait not resolved: {detail}"
+
+
+__all__ = ["ambient_session_id", "record_ci_run_wait", "resolve_received_wait"]

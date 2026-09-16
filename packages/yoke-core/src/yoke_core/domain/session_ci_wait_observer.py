@@ -8,13 +8,14 @@ relay upkeep calls it on every poll, it reads each pending wait's run, and
 a concluded run becomes one message carrying the verdict
 (:mod:`yoke_core.domain.session_ci_wait_notice`).
 
-Three rules keep the sweep cheap and quiet. A session whose turn is still
+Four rules keep the sweep cheap and quiet. A session whose turn is still
 in flight is skipped before any GitHub call, because it is reading that run
-itself and a wake would interrupt the thing it is waiting on. A run whose
-conclusion is already recorded is never read again — only its notice is
-retried. And no single run is read more often than the shared GitHub poll
-floor, so a fast relay cadence cannot turn a handful of waits into a
-rate-limit budget.
+itself and a wake would interrupt the thing it is waiting on. A watcher that
+already received success or failure marks the wait notified, so this sweep
+must not send that session the result it printed. A run whose conclusion is
+already recorded is never read again — only its notice is retried. And no
+single run is read more often than the shared GitHub poll floor, so a fast
+relay cadence cannot turn a handful of waits into a rate-limit budget.
 """
 
 from __future__ import annotations
@@ -67,6 +68,44 @@ def read_run_conclusion(project: str, repo: str, run_id: str) -> tuple[str, str,
         str(data.get("conclusion") or "").strip(),
         "",
     )
+
+
+def apply_received_wait(
+    conn: Any,
+    *,
+    session_id: str,
+    run_id: str,
+    conclusion: str,
+    now: str,
+) -> bool:
+    """Mark this session's wait notified: the watcher already delivered it.
+
+    Matches ``(session_id, run_id)`` only, so a sibling session or a
+    different attempt stays pending. Returns True when a pending row was
+    resolved; a second call, a missing row, or an already-notified wait
+    is a no-op. Does not send a notice — the in-process print was the
+    delivery.
+    """
+    marker = _p(conn)
+    cursor = conn.execute(
+        f"UPDATE session_ci_run_waits SET conclusion={marker}, "
+        f"notified_at={marker} WHERE session_id={marker} AND run_id={marker} "
+        f"AND notified_at IS NULL",
+        (conclusion, now, session_id, str(run_id)),
+    )
+    return int(getattr(cursor, "rowcount", 0) or 0) > 0
+
+
+def _wait_already_notified(conn: Any, wait_id: int) -> bool:
+    """True when the watcher resolved this wait after the candidate set loaded."""
+    marker = _p(conn)
+    row = conn.execute(
+        f"SELECT notified_at FROM session_ci_run_waits WHERE id={marker}",
+        (wait_id,),
+    ).fetchone()
+    if row is None:
+        return True
+    return bool(row_dict(row).get("notified_at"))
 
 
 def _pending_rows(
@@ -160,6 +199,8 @@ def observe_pending_ci_runs(
                 )
                 conn.commit()
                 result["concluded"] += 1
+            if _wait_already_notified(conn, wait_id):
+                continue
             delivery = push_ci_run_notice(
                 conn,
                 session_id=session_id,
@@ -193,4 +234,8 @@ def observe_pending_ci_runs(
     return result
 
 
-__all__ = ["observe_pending_ci_runs", "read_run_conclusion"]
+__all__ = [
+    "apply_received_wait",
+    "observe_pending_ci_runs",
+    "read_run_conclusion",
+]

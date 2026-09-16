@@ -279,6 +279,9 @@ def run(
             project=project, repo=repo, run_id=run_id,
             timeout_seconds=timeout_seconds,
         )
+        from yoke_core.domain.session_ci_wait_record import resolve_received_wait
+        if warning := resolve_received_wait(run_id=run_id, conclusion=conclusion):
+            _say(warning)
         if conclusion != "success":
             relay_failed_log(project=project, repo=repo, run_id=run_id)
     exit_code = CONCLUSION_EXIT.get(conclusion, EXIT_UNREACHABLE)

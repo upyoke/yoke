@@ -42,6 +42,17 @@ def _joined_output(*parts: str) -> str:
     return "\n".join(part for part in parts if part)
 
 
+def _resolve_wait(run_id: str, exit_code: int, output: str) -> None:
+    """Drop the wake once this process has already printed success or failure."""
+    from yoke_core.domain.qa_case_ci_conclusion import conclusion_from_poll
+    from yoke_core.domain.session_ci_wait_record import resolve_received_wait
+
+    resolve_received_wait(
+        run_id=run_id,
+        conclusion=conclusion_from_poll(exit_code, output),
+    )
+
+
 def _record_wait(
     requirement_id: int,
     *,
@@ -94,6 +105,7 @@ def await_with_one_redispatch(
         timeout_seconds=timeout_seconds,
     )
     if not _never_started(output):
+        _resolve_wait(run_id, exit_code, output)
         return AwaitedWorkflowRun(
             run_id,
             run_url,
@@ -141,6 +153,7 @@ def await_with_one_redispatch(
         timeout_seconds=timeout_seconds,
     )
     if not _never_started(replacement_output):
+        _resolve_wait(replacement_id, replacement_code, replacement_output)
         return AwaitedWorkflowRun(
             replacement_id,
             replacement_url,

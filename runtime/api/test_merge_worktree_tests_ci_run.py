@@ -227,6 +227,34 @@ def test_a_dispatched_run_registers_a_durable_wait_before_polling(
     assert calls[0]["public_ref"] == ""
 
 
+def test_a_polled_run_resolves_the_wait_after_the_watcher_prints_the_verdict(
+    monkeypatch: pytest.MonkeyPatch, tmp_path,
+) -> None:
+    head = "8" * 40
+    bind_candidate_tree(monkeypatch, tmp_path, head)
+    stub_lane(
+        monkeypatch,
+        dispatch=lambda **kwargs: "121",
+        await_result=lambda **kwargs: (0, "success"),
+    )
+    record_ci_runs(monkeypatch)
+    monkeypatch.setattr(
+        merge_worktree_tests_ci.merge_ci_verification_wait,
+        "record_wait_and_warn",
+        lambda **kwargs: None,
+    )
+    resolved = []
+    monkeypatch.setattr(
+        merge_worktree_tests_ci.merge_ci_verification_wait,
+        "resolve_if_received",
+        lambda **kwargs: resolved.append(kwargs),
+    )
+
+    assert run_verification(tmp_path) is None
+
+    assert resolved == [{"run_id": "121", "conclusion": "success"}]
+
+
 def test_an_attached_run_also_registers_a_durable_wait(
     monkeypatch: pytest.MonkeyPatch, tmp_path,
 ) -> None:
@@ -269,10 +297,17 @@ def test_an_adopted_run_registers_no_wait_because_nothing_is_polled(
         "record_wait_and_warn",
         lambda **kwargs: calls.append(kwargs),
     )
+    resolved = []
+    monkeypatch.setattr(
+        merge_worktree_tests_ci.merge_ci_verification_wait,
+        "resolve_if_received",
+        lambda **kwargs: resolved.append(kwargs),
+    )
 
     assert run_verification(tmp_path) is None
 
     assert calls == []
+    assert resolved == []
 
 
 def test_a_run_on_another_commit_never_answers_for_this_candidate(

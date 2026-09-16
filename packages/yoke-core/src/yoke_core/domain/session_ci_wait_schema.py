@@ -7,11 +7,11 @@ existed nothing anywhere knew a session was owed that verdict — two
 workers sat idle for twenty minutes past their own green runs, and a
 person had to notice and message them by hand.
 
-So the moment a gate dispatches a run it records the tuple here, and
-:mod:`yoke_core.domain.session_ci_wait_observer` reads the conclusion on
-the control-plane cadence and pushes it back. The shape mirrors the
-merge-queue landing marker: pending until a sweep observes it, then
-``notified_at`` once the notice is accepted.
+So the moment a gate dispatches a run it records the tuple here. A
+watcher that receives success or failure marks ``notified_at`` itself;
+otherwise :mod:`yoke_core.domain.session_ci_wait_observer` reads the
+conclusion on the control-plane cadence and pushes it back. Pending
+until one of those two accepts the verdict.
 """
 
 from __future__ import annotations

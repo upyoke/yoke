@@ -36,6 +36,15 @@ def _await(monkeypatch, results):
         "force_cancel_run",
         cancel,
     )
+    monkeypatch.setattr(
+        "yoke_core.domain.session_ci_wait_record.record_ci_run_wait",
+        lambda **_kwargs: "",
+    )
+    resolved = []
+    monkeypatch.setattr(
+        "yoke_core.domain.session_ci_wait_record.resolve_received_wait",
+        lambda **kwargs: resolved.append(kwargs) or "",
+    )
     result = qa_case_ci_never_started.await_with_one_redispatch(
         requirement_id=41,
         project="yoke",
@@ -48,21 +57,22 @@ def _await(monkeypatch, results):
         source=qa_case_ci_covering_run.ATTACHED,
         timeout_seconds=1800,
     )
-    return result, dispatch, cancel
+    return result, dispatch, cancel, resolved
 
 
 def test_healthy_run_returns_without_cancellation_or_redispatch(monkeypatch):
-    result, dispatch, cancel = _await(monkeypatch, [(0, "success")])
+    result, dispatch, cancel, resolved = _await(monkeypatch, [(0, "success")])
 
     assert result.run_id == "77"
     assert result.source == qa_case_ci_covering_run.ATTACHED
     assert result.exit_code == 0
     dispatch.assert_not_called()
     cancel.assert_not_called()
+    assert resolved == [{"run_id": "77", "conclusion": "success"}]
 
 
 def test_first_never_started_run_is_cancelled_and_redispatched_once(monkeypatch):
-    result, dispatch, cancel = _await(
+    result, dispatch, cancel, resolved = _await(
         monkeypatch,
         [(1, STALL), (0, "completed: success")],
     )
@@ -76,13 +86,14 @@ def test_first_never_started_run_is_cancelled_and_redispatched_once(monkeypatch)
     assert cancel.call_args_list == [
         mock.call(project="yoke", repo="acme/widgets", run_id="77")
     ]
+    assert resolved == [{"run_id": "99", "conclusion": "success"}]
 
 
 def test_replacement_that_never_starts_fails_by_name_with_recovery(
     monkeypatch,
     capsys,
 ):
-    result, dispatch, cancel = _await(monkeypatch, [(1, STALL), (1, STALL)])
+    result, dispatch, cancel, resolved = _await(monkeypatch, [(1, STALL), (1, STALL)])
 
     assert result.run_id == "99"
     assert result.exit_code == 1
@@ -97,3 +108,4 @@ def test_replacement_that_never_starts_fails_by_name_with_recovery(
     assert "redispatching once" in progress
     assert CI_RUN_NEVER_STARTED_REASON in progress
     assert "do not push by hand" in progress
+    assert resolved == []

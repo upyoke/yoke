@@ -14,7 +14,10 @@ from runtime.api.domain.merge_queue_observer_test_helpers import (
     message_id_for,
 )
 from runtime.api.domain.test_session_message_support import message_connection
-from yoke_core.domain.session_ci_wait_observer import observe_pending_ci_runs
+from yoke_core.domain.session_ci_wait_observer import (
+    apply_received_wait,
+    observe_pending_ci_runs,
+)
 from yoke_core.domain.session_ci_wait_schema import ensure_session_ci_wait_schema
 
 NOW = datetime(2026, 9, 4, 18, 0, tzinfo=timezone.utc)
@@ -159,6 +162,122 @@ def test_a_merge_boundary_wait_names_itself_accurately_and_teaches_resume(
     assert "merge verification CI run" in body
     assert "pytest selection run" not in body
     assert "yoke merge item ACME-9" in body
+
+
+def _apply(conn, *, session_id=SESSION, run_id=RUN_ID, conclusion="success"):
+    applied = apply_received_wait(
+        conn,
+        session_id=session_id,
+        run_id=run_id,
+        conclusion=conclusion,
+        now="2026-09-04T17:59:00Z",
+    )
+    conn.commit()
+    return applied
+
+
+def test_a_watcher_that_already_printed_success_is_not_woken(
+    waiting_connection,
+) -> None:
+    assert _apply(waiting_connection, conclusion="success") is True
+
+    def refuse(*_args):  # pragma: no cover - the assertion is that it is unused
+        raise AssertionError("a received wait must not be polled again")
+
+    result = observe_pending_ci_runs(
+        waiting_connection, [1], now=NOW, read_run=refuse
+    )
+
+    assert result["checked"] == 0
+    assert message_count(waiting_connection) == 0
+    row = _wait_row(waiting_connection)
+    assert row["conclusion"] == "success"
+    assert row["notified_at"] == "2026-09-04T17:59:00Z"
+
+
+def test_a_watcher_that_already_printed_failure_is_not_woken(
+    waiting_connection,
+) -> None:
+    assert _apply(waiting_connection, conclusion="failure") is True
+
+    result = observe_pending_ci_runs(
+        waiting_connection, [1], now=NOW, read_run=concluded
+    )
+
+    assert result["checked"] == 0
+    assert message_count(waiting_connection) == 0
+    assert _wait_row(waiting_connection)["conclusion"] == "failure"
+
+
+def test_an_interrupted_watcher_still_gets_the_sweep_notice(
+    waiting_connection,
+) -> None:
+    """Dying before the verdict lands leaves the wait pending on purpose."""
+    result = observe_pending_ci_runs(
+        waiting_connection, [1], now=NOW, read_run=concluded
+    )
+
+    assert result["concluded"] == 1
+    assert message_count(waiting_connection) == 1
+    assert _wait_row(waiting_connection)["notified_at"] is None
+
+
+def test_a_second_resolve_of_the_same_wait_is_a_noop(waiting_connection) -> None:
+    assert _apply(waiting_connection) is True
+    assert _apply(waiting_connection, conclusion="failure") is False
+
+    row = _wait_row(waiting_connection)
+    assert row["conclusion"] == "success"
+    assert row["notified_at"] == "2026-09-04T17:59:00Z"
+
+
+def test_a_watcher_winning_the_sweep_race_suppresses_the_duplicate_notice(
+    waiting_connection,
+) -> None:
+    def conclude_after_watcher(_project, _repo, _run_id):
+        _apply(waiting_connection, conclusion="success")
+        return "completed", "success", ""
+
+    result = observe_pending_ci_runs(
+        waiting_connection, [1], now=NOW, read_run=conclude_after_watcher
+    )
+
+    assert message_count(waiting_connection) == 0
+    assert _wait_row(waiting_connection)["notified_at"]
+    assert result["notified"] == 0
+
+
+def test_resolving_one_wait_leaves_a_sibling_session_and_run_pending(
+    waiting_connection,
+) -> None:
+    other_run = "44904203798"
+    waiting_connection.execute(
+        "INSERT INTO session_ci_run_waits "
+        "(session_id,project_id,repo,run_id,head_sha,kind,continue_command,"
+        "created_at) VALUES ('s2',1,'acme/widgets',?,?,'selection',?,?)",
+        (other_run, HEAD_SHA, "yoke watch pytest", "2026-09-04T17:41:00Z"),
+    )
+    waiting_connection.commit()
+    _apply(waiting_connection, conclusion="success")
+
+    result = observe_pending_ci_runs(
+        waiting_connection, [1], now=NOW, read_run=concluded
+    )
+
+    assert result["concluded"] == 1
+    assert message_count(waiting_connection) == 1
+    own = waiting_connection.execute(
+        "SELECT notified_at FROM session_ci_run_waits "
+        "WHERE session_id=? AND run_id=?",
+        (SESSION, RUN_ID),
+    ).fetchone()
+    sibling = waiting_connection.execute(
+        "SELECT notified_at FROM session_ci_run_waits "
+        "WHERE session_id=? AND run_id=?",
+        ("s2", other_run),
+    ).fetchone()
+    assert own["notified_at"]
+    assert sibling["notified_at"] is None
 
 
 def test_a_terminated_session_is_no_longer_a_candidate(waiting_connection) -> None:
