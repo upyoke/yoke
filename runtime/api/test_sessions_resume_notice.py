@@ -14,6 +14,7 @@ from unittest import mock
 from yoke_core.domain.sessions_lifecycle_reactivation import (
     emit_reactivated_with_released_claims,
 )
+from runtime.api.reacquire_identity_test_support import seed_claim_item
 from runtime.api.test_sessions_lifecycle_reacquire_conflict import (
     _PgReacquireTestCase,
     _insert_released_claim,
@@ -26,6 +27,7 @@ class TestResumeBlockNoticeRendering(_PgReacquireTestCase):
     def test_render_lines_read_notice_payload(self) -> None:
         from yoke_core.domain.sessions_resume_block import render_resume_block_lines
 
+        claim_ref = seed_claim_item(self.conn, 17, 806)
         notice = {
             "released_claims": [
                 {"target_kind": "item", "scope": {"item_id": 17}},
@@ -35,7 +37,7 @@ class TestResumeBlockNoticeRendering(_PgReacquireTestCase):
         }
         lines = render_resume_block_lines(notice)
         rendered = "\n".join(lines)
-        self.assertIn("YOK-17 (item)", rendered)
+        self.assertIn(f"{claim_ref} (item)", rendered)
         self.assertIn("1 auto-reacquired", rendered)
         self.assertIn("1 NOT auto-reacquired", rendered)
         self.assertIn(
@@ -51,6 +53,7 @@ class TestResumeBlockNoticeRendering(_PgReacquireTestCase):
         )
 
         conn = self.conn
+        claim_ref = seed_claim_item(conn, 18, 807)
         _insert_session(conn, "sess-r")
         notice = json.dumps(
             {
@@ -77,7 +80,7 @@ class TestResumeBlockNoticeRendering(_PgReacquireTestCase):
                 "sess-r",
                 harness_event="UserPromptSubmit",
             )
-        self.assertIn("YOK-18 (item)", block)
+        self.assertIn(f"{claim_ref} (item)", block)
         kwargs = marker.call_args.kwargs
         self.assertFalse(kwargs["reacquired"])
         self.assertTrue(kwargs["advisory_only"])
