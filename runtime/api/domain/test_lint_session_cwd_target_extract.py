@@ -290,20 +290,39 @@ class TestYokePayloadPathSegments:
         assert extract_command_targets(cmd) == ["/tmp"]
 
 
-def test_yoke_aws_logs_tail_treats_log_group_as_remote_resource():
-    command = (
-        "yoke aws exec --project platform -- "
-        "logs tail /yoke/stage/core --since 10m"
+def test_aws_log_group_argument_is_a_remote_resource():
+    """``--log-group-name /yoke/prod/core`` names CloudWatch, not a file."""
+    start_query = (
+        "yoke aws exec --project platform -- logs start-query "
+        "--log-group-name /yoke/prod/core --start-time 1 --end-time 2 "
+        "--query-string fields"
     )
-    assert extract_command_targets(command) == []
+    assert extract_command_targets(start_query) == []
+    assert extract_command_targets(
+        "yoke aws exec --project platform -- logs tail /yoke/stage/core --since 10m"
+    ) == []
+    assert extract_command_targets(
+        "aws logs filter-log-events --log-group-name /yoke/prod/core"
+    ) == []
+    assert extract_command_targets(
+        "yoke aws exec --project platform -- logs start-query "
+        "--log-group-name arn:aws:logs:us-east-1:1:log-group:/yoke/prod/core"
+    ) == []
 
 
-def test_yoke_aws_exec_keeps_local_filesystem_targets():
-    command = (
-        "yoke aws exec -- s3 cp /Users/dev/archive.json "
-        "s3://example/archive.json"
-    )
-    assert extract_command_targets(command) == ["/Users/dev/archive.json"]
+def test_aws_log_group_keeps_local_filesystem_targets():
+    local, dest, secret = "/Users/dev/archive.json", "/Users/dev/out.log", "/Users/dev/secret"
+    assert extract_command_targets(
+        f"yoke aws exec -- s3 cp {local} s3://example/archive.json"
+    ) == [local]
+    assert extract_command_targets(
+        f"aws logs filter-log-events --log-group-name /yoke/prod/core > {dest}"
+    ) == [dest]
+    assert extract_command_targets(
+        "yoke aws exec -- logs start-query --log-group-name /yoke/prod/core "
+        f"--query-string file:///tmp/query.ins > {dest}"
+    ) == [dest]
+    assert extract_command_targets(f"cat --log-group-name {secret}") == [secret]
 
 
 def test_glued_redirect_is_a_write_target():

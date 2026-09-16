@@ -21,19 +21,8 @@ from yoke_core.domain.lint_shell_target_tokens import (
 )
 
 
-FLAG_BINARY = frozenset({
-    "-C",
-    "--rootdir",
-    "--target-root",
-    "--worktree-path",
-    "-w",
-})
-
-FLAG_EQUALS_PREFIXES = (
-    "--rootdir=",
-    "--target-root=",
-    "--worktree-path=",
-)
+FLAG_BINARY = frozenset({"-C", "--rootdir", "--target-root", "--worktree-path", "-w"})
+FLAG_EQUALS_PREFIXES = ("--rootdir=", "--target-root=", "--worktree-path=")
 
 
 def resolve_command_targets(
@@ -104,10 +93,8 @@ _CURL_NON_PATH_VALUE_FLAGS = frozenset({"-w", "--write-out"})
 # cover that path until the registration lands. Only the named
 # registration/repair shapes are exempt — file-writing yoke commands
 # (watch captures, renders with ``--target-root``) keep full extraction.
-_YOKE_PAYLOAD_PATH_SUBCOMMANDS = (
-    ("item-worktrees",),
-    ("project", "register"),
-)
+_YOKE_PAYLOAD_PATH_SUBCOMMANDS = (("item-worktrees",), ("project", "register"))
+_LOG_GROUP_FLAGS = frozenset({"--log-group-name", "--log-group"})
 
 
 def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
@@ -121,33 +108,51 @@ def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
     )
 
 
-def _remote_resource_indexes(command_base: str, tokens: List[str]) -> set[int]:
-    """Indexes naming a resource on another machine, not a local path.
-
-    Two ``yoke`` shapes carry operands off this host: ``aws exec -- logs
-    tail <log-group>`` names an AWS resource, and ``qa mission
-    host-command ... -- ARGV...`` ships its whole argv over a mission's
-    retained Test Machine lease.
-    """
+def _aws_cli_argv(
+    command_base: str, tokens: List[str],
+) -> Optional[Tuple[List[str], int]]:
+    """Return AWS CLI argv and its start index for ``aws`` / ``yoke aws exec``."""
+    if command_base == "aws":
+        return tokens, 0
     if command_base != "yoke":
-        return set()
+        return None
+    try:
+        sep = tokens.index("--")
+        aws_at = tokens.index("aws", 1, sep)
+    except ValueError:
+        return None
+    if tokens[aws_at:aws_at + 2] != ["aws", "exec"]:
+        return None
+    return tokens[sep + 1:], sep + 1
+
+
+def _remote_resource_indexes(command_base: str, tokens: List[str]) -> set[int]:
+    """Indexes naming a remote resource, not a local filesystem path.
+
+    CloudWatch ``--log-group-name`` / ``logs tail`` operands name a log
+    group. ``qa mission host-command ... -- ARGV...`` runs on the Test
+    Machine. Redirects stay local and are classified before this skip.
+    """
     remote = remote_argv_indexes(command_base, tokens)
     if remote:
         return remote
-    try:
-        separator = tokens.index("--")
-        adapter = tokens.index("aws", 1, separator)
-    except ValueError:
+    argv = _aws_cli_argv(command_base, tokens)
+    if argv is None:
         return set()
-    return {separator + 3} if (
-        tokens[adapter:adapter + 2] == ["aws", "exec"]
-        and tokens[separator + 1:separator + 3] == ["logs", "tail"]
-    ) else set()
+    inner, offset = argv
+    indexes: set[int] = set()
+    for i, tok in enumerate(inner):
+        if tok in _LOG_GROUP_FLAGS and i + 1 < len(inner):
+            indexes.add(offset + i + 1)
+        if (
+            tok == "logs" and i + 2 < len(inner)
+            and inner[i + 1] == "tail" and not inner[i + 2].startswith("-")
+        ):
+            indexes.add(offset + i + 2)
+    return indexes
 
 _SED_SCRIPT_FLAGS = ("-e", "-f", "--expression", "--file")
-REDIRECT_OPERATORS = frozenset({
-    ">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>",
-})
+REDIRECT_OPERATORS = frozenset({">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>"})
 
 
 def _segment_command_base(tokens: List[str]) -> str:
@@ -336,14 +341,8 @@ def strip_env_prefixes(tokens: List[str]) -> List[str]:
 
 
 __all__ = [
-    "FLAG_BINARY",
-    "FLAG_EQUALS_PREFIXES",
-    "REDIRECT_OPERATORS",
-    "STDOUT_REPORTERS",
-    "extract_command_targets",
-    "extract_heredoc_sections",
-    "resolve_command_targets",
-    "strip_heredoc_body_lines",
-    "strip_env_prefixes",
+    "FLAG_BINARY", "FLAG_EQUALS_PREFIXES", "REDIRECT_OPERATORS",
+    "STDOUT_REPORTERS", "extract_command_targets", "extract_heredoc_sections",
+    "resolve_command_targets", "strip_heredoc_body_lines", "strip_env_prefixes",
     "strip_heredoc_syntax",
 ]
