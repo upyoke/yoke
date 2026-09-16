@@ -13,8 +13,9 @@ no release-stage redirect target, or any ``*-internal`` flow, reaches
 them already satisfied by the merge-only rung. A pin that DOES support
 release-stage waiting instead resolves an empty flow against the
 project's delivery default first (see
-:mod:`yoke_core.engines.done_transition_delivery_default`), refusing
-with setup guidance rather than merge-only when nothing resolves.
+:mod:`yoke_core.engines.done_transition_delivery_default`). When
+nothing resolves, delivery is not required and the empty flow stays
+merge-only rather than a setup refusal.
 """
 
 from __future__ import annotations
@@ -115,20 +116,6 @@ def _check_deployment_flow_guard(
             deploy_flow = _freeze_resolved_delivery_flow(
                 item_id, resolved, public_ref=public_ref
             )
-        else:
-            print("\n=== Delivery flow guard ===")
-            print(
-                f"Blocked: {public_ref} has no deployment flow selected, and "
-                f"project {item_project!r} has no workflow-specific or "
-                "project-wide delivery default configured for workflow "
-                f"{workflow_id!r}."
-            )
-            print(
-                "\nSet items.deployment_flow explicitly, or configure a "
-                "project delivery default (yoke workflows delivery-default "
-                "set), before this item can enter release."
-            )
-            return 7, old_status
 
     is_internal = deploy_flow.endswith("-internal") if deploy_flow else False
     if not deploy_flow or is_internal:

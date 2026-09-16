@@ -227,9 +227,9 @@ class TestDeploymentFlowGuardRegisteredButMissingEvidence:
 
 
 class TestDeploymentFlowGuardMissingFlowResolution:
-    """The release-stage boundary: only a pin with a redirect target gets the
-    stricter resolve-or-refuse behavior; an old pin's empty-flow merge-only
-    pass-through is preserved exactly."""
+    """The release-stage boundary: a pin with a redirect target still
+    resolves a configured default onto an empty flow; when nothing
+    resolves, delivery is not required and empty stays merge-only."""
 
     def test_old_pin_with_no_redirect_target_keeps_merge_only_pass_through(self):
         """delivery_stage_id=None means this pin never supported release-stage
@@ -318,7 +318,7 @@ class TestDeploymentFlowGuardMissingFlowResolution:
         # rather than the resolved default's own target-tier path.
         assert result is None
 
-    def test_nothing_resolves_refuses_with_setup_guidance(self, capsys):
+    def test_nothing_resolves_is_merge_only(self, capsys):
         with mock.patch.object(
             done_transition_deploy_gates,
             "_resolve_default_delivery_flow",
@@ -335,6 +335,6 @@ class TestDeploymentFlowGuardMissingFlowResolution:
                 workflow_id="dash",
             )
         out = capsys.readouterr().out
-        assert result == (7, "reviewing-implementation")
-        assert "no deployment flow selected" in out
-        assert "no workflow-specific or project-wide delivery default" in out
+        assert result is None
+        assert "merge-only" in out
+        assert "no deployment flow declared" in out

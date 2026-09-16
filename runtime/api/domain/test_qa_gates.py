@@ -51,7 +51,7 @@ class TestCheckVerificationEntry:
     def test_epic_task_recovery_names_the_derived_transition(self, qa_db):
         target = GateTarget(epic_id=833, task_num=5)
         with mock.patch(
-            "yoke_core.domain.qa_workflow_binding_validation.item_transition_for_gate",
+            "yoke_core.domain.qa_workflow_binding_validation.attachment_transition_for_item",
             return_value="qa-review",
         ):
             result = check_verification_entry(target, qa_db)

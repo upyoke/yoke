@@ -210,7 +210,7 @@ class TestResolveDeliveryClearance:
         assert result.merge_only is False
         assert result.resolved_flow == "yoke-default"
 
-    def test_an_empty_flow_with_no_configured_default_is_blocked(self, monkeypatch):
+    def test_an_empty_flow_with_no_configured_default_is_merge_only(self, monkeypatch):
         monkeypatch.setattr(
             clearance,
             "call_dispatcher",
@@ -219,6 +219,6 @@ class TestResolveDeliveryClearance:
         result = clearance.resolve_delivery_clearance(
             deploy_flow="", item_project="yoke", workflow_id="dash",
         )
-        assert result.merge_only is False
+        assert result.merge_only is True
         assert result.resolved_flow == ""
-        assert "no deployment flow selected" in result.blocked_reason
+        assert result.blocked_reason == ""

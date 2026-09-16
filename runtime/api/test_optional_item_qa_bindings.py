@@ -26,6 +26,7 @@ from yoke_core.domain.handlers.qa_requirement_create import (
     handle_qa_requirement_add,
 )
 from yoke_core.domain.item_entry_surface import ITEM_ENTRY_SURFACE_ENV
+from yoke_core.domain.qa_gates import GateTarget, check_verification_gate
 
 
 def _create_request(payload: dict) -> FunctionCallRequest:
@@ -210,3 +211,64 @@ def test_optional_item_qa_accepts_only_the_selected_ad_hoc_method(
     if not accepted:
         assert outcome.error.code == "payload_invalid"
         assert "accepts only the plan or method selected" in outcome.error.message
+
+
+def test_attached_plan_without_materialized_requirements_refuses(
+    tmp_db,  # noqa: F811
+) -> None:
+    from yoke_core.domain.qa_catalog_schema import (
+        create_qa_catalog_tables,
+        seed_builtin_qa_methods,
+    )
+    from yoke_core.domain.qa_plan_management import create_plan, replace_plan_cases
+
+    conn = _conn(tmp_db)
+    try:
+        create_qa_catalog_tables(conn)
+        seed_builtin_qa_methods(conn)
+        insert_item(conn, id=2420, workflow_id="dash")
+        plan = create_plan(
+            conn, project="yoke", slug="unmaterialized", name="Unmaterialized",
+        )
+        replace_plan_cases(conn, plan_id=plan["id"], cases=[CATALOG_CASES[0]])
+        conn.execute(
+            "INSERT INTO qa_plan_item_attachments "
+            "(item_id, transition_id, qa_phase, plan_id, attached_at) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (
+                2420,
+                "reviewing-implementation",
+                "verification",
+                plan["id"],
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = check_verification_gate(GateTarget(item_id=2420), tmp_db)
+    assert not result.passed
+    assert any("GATE_QA_REQUIREMENTS_EMPTY" in error for error in result.errors)
+
+
+def test_selected_verification_without_requirements_refuses(
+    tmp_db,  # noqa: F811
+) -> None:
+    conn = _conn(tmp_db)
+    try:
+        insert_item(
+            conn,
+            id=2421,
+            workflow_id="dash",
+            workflow_posture=json.dumps(
+                {"verification": {"kind": "ad_hoc", "method_id": "command"}}
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    result = check_verification_gate(GateTarget(item_id=2421), tmp_db)
+    assert not result.passed
+    assert any("GATE_QA_REQUIREMENTS_EMPTY" in error for error in result.errors)

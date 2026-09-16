@@ -192,17 +192,11 @@ def test_an_unresolved_flow_authority_refuses_rather_than_guessing(
     assert "deployment_flows.get read failed" in route.error
 
 
-def test_no_configured_delivery_at_all_refuses_with_the_flows_own_reason(
-    monkeypatch,
-) -> None:
+def test_no_configured_delivery_is_merge_only(monkeypatch) -> None:
     _serve(monkeypatch, "dash")
     _clearance(
         monkeypatch,
-        DeliveryClearance(
-            merge_only=False,
-            resolved_flow="",
-            blocked_reason="no deployment flow selected",
-        ),
+        DeliveryClearance(merge_only=True, resolved_flow=""),
     )
 
     route = release_status.close_out_route(
@@ -210,8 +204,9 @@ def test_no_configured_delivery_at_all_refuses_with_the_flows_own_reason(
         "reviewing-implementation",
     )
 
-    assert route.stages == ()
-    assert route.error == "no deployment flow selected"
+    assert route.stages == ("release", "done")
+    assert route.delivery_discharged is True
+    assert route.error == ""
 
 
 def test_the_shared_clearance_reader_is_the_one_authority(monkeypatch) -> None:

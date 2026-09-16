@@ -13,6 +13,7 @@ from yoke_core.domain.workflow_effective_policies import (
     load_item_effective_workflow_policies,
 )
 from yoke_core.domain.workflow_gate_catalog import GATE_QA_VERIFICATION
+from yoke_core.domain.workflow_registry import WorkflowRegistryError
 from yoke_core.domain.workflow_runtime import (
     WorkflowRuntime,
     load_item_workflow_runtime,
@@ -68,6 +69,37 @@ def qa_enforcement_signature(
         for gate in workflow.gates_for_stage(stage_id)
         if str(gate["id"]) == GATE_QA_VERIFICATION
     )
+
+
+def optional_unattached_qa_permits_empty(conn: Any, item_id: int) -> bool:
+    """Whether optional item QA with nothing selected may pass an empty set.
+
+    ``optional_item_attachment`` means unattached verification is valid.
+    Selecting a verification posture opts the item into a real requirement
+    set, so emptiness then still refuses.
+    """
+    try:
+        effective = load_item_effective_workflow_policies(conn, int(item_id))
+    except (LookupError, ValueError, WorkflowRegistryError):
+        return False
+    if effective.values.get("qa") != WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT:
+        return False
+    verification = effective.posture.get("verification")
+    return not (isinstance(verification, Mapping) and verification)
+
+
+def attachment_transition_for_item(conn: Any, *, item_id: int) -> str:
+    """Return a transition the item QA attachment surface will actually accept.
+
+    Optional item QA strips the release wait from its materialization
+    signature -- that gate belongs to a selected deployment flow -- so
+    recovery must name the posture-owned review transition rather than
+    the first stage that happens to carry ``qa_verification``.
+    """
+    effective = load_item_effective_workflow_policies(conn, int(item_id))
+    if effective.values.get("qa") == WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT:
+        return ITEM_POSTURE_VERIFICATION_TRANSITION
+    return transition_for_gate(effective.runtime, GATE_QA_VERIFICATION)
 
 
 def _selected_verification_matches(
@@ -143,10 +175,12 @@ def validate_item_qa_transition(
     if effective.values.get("qa") == WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT:
         message += (
             "; optional item QA accepts only the plan or method selected "
-            "in workflow_posture.verification. Select one on this item "
+            "in workflow_posture.verification, attached at "
+            f"{ITEM_POSTURE_VERIFICATION_TRANSITION}. Select one on this item "
             "first: yoke workflows item-posture amend <PREFIX-N> "
             '--verification-plan <ID_OR_SLUG> --reason "<why>" '
-            "(--help for the decision tree), then retry"
+            "(--help for the decision tree), then retry with "
+            f"--workflow-transition {ITEM_POSTURE_VERIFICATION_TRANSITION}"
         )
     raise QaWorkflowBindingError(message)
 
@@ -154,7 +188,9 @@ def validate_item_qa_transition(
 __all__ = [
     "QaWorkflowBindingError",
     "ITEM_POSTURE_VERIFICATION_TRANSITION",
+    "attachment_transition_for_item",
     "item_transition_for_gate",
+    "optional_unattached_qa_permits_empty",
     "qa_enforcement_signature",
     "transition_for_gate",
     "validate_item_qa_transition",
