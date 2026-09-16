@@ -73,9 +73,12 @@ class UpstreamFreshness:
     ``lane_base_ref`` is the revision new work must start from: the fetched
     upstream revision when it already contains everything local, the local
     branch where local commits would otherwise be left behind, and empty
-    when nothing was verified. ``note`` names the observation and its
-    recovery; ``needs_attention`` marks the notes a caller surfaces as a
-    warning rather than as progress.
+    when nothing was verified. ``lane_base_is_current`` says whether that
+    revision holds everything the remote has, which a diverged branch does
+    not — a lane cut there would silently be missing the fetched commits,
+    so it is the one established reading no lane may start from. ``note``
+    names the observation and its recovery; ``needs_attention`` marks the
+    notes a caller surfaces as a warning rather than as progress.
     """
 
     state: str
@@ -89,6 +92,7 @@ class UpstreamFreshness:
     note: str = ""
     verified: bool = False
     local_branch_current: bool = False
+    lane_base_is_current: bool = False
     needs_attention: bool = False
 
 
@@ -176,6 +180,7 @@ def _no_remote_or_unresolved(
             lane_base_ref=base_branch,
             verified=True,
             local_branch_current=True,
+            lane_base_is_current=True,
         )
     return _unverified(
         STATE_REMOTE_UNRESOLVED,
@@ -247,6 +252,7 @@ def _compare_and_update(
             state=STATE_CURRENT,
             lane_base_ref=upstream_sha,
             local_branch_current=True,
+            lane_base_is_current=True,
             **observed,
         )
     updated, refusal = upstream_git.fast_forward(
@@ -257,6 +263,7 @@ def _compare_and_update(
             state=STATE_FAST_FORWARDED,
             lane_base_ref=upstream_sha,
             local_branch_current=True,
+            lane_base_is_current=True,
             note=(
                 f"{NOTE_PREFIX} {base_branch} fast-forwarded {behind} commit(s) "
                 f"to {remote}/{base_branch} ({upstream_sha[:12]}); new work "
@@ -267,6 +274,7 @@ def _compare_and_update(
     return UpstreamFreshness(
         state=STATE_BEHIND_NOT_UPDATED,
         lane_base_ref=upstream_sha,
+        lane_base_is_current=True,
         note=(
             f"{NOTE_PREFIX} {base_branch} is {behind} commit(s) behind "
             f"{remote}/{base_branch} and was not updated: {refusal}. Nothing "
@@ -295,6 +303,10 @@ def _local_commits_kept(repo_root: str, observed: dict) -> UpstreamFreshness:
         state=STATE_DIVERGED if behind else STATE_LOCAL_AHEAD,
         lane_base_ref=base_branch,
         local_branch_current=not behind,
+        # Ahead-only local already contains every upstream commit, so a
+        # lane cut from it is current. A diverged branch does not, and a
+        # lane cut there would be missing the commits just fetched.
+        lane_base_is_current=not behind,
         note=(
             f"{NOTE_PREFIX} {base_branch} has {observed['ahead']} commit(s) "
             f"{remote}/{base_branch} does not {tail} Those commits are "

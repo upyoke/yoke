@@ -5,13 +5,17 @@ The freshness reading itself belongs to
 for preparation belongs here, because the two branches of preparation ask
 different questions of it.
 
-A lane needs a revision it can be cut from, and the fetched upstream is
-that revision even when the local branch could not be moved — so a lane
-proceeds on any established reading. Laneless work has no lane: it commits
-onto the default branch itself, so it needs that branch to actually hold
-everything the remote has. Neither may proceed when the remote could not
-be read at all, because "prepare from whatever is on disk" is the silent
-stale start the whole step exists to prevent.
+A lane needs a revision it can be cut from that holds everything the
+remote has. The fetched upstream is that revision even when the local
+branch could not be moved, so a branch merely behind still yields a
+current lane. A diverged branch does not: its lane would have to start
+from local, which is missing the commits just fetched, so it refuses
+pending reconciliation rather than quietly producing stale work. Laneless
+work has no lane at all — it commits onto the default branch itself — so
+it needs that branch to hold everything the remote has. Neither may
+proceed when the remote could not be read at all, because "prepare from
+whatever is on disk" is the silent stale start the whole step exists to
+prevent.
 """
 
 from __future__ import annotations
@@ -59,7 +63,12 @@ def gate_upstream_for_preparation(
     freshness = refresh_base_branch(repo_root, declared)
     if not freshness.verified:
         return UpstreamGate(freshness, BLOCK_UPSTREAM_UNVERIFIED, freshness.note)
-    if no_worktree and not freshness.local_branch_current:
+    stale = (
+        not freshness.local_branch_current
+        if no_worktree
+        else not freshness.lane_base_is_current
+    )
+    if stale:
         return UpstreamGate(freshness, BLOCK_UPSTREAM_STALE, freshness.note)
     return UpstreamGate(freshness)
 

@@ -101,8 +101,10 @@ def test_local_ahead_keeps_its_commits_and_stays_the_lane_base(project):
     assert result.ahead == 1 and result.behind == 0
     assert result.lane_base_ref == default
     assert result.needs_attention
-    # Ahead is not behind: laneless work may still commit onto this branch.
+    # Ahead is not behind: local already holds every upstream commit, so
+    # both a lane and laneless work may start from it.
     assert result.verified and result.local_branch_current
+    assert result.lane_base_is_current
     assert _git(checkout, "rev-parse", default) == local_sha
 
 
@@ -119,6 +121,10 @@ def test_diverged_is_reported_and_never_replayed(project):
     assert "rebase" in result.note
     assert _git(checkout, "rev-parse", default) == local_sha
     assert result.verified and not result.local_branch_current
+    # The named base is local, which is missing the commits just fetched —
+    # the one established reading no lane may be cut from.
+    assert result.lane_base_ref == default
+    assert not result.lane_base_is_current
 
 
 def test_uncommitted_change_in_the_way_refuses_with_its_recovery(project):
@@ -130,6 +136,8 @@ def test_uncommitted_change_in_the_way_refuses_with_its_recovery(project):
 
     assert result.state == freshness.STATE_BEHIND_NOT_UPDATED
     assert result.verified and not result.local_branch_current
+    # The lane still gets a current base: the fetched upstream revision.
+    assert result.lane_base_is_current
     assert result.needs_attention
     assert "commit or stash" in result.note
     # The local branch did not move and the edit is still there.

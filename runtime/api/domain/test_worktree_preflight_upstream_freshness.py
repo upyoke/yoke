@@ -199,8 +199,27 @@ def test_laneless_work_proceeds_once_the_branch_is_current(project, monkeypatch)
     assert _git(project.root, "rev-parse", DEFAULT_BRANCH) == remote_sha
 
 
-def test_local_commits_keep_the_lane_on_the_local_branch(project, monkeypatch):
+def test_a_diverged_branch_cannot_start_a_lane_from_stale_local(
+    project, monkeypatch
+):
+    """The lane would be missing the commits just fetched, so it refuses."""
     _advance_remote(project)
+    local_sha = _commit(project.root, "local.txt", "mine\n")
+    passed = _patch_preflight(monkeypatch, lane_path=str(project.root / "lane"))
+
+    outcome = _run(project)
+
+    assert outcome.ok is False
+    assert outcome.block_kind == steps.BLOCK_UPSTREAM_STALE
+    assert f"upstream:{freshness.STATE_DIVERGED}" in outcome.actions_taken
+    assert "rebase" in outcome.narrative
+    # No lane was cut, and the local commits are untouched.
+    assert passed == {}
+    assert _git(project.root, "rev-parse", DEFAULT_BRANCH) == local_sha
+
+
+def test_local_commits_the_remote_lacks_still_start_a_lane(project, monkeypatch):
+    """Ahead-only local already holds every upstream commit, so it is current."""
     local_sha = _commit(project.root, "local.txt", "mine\n")
     passed = _patch_preflight(monkeypatch, lane_path=str(project.root / "lane"))
 
@@ -208,8 +227,23 @@ def test_local_commits_keep_the_lane_on_the_local_branch(project, monkeypatch):
 
     assert outcome.ok is True
     assert passed["base_branch"] == DEFAULT_BRANCH
-    assert f"upstream:{freshness.STATE_DIVERGED}" in outcome.actions_taken
+    assert f"upstream:{freshness.STATE_LOCAL_AHEAD}" in outcome.actions_taken
     assert _git(project.root, "rev-parse", DEFAULT_BRANCH) == local_sha
+
+
+def test_a_branch_merely_behind_still_starts_a_lane_from_the_fetched_tip(
+    project, monkeypatch
+):
+    """Not updatable locally, but the fetched upstream is still current."""
+    remote_sha = _advance_remote(project, name="README.md")
+    (project.root / "README.md").write_text("uncommitted\n")
+    passed = _patch_preflight(monkeypatch, lane_path=str(project.root / "lane"))
+
+    outcome = _run(project)
+
+    assert outcome.ok is True
+    assert passed["base_branch"] == remote_sha
+    assert f"upstream:{freshness.STATE_BEHIND_NOT_UPDATED}" in outcome.actions_taken
 
 
 def test_a_lane_refuses_when_the_remote_cannot_be_read(project, monkeypatch):
