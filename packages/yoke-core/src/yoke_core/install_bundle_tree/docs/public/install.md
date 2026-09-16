@@ -94,6 +94,14 @@ layer is not permission to publish your work-in-progress. And a checkout with
 no remote is a local-only project: publication is skipped, not failed, as it
 is for `--no-commit`. Pass `--no-publish` to commit without pushing.
 
+An unreachable remote does **not** stop the install, which is the one place
+it differs from starting other work. Creating a worktree refuses an
+unverifiable remote, because new work would have no current revision to
+start from; installing writes a local layer, so an offline machine still
+gets the thing it asked for. The run records why it could not read the
+remote and publication then reports `publication_pending` — you are never
+told the remote has a layer it never received.
+
 ## Related
 
 - [Modes](modes.md)

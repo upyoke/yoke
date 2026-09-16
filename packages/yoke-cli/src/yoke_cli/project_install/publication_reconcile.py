@@ -95,18 +95,30 @@ def network_git(
     failed result naming what restores it, never as a prompt no install has a
     terminal to answer, and the timeout bounds an unreachable host.
     """
+    return credentialed_git.run(
+        ["-C", str(repo_root), *args], timeout=_git_timeout_seconds(),
+    )
+
+
+def _git_timeout_seconds() -> int:
+    """Seconds one publication git command may run.
+
+    Reads the same registered machine setting the merge engine's git commands
+    use, through the contracts reader rather than the engine wrapper over it:
+    the installed product CLI ships without the engine, so an engine import
+    here would fail in exactly the installs publication exists to serve.
+    """
+    from yoke_contracts.machine_config.runtime import read_settings
     from yoke_contracts.machine_config.settings_keys import (
         machine_setting_default,
     )
-    from yoke_core.domain import runtime_settings
 
-    return credentialed_git.run(
-        ["-C", str(repo_root), *args],
-        timeout=runtime_settings.get_seconds(
-            GIT_TIMEOUT_SETTING_KEY,
-            int(machine_setting_default(GIT_TIMEOUT_SETTING_KEY)),
-        ),
-    )
+    default = int(machine_setting_default(GIT_TIMEOUT_SETTING_KEY))
+    try:
+        configured = int(read_settings().get(GIT_TIMEOUT_SETTING_KEY, ""))
+    except (TypeError, ValueError):
+        return default
+    return configured if configured > 0 else default
 
 
 def publish_remote(repo_root: Path, branch: str) -> str | None:
