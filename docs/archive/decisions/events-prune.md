@@ -14,16 +14,18 @@ matching-pattern: docs/archive/decisions/events-schema-rebuild-deletion.md
 retention-only destructive maintenance helper against the `events`
 table and the `session_tool_calls` rolling-state table.  It deletes
 events rows by severity/age (DEBUG > 1d, INFO > 30d,
-WARN > 90d; STATUS never pruned) and `session_tool_calls` rows older
+WARN > 90d; STATUS never pruned) in LIMIT batches with a runtime
+and optional `--max-batches` budget, and `session_tool_calls` rows older
 than `SESSION_TOOL_CALLS_RETENTION_DAYS` (7d — the table's readers are
 the session-end orphan sweep and the minutes-lookback PreToolUse lint
 guardrails, so week-old rows are inert), then emits a
 `migration_audit` fingerprint under
 `migration_name='events-prune'` via
 `record_audit_fingerprint` so the operation is discoverable alongside
-governed migrations. It also removes explicitly obsolete event names
-listed in `PURGED_EVENT_NAMES`; rows referenced by immutable path-audit
-records are retained.
+governed migrations. Optional `--purge-obsolete` removes explicitly
+obsolete event names listed in `PURGED_EVENT_NAMES`; rows referenced by
+immutable path-audit records are retained on every event delete path.
+Preview and audit skip a table-wide `events` COUNT.
 
 ## Why it is an exception rather than a `GovernedMigration` caller
 

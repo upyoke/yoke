@@ -22,13 +22,21 @@ from __future__ import annotations
 import re
 import sys
 from datetime import datetime, timezone
-from typing import Dict, Optional, Tuple
+from typing import Optional, Tuple
 
 if __name__ == "__main__":
     sys.modules.setdefault("yoke_core.domain.events_crud", sys.modules[__name__])
 
 
-VALID_SOURCE_TYPES = ("agent", "backend", "frontend", "system", "script", "hook", "skill")
+VALID_SOURCE_TYPES = (
+    "agent",
+    "backend",
+    "frontend",
+    "system",
+    "script",
+    "hook",
+    "skill",
+)
 
 # Severity + SELECT/format primitives live in the import-order leaf
 # ``events_select`` (re-exported here for existing consumers); the read
@@ -43,20 +51,10 @@ from yoke_core.domain.events_select import (  # noqa: E402,F401
     _format_rows,
     severity_num,
 )
-
-# Retention tiers: severity -> days (None = forever). DEBUG is the
-# on-demand-capture tier (dropped at the default INFO write floor; turned on
-# by lowering severity_config to DEBUG), so its retention is the shortest —
-# any debug-session exhaust auto-cleans within a day. Keep in lockstep with
-# the offset_days literals in events_prune.cmd_prune.
-_RETENTION_DAYS: Dict[str, Optional[int]] = {
-    "DEBUG": 1,
-    "INFO": 30,
-    "WARN": 90,
-    "STATUS": None,
-    "ERROR": None,
-    "FATAL": None,
-}
+from yoke_core.domain.events_prune import (  # noqa: E402,F401
+    EVENT_RETENTION_DAYS as _RETENTION_DAYS,
+    prune_cli_kwargs,
+)
 
 
 def _now_iso() -> str:
@@ -199,6 +197,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     introducing a load-time cycle.
     """
     from yoke_core.domain.events_crud_cli import main as _cli_main
+
     return _cli_main(argv)
 
 

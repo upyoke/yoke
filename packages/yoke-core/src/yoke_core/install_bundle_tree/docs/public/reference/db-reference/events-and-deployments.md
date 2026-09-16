@@ -47,7 +47,7 @@ that retired surface.
 
 **Write-side severity filtering:** Before inserting, events are checked against the `severity_config` table. Events below the configured minimum severity for their `(event_name, source_type)` pair are silently dropped without error.
 
-**Retention (prune):** DEBUG=1d, INFO=30d, WARN=90d, ERROR/FATAL=forever. Run `python3 -m yoke_core.cli.db_router events prune` periodically. DEBUG is the on-demand-capture tier (dropped at the default INFO write floor; enable by lowering `severity_config` to DEBUG), so it carries the shortest retention.
+**Retention (prune):** DEBUG=1d, INFO=30d, WARN=90d, STATUS/ERROR/FATAL=forever. Event preview and delete are LIMIT-batched (`--batch-size`, default 1000), time-bounded (`--max-seconds`, default 30), and optionally batch-capped (`--max-batches`); counts are exact or labeled `>=N (partial)`. Referenced `event_id` rows (path-audit tables) are kept on every event delete path. Obsolete-name cleanup is opt-in (`--purge-obsolete`). Live invocation: `python3 -m yoke_core.cli.db_router events prune [--dry-run]`. Rerun after `stopped: batch/time budget`. No automatic prune timer lives in this repo; do not invent a parallel scheduler. DEBUG is the on-demand-capture tier (dropped at the default INFO write floor; enable by lowering `severity_config` to DEBUG), so it carries the shortest retention.
 
 ## Table: severity_config
 
