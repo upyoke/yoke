@@ -285,7 +285,7 @@ For every reported survey contact, read the advisory and choose:
   through uncertainty;
 - if the survey reveals a decision boundary — an unclear requirement, work in
   another project, missing authorization, or a conflicting requirement — stop
-  and follow **Escalate** below, which halts for operator agreement first. A
+  and follow **Escalate** below, which asks the question and keeps the Dash. A
   larger-than-expected touch set is not such a boundary.
 
 Selected path-claim posture is a separate coverage obligation, never a remedy
@@ -345,6 +345,6 @@ and terminal close-out sequence.
 
 ## Escalate
 
-Read [`escalate.md`](escalate.md) completely when the operator asks to convert
-this Dash, or when the outcome hits a real decision boundary, then follow its
-halt-and-propose sequence before any Issue is filed or the Dash is cancelled.
+Read [`escalate.md`](escalate.md) completely at a decision boundary, or when
+the operator raises conversion. It separates asking a question and keeping the
+Dash from converting it, which only an operator's agreement reaches.
