@@ -33,7 +33,7 @@ def _flow_derived_stages() -> list[dict[str, Any]]:
         {
             "name": "distribution-publish",
             "step_runner": "github-actions-workflow",
-            "workflow": "distribution-publish.yml",
+            "workflow": "yoke-distribution-publish.yml",
             "qa_kind": "distribution_publish",
         },
     ]
