@@ -22,6 +22,7 @@ BLOCK_WORK_CLAIM = "work-claim-conflict"
 BLOCK_CREATE_FAILED = "worktree-create-failed"
 BLOCK_INPUT = "bad-input"
 BLOCK_UPSTREAM_STALE = "upstream-stale"
+BLOCK_UPSTREAM_UNVERIFIED = "upstream-unverified"
 
 # Substrate-vs-coordination classifier for activation CLI stderr.
 # Lives next to BLOCK_PATH_CLAIM / BLOCK_DB_LOCK so the mapping is
@@ -323,6 +324,7 @@ __all__ = [
     "BLOCK_INPUT",
     "BLOCK_PATH_CLAIM",
     "BLOCK_UPSTREAM_STALE",
+    "BLOCK_UPSTREAM_UNVERIFIED",
     "BLOCK_WORK_CLAIM",
     "CWD_MODE_MATCHED",
     "CWD_MODE_STATIC",

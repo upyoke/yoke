@@ -11,8 +11,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
-from yoke_core.domain import repo_upstream_freshness as freshness
 from yoke_core.engines.main_checkout_sync import (
     NOT_SYNCED,
     fast_forward_main_checkout,
@@ -34,13 +32,6 @@ def _commit(repo: Path, name: str, body: str) -> str:
     _git(repo, "add", name)
     _git(repo, "commit", "-q", "-m", f"add {name}")
     return _git(repo, "rev-parse", "HEAD")
-
-
-@pytest.fixture(autouse=True)
-def _clear_cache():
-    freshness.reset_cache()
-    yield
-    freshness.reset_cache()
 
 
 @pytest.fixture
@@ -128,6 +119,16 @@ def test_missing_checkout_root_is_a_named_advisory():
     assert fast_forward_main_checkout("", DEFAULT_BRANCH) == (
         f"{NOT_SYNCED}: checkout root is missing"
     )
+
+
+def test_unreadable_remote_is_a_named_advisory_not_a_silent_pass(landed):
+    checkout, _landed_sha = landed
+    _git(checkout, "remote", "set-url", "origin", str(checkout / "gone.git"))
+
+    advisory = fast_forward_main_checkout(str(checkout), DEFAULT_BRANCH)
+
+    assert advisory.startswith(NOT_SYNCED)
+    assert "could not fetch" in advisory
 
 
 def test_session_start_syncs_the_branch_the_remote_declares(landed):

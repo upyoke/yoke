@@ -34,13 +34,6 @@ def _commit(repo: Path, name: str, body: str) -> str:
     return _git(repo, "rev-parse", "HEAD")
 
 
-@pytest.fixture(autouse=True)
-def _clear_cache():
-    freshness.reset_cache()
-    yield
-    freshness.reset_cache()
-
-
 @pytest.fixture
 def project(tmp_path: Path) -> tuple[Path, Path, str]:
     """An external project: bare remote, clone, non-``main`` default branch."""
@@ -83,7 +76,8 @@ def test_remote_ahead_fast_forwards_and_names_the_lane_base(project):
     assert result.behind == 1 and result.ahead == 0
     assert result.lane_base_ref == remote_sha
     assert _git(checkout, "rev-parse", default) == remote_sha
-    assert not result.needs_attention and not result.blocked
+    assert result.verified and result.local_branch_current
+    assert not result.needs_attention
 
 
 def test_already_current_says_nothing(project):
@@ -94,6 +88,7 @@ def test_already_current_says_nothing(project):
     assert result.state == freshness.STATE_CURRENT
     assert result.note == ""
     assert result.lane_base_ref == result.local_sha
+    assert result.verified and result.local_branch_current
 
 
 def test_local_ahead_keeps_its_commits_and_stays_the_lane_base(project):
@@ -105,7 +100,9 @@ def test_local_ahead_keeps_its_commits_and_stays_the_lane_base(project):
     assert result.state == freshness.STATE_LOCAL_AHEAD
     assert result.ahead == 1 and result.behind == 0
     assert result.lane_base_ref == default
-    assert result.needs_attention and not result.blocked
+    assert result.needs_attention
+    # Ahead is not behind: laneless work may still commit onto this branch.
+    assert result.verified and result.local_branch_current
     assert _git(checkout, "rev-parse", default) == local_sha
 
 
@@ -121,7 +118,7 @@ def test_diverged_is_reported_and_never_replayed(project):
     assert result.lane_base_ref == default
     assert "rebase" in result.note
     assert _git(checkout, "rev-parse", default) == local_sha
-    assert not result.blocked
+    assert result.verified and not result.local_branch_current
 
 
 def test_uncommitted_change_in_the_way_refuses_with_its_recovery(project):
@@ -132,7 +129,8 @@ def test_uncommitted_change_in_the_way_refuses_with_its_recovery(project):
     result = refresh_base_branch(str(checkout), default)
 
     assert result.state == freshness.STATE_BEHIND_NOT_UPDATED
-    assert result.blocked and result.needs_attention
+    assert result.verified and not result.local_branch_current
+    assert result.needs_attention
     assert "commit or stash" in result.note
     # The local branch did not move and the edit is still there.
     assert _git(checkout, "rev-parse", default) == result.local_sha
@@ -174,8 +172,11 @@ def test_fetch_failure_reports_and_leaves_work_on_the_local_branch(project):
     result = refresh_base_branch(str(checkout), default)
 
     assert result.state == freshness.STATE_FETCH_FAILED
-    assert result.needs_attention and not result.blocked
-    assert result.lane_base_ref == default
+    # A failed fetch establishes nothing, so it names no revision to work
+    # from rather than quietly offering the local branch.
+    assert not result.verified and not result.local_branch_current
+    assert result.lane_base_ref == ""
+    assert result.needs_attention
     assert "Recovery" in result.note
 
 
@@ -191,6 +192,8 @@ def test_project_without_a_remote_is_silent(tmp_path):
     assert result.state == freshness.STATE_NO_REMOTE
     assert result.note == ""
     assert result.lane_base_ref == "main"
+    # A project with no remote is local-only work, not unverified work.
+    assert result.verified and result.local_branch_current
 
 
 def test_several_remotes_and_no_tracking_record_refuses_to_guess(project):
@@ -201,6 +204,8 @@ def test_several_remotes_and_no_tracking_record_refuses_to_guess(project):
     result = refresh_base_branch(str(checkout), default)
 
     assert result.state == freshness.STATE_REMOTE_UNRESOLVED
+    assert not result.verified
+    assert result.lane_base_ref == ""
     assert "--set-upstream-to" in result.note
 
 
@@ -215,9 +220,7 @@ def test_default_branch_is_read_from_the_remote_when_unnamed(project):
     assert result.lane_base_ref == remote_sha
 
 
-def test_one_fetch_per_checkout_per_process(project, monkeypatch):
-    checkout, seed, default = project
-    _advance_remote(seed, default)
+def _count_fetches(monkeypatch) -> list[str]:
     fetches: list[str] = []
     real_fetch = freshness.upstream_git.fetch_branch
 
@@ -226,18 +229,90 @@ def test_one_fetch_per_checkout_per_process(project, monkeypatch):
         return real_fetch(repo_root, remote, base_branch)
 
     monkeypatch.setattr(freshness.upstream_git, "fetch_branch", counted)
+    return fetches
 
-    first = refresh_base_branch(str(checkout), default)
-    second = refresh_base_branch(str(checkout), default)
+
+def test_one_preparation_reads_the_remote_once(project, monkeypatch):
+    checkout, seed, default = project
+    _advance_remote(seed, default)
+    fetches = _count_fetches(monkeypatch)
+
+    with freshness.preparation_scope():
+        first = refresh_base_branch(str(checkout), default)
+        second = refresh_base_branch(str(checkout), default)
 
     assert fetches == [default]
     assert second is first
-    assert refresh_base_branch(str(checkout), default, use_cache=False) is not first
+
+
+def test_a_later_preparation_reads_the_remote_again(project, monkeypatch):
+    checkout, seed, default = project
+    fetches = _count_fetches(monkeypatch)
+
+    with freshness.preparation_scope():
+        refresh_base_branch(str(checkout), default)
+    # The remote moves between the two preparations — exactly what a cache
+    # outliving one preparation would hide from the second.
+    remote_sha = _advance_remote(seed, default)
+    with freshness.preparation_scope():
+        second = refresh_base_branch(str(checkout), default)
+
+    assert len(fetches) == 2
+    assert second.state == freshness.STATE_FAST_FORWARDED
+    assert second.lane_base_ref == remote_sha
+
+
+def test_reads_outside_any_preparation_never_share_an_answer(project, monkeypatch):
+    checkout, seed, default = project
+    fetches = _count_fetches(monkeypatch)
+
+    refresh_base_branch(str(checkout), default)
+    refresh_base_branch(str(checkout), default)
+
     assert len(fetches) == 2
 
 
-def test_missing_checkout_root_is_unreadable_not_a_crash():
+def test_opting_out_re_reads_inside_a_preparation(project, monkeypatch):
+    checkout, seed, default = project
+    fetches = _count_fetches(monkeypatch)
+
+    with freshness.preparation_scope():
+        first = refresh_base_branch(str(checkout), default)
+        remote_sha = _advance_remote(seed, default)
+        fresh = refresh_base_branch(str(checkout), default, use_cache=False)
+
+    assert len(fetches) == 2
+    assert first.state == freshness.STATE_CURRENT
+    assert fresh.lane_base_ref == remote_sha
+
+
+def test_missing_checkout_root_is_unverified_not_a_crash():
     result = refresh_base_branch("")
 
     assert result.state == freshness.STATE_UNREADABLE
+    assert not result.verified
     assert result.needs_attention
+
+
+def test_branch_missing_from_a_remote_backed_repo_is_unverified(project):
+    checkout, _seed, default = project
+
+    result = refresh_base_branch(str(checkout), "no-such-branch")
+
+    assert result.state == freshness.STATE_UNREADABLE
+    assert not result.verified
+    assert result.lane_base_ref == ""
+
+
+def test_remote_head_unknown_never_falls_back_to_the_checked_out_branch(project):
+    checkout, seed, default = project
+    _advance_remote(seed, default)
+    _git(checkout, "checkout", "-q", "-b", "feature-lane")
+    _git(checkout, "remote", "set-head", "origin", "--delete")
+
+    result = refresh_base_branch(str(checkout))
+
+    assert result.state == freshness.STATE_UNREADABLE
+    assert not result.verified
+    assert "feature-lane" not in result.note
+    assert "remote set-head" in result.note

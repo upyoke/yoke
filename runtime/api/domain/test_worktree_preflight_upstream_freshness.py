@@ -36,13 +36,6 @@ def _commit(repo: Path, name: str, body: str) -> str:
     return _git(repo, "rev-parse", "HEAD")
 
 
-@pytest.fixture(autouse=True)
-def _clear_cache():
-    freshness.reset_cache()
-    yield
-    freshness.reset_cache()
-
-
 @pytest.fixture
 def project(tmp_path: Path) -> SimpleNamespace:
     origin = tmp_path / "origin.git"
@@ -165,6 +158,18 @@ def test_laneless_work_refuses_on_a_branch_that_could_not_be_updated(
     assert (project.root / "README.md").read_text() == "uncommitted\n"
 
 
+def test_laneless_work_refuses_on_a_diverged_branch(project, monkeypatch):
+    _advance_remote(project)
+    _commit(project.root, "local.txt", "mine\n")
+    _patch_preflight(monkeypatch)
+
+    outcome = _run(project, no_worktree=True)
+
+    assert outcome.ok is False
+    assert outcome.block_kind == steps.BLOCK_UPSTREAM_STALE
+    assert "rebase" in outcome.narrative
+
+
 def test_laneless_work_proceeds_once_the_branch_is_current(project, monkeypatch):
     remote_sha = _advance_remote(project)
     _patch_preflight(monkeypatch)
@@ -179,11 +184,49 @@ def test_laneless_work_proceeds_once_the_branch_is_current(project, monkeypatch)
 def test_local_commits_keep_the_lane_on_the_local_branch(project, monkeypatch):
     _advance_remote(project)
     local_sha = _commit(project.root, "local.txt", "mine\n")
-    created = _patch_preflight(monkeypatch, lane_path=str(project.root / "lane"))
+    passed = _patch_preflight(monkeypatch, lane_path=str(project.root / "lane"))
 
     outcome = _run(project)
 
     assert outcome.ok is True
-    assert created["base_branch"] == DEFAULT_BRANCH
+    assert passed["base_branch"] == DEFAULT_BRANCH
     assert f"upstream:{freshness.STATE_DIVERGED}" in outcome.actions_taken
     assert _git(project.root, "rev-parse", DEFAULT_BRANCH) == local_sha
+
+
+def test_a_lane_refuses_when_the_remote_cannot_be_read(project, monkeypatch):
+    _git(project.root, "remote", "set-url", "origin", str(project.root / "gone.git"))
+    passed = _patch_preflight(monkeypatch, lane_path=str(project.root / "lane"))
+
+    outcome = _run(project)
+
+    assert outcome.ok is False
+    assert outcome.block_kind == steps.BLOCK_UPSTREAM_UNVERIFIED
+    assert "could not fetch" in outcome.narrative
+    # No lane was cut from an unverified base.
+    assert passed == {}
+
+
+def test_laneless_work_refuses_when_the_remote_cannot_be_read(project, monkeypatch):
+    _git(project.root, "remote", "set-url", "origin", str(project.root / "gone.git"))
+    _patch_preflight(monkeypatch)
+
+    outcome = _run(project, no_worktree=True)
+
+    assert outcome.ok is False
+    assert outcome.block_kind == steps.BLOCK_UPSTREAM_UNVERIFIED
+
+
+def test_a_second_preparation_reads_the_remote_again(project, monkeypatch):
+    """A long-running process prepares repeatedly; each reads the remote."""
+    _patch_preflight(monkeypatch, lane_path=str(project.root / "lane"))
+    first = _run(project)
+    assert first.ok is True
+    assert f"upstream:{freshness.STATE_CURRENT}" in first.actions_taken
+
+    remote_sha = _advance_remote(project)
+    passed = _patch_preflight(monkeypatch, lane_path=str(project.root / "lane"))
+    second = _run(project)
+
+    assert f"upstream:{freshness.STATE_FAST_FORWARDED}" in second.actions_taken
+    assert passed["base_branch"] == remote_sha

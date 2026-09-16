@@ -138,7 +138,9 @@ def create_worktree(
 
     # An explicit base is the caller's own choice and is taken as given. A
     # resolved one is brought current first: a lane cut from a stale default
-    # branch starts the work behind, and nothing says so until the merge.
+    # branch starts the work behind, and nothing says so until the merge. A
+    # remote that could not be read at all refuses here rather than falling
+    # back to local, which would be that same stale start unannounced.
     if base_branch is None:
         if project:
             base_branch = (
@@ -151,9 +153,13 @@ def create_worktree(
                 "base_branch",
                 config_path=config_path,
             )
-        base_branch = (
-            refresh_base_branch(repo_root, base_branch).lane_base_ref or base_branch
-        )
+        freshness = refresh_base_branch(repo_root, base_branch)
+        if not freshness.verified:
+            return CreateWorktreeResult(
+                path="", branch=fallback_branch, created=False,
+                error=freshness.note,
+            )
+        base_branch = freshness.lane_base_ref or base_branch
 
     wt_dir = project_settings.get_project_str(
         repo_root,

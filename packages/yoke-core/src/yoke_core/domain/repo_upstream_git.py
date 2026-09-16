@@ -58,16 +58,21 @@ def resolve_remote(repo_root: str, base_branch: str = "") -> Tuple[str, int]:
     return (names[0] if len(names) == 1 else ""), len(names)
 
 
-def resolve_base_branch(repo_root: str, remote: str = "") -> str:
-    """Return the branch the remote publishes as default, else the current one."""
-    if remote:
-        head = git(repo_root, "symbolic-ref", "--short", f"refs/remotes/{remote}/HEAD")
-        if head.returncode == 0 and out(head):
-            named = out(head)
-            prefix = f"{remote}/"
-            return named[len(prefix):] if named.startswith(prefix) else named
-    current = git(repo_root, "branch", "--show-current")
-    return out(current) if current.returncode == 0 else ""
+def resolve_base_branch(repo_root: str, remote: str) -> str:
+    """Return the branch ``remote`` publishes as its default, or empty.
+
+    There is deliberately no fall back to whatever branch happens to be
+    checked out: a session standing on a feature lane would name that lane
+    as the project's default and prepare every later lane from it.
+    """
+    if not remote:
+        return ""
+    head = git(repo_root, "symbolic-ref", "--short", f"refs/remotes/{remote}/HEAD")
+    if head.returncode != 0 or not out(head):
+        return ""
+    named = out(head)
+    prefix = f"{remote}/"
+    return named[len(prefix):] if named.startswith(prefix) else named
 
 
 def branch_checkout_path(repo_root: str, base_branch: str) -> str:

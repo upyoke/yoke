@@ -25,8 +25,8 @@ to stderr), exit 2 (usage / bad-input).
 Before the lane or laneless work begins, the default branch is brought
 current with its remote (:mod:`yoke_core.domain.repo_upstream_freshness`):
 a new lane starts from the verified upstream revision, a resumed lane is
-reported on but never reset or rebased, and laneless work refuses rather
-than proceed on a branch that is behind and could not be updated.
+only reported on, an unreadable remote refuses rather than fall back to
+local, and laneless work refuses on a branch that is behind.
 
 Step helpers live in :mod:`yoke_core.domain.worktree_preflight_steps` and
 the envelope in :mod:`yoke_core.domain.worktree_preflight_outcome`, so the
@@ -41,7 +41,6 @@ import os
 import sys
 from typing import Any, Callable, Dict, List, Optional
 
-from yoke_core.domain.repo_upstream_freshness import refresh_base_branch
 from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.worktree_dirty_main_guard import (
     evaluate_dirty_main_for_item,
@@ -50,12 +49,14 @@ from yoke_core.domain.worktree_paths import _normalize_repo_root
 from yoke_core.domain.worktree_preflight_outcome import (
     WorktreePreflightOutcome,
 )
+from yoke_core.domain.worktree_preflight_upstream import (
+    gate_upstream_for_preparation,
+)
 from yoke_core.domain.worktree_preflight_steps import (
     BLOCK_CREATE_FAILED,
     BLOCK_DB_LOCK,
     BLOCK_INPUT,
     BLOCK_PATH_CLAIM,
-    BLOCK_UPSTREAM_STALE,
     BLOCK_WORK_CLAIM,
     CWD_MODE_STATIC,
     activate_path_claims,
@@ -203,27 +204,21 @@ def run_preflight(
         f"path-claim:activated={activated_ids}" if activated_ids else "path-claim:no-op"
     )
 
-    # Step 2.5 — upstream freshness. Work that starts from a default branch
-    # trailing its remote is behind before the first edit, and nothing says
-    # so until the merge. One fetch serves both the lane and laneless
-    # branches below; an existing lane is only reported on, never reset.
-    declared = str((item.get("project") or {}).get("default_branch") or "")
-    freshness = refresh_base_branch(repo_root, declared) if repo_root else None
+    # Step 2.5 — upstream freshness, and what it means for this preparation.
+    gate = gate_upstream_for_preparation(repo_root, item, no_worktree=no_worktree)
+    freshness = gate.freshness
     if freshness is not None:
         out.actions_taken.append(f"upstream:{freshness.state}")
         if freshness.note:
             out.notes.append(freshness.note)
+    if gate.block_kind:
+        out.ok = False
+        out.block_kind = gate.block_kind
+        out.narrative = gate.narrative
+        return out
 
     # Step 3 — worktree resolution / creation.
     if no_worktree:
-        # Laneless work commits onto this branch itself, so a stale branch
-        # that could not be updated is a refusal rather than a note: there
-        # is no lane to cut from the revision that was verified instead.
-        if freshness is not None and freshness.blocked:
-            out.ok = False
-            out.block_kind = BLOCK_UPSTREAM_STALE
-            out.narrative = freshness.note
-            return out
         out.actions_taken.append("worktree:skipped")
     else:
         worktrees_dir = os.path.join(repo_root, ".worktrees")
