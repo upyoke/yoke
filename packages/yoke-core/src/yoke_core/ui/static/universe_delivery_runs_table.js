@@ -145,6 +145,13 @@ export function renderRunsTable(context, body, rows, options) {
     const when = el(documentNode, "td");
     when.appendChild(relativeTime(documentNode, runTimestamp(row)));
     tr.appendChild(when);
+    // Each cell carries its column's name. A phone cannot show eight columns
+    // side by side, so the narrow layout stacks them and prints the name
+    // beside the value — the alternative is a table whose status and stage
+    // progress sit off the right edge where nobody scrolls to find them.
+    for (const [index, cell] of tr.children.entries()) {
+      cell.setAttribute("data-label", RUN_TABLE_COLUMNS[index] || "");
+    }
     table.appendChild(tr);
   }
   wrap.appendChild(table);

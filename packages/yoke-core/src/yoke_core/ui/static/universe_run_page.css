@@ -268,4 +268,48 @@
 }
 @media (max-width: 720px) {
   .universe-app-root .run-title { font-size: 21px; }
+
+  /* Eight columns do not fit a phone, and a horizontally scrolling table
+     hides status and stage progress off the right edge. Each run becomes a
+     block and each cell prints its column name beside its value. */
+  .universe-app-root .delivery-runs-table,
+  .universe-app-root .delivery-runs-table tbody,
+  .universe-app-root .delivery-runs-table tr,
+  .universe-app-root .delivery-runs-table td {
+    display: block;
+    width: auto;
+  }
+
+  .universe-app-root .delivery-runs-table tr:first-child {
+    display: none;
+  }
+
+  .universe-app-root .delivery-runs-table .delivery-run-row {
+    margin-bottom: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--yoke-border);
+  }
+
+  .universe-app-root .delivery-runs-table .delivery-run-row td {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 10px;
+    align-items: baseline;
+    padding: 4px 0;
+    border: 0;
+  }
+
+  .universe-app-root .delivery-runs-table .delivery-run-row td::before {
+    content: attr(data-label);
+    color: var(--yoke-muted);
+    font-size: 9.5px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .universe-app-root .delivery-runs-table td:first-child,
+  .universe-app-root .delivery-run-evidence-cell {
+    min-width: 0;
+  }
 }

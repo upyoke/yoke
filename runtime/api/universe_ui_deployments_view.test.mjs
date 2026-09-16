@@ -167,6 +167,16 @@ test("Runs is one eight-column table whose rows open the run page", async (t) =>
     "#/deployments/runs/run-20260101-001?project=2",
   );
   assert.equal(byClass(root, "delivery-run-card").length, 0);
+  // Every cell names its column, which is what lets a phone stack the row
+  // instead of hiding status and stage progress off the right edge.
+  assert.deepEqual(
+    allNodes(root).filter((node) => node.tagName === "TD")
+      .map((node) => node.attributes.get("data-label")),
+    [
+      "Release", "Project", "Carries", "Target",
+      "Stages", "Status", "QA evidence", "When",
+    ],
+  );
   assert.deepEqual(
     byClass(root, "delivery-run-stage").map(
       (node) => node.attributes.get("data-state"),
