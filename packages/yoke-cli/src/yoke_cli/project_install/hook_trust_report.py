@@ -1,10 +1,11 @@
 """The harness-approval teaching an install report carries.
 
 Writing hook glue is only half of making it run. Yoke mints Codex trust for
-the exact hooks file it authors, while harnesses whose approval stays
-operator-owned still need an explicit teaching sentence. An install that
-stays silent about an unhandled approval step leaves hooks that look installed
-and never fire.
+the exact hooks file it authors. A harness with no declared gate (Claude,
+Cursor) gets no sentence; inventing a Cursor hook-approval prompt would
+teach a step the vendor does not document. An install that stays silent
+about a real unhandled approval step leaves hooks that look installed and
+never fire.
 
 So a run records one sentence per harness whose glue it wrote or updated,
 and the surfaces that report the run — the installer's own JSON and the

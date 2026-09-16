@@ -7,7 +7,10 @@ import pytest
 from yoke_cli.project_install.hook_trust_report import REPORT_KEY
 from yoke_cli.project_install import runner
 from yoke_contracts.codex_hook_trust_store import inspect_hook_file_trust
-from yoke_contracts.harness_hook_approval import HARNESS_HOOK_APPROVAL
+from yoke_contracts.harness_hook_approval import (
+    HARNESS_HOOK_APPROVAL,
+    trust_teaching,
+)
 from yoke_core.domain.project_install import apply_bundle
 from yoke_core.domain.project_install_test_helpers import (
     codex_hooks,
@@ -108,3 +111,15 @@ def test_config_write_refusal_names_path_and_recovery(repo, monkeypatch, tmp_pat
     message = str(caught.value)
     assert str(repo / ".codex/hooks.json") in message
     assert f"re-trust in Codex: open Codex in {repo}, Hooks, Trust" in message
+
+
+def test_cursor_glue_records_no_hook_approval_teaching(repo):
+    bundle = make_bundle()
+    bundle["hooks"]["cursor_hooks"] = {
+        "beforeShellExecution": [{"command": "yoke hook evaluate PreToolUse"}],
+    }
+    report = apply_bundle(repo, bundle, source="test")
+
+    assert report.get(REPORT_KEY) == []
+    assert "cursor" not in HARNESS_HOOK_APPROVAL
+    assert trust_teaching("cursor") is None
