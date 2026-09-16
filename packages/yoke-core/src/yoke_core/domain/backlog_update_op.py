@@ -20,6 +20,9 @@ from yoke_core.domain.backlog_queries import (
 from yoke_core.domain.backlog_authoritative_status_gate import (
     _run_authoritative_status_gate,
 )
+from yoke_core.domain.deployment_qa_source_obligation import (
+    unsatisfied_blocking,
+)
 from yoke_core.domain.backlog_batch_update import execute_batch_update
 from yoke_core.domain.backlog_post_write_sync import run_post_db_sync
 from yoke_core.domain.backlog_project_issue_migration import (
@@ -180,28 +183,11 @@ def _execute_update_once(
 
         if target_status:
             gate.has_merged_at = bool(item_dict.get("merged_at"))
-            # The requirement count keeps the blocking scan off databases with
-            # no QA rows at all, whose minimal schema need not carry every
-            # column that scan reads.
-            qa_req_row = conn.execute(
-                "SELECT COUNT(*) as cnt FROM qa_requirements WHERE item_id = %s",
-                (item_dict["id"],),
-            ).fetchone()
-            if (qa_req_row["cnt"] if qa_req_row else 0) > 0:
-                unsatisfied_all = conn.execute(
-                    """SELECT COUNT(*) as cnt FROM qa_requirements qr
-                       WHERE qr.item_id = %s AND qr.blocking_mode = 'blocking'
-                       AND qr.waived_at IS NULL
-                       AND NOT EXISTS (
-                           SELECT 1 FROM qa_runs qrun
-                           WHERE qrun.qa_requirement_id = qr.id
-                           AND qrun.verdict = 'pass'
-                       )""",
-                    (item_dict["id"],),
-                ).fetchone()
-                gate.unsatisfied_all_blocking = (
-                    unsatisfied_all["cnt"] if unsatisfied_all else 0
-                )
+            blocking = unsatisfied_blocking(
+                conn, item_id=int(item_dict["id"]), target_status=target_status
+            )
+            gate.unsatisfied_all_blocking = blocking.count
+            gate.unsatisfied_includes_post_deploy = blocking.includes_post_deploy
 
         # Deployed-to validation
         if field == "deployed_to" and value:

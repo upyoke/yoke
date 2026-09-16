@@ -70,7 +70,7 @@ Every profile names exactly one delivery outcome:
 2. **Merge-only** — local merge with no environment and no deployment pipeline or run.
 3. **No default** — new items omit `--deployment-flow` until the project chooses delivery later.
 
-When hosting is `deferred` or `not-needed`, offer only merge-only or no default. The confirmation evidence must spell out the chosen name and meaning; never silently turn a no-host profile into stage + prod.
+When hosting is `deferred` or `not-needed`, offer only merge-only or no default. The confirmation evidence must spell out the chosen name and meaning; never silently turn a no-host profile into stage + prod. Bind dash/issue/epic/blitz through `yoke workflows delivery-default set`; never `--apply-to-all` (Task stays exempt). Preview routes stay unassigned unless ephemeral-env exists and `yoke deployment-flows validate` reports `execution_supported=true`.
 
 ### The test-setup box
 

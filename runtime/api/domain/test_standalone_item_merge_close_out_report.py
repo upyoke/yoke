@@ -19,6 +19,7 @@ from yoke_core.domain import standalone_item_merge_evidence as merge_evidence
 from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import standalone_item_merge_verify as verify
 from yoke_core.domain.standalone_item_merge import StandaloneMergeOutcome
+from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 
 LANE_SHA = "1" * 40
 MERGE_SHA = "2" * 40
@@ -90,7 +91,7 @@ def _run_close_out(
         merge_cli, "record_terminal_lane_close_out", lambda *_a, **_k: None
     )
     monkeypatch.setattr(
-        close_out_transition, "release_redirect_stage", lambda *_a: (None, "")
+        close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",))
     )
 
     def dispatch(*, function_id, target, payload=None, **_kw):

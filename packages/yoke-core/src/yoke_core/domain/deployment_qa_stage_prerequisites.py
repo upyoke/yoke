@@ -55,7 +55,9 @@ def _binding_refusal(
     policy_target = stage.get("target")
     observation = target.get("observation")
     deployment = target.get("deployment")
-    if not all(isinstance(value, Mapping) for value in (policy_target, observation, deployment)):
+    if not all(
+        isinstance(value, Mapping) for value in (policy_target, observation, deployment)
+    ):
         return "acceptance has no complete receipt binding"
     if (
         str(deployment.get("run_id") or "") != run_id

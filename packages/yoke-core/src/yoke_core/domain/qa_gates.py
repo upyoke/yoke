@@ -36,6 +36,10 @@ from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.qa_simulation_gate import (  # noqa: F401  (re-export)
     check_epic_simulation_gate,
 )
+from yoke_core.domain.deployment_qa_source_obligation import (
+    row_unsatisfied_at_done,
+)
+from yoke_core.domain.qa_done_gate_refusal import done_gate_refusal_errors
 from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
     _browser_freshness_errors,
     _browser_run_is_fresh,
@@ -204,38 +208,39 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
     conn = connect(db_path)
     try:
         # (1) Blocking-unsat scan
+        # The original row's own passing run is selected rather than filtered
+        # on, because a post_deploy row filtered out for having passed once is
+        # a row the completion-run reading below never gets to refuse.
         rows = query_rows(
             conn,
             f"""
-            SELECT r.id, r.qa_kind, r.qa_phase FROM qa_requirements r
-            WHERE {where}
-              AND r.blocking_mode = 'blocking'
-              AND r.waived_at IS NULL
-              AND NOT EXISTS (
+            SELECT r.id, r.qa_kind, r.qa_phase, EXISTS(
                 SELECT 1 FROM qa_runs qr
                 WHERE qr.qa_requirement_id = r.id
                   AND qr.verdict = 'pass'
-              )
+              ) AS passed
+            FROM qa_requirements r
+            WHERE {where}
+              AND r.blocking_mode = 'blocking'
+              AND r.waived_at IS NULL
             """,
             params,
         )
-        if rows:
-            errors = [
-                f"Error: Cannot transition {name} to 'done' -- {len(rows)} blocking QA requirement(s) unsatisfied.",
-                "  All blocking requirements must have a passing run or be waived.",
-                "  Satisfy each requirement or use the registered waiver "
-                "surface with explicit authorization.",
+        if target.item_id is None:
+            # An epic-task target owns no item-bound deployment run, so the
+            # completion-run reading has nothing to resolve against and the
+            # original row's own pass stays the answer for every phase.
+            rows = [row for row in rows if not row["passed"]]
+        else:
+            rows = [
+                row
+                for row in rows
+                if row_unsatisfied_at_done(conn, row, item_id=int(target.item_id))
             ]
-            for row in rows:
-                waiting = requirement_awaits_human_review(conn, int(row["id"]))
-                errors.extend(
-                    [f"  - {waiting.detail}", f"    {waiting.recovery}"]
-                    if waiting
-                    else [
-                        f"  - Requirement #{row['id']} ({row['qa_kind']}, phase={row['qa_phase']}): no passing run"
-                    ]
-                )
-            return GateResult(passed=False, errors=errors)
+        if rows:
+            return GateResult(
+                passed=False, errors=done_gate_refusal_errors(conn, rows, name=name),
+            )
 
         # (2) Artifact-disk existence
         if repo_root:

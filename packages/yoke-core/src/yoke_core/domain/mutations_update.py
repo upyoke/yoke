@@ -28,6 +28,8 @@ from .mutation_fields import (
 #: done-transition ceremony rather than a raw status mutation — every policy
 #: that waits on a release-stage gate before the terminal stage, including a
 #: still-implementing Blitz's final closeout.
+from yoke_core.domain.deployment_qa_source_obligation import POST_DEPLOY_RECOVERY
+
 _RELEASE_CEREMONY_DELIVERY_POLICIES = frozenset(
     {"release_stage", WORKFLOW_DELIVERY_CONTINUOUS_SLICE_THEN_RELEASE}
 )
@@ -163,12 +165,17 @@ def prepare_update(
             and not gate.qa_bypass
             and not gate.force
         ):
+            recovery = (
+                f" {POST_DEPLOY_RECOVERY}"
+                if gate.unsatisfied_includes_post_deploy
+                else ""
+            )
             return MutationResult(
                 success=False,
                 error=(
                     f"Cannot transition {item.ref} to 'done' -- "
                     f"{gate.unsatisfied_all_blocking} blocking QA "
-                    f"requirement(s) unsatisfied."
+                    f"requirement(s) unsatisfied.{recovery}"
                 ),
                 error_code="GATE_QA_DONE",
                 item_id=item.id,

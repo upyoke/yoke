@@ -13,7 +13,7 @@ from typing import Any, Callable, Optional
 
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.standalone_item_merge_release_status import (
-    release_redirect_stage,
+    close_out_route,
 )
 
 
@@ -45,15 +45,15 @@ def run_terminal_transition(
     of them still reaches this call.
     """
     announce("terminal transition")
-    redirect_stage_id, redirect_error = release_redirect_stage(item, status)
-    if redirect_error:
+    route = close_out_route(item, status)
+    if route.error:
         envelope["ok"] = False
         envelope["error"] = (
             f"merge landed and evidence recorded, but delivery clearance "
-            f"could not be resolved: {redirect_error}"
+            f"could not be resolved: {route.error}"
         )
         return 1
-    if redirect_stage_id == status:
+    if not route.stages:
         # Mid-progress work (e.g. a still-implementing Blitz slice): the
         # pinned delivery will require a release wait eventually, but this
         # status cannot legally reach it yet, so nothing here applies.
@@ -65,7 +65,8 @@ def run_terminal_transition(
         repo_root=str(repo_root),
         lane=close_lane,
         session_id=session_id,
-        redirect_stage_id=redirect_stage_id,
+        stages=route.stages,
+        delivery_discharged=route.delivery_discharged,
     )
     if transition_error:
         # A transition refused on an item another close-out has already

@@ -27,6 +27,9 @@ from yoke_core.domain.deployment_requirement_snapshots import (
     snapshot_flow_requirements,
     snapshot_member_requirements,
 )
+from yoke_core.domain.deployment_qa_admission_materialization import (
+    admitted_requirement_case_key,
+)
 from yoke_core.domain.qa_plan_execution_roster import ordered_plan_requirements
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.qa_plan_management import QaPlanError
@@ -217,7 +220,7 @@ def test_explicit_screenshot_obligation_materializes_before_execution(test_db) -
         deployment_member_item_id=item_id,
     )
     assert roster[0]["plan_id"] is None
-    assert roster[0]["case_key"] == f"admitted-requirement-{original_id}"
+    assert roster[0]["case_key"] == admitted_requirement_case_key(original_id)
     scoped = test_db.execute(
         "SELECT item_id,deployment_member_item_id,method_id,execution_target_json "
         "FROM qa_requirements WHERE id=%s", (roster[0]["requirement_id"],)

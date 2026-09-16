@@ -15,6 +15,13 @@ from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_plan_requirement_snapshot import require_existing_target
 from yoke_core.domain.db_helpers import query_rows
 
+ADMITTED_REQUIREMENT_CASE_PREFIX = "admitted-requirement-"
+
+
+def admitted_requirement_case_key(source_id: int) -> str:
+    """Stable case key for a frozen-admission copy of an intake row."""
+    return f"{ADMITTED_REQUIREMENT_CASE_PREFIX}{int(source_id)}"
+
 
 def _target_environment(target: Mapping[str, Any]) -> str:
     environment = target.get("environment")
@@ -69,7 +76,7 @@ def materialize_admitted_requirement(
     source_id = int(requirement.get("id") or 0)
     if source_id < 1:
         raise QaPlanError("frozen member QA requirement has no source identity")
-    case_key = f"admitted-requirement-{source_id}"
+    case_key = admitted_requirement_case_key(source_id)
     existing = conn.execute(
         "SELECT id,execution_target_json,execution_target_digest "
         "FROM qa_requirements WHERE deployment_run_id=%s AND deployment_stage=%s "
@@ -302,6 +309,8 @@ def fulfill_admitted_obligations(
 
 
 __all__ = [
+    "ADMITTED_REQUIREMENT_CASE_PREFIX",
+    "admitted_requirement_case_key",
     "fulfill_admitted_obligations",
     "materialize_admitted_requirement",
     "member_requirements",

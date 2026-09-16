@@ -22,6 +22,7 @@ from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
 from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
+from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.dash_execution import record_dash_evidence
@@ -94,7 +95,7 @@ def _close_out_racing(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(sim_cli.evidence, "record", lambda **_k: "")
     monkeypatch.setattr(
-        close_out_transition, "release_redirect_stage", lambda *_a: (None, ""),
+        close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",)),
     )
     monkeypatch.setattr(
         sim_cli.close_out,

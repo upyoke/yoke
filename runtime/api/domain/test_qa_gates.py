@@ -13,7 +13,7 @@ from runtime.api.domain.qa_gate_test_support import (
     apply_items_only as _apply_items_only,
     qa_db as qa_db,
 )
-from runtime.api.fixtures.file_test_db import init_test_db
+from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain.qa_gates import (
     GateTarget,
     LatestCodeRef,
@@ -100,10 +100,36 @@ class TestCheckDoneGate:
     def test_tc_passes_when_all_satisfied(self, qa_db):
         req_id = _add_requirement(qa_db, qa_phase="verification")
         _add_run(qa_db, req_id, "pass")
-        req_id2 = _add_requirement(qa_db, qa_phase="post_deploy")
-        _add_run(qa_db, req_id2, "pass")
         target = GateTarget(item_id=42)
         result = check_done_gate(target, qa_db)
+        assert result.passed
+
+    def test_tc_post_deploy_needs_more_than_its_own_passing_run(self, qa_db):
+        """A post_deploy row is answered by the completion run's admitted
+        copy. Its own passing run proves whatever was deployed when it ran,
+        so it does not close the item out on its own; with no such run the
+        remedy is the registered waiver surface, not that earlier pass."""
+        req_id = _add_requirement(qa_db, qa_phase="verification")
+        _add_run(qa_db, req_id, "pass")
+        req_id2 = _add_requirement(qa_db, qa_phase="post_deploy")
+        _add_run(qa_db, req_id2, "pass")
+        result = check_done_gate(GateTarget(item_id=42), qa_db)
+        assert not result.passed
+        assert any(f"#{req_id2}" in error for error in result.errors)
+
+    def test_tc_a_waived_post_deploy_row_no_longer_holds_done(self, qa_db):
+        req_id = _add_requirement(qa_db, qa_phase="verification")
+        _add_run(qa_db, req_id, "pass")
+        req_id2 = _add_requirement(qa_db, qa_phase="post_deploy")
+        _add_run(qa_db, req_id2, "pass")
+        conn = connect_test_db(qa_db)
+        conn.execute(
+            "UPDATE qa_requirements SET waived_at=%s WHERE id=%s",
+            ("2026-09-16T00:00:00Z", req_id2),
+        )
+        conn.commit()
+        conn.close()
+        result = check_done_gate(GateTarget(item_id=42), qa_db)
         assert result.passed
 
     def test_tc_fails_when_unsatisfied_any_phase(self, qa_db):
@@ -122,7 +148,7 @@ class TestCheckDoneGate:
             ("project operator", "project owner"),
         )
         with mock.patch(
-            "yoke_core.domain.qa_gates.requirement_awaits_human_review",
+            "yoke_core.domain.qa_done_gate_refusal.requirement_awaits_human_review",
             return_value=waiting,
         ):
             result = check_done_gate(GateTarget(item_id=42), qa_db)

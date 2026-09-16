@@ -31,9 +31,9 @@ After project is decided, resolve and print this machine's local checkout for th
 ### b. Infer deployment flow
 
 Read and follow [infer-deployment-flow.md](infer-deployment-flow.md) before
-setting `_deployment_flow`. That sibling owns the lookup, the persistent vs
-merge-only/`-internal` attach rule, the omit cases (non-delivery work or no
-healthy hosting), fallback inference when get is empty, and the ban on
+setting `_deployment_flow`. That sibling owns registered-flow lookup
+(not an id suffix), omission-as-inheritance, fallback via
+`deployment-flows list`, reporting missing setup, and the ban on
 storing the literal `none`.
 
 ### c. Infer workflow
@@ -293,8 +293,9 @@ yoke claims work acquire \
 ```
 
 The claim is the live-race fix; `body-and-sync.md` releases it with
-`--reason idea-complete` once the spec body, AC normalization, and File
-Budget have all landed. Skip in `--dry-run` mode (no row to claim).
+`--reason idea-complete` once the spec, ACs, and File Budget land.
+Skip `--dry-run`. Delivery evidence/screenshot/approval after this claim:
+[delivery-requirements.md](delivery-requirements.md).
 
 The configured stale-heartbeat reclaim window (`session_stale_ttl_minutes`
 in machine config) in the harness session store is the safety net

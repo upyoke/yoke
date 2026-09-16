@@ -148,16 +148,44 @@ Deployment flows are ordinary database rows. Create each one with a command; not
 
 If the checkout already carries deploy configuration of any shape — a CI workflow, a deploy script, an older `.yoke/deployment-flows.json` from a previous Yoke version — read it as a **hint** about the stages this project wants. Whatever shape it has is acceptable input and none of it is contractual: no schema, no version, no required keys. Such a file is the project's own, and may still have consumers inside its repository: do not author, migrate, repair, or delete one, and never make onboarding depend on one parsing.
 
-Create one flow per route, then set the project default:
+Validate the proposed stages against the **serving** runtime before create
+or default assignment. A non-Yoke project with no staging environment, and a
+non-web project, are valid coverage: do not invent a stage environment or a
+preview route they cannot execute.
+
+```bash
+yoke deployment-flows validate --project {project} --stages-file {stages_path} \
+  --target-tier persistent --environment {environment} --status active --json
+```
+
+`execution_supported=false` (or a refusal naming `serving runtime executes
+through schema N`): create with `--status disabled`, do **not** assign it as
+a default, and keep advanced/preview routes unassigned until that runtime is
+deployed. Successful config writes are not proof the serving executor can
+run the flow.
+
+When `execution_supported=true`, create one flow per route, then set defaults:
 
 ```bash
 yoke deployment-flows create {flow_id} --project {project} --name "{flow_name}" \
   --stages-file {stages_path} --target-tier persistent --environment {environment}
 yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"deploy_defaults","attachment":"project","payload":{"deployment_flow":"{default_flow_id}"}}]'
+yoke workflows delivery-default set --project {project} --workflow dash --flow {default_flow_id}
+yoke workflows delivery-default set --project {project} --workflow issue --flow {default_flow_id}
+yoke workflows delivery-default set --project {project} --workflow epic --flow {default_flow_id}
+yoke workflows delivery-default set --project {project} --workflow blitz --flow {default_flow_id}
 yoke project-structure deploy-defaults get --project {project}
+yoke workflows mechanics get --json
 ```
 
-A persistent flow names exactly one registered environment; an ephemeral flow (`--target-tier ephemeral`) deploys per-run preview substrate and names none; a merge-only flow declares neither. Retire a route with `yoke deployment-flows set-status {flow_id} disabled` — a definition a run has referenced is immutable, so a changed route is a retirement plus a new flow, and history stays readable.
+Never `--apply-to-all`: Task stays exempt even if an old mapping contains a
+flow. Do not silently modify a definition another project or item already
+uses. On rerun, read `yoke workflows mechanics get --json` and confirm
+dash, issue, epic, and blitz `delivery_defaults` match the confirmed
+default — a leftover workflow-specific row overrides the project default.
+Skip create/set only when all four already match.
+
+A persistent flow names exactly one registered environment; an ephemeral flow (`--target-tier ephemeral`) deploys per-run preview substrate and names none; a merge-only flow declares neither. Propose preview only when the project actually has ephemeral-env capability **and** validate reports `execution_supported=true` for that definition. Retire a route with `yoke deployment-flows set-status {flow_id} disabled` — a definition a run has referenced is immutable, so a changed route is a retirement plus a new flow, and history stays readable.
 
 ### Hosting deferred/not-needed: create the confirmed merge-only default
 
@@ -169,10 +197,15 @@ yoke deployment-flows create {project}-merge-only --project {project} \
   --stages-json '[{"name":"merged","step_runner":"auto"},{"name":"complete","step_runner":"auto"}]'
 yoke deployment-flows get {project}-merge-only target_tier
 yoke project-structure patch apply --project {project} --ops-json '[{"op":"put","family":"deploy_defaults","attachment":"project","payload":{"deployment_flow":"{project}-merge-only"}}]'
+yoke workflows delivery-default set --project {project} --workflow dash --flow {project}-merge-only
+yoke workflows delivery-default set --project {project} --workflow issue --flow {project}-merge-only
+yoke workflows delivery-default set --project {project} --workflow epic --flow {project}-merge-only
+yoke workflows delivery-default set --project {project} --workflow blitz --flow {project}-merge-only
 yoke project-structure deploy-defaults get --project {project}
+yoke workflows mechanics get --json
 ```
 
-The target-tier read must print nothing and the default readback must print exactly `{project}-merge-only`. If that id already exists with a different immutable definition, disable it and create a new behavior-named flow before setting the default. A failed create or readback marks `delivery-setup=blocked` with the exact command and recovery recipe below; stop rather than claiming merge-only delivery.
+A merge-only default is delivery, not the absence of it: an item that resolves to this flow discharges its delivery at the merge, so its close-out transitions through every stage its pinned definition declares — the release wait included — and reaches `done` without any deployment run. The target-tier read must print nothing and the default readback must print exactly `{project}-merge-only`. If that id already exists with a different immutable definition, disable it and create a new behavior-named flow before setting the default. A failed create or readback marks `delivery-setup=blocked` with the exact command and recovery recipe below; stop rather than claiming merge-only delivery.
 
 After both reads verify, record the no-environment registration and the runless default:
 

@@ -45,7 +45,13 @@ def _relay_error(response: Any, fallback: str) -> str:
     return getattr(error, "message", None) or fallback if error else fallback
 
 
-def _execute(item_id: int, source_status: str, target_status: str) -> str:
+def _execute(
+    item_id: int,
+    source_status: str,
+    target_status: str,
+    *,
+    done_nonce_verified: bool = False,
+) -> str:
     response = call_dispatcher(
         function_id="lifecycle.transition.execute",
         target=TargetRef(kind="item", item_id=item_id),
@@ -53,6 +59,7 @@ def _execute(item_id: int, source_status: str, target_status: str) -> str:
             "source_status": source_status,
             "target_status": target_status,
             "reason": TRANSITION_REASON,
+            "done_nonce_verified": done_nonce_verified,
         },
     )
     if response.success:
@@ -67,20 +74,29 @@ def transition_to_done(
     repo_root: str,
     lane: LandedLane,
     session_id: str = "",
-    redirect_stage_id: str | None = None,
+    stages: tuple[str, ...] = (TERMINAL_STATUS,),
+    delivery_discharged: bool = False,
 ) -> tuple[str, str]:
     """Close the item out, or land it at its pinned release wait.
 
-    ``redirect_stage_id`` is the caller's own resolution, from the pinned
-    delivery policy, of the one stage this status has not yet reached --
-    ``None`` when the item's delivery is already clear to close straight to
-    ``done``. Deciding this before calling means exactly one transition
-    attempt at whichever target is actually correct, rather than trying
-    ``done`` and reinterpreting any refusal (an approval gate, a transport
-    failure, a stale precondition) as license to try a different one.
+    ``stages`` is the caller's own resolution, from the pinned definition
+    and the item's registered deployment flow, of the declared stages this
+    close-out walks -- one transition per declared edge, so a stage between
+    here and the terminal one still runs its own gates rather than being
+    skipped by a jump the definition never declared. Deciding the whole
+    route before calling means each attempt lands at a target that is
+    actually declared, rather than trying ``done`` and reinterpreting any
+    refusal (an approval gate, a transport failure, a stale precondition)
+    as license to try a different one.
+
+    ``delivery_discharged`` says the merge that just landed was the whole
+    of this item's delivery, so this boundary asserts the done-transition
+    ceremony on its terminal step the same way the deploy engine asserts it
+    after running one. An item whose delivery is still owed is never marked
+    discharged, and its ``stages`` stop at the release wait.
 
     Returns ``(new_status, refusal)``. ``new_status`` is the item's actual
-    resulting status -- the attempted target on success -- and is only
+    resulting status -- the last attempted target on success -- and is only
     meaningful when ``refusal`` is empty.
     """
     if source_status == TERMINAL_STATUS:
@@ -108,11 +124,18 @@ def transition_to_done(
                 f"the merge is landed but close-out authority could not be "
                 f"recovered to finish it: {recovery_error}"
             )
-    target = redirect_stage_id or TERMINAL_STATUS
-    refusal = _execute(item_id, source_status, target)
-    if refusal:
-        return "", refusal
-    return target, ""
+    reached = source_status
+    for target in stages:
+        refusal = _execute(
+            item_id,
+            reached,
+            target,
+            done_nonce_verified=delivery_discharged and target == TERMINAL_STATUS,
+        )
+        if refusal:
+            return "", refusal
+        reached = target
+    return reached, ""
 
 
 __all__ = ["TERMINAL_STATUS", "TRANSITION_REASON", "transition_to_done"]
