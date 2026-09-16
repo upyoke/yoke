@@ -12,7 +12,7 @@
 
 import { buildUniverseRoute } from "./universe_navigation.js";
 import { steeringMarker } from "./universe_sessions_steering.js";
-import { relativeTime } from "./universe_time.js";
+import { relativeAgePhrase } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
 
 // Documents every project has from its cold start, in the order they build on
@@ -117,9 +117,11 @@ export function strategyDocumentCard(documentNode, doc, project) {
   age.appendChild(el(documentNode, "span", "strategy-doc-age-dot"));
   // The dot and the card's own subject already say this is when the document
   // was last written; the word "updated" in front of it was the third time.
-  // The element stays a `<time>`, so the exact moment is one press away and
-  // reaches a reader who cannot use "77d ago".
-  age.appendChild(relativeTime(documentNode, doc.updated_at));
+  // Plain text rather than the pressable timestamp: a card is a glance, and
+  // the exact moment belongs on the document the card opens.
+  age.appendChild(el(
+    documentNode, "span", null, relativeAgePhrase(doc.updated_at),
+  ));
   head.appendChild(age);
   card.appendChild(head);
   const claim = liveDocumentClaim(doc);

@@ -91,11 +91,12 @@ test("strategy cards carry the corpus facts from one read", async (t) => {
     ["YOK", "YOK", "YOK"],
   );
   // The age says when, without the word the dot beside it already implies,
-  // and stays a `<time>` so the exact moment is one press away.
+  // and as plain text: a card is a glance, and the exact moment belongs on
+  // the document the card opens.
   const ages = byClass(root, "strategy-doc-age").map((node) => node.textContent);
   assert.ok(ages[0].includes(relativeAge("2026-07-01")));
   assert.ok(!ages[0].includes("updated"));
-  assert.equal(byClass(root, "strategy-doc-age")[0].children.at(-1).tagName, "TIME");
+  assert.equal(byClass(root, "strategy-doc-age")[0].children.at(-1).tagName, "SPAN");
 
   // A session hold is a steering seat, and says so once.
   const claims = byClass(root, "strategy-doc-claim");

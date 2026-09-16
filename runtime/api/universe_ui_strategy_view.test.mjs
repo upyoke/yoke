@@ -168,7 +168,6 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
   const card = byClass(main, "strategy-doc-card")[0];
   assert.equal(card.tagName, "A");
   assert.equal(card.href, "#/strategy/WORKFLOW-TYPES?project=1");
-  assert.ok(allNodes(main).some((node) => node.tagName === "TIME"));
 });
 
 test("Strategy detail exposes document, history, diff, and restore", async () => {

@@ -215,7 +215,7 @@ export function createWorkbenchChrome({
   // Only ever visible while the drawer is: at full width the sidebar is part
   // of the page and has nothing to close.
   const navigationClose = el(
-    documentNode, "button", "navigation-close", "Close ×",
+    documentNode, "button", "navigation-close", "Close navigation ×",
   );
   navigationClose.type = "button";
   navigationClose.hidden = true;

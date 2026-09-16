@@ -318,7 +318,8 @@
 }
 .universe-app-root .session-filter-actions {
   display: flex;
-  flex: 0 0 auto;
+  /* Refusing to shrink or wrap put Load more past a 320px edge. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   margin-left: auto;
