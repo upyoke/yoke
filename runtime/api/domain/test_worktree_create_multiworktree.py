@@ -15,6 +15,7 @@ from yoke_core.domain.item_worktrees import record_item_worktree
 from yoke_core.domain.worktree import create_worktree
 from runtime.api.domain.worktree_test_helpers import pin_test_item_workflow
 from runtime.api.fixtures.file_test_db import connect_test_db
+from runtime.api.domain.worktree_test_helpers import seed_lane_item
 
 
 def _placeholder(conn) -> str:
@@ -229,16 +230,19 @@ class TestCreateWorktreeMultiWorktree:
         # before side effects.
         assert not os.path.isdir(entries[0][1])
 
-    def test_result_backward_compat_for_single_worktree(self, git_repo):
+    def test_result_backward_compat_for_single_worktree(self, git_repo, yoke_db):
         # Existing single-worktree callers receive populated path/branch/created.
+        # The lane is named by the item's own sequence, which is deliberately
+        # not its internal id.
+        lane_ref = seed_lane_item(yoke_db, 99205, project_sequence=3051)
         result = create_worktree(
             99205,
             project="yoke",
             repo_root=str(git_repo),
             config_path=_config_path(git_repo),
         )
-        assert result.path.endswith(".worktrees/YOK-99205")
-        assert result.branch == "YOK-99205"
+        assert result.path.endswith(f".worktrees/{lane_ref}")
+        assert result.branch == lane_ref
         assert result.created is True
         # `worktrees` is present but len()==1 for single-worktree.
         assert len(result.worktrees) == 1
@@ -286,10 +290,12 @@ class TestCreateWorktreeMultiWorktree:
     def test_main_create_prints_single_path_for_issue(
         self,
         git_repo,
+        yoke_db,
         monkeypatch,
         capsys,
     ):
         # Single-worktree callers still see one path on stdout (no change).
+        lane_ref = seed_lane_item(yoke_db, 99207, project_sequence=3052)
         original = worktree_cli.create_worktree
 
         def patched_create(item_num, **kwargs):
@@ -313,7 +319,7 @@ class TestCreateWorktreeMultiWorktree:
         assert rc == 0, capsys.readouterr().err
         out = capsys.readouterr().out.strip().splitlines()
         assert len(out) == 1
-        assert out[0].endswith(".worktrees/YOK-99207")
+        assert out[0].endswith(f".worktrees/{lane_ref}")
 
     def test_epic_without_worker_lanes_is_rejected(self, git_repo, yoke_db):
         # Task-graph workflows require their universal worker lanes first.

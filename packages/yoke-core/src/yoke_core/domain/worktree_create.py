@@ -29,6 +29,7 @@ from yoke_core.domain.worktree_create_plan import (
     dirty_main_error,
     preflight_worktree_plan,
 )
+from yoke_core.domain.worktree_naming import ItemWorktreeIdentityUnresolved
 from yoke_core.domain.worktree_lane_plan import (
     resolve_worktree_lanes_for_item,
 )
@@ -88,11 +89,10 @@ def create_worktree(
             find_repo_root(Path(__file__)) / ".agents" / "skills" / "yoke" / "scripts"
         )
 
-    # Cosmetic branch label for early error returns before the lane resolver
-    # runs; the real created names come from resolve_worktree_lanes_for_item.
-    from yoke_core.domain.worktree_naming import worktree_name_for_item
-
-    fallback_branch = worktree_name_for_item(None, item_id)
+    # Early error returns happen before the lane resolver runs, so no branch
+    # has been named yet and this field has nothing truthful to carry. It
+    # stays empty rather than showing a name nothing created.
+    fallback_branch = ""
     repo_root_was_explicit = repo_root is not None
 
     # --- Resolve repo root ---
@@ -188,13 +188,20 @@ def create_worktree(
         db_path = _resolve_db_path_for_worktrees(
             repo_root_was_explicit=repo_root_was_explicit,
         )
-    raw_worktrees = resolve_worktree_lanes_for_item(
-        int(item_id),
-        repo_root,
-        wt_dir,
-        db_path,
-        authoritative_lanes=authoritative_lanes,
-    )
+    try:
+        raw_worktrees = resolve_worktree_lanes_for_item(
+            int(item_id),
+            repo_root,
+            wt_dir,
+            db_path,
+            authoritative_lanes=authoritative_lanes,
+        )
+    except ItemWorktreeIdentityUnresolved as exc:
+        # The lane would have to be named before it can be created, and the
+        # name is the one thing that cannot be guessed.
+        return CreateWorktreeResult(
+            path="", branch="", created=False, error=str(exc),
+        )
 
     # --- All-worktree preflight (no side effects yet) ---
     max_wt = runtime_settings.get_int(

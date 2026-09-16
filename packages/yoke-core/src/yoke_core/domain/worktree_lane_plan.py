@@ -13,7 +13,10 @@ from yoke_core.domain.workflow_behavior import (
     worktree_lane_policy,
 )
 from yoke_core.domain.workflow_runtime import load_item_workflow_runtime
-from yoke_core.domain.worktree_naming import worktree_name_for_item
+from yoke_core.domain.worktree_naming import (
+    ItemWorktreeIdentityUnresolved,
+    worktree_name_for_item,
+)
 
 
 def normalize_worktree_lane(
@@ -46,17 +49,13 @@ def resolve_worktree_lanes_for_item(
 
     New lanes are named by the item's public ref (via
     :func:`worktree_name_for_item`) so users never see a worktree/branch
-    named with the raw internal id. When no usable connection is available
-    (connect failure, item absent), the degraded fallback keeps the legacy
-    ``YOK-{internal_id}`` name because the public sequence cannot be read.
+    named with the raw internal id. When the public sequence cannot be read
+    at all — no usable connection, or no such item — this raises
+    :class:`ItemWorktreeIdentityUnresolved` rather than planning a lane under
+    a name assembled from the storage key. Lanes already recorded in
+    ``item_worktrees`` (and any ``authoritative_lanes`` passed in) are
+    returned under the names they were created with, unrenamed.
     """
-    fallback_name = worktree_name_for_item(None, item_id)
-    fallback_path = os.path.join(
-        repo_root,
-        worktrees_dir,
-        fallback_name,
-    )
-    fallback = [(fallback_name, fallback_path, LANE_IMPLEMENTATION)]
     if authoritative_lanes is not None:
         role_order = {
             LANE_INTEGRATION: 0,
@@ -83,8 +82,11 @@ def resolve_worktree_lanes_for_item(
 
     try:
         conn = connect(db_path)
-    except Exception:
-        return fallback
+    except Exception as exc:
+        raise ItemWorktreeIdentityUnresolved(
+            "cannot plan a worktree lane: the control plane is unreachable, "
+            "so the item's project prefix and sequence cannot be read"
+        ) from exc
     try:
         marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
         if (
@@ -94,7 +96,10 @@ def resolve_worktree_lanes_for_item(
             ).fetchone()
             is None
         ):
-            return fallback
+            raise ItemWorktreeIdentityUnresolved(
+                "cannot plan a worktree lane: no item backs the requested "
+                "reference, so it has no prefix or sequence to name one with"
+            )
         wt_name = worktree_name_for_item(conn, int(item_id))
         wt_path = os.path.join(repo_root, worktrees_dir, wt_name)
         runtime = load_item_workflow_runtime(conn, int(item_id))

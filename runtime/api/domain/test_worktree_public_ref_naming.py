@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 from runtime.api.domain.test_worktree_create_multiworktree import _config_path
 from runtime.api.fixtures.file_test_db import connect_test_db
 from yoke_core.domain.item_worktree_resolution import (
@@ -18,7 +20,15 @@ from yoke_core.domain.item_worktree_resolution import (
 )
 from yoke_core.domain.item_worktree_schema import ensure_item_worktree_schema
 from yoke_core.domain.worktree import create_worktree
-from yoke_core.domain.worktree_naming import worktree_name_for_item
+from yoke_core.domain.worktree_lane_plan import (
+    resolve_worktree_lanes_for_item,
+)
+from yoke_core.domain.worktree_naming import (
+    ItemWorktreeIdentityUnresolved,
+    candidate_worktree_names,
+    legacy_worktree_name,
+    worktree_name_for_item,
+)
 from runtime.api.domain.worktree_test_helpers import pin_test_item_workflow
 
 
@@ -115,3 +125,77 @@ def test_reverse_lookup_resolves_legacy_internal_id_named_worktree(
         assert resolve_item_id_by_worktree_name(conn, "YOK-999999") is None
     finally:
         conn.close()
+
+
+def test_minting_refuses_when_no_identity_resolves(yoke_db):
+    """An item with no identity row gets a refusal, not YOK-{items.id}.
+
+    The number in such a name is the storage key, and it names whichever
+    item owns it as a sequence — so the branch, the directory, and every
+    later lookup would carry that claim.
+    """
+    unbacked_id = 99245
+
+    conn = connect_test_db(yoke_db)
+    try:
+        with pytest.raises(ItemWorktreeIdentityUnresolved) as exc_info:
+            worktree_name_for_item(conn, unbacked_id)
+    finally:
+        conn.close()
+
+    message = str(exc_info.value)
+    assert str(unbacked_id) not in message
+    assert "items.id" not in message
+
+
+def test_minting_refuses_without_a_connection():
+    """No connection is no identity read, so there is nothing to name from."""
+    with pytest.raises(ItemWorktreeIdentityUnresolved):
+        worktree_name_for_item(None, 99246)
+
+
+def test_lookup_still_offers_the_legacy_name_for_an_unbacked_item(yoke_db):
+    """Recognising an existing lane is the direction that may still guess.
+
+    Lanes created before public-ref naming are on disk under the legacy
+    shape and are never renamed, so the candidate set keeps offering it even
+    where minting refuses.
+    """
+    unbacked_id = 99247
+
+    conn = connect_test_db(yoke_db)
+    try:
+        names = candidate_worktree_names(conn, unbacked_id)
+    finally:
+        conn.close()
+
+    assert legacy_worktree_name(unbacked_id) in names
+
+
+def test_lane_plan_refuses_rather_than_planning_an_invented_name(
+    git_repo, yoke_db,
+):
+    """The degraded plan used to name a lane from the internal id."""
+    with pytest.raises(ItemWorktreeIdentityUnresolved):
+        resolve_worktree_lanes_for_item(
+            99248, str(git_repo), ".worktrees", yoke_db,
+        )
+
+
+def test_create_reports_the_refusal_instead_of_creating_a_lane(
+    git_repo, yoke_db, monkeypatch,
+):
+    """The refusal reaches the caller as a result, naming no branch."""
+    monkeypatch.setenv("YOKE_SESSION_ID", "unbacked-lane-owner")
+
+    result = create_worktree(
+        99249,
+        repo_root=str(git_repo),
+        config_path=_config_path(git_repo),
+        db_path=yoke_db,
+    )
+
+    assert result.created is False
+    assert result.error
+    assert result.branch == ""
+    assert "99249" not in (result.error or "")

@@ -120,9 +120,11 @@ def _cleanup_stale_branches(
             )
             return False
 
-    from yoke_core.domain.worktree_naming import worktree_name_for_item
+    from yoke_core.domain.worktree_naming import legacy_worktree_name
 
-    branch = lane_branch or worktree_name_for_item(None, item_id)
+    # Finding the lane to clean up, not naming one: an unrecorded lane
+    # predates public-ref naming and sits under the legacy shape.
+    branch = lane_branch or legacy_worktree_name(item_id)
     if not _branch_exists(project_repo, branch):
         return _delete_remote_for_lane(project_repo, branch, base_branch)
 

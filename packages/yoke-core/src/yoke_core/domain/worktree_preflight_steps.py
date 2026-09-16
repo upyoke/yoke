@@ -38,24 +38,44 @@ CWD_MODE_STATIC = "static"
 def resolve_item_branch_and_lane(item_id: int) -> Tuple[str, Optional[str]]:
     """Return ``(branch_name, recorded_active_lane_path)`` for an item.
 
-    ``branch_name`` is the item's public ref (falls back to the legacy
-    ``YOK-{item_id}`` form when the public sequence cannot be read).
+    ``branch_name`` is the item's public ref.
     ``recorded_active_lane_path`` is the path of the item's active primary
     lane when one exists — so re-entry detects a worktree created under either
     the public-ref scheme or the legacy ``YOK-{internal_id}`` scheme, instead
-    of reconstructing a name that may not match what is on disk.
-    """
-    from yoke_core.domain.worktree_naming import worktree_name_for_item
+    of reconstructing a name that may not match what is on disk. A recorded
+    lane's own branch always wins, unrenamed.
 
+    Raises :class:`ItemWorktreeIdentityUnresolved` when no reference resolves
+    and no lane is recorded, because the branch this returns is the name a
+    lane gets created under.
+    """
+    from yoke_core.domain.worktree_naming import (
+        ItemWorktreeIdentityUnresolved,
+        worktree_name_for_item,
+    )
+
+    branch: Optional[str] = None
+    lane = None
     try:
         from yoke_core.domain.db_helpers import connect
         from yoke_core.domain.item_worktrees import primary_item_worktree
 
         with connect() as conn:
-            branch = worktree_name_for_item(conn, item_id)
             lane = primary_item_worktree(conn, int(item_id))
+            try:
+                branch = worktree_name_for_item(conn, item_id)
+            except ItemWorktreeIdentityUnresolved:
+                branch = None
+    except ItemWorktreeIdentityUnresolved:
+        raise
     except Exception:  # noqa: BLE001 - degrade if DB unavailable
-        return worktree_name_for_item(None, item_id), None
+        lane = None
+    if branch is None and not (lane and lane.get("branch")):
+        raise ItemWorktreeIdentityUnresolved(
+            "cannot name a worktree lane: the item's project prefix and "
+            "sequence do not resolve and no lane is recorded for it"
+        )
+    branch = branch or ""
     branch_out = branch
     path_out = None
     if lane:
