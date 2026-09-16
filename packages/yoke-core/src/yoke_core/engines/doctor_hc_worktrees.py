@@ -41,6 +41,7 @@ from yoke_core.engines.doctor_hc_worktrees_branches import (  # noqa: F401
     hc_branch_divergence,
     hc_stale_remote_branches,
 )
+from yoke_contracts.public_ref import parse_public_item_ref
 from yoke_core.domain.worktree_naming import legacy_worktree_name
 
 
@@ -50,9 +51,6 @@ _DELEGATED_SYNC_HCS = [
     "reverse-completeness", "comment-sync", "label-drift", "state-drift",
     "frozen-label-drift", "blocked-label-drift", "task-label-drift",
 ]
-
-
-_RENDERED_REF_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*-\d+$")
 
 
 def _github_auth_configured(project: str = "yoke", db_path=None) -> bool:
@@ -171,10 +169,11 @@ def hc_cross_project_commits(conn, args: DoctorArgs, rec: RecordCollector) -> No
         # quoting it while finding nothing the rest of the time — so the
         # item's own legacy identity rides along, the way the merge
         # recovery guard and the deploy evidence gate both do.
-        search_keys = sorted(
-            {legacy_worktree_name(int(item_id))}
-            | ({public_ref} if _RENDERED_REF_RE.match(public_ref) else set())
-        )
+        prefix, sequence = parse_public_item_ref(public_ref)
+        keys = {legacy_worktree_name(int(item_id))}
+        if prefix is not None and sequence is not None:
+            keys.add(public_ref)
+        search_keys = sorted(keys)
         # Find commits on base branch referencing this item
         log_cmd = [
             "git", "log", "main", "--oneline", "-E",
