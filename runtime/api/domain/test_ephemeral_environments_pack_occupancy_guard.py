@@ -284,3 +284,67 @@ class TestTheSlugMustBeTheOneThePreviewNames:
         refused = _cleanup(tmp_path, preview=PREVIEW, slug="some-other-occupancy")
         assert refused.returncode == 1
         assert "ownership_mismatch" in refused.stderr
+
+
+class TestPreviewsPublishedBeforeRunNaming:
+    """They are still on the host, and a branch must not be able to take one.
+
+    The reserved shape moved when previews became run-named, which would
+    otherwise have opened the earlier one to a branch of that name — and a
+    branch deploy never reads the owner record.
+    """
+
+    RETAINED = "rel-fec2595bb0bf58eca94a56710d1a087e"
+
+    def test_a_branch_cannot_resolve_onto_a_retained_occupancy(self) -> None:
+        refused = _run("resolve", "--branch", self.RETAINED, "--github-sha", SHA)
+        assert refused.returncode == 1
+        assert "reserved_slug" in refused.stderr
+
+    def test_the_downstream_guard_refuses_it_too(self) -> None:
+        # The reusable job re-checks rather than trusting its caller.
+        refused = _run("assert-unreserved", "--slug", self.RETAINED)
+        assert refused.returncode == 1
+        assert "reserved_slug" in refused.stderr
+
+    def test_a_branch_teardown_cannot_remove_one(self, tmp_path: Path) -> None:
+        owner = _owner_file(tmp_path, self.RETAINED)
+        owner.parent.mkdir(parents=True)
+        owner.write_text(json.dumps({"yoke_dispatch_id": "yd-1", "commit_sha": SHA}))
+        refused = _cleanup(tmp_path, slug=self.RETAINED)
+        assert refused.returncode == 1
+        assert "reserved_slug" in refused.stderr
+        assert owner.exists()
+
+    def test_nothing_new_is_published_under_that_shape(self) -> None:
+        """Reserved is not publishable: the run shape is the only name a
+        release preview may be created under now."""
+        refused = _run(
+            "resolve", "--commit-sha", SHA, "--preview-slug", self.RETAINED
+        )
+        assert refused.returncode == 1
+        assert "unreserved_preview_slug" in refused.stderr
+
+
+class TestTwoUniversesSharingAPreviewDomain:
+    """Run ids are unique within a universe, so a collision needs two of them.
+
+    `deployment_runs.id` is a universe-wide primary key rather than a
+    per-project one, so two projects sharing a preview domain cannot collide.
+    Two separate installs sharing a host can, and the occupancy record is what
+    refuses — no name could have told them apart.
+    """
+
+    def test_the_second_universes_candidate_is_refused(self, tmp_path: Path) -> None:
+        assert _claim(tmp_path, PREVIEW, SHA).returncode == 0
+        refused = _claim(tmp_path, PREVIEW, OTHER_SHA)
+        assert refused.returncode == 1
+        assert "occupancy_conflict" in refused.stderr
+        assert json.loads(_owner_file(tmp_path, PREVIEW).read_text())[
+            "commit_sha"
+        ] == SHA
+
+    def test_the_same_candidate_is_the_ordinary_reuse(self, tmp_path: Path) -> None:
+        # One commit under one name is one preview, whoever deployed it.
+        assert _claim(tmp_path, PREVIEW, SHA).returncode == 0
+        assert _claim(tmp_path, PREVIEW, SHA).stdout.strip() == "reuse"

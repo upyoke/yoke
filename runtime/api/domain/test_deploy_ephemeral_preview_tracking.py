@@ -311,3 +311,4 @@ class TestABranchNamedForARunCannotReachItsPreview:
         recorded = {key: u for _p, key, u, _i in deploy_seams.calls if "deployed_sha" in u}
         assert recorded[identity]["deployed_sha"] == _SHA
         assert set(recorded) == {identity, self.BRANCH}
+

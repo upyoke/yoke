@@ -13,10 +13,10 @@ and that name arrives already decided: the dispatcher sends ``preview_slug``
 and this publishes exactly that string. Nothing here derives it, because a
 derivation is something the two sides can disagree about — and they did,
 each hashing a different value until the deployed host and the probed host
-were two different machines. That namespace is reserved so no branch may
-enter it, and the occupancy on the host records who created it and on which
-commit. That record — not the caller's arguments — decides whether a deploy
-may write there, and cleanup refuses to remove one it cannot prove it owns.
+were two different machines. That namespace is closed to branches, as is the
+shape previews published before it still occupy here. The occupancy record —
+not the caller's arguments — decides whether a deploy may write there, and
+cleanup refuses to remove one it cannot prove it owns.
 
 Subcommands: ``resolve``, ``claim``, ``assert-unreserved``,
 ``check-cleanup``, ``teardown-slug``."""
@@ -31,17 +31,20 @@ from pathlib import Path
 
 OWNER_FILENAME = ".yoke-preview-owner.json"
 FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-#: Reserved for release previews: the deployment run id, plus a stage
+#: What a release preview may be published under: the run id, plus a stage
 #: discriminator when one run publishes more than one preview. Parity
 #: contract with the dispatching side, which builds the same shape.
-RESERVED_SLUG_RE = re.compile(
+RELEASE_SLUG_RE = re.compile(
     r"^run-[0-9]{8}-[0-9]{3,}(?:-[a-z0-9]+(?:-[a-z0-9]+)*)?$"
 )
+#: Also closed to branches: previews published before run-naming still hold
+#: this shape here, and a branch taking one would serve a moving branch at a
+#: candidate's URL. Nothing new is published under it.
+RETAINED_SLUG_RE = re.compile(r"^rel-[0-9a-f]{32}$")
 UNREADABLE = "occupancy owner metadata is unreadable. Do not reuse or delete."
 RETIRED_OWNER = (
     "this occupancy predates run-named previews and is not addressable by "
-    "preview_slug. Do not reuse or delete it here; remove it on the host "
-    "once its review is finished."
+    "preview_slug. Do not reuse or delete it here; remove it on the host."
 )
 
 
@@ -75,14 +78,13 @@ def require_commit_sha(commit_sha: str) -> str:
 
 
 def require_preview_slug(preview_slug: str) -> str:
-    """The release preview's own name, exactly as the dispatcher sent it."""
     slug = _safe(preview_slug, "preview_slug")
     if not slug:
         raise FrozenPreviewError(
             "missing_preview_slug",
             "preview_slug is required: the run this preview is named for.",
         )
-    if not RESERVED_SLUG_RE.fullmatch(slug):
+    if not RELEASE_SLUG_RE.fullmatch(slug):
         raise FrozenPreviewError(
             "unreserved_preview_slug",
             f"preview_slug {slug!r} is not the reserved release shape "
@@ -93,10 +95,10 @@ def require_preview_slug(preview_slug: str) -> str:
 
 
 def branch_slug(branch_name: str) -> str:
-    """Slugify a branch, refusing one that lands in the frozen namespace.
+    """Slugify a branch, refusing one that lands in a reserved namespace.
 
     A branch may be named anything, including the exact shape a frozen
-    preview uses — and deploying it would take that preview's directory,
+    preview uses, and deploying it would take that preview's directory,
     ports and URL.
     """
     slug = re.sub(r"[^a-z0-9]+", "-", _safe(branch_name, "branch").lower()).strip("-")
@@ -113,7 +115,7 @@ def read_owner(preview_dir: Path) -> dict | None:
 
     An unreadable record is neither, and refuses: treating it as unoccupied
     is how a candidate under review gets overwritten. So does a record this
-    path cannot address, left by the naming that preceded it.
+    path cannot address, left by the naming before it.
     """
     path = preview_dir / OWNER_FILENAME
     if not path.is_file():
@@ -136,8 +138,8 @@ def assert_reuse_or_refuse(preview_dir: Path, preview_slug: str, commit_sha: str
     """Decide whether this deploy may write into *preview_dir*.
 
     Redeploying the same candidate under the same name is the ordinary retry
-    that makes a lost dispatch safe to repeat; anything else would replace
-    what some reviewer is looking at.
+    that makes a lost dispatch safe to repeat; anything else replaces what
+    some reviewer is looking at.
     """
     expected_slug = require_preview_slug(preview_slug)
     expected_sha = require_commit_sha(commit_sha)
@@ -164,13 +166,12 @@ def read_fields(count: int, stream=None) -> list[str]:
     Slugs and revisions arrive this way rather than inside a remote command
     string, where a value containing a quote would end its argument and run
     whatever followed — nothing here is parsed by a shell. Exactly, because a
-    token carrying a newline would shift every field after it and claim an
-    occupancy nobody named.
+    token carrying a newline would shift every field after it.
     """
     raw = (stream or sys.stdin).read().split("\n")
     if raw and raw[-1] == "":
-        # Exactly one: the writer's terminator. Dropping every trailing
-        # blank would erase an empty final field, meaning "no slug supplied".
+        # Exactly one: the writer's terminator. Dropping every trailing blank
+        # would erase an empty final field, meaning "no slug supplied".
         raw.pop()
     if len(raw) != count:
         raise FrozenPreviewError(
@@ -185,7 +186,7 @@ def occupancy_dir(preview_root: str, preview_slug: str, supplied_slug: str) -> P
     """The directory this name owns, refusing a slug it does not match.
 
     A caller free to name any slug could claim any occupancy, so the
-    preview's own recorded name is the authority.
+    preview's own name is the authority.
     """
     supplied = _safe(supplied_slug, "slug")
     if not _safe(preview_slug, "preview_slug"):
@@ -201,23 +202,22 @@ def occupancy_dir(preview_root: str, preview_slug: str, supplied_slug: str) -> P
 
 
 def claim(preview_dir: Path, preview_slug: str, commit_sha: str) -> str:
-    """Check, then record — one call, because they are one decision: split
-    across two steps, an interruption leaves an occupancy nobody owns."""
+    """Check, then record — one call, because they are one decision: split in
+    two, an interruption leaves an occupancy nobody owns."""
     outcome = assert_reuse_or_refuse(preview_dir, preview_slug, commit_sha)
     write_owner(preview_dir, preview_slug, commit_sha)
     return outcome
 
 
 def assert_unreserved(slug: str) -> None:
-    """Refuse a branch occupancy inside the frozen namespace — again,
-    because the deploy does not trust whoever resolved it."""
+    """Refuse a reserved branch occupancy — again, because the deploy does
+    not trust whoever resolved it."""
     value = _safe(slug, "slug")
-    if RESERVED_SLUG_RE.fullmatch(value):
+    if RELEASE_SLUG_RE.fullmatch(value) or RETAINED_SLUG_RE.fullmatch(value):
         raise FrozenPreviewError(
             "reserved_slug",
-            f"branch occupancy {value!r} is in the run-YYYYMMDD-NNN namespace "
-            "reserved for frozen release previews. Recovery: rename the branch "
-            "and push again.",
+            f"branch occupancy {value!r} is reserved for frozen release "
+            "previews. Recovery: rename the branch and push again.",
         )
 
 
