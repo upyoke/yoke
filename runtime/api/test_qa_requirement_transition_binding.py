@@ -25,6 +25,7 @@ from yoke_core.domain.workflow_registry import publish_workflow_version
 from yoke_core.domain import qa
 from yoke_core.domain import qa_requirements
 from yoke_core.domain import workflow_item_binding_lock
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 def _request(item_id: int, transition_id: str | None) -> FunctionCallRequest:
@@ -91,7 +92,7 @@ def test_requirement_rejects_a_missing_pinned_parent():
         outcome = handle_qa_requirement_add(_request(2499, "done"))
     assert outcome.primary_success is False
     assert outcome.error.code == "payload_invalid"
-    assert "does not exist" in outcome.error.message
+    assert ITEM_NOT_FOUND in outcome.error.message
 
 
 def test_requirement_batch_rejects_a_missing_workflow_transition():

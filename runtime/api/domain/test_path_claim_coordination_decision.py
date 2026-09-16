@@ -19,6 +19,7 @@ from yoke_core.domain import path_claim_coordination_decision as pccd
 from yoke_core.domain.items_writes import insert_item, update_structured_field
 from yoke_core.domain.project_identity import render_item_ref
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
+from yoke_contracts.public_ref import ITEM_NOT_FOUND
 
 
 ITEM_WORKFLOW = "issue"
@@ -259,7 +260,9 @@ def test_build_coordination_context_missing_item_raises_value_error(env):
     claim_id = _seed_claim(conn, item_id=240)
 
     missing_id = 99_999
-    with pytest.raises(ValueError, match=str(missing_id)):
+    # No row backs that id, so the refusal states the fact and shows no
+    # number — the storage key is not a reference to name the item by.
+    with pytest.raises(ValueError, match=ITEM_NOT_FOUND):
         pccd.build_coordination_context(
             conn,
             candidate_item_id=missing_id,
