@@ -2,9 +2,10 @@
 
 A flow's gate branch is the target env's declared long-lived deploy branch
 (``environments.settings.git.branch``: main<->prod, stage<->stage); flows
-without a target env, and envs that declare no branch (ephemerals), gate
-against the project base branch. The merged gate and the CI gate both
-verify against that one resolved branch.
+without a target env, and envs that declare no branch, gate against the
+project base branch. The merged gate and the CI gate both verify against
+that one resolved branch, except for an ephemeral candidate, which has no
+branch to be merged into and is CI-verified by its exact commit instead.
 """
 
 from __future__ import annotations
@@ -36,8 +37,9 @@ def resolve_flow_gate_branch(
     """Resolve the branch a flow's merged gate verifies against.
 
     Returns ``""`` for the ephemeral tier: preview flows deploy unmerged
-    worktree branches by design, so no merged/CI gate branch exists for
-    them. ``repo_root`` is the project checkout whose scope-first
+    worktree branches by design, so no gate branch exists for them and
+    the CI gate falls back to verifying the exact release commit.
+    ``repo_root`` is the project checkout whose scope-first
     ``base_branch`` stance governs the fallback when the referenced
     environment declares no branch.
     """
@@ -218,8 +220,10 @@ def _check_ci_gate(
 ) -> Tuple[bool, str]:
     """Check CI for the exact release commit before deploying.
 
-    ``branch`` is the gate branch from :func:`resolve_flow_gate_branch`.
-    Returns (passed, message).
+    ``branch`` is the gate branch from :func:`resolve_flow_gate_branch`,
+    empty for an ephemeral candidate that has no branch of its own; that
+    candidate is verified by ``head_sha`` alone rather than through a
+    branch filter nothing can match. Returns (passed, message).
     """
     ci_workflow = project_ci_workflow_file(project)
 
@@ -228,14 +232,18 @@ def _check_ci_gate(
             True,
             f"  CI gate: no ci_workflow_file capability configured for project '{project}' — skipping",
         )
+    if not branch and not head_sha:
+        return False, ci_recovery.unverifiable_ci_target_message(
+            github_repo=github_repo, workflow=ci_workflow,
+        )
 
-    subject = f"{branch}@{head_sha[:12]}" if head_sha else branch
+    subject = ci_recovery.ci_gate_subject(branch, head_sha)
     print(f"  CI gate: checking {ci_workflow} on {subject} for {github_repo}...")
 
-    check_args = [
-        "check-ci", github_repo, ci_workflow,
-        "--branch", branch,
-    ]
+    # --branch is always sent, empty included: the adapter defaults an
+    # absent flag to main, which would filter a branchless candidate
+    # against a branch it was never released from.
+    check_args = ["check-ci", github_repo, ci_workflow, "--branch", branch]
     if head_sha:
         check_args.extend(["--head-sha", head_sha])
     check_args.extend(["--wait", "--timeout", str(timeout_sec), "--json"])
@@ -275,9 +283,9 @@ def _check_ci_gate(
     if state == "passed":
         return True, f"  CI gate: {subject} CI passed"
     if state == "failed":
-        return False, _failed_ci_message(branch)
+        return False, _failed_ci_message(subject)
     if state == "timeout":
-        return False, _timed_out_ci_message(branch, timeout_sec)
+        return False, _timed_out_ci_message(subject, timeout_sec)
     if state == "no_runs":
         if head_sha:
             return ci_recovery.recover_missing_ci_gate(
@@ -319,18 +327,18 @@ def _function_response_envelope(output: str) -> Optional[dict]:
     return None
 
 
-def _failed_ci_message(branch: str) -> str:
+def _failed_ci_message(subject: str) -> str:
     return (
-        f"\nBLOCKED: Cannot deploy — {branch} branch CI has failed.\n\n"
+        f"\nBLOCKED: Cannot deploy — CI has failed for {subject}.\n\n"
         "Remediation:\n"
-        f"  1. Fix the failing CI on {branch}\n"
+        f"  1. Fix the failing CI on {subject}\n"
         "  2. Re-run the deployment pipeline\n"
     )
 
 
-def _timed_out_ci_message(branch: str, timeout_sec: int) -> str:
+def _timed_out_ci_message(subject: str, timeout_sec: int) -> str:
     return (
-        f"\nBLOCKED: Cannot deploy — {branch} branch CI timed out "
+        f"\nBLOCKED: Cannot deploy — CI timed out for {subject} "
         f"({timeout_sec}s).\n\n"
         "Remediation:\n"
         "  1. Wait for CI to complete, then re-run the deployment pipeline\n"

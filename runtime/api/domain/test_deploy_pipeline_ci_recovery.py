@@ -2,50 +2,15 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 from unittest import mock
 
+from runtime.api.domain.deploy_pipeline_gate_test_support import (
+    ci_response as _ci_response,
+    commit_file as _commit,
+)
 from yoke_core.domain import deploy_pipeline_gates
 from yoke_core.domain import deploy_pipeline_github_workflow
-
-
-def _ci_response(state: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.CompletedProcess(
-        args=[],
-        returncode=0,
-        stdout=json.dumps({"success": True, "result": {"state": state}}),
-        stderr="",
-    )
-
-
-def _commit(repo, filename: str, content: str) -> str:
-    (repo / filename).write_text(content, encoding="utf-8")
-    subprocess.run(["git", "-C", str(repo), "add", filename], check=True)
-    subprocess.run(
-        [
-            "git",
-            "-C",
-            str(repo),
-            "-c",
-            "user.name=release-ci-test",
-            "-c",
-            "user.email=release-ci-test@example.invalid",
-            "commit",
-            "-q",
-            "--no-gpg-sign",
-            "-m",
-            f"Update {filename}",
-        ],
-        check=True,
-    )
-    result = subprocess.run(
-        ["git", "-C", str(repo), "rev-parse", "HEAD"],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip()
 
 
 def test_missing_exact_run_dispatches_declared_workflow_and_rechecks_sha() -> None:

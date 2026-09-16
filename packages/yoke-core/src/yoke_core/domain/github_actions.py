@@ -229,7 +229,7 @@ def cmd_check_ci(
     *,
     project: str,
 ) -> None:
-    """Check CI on a branch and optional exact SHA."""
+    """Check CI on a branch, or on ``head_sha`` alone when branch is empty."""
     token = resolve_token(
         project,
         repo,
@@ -253,7 +253,7 @@ def cmd_check_ci(
             now=time.time,
             sleep=time.sleep,
         )
-    except RestTransportError as exc:
+    except (ValueError, RestTransportError) as exc:
         print(f"Error: CI check failed for '{workflow}': {exc}", file=sys.stderr)
         sys.exit(1)
 

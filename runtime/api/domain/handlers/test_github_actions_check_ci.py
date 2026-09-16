@@ -142,6 +142,41 @@ class TestHandle:
         assert calls[0][1]["branch"] == "main"
         assert calls[0][1]["head_sha"] == "deadbeef"
 
+    def test_empty_branch_selects_by_commit_alone(
+        self, monkeypatch, _resolver_ok,
+    ):
+        calls = []
+
+        def latest(*args, **kwargs):
+            calls.append(kwargs)
+            return {"id": 7, "status": "completed", "conclusion": "success"}
+
+        monkeypatch.setattr(
+            "yoke_core.domain.github_actions_rest.latest_workflow_run",
+            latest,
+        )
+        outcome = handle_check_ci(_make_request({
+            "repo": "upyoke/yoke", "workflow": "ci.yml",
+            "branch": "", "head_sha": "deadbeef",
+        }))
+        assert outcome.primary_success
+        assert outcome.result_payload["state"] == "passed"
+        assert calls[0]["branch"] == ""
+        assert calls[0]["head_sha"] == "deadbeef"
+
+    def test_refuses_a_request_naming_no_branch_and_no_commit(
+        self, _resolver_ok,
+    ):
+        # Unstubbed on purpose: the real selector refuses before it can
+        # reach GitHub, and the handler must render that as a typed error.
+        outcome = handle_check_ci(_make_request({
+            "repo": "upyoke/yoke", "workflow": "ci.yml", "branch": "",
+        }))
+        assert outcome.primary_success is False
+        assert outcome.error is not None
+        assert outcome.error.code == "invalid_payload"
+        assert "needs a branch or a head_sha" in outcome.error.message
+
     def test_rejects_repo_outside_project_binding(
         self, monkeypatch, _resolver_ok,
     ):

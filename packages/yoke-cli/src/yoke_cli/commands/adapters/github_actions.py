@@ -66,7 +66,8 @@ def github_actions_check_ci(args: List[str]) -> int:
         description=(
             "Latest workflow-run advisory for <repo-slug> <workflow-file> "
             "on --branch (default main), optionally restricted to the exact "
-            "--head-sha. Point-in-time by default; "
+            "--head-sha. An empty --branch inspects any ref and then "
+            "requires --head-sha. Point-in-time by default; "
             "--wait polls client-side until the run completes or "
             "--timeout elapses (state 'timeout') — each poll is one "
             "single-shot dispatch, so waiting works over the https "
@@ -77,11 +78,16 @@ def github_actions_check_ci(args: List[str]) -> int:
     parser.add_argument("workflow", help="Workflow filename, e.g. ci.yml.")
     parser.add_argument(
         "--branch", default="main",
-        help="Branch to inspect (default: main).",
+        help=(
+            "Branch to inspect (default: main); pass an empty value to "
+            "inspect any ref by --head-sha alone."
+        ),
     )
     parser.add_argument(
         "--head-sha", default="",
-        help="Exact commit SHA to inspect within the selected branch.",
+        help=(
+            "Exact commit SHA to inspect; required when --branch is empty."
+        ),
     )
     parser.add_argument(
         "--wait", action="store_true",

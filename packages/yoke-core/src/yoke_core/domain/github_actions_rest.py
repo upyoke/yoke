@@ -155,17 +155,32 @@ def latest_workflow_run(
     repo: str,
     workflow: str,
     *,
-    branch: str,
+    branch: str = "",
     head_sha: str = "",
     token: str,
 ) -> Optional[Dict[str, Any]]:
     """Return the most recent matching workflow run, or ``None``.
 
-    ``head_sha`` narrows the branch query to the exact commit being
-    authorized.  Keeping the branch filter as well prevents a commit from a
-    differently named ref from satisfying a branch-bound release policy.
+    Each supplied selector narrows the query and an absent one is omitted
+    rather than sent empty, because GitHub reads ``branch=`` as a branch
+    literally named "" and matches nothing.  A branch-bound release keeps
+    both filters, so a commit reached from a differently named ref cannot
+    satisfy it; a candidate frozen with no branch of its own is still
+    verifiable through ``head_sha`` alone.
+
+    Supplying neither selector is refused: the newest run of a workflow on
+    any commit proves nothing about the commit being authorized.
     """
-    query = {"branch": branch, "per_page": "100"}
+    if not branch and not head_sha:
+        raise ValueError(
+            "workflow-run lookup needs a branch or a head_sha: an "
+            "unfiltered query returns the newest run for any commit, "
+            "which cannot prove CI for the commit being authorized. "
+            "Pass the exact head_sha when the candidate has no branch."
+        )
+    query = {"per_page": "100"}
+    if branch:
+        query["branch"] = branch
     if head_sha:
         query["head_sha"] = head_sha
     data = rest_get(
