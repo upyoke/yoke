@@ -161,10 +161,15 @@ function decisionCard(context, row, project, onAct, evidenceShown, itemFacts, on
     });
     for (const id of drawn?.requestIds || []) drawnRequests.add(id);
   }
-  const gate = runGates(row).find(
+  // Two different questions. The heading asks whether anything on this page
+  // is waiting on somebody, which a member's own review answers just as well
+  // as a release-level one; the block below asks which request this card
+  // still has to draw itself.
+  const gates = runGates(row);
+  const gate = gates.find(
     (candidate) => !drawnRequests.has(String(candidate.request_id)),
   ) || null;
-  const { title, copy } = statusCopy(row, gate);
+  const { title, copy } = statusCopy(row, gate || gates[0] || null);
   card.appendChild(el(documentNode, "h2", null, title));
   if (copy) card.appendChild(el(documentNode, "p", "run-copy", copy));
   if (items.length) {

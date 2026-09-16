@@ -331,6 +331,10 @@ test("a member's QA review is offered once, on that member's row", async (t) => 
     (node) => node.tagName === "BUTTON" && node.textContent === "Approve",
   );
   assert.equal(approvals.length, 1, "one decision, one Approve control");
+  // The heading still says the page is waiting: whose row the request sits
+  // on does not change whether somebody has to answer it.
+  assert.equal(byClass(root, "run-card")[2].children[0].textContent,
+    "Waiting for a review");
   // And it is the member's row that owns it, not a second release-level copy.
   const memberRow = byClass(root, "carried-item-evidence")[0];
   assert.ok(memberRow, "the member row draws its own review");
