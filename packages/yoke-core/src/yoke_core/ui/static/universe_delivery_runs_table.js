@@ -149,9 +149,12 @@ export function renderRunsTable(context, body, rows, options) {
     // side by side, so the narrow layout stacks them and prints the name
     // beside the value — the alternative is a table whose status and stage
     // progress sit off the right edge where nobody scrolls to find them.
-    for (const [index, cell] of tr.children.entries()) {
+    // Spread first: a live `HTMLCollection` is iterable but has no
+    // `entries()`, so indexing it directly works in the test document and
+    // throws in a browser.
+    [...tr.children].forEach((cell, index) => {
       cell.setAttribute("data-label", RUN_TABLE_COLUMNS[index] || "");
-    }
+    });
     table.appendChild(tr);
   }
   wrap.appendChild(table);
