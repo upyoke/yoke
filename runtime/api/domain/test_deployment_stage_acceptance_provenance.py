@@ -142,3 +142,43 @@ def test_a_release_check_names_the_candidate_its_target_froze(test_db) -> None:
     # The environment comes from the same frozen document, because a stage's
     # target need not be a registered environment row the requirement names.
     assert facts["target_env"]
+
+
+def test_a_superseded_attempts_captures_stay_out_of_the_acceptance(test_db) -> None:
+    # A case that failed, was fixed and reran has two executions on record.
+    # Only the one the gate admitted answers for this acceptance, so the
+    # earlier attempt's screenshot must not sit beside the verdict's own.
+    plan_id = _plan(test_db, "superseded-smoke")
+    _seed_run(
+        test_db, run_id="run-superseded", stages=_stages(plan_id), members=(9924,)
+    )
+    # The earlier attempt: a recorded run with its own capture, never admitted.
+    _settle(test_db, run_id="run-superseded", stage="item-qa", member=9924)
+    case_id = _case_requirement_ids(test_db, "run-superseded", 9924)[0]
+    stale_run = int(
+        test_db.execute(
+            "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
+            "started_at,completed_at,created_at) "
+            "VALUES (%s,'browser','plan_case','fail',%s,%s,%s) RETURNING id",
+            (
+                case_id,
+                "2026-09-13T00:00:00Z",
+                "2026-09-13T00:00:00Z",
+                "2026-09-13T00:00:00Z",
+            ),
+        ).fetchone()["id"]
+    )
+    stale_artifact = _attach(test_db, stale_run, '{"backend":"local"}')
+    admitted_artifact = _attach(
+        test_db, _latest_run_id(test_db, case_id), '{"backend":"local"}'
+    )
+    acceptance_id = _acceptance_requirement_id(test_db, "run-superseded", "item-qa")
+
+    context = qa_review_artifact_context(
+        test_db,
+        requirement_id=acceptance_id,
+        run_id=_latest_run_id(test_db, acceptance_id),
+    )
+    shown = [item["artifact_id"] for item in context["artifacts"]]
+    assert admitted_artifact in shown
+    assert stale_artifact not in shown

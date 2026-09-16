@@ -140,34 +140,77 @@ def qa_review_artifact_context(
     }
 
 
+def _admitted_case_runs(conn: Any, marker: str, requirement_id: int) -> dict[int, int]:
+    """The exact case execution each covered requirement was admitted on.
+
+    Not every run those requirements ever recorded: a case that failed, was
+    fixed and reran has two, and only the one the gate admitted answers for
+    this acceptance. The admitted set is already named — the stage's newest
+    completed plan execution against this frozen target, and that execution's
+    own per-requirement results — so this reads it rather than re-deriving a
+    second opinion about which attempt counts.
+    """
+    from yoke_core.domain.deployment_qa_stage_acceptance import completed_execution
+
+    subject = query_one(
+        conn,
+        "SELECT deployment_run_id, deployment_stage, deployment_member_item_id, "
+        f"execution_target_digest FROM qa_requirements WHERE id={marker} "
+        f"AND qa_kind={marker}",
+        (int(requirement_id), DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND),
+    )
+    if subject is None:
+        return {}
+    member = _row_value(subject, "deployment_member_item_id")
+    execution = completed_execution(
+        conn,
+        run_id=str(_row_value(subject, "deployment_run_id")),
+        stage_name=str(_row_value(subject, "deployment_stage")),
+        member_item_id=None if member is None else int(member),
+        execution_target_digest=str(
+            _row_value(subject, "execution_target_digest") or ""
+        ),
+    )
+    if execution is None:
+        return {}
+    rows = query_rows(
+        conn,
+        "SELECT requirement_id, result_json FROM qa_plan_execution_results "
+        f"WHERE execution_id={marker}",
+        (str(execution["id"]),),
+    )
+    admitted: dict[int, int] = {}
+    for row in rows:
+        result = _metadata(_row_value(row, "result_json")) or {}
+        evidence_run = result.get("qa_run_id") or result.get("run_id")
+        if evidence_run is None:
+            continue
+        admitted[int(evidence_run)] = int(_row_value(row, "requirement_id"))
+    return admitted
+
+
 def _covered_case_artifacts(
     conn: Any, marker: str, requirement_id: int
 ) -> list[dict[str, Any]]:
-    """The artifacts backing a stage acceptance, from the cases it covers.
+    """The artifacts backing a stage acceptance, from the runs it admitted.
 
     A stage acceptance records an aggregate verdict and captures nothing of
     its own, so reading only its own run reports "no evidence attached" on a
     stage whose cases captured screenshots — and asks a reviewer to rule on
-    nothing while the pictures they need sit one join away. The cases it
-    covers are the ones admitted against the same run, stage, member and
-    frozen execution target: exactly the set the gate aggregated to raise
-    this review.
+    nothing while the pictures they need sit one join away. What it shows is
+    bounded to the executions the gate admitted, so a superseded attempt's
+    captures never appear beside the ones the verdict actually rests on.
     """
+    admitted = _admitted_case_runs(conn, marker, requirement_id)
+    if not admitted:
+        return []
+    run_ids = sorted(admitted)
+    places = ", ".join(marker for _ in run_ids)
     rows = query_rows(
         conn,
-        "SELECT a.id, a.artifact_type, a.content_type, a.artifact_handle, "
-        "a.metadata, c.id AS requirement_id FROM qa_artifacts a "
-        "JOIN qa_runs r ON r.id = a.qa_run_id "
-        "JOIN qa_requirements c ON c.id = r.qa_requirement_id "
-        "JOIN qa_requirements q ON q.deployment_run_id = c.deployment_run_id "
-        "AND q.deployment_stage = c.deployment_stage "
-        "AND COALESCE(q.deployment_member_item_id, 0) "
-        "= COALESCE(c.deployment_member_item_id, 0) "
-        "AND q.execution_target_digest = c.execution_target_digest "
-        f"WHERE q.id = {marker} AND q.qa_kind = {marker} "
-        "AND c.method_id IS NOT NULL "
-        "ORDER BY a.id",
-        (int(requirement_id), DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND),
+        "SELECT id, artifact_type, content_type, artifact_handle, metadata, "
+        f"qa_run_id FROM qa_artifacts WHERE qa_run_id IN ({places}) ORDER BY id",
+        tuple(run_ids),
     )
     return [
         {
@@ -180,7 +223,7 @@ def _covered_case_artifacts(
             # Reading an artifact is authorized against its own requirement,
             # so an acceptance's borrowed evidence has to keep saying whose
             # it is or every thumbnail refuses to load.
-            "requirement_id": int(_row_value(row, "requirement_id")),
+            "requirement_id": admitted[int(_row_value(row, "qa_run_id"))],
         }
         for row in rows
     ]
