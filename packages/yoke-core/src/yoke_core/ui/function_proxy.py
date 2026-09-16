@@ -95,6 +95,7 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         # still answers — with an empty map — for an unresolved operator.
         # See UI_OPERATOR_OPTIONAL_READ_FUNCTIONS.
         "ui_preferences.screen_selection.list",
+        "ui_preferences.nav_group.list",
     }
 )
 
@@ -134,7 +135,11 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
 #: answerable when none does, because refusing them would blank a whole
 #: page over an action nobody was going to take.
 UI_OPERATOR_OPTIONAL_READ_FUNCTIONS = frozenset(
-    {"deployment_runs.list", "ui_preferences.screen_selection.list"}
+    {
+        "deployment_runs.list",
+        "ui_preferences.screen_selection.list",
+        "ui_preferences.nav_group.list",
+    }
 )
 
 #: The only mutations the local proxy may dispatch. All act as the resolved
@@ -156,6 +161,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "profile.preference.set",
         "profile.onboarding.reset",
         "ui_preferences.screen_selection.set",
+        "ui_preferences.nav_group.set",
         "workflows.current.set",
         "workflows.policy_defaults.publish",
         "workflows.testing_default.set",

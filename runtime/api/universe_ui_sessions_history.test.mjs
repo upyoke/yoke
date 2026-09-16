@@ -60,6 +60,10 @@ async function mountHistory(t, handler) {
       if (request.function === "profile.get") return failed();
       if (request.function === "ui_preferences.screen_selection.list") return ok({ views: {} });
       if (request.function === "ui_preferences.screen_selection.set") return ok({});
+      // Shell reads, not roster reads: the sidebar's remembered drawer state
+      // and the onboarding marker beside it.
+      if (request.function === "ui_preferences.nav_group.list") return ok({ groups: {} });
+      if (request.function === "overview.activation.get") return ok({ modules: [] });
       return handler(request);
     },
   };

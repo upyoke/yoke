@@ -35,9 +35,9 @@ test("a drill-in route survives the round trip and never outlives its view", () 
     parseUniverseRoute(buildUniverseRoute("items", "3", odd)).detail, odd,
   );
   assert.deepEqual(parseUniverseRoute("#/unknown/42"), {
-    view: "overview", tab: null, detail: null, project: null, selection: null,
+    view: "strategy", tab: null, detail: null, project: null, selection: null,
   });
-  assert.equal(buildUniverseRoute("unknown", null, "42"), "#/overview");
+  assert.equal(buildUniverseRoute("unknown", null, "42"), "#/strategy");
 });
 
 test("a strategy doc drill-in reads the body through strategy.surface.get", async (t) => {

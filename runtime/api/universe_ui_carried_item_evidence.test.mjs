@@ -121,7 +121,7 @@ test("a run carrying nothing draws no carries box and no item evidence", async (
   const { card } = await cardFor(documentNode, [], client);
   await settle();
 
-  assert.equal(byClass(card, "overview-run-batch").length, 0);
+  assert.equal(byClass(card, "release-batch").length, 0);
   assert.equal(byClass(card, "carried-item-evidence").length, 0);
   // Nothing to read evidence for means nothing is asked of the server.
   assert.deepEqual(client.requests, []);

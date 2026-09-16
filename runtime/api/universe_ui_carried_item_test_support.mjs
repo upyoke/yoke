@@ -4,7 +4,7 @@
 
 import { byClass, FakeDocument } from "./universe_ui_dom_test_support.mjs";
 import { qaRequestRow } from "./universe_ui_inbox_test_support.mjs";
-import { overviewRunCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_overview_cards.js";
+import { shippingRunCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_work_cards.js";
 import { loadCarriedItemEvidence } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_carried_item_evidence.js";
 
 export const RUN_ID = "run-20260910-009";
@@ -134,7 +134,7 @@ export async function cardFor(documentNode, items, client, onItemDecision = null
   const itemFacts = await loadCarriedItemEvidence(context, items);
   return {
     itemFacts,
-    card: overviewRunCard(context, runRow(items), ["1"], {
+    card: shippingRunCard(context, runRow(items), ["1"], {
       facts: { evidence: new Map(), flowNames: new Map(), failed: null },
       itemFacts,
       onItemDecision,
@@ -143,7 +143,7 @@ export async function cardFor(documentNode, items, client, onItemDecision = null
 }
 
 export function memberEntry(card, index = 0) {
-  return byClass(card, "overview-run-member")[index];
+  return byClass(card, "release-member")[index];
 }
 
 // A review names the item it is about, so bounding an item's older checks

@@ -38,45 +38,6 @@ async function mountAt(t, hash, client) {
   return { documentNode, root, mounted };
 }
 
-test("navigation is three groups, and every entry declares one", () => {
-  assert.deepEqual(
-    NAV.map(({ id, icon, label, scope, group }) => [id, icon, label, scope, group]),
-    [
-      ["overview", "⊞", "Overview", "multi", "focus"],
-      ["sessions", "◈", "Sessions", "multi", "focus"],
-      ["inbox", "✉", "Inbox", "multi", "focus"],
-      // Reached from the actor menu; hidden from the sidebar.
-      ["profile", "◯", "Profile", "none", "focus"],
-
-      ["organization", "⛭", "Universe", "none", "settings"],
-      ["workflows", "⚗", "Workflows", "none", "settings"],
-      ["projects", "▤", "Projects", "none", "settings"],
-      ["github", "⎇", "GitHub", "multi", "settings"],
-      ["actors", "⚇", "Actors", "none", "settings"],
-      ["machines", "▣", "Machines", "none", "settings"],
-      ["members", "⚉", "Members", "none", "settings"],
-      ["billing", "▧", "Billing", "none", "settings"],
-
-      ["strategy", "❖", "Strategy", "multi", "diagnostics"],
-      ["items", "≣", "Items", "multi", "diagnostics"],
-      ["deployments", "⬈", "Deployments", "multi", "diagnostics"],
-      ["environments", "◇", "Environments", "multi", "diagnostics"],
-      ["databases", "▤", "Databases", "multi", "diagnostics"],
-      ["qa-methods", "◉", "QA methods", "multi", "diagnostics"],
-      ["qa-plans", "◎", "QA plans", "multi", "diagnostics"],
-      ["qa-activity", "◍", "QA activity", "multi", "diagnostics"],
-      ["capabilities", "⚿", "Capabilities", "multi", "diagnostics"],
-      ["packs", "◫", "Packs", "none", "diagnostics"],
-      ["architecture", "▦", "Architecture", "single", "diagnostics"],
-      ["messages", "✦", "Messages", "multi", "diagnostics"],
-      ["launches", "⇱", "Launches", "multi", "diagnostics"],
-      ["events", "≋", "Events", "multi", "diagnostics"],
-      ["doctor", "♥", "Doctor", "multi", "diagnostics"],
-      ["ouroboros", "∞", "Ouroboros", "multi", "diagnostics"],
-    ],
-  );
-});
-
 test("Deployments is the one destination with tabs, Flows first", () => {
   // A facet that earned a name is a destination, so tabs stay the exception:
   // Deployments keeps them because a flow definition and a run of it are two

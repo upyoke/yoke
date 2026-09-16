@@ -178,7 +178,7 @@ test("section-led views omit duplicate heads while Items restores its head", asy
   // chrome stays absent and the project picker lives in the top context.
   assert.equal(byClass(root, "page-head")[0].hidden, true);
   assert.deepEqual(
-    byClass(root, "overview-section-title").map((node) => node.textContent),
+    byClass(root, "band-section-title").map((node) => node.textContent),
     ["Machines", "Sessions"],
   );
   const content = byClass(root, "content")[0];

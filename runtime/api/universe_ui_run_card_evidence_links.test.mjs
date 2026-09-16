@@ -17,8 +17,8 @@ import {
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 import {
-  overviewRunCard,
-} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_overview_cards.js";
+  shippingRunCard,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/universe_work_cards.js";
 import { evidenceStrip } from "../../packages/yoke-core/src/yoke_core/ui/static/review_evidence_strip.js";
 import { closeLightbox } from "../../packages/yoke-core/src/yoke_core/ui/static/review_lightbox.js";
 
@@ -77,7 +77,7 @@ function runRow() {
 
 function runCard(documentNode, artifacts) {
   const context = readingContext(documentNode, artifacts);
-  return overviewRunCard(context, runRow(), ["1"], {
+  return shippingRunCard(context, runRow(), ["1"], {
     facts: {
       evidence: new Map([["run-20260910-006", { checks: [], artifacts }]]),
       flowNames: new Map([["yoke-hosted-stage-typed-target", "Stage"]]),
@@ -91,17 +91,17 @@ test("the run name is the card's link, and the card itself is not one", () => {
   const card = runCard(documentNode, []);
 
   assert.equal(card.tagName, "DIV");
-  assert.equal(byClass(card, "overview-run-card-link").length, 0);
-  const runName = byClass(card, "overview-run-id")[0];
+  assert.equal(byClass(card, "shipping-run-card-link").length, 0);
+  const runName = byClass(card, "shipping-run-id")[0];
   assert.equal(runName.tagName, "A");
   assert.equal(runName.textContent, "run-20260910-006");
   assert.equal(runName.href, "#/deployments/runs/run-20260910-006?project=1");
   // Everything else the card reads out is text, so there is nothing between
   // the reader and selecting it.
   assert.deepEqual(
-    byClass(card, "overview-run-flow").map((node) => node.tagName), ["STRONG"],
+    byClass(card, "shipping-run-flow").map((node) => node.tagName), ["STRONG"],
   );
-  assert.equal(byClass(card, "overview-run-environment")[0].tagName, "SPAN");
+  assert.equal(byClass(card, "shipping-run-environment")[0].tagName, "SPAN");
 });
 
 test("the card's meta line says the status once, and the pill is where", () => {
@@ -111,7 +111,7 @@ test("the card's meta line says the status once, and the pill is where", () => {
   // The status pill above carries the state; the meta line carries what the
   // pill cannot — what the release holds, its candidate, and when it moved.
   assert.equal(byClass(card, "pill")[0].textContent, "executing");
-  const meta = byClass(card, "overview-run-card-meta")[0].textContent;
+  const meta = byClass(card, "shipping-run-card-meta")[0].textContent;
   assert.doesNotMatch(meta, /executing/);
   assert.match(meta, /^environment run · /);
 });
@@ -125,7 +125,7 @@ test("a run card's screenshot opens its own evidence, not the run", async () => 
   assert.ok(shot.classList.contains("is-ready"), shot.className);
   const picture = byClass(shot, "review-shot-open")[0];
   assert.ok(picture.href.startsWith("data:image/png;base64,"), picture.href);
-  assert.notEqual(picture.href, byClass(card, "overview-run-id")[0].href);
+  assert.notEqual(picture.href, byClass(card, "shipping-run-id")[0].href);
 
   picture.dispatchEvent(new Event("click"));
   const lightbox = byClass(documentNode.body, "review-lightbox")[0];

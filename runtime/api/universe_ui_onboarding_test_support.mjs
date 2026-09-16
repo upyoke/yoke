@@ -1,7 +1,10 @@
-// Shared fixtures for the Overview activation-module tests: an engine-shaped
-// activation payload builder, a client that answers every Overview read, and
-// the mount helper. Rows mirror overview.activation.get responses so the
-// stack renders exactly what the engine serves.
+// Shared fixtures for the onboarding-module tests: an engine-shaped
+// activation payload builder, a client answering every read the workbench
+// composes, and the mount helper. Rows mirror overview.activation.get
+// responses so the stack renders exactly what the engine serves.
+//
+// The stack lives in the navigation's Setup control, which the shell mounts
+// on every route, so these mount at Frontier and read it there.
 
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import { FakeDocument, settle } from "./universe_ui_dom_test_support.mjs";
@@ -118,8 +121,8 @@ export function activationAnswer({
   };
 }
 
-// A one-project universe answering every read the Overview composes; the
-// section reads default non-empty unless a test overrides one to empty.
+// A one-project universe answering every read the workbench composes; the
+// band reads default non-empty unless a test overrides one to empty.
 export function activationClient(activation, overrides = {}) {
   const requests = [];
   const answers = {
@@ -132,13 +135,14 @@ export function activationClient(activation, overrides = {}) {
       blocked_rows: [],
     },
     "sessions.list": { rows: [] },
-    "strategy.doc.list": {
+    "strategy.surface.list": {
       docs: [{
-        slug: "MISSION", summary: "why",
+        slug: "MISSION", summary: "why", archived: false,
         updated_at: "2026-07-26T12:00:00Z",
       }],
+      writes: [],
     },
-    "strategy.doc_claim.list": { claims: [] },
+    "ui_preferences.nav_group.list": { groups: {} },
     "deployment_runs.list": {
       rows: [{
         id: "run-1", project: "yoke", flow: "stage-flow",
@@ -190,9 +194,9 @@ export function activationClient(activation, overrides = {}) {
   };
 }
 
-export async function mountOverview(client, capabilities) {
+export async function mountWorkbench(client, capabilities) {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/overview?project=1";
+  documentNode.defaultView.location.hash = "#/frontier?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, {
     client, ...(capabilities ? { capabilities } : {}),

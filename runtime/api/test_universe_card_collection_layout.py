@@ -16,7 +16,7 @@ def test_shared_card_tracks_use_content_width_and_readable_bounds():
     compact = responsive.split("@media (max-width: 980px)", 1)[1]
     drawer = compact.split("@media (max-width: 640px)", 1)[0]
     assert ".session-grid" not in drawer
-    assert ".overview-card-grid" not in drawer
+    assert ".work-card-grid" not in drawer
     assert ".machines-grid" not in drawer
 
 

@@ -204,15 +204,15 @@
 
 /* Run cards on the Overview: the carries box stands out from the card, the
    evidence strip sits under its own small label. */
-.universe-app-root .overview-run-batch {
+.universe-app-root .release-batch {
   border-color: color-mix(in srgb, var(--yoke-ink) 38%, var(--yoke-border));
 }
-.universe-app-root .overview-run-evidence {
+.universe-app-root .shipping-run-evidence {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.universe-app-root .overview-run-card .review-shot {
+.universe-app-root .shipping-run-card .review-shot {
   width: 120px;
 }
 

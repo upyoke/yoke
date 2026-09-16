@@ -12,10 +12,17 @@ import { appendRunGates, runGateStatus, runGates } from "./universe_run_gates.js
 import { evidenceStrip } from "./review_evidence_strip.js";
 import { appendCarriedItemEvidence } from "./universe_carried_item_evidence.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
+import { itemClaimantControl } from "./universe_item_claimant.js";
+import { itemStatusDisclosure } from "./universe_item_status_pill.js";
+import { renderStageStrip } from "./universe_stage_strip.js";
 import { el, statePill } from "./universe_view_support.js";
 
 // How many carried items a card lists before it says "+N more".
 export const CARRIED_ITEMS_SHOWN = 3;
+
+// A run in one of these states is over; nothing it waits on can still
+// apply to it.
+const TERMINAL_RUN_STATUSES = new Set(["succeeded", "failed", "cancelled"]);
 
 function itemReference(row) {
   return String(row.public_ref || row.item_id || row.id || "Item");
@@ -29,16 +36,23 @@ function itemHref(row, scope) {
   }) || buildUniverseRoute("items", scope === "all" ? null : scope.join(","));
 }
 
-export function overviewItemCard(documentNode, row, scope, options = {}) {
+export function workItemCard(documentNode, row, scope, options = {}) {
   const reference = itemReference(row);
+  // An article rather than one card-wide link: the card carries its own
+  // controls — a status pill, a claiming session, a deployment — and an
+  // interactive control inside an anchor is neither reachable by keyboard
+  // nor clickable without also navigating. The ref and the title stay links,
+  // which is what the whole-card anchor was ever for.
   const card = el(
     documentNode,
-    "a",
-    `overview-item-card${options.tone ? ` is-${options.tone}` : ""}`,
+    "article",
+    `work-item-card${options.tone ? ` is-${options.tone}` : ""}`,
   );
-  card.href = itemHref(row, scope);
-  const top = el(documentNode, "div", "overview-item-card-head");
-  top.appendChild(el(documentNode, "span", "overview-item-card-ref", reference));
+  const href = itemHref(row, scope);
+  const top = el(documentNode, "div", "work-item-card-head");
+  const ref = el(documentNode, "a", "work-item-card-ref", reference);
+  ref.href = href;
+  top.appendChild(ref);
   top.appendChild(workflowBadge(documentNode, row.workflow_id || "item"));
   const status = statePill(
     documentNode,
@@ -47,26 +61,24 @@ export function overviewItemCard(documentNode, row, scope, options = {}) {
   );
   if (status) top.appendChild(status);
   card.appendChild(top);
-  card.appendChild(el(
-    documentNode,
-    "strong",
-    "overview-item-card-title",
-    row.title || reference,
-  ));
+  const title = el(documentNode, "strong", "work-item-card-title");
+  const titleLink = el(
+    documentNode, "a", "overview-card-link", row.title || reference,
+  );
+  titleLink.href = href;
+  title.appendChild(titleLink);
+  card.appendChild(title);
+
+  // Progress belongs inside the card: a strip that spanned the grid row
+  // stopped saying which item it described.
+  if ((options.stages || []).length) {
+    const progress = el(documentNode, "div", "work-item-card-progress");
+    progress.appendChild(renderStageStrip(documentNode, options.stages));
+    card.appendChild(progress);
+  }
 
   if (options.flag) {
-    const flag = el(
-      documentNode,
-      "div",
-      `overview-item-flag is-${options.flag.tone || "neutral"}`,
-    );
-    flag.appendChild(el(
-      documentNode, "span", "overview-item-flag-label", options.flag.label,
-    ));
-    flag.appendChild(el(
-      documentNode, "span", "overview-item-flag-copy", options.flag.text,
-    ));
-    card.appendChild(flag);
+    card.appendChild(itemStatusDisclosure(documentNode, options.flag));
   }
 
   const timestamp = options.timestamp || row.updated_at || row.created_at;
@@ -75,7 +87,7 @@ export function overviewItemCard(documentNode, row, scope, options = {}) {
     timestamp ? `${options.timeLabel || "updated"} ${relativeAgePhrase(timestamp)}` : null,
   ].filter(Boolean).join(" · ");
   if (meta) card.appendChild(el(
-    documentNode, "span", "overview-item-card-meta", meta,
+    documentNode, "span", "work-item-card-meta", meta,
   ));
   return card;
 }
@@ -119,15 +131,15 @@ export function appendCarried(context, host, row, options = {}) {
   // drawing the release's gates beside them does not draw one of them twice.
   const drawnRequests = new Set();
   if (!items.length) return { node: null, requestIds: drawnRequests };
-  const batch = el(documentNode, "div", "overview-run-batch");
+  const batch = el(documentNode, "div", "release-batch");
   batch.appendChild(el(
     documentNode,
     "span",
-    "overview-run-batch-title",
+    "release-batch-title",
     `Carries · ${items.length} item${items.length === 1 ? "" : "s"}`,
   ));
   for (const item of items.slice(0, CARRIED_ITEMS_SHOWN)) {
-    const member = el(documentNode, "div", "overview-run-member");
+    const member = el(documentNode, "div", "release-member");
     member.appendChild(el(documentNode, "code", null, carriedReference(item)));
     member.appendChild(el(documentNode, "span", null, item.title || ""));
     const drawn = appendCarriedItemEvidence(context, member, {
@@ -143,7 +155,7 @@ export function appendCarried(context, host, row, options = {}) {
     batch.appendChild(el(
       documentNode,
       "span",
-      "overview-run-member-more",
+      "release-member-more",
       `+${items.length - CARRIED_ITEMS_SHOWN} more carried by this release`,
     ));
   }
@@ -157,7 +169,7 @@ export function appendCarried(context, host, row, options = {}) {
 // and never let the approver open it. `options.facts` carries the flow
 // names and QA checks read once for the whole band, and `options.itemFacts`
 // the same for what each carried item proved on its own.
-export function overviewRunCard(context, row, scope, options = {}) {
+export function shippingRunCard(context, row, scope, options = {}) {
   const documentNode = context.document;
   // A run stopped at a gate is not executing and not failed. Its own status
   // still says whichever it was when the pipeline suspended, so the gate is
@@ -166,7 +178,7 @@ export function overviewRunCard(context, row, scope, options = {}) {
   const card = el(
     documentNode,
     "div",
-    `overview-run-card is-${status.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
+    `shipping-run-card is-${status.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
   );
   // The card is readable text, not one big control. Its run name is the
   // link to the run, each screenshot opens its own evidence, and a
@@ -174,23 +186,43 @@ export function overviewRunCard(context, row, scope, options = {}) {
   // wrap everything readable, so hovering blank space lit the whole card,
   // the text under the cursor could not be selected, and a click meant for
   // a screenshot navigated to the run instead.
-  const head = el(documentNode, "div", "overview-run-card-head");
+  const head = el(documentNode, "div", "shipping-run-card-head");
   const runLink = el(
-    documentNode, "a", "overview-run-id", row.id || row.run_id || "run",
+    documentNode, "a", "shipping-run-id", row.id || row.run_id || "run",
   );
   runLink.href = runDetailHref(context, row, scope);
   head.appendChild(runLink);
   head.appendChild(el(
     documentNode,
     "span",
-    "overview-run-environment",
+    "shipping-run-environment",
     row.target_environment || row.target_tier || "environment unavailable",
   ));
   const statusNode = statePill(documentNode, status, status);
   if (statusNode) head.appendChild(statusNode);
   card.appendChild(head);
+  // Directly under the identity row, because "why has this not started" is
+  // the first question a waiting run raises. The lock belongs to the
+  // project, not to this run: the session holding it is serializing every
+  // deploy in that project and may have started none of them.
+  const lock = TERMINAL_RUN_STATUSES.has(status)
+    ? null : options.deployLocks?.get(String(row.project || ""));
+  if (lock && options.renderFullSession) {
+    const lockRow = el(documentNode, "div", "shipping-run-lock");
+    lockRow.appendChild(el(
+      documentNode,
+      "span",
+      "shipping-run-lock-label",
+      `Deploy lock · ${row.project} · project-wide`,
+    ));
+    lockRow.appendChild(itemClaimantControl(documentNode, lock, {
+      renderFullSession: options.renderFullSession,
+      label: `Show the session holding the ${row.project} deploy lock`,
+    }));
+    card.appendChild(lockRow);
+  }
   card.appendChild(el(
-    documentNode, "strong", "overview-run-flow", runFlowName(options.facts, row),
+    documentNode, "strong", "shipping-run-flow", runFlowName(options.facts, row),
   ));
   if ((row.stages || []).length) {
     card.appendChild(deliveryStageBar(documentNode, row.stages));
@@ -199,7 +231,7 @@ export function overviewRunCard(context, row, scope, options = {}) {
   const timing = row.completed_at || row.started_at || row.created_at;
   // The pill above already carries the status; repeating it here spent the
   // card's one meta line saying the same word twice.
-  card.appendChild(el(documentNode, "span", "overview-run-card-meta", [
+  card.appendChild(el(documentNode, "span", "shipping-run-card-meta", [
     items.length
       ? `${items.length} ${items.length === 1 ? "item" : "items"}`
       : "environment run",
@@ -215,7 +247,7 @@ export function overviewRunCard(context, row, scope, options = {}) {
     card.appendChild(el(
       documentNode,
       "div",
-      "overview-run-derived",
+      "shipping-run-derived",
       [derivation.status, derivation.reason].filter(Boolean).join(" — "),
     ));
   }
@@ -228,8 +260,8 @@ export function overviewRunCard(context, row, scope, options = {}) {
     const artifacts = runEvidence(options.facts, row.id || row.run_id).artifacts;
     const strip = evidenceStrip(context, artifacts, { compact: true });
     if (strip) {
-      const wrap = el(documentNode, "div", "overview-run-evidence");
-      wrap.appendChild(el(documentNode, "span", "overview-run-batch-title", "QA evidence"));
+      const wrap = el(documentNode, "div", "shipping-run-evidence");
+      wrap.appendChild(el(documentNode, "span", "release-batch-title", "QA evidence"));
       wrap.appendChild(strip);
       card.appendChild(wrap);
     }

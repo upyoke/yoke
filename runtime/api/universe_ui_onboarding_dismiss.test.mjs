@@ -15,8 +15,8 @@ import {
 import {
   activationAnswer,
   activationClient,
-  mountOverview,
-} from "./universe_ui_activation_test_support.mjs";
+  mountWorkbench,
+} from "./universe_ui_onboarding_test_support.mjs";
 
 function stubFetch(t) {
   const originalFetch = globalThis.fetch;
@@ -32,7 +32,7 @@ const ALL_ACTIVATED = {
 test("the mount forwards the host machine fact into the read", async (t) => {
   stubFetch(t);
   const client = activationClient(activationAnswer());
-  const { mounted } = await mountOverview(client, {
+  const { mounted } = await mountWorkbench(client, {
     data: { onboarding: { machineConnected: true } },
   });
   const request = client.requests.find(
@@ -49,7 +49,7 @@ test("the mount forwards the host machine fact into the read", async (t) => {
     undefined, { data: { onboarding: { machineConnected: "yes" } } },
   ]) {
     const bare = activationClient(activationAnswer());
-    const bareMount = await mountOverview(bare, capabilities);
+    const bareMount = await mountWorkbench(bare, capabilities);
     const bareRequest = bare.requests.find(
       (item) => item.function === "overview.activation.get",
     );
@@ -63,7 +63,7 @@ test("dismiss: ✕ on activated modules hides the module for good", async (t) =>
   const answer = activationAnswer({
     states: ALL_ACTIVATED, dismissAvailable: true,
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
 
   const dismissButtons = byClass(root, "activation-dismiss");
   assert.equal(dismissButtons.length, 4);
@@ -82,16 +82,16 @@ test("dismiss: ✕ on activated modules hides the module for good", async (t) =>
   assert.equal(byClass(root, "activation-restore-line").length, 0);
   assert.equal(byClass(root, "activation-show").length, 0);
   assert.equal(byClass(root, "activation-restore").length, 0);
-  assert.equal(byClass(root, "overview-section")[0].hidden, false);
+  assert.equal(byClass(root, "onboarding-control")[0].hidden, true);
   mounted.unmount();
 });
 
-test("the Onboarding section waits for its read rather than flashing", async (t) => {
+test("the Setup control waits for its read rather than flashing", async (t) => {
   stubFetch(t);
-  // The read never resolves, so the section is still undecided while the
-  // rest of the Overview draws. It stays hidden: drawing it first and
-  // hiding it once the read landed is the flash anyone who had dismissed
-  // every module saw on every load.
+  // The read never resolves, so what is left to do is still undecided while
+  // the rest of the workbench draws. The control stays hidden: showing a
+  // marker first and taking it away once the read landed is the flash anyone
+  // who had dismissed every module saw on every load.
   const answer = activationAnswer({ states: ALL_ACTIVATED });
   const client = activationClient(answer);
   const pendingRead = {
@@ -103,34 +103,57 @@ test("the Onboarding section waits for its read rather than flashing", async (t)
       return client.call(request);
     },
   };
-  const { root, mounted } = await mountOverview(pendingRead);
+  const { root, mounted } = await mountWorkbench(pendingRead);
   await settle();
 
-  const onboarding = byClass(root, "overview-section").find(
-    (node) => allNodes(node).some((n) => n.textContent === "Onboarding"),
-  );
-  assert.ok(onboarding);
-  assert.equal(onboarding.hidden, true);
+  assert.equal(byClass(root, "onboarding-control")[0].hidden, true);
   assert.equal(byClass(root, "activation-module").length, 0);
   // The rest of the screen is not held up by it.
-  assert.ok(byClass(root, "overview-section").length > 1);
+  assert.ok(byClass(root, "work-band").length > 1);
   mounted.unmount();
 });
 
-test("a resolved read with modules left reveals the section", async (t) => {
+test("work still to do shows the control, counted from the read", async (t) => {
+  stubFetch(t);
+  const answer = activationAnswer({
+    states: {
+      finish_installation_wizard: "activated", connect_harness: "activated",
+      run_onboard: "not_started", first_deploy: "not_started",
+    },
+  });
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
+
+  const control = byClass(root, "onboarding-control")[0];
+  assert.equal(control.hidden, false);
+  assert.equal(byClass(root, "onboarding-trigger")[0].textContent, "Setup · 2/4");
+  // The whole stack is one press away, with every module's own actions.
+  assert.equal(byClass(root, "activation-module").length, 4);
+  // Hovering says which steps are left without opening anything.
+  assert.deepEqual(
+    byClass(root, "onboarding-summary-step").map(ownTextContent),
+    [
+      "✓ Finish the installation wizard",
+      "✓ Connect a harness",
+      "○ Run /yoke onboard",
+      "○ First deploy",
+    ],
+  );
+  mounted.unmount();
+});
+
+test("everything complete retires the control entirely", async (t) => {
   stubFetch(t);
   const answer = activationAnswer({ states: ALL_ACTIVATED });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
 
-  const onboarding = byClass(root, "overview-section").find(
-    (node) => allNodes(node).some((n) => n.textContent === "Onboarding"),
-  );
-  assert.equal(onboarding.hidden, false);
+  assert.equal(byClass(root, "onboarding-control")[0].hidden, true);
+  // The modules are still rendered inside the dialog, so Profile's reset
+  // brings back a stack that still has its actions.
   assert.equal(byClass(root, "activation-module").length, 4);
   mounted.unmount();
 });
 
-test("an unresolved read shows the section saying so, rather than hiding it", async (t) => {
+test("an unresolved read says so rather than claiming completion", async (t) => {
   stubFetch(t);
   const answer = activationAnswer({ states: ALL_ACTIVATED });
   const client = activationClient(answer);
@@ -146,58 +169,49 @@ test("an unresolved read shows the section saying so, rather than hiding it", as
       return client.call(request);
     },
   };
-  const { root, mounted } = await mountOverview(failingRead);
+  const { root, mounted } = await mountWorkbench(failingRead);
   await settle();
 
-  const onboarding = byClass(root, "overview-section").find(
-    (node) => allNodes(node).some((n) => n.textContent === "Onboarding"),
-  );
-  // Hiding it here would say there is nothing to activate; the truth is
-  // that the signals could not be read.
-  assert.equal(onboarding.hidden, false);
   assert.equal(byClass(root, "activation-unresolved").length, 1);
   mounted.unmount();
 });
 
-test("all dismissed: the Onboarding section disappears from Overview", async (t) => {
+test("all dismissed: nothing is left to count and the control goes", async (t) => {
   stubFetch(t);
   const answer = activationAnswer({
-    states: ALL_ACTIVATED,
+    states: {
+      finish_installation_wizard: "activated", connect_harness: "not_started",
+      run_onboard: "not_started", first_deploy: "not_started",
+    },
     dismissed: [
       "finish_installation_wizard", "connect_harness", "run_onboard",
       "first_deploy",
     ],
     dismissAvailable: true,
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
 
   assert.equal(byClass(root, "activation-module").length, 0);
   assert.equal(byClass(root, "activation-restore-line").length, 0);
-  const onboarding = byClass(root, "overview-section").find(
-    (node) => (node.attributes.get("data-key") || "").includes("onboarding")
-      || allNodes(node).some((n) => n.textContent === "Onboarding"),
-  );
-  assert.ok(onboarding);
-  assert.equal(onboarding.hidden, true);
+  assert.equal(byClass(root, "onboarding-control")[0].hidden, true);
   mounted.unmount();
 });
 
-test("hiding the last visible module hides the section too", async (t) => {
+test("dismissing a module takes it out of the reckoning too", async (t) => {
   stubFetch(t);
   const answer = activationAnswer({
-    states: ALL_ACTIVATED,
-    dismissed: ["finish_installation_wizard", "connect_harness", "run_onboard"],
+    states: {
+      finish_installation_wizard: "activated", connect_harness: "activated",
+      run_onboard: "activated", first_deploy: "not_started",
+    },
     dismissAvailable: true,
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
-  const onboarding = byClass(root, "overview-section").find(
-    (node) => allNodes(node).some((n) => n.textContent === "Onboarding"),
-  );
-  assert.equal(onboarding.hidden, false);
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
+  assert.equal(byClass(root, "onboarding-trigger")[0].textContent, "Setup · 3/4");
+  // Hiding one of the finished three leaves two of three still complete.
   byClass(root, "activation-dismiss")[0].dispatchEvent(new Event("click"));
   await settle();
-  assert.equal(byClass(root, "activation-module").length, 0);
-  assert.equal(onboarding.hidden, true);
+  assert.equal(byClass(root, "onboarding-trigger")[0].textContent, "Setup · 2/3");
   mounted.unmount();
 });
 
@@ -206,51 +220,42 @@ test("no bound actor: the ✕ never renders even on activated modules", async (t
   const answer = activationAnswer({
     states: ALL_ACTIVATED, dismissAvailable: false,
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
 
   assert.equal(byClass(root, "activation-module").length, 4);
   assert.equal(byClass(root, "activation-dismiss").length, 0);
   mounted.unmount();
 });
 
-test("empty live bands remain visible beside day-zero activation", async (t) => {
+test("empty live bands remain visible beside day-zero onboarding", async (t) => {
   stubFetch(t);
   const empty = {
-    "strategy.doc.list": { docs: [] },
+    "strategy.surface.list": { docs: [], writes: [] },
     "items.overview.list": { rows: [] },
     "frontier.list": { ready_rows: [], blocked_rows: [] },
     "deployment_runs.list": { rows: [] },
   };
-  const { root, mounted } = await mountOverview(
+  const { root, mounted } = await mountWorkbench(
     activationClient(activationAnswer(), empty),
   );
 
   assert.deepEqual(
-    byClass(root, "overview-band-title").map((node) => node.textContent),
-    [
-      "Standing", "Plans", "Waiting", "Ready", "Active", "Shipping",
-      "Done (24h)",
-    ],
+    byClass(root, "work-band-title").map((node) => node.textContent),
+    ["Waiting", "Ready", "Active", "Done (24h)"],
   );
-  const text = allNodes(root)
-    .map((node) => node.textContent || "").join(" ");
-  assert.ok(text.includes("No strategy documents in this band."));
-  assert.ok(text.includes("No deployment run is in flight."));
+  const text = allNodes(root).map((node) => node.textContent || "").join(" ");
+  assert.ok(text.includes("Nothing is stopped."));
+  assert.ok(text.includes("Nothing finished in the last 24 hours."));
   mounted.unmount();
 });
 
-test("non-empty reads draw cards while activation is still day zero", async (t) => {
+test("non-empty reads draw cards while onboarding is still day zero", async (t) => {
   stubFetch(t);
-  const { root, mounted } = await mountOverview(
+  const { root, mounted } = await mountWorkbench(
     activationClient(activationAnswer()),
   );
 
-  assert.deepEqual(
-    byClass(root, "overview-section-title").map((node) => node.textContent),
-    ["Onboarding", "Strategy", "Frontier"],
-  );
-  assert.equal(byClass(root, "overview-doc-card").length, 1);
-  assert.equal(byClass(root, "overview-item-card").length, 1);
-  assert.equal(byClass(root, "overview-run-card").length, 1);
+  assert.equal(byClass(root, "onboarding-trigger")[0].textContent, "Setup · 0/4");
+  assert.equal(byClass(root, "work-item-card").length, 1);
   mounted.unmount();
 });

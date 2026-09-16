@@ -12,9 +12,9 @@ import {
   activationClient,
   harnessTargets,
   machineRow,
-  mountOverview,
+  mountWorkbench,
   wizardSubmodules,
-} from "./universe_ui_activation_test_support.mjs";
+} from "./universe_ui_onboarding_test_support.mjs";
 
 const ALPHA = "11111111-1111-4111-8111-111111111111";
 const BETA = "22222222-2222-4222-8222-222222222222";
@@ -47,7 +47,7 @@ async function mountMachines(t, { harnessState, machines, wizardMachines }) {
       },
     },
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
   const cards = byClass(root, "activation-module");
   return { root, wizard: cards[0], harness: cards[1], mounted };
 }
@@ -196,7 +196,7 @@ test("the in-progress harness module lists project directories", async (t) => {
       },
     },
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
 
   const harness = byClass(root, "activation-module")[1];
   assert.ok(textOf(harness).includes(

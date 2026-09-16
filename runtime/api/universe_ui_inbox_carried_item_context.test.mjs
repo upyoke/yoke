@@ -40,8 +40,8 @@ test("a release approval lists what it carries with each item's own QA", async (
 
   const carried = byClass(main, "approval-carried")[0];
   assert.ok(carried, "the approval tile carries its release contents");
-  assert.match(byClass(carried, "overview-run-batch-title")[0].textContent, /Carries · 2 items/);
-  const entries = byClass(carried, "overview-run-member");
+  assert.match(byClass(carried, "release-batch-title")[0].textContent, /Carries · 2 items/);
+  const entries = byClass(carried, "release-member");
   assert.deepEqual(
     entries.map((entry) => entry.children[0].textContent),
     ["YOK-2712", "YOK-2707"],

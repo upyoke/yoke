@@ -14,7 +14,7 @@ import {
   CARRIED_ITEMS_SHOWN,
   carriedItems,
   runDetailHref,
-} from "./universe_overview_cards.js";
+} from "./universe_work_cards.js";
 import {
   isTerminalizable,
   terminalizationDialog,

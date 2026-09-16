@@ -11,9 +11,9 @@ import { byClass, response, visibleText } from "./universe_ui_dom_test_support.m
 import {
   activationAnswer,
   activationClient,
-  mountOverview,
+  mountWorkbench,
   onboardFacts,
-} from "./universe_ui_activation_test_support.mjs";
+} from "./universe_ui_onboarding_test_support.mjs";
 
 function stubFetch(t) {
   const originalFetch = globalThis.fetch;
@@ -31,7 +31,7 @@ async function mountOnboard(t, { state = "in_progress", onboard = null }) {
     },
     extras: { run_onboard: { onboard } },
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
   const card = byClass(root, "activation-module").find(
     (node) => node.attributes.get("data-module") === "run_onboard",
   );

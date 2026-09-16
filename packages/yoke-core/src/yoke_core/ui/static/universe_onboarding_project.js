@@ -15,7 +15,7 @@ import {
   onboardNextLine,
   onboardStepsLine,
   onboardSupersededLine,
-} from "./universe_views_overview_activation_copy.js";
+} from "./universe_onboarding_copy.js";
 
 const COMPLETE = "complete";
 const SUPERSEDED = "superseded";

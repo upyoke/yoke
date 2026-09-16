@@ -4,7 +4,7 @@ import {
   renderSessionControlFailure,
 } from "./universe_session_control_data.js";
 import { loadMachinesPanel } from "./universe_machines_panel.js";
-import { overviewSection } from "./universe_overview_primitives.js";
+import { bandSection } from "./universe_band_primitives.js";
 import { appendHoldings } from "./universe_sessions_holdings.js";
 import { attachTooltip, tooltipHost } from "./universe_tooltip.js";
 import { callFunction, el } from "./universe_view_support.js";
@@ -21,6 +21,7 @@ import { appendSessionAge } from "./universe_session_age.js";
 import {
   appendSessionDeliveryStatus,
   appendSessionPresentation,
+  harnessIdentity,
 } from "./universe_session_presentation.js";
 import { appendSessionUsage } from "./universe_session_usage.js";
 import {
@@ -40,25 +41,6 @@ import {
   sessionModelFactTags,
   sessionModelIsRequested,
 } from "./session_model_display.js";
-function harnessIdentity(row) {
-  const executor = String(row.executor_surface || row.executor || "unreported");
-  const normalized = executor.toLowerCase();
-  if (row.actor_kind === "system" && normalized.includes("ci")) {
-    return { mark: "⚙", className: "h-machine", label: executor };
-  }
-  if (row.executor_mark && row.executor_class_name) {
-    return {
-      mark: row.executor_mark,
-      className: row.executor_class_name,
-      label: executor,
-    };
-  }
-  return {
-    mark: executor.slice(0, 1).toUpperCase() || "?",
-    className: "h-other",
-    label: executor,
-  };
-}
 function laneChip(documentNode, row) {
   const laneLabel = row.lane_label || row.execution_lane || "no lane";
   const chip = el(
@@ -171,8 +153,8 @@ export function sessionCard(
 export function renderSessionsView(context, main, scope, chrome = {}) {
   const documentNode = context.document;
   const view = el(documentNode, "div", "sessions-view");
-  const machines = overviewSection(documentNode, "machines", "Machines");
-  const roster = overviewSection(documentNode, "sessions", "Sessions");
+  const machines = bandSection(documentNode, "machines", "Machines");
+  const roster = bandSection(documentNode, "sessions", "Sessions");
   const actionStatus = el(documentNode, "p", "sessions-action-status");
   actionStatus.hidden = true;
   actionStatus.setAttribute("role", "status");

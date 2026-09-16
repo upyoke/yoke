@@ -12,7 +12,7 @@ import { deploymentRunsHref } from "./universe_navigation.js";
 import { reviewRequestCard } from "./review_request_card.js";
 import { evidenceStrip } from "./review_evidence_strip.js";
 import { KIND_LABELS } from "./review_request_presentation.js";
-import { carriedItems } from "./universe_overview_cards.js";
+import { carriedItems } from "./universe_work_cards.js";
 import {
   appendCarriedItemEvidence,
   EMPTY_CARRIED_ITEM_FACTS,

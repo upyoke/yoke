@@ -1,3 +1,6 @@
+// Shared fixtures for the focus pages — Strategy, Frontier and Shipping —
+// shaped like the reads each one composes.
+
 import { allNodes } from "./universe_ui_dom_test_support.mjs";
 
 const ok = (result) => ({
@@ -14,6 +17,9 @@ const recentIso = (hours = 1) => new Date(
 function item(ref, project, projectId, facts = {}) {
   return {
     public_ref: ref,
+    // The internal id every membership join uses; the public ref's tail is
+    // the project sequence, which is a different number.
+    internal_id: 100 + Number(ref.split("-").at(-1)),
     title: `${project} item`,
     project,
     project_id: projectId,
@@ -43,7 +49,7 @@ function session(sessionId, project, projectId) {
   };
 }
 
-export function multiProjectOverviewClient({ failProject } = {}) {
+export function multiProjectWorkbenchClient({ failProject } = {}) {
   const requests = [];
   const projects = [
     { id: 1, slug: "yoke", name: "Yoke", emoji: "🐄", public_item_prefix: "YOK" },
@@ -65,11 +71,20 @@ export function multiProjectOverviewClient({ failProject } = {}) {
       blocked_rows: [],
     },
     "sessions.list": {
-      rows: [session("s-yoke", "yoke", 1), session("s-beta", "beta", 2), {
-        ...session("s-nil", null, null), project: null, project_id: null,
-      }],
+      rows: [
+        {
+          ...session("s-yoke", "yoke", 1),
+          claims: [{ target_kind: "item", public_ref: "YOK-9" }],
+        },
+        {
+          ...session("s-beta", "beta", 2),
+          claims: [{ target_kind: "item", public_ref: "BET-20" }],
+        },
+        { ...session("s-nil", null, null), project: null, project_id: null },
+      ],
     },
     "overview.activation.get": { dismiss_available: false, modules: [] },
+    "ui_preferences.nav_group.list": { groups: {} },
   };
   return {
     requests,
@@ -82,16 +97,19 @@ export function multiProjectOverviewClient({ failProject } = {}) {
       );
       if (fn === "organizations.get") return ok({ name: "Yoke" });
       if (fn === "projects.list") return ok({ rows: projects });
-      if (fn === "strategy.doc.list") {
+      if (fn === "strategy.surface.list") {
         if (project === failProject) return fail();
-        return ok({ docs: [{
-          slug: project === "2" ? "BETA-PLAN" : "MISSION",
-          summary: project === "2" ? "Beta direction" : "Yoke direction",
-          updated_at: recentIso(project === "2" ? 2 : 1),
-          state: "available",
-        }] });
+        return ok({
+          docs: [{
+            slug: project === "2" ? "BETA-PLAN" : "MISSION",
+            summary: project === "2" ? "Beta direction" : "Yoke direction",
+            updated_at: recentIso(project === "2" ? 2 : 1),
+            state: "available",
+            archived: false,
+          }],
+          writes: [],
+        });
       }
-      if (fn === "strategy.doc_claim.list") return ok({ claims: [] });
       if (fn === "deployment_runs.list") return ok({ rows: [{
         id: project === "2" ? "run-beta" : "run-yoke",
         project: project === "2" ? "beta" : "yoke",
@@ -133,7 +151,7 @@ export function descendantText(root) {
     .join("");
 }
 
-export function overviewClient(overrides = {}) {
+export function workbenchClient(overrides = {}) {
   const requests = [];
   const frozen = item("YOK-7", "yoke", 1, {
     frozen: true,
@@ -168,30 +186,27 @@ export function overviewClient(overrides = {}) {
       owns_current_item: false,
       claims: [],
     }] },
-    "strategy.doc.list": { docs: [
-      {
-        slug: "MISSION", summary: "Build a calmer delivery system.",
-        updated_at: recentIso(1), state: "available",
-      },
-      {
-        slug: "DELIVERY-PLAN", summary: "Ship the next reliable slice.",
-        updated_at: recentIso(48), state: "locked",
-      },
-      {
-        slug: "OLD-PLAN", summary: "Superseded direction.",
-        updated_at: recentIso(96), state: "available", archived: true,
-      },
-    ] },
-    "strategy.doc_claim.list": { claims: [
-      {
-        strategy_doc_slug: "MISSION", project_id: 1,
-        owner_kind: "session", holder_label: "steering seat",
-      },
-      {
-        strategy_doc_slug: "DELIVERY-PLAN", project_id: 1,
-        owner_kind: "item", public_ref: "YOK-9", item_status: "implementing",
-      },
-    ] },
+    "strategy.surface.list": {
+      docs: [
+        {
+          slug: "MISSION", summary: "Build a calmer delivery system.",
+          updated_at: recentIso(1), state: "available", archived: false,
+          execution_owner_kind: "session", execution_state: "claimed",
+          execution_owner_session_id: "s-seat",
+        },
+        {
+          slug: "DELIVERY-PLAN", summary: "Ship the next reliable slice.",
+          updated_at: recentIso(48), state: "locked", archived: false,
+          execution_owner_kind: "item", execution_state: "claimed",
+          execution_item_ref: "YOK-9", execution_item_status: "implementing",
+        },
+        {
+          slug: "OLD-PLAN", summary: "Superseded direction.",
+          updated_at: recentIso(96), state: "available", archived: true,
+        },
+      ],
+      writes: [],
+    },
     "deployment_runs.list": { rows: [{
       id: "run-1",
       project: "yoke",
@@ -204,9 +219,22 @@ export function overviewClient(overrides = {}) {
         { name: "build", state: "complete" },
         { name: "deploy", state: "active" },
       ],
-      member_items: [{ ref: "YOK-9", title: "Ship typed workflows" }],
+      member_items: [{ id: 109, ref: "YOK-9", title: "Ship typed workflows" }],
+    }, {
+      // The release that carried the finished item, so a Done card can name
+      // where that work actually went.
+      id: "run-0",
+      project: "yoke",
+      flow: "yoke-hosted-stage",
+      target_environment: "stage",
+      status: "succeeded",
+      created_at: recentIso(3),
+      completed_at: recentIso(2),
+      stages: [{ name: "deploy", state: "complete" }],
+      member_items: [{ id: 106, ref: "YOK-6", title: "Land the release" }],
     }] },
     "overview.activation.get": { dismiss_available: false, modules: [] },
+    "ui_preferences.nav_group.list": { groups: {} },
     ...overrides,
   };
   const projects = [{

@@ -4,7 +4,7 @@
 // their harness targets, per-actor dismissals — and this module owns only
 // the drawn chrome: number/✓ medallions, waits / next up / activated pills,
 // the wizard checklist, and hover dismiss (the per-machine harness rows live
-// in universe_views_overview_activation_machines.js). A hidden module is
+// in universe_onboarding_machines.js). A hidden module is
 // gone from Overview: no count, no show-again control; the only way back is
 // Reset on Profile, and once every module is hidden the host tells the
 // Overview to hide the section too. Honesty rules hold throughout: an
@@ -31,9 +31,9 @@ import {
   WIZARD_ROWS,
   WIZARD_TAIL_KEYS,
   machineNamesLine,
-} from "./universe_views_overview_activation_copy.js";
-import { harnessBody } from "./universe_views_overview_activation_machines.js";
-import { onboardBody } from "./universe_views_overview_activation_onboard.js";
+} from "./universe_onboarding_copy.js";
+import { harnessBody } from "./universe_onboarding_machines.js";
+import { onboardBody } from "./universe_onboarding_project.js";
 
 // The host-supplied machine fact rides the capability bag into the read's
 // payload verbatim; absent or non-boolean shapes forward nothing, so the

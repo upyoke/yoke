@@ -1,0 +1,137 @@
+@import url("./universe_work_cards.css");
+@import url("./universe_run_gates.css");
+
+/* Native details/summary is the one disclosure device for both levels. */
+.universe-app-root .band-section {
+  margin: 0 0 var(--yoke-section-gap);
+}
+.universe-app-root .band-section-summary,
+.universe-app-root .work-band-summary {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  cursor: pointer;
+  list-style: none;
+}
+.universe-app-root .band-section-summary::-webkit-details-marker,
+.universe-app-root .work-band-summary::-webkit-details-marker {
+  display: none;
+}
+.universe-app-root .band-section-summary {
+  gap: 9px;
+  padding: 0 1px 10px;
+  color: var(--yoke-ink);
+  font-size: 17px;
+  font-weight: 680;
+  letter-spacing: -0.012em;
+}
+.universe-app-root .band-section-count:empty,
+.universe-app-root .work-band-count:empty {
+  display: none;
+}
+.universe-app-root .band-chevron {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-right: 1.7px solid currentColor;
+  border-bottom: 1.7px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 120ms ease;
+}
+.universe-app-root details[open] > summary > .band-chevron {
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+.universe-app-root .band-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.universe-app-root .work-band {
+  --work-band-tone: var(--yoke-muted);
+}
+.universe-app-root .work-band-waiting {
+  --work-band-tone: var(--yoke-warn);
+}
+.universe-app-root .work-band-ready {
+  --work-band-tone: var(--yoke-accent);
+}
+.universe-app-root .work-band-active {
+  --work-band-tone: var(--yoke-run);
+}
+.universe-app-root .work-band-shipping {
+  --work-band-tone: #8b5cf6;
+}
+.universe-app-root .work-band-done {
+  --work-band-tone: var(--yoke-good);
+}
+.universe-app-root .work-band-summary {
+  gap: 8px;
+  padding: 3px 1px 8px;
+  color: var(--work-band-tone);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+.universe-app-root .work-band-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+.universe-app-root .work-band-title::before {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+.universe-app-root .work-band-count {
+  color: var(--yoke-muted);
+  font-variant-numeric: tabular-nums;
+}
+.universe-app-root .work-band-rule {
+  height: 1px;
+  min-width: 20px;
+  flex: 1 1 auto;
+  background: var(--yoke-border);
+}
+.universe-app-root .work-band-body {
+  min-width: 0;
+}
+.universe-app-root .work-band-empty,
+.universe-app-root .work-band-error {
+  margin: 0;
+  padding: 11px 13px;
+  border: 1px dashed var(--yoke-border);
+  border-radius: var(--yoke-radius);
+  color: var(--yoke-muted);
+  font-size: 12px;
+}
+/* Cards fill the row they are in rather than stopping at a fixed maximum:
+   a grid that capped its columns left a ragged strip of empty page beside
+   three cards and called it a layout. The minimum is what decides how many
+   fit; the available width decides how wide they are. */
+.universe-app-root .work-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+.universe-app-root .work-session-grid,
+.universe-app-root .session-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+/* A card matches the tallest ordinary card in its row, and its contents stay
+   at the top: stretching the card is a grid decision, and distributing the
+   slack between the text inside it is not. */
+.universe-app-root .work-card-grid > * {
+  align-self: stretch;
+  height: auto;
+  justify-content: flex-start;
+}
+.universe-app-root .work-session-dialog-host:empty {
+  display: none;
+}

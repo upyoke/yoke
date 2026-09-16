@@ -7,7 +7,7 @@ import {
   renderError,
   settledScopedCalls,
 } from "./universe_view_support.js";
-import { overviewSection } from "./universe_overview_primitives.js";
+import { bandSection } from "./universe_band_primitives.js";
 import {
   appendActorMessageRow,
   appendRowError,
@@ -84,7 +84,7 @@ function appendApprovalCarried(context, card, row, facts, onDecide) {
   wrap.appendChild(el(
     documentNode,
     "span",
-    "overview-run-batch-title",
+    "release-batch-title",
     `Carries · ${items.length} item${items.length === 1 ? "" : "s"}`,
   ));
   wrap.appendChild(el(
@@ -99,7 +99,7 @@ function appendApprovalCarried(context, card, row, facts, onDecide) {
       + "items' QA — each review below is its own request.",
   ));
   for (const item of items) {
-    const entry = el(documentNode, "div", "overview-run-member");
+    const entry = el(documentNode, "div", "release-member");
     entry.appendChild(el(
       documentNode, "code", null, item.ref || `item ${item.item_id}`,
     ));
@@ -128,14 +128,14 @@ function cardList(documentNode, body, cards, emptyText) {
 
 export function renderInboxView(context, main, scope) {
   const documentNode = context.document;
-  const waiting = overviewSection(documentNode, "inbox-waiting", "Waiting on you");
+  const waiting = bandSection(documentNode, "inbox-waiting", "Waiting on you");
   // A delivery notice asks for nothing, so it does not belong beside the
   // decisions that do, and it does not belong among messages a person sent
   // either — reading one as the other is how a report gets answered and a
   // question gets dismissed.
-  const notices = overviewSection(documentNode, "inbox-notices", "Notices");
-  const messages = overviewSection(documentNode, "inbox-messages", "Messages");
-  const decided = overviewSection(documentNode, "inbox-decided", "Decided");
+  const notices = bandSection(documentNode, "inbox-notices", "Notices");
+  const messages = bandSection(documentNode, "inbox-messages", "Messages");
+  const decided = bandSection(documentNode, "inbox-decided", "Decided");
   const host = el(documentNode, "div", "inbox-sections");
   host.appendChild(waiting);
   host.appendChild(notices);

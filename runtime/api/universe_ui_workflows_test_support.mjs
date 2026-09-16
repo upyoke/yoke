@@ -220,8 +220,12 @@ export async function mountWorkflows(t, client, hash = "#/workflows") {
   return { documentNode, root, mounted };
 }
 
+// The titles the ROUTED VIEW drew. Scoped to the view host because the shell
+// around it carries headings of its own — the onboarding dialog names itself
+// — and those belong to the chrome rather than to the screen under test.
 export function panelTitles(root) {
-  return allNodes(root)
+  const host = byClass(root, "view-host")[0] || root;
+  return allNodes(host)
     .filter((node) => node.tagName === "H2")
     .map(ownTextContent);
 }

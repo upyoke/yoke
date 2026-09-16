@@ -7,31 +7,44 @@ import { steeringProjectIds } from "./universe_sessions_steering.js";
 import { el } from "./universe_view_support.js";
 
 const CLOSED_DISCLOSURES = new Set();
+const OPENED_DISCLOSURES = new Set();
 
-export const OVERVIEW_CARD_LIMIT = 8;
+export const BAND_CARD_LIMIT = 8;
 
 function disclosure(
   documentNode,
-  { key, title, className, count = null, empty = "Nothing here." },
+  {
+    key, title, className, count = null, empty = "Nothing here.",
+    defaultOpen = true,
+  },
 ) {
   const root = el(documentNode, "details", className);
-  root.open = !CLOSED_DISCLOSURES.has(key);
+  // The operator's own choice wins; `defaultOpen` only decides where a band
+  // they have never touched starts. An archive is a record you go looking
+  // for, so it starts closed rather than pushing the live bands down.
+  root.open = OPENED_DISCLOSURES.has(key)
+    || (defaultOpen && !CLOSED_DISCLOSURES.has(key));
   root.setAttribute("data-fold", key);
 
   const summary = el(documentNode, "summary", `${className}-summary`);
-  summary.appendChild(el(documentNode, "span", "overview-fold-chevron"));
+  summary.appendChild(el(documentNode, "span", "band-chevron"));
   summary.appendChild(el(documentNode, "span", `${className}-title`, title));
   const countNode = el(documentNode, "span", `${className}-count`);
   if (count !== null) countNode.textContent = String(count);
   summary.appendChild(countNode);
-  summary.appendChild(el(documentNode, "span", "overview-band-rule"));
+  summary.appendChild(el(documentNode, "span", "work-band-rule"));
   root.appendChild(summary);
 
   const body = el(documentNode, "div", `${className}-body`);
   root.appendChild(body);
   root.addEventListener("toggle", () => {
-    if (root.open) CLOSED_DISCLOSURES.delete(key);
-    else CLOSED_DISCLOSURES.add(key);
+    if (root.open) {
+      CLOSED_DISCLOSURES.delete(key);
+      OPENED_DISCLOSURES.add(key);
+    } else {
+      OPENED_DISCLOSURES.delete(key);
+      CLOSED_DISCLOSURES.add(key);
+    }
   });
 
   root.setCount = (value) => {
@@ -42,47 +55,48 @@ function disclosure(
     body.replaceChildren();
     if (!cards.length) {
       body.appendChild(el(
-        documentNode, "p", "overview-band-empty", message,
+        documentNode, "p", "work-band-empty", message,
       ));
       return;
     }
     const grid = el(
       documentNode,
       "div",
-      ["overview-card-grid", gridClass].filter(Boolean).join(" "),
+      ["work-card-grid", gridClass].filter(Boolean).join(" "),
     );
     for (const card of cards) grid.appendChild(card);
     body.appendChild(grid);
   };
   root.renderError = (message) => {
     body.replaceChildren(el(
-      documentNode, "p", "error overview-band-error", message,
+      documentNode, "p", "error work-band-error", message,
     ));
   };
   root.body = body;
   return root;
 }
 
-export function overviewSection(documentNode, key, title) {
+export function bandSection(documentNode, key, title) {
   return disclosure(documentNode, {
     key: `section:${key}`,
     title,
-    className: "overview-section",
+    className: "band-section",
   });
 }
 
-export function overviewBand(documentNode, key, title, empty) {
+export function workBand(documentNode, key, title, empty, options = {}) {
   const band = disclosure(documentNode, {
     key: `band:${key}`,
     title,
-    className: "overview-band",
+    className: "work-band",
     empty,
+    defaultOpen: options.defaultOpen !== false,
   });
-  band.classList.add(`overview-band-${key}`);
+  band.classList.add(`work-band-${key}`);
   return band;
 }
 
-export function rowsInOverviewScope(rows, scope, projects) {
+export function rowsInBandScope(rows, scope, projects) {
   if (scope === "all") return rows;
   const wanted = new Set();
   for (const projectId of scope || []) {
@@ -106,7 +120,7 @@ export function rowsInOverviewScope(rows, scope, projects) {
 // agree with that exact set — an item one of those sessions holds is already
 // in flight — so both bands read the roster through this one predicate.
 export function sessionsShownInActive(rows, scope, projects) {
-  return rowsInOverviewScope(rows, scope, projects).filter((row) => (
+  return rowsInBandScope(rows, scope, projects).filter((row) => (
     ["active", "stale"].includes(String(row.liveness || "").toLowerCase())
   ));
 }
@@ -138,6 +152,7 @@ export function callError(callResult, fallback) {
 // Test isolation without weakening production persistence: the app never
 // invokes this, while DOM tests that deliberately close a section can reset
 // module state before mounting their next independent universe.
-export function resetOverviewDisclosureState() {
+export function resetBandDisclosureState() {
   CLOSED_DISCLOSURES.clear();
+  OPENED_DISCLOSURES.clear();
 }

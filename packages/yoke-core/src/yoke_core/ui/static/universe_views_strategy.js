@@ -1,7 +1,8 @@
-import { buildUniverseRoute } from "./universe_navigation.js";
-import {
-  button,
-} from "./workflow_view_primitives.js";
+// Strategy is the corpus itself: standing direction first, then the plans
+// executing against it, then the write history under both. Each document is a
+// card rather than a table row, because the thing a reader is looking for is
+// the authored summary — a column of them is unreadable at table width.
+
 import {
   documentReviewView,
   historyReviewView,
@@ -13,223 +14,130 @@ import {
   strategyWriteActivity,
 } from "./strategy_view_summary.js";
 import {
+  isStandingDoc,
+  orderStrategyDocs,
+  strategyDocumentCard,
+} from "./universe_strategy_cards.js";
+import { workBand } from "./universe_band_primitives.js";
+import { button } from "./workflow_view_primitives.js";
+import {
   el,
-  loadScopedSection,
   loadSection,
   scopeBuckets,
   section,
-  statePill,
-  withProjectColumn,
+  settledScopedCalls,
 } from "./universe_view_support.js";
-import { relativeTime } from "./universe_time.js";
-
-function executionLabel(doc) {
-  if (doc.execution_state === "claimed") {
-    return `claimed · ${claimHolderLabel(doc)}`;
-  }
-  return doc.archived ? "archived" : doc.execution_state || "available";
-}
-
-function claimHolderLabel(doc) {
-  if (doc.execution_owner_kind === "session") {
-    return `session ${doc.execution_owner_session_id}`;
-  }
-  return doc.execution_item_ref || `item ${doc.execution_item_id}`;
-}
-
-function scopeLabel(scope, slugById) {
-  if (scope === "all") return "across all projects";
-  const projects = scope.map(
-    (projectId) => slugById.get(String(projectId)) || String(projectId),
-  );
-  return `scoped to ${projects.join(" + ")}`;
-}
-
-function strategyCell(documentNode, tag, className, text) {
-  return el(documentNode, tag, className, text);
-}
-
-function eventCameFromControl(event, row) {
-  let target = event.target;
-  while (target && target !== row) {
-    if (["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA", "TIME"].includes(
-      String(target.tagName || "").toUpperCase(),
-    )) return true;
-    target = target.parentNode;
-  }
-  return false;
-}
-
-function makeRowNavigable(documentNode, row, href, label) {
-  row.tabIndex = 0;
-  row.setAttribute("role", "link");
-  row.setAttribute("aria-label", `Open ${label}`);
-  row.addEventListener("click", (event) => {
-    if (eventCameFromControl(event, row)) return;
-    documentNode.defaultView.location.hash = href;
-  });
-  row.addEventListener("keydown", (event) => {
-    if (eventCameFromControl(event, row)) return;
-    if (!["Enter", " "].includes(event.key)) return;
-    if (typeof event.preventDefault === "function") event.preventDefault();
-    documentNode.defaultView.location.hash = href;
-  });
-}
-
-function renderStrategyTable(
-  documentNode, body, docs, scope, emptyMessage = "No strategy documents yet.",
-) {
-  if (docs.length === 0) {
-    body.appendChild(el(
-      documentNode, "p", "empty", emptyMessage,
-    ));
-    return;
-  }
-  const table = el(documentNode, "table", "items strategy-corpus-table");
-  const columns = withProjectColumn([
-    { label: "Doc" },
-    { label: "Purpose / ancestry" },
-    { label: "Last editor" },
-    { label: "Last write" },
-    { label: "Revisions" },
-    { label: "Execution" },
-  ], scope, (doc) => doc.project || doc.project_id || "—");
-  const projectColumn = columns.find((column) => column.label === "project");
-  const head = el(documentNode, "tr");
-  for (const column of columns) {
-    head.appendChild(el(documentNode, "th", null, column.label));
-  }
-  table.appendChild(head);
-  for (const doc of docs) {
-    const row = el(documentNode, "tr", "strategy-corpus-row");
-    const href = buildUniverseRoute(
-      "strategy", doc.project_id, doc.slug,
-    );
-
-    const slugCell = el(documentNode, "td", "mono");
-    const slug = el(documentNode, "a", "row-link strategy-doc-link", doc.slug);
-    slug.href = href;
-    slugCell.appendChild(slug);
-    if (doc.archived) {
-      const archived = statePill(documentNode, "archived");
-      archived.className += " strategy-archived";
-      slugCell.appendChild(archived);
-    }
-    row.appendChild(slugCell);
-    if (projectColumn) {
-      row.appendChild(strategyCell(
-        documentNode,
-        "td",
-        "strategy-project",
-        projectColumn.value(doc),
-      ));
-    }
-
-    const purpose = el(documentNode, "td");
-    purpose.appendChild(strategyCell(
-      documentNode, "div", "strategy-doc-title", doc.title,
-    ));
-    const ancestry = el(documentNode, "div", "strategy-doc-ancestry");
-    if (doc.parent_slug) {
-      ancestry.appendChild(strategyCell(
-        documentNode, "span", null, "child of ",
-      ));
-      ancestry.appendChild(strategyCell(
-        documentNode, "span", "mono", doc.parent_slug,
-      ));
-    } else {
-      ancestry.textContent = "top-level strategy";
-    }
-    purpose.appendChild(ancestry);
-    row.appendChild(purpose);
-
-    const editor = el(documentNode, "td", "strategy-editor");
-    if (doc.updated_by) {
-      editor.appendChild(strategyCell(
-        documentNode, "span", "strategy-editor-avatar",
-        String(doc.updated_by).slice(0, 1),
-      ));
-      editor.appendChild(strategyCell(
-        documentNode, "span", "strategy-editor-name", doc.updated_by,
-      ));
-    }
-    row.appendChild(editor);
-    const lastWrite = el(documentNode, "td", "strategy-last-write");
-    lastWrite.appendChild(relativeTime(documentNode, doc.updated_at));
-    row.appendChild(lastWrite);
-    row.appendChild(strategyCell(
-      documentNode, "td", "mono strategy-revision-count", doc.revisions,
-    ));
-    const execution = el(documentNode, "td");
-    const state = statePill(
-      documentNode,
-      doc.archived ? "archived" : doc.execution_state || "available",
-      executionLabel(doc),
-    );
-    if (state) execution.appendChild(state);
-    row.appendChild(execution);
-    makeRowNavigable(documentNode, row, href, doc.slug);
-    table.appendChild(row);
-  }
-  body.appendChild(table);
-}
 
 export function renderStrategyView(context, main, scope) {
   const documentNode = context.document;
   const statsHost = el(documentNode, "div", "strategy-stats-host");
   const callout = strategyReviewCallout(documentNode);
-  const panel = section(documentNode, "Strategy corpus");
+  const standing = workBand(
+    documentNode, "standing", "Standing", "No standing documents.",
+  );
+  const plans = workBand(
+    documentNode, "plans", "Plans", "No plans in this scope.",
+  );
+  // Archived documents are records, not clutter: the band stays, closed, so
+  // nothing that was written is out of reach from the page that holds it.
+  const archived = workBand(
+    documentNode,
+    "archived-docs",
+    "Archived",
+    "Nothing is archived.",
+    { defaultOpen: false },
+  );
+  // Write history sits under the documents and matches the width their cards
+  // actually occupy — stretched to the full page it claimed a precision the
+  // 120-day count does not have.
   const writesHost = el(documentNode, "div", "strategy-writes-host");
-  main.replaceChildren(statsHost, callout, panel, writesHost);
+  main.replaceChildren(
+    statsHost, callout, standing, plans, archived, writesHost,
+  );
+
   const projects = context.projects();
   const buckets = scopeBuckets(scope, projects, true);
-  const slugById = new Map(
-    projects.map((row) => [String(row.id), row.slug || String(row.id)]),
+  const projectById = new Map(
+    projects.map((row) => [String(row.id), row]),
   );
-  loadScopedSection(
+  settledScopedCalls(
     context,
-    panel,
     buckets.map((bucket) => ({
       functionId: "strategy.surface.list",
       payload: {},
       target: { kind: "global", project_id: String(bucket) },
     })),
-    (body, callResults) => {
-      const docs = callResults.flatMap((callResult, index) => (
-        ((callResult.envelope.result || {}).docs || []).map((doc) => ({
-          ...doc,
-          project: slugById.get(buckets[index]) || buckets[index],
-          project_id: buckets[index],
-        }))
-      ));
-      panel.setCount(scopeLabel(scope, slugById));
-      statsHost.replaceChildren(strategyStats(documentNode, docs));
-      const writes = callResults.flatMap(
-        (callResult) => (callResult.envelope.result || {}).writes || [],
-      );
-      writesHost.replaceChildren(
-        strategyWriteActivity(documentNode, writes),
-      );
-      const activeDocs = docs.filter((doc) => !doc.archived);
-      const archivedDocs = docs.filter((doc) => doc.archived);
-      renderStrategyTable(
-        documentNode, body, activeDocs, scope, "No active strategy documents.",
-      );
-      if (archivedDocs.length) {
-        const archive = el(documentNode, "details", "strategy-archive-group");
-        archive.appendChild(el(
+  ).then(({ callResults }) => {
+    if (!context.isMounted()) return;
+    const failure = callResults.find(
+      (callResult) => !(callResult.status === 200 && callResult.envelope.success),
+    );
+    if (failure) {
+      const message = failure.envelope?.error?.message
+        || "Strategy could not be loaded.";
+      for (const band of [standing, plans, archived]) band.renderError(message);
+      return;
+    }
+    const docs = callResults.flatMap((callResult, index) => (
+      ((callResult.envelope.result || {}).docs || []).map((doc) => ({
+        ...doc,
+        project_id: buckets[index],
+      }))
+    ));
+    const writes = callResults.flatMap(
+      (callResult) => (callResult.envelope.result || {}).writes || [],
+    );
+    statsHost.replaceChildren(strategyStats(documentNode, docs));
+    const render = (band, rows, isStanding) => {
+      const cards = orderStrategyDocs(rows, isStanding).map((doc) => (
+        strategyDocumentCard(
           documentNode,
-          "summary",
-          "strategy-archive-heading",
-          `Archived (${archivedDocs.length})`,
-        ));
-        const archiveBody = el(documentNode, "div", "strategy-archive-body");
-        renderStrategyTable(documentNode, archiveBody, archivedDocs, scope);
-        archive.appendChild(archiveBody);
-        body.appendChild(archive);
-      }
-    },
+          doc,
+          projectById.get(String(doc.project_id)) || { id: doc.project_id },
+        )
+      ));
+      band.setCount(cards.length);
+      band.renderCards(
+        cards, "No strategy documents in this band.", "strategy-doc-grid",
+      );
+    };
+    const live = docs.filter((doc) => !doc.archived);
+    render(standing, live.filter(isStandingDoc), true);
+    render(plans, live.filter((doc) => !isStandingDoc(doc)), false);
+    render(archived, docs.filter((doc) => doc.archived), false);
+    writesHost.replaceChildren(strategyWriteActivity(documentNode, writes));
+    matchWritesToCardRow(documentNode, standing, writesHost);
+  });
+}
+
+// The Writes panel spans the width the document cards above it actually
+// occupy. Cards are a responsive grid, so that width is measured rather than
+// declared, and re-measured whenever the grid reflows.
+function matchWritesToCardRow(documentNode, band, writesHost) {
+  const windowNode = documentNode.defaultView;
+  const grid = Array.from(band.body.children).find(
+    (node) => String(node.className || "").includes("strategy-doc-grid"),
   );
+  if (
+    !grid
+    || typeof windowNode?.ResizeObserver !== "function"
+    || typeof grid.getBoundingClientRect !== "function"
+  ) return;
+  const apply = () => {
+    const cards = Array.from(grid.children);
+    if (!cards.length) return;
+    const left = grid.getBoundingClientRect().left;
+    const occupied = Math.max(
+      ...cards.map((card) => card.getBoundingClientRect().right - left),
+    );
+    if (occupied > 0) writesHost.style.width = `${occupied}px`;
+  };
+  const observer = new windowNode.ResizeObserver(apply);
+  observer.observe(grid);
+  windowNode.addEventListener(
+    "pagehide", () => observer.disconnect(), { once: true },
+  );
+  apply();
 }
 
 function renderDetail(context, main, projectId, doc) {

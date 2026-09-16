@@ -1,0 +1,219 @@
+/* The controls a work card carries: the condition it is in, who is holding
+   it, and where it went.
+ *
+ * All three reveal a panel, and the panel is fixed to the viewport rather
+ * than to the card — a card in a scrolling grid is a poor anchor for a panel
+ * that can be taller than the card itself. */
+
+.universe-app-root .reveal-host {
+  position: relative;
+  min-width: 0;
+}
+.universe-app-root .reveal-close {
+  display: block;
+  margin: 8px 8px 0 auto;
+  padding: 4px 8px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 6px;
+  background: var(--yoke-surface);
+  color: var(--yoke-ink-2);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* The one condition a card leads with. Filled, not outlined: it is the
+   loudest thing on a card whose other text is all the same weight. */
+.universe-app-root .item-status {
+  margin: 12px 0 0;
+}
+.universe-app-root .item-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 99px;
+  background: var(--yoke-surface-2);
+  color: var(--yoke-ink-2);
+  font: 650 13px/1.25 var(--yoke-font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+.universe-app-root .item-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+.universe-app-root .item-status-pill.is-ready,
+.universe-app-root .item-status-pill.is-done {
+  background: var(--yoke-good-bg);
+  color: var(--yoke-good);
+}
+.universe-app-root .item-status-pill.is-blocked {
+  background: var(--yoke-crit-bg);
+  color: var(--yoke-crit);
+}
+.universe-app-root .item-status-pill.is-dependency {
+  background: var(--yoke-warn-bg);
+  color: var(--yoke-warn);
+}
+.universe-app-root .item-status-pill.is-frozen {
+  background: #e6f6ff;
+  color: #0b6a9c;
+}
+.universe-app-root .item-status-pill:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 3px;
+}
+.universe-app-root .item-status-detail {
+  position: fixed;
+  z-index: 80;
+  inset: auto;
+  box-sizing: border-box;
+  width: min(440px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  margin: 0;
+  padding: 15px;
+  overflow: auto;
+  border: 1px solid var(--yoke-border);
+  border-radius: 10px;
+  background: var(--yoke-surface);
+  box-shadow: var(--yoke-shadow);
+  color: var(--yoke-ink);
+  font: 400 14px/1.5 var(--yoke-font-sans);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.universe-app-root .item-status-detail[hidden] {
+  display: none;
+}
+.universe-app-root .item-status-detail-label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+  font-weight: 750;
+  text-transform: uppercase;
+  color: var(--yoke-muted);
+}
+.universe-app-root .item-status-detail-copy {
+  display: block;
+}
+
+/* Who is holding this item, compact on the card and whole in the panel. */
+.universe-app-root .item-claimant-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  min-width: 0;
+}
+.universe-app-root .item-claimant-mini {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 7px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 7px;
+  background: var(--yoke-bg);
+  color: var(--yoke-ink);
+  font: inherit;
+  cursor: pointer;
+}
+.universe-app-root .item-claimant-mini .session-harness {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.universe-app-root .item-claimant-mini .session-executor {
+  font-size: 11px;
+}
+.universe-app-root .item-claimant-mini .session-status-pill {
+  padding: 2px 5px;
+  font-size: 10px;
+}
+/* Work claims are exclusive, so a second holder is a fact to surface. */
+.universe-app-root .item-claimant-conflict {
+  color: var(--yoke-crit);
+  font-size: 11px;
+  font-weight: 650;
+}
+.universe-app-root .item-claimant-preview {
+  position: fixed;
+  z-index: 80;
+  inset: auto;
+  width: min(360px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--yoke-border);
+  border-radius: 12px;
+  background: var(--yoke-surface);
+  box-shadow: var(--yoke-shadow);
+  color: var(--yoke-ink);
+}
+.universe-app-root .item-claimant-preview[hidden] {
+  display: none;
+}
+.universe-app-root .item-claimant-preview > .session-card {
+  margin: 0;
+  border: 0;
+}
+
+/* Where a finished item went. */
+.universe-app-root .item-deployment {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 10px;
+  padding: 9px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 8px;
+  background: var(--yoke-bg);
+  color: var(--yoke-muted);
+  font-size: 11px;
+  text-decoration: none;
+}
+.universe-app-root .item-deployment:hover {
+  border-color: color-mix(in srgb, var(--yoke-border) 45%, var(--yoke-accent));
+}
+.universe-app-root .item-deployment-environment {
+  color: var(--yoke-ink-2);
+  font-weight: 650;
+}
+.universe-app-root .item-deployment-time,
+.universe-app-root .item-deployment-run {
+  flex-basis: 100%;
+}
+.universe-app-root .item-deployment-time.is-unavailable {
+  font-style: italic;
+}
+
+/* The project-wide deploy lock a waiting run is serialized behind. */
+.universe-app-root .shipping-run-lock {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 10px;
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.universe-app-root .shipping-run-lock .item-claimant-row {
+  margin: 0;
+}
+
+@media (hover: none) {
+  .universe-app-root .item-status-pill,
+  .universe-app-root .item-claimant-mini {
+    min-height: 36px;
+  }
+}

@@ -155,42 +155,19 @@ test("strategy at All fans out one call per roster project", async (t) => {
       { kind: "global", project_id: "2" },
     ],
   );
-  // Rows from every bucket render with their owning project.
-  const cells = allNodes(root)
-    .filter((node) => node.tagName === "TD")
-    .map(cellText);
-  assert.deepEqual(cells, [
-    "PLAN-1", "alpha", "plan", "b", "today", "1", "available",
-    "PLAN-2", "beta", "plan", "b", "today", "1", "available",
-  ]);
+  // Cards from every bucket render with the project badge of the bucket
+  // that fetched them, and each card opens its own document.
   assert.deepEqual(
-    allNodes(root)
-      .filter((node) => node.tagName === "TH")
-      .map((node) => node.textContent),
-    [
-      "Doc", "project", "Purpose / ancestry", "Last editor", "Last write",
-      "Revisions", "Execution",
-    ],
+    byClass(root, "strategy-doc-slug").map((node) => node.textContent),
+    ["PLAN-1", "PLAN-2"],
   );
   assert.deepEqual(
-    byClass(root, "strategy-doc-ancestry").map((node) => node.textContent),
-    ["top-level strategy", "top-level strategy"],
+    byClass(root, "strategy-doc-prefix").map((node) => node.textContent),
+    ["ALP", "BET"],
   );
   assert.deepEqual(
-    byClass(root, "strategy-editor-name").map((node) => node.textContent),
-    ["ben", "ben"],
-  );
-  // Each doc row opens its own drill-in, carrying the bucket's project.
-  assert.deepEqual(
-    allNodes(root)
-      .filter((node) => node.classList && node.classList.contains("row-link"))
-      .map((node) => node.href),
+    byClass(root, "strategy-doc-card").map((node) => node.href),
     ["#/strategy/PLAN-1?project=1", "#/strategy/PLAN-2?project=2"],
-  );
-  // The panel keeps the prototype's scope label instead of inventing a count.
-  assert.equal(
-    byClass(root, "panel-count")[0].textContent,
-    "· across all projects",
   );
   mounted.unmount();
 });

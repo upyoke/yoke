@@ -7,7 +7,7 @@
   flex-direction: column;
   gap: 6px;
 }
-.universe-app-root .inbox-sections .overview-section[hidden] {
+.universe-app-root .inbox-sections .band-section[hidden] {
   display: none;
 }
 .universe-app-root .inbox-message {

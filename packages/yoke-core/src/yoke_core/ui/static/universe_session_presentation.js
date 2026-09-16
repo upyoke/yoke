@@ -1,6 +1,30 @@
 import { attachTooltip } from "./universe_tooltip.js";
 import { el } from "./universe_view_support.js";
 
+// Who is running this session, as the one mark and label every surface that
+// shows a session uses: the roster card, the claimant preview on an item, the
+// deploy-lock holder on a run card. A CI runner is a machine rather than a
+// harness, and says so.
+export function harnessIdentity(row) {
+  const executor = String(row.executor_surface || row.executor || "unreported");
+  const normalized = executor.toLowerCase();
+  if (row.actor_kind === "system" && normalized.includes("ci")) {
+    return { mark: "\u2699", className: "h-machine", label: executor };
+  }
+  if (row.executor_mark && row.executor_class_name) {
+    return {
+      mark: row.executor_mark,
+      className: row.executor_class_name,
+      label: executor,
+    };
+  }
+  return {
+    mark: executor.slice(0, 1).toUpperCase() || "?",
+    className: "h-other",
+    label: executor,
+  };
+}
+
 export function presentationLabel(row) {
   if (row.presentation_state === "not-attached") return "local only";
   if (

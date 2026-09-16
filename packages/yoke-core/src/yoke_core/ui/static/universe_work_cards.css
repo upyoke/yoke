@@ -1,0 +1,324 @@
+.universe-app-root .work-item-card,
+.universe-app-root .strategy-doc-card,
+.universe-app-root .shipping-run-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 9px;
+  padding: 18px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 12px;
+  background: var(--yoke-surface);
+  color: var(--yoke-ink);
+  text-decoration: none;
+}
+/* A card that is not itself a control does not act like one. The lit border
+   and lifted shadow read as selection, so hovering blank space on a card
+   whose links are elsewhere promised something the card could not do. Only
+   a card that IS a link keeps the cue. */
+.universe-app-root a.strategy-doc-card {
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.universe-app-root a.strategy-doc-card:hover {
+  border-color: color-mix(in srgb, var(--yoke-border) 45%, var(--yoke-accent));
+  box-shadow: var(--yoke-shadow);
+}
+.universe-app-root :is(.work-item-card, .shipping-run-card):hover {
+  border-color: var(--yoke-border);
+  box-shadow: none;
+  cursor: default;
+}
+.universe-app-root .work-item-card:focus-visible,
+.universe-app-root .strategy-doc-card:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 2px;
+}
+.universe-app-root .work-item-card-head,
+.universe-app-root .strategy-doc-card-head,
+.universe-app-root .shipping-run-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
+}
+.universe-app-root .work-item-card-ref,
+.universe-app-root .strategy-doc-prefix,
+.universe-app-root .strategy-doc-slug,
+.universe-app-root .shipping-run-id,
+.universe-app-root .shipping-run-flow {
+  overflow-wrap: anywhere;
+  font-family: var(--yoke-font-mono);
+}
+.universe-app-root .work-item-card-ref,
+.universe-app-root .shipping-run-id {
+  color: var(--yoke-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+.universe-app-root .work-item-card-title {
+  display: block;
+  color: var(--yoke-ink);
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+/* The title is a link without looking like one until it is used: the card
+   is already the item's, and a blue line under every title turned a grid
+   into a page of links. */
+.universe-app-root .overview-card-link {
+  color: inherit;
+  text-decoration: none;
+}
+.universe-app-root .overview-card-link:hover {
+  text-decoration: underline;
+}
+.universe-app-root .work-item-card-progress {
+  min-height: 8px;
+  flex: 0 0 auto;
+}
+.universe-app-root .release-batch-title {
+  color: var(--yoke-muted);
+  font-size: 9.5px;
+  font-weight: 720;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+}
+.universe-app-root .work-item-card-meta {
+  margin-top: 0;
+  padding-top: 14px;
+  color: var(--yoke-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .shipping-run-card-meta {
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .work-item-card.is-cancelled {
+  background: color-mix(in srgb, var(--yoke-crit-bg) 42%, var(--yoke-surface));
+}
+/* The overflow card is one word, large, and centred in whatever height the
+   row gave it: the band heading already carries the count, so repeating it
+   here spent a whole card saying a number twice. */
+.universe-app-root .see-more-card {
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  border-style: dashed;
+  color: var(--yoke-ink);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+.universe-app-root .see-more-card > span {
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.universe-app-root .strategy-doc-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
+}
+.universe-app-root .strategy-doc-prefix {
+  display: inline-flex;
+  flex: none;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: var(--yoke-accent-weak);
+  color: var(--yoke-accent);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.universe-app-root .strategy-doc-slug {
+  flex: 1;
+  min-width: 0;
+  color: var(--yoke-ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.universe-app-root .strategy-doc-state {
+  padding: 1px 6px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 999px;
+  color: var(--yoke-muted);
+  font-size: 9.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+.universe-app-root .strategy-doc-age {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.universe-app-root .strategy-doc-age-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--yoke-muted);
+}
+.universe-app-root .strategy-doc-age.is-today .strategy-doc-age-dot {
+  background: var(--yoke-good);
+}
+.universe-app-root .strategy-doc-age.is-week .strategy-doc-age-dot {
+  background: #84cc16;
+}
+.universe-app-root .strategy-doc-age.is-month .strategy-doc-age-dot {
+  background: var(--yoke-warn);
+}
+.universe-app-root .strategy-doc-age.is-old .strategy-doc-age-dot {
+  background: var(--yoke-crit);
+}
+.universe-app-root .strategy-doc-claim {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 9px 10px;
+  border-left: 3px solid var(--yoke-accent);
+  border-radius: 6px;
+  background: var(--yoke-accent-weak);
+  font-size: 12px;
+}
+/* The steering mark, at the size the seat's own card uses. */
+.universe-app-root .strategy-doc-claim-symbol {
+  display: inline-flex;
+  width: 29px;
+  flex: none;
+  color: var(--yoke-accent);
+}
+.universe-app-root .strategy-doc-claim-symbol svg {
+  width: 100%;
+  height: 22px;
+}
+.universe-app-root .strategy-doc-claim.is-blitz {
+  border-color: #8b5cf6;
+}
+.universe-app-root .strategy-doc-claim-label {
+  font-family: "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+.universe-app-root .strategy-doc-claim-holder {
+  min-width: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .strategy-doc-summary {
+  margin: 14px 0 0;
+  color: var(--yoke-ink);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+.universe-app-root .strategy-doc-summary.is-missing {
+  color: var(--yoke-warn);
+  font-style: italic;
+}
+
+.universe-app-root .shipping-run-card {
+  border-top: 3px solid var(--yoke-muted);
+}
+.universe-app-root .shipping-run-card.is-succeeded {
+  border-top-color: var(--yoke-good);
+}
+.universe-app-root .shipping-run-card.is-executing,
+.universe-app-root .shipping-run-card.is-created {
+  border-top-color: var(--yoke-run);
+}
+.universe-app-root .shipping-run-card.is-failed,
+.universe-app-root .shipping-run-card.is-cancelled {
+  border-top-color: var(--yoke-crit);
+}
+.universe-app-root .shipping-run-card.is-awaiting-approval,
+.universe-app-root .shipping-run-card.is-awaiting-review {
+  border-top-color: var(--yoke-warn);
+}
+.universe-app-root .shipping-run-id {
+  text-decoration: none;
+}
+.universe-app-root .shipping-run-id:hover {
+  text-decoration: underline;
+}
+.universe-app-root .shipping-run-id:focus-visible {
+  outline: 2px solid var(--yoke-accent);
+  outline-offset: 2px;
+}
+.universe-app-root .shipping-run-environment {
+  color: var(--yoke-ink-2);
+  font-size: 11px;
+  font-weight: 650;
+}
+.universe-app-root .shipping-run-flow {
+  font-size: 11.5px;
+}
+.universe-app-root :is(.shipping-run-details, .run-gate-details) {
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.universe-app-root :is(.shipping-run-details, .run-gate-details) > summary {
+  color: var(--yoke-link);
+  cursor: pointer;
+  font-weight: 600;
+}
+.universe-app-root .shipping-run-details[open] > :not(summary) {
+  margin-top: 8px;
+}
+.universe-app-root .shipping-run-evidence {
+  color: var(--yoke-link);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.universe-app-root .shipping-run-evidence:hover {
+  text-decoration: underline;
+}
+.universe-app-root .shipping-run-release {
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.universe-app-root .release-batch {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 6px;
+  background: var(--yoke-bg);
+}
+.universe-app-root .release-member {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.universe-app-root .release-member span {
+  overflow-wrap: anywhere;
+}
+.universe-app-root .release-member-more,
+.universe-app-root .shipping-run-derived {
+  color: var(--yoke-muted);
+  font-size: 10.5px;
+}
+.universe-app-root .shipping-run-derived {
+  padding-left: 8px;
+  border-left: 2px solid var(--yoke-border);
+}

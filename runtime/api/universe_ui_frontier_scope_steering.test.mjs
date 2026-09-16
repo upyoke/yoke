@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { rowsInOverviewScope } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_overview_primitives.js";
+import { rowsInBandScope } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_band_primitives.js";
 
 const PROJECTS = [{ id: 1, slug: "yoke" }, { id: 2, slug: "platform" }, { id: 3, slug: "third" }];
 
@@ -35,7 +35,7 @@ function steeringSession(sessionId, homeProjectId, steeredProjectId, { released 
 test("a session steering a project other than its home project is in that project's scope", () => {
   const rows = [homeSession("s-yoke", 1), steeringSession("s-root", 1, 2)];
   assert.deepEqual(
-    rowsInOverviewScope(rows, ["2"], PROJECTS).map((row) => row.session_id),
+    rowsInBandScope(rows, ["2"], PROJECTS).map((row) => row.session_id),
     ["s-root"],
   );
 });
@@ -44,7 +44,7 @@ test("a session steering a project other than its home project is in that projec
 test("a combined A/B scope keeps the home-project worker and the cross-project steerer", () => {
   const rows = [homeSession("s-yoke", 1), steeringSession("s-root", 1, 2)];
   assert.deepEqual(
-    rowsInOverviewScope(rows, ["1", "2"], PROJECTS).map((row) => row.session_id).sort(),
+    rowsInBandScope(rows, ["1", "2"], PROJECTS).map((row) => row.session_id).sort(),
     ["s-root", "s-yoke"],
   );
 });
@@ -52,13 +52,13 @@ test("a combined A/B scope keeps the home-project worker and the cross-project s
 // A released scope must not add visibility — only current holdings count.
 test("a released steering claim does not widen the session's scope", () => {
   const rows = [steeringSession("s-root", 1, 2, { released: true })];
-  assert.deepEqual(rowsInOverviewScope(rows, ["2"], PROJECTS), []);
+  assert.deepEqual(rowsInBandScope(rows, ["2"], PROJECTS), []);
 });
 
 // An unrelated project must not gain visibility from a claim scoped elsewhere.
 test("an unrelated project's scope does not include a session steering a different one", () => {
   const rows = [steeringSession("s-root", 1, 2)];
-  assert.deepEqual(rowsInOverviewScope(rows, ["3"], PROJECTS), []);
+  assert.deepEqual(rowsInBandScope(rows, ["3"], PROJECTS), []);
 });
 
 // Item rows carry no holdings at all; the added predicate must stay inert
@@ -69,7 +69,7 @@ test("an item row with no holdings still filters on project alone", () => {
     { public_ref: "BET-1", project_id: 2 },
   ];
   assert.deepEqual(
-    rowsInOverviewScope(items, ["2"], PROJECTS).map((row) => row.public_ref),
+    rowsInBandScope(items, ["2"], PROJECTS).map((row) => row.public_ref),
     ["BET-1"],
   );
 });

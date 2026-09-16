@@ -127,8 +127,8 @@ test("a pending review is offered on its own member's row only", async (t) => {
 });
 
 
-test("an Overview card offers a member's review once as well", async (t) => {
-  // The run page and the Overview card compose the same two pieces — member
+test("a Shipping card offers a member's review once as well", async (t) => {
+  // The run page and the Shipping card compose the same two pieces — member
   // rows with their own reviews, then the release's gates — so a dedup that
   // covered only one of them left the other showing two Approve buttons for
   // one decision.
@@ -136,7 +136,7 @@ test("an Overview card offers a member's review once as well", async (t) => {
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/overview?project=1";
+  documentNode.defaultView.location.hash = "#/shipping?project=1";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: client() });
   await settle();

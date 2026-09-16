@@ -7,7 +7,7 @@ import { el } from "./universe_view_support.js";
 import {
   harnessStatusLine,
   hookTrustRemediation,
-} from "./universe_views_overview_activation_copy.js";
+} from "./universe_onboarding_copy.js";
 
 const HEALTH_RED = "red";
 

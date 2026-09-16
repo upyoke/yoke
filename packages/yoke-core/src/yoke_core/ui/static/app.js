@@ -117,6 +117,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     setScopeVisible, shell,
   } = createWorkbenchChrome({
     client,
+    context,
     documentNode,
     mountedSlotNodes,
     options,

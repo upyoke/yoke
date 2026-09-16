@@ -18,9 +18,9 @@ import {
   activationClient,
   harnessTargets,
   machineRow,
-  mountOverview,
+  mountWorkbench,
   wizardSubmodules,
-} from "./universe_ui_activation_test_support.mjs";
+} from "./universe_ui_onboarding_test_support.mjs";
 
 function stubFetch(t) {
   const originalFetch = globalThis.fetch;
@@ -46,7 +46,7 @@ test("day zero: module one is next up, the rest wait in order", async (t) => {
       },
     },
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
 
   const cards = moduleCards(root);
   assert.deepEqual(cards.map((card) => card.attributes.get("data-module")), [
@@ -100,7 +100,7 @@ test("the wizard checklist renders ✓/○ rows with tail allowances", async (t)
       },
     },
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
 
   const rows = byClass(root, "activation-check");
   assert.deepEqual(rows.map((row) => row.attributes.get("data-sub")), [
@@ -151,7 +151,7 @@ test("hosted with the machine pending reads the web-first copy", async (t) => {
       },
     },
   });
-  const { root, mounted } = await mountOverview(
+  const { root, mounted } = await mountWorkbench(
     activationClient(answer),
     { data: { portability: { mode: "hosted" } } },
   );
@@ -198,7 +198,7 @@ test("the harness module answers per machine, never for the universe", async (t)
       },
     },
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
 
   const cards = moduleCards(root);
   assert.deepEqual(cards.map((card) => card.attributes.get("data-state")), [
@@ -272,7 +272,7 @@ test("an unapproved harness reads red with its remediation", async (t) => {
       },
     },
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
 
   const harness = moduleCards(root)[1];
   const codex = byClass(harness, "activation-card")[1];
@@ -301,7 +301,7 @@ test("fully deployed: every module reads activated with its copy", async (t) => 
       run_onboard: "activated", first_deploy: "activated",
     },
   });
-  const { root, mounted } = await mountOverview(activationClient(answer));
+  const { root, mounted } = await mountWorkbench(activationClient(answer));
 
   const cards = moduleCards(root);
   assert.deepEqual(
@@ -329,7 +329,7 @@ test("an unresolved activation read renders pending, never states", async (t) =>
       return client.call(request);
     },
   };
-  const { root, mounted } = await mountOverview(failing);
+  const { root, mounted } = await mountWorkbench(failing);
 
   assert.equal(moduleCards(root).length, 0);
   assert.equal(

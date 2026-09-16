@@ -9,6 +9,8 @@ import {
   renderCapabilityDetail,
 } from "./universe_views_capabilities.js";
 import { renderDeploymentsView } from "./universe_views_delivery.js";
+import { renderFrontierView } from "./universe_views_frontier.js";
+import { renderShippingView } from "./universe_views_shipping.js";
 import {
   renderDeliveryDatabasesView,
   renderDeliveryEnvironmentsView,
@@ -28,7 +30,6 @@ import {
   renderOuroborosEntryDetailView,
   renderOuroborosView,
 } from "./universe_views_ouroboros.js";
-import { renderOverviewView } from "./universe_views_overview.js";
 import { renderPacksView } from "./universe_views_packs.js";
 import {
   renderProjectsView,
@@ -69,6 +70,11 @@ const fromDrillInProject = (render) => (
 // Drill-ins remain children of the view whose row opened them.
 export const DETAIL_RENDERERS = {
   items: renderItemDetailView,
+  // Opening a run from Shipping IS opening the run: a sub-screen of the
+  // page that listed it, reached through that page's breadcrumb. The
+  // Deployments drill-in below reaches the same renderer from the
+  // diagnostics side, where a run is read beside the flow that defines it.
+  shipping: fromDrillInProject(renderRunDetailView),
   strategy: renderStrategyDocDetailView,
   capabilities: renderCapabilityDetail,
   ouroboros: renderOuroborosEntryDetailView,
@@ -108,7 +114,10 @@ export const DETAIL_RENDERERS = {
 // readings of one subject — Deployments, whose Flows define what its Runs
 // execute — and then the renderer below reads `chrome.tab` to pick one.
 export const VIEW_RENDERERS = {
-  overview: renderOverviewView,
+  strategy: renderStrategyView,
+  frontier: renderFrontierView,
+  shipping: renderShippingView,
+  machines: renderMachinesView,
   sessions: renderSessionsView,
   inbox: renderInboxView,
   profile: renderProfileView,
@@ -118,7 +127,6 @@ export const VIEW_RENDERERS = {
   projects: renderProjectsView,
   github: renderGithubView,
 
-  strategy: renderStrategyView,
   items: renderItemsView,
   deployments: renderDeploymentsView,
   environments: renderDeliveryEnvironmentsView,
@@ -134,5 +142,4 @@ export const VIEW_RENDERERS = {
   events: renderEventsView,
   doctor: renderDoctorView,
   ouroboros: renderOuroborosView,
-  machines: renderMachinesView,
 };

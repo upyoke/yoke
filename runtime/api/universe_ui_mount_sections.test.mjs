@@ -111,7 +111,7 @@ test("a section for a workbench view appends after the view's own output", async
   const viewHost = byClass(root, "view-host")[0];
   assert.ok(viewHost.children.length >= 2);
   assert.ok(viewHost.children.some(
-    (child) => child.classList.contains("panel"),
+    (child) => child.classList.contains("work-band"),
   ));
   assert.equal(viewHost.children[viewHost.children.length - 1], extra);
 

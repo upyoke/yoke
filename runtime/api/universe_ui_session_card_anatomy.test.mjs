@@ -125,7 +125,7 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   assert.equal(state.value, "active");
   assert.equal(byClass(root, "page-head")[0].hidden, true);
   assert.deepEqual(
-    byClass(root, "overview-section-title").map((node) => node.textContent),
+    byClass(root, "band-section-title").map((node) => node.textContent),
     ["Machines", "Sessions"],
   );
   assert.deepEqual(

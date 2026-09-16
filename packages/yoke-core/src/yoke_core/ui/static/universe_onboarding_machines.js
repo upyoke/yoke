@@ -11,8 +11,8 @@ import {
   machineConnectedLine,
   machineMetaLine,
   machineNameOf,
-} from "./universe_views_overview_activation_copy.js";
-import { renderHarnessTargets } from "./universe_views_overview_activation_health.js";
+} from "./universe_onboarding_copy.js";
+import { renderHarnessTargets } from "./universe_onboarding_health.js";
 import { preciseAge } from "./universe_time.js";
 
 function projectDirectories(documentNode, module, body) {
