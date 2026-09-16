@@ -9,9 +9,9 @@ import subprocess
 
 import pytest
 
-from runtime.api.cli.test_onboard_source_dev_apply import (
-    _git,
-    _github_app_config,
+from runtime.api.cli.github_stable_helper_test_support import (
+    run_git as _git,
+    write_github_app_config as _github_app_config,
 )
 from yoke_cli.config import github_git_credentials
 from yoke_cli.config import github_git_credential_bundle
@@ -28,14 +28,16 @@ def _write_refresh_sitecustomize(
     """Make a helper subprocess receive one deterministic OAuth response."""
 
     root.mkdir(parents=True, exist_ok=True)
-    body = json.dumps({
-        "access_token": token,
-        "expires_in": 28_800,
-        "refresh_token": "rotated-refresh-secret",
-        "refresh_token_expires_in": 15_552_000,
-        "scope": "",
-        "token_type": "bearer",
-    }).encode("utf-8")
+    body = json.dumps(
+        {
+            "access_token": token,
+            "expires_in": 28_800,
+            "refresh_token": "rotated-refresh-secret",
+            "refresh_token_expires_in": 15_552_000,
+            "scope": "",
+            "token_type": "bearer",
+        }
+    ).encode("utf-8")
     (root / "sitecustomize.py").write_text(
         "import builtins\n"
         "import urllib.request\n"
@@ -50,7 +52,8 @@ def _write_refresh_sitecustomize(
         "    def open(self, request, timeout=None):\n"
         + (
             f"        builtins.open({str(call_marker)!r}, 'w').write('called')\n"
-            if call_marker is not None else ""
+            if call_marker is not None
+            else ""
         )
         + "        return _Response(request.full_url)\n"
         "urllib.request.build_opener = lambda *args, **kwargs: _Opener()\n",
@@ -94,19 +97,25 @@ def _install_injected_local_product_bundle(
         for source, target in original_sources
     )
     monkeypatch.setattr(
-        github_git_credential_bundle, "_bundle_sources", lambda: sources,
+        github_git_credential_bundle,
+        "_bundle_sources",
+        lambda: sources,
     )
     return github_git_credentials.install_stable_helper(site)
 
 
 def test_github_helper_key_uses_configured_ghes_authority() -> None:
-    assert github_git_credentials.credential_helper_key(
-        "https://github.enterprise.example:8443"
-    ) == "credential.https://github.enterprise.example:8443.helper"
+    assert (
+        github_git_credentials.credential_helper_key(
+            "https://github.enterprise.example:8443"
+        )
+        == "credential.https://github.enterprise.example:8443.helper"
+    )
 
 
 def test_github_push_helper_serves_token_without_persisting_it(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     root = tmp_path / "repo"
     root.mkdir()
@@ -122,18 +131,25 @@ def test_github_push_helper_serves_token_without_persisting_it(
     hooks = tmp_path / "python-hooks"
     _write_refresh_sitecustomize(hooks, token)
     monkeypatch.setenv("PYTHONPATH", str(hooks))
-    _git(root, "config", "--local", github_git_credentials.GIT_CREDENTIAL_HELPER_KEY, "")
+    _git(
+        root, "config", "--local", github_git_credentials.GIT_CREDENTIAL_HELPER_KEY, ""
+    )
     helper_path = github_git_credentials.install_stable_helper(tmp_path / "site")
     _git(
-        root, "config", "--local",
+        root,
+        "config",
+        "--local",
         github_git_credentials.GITHUB_CREDENTIAL_HELPER_KEY,
         github_git_credentials.helper_command(
-            config_path=config, helper_path=helper_path,
+            config_path=config,
+            helper_path=helper_path,
         ),
     )
 
     filled = _git(
-        root, "credential", "fill",
+        root,
+        "credential",
+        "fill",
         input_text="protocol=https\nhost=github.com\n\n",
     )
 
@@ -157,12 +173,17 @@ def test_github_push_helper_survives_editable_import_repoint(tmp_path: Path) -> 
     config = tmp_path / "config.json"
     _github_app_config(config, token_file, token)
     helper_path = github_git_credentials.install_stable_helper(tmp_path / "site")
-    _git(root, "config", "--local", github_git_credentials.GIT_CREDENTIAL_HELPER_KEY, "")
     _git(
-        root, "config", "--local",
+        root, "config", "--local", github_git_credentials.GIT_CREDENTIAL_HELPER_KEY, ""
+    )
+    _git(
+        root,
+        "config",
+        "--local",
         github_git_credentials.GITHUB_CREDENTIAL_HELPER_KEY,
         github_git_credentials.helper_command(
-            config_path=config, helper_path=helper_path,
+            config_path=config,
+            helper_path=helper_path,
         ),
     )
     repointed = tmp_path / "repointed" / "yoke_cli"
@@ -197,13 +218,11 @@ def test_github_push_helper_survives_editable_import_repoint(tmp_path: Path) -> 
     assert "username=x-access-token" in result.stdout
     assert f"password={token}" in result.stdout
     bundle = github_git_credential_launcher.selected_bundle(tmp_path / "site")
-    helper_text = (
-        bundle / github_git_credentials.STABLE_HELPER_FILE_NAME
-    ).read_text(encoding="utf-8")
+    helper_text = (bundle / github_git_credentials.STABLE_HELPER_FILE_NAME).read_text(
+        encoding="utf-8"
+    )
     assert "_yoke_github_git_credential_store" in helper_text
-    assert (
-        bundle / github_git_credentials.STABLE_STORE_FILE_NAME
-    ).is_file()
+    assert (bundle / github_git_credentials.STABLE_STORE_FILE_NAME).is_file()
 
 
 def test_standalone_helper_proves_bundled_local_product_before_oauth(
@@ -232,14 +251,22 @@ def test_standalone_helper_proves_bundled_local_product_before_oauth(
     payload["github"]["profile_source"] = "local_product"
     config.write_text(json.dumps(payload), encoding="utf-8")
     helper_path = _install_injected_local_product_bundle(
-        tmp_path / "site", tmp_path, monkeypatch, profile,
+        tmp_path / "site",
+        tmp_path,
+        monkeypatch,
+        profile,
     )
-    _git(root, "config", "--local", github_git_credentials.GIT_CREDENTIAL_HELPER_KEY, "")
     _git(
-        root, "config", "--local",
+        root, "config", "--local", github_git_credentials.GIT_CREDENTIAL_HELPER_KEY, ""
+    )
+    _git(
+        root,
+        "config",
+        "--local",
         github_git_credentials.GITHUB_CREDENTIAL_HELPER_KEY,
         github_git_credentials.helper_command(
-            config_path=config, helper_path=helper_path,
+            config_path=config,
+            helper_path=helper_path,
         ),
     )
     repointed = tmp_path / "repointed" / "yoke_cli"
@@ -248,19 +275,24 @@ def test_standalone_helper_proves_bundled_local_product_before_oauth(
     (repointed / "__init__.py").write_text("", encoding="utf-8")
     (hostile_config / "__init__.py").write_text("", encoding="utf-8")
     (hostile_config / "github_git_credential_store.py").write_text(
-        "raise RuntimeError('editable import must not run')\n", encoding="utf-8",
+        "raise RuntimeError('editable import must not run')\n",
+        encoding="utf-8",
     )
     oauth_marker = tmp_path / "oauth-called"
     _write_refresh_sitecustomize(
-        repointed.parent, token, call_marker=oauth_marker,
+        repointed.parent,
+        token,
+        call_marker=oauth_marker,
     )
     env = dict(os.environ)
-    env.update({
-        "PYTHONPATH": str(repointed.parent),
-        "GIT_CONFIG_GLOBAL": os.devnull,
-        "GIT_CONFIG_NOSYSTEM": "1",
-        "GIT_TERMINAL_PROMPT": "0",
-    })
+    env.update(
+        {
+            "PYTHONPATH": str(repointed.parent),
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_TERMINAL_PROMPT": "0",
+        }
+    )
 
     filled = subprocess.run(
         ["git", "credential", "fill"],

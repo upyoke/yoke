@@ -23,7 +23,7 @@ import pytest
 from runtime.api.cli.test_github_stable_helper_runtime import (
     _write_refresh_sitecustomize,
 )
-from runtime.api.cli.test_onboard_source_dev_apply import _git, _github_app_config
+from runtime.api.cli import github_stable_helper_test_support as helper_support
 from yoke_cli.config import github_git_credentials, github_repo_helper_reconnect
 from yoke_cli.config import self_update
 from yoke_cli.self_host import release_target
@@ -61,10 +61,10 @@ def _configured_repo_with_wiped_bundle(
     monkeypatch.setenv("YOKE_MACHINE_HOME", str(home))
     repo = tmp_path / "repo"
     repo.mkdir()
-    _git(repo, "init")
+    helper_support.run_git(repo, "init")
     token_file = home / "secrets" / f"github-app-user-{'a' * 32}.json"
     config = tmp_path / "config.json"
-    _github_app_config(config, token_file, token)
+    helper_support.write_github_app_config(config, token_file, token)
     payload = json.loads(config.read_text(encoding="utf-8"))
     payload["projects"] = [{"checkout": str(repo), "project_id": 1, "env": "local"}]
     config.write_text(json.dumps(payload), encoding="utf-8")
