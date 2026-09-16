@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain.actor_permissions import (
@@ -26,6 +26,9 @@ NATIVE_WAKE_SESSION_ID = "s4"
 #: projects is exactly the case a wake has to resume in the right directory.
 ALPHA_WORKSPACE = "/checkouts/alpha"
 BETA_WORKSPACE = "/checkouts/beta"
+#: ``fleet.wake_ack_grace_seconds`` — the silence window the escalation
+#: tests measure against, and the spacing between repeat escalated wakes.
+ACK_GRACE = timedelta(seconds=300)
 
 
 def add_coordination_claim_schema(conn: sqlite3.Connection) -> None:
@@ -193,7 +196,50 @@ def selector(**values: object) -> RecipientSelector:
     return RecipientSelector.model_validate(values)
 
 
+def stamp_activity(
+    conn: sqlite3.Connection,
+    *,
+    when: datetime,
+    tool_call: str = NOW_TEXT,
+    session_id: str = NATIVE_WAKE_SESSION_ID,
+) -> None:
+    """Keep the recipient's heartbeat fresh while its turn stops ticking.
+
+    This is the observed shape behind every starvation case: liveness reads
+    ``active`` off the heartbeat the whole time, so no idle path ever fires,
+    while the hook route that would have delivered the envelope has already
+    stopped running. ``tool_call`` is that route's own clock, moved forward
+    only by a turn that actually called something.
+    """
+    conn.execute(
+        "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
+        "WHERE session_id=?",
+        (when.strftime("%Y-%m-%dT%H:%M:%SZ"), tool_call, session_id),
+    )
+    conn.commit()
+
+
+def park_session(
+    conn: sqlite3.Connection,
+    session_id: str = NATIVE_WAKE_SESSION_ID,
+) -> None:
+    """Stamp the posture the session declared about itself.
+
+    The fixture above composes ``harness_sessions`` by hand, so the posture
+    column arrives with the tests that need it.
+    """
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(harness_sessions)")}
+    if "mode" not in columns:
+        conn.execute("ALTER TABLE harness_sessions ADD COLUMN mode TEXT")
+    conn.execute(
+        "UPDATE harness_sessions SET mode='parked' WHERE session_id=?",
+        (session_id,),
+    )
+    conn.commit()
+
+
 __all__ = [
+    "ACK_GRACE",
     "ALPHA_WORKSPACE",
     "BETA_WORKSPACE",
     "IDLE_WAKE_SESSION_ID",
@@ -202,5 +248,7 @@ __all__ = [
     "NATIVE_WAKE_SESSION_ID",
     "add_coordination_claim_schema",
     "message_connection",
+    "park_session",
     "selector",
+    "stamp_activity",
 ]

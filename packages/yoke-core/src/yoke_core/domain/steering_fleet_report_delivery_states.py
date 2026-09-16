@@ -108,13 +108,17 @@ def _attempt_owed(
     so silence that accrued before the message counts: a worker quiet for
     four hours will not run the hook that would attach an envelope sent two
     minutes ago. One relay poll after that moment the attempt should exist.
+
+    Silence accrued *after* the message counts the same way, which is why a
+    tool call since the send is not consulted here. It would answer a
+    different question — whether a hook ran once — and reading it as an
+    exemption labelled a recipient that had since stopped as waiting on a
+    route it no longer had, disagreeing with the plane, which escalates
+    that same receipt.
     """
     from yoke_core.domain.steering_fleet_report_detectors import parse_stamp
 
     acted = str(record.get("last_tool_call_at") or "")
-    if acted and parse_stamp(acted) >= parse_stamp(sent_at):
-        # A hook has run since the send, so the next one attaches this.
-        return False
     silent_since = hook_route_silent_since(
         {"last_tool_call_at": acted or None, "message_created_at": sent_at}
     )
