@@ -154,7 +154,9 @@ def check_verification_gate(
             return disk_result
 
         # (4) Browser-freshness — prefer explicit SHA, fall back to timestamp.
-        latest_code = _resolve_latest_code_ref(target, db_path)
+        latest_code = _resolve_latest_code_ref(
+            target, db_path, repo_root=repo_root,
+        )
         if latest_code.sha or latest_code.timestamp:
             stale_rows = _collect_stale_browser_requirements(
                 conn,
@@ -258,7 +260,9 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
             return disk_result
 
         # (3) Browser-freshness
-        latest_code = _resolve_latest_code_ref(target, db_path)
+        latest_code = _resolve_latest_code_ref(
+            target, db_path, repo_root=repo_root,
+        )
         if latest_code.sha or latest_code.timestamp:
             stale_rows = _collect_stale_browser_requirements(
                 conn,

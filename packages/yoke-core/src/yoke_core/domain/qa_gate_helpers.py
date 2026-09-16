@@ -95,22 +95,27 @@ def _resolve_target_branch_project(
 
 
 def _resolve_latest_code_ref(
-    target: GateTarget, db_path: str
+    target: GateTarget, db_path: str, *, repo_root: Optional[str] = None
 ) -> LatestCodeRef:
     """Resolve the revision a browser run must have been captured against.
 
-    A checkout answers this best, because the branch itself is the truth. A
+    A checkout answers this, because the branch itself is the truth. A
     control plane serving a customer project has none, and silently skipping
-    the comparison there would accept a capture of any age; so when git
-    cannot answer, the revisions this control plane has recorded for the item
-    do instead.
+    the comparison there would accept a capture of any age, so the revisions
+    this control plane records for the item answer instead.
+
+    That substitution is deliberately confined to hosts with no checkout at
+    all. Where one exists and git still cannot name a revision — an item with
+    no lane, a branch that is gone — the answer stays "unknown", exactly as
+    it has been; treating it as the recorded revision there would newly call
+    older captures stale for a reason that has nothing to do with them.
     """
     from yoke_core.domain.qa_browser_checkout_free_proof import (
         recorded_latest_code_ref,
     )
 
     resolved = _git_latest_code_ref(target, db_path)
-    if resolved.sha or resolved.timestamp:
+    if repo_root or resolved.sha or resolved.timestamp:
         return resolved
     return recorded_latest_code_ref(target, db_path, branch=resolved.branch)
 
