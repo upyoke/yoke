@@ -20,14 +20,11 @@ from yoke_core.domain.dash_posture_read import (
     marker as _p,
     posture as _posture,
 )
+from yoke_core.domain.dash_posture_verification_gate import verification_gate
 from yoke_core.domain.db_helpers import connect
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
-from yoke_core.domain.deployment_qa_source_obligation import (
-    source_obligation_consumed,
-)
-from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.schema_common import _table_exists
 
 
@@ -60,125 +57,6 @@ def approval_policy_for_transition(
         posture=_posture(item),
         target_status=target_status,
     )
-
-
-def _requirement_consumed(
-    conn: Any,
-    row: Any,
-    *,
-    pre_merge: bool,
-    item_id: int,
-) -> bool:
-    passed = bool(row["passed"] if hasattr(row, "keys") else row[2])
-    if passed:
-        return True
-    if pre_merge:
-        return False
-    phase = str(row["qa_phase"] if hasattr(row, "keys") else row[1] or "")
-    if phase != "post_deploy":
-        return False
-    source_id = int(row["id"] if hasattr(row, "keys") else row[0])
-    return source_obligation_consumed(
-        conn, item_id=int(item_id), source_requirement_id=source_id
-    )
-
-
-def _verification_gate(
-    conn: Any,
-    *,
-    item_id: int,
-    verification: Mapping[str, Any],
-    target_status: str,
-) -> Optional[dict[str, Any]]:
-    if not all(
-        _table_exists(conn, table)
-        for table in (
-            "qa_requirements",
-            "qa_runs",
-        )
-    ):
-        return _failure(
-            "GATE_DASH_VERIFICATION_REQUIRED",
-            "Selected Dash verification has no QA authority tables.",
-            "Initialize QA, author the selected case, and record its run.",
-        )
-    marker = _p(conn)
-    kind = str(verification.get("kind") or "")
-    selector = "r.plan_id = " + marker
-    selector_value: Any = verification.get("plan_id")
-    if kind == "ad_hoc":
-        selector = "r.plan_id IS NULL AND r.method_id = " + marker
-        selector_value = str(verification.get("method_id") or "")
-    # Pre-merge waits for verification only. At done, post_deploy is
-    # consumed by this source's admitted copy on the completion run, not
-    # a second original run or any historical copy. manual_acceptance
-    # keeps its phase gate.
-    pre_merge = target_status == ITEM_POSTURE_VERIFICATION_TRANSITION
-    phase_sql = "AND r.qa_phase = 'verification' " if pre_merge else ""
-    params = (
-        int(item_id),
-        selector_value,
-        ITEM_POSTURE_VERIFICATION_TRANSITION,
-    )
-    cursor = conn.execute(
-        "SELECT r.id, r.qa_phase, EXISTS("
-        "SELECT 1 FROM qa_runs qr "
-        "WHERE qr.qa_requirement_id = r.id AND qr.verdict = 'pass'"
-        ") AS passed "
-        "FROM qa_requirements r "
-        f"WHERE r.item_id = {marker} AND {selector} "
-        "AND r.blocking_mode = 'blocking' AND r.waived_at IS NULL "
-        f"AND r.workflow_transition_id = {marker} "
-        f"{phase_sql}"
-        "ORDER BY r.id",
-        params,
-    )
-    rows = cursor.fetchall()
-    if not rows:
-        if (
-            pre_merge
-            and conn.execute(
-                "SELECT 1 FROM qa_requirements r "
-                f"WHERE r.item_id = {marker} AND {selector} "
-                "AND r.blocking_mode = 'blocking' AND r.waived_at IS NULL "
-                f"AND r.workflow_transition_id = {marker} "
-                "AND r.qa_phase <> 'verification' LIMIT 1",
-                params,
-            ).fetchone()
-        ):
-            return None
-        return _failure(
-            "GATE_DASH_VERIFICATION_REQUIRED",
-            "The selected Dash verification is not bound to a blocking QA case.",
-            "Author or materialize the selected case for the review transition.",
-        )
-    unsatisfied = [
-        int(row["id"] if hasattr(row, "keys") else row[0])
-        for row in rows
-        if not _requirement_consumed(
-            conn, row, pre_merge=pre_merge, item_id=int(item_id)
-        )
-    ]
-    if unsatisfied:
-        waiting = next(
-            (
-                wait
-                for value in unsatisfied
-                if (wait := requirement_awaits_human_review(conn, value)) is not None
-            ),
-            None,
-        )
-        if waiting is not None:
-            return _failure(
-                "GATE_DASH_QA_REVIEW_REQUIRED", waiting.detail, waiting.recovery
-            )
-        return _failure(
-            "GATE_DASH_VERIFICATION_UNSATISFIED",
-            "Selected Dash QA requirement(s) lack a passing run: "
-            + ", ".join(str(value) for value in unsatisfied),
-            "Execute each requirement through the registered QA case runner.",
-        )
-    return None
 
 
 def _evidence(conn: Any, item_id: int) -> Optional[dict[str, Any]]:
@@ -321,7 +199,7 @@ def evaluate(
             ITEM_POSTURE_VERIFICATION_TRANSITION,
             "done",
         } and isinstance(verification, Mapping):
-            blocked = _verification_gate(
+            blocked = verification_gate(
                 conn,
                 item_id=int(item_id),
                 verification=verification,
