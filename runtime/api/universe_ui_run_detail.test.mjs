@@ -37,7 +37,7 @@ function runRow(overrides = {}) {
   };
 }
 
-function runClient(row, activityRows = [], itemActivityRows = []) {
+function runClient(row, activityRows = [], itemActivityRows = [], siblingRows = []) {
   const requests = [];
   return {
     requests,
@@ -66,6 +66,24 @@ function runClient(row, activityRows = [], itemActivityRows = []) {
       }
       if (request.function === "inbox.list") {
         return okEnvelope({ needs_decision: [] });
+      }
+      if (request.function === "projects.infrastructure.list") {
+        return okEnvelope({
+          project: request.payload.project,
+          sites: [],
+          environments: [
+            { site: "hosted", name: "prod", url: "https://upyoke.com",
+              deploy_method: "workflow", health_check_url: null,
+              last_deployed_at: "2026-07-26T10:20:00Z" },
+          ],
+        });
+      }
+      if (request.function === "deployment_runs.find_by_item") {
+        return okEnvelope({
+          item_id: request.target.item_id,
+          fields: ["id", "status", "current_stage", "created_at"],
+          rows: siblingRows,
+        });
       }
       if (request.function === "qa.artifact.read") {
         return okEnvelope({
@@ -134,20 +152,32 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   assert.equal(byClass(root, "run-title")[0].textContent, "Hosted release");
   assert.equal(
     byClass(root, "run-sub")[0].textContent,
-    "1 item · release 0.1.1+launch · run-20260726-001",
+    "1 item · run-20260726-001",
   );
   assert.equal(byClass(root, "run-badge")[0].textContent, "awaiting approval");
   assert.deepEqual(
     byClass(root, "run-step").map((node) => node.className),
     ["run-step is-complete", "run-step is-active", "run-step is-pending"],
   );
+  // Identity: what this release is frozen to, and where it is going.
+  const identity = byClass(root, "run-identity")[0];
+  assert.deepEqual(
+    byClass(identity, "run-fact-label").map((node) => node.textContent),
+    ["Candidate", "Artifact", "Members frozen", "Target"],
+  );
+  const identityValues = byClass(identity, "run-fact-value")
+    .map((node) => node.textContent);
+  assert.equal(identityValues[0], "0.1.1+launch.379");
+  assert.equal(identityValues[1], "not recorded");
+  assert.equal(identityValues[2], "not frozen");
+  assert.equal(identityValues[3], "prod · https://upyoke.com");
   // Verification: the run's own checks, with their pictures.
-  const verification = byClass(root, "run-card")[0];
+  const verification = byClass(root, "run-card")[1];
   assert.equal(byClass(verification, "run-verdict")[0].textContent, "1 of 1 passed");
   assert.ok(byClass(verification, "run-check")[0].textContent.includes("smoke · Browser check"));
   assert.equal(byClass(verification, "review-shot").length, 1);
   // The decision: what the run carries, and the request folded in.
-  const decision = byClass(root, "run-card")[1];
+  const decision = byClass(root, "run-card")[2];
   assert.ok(decision.textContent.includes("Waiting for approval"), decision.textContent);
   assert.deepEqual(
     byClass(decision, "run-items")[0].children.map((node) => node.textContent),
@@ -173,12 +203,43 @@ test("a run with nothing waiting says what it is doing instead", async (t) => {
   }));
   const { root, mounted } = await mountAt(t, "#/deployments/runs/run-20260726-001?project=1", client);
   assert.equal(byClass(root, "run-badge")[0].textContent, "succeeded");
-  const decision = byClass(root, "run-card")[1];
+  const decision = byClass(root, "run-card")[2];
   assert.ok(decision.textContent.includes("Succeeded"), decision.textContent);
   assert.ok(decision.textContent.includes("Completed now."), decision.textContent);
   assert.equal(byClass(decision, "review-card").length, 0);
   assert.ok(
-    byClass(root, "run-card")[0].textContent.includes("No checks were recorded on this run."),
+    byClass(root, "run-card")[1].textContent.includes("No checks were recorded on this run."),
+  );
+  // A run that ended well carries no aftermath block.
+  assert.equal(byClass(root, "run-aftermath").length, 0);
+  mounted.unmount();
+});
+
+test("a cancelled run keeps its history and names what carried the work after", async (t) => {
+  const client = runClient(
+    runRow({ status: "cancelled", current_stage: "approval" }),
+    [],
+    [],
+    [
+      { id: "run-20260726-004", status: "succeeded", current_stage: "complete",
+        created_at: "2026-07-26T12:00:00Z" },
+      { id: "run-20260726-001", status: "cancelled", current_stage: "approval",
+        created_at: "2026-07-26T10:00:00Z" },
+    ],
+  );
+  const { root, mounted } = await mountAt(
+    t, "#/deployments/runs/run-20260726-001?project=1", client,
+  );
+
+  const aftermath = byClass(root, "run-aftermath")[0];
+  assert.match(aftermath.textContent, /does not undo what it already deployed/);
+  // The run itself is not listed as its own replacement.
+  const siblings = byClass(root, "run-sibling");
+  assert.deepEqual(
+    siblings.map((node) => node.children[0].textContent), ["run-20260726-004"],
+  );
+  assert.equal(
+    siblings[0].children[0].href, "#/deployments/runs/run-20260726-004?project=1",
   );
   mounted.unmount();
 });

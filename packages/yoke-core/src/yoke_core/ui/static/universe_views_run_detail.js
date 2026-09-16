@@ -19,6 +19,12 @@ import {
   loadCarriedItemEvidence,
 } from "./universe_carried_item_evidence.js";
 import { gateAsRequest, runGateStatus, runGates } from "./universe_run_gates.js";
+import {
+  appendRunAftermath,
+  loadRunTarget,
+  loadSiblingRuns,
+  runIdentityCard,
+} from "./universe_run_identity.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import { RUNS_PAGE_SIZE } from "./universe_deployment_runs_loader.js";
 import {
@@ -261,6 +267,13 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   const onItemDecision = (request, action, node, note) => resolve(
     request, action, node, note,
   );
+  // The run's binding and what else carried its work are two more reads about
+  // one page; the aftermath block is the only thing that waits on them.
+  const [environment, siblings] = await Promise.all([
+    loadRunTarget(context, project, row.target_environment),
+    loadSiblingRuns(context, project, carriedItems(row), runId),
+  ]);
+  if (!context.isMounted()) return;
   const status = runGateStatus(row) || String(row.status || "unknown");
   const items = carriedItems(row);
   const page = el(documentNode, "div", "run-page");
@@ -273,9 +286,10 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   copy.appendChild(el(
     documentNode, "h1", "run-title", read.flows.get(String(row.flow)) || row.flow || "Deployment run",
   ));
+  // The candidate commit lives on the Identity card whole; a truncated copy
+  // here read like a second, shorter identity.
   copy.appendChild(el(documentNode, "div", "run-sub", [
     items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : "no attached items",
-    row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
     String(row.id),
   ].filter(Boolean).join(" · ")));
   head.appendChild(copy);
@@ -285,10 +299,13 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   page.appendChild(head);
   appendSteps(documentNode, page, row.stages);
   const grid = el(documentNode, "div", "run-grid");
+  grid.appendChild(runIdentityCard(context, row, environment));
   grid.appendChild(verificationCard(context, checks, artifacts));
-  grid.appendChild(decisionCard(
+  const decision = decisionCard(
     context, row, project, onAct, artifacts.length > 0, itemFacts, onItemDecision,
-  ));
+  );
+  appendRunAftermath(context, decision, row, project, siblings);
+  grid.appendChild(decision);
   page.appendChild(grid);
   main.replaceChildren(page);
 }
