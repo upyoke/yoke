@@ -76,7 +76,10 @@ test("plan roster, detail, and activity all explain their empty state", async ()
   await renderQaActivity(uiContext, host, ["1"]);
   const activity = text(host);
   assert.match(activity, /0 case runs today/);
-  assert.match(activity, /No materialized case activity yet\./);
+  // Activity is not limited to materialized cases: a case attached
+  // straight to an item or a run shows here too, so the empty state does
+  // not name materialization as the only way a row could exist.
+  assert.match(activity, /No QA case activity yet\./);
 });
 
 test("method roster explains an honestly empty served catalog", async () => {
