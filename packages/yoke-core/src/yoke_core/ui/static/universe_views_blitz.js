@@ -262,8 +262,8 @@ function blitzPosturePanel(documentNode, item) {
 function renderLoadedBlitz(context, main, item, execution) {
   const documentNode = context.document;
   const progressLog = progressIfPresent(documentNode, item);
-  // A Blitz ships in slices, so its delivery history is the readable record
-  // of how far it has got — and the session holding it is who to ask.
+  // The session holding the item is who to ask about it; a Blitz ships in
+  // slices, so its delivery history is the readable record of how far it got.
   const claimant = itemClaimantPanel(context, item);
   const host = el(documentNode, "div", "item-detail blitz-detail");
   host.appendChild(itemHeading(documentNode, item));
