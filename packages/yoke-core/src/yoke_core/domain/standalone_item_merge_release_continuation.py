@@ -20,11 +20,13 @@ is reported as a warning and the registered continuation can finish the job,
 since it re-derives everything it needs from durable rows.
 
 The ask itself is the registered ``deployment_runs.continue_for_item``
-function, relayed over the bound close-out connection. Ordinary HTTPS
-projects stay on that connection; a local or self-hosted universe still
-dispatches in-process. This module never opens a control-plane database and
-never names a db-admin retry. Serving-API self-deploy restrictions stay on
-the execute path — continuation only binds lineage and hands off.
+function, dispatched the same way the rest of standalone close-out writes:
+``call_dispatcher`` over the bound connection, with the merge session bound
+on the actor. Ordinary HTTPS projects stay on that connection; a local or
+self-hosted universe still dispatches in-process. This module never opens a
+control-plane database and never names a db-admin retry. Serving-API
+self-deploy restrictions stay on the execute path — continuation only binds
+lineage and hands off.
 """
 
 from __future__ import annotations
@@ -32,8 +34,11 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import (
+    build_actor,
+    call_dispatcher,
+)
 from yoke_core.domain.close_out_control_plane_authority import connected_control_plane
-from yoke_core.domain.control_plane_transport import relay
 from yoke_core.engines.runs_continue_for_item import (
     OUTCOME_BOUND,
     OUTCOME_NONE,
@@ -72,6 +77,11 @@ def _explicit_warning(message: str, *, public_ref: str) -> str:
     )
 
 
+def _relay_error(response: Any, fallback: str) -> str:
+    error = getattr(response, "error", None)
+    return getattr(error, "message", None) or fallback if error else fallback
+
+
 def _fragment(
     result: dict[str, Any], *, public_ref: str,
 ) -> tuple[dict[str, Any], str]:
@@ -108,20 +118,29 @@ def continue_prepared_release(
     """Advance a prepared release this merge may complete.
 
     Returns ``(envelope_fragment, warning)``. Both are empty when no prepared
-    run is waiting on this item, which is the ordinary case. *session_id* is
-    accepted so merge close-out can pass the session it already resolved; the
-    relay binds the ambient actor, which is that same session.
+    run is waiting on this item, which is the ordinary case.
     """
-    del session_id
     named = (public_ref or "").strip()
     try:
         with connected_control_plane():
-            result = relay(CONTINUE_FUNCTION, {}, _item_target(item_id, named))
+            response = call_dispatcher(
+                function_id=CONTINUE_FUNCTION,
+                target=_item_target(item_id, named),
+                payload={},
+                actor=build_actor(session_id=session_id or None),
+            )
     except Exception as exc:
         return None, _explicit_warning(
             f"prepared release continuation could not be evaluated: {exc}.",
             public_ref=named,
         )
+    if not getattr(response, "success", False):
+        return None, _explicit_warning(
+            "prepared release continuation could not be evaluated: "
+            f"{_relay_error(response, 'continuation failed')}.",
+            public_ref=named,
+        )
+    result = getattr(response, "result", None) or {}
     if result.get("ok") is False:
         return None, _explicit_warning(
             f"prepared release not advanced: {result.get('error')}.",
