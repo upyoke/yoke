@@ -113,7 +113,7 @@ def test_reconcile_regenerates_current_content_over_the_older_sides(
 ) -> None:
     world = remote_world(tmp_path)
     bind_bundle(monkeypatch, managed_bundle())
-    runner.install(world.checkout, project_id=7, publish=False)
+    report = runner.install(world.checkout, project_id=7, publish=False)
     installer_commit = _commit_stale_layer(world.checkout)
     world.advance_remote(
         path="AGENTS.md",
@@ -138,7 +138,9 @@ def test_reconcile_regenerates_current_content_over_the_older_sides(
         remote="origin",
         regenerate=regenerate,
         operation="install",
-        territory=ownership.installer_territory(world.checkout),
+        territory=ownership.installer_territory(
+            world.checkout, own_commits=(report["commit"]["sha"],),
+        ),
     )
 
     assert outcome["status"] == "regenerated"

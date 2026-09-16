@@ -136,6 +136,18 @@ def agents_markdown(block: str) -> str:
     return f"{render_block(block)}\n\n{OPERATOR_TEXT}"
 
 
+def managed_markdown_only(block: str) -> str:
+    """The file as an install CREATES it: its block and nothing else.
+
+    A managed target the project does not already carry gets only the
+    install's own region, so there is no operator text in it yet — which is
+    the state the ownership proof must not mistake for an operator edit.
+    """
+    from yoke_contracts.project_contract.managed_block import render_block
+
+    return f"{render_block(block)}\n"
+
+
 def rewrite_outside_block(target: Path, operator_text: str) -> None:
     """Replace only the operator's text, keeping the managed block verbatim.
 
@@ -190,6 +202,7 @@ __all__ = [
     "identify",
     "local_only_checkout",
     "managed_bundle",
+    "managed_markdown_only",
     "remote_world",
     "rewrite_outside_block",
 ]

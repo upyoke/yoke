@@ -7,19 +7,24 @@ discarded, and never published on their behalf.
 
 A matching commit subject is not proof. The installer's message is a fixed
 prefix anyone can type, so a commit titled like an install but carrying a
-person's own work would, on subject alone, be eligible for replacement. Proof
-here is positive and path-based: the subject must match AND every path the
-commit touched must be one the install already records as its own. Anything
-else — a foreign subject, a path outside installer territory, or a diff git
-could not read — is unproven, and unproven means the caller refuses to
-reconcile automatically rather than deciding in the dark.
+person's own work would, on subject alone, be eligible for replacement.
+
+The commit THIS RUN made is proven by identity: publication holds the sha its
+own commit step returned, and a commit that is that sha needs no inference at
+all. Every other commit the remote lacks must earn it positively, from the
+paths it touched: the subject must match AND every path must be one the
+install is sole author of, or a co-owned file the install can show it stayed
+inside. Where it cannot be shown — a foreign subject, a path outside
+installer territory, a file whose two authors are merged together, or a diff
+git could not read — the commit is unproven, and unproven means the caller
+refuses to reconcile automatically rather than deciding in the dark.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from yoke_cli.project_install import checkout_gate
 from yoke_cli.project_install import files as files_layer
@@ -28,6 +33,9 @@ from yoke_cli.project_install import installed_output_paths
 NOT_AN_INSTALLER_COMMIT = "not an installer commit"
 PATHS_UNREADABLE = "its changed paths could not be read"
 _MAX_NAMED_PATHS = 3
+_PARENT_PRESENT = "present"
+_PARENT_ABSENT = "absent"
+_PARENT_UNREADABLE = "unreadable"
 
 
 @dataclass(frozen=True)
@@ -35,13 +43,36 @@ class InstallerTerritory:
     """What the install owns, split by how much of a file that is.
 
     ``whole_files`` the install writes end to end. ``managed_regions`` it
-    co-owns with the operator: one marked block is the install's and every
-    line around it is theirs, so a change there is only the install's when
-    the text outside the block is untouched.
+    co-owns with the operator through a marked block: one delimited region is
+    the install's and every line around it is theirs, so a change there is
+    only the install's when the text outside the block is untouched.
+    ``shared_files`` it co-owns with no such boundary — hook settings whose
+    JSON subtree holds both authors' entries, an ignore file it appends a
+    line to, the file-line policy config — where nothing cheap tells its
+    content from theirs, so a commit touching one is never proven by
+    comparison.
+
+    ``own_commits`` are the shas this run's own commit step produced. Those
+    need no inference: publication made them from the report it just
+    generated, which is why an ordinary install still publishes the shared
+    files it legitimately merged into.
     """
 
     whole_files: frozenset[str] = frozenset()
     managed_regions: frozenset[str] = frozenset()
+    shared_files: frozenset[str] = frozenset()
+    own_commits: frozenset[str] = frozenset()
+
+    def with_own_commit(self, sha: str | None) -> "InstallerTerritory":
+        """The same territory, also owning a commit this run just made."""
+        if not sha:
+            return self
+        return InstallerTerritory(
+            whole_files=self.whole_files,
+            managed_regions=self.managed_regions,
+            shared_files=self.shared_files,
+            own_commits=self.own_commits | {str(sha)},
+        )
 
 
 @dataclass(frozen=True)
@@ -59,18 +90,35 @@ class LocalCommit:
 
 
 def installer_territory(
-    repo_root: Path, report: Mapping[str, Any] | None = None,
+    repo_root: Path,
+    report: Mapping[str, Any] | None = None,
+    *,
+    own_commits: Iterable[str] = (),
 ) -> InstallerTerritory:
-    """What the install on disk, plus this run, claims — whole files and regions."""
+    """What the install on disk, plus this run, claims — and how strongly.
+
+    The three path families are built disjoint, narrowest claim last: a file
+    both a whole-file section and a co-owned family name is co-owned, because
+    the weaker claim is the true one and treating it as whole-file is exactly
+    the reading that would authorize discarding an operator edit.
+    """
     manifest = files_layer.load_manifest(repo_root)
     regions = frozenset(
         installed_output_paths.managed_region_paths(manifest, report)
     )
+    shared = frozenset(
+        installed_output_paths.shared_paths(manifest, report)
+    ) - regions
     whole = (
         frozenset(installed_output_paths.manifest_owned_paths(manifest))
         | frozenset(installed_output_paths.owned_paths(report))
-    ) - regions
-    return InstallerTerritory(whole_files=whole, managed_regions=regions)
+    ) - regions - shared
+    return InstallerTerritory(
+        whole_files=whole,
+        managed_regions=regions,
+        shared_files=shared,
+        own_commits=frozenset(str(sha) for sha in own_commits if sha),
+    )
 
 
 def read_local_only_commits(
@@ -139,13 +187,19 @@ def unproven_commits(
 def _unproven_reason(
     commit: LocalCommit, territory: InstallerTerritory, repo_root: Path,
 ) -> str:
+    if commit.sha in territory.own_commits:
+        return ""
     if not checkout_gate.is_installer_commit_message(commit.subject):
         return NOT_AN_INSTALLER_COMMIT
     if not commit.paths_read:
         return PATHS_UNREADABLE
     foreign: list[str] = []
     operator_text: list[str] = []
+    shared: list[str] = []
     for path in commit.changed_paths:
+        if path in territory.shared_files:
+            shared.append(path)
+            continue
         if path in territory.whole_files:
             continue
         if path not in territory.managed_regions:
@@ -157,6 +211,12 @@ def _unproven_reason(
         return (
             "it changes paths the install does not own "
             f"({_named(sorted(foreign))})"
+        )
+    if shared:
+        return (
+            "it changes files the install shares with the operator, where "
+            "its own entries cannot be told from theirs "
+            f"({_named(sorted(shared))})"
         )
     if operator_text:
         return (
@@ -177,11 +237,37 @@ def _changed_outside_block(repo_root: Path, sha: str, path: str) -> bool:
     after, after_read = _blob(repo_root, f"{sha}:{path}")
     if not after_read:
         return True
-    before, before_read = _blob(repo_root, f"{sha}^:{path}")
-    if not before_read:
-        # The commit created the file; the operator had no text there yet.
-        before = ""
+    before, parent = _parent_text(repo_root, sha, path)
+    if parent == _PARENT_UNREADABLE:
+        return True
     return _operator_text(before) != _operator_text(after)
+
+
+def _parent_text(repo_root: Path, sha: str, path: str) -> tuple[str, str]:
+    """The file's text before this commit, and how that reading ended.
+
+    Genuine absence and an unreadable parent are the same failed blob read,
+    and they are opposite answers: absence means the commit created the file
+    and the operator had no text in it, while an unreadable parent means the
+    comparison could not be performed at all. Reading them as one would let
+    any git failure present itself as "there was nothing here before" and
+    clear the way for a destructive reconcile, so the tree is asked directly
+    — a commit with no parent had nothing before it, a listed path is read,
+    an unlisted one was absent, and a listing that itself fails is the
+    refusal.
+    """
+    parent = checkout_gate.run_git(repo_root, "rev-parse", "--verify", f"{sha}^")
+    if parent.returncode != 0:
+        return "", _PARENT_ABSENT
+    listed = checkout_gate.run_git(
+        repo_root, "ls-tree", "--name-only", f"{sha}^", "--", path,
+    )
+    if listed.returncode != 0:
+        return "", _PARENT_UNREADABLE
+    if not listed.stdout.strip():
+        return "", _PARENT_ABSENT
+    before, read = _blob(repo_root, f"{sha}^:{path}")
+    return (before, _PARENT_PRESENT) if read else ("", _PARENT_UNREADABLE)
 
 
 def _operator_text(text: str) -> str:

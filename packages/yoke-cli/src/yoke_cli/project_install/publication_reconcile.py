@@ -241,9 +241,12 @@ def reconcile_by_regeneration(
     """Move onto the advanced remote tip, regenerate, and re-commit.
 
     ``territory`` is the installer's own: the branch is moved only when
-    every commit the remote lacks is provably this installer's — a matching
-    subject, a diff confined to files it owns whole, and for a co-owned
-    managed-markdown file, no change outside its block.
+    every commit the remote lacks is provably this installer's — this run's
+    own commit by its sha, and any other by a matching subject plus a diff
+    confined to files the install authors whole or, for a file carrying a
+    managed block, no change outside that block. A commit touching a file
+    the install merely merges its entries into is refused, because nothing
+    there separates its content from the operator's.
 
     Returns the outcome plus the fresh commit result. ``regenerate`` re-runs
     the bundle write on the updated base; its report is what the replacement

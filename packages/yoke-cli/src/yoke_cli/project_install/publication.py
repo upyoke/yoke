@@ -19,10 +19,13 @@ local-only project, and a source-dev/admin local-source apply publishes
 nothing by design.
 
 Two things it refuses to do on the operator's behalf. It never force-pushes,
-and it never publishes a commit the installer did not write: a default branch
-carrying the operator's own unpushed work is reported with its recovery
-rather than pushed, because "publish the installed layer" is not permission
-to publish everything else sitting on the branch.
+and it never publishes a commit it cannot show the installer wrote: a default
+branch carrying the operator's own unpushed work is reported with its
+recovery rather than pushed, because "publish the installed layer" is not
+permission to publish everything else sitting on the branch. The commit this
+run made is known by its sha; any other is measured against the paths the
+install owns, and a commit touching a file whose content the install and the
+operator merge together is reported rather than trusted.
 """
 
 from __future__ import annotations
@@ -105,7 +108,9 @@ def publish_installed_layer(
         operation=operation,
         regenerate=regenerate,
         project_slug=project_slug,
-        territory=ownership.installer_territory(repo_root, report),
+        territory=ownership.installer_territory(
+            repo_root, report, own_commits=(str(commit.get("sha") or ""),),
+        ),
     )
 
 
@@ -189,6 +194,11 @@ def _publish_to_remote(
             )
             if outcome is not None:
                 return outcome_layer.with_reconcile(outcome, reconciled)
+            # The regenerated commit is this run's too, so the retry knows it
+            # by sha rather than re-deriving ownership from its paths.
+            territory = territory.with_own_commit(
+                ((reconciled or {}).get("commit") or {}).get("sha")
+            )
             continue
         return outcome_layer.with_reconcile(
             outcome_layer.pending(

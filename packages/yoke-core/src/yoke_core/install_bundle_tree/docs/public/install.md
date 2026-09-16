@@ -90,9 +90,17 @@ than reporting a clean install the remote never saw.
 
 Two refusals are deliberate. A default branch carrying commits of your own
 that the remote lacks is reported instead of pushed, because publishing the
-layer is not permission to publish your work-in-progress. And a checkout with
-no remote is a local-only project: publication is skipped, not failed, as it
-is for `--no-commit`. Pass `--no-publish` to commit without pushing.
+layer is not permission to publish your work-in-progress — and a commit
+merely *titled* like an install counts as yours unless its changes stay
+inside what the install writes. Files it shares with you rather than owns are
+on your side of that line: it merges its hook entries into your
+`.claude/settings.json`, appends one line to your `.gitignore`, and writes
+into the file-line policy config, so it cannot tell its content there from
+yours. A commit it did not just make that touches one of those is reported —
+never pushed, and never rewritten while reconciling with the remote. And a
+checkout with no remote is a local-only project: publication is skipped, not
+failed, as it is for `--no-commit`. Pass `--no-publish` to commit without
+pushing.
 
 An unreachable remote does **not** stop the install, which is the one place
 it differs from starting other work. Creating a worktree refuses an
