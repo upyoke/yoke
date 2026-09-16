@@ -22,6 +22,10 @@ def test_onboard_validates_serving_runtime_before_enabling_a_flow() -> None:
             f"--workflow {workflow} --flow {{project}}-merge-only"
         ) in text
     assert "leftover workflow-specific row overrides" in text
+    # A merge-only default delivers; it does not exempt the item from the
+    # stages its pinned definition declares on the way to done.
+    assert "discharges its delivery at the merge" in text
+    assert "without any deployment run" in text
 
 
 def test_onboard_profile_keeps_task_exempt_and_preview_guarded() -> None:

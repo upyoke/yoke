@@ -205,7 +205,7 @@ yoke project-structure deploy-defaults get --project {project}
 yoke workflows mechanics get --json
 ```
 
-The target-tier read must print nothing and the default readback must print exactly `{project}-merge-only`. If that id already exists with a different immutable definition, disable it and create a new behavior-named flow before setting the default. A failed create or readback marks `delivery-setup=blocked` with the exact command and recovery recipe below; stop rather than claiming merge-only delivery.
+A merge-only default is delivery, not the absence of it: an item that resolves to this flow discharges its delivery at the merge, so its close-out transitions through every stage its pinned definition declares — the release wait included — and reaches `done` without any deployment run. The target-tier read must print nothing and the default readback must print exactly `{project}-merge-only`. If that id already exists with a different immutable definition, disable it and create a new behavior-named flow before setting the default. A failed create or readback marks `delivery-setup=blocked` with the exact command and recovery recipe below; stop rather than claiming merge-only delivery.
 
 After both reads verify, record the no-environment registration and the runless default:
 
