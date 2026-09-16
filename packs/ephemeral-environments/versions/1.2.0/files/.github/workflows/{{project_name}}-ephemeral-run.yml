@@ -100,17 +100,17 @@ jobs:
 
       - name: Claim the preview occupancy
         # Before the host is touched, fast path included: it rsyncs here too.
+        # Values travel on stdin, never inside the remote command string.
         if: inputs.branch_exists == 'true'
         env:
-          HOST: ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}
           SLUG: ${{ inputs.branch_slug }}
           YOKE_DISPATCH_ID: ${{ inputs.yoke_dispatch_id }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
         run: |
           set -euo pipefail; G=ops/frozen_preview_occupancy.py
           [ -n "$YOKE_DISPATCH_ID" ] || exec python3 "$G" assert-unreserved --slug "$SLUG"
-          AT="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@$HOST"
-          scp -o LogLevel=ERROR "$G" "$AT:~/frozen_preview_occupancy.py" && ssh -o LogLevel=ERROR "$AT" "python3 ~/frozen_preview_occupancy.py claim --preview-dir ~/{{preview_namespace}}/$SLUG --yoke-dispatch-id '$YOKE_DISPATCH_ID' --commit-sha '$CANDIDATE_SHA'"
+          AT="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}"; scp -o LogLevel=ERROR "$G" "$AT:~/frozen_preview_occupancy.py"
+          printf '%s\n%s\n%s\n' "$YOKE_DISPATCH_ID" "$CANDIDATE_SHA" "$SLUG" | ssh -o LogLevel=ERROR "$AT" "python3 ~/frozen_preview_occupancy.py claim --preview-root ~/{{preview_namespace}}"
 
       - name: Create ephemeral directory
         if: inputs.branch_exists == 'true' && steps.readiness.outputs.fast_path != 'true'

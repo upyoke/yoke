@@ -6,24 +6,16 @@ and the public URL all follow from it, so two previews resolving to one slug
 are not two previews — the second replaces the first. For a branch preview
 that is the point; for a frozen release preview it is the one thing that
 must never happen, because its URL gets cited as evidence that a reviewer
-saw one specific commit. Two rules keep them apart, and both live here so
-the workflows stay declarative.
+saw one specific commit.
 
-**Naming.** A frozen preview is named by hashing its dispatch identity, so it
-always lands in the reserved ``rel-`` namespace, and a branch that slugifies
-into that namespace is refused rather than allowed to collide with it.
+A frozen preview is therefore named by hashing its dispatch identity, which
+lands it in the reserved ``rel-`` namespace no branch may enter, and the
+occupancy on the host records who created it and on which commit. That
+record — not the caller's arguments — decides whether a deploy may write
+there, and cleanup refuses to remove an occupancy it cannot prove it owns.
 
-**Ownership.** The occupancy on the host records who created it and on which
-commit. Before anything is written there, that record — not the caller's
-arguments — decides whether this deploy may proceed, and cleanup refuses to
-remove an occupancy it cannot prove it owns.
-
-Subcommands, each printing ``KEY=value`` lines or a single word:
-``resolve`` (slug, candidate and ports for either kind of preview),
-``claim`` (may this deploy write here, and record that it did),
-``assert-unreserved`` (a branch may not enter the frozen namespace),
-``check-cleanup`` (may this caller remove this occupancy), and
-``teardown-slug``.
+Subcommands: ``resolve``, ``claim``, ``assert-unreserved``,
+``check-cleanup``, ``teardown-slug``.
 """
 
 from __future__ import annotations
@@ -55,9 +47,7 @@ def _safe(value: str | None, name: str) -> str:
     raw = value or ""
     if any(ord(ch) < 32 or ord(ch) == 127 for ch in raw):
         raise FrozenPreviewError(
-            "unsafe_token",
-            f"{name} contains a control character. Recovery: pass a "
-            "single-line value.",
+            "unsafe_token", f"{name} contains a control character; pass one line."
         )
     return raw.strip()
 
@@ -66,8 +56,7 @@ def require_commit_sha(commit_sha: str) -> str:
     sha = _safe(commit_sha, "commit_sha").lower()
     if not sha:
         raise FrozenPreviewError(
-            "missing_revision",
-            "commit_sha is required; pass the frozen candidate as one 40-hex SHA.",
+            "missing_revision", "commit_sha is required: one 40-hex candidate SHA."
         )
     if not FULL_SHA_RE.fullmatch(sha):
         raise FrozenPreviewError(
@@ -82,8 +71,7 @@ def require_dispatch_id(yoke_dispatch_id: str) -> str:
     if not token:
         raise FrozenPreviewError(
             "missing_correlation",
-            "yoke_dispatch_id is required. Recovery: pass the dispatch "
-            "correlation this preview is named for.",
+            "yoke_dispatch_id is required: the correlation this preview is named for.",
         )
     return token
 
@@ -92,8 +80,7 @@ def frozen_occupancy_slug(yoke_dispatch_id: str) -> str:
     """``rel-`` plus 32 hex of the SHA-256 of the identity, hashed whole.
 
     Parity contract with the dispatching side, which derives this URL before
-    this workflow reports one. A drift here points its proof at a host
-    serving something else.
+    this workflow reports one; a drift points its proof at another host.
     """
     digest = hashlib.sha256(require_dispatch_id(yoke_dispatch_id).encode()).hexdigest()
     return f"{FROZEN_SLUG_PREFIX}{digest[:SLUG_HASH_HEX]}"
@@ -103,8 +90,8 @@ def branch_slug(branch_name: str) -> str:
     """Slugify a branch, refusing one that lands in the frozen namespace.
 
     A branch may be named anything, including the exact shape a frozen
-    preview is published under — and deploying it would take over that
-    preview's directory, ports and URL.
+    preview uses — and deploying it would take that preview's directory,
+    ports and URL.
     """
     slug = re.sub(r"[^a-z0-9]+", "-", _safe(branch_name, "branch").lower()).strip("-")
     if not slug:
@@ -121,16 +108,11 @@ def branch_slug(branch_name: str) -> str:
     return slug
 
 
-def ports_for_slug(slug: str, api_base: int, web_base: int, port_range: int):
-    offset = int(hashlib.sha256(slug.encode()).hexdigest()[:8], 16) % port_range
-    return api_base + offset, web_base + offset
-
-
 def read_owner(preview_dir: Path) -> dict | None:
-    """Return the recorded owner, or ``None`` when nothing occupies this slug.
+    """The recorded owner, or ``None`` when nothing occupies this slug.
 
-    An unreadable record is neither: it refuses, because treating it as
-    unoccupied is how a candidate under review gets overwritten.
+    An unreadable record is neither, and refuses: treating it as unoccupied
+    is how a candidate under review gets overwritten.
     """
     path = preview_dir / OWNER_FILENAME
     if not path.is_file():
@@ -151,8 +133,8 @@ def assert_reuse_or_refuse(preview_dir: Path, dispatch_id: str, commit_sha: str)
     """Decide whether this deploy may write into *preview_dir*.
 
     Redeploying the same candidate under the same identity is the ordinary
-    retry, and is what makes a lost dispatch safe to repeat. Anything else
-    would replace what some reviewer is looking at.
+    retry that makes a lost dispatch safe to repeat. Anything else would
+    replace what some reviewer is looking at.
     """
     expected_id = require_dispatch_id(dispatch_id)
     expected_sha = require_commit_sha(commit_sha)
@@ -162,36 +144,72 @@ def assert_reuse_or_refuse(preview_dir: Path, dispatch_id: str, commit_sha: str)
     if existing["yoke_dispatch_id"] != expected_id:
         raise FrozenPreviewError(
             "ownership_mismatch",
-            "preview occupancy is owned by a different yoke_dispatch_id. Do not "
-            "overwrite.",
+            "this occupancy is owned by a different yoke_dispatch_id.",
         )
     if existing["commit_sha"] != expected_sha:
         raise FrozenPreviewError(
             "occupancy_conflict",
             f"this occupancy already serves {existing['commit_sha']}, not "
-            f"{expected_sha}; a frozen preview is not redeployed onto a "
-            "different candidate.",
+            f"{expected_sha}; a frozen preview is not redeployed onto another.",
         )
     return "reuse"
 
 
-def claim(preview_dir: Path, dispatch_id: str, commit_sha: str) -> str:
-    """Check, then record — one call, because they are one decision.
+def read_fields(count: int, stream=None) -> list[str]:
+    """Read exactly *count* values, one per line, from stdin.
 
-    Split across two workflow steps, an interruption between them leaves an
-    occupancy nobody owns.
+    Correlations and slugs arrive this way rather than inside a remote
+    command string, where a value containing a quote would end its argument
+    and run whatever followed — nothing here is parsed by a shell. Exactly,
+    because a token carrying a newline would otherwise shift every field
+    after it and claim an occupancy nobody named.
     """
+    raw = (stream or sys.stdin).read().split("\n")
+    if raw and raw[-1] == "":
+        # Exactly one: the writer's terminator. Dropping every trailing blank
+        # would erase an empty final field, which legitimately means "no
+        # slug supplied".
+        raw.pop()
+    if len(raw) != count:
+        raise FrozenPreviewError(
+            "unsafe_token",
+            f"expected {count} newline-separated values on stdin, got {len(raw)}; "
+            "a value spanning lines cannot be told from the next field",
+        )
+    return [_safe(value, "stdin field") for value in raw]
+
+
+def occupancy_dir(preview_root: str, dispatch_id: str, supplied_slug: str) -> Path:
+    """The directory this identity owns, refusing a slug it does not derive.
+
+    A caller that could name any slug could claim any occupancy, so the
+    identity is the authority.
+    """
+    supplied = _safe(supplied_slug, "slug")
+    if not _safe(dispatch_id, "yoke_dispatch_id"):
+        assert_unreserved(supplied)
+        return Path(preview_root).expanduser() / supplied
+    derived = frozen_occupancy_slug(dispatch_id)
+    if supplied and supplied != derived:
+        raise FrozenPreviewError(
+            "ownership_mismatch",
+            f"slug {supplied!r} is not the occupancy {derived!r} this identity names.",
+        )
+    return Path(preview_root).expanduser() / derived
+
+
+def claim(preview_dir: Path, dispatch_id: str, commit_sha: str) -> str:
+    """Check, then record — one call, because they are one decision: split
+    across two workflow steps, an interruption leaves an occupancy nobody
+    owns."""
     outcome = assert_reuse_or_refuse(preview_dir, dispatch_id, commit_sha)
     write_owner(preview_dir, dispatch_id, commit_sha)
     return outcome
 
 
 def assert_unreserved(slug: str) -> None:
-    """Refuse a branch occupancy inside the frozen namespace.
-
-    The caller resolving the slug already refuses this; the deploy refuses it
-    again rather than trusting whoever called it.
-    """
+    """Refuse a branch occupancy inside the frozen namespace — again,
+    because the deploy does not trust whoever resolved it."""
     value = _safe(slug, "slug")
     if RESERVED_SLUG_RE.fullmatch(value):
         raise FrozenPreviewError(
@@ -221,20 +239,16 @@ def assert_cleanup_owner(preview_dir: Path, dispatch_id: str = "") -> None:
         if named:
             raise FrozenPreviewError(
                 "ownership_mismatch",
-                "cleanup named a yoke_dispatch_id but this occupancy has no "
-                "frozen owner.",
+                "cleanup named a yoke_dispatch_id but this occupancy has no owner.",
             )
         return
     if live["yoke_dispatch_id"] != named:
-        # Covers both ways a caller can fail to own this: naming the wrong
-        # identity, and naming none at all — a branch teardown reaching a
-        # frozen occupancy.
+        # Both ways a caller can fail to own this: naming the wrong identity,
+        # and naming none at all.
         raise FrozenPreviewError(
             "ownership_mismatch",
-            f"this occupancy is owned by a frozen preview, and "
-            f"{named or 'no yoke_dispatch_id'} does not match its owner. "
-            "Recovery: tear it down with the yoke_dispatch_id it was created "
-            "under.",
+            f"{named or 'no yoke_dispatch_id'} does not own this occupancy. "
+            "Recovery: name the yoke_dispatch_id it was created under.",
         )
 
 
@@ -244,9 +258,6 @@ def resolve_dispatch(
     yoke_dispatch_id: str = "",
     branch_name: str = "",
     github_sha: str = "",
-    api_base: int,
-    web_base: int,
-    port_range: int,
 ) -> dict:
     commit_sha = _safe(commit_sha, "commit_sha")
     yoke_dispatch_id = _safe(yoke_dispatch_id, "yoke_dispatch_id")
@@ -259,26 +270,18 @@ def resolve_dispatch(
     else:
         sha = require_commit_sha(github_sha)
         token, slug, mode = "", branch_slug(branch_name), "branch"
-    api_port, web_port = ports_for_slug(slug, api_base, web_base, port_range)
     return {
         "mode": mode,
         "candidate_sha": sha,
         "occupancy_slug": slug,
         "yoke_dispatch_id": token,
-        "api_port": str(api_port),
-        "web_port": str(web_port),
         "branch_exists": "true",
     }
 
 
 def _emit(mapping: dict) -> None:
     for key, value in mapping.items():
-        line = f"{key}={value}"
-        if any(ord(ch) < 32 or ord(ch) == 127 for ch in line):
-            raise FrozenPreviewError(
-                "unsafe_token", "refusing output with a control character"
-            )
-        print(line)
+        print(f"{_safe(key, 'key')}={_safe(str(value), key)}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -287,18 +290,11 @@ def main(argv: list[str] | None = None) -> int:
     resolve = sub.add_parser("resolve")
     for flag in ("--commit-sha", "--yoke-dispatch-id", "--branch", "--github-sha"):
         resolve.add_argument(flag, default="")
-    resolve.add_argument("--api-base", type=int, required=True)
-    resolve.add_argument("--web-base", type=int, required=True)
-    resolve.add_argument("--port-range", type=int, required=True)
-    owned = sub.add_parser("claim")
-    owned.add_argument("--preview-dir", required=True)
-    owned.add_argument("--yoke-dispatch-id", required=True)
-    owned.add_argument("--commit-sha", required=True)
+    for name in ("claim", "check-cleanup"):
+        remote = sub.add_parser(name)
+        remote.add_argument("--preview-root", required=True)
     unreserved = sub.add_parser("assert-unreserved")
     unreserved.add_argument("--slug", required=True)
-    cleanup = sub.add_parser("check-cleanup")
-    cleanup.add_argument("--preview-dir", required=True)
-    cleanup.add_argument("--yoke-dispatch-id", default="")
     slug = sub.add_parser("teardown-slug")
     slug.add_argument("--yoke-dispatch-id", default="")
     slug.add_argument("--branch", default="")
@@ -311,20 +307,25 @@ def main(argv: list[str] | None = None) -> int:
                     yoke_dispatch_id=args.yoke_dispatch_id,
                     branch_name=args.branch,
                     github_sha=args.github_sha,
-                    api_base=args.api_base,
-                    web_base=args.web_base,
-                    port_range=args.port_range,
                 )
             )
         elif args.command == "claim":
+            dispatch_id, commit_sha, slug = read_fields(3)
             print(
-                claim(Path(args.preview_dir), args.yoke_dispatch_id, args.commit_sha)
+                claim(
+                    occupancy_dir(args.preview_root, dispatch_id, slug),
+                    dispatch_id,
+                    commit_sha,
+                )
             )
         elif args.command == "assert-unreserved":
             assert_unreserved(args.slug)
             print("ok")
         elif args.command == "check-cleanup":
-            assert_cleanup_owner(Path(args.preview_dir), args.yoke_dispatch_id)
+            dispatch_id, slug = read_fields(2)
+            assert_cleanup_owner(
+                occupancy_dir(args.preview_root, dispatch_id, slug), dispatch_id
+            )
             print("ok")
         else:
             token = _safe(args.yoke_dispatch_id, "yoke_dispatch_id")

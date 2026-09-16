@@ -97,7 +97,9 @@ def test_the_workflow_hashes_the_identity_through_the_shipped_guard() -> None:
     inline shell in three workflows would be three chances to drift."""
     body = _workflow("{{project_name}}-ephemeral.yml")
     assert "ops/frozen_preview_occupancy.py resolve" in body
-    assert "sha256sum" not in body
+    # Ports are a pure function of the slug and were always derived here; the
+    # identity is what must be hashed in exactly one place.
+    assert "YOKE_DISPATCH_ID" not in body[body.index("Compute port offsets"):]
 
 
 def test_a_release_preview_slug_is_unreachable_by_any_branch_name() -> None:
@@ -161,6 +163,29 @@ def test_the_deploy_claims_the_occupancy_before_any_mutation() -> None:
     # exactly the branch that would skip it.
     claim_step = body[claim:body.index("- name: Create ephemeral directory")]
     assert "fast_path" not in claim_step
+
+
+@pytest.mark.parametrize(
+    "workflow",
+    ["{{project_name}}-ephemeral-run.yml", "{{project_name}}-ephemeral-teardown.yml"],
+)
+def test_no_caller_value_is_interpolated_into_a_remote_command(workflow: str) -> None:
+    """The correlation is an opaque token a caller supplies, and one carrying
+    an apostrophe would have ended its argument inside the quoted remote
+    command and run whatever followed. Values reach the host on stdin."""
+    body = _workflow(workflow)
+    guarded = [
+        line for line in body.splitlines()
+        if "frozen_preview_occupancy.py claim" in line
+        or "frozen_preview_occupancy.py check-cleanup" in line
+    ]
+    assert guarded, "expected a guarded remote invocation to inspect"
+    for line in guarded:
+        command = line[line.index("ssh -o LogLevel=ERROR"):]
+        for name in ("YOKE_DISPATCH_ID", "CANDIDATE_SHA", "SLUG"):
+            assert f"${name}" not in command, f"{name} reaches the remote command line"
+        assert "--preview-root" in command
+        assert line.lstrip().startswith("printf '%s"), "values are piped in"
 
 
 def test_a_branch_slug_in_the_reserved_namespace_is_refused_again_downstream() -> None:

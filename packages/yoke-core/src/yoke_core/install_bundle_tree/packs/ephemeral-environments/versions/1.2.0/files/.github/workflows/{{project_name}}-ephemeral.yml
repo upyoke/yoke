@@ -66,8 +66,8 @@ jobs:
       branch_slug: ${{ steps.slug.outputs.occupancy_slug }}
       candidate_sha: ${{ steps.slug.outputs.candidate_sha }}
       yoke_dispatch_id: ${{ steps.slug.outputs.yoke_dispatch_id }}
-      api_port: ${{ steps.slug.outputs.api_port }}
-      web_port: ${{ steps.slug.outputs.web_port }}
+      api_port: ${{ steps.ports.outputs.api_port }}
+      web_port: ${{ steps.ports.outputs.web_port }}
     steps:
       - name: Checkout the occupancy guard
         uses: {{checkout_action}}
@@ -89,16 +89,24 @@ jobs:
             --commit-sha "$COMMIT_SHA" \
             --yoke-dispatch-id "$YOKE_DISPATCH_ID" \
             --branch "$BRANCH_NAME" \
-            --github-sha "$GIT_HEAD_SHA" \
-            --api-base {{api_port_base}} \
-            --web-base {{preview_web_port_base}} \
-            --port-range {{preview_port_range}} >> "$GITHUB_OUTPUT"
+            --github-sha "$GIT_HEAD_SHA" >> "$GITHUB_OUTPUT"
           if [ -z "$COMMIT_SHA" ]; then
             if ! gh api "repos/${GITHUB_REPOSITORY}/branches/${GITHUB_REF_NAME}" > /dev/null 2>&1; then
               echo "Branch ${GITHUB_REF_NAME} no longer exists — skipping ephemeral deploy."
               echo "branch_exists=false" >> "$GITHUB_OUTPUT"
             fi
           fi
+
+      - name: Compute port offsets
+        if: steps.slug.outputs.branch_exists == 'true'
+        id: ports
+        env:
+          SLUG: ${{ steps.slug.outputs.occupancy_slug }}
+        run: |
+          HASH=$(printf '%s' "$SLUG" | sha256sum | cut -c1-8)
+          OFFSET=$(( 16#$HASH % {{preview_port_range}} ))
+          echo "api_port=$(( {{api_port_base}} + OFFSET ))" >> "$GITHUB_OUTPUT"
+          echo "web_port=$(( {{preview_web_port_base}} + OFFSET ))" >> "$GITHUB_OUTPUT"
 
   deploy:
     needs: prepare

@@ -43,13 +43,29 @@ def _run(*args: str) -> subprocess.CompletedProcess:
     )
 
 
-def _claim(preview_dir: Path, identity: str, sha: str) -> subprocess.CompletedProcess:
-    return _run(
-        "claim",
-        "--preview-dir", str(preview_dir),
-        "--yoke-dispatch-id", identity,
-        "--commit-sha", sha,
+def _run_stdin(payload: str, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(_guard()), *args],
+        input=payload,
+        capture_output=True,
+        text=True,
     )
+
+
+def _claim(root: Path, identity: str, sha: str, slug: str = "") -> subprocess.CompletedProcess:
+    return _run_stdin(
+        f"{identity}\n{sha}\n{slug}\n", "claim", "--preview-root", str(root)
+    )
+
+
+def _cleanup(root: Path, identity: str = "", slug: str = "") -> subprocess.CompletedProcess:
+    return _run_stdin(
+        f"{identity}\n{slug}\n", "check-cleanup", "--preview-root", str(root)
+    )
+
+
+def _owner_file(root: Path, identity: str) -> Path:
+    return root / frozen_preview_slug(identity) / ".yoke-preview-owner.json"
 
 
 def test_the_guard_ships_as_an_installed_file() -> None:
@@ -64,15 +80,14 @@ def test_the_guard_ships_as_an_installed_file() -> None:
 
 class TestClaimingAnOccupancy:
     def test_an_unclaimed_slug_is_created(self, tmp_path: Path) -> None:
-        checked = _claim(tmp_path / "rel-x", IDENTITY, SHA)
+        checked = _claim(tmp_path, IDENTITY, SHA)
         assert checked.returncode == 0
         assert checked.stdout.strip() == "create"
 
     def test_redeploying_the_same_candidate_reuses_it(self, tmp_path: Path) -> None:
         """The ordinary retry, and what makes a lost dispatch safe to repeat."""
-        preview = tmp_path / "rel-x"
-        assert _claim(preview, IDENTITY, SHA).returncode == 0
-        checked = _claim(preview, IDENTITY, SHA)
+        assert _claim(tmp_path, IDENTITY, SHA).returncode == 0
+        checked = _claim(tmp_path, IDENTITY, SHA)
         assert checked.returncode == 0
         assert checked.stdout.strip() == "reuse"
 
@@ -81,18 +96,18 @@ class TestClaimingAnOccupancy:
     ) -> None:
         """This is the gap: without it the second deploy silently replaces
         what the first one's URL was cited as evidence of."""
-        preview = tmp_path / "rel-x"
-        assert _claim(preview, IDENTITY, SHA).returncode == 0
-        refused = _claim(preview, IDENTITY, OTHER_SHA)
+        assert _claim(tmp_path, IDENTITY, SHA).returncode == 0
+        refused = _claim(tmp_path, IDENTITY, OTHER_SHA)
         assert refused.returncode == 1
         assert "occupancy_conflict" in refused.stderr
-        stored = json.loads((preview / ".yoke-preview-owner.json").read_text())
+        stored = json.loads(_owner_file(tmp_path, IDENTITY).read_text())
         assert stored["commit_sha"] == SHA
 
     def test_another_identity_cannot_take_the_occupancy(self, tmp_path: Path) -> None:
-        preview = tmp_path / "rel-x"
-        assert _claim(preview, IDENTITY, SHA).returncode == 0
-        refused = _claim(preview, OTHER_IDENTITY, SHA)
+        assert _claim(tmp_path, IDENTITY, SHA).returncode == 0
+        # Two identities never share an occupancy, so taking one means naming
+        # the other's slug — which the identity itself now refuses.
+        refused = _claim(tmp_path, OTHER_IDENTITY, SHA, frozen_preview_slug(IDENTITY))
         assert refused.returncode == 1
         assert "ownership_mismatch" in refused.stderr
 
@@ -100,10 +115,10 @@ class TestClaimingAnOccupancy:
         self, tmp_path: Path
     ) -> None:
         """Unverified is not unoccupied."""
-        preview = tmp_path / "rel-x"
-        preview.mkdir()
-        (preview / ".yoke-preview-owner.json").write_text("{not json")
-        refused = _claim(preview, IDENTITY, SHA)
+        owner = _owner_file(tmp_path, IDENTITY)
+        owner.parent.mkdir(parents=True)
+        owner.write_text("{not json")
+        refused = _claim(tmp_path, IDENTITY, SHA)
         assert refused.returncode == 1
         assert "unknown_ownership" in refused.stderr
 
@@ -121,9 +136,6 @@ class TestTheReservedNamespace:
             "resolve",
             "--branch", branch,
             "--github-sha", SHA,
-            "--api-base", "9000",
-            "--web-base", "4000",
-            "--port-range", "100",
         )
         assert refused.returncode == 1
         assert "reserved_slug" in refused.stderr
@@ -133,9 +145,6 @@ class TestTheReservedNamespace:
             "resolve",
             "--branch", "feature/Some Branch",
             "--github-sha", SHA,
-            "--api-base", "9000",
-            "--web-base", "4000",
-            "--port-range", "100",
         )
         assert resolved.returncode == 0
         assert "occupancy_slug=feature-some-branch" in resolved.stdout
@@ -149,9 +158,6 @@ class TestTheReservedNamespace:
             "--yoke-dispatch-id", IDENTITY,
             "--branch", "main",
             "--github-sha", OTHER_SHA,
-            "--api-base", "9000",
-            "--web-base", "4000",
-            "--port-range", "100",
         )
         assert resolved.returncode == 0
         assert f"occupancy_slug={frozen_preview_slug(IDENTITY)}" in resolved.stdout
@@ -170,9 +176,6 @@ class TestTheReservedNamespace:
             "resolve", *args,
             "--branch", "main",
             "--github-sha", OTHER_SHA,
-            "--api-base", "9000",
-            "--web-base", "4000",
-            "--port-range", "100",
         )
         assert refused.returncode == 1
         assert code in refused.stderr
@@ -183,34 +186,90 @@ class TestRemovingAnOccupancy:
         self, tmp_path: Path
     ) -> None:
         """Refusing costs a stale preview; deleting costs the review."""
-        preview = tmp_path / "rel-x"
-        assert _claim(preview, IDENTITY, SHA).returncode == 0
-        refused = _run("check-cleanup", "--preview-dir", str(preview))
+        assert _claim(tmp_path, IDENTITY, SHA).returncode == 0
+        refused = _cleanup(tmp_path, slug=frozen_preview_slug(IDENTITY))
         assert refused.returncode == 1
-        assert "ownership_mismatch" in refused.stderr
+        assert "reserved_slug" in refused.stderr
 
     def test_a_different_identity_cannot_remove_it(self, tmp_path: Path) -> None:
-        preview = tmp_path / "rel-x"
-        assert _claim(preview, IDENTITY, SHA).returncode == 0
-        refused = _run(
-            "check-cleanup",
-            "--preview-dir", str(preview),
-            "--yoke-dispatch-id", OTHER_IDENTITY,
+        assert _claim(tmp_path, IDENTITY, SHA).returncode == 0
+        refused = _cleanup(
+            tmp_path, identity=OTHER_IDENTITY, slug=frozen_preview_slug(IDENTITY)
         )
         assert refused.returncode == 1
         assert "ownership_mismatch" in refused.stderr
 
     def test_the_owning_dispatch_may_remove_it(self, tmp_path: Path) -> None:
-        preview = tmp_path / "rel-x"
-        assert _claim(preview, IDENTITY, SHA).returncode == 0
-        allowed = _run(
-            "check-cleanup",
-            "--preview-dir", str(preview),
-            "--yoke-dispatch-id", IDENTITY,
-        )
-        assert allowed.returncode == 0
+        assert _claim(tmp_path, IDENTITY, SHA).returncode == 0
+        assert _cleanup(tmp_path, identity=IDENTITY).returncode == 0
 
     def test_a_branch_occupancy_needs_no_ownership_proof(self, tmp_path: Path) -> None:
         """Ordinary branch previews are untouched by any of this."""
-        allowed = _run("check-cleanup", "--preview-dir", str(tmp_path / "my-branch"))
-        assert allowed.returncode == 0
+        assert _cleanup(tmp_path, slug="my-branch").returncode == 0
+
+
+class TestValuesNeverReachAShell:
+    """The correlation is an opaque token a caller supplies.
+
+    It travels to the host inside no command string, so a value carrying a
+    quote or a semicolon is data the whole way down. Before this, the remote
+    invocation interpolated it between single quotes, and one apostrophe
+    ended that argument and ran whatever followed.
+    """
+
+    HOSTILE = "x'; touch {marker}; echo '"
+
+    def test_a_metacharacter_token_is_recorded_literally_and_runs_nothing(
+        self, tmp_path: Path
+    ) -> None:
+        marker = tmp_path / "executed"
+        identity = self.HOSTILE.format(marker=marker)
+        assert _claim(tmp_path, identity, SHA).returncode == 0
+        assert not marker.exists(), "the token was evaluated instead of hashed"
+        stored = json.loads(_owner_file(tmp_path, identity).read_text())
+        assert stored["yoke_dispatch_id"] == identity
+
+    def test_such_a_token_still_owns_its_occupancy(self, tmp_path: Path) -> None:
+        """Hashing the whole string, quote included, is what makes the
+        occupancy answer to exactly this correlation and no other."""
+        identity = self.HOSTILE.format(marker=tmp_path / "executed")
+        assert _claim(tmp_path, identity, SHA).returncode == 0
+        assert _claim(tmp_path, identity, SHA).stdout.strip() == "reuse"
+        assert _claim(tmp_path, identity, OTHER_SHA).returncode == 1
+
+    def test_a_newline_bearing_token_is_refused_rather_than_split(
+        self, tmp_path: Path
+    ) -> None:
+        """A token spanning lines would shift every field after it and claim
+        an occupancy nobody named, so the payload is refused rather than
+        read."""
+        refused = _claim(tmp_path, "one\ntwo", SHA)
+        assert refused.returncode == 1
+        assert "unsafe_token" in refused.stderr
+        assert "cannot be told from the next field" in refused.stderr
+
+    def test_a_short_payload_is_refused_too(self, tmp_path: Path) -> None:
+        """The same ambiguity read from the other end."""
+        refused = _run_stdin(f"{IDENTITY}\n", "claim", "--preview-root", str(tmp_path))
+        assert refused.returncode == 1
+        assert "unsafe_token" in refused.stderr
+
+
+class TestTheSlugMustBeTheOneTheIdentityNames:
+    """A caller that could name any slug could claim any occupancy."""
+
+    def test_a_mismatched_slug_is_refused(self, tmp_path: Path) -> None:
+        refused = _claim(tmp_path, IDENTITY, SHA, "some-other-occupancy")
+        assert refused.returncode == 1
+        assert "ownership_mismatch" in refused.stderr
+        assert not _owner_file(tmp_path, IDENTITY).exists()
+
+    def test_the_derived_slug_is_accepted(self, tmp_path: Path) -> None:
+        claimed = _claim(tmp_path, IDENTITY, SHA, frozen_preview_slug(IDENTITY))
+        assert claimed.returncode == 0
+
+    def test_a_cleanup_naming_another_slug_is_refused(self, tmp_path: Path) -> None:
+        assert _claim(tmp_path, IDENTITY, SHA).returncode == 0
+        refused = _cleanup(tmp_path, identity=IDENTITY, slug="some-other-occupancy")
+        assert refused.returncode == 1
+        assert "ownership_mismatch" in refused.stderr

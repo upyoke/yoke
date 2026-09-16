@@ -77,24 +77,18 @@ jobs:
           ssh-keyscan -H ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Prove ownership before removing anything
+        # An occupancy a caller cannot prove it owns is one somebody else is
+        # still being shown. Refusing costs a stale preview; deleting costs
+        # the review. Values travel on stdin, never inside the command string.
         env:
           HOST: ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_HOST }}
-          SSH_USER: ${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}
           SLUG: ${{ steps.slug.outputs.occupancy_slug }}
           YOKE_DISPATCH_ID: ${{ github.event.inputs.yoke_dispatch_id }}
         run: |
-          set -euo pipefail
-          # An occupancy a caller cannot prove it owns is one somebody else is
-          # still being shown. Refusing costs a stale preview; deleting costs
-          # the review.
-          scp -o LogLevel=ERROR ops/frozen_preview_occupancy.py \
-            "$SSH_USER@$HOST:~/frozen_preview_occupancy.py"
-          ssh -o LogLevel=ERROR "$SSH_USER@$HOST" \
-            "if [ -d ~/{{preview_namespace}}/$SLUG ]; then \
-               python3 ~/frozen_preview_occupancy.py check-cleanup \
-                 --preview-dir ~/{{preview_namespace}}/$SLUG \
-                 --yoke-dispatch-id '$YOKE_DISPATCH_ID'; \
-             fi"
+          set -euo pipefail; G=ops/frozen_preview_occupancy.py
+          AT="${{ secrets.{{PROJECT_NAME_UPPER}}_SSH_USER }}@$HOST"
+          scp -o LogLevel=ERROR "$G" "$AT:~/frozen_preview_occupancy.py"
+          printf '%s\n%s\n' "$YOKE_DISPATCH_ID" "$SLUG" | ssh -o LogLevel=ERROR "$AT" "python3 ~/frozen_preview_occupancy.py check-cleanup --preview-root ~/{{preview_namespace}}"
 
       - name: Teardown ephemeral environment
         run: |
