@@ -34,6 +34,17 @@ yoke qa requirement add \
  --expected-outcome "The workflow view is correct." \
  --method-config '{"steps":[{"action":"navigate","route":"/workflows"}]}'
 
+# Attach an executable case to a deployment run, optionally scoped to one
+# stage and one member item the run carries. No workflow transition: the
+# run owns that context. Refused on a finished run.
+yoke qa requirement add \
+ --deployment-run run-YYYYMMDD-NNN --method-id browser-inspection \
+ --qa-phase post_deploy --deployment-stage stage-smoke \
+ --deployment-member-item PREFIX-N \
+ --instructions "Open the released home route." \
+ --expected-outcome "The home page renders the new build." \
+ --method-config '{"steps":[{"action":"navigate","route":"/"}]}'
+
 # List requirements
 yoke qa requirement list --item PREFIX-N
 
@@ -77,7 +88,7 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 
 | Subcommand | Args | Description |
 |---|---|---|
-| `yoke qa requirement add` | `--item PREFIX-N (--qa-kind K \| --method-id M) --qa-phase P --workflow-transition STAGE [opts]` | Insert one requirement bound to a QA-gated stage in the item's pinned workflow |
+| `yoke qa requirement add` | `--item PREFIX-N (--qa-kind K \| --method-id M) --qa-phase P --workflow-transition STAGE [opts]`, or `--deployment-run RUN --method-id M --qa-phase P [--deployment-stage STAGE [--deployment-member-item PREFIX-N]] [opts]` | Insert one requirement — bound to a QA-gated stage in the item's pinned workflow, or attached to a deployment run (authorized by the run's project scope, no workflow transition, refused on a finished run or a stage/member the run does not declare) |
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically; every row requires `workflow_transition_id` |
 | `yoke qa plan materialize` | `--item PREFIX-N --transition T`, legacy `--deployment-run-id RUN --plan PLAN --project P`, or scoped `--deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P` | Materialize attached item plans, one legacy run plan, or frozen stage/member obligations; each case stays on the shared QA authority |
 | `yoke qa plan run` | The same item, legacy run, or scoped stage/member selectors as materialize | Execute one server-issued durable roster against its exact subject and target |

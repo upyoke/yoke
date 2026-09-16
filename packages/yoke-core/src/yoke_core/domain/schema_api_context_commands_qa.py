@@ -78,8 +78,9 @@ QA_COMMANDS: list[dict] = [
             "--workflow-transition reviewed-implementation"
         ),
         "notes": (
-            "Registered write qa.requirement.add — item-claim-gated, "
-            "item-attached. `--workflow-transition` is required and must "
+            "Registered write qa.requirement.add. With `--item` it is "
+            "item-claim-gated and item-attached, and "
+            "`--workflow-transition` is required and must "
             "name a stage in the item's pinned workflow that carries or "
             "precedes a qa_verification gate. ac_verification omits "
             "`--success-policy` "
@@ -87,12 +88,24 @@ QA_COMMANDS: list[dict] = [
             '`{"min_runs":N,"min_pass":N}`. Several rows in one '
             "transaction: pipe a JSON array to `yoke qa requirement "
             "add-batch --item PREFIX-N --stdin`; every row must include "
-            "`workflow_transition_id`. Epic-task attachment is "
-            "operator-debug only and requires the same binding: "
+            "`workflow_transition_id`. With `--deployment-run RUN-ID` the "
+            "same command attaches one executable case to a release, "
+            "authorized by the run's project scope and carrying no "
+            "workflow transition because the run owns that context: "
+            "`yoke qa requirement add --deployment-run run-YYYYMMDD-NNN "
+            "--method-id browser-inspection --qa-phase post_deploy "
+            "[--deployment-stage STAGE [--deployment-member-item PREFIX-N]] "
+            "--instructions ... --expected-outcome ... --method-config ...`. "
+            "A run-attached case requires `--method-id`, is refused on a "
+            "finished run or a stage/member the run does not declare, and "
+            "is evidence rather than a stage gate — the pipeline's own "
+            "materialized admission is separate. Epic-task attachment is "
+            "operator-debug only and requires the item binding: "
             "`python3 -m yoke_core.domain.qa requirement-add "
             "--epic-id E --task-num K --workflow-transition STAGE ...`. "
-            "Deployment-run attachment is operator-debug only and may "
-            "omit the transition because the run owns its delivery context."
+            "Wrong guesses: that a release case needs a plan to be "
+            "visible, and that deployment-run attachment is operator-debug "
+            "only."
         ),
     },
     {
