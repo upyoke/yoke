@@ -291,18 +291,19 @@ class TestYokePayloadPathSegments:
 
 
 def test_aws_log_group_argument_is_a_remote_resource():
-    """``--log-group-name /yoke/prod/core`` names CloudWatch, not a file."""
-    start_query = (
+    assert extract_command_targets(
         "yoke aws exec --project platform -- logs start-query "
         "--log-group-name /yoke/prod/core --start-time 1 --end-time 2 "
         "--query-string fields"
-    )
-    assert extract_command_targets(start_query) == []
+    ) == []
     assert extract_command_targets(
         "yoke aws exec --project platform -- logs tail /yoke/stage/core --since 10m"
     ) == []
     assert extract_command_targets(
         "aws logs filter-log-events --log-group-name /yoke/prod/core"
+    ) == []
+    assert extract_command_targets(
+        "aws logs filter-log-events --log-group-name=/yoke/prod/core"
     ) == []
     assert extract_command_targets(
         "yoke aws exec --project platform -- logs start-query "
@@ -321,7 +322,7 @@ def test_aws_log_group_keeps_local_filesystem_targets():
     assert extract_command_targets(
         "yoke aws exec -- logs start-query --log-group-name /yoke/prod/core "
         f"--query-string file:///tmp/query.ins > {dest}"
-    ) == [dest]
+    ) == ["/tmp/query.ins", dest]
     assert extract_command_targets(f"cat --log-group-name {secret}") == [secret]
 
 

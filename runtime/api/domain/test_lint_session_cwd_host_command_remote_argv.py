@@ -78,6 +78,27 @@ class TestLocalWriteTargetsStayEnforced:
         )
         assert extract_command_targets(command) == []
 
+    def test_aws_global_region_flag_still_classifies_logs(self):
+        command = (
+            "aws --region us-east-1 logs filter-log-events "
+            "--log-group-name /yoke/prod/core"
+        )
+        assert extract_command_targets(command) == []
+
+    def test_log_group_file_param_is_a_local_path(self):
+        assert extract_command_targets(
+            "aws logs start-query --log-group-name file:///tmp/group.txt"
+        ) == ["/tmp/group.txt"]
+        assert extract_command_targets(
+            "aws logs start-query --log-group-name=fileb:///tmp/group.txt"
+        ) == ["/tmp/group.txt"]
+
+    def test_misplaced_log_group_flag_on_s3_stays_a_path(self):
+        assert extract_command_targets(
+            "aws s3 cp --log-group-name /yoke/prod/core /Users/dev/a.json "
+            "s3://example/x"
+        ) == ["/yoke/prod/core", "/Users/dev/a.json"]
+
 
 class TestRemoteArgvIndexes:
     """The index set names exactly the tokens shipped over the lease."""

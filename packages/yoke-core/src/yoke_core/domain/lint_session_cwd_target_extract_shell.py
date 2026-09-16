@@ -10,6 +10,7 @@ from yoke_core.domain.lint_session_cwd_gh_repo_selector import (
     extract_gh_repo_selector_targets,
 )
 from yoke_core.domain.lint_session_cwd_host_command import (
+    aws_log_group_indexes,
     remote_argv_indexes,
     yoke_subcommand_positionals,
 )
@@ -22,7 +23,10 @@ from yoke_core.domain.lint_shell_target_tokens import (
 
 
 FLAG_BINARY = frozenset({"-C", "--rootdir", "--target-root", "--worktree-path", "-w"})
-FLAG_EQUALS_PREFIXES = ("--rootdir=", "--target-root=", "--worktree-path=")
+FLAG_EQUALS_PREFIXES = (
+    "--rootdir=", "--target-root=", "--worktree-path=",
+    "--log-group-name=", "--log-group=",
+)
 
 
 def resolve_command_targets(
@@ -94,7 +98,6 @@ _CURL_NON_PATH_VALUE_FLAGS = frozenset({"-w", "--write-out"})
 # registration/repair shapes are exempt — file-writing yoke commands
 # (watch captures, renders with ``--target-root``) keep full extraction.
 _YOKE_PAYLOAD_PATH_SUBCOMMANDS = (("item-worktrees",), ("project", "register"))
-_LOG_GROUP_FLAGS = frozenset({"--log-group-name", "--log-group"})
 
 
 def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
@@ -108,48 +111,16 @@ def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
     )
 
 
-def _aws_cli_argv(
-    command_base: str, tokens: List[str],
-) -> Optional[Tuple[List[str], int]]:
-    """Return AWS CLI argv and its start index for ``aws`` / ``yoke aws exec``."""
-    if command_base == "aws":
-        return tokens, 0
-    if command_base != "yoke":
-        return None
-    try:
-        sep = tokens.index("--")
-        aws_at = tokens.index("aws", 1, sep)
-    except ValueError:
-        return None
-    if tokens[aws_at:aws_at + 2] != ["aws", "exec"]:
-        return None
-    return tokens[sep + 1:], sep + 1
-
-
 def _remote_resource_indexes(command_base: str, tokens: List[str]) -> set[int]:
     """Indexes naming a remote resource, not a local filesystem path.
 
-    CloudWatch ``--log-group-name`` / ``logs tail`` operands name a log
-    group. ``qa mission host-command ... -- ARGV...`` runs on the Test
-    Machine. Redirects stay local and are classified before this skip.
+    CloudWatch log-group operands on ``aws logs`` and host-command argv
+    after ``--`` run off this machine. Redirects stay local and are
+    classified before this skip.
     """
-    remote = remote_argv_indexes(command_base, tokens)
-    if remote:
-        return remote
-    argv = _aws_cli_argv(command_base, tokens)
-    if argv is None:
-        return set()
-    inner, offset = argv
-    indexes: set[int] = set()
-    for i, tok in enumerate(inner):
-        if tok in _LOG_GROUP_FLAGS and i + 1 < len(inner):
-            indexes.add(offset + i + 1)
-        if (
-            tok == "logs" and i + 2 < len(inner)
-            and inner[i + 1] == "tail" and not inner[i + 2].startswith("-")
-        ):
-            indexes.add(offset + i + 2)
-    return indexes
+    return remote_argv_indexes(command_base, tokens) | aws_log_group_indexes(
+        command_base, tokens,
+    )
 
 _SED_SCRIPT_FLAGS = ("-e", "-f", "--expression", "--file")
 REDIRECT_OPERATORS = frozenset({">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>"})

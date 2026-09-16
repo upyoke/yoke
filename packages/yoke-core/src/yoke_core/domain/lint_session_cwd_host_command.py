@@ -1,4 +1,4 @@
-"""Remote-argv recognition for ``yoke qa mission host-command``.
+"""Remote-operand indexes the session-cwd extractor skips.
 
 ``yoke qa mission host-command ... -- ARGV...`` ships everything after
 the ``--`` separator over an awaiting mission execution's retained Test
@@ -9,10 +9,15 @@ targets: doing so refused ``-- /bin/ls /Users/testy`` while letting
 path-free ``-- /bin/pwd`` through, narrowing the mission instrument to
 commands that happen to mention no path at all.
 
+``aws logs`` / ``yoke aws exec -- logs`` ``--log-group-name`` operands
+name a CloudWatch group on another machine. ``file://`` / ``fileb://``
+values load a local file and stay path targets.
+
 The shell target extractor
 (:mod:`lint_session_cwd_target_extract_shell`) consumes
-:func:`remote_argv_indexes` to skip those tokens, and the denial
-renderer (:mod:`lint_session_cwd_control_plane`) consumes
+:func:`remote_argv_indexes` and :func:`aws_log_group_indexes` to skip
+those tokens, and the denial renderer
+(:mod:`lint_session_cwd_control_plane`) consumes
 :func:`host_command_exemption_note` so an invocation that is still
 refused for some other reason says why the exemption did not cover the
 target it named.
@@ -20,9 +25,12 @@ target it named.
 
 from __future__ import annotations
 
-from typing import List, Sequence
+from typing import List, Optional, Sequence, Tuple
 
-from yoke_core.domain.lint_shell_target_tokens import shell_command_segments
+from yoke_core.domain.lint_shell_target_tokens import (
+    shell_command_segments,
+    unwrap_cli_file_param,
+)
 
 
 HOST_COMMAND_SUBCOMMAND = ("qa", "mission", "host-command")
@@ -108,6 +116,77 @@ def remote_argv_indexes(command_base: str, tokens: Sequence[str]) -> set[int]:
     return set(range(separator + 1, len(tokens)))
 
 
+_AWS_VALUE_FLAGS = frozenset({
+    "--region", "--profile", "--output", "--endpoint-url",
+})
+_LOG_GROUP_FLAGS = frozenset({"--log-group-name", "--log-group"})
+_LOG_GROUP_EQUALS = ("--log-group-name=", "--log-group=")
+
+
+def _aws_cli_argv(
+    command_base: str, tokens: Sequence[str],
+) -> Optional[Tuple[List[str], int]]:
+    """Return AWS CLI argv and its start index for ``aws`` / ``yoke aws exec``."""
+    inner = list(tokens)
+    if command_base == "aws":
+        return inner, 0
+    if command_base != "yoke":
+        return None
+    try:
+        sep = inner.index("--")
+        aws_at = inner.index("aws", 1, sep)
+    except ValueError:
+        return None
+    if inner[aws_at:aws_at + 2] != ["aws", "exec"]:
+        return None
+    return inner[sep + 1:], sep + 1
+
+
+def _aws_service(inner: Sequence[str]) -> str:
+    """Return the AWS service token (``logs``, ``s3``, …), skipping globals."""
+    i = 1 if inner and inner[0].rsplit("/", 1)[-1] == "aws" else 0
+    while i < len(inner):
+        tok = inner[i]
+        if tok in _AWS_VALUE_FLAGS:
+            i += 2
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        return tok
+    return ""
+
+
+def aws_log_group_indexes(command_base: str, tokens: Sequence[str]) -> set[int]:
+    """Indexes of CloudWatch log-group operands on a recognized ``logs`` argv.
+
+    ``file://`` / ``fileb://`` values load a local file and are not skipped.
+    Other AWS services keep full path extraction, including a misplaced
+    ``--log-group-name``.
+    """
+    argv = _aws_cli_argv(command_base, tokens)
+    if argv is None or _aws_service(argv[0]) != "logs":
+        return set()
+    inner, offset = argv
+    indexes: set[int] = set()
+    for i, tok in enumerate(inner):
+        if tok in _LOG_GROUP_FLAGS and i + 1 < len(inner):
+            if unwrap_cli_file_param(inner[i + 1]) == inner[i + 1]:
+                indexes.add(offset + i + 1)
+            continue
+        eq = next((p for p in _LOG_GROUP_EQUALS if tok.startswith(p)), "")
+        if eq and unwrap_cli_file_param(tok[len(eq):]) == tok[len(eq):]:
+            indexes.add(offset + i)
+        if (
+            tok == "logs" and i + 2 < len(inner)
+            and inner[i + 1] == "tail"
+            and not inner[i + 2].startswith("-")
+            and unwrap_cli_file_param(inner[i + 2]) == inner[i + 2]
+        ):
+            indexes.add(offset + i + 2)
+    return indexes
+
+
 def is_host_command(command: str) -> bool:
     """True when any invocation in ``command`` is a host-command call."""
     for segment in shell_command_segments(command):
@@ -131,6 +210,7 @@ __all__ = [
     "EXEMPTION_NOTE",
     "HOST_COMMAND_SUBCOMMAND",
     "YOKE_VALUE_FLAGS",
+    "aws_log_group_indexes",
     "host_command_exemption_note",
     "is_host_command",
     "is_host_command_segment",
