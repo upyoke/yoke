@@ -141,6 +141,27 @@ def test_current_database_needs_no_restore_point(tmp_path: Path) -> None:
     assert outcome.applied == ()
 
 
+def test_current_database_needs_no_attribution(tmp_path: Path) -> None:
+    conn = _connection()
+    history = _history(tmp_path, "0001_first")
+    conn.execute(
+        "INSERT INTO applied_migrations "
+        "(migration_name, applied_at, applied_by) "
+        "VALUES ('0001_first', 'now', 'test')"
+    )
+
+    outcome = apply_pending(
+        conn,
+        history=history,
+        applied_by="test",
+        running_version="",
+        attribution={},
+    )
+
+    assert outcome.applied == ()
+    assert _marks(conn) == []
+
+
 def test_apply_refuses_without_a_restore_point(tmp_path: Path) -> None:
     conn = _connection()
     history = _history(tmp_path, "0001_first")
