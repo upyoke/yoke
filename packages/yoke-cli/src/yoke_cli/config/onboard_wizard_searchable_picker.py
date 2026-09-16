@@ -90,7 +90,8 @@ class SearchableSelectionList(SelectionList):
     def _apply_filter(self) -> None:
         needle = self._query.casefold()
         self._filtered_rows = [
-            row for row in self._all_rows
+            row
+            for row in self._all_rows
             if needle in f"{row.label} {row.hint}".casefold()
         ]
         self.cursor = self._window_start = 0
@@ -112,7 +113,7 @@ class SearchableSelectionList(SelectionList):
         self.query_one("#onboard-search-status", Static).update(
             f"Filter: {query}  ·  {len(rows)} results"
         )
-        visible = rows[self._window_start:self._window_start + self._viewport_rows]
+        visible = rows[self._window_start : self._window_start + self._viewport_rows]
         for index, option in enumerate(self.query(_OptionRow)):
             option.display = index < len(visible)
             if not option.display:
@@ -122,7 +123,8 @@ class SearchableSelectionList(SelectionList):
         detail = self.query_one(_SelectionDescription)
         detail.update(
             rows[self.cursor].hint
-            if rows else "No matches. Clear the filter to restore the list."
+            if rows
+            else "No matches. Clear the filter to restore the list."
         )
         detail.display = True
 

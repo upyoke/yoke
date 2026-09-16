@@ -54,9 +54,7 @@ def test_long_picker_starts_at_top_and_scrolls_without_typing() -> None:
                 await pilot.press("down")
             assert picker.selected_value == "account-09"
             assert picker._window_start == 2
-            assert "organization" in _text(
-                app.query_one(_SelectionDescription)
-            )
+            assert "organization" in _text(app.query_one(_SelectionDescription))
 
     asyncio.run(scenario())
 
@@ -73,11 +71,11 @@ def test_typing_filters_and_clear_restores_the_complete_list() -> None:
             await pilot.press("1")
             await pilot.pause()
             assert [row.value for row in picker.rows] == [
-                "account-01", "account-10", "account-11",
+                "account-01",
+                "account-10",
+                "account-11",
             ]
-            assert "3 results" in _text(
-                app.query_one("#onboard-search-status", Static)
-            )
+            assert "3 results" in _text(app.query_one("#onboard-search-status", Static))
 
             await pilot.press("ctrl+u")
             await pilot.pause()
@@ -102,12 +100,8 @@ def test_no_match_state_is_bounded_and_explains_how_to_recover() -> None:
             await pilot.press("z", "z", "z")
             await pilot.pause()
             assert picker.rows == []
-            assert "0 results" in _text(
-                app.query_one("#onboard-search-status", Static)
-            )
-            assert "Clear the filter" in _text(
-                app.query_one(_SelectionDescription)
-            )
+            assert "0 results" in _text(app.query_one("#onboard-search-status", Static))
+            assert "Clear the filter" in _text(app.query_one(_SelectionDescription))
             assert len(list(picker.query(_OptionRow))) == 8
 
     asyncio.run(scenario())

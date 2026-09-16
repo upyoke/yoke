@@ -31,20 +31,24 @@ class ProjectIdentityFlow:
     def _after_local_checkout_source(self: _Shell, value: str) -> None:
         try:
             remote, web_url = onboard_local_checkout_identity.inspect(
-                self.result, value,
+                self.result,
+                value,
             )
         except RuntimeError as exc:
             self._goto_existing_project_lookup_error(
-                exc, retry=lambda: self._after_local_checkout_source(value),
+                exc,
+                retry=lambda: self._after_local_checkout_source(value),
             )
             return
         try:
             local_ref = existing_project_lookup.find_local_project_reference(
-                value, config_path=self.result.config_path,
+                value,
+                config_path=self.result.config_path,
             )
         except existing_project_lookup.ExistingProjectLookupError as exc:
             self._goto_existing_project_lookup_error(
-                exc, retry=lambda: self._after_local_checkout_source(value),
+                exc,
+                retry=lambda: self._after_local_checkout_source(value),
             )
             return
         if local_ref is not None:
@@ -73,7 +77,8 @@ class ProjectIdentityFlow:
                 local_source=None,
             ),
             on_error=lambda exc: self._goto_existing_project_lookup_error(
-                exc, retry=lambda: self._after_local_checkout_source(value),
+                exc,
+                retry=lambda: self._after_local_checkout_source(value),
             ),
             group="onboard-existing-project",
         )
@@ -129,7 +134,8 @@ class ProjectIdentityFlow:
                 local_source=local_ref.source,
             ),
             on_error=lambda exc: self._goto_existing_project_lookup_error(
-                exc, retry=lambda: self._after_local_checkout_source(value),
+                exc,
+                retry=lambda: self._after_local_checkout_source(value),
             ),
             group="onboard-existing-project",
         )
@@ -140,17 +146,21 @@ class ProjectIdentityFlow:
         suggested_slug = steps.slug_from_checkout(self.result.project_checkout)
         branch = self.result.project_source_default_branch
         fields = project_details.fields(
-            slug=suggested_slug, branch_from_source=branch,
+            slug=suggested_slug,
+            branch_from_source=branch,
         )
 
         def builder():
             self._begin_form(fields, on_done=self._after_project_details)
             return project_details.body(fields, branch_from_source=branch)
 
-        self._goto(_View(
-            STEP_PROJECT, builder,
-            lambda _choice: self._submit_pending_form(),
-        ))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                builder,
+                lambda _choice: self._submit_pending_form(),
+            )
+        )
 
     def _after_project_details(self: _Shell, values: dict[str, str]) -> None:
         self.result.project_slug = values["slug"]
@@ -209,7 +219,9 @@ class ProjectIdentityFlow:
                 )
                 return
         self._record_existing_project(
-            project, match_source=match_source, local_source=local_source,
+            project,
+            match_source=match_source,
+            local_source=local_source,
         )
         if (
             not self.result.project_github_repo
@@ -218,7 +230,8 @@ class ProjectIdentityFlow:
         ):
             try:
                 onboard_local_checkout_identity.inspect(
-                    self.result, self.result.project_checkout,
+                    self.result,
+                    self.result.project_checkout,
                 )
             except RuntimeError:
                 pass

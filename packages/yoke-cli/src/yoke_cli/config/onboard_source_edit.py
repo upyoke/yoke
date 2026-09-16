@@ -56,7 +56,9 @@ def build_report(
             root.parent.mkdir(parents=True, exist_ok=True)
             try:
                 project_clone_support.clone_with_connected_access(
-                    root.parent, root.name, remote_url,
+                    root.parent,
+                    root.name,
+                    remote_url,
                 )
             except Exception as exc:
                 raise SourceEditError(
@@ -69,16 +71,21 @@ def build_report(
     with onboard_apply_progress.step(progress, "activate-yoke-source", str(root)):
         try:
             report["source_link"] = dev_setup.install_source_checkout(
-                root, editable_install=False,
+                root,
+                editable_install=False,
             )
         except dev_setup.DevSetupError as exc:
             raise SourceEditError(str(exc)) from exc
         record_pending_dev_install(root, config_path)
     if same_host_self_host:
-        with onboard_apply_progress.step(progress, "run-yoke-server-from-source", str(root)):
+        with onboard_apply_progress.step(
+            progress, "run-yoke-server-from-source", str(root)
+        ):
             _stop_guided_bundle(self_host_directory)
             core = LocalCoreLauncher().start(
-                from_checkout=str(root), build=True, config_path=config_path,
+                from_checkout=str(root),
+                build=True,
+                config_path=config_path,
             )
             report["local_core"] = core
             if not core.get("ok"):
@@ -103,7 +110,8 @@ def _stop_guided_bundle(directory: str | None) -> None:
 
     prerequisites = onboard_docker_prerequisites.check_docker_prerequisites()
     result = onboard_self_host_server.stop_preserving_bundle(
-        Path(directory), prerequisites.executable,
+        Path(directory),
+        prerequisites.executable,
     )
     if result.returncode != 0:
         raise SourceEditError(

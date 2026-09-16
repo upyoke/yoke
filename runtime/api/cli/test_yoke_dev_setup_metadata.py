@@ -58,16 +58,37 @@ def test_dev_setup_apply_writes_tunnel_and_authority_metadata(
     config = machine_home / "config.json"
     rc = yoke_operations_cli.main(
         [
-            "dev", "setup", str(checkout), "--dsn",
-            "host=/tmp user=yoke dbname=postgres", "--config", str(config),
-            "--postgres-host", "127.0.0.1", "--postgres-port", "6547",
-            "--tunnel-bastion", "ubuntu@example.invalid",
-            "--tunnel-identity-file", "~/.ssh/yoke.pem",
-            "--tunnel-remote-host", "db.internal", "--tunnel-remote-port", "5432",
-            "--authority-kind", "aws_aurora_postgres",
-            "--authority-infra-dir", "infra/pulumi/yoke-cloud",
-            "--authority-stack", "yoke-prod", "--authority-region", "us-east-1",
-            "--authority-database-name", "yoke_prod", "--yes", "--json",
+            "dev",
+            "setup",
+            str(checkout),
+            "--dsn",
+            "host=/tmp user=yoke dbname=postgres",
+            "--config",
+            str(config),
+            "--postgres-host",
+            "127.0.0.1",
+            "--postgres-port",
+            "6547",
+            "--tunnel-bastion",
+            "ubuntu@example.invalid",
+            "--tunnel-identity-file",
+            "~/.ssh/yoke.pem",
+            "--tunnel-remote-host",
+            "db.internal",
+            "--tunnel-remote-port",
+            "5432",
+            "--authority-kind",
+            "aws_aurora_postgres",
+            "--authority-infra-dir",
+            "infra/pulumi/yoke-cloud",
+            "--authority-stack",
+            "yoke-prod",
+            "--authority-region",
+            "us-east-1",
+            "--authority-database-name",
+            "yoke_prod",
+            "--yes",
+            "--json",
         ]
     )
     assert rc == 0
@@ -77,17 +98,22 @@ def test_dev_setup_apply_writes_tunnel_and_authority_metadata(
     ]
     assert entry["prod"] is False
     assert entry["postgres"] == {
-        "host": "127.0.0.1", "port": 6547,
+        "host": "127.0.0.1",
+        "port": 6547,
         "tunnel": {
-            "kind": "ssh", "bastion": "ubuntu@example.invalid",
-            "identity_file": "~/.ssh/yoke.pem", "remote_host": "db.internal",
+            "kind": "ssh",
+            "bastion": "ubuntu@example.invalid",
+            "identity_file": "~/.ssh/yoke.pem",
+            "remote_host": "db.internal",
             "remote_port": 5432,
         },
     }
     assert entry["authority"] == {
-        "kind": "aws_aurora_postgres", "infra_dir": "infra/pulumi/yoke-cloud",
+        "kind": "aws_aurora_postgres",
+        "infra_dir": "infra/pulumi/yoke-cloud",
         "location": {
-            "stack": "yoke-prod", "region": "us-east-1",
+            "stack": "yoke-prod",
+            "region": "us-east-1",
             "database_name": "yoke_prod",
         },
     }

@@ -24,10 +24,14 @@ def test_applying_screen_updates_totals_and_current_operation() -> None:
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            app._review_plan = {"plan": {"steps": [
-                {"action": "create-or-validate-dir", "target": "/home/.yoke"},
-                {"action": "set-active-env", "target": "stage"},
-            ]}}
+            app._review_plan = {
+                "plan": {
+                    "steps": [
+                        {"action": "create-or-validate-dir", "target": "/home/.yoke"},
+                        {"action": "set-active-env", "target": "stage"},
+                    ]
+                }
+            }
             app._apply_steps = app._applying_step_model()
             app._goto_applying()
             await pilot.pause()
@@ -35,14 +39,18 @@ def test_applying_screen_updates_totals_and_current_operation() -> None:
                 "Overall: 0 of 2 complete"
             )
             app._set_apply_step_status(
-                "create-or-validate-dir", "/home/.yoke", "running",
+                "create-or-validate-dir",
+                "/home/.yoke",
+                "running",
             )
             await pilot.pause()
             assert str(app.query_one("#apply-current").render()) == (
                 "Current: Create your Yoke home folder at /home/.yoke"
             )
             app._set_apply_step_status(
-                "create-or-validate-dir", "/home/.yoke", "done",
+                "create-or-validate-dir",
+                "/home/.yoke",
+                "done",
             )
             await pilot.pause()
             assert str(app.query_one("#apply-overall").render()) == (
@@ -58,9 +66,13 @@ def test_applying_summary_needs_no_status_glyphs_in_plain_mode(monkeypatch) -> N
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
-            app._review_plan = {"plan": {"steps": [
-                {"action": "create-or-validate-dir", "target": "/home/.yoke"},
-            ]}}
+            app._review_plan = {
+                "plan": {
+                    "steps": [
+                        {"action": "create-or-validate-dir", "target": "/home/.yoke"},
+                    ]
+                }
+            }
             app._apply_steps = app._applying_step_model()
             app._goto_applying()
             await pilot.pause()
@@ -68,7 +80,9 @@ def test_applying_summary_needs_no_status_glyphs_in_plain_mode(monkeypatch) -> N
             assert initial == "Overall: 0 of 1 complete"
             assert "○" not in initial
             app._set_apply_step_status(
-                "create-or-validate-dir", "/home/.yoke", "done",
+                "create-or-validate-dir",
+                "/home/.yoke",
+                "done",
             )
             await pilot.pause()
             done = str(app.query_one("#apply-overall").render())

@@ -34,7 +34,8 @@ def install_source_checkout(
     provisioned: dict[str, Any] = {"strategy": MODE_SOURCE_LINK}
     if editable:
         provisioned["editable_install"] = _run_editable_install(
-            root, error_type=error_type,
+            root,
+            error_type=error_type,
         )
     source_link = _run_source_link_subprocess(root, error_type=error_type)
     provisioned["source_link"] = source_link
@@ -52,8 +53,7 @@ def _run_editable_install(
 ) -> dict[str, Any]:
     packages = [root / "packages" / name for name in _EDITABLE_PACKAGES]
     missing = [
-        str(path) for path in packages
-        if not (path / "pyproject.toml").is_file()
+        str(path) for path in packages if not (path / "pyproject.toml").is_file()
     ]
     if missing:
         raise error_type(
@@ -78,8 +78,7 @@ def _run_editable_install(
     )
     if result.returncode != 0:
         raise error_type(
-            "editable install failed: "
-            f"{result.stderr.strip() or result.stdout.strip()}"
+            f"editable install failed: {result.stderr.strip() or result.stdout.strip()}"
         )
     swap = editable_install.swap_to_config_driven(
         editable_install.site_packages_dir(),
