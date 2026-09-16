@@ -150,9 +150,11 @@ def handle_survey(
                 reservation=reservation,
             )
             return _error("survey_refused", str(exc))
-    owner_refs = render_item_ref_lookup(
-        conn, [blocker.owner_item_id for blocker in survey.blockers]
-    )
+        # Inside the connection's lifetime: `with connect()` closes on
+        # exit, and this read is what names each blocker in the response.
+        owner_refs = render_item_ref_lookup(
+            conn, [blocker.owner_item_id for blocker in survey.blockers]
+        )
     return HandlerOutcome(
         result_payload=SurveyResponse(
             item_id=item_id,
