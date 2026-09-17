@@ -291,6 +291,17 @@ def test_sanctioned_close_out_sets_nonce_from_merge_only_delivery(
     assert route.error == ""
     assert route.delivery_discharged is True
     assert "done" in route.stages
+    monkeypatch.setattr(
+        terminal.evidence,
+        "recorded",
+        lambda _id: json.loads(
+            test_db.execute(
+                "SELECT content FROM item_sections WHERE item_id = %s "
+                "AND section_name = 'Execution Evidence'",
+                (item_id,),
+            ).fetchone()[0]
+        ),
+    )
     nonces: list[tuple[str, bool]] = []
 
     def _dispatch(*, function_id, target=None, payload=None, **_kwargs):

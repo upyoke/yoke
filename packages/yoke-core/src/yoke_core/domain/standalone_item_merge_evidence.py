@@ -27,6 +27,7 @@ from yoke_contracts.api.function_call import TargetRef
 
 from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
+from yoke_core.domain.floor_attestation import uses_agent_attested_floor
 
 # The status a standalone item reaches once its close-out has run. An item
 # short of it has work left, so a claim refusal there is a real refusal.
@@ -113,6 +114,25 @@ def recorded_covers_merge(item_id: int, merge_sha: str) -> bool:
     if row.get("no_changes"):
         return True
     return str(row.get("merge_sha") or "") == str(merge_sha or "")
+
+
+def attested_empty_landing(item_id: int) -> bool:
+    """Whether persisted evidence attests a floor close with no merge identity.
+
+    Bound to recorded ``no_changes=true`` through
+    :func:`uses_agent_attested_floor`, not to the absence of SHAs on a
+    caller-supplied lane. A recorded merge SHA is its own satisfier even
+    on a no-changes close. Missing or corrupt evidence is not an attested
+    floor, so ordinary changed work still refuses without a landing.
+    """
+    row = recorded(item_id)
+    if not isinstance(row, dict):
+        return False
+    return uses_agent_attested_floor(
+        no_changes=row.get("no_changes") is True,
+        merge_free_delivery=False,
+        merge_sha=str(row.get("merge_sha") or ""),
+    )
 
 
 def authoritative_status_is(item_id: int, expected_status: str) -> bool:
@@ -250,6 +270,7 @@ def closed_out_envelope(
 __all__ = [
     "CLOSED_OUT_STATUS",
     "LANDING_ALREADY_RECORDED",
+    "attested_empty_landing",
     "authoritative_status_is",
     "closed_out_envelope",
     "record",

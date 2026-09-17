@@ -152,3 +152,78 @@ def test_an_unlanded_merge_identity_is_still_refused(monkeypatch):
 
     assert new_status == ""
     assert "not reachable from 'main'" in error
+
+
+EMPTY_LANE = LandedLane(
+    branch="ITEM-1", target="main", commit_sha="", merge_sha="",
+)
+
+
+def test_empty_identities_without_no_change_evidence_are_refused(monkeypatch):
+    monkeypatch.setattr(
+        terminal.evidence, "attested_empty_landing", lambda _id: False,
+    )
+    monkeypatch.setattr(
+        terminal.git,
+        "is_landed",
+        lambda *_a: pytest.fail("missing SHAs must not consult git"),
+    )
+    monkeypatch.setattr(
+        terminal,
+        "call_dispatcher",
+        lambda **_k: pytest.fail("an unlanded merge is refused before transition"),
+    )
+
+    new_status, error = terminal.transition_to_done(
+        item_id=7,
+        source_status="reviewing-implementation",
+        repo_root="/repo",
+        lane=EMPTY_LANE,
+    )
+
+    assert new_status == ""
+    assert "not reachable from 'main'" in error
+
+
+def test_empty_identities_with_recorded_no_changes_close(monkeypatch):
+    monkeypatch.setattr(
+        terminal.evidence, "attested_empty_landing", lambda _id: True,
+    )
+    monkeypatch.setattr(
+        terminal.git,
+        "is_landed",
+        lambda *_a: pytest.fail("attested no-change must not consult git"),
+    )
+    monkeypatch.setattr(terminal.recovery, "claim_error", lambda *_a: "")
+    calls = _transitions(monkeypatch)
+
+    assert terminal.transition_to_done(
+        item_id=7,
+        source_status="reviewing-implementation",
+        repo_root="/repo",
+        lane=EMPTY_LANE,
+    ) == ("done", "")
+    assert [name for name, _payload in calls] == ["lifecycle.transition.execute"]
+
+
+def test_attested_empty_landing_reads_recorded_no_changes(monkeypatch):
+    monkeypatch.setattr(
+        terminal.evidence,
+        "recorded",
+        lambda _id: {"no_changes": True, "merge_sha": ""},
+    )
+    assert terminal.evidence.attested_empty_landing(7) is True
+    monkeypatch.setattr(
+        terminal.evidence,
+        "recorded",
+        lambda _id: {"no_changes": False, "merge_sha": ""},
+    )
+    assert terminal.evidence.attested_empty_landing(7) is False
+    monkeypatch.setattr(terminal.evidence, "recorded", lambda _id: None)
+    assert terminal.evidence.attested_empty_landing(7) is False
+    monkeypatch.setattr(
+        terminal.evidence,
+        "recorded",
+        lambda _id: {"no_changes": True, "merge_sha": MERGE_SHA},
+    )
+    assert terminal.evidence.attested_empty_landing(7) is False
