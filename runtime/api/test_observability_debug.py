@@ -239,18 +239,39 @@ def test_configured_child_logger_cap_keeps_info(
 def test_configured_child_logger_expiry_keeps_info(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    live = datetime(2026, 9, 16, 12, 0, tzinfo=timezone.utc)
+    clock = {"now": live}
+
+    class _FrozenDateTime:
+        @staticmethod
+        def now(tz=None):
+            current = clock["now"]
+            if tz is not None:
+                return current.astimezone(tz)
+            return current
+
+    monkeypatch.setattr("yoke_core.api.observability_debug.datetime", _FrozenDateTime)
     stream = io.StringIO()
     child = _configure_child_capture(
         monkeypatch,
         stream,
         scope="function:items.get.run",
-        until="2000-01-01T00:00:00Z",
+        until=(live + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
     )
-    child.debug("dispatch.debug", extra={"function": "items.get.run"})
-    child.info("still-info", extra={"function": "items.get.run"})
+    extra = {"function": "items.get.run"}
+    child.debug("live-debug", extra=extra)
+    child.info("live-info", extra=extra)
+    live_text = stream.getvalue()
+    assert "live-debug" in live_text
+    assert "live-info" in live_text
+
+    clock["now"] = live + timedelta(hours=2)
+    child.debug("expired-debug", extra=extra)
+    child.info("still-info", extra=extra)
     text = stream.getvalue()
-    assert "dispatch.debug" not in text
+    assert "expired-debug" not in text
     assert "still-info" in text
+    assert "live-debug" in text
 
 
 def test_debug_does_not_put_request_id_on_metrics() -> None:
