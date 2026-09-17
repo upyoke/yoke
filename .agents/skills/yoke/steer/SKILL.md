@@ -126,10 +126,12 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
   waiting on an approval, or holding at an explicit operator instruction —
   with a concrete reason:
   `yoke sessions touch --mode parked --reason "waiting on PREFIX-N"`. That
-  write persists; reporting the wait, or writing its reason into the doc,
-  does not unpark — only the mode stamp does, and reading the control
-  plane never unparks it either. Leave parked by stamping a working mode
-  (`yoke sessions touch --mode dash`) once the wait clears. A genuinely
+  write persists. Reporting the wait, reading the control plane, heartbeat,
+  message ack, failed wakes, and tool calls do not unpark. An accepted
+  UserPromptSubmit that stamps the turn running clears the previous parked
+  mode and reason; a later explicit re-park persists, and a stale start
+  observation does not unpark. Stamp a working mode when continuing by
+  choice (`yoke sessions touch --mode dash`). A genuinely
   parked, in-flight, or merge-queue-landing worker is not terminated or
   restaffed for being quiet; verify the recorded reason, then resume it
   once its blocker actually clears.

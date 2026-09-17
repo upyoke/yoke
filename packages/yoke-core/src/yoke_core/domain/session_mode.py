@@ -1,4 +1,4 @@
-"""Session queue posture: parked waits until an explicit mode stamp leaves it."""
+"""Session queue posture: parked waits until a mode stamp or confirmed turn start."""
 
 from __future__ import annotations
 
@@ -110,7 +110,8 @@ def clear_parked_mode(conn: Any, session_id: str) -> bool:
     """Explicit unpark back to wait. No-op when the session is not parked.
 
     Activity-state writers must skip fixtures that have no ``mode`` column.
-    Tool-call telemetry does not call this; stamp a working mode to leave.
+    Tool-call telemetry does not call this. The accepted UserPromptSubmit
+    turn-start tail does, after its running posture stamp actually applies.
     """
     if not session_id:
         return False
