@@ -78,7 +78,7 @@ def test_advance_and_qa_recipes_read_the_active_implementation_lane(
     root: Path,
 ) -> None:
     for relative_path in (
-        "advance/SKILL.md",
+        "advance/reentry.md",
         "advance/finalize.md",
         "advance/browser-qa.md",
         "advance/project-e2e.md",
@@ -92,7 +92,7 @@ def test_advance_and_qa_recipes_read_the_active_implementation_lane(
 def test_evidence_only_recovery_releases_active_lane_records(
     root: Path,
 ) -> None:
-    for relative_path in ("advance/SKILL.md", "usher/deploy.md"):
+    for relative_path in ("advance/arguments.md", "usher/deploy.md"):
         text = (root / relative_path).read_text()
         clean_check = text.find('git -C "$_wt_path" status --porcelain')
         release = text.find("yoke item-worktrees release PREFIX-N --all-active")
@@ -167,7 +167,7 @@ def test_blitz_registers_explicit_additional_lanes(root: Path) -> None:
 def test_terminal_handoff_releases_claims_before_idle_hook_cleanup(
     root: Path,
 ) -> None:
-    advance = (root / "advance/SKILL.md").read_text()
+    advance = (root / "advance/parse-and-target.md").read_text()
     followups = (root / "do/loop-followups.md").read_text()
 
     assert "yoke claims work release --all-mine" in advance
