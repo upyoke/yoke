@@ -102,9 +102,12 @@ def cmd_prune(
 ) -> str:
     """Per-severity event retention (+ existing rolling-state TTLs).
 
-    Event preview and deletion are LIMIT-batched and time-bounded.
-    STATUS/ERROR/FATAL are never age-pruned. Referenced event_id rows
-    are kept on every event delete path. Obsolete-name purge is opt-in.
+    Event preview and deletion are LIMIT-batched. LIMIT caps matching
+    rows, not scanned rows or query duration. The monotonic pass
+    deadline is checked between statements; each event SQL uses
+    ``statement_timeout`` for the remaining budget. STATUS/ERROR/FATAL
+    are never age-pruned. Referenced event_id rows are kept on every
+    event delete path. Obsolete-name purge is opt-in.
     """
     batch = coerce_batch_size(batch_size)
     if max_seconds <= 0:
@@ -114,19 +117,21 @@ def cmd_prune(
     conn = connect(db_path)
     try:
         has_tool_calls = _table_exists(conn, "session_tool_calls")
+        deadline = time.monotonic() + max_seconds
         if dry_run:
             return dry_run_report(
                 conn,
                 batch,
                 has_tool_calls,
                 purge_obsolete,
+                deadline=deadline,
                 severity_where=_severity_where,
                 purged_event_where=_purged_event_where,
             )
         return _run_prune(
             conn,
             batch=batch,
-            max_seconds=max_seconds,
+            deadline=deadline,
             max_batches=max_batches,
             has_tool_calls=has_tool_calls,
             purge_obsolete=purge_obsolete,
@@ -139,12 +144,11 @@ def _run_prune(
     conn: Any,
     *,
     batch: int,
-    max_seconds: float,
+    deadline: float,
     max_batches: int | None,
     has_tool_calls: bool,
     purge_obsolete: bool,
 ) -> str:
-    deadline = time.monotonic() + max_seconds
     batches_left: list[int | None] = [max_batches]
     pre_ledger = ledger_count(conn)
     pre_intents = intent_count(conn)

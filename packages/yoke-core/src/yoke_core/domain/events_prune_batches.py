@@ -1,8 +1,10 @@
 """Bounded event-row selection for retention pruning.
 
-Keeps preview counts and DELETE statements inside a LIMIT so a large
-``events`` table cannot force a full-table count or a single unbounded
-delete. Callers own the connection, commit, deadline, and audit row.
+LIMIT caps matching rows, not scanned rows or query duration. The
+monotonic pass deadline is checked only between statements; each event
+preview/delete uses the existing ``set_config('statement_timeout')``
+facility so a sparse scan, ORDER BY, or leftover probe cannot outlive
+the remaining budget. Callers own the connection, commit, and audit row.
 """
 
 from __future__ import annotations
@@ -10,6 +12,7 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, Optional
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.schema_common import _table_exists
 
@@ -30,6 +33,11 @@ _EVENT_AUDIT_REFERENCE_TABLES = (
     "path_context_values",
     "path_integrity_repairs",
 )
+_STATEMENT_TIMEOUT_SQLSTATE = "57014"
+
+
+class StatementBudgetExceeded(Exception):
+    """One prune statement hit ``statement_timeout``; committed batches stand."""
 
 
 def coerce_batch_size(raw: int) -> int:
@@ -37,6 +45,45 @@ def coerce_batch_size(raw: int) -> int:
     if not isinstance(raw, int) or isinstance(raw, bool) or raw < 1:
         raise ValueError("batch_size must be a positive integer")
     return min(raw, EVENT_PRUNE_BATCH_SIZE_MAX)
+
+
+def remaining_timeout_ms(deadline: float) -> int:
+    """Milliseconds left on the pass budget, floored at 1ms."""
+    return max(1, int((deadline - time.monotonic()) * 1000))
+
+
+def apply_event_prune_statement_timeout(conn: Any, deadline: float) -> None:
+    """Bound the next statement to remaining pass time (Postgres only)."""
+    if not db_backend.connection_is_postgres(conn):
+        return
+    conn.execute(
+        "SELECT set_config('statement_timeout', %s, true)",
+        (f"{remaining_timeout_ms(deadline)}ms",),
+    )
+
+
+def execute_with_deadline(
+    conn: Any,
+    deadline: float,
+    sql: str,
+    params: tuple[Any, ...] = (),
+) -> Any:
+    """Run one SQL statement under the remaining statement_timeout."""
+    apply_event_prune_statement_timeout(conn, deadline)
+    try:
+        return conn.execute(sql, params)
+    except Exception as exc:
+        if not _is_statement_timeout(exc):
+            raise
+        conn.rollback()
+        raise StatementBudgetExceeded from exc
+
+
+def _is_statement_timeout(exc: BaseException) -> bool:
+    return (
+        getattr(exc, "sqlstate", None) == _STATEMENT_TIMEOUT_SQLSTATE
+        or type(exc).__name__ == "QueryCanceled"
+    )
 
 
 def reference_exclusion_sql(conn: Any) -> str:
@@ -65,6 +112,7 @@ def bounded_event_count(
     params: tuple[Any, ...] = (),
     *,
     limit: int,
+    deadline: float | None = None,
 ) -> tuple[int, bool]:
     """Count matching rows up to *limit*; partial means at least that many."""
     batch = coerce_batch_size(limit)
@@ -74,7 +122,11 @@ def bounded_event_count(
         f"SELECT 1 FROM events WHERE {where_sql} LIMIT {probe}"
         ") bounded_event_count"
     )
-    found = int(query_scalar(conn, sql, params) or 0)
+    if deadline is None:
+        found = int(query_scalar(conn, sql, params) or 0)
+    else:
+        row = execute_with_deadline(conn, deadline, sql, params).fetchone()
+        found = int((row[0] if row is not None else 0) or 0)
     if found > batch:
         return batch, True
     return found, False
@@ -86,6 +138,7 @@ def delete_event_batch(
     params: tuple[Any, ...] = (),
     *,
     limit: int,
+    deadline: float | None = None,
 ) -> int:
     """Delete one oldest-first batch; returns rows removed this statement."""
     batch = coerce_batch_size(limit)
@@ -97,7 +150,11 @@ def delete_event_batch(
         f"ORDER BY created_at, id LIMIT {batch}"
         ") bounded_event_ids)"
     )
-    return int(conn.execute(sql, params).rowcount or 0)
+    if deadline is None:
+        cursor = conn.execute(sql, params)
+    else:
+        cursor = execute_with_deadline(conn, deadline, sql, params)
+    return int(cursor.rowcount or 0)
 
 
 def prune_matching_events(
@@ -113,23 +170,33 @@ def prune_matching_events(
 
     ``batches_left`` is a one-element remaining-batch budget shared across
     severity loops (``[None]`` means unlimited). Returns
-    ``(deleted, more_remaining)``.
+    ``(deleted, more_remaining)``. A statement timeout is a graceful
+    stop: already-committed batches stay and leftovers remain eligible.
     """
     batch = coerce_batch_size(batch_size)
     deleted = 0
-    while time.monotonic() < deadline:
-        remaining = None if batches_left is None else batches_left[0]
-        if remaining is not None and remaining <= 0:
-            leftover, _ = bounded_event_count(conn, where_sql, params, limit=1)
-            return deleted, leftover > 0
-        removed = delete_event_batch(conn, where_sql, params, limit=batch)
-        conn.commit()
-        if removed == 0:
-            return deleted, False
-        deleted += removed
-        if batches_left is not None and batches_left[0] is not None:
-            batches_left[0] -= 1
-        if removed < batch:
-            return deleted, False
-    leftover, _ = bounded_event_count(conn, where_sql, params, limit=1)
-    return deleted, leftover > 0
+    try:
+        while time.monotonic() < deadline:
+            remaining = None if batches_left is None else batches_left[0]
+            if remaining is not None and remaining <= 0:
+                leftover, _ = bounded_event_count(
+                    conn, where_sql, params, limit=1, deadline=deadline
+                )
+                return deleted, leftover > 0
+            removed = delete_event_batch(
+                conn, where_sql, params, limit=batch, deadline=deadline
+            )
+            conn.commit()
+            if removed == 0:
+                return deleted, False
+            deleted += removed
+            if batches_left is not None and batches_left[0] is not None:
+                batches_left[0] -= 1
+            if removed < batch:
+                return deleted, False
+        leftover, _ = bounded_event_count(
+            conn, where_sql, params, limit=1, deadline=deadline
+        )
+        return deleted, leftover > 0
+    except StatementBudgetExceeded:
+        return deleted, True

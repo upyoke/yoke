@@ -15,7 +15,12 @@ retention-only destructive maintenance helper against the `events`
 table and the `session_tool_calls` rolling-state table.  It deletes
 events rows by severity/age (DEBUG > 1d, INFO > 30d,
 WARN > 90d; STATUS never pruned) in LIMIT batches with a runtime
-and optional `--max-batches` budget, and `session_tool_calls` rows older
+and optional `--max-batches` budget. LIMIT caps matching rows, not
+scanned rows or query duration; each event statement also inherits
+`statement_timeout` for the remaining `--max-seconds` so a sparse
+selection, `ORDER BY` sort, or leftover probe cannot run past the
+pass budget. A canceled statement stops the pass with already-committed
+batches intact. Then `session_tool_calls` rows older
 than `SESSION_TOOL_CALLS_RETENTION_DAYS` (7d — the table's readers are
 the session-end orphan sweep and the minutes-lookback PreToolUse lint
 guardrails, so week-old rows are inert), then emits a

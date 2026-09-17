@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import threading
+import time
 
-from yoke_core.domain import events_crud as ec
-from runtime.api.events_crud_test_fixtures import (  # noqa: F401
-    _iso_offset_days,
-    db_path,
-)
+from yoke_core.domain import db_backend, events_crud as ec
+from yoke_core.domain.events_prune_batches import prune_matching_events
+from runtime.api.events_crud_test_fixtures import _iso_offset_days
 from runtime.api.fixtures.file_test_db import connect_test_db
+
+pytest_plugins = ("runtime.api.events_crud_test_fixtures",)
 
 
 def _insert(
@@ -144,6 +145,26 @@ def test_time_budget_stops_then_rerun_finishes(db_path: str) -> None:
     assert remaining == 3
     ec.cmd_prune(db_path)
     assert _count(db_path) == 0
+
+
+def test_slow_statement_returns_partial_without_deleting(db_path: str) -> None:
+    """One timed-out statement stops the pass; committed work (none) stands."""
+    _insert(db_path, "old-info", severity="INFO", days=-40)
+    conn = connect_test_db(db_path)
+    try:
+        if not db_backend.connection_is_postgres(conn):
+            return
+        deleted, remaining = prune_matching_events(
+            conn,
+            "(SELECT pg_sleep(5)) IS NOT NULL",
+            batch_size=1,
+            deadline=time.monotonic() + 0.25,
+        )
+        assert deleted == 0
+        assert remaining is True
+    finally:
+        conn.close()
+    assert _count(db_path, "old-info") == 1
 
 
 def test_prune_cli_kwargs_parses_bounds() -> None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from yoke_core.domain import (
     db_backend,
@@ -13,6 +13,7 @@ from yoke_core.domain.db_helpers import query_scalar
 from yoke_core.domain.events_prune_batches import (
     EVENT_RETENTION_DAYS,
     SESSION_TOOL_CALLS_RETENTION_DAYS,
+    StatementBudgetExceeded,
     bounded_event_count,
     format_bounded_count,
 )
@@ -45,22 +46,32 @@ def dry_run_report(
     has_tool_calls: bool,
     purge_obsolete: bool,
     *,
+    deadline: float,
     severity_where,
     purged_event_where,
 ) -> str:
-    parts = []
-    for severity, days in EVENT_RETENTION_DAYS.items():
-        if days is None:
-            continue
-        count, partial = bounded_event_count(
-            conn, severity_where(conn, severity, days), limit=batch
-        )
-        parts.append(f"{severity}={format_bounded_count(count, partial)}")
+    parts: list[str] = []
     obsolete_note = "obsolete=skipped"
-    if purge_obsolete:
-        where, params = purged_event_where(conn)
-        count, partial = bounded_event_count(conn, where, params, limit=batch)
-        obsolete_note = f"obsolete={format_bounded_count(count, partial)}"
+    stopped = False
+    try:
+        for severity, days in EVENT_RETENTION_DAYS.items():
+            if days is None:
+                continue
+            count, partial = bounded_event_count(
+                conn,
+                severity_where(conn, severity, days),
+                limit=batch,
+                deadline=deadline,
+            )
+            parts.append(f"{severity}={format_bounded_count(count, partial)}")
+        if purge_obsolete:
+            where, params = purged_event_where(conn)
+            count, partial = bounded_event_count(
+                conn, where, params, limit=batch, deadline=deadline
+            )
+            obsolete_note = f"obsolete={format_bounded_count(count, partial)}"
+    except StatementBudgetExceeded:
+        stopped = True
     tool_call_count = 0
     if has_tool_calls:
         tool_call_count = query_scalar(
@@ -68,22 +79,27 @@ def dry_run_report(
             "SELECT COUNT(*) FROM session_tool_calls "
             f"WHERE started_at < {now_sql(offset_days=-SESSION_TOOL_CALLS_RETENTION_DAYS)}",
         )
-    return "\n".join(
-        [
-            f"Would prune: {', '.join(parts)}, {obsolete_note}",
-            "(STATUS/ERROR/FATAL retained indefinitely; STATUS not counted)",
-            f"function_call_ledger: {function_call_ledger.count_expired(conn)} "
-            f"rows past {function_call_ledger.LEDGER_TTL_DAYS}d replay TTL",
-            "github_workflow_dispatch_intents: "
-            f"{github_workflow_dispatch_intents.count_expired(conn)} terminal "
-            "row(s) past "
-            f"{github_workflow_dispatch_intents.INTENT_TTL_DAYS}d TTL "
-            "(pending retained indefinitely)",
-            f"session_tool_calls: {tool_call_count} row(s) older than "
-            f"{SESSION_TOOL_CALLS_RETENTION_DAYS}d",
-            f"event batch_size={batch} (counts are exact or labeled partial)",
-        ]
-    )
+    counted = ", ".join(parts) if parts else "(timeout before first count)"
+    lines = [
+        f"Would prune: {counted}, {obsolete_note}",
+        "(STATUS/ERROR/FATAL retained indefinitely; STATUS not counted)",
+        f"function_call_ledger: {function_call_ledger.count_expired(conn)} "
+        f"rows past {function_call_ledger.LEDGER_TTL_DAYS}d replay TTL",
+        "github_workflow_dispatch_intents: "
+        f"{github_workflow_dispatch_intents.count_expired(conn)} terminal "
+        "row(s) past "
+        f"{github_workflow_dispatch_intents.INTENT_TTL_DAYS}d TTL "
+        "(pending retained indefinitely)",
+        f"session_tool_calls: {tool_call_count} row(s) older than "
+        f"{SESSION_TOOL_CALLS_RETENTION_DAYS}d",
+        f"event batch_size={batch} (counts are exact or labeled partial)",
+    ]
+    if stopped:
+        lines.append(
+            "stopped: batch/time budget; rerun the same command to continue "
+            "(idempotent leftover eligible rows)"
+        )
+    return "\n".join(lines)
 
 
 def emit_audit(
