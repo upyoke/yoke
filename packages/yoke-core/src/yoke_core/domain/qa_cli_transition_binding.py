@@ -18,6 +18,7 @@ def require_cli_workflow_transition(
     item_id: int,
     transition_id: str | None,
     label: str | None = None,
+    qa_phase: str | None = None,
 ) -> str:
     """Validate one QA binding and translate failures to CLI exit code 2."""
     try:
@@ -25,6 +26,7 @@ def require_cli_workflow_transition(
             conn,
             item_id=int(item_id),
             transition_id=transition_id,
+            qa_phase=qa_phase,
         )
     except (QaWorkflowBindingError, WorkflowRegistryError) as exc:
         prefix = f"{label}: " if label else ""

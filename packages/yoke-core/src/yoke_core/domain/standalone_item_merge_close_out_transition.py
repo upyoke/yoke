@@ -34,6 +34,7 @@ def run_terminal_transition(
     evidence: Any,
     pending: Any,
     record_terminal_lane_close_out: Callable[..., Any],
+    postpone_terminal: bool = False,
 ) -> Optional[int]:
     """Run the terminal transition, mutating ``envelope`` in place.
 
@@ -45,7 +46,7 @@ def run_terminal_transition(
     of them still reaches this call.
     """
     announce("terminal transition")
-    route = close_out_route(item, status)
+    route = close_out_route(item, status, postpone_terminal=postpone_terminal)
     if route.error:
         envelope["ok"] = False
         envelope["error"] = (

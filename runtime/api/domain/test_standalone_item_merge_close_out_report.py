@@ -91,7 +91,12 @@ def _run_close_out(
         merge_cli, "record_terminal_lane_close_out", lambda *_a, **_k: None
     )
     monkeypatch.setattr(
-        close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",))
+        close_out_transition, "close_out_route",
+        lambda *_a, postpone_terminal=False, **_k: (
+            CloseOutRoute(stages=("release",))
+            if postpone_terminal
+            else CloseOutRoute(stages=("done",))
+        ),
     )
 
     def dispatch(*, function_id, target, payload=None, **_kw):

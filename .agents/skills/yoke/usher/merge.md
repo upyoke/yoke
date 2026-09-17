@@ -24,11 +24,18 @@ If `_DEPLOY_ONLY`, skip entirely to deploy phase.
 
 ```bash
 yoke items get PREFIX-N status
+yoke workflows item get PREFIX-N --json
+yoke items get PREFIX-N merged_at
 ```
 
 - `done` → skip (idempotent)
-- `release` → skip merge, proceed to deploy phase (already merged)
-- Not `implemented` → skip with warning
+- `release` → skip merge, proceed to deploy (already past landing)
+- Durable merge receipt at the pinned pre-release review stage (Dash:
+  `reviewing-implementation`) → skip a second landing; reuse `yoke merge item`
+  close-out so the pinned release wait is entered. Do not force a status.
+- Pinned merge-ready stage with no receipt (`implemented` on epic workflows;
+  `reviewing-implementation` on Dash) → continue merge
+- Else → skip with warning naming the pinned stages and receipt read
 
 Resolve the item's immutable workflow pin once for the merge decision. Use the
 logical version returned by `workflows.item.get` to read the exact definition;
@@ -96,7 +103,13 @@ Browser method cases or `e2e` verification requirements by itself.
 
 ### 7b. Advance to release
 
-Call `lifecycle.transition.execute` from `implemented` to `release`. The handler runs the implemented → release gate and emits `ItemStatusChanged`.
+Do not hardcode `implemented` → `release`. Read the current status from the
+pin. If already `release`, skip. If a merge receipt exists, `yoke merge item`
+is the idempotent close-out that enters the pinned release wait (including
+`--skip-status`, which postpones only `done`). If the item is still unlanded
+at its merge-ready stage, call `lifecycle.transition.execute` from that
+current stage to `release`. The handler runs the target's gates and emits
+`ItemStatusChanged`.
 
 ```json
 {
@@ -104,7 +117,7 @@ Call `lifecycle.transition.execute` from `implemented` to `release`. The handler
   "actor": {"session_id": "<this-session>"},
   "target": {"kind": "item", "public_ref": "PREFIX-N"},
   "intent": "usher_enter_release",
-  "payload": {"source_status": "implemented", "target_status": "release"}
+  "payload": {"source_status": "<current status>", "target_status": "release"}
 }
 ```
 
@@ -199,8 +212,9 @@ elif [ "$_usher_generated_children" = "none" ] \
  && [ "$_usher_worktree_policy" = "single_implementation_lane" ]; then
  # Single-lane merge boundary call. `merge-item` is the standalone-item merge
  # operation: it takes the merge lock, lands the branch on the project base
- # branch, stamps merged_at, and publishes. `--skip-status` leaves the
- # lifecycle status to the deploy phase below, which owns it here.
+ # branch, stamps merged_at, and publishes. `--skip-status` still enters the
+ # pinned release wait so a completed merge is not stranded in review; it
+ # postpones only the terminal `done` close-out, which deploy still owns.
  yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --skip-status --wait
 else
  echo "BLOCK: unsupported pinned merge policy: children=$_usher_generated_children worktrees=$_usher_worktree_policy"

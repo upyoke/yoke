@@ -72,3 +72,12 @@ class TestUsherCollectIntegrationGate:
             "usher/collect.md must explain why coordination_only rows are "
             "not merge blockers at the integration gate"
         )
+
+    def test_collect_consults_pinned_workflow_and_merge_receipt(
+        self, collect_text: str,
+    ):
+        assert "workflows item get" in collect_text
+        assert "merged_at" in collect_text
+        assert "reviewing-implementation" in collect_text
+        assert "yoke merge item" in collect_text
+        assert "Not `implemented` → hard-reject" not in collect_text

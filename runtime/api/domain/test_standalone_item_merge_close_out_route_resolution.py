@@ -260,3 +260,49 @@ def test_an_already_closed_out_item_asks_no_delivery_authority(
 
     assert route.stages == ("done",)
     assert route.error == ""
+
+
+def test_skip_status_enters_release_instead_of_walking_to_done(monkeypatch) -> None:
+    _serve(monkeypatch, "dash")
+    _clearance(
+        monkeypatch,
+        DeliveryClearance(merge_only=True, resolved_flow=MERGE_ONLY_FLOW),
+    )
+
+    route = release_status.close_out_route(
+        _item(workflow_id="dash", status="reviewing-implementation"),
+        "reviewing-implementation",
+        postpone_terminal=True,
+    )
+
+    assert route.error == ""
+    assert route.stages == ("release",)
+    assert route.delivery_discharged is False
+
+
+def test_skip_status_does_not_leave_an_item_already_at_release(monkeypatch) -> None:
+    _serve(monkeypatch, "dash")
+
+    route = release_status.close_out_route(
+        _item(workflow_id="dash", status="release"),
+        "release",
+        postpone_terminal=True,
+    )
+
+    assert route.stages == ()
+    assert route.error == ""
+
+
+def test_skip_status_is_a_noop_on_a_workflow_with_no_release_wait(
+    monkeypatch,
+) -> None:
+    _serve(monkeypatch, "task")
+
+    route = release_status.close_out_route(
+        _item(workflow_id="task", status="implementing"),
+        "implementing",
+        postpone_terminal=True,
+    )
+
+    assert route.stages == ()
+    assert route.error == ""

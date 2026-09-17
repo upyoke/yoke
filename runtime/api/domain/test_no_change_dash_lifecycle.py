@@ -164,7 +164,7 @@ def test_no_change_merge_records_base_identity_and_closes_dash(
     )
     monkeypatch.setattr(landed.git, "has_remote", lambda *_a: False)
     monkeypatch.setattr(
-        close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",)),
+        close_out_transition, "close_out_route", lambda *_a, **_k: CloseOutRoute(stages=("done",)),
     )
     receipts = []
     monkeypatch.setattr(

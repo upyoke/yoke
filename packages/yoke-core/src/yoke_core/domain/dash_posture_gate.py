@@ -89,6 +89,19 @@ def _approval_gate(
         and latest["resolution_action"] == "approve"
     ):
         return None
+    from yoke_core.domain.decision_request_authority import request_deciders
+
+    if (
+        latest is not None
+        and latest["status"] == "pending"
+        and not request_deciders(conn, int(latest["id"]))
+    ):
+        return _failure(
+            "GATE_DASH_APPROVAL_REQUIRED",
+            "Approval-on-done has no eligible human project owner who can answer.",
+            "Grant the project owner role to a human actor, then resolve the "
+            "Inbox request. Do not assign roles automatically.",
+        )
     return _failure(
         "GATE_DASH_APPROVAL_REQUIRED",
         "Approval-on-done is waiting for a project owner decision.",

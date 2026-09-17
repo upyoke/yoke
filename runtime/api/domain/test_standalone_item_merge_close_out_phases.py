@@ -58,7 +58,7 @@ def test_close_out_emits_a_phase_marker_for_each_step(monkeypatch, capsys):
         merge_cli.close_out.terminal.recovery, "claim_error", lambda *_a: ""
     )
     monkeypatch.setattr(
-        close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",)),
+        close_out_transition, "close_out_route", lambda *_a, **_k: CloseOutRoute(stages=("done",)),
     )
 
     exit_code = merge_cli.run(

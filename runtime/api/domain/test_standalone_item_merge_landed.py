@@ -28,6 +28,18 @@ RECEIPT = receipts.MergeReceipt(
 _LOOK = dict(item_id=7, branch="ITEM-1", target="main", repo_root="/repo")
 
 
+@pytest.fixture(autouse=True)
+def _enter_release_wait_on_close_out(monkeypatch):
+    monkeypatch.setattr(
+        merge_cli.close_out,
+        "transition_to_done",
+        lambda **kwargs: (
+            (tuple(kwargs.get("stages") or ("release",)) or ("release",))[-1],
+            "",
+        ),
+    )
+
+
 def _probe(
     monkeypatch,
     *,

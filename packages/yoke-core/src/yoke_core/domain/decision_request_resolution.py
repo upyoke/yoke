@@ -125,8 +125,12 @@ def resolve_decision_request(
     if note is not None and len(note) > 4000:
         raise ValueError("resolution note must be at most 4000 characters")
     if authority_reason(conn, request_id, actor_id) is None:
+        from yoke_core.domain.decision_request_authority import (
+            unauthorized_resolution_message,
+        )
+
         raise PermissionError(
-            f"actor {actor_id} is not authorized for decision request {request_id}"
+            unauthorized_resolution_message(conn, request_id, actor_id)
         )
     stamp = resolved_at or iso8601_now()
     record_decision(

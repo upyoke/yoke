@@ -13,6 +13,9 @@ from yoke_core.domain.decision_request_authority import (
     recently_decided_requests_for_actor,
     request_deciders,
 )
+from yoke_core.domain.decision_request_subject_context import (
+    item_posture_approval_source,
+)
 from yoke_core.domain.decision_requests import (
     RoleAuthority,
     create_decision_request,
@@ -237,3 +240,64 @@ def test_settled_history_honors_the_reader_project_scope_and_bound(conn):
     assert recently_decided_requests_for_actor(conn, 4, project_ids=[10])
     assert recently_decided_requests_for_actor(conn, 4, project_ids=[11]) == []
     assert recently_decided_requests_for_actor(conn, 4, limit=0) == []
+
+
+def _owner_only_request(conn):
+    return create_decision_request(
+        conn,
+        kind="lifecycle_transition_approval",
+        subject_type="item_transition",
+        subject_key="1910:done",
+        project_id=10,
+        originator_actor_id=1,
+        role_authorities=[RoleAuthority("project", 10, "owner")],
+        subject_context={
+            "item_id": 1910,
+            "item_ref": "YOK-1910",
+            "item_title": "Owner-only done gate",
+            "from_stage": "release",
+            "to_stage": "done",
+            "workflow_id": "dash",
+            "workflow_version_id": 1,
+            "branch_changes": {
+                "branch": None,
+                "commit_sha": None,
+                "touched_files": [],
+                "summary": "No implementation branch is recorded.",
+            },
+            "approval_source": item_posture_approval_source(),
+            "title": "Owner-only done gate",
+        },
+        created_at="2026-07-26T12:00:00Z",
+    )
+
+
+def test_unauthorized_resolution_names_roles_humans_and_caller(conn):
+    request, _ = _transition_request(conn)
+    with pytest.raises(PermissionError, match="required") as excinfo:
+        resolve_decision_request(conn, request["id"], actor_id=4, action="approve")
+    message = str(excinfo.value)
+    assert "project owner" in message
+    assert "eligible humans:" in message
+    assert "Caller is actor 4" in message
+    assert "Do not assign roles automatically" in message
+
+
+def test_org_admin_does_not_satisfy_owner_only_policy(conn):
+    request, _ = _owner_only_request(conn)
+    with pytest.raises(PermissionError, match="owner-only") as excinfo:
+        resolve_decision_request(conn, request["id"], actor_id=5, action="approve")
+    message = str(excinfo.value)
+    assert "required project owner" in message
+    assert "Org admin does not satisfy this owner-only policy" in message
+    assert "actor 2" in message
+
+
+def test_owner_only_with_no_human_holders_explains_empty_roster(conn):
+    conn.execute(
+        "DELETE FROM actor_project_roles WHERE actor_id = 2 AND project_id = 10"
+    )
+    request, _ = _owner_only_request(conn)
+    with pytest.raises(PermissionError, match="no eligible human") as excinfo:
+        resolve_decision_request(conn, request["id"], actor_id=4, action="approve")
+    assert "Do not assign roles automatically" in str(excinfo.value)

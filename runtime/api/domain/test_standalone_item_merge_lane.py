@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 from yoke_core.domain import standalone_item_merge as merge_domain
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_verify as verify
@@ -23,6 +25,18 @@ from yoke_core.domain.standalone_item_merge_recovery import with_recorded_head
 RELEASED_SHA = "a" * 40
 ACTIVE_SHA = "b" * 40
 OTHER_SHA = "c" * 40
+
+
+@pytest.fixture(autouse=True)
+def _enter_release_wait_on_close_out(monkeypatch):
+    monkeypatch.setattr(
+        merge_cli.close_out,
+        "transition_to_done",
+        lambda **kwargs: (
+            (tuple(kwargs.get("stages") or ("release",)) or ("release",))[-1],
+            "",
+        ),
+    )
 
 
 def _item(worktrees: list[dict]) -> dict:
