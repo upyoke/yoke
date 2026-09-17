@@ -17,6 +17,23 @@ function flowStatus(row) {
 function stagesFor(row) {
   return Array.isArray(row.stages) ? row.stages : [];
 }
+// Where a flow deploys is a typed fact, not an inference from an absence.
+// `persistent` names a registered environment row; `ephemeral` deploys
+// per-run preview substrate, which has no environment to name; no tier at
+// all is a merge-only flow that deploys nowhere. Reading a missing
+// environment as a preview told every merge-only flow it shipped to a
+// destination it does not have.
+export function destinationLabel(row) {
+  const environment = String(row?.target_environment || "").trim();
+  if (environment) return environment;
+  const tier = String(row?.target_tier || "").trim().toLowerCase();
+  if (tier === "ephemeral") return "Ephemeral";
+  // A persistent tier is declared to name an environment, so one that does
+  // not is an incomplete definition rather than a flow without a target.
+  if (tier === "persistent") return "Not set";
+  return "No deploy target";
+}
+
 function metadataFact(documentNode, label, value) {
   const fact = el(documentNode, "div", "delivery-flow-fact");
   fact.appendChild(el(documentNode, "dt", null, label));
@@ -109,9 +126,11 @@ export function renderDeliveryFlowDetail(documentNode, detail, row) {
   const facts = el(documentNode, "dl", "delivery-flow-facts");
   facts.appendChild(metadataFact(documentNode, "Project", row.project));
   facts.appendChild(metadataFact(
-    documentNode, "Environment", row.target_environment || "Ephemeral",
+    documentNode, "Environment", destinationLabel(row),
   ));
-  facts.appendChild(metadataFact(documentNode, "Target tier", row.target_tier));
+  facts.appendChild(metadataFact(
+    documentNode, "Target tier", row.target_tier || "No deploy target",
+  ));
   facts.appendChild(metadataFact(
     documentNode, "On failure", row.on_failure || "halt",
   ));
