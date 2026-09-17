@@ -239,7 +239,6 @@
 }
 
 .universe-app-root :is(
-  .workflow-tab,
   .workflow-stage,
   .workflow-button,
   .workflow-home-link,

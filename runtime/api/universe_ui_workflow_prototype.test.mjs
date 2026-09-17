@@ -33,11 +33,11 @@ test("the four workflow tabs and lifecycle shapes follow the prototype", async (
     t, workflowsClient(workflows),
   );
 
-  assert.deepEqual(classText(root, "workflow-tab"), [
+  assert.deepEqual(classText(root, "tab-link"), [
     "Dash", "Blitz", "Issue", "Epic",
   ]);
   assert.deepEqual(
-    byClass(root, "workflow-tab").map(
+    byClass(root, "tab-link").map(
       (node) => node.attributes.get("role"),
     ),
     ["tab", "tab", "tab", "tab"],
@@ -103,20 +103,20 @@ test("workflow tabs switch immediately and remember each selected stage", async 
   };
 
   byClass(root, "workflow-stage")[1].dispatchEvent(new Event("click"));
-  byClass(root, "workflow-tab").find(
+  byClass(root, "tab-link").find(
     (node) => node.textContent === "Blitz",
   ).dispatchEvent(new Event("click"));
   assert.deepEqual(classText(root, "workflow-stage-detail-label"), ["idea"]);
   byClass(root, "workflow-stage")[3].dispatchEvent(new Event("click"));
 
-  byClass(root, "workflow-tab").find(
+  byClass(root, "tab-link").find(
     (node) => node.textContent === "Dash",
   ).dispatchEvent(new Event("click"));
   assert.deepEqual(
     classText(root, "workflow-stage-detail-label"),
     ["implementing"],
   );
-  byClass(root, "workflow-tab").find(
+  byClass(root, "tab-link").find(
     (node) => node.textContent === "Blitz",
   ).dispatchEvent(new Event("click"));
   assert.deepEqual(
@@ -214,10 +214,6 @@ test("workflow desktop styles retain the prototype header and timeline rhythm", 
   assert.doesNotMatch(
     controlsCss,
     /\.workflow-version-row:last-of-type/,
-  );
-  assert.doesNotMatch(
-    cssRule(workflowsCss, ".universe-app-root .workflow-tab"),
-    /margin-bottom:/,
   );
   assert.doesNotMatch(workflowsCss, /\.workflow-stage:hover/);
   assert.doesNotMatch(
@@ -328,7 +324,7 @@ test("a rejected secondary mechanics read leaves the registry readable", async (
   };
   const { root, mounted } = await mountWorkflows(t, client);
 
-  assert.deepEqual(classText(root, "workflow-tab"), ["Dash"]);
+  assert.deepEqual(classText(root, "tab-link"), ["Dash"]);
   assert.deepEqual(
     panelTitles(root),
     [

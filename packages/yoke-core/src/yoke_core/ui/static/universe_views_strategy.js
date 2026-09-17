@@ -19,7 +19,7 @@ import {
   strategyDocumentCard,
 } from "./universe_strategy_cards.js";
 import { workBand } from "./universe_band_primitives.js";
-import { button } from "./workflow_view_primitives.js";
+import { stateTabBar } from "./universe_tab_bar.js";
 import {
   el,
   loadSection,
@@ -153,49 +153,24 @@ function renderDetail(context, main, projectId, doc) {
   headingCopy.appendChild(el(documentNode, "h1", "title", doc.slug));
   heading.appendChild(headingCopy);
   const actions = stateActionsPanel(context, projectId, doc);
-  const tabs = el(documentNode, "div", "strategy-tabs");
-  tabs.setAttribute("role", "tablist");
   const content = el(documentNode, "div", "strategy-tab-content");
   content.id = "strategy-tab-content";
   content.setAttribute("role", "tabpanel");
+  const TAB_DEFINITIONS = [
+    { id: "document", label: "Document" },
+    { id: "history", label: "History" },
+  ].map((tab) => ({
+    ...tab, controls: content.id, domId: `strategy-tab-${tab.id}`,
+  }));
+  const { bar: tabs, paint: paintTabs } = stateTabBar(documentNode, {
+    label: "Strategy document facets",
+    onSelect: (id) => {
+      selectedTab = id;
+      draw();
+    },
+  });
   const draw = () => {
-    tabs.replaceChildren();
-    const definitions = [
-      ["document", "Document"],
-      ["history", "History"],
-    ];
-    for (const [index, [id, label]] of definitions.entries()) {
-      const tab = button(
-        documentNode,
-        label,
-        `workflow-tab${selectedTab === id ? " selected" : ""}`,
-      );
-      tab.id = `strategy-tab-${id}`;
-      tab.setAttribute("role", "tab");
-      tab.setAttribute("aria-selected", String(selectedTab === id));
-      tab.setAttribute("aria-controls", content.id);
-      tab.tabIndex = selectedTab === id ? 0 : -1;
-      tab.addEventListener("click", () => {
-        selectedTab = id;
-        draw();
-      });
-      tab.addEventListener("keydown", (event) => {
-        const delta = event.key === "ArrowRight"
-          ? 1 : event.key === "ArrowLeft" ? -1 : 0;
-        if (!delta && !["Home", "End"].includes(event.key)) return;
-        if (typeof event.preventDefault === "function") event.preventDefault();
-        const next = event.key === "Home"
-          ? 0
-          : event.key === "End"
-            ? definitions.length - 1
-            : (index + delta + definitions.length) % definitions.length;
-        selectedTab = definitions[next][0];
-        draw();
-        const selected = tabs.children[next];
-        if (typeof selected?.focus === "function") selected.focus();
-      });
-      tabs.appendChild(tab);
-    }
+    paintTabs(TAB_DEFINITIONS, selectedTab);
     content.setAttribute("aria-labelledby", `strategy-tab-${selectedTab}`);
     content.replaceChildren(
       selectedTab === "history"

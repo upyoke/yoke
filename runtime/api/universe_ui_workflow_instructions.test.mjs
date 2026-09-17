@@ -125,7 +125,7 @@ test("workflows page lists every instruction above the tabs", async (t) => {
   await settle();
 
   const host = byClass(root, "workflow-instructions-host")[0];
-  const tabs = byClass(root, "workflow-tabs")[0];
+  const tabs = byClass(root, "tab-bar")[0];
   assert.ok(host && tabs, "host and tabs rendered");
   assert.equal(host.parentNode.children.indexOf(host) <
     host.parentNode.children.indexOf(tabs), true);

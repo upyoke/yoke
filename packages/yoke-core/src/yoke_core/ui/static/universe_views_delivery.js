@@ -13,6 +13,7 @@ import {
   section,
 } from "./universe_view_support.js";
 import { renderDeliveryFlowExplorer } from "./universe_delivery_flows.js";
+import { routeTabBar } from "./universe_tab_bar.js";
 import {
   createDeploymentRunsLoader,
 } from "./universe_deployment_runs_loader.js";
@@ -187,21 +188,14 @@ const TAB_RENDERERS = {
 // the route names which one is open. Flows leads because a definition is what
 // an operator opens first: it says what every run under it will do.
 function deploymentTabStrip(documentNode, scope, activeTab) {
-  const strip = el(documentNode, "div", "tab-bar");
-  strip.setAttribute("role", "tablist");
-  for (const tab of navTabs("deployments")) {
-    const link = el(
-      documentNode,
-      "a",
-      `tab-link${tab.id === activeTab ? " active" : ""}`,
-      tab.label,
-    );
-    link.href = buildUniverseRoute("deployments", serializeScope(scope), tab.id);
-    link.setAttribute("role", "tab");
-    link.setAttribute("aria-selected", tab.id === activeTab ? "true" : "false");
-    strip.appendChild(link);
-  }
-  return strip;
+  return routeTabBar(documentNode, {
+    label: "Deployment facets",
+    tabs: navTabs("deployments"),
+    activeId: activeTab,
+    hrefFor: (tab) => buildUniverseRoute(
+      "deployments", serializeScope(scope), tab.id,
+    ),
+  });
 }
 
 export function renderDeploymentsView(context, main, scope, chrome = {}) {

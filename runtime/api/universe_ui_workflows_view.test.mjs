@@ -33,7 +33,7 @@ test("Workflows renders the registry as the lifecycle experience", async (t) => 
       "Version history",
     ],
   );
-  assert.deepEqual(classText(root, "workflow-tab"), ["Rally"]);
+  assert.deepEqual(classText(root, "tab-link"), ["Rally"]);
   assert.deepEqual(classText(root, "workflow-stage-label"), [
     "Drafted", "Proving", "Shipped",
   ]);
@@ -246,24 +246,24 @@ test("disabled workflows remain selectable and render their registry state", asy
   );
 
   assert.deepEqual(
-    byClass(root, "workflow-tab").map(ownTextContent),
+    byClass(root, "tab-link").map(ownTextContent),
     ["Dash", "Rally"],
   );
-  assert.deepEqual(classText(root, "workflow-tab-status"), ["disabled"]);
+  assert.deepEqual(classText(root, "tab-link-status"), ["disabled"]);
   assert.equal(
-    byClass(root, "workflow-tab")[1].classList.contains("disabled"),
+    byClass(root, "tab-link")[1].classList.contains("is-disabled"),
     true,
   );
   assert.equal(
-    byClass(root, "workflow-tab")[1].attributes.get("aria-label"),
+    byClass(root, "tab-link")[1].attributes.get("aria-label"),
     "Rally workflow · disabled",
   );
 
-  byClass(root, "workflow-tab")[1].dispatchEvent(new Event("click"));
+  byClass(root, "tab-link")[1].dispatchEvent(new Event("click"));
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
   assert.equal(
-    byClass(root, "workflow-tab")[1].attributes.get("aria-selected"),
+    byClass(root, "tab-link")[1].attributes.get("aria-selected"),
     "true",
   );
   assert.deepEqual(classText(root, "workflow-status"), ["disabled"]);

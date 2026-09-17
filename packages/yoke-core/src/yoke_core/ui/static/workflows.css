@@ -1,50 +1,5 @@
 /* Workflow registry composition: workflow facets, lifecycle master/detail,
    execution posture, mechanics, and immutable-version history. */
-.universe-app-root .workflow-tabs {
-  display: flex;
-  gap: 2px;
-  overflow-x: auto;
-  overscroll-behavior-inline: contain;
-  margin: -2px 0 0;
-  border-bottom: 1px solid var(--yoke-border);
-}
-.universe-app-root .workflow-tab {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 13px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  color: var(--yoke-muted);
-  background: transparent;
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 550;
-  transition: .12s;
-  cursor: pointer;
-}
-.universe-app-root .workflow-tab.disabled {
-  color: var(--yoke-idle);
-}
-.universe-app-root .workflow-tab-status {
-  padding: 1px 5px;
-  border-radius: 5px;
-  color: var(--yoke-idle);
-  background: var(--yoke-idle-bg);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.045em;
-  line-height: 1.4;
-  text-transform: uppercase;
-}
-.universe-app-root .workflow-tab:hover {
-  color: var(--yoke-ink);
-}
-.universe-app-root .workflow-tab.selected {
-  border-bottom-color: var(--yoke-accent);
-  color: var(--yoke-accent);
-}
 .universe-app-root .workflow-intro {
   max-width: 80ch;
   margin: 16px 2px 14px;

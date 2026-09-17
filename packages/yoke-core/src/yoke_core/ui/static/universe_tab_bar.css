@@ -1,0 +1,50 @@
+/* Tabs: facets of one concept, never a second nav level. One underline strip
+   for every screen that shows them — links where the route names the facet,
+   buttons where it is the screen's own state, and the same weights, underline
+   and keyboard model either way. */
+.universe-app-root .tab-bar {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  margin: -2px 0 16px;
+  border-bottom: 1px solid var(--yoke-border);
+  overscroll-behavior-inline: contain;
+}
+.universe-app-root .tab-link {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background: transparent;
+  color: var(--yoke-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 550;
+  text-decoration: none;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.universe-app-root .tab-link:hover { color: var(--yoke-ink); }
+.universe-app-root .tab-link.active {
+  border-bottom-color: var(--yoke-accent);
+  color: var(--yoke-accent);
+}
+.universe-app-root .tab-link.is-disabled {
+  color: var(--yoke-idle);
+}
+/* A word a tab carries only when it is a reason to cross the strip. */
+.universe-app-root .tab-link-status {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--yoke-idle-bg);
+  color: var(--yoke-idle);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
