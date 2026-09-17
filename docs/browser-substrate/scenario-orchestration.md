@@ -66,8 +66,12 @@ Advance flows must not refine or replace it after materialization.
 1. Authorizes and fetches the named case through `qa.case_execution.begin`.
 2. Resolves the target URL from `--base-url` or the case's
    `method_config.base_url`.
-3. Validates URL reachability and checks the deployed branch and SHA against
-   `--expected-branch` and `--expected-sha`.
+3. Validates URL reachability with GET, a cookie jar, and same-origin
+   redirects (so a review URL that exchanges a login token for an HttpOnly
+   cookie is not a false 401), then checks the deployed branch and SHA against
+   `--expected-branch` and `--expected-sha`. Genuine 401, timeout, TLS, and
+   off-origin-redirect refusals still fail closed; probe errors never echo
+   tokens or cookies.
 4. Ensures the machine Browser substrate is ready and starts its daemon.
 5. Executes each declared `method_config.steps` entry in order.
 6. Records a run through `qa.run.add` and `qa.run.complete`.
