@@ -1,5 +1,7 @@
-import { el, statePill } from "./universe_view_support.js";
+import { el, liveStatus, statePill } from "./universe_view_support.js";
 import { renderDeliveryFlowDetail } from "./universe_delivery_flow_detail.js";
+import { flowActionsRow } from "./universe_delivery_flow_actions.js";
+import { openDeliveryFlowForm } from "./universe_delivery_flow_form.js";
 
 function flowName(row) {
   return row.name || row.id || "Unnamed flow";
@@ -96,18 +98,41 @@ function zeroState(documentNode, title, copy, className = "") {
   empty.appendChild(el(documentNode, "p", null, copy));
   return empty;
 }
-export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId = null) {
+export function renderDeliveryFlowExplorer(
+  body, panel, sourceRows, selectedId = null, { context, reload } = {},
+) {
   const documentNode = body.ownerDocument;
   const rows = sortedRows(sourceRows);
   panel.classList.add("delivery-flow-panel");
+  const dialogHost = el(documentNode, "div", "delivery-flow-dialog-host");
+  const report = liveStatus(documentNode, "delivery-flow-report");
+  const say = (text, tone) => {
+    report.className = `delivery-flow-report ${tone || ""}`.trim();
+    report.textContent = text;
+    report.hidden = !text;
+  };
   if (!rows.length) {
     panel.setCount(0);
-    body.appendChild(zeroState(
+    const empty = zeroState(
       documentNode,
       "No deployment flows yet",
       "Definitions published for this project scope will appear here.",
       "delivery-flow-empty-scope",
-    ));
+    );
+    if (context) {
+      const first = el(
+        documentNode, "button", "delivery-flow-action primary", "New flow",
+      );
+      first.type = "button";
+      first.addEventListener("click", () => openDeliveryFlowForm(
+        context, dialogHost,
+        { mode: "create", projects: context.projects(), onSaved: reload },
+      ));
+      empty.appendChild(first);
+    }
+    body.appendChild(empty);
+    body.appendChild(report);
+    body.appendChild(dialogHost);
     return;
   }
 
@@ -122,7 +147,7 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
     : null;
   const state = {
     query: "",
-    showHistory: Boolean(routed && flowStatus(routed) === "disabled"),
+    showDisabled: Boolean(routed && flowStatus(routed) === "disabled"),
     selected: routed || rows.find((row) => flowStatus(row) !== "disabled") || null,
   };
   const explorer = el(documentNode, "div", "delivery-flow-explorer");
@@ -135,13 +160,19 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
   search.setAttribute("aria-controls", "delivery-flow-list");
   searchLabel.appendChild(search);
   toolbar.appendChild(searchLabel);
-  const history = el(documentNode, "button", "delivery-flow-history-toggle");
-  history.type = "button";
-  history.hidden = disabledCount === 0;
-  toolbar.appendChild(history);
+  const actions = context ? flowActionsRow({
+    documentNode, context, dialogHost, reload, report: say,
+  }) : null;
+  const disabledToggle = el(
+    documentNode, "button", "delivery-flow-disabled-toggle",
+  );
+  disabledToggle.type = "button";
+  disabledToggle.hidden = disabledCount === 0;
+  toolbar.appendChild(disabledToggle);
   const summary = el(documentNode, "p", "delivery-flow-result-summary");
   summary.setAttribute("aria-live", "polite");
   toolbar.appendChild(summary);
+  if (actions) toolbar.appendChild(actions.row);
   explorer.appendChild(toolbar);
 
   const workspace = el(documentNode, "div", "delivery-flow-workspace");
@@ -157,11 +188,13 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
   workspace.appendChild(browser);
   workspace.appendChild(detail);
   explorer.appendChild(workspace);
+  explorer.appendChild(report);
+  explorer.appendChild(dialogHost);
   body.appendChild(explorer);
 
   let cardByRow = new Map();
   const visibleRows = () => rows.filter((row) => {
-    if (!state.showHistory && flowStatus(row) === "disabled") return false;
+    if (!state.showDisabled && flowStatus(row) === "disabled") return false;
     return !state.query || searchableText(row).includes(state.query);
   });
 
@@ -169,25 +202,25 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
     const visible = visibleRows();
     if (!visible.includes(state.selected)) state.selected = visible[0] || null;
     panel.setCount(visible.length);
-    history.textContent = state.showHistory
-      ? "Hide history"
-      : `Show history (${disabledCount})`;
-    history.setAttribute("aria-pressed", String(state.showHistory));
+    disabledToggle.textContent = state.showDisabled
+      ? "Hide disabled"
+      : `Show disabled (${disabledCount})`;
+    disabledToggle.setAttribute("aria-pressed", String(state.showDisabled));
     summary.textContent = `${visible.length} flow${visible.length === 1 ? "" : "s"} shown` +
-      (!state.showHistory && disabledCount
-        ? ` · ${disabledCount} historical hidden`
+      (!state.showDisabled && disabledCount
+        ? ` · ${disabledCount} disabled hidden`
         : "");
     list.replaceChildren();
     cardByRow = new Map();
     if (!visible.length) {
-      const historyHint = !state.showHistory && disabledCount
-        ? " Historical definitions remain hidden."
+      const disabledHint = !state.showDisabled && disabledCount
+        ? " Disabled definitions remain hidden."
         : "";
       const empty = zeroState(
         documentNode,
         state.query ? "No matching flows" : "No active flows",
         state.query
-          ? `Nothing matches “${search.value}”.${historyHint}`
+          ? `Nothing matches “${search.value}”.${disabledHint}`
           : `${disabledCount} historical definition${disabledCount === 1 ? " is" : "s are"} hidden.`,
         "delivery-flow-no-results",
       );
@@ -204,6 +237,7 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
       }
       list.appendChild(empty);
       renderDeliveryFlowDetail(documentNode, detail, null);
+      actions?.setSelected(null);
       return;
     }
 
@@ -250,14 +284,15 @@ export function renderDeliveryFlowExplorer(body, panel, sourceRows, selectedId =
       list.appendChild(group);
     }
     renderDeliveryFlowDetail(documentNode, detail, state.selected);
+    actions?.setSelected(state.selected);
   };
 
   search.addEventListener("input", () => {
     state.query = String(search.value || "").trim().toLowerCase();
     paint();
   });
-  history.addEventListener("click", () => {
-    state.showHistory = !state.showHistory;
+  disabledToggle.addEventListener("click", () => {
+    state.showDisabled = !state.showDisabled;
     paint();
   });
   paint();

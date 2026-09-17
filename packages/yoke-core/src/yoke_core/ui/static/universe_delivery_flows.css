@@ -46,7 +46,7 @@
   box-shadow: 0 0 0 3px var(--yoke-accent-weak);
 }
 
-.universe-app-root .delivery-flow-history-toggle,
+.universe-app-root .delivery-flow-disabled-toggle,
 .universe-app-root .delivery-flow-clear {
   min-height: 38px;
   padding: 8px 12px;
@@ -59,20 +59,20 @@
   transition: border-color .15s ease, background .15s ease, color .15s ease;
 }
 
-.universe-app-root .delivery-flow-history-toggle:hover,
+.universe-app-root .delivery-flow-disabled-toggle:hover,
 .universe-app-root .delivery-flow-clear:hover {
   border-color: var(--yoke-accent-line);
   background: var(--yoke-hover);
   color: var(--yoke-ink);
 }
 
-.universe-app-root .delivery-flow-history-toggle[aria-pressed="true"] {
+.universe-app-root .delivery-flow-disabled-toggle[aria-pressed="true"] {
   border-color: var(--yoke-accent-line);
   background: var(--yoke-accent-weak);
   color: var(--yoke-accent);
 }
 
-.universe-app-root .delivery-flow-history-toggle:focus-visible,
+.universe-app-root .delivery-flow-disabled-toggle:focus-visible,
 .universe-app-root .delivery-flow-clear:focus-visible {
   outline: 2px solid var(--yoke-accent);
   outline-offset: 2px;
@@ -285,7 +285,7 @@
     grid-template-columns: 1fr;
   }
 
-  .universe-app-root .delivery-flow-history-toggle {
+  .universe-app-root .delivery-flow-disabled-toggle {
     justify-self: start;
   }
 
@@ -310,7 +310,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .universe-app-root .delivery-flow-card,
-  .universe-app-root .delivery-flow-history-toggle,
+  .universe-app-root .delivery-flow-disabled-toggle,
   .universe-app-root .delivery-flow-search input {
     transition: none;
   }

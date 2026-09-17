@@ -20,6 +20,25 @@ export function callFunction(client, functionId, payload, target) {
   return client.call(request);
 }
 
+// A form control with its own label. Every dialog needs this and each one
+// dresses it differently, so the class is the caller's and the pairing is
+// shared.
+export function labelledField(documentNode, labelText, control, className) {
+  const label = el(documentNode, "label", className);
+  label.appendChild(el(documentNode, "span", null, labelText));
+  label.appendChild(control);
+  return label;
+}
+
+// A polite live region a dialog reports progress and refusals through.
+export function liveStatus(documentNode, className) {
+  const status = el(documentNode, "p", className);
+  status.hidden = true;
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+  return status;
+}
+
 // One titled section whose body is filled from the function-call result
 // the view already holds — a designed renderer, not a dump of the envelope.
 export function section(documentNode, title) {

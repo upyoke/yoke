@@ -59,6 +59,9 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "deployment_runs.find_by_item",
         "deployment_runs.stages",
         "deployment_flows.stages",
+        # The Flows catalog validates a definition against the serving
+        # runtime before offering to write it.
+        "deployment_flows.validate",
         "sessions.list",
         "machine.list",
         "machine.detail",
@@ -198,6 +201,10 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "machine.settings.set",
         "strategy.revision.restore",
         "deployment_runs.terminalize",
+        "deployment_flows.create",
+        "deployment_flows.update",
+        "deployment_flows.version",
+        "deployment_flows.set_status",
     }
 )
 

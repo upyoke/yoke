@@ -115,7 +115,7 @@ function keyEvent(key) {
   return event;
 }
 
-test("flow explorer is active-first and makes history and selection explicit", async (t) => {
+test("flow explorer is active-first and makes disabled and selection explicit", async (t) => {
   const client = flowClient();
   const { documentNode, root, mounted } = await mountFlows(t, client);
 
@@ -124,11 +124,11 @@ test("flow explorer is active-first and makes history and selection explicit", a
     [{ function: "workflows.definition.get", payload: {} }],
   );
   assert.deepEqual(cardNames(root), ["Alpha Release", "Beta Promote"]);
-  const history = byClass(root, "delivery-flow-history-toggle")[0];
-  assert.equal(history.textContent, "Show history (1)");
-  assert.equal(history.attributes.get("aria-pressed"), "false");
+  const disabledToggle = byClass(root, "delivery-flow-disabled-toggle")[0];
+  assert.equal(disabledToggle.textContent, "Show disabled (1)");
+  assert.equal(disabledToggle.attributes.get("aria-pressed"), "false");
   assert.equal(byClass(root, "delivery-flow-result-summary")[0].textContent,
-    "2 flows shown · 1 historical hidden");
+    "2 flows shown · 1 disabled hidden");
 
   const list = byClass(root, "delivery-flow-list")[0];
   assert.equal(list.attributes.get("role"), "listbox");
@@ -162,9 +162,9 @@ test("flow explorer is active-first and makes history and selection explicit", a
   assert.equal(documentNode.activeElement, cards[1]);
   assert.equal(detailHeading(root), "Beta Promote");
 
-  history.dispatchEvent(new Event("click"));
-  assert.equal(history.textContent, "Hide history");
-  assert.equal(history.attributes.get("aria-pressed"), "true");
+  disabledToggle.dispatchEvent(new Event("click"));
+  assert.equal(disabledToggle.textContent, "Hide disabled");
+  assert.equal(disabledToggle.attributes.get("aria-pressed"), "true");
   assert.deepEqual(cardNames(root), ["Alpha Release", "Alpha Legacy", "Beta Promote"]);
   assert.equal(
     byClass(root, "delivery-flow-card-shape")[1].attributes.get("aria-label"),
@@ -181,7 +181,7 @@ test("flow explorer is active-first and makes history and selection explicit", a
       .attributes.get("data-state"),
     "disabled",
   );
-  history.dispatchEvent(new Event("click"));
+  disabledToggle.dispatchEvent(new Event("click"));
   assert.deepEqual(cardNames(root), ["Alpha Release", "Beta Promote"]);
   assert.equal(detailHeading(root), "Alpha Release");
   assert.equal(byClass(root, "raw-toggle").length, 0);
@@ -214,7 +214,7 @@ test("search covers project, target, and stage text with a recoverable no-result
   search.dispatchEvent(new Event("input"));
   assert.equal(byClass(root, "delivery-flow-card").length, 0);
   assert.match(byClass(root, "delivery-flow-no-results")[0].children[2].textContent,
-    /Historical definitions remain hidden/);
+    /Disabled definitions remain hidden/);
   mounted.unmount();
 });
 
@@ -233,23 +233,23 @@ test("project scoping stays server-side while each browse item names its project
   mounted.unmount();
 });
 
-test("empty and history-only scopes explain what can happen next", async (t) => {
+test("empty and disabled-only scopes explain what can happen next", async (t) => {
   const empty = await mountFlows(t, flowClient([]));
   assert.equal(byClass(empty.root, "delivery-flow-empty-scope").length, 1);
   assert.equal(byClass(empty.root, "delivery-flow-empty-scope")[0].children[1].textContent,
     "No deployment flows yet");
   empty.mounted.unmount();
 
-  const historyOnly = await mountFlows(t, flowClient([FLOWS[1]]));
-  assert.equal(byClass(historyOnly.root, "delivery-flow-card").length, 0);
-  assert.equal(byClass(historyOnly.root, "delivery-flow-no-results")[0].children[1].textContent,
+  const disabledOnly = await mountFlows(t, flowClient([FLOWS[1]]));
+  assert.equal(byClass(disabledOnly.root, "delivery-flow-card").length, 0);
+  assert.equal(byClass(disabledOnly.root, "delivery-flow-no-results")[0].children[1].textContent,
     "No active flows");
-  const toggle = byClass(historyOnly.root, "delivery-flow-history-toggle")[0];
-  assert.equal(toggle.textContent, "Show history (1)");
+  const toggle = byClass(disabledOnly.root, "delivery-flow-disabled-toggle")[0];
+  assert.equal(toggle.textContent, "Show disabled (1)");
   toggle.dispatchEvent(new Event("click"));
-  assert.deepEqual(cardNames(historyOnly.root), ["Alpha Legacy"]);
-  assert.equal(detailHeading(historyOnly.root), "Alpha Legacy");
-  historyOnly.mounted.unmount();
+  assert.deepEqual(cardNames(disabledOnly.root), ["Alpha Legacy"]);
+  assert.equal(detailHeading(disabledOnly.root), "Alpha Legacy");
+  disabledOnly.mounted.unmount();
 });
 
 test("a flow deep link opens the Flows tab on that definition", async (t) => {
@@ -266,7 +266,7 @@ test("a flow deep link opens the Flows tab on that definition", async (t) => {
     "Alpha Legacy",
   );
   // A retired definition is still what the link named, so the catalog opens
-  // showing history rather than falling back to the first active flow.
+  // showing disabled definitions rather than falling back to the first active flow.
   assert.match(byClass(root, "delivery-flow-id")[0].textContent, /alpha-legacy/);
   mounted.unmount();
 });

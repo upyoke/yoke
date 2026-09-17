@@ -74,6 +74,10 @@ class TestRegistrationShape:
             "machine.settings.set",
             "strategy.revision.restore",
             "deployment_runs.terminalize",
+        "deployment_flows.create",
+        "deployment_flows.update",
+        "deployment_flows.version",
+        "deployment_flows.set_status",
         }
         assert not (
             ui_server.UI_MUTATION_FUNCTION_ALLOWLIST

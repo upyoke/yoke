@@ -165,6 +165,11 @@ function renderDeliveryFlowsView(context, main, scope, selectedFlowId = null) {
   const panel = section(documentNode, "Flows");
   main.replaceChildren(panel);
   const buckets = scopeBuckets(scope, context.projects(), false);
+  // Authoring a definition changes the catalog it was authored from, so the
+  // screen re-reads rather than patching a row it did not compute.
+  const reload = () => renderDeliveryFlowsView(
+    context, main, scope, selectedFlowId,
+  );
   loadScopedSection(
     context,
     panel,
@@ -174,7 +179,9 @@ function renderDeliveryFlowsView(context, main, scope, selectedFlowId = null) {
     })),
     (body, callResults) => {
       const rows = mergedRows(callResults, (result) => result.flows);
-      renderDeliveryFlowExplorer(body, panel, rows, selectedFlowId);
+      renderDeliveryFlowExplorer(
+        body, panel, rows, selectedFlowId, { context, reload },
+      );
     },
   );
 }
