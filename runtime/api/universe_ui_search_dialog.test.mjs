@@ -141,3 +141,85 @@ test("a recent query re-runs it rather than only filling the field", async (t) =
   assert.ok(visibleText(byClass(root, "header-search-body")[0])
     .includes("Rebaseline the workbench"));
 });
+
+// A modal that outlives the screen it was opened over stops being a dialog
+// and becomes an invisible click-blocker: its backdrop goes on swallowing
+// pointer events over a page the operator never opened it from, and nothing
+// on screen explains why. Found on the deployed product, where every click
+// after a route change reported the backdrop intercepting it while the page
+// looked perfectly rendered.
+test("a route change closes the dialog rather than leaving its backdrop over the next screen", async (t) => {
+  const client = fixtureClient({});
+  const { documentNode, root } = await mountShell(t, client);
+  const overlay = byClass(root, "header-search-overlay")[0];
+
+  byClass(root, "header-search")[0].dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(overlay.hidden, false, "the dialog opens");
+
+  // The navigation the dialog did not make: Back, a pasted hash, a link
+  // elsewhere in the shell. All of them reach the shell as one event.
+  documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  await settle();
+
+  assert.equal(overlay.hidden, true, "the dialog closes with the route");
+  assert.equal(
+    byClass(root, "header-search")[0].getAttribute("aria-expanded"), "false",
+    "and the trigger stops claiming it is expanded",
+  );
+});
+
+test("repeated route changes with the dialog shut stay a no-op", async (t) => {
+  const client = fixtureClient({});
+  const { documentNode, root } = await mountShell(t, client);
+  const overlay = byClass(root, "header-search-overlay")[0];
+
+  assert.equal(overlay.hidden, true);
+  for (let index = 0; index < 3; index += 1) {
+    documentNode.defaultView.dispatchEvent(new Event("hashchange"));
+  }
+  await settle();
+  assert.equal(overlay.hidden, true, "closing what is already shut changes nothing");
+});
+
+test("choosing a result still closes the dialog itself", async (t) => {
+  const client = fixtureClient({});
+  const { documentNode, root } = await mountShell(t, client);
+  const overlay = byClass(root, "header-search-overlay")[0];
+
+  byClass(root, "header-search")[0].dispatchEvent(new Event("click"));
+  await settle();
+  const input = byClass(root, "header-search-input")[0];
+  input.value = "release";
+  input.dispatchEvent(new Event("input"));
+  await settleSearch();
+
+  const result = byClass(root, "header-search-result")[0];
+  assert.ok(result, "the fixture returns something to choose");
+  result.dispatchEvent(new Event("click"));
+  await settle();
+  // The result handler closes it before navigating, so the route-change
+  // listener is a second guarantee rather than the only one. Both firing is
+  // a no-op, which is why this behaviour is unchanged.
+  assert.equal(overlay.hidden, true, "the dialog closes on its own choosing path");
+});
+
+test("Escape still closes the dialog and returns focus to its opener", async (t) => {
+  const client = fixtureClient({});
+  const { documentNode, root } = await mountShell(t, client);
+  const overlay = byClass(root, "header-search-overlay")[0];
+  const trigger = byClass(root, "header-search")[0];
+
+  trigger.dispatchEvent(new Event("click"));
+  await settle();
+  assert.equal(overlay.hidden, false);
+
+  const escape = new Event("keydown");
+  escape.key = "Escape";
+  escape.preventDefault = () => {};
+  documentNode.defaultView.dispatchEvent(escape);
+  await settle();
+
+  assert.equal(overlay.hidden, true, "Escape still closes it");
+  assert.equal(documentNode.activeElement, trigger, "and focus returns to the opener");
+});
