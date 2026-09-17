@@ -48,8 +48,10 @@ class TestCurrentStateCheckpointTeaching:
     def test_steer_loop_reloads_phase_after_compaction(self):
         loop = _words(_read(".agents/skills/yoke/steer/loop.md"))
         assert "After compaction or resume, reload this phase" in loop
+        assert "reattach the running watcher or re-arm it when absent" in loop
         assert "discarded context is gone" in loop
-        assert "Dated status sections other than this one are stale" in loop
+        assert "Preserve unresolved holds and obligations from other" in loop
+        assert "Dated status sections other than this one are stale" not in loop
         assert (
             "## Live status — steering snapshot "
             "(refresh or replace on next steering handoff)"
