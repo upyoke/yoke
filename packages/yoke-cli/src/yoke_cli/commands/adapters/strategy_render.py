@@ -1,27 +1,10 @@
 """``yoke strategy render|ingest`` adapters.
 
-The filesystem-facing half of the strategy family (the ``doc *``
-adapters live in :mod:`yoke_cli.commands.adapters.strategy`; ``yoke
-strategy seed-defaults`` lives in
-:mod:`yoke_cli.commands.adapters.strategy_seed_defaults`):
-
-- ``render`` -> ``strategy.render.run`` (fetch the rendered file texts).
-- ``ingest`` -> ``strategy.ingest.run`` (CAS write-back of edited files).
-
-File I/O happens HERE, client-side (12942): ``render`` dispatches for
-the row→file-text map and writes the files into the checkout it
-resolved (``--target-root`` flag, else ``$YOKE_RENDER_TARGET_ROOT``,
-else the shared repo-root helper); ``ingest`` reads the rendered files
-locally, ships their text in the payload, and writes back the advanced
-headers the handler returns. The handlers never touch a filesystem
-path, so the same commands work over https against a server with no
-checkout. Project context resolves like every strategy command
-(``--project`` > ``$YOKE_PROJECT`` > the machine-config
-checkout→project map). Once the operation's project is known, both
-commands defer to
-:mod:`yoke_cli.commands.adapters.strategy_target_project` so a render or
-write-back for one project can never land inside a different project's
-checkout.
+``render`` -> ``strategy.render.run`` (needed/changed file texts).
+``ingest`` -> ``strategy.ingest.run`` (CAS write-back of edited files).
+File I/O is client-side; handlers never touch a checkout path.
+Project-aware destination checks live in
+:mod:`yoke_cli.commands.adapters.strategy_target_project`.
 """
 
 from __future__ import annotations
@@ -43,6 +26,11 @@ from yoke_cli.commands.adapters.strategy import (
     resolve_target_root_for_cli,
     strategy_target,
     write_rendered_files,
+)
+from yoke_cli.commands.adapters.strategy_render_client import (
+    apply_and_fill_missing,
+    build_render_payload,
+    conflict_message,
 )
 from yoke_cli.commands.adapters.strategy_render_response import (
     compact_file_text_response,
@@ -254,8 +242,8 @@ def _write_returned_files(
 
 
 STRATEGY_RENDER_USAGE = (
-    "yoke strategy render [--target-root PATH] [--project P] "
-    "[--session-id S] [--json]"
+    "yoke strategy render [SLUG ...] [--include-archives] "
+    "[--target-root PATH] [--project P] [--session-id S] [--json]"
 )
 
 
@@ -263,16 +251,21 @@ def strategy_render(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke strategy render",
         description=(
-            "Write the project's gitignored .yoke/strategy/ rendered view "
-            "from the DB authority into the local rendered view "
-            "(idempotent headers; unchanged content renders byte-identical). "
-            "target_root resolves client-side: --target-root, else "
-            "$YOKE_RENDER_TARGET_ROOT, else this machine's own registered "
-            "checkout for the project (`yoke project register`), else the "
-            "repo root (refused from a linked worktree without an "
-            "explicit anchor). An explicit --target-root registered to a "
-            "DIFFERENT project refuses before writing anything."
+            "Write needed/changed .yoke/strategy/ files from the DB. "
+            "Default is the active corpus; archives are on-demand via "
+            "--include-archives or an explicit SLUG. A known-active "
+            "doc that archived remotely returns metadata so generated "
+            "local files can move. target_root: --target-root, "
+            "$YOKE_RENDER_TARGET_ROOT, registered checkout, or repo root."
         ),
+    )
+    parser.add_argument(
+        "slugs", nargs="*", metavar="SLUG",
+        help="Doc slugs to render; default is the project's active corpus.",
+    )
+    parser.add_argument(
+        "--include-archives", dest="include_archives", action="store_true",
+        help="When no SLUG is given, include archived docs in the refresh.",
     )
     parser.add_argument(
         "--target-root", dest="target_root", default=None,
@@ -291,35 +284,65 @@ def strategy_render(args: List[str]) -> int:
     explicit_target_root = target_root_was_explicit(parsed.target_root)
 
     _helpers.ensure_handlers_loaded()
+    actor = build_actor(session_id=parsed.session_id)
+    target = strategy_target(parsed.project)
+    identity_response = call_dispatcher(
+        function_id="strategy.doc.list", target=target, payload={}, actor=actor,
+    )
+    if not identity_response.success:
+        return emit_response(identity_response, json_mode=parsed.json_mode)
+    identity = identity_response.result or {}
+    try:
+        target_root = resolve_and_validate_target_root(
+            target_root,
+            explicit=explicit_target_root,
+            project_id=identity.get("project_id"),
+            project_slug=identity.get("project_slug"),
+        )
+    except StrategyTargetRootMismatchError as exc:
+        return usage_error(str(exc))
+
     response = call_dispatcher(
         function_id="strategy.render.run",
-        target=strategy_target(parsed.project),
-        payload={},
-        actor=build_actor(session_id=parsed.session_id),
+        target=target,
+        payload=build_render_payload(
+            target_root,
+            slugs=list(parsed.slugs) or None,
+            include_archives=bool(parsed.include_archives),
+        ),
+        actor=actor,
     )
 
     report: Optional[Any] = None
+    conflicts: List[str] = []
     if response.success:
-        result = response.result or {}
-        try:
-            target_root = resolve_and_validate_target_root(
-                target_root,
-                explicit=explicit_target_root,
-                project_id=result.get("project_id"),
-                project_slug=result.get("project_slug"),
+        actor_ref, target_ref = actor, target
+
+        def _fetch_missing(slugs: List[str]):
+            follow = call_dispatcher(
+                function_id="strategy.render.run",
+                target=target_ref, payload={"slugs": list(slugs)},
+                actor=actor_ref,
             )
-        except StrategyTargetRootMismatchError as exc:
-            return usage_error(str(exc))
-        report = write_rendered_files(target_root, result.get("docs", []))
+            return (follow.result or {}).get("docs") or []
+
+        report, conflicts = apply_and_fill_missing(
+            target_root, (response.result or {}).get("docs", []),
+            fetch_docs=_fetch_missing,
+        )
 
     def _human_writer(human_response, stdout, stderr) -> None:
         for slug, status in (report or {}).items():
             print(f"{slug}\t{status}", file=stdout)
 
-    return emit_response(
+    rc = emit_response(
         compact_file_text_response(
             response, target_root=target_root, render_report=report,
         ),
         json_mode=parsed.json_mode,
         human_writer=_human_writer,
     )
+    if conflicts:
+        print(conflict_message(conflicts), file=sys.stderr)
+        return 1
+    return rc

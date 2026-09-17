@@ -28,6 +28,7 @@ from yoke_core.domain.deploy_pipeline_run_context import (
 )
 from yoke_core.domain import deploy_pipeline_stage_checks as stage_checks
 from yoke_core.domain.deployment_item_stamp import transition_member_to_release
+from yoke_core.domain.deployment_run_carried_membership import describe_enrollment
 from yoke_core.domain.deploy_product_source import (
     DeployProductSourceError,
     validate_itemless_product_source,
@@ -41,17 +42,6 @@ EXIT_AWAITING_APPROVAL = 2
 EXIT_USAGE = 3
 EXIT_AWAITING_QA = 5
 _release_control_plane_env = deploy_env.release_control_plane_env
-
-
-def _record_qa_pass(run_id: str, stage_name: str, qa_result: str) -> None:
-    """Record a passing QA verdict; warn, don't crash an already-completed stage."""
-    try:
-        control_plane.record_qa_stage(run_id, stage_name, "pass", raw_result=qa_result)
-    except control_plane.DeploymentControlPlaneError as exc:
-        print(
-            f"  Warning: could not record QA verdict for stage '{stage_name}': {exc}",
-            file=sys.stderr,
-        )
 
 
 def run_pipeline(
@@ -98,6 +88,9 @@ def run_pipeline(
         str(member["item_id"]): str(member.get("status") or "") for member in members
     }
     first_member = members[0] if members else {}
+    enrollment = describe_enrollment(context.get("enrolled_carried_items") or ())
+    if enrollment:
+        print(enrollment)
     if not member_items:
         print(f"Run {run_id} has no member items (environment-level deploy)")
 
@@ -281,7 +274,7 @@ def run_pipeline(
             # Step runner pre-emitted the stage completion event (e.g.
             # ephemeral-verify preview URL, github-actions reconcile-from-truth).
             print(f"  Stage '{s_name}' completed successfully")
-            _record_qa_pass(run_id, s_name, qa_result)
+            control_plane.record_qa_pass(run_id, s_name, qa_result)
             continue
         if exec_rc == -4:
             print(
@@ -301,7 +294,7 @@ def run_pipeline(
                 sd=sd,
             )
             print(f"  Stage '{s_name}' completed successfully")
-            _record_qa_pass(run_id, s_name, qa_result)
+            control_plane.record_qa_pass(run_id, s_name, qa_result)
         else:
             return deploy_pipeline_failure.fail_pipeline_stage(
                 exit_code=exec_rc,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Dict, List, Optional
 
 from yoke_contracts.api.function_call import TargetRef
@@ -69,6 +70,17 @@ def record_qa_stage(
     result = _call("deployment_runs.execution.qa_record", run_id, payload)
     value = result.get("qa_run_id")
     return str(value) if value is not None else None
+
+
+def record_qa_pass(run_id: str, stage: str, qa_result: str) -> None:
+    """Record a passing stage verdict; warn rather than crash a done stage."""
+    try:
+        record_qa_stage(run_id, stage, "pass", raw_result=qa_result)
+    except DeploymentControlPlaneError as exc:
+        print(
+            f"  Warning: could not record QA verdict for stage '{stage}': {exc}",
+            file=sys.stderr,
+        )
 
 
 def unresolved_qa(run_id: str) -> List[str]:

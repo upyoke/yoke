@@ -45,9 +45,8 @@ def link_execution_document(
     lock_item_workflow_bindings(conn, (int(item_id),))
     item_binding_runtime_state(conn, int(item_id))
     item = _item_row(conn, item_id)
-    if (
-        str(item["workflow_id"]) == BLITZ_WORKFLOW_ID
-        and int(item["project_id"]) != int(project_id)
+    if str(item["workflow_id"]) == BLITZ_WORKFLOW_ID and int(item["project_id"]) != int(
+        project_id
     ):
         raise StrategyExecutionLinkError(
             "a Blitz execution document must belong to the item's project"
@@ -84,6 +83,11 @@ def link_execution_document(
             linked_at,
         ),
     )
+    from datetime import datetime, timezone
+
+    from yoke_core.domain.steering_message_drain import reseat_item_messages
+
+    reseat_item_messages(conn, item_id=int(item_id), now=datetime.now(timezone.utc))
     if commit:
         conn.commit()
     return {

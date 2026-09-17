@@ -155,13 +155,21 @@ def deployment_runs_start_for_item(args: List[str]) -> int:
         if (value := getattr(parsed, key)) is not None
     }
 
+    def _human_writer(response, stdout, stderr) -> None:
+        run_id_receipt(response, stdout, stderr)
+        # Composition may have completed itself from the pinned candidate.
+        # Naming the run alone would hide members the operator never chose.
+        message = str((response.result or {}).get("validation_message") or "")
+        if message and message != "OK":
+            print(message, file=stdout)
+
     return dispatch_and_emit(
         function_id="deployment_runs.start_for_item",
         target=item_target("item", parsed.item, parsed.project),
         payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
-        human_writer=run_id_receipt,
+        human_writer=_human_writer,
     )
 
 

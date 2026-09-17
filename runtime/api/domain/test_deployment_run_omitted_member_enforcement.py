@@ -11,16 +11,21 @@ they fail if the comparison stops being readable rather than passing quietly.
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_core.domain import deployment_run_carried_work_source
+from runtime.api.fixtures.carried_release_candidate import (
+    insert_run,
+    item_ref,
+    release_repository,
+    serve_repository,
+    stage_environment,
+)
 from yoke_core.domain.deployment_run_carried_work import derive_carried_work
-from yoke_core.domain.deployment_run_composition_freeze import (
+from yoke_core.domain.deployment_run_carried_membership import (
     carried_membership_refusal,
 )
 from yoke_core.domain.flow_create import cmd_create
@@ -51,46 +56,8 @@ RELEASE_STAGES = json.dumps(
 CARRIED_ITEM_ID = 9401
 
 
-def _git(repo: Path, *args: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(repo), *args],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip()
-
-
-def _repository(tmp_path: Path, item_ref: str) -> tuple[Path, str, str]:
-    """One baseline release and one landed item, attributable by message."""
-    repo = tmp_path / "release-project"
-    repo.mkdir()
-    subprocess.run(
-        ["git", "init", "-b", "main", str(repo)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    _git(repo, "config", "user.name", "Yoke Test")
-    _git(repo, "config", "user.email", "test@example.com")
-    (repo / "release.txt").write_text("baseline\n", encoding="utf-8")
-    _git(repo, "add", "release.txt")
-    _git(repo, "commit", "-m", "Release baseline")
-    baseline = _git(repo, "rev-parse", "HEAD")
-    (repo / "release.txt").write_text("landed\n", encoding="utf-8")
-    _git(repo, "commit", "-am", f"Land {item_ref} product changes")
-    tip = _git(repo, "rev-parse", "HEAD")
-    return repo, baseline, tip
-
-
 def _release_flow(conn: Any) -> None:
-    conn.execute(
-        "INSERT INTO environments(site,project_id,name,created_at) "
-        "SELECT id,1,'stage','2026-09-14T00:00:00Z' FROM sites "
-        "WHERE project_id=1 ORDER BY id LIMIT 1 "
-        "ON CONFLICT(project_id,name) DO NOTHING"
-    )
-    conn.commit()
+    stage_environment(conn)
     cmd_create(
         conn,
         "release-admission-flow",
@@ -102,16 +69,6 @@ def _release_flow(conn: Any) -> None:
     )
 
 
-def _run(conn: Any, run_id: str, *, lineage: str, status: str) -> None:
-    conn.execute(
-        "INSERT INTO deployment_runs("
-        "id,project_id,flow,release_lineage,status,created_at,completed_at) "
-        "VALUES (%s,1,'release-admission-flow',%s,%s,%s,%s)",
-        (run_id, lineage, status, "2026-09-14T00:00:00Z", "2026-09-14T01:00:00Z"),
-    )
-    conn.commit()
-
-
 def _delivery_ready_item(conn: Any) -> str:
     insert_item(
         conn,
@@ -121,12 +78,7 @@ def _delivery_ready_item(conn: Any) -> str:
         status="implementing",
         deployment_flow="release-admission-flow",
     )
-    row = conn.execute(
-        "SELECT p.public_item_prefix, i.project_sequence FROM items i "
-        "JOIN projects p ON p.id=i.project_id WHERE i.id=%s",
-        (CARRIED_ITEM_ID,),
-    ).fetchone()
-    return f"{row[0]}-{row[1]}"
+    return item_ref(conn, CARRIED_ITEM_ID)
 
 
 def test_a_readable_comparison_refuses_a_run_omitting_its_carried_item(
@@ -136,14 +88,12 @@ def test_a_readable_comparison_refuses_a_run_omitting_its_carried_item(
 ) -> None:
     _release_flow(test_db)
     item_ref = _delivery_ready_item(test_db)
-    repo, baseline, tip = _repository(tmp_path, item_ref)
-    monkeypatch.setattr(
-        deployment_run_carried_work_source,
-        "checkout_for_project_id",
-        lambda _project_id: repo,
-    )
-    _run(test_db, "run-previous", lineage=baseline, status="succeeded")
-    _run(test_db, "run-candidate", lineage=tip, status="created")
+    repo, baseline, tip = release_repository(tmp_path, item_ref)
+    serve_repository(monkeypatch, repo)
+    insert_run(test_db, "run-previous", lineage=baseline, status="succeeded",
+               flow="release-admission-flow")
+    insert_run(test_db, "run-candidate", lineage=tip, status="created",
+               flow="release-admission-flow")
 
     carried = derive_carried_work(test_db, "run-candidate")
     assert carried["derivation"]["contents_known"] is True
@@ -169,13 +119,11 @@ def test_an_unreadable_comparison_refuses_by_name_instead_of_scanning(
     """
     _release_flow(test_db)
     _delivery_ready_item(test_db)
-    monkeypatch.setattr(
-        deployment_run_carried_work_source,
-        "checkout_for_project_id",
-        lambda _project_id: None,
-    )
-    _run(test_db, "run-previous", lineage="a" * 40, status="succeeded")
-    _run(test_db, "run-candidate", lineage="b" * 40, status="created")
+    serve_repository(monkeypatch, None)
+    insert_run(test_db, "run-previous", lineage="a" * 40, status="succeeded",
+               flow="release-admission-flow")
+    insert_run(test_db, "run-candidate", lineage="b" * 40, status="created",
+               flow="release-admission-flow")
 
     carried = derive_carried_work(test_db, "run-candidate")
     assert carried["derivation"]["contents_known"] is False

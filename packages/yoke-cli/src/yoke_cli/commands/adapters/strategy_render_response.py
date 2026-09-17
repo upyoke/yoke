@@ -29,6 +29,8 @@ def _compact_doc(
     if isinstance(file_text, str):
         compact["file_bytes"] = len(file_text.encode("utf-8"))
         compact["file_lines"] = _line_count(file_text)
+    elif compact.get("bytes") is not None:
+        compact["file_bytes"] = int(compact["bytes"])
     return compact
 
 

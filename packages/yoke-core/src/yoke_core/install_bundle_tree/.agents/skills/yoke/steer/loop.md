@@ -39,7 +39,7 @@ reattach the running watcher or re-arm it when absent, respecting that pause.
 yoke strategy doc get {SLUG} --project {_project}
 ```
 
-Extract its next steps and standing decisions before reading the live DB frontier:
+This is the narrowed steering read (`strategy.doc.get` of the claimed slug, not `yoke strategy render` of the corpus). Extract its next steps and standing decisions before reading the live DB frontier:
 
 ```text
 yoke charge schedule --project {_project} --json

@@ -107,7 +107,7 @@ STRATEGY_ADAPTERS = [
     AdapterEntry(
         function_id="strategy.doc.replace",
         cli_invocation="printf '%s' \"$CONTENT\" | yoke strategy doc replace <slug> --stdin --base-updated-at TS --target-root PATH",
-        notes="Process-claim-gated CAS write (STRATEGIZE/FEED conflict group; base_updated_at from doc get); auto-renders the full strategy view into target_root; shrink guard bypass via --force.",
+        notes="Process-claim-gated CAS write (STRATEGIZE/FEED conflict group; base_updated_at from doc get); re-renders the written slug into target_root; shrink guard bypass via --force.",
     ),
     AdapterEntry(
         function_id="strategy.doc.archive",
@@ -121,8 +121,8 @@ STRATEGY_ADAPTERS = [
     ),
     AdapterEntry(
         function_id="strategy.render.run",
-        cli_invocation="yoke strategy render --target-root PATH",
-        notes="Writes the project-scoped gitignored local .yoke/strategy/ rendered view from the DB authority (idempotent headers); target_root resolves client-side.",
+        cli_invocation="yoke strategy render [SLUG ...] [--include-archives] --target-root PATH",
+        notes="Writes needed/changed gitignored .yoke/strategy/ files from the DB (active corpus by default; archives on-demand; known-active→archived returns metadata without bodies; unchanged bodies omitted via header known-set); target_root resolves client-side.",
     ),
     AdapterEntry(
         function_id="strategy.ingest.run",

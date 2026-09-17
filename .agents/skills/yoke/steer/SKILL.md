@@ -173,6 +173,8 @@ yoke strategy doc list --project {_project}
 yoke strategy doc get {SLUG} --project {_project}
 ```
 
+The steering read is `strategy.doc.get` of the claimed slug, never `yoke strategy render` of the corpus.
+
 - Document exists → extract its cold-start refresh, open-work index
   (`In flight`, `Ready to staff`, `Blocked`, `Awaiting operator decision`),
   and every standing decision, hold, scope bound, and deployment gate that

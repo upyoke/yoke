@@ -15,7 +15,9 @@ gitignored local renders.
 | **CURRENT-PLAN** | Near-term focus (when present) |
 
 Projects may add focused docs (for example area plans). Archive moves a doc
-out of the active corpus without deleting history.
+out of the active corpus without deleting history. A default render still
+returns metadata for a locally active doc that archived remotely so the
+generated file can move or be removed; archive bodies stay on-demand.
 
 ## How to author
 
@@ -26,6 +28,8 @@ checkpoints. The UI is for review and traceability.
 yoke strategy doc list [--project P]
 yoke strategy doc get <SLUG> [--project P]
 yoke strategy render --target-root <checkout> [--project P]
+yoke strategy render --include-archives --target-root <checkout> [--project P]
+yoke strategy render <SLUG> --target-root <checkout> [--project P]
 # edit rendered files, then:
 yoke strategy ingest <SLUG> --target-root <checkout> [--project P] --dry-run
 ```
