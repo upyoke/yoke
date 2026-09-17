@@ -76,7 +76,10 @@ def test_item_overview_and_detail_keep_their_distinct_targets() -> None:
     assert detail.target.kind == "item"
     assert detail.target.public_ref == TEST_ITEM_REF
     assert detail.target.project_id == "yoke"
-    assert detail.payload == {}
+    # The detail read serves the content sections it is asked for; the CLI
+    # asks for the stored narrative and leaves the body and Progress Log to
+    # the content index, so the default payload names that one section.
+    assert detail.payload == {"include": ["narrative"]}
 
 
 def test_strategy_surface_reads_and_revision_diff_keep_project_context() -> None:
