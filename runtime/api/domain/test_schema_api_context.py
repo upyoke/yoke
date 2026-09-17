@@ -23,11 +23,12 @@ import pytest
 
 from yoke_core.domain import schema_api_context as sac
 from yoke_core.domain import schema_api_context_seed as seed
+from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
 @pytest.mark.parametrize("role", sorted(seed.ROLE_TOPICS))
 def test_render_role_packet_non_empty(role: str) -> None:
-    body = sac.render_role_packet(role)
+    body = sac.render_role_packet(role, detail=PACKET_DETAIL_FULL)
     assert body.strip(), f"empty packet for role={role}"
     # Header for at least the first topic is present.
     first_topic = seed.ROLE_TOPICS[role][0]
@@ -36,29 +37,29 @@ def test_render_role_packet_non_empty(role: str) -> None:
 
 @pytest.mark.parametrize("topic", sorted(seed.TOPICS))
 def test_render_topic_packet_non_empty(topic: str) -> None:
-    body = sac.render_topic_packet(topic)
+    body = sac.render_topic_packet(topic, detail=PACKET_DETAIL_FULL)
     assert body.strip(), f"empty packet for topic={topic}"
     assert sac._TOPIC_HEADERS[topic] in body
 
 
 def test_render_unknown_role_raises() -> None:
     with pytest.raises(ValueError):
-        sac.render_role_packet("not-a-role")
+        sac.render_role_packet("not-a-role", detail=PACKET_DETAIL_FULL)
 
 
 def test_render_unknown_topic_raises() -> None:
     with pytest.raises(ValueError):
-        sac.render_topic_packet("not-a-topic")
+        sac.render_topic_packet("not-a-topic", detail=PACKET_DETAIL_FULL)
 
 
 def test_claims_packet_includes_work_holder_recipe() -> None:
-    body = sac.render_topic_packet("claims")
+    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
     assert "yoke claims work holder-get PREFIX-N" in body
     assert "claims.work.holder_get" in body
 
 
 def test_claims_packet_includes_typed_target_model() -> None:
-    body = sac.render_topic_packet("claims")
+    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
     # target_kind plus every key the kind-specific ``scope`` objects use.
     for token in (
         "target_kind",
@@ -72,7 +73,7 @@ def test_claims_packet_includes_typed_target_model() -> None:
 
 
 def test_core_packet_wrappers_precede_raw_sql() -> None:
-    body = sac.render_topic_packet("core")
+    body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
     wrapper_idx = body.index("items get PREFIX-N")
     raw_sql_idx = body.index("Audited raw diagnostic read")
     assert wrapper_idx < raw_sql_idx, (
@@ -89,7 +90,7 @@ def test_core_packet_teaches_cli_additive_transform_recipe() -> None:
     registered ``yoke`` adapters.
     """
 
-    body = sac.render_topic_packet("core")
+    body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
     assert "items.structured_field" in body
     assert "append-addendum" in body
     assert "section-upsert" in body
@@ -105,7 +106,7 @@ def test_core_packet_teaches_cli_structured_field_replace() -> None:
     as the underlying contract but must not teach HTTP or direct-dispatch
     shapes."""
 
-    body = sac.render_topic_packet("core")
+    body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
     assert "items.structured_field.replace" in body
     assert "yoke items structured-field replace PREFIX-N" in body
 
@@ -116,7 +117,7 @@ def test_core_packet_teaches_lifecycle_status_and_inventory_surface() -> None:
     inspection through the shipped function reference rather than a
     direct runtime.api import."""
 
-    body = sac.render_topic_packet("core")
+    body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
     assert "yoke lifecycle transition PREFIX-N --to refined-idea" in body
     assert "lifecycle.transition.execute" in body
     assert "lifecycle.repair_status.execute" in body
@@ -133,7 +134,7 @@ def test_packets_do_not_teach_blocked_agent_surface_shapes() -> None:
     stay on CLI adapters."""
 
     packet = "\n".join(
-        sac.render_topic_packet(topic)
+        sac.render_topic_packet(topic, detail=PACKET_DETAIL_FULL)
         for topic in ("core", "claims", "qa", "project")
     )
     banned = (
@@ -153,7 +154,7 @@ def test_core_packet_teaches_cli_epic_task_body_replace() -> None:
     """Epic task body / metadata mutations are taught through retained
     CLI adapters, with the function family named as the underlying owner."""
 
-    body = sac.render_topic_packet("core")
+    body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
     assert "workflow_item.epic_task" in body
     assert "yoke workflow-item epic-task body-replace" in body
     assert "yoke workflow-item epic-task metadata-update" in body
@@ -163,7 +164,7 @@ def test_core_packet_teaches_cli_epic_task_body_replace() -> None:
 
 @pytest.mark.parametrize("role", sorted(seed.ROLE_TOPICS))
 def test_role_packet_contains_no_stale_terms(role: str) -> None:
-    body = sac.render_role_packet(role)
+    body = sac.render_role_packet(role, detail=PACKET_DETAIL_FULL)
     for stale in seed.STALE_TERMS:
         assert stale not in body, (
             f"role={role} packet contains stale term '{stale}'. "
@@ -230,7 +231,7 @@ _CANONICAL_LIVE_NAMES_BY_TOPIC = {
 
 
 def test_packs_packet_teaches_catalog_label_and_receipt_authority() -> None:
-    body = sac.render_topic_packet("packs")
+    body = sac.render_topic_packet("packs", detail=PACKET_DETAIL_FULL)
     assert "The plain-language Pack label is `name`" in body
     assert "NO `display_name` column" in body
     assert "`.yoke/packs.json`" in body
@@ -239,7 +240,7 @@ def test_packs_packet_teaches_catalog_label_and_receipt_authority() -> None:
 
 def test_project_topic_packet_avoids_phantom_columns() -> None:
     """Rewritten notes must not mention phantom columns."""
-    body = sac.render_topic_packet("project")
+    body = sac.render_topic_packet("project", detail=PACKET_DETAIL_FULL)
     for phantom in (
         "deployment_runs" ".item_id",
         "deployment_runs" ".run_id",
@@ -253,7 +254,7 @@ def test_project_topic_packet_avoids_phantom_columns() -> None:
 
 @pytest.mark.parametrize("topic", sorted(seed.TOPICS))
 def test_topic_packet_surfaces_canonical_live_names(topic: str) -> None:
-    body = sac.render_topic_packet(topic)
+    body = sac.render_topic_packet(topic, detail=PACKET_DETAIL_FULL)
     for live_name in _CANONICAL_LIVE_NAMES_BY_TOPIC[topic]:
         assert live_name in body, (
             f"topic={topic} packet missing canonical live name '{live_name}' — "

@@ -34,6 +34,7 @@ CLIENT_LOCAL_BY_ID: dict[str, AuthzSpec] = {
     "packets.render.run": AuthzSpec(CLIENT_LOCAL, None),
     "packets.check.run": AuthzSpec(CLIENT_LOCAL, None),
     "packets.budget.get": AuthzSpec(CLIENT_LOCAL, None),
+    "packets.startup_delivery.get": AuthzSpec(CLIENT_LOCAL, None),
     # Reads the caller's own .yoke/lint-config; never server-resolved.
     "lint.config.show": AuthzSpec(CLIENT_LOCAL, None),
 }

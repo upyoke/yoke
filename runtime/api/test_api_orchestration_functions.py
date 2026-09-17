@@ -6,7 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from yoke_core.domain.handlers import orchestration, orchestration_agents
+from yoke_core.domain.handlers import orchestration
+from yoke_core.domain.handlers import orchestration_packets, orchestration_agents
 from yoke_contracts.api.function_call import (
     ActorContext,
     FunctionCallRequest,
@@ -116,7 +117,7 @@ class TestBoardRebuild(unittest.TestCase):
 class TestPacketsRender(unittest.TestCase):
     def test_rejects_missing_role(self):
         req = _request("packets.render.run", {})
-        outcome = orchestration.handle_packets_render(req)
+        outcome = orchestration_packets.handle_packets_render(req)
         self.assertFalse(outcome.primary_success)
         self.assertEqual(outcome.error.code, "payload_invalid")
 
@@ -126,21 +127,48 @@ class TestPacketsRender(unittest.TestCase):
             return_value="fake packet body",
         ):
             req = _request("packets.render.run", {"role": "engineer_agent"})
-            outcome = orchestration.handle_packets_render(req)
+            outcome = orchestration_packets.handle_packets_render(req)
         self.assertTrue(outcome.primary_success)
         self.assertEqual(outcome.result_payload["role"], "engineer_agent")
         self.assertEqual(outcome.result_payload["body"], "fake packet body")
         self.assertEqual(outcome.result_payload["byte_count"], 16)
+        self.assertEqual(outcome.result_payload["detail"], "compact")
+
+    def test_renders_one_topic_at_the_requested_depth(self):
+        with patch(
+            "yoke_core.domain.schema_api_context.render_topic_packet",
+            return_value="one topic",
+        ) as rendered:
+            req = _request(
+                "packets.render.run",
+                {"role": "main_agent", "topic": "claims", "detail": "full"},
+            )
+            outcome = orchestration_packets.handle_packets_render(req)
+        self.assertTrue(outcome.primary_success)
+        rendered.assert_called_once_with("claims", role="main_agent", detail="full")
+        self.assertEqual(outcome.result_payload["topic"], "claims")
+        self.assertEqual(outcome.result_payload["detail"], "full")
+
+    def test_rejects_an_unknown_depth_by_name(self):
+        req = _request(
+            "packets.render.run", {"role": "main_agent", "detail": "terse"}
+        )
+        outcome = orchestration_packets.handle_packets_render(req)
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "payload_invalid")
+        self.assertIn("terse", outcome.error.message)
 
 
 class TestPacketsCheck(unittest.TestCase):
+    """The check reports drift AND whether the packets can be delivered."""
+
     def test_no_drift_returns_seed_ok(self):
         with patch(
             "yoke_core.domain.schema_api_context.detect_seed_drift",
             return_value=[],
         ):
             req = _request("packets.check.run", {})
-            outcome = orchestration.handle_packets_check(req)
+            outcome = orchestration_packets.handle_packets_check(req)
         self.assertTrue(outcome.primary_success)
         self.assertTrue(outcome.result_payload["seed_ok"])
 
@@ -150,10 +178,11 @@ class TestPacketsCheck(unittest.TestCase):
             return_value=["topic-x: column foo missing"],
         ):
             req = _request("packets.check.run", {})
-            outcome = orchestration.handle_packets_check(req)
+            outcome = orchestration_packets.handle_packets_check(req)
         self.assertTrue(outcome.primary_success)
         self.assertFalse(outcome.result_payload["seed_ok"])
         self.assertEqual(len(outcome.result_payload["drift"]), 1)
+        self.assertFalse(outcome.result_payload["ok"])
 
 
 class TestAgentsRenderRun(unittest.TestCase):

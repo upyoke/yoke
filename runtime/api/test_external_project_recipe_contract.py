@@ -66,14 +66,26 @@ def test_external_project_teaching_has_no_checkout_only_control_plane_recipe() -
 
 
 def test_recipe_repairs_and_registered_surfaces_stay_taught() -> None:
+    """Each recipe stays taught where it belongs, not merely somewhere.
+
+    The rules file carries the standing rules every session needs before it
+    acts. A recipe that only applies while working on Yoke's own source lives
+    in the source-dev doctrine the rules file points at, so this asserts each
+    one against its own home rather than against whichever file it started
+    in.
+    """
     agents = (REPO / "AGENTS.md").read_text(encoding="utf-8")
     verification = (REPO / "docs/testing-verification.md").read_text(encoding="utf-8")
     source_development = (
         REPO / "docs/testing-verification/source-development.md"
     ).read_text(encoding="utf-8")
-    assert "yoke dev ruff-changed --base <ref>" in agents
-    assert "Use `-- -n 0`" in agents
-    assert "Never pass an optional unmatched path glob" in agents
+    source_dev_doctrine = (REPO / "docs/source-dev-doctrine.md").read_text(
+        encoding="utf-8"
+    )
+    assert "yoke dev ruff-changed --base <ref>" in source_dev_doctrine
+    assert "Use `-- -n 0`" in source_dev_doctrine
+    assert "docs/source-dev-doctrine.md" in agents
+    assert "Never pass an unmatched path glob" in agents
     assert "Never fabricate or expand a full commit hash" in agents
     assert "cat-file -e '<sha>^{commit}'" in agents
     assert "yoke dev run -- <command>" in verification

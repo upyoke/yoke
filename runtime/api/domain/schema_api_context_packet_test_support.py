@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from yoke_core.domain import schema_api_context
+from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
 JSON_NESTED_COLUMNS_REQUIRED = (
@@ -54,5 +55,13 @@ NEW_HARNESS_SESSION_COLUMNS = (
 
 
 def main_body() -> str:
-    """Render the main-agent API-context packet."""
-    return schema_api_context.render_role_packet("main_agent")
+    """Render the main-agent packet at the depth its teaching lives at.
+
+    Full depth, because these anchors are the per-table and per-command
+    notes — the wrong guesses each one corrects. Compact is a strict subset
+    that ships at session start; an agent reaches this depth through the
+    pointer the compact body closes with.
+    """
+    return schema_api_context.render_role_packet(
+        "main_agent", detail=PACKET_DETAIL_FULL
+    )

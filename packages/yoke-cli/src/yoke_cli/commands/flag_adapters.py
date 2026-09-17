@@ -103,9 +103,8 @@ from yoke_cli.commands.adapters.render import (
     agents_render,
     agents_render_check,
     board_data_get,
-    packets_check,
-    packets_render,
 )
+from yoke_cli.commands.adapters.packets import packets_check, packets_render
 from yoke_cli.commands.adapters.board import board_rebuild
 from yoke_cli.commands.adapters.epic_task import (
     epic_task_add,

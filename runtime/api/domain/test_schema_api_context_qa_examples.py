@@ -5,10 +5,11 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import schema_api_context as sac
+from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
 def test_main_agent_packet_teaches_qa_requirement_run_columns() -> None:
-    body = sac.render_role_packet("main_agent")
+    body = sac.render_role_packet("main_agent", detail=PACKET_DETAIL_FULL)
     for text in (
         "yoke qa requirement list --item PREFIX-N",
         "yoke qa run list --requirement-id <id>",
@@ -23,7 +24,7 @@ def test_main_agent_packet_teaches_qa_requirement_run_columns() -> None:
 
 
 def test_qa_packet_lists_live_qa_requirements_columns() -> None:
-    body = sac.render_topic_packet("qa")
+    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     for column in (
         "deployment_run_id",
         "target_env",
@@ -54,7 +55,7 @@ def test_qa_packet_lists_live_qa_requirements_columns() -> None:
 
 
 def test_qa_packet_lists_live_qa_runs_columns() -> None:
-    body = sac.render_topic_packet("qa")
+    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     for column in (
         "score",
         "confidence",
@@ -71,7 +72,7 @@ def test_qa_packet_lists_live_qa_runs_columns() -> None:
 
 
 def test_qa_packet_carries_canonical_unsatisfied_verification_select() -> None:
-    body = sac.render_topic_packet("qa")
+    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     assert "Canonical unsatisfied-verification SELECT" in body
     assert "FROM qa_requirements qr WHERE qr.item_id = %s" in body
     assert "qr.qa_phase = 'verification' AND qr.waived_at IS NULL" in body
@@ -80,7 +81,7 @@ def test_qa_packet_carries_canonical_unsatisfied_verification_select() -> None:
 
 
 def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
-    body = sac.render_topic_packet("qa")
+    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     assert "Add a QA requirement — ac_verification variant" in body
     assert (
         "yoke qa requirement add "
@@ -105,7 +106,7 @@ def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
 
 @pytest.mark.parametrize("role", ("engineer_agent", "tester_agent"))
 def test_qa_runner_packets_require_transition_bound_creation(role: str) -> None:
-    body = sac.render_role_packet(role)
+    body = sac.render_role_packet(role, detail=PACKET_DETAIL_FULL)
     assert (
         "yoke qa requirement add "
         "--item PREFIX-N --qa-kind ac_verification --qa-phase verification "
@@ -119,7 +120,7 @@ def test_qa_runner_packets_require_transition_bound_creation(role: str) -> None:
 
 
 def test_qa_packet_carries_plan_case_materialization_example() -> None:
-    body = sac.render_topic_packet("qa")
+    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     assert "Materialize attached QA plan cases for a transition" in body
     assert (
         "yoke qa plan materialize --item PREFIX-N --transition reviewed-implementation"
@@ -133,7 +134,7 @@ def test_qa_packet_carries_plan_case_materialization_example() -> None:
 
 
 def test_qa_packet_carries_run_add_agent_ac_verification_example() -> None:
-    body = sac.render_topic_packet("qa")
+    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     assert "Add a QA run verdict — agent × ac_verification (inline raw_result)" in body
     assert (
         "yoke qa run add "
@@ -144,7 +145,7 @@ def test_qa_packet_carries_run_add_agent_ac_verification_example() -> None:
 
 
 def test_qa_packet_carries_per_requirement_browser_case_run_example() -> None:
-    body = sac.render_topic_packet("qa")
+    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     assert "Execute one materialized Browser method case" in body
     assert (
         "yoke qa case run --requirement-id R "
@@ -160,7 +161,7 @@ def test_qa_packet_carries_per_requirement_browser_case_run_example() -> None:
 
 
 def test_qa_packet_carries_ordered_plan_run_example() -> None:
-    body = sac.render_topic_packet("qa")
+    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     assert "Execute an item's materialized QA plans in snapshot order" in body
     assert (
         "yoke qa plan run --item PREFIX-N --transition TRANSITION "
@@ -173,7 +174,7 @@ def test_qa_packet_carries_ordered_plan_run_example() -> None:
 
 
 def test_qa_packet_drops_retired_browser_execution_teaching() -> None:
-    body = sac.render_topic_packet("qa")
+    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     for retired in (
         "browser_smoke",
         "browser_diff",
@@ -185,7 +186,7 @@ def test_qa_packet_drops_retired_browser_execution_teaching() -> None:
 
 
 def test_qa_packet_replaces_run_add_trailing_parenthetical() -> None:
-    body = sac.render_topic_packet("qa")
+    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     assert (
         "CLI adapter `qa run-add` accepts `--raw-result-file PATH` for "
         "multi-line evidence blobs."

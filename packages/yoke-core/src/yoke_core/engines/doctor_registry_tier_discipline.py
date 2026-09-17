@@ -25,6 +25,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable, Iterator, List, Optional, Tuple
 
+from yoke_core.domain import schema_api_context_seed as _seed
+
 
 # Canonical tier -> path-glob mapping. Globs are repo-relative; callers
 # resolve them against the repo root via `iter_tier_paths`. Tier 6
@@ -92,20 +94,29 @@ TIER_3_GLOBS: tuple[str, ...] = (
     ".yoke/docs/reference/db-reference/*.md",
     "docs/state-management.md",
     ".yoke/docs/reference/charge-frontier.md",
+    # The deep homes the rules files point at. Each is read before the
+    # operation it governs rather than at startup, which is what makes it a
+    # tier-3 reference rather than tier-0 rules text.
+    ".yoke/docs/reference/agent-rules/*.md",
+    "docs/source-dev-doctrine.md",
+)
+
+# Directories a bare `<name>.md` citation resolves against. A rules file names
+# the deep-home directory once and then cites each file by name, so the
+# resolver has to know the family rather than requiring a full path per
+# mention — which would spend delivered bytes on what the reader already knows.
+BARE_NAME_CITATION_FAMILIES: tuple[str, ...] = (
+    "docs/archive/decisions",
+    ".yoke/docs/reference/agent-rules",
 )
 
 
 # Function ids every `*_agent` packet must enumerate. Consumed by
-# HC-packet-tier-completeness + HC-progressive-disclosure-direction.
-REQUIRED_FUNCTION_IDS: tuple[str, ...] = (
-    "items.structured_field.replace",
-    "claims.work.acquire",
-    "claims.work.release",
-    "claims.path.register",
-    "items.progress_log.append",
-    "lifecycle.transition.execute",
-    "db_claim.amend",
-)
+# HC-packet-tier-completeness + HC-progressive-disclosure-direction. Read from
+# the seed rather than re-listed: a second copy here drifted silently once the
+# packet stopped rendering the notes these ids used to hide in, and the check
+# reported the shortfall without anything pointing at the list it wanted.
+REQUIRED_FUNCTION_IDS: tuple[str, ...] = _seed.AGENT_WRITE_FUNCTION_IDS
 
 
 def _is_archive_path(rel_path: str) -> bool:

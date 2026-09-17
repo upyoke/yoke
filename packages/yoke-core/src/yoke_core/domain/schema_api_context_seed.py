@@ -32,8 +32,12 @@ __all__ = [
     "ROLE_TOPICS",
     "TOPICS",
     "TOPIC_TABLES",
+    "AGENT_WRITE_FUNCTION_IDS",
     "PACKET_LINE_BUDGET_PER_ROLE",
     "PACKET_LINE_BUDGET_AGGREGATE",
+    "PACKET_BYTE_BUDGET_PER_ROLE",
+    "PACKET_BYTE_BUDGET_AGGREGATE",
+    "AGENT_PROMPT_BYTE_BUDGET",
 ]
 
 
@@ -99,6 +103,22 @@ ROLE_TOPICS: dict[str, tuple[str, ...]] = {
     "simulator_agent": ("core", "claims"),
     "boss_agent": ("core", "claims"),
 }
+
+
+# The registered write function ids every packet names. They are the shape an
+# agent dispatches through, so they belong in the compact body beside the table
+# and column names: a confabulated function id fails exactly like a
+# confabulated column, and both used to live only in the long-form notes.
+# ``doctor_registry_tier_discipline`` requires the packet to enumerate them.
+AGENT_WRITE_FUNCTION_IDS: tuple[str, ...] = (
+    "items.structured_field.replace",
+    "items.progress_log.append",
+    "lifecycle.transition.execute",
+    "claims.work.acquire",
+    "claims.work.release",
+    "claims.path.register",
+    "db_claim.amend",
+)
 
 
 # Topics that exist (for validator + CLI flag completion).
@@ -177,47 +197,37 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 }
 
 
-# Tests fail when a rendered packet exceeds its budget — curate rather
-# than duplicate. Per-role budget covers each `*_agent` packet; aggregate
-# budget covers all seven roles combined. The budgets absorb the inline
-# universal recipe set (cancel/transition, progress-log via HTTP,
-# function-call envelope dispatch, session lifecycle, field-note
-# channel, claim/path-claim concrete-value variants); the recipes ARE the
-# value the packet exists to deliver. They also cover the concrete
-# `items get` example, github_issue resolution, SELECT-query
-# self-orientation, and the cold-start helper that replaces the verbose
-# lifecycle entry. The watcher / Monitor / background-command recipes
-# pasted into the ``schema_api_context_commands_watchers`` sibling — the
-# vetted-telemetry watch_pytest / watch_doctor / watch_merge patterns —
-# push each multi-topic packet (engineer_agent / tester_agent /
-# qa_walker_agent) past a
-# smaller per-role cap. The top-level packet also carries the compact Pack
-# catalog/report projection so Pack-status audits do not guess its schema.
-# These caps therefore follow the complete registered recipes and table facts
-# rendered today rather than an arbitrary prose target. The claims topic now
-# also names machines (the registered machine identity, owner and access
-# document every machine-keyed row points at) and harness_machine_reports
-# (install-glue presence plus exact Codex normalized-handler trust hashes)
-# and the sticky shared-operation work-claim kinds. The core
-# topic additionally carries the declared package roots, so every role learns
-# where a module physically lives instead of guessing a repo-root directory
-# named after the package. The core topic also carries the ci-run watcher
-# recipe: waiting on a commit's CI runs is a long command agents otherwise
-# poll by hand, and a hand-authored filter fails silently, so the recipe has
-# to reach every role that waits on CI rather than living in help text alone.
-# The qa topic also names doctor_runs so last_run and status readers do not
-# reconstruct receipts from the events journal. The project topic also
-# names the client-local git-bootstrap operation so agents do not treat
-# git init and private-remote creation as wizard-only choreography. The
-# core topic also carries the two gate-satisfier tables: an agent that
-# reads a gate's refusal needs to know that the rung which discharged it
-# is recorded on the item, and that a derived project fact nobody has
-# converged reads as unknown rather than as false — guessing either way
-# turns an honest refusal into a suspected bug. The last two lines of the
-# per-role cap are the machines row: an agent that reads a relay refusal or a
-# launch that named no eligible machine has to know the registered machine is
-# where identity, ownership and access live, and no other table teaches it.
-# Core also names `yoke_contracts.model_reference` so cost and steering
-# readers hit one sourced lookup instead of inventing a catalog.
-PACKET_LINE_BUDGET_PER_ROLE: int = 438
-PACKET_LINE_BUDGET_AGGREGATE: int = 2704
+# Ratchet budgets for the rendered packet corpus. Every number is the
+# measured size of the compact body that ships today, rounded up to a round
+# figure so ordinary editing does not trip the gate — not a prose target, and
+# not a claim about where any harness truncates. Growth past one of these is
+# a decision with a number attached rather than a drift back toward an
+# undeliverable payload.
+#
+# Two axes, because one of them bounds nothing that matters on its own. A
+# packet can sit under a line cap while spending six figures of bytes, since
+# nothing stops a single line from carrying thousands; the byte axis is what
+# a delivery channel measures. Lines stay budgeted because they keep the
+# rendered body readable.
+#
+# Per-role and aggregate line budgets cover the compact body's table and
+# command listings — every table, every column name, and every registered
+# recipe. The long-form per-table and per-command notes are rendered only at
+# ``--detail full``, read deliberately at the moment they apply, and carry no
+# budget at all.
+PACKET_LINE_BUDGET_PER_ROLE: int = 340
+PACKET_LINE_BUDGET_AGGREGATE: int = 2100
+PACKET_BYTE_BUDGET_PER_ROLE: int = 32000
+PACKET_BYTE_BUDGET_AGGREGATE: int = 196000
+
+# Ratchet budget for one rendered subagent body: the condensed role prose
+# plus its compact packet. A subagent body is read from a file rather than
+# composed into a hook reply, so no observed truncation point bounds it —
+# this is purely the measured figure that keeps it from regrowing. Measured:
+# the largest body spends 64,070 bytes, down from 168,187 when every role
+# carried the full packet plus its conditional references inline. The figure
+# rose from 58,981 when the engineer's submission contract came back inline:
+# the receipt an agent must emit and the checks that gate it are not a
+# reference it looks up, so carving them out was the wrong call and the
+# submission-gate tests said so.
+AGENT_PROMPT_BYTE_BUDGET: int = 66000
