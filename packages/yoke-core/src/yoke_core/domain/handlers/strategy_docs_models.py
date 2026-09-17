@@ -73,13 +73,42 @@ class DocReplaceResponse(BaseModel):
     unchanged: bool = False
 
 
+class RenderKnownDoc(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    slug: str = Field(..., min_length=1)
+    updated_at: str = Field(..., min_length=1)
+    content_sha256: str = Field(
+        ..., min_length=64, max_length=64,
+        description="sha256 of the header-free DB body last rendered locally.",
+    )
+    archived: bool = False
+
+
 class RenderRequest(BaseModel):
     # File I/O is the caller's (12942): the handler returns rendered
     # file texts and the CLI writes them into the checkout it resolved
     # client-side. A stray legacy ``target_root`` field is ignored.
     slugs: List[str] = Field(
         default_factory=list,
-        description="Doc slugs to render; empty means the project's full corpus.",
+        description=(
+            "Doc slugs to render. Empty selects the active corpus; "
+            "pass include_archives to add archived docs. An explicit "
+            "slug renders even when archived."
+        ),
+    )
+    include_archives: bool = Field(
+        False,
+        description=(
+            "When slugs is empty, include archived docs. Explicit slugs "
+            "always render regardless of archive state."
+        ),
+    )
+    known: List[RenderKnownDoc] = Field(
+        default_factory=list,
+        description=(
+            "Client last-rendered identity per slug (header updated_at, "
+            "content_sha256, archived). Matching rows omit file_text."
+        ),
     )
 
 
@@ -88,7 +117,11 @@ class RenderResponse(BaseModel):
     project_slug: str
     docs: List[Dict[str, Any]] = Field(
         default_factory=list,
-        description="Per-doc {slug, updated_at, file_text} render map.",
+        description=(
+            "Per-doc render map: slug, updated_at, archived, "
+            "content_sha256, bytes, unchanged; file_text only when the "
+            "body must land on disk."
+        ),
     )
 
 
@@ -99,6 +132,7 @@ __all__ = [
     "DocListResponse",
     "DocReplaceRequest",
     "DocReplaceResponse",
+    "RenderKnownDoc",
     "RenderRequest",
     "RenderResponse",
 ]

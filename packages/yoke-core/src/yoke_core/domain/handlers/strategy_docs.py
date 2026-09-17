@@ -189,7 +189,13 @@ def handle_render(request: FunctionCallRequest) -> HandlerOutcome:
         if perr is not None:
             return perr
         try:
-            files = render_file_map(conn, project.id, payload.slugs or None)
+            files = render_file_map(
+                conn,
+                project.id,
+                payload.slugs or None,
+                include_archives=payload.include_archives,
+                known=[entry.model_dump() for entry in payload.known],
+            )
         except _docs.UnknownStrategyDocError as exc:
             return _err("unknown_slug", str(exc))
         except _docs.StrategyDocMissingError as exc:
@@ -198,7 +204,7 @@ def handle_render(request: FunctionCallRequest) -> HandlerOutcome:
         project_id=project.id, project_slug=project.slug, docs=files,
     )
     return HandlerOutcome(
-        result_payload=response.model_dump(),
+        result_payload=response.model_dump(exclude_none=True),
         primary_success=True,
     )
 

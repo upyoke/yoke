@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import Any, Dict, List
+from typing import List
 
 from yoke_cli.commands import _helpers as _helpers
 from yoke_cli.commands._helpers import (
@@ -18,7 +18,10 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.strategy import strategy_target
 from yoke_cli.commands.adapters.strategy import (
     resolve_target_root_for_cli,
-    write_rendered_files,
+)
+from yoke_cli.commands.adapters.strategy_render_client import (
+    apply_rendered_docs,
+    build_render_payload,
 )
 from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
 from yoke_cli.transport.dispatcher import build_actor, call_dispatcher, emit_response
@@ -101,13 +104,13 @@ def strategy_doc_create(args: List[str]) -> int:
     render_response = call_dispatcher(
         function_id="strategy.render.run",
         target=target,
-        payload={},
+        payload=build_render_payload(target_root, slugs=[parsed.slug]),
         actor=actor,
     )
     if not render_response.success:
         return emit_response(render_response, json_mode=parsed.json_mode)
 
-    report = write_rendered_files(
+    report, _conflicts = apply_rendered_docs(
         target_root, (render_response.result or {}).get("docs", []),
     )
 

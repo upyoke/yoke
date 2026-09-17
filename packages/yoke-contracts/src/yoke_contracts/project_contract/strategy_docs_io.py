@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Sequence
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from yoke_contracts.project_contract.file_write import write_live_text
+from yoke_contracts.project_contract.strategy_docs_header import (
+    StrategyHeaderError,
+    content_sha256,
+    parse_file_text,
+)
 from yoke_contracts.project_contract.strategy_docs_paths import (
+    strategy_archive_dir,
+    strategy_dir,
     strategy_view_path,
 )
 
@@ -67,6 +75,87 @@ def read_ingest_files(
     return files
 
 
+@dataclass(frozen=True)
+class LocalRenderFile:
+    """One on-disk rendered strategy file and whether its body is dirty."""
+
+    slug: str
+    archived: bool
+    path: Path
+    updated_at: Optional[str]
+    content_sha256: Optional[str]
+    dirty: bool
+    dirty_reason: Optional[str]
+
+
+def _inspect_one_render(path: Path, *, archived: bool) -> Optional[LocalRenderFile]:
+    name = path.name
+    if not name.endswith(".md"):
+        return None
+    slug = name[: -len(".md")]
+    try:
+        parsed = parse_file_text(path.read_text(encoding="utf-8"))
+    except (OSError, StrategyHeaderError) as exc:
+        reason = (
+            "missing_or_mangled_header"
+            if isinstance(exc, StrategyHeaderError) else "unreadable"
+        )
+        return LocalRenderFile(
+            slug=slug, archived=archived, path=path,
+            updated_at=None, content_sha256=None,
+            dirty=True, dirty_reason=reason,
+        )
+    body_digest = content_sha256(parsed.body)
+    dirty = body_digest != parsed.content_sha256 or parsed.slug != slug
+    return LocalRenderFile(
+        slug=slug,
+        archived=archived,
+        path=path,
+        updated_at=parsed.updated_at,
+        content_sha256=parsed.content_sha256,
+        dirty=dirty,
+        dirty_reason="body_does_not_match_header" if dirty else None,
+    )
+
+
+def inspect_local_renders(target_root: Path | str) -> List[LocalRenderFile]:
+    """Inspect existing ``.yoke/strategy/`` files for refresh known-set."""
+    files: List[LocalRenderFile] = []
+    active_dir = strategy_dir(target_root)
+    if active_dir.is_dir():
+        for path in sorted(active_dir.glob("*.md")):
+            inspected = _inspect_one_render(path, archived=False)
+            if inspected is not None:
+                files.append(inspected)
+    archive_dir = strategy_archive_dir(target_root)
+    if archive_dir.is_dir():
+        for path in sorted(archive_dir.glob("*.md")):
+            inspected = _inspect_one_render(path, archived=True)
+            if inspected is not None:
+                files.append(inspected)
+    return files
+
+
+def local_render_known(target_root: Path | str) -> List[Dict[str, Any]]:
+    """Header identity of local renders — the refresh ``known`` payload.
+
+    Includes dirty files whose header still parses: the header is the
+    last-known remote identity, so an unchanged remote can omit the body
+    without losing the local edit.
+    """
+    known: List[Dict[str, Any]] = []
+    for item in inspect_local_renders(target_root):
+        if not item.updated_at or not item.content_sha256:
+            continue
+        known.append({
+            "slug": item.slug,
+            "updated_at": item.updated_at,
+            "content_sha256": item.content_sha256,
+            "archived": item.archived,
+        })
+    return known
+
+
 def write_rendered_files(
     target_root: Path,
     files: Iterable[Mapping[str, Any]],
@@ -108,8 +197,11 @@ def write_rendered_files(
 
 
 __all__ = [
+    "LocalRenderFile",
     "StrategyDocSlugError",
     "StrategyIngestFileMissingError",
+    "inspect_local_renders",
+    "local_render_known",
     "read_ingest_files",
     "require_strategy_doc_slug",
     "write_rendered_files",

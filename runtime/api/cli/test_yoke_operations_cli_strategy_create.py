@@ -78,7 +78,7 @@ class TestDocCreate:
             "slug": "OPERATIONS-NOTES",
             "content": "# OPERATIONS NOTES\n\nBody.\n",
         }
-        assert _CAPTURED_REQUESTS[1].payload == {}
+        assert _CAPTURED_REQUESTS[1].payload == {"slugs": ["OPERATIONS-NOTES"]}
 
     def test_dispatches_with_stdin(self, tmp_path: Path) -> None:
         rc = _run(

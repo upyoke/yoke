@@ -6,10 +6,10 @@ line cap: these three commands share the same resolve-then-write-then-
 render shape.
 
 - ``doc replace`` -> ``strategy.doc.replace`` (process-claim-gated write),
-  then ``strategy.render.run`` for the full local rendered view.
+  then ``strategy.render.run`` for the written slug.
 - ``doc archive`` / ``doc unarchive`` -> ``strategy.doc.archive`` /
   ``strategy.doc.unarchive`` (flip the archived state), then
-  ``strategy.render.run`` so the file relocates to/from
+  ``strategy.render.run`` for that slug so the file relocates to/from
   ``.yoke/strategy/archive/`` and the stale sibling is pruned.
 
 Project identity resolves once, before any write: a known destination
@@ -42,7 +42,10 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.strategy import (
     resolve_target_root_for_cli,
     strategy_target,
-    write_rendered_files,
+)
+from yoke_cli.commands.adapters.strategy_render_client import (
+    apply_rendered_docs,
+    build_render_payload,
 )
 from yoke_cli.commands.adapters.strategy_target_project import (
     StrategyTargetRootMismatchError,
@@ -125,13 +128,19 @@ def _dispatch_and_render(
         )
         return emit_response(mutation_response, json_mode=json_mode)
 
+    slug = str((payload or {}).get("slug") or "")
     render_response = call_dispatcher(
-        function_id="strategy.render.run", target=target, payload={}, actor=actor,
+        function_id="strategy.render.run",
+        target=target,
+        payload=build_render_payload(
+            target_root, slugs=[slug] if slug else None,
+        ),
+        actor=actor,
     )
     if not render_response.success:
         return emit_response(render_response, json_mode=json_mode)
 
-    report = write_rendered_files(
+    report, _conflicts = apply_rendered_docs(
         target_root, (render_response.result or {}).get("docs", []),
     )
 

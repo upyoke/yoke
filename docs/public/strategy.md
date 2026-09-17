@@ -26,6 +26,8 @@ checkpoints. The UI is for review and traceability.
 yoke strategy doc list [--project P]
 yoke strategy doc get <SLUG> [--project P]
 yoke strategy render --target-root <checkout> [--project P]
+yoke strategy render --include-archives --target-root <checkout> [--project P]
+yoke strategy render <SLUG> --target-root <checkout> [--project P]
 # edit rendered files, then:
 yoke strategy ingest <SLUG> --target-root <checkout> [--project P] --dry-run
 ```
