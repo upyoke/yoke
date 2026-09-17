@@ -235,9 +235,13 @@ the recorded landing identity, a fast-forward onto that merge — including
 a squash whose original head is not an ancestor of the base — or a lane
 holding nothing but copies of the commits that merge already took, which is
 what a rebase after a landing leaves behind. New commits
-after that landing are refused: file a fresh work item so they get their
-own merge identity; the command does not clean the lane or declare them
-delivered.
+after that landing: same-item correction is supported only while the
+item is before a declared release stage under its pinned workflow —
+re-verify, review, and run the governed merge again. Do not prescribe a
+stage change. Otherwise the refusal preserves the lane and requires
+separate work subject to operator preference. Do not reset unlanded
+corrections as recovery. The command does not clean the lane or
+declare those commits delivered.
 
 When approval-on-done is selected, the terminal transition creates the owner
 decision request without moving the item. Let an authorized owner resolve it,

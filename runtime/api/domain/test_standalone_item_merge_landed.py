@@ -124,7 +124,15 @@ def test_a_lane_carrying_new_commits_has_not_landed(monkeypatch):
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
     assert _lane() is None
-    assert "fresh work item" in landed.stale_unlanded_work(**_LOOK)
+    refusal = landed.stale_unlanded_work(**_LOOK)
+    assert "before a declared release stage" in refusal
+    assert "preserves the lane" in refusal
+    assert "operator preference" in refusal
+    assert "reset the lane" not in refusal.lower()
+    assert "return to implementation" not in refusal
+    assert "returns to implementation" not in refusal
+    assert "has reached its pinned release wait" not in refusal
+    assert "do not prescribe a stage change" in refusal.lower()
 
 
 def test_reached_release_defaults_true_and_keeps_the_existing_refusal(monkeypatch):
@@ -137,17 +145,21 @@ def test_reached_release_defaults_true_and_keeps_the_existing_refusal(monkeypatc
         contains=(LANE_SHA, MERGE_SHA),
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
-    assert "fresh work item" in landed.stale_unlanded_work(**_LOOK, reached_release=True)
+    refusal = landed.stale_unlanded_work(**_LOOK, reached_release=True)
+    assert "before a declared release stage" in refusal
+    assert "preserves the lane" in refusal
+    assert "operator preference" in refusal
+    assert "reset the lane" not in refusal.lower()
+    assert "has reached its pinned release wait" not in refusal
 
 
 def test_an_item_that_has_not_reached_release_gets_its_own_mismatch_through(
     monkeypatch,
 ):
-    """The item's own live status already shows it genuinely returned
-    short of release (an agent-driven lifecycle.transition, not this
-    function's business to re-derive) -- the SAME mismatch that is
-    foreign/stale work by default is this item's own next legitimate
-    merge attempt instead."""
+    """The caller already confirmed this same item is still short of a
+    declared release wait (the item's own next merge, not a stage change
+    this function prescribes) -- the SAME mismatch that is foreign/stale
+    work by default is that next governed merge instead."""
     _probe(
         monkeypatch,
         branch_exists=True,

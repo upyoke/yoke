@@ -22,8 +22,14 @@ at the merge commit rather than at the work.
 Close-out therefore compares the current lane candidate to those recorded
 identities before it stamps, records, or cleans. Matching the recorded
 candidate is the same landing even when a squash is not an ancestor of the
-base. A different candidate that the base does not contain is new work: the
-recovery is a fresh work item with its own merge identity, not this close-out.
+base. A different candidate that the base does not contain is new work.
+Same-item correction is supported only while the item is before a
+declared release stage under its pinned workflow: continue on the same
+item and lane, re-verify, review, and run the governed merge again. Do
+not prescribe a stage change. Otherwise the mismatch refusal preserves
+the lane and requires separate work subject to operator preference
+(the default, including when no release stage is declared). Do not
+reset unlanded corrections.
 
 Rebasing after a landing is neither of those, and it is the case sha reads
 cannot see: the base holds the work, the lane holds new shas for the same
@@ -127,17 +133,17 @@ def stale_unlanded_work(
     A target-contained receipt merge SHA proves the landing. Its source commit
     can match squash re-entry; any other uncontained head is new work.
 
-    ``reached_release`` is the item's own live position relative to its
-    pinned release wait: ``True`` (the default, and every close-out
-    caller's meaning) treats an uncontained head as foreign or stale, same
-    as always. A caller that has already confirmed the SAME item's status
-    genuinely returned short of that wait -- a fix in progress after a
-    failed release-stage QA verdict, repeating its own review/CI/merge
-    (the item's normal lifecycle, not this function's business to
-    re-derive) -- passes ``False`` so its own next legitimate merge is not
-    read as someone else's foreign work on a reused branch name. It never
-    changes what counts as a match; it only lets a genuine mismatch pass
-    when the item's own state already accounts for it.
+    ``reached_release`` selects whether a mismatch is close-out's
+    foreign/stale refusal. ``True`` is the safe default — including when no
+    release stage is declared, when the definition could not be read, and
+    when a declared wait has actually been reached — and every close-out
+    caller that omits it keeps that existing refusal. A caller that has
+    already confirmed THIS same item is still short of a declared release
+    wait (the item's own next merge, not a stage change this function
+    prescribes) passes ``False`` so that mismatch is not read as someone
+    else's foreign work on a reused branch name. It never changes what
+    counts as a match; it only lets a genuine mismatch pass when the item's
+    own state already accounts for it.
     """
     current = current_candidate(repo_root, branch, recorded_head)
     receipt = receipts.load(item_id, branch, target)
@@ -155,9 +161,12 @@ def stale_unlanded_work(
     named = ", ".join(sorted(sha[:12] for sha in identities))
     return (
         f"branch {branch!r} head {current[:12]} is not the recorded landing "
-        f"({named}); file a fresh work item so the new commits get their own "
-        "merge identity. Close-out will not declare them delivered or clean "
-        "this lane"
+        f"({named}). Same-item correction is supported only while the item "
+        "is before a declared release stage under its pinned workflow; "
+        "otherwise this refusal preserves the lane and requires separate "
+        "work subject to operator preference. Do not prescribe a stage "
+        "change or reset unlanded corrections. Close-out will not declare "
+        "them delivered or clean this lane"
     )
 
 
