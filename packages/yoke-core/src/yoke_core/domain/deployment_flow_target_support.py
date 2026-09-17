@@ -152,12 +152,18 @@ def unprovable_qa_identity_stages(
     return tuple(unprovable)
 
 
-def configured_identity_path(conn: Any, project: Any) -> Any:
-    """This project's configured served-revision path, for the gates.
+def configured_identity_path(conn: Any, project: Any, environments: Any = ()) -> Any:
+    """The configured served-revision path a definition can rely on.
 
     Kept here so every definition gate asks the one question the same way,
     and so a caller holding no connection — a pure stage-shape check —
     gets the strict answer rather than a silently permissive one.
+
+    Naming the environments a definition targets asks the same reader the
+    release and Browser paths use, so all three agree about which path
+    proves which target. A definition is only as provable as its least
+    provable environment, so the first that cannot answer is the answer;
+    naming none asks about the project alone, as before.
     """
     from yoke_core.domain.deployment_target_identity_config import (
         ConfiguredIdentityPath,
@@ -172,7 +178,14 @@ def configured_identity_path(conn: Any, project: Any) -> Any:
         from yoke_core.domain.project_identity import resolve_project_id
 
         project_id = resolve_project_id(conn, str(project))
-    return persistent_identity_path(conn, project_id)
+    names = [name for name in dict.fromkeys(environments or ()) if name]
+    if not names:
+        return persistent_identity_path(conn, project_id)
+    resolved = [persistent_identity_path(conn, project_id, name) for name in names]
+    for answer in resolved:
+        if answer.error or not answer.configured:
+            return answer
+    return resolved[0]
 
 
 def require_provable_qa_identity(
@@ -192,7 +205,13 @@ def require_provable_qa_identity(
     that cannot be read is not an absent one, and activating on the
     strength of a failed read is the case this gate exists to prevent.
     """
-    configured = configured_identity_path(conn, project)
+    from yoke_core.domain.deployment_target_identity_config import (
+        qa_target_environment_names,
+    )
+
+    configured = configured_identity_path(
+        conn, project, qa_target_environment_names(stages)
+    )
     if configured.error:
         raise ValueError(
             f"{operation} cannot be checked for provable QA identity: "

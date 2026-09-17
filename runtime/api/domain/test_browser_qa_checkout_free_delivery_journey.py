@@ -64,7 +64,9 @@ def _answers(revision: str):
 
 
 def _seed_item(conn) -> None:
-    insert_item(conn, id=ITEM_ID, title="Visual check", status="reviewing-implementation")
+    insert_item(
+        conn, id=ITEM_ID, title="Visual check", status="reviewing-implementation"
+    )
     conn.execute(
         "INSERT INTO item_worktrees(item_id,branch,lane_role,state,commit_sha,"
         "created_at,updated_at) VALUES (%s,%s,'implementation','active',%s,"
@@ -146,7 +148,8 @@ def _close_out(conn) -> object:
     """The lifecycle gate, on a host where git can answer nothing."""
     conn.commit()
     with mock.patch(
-        "yoke_core.domain.qa_gates._resolve_repo_root", return_value=None,
+        "yoke_core.domain.qa_gates._resolve_repo_root",
+        return_value=None,
     ):
         return check_done_gate(GateTarget(item_id=ITEM_ID), "")
 
@@ -163,8 +166,7 @@ class TestBranchPreviewJourney:
             # publishes what it serves, and that is the deployment result.
             assert context["deployment_recorded"] is False
             with mock.patch(
-                "yoke_core.domain.browser_qa_freshness."
-                "resolve_preview_identity_target",
+                "yoke_core.domain.browser_qa_freshness.resolve_preview_identity_target",
                 return_value=PreviewIdentityTarget(
                     origin=PREVIEW_ORIGIN, path=IDENTITY_PATH
                 ),
@@ -174,7 +176,6 @@ class TestBranchPreviewJourney:
                     BRANCH,
                     DEPLOYED_SHA,
                     context=context,
-                    deployment_run_id=None,
                     fetch_identity=_answers(DEPLOYED_SHA),
                 )
             assert failure is None
@@ -191,8 +192,7 @@ class TestBranchPreviewJourney:
             conn.commit()
             context = _context(conn, requirement_id)
             with mock.patch(
-                "yoke_core.domain.browser_qa_freshness."
-                "resolve_preview_identity_target",
+                "yoke_core.domain.browser_qa_freshness.resolve_preview_identity_target",
                 return_value=PreviewIdentityTarget(
                     origin=PREVIEW_ORIGIN, path=IDENTITY_PATH
                 ),
@@ -202,7 +202,6 @@ class TestBranchPreviewJourney:
                     BRANCH,
                     DEPLOYED_SHA,
                     context=context,
-                    deployment_run_id=None,
                     fetch_identity=_answers(SUPERSEDED_SHA),
                 )
         assert failure is not None
@@ -258,7 +257,6 @@ class TestProductionRunJourney:
                 BRANCH,
                 DEPLOYED_SHA,
                 context=context,
-                deployment_run_id=RUN_ID,
                 fetch_identity=_answers(DEPLOYED_SHA),
             )
         assert failure is None
@@ -275,7 +273,6 @@ class TestProductionRunJourney:
                 BRANCH,
                 DEPLOYED_SHA,
                 context=context,
-                deployment_run_id=RUN_ID,
                 fetch_identity=_answers(SUPERSEDED_SHA),
             )
         assert failure is not None
@@ -290,7 +287,6 @@ class TestProductionRunJourney:
                 BRANCH,
                 DEPLOYED_SHA,
                 context=context,
-                deployment_run_id=RUN_ID,
                 fetch_identity=_answers(DEPLOYED_SHA),
             )
         assert failure is not None
@@ -339,10 +335,12 @@ class TestCloseOutRefusals:
             _capture(conn, requirement_id, sha=DEPLOYED_SHA, handle=None)
             conn.commit()
             with mock.patch(
-                "yoke_core.domain.qa_gates._resolve_repo_root", return_value=None,
+                "yoke_core.domain.qa_gates._resolve_repo_root",
+                return_value=None,
             ):
                 result = check_reviewed_implementation_gate(
-                    GateTarget(item_id=ITEM_ID), "",
+                    GateTarget(item_id=ITEM_ID),
+                    "",
                 )
         assert not result.passed
         assert any("substrate evidence" in error for error in result.errors)

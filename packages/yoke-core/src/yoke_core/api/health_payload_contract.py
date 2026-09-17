@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+#: The commit the answering process was built from. The one field of this
+#: payload that identifies WHICH code replied, so every consumer that
+#: asserts a served revision reads it by this name.
+BUILD_FIELD = "build"
 MIGRATIONS_CURRENT_FIELD = "migrations_current"
 PENDING_MIGRATIONS_FIELD = "pending_migrations"
 CAN_SERVE_DATABASE_FIELD = "can_serve_this_database"

@@ -69,7 +69,9 @@ def _fetch_browser_context(
             target = TargetRef(kind="item", item_id=int(item_id))
         except (TypeError, ValueError):
             target = TargetRef(
-                kind="item", public_ref=str(item_id).strip(), project_id=project,
+                kind="item",
+                public_ref=str(item_id).strip(),
+                project_id=project,
             )
 
     payload: Dict[str, Any] = {
@@ -172,8 +174,7 @@ def execute_scenario(
         else f"deployment run {deployment_run_id}"
     )
     _bqa._log(
-        f"Fetching browser QA context for {named_subject} "
-        "(qa.browser_context.get)..."
+        f"Fetching browser QA context for {named_subject} (qa.browser_context.get)..."
     )
     try:
         context = _bqa._fetch_browser_context(
@@ -211,7 +212,6 @@ def execute_scenario(
             expected_branch,
             expected_sha,
             context=context,
-            deployment_run_id=deployment_run_id,
         )
         if freshness_error:
             _bqa._log(f"ERROR: {freshness_error.message}")
@@ -234,9 +234,7 @@ def execute_scenario(
         base_url = _base_url_from_requirements(req_rows)
 
     if not base_url:
-        _bqa._log(
-            "ERROR: No --base-url provided and no base_url in method_config"
-        )
+        _bqa._log("ERROR: No --base-url provided and no base_url in method_config")
         result.verdict = "error"
         result.note = "no_base_url"
         print(result.to_json())

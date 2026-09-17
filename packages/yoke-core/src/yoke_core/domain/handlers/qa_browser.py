@@ -40,6 +40,9 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
 )
+from yoke_core.domain.browser_qa_case_target import (
+    resolve_case_deployment_under_test,
+)
 from yoke_core.domain.browser_qa_deployment_identity import (
     resolve_deployment_under_test,
 )
@@ -88,19 +91,19 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
     requirement_id = payload.get("requirement_id")
     if not isinstance(project, str) or not project:
         return _error(
-            "payload_invalid", "project is required",
+            "payload_invalid",
+            "project is required",
             jsonpath="$.payload.project",
         )
     if not isinstance(requirement_id, int):
         return _error(
-            "payload_invalid", "requirement_id is required",
+            "payload_invalid",
+            "requirement_id is required",
             jsonpath="$.payload.requirement_id",
         )
 
     subject_column = "item_id" if item_id is not None else "deployment_run_id"
-    subject_value: Any = (
-        int(item_id) if item_id is not None else str(deployment_run_id)
-    )
+    subject_value: Any = int(item_id) if item_id is not None else str(deployment_run_id)
     conn = connect()
     try:
         p = _p(conn)
@@ -128,7 +131,18 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
         deployment_recorded = False
         ephemeral_url: Optional[str] = None
         deployment_target: Optional[Dict[str, Any]] = None
-        if deployment_run_id is not None:
+        bound = resolve_case_deployment_under_test(
+            conn,
+            requirement_id=int(requirement_id),
+            project_id=resolve_project_id(conn, project),
+        )
+        if bound is not None:
+            # A case that names an environment is about that environment,
+            # whatever subject it hangs off. Answering with its own bound
+            # target is what lets an item case verify the deployment it was
+            # bound to instead of a branch preview it was never about.
+            deployment_target = bound.as_payload()
+        elif deployment_run_id is not None:
             # A run's deployment is the environment it targeted. Reading the
             # branch's preview rows here would answer about a host this run
             # never deployed, which is how a succeeded production release
@@ -185,6 +199,7 @@ def handle_qa_browser_context_get(request: FunctionCallRequest) -> HandlerOutcom
 
 
 __all__ = [
-    "QaBrowserContextGetRequest", "QaBrowserContextGetResponse",
+    "QaBrowserContextGetRequest",
+    "QaBrowserContextGetResponse",
     "handle_qa_browser_context_get",
 ]

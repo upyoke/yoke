@@ -28,6 +28,10 @@ from dataclasses import dataclass
 from typing import Any, Dict, List
 
 from yoke_core.domain import db_backend, json_helper
+from yoke_core.domain.environment_identity_settings import (
+    ENVIRONMENT_IDENTITY_PATH,
+    environment_identity_path,
+)
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.served_revision_probe import origin_relative_path_error
 
@@ -35,12 +39,20 @@ from yoke_core.domain.served_revision_probe import origin_relative_path_error
 #: persistent environments; the identity path is its optional sibling to
 #: the liveness path it has always carried.
 IDENTITY_CAPABILITY = "health-endpoint"
+
+#: The capability describing how this project's ephemeral deployments are
+#: built and reached. A preview and a long-lived environment are different
+#: target classes, so each keeps its proof path on its own description.
+PREVIEW_IDENTITY_CAPABILITY = "ephemeral-env"
+
 IDENTITY_PATH_KEY = "identity_path"
 
-_HINT = (
-    "set it via: yoke projects capability-merge-settings "
-    f"<project> {IDENTITY_CAPABILITY} --set {IDENTITY_PATH_KEY}=/<path>"
-)
+
+def _hint(capability: str) -> str:
+    return (
+        "set it via: yoke projects capability-merge-settings "
+        f"<project> {capability} --set {IDENTITY_PATH_KEY}=/<path>"
+    )
 
 
 @dataclass(frozen=True)
@@ -61,12 +73,17 @@ class ConfiguredIdentityPath:
         return bool(self.path) and not self.error
 
 
-def identity_path_from_settings(settings: Any) -> ConfiguredIdentityPath:
+def identity_path_from_settings(
+    settings: Any, *, capability: str = IDENTITY_CAPABILITY
+) -> ConfiguredIdentityPath:
     """Read the identity path out of one capability settings document.
 
     Accepts the stored JSON text or an already-decoded mapping, because
     both are live shapes: the table stores text and callers that already
-    resolved a capability hold the mapping.
+    resolved a capability hold the mapping. *capability* names which
+    document was read, so a refusal points at the one an operator would
+    edit: the same key lives on more than one capability, and naming the
+    wrong one sends the fix to the wrong place.
     """
     if isinstance(settings, str):
         if not settings.strip():
@@ -76,7 +93,7 @@ def identity_path_from_settings(settings: Any) -> ConfiguredIdentityPath:
         except ValueError as exc:
             return ConfiguredIdentityPath(
                 error=(
-                    f"the {IDENTITY_CAPABILITY} capability settings are not "
+                    f"the {capability} capability settings are not "
                     f"readable JSON ({exc}), so whether this project can "
                     "prove a served revision is unknown rather than absent"
                 )
@@ -86,7 +103,7 @@ def identity_path_from_settings(settings: Any) -> ConfiguredIdentityPath:
     if not isinstance(settings, Mapping):
         return ConfiguredIdentityPath(
             error=(
-                f"the {IDENTITY_CAPABILITY} capability settings are a "
+                f"the {capability} capability settings are a "
                 f"{type(settings).__name__}, not an object, so no "
                 f"{IDENTITY_PATH_KEY} can be read from them"
             )
@@ -98,17 +115,19 @@ def identity_path_from_settings(settings: Any) -> ConfiguredIdentityPath:
     if shape_error:
         return ConfiguredIdentityPath(
             error=(
-                f"the {IDENTITY_CAPABILITY} capability's {IDENTITY_PATH_KEY} "
+                f"the {capability} capability's {IDENTITY_PATH_KEY} "
                 f"{path!r} {shape_error}; the origin comes from the "
                 "registered environment's own url and this setting only "
-                f"selects a path beneath it; {_HINT}"
+                f"selects a path beneath it; {_hint(capability)}"
             )
         )
     return ConfiguredIdentityPath(path=path)
 
 
-def persistent_identity_path(conn: Any, project_id: int) -> ConfiguredIdentityPath:
-    """The project's configured persistent served-revision path.
+def capability_identity_path(
+    conn: Any, project_id: int, capability: str
+) -> ConfiguredIdentityPath:
+    """The served-revision path *capability* configures for this project.
 
     A universe with no capability table at all configures nothing, which is
     the unconfigured answer rather than a read failure: there is no row to
@@ -122,19 +141,48 @@ def persistent_identity_path(conn: Any, project_id: int) -> ConfiguredIdentityPa
         row = conn.execute(
             "SELECT settings FROM project_capabilities "
             f"WHERE project_id={marker} AND type={marker}",
-            (int(project_id), IDENTITY_CAPABILITY),
+            (int(project_id), capability),
         ).fetchone()
     except Exception as exc:
         return ConfiguredIdentityPath(
             error=(
-                f"the {IDENTITY_CAPABILITY} capability could not be read "
+                f"the {capability} capability could not be read "
                 f"({exc}), so whether this project can prove a served "
                 "revision is unknown rather than absent"
             )
         )
     if row is None:
         return ConfiguredIdentityPath()
-    return identity_path_from_settings(row[0])
+    return identity_path_from_settings(row[0], capability=capability)
+
+
+def persistent_identity_path(
+    conn: Any, project_id: int, environment: str = ""
+) -> ConfiguredIdentityPath:
+    """The path a long-lived environment of this project proves itself at.
+
+    The environment answers first where the caller knows which one it
+    means, and the project-wide capability answers only where that
+    environment states nothing. Callers that genuinely ask about the
+    project rather than one of its environments pass no name and get the
+    project-wide answer, as they always did.
+    """
+    if environment:
+        stated, unusable = environment_identity_path(conn, int(project_id), environment)
+        if stated or unusable:
+            return ConfiguredIdentityPath(path=stated, error=unusable)
+    return capability_identity_path(conn, int(project_id), IDENTITY_CAPABILITY)
+
+
+def preview_identity_path(conn: Any, project_id: int) -> ConfiguredIdentityPath:
+    """The path an ephemeral deployment of this project proves itself at.
+
+    A preview and a long-lived environment are different target classes
+    deployed by different machinery, so each keeps its proof path on the
+    capability that describes it. Reading the persistent one for a preview
+    asks a path nothing published there.
+    """
+    return capability_identity_path(conn, int(project_id), PREVIEW_IDENTITY_CAPABILITY)
 
 
 def environment_urls(conn: Any, project_id: int, names: List[str]) -> Dict[str, str]:
@@ -211,19 +259,57 @@ def run_target_identity(
     from the driver's own machine. ``error`` travels with it: a driver that
     cannot tell "unconfigured" from "unreadable" would deploy on the
     strength of a failed read.
+
+    Paths are keyed by environment for the same reason the urls are: an
+    environment may state its own, and the stage that dispatches to it must
+    read the one belonging to the target it is about to change. The
+    unkeyed pair remains the answer for an environment no stage named.
     """
     configured = persistent_identity_path(conn, project_id)
     names = qa_target_environment_names(stages)
     if target_environment:
         names.append(target_environment)
+    names = list(dict.fromkeys(name for name in names if name))
+    per_environment = {}
+    for name in names:
+        resolved = persistent_identity_path(conn, project_id, name)
+        per_environment[name] = {"path": resolved.path, "error": resolved.error}
     return {
         "identity_path": configured.path,
         "error": configured.error,
+        "environment_identity": per_environment,
         "environment_urls": environment_urls(conn, project_id, names),
     }
 
 
+def identity_path_for(target_identity: Any, environment: str) -> tuple[str, str]:
+    """The ``(path, error)`` that answers for *environment*, and no other.
+
+    Selected by the same key as the origin, so a stage cannot probe one
+    environment's path against another's host. An environment the run never
+    enumerated falls back to the project-wide pair, which is what every
+    caller read before environments could answer for themselves.
+    """
+    identity = target_identity if isinstance(target_identity, Mapping) else {}
+    fallback = (
+        str(identity.get("identity_path") or ""),
+        str(identity.get("error") or ""),
+    )
+    keyed = identity.get("environment_identity")
+    if not environment or not isinstance(keyed, Mapping):
+        return fallback
+    stated = keyed.get(environment)
+    if not isinstance(stated, Mapping):
+        return fallback
+    return str(stated.get("path") or ""), str(stated.get("error") or "")
+
+
 __all__ = [
+    "identity_path_for",
+    "ENVIRONMENT_IDENTITY_PATH",
+    "environment_identity_path",
+    "capability_identity_path",
+    "preview_identity_path",
     "IDENTITY_CAPABILITY",
     "IDENTITY_PATH_KEY",
     "ConfiguredIdentityPath",
