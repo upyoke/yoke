@@ -11,7 +11,6 @@ so ``mock.patch("...browser_qa._log")`` applies without rebinding locals.
 from __future__ import annotations
 
 import http.cookiejar
-import json
 import socket
 import ssl
 import subprocess
@@ -20,9 +19,12 @@ import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from yoke_contracts.qa_artifact_read import artifact_read_command
+from yoke_core.domain.browser_qa_case_target_identity import (
+    credential_free_origin,
+    verify_case_target_identity,
+)
 from yoke_core.domain.browser_qa_freshness_outcome import (
     DEPLOYED_SHA_UNKNOWN,
     DEPLOYMENT_RECORD_MISSING,
@@ -232,17 +234,26 @@ def _establish_deployment_freshness(
     expected_sha: str,
     *,
     context: Dict[str, Any],
+    base_url: str = "",
     fetch_identity: Optional[Callable[[str], object]] = None,
-) -> tuple[Optional[FreshnessFailure], str]:
-    """Prove the deployment under test, and name the origin that proof covers.
+) -> tuple[Optional[FreshnessFailure], str, str]:
+    """Prove the target under test, and name what that proof covers.
 
-    Which deployment that is comes from the target the case is bound to,
-    never from the branch alone: a case that names an environment verifies
-    that environment, whether it hangs off a deployment run or an item, and
-    only a case bound to nothing verifies the branch's preview. Returns the
-    failure (or ``None``) together with the origin the established freshness
-    covers — empty when nothing was established, so the caller binds
-    execution only to a target something answered for.
+    Which target that is comes from the target the case is bound to, never
+    from the branch alone: a case that names an environment verifies that
+    environment, whether it hangs off a deployment run or an item; a case
+    bound to nothing verifies the branch's preview; and where the project
+    publishes no preview proof either, the last source is the host the case
+    is about to browse. That fallback is last, not lenient — it is reached
+    only where nothing was deployed and nothing was configured, so a
+    preview that answered wrongly or a configuration that could not be read
+    still refuses on its own terms.
+
+    Returns the failure (or ``None``), the origin the established freshness
+    covers, and the commit the answering source reported. The origin is
+    empty when nothing was established, so the caller binds execution only
+    to a target something answered for; the commit is what the run records,
+    so a stamped commit is always one some source actually produced.
     """
     if context.get("deployment_target") is not None:
         # The case's own bound target answers first: an environment a case
@@ -257,11 +268,40 @@ def _establish_deployment_freshness(
             fetch=fetch_identity,
         )
         if failure is not None:
-            return failure, ""
-        return None, origin_of(target.origin) if target.origin else ""
+            return failure, "", ""
+        origin = credential_free_origin(target.origin) if target.origin else ""
+        return None, origin, expected_sha
 
     identity_target = resolve_preview_identity_target(project, expected_branch)
     deployment_recorded = bool(context.get("deployment_recorded"))
+    if (
+        not deployment_recorded
+        and not identity_target.origin
+        and not identity_target.unreadable
+    ):
+        # Nothing was deployed and this project configures no preview proof,
+        # so the only thing that can answer is the host about to be browsed.
+        failure, served = verify_case_target_identity(
+            base_url, expected_sha, fetch=fetch_identity
+        )
+        if failure is not None:
+            # Three things could have answered and none did, so the refusal
+            # names all three recoveries rather than only the last one tried.
+            return (
+                FreshnessFailure(
+                    failure.reason,
+                    f"{failure.message} Alternatively, deploy branch "
+                    f"'{expected_branch}' so project '{project}' records what "
+                    "it served, or set the ephemeral-env capability's "
+                    "identity_path so its preview can be asked (yoke projects "
+                    f"capability-settings merge --project {project} --cap-type "
+                    "ephemeral-env --set identity_path=/<path>).",
+                ),
+                "",
+                "",
+            )
+        return None, credential_free_origin(base_url), served
+
     failure = _validate_deployed_sha(
         project,
         expected_branch,
@@ -272,74 +312,13 @@ def _establish_deployment_freshness(
         fetch_identity=fetch_identity,
     )
     if failure is not None:
-        return failure, ""
+        return failure, "", ""
     # Whichever source established freshness names the deployment it was
     # established about: the preview that answered for itself, or the
     # recorded deployment's own URL.
     if not deployment_recorded and identity_target.origin:
-        return None, origin_of(identity_target.origin)
+        return None, credential_free_origin(identity_target.origin), expected_sha
     if deployment_recorded and context.get("ephemeral_url"):
-        return None, origin_of(str(context["ephemeral_url"]))
-    return None, ""
-
-
-def _build_code_identity(
-    expected_branch: Optional[str],
-    expected_sha: Optional[str],
-) -> Dict[str, str]:
-    """Build the code identity payload recorded on browser QA runs."""
-    payload: Dict[str, str] = {}
-    if expected_branch:
-        payload["branch"] = expected_branch
-    if expected_sha:
-        payload["sha"] = expected_sha
-    return payload
-
-
-def _build_run_payload(
-    *,
-    project: str,
-    base_url: str,
-    code_identity: Dict[str, str],
-    freshness_validated: bool,
-    verdict: Optional[str] = None,
-    execution_status: Optional[str] = None,
-    errors: str = "",
-    artifacts: Optional[List[str]] = None,
-    requirement_id: Optional[int] = None,
-    artifact_ids: Optional[List[int]] = None,
-    expected_screenshots: int = 0,
-    recorded_screenshots: int = 0,
-    note: Optional[str] = None,
-) -> str:
-    """Build the structured raw_result payload for browser QA runs."""
-    payload: Dict[str, Any] = {
-        "project": project,
-        "base_url": base_url,
-        "freshness_validated": freshness_validated,
-    }
-    if code_identity:
-        payload["code_identity"] = code_identity
-    if verdict:
-        payload["verdict"] = verdict
-    if execution_status:
-        payload["execution_status"] = execution_status
-    if errors:
-        payload["errors"] = errors
-    if artifacts:
-        # Machine-local capture scratch: useful to the capturing process,
-        # refused by the path guard of the session that reviews it later.
-        payload["artifacts"] = artifacts
-    if artifact_ids:
-        payload["artifact_ids"] = list(artifact_ids)
-        if requirement_id is not None:
-            payload["artifact_reads"] = [
-                artifact_read_command(int(requirement_id), int(artifact_id))
-                for artifact_id in artifact_ids
-            ]
-    if expected_screenshots > 0:
-        payload["expected_screenshots"] = expected_screenshots
-        payload["recorded_screenshots"] = recorded_screenshots
-    if note:
-        payload["note"] = note
-    return json.dumps(payload, sort_keys=True)
+        recorded = str(context.get("deployed_sha") or expected_sha)
+        return None, credential_free_origin(str(context["ephemeral_url"])), recorded
+    return None, "", str(context.get("deployed_sha") or expected_sha)

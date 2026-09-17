@@ -1,3 +1,4 @@
+import { paintTabBar } from "./universe_tab_bar.js";
 import { el } from "./universe_view_support.js";
 import {
   mountWorkflowDialog,
@@ -172,6 +173,34 @@ export function readablePolicyValue(policy, value) {
   return String(value ?? "").replaceAll("_", " ");
 }
 
+// Only the states worth crossing the strip for. "Up to date" belongs on the
+// workflow you opened, not on every tab — a row of reassurances is noise,
+// where a row of nothing-but-the-one-that-needs-you is a signal.
+const CROSS_THE_STRIP_CANON_STATES = new Set([
+  "update_available",
+  "customized_update_available",
+]);
+
+function workflowTab(workflow, selected) {
+  const workflowName = workflow.name || workflow.id;
+  const disabled = workflow.status === "disabled";
+  const statuses = [];
+  if (disabled) statuses.push({ label: "disabled" });
+  if (CROSS_THE_STRIP_CANON_STATES.has(workflow.canon_status?.state)) {
+    statuses.push({ label: "update", tone: "update" });
+  }
+  return {
+    id: workflow.id,
+    label: workflowName,
+    disabled,
+    statuses,
+    ariaLabel: `${workflowName} workflow · ${disabled ? "disabled" : "active"}`,
+    domId: `workflow-tab-${workflowDomId(workflow.id)}`,
+    controls: `workflow-panel-${workflowDomId(workflow.id)}`,
+    attributes: { "data-workflow-id": workflow.id },
+  };
+}
+
 export function renderTabs(
   documentNode,
   host,
@@ -179,76 +208,13 @@ export function renderTabs(
   selectedId,
   select,
 ) {
-  host.replaceChildren();
-  const focusRenderedTab = (workflowId) => {
-    const rendered = [...host.children].find(
-      (node) => node.attributes?.get?.("data-workflow-id") === workflowId ||
-        node.getAttribute?.("data-workflow-id") === workflowId,
-    );
-    if (typeof rendered?.focus === "function") rendered.focus();
-  };
-  for (const [index, workflow] of workflows.entries()) {
-    const workflowName = workflow.name || workflow.id;
-    const disabled = workflow.status === "disabled";
-    const selected = workflow.id === selectedId;
-    const tab = button(
-      documentNode,
-      workflowName,
-      `workflow-tab${selected ? " selected" : ""}` +
-        `${disabled ? " disabled" : ""}`,
-    );
-    if (disabled) {
-      tab.appendChild(el(
-        documentNode, "span", "workflow-tab-status", "disabled",
-      ));
-    }
-    // Only the states worth crossing the list for. "Up to date" belongs on the
-    // workflow you opened, not on every tab -- a row of reassurances is noise,
-    // where a row of nothing-but-the-one-that-needs-you is a signal.
-    const canonState = workflow.canon_status?.state;
-    if (
-      canonState === "update_available" ||
-      canonState === "customized_update_available"
-    ) {
-      tab.appendChild(el(
-        documentNode, "span", "workflow-tab-status update", "update",
-      ));
-    }
-    tab.setAttribute(
-      "aria-label",
-      `${workflowName} workflow · ${disabled ? "disabled" : "active"}`,
-    );
-    tab.setAttribute("role", "tab");
-    tab.setAttribute("aria-selected", String(selected));
-    tab.setAttribute("id", `workflow-tab-${workflowDomId(workflow.id)}`);
-    tab.setAttribute(
-      "aria-controls", `workflow-panel-${workflowDomId(workflow.id)}`,
-    );
-    tab.setAttribute("data-workflow-id", workflow.id);
-    tab.tabIndex = selected ? 0 : -1;
-    tab.addEventListener("click", () => select(workflow.id));
-    tab.addEventListener("keydown", (event) => {
-      const keyOffsets = {
-        ArrowLeft: -1,
-        ArrowRight: 1,
-      };
-      let nextIndex = null;
-      if (event.key === "Home") nextIndex = 0;
-      else if (event.key === "End") nextIndex = workflows.length - 1;
-      else if (Object.hasOwn(keyOffsets, event.key)) {
-        nextIndex = (
-          index + keyOffsets[event.key] + workflows.length
-        ) % workflows.length;
-      }
-      if (nextIndex === null) return;
-      event.preventDefault();
-      const nextId = workflows[nextIndex].id;
-      select(nextId);
-      focusRenderedTab(nextId);
-      Promise.resolve().then(() => focusRenderedTab(nextId));
-    });
-    host.appendChild(tab);
-  }
+  paintTabBar(documentNode, host, {
+    tabs: workflows.map(
+      (workflow) => workflowTab(workflow, workflow.id === selectedId),
+    ),
+    activeId: selectedId,
+    onSelect: select,
+  });
 }
 
 export function renderWorkflowDialog(documentNode, host, spec) {

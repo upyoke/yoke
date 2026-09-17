@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { overviewRunCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_overview_cards.js";
+import { shippingRunCard } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_work_cards.js";
 import { FakeDocument, byClass, settle } from "./universe_ui_dom_test_support.mjs";
 import {
   deploymentRequestRow,
@@ -110,7 +110,7 @@ function runGate(row, overrides = {}) {
 
 function renderRunCard(gate) {
   const acted = [];
-  const card = overviewRunCard(
+  const card = shippingRunCard(
     { document: new FakeDocument(), client: inboxClient(), projects: () => [] },
     runRow(gate),
     "all",

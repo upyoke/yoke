@@ -1,23 +1,203 @@
-/* The Inbox: three disclosure sections in the Overview's shape, each a list
-   of grey cards on the white page. The card itself is styled beside its
-   module; this sheet carries the page, the message card, and the details
-   vocabulary a card's long form is built from. */
+/* The Inbox: one column of sections, each a list of cards on the page. The
+   card itself is styled beside its module; this sheet carries the page, the
+   message card, and the two-column anatomy every decision card takes here.
+
+   One column, not two: a decision is read, not compared, and a pair of them
+   side by side halved the width the thing being decided had to explain
+   itself in. */
 .universe-app-root .inbox-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+  width: 100%;
+  max-width: 1100px;
 }
-.universe-app-root .inbox-sections .overview-section[hidden] {
+.universe-app-root .inbox-sections > .band-section {
+  min-width: 0;
+  margin: 0;
+}
+
+/* A decision card is two regions: the ask on the left, what it rests on and
+   how to settle it on the right. The side column is a fixed width because
+   what sits in it — thumbnails, reviewer requirements, buttons — has a
+   natural size, while the ask takes whatever is left. */
+.universe-app-root .inbox-sections .review-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 10px 20px;
+  padding: 18px 20px;
+  box-shadow: none;
+}
+.universe-app-root .inbox-sections .review-card > * {
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+.universe-app-root .inbox-sections .review-main {
+  grid-column: 1;
+  min-width: 0;
+}
+.universe-app-root .inbox-sections .review-side {
+  display: flex;
+  grid-column: 2;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.universe-app-root .inbox-sections .review-title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.025em;
+}
+.universe-app-root .inbox-sections .review-kind {
+  margin-bottom: 10px;
+  color: var(--yoke-muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.universe-app-root .inbox-sections .review-context {
+  margin-top: 10px;
+  color: var(--yoke-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.universe-app-root .inbox-sections .review-effect,
+.universe-app-root .inbox-sections .review-question {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+/* Label and value in two columns rather than a paragraph of runs: a QA
+   review is a handful of named facts, and a reader scans them. */
+.universe-app-root .inbox-sections .review-qa {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 6px 14px;
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.universe-app-root .inbox-sections .review-qa dt {
+  color: var(--yoke-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.universe-app-root .inbox-sections .review-qa dd {
+  margin: 0;
+  font-size: 14px;
+}
+/* Thumbnails stay small and whole: contained rather than cropped, because a
+   cropped screenshot of a page is a picture of its top-left corner. The
+   full-size viewer is one press away. */
+.universe-app-root .inbox-sections .review-evidence {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+}
+/* Tall enough to read. These are whole-page captures — most are several
+   times taller than they are wide — so a wide-short box under `contain`
+   shrank them to a few pixels of width. Two still sit across the 260px
+   column, and `contain` still shows the whole image rather than a crop. */
+.universe-app-root .inbox-sections .review-shot {
+  width: 122px;
+  flex: 0 1 122px;
+}
+.universe-app-root .inbox-sections .review-shot-open {
+  height: 200px;
+  min-height: 0;
+  overflow: hidden;
+}
+/* An artifact that cannot be fetched has no picture to give that height to,
+   so it keeps the compact box: three of them side by side were otherwise a
+   tall band of blank with a step label at the bottom. */
+.universe-app-root .inbox-sections .review-shot.is-unavailable
+  .review-shot-open {
+  height: 65px;
+}
+.universe-app-root .inbox-sections .review-shot-image {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  object-fit: contain;
+  object-position: center;
+}
+.universe-app-root .inbox-sections .review-shot-caption {
+  padding: 6px 0;
+  font-size: 12px;
+}
+.universe-app-root .inbox-sections .review-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  text-align: right;
+}
+.universe-app-root .inbox-sections .review-who {
+  width: 100%;
+  color: var(--yoke-muted);
+  font-weight: 400;
+}
+/* Carried work is a divider under the ask, not a second panel inside the
+   card: a nested white box inside a card reads as a card inside a card. */
+.universe-app-root .inbox-sections .approval-carried {
+  margin-top: 4px;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--yoke-border);
+  border-radius: 0;
+  background: transparent;
+}
+.universe-app-root .release-member-rest[hidden] {
   display: none;
 }
+.universe-app-root .release-member-rest {
+  display: grid;
+  gap: 8px;
+}
+
+@media (max-width: 850px) {
+  .universe-app-root .inbox-sections .review-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .universe-app-root .inbox-sections .review-main,
+  .universe-app-root .inbox-sections .review-side {
+    grid-column: 1;
+  }
+  .universe-app-root .inbox-sections .review-evidence,
+  .universe-app-root .inbox-sections .review-foot {
+    justify-content: flex-start;
+    text-align: left;
+  }
+}
+.universe-app-root .inbox-sections .band-section[hidden] {
+  display: none;
+}
+/* Message on the left, who sent it on the right: the attribution keeps a
+   column of its own so a long body wraps inside its own half instead of
+   pushing the sender down the card. */
 .universe-app-root .inbox-message {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 24%);
+  gap: 16px;
+  padding: 14px 16px;
   border: 1px solid var(--yoke-border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--yoke-surface);
+}
+.universe-app-root .inbox-message-sender {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  text-align: right;
 }
 .universe-app-root .inbox-message + .inbox-message {
   margin-top: 10px;
@@ -28,14 +208,27 @@
 }
 .universe-app-root .inbox-message-body {
   color: var(--yoke-ink);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .universe-app-root .inbox-message-meta {
-  margin-top: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin: 0;
   color: var(--yoke-muted);
   font-size: 12px;
+  font-weight: 500;
+}
+
+/* At phone width the two columns stack, and the sender stays right: it is
+   the same fact in the same place, on one line instead of beside one. */
+@media (max-width: 440px) {
+  .universe-app-root .inbox-message {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .universe-app-root .inbox-read {
   flex: 0 0 auto;

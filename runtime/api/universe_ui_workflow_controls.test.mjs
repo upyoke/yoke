@@ -33,11 +33,11 @@ test("workflow tabs use the decided built-in order and open Dash first", async (
     t, workflowsClient(workflows),
   );
 
-  assert.deepEqual(classText(root, "workflow-tab"), [
+  assert.deepEqual(classText(root, "tab-link"), [
     "Dash", "Blitz", "Issue", "Epic", "Rally",
   ]);
   assert.equal(
-    byClass(root, "workflow-tab")[0].attributes.get("aria-selected"),
+    byClass(root, "tab-link")[0].attributes.get("aria-selected"),
     "true",
   );
   assert.deepEqual(classText(root, "workflow-intro"), [
@@ -45,7 +45,7 @@ test("workflow tabs use the decided built-in order and open Dash first", async (
       "an agent executes it end-to-end.",
   ]);
 
-  byClass(root, "workflow-tab")[2].dispatchEvent(new Event("click"));
+  byClass(root, "tab-link")[2].dispatchEvent(new Event("click"));
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
   assert.equal(
@@ -53,7 +53,7 @@ test("workflow tabs use the decided built-in order and open Dash first", async (
     "#/workflows/issue?selection=all",
   );
   assert.equal(
-    byClass(root, "workflow-tab")[2].attributes.get("aria-selected"),
+    byClass(root, "tab-link")[2].attributes.get("aria-selected"),
     "true",
   );
   assert.deepEqual(classText(root, "workflow-intro"), [
@@ -73,9 +73,9 @@ test("a workflow detail route selects the linked definition", async (t) => {
     "#/workflows/epic",
   );
 
-  assert.deepEqual(classText(root, "workflow-tab"), ["Dash", "Epic"]);
+  assert.deepEqual(classText(root, "tab-link"), ["Dash", "Epic"]);
   assert.equal(
-    byClass(root, "workflow-tab")[1].attributes.get("aria-selected"),
+    byClass(root, "tab-link")[1].attributes.get("aria-selected"),
     "true",
   );
   assert.deepEqual(classText(root, "workflow-intro"), [

@@ -93,9 +93,9 @@ test("no notice means no notices section, and the counts stay separate", async (
 
   assert.equal(section(main, "notices").hidden, true);
   assert.equal(
-    byClass(section(main, "notices"), "overview-section-count")[0].textContent, "0",
+    byClass(section(main, "notices"), "band-section-count")[0].textContent, "0",
   );
   assert.equal(
-    byClass(section(main, "messages"), "overview-section-count")[0].textContent, "1",
+    byClass(section(main, "messages"), "band-section-count")[0].textContent, "1",
   );
 });

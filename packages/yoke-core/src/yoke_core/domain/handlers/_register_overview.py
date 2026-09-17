@@ -1,7 +1,7 @@
 """Handler registrations for the overview.* activation-module surface.
 
 All ids are browser-proxied UI surfaces (``adapter_status=
-"internal"``): the workbench Overview dispatches them through the local
+"internal"``): the workbench dispatches them through the local
 ``yoke ui`` proxy or the hosted doorman, so no agent CLI adapter exists.
 ``overview.vitals.get`` is the actor-visible state/momentum projection.
 ``overview.activation.get`` declares its one sanctioned side effect —

@@ -75,16 +75,20 @@ compare it with `--compare REPORT.json`; mismatched identity, revisions,
 command, or sample count, and incomplete evaluator/client-wall coverage, are
 labelled incomparable.
 
-## Overview and Inbox
+## Focus pages and Inbox
 
-- **Overview** — glance sections across strategy, frontier, sessions,
-  delivery, events, doctor
+- **Strategy** — the corpus itself: standing direction, the plans under
+  it, the archive, and the write history below them
+- **Frontier** — work in the four states work is in: stopped and why,
+  free to pick up, being worked on right now, and finished in the last day
+- **Shipping** — deployment runs as they execute, with what each release
+  carries and the approvals it waits on
 - **Inbox** — three sections: the decisions waiting on you (a release
   approval, a work approval, or a QA review), the messages sent to you, and
   what you decided while on the page. An agent that needs you to know
   something sends a message, with context and a specific ask
-- Every decision is one card, the same card a run draws on the Overview's
-  Shipping band and on the run page: what kind of ask it is, what it is
+- Every decision is one card, the same card a run draws on Shipping and on
+  the run page: what kind of ask it is, what it is
   about, what a yes does in one sentence, the evidence behind it, who
   settles it, and the answer. Screenshots load as thumbnails and open in
   place; stored command output opens as text; evidence held on another

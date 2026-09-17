@@ -40,17 +40,12 @@ test("Sessions renders resolved local identity and the exact empty state", async
   });
   await settle();
 
-  assert.equal(byClass(root, "page-head")[0].hidden, true);
-  const sections = byClass(root, "overview-section");
-  assert.equal(sections.length, 2);
-  assert.equal(sections.every((node) => node.tagName === "DETAILS"), true);
-  assert.equal(sections.every(
-    (node) => node.children[0].tagName === "SUMMARY",
-  ), true);
-  assert.deepEqual(
-    byClass(root, "overview-section-title").map((node) => node.textContent),
-    ["Machines", "Sessions"],
-  );
+  // Sessions is sessions. The machine roster is its own destination now, so
+  // the page carries the destination's own heading and nothing else's.
+  assert.equal(byClass(root, "page-head")[0].hidden, false);
+  assert.equal(byClass(root, "title")[0].textContent, "Sessions");
+  assert.equal(byClass(root, "band-section").length, 0);
+  assert.equal(byClass(root, "machines-panel").length, 0);
   assert.equal(byClass(root, "session-operator")[0].textContent, "Ben");
   assert.equal(byClass(root, "session-actor-avatar").length, 0);
   assert.ok(visibleText(root).includes("No active work claims"));
@@ -68,11 +63,16 @@ test("Sessions renders resolved local identity and the exact empty state", async
     byClass(emptyRoot, "sessions-empty")[0].textContent,
     "No sessions match the current filters.",
   );
+  // Five facts: how much of the filtered roster is on screen, what it
+  // holds, who is running it, and the spend window beside them.
   assert.deepEqual(
-    byClass(emptyRoot, "sessions-stats")[0].children.map(
-      (tile) => tile.children[0].textContent,
-    ),
-    ["0", "0", "0"],
+    byClass(emptyRoot, "sessions-stats")[0].children
+      .map((tile) => tile.children[0].textContent),
+    ["0", "0", "0", "—", "—"],
+  );
+  assert.deepEqual(
+    byClass(emptyRoot, "usage-stat-unit").map((node) => node.textContent),
+    ["24h tokens", "24h API cost"],
   );
   const filterHost = byClass(emptyRoot, "session-roster-filters")[0];
   assert.deepEqual(
@@ -225,13 +225,20 @@ test("Sessions sizes its stats and keeps the message row to one text line", () =
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions.css",
     import.meta.url,
   ), "utf8");
+  // Five facts across one strip, in the compact tile anatomy the shared
+  // content sheet owns.
   assert.match(
     css,
-    /\.sessions-stats \{\s*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/,
+    /\.sessions-stats \{[\s\S]*?grid-template-columns: repeat\(5, minmax\(0, 1fr\)\);/,
   );
-  assert.match(css, /\.sessions-stats \.stat \{[^}]*padding: 9px 13px;/s);
-  assert.match(css, /\.sessions-stats \.stat \.n \{ font-size: 17px; font-weight: 700; \}/);
-  assert.match(css, /\.sessions-stats \.stat \.l \{[^}]*font-weight: 400; \}/);
+  assert.match(css, /\.sessions-usage-scope \{[^}]*font-size: 12px;/s);
+  const content = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_content.css",
+    import.meta.url,
+  ), "utf8");
+  assert.match(content, /> \.stat,[\s\S]*?padding: 8px 12px;/);
+  assert.match(content, /\.stat \.n,[\s\S]*?font-size: 18px;/);
+  assert.match(content, /\.stat \.l,[\s\S]*?font-size: 12px;/);
   assert.match(css, /\.session-item-title \{[^}]*font-weight: 700;/s);
   assert.match(
     css,

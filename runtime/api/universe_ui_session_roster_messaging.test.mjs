@@ -133,16 +133,16 @@ test("roster defaults to active and exposes only the supported filters", async (
   );
   // The app-wide steering-color roster (context.refreshSteeringGroupColors)
   // calls sessions.list once at boot and once again alongside this view's
-  // own scoped load; the machines panel's own durable 24h-usage read
-  // fires alongside that scoped load too.
+  // own scoped load; the page's own durable 24h spend read fires beside
+  // them, because the window it answers for is not the filtered roster.
   assert.deepEqual(
     requests.filter((request) => request.function === "sessions.list")
       .map((request) => request.payload),
     [
       { open: true, per_project: true },
-      { usage_last_24h: true, projects: ["1"] },
       { open: true, projects: ["1"] },
       { open: true, per_project: true },
+      { usage_last_24h: true, projects: ["1"] },
     ],
   );
 

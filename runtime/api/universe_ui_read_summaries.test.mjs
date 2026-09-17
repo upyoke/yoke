@@ -142,7 +142,7 @@ test("Projects is an aggregate roster and each project opens its settings", asyn
   }
   mounted.unmount();
 });
-test("section-led views omit duplicate heads while Items restores its head", async (t) => {
+test("every routed view carries exactly one page heading", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -174,13 +174,13 @@ test("section-led views omit duplicate heads while Items restores its head", asy
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
-  // Machines and Sessions orient this page, so duplicate title/subtitle
-  // chrome stays absent and the project picker lives in the top context.
-  assert.equal(byClass(root, "page-head")[0].hidden, true);
-  assert.deepEqual(
-    byClass(root, "overview-section-title").map((node) => node.textContent),
-    ["Machines", "Sessions"],
-  );
+  // One heading, from the destination, and no second orienting band under
+  // it; the project picker lives in the top context.
+  const sessionsHead = byClass(root, "page-head")[0];
+  assert.equal(sessionsHead.hidden, false);
+  assert.equal(byClass(sessionsHead, "title")[0].textContent, "Sessions");
+  assert.equal(byClass(sessionsHead, "subtitle").length, 0);
+  assert.equal(byClass(root, "band-section").length, 0);
   const content = byClass(root, "content")[0];
   assert.ok(byClass(root, "scope-bar")[0].parentNode.classList
     .contains("header-scope-host"));

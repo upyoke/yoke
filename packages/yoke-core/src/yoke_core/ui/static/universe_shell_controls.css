@@ -12,37 +12,42 @@
   border: 0;
 }
 
+/* ---------- search ----------
+   The header control is an entry point, not the feature: a button shaped like
+   a field, which opens the dialog the shortcut it advertises also opens. The
+   icon button beside it is the same entry point at a width the field cannot
+   survive, so search never disappears with the space it needed. */
 .universe-app-root .header-search {
-  position: relative;
   display: flex;
-  align-items: center;
   width: min(280px, 32vw);
   min-width: 190px;
-  padding: 0 8px 0 10px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 10px;
   border: 1px solid var(--yoke-border);
   border-radius: 8px;
   background: var(--yoke-surface);
   color: var(--yoke-muted);
-}
-.universe-app-root .header-search:focus-within {
-  border-color: var(--yoke-accent-line);
-  box-shadow: 0 0 0 3px var(--yoke-accent-weak);
-}
-.universe-app-root .header-search-input {
-  flex: 1 1 auto;
-  width: 100%;
-  min-width: 0;
-  padding: 6px 0;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--yoke-ink);
+  cursor: pointer;
   font: inherit;
   font-size: 12.5px;
+  text-align: left;
 }
-.universe-app-root .header-search-input::placeholder {
-  color: var(--yoke-muted);
-  opacity: 1;
+.universe-app-root .header-search:hover {
+  border-color: var(--yoke-accent-line);
+  color: var(--yoke-ink-2);
+}
+.universe-app-root .header-search:focus-visible {
+  border-color: var(--yoke-accent-line);
+  box-shadow: 0 0 0 3px var(--yoke-accent-weak);
+  outline: 0;
+}
+.universe-app-root .header-search-placeholder {
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .universe-app-root .header-search-key {
   flex: 0 0 auto;
@@ -54,64 +59,6 @@
   font-family: var(--yoke-font-mono);
   font-size: 10.5px;
   font-weight: 500;
-}
-.universe-app-root .header-search-results {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + 7px);
-  left: 0;
-  width: min(440px, calc(100vw - 36px));
-  max-height: min(420px, calc(100vh - 90px));
-  overflow-y: auto;
-  padding: 5px;
-  border: 1px solid var(--yoke-border);
-  border-radius: 10px;
-  background: var(--yoke-bg);
-  box-shadow: var(--yoke-shadow);
-}
-.universe-app-root .header-search-result {
-  display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
-  gap: 9px;
-  padding: 8px 9px;
-  border-radius: 7px;
-  color: var(--yoke-ink);
-  text-decoration: none;
-}
-.universe-app-root .header-search-result:hover,
-.universe-app-root .header-search-result.active {
-  background: var(--yoke-hover);
-}
-.universe-app-root .header-search-kind {
-  color: var(--yoke-muted);
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.universe-app-root .header-search-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-.universe-app-root .header-search-label,
-.universe-app-root .header-search-meta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.universe-app-root .header-search-label {
-  font-size: 12.5px;
-  font-weight: 600;
-}
-.universe-app-root .header-search-meta,
-.universe-app-root .header-search-status {
-  color: var(--yoke-muted);
-  font-size: 11px;
-}
-.universe-app-root .header-search-status {
-  margin: 0;
-  padding: 10px;
 }
 
 .universe-app-root .header-spacer {

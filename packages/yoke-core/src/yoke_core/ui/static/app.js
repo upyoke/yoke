@@ -117,6 +117,7 @@ export function mountUniverseApp(rootNode, options = {}) {
     setScopeVisible, shell,
   } = createWorkbenchChrome({
     client,
+    context,
     documentNode,
     mountedSlotNodes,
     options,
@@ -198,6 +199,9 @@ export function mountUniverseApp(rootNode, options = {}) {
     // under different tabs, and its renderer decides which.
     const breadcrumbNavigation = (breadcrumb) => ({
       tab: route.tab,
+      // The trail itself, for a drill-in whose heading row is where it
+      // belongs rather than a line of its own above it.
+      breadcrumb,
       setDetailLabel(label) {
         if (!mounted || main.children[0] !== breadcrumb) return;
         breadcrumb.children[breadcrumb.children.length - 1].textContent =

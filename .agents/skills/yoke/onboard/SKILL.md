@@ -23,7 +23,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 - **Assume the wizard's output; never re-create it.** If the machine, account, GitHub connection, or project binding is missing, stop and point the operator at the `yoke onboard` terminal wizard. This skill never reimplements wire-up.
 - **Harness connection is upstream and detect-only.** The skill runs inside an already-connected harness. Detect and link harnesses; never install one for the user.
-- **The web views and steers; it never invokes.** The workbench Overview renders this checklist's rows and offers this command as text for the operator to run. No web button runs this skill.
+- **The web views and steers; it never invokes.** The workbench's navigation Setup control renders this checklist's rows and offers this command as text for the operator to run. No web button runs this skill.
 - **Checklist authority** is `yoke onboard checklist --run-id {run_id} --json`. The rendered project-local checklist view is read-only display; never treat it as authority and never edit it.
 - **Sanctioned surfaces only.** Every mutation goes through registered `yoke <subcommand>` adapters / function ids — no raw DB writes, no ad hoc shell choreography. Do not hand-write project runtime, browser, or core implementation files; reusable capability code lands only through the preview-first Pack surfaces.
 - **Secrets never through the chat.** Credential values go only into terminal `--value-stdin` prompts; the conversation carries redacted evidence only (identity checks, key IDs). Never print raw secret values.

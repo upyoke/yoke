@@ -153,8 +153,17 @@
   line-height: 1.48;
 }
 
+/* A grid item's automatic minimum is its content, so a row of capability
+   chips that cannot wrap sets the card's column width and drags the rows
+   above it past the card's own box. Each row may shrink, and the chips
+   wrap onto a second line rather than deciding how wide a phone is. */
+.qa-method-card > * {
+  min-width: 0;
+}
+
 .qa-method-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 7px;
   padding-top: 9px;

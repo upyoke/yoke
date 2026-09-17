@@ -11,8 +11,8 @@ Security model:
 
 * Binds ``127.0.0.1`` only; nothing is reachable off-machine.
 * One random session token per run (:func:`mint_session_token`). Every
-  route — the app shell, static assets, and the function proxy — requires
-  it. The token arrives as a ``?token=`` query parameter on the first hit;
+  route — the app shell, static assets, the served-build identity path,
+  and the function proxy — requires it. The token arrives as a ``?token=`` query parameter on the first hit;
   the app shell exchanges it for an HttpOnly cookie and 303-redirects to
   the bare URL, so asset and API requests authenticate via the cookie and
   the tokened form drops out of browser history. The tokened URL is the
@@ -34,12 +34,17 @@ import threading
 import webbrowser
 from typing import Any, Dict, Optional
 
+from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
 from yoke_core.ui.asset_roster import ASSET_CACHE_CONTROL, ASSET_CONTENT_TYPES
 from yoke_core.ui.function_proxy import (
     UI_ACTIVATION_LATCH_FUNCTIONS,
     UI_MUTATION_FUNCTION_ALLOWLIST,
     UI_READ_FUNCTION_ALLOWLIST,
     proxy_function_call,
+)
+from yoke_core.ui.served_source_identity import (
+    served_build_identity,
+    served_install,
 )
 
 #: Default bind host and TCP port for the UI server (loopback only).
@@ -137,17 +142,16 @@ def _local_host_identity_json() -> str:
     """Serialize mount fields from the canonical runtime-identity packet."""
     import json
 
-    import yoke_core
     from yoke_contracts.runtime_identity import (
         PORTABILITY_LOCAL,
         build_runtime_identity,
-        detect_install,
         mount_fields,
     )
 
     packet = build_runtime_identity(
         portability_mode=PORTABILITY_LOCAL,
-        install=detect_install(yoke_core.__file__),
+        install=served_install(),
+        build=served_build_identity(),
     )
     fields = mount_fields(packet)
     from yoke_core.ui.local_operator_actor import resolve_local_operator_actor
@@ -256,6 +260,18 @@ def create_ui_app(token: str):
             _asset_bytes(asset_name),
             media_type=content_type,
             headers={"Cache-Control": ASSET_CACHE_CONTROL},
+        )
+
+    @app.get(SERVED_BUILD_PATH)
+    def served_build_path() -> Response:
+        # Plain text and nothing else: the reader matches a bare commit id,
+        # so a wrapper object would be indistinguishable from an unanswered
+        # question. An empty body is the honest answer when this server
+        # cannot name its commit, and fails that match rather than passing.
+        return Response(
+            served_build_identity(),
+            media_type="text/plain; charset=utf-8",
+            headers={"Cache-Control": "no-store"},
         )
 
     @app.post("/api/functions/call")

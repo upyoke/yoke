@@ -278,30 +278,57 @@
 }
 
 
-/* Stat tile: one number that matters, on the raised surface. Hosts and the
-   Overview compose rows of these. */
+/* Summary tile: one number and what it counts, read on one line.
+ *
+ * Every page composes rows of these, so they share one anatomy: the value
+ * and its label sit inline at the height the text needs, rather than in a
+ * tall card whose fixed height left a band of empty surface under two short
+ * words. A row of five of them is then a strip an operator scans, not five
+ * panels they read. */
 .universe-app-root .stat-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   margin-bottom: 22px;
 }
-.universe-app-root .stat {
-  background: var(--yoke-surface);
+.universe-app-root :is(.stat-row, .sessions-stats, .strategy-stats) > .stat,
+.universe-app-root :is(.stat-row, .sessions-stats) > .usage-stat,
+.universe-app-root .machine-roster-stat {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  align-self: start;
+  gap: 6px 8px;
+  min-height: 0;
+  height: auto;
+  padding: 8px 12px;
   border: 1px solid var(--yoke-border);
-  border-radius: var(--yoke-radius);
-  padding: 13px 15px;
+  border-radius: 8px;
+  background: var(--yoke-surface);
 }
-.universe-app-root .stat .n {
-  font-size: 23px;
-  font-weight: 640;
+.universe-app-root :is(.stat-row, .sessions-stats, .strategy-stats) > .stat .n,
+.universe-app-root
+  :is(.stat-row, .sessions-stats) > .usage-stat .usage-stat-value,
+.universe-app-root .machine-roster-stat strong {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
-.universe-app-root .stat .l {
-  font-size: 11.5px;
+.universe-app-root :is(.stat-row, .sessions-stats, .strategy-stats) > .stat .l,
+.universe-app-root
+  :is(.stat-row, .sessions-stats) > .usage-stat .usage-stat-unit,
+.universe-app-root .machine-roster-stat > span {
+  margin: 0;
   color: var(--yoke-muted);
-  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .universe-app-root .strategy-stats {

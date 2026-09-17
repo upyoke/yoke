@@ -171,7 +171,7 @@ class TestBranchPreviewJourney:
                     origin=PREVIEW_ORIGIN, path=IDENTITY_PATH
                 ),
             ):
-                failure, verified_origin = _establish_deployment_freshness(
+                failure, verified_origin, _sha = _establish_deployment_freshness(
                     PROJECT,
                     BRANCH,
                     DEPLOYED_SHA,
@@ -197,7 +197,7 @@ class TestBranchPreviewJourney:
                     origin=PREVIEW_ORIGIN, path=IDENTITY_PATH
                 ),
             ):
-                failure, verified_origin = _establish_deployment_freshness(
+                failure, verified_origin, _sha = _establish_deployment_freshness(
                     PROJECT,
                     BRANCH,
                     DEPLOYED_SHA,
@@ -252,7 +252,7 @@ class TestProductionRunJourney:
             requirement_id = self._seed_production_run(conn)
             context = _context(conn, requirement_id, run_id=RUN_ID)
             assert context["deployment_target"]["environment"] == ENVIRONMENT
-            failure, verified_origin = _establish_deployment_freshness(
+            failure, verified_origin, _sha = _establish_deployment_freshness(
                 PROJECT,
                 BRANCH,
                 DEPLOYED_SHA,
@@ -268,7 +268,7 @@ class TestProductionRunJourney:
         with test_database() as conn:
             requirement_id = self._seed_production_run(conn)
             context = _context(conn, requirement_id, run_id=RUN_ID)
-            failure, _ = _establish_deployment_freshness(
+            failure, _, _sha = _establish_deployment_freshness(
                 PROJECT,
                 BRANCH,
                 DEPLOYED_SHA,
@@ -282,7 +282,7 @@ class TestProductionRunJourney:
         with test_database() as conn:
             requirement_id = self._seed_production_run(conn, identity_path="")
             context = _context(conn, requirement_id, run_id=RUN_ID)
-            failure, _ = _establish_deployment_freshness(
+            failure, _, _sha = _establish_deployment_freshness(
                 PROJECT,
                 BRANCH,
                 DEPLOYED_SHA,

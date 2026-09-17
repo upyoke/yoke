@@ -9,6 +9,7 @@
 .universe-app-root .delivery-flow-toolbar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;
+  grid-template-areas: "search toggle" "summary actions";
   gap: 10px 12px;
   align-items: end;
   padding: 16px 18px;
@@ -46,7 +47,7 @@
   box-shadow: 0 0 0 3px var(--yoke-accent-weak);
 }
 
-.universe-app-root .delivery-flow-history-toggle,
+.universe-app-root .delivery-flow-disabled-toggle,
 .universe-app-root .delivery-flow-clear {
   min-height: 38px;
   padding: 8px 12px;
@@ -59,20 +60,20 @@
   transition: border-color .15s ease, background .15s ease, color .15s ease;
 }
 
-.universe-app-root .delivery-flow-history-toggle:hover,
+.universe-app-root .delivery-flow-disabled-toggle:hover,
 .universe-app-root .delivery-flow-clear:hover {
   border-color: var(--yoke-accent-line);
   background: var(--yoke-hover);
   color: var(--yoke-ink);
 }
 
-.universe-app-root .delivery-flow-history-toggle[aria-pressed="true"] {
+.universe-app-root .delivery-flow-disabled-toggle[aria-pressed="true"] {
   border-color: var(--yoke-accent-line);
   background: var(--yoke-accent-weak);
   color: var(--yoke-accent);
 }
 
-.universe-app-root .delivery-flow-history-toggle:focus-visible,
+.universe-app-root .delivery-flow-disabled-toggle:focus-visible,
 .universe-app-root .delivery-flow-clear:focus-visible {
   outline: 2px solid var(--yoke-accent);
   outline-offset: 2px;
@@ -212,23 +213,6 @@
   content: "•";
 }
 
-.universe-app-root .delivery-flow-card-shape {
-  display: flex;
-  height: 4px;
-  gap: 3px;
-}
-
-.universe-app-root .delivery-flow-card-shape i {
-  min-width: 4px;
-  flex: 1 1 0;
-  border-radius: 999px;
-  background: var(--yoke-accent-line);
-}
-
-.universe-app-root .delivery-flow-card-shape i.is-empty {
-  background: var(--yoke-border);
-}
-
 .universe-app-root .delivery-flow-zero {
   display: grid;
   justify-items: center;
@@ -281,16 +265,16 @@
 }
 
 @media (max-width: 640px) {
+  /* The areas have to give way with the columns. Leaving a two-column
+     template in force while the container declared one squeezed the search
+     field down to its icon and wrapped its own label onto two lines. */
   .universe-app-root .delivery-flow-toolbar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "search" "toggle" "summary" "actions";
   }
 
-  .universe-app-root .delivery-flow-history-toggle {
+  .universe-app-root .delivery-flow-disabled-toggle {
     justify-self: start;
-  }
-
-  .universe-app-root .delivery-flow-result-summary {
-    grid-column: 1;
   }
 
   .universe-app-root .delivery-flow-workspace {
@@ -310,7 +294,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .universe-app-root .delivery-flow-card,
-  .universe-app-root .delivery-flow-history-toggle,
+  .universe-app-root .delivery-flow-disabled-toggle,
   .universe-app-root .delivery-flow-search input {
     transition: none;
   }
@@ -319,3 +303,8 @@
     transform: none;
   }
 }
+
+.universe-app-root .delivery-flow-search { grid-area: search; }
+.universe-app-root .delivery-flow-disabled-toggle { grid-area: toggle; }
+.universe-app-root .delivery-flow-result-summary { grid-area: summary; }
+.universe-app-root .delivery-flow-actions { grid-area: actions; }

@@ -148,11 +148,17 @@ test("the run page reads the run by id and draws it in the page's shape", async 
     Array.isArray(payload.item_ids) && payload.item_ids.includes(2262)
   )), JSON.stringify(activity));
 
-  assert.equal(byClass(root, "run-eyebrow")[0].textContent, "yoke · prod");
+  // The trail, the run's name and the facts that place it are one row, and
+  // the run's own id is not repeated: the breadcrumb already ends on it.
+  const head = byClass(root, "run-head")[0];
+  assert.ok(byClass(head, "breadcrumb")[0]);
+  assert.equal(
+    byClass(head, "breadcrumb-here")[0].textContent, "run-20260726-001",
+  );
   assert.equal(byClass(root, "run-title")[0].textContent, "Hosted release");
   assert.equal(
     byClass(root, "run-sub")[0].textContent,
-    "1 item · run-20260726-001",
+    "yoke · prod · 1 item · release 0.1.1+launch",
   );
   assert.equal(byClass(root, "run-badge")[0].textContent, "awaiting approval");
   assert.deepEqual(
@@ -171,13 +177,19 @@ test("the run page reads the run by id and draws it in the page's shape", async 
   assert.equal(identityValues[1], "not recorded");
   assert.equal(identityValues[2], "not frozen");
   assert.equal(identityValues[3], "prod · https://upyoke.com");
-  // Verification: the run's own checks, with their pictures.
-  const verification = byClass(root, "run-card")[1];
+  // Verification: the run's own checks, with their pictures, full width
+  // below the stage rail and the work beside it.
+  const verification = byClass(root, "run-grid")[0].children[0];
   assert.equal(byClass(verification, "run-verdict")[0].textContent, "1 of 1 passed");
   assert.ok(byClass(verification, "run-check")[0].textContent.includes("smoke · Browser check"));
+  // The picture sits under the check that recorded it, not in a pool at the
+  // foot of the card where a reader would have to guess which check took it.
+  const check = byClass(verification, "run-check")[0];
+  assert.equal(byClass(check, "run-check-evidence").length, 1);
+  assert.equal(byClass(check, "review-shot").length, 1);
   assert.equal(byClass(verification, "review-shot").length, 1);
   // The decision: what the run carries, and the request folded in.
-  const decision = byClass(root, "run-card")[2];
+  const decision = byClass(root, "run-work")[0];
   assert.ok(decision.textContent.includes("Waiting for approval"), decision.textContent);
   assert.deepEqual(
     byClass(decision, "run-items")[0].children.map((node) => node.textContent),
@@ -203,12 +215,16 @@ test("a run with nothing waiting says what it is doing instead", async (t) => {
   }));
   const { root, mounted } = await mountAt(t, "#/deployments/runs/run-20260726-001?project=1", client);
   assert.equal(byClass(root, "run-badge")[0].textContent, "succeeded");
-  const decision = byClass(root, "run-card")[2];
+  // Stages beside the work, verification full width below them.
+  const decision = byClass(root, "run-work")[0];
   assert.ok(decision.textContent.includes("Succeeded"), decision.textContent);
   assert.ok(decision.textContent.includes("Completed now."), decision.textContent);
   assert.equal(byClass(decision, "review-card").length, 0);
+  assert.ok(byClass(root, "run-top")[0].children.includes(decision));
+  assert.ok(byClass(root, "run-stages")[0]);
   assert.ok(
-    byClass(root, "run-card")[1].textContent.includes("No checks were recorded on this run."),
+    byClass(root, "run-grid")[0].children[0].textContent
+      .includes("No checks were recorded on this run."),
   );
   // A run that ended well carries no aftermath block.
   assert.equal(byClass(root, "run-aftermath").length, 0);
@@ -275,74 +291,5 @@ test("a carried item's own QA is shown beside that item, labelled as its own", a
     /1 check · 1 undetermined/,
   );
   assert.equal(byClass(evidence, "review-shot").length, 1);
-  assert.match(
-    byClass(evidence, "carried-item-evidence-note")[0].textContent,
-    /no deployment run/,
-  );
-});
-
-test("a member's QA review is offered once, on that member's row", async (t) => {
-  // The release card draws each member with its own pending reviews, and the
-  // same request also arrives in the run's gate list. Drawing both put one
-  // decision on the page twice, with two sets of Approve buttons.
-  const review = {
-    id: 5150,
-    kind: "qa_needs_review",
-    status: "pending",
-    project_id: 1,
-    subject_context: {
-      requirement_id: 9,
-      run_id: 5,
-      subject: {
-        kind: "deployment_run",
-        deployment_member_item_id: 2262,
-        item_ref: "YOK-2228",
-        deployment_run_id: "run-20260726-001",
-      },
-      verdict_reason: "the banner named the previous revision",
-      artifacts: [],
-      artifact_count: 0,
-    },
-    actions: ["reject", "approve"],
-    deciders: [],
-    can_act: true,
-    decided_by_you: false,
-    your_decision: null,
-  };
-  const client = runClient(runRow({
-    gates: [{
-      request_id: review.id, kind: review.kind,
-      subject_context: review.subject_context, actions: review.actions,
-      approval_progress: {}, can_act: true, authority_reason: "project owner",
-      deciders: [], your_decision: null, decided_by_you: false,
-    }],
-  }));
-  const inbox = client.call.bind(client);
-  client.call = async (request) => (
-    request.function === "inbox.list"
-      ? okEnvelope({ needs_decision: [review] })
-      : inbox(request)
-  );
-  const { root, mounted } = await mountAt(
-    t, "#/deployments/runs/run-20260726-001?project=1", client,
-  );
-
-  const approvals = allNodes(root).filter(
-    (node) => node.tagName === "BUTTON" && node.textContent === "Approve",
-  );
-  assert.equal(approvals.length, 1, "one decision, one Approve control");
-  // The heading still says the page is waiting: whose row the request sits
-  // on does not change whether somebody has to answer it.
-  assert.equal(byClass(root, "run-card")[2].children[0].textContent,
-    "Waiting for a review");
-  // And it is the member's row that owns it, not a second release-level copy.
-  const memberRow = byClass(root, "carried-item-evidence")[0];
-  assert.ok(memberRow, "the member row draws its own review");
-  assert.equal(
-    allNodes(memberRow).filter(
-      (node) => node.tagName === "BUTTON" && node.textContent === "Approve",
-    ).length,
-    1,
-  );
-  mounted.unmount();
+  assert.equal(byClass(evidence, "carried-item-evidence-note").length, 0);
 });

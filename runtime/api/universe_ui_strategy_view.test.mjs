@@ -108,8 +108,10 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
               recent_writes: 1,
               archived: false,
               execution_state: "claimed",
+              execution_owner_kind: "item",
               execution_item_id: 2001,
               execution_item_ref: "YOK-2001",
+              execution_item_status: "implementing",
             }, {
               slug: "OLD-PLAN", title: "Prior workflow", parent_slug: null,
               updated_by: "ben", updated_at: "yesterday", revisions: 1,
@@ -127,30 +129,31 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
 
   const rendered = text(main);
   assert.match(rendered, /Review and approve here/);
-  assert.match(rendered, /Strategy corpus\s+· scoped to yoke/);
   assert.deepEqual(
     byClass(main, "strategy-stats")[0].children
       .map((tile) => tile.children[0].textContent),
     ["2", "1", "1", "1"],
   );
-  assert.match(rendered, /Purpose \/ ancestry/);
-  assert.match(rendered, /child of\s+MASTER-PLAN/);
-  assert.match(rendered, /claimed · YOK-2001/);
+  // A live document is a card in the band its slug belongs to; the archive
+  // keeps its own, closed.
+  const plans = byClass(main, "work-band-plans")[0];
+  assert.match(text(plans), /WORKFLOW-TYPES/);
+  assert.doesNotMatch(text(plans), /OLD-PLAN/);
+  const archived = byClass(main, "work-band-archived-docs")[0];
+  assert.equal(archived.open, false);
+  assert.match(text(archived), /OLD-PLAN/);
+
+  // An item hold is a Blitz and names the item it is executing from.
+  assert.equal(
+    byClass(main, "strategy-doc-claim-label")[0].textContent, "Blitz",
+  );
+  assert.equal(
+    byClass(main, "strategy-doc-claim-holder")[0].textContent, "YOK-2001",
+  );
+
+  // Write history sits below the documents, from the same read.
   assert.match(rendered, /Writes\s+last 120 days/);
   assert.match(rendered, /Strategy-doc writes 1 this week/);
-  const archive = byClass(main, "strategy-archive-group")[0];
-  assert.equal(byClass(archive, "strategy-archive-heading")[0].textContent, "Archived (1)");
-  assert.match(text(archive), /OLD-PLAN/);
-  assert.doesNotMatch(text(byClass(main, "strategy-corpus-table")[0]), /OLD-PLAN/);
-  assert.deepEqual(
-    allNodes(byClass(main, "strategy-corpus-table")[0])
-      .filter((node) => node.tagName === "TH")
-      .map((node) => node.textContent),
-    [
-      "Doc", "Purpose / ancestry", "Last editor", "Last write",
-      "Revisions", "Execution",
-    ],
-  );
   const spark = byClass(main, "strategy-spark")[0];
   assert.equal(spark.tagName, "SVG");
   assert.equal(spark.attributes.get("viewBox"), "0 0 240 34");
@@ -160,14 +163,11 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
   assert.deepEqual(requests[0].target, {
     kind: "global", project_id: "1",
   });
-  const row = byClass(main, "strategy-corpus-row")[0];
-  assert.equal(row.attributes.get("role"), "link");
-  row.dispatchEvent(new Event("click"));
-  assert.equal(
-    documentNode.defaultView.location.hash,
-    "#/strategy/WORKFLOW-TYPES?project=1",
-  );
-  assert.ok(allNodes(main).some((node) => node.tagName === "TIME"));
+
+  // The card itself is the link to the document.
+  const card = byClass(main, "strategy-doc-card")[0];
+  assert.equal(card.tagName, "A");
+  assert.equal(card.href, "#/strategy/WORKFLOW-TYPES?project=1");
 });
 
 test("Strategy detail exposes document, history, diff, and restore", async () => {

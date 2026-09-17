@@ -39,6 +39,8 @@ class TestRegistrationShape:
             "profile.preference.set",
             "profile.onboarding.reset",
             "ui_preferences.screen_selection.set",
+            "ui_preferences.nav_group.set",
+        "ui_preferences.search_history.record",
             "workflows.current.set",
             "workflows.policy_defaults.publish",
             "workflows.testing_default.set",
@@ -58,6 +60,7 @@ class TestRegistrationShape:
             "items.create",
             "sessions.reclaim_stale",
             "organizations.settings.merge",
+            "projects.capability_settings.merge",
             "session_control.message.send",
             "session_control.message.acknowledge",
             "session_control.message.cancel",
@@ -71,6 +74,10 @@ class TestRegistrationShape:
             "machine.settings.set",
             "strategy.revision.restore",
             "deployment_runs.terminalize",
+        "deployment_flows.create",
+        "deployment_flows.update",
+        "deployment_flows.version",
+        "deployment_flows.set_status",
         }
         assert not (
             ui_server.UI_MUTATION_FUNCTION_ALLOWLIST

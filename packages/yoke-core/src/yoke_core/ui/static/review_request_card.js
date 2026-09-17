@@ -89,6 +89,9 @@ function appendEvidence(context, card, row, compact) {
   const evidence = evidenceOf(row);
   const strip = evidenceStrip(context, evidence.artifacts, {
     compact,
+    // Inside a decision card a thumbnail is a glance, not a filing: the
+    // caption says which step it came from or says nothing.
+    stepCaptionsOnly: true,
     requirementId: evidence.requirementId,
     // A QA review with nothing behind it must say so: a verdict on nothing
     // is the case the warning exists for. A release or work approval whose
@@ -186,11 +189,20 @@ export function reviewRequestCard(context, row, options = {}) {
     }`,
   );
   card.setAttribute("data-request-id", String(row.id ?? row.request_id ?? ""));
-  if (!options.inline) appendHead(documentNode, card, row, options);
+  // Two regions, because the card answers two different questions: what is
+  // being asked and what it is about, then what it rests on and how to
+  // settle it. Reading down one column meant scrolling past a screenshot
+  // grid to reach the buttons; side by side, the ask stays whole and the
+  // evidence sits beside it at the size a thumbnail needs.
+  const main = el(documentNode, "div", "review-main");
+  const side = el(documentNode, "div", "review-side");
+  card.appendChild(main);
+  card.appendChild(side);
+  if (!options.inline) appendHead(documentNode, main, row, options);
   const effect = effectLine(row);
-  if (effect) card.appendChild(el(documentNode, "p", "review-effect", effect));
-  if (row.kind === "qa_needs_review") appendQaBody(documentNode, card, row);
-  if (options.evidence !== false) appendEvidence(context, card, row, compact);
+  if (effect) main.appendChild(el(documentNode, "p", "review-effect", effect));
+  if (row.kind === "qa_needs_review") appendQaBody(documentNode, main, row);
+  if (options.evidence !== false) appendEvidence(context, side, row, compact);
   const foot = el(documentNode, "footer", "review-foot");
   const who = reviewerLine(row);
   if (who) foot.appendChild(el(documentNode, "span", "review-who", who));
@@ -198,7 +210,7 @@ export function reviewRequestCard(context, row, options = {}) {
   const canAct = !row.decided_by_you && row.can_act !== false
     && typeof options.onAct === "function" && !compact;
   if (canAct) appendActions(documentNode, foot, card, row, options.onAct);
-  if (foot.children.length) card.appendChild(foot);
+  if (foot.children.length) side.appendChild(foot);
   return card;
 }
 

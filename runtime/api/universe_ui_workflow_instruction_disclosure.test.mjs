@@ -153,7 +153,7 @@ test("expanded body survives switching the workflow tab", async (t) => {
   const expand = byClass(root, "workflow-instruction-expand")[0];
   expand.dispatchEvent(new Event("click"));
   assert.equal(byClass(root, "workflow-instruction-body")[0].textContent, LONG_BODY);
-  const issueTab = byClass(root, "workflow-tab").find(
+  const issueTab = byClass(root, "tab-link").find(
     (node) => node.textContent === "Issue",
   );
   assert.ok(issueTab, "Issue tab exists");
@@ -165,7 +165,7 @@ test("expanded body survives switching the workflow tab", async (t) => {
     "Show less",
   );
   assert.equal(
-    byClass(root, "workflow-tab").find((node) => node.textContent === "Issue")
+    byClass(root, "tab-link").find((node) => node.textContent === "Issue")
       .attributes.get("aria-selected"),
     "true",
   );

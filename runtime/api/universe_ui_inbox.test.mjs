@@ -25,11 +25,11 @@ test("Inbox renders its sections, the served counts, and one card shape", async 
   await settle();
 
   assert.deepEqual(
-    byClass(main, "overview-section-title").map((node) => node.textContent),
+    byClass(main, "band-section-title").map((node) => node.textContent),
     ["Waiting on you", "Notices", "Messages", "Decided"],
   );
   assert.deepEqual(
-    byClass(main, "overview-section-count").map((node) => node.textContent),
+    byClass(main, "band-section-count").map((node) => node.textContent),
     ["1", "0", "1", "0"],
   );
   // No notice and nothing decided, so neither section is on the page.

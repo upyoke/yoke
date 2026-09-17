@@ -5,6 +5,11 @@ association is a separate live coverage fact: which steering session
 covers the item the worker currently holds. Launch provenance is not
 consulted, so relinking and seat handoffs move the association on the next
 read.
+
+A covered worker also carries the covering seat's own scope, because a
+worker's card has to name what it is steered from — the project and the
+documents — and that is the seat's fact rather than something a reader
+should reconstruct by finding the seat's row elsewhere on the page.
 """
 
 from __future__ import annotations
@@ -21,7 +26,11 @@ from yoke_core.domain.steering_scope_membership import item_coverage_target
 from yoke_core.domain.work_claim_targets import scope_int_sql
 
 
-_OUTPUT_FIELDS = ("steering_scope", "steering_group_session_id")
+_OUTPUT_FIELDS = (
+    "steering_scope",
+    "steering_group_session_id",
+    "steering_group_scope",
+)
 
 
 def _marker(conn: Any) -> str:
@@ -175,6 +184,11 @@ def steering_visibility(
             projected[session_id]["steering_group_session_id"] = str(
                 seat["session_id"]
             )
+            covering = scopes.get(int(item_project_id))
+            if covering and covering["holder_session_id"] == str(
+                seat["session_id"]
+            ):
+                projected[session_id]["steering_group_scope"] = covering
     return projected
 
 

@@ -1,0 +1,235 @@
+// The Overview's pinned activation-module stack: four getting-started
+// modules rendered from one overview.activation.get read. The engine owns
+// every fact — module states, submodule signals, registered machines and
+// their harness targets, per-actor dismissals — and this module owns only
+// the drawn chrome: number/✓ medallions, waits / next up / activated pills,
+// the wizard checklist, and hover dismiss (the per-machine harness rows live
+// in universe_onboarding_machines.js). A hidden module is
+// gone from Overview: no count, no show-again control; the only way back is
+// Reset on Profile, and once every module is hidden the host tells the
+// Overview to hide the section too. Honesty rules hold throughout: an
+// unresolved read renders a pending line (never fabricated module states),
+// and a pending submodule stays ○. Which signal derives a state is a fact
+// about the model, not something a member acts on, so it stays out of the
+// rendered card.
+
+import { attachTooltip } from "./universe_tooltip.js";
+import {
+  callFunction,
+  el,
+  portabilityMode,
+  statePill,
+} from "./universe_view_support.js";
+import {
+  DISMISS_HINT,
+  INSTALL_COMMAND,
+  MODULE_COPY,
+  MODULE_TITLES,
+  RUN_ONBOARD_TITLE_HINT,
+  STATE_PILL_TEXT,
+  WIZARD_MACHINE_ROWS,
+  WIZARD_ROWS,
+  WIZARD_TAIL_KEYS,
+  machineNamesLine,
+} from "./universe_onboarding_copy.js";
+import { harnessBody } from "./universe_onboarding_machines.js";
+import { onboardBody } from "./universe_onboarding_project.js";
+
+// The host-supplied machine fact rides the capability bag into the read's
+// payload verbatim; absent or non-boolean shapes forward nothing, so the
+// engine derives from its own signals and the submodule stays pending.
+function activationPayload(capabilities) {
+  const onboarding = capabilities?.data?.onboarding;
+  const machineConnected =
+    onboarding && typeof onboarding.machineConnected === "boolean"
+      ? onboarding.machineConnected : undefined;
+  return machineConnected === undefined
+    ? {} : { host_facts: { machine_connected: machineConnected } };
+}
+
+async function readActivation(context) {
+  let callResult;
+  try {
+    callResult = await callFunction(
+      context.client, "overview.activation.get",
+      activationPayload(context.capabilities),
+    );
+  } catch (fetchError) {
+    return null;
+  }
+  const ok = callResult.status === 200 && callResult.envelope.success;
+  return ok ? (callResult.envelope.result || null) : null;
+}
+
+async function setDismissed(context, module, dismissed, draw) {
+  const functionId = dismissed
+    ? "overview.module.dismiss" : "overview.module.restore";
+  let callResult;
+  try {
+    callResult = await callFunction(
+      context.client, functionId, { module_key: module.key },
+    );
+  } catch (fetchError) {
+    return;
+  }
+  if (!(callResult.status === 200 && callResult.envelope.success)) return;
+  if (!context.isMounted()) return;
+  module.dismissed = dismissed;
+  draw();
+}
+
+function wizardChecklist(documentNode, module, mode) {
+  const list = el(documentNode, "ul", "activation-checklist");
+  for (const submodule of module.submodules || []) {
+    const label = submodule.key === "machine_universe"
+      ? (WIZARD_MACHINE_ROWS[mode] || WIZARD_MACHINE_ROWS.local)
+      : (WIZARD_ROWS[submodule.key] || submodule.key);
+    const row = el(documentNode, "li", "activation-check");
+    row.setAttribute("data-sub", submodule.key);
+    row.setAttribute("data-done", String(Boolean(submodule.done)));
+    row.appendChild(el(
+      documentNode, "span", "activation-check-mark",
+      submodule.done ? "✓" : "○",
+    ));
+    row.appendChild(el(documentNode, "span", "activation-check-label", label));
+    if (submodule.key === "machine_universe" && (submodule.machines || []).length) {
+      // The row names every registered machine, so a second box sees itself
+      // listed rather than reading the first box's connection as its own.
+      row.appendChild(el(
+        documentNode, "span", "activation-check-machines",
+        machineNamesLine(submodule.machines),
+      ));
+    }
+    if (!submodule.done && WIZARD_TAIL_KEYS.has(submodule.key)) {
+      row.appendChild(el(
+        documentNode, "span", "activation-check-optional", "· finish any time",
+      ));
+    }
+    list.appendChild(row);
+  }
+  return list;
+}
+
+// Module 1's two in-flight copy states: machine connected reads
+// return-to-terminal; hosted with the machine still pending reads web-first.
+function wizardBody(documentNode, module, mode, body) {
+  const machine = (module.submodules || []).find(
+    (submodule) => submodule.key === "machine_universe",
+  );
+  if (module.state === "in_progress" && machine && machine.done) {
+    body.appendChild(el(
+      documentNode, "p", "activation-copy",
+      "Your machine is connected to your Yoke identity.",
+    ));
+    const cta = el(
+      documentNode, "p", "activation-cta",
+      "Return to your terminal and finish ",
+    );
+    cta.appendChild(el(documentNode, "code", null, "yoke onboard"));
+    body.appendChild(cta);
+  } else if (module.state === "in_progress" && mode === "hosted") {
+    const webFirst = el(documentNode, "p", "activation-copy web-first");
+    webFirst.appendChild(el(
+      documentNode, "strong", null, "Install Yoke on your machine",
+    ));
+    webFirst.appendChild(documentNode.createElement("span")).textContent =
+      " — ";
+    webFirst.appendChild(el(documentNode, "code", null, INSTALL_COMMAND));
+    webFirst.appendChild(documentNode.createElement("span")).textContent =
+      " — the wizard connects this machine, then GitHub · Project · " +
+      "Hosting fold in here.";
+    body.appendChild(webFirst);
+  }
+  body.appendChild(wizardChecklist(documentNode, module, mode));
+}
+
+function renderModule(context, module, position, result, draw, viewState) {
+  const documentNode = context.document;
+  const card = el(documentNode, "section", "activation-module");
+  card.setAttribute("data-module", module.key);
+  card.setAttribute("data-state", module.state);
+  const head = el(documentNode, "div", "activation-head");
+  head.appendChild(el(
+    documentNode, "span", "activation-medallion",
+    module.state === "activated" ? "✓" : String(position),
+  ));
+  const title = el(
+    documentNode, "h3", "activation-title",
+    MODULE_TITLES[module.key] || module.key,
+  );
+  if (module.key === "run_onboard") {
+    title.classList.add("cmd");
+    attachTooltip(documentNode, title, RUN_ONBOARD_TITLE_HINT);
+  }
+  head.appendChild(title);
+  const pill = statePill(
+    documentNode, STATE_PILL_TEXT[module.state] || module.state,
+  );
+  if (pill) head.appendChild(pill);
+  if (result.dismiss_available && module.state === "activated") {
+    const dismiss = el(documentNode, "button", "activation-dismiss", "✕");
+    dismiss.type = "button";
+    attachTooltip(documentNode, dismiss, DISMISS_HINT, { pinOnClick: false });
+    dismiss.addEventListener(
+      "click", () => setDismissed(context, module, true, draw),
+    );
+    head.appendChild(dismiss);
+  }
+  card.appendChild(head);
+  const body = el(documentNode, "div", "activation-body");
+  if (module.key === "finish_installation_wizard") {
+    wizardBody(documentNode, module, viewState.mode, body);
+  } else if (module.key === "connect_harness") {
+    harnessBody(documentNode, module, body);
+  } else if (module.key === "run_onboard") {
+    onboardBody(documentNode, module, body);
+  } else {
+    const copy = (MODULE_COPY[module.key] || {})[module.state];
+    if (copy) body.appendChild(el(documentNode, "p", "activation-copy", copy));
+  }
+  card.appendChild(body);
+  return card;
+}
+
+function renderStack(context, host, result, onStackResolved) {
+  const documentNode = context.document;
+  const resolved = (visible) => {
+    if (typeof onStackResolved === "function") onStackResolved(visible);
+  };
+  if (!result || !Array.isArray(result.modules)) {
+    host.replaceChildren(el(
+      documentNode, "p", "activation-unresolved",
+      "activation signals unresolved",
+    ));
+    // An unresolved read is shown, not hidden: the section says the signals
+    // could not be read rather than implying there is nothing to activate.
+    resolved(true);
+    return;
+  }
+  const viewState = { mode: portabilityMode(context.capabilities) };
+  const draw = () => {
+    const stack = el(documentNode, "div", "activation-stack");
+    result.modules.forEach((module, index) => {
+      if (module.dismissed) return;
+      stack.appendChild(renderModule(
+        context, module, index + 1, result, draw, viewState,
+      ));
+    });
+    host.replaceChildren(stack);
+    resolved(stack.children.length > 0);
+  };
+  draw();
+}
+
+// The one Overview entry point renders the stack from a single activation
+// read. `onStackResolved` reports whether the drawn stack has anything in it,
+// each time it is drawn, so the caller reveals or hides the section that
+// holds it from a resolved fact rather than from a default.
+export function loadActivationModules(context, host, { onStackResolved } = {}) {
+  const read = readActivation(context);
+  read.then((result) => {
+    if (!context.isMounted()) return;
+    renderStack(context, host, result, onStackResolved);
+  });
+  return read;
+}

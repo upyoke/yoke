@@ -116,16 +116,17 @@ test("a QA review loads its screenshots at once, addressed at the requirement", 
   const image = byClass(shot, "review-shot-image")[0];
   assert.ok(image.src.startsWith("data:image/png;base64,"), image.src);
   assert.equal(image.alt, "screenshot");
-  // Picture and caption are two anchors to this artifact's own bytes, so
-  // each opens the evidence rather than whatever card is hosting it.
+  // The picture is an anchor to this artifact's own bytes, so it opens the
+  // evidence rather than whatever card is hosting it.
   const picture = byClass(shot, "review-shot-open")[0];
-  const step = byClass(shot, "review-shot-step")[0];
   assert.equal(picture.tagName, "A");
-  assert.equal(step.tagName, "A");
   assert.equal(picture.href, image.src);
-  assert.equal(step.href, image.src);
   assert.equal(picture.getAttribute("aria-label"), "Open full size: screenshot");
-  assert.equal(step.getAttribute("aria-label"), "Open full size: screenshot");
+  // No caption: this capture recorded no step, and its stored filename under
+  // a thumbnail names the file rather than the moment. The identity stays on
+  // the image and the figure.
+  assert.equal(byClass(shot, "review-shot-caption").length, 0);
+  assert.equal(shot.title, "screenshot");
 });
 
 test("a thumbnail opens the picture in place, and Esc closes it", async () => {

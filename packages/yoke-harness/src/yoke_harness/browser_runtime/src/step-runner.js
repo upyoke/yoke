@@ -37,6 +37,8 @@ const { resolveUrl } = nav;
  * @param {number} [step.min_count] - Minimum count for count_gte
  * @param {number} [step.timeout_ms] - Per-step timeout
  * @param {boolean} [step.capture] - Whether to capture screenshot
+ * @param {{width: number, height: number}} [step.viewport] - Resize before the
+ *   step, and leave it resized for the steps that follow
  * @param {Object} options
  * @param {string} options.baseUrl - Base URL to prepend to relative routes
  * @param {number} [options.timeout] - Default timeout
@@ -79,6 +81,23 @@ async function executeStep(page, step, options) {
         `Stale browser scenario schema detected. Legacy fields: ${legacyFields.join(', ')}. ` +
         'Update stored scenarios to use canonical vocabulary (route, target, delay/wait_for).'
       );
+    }
+
+    // A step may state the width it is about. Responsive behaviour is only
+    // provable by resizing the real viewport — constraining an element inside
+    // a wide window proves the element, not the product — and the width has
+    // to be set before the step runs so the assertions and the capture that
+    // follow both see it. It stays set, so a case reads as a walk down the
+    // widths rather than a width repeated on every step.
+    if (step.viewport) {
+      const { width, height } = step.viewport;
+      if (!Number.isFinite(width) || !Number.isFinite(height)) {
+        throw new Error(
+          'step.viewport needs numeric width and height, '
+          + `got ${JSON.stringify(step.viewport)}`
+        );
+      }
+      await page.setViewportSize({ width, height });
     }
 
     // Build ref map for ref-based target resolution

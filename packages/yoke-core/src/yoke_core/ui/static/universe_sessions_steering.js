@@ -233,13 +233,41 @@ export function isSteeredWorker(row) {
 // entirely. The seat itself carries no label; its steering box already
 // names it, and a worker that looks like a seat is the confusion this
 // avoids.
-export function steeringWorkerLabel(documentNode) {
-  const badge = el(documentNode, "span", "session-steered-badge");
-  badge.appendChild(steeringMarker(
-    documentNode, "session-steered-symbol", { decorative: true },
+/**
+ * The row a covered worker carries above its own work.
+ *
+ * A shallow full-width row rather than a badge tucked into a usage line: it
+ * says one thing — this session is steered, and from which document — and it
+ * says it directly above the work that is being steered, where a reader is
+ * already looking. It carries the seat's own mark and the seat's own
+ * document, so the worker is not asserting a scope it does not hold; a
+ * covering seat that names no single document leaves the slug off rather
+ * than guessing at one.
+ */
+export function steeringWorkerRow(documentNode, row) {
+  const scope = row?.steering_group_scope;
+  const line = el(
+    documentNode, "div", "session-steering-lead session-steered-row",
+  );
+  line.appendChild(steeringMarker(
+    documentNode, "session-steering-symbol", { decorative: true },
   ));
-  badge.appendChild(el(documentNode, "span", "session-steered-text", "Steered"));
-  return badge;
+  line.appendChild(el(
+    documentNode, "span", "session-steering-lead-label", "Steered",
+  ));
+  const documents = [...new Set(
+    (Array.isArray(scope?.strategy_docs) ? scope.strategy_docs : [])
+      .map((slug) => String(slug || "")).filter(Boolean),
+  )];
+  const named = documents.length === 1
+    ? documents[0]
+    : (scope?.project ? `${scope.project} · project-wide` : "");
+  if (named) {
+    line.appendChild(el(
+      documentNode, "span", "session-steering-docs", named,
+    ));
+  }
+  return line;
 }
 
 // A steering seat holds no item; its scope IS its work, so on its card the
@@ -251,13 +279,16 @@ export function appendSteeringHoldings(documentNode, body, row, projects = []) {
   const scopes = steeringScopes(row, projects);
   if (!scopes.length) return false;
   const lead = el(documentNode, "div", "session-steering-lead");
-  const symbol = steeringMarker(
+  // Mark and label are one heading rather than two stacked elements: the
+  // mark belongs beside the word it qualifies, not above the scope rows.
+  const heading = el(documentNode, "div", "session-steering-heading");
+  heading.appendChild(steeringMarker(
     documentNode, "session-steering-symbol", { decorative: true },
-  );
-  lead.appendChild(symbol);
-  lead.appendChild(el(
+  ));
+  heading.appendChild(el(
     documentNode, "div", "session-steering-lead-label", "Steering",
   ));
+  lead.appendChild(heading);
   for (const scope of scopes) {
     const line = el(documentNode, "div", "session-steering-scope");
     line.appendChild(el(

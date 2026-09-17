@@ -52,9 +52,17 @@ def test_workflow_and_intake_styles_keep_prototype_geometry() -> None:
         # they outgrew the authored-file limit, and the geometry they carry is
         # still part of the workflows page's prototype fidelity.
         "workflow_posture.css",
+        # Tabs are one strip shared by every screen that shows them, so the
+        # prototype's tab geometry lives with the strip rather than with this
+        # page. It is read here because the fidelity it carries is still this
+        # page's, exactly as the posture grid's is.
+        "universe_tab_bar.css",
     )
     for fragment in (
-        "margin: -2px 0 0",
+        # The strip pulls up 2px over the header rule. It now also owns the gap
+        # to the content beneath it, which the page used to supply, so what is
+        # pinned is the pull rather than the whole shorthand.
+        "margin: -2px 0",
         "padding: 7px 13px",
         "grid-template-columns: repeat(auto-fit, minmax(145px, 1fr))",
         "grid-template-columns: 18px minmax(0, 1fr) auto",

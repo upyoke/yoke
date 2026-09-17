@@ -335,7 +335,7 @@ test("registry policy controls do not depend on the mechanics read", async (t) =
   };
   const { root, mounted } = await mountWorkflows(t, client);
 
-  assert.deepEqual(classText(root, "workflow-tab"), ["Dash"]);
+  assert.deepEqual(classText(root, "tab-link"), ["Dash"]);
   assert.ok(panelTitles(root).includes("Stages"));
   assert.equal(
     buttonByText(root, "Set universe defaults for Dash"),

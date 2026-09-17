@@ -32,6 +32,18 @@ INSTALL_KIND_HOSTED_PIN = "hosted_pin"
 #: Honest display label when dist metadata and build identity are absent.
 SOURCE_VERSION_LABEL = "source"
 
+#: Where a host publishes the commit it is serving, as a bare 40-character
+#: SHA in a plain-text body. A host that serves its own assets answers this
+#: path so that a reader can learn what it is running rather than being told;
+#: the path is a constant here because the host that serves it and the check
+#: that reads it must agree on one value, and they live in different packages.
+SERVED_BUILD_PATH = "/served-build"
+
+#: Appended to the base commit when the serving tree carries uncommitted
+#: changes. Deliberately not a valid object id, so a reader matching an
+#: exact commit rejects it rather than certifying a tree nobody committed.
+SERVED_BUILD_DIRTY_SUFFIX = "-dirty"
+
 _DEFAULT_ENVIRONMENT_LABELS = {
     PORTABILITY_LOCAL: "local universe",
     PORTABILITY_SELFHOST: "self-hosted universe",
@@ -158,6 +170,8 @@ __all__ = [
     "PORTABILITY_HOSTED",
     "PORTABILITY_LOCAL",
     "PORTABILITY_SELFHOST",
+    "SERVED_BUILD_DIRTY_SUFFIX",
+    "SERVED_BUILD_PATH",
     "SOURCE_VERSION_LABEL",
     "build_runtime_identity",
     "detect_install",

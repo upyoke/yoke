@@ -40,8 +40,8 @@ test("a release approval lists what it carries with each item's own QA", async (
 
   const carried = byClass(main, "approval-carried")[0];
   assert.ok(carried, "the approval tile carries its release contents");
-  assert.match(byClass(carried, "overview-run-batch-title")[0].textContent, /Carries · 2 items/);
-  const entries = byClass(carried, "overview-run-member");
+  assert.match(byClass(carried, "release-batch-title")[0].textContent, /Carries · 2 items/);
+  const entries = byClass(carried, "release-member");
   assert.deepEqual(
     entries.map((entry) => entry.children[0].textContent),
     ["YOK-2712", "YOK-2707"],
@@ -50,12 +50,9 @@ test("a release approval lists what it carries with each item's own QA", async (
   // rules the deployment cards use.
   assert.equal(byClass(entries[0], "review-shot").length, 2);
   assert.equal(byClass(entries[1], "review-shot").length, 1);
-  // The first item's checks record no deployment run, so they are labelled
-  // rather than read as proof of this candidate.
-  assert.match(
-    byClass(entries[0], "carried-item-evidence-note")[0].textContent,
-    /no deployment run — item evidence, not proof of this run\./,
-  );
+  // Item evidence stays under its item and deployment verification stays
+  // under the run; neither entry repeats that in prose.
+  assert.equal(byClass(entries[0], "carried-item-evidence-note").length, 0);
   assert.equal(byClass(entries[1], "carried-item-evidence-note").length, 0);
 });
 
@@ -66,10 +63,10 @@ test("approving the release is not approving the items under it", async () => {
   const tile = byClass(main, "review-card")[0];
   assert.equal(tile.getAttribute("data-request-id"), "12");
   const carried = byClass(tile, "approval-carried")[0];
-  assert.match(
-    byClass(carried, "approval-carried-note")[0].textContent,
-    /does not approve these items' QA/,
-  );
+  // The separation is the card's shape rather than a note on it: each item
+  // review below carries its own actions, and the release's own decision is
+  // outside that block.
+  assert.equal(byClass(carried, "approval-carried-note").length, 0);
   // The tile's own decision is the deployment's, and it is not inside the
   // carried block where an item review would be.
   const tileActions = byClass(tile, "review-action").filter(
@@ -106,10 +103,10 @@ test("a run whose lineage is unknown still lists the members it declares", async
   const carried = byClass(main, "approval-carried")[0];
   assert.ok(carried, "declared membership is still a known fact");
   assert.match(
-    byClass(carried, "overview-run-batch-title")[0].textContent,
+    byClass(carried, "release-batch-title")[0].textContent,
     /Carries · 2 items/,
   );
-  const entries = byClass(carried, "overview-run-member");
+  const entries = byClass(carried, "release-member");
   // Membership names each item as `item_ref`; the entry reads it the same
   // way it reads a derived row's `ref`.
   assert.deepEqual(

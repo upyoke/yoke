@@ -1,4 +1,7 @@
 @import url("./universe_shell_controls.css");
+@import url("./universe_search.css");
+@import url("./universe_tab_bar.css");
+@import url("./universe_delivery_flow_form.css");
 
 /* Workbench chrome for the universe app shell. Colors, fonts, and radius
    come from the shared design tokens in theme.css, so light/dark follows
@@ -17,7 +20,11 @@
      panels inside it cannot each contribute a gap and double it. */
   --yoke-section-gap: 24px;
   display: grid;
-  grid-template-rows: var(--yoke-header-height) minmax(0, 1fr);
+  /* The header row is as tall as the header. A fixed track clipped it
+     instead: between the drawer breakpoint and full desktop the brand,
+     the search field and the three labelled contexts total more than the
+     viewport, and the actor control was cut off the right edge at 1024. */
+  grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
   /* The frame owns its height rather than inheriting it. `height: 100%`
      hands that decision to whatever the host wraps the mount root in, and a
@@ -105,31 +112,6 @@
   color: #fff;
   border-color: transparent;
 }
-/* Tabs: facets of one concept, never a second nav level. An underline strip
-   above the view's own chrome — the active facet takes the accent, the rest
-   stay muted until hovered. */
-.universe-app-root .tab-bar {
-  display: flex;
-  gap: 2px;
-  margin: -2px 0 16px;
-  border-bottom: 1px solid var(--yoke-border);
-}
-.universe-app-root .tab-link {
-  padding: 7px 13px;
-  font-size: 12.5px;
-  font-weight: 550;
-  color: var(--yoke-muted);
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color 120ms ease, border-color 120ms ease;
-}
-.universe-app-root .tab-link:hover { color: var(--yoke-ink); }
-.universe-app-root .tab-link.active {
-  color: var(--yoke-accent);
-  border-bottom-color: var(--yoke-accent);
-}
-
 /* The way back out of a drill-in, sitting where that view's picker sits. */
 .universe-app-root .breadcrumb {
   display: flex;
@@ -176,8 +158,8 @@
 }
 
 /* The route body and nav scroll independently inside the fixed frame. The
-   footer is a shell row, so the nav continues beside it exactly as in the
-   prototype instead of ending above it. */
+   footer is a shell row rather than a child of the content column, so the
+   nav runs the full height beside it instead of stopping above it. */
 .universe-app-root .shell {
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);
@@ -237,16 +219,21 @@
   background: var(--yoke-accent-weak);
   color: var(--yoke-accent);
 }
-/* Nav glyphs sit in a fixed box so the labels align into a column. */
+/* Nav markings sit in a fixed 20px slot so the labels align into a column;
+   the drawing inside is 18px, which leaves the slot a consistent optical
+   margin whatever the icon's own bounding box does. */
 .universe-app-root .nav-link .ico {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
   color: var(--yoke-muted);
-  font-size: 13px;
   line-height: 1;
+}
+.universe-app-root .nav-link .ico svg {
+  width: 18px;
+  height: 18px;
 }
 .universe-app-root .nav-link.active .ico { color: var(--yoke-accent); }
 .universe-app-root .nav-link .txt {
@@ -257,6 +244,10 @@
 }
 
 .universe-app-root .content {
+  /* Views inside size themselves against the pane they are in, not the
+     window: the sidebar and the hosted frame both change how much room a
+     page has without changing the viewport at all. */
+  container: dashboard-content / inline-size;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
@@ -271,10 +262,11 @@
    roster keeps one route head above the facet strip. */
 .universe-app-root .page-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
 }
 /* A view that hides its head must not still pay for it. The rule above sets
    `display: flex` at a higher specificity than the `[hidden]` attribute's own
@@ -293,12 +285,17 @@
   gap: 8px;
   margin-left: auto;
 }
+/* One heading per page, and it does not collapse, count, or compete: the
+   bands beneath it carry their own counts, and a number in the title only
+   ever repeated one of them. */
 .universe-app-root .page-head .title {
   margin: 0 0 4px;
-  font-size: 20px;
-  font-weight: 640;
-  letter-spacing: -0.015em;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
   color: var(--yoke-ink);
+  text-transform: none;
 }
 .universe-app-root .page-head .subtitle {
   margin: 0;

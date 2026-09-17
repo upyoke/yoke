@@ -109,7 +109,13 @@ def test_only_the_holding_session_projects_steering_scope() -> None:
     assert facts["holder-1"]["steering_group_session_id"] == "holder-1"
     assert facts["operator-1"]["steering_group_session_id"] is None
     assert facts["worker-1"]["steering_group_session_id"] is None
-    assert set(facts["holder-1"]) == {"steering_scope", "steering_group_session_id"}
+    # The seat leads its own group, so it carries the group scope the
+    # colour resolver keys on alongside its own steering scope.
+    assert set(facts["holder-1"]) == {
+        "steering_scope",
+        "steering_group_session_id",
+        "steering_group_scope",
+    }
 
 
 def test_a_worker_holding_a_covered_item_associates_to_the_seat() -> None:

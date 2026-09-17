@@ -161,7 +161,7 @@ function actorClient() {
 
 async function mountActorMenu() {
   const documentNode = new FakeDocument();
-  documentNode.defaultView.location.hash = "#/overview";
+  documentNode.defaultView.location.hash = "#/frontier";
   const root = documentNode.createElement("div");
   const mounted = mountUniverseApp(root, { client: actorClient() });
   await settle();

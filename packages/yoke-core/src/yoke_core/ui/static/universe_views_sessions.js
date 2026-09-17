@@ -3,10 +3,10 @@ import {
   presentSessionControlFailure,
   renderSessionControlFailure,
 } from "./universe_session_control_data.js";
-import { loadMachinesPanel } from "./universe_machines_panel.js";
-import { overviewSection } from "./universe_overview_primitives.js";
 import { appendHoldings } from "./universe_sessions_holdings.js";
 import { attachTooltip, tooltipHost } from "./universe_tooltip.js";
+import { fetchRecentUsageRows } from "./universe_machines_usage.js";
+import { summarizeSessionUsage } from "./session_usage_display.js";
 import { callFunction, el } from "./universe_view_support.js";
 import {
   renderSessionRows,
@@ -21,13 +21,14 @@ import { appendSessionAge } from "./universe_session_age.js";
 import {
   appendSessionDeliveryStatus,
   appendSessionPresentation,
+  harnessIdentity,
 } from "./universe_session_presentation.js";
 import { appendSessionUsage } from "./universe_session_usage.js";
 import {
   appendSteeringHoldings,
   isSteeredWorker,
   sortSessionsSteeringFirst,
-  steeringWorkerLabel,
+  steeringWorkerRow,
 } from "./universe_sessions_steering.js";
 import {
   appendSessionMessagingBlocker,
@@ -40,25 +41,6 @@ import {
   sessionModelFactTags,
   sessionModelIsRequested,
 } from "./session_model_display.js";
-function harnessIdentity(row) {
-  const executor = String(row.executor_surface || row.executor || "unreported");
-  const normalized = executor.toLowerCase();
-  if (row.actor_kind === "system" && normalized.includes("ci")) {
-    return { mark: "⚙", className: "h-machine", label: executor };
-  }
-  if (row.executor_mark && row.executor_class_name) {
-    return {
-      mark: row.executor_mark,
-      className: row.executor_class_name,
-      label: executor,
-    };
-  }
-  return {
-    mark: executor.slice(0, 1).toUpperCase() || "?",
-    className: "h-other",
-    label: executor,
-  };
-}
 function laneChip(documentNode, row) {
   const laneLabel = row.lane_label || row.execution_lane || "no lane";
   const chip = el(
@@ -147,10 +129,7 @@ export function sessionCard(
   appendSessionPrimaryStatus(documentNode, state, row);
   appendModel(documentNode, state, row);
   body.appendChild(state);
-  appendSessionUsage(
-    documentNode, body, row,
-    isSteeredWorker(row) ? steeringWorkerLabel(documentNode) : null,
-  );
+  appendSessionUsage(documentNode, body, row);
   // One section sequence for every card. An ended session reaches each
   // section with the facts it actually has, and a section with nothing to
   // say stays silent — the card is never rebuilt in a simpler shape, so an
@@ -158,6 +137,11 @@ export function sessionCard(
   appendSteeringHoldings(documentNode, body, row, projects);
   appendSessionDeliveryStatus(documentNode, body, row);
   appendSessionPresentation(documentNode, body, row);
+  // Directly above the work it covers, which is what makes it readable as a
+  // fact about that work rather than as a second status on the card.
+  if (isSteeredWorker(row)) {
+    body.appendChild(steeringWorkerRow(documentNode, row));
+  }
   appendHoldings(documentNode, body, row, projects);
   appendSessionAge(documentNode, body, row);
   const messageAction = sessionMessageButton(documentNode, row, onMessage);
@@ -171,14 +155,11 @@ export function sessionCard(
 export function renderSessionsView(context, main, scope, chrome = {}) {
   const documentNode = context.document;
   const view = el(documentNode, "div", "sessions-view");
-  const machines = overviewSection(documentNode, "machines", "Machines");
-  const roster = overviewSection(documentNode, "sessions", "Sessions");
   const actionStatus = el(documentNode, "p", "sessions-action-status");
   actionStatus.hidden = true;
   actionStatus.setAttribute("role", "status");
   const content = el(documentNode, "div", "sessions-content", "loading sessions…");
   const dialogHost = el(documentNode, "div", "session-control-dialog-host");
-  let machinesPanel = Promise.resolve(null);
   const messageAll = el(
     documentNode, "button", "item-button session-filter-action", "Message all",
   );
@@ -202,6 +183,11 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   const openMessage = (sessionId) => openSessionMessageCompose(
     context, dialogHost, { audience: exactSessionAudience([sessionId]) },
   );
+  // The 24-hour spend window is its own durable read over the projects in
+  // scope, not a sum of whatever rows the roster has on screen: a filtered
+  // page is a smaller sample, and calling its total the fleet's would be a
+  // different number every time a filter moved.
+  let usage = null;
   const renderRoster = () => {
     const openError = loader?.openError();
     if (openError && loader.openRows().length === 0) {
@@ -235,8 +221,8 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
         documentNode, row, openMessage, context.projects(), groupColors,
       ),
       filters.isRestrictive(), historySummary, loader?.matchedTotal() || 0,
+      usage,
     );
-    machinesPanel.then((panel) => panel?.redraw()).catch(() => {});
     const bulkRows = loader?.bulkRows() || [];
     messageAll.disabled = bulkRows.length === 0;
     messageAllHost.tooltip.set(bulkRows.length
@@ -274,13 +260,7 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   view.appendChild(filters.host);
   view.appendChild(content);
   view.appendChild(dialogHost);
-  roster.body.replaceChildren(view);
-  main.replaceChildren(machines, roster);
-  machinesPanel = loadMachinesPanel(context, machines.body, {
-    showHeading: false,
-    projects: scope === "all" ? [] : scope.map(String),
-  });
-  if (typeof chrome.hidePageHead === "function") chrome.hidePageHead();
+  main.replaceChildren(view);
 
   const reclaimPayload = scope === "all"
     ? { confirm: true }
@@ -334,5 +314,34 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
   // app boot.
   context.refreshSteeringGroupColors()
     .then(() => { if (context.isMounted()) renderRoster(); });
+  Promise.resolve()
+    .then(() => fetchRecentUsageRows(
+      context, scope === "all" ? [] : scope.map(String),
+    ))
+    .then((rows) => {
+      if (!context.isMounted()) return;
+      const machines = new Set(
+        rows.map((row) => row.machine_id).filter(Boolean),
+      );
+      usage = {
+        summary: summarizeSessionUsage(rows),
+        // What the figures answer for, said where they are read: a total
+        // covering one machine's sessions is not the fleet's spend, and a
+        // window is not a lifetime.
+        note: `24h figures: ${rows.length} `
+          + `session${rows.length === 1 ? "" : "s"} across `
+          + `${machines.size} machine${machines.size === 1 ? "" : "s"}`
+          + " in scope; API-equivalent estimate, not subscription spend",
+      };
+      renderRoster();
+    })
+    .catch(() => {
+      if (!context.isMounted()) return;
+      usage = {
+        summary: null,
+        note: "24h figures unavailable: the usage read failed",
+      };
+      renderRoster();
+    });
   loader.loadOpen();
 }

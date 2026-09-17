@@ -276,9 +276,12 @@ export function decisionSummary(row) {
     if (effect.consequence === "deploys_nothing") {
       return "Approval only — deploys nothing. Resolving this lets the run continue.";
     }
-    if (effect.consequence !== "deploys") {
-      return "Deployment effect is unknown. Treat this as a deploy decision.";
-    }
+    // An unknown effect says nothing rather than something. Naming the
+    // uncertainty on every such card taught nothing an approver could act
+    // on, and the one alternative — calling it "deploys nothing" — would be
+    // a claim about a release nobody has read. What guards the decision is
+    // the authorization the product enforces, not a sentence here.
+    if (effect.consequence !== "deploys") return "";
     const carried = facts.carried;
     const known = carried?.derivation?.contents_known;
     const count = (carried?.items || []).length + (carried?.commits || []).length;

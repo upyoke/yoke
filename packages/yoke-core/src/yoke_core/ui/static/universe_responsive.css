@@ -4,52 +4,26 @@
 
 .universe-app-root .navigation-toggle,
 .universe-app-root .header-search-button,
+.universe-app-root .navigation-close,
 .universe-app-root .navigation-scrim {
   display: none;
 }
-.universe-app-root .header-search-overlay[hidden],
 .universe-app-root .navigation-scrim[hidden] {
   display: none;
 }
+/* The header wraps rather than running off the side. It only ever wraps
+   when its own parts do not fit, so a full-width desktop header is still
+   one row. */
+.universe-app-root .topbar {
+  flex-wrap: wrap;
+  row-gap: 7px;
+}
+
 .universe-app-root .shell-search {
   display: flex;
   min-width: 0;
   align-items: center;
 }
-.universe-app-root .header-search-overlay {
-  position: fixed;
-  z-index: 70;
-  inset: 0;
-}
-.universe-app-root .header-search-backdrop {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  border: 0;
-  background: color-mix(in srgb, var(--yoke-ink) 30%, transparent);
-}
-.universe-app-root .header-search-panel {
-  position: relative;
-  width: min(640px, calc(100vw - 48px));
-  margin: 72px auto 0;
-  padding: 12px;
-  border: 1px solid var(--yoke-border);
-  border-radius: 12px;
-  background: var(--yoke-bg);
-  box-shadow: var(--yoke-shadow);
-}
-.universe-app-root .header-search-overlay-field {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-.universe-app-root .header-search-overlay-field .header-search {
-  display: flex;
-  width: auto;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-.universe-app-root .header-search-close,
 .universe-app-root .header-search-button,
 .universe-app-root .navigation-toggle {
   min-width: 38px;
@@ -65,6 +39,7 @@
   display: block;
   width: 18px;
   height: 18px;
+  flex: 0 0 auto;
   margin: auto;
 }
 .universe-app-root .header-context-control {
@@ -111,7 +86,16 @@
   overflow-x: auto;
   overflow-y: hidden;
 }
-.universe-app-root .header-scope-host .scope-label { display: none; }
+/* The control is already captioned PROJECTS, so its own label is noise —
+   except on a single-project screen, where a second chip row sits under the
+   first and only its label says what the difference is. */
+.universe-app-root .header-scope-host > .scope-bar > .scope-label {
+  display: none;
+}
+.universe-app-root .header-scope-host .scope-bar .scope-bar > .scope-label {
+  flex: 0 0 auto;
+  margin-right: 5px;
+}
 .universe-app-root .header-scope-host .scope-chip {
   flex: 0 0 auto;
   padding: 2px 10px;
@@ -120,29 +104,34 @@
 }
 
 /* Card collections size columns from the grid's own inline size, not the
-   viewport. auto-fill plus a readable max keeps two-up when the content
-   pane allows it (sidebar open or collapsed) and refuses to stretch one
-   card into a full-width reading surface. min(100%, min-track) stacks on
-   a pane narrower than the track without clipping. */
+   viewport. The minimum is what decides how many fit; the available width
+   decides how wide they are, so three cards fill their row instead of
+   stopping at a fixed maximum and leaving a ragged strip of page beside
+   them. min(100%, min-track) stacks on a pane narrower than the track
+   without clipping.
+
+   The minimums differ by what the card has to hold: a document card carries
+   a slug and a summary, a work or session card carries a head plus rows, and
+   a machine card carries meters and surface rows that do not compress. */
 .universe-app-root {
-  --yoke-card-track-min: 268px;
-  --yoke-card-track-max: 360px;
+  --yoke-card-track-min: 300px;
 }
 .universe-app-root .session-grid,
-.universe-app-root .overview-card-grid,
-.universe-app-root .overview-session-grid,
-.universe-app-root .overview-doc-grid,
+.universe-app-root .work-card-grid,
+.universe-app-root .work-session-grid,
+.universe-app-root .strategy-doc-grid,
 .universe-app-root .machines-grid {
   display: grid;
   grid-template-columns: repeat(
-    auto-fill,
-    minmax(min(100%, var(--yoke-card-track-min)), var(--yoke-card-track-max))
+    auto-fill, minmax(min(100%, var(--yoke-card-track-min)), 1fr)
   );
-  justify-content: start;
+  gap: 16px;
 }
-.universe-app-root .overview-doc-grid {
-  --yoke-card-track-min: 300px;
-  --yoke-card-track-max: 390px;
+.universe-app-root .strategy-doc-grid {
+  --yoke-card-track-min: 280px;
+}
+.universe-app-root .machines-grid {
+  --yoke-card-track-min: 440px;
 }
 .universe-app-root .navigation-toggle {
   padding: 9px;
@@ -160,7 +149,6 @@
   .universe-app-root .shell {
     grid-template-columns: 236px minmax(0, 1fr);
   }
-  .universe-app-root .annotation-rail { display: none; }
 }
 
 @media (max-width: 980px) {
@@ -194,6 +182,26 @@
     transition: transform 160ms ease;
   }
   .universe-app-root .shell.side-open > .sidenav { transform: translateX(0); }
+  /* The drawer's own way out, pinned to the top of the scroll so a long
+     destination list never strands it above the fold. */
+  .universe-app-root .navigation-close {
+    position: sticky;
+    top: -12px;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    margin: -12px 0 8px;
+    padding: 8px 10px;
+    border: 0;
+    border-bottom: 1px solid var(--yoke-border);
+    background: var(--yoke-surface);
+    color: var(--yoke-ink);
+    font: 600 13px var(--yoke-font-sans);
+    text-align: right;
+    cursor: pointer;
+  }
+  .universe-app-root .navigation-close[hidden] { display: none; }
   .universe-app-root .navigation-scrim {
     position: absolute;
     z-index: 40;
@@ -206,8 +214,42 @@
   body.side-open { overflow: hidden; }
   .universe-app-root .navigation-toggle,
   .universe-app-root .header-search-button { display: block; }
+  /* The context group stops being one unbreakable block: its three controls
+     lay out directly in the header so the header's own wrapping can move
+     them onto a second row instead of pushing the last one off the side. */
+  .universe-app-root .context-side {
+    display: contents;
+  }
+  /* A single-project screen carries two pickers in this one control — the
+     projects in scope, and which of them is focused. Side by side they are
+     wider than the header has room for here, and neither could shrink, so
+     the header ran past the screen edge and took the actor control off it.
+     The focus picker takes its own line, the control grows to hold it
+     rather than clipping at a fixed height, and each chip row scrolls
+     inside itself. */
+  .universe-app-root .header-project-context {
+    height: auto;
+    min-height: 32px;
+    flex-wrap: wrap;
+    padding: 4px 10px;
+    row-gap: 6px;
+  }
+  .universe-app-root .header-scope-host > .scope-bar {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    min-width: 0;
+  }
+  .universe-app-root .header-scope-host .scope-bar .scope-bar {
+    flex: 1 1 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  /* The wide field gives up its space to the icon button, which opens the
+     same dialog: search survives the narrow bar instead of disappearing with
+     the room the field needed. */
   .universe-app-root .brand,
-  .universe-app-root .shell-search-inline,
+  .universe-app-root .header-search,
   .universe-app-root .actor-kind { display: none; }
   .universe-app-root .content {
     padding: 20px 20px 32px;
@@ -219,34 +261,27 @@
   .universe-app-root .frontier-stats > .metric-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .universe-app-root .overview-item-card-head,
-  .universe-app-root .overview-doc-card-head,
-  .universe-app-root .overview-run-card-head,
+  .universe-app-root .work-item-card-head,
+  .universe-app-root .strategy-doc-card-head,
+  .universe-app-root .shipping-run-card-head,
   .universe-app-root .session-top,
   .universe-app-root .machine-head,
   .universe-app-root .machine-surface-head {
     flex-wrap: wrap;
   }
-  .universe-app-root .overview-doc-age,
+  .universe-app-root .strategy-doc-age,
   .universe-app-root .machine-meta {
     margin-left: 0;
   }
 }
 
 @media (max-width: 640px) {
-  .universe-app-root {
-    grid-template-rows: auto minmax(0, 1fr);
-  }
   .universe-app-root .topbar {
-    flex-wrap: wrap;
     gap: 7px;
     padding: 8px 10px;
   }
-  /* Let all three labelled contexts take part in topbar wrapping. Universe
-     and Actor stay on the compact first row; Projects owns the row below. */
-  .universe-app-root .context-side {
-    display: contents;
-  }
+  /* Universe and Actor stay on the compact first row; Projects owns the
+     row below. */
   .universe-app-root .header-project-context {
     flex: 1 0 100%;
     width: 100%;
@@ -256,25 +291,23 @@
   .universe-app-root .header-scope-host .scope-bar {
     width: 100%;
   }
+  /* A phone has no room for a panel floating over a page: the dialog IS the
+     screen here, so it fills it rather than centring inside a viewport it
+     already covers. */
+  .universe-app-root .header-search-overlay {
+    align-items: stretch;
+    padding: 0;
+  }
   .universe-app-root .header-search-panel {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    margin: 0;
-    padding: 10px;
+    max-width: none;
+    max-height: none;
+    height: 100%;
     border: 0;
     border-radius: 0;
   }
-  .universe-app-root .header-search-overlay-field .header-search {
-    border-radius: 7px;
-  }
-  .universe-app-root .header-search-results {
-    width: calc(100vw - 20px);
-    max-height: calc(100dvh - 64px);
-  }
   .universe-app-root .content { padding: 16px 12px 26px; }
-  .universe-app-root .overview-section { margin-bottom: 18px; }
-  .universe-app-root .overview-section-body { gap: 12px; }
+  .universe-app-root .band-section { margin-bottom: 18px; }
+  .universe-app-root .band-section-body { gap: 12px; }
   .universe-app-root .stat-row,
   .universe-app-root .sessions-stats,
   .universe-app-root .strategy-stats,
@@ -303,9 +336,9 @@
   .universe-app-root .header-context-control button,
   .universe-app-root .header-scope-host .scope-chip { min-height: 0; }
   .universe-app-root .activation-dismiss { opacity: 1; }
-  .universe-app-root .overview-item-card:hover,
-  .universe-app-root .overview-doc-card:hover,
-  .universe-app-root .session-card:hover {
+  /* Only the card that IS a link still lifts, so only it needs the touch
+     answer; the others stopped promising a click at every pointer. */
+  .universe-app-root .strategy-doc-card:hover {
     border-color: var(--yoke-border);
     box-shadow: none;
   }

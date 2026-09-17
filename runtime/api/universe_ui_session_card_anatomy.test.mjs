@@ -114,24 +114,20 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
     requests.filter((request) => request.function === "sessions.list"),
     [
       { function: "sessions.list", payload: { open: true, per_project: true } },
-      { function: "sessions.list", payload: { usage_last_24h: true, projects: ["1"] } },
       { function: "sessions.list", payload: { open: true, projects: ["1"] } },
       { function: "sessions.list", payload: { open: true, per_project: true } },
+      { function: "sessions.list", payload: { usage_last_24h: true, projects: ["1"] } },
     ],
   );
   const state = byClass(root, "session-roster-filter").find(
     (field) => field.children[0].textContent === "State",
   ).children[1];
   assert.equal(state.value, "active");
-  assert.equal(byClass(root, "page-head")[0].hidden, true);
+  assert.equal(byClass(root, "title")[0].textContent, "Sessions");
   assert.deepEqual(
-    byClass(root, "overview-section-title").map((node) => node.textContent),
-    ["Machines", "Sessions"],
-  );
-  assert.deepEqual(
-    byClass(root, "sessions-stats")[0].children.map(
-      (tile) => [tile.children[0].textContent, tile.children[1].textContent],
-    ),
+    byClass(root, "sessions-stats")[0].children
+      .filter((node) => node.classList.contains("stat"))
+      .map((tile) => [tile.children[0].textContent, tile.children[1].textContent]),
     [
       ["2", "sessions shown"],
       ["1", "item claimed"],
@@ -260,9 +256,9 @@ test("Sessions matches the prototype's runtime, assignment, lane, and operator a
   );
   assert.equal(byClass(root, "session-card").length, 1);
   assert.deepEqual(
-    byClass(root, "sessions-stats")[0].children.map(
-      (tile) => tile.children[0].textContent,
-    ),
+    byClass(root, "sessions-stats")[0].children
+      .filter((node) => node.classList.contains("stat"))
+      .map((tile) => tile.children[0].textContent),
     ["1", "1", "1"],
   );
   assert.equal(reclaim.disabled, true);

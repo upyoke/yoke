@@ -1,4 +1,6 @@
-import { callFunction, el } from "./universe_view_support.js";
+import {
+  callFunction, el, labelledField, liveStatus,
+} from "./universe_view_support.js";
 
 const PLAIN_FAILURES = {
   actor_required: "Sign in before using session controls.",
@@ -133,10 +135,7 @@ export function sessionControlIdempotencyKey(prefix) {
 }
 
 export function labelledControl(documentNode, labelText, control) {
-  const label = el(documentNode, "label", "session-control-field");
-  label.appendChild(el(documentNode, "span", null, labelText));
-  label.appendChild(control);
-  return label;
+  return labelledField(documentNode, labelText, control, "session-control-field");
 }
 
 export function formatSessionControlTime(value) {
@@ -148,11 +147,7 @@ export function formatSessionControlTime(value) {
 }
 
 export function statusRegion(documentNode, className = "session-control-status") {
-  const status = el(documentNode, "p", className);
-  status.hidden = true;
-  status.setAttribute("role", "status");
-  status.setAttribute("aria-live", "polite");
-  return status;
+  return liveStatus(documentNode, className);
 }
 
 export function splitValues(value) {

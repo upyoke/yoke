@@ -60,7 +60,6 @@ shell convention: 0 = success, 1 = failed, 2 = daemon not running,
 
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import sys
@@ -160,10 +159,15 @@ def daemon_running(state: Optional[DaemonState] = None) -> bool:
 # ---------------------------------------------------------------------------
 
 
+#: How long an ordinary daemon call waits. A step carrying its own budget
+#: raises this for that one call; see ``execute_step``.
+DEFAULT_DAEMON_REQUEST_TIMEOUT_SECONDS = 30
+
+
 def daemon_request(
     path: str,
     body: Optional[Dict[str, Any]] = None,
-    timeout: int = 30,
+    timeout: int = DEFAULT_DAEMON_REQUEST_TIMEOUT_SECONDS,
     state: Optional[DaemonState] = None,
 ) -> Dict[str, Any]:
     """Send an authenticated POST to the daemon.  Returns parsed JSON response.
@@ -245,6 +249,12 @@ def daemon_health() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+#: Room for the daemon to hand back a step's own verdict after that step has
+#: spent its whole budget. Without it the transport gives up first and the
+#: case reports a request timeout in place of the answer the step reached.
+STEP_RESPONSE_HEADROOM_SECONDS = 15
+
+
 def execute_step(
     step_json: Dict[str, Any],
     base_url: str,
@@ -252,12 +262,22 @@ def execute_step(
 ) -> Dict[str, Any]:
     """Execute a single scenario step via the daemon API.
 
-    Returns the parsed daemon response.
+    Returns the parsed daemon response. The request waits longer than the
+    step it carries: a step that declares sixty seconds and a transport that
+    gives up at thirty is a case that can never report what the step found,
+    only that the transport stopped listening.
     """
     body: Dict[str, Any] = {"step": step_json, "baseUrl": base_url}
     if output_dir:
         body["outputDir"] = output_dir
-    return daemon_request("/api/exec/step", body)
+    declared_ms = step_json.get("timeout_ms")
+    timeout = DEFAULT_DAEMON_REQUEST_TIMEOUT_SECONDS
+    if isinstance(declared_ms, (int, float)) and declared_ms > 0:
+        timeout = max(
+            timeout,
+            int(declared_ms / 1000) + STEP_RESPONSE_HEADROOM_SECONDS,
+        )
+    return daemon_request("/api/exec/step", body, timeout=timeout)
 
 
 # ---------------------------------------------------------------------------
@@ -288,49 +308,9 @@ def _log(msg: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        prog="browser_client",
-        description="Browser daemon client and lifecycle management",
-    )
-    sub = parser.add_subparsers(dest="cmd")
+    from yoke_core.domain.browser_client_parser import build_parser
 
-    # daemon
-    d = sub.add_parser("daemon")
-    dsub = d.add_subparsers(dest="daemon_cmd")
-    dsub.add_parser("status")
-    dsub.add_parser("health")
-    ds = dsub.add_parser("start")
-    ds.add_argument("--port", type=int)
-    ds.add_argument("--headed", action="store_true")
-    ds.add_argument("--project", default=None)
-    ds.add_argument("--idle-timeout", type=int, dest="idle_timeout")
-    dsub.add_parser("stop")
-
-    # snapshot
-    s = sub.add_parser("snapshot")
-    ssub = s.add_subparsers(dest="snap_cmd")
-    sa = ssub.add_parser("accessibility")
-    sa.add_argument("url")
-    ss = ssub.add_parser("screenshot")
-    ss.add_argument("url")
-    ss.add_argument("--annotate", action="store_true")
-    ss.add_argument("--output")
-    ss.add_argument("--viewport")
-    sd = ssub.add_parser("diff")
-    sd.add_argument("url")
-    sd.add_argument("--baseline", required=True)
-    sd.add_argument("--viewport", required=True)
-    sd.add_argument("--output-dir", dest="output_dir")
-    sd.add_argument("--threshold", type=float)
-
-    # exec
-    e = sub.add_parser("exec")
-    esub = e.add_subparsers(dest="exec_cmd")
-    es = esub.add_parser("step")
-    es.add_argument("step_json")
-    es.add_argument("--base-url", required=True, dest="base_url")
-    es.add_argument("--output-dir", dest="output_dir")
-
+    parser = build_parser()
     args = parser.parse_args()
     if args.cmd == "daemon":
         return _cli_daemon(args)

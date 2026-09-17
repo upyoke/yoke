@@ -1,20 +1,22 @@
 // Interactive controls that belong to the universe frame rather than a view:
-// the cross-screen search and the persistent environment/footer strip.
+// the universe-wide search dialog and the persistent environment/footer strip.
 
-import { attachMenuDismissal } from "./universe_menu_dismissal.js";
-import { buildUniverseRoute } from "./universe_navigation.js";
-import { itemDrillInHref } from "./universe_item_routes.js";
-import { createSearchFrame } from "./universe_search_overlay.js";
 import { createFooter } from "./universe_shell_footer.js";
+import { createSearchDialog } from "./universe_search_overlay.js";
+import { createSearchHistory } from "./universe_search_history.js";
+import {
+  SEARCH_DOMAINS, createUniverseSearch,
+} from "./universe_search_domains.js";
 
-// Items are searched on the server, so the cap travels with the query and
-// bounds the response. Sessions are still filtered from a cached roster, so
-// theirs bounds how much of that roster the browser holds.
-const SEARCH_RESULT_LIMIT = 8;
-const SESSION_INDEX_LIMIT = 500;
 // Exported so a caller waiting for search results waits on the real interval
 // rather than a copy of it.
 export const SEARCH_DEBOUNCE_MS = 150;
+// One character matches most of a universe; two is the point at which a query
+// is about something.
+const MIN_QUERY_LENGTH = 2;
+const SCOPE_EXPLANATION = "Scoped to the universe you are in. The project "
+  + "selector does not narrow it — you search the whole universe, and each "
+  + "result says which project it is in.";
 let shellControlSequence = 0;
 
 function el(documentNode, tag, className, text) {
@@ -24,246 +26,199 @@ function el(documentNode, tag, className, text) {
   return node;
 }
 
-function successfulRows(callResult, key) {
-  if (callResult.status !== 200 || !callResult.envelope?.success) return null;
-  return callResult.envelope.result?.[key] || [];
+function section(documentNode, label) {
+  const wrap = el(documentNode, "div", "header-search-section");
+  wrap.appendChild(el(documentNode, "div", "header-search-section-label", label));
+  return wrap;
 }
 
-// An `items.search.run` match renders the item's public ref as `id`. That
-// projection carries no `public_ref` key, so `id` is the only ref a match
-// offers, and a row without one cannot be linked at all.
-function itemResult(row) {
-  const ref = String(row.id || "");
-  const href = itemDrillInHref({
-    projectId: row.project_id,
-    publicRef: ref,
-  });
-  if (!href) {
-    // Dropping the row in silence renders an empty result list as though
-    // nothing matched, so name the row that could not be linked.
-    globalThis.console.error(
-      "universe search: item match carries no linkable public ref",
-      { ref, project_id: row.project_id },
-    );
-    return null;
+function status(documentNode, text) {
+  return el(documentNode, "p", "header-search-status", text);
+}
+
+// The empty state is what search opens on, so it says what search covers and
+// what this operator asked for before — never fabricated result rows.
+function emptyState(documentNode, recent, onRecent) {
+  const nodes = [];
+  if (recent.length) {
+    const wrap = section(documentNode, "Recent");
+    for (const query of recent) {
+      const row = el(documentNode, "button", "header-search-row", query);
+      row.type = "button";
+      row.addEventListener("click", () => onRecent(query));
+      wrap.appendChild(row);
+    }
+    nodes.push(wrap);
   }
-  return {
-    href,
-    kind: "Item",
-    label: String(row.title || ref),
-    meta: [ref, row.project, row.status].filter(Boolean).join(" · "),
-  };
+  const scopes = section(documentNode, "Searches across");
+  const chips = el(documentNode, "div", "header-search-scopes");
+  for (const domain of SEARCH_DOMAINS) {
+    chips.appendChild(el(
+      documentNode, "span", "header-search-chip", domain.label,
+    ));
+  }
+  scopes.appendChild(chips);
+  nodes.push(scopes);
+  nodes.push(el(documentNode, "p", "header-search-hint", SCOPE_EXPLANATION));
+  return nodes;
 }
 
-function sessionResult(row) {
-  const sessionId = String(row.session_id || "session");
-  return {
-    // A session's own page is a drill-in on Sessions: there is no facet
-    // segment between them any more.
-    href: buildUniverseRoute(
-      "sessions",
-      row.project_id ? String(row.project_id) : null,
-      sessionId,
-    ),
-    kind: "Session",
-    sessionId,
-    label: sessionId,
-    meta: [
-      row.current_item, row.current_item_title, row.actor_label, row.executor,
-    ].filter(Boolean).join(" · "),
-    terms: [
-      sessionId, row.current_item, row.current_item_title, row.actor_label,
-      row.executor, row.model, row.requested_model, row.project, row.execution_lane,
-    ],
-  };
+function resultLink(documentNode, entry) {
+  const link = el(documentNode, "a", "header-search-result");
+  link.href = entry.href;
+  link.setAttribute("role", "option");
+  // The group heading above already names the domain, so a per-row kind
+  // label would repeat it once per result.
+  link.appendChild(el(
+    documentNode, "strong", "header-search-label", entry.label,
+  ));
+  link.appendChild(el(
+    documentNode, "span", "header-search-meta", entry.meta || "—",
+  ));
+  return link;
 }
 
 function createSearch(documentNode, client) {
   const windowNode = documentNode.defaultView;
   const controlId = ++shellControlSequence;
-  const frame = createSearchFrame(documentNode);
-  const host = el(documentNode, "div", "header-search");
-  const label = el(
-    documentNode, "label", "shell-visually-hidden",
-    "Search items and sessions",
-  );
-  label.htmlFor = `universe-search-input-${controlId}`;
-  const input = el(documentNode, "input", "header-search-input");
-  input.id = `universe-search-input-${controlId}`;
-  input.type = "search";
-  input.placeholder = "Search items, sessions…";
-  input.setAttribute("aria-label", "Search items and sessions");
-  input.setAttribute("aria-expanded", "false");
-  input.setAttribute(
-    "aria-controls", `universe-search-results-${controlId}`,
-  );
-  host.appendChild(label);
-  host.appendChild(input);
-  host.appendChild(el(documentNode, "kbd", "header-search-key", "⌘K"));
-  const results = el(documentNode, "div", "header-search-results");
-  results.id = `universe-search-results-${controlId}`;
-  results.setAttribute("role", "listbox");
-  results.hidden = true;
-  host.appendChild(results);
-  frame.mount(host, input);
-
-  let sessionIndexPromise = null;
+  const history = createSearchHistory(client);
+  const search = createUniverseSearch(client);
+  let dialog = null;
   let activeIndex = -1;
   let resultLinks = [];
   let renderToken = 0;
   let debounceTimer = null;
 
-  const close = () => {
-    // Drop any pending query so a dismissal is not undone by a keystroke that
-    // has not been sent yet.
+  const cancelPending = () => {
     if (debounceTimer !== null) {
       clearTimeout(debounceTimer);
       debounceTimer = null;
     }
     renderToken += 1;
-    results.hidden = true;
-    input.setAttribute("aria-expanded", "false");
+  };
+  const setExpanded = (open) => {
+    dialog.input.setAttribute("aria-expanded", open ? "true" : "false");
+  };
+  const showEmptyState = () => {
+    resultLinks = [];
     activeIndex = -1;
-  };
-  const dismiss = () => {
-    close();
-    frame.closeOverlay();
-  };
-  const open = () => {
-    results.hidden = false;
-    input.setAttribute("aria-expanded", "true");
-  };
-  // Sessions are matched from a cached roster: the read has no keyword
-  // filter, and its newest-activity ordering makes the cap a recency window.
-  const loadSessionIndex = () => {
-    if (!sessionIndexPromise) {
-      sessionIndexPromise = client.call({
-        function: "sessions.list", payload: { limit: SESSION_INDEX_LIMIT },
-      }).then((call) => {
-        const rows = successfulRows(call, "rows");
-        return rows === null ? null : rows.map(sessionResult);
-      });
-    }
-    return sessionIndexPromise;
-  };
-  // Items are matched on the server, so the whole backlog stays reachable no
-  // matter how far it has grown past any roster the browser could hold.
-  const collectMatches = async (query) => {
-    const [itemCall, sessionEntries, exactSessionCall] = await Promise.all([
-      client.call({
-        function: "items.search.run",
-        payload: { keywords: query, limit: SEARCH_RESULT_LIMIT },
-      }).catch(() => null),
-      loadSessionIndex().catch(() => null),
-      // The cached roster is a recency window, so a session id typed in full
-      // is read by id as well and stays findable however old it is.
-      client.call({
-        function: "sessions.list", payload: { session_id: query },
-      }).catch(() => null),
-    ]);
-    const itemRows = itemCall === null
-      ? null
-      : successfulRows(itemCall, "matches");
-    if (itemRows === null && sessionEntries === null) {
-      throw new Error("Search is unavailable");
-    }
-    const needle = query.toLowerCase();
-    const exactSessions = (exactSessionCall === null
-      ? null
-      : successfulRows(exactSessionCall, "rows")) || [];
-    const sessionMatches = [
-      ...exactSessions.map(sessionResult),
-      ...(sessionEntries || []).filter((entry) => entry.terms.some(
-        (term) => String(term || "").toLowerCase().includes(needle),
-      )),
-    ];
-    const seenSessions = new Set();
-    return [
-      ...(itemRows || []).map(itemResult).filter(Boolean),
-      ...sessionMatches.filter((entry) => {
-        if (seenSessions.has(entry.sessionId)) return false;
-        seenSessions.add(entry.sessionId);
-        return true;
-      }),
-    ].slice(0, SEARCH_RESULT_LIMIT);
+    setExpanded(false);
+    dialog.body.replaceChildren(...emptyState(
+      documentNode, history.queries(), (query) => {
+        dialog.input.value = query;
+        runQuery();
+      },
+    ));
   };
   const selectResult = (next) => {
     if (!resultLinks.length) return;
     activeIndex = (next + resultLinks.length) % resultLinks.length;
     for (const [index, link] of resultLinks.entries()) {
       link.classList.toggle("active", index === activeIndex);
+      if (index === activeIndex) {
+        link.scrollIntoView?.({ block: "nearest" });
+        dialog.input.setAttribute("aria-activedescendant", link.id);
+      }
     }
   };
-  const renderMatches = (matches, query) => {
+  // Domains answer one at a time, so the panel is rebuilt from what is known
+  // so far rather than held blank until the slowest read lands.
+  const renderProgress = (query, answers) => {
     resultLinks = [];
-    results.replaceChildren();
-    if (!matches.length) {
-      results.appendChild(el(
-        documentNode, "p", "header-search-status",
-        `No items or sessions match “${query}”.`,
-      ));
-    }
-    for (const entry of matches) {
-      const link = el(documentNode, "a", "header-search-result");
-      link.href = entry.href;
-      link.setAttribute("role", "option");
-      link.appendChild(el(
-        documentNode, "span", "header-search-kind", entry.kind,
-      ));
-      const copy = el(documentNode, "span", "header-search-copy");
-      copy.appendChild(el(
-        documentNode, "strong", "header-search-label", entry.label,
-      ));
-      copy.appendChild(el(
-        documentNode, "span", "header-search-meta", entry.meta || "—",
-      ));
-      link.appendChild(copy);
-      link.addEventListener("click", dismiss);
-      resultLinks.push(link);
-      results.appendChild(link);
-    }
     activeIndex = -1;
-    open();
+    const nodes = [];
+    const unavailable = [];
+    let pending = 0;
+    for (const domain of SEARCH_DOMAINS) {
+      if (!answers.has(domain.key)) {
+        pending += 1;
+        continue;
+      }
+      const entries = answers.get(domain.key);
+      if (entries === null) {
+        unavailable.push(domain.label);
+        continue;
+      }
+      if (!entries.length) continue;
+      const wrap = section(documentNode, domain.label);
+      for (const entry of entries) {
+        const link = resultLink(documentNode, entry);
+        link.id = `universe-search-option-${controlId}-${resultLinks.length}`;
+        link.addEventListener("click", () => dialog.close());
+        resultLinks.push(link);
+        wrap.appendChild(link);
+      }
+      nodes.push(wrap);
+    }
+    if (pending) {
+      nodes.push(status(documentNode, "Searching…"));
+    } else if (!nodes.length && !unavailable.length) {
+      nodes.push(status(documentNode, `Nothing matches “${query}”.`));
+    }
+    // A domain that refused is named rather than silently contributing
+    // nothing: an empty group and a failed read look identical otherwise.
+    if (unavailable.length) {
+      nodes.push(el(
+        documentNode, "p", "header-search-hint",
+        `Could not search ${unavailable.join(", ")}. `
+        + "Those results are missing, not absent.",
+      ));
+    }
+    dialog.body.replaceChildren(...nodes);
+    setExpanded(resultLinks.length > 0);
   };
-  const update = async () => {
-    const query = input.value.trim();
+  const runQuery = async () => {
+    const query = dialog.input.value.trim();
     const token = ++renderToken;
     if (!query) {
-      close();
+      showEmptyState();
       return;
     }
-    results.replaceChildren(el(
-      documentNode, "p", "header-search-status",
-      query.length < 2 ? "Type at least two characters." : "Searching…",
-    ));
-    open();
-    if (query.length < 2) return;
-    try {
-      const matches = await collectMatches(query);
-      if (token === renderToken) renderMatches(matches, query);
-    } catch (error) {
-      if (token !== renderToken) return;
-      results.replaceChildren(el(
-        documentNode, "p", "header-search-status",
-        error instanceof Error ? error.message : "Search is unavailable",
+    if (query.length < MIN_QUERY_LENGTH) {
+      resultLinks = [];
+      dialog.body.replaceChildren(status(
+        documentNode, `Type at least ${MIN_QUERY_LENGTH} characters.`,
       ));
-      open();
+      setExpanded(false);
+      return;
     }
+    const answers = new Map();
+    renderProgress(query, answers);
+    await search(query, (domain, entries) => {
+      if (token !== renderToken) return;
+      answers.set(domain.key, entries);
+      renderProgress(query, answers);
+    });
+    if (token !== renderToken) return;
+    // Remembering a query that found nothing would offer it back as though
+    // it had worked.
+    if (resultLinks.length) history.record(query);
   };
-  // Each keystroke now costs a request, so let a burst of them settle first.
-  const scheduleUpdate = () => {
+  const scheduleQuery = () => {
     if (debounceTimer !== null) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
       debounceTimer = null;
-      update();
+      runQuery();
     }, SEARCH_DEBOUNCE_MS);
   };
-  input.addEventListener("input", scheduleUpdate);
-  input.addEventListener("focus", () => {
-    if (input.value.trim()) scheduleUpdate();
+
+  dialog = createSearchDialog(documentNode, controlId, () => {
+    cancelPending();
+    dialog.input.value = "";
+    showEmptyState();
+    // Reading the catalogues starts when the dialog opens rather than on the
+    // first keystroke: the operator spends a second typing either way, and
+    // the alternative is a blank panel while a universe-wide fan-out runs.
+    search.warm();
+    // The stored list is read on every open, so a query recorded in another
+    // tab or on another machine is already there.
+    history.load().then(() => {
+      if (dialog.isOpen() && !dialog.input.value.trim()) showEmptyState();
+    });
   });
-  input.addEventListener("keydown", (event) => {
-    // Escape is the shared dismissal's, so it reads the same everywhere.
+
+  dialog.input.addEventListener("input", scheduleQuery);
+  dialog.input.addEventListener("keydown", (event) => {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       selectResult(activeIndex + (event.key === "ArrowDown" ? 1 : -1));
@@ -273,21 +228,17 @@ function createSearch(documentNode, client) {
       event.preventDefault();
       const href = resultLinks[activeIndex].href;
       windowNode.location.hash = href.slice(href.indexOf("#"));
-      dismiss();
+      dialog.close();
     }
   });
-  const disposeDismissal = attachMenuDismissal(documentNode, {
-    root: frame.root,
-    close: dismiss,
-    isOpen: () => !results.hidden || frame.isOverlayOpen(),
-    trigger: input,
-  });
   return {
-    close: dismiss,
-    dispose: disposeDismissal,
-    focus: frame.focus,
-    input,
-    root: frame.root,
+    close: () => {
+      cancelPending();
+      dialog.close();
+    },
+    isOpen: dialog.isOpen,
+    open: dialog.open,
+    root: dialog.root,
   };
 }
 
@@ -295,23 +246,29 @@ export function createShellControls({ documentNode, client, options }) {
   const search = createSearch(documentNode, client);
   const { footer, dispose: disposeFooter } = createFooter(documentNode, options);
   const windowNode = documentNode.defaultView;
-  // Escape and outside-click dismissal belong to the shared menu contract
-  // each surface attaches for itself; this binding owns only the shortcut
-  // that opens search from anywhere.
+  // Both of search's keyboard contracts are window-level, because a modal
+  // owns the whole page while it is open: the shortcut reaches it from any
+  // screen, and Escape closes it wherever focus happens to sit inside it —
+  // the field, a chip, a result, or the backdrop.
   const onWindowKeydown = (event) => {
     const key = String(event.key || "").toLowerCase();
+    if (key === "escape") {
+      if (!search.isOpen()) return;
+      event.preventDefault();
+      search.close();
+      return;
+    }
     if (!(event.metaKey || event.ctrlKey) || key !== "k") return;
     event.preventDefault();
-    search.focus();
-    if (search.input.value.trim()) {
-      search.input.dispatchEvent(new Event("input"));
-    }
+    // The same keys that opened it are the second way out.
+    if (search.isOpen()) search.close();
+    else search.open(documentNode.activeElement);
   };
   windowNode.addEventListener("keydown", onWindowKeydown);
   return {
     dispose() {
       windowNode.removeEventListener("keydown", onWindowKeydown);
-      search.dispose();
+      search.close();
       disposeFooter();
     },
     footer,

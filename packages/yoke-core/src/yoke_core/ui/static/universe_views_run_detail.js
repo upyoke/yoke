@@ -10,9 +10,12 @@ import { createDecisionResolver } from "./inbox_rows.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import { deploymentRunsHref } from "./universe_navigation.js";
 import { reviewRequestCard } from "./review_request_card.js";
-import { evidenceStrip } from "./review_evidence_strip.js";
 import { KIND_LABELS } from "./review_request_presentation.js";
-import { carriedItems } from "./universe_overview_cards.js";
+import {
+  appendSteps,
+  verificationCard,
+} from "./universe_run_verification.js";
+import { carriedItems } from "./universe_work_cards.js";
 import {
   appendCarriedItemEvidence,
   EMPTY_CARRIED_ITEM_FACTS,
@@ -35,8 +38,6 @@ import {
   settledScopedCalls,
 } from "./universe_view_support.js";
 
-const STEP_MARKS = { complete: "✓", active: "◔", failed: "✕", stopped: "■" };
-
 function projectFor(context, row, scope) {
   const projects = context.projects();
   return projects.find((candidate) => (
@@ -46,65 +47,6 @@ function projectFor(context, row, scope) {
   )) || (Array.isArray(scope) && scope.length === 1
     ? projects.find((candidate) => String(candidate.id) === String(scope[0]))
     : null);
-}
-
-function appendSteps(documentNode, host, stages) {
-  const steps = el(documentNode, "div", "run-steps");
-  (stages || []).forEach((stage, index) => {
-    if (index) steps.appendChild(el(documentNode, "span", "run-arrow", "→"));
-    const state = String(stage.state || "pending");
-    const step = el(documentNode, "span", `run-step is-${state}`);
-    step.appendChild(el(documentNode, "i", null, STEP_MARKS[state] || String(index + 1)));
-    step.appendChild(el(documentNode, "span", null, String(stage.name)));
-    steps.appendChild(step);
-  });
-  host.appendChild(steps);
-}
-
-function outcomeOf(check) {
-  return String(check.outcome || "queued").replaceAll("_", " ");
-}
-
-// What the run's checks found, and the pictures they took.
-function verificationCard(context, checks, artifacts) {
-  const documentNode = context.document;
-  const card = el(documentNode, "section", "run-card");
-  const heading = el(documentNode, "h2", null, "Verification");
-  if (checks.length) {
-    const passed = checks.filter((check) => check.outcome === "passed").length;
-    heading.appendChild(el(
-      documentNode,
-      `span`,
-      `run-verdict ${passed === checks.length ? "is-approved" : "is-rejected"}`,
-      `${passed} of ${checks.length} passed`,
-    ));
-  }
-  card.appendChild(heading);
-  if (!checks.length) {
-    card.appendChild(el(
-      documentNode, "p", "run-copy", "No checks were recorded on this run.",
-    ));
-  }
-  for (const check of checks) {
-    const line = el(documentNode, "div", `run-check is-${outcomeOf(check).replace(/ /g, "-")}`);
-    line.appendChild(el(documentNode, "i", null, check.outcome === "passed" ? "✓" : "✕"));
-    line.appendChild(el(
-      documentNode, "b", null, [check.case_key, check.method_name].filter(Boolean).join(" · "),
-    ));
-    line.appendChild(el(documentNode, "span", null, outcomeOf(check)));
-    // An agent's reason can run to a paragraph; it folds under the check so
-    // the list stays a list and the reason stays one click away.
-    if (check.verdict_reason) {
-      const reason = el(documentNode, "details", "run-check-reason");
-      reason.appendChild(el(documentNode, "summary", null, "What the agent said"));
-      reason.appendChild(el(documentNode, "p", null, String(check.verdict_reason)));
-      line.appendChild(reason);
-    }
-    card.appendChild(line);
-  }
-  const strip = evidenceStrip(context, artifacts, { compact: true });
-  if (strip) card.appendChild(strip);
-  return card;
 }
 
 function statusCopy(row, gate) {
@@ -170,6 +112,7 @@ function decisionCard(context, row, project, onAct, evidenceShown, itemFacts, on
     (candidate) => !drawnRequests.has(String(candidate.request_id)),
   ) || null;
   const { title, copy } = statusCopy(row, gate || gates[0] || null);
+  card.classList.add("run-work");
   card.appendChild(el(documentNode, "h2", null, title));
   if (copy) card.appendChild(el(documentNode, "p", "run-copy", copy));
   if (items.length) {
@@ -290,35 +233,49 @@ export async function renderRunDetailView(context, main, scope, runId, navigatio
   const status = runGateStatus(row) || String(row.status || "unknown");
   const items = carriedItems(row);
   const page = el(documentNode, "div", "run-page");
-  page.appendChild(el(
-    documentNode, "div", "run-eyebrow",
-    [project?.slug || row.project, row.target_environment || row.target_tier].filter(Boolean).join(" · "),
-  ));
+  // Where you came from, what this is, and the facts that place it — one row
+  // at a width that holds them. The run's own id is not repeated here: the
+  // breadcrumb already ends on it.
   const head = el(documentNode, "div", "run-head");
-  const copy = el(documentNode, "div");
+  if (navigation.breadcrumb) head.appendChild(navigation.breadcrumb);
+  const copy = el(documentNode, "div", "run-head-copy");
   copy.appendChild(el(
     documentNode, "h1", "run-title", read.flows.get(String(row.flow)) || row.flow || "Deployment run",
   ));
   // The candidate commit lives on the Identity card whole; a truncated copy
   // here read like a second, shorter identity.
   copy.appendChild(el(documentNode, "div", "run-sub", [
+    project?.slug || row.project,
+    row.target_environment || row.target_tier,
     items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : "no attached items",
-    String(row.id),
+    row.release_lineage ? `release ${String(row.release_lineage).slice(0, 12)}` : null,
   ].filter(Boolean).join(" · ")));
   head.appendChild(copy);
   head.appendChild(el(
     documentNode, "span", `run-badge is-${status.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`, status,
   ));
   page.appendChild(head);
-  appendSteps(documentNode, page, row.stages);
-  const grid = el(documentNode, "div", "run-grid");
-  grid.appendChild(runIdentityCard(context, row, environment));
-  grid.appendChild(verificationCard(context, checks, artifacts));
+
+  // Stages beside the work they are moving: an open vertical rail, so which
+  // stage the run is in is read down one column rather than along a row of
+  // arrows that wrapped once a flow had six of them.
+  const top = el(documentNode, "div", "run-top");
+  const stages = el(documentNode, "section", "run-card run-stages");
+  stages.appendChild(el(documentNode, "h2", null, "Stages"));
+  appendSteps(documentNode, stages, row.stages);
+  top.appendChild(stages);
   const decision = decisionCard(
     context, row, project, onAct, artifacts.length > 0, itemFacts, onItemDecision,
   );
   appendRunAftermath(context, decision, row, project, siblings);
-  grid.appendChild(decision);
+  top.appendChild(decision);
+  page.appendChild(top);
+
+  // Verification is full width below them: a check's reason and the pictures
+  // it took are the widest thing on the page.
+  const grid = el(documentNode, "div", "run-grid");
+  grid.appendChild(verificationCard(context, checks));
+  grid.appendChild(runIdentityCard(context, row, environment));
   page.appendChild(grid);
   main.replaceChildren(page);
 }

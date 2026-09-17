@@ -58,6 +58,10 @@ export class FakeNode extends EventTarget {
     this.classList = new FakeClassList(this);
     this.style = new FakeStyle();
     this.hidden = false;
+    // A real element's `inert` is a boolean IDL property that starts false,
+    // so a caller reading it before anything sets it reads false, not
+    // undefined.
+    this.inert = false;
     this.disabled = false;
     this.selected = false;
     this.value = "";

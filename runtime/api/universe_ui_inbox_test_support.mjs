@@ -4,7 +4,7 @@ import { FakeDocument, byClass } from "./universe_ui_dom_test_support.mjs";
 // Inbox sections are addressed by the fold key they carry rather than by
 // position, so adding one between them cannot silently retarget a read.
 export function inboxSection(main, key) {
-  return byClass(main, "overview-section").find(
+  return byClass(main, "band-section").find(
     (node) => node.attributes.get("data-fold") === `section:inbox-${key}`,
   );
 }

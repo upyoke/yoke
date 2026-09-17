@@ -12,7 +12,7 @@ import {
 import { inboxSection, ok } from "./universe_ui_inbox_test_support.mjs";
 
 const messagesCount = (main) => byClass(
-  inboxSection(main, "messages"), "overview-section-count",
+  inboxSection(main, "messages"), "band-section-count",
 )[0].textContent;
 
 function actorMessage() {

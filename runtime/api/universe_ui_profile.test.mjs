@@ -208,7 +208,7 @@ test("reset clears the hidden count and disables itself", async () => {
 
 test("the actor menu names the person and links to Profile; the sidebar does not", async () => {
   const client = profileClient();
-  const { root, mounted } = await mountProfile(client, "#/overview");
+  const { root, mounted } = await mountProfile(client, "#/frontier");
   const chip = byClass(root, "actor-chip")[0];
   assert.equal(chip.tagName, "BUTTON");
   assert.equal(byClass(root, "actor-name")[0].textContent, "Ben");

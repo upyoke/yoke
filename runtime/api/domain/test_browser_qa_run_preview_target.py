@@ -130,7 +130,7 @@ class TestRunPreviewTarget(unittest.TestCase):
                 conn, requirement_id=9502, project_id=1
             )
 
-            failure, origin = _establish_deployment_freshness(
+            failure, origin, _sha = _establish_deployment_freshness(
                 "yoke",
                 "main",
                 SERVED_SHA,
@@ -151,7 +151,7 @@ class TestRunPreviewTarget(unittest.TestCase):
                 conn, requirement_id=9503, project_id=1
             )
 
-            failure, origin = _establish_deployment_freshness(
+            failure, origin, _sha = _establish_deployment_freshness(
                 "yoke",
                 "main",
                 SERVED_SHA,

@@ -119,12 +119,55 @@ export function holdingsMoreLabel(hiddenCount, open) {
   return hiddenCount === 1 ? "and 1 more" : `and ${hiddenCount} more`;
 }
 
+/**
+ * The one "and N more" control, wherever a list shows part of itself.
+ *
+ * Every caller shares the module's expansion registry, so a list the
+ * operator opened is still open after the card around it repaints — a
+ * disclosure that collapsed on every refresh was one nobody could read past.
+ * `key` identifies the list across those repaints; `label` names what the
+ * remainder is, so "and 4 more carried items" reads as itself rather than as
+ * a bare number.
+ */
+export function appendMoreDisclosure(
+  documentNode, host, { key, hiddenCount, region, label = "", className },
+) {
+  const open = expanded.has(key);
+  const id = `list-more-${String(key).replace(/[^A-Za-z0-9_-]/g, "-")}`;
+  const text = (isOpen) => (
+    isOpen
+      ? "Show less"
+      : `${holdingsMoreLabel(hiddenCount, false)}${label ? ` ${label}` : ""}`
+  );
+  region.id = id;
+  setHidden(region, !open);
+  const button = el(
+    documentNode,
+    "button",
+    className || "session-holdings-more",
+    text(open),
+  );
+  button.type = "button";
+  button.setAttribute("aria-expanded", open ? "true" : "false");
+  button.setAttribute("aria-controls", id);
+  button.addEventListener("click", () => {
+    if (expanded.has(key)) expanded.delete(key);
+    else expanded.add(key);
+    const now = expanded.has(key);
+    setHidden(region, !now);
+    button.setAttribute("aria-expanded", now ? "true" : "false");
+    button.textContent = text(now);
+  });
+  host.appendChild(button);
+  return button;
+}
+
 export function appendHoldingsMore(
   documentNode, group, { sessionId, section, hiddenCount, region },
 ) {
   const key = holdingsDisclosureKey(sessionId, section);
-  const open = expanded.has(key);
   const id = regionId(sessionId, section);
+  const open = expanded.has(key);
   region.id = id;
   setHidden(region, !open);
   const button = el(

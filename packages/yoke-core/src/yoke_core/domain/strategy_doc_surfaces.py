@@ -84,6 +84,7 @@ def list_strategy_surfaces(conn: Any, project_id: int) -> list[dict[str, Any]]:
         "c.owner_kind AS execution_owner_kind, "
         "c.owner_session_id AS execution_owner_session_id, "
         "c.owner_item_id AS execution_item_id, i.title AS execution_item_title, "
+        "i.status AS execution_item_status, "
         "i.project_sequence AS execution_item_sequence, "
         "p.slug AS project_slug, p.public_item_prefix "
         "FROM strategy_docs d "
@@ -113,6 +114,7 @@ def list_strategy_surfaces(conn: Any, project_id: int) -> list[dict[str, Any]]:
             "execution_owner_session_id": values["execution_owner_session_id"],
             "execution_item_id": values["execution_item_id"],
             "execution_item_title": values["execution_item_title"],
+            "execution_item_status": values["execution_item_status"],
             "execution_item_ref": (
                 format_item_ref(
                     values["project_slug"],

@@ -76,11 +76,13 @@ test("one-argument mount preserves the local client and DOM shape", async (t) =>
   assert.match(assetFetch.url, /\/static\/yoke-wordmark\.svg$/);
   assert.doesNotMatch(assetFetch.url, /\/assets\//);
   // One routing listener plus one dismissal set per transient surface the
-  // frame opens over its content — actor menu, search, footer panels — and
-  // nothing may outlive the mount that attached it.
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 4);
-  assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 5);
-  assert.equal(documentNode.defaultView.listenerCounts.get("click"), 3);
+  // frame opens over its content — actor menu, footer panels — and nothing
+  // may outlive the mount that attached it. Search is a modal rather than a
+  // menu: it covers the page it opened over, so it needs no outside-click or
+  // route-change dismissal, and its two keyboard contracts are its own.
+  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 3);
+  assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 4);
+  assert.equal(documentNode.defaultView.listenerCounts.get("click"), 2);
   mounted.unmount();
   mounted.unmount();
   assert.equal(root.children.length, 0);
@@ -166,20 +168,22 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   await settle();
 
   // The host-slotted mount draws no actor menu of its own, so it attaches
-  // three sets against the plain mount's four.
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 7);
+  // two sets against the plain mount's three.
+  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 5);
   // Host actions are not chrome: a mount carrying them draws nothing until
   // the Organization view asks for them, and the topbar never does.
   assert.equal(byClass(firstRoot, "capability-actions").length, 0);
   assert.equal(byClass(secondRoot, "capability-actions").length, 0);
   const firstHeader = byClass(firstRoot, "topbar")[0];
   const firstBrand = byClass(firstRoot, "yoke-header-brand")[0];
-  // Drawer control, brand, and search precede host chrome and context.
+  // Drawer control, the onboarding marker beside it, brand, and search
+  // precede host chrome and context.
   assert.ok(firstHeader.children[0].classList.contains("navigation-toggle"));
-  assert.equal(firstHeader.children[1], firstBrand);
-  assert.ok(firstHeader.children[2].classList.contains("shell-search"));
-  assert.ok(firstHeader.children[3].classList.contains("header-spacer"));
-  const firstContext = firstHeader.children[4];
+  assert.ok(firstHeader.children[1].classList.contains("onboarding-trigger"));
+  assert.equal(firstHeader.children[2], firstBrand);
+  assert.ok(firstHeader.children[3].classList.contains("shell-search"));
+  assert.ok(firstHeader.children[4].classList.contains("header-spacer"));
+  const firstContext = firstHeader.children[5];
   assert.ok(firstContext.classList.contains("context-side"));
   assert.equal(firstContext.children[1], topbarStartSlot);
   assert.equal(firstContext.children[2], topbarEndSlot);
@@ -198,16 +202,22 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   assert.equal(byClass(secondRoot, "org-context")[0].textContent, "second org");
   assert.equal(byClass(secondRoot, "actor-chip").length, 1);
   const firstNavigation = byClass(firstRoot, "sidenav")[0];
-  assert.equal(firstNavigation.children[0], navigationStartSlot);
+  // The drawer's own close control leads, because at narrow width it is the
+  // way out of a panel covering the page; the onboarding marker follows it,
+  // and the host's slot opens the destinations below both.
+  assert.ok(firstNavigation.children[0].classList.contains("navigation-close"));
+  assert.ok(firstNavigation.children[1].classList.contains("onboarding-control"));
+  assert.equal(firstNavigation.children[2], navigationStartSlot);
   assert.equal(
     firstNavigation.children[firstNavigation.children.length - 1],
     navigationEndSlot,
   );
-  // Between the slots the sidebar is destinations and the group headings that
-  // separate them, and nothing else.
-  assert.ok(firstNavigation.children.slice(1, -1).every(
+  // Between the slots the sidebar is destinations, the group headings that
+  // separate them, and the region a collapsible heading controls.
+  assert.ok(firstNavigation.children.slice(3, -1).every(
     (node) => node.classList.contains("nav-link")
-      || node.classList.contains("nav-group"),
+      || node.classList.contains("nav-group")
+      || node.classList.contains("nav-group-items"),
   ));
   assert.deepEqual(
     firstNavigation.children.filter(
@@ -278,7 +288,7 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
     [topbarStartSlot, topbarEndSlot, navigationStartSlot,
       navigationEndSlot, contentBeforeSlot, contentAfterSlot]
   )) assert.equal(slot.parentNode, null);
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 4);
+  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 3);
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
   assert.equal(firstClient.requests.length, firstCallsBeforeUnmount);

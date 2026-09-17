@@ -45,7 +45,7 @@ test("evidence is read for the carried items, not for whatever is recent", async
   assert.equal(activity.payload.project, "1");
 });
 
-test("an item's own QA shows in its Carries entry, labelled as not this run's proof", async () => {
+test("an item's own QA shows in its Carries entry", async () => {
   const documentNode = new FakeDocument();
   const client = readingClient({ rows: [activityRow()] });
   const { card } = await cardFor(documentNode, [member(1896, "BUZ-1896")], client);
@@ -61,12 +61,11 @@ test("an item's own QA shows in its Carries entry, labelled as not this run's pr
   );
   // Each screenshot is its own control inside that entry.
   assert.equal(byClass(evidence, "review-shot").length, 2);
-  // A record with no deployment run is item evidence, and says so rather
-  // than standing in for a verdict this failed run never earned.
-  assert.match(
-    byClass(evidence, "carried-item-evidence-note")[0].textContent,
-    /no deployment run — item evidence, not proof of this run\./,
-  );
+  // The distinction between an item's own record and this run's proof is
+  // structural — item QA sits under the item, deployment verification sits
+  // under the run — so the card no longer repeats it in a sentence on every
+  // entry that has one.
+  assert.equal(byClass(evidence, "carried-item-evidence-note").length, 0);
 });
 
 test("each carried item shows its own evidence and no one else's", async () => {
@@ -121,7 +120,7 @@ test("a run carrying nothing draws no carries box and no item evidence", async (
   const { card } = await cardFor(documentNode, [], client);
   await settle();
 
-  assert.equal(byClass(card, "overview-run-batch").length, 0);
+  assert.equal(byClass(card, "release-batch").length, 0);
   assert.equal(byClass(card, "carried-item-evidence").length, 0);
   // Nothing to read evidence for means nothing is asked of the server.
   assert.deepEqual(client.requests, []);

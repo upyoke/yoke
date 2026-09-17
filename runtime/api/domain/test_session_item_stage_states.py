@@ -164,7 +164,7 @@ def _connection() -> sqlite3.Connection:
         CREATE TABLE qa_requirements (
             id INTEGER PRIMARY KEY,
             item_id INTEGER,
-            workflow_transition_id TEXT
+            workflow_transition_id TEXT, waived_at TEXT
         );
         CREATE TABLE qa_runs (
             id INTEGER PRIMARY KEY,
@@ -240,7 +240,7 @@ def test_projection_marks_only_real_failure_signals_red(
     conn = _connection()
     if signal == "qa":
         conn.execute(
-            "INSERT INTO qa_requirements VALUES (1,7,'reviewing-implementation')"
+            "INSERT INTO qa_requirements VALUES (1,7,'reviewing-implementation',NULL)"
         )
         conn.execute("INSERT INTO qa_runs VALUES (1,1,'fail')")
     elif signal == "merge":
@@ -316,7 +316,7 @@ def test_projection_clears_a_swept_error_once_a_continuation_run_lands() -> None
     is what the strip shows.
     """
     conn = _connection()
-    conn.execute("INSERT INTO qa_requirements VALUES (1,7,'reviewing-implementation')")
+    conn.execute("INSERT INTO qa_requirements VALUES (1,7,'reviewing-implementation',NULL)")
     conn.execute("INSERT INTO qa_runs VALUES (1,1,'error')")
 
     swept = [stage for stage in _project(conn) if stage["state"] == "failed"]

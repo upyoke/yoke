@@ -1,0 +1,206 @@
+// Shared fixtures for the onboarding-module tests: an engine-shaped
+// activation payload builder, a client answering every read the workbench
+// composes, and the mount helper. Rows mirror overview.activation.get
+// responses so the stack renders exactly what the engine serves.
+//
+// The stack lives in the navigation's Setup control, which the shell mounts
+// on every route, so these mount at Frontier and read it there.
+
+import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
+import { FakeDocument, settle } from "./universe_ui_dom_test_support.mjs";
+
+export const MODULE_KEYS = [
+  "finish_installation_wizard", "connect_harness", "run_onboard",
+  "first_deploy",
+];
+
+export function wizardSubmodules(done = {}, machineDetail = null) {
+  return [
+    {
+      key: "machine_universe", label_key: "machine_universe",
+      done: Boolean(done.machine), detail: machineDetail,
+    },
+    { key: "github", label_key: "github", done: Boolean(done.github), detail: null },
+    {
+      key: "first_project", label_key: "first_project",
+      done: Boolean(done.project), detail: null,
+    },
+    { key: "hosting", label_key: "hosting", done: Boolean(done.hosting), detail: null },
+  ];
+}
+
+// Health, last-seen, trust, and version maps mirror the engine's target
+// sub-signal. The engine answers for every supported surface, so this
+// fixture does too; a surface with no facts reads "not installed".
+export function harnessTargets(
+  hits = {}, health = {}, trustSurfaces = {}, lastSeen = {},
+  versions = {}, statuses = {},
+) {
+  return [
+    ["claude-code", "Claude Code"], ["codex", "Codex"], ["cursor", "Cursor"],
+    ["claude-cli", "Claude CLI"], ["codex-cli", "Codex CLI"],
+    ["cursor-cli", "Cursor CLI"],
+    ["claude-vscode", "Claude in VS Code"], ["cursor-desktop", "Cursor IDE"],
+  ].map(([key, label]) => ({
+    key,
+    label,
+    hit: Boolean(hits[key]),
+    version: versions[key] || null,
+    status: statuses[key] || harnessStatus(
+      Boolean(hits[key]), health[key], trustSurfaces[key], lastSeen[key],
+    ),
+    hook_health: health[key] || null,
+    last_seen_at: lastSeen[key] || null,
+    trust_surface: trustSurfaces[key] || null,
+  }));
+}
+
+// The engine's status precedence, mirrored so a fixture that sets only
+// hit/health still carries the status the renderer reads.
+function harnessStatus(hit, health, trustSurface, lastSeen) {
+  if (health === "green") return "active";
+  if (health === "red" && trustSurface) return "hooks_need_trust";
+  if (lastSeen) return "installed_last_seen";
+  if (hit || health) return "installed_never_seen";
+  return "not_installed";
+}
+
+// One registered machine under the harness module: the engine's row shape,
+// defaulted to a relay-only machine that has connected nothing yet.
+export function machineRow(facts = {}) {
+  return {
+    machine_id: "11111111-1111-4111-8111-111111111111",
+    name: "alpha-box",
+    surfaces: [],
+    relay_state: "active",
+    last_seen_at: null,
+    state: "in_progress",
+    activated_at: null,
+    connected: null,
+    harnesses: [],
+    targets: [],
+    ...facts,
+  };
+}
+
+// The engine's live onboarding-run facts, defaulted to a run that produced
+// nothing: every outcome a card claims has to be set on purpose.
+export function onboardFacts(facts = {}) {
+  return {
+    run_status: "open",
+    superseded_by: null,
+    steps_done: 0,
+    steps_total: 0,
+    next: null,
+    blocker: null,
+    scaffold_installed: false,
+    strategy_docs: false,
+    environments: [],
+    ...facts,
+  };
+}
+
+export function activationAnswer({
+  states = {}, extras = {}, dismissed = [], dismissAvailable = false,
+} = {}) {
+  return {
+    dismiss_available: dismissAvailable,
+    modules: MODULE_KEYS.map((key) => ({
+      key,
+      state: states[key] || "not_started",
+      activated_at:
+        (states[key] || "not_started") === "activated" ? "2026-07-20T00:00:00Z" : null,
+      dismissed: dismissed.includes(key),
+      submodules: [],
+      ...(key === "run_onboard" ? { onboard: null } : {}),
+      ...(key === "connect_harness" ? { machines: [], projects: [] } : {}),
+      ...(key === "finish_installation_wizard"
+        ? { submodules: wizardSubmodules(), fully_complete: false } : {}),
+      ...(extras[key] || {}),
+    })),
+  };
+}
+
+// A one-project universe answering every read the workbench composes; the
+// band reads default non-empty unless a test overrides one to empty.
+export function activationClient(activation, overrides = {}) {
+  const requests = [];
+  const answers = {
+    "items.overview.list": { rows: [] },
+    "frontier.list": {
+      ready_rows: [{
+        item_id: "YOK-9", project: "yoke", next_step: "advance",
+        run_command: "yoke advance YOK-9", why_ready: "no blockers",
+      }],
+      blocked_rows: [],
+    },
+    "sessions.list": { rows: [] },
+    "strategy.surface.list": {
+      docs: [{
+        slug: "MISSION", summary: "why", archived: false,
+        updated_at: "2026-07-26T12:00:00Z",
+      }],
+      writes: [],
+    },
+    "ui_preferences.nav_group.list": { groups: {} },
+    "deployment_runs.list": {
+      rows: [{
+        id: "run-1", project: "yoke", flow: "stage-flow",
+        target_tier: "persistent", target_environment: "stage",
+        status: "succeeded", created_at: "1h",
+      }],
+    },
+    "events.query.run": { rows: [] },
+    "doctor.last_run.get": { never_run: true },
+    "overview.activation.get": activation,
+    "overview.vitals.get": {
+      state_counts: {
+        active: 0, pipeline: 0, backlog: 0, blocked: 0, frozen: 0, done: 0,
+      },
+      momentum: [],
+      days: 120,
+    },
+    "overview.module.dismiss": { dismissed: true },
+    "overview.module.restore": { dismissed: false },
+    ...overrides,
+  };
+  return {
+    requests,
+    async call(request) {
+      requests.push(request);
+      if (request.function === "organizations.get") {
+        return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
+      }
+      if (request.function === "projects.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: { rows: [{
+              id: 1, slug: "yoke", name: "Yoke",
+              public_item_prefix: "YOK",
+            }] },
+          },
+        };
+      }
+      if (request.function in answers) {
+        return {
+          status: 200,
+          envelope: { success: true, result: answers[request.function] },
+        };
+      }
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+}
+
+export async function mountWorkbench(client, capabilities) {
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/frontier?project=1";
+  const root = documentNode.createElement("div");
+  const mounted = mountUniverseApp(root, {
+    client, ...(capabilities ? { capabilities } : {}),
+  });
+  await settle();
+  return { root, mounted };
+}

@@ -136,7 +136,7 @@ export function appendRunAftermath(context, card, row, project, siblings) {
   if (!siblings.length) return;
   const list = el(documentNode, "div", "run-siblings");
   list.appendChild(el(
-    documentNode, "span", "overview-run-batch-title", "Other releases carrying this work",
+    documentNode, "span", "release-batch-title", "Other releases carrying this work",
   ));
   for (const sibling of siblings) {
     const entry = el(documentNode, "div", "run-sibling");

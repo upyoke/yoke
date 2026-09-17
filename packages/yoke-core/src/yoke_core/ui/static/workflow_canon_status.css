@@ -20,7 +20,7 @@
 }
 
 /* The list marker earns attention; only update-available reaches the tabs. */
-.universe-app-root .workflow-tab-status.update {
+.universe-app-root .tab-link-status.update {
   color: var(--yoke-accent);
 }
 

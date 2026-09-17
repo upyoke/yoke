@@ -8,7 +8,7 @@ themselves to an operator as sessions doing work — one click produced three
 session cards where one conversation existed.
 
 One predicate decides what a probe is, and every session reader consumes it:
-the Sessions page and the Overview sessions band (both served by
+the Sessions page and the Frontier's Active band (both served by
 ``sessions.list`` through
 :func:`yoke_core.domain.sessions_list_read.list_sessions`) and the steering
 fleet report's session counts

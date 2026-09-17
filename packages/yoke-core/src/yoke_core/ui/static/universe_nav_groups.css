@@ -16,3 +16,17 @@
 }
 
 .sidenav .nav-group:first-child { margin-top: 0; }
+
+/* A collapsible group's heading IS the control. It keeps the heading
+   styling above — no disclosure marker is added, because the row already
+   says whether it is expanded and a triangle would be a second voice. */
+.sidenav .nav-group[role="button"] {
+  cursor: pointer;
+  user-select: none;
+}
+.sidenav .nav-group-items {
+  display: contents;
+}
+.sidenav .nav-group-items[hidden] {
+  display: none;
+}

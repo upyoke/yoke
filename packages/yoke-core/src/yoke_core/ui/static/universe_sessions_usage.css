@@ -26,7 +26,6 @@
 
 /* A separator belongs to the complete metric group on its right, so narrow
    cards wrap badge and metrics as units instead of orphaning a bare rule. */
-.universe-app-root .session-usage-line .session-steered-badge + .usage-stat,
 .universe-app-root .session-usage-line .usage-stat + .usage-stat {
   padding-left: 9px;
   border-left: 1px solid var(--yoke-border);

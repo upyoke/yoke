@@ -188,7 +188,7 @@ export function prototypeWorkflow(id) {
 }
 
 export async function selectWorkflow(documentNode, root, name) {
-  const tab = byClass(root, "workflow-tab").find(
+  const tab = byClass(root, "tab-link").find(
     (node) => node.textContent === name,
   );
   assert.ok(tab, `${name} tab exists`);

@@ -1,0 +1,254 @@
+// Shared fixtures for the focus pages — Strategy, Frontier and Shipping —
+// shaped like the reads each one composes.
+
+import { allNodes } from "./universe_ui_dom_test_support.mjs";
+
+const ok = (result) => ({
+  status: 200, envelope: { success: true, result },
+});
+const fail = () => ({
+  status: 500,
+  envelope: { success: false, error: { message: "boom" } },
+});
+const recentIso = (hours = 1) => new Date(
+  Date.now() - hours * 60 * 60 * 1000,
+).toISOString();
+
+function item(ref, project, projectId, facts = {}) {
+  return {
+    public_ref: ref,
+    // The internal id every membership join uses; the public ref's tail is
+    // the project sequence, which is a different number.
+    internal_id: 100 + Number(ref.split("-").at(-1)),
+    title: `${project} item`,
+    project,
+    project_id: projectId,
+    project_sequence: Number(ref.split("-").at(-1)),
+    workflow_id: "issue",
+    status: "planned",
+    created_at: recentIso(12),
+    updated_at: recentIso(1),
+    ...facts,
+  };
+}
+
+function session(sessionId, project, projectId) {
+  return {
+    session_id: sessionId,
+    liveness: "active",
+    project,
+    project_id: projectId,
+    executor: "codex",
+    model: "gpt-5.6-sol",
+    execution_lane: "implementation",
+    mode: "charge",
+    actor_id: 2,
+    actor_kind: "human",
+    actor_label: "Ben",
+    activity_at: recentIso(0.1),
+  };
+}
+
+export function multiProjectWorkbenchClient({ failProject } = {}) {
+  const requests = [];
+  const projects = [
+    { id: 1, slug: "yoke", name: "Yoke", emoji: "🐄", public_item_prefix: "YOK" },
+    { id: 2, slug: "beta", name: "Beta", emoji: "🐝", public_item_prefix: "BET" },
+  ];
+  const items = [
+    item("YOK-9", "yoke", 1),
+    item("YOK-8", "yoke", 1, { frozen: true }),
+    item("BET-20", "beta", 2),
+    item("BET-19", "beta", 2, { status: "done", merged_at: recentIso(2) }),
+  ];
+  const universe = {
+    "items.overview.list": { rows: items },
+    "frontier.list": {
+      ready_rows: [
+        { ...items[0], item_id: "YOK-9", why_ready: "ready" },
+        { ...items[2], item_id: "BET-20", why_ready: "ready" },
+      ],
+      blocked_rows: [],
+    },
+    "sessions.list": {
+      rows: [
+        {
+          ...session("s-yoke", "yoke", 1),
+          claims: [{ target_kind: "item", public_ref: "YOK-9" }],
+        },
+        {
+          ...session("s-beta", "beta", 2),
+          claims: [{ target_kind: "item", public_ref: "BET-20" }],
+        },
+        { ...session("s-nil", null, null), project: null, project_id: null },
+      ],
+    },
+    "overview.activation.get": { dismiss_available: false, modules: [] },
+    "ui_preferences.nav_group.list": { groups: {} },
+  };
+  return {
+    requests,
+    projects,
+    async call(request) {
+      requests.push(request);
+      const fn = request.function;
+      const project = String(
+        request.payload?.project ?? request.target?.project_id ?? "1",
+      );
+      if (fn === "organizations.get") return ok({ name: "Yoke" });
+      if (fn === "projects.list") return ok({ rows: projects });
+      if (fn === "strategy.surface.list") {
+        if (project === failProject) return fail();
+        return ok({
+          docs: [{
+            slug: project === "2" ? "BETA-PLAN" : "MISSION",
+            summary: project === "2" ? "Beta direction" : "Yoke direction",
+            updated_at: recentIso(project === "2" ? 2 : 1),
+            state: "available",
+            archived: false,
+          }],
+          writes: [],
+        });
+      }
+      if (fn === "deployment_runs.list") return ok({ rows: [{
+        id: project === "2" ? "run-beta" : "run-yoke",
+        project: project === "2" ? "beta" : "yoke",
+        target_environment: "stage",
+        status: "executing",
+        flow: "release",
+        created_at: recentIso(project === "2" ? 2 : 1),
+        stages: [],
+      }] });
+      if (fn in universe) return ok(universe[fn]);
+      throw new Error(`unexpected function ${fn}`);
+    },
+  };
+}
+
+// The repetitive shape the Overview must not render: the live session in
+// Active holds a work claim on the very item Ready would otherwise offer.
+export function claimingSession() {
+  return {
+    ...session("s-run", "yoke", 1),
+    current_item: "YOK-9",
+    current_item_title: "Ship typed workflows",
+    owns_current_item: true,
+    claims: [{ target_kind: "item", public_ref: "YOK-9", target: "YOK-9" }],
+    holdings: {
+      current: [{
+        holding_kind: "work_claim", target_kind: "item", target: "YOK-9",
+        public_ref: "YOK-9", item_title: "Ship typed workflows", project_id: 1,
+      }],
+      previous: [], previous_remainder: 0,
+    },
+  };
+}
+
+export function descendantText(root) {
+  return allNodes(root)
+    .filter((node) => node.children.length === 0)
+    .map((node) => node.textContent || "")
+    .join("");
+}
+
+export function workbenchClient(overrides = {}) {
+  const requests = [];
+  const frozen = item("YOK-7", "yoke", 1, {
+    frozen: true,
+    blocked_reason: "Waiting for a product decision.",
+  });
+  const ready = item("YOK-9", "yoke", 1, {
+    title: "Ship typed workflows",
+  });
+  const done = item("YOK-6", "yoke", 1, {
+    title: "Land the release",
+    status: "done",
+    merged_at: recentIso(2),
+    deployed_to: "stage",
+  });
+  const answers = {
+    "items.overview.list": { rows: [frozen, ready, done] },
+    "frontier.list": {
+      ready_rows: [{
+        ...ready,
+        item_id: "YOK-9",
+        why_ready: "No blockers; specification and plan are current.",
+        run_command: "yoke advance YOK-9",
+      }],
+      blocked_rows: [],
+    },
+    // Focused on YOK-9 without holding it, so the base fixture keeps that
+    // item in Ready; claimingSession() below is the claimed counterpart.
+    "sessions.list": { rows: [{
+      ...session("s-run", "yoke", 1),
+      current_item: "YOK-9",
+      current_item_title: "Ship typed workflows",
+      owns_current_item: false,
+      claims: [],
+    }] },
+    "strategy.surface.list": {
+      docs: [
+        {
+          slug: "MISSION", summary: "Build a calmer delivery system.",
+          updated_at: recentIso(1), state: "available", archived: false,
+          execution_owner_kind: "session", execution_state: "claimed",
+          execution_owner_session_id: "s-seat",
+        },
+        {
+          slug: "DELIVERY-PLAN", summary: "Ship the next reliable slice.",
+          updated_at: recentIso(48), state: "locked", archived: false,
+          execution_owner_kind: "item", execution_state: "claimed",
+          execution_item_ref: "YOK-9", execution_item_status: "implementing",
+        },
+        {
+          slug: "OLD-PLAN", summary: "Superseded direction.",
+          updated_at: recentIso(96), state: "available", archived: true,
+        },
+      ],
+      writes: [],
+    },
+    "deployment_runs.list": { rows: [{
+      id: "run-1",
+      project: "yoke",
+      flow: "yoke-hosted-stage",
+      target_environment: "stage",
+      status: "executing",
+      created_at: recentIso(1),
+      release_lineage: "abcdef1234567890",
+      stages: [
+        { name: "build", state: "complete" },
+        { name: "deploy", state: "active" },
+      ],
+      member_items: [{ id: 109, ref: "YOK-9", title: "Ship typed workflows" }],
+    }, {
+      // The release that carried the finished item, so a Done card can name
+      // where that work actually went.
+      id: "run-0",
+      project: "yoke",
+      flow: "yoke-hosted-stage",
+      target_environment: "stage",
+      status: "succeeded",
+      created_at: recentIso(3),
+      completed_at: recentIso(2),
+      stages: [{ name: "deploy", state: "complete" }],
+      member_items: [{ id: 106, ref: "YOK-6", title: "Land the release" }],
+    }] },
+    "overview.activation.get": { dismiss_available: false, modules: [] },
+    "ui_preferences.nav_group.list": { groups: {} },
+    ...overrides,
+  };
+  const projects = [{
+    id: 1, slug: "yoke", name: "Yoke", emoji: "🐄",
+    public_item_prefix: "YOK",
+  }];
+  return {
+    requests,
+    async call(request) {
+      requests.push(request);
+      if (request.function === "organizations.get") return ok({ name: "Yoke" });
+      if (request.function === "projects.list") return ok({ rows: projects });
+      if (request.function in answers) return ok(answers[request.function]);
+      throw new Error(`unexpected function ${request.function}`);
+    },
+  };
+}

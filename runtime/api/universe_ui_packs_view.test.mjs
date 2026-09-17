@@ -126,7 +126,7 @@ test("Packs separates Installed and Available with row-owned previews", async (t
   assert.ok(screenText.includes("second: no repository receipt reported"));
   assert.ok(screenText.includes("Runs a web application in local containers."));
   assert.deepEqual(
-    allNodes(root).filter((node) => node.tagName === "H2")
+    allNodes(byClass(root, "view-host")[0]).filter((node) => node.tagName === "H2")
       .map(ownTextContent),
     ["Installed", "Available", "Pack contents and checkout handoff"],
   );

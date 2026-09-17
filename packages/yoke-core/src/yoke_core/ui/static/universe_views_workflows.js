@@ -104,7 +104,7 @@ export function renderWorkflowsView(context, main, _scope, routeWorkflowId) {
   const instructionsHost = el(
     documentNode, "div", "workflow-instructions-host",
   );
-  const tabs = el(documentNode, "div", "workflow-tabs");
+  const tabs = el(documentNode, "div", "tab-bar");
   tabs.setAttribute("role", "tablist");
   tabs.setAttribute("aria-label", "Workflow definitions");
   const intro = el(documentNode, "p", "workflow-intro");

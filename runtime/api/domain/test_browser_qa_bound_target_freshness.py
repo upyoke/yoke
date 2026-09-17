@@ -85,7 +85,7 @@ class TestBoundTargetFreshness(unittest.TestCase):
             self.assertEqual(bound.origin, PROD_ORIGIN)
             self.assertEqual(bound.identity_path, IDENTITY_PATH)
 
-            failure, origin = _establish_deployment_freshness(
+            failure, origin, _sha = _establish_deployment_freshness(
                 "yoke",
                 "main",
                 SERVED_SHA,
@@ -106,7 +106,7 @@ class TestBoundTargetFreshness(unittest.TestCase):
                 conn, requirement_id=9402, project_id=1
             )
 
-            failure, origin = _establish_deployment_freshness(
+            failure, origin, _sha = _establish_deployment_freshness(
                 "yoke",
                 "main",
                 SERVED_SHA,
@@ -127,7 +127,7 @@ class TestBoundTargetFreshness(unittest.TestCase):
             assert bound is not None
             self.assertEqual(bound.identity_path, "")
 
-            failure, origin = _establish_deployment_freshness(
+            failure, origin, _sha = _establish_deployment_freshness(
                 "yoke",
                 "main",
                 SERVED_SHA,
@@ -151,7 +151,7 @@ class TestBoundTargetFreshness(unittest.TestCase):
 
             assert bound is not None
             self.assertIn("another", bound.unresolved)
-            failure, origin = _establish_deployment_freshness(
+            failure, origin, _sha = _establish_deployment_freshness(
                 "yoke",
                 "main",
                 SERVED_SHA,
@@ -173,7 +173,7 @@ class TestBoundTargetFreshness(unittest.TestCase):
 
             # No bound target means no deployment_target in the context, so
             # the branch-preview path runs exactly as it always has.
-            failure, origin = _establish_deployment_freshness(
+            failure, origin, _sha = _establish_deployment_freshness(
                 "yoke",
                 "main",
                 SERVED_SHA,
@@ -323,7 +323,7 @@ class TestBoundTargetMembership(unittest.TestCase):
             assert bound is not None
             self.assertIn("not readable JSON", bound.unresolved)
 
-            failure, origin = _establish_deployment_freshness(
+            failure, origin, _sha = _establish_deployment_freshness(
                 "yoke",
                 "main",
                 SERVED_SHA,

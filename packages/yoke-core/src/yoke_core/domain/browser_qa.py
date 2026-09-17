@@ -48,13 +48,15 @@ from yoke_core.domain.browser_qa_daemon import (
     _ensure_daemon_running,
 )
 from yoke_core.domain.browser_qa_freshness import (
-    _build_code_identity,
-    _build_run_payload,
     _establish_deployment_freshness,
     _resolve_repo_root,
     _validate_deployed_sha,
     _validate_freshness_inputs,
     _validate_reachability,
+)
+from yoke_core.domain.browser_qa_run_payload import (
+    _build_code_identity,
+    _build_run_payload,
 )
 from yoke_core.domain.browser_qa_steps import (
     _SCREENSHOT_ACTIONS,

@@ -1,6 +1,9 @@
-/* The run page: eyebrow, title and status, the stage steps, then two cards
-   — what was verified, and what is waiting. Plus the run card's evidence
-   strip and carries box on the Overview and the run title in the table. */
+@import url("./universe_run_rosters.css");
+
+/* The run page: one heading row carrying the trail, the run's name and the
+   facts that place it; then the stage rail beside the work it is moving;
+   then verification, full width, below both. Plus the run card's evidence
+   strip and carries box on Shipping and the run title in the table. */
 .universe-app-root .run-page {
   display: flex;
   flex-direction: column;
@@ -14,20 +17,32 @@
   letter-spacing: .08em;
   text-transform: uppercase;
 }
+/* Trail, name, facts and status on one row where they fit, wrapping in that
+   order when they do not. */
 .universe-app-root .run-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 16px;
-  margin-top: -10px;
+  gap: 8px 16px;
+}
+.universe-app-root .run-head .breadcrumb {
+  flex: 0 0 auto;
+  margin: 0;
+}
+.universe-app-root .run-head-copy {
+  min-width: 0;
+  flex: 1 1 320px;
 }
 .universe-app-root .run-title {
   margin: 0;
+  max-width: 900px;
   color: var(--yoke-ink);
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -.02em;
-  line-height: 1.15;
+  font-size: clamp(24px, 2.4vw, 34px);
+  font-weight: 600;
+  letter-spacing: -.03em;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 .universe-app-root .run-sub {
   margin-top: 6px;
@@ -63,31 +78,83 @@
   background: var(--yoke-run-bg);
   color: var(--yoke-run);
 }
-.universe-app-root .run-steps {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 0;
-  border-top: 1px solid var(--yoke-border);
-  border-bottom: 1px solid var(--yoke-border);
-  overflow-x: auto;
+/* Stages beside the work, read down rather than along: a row of arrows
+   wrapped as soon as a flow had six stages, and a wrapped sequence stops
+   reading as a sequence. */
+.universe-app-root .run-top {
+  display: grid;
+  grid-template-columns: minmax(190px, .4fr) minmax(0, 1fr);
+  gap: 36px;
+  align-items: start;
 }
-.universe-app-root .run-step {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 9px;
+.universe-app-root .run-top > .run-card {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.universe-app-root .run-stages > h2 {
+  margin: 0 0 10px;
   color: var(--yoke-muted);
-  font-size: 13px;
+  font-size: 12px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.universe-app-root .run-work > h2 {
+  margin: 0 0 18px;
+  font-size: 20px;
   font-weight: 600;
 }
+.universe-app-root .run-steps {
+  display: flex;
+  align-items: stretch;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+}
+.universe-app-root .run-step {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 12px 0;
+  color: var(--yoke-muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+/* The rail itself: a connector between one stage and the next. */
+.universe-app-root .run-step:not(:last-child)::after {
+  position: absolute;
+  top: 40px;
+  left: 13px;
+  height: 24px;
+  border-left: 2px solid var(--yoke-border);
+  content: "";
+}
+.universe-app-root .run-step-state {
+  font-weight: 500;
+  text-transform: lowercase;
+}
+.universe-app-root .run-step-failure {
+  flex-basis: 100%;
+  padding-left: 40px;
+  color: var(--yoke-crit);
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
 .universe-app-root .run-step i {
+  position: relative;
+  z-index: 1;
   display: grid;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
+  flex: none;
   place-items: center;
   border: 1px solid var(--yoke-border);
   border-radius: 50%;
+  background: var(--yoke-bg);
   font-size: 12px;
   font-style: normal;
 }
@@ -99,14 +166,10 @@
 .universe-app-root .run-step.is-stopped { color: var(--yoke-crit); }
 .universe-app-root .run-step.is-failed i,
 .universe-app-root .run-step.is-stopped i { border-color: transparent; background: var(--yoke-crit-bg); }
-.universe-app-root .run-arrow {
-  flex: 0 0 auto;
-  color: var(--yoke-muted);
-}
 .universe-app-root .run-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
 }
 .universe-app-root .run-card {
@@ -134,15 +197,47 @@
 }
 .universe-app-root .run-verdict.is-approved { background: var(--yoke-good-bg); color: var(--yoke-good); }
 .universe-app-root .run-verdict.is-rejected { background: var(--yoke-crit-bg); color: var(--yoke-crit); }
+/* A check, its verdict, and the pictures it took, in that order down one
+   row: mark, subject, outcome, then anything it recorded, indented under
+   the subject it belongs to. */
 .universe-app-root .run-check {
-  display: flex;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   gap: 10px;
-  padding: 8px 0;
+  align-items: start;
+  padding: 14px 0;
   border-top: 1px solid var(--yoke-border);
-  font-size: 13px;
+  font-size: 14px;
 }
-.universe-app-root .run-check b { flex: 1; font-weight: 600; }
+/* A verdict reason can run to a paragraph, so it folds under the check it
+   belongs to and takes the width of that check's own column. */
+.universe-app-root .run-check-reason {
+  grid-column: 2 / -1;
+  max-width: none;
+  color: var(--yoke-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.universe-app-root .run-check-reason > summary {
+  color: var(--yoke-link);
+  cursor: pointer;
+  font-weight: 600;
+}
+.universe-app-root .run-check-evidence {
+  display: grid;
+  grid-column: 2 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: none;
+  margin-top: 4px;
+}
+.universe-app-root .run-check-evidence .review-shot {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.universe-app-root .run-check b { font-weight: 600; overflow-wrap: anywhere; }
 .universe-app-root .run-check span { color: var(--yoke-muted); }
 .universe-app-root .run-check i { color: var(--yoke-crit); font-style: normal; }
 .universe-app-root .run-check.is-passed i { color: var(--yoke-good); }
@@ -202,70 +297,27 @@
   line-height: 1.5;
 }
 
-/* Run cards on the Overview: the carries box stands out from the card, the
-   evidence strip sits under its own small label. */
-.universe-app-root .overview-run-batch {
-  border-color: color-mix(in srgb, var(--yoke-ink) 38%, var(--yoke-border));
-}
-.universe-app-root .overview-run-evidence {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.universe-app-root .overview-run-card .review-shot {
-  width: 120px;
-}
-
-/* The Runs table: a titled release with its id beneath, rows that open the
-   run, and a bounded evidence cell. */
-.universe-app-root .delivery-run-row { cursor: pointer; }
-.universe-app-root .delivery-run-row:hover td { background: var(--yoke-hover); }
-.universe-app-root .delivery-run-title {
-  color: var(--yoke-ink);
-  font-weight: 600;
-  text-decoration: none;
-}
-.universe-app-root .delivery-run-title:hover { color: var(--yoke-accent); }
-.universe-app-root .delivery-run-id {
-  margin-top: 2px;
-  color: var(--yoke-muted);
-  font-size: 11px;
-}
-.universe-app-root .delivery-runs-table td:first-child {
-  min-width: 180px;
-}
-.universe-app-root .delivery-run-evidence-cell {
-  min-width: 250px;
-}
-/* Table cells override the strip's own compact width, so the selector has
-   to outweigh it. */
-.universe-app-root .delivery-run-evidence-cell .review-evidence.compact .review-shot,
-.universe-app-root .qa-activity-evidence .review-evidence.compact .review-shot {
-  width: 72px;
-}
-.universe-app-root .delivery-run-evidence-cell .review-evidence {
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 6px;
-}
-.universe-app-root .delivery-run-evidence-cell .review-more {
-  padding: 4px 7px;
-  font-size: 11px;
-}
-.universe-app-root .run-check-reason {
-  flex: 1 1 100%;
-  color: var(--yoke-muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
-.universe-app-root .run-check-reason > summary {
-  color: var(--yoke-link);
-  cursor: pointer;
-  font-weight: 600;
-}
-.universe-app-root .run-check {
-  flex-wrap: wrap;
-}
 @media (max-width: 720px) {
   .universe-app-root .run-title { font-size: 21px; }
+}
+
+/* On a narrow content pane the stage rail and the work stack rather than
+   squeeze; a terminal inside either stays pannable rather than being
+   word-wrapped into nonsense. */
+@container dashboard-content (max-width: 590px) {
+  .universe-app-root .run-top {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .universe-app-root .run-items {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 7px;
+  }
+}
+.universe-app-root .run-page pre {
+  max-width: 100%;
+  overflow: auto;
+  overflow-wrap: normal;
+  overscroll-behavior-x: contain;
+  white-space: pre;
 }

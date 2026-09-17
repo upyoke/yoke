@@ -220,13 +220,6 @@ function captionOf(checks) {
   ].join(" · ");
 }
 
-function unlinkedNote(unlinked, total) {
-  const subject = unlinked === total
-    ? `${unlinked === 1 ? "This check" : "These checks"} record`
-    : `${unlinked} of these checks record`;
-  return `${subject} no deployment run — item evidence, not proof of this run.`;
-}
-
 // `options.onDecide(request, action, node, note)` answers a review through
 // the same resolver the Inbox uses, so the answer is the same act wherever
 // it is given.
@@ -234,7 +227,7 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   const { item, runId, facts, onDecide } = options;
   const itemId = carriedItemId(item);
   if (itemId === null) return null;
-  const { checks, artifacts, unlinked } = carriedItemEvidence(facts, itemId, runId);
+  const { checks, artifacts } = carriedItemEvidence(facts, itemId, runId);
   const reviews = carriedItemReviews(facts, itemId, runId, checks);
   if (!checks.length && !reviews.length) return null;
   // Which requests this section takes responsibility for. A caller drawing
@@ -265,17 +258,11 @@ export function appendCarriedItemEvidence(context, host, options = {}) {
   }
   // One options object for the strip and for what counts as on screen, so
   // the two can never disagree about how much of this evidence is visible.
-  const stripOptions = { compact: true, limit: CARRIED_EVIDENCE_SHOWN };
+  const stripOptions = {
+    compact: true, limit: CARRIED_EVIDENCE_SHOWN, stepCaptionsOnly: true,
+  };
   const strip = evidenceStrip(context, artifacts, stripOptions);
   if (strip) wrap.appendChild(strip);
-  if (unlinked) {
-    wrap.appendChild(el(
-      documentNode,
-      "span",
-      "carried-item-evidence-note",
-      unlinkedNote(unlinked, checks.length),
-    ));
-  }
   // The strip above is this item's recent history, which is not the same
   // thing as this request's evidence: the reviewed capture may be older than
   // the bound, or the strip may be empty. Its own evidence is suppressed

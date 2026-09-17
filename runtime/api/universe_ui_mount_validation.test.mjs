@@ -117,21 +117,21 @@ test("route helpers are deterministic and platform-neutral", () => {
   });
   // An unrecognised view falls back to the first destination in the nav.
   assert.deepEqual(parseUniverseRoute("#/unknown"), {
-    view: "overview", tab: null, detail: null, project: null, selection: null,
+    view: "strategy", tab: null, detail: null, project: null, selection: null,
   });
   // Board rendering remains a CLI/local artifact; it is not a web route.
   assert.deepEqual(parseUniverseRoute("#/board"), {
-    view: "overview", tab: null, detail: null, project: null, selection: null,
+    view: "strategy", tab: null, detail: null, project: null, selection: null,
   });
   assert.equal(buildUniverseRoute("strategy", "abc 1"),
     "#/strategy?project=abc%201");
-  assert.equal(buildUniverseRoute("unknown", null), "#/overview");
-  assert.equal(buildUniverseRoute("board", null), "#/overview");
+  assert.equal(buildUniverseRoute("unknown", null), "#/strategy");
+  assert.equal(buildUniverseRoute("board", null), "#/strategy");
 });
 
 test("every nav destination declares how it takes project scope", () => {
   for (const view of [
-    "items", "strategy", "overview", "inbox", "sessions", "github",
+    "items", "strategy", "frontier", "inbox", "sessions", "github",
   ]) {
     assert.equal(universeNavScope(view), "multi");
   }

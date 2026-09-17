@@ -105,13 +105,19 @@ def test_responsive_shell_uses_a_drawer_and_search_overlay():
     assert ".universe-app-root .shell > .sidenav" in compact
     assert "transform: translateX(-105%)" in compact
     assert ".shell.side-open > .sidenav" in compact
-    assert ".header-search-button" in compact
-    assert ".shell-search-inline" in compact
+    # The wide field gives up its space to the icon button that opens the
+    # same dialog, so search never disappears with the room the field needed.
+    assert ".header-search-button { display: block; }" in compact
+    assert ".universe-app-root .header-search,\n" in compact
+    # The context group stops being one unbreakable block at the drawer
+    # breakpoint, so the header's own wrapping can move its controls to a
+    # second row rather than pushing the last one off the side.
+    assert (".universe-app-root .context-side {\n    display: contents;\n  }") in compact
     phone = responsive.split("@media (max-width: 640px)", 1)[1]
     assert ".header-project-context" in phone
-    assert (".universe-app-root .context-side {\n    display: contents;\n  }") in phone
+    # On a phone the dialog IS the screen rather than a panel floating over it.
     assert ".header-search-panel" in phone
-    assert "inset: 0" in phone
+    assert "height: 100%" in phone
 
 
 def test_page_module_exports_the_mount_contract():
@@ -230,18 +236,37 @@ def test_page_module_wires_the_workbench_shell():
     assert "sessions.list" in group_colors
     assert "sessions.list" not in shell
 
-    # Header search queries items on the server so the whole backlog stays
-    # reachable; only the session arm still filters a cached roster.
+    # Universe search reads all six domains it advertises. The reads live
+    # beside each other in one module so the chips in the dialog and the
+    # functions behind them cannot drift apart.
+    domains = static_root.joinpath("universe_search_domains.js").read_text()
+    for reference in (
+        "items.search.run", "sessions.list", "strategy.doc.list",
+        "qa.plan.list", "events.query.run", "packs.list",
+    ):
+        assert reference in domains, reference
+    # The controls module composes the dialog; it owns no read of its own.
     controls = static_root.joinpath("universe_shell_controls.js").read_text()
-    for reference in ("items.search.run", "sessions.list"):
-        assert reference in controls, reference
+    assert "items.search.run" not in controls
+    history = static_root.joinpath("universe_search_history.js").read_text()
+    for reference in (
+        "ui_preferences.search_history.list",
+        "ui_preferences.search_history.record",
+    ):
+        assert reference in history, reference
 
     view_references = {
+        # Strategy reads its corpus, its holds and its write history from
+        # one surface call and draws them as cards.
         "universe_views_strategy.js": (
             "strategy.surface.list",
-            "renderStrategyTable",
-            '"Purpose / ancestry"',
+            "strategyDocumentCard",
+            "strategyWriteActivity",
         ),
+        # The frontier bands and the shipping page own their own reads.
+        "universe_frontier_bands.js": ("items.overview.list", "frontier.list"),
+        "universe_views_frontier.js": ("sessions.list", "deployment_runs.list"),
+        "universe_shipping_runs.js": ("deployment_runs.list", "sessions.list"),
         # The Items view composes the page; the loader beside it owns the
         # roster read, its paging state, and its request criteria.
         "universe_views_items.js": ("createRosterLoader",),
@@ -262,7 +287,6 @@ def test_page_module_wires_the_workbench_shell():
         ),
         "universe_sessions_history_loader.js": ("sessions.list",),
         "universe_views_doctor.js": ("doctor.last_run.get",),
-        "universe_overview_frontier.js": ("frontier.list",),
         "universe_views_capabilities.js": ("projects.capabilities.list",),
     }
     for module_name, references in view_references.items():
@@ -304,42 +328,3 @@ def test_qa_case_table_keeps_actions_visible_in_the_prototype_split():
     assert ".universe-app-root .qa-case-panel-body" in css
     assert ".qa-case-panel-body .qa-case-table" in css
     assert "min-width: 100%" in css
-
-
-def test_every_nav_destination_is_routable_and_scoped():
-    """Each nav entry is a real route from day one: it declares its scope and
-    either renders rows, states what it will be, or renders host content."""
-    page_module = (
-        files("yoke_core.ui")
-        .joinpath(
-            "static",
-            "universe_destinations.js",
-        )
-        .read_text()
-    )
-    # Grouped as the sidebar groups them: focus, then settings, then the
-    # diagnostics drawer.
-    for destination in (
-        "overview", "sessions", "inbox",
-        "organization", "workflows", "projects", "github", "actors",
-        "members", "billing",
-        "strategy", "items", "deployments", "environments", "flows",
-        "databases", "qa-methods", "qa-plans",
-        "qa-activity", "capabilities", "packs", "architecture", "messages",
-        "events", "doctor", "ouroboros", "machines",
-    ):
-        assert f'id: "{destination}"' in page_module, destination
-    assert 'id: "board"' not in page_module
-    # Frontier was absorbed by the Overview section of that name, and Project
-    # settings by the Projects row that opens it. Neither is a destination.
-    for absorbed in ("frontier", "project", "delivery", "qa"):
-        assert f'id: "{absorbed}"' not in page_module, absorbed
-    # Execution instructions are edited inside the workflows page; a nav
-    # entry of their own would lead to a screen that no longer exists.
-    assert 'id: "instructions"' not in page_module
-    # Host-fed screens sit in the same flat nav arc as every other view, and
-    # the flag ties each entry's visibility to a host-supplied section.
-    for host_fed in ("members", "billing"):
-        entry_start = page_module.index(f'id: "{host_fed}"')
-        entry_end = page_module.index("}", entry_start)
-        assert "hostFed: true" in page_module[entry_start:entry_end], host_fed

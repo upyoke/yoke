@@ -8,33 +8,6 @@
    steering group renders in its own color; a card outside any steering
    group falls back to the universal accent. */
 
-/* A covered worker's one group mark: a compact light-filled label at the
-   head of its usage row, in the group's own hue with the same steering
-   symbol the seat's box carries. The card surface stays neutral. */
-.universe-app-root .session-steered-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: color-mix(
-    in srgb, var(--session-steering-color, var(--yoke-accent)) 14%,
-    var(--yoke-surface)
-  );
-  color: var(--session-steering-color, var(--yoke-accent));
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .055em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-/* Sized against the label's own cap height rather than the 14px the seat's
-   corner mark uses, so the pill stays compact at normal card size. */
-.universe-app-root .session-steered-badge .steering-symbol svg {
-  height: 10px;
-}
-
 /* The lead block: a steering seat's scope, in the work position. Card ink
    and a tinted rule give it the weight a claimed item gets, because it
    answers the same question — what is this session doing. */
@@ -43,20 +16,56 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 7px 9px;
-  border-left: 3px solid var(--session-steering-color, var(--yoke-accent));
-  border-radius: 4px;
+  padding: 14px 12px;
+  border: 1px dashed var(--session-steering-color, var(--yoke-accent));
+  border-radius: 7px;
   background: color-mix(
     in srgb, var(--session-steering-color, var(--yoke-accent)) 8%, transparent
   );
 }
 
-/* The symbol sits in the box corner rather than beside the label, so it
-   marks the whole block as the steering region at a glance. */
+/* A covered worker's own row, directly above the work it covers: full
+   width, one line where the words fit, and optically centred on the mark
+   beside them. It used to be a pill in the usage line, where it competed
+   with two numbers for the same glance and said nothing about which
+   document it was steered from. */
+.universe-app-root .session-steering-lead.session-steered-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  min-width: 0;
+  white-space: nowrap;
+}
+/* One optical line: the mark, the word and the slug share a baseline box
+   rather than each sitting at its own font's natural height. */
+.universe-app-root .session-steered-row .session-steering-lead-label,
+.universe-app-root .session-steered-row .session-steering-docs {
+  line-height: 22px;
+}
+.universe-app-root .session-steered-row .session-steering-docs {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+}
+/* The mark leaves the corner when it leads a row. */
+.universe-app-root .session-steered-row .session-steering-symbol,
+.universe-app-root .session-steering-heading .session-steering-symbol {
+  position: static;
+  flex: none;
+}
+
+/* Mark and label read as one heading: the mark qualifies the word beside
+   it rather than floating in the corner of the block. */
+.universe-app-root .session-steering-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 6px;
+}
 .universe-app-root .session-steering-symbol {
-  position: absolute;
-  top: 6px;
-  right: 7px;
   color: var(--session-steering-color, var(--yoke-accent));
 }
 
@@ -67,9 +76,9 @@
   line-height: 1;
 }
 
-/* Landscape artwork (209.8×142). Size by height so stroke weight and
-   visible width match the prototype sess-wheel, not by width which
-   shrinks the mark. */
+/* Landscape artwork (209.8×142). Size by height so the stroke weight and
+   visible width hold beside the text it sits in; sizing by width shrinks
+   the mark instead. */
 .universe-app-root .steering-symbol svg {
   display: block;
   height: 14px;
@@ -80,11 +89,16 @@
   color: var(--session-steering-color, var(--yoke-accent));
 }
 
+/* Condensed and semibold rather than small and heavy: the word is a
+   heading over the scope rows, so it is read at their size and not shouted
+   at a third of it. */
 .universe-app-root .session-steering-lead-label {
+  margin: 0;
   color: var(--session-steering-color, var(--yoke-accent));
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .055em;
+  font-family: "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: .045em;
   text-transform: uppercase;
 }
 
@@ -94,6 +108,7 @@
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
+  font-size: 14px;
 }
 
 .universe-app-root .session-steering-project {

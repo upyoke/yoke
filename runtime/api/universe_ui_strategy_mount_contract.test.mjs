@@ -4,9 +4,8 @@ import test from "node:test";
 import { mountUniverseApp } from "../../packages/yoke-core/src/yoke_core/ui/static/app.js";
 import {
   FakeDocument,
-  allNodes,
   byClass,
-  cellText,
+  ownTextContent,
   response,
   settle,
 } from "./universe_ui_dom_test_support.mjs";
@@ -14,7 +13,7 @@ import {
   relativeAge,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_time.js";
 
-test("strategy rows render the prototype corpus facts", async (t) => {
+test("strategy cards carry the corpus facts from one read", async (t) => {
   const originalFetch = globalThis.fetch;
   t.after(() => { globalThis.fetch = originalFetch; });
   globalThis.fetch = () => response(200, {});
@@ -29,7 +28,15 @@ test("strategy rows render the prototype corpus facts", async (t) => {
         return { status: 200, envelope: { success: true, result: { name: "Yoke" } } };
       }
       if (request.function === "projects.list") {
-        return { status: 200, envelope: { success: true, result: { rows: [{ id: 1, slug: "yoke", name: "Yoke" }] } } };
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: {
+              rows: [{ id: 1, slug: "yoke", name: "Yoke", public_item_prefix: "YOK" }],
+            },
+          },
+        };
       }
       if (request.function === "strategy.surface.list") {
         return {
@@ -40,15 +47,22 @@ test("strategy rows render the prototype corpus facts", async (t) => {
               docs: [
                 {
                   slug: "MISSION", title: "Mission statement",
+                  summary: "What this is for.",
                   updated_at: "2026-07-01", updated_by: "ben",
                   parent_slug: null, revisions: 4,
                   execution_state: "available", archived: false,
                 },
                 {
-                  slug: "VISION", title: "Vision",
+                  slug: "CURRENT-PLAN", title: "Current plan",
+                  summary: "What is happening now.",
                   updated_at: "2026-06-30", updated_by: null,
-                  parent_slug: "MISSION", revisions: 2,
-                  execution_state: "available", archived: true,
+                  execution_owner_kind: "session",
+                  execution_state: "claimed", archived: false,
+                },
+                {
+                  slug: "OLD-PLAN", title: "Old plan",
+                  updated_at: "2026-06-01", archived: true,
+                  execution_state: "reference",
                 },
               ],
               writes: [],
@@ -63,28 +77,48 @@ test("strategy rows render the prototype corpus facts", async (t) => {
   const mounted = mountUniverseApp(root, { client });
   await settle();
 
-  // At the "all" default the docs read fans out per project, and each row
-  // wears the slug of the project bucket that requested it. An unresolved
-  // editor remains empty and the hierarchy is visible in the purpose cell.
-  const cells = allNodes(root)
-    .filter((node) => node.tagName === "TH" || node.tagName === "TD")
-    .map(cellText);
-  assert.deepEqual(cells, [
-    "Doc", "project", "Purpose / ancestry", "Last editor", "Last write",
-    "Revisions", "Execution",
-    "MISSION", "yoke", "Mission statement", "b",
-    relativeAge("2026-07-01"), "4", "available",
-    "Doc", "project", "Purpose / ancestry", "Last editor", "Last write",
-    "Revisions", "Execution",
-    "VISION", "yoke", "Vision", "",
-    relativeAge("2026-06-30"), "2", "archived",
-  ]);
-  assert.equal(
-    byClass(root, "strategy-archive-heading")[0].textContent,
-    "Archived (1)",
+  // Standing direction, the plans under it, and the archive, each as cards
+  // rather than table rows — the authored summary is the readable fact, and
+  // a column of them is not readable at table width.
+  const slugs = byClass(root, "strategy-doc-slug").map(ownTextContent);
+  assert.deepEqual(slugs, ["MISSION", "CURRENT-PLAN", "OLD-PLAN"]);
+  assert.deepEqual(
+    byClass(root, "strategy-doc-summary").map(ownTextContent),
+    ["What this is for.", "What is happening now.", "No ## Summary heading"],
   );
-  assert.ok(requests.some(
-    (request) => request.function === "strategy.surface.list",
-  ));
+  assert.deepEqual(
+    byClass(root, "strategy-doc-prefix").map(ownTextContent),
+    ["YOK", "YOK", "YOK"],
+  );
+  // The age says when, without the word the dot beside it already implies,
+  // and as plain text: a card is a glance, and the exact moment belongs on
+  // the document the card opens.
+  const ages = byClass(root, "strategy-doc-age").map((node) => node.textContent);
+  assert.ok(ages[0].includes(relativeAge("2026-07-01")));
+  assert.ok(!ages[0].includes("updated"));
+  assert.equal(byClass(root, "strategy-doc-age")[0].children.at(-1).tagName, "SPAN");
+
+  // A session hold is a steering seat, and says so once.
+  const claims = byClass(root, "strategy-doc-claim");
+  assert.equal(claims.length, 1);
+  assert.ok(claims[0].classList.contains("is-steering"));
+  assert.equal(
+    byClass(root, "strategy-doc-claim-label")[0].textContent, "STEERED",
+  );
+  assert.equal(byClass(claims[0], "steering-symbol").length, 1);
+  assert.equal(byClass(root, "strategy-doc-claim-holder").length, 0);
+
+  // The archive is reachable, closed, and counted.
+  const archived = byClass(root, "work-band-archived-docs")[0];
+  assert.equal(archived.open, false);
+  assert.equal(byClass(archived, "work-band-count")[0].textContent, "1");
+
+  // One read serves documents, claims and write history together.
+  assert.equal(
+    requests.filter(
+      (request) => request.function === "strategy.surface.list",
+    ).length,
+    1,
+  );
   mounted.unmount();
 });

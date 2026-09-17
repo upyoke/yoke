@@ -38,6 +38,13 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "items.list.run",
         "items.overview.list",
         "items.search.run",
+        # Called by pages this server serves. Each was reachable in the
+        # navigation while its read was refused, so the page rendered a
+        # 403 where its content belongs.
+        "profile.get",
+        "packs.list",
+        "packs.bundle.get",
+        "project_structure.architecture_health.get",
         "items.detail.get",
         "epic_tasks.list.run",
         "strategy.doc.list",
@@ -52,6 +59,9 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "deployment_runs.find_by_item",
         "deployment_runs.stages",
         "deployment_flows.stages",
+        # The Flows catalog validates a definition against the serving
+        # runtime before offering to write it.
+        "deployment_flows.validate",
         "sessions.list",
         "machine.list",
         "machine.detail",
@@ -95,6 +105,8 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         # still answers — with an empty map — for an unresolved operator.
         # See UI_OPERATOR_OPTIONAL_READ_FUNCTIONS.
         "ui_preferences.screen_selection.list",
+        "ui_preferences.nav_group.list",
+        "ui_preferences.search_history.list",
     }
 )
 
@@ -134,7 +146,12 @@ UI_ACTOR_BOUND_READ_FUNCTIONS = frozenset(
 #: answerable when none does, because refusing them would blank a whole
 #: page over an action nobody was going to take.
 UI_OPERATOR_OPTIONAL_READ_FUNCTIONS = frozenset(
-    {"deployment_runs.list", "ui_preferences.screen_selection.list"}
+    {
+        "deployment_runs.list",
+        "ui_preferences.screen_selection.list",
+        "ui_preferences.nav_group.list",
+        "ui_preferences.search_history.list",
+    }
 )
 
 #: The only mutations the local proxy may dispatch. All act as the resolved
@@ -156,6 +173,8 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "profile.preference.set",
         "profile.onboarding.reset",
         "ui_preferences.screen_selection.set",
+        "ui_preferences.nav_group.set",
+        "ui_preferences.search_history.record",
         "workflows.current.set",
         "workflows.policy_defaults.publish",
         "workflows.testing_default.set",
@@ -168,6 +187,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "items.create",
         "sessions.reclaim_stale",
         "organizations.settings.merge",
+        "projects.capability_settings.merge",
         "session_control.message.send",
         "session_control.message.acknowledge",
         "session_control.message.cancel",
@@ -181,6 +201,10 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "machine.settings.set",
         "strategy.revision.restore",
         "deployment_runs.terminalize",
+        "deployment_flows.create",
+        "deployment_flows.update",
+        "deployment_flows.version",
+        "deployment_flows.set_status",
     }
 )
 
@@ -195,6 +219,7 @@ def proxy_function_call(
         TargetRef,
     )
     from yoke_core.domain.yoke_function_dispatch import dispatch
+    from yoke_core.ui.proxy_transport import relay_call, relays_to_server
 
     function_id = str(envelope.get("function") or "")
     is_mutation = function_id in UI_MUTATION_FUNCTION_ALLOWLIST
@@ -213,11 +238,16 @@ def proxy_function_call(
             },
             403,
         )
+    # Identity follows the transport. Relayed, the server binds the
+    # authenticated actor behind the credential and this process asserts
+    # nobody; in-process, it resolves the machine's operator itself, which
+    # is the only identity a loopback session token could stand for.
+    relayed = relays_to_server()
     # Actor-scoped calls act as the machine's operator, resolved
     # server-side. Reads that surface per-actor dismissal state bind the
     # operator when one resolves; mutations refuse without one.
     operator_actor_id: Optional[str] = None
-    if (
+    if not relayed and (
         is_mutation
         or function_id in UI_ACTIVATION_LATCH_FUNCTIONS
         or function_id in UI_ACTOR_BOUND_READ_FUNCTIONS
@@ -267,6 +297,17 @@ def proxy_function_call(
         )
 
         payload["sender_surface"] = WEB_FORM_SENDER_SURFACE
+    if relayed:
+        # The envelope's own actor and session fields never travel: the
+        # relay's credential is the identity, and this process adds none.
+        response = relay_call(
+            function_id=function_id,
+            target=target,
+            payload=payload,
+            options=dict(envelope.get("options") or {}),
+            request_id=str(envelope.get("request_id") or uuid.uuid4()),
+        )
+        return response.model_dump(mode="json"), 200
     request = FunctionCallRequest(
         function=function_id,
         # No harness session exists in a browser: the empty session id

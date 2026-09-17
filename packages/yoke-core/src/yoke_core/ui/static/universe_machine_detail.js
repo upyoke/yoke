@@ -7,7 +7,7 @@ import { presentSessionControlFailure } from "./universe_session_control_data.js
 import { LAUNCHABLE_SURFACES } from "./universe_machines_panel.js";
 import {
   hookTrustRemediation,
-} from "./universe_views_overview_activation_copy.js";
+} from "./universe_onboarding_copy.js";
 import { readingIsStale } from "./universe_machines_meters.js";
 
 function fact(documentNode, label, value) {
