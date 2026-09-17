@@ -23,12 +23,13 @@ Close-out therefore compares the current lane candidate to those recorded
 identities before it stamps, records, or cleans. Matching the recorded
 candidate is the same landing even when a squash is not an ancestor of the
 base. A different candidate that the base does not contain is new work.
-When this same item is still short of a declared release wait, that is its
-own next merge — continue the correction on the same item and lane,
-re-verify, review, and run the governed merge again. Do not prescribe a
-stage change. Close-out otherwise treats the mismatch as foreign or stale
-(the default, including when no release stage is declared): file a
-fresh work item; do not reset unlanded corrections.
+Same-item correction is supported only while the item is before a
+declared release stage under its pinned workflow: continue on the same
+item and lane, re-verify, review, and run the governed merge again. Do
+not prescribe a stage change. Otherwise the mismatch refusal preserves
+the lane and requires separate work subject to operator preference
+(the default, including when no release stage is declared). Do not
+reset unlanded corrections.
 
 Rebasing after a landing is neither of those, and it is the case sha reads
 cannot see: the base holds the work, the lane holds new shas for the same
@@ -160,12 +161,11 @@ def stale_unlanded_work(
     named = ", ".join(sorted(sha[:12] for sha in identities))
     return (
         f"branch {branch!r} head {current[:12]} is not the recorded landing "
-        f"({named}). Close-out treats this mismatch as foreign or stale "
-        "work — file a fresh work item so they get their own merge "
-        "identity. Same-item correction continues on the same item and "
-        "lane: re-verify, review, and run the governed merge again, "
-        "subject to the pinned workflow; do not prescribe a stage change. "
-        "Do not reset unlanded corrections. Close-out will not declare "
+        f"({named}). Same-item correction is supported only while the item "
+        "is before a declared release stage under its pinned workflow; "
+        "otherwise this refusal preserves the lane and requires separate "
+        "work subject to operator preference. Do not prescribe a stage "
+        "change or reset unlanded corrections. Close-out will not declare "
         "them delivered or clean this lane"
     )
 

@@ -125,13 +125,14 @@ def test_a_lane_carrying_new_commits_has_not_landed(monkeypatch):
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
     assert _lane() is None
     refusal = landed.stale_unlanded_work(**_LOOK)
-    assert "fresh work item" in refusal
+    assert "before a declared release stage" in refusal
+    assert "preserves the lane" in refusal
+    assert "operator preference" in refusal
     assert "reset the lane" not in refusal.lower()
     assert "return to implementation" not in refusal
     assert "returns to implementation" not in refusal
     assert "has reached its pinned release wait" not in refusal
-    assert "do not prescribe a stage change" in refusal
-    assert "same item and lane" in refusal
+    assert "do not prescribe a stage change" in refusal.lower()
 
 
 def test_reached_release_defaults_true_and_keeps_the_existing_refusal(monkeypatch):
@@ -145,7 +146,9 @@ def test_reached_release_defaults_true_and_keeps_the_existing_refusal(monkeypatc
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
     refusal = landed.stale_unlanded_work(**_LOOK, reached_release=True)
-    assert "fresh work item" in refusal
+    assert "before a declared release stage" in refusal
+    assert "preserves the lane" in refusal
+    assert "operator preference" in refusal
     assert "reset the lane" not in refusal.lower()
     assert "has reached its pinned release wait" not in refusal
 
