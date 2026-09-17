@@ -90,8 +90,9 @@ class TestSteerWorkerLifecycle:
         assert "Every worker gets the `yoke say --steering` DONE step" in text
         assert "before releasing any claim it still holds" in text
         assert "Launch origin does not change that boundary" in text
-        assert "session_control.launch.preview" in _read(_STEER_DIR / "SKILL.md")
-        assert "session_control.launch.list" in _read(_STEER_DIR / "SKILL.md")
+        reference = _read(_STEER_DIR / "function-reference.md")
+        assert "session_control.launch.preview" in reference
+        assert "session_control.launch.list" in reference
 
     def test_surfaces_are_not_exclusive_and_balance_is_not_a_quota(self):
         text = _words(_read(_STEER_DIR / "worker-lifecycle.md"))

@@ -85,10 +85,25 @@ def root_rules_bytes(harness_id: str) -> int:
 STARTUP_CHANNELS: tuple[str, ...] = ("root_rules", "inline_hook", "agent_prompt")
 
 
+# A fourth channel opens after startup: the file a session reads when it enters
+# a `/yoke` command. That read is not a startup cost — it is paid once per
+# invocation, and again on every phase the command routes through — so it is
+# budgeted separately from the three above.
+#
+# A ratchet, not a truncation ceiling. Nothing has been observed cutting a
+# skill read; the number is the measured size of the condensed entrypoints, so
+# an entrypoint that grows past it has to say why. It bounds the ENTRYPOINT
+# only. A phase reference is read when its phase arrives and is deliberately
+# unbounded: the point of the split is that detail lives where it is needed,
+# not that every file is small.
+SKILL_ENTRYPOINT_BYTES = 8000
+
+
 __all__ = [
     "ESTIMATED_BYTES_PER_TOKEN",
     "ROOT_RULES_BYTES",
     "ROOT_RULES_TRUNCATION_BYTES",
+    "SKILL_ENTRYPOINT_BYTES",
     "STARTUP_CHANNELS",
     "budget_phrase",
     "estimated_tokens",

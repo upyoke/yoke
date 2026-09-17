@@ -164,14 +164,14 @@ class TestStrategize:
         the research/propose/approve phase loop. The canonical agent
         CLI adapter is ``yoke claims work acquire --process STRATEGIZE``.
         """
-        text = _read(self.STRATEGIZE_DIR / "SKILL.md")
+        text = _read(self.STRATEGIZE_DIR / "entry.md")
         assert "yoke claims work acquire" in text, (
-            "strategize/SKILL.md must teach yoke claims work acquire "
+            "strategize/entry.md must teach yoke claims work acquire "
             "(function id family: claims.work.acquire / process target) "
             "for the STRATEGIZE process claim acquisition."
         )
         assert "yoke claims work release" in text, (
-            "strategize/SKILL.md must teach yoke claims work release "
+            "strategize/entry.md must teach yoke claims work release "
             "(function id: claims.work.release) so the abort + finalize "
             "contract is visible without consulting phase files."
         )

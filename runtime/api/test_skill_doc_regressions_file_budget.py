@@ -78,6 +78,7 @@ class TestFileBudgetRefineRubric:
     def docs(self) -> dict[str, Path]:
         return {
             "skill": SKILLS / "refine" / "SKILL.md",
+            "critique_pointer": SKILLS / "refine" / "survey-and-focus.md",
             "review_rubric": SKILLS / "refine" / "review-rubric.md",
             "update_protocol": SKILLS / "refine" / "update-protocol.md",
         }
@@ -102,7 +103,7 @@ class TestFileBudgetRefineRubric:
         assert "do not reconstruct them from a workflow name" in text
 
     def test_skill_md_points_to_rubric_and_escalation(self, docs):
-        text = _read(docs["skill"])
+        text = _read(docs["skill"]) + _read(docs["critique_pointer"])
         assert "File Budget" in text
         # The pointer must mention escalation routing.
         assert "File Budget escalation" in text or "escalation" in text
@@ -205,18 +206,18 @@ class TestFileBudgetArchitect:
 
 class TestRefineRecoverableReadinessRepair:
     """`/yoke refine` distinguishes recoverable claim-coverage readiness
-    failures from unrecoverable ones, and routes the recoverable ones to
-    canonical claim widen / `path-claims narrow` rather than releasing
-    the work claim and exiting. Adjacent gates (idea-time readiness,
-    advance-time spec coverage, pre-edit/pre-bash path-claim guards) are
-    classified as `auto-repair`, `repair-before-block`, or
-    `block-by-design` with rationale.
+    failures from unrecoverable ones, routing the recoverable ones to
+    canonical claim widen / `path-claims narrow` rather than releasing the
+    work claim and exiting. Adjacent gates (idea-time readiness, advance-time
+    spec coverage, pre-edit/pre-bash path-claim guards) are classified
+    `auto-repair`, `repair-before-block`, or `block-by-design` with rationale.
     """
 
     @pytest.fixture
     def docs(self) -> dict[str, Path]:
         return {
-            "refine_skill": SKILLS / "refine" / "SKILL.md",
+            "refine_skill": SKILLS / "refine" / "entry-and-gather.md",
+            "refine_budget_recheck": SKILLS / "refine" / "survey-and-focus.md",
             "refine_readiness_repair": SKILLS / "refine" / "readiness-repair.md",
             "idea_body_and_sync": SKILLS / "idea" / "body-and-sync.md",
             "advance_preflight_checks": SKILLS / "advance" / "preflight-checks.md",
@@ -236,7 +237,7 @@ class TestRefineRecoverableReadinessRepair:
         assert "recoverable" in combined
 
     def test_refine_routes_recoverable_to_canonical_claims_widen(self, docs):
-        skill = _read(docs["refine_skill"])
+        skill = _read(docs["refine_budget_recheck"])
         repair = _read(docs["refine_readiness_repair"])
         # The repair is canonical `yoke claims path widen` and preserves
         # path_claim_amendments, dispatched via the wrapped readiness command.

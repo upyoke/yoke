@@ -58,159 +58,16 @@ The shepherd must not let item body content pollute its orchestration context.
 5. Re-anchor between transitions so the shepherd stays in orchestrator mode.
 6. For session-continuity context that successor agents need to resume after compaction, write to the **Progress Log** section on the task-graph parent item — see `AGENTS.md > Progress Log — long-running execution context on items`. Use this for shepherd-level state (which gates have run, which subagents are dispatched, which open questions remain) rather than `shepherd_log` (which is the structured verdict surface, not an execution scratchpad).
 
-## Steps
+## Phase map — read one file, at the phase it governs
 
-### 1. Parse Arguments
+| Phase | You are here when | Read before acting |
+|---|---|---|
+| 1–2. Parse and read | `/yoke shepherd PREFIX-N` was just invoked | [`entry.md`](entry.md) |
+| 3–6. Derive, resume, execute, finalize | The item and its pin are read and claimed | [`transitions.md`](transitions.md) |
 
-Extract the numeric ID from `PREFIX-N` and detect standalone vs subagent mode.
+Each transition names the gate document it needs; read those only when the
+transition you are executing selects them.
 
-### 2. Read Item
+## Start
 
-Load the immutable item pin and then its exact logical version:
-
-```bash
-_num={N}
-_item_pin_json=$(yoke workflows item get "PREFIX-$_num" --json) || {
- echo "Item PREFIX-{N} not found."
- exit 1
-}
-_workflow_id=$(printf '%s' "$_item_pin_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_id"])')
-_workflow_version=$(printf '%s' "$_item_pin_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["workflow_version"])')
-_item_status=$(printf '%s' "$_item_pin_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["result"]["status"])')
-_title=$(yoke items get $_num title)
-_pinned_definition_json=$(yoke workflows version get \
- "$_workflow_id" "$_workflow_version" --json) || {
- echo "Pinned workflow $_workflow_id@$_workflow_version is unavailable."
- exit 1
-}
-```
-
-If any query returns empty, stop with `Item PREFIX-{N} not found.`
-
-Interpret the ordered stages, the unique Shepherd binding, and its policy
-contract from that response:
-
-```bash
-_shepherd_context_json=$(printf '%s' "$_pinned_definition_json" | python3 -c '
-import json,sys
-status=sys.argv[1]
-definition=json.load(sys.stdin)["result"]["definition"]
-stages=[stage["id"] for stage in definition["stages"]]
-position=stages.index(status)
-bindings=definition["skill_bindings"]
-shepherd=[row for row in bindings if row["skill_id"] == "shepherd"]
-if len(shepherd) != 1:
-    raise SystemExit("definition must contain exactly one shepherd binding")
-binding=shepherd[0]
-start=stages.index(binding["from_stage_id"])
-stop=stages.index(binding["through_stage_id"])
-current=""
-for row in bindings:
-    row_start=stages.index(row["from_stage_id"])
-    row_stop=stages.index(row["through_stage_id"])
-    if row_start <= position < row_stop:
-        current=row["skill_id"]
-        break
-policies=definition["policies"]
-segment=stages[start:stop + 1]
-supported=(
-    policies["generated_children"] == "epic_tasks"
-    and segment == ["refined-idea", "planning", "plan-drafted"]
-)
-location="before" if position < start else ("after" if position >= stop else "active")
-print(json.dumps({
-    "current_skill": current,
-    "source_stage": binding["from_stage_id"],
-    "through_stage": binding["through_stage_id"],
-    "path_claims": policies["path_claims"],
-    "location": location,
-    "supported": supported,
-}))
-' "$_item_status") || {
- echo "Cannot interpret the pinned Shepherd segment for PREFIX-{N}."
- exit 1
-}
-_current_skill=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["current_skill"])')
-_shepherd_source_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["source_stage"])')
-_shepherd_through_stage=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["through_stage"])')
-_path_claim_policy=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["path_claims"])')
-_shepherd_location=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(json.load(sys.stdin)["location"])')
-_shepherd_supported=$(printf '%s' "$_shepherd_context_json" | python3 -c \
- 'import json,sys; print(str(json.load(sys.stdin)["supported"]).lower())')
-```
-
-If `_shepherd_supported` is not `true`, stop with a contract error: this skill
-cannot execute the planning shape published by that pinned version.
-
-If `_shepherd_location` is `after`, stop as a no-op: the item has crossed the
-binding's `through_stage_id`. If the location is `before` or
-`_current_skill` is not `shepherd`, reject with the current registered
-skill and route to `/yoke {_current_skill} PREFIX-{N}`. Never infer that
-route from `_workflow_id`.
-
-After validation passes, register the work claim:
-
-```bash
-# Session touch + claim
-yoke sessions touch --mode shepherd >/dev/null 2>&1 || true
-yoke claims work acquire \
- --item "PREFIX-$_num"
-```
-
-### 3. Derive Transitions From The Validated Binding
-
-The supported pinned Shepherd segment yields:
-- `refined-idea` -> `refined_idea_to_planning`, `planning_to_plan_drafted`
-- `planning` -> `planning_to_plan_drafted`
-
-These transition ids are Shepherd verdict keys for this skill contract.
-They are not a global item progression. The next skill at
-`_shepherd_through_stage` comes from the pinned definition.
-
-### 4. Resume Logic
-
-Before executing transitions, read prior verdict history:
-
-```bash
-_completed=$(yoke db read --format lines "SELECT transition FROM shepherd_verdicts WHERE item='PREFIX-$_num' AND (verdict='READY' OR verdict='CAVEATS' OR verdict='SKIPPED') ORDER BY id")
-_blocked=$(yoke db read --format lines "SELECT transition FROM shepherd_verdicts WHERE item='PREFIX-$_num' AND verdict='BLOCKED' ORDER BY id")
-```
-
-Rules:
-- READY / CAVEATS / SKIPPED -> skip the transition
-- BLOCKED -> report and stop
-- NOT_READY with attempts remaining -> resume at next attempt
-- Otherwise -> execute from attempt 1
-
-If all transitions are already complete, advance the item to
-`_shepherd_through_stage` and finish.
-
-### 5. Execute Each Transition
-
-For each remaining transition:
-
-1. Set `_scholar_context=""` (Scholar is still a stub).
-2. Gather prior caveats from earlier `CAVEATS` verdicts.
-3. Route to the correct transition file:
- - `refined_idea_to_planning` -> [design-and-plan.md](design-and-plan.md)
- - `planning_to_plan_drafted` -> [planning-to-planned-gates.md](planning-to-planned-gates.md), then [boss-verdict.md](boss-verdict.md)
-4. After any worker completes, always run [boss-verdict.md](boss-verdict.md) for the review, parsing, persistence, reflection, and retry/result logic.
-
-### 6. Finalize And Report
-
-After each verdict and after the full pipeline completes, read and follow [finalize.md](finalize.md).
-
-That phase owns:
-- Shepherd Log rendering and guarded writes
-- Transition re-anchoring and auto-continuation
-- Progress commits
-- Final reporting
-- Error handling and DB operations reference
+Read [`entry.md`](entry.md) and follow it.

@@ -6,7 +6,7 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 LOOP_ROUTING = REPO_ROOT / ".agents/skills/yoke/do/loop-routing.md"
 LOOP_ROUTING_WAIT = REPO_ROOT / ".agents/skills/yoke/do/loop-routing-wait.md"
 FINALIZE = REPO_ROOT / ".agents/skills/yoke/advance/finalize.md"
-ADVANCE_SKILL = REPO_ROOT / ".agents/skills/yoke/advance/SKILL.md"
+ADVANCE_TARGET_DOC = REPO_ROOT / ".agents/skills/yoke/advance/parse-and-target.md"
 
 
 def test_loop_routing_pre_dispatch_checkpoint_before_resume():
@@ -153,7 +153,7 @@ def test_advance_handoff_prose_does_not_advertise_polish_command():
     The boundary message routes back through `/yoke do` (or stops for a
     fresh entrypoint); polish is the routed loop's call to make."""
     finalize_text = FINALIZE.read_text()
-    skill_text = ADVANCE_SKILL.read_text()
+    skill_text = ADVANCE_TARGET_DOC.read_text()
 
     # Finalize.md no longer advertises the inline polish command at the boundary
     assert "Or run `/yoke polish" not in finalize_text, (
@@ -197,7 +197,7 @@ def test_advance_handoff_prose_does_not_advertise_polish_command():
     review_reentry = "If target is `reviewed-implementation` → reviewed-implementation re-entry."
     review_reentry_idx = skill_text.find(review_reentry)
     assert review_reentry_idx != -1, (
-        "advance/SKILL.md must keep a reviewed-implementation re-entry bullet"
+        "advance/parse-and-target.md must keep a reviewed-implementation re-entry bullet"
     )
     review_reentry_end = skill_text.find("\n", review_reentry_idx)
     review_reentry_line = skill_text[review_reentry_idx:review_reentry_end]

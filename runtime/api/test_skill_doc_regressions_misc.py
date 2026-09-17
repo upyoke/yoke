@@ -138,6 +138,7 @@ class TestNoDescopeForActivePathClaims:
         return {
             "agents": REPO / "AGENTS.md",
             "idea_skill": idea / "SKILL.md",
+            "idea_path_closure": idea / "path-closure.md",
             "idea_infer": idea / "infer-and-create.md",
         }
 
@@ -177,7 +178,7 @@ class TestNoDescopeForActivePathClaims:
             )
 
     def test_idea_skill_phase_3_preserves_claimed_files(self, docs):
-        text = _read(docs["idea_skill"])
+        text = _read(docs["idea_skill"]) + _read(docs["idea_path_closure"])
         assert "Claim overlap does NOT narrow scope" in text
         assert "the file stays in the File Budget" in text
         assert "coordination/dependency/blocking facts" in text

@@ -26,80 +26,28 @@ yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evide
 Run `yoke ouroboros field-note append --help` for the worked failure modes and decision tree.
 <!-- END GENERATED: field-note-directive -->
 
-## Registered operation authority
+## Phase map — read one file, at the phase it governs
 
-| Function id | CLI adapter |
-|---|---|
-| `claims.steering.acquire` | `yoke claims steering acquire --project P [--doc SLUG \| --plan-doc SLUG] [--reason TEXT]` |
-| `claims.steering.release` | `yoke claims steering release CLAIM_ID --reason TEXT` |
-| `claims.steering.list` | `yoke claims steering list --project P --active-only` |
-| `strategy.doc.get` | `yoke strategy doc get SLUG [--project P]` |
-| `strategy.doc.create` | `yoke strategy doc create SLUG --stdin [--project P]` |
-| `strategy.execution.link` | `yoke strategy execution link ITEM --slug SLUG --project P` |
-| `items.create` (Dash) | `yoke dash "TITLE" "INSTRUCTION" --strategy-doc SLUG --execution-instructions-considered` |
-| `items.detail.get` | `yoke items detail get PREFIX-N --json` |
-| `workflows.item.get` | `yoke workflows item get PREFIX-N --json` |
-| `claims.work.acquire` | `yoke claims work acquire --item PREFIX-N --reason TEXT` |
-| `claims.work.release` | `yoke claims work release (--item PREFIX-N \| --all-mine) --reason TEXT` |
-| `claims.work.holder_list` | `yoke claims work holder-list --session-id-filter S --json` |
-| `claims.coordination_claim.list` | `yoke claims coordination-claim list --session-id S --active-only --json` |
-| `claims.coordination_claim.release` | `yoke claims coordination-claim release (--project P --key K \| --claim-id N) --reason TEXT` |
-| `steering.report.get` | `yoke steering report get [--project P]` |
-| `session_control.launch.preview` | `yoke session-control launch preview --project P --surface S [--model M] [--reasoning-effort E] [--context-window N] --json` |
-| `session_control.launch.create` | `yoke session-control launch create --project P --surface S [--item PREFIX-N] --idempotency-key K [--stdin] [--raw-instructions] [--model M] [--reasoning-effort E] [--context-window N]` |
-| `session_control.launch.get` | `yoke session-control launch get LAUNCH-ID --json` |
-| `session_control.launch.list` | `yoke session-control launch list --project P` |
-| `session_control.launch.reconcile` | `yoke session-control launch reconcile LAUNCH-ID --json` |
-| `session_control.launch.retry` | `yoke session-control launch retry LAUNCH-ID --json` |
-| `session_control.surface_policy.disable` | `yoke session-control surface-policy disable --project P --machine M --surface S --reason TEXT` |
-| `session_control.surface_policy.enable` | `yoke session-control surface-policy enable --project P --machine M --surface S` |
-| `session_control.surface_policy.list` | `yoke session-control surface-policy list [--machine M]` |
-| `session_control.session.terminate` | `yoke sessions terminate SESSION-ID --reason R` |
-| `session_control.message.send` | `yoke say --item PREFIX-N --stdin` (workers reply with `yoke say --steering`) |
-| `session_control.message.acknowledge` | `yoke messages acknowledge MESSAGE-ID` |
-| `charge.schedule` | `yoke charge schedule --project P` |
-| `deployment_runs.create` | `yoke --env <cp> deployment-runs create PROJECT FLOW ...`; paired `*-db-admin` only for a serving-API self-deploy |
+| Phase | You are here when | Read before acting |
+|---|---|---|
+| 1–3. Parse, read the doc, take the seat | `/yoke steer` was just invoked | [`scope-and-authority.md`](scope-and-authority.md) |
+| 4. Run the standing loop | Both halves of the seat are held | [`loop.md`](loop.md) |
+| 5. Close out | An explicit stop, or an orderly handoff | [`close-out.md`](close-out.md) |
+| — Staff a worker | The loop is about to launch or judge one | [`worker-lifecycle.md`](worker-lifecycle.md) |
+| — Pick a model for a launch | A launch needs a model or effort choice | [`model-selection.md`](model-selection.md) |
+| — Watch the fleet | The loop is arming or reading the fleet watcher | [`watching.md`](watching.md) |
+| — Read a fleet finding | A worker reported something the seat must triage | [`fleet-findings.md`](fleet-findings.md) |
+| — Hand a Blitz to its executor | The staffed item's pinned workflow is Blitz | [`blitz-handoff.md`](blitz-handoff.md) |
+| — Look up a function id | You need a steering operation's exact envelope | [`function-reference.md`](function-reference.md) |
 
 Do not invoke `/yoke feed`. Feed and steer are unrelated.
 
-## Invariants
+## Invariants — these bind from the first action
+
 
 - **Itemless.** This session holds no work item. One atomic steering acquire
   pairs the steering-scope claim with its strategy-doc lock; together they
   are its authority. The doc and its linked items ARE the surviving state.
-- **Reading a document and covering a scope are two decisions.** `--doc
-  SLUG` covers every item linked to that owning-project-plus-slug document,
-  including other projects. `--plan-doc SLUG` locks the standing plan while
-  the project-wide seat covers unlinked and CURRENT-PLAN members. `--project`
-  alone covers that same project set and locks nothing. Two people steer
-  two documents in one project at once, neither owning the whole project.
-- **No two live steering claims with overlapping scopes.** Acquire refuses on
-  overlap and names the holder by actor, machine, and session. A project
-  seat overlaps CURRENT-PLAN document steering of that project; any other
-  document seat can run beside it.
-- **The link is the membership.** An item belongs to this seat's scope when
-  it is linked to this document — `yoke strategy execution link ITEM --slug
-  {SLUG} [--document-project P]`, or `--strategy-doc {SLUG}` at filing. Work
-  this seat files names the document at intake; work it adopts from the
-  frontier gets linked before it is staffed. Other links are that document's,
-  or unattended when no document seat is live.
-- **Workers address this seat as a role, never by its session id.** Every
-  worker's mandate says `yoke say --steering`; the server resolves
-  that at delivery to whichever seat covers the sending item — the one the
-  worker holds, or last held, so a DONE resolves after close-out too, once.
-  Nothing routes to an ended session, so releasing this seat strands no
-  report: unattended mail parks and the next seat inherits it. Ending a turn
-  sends no Fleet message, regardless of who launched the worker.
-- **Strategy doc is both input and output.** There is no doc-less steer mode.
-  An omitted slug resolves to `CURRENT-PLAN`, the near-term plan every project
-  seeds; an explicitly supplied slug always wins. Read the resolved document
-  before acting — its standing decisions, holds, scope bounds, and deployment
-  gates included — as the standing-plan source of record for intent, priority,
-  next steps, and constraints; write plan-level progress back into the same
-  claimed document.
-- **Several projects mean several seats.** Each explicitly named project
-  resolves its own document and takes its own paired steering-scope claim
-  through the same surfaces. There is no multi-project seat.
 - **Vocabulary is steering.** Identifiers, refusal text, and labels use
   steering-scope claim, steering claim holder, steering scope. "Coordinator"
   is acceptable role prose. Never name a durable identifier coordination
@@ -121,22 +69,6 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
 - **Workers merge; the steerer batches delivery.** Worker mandates prohibit
   deployment-run creation. The loop pins one release SHA, deploys batches,
   and completes any item parked at its release boundary afterward.
-- **A worker in any intentional external wait stamps parked before going
-  quiet** — blocked on an upstream item, waiting on operator sign-in,
-  waiting on an approval, or holding at an explicit operator instruction —
-  with a concrete reason:
-  `yoke sessions touch --mode parked --reason "waiting on PREFIX-N"`. That
-  write persists. Reporting the wait, reading the control plane, heartbeat,
-  message ack, failed wakes, and tool calls do not unpark. An accepted
-  UserPromptSubmit that stamps the turn running clears the previous parked
-  mode and reason. A later explicit re-park persists: the parked write
-  advances turn_posture_at, so a delayed accepted prompt observed before
-  that write cannot clear it. A stale start observation does not unpark.
-  Stamp a working mode when continuing by
-  choice (`yoke sessions touch --mode dash`). A genuinely
-  parked, in-flight, or merge-queue-landing worker is not terminated or
-  restaffed for being quiet; verify the recorded reason, then resume it
-  once its blocker actually clears.
 - **Every response the operator sees states a live outstanding operator
   action** — the item it blocks and what it unblocks — until it resolves
   or the operator asks to mute reminders; fold this into the reply and the
@@ -149,198 +81,11 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
   reports, launching workers, or writing the doc — except the documented
   offer-to-create and operator-escalation gates.
 
-## 1. Parse and stamp
 
-Extract the optional `{STRATEGY-DOC-SLUG}` and every `--project P`. An
-operator-supplied slug wins; with none supplied, `{SLUG}` is `CURRENT-PLAN`
-for every resolved project. An omitted slug is not a question to ask — it
-selects the default. Resolve the project from the checkout map when no
-`--project` is given, and when several are named, run steps 2 and 3 once per
-project so each gets its own resolved document and its own seat:
+The invariants that define what this seat *covers* — scope, document,
+membership, and how workers address it — are in
+[`scope-and-authority.md`](scope-and-authority.md), read at step 1.
 
-```text
-yoke projects checkout-context --field slug
-yoke sessions touch --mode steer
-```
+## Start
 
-## 2. Read the resolved strategy document
-
-Read `{SLUG}` before any steering action — before the frontier, before
-acknowledging reports, before staffing anything:
-
-```text
-yoke strategy doc list --project {_project}
-yoke strategy doc get {SLUG} --project {_project}
-```
-
-The steering read is `strategy.doc.get` of the claimed slug, never `yoke strategy render` of the corpus.
-
-- Document exists → extract its cold-start refresh, open-work index
-  (`In flight`, `Ready to staff`, `Blocked`, `Awaiting operator decision`),
-  and every standing decision, hold, scope bound, and deployment gate that
-  constrains action. Treat those as the initial next-steps plan and honor
-  them for the rest of the loop. Refresh or replace the live snapshot; do
-  not copy historical status sections back into the active document.
-- `strategy.doc.get` reports the resolved slug absent → **offer to create**.
-  There is no silent create and no doc-less continuation. Only a genuinely
-  missing document reaches this gate; an omitted slug never does, because it
-  already resolved to `CURRENT-PLAN`.
-
-Offer shape (wait for an explicit operator yes before creating):
-
-```text
-No strategy doc {SLUG} in project {_project}.
-Create it with a minimal steer structure (objective, frontier, decisions,
-gates) and continue? [yes/no]
-```
-
-On yes:
-
-```text
-printf '%s' "$SEED" | yoke strategy doc create {SLUG} --stdin --project {_project}
-```
-
-`$SEED` is a markdown document with exactly those four headings:
-`# Objective`, `# Frontier`, `# Decisions`, `# Gates`. After create,
-continue as if the doc already existed. On no, stop.
-
-## 3. Acquire the paired steering authority
-
-Which flag carries `{SLUG}` follows how the operator asked, and the two
-are never both passed:
-
-```text
-# The operator named projects, so {SLUG} resolved to CURRENT-PLAN:
-yoke claims steering acquire --project {_project} --plan-doc {SLUG} --reason "steer {SLUG}"
-
-# The operator named a document, so the seat is that document's:
-yoke claims steering acquire --project {_project} --doc {SLUG} --reason "steer {SLUG}"
-```
-
-Run this once per resolved project. Either form acquires the seat and the
-{SLUG} document lock in the same transaction; they differ only in coverage.
-`--plan-doc` leaves the scope `{"project_id": N}`, so the seat covers
-unlinked items and CURRENT-PLAN members in the project while locking {SLUG}.
-`--doc` narrows to `{"project_id": N, "document": "{SLUG}"}` — `{N}` is the
-document's owning project — and covers every item linked to that exact
-document, including other projects. An overlapping seat (CURRENT-PLAN versus
-the project seat) or a document holder refuses and leaves neither half behind.
-A non-CURRENT-PLAN document seat can run beside the project seat. Do not
-proceed without both halves. Keep the returned `claim_id` for wrapup release.
-
-Acquire also hands over every role-addressed message this scope covers that
-no live seat was acting on and no previous seat acknowledged. A project-wide
-seat therefore inherits reports from items linked to no document at all and
-from items already closed out, which a document-narrowed seat does not — the ones that
-parked with no seat at all, and unacknowledged ones left by an ended seat.
-Acknowledgement settles a report: successors never inherit it or count it as
-awaiting a seat. The remaining mail arrives as one handoff digest, grouped by
-the sending item, newest first. Read it before the first loop pass, then answer
-what still needs answering with `yoke say --item PREFIX-N --stdin`.
-
-## 4. Run the standing loop
-
-Read [`loop.md`](loop.md) and follow it. The loop is the rest of this
-skill. Worker launch rules live in
-[`worker-lifecycle.md`](worker-lifecycle.md) and ship in this first
-version — do not defer them.
-
-## 5. Close-out: settle, hand off, and release everything held
-
-Release is mark-complete, not silence. A deliberate close-out is a full
-shutdown and handoff, not just the steering claim; an abandoned coordinator
-is reclaimed by the stale sweep instead. Honor an explicit stop promptly,
-then work through this order:
-
-1. **Snapshot state for the successor.** Refresh the strategy document's
-   `## Live status — steering snapshot` (see [`loop.md`](loop.md) § "Keep
-   the document current") with current runs, workers, and each one's exact
-   successor action — a cold-start reader must be able to pick up the scope
-   from the document alone.
-
-2. **Stop this session's own watchers and recovery automation.** Stop the
-   fleet watcher through its owning tool handle (see
-   [`watching.md`](watching.md)); on Codex, remove the `keep steering`
-   scheduled task if one is running — a watcher left armed has nowhere to
-   deliver its next wake.
-
-3. **Settle or explicitly hand off every active operation before releasing
-   the lock protecting it.** A `landing_pending` merge, an in-flight deploy
-   batch, or a worker mid-mandate is not release-ready: use its existing
-   recovery path (re-run `yoke merge item`, let the deploy batch finish,
-   message the worker) or hand it to the successor named above. Releasing a
-   lock never settles the operation it guarded.
-
-4. **Inventory every claim and lock this session holds.** No single bulk
-   call covers it — read all three:
-
-   ```text
-   yoke claims steering list --session-id {SESSION_ID} --active-only --json
-   yoke claims coordination-claim list --session-id {SESSION_ID} --active-only --json
-   yoke claims work holder-list --session-id-filter {SESSION_ID} --json
-   ```
-
-5. **Release every remaining session-owned claim/lock** — never another
-   worker's or an item-owned claim. Steering seat first (its paired
-   strategy-doc lock leaves with it), then every coordination claim the
-   inventory surfaced by name (e.g. `DEPLOY:{project}` — sticky, so it
-   survives `--all-mine`), then any remaining work claim:
-
-   ```text
-   yoke claims steering release {CLAIM_ID} --reason "steer close-out"
-   yoke claims coordination-claim release --project {_project} --key DEPLOY:{_project} --reason "steer close-out"
-   yoke claims work release --all-mine --reason "steer close-out"
-   ```
-
-6. **Re-verify zero unintended holds.** Re-run the three list calls from
-   step 4; each must return empty, or name only what step 3 deliberately
-   handed off with its own recorded successor.
-
-If a live operation cannot be settled or handed off safely, stop short of
-releasing its lock, name the concrete exception and exact recovery action
-instead of reporting a complete close-out. An explicit operator instruction
-to release a held lock is authorization on its own; do not ask again.
-
-Then `/yoke wrapup` if the operator asked for a session close. Do not
-release the paired strategy document directly while the steering seat is
-live; that refusal teaches this paired release instead.
-
-## Seat hygiene (token economics)
-
-- Every wake resends the seat's whole transcript, so cost-per-wake grows
-  with transcript length. When the transcript is heavy and the fleet is
-  quiet, prefer an orderly handoff — update the strategy doc's Live
-  status, release the seats, and let a fresh session cold-start from the
-  doc — over dragging a long transcript through every subsequent wake.
-- When self-scheduling a wakeup, pick the delay for what is actually
-  being awaited and avoid landing just past the prompt-cache window:
-  wake densely while genuinely active or rarely with a batched pass —
-  the just-expired middle pays full transcript price per wake for
-  nothing.
-
-## Surface disable marks
-
-This is a manual circuit breaker, not a state machine. Do not count
-failures, auto-trip, auto-clear, or probe on a timer.
-
-When a run of same-surface worker failures carries a vendor-side
-signature (quota exhausted, launch path broken on that harness), disable
-that `(machine, surface)` and rebalance new launches onto the other
-harnesses:
-
-```text
-yoke session-control surface-policy disable --project {_project} --machine M --surface S --reason vendor_signature
-```
-
-Before re-enabling, run one cheap canary launch on that surface. Clear
-the mark only after that canary succeeds:
-
-```text
-yoke session-control surface-policy enable --project {_project} --machine M --surface S
-```
-
-Escalate to the operator instead of marking when failures are
-unclassified. Unclassified failures can be Yoke-side; disabling a
-healthy harness for our own bug is the failure mode to avoid. Marks
-gate new launches and native-resume spawns only; in-flight sessions
-stay up.
+Read [`scope-and-authority.md`](scope-and-authority.md) and follow it.

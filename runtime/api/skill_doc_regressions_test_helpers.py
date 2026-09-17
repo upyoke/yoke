@@ -53,12 +53,29 @@ def _read_dispatch_context(path: Path) -> str:
     )
 
 
+def _read_skill_corpus(skill_root: Path) -> str:
+    """Return one skill's entrypoint plus its phase references, in read order.
+
+    Skills route from a short ``SKILL.md`` into per-phase files, so a rule the
+    command teaches lives in whichever phase file governs it. A regression that
+    cares the rule is taught *somewhere in the command* reads the corpus; one
+    that cares which phase teaches it names that file directly.
+    """
+    entry = skill_root / "SKILL.md"
+    phases = sorted(p for p in skill_root.glob("*.md") if p.name != "SKILL.md")
+    return _read_bundle(entry, *phases)
+
+
 def _read_refine_skill(path: Path) -> str:
-    return _read_bundle(path, path.parent / "update-protocol.md")
+    """Return the whole refine command: entrypoint plus every phase file."""
+    return _read_skill_corpus(path.parent)
 
 
 def _read_polish_skill(path: Path) -> str:
-    phases = ("parse-and-claim.md", "context.md", "review.md", "fixes.md", "verify-and-commit.md", "advance.md")
+    phases = (
+        "parse-and-claim.md", "context.md", "doctrine.md", "simplify-pass.md",
+        "review.md", "fixes.md", "verify-and-commit.md", "advance.md",
+    )
     return _read_bundle(path, *(path.parent / phase for phase in phases))
 
 
@@ -93,6 +110,7 @@ __all__ = [
     "_read",
     "_read_bundle",
     "_read_dispatch_context",
+    "_read_skill_corpus",
     "_read_refine_skill",
     "_read_polish_skill",
     "_count_invocations",

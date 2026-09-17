@@ -9,6 +9,11 @@ UI = ROOT / "packages" / "yoke-core" / "src" / "yoke_core" / "ui" / "static"
 
 
 def _read(path: Path) -> str:
+    """Read one file, or a whole command directory as its entrypoint + phases."""
+    if path.is_dir():
+        entry = path / "SKILL.md"
+        phases = sorted(p for p in path.glob("*.md") if p.name != "SKILL.md")
+        return "\n".join(p.read_text(encoding="utf-8") for p in (entry, *phases))
     return path.read_text(encoding="utf-8")
 
 
@@ -16,15 +21,20 @@ def _bundle(*paths: Path) -> str:
     return "\n".join(_read(path) for path in paths)
 
 
+def _command(skill: str) -> Path:
+    """Marker for a whole command; _read expands a directory to its corpus."""
+    return SKILLS / skill
+
+
 def test_workflow_skills_resolve_file_budget_and_claims_independently() -> None:
     paths = [
         ROOT / "AGENTS.md",
-        SKILLS / "idea" / "SKILL.md",
-        SKILLS / "refine" / "SKILL.md",
+        _command("idea"),
+        _command("refine"),
         SKILLS / "advance" / "preflight-checks.md",
-        SKILLS / "conduct" / "SKILL.md",
-        SKILLS / "dash" / "SKILL.md",
-        SKILLS / "blitz" / "SKILL.md",
+        _command("conduct"),
+        _command("dash"),
+        _command("blitz"),
     ]
     for path in paths:
         text = _read(path)
@@ -38,12 +48,12 @@ def test_workflow_skills_resolve_file_budget_and_claims_independently() -> None:
 
 def test_skills_consume_central_effective_policy_projection() -> None:
     paths = [
-        SKILLS / "idea" / "SKILL.md",
+        _command("idea"),
         SKILLS / "refine" / "workflow-context.md",
         SKILLS / "advance" / "workflow-context.md",
-        SKILLS / "conduct" / "SKILL.md",
-        SKILLS / "dash" / "SKILL.md",
-        SKILLS / "blitz" / "SKILL.md",
+        _command("conduct"),
+        _command("dash"),
+        _command("blitz"),
     ]
     for path in paths:
         text = _read(path)
@@ -62,10 +72,10 @@ def test_skills_consume_central_effective_policy_projection() -> None:
 def test_teaching_covers_all_axis_combinations_and_universal_cap() -> None:
     text = _bundle(
         ROOT / "AGENTS.md",
-        SKILLS / "idea" / "SKILL.md",
-        SKILLS / "refine" / "SKILL.md",
-        SKILLS / "dash" / "SKILL.md",
-        SKILLS / "blitz" / "SKILL.md",
+        _command("idea"),
+        _command("refine"),
+        _command("dash"),
+        _command("blitz"),
     ).lower()
     assert "both off" in text
     assert "budget off" in text and "claims on" in text
@@ -78,8 +88,8 @@ def test_teaching_covers_all_axis_combinations_and_universal_cap() -> None:
 def test_each_execution_surface_teaches_the_both_off_composition() -> None:
     paths = [
         SKILLS / "advance" / "preflight-checks.md",
-        SKILLS / "conduct" / "SKILL.md",
-        SKILLS / "dash" / "SKILL.md",
+        _command("conduct"),
+        _command("dash"),
         ROOT / "runtime" / "agents" / "architect.md",
     ]
     for path in paths:

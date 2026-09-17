@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 SKILL_ROOT = Path(__file__).parents[2] / ".agents" / "skills" / "yoke"
-ADVANCE_SKILL_MD = SKILL_ROOT / "advance" / "SKILL.md"
+ADVANCE_REENTRY_MD = SKILL_ROOT / "advance" / "reentry.md"
 PREFLIGHT_CHECKS_MD = SKILL_ROOT / "advance" / "preflight-checks.md"
 FINALIZE_MD = SKILL_ROOT / "advance" / "finalize.md"
 PROJECT_E2E_MD = SKILL_ROOT / "advance" / "project-e2e.md"
@@ -17,7 +17,7 @@ class TestAdvanceSkillReentry:
     """Advance re-entry follows the worktree policy selected by the item pin."""
 
     def _read(self) -> str:
-        return ADVANCE_SKILL_MD.read_text()
+        return ADVANCE_REENTRY_MD.read_text()
 
     def test_single_lane_reentry_reads_the_active_item_worktree_lane(self):
         """A single implementation lane reads the canonical lane model."""
@@ -31,7 +31,7 @@ class TestAdvanceSkillReentry:
         """A multi-lane policy must emit CONTRACT ERROR and redirect."""
         text = self._read()
         assert "CONTRACT ERROR" in text, (
-            "advance/SKILL.md is missing the CONTRACT ERROR guard for "
+            "advance/reentry.md is missing the CONTRACT ERROR guard for "
             "multi-lane worktree policies"
         )
 
@@ -39,7 +39,7 @@ class TestAdvanceSkillReentry:
         """Conduct-owned multi-lane re-entry must redirect to /yoke conduct."""
         text = self._read()
         assert "/yoke conduct" in text, (
-            "advance/SKILL.md does not redirect conduct-owned lanes to /yoke conduct"
+            "advance/reentry.md does not redirect conduct-owned lanes to /yoke conduct"
         )
 
 

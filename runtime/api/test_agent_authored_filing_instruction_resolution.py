@@ -19,7 +19,7 @@ ATTESTATION = "--execution-instructions-considered"
 #: Every recipe file whose filing command reaches ``items.create``
 #: through a non-web entry surface.
 FILING_RECIPES = (
-    "dash/SKILL.md",
+    "dash/file-and-claim.md",
     "idea/infer-and-create.md",
     "curate/cluster-and-work-item.md",
     "onboard/seed-work.md",
@@ -39,9 +39,9 @@ def _ordered(text: str, first: str, second: str) -> None:
 
 
 def test_dash_resolves_before_filing_and_before_escalation_authoring() -> None:
-    text = _read("dash/SKILL.md")
-    filing = text.split("### 1. Resolve or file", 1)[1].split(
-        "If the argument is a reference", 1
+    text = _read("dash/file-and-claim.md")
+    filing = text.split("## If the argument is not an item reference", 1)[1].split(
+        "## If the argument is a reference", 1
     )[0]
     _ordered(
         filing,
@@ -50,9 +50,8 @@ def test_dash_resolves_before_filing_and_before_escalation_authoring() -> None:
         f'{ATTESTATION} --json',
     )
 
-    # The Escalate section is a short pointer; its recipe and ordering live
-    # in the companion file it names (dash/escalate.md).
-    escalation = text.split("## Escalate", 1)[1] + _read("dash/escalate.md")
+    # Escalation is its own phase file; the entrypoint only routes to it.
+    escalation = _read("dash/escalate.md")
     _ordered(
         escalation,
         f"{RESOLVER} --workflow issue --project PROJECT",

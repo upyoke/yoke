@@ -49,6 +49,20 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_usher_collect.py",
     "runtime/api/test_skill_prose_schema_drift.py",
     "runtime/api/test_steer_prompt.py",
+    # Splitting a sibling out of a listed module moves its tests outside this
+    # roster — the same failure the product-CLI family below records. These
+    # four assert skill prose and were each missed by a bounded selection that
+    # then failed the full suite: the steer worker-lifecycle sibling of
+    # test_steer_prompt.py, the current-state checkpoint contracts, the steer
+    # narrowed-read class inside a strategy-render module, and the operator
+    # surface catalog that names where the command reference lives.
+    "runtime/api/test_steer_prompt_worker_lifecycle.py",
+    "runtime/api/test_active_context_concision.py",
+    "runtime/api/cli/test_yoke_strategy_render_refresh.py",
+    "runtime/api/test_safe_operator_surface_drift.py",
+    # The entrypoint-disclosure check reads the whole corpus, so any prose
+    # change can put an entrypoint over budget or strand a phase reference.
+    "runtime/api/engines/test_doctor_skill_entrypoint_disclosure.py",
     "runtime/api/domain/test_db_claim_prose_check_buckets.py",
     "runtime/api/domain/test_idea_db_claim_buckets.py",
     "runtime/api/domain/test_install_bundle_tree_sync.py",

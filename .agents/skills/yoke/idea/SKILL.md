@@ -35,6 +35,17 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 **Artifact writes are work writes.** Work item/spec/body/File Budget/path-claim/GitHub issue-body edits authored by idea are shared coordination state — same ownership invariant as code edits. Hold the work claim on the item before mutating any of those surfaces. Session ids returned by `who-claims` are coordination identifiers, not authority to mutate as that holder; copying a holder session id into another session does not grant capability over that holder's claim.
 
+## Phase map — read one file, at the phase it governs
+
+| Phase | You are here when | Read before acting |
+|---|---|---|
+| 1. Validate the title | `/yoke idea` was just invoked | this file |
+| 2. Infer and create | The title fits the project's effective limit | [`infer-and-create.md`](infer-and-create.md) |
+| 3. Body and sync | The item row exists | [`body-and-sync.md`](body-and-sync.md) |
+| 4. Path closure | The body is persisted and verified | [`path-closure.md`](path-closure.md) |
+| — Claim overlap surfaced | Registration conflicts with another item's active claim | [`path-claim-blocking.md`](path-claim-blocking.md) |
+| — Invocation caveats | You need the CLI-vs-skill boundary, the question budget, or the per-workflow handoff | [`notes.md`](notes.md) |
+
 ## Steps
 
 Stamp the session mode so the board's active-session row reflects the live phase (default `wait` misrepresents an active idea). Use the registered session wrapper:
@@ -52,67 +63,7 @@ yoke sessions touch --mode idea
  - infer-and-create: metadata inference, cross-project hard blocks, duplicate detection, item creation, dependency persistence, and the creation confirmation.
  - body-and-sync: mandatory body persistence, additive-only body handling, AC normalization, effective File Budget/path-claim posture resolution, conditional **File Budget seeding** (the upstream counterpart to the universal 350-line file cap — see body-and-sync.md "File Budget" section), body-write verification, and GitHub body sync.
 
-3. **Policy-Aware Path Closure.** After creation and before Idea authors or
- gates either surface, call registered `workflows.item.get` through
- `yoke workflows item get ITEM --json`. Consume only
- `result.effective_policies.file_budget` and
- `result.effective_policies.path_claims` as authority. `required` enables
- the item surface, `required_per_task` enables the generated-task surface,
- and `optional` is off. Never reconstruct these values from the raw pinned
- definition or posture; the runtime owns historical compatibility and
- allowed tightening.
- - When File Budget is enabled, every file the implementer will edit is
-   enumerated in `## File Budget`, one path per line, with its line
-   allocation, current line count, remaining headroom against 350, and
-   explicit at-or-over-limit flag. **Counts and approximations are not acceptable** — phrases
-   like "roughly 30 files", "every caller", "all importers", "the survey
-   shows N matches" must be expanded into a literal path list before exit.
- - When path claims are enabled, author complete declared coverage. If File
-   Budget is also enabled, its paths and claim coverage must agree at the
-   applicable item/task scope (verified by `yoke readiness check`). If File
-   Budget is off, derive claim paths from the spec's execution scope and
-   investigation rather than inventing a budget.
- - When File Budget is enabled and path claims are off, keep the budget as
-   sizing and conflict-survey evidence; do not register a claim merely to
-   mirror it.
- - When both axes are off, neither artifact is required. The universal
-   350-line authored-file limit still applies through
-   `yoke_core.domain.file_line_check`.
- - For an Epic whose effective path-claims value is `required_per_task`, intake is the
-   exception: keep the full parent File Budget, but defer claim registration
-   until Shepherd persists generated tasks and `epic_task_files`. Never mint
-   an unbound parent claim as a substitute; the required gate reports this
-   pre-task state as a deliberate deferral.
- - Use whatever investigative work the spec demands — grep, sub-agents,
-   codebase reading — to produce the full derived touch set. Materialize that
-   set in whichever axes are enabled; when both are enabled, the deliverable
-   is the populated File Budget plus matching claim.
- - **Claim overlap does NOT narrow scope.** If a required file is already covered by another item's active or non-terminal path claim, it stays in the execution artifact; when File Budget is enabled, the file stays in the File Budget, and when claims are enabled it stays in the claim surface. Active path claims are coordination/dependency/blocking facts — never permission to omit a required file. If registration conflicts, surface the conflict and route to the canonical resolution protocol at [`path-claim-blocking.md`](path-claim-blocking.md). The default shape is `coordination_only` (compatibility edge, no lifecycle gate) for independent same-file edits; order-dependent overlaps use directional `activation` instead. The full shape list, the columns they touch, and the resolution order live in `path-claim-blocking.md` and your `path_claims` packet stanza; this SKILL does not restate either surface. See `AGENTS.md` `## Path Claims — Hard Rule` for the full doctrine.
-
- Do NOT exit path closure with the spec saying "N files implied" while only listing a subset. If the readiness check passes but the spec body still contains "every X" / "all Y" / "~N files" prose without an enumeration alongside it, treat that as a structural defect and resolve it before handing off.
-
- When File Budget is enabled, **only physical files belong in `## File
- Budget` list-item backticks.** Function ids (`items.section.upsert`), event
- names, command surfaces, and other operational references go in surrounding
- prose — not in the `- ` list-item backticks the parser inspects. The
- dotted-identifier carve-out in `yoke_core.domain.file_budget_paths` silently
- drops them, but writing them in the budget at all confuses both reader and
- future consumer.
-
-## Notes
-
-- **`/yoke idea` is a harness skill entrypoint, not a `yoke` CLI subcommand.** Invoke it as the `/yoke idea` slash command — there is no `yoke idea` CLI adapter, so `yoke idea --help` returns `unknown subcommand`. The `yoke <subcommand>` CLI wraps item/claim/lifecycle operations; work item *intake* is a skill flow, not a CLI verb.
-- An explicit `/yoke idea --workflow blitz "{title}"` selection is passed to
-  the registered `items.create` function as `workflow: "blitz"` with
-  `entry_surface: "harness_skill"`. The new item still starts at `idea`;
-  refinement must link exactly one execution strategy document before
-  `/yoke blitz` begins at `refined-idea`.
-- Status is always `idea` for new items. Follow the workflow-specific
-  handoff in `infer-and-create.md`: Issue and Epic use `/yoke shepherd`;
-  Blitz uses `/yoke refine` and then `/yoke blitz`. Task uses `/yoke do`
-  or `/yoke advance` into implementing, then Dash close-out to done.
-- The PREFIX-N ID is permanent — it never changes even after GitHub sync.
-- Items are auto-synced to GitHub on creation. If GitHub sync is unavailable, the item is created locally and can be synced later through the internal item sync repair path; do not teach that repair path as normal product flow.
-- This is a write command — it creates a file and inserts a DB row.
-- **Maximum questions rule:** This flow asks at most 3 binary questions total per invocation. Most items should require zero questions (all fields inferred from context). Count your questions — if you have already asked 3, stop asking and use best-guess defaults for remaining ambiguities.
-- **Done-means must be guard-permitted.** Verification commands written into the spec (definition of done, AC verify steps, "run this to prove it") must be a shape PreToolUse allows: `yoke <subcommand>`, `yoke watch pytest -- ...`, or `yoke dev run -- python3 -m ...`. Never prescribe `python3 -c` importing `yoke_core` / `yoke_cli` / `yoke_harness`. Readiness `BLOCKED_AGENT_COMMAND_SHAPE` blocks fenced or backticked prescriptions of that shape.
+3. **Close the enabled path axes.** Read
+ [`path-closure.md`](path-closure.md) and follow it.
+ Claim overlap does NOT narrow scope; that file carries the rule and routes
+ conflicts to [`path-claim-blocking.md`](path-claim-blocking.md).
