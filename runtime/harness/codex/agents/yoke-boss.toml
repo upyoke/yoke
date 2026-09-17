@@ -72,26 +72,26 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 **Wrapper commands (prefer over raw SQL):**
 
 - _Read structured item field(s) — concrete examples_
-  - `yoke items get PREFIX-N status title workflow_id github_issue
-yoke items get PREFIX-N spec`
+  - `yoke items get PREFIX-N status title workflow_id github_issue`
+  - `yoke items get PREFIX-N spec`
 - _Inspect a Yoke item's rendered body (GitHub issue surrogate)_
   - `yoke items get PREFIX-N body`
 - _Inspect open work via registered reads + diagnostic SQL_
-  - `# Recent item scan:
-yoke items list --project all --fields "id,status,title" --limit 20
-# All active work claims (diagnostic SQL fallback):
-yoke db read "SELECT id, session_id, target_kind, scope, claim_type, claimed_at FROM work_claims WHERE released_at IS NULL"
-# Recent events on a work item:
-yoke events query --item PREFIX-N --limit 20`
+  - `# Recent item scan:`
+  - `yoke items list --project all --fields "id,status,title" --limit 20`
+  - `# All active work claims (diagnostic SQL fallback):`
+  - `yoke db read "SELECT id, session_id, target_kind, scope, claim_type, claimed_at FROM work_claims WHERE released_at IS NULL"`
+  - `# Recent events on a work item:`
+  - `yoke events query --item PREFIX-N --limit 20`
 - _Read one section of an item's rendered body_
   - `yoke items get PREFIX-N body --section "## Section Name"`
 - _Write structured item field (canonical agent shape)_
-  - `yoke items structured-field replace PREFIX-N --field spec --content-file PATH
-yoke items structured-field replace PREFIX-N --field test_results --stdin < PATH`
+  - `yoke items structured-field replace PREFIX-N --field spec --content-file PATH`
+  - `yoke items structured-field replace PREFIX-N --field test_results --stdin < PATH`
 - _Apply additive structured-field transform_
-  - `# Other additive transforms:
-yoke items structured-field append-addendum PREFIX-N --field spec --heading "Implementation Notes" --content-file PATH --json
-yoke items structured-field section-upsert PREFIX-N --section "Acceptance Criteria" --content-file PATH --json`
+  - `# Other additive transforms:`
+  - `yoke items structured-field append-addendum PREFIX-N --field spec --heading "Implementation Notes" --content-file PATH --json`
+  - `yoke items structured-field section-upsert PREFIX-N --section "Acceptance Criteria" --content-file PATH --json`
 - _List item dependencies (both directions)_
   - `yoke items dependency list PREFIX-N`
 - _Route serial dependency mutations to authoring packets_
@@ -101,9 +101,9 @@ yoke items structured-field section-upsert PREFIX-N --section "Acceptance Criter
 - _Inspect the selected Yoke control-plane authority_
   - `yoke db read "SELECT 1"`
 - _Read / write item sections (Progress Log, custom sections)_
-  - `yoke items section get PREFIX-N --section "Progress Log"
-yoke items section upsert PREFIX-N --section "Progress Log" --content-file PATH --ordering 200
-yoke items section delete PREFIX-N --section "Progress Log"`
+  - `yoke items section get PREFIX-N --section "Progress Log"`
+  - `yoke items section upsert PREFIX-N --section "Progress Log" --content-file PATH --ordering 200`
+  - `yoke items section delete PREFIX-N --section "Progress Log"`
 - _Backlog GitHub sync_
   - `yoke items github-sync PREFIX-N`
 - _Backlog mutation family (CLI adapter)_
@@ -111,50 +111,50 @@ yoke items section delete PREFIX-N --section "Progress Log"`
 - _Audited raw diagnostic read_
   - `yoke db read "SELECT ..."`
 - _Read epic task row / body / simulation_
-  - `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>
-yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>
-yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
+  - `yoke workflow-item epic-task get --epic <epic-id> --task-num <task-num>`
+  - `yoke workflow-item epic-task body-get --epic <epic-id> --task-num <task-num>`
+  - `yoke workflow-item epic-task simulation-get --epic <epic-id> --phase integration`
 - _Write epic task body / metadata via CLI adapters_
-  - `yoke workflow-item epic-task body-replace --epic 1704 --task-num 5 --body-file PATH
-yoke workflow-item epic-task metadata-update --epic 1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
+  - `yoke workflow-item epic-task body-replace --epic 1704 --task-num 5 --body-file PATH`
+  - `yoke workflow-item epic-task metadata-update --epic 1704 --task-num 5 --fields-json '{"max_attempts": 2}'`
 - _Tester: seed / insert / get review verdict for an epic task_
-  - `yoke workflow-item epic-task review-seed --epic <epic-id> --task-num <task_num>
-yoke workflow-item epic-task review-insert --epic <epic-id> --task-num <task_num> --verdict <pass|fail> --body-file PATH
-yoke workflow-item epic-task review-get --epic <epic-id> --task-num <task_num>`
+  - `yoke workflow-item epic-task review-seed --epic <epic-id> --task-num <task_num>`
+  - `yoke workflow-item epic-task review-insert --epic <epic-id> --task-num <task_num> --verdict <pass|fail> --body-file PATH`
+  - `yoke workflow-item epic-task review-get --epic <epic-id> --task-num <task_num>`
 - _Engineer: append a progress note to an epic task_
-  - `yoke workflow-item epic-progress-note append --epic 1704 --task-num 5 --note-num 3 --body-file PATH
-yoke workflow-item epic-progress-note list --epic 1704 --task-num 5 --limit 10
-yoke workflow-item epic-task submission-receipt-get --epic 1704 --task-num 5 --after-note-count 2`
+  - `yoke workflow-item epic-progress-note append --epic 1704 --task-num 5 --note-num 3 --body-file PATH`
+  - `yoke workflow-item epic-progress-note list --epic 1704 --task-num 5 --limit 10`
+  - `yoke workflow-item epic-task submission-receipt-get --epic 1704 --task-num 5 --after-note-count 2`
 - _Update epic-task status / metadata field via CLI_
-  - `yoke workflow-item epic-task update-status --epic <epic-id> --task-num <task_num> --status <status>
-yoke workflow-item epic-task metadata-update --epic <epic-id> --task-num <task_num> --fields-json '{"max_attempts": 2}'`
+  - `yoke workflow-item epic-task update-status --epic <epic-id> --task-num <task_num> --status <status>`
+  - `yoke workflow-item epic-task metadata-update --epic <epic-id> --task-num <task_num> --fields-json '{"max_attempts": 2}'`
 - _Read or refresh an epic dispatch chain_
-  - `yoke workflow-item epic-dispatch-chain list --epic <epic-id>
-yoke workflow-item epic-dispatch-chain get --epic <epic-id> --worktree <branch>
-yoke workflow-item epic-dispatch-chain refresh-activation --epic <epic-id> --worktree <branch> --task-num <task_num>`
+  - `yoke workflow-item epic-dispatch-chain list --epic <epic-id>`
+  - `yoke workflow-item epic-dispatch-chain get --epic <epic-id> --worktree <branch>`
+  - `yoke workflow-item epic-dispatch-chain refresh-activation --epic <epic-id> --worktree <branch> --task-num <task_num>`
 - _Cancel / stop / fail a work item (terminal-exceptional)_
-  - `yoke items cancel PREFIX-N --reason 'superseded by PREFIX-X' --ref PREFIX-X
-yoke lifecycle transition PREFIX-N --to stopped --reason 'paused'
-yoke lifecycle transition PREFIX-N --to failed --reason 'blocked'`
+  - `yoke items cancel PREFIX-N --reason 'superseded by PREFIX-X' --ref PREFIX-X`
+  - `yoke lifecycle transition PREFIX-N --to stopped --reason 'paused'`
+  - `yoke lifecycle transition PREFIX-N --to failed --reason 'blocked'`
 - _Move a work item forward in lifecycle (claim → transition → release)_
-  - `yoke claims work acquire --item PREFIX-N --reason transition
-yoke lifecycle transition PREFIX-N --to refined-idea
-yoke claims work release --item PREFIX-N --reason transition-complete`
+  - `yoke claims work acquire --item PREFIX-N --reason transition`
+  - `yoke lifecycle transition PREFIX-N --to refined-idea`
+  - `yoke claims work release --item PREFIX-N --reason transition-complete`
 - _Append to a work item's Progress Log (canonical agent shape)_
-  - `yoke claims work acquire --item PREFIX-N --reason progress-log-append
-yoke items progress-log append PREFIX-N --headline "dispatched engineer" --source orchestrator --content-file PATH
-yoke claims work release --item PREFIX-N --reason progress-log-append-complete`
+  - `yoke claims work acquire --item PREFIX-N --reason progress-log-append`
+  - `yoke items progress-log append PREFIX-N --headline "dispatched engineer" --source orchestrator --content-file PATH`
+  - `yoke claims work release --item PREFIX-N --reason progress-log-append-complete`
 - _Find or request the CLI adapter for a function id_
   - `yoke <family> --help`
 - _Operator-mode lifecycle repair after authoritative drift_
   - `yoke lifecycle repair-status PREFIX-N --from CURRENT --to TARGET --reason 'operator-authored reconciliation' --dry-run`
 - _Branch / commit / CI inspection (read-only)_
-  - `git -C $(git rev-parse --show-toplevel) status --short --branch
-git -C $(git rev-parse --show-toplevel) log --oneline -20
-yoke github-actions check-ci $(yoke projects github-binding status --project yoke --field github_repo) ci.yml --branch main --project yoke
-git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N status --porcelain
-git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N rev-parse HEAD
-yoke github-actions failed-log <repo> <run-id> --project <project>`
+  - `git -C $(git rev-parse --show-toplevel) status --short --branch`
+  - `git -C $(git rev-parse --show-toplevel) log --oneline -20`
+  - `yoke github-actions check-ci $(yoke projects github-binding status --project yoke --field github_repo) ci.yml --branch main --project yoke`
+  - `git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N status --porcelain`
+  - `git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N rev-parse HEAD`
+  - `yoke github-actions failed-log <repo> <run-id> --project <project>`
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id polish-run-2026-05-20`
 - _Apply a structural patch without duplicate or stale hunks_
@@ -164,38 +164,38 @@ yoke github-actions failed-log <repo> <run-id> --project <project>`
 - _Where to put a project Python script_
   - `# put it under the project's tracked tools directory — never /tmp/*.py`
 - _Verify Python imports/tests against linked worktree source_
-  - `uv run --frozen python3 -m yoke_core.tools.module_source_path yoke_core
-uv run --frozen python3 -m yoke_core.tools.watch_pytest -- <project-test-path> -q`
+  - `uv run --frozen python3 -m yoke_core.tools.module_source_path yoke_core`
+  - `uv run --frozen python3 -m yoke_core.tools.watch_pytest -- <project-test-path> -q`
 - _Re-render agent files after editing packet seeds_
   - `uv run --frozen python3 -m yoke_core.domain.agents_render render --target-root <checkout>`
 - _authored-file line limit (file_line_check)_
   - `yoke check file-line --staged`
 - _Run pytest with a wake-routed watcher_
-  - `yoke watch pytest --impacted main --bounded
-# Default change-scoped check (--bounded is a no-op). Runs on the project's CI when it declares ci_workflow_file; --local is only a small targeted check expected to finish in about one minute. Full sweep (CI's job; local --widen / CI-outage fallback) — pass your project's test anchors:
-yoke watch pytest --print-streaming-pair -- <project test anchors>
-# The wrapper only prints — run the command it prints. background-wake emits the bound pair; in-turn emits one foreground command to hold open until exit; after a background-wake completion, tail -80 <raw-capture>.
-# Every watcher a headless relay-launched worker starts also prints a headless_continuation line: if the harness moves that call to a background task or hands back a continuation handle, the command is still running — continue the same call until it exits, and never start a second one beside it.`
+  - `yoke watch pytest --impacted main --bounded`
+  - `# Default change-scoped check (--bounded is a no-op). Runs on the project's CI when it declares ci_workflow_file; --local is only a small targeted check expected to finish in about one minute. Full sweep (CI's job; local --widen / CI-outage fallback) — pass your project's test anchors:`
+  - `yoke watch pytest --print-streaming-pair -- <project test anchors>`
+  - `# The wrapper only prints — run the command it prints. background-wake emits the bound pair; in-turn emits one foreground command to hold open until exit; after a background-wake completion, tail -80 <raw-capture>.`
+  - `# Every watcher a headless relay-launched worker starts also prints a headless_continuation line: if the harness moves that call to a background task or hands back a continuation handle, the command is still running — continue the same call until it exits, and never start a second one beside it.`
 - _Run pytest foreground inside one tool call (subagent)_
-  - `yoke watch pytest -- <project-test-path>/test_my_module.py -q
-# Blocks within the same tool call; the wrapper mints raw + progress captures via project_scratch_dir.watcher_capture_path under the machine temp root's watcher-captures directory and prints them; tail -80 <raw-capture> on failure.`
+  - `yoke watch pytest -- <project-test-path>/test_my_module.py -q`
+  - `# Blocks within the same tool call; the wrapper mints raw + progress captures via project_scratch_dir.watcher_capture_path under the machine temp root's watcher-captures directory and prints them; tail -80 <raw-capture> on failure.`
 - _Run doctor with a wake-routed watcher_
-  - `yoke watch doctor --print-streaming-pair -- --quick
-# Prints only. background-wake emits the bound pair; in-turn emits one foreground command to run and hold open.`
+  - `yoke watch doctor --print-streaming-pair -- --quick`
+  - `# Prints only. background-wake emits the bound pair; in-turn emits one foreground command to run and hold open.`
 - _Run merge or done-transition with watcher (main session)_
-  - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N
-# Queue landing:
-yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --wait`
+  - `yoke watch merge --print-streaming-pair merge-worktree -- PREFIX-N`
+  - `# Queue landing:`
+  - `yoke watch merge --print-streaming-pair merge-item -- PREFIX-N --wait`
 - _Wait on a commit's CI runs with watcher (main session)_
-  - `yoke watch ci-run
-yoke watch ci-run -- <branch-or-sha> --workflow <name>`
+  - `yoke watch ci-run`
+  - `yoke watch ci-run -- <branch-or-sha> --workflow <name>`
 - _Run pytest with explicit raw-capture path (post-completion inspection)_
-  - `yoke watch pytest --raw-capture <PATH> -- <project-test-path>/test_my_module.py -q
-tail -80 <PATH>`
+  - `yoke watch pytest --raw-capture <PATH> -- <project-test-path>/test_my_module.py -q`
+  - `tail -80 <PATH>`
 - _Run doctor focused on specific HC rules_
-  - `yoke watch doctor -- --quick
-yoke watch doctor -- --only HC-event-registry-coverage,HC-event-callsite-registry-sync
-yoke watch doctor -- --full --json`
+  - `yoke watch doctor -- --quick`
+  - `yoke watch doctor -- --only HC-event-registry-coverage,HC-event-callsite-registry-sync`
+  - `yoke watch doctor -- --full --json`
 
 **Schema cheat sheet:**
 
@@ -232,59 +232,59 @@ _Compact depth. Per-table and per-command notes for this topic — the caveats a
 - _Lookup live claim holder for an item_
   - `yoke claims work holder-get PREFIX-N`
 - _Acquire a work claim (canonical agent shape — target variants)_
-  - `yoke claims work acquire --item PREFIX-N --reason draft-in-progress
-yoke claims work acquire --epic-id 833 --task-num 5 --reason engineer-dispatch
-yoke claims work acquire --process DOCTOR --project yoke --reason scheduled-run`
+  - `yoke claims work acquire --item PREFIX-N --reason draft-in-progress`
+  - `yoke claims work acquire --epic-id 833 --task-num 5 --reason engineer-dispatch`
+  - `yoke claims work acquire --process DOCTOR --project yoke --reason scheduled-run`
 - _Claim → mutate → release (generic plan-stage edit)_
-  - `yoke claims work acquire --item PREFIX-N --reason edit
-printf '%s' "$NEW_CONTENT" | yoke items structured-field replace PREFIX-N --field spec --stdin
-yoke claims work release --item PREFIX-N --reason edit-complete`
+  - `yoke claims work acquire --item PREFIX-N --reason edit`
+  - `printf '%s' "$NEW_CONTENT" | yoke items structured-field replace PREFIX-N --field spec --stdin`
+  - `yoke claims work release --item PREFIX-N --reason edit-complete`
 - _Operator override: release a stranded foreign-session work claim_
   - `Use the operator break-glass claim-release surface named in the Atlas.`
 - _Release a work claim + manual spec-rewrite pattern_
-  - `# Canonical agent shape — release the calling session's active claim:
-yoke claims work release --item PREFIX-N --reason TEXT
-yoke claims work release --claim-id <id> --reason TEXT
-yoke claims work release --epic-id E --task-num K --reason TEXT
-yoke claims work release --all-mine
-# Manual spec-rewrite pattern (acquire → edit → release):
-yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress
-yoke items structured-field replace PREFIX-N --field spec --stdin < PATH
-yoke claims work release --item PREFIX-N --reason rewrite-complete`
+  - `# Canonical agent shape — release the calling session's active claim:`
+  - `yoke claims work release --item PREFIX-N --reason TEXT`
+  - `yoke claims work release --claim-id <id> --reason TEXT`
+  - `yoke claims work release --epic-id E --task-num K --reason TEXT`
+  - `yoke claims work release --all-mine`
+  - `# Manual spec-rewrite pattern (acquire → edit → release):`
+  - `yoke claims work acquire --item PREFIX-N --reason rewrite-in-progress`
+  - `yoke items structured-field replace PREFIX-N --field spec --stdin < PATH`
+  - `yoke claims work release --item PREFIX-N --reason rewrite-complete`
 - _Release a work claim when this session is ending and a fresh session will continue_
   - `yoke claims work release --item PREFIX-N --reason session-handoff-fresh-session`
 - _Controlled handoff to a fresh session (Progress Log append → release claim)_
-  - `# 1. Append resume context to the Progress Log section:
-yoke items progress-log append PREFIX-N --headline 'handoff-to-fresh-session' --content "<resume-context-body>"
-# For multiline context, replace --content with --content-file PATH.
-# 2. Release the work claim explicitly:
-yoke claims work release --item PREFIX-N --reason session-handoff-fresh-session`
+  - `# 1. Append resume context to the Progress Log section:`
+  - `yoke items progress-log append PREFIX-N --headline 'handoff-to-fresh-session' --content "<resume-context-body>"`
+  - `# For multiline context, replace --content with --content-file PATH.`
+  - `# 2. Release the work claim explicitly:`
+  - `yoke claims work release --item PREFIX-N --reason session-handoff-fresh-session`
 - _List path claims for an item_
   - `yoke claims path list --item PREFIX-N`
 - _Register a path claim (canonical agent shape)_
-  - `yoke claims path register \\
-  --item PREFIX-N \\
-  --paths <project-source-path>/path_claim_targets.py,<project-test-path>/test_path_claim_targets.py,docs/event-catalog.md \\
-  --integration-target main --mode exclusive --allow-planned`
+  - `yoke claims path register \\`
+  - `  --item PREFIX-N \\`
+  - `  --paths <project-source-path>/path_claim_targets.py,<project-test-path>/test_path_claim_targets.py,docs/event-catalog.md \\`
+  - `  --integration-target main --mode exclusive --allow-planned`
 - _Widen a path claim (canonical agent shape)_
-  - `yoke claims path widen --claim-id 138 --item PREFIX-N \\
-  --add-paths <project-source-path>/service_client_backlog_router.py,<project-test-path>/test_backlog_github_backfill_oversized.py \\
-  --reason 'backfill subcommand wiring touches router + new test file'`
+  - `yoke claims path widen --claim-id 138 --item PREFIX-N \\`
+  - `  --add-paths <project-source-path>/service_client_backlog_router.py,<project-test-path>/test_backlog_github_backfill_oversized.py \\`
+  - `  --reason 'backfill subcommand wiring touches router + new test file'`
 - _Narrow a path claim (drop or keep paths)_
   - `Path-claim narrow is an operator-debug/refine disposition; use `yoke claims path widen` for additive scope changes.`
 - _List / get path claims_
-  - `yoke claims path list --item PREFIX-N
-yoke claims path get 138`
+  - `yoke claims path list --item PREFIX-N`
+  - `yoke claims path get 138`
 - _Summary of path-claim conflicts on a branch_
   - `yoke path-claims conflicts list --integration-target main --project P`
 - _Find conflicts on specific paths (SQL)_
-  - `yoke db read "
-SELECT pc.id, pc.owner_kind, pc.owner_item_id, pc.state, tgt.path_string
-FROM path_claims pc
-JOIN path_claim_targets pct ON pct.claim_id = pc.id
-JOIN path_targets tgt ON tgt.id = pct.target_id
-WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>/bar.py')
-  AND pc.state NOT IN ('cancelled','released')"`
+  - `yoke db read "`
+  - `SELECT pc.id, pc.owner_kind, pc.owner_item_id, pc.state, tgt.path_string`
+  - `FROM path_claims pc`
+  - `JOIN path_claim_targets pct ON pct.claim_id = pc.id`
+  - `JOIN path_targets tgt ON tgt.id = pct.target_id`
+  - `WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>/bar.py')`
+  - `  AND pc.state NOT IN ('cancelled','released')"`
 - _Classify a path-claim overlap before authoring a coordination edge_
   - `yoke claims path coordination-decision-build --item PREFIX-N --conflicting-claim CLAIM_ID --paths a.py,b.py`
 

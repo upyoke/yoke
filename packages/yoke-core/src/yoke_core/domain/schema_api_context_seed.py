@@ -217,8 +217,8 @@ TOPIC_TABLES: dict[str, tuple[str, ...]] = {
 # budget at all.
 PACKET_LINE_BUDGET_PER_ROLE: int = 340
 PACKET_LINE_BUDGET_AGGREGATE: int = 2100
-PACKET_BYTE_BUDGET_PER_ROLE: int = 31000
-PACKET_BYTE_BUDGET_AGGREGATE: int = 192000
+PACKET_BYTE_BUDGET_PER_ROLE: int = 32000
+PACKET_BYTE_BUDGET_AGGREGATE: int = 196000
 
 # Ratchet budget for one rendered subagent body: the condensed role prose
 # plus its compact packet. A subagent body is read from a file rather than

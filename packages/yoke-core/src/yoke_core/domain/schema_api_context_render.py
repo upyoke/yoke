@@ -215,7 +215,15 @@ def render_command_block(
     out: list[str] = ["**Wrapper commands (prefer over raw SQL):**", ""]
     for row in rows:
         out.append(f"- _{row['purpose']}_")
-        out.append(f"  - `{row['recipe']}`")
+        # One inline-code span per recipe line. A multi-line recipe wrapped in
+        # a single backtick pair renders a span containing newlines, which no
+        # markdown reader treats as code and which leaves a stray backtick on
+        # the closing line; it also hides the command from the recipe
+        # extractor that audits whether a taught command resolves to a
+        # registered surface, so a real recipe can go unaudited by formatting
+        # alone.
+        for line in str(row["recipe"]).split("\n"):
+            out.append(f"  - `{line}`" if line.strip() else "  -")
         if detail == PACKET_DETAIL_FULL and row.get("notes"):
             out.append(f"  - {row['notes']}")
     return out
