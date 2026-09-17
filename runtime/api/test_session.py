@@ -38,7 +38,9 @@ TEST_ITEM_REF = f"YOK-{TEST_ITEM_ID}"
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DO_LOOP_PATH = _REPO_ROOT / ".claude" / "skills" / "yoke" / "do" / "loop.md"
-_DO_SKILL_PATH = _REPO_ROOT / ".claude" / "skills" / "yoke" / "do" / "SKILL.md"
+_DO_SKILL_DIR = _REPO_ROOT / ".claude" / "skills" / "yoke" / "do"
+_DO_SKILL_PATH = _DO_SKILL_DIR / "SKILL.md"
+_DO_SKILL_NOTES = _DO_SKILL_DIR / "events-and-notes.md"
 
 
 def _make_offer(**overrides):
@@ -207,7 +209,9 @@ class TestDoLoopContract:
         )
 
     def test_do_skill_notes_reference_scheduler_next_step(self):
-        text = _DO_SKILL_PATH.read_text(encoding="utf-8")
+        text = _DO_SKILL_PATH.read_text(encoding="utf-8") + (
+            _DO_SKILL_NOTES.read_text(encoding="utf-8")
+        )
         assert "context.scheduler.next_step" in text
         assert "dispatch based on item type" not in text
 
@@ -218,7 +222,9 @@ class TestDoLoopContract:
         mint any of them, and they pass none of them onward. Cursor is a
         first-class executor.
         """
-        text = _DO_SKILL_PATH.read_text(encoding="utf-8")
+        text = _DO_SKILL_PATH.read_text(encoding="utf-8") + (
+            _DO_SKILL_NOTES.read_text(encoding="utf-8")
+        )
         assert "yoke sessions identity" in text
         assert "yoke sessions init" not in text
         assert "Do not" in text
@@ -232,7 +238,9 @@ class TestDoLoopContract:
 
     def test_do_skill_documents_shared_path_emission(self):
         """SKILL.md documents canonical emission in shared offer path."""
-        text = _DO_SKILL_PATH.read_text(encoding="utf-8")
+        text = _DO_SKILL_PATH.read_text(encoding="utf-8") + (
+            _DO_SKILL_NOTES.read_text(encoding="utf-8")
+        )
         assert "shared `yoke sessions offer` path" in text
 
 
