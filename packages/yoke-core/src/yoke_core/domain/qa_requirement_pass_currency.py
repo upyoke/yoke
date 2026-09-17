@@ -3,8 +3,9 @@
 Historical ``qa_runs`` rows stay immutable. A run records the executable
 configuration it started under inside ``raw_result``; complete keeps that
 start-bound snapshot. An in-place correction records a revision marker on
-the requirement's stored ``method_config``; unstamped greens then no longer
-satisfy. Compare and execute the config with that marker stripped.
+the requirement's stored ``method_config``; once set it stays, including
+through empty config, and unstamped greens then no longer satisfy. Compare
+and execute the config with that marker stripped.
 """
 
 from __future__ import annotations
@@ -68,14 +69,11 @@ def canonical_method_config(raw: Any) -> str:
 
 
 def bind_correction_identity(previous: Any, prepared_canonical: str) -> str:
-    """Keep a durable revision marker on the requirement when config changes."""
+    """Keep a durable revision marker once executable config has changed."""
     payload = executable_method_config(prepared_canonical)
-    previous_exec = canonical_method_config(previous)
-    if previous_exec == prepared_canonical:
-        if method_config_was_corrected(previous):
-            payload[METHOD_CONFIG_REVISION_KEY] = True
-        return canonical(payload)
-    if previous_exec != canonical({}):
+    if method_config_was_corrected(previous) or (
+        canonical_method_config(previous) != prepared_canonical
+    ):
         payload[METHOD_CONFIG_REVISION_KEY] = True
     return canonical(payload)
 

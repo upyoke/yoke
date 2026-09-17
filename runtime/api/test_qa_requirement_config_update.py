@@ -8,11 +8,13 @@ from pathlib import Path
 import pytest
 
 from yoke_core.domain import qa
+from yoke_core.domain.qa_plan_execution_store import canonical
 from yoke_core.domain.qa_requirement_pass_currency import (
     METHOD_CONFIG_FIELD,
     METHOD_CONFIG_REVISION_KEY,
     PRESERVED_JSON_FIELD,
     attach_method_config_snapshot,
+    bind_correction_identity,
     has_current_passing_run,
     recorded_method_config,
 )
@@ -39,7 +41,7 @@ def db_path(tmp_path: Path):
         yield path
 
 
-def _seed_browser_requirement(db_path: str, *, steps: list[dict]) -> int:
+def _seed_requirement(db_path: str, *, method_id: str, config: dict) -> int:
     req_id = qa.cmd_requirement_add(
         db_path=db_path,
         item_id=42,
@@ -50,11 +52,17 @@ def _seed_browser_requirement(db_path: str, *, steps: list[dict]) -> int:
     conn = connect_test_db(db_path)
     conn.execute(
         "UPDATE qa_requirements SET method_id = %s, method_config = %s WHERE id = %s",
-        ("browser-check", json.dumps({"steps": steps}), req_id),
+        (method_id, json.dumps(config), req_id),
     )
     conn.commit()
     conn.close()
     return req_id
+
+
+def _seed_browser_requirement(db_path: str, *, steps: list[dict]) -> int:
+    return _seed_requirement(
+        db_path, method_id="browser-check", config={"steps": steps}
+    )
 
 
 def _insert_unstamped_pass(db_path: str, req_id: int) -> tuple[int, str | None]:
@@ -102,6 +110,17 @@ class TestAttachMethodConfigSnapshot:
         recorded = recorded_method_config(second)
         assert recorded is not None
         assert recorded["steps"][1]["action"] == "assert"
+
+    def test_bind_keeps_marker_through_empty_config(self) -> None:
+        marked = bind_correction_identity(
+            {"steps": _OLD_STEPS}, canonical({"steps": _NEW_STEPS})
+        )
+        empty = json.loads(bind_correction_identity(marked, canonical({})))
+        restored = json.loads(
+            bind_correction_identity(empty, canonical({"steps": _NEW_STEPS}))
+        )
+        assert empty[METHOD_CONFIG_REVISION_KEY] is True
+        assert restored[METHOD_CONFIG_REVISION_KEY] is True
 
 
 class TestMethodConfigUpdate:
