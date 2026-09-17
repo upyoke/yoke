@@ -1,68 +1,50 @@
-"""Keeping a printed receipt to what its reader can act on.
+"""Condensing the one kind of receipt field that answers nothing.
 
-A receipt is read by a person or an agent deciding what to do next, and most
-of what makes one large is not part of that decision: a whole stored row
-handed back for a one-field stamp, or the caller's own argument list echoed
-to it. ``--json`` is the machine payload and is never touched here; this
-trims only what the terminal prints.
+The default human writer prints every successful result, reads included, and
+a read's value IS the answer the caller asked for — its body, its
+instructions, the commands it emits to run next. So nothing here decides what
+to print by looking at size, or by guessing which keys carry meaning: no
+list of key names can enumerate what is semantically load-bearing, and the
+cost of getting that list wrong is a destroyed answer rather than a long one.
 
-Two rules keep the trim honest.
+Condensing applies only where a specific function is known to return a
+specific field that restates state the caller did not ask for.
+:data:`REDUNDANT_RECEIPT_FIELDS` names those pairs and nothing else, so the
+failure mode of an unlisted case is a receipt that stays long — never an
+answer that goes missing. Every other function, and every other field of a
+listed one, prints exactly as the handler returned it.
 
 **A printed receipt never advises repeating the command.** By the time a
 receipt prints, the command has already run, and for a mutation that write is
-not something to replay in order to read output — the same defect as treating
-a close-out as a probe. So the guidance here is about the *next* invocation's
-flags, never about repeating this one, and no wording in this module may
-suggest otherwise.
-
-**Size alone never removes an actionable fact.** A failure, the recovery for
-one, or an authority decision is the reason the reader is reading, so those
-print in full however long they are — including when one is nested inside an
-otherwise bulky value. Only bulk with nothing actionable in it is marked.
+not something to replay in order to read output. Guidance here is about the
+*next* invocation's flags, never about repeating this one.
 """
 
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Mapping
 
-#: A receipt at or under this many serialized bytes prints exactly as the
-#: handler returned it. The bound is deliberately well clear of ordinary
-#: receipts — a lifecycle transition, a claim, a Progress Log append — so
-#: marking is reserved for the outliers.
-RECEIPT_BYTE_CAP = 2000
+#: Receipt fields that restate state the caller did not ask for, keyed by the
+#: function that returns them. This is deliberately a short list of verified
+#: cases rather than an attempt to classify every payload:
+#:
+#: ``sessions.touch`` stamps a heartbeat or a mode and hands back all 61
+#: columns of the session row to confirm it — 2,512 bytes to report that one
+#: field moved. The caller named the change in its own arguments and the
+#: receipt's ``success`` reports the outcome, so the row itself answers
+#: nothing that was asked.
+#:
+#: Add an entry only with a measurement showing the field restates state the
+#: caller did not request. A read's content, and any command or instruction a
+#: result emits for the caller to run, never qualify.
+REDUNDANT_RECEIPT_FIELDS: Mapping[str, tuple[str, ...]] = {
+    "sessions.touch": ("session",),
+}
 
-#: Only a value at least this large is a candidate for marking. Small facts
-#: always survive, so a receipt keeps the ref it touched and the status it
-#: moved to even when one bulky sibling is marked.
-COMPACTABLE_VALUE_BYTES = 512
-
-#: Result keys whose value states a failure, the recovery for one, or an
-#: authority decision. These print in full at any size, and a container
-#: holding one anywhere inside it prints in full too: the reader is reading
-#: because something needs doing, and length is not a reason to hide it.
-ACTIONABLE_KEYS = frozenset(
-    {
-        "authority",
-        "blockers",
-        "conflicts",
-        "denied",
-        "error",
-        "errors",
-        "failed_checks",
-        "failures",
-        "findings",
-        "hint",
-        "next_action",
-        "next_actions",
-        "recovery",
-        "recovery_hint",
-        "refusal",
-        "remediation",
-        "unresolved",
-        "warnings",
-    }
-)
+#: A listed field under this many serialized bytes prints as-is; marking it
+#: would trade a readable value for a longer sentence about the value.
+CONDENSE_ABOVE_BYTES = 512
 
 #: How to get the whole envelope, stated as a flag for an invocation rather
 #: than as an instruction to repeat the one that just ran.
@@ -76,20 +58,6 @@ def _measure(value: Any) -> int:
         return 0
 
 
-def carries_actionable_fact(value: Any) -> bool:
-    """Whether *value* holds a failure, recovery, or authority fact anywhere."""
-    if isinstance(value, dict):
-        for key, nested in value.items():
-            if str(key) in ACTIONABLE_KEYS and nested not in (None, [], {}, ""):
-                return True
-            if carries_actionable_fact(nested):
-                return True
-        return False
-    if isinstance(value, (list, tuple)):
-        return any(carries_actionable_fact(entry) for entry in value)
-    return False
-
-
 def _marker(value: Any, size: int) -> str:
     if isinstance(value, dict):
         extent = f", {len(value)} keys"
@@ -100,36 +68,31 @@ def _marker(value: Any, size: int) -> str:
     return f"<not printed: {size} bytes{extent} — {FULL_RECEIPT_FLAG}>"
 
 
-def compact_receipt(result: Any) -> tuple[Any, list[str]]:
-    """Return the value to print and the names of the keys it marked.
+def compact_receipt(function: str, result: Any) -> tuple[Any, list[str]]:
+    """Return the value to print and the names of the fields it condensed.
 
-    An unchanged receipt comes back with an empty key list, including when a
-    receipt is large only because it holds many small facts — there is no one
-    bulky value to mark there, and shortening the facts themselves would
-    remove the answer rather than its bulk.
+    A function with no entry in :data:`REDUNDANT_RECEIPT_FIELDS` — which is
+    every read — comes back untouched with an empty list, whatever its size.
     """
-    if not isinstance(result, dict) or _measure(result) <= RECEIPT_BYTE_CAP:
+    redundant = REDUNDANT_RECEIPT_FIELDS.get(str(function or ""))
+    if not redundant or not isinstance(result, dict):
         return result, []
-    marked: list[str] = []
-    display: dict[str, Any] = {}
-    for key, value in result.items():
-        size = _measure(value)
-        keep = (
-            size < COMPACTABLE_VALUE_BYTES
-            or str(key) in ACTIONABLE_KEYS
-            or carries_actionable_fact(value)
-        )
-        if keep:
-            display[key] = value
+    condensed: list[str] = []
+    display = dict(result)
+    for field in redundant:
+        if field not in display:
             continue
-        display[key] = _marker(value, size)
-        marked.append(str(key))
-    if not marked:
+        size = _measure(display[field])
+        if size <= CONDENSE_ABOVE_BYTES:
+            continue
+        display[field] = _marker(display[field], size)
+        condensed.append(field)
+    if not condensed:
         return result, []
-    return display, marked
+    return display, condensed
 
 
-def omission_advisory(marked: list[str]) -> str:
+def omission_advisory(condensed: list[str]) -> str:
     """One line naming what printed as a marker, without advising a repeat.
 
     The command has already run. For a mutation, repeating it to read output
@@ -137,19 +100,17 @@ def omission_advisory(marked: list[str]) -> str:
     the whole envelope rather than telling anyone to run this one again.
     """
     return (
-        f"receipt: {', '.join(marked)} printed as a size marker to keep this "
-        "readable; every failure, recovery, and authority fact is above in "
-        "full. This command has already run — add --json to an invocation "
-        "when you want the whole envelope, rather than repeating this one."
+        f"receipt: {', '.join(condensed)} restates stored state this command "
+        "did not change on request, so it printed as a size marker. This "
+        "command has already run — add --json to an invocation when you want "
+        "the whole envelope, rather than repeating this one."
     )
 
 
 __all__ = [
-    "ACTIONABLE_KEYS",
-    "COMPACTABLE_VALUE_BYTES",
+    "CONDENSE_ABOVE_BYTES",
     "FULL_RECEIPT_FLAG",
-    "RECEIPT_BYTE_CAP",
-    "carries_actionable_fact",
+    "REDUNDANT_RECEIPT_FIELDS",
     "compact_receipt",
     "omission_advisory",
 ]

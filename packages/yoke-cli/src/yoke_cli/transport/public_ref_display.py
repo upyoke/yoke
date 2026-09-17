@@ -160,10 +160,10 @@ def _default_human_writer(
     response: FunctionCallResponse, stdout: TextIO, stderr: TextIO
 ) -> None:
     if response.success:
-        display, omitted = compact_receipt(response.result)
+        display, condensed = compact_receipt(response.function, response.result)
         print(json.dumps(display, sort_keys=True), file=stdout)
-        if omitted:
-            print(omission_advisory(omitted), file=stderr)
+        if condensed:
+            print(omission_advisory(condensed), file=stderr)
         for warning in response.warnings:
             print(
                 f"warning: {warning.code} ({warning.step}): {warning.detail}",
