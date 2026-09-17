@@ -188,6 +188,15 @@ def configured_identity_path(conn: Any, project: Any, environments: Any = ()) ->
     return resolved[0]
 
 
+def _project_id(conn: Any, project: Any) -> int:
+    try:
+        return int(project)
+    except (TypeError, ValueError):
+        from yoke_core.domain.project_identity import resolve_project_id
+
+        return resolve_project_id(conn, str(project))
+
+
 def require_provable_qa_identity(
     stages: Any, *, operation: str, conn: Any = None, project: Any = None
 ) -> None:
@@ -208,15 +217,28 @@ def require_provable_qa_identity(
     from yoke_core.domain.deployment_target_identity_config import (
         qa_target_environment_names,
     )
-
-    configured = configured_identity_path(
-        conn, project, qa_target_environment_names(stages)
+    from yoke_core.domain.environment_registered_url import (
+        environment_url_repair_command,
+        environments_missing_url,
     )
+
+    names = qa_target_environment_names(stages)
+    configured = configured_identity_path(conn, project, names)
     if configured.error:
         raise ValueError(
             f"{operation} cannot be checked for provable QA identity: "
             f"{configured.error}"
         )
+    if configured.configured and conn is not None and names:
+        missing = environments_missing_url(conn, _project_id(conn, project), names)
+        if missing:
+            raise ValueError(
+                f"{operation} configures a served-revision identity path "
+                f"but environment {missing[0]!r} has no registered url, so "
+                "no origin is authorized to answer for it; register it "
+                "before deploying: "
+                f"{environment_url_repair_command(str(project), missing[0])}"
+            )
     unprovable = unprovable_qa_identity_stages(
         stages, identity_path_configured=configured.configured
     )

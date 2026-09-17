@@ -94,6 +94,10 @@ class TestIdentityJudgment:
         assert no_url is not None
         assert no_url.reason == outcome.DEPLOYMENT_RECORD_MISSING
         assert "no registered url" in no_url.message
+        assert (
+            "yoke projects environment update --project <project> "
+            "--environment prod --url"
+        ) in no_url.message
 
     def test_unreadable_configuration_is_not_reported_as_unconfigured(self):
         failure = validate_deployment_identity(

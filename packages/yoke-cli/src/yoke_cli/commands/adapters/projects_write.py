@@ -174,13 +174,13 @@ PROJECTS_SITE_CREATE_USAGE = (
 
 PROJECTS_ENVIRONMENT_CREATE_USAGE = (
     "yoke projects environment create --project P --site NAME "
-    "--environment NAME [--settings-json JSON] "
+    "--environment NAME [--url URL] [--settings-json JSON] "
     "[--session-id S] [--json]"
 )
 
 PROJECTS_ENVIRONMENT_UPDATE_USAGE = (
     "yoke projects environment update --project P --environment NAME "
-    "--name NAME [--session-id S] [--json]"
+    "[--name NAME] [--url URL] [--session-id S] [--json]"
 )
 
 
@@ -207,6 +207,12 @@ def _infrastructure_create(
             required=True,
             help="Registered environment name.",
         )
+        parser.add_argument(
+            "--url",
+            dest="url",
+            default=None,
+            help="Registered origin answering for this environment.",
+        )
     parser.add_argument(
         "--settings-json",
         dest="settings_json",
@@ -224,6 +230,8 @@ def _infrastructure_create(
     }
     if with_environment:
         payload["environment"] = parsed.environment
+        if parsed.url is not None:
+            payload["url"] = parsed.url
     settings, settings_error = _parse_settings_json(parsed.settings_json)
     if settings_error is not None:
         print(f"error: {settings_error}", file=sys.stderr)
@@ -287,12 +295,29 @@ def projects_environment_update(args: List[str]) -> int:
     )
     parser.add_argument("--project", required=True)
     parser.add_argument("--environment", dest="environment", required=True)
-    parser.add_argument("--name", required=True)
+    parser.add_argument("--name", default=None)
+    parser.add_argument(
+        "--url",
+        dest="url",
+        default=None,
+        help="Registered origin answering for this environment.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROJECTS_ENVIRONMENT_UPDATE_USAGE)
     if parsed is None:
         return 2
+    if parsed.name is None and parsed.url is None:
+        print("error: --name or --url is required", file=sys.stderr)
+        return 2
+    payload: Dict[str, Any] = {
+        "project": parsed.project,
+        "environment": parsed.environment,
+    }
+    if parsed.name is not None:
+        payload["name"] = parsed.name
+    if parsed.url is not None:
+        payload["url"] = parsed.url
 
     def _human_writer(response, stdout, stderr) -> None:
         if not response.success:
@@ -303,11 +328,7 @@ def projects_environment_update(args: List[str]) -> int:
     return dispatch_and_emit(
         function_id="projects.environment.update",
         target=TargetRef(kind="global"),
-        payload={
-            "project": parsed.project,
-            "environment": parsed.environment,
-            "name": parsed.name,
-        },
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,

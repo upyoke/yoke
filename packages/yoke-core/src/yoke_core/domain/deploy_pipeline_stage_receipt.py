@@ -177,6 +177,12 @@ def dispatch_step_runner_with_receipt(
             f"{identity_error}"
         )
     identity_origin = identity_origin_for(identity, dispatch_environment)
+    if identity_path and not identity_origin:
+        from yoke_core.domain.environment_registered_url import (
+            missing_registered_url_message,
+        )
+
+        return 1, missing_registered_url_message(project, dispatch_environment)
     if (
         target_kind in RUNNER_VERIFIED_TARGET_KINDS
         and not identity_path

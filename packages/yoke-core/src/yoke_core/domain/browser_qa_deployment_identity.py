@@ -188,14 +188,19 @@ def validate_deployment_identity(
                 f"{IDENTITY_PATH_KEY}"
             )
         )
+        from yoke_core.domain.environment_registered_url import (
+            environment_url_repair_command,
+        )
+
         return FreshnessFailure(
             DEPLOYMENT_RECORD_MISSING,
             f"Environment {target.environment!r} cannot be asked what it is "
             f"serving, because {missing}. A deployment record says what a run "
             "delivered when it ran, which a later release to the same "
             "environment silently outdates, so it is not accepted in place of "
-            "asking. Register the environment's url (yoke projects environment "
-            "...) and set the served-revision path (yoke projects "
+            "asking. Register the environment's url with "
+            f"{environment_url_repair_command('<project>', target.environment)} "
+            "and set the served-revision path (yoke projects "
             f"capability-merge-settings <project> {IDENTITY_CAPABILITY} --set "
             f"{IDENTITY_PATH_KEY}=/<path>), then re-run this case.",
         )

@@ -1,12 +1,13 @@
 """Handler for ``projects.environment.update``.
 
-Renames an existing environment row in place. The current registered name
+Updates an existing environment row in place. The current registered name
 selects the row within its project; numeric ids never cross the boundary.
+``name`` and ``url`` are independently optional; at least one must be set.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -20,7 +21,8 @@ from yoke_contracts.api.function_call import (
 class ProjectsEnvironmentUpdateRequest(BaseModel):
     project: str
     environment: str
-    name: str
+    name: Optional[str] = None
+    url: Optional[str] = None
 
 
 class ProjectsEnvironmentUpdateResponse(BaseModel):
@@ -33,12 +35,20 @@ def handle_projects_environment_update(
     request: FunctionCallRequest,
 ) -> HandlerOutcome:
     payload = request.payload or {}
-    for key in ("project", "environment", "name"):
+    for key in ("project", "environment"):
         value = payload.get(key)
         if not value or not isinstance(value, str):
             return _failure(
                 "payload_invalid", f"{key} is required", f"$.payload.{key}",
             )
+    name_raw = payload.get("name")
+    url_raw = payload.get("url")
+    if not name_raw and url_raw is None:
+        return _failure(
+            "payload_invalid",
+            "name or url is required",
+            "$.payload",
+        )
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.environment_reference import (
         EnvironmentReferenceError,
@@ -47,10 +57,22 @@ def handle_projects_environment_update(
     )
     from yoke_core.domain.project_identity import placeholder, resolve_project_id
 
-    try:
-        name = validate_name(str(payload["name"]))
-    except ValueError as exc:
-        return _failure("payload_invalid", str(exc), "$.payload.name")
+    name: Optional[str] = None
+    if name_raw is not None:
+        try:
+            name = validate_name(str(name_raw))
+        except ValueError as exc:
+            return _failure("payload_invalid", str(exc), "$.payload.name")
+    url: Optional[str] = None
+    if url_raw is not None:
+        from yoke_core.domain.environment_registered_url import (
+            normalize_registered_url,
+        )
+
+        try:
+            url = normalize_registered_url(str(url_raw))
+        except ValueError as exc:
+            return _failure("payload_invalid", str(exc), "$.payload.url")
 
     project = str(payload["project"])
     environment = str(payload["environment"])
@@ -70,25 +92,35 @@ def handle_projects_environment_update(
                 "$.payload.environment",
             )
         previous_name = selected.name
-        if previous_name == name:
-            return _outcome(project, name, previous_name)
-        taken = conn.execute(
-            f"SELECT id FROM environments WHERE project_id = {p} AND name = {p} "
-            f"AND id <> {p}",
-            (project_id, name, selected.id),
-        ).fetchone()
-        if taken is not None:
-            return _failure(
-                "environment_name_conflict",
-                f"environment name {name!r} is already used in project {project!r}",
-                "$.payload.name",
+        new_name = previous_name
+        assignments: list[str] = []
+        params: list[Any] = []
+        if name is not None and name != previous_name:
+            taken = conn.execute(
+                f"SELECT id FROM environments WHERE project_id = {p} AND name = {p} "
+                f"AND id <> {p}",
+                (project_id, name, selected.id),
+            ).fetchone()
+            if taken is not None:
+                return _failure(
+                    "environment_name_conflict",
+                    f"environment name {name!r} is already used in project {project!r}",
+                    "$.payload.name",
+                )
+            assignments.append(f"name = {p}")
+            params.append(name)
+            new_name = name
+        if url is not None:
+            assignments.append(f"url = {p}")
+            params.append(url)
+        if assignments:
+            params.append(selected.id)
+            conn.execute(
+                f"UPDATE environments SET {', '.join(assignments)} WHERE id = {p}",
+                tuple(params),
             )
-        conn.execute(
-            f"UPDATE environments SET name = {p} WHERE id = {p}",
-            (name, selected.id),
-        )
-        conn.commit()
-        return _outcome(project, name, previous_name)
+            conn.commit()
+        return _outcome(project, new_name, previous_name)
     finally:
         conn.close()
 

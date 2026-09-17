@@ -39,6 +39,7 @@ class ProjectsEnvironmentCreateRequest(BaseModel):
     site: str
     environment: str
     settings: Optional[Dict[str, Any]] = None
+    url: Optional[str] = None
 
 
 class ProjectsEnvironmentCreateResponse(BaseModel):
@@ -104,6 +105,9 @@ def handle_projects_environment_create(
     error = _validate_settings(payload)
     if error is not None:
         return error
+    url, error = _optional_url(payload)
+    if error is not None:
+        return error
     from yoke_core.domain.db_helpers import connect, iso8601_now
     from yoke_core.domain.project_identity import placeholder, resolve_project_id
 
@@ -149,14 +153,15 @@ def handle_projects_environment_create(
             )
         conn.execute(
             "INSERT INTO environments "
-            "(site, project_id, name, created_at, settings) "
-            f"VALUES ({p}, {p}, {p}, {p}, {p})",
+            "(site, project_id, name, created_at, settings, url) "
+            f"VALUES ({p}, {p}, {p}, {p}, {p}, {p})",
             (
                 int(site[0]),
                 project_id,
                 environment_name,
                 iso8601_now(),
                 dumps_compact(payload.get("settings") or {}),
+                url,
             ),
         )
         conn.commit()
@@ -209,6 +214,21 @@ def _validate_settings(payload: dict[str, Any]) -> Optional[HandlerOutcome]:
             "$.payload.settings",
         )
     return None
+
+
+def _optional_url(
+    payload: dict[str, Any],
+) -> tuple[Optional[str], Optional[HandlerOutcome]]:
+    if "url" not in payload or payload.get("url") is None:
+        return None, None
+    from yoke_core.domain.environment_registered_url import (
+        normalize_registered_url,
+    )
+
+    try:
+        return normalize_registered_url(str(payload.get("url") or "")), None
+    except ValueError as exc:
+        return None, _failure("payload_invalid", str(exc), "$.payload.url")
 
 
 def _failure(code: str, message: str, jsonpath: str) -> HandlerOutcome:

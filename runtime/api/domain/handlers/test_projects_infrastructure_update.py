@@ -92,6 +92,45 @@ def test_refuses_invalid_name_syntax(infrastructure_db) -> None:
     assert outcome.error.code == "payload_invalid"
 
 
+def test_writes_url_without_renaming(infrastructure_db) -> None:
+    _seed_named_environment()
+    outcome = update.handle_projects_environment_update(
+        _request("projects.environment.update", {
+            "project": WEBAPP,
+            "environment": ENVIRONMENT,
+            "url": "https://app.example.test",
+        })
+    )
+    assert outcome.primary_success is True
+    assert outcome.result_payload == {
+        "project": WEBAPP,
+        "environment": ENVIRONMENT,
+        "previous_name": ENVIRONMENT,
+    }
+    conn = connect_test_db(infrastructure_db)
+    try:
+        row = conn.execute(
+            "SELECT name, url FROM environments WHERE project_id = %s AND name = %s",
+            (2, ENVIRONMENT),
+        ).fetchone()
+    finally:
+        conn.close()
+    assert (str(row[0]), str(row[1])) == (ENVIRONMENT, "https://app.example.test")
+
+
+def test_refuses_invalid_url(infrastructure_db) -> None:
+    _seed_named_environment()
+    outcome = update.handle_projects_environment_update(
+        _request("projects.environment.update", {
+            "project": WEBAPP,
+            "environment": ENVIRONMENT,
+            "url": "ftp://example.test",
+        })
+    )
+    assert outcome.primary_success is False
+    assert outcome.error.code == "payload_invalid"
+
+
 def test_registration_spec_covers_update() -> None:
     ids = [spec["function_id"] for spec in update.REGISTRATION_SPECS]
     assert ids == ["projects.environment.update"]
