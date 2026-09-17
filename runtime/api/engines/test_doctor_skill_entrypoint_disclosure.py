@@ -11,8 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict
 
-import pytest
-
 from yoke_contracts.startup_context_budget import SKILL_ENTRYPOINT_BYTES
 from yoke_project_checks import check_skill_entrypoint_disclosure as mod
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
