@@ -211,17 +211,21 @@ def bind_cli_raw_result(
             item_id=row["item_id"],
             conn=conn,
         )
+        if error:
+            print(f"Error: {error}", file=sys.stderr)
+            sys.exit(2)
+        from yoke_core.domain.qa_requirement_pass_currency import (
+            stamp_executed_method_config,
+        )
+
+        return stamp_executed_method_config(
+            bound,
+            row["method_config"],
+            conn=conn,
+            requirement_id=int(requirement_id),
+        )
     finally:
         conn.close()
-    if error:
-        print(f"Error: {error}", file=sys.stderr)
-        sys.exit(2)
-    from yoke_core.domain.qa_requirement_pass_currency import (
-        stamp_executed_method_config,
-    )
-
-    bound = stamp_executed_method_config(bound, row["method_config"])
-    return bound
 
 
 __all__ = [

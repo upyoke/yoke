@@ -33,7 +33,7 @@ from yoke_core.domain.qa_requirement_pass_currency import (
     bind_correction_identity,
     executable_method_config,
 )
-from yoke_core.domain.schema_common import _column_exists, _table_exists
+from yoke_core.domain.schema_common import _table_exists
 
 
 FROZEN_REQUIREMENT_CODE = "frozen_requirement_immutable"
@@ -130,7 +130,7 @@ def _prepare_method_config(
 
 
 def _prepare_target_env(
-    conn: Any, existing: Any, value: Any, req_id: int
+    conn: Any, existing: Any, value: Any
 ) -> tuple[Optional[tuple[Any, ...]], str]:
     if existing["deployment_run_id"]:
         return None, FROZEN_REQUIREMENT_MESSAGE
@@ -170,26 +170,9 @@ def _prepare_target_env(
             )
     except QaExecutionTargetError as exc:
         return None, str(exc)
-    digest = target_digest(snapshot) if snapshot else None
-    method_config = existing["method_config"]
-    if _column_exists(conn, "qa_requirements", "execution_target_digest"):
-        stored = query_one(
-            conn,
-            "SELECT execution_target_digest FROM qa_requirements "
-            f"WHERE id={_marker(conn)}",
-            (int(req_id),),
-        )
-        previous = ""
-        if stored is not None:
-            previous = str(stored["execution_target_digest"] or "")
-        if previous != str(digest or ""):
-            method_config = bind_correction_identity(
-                method_config,
-                canonical(executable_method_config(method_config)),
-                force=True,
-            )
     target_json = canonical_target(snapshot) if snapshot else None
-    return (name, target_json, digest, method_config), ""
+    digest = target_digest(snapshot) if snapshot else None
+    return (name, target_json, digest), ""
 
 
 def apply_requirement_update(
@@ -285,7 +268,7 @@ def apply_requirement_update(
             )
         value = bind_correction_identity(existing["method_config"], prepared)
     if field == "target_env":
-        prepared, error = _prepare_target_env(conn, existing, value, req_id)
+        prepared, error = _prepare_target_env(conn, existing, value)
         if error:
             code = (
                 FROZEN_REQUIREMENT_CODE
@@ -299,11 +282,10 @@ def apply_requirement_update(
                 field=field,
                 jsonpath="$.payload.value",
             )
-        name, target_json, digest, method_config = prepared
+        name, target_json, digest = prepared
         conn.execute(
-            f"UPDATE qa_requirements SET target_env = {marker}, "
-            f"method_config = {marker} WHERE id = {marker}",
-            (name, method_config, int(req_id)),
+            f"UPDATE qa_requirements SET target_env = {marker} WHERE id = {marker}",
+            (name, int(req_id)),
         )
         from yoke_core.domain.qa_environment_execution_target import (
             persist_requirement_target_snapshot,

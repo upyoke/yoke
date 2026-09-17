@@ -289,6 +289,10 @@ def apply_qa_review_resolution(
         )
         return
     verdict = "pass" if action == "approve" else "fail"
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        stamp_executed_method_config,
+    )
+
     conn.execute(
         "INSERT INTO qa_runs "
         "(qa_requirement_id, performed_by, qa_kind, verdict, raw_result, "
@@ -298,7 +302,12 @@ def apply_qa_review_resolution(
             int(requirement_id),
             str(requirement["qa_kind"]),
             verdict,
-            note,
+            stamp_executed_method_config(
+                note,
+                requirement.get("method_config"),
+                conn=conn,
+                requirement_id=int(requirement_id),
+            ),
             stamp,
             stamp,
             stamp,

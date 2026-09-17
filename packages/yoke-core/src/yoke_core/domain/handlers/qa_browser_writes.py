@@ -111,7 +111,9 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             stamp_executed_method_config,
         )
 
-        raw_result = stamp_executed_method_config(raw_result, row.get("method_config"))
+        raw_result = stamp_executed_method_config(
+            raw_result, row.get("method_config"), conn=conn, requirement_id=int(req_id)
+        )
         now_iso = iso8601_now()
         completed_at_value = (
             now_iso if (verdict is not None or execution_status is not None) else None

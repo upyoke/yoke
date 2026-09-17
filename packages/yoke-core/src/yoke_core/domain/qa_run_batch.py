@@ -198,7 +198,10 @@ def cmd_run_add_batch(
             verdict = row.get("verdict")
             completed_at_value = None if verdict is None else now_iso
             raw_result = stamp_executed_method_config(
-                row.get("raw_result"), row.get("_method_config")
+                row.get("raw_result"),
+                row.get("_method_config"),
+                conn=conn,
+                requirement_id=int(row["requirement_id"]),
             )
 
             sql = """INSERT INTO qa_runs

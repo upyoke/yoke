@@ -84,7 +84,7 @@ def _insert_docket(
             None,
             "captured",
             "needs_review",
-            stamp_executed_method_config(canonical(transcript), case.get("method_config")),
+            stamp_executed_method_config(canonical(transcript), case.get("method_config"), execution_target_digest=case.get("execution_target_digest")),
             now,
             now,
             now,

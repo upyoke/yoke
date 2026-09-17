@@ -1,11 +1,13 @@
-"""Whether a passing QA run still proves the live method_config.
+"""Whether a passing QA run still proves the live method_config and target.
 
 Historical ``qa_runs`` rows stay immutable. A run records the executable
-configuration it started under inside ``raw_result``; complete keeps that
-start-bound snapshot. An in-place correction records a revision marker on
-the requirement's stored ``method_config``; once set it stays, including
-through empty config, and unstamped greens then no longer satisfy. Compare
-and execute the config with that marker stripped.
+configuration and execution-target digest it started under inside
+``raw_result``; complete keeps those start-bound snapshots. An in-place
+``method_config`` correction records a revision marker on the requirement;
+once set it stays, including through empty config, and unstamped greens then
+no longer satisfy. Compare and execute the config with that marker stripped.
+A live execution-target digest is proved only by a pass that recorded the
+same digest.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from yoke_core.domain.schema_common import _column_exists
 
 METHOD_CONFIG_FIELD = "method_config"
 METHOD_CONFIG_REVISION_KEY = "_corrected"
+EXECUTION_TARGET_DIGEST_FIELD = "execution_target_digest"
 PRESERVED_JSON_FIELD = "raw_result"
 EVIDENCE_FIELD = "evidence"
 
@@ -111,21 +114,59 @@ def attach_method_config_snapshot(
     return canonical(payload)
 
 
+def attach_execution_target_digest(
+    raw_result: Optional[str], digest: str, *, overwrite: bool = False
+) -> str:
+    """Persist the target digest a run started under, beside other evidence."""
+    value = str(digest or "").strip()
+    parsed = _parse_json_value(raw_result)
+    if isinstance(parsed, dict):
+        payload = dict(parsed)
+        if overwrite or not str(payload.get(EXECUTION_TARGET_DIGEST_FIELD) or ""):
+            payload[EXECUTION_TARGET_DIGEST_FIELD] = value
+        return canonical(payload)
+    payload: dict[str, Any] = {EXECUTION_TARGET_DIGEST_FIELD: value}
+    if parsed is not None:
+        payload[PRESERVED_JSON_FIELD] = parsed
+    else:
+        evidence = str(raw_result or "").strip()
+        if evidence:
+            payload[EVIDENCE_FIELD] = evidence
+    return canonical(payload)
+
+
 def stamp_executed_method_config(
-    raw_result: Optional[str], config: Any
+    raw_result: Optional[str],
+    config: Any,
+    *,
+    execution_target_digest: str | None = None,
+    conn: Any = None,
+    requirement_id: int | None = None,
 ) -> Optional[str]:
-    """Stamp start-bound executable config when the contract is non-empty."""
-    if not executable_method_config(config):
+    """Stamp start-bound executable config and target digest when present."""
+    digest = str(execution_target_digest or "").strip()
+    if not digest and conn is not None and requirement_id is not None:
+        digest = _live_execution_target_digest(conn, int(requirement_id))
+    if not executable_method_config(config) and not digest:
         return raw_result
-    return attach_method_config_snapshot(raw_result, config)
+    stamped = raw_result
+    if executable_method_config(config):
+        stamped = attach_method_config_snapshot(stamped, config)
+    if digest:
+        stamped = attach_execution_target_digest(stamped, digest)
+    return stamped
 
 
 def retain_start_bound_method_config(existing_raw: Any, incoming_raw: str) -> str:
-    """Keep the start-bound snapshot when later evidence replaces raw_result."""
+    """Keep the start-bound snapshots when later evidence replaces raw_result."""
     start = recorded_method_config(existing_raw)
-    if start is None:
-        return incoming_raw
-    return attach_method_config_snapshot(incoming_raw, start, overwrite=True)
+    digest = recorded_execution_target_digest(existing_raw)
+    result = incoming_raw
+    if start is not None:
+        result = attach_method_config_snapshot(result, start, overwrite=True)
+    if digest:
+        result = attach_execution_target_digest(result, digest, overwrite=True)
+    return result
 
 
 def recorded_method_config(raw_result: Any) -> dict[str, Any] | None:
@@ -136,8 +177,29 @@ def recorded_method_config(raw_result: Any) -> dict[str, Any] | None:
     return executable_method_config(config)
 
 
+def recorded_execution_target_digest(raw_result: Any) -> str:
+    """Return the target digest a run recorded at start, if it recorded one."""
+    return str(_json_object(raw_result).get(EXECUTION_TARGET_DIGEST_FIELD) or "")
+
+
+def _live_execution_target_digest(conn: Any, requirement_id: int) -> str:
+    from yoke_core.domain.db_helpers import query_one
+
+    if not _column_exists(conn, "qa_requirements", EXECUTION_TARGET_DIGEST_FIELD):
+        return ""
+    row = query_one(
+        conn,
+        "SELECT execution_target_digest FROM qa_requirements "
+        f"WHERE id={_marker(conn)}",
+        (int(requirement_id),),
+    )
+    if row is None:
+        return ""
+    return str(row["execution_target_digest"] or "")
+
+
 def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
-    """True when a pass still proves the requirement's live method_config."""
+    """True when a pass still proves the live method_config and target."""
     from yoke_core.domain.db_helpers import query_one, query_rows
 
     marker = _marker(conn)
@@ -149,15 +211,21 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
             (int(requirement_id),),
         )
         return found is not None
+    digest_sql = ""
+    if _column_exists(conn, "qa_requirements", EXECUTION_TARGET_DIGEST_FIELD):
+        digest_sql = ", execution_target_digest"
     row = query_one(
         conn,
-        f"SELECT method_config FROM qa_requirements WHERE id={marker}",
+        f"SELECT method_config{digest_sql} FROM qa_requirements WHERE id={marker}",
         (int(requirement_id),),
     )
     if row is None:
         return False
     current = canonical_method_config(row["method_config"])
     corrected = method_config_was_corrected(row["method_config"])
+    live_digest = (
+        str(row["execution_target_digest"] or "") if digest_sql else ""
+    )
     runs = query_rows(
         conn,
         "SELECT verdict, raw_result FROM qa_runs "
@@ -166,6 +234,8 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
     )
     for run in runs:
         if str(run["verdict"] or "") != "pass":
+            continue
+        if live_digest and recorded_execution_target_digest(run["raw_result"]) != live_digest:
             continue
         recorded = recorded_method_config(run["raw_result"])
         if recorded is not None:
@@ -179,15 +249,18 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
 
 __all__ = [
     "EVIDENCE_FIELD",
+    "EXECUTION_TARGET_DIGEST_FIELD",
     "METHOD_CONFIG_FIELD",
     "METHOD_CONFIG_REVISION_KEY",
     "PRESERVED_JSON_FIELD",
+    "attach_execution_target_digest",
     "attach_method_config_snapshot",
     "bind_correction_identity",
     "canonical_method_config",
     "executable_method_config",
     "has_current_passing_run",
     "method_config_was_corrected",
+    "recorded_execution_target_digest",
     "recorded_method_config",
     "retain_start_bound_method_config",
     "stamp_executed_method_config",

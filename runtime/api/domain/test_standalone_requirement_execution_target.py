@@ -278,3 +278,4 @@ def test_frozen_run_row_refuses_target_env_update() -> None:
         assert not result.ok
         assert result.error_code == "frozen_requirement_immutable"
 
+
