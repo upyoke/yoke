@@ -74,8 +74,10 @@ def _enroll_carried_items(run_id_value: str) -> List[str] | HandlerOutcome:
     A start reads its members once and then drives the whole pipeline from
     that list, so enrollment has to happen before the read rather than at the
     freeze it will reach later — otherwise the run would execute, stamp, and
-    seed QA for a membership it never saw. Only a still-composable run is
-    touched; a resumed or retried one reports nothing added.
+    seed QA for a membership it never saw. The deploy lock this call already
+    holds keeps other deployment writers out; enrollment itself takes the
+    run and item-binding row locks, and answers with nothing for a run that
+    is no longer composable.
     """
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.deployment_run_carried_membership import (
@@ -83,12 +85,6 @@ def _enroll_carried_items(run_id_value: str) -> List[str] | HandlerOutcome:
     )
 
     with connect() as conn:
-        status = conn.execute(
-            "SELECT status FROM deployment_runs WHERE id=%s",
-            (run_id_value,),
-        ).fetchone()
-        if status is None or str(status["status"]) != "created":
-            return []
         try:
             enrolled = list(enroll_carried_members(conn, run_id_value))
         except (LookupError, ValueError) as exc:

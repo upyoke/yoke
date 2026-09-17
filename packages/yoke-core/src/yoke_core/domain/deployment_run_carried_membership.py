@@ -44,6 +44,7 @@ from yoke_core.domain.deployment_run_composition_freeze import (
 from yoke_core.domain.deployment_run_composition_guard import (
     has_frozen_composition,
 )
+from yoke_core.domain.deployment_runs_lock import lock_run
 from yoke_core.domain.deployment_requirement_snapshots import (
     requirement_selection,
     snapshot_member_requirements,
@@ -52,6 +53,9 @@ from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.workflow_delivery_binding_validation import (
     validate_deployment_run_item,
+)
+from yoke_core.domain.workflow_item_binding_lock import (
+    lock_item_workflow_bindings,
 )
 
 
@@ -137,13 +141,30 @@ def enroll_carried_members(
         # An underivable carried set names no items to enroll. The refusal
         # owner reports it, so silence here is deferral, not a waiver.
         return ()
+    carried = sorted({int(entry["item_id"]) for entry in payload.get("items") or []})
+    if not carried:
+        return ()
+    # Item workflow bindings first, then the run row: the same order
+    # ``lock_run_with_stable_membership`` and ``cmd_add_item`` take, so a
+    # manual admission and this one can never hold each other's next lock.
+    # Every carried item is locked, not only the ones eligible a moment ago,
+    # because eligibility is exactly what the lock has to hold still — an
+    # item this read called terminal could otherwise become deliverable
+    # between the decision and the insert.
+    lock_item_workflow_bindings(conn, carried + list(member_ids(conn, run_id)))
+    if lock_run(conn, run_id) != "created":
+        # Membership is mutable only while a run is composable, and the run
+        # row now says it is not. Nothing was written.
+        return ()
+    if carried_enrollment_blocked(conn, run_id):
+        return ()
     members = set(member_ids(conn, run_id))
-    candidates = sorted(
-        int(entry["item_id"])
-        for entry in payload.get("items") or []
-        if int(entry["item_id"]) not in members
-        and item_requires_release_membership(conn, int(entry["item_id"]))
-    )
+    candidates = [
+        item_id
+        for item_id in carried
+        if item_id not in members
+        and item_requires_release_membership(conn, item_id)
+    ]
     enrolled: list[str] = []
     for item_id in candidates:
         try:
@@ -224,13 +245,16 @@ def carried_membership_refusal(
     labels = ", ".join(
         render_item_ref(conn, int(item_id)) for item_id in omitted
     )
+    why = carried_enrollment_blocked(conn, run_id) or (
+        "they became deliverable after this run composed its membership"
+    )
     return (
         f"deployment run {run_id!r} omits delivery-ready carried work: {labels}; "
-        "automatic enrollment could not add them here — "
-        f"{carried_enrollment_blocked(conn, run_id) or 'admission was refused'}. "
-        "Attach those members, or choose a candidate that excludes their code. "
-        "An already-done item is never one of them: it cannot be newly "
-        "admitted, and its code travels under the run's pinned release lineage"
+        f"automatic enrollment did not add them ({why}). Re-run the deployment "
+        "start so admission enrolls them, attach them, or choose a candidate "
+        "that excludes their code. An already-done item is never one of them: "
+        "it cannot be newly admitted, and its code travels under the run's "
+        "pinned release lineage"
     )
 
 

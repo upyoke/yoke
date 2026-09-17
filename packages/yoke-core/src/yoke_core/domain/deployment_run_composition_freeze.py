@@ -226,7 +226,6 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
     from yoke_core.domain.deployment_run_lineage_rebind import is_full_commit
     from yoke_core.domain.deployment_run_carried_membership import (
         carried_membership_refusal,
-        enroll_carried_members,
     )
 
     lineage = str(_cell(row, "release_lineage", 1) or "")
@@ -243,10 +242,11 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
         stages=stages,
     )
     carried_work = record_carried_work(conn, run_id)
-    # Enrollment runs inside this transaction so the membership it adds
-    # freezes with the intent and requirement snapshots below. The refusal
-    # after it is the invariant check on what it could not resolve.
-    enroll_carried_members(conn, run_id, carried_work=carried_work)
+    # Freeze verifies membership; it never completes it. The driver read its
+    # members before reaching here and seeds QA and stamps release against
+    # that list, so a member appearing at this point would execute unseeded
+    # and unstamped. Enrollment therefore belongs to the start, and drift
+    # discovered here stops the run by name instead of widening it silently.
     if refusal := carried_membership_refusal(conn, run_id, carried_work=carried_work):
         raise ValueError(refusal)
     for item_id in member_ids(conn, run_id):

@@ -11,14 +11,20 @@ and a retry whose membership was already frozen by the run it retries.
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
-from yoke_core.domain import deployment_run_carried_work_source
+from runtime.api.fixtures.carried_release_candidate import (
+    insert_run,
+    item_ref,
+    release_repository,
+    serve_repository,
+    stage_environment,
+)
+from yoke_core.domain import deployment_run_carried_membership as carried_membership
 from yoke_core.domain.deployment_run_carried_membership import (
     carried_enrollment_blocked,
     carried_membership_refusal,
@@ -48,45 +54,8 @@ LEGACY_STAGES = json.dumps([{"name": "stage", "step_runner": "auto"}])
 CARRIED_ITEM_ID = 9501
 
 
-def _git(repo: Path, *args: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(repo), *args],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip()
-
-
-def _repository(tmp_path: Path, item_ref: str) -> tuple[Path, str, str]:
-    """One baseline release and one landed item, attributable by message."""
-    repo = tmp_path / "release-project"
-    repo.mkdir()
-    subprocess.run(
-        ["git", "init", "-b", "main", str(repo)],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    _git(repo, "config", "user.name", "Yoke Test")
-    _git(repo, "config", "user.email", "test@example.com")
-    (repo / "release.txt").write_text("baseline\n", encoding="utf-8")
-    _git(repo, "add", "release.txt")
-    _git(repo, "commit", "-m", "Release baseline")
-    baseline = _git(repo, "rev-parse", "HEAD")
-    (repo / "release.txt").write_text("landed\n", encoding="utf-8")
-    _git(repo, "commit", "-am", f"Land {item_ref} product changes")
-    return repo, baseline, _git(repo, "rev-parse", "HEAD")
-
-
 def _flows(conn: Any) -> None:
-    conn.execute(
-        "INSERT INTO environments(site,project_id,name,created_at) "
-        "SELECT id,1,'stage','2026-09-14T00:00:00Z' FROM sites "
-        "WHERE project_id=1 ORDER BY id LIMIT 1 "
-        "ON CONFLICT(project_id,name) DO NOTHING"
-    )
-    conn.commit()
+    stage_environment(conn)
     cmd_create(
         conn, RELEASE_FLOW, "yoke", "Release admission", "", RELEASE_STAGES,
         status="disabled",
@@ -94,17 +63,6 @@ def _flows(conn: Any) -> None:
     cmd_create(
         conn, LEGACY_FLOW, "yoke", "Legacy", "", LEGACY_STAGES, status="disabled",
     )
-
-
-def _run(conn: Any, run_id: str, *, lineage: str, status: str, flow: str) -> None:
-    conn.execute(
-        "INSERT INTO deployment_runs("
-        "id,project_id,flow,release_lineage,status,created_at,completed_at) "
-        "VALUES (%s,1,%s,%s,%s,%s,%s)",
-        (run_id, flow, lineage, status, "2026-09-14T00:00:00Z",
-         "2026-09-14T01:00:00Z"),
-    )
-    conn.commit()
 
 
 def _item(conn: Any, *, status: str = "implementing", flow: str = RELEASE_FLOW) -> str:
@@ -116,12 +74,7 @@ def _item(conn: Any, *, status: str = "implementing", flow: str = RELEASE_FLOW) 
         status=status,
         deployment_flow=flow,
     )
-    row = conn.execute(
-        "SELECT p.public_item_prefix, i.project_sequence FROM items i "
-        "JOIN projects p ON p.id=i.project_id WHERE i.id=%s",
-        (CARRIED_ITEM_ID,),
-    ).fetchone()
-    return f"{row[0]}-{row[1]}"
+    return item_ref(conn, CARRIED_ITEM_ID)
 
 
 def _candidate(
@@ -135,16 +88,13 @@ def _candidate(
 ) -> str:
     """A prior succeeded release plus a created run carrying one landed item."""
     _flows(conn)
-    item_ref = _item(conn, status=item_status, flow=item_flow)
-    repo, baseline, tip = _repository(tmp_path, item_ref)
-    monkeypatch.setattr(
-        deployment_run_carried_work_source,
-        "checkout_for_project_id",
-        lambda _project_id: repo,
-    )
-    _run(conn, "run-previous", lineage=baseline, status="succeeded", flow=run_flow)
-    _run(conn, "run-candidate", lineage=tip, status="created", flow=run_flow)
-    return item_ref
+    ref = _item(conn, status=item_status, flow=item_flow)
+    repo, baseline, tip = release_repository(tmp_path, ref)
+    serve_repository(monkeypatch, repo)
+    insert_run(conn, "run-previous", lineage=baseline, status="succeeded",
+               flow=run_flow)
+    insert_run(conn, "run-candidate", lineage=tip, status="created", flow=run_flow)
+    return ref
 
 
 def _members(conn: Any) -> list[dict[str, Any]]:
@@ -220,11 +170,7 @@ def test_unknown_attribution_enrolls_nothing_and_keeps_refusing(
 ) -> None:
     """Enrolling from a set nobody could compute would waive coverage."""
     _candidate(test_db, tmp_path, monkeypatch)
-    monkeypatch.setattr(
-        deployment_run_carried_work_source,
-        "checkout_for_project_id",
-        lambda _project_id: None,
-    )
+    serve_repository(monkeypatch, None)
 
     assert enroll_carried_members(test_db, "run-candidate") == ()
     refusal = carried_membership_refusal(test_db, "run-candidate")
@@ -268,11 +214,11 @@ def test_a_flow_predating_release_admission_enrolls_nothing(
     assert enroll_carried_members(test_db, "run-candidate") == ()
 
 
-def test_freeze_enrolls_the_candidate_and_then_passes_its_own_invariant(
+def test_freeze_stamps_exactly_the_membership_the_start_enrolled(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """One transaction completes membership, intent, and the snapshot."""
     _candidate(test_db, tmp_path, monkeypatch)
+    enroll_carried_members(test_db, "run-candidate")
 
     frozen = freeze_run_composition(test_db, "run-candidate")
 
@@ -285,15 +231,77 @@ def test_freeze_enrolls_the_candidate_and_then_passes_its_own_invariant(
     assert member["requirement_snapshot"]
 
 
+def test_freeze_refuses_membership_no_start_enrolled_rather_than_widening(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The driver already read its members; a late one would run unseeded.
+
+    Freeze verifies and stops. Adding the member here instead would execute,
+    stamp and seed QA for a composition the driver never saw.
+    """
+    item_ref = _candidate(test_db, tmp_path, monkeypatch)
+
+    with pytest.raises(ValueError) as refusal:
+        freeze_run_composition(test_db, "run-candidate")
+
+    assert item_ref in str(refusal.value)
+    assert "Re-run the deployment start" in str(refusal.value)
+    assert _members(test_db) == []
+
+
+def test_enrollment_answers_nothing_once_the_run_leaves_composition(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Membership is mutable only while the run row still says composable."""
+    _candidate(test_db, tmp_path, monkeypatch)
+    test_db.execute(
+        "UPDATE deployment_runs SET status='executing' WHERE id='run-candidate'"
+    )
+    test_db.commit()
+
+    assert enroll_carried_members(test_db, "run-candidate") == ()
+    assert _members(test_db) == []
+
+
+def test_enrollment_locks_item_bindings_before_the_run_row(
+    test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The house lock order, which is what keeps admissions from deadlocking.
+
+    ``cmd_add_item`` and ``lock_run_with_stable_membership`` both take item
+    workflow bindings before the run row. Enrollment discovers its items from
+    the candidate rather than from its caller, so it is the path most likely
+    to invert that order; this pins it. Every carried item is locked, not only
+    the ones eligible before the lock, so eligibility cannot move underneath
+    the decision.
+    """
+    _candidate(test_db, tmp_path, monkeypatch)
+    order: list[str] = []
+    real_bindings = carried_membership.lock_item_workflow_bindings
+    real_run = carried_membership.lock_run
+
+    def _bindings(conn: Any, item_ids: Any) -> Any:
+        locked = real_bindings(conn, item_ids)
+        order.append("bindings")
+        return locked
+
+    def _run(conn: Any, run_id: str) -> Any:
+        status = real_run(conn, run_id)
+        order.append("run")
+        return status
+
+    monkeypatch.setattr(carried_membership, "lock_item_workflow_bindings", _bindings)
+    monkeypatch.setattr(carried_membership, "lock_run", _run)
+
+    assert enroll_carried_members(test_db, "run-candidate")
+    assert order == ["bindings", "run"]
+
+
 def test_an_underivable_candidate_stops_the_freeze_rather_than_starting_empty(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _candidate(test_db, tmp_path, monkeypatch)
-    monkeypatch.setattr(
-        deployment_run_carried_work_source,
-        "checkout_for_project_id",
-        lambda _project_id: None,
-    )
+    serve_repository(monkeypatch, None)
 
     with pytest.raises(ValueError) as refusal:
         freeze_run_composition(test_db, "run-candidate")
