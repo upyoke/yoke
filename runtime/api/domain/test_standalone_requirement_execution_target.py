@@ -16,7 +16,12 @@ from yoke_core.domain.qa_plan_execution_state import (
     begin_plan_execution,
 )
 from yoke_core.domain.qa_requirement_config_update import apply_requirement_update
-from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
+from yoke_core.domain.qa_requirement_pass_currency import (
+    has_current_passing_run,
+    recorded_method_config,
+    stamp_executed_method_config,
+)
+from yoke_core.domain.qa_review_requests import apply_qa_review_resolution
 from yoke_core.domain.qa_workflow_binding_validation import item_transition_for_gate
 from yoke_core.domain.workflow_gate_catalog import GATE_QA_VERIFICATION
 
@@ -277,5 +282,60 @@ def test_frozen_run_row_refuses_target_env_update() -> None:
         )
         assert not result.ok
         assert result.error_code == "frozen_requirement_immutable"
+
+
+def test_approving_pending_review_keeps_capture_script_not_live() -> None:
+    old = {"base_url": PREVIEW_URL, "steps": [
+        {"action": "navigate", "route": "/"},
+        {"action": "screenshot", "capture": True},
+    ]}
+    new = {"base_url": PREVIEW_URL, "steps": [
+        {"action": "navigate", "route": "/ready"},
+        {"action": "screenshot", "capture": True},
+    ]}
+    with test_database() as conn:
+        insert_item(conn, id=6412, title="Stale script review", status="implementing")
+        _environment(conn, project_id=1, name="local", url=PREVIEW_URL)
+        outcome = qa_requirement_create.handle_qa_requirement_add(
+            _request(6412, _bound_browser_payload(conn, 6412, target_env="local"))
+        )
+        assert outcome.primary_success, outcome.error
+        req_id = int(outcome.result_payload["requirement_id"])
+        digest = conn.execute(
+            "SELECT execution_target_digest FROM qa_requirements WHERE id=%s",
+            (req_id,),
+        ).fetchone()["execution_target_digest"]
+        capture_id = conn.execute(
+            "INSERT INTO qa_runs (qa_requirement_id, performed_by, qa_kind, "
+            "verdict, verdict_reason, raw_result, created_at) VALUES "
+            "(%s, 'browser_substrate', 'method_case', 'undetermined', "
+            "'needs human review of the capture', %s, %s) RETURNING id",
+            (
+                req_id,
+                stamp_executed_method_config("{}", old, execution_target_digest=digest),
+                "2026-09-17T00:00:00Z",
+            ),
+        ).fetchone()["id"]
+        conn.commit()
+        result = apply_requirement_update(conn, req_id, "method_config", new)
+        assert result.ok, result.message
+        apply_qa_review_resolution(
+            conn, requirement_id=req_id, action="approve", actor_id=1,
+            note="Looks good against the captured script.",
+            reviewed_run_id=int(capture_id),
+        )
+        human = conn.execute(
+            "SELECT raw_result FROM qa_runs WHERE qa_requirement_id=%s "
+            "AND performed_by='human_review'",
+            (req_id,),
+        ).fetchone()
+        assert recorded_method_config(human["raw_result"]) == old
+        assert not has_current_passing_run(conn, req_id)
+        with pytest.raises(ValueError, match="recorded method_config"):
+            apply_qa_review_resolution(
+                conn, requirement_id=req_id, action="approve", actor_id=1,
+                note="no capture identity",
+            )
+
 
 

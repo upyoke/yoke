@@ -291,10 +291,11 @@ def apply_qa_review_resolution(
         return
     verdict = "pass" if action == "approve" else "fail"
     from yoke_core.domain.qa_requirement_pass_currency import (
+        executable_method_config,
         recorded_execution_target_digest,
+        recorded_method_config,
         stamp_executed_method_config,
     )
-
     evidence = None
     run_id = int(reviewed_run_id or 0)
     if run_id > 0:
@@ -307,6 +308,16 @@ def apply_qa_review_resolution(
             evidence = (
                 capture["raw_result"] if hasattr(capture, "keys") else capture[0]
             )
+    recorded = recorded_method_config(evidence)
+    live = conn.execute(
+        f"SELECT method_config FROM qa_requirements WHERE id={p}",
+        (int(requirement_id),),
+    ).fetchone()
+    live_config = None if live is None else live["method_config"]
+    if action == "approve" and executable_method_config(live_config) and recorded is None:
+        raise ValueError(
+            "human review approve requires the reviewed capture's recorded method_config. Recapture the live case, then resolve that review."
+        )
     conn.execute(
         "INSERT INTO qa_runs "
         "(qa_requirement_id, performed_by, qa_kind, verdict, raw_result, "
@@ -318,7 +329,7 @@ def apply_qa_review_resolution(
             verdict,
             stamp_executed_method_config(
                 note,
-                requirement.get("method_config"),
+                recorded,
                 execution_target_digest=recorded_execution_target_digest(evidence)
                 or None,
             ),
