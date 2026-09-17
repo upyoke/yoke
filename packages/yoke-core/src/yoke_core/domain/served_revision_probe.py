@@ -17,10 +17,18 @@ leaves the origin it was given — a redirect that would move it is refused
 rather than followed — and only a full 40-character commit SHA counts, so
 an abbreviation, an error page, or a friendly "ok" is malformed rather than
 matching.
+
+A deployment states its revision in one of two shapes, and both are shapes
+deployments already serve: a body that is nothing but the revision, and a
+health document carrying it under the field this codebase already reads to
+decide which code answered. Accepting the second is what lets a service
+whose identity is already published prove itself without serving a second
+route saying the same thing twice.
 """
 
 from __future__ import annotations
 
+import json
 import re
 import ssl
 import urllib.error
@@ -28,6 +36,8 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Callable, Optional
+
+from yoke_core.api.health_payload_contract import BUILD_FIELD
 
 
 #: A revision is 40 characters; anything longer is a page, not an answer.
@@ -77,6 +87,38 @@ def is_full_revision(value: str) -> bool:
     return bool(_FULL_SHA.match(str(value or "").strip()))
 
 
+def served_revision_from_body(body: str) -> str:
+    """The revision a response body states, or "" when it states none.
+
+    Both accepted shapes are ones deployments already serve. A body that is
+    nothing but the revision is the whole answer. A JSON health document
+    answers through :data:`BUILD_FIELD`, the field naming which code
+    replied — the same field the deploy health check asserts against the
+    image it just rolled, so this reads an existing contract rather than
+    asking anyone to publish a new one.
+
+    Everything else states no revision: a page, an abbreviation, a document
+    without the field, or one whose field is not a full SHA. Returning ""
+    for all of them keeps "said nothing" and "said something wrong"
+    distinguishable to the caller, which reports them differently.
+    """
+    text = str(body or "").strip()
+    if is_full_revision(text):
+        return text
+    if not text.startswith("{"):
+        return ""
+    try:
+        document = json.loads(text)
+    except ValueError:
+        # A truncated read lands here too: READ_LIMIT cuts a long document
+        # mid-object, and half a document proves nothing.
+        return ""
+    if not isinstance(document, dict):
+        return ""
+    stated = str(document.get(BUILD_FIELD) or "").strip()
+    return stated if is_full_revision(stated) else ""
+
+
 def origin_of(url: str) -> str:
     """The scheme-and-host a URL addresses, lowercased."""
     parsed = urllib.parse.urlsplit(url)
@@ -119,6 +161,20 @@ def join_origin_path(origin: str, path: str) -> str:
     return origin_of(origin).rstrip("/") + "/" + path.lstrip("/")
 
 
+def join_base_path(base: str, path: str) -> str:
+    """Join a path beneath *base*, KEEPING the path *base* already carries.
+
+    The counterpart to :func:`join_origin_path`, for the case where the base
+    is server-derived target metadata rather than a configured origin. One
+    host can front several deployed artifacts under different path prefixes,
+    so reducing such a base to its host would ask a different artifact the
+    question and read its answer as this one's. Callers holding a base a
+    person could have typed still use :func:`join_origin_path`; the rule
+    there — that a configured origin cannot smuggle a path — is unchanged.
+    """
+    return str(base or "").rstrip("/") + "/" + str(path or "").lstrip("/")
+
+
 class OriginBoundRedirect(urllib.request.HTTPRedirectHandler):
     """Follow redirects only while they stay on the origin we asked.
 
@@ -155,6 +211,24 @@ def fetch_served_revision(url: str) -> ServedRevisionRead:
         return ServedRevisionRead(error=str(exc))
 
 
+def probe_revision_url(
+    url: str,
+    *,
+    expected_sha: str,
+    fetch: Optional[Callable[[str], ServedRevisionRead]] = None,
+) -> ProbeOutcome:
+    """Read the revision served at an already-composed *url* and judge it."""
+    read = (fetch or fetch_served_revision)(url)
+    if read.error or read.status != 200:
+        return ProbeOutcome(url, UNREACHABLE, read.error or f"HTTP {read.status}")
+    served = served_revision_from_body(read.body)
+    if not served:
+        return ProbeOutcome(url, MALFORMED, repr(read.body.strip()[:80]))
+    if served != expected_sha:
+        return ProbeOutcome(url, MISMATCH, served, served=served)
+    return ProbeOutcome(url, served=served)
+
+
 def probe_served_revision(
     origin: str,
     path: str,
@@ -163,16 +237,9 @@ def probe_served_revision(
     fetch: Optional[Callable[[str], ServedRevisionRead]] = None,
 ) -> ProbeOutcome:
     """Read the revision *origin* serves at *path* and judge it."""
-    url = join_origin_path(origin, path)
-    read = (fetch or fetch_served_revision)(url)
-    if read.error or read.status != 200:
-        return ProbeOutcome(url, UNREACHABLE, read.error or f"HTTP {read.status}")
-    served = read.body.strip()
-    if not is_full_revision(served):
-        return ProbeOutcome(url, MALFORMED, repr(served[:80]))
-    if served != expected_sha:
-        return ProbeOutcome(url, MISMATCH, served, served=served)
-    return ProbeOutcome(url, served=served)
+    return probe_revision_url(
+        join_origin_path(origin, path), expected_sha=expected_sha, fetch=fetch
+    )
 
 
 __all__ = [
@@ -185,8 +252,11 @@ __all__ = [
     "ServedRevisionRead",
     "fetch_served_revision",
     "is_full_revision",
+    "join_base_path",
     "join_origin_path",
     "origin_of",
     "origin_relative_path_error",
+    "probe_revision_url",
     "probe_served_revision",
+    "served_revision_from_body",
 ]

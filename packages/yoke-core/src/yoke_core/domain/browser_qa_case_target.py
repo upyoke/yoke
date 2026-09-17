@@ -22,7 +22,12 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.browser_qa_deployment_identity import DeploymentUnderTest
 from yoke_core.domain.deployment_target_identity_config import (
     persistent_identity_path,
+    preview_identity_path,
 )
+
+#: A deployment that exists for one run, named after it, and never registered
+#: as an environment because nothing outlives the run to register.
+RUN_PREVIEW_KIND = "run_preview"
 
 
 def _p(conn: Any) -> str:
@@ -118,6 +123,105 @@ def _bound_execution_target(conn: Any, requirement_id: int) -> dict[str, Any] | 
     return _decode_target(raw, "recorded execution target")
 
 
+def _unprovable(detail: str) -> DeploymentUnderTest:
+    return DeploymentUnderTest(unresolved=detail)
+
+
+def _receipt_located_preview(
+    conn: Any, target: Mapping[str, Any], *, project_id: int
+) -> DeploymentUnderTest:
+    """Resolve an ephemeral occupancy from the receipt that located it.
+
+    A run preview is never a registered environment: it exists for one run,
+    under a name built from that run's id, and registering a standing
+    environment to describe it would invent a persistent thing that does not
+    exist. What located it is the receipt its own deploying stage wrote, so
+    that receipt is read back here — by the id this execution froze, and only
+    while it still names this run, that stage, this project, and a ready
+    preview.
+
+    The receipt says WHERE to ask and nothing more. What is served there is
+    read live from that url, exactly as for every other target: a receipt
+    records what was true when the stage ran, and a case that accepted it as
+    the answer would report a revision nobody asked the deployment about.
+    """
+    observation = target.get("observation")
+    deployment = target.get("deployment")
+    if not isinstance(observation, Mapping) or not isinstance(deployment, Mapping):
+        return _unprovable(
+            "this Browser case is bound to a run preview whose snapshot names "
+            "no deploying stage receipt, so where to ask what it serves cannot "
+            "be established"
+        )
+    receipt_id = observation.get("receipt_id")
+    source_stage = str(observation.get("source_stage") or "").strip()
+    run_id = str(deployment.get("run_id") or "").strip()
+    if receipt_id in (None, "") or not source_stage or not run_id:
+        return _unprovable(
+            "this Browser case is bound to a run preview whose snapshot does "
+            "not name the run, stage and receipt that deployed it, so nothing "
+            "identifies the deployment its evidence would answer for"
+        )
+    marker = _p(conn)
+    row = conn.execute(
+        "SELECT r.run_id, r.stage_name, r.target_kind, r.status, "
+        "r.observed_url, d.project_id "
+        "FROM deployment_stage_receipts r "
+        "JOIN deployment_runs d ON d.id = r.run_id "
+        f"WHERE r.id = {marker}",
+        (int(receipt_id),),
+    ).fetchone()
+    if row is None:
+        return _unprovable(
+            f"stage receipt {int(receipt_id)}, which this run preview's "
+            "snapshot names as what deployed it, is not recorded on this "
+            "control plane"
+        )
+    recorded_run = str(_scalar(row, 0, "run_id") or "")
+    recorded_stage = str(_scalar(row, 1, "stage_name") or "")
+    recorded_kind = str(_scalar(row, 2, "target_kind") or "")
+    recorded_status = str(_scalar(row, 3, "status") or "")
+    recorded_url = str(_scalar(row, 4, "observed_url") or "").strip()
+    recorded_project = _scalar(row, 5, "project_id")
+    if recorded_run != run_id or recorded_stage != source_stage:
+        return _unprovable(
+            f"stage receipt {int(receipt_id)} belongs to {recorded_run!r} "
+            f"stage {recorded_stage!r}, not to the {run_id!r} stage "
+            f"{source_stage!r} this case is bound to"
+        )
+    if recorded_project is None or int(recorded_project) != int(project_id):
+        return _unprovable(
+            f"stage receipt {int(receipt_id)} belongs to project "
+            f"{recorded_project}, not {int(project_id)}; its deployment is "
+            "another project's"
+        )
+    if recorded_kind != RUN_PREVIEW_KIND or recorded_status != "ready":
+        return _unprovable(
+            f"stage receipt {int(receipt_id)} records a {recorded_kind!r} "
+            f"target in state {recorded_status!r}, so no preview of this run "
+            "was ever reported as deployed"
+        )
+    frozen_url = str(target.get("observed_url") or "").strip()
+    if not recorded_url or (frozen_url and recorded_url != frozen_url):
+        return _unprovable(
+            f"stage receipt {int(receipt_id)} records "
+            f"{recorded_url or 'no url'}, not the {frozen_url!r} this "
+            "execution was frozen against, so which deployment the case is "
+            "about is ambiguous"
+        )
+    environment = target.get("environment")
+    configured = preview_identity_path(conn, int(project_id))
+    return DeploymentUnderTest(
+        environment=str(
+            (environment or {}).get("name") if isinstance(environment, Mapping) else ""
+        )
+        or run_id,
+        origin=recorded_url,
+        identity_path=configured.path,
+        identity_error=configured.error,
+    )
+
+
 def resolve_case_deployment_under_test(
     conn: Any,
     *,
@@ -162,10 +266,21 @@ def resolve_case_deployment_under_test(
                     "project's deployment"
                 )
             )
+    if str(environment.get("kind") or "") == RUN_PREVIEW_KIND:
+        return _receipt_located_preview(conn, target, project_id=int(project_id))
     configured = persistent_identity_path(conn, int(project_id))
+    browser_origin = str(
+        endpoints.get("app_url") or endpoints.get("api_url") or ""
+    ).strip()
+    api_origin = str(endpoints.get("api_url") or "").strip()
     return DeploymentUnderTest(
         environment=str(environment.get("name") or ""),
-        origin=str(endpoints.get("app_url") or endpoints.get("api_url") or "").strip(),
+        origin=browser_origin,
+        # The target already names both bases. Where they differ, one host
+        # fronts more than this deployment and only the API base answers for
+        # the code under test; where they agree, the target draws no such
+        # distinction and the single origin answers for everything.
+        identity_origin="" if api_origin == browser_origin else api_origin,
         identity_path=configured.path,
         identity_error=configured.error,
     )
