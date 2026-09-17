@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from yoke_contracts.executor_labels import EXECUTOR_EMOJI, canonical_harness_id
+from yoke_contracts.project_contract.installed_layer import CLAUDE_RULES_DEST
 from yoke_contracts.hook_inline_context import inline_context_bytes_for_harness
 from yoke_contracts.startup_context_budget import (
     budget_phrase,
@@ -39,21 +40,36 @@ from yoke_contracts.startup_context_budget import (
     root_rules_bytes,
 )
 from yoke_core.domain import schema_api_context_seed as seed
+from yoke_core.domain.install_bundle import CLAUDE_RULES_SOURCE
 from yoke_core.domain.agents_render_conditional import (
     HARNESS_IDS,
     rendered_agents_dir,
 )
 
 
-# The repo-relative rules files each harness reads before its first turn.
-# ``AGENTS.md`` serves every harness; Claude additionally loads its own
-# session rules. Declared here rather than discovered, so a file that is
-# missing reads as zero bytes for that harness instead of as an unmeasured
-# channel that quietly passes.
-ROOT_RULES_SOURCES: dict[str, tuple[str, ...]] = {
-    "claude": ("AGENTS.md", "runtime/harness/claude/rules/session.md"),
-    "codex": ("AGENTS.md",),
-    "cursor": ("AGENTS.md",),
+# The rules files each harness reads before its first turn, per harness, as
+# ordered candidate paths: the first one that exists is the one measured.
+#
+# Two layouts have to resolve, because the same report runs in both. A Yoke
+# source checkout keeps the Claude session rules under the renderer's source
+# path and exposes ``.claude/rules`` as a symlink to it; an installed project
+# has no ``runtime/`` tree at all and carries the bundle's real file at the
+# installed path. Measuring only the source path would silently report zero
+# bytes for that contributor in every external checkout — understating the
+# channel exactly where the rules are most likely to be over it.
+#
+# The two paths come from the mapping the installer already owns rather than
+# from literals here, so a move cannot leave this measurement behind.
+ROOT_RULES_SOURCES: dict[str, tuple[tuple[str, ...], ...]] = {
+    "claude": (
+        ("AGENTS.md",),
+        (
+            f"{CLAUDE_RULES_SOURCE}/session.md",
+            f"{CLAUDE_RULES_DEST}/session.md",
+        ),
+    ),
+    "codex": (("AGENTS.md",),),
+    "cursor": (("AGENTS.md",),),
 }
 
 # The command that reports this measurement, named in every refusal so the
@@ -110,12 +126,27 @@ def _channel_row(
 
 
 def _root_rules_row(harness_id: str, target_root: Path) -> Dict[str, Any]:
+    """Measure one harness's rules channel, naming the path it resolved.
+
+    A candidate group that resolves nowhere is reported as ``resolved: false``
+    with the paths tried, rather than folded into the total as zero bytes: a
+    contributor nobody can find is a gap in the measurement, and a silent zero
+    reads as headroom.
+    """
     contributors: List[Dict[str, Any]] = []
     total = 0
-    for relative in ROOT_RULES_SOURCES[harness_id]:
-        size = _read_bytes(target_root / relative)
+    for candidates in ROOT_RULES_SOURCES[harness_id]:
+        found = next(
+            (rel for rel in candidates if (target_root / rel).is_file()), None
+        )
+        if found is None:
+            contributors.append(
+                {"path": " | ".join(candidates), "bytes": 0, "resolved": False}
+            )
+            continue
+        size = _read_bytes(target_root / found)
         total += size
-        contributors.append({"path": relative, "bytes": size})
+        contributors.append({"path": found, "bytes": size, "resolved": True})
     return _channel_row(
         "root_rules",
         harness_id=harness_id,
