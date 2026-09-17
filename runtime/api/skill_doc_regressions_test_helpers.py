@@ -67,7 +67,8 @@ def _read_skill_corpus(skill_root: Path) -> str:
 
 
 def _read_refine_skill(path: Path) -> str:
-    return _read_bundle(path, path.parent / "update-protocol.md")
+    """Return the whole refine command: entrypoint plus every phase file."""
+    return _read_skill_corpus(path.parent)
 
 
 def _read_polish_skill(path: Path) -> str:
