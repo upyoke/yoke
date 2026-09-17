@@ -25,10 +25,10 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 ## Philosophy
 
 **Be the giant.** We stand on inherited shoulders; leave a leg up for
-the next agent by making this artifact cold-start complete. Amend
-changes the execution blueprint after work has already started, so
-every split, reassignment, or removal must leave crisp task boundaries
-and an unambiguous next step.
+the next agent. Amend changes the execution blueprint after work has
+already started, so every split, reassignment, or removal must leave
+crisp task boundaries and an unambiguous next step — a checkpoint, not
+a restated history.
 
 **No such thing as "agent error."** If tasks need to be split or
 moved, frame the cause as a system correction — missing task

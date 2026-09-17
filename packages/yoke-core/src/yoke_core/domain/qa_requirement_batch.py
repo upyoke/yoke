@@ -73,6 +73,7 @@ def cmd_requirement_add_batch(
                     item_id=int(binding_item_id),
                     transition_id=row.get("workflow_transition_id"),
                     label=f"row {len(inserted_ids)}",
+                    qa_phase=row.get("qa_phase"),
                 )
             cur = conn.execute(
                 INSERT_SQL,

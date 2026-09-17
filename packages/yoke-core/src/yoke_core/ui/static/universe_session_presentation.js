@@ -1,4 +1,5 @@
 import { attachTooltip } from "./universe_tooltip.js";
+import { navIcon } from "./universe_nav_sidebar.js";
 import { el } from "./universe_view_support.js";
 
 // Who is running this session, as the one mark and label every surface that
@@ -99,9 +100,13 @@ export function appendSessionDeliveryStatus(documentNode, body, row) {
   if (!labels.length) return;
   const line = el(documentNode, "div", "session-delivery");
   for (const label of labels) {
-    const pill = el(
-      documentNode, "span", `session-delivery-pill is-${label.key}`, label.text,
-    );
+    const pill = el(documentNode, "span", `session-delivery-pill is-${label.key}`);
+    if (label.key === "run") {
+      const icon = navIcon(documentNode, "shipping");
+      icon.classList.add("session-delivery-icon");
+      pill.appendChild(icon);
+    }
+    pill.appendChild(el(documentNode, "span", "session-delivery-text", label.text));
     if (label.detail) pill.setAttribute("title", label.detail);
     line.appendChild(pill);
   }

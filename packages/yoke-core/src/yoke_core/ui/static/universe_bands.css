@@ -48,6 +48,7 @@
 }
 .universe-app-root .work-band {
   --work-band-tone: var(--yoke-muted);
+  margin-top: 22px;
 }
 .universe-app-root .work-band-waiting {
   --work-band-tone: var(--yoke-warn);
@@ -68,8 +69,9 @@
   gap: 8px;
   padding: 3px 1px 8px;
   color: var(--work-band-tone);
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 700;
+  line-height: 1.25;
   letter-spacing: .075em;
   text-transform: uppercase;
 }
@@ -121,6 +123,9 @@
   align-self: stretch;
   height: auto;
   justify-content: flex-start;
+}
+.universe-app-root .work-card-grid > .see-more-card {
+  align-self: start;
 }
 .universe-app-root .work-session-dialog-host:empty {
   display: none;

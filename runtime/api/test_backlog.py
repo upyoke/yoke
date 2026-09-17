@@ -45,13 +45,28 @@ def _apply_backlog_fixture_schema() -> None:
     """
     from runtime.api.fixtures.backlog import seed_test_canonical_actors
     from runtime.api.fixtures.operating_actor import record_fixture_operating_actor
-    from yoke_core.domain.project_seed_test_helpers import seed_project_identities
+    from yoke_core.domain.actor_permissions import (
+        ROLE_OWNER,
+        grant_actor_project_role,
+        seed_roles_and_permissions,
+    )
+    from yoke_core.domain.project_seed_test_helpers import (
+        SEED_PROJECT_IDS,
+        seed_project_identities,
+    )
 
     apply_fixture_schema_ddl()
     conn = db_backend.connect()
     try:
         seed_project_identities(conn)
         _yoke_core, local_human = seed_test_canonical_actors(conn)
+        seed_roles_and_permissions(conn)
+        grant_actor_project_role(
+            conn,
+            actor_id=local_human,
+            project_id=SEED_PROJECT_IDS["yoke"],
+            role_name=ROLE_OWNER,
+        )
         conn.commit()
         # A born universe also records which actor this machine operates it
         # as. Without that, a session-less terminal write has no operating

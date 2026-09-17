@@ -151,6 +151,7 @@ def cmd_requirement_add(
                 conn,
                 item_id=int(binding_item_id),
                 transition_id=workflow_transition_id,
+                qa_phase=qa_phase,
             )
         row = {
             "qa_kind": qa_kind,

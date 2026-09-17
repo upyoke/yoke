@@ -25,9 +25,28 @@ Use the specified items directly. No discovery mode — items must be explicitly
 
 Initialize `_ready_items=""`.
 
-For each item, read status. **Standard mode:** `done` → skip silently. `implemented` → append to `_ready_items`. Not `implemented` → hard-reject.
+For each item, consult the pinned workflow and landing evidence before treating
+status as a hardcoded vocabulary:
 
-**Deploy-only/resume mode:** `release`, `implemented` → append to `_ready_items`. `done` → skip. Other → hard-reject.
+```bash
+yoke workflows item get PREFIX-N --json
+yoke items get PREFIX-N merged_at
+```
+
+A durable merge receipt (`merged_at`, or `yoke merge item` reporting
+already-merged) means the branch already landed. Do not merge it a second
+time. Re-run the supported idempotent close-out (`yoke merge item`) so the
+pinned release wait can be entered. Intermediate multiple-merge semantics stay
+with a later unlanded lane; never force a status jump.
+
+**Standard mode:** `done` → skip silently. Durable merge receipt at the pinned
+pre-release review stage (Dash: `reviewing-implementation`; epic usher:
+`implemented`) → append as already-landed close-out. Status is the pinned
+merge-ready stage with no receipt yet → append for merge. Else → hard-reject
+naming the pinned stages and the merge-receipt read.
+
+**Deploy-only/resume mode:** `release`, or an already-landed pinned pre-release
+review stage, or `implemented` → append. `done` → skip. Else → hard-reject.
 
 **Deploy-only guard:** For `--deploy-only` (not --resume), verify deploy_stage or post-merge status.
 

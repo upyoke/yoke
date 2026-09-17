@@ -286,3 +286,33 @@ def test_approval_on_done_creates_and_requires_project_owner_request(
         db_path=dash_db_path,
     )
     assert gate["error_code"] == "GATE_DASH_APPROVAL_REQUIRED"
+
+
+def test_approval_on_done_explains_when_no_human_owner_remains(
+    dash_db_path: str,
+):
+    conn = connect_test_db(dash_db_path)
+    try:
+        _insert_dash(
+            conn, item_id=2306, posture={"approval_on_done": True}, status="release",
+        )
+        prepare_status_transition(
+            conn,
+            item_id=2306,
+            target_status="done",
+            originator_actor_id=901,
+            session_id="dash-session",
+        )
+        conn.execute(
+            "UPDATE actors SET kind = 'system' WHERE kind = 'human' AND id IN ("
+            "SELECT apr.actor_id FROM actor_project_roles apr "
+            "JOIN roles r ON r.id = apr.role_id "
+            "WHERE r.name = 'owner')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    gate = evaluate(item_id=2306, target_status="done", db_path=dash_db_path)
+    assert gate["error_code"] == "GATE_DASH_APPROVAL_REQUIRED"
+    assert "no eligible human" in gate["error"]
+    assert "Do not assign roles automatically" in gate["remediation_hint"]

@@ -25,7 +25,7 @@ QA_KIND_HELP = (
 
 SUCCESS_POLICY_HELP = (
     "Optional aggregate requirement policy. Method-backed cases use their "
-    "immutable method_config snapshot instead."
+    "method_config snapshot instead."
 )
 
 

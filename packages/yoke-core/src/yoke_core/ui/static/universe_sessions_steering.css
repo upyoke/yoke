@@ -45,10 +45,11 @@
   line-height: 22px;
 }
 .universe-app-root .session-steered-row .session-steering-docs {
+  flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
+  overflow-wrap: anywhere;
   font-size: 14px;
-  text-overflow: ellipsis;
+  white-space: normal;
 }
 /* The mark leaves the corner when it leads a row. */
 .universe-app-root .session-steered-row .session-steering-symbol,

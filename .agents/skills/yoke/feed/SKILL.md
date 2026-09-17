@@ -35,7 +35,7 @@ SML_SLUGS="MISSION LANDSCAPE VISION MASTER-PLAN CURRENT-PLAN"
 
 ## Philosophy
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. Feed should turn strategy into backlog items that arrive with enough context to avoid a full rediscovery cycle in idea and shepherd.
+**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. Feed should turn strategy into backlog items that arrive with the current objective, standing constraints, and next action — enough to start, not a restated strategy dump.
 
 **Maximalist intake.** Feed should materialize missing work, not merely sketch vague placeholders. Strategy gaps should become actionable items with clear rationale and blast radius.
 

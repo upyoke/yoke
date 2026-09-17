@@ -20,7 +20,12 @@ yoke qa requirement add --item PREFIX-N \
 
 An item case is item-claim-gated: the calling session must hold the item's
 active work claim. `--workflow-transition` is required and names a stage in
-the item's pinned workflow that carries or precedes a `qa_verification` gate.
+the item's pinned workflow. `verification` binds to a stage that carries or
+precedes a `qa_verification` gate (Dash review: `reviewing-implementation`).
+`post_deploy` and `manual_acceptance` bind to the pinned release wait or
+`done` — authoring refuses those phases on the review transition and names
+`--workflow-transition release` (or `--deployment-run`) as the recovery.
+Do not guess the phase from a URL or environment name.
 
 ```text
 yoke qa requirement add --deployment-run run-YYYYMMDD-NNN \

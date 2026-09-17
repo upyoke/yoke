@@ -46,7 +46,14 @@ def qa_requirement_update(args: List[str]) -> int:
         required=True,
         help="Target qa_requirements.id.",
     )
-    parser.add_argument("--field", required=True, help="Updatable field name.")
+    parser.add_argument(
+        "--field",
+        required=True,
+        help=(
+            "Updatable field: success_policy, blocking_mode, target_env, "
+            "capability_requirements, suite_id, qa_phase, method_config."
+        ),
+    )
     value_group = parser.add_mutually_exclusive_group(required=True)
     value_group.add_argument("--value", default=None, help="New value (string).")
     value_group.add_argument(

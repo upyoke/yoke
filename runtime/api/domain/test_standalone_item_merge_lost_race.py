@@ -95,7 +95,7 @@ def _close_out_racing(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setattr(sim_cli.evidence, "record", lambda **_k: "")
     monkeypatch.setattr(
-        close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",)),
+        close_out_transition, "close_out_route", lambda *_a, **_k: CloseOutRoute(stages=("done",)),
     )
     monkeypatch.setattr(
         sim_cli.close_out,

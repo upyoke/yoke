@@ -320,18 +320,8 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
     ))
     .then((rows) => {
       if (!context.isMounted()) return;
-      const machines = new Set(
-        rows.map((row) => row.machine_id).filter(Boolean),
-      );
       usage = {
         summary: summarizeSessionUsage(rows),
-        // What the figures answer for, said where they are read: a total
-        // covering one machine's sessions is not the fleet's spend, and a
-        // window is not a lifetime.
-        note: `24h figures: ${rows.length} `
-          + `session${rows.length === 1 ? "" : "s"} across `
-          + `${machines.size} machine${machines.size === 1 ? "" : "s"}`
-          + " in scope; API-equivalent estimate, not subscription spend",
       };
       renderRoster();
     })
@@ -339,7 +329,6 @@ export function renderSessionsView(context, main, scope, chrome = {}) {
       if (!context.isMounted()) return;
       usage = {
         summary: null,
-        note: "24h figures unavailable: the usage read failed",
       };
       renderRoster();
     });

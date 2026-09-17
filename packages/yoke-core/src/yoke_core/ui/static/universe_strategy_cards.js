@@ -91,7 +91,24 @@ function claimBox(documentNode, claim) {
   return box;
 }
 
-export function strategyDocumentCard(documentNode, doc, project) {
+function steeringColor(doc, groupColors) {
+  if (String(doc.execution_owner_kind || "") !== "session") return null;
+  const sessionId = doc.execution_owner_session_id;
+  if (sessionId === undefined || sessionId === null || sessionId === "") {
+    return null;
+  }
+  return groupColors?.get?.(String(sessionId)) || null;
+}
+
+export function applyStrategySteeringColor(card, doc, groupColors = new Map()) {
+  const color = steeringColor(doc, groupColors);
+  if (color) card.style.setProperty("--session-steering-color", color);
+  else card.style.removeProperty("--session-steering-color");
+}
+
+export function strategyDocumentCard(
+  documentNode, doc, project, groupColors = new Map(),
+) {
   const card = el(documentNode, "a", "strategy-doc-card");
   const projectId = String(doc.project_id || project.id);
   card.href = buildUniverseRoute("strategy", projectId, doc.slug);
@@ -125,6 +142,7 @@ export function strategyDocumentCard(documentNode, doc, project) {
   head.appendChild(age);
   card.appendChild(head);
   const claim = liveDocumentClaim(doc);
+  applyStrategySteeringColor(card, doc, groupColors);
   if (claim) card.appendChild(claimBox(documentNode, claim));
   card.appendChild(el(
     documentNode,

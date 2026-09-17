@@ -82,22 +82,26 @@ the method before `qa.requirement.add` will accept the row:
 Issue / Epic / Blitz already carry a `qa_verification` gate; do not invent a
 Dash-style posture there.
 
-Bind `--workflow-transition` to a stage that currently has a reachable
-`qa_verification` gate, or Dash's selected-method review stage. Dash after the
-method is selected: `reviewing-implementation`. Issue / Epic / Blitz: the
-earliest stage that already carries `qa_verification` (`reviewed-implementation`
-on Issue). `--qa-phase` and `--target-env` carry the release vs pre-merge
-distinction; do not wait for a future `release` stage to record the request.
-If add refuses a missing selector, report that exact field to steering — do
-not create a parallel table.
+Bind `--workflow-transition` to the stage that currently owns that phase.
+Pre-merge `verification` binds to Dash's selected-method review stage
+(`reviewing-implementation`) or, on Issue / Epic / Blitz, the earliest stage
+that already carries `qa_verification` (`reviewed-implementation` on Issue).
+Post-deployment `post_deploy` / `manual_acceptance` binds to the pinned
+release wait (`release`) or `done`, or attaches to the deployment run with
+`--deployment-run`. Do not bind post-merge acceptance to the review
+transition: authoring refuses that pair and names this recovery.
 
-Recording `post_deploy` on that stage stores the obligation. Pre-merge
-`qa_verification` and Dash's review gate wait only for `verification` rows.
-They do not wait for an environment that exists after merge. Frozen
-admission copies the `post_deploy` row onto the deployment-stage subject;
-scoped QA executes that copy against the observed candidate. `done`
-consumes that admitted copy on the completion run
-(`done_transition.latest_deployment_run`) when the shared stage
+`--qa-phase` is the declared family. Do not infer it from a URL, a literal
+environment name, or instruction prose — a `verification` case may
+legitimately target an existing production environment before merge.
+
+Recording `post_deploy` on the review stage is a contradictory binding.
+Pre-merge `qa_verification` and Dash's review gate wait only for
+`verification` rows. They do not wait for an environment that exists after
+merge. Frozen admission copies a correctly bound `post_deploy`
+row onto the deployment-stage subject; scoped QA executes that copy against
+the observed candidate. `done` consumes that admitted copy on the completion
+run (`done_transition.latest_deployment_run`) when the shared stage
 acceptance ladder accepts it, and does not re-run or waive the original
 intake row. A prior candidate's pass does not satisfy a later run --
 including a passing run recorded on the original intake row itself, which
@@ -106,7 +110,7 @@ admitted this source does not satisfy it, and neither does the absence of
 any run at all.
 `manual_acceptance` keeps its established phase gate.
 
-Screenshot / visual evidence:
+Screenshot / visual evidence of a deployed candidate:
 
 ```bash
 yoke qa requirement add --item PREFIX-N \
@@ -116,7 +120,7 @@ yoke qa requirement add --item PREFIX-N \
   --instructions "Capture the requested running surface on ENV." \
   --expected-outcome "The screenshot shows the requested behavior on ENV." \
   --method-config '{"steps":[{"action":"navigate","route":"/ROUTE"},{"action":"screenshot","capture":true,"name":"intake"}]}' \
-  --workflow-transition reviewing-implementation
+  --workflow-transition release
 ```
 
 Non-visual deployed evidence uses `--method-id command` with the same

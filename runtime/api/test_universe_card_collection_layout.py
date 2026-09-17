@@ -20,7 +20,7 @@ def test_shared_card_tracks_use_content_width_and_readable_bounds():
     assert "--yoke-card-track-min: 440px" in responsive
     assert "yoke-card-track-max" not in responsive
     assert "minmax(min(100%, var(--yoke-card-track-min)), 1fr)" in responsive
-    assert "auto-fill" in responsive
+    assert "auto-fit" in responsive
     compact = responsive.split("@media (max-width: 980px)", 1)[1]
     drawer = compact.split("@media (max-width: 640px)", 1)[0]
     assert ".session-grid" not in drawer

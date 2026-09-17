@@ -28,7 +28,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 **Events table for forensic context.** For integration simulations, the events table captures tool call history, anomaly patterns, and timing from task execution. Include `yoke events query --item PREFIX-N` in investigation when diagnosing cross-task gaps against actual code.
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. The simulation report is the cold-start for the Architect's autofix pass. Every gap must include verified file paths, the specific mismatch, severity, and concrete fix guidance so the Architect can fix each gap mechanically.
+**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. The simulation report is the current finding for the Architect's autofix pass. Every gap must include verified file paths, the specific mismatch, severity, and concrete fix guidance so the Architect can fix each gap mechanically. Link evidence; do not paste transcripts.
 
 ## Steps
 

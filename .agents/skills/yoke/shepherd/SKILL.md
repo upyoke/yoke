@@ -41,7 +41,7 @@ Never use ad-hoc body surgery. The item body is a generated view assembled by `p
 
 ## Philosophy
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. Each subagent you dispatch starts with zero context. The dispatch prompt is their entire world. Missing context in a dispatch prompt is the #1 cause of low-quality agent output.
+**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. Each subagent you dispatch starts with zero context. The dispatch prompt is their entire world for this phase — self-contained for the current dispatch, not an accumulated essay. Missing context in a dispatch prompt is the #1 cause of low-quality agent output.
 
 **No such thing as "agent error."** When a subagent returns NOT_READY or low-quality output, the cause is systemic: insufficient dispatch context, truncated input, missing instructions, a file too large to read fully (P-50), or "you MUST" rules that failed under context pressure (P-26). Fix the dispatch, not the agent. Log the root cause in Ouroboros reflections.
 

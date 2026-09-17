@@ -7,6 +7,9 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from yoke_core.domain import json_helper
+from yoke_core.domain.deployment_target_identity_config import (
+    qa_target_environment_names,
+)
 from yoke_core.domain.deployment_flow_target_support import (
     configured_identity_path,
     require_provable_qa_identity,
@@ -141,10 +144,16 @@ def cmd_validate_definition(
     # advertise a definition that activates and then fails mid-run.
     decoded = json_helper.loads_text(stages)
     unsupported = unsupported_stage_target_kinds(decoded)
-    # The same configuration the activation gate reads, so a preview of a
-    # definition and the gate that admits it can never disagree about
-    # whether this project's environments can prove what they serve.
-    identity = configured_identity_path(conn, project)
+    # The same configuration the activation gate reads, asked the same way:
+    # the gate names the environments this definition's QA targets, and an
+    # environment states its own served-revision path. Asking the project
+    # alone would miss that statement and report a definition unprovable
+    # that the gate would admit, which is exactly the disagreement between
+    # a preview and its gate that reading one configuration exists to
+    # prevent.
+    identity = configured_identity_path(
+        conn, project, qa_target_environment_names(decoded)
+    )
     unprovable = unprovable_qa_identity_stages(
         decoded, identity_path_configured=identity.configured
     )

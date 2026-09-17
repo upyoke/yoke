@@ -28,6 +28,7 @@ def validate_workflow_transition(
             item_id=int(item_id),
             transition_id=row.get("workflow_transition_id"),
             method_id=row.get("method_id"),
+            qa_phase=row.get("qa_phase"),
         )
     except (QaWorkflowBindingError, WorkflowRegistryError) as exc:
         return _error(

@@ -293,32 +293,32 @@ def run(argv: List[str]) -> int:
     if sync_error := merge_domain.sync_item_to_github(item_id):
         envelope["warnings"].append(f"GitHub sync skipped: {sync_error}")
 
-    if not args.skip_status:
-        exit_code = run_terminal_transition(
-            item=item,
-            item_id=item_id,
-            public_ref=public_ref,
-            branch=branch,
-            target=target,
-            status=status,
-            close_lane=close_lane,
-            session_id=str(args.session_id),
-            repo_root=repo_root,
-            envelope=envelope,
-            announce=_announce_close_out,
-            close_out=close_out,
-            evidence=evidence,
-            pending=pending,
-            record_terminal_lane_close_out=record_terminal_lane_close_out,
+    exit_code = run_terminal_transition(
+        item=item,
+        item_id=item_id,
+        public_ref=public_ref,
+        branch=branch,
+        target=target,
+        status=status,
+        close_lane=close_lane,
+        session_id=str(args.session_id),
+        repo_root=repo_root,
+        envelope=envelope,
+        announce=_announce_close_out,
+        close_out=close_out,
+        evidence=evidence,
+        pending=pending,
+        record_terminal_lane_close_out=record_terminal_lane_close_out,
+        postpone_terminal=bool(args.skip_status),
+    )
+    if exit_code is not None:
+        print(json.dumps(envelope, indent=2, sort_keys=True))
+        announce(
+            envelope,
+            kind=report.ALREADY_CLOSED if exit_code == 0 else report.NOT_CLOSED,
+            evidence_from_record=exit_code == 0,
         )
-        if exit_code is not None:
-            print(json.dumps(envelope, indent=2, sort_keys=True))
-            announce(
-                envelope,
-                kind=report.ALREADY_CLOSED if exit_code == 0 else report.NOT_CLOSED,
-                evidence_from_record=exit_code == 0,
-            )
-            return exit_code
+        return exit_code
 
     print(json.dumps(envelope, indent=2, sort_keys=True))
     kind, blocker = report.final_outcome(

@@ -11,6 +11,7 @@ from yoke_core.domain.merge_preflight_github_lock_retry import (
     call_with_machine_lock_retry,
 )
 from yoke_core.domain import standalone_item_merge_git as git
+from yoke_core.domain.qa_phase_boundary import applies_at_pre_merge
 from yoke_core.domain.qa_merging_identity import recorded_head_sha
 from yoke_core.domain.qa_terminal_settlement import (
     BlockingRequirementIssue,
@@ -33,13 +34,13 @@ def item_for_merge_phase(
 ) -> dict[str, Any]:
     """Return the QA view applicable to this merge lifecycle phase.
 
-    A checkpoint merge must not require proof that can only be produced
-    after deployment. Only requirements and attached plans explicitly bound
-    to the terminal ``done`` transition are deferred; unbound, review-bound,
-    and unknown transition rows remain fail-closed at the merge boundary.
+    Pre-merge admission evaluates ``verification`` rows only. Post-deployment
+    acceptance stays out of the landing preflight whether or not
+    ``--skip-status`` postpones terminal close-out. Requirements and attached
+    plans bound to the terminal ``done`` transition are additionally deferred
+    when the merge itself will not walk that close-out; unbound, review-bound,
+    and unknown transition verification rows remain fail-closed.
     """
-    if not leaves_status_unchanged:
-        return item
 
     def before_done(
         rows: list[dict[str, Any]], transition_key: str
@@ -50,16 +51,19 @@ def item_for_merge_phase(
             if str(row.get(transition_key) or "").strip() != _DONE_TRANSITION
         ]
 
+    requirements = [
+        row
+        for row in list(item.get("qa_requirements") or [])
+        if applies_at_pre_merge(row)
+    ]
+    attachments = list(item.get("qa_plan_attachments") or [])
+    if leaves_status_unchanged:
+        requirements = before_done(requirements, "workflow_transition_id")
+        attachments = before_done(attachments, "transition_id")
     return {
         **item,
-        "qa_requirements": before_done(
-            list(item.get("qa_requirements") or []),
-            "workflow_transition_id",
-        ),
-        "qa_plan_attachments": before_done(
-            list(item.get("qa_plan_attachments") or []),
-            "transition_id",
-        ),
+        "qa_requirements": requirements,
+        "qa_plan_attachments": attachments,
     }
 
 

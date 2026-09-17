@@ -16,6 +16,7 @@ from yoke_core.domain.deployment_qa_source_obligation import (
     POST_DEPLOY_RECOVERY,
     blocking_row_unsatisfied_at_done,
 )
+from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
@@ -83,25 +84,39 @@ def verification_gate(
     # keeps its phase gate.
     pre_merge = target_status == ITEM_POSTURE_VERIFICATION_TRANSITION
     phase_sql = "AND r.qa_phase = 'verification' " if pre_merge else ""
+    # Pre-merge stays on the review transition. At done, keep those review
+    # rows (YOK-3182 post_deploy-on-review intake) and also consume
+    # post-merge phases bound to release or done.
+    transition_sql = (
+        f"AND r.workflow_transition_id = {marker} "
+        if pre_merge
+        else (
+            f"AND (r.workflow_transition_id = {marker} "
+            "OR r.qa_phase IN ('post_deploy', 'manual_acceptance')) "
+        )
+    )
     params = (
         int(item_id),
         selector_value,
         ITEM_POSTURE_VERIFICATION_TRANSITION,
     )
     cursor = conn.execute(
-        "SELECT r.id, r.qa_phase, EXISTS("
-        "SELECT 1 FROM qa_runs qr "
-        "WHERE qr.qa_requirement_id = r.id AND qr.verdict = 'pass'"
-        ") AS passed "
+        "SELECT r.id, r.qa_phase "
         "FROM qa_requirements r "
         f"WHERE r.item_id = {marker} AND {selector} "
         "AND r.blocking_mode = 'blocking' AND r.waived_at IS NULL "
-        f"AND r.workflow_transition_id = {marker} "
+        f"{transition_sql}"
         f"{phase_sql}"
         "ORDER BY r.id",
         params,
     )
     rows = cursor.fetchall()
+    scored = []
+    for row in rows:
+        item = dict(row)
+        item["passed"] = has_current_passing_run(conn, int(item["id"]))
+        scored.append(item)
+    rows = scored
     if not rows:
         if (
             pre_merge

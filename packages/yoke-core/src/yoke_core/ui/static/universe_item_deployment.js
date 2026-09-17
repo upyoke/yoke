@@ -12,6 +12,7 @@
 // unavailable instead of borrowing one.
 
 import { deploymentRunHref } from "./universe_navigation.js";
+import { navIcon } from "./universe_nav_sidebar.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
 
@@ -59,6 +60,9 @@ export function deploymentsByItemId(runs) {
 function deploymentCard(documentNode, run, projectId) {
   const status = String(run.status || "unknown");
   const card = el(documentNode, "a", "item-deployment");
+  const icon = navIcon(documentNode, "shipping");
+  icon.classList.add("item-deployment-icon");
+  card.appendChild(icon);
   // The run and the item it carries are the same project by membership,
   // so the item's own project scopes the link.
   card.href = deploymentRunHref(projectId ?? null, run.id || run.run_id);

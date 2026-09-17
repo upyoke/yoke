@@ -31,7 +31,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Philosophy
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. Charge is a routing handoff: present the frontier and dispatch rationale clearly enough that the chosen downstream skill can begin without re-litigating why it was selected.
+**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. Charge is a routing handoff: present the frontier and dispatch rationale clearly enough that the chosen downstream skill can begin without re-litigating why it was selected. Do not dump the whole schedule.
 
 **Think, don't just rank.** The frontier table is a decision aid, not a substitute for judgment. Surface blockers, adapter fit, and hidden readiness gaps instead of blindly following the top score.
 
