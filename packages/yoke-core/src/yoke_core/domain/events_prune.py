@@ -26,6 +26,7 @@ from yoke_core.domain.events_prune_batches import (
     coerce_batch_size,
     prune_matching_events,
     reference_exclusion_sql,
+    reset_event_prune_statement_timeout,
 )
 from yoke_core.domain.events_prune_report import (
     dry_run_report,
@@ -105,7 +106,9 @@ def cmd_prune(
     Event preview and deletion are LIMIT-batched. LIMIT caps matching
     rows, not scanned rows or query duration. The monotonic pass
     deadline is checked between statements; each event SQL uses
-    ``statement_timeout`` for the remaining budget. STATUS/ERROR/FATAL
+    ``statement_timeout`` for the remaining budget, then the timeout is
+    restored so operational TTL helpers are not event-budgeted.
+    STATUS/ERROR/FATAL
     are never age-pruned. Referenced event_id rows are kept on every
     event delete path. Obsolete-name purge is opt-in.
     """
@@ -186,6 +189,7 @@ def _run_prune(
         )
         purged_events = deleted
         more_remaining = more_remaining or remaining
+    reset_event_prune_statement_timeout(conn)
     ledger_pruned = function_call_ledger.prune_expired(conn)
     intents_pruned = github_workflow_dispatch_intents.prune_expired(conn)
     tool_calls_pruned = 0

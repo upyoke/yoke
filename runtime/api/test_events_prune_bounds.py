@@ -167,6 +167,47 @@ def test_slow_statement_returns_partial_without_deleting(db_path: str) -> None:
     assert _count(db_path, "old-info") == 1
 
 
+def _timeout_is_off(conn) -> bool:
+    raw = str(conn.execute("SHOW statement_timeout").fetchone()[0]).strip().lower()
+    return raw in {"0", "0ms", "0s"}
+
+
+def test_event_timeout_is_reset_before_unrelated_statements(db_path: str) -> None:
+    """Event SET LOCAL must not linger; a canceled event SQL must restore too."""
+    from yoke_core.domain.events_prune_batches import (
+        StatementBudgetExceeded,
+        apply_event_prune_statement_timeout,
+        execute_with_deadline,
+    )
+    from yoke_core.domain.events_prune import _purged_event_where, _severity_where
+    from yoke_core.domain.events_prune_report import dry_run_report
+
+    conn = connect_test_db(db_path)
+    try:
+        if not db_backend.connection_is_postgres(conn):
+            return
+        apply_event_prune_statement_timeout(conn, time.monotonic() + 0.05)
+        assert not _timeout_is_off(conn)
+        dry_run_report(
+            conn,
+            10,
+            False,
+            False,
+            deadline=time.monotonic() + 30,
+            severity_where=_severity_where,
+            purged_event_where=_purged_event_where,
+        )
+        assert _timeout_is_off(conn)
+        try:
+            execute_with_deadline(conn, time.monotonic() + 0.25, "SELECT pg_sleep(5)")
+        except StatementBudgetExceeded:
+            pass
+        assert _timeout_is_off(conn)
+        conn.execute("SELECT pg_sleep(0.2)")
+    finally:
+        conn.close()
+
+
 def test_prune_cli_kwargs_parses_bounds() -> None:
     kwargs = ec.prune_cli_kwargs(
         [

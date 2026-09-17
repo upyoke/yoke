@@ -62,13 +62,26 @@ def apply_event_prune_statement_timeout(conn: Any, deadline: float) -> None:
     )
 
 
+def reset_event_prune_statement_timeout(conn: Any) -> None:
+    """Drop SET LOCAL timeout so later non-event statements are not budgeted."""
+    if not db_backend.connection_is_postgres(conn):
+        return
+    conn.execute("SELECT set_config('statement_timeout', %s, true)", ("0",))
+
+
 def execute_with_deadline(
     conn: Any,
     deadline: float,
     sql: str,
     params: tuple[Any, ...] = (),
 ) -> Any:
-    """Run one SQL statement under the remaining statement_timeout."""
+    """Run one event SQL statement under the remaining statement_timeout.
+
+    Event-only: a canceled statement rolls back and restores timeout so
+    later helpers are not left in an aborted transaction. Callers restore
+    after successful event SQL before unrelated helpers so leftover SET
+    LOCAL cannot starve them.
+    """
     apply_event_prune_statement_timeout(conn, deadline)
     try:
         return conn.execute(sql, params)
@@ -76,6 +89,7 @@ def execute_with_deadline(
         if not _is_statement_timeout(exc):
             raise
         conn.rollback()
+        reset_event_prune_statement_timeout(conn)
         raise StatementBudgetExceeded from exc
 
 

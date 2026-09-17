@@ -16,6 +16,7 @@ from yoke_core.domain.events_prune_batches import (
     StatementBudgetExceeded,
     bounded_event_count,
     format_bounded_count,
+    reset_event_prune_statement_timeout,
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.time_sql import now_sql
@@ -72,6 +73,9 @@ def dry_run_report(
             obsolete_note = f"obsolete={format_bounded_count(count, partial)}"
     except StatementBudgetExceeded:
         stopped = True
+    finally:
+        # Event budget does not apply to ledger/intent/tool-call preview.
+        reset_event_prune_statement_timeout(conn)
     tool_call_count = 0
     if has_tool_calls:
         tool_call_count = query_scalar(
