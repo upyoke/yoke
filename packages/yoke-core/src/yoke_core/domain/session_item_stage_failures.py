@@ -20,7 +20,13 @@ def _p(conn: Any) -> str:
 
 
 def qa_failures(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
-    """The transition whose latest QA run failed, per item."""
+    """The transition whose latest QA run failed, per item.
+
+    A waived requirement is already dispositioned, so its last failing run is
+    history rather than a live signal: the strip would otherwise stay red for
+    a case somebody deliberately settled, beside the passing case that
+    replaced it. The runs themselves are untouched and still readable.
+    """
     if not item_ids or not all(
         _table_exists(conn, name) for name in ("qa_requirements", "qa_runs")
     ):
@@ -32,7 +38,7 @@ def qa_failures(conn: Any, item_ids: Sequence[int]) -> dict[int, str]:
         "SELECT q.item_id,q.workflow_transition_id,r.id AS run_id,r.verdict,"
         "ROW_NUMBER() OVER (PARTITION BY q.id ORDER BY r.id DESC) AS row_num "
         "FROM qa_requirements q JOIN qa_runs r ON r.qa_requirement_id=q.id "
-        "WHERE q.item_id IN ("
+        "WHERE q.waived_at IS NULL AND q.item_id IN ("
         + ",".join(marker for _ in item_ids)
         + ")) latest WHERE row_num=1 AND verdict IN ("
         + fail_markers
