@@ -79,7 +79,7 @@ class TestDocReplace:
             "base_updated_at": "2026-06-10T00:00:00Z",
             "force": False,
         }
-        assert _CAPTURED_REQUESTS[2].payload == {}
+        assert _CAPTURED_REQUESTS[2].payload == {"slugs": ["MISSION"]}
 
     def test_dispatches_with_content_flag_and_force(
         self, tmp_path: Path,
@@ -99,7 +99,7 @@ class TestDocReplace:
             "slug": "PAD", "content": "# PAD\n",
             "base_updated_at": "2026-06-10T00:00:00Z", "force": True,
         }
-        assert _CAPTURED_REQUESTS[2].payload == {}
+        assert _CAPTURED_REQUESTS[2].payload == {"slugs": ["PAD"]}
 
     def test_dispatches_with_content_file(self, tmp_path: Path) -> None:
         content_file = tmp_path / "doc.md"
@@ -165,7 +165,7 @@ class TestDocReplace:
         assert [r.function for r in _CAPTURED_REQUESTS] == [
             "strategy.doc.list", "strategy.doc.replace", "strategy.render.run",
         ]
-        assert _CAPTURED_REQUESTS[2].payload == {}
+        assert _CAPTURED_REQUESTS[2].payload == {"slugs": ["MISSION"]}
         assert (
             tmp_path / ".yoke" / "strategy" / "MISSION.md"
         ).read_text(encoding="utf-8") == "<!-- h -->\n# MISSION\n"
