@@ -1,40 +1,26 @@
 """Freshness, reachability, and run-payload helpers for Browser QA.
 
-Owns:
-
-- ``_resolve_repo_root`` — repo-root filesystem utility used by the
-  orchestrator.
-- ``_validate_reachability`` — DNS + HTTP probe of the target base URL.
-- ``_establish_deployment_freshness`` — picks the question to ask from the
-  case's own subject (a run's registered environment, or an item's branch
-  preview) and reports the origin whose proof the answer covers.
-- ``_validate_freshness_inputs`` and ``_validate_deployed_sha`` — deployment
-  freshness gating. The ``ephemeral_environments`` row is read server-side
-  by ``qa.browser_context.get``; ``_validate_deployed_sha`` is the pure
-  client-side comparison over that payload. It reports each failure as a
-  :class:`FreshnessFailure` carrying its own reason code, because "no
-  deployment was recorded" and "the deployment serves a different commit"
-  are different problems with different recoveries, and labelling the first
-  as the second sends the reader hunting for a stale deploy that never
-  existed.
-- ``_build_code_identity`` and ``_build_run_payload`` — structured raw_result
-  payload builders.
-
-``_validate_deployed_sha`` calls ``_log`` via the parent ``browser_qa``
-module so test patches such as ``mock.patch("...browser_qa._log")`` apply
-without rebinding sibling-local names.
+``_validate_reachability`` GETs the target, keeping login cookies on
+same-origin redirects. ``_establish_deployment_freshness`` asks the case's
+own subject and names the origin that proof covers. ``_validate_deployed_sha``
+compares the browser-context payload as a :class:`FreshnessFailure` so a
+missing record is never labelled a SHA mismatch; it logs via ``browser_qa``
+so ``mock.patch("...browser_qa._log")`` applies without rebinding locals.
 """
 
 from __future__ import annotations
 
+import http.cookiejar
 import json
-import re
 import socket
+import ssl
 import subprocess
+import urllib.error
+import urllib.parse
+import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
 
 from yoke_contracts.qa_artifact_read import artifact_read_command
 from yoke_core.domain.browser_qa_freshness_outcome import (
@@ -53,7 +39,9 @@ from yoke_core.domain.browser_qa_preview_identity import (
     resolve_preview_identity_target,
     verify_preview_identity,
 )
-from yoke_core.domain.served_revision_probe import origin_of
+from yoke_core.domain.served_revision_probe import OriginBoundRedirect, origin_of
+
+_PROBE_TIMEOUT_S = 10
 
 
 def _resolve_repo_root() -> str:
@@ -67,7 +55,7 @@ def _resolve_repo_root() -> str:
         if result.returncode == 0:
             for line in result.stdout.splitlines():
                 if line.startswith("worktree "):
-                    return line[len("worktree "):]
+                    return line[len("worktree ") :]
     except Exception:
         pass
 
@@ -88,39 +76,62 @@ def _resolve_repo_root() -> str:
     return str(find_repo_root(Path(__file__)))
 
 
-def _validate_reachability(base_url: str) -> Optional[str]:
-    """Validate that base_url is reachable. Returns error message or None."""
-    # Extract hostname
-    host = re.sub(r"https?://", "", base_url).split("/")[0].split(":")[0]
+def _probe_display_url(base_url: str) -> str:
+    """Origin plus path only — never query, fragment, or userinfo."""
+    parsed = urllib.parse.urlsplit(base_url)
+    host = parsed.hostname or ""
+    if parsed.port:
+        host = f"{host}:{parsed.port}"
+    return urllib.parse.urlunsplit((parsed.scheme, host, parsed.path, "", ""))
 
-    # DNS probe
+
+def _validate_reachability(base_url: str) -> Optional[str]:
+    """GET the URL, keeping login cookies on same-origin redirects."""
+    parsed = urllib.parse.urlsplit(base_url)
+    host = parsed.hostname
+    display = _probe_display_url(base_url)
+    if not host:
+        return f"HTTP probe failed for {display}: URL has no host"
     try:
         socket.getaddrinfo(host, None)
     except socket.gaierror:
         return f"DNS resolution failed for {host}"
-
-    # HTTP probe
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
+        OriginBoundRedirect(base_url),
+    )
+    status = 0
+    location = ""
     try:
-        import urllib.request
-        req = urllib.request.Request(base_url, method="HEAD")
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            if resp.status >= 400:
-                return f"HTTP probe failed for {base_url} (status: {resp.status})"
-    except Exception:
-        # Fallback to curl for better compat
-        try:
-            result = subprocess.run(
-                ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-L",
-                 "--max-time", "10", base_url],
-                capture_output=True,
-                text=True,
-            )
-            code = result.stdout.strip()
-            if not code or code[0] not in ("2", "3"):
-                return f"HTTP probe failed for {base_url} (status: {code})"
-        except Exception as e:
-            return f"HTTP probe failed for {base_url}: {e}"
-
+        req = urllib.request.Request(base_url, method="GET")
+        with opener.open(req, timeout=_PROBE_TIMEOUT_S) as resp:
+            status = int(resp.status)
+    except urllib.error.HTTPError as exc:
+        status = int(exc.code)
+        location = exc.headers.get("Location") or ""
+    except TimeoutError:
+        return f"HTTP probe timed out for {display}"
+    except ssl.SSLError:
+        return f"TLS verification failed for {display}"
+    except urllib.error.URLError as exc:
+        reason = exc.reason
+        if isinstance(reason, ssl.SSLError):
+            return f"TLS verification failed for {display}"
+        if isinstance(reason, TimeoutError) or "timed out" in str(reason).lower():
+            return f"HTTP probe timed out for {display}"
+        return f"HTTP probe failed for {display}: {reason}"
+    except Exception as exc:
+        return f"HTTP probe failed for {display}: {type(exc).__name__}"
+    if location and origin_of(urllib.parse.urljoin(base_url, location)) != origin_of(
+        base_url
+    ):
+        return (
+            f"HTTP probe refused to follow an off-origin redirect for {display}. "
+            "Recovery: use a review URL whose login stays on the same origin; "
+            "credentials are never forwarded to another host."
+        )
+    if status >= 400:
+        return f"HTTP probe failed for {display} (status: {status})"
     return None
 
 
@@ -149,32 +160,18 @@ def _validate_deployed_sha(
     identity_target: Optional[PreviewIdentityTarget] = None,
     fetch_identity: Optional[Callable[[str], object]] = None,
 ) -> Optional[FreshnessFailure]:
-    """Validate that the deployment under test is serving the expected SHA.
+    """Compare the browser-context payload to the expected SHA.
 
-    Primary evidence is the ``qa.browser_context.get`` payload
-    (``deployed_sha`` + ``deployment_recorded``). When no record exists at
-    all — which is the normal state for a provider that deploys previews
-    without writing one — the project's own ephemeral-env policy says where
-    its preview for this branch publishes the commit it is running, and that
-    deployment answers for itself. The origin is derived from that policy,
-    never from a URL this check was pointed at, so only the project's own
-    preview can supply the answer.
-    That proof can only ever substitute for an *absent* record: a recorded
-    mismatch stays a mismatch, because two disagreeing sources of truth are
-    a refusal, not a vote.
-
-    Returns None on success, or the :class:`FreshnessFailure` naming which
-    outcome occurred. Logs the evidence source on success, so a reader can
-    tell a stored record from a live answer.
+    An absent record may be answered by the project's own preview identity;
+    a recorded mismatch stays a mismatch. Returns None or a
+    :class:`FreshnessFailure`. Logs the evidence source on success.
     """
     # Lazy import so tests patching browser_qa._log apply.
     from yoke_core.domain import browser_qa as _bqa
 
     if not deployment_recorded:
         if identity_target is None:
-            identity_target = resolve_preview_identity_target(
-                project, expected_branch
-            )
+            identity_target = resolve_preview_identity_target(project, expected_branch)
         if identity_target.unreadable:
             return FreshnessFailure(
                 IDENTITY_CONFIG_UNREADABLE,
@@ -250,7 +247,9 @@ def _establish_deployment_freshness(
     if deployment_run_id is not None:
         target = DeploymentUnderTest.from_payload(context.get("deployment_target"))
         failure = validate_deployment_identity(
-            expected_sha, target=target, fetch=fetch_identity,
+            expected_sha,
+            target=target,
+            fetch=fetch_identity,
         )
         if failure is not None:
             return failure, ""
