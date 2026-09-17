@@ -100,12 +100,16 @@
   gap: 8px;
   margin: 0;
 }
+/* Tall enough to read. These are whole-page captures — most are several
+   times taller than they are wide — so a wide-short box under `contain`
+   shrank them to a few pixels of width. Two still sit across the 260px
+   column, and `contain` still shows the whole image rather than a crop. */
 .universe-app-root .inbox-sections .review-shot {
-  width: 104px;
-  flex: 0 1 104px;
+  width: 122px;
+  flex: 0 1 122px;
 }
 .universe-app-root .inbox-sections .review-shot-open {
-  height: 65px;
+  height: 200px;
   min-height: 0;
   overflow: hidden;
 }
