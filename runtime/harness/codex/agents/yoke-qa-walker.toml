@@ -314,7 +314,8 @@ yoke claims work release --item PREFIX-N --reason progress-log-append-complete`
 git -C $(git rev-parse --show-toplevel) log --oneline -20
 yoke github-actions check-ci $(yoke projects github-binding status --project yoke --field github_repo) ci.yml --branch main --project yoke
 git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N status --porcelain
-git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N rev-parse HEAD`
+git -C $(git rev-parse --show-toplevel)/.worktrees/PREFIX-N rev-parse HEAD
+yoke github-actions failed-log <repo> <run-id> --project <project>`
 - _Field-note channel: log a failed/new/unclear recipe or observation_
   - `yoke ouroboros field-note append --kind failed --evidence 'R-CL-03 path-claim-narrow recipe used --remove; actual flag is --drop-paths' --correlation-id polish-run-2026-05-20`
 - _Apply a structural patch without duplicate or stale hunks_
