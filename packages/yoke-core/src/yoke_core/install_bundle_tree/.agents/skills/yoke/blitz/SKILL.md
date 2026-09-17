@@ -25,7 +25,7 @@ commands taught later are adapters for these envelopes:
 
 | Function id | Target and payload | CLI adapter |
 |---|---|---|
-| `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
+| `items.detail.get` | Item target; optional `include` naming content sections (`narrative`, `body`, `progress_log`) — omit for the posture plus `content_index`, which names each stored section and the read that returns it | `yoke items detail get ITEM --json` |
 | `workflows.item.get` | Item target; empty payload; centrally resolved effective policies | `yoke workflows item get ITEM --json` |
 | `strategy.execution.get` | Blitz item target; empty payload | `yoke strategy execution get ITEM --json` |
 | `strategy.doc.get` | Project target; `slug` | `yoke strategy doc get SLUG --project PROJECT --json` |

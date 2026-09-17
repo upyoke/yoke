@@ -62,7 +62,9 @@ def test_detail_read_assembles_real_workflow_lanes_and_proof(monkeypatch):
     )
     conn.commit()
     monkeypatch.setattr(item_detail_read.db_helpers, "connect", lambda: conn)
-    item = item_detail_read.get_item_detail(51)
+    item = item_detail_read.get_item_detail(
+        51, include=["narrative", "body", "progress_log"]
+    )
 
     assert item["public_ref"] == "ACM-22"
     assert item["title"] == "Fix the footer"

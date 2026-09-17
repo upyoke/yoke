@@ -30,7 +30,7 @@ function-call envelope:
 |---|---|---|
 | `items.create` | Global target; Dash title, instruction, project, entry surface, permitted posture, and the operator execution-instruction attestation | `yoke dash "<title>" "<instruction>" --execution-instructions-considered --json` |
 | `workflow.execution_instruction.resolve` | Global target; named workflow and project; read-only matching instructions | `yoke workflow execution-instruction resolve --workflow W --project P` |
-| `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
+| `items.detail.get` | Item target; optional `include` naming content sections (`narrative`, `body`, `progress_log`) — omit for the posture plus `content_index`, which names each stored section and the read that returns it | `yoke items detail get ITEM --json` |
 | `github.merge_queue.readiness` | Item target; empty payload; reads PR and target-branch queue without mutation | `yoke github merge-queue readiness ITEM --json` |
 | `github.merge_queue.hold` | Item target; empty payload; clears merge-when-ready, removes the queue entry, and verifies both before a correction is pushed | `yoke github merge-queue hold ITEM --json` |
 | `claims.work.acquire` | Item target; `reason` | `yoke claims work acquire --item ITEM --reason TEXT` |
@@ -207,6 +207,12 @@ Then read the item detail and workflow-effective projections:
 yoke items detail get ITEM --json
 yoke workflows item get ITEM --json
 ```
+
+The detail read serves the item's stored narrative and the operator
+execution instructions that travel with it. It does not serve the rendered
+body or the Progress Log: `result.item.content_index` names those with the
+exact command that returns each, so read one when you need it rather than
+carrying both copies of the same prose. `--full` serves every section.
 
 Require `workflow_id=dash`, status `idea` or a resumable Dash stage, and
 retain the stored instruction. Set `FILE_BUDGET_POLICY` and
