@@ -265,16 +265,16 @@
 }
 
 @media (max-width: 640px) {
+  /* The areas have to give way with the columns. Leaving a two-column
+     template in force while the container declared one squeezed the search
+     field down to its icon and wrapped its own label onto two lines. */
   .universe-app-root .delivery-flow-toolbar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "search" "toggle" "summary" "actions";
   }
 
   .universe-app-root .delivery-flow-disabled-toggle {
     justify-self: start;
-  }
-
-  .universe-app-root .delivery-flow-result-summary {
-    grid-column: 1;
   }
 
   .universe-app-root .delivery-flow-workspace {
