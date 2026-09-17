@@ -16,7 +16,7 @@ then read the one file the subcommand owns.
    - Execute-class commands (`advance`, `conduct`, `usher`, `polish`, `dash`, `blitz`, `idea` write paths, and `refine` write paths after Gate 0) automatically call `ExitPlanMode` when the tool exists, with this note: `Plan mode auto-exited — Yoke work item is the plan.`
    - Planning-class commands (`shepherd plan`, `plan`, and `refine` Gate 0 critique/planning) honor plan mode and continue without auto-exit.
    - Harnesses without an `ExitPlanMode` tool continue normally after emitting the same one-line note.
-3. **Read the instruction file** at `.agents/skills/yoke/{subcommand}/SKILL.md` using the Read tool, and follow it completely, passing any remaining arguments as that subcommand's arguments. Each entrypoint is a short router: it names the one phase file to read next. Do not pre-read a command's phase files.
+3. **Read the instruction file** at `.agents/skills/yoke/{subcommand}/SKILL.md` using the Read tool, and follow it, passing any remaining arguments as that subcommand's arguments. Each entrypoint is a short router: it names the one phase file to read next. Do not pre-read a command's phase files.
 4. **If the subcommand is missing, unknown, or `help`,** read [`help/SKILL.md`](help/SKILL.md) and follow it. That file is the single command reference — operator commands, local terminal helpers, item commands that need a harness session, internal sub-skills, and the typical flows. Do not restate it here or anywhere else.
 
 ## Subcommands

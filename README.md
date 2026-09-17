@@ -264,29 +264,36 @@ Stage executor types: `auto`, `health-check`, `warm-up`, `environment-activate`,
 
 ## Architecture
 
-Yoke centers on seven specialized subagents, three orchestration skills (Shepherd, Conduct, Usher), a Postgres-backed state bus, and a dispatch loop for epic task execution. All state is SQL-first — agents write via `runtime.api.*` Python owners, renderers generate markdown views, and Postgres wins on any conflict.
+Yoke centers on the canonical subagents under `runtime/agents/`, three orchestration skills (Shepherd, Conduct, Usher), a Postgres-backed state bus, and a dispatch loop for epic task execution. All state is SQL-first — agents write through registered `yoke <subcommand>` adapters over the function-call dispatcher, renderers generate markdown views, and Postgres wins on any conflict.
 
-**Multi-harness:** Any agent runtime that can run the operator command surface can attach to Yoke through a thin harness adapter. Yoke ships current adapters for Claude and Codex, with the shared contract documented in `docs/harness-bootstrap.md` and `docs/harness-adapter-template.md`.
+**Multi-harness:** Any agent runtime that can run the operator command surface can attach to Yoke through a thin harness adapter. Yoke ships current adapters for Claude, Codex, and Cursor, with the shared contract documented in `docs/harness-bootstrap.md` and `docs/harness-adapter-template.md`. What each one can actually do is a manifest fact — read `runtime/harness/<harness_id>/manifest.json` rather than prose.
 
 ```
 AGENTS.md                            # Always-on project rules (CLAUDE.md is a compat symlink)
-.yoke/strategy/                    # rendered strategy docs (DB-authoritative)
 
-.yoke/
-├── BOARD.md                         # Auto-generated project-local board view
-├── board-art                        # Project-local board presentation art
-└── lint-config                      # Project-local hook guard policy
+.yoke/                               # BOARD.md (generated board view), board-art
+                                     # (presentation variants), lint-config (hook
+                                     # guard policy), strategy/ (rendered
+                                     # DB-authoritative strategy docs)
 
-runtime/api/
-├── cli/db_router.py                 # Unified DB access surface
-├── service_client.py                # Public backlog + session mutation surface
-├── engines/                         # doctor, merge_worktree, resync, repair_status
-├── domain/                          # Hooks, renderers, in-process helpers
-└── tools/                           # Executors, API server, test runner
+packages/                            # The source: yoke-cli (command surface),
+                                     # yoke-contracts (contracts and budgets),
+                                     # yoke-harness (adapters and hooks), and
+                                     # yoke-core/src/yoke_core/{cli,api,engines,
+                                     # domain,tools}
+runtime/api/                         # The test tree for everything above
+runtime/agents/                      # Canonical agent bodies (rendered per harness)
+runtime/harness/                     # Per-harness manifests, rules, and adapters
 
-.agents/skills/yoke/               # Root skill + per-command skills
+.agents/skills/yoke/                 # Root router + one folder per command;
+                                     # each SKILL.md routes to its phase files
 .claude/agents/                      # Generated adapter files (yoke-*.md)
 ```
+
+Every `/yoke <command>` is entered through `.agents/skills/yoke/<command>/SKILL.md`.
+That file is a router: it states what binds at every phase and names the one
+phase file to read next. Detail a single phase needs lives in that phase's file,
+so a session loads the phase it is in rather than the whole manual.
 
 > For installation, configuration, and operator rules, see [docs/local-setup.md](docs/local-setup.md).
 

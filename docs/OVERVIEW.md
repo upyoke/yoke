@@ -235,6 +235,6 @@ Auto-chaining persists to DB. Survives crashes, compaction, tab closes. Continua
 
 ## Code Conventions
 
-- Literal zero shell. All launchers, hooks, helpers, installers, and test runners live behind `python3 -m runtime.api...` or packaged Python entrypoints. Shell is permitted only for project test commands, grep/discovery, git inspection, and diff/screenshot temp files. See `AGENTS.md` for the full contract.
+- Literal zero shell. All launchers, hooks, helpers, installers, and test runners live behind `yoke <subcommand>` adapters or packaged Python entrypoints. Shell is permitted only for project test commands, grep/discovery, git inspection, and diff/screenshot temp files. See `AGENTS.md` for the full contract.
 - JSON: `yoke_core.domain.json_helper`. YAML: `yoke_core.domain.yaml_helper`.
 - Backlog reads and writes: registered `yoke ...` commands or function-call surfaces (never direct database-client calls, never hardcoded DB paths).
