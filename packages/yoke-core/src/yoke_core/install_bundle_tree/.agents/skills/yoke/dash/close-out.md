@@ -40,13 +40,19 @@ Re-entry converges only when the current lane candidate is the recorded landing
 identity, a fast-forward onto that merge — including a squash whose original
 head is not an ancestor of the base — or a lane holding nothing but copies of
 the commits that merge already took, which is what a rebase after a landing
-leaves behind. New commits after that landing: same-item correction is
-supported only while the item is before a declared release stage under its
-pinned workflow — re-verify, review, and run the governed merge again. Do not
-prescribe a stage change. Otherwise the refusal preserves the lane and requires
-separate work subject to operator preference. Do not reset unlanded corrections
-as recovery. The command does not clean the lane or declare those commits
-delivered.
+leaves behind. A merge-queue `landed_at` / PR record is not that proof by
+itself: close-out reuses it only when Git containment (or a rebased copy with
+no leftover commits) shows the current candidate already landed. An earlier
+landing plus later uncontained commits takes the candidate merge path — also
+from a release stage entered by a false close-out — and does not erase
+receipts. Unverifiable containment refuses rather than succeeding. This is
+installed-client merge-boundary code; a serving rollout is not required. New
+commits after a genuine landing: same-item correction is supported only while
+the item is before a declared release stage under its pinned workflow —
+re-verify, review, and run the governed merge again. Do not prescribe a stage
+change. Otherwise the refusal preserves the lane and requires separate work
+subject to operator preference. Do not reset unlanded corrections as recovery.
+The command does not clean the lane or declare those commits delivered.
 
 ## Approval, claim release, and the steering report
 

@@ -31,6 +31,7 @@ from yoke_core.domain.merge_queue_landing_outcome import (
     close_out,
     fail_landing,
     recorded_landing,
+    recorded_landing_covers_candidate,
 )
 from yoke_core.domain.merge_queue_landing_pending import mark_landing_pending
 from yoke_core.domain.merge_queue_landing_wait import (
@@ -84,28 +85,46 @@ def land_item_through_merge_queue(
     if relay_launched:
         wait_for_landing = False
 
-    # A landing already recorded from GitHub leaves nothing to land, so the
-    # queue is never consulted again: re-reading membership would find this
-    # pull request gone and the admission gate would refuse a train that
-    # already ran, turning the one recoverable state — merged, not closed
-    # out — into a refusal. Close-out itself is idempotent bookkeeping.
+    # A landing already recorded from GitHub leaves nothing to land only
+    # when the current candidate is that landing. Re-reading membership of
+    # a pull request the queue has forgotten would refuse a train that
+    # already ran, so matching close-out is idempotent bookkeeping. An
+    # earlier receipt must not satisfy later uncontained commits.
     recorded_pr, recorded_landed_at = recorded_landing(dispatch, item_id)
     if recorded_pr and recorded_landed_at:
-        emit(
-            f"[phase:landing] pull request {recorded_pr} landed at "
-            f"{recorded_landed_at}; closing out from the recorded landing"
+        coverage = recorded_landing_covers_candidate(
+            ctx.repo_root or "", commit_sha, target
         )
-        return close_out(
-            ctx,
-            item_id=item_id,
-            public_ref=public_ref,
-            commit_sha=commit_sha,
-            pr_num=recorded_pr,
-            member_refs=(),
-            drift=None,
-            resume_command=resume_command,
-            warnings=warnings,
-        )
+        if coverage == "unverifiable":
+            short = (commit_sha or "")[:12]
+            return fail_landing(
+                recorded_pr,
+                (
+                    f"pull request {recorded_pr} is recorded as landed at "
+                    f"{recorded_landed_at}, but whether candidate {short} "
+                    f"is on {target!r} could not be verified. Re-run "
+                    "`yoke merge item` from a readable checkout of the "
+                    "lane; close-out will not declare this candidate "
+                    "delivered"
+                ),
+                tuple(warnings),
+            )
+        if coverage == "landed":
+            emit(
+                f"[phase:landing] pull request {recorded_pr} landed at "
+                f"{recorded_landed_at}; closing out from the recorded landing"
+            )
+            return close_out(
+                ctx,
+                item_id=item_id,
+                public_ref=public_ref,
+                commit_sha=commit_sha,
+                pr_num=recorded_pr,
+                member_refs=(),
+                drift=None,
+                resume_command=resume_command,
+                warnings=warnings,
+            )
 
     # A comparison that could not run rides the batch evidence instead.
     drift = drift_check_before_landing(

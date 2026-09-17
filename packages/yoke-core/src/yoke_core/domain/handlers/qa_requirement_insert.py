@@ -17,12 +17,13 @@ INSERT_SQL = (
     "INSERT INTO qa_requirements "
     "(item_id, epic_id, task_num, deployment_run_id, deployment_stage, "
     "deployment_member_item_id, qa_kind, qa_phase, "
-    "target_env, blocking_mode, requirement_source, success_policy, "
+    "target_env, execution_target_json, execution_target_digest, "
+    "blocking_mode, requirement_source, success_policy, "
     "capability_requirements, suite_id, method_id, instructions, "
     "expected_outcome, method_config, workflow_transition_id, method_name, "
     "runner_id, verdict_path, created_at) "
     "VALUES ({p}, NULL, NULL, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, "
-    "{p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
+    "{p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}, {p}) "
     "RETURNING id"
 )
 
@@ -61,6 +62,8 @@ def insert_params(
         row["qa_kind"],
         row["qa_phase"],
         row.get("target_env"),
+        row.get("execution_target_json"),
+        row.get("execution_target_digest"),
         str(row.get("blocking_mode") or "blocking"),
         str(row.get("requirement_source") or "explicit"),
         row.get("success_policy"),

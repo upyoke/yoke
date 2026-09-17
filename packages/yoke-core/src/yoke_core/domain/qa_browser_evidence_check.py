@@ -137,7 +137,8 @@ def check_browser_evidence_present(
         "  Browser check requires a passing browser_substrate run with an artifact.",
         "  Browser inspection requires a captured browser_substrate artifact linked",
         "  to its completed passing agent-review verdict.",
-        f"  Remediation: run `/yoke advance {name} {transition_name}` which executes browser QA automatically before updating status.",
+        f"  Remediation (harness skill): `/yoke advance {name} {transition_name}` runs browser QA automatically before the status change.",
+        "  Remediation (terminal CLI): `yoke qa case run --requirement-id <id>` records the case; `/yoke advance` is not a CLI command.",
     ]
     rows = query_rows(
         conn,

@@ -65,7 +65,11 @@ def record_machine_case_result(
         stamp_executed_method_config,
     )
 
-    raw_result = stamp_executed_method_config(raw_result, case.get("method_config"))
+    raw_result = stamp_executed_method_config(
+        raw_result,
+        case.get("method_config"),
+        execution_target_digest=case.get("execution_target_digest"),
+    )
     row = conn.execute(
         "INSERT INTO qa_runs("
         "qa_requirement_id,performed_by,qa_kind,verdict,case_outcome,"

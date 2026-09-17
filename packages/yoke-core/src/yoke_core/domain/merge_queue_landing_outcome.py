@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 from yoke_contracts.api.function_call import TargetRef
+from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.merge_queue_close_out import record_landing
 from yoke_core.domain.merge_queue_drift_gate import drift_receipt
@@ -45,13 +46,36 @@ def fail_landing(
     )
 
 
+def recorded_landing_covers_candidate(
+    repo_root: str, commit_sha: str, target: str
+) -> str:
+    """Whether a recorded queue landing may close out this candidate.
+
+    ``landed`` — the current candidate is on the base, or is a rebased
+    copy of work the base already holds. ``unlanded`` — later commits
+    the recorded pull request did not merge; take the candidate path.
+    ``unverifiable`` — refuse; never treat an unreadable checkout as
+    already landed.
+    """
+    if git.containing_ref(repo_root, commit_sha, target):
+        return "landed"
+    leftover = git.unlanded_commits(
+        repo_root, commit_sha, git.current_base_ref(repo_root, target)
+    )
+    if leftover is None:
+        return "unverifiable"
+    return "unlanded" if leftover else "landed"
+
+
 def recorded_landing(dispatch: Callable[..., Any], item_id: int) -> tuple[str, str]:
     """The pull request and landing time already recorded, if any.
 
     Read through the registered item detail so the answer follows the
     active control-plane transport. An unreadable read answers "nothing
     recorded", which puts the caller back on the full landing path — the
-    same work it would have done anyway.
+    same work it would have done anyway. A recorded pair is not close-out
+    proof until :func:`recorded_landing_covers_candidate` says the current
+    candidate actually landed.
     """
     response = dispatch(
         function_id="items.detail.get",
@@ -118,4 +142,5 @@ __all__ = [
     "close_out",
     "fail_landing",
     "recorded_landing",
+    "recorded_landing_covers_candidate",
 ]

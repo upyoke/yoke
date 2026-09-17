@@ -114,7 +114,8 @@ def check_verification_gate(
             errors = [
                 f"Error: Cannot transition {name} to '{transition_name}' -- {len(rows)} blocking verification requirement(s) unsatisfied.",
                 "  All blocking verification-phase requirements must have a passing run or be waived.",
-                f"  Remediation: run `/yoke advance {name} {transition_name}` which executes browser QA and project E2E phases automatically before updating status.",
+                f"  Remediation (harness skill): `/yoke advance {name} {transition_name}` runs browser QA and project E2E before the status change.",
+                "  Remediation (terminal CLI): `yoke qa case run --requirement-id <id>` records the case; `/yoke advance` is not a CLI command.",
             ]
             for row in rows:
                 waiting = requirement_awaits_human_review(conn, int(row["id"]))

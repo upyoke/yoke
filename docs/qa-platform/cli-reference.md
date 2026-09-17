@@ -58,6 +58,7 @@ yoke qa requirement list --deployment-run-id run-20260616-001 --json
 yoke qa requirement get --requirement-id 1
 yoke qa requirement update --requirement-id 1 --field blocking_mode --value non_blocking
 yoke qa requirement update --requirement-id 1 --field method_config --value '{"steps":[{"action":"navigate","route":"/dashboard"},{"action":"assert","target":"[data-ready=true]","check":"visible"}]}'
+yoke qa requirement update --requirement-id 1 --field target_env --value local
 
 # Record or complete QA runs. --raw-result is evidence text; a blocking
 # pass stamps verification_tree.head_sha from the claimed lane HEAD (or --head-sha).

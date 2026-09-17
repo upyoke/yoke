@@ -78,9 +78,11 @@ test("one-argument mount preserves the local client and DOM shape", async (t) =>
   // One routing listener plus one dismissal set per transient surface the
   // frame opens over its content — actor menu, footer panels — and nothing
   // may outlive the mount that attached it. Search is a modal rather than a
-  // menu: it covers the page it opened over, so it needs no outside-click or
-  // route-change dismissal, and its two keyboard contracts are its own.
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 3);
+  // menu, so it needs no outside-click dismissal: its backdrop is part of it
+  // and its two keyboard contracts are its own. It does take the route
+  // change, though, because a modal that outlives the screen it opened over
+  // keeps swallowing clicks on the next one.
+  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 4);
   assert.equal(documentNode.defaultView.listenerCounts.get("keydown"), 4);
   assert.equal(documentNode.defaultView.listenerCounts.get("click"), 2);
   mounted.unmount();
@@ -168,8 +170,10 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
   await settle();
 
   // The host-slotted mount draws no actor menu of its own, so it attaches
-  // two sets against the plain mount's three.
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 5);
+  // two sets against the plain mount's three. Every mount adds one more:
+  // the search dialog closes itself on a route change, so a dialog left
+  // open cannot go on swallowing clicks over the next screen.
+  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 7);
   // Host actions are not chrome: a mount carrying them draws nothing until
   // the Organization view asks for them, and the topbar never does.
   assert.equal(byClass(firstRoot, "capability-actions").length, 0);
@@ -288,7 +292,7 @@ test("injected clients, generic actions, slots, and mounts stay isolated", async
     [topbarStartSlot, topbarEndSlot, navigationStartSlot,
       navigationEndSlot, contentBeforeSlot, contentAfterSlot]
   )) assert.equal(slot.parentNode, null);
-  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 3);
+  assert.equal(documentNode.defaultView.listenerCounts.get("hashchange"), 4);
   documentNode.defaultView.dispatchEvent(new Event("hashchange"));
   await settle();
   assert.equal(firstClient.requests.length, firstCallsBeforeUnmount);
