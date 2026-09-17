@@ -19,6 +19,7 @@
   /* One value decides the space between stacked sections, so a page and the
      panels inside it cannot each contribute a gap and double it. */
   --yoke-section-gap: 24px;
+  --yoke-band-gap: 22px;
   display: grid;
   /* The header row is as tall as the header. A fixed track clipped it
      instead: between the drawer breakpoint and full desktop the brand,

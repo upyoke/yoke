@@ -133,23 +133,55 @@ test("Active membership follows live claims, not lifecycle status", async (t) =>
   mounted.unmount();
 });
 
+test("the overflow tile says See more... and fills the row it sits in", async (t) => {
+  stubFetch(t);
+  const hour = 60 * 60 * 1000;
+  // One past the band's card limit, so the band renders the limit plus the
+  // tile rather than every row.
+  const finished = Array.from({ length: 9 }, (_, index) => ({
+    public_ref: `YOK-${20 + index}`,
+    internal_id: 200 + index,
+    title: `finished ${index}`,
+    project: "yoke",
+    project_id: 1,
+    project_sequence: 20 + index,
+    workflow_id: "issue",
+    status: "done",
+    created_at: new Date(Date.now() - 6 * hour).toISOString(),
+    updated_at: new Date(Date.now() - 2 * hour).toISOString(),
+    merged_at: new Date(Date.now() - (index + 1) * hour).toISOString(),
+  }));
+  const { mounted, root } = await mountAt("#/frontier?project=1", workbenchClient({
+    "items.overview.list": { rows: finished },
+  }));
+  const tiles = byClass(root, "see-more-card");
+  assert.equal(tiles.length, 1);
+  // Three periods, and the accessible name says the same thing the tile does.
+  assert.equal(tiles[0].children.at(-1).textContent, "See more...");
+  assert.equal(tiles[0].getAttribute("aria-label"), "See more...");
+  mounted.unmount();
+});
+
 test("the final responsive layer caps grids and owns compact behavior", () => {
   const staticUrl = "../../packages/yoke-core/src/yoke_core/ui/static/";
   const responsive = readFileSync(new URL(
     `${staticUrl}universe_responsive.css`, import.meta.url,
   ), "utf8");
-  // Cards fill their row; only the minimum is fixed, and it differs by what
-  // the card has to hold.
+  // Track count comes from the available width alone, so the columns a
+  // section draws do not depend on how many cards it happens to hold.
+  assert.match(responsive, /repeat\(auto-fill, minmax\(/);
+  assert.ok(!responsive.includes("repeat(auto-fit"));
   assert.match(
     responsive,
-    /minmax\(min\(100%, var\(--yoke-card-track-min\)\), 1fr\)/,
+    /var\(--yoke-card-track-min\)\), var\(--yoke-card-track-max\)/,
   );
-  assert.match(responsive, /--yoke-card-track-min: 300px/);
+  assert.match(responsive, /--yoke-card-track-min: 268px/);
+  assert.match(responsive, /--yoke-card-track-max: 360px/);
   assert.match(
     responsive, /\.strategy-doc-grid \{\s*--yoke-card-track-min: 280px/,
   );
   assert.match(
-    responsive, /\.machines-grid \{\s*--yoke-card-track-min: 440px/,
+    responsive, /\.machines-grid \{\s*--yoke-card-track-min: 340px/,
   );
   for (const contract of [
     "@media (max-width: 1180px)",
@@ -160,5 +192,4 @@ test("the final responsive layer caps grids and owns compact behavior", () => {
     ".header-search-overlay",
     ".work-card-grid",
   ]) assert.ok(responsive.includes(contract), contract);
-  assert.ok(!responsive.includes("minmax(268px, 1fr)"));
 });
