@@ -275,7 +275,7 @@ Browser execution is method-backed and case-scoped. The built-in methods are:
 - **Browser inspection** (`browser-inspection`) — captures evidence before agent
   `undetermined`, which halts for owner/operator review; an unexecuted case records `blocked_on_precondition` and fails its scheduler without human work.
 
-Each materialized requirement carries a `method_config` snapshot. Correct a live item case with `qa.requirement.update --field method_config`; frozen deployment-run rows refuse that write. Case runners record the executed config at run start inside `raw_result` and keep that snapshot through complete, so a prior green does not prove a later script. Unstamped historical greens still count unless a plan-case origin exists and live config has diverged from it. Routes, assertions, waits, and screenshots belong in the snapshot, not in `qa_kind`.
+Each materialized requirement carries a `method_config` snapshot. Correct a live item case with `qa.requirement.update --field method_config`; frozen deployment-run rows refuse that write. Case runners record the executed config at run start inside `raw_result` and keep that snapshot through complete, so a prior green does not prove a later script. An in-place correction records a revision marker on the requirement; unstamped historical greens then no longer satisfy. Routes, assertions, waits, and screenshots belong in the snapshot, not in `qa_kind`.
 
 ```json
 {

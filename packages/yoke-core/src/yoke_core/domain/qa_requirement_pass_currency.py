@@ -1,9 +1,10 @@
 """Whether a passing QA run still proves the live method_config.
 
-Historical ``qa_runs`` rows stay immutable. A run records the configuration
-it started under inside ``raw_result``; complete keeps that start-bound
-snapshot. An unstamped legacy pass still counts unless a plan-case origin
-snapshot exists and live ``method_config`` has diverged from it.
+Historical ``qa_runs`` rows stay immutable. A run records the executable
+configuration it started under inside ``raw_result``; complete keeps that
+start-bound snapshot. An in-place correction records a revision marker on
+the requirement's stored ``method_config``; unstamped greens then no longer
+satisfy. Compare and execute the config with that marker stripped.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from yoke_core.domain.schema_common import _column_exists
 
 
 METHOD_CONFIG_FIELD = "method_config"
+METHOD_CONFIG_REVISION_KEY = "_corrected"
 PRESERVED_JSON_FIELD = "raw_result"
 EVIDENCE_FIELD = "evidence"
 
@@ -48,9 +50,34 @@ def _parse_json_value(raw: Any) -> Any:
         return None
 
 
+def executable_method_config(raw: Any) -> dict[str, Any]:
+    """Return stored method_config without the in-place revision marker."""
+    payload = _json_object(raw)
+    payload.pop(METHOD_CONFIG_REVISION_KEY, None)
+    return payload
+
+
+def method_config_was_corrected(raw: Any) -> bool:
+    """True when this requirement's method_config was revised in place."""
+    return METHOD_CONFIG_REVISION_KEY in _json_object(raw)
+
+
 def canonical_method_config(raw: Any) -> str:
-    """Return the stable JSON form used for storage and comparison."""
-    return canonical(_json_object(raw))
+    """Return the stable executable JSON form used for storage and comparison."""
+    return canonical(executable_method_config(raw))
+
+
+def bind_correction_identity(previous: Any, prepared_canonical: str) -> str:
+    """Keep a durable revision marker on the requirement when config changes."""
+    payload = executable_method_config(prepared_canonical)
+    previous_exec = canonical_method_config(previous)
+    if previous_exec == prepared_canonical:
+        if method_config_was_corrected(previous):
+            payload[METHOD_CONFIG_REVISION_KEY] = True
+        return canonical(payload)
+    if previous_exec != canonical({}):
+        payload[METHOD_CONFIG_REVISION_KEY] = True
+    return canonical(payload)
 
 
 def attach_method_config_snapshot(
@@ -64,7 +91,7 @@ def attach_method_config_snapshot(
     Non-object JSON keeps its parsed value under ``raw_result``. An existing
     ``method_config`` snapshot is left in place unless ``overwrite`` is set.
     """
-    snapshot = _json_object(config)
+    snapshot = executable_method_config(config)
     parsed = _parse_json_value(raw_result)
     if isinstance(parsed, dict):
         payload = dict(parsed)
@@ -85,8 +112,8 @@ def attach_method_config_snapshot(
 def stamp_executed_method_config(
     raw_result: Optional[str], config: Any
 ) -> Optional[str]:
-    """Stamp start-bound config when the executed contract is non-empty."""
-    if not _json_object(config):
+    """Stamp start-bound executable config when the contract is non-empty."""
+    if not executable_method_config(config):
         return raw_result
     return attach_method_config_snapshot(raw_result, config)
 
@@ -100,27 +127,11 @@ def retain_start_bound_method_config(existing_raw: Any, incoming_raw: str) -> st
 
 
 def recorded_method_config(raw_result: Any) -> dict[str, Any] | None:
-    """Return the config a run recorded at start, if it recorded one."""
+    """Return the executable config a run recorded at start, if it recorded one."""
     config = _json_object(raw_result).get(METHOD_CONFIG_FIELD)
-    return dict(config) if isinstance(config, dict) else None
-
-
-def _plan_case_origin_config(conn: Any, requirement_id: int) -> dict[str, Any] | None:
-    from yoke_core.domain.db_helpers import query_one
-
-    if not _column_exists(conn, "qa_plan_cases", "method_config"):
+    if not isinstance(config, dict):
         return None
-    marker = _marker(conn)
-    row = query_one(
-        conn,
-        "SELECT c.method_config AS origin FROM qa_requirements q "
-        "JOIN qa_plan_cases c ON c.plan_id = q.plan_id "
-        f"AND c.case_key = q.plan_case_key WHERE q.id={marker}",
-        (int(requirement_id),),
-    )
-    if row is None or row["origin"] in (None, ""):
-        return None
-    return _json_object(row["origin"])
+    return executable_method_config(config)
 
 
 def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
@@ -144,14 +155,7 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
     if row is None:
         return False
     current = canonical_method_config(row["method_config"])
-    origin = _plan_case_origin_config(conn, int(requirement_id))
-    if origin is None:
-        # No plan-case origin means this requirement has no stored previous
-        # snapshot to compare; unstamped greens stay current until a later
-        # stamped run (or a plan-backed correction) says otherwise.
-        unstamped_still_current = True
-    else:
-        unstamped_still_current = canonical_method_config(origin) == current
+    corrected = method_config_was_corrected(row["method_config"])
     runs = query_rows(
         conn,
         "SELECT verdict, raw_result FROM qa_runs "
@@ -166,7 +170,7 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
             if canonical_method_config(recorded) == current:
                 return True
             continue
-        if unstamped_still_current:
+        if not corrected:
             return True
     return False
 
@@ -174,10 +178,14 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
 __all__ = [
     "EVIDENCE_FIELD",
     "METHOD_CONFIG_FIELD",
+    "METHOD_CONFIG_REVISION_KEY",
     "PRESERVED_JSON_FIELD",
     "attach_method_config_snapshot",
+    "bind_correction_identity",
     "canonical_method_config",
+    "executable_method_config",
     "has_current_passing_run",
+    "method_config_was_corrected",
     "recorded_method_config",
     "retain_start_bound_method_config",
     "stamp_executed_method_config",

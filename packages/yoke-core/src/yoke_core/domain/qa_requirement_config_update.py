@@ -1,8 +1,9 @@
 """Correct live QA case configuration without replacing the requirement.
 
 Frozen deployment-run rows stay immutable. Historical ``qa_runs`` rows stay
-immutable too: a later green satisfies the new contract only when it recorded
-that live ``method_config`` at run start.
+immutable too. An in-place ``method_config`` change records a revision marker
+on the requirement; a later green satisfies only when it recorded that live
+executable config at run start.
 """
 
 from __future__ import annotations
@@ -29,6 +30,8 @@ from yoke_core.domain.qa_plan_execution_store import canonical
 from yoke_core.domain.qa_requirement_pass_currency import (
     METHOD_CONFIG_FIELD,
     _marker,
+    bind_correction_identity,
+    executable_method_config,
 )
 from yoke_core.domain.schema_common import _table_exists
 
@@ -119,6 +122,8 @@ def _prepare_method_config(
             raw = json.loads(value)
         except (TypeError, ValueError):
             return None, "method_config must be a JSON object"
+    if isinstance(raw, dict):
+        raw = executable_method_config(raw)
     try:
         config = validate_method_config(contract_id, raw)
     except QaMethodConfigError as exc:
@@ -218,7 +223,7 @@ def apply_requirement_update(
                 field=field,
                 jsonpath="$.payload.value",
             )
-        value = prepared
+        value = bind_correction_identity(existing["method_config"], prepared)
     conn.execute(
         f"UPDATE qa_requirements SET {field} = {marker} WHERE id = {marker}",
         (value, int(req_id)),
