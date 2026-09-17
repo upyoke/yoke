@@ -74,6 +74,8 @@ def test_deployment_inspection_reads_existing_run(test_db) -> None:
     assert flows.primary_success
     assert any(row["id"] == "flow-inspect" for row in flows.result_payload["rows"])
     assert found.result_payload["rows"][0]["id"] == "run-inspect-001"
+    assert found.result_payload["rows"][0]["flow"] == "flow-inspect"
+    assert found.result_payload["fields"][-1] == "flow"
     assert [stage["state"] for stage in run_stages.result_payload["stages"]] == [
         "completed",
         "current",

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow
 from yoke_core.domain.gate_satisfier_facts import Fact, FactVerdict
 from yoke_core.domain.schema_common import _column_exists
 
@@ -138,15 +139,21 @@ def load_item_facts(conn: Any, item_id: int) -> Dict[str, Fact]:
         ("qa_runs", "performed_by"),
         ("qa_requirements", "item_id"),
     )
-    deployed = _count(
-        conn,
-        "SELECT COUNT(*) FROM deployment_runs dr "
-        "JOIN deployment_run_items dri ON dr.id = dri.run_id "
-        f"WHERE dri.item_id = {p} AND dr.status = 'succeeded'",
-        (item_id,),
-        ("deployment_runs", "status"),
-        ("deployment_run_items", "item_id"),
-    )
+    flow = item_completion_flow(conn, int(item_id))
+    if not flow:
+        deployed = 0
+    else:
+        deployed = _count(
+            conn,
+            "SELECT COUNT(*) FROM deployment_runs dr "
+            "JOIN deployment_run_items dri ON dr.id = dri.run_id "
+            f"WHERE dri.item_id = {p} AND dr.status = 'succeeded' "
+            f"AND dr.flow = {p}",
+            (item_id, flow),
+            ("deployment_runs", "status"),
+            ("deployment_runs", "flow"),
+            ("deployment_run_items", "item_id"),
+        )
     return {
         ITEM_CI_VERDICT: _fact(
             ITEM_CI_VERDICT,

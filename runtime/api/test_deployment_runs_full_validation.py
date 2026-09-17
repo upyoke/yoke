@@ -113,8 +113,8 @@ class TestValidateComposition:
         self._bind_item_raw(db_path, rid, 100)
 
         ok, msg = dr.cmd_validate_composition(rid, db_path=db_path)
-        assert ok is False
-        assert "Incompatible deployment flow" in msg
+        assert ok is True
+        assert msg == "OK"
 
     def test_item_not_at_implemented(self, db_path):
         rid = dr.cmd_create_run("yoke", "yoke-internal", db_path=db_path)
@@ -275,8 +275,8 @@ class TestCheckBatchCompatibility:
             [100],
             db_path=db_path,
         )
-        assert ok is False
-        assert "Incompatible deployment flow" in msg
+        assert ok is True
+        assert msg == "OK"
 
     def test_item_not_implemented_in_batch(self, db_path):
         self._insert_item(db_path, 100, "idea")

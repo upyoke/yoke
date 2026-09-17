@@ -97,7 +97,7 @@ def handle_deployment_runs_find_by_item(
 
     from yoke_core.domain.deployment_runs_crud_query import cmd_find_by_item
 
-    fields = ("id", "status", "current_stage", "created_at")
+    fields = ("id", "status", "current_stage", "created_at", "flow")
     raw = cmd_find_by_item(int(request.target.item_id), status=payload.status)
     return HandlerOutcome(
         result_payload={

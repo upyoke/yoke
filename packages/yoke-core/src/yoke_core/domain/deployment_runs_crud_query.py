@@ -150,7 +150,8 @@ def cmd_find_by_item(
 
         rows = query_rows(
             conn,
-            f"SELECT dr.id, dr.status, COALESCE(dr.current_stage,''), dr.created_at "
+            f"SELECT dr.id, dr.status, COALESCE(dr.current_stage,''), "
+            f"dr.created_at, dr.flow "
             f"FROM deployment_runs dr "
             f"JOIN deployment_run_items dri ON dri.run_id = dr.id "
             f"WHERE dri.item_id=%s {status_clause} "

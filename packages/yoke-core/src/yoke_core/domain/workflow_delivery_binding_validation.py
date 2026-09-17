@@ -55,26 +55,20 @@ def _validate_deployment_run_item_state(
     runtime, status = state
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     run = conn.execute(
-        f"SELECT project_id, flow FROM deployment_runs WHERE id = {marker}",
+        f"SELECT project_id FROM deployment_runs WHERE id = {marker}",
         (run_id,),
     ).fetchone()
     if run is None:
         raise WorkflowItemBindingError(f"deployment run {run_id!r} not found")
     item = conn.execute(
-        f"SELECT project_id, deployment_flow FROM items WHERE id = {marker}",
+        f"SELECT project_id FROM items WHERE id = {marker}",
         (int(item_id),),
     ).fetchone()
     run_project = int(run["project_id"] if hasattr(run, "keys") else run[0])
-    run_flow = str(run["flow"] if hasattr(run, "keys") else run[1])
     item_project = int(item["project_id"] if hasattr(item, "keys") else item[0])
-    item_flow = item["deployment_flow"] if hasattr(item, "keys") else item[1]
     if item_project != run_project:
         raise WorkflowItemBindingError(
             f"{render_item_ref(conn, item_id)} project does not match deployment run {run_id}"
-        )
-    if item_flow and str(item_flow) != run_flow:
-        raise WorkflowItemBindingError(
-            f"{render_item_ref(conn, item_id)} selects deployment flow {item_flow!r}, not {run_flow!r}"
         )
     if allow_completed and status == COMPLETED_ITEM_STAGE_ID:
         return
@@ -91,7 +85,7 @@ def validate_deployment_run_item(
     run_id: str,
     item_id: int,
 ) -> None:
-    """Require project, flow, and delivery-stage compatibility for admission."""
+    """Require project and delivery-stage compatibility for admission."""
     _validate_deployment_run_item_state(
         conn,
         run_id=run_id,

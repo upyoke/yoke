@@ -117,6 +117,10 @@ class TestLatestDeploymentRun:
         item_id = 8510
         conn = connect_test_db(db)
         try:
+            insert_item(
+                conn, id=item_id, source=str(seed_human_actor(conn)),
+                deployment_flow="flow-test",
+            )
             insert_deployment_run(
                 conn, id="run-old", status="failed",
                 created_at="2026-01-01T00:00:00Z",
@@ -135,6 +139,34 @@ class TestLatestDeploymentRun:
         assert outcome.primary_success, outcome.error
         assert outcome.result_payload == {"run_id": "run-new", "status": "succeeded"}
         reads.LatestDeploymentRunResponse(**outcome.result_payload)
+
+    def test_ignores_a_newer_run_on_a_different_flow(self, db):
+        item_id = 8511
+        conn = connect_test_db(db)
+        try:
+            insert_item(
+                conn, id=item_id, source=str(seed_human_actor(conn)),
+                deployment_flow="prod-flow",
+            )
+            insert_deployment_run(
+                conn, id="run-prod", flow="prod-flow", status="executing",
+                created_at="2026-01-01T00:00:00Z",
+            )
+            insert_deployment_run(
+                conn, id="run-stage", flow="stage-flow", status="succeeded",
+                created_at="2026-02-01T00:00:00Z",
+            )
+            _link_run(conn, "run-prod", item_id)
+            _link_run(conn, "run-stage", item_id)
+        finally:
+            conn.close()
+        outcome = reads.handle_latest_deployment_run(
+            _item_env("done_transition.latest_deployment_run", item_id=item_id)
+        )
+        assert outcome.primary_success, outcome.error
+        assert outcome.result_payload == {
+            "run_id": "run-prod", "status": "executing",
+        }
 
     def test_empty_when_no_run(self, db):
         outcome = reads.handle_latest_deployment_run(

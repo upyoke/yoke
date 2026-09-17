@@ -3,8 +3,9 @@
 //
 // An item page could say what the work is and never say whether it had
 // shipped, so the reader went to Deployments and searched for the ref. The
-// releases are read through the item itself, newest first, because the
-// question is almost always "did the last one land".
+// releases are read through the item itself, newest first. A run on the
+// selected (or default) flow is this item's release; a same-project run of
+// another flow is participation and is labeled as such.
 
 import {
   deploymentFlowHref,
@@ -76,13 +77,27 @@ async function resolveFlow(context, item) {
     : { flowId: null, reason: "none_declared" };
 }
 
-function deliveryRow(documentNode, item, run) {
+function deliveryRow(documentNode, item, run, resolved) {
   const row = el(documentNode, "div", "item-delivery-run");
   const link = el(documentNode, "a", "mono", String(run.id));
   link.href = deploymentRunHref(item.project.id, run.id);
   row.appendChild(link);
   const pill = statePill(documentNode, run.status, run.status);
   if (pill) row.appendChild(pill);
+  const selectedFlow = resolved?.flowId ? String(resolved.flowId) : "";
+  const runFlow = String(run.flow || "");
+  const isRelease = Boolean(selectedFlow && runFlow === selectedFlow);
+  row.appendChild(el(
+    documentNode,
+    "span",
+    isRelease ? "item-delivery-role is-release" : "item-delivery-role",
+    isRelease ? "this item's release" : "also carried",
+  ));
+  if (runFlow) {
+    row.appendChild(el(
+      documentNode, "span", "item-delivery-run-flow", runFlow,
+    ));
+  }
   if (run.current_stage) {
     row.appendChild(el(
       documentNode, "span", "item-delivery-stage", String(run.current_stage),
@@ -109,16 +124,18 @@ function newestFirst(rows) {
 export function itemDeliveryPanel(context, item) {
   const documentNode = context.document;
   const { panel, body } = workflowPanel(documentNode, "Delivery");
-  const flow = el(documentNode, "div", "item-delivery-flow-host");
-  flow.appendChild(el(documentNode, "span", "item-muted", "resolving flow…"));
-  body.appendChild(flow);
+  const flowHost = el(documentNode, "div", "item-delivery-flow-host");
+  flowHost.appendChild(el(documentNode, "span", "item-muted", "resolving flow…"));
+  body.appendChild(flowHost);
   const runs = el(documentNode, "div", "item-delivery-runs", "loading releases…");
   body.appendChild(runs);
-  resolveFlow(context, item).then((resolved) => {
+  const resolvedFlow = resolveFlow(context, item);
+  resolvedFlow.then((resolved) => {
     if (!context.isMounted()) return;
-    flow.replaceChildren(flowLine(documentNode, item, resolved));
+    flowHost.replaceChildren(flowLine(documentNode, item, resolved));
   });
   (async () => {
+    const resolved = await resolvedFlow;
     let result = null;
     try {
       const read = await callFunction(
@@ -152,7 +169,9 @@ export function itemDeliveryPanel(context, item) {
       ));
       return;
     }
-    runs.replaceChildren(...rows.map((run) => deliveryRow(documentNode, item, run)));
+    runs.replaceChildren(
+      ...rows.map((run) => deliveryRow(documentNode, item, run, resolved)),
+    );
   })();
   return panel;
 }

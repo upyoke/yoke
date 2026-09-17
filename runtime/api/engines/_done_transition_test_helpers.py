@@ -79,9 +79,11 @@ def dt_db(tmp_path, monkeypatch):
         CREATE TABLE deployment_runs (
             id TEXT PRIMARY KEY,
             project_id INTEGER NOT NULL,
+            flow TEXT,
             status TEXT,
             current_stage TEXT,
-            created_at TEXT
+            created_at TEXT,
+            release_lineage TEXT
         );
         CREATE TABLE deployment_run_items (
             run_id TEXT,

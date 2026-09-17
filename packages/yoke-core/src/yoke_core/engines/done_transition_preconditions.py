@@ -21,6 +21,7 @@ import sys
 from typing import Any, Optional, Tuple
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_qa_source_obligation import latest_completion_run
 from yoke_core.domain.project_identity import render_item_ref
 
 
@@ -68,16 +69,11 @@ def _query_item_scalar(conn: Any, item_id: int, field: str) -> str:
 
 
 def _latest_run(conn: Any, item_id: int) -> Tuple[str, str]:
-    """Return ``(status, current_stage)`` for the item's newest deploy run."""
-    row = conn.execute(
-        "SELECT dr.status, dr.current_stage FROM deployment_runs dr "
-        "JOIN deployment_run_items dri ON dr.id = dri.run_id "
-        f"WHERE dri.item_id = {_p(conn)} ORDER BY dr.created_at DESC LIMIT 1",
-        (item_id,),
-    ).fetchone()
-    if not row:
+    """Return ``(status, current_stage)`` for the item's completion-flow run."""
+    row = latest_completion_run(conn, item_id)
+    if row is None:
         return "", ""
-    return str(row[0] or ""), str(row[1] or "")
+    return str(row["status"] or ""), str(row["current_stage"] or "")
 
 
 def _has_refined_idea_to_planning_verdict(
@@ -105,8 +101,8 @@ def evaluate_done_preconditions(
     check short-circuits with an exact reason string. Empty / null / internal
     deployment flows skip the deployment-shape checks (deployed_to and
     deploy_stage) — those flows do not deploy through the registered
-    pipeline. The failed-deploy_run check still applies whenever a deploy_run
-    exists.
+    pipeline. The failed-deploy_run check still applies whenever a
+    completion-flow deploy_run exists.
     """
     is_internal = bool(deploy_flow) and deploy_flow.endswith("-internal")
     is_no_run_delivery = deploy_flow == NO_RUN_DELIVERY_FLOW

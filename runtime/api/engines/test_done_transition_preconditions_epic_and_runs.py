@@ -39,14 +39,14 @@ def _seed_registered_flow(db_path, flow_id="yoke-hosted-production", project="yo
     conn.close()
 
 
-def _seed_deploy_run(db_path, item_id, status):
+def _seed_deploy_run(db_path, item_id, status, flow="yoke-hosted-production"):
     conn = connect_dt_db(db_path)
-    run_id = f"r-{item_id}-{status}"
+    run_id = f"r-{item_id}-{status}-{flow}"
     p = _p(conn)
     conn.execute(
-        "INSERT INTO deployment_runs (id, project_id, status, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p})",
-        (run_id, 1, status, "2025-01-01T00:00:00Z"),
+        f"INSERT INTO deployment_runs (id, project_id, flow, status, created_at) "
+        f"VALUES ({p}, {p}, {p}, {p}, {p})",
+        (run_id, 1, flow, status, "2025-01-01T00:00:00Z"),
     )
     conn.execute(
         f"INSERT INTO deployment_run_items (run_id, item_id) VALUES ({p}, {p})",
@@ -280,3 +280,44 @@ class TestUnregisteredFlowSkipped:
 
         assert allowed is True
         assert reason is None
+
+
+class TestAncillaryRunDoesNotAttestDelivery:
+    """A succeeded carrying run on another flow is not this item's delivery."""
+
+    def test_succeeded_other_flow_does_not_skip_deployed_to(self, dt_db):
+        db_path, _ = dt_db
+        _seed_registered_flow(db_path, flow_id="prod-flow")
+        _seed_registered_flow(db_path, flow_id="stage-flow")
+        _insert_item(
+            db_path,
+            771,
+            deployment_flow="prod-flow",
+            deploy_stage=None,
+            deployed_to=None,
+        )
+        _seed_deploy_run(db_path, 771, "succeeded", flow="stage-flow")
+
+        allowed, reason = check_done_preconditions(771, "prod-flow", False)
+
+        assert allowed is False
+        assert "deployed_to is empty" in reason
+
+    def test_failed_selected_flow_blocks_despite_other_flow_success(self, dt_db):
+        db_path, _ = dt_db
+        _seed_registered_flow(db_path, flow_id="prod-flow")
+        _seed_registered_flow(db_path, flow_id="stage-flow")
+        _insert_item(
+            db_path,
+            772,
+            deployment_flow="prod-flow",
+            deploy_stage="complete",
+            deployed_to="prod",
+        )
+        _seed_deploy_run(db_path, 772, "failed", flow="prod-flow")
+        _seed_deploy_run(db_path, 772, "succeeded", flow="stage-flow")
+
+        allowed, reason = check_done_preconditions(772, "prod-flow", False)
+
+        assert allowed is False
+        assert reason == "latest deploy_run for YOK-772 has status=failed"

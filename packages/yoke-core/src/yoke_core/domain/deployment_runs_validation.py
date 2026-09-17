@@ -2,8 +2,9 @@
 
 Owns: ``cmd_validate_composition`` (post-creation membership check) and
 ``cmd_check_batch_compatibility`` (pre-creation batch check). Both enforce
-project alignment, deployment-flow alignment, item-status floor, and
-unsatisfied hard-block dependency detection. SQL bodies preserved verbatim
+project alignment, item-status floor, and
+unsatisfied hard-block dependency detection. Selected flow is completion
+authority, not a membership gate. SQL bodies preserved verbatim
 from the pre-split state-machine — no reordering, no early-return refactor.
 """
 
@@ -95,9 +96,8 @@ def cmd_validate_composition(
 
     Checks:
     1. All items share the run's project
-    2. Items have compatible flow
-    3. Every item is delivery-ready under its pinned workflow policy
-    4. No unsatisfied hard-block dependencies outside the run
+    2. Every item is delivery-ready under its pinned workflow policy
+    3. No unsatisfied hard-block dependencies outside the run
 
     ``allow_pending_pair_merges`` is what preparation passes: a run prepared
     before its coordinated pair has landed is expected to carry unsatisfied
@@ -124,10 +124,6 @@ def cmd_validate_composition(
         run_project_id = int(run_project_id)
         run_project = resolve_project_slug(conn, run_project_id)
 
-        run_flow = query_scalar(
-            conn, "SELECT flow FROM deployment_runs WHERE id=%s", (run_id,)
-        )
-
         errors: List[str] = []
 
         # Check 1: All items share the run's project
@@ -146,27 +142,7 @@ def cmd_validate_composition(
             )
             errors.append(f"Project mismatch (run expects {run_project}): {items_str}")
 
-        # Check 2: Items have compatible flow
-        wrong_flow = query_rows(
-            conn,
-            "SELECT i.id, i.deployment_flow "
-            "FROM deployment_run_items dri "
-            "JOIN items i ON dri.item_id = i.id "
-            "WHERE dri.run_id=%s "
-            "AND i.deployment_flow IS NOT NULL "
-            "AND i.deployment_flow <> '' "
-            "AND i.deployment_flow <> %s",
-            (run_id, run_flow),
-        )
-        if wrong_flow:
-            items_str = ", ".join(
-                _item_label(conn, row[0], f"flow={row[1]}") for row in wrong_flow
-            )
-            errors.append(
-                f"Incompatible deployment flow (run expects {run_flow}): {items_str}"
-            )
-
-        # Check 3: Every item is delivery-ready for its pinned workflow.
+        # Check 2: Every item is delivery-ready for its pinned workflow.
         delivery_candidates = query_rows(
             conn,
             "SELECT i.id, i.status "
@@ -184,7 +160,7 @@ def cmd_validate_composition(
                 + ", ".join(not_passed)
             )
 
-        # Check 4: Unsatisfied hard-block dependencies
+        # Check 3: Unsatisfied hard-block dependencies
         run_items = [int(row[0]) for row in delivery_candidates]
         pending_pairs, blocked = split_pending_pair_merges(conn, run_items)
         if pending_pairs and not allow_pending_pair_merges:
@@ -231,6 +207,8 @@ def cmd_check_batch_compatibility(
     try:
         ident = resolve_project(conn, project)
         assert ident is not None
+        # ``flow`` identifies the proposed run; it does not restrict membership.
+        _ = flow
         # Build placeholders for IN clause
         placeholders = ",".join("%s" for _ in item_ids)
         errors: List[str] = []
@@ -250,26 +228,7 @@ def cmd_check_batch_compatibility(
             )
             errors.append(f"Project mismatch (batch expects {ident.slug}): {items_str}")
 
-        # Check 2: All items have compatible flow
-        wrong_flow = query_rows(
-            conn,
-            f"SELECT i.id, i.deployment_flow "
-            f"FROM items i "
-            f"WHERE i.id IN ({placeholders}) "
-            f"AND i.deployment_flow IS NOT NULL "
-            f"AND i.deployment_flow <> '' "
-            f"AND i.deployment_flow <> %s",
-            tuple(item_ids) + (flow,),
-        )
-        if wrong_flow:
-            items_str = ", ".join(
-                _item_label(conn, row[0], f"flow={row[1]}") for row in wrong_flow
-            )
-            errors.append(
-                f"Incompatible deployment flow (batch expects {flow}): {items_str}"
-            )
-
-        # Check 3: Every item is delivery-ready for its pinned workflow.
+        # Check 2: Every item is delivery-ready for its pinned workflow.
         delivery_candidates = query_rows(
             conn,
             f"SELECT i.id, i.status FROM items i WHERE i.id IN ({placeholders})",
@@ -282,7 +241,7 @@ def cmd_check_batch_compatibility(
                 + ", ".join(not_passed)
             )
 
-        # Check 4: Unsatisfied hard-block deps outside batch
+        # Check 3: Unsatisfied hard-block deps outside batch
         blocked = unsatisfied_dependency_pairs(
             conn,
             item_ids,

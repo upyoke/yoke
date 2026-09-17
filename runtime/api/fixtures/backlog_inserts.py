@@ -258,7 +258,7 @@ def insert_deployment_run(
             "INSERT INTO deployment_flows "
             "(id, project_id, name, stages, created_at) "
             f"VALUES ({p}, {p}, {p}, {p}, {p})",
-            (flow, project_id, "test-flow", "[]", ts),
+            (flow, project_id, flow, "[]", ts),
         )
 
     cols = {
