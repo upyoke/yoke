@@ -14,25 +14,25 @@ from runtime.api.cli.test_yoke_operations_cli_onboard_wizard_path import (  # no
     _visible_static_text,
 )
 from yoke_cli.config import path_doctor  # noqa: E402
-from yoke_cli.config.onboard_wizard_widgets import (  # noqa: E402
-    STEP_INSTALL,
-    SelectionList,
-    Stepper,
-)
 
 
 @pytest.fixture
 def stub_path(monkeypatch):
-    """Install a needs-fix diagnosis and refuse writes before Review."""
+    """Install a needs-fix diagnosis and a successful immediate repair."""
     monkeypatch.setattr(path_doctor, "diagnose", lambda **_: _diagnosis(needs_fix=True))
-    monkeypatch.setattr(
-        path_doctor,
-        "apply_fix",
-        lambda *_args, **_kwargs: pytest.fail("PATH was written before Review Apply"),
-    )
+
+    def apply(plan, *, progress, report):
+        del progress
+        report["path_repair"] = {
+            **plan,
+            "login_verified": True,
+            "ssh_verified": True,
+        }
+
+    monkeypatch.setattr("yoke_cli.config.onboard_apply_path.apply", apply)
 
 
-def test_preview_queues_exact_managed_block_for_review(stub_path) -> None:
+def test_preview_shows_exact_managed_block_before_immediate_repair(stub_path) -> None:
     app = _app()
 
     async def scenario() -> None:
@@ -53,7 +53,7 @@ def test_preview_queues_exact_managed_block_for_review(stub_path) -> None:
                 "/home/u/.zprofile." in text
             )
             assert "delete the block to undo" in text
-            await pilot.press("enter")  # preview: add the writes to Review
+            await pilot.press("enter")  # preview: write, verify, and continue
             await pilot.pause()
 
     asyncio.run(scenario())
@@ -63,7 +63,7 @@ def test_preview_queues_exact_managed_block_for_review(stub_path) -> None:
     ]
 
 
-def test_preview_keeps_the_exact_block_behind_a_details_toggle(stub_path) -> None:
+def test_preview_keeps_the_exact_block_visible_with_apply_and_back(stub_path) -> None:
     from yoke_cli.config.path_state_contract import MANAGED_BEGIN, MANAGED_END
 
     app = _app()
@@ -71,26 +71,14 @@ def test_preview_keeps_the_exact_block_behind_a_details_toggle(stub_path) -> Non
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await pilot.pause()
-            await pilot.press("space")  # Add-PATH -> review the writes now
-            await pilot.pause()
-            text = _visible_static_text(app)
-            # Summary first: the markers are named, the block itself is folded.
-            assert MANAGED_BEGIN in text
-            assert "unset _yoke_managed_path" not in text
-            assert "Show details" in text
-            await pilot.press("down")  # Apply -> Show details
+            await pilot.press("down")  # See exactly what changes
             await pilot.press("enter")
             await pilot.pause()
             text = _visible_static_text(app)
+            assert MANAGED_BEGIN in text
             assert "unset _yoke_managed_path" in text
             assert text.index(MANAGED_BEGIN) < text.index(MANAGED_END)
-            assert "Hide details" in text
-            assert app.query_one(SelectionList).selected_value == "details"
-            await pilot.press("enter")  # Hide details
-            await pilot.pause()
-            text = _visible_static_text(app)
-            assert "unset _yoke_managed_path" not in text
-            assert app.query_one(SelectionList).selected_value == "details"
-            assert app.query_one(Stepper).active == STEP_INSTALL
+            assert "Add to PATH and continue" in text
+            assert "Back" in text
 
     asyncio.run(scenario())

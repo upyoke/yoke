@@ -1,10 +1,4 @@
-"""Pilot coverage for the picker's two hosted rows.
-
-`upyoke.com` and `stage.upyoke.com` are one destination reached through two
-platforms: the row picked is what the browser connect leg opens, and no second
-screen asks which hosted environment to use. Split from the destination-picker
-pilot suite, which covers the local and team-server lanes.
-"""
+"""Pilot coverage for public hosted selection and explicit stage presets."""
 
 from __future__ import annotations
 
@@ -72,13 +66,14 @@ def _stub_browser_approval(monkeypatch) -> list[str]:
         hosted_machine_authorization,
         "open_browser",
         lambda _: hosted_machine_authorization.BrowserOpenResult(
-            opened=False, reason="webbrowser.open returned False",
+            opened=False,
+            reason="webbrowser.open returned False",
         ),
     )
     return started
 
 
-def test_the_picker_carries_the_hosted_environment_choice(monkeypatch) -> None:
+def test_the_picker_offers_only_the_production_hosted_service(monkeypatch) -> None:
     started = _stub_browser_approval(monkeypatch)
     app, _spy = make_app(_picker_defaults(token=None))
 
@@ -86,40 +81,19 @@ def test_the_picker_carries_the_hosted_environment_choice(monkeypatch) -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             rows = app.query_one(SelectionList).rows
-            # Both platforms are rows of the one question; there is no second
-            # screen asking which hosted environment to use.
             assert [row.label for row in rows] == [
                 "This machine",
                 "A team server",
                 "Set this machine up as a self-hosting server",
                 "upyoke.com",
-                "stage.upyoke.com",
             ]
-            await pilot.press("up", "up")  # wrap local -> stage -> upyoke.com
+            await pilot.press("up")  # wrap local -> upyoke.com
             await pilot.press("enter")
             # No second question: the pick handed the connect leg a platform.
             assert "Which hosted environment" not in _body_text(app)
             assert started == ["https://app.upyoke.com"]
             assert app.result.destination == DESTINATION_HOSTED
             assert app.result.env_name == "prod"
-
-    asyncio.run(scenario())
-
-
-def test_the_staging_row_points_the_connect_leg_at_stage(monkeypatch) -> None:
-    started = _stub_browser_approval(monkeypatch)
-    app, _spy = make_app(_picker_defaults(token=None))
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await advance_past_path(pilot)
-            await pilot.press("up")  # wrap local -> stage.upyoke.com
-            await pilot.press("enter")
-            # The staging row is the same hosted destination reached through
-            # the other platform, not a fourth kind of home.
-            assert app.result.destination == DESTINATION_HOSTED
-            assert app.result.env_name == "stage"
-            assert started == ["https://app.stage.upyoke.com"]
 
     asyncio.run(scenario())
 
@@ -142,6 +116,9 @@ def test_explicit_stage_connect_preset_keeps_stage_authority(monkeypatch) -> Non
             assert app.result.env_name == "stage"
             assert started == ["https://app.stage.upyoke.com"]
             assert "https://app.stage.upyoke.com/connect" in _body_text(app)
+            assert "test-only" in _body_text(app).lower()
+            assert "disposable" in _body_text(app).lower()
+            assert "live operations" in _body_text(app).lower()
 
     asyncio.run(scenario())
 
@@ -158,7 +135,7 @@ def test_back_from_local_summary_repicks_cleanly(monkeypatch) -> None:
             await pilot.pause()
             assert "Where should this Yoke universe live?" in _body_text(app)
             assert app.query_one(Stepper).account_label == STEP_CONNECT_LABEL
-            await pilot.press("up", "up")  # repick: wrap local -> upyoke.com
+            await pilot.press("up")  # repick: wrap local -> upyoke.com
             await pilot.press("enter")
             await pilot.pause()
             # The local detour left no residue: the hosted row sets its own

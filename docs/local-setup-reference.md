@@ -325,5 +325,6 @@ What stopping does and does not save:
 - The instance-hours stop billing. That is the whole saving.
 - The root volume and the Elastic IP survive and keep billing, which is what
   makes the host safe to stop: data and address are unchanged on `start`.
-- Anything pointed at the host is down while it is stopped, including
-  `api.stage.upyoke.com` and any CI deploy that targets it.
+- Anything pointed at the host is down while it is stopped, including the
+  test-only, disposable `api.stage.upyoke.com` rehearsal endpoint and any test
+  deploy that targets it. Live operations never use stage.

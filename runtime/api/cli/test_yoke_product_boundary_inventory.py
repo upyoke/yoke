@@ -35,10 +35,10 @@ def test_representative_product_client_rows_are_separate_from_source_dev():
         "yoke dev path-snapshot-prewarm",
     ):
         assert rows[command].disposition == inventory.SOURCE_DEV_ADMIN
-    assert rows["yoke dev setup"].transport_branch == "source-dev-admin-local"
+    assert rows["yoke dev setup"].transport_branch == "edit-yoke-source-local"
     db_admin = rows["yoke dev db-admin setup"]
     assert db_admin.transport_branch == (
-        "named-https-control-plane-read-plus-source-dev-admin-local"
+        "named-https-control-plane-read-plus-edit-yoke-source-local"
     )
     assert "named HTTPS control-plane env" in db_admin.config_required
     assert "db.read.run" in db_admin.capability_required
@@ -60,9 +60,7 @@ def test_registry_operation_and_tool_shaped_surfaces_are_present():
         inventory.CLIENT_LOCAL_HELPER
     )
     assert rows["yoke qa browser screenshot"].import_edges == ()
-    assert rows["yoke qa browser step"].disposition == (
-        inventory.CLIENT_LOCAL_HELPER
-    )
+    assert rows["yoke qa browser step"].disposition == (inventory.CLIENT_LOCAL_HELPER)
     assert rows["yoke qa browser step"].import_edges == ()
     assert rows["yoke claims work current"].function_id == "claims.work.holder_get"
     assert rows["yoke deployment-runs get"].function_id == "deployment_runs.get"

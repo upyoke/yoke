@@ -17,7 +17,7 @@ from typing import Optional, Sequence, Tuple
 
 from yoke_core.domain import project_settings, runtime_settings
 from yoke_core.domain.project_checkout_locations import checkout_for_project_slug
-from yoke_core.domain.repo_upstream_freshness import refresh_base_branch
+from yoke_cli.config.repo_upstream_freshness import refresh_base_branch
 from yoke_core.domain.worktree_create_db import (
     check_path_claim_gate,
     item_worktree_authority_is_https,

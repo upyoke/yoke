@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_cli.project_install.hook_trust_report import REPORT_KEY
-from yoke_cli.project_install import runner
+from yoke_cli.project_install import repository_layer
 from yoke_contracts.codex_hook_trust_store import inspect_hook_file_trust
 from yoke_contracts.harness_hook_approval import (
     HARNESS_HOOK_APPROVAL,
@@ -45,7 +45,7 @@ def test_fresh_write_mints_trust_without_manual_approval_teaching(
 ):
     _codex_home(monkeypatch, tmp_path)
     report = apply_bundle(repo, make_bundle(), source="test")
-    trust = runner._mint_codex_hook_trust(repo)
+    trust = repository_layer.mint_codex_hook_trust(repo)
 
     assert _codex_lines(report) == []
     assert trust["hook_entries_written"] > 0
@@ -59,12 +59,12 @@ def test_updating_the_glue_replaces_the_previous_hashes(
 ):
     _codex_home(monkeypatch, tmp_path)
     apply_bundle(repo, make_bundle(), source="test")
-    runner._mint_codex_hook_trust(repo)
+    repository_layer.mint_codex_hook_trust(repo)
 
     updated = codex_hooks()
     updated["PreToolUse"].append(entry("yoke hook evaluate PreToolUse", "Edit"))
     report = apply_bundle(repo, make_bundle(codex=updated), source="test")
-    trust = runner._mint_codex_hook_trust(repo)
+    trust = repository_layer.mint_codex_hook_trust(repo)
 
     assert _codex_lines(report) == []
     assert trust["hook_entries_removed"] > 0
@@ -78,10 +78,10 @@ def test_a_reconcile_that_changed_nothing_rewrites_nothing(
 ):
     _codex_home(monkeypatch, tmp_path)
     apply_bundle(repo, make_bundle(), source="test")
-    runner._mint_codex_hook_trust(repo)
+    repository_layer.mint_codex_hook_trust(repo)
 
     report = apply_bundle(repo, make_bundle(), source="test")
-    trust = runner._mint_codex_hook_trust(repo)
+    trust = repository_layer.mint_codex_hook_trust(repo)
 
     assert report[REPORT_KEY] == []
     assert trust["changed"] is False
@@ -90,7 +90,7 @@ def test_a_reconcile_that_changed_nothing_rewrites_nothing(
 def test_install_without_codex_hooks_records_an_inert_skip(repo, monkeypatch, tmp_path):
     home = _codex_home(monkeypatch, tmp_path)
 
-    trust = runner._mint_codex_hook_trust(repo)
+    trust = repository_layer.mint_codex_hook_trust(repo)
 
     assert trust["changed"] is False
     assert trust["skipped_reason"] == (
@@ -105,8 +105,8 @@ def test_config_write_refusal_names_path_and_recovery(repo, monkeypatch, tmp_pat
     config.write_text("[broken", encoding="utf-8")
     apply_bundle(repo, make_bundle(), source="test")
 
-    with pytest.raises(runner.ProjectInstallError) as caught:
-        runner._mint_codex_hook_trust(repo)
+    with pytest.raises(repository_layer.ProjectInstallError) as caught:
+        repository_layer.mint_codex_hook_trust(repo)
 
     message = str(caught.value)
     assert str(repo / ".codex/hooks.json") in message

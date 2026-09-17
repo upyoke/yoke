@@ -10,6 +10,7 @@ from yoke_core.domain.lint_session_cwd_gh_repo_selector import (
     extract_gh_repo_selector_targets,
 )
 from yoke_core.domain.lint_session_cwd_host_command import (
+    aws_log_group_indexes,
     remote_argv_indexes,
     yoke_subcommand_positionals,
 )
@@ -21,18 +22,10 @@ from yoke_core.domain.lint_shell_target_tokens import (
 )
 
 
-FLAG_BINARY = frozenset({
-    "-C",
-    "--rootdir",
-    "--target-root",
-    "--worktree-path",
-    "-w",
-})
-
+FLAG_BINARY = frozenset({"-C", "--rootdir", "--target-root", "--worktree-path", "-w"})
 FLAG_EQUALS_PREFIXES = (
-    "--rootdir=",
-    "--target-root=",
-    "--worktree-path=",
+    "--rootdir=", "--target-root=", "--worktree-path=",
+    "--log-group-name=", "--log-group=",
 )
 
 
@@ -104,10 +97,7 @@ _CURL_NON_PATH_VALUE_FLAGS = frozenset({"-w", "--write-out"})
 # cover that path until the registration lands. Only the named
 # registration/repair shapes are exempt — file-writing yoke commands
 # (watch captures, renders with ``--target-root``) keep full extraction.
-_YOKE_PAYLOAD_PATH_SUBCOMMANDS = (
-    ("item-worktrees",),
-    ("project", "register"),
-)
+_YOKE_PAYLOAD_PATH_SUBCOMMANDS = (("item-worktrees",), ("project", "register"))
 
 
 def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
@@ -122,32 +112,18 @@ def _is_yoke_payload_path_segment(command_base: str, tokens: List[str]) -> bool:
 
 
 def _remote_resource_indexes(command_base: str, tokens: List[str]) -> set[int]:
-    """Indexes naming a resource on another machine, not a local path.
+    """Indexes naming a remote resource, not a local filesystem path.
 
-    Two ``yoke`` shapes carry operands off this host: ``aws exec -- logs
-    tail <log-group>`` names an AWS resource, and ``qa mission
-    host-command ... -- ARGV...`` ships its whole argv over a mission's
-    retained Test Machine lease.
+    CloudWatch log-group operands on ``aws logs`` and host-command argv
+    after ``--`` run off this machine. Redirects stay local and are
+    classified before this skip.
     """
-    if command_base != "yoke":
-        return set()
-    remote = remote_argv_indexes(command_base, tokens)
-    if remote:
-        return remote
-    try:
-        separator = tokens.index("--")
-        adapter = tokens.index("aws", 1, separator)
-    except ValueError:
-        return set()
-    return {separator + 3} if (
-        tokens[adapter:adapter + 2] == ["aws", "exec"]
-        and tokens[separator + 1:separator + 3] == ["logs", "tail"]
-    ) else set()
+    return remote_argv_indexes(command_base, tokens) | aws_log_group_indexes(
+        command_base, tokens,
+    )
 
 _SED_SCRIPT_FLAGS = ("-e", "-f", "--expression", "--file")
-REDIRECT_OPERATORS = frozenset({
-    ">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>",
-})
+REDIRECT_OPERATORS = frozenset({">", ">>", "1>", "1>>", "2>", "2>>", "&>", "&>>"})
 
 
 def _segment_command_base(tokens: List[str]) -> str:
@@ -336,14 +312,8 @@ def strip_env_prefixes(tokens: List[str]) -> List[str]:
 
 
 __all__ = [
-    "FLAG_BINARY",
-    "FLAG_EQUALS_PREFIXES",
-    "REDIRECT_OPERATORS",
-    "STDOUT_REPORTERS",
-    "extract_command_targets",
-    "extract_heredoc_sections",
-    "resolve_command_targets",
-    "strip_heredoc_body_lines",
-    "strip_env_prefixes",
+    "FLAG_BINARY", "FLAG_EQUALS_PREFIXES", "REDIRECT_OPERATORS",
+    "STDOUT_REPORTERS", "extract_command_targets", "extract_heredoc_sections",
+    "resolve_command_targets", "strip_heredoc_body_lines", "strip_env_prefixes",
     "strip_heredoc_syntax",
 ]

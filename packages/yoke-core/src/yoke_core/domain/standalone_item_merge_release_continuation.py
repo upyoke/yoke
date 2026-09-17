@@ -16,67 +16,134 @@ gate looked.
 A failure here never fails the merge. The branch is already on the base
 branch by this point, and turning a landed merge into an error over a release
 hand-off would send an operator to repair a merge that is fine. The outcome
-is reported as a warning and the same command re-run finishes the job, since
-continuation re-derives everything it needs from durable rows.
+is reported as a warning and the registered continuation can finish the job,
+since it re-derives everything it needs from durable rows.
+
+The ask itself is the registered ``deployment_runs.continue_for_item``
+function, dispatched the same way the rest of standalone close-out writes:
+``call_dispatcher`` over the bound connection, with the merge session bound
+on the actor. Ordinary HTTPS projects stay on that connection; a local or
+self-hosted universe still dispatches in-process. This module never opens a
+control-plane database and never names a db-admin retry. Serving-API
+self-deploy restrictions stay on the execute path — continuation only binds
+lineage and hands off.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
+from yoke_contracts.api.function_call import TargetRef
+from yoke_core.api.service_client_structured_api_adapter import (
+    build_actor,
+    call_dispatcher,
+)
+from yoke_core.domain.close_out_control_plane_authority import connected_control_plane
 from yoke_core.engines.runs_continue_for_item import (
     OUTCOME_BOUND,
     OUTCOME_NONE,
     OUTCOME_WAITING,
-    continue_for_item,
 )
-from yoke_core.domain.project_identity_item_ref import item_ref_for_id
+
+CONTINUE_FUNCTION = "deployment_runs.continue_for_item"
+
+
+def _item_target(item_id: int) -> TargetRef:
+    return TargetRef(kind="item", item_id=int(item_id))
+
+
+def _inspect_clause(public_ref: str) -> str:
+    named = public_ref.strip()
+    if not named:
+        return (
+            " Inspect with `yoke deployment-runs find-by-item` or resume with "
+            "`yoke deployment-runs continue-for-item`."
+        )
+    return (
+        f" Inspect with `yoke deployment-runs find-by-item {named}` or resume "
+        f"with `yoke deployment-runs continue-for-item {named}`."
+    )
+
+
+def _explicit_warning(message: str, *, public_ref: str) -> str:
+    return (
+        f"{message} The merge is complete; this is not a merge failure."
+        f"{_inspect_clause(public_ref)}"
+    )
+
+
+def _relay_error(response: Any, fallback: str) -> str:
+    error = getattr(response, "error", None)
+    return getattr(error, "message", None) or fallback if error else fallback
+
+
+def _fragment(
+    result: dict[str, Any], *, public_ref: str,
+) -> tuple[dict[str, Any], str]:
+    fragment: dict[str, Any] = {
+        "run_id": result.get("run_id"),
+        "outcome": result.get("outcome"),
+    }
+    runs = result.get("runs")
+    if runs:
+        fragment["runs"] = list(runs)
+    if result.get("outcome") == OUTCOME_WAITING:
+        fragment["waiting_on"] = list(result.get("waiting_on") or [])
+        return fragment, ""
+    if result.get("outcome") == OUTCOME_BOUND:
+        fragment["release_lineage"] = result.get("release_lineage")
+        fragment["handed_off_to"] = result.get("handed_off_to")
+        if not result.get("message_id"):
+            resume = _inspect_clause(public_ref).strip()
+            return fragment, (
+                f"prepared run {result.get('run_id')} now names "
+                f"{result.get('release_lineage')} but the hand-off to the "
+                f"deploy authority was not delivered. {resume}"
+            )
+        fragment["message_id"] = result.get("message_id")
+    return fragment, ""
 
 
 def continue_prepared_release(
     *,
     item_id: int,
     session_id: str = "",
-) -> tuple[dict[str, Any] | None, str]:
+    public_ref: str = "",
+) -> tuple[Optional[dict[str, Any]], str]:
     """Advance a prepared release this merge may complete.
 
     Returns ``(envelope_fragment, warning)``. Both are empty when no prepared
     run is waiting on this item, which is the ordinary case.
     """
+    named = (public_ref or "").strip()
     try:
-        outcome = continue_for_item(item_id, session_id=session_id or None)
-    except Exception as exc:
-        return None, (
-            f"prepared release continuation could not be evaluated: {exc}. "
-            "The merge is complete; re-run this command, or check with "
-            f"`yoke deployment-runs find-by-item {item_ref_for_id(item_id)} "
-        "--status created`"
-        )
-    if outcome.outcome == OUTCOME_NONE:
-        return None, ""
-    if not outcome.ok:
-        return None, f"prepared release not advanced: {outcome.error}"
-    fragment: dict[str, Any] = {
-        "run_id": outcome.run_id,
-        "outcome": outcome.outcome,
-    }
-    if outcome.runs:
-        fragment["runs"] = list(outcome.runs)
-    if outcome.outcome == OUTCOME_WAITING:
-        fragment["waiting_on"] = list(outcome.waiting_on)
-        return fragment, ""
-    if outcome.outcome == OUTCOME_BOUND:
-        fragment["release_lineage"] = outcome.release_lineage
-        fragment["handed_off_to"] = outcome.handed_off_to
-        if not outcome.message_id:
-            return fragment, (
-                f"prepared run {outcome.run_id} now names "
-                f"{outcome.release_lineage} but the hand-off to the deploy "
-                "authority was not delivered; re-run this command, or tell "
-                f"the holder to run `yoke deployment-runs get {outcome.run_id}`"
+        with connected_control_plane():
+            response = call_dispatcher(
+                function_id=CONTINUE_FUNCTION,
+                target=_item_target(item_id),
+                payload={},
+                actor=build_actor(session_id=session_id or None),
             )
-        fragment["message_id"] = outcome.message_id
-    return fragment, ""
+    except Exception as exc:
+        return None, _explicit_warning(
+            f"prepared release continuation could not be evaluated: {exc}.",
+            public_ref=named,
+        )
+    if not getattr(response, "success", False):
+        return None, _explicit_warning(
+            "prepared release continuation could not be evaluated: "
+            f"{_relay_error(response, 'continuation failed')}.",
+            public_ref=named,
+        )
+    result = getattr(response, "result", None) or {}
+    if result.get("ok") is False:
+        return None, _explicit_warning(
+            f"prepared release not advanced: {result.get('error')}.",
+            public_ref=named,
+        )
+    if result.get("outcome") == OUTCOME_NONE:
+        return None, ""
+    return _fragment(result, public_ref=named)
 
 
-__all__ = ["continue_prepared_release"]
+__all__ = ["CONTINUE_FUNCTION", "continue_prepared_release"]

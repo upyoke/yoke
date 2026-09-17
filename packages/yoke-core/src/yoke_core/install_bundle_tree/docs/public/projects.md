@@ -32,9 +32,18 @@ yoke project install ~/path/to/checkout
 
 Writes skills, agents, hooks, contract seeds, and `.yoke/docs` from the
 engine. Refresh after upgrades the same way. Both operations require a
-clean checkout on the project default branch, then commit the bundle
-output. `--force` overrides the checkout gate; `--no-commit` skips the
-commit. Pushing stays an operator decision.
+clean checkout on the project default branch, fast-forward it onto its
+remote so the layer is generated against current upstream, commit the
+bundle output, and push that commit. A branch that refuses a direct push
+gets the same commit on a `yoke-install/<sha>` branch and a pull request;
+a push that cannot land leaves `publication_pending` in the report with
+the commit and the recovery command, and exits `3`.
+
+`--force` overrides the checkout gate; `--no-commit` skips the commit;
+`--no-publish` commits without pushing. A checkout with no remote, and a
+default branch carrying your own unpushed commits, are both reported
+rather than pushed — publishing the layer is not permission to publish
+anything else on the branch.
 
 ## Init git and a private GitHub remote
 

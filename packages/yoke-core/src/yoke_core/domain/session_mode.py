@@ -1,11 +1,13 @@
-"""Session queue posture: parked waits until an explicit mode stamp leaves it."""
+"""Session queue posture: parked waits until a mode stamp or confirmed turn start."""
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.schema_common import _get_columns as _schema_get_columns
+from yoke_core.domain.session_turn_posture import posture_timestamp
 from yoke_core.domain.sessions_analytics import SessionError
 from yoke_core.domain.sessions_ended_recovery import session_ended_message
 from yoke_core.domain.sessions_queries_base import _row_to_dict
@@ -72,7 +74,11 @@ def set_session_mode(
     mode: str,
     reason: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Persist mode and its optional quiet reason without touching heartbeat."""
+    """Persist mode and its optional quiet reason without touching heartbeat.
+
+    A parked write also advances ``turn_posture_at`` so a delayed accepted
+    prompt observed before that write cannot clear the fresh park.
+    """
     row = _load_session(conn, session_id)
     if row.get("ended_at") is not None:
         raise SessionError("SESSION_ENDED", session_ended_message(conn, session_id))
@@ -102,15 +108,32 @@ def set_session_mode(
             f"UPDATE harness_sessions SET mode = {marker} WHERE session_id = {marker}",
             (stored_mode, session_id),
         )
+    if stored_mode == SESSION_MODE_PARKED:
+        _advance_parked_order_clock(conn, session_id)
     conn.commit()
     return _load_session(conn, session_id)
+
+
+def _advance_parked_order_clock(conn: Any, session_id: str) -> None:
+    """Let a parked write win the same order clock delayed prompt stamps use."""
+    if "turn_posture_at" not in _session_columns(conn):
+        return
+    stamp = posture_timestamp(datetime.now(timezone.utc))
+    marker = _p(conn)
+    conn.execute(
+        f"UPDATE harness_sessions SET turn_posture_at = {marker} "
+        f"WHERE session_id = {marker} "
+        f"AND (turn_posture_at IS NULL OR turn_posture_at < {marker})",
+        (stamp, session_id, stamp),
+    )
 
 
 def clear_parked_mode(conn: Any, session_id: str) -> bool:
     """Explicit unpark back to wait. No-op when the session is not parked.
 
     Activity-state writers must skip fixtures that have no ``mode`` column.
-    Tool-call telemetry does not call this; stamp a working mode to leave.
+    Tool-call telemetry does not call this. The accepted UserPromptSubmit
+    turn-start tail does, after its running posture stamp actually applies.
     """
     if not session_id:
         return False

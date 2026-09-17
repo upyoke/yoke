@@ -87,8 +87,9 @@ def test_cmd_prune_emits_audit_fingerprint(tmp_path: Path) -> None:
         assert row[2] and "retention" in row[2].lower()
         pre = json.loads(row[3])["events"]
         post = json.loads(row[4])["events"]
-        assert pre == 2
-        assert post == 1
+        # Event pre/post are this-pass deleted vs 0 (no table-wide COUNT).
+        assert pre == 1
+        assert post == 0
 
 
 def test_cmd_prune_dry_run_no_fingerprint(tmp_path: Path) -> None:
@@ -129,7 +130,7 @@ def test_cmd_prune_removes_explicitly_purged_event_rows(tmp_path: Path) -> None:
         finally:
             conn.close()
 
-        result = events_crud.cmd_prune(str(db_path), dry_run=False)
+        result = events_crud.cmd_prune(str(db_path), dry_run=False, purge_obsolete=True)
         assert "obsolete=1" in result
 
         conn = connect_test_db(db_path)
@@ -143,7 +144,9 @@ def test_cmd_prune_removes_explicitly_purged_event_rows(tmp_path: Path) -> None:
         assert remaining[0] == 0
 
 
-def test_cmd_prune_preserves_event_rows_referenced_by_path_audits(tmp_path: Path) -> None:
+def test_cmd_prune_preserves_event_rows_referenced_by_path_audits(
+    tmp_path: Path,
+) -> None:
     """Explicit cleanup does not invalidate immutable path-audit references."""
     with init_test_db(
         tmp_path, apply_schema=_apply_events_and_migration_audit_schema
@@ -151,9 +154,7 @@ def test_cmd_prune_preserves_event_rows_referenced_by_path_audits(tmp_path: Path
         now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         conn = connect_test_db(db_path)
         try:
-            conn.execute(
-                "CREATE TABLE path_moves (recorded_event_id TEXT NOT NULL)"
-            )
+            conn.execute("CREATE TABLE path_moves (recorded_event_id TEXT NOT NULL)")
             conn.execute(
                 "INSERT INTO events (event_id, source_type, session_id, severity, "
                 "event_kind, event_type, event_name, created_at) "
@@ -168,7 +169,7 @@ def test_cmd_prune_preserves_event_rows_referenced_by_path_audits(tmp_path: Path
         finally:
             conn.close()
 
-        result = events_crud.cmd_prune(str(db_path), dry_run=False)
+        result = events_crud.cmd_prune(str(db_path), dry_run=False, purge_obsolete=True)
         assert "obsolete=0" in result
 
         conn = connect_test_db(db_path)

@@ -112,17 +112,27 @@ def requirement_set_result(
         missing_verification_requirement_errors,
     )
     from yoke_core.domain.qa_workflow_binding_validation import (
-        item_transition_for_gate,
+        attachment_transition_for_item,
+        optional_unattached_qa_permits_empty,
     )
-    from yoke_core.domain.workflow_gate_catalog import GATE_QA_VERIFICATION
+    from yoke_core.domain import db_backend
 
-    transition_id = item_transition_for_gate(
-        conn,
-        item_id=(
-            int(target.item_id) if target.item_id is not None else int(target.epic_id)
-        ),
-        gate_id=GATE_QA_VERIFICATION,
+    item_id = (
+        int(target.item_id) if target.item_id is not None else int(target.epic_id)
     )
+    if optional_unattached_qa_permits_empty(conn, item_id):
+        attached = 0
+        if _table_exists(conn, "qa_plan_item_attachments"):
+            marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+            attached = query_scalar(
+                conn,
+                "SELECT COUNT(*) FROM qa_plan_item_attachments "
+                f"WHERE item_id = {marker}",
+                (item_id,),
+            )
+        if not attached:
+            return None
+    transition_id = attachment_transition_for_item(conn, item_id=item_id)
     return GateResult(
         passed=False,
         errors=missing_verification_requirement_errors(

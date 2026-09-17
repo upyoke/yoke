@@ -7,11 +7,13 @@ paths read the same registered flow, the same target tier, and the same
 project delivery default rather than each guessing from the flow id's own
 name. A flow is merge-only only when it is genuinely registered AND its own
 ``target_tier`` resolves to null -- never from the flow id's own spelling
-(an arbitrary or newly created flow must not waive a release wait by name),
-and never from an empty ``deployment_flow`` scalar alone, which instead
-falls back to the project's configured default before any merge-only
-judgment is made. A flow-name shortcut here would reproduce the documented
-deployment-guard defect of returning clear for an unproven flow
+(an arbitrary or newly created flow must not waive a release wait by name).
+An empty scalar still resolves the project's configured default first. When
+neither an explicit flow nor that default names one, delivery is not required
+and the reading is merge-only, matching a release wait that already says an
+item with no deployment posture or flow passes through. A flow-name
+shortcut would still reproduce the documented deployment-guard defect of
+returning clear for an unproven flow
 (``docs/archive/decisions/gate-satisfier-ladders.md``).
 """
 
@@ -93,9 +95,9 @@ def deployment_flow_target_tier(deploy_flow: str) -> str:
 class DeliveryClearance:
     """Whether delivery is discharged without a release wait.
 
-    ``blocked_reason`` is non-empty when neither an explicit flow nor a
-    configured default names one at all -- there is no clearance question
-    to answer yet, so the caller refuses rather than guessing either way.
+    ``blocked_reason`` is non-empty when an explicit or resolved flow is
+    unreadable or unregistered. An empty scalar with no configured
+    default is merge-only: there is no required deployment to wait on.
     """
 
     merge_only: bool
@@ -109,10 +111,11 @@ def resolve_delivery_clearance(
     """Resolve whether ``deploy_flow`` (or the project's configured default,
     when empty) discharges delivery without a release wait.
 
-    An empty ``deployment_flow`` scalar is never itself the merge-only
-    signal -- it resolves the project's configured default first, exactly
-    as the done-transition engine's own guard does, so a newly supported
-    item with a real default configured still waits on it.
+    An empty ``deployment_flow`` scalar resolves the project's configured
+    default first, exactly as the done-transition engine's own guard does,
+    so a newly supported item with a real default still waits on it.
+    When that default is also empty, delivery is not required and the
+    close-out is merge-only rather than a setup refusal.
     """
     flow = deploy_flow
     if not flow:
@@ -120,15 +123,7 @@ def resolve_delivery_clearance(
             item_project=item_project, workflow_id=workflow_id
         )
         if not flow:
-            return DeliveryClearance(
-                merge_only=False,
-                resolved_flow="",
-                blocked_reason=(
-                    f"no deployment flow selected, and project {item_project!r} "
-                    "has no workflow-specific or project-wide delivery default "
-                    f"configured for workflow {workflow_id!r}."
-                ),
-            )
+            return DeliveryClearance(merge_only=True, resolved_flow="")
     if flow not in registered_deployment_flow_ids():
         return DeliveryClearance(
             merge_only=False,

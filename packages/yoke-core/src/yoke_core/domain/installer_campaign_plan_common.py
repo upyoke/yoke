@@ -29,7 +29,8 @@ DUAL_HOST_BASELINES = [FRESH_HOST, SHELL_PRECONFIGURED]
 PUBLIC_STAGE_INSTALL = (
     f"/usr/bin/curl -fsSL {DISTRIBUTION_URL}/install | "
     f"/usr/bin/env YOKE_INSTALL_BASE_URL={DISTRIBUTION_URL} "
-    "YOKE_CHANNEL=latest /bin/sh"
+    f"YOKE_CHANNEL=latest {DESTINATION_OVERRIDE}={HOSTED_STAGE_PLATFORM_URL} "
+    "/bin/sh"
 )
 PUBLIC_STAGE_WELCOME = (
     f"/usr/bin/curl -fsSL {DISTRIBUTION_URL}/install | "
@@ -68,7 +69,6 @@ PARENT_HANDOFF_TEXT = (
     "Next: make it execution-ready.",
     "run /yoke onboard",
 )
-HOSTED_CONNECTED_TEXT = ("Yoke token connected.",)
 PATH_READY_TEXT = ("Yoke is already on your PATH.",)
 MACHINE_GITHUB_TEXT = ("Connect GitHub?",)
 PROJECT_MODE_TEXT = ("Set up a project.", "Where's the code?")
@@ -82,8 +82,6 @@ BROWSER_PRIMARY_POST_CHECKS = (
     "no_text:Paste your Yoke API token.",
 )
 
-CHOOSE_STAGE_KEYS = ("Down", "Down", "Down", "Down", "Enter")
-CHOOSE_PRODUCTION_KEYS = ("Down", "Down", "Down", "Enter")
 CHOOSE_BACKLOG_KEYS = ("Down", "Enter")
 CHOOSE_MACHINE_ONLY_KEYS = ("Down", "Down", "Down", "Down", "Enter")
 
@@ -250,11 +248,8 @@ __all__ = [
     "BROWSER_PRIMARY_POST_CHECKS",
     "CHOOSE_BACKLOG_KEYS",
     "CHOOSE_MACHINE_ONLY_KEYS",
-    "CHOOSE_STAGE_KEYS",
-    "CHOOSE_PRODUCTION_KEYS",
     "DUAL_HOST_BASELINES",
     "FRESH_HOST",
-    "HOSTED_CONNECTED_TEXT",
     "HOSTED_STAGE_ONBOARD",
     "MACHINE_GITHUB_TEXT",
     "PARENT_HANDOFF_TEXT",

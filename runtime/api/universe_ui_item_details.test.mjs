@@ -113,7 +113,9 @@ for (const workflowId of ["issue", "dash"]) {
 
     assert.deepEqual(requests[0], {
       function: "items.detail.get",
-      payload: {},
+      // The page renders the item's prose, so it names every content
+      // section; the default read serves the content index instead.
+      payload: { include: ["narrative", "body", "progress_log"] },
       target: {
         kind: "item",
         public_ref: "ACM-22",

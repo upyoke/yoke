@@ -52,7 +52,11 @@ class ItemsOverviewListResponse(BaseModel):
 
 
 class ItemDetailGetRequest(BaseModel):
-    pass
+    #: Content sections to serve in full. Omitted means none of them: the
+    #: response still reports every section in ``item.content_index`` with
+    #: the command that returns it, so a caller that wants the item's
+    #: posture never transfers its prose to find that out.
+    include: list[str] | None = None
 
 
 class ItemDetailGetResponse(BaseModel):
@@ -60,7 +64,15 @@ class ItemDetailGetResponse(BaseModel):
     # Operator execution instructions resolved from the item's pinned
     # workflow and project — a separate field, never spliced into item
     # content, so structured-field writes cannot round-trip it back.
+    # Served with their prose exactly when this response carries item
+    # content, the rule ``items.get.run`` already applies to its own body
+    # projection: authority travels with the content it governs. Empty and
+    # withheld are told apart by ``item.content_index.execution_instructions``,
+    # whose ``count`` is zero only when no instruction governs the item.
     execution_instructions: list[dict[str, Any]]
+    #: The sections this response actually served, echoed so a caller reading
+    #: an absent section knows it was not asked for rather than not stored.
+    include: list[str]
 
 
 def _error(code: str, message: str, jsonpath: str | None = None) -> HandlerOutcome:
@@ -213,10 +225,29 @@ def handle_item_detail_get(request: FunctionCallRequest) -> HandlerOutcome:
             "items.detail.get requires a resolved item target",
             "$.target",
         )
+    try:
+        payload = ItemDetailGetRequest.model_validate(request.payload or {})
+    except Exception as exc:
+        return _error("payload_invalid", str(exc), "$.payload")
+    from yoke_contracts.item_content_sections import (
+        CONTENT_BEARING_SECTIONS,
+        DETAIL_INCLUDE_SECTIONS,
+    )
+    from yoke_core.domain.item_content_index import instruction_index
     from yoke_core.domain.item_detail_read import get_item_detail
 
+    include = list(dict.fromkeys(payload.include or []))
+    unknown = [name for name in include if name not in DETAIL_INCLUDE_SECTIONS]
+    if unknown:
+        return _error(
+            "payload_invalid",
+            f"unknown content section(s) {', '.join(unknown)}; include names "
+            f"any of {', '.join(DETAIL_INCLUDE_SECTIONS)}, and every section "
+            "is reported in item.content_index with the read that returns it",
+            "$.payload.include",
+        )
     try:
-        item = get_item_detail(int(request.target.item_id))
+        item = get_item_detail(int(request.target.item_id), include=include)
     except LookupError as exc:
         return _error("not_found", str(exc))
     from yoke_core.domain.db_helpers import connect
@@ -224,8 +255,18 @@ def handle_item_detail_get(request: FunctionCallRequest) -> HandlerOutcome:
 
     with connect() as conn:
         instructions = resolve_for_item(conn, int(request.target.item_id))
+    item["content_index"]["execution_instructions"] = instruction_index(
+        instructions,
+        workflow_id=str(item["workflow"]["id"]),
+        project_slug=str(item["project"]["slug"]),
+    )
+    serves_content = any(name in include for name in CONTENT_BEARING_SECTIONS)
     return HandlerOutcome(
-        result_payload={"item": item, "execution_instructions": instructions},
+        result_payload={
+            "item": item,
+            "execution_instructions": instructions if serves_content else [],
+            "include": include,
+        },
         primary_success=True,
     )
 

@@ -68,7 +68,10 @@ def test_inspection_screen_names_every_group_and_both_choices(
     assert any(line.startswith(".yoke —") for line in lines)
     assert any("your own text stays" in line for line in lines)
     assert any("your other settings stay" in line for line in lines)
-    assert {row.value for row in LAYER_ROWS} == set(layer.LAYER_DECISIONS)
+    assert {row.value for row in LAYER_ROWS} == {
+        *layer.LAYER_DECISIONS,
+        "details",
+    }
     assert inspection_body(scan)
 
 
@@ -126,7 +129,9 @@ def _stub_clone(monkeypatch, root: Path, builder) -> list[Path]:
         return False
 
     monkeypatch.setattr(
-        project_onboard_clone, "resumable_clone_with_machine_access", clone,
+        project_onboard_clone,
+        "resumable_clone_with_machine_access",
+        clone,
     )
     monkeypatch.setattr(inspection, "github_connected", lambda _result: False)
     return cloned
@@ -156,6 +161,9 @@ def test_wizard_records_the_removal_decision_and_continues(
     shell._materialize_and_inspect_checkout()
 
     shell._on_checkout_inspection(layer.LAYER_DECISION_REMOVE)
+    assert shell.result.project_clone_existing_layer_decision == ""
+    assert len(shell.views) == 2
+    shell._on_checkout_removal_confirmation("confirm-remove")
 
     assert (
         shell.result.project_clone_existing_layer_decision
@@ -186,7 +194,9 @@ def test_wizard_offers_another_folder_when_the_fetch_fails(
         raise ProjectOnboardError("remote refused the clone")
 
     monkeypatch.setattr(
-        project_onboard_clone, "resumable_clone_with_machine_access", fail,
+        project_onboard_clone,
+        "resumable_clone_with_machine_access",
+        fail,
     )
     monkeypatch.setattr(inspection, "github_connected", lambda _result: False)
     shell = _InspectionShell(tmp_path / "buzz", "https://github.com/acme/buzz.git")

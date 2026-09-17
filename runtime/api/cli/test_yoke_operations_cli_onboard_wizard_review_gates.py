@@ -19,12 +19,12 @@ from textual.widgets import Static  # noqa: E402
 from yoke_cli.config import onboard_project  # noqa: E402
 
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
+    accept_project_details,
     advance_past_path,
     complete_board_art,
     make_app,
     skip_hosting,
     stub_path_doctor,
-    submit_public_item_prefix,
     type_text,
 )
 
@@ -40,7 +40,8 @@ def _stub_owners(monkeypatch):
     from yoke_cli.config import onboard_wizard_flow
 
     monkeypatch.setattr(
-        onboard_wizard_flow, "fetch_repo_owners",
+        onboard_wizard_flow,
+        "fetch_repo_owners",
         lambda api_url, token: [github_publish.RepoOwner("octocat", "user")],
     )
 
@@ -56,7 +57,7 @@ async def _pick_mode(pilot, value: str) -> None:
 
 async def _skip_machine_github(pilot) -> None:
     await advance_past_path(pilot)
-    await pilot.press("down")   # machine github: Skip for now
+    await pilot.press("down")  # machine github: Skip for now
     await pilot.press("enter")
 
 
@@ -77,7 +78,8 @@ def test_review_preflight_blocks_apply_until_clear(monkeypatch) -> None:
 
     # Force one pre-flight problem so the Review screen renders the blocked rows.
     monkeypatch.setattr(
-        WizardFlow, "_review_preflight",
+        WizardFlow,
+        "_review_preflight",
         lambda self: PreflightResult(
             problems=["That folder already has files — pick an empty or new path."],
             notes=[],
@@ -92,12 +94,9 @@ def test_review_preflight_blocks_apply_until_clear(monkeypatch) -> None:
             await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name
-            await pilot.press("down")   # publish: No
+            await accept_project_details(pilot)
+            await pilot.press("down")  # publish: No
             await pilot.press("enter")
-            await pilot.press("enter")  # default branch main
-            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)  # board art -> hosting
             await skip_hosting(pilot)  # hosting: skip -> Review (blocked)
             await pilot.pause()

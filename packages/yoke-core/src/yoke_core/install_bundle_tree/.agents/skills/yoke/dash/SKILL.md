@@ -30,7 +30,7 @@ function-call envelope:
 |---|---|---|
 | `items.create` | Global target; Dash title, instruction, project, entry surface, permitted posture, and the operator execution-instruction attestation | `yoke dash "<title>" "<instruction>" --execution-instructions-considered --json` |
 | `workflow.execution_instruction.resolve` | Global target; named workflow and project; read-only matching instructions | `yoke workflow execution-instruction resolve --workflow W --project P` |
-| `items.detail.get` | Item target; empty payload | `yoke items detail get ITEM --json` |
+| `items.detail.get` | Item target; optional `include` naming content sections (`narrative`, `body`, `progress_log`) — omit for the posture plus `content_index`, which names each stored section and the read that returns it | `yoke items detail get ITEM --json` |
 | `github.merge_queue.readiness` | Item target; empty payload; reads PR and target-branch queue without mutation | `yoke github merge-queue readiness ITEM --json` |
 | `github.merge_queue.hold` | Item target; empty payload; clears merge-when-ready, removes the queue entry, and verifies both before a correction is pushed | `yoke github merge-queue hold ITEM --json` |
 | `claims.work.acquire` | Item target; `reason` | `yoke claims work acquire --item ITEM --reason TEXT` |
@@ -208,6 +208,12 @@ yoke items detail get ITEM --json
 yoke workflows item get ITEM --json
 ```
 
+The detail read serves the item's stored narrative and the operator
+execution instructions that travel with it. It does not serve the rendered
+body or the Progress Log: `result.item.content_index` names those with the
+exact command that returns each, so read one when you need it rather than
+carrying both copies of the same prose. `--full` serves every section.
+
 Require `workflow_id=dash`, status `idea` or a resumable Dash stage, and
 retain the stored instruction. Set `FILE_BUDGET_POLICY` and
 `PATH_CLAIMS_POLICY` from
@@ -301,7 +307,7 @@ Never remove a required file merely to make the survey clear.
 Run this immediately after recording the survey above — before reading
 further file contents, tracing implementation details, or making any edit.
 
-Prepare the ordinary item lane:
+Prepare the item lane (a `--no-changes` survey skips creation):
 
 ```text
 yoke direct-workflow worktree prepare ITEM --workflow dash --json
@@ -333,9 +339,9 @@ yoke lifecycle transition ITEM --from idea --to implementing --reason "Dash exec
 
 The live `conflict_survey` gate requires a recorded, readable touch set and
 re-evaluates current contacts, but an overlap does not block the transition.
-The `work_claim_activation` gate still verifies that this session owns the
-active item claim and that the item has its registered implementation
-worktree. Read and resolve every survey advisory through the choices above.
+The `work_claim_activation` gate verifies this session owns the item claim.
+`--no-changes` skips the git lane; otherwise the item needs its worktree.
+Read and resolve every survey advisory through the choices above.
 
 ### 4-7. Execute, verify, and close
 

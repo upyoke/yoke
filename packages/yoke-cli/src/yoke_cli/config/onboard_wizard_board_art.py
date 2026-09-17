@@ -46,7 +46,11 @@ _SIMULATED_STATS_COUNTS = {
 
 
 def generate_variant(
-    *, kind: str, word: str, seed_text: str | None, attempt: int,
+    *,
+    kind: str,
+    word: str,
+    seed_text: str | None,
+    attempt: int,
     image_column: str | None = None,
 ) -> Any:
     """Generate one header variant for the current draft (ASCII / Mixed /
@@ -54,22 +58,34 @@ def generate_variant(
     text and the master-map default both bypass the auto-chosen project word."""
     if kind == "ASCII":
         return generate_random_ascii_variant_detail(
-            word=word, seed_text=seed_text, attempt=attempt,
+            word=word,
+            seed_text=seed_text,
+            attempt=attempt,
             max_width=DEFAULT_VARIANT_MAX_WIDTH,
         )
     if image_column is not None:
         return generate_random_image_mixed_variant_detail(
-            "", image_column, word=word, seed_text=seed_text, attempt=attempt,
+            "",
+            image_column,
+            word=word,
+            seed_text=seed_text,
+            attempt=attempt,
             max_width=DEFAULT_VARIANT_MAX_WIDTH,
         )
     return generate_random_mixed_variant_detail(
-        word=word, seed_text=seed_text, attempt=attempt,
+        word=word,
+        seed_text=seed_text,
+        attempt=attempt,
         max_width=DEFAULT_VARIANT_MAX_WIDTH,
     )
 
 
 def build_image(
-    *, path: Path, word: str, seed_text: str | None, master_map_word: str,
+    *,
+    path: Path,
+    word: str,
+    seed_text: str | None,
+    master_map_word: str,
 ) -> tuple[str, Any, str]:
     """Convert an image to a variant. Returns ``(kind, variant, emoji_column)``.
 
@@ -129,7 +145,18 @@ def preview_meta(variant: Any, image_path: str | None) -> str | None:
 
 
 def preview_rows(kind: str, is_image: bool) -> list[SelectionRow]:
-    rows = [SelectionRow("save", "Save to board", "keep this one")]
+    rows = [
+        SelectionRow(
+            "save-continue",
+            "Save and continue",
+            "keep this header and finish board art",
+        ),
+        SelectionRow(
+            "save-another",
+            "Save and add another",
+            "keep this header and return to styles",
+        ),
+    ]
     if kind != "Emoji":
         shuffle_hint = (
             "another font" if (kind == "ASCII" or is_image) else "new font + emoji"
@@ -160,8 +187,12 @@ def render_master_map(word: str) -> str:
 
     lines = _master_map_lines(word)
     return render_header(
-        None, BoardConfig(), ArtConfig(master_map=lines),
-        "frontier", None, _SIMULATED_FRONTIER_COUNTS,
+        None,
+        BoardConfig(),
+        ArtConfig(master_map=lines),
+        "frontier",
+        None,
+        _SIMULATED_FRONTIER_COUNTS,
         stats_counts=_SIMULATED_STATS_COUNTS,
         stats_total=_SIMULATED_TOTAL,
         seed=0,

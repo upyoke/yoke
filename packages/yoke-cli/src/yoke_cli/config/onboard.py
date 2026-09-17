@@ -6,8 +6,6 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-from yoke_cli.config import harness_posture_install
-from yoke_contracts import harness_unattended_posture
 from yoke_contracts import hosting_posture
 from yoke_contracts.machine_config import schema as machine_schema
 
@@ -16,25 +14,25 @@ from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_apply_path
 from yoke_cli.config import onboard_apply_connection
 from yoke_cli.config import onboard_apply_project_handoff
+from yoke_cli.config import onboard_apply_runtime
 from yoke_cli.config import onboard_bridge
 from yoke_cli.config import onboard_destinations
 from yoke_cli.config import onboard_machine_github
-from yoke_cli.config import onboard_machine_registry
 from yoke_cli.config import onboard_credential_replacement
 from yoke_cli.config import onboard_credential_source
 from yoke_cli.config import onboard_project
 from yoke_cli.config import onboard_report
 from yoke_cli.config import onboard_reuse_state
 from yoke_cli.config import onboard_session_relay
+from yoke_cli.config import onboard_source_edit
 from yoke_cli.config import onboard_apply_progress
-from yoke_cli.config import writer
 
 PROJECT_MODE_MACHINE_ONLY = onboard_project.PROJECT_MODE_MACHINE_ONLY
 PROJECT_MODE_CREATE_REPO = onboard_project.PROJECT_MODE_CREATE_REPO
 PROJECT_MODE_CLONE_REMOTE = onboard_project.PROJECT_MODE_CLONE_REMOTE
 PROJECT_MODE_IMPORT_REMOTE = onboard_project.PROJECT_MODE_IMPORT_REMOTE
 PROJECT_MODE_LOCAL_CHECKOUT = onboard_project.PROJECT_MODE_LOCAL_CHECKOUT
-PROJECT_MODE_SOURCE_DEV_ADMIN = onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
+PROJECT_MODE_EDIT_YOKE_SOURCE = onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE
 PROJECT_MODES = onboard_project.PROJECT_MODES
 
 
@@ -82,6 +80,8 @@ def build_report(
     project_keep_existing_remote: bool = False,
     progress: onboard_apply_progress.ProgressCallback | None = None,
     harness_posture: bool = True,
+    same_host_self_host: bool = False,
+    self_host_directory: str | None = None,
 ) -> Dict[str, Any]:
     """Return the onboarding report, applying the write plan when requested."""
     cfg_path = machine_config.config_path(config_path)
@@ -175,6 +175,7 @@ def build_report(
         reuse=reuse,
         local_destination=local_destination,
         harness_posture=harness_posture,
+        same_host_self_host=same_host_self_host,
     )
     report: Dict[str, Any] = {
         "operation": "onboard",
@@ -196,7 +197,17 @@ def build_report(
             local_destination=local_destination,
         ),
     }
-    if normalized_project_mode != PROJECT_MODE_MACHINE_ONLY:
+    if normalized_project_mode == PROJECT_MODE_EDIT_YOKE_SOURCE:
+        report["source_edit"] = onboard_source_edit.build_report(
+            checkout=str(project_checkout or ""),
+            remote_url=project_remote_url,
+            destination=destination,
+            same_host_self_host=same_host_self_host,
+            self_host_directory=self_host_directory,
+            config_path=str(cfg_path),
+            apply=False,
+        )
+    elif normalized_project_mode != PROJECT_MODE_MACHINE_ONLY:
         report["project_onboarding"] = onboard_bridge.project_report(
             error_cls=OnboardError,
             config_path=cfg_path,
@@ -240,41 +251,15 @@ def build_report(
             check_identity=check_identity,
             error_cls=OnboardError,
         )
-    runtime_steps = tuple(
-        step
-        for step in (
-            None if reuse.get("temp_root") else ("create-runtime-dir", "temp_root"),
-            None if reuse.get("cache_dir") else ("create-runtime-dir", "cache_dir"),
-        )
-        if step is not None
-    )
-    if runtime_steps:
-        onboard_apply_progress.emit_many(progress, runtime_steps, "running")
-        writer.set_runtime_paths(
-            temp_root=cfg_path.parent / "tmp",
-            cache_dir=cfg_path.parent / "cache",
-            path=cfg_path,
-        )
-        _ensure_runtime_dirs(cfg_path)
-        onboard_apply_progress.emit_many(progress, runtime_steps, "done")
-    if harness_posture:
-        posture_step = (
-            harness_unattended_posture.POSTURE_PLAN_ACTION,
-            "detected",
-        )
-        onboard_apply_progress.emit(progress, *posture_step, "running")
-        report["harness_unattended_posture"] = (
-            harness_posture_install.apply_reported()
-        )
-        onboard_apply_progress.emit(progress, *posture_step, "done")
-    onboard_session_relay.apply(
-        progress,
-        report,
-        local_destination=local_destination,
+    onboard_apply_runtime.apply(
         config_path=cfg_path,
+        reuse=reuse,
+        harness_posture=harness_posture,
+        progress=progress,
+        report=report,
+        local_destination=local_destination,
         environment=env_name,
     )
-    onboard_machine_registry.apply(cfg_path, progress=progress, report=report)
     if reuse.get("machine_github"):
         report["machine_github"] = dict(machine_github)
     else:
@@ -295,7 +280,19 @@ def build_report(
         )
     report["applied"] = True
     report["message"] = "machine config written"
-    if normalized_project_mode != PROJECT_MODE_MACHINE_ONLY:
+    if normalized_project_mode == PROJECT_MODE_EDIT_YOKE_SOURCE:
+        report["source_edit"] = onboard_source_edit.build_report(
+            checkout=str(project_checkout or ""),
+            remote_url=project_remote_url,
+            destination=destination,
+            same_host_self_host=same_host_self_host,
+            self_host_directory=self_host_directory,
+            config_path=str(cfg_path),
+            apply=True,
+            progress=progress,
+        )
+        report["message"] = "machine config and Yoke source activation written"
+    elif normalized_project_mode != PROJECT_MODE_MACHINE_ONLY:
         onboard_apply_project_handoff.apply(
             report,
             error_cls=OnboardError,
@@ -322,11 +319,6 @@ def render_human(report: Dict[str, Any]) -> str:
     return onboard_report.render_human(report)
 
 
-def _ensure_runtime_dirs(config_path: Path) -> None:
-    Path(machine_config.temp_root(config_path)).mkdir(parents=True, exist_ok=True)
-    machine_config.cache_dir(config_path).mkdir(parents=True, exist_ok=True)
-
-
 __all__ = [
     "OnboardError",
     "PROJECT_MODE_CLONE_REMOTE",
@@ -334,7 +326,7 @@ __all__ = [
     "PROJECT_MODE_IMPORT_REMOTE",
     "PROJECT_MODE_LOCAL_CHECKOUT",
     "PROJECT_MODE_MACHINE_ONLY",
-    "PROJECT_MODE_SOURCE_DEV_ADMIN",
+    "PROJECT_MODE_EDIT_YOKE_SOURCE",
     "PROJECT_MODES",
     "build_report",
     "dumps_json",

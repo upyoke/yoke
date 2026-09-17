@@ -21,7 +21,7 @@ from typing import Any, Callable, Sequence
 from textual.widgets import Input, Static
 
 from yoke_cli.config.onboard_wizard_state import _FormField, _PendingForm
-from yoke_cli.config.onboard_wizard_widgets import FocusInput
+from yoke_cli.config.onboard_wizard_widgets import FocusInput, SelectionList
 
 
 def form_field_widgets(fields: Sequence[_FormField]) -> list[Static]:
@@ -34,13 +34,16 @@ def form_field_widgets(fields: Sequence[_FormField]) -> list[Static]:
     widgets: list[Static] = []
     for index, field in enumerate(fields):
         widgets.append(Static(f"  {field.label}", classes="onboard-plan-line"))
-        widgets.append(FocusInput(
-            placeholder=field.placeholder,
-            password=field.password,
-            id=field.input_id,
-            classes="onboard-input onboard-form-input",
-            claim_focus=index == 0,
-        ))
+        widgets.append(
+            FocusInput(
+                value=field.initial_value,
+                placeholder=field.placeholder,
+                password=field.password,
+                id=field.input_id,
+                classes="onboard-input onboard-form-input",
+                claim_focus=index == 0,
+            )
+        )
         widgets.append(Static("", id=field.error_id, classes="onboard-field-error"))
     return widgets
 
@@ -52,7 +55,9 @@ class InputEntry:
 
     def on_key(self, event: Any) -> None:
         text = str(getattr(event, "character", "") or "")
-        if not text or not text.isprintable():  # Enter is "\r"; controls stay with widgets
+        if (
+            not text or not text.isprintable()
+        ):  # Enter is "\r"; controls stay with widgets
             return
         target = self._active_input()
         if target is not None and not target.has_focus:
@@ -76,7 +81,8 @@ class InputEntry:
             return None
         body = self.query_one("#onboard-body")
         boxes = [
-            widget for widget in body.children
+            widget
+            for widget in body.children
             if isinstance(widget, Input) and not widget.disabled
         ]
         for widget in boxes:
@@ -142,9 +148,7 @@ class InputEntry:
             return []
         body = self.query_one("#onboard-body")
         mounted = {
-            widget.id: widget
-            for widget in body.children
-            if isinstance(widget, Input)
+            widget.id: widget for widget in body.children if isinstance(widget, Input)
         }
         boxes = [mounted.get(field.input_id) for field in self._pending_form.fields]
         return [box for box in boxes if box is not None]
@@ -166,7 +170,18 @@ class InputEntry:
         if not self._check_form_field(form.fields[index], box):
             return
         if index + 1 < len(boxes):
-            self.set_focus(boxes[index + 1])
+            body_children = list(self.query_one("#onboard-body").children)
+            current_position = body_children.index(box)
+            next_position = body_children.index(boxes[index + 1])
+            selector = next(
+                (
+                    widget
+                    for widget in body_children[current_position + 1 : next_position]
+                    if isinstance(widget, SelectionList)
+                ),
+                None,
+            )
+            self.set_focus(selector or boxes[index + 1])
             return
         self._submit_pending_form()
 

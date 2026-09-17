@@ -42,9 +42,14 @@ def _configure_origin(checkout: Path, repo: str) -> None:
     subprocess.run(
         [
             "git",
-            "-c", "user.name=Yoke Test",
-            "-c", "user.email=yoke-test@example.invalid",
-            "commit", "--allow-empty", "-m", "fixture",
+            "-c",
+            "user.name=Yoke Test",
+            "-c",
+            "user.email=yoke-test@example.invalid",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "fixture",
         ],
         cwd=checkout,
         check=True,
@@ -53,7 +58,10 @@ def _configure_origin(checkout: Path, repo: str) -> None:
     )
     subprocess.run(
         [
-            "git", "remote", "add", "origin",
+            "git",
+            "remote",
+            "add",
+            "origin",
             f"https://github.com/{repo}.git",
         ],
         cwd=checkout,
@@ -97,7 +105,11 @@ def test_local_checkout_manifest_project_id_skips_project_setup(
             await app.workers.wait_for_complete()
             await pilot.pause()
             body = _body_text(app)
-            assert "Existing Yoke project found: externalwebapp." in body
+            assert "Existing project found: ExternalWebapp." in body
+            await pilot.press("down")  # Review details
+            await pilot.press("enter")
+            await pilot.pause()
+            body = _body_text(app)
             assert (
                 "Local project metadata matched a Yoke core database project." in body
             )
@@ -167,7 +179,11 @@ def test_stored_checkout_project_id_shows_confirmation_picker(
             await app.workers.wait_for_complete()
             await pilot.pause()
             body = _body_text(app)
-            assert "Existing Yoke project found: externalwebapp." in body
+            assert "Existing project found: ExternalWebapp." in body
+            await pilot.press("down")  # Review details
+            await pilot.press("enter")
+            await pilot.pause()
+            body = _body_text(app)
             assert "Checkout:" in body
             assert (
                 "Local project metadata matched a Yoke core database project." in body
@@ -236,7 +252,7 @@ def test_existing_project_with_board_art_skips_art_flow(
             await pilot.press("enter")
             await app.workers.wait_for_complete()
             await pilot.pause()
-            assert "Existing Yoke project found: externalwebapp." in _body_text(app)
+            assert "Existing project found: ExternalWebapp." in _body_text(app)
             await pilot.press("enter")  # continue -> hosting (art already saved)
             await skip_hosting(pilot)  # hosting: skip -> Finish
             await pilot.press("enter")  # finish: apply

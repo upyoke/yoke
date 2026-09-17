@@ -53,8 +53,8 @@ nothing and attaches a configured merge-only default when it prints one.
 
 ### Merge target
 
-**Declare:** GitHub App bind, or local default branch (prompt
-"Pick the default branch.", default `main`).
+**Declare:** GitHub App bind, or the local default branch in the prefilled
+Project details form (default `main`).
 
 **Refuse:** GitHub PR/merge-queue/Actions OIDC when GitHub is skipped or the
 App cannot see the repo (`disabled` / pending install).

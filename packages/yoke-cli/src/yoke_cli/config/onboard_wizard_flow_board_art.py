@@ -53,6 +53,7 @@ class BoardArtFlow:
 
     def _board_art_view(self, step, builder, on_select):
         from yoke_cli.config.onboard_wizard_app import _View
+
         return _View(step, builder, on_select)
 
     def _current_art_word(self) -> str:
@@ -60,25 +61,16 @@ class BoardArtFlow:
             return self._art_word
         return self.result.board_art_word or ""
 
-    def _goto_board_art_intro(self) -> None:
+    def _goto_board_art(self) -> None:
         self._init_board_art_state()
-        self._goto(self._selection_view(
-            STEP_PROJECT,
-            "Give your board a face.",
-            "Every project gets a live status board — a progress map that fills "
-            "in as work moves, topped with headers you design.",
-            board_art_steps.BOARD_ART_INTRO_ROWS,
-            self._on_board_art_intro,
-        ))
-
-    def _on_board_art_intro(self, _choice: str) -> None:
         self._goto_board_art_map_preview()
 
     def _goto_board_art_map_preview(self, *, replace_current: bool = False) -> None:
         rendered = art.render_master_map(self.result.board_art_word or "")
         rows = [
             SelectionRow(
-                "continue", "Looks good — continue",
+                "continue",
+                "Looks good — continue",
                 f'spells "{self.result.board_art_word}"',
             ),
             SelectionRow("edit", "Edit the letters", f"up to {MAX_ART_WORD_LEN}"),
@@ -88,7 +80,8 @@ class BoardArtFlow:
             lambda: board_art_steps.art_screen_body(
                 "Here's your progress map.",
                 "Shown with example work — it fills in as your items move.",
-                rendered, rows,
+                rendered,
+                rows,
             ),
             self._on_board_art_map_preview,
         )
@@ -100,7 +93,8 @@ class BoardArtFlow:
     def _on_board_art_map_preview(self, choice: str) -> None:
         if choice == "edit":
             self._goto_input(
-                STEP_PROJECT, "What should the map spell?",
+                STEP_PROJECT,
+                "What should the map spell?",
                 f"Letters and numbers, up to {MAX_ART_WORD_LEN} — auto-uppercased.",
                 placeholder=self.result.board_art_word or "",
                 on_done=self._after_board_art_map_word,
@@ -137,7 +131,7 @@ class BoardArtFlow:
         target = getattr(self, "_board_art_style_view", None)
         for index in range(len(self._history) - 1, -1, -1):
             if self._history[index] is target:
-                del self._history[index + 1:]
+                del self._history[index + 1 :]
                 self._render_current()
                 return
         self._goto_board_art_style()
@@ -157,7 +151,8 @@ class BoardArtFlow:
         if replace_current and self._history:
             self._history.pop()
         self._goto_input(
-            STEP_PROJECT, "Point at an image.",
+            STEP_PROJECT,
+            "Point at an image.",
             "PNG or JPG. Yoke turns it into an emoji mosaic.",
             placeholder="~/Pictures/logo.png",
             on_done=self._after_board_art_image_path,
@@ -175,14 +170,19 @@ class BoardArtFlow:
             )
         except Exception as exc:  # noqa: BLE001 - clean retry view, never a traceback
             message = art.friendly_image_error(exc)
-            self._replace_current(self._board_art_view(
-                STEP_PROJECT,
-                lambda: steps.verification_body(
-                    "Couldn't use that image.", message, [],
-                    board_art_steps.BOARD_ART_IMAGE_RETRY_ROWS, ok=False,
-                ),
-                self._on_board_art_image_error,
-            ))
+            self._replace_current(
+                self._board_art_view(
+                    STEP_PROJECT,
+                    lambda: steps.verification_body(
+                        "Couldn't use that image.",
+                        message,
+                        [],
+                        board_art_steps.BOARD_ART_IMAGE_RETRY_ROWS,
+                        ok=False,
+                    ),
+                    self._on_board_art_image_error,
+                )
+            )
             return
         self._art_kind = kind
         self._art_image_path = value
@@ -224,15 +224,21 @@ class BoardArtFlow:
             self._goto(view)
 
     def _on_board_art_preview(self, choice: str) -> None:
-        if choice == "save":
+        if choice in {"save-continue", "save-another"}:
             self.result.board_art_variants.append(self._art_variant)
-            self._goto_board_art_gallery()
+            if choice == "save-continue":
+                self._goto_hosting()
+            elif len(self.result.board_art_variants) > 1:
+                self._goto_board_art_gallery()
+            else:
+                self._return_to_board_art_style()
         elif choice == "shuffle":
             self._art_attempt += 1
             self._generate_and_preview(replace_current=True)
         elif choice == "customize":
             self._goto_input(
-                STEP_PROJECT, "What should the header say?",
+                STEP_PROJECT,
+                "What should the header say?",
                 "Letters, numbers, and spaces — the art auto-fits the width.",
                 placeholder=(self._art_word or self.result.board_art_word or ""),
                 on_done=self._after_board_art_text,
@@ -254,15 +260,32 @@ class BoardArtFlow:
         self._generate_and_preview(replace_current=True)
 
     def _goto_board_art_gallery(self) -> None:
-        self._goto(self._board_art_view(
-            STEP_PROJECT,
-            lambda: board_art_steps.board_art_gallery_body(self.result.board_art_variants),
-            self._on_board_art_gallery,
-        ))
+        self._board_art_gallery_details = False
+        self._goto(
+            self._board_art_view(
+                STEP_PROJECT,
+                lambda: board_art_steps.board_art_gallery_body(
+                    self.result.board_art_variants,
+                    details=getattr(self, "_board_art_gallery_details", False),
+                ),
+                self._on_board_art_gallery,
+            )
+        )
 
     def _on_board_art_gallery(self, choice: str) -> None:
         if choice == "continue" and self.result.board_art_variants:
             self._goto_hosting()
+        elif choice == "details":
+            self._board_art_gallery_details = not self._board_art_gallery_details
+            self._render_current()
+        elif choice.startswith("remove:"):
+            index = int(choice.split(":", 1)[1])
+            if 0 <= index < len(self.result.board_art_variants):
+                del self.result.board_art_variants[index]
+            if len(self.result.board_art_variants) < 2:
+                self._return_to_board_art_style()
+            else:
+                self._render_current()
         else:
             self._return_to_board_art_style()
 
@@ -282,13 +305,16 @@ class BoardArtFlow:
         """
         if not self.result.board_art_variants:
             return False
-        repo_root = art_apply.repo_root_from_report(report, self.result.project_checkout)
+        repo_root = art_apply.repo_root_from_report(
+            report, self.result.project_checkout
+        )
         if repo_root is None:
             return False
         fallback_path = getattr(self, "report_path", None)
         try:
             art_apply.write_board_art(
-                repo_root, self.result.board_art_word or "",
+                repo_root,
+                self.result.board_art_word or "",
                 self.result.board_art_variants,
             )
             art_apply.rebuild_board(repo_root)
@@ -307,8 +333,7 @@ class BoardArtFlow:
             raise WizardApplyError(
                 f"couldn't finish your board art: {exc}",
                 failed_step=(
-                    summary.get("failed_step")
-                    or art_apply.BOARD_ART_STEP_ACTION
+                    summary.get("failed_step") or art_apply.BOARD_ART_STEP_ACTION
                 ),
                 report_path=(summary.get("path") or fallback_path),
                 resume_command=(

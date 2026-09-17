@@ -35,11 +35,11 @@ import, or local-checkout modes.
 
 ## 2. Onboard the Machine
 
-`yoke onboard` is a full-screen wizard — Install/PATH, Account, GitHub,
-Project, Review — driven by the arrow keys, redrawing in place. The Account
+`yoke onboard` is a full-screen wizard — Install, Account, GitHub, Project,
+Hosting, Review — driven by the arrow keys, redrawing in place. The Account
 step opens on a deployment-destination picker: where should this Yoke live —
 this machine (the free local universe, no account), an existing team server
-(your own reachable URL plus a token), guided self-host setup on this machine,
+(one form for your reachable URL and a pasted token or token-file path), guided self-host setup on this machine,
 or upyoke.com (hosted sign-in). The guided route previews Docker, the default
 bundle directory, loopback URL/port, Compose work, and operator-owned networking
 before writing. It captures first boot, waits until the server answers
@@ -322,6 +322,14 @@ yoke project refresh ~/work/demo --config ~/.yoke/config.json
 Install never writes credentials into the repo. Edited project contract files
 are preserved on refresh. Strategy files are DB-rendered views and survive
 uninstall. Generated board views remain generated output.
+
+Install then publishes its own commit: it fast-forwards the branch onto its
+remote before generating, commits, and pushes. A protected branch gets a
+`yoke-install/<sha>` branch and a pull request instead; a push that cannot
+land reports `publication_pending` with the commit and recovery, and exits
+`3`. Onboarding defers this until it has configured the checkout's Git
+credential helper, so the wizard publishes rather than leaving you an
+unpushed commit.
 
 ## Source-Dev/Admin and Server-Only Leftovers
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.config import dev_setup
 from yoke_cli.config import github_git_credentials
 from yoke_cli.config import github_repo_helper_reconnect
 from yoke_cli.config import machine_config
@@ -19,12 +18,9 @@ from yoke_cli.config.project_onboard_support import (
     ProjectOnboardError,
     project_from_result,
 )
+from yoke_cli.project_install import publication
+from yoke_cli.project_install import publication_outcome
 from yoke_cli.project_install import runner as install_runner
-from yoke_cli.project_install import source_dev
-
-# The onboard operation label for the "Develop Yoke itself" (source-dev-admin)
-# flow. onboard_project builds it; this module gates the source-link install on it.
-SOURCE_DEV_ADMIN_OPERATION = "onboard.source-dev-admin"
 
 
 def ensure_git_available() -> None:
@@ -53,22 +49,27 @@ def finish_after_dispatch(
 ) -> dict[str, Any]:
     project = project_from_result(result)
     project_id = int(project["id"])
-    binding_result = None if reuse_github_auth else (
-        progress_steps.store_github_binding(
-            progress, github_auth_target, project, github_adoption,
-            config_path,
-            persist_sync_mode=persist_sync_mode,
-            service_api_url=service_api_url,
-            local_connection_selected=local_connection_selected,
+    binding_result = (
+        None
+        if reuse_github_auth
+        else (
+            progress_steps.store_github_binding(
+                progress,
+                github_auth_target,
+                project,
+                github_adoption,
+                config_path,
+                persist_sync_mode=persist_sync_mode,
+                service_api_url=service_api_url,
+                local_connection_selected=local_connection_selected,
+            )
         )
     )
     if binding_result and binding_result.get("binding"):
         binding = dict(github_adoption.get("binding") or {})
         binding["status"] = str(binding_result["binding"])
         if binding_result.get("permission_status"):
-            binding["permission_status"] = dict(
-                binding_result["permission_status"]
-            )
+            binding["permission_status"] = dict(binding_result["permission_status"])
         github_adoption["binding"] = binding
     mapping_needed = project_mapping_needs_write(root, project_id, config_path)
     if register_mapping and mapping_needed:
@@ -87,54 +88,40 @@ def finish_after_dispatch(
             "running",
         )
     try:
-        if source_dev.is_yoke_source_checkout(root):
-            # "Develop Yoke itself" onboarding: apply the source-link dev layer
-            # (symlinks + git hooks) now — it runs in a subprocess with the checkout
-            # on PYTHONPATH, so it needs no editable install yet. The editable
-            # install that repoints `yoke` at the checkout is DEFERRED to after the
-            # wizard UI closes (it deletes the product wheel this process runs from);
-            # record the pending checkout so the post-UI step can finish it.
-            try:
-                install = dev_setup.install_source_checkout(
-                    root, editable_install=False,
-                )
-            except dev_setup.DevSetupError as exc:
-                raise ProjectOnboardError(str(exc)) from exc
-            git_credentials = github_git_credentials.configure_repo_helper(
-                root, config_path=config_path,
+        install = install_runner.install(
+            root,
+            project_id=project_id,
+            config_path=config_path,
+            operation=install_operation(scaffold_action),
+            # Reviewed apply; the folder may be a just-cloned or
+            # just-inited tree with leftover install dirt.
+            force=True,
+            # The checkout's Git credential helper is configured below, after
+            # this call, so the install cannot push through it yet.
+            publish=False,
+        )
+        github = machine_config.github_config(config_path)
+        web_url = str(github.get("web_url") or "")
+        if (
+            web_url
+            and github_repo_helper_reconnect.has_matching_https_remote(
+                root,
+                web_url=web_url,
             )
-            install["git_credentials"] = git_credentials
-            # Product installs carry project_id from the bundle; source-link does
-            # not, but the onboarding handoff (checkout-binding evidence) needs it.
-            install["project_id"] = project_id
-            record_pending_dev_install(root, config_path)
-        elif operation == SOURCE_DEV_ADMIN_OPERATION:
-            # Source-dev onboarding must land on a real Yoke checkout (the clone
-            # step provides it). If it did not, refuse — never product-install a
-            # scaffold into a non-Yoke folder and report success.
-            raise ProjectOnboardError(
-                f"{root} is not a Yoke source checkout after setup. Re-run "
-                "'Develop Yoke itself' with an empty folder to clone into, or "
-                "point at an existing Yoke clone."
+            is True
+        ):
+            install["git_credentials"] = github_git_credentials.configure_repo_helper(
+                root,
+                config_path=config_path,
             )
-        else:
-            install = install_runner.install(
-                root, project_id=project_id, config_path=config_path,
-                operation=install_operation(scaffold_action),
-                # Reviewed apply; the folder may be a just-cloned or
-                # just-inited tree with leftover install dirt.
-                force=True,
-            )
-            github = machine_config.github_config(config_path)
-            web_url = str(github.get("web_url") or "")
-            if web_url and github_repo_helper_reconnect.has_matching_https_remote(
-                root, web_url=web_url,
-            ) is True:
-                install["git_credentials"] = (
-                    github_git_credentials.configure_repo_helper(
-                        root, config_path=config_path,
-                    )
-                )
+        # Onboarding leaves the operator with a checkout whose layer is on the
+        # remote, not one carrying an unpushed commit they never made.
+        install["publication"] = publication.publish_onboarded_layer(
+            root,
+            install,
+            default_branch=str((install.get("checkout") or {}).get("branch") or ""),
+        )
+        publication_outcome.announce(install)
     except Exception:
         if mapping_needed:
             onboard_apply_progress.emit(
@@ -163,7 +150,12 @@ def finish_after_dispatch(
             "done",
         )
     return applied_report(
-        operation, root, project, install, result, github_adoption,
+        operation,
+        root,
+        project,
+        install,
+        result,
+        github_adoption,
         config_path=config_path,
         binding_result=binding_result,
         clone_outcome=clone_outcome,
@@ -204,7 +196,10 @@ def install_existing_project(
             local_connection_selected=local_connection_selected,
         )
     finish_github_binding_if_needed(
-        progress, github_auth_target, github_adoption, reuse_github_auth,
+        progress,
+        github_auth_target,
+        github_adoption,
+        reuse_github_auth,
     )
     return report
 
@@ -216,7 +211,9 @@ def finish_github_binding_if_needed(
     reuse_github_auth: bool,
 ) -> None:
     if not reuse_github_auth:
-        progress_steps.finish_github_binding(progress, github_auth_target, github_adoption)
+        progress_steps.finish_github_binding(
+            progress, github_auth_target, github_adoption
+        )
 
 
 def register_project_mapping_if_needed(
@@ -229,7 +226,10 @@ def register_project_mapping_if_needed(
     # Operator-driven onboarding Apply: previewed and confirmed before this
     # runs, so a slot already routed elsewhere is a deliberate move.
     machine_writer.register_project(
-        root, int(project_id), reassign=True, path=config_path,
+        root,
+        int(project_id),
+        reassign=True,
+        path=config_path,
     )
 
 

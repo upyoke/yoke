@@ -15,6 +15,8 @@ import sys
 import time
 from typing import Any
 
+from yoke_core.api.observability_metrics import metric_attributes
+
 
 EMF_NAMESPACE = "Yoke/API"
 EMF_LOGGER_NAME = "yoke.api.metrics"
@@ -41,8 +43,16 @@ def emf_documents(
 
 
 def make_log_metric_reader() -> Any:
-    """Periodic reader that writes EMF JSON to the metrics logger."""
+    """Periodic reader that writes EMF JSON to the metrics logger.
+
+    Counters and histograms use DELTA temporality so each export is the
+    increment since the last flush. The SDK default is CUMULATIVE, which
+    re-emits every historical series on every interval and over-counts
+    when CloudWatch sums the samples.
+    """
+    from opentelemetry.sdk.metrics import Counter, Histogram, ObservableCounter
     from opentelemetry.sdk.metrics.export import (
+        AggregationTemporality,
         MetricExportResult,
         MetricExporter,
         PeriodicExportingMetricReader,
@@ -51,6 +61,15 @@ def make_log_metric_reader() -> Any:
     logger = _configure_emf_logger()
 
     class _EmfExporter(MetricExporter):
+        def __init__(self) -> None:
+            super().__init__(
+                preferred_temporality={
+                    Counter: AggregationTemporality.DELTA,
+                    Histogram: AggregationTemporality.DELTA,
+                    ObservableCounter: AggregationTemporality.DELTA,
+                }
+            )
+
         def export(
             self,
             metrics_data: Any,
@@ -118,9 +137,10 @@ def _metric_documents(
         body: dict[str, Any] = {}
         if environment:
             body["Environment"] = environment
-        for key, value in dict(getattr(point, "attributes", None) or {}).items():
-            if value is not None:
-                body[str(key)] = value
+        for key, value in metric_attributes(
+            getattr(point, "attributes", None) or {}
+        ).items():
+            body[str(key)] = value
         metric_defs = []
         for sample_name, sample_value, unit in samples:
             body[sample_name] = sample_value

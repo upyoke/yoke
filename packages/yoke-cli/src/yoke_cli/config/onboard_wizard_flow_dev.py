@@ -1,141 +1,49 @@
-"""The "Develop Yoke itself" step transitions for the ``yoke onboard`` wizard.
-
-A mixin composed alongside :class:`onboard_wizard_flow.WizardFlow` into
-:class:`onboard_wizard_app.OnboardWizardApp`. It owns the source-dev-admin path:
-verify the connected Yoke token reaches Yoke's own project, verify GitHub
-authorization for Yoke's repo, then smart-detect an existing local Yoke
-checkout (found -> use it; many -> pick; none -> point at one or clone). Each
-failed check renders the recoverable error screen; success sets the
-source-dev-admin project fields and routes to Finish, where ``_project_report``
-maps the mode onto ``onboard_existing(operation="onboard.source-dev-admin")``.
-"""
+"""Public Edit Yoke source flow: choose a checkout or clone any fork."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol
 
-from yoke_contracts import github_origin
 from yoke_cli.config import onboard_wizard_steps as steps
-from yoke_cli.config import onboard_wizard_github_state as github_state
-from yoke_cli.config import yoke_dev_access as dev_access
 from yoke_cli.config import yoke_dev_detect as dev_detect
-from yoke_cli.config.onboard_wizard import github_connected
-from yoke_cli.config.onboard_wizard_widgets import (
-    STEP_PROJECT,
-    SelectionRow,
-)
+from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT, SelectionRow
 
-# Slug/name/branch/prefix for the Yoke source checkout. The mode points at the
-# existing Yoke repo, so these are fixed Yoke identifiers rather than
-# user-entered metadata.
-_YOKE_SLUG = dev_access.YOKE_PROJECT_SLUG
-_YOKE_NAME = dev_access.YOKE_PROJECT_NAME
-_YOKE_BRANCH = dev_access.YOKE_DEFAULT_BRANCH
-_YOKE_PREFIX = dev_access.YOKE_PUBLIC_ITEM_PREFIX
-
-# Picker value used to mean "none of the detected checkouts — clone Yoke".
-_CLONE_YOKE = "clone-yoke"
-
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:  # pragma: no cover
     from yoke_cli.config.onboard_wizard_app import _View
 
+_USE_CHECKOUT = "checkout"
+_CLONE_SOURCE = "clone"
 
-class _Shell(Protocol):  # pragma: no cover - structural typing only
+
+class _Shell(Protocol):
     result: Any
     _preset_dev_checkout: str | None
 
     def _goto(self, view: "_View") -> None: ...
     def _selection_view(self, step, title, subtitle, rows, on_select) -> "_View": ...
-    def _goto_input(self, step, title, subtitle, *, placeholder, on_done,
-                    password: bool = False,
-                    allow_placeholder: bool = True,
-                    initial_value: str = "") -> None: ...
+    def _goto_input(
+        self,
+        step,
+        title,
+        subtitle,
+        *,
+        placeholder,
+        on_done,
+        password: bool = False,
+        allow_placeholder: bool = True,
+        initial_value: str = "",
+    ) -> None: ...
     def _goto_hosting(self) -> None: ...
     def _run_checking(self, **kwargs) -> None: ...
 
 
 class DevFlow:
-    # ── Develop Yoke itself (source-dev-admin) ────────────
+    """Select source without requiring official project or repository access."""
 
     def _start_dev_flow(self: _Shell) -> None:
-        """Run the Yoke-project access check, the first of the two grants."""
-        self._run_checking(
-            step=STEP_PROJECT,
-            title="Checking Yoke access.",
-            message="Verifying this account can reach the Yoke project.",
-            work=self._check_dev_yoke_access,
-            on_success=lambda _result: self._goto_dev_github_check(),
-            on_error=lambda exc: self._goto_dev_error(str(exc)),
-            group="onboard-dev-yoke",
-        )
-
-    def _check_dev_yoke_access(self: _Shell) -> bool:
-        try:
-            token = dev_access.resolve_yoke_token(
-                self.result.token, self.result.token_file,
-            )
-            if not token or not self.result.api_url:
-                raise dev_access.YokeDevAccessError(
-                    "This machine isn't connected to a Yoke control plane yet "
-                    "— connect to your Yoke before developing Yoke."
-                )
-            if not dev_access.yoke_project_reachable(self.result.api_url, token):
-                raise dev_access.YokeDevAccessError(
-                    "This Yoke token can't reach the Yoke project — you need "
-                    "access to develop Yoke."
-                )
-        except dev_access.YokeDevAccessError as exc:
-            raise RuntimeError(str(exc)) from exc
-        return True
-
-    def _goto_dev_github_check(self: _Shell) -> None:
-        """Second grant: GitHub authorization that can read Yoke's repo."""
-        if github_connected(self.result):
-            self._run_checking(
-                step=STEP_PROJECT,
-                title="Checking Yoke GitHub access.",
-                message="Verifying GitHub authorization can read Yoke's repo.",
-                work=self._check_dev_github_access_from_machine,
-                on_success=lambda _result: self._goto_dev_checkout(),
-                on_error=lambda exc: self._goto_dev_error(str(exc)),
-                group="onboard-dev-github",
-                blocks_quit=True,
-            )
-            return
-        self._goto_dev_error(
-            "Developing Yoke requires GitHub App access to Yoke's repo. "
-            "Connect GitHub, grant the App access to the Yoke repo, then retry."
-        )
-
-    def _check_dev_github_access_from_machine(self: _Shell) -> bool:
-        token = github_state.user_access_token(self.result)
-        if not token:
-            raise RuntimeError(
-                "Connected GitHub authorization could not be refreshed. "
-                "Reconnect GitHub and retry."
-            )
-        return self._check_dev_github_access(token)
-
-    def _check_dev_github_access(self: _Shell, user_access_token: str) -> bool:
-        api_url = (
-            self.result.machine_github_api_url
-            or github_origin.DEFAULT_GITHUB_API_URL
-        )
-        try:
-            reachable = dev_access.github_can_reach_yoke_repo(
-                api_url, user_access_token,
-            )
-        except dev_access.YokeDevAccessError as exc:
-            raise RuntimeError(str(exc)) from exc
-        if not reachable:
-            raise RuntimeError(
-                "You need BOTH Yoke-project access and GitHub access to "
-                "Yoke's repo to develop Yoke."
-            )
-        return True
+        self._goto_dev_checkout()
 
     def _goto_dev_checkout(self: _Shell) -> None:
-        """Third step: find an existing checkout, or offer to clone one."""
         if self._preset_dev_checkout:
             checkout = self._preset_dev_checkout
             self._preset_dev_checkout = None
@@ -143,70 +51,109 @@ class DevFlow:
             return
         self._run_checking(
             step=STEP_PROJECT,
-            title="Checking local checkouts.",
-            message="Looking for an existing Yoke checkout on this machine.",
+            title="Checking local Yoke source.",
+            message="Looking for Yoke source checkouts on this machine.",
             work=dev_detect.detect_yoke_checkouts,
             on_success=self._show_dev_checkout,
             on_error=lambda exc: self._goto_dev_error(str(exc)),
-            group="onboard-dev-checkout",
+            group="onboard-yoke-source-checkout",
         )
 
     def _show_dev_checkout(self: _Shell, checkouts: Any) -> None:
         if len(checkouts) == 1:
             self._use_dev_checkout(str(checkouts[0]))
             return
-        if not checkouts:
+        rows = [
+            SelectionRow(str(path), str(path), "use this Yoke source checkout")
+            for path in checkouts
+        ]
+        rows.extend(
+            [
+                SelectionRow(
+                    _USE_CHECKOUT,
+                    "Choose another checkout",
+                    "any local Yoke source checkout",
+                ),
+                SelectionRow(
+                    _CLONE_SOURCE,
+                    "Clone Yoke source",
+                    "use any public repository or your fork",
+                ),
+            ]
+        )
+        self._goto(
+            self._selection_view(
+                STEP_PROJECT,
+                "Edit Yoke source.",
+                "Use a local checkout or clone any source-available fork. No official Yoke access is required.",
+                rows,
+                self._on_dev_checkout_pick,
+            )
+        )
+
+    def _on_dev_checkout_pick(self: _Shell, choice: str) -> None:
+        if choice == _USE_CHECKOUT:
             self._goto_input(
-                STEP_PROJECT, "Where is your Yoke checkout?",
-                "Point at your local clone of Yoke, or paste a folder to clone into.",
+                STEP_PROJECT,
+                "Where is the Yoke source checkout?",
+                "The folder must contain Yoke's pyproject.toml and runtime/harness source.",
                 placeholder="~/code/yoke",
                 allow_placeholder=False,
                 on_done=self._use_dev_checkout,
             )
             return
-        rows = [
-            SelectionRow(str(path), str(path), "Yoke checkout")
-            for path in checkouts
-        ]
-        rows.append(SelectionRow(_CLONE_YOKE, "None of these — clone Yoke",
-                                 "into a new folder"))
-        self._goto(self._selection_view(
-            STEP_PROJECT, "Which Yoke checkout?",
-            "Pick the local Yoke clone to develop in.",
-            rows, self._on_dev_checkout_pick,
-        ))
-
-    def _on_dev_checkout_pick(self: _Shell, choice: str) -> None:
-        if choice == _CLONE_YOKE:
+        if choice == _CLONE_SOURCE:
             self._goto_input(
-                STEP_PROJECT, "Where should Yoke be cloned?",
-                "Yoke clones its repo into this new folder.",
-                placeholder="~/code/yoke",
+                STEP_PROJECT,
+                "Which Yoke source repository?",
+                "Paste a public Git URL for Yoke or your fork.",
+                placeholder="https://github.com/you/yoke.git",
                 allow_placeholder=False,
-                on_done=self._use_dev_checkout,
+                on_done=self._after_dev_clone_url,
             )
             return
         self._use_dev_checkout(choice)
 
+    def _after_dev_clone_url(self: _Shell, value: str) -> None:
+        self.result.project_remote_url = value
+        self._goto_input(
+            STEP_PROJECT,
+            "Where should Yoke source be cloned?",
+            "Choose a new or empty local folder.",
+            placeholder="~/code/yoke",
+            allow_placeholder=False,
+            on_done=self._use_dev_checkout,
+        )
+
     def _use_dev_checkout(self: _Shell, checkout: str) -> None:
-        # Whether the folder already holds a Yoke checkout or is a fresh target
-        # to clone Yoke into, the source-dev-admin onboarding takes the path
-        # the same way — it reports new-local vs existing-local at apply.
-        error = dev_detect.preflight_dev_checkout(checkout)
+        error = dev_detect.preflight_dev_checkout(
+            checkout,
+            cloning=bool(self.result.project_remote_url),
+        )
         if error is not None:
             self._goto_dev_error(error)
             return
         self.result.project_checkout = checkout
-        self.result.project_slug = _YOKE_SLUG
-        self.result.project_name = _YOKE_NAME
-        self.result.project_default_branch = _YOKE_BRANCH
-        self.result.project_public_item_prefix = _YOKE_PREFIX
         self._goto_hosting()
 
     def _goto_dev_error(self: _Shell, message: str) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
-        self._goto(_View(STEP_PROJECT, lambda: steps.error_body(message)))
+        self._goto(
+            _View(
+                STEP_PROJECT,
+                lambda: steps.verification_body(
+                    "Yoke source is not ready.",
+                    message,
+                    [
+                        "Choose an existing Yoke source checkout, or an empty folder plus its clone URL."
+                    ],
+                    [SelectionRow("back", "Back", "choose the source again")],
+                    ok=False,
+                ),
+                lambda _choice: self._goto_dev_checkout(),
+            )
+        )
 
 
 __all__ = ["DevFlow"]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
+from yoke_contracts import github_app_installation_permissions
 from yoke_cli.config import machine_config
 from yoke_cli.config import onboard_wizard_flow_github as github_flow
 from yoke_cli.config import onboard_wizard_flow_publish as publish_flow
@@ -52,15 +53,13 @@ def stub_github_app_access(
                 {
                     "installation_id": index,
                     "account_login": owner,
-                    "account_type": (
-                        "User" if index == 1 else "Organization"
-                    ),
+                    "account_type": ("User" if index == 1 else "Organization"),
                     "app_id": 123,
                     "app_slug": "yoke",
                     "repository_selection": "all",
                     "permissions": {
+                        **github_app_installation_permissions.REQUIRED_GITHUB_APP_REPOSITORY_PERMISSION_LEVELS,
                         "administration": "write",
-                        "contents": "write",
                     },
                     "suspended": False,
                     "html_url": f"https://github.com/settings/installations/{index}",
@@ -76,9 +75,7 @@ def stub_github_app_access(
                         1,
                     ),
                 }
-                for repository_id, repository in enumerate(
-                    repository_list, start=1_001
-                )
+                for repository_id, repository in enumerate(repository_list, start=1_001)
             ],
         }
 

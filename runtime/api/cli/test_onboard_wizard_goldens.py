@@ -33,14 +33,11 @@ from runtime.api.cli.onboard_wizard_golden_support import (  # noqa: E402
     DIAGNOSIS_ALL_CLEAR,
     DIAGNOSIS_NEEDS_FIX,
     STARTUP,
-    YOKE_TOKEN_VERIFICATION,
     assert_catalog_golden_gate_parity,
     assert_golden,
     make_app,
     render,
 )
-from yoke_cli.config import onboard_wizard_path_screens  # noqa: E402
-from yoke_cli.config.onboard_wizard_path_screens import PATH_PREVIEW_DETAILS_ROW  # noqa: E402
 from yoke_cli.config import onboard_wizard_steps as steps  # noqa: E402
 from yoke_cli.config import path_doctor  # noqa: E402
 from yoke_cli.config.onboard_destinations import (  # noqa: E402
@@ -51,26 +48,40 @@ from yoke_cli.config.onboard_wizard_app import OnboardWizardApp  # noqa: E402
 from yoke_cli.config.onboard_wizard_state import _View  # noqa: E402
 
 _BIN_DIR = "~/.local/bin"
+_GITHUB_CONNECTED = {
+    "ok": True,
+    "ready": True,
+    "app": {"slug": "yoke-product"},
+    "identity": {"ok": True, "login": "octocat"},
+    "access": {
+        "repo_count": 2,
+        "repos": ["octocat/app", "acme/api"],
+        "repositories": [
+            {"full_name": "octocat/app", "installation_id": 1},
+            {"full_name": "acme/api", "installation_id": 2},
+        ],
+        "installations": [
+            {
+                "installation_id": 1,
+                "account_login": "octocat",
+                "repository_selection": "selected",
+                "html_url": "https://github.com/settings/installations/1",
+            },
+            {
+                "installation_id": 2,
+                "account_login": "acme",
+                "repository_selection": "all",
+                "html_url": "https://github.com/organizations/acme/settings/installations/2",
+            },
+        ],
+    },
+    "permissions": {"usable": True},
+}
 
 
 # --------------------------------------------------------------------------- #
 # PATH step (batch 1 + 2)
 # --------------------------------------------------------------------------- #
-
-
-def test_path_install_summary(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Pin the displayed version so this golden's layout is deterministic and
-    # machine-independent. _yoke_version() reads importlib.metadata, which a
-    # co-located product-boundary test (simulating a missing package) can make
-    # raise — yielding a different-length fallback string that shifts the SVG
-    # layout coordinates even though the version text normalizes to {{VERSION}}.
-    monkeypatch.setattr(onboard_wizard_path_screens, "_yoke_version", lambda: "0.1.0")
-    app = make_app(post_install=True)
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._goto_install_summary()
-
-    assert_golden("path_install_summary", render(app, drive, title="yoke onboard · Install"))
 
 
 def test_path_diagnosis(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -90,7 +101,9 @@ def test_path_diagnosis_allclear(monkeypatch: pytest.MonkeyPatch) -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._goto_path_diagnosis()
 
-    assert_golden("path_diagnosis_allclear", render(app, drive, title="yoke onboard · Install"))
+    assert_golden(
+        "path_diagnosis_allclear", render(app, drive, title="yoke onboard · Install")
+    )
 
 
 def test_path_preview(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -114,28 +127,6 @@ def test_path_preview(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert_golden("path_preview", render(app, drive, title="yoke onboard · Install"))
 
-
-def test_path_preview_details(monkeypatch: pytest.MonkeyPatch) -> None:
-    # The same preview with the exact managed block unfolded by its toggle.
-    diagnosis = replace(
-        DIAGNOSIS_NEEDS_FIX,
-        tool_bin_dir=_BIN_DIR,
-        startup_file=STARTUP,
-        ssh_startup_file="~/.zshenv",
-        ssh_needs_fix=True,
-        login_needs_fix=True,
-        managed_path_dirs=(_BIN_DIR,),
-    )
-    monkeypatch.setattr(path_doctor, "diagnose", lambda **_: diagnosis)
-    app = make_app()
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._goto_path_preview()
-        a._on_path_preview(PATH_PREVIEW_DETAILS_ROW)
-
-    assert_golden(
-        "path_preview_details", render(app, drive, title="yoke onboard · Install"),
-    )
 
 # --------------------------------------------------------------------------- #
 # Account step: destination picker + per-destination sign-in lanes
@@ -166,14 +157,14 @@ def test_connect_local_universe() -> None:
     )
 
 
-def test_connect_server_url_input() -> None:
+def test_connect_server_form() -> None:
     app = make_app(api_url="")
 
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._after_destination_select(DESTINATION_SERVER)
 
     assert_golden(
-        "connect_server_url_input",
+        "connect_server_form",
         render(app, drive, title="yoke onboard · Account"),
     )
 
@@ -184,7 +175,9 @@ def test_connect_token_method() -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._goto_token_source()
 
-    assert_golden("connect_token_method", render(app, drive, title="yoke onboard · Account"))
+    assert_golden(
+        "connect_token_method", render(app, drive, title="yoke onboard · Account")
+    )
 
 
 def test_connect_token_paste() -> None:
@@ -193,7 +186,9 @@ def test_connect_token_paste() -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._after_token_source("prompt")
 
-    assert_golden("connect_token_paste", render(app, drive, title="yoke onboard · Account"))
+    assert_golden(
+        "connect_token_paste", render(app, drive, title="yoke onboard · Account")
+    )
 
 
 def test_connect_token_file_input() -> None:
@@ -202,16 +197,9 @@ def test_connect_token_file_input() -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._after_token_source("file")
 
-    assert_golden("connect_token_file_input", render(app, drive, title="yoke onboard · Account"))
-
-
-def test_connect_token_verified() -> None:
-    app = make_app(token=None)
-
-    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
-        a._goto_yoke_verify_success(YOKE_TOKEN_VERIFICATION)
-
-    assert_golden("connect_token_verified", render(app, drive, title="yoke onboard · Account"))
+    assert_golden(
+        "connect_token_file_input", render(app, drive, title="yoke onboard · Account")
+    )
 
 
 def test_connect_token_error() -> None:
@@ -224,7 +212,9 @@ def test_connect_token_error() -> None:
             "prompt",
         )
 
-    assert_golden("connect_token_error", render(app, drive, title="yoke onboard · Account"))
+    assert_golden(
+        "connect_token_error", render(app, drive, title="yoke onboard · Account")
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -238,7 +228,9 @@ def test_github_connect_account() -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         a._goto_machine_github()
 
-    assert_golden("github_connect_account", render(app, drive, title="yoke onboard · GitHub"))
+    assert_golden(
+        "github_connect_account", render(app, drive, title="yoke onboard · GitHub")
+    )
 
 
 def test_github_app_connect_pending(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -247,19 +239,23 @@ def test_github_app_connect_pending(monkeypatch: pytest.MonkeyPatch) -> None:
     async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
         def hold_checking_screen(**kwargs: Any) -> None:
             a._checking = True
-            a._goto(_View(
-                kwargs["step"],
-                lambda: steps.checking_body(
-                    kwargs["title"],
-                    kwargs["message"],
-                    kwargs["detail_lines"],
-                ),
-            ))
+            a._goto(
+                _View(
+                    kwargs["step"],
+                    lambda: steps.checking_body(
+                        kwargs["title"],
+                        kwargs["message"],
+                        kwargs["detail_lines"],
+                    ),
+                )
+            )
 
         monkeypatch.setattr(a, "_run_checking", hold_checking_screen)
         a._on_machine_github("connect")
 
-    assert_golden("github_app_connect_pending", render(app, drive, title="yoke onboard · GitHub"))
+    assert_golden(
+        "github_app_connect_pending", render(app, drive, title="yoke onboard · GitHub")
+    )
 
 
 def test_github_app_connect_error() -> None:
@@ -270,7 +266,34 @@ def test_github_app_connect_error() -> None:
             "GitHub check failed: https://api.github.com/user returned HTTP 401"
         )
 
-    assert_golden("github_app_connect_error", render(app, drive, title="yoke onboard · GitHub"))
+    assert_golden(
+        "github_app_connect_error", render(app, drive, title="yoke onboard · GitHub")
+    )
+
+
+def test_github_app_connected_summary() -> None:
+    app = make_app()
+
+    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
+        a._goto_machine_github_success(_GITHUB_CONNECTED)
+
+    assert_golden(
+        "github_app_connected_summary",
+        render(app, drive, title="yoke onboard · GitHub"),
+    )
+
+
+def test_github_app_connected_repository_access() -> None:
+    app = make_app()
+
+    async def drive(a: OnboardWizardApp, _pilot: Any) -> None:
+        a._goto_machine_github_success(_GITHUB_CONNECTED)
+        a._on_machine_github_success("details")
+
+    assert_golden(
+        "github_app_connected_repository_access",
+        render(app, drive, title="yoke onboard · GitHub"),
+    )
 
 
 # --------------------------------------------------------------------------- #

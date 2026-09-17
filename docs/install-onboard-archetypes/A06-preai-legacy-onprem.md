@@ -32,7 +32,6 @@ Where should this Yoke universe live?
   A team server                    the URL of your team's self-hosted Yoke server
   Set this machine up as a self-hosting server   Docker Compose · guided first boot
   upyoke.com
-  stage.upyoke.com
 ```
 
 On the intended Linux host, IT can pick **Set this machine up as a
@@ -47,28 +46,10 @@ token, mints separate teammate tokens, configures the intranet URL, then picks
 
 On Elena's client machine, **User:** A team server.
 
-```
-Enter your Yoke server URL.
-Where your team's Yoke lives — e.g. https://api.mycompany.com.
-No server yet? Paste the install one-liner on the box you want to host on and
-pick Set this machine up as a self-hosting server.
-```
-
-**User:** `https://yoke.internal.corp`
-
-```
-Provide your Yoke API token.
-How do you want to give Yoke your token?
-  Paste it now          saved to ~/.yoke/secrets
-  Read it from a file   path on disk
-```
-
-**User:** Paste it now.
-
-```
-Paste your Yoke API token.
-Never shown on screen. Saved to ~/.yoke/secrets/{env}.token, owner-only.
-```
+One form asks for `https://yoke.internal.corp`, an explicit **Paste token**
+versus **Token file** choice, and the corresponding masked credential field.
+Elena chooses **Paste token** and submits; a verification error returns to the
+same populated form.
 
 Checking: `Checking Yoke token.` / `Verifying this token with your Yoke API.`
 

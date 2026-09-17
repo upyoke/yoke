@@ -34,7 +34,10 @@ export function renderItemDetailView(
       callResult = await callFunction(
         context.client,
         "items.detail.get",
-        {},
+        // The detail page renders the item's prose, so it asks for every
+        // content section by name. Callers that only need the item's posture
+        // read the content index instead and stay small.
+        { include: ["narrative", "body", "progress_log"] },
         target,
       );
     } catch (error) {

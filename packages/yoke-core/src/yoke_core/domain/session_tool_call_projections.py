@@ -46,6 +46,13 @@ def open_tool_call_select(conn: Any, *, session_alias: str) -> str:
     no hook runs inside a tool call, so a long call and a stopped route
     are indistinguishable without this.
 
+    Current means the session's highest ``id``. Start reconciliation can
+    move ``started_at`` earlier on an existing row, and a later-started
+    call can finish before an earlier one, so ``started_at`` is not an
+    identity or completion order. The nested ``MAX(id)`` is the prior
+    shape: if that row is still open, this is its start; if it has
+    already completed, an older open row does not count.
+
     The expression is prefixed with a comma for splicing into a select
     list, and degrades to a constant absence on a fixture with no
     ``session_tool_calls`` table, matching this module's schema-tolerance
@@ -74,9 +81,10 @@ def last_completed_tool_select(conn: Any, *, session_alias: str) -> str:
 
     ``session_tool_calls`` already records every call's identity, name,
     and completion, so the fact needs no new storage; it needs the query
-    pointed at the state that owns it. Ordered by ``completed_at`` then
-    ``id`` because two calls can share a stamp at second resolution and
-    the later row is the later call.
+    pointed at the state that owns it. Last finished means latest
+    ``completed_at``, then highest ``id`` when two completions share a
+    stamp: overlapping calls can finish out of start order, and a
+    start-time walk would name the wrong tool.
 
     The expression is prefixed with a comma for splicing into a select
     list, and degrades to a constant absence on a fixture with no

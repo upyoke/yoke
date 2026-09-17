@@ -11,44 +11,41 @@ import sys
 from typing import Any, Optional
 
 from yoke_core.domain import events_crud as _ec
+from yoke_core.domain.events_registry_cli import cli_registry
 
 
 # Flag → kwarg mapping for the ``insert`` subcommand. Preserved verbatim as
 # external CLI consumers depend on each name (see Cross-Script Contracts).
-_INSERT_FLAG_MAP = {f"--{k.replace('_', '-')}": k for k in (
-    "event_id", "source_type", "session_id", "severity", "event_kind",
-    "event_type", "event_name", "event_outcome", "org_id",
-    "actor_id", "environment", "service", "project", "item_id", "task_num",
-    "agent", "tool_name", "duration_ms", "exit_code", "trace_id",
-    "anomaly_flags", "envelope", "tool_use_id", "turn_id",
-    "hook_event_name",
-)}
-
-# Registry add: --type maps to event_type; everything else is its kwarg name.
-_REG_ADD_FLAGS = {f"--{k.replace('_', '-')}": k for k in (
-    "kind", "service", "description", "context_schema", "severity", "added_in",
-)}
-_REG_ADD_FLAGS["--type"] = "event_type"
-
-_REG_UPDATE_FLAGS = {f"--{k.replace('_', '-')}": k for k in (
-    "description", "context_schema", "event_kind", "event_type", "severity", "status",
-)}
-
-_REG_USAGE = (
-    "Usage: events_crud registry <subcommand> [args...]\n"
-    "\n"
-    "Subcommands:\n"
-    "  add <name> --kind K --type T --service S --description D [opts]\n"
-    "  get <name>\n"
-    "  list [--status S] [--kind K] [--service S]\n"
-    "  update <name> [--event-kind K] [--event-type T] [--description D] [--severity L] [--status S]\n"
-    "  deprecate <name>\n"
-    "  delete <name>\n"
-    "  count [--status S]\n"
-    "  discover\n"
-    "  audit\n"
-    "  diff [--verbose]"
-)
+_INSERT_FLAG_MAP = {
+    f"--{k.replace('_', '-')}": k
+    for k in (
+        "event_id",
+        "source_type",
+        "session_id",
+        "severity",
+        "event_kind",
+        "event_type",
+        "event_name",
+        "event_outcome",
+        "org_id",
+        "actor_id",
+        "environment",
+        "service",
+        "project",
+        "item_id",
+        "task_num",
+        "agent",
+        "tool_name",
+        "duration_ms",
+        "exit_code",
+        "trace_id",
+        "anomaly_flags",
+        "envelope",
+        "tool_use_id",
+        "turn_id",
+        "hook_event_name",
+    )
+}
 
 _TOP_USAGE = (
     "Usage: events_crud <subcommand> [args...]\n"
@@ -80,7 +77,14 @@ def _cli_insert(argv: list[str]) -> int:
             return 2
         i += 1
 
-    for req in ("event_id", "source_type", "session_id", "event_kind", "event_type", "event_name"):
+    for req in (
+        "event_id",
+        "source_type",
+        "session_id",
+        "event_kind",
+        "event_type",
+        "event_name",
+    ):
         if req not in kwargs:
             print(f"Error: --{req.replace('_', '-')} is required", file=sys.stderr)
             return 2
@@ -91,140 +95,6 @@ def _cli_insert(argv: list[str]) -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 2
     return 0
-
-
-def _cli_registry(argv: list[str]) -> int:
-    """Parse CLI args for registry subcommands."""
-    db_path = os.environ.get("YOKE_DB")
-    if not argv:
-        print("Usage: events_crud registry <subcommand> [args...]", file=sys.stderr)
-        return 2
-
-    sub = argv[0]
-    rest = argv[1:]
-
-    if sub == "add":
-        kwargs: dict[str, Any] = {"name": ""}
-        i = 0
-        while i < len(rest):
-            flag = rest[i]
-            if flag.startswith("-"):
-                if flag in _REG_ADD_FLAGS:
-                    i += 1
-                    kwargs[_REG_ADD_FLAGS[flag]] = rest[i]
-                else:
-                    print(f"Error: unknown flag '{flag}'", file=sys.stderr)
-                    return 2
-            elif not kwargs["name"]:
-                kwargs["name"] = flag
-            else:
-                print(f"Error: unexpected argument '{flag}'", file=sys.stderr)
-                return 2
-            i += 1
-        for req in ("name", "kind", "event_type", "service", "description"):
-            if not kwargs.get(req):
-                msg = "Error: event_name is required" if req == "name" else f"Error: --{req.replace('_', '-')} is required"
-                print(msg, file=sys.stderr)
-                return 2
-        _ec.cmd_registry_add(db_path, **kwargs)
-        return 0
-
-    if sub == "get":
-        if not rest:
-            print("Error: event_name is required", file=sys.stderr)
-            return 2
-        try:
-            print(_ec.cmd_registry_get(db_path, rest[0]))
-        except LookupError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            return 1
-        return 0
-
-    if sub == "list":
-        kwargs = {"status": "active", "kind": None, "service": None}
-        i = 0
-        while i < len(rest):
-            if rest[i] == "--status":
-                i += 1; kwargs["status"] = rest[i]
-            elif rest[i] == "--kind":
-                i += 1; kwargs["kind"] = rest[i]
-            elif rest[i] == "--service":
-                i += 1; kwargs["service"] = rest[i]
-            i += 1
-        result = _ec.cmd_registry_list(db_path, **kwargs)
-        if result:
-            print(result)
-        return 0
-
-    if sub == "update":
-        if not rest:
-            print("Error: event_name is required", file=sys.stderr)
-            return 2
-        name = rest[0]
-        kwargs = {}
-        i = 1
-        while i < len(rest):
-            if rest[i] in _REG_UPDATE_FLAGS:
-                key = _REG_UPDATE_FLAGS[rest[i]]
-                i += 1
-                kwargs[key] = rest[i]
-            i += 1
-        if not kwargs:
-            print("Error: no fields to update", file=sys.stderr)
-            return 2
-        try:
-            _ec.cmd_registry_update(db_path, name, **kwargs)
-        except LookupError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            return 1
-        return 0
-
-    if sub in ("deprecate", "delete"):
-        if not rest:
-            print("Error: event_name is required", file=sys.stderr)
-            return 2
-        fn = _ec.cmd_registry_deprecate if sub == "deprecate" else _ec.cmd_registry_delete
-        try:
-            fn(db_path, rest[0])
-        except LookupError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            return 1
-        return 0
-
-    if sub == "count":
-        status = None
-        i = 0
-        while i < len(rest):
-            if rest[i] == "--status":
-                i += 1; status = rest[i]
-            i += 1
-        print(_ec.cmd_registry_count(db_path, status))
-        return 0
-
-    if sub == "discover":
-        result = _ec.cmd_registry_discover()
-        if result:
-            print(result)
-        return 0
-
-    if sub == "audit":
-        try:
-            print(_ec.cmd_registry_audit(db_path))
-        except RuntimeError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            return 1
-        return 0
-
-    if sub == "diff":
-        try:
-            print(_ec.cmd_registry_diff(db_path, verbose="--verbose" in rest))
-        except RuntimeError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            return 1
-        return 0
-
-    print(_REG_USAGE, file=sys.stderr)
-    return 2
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -249,6 +119,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if subcmd == "list":
         from yoke_core.domain.events_queries import cli_list
+
         return cli_list(db_path, rest)
 
     if subcmd == "query":
@@ -266,12 +137,18 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if subcmd == "count":
         from yoke_core.domain.events_queries import cli_count
+
         return cli_count(db_path, rest)
     if subcmd == "anomalies":
         from yoke_core.domain.events_queries import cli_anomalies
+
         return cli_anomalies(db_path, rest)
     if subcmd == "prune":
-        print(_ec.cmd_prune(db_path, "--dry-run" in rest))
+        try:
+            print(_ec.cmd_prune(db_path, **_ec.prune_cli_kwargs(rest)))
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
         return 0
 
     if subcmd == "tail":
@@ -284,7 +161,9 @@ def main(argv: Optional[list[str]] = None) -> int:
             try:
                 limit = int(raw)
             except ValueError:
-                print("Error: tail limit must be a non-negative integer", file=sys.stderr)
+                print(
+                    "Error: tail limit must be a non-negative integer", file=sys.stderr
+                )
                 return 2
         result = _ec.cmd_tail(db_path, limit)
         if result:
@@ -314,13 +193,16 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     if subcmd == "severity-check":
         if len(rest) < 3:
-            print("Usage: events_crud severity-check <event_name> <source_type> <severity>", file=sys.stderr)
+            print(
+                "Usage: events_crud severity-check <event_name> <source_type> <severity>",
+                file=sys.stderr,
+            )
             return 2
         print(_ec.cmd_severity_check(db_path, rest[0], rest[1], rest[2]))
         return 0
 
     if subcmd == "registry":
-        return _cli_registry(rest)
+        return cli_registry(rest)
 
     print(f"Unknown subcommand: {subcmd}", file=sys.stderr)
     return 2

@@ -143,9 +143,9 @@ entries selected via `yoke env use` or `--env`.
 
 ### 3. Onboard the Machine
 
-`yoke onboard` is a full-screen wizard. A fixed header and stepper stay on
-screen — Install/PATH, Account, GitHub, Project, Review — while the body
-changes; you move through it with the arrow keys, wheel/trackpad, or the
+`yoke onboard` is a full-screen wizard. A fixed Install, Account, GitHub,
+Project, Hosting, Review stepper stays on screen while the body changes; use the
+arrow keys, wheel/trackpad, or the
 scrollbar, redrawing in place. Mouse reporting stays on for that, at the
 cost of native drag-select; any screen showing a URL or a one-time code
 names a copy key (`^y`) and an open-in-browser key (`^o`) instead, and a
@@ -156,8 +156,9 @@ headline before any choice, with connecting to it as the default answer and
 replacing it available one row down. The
 Account step opens on the deployment-destination picker (this machine / an
 existing team server / guided self-host server setup / upyoke.com). "This
-machine" replaces sign-in with the local universe above; "A team server"
-collects a reachable URL then a token; the guided self-host row previews the
+machine" replaces sign-in with the local universe above; "A team server" uses
+one form for the reachable URL, a paste-versus-file credential choice, and the
+corresponding masked value; the guided self-host row previews the
 default bundle directory, loopback URL and port, Docker requirement, Compose
 work, and operator-owned networking before it writes. It starts the bundle,
 waits until the server answers `/v1/health`, reads the reusable administrator
@@ -195,6 +196,9 @@ yoke onboard --yes \
   --token-stdin
 yoke status
 ```
+
+At the Project step, **Edit Yoke source** accepts a checkout or public fork without official-project access. It supplies the local CLI, harness, and local-universe engine.
+Guided same-machine self-hosting builds the server image from it; remote servers keep their deployed build.
 
 `yoke onboard` creates the machine profile, stores the env credential as an
 owner-only machine secret under `~/.yoke/secrets/`, validates the active env,

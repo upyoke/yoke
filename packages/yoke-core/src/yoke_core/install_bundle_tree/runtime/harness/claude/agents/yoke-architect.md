@@ -113,11 +113,15 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
 
 **Wrapper commands (prefer over raw SQL):**
 
+- _Read one item's posture, then the content you need_
+  - `yoke items detail get PREFIX-N --json`
+  - `yoke items detail get PREFIX-N --full --json`
 - _Read structured item field(s) — concrete examples_
   - `yoke items get PREFIX-N status title workflow_id github_issue`
   - `yoke items get PREFIX-N spec`
-- _Inspect a Yoke item's rendered body (GitHub issue surrogate)_
+- _Inspect a Yoke item's rendered body, whole or one section (GitHub issue surrogate)_
   - `yoke items get PREFIX-N body`
+  - `yoke items get PREFIX-N body --section "## Section Name"`
 - _Inspect open work via registered reads + diagnostic SQL_
   - `# Recent item scan:`
   - `yoke items list --project all --fields "id,status,title" --limit 20`
@@ -125,8 +129,6 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
   - `yoke db read "SELECT id, session_id, target_kind, scope, claim_type, claimed_at FROM work_claims WHERE released_at IS NULL"`
   - `# Recent events on a work item:`
   - `yoke events query --item PREFIX-N --limit 20`
-- _Read one section of an item's rendered body_
-  - `yoke items get PREFIX-N body --section "## Section Name"`
 - _Write structured item field (canonical agent shape)_
   - `yoke items structured-field replace PREFIX-N --field spec --content-file PATH`
   - `yoke items structured-field replace PREFIX-N --field test_results --stdin < PATH`
@@ -136,8 +138,6 @@ NEVER rely on shell variables persisting across separate Bash tool calls. Each B
   - `yoke items structured-field section-upsert PREFIX-N --section "Acceptance Criteria" --content-file PATH --json`
 - _List item dependencies (both directions)_
   - `yoke items dependency list PREFIX-N`
-- _Route serial dependency mutations to authoring packets_
-  - `Use the dependency authoring recipes in the claims packet.`
 - _Amend DB-mutation claim on an item_
   - `yoke db-claim amend PREFIX-N --reason TEXT (--state none | --payload JSON | --payload-file PATH | --stdin)`
 - _Inspect the selected Yoke control-plane authority_

@@ -16,11 +16,15 @@ from yoke_core.hooks.bootstrap import load_spec, render_compact, render_full
 
 
 IMPACTED_LOCAL_CHECK = "yoke watch pytest --impacted main --bounded"
-# This repo's own test anchors. They are deliberately absent from every surface
-# the install bundle ships to other projects — a target project's anchors are
-# its own — so they stay in the repo-local source-dev doctrine.
+# This repo's own test anchors. A target project's anchors are its own, so these
+# are deliberately absent from every surface the install bundle ships. They stay
+# readable here, in AGENTS.md's repo-internals section outside the managed block
+# and in the source-dev doctrine, because both are this checkout's alone.
 FULL_YOKE_GATE = "yoke watch pytest -- runtime/api/ runtime/harness/ tests/"
 REPO_ROOT = Path(__file__).resolve().parents[2]
+PACKAGED_RULES = (
+    "packages/yoke-core/src/yoke_core/install_bundle_tree/AGENTS.md"
+)
 
 
 def _spec() -> dict:
@@ -31,9 +35,21 @@ def test_rules_file_teaches_the_local_verification_default() -> None:
     """A session gets this from the rules file it already loads."""
     agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
     assert IMPACTED_LOCAL_CHECK in agents
-    assert FULL_YOKE_GATE not in agents, (
-        "this repo's own anchors belong in the source-dev doctrine, not in "
-        "the rules file the install bundle ships"
+
+
+def test_shipped_rules_carry_no_anchors_of_this_repo() -> None:
+    """The packaged copy is the managed block alone, which every project gets.
+
+    AGENTS.md itself may name this checkout's anchors, because the section
+    holding them sits outside the managed block and is never packaged. The
+    invariant worth guarding is that they do not reach a target project, whose
+    own test layout is its own.
+    """
+    packaged = (REPO_ROOT / PACKAGED_RULES).read_text(encoding="utf-8")
+    assert IMPACTED_LOCAL_CHECK in packaged
+    assert FULL_YOKE_GATE not in packaged, (
+        "this repo's own anchors must not ride the install bundle into a "
+        "project whose anchors are its own"
     )
 
 

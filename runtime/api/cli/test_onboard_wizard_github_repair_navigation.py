@@ -132,7 +132,7 @@ def test_permission_repair_check_reaches_project_without_reconnecting(
             await pilot.pause()
             assert len(app._history) == repair_depth
             assert "GitHub connected." in _body_text(app)
-            assert _row_values(app) == ["continue"]
+            assert _row_values(app) == ["continue", "details"]
             await pilot.press("enter")
             await pilot.pause()
             assert _row_values(app) == [row.value for row in steps.MODE_ROWS]

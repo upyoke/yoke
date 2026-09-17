@@ -36,11 +36,11 @@ from runtime.api.cli.onboard_wizard_hosting_support import (  # noqa: E402,F401
     stub_identity,
 )
 from runtime.api.cli.onboard_wizard_test_helpers import (  # noqa: E402
+    accept_project_details,
     advance_past_path,
     complete_board_art,
     make_app,
     skip_hosting,
-    submit_public_item_prefix,
     type_text,
 )
 
@@ -62,12 +62,9 @@ def test_skip_reaches_review_and_plans_the_skip() -> None:
             await pilot.press("enter")  # project: existing folder
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name
+            await accept_project_details(pilot)
             await pilot.press("down")  # publish: No
             await pilot.press("enter")
-            await pilot.press("enter")  # default branch
-            await submit_public_item_prefix(pilot)
             await complete_board_art(pilot)
             assert "Connect your hosting provider?" in body_text(app)
             await skip_hosting(pilot)
@@ -100,7 +97,7 @@ def test_developing_yoke_itself_never_asks() -> None:
     app, _spy = make_app()
 
     async def action(a: Any, _pilot: Any) -> None:
-        a.result.project_mode = onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
+        a.result.project_mode = onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE
         a.result.project_slug = "yoke"
         a._goto_hosting()
 

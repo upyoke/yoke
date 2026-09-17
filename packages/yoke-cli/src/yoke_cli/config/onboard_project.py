@@ -7,7 +7,6 @@ import re
 from typing import Any, Mapping
 
 from yoke_contracts import github_origin
-from yoke_cli.config import github_local_user_access, machine_config
 from yoke_cli.config import onboard_apply_progress, onboard_project_github_inputs
 from yoke_cli.config import project_onboard
 from yoke_cli.config.onboard_project_modes import (
@@ -21,7 +20,7 @@ from yoke_cli.config.onboard_project_modes import (
     PROJECT_MODE_IMPORT_REMOTE,
     PROJECT_MODE_LOCAL_CHECKOUT,
     PROJECT_MODE_MACHINE_ONLY,
-    PROJECT_MODE_SOURCE_DEV_ADMIN,
+    PROJECT_MODE_EDIT_YOKE_SOURCE,
     PROJECT_MODES,
     PROJECT_REMOTE_MODES,
     normalize_project_mode,
@@ -31,12 +30,11 @@ from yoke_cli.config.onboard_project_report import (
     project_kwargs as _project_kwargs,
 )
 from yoke_cli.config.project_clone_support import ClonePlan
-from yoke_cli.config.project_git_transport import clean_remote_url, https_remote
+from yoke_cli.config.project_git_transport import clean_remote_url
 from yoke_cli.config.project_github_adoption import (
     ProjectGithubAdoptionError,
 )
 from yoke_cli.config.project_publish_support import PublishRequest
-from yoke_cli.config.yoke_dev_access import YOKE_GITHUB_REPO
 from yoke_cli.project_install.files import ProjectInstallError
 
 
@@ -65,6 +63,19 @@ def project_inputs(
 ) -> dict[str, Any]:
     if project_mode == PROJECT_MODE_MACHINE_ONLY:
         return {}
+    if project_mode == PROJECT_MODE_EDIT_YOKE_SOURCE:
+        if not str(project_checkout or "").strip():
+            raise OnboardProjectError("missing required source checkout")
+        return {
+            "mode": project_mode,
+            "checkout": str(Path(str(project_checkout)).expanduser()),
+            "remote_url": str(project_remote_url or "") or None,
+            "slug": None,
+            "name": "Yoke source",
+            "github_adoption": None,
+            "publish": None,
+            "clone": None,
+        }
     required = {
         "--checkout": project_checkout,
         "--project-slug": project_slug,
@@ -155,23 +166,6 @@ def _normalized_remote_url(
         return clean_remote_url(raw, web_url=web_url)
     except project_onboard.ProjectOnboardError as exc:
         raise OnboardProjectError(str(exc)) from exc
-
-
-def _github_user_access_token(
-    config_path: Path,
-    *,
-    service_api_url: str | None = None,
-    local_connection_selected: bool = False,
-) -> str | None:
-    """A refreshed local GitHub App user token, or None — used to clone Yoke."""
-    try:
-        return github_local_user_access.access_token(
-            config_path=config_path,
-            service_api_url=service_api_url,
-            local_connection_selected=local_connection_selected,
-        ).access_token
-    except github_local_user_access.GitHubLocalUserAccessError:
-        return None
 
 
 def project_report(
@@ -266,39 +260,8 @@ def _project_report(
             reuse_github_auth=reuse_github_auth,
             **kwargs,
         )
-    # Imported here, not at module top, to avoid a load-time import cycle:
-    # project_onboard_apply -> onboard_apply_progress -> onboard_project.
-    from yoke_cli.config.project_onboard_apply import SOURCE_DEV_ADMIN_OPERATION
-
-    operation = (
-        SOURCE_DEV_ADMIN_OPERATION
-        if mode == PROJECT_MODE_SOURCE_DEV_ADMIN
-        else "onboard.project"
-    )
-    clone_remote_url: str | None = None
-    clone_token: str | None = None
-    clone_web_url: str | None = None
-    if mode == PROJECT_MODE_SOURCE_DEV_ADMIN:
-        # A fresh "Develop Yoke itself" folder is cloned from Yoke's own repo
-        # (not git-init'd empty), authenticated with the machine GitHub
-        # credential saved earlier in this apply.
-        github_config = machine_config.github_config(config_path)
-        clone_web_url = github_origin.DEFAULT_GITHUB_WEB_URL
-        clone_remote_url = https_remote(
-            YOKE_GITHUB_REPO,
-            web_url=clone_web_url,
-        )
-        configured_web = github_origin.validate_github_web_endpoint(
-            str(github_config.get("web_url") or clone_web_url)
-        )
-        if configured_web.origin == clone_web_url:
-            clone_token = _github_user_access_token(
-                config_path,
-                service_api_url=service_api_url,
-                local_connection_selected=local_connection_selected,
-            )
     return project_onboard.onboard_existing(
-        operation=operation,
+        operation="onboard.project",
         publish=publish,
         progress=progress,
         checkout_action=checkout_action,
@@ -307,9 +270,6 @@ def _project_report(
         reuse_checkout=reuse_checkout,
         scaffold_action=scaffold_action,
         reuse_github_auth=reuse_github_auth,
-        clone_remote_url=clone_remote_url,
-        clone_token=clone_token,
-        clone_web_url=clone_web_url,
         **kwargs,
     )
 
@@ -336,7 +296,7 @@ __all__ = [
     "PROJECT_MODE_IMPORT_REMOTE",
     "PROJECT_MODE_LOCAL_CHECKOUT",
     "PROJECT_MODE_MACHINE_ONLY",
-    "PROJECT_MODE_SOURCE_DEV_ADMIN",
+    "PROJECT_MODE_EDIT_YOKE_SOURCE",
     "PROJECT_MODES",
     "PublishRequest",
     "normalize_project_mode",

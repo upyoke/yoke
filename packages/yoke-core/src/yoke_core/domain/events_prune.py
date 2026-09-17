@@ -2,14 +2,15 @@
 
 Owns ``cmd_prune`` plus the ``record_audit_fingerprint`` integration that
 records each non-dry-run prune as a documented retention-only exception
-to the governed-migration contract. The audit-helper import stays lazy
-inside the function body to avoid a circular import with
-``yoke_core.domain.migration_harness``.
+to the governed-migration contract. Event deletes are LIMIT-batched and
+time-bounded; preview counts use the same probe. Operational-table TTLs
+stay in their existing helpers and are not expanded here.
 """
 
 from __future__ import annotations
 
-from typing import Optional
+import time
+from typing import Any, Optional
 
 from yoke_core.domain.db_helpers import connect, query_scalar
 from yoke_core.domain import (
@@ -17,255 +18,213 @@ from yoke_core.domain import (
     function_call_ledger,
     github_workflow_dispatch_intents,
 )
+from yoke_core.domain.events_prune_batches import (
+    EVENT_PRUNE_BATCH_SIZE,
+    EVENT_PRUNE_MAX_SECONDS,
+    EVENT_RETENTION_DAYS,
+    SESSION_TOOL_CALLS_RETENTION_DAYS,
+    coerce_batch_size,
+    current_statement_timeout,
+    prune_matching_events,
+    reference_exclusion_sql,
+    restore_event_prune_statement_timeout,
+)
+from yoke_core.domain.events_prune_report import (
+    dry_run_report,
+    emit_audit,
+    intent_count,
+    ledger_count,
+)
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.time_sql import now_sql
 from yoke_core.domain.populate_registry_data_authoritative import (
     PURGED_EVENT_NAMES,
 )
 
-# Rolling-state retention for session_tool_calls (Session-tool-call). 7 days
-# comfortably covers every reader: the lints look back <=30 minutes and
-# the orphan sweep runs at session end.
-SESSION_TOOL_CALLS_RETENTION_DAYS = 7
-_EVENT_AUDIT_REFERENCE_TABLES = (
-    "path_moves",
-    "path_context_values",
-    "path_integrity_repairs",
-)
+
+def prune_cli_kwargs(argv: Optional[list[str]] = None) -> dict[str, Any]:
+    """Parse ``events prune`` flags into ``cmd_prune`` kwargs."""
+    args = list(argv or [])
+    kwargs: dict[str, Any] = {
+        "dry_run": "--dry-run" in args,
+        "purge_obsolete": "--purge-obsolete" in args,
+    }
+
+    def _value(flag: str) -> Optional[str]:
+        if flag not in args:
+            return None
+        index = args.index(flag)
+        if index + 1 >= len(args):
+            raise ValueError(f"{flag} requires a value")
+        return args[index + 1]
+
+    raw_batch = _value("--batch-size")
+    if raw_batch is not None:
+        kwargs["batch_size"] = int(raw_batch)
+    raw_seconds = _value("--max-seconds")
+    if raw_seconds is not None:
+        kwargs["max_seconds"] = float(raw_seconds)
+    raw_batches = _value("--max-batches")
+    if raw_batches is not None:
+        kwargs["max_batches"] = int(raw_batches)
+    return kwargs
 
 
-def _purged_event_where(conn) -> tuple[str, tuple[str, ...]]:
-    """Return the safe predicate for explicit obsolete-event cleanup."""
+def _purged_event_where(conn: Any) -> tuple[str, tuple[str, ...]]:
+    """Predicate for opt-in obsolete-name cleanup, with reference guards."""
     placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
     names = tuple(PURGED_EVENT_NAMES)
-    where = "event_name IN (" + ", ".join(placeholder for _ in names) + ")"
-    for table in _EVENT_AUDIT_REFERENCE_TABLES:
-        if _table_exists(conn, table):
-            where += (
-                " AND event_id NOT IN "
-                f"(SELECT recorded_event_id FROM {table} "
-                "WHERE recorded_event_id IS NOT NULL)"
-            )
+    where = (
+        "event_name IN ("
+        + ", ".join(placeholder for _ in names)
+        + ")"
+        + reference_exclusion_sql(conn)
+    )
     return where, names
 
 
-def _purged_event_count(conn) -> int:
-    """Count obsolete ledger rows that are not pinned by audit records."""
-    where, params = _purged_event_where(conn)
-    return int(query_scalar(conn, f"SELECT COUNT(*) FROM events WHERE {where}", params) or 0)
-
-
-def _ledger_count(conn) -> int:
-    """Total ledger rows for the audit fingerprint (0 when absent)."""
-    if not _table_exists(conn, function_call_ledger.LEDGER_TABLE):
-        return 0
-    return int(
-        query_scalar(
-            conn,
-            f"SELECT COUNT(*) FROM {function_call_ledger.LEDGER_TABLE}",
-        )
-        or 0
+def _severity_where(conn: Any, severity: str, days: int) -> str:
+    if severity not in EVENT_RETENTION_DAYS:
+        raise ValueError(f"unknown event severity {severity!r}")
+    quoted = severity.replace("'", "''")
+    return (
+        f"severity='{quoted}' AND created_at < {now_sql(offset_days=-days)}"
+        + reference_exclusion_sql(conn)
     )
 
 
-def _intent_count(conn) -> int:
-    table = github_workflow_dispatch_intents.INTENT_TABLE
-    if not _table_exists(conn, table):
-        return 0
-    return int(query_scalar(conn, f"SELECT COUNT(*) FROM {table}") or 0)
+def cmd_prune(
+    db_path: Optional[str] = None,
+    dry_run: bool = False,
+    *,
+    batch_size: int = EVENT_PRUNE_BATCH_SIZE,
+    max_seconds: float = EVENT_PRUNE_MAX_SECONDS,
+    max_batches: int | None = None,
+    purge_obsolete: bool = False,
+) -> str:
+    """Per-severity event retention (+ existing rolling-state TTLs).
 
-
-def cmd_prune(db_path: Optional[str] = None, dry_run: bool = False) -> str:
-    """Per-severity retention pruning (+ rolling-state TTLs).
-
-    Bounded retention-only destructive maintenance. Not wrapped
-    in ``GovernedMigration`` because the operation has non-zero expected
-    delta by design (DEBUG > 1d, INFO > 30d, WARN > 90d; STATUS never
-    pruned; ``function_call_ledger`` rows past their replay TTL; terminal
-    ``github_workflow_dispatch_intents`` rows past their retention TTL (pending
-    ambiguity is never age-pruned);
-    ``session_tool_calls`` rows past their rolling-state retention; and
-    explicitly obsolete event names with no live producer).
-    Instead, a ``migration_audit`` fingerprint is emitted after
-    a real (non-dry-run) prune so the destructive-maintenance doctor HC
-    can surface the operation.  The fingerprint carries:
-
-    - pre/post row counts for events, both idempotency state tables, and
-      ``session_tool_calls``
-    - pruned counts by severity, recorded in ``description``
-    - an ``exception_note`` explaining why this path is a documented
-      retention-only exception
+    Event preview and deletion are LIMIT-batched. LIMIT caps matching
+    rows, not scanned rows or query duration. The monotonic pass
+    deadline is checked between statements; each event SQL uses
+    ``statement_timeout`` for the remaining budget, then the timeout is
+    restored so operational TTL helpers keep any preexisting
+    role/session statement_timeout.
+    STATUS/ERROR/FATAL
+    are never age-pruned. Referenced event_id rows are kept on every
+    event delete path. Obsolete-name purge is opt-in.
     """
+    batch = coerce_batch_size(batch_size)
+    if max_seconds <= 0:
+        raise ValueError("max_seconds must be positive")
+    if max_batches is not None and max_batches < 1:
+        raise ValueError("max_batches must be a positive integer")
     conn = connect(db_path)
     try:
         has_tool_calls = _table_exists(conn, "session_tool_calls")
+        deadline = time.monotonic() + max_seconds
         if dry_run:
-            purged_event_count = _purged_event_count(conn)
-            debug_count = query_scalar(
+            return dry_run_report(
                 conn,
-                "SELECT COUNT(*) FROM events "
-                f"WHERE severity='DEBUG' AND created_at < {now_sql(offset_days=-1)}",
+                batch,
+                has_tool_calls,
+                purge_obsolete,
+                deadline=deadline,
+                severity_where=_severity_where,
+                purged_event_where=_purged_event_where,
             )
-            info_count = query_scalar(
-                conn,
-                "SELECT COUNT(*) FROM events "
-                f"WHERE severity='INFO' AND created_at < {now_sql(offset_days=-30)}",
-            )
-            warn_count = query_scalar(
-                conn,
-                "SELECT COUNT(*) FROM events "
-                f"WHERE severity='WARN' AND created_at < {now_sql(offset_days=-90)}",
-            )
-            status_count = query_scalar(
-                conn, "SELECT COUNT(*) FROM events WHERE severity='STATUS'"
-            )
-            ledger_count = function_call_ledger.count_expired(conn)
-            intent_count = github_workflow_dispatch_intents.count_expired(conn)
-            tool_call_count = query_scalar(
-                conn,
-                "SELECT COUNT(*) FROM session_tool_calls "
-                f"WHERE started_at < {now_sql(offset_days=-SESSION_TOOL_CALLS_RETENTION_DAYS)}",
-            ) if has_tool_calls else 0
-            lines = [
-                f"Would prune: DEBUG={debug_count}, INFO={info_count}, WARN={warn_count}, "
-                f"obsolete={purged_event_count}",
-                f"(STATUS={status_count} events retained indefinitely)",
-                f"function_call_ledger: {ledger_count} rows past "
-                f"{function_call_ledger.LEDGER_TTL_DAYS}d replay TTL",
-                f"github_workflow_dispatch_intents: {intent_count} terminal "
-                "row(s) past "
-                f"{github_workflow_dispatch_intents.INTENT_TTL_DAYS}d TTL "
-                "(pending retained indefinitely)",
-                f"session_tool_calls: {tool_call_count} row(s) older than "
-                f"{SESSION_TOOL_CALLS_RETENTION_DAYS}d",
-            ]
-            return "\n".join(lines)
-        else:
-            # capture pre-prune row counts for the audit fingerprint.
-            pre_count = int(
-                query_scalar(conn, "SELECT COUNT(*) FROM events") or 0
-            )
-            pre_ledger = _ledger_count(conn)
-            pre_intents = _intent_count(conn)
-            pre_tool_calls = int(
-                query_scalar(
-                    conn, "SELECT COUNT(*) FROM session_tool_calls"
-                ) or 0
-            ) if has_tool_calls else 0
-            purged_event_where, purged_event_params = _purged_event_where(conn)
-            purged_events = conn.execute(
-                f"DELETE FROM events WHERE {purged_event_where}",
-                purged_event_params,
-            ).rowcount
-            # cursor.rowcount gives rows-affected on Postgres.
-            debug_pruned = conn.execute(
-                "DELETE FROM events WHERE severity='DEBUG' "
-                f"AND created_at < {now_sql(offset_days=-1)}"
-            ).rowcount
-            info_pruned = conn.execute(
-                "DELETE FROM events WHERE severity='INFO' "
-                f"AND created_at < {now_sql(offset_days=-30)}"
-            ).rowcount
-            warn_pruned = conn.execute(
-                "DELETE FROM events WHERE severity='WARN' "
-                f"AND created_at < {now_sql(offset_days=-90)}"
-            ).rowcount
-            ledger_pruned = function_call_ledger.prune_expired(conn)
-            intents_pruned = github_workflow_dispatch_intents.prune_expired(conn)
-            # session_tool_calls is a short-retention rolling state table:
-            # the orphan sweep closes rows at session end and the lint
-            # guardrails look back minutes, so anything older than the
-            # window is inert. Open rows that old are themselves garbage
-            # (their session ended without a sweep) and prune with it.
-            tool_calls_pruned = conn.execute(
-                "DELETE FROM session_tool_calls "
-                f"WHERE started_at < {now_sql(offset_days=-SESSION_TOOL_CALLS_RETENTION_DAYS)}"
-            ).rowcount if has_tool_calls else 0
-            conn.commit()
-
-            lines = [
-                f"Pruned: DEBUG={debug_pruned}, INFO={info_pruned}, "
-                f"WARN={warn_pruned}, function_call_ledger={ledger_pruned}, "
-                f"github_workflow_dispatch_intents={intents_pruned}, "
-                f"session_tool_calls={tool_calls_pruned}, obsolete={purged_events}"
-            ]
-
-            # Emit an audit fingerprint so the prune is discoverable
-            # alongside governed migrations. The helper is fail-closed:
-            # an ``AuditEmissionError`` propagates out of ``cmd_prune``
-            # so the operator sees a loud failure if the durable evidence
-            # cannot be written. Recovery contract: retention deletes
-            # have already committed, so the operator repairs the audit
-            # emission path (DB connectivity, schema constraints, etc.)
-            # and reruns the idempotent prune — they do NOT try to
-            # restore the pruned rows.
-            post_count = int(
-                query_scalar(conn, "SELECT COUNT(*) FROM events") or 0
-            )
-            post_ledger = _ledger_count(conn)
-            post_intents = _intent_count(conn)
-            post_tool_calls = int(
-                query_scalar(
-                    conn, "SELECT COUNT(*) FROM session_tool_calls"
-                ) or 0
-            ) if has_tool_calls else 0
-            resolved_db = db_backend.resolve_pg_dsn()
-            from yoke_core.domain.migration_harness import (
-                record_audit_fingerprint,
-            )
-            record_audit_fingerprint(
-                db_path=resolved_db,
-                name="events-prune",
-                description=(
-                    f"Retention-only prune: DEBUG={debug_pruned}, "
-                    f"INFO={info_pruned}, WARN={warn_pruned} "
-                    f"(STATUS never pruned); function_call_ledger="
-                    f"{ledger_pruned} past the "
-                    f"{function_call_ledger.LEDGER_TTL_DAYS}d replay TTL; "
-                    "github_workflow_dispatch_intents="
-                    f"{intents_pruned} terminal rows past the "
-                    f"{github_workflow_dispatch_intents.INTENT_TTL_DAYS}d TTL "
-                    "(pending never age-pruned); "
-                    f"session_tool_calls rows older than "
-                    f"{SESSION_TOOL_CALLS_RETENTION_DAYS}d="
-                    f"{tool_calls_pruned}; obsolete event rows="
-                    f"{purged_events}."
-                ),
-                tables=[
-                    "events",
-                    function_call_ledger.LEDGER_TABLE,
-                    github_workflow_dispatch_intents.INTENT_TABLE,
-                    "session_tool_calls",
-                ],
-                pre_counts={
-                    "events": pre_count,
-                    function_call_ledger.LEDGER_TABLE: pre_ledger,
-                    github_workflow_dispatch_intents.INTENT_TABLE: pre_intents,
-                    "session_tool_calls": pre_tool_calls,
-                },
-                post_counts={
-                    "events": post_count,
-                    function_call_ledger.LEDGER_TABLE: post_ledger,
-                    github_workflow_dispatch_intents.INTENT_TABLE: post_intents,
-                    "session_tool_calls": post_tool_calls,
-                },
-                exception_reason=(
-                    "Bounded retention exception: expected non-zero "
-                    "delta by severity/age (DEBUG>1d, INFO>30d, WARN>90d; "
-                    "idempotency-ledger rows past their replay TTL; "
-                    "terminal workflow-dispatch intents past their TTL, while "
-                    "pending ambiguous intents are preserved indefinitely; "
-                    "session_tool_calls rows past rolling-state retention; "
-                    "named obsolete events with no live producer). STATUS "
-                    "rows are preserved indefinitely. "
-                    "GovernedMigration wrap is incompatible with the "
-                    "delete-by-age shape; paired decision record lives at "
-                    "docs/archive/decisions/events-prune.md. "
-                    "db_error_hook row-count collapse detection is the "
-                    "live safety layer."
-                ),
-            )
-
-            return "\n".join(lines)
+        return _run_prune(
+            conn,
+            batch=batch,
+            deadline=deadline,
+            max_batches=max_batches,
+            has_tool_calls=has_tool_calls,
+            purge_obsolete=purge_obsolete,
+        )
     finally:
         conn.close()
+
+
+def _run_prune(
+    conn: Any,
+    *,
+    batch: int,
+    deadline: float,
+    max_batches: int | None,
+    has_tool_calls: bool,
+    purge_obsolete: bool,
+) -> str:
+    batches_left: list[int | None] = [max_batches]
+    prior_timeout = current_statement_timeout(conn)
+    pre_ledger = ledger_count(conn)
+    pre_intents = intent_count(conn)
+    pre_tool_calls = 0
+    if has_tool_calls:
+        pre_tool_calls = int(
+            query_scalar(conn, "SELECT COUNT(*) FROM session_tool_calls") or 0
+        )
+    pruned = {
+        name: 0 for name, days in EVENT_RETENTION_DAYS.items() if days is not None
+    }
+    more_remaining = False
+    for severity, days in EVENT_RETENTION_DAYS.items():
+        if days is None:
+            continue
+        deleted, remaining = prune_matching_events(
+            conn,
+            _severity_where(conn, severity, days),
+            batch_size=batch,
+            deadline=deadline,
+            batches_left=batches_left,
+        )
+        pruned[severity] = deleted
+        more_remaining = more_remaining or remaining
+    purged_events = 0
+    if purge_obsolete:
+        where, params = _purged_event_where(conn)
+        deleted, remaining = prune_matching_events(
+            conn,
+            where,
+            params,
+            batch_size=batch,
+            deadline=deadline,
+            batches_left=batches_left,
+        )
+        purged_events = deleted
+        more_remaining = more_remaining or remaining
+    restore_event_prune_statement_timeout(conn, prior_timeout)
+    ledger_pruned = function_call_ledger.prune_expired(conn)
+    intents_pruned = github_workflow_dispatch_intents.prune_expired(conn)
+    tool_calls_pruned = 0
+    if has_tool_calls:
+        tool_calls_pruned = conn.execute(
+            "DELETE FROM session_tool_calls "
+            f"WHERE started_at < {now_sql(offset_days=-SESSION_TOOL_CALLS_RETENTION_DAYS)}"
+        ).rowcount
+    conn.commit()
+    event_deleted = sum(pruned.values()) + purged_events
+    lines = [
+        "Pruned: "
+        + ", ".join(f"{name}={pruned[name]}" for name in pruned)
+        + f", function_call_ledger={ledger_pruned}, "
+        f"github_workflow_dispatch_intents={intents_pruned}, "
+        f"session_tool_calls={tool_calls_pruned}, obsolete={purged_events}"
+    ]
+    if more_remaining:
+        lines.append(
+            "stopped: batch/time budget; rerun the same command to continue "
+            "(idempotent leftover eligible rows)"
+        )
+    emit_audit(
+        pruned=pruned,
+        purged_events=purged_events,
+        event_deleted=event_deleted,
+        ledger_pruned=ledger_pruned,
+        intents_pruned=intents_pruned,
+        tool_calls_pruned=tool_calls_pruned,
+        pre_ledger=pre_ledger,
+        pre_intents=pre_intents,
+        pre_tool_calls=pre_tool_calls,
+        more_remaining=more_remaining,
+    )
+    return "\n".join(lines)

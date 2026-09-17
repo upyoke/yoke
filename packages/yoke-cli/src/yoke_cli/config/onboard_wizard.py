@@ -2,12 +2,10 @@
 
 Most steps present the existing pure assembly function
 :func:`yoke_cli.config.onboard.build_report`: they collect its fields, preview
-machine / Yoke-core-database / repo-local / source-dev-admin writes, and apply
+machine / Yoke-core-database / repo-local / edit-yoke-source writes, and apply
 them on the final confirm. Guided self-host setup is the deliberate exception:
 its own preview and Start confirmation create the Compose bundle, persist the
 owner-only connection, and show the one-time first-admin token for safe storage.
-Other token inputs remain password fields, and report assembly is not duplicated.
-
 ``textual`` is imported lazily inside :func:`run_wizard` so non-interactive and
 import-graph paths never require it.
 """
@@ -99,6 +97,8 @@ class WizardResult:
     # Yoke stores it as documentation beside the posture and never acts on it.
     hosting_provider_note: str | None = None
     hosting_verification: dict[str, Any] | None = None
+    same_host_self_host: bool = False
+    self_host_directory: str | None = None
     path_repair: dict[str, Any] | None = None
     project_mode: str = onboard_project.PROJECT_MODE_MACHINE_ONLY
     project_remote_url: str | None = None
@@ -221,6 +221,8 @@ class WizardResult:
             "hosting_choice": self.hosting_choice,
             "hosting_provider_note": self.hosting_provider_note,
             "hosting_verification": self.hosting_verification,
+            "same_host_self_host": self.same_host_self_host,
+            "self_host_directory": self.self_host_directory,
             "path_repair": self.path_repair,
             "project_mode": self.project_mode,
             "project_remote_url": self.project_remote_url,
@@ -270,9 +272,8 @@ class WizardDefaults:
     project_mode: str | None = None
     project_checkout: str | None = None
     apply: bool = False
-    # True when the wizard launches directly after a fresh install: the flow
-    # opens on an install-summary view before the PATH check. Default skips
-    # that view but still runs the PATH steps.
+    # True when the wizard launches directly after a fresh install: PATH
+    # readiness includes one compact installed-version status line.
     post_install: bool = False
 
 

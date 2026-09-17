@@ -306,6 +306,23 @@ def test_domain_cli_batch_rolls_back_when_a_transition_is_missing(tmp_path):
     assert count == 0
 
 
+def test_optional_item_qa_rejects_release_and_teaches_review_transition():
+    with test_database() as conn:
+        insert_item(
+            conn,
+            id=2417,
+            workflow_id="dash",
+            workflow_posture=json.dumps(
+                {"verification": {"kind": "ad_hoc", "method_id": "browser-check"}}
+            ),
+        )
+        outcome = handle_qa_requirement_add(_request(2417, "release"))
+    assert outcome.primary_success is False
+    assert outcome.error.code == "payload_invalid"
+    assert "no reachable qa_verification gate" in outcome.error.message
+    assert "--workflow-transition reviewing-implementation" in outcome.error.message
+
+
 def test_domain_cli_deployment_run_requirement_needs_no_transition():
     with test_database():
         requirement_id = qa.cmd_requirement_add(

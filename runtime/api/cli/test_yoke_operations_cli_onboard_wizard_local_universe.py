@@ -74,17 +74,19 @@ def test_local_destination_manifest_project_id_uses_local_universe(
         fake_local_lookup,
     )
     config = tmp_path / "config.json"
-    app, spy = make_app(WizardDefaults(
-        config_path=str(config),
-        destination=DESTINATION_LOCAL,
-    ))
+    app, spy = make_app(
+        WizardDefaults(
+            config_path=str(config),
+            destination=DESTINATION_LOCAL,
+        )
+    )
 
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
             assert "Your Yoke lives on this machine." in _body_text(app)
             await pilot.press("enter")  # universe summary: Continue
-            await pilot.press("down")   # machine github: Skip for now
+            await pilot.press("down")  # machine github: Skip for now
             await pilot.press("enter")
             await pilot.press("enter")  # project: existing folder
             await type_text(pilot, str(checkout))
@@ -95,10 +97,13 @@ def test_local_destination_manifest_project_id_uses_local_universe(
                 str(w.render()) for w in app.query(".onboard-title").results(Static)
             )
             body = _body_text(app)
-            assert title == "Existing Yoke project found: externalwebapp."
+            assert title == "Existing project found: ExternalWebapp."
+            await pilot.press("down")  # Review details
+            await pilot.press("enter")
+            await pilot.pause()
+            body = _body_text(app)
             assert (
-                "Local project metadata matched a local Yoke database project."
-                in body
+                "Local project metadata matched a local Yoke database project." in body
             )
             assert "local Yoke database: verified project id 37." in body
             await pilot.press("enter")  # continue -> board art
@@ -122,7 +127,10 @@ def test_local_destination_manifest_project_id_uses_local_universe(
     [
         ("create", "Create this machine's local Yoke universe under ~/.yoke"),
         ("verify", "Verify this machine's existing local Yoke universe under ~/.yoke"),
-        ("unavailable", "Check this machine's local Yoke universe connection under ~/.yoke"),
+        (
+            "unavailable",
+            "Check this machine's local Yoke universe connection under ~/.yoke",
+        ),
     ],
 )
 def test_local_universe_review_line(target: str, expected: str) -> None:

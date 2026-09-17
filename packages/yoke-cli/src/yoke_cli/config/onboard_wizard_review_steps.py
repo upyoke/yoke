@@ -11,6 +11,7 @@ from yoke_cli.config.onboard_wizard_palette import BRAND
 from yoke_cli.config.onboard_wizard_plan_review import (
     _PLAN_GROUPS,
     classify_plan,
+    render_plan_summary,
     render_reuse_summary,
     render_write_plan,
 )
@@ -19,12 +20,15 @@ from yoke_cli.config.onboard_wizard_widgets import SelectionList, SelectionRow
 
 CONFIRM_ROWS = [
     SelectionRow("apply", "Apply", "writes everything above"),
+    SelectionRow("show-all", "Show all changes", "exact complete plan"),
     SelectionRow("cancel", "Cancel", "nothing is saved"),
 ]
 CONFIRM_ROWS_AFTER_GITHUB = [
     SelectionRow("apply", "Apply", "writes the remaining setup above"),
+    SelectionRow("show-all", "Show all changes", "exact complete plan"),
     SelectionRow(
-        "cancel", "Cancel",
+        "cancel",
+        "Cancel",
         "GitHub stays saved; use yoke github disconnect to remove it",
     ),
 ]
@@ -57,7 +61,8 @@ REVIEW_BLOCKED_ROWS = [
 REVIEW_BLOCKED_ROWS_AFTER_GITHUB = [
     SelectionRow("back", "Back to fix that", "step back and correct it"),
     SelectionRow(
-        "cancel", "Quit",
+        "cancel",
+        "Quit",
         "GitHub stays saved; use yoke github disconnect to remove it",
     ),
 ]
@@ -70,6 +75,8 @@ def finish_body(
     problems: list[str] | None,
     notes: list[str] | None,
     machine_github_saved: bool,
+    show_all: bool,
+    status_lines: list[str] | None,
     heading: Callable[[str, str | None], list[Static]],
 ) -> list[Static]:
     grouped = classify_plan(plan)
@@ -97,10 +104,13 @@ def finish_body(
             for line in problems
         )
         widgets.append(Static("", classes="onboard-spacer"))
-        widgets.append(SelectionList(
-            REVIEW_BLOCKED_ROWS_AFTER_GITHUB
-            if machine_github_saved else REVIEW_BLOCKED_ROWS
-        ))
+        widgets.append(
+            SelectionList(
+                REVIEW_BLOCKED_ROWS_AFTER_GITHUB
+                if machine_github_saved
+                else REVIEW_BLOCKED_ROWS
+            )
+        )
         return widgets
     widgets = heading(REVIEW_TITLE, _review_subtitle(plan, machine_github_saved))
     # Every group heading below carries its own top margin, so the heading's
@@ -109,14 +119,21 @@ def finish_body(
     widgets.pop()
     # Already-saved state reads first: it is the honest answer to "has anything
     # happened yet?", and it frames every Apply group that follows.
-    widgets.extend(render_reuse_summary(plan))
-    widgets.extend(render_write_plan(plan))
+    if show_all:
+        widgets.extend(render_reuse_summary(plan))
+        widgets.extend(render_write_plan(plan))
+    else:
+        widgets.extend(render_plan_summary(plan))
+    widgets.extend(
+        Static(line, classes="onboard-plan-line") for line in (status_lines or [])
+    )
     for line in notes or []:
         widgets.append(Static(f"Note: {escape(line)}", classes="onboard-note"))
     widgets.append(Static("", classes="onboard-spacer"))
-    widgets.append(SelectionList(
-        CONFIRM_ROWS_AFTER_GITHUB if machine_github_saved else CONFIRM_ROWS
-    ))
+    rows = list(CONFIRM_ROWS_AFTER_GITHUB if machine_github_saved else CONFIRM_ROWS)
+    if show_all:
+        rows[1] = SelectionRow("show-all", "Show summary", "hide exact plan")
+    widgets.append(SelectionList(rows))
     return widgets
 
 

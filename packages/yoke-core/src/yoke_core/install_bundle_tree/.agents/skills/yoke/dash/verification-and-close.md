@@ -235,9 +235,13 @@ the recorded landing identity, a fast-forward onto that merge — including
 a squash whose original head is not an ancestor of the base — or a lane
 holding nothing but copies of the commits that merge already took, which is
 what a rebase after a landing leaves behind. New commits
-after that landing are refused: file a fresh work item so they get their
-own merge identity; the command does not clean the lane or declare them
-delivered.
+after that landing: same-item correction is supported only while the
+item is before a declared release stage under its pinned workflow —
+re-verify, review, and run the governed merge again. Do not prescribe a
+stage change. Otherwise the refusal preserves the lane and requires
+separate work subject to operator preference. Do not reset unlanded
+corrections as recovery. The command does not clean the lane or
+declare those commits delivered.
 
 When approval-on-done is selected, the terminal transition creates the owner
 decision request without moving the item. Let an authorized owner resolve it,
@@ -303,12 +307,17 @@ entire ask.
 ### Laneless and evidence-only close-out
 
 Two closes record no merge SHA, and both are first-class rather than a
-bypass. A genuine no-changes finding edited nothing:
+bypass. A genuine no-changes finding edited nothing. After a skipped lane, do not
+run CI, merge, or a deployment unless explicit policy still requires it:
 
 ```text
 yoke direct-workflow dash evidence ITEM --result "<account>" \
   --verification "<what you observed>" --no-changes --json
 ```
+
+Then move the Dash through `reviewing-implementation` to `done` on that
+attestation. `yoke merge item --no-changes` is only for a lane that already
+exists.
 
 An item whose pinned workflow delivers merge-free — `worktrees=none`,
 `delivery=merge_free`, the floor Task shape — did change things, and

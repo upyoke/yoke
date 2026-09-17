@@ -172,7 +172,7 @@ def test_a_lane_with_a_commit_of_its_own_still_has_work_to_land(
 
     assert git.unlanded_commits(str(repo), _git(repo, "rev-parse", BRANCH), "main")
     assert landed.landed_lane(**_look(repo), project="yoke") is None
-    assert "fresh work item" in landed.stale_unlanded_work(**_look(repo))
+    assert "preserves the lane" in landed.stale_unlanded_work(**_look(repo))
 
 
 def test_a_lane_whose_merge_carries_the_only_new_content_is_not_a_copy(
@@ -215,7 +215,7 @@ def test_a_lane_whose_merge_carries_the_only_new_content_is_not_a_copy(
     )
     assert git.unlanded_commits(str(repo), lane, "main")
     assert landed.landed_lane(**_look(repo), project="yoke") is None
-    assert "fresh work item" in landed.stale_unlanded_work(**_look(repo))
+    assert "preserves the lane" in landed.stale_unlanded_work(**_look(repo))
 
 
 def test_a_receipt_the_base_does_not_contain_converges_nothing(

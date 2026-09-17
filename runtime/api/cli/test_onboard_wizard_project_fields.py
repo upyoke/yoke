@@ -1,12 +1,20 @@
-"""Public-item prefix is explicit; the wizard never derives one."""
+"""The combined project form starts with useful, editable identity defaults."""
 
-from yoke_cli.config.onboard_wizard_project_fields import (
-    PREFIX_PROMPT_SUBTITLE,
-    prefix_from_slug,
-)
+from yoke_cli.config.onboard_wizard_project_details import fields
 
 
-def test_prefix_from_slug_does_not_invent_a_prefix():
-    assert prefix_from_slug("notebook-app") == ""
-    assert prefix_from_slug(None) == ""
-    assert "does not suggest or derive" in PREFIX_PROMPT_SUBTITLE
+def test_project_details_prefill_a_short_editable_prefix():
+    values = {
+        field.key: field.initial_value
+        for field in fields(
+            slug="notebook-app",
+            branch_from_source=None,
+        )
+    }
+
+    assert values == {
+        "slug": "notebook-app",
+        "name": "notebook-app",
+        "branch": "main",
+        "prefix": "NOTEBO",
+    }

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Callable
 
+from yoke_core.domain.session_mode import clear_parked_mode
 from yoke_core.domain.session_turn_posture import (
     accepted_hook_posture,
     stamp_turn_posture,
@@ -43,6 +44,11 @@ def persist_accepted_hook_turn_posture(
             posture=posture,
             observed_at=observed_at,
         )
+        # Confirmed turn start is an accepted UserPromptSubmit whose running
+        # stamp applied. Stale/out-of-order stamps return False and must not
+        # unpark; tool-call running stamps use a different writer.
+        if changed and posture == "running":
+            clear_parked_mode(conn, session_id)
         conn.commit()
         return changed
     except Exception:  # noqa: BLE001 - lifecycle state must not break native hooks

@@ -2,7 +2,7 @@
 
 Sits between the Project step and Review because the credential belongs to a
 project: it is stored under that project's slug on this machine. Runs that
-onboard no deployable project — machine-only, and developing Yoke itself —
+onboard no deployable project — machine-only and editing Yoke source —
 pass straight through to Review.
 
 The step has three answers, not two, because "I run the hosting myself" and
@@ -28,7 +28,7 @@ from yoke_cli.config.onboard_wizard_step_ids import STEP_HOSTING
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yoke_cli.config.onboard_wizard_app import _View
 
-STACK_LINK_LABEL = "the AWS stack link"
+STACK_LINK_LABEL = "AWS setup page"
 
 
 class _Shell(Protocol):  # pragma: no cover - structural typing only
@@ -75,7 +75,10 @@ class HostingFlow:
             self._goto_hosting_aws_sign_in()
             return
         if choice == "no-managed-host":
-            self._goto_hosting_no_managed_host()
+            self.result.hosting_choice = hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST
+            self.result.hosting_provider_note = None
+            self.result.hosting_verification = None
+            self._goto_finish()
             return
         self._skip_hosting()
 
@@ -153,48 +156,6 @@ class HostingFlow:
         self.result.hosting_verification = None
         self._goto_finish()
 
-    # ── declared: the operator runs the hosting ─────────────
-
-    def _goto_hosting_no_managed_host(self: _Shell) -> None:
-        from yoke_cli.config.onboard_wizard_app import _View
-
-        def builder():
-            self._begin_form(
-                hosting_steps.HOSTING_NO_MANAGED_HOST_FIELDS,
-                on_done=self._after_no_managed_host_note,
-            )
-            return hosting_steps.hosting_no_managed_host_body()
-
-        self._goto(
-            _View(
-                STEP_HOSTING,
-                builder,
-                self._on_no_managed_host_choice,
-            )
-        )
-
-    def _on_no_managed_host_choice(self: _Shell, choice: str) -> None:
-        if choice == "back":
-            import asyncio
-
-            asyncio.ensure_future(self.action_back())
-            return
-        # The note is optional, so the row commits whatever the box holds --
-        # including nothing.
-        self._submit_pending_form()
-
-    def _after_no_managed_host_note(
-        self: _Shell,
-        values: dict[str, str],
-    ) -> None:
-        note = values[hosting_steps.HOSTING_PROVIDER_NOTE_FIELD.key].strip()
-        self.result.hosting_choice = hosting_posture.POSTURE_NO_YOKE_MANAGED_HOST
-        self.result.hosting_provider_note = note or None
-        # Nothing was verified because nothing was collected; the posture is
-        # the whole record.
-        self.result.hosting_verification = None
-        self._goto_finish()
-
     # ── credential entry ────────────────────────────────────
 
     def _after_hosting_credentials(
@@ -239,8 +200,6 @@ class HostingFlow:
         self: _Shell,
         identity: hosting.CallerIdentity,
     ) -> None:
-        from yoke_cli.config.onboard_wizard_app import _View
-
         self.result.hosting_choice = hosting_posture.POSTURE_YOKE_MANAGED_AWS
         self.result.hosting_verification = {
             "checked": True,
@@ -252,17 +211,7 @@ class HostingFlow:
             # operator was just verified rather than in a default they never saw.
             "region": self._hosting_region(),
         }
-        self._goto(
-            _View(
-                STEP_HOSTING,
-                lambda: hosting_steps.hosting_verified_body(
-                    account=identity.account,
-                    identity=identity.identity,
-                    credential_dir=self._hosting_credential_dir(),
-                ),
-                lambda _choice: self._goto_finish(),
-            )
-        )
+        self._goto_finish()
 
     def _goto_hosting_error(
         self: _Shell,

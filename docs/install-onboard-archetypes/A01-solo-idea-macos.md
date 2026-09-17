@@ -45,16 +45,8 @@ The shim launches `yoke onboard --post-install` with no extra consent.
 
 ### Install / PATH (`onboard_wizard_path.py`)
 
-```
-{brand} {version} is installed.
-Congrats! You're on your way to an eternity of Yoke.
-  Continue
-  Quit
-```
-
-**User:** Continue.
-
-If PATH needs a fix:
+The wizard starts directly at PATH readiness and shows the installed version
+as compact status. If PATH needs a fix:
 
 ```
 Add {brand} to your PATH.
@@ -68,7 +60,8 @@ A new Terminal login shell sees: …
 
 **User:** Add yoke to my PATH.
 
-Then verified continue: "choose where your Yoke lives".
+The write and fresh-shell verification happen immediately after that one
+confirmation. **See exactly what changes** remains optional.
 
 ### Account (`DESTINATION_ROWS`)
 
@@ -79,7 +72,6 @@ Keep the engine and database on your machine, or use a server for team collab.
   A team server                    the URL of your team's self-hosted Yoke server
   Set this machine up as a self-hosting server   Docker Compose · guided first boot
   upyoke.com                                          hosted by Yoke · private beta
-  stage.upyoke.com                                 staging environment · for testing
 ```
 
 **User:** This machine.
@@ -114,7 +106,7 @@ Where's the code? You can change this later.
   Existing folder on my machine     git repo or not
   Clone a project from GitHub       into a new folder
   Create a new project              new folder, optionally also created on GitHub
-  Develop Yoke itself               advanced · contributors
+  Edit Yoke source               use a checkout or clone any fork · dogfood or contribute
   Don't set up a project now        just the machine
 ```
 
@@ -129,18 +121,16 @@ Where should Yoke create it? It makes the folder and a git repo.
 **User:** `~/code/notebook-app`
 
 ```
-Name your project.
-Short ID — lowercase and hyphens (e.g. my-project).
+Project details.
+Enter advances fields; Enter on the last field validates the form.
+  Project ID       notebook-app
+  Display name     notebook-app
+  Default branch   main
+  Item prefix      NOTEBO
 ```
 
-**User:** `notebook-app` (suggested from folder via `slug_from_checkout`)
-
-```
-Give it a friendly name.
-The display name people read — anything you like.
-```
-
-**User:** `Notebook App`
+**User:** Changes the display name to `Notebook App`, keeps the prefilled
+values, and submits the form.
 
 ```
 Also publish to GitHub?
@@ -151,35 +141,18 @@ Yoke creates the repo with GitHub authorization and connects it as your remote.
 
 **User:** No — keep it local.
 
-```
-Pick the default branch.
-Yoke fills this in for you — change it if you like.
-```
-
-Placeholder: `main` (`DEFAULT_NEW_REPO_BRANCH`).
-
-**User:** Enter (`main`).
-
-```
-Pick the issue ID prefix.
-The PROJ in PROJ-123 — choose a unique prefix; Yoke does not suggest or derive one.
-```
-
-No suggested value. The public-item prefix is required and never derived from the slug.
-
-**User:** `NOTE`
-
 ### Board art
 
 ```
-Give your board a face.
-Every project gets a live status board — a progress map that fills
-in as work moves, topped with headers you design.
-  Let's design it     a progress map + at least one header
+Preview your board map.
+The map spelling starts from your project details and can be edited here.
+  Looks good — continue
+  Edit the map word
 ```
 
-**User:** Let's design it. Accepts the map spelling, picks ASCII, continues
-with one header.
+**User:** Accepts the map spelling, picks ASCII, then chooses **Save and
+continue** on the header preview. The gallery appears only after deliberately
+saving more than one header.
 
 ### Hosting
 
@@ -197,9 +170,11 @@ AWS is the one Yoke can run for you; hosting it yourself is a fine answer.
 
 ```
 Review what Yoke will save.
-Nothing is written until you choose Apply.
-  Apply      writes everything above
-  Cancel     nothing is saved
+Nothing is written until you choose Apply. The default view shows counts and
+one concise machine/core/project row.
+  Apply               writes the summarized plan
+  Show all changes    exact complete plan
+  Cancel              nothing is saved
 ```
 
 **User:** Apply.
@@ -208,17 +183,21 @@ Apply creates the local universe, writes machine config, creates
 `~/code/notebook-app` as a git repo on `main`, registers project
 `notebook-app` with prefix `NOTE`, GitHub adoption disabled.
 
-### Installer hand-off (after wizard)
+### Setup complete
 
 ```
-☀ Yoke installation complete.
-
-  ▌ Next: make it execution-ready.
-  ▌  1  source "~/.zprofile"
-  ▌     (this terminal only; new windows already have it)
-  ▌  2  open Claude Code, Codex, or Cursor in your project folder
-  ▌  3  run /yoke onboard
+✓ Setup complete.
+Everything in the Review plan was applied.
+✓ Board art ready
+✓ Session relay ready
+  Exit
+  Show report
 ```
+
+After **Exit**, the installer prints its execution-ready handoff (reload the
+current shell only if needed, open a supported harness in the project, then run
+`/yoke onboard`). This is terminal guidance after completion, not a TUI
+congratulations click-through.
 
 **User** opens Cursor in `~/code/notebook-app` and runs `/yoke onboard`.
 

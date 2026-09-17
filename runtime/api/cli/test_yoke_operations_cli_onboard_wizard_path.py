@@ -12,7 +12,7 @@ from textual.widgets import Rule, Static  # noqa: E402
 from textual.containers import VerticalScroll  # noqa: E402
 
 from yoke_cli import main as yoke_operations_cli  # noqa: E402
-from yoke_cli.config import onboard_wizard_path, path_doctor  # noqa: E402
+from yoke_cli.config import onboard_wizard_path_screens, path_doctor  # noqa: E402
 from yoke_cli.config.onboard_terminal import plain_text  # noqa: E402
 from yoke_cli.config.onboard_wizard import WizardDefaults  # noqa: E402
 from yoke_cli.config.onboard_wizard_app import OnboardWizardApp  # noqa: E402
@@ -56,13 +56,18 @@ def _all_clear_diagnosis() -> path_doctor.PathDiagnosis:
 
 @pytest.fixture
 def stub_path(monkeypatch):
-    """Install a needs-fix diagnosis and refuse writes before Review."""
+    """Install a needs-fix diagnosis and a successful immediate repair."""
     monkeypatch.setattr(path_doctor, "diagnose", lambda **_: _diagnosis(needs_fix=True))
-    monkeypatch.setattr(
-        path_doctor,
-        "apply_fix",
-        lambda *_args, **_kwargs: pytest.fail("PATH was written before Review Apply"),
-    )
+
+    def apply(plan, *, progress, report):
+        del progress
+        report["path_repair"] = {
+            **plan,
+            "login_verified": True,
+            "ssh_verified": True,
+        }
+
+    monkeypatch.setattr("yoke_cli.config.onboard_apply_path.apply", apply)
 
 
 def _app(defaults: WizardDefaults | None = None) -> OnboardWizardApp:
@@ -125,21 +130,15 @@ def test_screen_terminal_uses_ascii_visible_glyphs(monkeypatch, stub_path) -> No
             text = _visible_static_text(app)
             assert "* Yoke" in text
             assert "up/down navigate" in text
-            assert ">  Continue" in text
-            assert not (UNSAFE_SCREEN_GLYPHS & set(text))
-
-            await pilot.press("enter")  # install summary: continue
-            await pilot.pause()
-            text = _visible_static_text(app)
             assert "x uv" in text
             assert "x yoke" in text
-            assert ">  Add Yoke and harness CLIs to PATH" in text
+            assert ">  Add to PATH and continue" in text
             assert not (UNSAFE_SCREEN_GLYPHS & set(text))
 
             app._goto_project_mode()
             await pilot.pause()
             text = _visible_static_text(app)
-            assert "advanced - contributors" in text
+            assert "Edit Yoke source" in text
             assert not (UNSAFE_SCREEN_GLYPHS & set(text))
 
     asyncio.run(scenario())
@@ -185,7 +184,7 @@ def test_wizard_opens_on_path_diagnosis(stub_path) -> None:
     asyncio.run(scenario())
 
 
-def test_preview_choose_different_returns_to_path_diagnosis(stub_path) -> None:
+def test_preview_back_returns_to_path_diagnosis(stub_path) -> None:
     app = _app()
 
     async def scenario() -> None:
@@ -194,11 +193,10 @@ def test_preview_choose_different_returns_to_path_diagnosis(stub_path) -> None:
             diagnosis_view = app._history[-1]
             diagnosis_depth = len(app._history)
             for _ in range(3):
-                await pilot.press("down")
+                await pilot.press("down")  # See exactly what changes
                 await pilot.press("enter")
                 await pilot.pause()
-                await pilot.press("down")  # preview: Apply -> Show details
-                await pilot.press("down")  # preview: Show details -> Back
+                await pilot.press("down")  # preview: Apply -> Back
                 await pilot.press("enter")
                 await pilot.pause()
 
@@ -225,13 +223,9 @@ def test_add_path_reviews_both_files_then_applies(monkeypatch, stub_path) -> Non
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await pilot.pause()
-            await pilot.press("space")  # Add-PATH
-            await pilot.pause()
             text = _visible_static_text(app)
             assert "/home/u/.zprofile" in text and "/home/u/.zshenv" in text
-            assert app.query_one(Stepper).active == STEP_INSTALL
-            assert not applied
-            await pilot.press("enter")  # Apply writes now
+            await pilot.press("enter")  # Add to PATH and continue
             await pilot.pause()
             assert applied["ok"]
             assert app.query_one(Stepper).active != STEP_INSTALL
@@ -264,7 +258,7 @@ def test_path_continue_accepts_ctrl_j(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
-def test_post_install_opens_on_install_summary(stub_path) -> None:
+def test_post_install_opens_on_path_readiness_with_version_status(stub_path) -> None:
     app = _app(
         WizardDefaults(
             config_path="/tmp/cfg.json",
@@ -279,20 +273,28 @@ def test_post_install_opens_on_install_summary(stub_path) -> None:
         async with app.run_test() as pilot:
             await pilot.pause()
             assert app.query_one(Stepper).active == "install"
-            await pilot.press("enter")  # install summary: continue
+            await pilot.press("enter")  # Add to PATH and continue
             await pilot.pause()
-            # PATH diagnosis stays under the Install segment.
-            assert app.query_one(Stepper).active == STEP_INSTALL
+            assert app.query_one(Stepper).active != STEP_INSTALL
 
     asyncio.run(scenario())
 
 
-def test_source_install_summary_does_not_claim_ambient_wheel_version() -> None:
+def test_post_install_status_uses_the_installed_source_version(monkeypatch) -> None:
+    monkeypatch.setattr(
+        onboard_wizard_path_screens.install_binding,
+        "distribution_version",
+        lambda *, source_value: source_value,
+    )
     rendered = "\n".join(
-        str(widget.render()) for widget in onboard_wizard_path.install_summary_body()
+        str(widget.render())
+        for widget in onboard_wizard_path_screens.path_diagnosis_body(
+            _diagnosis(needs_fix=True),
+            installed_version=True,
+        )
     )
 
-    assert "Yoke source checkout is installed." in rendered
+    assert "Yoke source checkout installed." in rendered
 
 
 def test_onboard_post_install_flag_parses(monkeypatch, capsys) -> None:

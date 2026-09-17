@@ -1,7 +1,7 @@
 """Write-plan classification for the onboarding wizard's Finish preview.
 
 The classifier buckets ``build_report``'s write-plan steps into machine /
-Yoke-core-database / repo-local / source-dev-admin groups and renders each step
+Yoke-core-database / repo-local / edit-yoke-source groups and renders each step
 as a plain "what (and where/why)" line, so the review screen names what every
 write means instead of echoing the internal action/target ids. Consumed by
 ``onboard_wizard_steps.finish_body`` (re-exported there as ``classify_plan`` /
@@ -33,7 +33,7 @@ _PLAN_GROUPS = (
     ("Apply — on this machine (~/.yoke)", "onboard-plan-group-machine", "machine"),
     ("Apply — in the Yoke core database", "onboard-plan-group-core", "core"),
     ("Apply — in your project folder", "onboard-plan-group-repo", "repo"),
-    ("Apply — advanced / admin", "onboard-plan-group-admin", "admin"),
+    ("Apply — Yoke source", "onboard-plan-group-source", "source"),
 )
 # Distinct labels for the "already set up, Apply reuses these" block so it is not
 # confused with the write-plan groups above (which share the same locations).
@@ -41,7 +41,7 @@ _REUSE_GROUPS = (
     ("Already on this machine (~/.yoke)", "onboard-plan-group-machine", "machine"),
     ("Already in the Yoke core database", "onboard-plan-group-core", "core"),
     ("Already in your project folder", "onboard-plan-group-repo", "repo"),
-    ("Already set up (advanced / admin)", "onboard-plan-group-admin", "admin"),
+    ("Already set up from Yoke source", "onboard-plan-group-source", "source"),
 )
 # Write-plan lines are things Apply will do; reuse lines are things already
 # done. The two markers keep that difference readable at a glance.
@@ -110,6 +110,47 @@ def render_write_plan(plan: dict[str, Any]) -> list[Static]:
     return widgets
 
 
+def render_plan_summary(plan: dict[str, Any]) -> list[Static]:
+    """Render counts and one compact line per affected scope."""
+    from textual.widgets import Static
+
+    writes = classify_plan(plan)
+    reused = onboard_reuse_feedback.grouped_lines_for_plan(plan)
+    changed = sum(len(lines) for lines in writes.values())
+    saved = sum(len(lines) for lines in reused.values())
+    widgets = [
+        Static(
+            f"{changed} changes to apply · {saved} existing items preserved",
+            classes="onboard-plan-line",
+        )
+    ]
+    labels = {
+        "machine": "Machine",
+        "core": "Core",
+        "repo": "Project",
+        "admin": "Source",
+    }
+    for key in ("machine", "core", "repo", "admin"):
+        pending = len(writes.get(key, ()))
+        kept = len(reused.get(key, ()))
+        if pending or kept:
+            widgets.append(
+                Static(
+                    f"  {labels[key]}: {pending} changes · {kept} preserved",
+                    classes="onboard-plan-line",
+                )
+            )
+    source_edit = plan.get("source_edit") if isinstance(plan, dict) else None
+    if isinstance(source_edit, dict) and source_edit.get("server_effect"):
+        widgets.append(
+            Static(
+                f"  Source runtime: {source_edit['server_effect']}",
+                classes="onboard-plan-line",
+            )
+        )
+    return widgets
+
+
 def render_reuse_summary(plan: dict[str, Any]) -> list[Static]:
     from textual.widgets import Static
 
@@ -135,14 +176,16 @@ def classify_plan(plan: dict[str, Any]) -> dict[str, list[str]]:
         "machine": [],
         "core": [],
         "repo": [],
-        "admin": [],
+        "source": [],
     }
     inner = plan.get("plan", {}) if isinstance(plan, dict) else {}
     steps = inner.get("steps", [])
     project = inner.get("project") or {}
     raw_name = str(project.get("name") or "").strip()
     project_name = "" if raw_name == "None" else raw_name
-    is_admin = plan.get("project_mode") == onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN
+    edits_yoke_source = (
+        plan.get("project_mode") == onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE
+    )
     for step in steps:
         action = str(step.get("action", ""))
         target = str(step.get("target", ""))
@@ -155,10 +198,10 @@ def classify_plan(plan: dict[str, Any]) -> dict[str, list[str]]:
         )
         if action in _MACHINE_ACTIONS:
             grouped["machine"].append(text)
-        elif action == "project-source-dev-admin" or (
-            is_admin and action in _REPO_ACTIONS
+        elif action == "activate-yoke-source" or (
+            edits_yoke_source and action in _REPO_ACTIONS
         ):
-            grouped["admin"].append(text)
+            grouped["source"].append(text)
         elif action in _REPO_ACTIONS:
             grouped["repo"].append(text)
         elif action in _CORE_ACTIONS:
@@ -193,4 +236,9 @@ def _uses_local_database(plan: dict[str, Any]) -> bool:
     return str(connection.get("transport") or "") in POSTGRES_TRANSPORTS
 
 
-__all__ = ["classify_plan", "render_reuse_summary", "render_write_plan"]
+__all__ = [
+    "classify_plan",
+    "render_plan_summary",
+    "render_reuse_summary",
+    "render_write_plan",
+]

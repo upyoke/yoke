@@ -63,7 +63,8 @@ def _stub_start(monkeypatch, *, opened: bool) -> None:
         hosted_machine_authorization.BrowserOpenResult(opened=True, method="webbrowser")
         if opened
         else hosted_machine_authorization.BrowserOpenResult(
-            opened=False, reason=FAILURE_REASON,
+            opened=False,
+            reason=FAILURE_REASON,
         )
     )
     monkeypatch.setattr(hosted_machine_authorization, "open_browser", lambda _p: result)
@@ -82,7 +83,9 @@ def _stub_blocking_poll(monkeypatch) -> dict:
                     "cancelled"
                 )
         return hosted_machine_authorization.HostedMachineCredential(
-            api_url="https://app.upyoke.com/api/orgs/acme", org="acme", token="t",
+            api_url="https://app.upyoke.com/api/orgs/acme",
+            org="acme",
+            token="t",
         )
 
     monkeypatch.setattr(hosted_machine_authorization, "complete", _complete)
@@ -90,9 +93,14 @@ def _stub_blocking_poll(monkeypatch) -> dict:
 
 
 def _app(tmp_path):
-    return make_app(WizardDefaults(
-        config_path=str(tmp_path / "cfg.json"), env_name=None, api_url=None, token=None,
-    ))
+    return make_app(
+        WizardDefaults(
+            config_path=str(tmp_path / "cfg.json"),
+            env_name=None,
+            api_url=None,
+            token=None,
+        )
+    )
 
 
 def test_escape_during_the_approval_wait_returns_to_the_picker(monkeypatch, tmp_path):
@@ -103,7 +111,7 @@ def test_escape_during_the_approval_wait_returns_to_the_picker(monkeypatch, tmp_
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("up", "up")  # wrap local -> stage -> upyoke.com
+            await pilot.press("down", "down", "down")  # upyoke.com
             await pilot.press("enter")
             await pilot.pause()
             await app.workers.wait_for_complete()
@@ -133,7 +141,8 @@ def test_escape_during_the_approval_wait_returns_to_the_picker(monkeypatch, tmp_
 
 
 def test_every_approval_view_names_the_complete_url_and_the_browser_outcome(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     _stub_start(monkeypatch, opened=False)
     seen = _stub_blocking_poll(monkeypatch)
@@ -142,7 +151,7 @@ def test_every_approval_view_names_the_complete_url_and_the_browser_outcome(
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("up", "up")
+            await pilot.press("down", "down", "down")
             await pilot.press("enter")
             await pilot.pause()
             await app.workers.wait_for_complete()
@@ -176,7 +185,7 @@ def test_a_browser_that_opened_says_so_on_the_waiting_view(monkeypatch, tmp_path
     async def scenario() -> None:
         async with app.run_test() as pilot:
             await advance_past_path(pilot)
-            await pilot.press("up", "up")
+            await pilot.press("down", "down", "down")
             await pilot.press("enter")
             await pilot.pause()
             await app.workers.wait_for_complete()
@@ -194,17 +203,20 @@ def test_a_browser_that_opened_says_so_on_the_waiting_view(monkeypatch, tmp_path
 
 
 def test_escape_from_a_preset_hosted_run_steps_back_without_a_picker(
-    monkeypatch, tmp_path,
+    monkeypatch,
+    tmp_path,
 ):
     _stub_start(monkeypatch, opened=True)
     _stub_blocking_poll(monkeypatch)
-    app, _spy = make_app(WizardDefaults(
-        config_path=str(tmp_path / "cfg.json"),
-        destination="hosted",
-        env_name="prod",
-        api_url="https://app.upyoke.com",
-        token=None,
-    ))
+    app, _spy = make_app(
+        WizardDefaults(
+            config_path=str(tmp_path / "cfg.json"),
+            destination="hosted",
+            env_name="prod",
+            api_url="https://app.upyoke.com",
+            token=None,
+        )
+    )
 
     async def scenario() -> None:
         async with app.run_test() as pilot:

@@ -141,10 +141,10 @@ should usually run alone because they may intentionally leave partial state.
 
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
-| `INSTALL-SMOKE-001` | `bare-no-uv` | Interactive installer, accept uv, auto-launch onboard | Welcome renders; uv consent default is Yes; `Starting Yoke onboard` appears; install summary appears |
+| `INSTALL-SMOKE-001` | `bare-no-uv` | Interactive installer, accept uv, auto-launch onboard | Welcome renders; uv consent default is Yes; `Starting Yoke onboard` appears; wizard opens directly at PATH readiness with installed-version status |
 | `INSTALL-SMOKE-002` | `bare-no-uv` | Installer `--yes` | No TUI launch; prints `Run yoke onboard`; `yoke --version` works |
-| `INSTALL-SMOKE-003` | `prepared-yoke` | Launch `yoke onboard` directly | PATH screen or install summary appears; no crash |
-| `INSTALL-SMOKE-004` | `prepared-yoke` | Machine-only stage onboarding | Apply succeeds; report written; `yoke status` reaches stage |
+| `INSTALL-SMOKE-003` | `prepared-yoke` | Launch `yoke onboard` directly | PATH readiness appears without a congratulations click-through; no crash |
+| `INSTALL-SMOKE-004` | `prepared-yoke` | Machine-only stage onboarding through explicit test preset | Stage is absent from the ordinary picker; test-only/disposable/no-live-operations warning is inline; Apply succeeds and `yoke status` reaches stage |
 | `INSTALL-SMOKE-005` | `prepared-yoke` | Machine-only prod onboarding | Apply succeeds against prod with prod token; active env is prod |
 
 ### Wave 2: Installer Branches
@@ -169,33 +169,34 @@ should usually run alone because they may intentionally leave partial state.
 
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
-| `PATH-001` | `prepared-path-broken` | Default `Add yoke to my PATH` | Writes managed block; verified screen lists login and SSH command results |
+| `PATH-001` | `prepared-path-broken` | Default `Add yoke to my PATH` | One confirmation writes and verifies the managed block; login and SSH command results render |
 | `PATH-002` | `prepared-path-broken` | Preview then Add | Preview names exact startup files and block; apply succeeds |
 | `PATH-003` | `prepared-path-broken` | Skip PATH repair | Account destination picker still reachable; no write |
 | `PATH-004` | `prepared-yoke` | Already on PATH | All-clear screen; Continue advances |
 | `PATH-005` | `prepared-path-broken` | SSH-only PATH missing | Writes `.zshenv` or SSH startup file when needed |
 | `PATH-006` | `prepared-path-broken` | Re-run after path fix | Block not duplicated |
 | `PATH-007` | `prepared-screen-term` | PATH screens in plain glyph mode | ASCII text only; no box drawing artifacts |
-| `PATH-008` | `prepared-yoke` | Quit from post-install summary | Exits through the terminal interrupt path with durable code 130 |
+| `PATH-008` | `prepared-yoke` | Ctrl-C from installer-launched PATH readiness | Exits through the terminal interrupt path with durable code 130; no post-install congratulations screen exists |
 
 ### Wave 4: Account And Yoke Token
 
 The Account step opens on the deployment-destination picker: `Where should this
-Yoke live?` with choices for this machine, a team server, and upyoke.com. Enter
-keeps the hosted lane, while the team-server lane asks for a Yoke server URL.
+Yoke live?` with choices for this machine, a team server, guided self-hosting,
+and upyoke.com. Stage is never an ordinary row. The team-server lane uses one
+form for URL, paste-versus-file selection, and the corresponding credential.
 
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
-| `AUTH-001` | `prepared-yoke` | Stage env, token file | Token verified; actor/org/project summary renders; token-file placeholder reflects selected env; no token leak |
-| `AUTH-002` | `prepared-yoke` | Prod env, token file | Prod API verified; active env prod after Apply |
-| `AUTH-003` | `prepared-yoke` | Team-server URL via the picker's team-server lane | Server URL accepted; token verification uses it |
+| `AUTH-001` | `prepared-yoke` | Explicit test-only stage preset, token file | Disposable/no-live-operations warning renders; token verification auto-advances; token-file placeholder reflects selected env; no token leak |
+| `AUTH-002` | `prepared-yoke` | Prod env, token file | Prod API verified; no token-connected click-through; compact actor/org/project status reaches GitHub; active env prod after Apply |
+| `AUTH-003` | `prepared-yoke` | Team-server form with pasted token | Complete URL validates; token source is explicit; masked token verification uses that URL |
 | `AUTH-004` | `prepared-yoke` | Token paste | Password field masks value; no capture leak |
-| `AUTH-005` | `prepared-yoke` | Missing token file path | Inline/actionable error; can retry |
+| `AUTH-005` | `prepared-yoke` | Team-server form with missing token file path | Inline/actionable error returns to the populated form; can retry |
 | `AUTH-006` | `prepared-yoke` | Empty token file | Friendly error; no crash |
 | `AUTH-007` | `prepared-yoke` | Invalid token | HTTP 401 friendly error; retry path works |
 | `AUTH-008` | `fault-injection` | Valid token but no org/project access | Permission copy is actionable |
-| `AUTH-009` | `prepared-stored-state` | Stored token reuse | Stored credential offered and verified, not blindly trusted |
-| `AUTH-010` | `prepared-stored-state` | Stored token invalid | Replacement route is available |
+| `AUTH-009` | `prepared-stored-state` | Stored token reuse | Stored credential is detected and attempted automatically, not blindly trusted |
+| `AUTH-010` | `prepared-stored-state` | Stored token invalid | Populated replacement form and choose-another-home routes are available |
 | `AUTH-011` | `prepared-yoke` | Token sees many projects/orgs | Projects and orgs lists truncate consistently and do not overflow |
 
 ### Wave 5: Machine GitHub App Connection
@@ -207,8 +208,8 @@ The canonical append-only `GITHUB-*` table lives in [Installer GitHub App live t
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
 | `PROJECT-SOURCE-001` | `prepared-git` | Machine-only | Finish review has only machine/account writes |
-| `PROJECT-SOURCE-002` | `prepared-git` | Create new project folder | Folder input accepts `~/code/name`; next metadata screen appears |
-| `PROJECT-SOURCE-003` | `prepared-git` | Existing local checkout | Local path accepted; project metadata flow appears |
+| `PROJECT-SOURCE-002` | `prepared-git` | Create new project folder | Folder input accepts `~/code/name`; one prefilled Project details form appears |
+| `PROJECT-SOURCE-003` | `prepared-git` | Existing local checkout | Local path accepted; one prefilled Project details form appears unless an existing project match skips it |
 | `PROJECT-SOURCE-004` | `prepared-git` | Create-new points at existing code | Redirect screen says existing project setup instead |
 | `PROJECT-SOURCE-005` | `prepared-git` | Clone public repo URL | Source reachable; default branch detected |
 | `PROJECT-SOURCE-006` | `prepared-git` | Clone private repo with connected App | Refreshed App user access authenticates the clone without persisting in git config |
@@ -218,26 +219,26 @@ The canonical append-only `GITHUB-*` table lives in [Installer GitHub App live t
 | `PROJECT-SOURCE-010` | `prepared-no-git` | Any checkout mode with no Git | Git prerequisite screen appears before project details |
 | `PROJECT-SOURCE-011` | `prepared-no-git` | Missing Git, install with package manager | Install action runs; returns to flow when Git is available |
 | `PROJECT-SOURCE-012` | `prepared-no-git-no-sudo` | Missing Git with no package manager/sudo | Manual-only guidance; no dead-end |
-| `PROJECT-SOURCE-013` | `prepared-git` | Develop Yoke denied | Access-gate error friendly |
-| `PROJECT-SOURCE-014` | `prepared-git` | Develop Yoke allowed | Routes to source-dev/admin plan without accidental product writes |
-| `PROJECT-SOURCE-015` | `prepared-git` | Develop Yoke into a fresh folder | Post-apply: real clone with expected tree and git history; source-link symlinks and hooks present |
-| `PROJECT-SOURCE-016` | `prepared-git` | Develop Yoke into an existing Yoke checkout | Detected and reused; post-apply source-link install has symlinks and hooks, no product-copy dirs |
-| `PROJECT-SOURCE-017` | `prepared-git` | Develop Yoke into a non-empty non-Yoke folder | Refused before Apply; no product scaffold written; no `done` |
-| `PROJECT-SOURCE-018` | `prepared-git` | Develop Yoke default folder and review wording | Default folder and review copy are correct for source-dev |
-| `PROJECT-SOURCE-019` | `prepared-git` | Develop Yoke push credential | Post-apply: origin names Yoke repo and `git push --dry-run` authenticates |
+| `PROJECT-SOURCE-013` | `prepared-git` | Edit Yoke source from an arbitrary existing checkout | No official project, canonical repo, employee identity, or fixed prefix is required; local command activates from the checkout |
+| `PROJECT-SOURCE-014` | `prepared-git` | Edit Yoke source by cloning a public fork | User-supplied URL and empty destination clone; editable/source-link activation succeeds |
+| `PROJECT-SOURCE-015` | `prepared-git` | Edit source with This machine | Checkout-backed CLI, harness, and in-process local engine are active |
+| `PROJECT-SOURCE-016` | `prepared-git` | Edit source with same-host guided self-host | Existing `--from-checkout PATH --build` local-core path builds and starts the private server image |
+| `PROJECT-SOURCE-017` | `prepared-git` | Edit source against an existing remote self-host | Review states that only local client/harness code changes; remote server keeps its deployed build |
+| `PROJECT-SOURCE-018` | `prepared-git` | Edit source against upyoke.com | Review states that only local client/harness code changes; hosted server keeps its deployed build |
+| `PROJECT-SOURCE-019` | `prepared-git` | Edit source into a non-empty non-Yoke folder | Refused before Apply; no product scaffold written; no `done` |
 
 ### Wave 7: Project Metadata Inputs
 
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
-| `PROJECT-META-001` | `prepared-git` | Valid slug/name/prefix/default branch | Reaches review |
+| `PROJECT-META-001` | `prepared-git` | Submit valid Project ID/display name/default branch/item prefix in the combined form | Enter advances each field; final Enter validates and continues |
 | `PROJECT-META-002` | `prepared-git` | Empty slug | Inline validation blocks |
 | `PROJECT-META-003` | `prepared-git` | Slug with invalid chars | Inline validation message |
 | `PROJECT-META-004` | `prepared-git` | Very long slug | Validation/wrapping is readable |
 | `PROJECT-META-005` | `prepared-git` | Empty display name | Inline validation blocks |
 | `PROJECT-META-006` | `prepared-git` | Branch prefix invalid | Inline validation blocks |
 | `PROJECT-META-007` | `prepared-git` | Public item prefix invalid | Inline validation blocks |
-| `PROJECT-META-008` | `prepared-git` | Multiple orgs visible | Owner/org picker is clear |
+| `PROJECT-META-008` | `prepared-git` | Multiple orgs visible | Owner/org picker starts at the sorted top, shows full-list count, scrolls without typing, and filters by name |
 | `PROJECT-META-009` | `fault-injection` | `board.data.get` failure during board-art write | Apply failure text is friendly and names the failing function and write step |
 | `PROJECT-META-010` | `prepared-git` | Leading `~` immediate typing | First char preserved in input |
 | `PROJECT-META-011` | `prepared-git` | Leading `~` settled typing | Path accepted; validates baseline |
@@ -259,14 +260,30 @@ The canonical append-only `GITHUB-*` table lives in [Installer GitHub App live t
 | `PUBLISH-011` | `prepared-git` | Project GitHub App binding unavailable | Project remains disabled; no credential secret is stored |
 | `PUBLISH-012` | `prepared-git` | Project GitHub App binding reuse | Project binding traces to the installed App repository |
 
+### Wave 8B: Board Art, Hosting, And Success Transitions
+
+| ID | Profile | Flow | Assertions |
+| --- | --- | --- | --- |
+| `BOARD-ART-001` | `prepared-git` | Normal board-art path | Map preview absorbs the intro; style leads directly to header preview; no gallery click-through occurs after one save |
+| `BOARD-ART-002` | `prepared-git` | Save multiple headers | Gallery summary shows saved/style counts and most recent header; exact variants and removal controls appear only under Review saved headers |
+| `BOARD-ART-003` | `prepared-git` | From an image | Local PNG/JPG converts to the existing emoji mosaic and returns to header preview |
+| `HOSTING-001` | `prepared-git` | Choose I host this myself | Settled no-managed-host posture records and goes directly to Review; no location-note screen exists |
+| `HOSTING-002` | `prepared-git` | Choose Decide later | Undecided posture records and goes directly to Review; a later onboard run asks again |
+| `HOSTING-003` | `prepared-git` | AWS dedicated-key route | Open AWS setup page leads; Ctrl+O opens and Ctrl+Y copies the URL; footer repeats both; full CloudFormation URL is absent from body |
+| `HOSTING-004` | `prepared-git` | AWS existing-credentials route | Distinct credential form has no setup URL and goes directly to access-key fields |
+| `HOSTING-005` | `prepared-git` | AWS credential verifies | No identity-verified click-through; Review names account, identity, and local `aws-admin` custody; exact path/OIDC detail stays in Show all changes |
+| `HOSTING-006` | `prepared-yoke` | Guided self-host preview and completion | Preview is compact; completion keeps URL, connection, admin-token path, team-access warning, and conditional sleep warning inline |
+| `SUCCESS-001` | `prepared-yoke` | Clean GitHub machine connection | Compact success names username, App, installation/repository counts, permissions readiness, and local custody; exact inventory is behind Review repository access |
+| `SUCCESS-002` | `prepared-git` | Clean project-level GitHub access | Binding records and auto-advances to board art; missing permission or unavailable access still stops with recovery |
+
 ### Wave 9: Review, Apply, Resume
 
 | ID | Profile | Flow | Assertions |
 | --- | --- | --- | --- |
-| `APPLY-001` | `prepared-yoke` | Machine-only review | Plan groups machine/account writes; Apply success |
-| `APPLY-002` | `prepared-git` | Full create-project review | Machine, account, control-plane, repo-local groups visible |
+| `APPLY-001` | `prepared-yoke` | Machine-only review | Summary shows saved-item/total counts and concise destination rows; Apply succeeds |
+| `APPLY-002` | `prepared-git` | Full create-project review | Summary is compact; Show all changes retains the exact machine/core/project/source plan |
 | `APPLY-003` | `prepared-git` | Full clone/import review | Clone/install/board steps visible |
-| `APPLY-004` | `fault-injection` | Machine config write failure | Report path and resume command shown |
+| `APPLY-004` | `fault-injection` | Machine config write failure | Cause, preservation, and recommended action are inline; internal step/report/resume diagnostics are in technical details |
 | `APPLY-005` | `fault-injection` | Token store failure | No token leak; resume possible |
 | `APPLY-006` | `fault-injection` | Project create failure | Friendly permission/HTTP text |
 | `APPLY-007` | `fault-injection` | Clone failure | Target folder recovery instructions |
@@ -275,6 +292,8 @@ The canonical append-only `GITHUB-*` table lives in [Installer GitHub App live t
 | `APPLY-010` | `prepared-git` | Resume after partial failure | Resume completes or reports exact remaining blocker |
 | `APPLY-011` | `prepared-git` | Apply report audit | Report has `secret_free: true`; captures have no secrets |
 | `APPLY-012` | `prepared-git` | Ctrl-C during Apply | Blocked or handled cleanly; no partial silent teardown |
+| `APPLY-013` | `prepared-git` | Multi-group Apply progress | Fixed-height body shows overall/group counts and current operation; exact completed history remains in report |
+| `APPLY-014` | `prepared-git` | Setup Complete with routine relay and board-art work | Routine confirmations are compact; any machine-registration recovery or other required action remains inline |
 
 ### Wave 10: Terminal Interaction And Layout
 
@@ -291,7 +310,10 @@ The canonical append-only `GITHUB-*` table lives in [Installer GitHub App live t
 | `TERM-009` | `prepared-git` | Escape backs out of each step | History works; no dead ends |
 | `TERM-010` | `prepared-git` | Ctrl-C before Apply | Exits cleanly |
 | `TERM-011` | `prepared-git` | Mouse reporting off under screen compat | No garbled mouse escape noise |
-| `TERM-012` | `prepared-git` | Very long repo/org/project names | Wrap is readable; no overlap |
+| `TERM-012` | `prepared-git` | Very long repo/org/project names | Compact rows remain one line and selected decision-critical explanations are complete below the list |
+| `TERM-013` | `prepared-git` | Long repository picker, no typed filter | Sorted top is visible on load; Up/Down traverses every result; Enter selects; no more than viewport rows are mounted |
+| `TERM-014` | `prepared-git` | Long owner picker with filter and clear | Typing filters account/organization names; live count changes; clear restores the complete sorted list at its top |
+| `TERM-015` | `prepared-git` | Empty repository inventory | Explicit no-repositories recovery screen is readable and keyboard-operable |
 
 ### Wave 11: Stored State And Repeatability
 
@@ -324,10 +346,10 @@ Screen Recording.
 | `MAC-006` | test Mac | Visible Terminal PTY bridge | Log captures TUI while child sees real terminal size; per-screen region screenshots through Terminal.app succeed |
 | `MAC-007` | test Mac | One-shot SSH PATH after full onboard | `command -v uv; command -v uvx; command -v yoke` works once the wizard wrote `.zprofile` and `.zshenv` |
 | `MAC-008` | test Mac | Stage + prod credentials | Env switching works without reinstalling project |
-| `MAC-009` | test Mac | Develop Yoke into a fresh `~/code/yoke` | Post-apply: real clone, source-link symlinks, git hooks, and `git push --dry-run` authenticates |
+| `MAC-009` | test Mac | Edit Yoke source by cloning a fork into fresh `~/code/yoke` | Post-apply: real clone and checkout-backed editable/source-link activation work without official Yoke access |
 | `MAC-010` | test Mac | PATH repair writes both startup files | Fresh login shell and one-shot SSH command both resolve `yoke` |
-| `MAC-011` | test Mac | Full `curl \| bash` in Terminal.app, wizard left by `Quit` | Shim hand-off block is the last screen and names reload, harness, and `/yoke onboard` in that order |
-| `MAC-012` | test Mac | Re-run the installer from a fresh login shell after PATH repair | Hand-off drops the reload step; harness step is numbered 1 |
+| `MAC-011` | test Mac | Full `curl \| bash` in Terminal.app, stopped with Ctrl-C at PATH readiness | No congratulations or hand-off click-through; terminal exits cleanly |
+| `MAC-012` | test Mac | Re-run the installer from a fresh login shell after PATH repair | Opens directly on compact PATH-ready status; Continue reaches Account |
 
 ### Wave 13: Open Source Mode Closing Regression
 
@@ -339,7 +361,7 @@ not a pass.
 | --- | --- | --- | --- |
 | `LOCAL-BIRTH-001` | `prepared-yoke` | `yoke init --local`, then open the local universe | Post-apply: local Postgres and API are healthy; one human actor exists; no user table or signup step appears; `yoke status` and the two-view UI both reach the new universe |
 | `MODE-PICKER-001` | `prepared-yoke` | Onboard destination = this machine | Post-apply: local birth completes; active connection is `local-postgres`; no hosted credential is written |
-| `MODE-PICKER-002` | `prepared-yoke` | Onboard destination = team server | Server URL and OIDC sign-in are required; Post-apply: connection uses `https`; no local universe is born |
+| `MODE-PICKER-002` | `prepared-yoke` | Onboard destination = team server | One form collects URL, token source, and credential; Post-apply connection uses `https`; no local universe is born |
 | `MODE-PICKER-003` | `prepared-yoke` | Onboard destination = upyoke.com | Post-apply: hosted sign-in completes; existing hosted projects are listed for clone/map; no duplicate project is created |
 | `SELF-HOST-001` | `prepared-yoke` | Initialize the published self-host bundle, Compose up, then `yoke connect` | Post-apply: server and Postgres containers are healthy; OIDC door signs in; connected CLI reports the exact server release; mounted App key is file-only and absent from retained evidence |
 | `HOSTED-CONNECT-001` | `prepared-yoke` | Sign in to upyoke.com, create an org/project disabled, then connect the CLI | Post-apply: platform membership maps to one tenant actor; board skeleton exists before machine mapping; CLI reuses the hosted project instead of creating another |
@@ -1275,7 +1297,7 @@ Screenshot rules:
 
 ### Source-Dev Post-Apply
 
-After a "Develop Yoke itself" Apply reaches `final_status: done` and the TUI
+After a "Edit Yoke source" Apply reaches `final_status: done` and the TUI
 exits, the deferred editable install prints `Dev environment ready`. Verify the
 on-disk ground truth:
 

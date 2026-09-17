@@ -30,7 +30,7 @@ class _LocalCheckoutShell(onboard_wizard_flow.WizardFlow):
         self.slug_visits = 0
         self.error: BaseException | None = None
 
-    def _goto_slug(self) -> None:
+    def _goto_project_details(self) -> None:
         self.slug_visits += 1
 
     def _goto_existing_project_lookup_error(self, exc, **_kwargs) -> None:
@@ -69,7 +69,8 @@ def _local_checkout_seams(monkeypatch, *, branch: str, remote: str | None) -> No
 
 
 def test_local_checkout_records_current_branch_before_publish(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
@@ -89,7 +90,8 @@ def test_local_checkout_records_current_branch_before_publish(
 
 
 def test_local_checkout_rejects_detached_head_before_publish(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
@@ -115,7 +117,9 @@ def test_local_checkout_rejects_detached_head_before_publish(
     ),
 )
 def test_local_checkout_does_not_bind_foreign_remote(
-    tmp_path, monkeypatch, remote,
+    tmp_path,
+    monkeypatch,
+    remote,
 ) -> None:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
@@ -130,7 +134,8 @@ def test_local_checkout_does_not_bind_foreign_remote(
 
 
 def test_local_checkout_does_not_bind_unconfigured_github_deployment(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
@@ -168,9 +173,7 @@ def test_origin_mismatch_never_echoes_embedded_credentials(
     monkeypatch.setattr(
         project_clone_resume,
         "remote_url",
-        lambda *_args: (
-            f"https://octocat:{secret}@github.com/foreign/repository.git"
-        ),
+        lambda *_args: f"https://octocat:{secret}@github.com/foreign/repository.git",
     )
 
     with pytest.raises(RuntimeError) as caught:
@@ -228,18 +231,19 @@ def test_linked_worktree_root_is_exact_but_nested_folder_is_not(tmp_path) -> Non
     assert project_clone_resume.is_exact_worktree_root(nested) is False
 
 
-def test_local_checkout_publish_uses_detected_source_branch() -> None:
+def test_local_checkout_publish_continues_without_reprompting_for_branch() -> None:
     class PublishShell(onboard_wizard_flow_publish.PublishFlow):
         result = SimpleNamespace(
             project_mode=onboard_project.PROJECT_MODE_LOCAL_CHECKOUT,
             project_source_default_branch="release",
+            project_public_item_prefix="EXAMPLE",
             project_github_repo=None,
             project_github_adoption=None,
         )
-        branch: str | None = None
+        prefix: str | None = None
 
-        def _after_branch(self, value: str) -> None:
-            self.branch = value
+        def _after_prefix(self, value: str) -> None:
+            self.prefix = value
 
         def _goto_input(self, *_args, **_kwargs) -> None:
             raise AssertionError("detected branch must not be prompted again")
@@ -247,11 +251,12 @@ def test_local_checkout_publish_uses_detected_source_branch() -> None:
     shell = PublishShell()
     shell._after_repo("example/project")
 
-    assert shell.branch == "release"
+    assert shell.prefix == "EXAMPLE"
 
 
 def test_existing_remote_publish_skip_preserves_detected_repository(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ) -> None:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
@@ -268,7 +273,9 @@ def test_existing_remote_publish_skip_preserves_detected_repository(
             self.forwarded_repo = value
 
     monkeypatch.setattr(
-        onboard_wizard_flow_publish, "has_remote", lambda _path: True,
+        onboard_wizard_flow_publish,
+        "has_remote",
+        lambda _path: True,
     )
     monkeypatch.setattr(
         onboard_wizard_flow_publish.onboard_local_checkout_identity,

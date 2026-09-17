@@ -1,7 +1,7 @@
 """Pure-function coverage for the onboard wizard's write-plan classifier.
 
 ``steps.classify_plan`` buckets ``build_plan``'s write-plan steps into the
-machine / Yoke-core-database / repo-local / source-dev-admin groups the Finish
+machine / Yoke-core-database / repo-local / edit-yoke-source groups the Finish
 preview renders. These cases need no Textual pilot, so they live apart from the
 pilot-driven flow suite in ``test_yoke_operations_cli_onboard_wizard.py``.
 
@@ -210,14 +210,14 @@ def test_reuse_feedback_names_detected_clone_values() -> None:
 
 
 def test_build_plan_source_dev_admin_omits_scaffold_and_board_art() -> None:
-    # source-dev-admin uses `yoke dev setup` and never designs board art, so
+    # edit-yoke-source uses `yoke dev setup` and never designs board art, so
     # the post-checkout scaffold/board-art steps must not be listed for it.
     project_inputs = {
-        "mode": onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
+        "mode": onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE,
         "checkout": "/src/yoke",
         "github_adoption": None,
     }
-    plan = build_plan(project_inputs, onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN)
+    plan = build_plan(project_inputs, onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE)
     actions = {step["action"] for step in plan["steps"]}
     assert "project-install-scaffold" not in actions
     assert "project-write-board-art" not in actions
@@ -246,7 +246,7 @@ def test_classify_plan_buckets_writes() -> None:
 
 def test_classify_plan_source_dev_admin_bucket() -> None:
     plan = {
-        "project_mode": onboard_project.PROJECT_MODE_SOURCE_DEV_ADMIN,
+        "project_mode": onboard_project.PROJECT_MODE_EDIT_YOKE_SOURCE,
         "plan": {
             "steps": [
                 {"action": "project-onboard-local-checkout", "target": "/src/yoke"},
@@ -254,7 +254,7 @@ def test_classify_plan_source_dev_admin_bucket() -> None:
         },
     }
     grouped = steps.classify_plan(plan)
-    assert grouped["admin"] == ["Set up the project at /src/yoke"]
+    assert grouped["source"] == ["Set up the project at /src/yoke"]
     assert grouped["repo"] == []
 
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from yoke_cli.commands.adapters.qa import (
     USAGE_BY_FUNCTION_ID as qa_write_usage,
 )
@@ -37,6 +39,7 @@ from yoke_cli.commands.adapters.workflows_read import (
     WORKFLOWS_ITEM_MIGRATE_USAGE,
 )
 from yoke_cli.commands.adapters.workflows_item_posture import (
+    WORKFLOWS_ITEM_POSTURE_AMEND_HELP,
     WORKFLOWS_ITEM_POSTURE_AMEND_USAGE,
 )
 from yoke_cli.commands.adapters.workflows_versions import (
@@ -54,6 +57,7 @@ from yoke_core.api.service_client_structured_api_adapter_inventory_items import 
 from yoke_core.api.service_client_structured_api_adapter_inventory_workflows import (
     WORKFLOW_ADAPTERS,
 )
+from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 
 
 def test_workflow_inventory_matches_public_cli_usage() -> None:
@@ -106,3 +110,14 @@ def test_item_worktree_inventory_matches_public_cli_usage() -> None:
         if entry.function_id in expected
     }
     assert actual == expected
+
+
+def test_item_posture_amend_help_names_a_registered_verification_method() -> None:
+    registered = {str(method["id"]) for method in BUILTIN_QA_METHODS}
+    named = re.findall(
+        r"--verification-method\s+(\S+)",
+        WORKFLOWS_ITEM_POSTURE_AMEND_HELP,
+    )
+    assert named
+    assert all(method_id in registered for method_id in named)
+    assert "implementation_review" not in WORKFLOWS_ITEM_POSTURE_AMEND_HELP

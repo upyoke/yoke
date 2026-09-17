@@ -234,10 +234,12 @@ def _resolve_landing_pull_request(
 
     A merged pull request that does not cover ``lane_head`` is not this
     landing's, so the lookup declines it and a fresh one is opened for the
-    commits that have not landed. That refusal survives the re-lookup below:
-    finding the same stale pull request again means the fresh landing has no
-    pull request of its own, which is a named failure rather than a silent
-    convergence on the wrong merge commit.
+    commits that have not landed. When that create fails, the create failure
+    is the refusal — the stale listing is context, not a second-merge
+    prohibition, and resetting unlanded corrections is never the recovery.
+    Finding the same stale pull request again after a create that reported
+    ``already_exists`` or ``no_commits`` still names the missing fresh pull
+    request rather than silently converging on the wrong merge commit.
 
     A closed unmerged pull request is reopened when GitHub permits, and
     replaced by a new one when it does not. The adapter refuses only when
@@ -274,24 +276,33 @@ def _resolve_landing_pull_request(
             usable, _ignored, _merged = _usable_existing_pull_request(ctx, pr_num)
             if usable:
                 return usable, None
-    if stale:
-        return "", (
-            f"branch {ctx.args.branch!r} carries commits beyond the pull "
-            f"request that merged it ({stale}); open a pull request for the "
-            "new commits, or reset the lane to what already landed"
-        )
-    if created.no_commits:
-        return "", (
-            f"branch {ctx.args.branch!r} has no commits against "
-            f"{ctx.args.target!r} and no pull request records it landing; "
-            "confirm where the branch merged before re-running the landing"
-        )
     create_error = _create_failure(ctx, created)
     if reopen_error:
         return "", (
             f"closed unmerged pull request could not be reopened "
             f"({reopen_error}) and a replacement could not be created "
             f"({create_error})"
+        )
+    if not created.already_exists and not created.no_commits:
+        if stale:
+            return "", (
+                f"{create_error}. Branch {ctx.args.branch!r} also carries "
+                f"commits beyond the pull request that merged it ({stale}); "
+                "after that create failure is resolved, open a pull request "
+                "for the new commits. Do not reset unlanded corrections"
+            )
+        return "", create_error
+    if stale:
+        return "", (
+            f"branch {ctx.args.branch!r} carries commits beyond the pull "
+            f"request that merged it ({stale}); open a pull request for the "
+            "new commits. Do not reset unlanded corrections"
+        )
+    if created.no_commits:
+        return "", (
+            f"branch {ctx.args.branch!r} has no commits against "
+            f"{ctx.args.target!r} and no pull request records it landing; "
+            "confirm where the branch merged before re-running the landing"
         )
     return "", create_error
 

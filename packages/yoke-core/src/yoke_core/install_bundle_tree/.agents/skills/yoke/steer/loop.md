@@ -155,7 +155,7 @@ completion. Workers can finish without sending one, too. Confirm both the
 item status and the latest matching claim's `release_reason=completed`:
 
 ```text
-yoke items detail get PREFIX-N --json
+yoke items get PREFIX-N status --json
 yoke db read "SELECT release_reason FROM work_claims WHERE target_kind = 'item' AND scope::jsonb->>'item_id' = '{BARE_ITEM_ID}' ORDER BY id DESC LIMIT 1"
 ```
 

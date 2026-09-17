@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from yoke_cli.config.onboard_project_modes import PROJECT_MODE_SOURCE_DEV_ADMIN
+from yoke_cli.config.onboard_project_modes import PROJECT_MODE_EDIT_YOKE_SOURCE
 from yoke_cli.config.project_github_adoption import (
     GITHUB_ADOPTION_APP_BINDING,
     GITHUB_ADOPTION_DISABLED,
@@ -24,7 +24,7 @@ def github_auth_target(
     if inputs.get("keep_existing_remote"):
         return "keep-existing-remote"
     effective_mode = mode if mode is not None else str(inputs.get("mode") or "")
-    if effective_mode == PROJECT_MODE_SOURCE_DEV_ADMIN:
+    if effective_mode == PROJECT_MODE_EDIT_YOKE_SOURCE:
         return "source-dev"
     selected = str(inputs.get("github_adoption") or "").strip()
     if selected in ("", "skip"):

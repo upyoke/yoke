@@ -47,21 +47,6 @@ HOSTING_AWS_SIGN_IN_ROWS = [
     SelectionRow("skip", "Not now", "Continue without AWS credentials"),
 ]
 
-# The screen for the operator who runs their own hosting. It asks for nothing
-# Yoke needs, because Yoke will not touch that host; the one field exists so
-# the project record says where the code actually runs.
-HOSTING_NO_MANAGED_HOST_TITLE = "Yoke will manage no host for this project."
-HOSTING_PROVIDER_NOTE_FIELD = _FormField(
-    key="provider-note",
-    label="Where does it run? (optional)",
-    placeholder="Render, a DigitalOcean droplet, dokku, an on-prem box...",
-)
-HOSTING_NO_MANAGED_HOST_FIELDS = (HOSTING_PROVIDER_NOTE_FIELD,)
-HOSTING_NO_MANAGED_HOST_ROWS = [
-    SelectionRow("record", "Record it & continue", "no credential, no infra"),
-    SelectionRow("back", "Back", "connect a hosting provider after all"),
-]
-
 HOSTING_ACCESS_KEY_FIELD = _FormField(
     key="access-key-id",
     label="Access key ID",
@@ -80,9 +65,6 @@ HOSTING_CREDENTIAL_FIELDS = (HOSTING_ACCESS_KEY_FIELD, HOSTING_SECRET_KEY_FIELD)
 HOSTING_CREDENTIAL_ROWS = [
     SelectionRow("connect", "Save & verify", "Confirm the AWS identity"),
     SelectionRow("skip", "Not now", "Continue without AWS credentials"),
-]
-HOSTING_VERIFIED_ROWS = [
-    SelectionRow("continue", "Continue to Review", "last step"),
 ]
 HOSTING_RETRY_ROWS = [
     SelectionRow("retry", "Re-enter the two values", "paste them again"),
@@ -163,23 +145,30 @@ def _hosting_credential_body(
         Static("", classes="onboard-spacer"),
     ]
     if creation_link is not None:
-        widgets.extend(
-            [
-                Static(
-                    "  1  Set up the dedicated AWS key:",
-                    classes="onboard-plan-line",
-                ),
-                Static(
-                    f"     [{ACCENT}]{escape(creation_link)}[/]",
-                    classes="onboard-plan-line",
-                ),
-                Static("", classes="onboard-spacer"),
-                Static(
-                    "  2  Paste the two values here — never into an AI chat:",
-                    classes="onboard-plan-line",
-                ),
-            ]
-        )
+        if creation_link == NO_LINK_RECOVERY_LINE:
+            widgets.append(Static(creation_link, classes="onboard-plan-line"))
+        else:
+            widgets.extend(
+                [
+                    Static(
+                        f"[{ACCENT}]Open AWS setup page[/]",
+                        classes="onboard-title",
+                    ),
+                    Static(
+                        "Ctrl+O opens it in your browser. Ctrl+Y copies the URL.",
+                        classes="onboard-plan-line",
+                    ),
+                    Static(
+                        f"URL: {escape(creation_link)}",
+                        classes="onboard-plan-line",
+                    ),
+                    Static("", classes="onboard-spacer"),
+                    Static(
+                        "Then paste the two values here — never into an AI chat:",
+                        classes="onboard-plan-line",
+                    ),
+                ]
+            )
     else:
         widgets.append(
             Static(
@@ -205,80 +194,18 @@ def _hosting_credential_body(
     return widgets
 
 
-def hosting_no_managed_host_body() -> list[Static]:
-    """The declared-elsewhere screen: what Yoke stops doing, and one prose line."""
-    return [
-        Static(HOSTING_NO_MANAGED_HOST_TITLE, classes="onboard-title"),
-        Static("", classes="onboard-subtitle"),
-        Static(
-            "  Yoke records the decision and stops proposing hosting:",
-            classes="onboard-plan-line",
-        ),
-        Static(
-            "  no cloud credential, no infrastructure Packs, no cloud apply.",
-            classes="onboard-plan-line",
-        ),
-        Static("", classes="onboard-spacer"),
-        Static(
-            "  Merging, verification, and the delivery loop are unaffected.",
-            classes="onboard-subtitle",
-        ),
-        Static("", classes="onboard-spacer"),
-        *form_field_widgets(HOSTING_NO_MANAGED_HOST_FIELDS),
-        Static(
-            "  Kept as a note on the project so future readers know where it runs.",
-            classes="onboard-subtitle",
-        ),
-        Static("", classes="onboard-spacer"),
-        SelectionList(HOSTING_NO_MANAGED_HOST_ROWS),
-    ]
-
-
-def hosting_verified_body(
-    *,
-    account: str,
-    identity: str,
-    credential_dir: str,
-) -> list[Static]:
-    """The verified screen: redacted evidence, custody, and the way forward."""
-    return [
-        Static(
-            f"[{ACCENT}]✔ AWS identity verified · aws-admin saved[/]",
-            classes="onboard-title",
-        ),
-        Static("", classes="onboard-spacer"),
-        Static(f"  Account       {escape(account)}", classes="onboard-plan-line"),
-        Static(f"  Identity      {escape(identity)}", classes="onboard-plan-line"),
-        Static(
-            f"  Stored at     {escape(credential_dir)}",
-            classes="onboard-plan-line",
-        ),
-        Static("", classes="onboard-spacer"),
-        Static(
-            "CI never sees this key — deploys federate through short-lived OIDC "
-            "roles that Yoke",
-            classes="onboard-subtitle",
-        ),
-        Static(
-            "provisions from it during /yoke onboard.",
-            classes="onboard-subtitle",
-        ),
-        Static("", classes="onboard-spacer"),
-        SelectionList(HOSTING_VERIFIED_ROWS),
-    ]
-
-
 def hosting_error_body(
     title: str,
     message: str,
     detail_lines: list[str],
     rows: list[SelectionRow],
 ) -> list[Static]:
-    """One error convention with the other steps: bold red ✗, calm detail."""
+    """Show the plain cause and every required recovery action inline."""
     widgets = [
         Static(f"✗ {escape(title)}", classes="onboard-title-error"),
         Static("", classes="onboard-spacer"),
-        Static(escape(message), classes="onboard-plan-line"),
+        Static(f"Cause: {escape(message)}", classes="onboard-plan-line"),
+        Static("What to do", classes="onboard-title"),
     ]
     widgets.extend(
         Static(f"  • {escape(line)}", classes="onboard-plan-line")
@@ -300,22 +227,15 @@ __all__ = [
     "HOSTING_EXISTING_KEY_TITLE",
     "HOSTING_GUIDED_KEY_SUBTITLE",
     "HOSTING_GUIDED_KEY_TITLE",
-    "HOSTING_NO_MANAGED_HOST_FIELDS",
-    "HOSTING_NO_MANAGED_HOST_ROWS",
-    "HOSTING_NO_MANAGED_HOST_TITLE",
-    "HOSTING_PROVIDER_NOTE_FIELD",
     "HOSTING_PROVIDER_ROWS",
     "HOSTING_PROVIDER_SUBTITLE",
     "HOSTING_PROVIDER_TITLE",
     "HOSTING_RETRY_ROWS",
     "HOSTING_SECRET_KEY_FIELD",
-    "HOSTING_VERIFIED_ROWS",
     "NO_LINK_RECOVERY_LINE",
     "hosting_aws_sign_in_body",
     "hosting_error_body",
     "hosting_existing_key_body",
     "hosting_guided_key_body",
-    "hosting_no_managed_host_body",
     "hosting_provider_body",
-    "hosting_verified_body",
 ]

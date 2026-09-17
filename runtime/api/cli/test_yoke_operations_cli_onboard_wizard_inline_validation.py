@@ -40,7 +40,8 @@ def _stub_path_doctor(monkeypatch):
 @pytest.fixture(autouse=True)
 def _stub_owners(monkeypatch):
     monkeypatch.setattr(
-        onboard_wizard_flow, "fetch_repo_owners",
+        onboard_wizard_flow,
+        "fetch_repo_owners",
         lambda api_url, token: [github_owner()],
     )
 
@@ -52,14 +53,14 @@ def github_owner():
 
 
 def _title(app) -> str:
-    return next(
-        str(w.render()) for w in app.query(".onboard-title").results(Static)
-    )
+    return next(str(w.render()) for w in app.query(".onboard-title").results(Static))
 
 
 def _error_text(app) -> str:
     return " ".join(
-        str(w.render()) for w in app.query(".onboard-input-error").results(Static)
+        str(w.render())
+        for selector in (".onboard-input-error", ".onboard-field-error")
+        for w in app.query(selector).results(Static)
     )
 
 
@@ -82,7 +83,7 @@ async def _pick_mode(pilot, value: str) -> None:
 
 async def _skip_machine_github(pilot) -> None:
     await advance_past_path(pilot)
-    await pilot.press("down")   # machine github: Skip for now
+    await pilot.press("down")  # machine github: Skip for now
     await pilot.press("enter")
 
 
@@ -211,19 +212,19 @@ def test_empty_slug_blocks_inline_after_clearing_default() -> None:
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
             await pilot.pause()
-            assert _title(app) == "Name your project."
-            field = app.query_one("#onboard-input", Input)
+            assert _title(app) == "Project details."
+            field = app.query_one("#onboard-input-slug", Input)
             assert field.value == "widget"
             field.value = ""
             await pilot.press("enter")
             await pilot.pause()
-            assert _title(app) == "Name your project."
+            assert _title(app) == "Project details."
             assert "short project id" in _error_text(app).lower()
             await type_text(pilot, "widget")
             await pilot.press("enter")
             await pilot.pause()
-            assert app.result.project_slug == "widget"
-            assert _title(app) == "Give it a friendly name."
+            assert app.focused.id == "onboard-input-name"
+            assert _title(app) == "Project details."
 
     asyncio.run(scenario())
 
@@ -239,21 +240,23 @@ def test_invalid_slug_blocks_inline_then_a_valid_one_advances() -> None:
             await pilot.press("enter")
             await pilot.pause()
             # Slug step: an uppercase/space slug is rejected inline.
-            assert _title(app) == "Name your project."
+            assert _title(app) == "Project details."
+            field = app.query_one("#onboard-input-slug", Input)
+            field.value = ""
             await type_text(pilot, "Bad Slug")
             await pilot.press("enter")
             await pilot.pause()
-            assert _title(app) == "Name your project."  # did not advance
+            assert _title(app) == "Project details."  # did not advance
             assert "lowercase" in _error_text(app).lower()
             # Clear and enter a valid slug -> advances to the friendly-name step.
-            field = app.query_one("#onboard-input", Input)
+            field = app.query_one("#onboard-input-slug", Input)
             field.value = ""
             await type_text(pilot, "good-slug")
             await pilot.press("enter")
             await pilot.pause()
             await pilot.pause()
-            assert app.result.project_slug == "good-slug"
-            assert _title(app) == "Give it a friendly name."
+            assert app.focused.id == "onboard-input-name"
+            assert _title(app) == "Project details."
 
     asyncio.run(scenario())
 
@@ -268,13 +271,13 @@ def test_very_long_slug_blocks_inline() -> None:
             await type_text(pilot, "/home/code/widget")
             await pilot.press("enter")
             await pilot.pause()
-            assert _title(app) == "Name your project."
-            field = app.query_one("#onboard-input", Input)
+            assert _title(app) == "Project details."
+            field = app.query_one("#onboard-input-slug", Input)
             field.value = ""
             await type_text(pilot, "a" * 70)
             await pilot.press("enter")
             await pilot.pause()
-            assert _title(app) == "Name your project."
+            assert _title(app) == "Project details."
             assert "63 characters" in _error_text(app)
 
     asyncio.run(scenario())
@@ -294,74 +297,18 @@ def test_empty_display_name_blocks_inline_after_clearing_default() -> None:
             await pilot.press("enter")
             await pilot.press("enter")  # accept slug placeholder
             await pilot.pause()
-            assert _title(app) == "Give it a friendly name."
-            field = app.query_one("#onboard-input", Input)
+            assert _title(app) == "Project details."
+            field = app.query_one("#onboard-input-name", Input)
             assert field.value == "widget"
             field.value = ""
             await pilot.press("enter")
             await pilot.pause()
-            assert _title(app) == "Give it a friendly name."
+            assert _title(app) == "Project details."
             assert "display name" in _error_text(app).lower()
             await type_text(pilot, "Widget")
             await pilot.press("enter")
             await pilot.pause()
-            assert app.result.project_name == "Widget"
-            assert _title(app) == "Also publish to GitHub?"
-
-    asyncio.run(scenario())
-
-
-# ── prefix format gate ───────────────────────────────────────────────────
-
-
-def test_invalid_prefix_blocks_inline() -> None:
-    app, _spy = make_app()
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await _skip_machine_github(pilot)
-            await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
-            await type_text(pilot, "/home/code/widget")
-            await pilot.press("enter")
-            await pilot.press("enter")  # slug placeholder
-            await pilot.press("enter")  # name placeholder
-            await pilot.press("down")   # publish: No
-            await pilot.press("enter")
-            await pilot.press("enter")  # default branch main (create/local keeps it)
-            await pilot.pause()
-            # Prefix step: a too-long / hyphenated prefix is rejected inline.
-            assert _title(app) == "Pick the issue ID prefix."
-            await type_text(pilot, "TOOLONG")
-            await pilot.press("enter")
-            await pilot.pause()
-            assert _title(app) == "Pick the issue ID prefix."
-            assert _error_text(app).strip()  # an error is shown
-
-    asyncio.run(scenario())
-
-
-# ── branch format gate (create-new keeps the branch prompt) ──────────────
-
-
-def test_invalid_branch_blocks_inline() -> None:
-    app, _spy = make_app()
-
-    async def scenario() -> None:
-        async with app.run_test() as pilot:
-            await _skip_machine_github(pilot)
-            await _pick_mode(pilot, onboard_project.PROJECT_MODE_LOCAL_CHECKOUT)
-            await type_text(pilot, "/home/code/widget")
-            await pilot.press("enter")
-            await pilot.press("enter")  # slug
-            await pilot.press("enter")  # name
-            await pilot.press("down")   # publish: No
-            await pilot.press("enter")
-            await pilot.pause()
-            assert _title(app) == "Pick the default branch."
-            await type_text(pilot, "bad branch")  # space -> invalid
-            await pilot.press("enter")
-            await pilot.pause()
-            assert _title(app) == "Pick the default branch."  # blocked
-            assert _error_text(app).strip()
+            assert app.focused.id == "onboard-input-branch"
+            assert _title(app) == "Project details."
 
     asyncio.run(scenario())

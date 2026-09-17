@@ -22,6 +22,8 @@ from yoke_cli.config import project_onboard
 from yoke_cli.config import project_onboard_progress
 from yoke_cli.config import writer as machine_writer
 
+pytestmark = pytest.mark.usefixtures("stub_onboard_session_relay")
+
 
 def test_project_apply_progress_events_follow_real_substeps(
     tmp_path: Path, monkeypatch

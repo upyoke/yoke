@@ -18,14 +18,22 @@ from yoke_cli.config.onboard_wizard_widgets import STEP_PROJECT, SelectionRow
 
 CHOICE_CONNECT = "connect"
 CHOICE_NEW_PROJECT = "new-project"
+CHOICE_DETAILS = "details"
 
 DETECTED_ROWS = [
     SelectionRow(
-        CHOICE_CONNECT, "Connect to it",
+        CHOICE_CONNECT,
+        "Connect to it",
         "reuse this project's board, issues, and settings",
     ),
     SelectionRow(
-        CHOICE_NEW_PROJECT, "Set up a separate project instead",
+        CHOICE_DETAILS,
+        "Review details",
+        "IDs, environment, branch, prefix, and evidence",
+    ),
+    SelectionRow(
+        CHOICE_NEW_PROJECT,
+        "Set up a separate project instead",
         "ignore the match and create a new one",
     ),
 ]
@@ -36,10 +44,12 @@ class _Shell(Protocol):  # pragma: no cover - structural typing only
 
     def _goto(self, view) -> None: ...
     def _goto_existing_project_ready(
-        self, *, on_choice: Callable[[str], None] | None = None,
+        self,
+        *,
+        on_choice: Callable[[str], None] | None = None,
     ) -> None: ...
     def _after_existing_project_ready(self) -> None: ...
-    def _goto_slug(self) -> None: ...
+    def _goto_project_details(self) -> None: ...
     def _goto_clone_folder(self) -> None: ...
 
 
@@ -76,25 +86,55 @@ class ExistingProjectDetectedFlow:
     ) -> None:
         from yoke_cli.config.onboard_wizard_app import _View
 
+        self._existing_project_details = False
+        self._existing_project_on_choice = (
+            on_choice or self._on_existing_project_detected
+        )
         self._goto(
             _View(
                 STEP_PROJECT,
-                lambda: steps.verification_body(
-                    f"Existing Yoke project found: {self.result.project_slug}.",
-                    onboard_existing_project.match_summary(self.result),
-                    match_detail_lines(self.result),
-                    DETECTED_ROWS,
-                    ok=True,
-                ),
-                on_choice or self._on_existing_project_detected,
+                self._existing_project_body,
+                self._on_existing_project_choice,
             )
         )
+
+    def _existing_project_body(self: _Shell) -> list:
+        repo = (
+            self.result.project_github_repo
+            or self.result.project_checkout_origin_url
+            or "none"
+        )
+        summary = [
+            f"Primary match: {onboard_existing_project.match_summary(self.result)}",
+            f"Repository: {repo}",
+            f"Checkout: {self.result.project_checkout or 'chosen after this step'}",
+            "Connecting preserves this project's board, items, settings, and history.",
+        ]
+        if getattr(self, "_existing_project_details", False):
+            summary.extend(match_detail_lines(self.result))
+        rows = list(DETECTED_ROWS)
+        if getattr(self, "_existing_project_details", False):
+            rows[1] = SelectionRow(CHOICE_DETAILS, "Hide details", "return to summary")
+        return steps.verification_body(
+            f"Existing project found: {self.result.project_name or self.result.project_slug}.",
+            "Yoke matched this code to a project already in the selected universe.",
+            summary,
+            rows,
+            ok=True,
+        )
+
+    def _on_existing_project_choice(self: _Shell, choice: str) -> None:
+        if choice == CHOICE_DETAILS:
+            self._existing_project_details = not self._existing_project_details
+            self._render_current()
+            return
+        self._existing_project_on_choice(choice)
 
     def _on_existing_project_detected(self: _Shell, choice: str) -> None:
         """A checkout already carrying project metadata: name the new one, or reuse."""
         if choice == CHOICE_NEW_PROJECT:
             onboard_existing_project.clear_match(self.result)
-            self._goto_slug()
+            self._goto_project_details()
             return
         self._after_existing_project_ready()
 
@@ -113,6 +153,7 @@ class ExistingProjectDetectedFlow:
 __all__ = [
     "CHOICE_CONNECT",
     "CHOICE_NEW_PROJECT",
+    "CHOICE_DETAILS",
     "DETECTED_ROWS",
     "ExistingProjectDetectedFlow",
 ]

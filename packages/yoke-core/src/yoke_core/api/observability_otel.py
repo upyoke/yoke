@@ -8,7 +8,9 @@ existing callers keep importing from ``yoke_core.api.observability``.
 The configured sink is resolved once via :func:`_otel_export_mode`. OTLP
 and console sinks export traces and metrics. Hosted prod/stage with no
 OTLP endpoint uses CloudWatch EMF log metrics so per-request latency and
-process CPU stay visible without a collector. Local development with no
+process CPU stay visible without a collector. That EMF reader prefers
+DELTA temporality for counters and histograms so an interval export is
+the increment, not a replay of every prior series. Local development with no
 sink stays ``instrumented_no_exporter`` (spans created and dropped).
 """
 

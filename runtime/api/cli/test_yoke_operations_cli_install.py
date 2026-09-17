@@ -34,7 +34,8 @@ def repo(tmp_path):
 @pytest.fixture()
 def fake_bundle(monkeypatch):
     monkeypatch.setattr(
-        project_install, "_resolve_bundle",
+        project_install,
+        "_resolve_bundle",
         lambda pid, **kw: (make_bundle(), "test"),
     )
 
@@ -42,25 +43,40 @@ def fake_bundle(monkeypatch):
 def _seed_connection(cfg, tmp_path) -> None:
     token = tmp_path / "api.token"
     token.write_text("test-token\n", encoding="utf-8")
-    rc = yoke_operations_cli.main([
-        "connection", "set", "local",
-        "--transport", "https",
-        "--api-url", "http://127.0.0.1:1",
-        "--token-file", str(token),
-        "--config", str(cfg),
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "connection",
+            "set",
+            "local",
+            "--transport",
+            "https",
+            "--api-url",
+            "http://127.0.0.1:1",
+            "--token-file",
+            str(token),
+            "--config",
+            str(cfg),
+        ]
+    )
     assert rc == 0
 
 
 def _seed_local_postgres_connection(cfg, tmp_path) -> None:
     dsn = tmp_path / "local.dsn"
     dsn.write_text("postgresql://localhost/yoke\n", encoding="utf-8")
-    rc = yoke_operations_cli.main([
-        "connection", "set", "source-dev-admin",
-        "--transport", "local-postgres",
-        "--dsn-file", str(dsn),
-        "--config", str(cfg),
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "connection",
+            "set",
+            "edit-yoke-source",
+            "--transport",
+            "local-postgres",
+            "--dsn-file",
+            str(dsn),
+            "--config",
+            str(cfg),
+        ]
+    )
     assert rc == 0
 
 
@@ -70,10 +86,18 @@ def test_install_then_refresh_then_uninstall_round_trip(
     _seed_connection(cfg, tmp_path)
     capsys.readouterr()
 
-    rc = yoke_operations_cli.main([
-        "project", "install", str(repo),
-        "--project-id", "7", "--config", str(cfg), "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "project",
+            "install",
+            str(repo),
+            "--project-id",
+            "7",
+            "--config",
+            str(cfg),
+            "--json",
+        ]
+    )
 
     assert rc == 0
     report = json.loads(capsys.readouterr().out)
@@ -97,9 +121,16 @@ def test_install_then_refresh_then_uninstall_round_trip(
     )
 
     # Refresh resolves the project id from the registered mapping.
-    rc = yoke_operations_cli.main([
-        "project", "refresh", str(repo), "--config", str(cfg), "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "project",
+            "refresh",
+            str(repo),
+            "--config",
+            str(cfg),
+            "--json",
+        ]
+    )
     assert rc == 0
     report = json.loads(capsys.readouterr().out)
     assert report["operation"] == "refresh"
@@ -112,17 +143,22 @@ def test_install_then_refresh_then_uninstall_round_trip(
         "lint_destructive_git=warn\n"
     )
 
-    rc = yoke_operations_cli.main([
-        "project", "uninstall", str(repo), "--config", str(cfg), "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "project",
+            "uninstall",
+            str(repo),
+            "--config",
+            str(cfg),
+            "--json",
+        ]
+    )
     assert rc == 0
     report = json.loads(capsys.readouterr().out)
     assert report["operation"] == "uninstall"
     assert not (repo / ".yoke/install-manifest.json").exists()
     assert not (repo / ".claude").exists()
-    assert report["contract_files_preserved_modified"] == [
-        ".yoke/lint-config"
-    ]
+    assert report["contract_files_preserved_modified"] == [".yoke/lint-config"]
     assert (repo / ".yoke/lint-config").is_file(), (
         "edited contract file survives uninstall"
     )
@@ -135,10 +171,18 @@ def test_refresh_discards_out_of_policy_prior_contract_record(
 ) -> None:
     _seed_connection(cfg, tmp_path)
     capsys.readouterr()
-    rc = yoke_operations_cli.main([
-        "project", "install", str(repo),
-        "--project-id", "7", "--config", str(cfg), "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "project",
+            "install",
+            str(repo),
+            "--project-id",
+            "7",
+            "--config",
+            str(cfg),
+            "--json",
+        ]
+    )
     assert rc == 0
     capsys.readouterr()
     manifest_path = repo / ".yoke/install-manifest.json"
@@ -150,9 +194,16 @@ def test_refresh_discards_out_of_policy_prior_contract_record(
     inert_file.parent.mkdir(parents=True)
     inert_file.write_text("project-owned\n", encoding="utf-8")
 
-    rc = yoke_operations_cli.main([
-        "project", "refresh", str(repo), "--config", str(cfg), "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "project",
+            "refresh",
+            str(repo),
+            "--config",
+            str(cfg),
+            "--json",
+        ]
+    )
 
     assert rc == 0
     report = json.loads(capsys.readouterr().out)
@@ -164,23 +215,33 @@ def test_refresh_discards_out_of_policy_prior_contract_record(
 
 
 def test_install_without_project_id_exits_nonzero(cfg, repo, capsys) -> None:
-    rc = yoke_operations_cli.main([
-        "project", "install", str(repo), "--config", str(cfg),
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "project",
+            "install",
+            str(repo),
+            "--config",
+            str(cfg),
+        ]
+    )
 
     assert rc == 1
     assert "--project-id" in capsys.readouterr().err
 
 
 def test_install_accepts_non_prod_local_postgres_bundle(
-    cfg, repo, tmp_path, capsys, monkeypatch,
+    cfg,
+    repo,
+    tmp_path,
+    capsys,
+    monkeypatch,
 ) -> None:
     _seed_local_postgres_connection(cfg, tmp_path)
     capsys.readouterr()
 
     def _fetch_local(project_id, connection, config_path):
         assert project_id == 7
-        assert connection["env"] == "source-dev-admin"
+        assert connection["env"] == "edit-yoke-source"
         assert connection["transport"] == contract.DEFAULT_TRANSPORT
         assert str(config_path) == str(cfg)
         return make_bundle()
@@ -191,48 +252,69 @@ def test_install_accepts_non_prod_local_postgres_bundle(
         _fetch_local,
     )
 
-    rc = yoke_operations_cli.main([
-        "project", "install", str(repo),
-        "--project-id", "7", "--config", str(cfg), "--json",
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "project",
+            "install",
+            str(repo),
+            "--project-id",
+            "7",
+            "--config",
+            str(cfg),
+            "--json",
+        ]
+    )
 
     assert rc == 0
     report = json.loads(capsys.readouterr().out)
     assert report["operation"] == "install"
-    assert report["source"] == "local-postgres:source-dev-admin"
+    assert report["source"] == "local-postgres:edit-yoke-source"
     assert (repo / ".yoke/install-manifest.json").exists()
     assert (repo / ".claude/skills/yoke/onboard/SKILL.md").is_file()
 
 
 def test_install_refuses_prod_marked_local_postgres_before_repo_writes(
-    cfg, repo, tmp_path, capsys,
+    cfg,
+    repo,
+    tmp_path,
+    capsys,
 ) -> None:
     dsn = tmp_path / "prod.dsn"
     dsn.write_text("postgresql://localhost/yoke_prod\n", encoding="utf-8")
     cfg.parent.mkdir(parents=True, exist_ok=True)
     cfg.write_text(
-        json.dumps({
-            "schema_version": 1,
-            "active_env": "prod-db-admin",
-            "connections": {
-                "prod-db-admin": {
-                    "transport": contract.DEFAULT_TRANSPORT,
-                    "prod": True,
-                    "credential_source": {
-                        "kind": contract.CREDENTIAL_KIND_DSN_FILE,
-                        "path": str(dsn),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "active_env": "prod-db-admin",
+                "connections": {
+                    "prod-db-admin": {
+                        "transport": contract.DEFAULT_TRANSPORT,
+                        "prod": True,
+                        "credential_source": {
+                            "kind": contract.CREDENTIAL_KIND_DSN_FILE,
+                            "path": str(dsn),
+                        },
                     },
                 },
-            },
-            "settings": {},
-        }) + "\n",
+                "settings": {},
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
 
-    rc = yoke_operations_cli.main([
-        "project", "install", str(repo),
-        "--project-id", "7", "--config", str(cfg),
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "project",
+            "install",
+            str(repo),
+            "--project-id",
+            "7",
+            "--config",
+            str(cfg),
+        ]
+    )
 
     assert rc == 1
     err = capsys.readouterr().err
@@ -242,75 +324,15 @@ def test_install_refuses_prod_marked_local_postgres_before_repo_writes(
 
 
 def test_uninstall_without_manifest_exits_nonzero(cfg, repo, capsys) -> None:
-    rc = yoke_operations_cli.main([
-        "project", "uninstall", str(repo), "--config", str(cfg),
-    ])
+    rc = yoke_operations_cli.main(
+        [
+            "project",
+            "uninstall",
+            str(repo),
+            "--config",
+            str(cfg),
+        ]
+    )
 
     assert rc == 1
     assert "install-manifest" in capsys.readouterr().err
-
-
-@pytest.fixture()
-def source_checkout(tmp_path):
-    root = tmp_path / "yoke-src"
-    root.mkdir()
-    (root / "pyproject.toml").write_text(
-        '[project]\nname = "yoke"\n', encoding="utf-8"
-    )
-    (root / "runtime" / "harness").mkdir(parents=True)
-    return root
-
-
-def test_install_source_checkout_hands_off_to_dev_setup(
-    cfg, source_checkout, capsys
-) -> None:
-    rc = yoke_operations_cli.main([
-        "project", "install", str(source_checkout), "--config", str(cfg),
-    ])
-
-    assert rc == 1
-    captured = capsys.readouterr()
-    assert captured.out == ""
-    assert "yoke dev setup" in captured.err
-    assert "source-link" in captured.err
-    assert not (source_checkout / ".claude" / "agents").exists()
-    assert not (source_checkout / ".yoke/install-manifest.json").exists()
-
-
-def test_source_checkout_refusal_is_repeatable(
-    cfg, source_checkout, capsys
-) -> None:
-    rc = yoke_operations_cli.main([
-        "project", "install", str(source_checkout),
-        "--config", str(cfg),
-    ])
-
-    assert rc == 1
-    assert "yoke dev setup" in capsys.readouterr().err
-
-
-def test_project_install_help_does_not_advertise_source_dev_modes(capsys) -> None:
-    rc = yoke_operations_cli.main([
-        "project", "install", "--help",
-    ])
-
-    assert rc == 0
-    out = capsys.readouterr().out
-    assert "--source-link" not in out
-    assert "source-link" not in out
-    assert "source-dev" not in out
-
-
-def test_project_refresh_help_labels_source_dev_preview_and_apply(capsys) -> None:
-    rc = yoke_operations_cli.main([
-        "project", "refresh", "--help",
-    ])
-
-    assert rc == 0
-    out = capsys.readouterr().out
-    assert "source-dev/admin local-source refresh" in out
-    assert "--source-checkout PATH" in out
-    assert "--project-slug SLUG" in out
-    assert "--manifest-from PATH" in out
-    assert "--apply" in out
-    assert "Preview-only unless --apply" in out

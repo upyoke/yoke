@@ -110,11 +110,11 @@ def test_private_clone_lists_repos_and_sets_remote_from_pick() -> None:
             selection = await wait_for_selection(app, pilot)
             values = [row.value for row in selection.rows]
             # The rows are the private repos' clone URLs.
-            assert values == [r.clone_url for r in _PRIVATE_REPOS]
-            await pilot.press("down")  # pick the second private repo
+            assert values == sorted(r.clone_url for r in _PRIVATE_REPOS)
+            await pilot.press("down")  # pick octocat/secret-lab (sorted second)
             await pilot.press("enter")
             await pilot.pause()
-            assert app.result.project_remote_url == _PRIVATE_REPOS[1].clone_url
+            assert app.result.project_remote_url == _PRIVATE_REPOS[0].clone_url
             # The pick feeds the post-URL routing: clone-folder input, then outcome.
             await pilot.press("enter")  # accept default folder -> clone-outcome
             outcome = await wait_for_selection(app, pilot)
@@ -183,9 +183,9 @@ def test_empty_private_repo_access_has_manage_retry_and_back(
             await pilot.press("down")
             await pilot.press("enter")
             selection = await wait_for_selection(app, pilot)
-            assert [row.value for row in selection.rows] == [
+            assert [row.value for row in selection.rows] == sorted(
                 repo.clone_url for repo in _PRIVATE_REPOS
-            ]
+            )
 
     asyncio.run(scenario())
 
@@ -240,7 +240,7 @@ def test_private_reachability_error_never_falls_back_to_url_input(
             await pilot.press("down")
             await pilot.press("enter")
             picker = await wait_for_selection(app, pilot)
-            assert picker.rows[0].value == _PRIVATE_REPOS[0].clone_url
+            assert picker.rows[0].value == _PRIVATE_REPOS[1].clone_url
             await pilot.press("enter")
             text = await wait_for_body_text(app, pilot, "Couldn't reach that repo.")
             assert "Change URL" not in text
@@ -255,9 +255,9 @@ def test_private_reachability_error_never_falls_back_to_url_input(
             ]
             await pilot.press("enter")
             refreshed = await wait_for_selection(app, pilot)
-            assert [row.value for row in refreshed.rows] == [
+            assert [row.value for row in refreshed.rows] == sorted(
                 repo.clone_url for repo in _PRIVATE_REPOS
-            ]
+            )
 
     asyncio.run(scenario())
 

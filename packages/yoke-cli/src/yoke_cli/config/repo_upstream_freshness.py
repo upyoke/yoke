@@ -27,7 +27,7 @@ local branch itself could not move.
 Neither the remote name nor the branch name is assumed: the remote is the
 one git records as tracking the branch, and the branch is the one the
 caller's project declares, or the one the remote publishes as its default.
-Git mechanics live in :mod:`yoke_core.domain.repo_upstream_git`.
+Git mechanics live in :mod:`yoke_cli.config.repo_upstream_git`.
 """
 
 from __future__ import annotations
@@ -37,7 +37,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Dict, Iterator, Tuple
 
-from yoke_core.domain import repo_upstream_git as upstream_git
+from yoke_cli.config import repo_upstream_git as upstream_git
 
 # Deduplication is scoped to one preparation, never to the process. A
 # long-running API process prepares work repeatedly, and an answer cached

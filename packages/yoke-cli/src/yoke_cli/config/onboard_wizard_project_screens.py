@@ -16,6 +16,7 @@ from textual.widgets import Static
 from yoke_contracts import github_origin
 from yoke_cli.config import onboard_github_copy
 from yoke_cli.config.onboard_wizard_steps import selection_body
+from yoke_cli.config.onboard_wizard_searchable_picker import SearchableSelectionList
 from yoke_cli.config.onboard_wizard_widgets import SelectionRow
 from yoke_cli.config.project_clone_support import (
     CLONE_OUTCOME_FORK,
@@ -40,7 +41,8 @@ CLONE_VISIBILITY_PUBLIC = "public"
 CLONE_VISIBILITY_PRIVATE = "private"
 CLONE_VISIBILITY_ROWS = [
     SelectionRow(
-        CLONE_VISIBILITY_PUBLIC, "Public",
+        CLONE_VISIBILITY_PUBLIC,
+        "Public",
         onboard_github_copy.CLONE_VISIBILITY_PUBLIC_DESC,
     ),
     SelectionRow(CLONE_VISIBILITY_PRIVATE, "Private", "pick from your GitHub repos"),
@@ -54,8 +56,7 @@ CLONE_VISIBILITY_ROWS = [
 NEW_REPO_PRIVATE = "private"
 NEW_REPO_PUBLIC = "public"
 NEW_REPO_VISIBILITY_ROWS = [
-    SelectionRow(NEW_REPO_PRIVATE, "Private",
-                 "only you and people you add can see it"),
+    SelectionRow(NEW_REPO_PRIVATE, "Private", "only you and people you add can see it"),
     SelectionRow(NEW_REPO_PUBLIC, "Public", "anyone can see it"),
 ]
 
@@ -71,17 +72,21 @@ NEW_REPO_VISIBILITY_ROWS = [
 # configured GitHub deployment + connected authorization); see
 # ``clone_outcome_rows``.
 _CLONE_IT_WRITABLE = SelectionRow(
-    CLONE_OUTCOME_JUST_CLONE, "Clone it", "push straight back to {repo}")
+    CLONE_OUTCOME_JUST_CLONE, "Clone it", "push straight back to {repo}"
+)
 _CLONE_IT_READONLY = SelectionRow(
-    CLONE_OUTCOME_JUST_CLONE, "Clone it", "push nowhere — read-only access to {repo}")
+    CLONE_OUTCOME_JUST_CLONE, "Clone it", "push nowhere — read-only access to {repo}"
+)
 _DUPLICATE_IT = SelectionRow(
-    CLONE_OUTCOME_MAKE_IT_MINE, "Duplicate it",
-    "push to a new remote repo we'll create")
+    CLONE_OUTCOME_MAKE_IT_MINE, "Duplicate it", "push to a new remote repo we'll create"
+)
 _FORK_IT = SelectionRow(
-    CLONE_OUTCOME_FORK, "Fork it",
-    "push to a new fork we'll create — open PRs back to {repo}")
-    # Writable: GitHub authorization can push to the source, so "Clone it" pushes
-    # back and there is no read-only fork affordance.
+    CLONE_OUTCOME_FORK,
+    "Fork it",
+    "push to a new fork we'll create — open PRs back to {repo}",
+)
+# Writable: GitHub authorization can push to the source, so "Clone it" pushes
+# back and there is no read-only fork affordance.
 CLONE_OUTCOME_ROWS_WRITABLE = [_CLONE_IT_WRITABLE, _DUPLICATE_IT]
 # Read-only: "Clone it" is read-only, and "Fork it" is offered as the writable
 # path with PRs back (subject to the keep_fork condition).
@@ -131,13 +136,16 @@ def clone_outcome_rows(
     """
     parsed = default_repo(remote_url, web_url=web_url)
     repo = parsed or "the source"
-    rows = CLONE_OUTCOME_ROWS_WRITABLE if push_access is True else CLONE_OUTCOME_ROWS_READONLY
+    rows = (
+        CLONE_OUTCOME_ROWS_WRITABLE
+        if push_access is True
+        else CLONE_OUTCOME_ROWS_READONLY
+    )
     keep_fork = bool(parsed) and has_token
     if not keep_fork:
         rows = [row for row in rows if row.value != CLONE_OUTCOME_FORK]
     return [
-        SelectionRow(row.value, row.label, row.hint.format(repo=repo))
-        for row in rows
+        SelectionRow(row.value, row.label, row.hint.format(repo=repo)) for row in rows
     ]
 
 
@@ -181,10 +189,7 @@ def repo_rows(repos: list) -> list[SelectionRow]:
     The row value is the repo's clone URL so the flow can record it directly as
     ``project_remote_url`` on pick; the label is the ``owner/repo`` full name.
     """
-    return [
-        SelectionRow(repo.clone_url, repo.full_name, "private")
-        for repo in repos
-    ]
+    return [SelectionRow(repo.clone_url, repo.full_name, "private") for repo in repos]
 
 
 def publish_prompt_body() -> list[Static]:
@@ -212,28 +217,36 @@ def new_repo_visibility_body() -> list[Static]:
 
 
 def owner_picker_body(owners: list) -> list[Static]:
-    return selection_body(
-        "Where on GitHub?",
-        "Accounts available through your GitHub App connection.",
-        owner_rows(owners),
-    )
+    return [
+        Static("Where on GitHub?", classes="onboard-title"),
+        Static(
+            "Type to filter accounts and organizations, or use Up/Down immediately.",
+            classes="onboard-subtitle",
+        ),
+        Static("", classes="onboard-spacer"),
+        SearchableSelectionList(owner_rows(owners)),
+    ]
 
 
 def repo_picker_body(repos: list) -> list[Static]:
-    return selection_body(
-        "Which private repo?",
-        "Private repos available through GitHub authorization.",
-        repo_rows(repos),
-    )
+    return [
+        Static("Which private repo?", classes="onboard-title"),
+        Static(
+            "Type an owner or repository name to filter, or use Up/Down immediately.",
+            classes="onboard-subtitle",
+        ),
+        Static("", classes="onboard-spacer"),
+        SearchableSelectionList(repo_rows(repos)),
+    ]
 
 
 # A matching existing clone is safe to resume but remains user-owned here. The
 # durable post-failure report is the only surface allowed to offer deletion.
 RESUME_ROWS = [
-    SelectionRow("resume", "Resume where it failed",
-                 "keep the clone, finish the rest"),
-    SelectionRow("choose-folder", "Choose another folder",
-                 "leave this clone untouched"),
+    SelectionRow("resume", "Resume where it failed", "keep the clone, finish the rest"),
+    SelectionRow(
+        "choose-folder", "Choose another folder", "leave this clone untouched"
+    ),
 ]
 
 
