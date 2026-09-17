@@ -151,6 +151,23 @@ class TestMethodConfigUpdate:
         _insert_unstamped_pass(db_path, req_id)
         assert _connect_has_pass(db_path, req_id)
 
+    def test_unstamped_pass_without_plan_origin_still_satisfies(
+        self, db_path: str
+    ) -> None:
+        req_id = qa.cmd_requirement_add(
+            db_path=db_path, item_id=42, qa_kind="plan_case",
+            qa_phase="verification", workflow_transition_id=QA_GATED_TRANSITION,
+        )
+        conn = connect_test_db(db_path)
+        conn.execute(
+            "UPDATE qa_requirements SET method_id=%s, method_config=%s WHERE id=%s",
+            ("browser-check", json.dumps({"steps": _OLD_STEPS}), req_id),
+        )
+        conn.commit()
+        conn.close()
+        _insert_unstamped_pass(db_path, req_id)
+        assert _connect_has_pass(db_path, req_id)
+
     def test_update_keeps_historical_run_and_rejects_stale_green(
         self, db_path: str
     ) -> None:

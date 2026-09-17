@@ -2,8 +2,8 @@
 
 Historical ``qa_runs`` rows stay immutable. A run records the configuration
 it started under inside ``raw_result``; complete keeps that start-bound
-snapshot. An unstamped legacy pass still counts only while live config
-matches the plan-case origin snapshot (or live config is empty).
+snapshot. An unstamped legacy pass still counts unless a plan-case origin
+snapshot exists and live ``method_config`` has diverged from it.
 """
 
 from __future__ import annotations
@@ -145,9 +145,13 @@ def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
         return False
     current = canonical_method_config(row["method_config"])
     origin = _plan_case_origin_config(conn, int(requirement_id))
-    unstamped_still_current = current == canonical_method_config({}) or (
-        origin is not None and canonical_method_config(origin) == current
-    )
+    if origin is None:
+        # No plan-case origin means this requirement has no stored previous
+        # snapshot to compare; unstamped greens stay current until a later
+        # stamped run (or a plan-backed correction) says otherwise.
+        unstamped_still_current = True
+    else:
+        unstamped_still_current = canonical_method_config(origin) == current
     runs = query_rows(
         conn,
         "SELECT verdict, raw_result FROM qa_runs "
