@@ -164,19 +164,24 @@ def reseat_item_messages(
     parked = _park_rows(conn, to_park)
     handed = 0
     if to_hand and seat is not None:
-        handed = hand_to_seat(
-            conn,
-            rows=to_hand,
-            session_id=str(seat["session_id"]),
-            claim_id=int(seat["claim_id"]),
-            now=now,
-        )
+        dest = str(seat["session_id"])
         for row in to_hand:
+            moved = hand_to_seat(
+                conn,
+                rows=[row],
+                session_id=dest,
+                claim_id=int(seat["claim_id"]),
+                now=now,
+            )
+            if not moved:
+                continue
+            handed += moved
             _redirect_session_recipient(
                 conn,
                 message_id=str(row["message_id"]),
                 from_session=str(row.get("seat_session_id") or "") or None,
-                to_session=str(seat["session_id"]),
+                to_session=dest,
+                now=now,
             )
     if parked and _table_exists(conn, "session_message_recipients"):
         for row in to_park:
@@ -253,20 +258,51 @@ def _redirect_session_recipient(
     message_id: str,
     from_session: str | None,
     to_session: str,
+    now: datetime,
 ) -> None:
     from yoke_core.domain import db_backend
     from yoke_core.domain.schema_common import _table_exists
 
-    if not from_session or from_session == to_session:
-        return
-    if not _table_exists(conn, "session_message_recipients"):
+    if not to_session or not _table_exists(conn, "session_message_recipients"):
         return
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    dest = conn.execute(
+        "SELECT state FROM session_message_recipients "
+        f"WHERE message_id = {marker} AND session_id = {marker}",
+        (message_id, to_session),
+    ).fetchone()
+    if dest is not None:
+        if str(dict(dest)["state"]) in ("cancelled", "expired"):
+            conn.execute(
+                "UPDATE session_message_recipients "
+                f"SET state = {marker}, cancelled_at = NULL, expired_at = NULL "
+                f"WHERE message_id = {marker} AND session_id = {marker} "
+                f"AND state <> {marker}",
+                ("pending", message_id, to_session, "acknowledged"),
+            )
+        if from_session and from_session != to_session:
+            _cancel_session_recipient(
+                conn, message_id=message_id, session_id=from_session, now=now
+            )
+        return
+    source = from_session
+    if not source:
+        parked = conn.execute(
+            "SELECT session_id FROM session_message_recipients "
+            f"WHERE message_id = {marker} AND session_id <> {marker} "
+            f"AND state = {marker} LIMIT 1",
+            (message_id, to_session, "cancelled"),
+        ).fetchone()
+        source = str(dict(parked)["session_id"]) if parked else None
+    if not source or source == to_session:
+        return
     conn.execute(
         "UPDATE session_message_recipients "
-        f"SET session_id = {marker} "
-        f"WHERE message_id = {marker} AND session_id = {marker}",
-        (to_session, message_id, from_session),
+        f"SET session_id = {marker}, state = {marker}, cancelled_at = NULL, "
+        "expired_at = NULL "
+        f"WHERE message_id = {marker} AND session_id = {marker} "
+        f"AND state <> {marker}",
+        (to_session, "pending", message_id, source, "acknowledged"),
     )
 
 
@@ -286,8 +322,9 @@ def _cancel_session_recipient(
     conn.execute(
         "UPDATE session_message_recipients "
         f"SET state = {marker}, cancelled_at = {marker} "
-        f"WHERE message_id = {marker} AND session_id = {marker}",
-        ("cancelled", timestamp(now), message_id, session_id),
+        f"WHERE message_id = {marker} AND session_id = {marker} "
+        f"AND state <> {marker}",
+        ("cancelled", timestamp(now), message_id, session_id, "acknowledged"),
     )
 
 

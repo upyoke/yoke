@@ -232,20 +232,29 @@ def hand_to_seat(
     """Mark drained rows delivered to the seat that just took the scope."""
     marker = _marker(conn)
     stamp = timestamp(now)
+    lock = " FOR UPDATE" if db_backend.connection_is_postgres(conn) else ""
     handed = 0
     for row in rows:
+        message_id = str(row["message_id"])
+        conn.execute(
+            f"SELECT state FROM {TABLE} "
+            f"WHERE recipient_kind = {marker} AND message_id = {marker}" + lock,
+            (STEERING_KIND, message_id),
+        )
         cursor = conn.execute(
             f"UPDATE {TABLE} SET state = {marker}, seat_session_id = {marker}, "
             f"seat_claim_id = {marker}, delivered_at = {marker}, "
             "acknowledged_at = NULL "
-            f"WHERE recipient_kind = {marker} AND message_id = {marker}",
+            f"WHERE recipient_kind = {marker} AND message_id = {marker} "
+            f"AND state <> {marker}",
             (
                 STATE_DELIVERED,
                 str(session_id),
                 int(claim_id),
                 stamp,
                 STEERING_KIND,
-                str(row["message_id"]),
+                message_id,
+                STATE_ACKNOWLEDGED,
             ),
         )
         handed += int(cursor.rowcount or 0)
