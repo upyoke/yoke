@@ -5,7 +5,7 @@ import { createFooter } from "./universe_shell_footer.js";
 import { createSearchDialog } from "./universe_search_overlay.js";
 import { createSearchHistory } from "./universe_search_history.js";
 import {
-  SEARCH_DOMAINS, createProjectRoster, searchUniverse,
+  SEARCH_DOMAINS, createUniverseSearch,
 } from "./universe_search_domains.js";
 
 // Exported so a caller waiting for search results waits on the real interval
@@ -63,19 +63,18 @@ function emptyState(documentNode, recent, onRecent) {
   return nodes;
 }
 
-function resultLink(documentNode, domain, entry) {
+function resultLink(documentNode, entry) {
   const link = el(documentNode, "a", "header-search-result");
   link.href = entry.href;
   link.setAttribute("role", "option");
-  const copy = el(documentNode, "span", "header-search-copy");
-  copy.appendChild(el(
+  // The group heading above already names the domain, so a per-row kind
+  // label would repeat it once per result.
+  link.appendChild(el(
     documentNode, "strong", "header-search-label", entry.label,
   ));
-  copy.appendChild(el(
+  link.appendChild(el(
     documentNode, "span", "header-search-meta", entry.meta || "—",
   ));
-  link.appendChild(copy);
-  link.appendChild(el(documentNode, "span", "header-search-kind", domain.label));
   return link;
 }
 
@@ -83,7 +82,7 @@ function createSearch(documentNode, client) {
   const windowNode = documentNode.defaultView;
   const controlId = ++shellControlSequence;
   const history = createSearchHistory(client);
-  const projectRoster = createProjectRoster(client);
+  const search = createUniverseSearch(client);
   let dialog = null;
   let activeIndex = -1;
   let resultLinks = [];
@@ -122,14 +121,28 @@ function createSearch(documentNode, client) {
       }
     }
   };
-  const renderResults = ({ groups, unavailable }, query) => {
+  // Domains answer one at a time, so the panel is rebuilt from what is known
+  // so far rather than held blank until the slowest read lands.
+  const renderProgress = (query, answers) => {
     resultLinks = [];
     activeIndex = -1;
     const nodes = [];
-    for (const group of groups) {
-      const wrap = section(documentNode, group.label);
-      for (const entry of group.entries) {
-        const link = resultLink(documentNode, group, entry);
+    const unavailable = [];
+    let pending = 0;
+    for (const domain of SEARCH_DOMAINS) {
+      if (!answers.has(domain.key)) {
+        pending += 1;
+        continue;
+      }
+      const entries = answers.get(domain.key);
+      if (entries === null) {
+        unavailable.push(domain.label);
+        continue;
+      }
+      if (!entries.length) continue;
+      const wrap = section(documentNode, domain.label);
+      for (const entry of entries) {
+        const link = resultLink(documentNode, entry);
         link.id = `universe-search-option-${controlId}-${resultLinks.length}`;
         link.addEventListener("click", () => dialog.close());
         resultLinks.push(link);
@@ -137,7 +150,9 @@ function createSearch(documentNode, client) {
       }
       nodes.push(wrap);
     }
-    if (!groups.length) {
+    if (pending) {
+      nodes.push(status(documentNode, "Searching…"));
+    } else if (!nodes.length && !unavailable.length) {
       nodes.push(status(documentNode, `Nothing matches “${query}”.`));
     }
     // A domain that refused is named rather than silently contributing
@@ -167,24 +182,17 @@ function createSearch(documentNode, client) {
       setExpanded(false);
       return;
     }
-    dialog.body.replaceChildren(status(documentNode, "Searching…"));
-    setExpanded(false);
-    try {
-      const projects = await projectRoster();
-      const found = await searchUniverse(client, query, projects || []);
+    const answers = new Map();
+    renderProgress(query, answers);
+    await search(query, (domain, entries) => {
       if (token !== renderToken) return;
-      renderResults(found, query);
-      if (found.groups.length) history.record(query);
-    } catch (error) {
-      if (token !== renderToken) return;
-      resultLinks = [];
-      dialog.body.replaceChildren(status(
-        documentNode,
-        error instanceof Error
-          ? `Search failed: ${error.message}` : "Search is unavailable.",
-      ));
-      setExpanded(false);
-    }
+      answers.set(domain.key, entries);
+      renderProgress(query, answers);
+    });
+    if (token !== renderToken) return;
+    // Remembering a query that found nothing would offer it back as though
+    // it had worked.
+    if (resultLinks.length) history.record(query);
   };
   const scheduleQuery = () => {
     if (debounceTimer !== null) clearTimeout(debounceTimer);
@@ -198,6 +206,10 @@ function createSearch(documentNode, client) {
     cancelPending();
     dialog.input.value = "";
     showEmptyState();
+    // Reading the catalogues starts when the dialog opens rather than on the
+    // first keystroke: the operator spends a second typing either way, and
+    // the alternative is a blank panel while a universe-wide fan-out runs.
+    search.warm();
     // The stored list is read on every open, so a query recorded in another
     // tab or on another machine is already there.
     history.load().then(() => {

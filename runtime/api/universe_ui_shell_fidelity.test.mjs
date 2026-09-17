@@ -141,7 +141,10 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   // the way items.search.run writes it.
   assert.equal(links.length, 2);
   assert.equal(links[0].href, "#/items/2228?project=1");
-  assert.equal(byClass(root, "header-search-kind")[0].textContent, "Items");
+  // Results sit under their domain's heading, so the domain is named once.
+  assert.equal(
+    byClass(root, "header-search-section-label")[0].textContent, "Items",
+  );
   assert.equal(byClass(root, "header-search-label")[0].textContent,
     "Build shell");
   assert.equal(byClass(root, "header-search-meta")[0].textContent,
