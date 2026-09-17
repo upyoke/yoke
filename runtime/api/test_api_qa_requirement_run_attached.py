@@ -94,6 +94,22 @@ class TestRunAttachedRequirementAdd(unittest.TestCase):
         # gate matches on, so it is evidence rather than a silent gate.
         self.assertIsNone(row["execution_target_digest"])
 
+    def test_named_target_env_does_not_write_execution_snapshot(self):
+        with test_database() as conn:
+            run_id = _run_with_member(conn, run_id="run-20260917-960")
+            outcome = qa_requirement_create.handle_qa_requirement_add(
+                _request(run_id, {**BROWSER_CASE, "target_env": "stage"}),
+            )
+            self.assertTrue(outcome.primary_success, outcome.error)
+            row = conn.execute(
+                "SELECT target_env, execution_target_json, "
+                "execution_target_digest FROM qa_requirements WHERE id=%s",
+                (outcome.result_payload["requirement_id"],),
+            ).fetchone()
+        self.assertEqual(row["target_env"], "stage")
+        self.assertIsNone(row["execution_target_json"])
+        self.assertIsNone(row["execution_target_digest"])
+
     def test_scopes_a_case_to_a_stage_and_member_by_public_ref(self):
         with test_database() as conn:
             run_id = _run_with_member(conn)

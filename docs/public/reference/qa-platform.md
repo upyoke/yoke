@@ -157,7 +157,7 @@ The `success_policy` column on `qa_requirements` stores a JSON object defining w
 
 ## Target Environments
 
-`target_env` is a semantic selector resolved to a concrete environment at runtime.
+`target_env` names a registered environment; an authorized name stores the canonical snapshot.
 
 | Value | Description |
 |-------|-------------|

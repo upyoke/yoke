@@ -1,9 +1,8 @@
 """Correct live QA case configuration without replacing the requirement.
 
-Frozen deployment-run rows stay immutable. Historical ``qa_runs`` rows stay
-immutable too. An in-place ``method_config`` change records a revision marker
-on the requirement; a later green satisfies only when it recorded that live
-executable config at run start.
+Frozen deployment-run rows and historical ``qa_runs`` stay immutable. An
+in-place ``method_config`` change records a revision marker; a later green
+satisfies only when it recorded that live executable config at run start.
 """
 
 from __future__ import annotations
@@ -12,6 +11,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from yoke_core.domain.db_helpers import query_one
 from yoke_core.domain.qa_constants import (
     VALID_BLOCKING_MODES,
     VALID_QA_PHASES,
@@ -33,7 +33,7 @@ from yoke_core.domain.qa_requirement_pass_currency import (
     bind_correction_identity,
     executable_method_config,
 )
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
 FROZEN_REQUIREMENT_CODE = "frozen_requirement_immutable"
@@ -92,8 +92,6 @@ def _fail(
 
 
 def _config_contract_id(conn: Any, method_id: str) -> str | None:
-    from yoke_core.domain.db_helpers import query_one
-
     if _table_exists(conn, "qa_methods"):
         method = query_one(
             conn,
@@ -131,6 +129,69 @@ def _prepare_method_config(
     return canonical(config), ""
 
 
+def _prepare_target_env(
+    conn: Any, existing: Any, value: Any, req_id: int
+) -> tuple[Optional[tuple[Any, ...]], str]:
+    if existing["deployment_run_id"]:
+        return None, FROZEN_REQUIREMENT_MESSAGE
+    name = str(value or "").strip() or None
+    from yoke_core.domain.qa_environment_execution_target import (
+        persistable_named_environment_target,
+    )
+    from yoke_core.domain.qa_execution_environment_target import (
+        QaExecutionTargetError,
+        canonical_target,
+        target_digest,
+    )
+
+    owner = (
+        existing["item_id"]
+        if existing["item_id"] is not None
+        else existing["epic_id"]
+    )
+    project_id = None
+    if owner is not None and _table_exists(conn, "items"):
+        project_row = query_one(
+            conn,
+            f"SELECT project_id FROM items WHERE id={_marker(conn)}",
+            (int(owner),),
+        )
+        if project_row is not None and project_row["project_id"] is not None:
+            project_id = int(project_row["project_id"])
+    if name and project_id is None and _table_exists(conn, "environments"):
+        return None, (
+            "requirement has no project to resolve an execution target against"
+        )
+    try:
+        snapshot = None
+        if name and project_id is not None and _table_exists(conn, "environments"):
+            snapshot = persistable_named_environment_target(
+                conn, project_id=int(project_id), environment_name=name
+            )
+    except QaExecutionTargetError as exc:
+        return None, str(exc)
+    digest = target_digest(snapshot) if snapshot else None
+    method_config = existing["method_config"]
+    if _column_exists(conn, "qa_requirements", "execution_target_digest"):
+        stored = query_one(
+            conn,
+            "SELECT execution_target_digest FROM qa_requirements "
+            f"WHERE id={_marker(conn)}",
+            (int(req_id),),
+        )
+        previous = ""
+        if stored is not None:
+            previous = str(stored["execution_target_digest"] or "")
+        if previous != str(digest or ""):
+            method_config = bind_correction_identity(
+                method_config,
+                canonical(executable_method_config(method_config)),
+                force=True,
+            )
+    target_json = canonical_target(snapshot) if snapshot else None
+    return (name, target_json, digest, method_config), ""
+
+
 def apply_requirement_update(
     conn: Any,
     req_id: int,
@@ -140,7 +201,6 @@ def apply_requirement_update(
     db_path: Optional[str] = None,
 ) -> RequirementUpdateResult:
     """Validate and persist one mutable QA requirement field."""
-    from yoke_core.domain.db_helpers import query_one
     from yoke_core.domain.qa_events import emit_qa_requirement_event
 
     if field == "qa_kind":
@@ -224,10 +284,41 @@ def apply_requirement_update(
                 jsonpath="$.payload.value",
             )
         value = bind_correction_identity(existing["method_config"], prepared)
-    conn.execute(
-        f"UPDATE qa_requirements SET {field} = {marker} WHERE id = {marker}",
-        (value, int(req_id)),
-    )
+    if field == "target_env":
+        prepared, error = _prepare_target_env(conn, existing, value, req_id)
+        if error:
+            code = (
+                FROZEN_REQUIREMENT_CODE
+                if error.startswith(FROZEN_REQUIREMENT_CODE)
+                else "payload_invalid"
+            )
+            return _fail(
+                code=code,
+                message=error,
+                req_id=req_id,
+                field=field,
+                jsonpath="$.payload.value",
+            )
+        name, target_json, digest, method_config = prepared
+        conn.execute(
+            f"UPDATE qa_requirements SET target_env = {marker}, "
+            f"method_config = {marker} WHERE id = {marker}",
+            (name, method_config, int(req_id)),
+        )
+        from yoke_core.domain.qa_environment_execution_target import (
+            persist_requirement_target_snapshot,
+        )
+
+        persist_requirement_target_snapshot(
+            conn, int(req_id),
+            {"execution_target_json": target_json, "execution_target_digest": digest},
+        )
+        value = name
+    else:
+        conn.execute(
+            f"UPDATE qa_requirements SET {field} = {marker} WHERE id = {marker}",
+            (value, int(req_id)),
+        )
     event_phase = value if field == "qa_phase" else str(existing["qa_phase"])
     conn.commit()
     emit_qa_requirement_event(

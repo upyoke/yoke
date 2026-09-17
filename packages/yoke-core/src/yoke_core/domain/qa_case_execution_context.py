@@ -253,13 +253,8 @@ def get_case_execution_context(
         )
         if evidence:
             context["lane_commit_sha"] = evidence.get("commit_sha")
-    if plan_id is not None or row["deployment_stage"] is not None:
-        raw_target = row["execution_target_json"]
-        if not raw_target or not row["execution_target_digest"]:
-            raise QaCaseExecutionError(
-                "materialized QA case has no execution target; rematerialize "
-                "it after binding the plan target"
-            )
+    raw_target = row["execution_target_json"]
+    if raw_target and row["execution_target_digest"]:
         try:
             execution_target = json.loads(str(raw_target))
         except (TypeError, ValueError) as exc:
@@ -270,7 +265,11 @@ def get_case_execution_context(
             raise QaCaseExecutionError(
                 "materialized QA case has an invalid execution target"
             )
+        from yoke_core.domain.qa_environment_execution_target import (
+            require_case_endpoint,
+        )
         from yoke_core.domain.qa_execution_environment_target import (
+            QaExecutionTargetError,
             require_case_target,
             require_runtime_target,
             target_digest,
@@ -282,13 +281,23 @@ def get_case_execution_context(
             )
         require_runtime_target(execution_target)
         require_case_target(context, execution_target)
+        if plan_id is None and row["deployment_stage"] is None:
+            try:
+                require_case_endpoint(context, execution_target)
+            except QaExecutionTargetError as exc:
+                raise QaCaseExecutionError(str(exc)) from exc
         context["execution_target"] = execution_target
         context["execution_target_digest"] = str(row["execution_target_digest"])
+    elif plan_id is not None or row["deployment_stage"] is not None:
+        raise QaCaseExecutionError(
+            "materialized QA case has no execution target; rematerialize "
+            "it after binding the plan target"
+        )
     elif str(row["target_env"] or "").strip():
-        # A case outside a plan has no plan target to inherit, so the
-        # environment it names on its own row is where it runs. Resolving it
-        # here rather than storing a snapshot keeps the case answerable to
-        # the environment as currently registered.
+        # A draft --target-env label that was not an authorized environment
+        # at authoring time stays unbound on the row. Resolve it here when
+        # that environment exists now, rather than forbidding the supported
+        # deferred binding.
         from yoke_core.domain.qa_environment_execution_target import (
             require_case_endpoint,
             resolve_named_environment_execution_target,

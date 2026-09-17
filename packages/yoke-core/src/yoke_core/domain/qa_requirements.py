@@ -163,6 +163,18 @@ def cmd_requirement_add(
             "suite_id": suite_id,
             "workflow_transition_id": workflow_transition_id,
         }
+        owner_id = item_id if item_id is not None else epic_id
+        if owner_id is not None:
+            from yoke_core.domain.qa_environment_execution_target import (
+                bind_item_named_target,
+            )
+
+            refused = bind_item_named_target(
+                conn, item_id=int(owner_id), row=row
+            )
+            if refused:
+                print(f"Error: {refused}", file=sys.stderr)
+                sys.exit(2)
         cur = conn.execute(
             INSERT_SQL,
             insert_params(
@@ -175,6 +187,11 @@ def cmd_requirement_add(
             ),
         )
         inserted_id = int(cur.fetchone()[0])
+        from yoke_core.domain.qa_environment_execution_target import (
+            persist_requirement_target_snapshot,
+        )
+
+        persist_requirement_target_snapshot(conn, inserted_id, row)
         # QA requirement writes are real item activity.
         _qa_target = item_id if item_id is not None else epic_id
         if _qa_target is not None:

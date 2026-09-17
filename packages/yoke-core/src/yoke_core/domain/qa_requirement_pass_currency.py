@@ -68,11 +68,15 @@ def canonical_method_config(raw: Any) -> str:
     return canonical(executable_method_config(raw))
 
 
-def bind_correction_identity(previous: Any, prepared_canonical: str) -> str:
+def bind_correction_identity(
+    previous: Any, prepared_canonical: str, *, force: bool = False
+) -> str:
     """Keep a durable revision marker once executable config has changed."""
     payload = executable_method_config(prepared_canonical)
-    if method_config_was_corrected(previous) or (
-        canonical_method_config(previous) != prepared_canonical
+    if (
+        force
+        or method_config_was_corrected(previous)
+        or (canonical_method_config(previous) != prepared_canonical)
     ):
         payload[METHOD_CONFIG_REVISION_KEY] = True
     return canonical(payload)
