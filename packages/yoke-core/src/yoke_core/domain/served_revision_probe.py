@@ -161,20 +161,6 @@ def join_origin_path(origin: str, path: str) -> str:
     return origin_of(origin).rstrip("/") + "/" + path.lstrip("/")
 
 
-def join_base_path(base: str, path: str) -> str:
-    """Join a path beneath *base*, KEEPING the path *base* already carries.
-
-    The counterpart to :func:`join_origin_path`, for the case where the base
-    is server-derived target metadata rather than a configured origin. One
-    host can front several deployed artifacts under different path prefixes,
-    so reducing such a base to its host would ask a different artifact the
-    question and read its answer as this one's. Callers holding a base a
-    person could have typed still use :func:`join_origin_path`; the rule
-    there — that a configured origin cannot smuggle a path — is unchanged.
-    """
-    return str(base or "").rstrip("/") + "/" + str(path or "").lstrip("/")
-
-
 class OriginBoundRedirect(urllib.request.HTTPRedirectHandler):
     """Follow redirects only while they stay on the origin we asked.
 
@@ -211,13 +197,15 @@ def fetch_served_revision(url: str) -> ServedRevisionRead:
         return ServedRevisionRead(error=str(exc))
 
 
-def probe_revision_url(
-    url: str,
+def probe_served_revision(
+    origin: str,
+    path: str,
     *,
     expected_sha: str,
     fetch: Optional[Callable[[str], ServedRevisionRead]] = None,
 ) -> ProbeOutcome:
-    """Read the revision served at an already-composed *url* and judge it."""
+    """Read the revision *origin* serves at *path* and judge it."""
+    url = join_origin_path(origin, path)
     read = (fetch or fetch_served_revision)(url)
     if read.error or read.status != 200:
         return ProbeOutcome(url, UNREACHABLE, read.error or f"HTTP {read.status}")
@@ -227,19 +215,6 @@ def probe_revision_url(
     if served != expected_sha:
         return ProbeOutcome(url, MISMATCH, served, served=served)
     return ProbeOutcome(url, served=served)
-
-
-def probe_served_revision(
-    origin: str,
-    path: str,
-    *,
-    expected_sha: str,
-    fetch: Optional[Callable[[str], ServedRevisionRead]] = None,
-) -> ProbeOutcome:
-    """Read the revision *origin* serves at *path* and judge it."""
-    return probe_revision_url(
-        join_origin_path(origin, path), expected_sha=expected_sha, fetch=fetch
-    )
 
 
 __all__ = [
@@ -252,11 +227,9 @@ __all__ = [
     "ServedRevisionRead",
     "fetch_served_revision",
     "is_full_revision",
-    "join_base_path",
     "join_origin_path",
     "origin_of",
     "origin_relative_path_error",
-    "probe_revision_url",
     "probe_served_revision",
     "served_revision_from_body",
 ]

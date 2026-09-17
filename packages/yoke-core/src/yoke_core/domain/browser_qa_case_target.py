@@ -269,18 +269,9 @@ def resolve_case_deployment_under_test(
     if str(environment.get("kind") or "") == RUN_PREVIEW_KIND:
         return _receipt_located_preview(conn, target, project_id=int(project_id))
     configured = persistent_identity_path(conn, int(project_id))
-    browser_origin = str(
-        endpoints.get("app_url") or endpoints.get("api_url") or ""
-    ).strip()
-    api_origin = str(endpoints.get("api_url") or "").strip()
     return DeploymentUnderTest(
         environment=str(environment.get("name") or ""),
-        origin=browser_origin,
-        # The target already names both bases. Where they differ, one host
-        # fronts more than this deployment and only the API base answers for
-        # the code under test; where they agree, the target draws no such
-        # distinction and the single origin answers for everything.
-        identity_origin="" if api_origin == browser_origin else api_origin,
+        origin=str(endpoints.get("app_url") or endpoints.get("api_url") or "").strip(),
         identity_path=configured.path,
         identity_error=configured.error,
     )

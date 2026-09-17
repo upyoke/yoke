@@ -53,15 +53,11 @@ from yoke_core.domain.deployment_target_identity_config import (
 class DeploymentUnderTest:
     """The deployment a run-bound Browser case verifies, as the server sees it.
 
-    ``origin`` is what a browser visits for this deployment.
-    ``identity_origin`` is what answers for the code running behind it, and
-    the two are the same host only when one artifact is all that host serves.
-    Where a deployment is reached through another service — an app shell
-    fronting an API under a path of its own — asking the browser origin
-    returns that front's liveness, which says nothing about the code under
-    test. Keeping them apart is what stops one artifact's answer from
-    standing in for another's. An empty ``identity_origin`` means the target
-    draws no such distinction, and ``origin`` answers for both.
+    ``origin`` is the deployment's own registered address: the single host
+    authorized both to answer for it and to be browsed under this freshness
+    claim. Where that host fronts more than one deployed artifact, which one
+    answers is decided by ``identity_path`` — a configured path selects the
+    artifact as well as the route, and nothing here infers it.
 
     ``unresolved`` means the run itself does not name a deployment to test,
     which is a different answer from "it names one that cannot prove itself".
@@ -69,21 +65,14 @@ class DeploymentUnderTest:
 
     environment: str = ""
     origin: str = ""
-    identity_origin: str = ""
     identity_path: str = ""
     identity_error: str = ""
     unresolved: str = ""
-
-    @property
-    def revision_origin(self) -> str:
-        """The base authorized to say which revision is running."""
-        return self.identity_origin or self.origin
 
     def as_payload(self) -> dict[str, Any]:
         return {
             "environment": self.environment,
             "origin": self.origin,
-            "identity_origin": self.identity_origin,
             "identity_path": self.identity_path,
             "identity_error": self.identity_error,
             "unresolved": self.unresolved,
@@ -101,7 +90,6 @@ class DeploymentUnderTest:
         return cls(
             environment=str(payload.get("environment") or ""),
             origin=str(payload.get("origin") or ""),
-            identity_origin=str(payload.get("identity_origin") or ""),
             identity_path=str(payload.get("identity_path") or ""),
             identity_error=str(payload.get("identity_error") or ""),
             unresolved=str(payload.get("unresolved") or ""),
@@ -191,10 +179,10 @@ def validate_deployment_identity(
             f"{IDENTITY_CAPABILITY} capability and re-run.",
         )
 
-    if not target.revision_origin or not target.identity_path:
+    if not target.origin or not target.identity_path:
         missing = (
             f"environment {target.environment!r} has no registered url"
-            if not target.revision_origin
+            if not target.origin
             else (
                 f"the project's {IDENTITY_CAPABILITY} capability sets no "
                 f"{IDENTITY_PATH_KEY}"
@@ -212,14 +200,9 @@ def validate_deployment_identity(
             f"{IDENTITY_PATH_KEY}=/<path>), then re-run this case.",
         )
 
-    if target.identity_origin:
-        # A base the server derived for this target may legitimately carry a
-        # path — the prefix under which this artifact, and not its neighbour,
-        # is reached — so it is joined rather than reduced to its host.
-        url = probe.join_base_path(target.identity_origin, target.identity_path)
-    else:
-        url = probe.join_origin_path(target.origin, target.identity_path)
-    outcome = probe.probe_revision_url(url, expected_sha=expected_sha, fetch=fetch)
+    outcome = probe.probe_served_revision(
+        target.origin, target.identity_path, expected_sha=expected_sha, fetch=fetch
+    )
     if outcome.kind == probe.UNREACHABLE:
         return FreshnessFailure(
             IDENTITY_PROOF_UNAVAILABLE,
