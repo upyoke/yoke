@@ -145,9 +145,16 @@ def _local_host_identity_json() -> str:
         mount_fields,
     )
 
+    from yoke_core.ui.served_source_identity import served_build
+
+    # The checkout this module was loaded out of is the tree these assets
+    # are read from, so the commit it publishes describes what is being
+    # served — not whatever install the machine happens to have on PATH.
+    install = detect_install(yoke_core.__file__)
     packet = build_runtime_identity(
         portability_mode=PORTABILITY_LOCAL,
-        install=detect_install(yoke_core.__file__),
+        install=install,
+        build=served_build(install.get("checkout_root")),
     )
     fields = mount_fields(packet)
     from yoke_core.ui.local_operator_actor import resolve_local_operator_actor

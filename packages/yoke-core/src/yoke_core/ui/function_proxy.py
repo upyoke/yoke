@@ -219,6 +219,7 @@ def proxy_function_call(
         TargetRef,
     )
     from yoke_core.domain.yoke_function_dispatch import dispatch
+    from yoke_core.ui.proxy_transport import relay_call, relays_to_server
 
     function_id = str(envelope.get("function") or "")
     is_mutation = function_id in UI_MUTATION_FUNCTION_ALLOWLIST
@@ -237,11 +238,16 @@ def proxy_function_call(
             },
             403,
         )
+    # Identity follows the transport. Relayed, the server binds the
+    # authenticated actor behind the credential and this process asserts
+    # nobody; in-process, it resolves the machine's operator itself, which
+    # is the only identity a loopback session token could stand for.
+    relayed = relays_to_server()
     # Actor-scoped calls act as the machine's operator, resolved
     # server-side. Reads that surface per-actor dismissal state bind the
     # operator when one resolves; mutations refuse without one.
     operator_actor_id: Optional[str] = None
-    if (
+    if not relayed and (
         is_mutation
         or function_id in UI_ACTIVATION_LATCH_FUNCTIONS
         or function_id in UI_ACTOR_BOUND_READ_FUNCTIONS
@@ -291,6 +297,17 @@ def proxy_function_call(
         )
 
         payload["sender_surface"] = WEB_FORM_SENDER_SURFACE
+    if relayed:
+        # The envelope's own actor and session fields never travel: the
+        # relay's credential is the identity, and this process adds none.
+        response = relay_call(
+            function_id=function_id,
+            target=target,
+            payload=payload,
+            options=dict(envelope.get("options") or {}),
+            request_id=str(envelope.get("request_id") or uuid.uuid4()),
+        )
+        return response.model_dump(mode="json"), 200
     request = FunctionCallRequest(
         function=function_id,
         # No harness session exists in a browser: the empty session id
