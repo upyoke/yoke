@@ -9,6 +9,7 @@
 .universe-app-root .delivery-flow-toolbar {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;
+  grid-template-areas: "search toggle" "summary actions";
   gap: 10px 12px;
   align-items: end;
   padding: 16px 18px;
@@ -212,23 +213,6 @@
   content: "•";
 }
 
-.universe-app-root .delivery-flow-card-shape {
-  display: flex;
-  height: 4px;
-  gap: 3px;
-}
-
-.universe-app-root .delivery-flow-card-shape i {
-  min-width: 4px;
-  flex: 1 1 0;
-  border-radius: 999px;
-  background: var(--yoke-accent-line);
-}
-
-.universe-app-root .delivery-flow-card-shape i.is-empty {
-  background: var(--yoke-border);
-}
-
 .universe-app-root .delivery-flow-zero {
   display: grid;
   justify-items: center;
@@ -319,3 +303,8 @@
     transform: none;
   }
 }
+
+.universe-app-root .delivery-flow-search { grid-area: search; }
+.universe-app-root .delivery-flow-disabled-toggle { grid-area: toggle; }
+.universe-app-root .delivery-flow-result-summary { grid-area: summary; }
+.universe-app-root .delivery-flow-actions { grid-area: actions; }

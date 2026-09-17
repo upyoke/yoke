@@ -37,23 +37,6 @@ function sortedRows(rows) {
     return flowName(left).localeCompare(flowName(right));
   });
 }
-function stageShape(documentNode, row) {
-  const stages = stagesFor(row);
-  const shape = el(documentNode, "span", "delivery-flow-card-shape");
-  shape.setAttribute("role", "img");
-  shape.setAttribute(
-    "aria-label",
-    stages.length
-      ? `${stages.length} ${stages.length === 1 ? "stage" : "stages"}: ${stages.join(", ")}`
-      : "No stages published",
-  );
-  if (!stages.length) {
-    shape.appendChild(el(documentNode, "i", "is-empty"));
-    return shape;
-  }
-  for (const stage of stages) shape.appendChild(el(documentNode, "i"));
-  return shape;
-}
 function flowCard(documentNode, row, selected, index) {
   const card = el(documentNode, "button", "delivery-flow-card");
   card.type = "button";
@@ -83,7 +66,6 @@ function flowCard(documentNode, row, selected, index) {
     `${stagesFor(row).length} stage${stagesFor(row).length === 1 ? "" : "s"}`,
   ));
   card.appendChild(meta);
-  card.appendChild(stageShape(documentNode, row));
   return card;
 }
 function zeroState(documentNode, title, copy, className = "") {

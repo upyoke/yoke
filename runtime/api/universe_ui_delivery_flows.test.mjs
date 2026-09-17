@@ -151,10 +151,11 @@ test("flow explorer is active-first and makes disabled and selection explicit", 
     byClass(root, "delivery-flow-stage-name").map((node) => node.textContent),
     ["build", "verify"],
   );
-  assert.equal(
-    byClass(root, "delivery-flow-card-shape")[0].attributes.get("aria-label"),
-    "2 stages: build, verify",
-  );
+  // A card says how many stages a flow has in words. It used to draw them as
+  // a segmented bar too, which read as a progress meter for something that
+  // was not progressing.
+  assert.equal(byClass(root, "delivery-flow-card-shape").length, 0);
+  assert.ok(byClass(root, "delivery-flow-card")[0].textContent.includes("2 stages"));
 
   cards[0].dispatchEvent(keyEvent("ArrowDown"));
   cards = byClass(root, "delivery-flow-card");
@@ -166,10 +167,7 @@ test("flow explorer is active-first and makes disabled and selection explicit", 
   assert.equal(disabledToggle.textContent, "Hide disabled");
   assert.equal(disabledToggle.attributes.get("aria-pressed"), "true");
   assert.deepEqual(cardNames(root), ["Alpha Release", "Alpha Legacy", "Beta Promote"]);
-  assert.equal(
-    byClass(root, "delivery-flow-card-shape")[1].attributes.get("aria-label"),
-    "1 stage: archive",
-  );
+  assert.ok(byClass(root, "delivery-flow-card")[1].textContent.includes("1 stage"));
   cards = byClass(root, "delivery-flow-card");
   assert.equal(cards[1].attributes.get("data-status"), "disabled");
   cards[1].dispatchEvent(new Event("click"));
