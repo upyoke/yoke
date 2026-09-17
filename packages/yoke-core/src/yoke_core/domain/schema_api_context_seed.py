@@ -224,6 +224,10 @@ PACKET_BYTE_BUDGET_AGGREGATE: int = 196000
 # plus its compact packet. A subagent body is read from a file rather than
 # composed into a hook reply, so no observed truncation point bounds it —
 # this is purely the measured figure that keeps it from regrowing. Measured:
-# the largest body spends 58,981 bytes, down from 168,187 when every role
-# carried the full packet plus its conditional references inline.
-AGENT_PROMPT_BYTE_BUDGET: int = 60000
+# the largest body spends 64,070 bytes, down from 168,187 when every role
+# carried the full packet plus its conditional references inline. The figure
+# rose from 58,981 when the engineer's submission contract came back inline:
+# the receipt an agent must emit and the checks that gate it are not a
+# reference it looks up, so carving them out was the wrong call and the
+# submission-gate tests said so.
+AGENT_PROMPT_BYTE_BUDGET: int = 66000

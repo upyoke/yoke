@@ -14,6 +14,7 @@ authored-file line cap.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
@@ -115,7 +116,6 @@ def handle_packets_check(request: FunctionCallRequest) -> HandlerOutcome:
     arrive.
     """
     from yoke_contracts.startup_context_budget import budget_phrase
-    from yoke_core.domain.handlers.orchestration_agents import resolve_target_root
     from yoke_core.domain.schema_api_context import detect_seed_drift
     from yoke_core.domain.schema_api_context_packet_budget import (
         BUDGET_READ_COMMAND,
@@ -126,11 +126,29 @@ def handle_packets_check(request: FunctionCallRequest) -> HandlerOutcome:
         startup_delivery_report,
     )
 
+    # The checkout comes from the payload or not at all. Resolving one from
+    # ambient state means asking the workspace-authority resolver, which reads
+    # the caller's live work claims — a control-plane read this function is
+    # declared client-local precisely so it never needs, and which refuses
+    # outright under an https control plane. A read does not get to ask a
+    # write-authority question, so an absent root reports the delivery section
+    # unmeasured and names the flag rather than reaching for one.
     payload = request.payload or {}
+    raw_root = payload.get("target_root")
     try:
         budget = packet_budget_report()
-        delivery = startup_delivery_report(
-            resolve_target_root(payload.get("target_root"))
+        delivery = (
+            startup_delivery_report(Path(str(raw_root)))
+            if raw_root
+            else {
+                "measured": False,
+                "reason": (
+                    "no target_root supplied; startup delivery is measured "
+                    "against a named checkout. Pass --target-root PATH."
+                ),
+                "channels": [],
+                "over_budget": [],
+            }
         )
     except Exception as exc:
         return HandlerOutcome(

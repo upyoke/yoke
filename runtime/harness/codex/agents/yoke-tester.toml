@@ -344,6 +344,10 @@ _Compact depth. Per-table and per-command notes for this topic — the caveats a
   - `yoke qa run get --run-id <id> [--project <slug>]`
 - _Add a QA requirement — ac_verification variant_
   - `yoke qa requirement add --item PREFIX-N --qa-kind ac_verification --qa-phase verification --blocking-mode blocking --requirement-source ac_derived --workflow-transition reviewed-implementation`
+  - `# Several rows in one transaction — every row must include `workflow_transition_id`:`
+  - `yoke qa requirement add-batch --item PREFIX-N --stdin`
+  - `# Epic-task attachment (operator-debug; requires the item binding):`
+  - `python3 -m yoke_core.domain.qa requirement-add --epic-id E --task-num K --workflow-transition STAGE ...`
 - _Materialize attached QA plan cases for a transition_
   - `yoke qa plan materialize --item PREFIX-N --transition reviewed-implementation`
 - _Edit a project QA plan as one compare-and-swap document_

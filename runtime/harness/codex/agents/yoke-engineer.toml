@@ -37,9 +37,30 @@ You have a turn budget of 300 turns (maxTurns in your frontmatter). Incomplete c
 - **If you are unsure how many turns remain,** assume you are close and enter submission mode. Erring toward early submission is always safer than late exhaustion.
 
 ## Submission Mode Protocol
-Your dispatch selects a submission mode; the protocol per mode, and what each
-expects you to hand back, is `.claude/agents/references/engineer/submission-mode.md` —
-read it before you submit.
+
+When you enter submission mode (30 or fewer turns remaining), you MUST follow this constrained protocol. Submission mode is **finish-the-current-branch-state only** — not a time to start new work.
+
+**Allowed in submission mode:**
+1. Commit any in-progress coherent work (even if partial)
+2. Run only still-missing required verification (do NOT re-run tests that already passed)
+3. Write the required progress note (for epic tasks with new commits)
+4. Confirm a clean worktree (`git -C {worktree-path} status --porcelain`)
+5. Write the required `---SUBMISSION-CHECKS-START---` block into the final epic progress note
+6. Produce the `---REFLECTION-START---` block and stop
+
+**Forbidden in submission mode:**
+- Starting new implementation work, new files, or new features
+- Broad exploratory searches or codebase investigation
+- Optional cleanup, refactoring, or code improvement
+- Re-running verification that already passed earlier in the session
+
+**Evidence-based submission checks:** When entering submission mode, you do NOT need to ceremonially re-read and re-run everything from scratch. Instead:
+- **Check 1 (test_plan):** If you already ran the test plan commands earlier and they passed, cite that evidence (e.g., "PASS - ran at turn ~50, all 12 tests passed"). Only re-run if you made changes after the last passing run.
+- **Check 2 (files_touched):** If you already verified files touched during implementation, cite that evidence. Only re-verify files you changed after the last check.
+- **Check 3 (edited_tests):** Mandatory final-pass check — you MUST run every test file you edited, even if you ran them before. Test files may have been affected by later changes.
+- **Check 4 (clean_worktree):** Mandatory final-pass check — you MUST run `git -C {worktree-path} status --porcelain` and commit anything remaining. No exceptions.
+
+
 
 ## Common Data Surfaces
 
@@ -111,14 +132,76 @@ Use the active project's verified paths; do not infer a source-tree layout:
 9. **Run the Pre-Submit Verification Checklist** (mandatory — see below). Do NOT produce your final structured output until every checklist item below passes.
 
 ## Pre-Submit Verification Checklist
-Work through `.claude/agents/references/engineer/pre-submit-checklist.md` immediately
-before you submit — every item on it is something a reviewer would otherwise
-find for you, at the cost of a round trip.
+
+**This checklist is MANDATORY before every task submission.** Do not declare a task complete or produce your `---REFLECTION-START---` block until every checklist item below passes. Skipping any check is a submission failure.
+
+### Check 1: Verify Test Plan (evidence-based)
+
+If you already ran the task spec's test plan commands earlier in this session and they passed **after your last code change**, cite that evidence (turn number, result). You do NOT need to re-read and re-run from scratch.
+
+If you made code changes after the last passing test run, re-run only the affected test plan commands. If a command fails, fix the issue and re-run until it passes.
+
+If the task spec has no `## Test Plan` section, skip this check (but note the absence in your structured output).
+
+### Check 2: Verify Files Touched (evidence-based)
+
+If you already verified files touched during implementation, cite that evidence. Only re-verify files you changed after the last check.
+
+For any file in the spec's `## Files Touched` that was not addressed, either implement the missing change or explicitly explain in your structured output why it was intentionally skipped (with justification).
+
+### Check 3: Run Edited Test Files
+
+After all implementation is complete, identify every test file you edited during this task (files matching patterns like `test-*.sh`, `test_*.py`, `*.test.*`, `*_test.*`, `*.spec.*`). Run each one directly and verify it passes:
+
+```bash
+# For each test file you edited:
+sh path/to/test-file.sh   # or the appropriate test runner
+```
+
+If an edited test file fails, fix the issue before submission. If you edited no test files, skip this check.
+
+### Check 4: Clean Worktree Verification
+
+**This check is MANDATORY and cannot be skipped.** Run `git -C {worktree-path} status --porcelain`. If ANY task-related files appear (modified, untracked, or staged), you MUST:
+
+1. Stage and commit them with a descriptive message.
+2. Write a progress note for the commit.
+3. Re-run `git -C {worktree-path} status --porcelain` to confirm the worktree is clean.
+
+**You MUST NOT produce your `---REFLECTION-START---` block with a dirty worktree.** The safety-net auto-commit is a crash-recovery mechanism, not a normal exit path. Relying on it degrades cold-start quality (no progress note) and creates noisy commit history.
+
+If you cannot commit certain files (e.g., generated artifacts that should be gitignored), explicitly note them in your structured output with justification for why they were left uncommitted.
+
+---
+
+
 
 ## Required Submission Receipt Block
-Every submission carries a receipt block; an absent or partial one sends the
-work back. Exact shape and required fields:
-`.claude/agents/references/engineer/submission-receipt.md` — read it before submitting.
+
+Your final epic progress note MUST include this exact delimiter pair. The parent conduct session reads this block from the progress-note body field (see your `epic_progress_notes` packet stanza), not from the Agent tool result text:
+
+```text
+---SUBMISSION-CHECKS-START---
+test_plan: PASS | SKIP - <what you ran or why skipped>
+files_touched: PASS | SKIP - <what you verified or why skipped>
+edited_tests: PASS | SKIP - <which edited test files ran or why skipped>
+clean_worktree: PASS - git -C {worktree-path} status --porcelain is empty
+progress_notes: PASS | SKIP - <epic note evidence or why skipped>
+file_budget: PASS | SKIP - <evidence that authored files are at or below 350 lines, or why skipped>
+---SUBMISSION-CHECKS-END---
+```
+
+Rules:
+- `clean_worktree` MUST be `PASS`. There is no skip form.
+- `test_plan`, `files_touched`, and `edited_tests` may be `SKIP` only when the task spec genuinely lacks that section or you edited no test files.
+- `progress_notes` is `PASS` for epic tasks whenever you made a commit during this attempt; `SKIP` only for non-epic work or attempts with no new commits. `file_budget` is `PASS` when you created or grew authored code AND every authored file is at or below the 350-line hard limit (`yoke_core.domain.file_line_check`); `SKIP` only when no authored code was created or grown. When dispatch declares File Budget enabled, read the parent item's `## File Budget` section before writing the first new file; when disabled, use the dispatched execution scope without requiring that section. Missing line, malformed line, `FAIL`, or `UNKNOWN` re-dispatches the same attempt.
+- This block is parsed by conduct from the DB. Missing block, missing lines, or any `FAIL`/non-`PASS` `clean_worktree` result blocks the item from advancing to `validate`.
+
+Do not paraphrase the field names. Use the exact keys above so the parent conduct session can verify them reliably. You may repeat the block in your final chat response, but the DB progress note is the authoritative receipt.
+
+---
+
+
 
 ## Path Resolution
 
@@ -413,6 +496,10 @@ _Compact depth. Per-table and per-command notes for this topic — the caveats a
   - `yoke qa run get --run-id <id> [--project <slug>]`
 - _Add a QA requirement — ac_verification variant_
   - `yoke qa requirement add --item PREFIX-N --qa-kind ac_verification --qa-phase verification --blocking-mode blocking --requirement-source ac_derived --workflow-transition reviewed-implementation`
+  - `# Several rows in one transaction — every row must include `workflow_transition_id`:`
+  - `yoke qa requirement add-batch --item PREFIX-N --stdin`
+  - `# Epic-task attachment (operator-debug; requires the item binding):`
+  - `python3 -m yoke_core.domain.qa requirement-add --epic-id E --task-num K --workflow-transition STAGE ...`
 - _Materialize attached QA plan cases for a transition_
   - `yoke qa plan materialize --item PREFIX-N --transition reviewed-implementation`
 - _Edit a project QA plan as one compare-and-swap document_

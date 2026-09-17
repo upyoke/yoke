@@ -75,7 +75,14 @@ QA_COMMANDS: list[dict] = [
             "yoke qa requirement add "
             "--item PREFIX-N --qa-kind ac_verification --qa-phase verification "
             "--blocking-mode blocking --requirement-source ac_derived "
-            "--workflow-transition reviewed-implementation"
+            "--workflow-transition reviewed-implementation\n"
+            "# Several rows in one transaction — every row must include "
+            "`workflow_transition_id`:\n"
+            "yoke qa requirement add-batch --item PREFIX-N --stdin\n"
+            "# Epic-task attachment (operator-debug; requires the item "
+            "binding):\n"
+            "python3 -m yoke_core.domain.qa requirement-add "
+            "--epic-id E --task-num K --workflow-transition STAGE ..."
         ),
         "notes": (
             "Registered write qa.requirement.add. With `--item` it is "
