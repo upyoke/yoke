@@ -28,7 +28,6 @@ deployment is serving is only ever a present-tense reading.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
@@ -103,84 +102,6 @@ def _scalar(row: Any, index: int, key: str) -> Any:
     if row is None:
         return None
     return row[key] if hasattr(row, "keys") else row[index]
-
-
-def _bound_execution_target(conn: Any, requirement_id: int) -> dict[str, Any] | None:
-    """Return the execution target a Browser case is bound to, or None.
-
-    A live execution's snapshot is preferred over the requirement's own
-    stored target, because the snapshot is what the roster froze and what
-    every case in that execution is being judged against; the requirement
-    row can be rematerialized underneath a run in flight.
-    """
-    marker = _p(conn)
-    for sql, params in (
-        (
-            "SELECT e.execution_target_json FROM qa_plan_executions e "
-            "WHERE e.execution_target_json IS NOT NULL "
-            f"AND EXISTS (SELECT 1 FROM qa_requirements r WHERE r.id={marker} "
-            "AND (r.item_id=e.item_id OR r.deployment_run_id=e.deployment_run_id)) "
-            "AND e.state IN ('active','waiting','awaiting_agent_review') "
-            "ORDER BY e.created_at DESC",
-            (int(requirement_id),),
-        ),
-        (
-            f"SELECT execution_target_json FROM qa_requirements WHERE id={marker}",
-            (int(requirement_id),),
-        ),
-    ):
-        row = conn.execute(sql, params).fetchone()
-        raw = _scalar(row, 0, "execution_target_json") if row is not None else None
-        if not raw:
-            continue
-        try:
-            target = json.loads(str(raw))
-        except (TypeError, ValueError):
-            continue
-        if isinstance(target, dict):
-            return target
-    return None
-
-
-def resolve_case_deployment_under_test(
-    conn: Any,
-    *,
-    requirement_id: int,
-    project_id: int,
-) -> DeploymentUnderTest | None:
-    """Resolve the deployment a case's OWN bound target names, or None.
-
-    A case that names an environment is about that environment, whatever it
-    is attached to. Reading its bound target here is what lets an item case
-    verify the deployment it was bound to rather than a branch preview it
-    was never about. A case with no bound target returns None, so the
-    branch-preview path it has always taken is left exactly as it was.
-    """
-    target = _bound_execution_target(conn, requirement_id)
-    if target is None:
-        return None
-    environment = target.get("environment")
-    endpoints = target.get("endpoints")
-    if not isinstance(environment, Mapping) or not isinstance(endpoints, Mapping):
-        return None
-    bound_project = target.get("project")
-    if isinstance(bound_project, Mapping) and bound_project.get("id") is not None:
-        if int(bound_project["id"]) != int(project_id):
-            return DeploymentUnderTest(
-                unresolved=(
-                    "this Browser case is bound to an execution target owned "
-                    f"by project {int(bound_project['id'])}, not "
-                    f"{int(project_id)}; its evidence would answer for another "
-                    "project's deployment"
-                )
-            )
-    configured = persistent_identity_path(conn, int(project_id))
-    return DeploymentUnderTest(
-        environment=str(environment.get("name") or ""),
-        origin=str(endpoints.get("app_url") or endpoints.get("api_url") or "").strip(),
-        identity_path=configured.path,
-        identity_error=configured.error,
-    )
 
 
 def resolve_deployment_under_test(conn: Any, run_id: str) -> DeploymentUnderTest:

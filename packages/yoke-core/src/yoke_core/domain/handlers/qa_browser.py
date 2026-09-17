@@ -40,8 +40,10 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     HandlerOutcome,
 )
-from yoke_core.domain.browser_qa_deployment_identity import (
+from yoke_core.domain.browser_qa_case_target import (
     resolve_case_deployment_under_test,
+)
+from yoke_core.domain.browser_qa_deployment_identity import (
     resolve_deployment_under_test,
 )
 
