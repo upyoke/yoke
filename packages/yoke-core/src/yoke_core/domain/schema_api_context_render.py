@@ -215,18 +215,41 @@ def render_command_block(
     out: list[str] = ["**Wrapper commands (prefer over raw SQL):**", ""]
     for row in rows:
         out.append(f"- _{row['purpose']}_")
-        # One inline-code span per recipe line. A multi-line recipe wrapped in
-        # a single backtick pair renders a span containing newlines, which no
-        # markdown reader treats as code and which leaves a stray backtick on
-        # the closing line; it also hides the command from the recipe
-        # extractor that audits whether a taught command resolves to a
-        # registered surface, so a real recipe can go unaudited by formatting
-        # alone.
-        for line in str(row["recipe"]).split("\n"):
-            out.append(f"  - `{line}`" if line.strip() else "  -")
+        for command in recipe_commands(str(row["recipe"])):
+            out.append(f"  - `{command}`")
         if detail == PACKET_DETAIL_FULL and row.get("notes"):
             out.append(f"  - {row['notes']}")
     return out
+
+
+def recipe_commands(recipe: str) -> list[str]:
+    """Split a recipe into one entry per command it actually teaches.
+
+    A recipe row may hold several independent commands separated by newlines,
+    or one command continued across lines by a trailing backslash or an open
+    quote. Emitting the whole row as a single inline-code span conflates the
+    two: a span containing newlines is not code to any markdown reader, it
+    leaves a stray backtick on the closing line, and it hides each command
+    from the recipe extractor that audits whether a taught command resolves
+    to a registered surface — so a real recipe can go unaudited by formatting
+    alone.
+
+    Independent commands therefore each get their own span, while a continued
+    command keeps its newlines inside one span, because that is the single
+    command it is.
+    """
+    commands: list[str] = []
+    pending: list[str] = []
+    for line in recipe.split("\n"):
+        pending.append(line)
+        joined = "\n".join(pending)
+        if line.rstrip().endswith("\\") or joined.count('"') % 2:
+            continue
+        commands.append(joined)
+        pending = []
+    if pending:
+        commands.append("\n".join(pending))
+    return [command for command in commands if command.strip()]
 
 
 def render_table_block(
@@ -258,6 +281,7 @@ def render_table_block(
 
 __all__ = [
     "PACKET_DETAILS",
+    "recipe_commands",
     "PACKET_DETAIL_COMPACT",
     "PACKET_DETAIL_FULL",
     "packet_detail_pointer",

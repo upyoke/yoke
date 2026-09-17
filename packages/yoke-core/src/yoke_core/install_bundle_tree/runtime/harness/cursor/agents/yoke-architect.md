@@ -288,14 +288,14 @@ _Compact depth. Per-table and per-command notes for this topic — the caveats a
 - _List path claims for an item_
   - `yoke claims path list --item PREFIX-N`
 - _Register a path claim (canonical agent shape)_
-  - `yoke claims path register \`
-  - `  --item PREFIX-N \`
-  - `  --paths <project-source-path>/path_claim_targets.py,<project-test-path>/test_path_claim_targets.py,docs/event-catalog.md \`
-  - `  --integration-target main --mode exclusive --allow-planned`
+  - `yoke claims path register \
+  --item PREFIX-N \
+  --paths <project-source-path>/path_claim_targets.py,<project-test-path>/test_path_claim_targets.py,docs/event-catalog.md \
+  --integration-target main --mode exclusive --allow-planned`
 - _Widen a path claim (canonical agent shape)_
-  - `yoke claims path widen --claim-id 138 --item PREFIX-N \`
-  - `  --add-paths <project-source-path>/service_client_backlog_router.py,<project-test-path>/test_backlog_github_backfill_oversized.py \`
-  - `  --reason 'backfill subcommand wiring touches router + new test file'`
+  - `yoke claims path widen --claim-id 138 --item PREFIX-N \
+  --add-paths <project-source-path>/service_client_backlog_router.py,<project-test-path>/test_backlog_github_backfill_oversized.py \
+  --reason 'backfill subcommand wiring touches router + new test file'`
 - _Narrow a path claim (drop or keep paths)_
   - `Path-claim narrow is an operator-debug/refine disposition; use `yoke claims path widen` for additive scope changes.`
 - _List / get path claims_
@@ -304,13 +304,13 @@ _Compact depth. Per-table and per-command notes for this topic — the caveats a
 - _Summary of path-claim conflicts on a branch_
   - `yoke path-claims conflicts list --integration-target main --project P`
 - _Find conflicts on specific paths (SQL)_
-  - `yoke db read "`
-  - `SELECT pc.id, pc.owner_kind, pc.owner_item_id, pc.state, tgt.path_string`
-  - `FROM path_claims pc`
-  - `JOIN path_claim_targets pct ON pct.claim_id = pc.id`
-  - `JOIN path_targets tgt ON tgt.id = pct.target_id`
-  - `WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>/bar.py')`
-  - `  AND pc.state NOT IN ('cancelled','released')"`
+  - `yoke db read "
+SELECT pc.id, pc.owner_kind, pc.owner_item_id, pc.state, tgt.path_string
+FROM path_claims pc
+JOIN path_claim_targets pct ON pct.claim_id = pc.id
+JOIN path_targets tgt ON tgt.id = pct.target_id
+WHERE tgt.path_string IN ('<project-source-path>/foo.py', '<project-source-path>/bar.py')
+  AND pc.state NOT IN ('cancelled','released')"`
 - _Classify a path-claim overlap before authoring a coordination edge_
   - `yoke claims path coordination-decision-build --item PREFIX-N --conflicting-claim CLAIM_ID --paths a.py,b.py`
 
