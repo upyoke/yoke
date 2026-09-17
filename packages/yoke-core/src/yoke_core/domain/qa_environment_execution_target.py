@@ -200,11 +200,11 @@ def persist_requirement_target_snapshot(
     conn.execute(
         f"UPDATE qa_requirements SET execution_target_json={marker}, "
         f"execution_target_digest={marker} WHERE id={marker}",
-        (
-            row["execution_target_json"],
-            row["execution_target_digest"],
-            int(requirement_id),
-        ),
+            (
+                row.get("execution_target_json"),
+                row.get("execution_target_digest"),
+                int(requirement_id),
+            ),
     )
 
 

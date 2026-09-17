@@ -53,7 +53,9 @@ class TestCheckReviewedImplementationGate:
         assert not result.passed
         joined = "\n".join(result.errors)
         assert f"/yoke advance {TEST_ITEM_REF} reviewed-implementation" in joined
-        assert "browser QA and project E2E phases automatically" in joined
+        assert "runs browser QA and project E2E before the status change" in joined
+        assert "`yoke qa case run --requirement-id <id>`" in joined
+        assert "/yoke advance` is not a CLI command" in joined
 
     def test_tc_passes_when_waived(self, qa_db):
         conn = connect_test_db(qa_db)
@@ -101,7 +103,9 @@ class TestCheckReviewedImplementationGate:
         assert "yoke qa run add" not in joined
         assert "yoke qa artifact add" not in joined
         assert f"/yoke advance {TEST_ITEM_REF} reviewed-implementation" in joined
-        assert "browser QA automatically before updating status" in joined
+        assert "runs browser QA automatically before the status change" in joined
+        assert "`yoke qa case run --requirement-id <id>`" in joined
+        assert "/yoke advance` is not a CLI command" in joined
 
     def test_tc_browser_evidence_passes_with_substrate(self, qa_db, tmp_path):
         """Browser requirement passes with substrate run + artifact on disk."""

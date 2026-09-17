@@ -80,8 +80,16 @@ exactly the checks the rows sit beside.
 
 A plan carries its own `target_environment_id`, so every case materialized
 from it inherits one immutable execution target. A case attached without a
-plan names its own with `--target-env NAME`, resolved against the project's
-registered environments at execution time and held to each of these:
+plan names its own with `--target-env NAME`. When that name is a registered,
+authorized environment of the item's project, authoring and
+`qa.requirement.update` persist the canonical `execution_target_json` /
+`execution_target_digest` immediately. An unregistered name stays a draft
+label until a later bind; a name registered only on another project is
+refused. Executable roster creation (`qa.plan_execution.begin`) requires
+the canonical snapshot and names the CLI bind
+(`yoke qa requirement update --requirement-id <id> --field target_env
+--value <environment>`) plus `yoke qa case run`; `/yoke advance` is the
+harness skill, not a terminal command. Held to each of these:
 
 - the environment must be registered to that project and authorized for it,
   which is the same read a plan target passes;
