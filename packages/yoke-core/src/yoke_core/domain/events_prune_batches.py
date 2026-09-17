@@ -62,11 +62,19 @@ def apply_event_prune_statement_timeout(conn: Any, deadline: float) -> None:
     )
 
 
-def reset_event_prune_statement_timeout(conn: Any) -> None:
-    """Drop SET LOCAL timeout so later non-event statements are not budgeted."""
+def current_statement_timeout(conn: Any) -> str:
+    """Return SHOW statement_timeout, or ``0`` off Postgres."""
+    if not db_backend.connection_is_postgres(conn):
+        return "0"
+    row = conn.execute("SHOW statement_timeout").fetchone()
+    return str(row[0] if row is not None else "0")
+
+
+def restore_event_prune_statement_timeout(conn: Any, prior: str) -> None:
+    """Put back the incoming timeout; never force-disable a role/session GUC."""
     if not db_backend.connection_is_postgres(conn):
         return
-    conn.execute("SELECT set_config('statement_timeout', %s, true)", ("0",))
+    conn.execute("SELECT set_config('statement_timeout', %s, true)", (prior,))
 
 
 def execute_with_deadline(
@@ -74,14 +82,20 @@ def execute_with_deadline(
     deadline: float,
     sql: str,
     params: tuple[Any, ...] = (),
+    *,
+    restore_timeout: str | None = None,
 ) -> Any:
     """Run one event SQL statement under the remaining statement_timeout.
 
-    Event-only: a canceled statement rolls back and restores timeout so
-    later helpers are not left in an aborted transaction. Callers restore
-    after successful event SQL before unrelated helpers so leftover SET
-    LOCAL cannot starve them.
+    Event-only: a canceled statement rolls back and restores the incoming
+    timeout so later helpers keep any preexisting diagnostic GUC. Callers
+    restore after successful event SQL before unrelated helpers.
     """
+    prior = (
+        restore_timeout
+        if restore_timeout is not None
+        else current_statement_timeout(conn)
+    )
     apply_event_prune_statement_timeout(conn, deadline)
     try:
         return conn.execute(sql, params)
@@ -89,7 +103,7 @@ def execute_with_deadline(
         if not _is_statement_timeout(exc):
             raise
         conn.rollback()
-        reset_event_prune_statement_timeout(conn)
+        restore_event_prune_statement_timeout(conn, prior)
         raise StatementBudgetExceeded from exc
 
 
@@ -127,6 +141,7 @@ def bounded_event_count(
     *,
     limit: int,
     deadline: float | None = None,
+    restore_timeout: str | None = None,
 ) -> tuple[int, bool]:
     """Count matching rows up to *limit*; partial means at least that many."""
     batch = coerce_batch_size(limit)
@@ -139,7 +154,9 @@ def bounded_event_count(
     if deadline is None:
         found = int(query_scalar(conn, sql, params) or 0)
     else:
-        row = execute_with_deadline(conn, deadline, sql, params).fetchone()
+        row = execute_with_deadline(
+            conn, deadline, sql, params, restore_timeout=restore_timeout
+        ).fetchone()
         found = int((row[0] if row is not None else 0) or 0)
     if found > batch:
         return batch, True
@@ -153,6 +170,7 @@ def delete_event_batch(
     *,
     limit: int,
     deadline: float | None = None,
+    restore_timeout: str | None = None,
 ) -> int:
     """Delete one oldest-first batch; returns rows removed this statement."""
     batch = coerce_batch_size(limit)
@@ -167,7 +185,9 @@ def delete_event_batch(
     if deadline is None:
         cursor = conn.execute(sql, params)
     else:
-        cursor = execute_with_deadline(conn, deadline, sql, params)
+        cursor = execute_with_deadline(
+            conn, deadline, sql, params, restore_timeout=restore_timeout
+        )
     return int(cursor.rowcount or 0)
 
 
@@ -188,17 +208,28 @@ def prune_matching_events(
     stop: already-committed batches stay and leftovers remain eligible.
     """
     batch = coerce_batch_size(batch_size)
+    prior = current_statement_timeout(conn)
     deleted = 0
     try:
         while time.monotonic() < deadline:
             remaining = None if batches_left is None else batches_left[0]
             if remaining is not None and remaining <= 0:
                 leftover, _ = bounded_event_count(
-                    conn, where_sql, params, limit=1, deadline=deadline
+                    conn,
+                    where_sql,
+                    params,
+                    limit=1,
+                    deadline=deadline,
+                    restore_timeout=prior,
                 )
                 return deleted, leftover > 0
             removed = delete_event_batch(
-                conn, where_sql, params, limit=batch, deadline=deadline
+                conn,
+                where_sql,
+                params,
+                limit=batch,
+                deadline=deadline,
+                restore_timeout=prior,
             )
             conn.commit()
             if removed == 0:
@@ -209,8 +240,15 @@ def prune_matching_events(
             if removed < batch:
                 return deleted, False
         leftover, _ = bounded_event_count(
-            conn, where_sql, params, limit=1, deadline=deadline
+            conn,
+            where_sql,
+            params,
+            limit=1,
+            deadline=deadline,
+            restore_timeout=prior,
         )
         return deleted, leftover > 0
     except StatementBudgetExceeded:
         return deleted, True
+    finally:
+        restore_event_prune_statement_timeout(conn, prior)

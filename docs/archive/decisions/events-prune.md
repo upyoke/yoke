@@ -19,10 +19,11 @@ and optional `--max-batches` budget. LIMIT caps matching rows, not
 scanned rows or query duration; each event statement also inherits
 `statement_timeout` for the remaining `--max-seconds` so a sparse
 selection, `ORDER BY` sort, or leftover probe cannot run past the
-pass budget. That timeout is restored before ledger, dispatch-intent,
+pass budget. That timeout is restored to the incoming
+`SHOW statement_timeout` (not forced to zero) before ledger, dispatch-intent,
 and `session_tool_calls` helpers so leftover SET LOCAL cannot starve
-them and a canceled statement cannot leave those helpers unbounded by
-accident. A canceled statement stops the pass with already-committed
+them or disable a preexisting diagnostic role/session timeout.
+A canceled statement stops the pass with already-committed
 batches intact. Then `session_tool_calls` rows older
 than `SESSION_TOOL_CALLS_RETENTION_DAYS` (7d — the table's readers are
 the session-end orphan sweep and the minutes-lookback PreToolUse lint

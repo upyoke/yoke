@@ -15,8 +15,9 @@ from yoke_core.domain.events_prune_batches import (
     SESSION_TOOL_CALLS_RETENTION_DAYS,
     StatementBudgetExceeded,
     bounded_event_count,
+    current_statement_timeout,
     format_bounded_count,
-    reset_event_prune_statement_timeout,
+    restore_event_prune_statement_timeout,
 )
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.time_sql import now_sql
@@ -54,6 +55,7 @@ def dry_run_report(
     parts: list[str] = []
     obsolete_note = "obsolete=skipped"
     stopped = False
+    prior_timeout = current_statement_timeout(conn)
     try:
         for severity, days in EVENT_RETENTION_DAYS.items():
             if days is None:
@@ -63,19 +65,24 @@ def dry_run_report(
                 severity_where(conn, severity, days),
                 limit=batch,
                 deadline=deadline,
+                restore_timeout=prior_timeout,
             )
             parts.append(f"{severity}={format_bounded_count(count, partial)}")
         if purge_obsolete:
             where, params = purged_event_where(conn)
             count, partial = bounded_event_count(
-                conn, where, params, limit=batch, deadline=deadline
+                conn,
+                where,
+                params,
+                limit=batch,
+                deadline=deadline,
+                restore_timeout=prior_timeout,
             )
             obsolete_note = f"obsolete={format_bounded_count(count, partial)}"
     except StatementBudgetExceeded:
         stopped = True
     finally:
-        # Event budget does not apply to ledger/intent/tool-call preview.
-        reset_event_prune_statement_timeout(conn)
+        restore_event_prune_statement_timeout(conn, prior_timeout)
     tool_call_count = 0
     if has_tool_calls:
         tool_call_count = query_scalar(

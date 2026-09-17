@@ -167,16 +167,11 @@ def test_slow_statement_returns_partial_without_deleting(db_path: str) -> None:
     assert _count(db_path, "old-info") == 1
 
 
-def _timeout_is_off(conn) -> bool:
-    raw = str(conn.execute("SHOW statement_timeout").fetchone()[0]).strip().lower()
-    return raw in {"0", "0ms", "0s"}
-
-
-def test_event_timeout_is_reset_before_unrelated_statements(db_path: str) -> None:
-    """Event SET LOCAL must not linger; a canceled event SQL must restore too."""
+def test_restores_preexisting_nonzero_timeout(db_path: str) -> None:
+    """Incoming diagnostic timeout must survive probes and cancellation."""
     from yoke_core.domain.events_prune_batches import (
         StatementBudgetExceeded,
-        apply_event_prune_statement_timeout,
+        current_statement_timeout,
         execute_with_deadline,
     )
     from yoke_core.domain.events_prune import _purged_event_where, _severity_where
@@ -186,8 +181,9 @@ def test_event_timeout_is_reset_before_unrelated_statements(db_path: str) -> Non
     try:
         if not db_backend.connection_is_postgres(conn):
             return
-        apply_event_prune_statement_timeout(conn, time.monotonic() + 0.05)
-        assert not _timeout_is_off(conn)
+        conn.execute("SELECT set_config('statement_timeout', %s, true)", ("30s",))
+        incoming = current_statement_timeout(conn)
+        assert incoming not in {"0", "0ms", "0s"}
         dry_run_report(
             conn,
             10,
@@ -197,12 +193,17 @@ def test_event_timeout_is_reset_before_unrelated_statements(db_path: str) -> Non
             severity_where=_severity_where,
             purged_event_where=_purged_event_where,
         )
-        assert _timeout_is_off(conn)
+        assert current_statement_timeout(conn) == incoming
         try:
-            execute_with_deadline(conn, time.monotonic() + 0.25, "SELECT pg_sleep(5)")
+            execute_with_deadline(
+                conn,
+                time.monotonic() + 0.25,
+                "SELECT pg_sleep(5)",
+                restore_timeout=incoming,
+            )
         except StatementBudgetExceeded:
             pass
-        assert _timeout_is_off(conn)
+        assert current_statement_timeout(conn) == incoming
         conn.execute("SELECT pg_sleep(0.2)")
     finally:
         conn.close()
