@@ -13,18 +13,21 @@ from yoke_core.domain.handlers.direct_workflow_execution import (
     REGISTRATIONS as DIRECT_WORKFLOW_REGISTRATIONS,
 )
 from yoke_core.domain.yoke_function_registry import lookup
+from runtime.api.skill_doc_regressions_test_helpers import _read_skill_corpus
 
 
 ROOT = Path(__file__).parents[2]
-BUNDLE = (
-    ROOT / "packages/yoke-core/src/yoke_core/install_bundle_tree/.agents/skills/yoke"
-)
+_TREE = "packages/yoke-core/src/yoke_core/install_bundle_tree"
+BUNDLE = ROOT / _TREE / ".agents/skills/yoke"
 CANONICAL = ROOT / ".agents/skills/yoke"
 
 
 def _skill_corpus(skill: str) -> str:
-    directory = CANONICAL / skill
-    return "\n".join(path.read_text() for path in sorted(directory.glob("*.md")))
+    return _read_skill_corpus(CANONICAL / skill)
+
+
+def _reference(skill: str) -> str:
+    return (CANONICAL / skill / "function-reference.md").read_text()
 
 
 def test_dash_skill_carries_the_end_to_end_execution_contract():
@@ -116,7 +119,7 @@ def test_dash_rechecks_keep_survey_contacts_advisory():
 
 
 def test_blitz_skill_carries_slice_and_document_completion_contract():
-    content = (ROOT / ".agents/skills/yoke/blitz/SKILL.md").read_text()
+    content = _skill_corpus("blitz")
     normalized = " ".join(content.split())
     for required in (
         "strategy execution get",
@@ -217,18 +220,14 @@ def test_operator_discovery_and_direct_operation_ids_are_complete():
         assert "blitz" in content
 
     registered = {row["function_id"]: row for row in DIRECT_WORKFLOW_REGISTRATIONS}
-    dash_ids = {
-        "direct_workflow.dash.survey",
-        "direct_workflow.dash.evidence",
-        "direct_workflow.dash.escalate",
-    }
+    dash_ids = {f"direct_workflow.dash.{op}" for op in ("survey", "evidence", "escalate")}
     blitz_ids = {"direct_workflow.blitz.survey"}
     assert set(registered) == dash_ids | blitz_ids
 
     dash = _skill_corpus("dash")
     for function_id in dash_ids:
         assert function_id in dash
-    blitz = (ROOT / ".agents/skills/yoke/blitz/SKILL.md").read_text()
+    blitz = _skill_corpus("blitz")
     for function_id in blitz_ids:
         assert function_id in blitz
     assert registered["direct_workflow.dash.survey"]["claim_required_kind"] is None
@@ -266,7 +265,7 @@ def test_refine_blitz_path_links_one_document_and_hands_off():
 def test_taught_dash_and_blitz_commands_are_function_id_first():
     register_all_handlers()
     dash = _skill_corpus("dash")
-    blitz = (ROOT / ".agents/skills/yoke/blitz/SKILL.md").read_text()
+    blitz = _skill_corpus("blitz")
     taught = {
         dash: {
             "items.create": "yoke dash ",
@@ -293,8 +292,7 @@ def test_taught_dash_and_blitz_commands_are_function_id_first():
             "claims.work.release": "yoke claims work release",
         },
     }
-    dash_reference = (CANONICAL / "dash/function-reference.md").read_text()
-    reference_by_content = {dash: dash_reference, blitz: ""}
+    reference_by_content = {dash: _reference("dash"), blitz: _reference("blitz")}
     for content, operations in taught.items():
         reference = reference_by_content[content]
         for function_id, command in operations.items():

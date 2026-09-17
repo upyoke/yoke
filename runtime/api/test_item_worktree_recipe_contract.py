@@ -154,7 +154,7 @@ def test_function_reference_documents_transport_aware_lane_operations(
 
 @pytest.mark.parametrize("root", (SOURCE_SKILLS, PACKAGED_SKILLS))
 def test_blitz_registers_explicit_additional_lanes(root: Path) -> None:
-    text = (root / "blitz/SKILL.md").read_text()
+    text = (root / "blitz/integrate.md").read_text()
 
     assert "yoke item-worktrees create ITEM --lane-role worker --branch BRANCH" in text
     assert "--lane-role integration" in text
