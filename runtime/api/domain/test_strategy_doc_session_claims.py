@@ -20,6 +20,12 @@ from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.sessions_render_end_if_empty import end_session_if_empty
 from yoke_core.domain.sessions_render_reclaim import reclaim_stale_session
 from yoke_core.domain.steering_claims import acquire as acquire_steering
+from yoke_core.domain.strategy_coordination import append_strategy_coordination
+from yoke_core.domain.strategy_docs import (
+    StrategyDocConflictError,
+    get_doc,
+    replace_doc,
+)
 from yoke_core.domain.strategy_execution import (
     StrategyDocClaimAuthorizationError,
     StrategyDocClaimConflictError,
@@ -210,5 +216,62 @@ def test_an_ended_session_cannot_take_a_lock(tmp_db: str) -> None:
 
         with pytest.raises(StrategyDocClaimAuthorizationError):
             _lock(conn)
+    finally:
+        conn.close()
+
+
+def test_non_holder_cannot_replace_while_coordination_append_keeps_holds(
+    tmp_db: str,
+) -> None:
+    """Owner handoff and conflicting remote update stay on live surfaces.
+
+    A held document refuses replace authority to anyone else. A stale
+    compare-and-swap leaves standing text untouched. Coordination append
+    is the proposal path: it adds an entry without granting replace.
+    """
+    conn = connect_test_db(tmp_db)
+    try:
+        standing = "# Area plan\n\nStanding hold: do not skip CI.\n"
+        _seed_doc(conn, DOC, standing)
+        _seed_session(conn, COORDINATOR)
+        _seed_session(conn, WORKER)
+        _lock(conn)
+
+        assert authorize_strategy_doc_write(
+            conn, project_id=1, slug=DOC, session_id=COORDINATOR,
+        )
+        with pytest.raises(StrategyDocClaimAuthorizationError):
+            authorize_strategy_doc_write(
+                conn, project_id=1, slug=DOC, session_id=WORKER,
+            )
+
+        live = get_doc(conn, 1, DOC)
+        with pytest.raises(StrategyDocConflictError):
+            replace_doc(
+                conn,
+                1,
+                DOC,
+                standing + "stale overwrite\n",
+                2,
+                base_updated_at="2000-01-01T00:00:00Z",
+            )
+        after_conflict = get_doc(conn, 1, DOC)
+        assert "Standing hold: do not skip CI." in after_conflict["content"]
+        assert "stale overwrite" not in after_conflict["content"]
+        assert after_conflict["content"] == live["content"]
+
+        appended = append_strategy_coordination(
+            conn,
+            project_id=1,
+            slug=DOC,
+            section="Live Status",
+            entry="- proposed condensation preserves the standing hold",
+            actor_id=2,
+            session_id=WORKER,
+        )
+        assert appended["slug"] == DOC
+        body = get_doc(conn, 1, DOC)["content"]
+        assert "Standing hold: do not skip CI." in body
+        assert "proposed condensation preserves the standing hold" in body
     finally:
         conn.close()

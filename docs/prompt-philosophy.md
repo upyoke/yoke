@@ -24,11 +24,11 @@ In Yoke, that means:
 
 - A spec should let the Architect plan without re-investigating basics.
 - A technical plan should let the Engineer implement without guessing interfaces or blast radius.
-- A dispatch prompt should let a cold-start subagent act with confidence.
+- A dispatch prompt should let a successor act with confidence on the current task.
 - Code, tests, comments, and current-state docs should describe the current function, purpose, mechanics, and domain role to a reader who cannot see the work item or plan.
 - Commits should let the Tester and reviewer verify without reconstructing intent.
-- A verdict or simulation report should let the next fixer act mechanically.
-- A wrapup should let the next session resume with momentum instead of archaeology.
+- A verdict or simulation report should let the next fixer act mechanically from the current finding, with links to durable evidence rather than pasted transcripts.
+- Active plans, Progress Log entries, handoffs, wrapups, and resume notes are current-state checkpoints: live objective, standing decisions/holds, active work, blockers, next actions, and links to durable evidence. They are not accumulated essays, restated full results, or historical status snapshots. History lives in document revisions and item records.
 
 The doctrine is not just about being helpful. It is an obligation to compound inherited leverage. We received a leg up; we owe the next agent one too.
 
@@ -36,7 +36,7 @@ The doctrine is not just about being helpful. It is an obligation to compound in
 
 Use this short form in prompt surfaces that need the doctrine in-line:
 
-`**Be the giant.** Assume future codebase readers will not have the ephemeral planning artifacts; make this artifact cold-start complete and name live code/docs by current function, purpose, and mechanics.`
+`**Be the giant.** Assume future codebase readers will not have the ephemeral planning artifacts; name live code/docs by current function, purpose, and mechanics. Active plans, progress, handoffs, and resume notes are current-state checkpoints — objective, standing decisions/holds, active work, blockers, next actions, links to durable evidence — not accumulated essays or restated results.`
 
 Keep the role-specific follow-on sentence after that opener so the doctrine stays tailored to the artifact being produced.
 

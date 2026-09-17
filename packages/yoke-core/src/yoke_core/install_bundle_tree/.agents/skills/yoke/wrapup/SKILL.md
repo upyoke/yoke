@@ -20,7 +20,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 **Events table summary.** During the session review, query the events table for this session's telemetry: `yoke events count --since "4 hours ago"` for volume and `yoke events anomalies --since "4 hours ago"` for failure patterns. Include a brief events summary in the wrapup report.
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. The wrapup report is the cold-start context for whoever picks up this work next. Include specific decisions made, dead ends explored, and the "why" behind non-obvious choices. Leave context your future self will need.
+**Be the giant.** Leave a current-state checkpoint, not an accumulated essay. The wrapup and Progress Log carry the live objective, standing decisions/holds, active work, blockers, next actions, and links to durable evidence. History stays in item records and document revisions; do not restate full results or stale snapshots. After compaction, reload this skill — discarded context is gone.
 
 ## Steps
 
@@ -184,13 +184,18 @@ The report is assembled for the current session; continuity is recorded in
 the item Progress Log and Ouroboros field-notes rather than in a separate
 report store.
 
-For each item worked on during the session, append a concise status and
-unfinished-work summary through the registered Progress Log writer:
+For each item worked on during the session, append a current-state
+checkpoint through the registered Progress Log writer:
 
 ```bash
 yoke items progress-log append PREFIX-N \
-  --headline "Session status and unfinished work" \
-  --content "..." \
+  --headline "Session checkpoint" \
+  --content "Objective: ...
+Standing decisions/holds: ...
+Active work: ...
+Blockers: ...
+Next action: ...
+Evidence: ..." \
   --source wrapup
 ```
 
@@ -247,4 +252,4 @@ state.
 - Do not attempt to curate during wrapup — just log raw and move on.
 - If the session was trivial (e.g., single small fix, no problems), keep the wrapup proportionally brief. A one-item session doesn't need a 5-section report.
 - The "What Went Wrong" section should include root causes, not just symptoms. "Tests failed" is not useful. "Tests failed because the mock gh wasn't on PATH in the test harness" is useful.
-- The unfinished business section should contain enough context for a cold-start session to pick up immediately — file paths, branch names, what's done, what remains, what's blocking.
+- Unfinished business is the current-state checkpoint: paths, branch, next action, blockers, links to evidence — not a restated session transcript.

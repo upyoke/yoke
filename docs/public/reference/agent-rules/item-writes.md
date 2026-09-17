@@ -24,7 +24,7 @@ Full envelope shape, claim-verification matrix, and the per-family function id r
 
 ## Progress Log
 
-For session-continuity context on an item that future agents need to pick up — what's done so far, decisions made, dead ends explored, where to resume after compaction or session swap — write to a **Progress Log** section on the item (works for every workflow). Agents call `items.progress_log.append`, which handles the read-then-upsert-with-`ordering=200` convention internally:
+For session-continuity context on an item that future agents need to pick up after compaction or a session swap, write to a **Progress Log** section on the item (works for every workflow). Each new entry is a current-state checkpoint: live objective, standing decisions/holds, active work, blockers, next action, and links to durable evidence. Do not restate full results or historical status snapshots; those already live in prior log entries, item fields, and revisions. Agents call `items.progress_log.append`, which handles the read-then-upsert-with-`ordering=200` convention internally:
 
 ```json
 {"function":"items.progress_log.append","target":{"kind":"item","item_id":42},"payload":{"headline":"kicked off engineer dispatch","content":"..."}}

@@ -50,7 +50,7 @@ yoke strategy carry candidate-set --project {project} --horizon-days {days} --ca
 
 ## Philosophy
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. Strategize should leave an audit trail and rationale clear enough that later sessions inherit a coherent strategy instead of a pile of unexplained edits.
+**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. Strategize should leave standing decisions, holds, and rationale in the documents themselves. Later sessions inherit current strategy, not a pile of unexplained edits or historical snapshots.
 
 **Think across generations.** Strategy work is where the metaphor matters most: inherit context from prior cycles, improve it, and hand back a clearer frontier than the one you received.
 

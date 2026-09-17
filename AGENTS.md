@@ -152,7 +152,7 @@ Observe → `ouroboros_entries` → `/yoke curate` → `/yoke doctor` → `/yoke
 - **Never fabricate or expand a full commit hash from a short SHA.** Resolve with `git -C <checkout> rev-parse HEAD`, verify with `git -C <checkout> cat-file -e '<sha>^{commit}'`.
 
 ## Session Continuity
-- Leave the context your future self needs — decisions, dead ends, gotchas, the why — in the item's Progress Log, and distill hard-won research into docs before the session ends.
+- Progress Log entries are current-state checkpoints. Do not restate full results or historical snapshots. After compaction, reload the current-phase skill — discarded context is gone.
 
 ## Documentation Discipline
 - When a feature or rule changes, update ALL docs referencing it. Undocumented features are invisible.
