@@ -217,6 +217,9 @@ class TestDriverProjection:
         assert projection == {
             "identity_path": PATH,
             "error": "",
+            # The stage the definition names resolves its own answer, which
+            # here is the project-wide one because stage states nothing.
+            "environment_identity": {"stage": {"path": PATH, "error": ""}},
             "environment_urls": {"stage": "https://stage.example.test"},
         }
 

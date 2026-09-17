@@ -44,7 +44,10 @@ from yoke_core.domain.deploy_pipeline_stage_receipt_producers import (
     StageObservation,  # noqa: F401 — re-exported so producers import one name
 )
 from yoke_core.domain.deploy_pipeline_step_runners import _dispatch_step_runner
-from yoke_core.domain.deployment_target_identity_config import identity_origin_for
+from yoke_core.domain.deployment_target_identity_config import (
+    identity_origin_for,
+    identity_path_for,
+)
 
 
 def receipt_consumer_target(
@@ -164,7 +167,7 @@ def dispatch_step_runner_with_receipt(
     dispatch_environment = str(target.get("environment") or "") or environment_name
 
     identity = dict(target_identity or {})
-    identity_error = str(identity.get("error") or "")
+    identity_path, identity_error = identity_path_for(identity, dispatch_environment)
     if identity_error:
         # An unreadable identity capability is not an absent one: proceeding
         # would deploy on the strength of a read that failed.
@@ -173,7 +176,6 @@ def dispatch_step_runner_with_receipt(
             f"served-revision configuration could not be read: "
             f"{identity_error}"
         )
-    identity_path = str(identity.get("identity_path") or "")
     identity_origin = identity_origin_for(identity, dispatch_environment)
     if (
         target_kind in RUNNER_VERIFIED_TARGET_KINDS

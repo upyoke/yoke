@@ -268,9 +268,10 @@ def resolve_case_deployment_under_test(
             )
     if str(environment.get("kind") or "") == RUN_PREVIEW_KIND:
         return _receipt_located_preview(conn, target, project_id=int(project_id))
-    configured = persistent_identity_path(conn, int(project_id))
+    name = str(environment.get("name") or "")
+    configured = persistent_identity_path(conn, int(project_id), name)
     return DeploymentUnderTest(
-        environment=str(environment.get("name") or ""),
+        environment=name,
         origin=str(endpoints.get("app_url") or endpoints.get("api_url") or "").strip(),
         identity_path=configured.path,
         identity_error=configured.error,
