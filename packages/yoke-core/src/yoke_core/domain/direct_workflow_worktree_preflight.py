@@ -106,7 +106,11 @@ def _run_recipes(worktree_path: str) -> dict[str, str]:
 
 
 def run(args: List[str]) -> int:
-    """Validate the recorded survey, then prepare the ordinary item lane."""
+    """Validate the recorded survey, then prepare the ordinary item lane.
+
+    A recorded no-changes survey skips git-lane creation; re-survey with
+    paths before any later edit. That skip is not ``worktrees=none``.
+    """
     parser = argparse.ArgumentParser(
         prog="yoke direct-workflow worktree prepare",
     )
@@ -243,9 +247,10 @@ def run(args: List[str]) -> int:
     touch_paths = tuple(survey.get("touch_paths") or ())
     integration_target = str(survey.get("integration_target") or "main")
 
+    skip_lane = survey.get("no_changes") is True
     with _session_identity(parsed.session_id):
         claim_preparer = None
-        if parsed.workflow == "dash":
+        if parsed.workflow == "dash" and not skip_lane:
             claim_preparer = partial(
                 _prepare_dash_path_claim,
                 item_id=item_id,
@@ -257,8 +262,14 @@ def run(args: List[str]) -> int:
             project=parsed.project,
             session_id=parsed.session_id,
             actual_cwd=os.getcwd(),
+            no_worktree=skip_lane,
             prepare_path_claims=claim_preparer,
         )
+        if skip_lane and outcome.ok:
+            outcome.notes.append(
+                "Recorded no-change survey; skipped git lane. Re-survey "
+                "with paths, then re-run prepare, before any edit."
+            )
     envelope = outcome.to_envelope()
     if outcome.ok:
         envelope["run_recipes"] = _run_recipes(str(envelope.get("worktree_path") or ""))

@@ -307,12 +307,17 @@ entire ask.
 ### Laneless and evidence-only close-out
 
 Two closes record no merge SHA, and both are first-class rather than a
-bypass. A genuine no-changes finding edited nothing:
+bypass. A genuine no-changes finding edited nothing. After a skipped lane, do not
+run CI, merge, or a deployment unless explicit policy still requires it:
 
 ```text
 yoke direct-workflow dash evidence ITEM --result "<account>" \
   --verification "<what you observed>" --no-changes --json
 ```
+
+Then move the Dash through `reviewing-implementation` to `done` on that
+attestation. `yoke merge item --no-changes` is only for a lane that already
+exists.
 
 An item whose pinned workflow delivers merge-free — `worktrees=none`,
 `delivery=merge_free`, the floor Task shape — did change things, and
