@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import socket
 import ssl
 import threading
+import time
 import urllib.parse
 import urllib.request
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Iterator
 
+from uvicorn import Config, Server
+
 from yoke_core.domain import browser_qa_freshness as freshness
+from yoke_core.ui.server import create_ui_app
 
 SECRET_TOKEN = "super-secret-login-token"
 SESSION_COOKIE = "review_session=ok"
@@ -139,3 +144,24 @@ def test_dns_failure_names_the_host() -> None:
     assert err is not None
     assert "DNS resolution failed" in err
     assert "no-such-host.invalid" in err
+
+
+def test_ui_token_exchange_303_is_reachable() -> None:
+    """The local review server answers HEAD with 405 and GET 303+HttpOnly cookie."""
+    token = "test-session-token-value"
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    port = probe.getsockname()[1]
+    probe.close()
+    server = Server(
+        Config(create_ui_app(token), host="127.0.0.1", port=port, log_level="warning")
+    )
+    threading.Thread(target=server.run, daemon=True).start()
+    for _ in range(80):
+        if server.started:
+            break
+        time.sleep(0.05)
+    url = f"http://127.0.0.1:{port}/?token={token}"
+    err = freshness._validate_reachability(url)
+    assert err is None, err
+    assert token not in (err or "")
