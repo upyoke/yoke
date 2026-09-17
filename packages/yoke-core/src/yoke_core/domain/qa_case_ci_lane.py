@@ -69,7 +69,8 @@ def _git(
     from yoke_cli.config import credentialed_git
 
     return credentialed_git.run(
-        ["-C", str(checkout), *args], timeout=timeout,
+        ["-C", str(checkout), *args],
+        timeout=timeout,
     )
 
 
@@ -90,7 +91,10 @@ def repo_slug(checkout: Path) -> str:
     not exist.
     """
     url = _git_output(
-        checkout, "remote", "get-url", "origin",
+        checkout,
+        "remote",
+        "get-url",
+        "origin",
         what="reading the origin remote",
     )
     match = _GITHUB_REMOTE.search(url)
@@ -108,7 +112,10 @@ def lane_branch(case: dict, checkout: Path) -> str:
     if branch and branch != "null":
         return branch
     branch = _git_output(
-        checkout, "rev-parse", "--abbrev-ref", "HEAD",
+        checkout,
+        "rev-parse",
+        "--abbrev-ref",
+        "HEAD",
         what="resolving the checkout's current branch",
     )
     if branch == "HEAD":
@@ -122,7 +129,10 @@ def lane_branch(case: dict, checkout: Path) -> str:
 def checked_out_branch(checkout: Path) -> str:
     """Return the checkout's current branch, or ``HEAD`` when detached."""
     return _git_output(
-        checkout, "rev-parse", "--abbrev-ref", "HEAD",
+        checkout,
+        "rev-parse",
+        "--abbrev-ref",
+        "HEAD",
         what="resolving the checkout's current branch",
     )
 
@@ -130,13 +140,19 @@ def checked_out_branch(checkout: Path) -> str:
 def ref_sha(checkout: Path, ref: str) -> str:
     """Resolve the immutable commit CI will check out."""
     return _git_output(
-        checkout, "rev-parse", f"{ref}^{{commit}}",
+        checkout,
+        "rev-parse",
+        f"{ref}^{{commit}}",
         what=f"resolving CI source ref {ref!r}",
     )
 
 
 def push_lane(
-    checkout: Path, branch: str, *, project: str, target: str,
+    checkout: Path,
+    branch: str,
+    *,
+    project: str,
+    target: str,
     source_ref: str = "HEAD",
 ) -> None:
     """Publish the lane branch so CI can check out the tree under test.
@@ -156,15 +172,23 @@ def push_lane(
     (:mod:`yoke_core.domain.merge_queue_push_safety`) rather than pushed out
     from under the landing that already took its head.
     """
+    from yoke_core.domain.qa_case_ci_authority import machine_github_user_authority
     from yoke_core.domain import merge_queue_push_safety
 
-    merge_queue_push_safety.require_publishable_lane(
-        project=project, checkout=checkout, branch=branch, target=target,
-        head_sha=ref_sha(checkout, source_ref),
-    )
+    with machine_github_user_authority():
+        merge_queue_push_safety.require_publishable_lane(
+            project=project,
+            checkout=checkout,
+            branch=branch,
+            target=target,
+            head_sha=ref_sha(checkout, source_ref),
+        )
     _git(checkout, "fetch", "--quiet", "--no-tags", "origin", branch, timeout=300)
     _git_output(
-        checkout, "push", "--force-with-lease", "origin",
+        checkout,
+        "push",
+        "--force-with-lease",
+        "origin",
         f"{source_ref}:refs/heads/{branch}",
         what=f"pushing lane branch {branch!r} to origin",
         timeout=600,
@@ -212,7 +236,10 @@ def dispatch_workflow(
     from yoke_core.domain.deploy_pipeline_reporting import _github_actions
 
     args = _trigger_args(
-        repo, workflow, branch, dict(inputs or {}),
+        repo,
+        workflow,
+        branch,
+        dict(inputs or {}),
         request_id=request_id,
         correlation_input=WORKFLOW_DISPATCH_CORRELATION_INPUT,
     )
@@ -249,14 +276,17 @@ def run_head_sha(*, project: str, repo: str, run_id: str) -> str:
     from yoke_core.domain.deploy_pipeline_reporting import _github_actions
 
     result = _github_actions(
-        "poll", repo, run_id, "--json", project=project,
+        "poll",
+        repo,
+        run_id,
+        "--json",
+        project=project,
     )
     try:
         envelope = json.loads(result.stdout or "{}")
     except ValueError as exc:
         raise QaCaseExecutionError(
-            f"could not read run {run_id} on {repo}: unparseable relay "
-            f"response ({exc})"
+            f"could not read run {run_id} on {repo}: unparseable relay response ({exc})"
         ) from exc
     if not isinstance(envelope, dict) or not envelope.get("success"):
         detail = (result.stderr or result.stdout or "").strip()
@@ -273,7 +303,11 @@ def run_head_sha(*, project: str, repo: str, run_id: str) -> str:
 
 
 def await_workflow(
-    *, project: str, repo: str, run_id: str, timeout_seconds: int,
+    *,
+    project: str,
+    repo: str,
+    run_id: str,
+    timeout_seconds: int,
 ) -> tuple[int, str]:
     """Block until the run concludes; return ``(exit_code, poll_output)``.
 
@@ -285,7 +319,11 @@ def await_workflow(
 
     with relay_poll_output():
         return _poll_github_actions(
-            repo, run_id, timeout_seconds, project=project, sd=None,
+            repo,
+            run_id,
+            timeout_seconds,
+            project=project,
+            sd=None,
             schedule=CI_SUITE_SCHEDULE,
         )
 

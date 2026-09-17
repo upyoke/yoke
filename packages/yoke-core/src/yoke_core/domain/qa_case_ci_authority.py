@@ -60,7 +60,31 @@ def github_actions_authority() -> Iterator[None]:
         os.environ.pop(GITHUB_ACTIONS_RELAY_ENV, None)
 
 
+@contextlib.contextmanager
+def machine_github_user_authority() -> Iterator[None]:
+    """Bind this machine's GitHub App user token for in-process REST.
+
+    Pull-request listing shares helpers with merge, which already binds this
+    authority. An unbound call falls through to control-plane App credentials
+    a workstation does not have.
+    """
+    from yoke_cli.commands.merge_item_local_runtime import (
+        LocalMergeGithubAuthorityError,
+        machine_github_user_authority as _bind,
+    )
+    from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+
+    try:
+        with _bind():
+            yield
+    except LocalMergeGithubAuthorityError as exc:
+        raise QaCaseExecutionError(
+            f"lane publish safety could not bind this machine's GitHub authority: {exc}"
+        ) from exc
+
+
 __all__ = [
     "GITHUB_ACTIONS_LOCAL_AUTHORITY_ENV",
     "github_actions_authority",
+    "machine_github_user_authority",
 ]

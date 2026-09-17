@@ -55,8 +55,7 @@ def wire(monkeypatch):
         listing_error="",
     ):
         monkeypatch.setattr(
-            "yoke_core.domain.merge_queue_route_selection."
-            "project_declares_merge_queue",
+            "yoke_core.domain.merge_queue_route_selection.project_declares_merge_queue",
             lambda _project: (declared, probe_error),
         )
         listing = discovery.BranchListing(
@@ -202,9 +201,7 @@ def test_the_landing_publish_reports_the_block_with_its_own_recovery(monkeypatch
         raise safety.LanePublishBlocked("pull request 42 is still holding a landing")
 
     monkeypatch.setattr(qa_case_ci_lane, "push_lane", blocked_push)
-    error = landing_pr_mod._publish_lane_head(
-        ctx(repo_root=ROOT), lane_head=NEW_HEAD
-    )
+    error = landing_pr_mod._publish_lane_head(ctx(repo_root=ROOT), lane_head=NEW_HEAD)
     assert error == "pull request 42 is still holding a landing"
     assert "--force-with-lease" not in error
 
@@ -213,9 +210,7 @@ def _push_lane_guarded(monkeypatch):
     """Drive the real publish path down to its guard; origin must stay untouched."""
     from yoke_core.domain import qa_case_ci_lane
 
-    monkeypatch.setattr(
-        qa_case_ci_lane, "ref_sha", lambda _checkout, _ref: NEW_HEAD
-    )
+    monkeypatch.setattr(qa_case_ci_lane, "ref_sha", lambda _checkout, _ref: NEW_HEAD)
     monkeypatch.setattr(
         qa_case_ci_lane,
         "_git",
@@ -233,9 +228,7 @@ def test_the_publish_path_refuses_a_live_candidate_before_touching_origin(
         _push_lane_guarded(monkeypatch)
 
 
-def test_the_publish_path_refuses_when_the_listing_could_not_be_read(
-    wire, monkeypatch
-):
+def test_the_publish_path_refuses_when_the_listing_could_not_be_read(wire, monkeypatch):
     """An outage must not reach origin as though the branch had no landing."""
     wire(_readiness(), listing_error="pull request listing failed: 503")
     with pytest.raises(safety.LanePublishBlocked, match="could not be read"):
@@ -250,12 +243,8 @@ def test_the_publish_path_proceeds_when_nothing_is_holding_the_branch(
 
     wire(_readiness(), rows=())
     calls: list = []
-    monkeypatch.setattr(
-        qa_case_ci_lane, "ref_sha", lambda _checkout, _ref: NEW_HEAD
-    )
-    monkeypatch.setattr(
-        qa_case_ci_lane, "_git", lambda *a, **_kw: calls.append(a[1])
-    )
+    monkeypatch.setattr(qa_case_ci_lane, "ref_sha", lambda _checkout, _ref: NEW_HEAD)
+    monkeypatch.setattr(qa_case_ci_lane, "_git", lambda *a, **_kw: calls.append(a[1]))
     monkeypatch.setattr(
         qa_case_ci_lane,
         "_git_output",
@@ -263,3 +252,71 @@ def test_the_publish_path_proceeds_when_nothing_is_holding_the_branch(
     )
     qa_case_ci_lane.push_lane(CHECKOUT, BRANCH, project="prj", target=TARGET)
     assert calls == ["fetch", "push"]
+
+
+def test_the_publish_path_lists_under_bound_machine_authority(wire, monkeypatch):
+    """The safety listing must see the merge-boundary user-token provider."""
+    import contextlib
+
+    from yoke_core.domain import qa_case_ci_lane
+    from yoke_core.domain.github_app_dispatch_context import LOCAL_USER_TOKEN_PROVIDER
+    from yoke_core.domain.project_github_auth_tokens import (
+        bind_local_github_user_token_provider,
+    )
+
+    seen: dict = {}
+
+    @contextlib.contextmanager
+    def _authority():
+        with bind_local_github_user_token_provider(
+            lambda: "tok", api_url="https://api.github.com"
+        ):
+            yield
+
+    monkeypatch.setattr(
+        "yoke_cli.commands.merge_item_local_runtime.machine_github_user_authority",
+        _authority,
+    )
+
+    def _listing(_ctx, *, query):
+        seen["bound"] = LOCAL_USER_TOKEN_PROVIDER.get() is not None
+        return discovery.BranchListing(rows=())
+
+    wire(_readiness(), rows=())
+    monkeypatch.setattr(safety, "list_branch_pull_requests", _listing)
+    monkeypatch.setattr(qa_case_ci_lane, "ref_sha", lambda *_a, **_k: NEW_HEAD)
+    monkeypatch.setattr(qa_case_ci_lane, "_git", lambda *_a, **_k: None)
+    monkeypatch.setattr(qa_case_ci_lane, "_git_output", lambda *_a, **_k: "")
+
+    qa_case_ci_lane.push_lane(CHECKOUT, BRANCH, project="prj", target=TARGET)
+    assert seen.get("bound") is True
+
+
+def test_the_publish_path_refuses_when_machine_github_authority_is_unavailable(
+    monkeypatch,
+):
+    import contextlib
+
+    from yoke_cli.commands.merge_item_local_runtime import (
+        LocalMergeGithubAuthorityError,
+    )
+    from yoke_core.domain import qa_case_ci_lane
+    from yoke_core.domain.qa_case_execution import QaCaseExecutionError
+
+    @contextlib.contextmanager
+    def _authority():
+        raise LocalMergeGithubAuthorityError("unavailable")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(
+        "yoke_cli.commands.merge_item_local_runtime.machine_github_user_authority",
+        _authority,
+    )
+    monkeypatch.setattr(qa_case_ci_lane, "ref_sha", lambda *_a, **_k: NEW_HEAD)
+    monkeypatch.setattr(
+        qa_case_ci_lane,
+        "_git",
+        lambda *_a, **_k: pytest.fail("origin was touched"),
+    )
+    with pytest.raises(QaCaseExecutionError, match="could not bind"):
+        qa_case_ci_lane.push_lane(CHECKOUT, BRANCH, project="prj", target=TARGET)
