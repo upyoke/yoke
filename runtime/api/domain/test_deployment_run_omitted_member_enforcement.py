@@ -20,7 +20,7 @@ import pytest
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import deployment_run_carried_work_source
 from yoke_core.domain.deployment_run_carried_work import derive_carried_work
-from yoke_core.domain.deployment_run_composition_freeze import (
+from yoke_core.domain.deployment_run_carried_membership import (
     carried_membership_refusal,
 )
 from yoke_core.domain.flow_create import cmd_create

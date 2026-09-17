@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from typing import Any
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.deployment_run_carried_work import (
-    derive_carried_work_safely,
-    record_carried_work,
-)
+from yoke_core.domain.deployment_run_carried_work import record_carried_work
 from yoke_core.domain.deployment_runs_schema import _run_field_available
 from yoke_core.domain.deployment_flow_policy import RELEASE_POLICY_SCHEMA_VERSION
 from yoke_core.domain.workflow_definition_builders import (
@@ -32,7 +28,6 @@ from yoke_core.domain.workflow_runtime import (
     ENGINE_TERMINAL_STAGE_IDS,
     load_item_workflow_runtime,
 )
-from yoke_core.domain.project_identity import render_item_ref
 
 
 DELIVERY_INTENT_PROGRESS = "progress"
@@ -117,7 +112,7 @@ def requires_release_admission(conn: Any, run_id: str) -> bool:
     return row is not None and int(version or 1) >= RELEASE_POLICY_SCHEMA_VERSION
 
 
-def _member_ids(conn: Any, run_id: str) -> tuple[int, ...]:
+def member_ids(conn: Any, run_id: str) -> tuple[int, ...]:
     rows = conn.execute(
         f"SELECT item_id FROM deployment_run_items WHERE run_id={_p(conn)} "
         "ORDER BY item_id",
@@ -126,7 +121,26 @@ def _member_ids(conn: Any, run_id: str) -> tuple[int, ...]:
     return tuple(int(_cell(row, "item_id", 0)) for row in rows)
 
 
-def _item_requires_release_membership(conn: Any, item_id: int) -> bool:
+def inherited_frozen_membership(conn: Any, run_id: str) -> bool:
+    """Whether this run's members came from a run that already froze them.
+
+    ``deployment_run_items.requirement_snapshot`` has exactly two writers:
+    the freeze below, and the retry copy that carries a frozen run's members
+    onto its replacement. A member holding one before this run has frozen
+    anything can only have been inherited, which is the durable mark of a
+    retry — and the reason its membership is read rather than derived again.
+    """
+    if not _column_exists(conn, "deployment_run_items", "requirement_snapshot"):
+        return False
+    row = conn.execute(
+        f"SELECT COUNT(*) FROM deployment_run_items WHERE run_id={_p(conn)} "
+        "AND COALESCE(requirement_snapshot,'')<>''",
+        (run_id,),
+    ).fetchone()
+    return bool(row and int(_cell(row, "count", 0) or 0))
+
+
+def item_requires_release_membership(conn: Any, item_id: int) -> bool:
     row = conn.execute(
         f"SELECT p.slug,i.deployment_flow,i.workflow_id,i.status FROM items i "
         f"JOIN projects p ON p.id=i.project_id WHERE i.id={_p(conn)}",
@@ -164,64 +178,6 @@ def _item_requires_release_membership(conn: Any, item_id: int) -> bool:
     )
 
     return delivery_ready_for_stage(runtime, str(status))
-
-
-def carried_membership_refusal(
-    conn: Any,
-    run_id: str,
-    *,
-    carried_work: Mapping[str, Any] | None = None,
-) -> str | None:
-    """Return an actionable refusal for unresolved or omitted deliverable code."""
-    if not requires_release_admission(conn, run_id):
-        return None
-    if not _column_exists(conn, "deployment_runs", "composition_resolution"):
-        return None
-    run = conn.execute(
-        f"SELECT release_lineage,composition_resolution FROM deployment_runs "
-        f"WHERE id={_p(conn)}",
-        (run_id,),
-    ).fetchone()
-    if run is None:
-        return f"deployment run {run_id!r} not found"
-    lineage = str(_cell(run, "release_lineage", 0) or "").strip()
-    resolution = str(_cell(run, "composition_resolution", 1) or "").strip()
-    if not lineage:
-        return None
-    payload = dict(carried_work or derive_carried_work_safely(conn, run_id))
-    derivation = payload.get("derivation") or {}
-    reason = str(derivation.get("reason") or "unknown")
-    if not bool(derivation.get("contents_known")):
-        if resolution:
-            return None
-        return (
-            f"deployment run {run_id!r} carried-code membership is {reason}; "
-            "repair attribution or record composition_resolution before execution"
-        )
-    bare = [str(value) for value in payload.get("commits") or []]
-    if bare and not resolution:
-        return (
-            f"deployment run {run_id!r} has {len(bare)} unattributed carried commit(s); "
-            "record composition_resolution explaining their membership treatment"
-        )
-    members = set(_member_ids(conn, run_id))
-    omitted = sorted(
-        int(entry["item_id"])
-        for entry in payload.get("items") or []
-        if int(entry["item_id"]) not in members
-        and _item_requires_release_membership(conn, int(entry["item_id"]))
-    )
-    if not omitted:
-        return None
-    labels = ", ".join(
-        render_item_ref(conn, int(item_id)) for item_id in omitted
-    )
-    return (
-        f"deployment run {run_id!r} omits delivery-ready carried work: {labels}; "
-        "attach those members, or choose a candidate that excludes their code. "
-        "An already-done item is never one of them: it cannot be newly "
-        "admitted, and its code travels under the run's pinned release lineage"
-    )
 
 
 def _require_schema(conn: Any) -> None:
@@ -268,6 +224,10 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
     if frozen_at:
         return {"run_id": run_id, "frozen_at": frozen_at}
     from yoke_core.domain.deployment_run_lineage_rebind import is_full_commit
+    from yoke_core.domain.deployment_run_carried_membership import (
+        carried_membership_refusal,
+        enroll_carried_members,
+    )
 
     lineage = str(_cell(row, "release_lineage", 1) or "")
     if not is_full_commit(lineage):
@@ -283,9 +243,13 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
         stages=stages,
     )
     carried_work = record_carried_work(conn, run_id)
+    # Enrollment runs inside this transaction so the membership it adds
+    # freezes with the intent and requirement snapshots below. The refusal
+    # after it is the invariant check on what it could not resolve.
+    enroll_carried_members(conn, run_id, carried_work=carried_work)
     if refusal := carried_membership_refusal(conn, run_id, carried_work=carried_work):
         raise ValueError(refusal)
-    for item_id in _member_ids(conn, run_id):
+    for item_id in member_ids(conn, run_id):
         member = conn.execute(
             f"SELECT delivery_intent,requirement_selection "
             f"FROM deployment_run_items "

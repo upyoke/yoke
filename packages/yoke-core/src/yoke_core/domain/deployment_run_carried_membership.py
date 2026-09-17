@@ -1,0 +1,243 @@
+"""What a run's candidate obliges it to deliver, and how that becomes membership.
+
+The candidate already contains a delivery-ready item's merged code, so the run
+deploying it owns that item's delivery whether or not anyone attached it:
+leaving the item out never removed the code, only the obligation to prove it
+works. This module answers that in the two ways a start needs.
+
+:func:`enroll_carried_members` reads the run's own pinned ``release_lineage``
+and admits what that commit carries, so an ordinary start completes its own
+membership instead of asking a human to type the list back.
+:func:`carried_membership_refusal` is the invariant behind it — what enrollment
+could not resolve still stops the run, so nothing is waived by silence.
+
+:func:`admit_run_item` is the single connection-scoped write both entrances
+share: validated project/flow/stage binding, validated delivery intent, an
+encoded requirement selection, and the membership row. ``cmd_add_item`` is the
+operator-facing adapter around it.
+
+Two things enrollment deliberately does not do. It never invents attribution:
+an underivable carried set or an unattributed commit stays a refusal, because
+enrolling from a set nobody could compute would waive coverage silently. And
+it never recomputes membership a previous run already froze — a retry inherits
+its predecessor's members precisely so the same candidate keeps delivering the
+same items, and re-deriving would let a moved baseline rewrite that answer.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any, Iterable
+
+from yoke_core.domain import db_backend
+from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_run_carried_work import (
+    derive_carried_work_safely,
+)
+from yoke_core.domain.deployment_run_composition_freeze import (
+    inherited_frozen_membership,
+    item_requires_release_membership,
+    member_ids,
+    requires_release_admission,
+    validate_delivery_intent_for_item,
+)
+from yoke_core.domain.deployment_run_composition_guard import (
+    has_frozen_composition,
+)
+from yoke_core.domain.deployment_requirement_snapshots import (
+    requirement_selection,
+    snapshot_member_requirements,
+)
+from yoke_core.domain.project_identity import render_item_ref
+from yoke_core.domain.schema_common import _column_exists
+from yoke_core.domain.workflow_delivery_binding_validation import (
+    validate_deployment_run_item,
+)
+
+
+def _p(conn: Any) -> str:
+    return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
+def _cell(row: Any, key: str, index: int) -> Any:
+    return row[key] if hasattr(row, "keys") else row[index]
+
+
+def admit_run_item(
+    conn: Any,
+    *,
+    run_id: str,
+    item_id: int,
+    delivery_intent: str | None = None,
+    requirement_ids: Iterable[int] = (),
+    plan_ids: Iterable[int] = (),
+) -> str:
+    """Insert one validated membership row in the caller's transaction.
+
+    The caller owns the commit, which is what lets enrollment land inside the
+    same transaction that freezes the composition it just completed.
+    """
+    validate_deployment_run_item(conn, run_id=run_id, item_id=int(item_id))
+    intent = validate_delivery_intent_for_item(conn, int(item_id), delivery_intent)
+    selection = requirement_selection(
+        requirement_ids=requirement_ids, plan_ids=plan_ids
+    )
+    snapshot_member_requirements(
+        conn, run_id=run_id, item_id=int(item_id), selection_json=selection
+    )
+    conn.execute(
+        "INSERT INTO deployment_run_items "
+        "(run_id, item_id, added_at, delivery_intent, requirement_selection) "
+        "VALUES (%s, %s, %s, %s, %s)",
+        (run_id, int(item_id), iso8601_now(), intent, selection),
+    )
+    return render_item_ref(conn, int(item_id))
+
+
+def carried_enrollment_blocked(conn: Any, run_id: str) -> str:
+    """Name why this run enrolls nothing, or ``''`` when it may enroll."""
+    if not requires_release_admission(conn, run_id):
+        return "flow_predates_release_admission"
+    if not _column_exists(conn, "deployment_runs", "composition_resolution"):
+        return "composition_schema_unconverged"
+    if has_frozen_composition(conn, run_id):
+        return "composition_already_frozen"
+    if inherited_frozen_membership(conn, run_id):
+        return "membership_inherited_from_frozen_run"
+    return ""
+
+
+def enroll_carried_members(
+    conn: Any,
+    run_id: str,
+    *,
+    carried_work: Mapping[str, Any] | None = None,
+) -> tuple[str, ...]:
+    """Attach every delivery-ready carried item the run does not already own.
+
+    Returns the public references actually added, in item order, so the caller
+    can print exactly what the deployment gained. Raises ``ValueError`` naming
+    the item and its recovery when a carried item is genuinely inadmissible —
+    an incompatible flow, or a binding its own workflow refuses — because a
+    run that cannot carry the obligation must not start pretending it does.
+    """
+    if carried_enrollment_blocked(conn, run_id):
+        return ()
+    row = conn.execute(
+        "SELECT COALESCE(release_lineage,'') FROM deployment_runs WHERE id=%s",
+        (run_id,),
+    ).fetchone()
+    if row is None:
+        raise LookupError(f"deployment run {run_id!r} not found")
+    if not str(row[0] or "").strip():
+        return ()
+    payload = dict(carried_work or derive_carried_work_safely(conn, run_id))
+    derivation = payload.get("derivation") or {}
+    if not bool(derivation.get("contents_known")):
+        # An underivable carried set names no items to enroll. The refusal
+        # owner reports it, so silence here is deferral, not a waiver.
+        return ()
+    members = set(member_ids(conn, run_id))
+    candidates = sorted(
+        int(entry["item_id"])
+        for entry in payload.get("items") or []
+        if int(entry["item_id"]) not in members
+        and item_requires_release_membership(conn, int(entry["item_id"]))
+    )
+    enrolled: list[str] = []
+    for item_id in candidates:
+        try:
+            enrolled.append(admit_run_item(conn, run_id=run_id, item_id=item_id))
+        except (LookupError, ValueError) as exc:
+            raise ValueError(
+                f"deployment run {run_id!r} carries "
+                f"{render_item_ref(conn, item_id)} but cannot admit it: {exc}; "
+                "align that item's deployment flow and stage with this run, or "
+                "choose a candidate that excludes its code"
+            ) from exc
+    return tuple(enrolled)
+
+
+def describe_enrollment(enrolled: Iterable[str]) -> str:
+    """Render the one line that names what a deployment start just enrolled."""
+    refs = [str(ref) for ref in enrolled]
+    if not refs:
+        return ""
+    return (
+        f"Enrolled {len(refs)} carried delivery-ready item(s) into this "
+        f"release: {', '.join(refs)}"
+    )
+
+
+def carried_membership_refusal(
+    conn: Any,
+    run_id: str,
+    *,
+    carried_work: Mapping[str, Any] | None = None,
+) -> str | None:
+    """Return an actionable refusal for unresolved or omitted deliverable code."""
+    if not requires_release_admission(conn, run_id):
+        return None
+    if not _column_exists(conn, "deployment_runs", "composition_resolution"):
+        return None
+    run = conn.execute(
+        f"SELECT release_lineage,composition_resolution FROM deployment_runs "
+        f"WHERE id={_p(conn)}",
+        (run_id,),
+    ).fetchone()
+    if run is None:
+        return f"deployment run {run_id!r} not found"
+    lineage = str(_cell(run, "release_lineage", 0) or "").strip()
+    resolution = str(_cell(run, "composition_resolution", 1) or "").strip()
+    if not lineage:
+        return None
+    payload = dict(carried_work or derive_carried_work_safely(conn, run_id))
+    derivation = payload.get("derivation") or {}
+    reason = str(derivation.get("reason") or "unknown")
+    if not bool(derivation.get("contents_known")):
+        if resolution:
+            return None
+        return (
+            f"deployment run {run_id!r} carried-code membership is {reason}; "
+            "repair attribution or record composition_resolution before execution"
+        )
+    bare = [str(value) for value in payload.get("commits") or []]
+    if bare and not resolution:
+        return (
+            f"deployment run {run_id!r} has {len(bare)} unattributed carried commit(s); "
+            "record composition_resolution explaining their membership treatment"
+        )
+    if inherited_frozen_membership(conn, run_id):
+        # A retry delivers exactly what its predecessor froze. Re-scanning
+        # against a baseline that has moved since would name items this
+        # candidate never promised, so the inherited answer stands.
+        return None
+    members = set(member_ids(conn, run_id))
+    omitted = sorted(
+        int(entry["item_id"])
+        for entry in payload.get("items") or []
+        if int(entry["item_id"]) not in members
+        and item_requires_release_membership(conn, int(entry["item_id"]))
+    )
+    if not omitted:
+        return None
+    labels = ", ".join(
+        render_item_ref(conn, int(item_id)) for item_id in omitted
+    )
+    return (
+        f"deployment run {run_id!r} omits delivery-ready carried work: {labels}; "
+        "automatic enrollment could not add them here — "
+        f"{carried_enrollment_blocked(conn, run_id) or 'admission was refused'}. "
+        "Attach those members, or choose a candidate that excludes their code. "
+        "An already-done item is never one of them: it cannot be newly "
+        "admitted, and its code travels under the run's pinned release lineage"
+    )
+
+
+__all__ = [
+    "admit_run_item",
+    "carried_enrollment_blocked",
+    "carried_membership_refusal",
+    "describe_enrollment",
+    "enroll_carried_members",
+]

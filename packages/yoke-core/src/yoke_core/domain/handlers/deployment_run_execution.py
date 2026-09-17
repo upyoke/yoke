@@ -19,6 +19,9 @@ class DeploymentExecutionContextResponse(BaseModel):
     run: Dict[str, Any]
     members: List[Dict[str, Any]]
     stages: List[Dict[str, Any]]
+    # Public references this call enrolled from the pinned candidate, so the
+    # driver can print exactly what the deployment gained before it starts.
+    enrolled_carried_items: List[str] = []
     # How this run's persistent QA targets can prove what they serve:
     # the project's configured served-revision path and the registered url
     # of each environment its QA stages name. Resolved here because both
@@ -65,6 +68,36 @@ def _require_execution_lock(
     return None
 
 
+def _enroll_carried_items(run_id_value: str) -> List[str] | HandlerOutcome:
+    """Complete membership from the candidate before the driver reads it.
+
+    A start reads its members once and then drives the whole pipeline from
+    that list, so enrollment has to happen before the read rather than at the
+    freeze it will reach later — otherwise the run would execute, stamp, and
+    seed QA for a membership it never saw. Only a still-composable run is
+    touched; a resumed or retried one reports nothing added.
+    """
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.deployment_run_carried_membership import (
+        enroll_carried_members,
+    )
+
+    with connect() as conn:
+        status = conn.execute(
+            "SELECT status FROM deployment_runs WHERE id=%s",
+            (run_id_value,),
+        ).fetchone()
+        if status is None or str(status["status"]) != "created":
+            return []
+        try:
+            enrolled = list(enroll_carried_members(conn, run_id_value))
+        except (LookupError, ValueError) as exc:
+            conn.rollback()
+            return error("carried_membership_unresolved", str(exc))
+        conn.commit()
+        return enrolled
+
+
 def _member_rows(run_id_value: str) -> List[Dict[str, Any]]:
     from yoke_core.domain.db_helpers import connect, query_rows
     from yoke_core.domain.item_worktrees import primary_item_worktree
@@ -108,6 +141,9 @@ def handle_deployment_execution_context(
         return resolved_run_id
     if refusal := _require_execution_lock(request, resolved_run_id):
         return refusal
+    enrolled_carried_items = _enroll_carried_items(resolved_run_id)
+    if isinstance(enrolled_carried_items, HandlerOutcome):
+        return enrolled_carried_items
     from yoke_core.domain.deployment_run_carried_work import parse_carried_work
     from yoke_core.domain.deployment_runs_crud_query import cmd_get
     from yoke_core.domain.deployment_runs_schema import RUN_FIELDS
@@ -138,6 +174,7 @@ def handle_deployment_execution_context(
             "members": _member_rows(resolved_run_id),
             "stages": stages,
             "target_identity": target_identity,
+            "enrolled_carried_items": enrolled_carried_items,
         },
         primary_success=True,
     )
