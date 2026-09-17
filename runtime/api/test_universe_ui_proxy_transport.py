@@ -161,21 +161,49 @@ def test_a_caller_supplied_actor_is_dropped_in_process_too(local):
     assert request.actor.session_id == ""
 
 
-def test_an_unreadable_connection_binding_is_not_treated_as_local(monkeypatch):
-    """A process that cannot confirm local authority does not have it."""
+def test_an_unbound_process_keeps_dispatching_in_process(monkeypatch):
+    """Relaying needs positive evidence. A test run and a local universe
+    are both unbound, and neither may start relaying because a config
+    file was absent — the status quo is the in-process route."""
+    from yoke_core.domain import yoke_connected_env
+
+    monkeypatch.setattr(yoke_connected_env, "load_active", lambda *a, **k: None)
+    assert proxy_transport.relays_to_server() is False
+
+
+def test_an_unreadable_binding_keeps_dispatching_in_process(monkeypatch):
     from yoke_core.domain import yoke_connected_env
 
     def _unreadable(*args, **kwargs):
         raise RuntimeError("binding unreadable")
 
-    monkeypatch.setattr(yoke_connected_env, "connected_backend", _unreadable)
-    assert proxy_transport.relays_to_server() is True
+    monkeypatch.setattr(yoke_connected_env, "load_active", _unreadable)
+    assert proxy_transport.relays_to_server() is False
 
 
-def test_a_local_postgres_binding_is_local(monkeypatch):
+def _binding(backend: str):
+    class _Env:
+        pass
+
+    env = _Env()
+    env.backend = backend
+    return env
+
+
+def test_a_local_postgres_binding_dispatches_in_process(monkeypatch):
     from yoke_core.domain import db_backend, yoke_connected_env
 
     monkeypatch.setattr(
-        yoke_connected_env, "connected_backend", lambda *a, **k: db_backend.POSTGRES,
+        yoke_connected_env, "load_active",
+        lambda *a, **k: _binding(db_backend.POSTGRES),
     )
     assert proxy_transport.relays_to_server() is False
+
+
+def test_an_https_binding_relays(monkeypatch):
+    from yoke_core.domain import yoke_connected_env
+
+    monkeypatch.setattr(
+        yoke_connected_env, "load_active", lambda *a, **k: _binding("https"),
+    )
+    assert proxy_transport.relays_to_server() is True

@@ -24,18 +24,24 @@ from typing import Any, Dict, Optional
 def relays_to_server() -> bool:
     """Whether this process reaches its control plane over https.
 
-    Reads the same active-connection backend the CLI's own router reads,
-    so the UI server and the CLI never disagree about which plane they are
-    talking to. An unreadable binding answers "not local", because a
-    process that cannot confirm local authority does not have it.
+    Relaying is the new route and needs positive evidence for it: an
+    active binding that names a transport this machine cannot open
+    directly. Everything else — no binding at all, an unreadable one, a
+    local Postgres connection — keeps dispatching in this process, which
+    is what the server did before there was a choice. Failing to the
+    status quo is deliberate: a test run and a local universe are both
+    unbound, and neither should start relaying because a config file was
+    missing.
     """
     from yoke_core.domain import db_backend, yoke_connected_env
 
     try:
-        backend = yoke_connected_env.connected_backend()
-    except Exception:  # noqa: BLE001 - an unreadable binding is not local
-        return True
-    return backend != db_backend.POSTGRES
+        env = yoke_connected_env.load_active()
+    except Exception:  # noqa: BLE001 - an unreadable binding is not a relay
+        return False
+    if env is None:
+        return False
+    return env.backend != db_backend.POSTGRES
 
 
 def relay_call(
