@@ -270,20 +270,10 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
         String(completedAt(left)),
       ));
     const visible = done.slice(0, BAND_CARD_LIMIT).map((row) => {
-      const cancelled = String(row.status || "").toLowerCase() !== "done";
-      // The lifecycle pill in the card head already says `done`; a second
-      // "Complete" condition beside it and a third "done ·" in the meta line
-      // were the same word three times. What stays is the exceptional case —
-      // work that stopped without landing — which the pill does not cover.
+      // Terminal status already belongs in the card head. A red exception
+      // disclosure made cancelled and stopped work look active again.
       const card = workItemCard(documentNode, row, scope, {
-        tone: cancelled ? "cancelled" : "done",
-        flag: cancelled
-          ? {
-              label: "Stopped",
-              text: row.blocked_reason || "This work did not land.",
-              tone: "blocked",
-            }
-          : undefined,
+        tone: "done",
         timestamp: completedAt(row),
         timeLabel: "finished",
       });

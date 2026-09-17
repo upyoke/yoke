@@ -9,11 +9,10 @@ import {
 } from "./strategy_view_primitives.js";
 import {
   stateActionsPanel,
-  strategyReviewCallout,
-  strategyStats,
   strategyWriteActivity,
 } from "./strategy_view_summary.js";
 import {
+  applyStrategySteeringColor,
   isStandingDoc,
   orderStrategyDocs,
   strategyDocumentCard,
@@ -30,8 +29,6 @@ import {
 
 export function renderStrategyView(context, main, scope) {
   const documentNode = context.document;
-  const statsHost = el(documentNode, "div", "strategy-stats-host");
-  const callout = strategyReviewCallout(documentNode);
   const standing = workBand(
     documentNode, "standing", "Standing", "No standing documents.",
   );
@@ -47,13 +44,14 @@ export function renderStrategyView(context, main, scope) {
     "Nothing is archived.",
     { defaultOpen: false },
   );
-  // Write history sits under the documents and matches the width their cards
-  // actually occupy — stretched to the full page it claimed a precision the
-  // 120-day count does not have.
+  // Write history sits under the documents and uses the full content width,
+  // like the responsive card grids above it.
   const writesHost = el(documentNode, "div", "strategy-writes-host");
   main.replaceChildren(
-    statsHost, callout, standing, plans, archived, writesHost,
+    standing, plans, archived, writesHost,
   );
+  const refreshSteeringColors = context.refreshSteeringGroupColors();
+  const renderedCards = [];
 
   const projects = context.projects();
   const buckets = scopeBuckets(scope, projects, true);
@@ -87,15 +85,18 @@ export function renderStrategyView(context, main, scope) {
     const writes = callResults.flatMap(
       (callResult) => (callResult.envelope.result || {}).writes || [],
     );
-    statsHost.replaceChildren(strategyStats(documentNode, docs));
     const render = (band, rows, isStanding) => {
-      const cards = orderStrategyDocs(rows, isStanding).map((doc) => (
-        strategyDocumentCard(
+      const cards = [];
+      for (const doc of orderStrategyDocs(rows, isStanding)) {
+        const card = strategyDocumentCard(
           documentNode,
           doc,
           projectById.get(String(doc.project_id)) || { id: doc.project_id },
-        )
-      ));
+          context.steeringGroupColors(),
+        );
+        renderedCards.push({ card, doc });
+        cards.push(card);
+      }
       band.setCount(cards.length);
       band.renderCards(
         cards, "No strategy documents in this band.", "strategy-doc-grid",
@@ -106,38 +107,14 @@ export function renderStrategyView(context, main, scope) {
     render(plans, live.filter((doc) => !isStandingDoc(doc)), false);
     render(archived, docs.filter((doc) => doc.archived), false);
     writesHost.replaceChildren(strategyWriteActivity(documentNode, writes));
-    matchWritesToCardRow(documentNode, standing, writesHost);
+    refreshSteeringColors.then(() => {
+      if (!context.isMounted()) return;
+      const colors = context.steeringGroupColors();
+      for (const { card, doc } of renderedCards) {
+        applyStrategySteeringColor(card, doc, colors);
+      }
+    });
   });
-}
-
-// The Writes panel spans the width the document cards above it actually
-// occupy. Cards are a responsive grid, so that width is measured rather than
-// declared, and re-measured whenever the grid reflows.
-function matchWritesToCardRow(documentNode, band, writesHost) {
-  const windowNode = documentNode.defaultView;
-  const grid = Array.from(band.body.children).find(
-    (node) => String(node.className || "").includes("strategy-doc-grid"),
-  );
-  if (
-    !grid
-    || typeof windowNode?.ResizeObserver !== "function"
-    || typeof grid.getBoundingClientRect !== "function"
-  ) return;
-  const apply = () => {
-    const cards = Array.from(grid.children);
-    if (!cards.length) return;
-    const left = grid.getBoundingClientRect().left;
-    const occupied = Math.max(
-      ...cards.map((card) => card.getBoundingClientRect().right - left),
-    );
-    if (occupied > 0) writesHost.style.width = `${occupied}px`;
-  };
-  const observer = new windowNode.ResizeObserver(apply);
-  observer.observe(grid);
-  windowNode.addEventListener(
-    "pagehide", () => observer.disconnect(), { once: true },
-  );
-  apply();
 }
 
 function renderDetail(context, main, projectId, doc) {

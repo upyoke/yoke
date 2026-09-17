@@ -53,12 +53,6 @@ function currentHoldings(row) {
   return Array.isArray(row?.holdings?.current) ? row.holdings.current : [];
 }
 
-function steeringClaims(row) {
-  return currentHoldings(row).filter(
-    (claim) => claim.target_kind === "steering",
-  );
-}
-
 function claimProjectId(claim) {
   return claim.project_id ?? claim.scope?.project_id;
 }
@@ -67,6 +61,40 @@ function steeringDocs(claim) {
   return (Array.isArray(claim.strategy_docs) ? claim.strategy_docs : [])
     .map((slug) => String(slug || ""))
     .filter(Boolean);
+}
+
+function activeSteeringKey(claim) {
+  const locked = scopeDocument(claim);
+  if (locked !== undefined) {
+    return [
+      String(claimProjectId(claim)),
+      locked === null ? "project-wide" : locked,
+    ].join("\u0000");
+  }
+  return [
+    String(claimProjectId(claim)),
+    "scope-unknown",
+    [...new Set(steeringDocs(claim))].sort().join("\u0001"),
+  ].join("\u0000");
+}
+
+// The live claim projection is split between the holdings summary and the
+// session's active claims. Merge both so a scope that is not repeated in the
+// summary still appears, while preferring the richer holding row when both
+// surfaces describe the same active scope.
+export function activeSteeringClaims(row) {
+  const candidates = [
+    ...currentHoldings(row),
+    ...(Array.isArray(row?.claims) ? row.claims : []),
+  ].filter((claim) => (
+    claim.target_kind === "steering" && !claim.released_at
+  ));
+  const unique = new Map();
+  for (const claim of candidates) {
+    const key = activeSteeringKey(claim);
+    if (!unique.has(key)) unique.set(key, claim);
+  }
+  return [...unique.values()];
 }
 
 function releasedHoldingKey(holding) {
@@ -119,25 +147,27 @@ export function releasedHoldingHistory(entries) {
 }
 
 // Active steering sessions first, ordinary sessions after — both groups keep
-// their incoming relative order. Steering identity comes from the same
-// current-holdings projection the card itself reads, never from a title,
-// name, harness, or mode string, so a session only counts once its claim
-// says so. Shared by Overview and Sessions so both screens agree on where a
-// steering seat lands in the grid.
+// their incoming relative order. Steering identity comes from the same live
+// claim projection the card itself reads, never from a title, name, harness,
+// or mode string, so a session only counts once its claim says so. Shared by
+// Overview and Sessions so both screens agree on where a steering seat lands
+// in the grid.
 export function sortSessionsSteeringFirst(rows) {
   return (Array.isArray(rows) ? rows.slice() : []).sort((left, right) => (
-    Number(steeringClaims(right).length > 0)
-      - Number(steeringClaims(left).length > 0)
+    Number(activeSteeringClaims(right).length > 0)
+      - Number(activeSteeringClaims(left).length > 0)
   ));
 }
 
-// Every project this session actively steers, from the same current-holdings
+// Every project this session actively steers, from the same live claim
 // projection the card and the sort above read — never a title, name, or mode
 // string. A project-scoped session picker uses this alongside the session's
-// own home project: a live steering claim is a membership fact on the
-// project it targets, whether or not that is where the session started.
+// own home project: a live steering claim is a membership fact on the project
+// it targets, whether or not that is where the session started.
 export function steeringProjectIds(row) {
-  return steeringClaims(row).map((claim) => String(claimProjectId(claim)));
+  return activeSteeringClaims(row).map(
+    (claim) => String(claimProjectId(claim)),
+  );
 }
 
 // The claim's `scope.document` is the seat: present means document-only,
@@ -178,13 +208,15 @@ export function steeringHoldingText(claim, projects = []) {
 }
 
 // Every project this session steers, each beside the documents it steers
-// THAT project from. Current holdings are the authority — a session
-// steering three projects holds three claim targets. Pairing each project
-// with its own documents is also what keeps two projects steering from
-// same-named documents readable as two holds: the projects differ even
-// where the slugs do not.
+// THAT project from. Active claims are the authority — a session steering
+// three projects holds three claim targets. Pairing each project with its own
+// documents is also what keeps two projects steering from same-named
+// documents readable as two holds: the projects differ even where the slugs
+// do not.
 function steeringScopes(row, projects) {
-  return steeringClaims(row).map((claim) => steeringScope(claim, projects));
+  return activeSteeringClaims(row).map(
+    (claim) => steeringScope(claim, projects),
+  );
 }
 
 // Which document locks a steering claim among `entries` already names,
@@ -207,12 +239,12 @@ export function steeringDocCovers(entries) {
     && covered.has(documentKey(holding.project_id, holding.strategy_doc));
 }
 
-// Which current holdings the steering block above the roster already
+// Which active steering claims the steering block above the roster already
 // states, so the holdings list can leave them out instead of repeating
-// them. The block names every current seat outright, and each seat folds
+// them. The block names every active seat outright, and each seat folds
 // in the documents it steers from.
 export function steeringLeadCovers(row) {
-  const foldsIn = steeringDocCovers(currentHoldings(row));
+  const foldsIn = steeringDocCovers(activeSteeringClaims(row));
   return (holding) => holding.target_kind === "steering" || foldsIn(holding);
 }
 

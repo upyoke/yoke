@@ -6,46 +6,6 @@ import {
 } from "./universe_view_support.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
 
-function stat(documentNode, value, label) {
-  const node = el(documentNode, "div", "stat");
-  node.appendChild(el(documentNode, "div", "n", String(value)));
-  node.appendChild(el(documentNode, "div", "l", label));
-  return node;
-}
-
-export function strategyStats(documentNode, docs) {
-  const host = el(documentNode, "div", "stat-row strategy-stats");
-  host.appendChild(stat(documentNode, docs.length, "docs"));
-  host.appendChild(stat(
-    documentNode,
-    docs.reduce((total, doc) => total + Number(doc.recent_writes || 0), 0),
-    "writes this week",
-  ));
-  host.appendChild(stat(
-    documentNode,
-    docs.filter((doc) => doc.execution_state === "claimed").length,
-    "claimed for execution",
-  ));
-  host.appendChild(stat(
-    documentNode,
-    docs.filter((doc) => doc.archived).length,
-    "archived",
-  ));
-  return host;
-}
-
-export function strategyReviewCallout(documentNode) {
-  const callout = el(documentNode, "div", "strategy-callout");
-  callout.appendChild(el(documentNode, "span", "strategy-callout-icon", "⌘"));
-  callout.appendChild(el(
-    documentNode,
-    "span",
-    null,
-    "Review and approve here. Author documents in your harness.",
-  ));
-  return callout;
-}
-
 function dateKey(date) {
   return date.toISOString().slice(0, 10);
 }

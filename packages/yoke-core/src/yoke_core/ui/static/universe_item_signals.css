@@ -185,6 +185,19 @@
 .universe-app-root .item-deployment:hover {
   border-color: color-mix(in srgb, var(--yoke-border) 45%, var(--yoke-accent));
 }
+.universe-app-root .item-deployment-icon {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--yoke-accent);
+  line-height: 1;
+}
+.universe-app-root .item-deployment-icon svg {
+  width: 18px;
+  height: 18px;
+}
 .universe-app-root .item-deployment-environment {
   color: var(--yoke-ink-2);
   font-weight: 650;
@@ -206,6 +219,12 @@
   margin: 4px 0 10px;
   color: var(--yoke-muted);
   font-size: 11px;
+}
+.universe-app-root .shipping-run-lock-icon {
+  flex: 0 0 auto;
+  color: var(--yoke-warn);
+  font-size: 14px;
+  line-height: 1;
 }
 .universe-app-root .shipping-run-lock .item-claimant-row {
   margin: 0;

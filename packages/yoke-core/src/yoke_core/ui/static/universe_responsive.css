@@ -123,7 +123,7 @@
 .universe-app-root .machines-grid {
   display: grid;
   grid-template-columns: repeat(
-    auto-fill, minmax(min(100%, var(--yoke-card-track-min)), 1fr)
+    auto-fit, minmax(min(100%, var(--yoke-card-track-min)), 1fr)
   );
   gap: 16px;
 }
@@ -147,7 +147,7 @@
 
 @media (max-width: 1180px) {
   .universe-app-root .shell {
-    grid-template-columns: 236px minmax(0, 1fr);
+    grid-template-columns: 204px minmax(0, 1fr);
   }
 }
 
@@ -257,7 +257,6 @@
   }
   .universe-app-root .stat-row,
   .universe-app-root .sessions-stats,
-  .universe-app-root .strategy-stats,
   .universe-app-root .frontier-stats > .metric-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -310,7 +309,6 @@
   .universe-app-root .band-section-body { gap: 12px; }
   .universe-app-root .stat-row,
   .universe-app-root .sessions-stats,
-  .universe-app-root .strategy-stats,
   .universe-app-root .frontier-stats > .metric-strip {
     grid-template-columns: minmax(0, 1fr);
   }

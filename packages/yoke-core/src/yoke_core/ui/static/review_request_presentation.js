@@ -35,7 +35,7 @@ export function effectLine(row) {
   if (row.kind === "qa_needs_review") return "";
   const effect = row.subject_context?.release_effect;
   if (effect && effect.consequence === "deploys_nothing") {
-    return "Deploys nothing. Approving lets the run finish.";
+    return "";
   }
   return decisionSummary(row);
 }
