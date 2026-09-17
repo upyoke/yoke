@@ -13,6 +13,16 @@ _HISTOGRAMS: dict[str, Any] = {}
 _PROCESS_CPU_BOUND = False
 _CPU_SAMPLE: dict[str, float] = {}
 
+# Correlation identifiers belong on spans, structured logs, and events.
+# Putting them on metrics creates one series (and one EMF document) per
+# request — the hosted log-cost failure mode.
+_UNBOUNDED_METRIC_ATTRIBUTE_TAILS = (
+    "request_id",
+    "session_id",
+    "trace_id",
+    "span_id",
+)
+
 
 def record_counter(
     name: str,
@@ -30,7 +40,7 @@ def record_counter(
         if counter is None:
             counter = metrics.get_meter("yoke.runtime").create_counter(name)
             _COUNTERS[name] = counter
-        counter.add(value, attributes=_clean_attributes(attributes))
+        counter.add(value, attributes=metric_attributes(attributes))
         return True
     except Exception:
         return False
@@ -52,7 +62,7 @@ def record_histogram(
         if histogram is None:
             histogram = metrics.get_meter("yoke.runtime").create_histogram(name)
             _HISTOGRAMS[name] = histogram
-        histogram.record(value, attributes=_clean_attributes(attributes))
+        histogram.record(value, attributes=metric_attributes(attributes))
         return True
     except Exception:
         return False
@@ -100,7 +110,19 @@ def _process_cpu_seconds() -> float:
     return float(usage.ru_utime + usage.ru_stime)
 
 
-def _clean_attributes(attributes: Optional[Mapping[str, Any]]) -> dict[str, Any]:
-    return {
-        key: value for key, value in (attributes or {}).items() if value is not None
-    }
+def metric_attributes(attributes: Optional[Mapping[str, Any]]) -> dict[str, Any]:
+    """Drop nulls and unbounded identifiers so metric series stay bounded."""
+    cleaned: dict[str, Any] = {}
+    for key, value in (attributes or {}).items():
+        if value is None or _unbounded_metric_attribute(str(key)):
+            continue
+        cleaned[str(key)] = value
+    return cleaned
+
+
+def _unbounded_metric_attribute(key: str) -> bool:
+    lowered = key.lower().replace("-", "_")
+    return any(
+        lowered == tail or lowered.endswith(f".{tail}") or lowered.endswith(f"_{tail}")
+        for tail in _UNBOUNDED_METRIC_ATTRIBUTE_TAILS
+    )
