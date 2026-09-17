@@ -38,6 +38,13 @@ UI_READ_FUNCTION_ALLOWLIST = frozenset(
         "items.list.run",
         "items.overview.list",
         "items.search.run",
+        # Called by pages this server serves. Each was reachable in the
+        # navigation while its read was refused, so the page rendered a
+        # 403 where its content belongs.
+        "profile.get",
+        "packs.list",
+        "packs.bundle.get",
+        "project_structure.architecture_health.get",
         "items.detail.get",
         "epic_tasks.list.run",
         "strategy.doc.list",
@@ -174,6 +181,7 @@ UI_MUTATION_FUNCTION_ALLOWLIST = frozenset(
         "items.create",
         "sessions.reclaim_stale",
         "organizations.settings.merge",
+        "projects.capability_settings.merge",
         "session_control.message.send",
         "session_control.message.acknowledge",
         "session_control.message.cancel",

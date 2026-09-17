@@ -59,6 +59,7 @@ class TestRegistrationShape:
             "items.create",
             "sessions.reclaim_stale",
             "organizations.settings.merge",
+            "projects.capability_settings.merge",
             "session_control.message.send",
             "session_control.message.acknowledge",
             "session_control.message.cancel",
