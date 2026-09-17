@@ -143,13 +143,15 @@ def _environment_stating_its_path(conn: Any, name: str, path: str) -> None:
         (f"site-{name}", "2026-09-17T00:00:00Z"),
     ).fetchone()[0]
     conn.execute(
-        "INSERT INTO environments (site, project_id, name, settings, created_at) "
-        "VALUES (%s, 1, %s, %s, %s)",
+        "INSERT INTO environments "
+        "(site, project_id, name, settings, created_at, url) "
+        "VALUES (%s, 1, %s, %s, %s, %s)",
         (
             int(site),
             name,
             json.dumps({"qa": {"identity_path": path}}),
             "2026-09-17T00:00:00Z",
+            f"https://{name}.example.test",
         ),
     )
     conn.commit()
