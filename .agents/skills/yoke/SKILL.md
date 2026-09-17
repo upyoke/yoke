@@ -41,6 +41,8 @@ Three routing facts that decide where a request goes before any file is read:
   never reimplements it.
 - `/yoke simulate PREFIX-N` and `/yoke simulate --system` are a harness slash
   skill only — there is no terminal `yoke simulate` adapter.
+- `/yoke steer [STRATEGY-DOC-SLUG]` resolves an omitted slug to `CURRENT-PLAN`
+  rather than asking; an explicitly supplied slug always wins.
 - `/yoke refine PREFIX-N` critiques artifacts with no worktree and no code
   edits; `/yoke polish PREFIX-N` finishes implementation inside an existing
   worktree. Neither substitutes for the other.

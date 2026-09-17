@@ -64,6 +64,6 @@ yoke sessions touch --mode idea
  - body-and-sync: mandatory body persistence, additive-only body handling, AC normalization, effective File Budget/path-claim posture resolution, conditional **File Budget seeding** (the upstream counterpart to the universal 350-line file cap — see body-and-sync.md "File Budget" section), body-write verification, and GitHub body sync.
 
 3. **Close the enabled path axes.** Read
- [`path-closure.md`](path-closure.md) and follow it. Claim overlap does NOT
- narrow scope; that file carries the rule and routes conflicts to
- [`path-claim-blocking.md`](path-claim-blocking.md).
+ [`path-closure.md`](path-closure.md) and follow it.
+ Claim overlap does NOT narrow scope; that file carries the rule and routes
+ conflicts to [`path-claim-blocking.md`](path-claim-blocking.md).
