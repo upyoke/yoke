@@ -30,6 +30,18 @@ def _known_by_slug(known: Optional[Iterable[Mapping[str, Any]]]) -> Dict[str, Ma
     }
 
 
+def _row_from_sql(row: Mapping[str, Any]) -> Dict[str, Any]:
+    actor = row["updated_by_actor_id"]
+    archived_at = row["archived_at"]
+    return {
+        "slug": str(row["slug"]),
+        "content": str(row["content"]),
+        "updated_at": str(row["updated_at"]),
+        "updated_by_actor_id": int(actor) if actor is not None else None,
+        "archived_at": str(archived_at) if archived_at is not None else None,
+    }
+
+
 def _row_matches_known(row: Mapping[str, Any], known: Mapping[str, Any]) -> bool:
     archived = row.get("archived_at") is not None
     return (
@@ -37,6 +49,28 @@ def _row_matches_known(row: Mapping[str, Any], known: Mapping[str, Any]) -> bool
         and str(known.get("content_sha256") or "") == content_sha256(str(row["content"]))
         and bool(known.get("archived", False)) is archived
     )
+
+
+def _add_known_active_archives(
+    conn: Any,
+    project_id: int,
+    rows_by_slug: Dict[str, Dict[str, Any]],
+    known_map: Mapping[str, Mapping[str, Any]],
+    *,
+    get_doc: Any,
+    missing_error: Any,
+    unknown_error: Any,
+) -> None:
+    """Include archived rows the client still has as active local files."""
+    for slug, cached in known_map.items():
+        if cached.get("archived") or slug in rows_by_slug:
+            continue
+        try:
+            extra = get_doc(conn, project_id, slug)
+        except (missing_error, unknown_error):
+            continue
+        if extra.get("archived_at") is not None:
+            rows_by_slug[slug] = extra
 
 
 def render_file_map(
@@ -50,14 +84,17 @@ def render_file_map(
     """Return per-doc render entries for the selected corpus.
 
     Each entry carries ``slug``, ``updated_at``, ``archived``,
-    ``content_sha256``, ``bytes``, and ``unchanged``. ``file_text`` (the
-    complete rendered file) is present only when the client must write
-    bytes: a first fetch, a changed row, or an archive-location flip.
+    ``content_sha256``, ``bytes``, and ``unchanged``. ``file_text`` is
+    present only when the client must write bytes: a first fetch, a
+    changed row, or an explicit/include-archives archive body.
     ``slugs`` narrows to a subset and includes archived docs named
     explicitly. ``None`` maps the project's rows, including archives
     when ``include_archives`` is true (the in-process / install default)
-    and skipping them otherwise. A project with zero selected rows
-    raises :class:`yoke_core.domain.strategy_docs.StrategyDocMissingError`
+    and skipping them otherwise — except a known-active slug that is
+    now archived still returns metadata without ``file_text`` so the
+    client can move or remove generated local bytes. A project with
+    zero selected rows raises
+    :class:`yoke_core.domain.strategy_docs.StrategyDocMissingError`
     teaching the seed-defaults cold start. Surfaces
     :class:`yoke_core.domain.strategy_docs_header.StrategyHeaderError`
     (``kind="content_has_header"``) from :func:`render_file_text` when a
@@ -67,6 +104,7 @@ def render_file_map(
     from yoke_core.domain.actor_render import render_actor_name
     from yoke_core.domain.strategy_docs import (
         StrategyDocMissingError,
+        UnknownStrategyDocError,
         _require_valid_slug,
         get_doc,
         missing_doc_teaching,
@@ -97,18 +135,16 @@ def render_file_map(
                 "WHERE project_id = %s",
                 (project_id,),
             ).fetchall()
-        rows_by_slug = {}
-        for row in rows:
-            actor = row["updated_by_actor_id"]
-            archived_at = row["archived_at"]
-            slug = str(row["slug"])
-            rows_by_slug[slug] = {
-                "slug": slug,
-                "content": str(row["content"]),
-                "updated_at": str(row["updated_at"]),
-                "updated_by_actor_id": int(actor) if actor is not None else None,
-                "archived_at": str(archived_at) if archived_at is not None else None,
-            }
+        rows_by_slug = {
+            str(row["slug"]): _row_from_sql(row) for row in rows
+        }
+        if not include_archives:
+            _add_known_active_archives(
+                conn, project_id, rows_by_slug, known_map,
+                get_doc=get_doc,
+                missing_error=StrategyDocMissingError,
+                unknown_error=UnknownStrategyDocError,
+            )
         ordered = tuple(slug for slug in ordered if slug in rows_by_slug)
     if not ordered:
         raise StrategyDocMissingError(
@@ -130,6 +166,10 @@ def render_file_map(
         cached = known_map.get(slug)
         if cached is not None and _row_matches_known(doc, cached):
             entry["unchanged"] = True
+            files.append(entry)
+            continue
+        if archived and not include_archives and not slugs:
+            entry["unchanged"] = False
             files.append(entry)
             continue
         updated_by = render_actor_name(conn, doc.get("updated_by_actor_id"))

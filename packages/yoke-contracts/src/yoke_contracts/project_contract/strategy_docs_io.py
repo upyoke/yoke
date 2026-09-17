@@ -196,6 +196,52 @@ def write_rendered_files(
     return report
 
 
+def relocate_generated_archive(
+    target_root: Path | str,
+    slug: str,
+    *,
+    updated_at: str,
+    content_sha256: str,
+) -> str:
+    """Move or remove a generated active file after a remote archive.
+
+    Dirty local bytes are left in place (``local-edit``). Matching
+    generated identity is renamed into ``archive/``; a stale generated
+    active file is unlinked without writing archive bytes.
+    """
+    target_root = Path(target_root)
+    slug = require_strategy_doc_slug(slug)
+    locals_ = {
+        item.archived: item
+        for item in inspect_local_renders(target_root)
+        if item.slug == slug
+    }
+    active = locals_.get(False)
+    archived_file = locals_.get(True)
+    dest = strategy_view_path(target_root, slug, True)
+    if (active is not None and active.dirty) or (
+        archived_file is not None and archived_file.dirty
+    ):
+        return "local-edit"
+    identity = (str(updated_at), str(content_sha256))
+    if active is not None and active.path.is_file():
+        matches = (
+            str(active.updated_at or "") == identity[0]
+            and str(active.content_sha256 or "") == identity[1]
+        )
+        if matches:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if dest.is_file():
+                dest.unlink()
+            active.path.rename(dest)
+            return "archived"
+        active.path.unlink()
+        return "removed"
+    if archived_file is not None and archived_file.path.is_file():
+        return "unchanged"
+    return "archived"
+
+
 __all__ = [
     "LocalRenderFile",
     "StrategyDocSlugError",
@@ -203,6 +249,7 @@ __all__ = [
     "inspect_local_renders",
     "local_render_known",
     "read_ingest_files",
+    "relocate_generated_archive",
     "require_strategy_doc_slug",
     "write_rendered_files",
 ]

@@ -17,7 +17,13 @@ from yoke_contracts.project_contract.strategy_docs_header import (
     render_file_text,
 )
 from yoke_contracts.project_contract.strategy_docs_io import write_rendered_files
-from yoke_cli.commands.adapters.strategy_render_client import apply_rendered_docs
+from yoke_cli.commands.adapters.strategy_render_client import (
+    apply_and_fill_missing,
+    apply_rendered_docs,
+)
+from yoke_contracts.project_contract.strategy_docs_paths import (
+    strategy_view_path,
+)
 
 
 def _identity() -> dict:
@@ -144,3 +150,106 @@ class TestSteerNarrowedRead:
         assert conflicts == ["MISSION"]
         assert "MISSION" not in report
         assert "# local edit" in path.read_text(encoding="utf-8")
+
+
+class TestApplyArchiveAndMissing:
+    def test_clean_active_moves_to_archive_without_body(
+        self, tmp_path: Path,
+    ) -> None:
+        text = render_file_text("MISSION", "ts", "# body\n")
+        write_rendered_files(tmp_path, [{
+            "slug": "MISSION", "file_text": text, "archived": False,
+        }])
+        digest = content_sha256("# body\n")
+        report, conflicts = apply_rendered_docs(tmp_path, [{
+            "slug": "MISSION", "archived": True, "unchanged": False,
+            "updated_at": "ts", "content_sha256": digest,
+        }])
+        assert conflicts == []
+        assert report["MISSION"] == "archived"
+        assert not strategy_view_path(tmp_path, "MISSION").is_file()
+        assert strategy_view_path(tmp_path, "MISSION", True).is_file()
+
+    def test_dirty_active_stays_on_archive_flip(self, tmp_path: Path) -> None:
+        original = render_file_text("MISSION", "ts", "# old\n")
+        write_rendered_files(tmp_path, [{
+            "slug": "MISSION", "file_text": original, "archived": False,
+        }])
+        path = tmp_path / ".yoke" / "strategy" / "MISSION.md"
+        header, _, _ = path.read_text(encoding="utf-8").partition("\n")
+        path.write_text(header + "\n# local edit\n", encoding="utf-8")
+        report, conflicts = apply_rendered_docs(tmp_path, [{
+            "slug": "MISSION", "archived": True, "unchanged": False,
+            "updated_at": "ts",
+            "content_sha256": content_sha256("# old\n"),
+        }])
+        assert conflicts == []
+        assert report["MISSION"] == "local-edit"
+        assert "# local edit" in path.read_text(encoding="utf-8")
+
+    def test_stale_generated_active_is_removed_not_moved(
+        self, tmp_path: Path,
+    ) -> None:
+        text = render_file_text("MISSION", "ts", "# old\n")
+        write_rendered_files(tmp_path, [{
+            "slug": "MISSION", "file_text": text, "archived": False,
+        }])
+        report, conflicts = apply_rendered_docs(tmp_path, [{
+            "slug": "MISSION", "archived": True, "unchanged": False,
+            "updated_at": "ts2",
+            "content_sha256": content_sha256("# new\n"),
+        }])
+        assert conflicts == []
+        assert report["MISSION"] == "removed"
+        assert not strategy_view_path(tmp_path, "MISSION").is_file()
+        assert not strategy_view_path(tmp_path, "MISSION", True).is_file()
+
+    def test_unchanged_matching_file_stays_unchanged(self, tmp_path: Path) -> None:
+        text = render_file_text("MISSION", "ts", "# body\n")
+        write_rendered_files(tmp_path, [{
+            "slug": "MISSION", "file_text": text, "archived": False,
+        }])
+        digest = content_sha256("# body\n")
+        report, conflicts = apply_rendered_docs(tmp_path, [{
+            "slug": "MISSION", "unchanged": True, "archived": False,
+            "updated_at": "ts", "content_sha256": digest,
+        }])
+        assert conflicts == []
+        assert report["MISSION"] == "unchanged"
+        assert strategy_view_path(tmp_path, "MISSION").is_file()
+
+    def test_unchanged_missing_file_is_not_claimed_present(
+        self, tmp_path: Path,
+    ) -> None:
+        report, conflicts = apply_rendered_docs(tmp_path, [{
+            "slug": "MISSION", "unchanged": True, "archived": False,
+            "updated_at": "ts",
+            "content_sha256": content_sha256("# body\n"),
+        }])
+        assert conflicts == []
+        assert report["MISSION"] == "missing"
+
+    def test_fill_missing_fetches_body(self, tmp_path: Path) -> None:
+        remote = render_file_text("MISSION", "ts", "# body\n")
+
+        def _fetch(slugs):
+            assert list(slugs) == ["MISSION"]
+            return [{
+                "slug": "MISSION", "file_text": remote, "archived": False,
+            }]
+
+        report, conflicts = apply_and_fill_missing(
+            tmp_path,
+            [{
+                "slug": "MISSION", "unchanged": True, "archived": False,
+                "updated_at": "ts",
+                "content_sha256": content_sha256("# body\n"),
+            }],
+            fetch_docs=_fetch,
+        )
+        assert conflicts == []
+        assert report["MISSION"] == "written"
+        assert "missing" not in report.values()
+        assert "# body" in strategy_view_path(tmp_path, "MISSION").read_text(
+            encoding="utf-8",
+        )

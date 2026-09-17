@@ -28,7 +28,7 @@ from yoke_cli.commands.adapters.strategy import (
     write_rendered_files,
 )
 from yoke_cli.commands.adapters.strategy_render_client import (
-    apply_rendered_docs,
+    apply_and_fill_missing,
     build_render_payload,
     conflict_message,
 )
@@ -251,17 +251,12 @@ def strategy_render(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke strategy render",
         description=(
-            "Write the project's gitignored .yoke/strategy/ rendered view "
-            "from the DB authority into the local rendered view "
-            "(idempotent headers; unchanged content renders byte-identical "
-            "and is not re-sent). Default is the active corpus; archives "
-            "are on-demand via --include-archives or an explicit SLUG. "
-            "target_root resolves client-side: --target-root, else "
-            "$YOKE_RENDER_TARGET_ROOT, else this machine's own registered "
-            "checkout for the project (`yoke project register`), else the "
-            "repo root (refused from a linked worktree without an "
-            "explicit anchor). An explicit --target-root registered to a "
-            "DIFFERENT project refuses before writing anything."
+            "Write needed/changed .yoke/strategy/ files from the DB. "
+            "Default is the active corpus; archives are on-demand via "
+            "--include-archives or an explicit SLUG. A known-active "
+            "doc that archived remotely returns metadata so generated "
+            "local files can move. target_root: --target-root, "
+            "$YOKE_RENDER_TARGET_ROOT, registered checkout, or repo root."
         ),
     )
     parser.add_argument(
@@ -321,8 +316,19 @@ def strategy_render(args: List[str]) -> int:
     report: Optional[Any] = None
     conflicts: List[str] = []
     if response.success:
-        report, conflicts = apply_rendered_docs(
+        actor_ref, target_ref = actor, target
+
+        def _fetch_missing(slugs: List[str]):
+            follow = call_dispatcher(
+                function_id="strategy.render.run",
+                target=target_ref, payload={"slugs": list(slugs)},
+                actor=actor_ref,
+            )
+            return (follow.result or {}).get("docs") or []
+
+        report, conflicts = apply_and_fill_missing(
             target_root, (response.result or {}).get("docs", []),
+            fetch_docs=_fetch_missing,
         )
 
     def _human_writer(human_response, stdout, stderr) -> None:

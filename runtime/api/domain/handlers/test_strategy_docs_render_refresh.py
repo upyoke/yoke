@@ -78,6 +78,32 @@ class TestRenderRefreshTransfer:
         assert slugs.isdisjoint(ARCHIVE_SLUGS)
         assert all("file_text" in doc for doc in payload["docs"])
 
+    def test_default_refresh_after_archive_returns_metadata_without_body(
+        self, tmp_db: str,
+    ) -> None:
+        _seed_mixed(tmp_db)
+        first = _render({})
+        known = [
+            {
+                "slug": doc["slug"],
+                "updated_at": doc["updated_at"],
+                "content_sha256": doc["content_sha256"],
+                "archived": doc["archived"],
+            }
+            for doc in first["docs"]
+        ]
+        conn = connect_test_db(tmp_db)
+        try:
+            sd.set_doc_archived(conn, PROJECT_ID, "MISSION", archived=True)
+        finally:
+            conn.close()
+        refreshed = _render({"known": known})
+        by_slug = {doc["slug"]: doc for doc in refreshed["docs"]}
+        assert by_slug["MISSION"]["archived"] is True
+        assert by_slug["MISSION"]["unchanged"] is False
+        assert "file_text" not in by_slug["MISSION"]
+        assert ARCHIVE_SLUGS[0] not in by_slug
+
     def test_include_archives_sends_archived_bodies(self, tmp_db: str) -> None:
         _seed_mixed(tmp_db)
         payload = _render({"include_archives": True})

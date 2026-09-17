@@ -99,8 +99,9 @@ class RenderRequest(BaseModel):
     include_archives: bool = Field(
         False,
         description=(
-            "When slugs is empty, include archived docs. Explicit slugs "
-            "always render regardless of archive state."
+            "When slugs is empty, include archived docs' file_text. "
+            "Known-active docs that archived remotely still return "
+            "metadata without bodies so local generated files can move."
         ),
     )
     known: List[RenderKnownDoc] = Field(
@@ -120,7 +121,8 @@ class RenderResponse(BaseModel):
         description=(
             "Per-doc render map: slug, updated_at, archived, "
             "content_sha256, bytes, unchanged; file_text only when the "
-            "body must land on disk."
+            "body must land on disk. A known-active→archived flip omits "
+            "file_text and sets archived true."
         ),
     )
 

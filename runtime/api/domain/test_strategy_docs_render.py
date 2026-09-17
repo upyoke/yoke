@@ -237,6 +237,34 @@ class TestRenderFileMapSelection:
         assert row["unchanged"] is True
         assert "file_text" not in row
 
+    def test_known_active_archived_returns_metadata_without_body(
+        self, tmp_db: str,
+    ) -> None:
+        from yoke_contracts.project_contract.strategy_docs_header import (
+            content_sha256,
+        )
+        from yoke_core.domain.strategy_docs_render import render_file_map
+
+        conn = connect_test_db(tmp_db)
+        try:
+            seed_docs(conn)
+            sd.set_doc_archived(conn, PROJECT_A, "PAD", archived=True)
+            known = [{
+                "slug": "PAD",
+                "updated_at": SEED_UPDATED_AT,
+                "content_sha256": content_sha256(SEED_CONTENT["PAD"]),
+                "archived": False,
+            }]
+            rows = render_file_map(
+                conn, PROJECT_A, include_archives=False, known=known,
+            )
+        finally:
+            conn.close()
+        by_slug = {row["slug"]: row for row in rows}
+        assert by_slug["PAD"]["archived"] is True
+        assert by_slug["PAD"]["unchanged"] is False
+        assert "file_text" not in by_slug["PAD"]
+
     def test_explicit_slug_renders_archived_doc(self, tmp_db: str) -> None:
         from yoke_core.domain.strategy_docs_render import render_file_map
 
