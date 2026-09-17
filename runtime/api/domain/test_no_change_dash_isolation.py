@@ -22,7 +22,7 @@ from yoke_core.domain import worktree_create
 from yoke_core.domain import worktree_preflight as wp
 from yoke_core.domain import worktree_preflight_upstream as upstream
 from yoke_core.domain.handlers.direct_workflow_execution import handle_dash_survey
-from yoke_core.domain.repo_upstream_freshness import STATE_CURRENT, UpstreamFreshness
+from yoke_cli.config.repo_upstream_freshness import STATE_CURRENT, UpstreamFreshness
 from yoke_core.domain.workflow_behavior import WorktreeLanePolicy
 from yoke_core.domain.worktree_preflight_repo_resolution import PreflightLaneTarget
 
