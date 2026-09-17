@@ -36,6 +36,8 @@ from yoke_core.domain.qa_artifact_handle import (
 from yoke_core.domain.qa_gate_definitions import GateResult
 from yoke_core.domain.qa_constants import (
     INVALID_BROWSER_METHOD_LABEL,
+    NEEDS_REVIEW_OUTCOME,
+    agent_reviewed_case_predicate,
     browser_requirement_predicate,
 )
 
@@ -60,10 +62,10 @@ def _phase_and(qa_phase: Optional[str]) -> str:
 
 
 def _qualifying_capture(requirement: str, capture: str) -> str:
-    agent_case = (
-        f"COALESCE({requirement}.verdict_path = 'agent' "
-        f"OR {requirement}.method_id = 'browser-inspection', FALSE)"
-    )
+    # The producer that records a capture's outcome reads the same
+    # definition, so what this gate matches on and what the substrate writes
+    # cannot drift apart.
+    agent_case = agent_reviewed_case_predicate(requirement)
     linked_agent_pass = f"""
         EXISTS (
           SELECT 1 FROM qa_plan_review_verdicts prv
@@ -84,7 +86,7 @@ def _qualifying_capture(requirement: str, capture: str) -> str:
           OR (
             {agent_case}
             AND {capture}.execution_status = 'captured'
-            AND {capture}.case_outcome = 'needs_review'
+            AND {capture}.case_outcome = '{NEEDS_REVIEW_OUTCOME}'
             AND {linked_agent_pass}
           )
         )
@@ -98,7 +100,7 @@ def _browser_proof_exists(requirement: str) -> str:
           JOIN qa_artifacts proof_artifact
             ON proof_artifact.qa_run_id = proof_capture.id
           WHERE proof_capture.qa_requirement_id = {requirement}.id
-            AND {_qualifying_capture(requirement, 'proof_capture')}
+            AND {_qualifying_capture(requirement, "proof_capture")}
         )
     """
 

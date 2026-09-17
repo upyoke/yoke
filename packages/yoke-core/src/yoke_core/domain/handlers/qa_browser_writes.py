@@ -162,9 +162,12 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
 def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
     from yoke_core.domain import qa_events
     from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
+    from yoke_contracts.qa_execution_status import CAPTURED
     from yoke_core.domain.qa_constants import (
+        NEEDS_REVIEW_OUTCOME,
         VALID_VERDICTS,
         case_outcome_for_verdict,
+        is_agent_reviewed_case,
         normalized_verdict_reason,
     )
 
@@ -212,8 +215,10 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         p = _p(conn)
         row = query_one(
             conn,
-            f"SELECT qa_requirement_id, qa_kind, performed_by FROM qa_runs "
-            f"WHERE id = {p}",
+            "SELECT run.qa_requirement_id, run.qa_kind, run.performed_by, "
+            "req.verdict_path, req.method_id FROM qa_runs run "
+            "JOIN qa_requirements req ON req.id = run.qa_requirement_id "
+            f"WHERE run.id = {p}",
             (int(run_id),),
         )
         if row is None:
@@ -240,6 +245,16 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             params.append(verdict_reason)
             set_parts.append(f"case_outcome = {p}")
             params.append(case_outcome_for_verdict(verdict))
+        elif execution_status == CAPTURED and is_agent_reviewed_case(
+            row["verdict_path"], row["method_id"]
+        ):
+            # A capture on an agent-reviewed case is finished but undecided:
+            # the verdict arrives later, from a reviewer reading it. Recording
+            # that outcome here is what lets the release proof gate pair this
+            # capture with its own review; leaving it null made the gate's
+            # agent branch unreachable for every Browser inspection.
+            set_parts.append(f"case_outcome = {p}")
+            params.append(NEEDS_REVIEW_OUTCOME)
         if execution_status is not None:
             set_parts.append(f"execution_status = {p}")
             params.append(execution_status)
