@@ -102,6 +102,9 @@ Recurring telemetry signal: tester `cd <worktree> && <cmd>` patterns account for
 
 **Function-call surface (canonical mutation path):** `yoke_core.domain.yoke_function_dispatch.dispatch` validates a `FunctionCallRequest` from `yoke_contracts.api.function_call` and returns a `FunctionCallResponse`. Minimal envelope: `{function, request_id, actor:{session_id,actor_id}, target:{kind,item_id|epic_id+task_num|qa_requirement_id|...}, payload, preconditions:{}, options:{}}`. `target.kind` ∈ `item|epic_task|qa_requirement|session|process`. `actor.session_id` is mandatory — handlers verify it against `work_claims`. `preconditions`/`options` are dicts (default `{}`). Scratch Python imports must prepend the repo root to `sys.path` or set `PYTHONPATH`; `/tmp` imports are not the agent path.
 
+
+**Registered write function ids** (dispatch through these, never a guessed name): `items.structured_field.replace`, `items.progress_log.append`, `lifecycle.transition.execute`, `claims.work.acquire`, `claims.work.release`, `claims.path.register`, `db_claim.amend`. Each has a CLI adapter under the reversible grammar (dots→spaces, underscores→hyphens).
+
 **`harness_id` enum:** `claude-code | codex | cursor` (on `harness_sessions.executor`). Variants `claude-desktop` / `claude-vscode` / `codex-desktop` / `cursor-desktop` / `cursor-cli` collapse to these canonical ids in the agent-context render path.
 
 **Wrapper commands (prefer over raw SQL):**

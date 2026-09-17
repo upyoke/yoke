@@ -12,7 +12,7 @@ the file-line cap. Verifies that:
 - Bootstrap compact / full orientation injects that block through the same
   shared path Codex and Claude startup surfaces consume — no hand-copied
   prose in either rendered orientation.
-- The block stays small enough to fit the tightest inline channel, measured
+- The block stays small enough to fit the smallest inline channel, measured
   rather than assumed.
 """
 
@@ -102,16 +102,16 @@ def test_render_main_agent_block_does_not_inline_the_packet_body() -> None:
     assert "yoke packets render --role main_agent" in block
 
 
-def test_startup_block_fits_the_tightest_inline_channel() -> None:
+def test_startup_block_fits_the_smallest_inline_channel() -> None:
     """Measured, not assumed: the block fits every harness inline ceiling."""
 
     from yoke_contracts.hook_inline_context import INLINE_CONTEXT_BYTES
 
     spent = len(render_main_agent_block().encode("utf-8"))
-    tightest = min(INLINE_CONTEXT_BYTES.values())
-    assert spent < tightest, (
-        f"startup block spends {spent} bytes against the tightest inline "
-        f"ceiling of {tightest}"
+    smallest = min(INLINE_CONTEXT_BYTES.values())
+    assert spent < smallest, (
+        f"startup block spends {spent} bytes against the smallest inline "
+        f"ceiling of {smallest}"
     )
 
 

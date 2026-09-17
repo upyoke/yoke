@@ -320,7 +320,7 @@ def test_delivery_human_writer_prints_a_row_per_channel() -> None:
 
 
 def test_orientation_block_does_not_inline_the_packet_body() -> None:
-    """Orientation rides the inline hook channel, tightest at 8 KiB.
+    """Orientation rides the inline hook channel, smallest at 8 KiB.
 
     Inlining the packet put 106.8 KB into it, so the harness persisted the
     body to a file and showed the model a preview from the top — every rule
