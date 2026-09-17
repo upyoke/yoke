@@ -11,8 +11,9 @@ A. **Budget.** Each entrypoint stays within
 B. **Routing.** A command with phase references carries a phase map, and does
    not order a phase file read *completely* from the entrypoint — a split that
    still tells every caller to read everything is not a split.
-C. **Reachability.** Every phase reference is cited from somewhere inside its
-   own command, so nothing is orphaned by a rename.
+C. **Reachability.** Every phase reference is reachable by following citations
+   *from the entrypoint*, so nothing is orphaned by a rename. A union over
+   every sibling's citations would let two orphans cite each other and pass.
 
 The detail line always carries the per-command byte measurement, so
 `yoke watch doctor -- --only skill-entrypoint-disclosure` is both the gate and
@@ -29,6 +30,7 @@ from yoke_contracts.startup_context_budget import (
     SKILL_ENTRYPOINT_BYTES,
     budget_phrase,
 )
+from yoke_core.engines.doctor_applicability import NOT_APPLICABLE
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector, _resolve_repo_root
 
 
@@ -61,6 +63,29 @@ def _phase_references(command: Path) -> list[Path]:
 
 def _cited_names(text: str) -> set[str]:
     return {match.group("name") for match in _MD_CITATION.finditer(text)}
+
+
+def _reachable_from_entrypoint(entry_text: str, references: list[Path]) -> set[str]:
+    """Return the references a reader can arrive at by following citations.
+
+    Reachability is a walk that *starts at the entrypoint*, not a union of
+    every file's citations. Unioning lets a pair of orphans cite each other —
+    or a file cite itself — and count as reached, which is exactly the shape a
+    rename strands: nothing on the routed path names either one.
+    """
+    by_name = {reference.name: reference for reference in references}
+    reached: set[str] = set()
+    frontier = _cited_names(entry_text) & set(by_name)
+    while frontier:
+        name = frontier.pop()
+        if name in reached:
+            continue
+        reached.add(name)
+        cited = _cited_names(
+            by_name[name].read_text(encoding="utf-8", errors="replace")
+        )
+        frontier |= (cited & set(by_name)) - reached
+    return reached
 
 
 def _scan(repo_root: Path) -> tuple[List[str], List[str]]:
@@ -103,16 +128,13 @@ def _scan(repo_root: Path) -> tuple[List[str], List[str]]:
                     "Route to it at its phase instead."
                 )
 
-        reachable = _cited_names(text)
-        for sibling in references:
-            reachable |= _cited_names(
-                sibling.read_text(encoding="utf-8", errors="replace")
-            )
+        reachable = _reachable_from_entrypoint(text, references)
         for reference in references:
             if reference.name not in reachable:
                 findings.append(
-                    f"- {SKILL_ROOT}/{command.name}/{reference.name}: cited by "
-                    "nothing in its own command — a reader can never reach it."
+                    f"- {SKILL_ROOT}/{command.name}/{reference.name}: no citation "
+                    "path reaches it from the entrypoint — a reader can never "
+                    "arrive at it."
                 )
 
     return findings, measurements
@@ -124,7 +146,16 @@ def hc_skill_entrypoint_disclosure(
     """HC-skill-entrypoint-disclosure: entrypoints route, phase files teach."""
     repo_root = _resolve_repo_root()
     if not repo_root:
-        rec.record(HC_SLUG, HC_LABEL, "PASS", "repo root not resolvable (skip)")
+        # Not a pass: this runner could not read the corpus, so it answered
+        # nothing. The applicability declaration already keeps the check off
+        # checkout-less runners; this is the same verdict stated in-check.
+        rec.record(
+            HC_SLUG,
+            HC_LABEL,
+            NOT_APPLICABLE,
+            "reads this project's skill corpus; no repo root is resolvable on "
+            "this runner",
+        )
         return
 
     findings, measurements = _scan(Path(repo_root))
