@@ -48,7 +48,7 @@
 }
 .universe-app-root .work-band {
   --work-band-tone: var(--yoke-muted);
-  margin-top: 22px;
+  margin-top: var(--yoke-band-gap);
 }
 .universe-app-root .work-band-waiting {
   --work-band-tone: var(--yoke-warn);
@@ -125,7 +125,7 @@
   justify-content: flex-start;
 }
 .universe-app-root .work-card-grid > .see-more-card {
-  align-self: start;
+  justify-content: center;
 }
 .universe-app-root .work-session-dialog-host:empty {
   display: none;

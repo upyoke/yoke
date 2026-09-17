@@ -82,6 +82,14 @@
 }
 .universe-app-root .strategy-archive-body { margin-top: 8px; }
 
+/* Writes is a section of this page like the document bands above it, so it
+   sits at the same remove from its neighbour. The gap is its own margin
+   rather than the Archived band's, because Archived is closed by default
+   and an empty or collapsed band would otherwise leave the two touching. */
+.universe-app-root .strategy-writes-host {
+  margin-top: var(--yoke-band-gap);
+}
+
 .universe-app-root .strategy-spark-label {
   display: flex;
   align-items: center;
