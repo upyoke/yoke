@@ -113,6 +113,13 @@
   min-height: 0;
   overflow: hidden;
 }
+/* An artifact that cannot be fetched has no picture to give that height to,
+   so it keeps the compact box: three of them side by side were otherwise a
+   tall band of blank with a step label at the bottom. */
+.universe-app-root .inbox-sections .review-shot.is-unavailable
+  .review-shot-open {
+  height: 65px;
+}
 .universe-app-root .inbox-sections .review-shot-image {
   width: 100%;
   height: 100%;
