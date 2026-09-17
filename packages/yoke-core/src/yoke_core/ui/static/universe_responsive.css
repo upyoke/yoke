@@ -214,6 +214,37 @@
   body.side-open { overflow: hidden; }
   .universe-app-root .navigation-toggle,
   .universe-app-root .header-search-button { display: block; }
+  /* The context group stops being one unbreakable block: its three controls
+     lay out directly in the header so the header's own wrapping can move
+     them onto a second row instead of pushing the last one off the side. */
+  .universe-app-root .context-side {
+    display: contents;
+  }
+  /* A single-project screen carries two pickers in this one control — the
+     projects in scope, and which of them is focused. Side by side they are
+     wider than the header has room for here, and neither could shrink, so
+     the header ran past the screen edge and took the actor control off it.
+     The focus picker takes its own line, the control grows to hold it
+     rather than clipping at a fixed height, and each chip row scrolls
+     inside itself. */
+  .universe-app-root .header-project-context {
+    height: auto;
+    min-height: 32px;
+    flex-wrap: wrap;
+    padding: 4px 10px;
+    row-gap: 6px;
+  }
+  .universe-app-root .header-scope-host > .scope-bar {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    min-width: 0;
+  }
+  .universe-app-root .header-scope-host .scope-bar .scope-bar {
+    flex: 1 1 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
   /* The wide field gives up its space to the icon button, which opens the
      same dialog: search survives the narrow bar instead of disappearing with
      the room the field needed. */
@@ -249,40 +280,16 @@
     gap: 7px;
     padding: 8px 10px;
   }
-  /* Let all three labelled contexts take part in topbar wrapping. Universe
-     and Actor stay on the compact first row; Projects owns the row below. */
-  .universe-app-root .context-side {
-    display: contents;
-  }
-  /* A single-project screen carries two pickers in this one control — the
-     projects in scope, and which of them is focused. Side by side they are
-     wider than a phone and neither could shrink, so the header ran past the
-     screen edge and took the actor control off it. The focus picker takes
-     its own line, the control grows to hold it rather than clipping at a
-     fixed height, and each chip row scrolls inside itself. */
+  /* Universe and Actor stay on the compact first row; Projects owns the
+     row below. */
   .universe-app-root .header-project-context {
-    height: auto;
-    min-height: 32px;
     flex: 1 0 100%;
-    flex-wrap: wrap;
     width: 100%;
-    padding: 4px 10px;
     order: 20;
-    row-gap: 6px;
   }
   .universe-app-root .header-scope-host,
   .universe-app-root .header-scope-host .scope-bar {
     width: 100%;
-  }
-  .universe-app-root .header-scope-host > .scope-bar {
-    flex-wrap: wrap;
-    row-gap: 6px;
-    min-width: 0;
-  }
-  .universe-app-root .header-scope-host .scope-bar .scope-bar {
-    flex: 1 1 100%;
-    min-width: 0;
-    overflow-x: auto;
   }
   /* A phone has no room for a panel floating over a page: the dialog IS the
      screen here, so it fills it rather than centring inside a viewport it

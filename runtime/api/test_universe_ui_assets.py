@@ -109,9 +109,12 @@ def test_responsive_shell_uses_a_drawer_and_search_overlay():
     # same dialog, so search never disappears with the room the field needed.
     assert ".header-search-button { display: block; }" in compact
     assert ".universe-app-root .header-search,\n" in compact
+    # The context group stops being one unbreakable block at the drawer
+    # breakpoint, so the header's own wrapping can move its controls to a
+    # second row rather than pushing the last one off the side.
+    assert (".universe-app-root .context-side {\n    display: contents;\n  }") in compact
     phone = responsive.split("@media (max-width: 640px)", 1)[1]
     assert ".header-project-context" in phone
-    assert (".universe-app-root .context-side {\n    display: contents;\n  }") in phone
     # On a phone the dialog IS the screen rather than a panel floating over it.
     assert ".header-search-panel" in phone
     assert "height: 100%" in phone

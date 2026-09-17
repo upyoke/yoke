@@ -36,19 +36,25 @@ def test_the_header_wraps_instead_of_running_off_the_side():
 def test_a_single_project_screen_separates_its_two_pickers():
     """Scope and focus are two chip rows in one control.
 
-    Side by side they are wider than a phone and neither could shrink, so
-    they took the header past the screen edge. The focus row takes its own
-    line, the control grows to hold it instead of clipping at a fixed
-    height, and its label stays visible — without it the second row is an
-    unexplained copy of the first.
+    Side by side they are wider than the header has room for from the
+    drawer breakpoint down, and neither could shrink, so they took the
+    header past the screen edge. The focus row takes its own line, the
+    control grows to hold it instead of clipping at a fixed height, and
+    its label stays visible — without it the second row is an unexplained
+    copy of the first.
+
+    The fix belongs at the drawer breakpoint, not at the phone one: 768px
+    is where the header first runs out of room, and scoping it narrower
+    left a tablet with the actor control off the screen.
     """
     responsive = _static("universe_responsive.css")
-    phone = responsive.split("@media (max-width: 640px)", 1)[1]
-    control = phone.split(".universe-app-root .header-project-context {", 1)[1]
+    compact = responsive.split("@media (max-width: 980px)", 1)[1]
+    compact = compact.split("@media (max-width: 640px)", 1)[0]
+    control = compact.split(".universe-app-root .header-project-context {", 1)[1]
     control = control.split("}", 1)[0]
     assert "height: auto" in control
     assert "flex-wrap: wrap" in control
-    assert ".universe-app-root .header-scope-host .scope-bar .scope-bar {" in phone
+    assert ".universe-app-root .header-scope-host .scope-bar .scope-bar {" in compact
     assert (
         ".universe-app-root .header-scope-host .scope-bar .scope-bar > .scope-label"
         in responsive
