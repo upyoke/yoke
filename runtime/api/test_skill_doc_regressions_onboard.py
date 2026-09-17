@@ -322,7 +322,7 @@ def test_onboard_honors_the_web_views_and_steers_boundary():
 
 
 def test_onboard_failure_floor_is_the_resume_point():
-    text = _read(ONBOARD)
+    text = _read(ONBOARD_DIR / "run-and-rows.md")
     assert "Failure floor" in text
     assert "resume point" in text
     assert "Completed writes stay in place" in text

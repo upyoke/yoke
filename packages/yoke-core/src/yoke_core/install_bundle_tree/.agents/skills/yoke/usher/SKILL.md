@@ -41,6 +41,16 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 | `--deploy-only` | Deploy already-merged items |
 | `--resume PREFIX-N` | Resume paused deployment (sugar for single-item deploy-only) |
 
+## Phase map — read one file, at the phase it governs
+
+| Phase | What it does | Read before acting |
+|---|---|---|
+| 1. Collect and validate | Resolves the item set and runs the admission gates | [`collect.md`](collect.md) |
+| 2. Plan and confirm | Builds the merge/deploy plan and takes its confirmation | [`plan.md`](plan.md) |
+| 3. Merge execution | Lands each branch through the governed merge boundary | [`merge.md`](merge.md) |
+| 4. Deployment routing | Routes the merged identity to its flow | [`deploy.md`](deploy.md) |
+| 5. Finalize | Records the outcome and closes out | [`finalize.md`](finalize.md) |
+
 ## Phase Dispatch
 
 Before reading the first phase, stamp the session's mode so the board's active-session row reflects the live phase (default `wait` misrepresents an active usher run):

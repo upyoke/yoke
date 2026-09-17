@@ -196,7 +196,7 @@ def test_idea_to_blitz_route_dispatches_the_typed_create_payload(monkeypatch):
         },
     ]
 
-    idea = (ROOT / ".agents/skills/yoke/idea/SKILL.md").read_text()
+    idea = _skill_corpus("idea")
     infer = (ROOT / ".agents/skills/yoke/idea/infer-and-create.md").read_text()
     # Install/dogfood corpus (stub at docs/workflows.md only points here).
     workflows = (ROOT / ".yoke/docs/workflows.md").read_text()

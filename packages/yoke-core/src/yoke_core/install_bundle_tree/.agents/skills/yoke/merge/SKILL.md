@@ -64,6 +64,16 @@ The engine is completely read-only. It does not modify DB state, git state, or G
 
 ---
 
+## Phase map — read one file, at the phase it governs
+
+| Phase | What it does | Read before acting |
+|---|---|---|
+| Argument validation | Epic lookup and bare-item-ref detection | [`argument-validation.md`](argument-validation.md) |
+| Preflight (steps 1–5) | Simulation, epic ACs, task terminality, worktree plan, merge order | [`preflight.md`](preflight.md) |
+| Per-branch merge loop (step 6) | Branch resolve, artifact commit, governed merge, AC re-verify | [`merge-loop.md`](merge-loop.md) |
+| Post-merge bookkeeping (step 7) | Main sync, issue close, item advance, `merged_at` | [`post-merge.md`](post-merge.md) |
+| Conflict handling | `yoke watch merge merge-worktree` exited 3 or 1 | [`conflict-handling.md`](conflict-handling.md) |
+
 ## Phases
 
 When `--audit` is NOT passed, merge executes five phases in order. Each phase lives in its own file; read and execute them in sequence.
