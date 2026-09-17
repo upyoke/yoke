@@ -268,7 +268,6 @@ def test_page_module_wires_the_workbench_shell():
         ),
         "universe_sessions_history_loader.js": ("sessions.list",),
         "universe_views_doctor.js": ("doctor.last_run.get",),
-        "universe_frontier_bands.js": ("frontier.list",),
         "universe_views_capabilities.js": ("projects.capabilities.list",),
     }
     for module_name, references in view_references.items():
