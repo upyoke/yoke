@@ -45,7 +45,7 @@ Routing (`qa_command_plan_registration.py` / `qa_command_scope_routing.py`):
 - Unreachable `command-ci` fails with a **named reason** (not a silent local
   downgrade) — `qa_case_ci_lane.py`.
 - `merge_queue` makes the QA executor open/reuse the landing PR and record
-  that PR's entry run (`dash/verification-and-close.md`).
+  that PR's entry run (`dash/merge.md`).
 
 Generic `yoke qa plan create` still **requires** `--environment`, so a plan
 authored through that adapter is tied to a site. Registered `quick` and `full`

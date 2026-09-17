@@ -231,7 +231,7 @@ Do not choose from the executor, launch origin, whether a person opened the
 session, or whether Yoke can reach it over a relay.
 
 **Queue wait:** follow the reported mode exactly as
-[`../dash/verification-and-close.md`](../dash/verification-and-close.md)
+[`../dash/merge.md`](../dash/merge.md)
 step 7 spells out. Only `background-wake` may release the caller and expect
 its one armed subscription to resume it; the `in-turn` command blocks inside
 the invocation you run and expects no later completion notice. Merged

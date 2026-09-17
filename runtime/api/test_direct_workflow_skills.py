@@ -39,9 +39,8 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
         "`work_claim_activation` gate",
         "may already release the item work claim",
         "registered Dash worktree lane",
-        # The item work claim is acquired up front (step 1), before any
-        # survey/edit work. Close-out release is conditional: merge/done may
-        # already have released the claim and removed the lane.
+        # The claim is acquired up front, before any survey/edit work; its
+        # release is conditional on what merge/done already did.
         "Claim the item first.",
         'yoke claims work acquire --item ITEM --reason "Dash execution"',
         "Only release when a claim remains, or when",
@@ -57,14 +56,12 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
         "yoke merge item ITEM",
     ):
         assert required in content
-    # The merge step names one command. The unnamed "merge it through the
-    # project's merge path" instruction is what sent agents to hand-authored
-    # git merges, and must not come back.
+    # The unnamed "merge it through the project's merge path" instruction is
+    # what sent agents to hand-authored git merges; it must not come back.
     assert "through the project's normal protected merge path" not in content
-    # A path-claim holder is reached with the harness task-messaging tool
-    # asserted above, never by addressing a session or item over the message
-    # plane. `yoke say --steering` stays legal here: it is the reporting
-    # channel an unrelayed session uses to reach its steering seat.
+    # A path-claim holder is reached with the harness task-messaging tool,
+    # never by addressing a session or item over the message plane.
+    # `yoke say --steering` stays legal: it reaches the steering seat.
     assert "yoke say --session" not in content
     assert "yoke say --item" not in content
     # Unconditional "finally release after merge" teaching contradicts the
@@ -86,9 +83,8 @@ def test_dash_commits_before_every_sha_bound_case():
 
 
 def test_dash_rechecks_keep_survey_contacts_advisory():
-    skill = (CANONICAL / "dash/SKILL.md").read_text()
-    close = _skill_corpus("dash")
-    corpus = close
+    skill = (CANONICAL / "dash/survey-and-isolate.md").read_text()
+    corpus = close = _skill_corpus("dash")
     for retired_stop in (
         "If the survey is blocked, do not commit or run the case.",
         "A stale or newly-blocked survey is a coordination stop",
@@ -297,10 +293,17 @@ def test_taught_dash_and_blitz_commands_are_function_id_first():
             "claims.work.release": "yoke claims work release",
         },
     }
+    dash_reference = (CANONICAL / "dash/function-reference.md").read_text()
+    reference_by_content = {dash: dash_reference, blitz: ""}
     for content, operations in taught.items():
+        reference = reference_by_content[content]
         for function_id, command in operations.items():
             assert lookup(function_id) is not None, function_id
-            assert content.index(function_id) < content.index(command)
+            assert function_id in content
+            # Dash spreads its phases over files, so "function id first" is a
+            # per-teaching-site property, not one of the concatenated corpus.
+            source = reference if function_id in reference else content
+            assert source.index(function_id) < source.index(command), function_id
 
     for content, workflow in ((dash, "dash"), (blitz, "blitz")):
         assert (
@@ -312,8 +315,8 @@ def test_taught_dash_and_blitz_commands_are_function_id_first():
 
 
 def test_dash_close_out_surfaces_session_guardrail_denials():
-    content = (CANONICAL / "dash/verification-and-close.md").read_text()
-    step = content[content.index("### 7.") :]
+    content = (CANONICAL / "dash/close-out.md").read_text()
+    step = content[content.index("## Surface this session's guardrail denials") :]
     for required in (
         "HarnessToolCallDenied",
         "sessions.identity",

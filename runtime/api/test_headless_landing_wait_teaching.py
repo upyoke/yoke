@@ -35,7 +35,7 @@ from yoke_core.domain.standalone_item_merge_cli_parser import build_parser
 from yoke_core.tools import watch_merge
 
 
-DASH_CLOSE = SKILLS / "dash" / "verification-and-close.md"
+DASH_MERGE = SKILLS / "dash" / "merge.md"
 USHER_MERGE = SKILLS / "usher" / "merge.md"
 WORKER_LIFECYCLE = SKILLS / "steer" / "worker-lifecycle.md"
 CLAUDE_SESSION_RULES = REPO / "runtime/harness/claude/rules/session.md"
@@ -118,8 +118,8 @@ def _merge_recipe() -> dict:
     raise AssertionError("no watch merge recipe in the watcher packet")
 
 
-def test_dash_close_out_hands_a_launched_landing_to_its_notice():
-    content = _words(_read(DASH_CLOSE))
+def test_dash_merge_phase_hands_a_launched_landing_to_its_notice():
+    content = _words(_read(DASH_MERGE))
     assert "A relay-launched session arms the landing and stops." in content
     assert "naming the pull request, whatever you passed" in content
     assert "a headless command cannot outlive a queue landing" in content
@@ -128,8 +128,8 @@ def test_dash_close_out_hands_a_launched_landing_to_its_notice():
     assert "The control-plane landing notice wakes you" in content
 
 
-def test_dash_close_out_routes_every_other_landing_by_harness_wake_capability():
-    content = _words(_read(DASH_CLOSE))
+def test_dash_merge_phase_routes_every_other_landing_by_harness_wake_capability():
+    content = _words(_read(DASH_MERGE))
     assert "**Every other session waits.**" in content
     assert "resolved from the calling session's manifest wake capability" in content
     assert (
@@ -141,7 +141,7 @@ def test_dash_close_out_routes_every_other_landing_by_harness_wake_capability():
     )
     assert "harness with no or unverified idle wake keeps the wait" in content
     assert "a desktop conversation waits exactly as its CLI sibling does" in content
-    assert "Wake-routed wait." in content
+    assert "Wake-routed wait" in content
     assert "A relay-launched session takes the arm-and-stop handoff above" in content
     assert (
         "yoke watch merge --print-streaming-pair merge-item -- ITEM --wait" in content
@@ -168,8 +168,8 @@ def test_dash_close_out_routes_every_other_landing_by_harness_wake_capability():
     assert "none of them is silence" in content
 
 
-def test_dash_close_out_continues_a_call_its_harness_handed_back():
-    content = _words(_read(DASH_CLOSE))
+def test_dash_merge_phase_continues_a_call_its_harness_handed_back():
+    content = _words(_read(DASH_MERGE))
     assert "set the Bash tool's `timeout` to `600000`" in content
     assert "so the harness does not move the call to a background task" in content
     assert "If it moves the call anyway, the command is still running" in content
@@ -191,7 +191,7 @@ def test_worker_lifecycle_teaches_the_continuation_it_mandates():
 
 
 def test_no_teaching_surface_reads_the_hand_back_as_the_end_of_the_call():
-    for path in (DASH_CLOSE, WORKER_LIFECYCLE, CLAUDE_SESSION_RULES):
+    for path in (DASH_MERGE, WORKER_LIFECYCLE, CLAUDE_SESSION_RULES):
         content = _read(path)
         for retired in RETIRED_HAND_BACK_AS_TURN_END:
             assert retired not in content, f"{path} still teaches {retired!r}"
@@ -209,8 +209,8 @@ def test_claude_session_rules_keep_the_watcher_alive_through_a_hand_back():
     assert "naming the continuation before the command starts" in content
 
 
-def test_dash_close_out_names_every_way_the_in_turn_wait_ends():
-    wait = _read(DASH_CLOSE).split("**Wake-routed wait.**", 1)[1]
+def test_dash_merge_phase_names_every_way_the_in_turn_wait_ends():
+    wait = _read(DASH_MERGE).split("## Wake-routed wait", 1)[1]
     # Merged closes the item out inside the same turn — no second pass.
     merged = _outcome(wait, "merged")
     assert "exit 0" in merged
@@ -246,7 +246,7 @@ def test_usher_merge_step_routes_the_landing_the_same_way():
     assert "a native idle-wake primitive gets the background subscription" in content
     assert "no or unverified idle wake gets one foreground invocation" in content
     assert "Do not choose from the executor, launch origin" in content
-    assert "dash/verification-and-close.md" in content
+    assert "dash/merge.md" in content
     assert "Only `background-wake` may release the caller" in content
     assert "the `in-turn` command blocks inside the invocation you run" in content
 
@@ -317,10 +317,10 @@ def test_merge_wait_help_routes_from_harness_capability_not_executor_name():
 
 def test_no_teaching_surface_still_carries_the_retired_blanket_prohibition():
     surfaces = (
-        DASH_CLOSE,
+        DASH_MERGE,
         USHER_MERGE,
         WORKER_LIFECYCLE,
-        BUNDLE_SKILLS / "dash" / "verification-and-close.md",
+        BUNDLE_SKILLS / "dash" / "merge.md",
         BUNDLE_SKILLS / "usher" / "merge.md",
         BUNDLE_SKILLS / "steer" / "worker-lifecycle.md",
         COMMAND_REFERENCE,
