@@ -195,7 +195,11 @@ def _live_execution_target_digest(conn: Any, requirement_id: int) -> str:
     )
     if row is None:
         return ""
-    return str(row["execution_target_digest"] or "")
+    try:
+        value = row["execution_target_digest"]
+    except (KeyError, IndexError, TypeError):
+        return ""
+    return str(value or "")
 
 
 def has_current_passing_run(conn: Any, requirement_id: int) -> bool:
