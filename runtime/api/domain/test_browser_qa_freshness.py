@@ -16,6 +16,7 @@ from unittest import mock
 import pytest
 
 from yoke_core.domain import browser_qa, browser_qa_freshness
+from yoke_core.domain import browser_qa_freshness_outcome as outcome
 from yoke_core.domain import browser_qa_preview_identity as preview_identity
 from runtime.api.domain.browser_qa_ephemeral_fixtures import (
     _placeholder,
@@ -137,8 +138,10 @@ class TestDeployedShaFreshness:
         The helper-level tests above cannot catch a caller that hardcodes one
         note for every freshness outcome — that is exactly the defect this
         guards, and it lived here rather than in the helper. No ephemeral
-        row is seeded, so a caller collapsing outcomes would report a SHA
-        mismatch for a deployment nothing ever recorded.
+        row is seeded and no preview proof is configured, so the target
+        itself is the only thing left to ask; it is not running, so the
+        answer is that nothing could be asked. A caller collapsing outcomes
+        would report a SHA mismatch for a commit nothing ever served.
         """
         _seed_item(db_path, 501)
         req_id = _seed_requirement(
@@ -153,10 +156,10 @@ class TestDeployedShaFreshness:
         )
         _ensure_ephemeral_table(db_path)
 
-        # A project that publishes no identity proof: the scenario must
-        # carry the missing-record reason through rather than relabelling
-        # it. Pinned here because the resolver reads the control plane, and
-        # this test is about the caller, not about that read.
+        # A project that publishes no identity proof, so the only thing
+        # left to ask is the target itself. Pinned here because the resolver
+        # reads the control plane, and this test is about the caller
+        # carrying whichever reason came back, not about that read.
         patches = _patch_external_deps(db_path) + [
             mock.patch(
                 "yoke_core.domain.browser_qa_freshness."
@@ -182,7 +185,7 @@ class TestDeployedShaFreshness:
                 patcher.stop()
 
         assert result.verdict == "error"
-        assert result.note == browser_qa_freshness.DEPLOYMENT_RECORD_MISSING
+        assert result.note == outcome.IDENTITY_PROOF_UNAVAILABLE
         assert result.note != browser_qa_freshness.SHA_MISMATCH
 
     def test_execute_scenario_rejects_partial_freshness_inputs(self, db_path: str) -> None:

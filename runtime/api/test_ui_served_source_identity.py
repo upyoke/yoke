@@ -90,3 +90,76 @@ def test_the_packet_the_server_publishes_carries_the_serving_commit():
     build = runtime.get("build", "")
     assert build, "a source checkout must publish the commit it serves"
     assert len(build.split(identity.DIRTY_SUFFIX)[0]) == 40
+
+
+class TestTheServedBuildPath:
+    """The commit is readable over the wire, not only inside the page.
+
+    A reviewer reads the packet rendered into the shell; an independent
+    check cannot parse a page, so the same value is published at one path
+    as bare text. Both come from one resolver, because a host answering
+    two different things about itself makes the cheaper answer worthless.
+    """
+
+    TOKEN = "test-session-token-value"
+
+    @pytest.fixture()
+    def client(self):
+        from fastapi.testclient import TestClient
+
+        from yoke_core.ui import server as ui_server
+
+        with TestClient(ui_server.create_ui_app(self.TOKEN)) as client:
+            yield client
+
+    def test_the_path_publishes_exactly_what_the_packet_publishes(self, client):
+        from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
+
+        response = client.get(f"{SERVED_BUILD_PATH}?token={self.TOKEN}")
+
+        assert response.status_code == 200
+        assert response.text == identity.served_build_identity()
+
+    def test_the_answer_is_bare_text_a_commit_matcher_can_read(self, client):
+        from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
+
+        response = client.get(f"{SERVED_BUILD_PATH}?token={self.TOKEN}")
+
+        assert response.headers["content-type"].startswith("text/plain")
+        assert response.text == response.text.strip()
+
+    def test_the_identity_path_is_not_an_opening_in_the_session_gate(
+        self, client
+    ):
+        """The failure this prevents: publishing a read that anyone who can
+        reach the port may take, on a server whose whole security model is
+        that every route requires the per-run token."""
+        from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
+
+        response = client.get(SERVED_BUILD_PATH)
+
+        assert response.status_code == 401
+        assert response.json()["error"]["code"] == "session_token_required"
+
+    def test_a_stale_answer_cannot_be_served_from_a_cache(self, client):
+        from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
+
+        response = client.get(f"{SERVED_BUILD_PATH}?token={self.TOKEN}")
+
+        assert response.headers["cache-control"] == "no-store"
+
+    def test_a_dirty_tree_is_published_as_dirty_rather_than_as_its_commit(
+        self, client, monkeypatch
+    ):
+        """The reader matches an exact commit, so this body must fail that
+        match rather than certify uncommitted work."""
+        from yoke_contracts.runtime_identity import SERVED_BUILD_PATH
+        from yoke_core.ui import server as ui_server
+
+        dirty = f"{'c' * 40}{identity.DIRTY_SUFFIX}"
+        monkeypatch.setattr(ui_server, "served_build_identity", lambda: dirty)
+
+        response = client.get(f"{SERVED_BUILD_PATH}?token={self.TOKEN}")
+
+        assert response.text == dirty
+        assert len(response.text) != 40

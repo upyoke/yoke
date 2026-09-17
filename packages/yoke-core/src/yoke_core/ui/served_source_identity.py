@@ -19,10 +19,12 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Union
 
-#: Appended to the base commit when the serving tree carries uncommitted
-#: changes. It is deliberately not a valid object id: a consumer matching
-#: an exact commit rejects it rather than accepting a tree nobody committed.
-DIRTY_SUFFIX = "-dirty"
+from yoke_contracts.runtime_identity import SERVED_BUILD_DIRTY_SUFFIX
+
+#: Re-exported so this module reads as one story; the value itself is the
+#: publishing contract in :mod:`yoke_contracts.runtime_identity`, shared
+#: with the independent readers that have to recognise it.
+DIRTY_SUFFIX = SERVED_BUILD_DIRTY_SUFFIX
 
 
 def _git(root: Path, *args: str) -> Optional[str]:
@@ -67,4 +69,32 @@ def served_build(checkout_root: Union[str, Path, None]) -> str:
     return sha if not status.strip() else f"{sha}{DIRTY_SUFFIX}"
 
 
-__all__ = ["DIRTY_SUFFIX", "served_build"]
+def served_install() -> dict:
+    """The install these assets are read from, as this package resolves it.
+
+    The checkout this code was loaded out of is the tree the static assets
+    are read from, so what it reports describes what is being served — not
+    whatever install the machine happens to have on PATH.
+    """
+    import yoke_core
+    from yoke_contracts.runtime_identity import detect_install
+
+    return dict(detect_install(yoke_core.__file__))
+
+
+def served_build_identity() -> str:
+    """The served commit, for the mounted packet and the identity path alike.
+
+    One resolver, because a host answering two different things about
+    itself makes the cheaper answer worthless: the packet a reviewer reads
+    on screen and the value a check reads over the wire are one reading.
+    """
+    return served_build(served_install().get("checkout_root"))
+
+
+__all__ = [
+    "DIRTY_SUFFIX",
+    "served_build",
+    "served_build_identity",
+    "served_install",
+]

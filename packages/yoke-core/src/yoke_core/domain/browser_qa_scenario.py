@@ -31,7 +31,9 @@ from yoke_core.domain.browser_qa_requirement import _process_requirement
 from yoke_core.domain.browser_qa_results import ScenarioResult
 from yoke_core.domain.qa_artifacts import case_artifact_subject
 from yoke_core.domain.project_identity_item_ref import item_subject_ref
-from yoke_core.domain.served_revision_probe import origin_of
+from yoke_core.domain.browser_qa_case_target_identity import (
+    credential_free_origin,
+)
 
 
 def _fetch_browser_context(
@@ -142,7 +144,10 @@ def execute_scenario(
     from yoke_core.domain import browser_qa as _bqa
 
     result = ScenarioResult()
-    code_identity = _bqa._build_code_identity(expected_branch, expected_sha)
+    # Left empty until a freshness source reports a commit it verified about
+    # the target. A run that recorded the requested commit here would be
+    # asserting the very thing the check exists to establish.
+    code_identity: Dict[str, str] = {}
     freshness_validated = bool(expected_branch and expected_sha)
 
     if (item_id is None) == (deployment_run_id is None):
@@ -200,26 +205,6 @@ def execute_scenario(
         {"item_id": item_id, "deployment_run_id": deployment_run_id},
     )
 
-    # Step 2: Freshness validation against the deployment this case is about
-    # The deployment whose freshness was established — whichever source
-    # established it. Evidence may only be collected from this one.
-    verified_origin = ""
-    if expected_branch and expected_sha:
-        _bqa._log(f"Validating the deployment serving {expected_sha}...")
-        freshness_error, verified_origin = _bqa._establish_deployment_freshness(
-            project,
-            expected_branch,
-            expected_sha,
-            context=context,
-            deployment_run_id=deployment_run_id,
-        )
-        if freshness_error:
-            _bqa._log(f"ERROR: {freshness_error.message}")
-            result.verdict = "error"
-            result.note = freshness_error.reason
-            print(result.to_json())
-            return result
-
     req_rows = context.get("requirements") or []
     if not req_rows:
         _bqa._log(f"No browser QA requirements found for {named_subject}")
@@ -229,7 +214,9 @@ def execute_scenario(
 
     _bqa._log("Found browser requirements")
 
-    # Step 3: Resolve base_url
+    # Step 2: Resolve base_url. It is resolved before freshness because one
+    # source of freshness is the target itself, and a target cannot be asked
+    # what it serves until it is known which target the case names.
     if not base_url:
         base_url = _base_url_from_requirements(req_rows)
 
@@ -242,15 +229,42 @@ def execute_scenario(
         print(result.to_json())
         return result
 
+    # Step 3: Freshness validation against the target this case is about.
+    # The target whose freshness was established — whichever source
+    # established it. Evidence may only be collected from this one, and only
+    # the commit that source reported is recorded.
+    verified_origin = ""
+    if expected_branch and expected_sha:
+        _bqa._log(f"Validating the target serving {expected_sha}...")
+        (
+            freshness_error,
+            verified_origin,
+            verified_sha,
+        ) = _bqa._establish_deployment_freshness(
+            project,
+            expected_branch,
+            expected_sha,
+            context=context,
+            deployment_run_id=deployment_run_id,
+            base_url=base_url,
+        )
+        if freshness_error:
+            _bqa._log(f"ERROR: {freshness_error.message}")
+            result.verdict = "error"
+            result.note = freshness_error.reason
+            print(result.to_json())
+            return result
+        code_identity = _bqa._build_code_identity(expected_branch, verified_sha)
+
     # Freshness was established about one deployment, and covers no other.
     # Browsing somewhere else would attach "serving the expected commit" to
     # evidence from a host nothing was verified about — so this refuses
     # before any browser starts, rather than labelling those screenshots
     # fresh.
-    if verified_origin and origin_of(base_url) != verified_origin:
+    if verified_origin and credential_free_origin(base_url) != verified_origin:
         _bqa._log(
             f"ERROR: freshness was verified for {verified_origin} but this "
-            f"run would browse {origin_of(base_url)}. Evidence from an "
+            f"run would browse {credential_free_origin(base_url)}. Evidence from an "
             "unverified target cannot carry that freshness claim. Point the "
             "run at the verified deployment. Running without the freshness "
             "arguments produces ordinary development evidence, which is a "
