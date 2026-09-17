@@ -11,6 +11,14 @@
 .universe-app-root .navigation-scrim[hidden] {
   display: none;
 }
+/* The header wraps rather than running off the side. It only ever wraps
+   when its own parts do not fit, so a full-width desktop header is still
+   one row. */
+.universe-app-root .topbar {
+  flex-wrap: wrap;
+  row-gap: 7px;
+}
+
 .universe-app-root .shell-search {
   display: flex;
   min-width: 0;
@@ -78,7 +86,16 @@
   overflow-x: auto;
   overflow-y: hidden;
 }
-.universe-app-root .header-scope-host .scope-label { display: none; }
+/* The control is already captioned PROJECTS, so its own label is noise —
+   except on a single-project screen, where a second chip row sits under the
+   first and only its label says what the difference is. */
+.universe-app-root .header-scope-host > .scope-bar > .scope-label {
+  display: none;
+}
+.universe-app-root .header-scope-host .scope-bar .scope-bar > .scope-label {
+  flex: 0 0 auto;
+  margin-right: 5px;
+}
 .universe-app-root .header-scope-host .scope-chip {
   flex: 0 0 auto;
   padding: 2px 10px;
@@ -228,11 +245,7 @@
 }
 
 @media (max-width: 640px) {
-  .universe-app-root {
-    grid-template-rows: auto minmax(0, 1fr);
-  }
   .universe-app-root .topbar {
-    flex-wrap: wrap;
     gap: 7px;
     padding: 8px 10px;
   }
@@ -241,14 +254,35 @@
   .universe-app-root .context-side {
     display: contents;
   }
+  /* A single-project screen carries two pickers in this one control — the
+     projects in scope, and which of them is focused. Side by side they are
+     wider than a phone and neither could shrink, so the header ran past the
+     screen edge and took the actor control off it. The focus picker takes
+     its own line, the control grows to hold it rather than clipping at a
+     fixed height, and each chip row scrolls inside itself. */
   .universe-app-root .header-project-context {
+    height: auto;
+    min-height: 32px;
     flex: 1 0 100%;
+    flex-wrap: wrap;
     width: 100%;
+    padding: 4px 10px;
     order: 20;
+    row-gap: 6px;
   }
   .universe-app-root .header-scope-host,
   .universe-app-root .header-scope-host .scope-bar {
     width: 100%;
+  }
+  .universe-app-root .header-scope-host > .scope-bar {
+    flex-wrap: wrap;
+    row-gap: 6px;
+    min-width: 0;
+  }
+  .universe-app-root .header-scope-host .scope-bar .scope-bar {
+    flex: 1 1 100%;
+    min-width: 0;
+    overflow-x: auto;
   }
   /* A phone has no room for a panel floating over a page: the dialog IS the
      screen here, so it fills it rather than centring inside a viewport it

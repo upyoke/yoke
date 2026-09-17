@@ -20,7 +20,11 @@
      panels inside it cannot each contribute a gap and double it. */
   --yoke-section-gap: 24px;
   display: grid;
-  grid-template-rows: var(--yoke-header-height) minmax(0, 1fr);
+  /* The header row is as tall as the header. A fixed track clipped it
+     instead: between the drawer breakpoint and full desktop the brand,
+     the search field and the three labelled contexts total more than the
+     viewport, and the actor control was cut off the right edge at 1024. */
+  grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
   /* The frame owns its height rather than inheriting it. `height: 100%`
      hands that decision to whatever the host wraps the mount root in, and a
