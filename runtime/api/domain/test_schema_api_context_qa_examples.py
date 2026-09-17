@@ -76,8 +76,8 @@ def test_qa_packet_carries_canonical_unsatisfied_verification_select() -> None:
     assert "Canonical unsatisfied-verification SELECT" in body
     assert "FROM qa_requirements qr WHERE qr.item_id = %s" in body
     assert "qr.qa_phase = 'verification' AND qr.waived_at IS NULL" in body
-    assert "NOT EXISTS (SELECT 1 FROM qa_runs qrun" in body
-    assert "qrun.qa_requirement_id = qr.id AND qrun.verdict = 'pass'" in body
+    assert "has_current_passing_run" in body
+    assert "EXISTS(verdict=pass) is not current" in body
 
 
 def test_qa_packet_carries_requirement_add_ac_verification_example() -> None:
@@ -128,7 +128,7 @@ def test_qa_packet_carries_plan_case_materialization_example() -> None:
     for field in (
         "method_id",
         "expected_outcome",
-        "immutable method_config",
+        "method_config snapshot",
     ):
         assert field in body
 

@@ -21,6 +21,7 @@ from yoke_core.domain.deployment_qa_stage_contract import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
     deployment_qa_stage_subject,
 )
+from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.schema_common import _table_exists
 
 # A post_deploy row that already passed once is not re-runnable into
@@ -196,14 +197,17 @@ def unsatisfied_blocking(
     if not (present["cnt"] if present else 0):
         return UnsatisfiedBlocking()
     rows = conn.execute(
-        "SELECT qr.id, qr.qa_phase, EXISTS("
-        "SELECT 1 FROM qa_runs qrun "
-        "WHERE qrun.qa_requirement_id = qr.id AND qrun.verdict = 'pass'"
-        ") AS passed FROM qa_requirements qr "
+        "SELECT qr.id, qr.qa_phase FROM qa_requirements qr "
         f"WHERE qr.item_id = {marker} AND qr.blocking_mode = 'blocking' "
         "AND qr.waived_at IS NULL",
         (int(item_id),),
     ).fetchall()
+    scored = []
+    for row in rows:
+        item = dict(row)
+        item["passed"] = has_current_passing_run(conn, int(item["id"]))
+        scored.append(item)
+    rows = scored
     if target_status != "done":
         unsatisfied = [row for row in rows if not row["passed"]]
     else:

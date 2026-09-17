@@ -24,16 +24,13 @@ from yoke_core.domain.db_helpers import (
     query_rows,
 )
 from yoke_core.domain.qa_constants import (
-    VALID_BLOCKING_MODES,
-    VALID_QA_PHASES,
     _REQ_SELECT,
-    _normalize_qa_phase,
     _pipe_row,
 )
 from yoke_core.domain.qa_events import emit_qa_requirement_event
-from yoke_core.domain.qa_method_capabilities import (
-    QaMethodCapabilityError,
-    encoded_capability_kinds,
+from yoke_core.domain.qa_requirement_config_update import (
+    UPDATABLE_REQUIREMENT_FIELDS,  # noqa: F401 - re-exported
+    apply_requirement_update,
 )
 
 
@@ -220,25 +217,6 @@ def cmd_requirement_waive(
     print(f"Waived requirement {req_id} (source={source})")
 
 
-# ---------------------------------------------------------------------------
-# requirement-update
-# ---------------------------------------------------------------------------
-
-# Fields the caller may mutate through ``requirement-update``. Lifecycle /
-# identity fields (``id``, ``qa_kind``, attachment keys, ``waived_at`` and
-# friends, ``created_at``) are deliberately excluded — mutating those would
-# change what the requirement *is*, not how it validates. Use ``requirement-add``
-# + ``requirement-waive`` instead.
-UPDATABLE_REQUIREMENT_FIELDS: tuple[str, ...] = (
-    "success_policy",
-    "blocking_mode",
-    "target_env",
-    "capability_requirements",
-    "suite_id",
-    "qa_phase",
-)
-
-
 def cmd_requirement_update(
     req_id: int,
     field: str,
@@ -246,100 +224,18 @@ def cmd_requirement_update(
     *,
     db_path: Optional[str] = None,
 ) -> None:
-    """Update a mutable field on an existing QA requirement.
-
-    Field allowlist: ``success_policy``, ``blocking_mode``, ``target_env``,
-    ``capability_requirements``, ``suite_id``, ``qa_phase``. Other fields are
-    rejected; ``qa_kind`` in particular must not be mutated here — use
-    ``requirement-waive`` plus a fresh ``requirement-add`` when the verification
-    surface needs to change.
-
-    Validates enum fields (``blocking_mode``, ``qa_phase``) against the
-    canonical constants. Method-backed case configuration is immutable and is
-    not part of this generic aggregate-requirement update surface.
-
-    Emits a ``QARequirementUpdated`` lifecycle event carrying the field name
-    and the new value. The prior value is not logged to keep event size small
-    and to avoid leaking potentially large policy bodies.
-    """
-    if req_id is None:
+    """CLI adapter for :func:`apply_requirement_update`."""
+    if req_id is None or not field:
         print("Usage: qa requirement-update <id> <field> [value]", file=sys.stderr)
         sys.exit(2)
-    if not field:
-        print("Usage: qa requirement-update <id> <field> [value]", file=sys.stderr)
-        sys.exit(2)
-
-    if field == "qa_kind":
-        print(
-            "Error: qa_kind is not updatable. Use requirement-waive + requirement-add "
-            "to replace the verification surface.",
-            file=sys.stderr,
-        )
-        sys.exit(2)
-    if field not in UPDATABLE_REQUIREMENT_FIELDS:
-        print(
-            f"Error: field '{field}' is not updatable. Allowed: "
-            f"{', '.join(UPDATABLE_REQUIREMENT_FIELDS)}",
-            file=sys.stderr,
-        )
-        sys.exit(2)
-
-    # Enum validation mirrors the add path.
-    if field == "blocking_mode":
-        if value not in VALID_BLOCKING_MODES:
-            print(
-                f"Error: blocking_mode must be one of {sorted(VALID_BLOCKING_MODES)}",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-    if field == "qa_phase":
-        normalized = _normalize_qa_phase(value or "")
-        if normalized not in VALID_QA_PHASES:
-            print(
-                f"Error: qa_phase must be one of {sorted(VALID_QA_PHASES)}",
-                file=sys.stderr,
-            )
-            sys.exit(2)
-        value = normalized
-    if field == "capability_requirements":
-        try:
-            value = encoded_capability_kinds(value, subject="QA requirement")
-        except QaMethodCapabilityError as exc:
-            print(f"Error: {exc}", file=sys.stderr)
-            sys.exit(2)
-
     conn = connect(path=db_path)
     try:
-        existing = query_one(
-            conn,
-            "SELECT qa_kind, qa_phase, item_id, epic_id, task_num, deployment_run_id "
-            "FROM qa_requirements WHERE id = %s",
-            (req_id,),
-        )
-        if existing is None:
-            print(f"Error: requirement {req_id} not found", file=sys.stderr)
-            sys.exit(1)
-
-        conn.execute(
-            f"UPDATE qa_requirements SET {field} = %s WHERE id = %s",
-            (value, req_id),
-        )
-        conn.commit()
-
-        # Resolve phase for event payload (use updated value when qa_phase
-        # was the mutated field; otherwise fall back to the existing row).
-        event_phase = value if field == "qa_phase" else str(existing["qa_phase"])
-        emit_qa_requirement_event(
-            conn,
-            db_path=db_path,
-            event_name="QARequirementUpdated",
-            requirement_id=req_id,
-            qa_kind=str(existing["qa_kind"]),
-            qa_phase=event_phase,
-            extra_detail={"field": field, "new_value": value},
-            target_row=existing,
+        result = apply_requirement_update(
+            conn, int(req_id), field, value, db_path=db_path
         )
     finally:
         conn.close()
-
+    if not result.ok:
+        print(f"Error: {result.message}", file=sys.stderr)
+        sys.exit(1 if result.error_code == "not_found" else 2)
     print(f"Updated requirement {req_id}: {field}")

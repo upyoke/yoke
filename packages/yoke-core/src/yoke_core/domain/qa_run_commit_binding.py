@@ -191,8 +191,8 @@ def bind_cli_raw_result(
     try:
         row = query_one(
             conn,
-            "SELECT blocking_mode, waived_at, item_id FROM qa_requirements "
-            "WHERE id = %s",
+            "SELECT blocking_mode, waived_at, item_id, method_config "
+            "FROM qa_requirements WHERE id = %s",
             (int(requirement_id),),
         )
         if row is None:
@@ -216,6 +216,11 @@ def bind_cli_raw_result(
     if error:
         print(f"Error: {error}", file=sys.stderr)
         sys.exit(2)
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        stamp_executed_method_config,
+    )
+
+    bound = stamp_executed_method_config(bound, row["method_config"])
     return bound
 
 

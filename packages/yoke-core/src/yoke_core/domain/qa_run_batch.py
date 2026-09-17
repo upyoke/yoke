@@ -109,7 +109,8 @@ def cmd_run_add_batch(
         for idx, row in enumerate(payload):
             requirement = query_one(
                 conn,
-                "SELECT qa_kind, method_id FROM qa_requirements WHERE id = %s",
+                "SELECT qa_kind, method_id, method_config "
+                "FROM qa_requirements WHERE id = %s",
                 (row["requirement_id"],),
             )
             if requirement is None:
@@ -143,6 +144,7 @@ def cmd_run_add_batch(
                     file=sys.stderr,
                 )
                 sys.exit(2)
+            row["_method_config"] = requirement["method_config"]
             require_cli_agent_undetermined_evidence(
                 conn,
                 performed_by=row["performed_by"],
@@ -188,10 +190,16 @@ def cmd_run_add_batch(
                             sys.exit(2)
 
         now_iso = iso8601_now()
+        from yoke_core.domain.qa_requirement_pass_currency import (
+            stamp_executed_method_config,
+        )
 
         for row in payload:
             verdict = row.get("verdict")
             completed_at_value = None if verdict is None else now_iso
+            raw_result = stamp_executed_method_config(
+                row.get("raw_result"), row.get("_method_config")
+            )
 
             sql = """INSERT INTO qa_runs
                       (qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason,
@@ -208,7 +216,7 @@ def cmd_run_add_batch(
                     row.get("verdict_reason"),
                     row.get("score"),
                     row.get("confidence"),
-                    row.get("raw_result"),
+                    raw_result,
                     row.get("duration_ms"),
                     now_iso,
                     completed_at_value,

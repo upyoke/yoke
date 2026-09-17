@@ -16,6 +16,9 @@ from yoke_core.domain.qa_method_capabilities import (
     host_provisioned_capability_kinds,
     missing_capability_kinds,
 )
+from yoke_core.domain.qa_requirement_pass_currency import (
+    METHOD_CONFIG_REVISION_KEY,
+)
 from yoke_contracts.machine_config.capability_secrets import (
     TEST_MACHINE_CAPABILITY,
 )
@@ -198,6 +201,8 @@ def get_case_execution_context(
         if row["plan_case_key"]
         else f"ad-hoc-{int(row['requirement_id'])}"
     )
+    method_config = _json_object(row["method_config"])
+    method_config.pop(METHOD_CONFIG_REVISION_KEY, None)
     context = {
         "requirement_id": int(row["requirement_id"]),
         "item_id": (int(row["item_id"]) if row["item_id"] is not None else None),
@@ -218,7 +223,7 @@ def get_case_execution_context(
         "qa_kind": str(row["qa_kind"]),
         "instructions": str(row["instructions"] or ""),
         "expected_outcome": str(row["expected_outcome"] or ""),
-        "method_config": _json_object(row["method_config"]),
+        "method_config": method_config,
         "host_baseline": row["host_baseline"],
         "entry_surface": row["entry_surface"],
         "required_completion": row["required_completion"],

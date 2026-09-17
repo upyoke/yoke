@@ -6,10 +6,8 @@ hosts ``qa.run.record_verdict`` so each file stays under the 350-line cap.
 
 Domain reuse:
 
-- Field allowlist for requirement-update mirrors
-  :data:`yoke_core.domain.qa_requirement_ops.UPDATABLE_REQUIREMENT_FIELDS`.
-- Enum constants come from :mod:`yoke_core.domain.qa_constants`.
-- Event emission goes through :func:`qa_events.emit_qa_requirement_event`.
+- Field allowlist and mutation live in
+  :mod:`yoke_core.domain.qa_requirement_config_update`.
 
 The CLI counterparts (`cmd_requirement_update`, `cmd_run_complete`) exit
 on validation failure; handlers return a structured ``FunctionError`` instead.
@@ -59,14 +57,8 @@ def _error(
 
 
 def handle_qa_requirement_update(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.db_helpers import connect, query_one
-    from yoke_core.domain.qa_constants import (
-        VALID_BLOCKING_MODES,
-        VALID_QA_PHASES,
-        _normalize_qa_phase,
-    )
-    from yoke_core.domain.qa_events import emit_qa_requirement_event
-    from yoke_core.domain.qa_requirement_ops import UPDATABLE_REQUIREMENT_FIELDS
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.qa_requirement_config_update import apply_requirement_update
 
     target = request.target
     req_id = target.qa_requirement_id
@@ -84,86 +76,23 @@ def handle_qa_requirement_update(request: FunctionCallRequest) -> HandlerOutcome
             "field is required",
             jsonpath="$.payload.field",
         )
-    if field == "qa_kind":
-        return _error(
-            "field_not_updatable",
-            "qa_kind is not updatable; use requirement-waive + requirement-add",
-            jsonpath="$.payload.field",
-        )
-    if field not in UPDATABLE_REQUIREMENT_FIELDS:
-        return _error(
-            "field_not_updatable",
-            f"field {field!r} is not updatable; allowed: "
-            f"{', '.join(UPDATABLE_REQUIREMENT_FIELDS)}",
-            jsonpath="$.payload.field",
-        )
-
-    if field == "blocking_mode" and value not in VALID_BLOCKING_MODES:
-        return _error(
-            "payload_invalid",
-            f"blocking_mode must be one of {sorted(VALID_BLOCKING_MODES)}",
-            jsonpath="$.payload.value",
-        )
-    if field == "qa_phase":
-        normalized = _normalize_qa_phase(str(value or ""))
-        if normalized not in VALID_QA_PHASES:
-            return _error(
-                "payload_invalid",
-                f"qa_phase must be one of {sorted(VALID_QA_PHASES)}",
-                jsonpath="$.payload.value",
-            )
-        value = normalized
-    if field == "capability_requirements":
-        from yoke_core.domain.qa_method_capabilities import (
-            QaMethodCapabilityError,
-            encoded_capability_kinds,
-        )
-
-        try:
-            value = encoded_capability_kinds(value, subject="QA requirement")
-        except QaMethodCapabilityError as exc:
-            return _error(
-                "payload_invalid",
-                str(exc),
-                jsonpath="$.payload.value",
-            )
 
     conn = connect()
     try:
-        p = _p(conn)
-        existing = query_one(
-            conn,
-            "SELECT qa_kind, qa_phase, item_id, epic_id, task_num, "
-            f"deployment_run_id FROM qa_requirements WHERE id = {p}",
-            (int(req_id),),
-        )
-        if existing is None:
-            return _error("not_found", f"requirement {req_id} not found")
-        p = _p(conn)
-        conn.execute(
-            f"UPDATE qa_requirements SET {field} = {p} WHERE id = {p}",
-            (value, int(req_id)),
-        )
-        conn.commit()
-        event_phase = value if field == "qa_phase" else str(existing["qa_phase"])
-        emit_qa_requirement_event(
-            conn,
-            db_path=None,
-            event_name="QARequirementUpdated",
-            requirement_id=int(req_id),
-            qa_kind=str(existing["qa_kind"]),
-            qa_phase=event_phase,
-            extra_detail={"field": field, "new_value": value},
-            target_row=existing,
-        )
+        result = apply_requirement_update(conn, int(req_id), field, value)
     finally:
         conn.close()
-
+    if not result.ok:
+        return _error(
+            result.error_code,
+            result.message,
+            jsonpath=result.jsonpath,
+        )
     return HandlerOutcome(
         result_payload={
-            "requirement_id": int(req_id),
-            "field": field,
-            "new_value": value,
+            "requirement_id": result.requirement_id,
+            "field": result.field,
+            "new_value": result.new_value,
         },
         primary_success=True,
     )

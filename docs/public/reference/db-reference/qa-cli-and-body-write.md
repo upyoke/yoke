@@ -54,6 +54,7 @@ yoke qa requirement get --requirement-id 1
 # Update a mutable field on an existing requirement
 yoke qa requirement update --requirement-id 4309 --field blocking_mode --value non_blocking
 yoke qa requirement update --requirement-id 4309 --field success_policy --value "$policy_json"
+yoke qa requirement update --requirement-id 4309 --field method_config --value "$config_json"
 
 # Record a QA run for that item-bound review requirement.
 # Blocking passes stamp verification_tree.head_sha from the claimed lane HEAD
@@ -111,14 +112,18 @@ implementation/domain capability until a public adapter is registered; do
 not teach a fake public listing command for it. `yoke qa requirement waive`
 and `yoke qa run get` are registered public adapters.
 
-**When to use which mutator.** `requirement-update` changes the *policy* of an
-existing requirement — tighten a success policy, move a requirement between
-`blocking` and `non_blocking`, bind it to a different `target_env`, or clear a
-nullable field. It preserves the requirement identity, so linked runs and
-artifacts stay attached. Use `requirement-add` when the *verification surface
-itself* needs to change — for example, swapping from `unit_test` to
-`integration` — since that is a different requirement. `requirement-update`
-refuses to mutate `qa_kind` for exactly that reason.
+**When to use which mutator.** `requirement-update` changes the *policy* or
+*executable config* of an existing requirement — tighten a success policy,
+move a requirement between `blocking` and `non_blocking`, bind it to a
+different `target_env`, correct a live `method_config` capture script
+(selectors, waits, assertions), or clear a nullable field. It preserves the
+requirement identity, so linked runs and artifacts stay attached. A
+`method_config` correction invalidates prior greens for gating unless a later run recorded the new config at start; re-run the
+case. Frozen deployment-run requirements refuse `method_config` updates.
+Use `requirement-add` when the *verification surface itself* needs to change
+— for example, swapping from `unit_test` to `integration` — since that is a
+different requirement. `requirement-update` refuses to mutate `qa_kind` for
+exactly that reason.
 
 Exit codes: 0 = success, 1 = error/not found, 2 = usage error
 

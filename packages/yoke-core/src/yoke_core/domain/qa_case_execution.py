@@ -118,7 +118,11 @@ def record_command_run(
         case_artifact_subject,
         stage_recovery_copy,
     )
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        stamp_executed_method_config,
+    )
 
+    raw_result = stamp_executed_method_config(raw_result, case.get("method_config"))
     call_qa = recording_leg(case, actor=actor)
     run = call_qa(
         "qa.run.add",

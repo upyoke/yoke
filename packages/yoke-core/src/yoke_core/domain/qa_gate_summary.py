@@ -15,6 +15,7 @@ from yoke_core.domain.db_helpers import connect, query_one, query_rows
 from yoke_core.domain.qa_constants import is_browser_method_requirement
 from yoke_core.domain.qa_gate_definitions import GateTarget
 from yoke_core.domain.qa_gate_helpers import _qa_tables_exist
+from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
 
 
@@ -169,7 +170,7 @@ def render_gate_summary(
                 method_id=method_id,
                 waived_at=waived_at,
                 has_substrate_run=substrate_row is not None,
-                has_pass_run=pass_row is not None,
+                has_pass_run=has_current_passing_run(conn, req_id),
             )
 
             if is_browser_method_requirement(method_id):

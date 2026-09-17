@@ -126,7 +126,7 @@ QA_COMMANDS: list[dict] = [
             "Registered write qa.plan.materialize. Materialization is "
             "idempotent and snapshots each attached plan case into one "
             "qa_requirements row carrying method_id, instructions, "
-            "expected_outcome, immutable method_config, and the plan's "
+            "expected_outcome, method_config snapshot, and the plan's "
             "environment/tenant/project execution target. Read the "
             "result with `yoke qa requirement list --item PREFIX-N`; "
             "standard materialization never rewrites an existing case snapshot. "

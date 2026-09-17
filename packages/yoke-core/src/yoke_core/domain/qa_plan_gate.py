@@ -9,6 +9,7 @@ from yoke_core.domain.qa_gate_preconditions import (
     qa_gate_precondition_result,
 )
 from yoke_core.domain.qa_review_requests import requirement_awaits_human_review
+from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 
 
 def check_plan_simulation_satisfied(item_id: int, db_path: str) -> GateResult:
@@ -38,15 +39,15 @@ def check_plan_simulation_satisfied(item_id: int, db_path: str) -> GateResult:
               AND r.qa_phase = 'verification'
               AND r.blocking_mode = 'blocking'
               AND r.waived_at IS NULL
-              AND NOT EXISTS (
-                SELECT 1 FROM qa_runs qr
-                WHERE qr.qa_requirement_id = r.id
-                  AND qr.verdict = 'pass'
-              )
             ORDER BY r.id
             """,
             (item_id,),
         )
+        unsatisfied = [
+            row
+            for row in unsatisfied
+            if not has_current_passing_run(conn, int(row["id"]))
+        ]
         review_waits = {
             int(row["id"]): requirement_awaits_human_review(conn, int(row["id"]))
             for row in unsatisfied

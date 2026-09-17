@@ -59,6 +59,7 @@ def _insert_docket(
         host_control_submission_receipt,
     )
     from yoke_core.domain.qa_plan_execution_store import canonical, marker
+    from yoke_core.domain.qa_requirement_pass_currency import stamp_executed_method_config
 
     now = iso8601_now()
     executor = str(case["method_config"]["executor"])
@@ -83,7 +84,7 @@ def _insert_docket(
             None,
             "captured",
             "needs_review",
-            canonical(transcript),
+            stamp_executed_method_config(canonical(transcript), case.get("method_config")),
             now,
             now,
             now,
