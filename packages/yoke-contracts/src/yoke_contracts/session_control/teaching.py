@@ -49,7 +49,13 @@ FLEET_STEERING_ADDRESSING_GUIDANCE = (
     "say so in your next substantive update. Ending a turn sends "
     "no Fleet message. A sender that has held no "
     "item names the scope instead with --steering-scope "
-    "'{\"project_id\": N}'."
+    "'{\"project_id\": N}'. A sanctioned item-to-document link repair "
+    "re-resolves that item's unacknowledged role mail and delivers it to "
+    "the live covering seat without a release/reacquire; acknowledgements, "
+    "document boundaries, and ended sessions stay as they are. A "
+    "steering-origin worker launch refuses when the assigned item does not "
+    "resolve to this live seat — missing or mismatched coverage is named, "
+    "and the launch does not assign an unrelated document."
 )
 
 FLEET_ADDRESSING_GUIDANCE = (
