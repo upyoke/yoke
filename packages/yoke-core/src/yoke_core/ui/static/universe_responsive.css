@@ -132,7 +132,6 @@
   .universe-app-root .shell {
     grid-template-columns: 236px minmax(0, 1fr);
   }
-  .universe-app-root .annotation-rail { display: none; }
 }
 
 @media (max-width: 980px) {
@@ -296,9 +295,9 @@
   .universe-app-root .header-context-control button,
   .universe-app-root .header-scope-host .scope-chip { min-height: 0; }
   .universe-app-root .activation-dismiss { opacity: 1; }
-  .universe-app-root .work-item-card:hover,
-  .universe-app-root .strategy-doc-card:hover,
-  .universe-app-root .session-card:hover {
+  /* Only the card that IS a link still lifts, so only it needs the touch
+     answer; the others stopped promising a click at every pointer. */
+  .universe-app-root .strategy-doc-card:hover {
     border-color: var(--yoke-border);
     box-shadow: none;
   }

@@ -4,8 +4,9 @@
 @import url("./universe_sessions_holdings.css");
 @import url("./universe_sessions_usage.css");
 
-/* Sessions follows the product prototype's compact harness card: runtime
-   identity and directive first, assignment in the middle, operator last. */
+/* A session reads as one compact card in the order the questions are asked:
+   what is running it and under what directive, then what it is assigned to,
+   then who it belongs to. */
 .universe-app-root .sessions-action-status {
   margin: 0 0 12px;
   color: var(--yoke-muted);
@@ -37,14 +38,6 @@
   font-style: italic;
 }
 
-.universe-app-root .session-card:hover {
-  border-color: color-mix(
-    in srgb,
-    var(--yoke-border) 55%,
-    var(--yoke-accent)
-  );
-  box-shadow: var(--yoke-shadow);
-}
 /* Both header rows wrap rather than truncating: at the grid's narrow column
    a harness name, lane, operator, or model that does not fit on one line
    moves to the next one whole, because an initial and an ellipsis name

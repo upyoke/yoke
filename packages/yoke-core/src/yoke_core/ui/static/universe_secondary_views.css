@@ -171,9 +171,9 @@
   flex: 0 0 auto;
 }
 
-/* Frontier is the steering surface from the prototype: four independent
-   facts, then a ranked runnable table and a blocked-with-reasons table.
-   Commands stay copyable text; the browser never promises to run a skill. */
+/* Frontier is the steering surface: four independent facts, then a ranked
+   runnable table and a blocked-with-reasons table. Commands stay copyable
+   text; the browser never promises to run a skill. */
 .universe-app-root .frontier-stats > .metric-strip {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;

@@ -252,7 +252,9 @@
   text-decoration: none;
 }
 
-.universe-app-root .delivery-member:hover { color: var(--yoke-ink); }
+/* A member without a page is rendered as a span; only the linked form
+   answers a hover. */
+.universe-app-root a.delivery-member:hover { color: var(--yoke-ink); }
 
 .universe-app-root .delivery-run-stages {
   display: flex;

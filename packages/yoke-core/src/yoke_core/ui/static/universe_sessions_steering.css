@@ -76,9 +76,9 @@
   line-height: 1;
 }
 
-/* Landscape artwork (209.8×142). Size by height so stroke weight and
-   visible width match the prototype sess-wheel, not by width which
-   shrinks the mark. */
+/* Landscape artwork (209.8×142). Size by height so the stroke weight and
+   visible width hold beside the text it sits in; sizing by width shrinks
+   the mark instead. */
 .universe-app-root .steering-symbol svg {
   display: block;
   height: 14px;

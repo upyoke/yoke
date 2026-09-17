@@ -82,7 +82,8 @@
   text-decoration: none;
 }
 
-.universe-app-root .item-proof-row:hover,
+/* The plan is a link; the requirement row beside it is not, and lifting it
+   on hover promised a page it never opened. */
 .universe-app-root .item-proof-plan:hover {
   border-color: color-mix(
     in srgb,
@@ -125,26 +126,6 @@
   border-bottom: 1px solid var(--yoke-border);
   border-radius: 0;
   background: transparent;
-}
-
-.universe-app-root .item-proof-row:hover {
-  border-color: var(--yoke-border);
-  background: var(--yoke-hover);
-}
-
-.universe-app-root .item-proof-row.item-proof-link {
-  padding: 9px 11px;
-  border: 1px solid var(--yoke-border);
-  border-radius: 8px;
-  background: var(--yoke-bg);
-}
-
-.universe-app-root .item-proof-row.item-proof-link:hover {
-  border-color: color-mix(
-    in srgb,
-    var(--yoke-accent) 38%,
-    var(--yoke-border)
-  );
 }
 
 .universe-app-root .item-proof-title {

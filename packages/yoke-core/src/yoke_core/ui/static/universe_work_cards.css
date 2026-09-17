@@ -290,9 +290,6 @@
   font-weight: 600;
   text-decoration: none;
 }
-.universe-app-root .shipping-run-evidence:hover {
-  text-decoration: underline;
-}
 .universe-app-root .shipping-run-release {
   color: var(--yoke-muted);
   font-size: 10.5px;

@@ -154,8 +154,8 @@
 }
 
 /* The route body and nav scroll independently inside the fixed frame. The
-   footer is a shell row, so the nav continues beside it exactly as in the
-   prototype instead of ending above it. */
+   footer is a shell row rather than a child of the content column, so the
+   nav runs the full height beside it instead of stopping above it. */
 .universe-app-root .shell {
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);
