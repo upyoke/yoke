@@ -50,8 +50,19 @@ class CloseOutRoute:
     error: str = ""
 
 
-def close_out_route(item: dict[str, Any], status: str) -> CloseOutRoute:
-    """Resolve where this merge's terminal transition should land."""
+def close_out_route(
+    item: dict[str, Any],
+    status: str,
+    *,
+    postpone_terminal: bool = False,
+) -> CloseOutRoute:
+    """Resolve where this merge's terminal transition should land.
+
+    ``postpone_terminal`` is ``--skip-status``: still enter the pinned
+    release wait so a completed merge is not stranded in review, but do
+    not walk to ``done``. Workflows with no release wait keep the historical
+    no-op. Mid-progress slices that cannot legally reach the wait stay put.
+    """
     if status == CLOSED_OUT_STATUS:
         # Already closed out. A re-entry here owes the lane its retirement,
         # not a route, and asking the delivery authority about an item that
@@ -64,6 +75,14 @@ def close_out_route(item: dict[str, Any], status: str) -> CloseOutRoute:
             error=wf_error or "the pinned workflow definition could not be read"
         )
     release_stage_id = delivery_redirect_stage(workflow)
+    if postpone_terminal:
+        if release_stage_id is None:
+            return CloseOutRoute()
+        if workflow.has_reached_stage(status, release_stage_id):
+            return CloseOutRoute()
+        if not declares_transition(workflow, status, release_stage_id):
+            return CloseOutRoute()
+        return CloseOutRoute(stages=(release_stage_id,))
     if release_stage_id is None:
         return CloseOutRoute(stages=(CLOSED_OUT_STATUS,))
     try:

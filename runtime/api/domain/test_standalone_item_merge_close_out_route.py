@@ -77,7 +77,7 @@ def _wire(monkeypatch, *, route):
 
     monkeypatch.setattr(merge_cli.close_out.terminal, "call_dispatcher", dispatch)
     monkeypatch.setattr(
-        close_out_transition, "close_out_route", lambda *_a: route,
+        close_out_transition, "close_out_route", lambda *_a, **_k: route,
     )
     retirements: list = []
     monkeypatch.setattr(
@@ -257,7 +257,7 @@ def test_an_unresolved_delivery_clearance_refuses_rather_than_guesses(
     monkeypatch.setattr(
         close_out_transition,
         "close_out_route",
-        lambda *_a: CloseOutRoute(
+        lambda *_a, **_k: CloseOutRoute(
             error="the pinned workflow definition could not be read",
         ),
     )

@@ -26,6 +26,18 @@ LANE = LandedLane(
 )
 
 
+@pytest.fixture(autouse=True)
+def _enter_release_wait_on_close_out(monkeypatch):
+    monkeypatch.setattr(
+        merge_cli.close_out,
+        "transition_to_done",
+        lambda **kwargs: (
+            (tuple(kwargs.get("stages") or ("release",)) or ("release",))[-1],
+            "",
+        ),
+    )
+
+
 def _landed_item() -> dict:
     return {
         "id": 7,

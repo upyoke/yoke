@@ -19,6 +19,18 @@ MERGING_SHA = "b" * 40
 EARLIER_SHA = "a" * 40
 
 
+@pytest.fixture(autouse=True)
+def _enter_release_wait_on_close_out(monkeypatch):
+    monkeypatch.setattr(
+        merge_cli.close_out,
+        "transition_to_done",
+        lambda **kwargs: (
+            (tuple(kwargs.get("stages") or ("release",)) or ("release",))[-1],
+            "",
+        ),
+    )
+
+
 def _item(requirement: dict | None) -> dict:
     requirements = [] if requirement is None else [requirement]
     return {

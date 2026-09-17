@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from yoke_core.domain.qa_phase_boundary import (
+    POST_MERGE_QA_PHASES,
+    post_merge_binding_refusal,
+)
 from yoke_core.domain.workflow_definition_builders import (
     WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT,
 )
@@ -136,6 +140,7 @@ def validate_item_qa_transition(
     transition_id: Any,
     plan_id: Any = None,
     method_id: Any = None,
+    qa_phase: Any = None,
 ) -> tuple[str, WorkflowRuntime]:
     """Require a definition- or selected-posture-enforced QA binding."""
     transition = str(transition_id or "").strip()
@@ -150,6 +155,17 @@ def validate_item_qa_transition(
             f"workflow transition {transition!r} is not in "
             f"{workflow.workflow_id}@{workflow.version}"
         )
+    phase = str(qa_phase or "").strip()
+    contradiction = post_merge_binding_refusal(
+        workflow, transition=transition, qa_phase=phase,
+    )
+    if contradiction:
+        raise QaWorkflowBindingError(contradiction)
+    if phase in POST_MERGE_QA_PHASES:
+        # Optional item QA strips the release wait from its verification
+        # signature; post-merge acceptance is supposed to bind there (or
+        # at done), so that strip must not refuse the supported recovery.
+        return transition, workflow
     signature = qa_enforcement_signature(workflow, transition)
     if effective.values.get("qa") == WORKFLOW_QA_OPTIONAL_ITEM_ATTACHMENT:
         # The pinned release wait carries its own qa_verification gate for

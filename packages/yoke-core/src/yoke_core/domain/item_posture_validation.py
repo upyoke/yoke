@@ -97,8 +97,24 @@ def validate_item_posture(
             raise ItemPostureError(
                 f"{key} posture must be true when selected; omit it otherwise"
             )
+        if key == "approval_on_done":
+            _require_human_project_owner(conn, project_id)
         normalized[key] = True
     return normalized
+
+
+def _require_human_project_owner(conn: Any, project_id: int) -> None:
+    from yoke_core.domain.decision_request_authority import human_role_holders
+
+    if human_role_holders(
+        conn, scope_kind="project", scope_id=int(project_id), role_name="owner"
+    ):
+        return
+    raise ItemPostureError(
+        "approval_on_done requires at least one human project owner; this "
+        "project currently has none. Grant the owner role to a human actor, "
+        "then retry. Do not assign roles automatically."
+    )
 
 
 __all__ = ["ItemPostureError", "validate_item_posture"]

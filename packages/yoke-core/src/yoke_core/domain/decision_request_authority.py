@@ -265,11 +265,81 @@ def recently_decided_requests_for_actor(
     return result
 
 
+def human_role_holders(
+    conn: Any,
+    *,
+    scope_kind: str,
+    scope_id: int,
+    role_name: str,
+) -> tuple[int, ...]:
+    """Live human holders of one role; same JOIN ``request_deciders`` uses."""
+    table = "actor_org_roles" if scope_kind == "org" else "actor_project_roles"
+    scope_column = "org_id" if scope_kind == "org" else "project_id"
+    p = _p(conn)
+    rows = conn.execute(
+        f"SELECT ar.actor_id FROM {table} ar "
+        "JOIN actors a ON a.id = ar.actor_id AND a.kind = 'human' "
+        "JOIN roles r ON r.id = ar.role_id "
+        f"WHERE ar.{scope_column} = {p} AND r.name = {p} "
+        "ORDER BY ar.actor_id",
+        (int(scope_id), str(role_name)),
+    ).fetchall()
+    return tuple(int(row[0]) for row in rows)
+
+
+def unauthorized_resolution_message(
+    conn: Any,
+    request_id: int,
+    actor_id: int,
+) -> str:
+    """Explain a live authorization miss with recovery, not bare ids."""
+    caller = actor_display_labels(conn, (actor_id,)).get(
+        int(actor_id), f"actor {actor_id}"
+    )
+    p = _p(conn)
+    roles = list(
+        conn.execute(
+            "SELECT scope_kind, role_name FROM decision_request_role_authorities "
+            f"WHERE request_id = {p} ORDER BY role_name, scope_kind",
+            (request_id,),
+        ).fetchall()
+    )
+    named_count = int(
+        conn.execute(
+            "SELECT COUNT(*) FROM decision_request_actor_authorities "
+            f"WHERE request_id = {p}",
+            (request_id,),
+        ).fetchone()[0]
+    )
+    required = [_role_label(row[0], row[1]) for row in roles]
+    if named_count:
+        required.append("a named human")
+    required_text = ", ".join(required) or "the request's recorded authority"
+    owner_only = [str(row[1]) for row in roles] == ["owner"] and named_count == 0
+    deciders = request_deciders(conn, request_id, actor_id)
+    humans = (
+        "eligible humans: " + ", ".join(str(row["label"]) for row in deciders)
+        if deciders
+        else "no eligible human currently holds the required authority"
+    )
+    admin_note = (
+        " Org admin does not satisfy this owner-only policy." if owner_only else ""
+    )
+    return (
+        f"{caller} is not authorized for decision request {request_id}: "
+        f"required {required_text}. {humans}. Caller is {caller}. "
+        "Answer from an eligible human Inbox, or grant a required role to a "
+        f"human actor. Do not assign roles automatically.{admin_note}"
+    )
+
+
 __all__ = [
     "RECENTLY_DECIDED_SHOWN",
     "authority_reason",
     "decision_request_authority_actor_ids",
+    "human_role_holders",
     "pending_requests_for_actor",
     "recently_decided_requests_for_actor",
     "request_deciders",
+    "unauthorized_resolution_message",
 ]

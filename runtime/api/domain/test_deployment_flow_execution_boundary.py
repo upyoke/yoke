@@ -135,6 +135,76 @@ def test_an_external_persistent_target_without_identity_proof_is_refused(
         )
 
 
+def _environment_stating_its_path(conn: Any, name: str, path: str) -> None:
+    """One environment that states the path it proves its own revision at."""
+    site = conn.execute(
+        "INSERT INTO sites (project_id, name, created_at) "
+        "VALUES (1, %s, %s) RETURNING id",
+        (f"site-{name}", "2026-09-17T00:00:00Z"),
+    ).fetchone()[0]
+    conn.execute(
+        "INSERT INTO environments (site, project_id, name, settings, created_at) "
+        "VALUES (%s, 1, %s, %s, %s)",
+        (
+            int(site),
+            name,
+            json.dumps({"qa": {"identity_path": path}}),
+            "2026-09-17T00:00:00Z",
+        ),
+    )
+    conn.commit()
+
+
+def test_the_preview_reads_the_environment_statement_the_gate_reads(
+    test_db: Any,
+) -> None:
+    """A preview and the gate that admits it must answer alike.
+
+    An environment states its own served-revision path, because a project
+    reaches each of its environments under a different prefix. Asking the
+    project alone misses that statement, and the definition below is the
+    case where the two answers diverge: the producing runner proves no
+    identity, so without the statement this is refused — but the
+    environment proves itself, so the gate admits it. A preview that
+    reported it unexecutable would send an operator to configure
+    something already configured.
+    """
+    _environment_stating_its_path(test_db, "attested", "/v1/health")
+    stages = json.dumps(
+        [
+            {
+                "name": "deploy-via-actions",
+                "step_runner": "github-actions-workflow",
+                "stage_kind": "execution",
+                "scope": "run",
+                "workflow": "deploy.yml",
+            },
+            {
+                "name": "release-qa",
+                "step_runner": "qa",
+                "stage_kind": "qa",
+                "scope": "run",
+                "target": {
+                    "kind": "persistent_environment",
+                    "environment": "attested",
+                    "source_stage": "deploy-via-actions",
+                },
+                "verdict": {"mode": "agent_only"},
+            },
+        ]
+    )
+
+    result = cmd_validate_definition(
+        test_db, project="yoke", stages=stages, status="disabled"
+    )
+
+    assert result["unprovable_qa_identity_stages"] == []
+    assert result["execution_supported"] is True
+    # The gate agrees, which is the whole point of reading one configuration.
+    assert cmd_validate_definition(
+        test_db, project="yoke", stages=stages, status="active"
+    )["execution_supported"] is True
+
 
 def test_a_definition_whose_targets_are_observable_activates(test_db: Any) -> None:
     """The enabled boundary: schema 2 with an environment-backed QA target."""

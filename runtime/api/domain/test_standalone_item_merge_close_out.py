@@ -178,7 +178,7 @@ def test_a_queue_landed_item_closes_out_with_its_own_file_set(monkeypatch):
     # This test is about evidence/file-set ordering, not the delivery route:
     # pin the target at "done" so the transition it observes matches the
     # file-set assertions regardless of dash's own release-stage policy.
-    monkeypatch.setattr(close_out_transition, "close_out_route", lambda *_a: release_status.CloseOutRoute(stages=("done",)))
+    monkeypatch.setattr(close_out_transition, "close_out_route", lambda *_a, **_k: release_status.CloseOutRoute(stages=("done",)))
     restored = []
     monkeypatch.setattr(
         merge_cli.recovery,
@@ -304,7 +304,7 @@ def test_merge_retry_uses_recovered_head_then_finishes_close_out(monkeypatch):
     )
     monkeypatch.setattr(sim, "sync_item_to_github", lambda _item_id: None)
     monkeypatch.setattr(terminal.git, "is_landed", lambda *_a: True)
-    monkeypatch.setattr(close_out_transition, "close_out_route", lambda *_a: release_status.CloseOutRoute(stages=("done",)))
+    monkeypatch.setattr(close_out_transition, "close_out_route", lambda *_a, **_k: release_status.CloseOutRoute(stages=("done",)))
     calls = _transition_calls(monkeypatch)
 
     exit_code = merge_cli.run(

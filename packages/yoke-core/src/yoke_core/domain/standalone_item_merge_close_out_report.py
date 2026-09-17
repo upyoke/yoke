@@ -219,8 +219,8 @@ def final_outcome(
         return kind, ""
     if skip_status:
         return NOT_CLOSED, (
-            "--skip-status was passed: the merge landed and the item's "
-            "lifecycle status is unchanged"
+            "--skip-status was passed: the merge landed and the done "
+            "transition was postponed"
         )
     return NOT_CLOSED, (
         f"the merge landed and the item is at {status or 'an unchanged status'}; "

@@ -84,6 +84,17 @@ def verification_gate(
     # keeps its phase gate.
     pre_merge = target_status == ITEM_POSTURE_VERIFICATION_TRANSITION
     phase_sql = "AND r.qa_phase = 'verification' " if pre_merge else ""
+    # Pre-merge stays on the review transition. At done, keep those review
+    # rows (YOK-3182 post_deploy-on-review intake) and also consume
+    # post-merge phases bound to release or done.
+    transition_sql = (
+        f"AND r.workflow_transition_id = {marker} "
+        if pre_merge
+        else (
+            f"AND (r.workflow_transition_id = {marker} "
+            "OR r.qa_phase IN ('post_deploy', 'manual_acceptance')) "
+        )
+    )
     params = (
         int(item_id),
         selector_value,
@@ -94,7 +105,7 @@ def verification_gate(
         "FROM qa_requirements r "
         f"WHERE r.item_id = {marker} AND {selector} "
         "AND r.blocking_mode = 'blocking' AND r.waived_at IS NULL "
-        f"AND r.workflow_transition_id = {marker} "
+        f"{transition_sql}"
         f"{phase_sql}"
         "ORDER BY r.id",
         params,

@@ -132,7 +132,7 @@ class TestEvidenceWriteRetry:
 
         monkeypatch.setattr(evidence, "recorded_covers_merge", covers)
         monkeypatch.setattr(
-            close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",)),
+            close_out_transition, "close_out_route", lambda *_a, **_k: CloseOutRoute(stages=("done",)),
         )
         transitions: list[str] = []
 

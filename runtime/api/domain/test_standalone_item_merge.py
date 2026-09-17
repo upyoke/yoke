@@ -251,9 +251,14 @@ class TestCloseOutOrdering:
         monkeypatch.setattr(
             sim_cli, "_resolve_checkout", lambda item, target: (repo, "main"),
         )
+        def _enter_release(**kwargs):
+            stages = tuple(kwargs.get("stages") or ())
+            assert "done" not in stages
+            assert stages == ("release",)
+            return ("release", "")
+
         monkeypatch.setattr(
-            sim_cli.close_out, "transition_to_done",
-            lambda **_k: pytest.fail("status must be left alone"),
+            sim_cli.close_out, "transition_to_done", _enter_release,
         )
         monkeypatch.setattr(
             sim_cli.evidence, "record",
@@ -292,7 +297,7 @@ class TestCloseOutOrdering:
         )
         monkeypatch.setattr(sim_cli.evidence, "record", lambda **_k: "")
         monkeypatch.setattr(
-            close_out_transition, "close_out_route", lambda *_a: CloseOutRoute(stages=("done",)),
+            close_out_transition, "close_out_route", lambda *_a, **_k: CloseOutRoute(stages=("done",)),
         )
         monkeypatch.setattr(
             sim_cli.close_out, "transition_to_done",
