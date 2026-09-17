@@ -99,6 +99,10 @@ test("steering states itself once however many projects it covers", () => {
   const documentNode = new FakeDocument();
   const holder = card(documentNode, {
     ...baseRow("holder-2"),
+    claims: [{
+      holding_kind: "work_claim", target_kind: "steering", project_id: 3,
+      scope: { project_id: 3 }, strategy_docs: ["CURRENT-PLAN"],
+    }],
     holdings: { current: [
       {
         holding_kind: "work_claim",
@@ -109,11 +113,6 @@ test("steering states itself once however many projects it covers", () => {
       {
         holding_kind: "strategy_document", project_id: 1,
         strategy_doc: "CURRENT-PLAN", target: "yoke · CURRENT-PLAN",
-      },
-      {
-        holding_kind: "work_claim",
-        target_kind: "steering", project_id: 3, scope: { project_id: 3 },
-        strategy_docs: ["CURRENT-PLAN"],
       },
       {
         holding_kind: "strategy_document", project_id: 3,

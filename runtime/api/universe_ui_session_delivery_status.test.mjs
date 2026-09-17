@@ -36,6 +36,7 @@ test("the release and the member's own QA are two statuses, each short", () => {
     byClass(body, "session-delivery-pill").map((node) => node.textContent),
     ["Run: item-qa · executing", "Item QA: awaiting review"],
   );
+  assert.equal(byClass(body, "session-delivery-icon").length, 1);
   // The wait itself is on the pill, where a phone reader sees it. Which
   // stage and the sentence behind it ride in the title.
   assert.equal(

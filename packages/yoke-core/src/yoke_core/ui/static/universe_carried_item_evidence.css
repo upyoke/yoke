@@ -9,7 +9,9 @@
   gap: 4px;
   margin-top: 2px;
   padding-left: 8px;
-  border-left: 2px solid var(--yoke-border);
+  border-left: 3px solid color-mix(
+    in srgb, var(--yoke-ink) 30%, var(--yoke-border)
+  );
 }
 .universe-app-root .carried-item-evidence-caption {
   color: var(--yoke-muted);

@@ -38,6 +38,15 @@ test("strategy cards carry the corpus facts from one read", async (t) => {
           },
         };
       }
+      if (request.function === "sessions.list") {
+        return {
+          status: 200,
+          envelope: {
+            success: true,
+            result: { rows: [{ steering_group_session_id: "seat-1" }] },
+          },
+        };
+      }
       if (request.function === "strategy.surface.list") {
         return {
           status: 200,
@@ -57,6 +66,7 @@ test("strategy cards carry the corpus facts from one read", async (t) => {
                   summary: "What is happening now.",
                   updated_at: "2026-06-30", updated_by: null,
                   execution_owner_kind: "session",
+                  execution_owner_session_id: "seat-1",
                   execution_state: "claimed", archived: false,
                 },
                 {
@@ -107,6 +117,10 @@ test("strategy cards carry the corpus facts from one read", async (t) => {
   );
   assert.equal(byClass(claims[0], "steering-symbol").length, 1);
   assert.equal(byClass(root, "strategy-doc-claim-holder").length, 0);
+  assert.equal(
+    claims[0].parentNode.style.getPropertyValue("--session-steering-color"),
+    "#7c3aed",
+  );
 
   // The archive is reachable, closed, and counted.
   const archived = byClass(root, "work-band-archived-docs")[0];

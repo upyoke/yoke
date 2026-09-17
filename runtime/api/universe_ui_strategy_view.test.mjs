@@ -29,6 +29,8 @@ function context(documentNode, client) {
     client,
     isMounted: () => true,
     projects: () => [{ id: 1, slug: "yoke", name: "Yoke" }],
+    steeringGroupColors: () => new Map(),
+    refreshSteeringGroupColors: () => Promise.resolve(),
   };
 }
 function strategyDocument() {
@@ -128,12 +130,8 @@ test("Strategy corpus matches the prototype hierarchy with real read facts", asy
   await settle();
 
   const rendered = text(main);
-  assert.match(rendered, /Review and approve here/);
-  assert.deepEqual(
-    byClass(main, "strategy-stats")[0].children
-      .map((tile) => tile.children[0].textContent),
-    ["2", "1", "1", "1"],
-  );
+  assert.doesNotMatch(rendered, /Review and approve here/);
+  assert.equal(byClass(main, "strategy-stats").length, 0);
   // A live document is a card in the band its slug belongs to; the archive
   // keeps its own, closed.
   const plans = byClass(main, "work-band-plans")[0];

@@ -156,15 +156,10 @@ def test_strategy_document_is_bounded_for_review() -> None:
     assert ("grid-template-columns: minmax(0, 1.55fr) minmax(260px, 0.75fr)") in source
 
 
-def test_strategy_stats_reflow_from_four_to_two_to_one() -> None:
+def test_strategy_view_has_no_stat_boxes() -> None:
     source = _asset("universe_content.css")
 
-    assert ".strategy-stats" in source
-    assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in source
-    assert "@media (max-width: 860px)" in source
-    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in source
-    assert "@media (max-width: 560px)" in source
-    assert "grid-template-columns: minmax(0, 1fr)" in source
+    assert ".strategy-stats" not in source
 
 
 def test_production_views_do_not_render_prototype_annotations() -> None:

@@ -13,6 +13,7 @@ import { evidenceStrip } from "./review_evidence_strip.js";
 import { appendCarriedItemEvidence } from "./universe_carried_item_evidence.js";
 import { runEvidence, runFlowName } from "./universe_run_evidence.js";
 import { itemClaimantControl } from "./universe_item_claimant.js";
+import { navIcon } from "./universe_nav_sidebar.js";
 import {
   appendMoreDisclosure,
 } from "./universe_sessions_holdings_disclosure.js";
@@ -26,6 +27,7 @@ export const CARRIED_ITEMS_SHOWN = 3;
 // A run in one of these states is over; nothing it waits on can still
 // apply to it.
 const TERMINAL_RUN_STATUSES = new Set(["succeeded", "failed", "cancelled"]);
+const TERMINAL_ITEM_STATES = new Set(["done", "cancelled", "stopped"]);
 
 function itemReference(row) {
   return String(row.public_ref || row.item_id || row.id || "Item");
@@ -80,7 +82,10 @@ export function workItemCard(documentNode, row, scope, options = {}) {
     card.appendChild(progress);
   }
 
-  if (options.flag) {
+  if (
+    options.flag
+    && !TERMINAL_ITEM_STATES.has(String(row.status || "").toLowerCase())
+  ) {
     card.appendChild(itemStatusDisclosure(documentNode, options.flag));
   }
 
@@ -225,6 +230,9 @@ export function shippingRunCard(context, row, scope, options = {}) {
     ? null : options.deployLocks?.get(String(row.project || ""));
   if (lock && options.renderFullSession) {
     const lockRow = el(documentNode, "div", "shipping-run-lock");
+    const lockIcon = el(documentNode, "span", "shipping-run-lock-icon", "🔒");
+    lockIcon.setAttribute("aria-hidden", "true");
+    lockRow.appendChild(lockIcon);
     lockRow.appendChild(el(
       documentNode,
       "span",

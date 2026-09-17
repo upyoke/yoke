@@ -1,6 +1,7 @@
 import { attachTooltip } from "./universe_tooltip.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
 import {
+  activeSteeringClaims,
   releasedHoldingHistory,
   steeringMarker,
   steeringDocCovers,
@@ -65,9 +66,7 @@ export function ownsFocusedItem(row) {
 // otherwise the first CURRENTLY HELD row, any target_kind.
 export function topRenderedClaim(row) {
   const groups = holdingGroups(row);
-  const steering = groups.current.filter(
-    (holding) => holding.target_kind === "steering",
-  );
+  const steering = activeSteeringClaims(row);
   if (steering.length) return steering[0];
   const coveredAbove = steeringLeadCovers(row);
   return groups.current.find((holding) => !coveredAbove(holding)) || null;

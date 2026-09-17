@@ -105,20 +105,19 @@
   font-size: 10.5px;
   overflow-wrap: anywhere;
 }
-.universe-app-root .work-item-card.is-cancelled {
-  background: color-mix(in srgb, var(--yoke-crit-bg) 42%, var(--yoke-surface));
-}
 /* The overflow card is one word, large, and centred in whatever height the
    row gave it: the band heading already carries the count, so repeating it
    here spent a whole card saying a number twice. */
 .universe-app-root .see-more-card {
   align-items: center;
   justify-content: center;
-  align-self: stretch;
+  align-self: start;
+  min-height: 68px;
+  padding: 14px 18px;
   border-style: dashed;
   color: var(--yoke-ink);
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   line-height: 1.2;
   text-align: center;
 }
@@ -139,15 +138,23 @@
   font-weight: 700;
   line-height: 1.2;
 }
+.universe-app-root .strategy-doc-card-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: start;
+}
 .universe-app-root .strategy-doc-slug {
-  flex: 1;
   min-width: 0;
   color: var(--yoke-ink);
   font-size: 14px;
   font-weight: 700;
   line-height: 1.3;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 .universe-app-root .strategy-doc-state {
+  flex: 0 0 auto;
+  white-space: nowrap;
   padding: 1px 6px;
   border: 1px solid var(--yoke-border);
   border-radius: 999px;
@@ -202,6 +209,16 @@
   width: 29px;
   flex: none;
   color: var(--yoke-accent);
+}
+.universe-app-root .strategy-doc-claim.is-steering {
+  border-left-color: var(--session-steering-color, var(--yoke-accent));
+  background: color-mix(
+    in srgb, var(--session-steering-color, var(--yoke-accent)) 16%, transparent
+  );
+}
+.universe-app-root .strategy-doc-claim.is-steering .strategy-doc-claim-symbol,
+.universe-app-root .strategy-doc-claim.is-steering .strategy-doc-claim-label {
+  color: var(--session-steering-color, var(--yoke-accent));
 }
 .universe-app-root .strategy-doc-claim-symbol svg {
   width: 100%;
