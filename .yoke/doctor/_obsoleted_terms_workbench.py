@@ -18,12 +18,14 @@ RETIRED_OVERVIEW_VIEW_MODULE_PATTERN = (
 #: frontier bands, shipping runs, and the onboarding module stack.
 RETIRED_OVERVIEW_MODULE_PATTERN = (
     r"universe_(?:overview_(?:primitives|cards|frontier|delivery)"
-    r"|views_overview_activation)"
+    r"|views_overview_activation)\b"
 )
 
 #: The route itself. An unrecognised hash already falls back to the first
-#: destination, so the removal needed no alias.
-RETIRED_OVERVIEW_ROUTE_PATTERN = r"#/overview\b"
+#: destination, so the removal needed no alias. The page name is split so the
+#: pattern cannot match its own declaration: the residue scan reads this
+#: catalogue too, and a self-matching entry reports itself forever.
+RETIRED_OVERVIEW_ROUTE_PATTERN = r"\#/" + "over" + r"view\b"
 
 WORKBENCH_RETIREMENT_PATTERNS: tuple[str, ...] = (
     RETIRED_OVERVIEW_VIEW_MODULE_PATTERN,

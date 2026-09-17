@@ -40,6 +40,9 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_navigation.js": "text/javascript; charset=utf-8",
     "universe_nav_sidebar.js": "text/javascript; charset=utf-8",
     "universe_nav_icons.js": "text/javascript; charset=utf-8",
+    # Served, not merely shipped: the icons are redistributed under this
+    # licence, so it has to be reachable from the app that draws them.
+    "lucide-license.txt": "text/plain; charset=utf-8",
     "universe_project_selection.js": "text/javascript; charset=utf-8",
     "universe_selection_routes.js": "text/javascript; charset=utf-8",
     "universe_item_routes.js": "text/javascript; charset=utf-8",
