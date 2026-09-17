@@ -255,6 +255,7 @@ def _instructions_for_create(
     *,
     project_id: int,
     actor_id: int | None,
+    session_id: str | None = None,
 ) -> str:
     """Compose this request's body; skip terminal refuse only for raw replay.
 
@@ -271,9 +272,18 @@ def _instructions_for_create(
         from yoke_core.domain.session_launch_assignment import (
             refuse_terminal_assigned_item,
         )
+        from yoke_core.domain.session_launch_steering_coverage import (
+            refuse_uncovered_steering_launch,
+        )
 
         refuse_terminal_assigned_item(
             conn, public_ref=str(parsed.item), project_id=project_id
+        )
+        refuse_uncovered_steering_launch(
+            conn,
+            public_ref=str(parsed.item),
+            project_id=project_id,
+            session_id=session_id,
         )
     return compose_item_launch_instructions(conn, parsed, project_id)
 
@@ -285,6 +295,7 @@ def launch_request_for_create(
     project_id: int,
     deadline_seconds: int,
     actor_id: int | None = None,
+    session_id: str | None = None,
     session_name: str | None = None,
 ) -> LaunchRequest:
     """Build the domain launch request, composing the mandate when requested."""
@@ -298,7 +309,11 @@ def launch_request_for_create(
         project_id=project_id,
         executor_surface=parsed.executor_surface,
         instructions=_instructions_for_create(
-            conn, parsed, project_id=project_id, actor_id=actor_id
+            conn,
+            parsed,
+            project_id=project_id,
+            actor_id=actor_id,
+            session_id=session_id,
         ),
         idempotency_key=parsed.idempotency_key,
         sender_surface=parsed.sender_surface,
