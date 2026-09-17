@@ -122,7 +122,11 @@ def record_command_run(
         stamp_executed_method_config,
     )
 
-    raw_result = stamp_executed_method_config(raw_result, case.get("method_config"))
+    raw_result = stamp_executed_method_config(
+        raw_result,
+        case.get("method_config"),
+        execution_target_digest=case.get("execution_target_digest"),
+    )
     call_qa = recording_leg(case, actor=actor)
     run = call_qa(
         "qa.run.add",

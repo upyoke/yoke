@@ -94,6 +94,19 @@ def test_browser_docs_link_only_the_current_advance_protocol() -> None:
     assert "advance/browser-qa-escalation.md" not in text
 
 
+def test_gate_recovery_distinguishes_advance_skill_from_terminal_cli() -> None:
+    text = _read(BROWSER_METHOD_MODULES[1])
+    gates = (
+        REPO / "packages/yoke-core/src/yoke_core/domain/qa_gates.py"
+    ).read_text(encoding="utf-8")
+    for source in (text, gates):
+        assert "Remediation (harness skill)" in source
+        assert "Remediation (terminal CLI)" in source
+        assert "`yoke qa case run --requirement-id <id>`" in source
+        assert "`/yoke advance` is not a CLI command" in source
+        assert "which executes browser QA automatically before updating status" not in source
+
+
 def test_retired_browser_and_migration_residue_is_absent() -> None:
     browser_text = "\n".join(_read(path) for path in BROWSER_METHOD_MODULES)
     docs_text = _read(BROWSER_SUBSTRATE)

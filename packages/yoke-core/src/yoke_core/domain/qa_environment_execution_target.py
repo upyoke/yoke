@@ -89,6 +89,125 @@ def environment_execution_target(
     return target
 
 
+def bind_item_named_target(
+    conn: Any,
+    *,
+    item_id: int,
+    row: dict[str, Any],
+) -> str:
+    """Fill named-target snapshot columns; return a refusal message or ''."""
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    found = conn.execute(
+        f"SELECT project_id FROM items WHERE id={marker}",
+        (int(item_id),),
+    ).fetchone()
+    if found is None or found[0] is None:
+        return "requirement has no project to resolve an execution target against"
+    project_id = int(found[0])
+    try:
+        apply_named_target_to_requirement_row(
+            conn, project_id=int(project_id), row=row
+        )
+    except QaExecutionTargetError as exc:
+        return str(exc)
+    return ""
+
+
+def persistable_named_environment_target(
+    conn: Any,
+    *,
+    project_id: int,
+    environment_name: str,
+) -> dict[str, Any] | None:
+    """Return the snapshot when *environment_name* is this project's to bind.
+
+    An unregistered name stays unbound so authoring can defer the target. A
+    name registered only on another project is refused rather than stored as
+    a draft label that would later execute against the wrong universe.
+    """
+    name = str(environment_name or "").strip()
+    if not name:
+        return None
+    from yoke_core.domain.schema_common import _table_exists
+
+    if not _table_exists(conn, "environments"):
+        return None
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    owners = [
+        int(row["project_id"])
+        for row in _mapping_rows(
+            conn.execute(
+                "SELECT p.id AS project_id FROM environments e "
+                "JOIN sites s ON s.id=e.site "
+                "JOIN projects p ON p.id=s.project_id WHERE e.name=" + marker,
+                (name,),
+            )
+        )
+    ]
+    if not owners:
+        return None
+    if int(project_id) not in owners:
+        others = ", ".join(str(pid) for pid in sorted(set(owners)))
+        raise QaExecutionTargetError(
+            f"QA case names environment {name!r}, which belongs to project "
+            f"{others}, not project {project_id}. Name an environment "
+            "registered to this project, or omit --target-env until that "
+            "binding exists."
+        )
+    return resolve_named_environment_execution_target(
+        conn,
+        project_id=int(project_id),
+        environment_name=name,
+    )
+
+
+def apply_named_target_to_requirement_row(
+    conn: Any,
+    *,
+    project_id: int,
+    row: dict[str, Any],
+) -> None:
+    """Fill execution-target columns from a named authorized environment."""
+    from yoke_core.domain.qa_execution_environment_target import (
+        canonical_target,
+        target_digest,
+    )
+
+    target = persistable_named_environment_target(
+        conn,
+        project_id=int(project_id),
+        environment_name=str(row.get("target_env") or ""),
+    )
+    if target is None:
+        row["execution_target_json"] = None
+        row["execution_target_digest"] = None
+        return
+    row["execution_target_json"] = canonical_target(target)
+    row["execution_target_digest"] = target_digest(target)
+
+
+def persist_requirement_target_snapshot(
+    conn: Any,
+    requirement_id: int,
+    row: dict[str, Any],
+) -> None:
+    """Write snapshot columns when this database actually has them."""
+    from yoke_core.domain.schema_common import _column_exists
+
+    if not _column_exists(conn, "qa_requirements", "execution_target_json"):
+        return
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    conn.execute(
+        f"UPDATE qa_requirements SET execution_target_json={marker}, "
+        f"execution_target_digest={marker} WHERE id={marker}",
+            (
+                row.get("execution_target_json"),
+                row.get("execution_target_digest"),
+                int(requirement_id),
+            ),
+    )
+
+
 def resolve_named_environment_execution_target(
     conn: Any,
     *,
@@ -154,7 +273,11 @@ def require_case_endpoint(
 
 
 __all__ = [
+    "apply_named_target_to_requirement_row",
+    "bind_item_named_target",
     "environment_execution_target",
+    "persist_requirement_target_snapshot",
+    "persistable_named_environment_target",
     "require_case_endpoint",
     "resolve_named_environment_execution_target",
 ]

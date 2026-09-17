@@ -142,6 +142,15 @@ def handle_qa_requirement_add(request: FunctionCallRequest) -> HandlerOutcome:
         if invalid is not None:
             return invalid
         p = _p(conn)
+        from yoke_core.domain.qa_environment_execution_target import (
+            bind_item_named_target,
+        )
+
+        refused = bind_item_named_target(conn, item_id=int(item_id), row=row)
+        if refused:
+            return _error(
+                "payload_invalid", refused, jsonpath="$.payload.target_env"
+            )
         cur = conn.execute(
             INSERT_SQL.format(p=p),
             insert_params(RequirementSubject.for_item(item_id), row, iso8601_now()),
@@ -245,6 +254,10 @@ def handle_qa_requirement_add_batch(
             lock_item_workflow_bindings(conn, (int(item_id),))
             p = _p(conn)
             now_iso = iso8601_now()
+            from yoke_core.domain.qa_environment_execution_target import (
+                bind_item_named_target,
+            )
+
             for row in normalized:
                 invalid = validate_method_requirement(
                     conn,
@@ -263,6 +276,16 @@ def handle_qa_requirement_add_batch(
                 if invalid is not None:
                     conn.rollback()
                     return invalid
+                refused = bind_item_named_target(
+                    conn, item_id=int(item_id), row=row
+                )
+                if refused:
+                    conn.rollback()
+                    return _error(
+                        "payload_invalid",
+                        refused,
+                        jsonpath=f"$.payload.rows[{len(inserted_ids)}].target_env",
+                    )
                 cur = conn.execute(
                     INSERT_SQL.format(p=p),
                     insert_params(RequirementSubject.for_item(item_id), row, now_iso),

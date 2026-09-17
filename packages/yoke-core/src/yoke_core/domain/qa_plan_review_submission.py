@@ -88,12 +88,29 @@ def _record_verdict(
         verdict=verdict,
         run_ids=(int(case["capture_run_id"]),),
     )
-    raw_result = canonical(
-        {
-            "review_bundle_id": bundle_id,
-            "capture_run_id": int(case["capture_run_id"]),
-            "rationale": rationale,
-        }
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        recorded_execution_target_digest,
+        stamp_executed_method_config,
+    )
+
+    capture = query_one(
+        conn,
+        f"SELECT raw_result FROM qa_runs WHERE id={p}",
+        (int(case["capture_run_id"]),),
+    )
+    raw_result = stamp_executed_method_config(
+        canonical(
+            {
+                "review_bundle_id": bundle_id,
+                "capture_run_id": int(case["capture_run_id"]),
+                "rationale": rationale,
+            }
+        ),
+        case.get("method_config"),
+        execution_target_digest=recorded_execution_target_digest(
+            None if capture is None else capture["raw_result"]
+        )
+        or None,
     )
     run = conn.execute(
         "INSERT INTO qa_runs("

@@ -149,7 +149,9 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
             stamp_executed_method_config,
         )
 
-        raw_result = stamp_executed_method_config(raw_result, row.get("method_config"))
+        raw_result = stamp_executed_method_config(
+            raw_result, row.get("method_config"), conn=conn, requirement_id=int(req_id)
+        )
 
         now_iso = iso8601_now()
         p = _p(conn)
