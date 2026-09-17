@@ -265,9 +265,21 @@ export function createShellControls({ documentNode, client, options }) {
     else search.open(documentNode.activeElement);
   };
   windowNode.addEventListener("keydown", onWindowKeydown);
+  // A dialog that outlives the screen it was opened over becomes an invisible
+  // click-blocker: the backdrop keeps swallowing pointer events on a page the
+  // operator never opened it from, and nothing on screen says why. So a route
+  // change the dialog did not make — Back, a pasted link, any navigation from
+  // elsewhere in the shell — closes it, exactly as Escape does. Choosing a
+  // result already closes it before navigating, and closing twice is a no-op,
+  // so this is a second guarantee rather than a second behaviour.
+  const onRouteChange = () => {
+    if (search.isOpen()) search.close();
+  };
+  windowNode.addEventListener("hashchange", onRouteChange);
   return {
     dispose() {
       windowNode.removeEventListener("keydown", onWindowKeydown);
+      windowNode.removeEventListener("hashchange", onRouteChange);
       search.close();
       disposeFooter();
     },
