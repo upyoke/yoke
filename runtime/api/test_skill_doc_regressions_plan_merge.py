@@ -4,7 +4,9 @@ from runtime.api.skill_doc_regressions_test_helpers import SKILLS, _read
 
 
 def test_plan_reuses_the_pinned_numeric_item_id_for_generated_tasks() -> None:
-    text = _read(SKILLS / "plan" / "SKILL.md")
+    text = _read(SKILLS / "plan" / "resolve-and-validate.md") + _read(
+        SKILLS / "plan" / "architect-and-persist.md"
+    )
 
     assert '_plan_item_id=$(printf \'%s\' "$_plan_pin_json"' in text
     assert '["result"]["item_id"]' in text

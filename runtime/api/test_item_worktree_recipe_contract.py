@@ -119,7 +119,7 @@ def test_tester_reads_the_lane_through_the_registered_function(
 
 @pytest.mark.parametrize("root", (SOURCE_SKILLS, PACKAGED_SKILLS))
 def test_wrapup_reads_active_lanes_from_item_worktrees(root: Path) -> None:
-    text = (root / "wrapup/SKILL.md").read_text()
+    text = (root / "wrapup/survey-and-report.md").read_text()
 
     assert "yoke items overview list --json" in text
     assert "`result.rows`" in text

@@ -72,7 +72,10 @@ def _read_refine_skill(path: Path) -> str:
 
 
 def _read_polish_skill(path: Path) -> str:
-    phases = ("parse-and-claim.md", "context.md", "review.md", "fixes.md", "verify-and-commit.md", "advance.md")
+    phases = (
+        "parse-and-claim.md", "context.md", "doctrine.md", "simplify-pass.md",
+        "review.md", "fixes.md", "verify-and-commit.md", "advance.md",
+    )
     return _read_bundle(path, *(path.parent / phase for phase in phases))
 
 

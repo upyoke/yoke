@@ -30,7 +30,7 @@ def test_refine_uses_active_binding_and_child_policy() -> None:
 
 
 def test_plan_mode_comes_from_pinned_policy() -> None:
-    text = _read("plan", "SKILL.md")
+    text = _read("plan", "SKILL.md") + _read("plan", "resolve-and-validate.md")
     for required in (
         "yoke workflows item get",
         "yoke workflows version get",

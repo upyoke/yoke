@@ -26,7 +26,7 @@ class TestFeedSkillContract:
     """Feed should preserve the richer manual workflow semantics."""
 
     def test_skill_supports_optional_item_scope(self):
-        text = _read(_FEED_DIR / "SKILL.md")
+        text = _read(_FEED_DIR / "SKILL.md") + _read(_FEED_DIR / "entry.md")
         assert "[PREFIX-N ...]" in text
         assert "_scope_ids" in text
         assert "stale-work-item refresh" in text
