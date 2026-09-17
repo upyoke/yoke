@@ -273,6 +273,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     settings = resolve_settings(argv)
     from yoke_core.domain import db_backend, universe_startup_lock
 
+    hosted = universe_startup_lock.hosted_tenant_container_process()
+
+    def _serve() -> None:
+        import uvicorn
+
+        uvicorn.run(
+            settings.app,
+            host=settings.host,
+            port=settings.port,
+            log_level=settings.log_level,
+            workers=settings.workers,
+            access_log=False,
+            log_config=None,
+        )
+
     with universe_startup_lock.server_startup_guard(db_backend.resolve_pg_dsn()):
         if not universe_is_born():
             _log.info("empty database detected: bootstrapping a fresh universe")
@@ -293,20 +308,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             # code that adds permissions propagates to the DB without a manual
             # seed step.
             ensure_permission_catalog()
-        import uvicorn
-
-        # Keep the shared database lease for the serving lifetime: an import
-        # must never acquire its exclusive lease after the startup check but
-        # while this process is serving requests.
-        uvicorn.run(
-            settings.app,
-            host=settings.host,
-            port=settings.port,
-            log_level=settings.log_level,
-            workers=settings.workers,
-            access_log=False,
-            log_config=None,
-        )
+        # Local and self-host keep the lock through serve so import cannot
+        # overlap a live server. Hosted tenant containers matching the
+        # existing env contract release after init so the DSN is idle.
+        if not hosted:
+            _serve()
+    if hosted:
+        _serve()
     return 0
 
 
