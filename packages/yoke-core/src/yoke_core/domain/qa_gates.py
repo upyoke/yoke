@@ -39,6 +39,7 @@ from yoke_core.domain.qa_simulation_gate import (  # noqa: F401  (re-export)
 from yoke_core.domain.deployment_qa_source_obligation import (
     row_unsatisfied_at_done,
 )
+from yoke_core.domain.qa_requirement_pass_currency import has_current_passing_run
 from yoke_core.domain.qa_done_gate_refusal import done_gate_refusal_errors
 from yoke_core.domain.qa_gate_helpers import (  # noqa: F401
     _browser_freshness_errors,
@@ -101,14 +102,14 @@ def check_verification_gate(
               AND r.qa_phase = 'verification'
               AND r.blocking_mode = 'blocking'
               AND r.waived_at IS NULL
-              AND NOT EXISTS (
-                SELECT 1 FROM qa_runs qr
-                WHERE qr.qa_requirement_id = r.id
-                  AND qr.verdict = 'pass'
-              )
             """,
             params,
         )
+        rows = [
+            row
+            for row in rows
+            if not has_current_passing_run(conn, int(row["id"]))
+        ]
         if rows:
             errors = [
                 f"Error: Cannot transition {name} to '{transition_name}' -- {len(rows)} blocking verification requirement(s) unsatisfied.",
@@ -217,11 +218,7 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
         rows = query_rows(
             conn,
             f"""
-            SELECT r.id, r.qa_kind, r.qa_phase, EXISTS(
-                SELECT 1 FROM qa_runs qr
-                WHERE qr.qa_requirement_id = r.id
-                  AND qr.verdict = 'pass'
-              ) AS passed
+            SELECT r.id, r.qa_kind, r.qa_phase
             FROM qa_requirements r
             WHERE {where}
               AND r.blocking_mode = 'blocking'
@@ -229,6 +226,12 @@ def check_done_gate(target: GateTarget, db_path: str) -> GateResult:
             """,
             params,
         )
+        scored = []
+        for row in rows:
+            item = dict(row)
+            item["passed"] = has_current_passing_run(conn, int(row["id"]))
+            scored.append(item)
+        rows = scored
         if target.item_id is None:
             # An epic-task target owns no item-bound deployment run, so the
             # completion-run reading has nothing to resolve against and the

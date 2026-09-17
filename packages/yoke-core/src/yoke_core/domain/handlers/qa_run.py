@@ -110,7 +110,7 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         p = _p(conn)
         row = query_one(
             conn,
-            "SELECT qa_kind, method_id, blocking_mode, waived_at "
+            "SELECT qa_kind, method_id, blocking_mode, waived_at, method_config "
             f"FROM qa_requirements WHERE id = {p}",
             (int(req_id),),
         )
@@ -145,6 +145,12 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
                 "`yoke qa gate-summary` both report the requirement satisfied.",
                 jsonpath="$.payload.raw_result",
             )
+        from yoke_core.domain.qa_requirement_pass_currency import (
+            attach_method_config_snapshot,
+        )
+
+        if row.get("method_config") not in (None, ""):
+            raw_result = attach_method_config_snapshot(raw_result, row["method_config"])
 
         now_iso = iso8601_now()
         p = _p(conn)

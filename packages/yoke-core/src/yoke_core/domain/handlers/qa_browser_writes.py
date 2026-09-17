@@ -66,8 +66,8 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
         p = _p(conn)
         row = query_one(
             conn,
-            f"SELECT qa_kind, method_id, blocking_mode, waived_at, item_id "
-            f"FROM qa_requirements WHERE id = {p}",
+            f"SELECT qa_kind, method_id, blocking_mode, waived_at, item_id, "
+            f"method_config FROM qa_requirements WHERE id = {p}",
             (int(req_id),),
         )
         if row is None:
@@ -107,6 +107,12 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
             return _error(
                 "payload_invalid", bind_error, jsonpath="$.payload.raw_result"
             )
+        from yoke_core.domain.qa_requirement_pass_currency import (
+            attach_method_config_snapshot,
+        )
+
+        if row.get("method_config") not in (None, ""):
+            raw_result = attach_method_config_snapshot(raw_result, row["method_config"])
         now_iso = iso8601_now()
         completed_at_value = (
             now_iso if (verdict is not None or execution_status is not None) else None

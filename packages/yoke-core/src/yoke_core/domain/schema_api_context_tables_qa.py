@@ -97,13 +97,15 @@ QA_TABLES: dict[str, dict] = {
             "`yoke qa plan run --item PREFIX-N --transition T`, or one "
             "snapshot through `yoke qa case run --requirement-id <id>`; "
             "never replace snapshot fields during execution. "
+            "A green run satisfies only while it still proves live method_config "
+            "(`has_current_passing_run`); EXISTS(verdict=pass) is not current. "
+            "Correct a live capture script with `yoke qa requirement update "
+            "--field method_config`; frozen deployment-run rows refuse that write. "
             "Canonical unsatisfied-verification SELECT: "
             "`SELECT qr.id, qr.qa_kind, qr.method_id, qr.expected_outcome, "
             "qr.method_config, qr.blocking_mode "
             "FROM qa_requirements qr WHERE qr.item_id = %s "
-            "AND qr.qa_phase = 'verification' AND qr.waived_at IS NULL "
-            "AND NOT EXISTS (SELECT 1 FROM qa_runs qrun "
-            "WHERE qrun.qa_requirement_id = qr.id AND qrun.verdict = 'pass')`."
+            "AND qr.qa_phase = 'verification' AND qr.waived_at IS NULL`."
         ),
     },
     "qa_runs": {

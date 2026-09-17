@@ -68,7 +68,7 @@ class TestCLI:
             assert source in out
         assert "Executable cases are" in out
         assert "materialized from registered test-plan methods" in out
-        assert "immutable method_config snapshot" in out
+        assert "method_config snapshot" in out
         assert "browser_smoke" not in out
         assert "browser_diff" not in out
 

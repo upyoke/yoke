@@ -46,7 +46,16 @@ class TestQaRequirementUpdate(unittest.TestCase):
             def __getitem__(self, k):
                 return super().__getitem__(k)
 
-        existing = _Row(qa_kind="ac_verification", qa_phase="verification", item_id="42", epic_id=None, task_num=None, deployment_run_id=None)
+        existing = _Row(
+            qa_kind="ac_verification",
+            qa_phase="verification",
+            item_id="42",
+            epic_id=None,
+            task_num=None,
+            deployment_run_id=None,
+            method_id=None,
+            method_config=None,
+        )
 
         executed_sql: list = []
 

@@ -75,8 +75,9 @@ def build_parser() -> argparse.ArgumentParser:
         "field",
         help=(
             "Field to update. Allowed: success_policy, blocking_mode, target_env, "
-            "capability_requirements, suite_id, qa_phase. qa_kind is NOT updatable; "
-            "use requirement-waive + requirement-add to change the verification surface."
+            "capability_requirements, suite_id, qa_phase, method_config. qa_kind is NOT "
+            "updatable; use requirement-waive + requirement-add to change qa_kind. "
+            "Correct a live capture script with method_config in place."
         ),
     )
     ru_value = ru.add_mutually_exclusive_group()
