@@ -76,7 +76,7 @@ class TestRefineItemReferenceResolution:
     """Refine resolves item identity and behavior from the immutable pin."""
 
     def test_refine_resolves_once_through_the_registered_pin_reader(self):
-        skill = _read(SKILLS / "refine" / "SKILL.md")
+        skill = _read_refine_skill(SKILLS / "refine" / "SKILL.md")
         context = _read(SKILLS / "refine" / "workflow-context.md")
 
         assert 'ITEM_REF="{arg}"' in context
@@ -101,9 +101,7 @@ class TestRefineItemReferenceResolution:
         assert '--item "$ITEM_REF"' in skill
 
     def test_refine_does_not_hand_parse_a_retired_prefix(self):
-        text = _read(SKILLS / "refine" / "SKILL.md") + _read(
-            SKILLS / "refine" / "workflow-context.md"
-        )
+        text = _read_refine_skill(SKILLS / "refine" / "SKILL.md")
 
         assert "[Ss][Uu][Nn]" not in text
         assert "s/^[Ss][Uu][Nn]-//" not in text

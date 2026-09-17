@@ -26,7 +26,9 @@ PACKAGED_DO = (
 def test_empty_offer_stdout_reads_durable_events_before_no_work(root: Path) -> None:
     loop = (root / "loop.md").read_text(encoding="utf-8")
     followups = (root / "loop-followups.md").read_text(encoding="utf-8")
-    skill = (root / "SKILL.md").read_text(encoding="utf-8")
+    skill = (root / "SKILL.md").read_text(encoding="utf-8") + (
+        root / "events-and-notes.md"
+    ).read_text(encoding="utf-8")
     loop_flat = " ".join(loop.split())
 
     assert "empty stdout" in loop

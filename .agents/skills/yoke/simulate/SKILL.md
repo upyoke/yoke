@@ -30,6 +30,15 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 **Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. The simulation report is the current finding for the Architect's autofix pass. Every gap must include verified file paths, the specific mismatch, severity, and concrete fix guidance so the Architect can fix each gap mechanically. Link evidence; do not paste transcripts.
 
+## Phase map — read one file, at the phase it governs
+
+| Phase | You are here when | Read before acting |
+|---|---|---|
+| System audit | `--system` is present | [`system.md`](system.md) |
+| Epic simulation | An epic id was given | [`epic-flow.md`](epic-flow.md) |
+| Dispatch the Simulator | A phase is about to invoke the Simulator | [`dispatch-prompts.md`](dispatch-prompts.md) |
+| Auto-fix | Fixable gaps remain and the operator approved auto-fix | [`autofix-loop.md`](autofix-loop.md) |
+
 ## Steps
 
 Stamp the session mode so the board's active-session row reflects the live phase (default `wait` misrepresents an active simulate). Use the registered session wrapper:

@@ -112,8 +112,10 @@ class TestSteerNarrowedRead:
         from pathlib import Path
 
         root = Path(__file__).resolve().parents[3]
-        skill = (root / ".agents/skills/yoke/steer/SKILL.md").read_text(
-            encoding="utf-8",
+        # The doc-get rule moved with its phase; read the whole command.
+        steer = root / ".agents/skills/yoke/steer"
+        skill = "\n".join(
+            path.read_text(encoding="utf-8") for path in sorted(steer.glob("*.md"))
         )
         loop = (root / ".agents/skills/yoke/steer/loop.md").read_text(
             encoding="utf-8",

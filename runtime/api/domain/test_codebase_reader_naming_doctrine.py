@@ -63,7 +63,7 @@ def test_core_skill_handoffs_carry_codebase_reader_rule() -> None:
         SKILLS / "conduct" / "SKILL.md",
         SKILLS / "conduct" / "dispatch-context-prompts.md",
         SKILLS / "conduct" / "engineer-tester-dispatch.md",
-        SKILLS / "polish" / "SKILL.md",
+        SKILLS / "polish" / "doctrine.md",
         SKILLS / "polish" / "review.md",
     ):
         text = _read(path)

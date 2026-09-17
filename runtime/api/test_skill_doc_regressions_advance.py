@@ -16,6 +16,7 @@ from runtime.api.skill_doc_regressions_test_helpers import (
     REPO,
     SKILLS,
     _read,
+    _read_skill_corpus,
 )
 
 
@@ -216,7 +217,7 @@ class TestAdvanceTeachesFunctionCallAdapters:
         assert "_worktree_policy" in text
 
     def test_implementation_entry_probes_identity_before_claim(self):
-        text = _read(SKILLS / "advance" / "SKILL.md")
+        text = _read_skill_corpus(SKILLS / "advance")
         assert (
             "defer the first work-claim acquisition to the orchestrator" in text
         )

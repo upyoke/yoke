@@ -1,0 +1,162 @@
+# Dash phase 7 — record evidence and finish
+
+## The merged close-out
+
+Issue the merge-and-close-out command. Non-queue projects and an explicit
+`--wait` finish inline; the default queue route follows the handoff in
+[`merge.md`](merge.md). The operation resolves the touched files from the
+branch itself, so no path list is needed. Dash close-out is evidence-gated on
+this same command — pass `--result` and `--verification` even when the merge
+queue already landed the branch. Do not substitute
+`yoke lifecycle transition --to done`; that path cannot restore the work claim
+the landing handoff retains.
+
+```text
+yoke merge item ITEM \
+  --result "<what changed or was learned>" \
+  --verification "<checks and evidence>" \
+  --json
+```
+
+The status the command reports is the pinned definition's, not a fixed `done`.
+When the item's registered deployment flow still owes a delivery, the close-out
+lands the item at that definition's release wait and keeps the lane and claim
+for the later close-out; the envelope's `status` names that stage, and this is
+a completed merge, not a failure. When the resolved flow discharges delivery at
+the merge — a flow with no target tier — the close-out transitions through
+every declared stage to `done`, so the release stage runs its own gates on the
+way. Read the `[close-out]` block and the envelope's `status` rather than
+assuming either outcome, and never start a deployment run to move an item that
+its own flow says needs none.
+
+Add `--no-changes` for a genuine no-change result. When the merge is already
+recorded and only the close-out remains — after a deployment run, after
+approval, or after a queue landing that has not reached `done` — re-run the
+same merge command with `--result` and `--verification`. It restores the work
+claim close-out needs and records evidence if the merge identity is not yet on
+the item. Do not hand-run `lifecycle.transition --to done` for Dash close-out.
+
+Re-entry converges only when the current lane candidate is the recorded landing
+identity, a fast-forward onto that merge — including a squash whose original
+head is not an ancestor of the base — or a lane holding nothing but copies of
+the commits that merge already took, which is what a rebase after a landing
+leaves behind. A merge-queue `landed_at` / PR record is not that proof by
+itself: close-out reuses it only when Git containment (or a rebased copy with
+no leftover commits) shows the current candidate already landed. An earlier
+landing plus later uncontained commits takes the candidate merge path — also
+from a release stage entered by a false close-out — and does not erase
+receipts. Unverifiable containment refuses rather than succeeding. This is
+installed-client merge-boundary code; a serving rollout is not required. New
+commits after a genuine landing: same-item correction is supported only while
+the item is before a declared release stage under its pinned workflow —
+re-verify, review, and run the governed merge again. Do not prescribe a stage
+change. Otherwise the refusal preserves the lane and requires separate work
+subject to operator preference. Do not reset unlanded corrections as recovery.
+The command does not clean the lane or declare those commits delivered.
+
+## Approval, claim release, and the steering report
+
+When approval-on-done is selected, the terminal transition creates the owner
+decision request without moving the item. Let an authorized owner resolve it,
+then retry the transition.
+
+A successful standalone merge (or the terminal transition it drives)
+may already release the item work claim and remove the
+registered Dash worktree lane, then sweeps lanes earlier landings on this
+machine preserved: the
+envelope's `lane_sweep` names what it removed and kept (with the reason), and a
+refusal on the item's own lane is recorded as a `LandedLanePreserved` event.
+Only release when a claim remains, or when exiting before merge (including
+escalation):
+
+```text
+yoke claims work release --item ITEM --reason "Dash completed"
+```
+
+Skip that call when merge or `done` already released the claim. Do not treat an
+already-released claim as a close-out failure.
+
+When a report to the steering seat is still owed, send it BEFORE that release.
+`yoke say --steering` addresses the seat covering the item you hold, and falls
+back to the item you last held in this session, so the report resolves either
+side of close-out; sending first keeps the live claim as the address. One
+terminal report per work leg reaches the seat once, so a reworded retry of the
+same completion deduplicates rather than arriving twice, and a send answering
+`Collapsed into an earlier message` did not deliver the body you just sent. A
+completion you are resumed to do is its own leg and is delivered, whether or
+not the resume hands you a fresh claim; never release an unfinished lane merely
+to be heard. Ending a turn sends no Fleet message; every worker uses this
+deliberate route regardless of launch origin.
+
+## Surface this session's guardrail denials
+
+After evidence is recorded, report this episode's PreToolUse denials. Close-out
+reports; it does not block. An empty result is silence: say nothing extra.
+
+Read `session_id` from registered `sessions.identity`
+(`yoke sessions identity`); do not invent it. `--session` filters
+`events.session_id`. Do not pass `--session-id` — that flag overrides caller
+identity. Then run registered `events.query.run`:
+
+```text
+yoke events query --session SESSION_ID --event-name HarnessToolCallDenied --current-episode --json
+```
+
+When `result.elided_prior_episode_rows` is present, this session crossed an
+episode boundary mid-Dash — a sleep, a reload, a brief disconnect — and that
+many denials sit in the previous episode. Re-run the same query without
+`--current-episode` and report the whole session's denials. An empty `rows`
+beside a non-zero count is not a clean run.
+
+When `result.rows` is non-empty, print a short list of each row's `check_id`
+and `command_snippet` from `envelope.context.detail` (parse `envelope` when it
+is a JSON string). File a field-note for any denial not already recorded, or
+state why none is warranted:
+
+```text
+yoke ouroboros field-note append --kind observation --evidence '...'
+```
+
+Do not correlate denials to field-notes in storage. Visibility is the entire
+ask.
+
+## Laneless and evidence-only close-out
+
+Two closes record no merge SHA, and both are first-class rather than a bypass.
+
+A genuine no-changes finding edited nothing. After a skipped lane, do not run
+CI, merge, or a deployment unless explicit policy still requires it:
+
+```text
+yoke direct-workflow dash evidence ITEM --result "<account>" \
+  --verification "<what you observed>" --no-changes --json
+```
+
+Then move the Dash through `reviewing-implementation` to `done` on that
+attestation. `yoke merge item --no-changes` is only for a lane that already
+exists.
+
+An item whose pinned workflow delivers merge-free — `worktrees=none`,
+`delivery=merge_free`, the floor Task shape — did change things, and names them
+as the observed changes:
+
+```text
+yoke direct-workflow dash evidence ITEM --result "<account>" \
+  --verification "<what you observed>" --path notes/readme.txt --json
+```
+
+Do not reach for `--no-changes` to skip the SHAs on a laneless item that did
+change files: the floor rung comes from the item's own delivery policy, so the
+SHAs are already optional and `--no-changes` would record the wrong fact. A
+merging workflow that omits its SHAs is refused, and the refusal names both
+routes.
+
+Task items have no `reviewing-implementation` stage. Close `implementing` →
+`done` once the attestation is recorded:
+
+```text
+yoke lifecycle transition ITEM --from implementing --to done \
+  --reason "Floor attestation recorded"
+```
+
+Outward-action approval gating is a future seam; do not invent one here.

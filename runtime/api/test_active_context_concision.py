@@ -13,6 +13,19 @@ def _read(relative: str) -> str:
     return (_REPO / relative).read_text(encoding="utf-8")
 
 
+def _command(skill: str) -> str:
+    """One `/yoke` command's entrypoint plus its phase references.
+
+    A command routes from a short SKILL.md into per-phase files, so a rule it
+    teaches lives in whichever phase governs it. These assertions care that
+    the command teaches it, not which file holds it.
+    """
+    root = _REPO / ".agents" / "skills" / "yoke" / skill
+    entry = root / "SKILL.md"
+    phases = sorted(p for p in root.glob("*.md") if p.name != "SKILL.md")
+    return "\n".join(p.read_text(encoding="utf-8") for p in (entry, *phases))
+
+
 def _words(text: str) -> str:
     return " ".join(text.split())
 
@@ -34,7 +47,7 @@ class TestCurrentStateCheckpointTeaching:
         assert "make this artifact cold-start complete" not in text
 
     def test_wrapup_progress_log_is_a_checkpoint_template(self):
-        text = _read(".agents/skills/yoke/wrapup/SKILL.md")
+        text = _command("wrapup")
         assert "current-state checkpoint" in text
         assert "--headline \"Session checkpoint\"" in text
         assert "Objective:" in text
@@ -58,7 +71,7 @@ class TestCurrentStateCheckpointTeaching:
         ) in _read(".agents/skills/yoke/steer/loop.md")
 
     def test_steer_extracts_current_state_without_copying_history(self):
-        skill = _words(_read(".agents/skills/yoke/steer/SKILL.md"))
+        skill = _words(_command("steer"))
         assert "cold-start refresh" in skill
         assert "do not copy historical status sections" in skill.lower()
 
@@ -87,7 +100,7 @@ class TestCurrentStateCheckpointTeaching:
 
 class TestSteerCorpusKeepsRequiredRefreshVocabulary:
     def test_skill_still_extracts_open_work_index(self):
-        skill = _read(".agents/skills/yoke/steer/SKILL.md")
+        skill = _command("steer")
         assert "In flight" in skill
         assert "Ready to staff" in skill
         assert "Blocked" in skill

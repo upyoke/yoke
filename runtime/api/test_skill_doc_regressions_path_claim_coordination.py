@@ -37,20 +37,20 @@ from runtime.api.skill_doc_regressions_test_helpers import (
 
 
 PATH_CLAIM_BLOCKING = SKILLS / "idea" / "path-claim-blocking.md"
-IDEA_SKILL = SKILLS / "idea" / "SKILL.md"
+IDEA_PATH_CLOSURE = SKILLS / "idea" / "path-closure.md"
 IDEA_BODY_AND_SYNC = SKILLS / "idea" / "body-and-sync.md"
 IDEA_INFER_AND_CREATE = SKILLS / "idea" / "infer-and-create.md"
-REFINE_SKILL = SKILLS / "refine" / "SKILL.md"
+REFINE_SURVEY_AND_FOCUS = SKILLS / "refine" / "survey-and-focus.md"
 REFINE_READINESS_REPAIR = SKILLS / "refine" / "readiness-repair.md"
 AGENTS_MD = REPO / "AGENTS.md"
 
 
 DOCS_WITH_COORDINATION_GUIDANCE = (
     IDEA_BODY_AND_SYNC,
-    IDEA_SKILL,
+    IDEA_PATH_CLOSURE,
     IDEA_INFER_AND_CREATE,
     REFINE_READINESS_REPAIR,
-    REFINE_SKILL,
+    REFINE_SURVEY_AND_FOCUS,
     AGENTS_MD,
 )
 
@@ -111,10 +111,10 @@ class TestPathClaimConflictDocsRequireExplicitGatePoint:
     @pytest.mark.parametrize("doc", [
         PATH_CLAIM_BLOCKING,
         IDEA_BODY_AND_SYNC,
-        IDEA_SKILL,
+        IDEA_PATH_CLOSURE,
         IDEA_INFER_AND_CREATE,
         REFINE_READINESS_REPAIR,
-        REFINE_SKILL,
+        REFINE_SURVEY_AND_FOCUS,
     ])
     def test_no_bare_dependency_add_block(self, doc):
         """A multi-line `items dependency add` invocation must always carry
@@ -173,10 +173,10 @@ class TestNoAmbiguousDepEdgeWording:
     @pytest.mark.parametrize("doc", [
         PATH_CLAIM_BLOCKING,
         IDEA_BODY_AND_SYNC,
-        IDEA_SKILL,
+        IDEA_PATH_CLOSURE,
         IDEA_INFER_AND_CREATE,
         REFINE_READINESS_REPAIR,
-        REFINE_SKILL,
+        REFINE_SURVEY_AND_FOCUS,
         AGENTS_MD,
     ])
     def test_no_unqualified_dep_edge_via_dependency_add(self, doc):

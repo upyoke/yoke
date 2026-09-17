@@ -63,7 +63,9 @@ def test_advance_teaches_item_pin_then_exact_version_read() -> None:
 
 
 def test_advance_has_no_stale_current_definition_lookup_residue() -> None:
-    text = ADVANCE_SKILL.read_text() + ADVANCE_WORKFLOW_CONTEXT.read_text()
+    text = "".join(
+        path.read_text() for path in sorted(ADVANCE_SKILL.parent.glob("*.md"))
+    )
 
     assert "yoke workflows definition get" not in text
     assert "current_version_id" not in text

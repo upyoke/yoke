@@ -72,8 +72,9 @@ def test_help_skill_lists_full_safe_surface():
 
 def test_board_art_terminal_helper_is_listed_in_human_help_surfaces():
     helper = "yoke board art variant create"
+    # The root skill routes; it does not carry the command catalog. The
+    # catalog lives once, at /yoke help and the generated command reference.
     surfaces = (
-        REPO / ".agents" / "skills" / "yoke" / "SKILL.md",
         REPO / ".agents" / "skills" / "yoke" / "help" / "SKILL.md",
         YOKE_DOCS / "commands.md",
     )

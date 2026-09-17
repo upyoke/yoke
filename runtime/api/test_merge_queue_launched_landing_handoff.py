@@ -44,7 +44,13 @@ def test_launched_session_arms_and_returns_even_when_wait_was_asked_for(monkeypa
 
 
 def test_reentry_after_the_landing_notice_closes_the_item_out(monkeypatch):
+    """Re-entry after the notice is the recorded landing of THIS candidate."""
     receipt = wire_happy_path(monkeypatch, landing_states=[MERGED])
+    monkeypatch.setattr(
+        route_mod,
+        "recorded_landing_covers_candidate",
+        lambda *_a: "landed",
+    )
     monkeypatch.setattr(
         route_mod,
         "mark_landing_pending",
