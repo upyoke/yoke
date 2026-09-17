@@ -232,19 +232,24 @@ def _establish_deployment_freshness(
     expected_sha: str,
     *,
     context: Dict[str, Any],
-    deployment_run_id: Optional[str],
     fetch_identity: Optional[Callable[[str], object]] = None,
 ) -> tuple[Optional[FreshnessFailure], str]:
     """Prove the deployment under test, and name the origin that proof covers.
 
-    Which deployment that is comes from the case's own subject, never from
-    the branch alone: a case attached to a deployment run verifies the
-    environment that run targeted, while an item case verifies the branch's
-    preview. Returns the failure (or ``None``) together with the origin the
-    established freshness covers — empty when nothing was established, so
-    the caller binds execution only to a target something answered for.
+    Which deployment that is comes from the target the case is bound to,
+    never from the branch alone: a case that names an environment verifies
+    that environment, whether it hangs off a deployment run or an item, and
+    only a case bound to nothing verifies the branch's preview. Returns the
+    failure (or ``None``) together with the origin the established freshness
+    covers — empty when nothing was established, so the caller binds
+    execution only to a target something answered for.
     """
-    if deployment_run_id is not None:
+    if context.get("deployment_target") is not None:
+        # The case's own bound target answers first: an environment a case
+        # names is the deployment it is about, whether it hangs off a run or
+        # an item. Only a case bound to nothing falls through to the branch
+        # preview below, which is the question that fits a case with no
+        # target of its own.
         target = DeploymentUnderTest.from_payload(context.get("deployment_target"))
         failure = validate_deployment_identity(
             expected_sha,
