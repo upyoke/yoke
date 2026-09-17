@@ -155,7 +155,10 @@ def run(argv: List[str]) -> int:
         recorded_head=recorded_head,
         reached_release=_reached_release(item, status),
     )
-    if stale:
+    queue = item.get("merge_queue") or {}
+    # A recorded queue landing that does not cover this candidate is the
+    # false-success recovery: take the candidate path even from release.
+    if stale and not (queue.get("pr_number") and queue.get("landed_at")):
         return fail(f"{public_ref}: {stale}")
     landed_lane = landed.landed_lane(
         item_id=item_id,
