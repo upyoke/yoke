@@ -43,13 +43,13 @@ class TestConductActivationGate:
         return d
 
     def test_skill_has_activation_gate_point(self, conduct_dir: Path):
-        text = _read(conduct_dir / "SKILL.md")
+        text = _read(conduct_dir / "entry-gates.md")
         assert "--gate-point activation" in text, (
-            "conduct/SKILL.md missing --gate-point activation"
+            "conduct/entry-gates.md missing --gate-point activation"
         )
 
     def test_skill_has_no_unscoped_hard_blocks_call(self, conduct_dir: Path):
-        text = _read(conduct_dir / "SKILL.md")
+        text = _read(conduct_dir / "entry-gates.md")
         _, unscoped = _count_invocations(text, "check_hard_blocks")
         assert unscoped == 0, (
             f"conduct/SKILL.md has {unscoped} unscoped check_hard_blocks call(s); "
@@ -109,19 +109,20 @@ class TestConductPhasedRead:
 
     def test_router_has_phased_read_plan(self, conduct_dir: Path):
         text = _read(conduct_dir / "SKILL.md")
-        assert "Phased-Read Plan" in text
+        assert "Phase map" in text
+        assert "Do NOT read all files upfront" in text
         assert "entry-activation.md" in text
         assert "engineer-tester-loop.md" in text
         assert "simulation-gate.md" in text
         assert "cleanup-report.md" in text
 
     def test_router_has_offset_limit_guidance(self, conduct_dir: Path):
-        text = _read(conduct_dir / "SKILL.md")
+        text = _read(conduct_dir / "file-map.md")
         assert "offset" in text.lower()
         assert "limit" in text.lower()
 
     def test_router_has_successor_owner_map(self, conduct_dir: Path):
-        text = _read(conduct_dir / "SKILL.md")
+        text = _read(conduct_dir / "file-map.md")
         assert "Successor owner map" in text
         # Verify the owner-map points at the real phase files, not legacy
         # work-item breadcrumbs.
@@ -139,12 +140,13 @@ class TestConductPhasedRead:
         assert "Section Index" in text
         assert "Safe-read guidance" in text
 
-    def test_single_item_is_thin_index(self, conduct_dir: Path):
-        text = _read(conduct_dir / "single-item.md")
-        lines = len(text.splitlines())
-        assert lines < 60, (
-            f"single-item.md should be a thin index (<60 lines), got {lines}"
-        )
+    def test_router_is_the_only_phase_index(self, conduct_dir: Path):
+        """One phase table, on the entrypoint. A second copy drifts."""
+        assert not (conduct_dir / "single-item.md").exists()
+        router = _read(conduct_dir / "SKILL.md")
+        assert len(router.splitlines()) < 120, "the entrypoint routes, it does not teach"
+        for phase_file in self.PHASE_FILES:
+            assert phase_file in router, phase_file
 
 
 # ---------------------------------------------------------------------------

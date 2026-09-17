@@ -152,7 +152,7 @@ _MKTEMP_ALLOWLIST: frozenset = frozenset({
     "conduct/dispatch-context-verify.md",
     "conduct/engineer-tester-dispatch.md",
     "conduct/entry-activation.md",
-    "conduct/SKILL.md",
+    "conduct/entry-gates.md",
     "usher/collect.md",
 })
 

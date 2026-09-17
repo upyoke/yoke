@@ -117,5 +117,16 @@ gate `GATE_DB_CLAIM_PROSE_MISMATCH` only covers DB-mutation claims; this gate
 is the path-claim equivalent and runs alongside it.
 
 
-Next: read [`doctrine.md`](doctrine.md), then
-[`review-rubric.md`](review-rubric.md) and emit the critique.
+## 5. Critique
+
+Read [`doctrine.md`](doctrine.md) for the corollaries and operating principles,
+then [`review-rubric.md`](review-rubric.md) for the full critique dimensions,
+mandatory checks, and artifact-specific rubrics. Emit its structured critique.
+When effective File Budget is enabled, its rubric is first-class: an
+implementation-bearing item must not advance to `REFINE_TARGET_STATUS` with a
+missing, vague, or unresolved File Budget; see `update-protocol.md`'s
+**File Budget escalation**. When disabled, skip section authoring while still
+critiquing the plan against the universal 350-line cap.
+
+Next: [`update-protocol.md`](update-protocol.md) for steps 6–12, then
+[`closure.md`](closure.md) before the status advance.

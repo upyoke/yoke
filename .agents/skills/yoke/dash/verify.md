@@ -117,7 +117,9 @@ An empty listing means no effective plan is attached at that transition. For
 optional Dash QA that is an honest absence; do not invent a substitute command
 or a hand-written run.
 
-## Execute each selected posture knob
+## Posture knobs
+
+Then execute each selected posture knob through its shared authority:
 
 - `verification.kind=plan` — the materialize-then-run pass above is that
   execution. Confirm the passing rows are the selected plan's, because the

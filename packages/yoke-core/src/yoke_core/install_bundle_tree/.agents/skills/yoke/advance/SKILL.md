@@ -17,8 +17,8 @@ workflow version; this skill coordinates the surrounding operator journey.
 
 `{PREFIX-N}` accepts prefixed, zero-padded, or bare numeric ids. `[status]` is
 an optional target status or advance-target name; omitted, it advances one
-stage. The advance target `implementation` runs end to end **in the same
-harness session** — worktree creation is a filesystem + DB operation, not a
+stage. The advance target `implementation` runs end to end
+**in the same harness session** — worktree creation is a filesystem + DB operation, not a
 session boundary — and continues into the implementation sub-skill and the
 review loop until `reviewed-implementation`. Stopping at `implementing` and
 announcing `/yoke polish` as "next" is the hand-off-to-operator anti-pattern

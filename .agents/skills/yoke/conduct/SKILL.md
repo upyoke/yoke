@@ -32,28 +32,26 @@ Run '/yoke advance PREFIX-{N} implementation' to begin issue implementation.
 Check the workflow binding early (in S2 or before the status gate) and halt
 before any worktree or status mutation.
 
-## Effective File-Scope Posture
+## Phase map — read one file, at the phase it governs
 
-Before requiring task budgets, activating claims, or pairing either surface,
-call registered `workflows.item.get` through
-`yoke workflows item get ITEM --json`. Consume
-`result.effective_policies.file_budget` and
-`result.effective_policies.path_claims` directly:
+**Do NOT read all files upfront.** Read each phase file only when you reach
+that phase. This preserves context budget for the subagent dispatches that
+consume the majority of a conduct session. Each phase file ends with an
+explicit handoff to the next.
 
-- `required_per_task` applies at generated-task scope;
-- `required` applies at item scope;
-- `optional` is off.
+| Phase | You are here when | Read before acting |
+|---|---|---|
+| 0. Entry contract | The invocation just arrived | [`entry-gates.md`](entry-gates.md) |
+| 1. Entry and activation | The three hard blocks passed | [`entry-activation.md`](entry-activation.md) (S1–S6f) |
+| 2. Engineer/Tester loop | Activation completed (S6f done) | [`engineer-tester-loop.md`](engineer-tester-loop.md) (S6g) |
+| 3. Simulation gate | Every task reached `reviewed-implementation` | [`simulation-gate.md`](simulation-gate.md) (S6h) |
+| 4. Cleanup and report | Any exit path — SUCCESS, HALTED, `--no-chain` | [`cleanup-report.md`](cleanup-report.md) (6z, 6z-cleanup, 7) |
+| — Output gate exhausted | A Tester or Simulator dispatch returned no parseable verdict | [`retry-budgets.md`](retry-budgets.md) |
 
-Do not reconstruct either axis from raw policies or posture. The central
-projection owns historical schema compatibility and allowed posture
-tightening.
-
-Only when both effective axes are enabled may Conduct compare or pair task
-File Budgets with claims. With budget off and claims on, claim paths come from
-the task execution document/spec and dispatch survey. With budget on and
-claims off, task budgets provide sizing and conflict evidence without claim
-activation. With both off, Conduct requires neither artifact. The 350-line
-authored-file check and Engineer receipt remain universal in all postures.
+Supplemental files a phase step may name — `dispatch-context.md`,
+`simulation-autofix.md`, `error-handling.md` — and the map of which file
+owns which conduct responsibility are in [`file-map.md`](file-map.md).
+Read it when a step names one, not before.
 
 ## Autonomous Execution Mode
 
@@ -96,151 +94,5 @@ All implementation and verification work happens inside subagents, which get fre
 
 The retained internal QA waiver path is **operator-debug only**, not normal product flow: it rejects waiving blocking requirements without `--force`. Only the human operator can authorize `--force` for blocking waivers. Non-blocking requirements can still be waived by the agent without `--force`.
 
-## Constants
-
-```
-MAX_TESTER_REPROMPTS=2
-MAX_SIMULATOR_REPROMPTS=2
-MAX_ARCHITECT_FIX_ITERATIONS=3
-```
-
-**Tester output gate fallback chain:** When the Tester returns no parseable verdict, `MAX_TESTER_REPROMPTS` controls the escalation chain:
-- **Initial attempt:** Full prompt with diff (inlined if <=300 lines, externalized to temp file if >300 lines). See `engineer-tester-loop.md` step 7. If verdict found, done.
-- **Retry 1** (`_tester_output_failures == 1`): Minimal prompt variant (no inline diff, file list only) with default model. See `dispatch-context.md` step 5i-minimal.
-- **Retry 2** (`_tester_output_failures == 2`): Minimal prompt variant + `model: "opus"`.
-- **After retry 2** (`_tester_output_failures > MAX_TESTER_REPROMPTS`): Conduct direct verification fallback -- run tests in the worktree directly. See `dispatch-context.md` step 5i-conduct-verify. This is a documented exception to the Thin Conduct Principle.
-
-The constant controls when to escalate model (retry 2) and when to fall back to conduct verification (after all retries exhausted). It does not control when to give up entirely -- the conduct skill always produces a verdict.
-
-**Simulator output gate:** When the Simulator returns no parseable result (neither `SIMULATION: CLEAN` / `SIMULATION: GAPS FOUND` nor fallback `CLEAN` / `GAPS FOUND`), the gate first classifies the failure mode, then selects a recovery strategy. `MAX_SIMULATOR_REPROMPTS` controls the retry budget via a three-tier retry chain:
-- **Initial attempt (Tier 1):** Compressed two-phase integration simulation by default, unless `sim_force_standard_integration=true` overrides it back to the standard full-context prompt. If result found, done.
-- **Classification:** If no result found, classify output as `context_exhaustion` (< 500 chars, mid-thought fragment, tool-call reasoning without report structure) or `formatting_omission` (structured report content present, but the two-line verdict block — `SIMULATION:` line and/or `EPIC: PREFIX-{N}` attestation line — is missing). Ambiguous cases default to `formatting_omission` (conservative).
-- **Retry 1 (Tier 2) — formatting_omission** (`_simulator_output_failures == 1`): Re-invoke with escalated instructions demanding the full two-line verdict block as the first two lines of the response.
-- **Retry 1 (Tier 2) — context_exhaustion** (`_simulator_output_failures == 1`): Re-invoke with compressed context + two-phase protocol + aggressive constraints (verdict-first, max 3 gaps, forbidden-operations list). See `simulation-gate.md` S6h for the full retry prompt.
-- **Retry 2 (Tier 3) — ultra-compressed no-tool fallback** (`_simulator_output_failures == 2`): Re-invoke with ultra-compressed context (overlap matrix + dependency edges + one-line task summaries only — no interface contracts, no review summaries, no diff stats) and a hard no-tool mandate. The Simulator must produce its verdict from prompt content alone. This trades depth for guaranteed completion. See `simulation-gate.md` S6h for the full ultra-compressed prompt.
-- **After retry 2** (`_simulator_output_failures > MAX_SIMULATOR_REPROMPTS`): HALT (safe default). Unlike the Tester gate, there is no conduct direct-verification fallback -- the conduct skill cannot simulate integration paths itself.
-- **Ouroboros logging:** All gate exhaustion entries include the failure mode classification and tier for pattern tracking.
-
-The three-tier chain guarantees that at least one tier produces a parseable verdict for any epic size, trading depth for completion as tiers escalate. The Simulator already runs on opus, so no model escalation is needed.
-
-## Arguments
-
-Required:
-
-- `PREFIX-N`: The backlog item to conduct. Run one item through the Engineer/Tester loop.
-
-Optional flags:
-
-- `--max-attempts N` (optional): override default retry limit. Default is **5**.
-- `--no-chain` (optional, epic only): stop after the current epic task. Do not auto-dispatch the next task in the worktree chain.
-- `--force` (optional): override simulation gap gate — proceed with dispatch even if CRITICAL gaps exist. Synonym for `--ignore-gaps`.
-- `--ignore-gaps` (optional): synonym for `--force`. Either flag enables the override.
-- `--no-auto-fix` (optional): skip the automatic fix loop on simulation gaps. When simulation finds gaps, HALT immediately (legacy behavior). Default: auto-fix is ON.
-
-**Argument validation:**
-
-If `PREFIX-N` is not provided, stop with:
-
-> Missing required argument. Usage: `/yoke conduct PREFIX-N`
-
-## Pre-Dispatch Gates
-
-Before routing, enforce the dispatch gate and acceptance criteria gate. Obey
-the `# Workflow Execution Instructions` operator block at the top of fetched
-item content; it layers on top of, and never replaces, the item's own spec.
-
-1. **Dispatch gate (HARD BLOCK):** Read item status:
- ```bash
- _gate_status=$(yoke items get PREFIX-N status)
- ```
- - If `_gate_status` is `planned`, `implementing`, or `reviewing-implementation`: proceed.
- - Otherwise: hard-block with status-appropriate remediation:
- > GATE [hard-block]: Item not at a dispatchable status.
- > PREFIX-N is at status '{_gate_status}', not 'planned', 'implementing', or 'reviewing-implementation'.
- - `idea`, `refining-idea`: > Remediation: Run `/yoke refine PREFIX-N` to refine the spec.
- - `refined-idea`, `planning`: > Remediation: Run `/yoke shepherd PREFIX-N` to drive planning through `plan-drafted`.
- - `plan-drafted`, `refining-plan`: > Remediation: Run `/yoke refine PREFIX-N` to refine the plan to `planned`.
- - After `reviewing-implementation` (`reviewed-implementation`, `polishing-implementation`): > Remediation: Run `/yoke polish PREFIX-N` to finish implementation polish.
- - `implemented` or `release`: > Remediation: Run `/yoke usher PREFIX-N` to merge and deploy.
- - `done`: > Item is already done. No conduct needed.
- - Exceptional (`blocked`, `stopped`, `failed`, `cancelled`): > Item is in an exceptional state. Resolve the block or use an explicit operator-debug repair path before retrying.
-
-2. **Acceptance criteria gate (HARD BLOCK):** Read item spec (structured field first, body fallback):
- ```bash
- _gate_body=$(yoke items get PREFIX-N spec 2>/dev/null)
- if [ -z "$_gate_body" ]; then
- _gate_body=$(yoke items get PREFIX-N body)
- fi
- ```
- - Search for AC patterns: lines matching canonical `- [ ] AC-` rows or unlabeled `- [ ] ` checkboxes under a `## Acceptance Criteria` section header.
- - If no ACs found: hard-block with:
- > GATE [hard-block]: Missing acceptance criteria.
- > PREFIX-N has no acceptance criteria. Conduct requires ACs to verify.
- > Remediation: Run '/yoke shepherd PREFIX-N' to add acceptance criteria.
-
-3. **Activation dependency gate (HARD BLOCK):** Use the shared hard-block dependency checker with activation-only semantics. Conduct start gating evaluates only `activation` blockers — `integration` and `closure` edges are enforced downstream by merge/usher gates, not at dispatch time:
- ```bash
- _dep_output_file=$(mktemp "${TMPDIR:-/tmp}/conduct-hard-blocks.XXXXXX")
- if python3 -m yoke_core.domain.check_hard_blocks "PREFIX-N" --gate-point activation >"$_dep_output_file" 2>/dev/null; then
- _dep_exit=0
- else
- _dep_exit=$?
- fi
- _dep_output=$(cat "$_dep_output_file")
- rm -f "$_dep_output_file"
- ```
- - If `_dep_exit` is non-zero, hard-block with:
- > GATE [hard-block]: Unresolved activation dependencies.
- > PREFIX-N has unresolved activation dependencies that must be satisfied before conduct dispatch.
- - For each `BLOCKED|PREFIX-{M}|{status}|{title}` line in `_dep_output`, list:
- > - **PREFIX-{M}** ({title}): status `{status}`
- - Then print the authoritative inspection command:
- > Inspect the full dependency graph (both directions):
- > `yoke items dependency list PREFIX-N`
- - Do NOT proceed to dispatch.
- - If `_dep_exit` is 0, continue.
-
-## Phased-Read Plan
-
-After pre-dispatch gates pass, follow this phased-read sequence. **Do NOT read all files upfront.** Read each phase file only when you reach that phase in execution. This preserves context budget for the subagent dispatches that consume the majority of a conduct session.
-
-| Phase | File | When to read | Approx size |
-|---|---|---|---|
-| 1. Entry & Activation | `entry-activation.md` | **Always — read first** | 137 lines |
-| 2. Engineer/Tester Loop | `engineer-tester-loop.md` | After activation completes (S6f done) | 91 lines |
-| 3. Simulation Gate | `simulation-gate.md` | After all tasks pass (all `reviewed-implementation`) | 35 lines |
-| 4. Cleanup & Report | `cleanup-report.md` | After simulation (or on any exit path) | 117 lines |
-
-**Supplemental files — read only when a phase step references them:**
-
-| File | Read when | Safe-read guidance |
-|---|---|---|
-| `dispatch-context.md` (227 lines) | Steps in the loop reference specific sections (5f-rehydrate, 5m, 5n, 5i-minimal, etc.) | **Read only the referenced section.** Use `offset`/`limit` on the Read tool: section index is at the top of the file. Never read end-to-end. |
-| `simulation-autofix.md` (55 lines) | `simulation-gate.md` Branch 3 (GAPS FOUND with CRITICALs) | Read fully only when entering the autofix flow. |
-| `error-handling.md` (70 lines) | Reference only — halt conditions and non-halting failure notes | Small enough to read in full when needed. |
-
-**Large-file read discipline for subagent dispatch prompts:** When a phase file builds an Engineer, Tester, or Simulator prompt that references known-large documents (task bodies, diffs, specs), that phase file includes explicit size-gate guidance. Follow it — do not blind-read oversized content into prompts.
-
-### Phase execution
-
-1. Read `.agents/skills/yoke/conduct/entry-activation.md` and follow it (S1–S6f).
-2. When entry-activation hands off to the loop, read `.agents/skills/yoke/conduct/engineer-tester-loop.md` and follow it (S6g).
-3. When all tasks are complete or the loop exits, read `.agents/skills/yoke/conduct/simulation-gate.md` and follow it (S6h).
-4. On every exit path (SUCCESS, HALTED, `--no-chain`), read `.agents/skills/yoke/conduct/cleanup-report.md` and follow it (6z, 6z-cleanup, 7).
-
-**`single-item.md` is retained as a thin index** that cross-references the phase files and preserves the shell reminder and argument-parsing preamble. It is no longer the sole execution surface — each phase file is self-contained.
 
 **Multi-turn / multi-task progress notes.** Conduct frequently spans many turns and dispatches multiple subagents against the same epic. For session-continuity context that successor agents need to resume after compaction or a session swap, write to the **Progress Log** section on the epic item — see `AGENTS.md > Progress Log — long-running execution context on items`. Per-task progress notes still go to `epic_progress_notes` (already wired into the engineer-tester loop); the Progress Log on the epic item itself captures cross-task state (which tasks are stuck, which decisions were made at the epic level, where to resume).
-
-### Successor owner map
-
-For adjacent work items that target specific conduct responsibilities:
-
-| Responsibility | Owner file | Notes |
-|---|---|---|
-| Submission remediation | `engineer-tester-loop.md` (step 5, submission gate) | Current owner for submission-gate routing |
-| Reflection capture | `dispatch-context.md` (step 5m) | Unchanged — still in dispatch-context |
-| Sync / cleanup | `entry-activation.md` (S6b auto-sync) + `cleanup-report.md` (6z-cleanup) | Split: sync at entry, cleanup at exit |
-| Simulation gate | `simulation-gate.md` (S6h) | Current owner for integration simulation |
-| Task fan-out enumeration | `entry-activation-resolution.md` (S6c) | Produces `_task_ids`; per-candidate same-worktree and dependency filters applied here |
-| Parallel Engineer/Tester dispatch | `dispatch-context-dispatch.md` (5g/5h) + `dispatch-context-prompts.md` (5i) | Live execution path for `_batch_size > 1`; routed from `engineer-tester-loop.md` Branch B |
