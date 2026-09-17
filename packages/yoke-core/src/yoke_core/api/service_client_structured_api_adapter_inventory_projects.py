@@ -66,22 +66,24 @@ PROJECT_ADAPTERS = [
         function_id="projects.environment.create",
         cli_invocation=(
             "yoke projects environment create --project P --site NAME "
-            "--environment NAME [--settings-json JSON]"
+            "--environment NAME [--url URL] [--settings-json JSON]"
         ),
         notes=(
             "idempotent environment registration by readable name under a "
-            "project-owned site; names are unique within the project"
+            "project-owned site; names are unique within the project; "
+            "--url writes environments.url, the origin identity probes"
         ),
     ),
     AdapterEntry(
         function_id="projects.environment.update",
         cli_invocation=(
             "yoke projects environment update --project P "
-            "--environment NAME --name NEW_NAME"
+            "--environment NAME [--name NEW_NAME] [--url URL]"
         ),
         notes=(
-            "renames an existing environment selected by its current readable "
-            "name; the new name must remain unique within the project"
+            "updates an existing environment selected by its current readable "
+            "name; --name must remain unique within the project; --url "
+            "writes environments.url without renaming"
         ),
     ),
 ]

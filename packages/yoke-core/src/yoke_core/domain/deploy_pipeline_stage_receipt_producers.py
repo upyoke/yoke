@@ -119,12 +119,15 @@ def _served_revision_observation(
     from yoke_core.domain.served_revision_probe import probe_served_revision
 
     if not context.identity_origin:
+        from yoke_core.domain.environment_registered_url import (
+            missing_registered_url_message,
+        )
+
         return (
             exec_rc,
-            f"environment {context.dispatch_environment!r} has no registered "
-            "url, so the served-revision path this project configures has no "
-            "origin authorized to answer for it; register the environment's "
-            "url before running QA against it",
+            missing_registered_url_message(
+                context.project, context.dispatch_environment
+            ),
             None,
         )
     outcome = probe_served_revision(
@@ -207,6 +210,18 @@ def _persistent_environment_producer(
     is configuration, which ``deployment_qa_execution_target`` already
     cross-checks) and no artifact identity.
     """
+    if context.identity_path and not context.identity_origin:
+        from yoke_core.domain.environment_registered_url import (
+            missing_registered_url_message,
+        )
+
+        return (
+            1,
+            missing_registered_url_message(
+                context.project, context.dispatch_environment
+            ),
+            None,
+        )
     exec_rc, exec_diag = context.dispatch(
         dispatch_environment=context.dispatch_environment
     )

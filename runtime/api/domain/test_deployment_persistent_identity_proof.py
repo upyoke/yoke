@@ -113,16 +113,39 @@ class TestConfiguredProof:
         assert observation is None
         assert "connection refused" in diag
 
-    def test_an_environment_with_no_registered_url_refuses_by_name(
+    def test_an_environment_with_no_registered_url_refuses_before_dispatch(
         self, monkeypatch: Any
     ) -> None:
         """The origin is authority, so its absence is a configuration refusal."""
-        rc, diag, observation = _produce(
-            _context(identity_origin=""), monkeypatch, _read(LINEAGE)
-        )
+        calls: list[str] = []
 
+        def _dispatch(**_kwargs: Any) -> tuple[int, str]:
+            calls.append("dispatch")
+            return (0, "")
+
+        context = ProducerContext(
+            dispatch=_dispatch,
+            stage={"name": "deploy", "step_runner": "github-actions-workflow"},
+            target={"kind": "persistent_environment", "environment": "stage"},
+            run_id="run-identity-1",
+            stage_name="deploy",
+            project="externalwebapp",
+            correlation_id="corr-1",
+            dispatch_environment="stage",
+            release_lineage=LINEAGE,
+            identity_origin="",
+            identity_path=PATH,
+        )
+        rc, diag, observation = RECEIPT_PRODUCERS["persistent_environment"](context)
+
+        assert rc == 1
         assert observation is None
+        assert calls == []
         assert "no registered url" in diag
+        assert (
+            "yoke projects environment update --project externalwebapp "
+            "--environment stage --url https://<origin>"
+        ) in diag
 
     def test_a_failed_dispatch_is_never_probed(self, monkeypatch: Any) -> None:
         """Asking a stage that did not deploy what it serves proves nothing."""
@@ -230,6 +253,34 @@ class TestDefinitionGate:
         else:
             raise AssertionError("an unreadable identity capability must refuse")
 
+    def test_a_stored_path_without_a_registered_url_names_the_repair(
+        self, test_db: Any
+    ) -> None:
+        from yoke_core.domain.deployment_target_identity_config import (
+            IDENTITY_CAPABILITY,
+        )
+
+        test_db.execute(
+            "INSERT INTO project_capabilities (project_id, type, settings) "
+            "VALUES (1, %s, %s)",
+            (IDENTITY_CAPABILITY, '{"identity_path": "/candidate-revision"}'),
+        )
+        test_db.commit()
+
+        try:
+            require_provable_qa_identity(
+                _stages(), operation="activating", conn=test_db, project=1
+            )
+        except ValueError as exc:
+            text = str(exc)
+            assert "no registered url" in text
+            assert (
+                "yoke projects environment update --project 1 "
+                "--environment stage --url https://<origin>"
+            ) in text
+        else:
+            raise AssertionError("a configured path without a url must refuse")
+
     def test_a_stored_path_admits_the_definition_through_the_gate(
         self, test_db: Any
     ) -> None:
@@ -241,6 +292,11 @@ class TestDefinitionGate:
             "INSERT INTO project_capabilities (project_id, type, settings) "
             "VALUES (1, %s, %s)",
             (IDENTITY_CAPABILITY, '{"identity_path": "/candidate-revision"}'),
+        )
+        test_db.execute(
+            "INSERT INTO environments (site, project_id, name, url, created_at) "
+            "VALUES (1, 1, %s, %s, '2026-01-01T00:00:00Z')",
+            ("stage", "https://stage.example.test"),
         )
         test_db.commit()
 

@@ -218,6 +218,27 @@ class TestEnvironmentCreate:
         assert outcome.primary_success is True
         assert outcome.result_payload["environment"] == "customer-east"
 
+    def test_create_stores_the_origin_not_a_path(self, infrastructure_db) -> None:
+        _create_site()
+        outcome = _create_environment(url="https://stage.example.test/health")
+        assert outcome.primary_success is True
+        conn = connect_test_db(infrastructure_db)
+        try:
+            row = conn.execute(
+                "SELECT url FROM environments WHERE project_id = %s AND name = %s",
+                (2, ENVIRONMENT),
+            ).fetchone()
+        finally:
+            conn.close()
+        assert str(row[0]) == "https://stage.example.test"
+
+    def test_invalid_url_refuses(self, infrastructure_db) -> None:
+        _create_site()
+        outcome = _create_environment(url="not-a-url")
+        assert outcome.primary_success is False
+        assert outcome.error.code == "payload_invalid"
+        assert "http(s) origin" in outcome.error.message
+
 
 def test_registration_specs_cover_both_function_ids() -> None:
     ids = [spec["function_id"] for spec in handlers.REGISTRATION_SPECS]
