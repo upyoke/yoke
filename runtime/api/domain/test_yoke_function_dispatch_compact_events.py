@@ -86,7 +86,7 @@ def _long_warning_handler(_request):
     )
 
 
-class _CompactEventBase(_DispatcherTestBase):
+class CompactEventBase(_DispatcherTestBase):
     """Dispatch one registered handler and return its called-event context."""
 
     def _context_for(self, function_id: str, handler: Any, **reg) -> Dict[str, Any]:
@@ -102,7 +102,7 @@ class _CompactEventBase(_DispatcherTestBase):
         return called[0]["kwargs"]["context"]
 
 
-class TestResultStaysOutOfRoutineTelemetry(_CompactEventBase):
+class TestResultStaysOutOfRoutineTelemetry(CompactEventBase):
     """The result document never rides the per-call INFO event."""
 
     def test_called_event_omits_the_result_document(self):
@@ -126,7 +126,7 @@ class TestResultStaysOutOfRoutineTelemetry(_CompactEventBase):
         self.assertLess(big_bytes, 1_200)
 
 
-class TestFailureDetailsAreBoundedAndActionable(_CompactEventBase):
+class TestFailureDetailsAreBoundedAndActionable(CompactEventBase):
     """A failed call carries a code, a clipped message, and a jsonpath."""
 
     def test_failure_context_is_clipped_and_marked(self):

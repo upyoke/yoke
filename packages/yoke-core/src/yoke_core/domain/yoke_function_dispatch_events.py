@@ -8,8 +8,10 @@ names route through :func:`yoke_core.domain.events.emit_event`:
   function id, version, target, payload and result byte counts plus
   checksums, guardrail outcomes, verification status, sync status, the
   handler's contributed event ids, and — when the call failed — bounded
-  error details. It never copies the result document itself; see
-  :func:`emit_called` for where the full result does live.
+  error details. The result document rides it only under a live scoped
+  debug campaign (:func:`detailed_capture_context`); routinely it does
+  not, and the caller's response plus ``function_call_ledger`` remain
+  where the full result lives.
 - ``DispatcherIdempotencyReplay`` — fired when a prior ``(function,
   request_id)`` is replayed.
 - ``DispatcherDownstreamDegraded`` — fired when at least one
@@ -32,6 +34,7 @@ import hashlib
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
+from yoke_core.api.observability import debug_detail_allowed, service_name
 from yoke_core.domain.auth_context import auth_context_from_actor
 from yoke_core.domain.events import emit_event
 from yoke_core.domain.function_call_ledger import record_call
@@ -89,6 +92,30 @@ def _item_id_str(req: FunctionCallRequest) -> Any:
     return str(req.target.item_id)
 
 
+def detailed_capture_context(
+    request: FunctionCallRequest,
+    entry: RegistryEntry,
+    response: FunctionCallResponse,
+) -> Dict[str, Any]:
+    """Return the full result, but only under a live debug campaign.
+
+    Default is off: with no campaign armed, or one that is expired, out
+    of scope, or past its record cap,
+    :func:`yoke_core.api.observability.debug_detail_allowed` answers false
+    and the routine event keeps the compact shape. Called exactly once
+    per dispatch, because a true answer consumes one unit of the
+    campaign's record budget.
+    """
+    if not debug_detail_allowed({
+        "function": entry.function_id,
+        "session_id": request.actor.session_id,
+        "request_id": request.request_id,
+        "service": service_name(),
+    }):
+        return {}
+    return {"result": dict(response.result)}
+
+
 def emit_called(
     request: FunctionCallRequest,
     entry: RegistryEntry,
@@ -118,13 +145,8 @@ def emit_called(
     # no reader consumed it: the caller already holds the result on the
     # response, and a ledgered call keeps it in ``function_call_ledger``.
     # Exceptional detailed capture belongs behind a scoped, expiring,
-    # record-capped debug campaign, never in the routine INFO event.
-    # TODO(YOK-3206): once YOK-3195 lands
-    # `yoke_core.api.observability.debug_detail_allowed`, guard a
-    # `context["result"] = dict(response.result)` on it here, passing
-    # function, session_id, request_id, and service. Blocked only on that
-    # module existing; the compact shape below is what a false answer —
-    # and every routine call — must keep producing.
+    # record-capped debug campaign (:func:`debug_detail_allowed` below),
+    # never in the routine INFO event.
     result_bytes, result_hash = serialize_payload(dict(response.result))
     context = {
         "function": entry.function_id,
@@ -150,6 +172,7 @@ def emit_called(
     if identity_context:
         context.update(identity_context)
     context.update(error_event_context(response.error))
+    context.update(detailed_capture_context(request, entry, response))
     # Idempotency state is the operational owner of the replay decision,
     # so it is written BEFORE the disposable telemetry below: `emit_event`
     # re-raises RetiredEventNameError, and emitting first let that raise
@@ -305,6 +328,7 @@ def emit_permission_denied(
 
 
 __all__ = [
+    "detailed_capture_context",
     "identity_event_context",
     "serialize_payload",
     "emit_called",

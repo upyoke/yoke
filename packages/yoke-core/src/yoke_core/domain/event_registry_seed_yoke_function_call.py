@@ -9,9 +9,10 @@ pre-registers all four in one idempotent pass:
   function id, version, target, payload and result byte counts plus
   checksums, guardrail outcomes, verification status, sync status,
   handler-supplied event ids, and bounded error details on a failed
-  call. The result document itself never rides this event — the caller
-  holds it on the response and ``function_call_ledger`` holds it for a
-  replayable call. Identity-binder
+  call. The result document rides this event only while a matching
+  scoped debug campaign is live; routinely the caller's response and
+  ``function_call_ledger`` are where the full result lives.
+  Identity-binder
   findings ride the context on every dispatcher event:
   ``session_override`` (+ the divergent ``ambient_session_id``) marks the
   operator-debug explicit-session path, and ``provenance_unverified``
