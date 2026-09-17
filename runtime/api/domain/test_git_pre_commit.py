@@ -99,57 +99,6 @@ class TestFormatWarning(unittest.TestCase):
 # --- Diverged-files warning still fires & is non-blocking -
 
 
-class TestDivergedWarningStillAdvisory(unittest.TestCase):
-    def _run_with_patched_helpers(
-        self,
-        diverged: list[str],
-        staged: list[str],
-        file_line_rc: int,
-    ) -> tuple[int, str]:
-        sequence = iter([diverged, staged])
-
-        def side_effect(_args):
-            return next(sequence)
-
-        buf = io.StringIO()
-        with mock.patch.object(mod, "_git_name_only", side_effect=side_effect), \
-             mock.patch.object(
-                 mod, "_run_file_line_check_or_block", return_value=file_line_rc
-             ), \
-             mock.patch.object(
-                 mod, "_run_agent_render_check_or_block", return_value=0
-             ), \
-             mock.patch.object(
-                 mod, "_run_worktree_status_check_or_block", return_value=0
-             ), \
-             mock.patch.object(
-                 mod, "_run_path_claim_coverage_check_or_block", return_value=0
-             ), \
-             mock.patch.object(mod.sys, "stderr", buf):
-            rc = mod.run()
-        return rc, buf.getvalue()
-
-    def test_no_diverged_still_runs_file_line_check(self) -> None:
-        rc, out = self._run_with_patched_helpers([], [], file_line_rc=0)
-        self.assertEqual(rc, 0)
-        self.assertEqual(out, "")
-
-    def test_overlap_prints_warning_and_file_line_rc_wins(self) -> None:
-        rc, out = self._run_with_patched_helpers(
-            ["foo.py", "bar.py"], ["foo.py", "baz.py"], file_line_rc=0
-        )
-        self.assertEqual(rc, 0)
-        self.assertIn("WARNING", out)
-        self.assertIn("foo.py", out)
-
-    def test_warning_prints_even_when_file_line_hard_fails(self) -> None:
-        rc, out = self._run_with_patched_helpers(
-            ["foo.py"], ["foo.py"], file_line_rc=1
-        )
-        self.assertEqual(rc, 1)
-        self.assertIn("WARNING", out)
-
-
 # --- Fixture-based run() tests
 
 

@@ -6,7 +6,7 @@ The reasoning, recovery paths, watcher inventory, and worked failure modes behin
 
 Paths here are repo-root-relative, because this file is read from `.claude/rules/` in an installed project and from `runtime/harness/claude/rules/` in the Yoke source tree.
 
-What stays Claude-specific depends on a primitive Codex lacks: the `Monitor` wake-as-turn primitive, the `PreToolUse`/`PostToolUse` hook surface, the Claude `settings.json` schema, and the `AskUserQuestion` tool name.
+What stays Claude-specific depends on a primitive Codex lacks per its `agent_wake` fact in `runtime/harness/<harness_id>/manifest.json`: the `Monitor` wake-as-turn primitive, plus the `PreToolUse`/`PostToolUse` hook surface, the Claude `settings.json` schema, and the `AskUserQuestion` tool name.
 
 When you hit a recipe gap or notice a minor bug best held as a supporting record, file a field-note immediately — before retrying, before moving on.
 yoke ouroboros field-note append --kind <failed|new|unclear|observation> --evidence '...'
@@ -50,7 +50,18 @@ Two tiers with different authority. Apply only the one matching your session tie
 **Suppression tokens** (add to the Bash command body; all are recorded in the audit event): `# lint:no-main-check` overrides the main-branch commit block; `# lint:no-lifecycle-mutation-check` the raw-lifecycle-mutation block; `# lint:no-polling-check` the polling guardrail. `# lint:no-monitor-watcher-tail-check` and `# lint:no-raw-pytest-check` are audit-only and do NOT unblock — use the minted `yoke watch tail` or `yoke watch pytest` instead.
 
 ## Harness wake capability
-Wake capability is a manifest fact, not prose. Source of truth: `agent_wake` in `runtime/harness/<harness_id>/manifest.json`, rendered from `yoke_contracts.harness_wake_capability`. Change the contract and re-render; never restate one of these facts on a document's own authority. Cross-harness behavior you author must match what each harness declares, not what this Claude-only file makes convenient.
+Cross-harness behavior you author must match what each harness declares, not what this Claude-only file makes convenient.
+
+<!-- BEGIN GENERATED: harness-wake-capability -->
+Wake capability is a manifest fact, not prose. Source of truth:
+`agent_wake` in `runtime/harness/<harness_id>/manifest.json`, rendered from
+`yoke_contracts.harness_wake_capability`. Change the contract and re-render; never
+restate one of these facts on a document's own authority.
+
+- `claude-code` — idle wake: supported (`Monitor`); timer wake: supported (`ScheduleWakeup`). Verified on claude-cli.
+- `codex` — idle wake: none; timer wake: none. Verified on codex-cli.
+- `cursor` — idle wake: supported (`notify_on_output`); timer wake: none. Verified on cursor-cli.
+<!-- END GENERATED: harness-wake-capability -->
 
 ## Cross-references
 - **Path-claim overlaps surfaced mid-flow:** the resolution protocol is `.agents/skills/yoke/idea/path-claim-blocking.md`.
