@@ -23,7 +23,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Philosophy
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. A drift report should tell the operator exactly what diverged, what is safe to repair, and what still needs judgment.
+**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. A drift report should tell the operator exactly what diverged, what is safe to repair, and what still needs judgment — current findings, not a restated history.
 
 **No silent repair stories.** If resync changes state, the report should make that history explicit so later sessions do not have to infer whether drift was detected, ignored, or repaired.
 

@@ -12,7 +12,7 @@ Lane reversal preserves one canonical prompt body. Whichever harness owns a lane
 
 Yoke uses a shared prompt doctrine across agents and skills. The canonical source is [prompt-philosophy.md](prompt-philosophy.md).
 
-The headline idea is `Be the giant`: we stand on inherited shoulders and owe the next agent a leg up. In practice, that means every prompt surface should leave cold-start-complete context rather than forcing the next reader to re-investigate the basics. It also means live code and current-state docs must be codebase-reader complete: assume future readers cannot see the work item, strategy doc, plan, phase, task, or acceptance criterion that produced the change, and name every live surface by its current function, purpose, and mechanics.
+The headline idea is `Be the giant`: we stand on inherited shoulders and owe the next agent a leg up. Durable specs, plans, verdicts, and code should be complete for the current work so the next reader does not re-investigate the basics. Active plans, progress, handoffs, and resume notes are current-state checkpoints, not accumulated cold-start essays: keep the live objective, standing decisions/holds, active work, blockers, next actions, and links to durable evidence. Live code and current-state docs must also be codebase-reader complete: assume future readers cannot see the work item, strategy doc, plan, phase, task, or acceptance criterion that produced the change, and name every live surface by its current function, purpose, and mechanics.
 
 ## Agent Summary
 

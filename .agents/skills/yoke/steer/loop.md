@@ -29,7 +29,7 @@ restate one of these facts on a document's own authority.
 Check live mode before each resumed pass: an explicit `parked` pause remains
 until the operator resumes coordination. Only then stamp
 `yoke sessions touch --mode steer` if needed. After compaction or resume,
-reattach the running watcher or re-arm it when absent, respecting that pause.
+reload this phase and refresh live authority; discarded context is gone.
 
 ## Pass
 
@@ -312,10 +312,10 @@ it at the next steering handoff rather than accumulating stale snapshots:
 ## Live status — steering snapshot (refresh or replace on next steering handoff)
 ```
 
-It carries current seat holdings, in-flight lanes, deploy-batch state, the
-dependency-edge queue, any live outstanding operator action and what it
-blocks, and the recipes currently in force. A successor must be able to
-cold-start the scope from the claimed document alone.
+It carries current objective, standing decisions/holds, seat holdings,
+in-flight lanes, blockers, next actions, and links to evidence. Do not
+paste full results or superseded snapshots; history lives in revisions.
+Dated status sections other than this one are stale.
 
 ### Operator reminders in every reply
 

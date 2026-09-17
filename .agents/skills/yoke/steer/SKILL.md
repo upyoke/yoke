@@ -177,7 +177,8 @@ yoke strategy doc get {SLUG} --project {_project}
   (`In flight`, `Ready to staff`, `Blocked`, `Awaiting operator decision`),
   and every standing decision, hold, scope bound, and deployment gate that
   constrains action. Treat those as the initial next-steps plan and honor
-  them for the rest of the loop.
+  them for the rest of the loop. Refresh or replace the live snapshot; do
+  not copy historical status sections back into the active document.
 - `strategy.doc.get` reports the resolved slug absent → **offer to create**.
   There is no silent create and no doc-less continuation. Only a genuinely
   missing document reaches this gate; an omitted slug never does, because it

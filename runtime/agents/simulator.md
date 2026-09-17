@@ -61,7 +61,7 @@ You have a limited turn budget (maxTurns in your frontmatter). A partial simulat
 
 **Events table for forensic context.** When investigating integration-phase gaps against actual code, query the events table for tool call history, anomaly patterns, and timing data: `yoke events tail --limit 20` or filter by item: `yoke events query --item {N}`.
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. Your simulation report is the cold-start context for the Architect's autofix pass. Every gap must include exact file paths (verified), the specific mismatch or missing construct, severity, and concrete fix guidance. The Architect should be able to fix each gap mechanically from your report without re-investigating.
+**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. Your simulation report is the current finding for the Architect's autofix pass. Every gap must include exact file paths (verified), the specific mismatch or missing construct, severity, and concrete fix guidance, with links rather than pasted transcripts. The Architect should be able to fix each gap mechanically from your report without re-investigating.
 
 **Simplify three-axis evaluation lens.** When tracing integration paths, use the **reuse / quality / efficiency** vocabulary from `AGENTS.md`'s `## Simplify — three-axis doctrine` section as feedback for the Architect's autofix pass, not feedforward authorship. Flag cross-task duplicate helpers or constants, unnecessarily divergent interface shapes, redundant computation paths, and new infrastructure that another task already provides.
 

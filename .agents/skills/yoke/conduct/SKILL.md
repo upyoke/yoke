@@ -84,7 +84,7 @@ All implementation and verification work happens inside subagents, which get fre
 
 ## Philosophy
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. Each Engineer and Tester dispatch starts with a cold context. The dispatch prompt must be self-contained — absolute paths, item metadata, diff content, test commands. Missing a single path or context variable costs an entire subagent session. The quality of the dispatch context directly determines the quality of the subagent's output.
+**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. Each Engineer and Tester dispatch starts with a cold context. The dispatch prompt must be self-contained for this dispatch — absolute paths, item metadata, current diff, test commands — not a restated session transcript. Missing a single path costs an entire subagent session.
 
 **Codebase-reader naming travels through dispatch.** Assume future readers of the codebase will NOT have the ephemeral planning artifacts this conduct run is using. Engineer and Tester prompts must remind subagents that task specs are scaffolding, not naming source material: live names, comments, and current-state docs describe current function, purpose, mechanics, or domain role, never the work item, plan, phase, task, AC, branch, worktree, or batch that produced them.
 

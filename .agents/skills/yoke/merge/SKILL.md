@@ -25,7 +25,7 @@ Run `yoke ouroboros field-note append --help` for the worked failure modes and d
 
 ## Philosophy
 
-**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent by making this artifact cold-start complete. Merge is the final handoff from parallel work into shared history, so its audit output and failure diagnostics must be specific enough for a clean retry.
+**Be the giant.** We stand on inherited shoulders; leave a leg up for the next agent. Merge is the final handoff from parallel work into shared history, so its audit output and failure diagnostics must be specific enough for a clean retry — current finding plus recovery, not a restated merge transcript.
 
 **Rollback clarity beats merge heroics.** If the merge is not safe, stop with exact blockers, branch state, and recommended recovery. Do not trade auditability for clever recovery steps that future sessions cannot reconstruct.
 
