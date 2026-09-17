@@ -12,19 +12,12 @@ that happens to say the right thing.
 
 from __future__ import annotations
 
-import json
-from unittest import mock
-
-import pytest
-
 from yoke_contracts.runtime_identity import (
     SERVED_BUILD_DIRTY_SUFFIX,
     SERVED_BUILD_PATH,
 )
-from yoke_core.domain import browser_qa
 from yoke_core.domain import browser_qa_case_target_identity as case_target
 from yoke_core.domain import browser_qa_freshness_outcome as outcome
-from yoke_core.domain import browser_qa_preview_identity as preview_identity
 from yoke_core.domain import served_revision_probe as probe
 
 

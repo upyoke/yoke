@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from collections.abc import Mapping
 from contextlib import contextmanager
 from typing import Iterator
 
@@ -13,9 +15,28 @@ from yoke_core.domain import db_backend
 # Stable signed-bigint advisory-lock namespace for the one-universe database.
 UNIVERSE_STARTUP_LOCK_ID = 0x596F6B65496D7074
 
+# Existing hosted-container env contract (compose injects all four).
+HOSTED_TENANT_DSN_FILE = "/run/yoke/dsn"
+HOSTED_TENANT_API_HOST = "0.0.0.0"
+HOSTED_TENANT_API_PORT = "8000"
+HOSTED_TENANT_ENVIRONMENTS = frozenset({"stage", "prod"})
+
 
 class UniverseStartupBusy(RuntimeError):
     """A server startup currently owns the universe database boundary."""
+
+
+def hosted_tenant_container_process(
+    env: Mapping[str, str] | None = None,
+) -> bool:
+    """True only for the proven hosted tenant-container env conjunction."""
+    source = os.environ if env is None else env
+    return (
+        source.get("YOKE_PG_DSN_FILE") == HOSTED_TENANT_DSN_FILE
+        and source.get("YOKE_API_HOST") == HOSTED_TENANT_API_HOST
+        and source.get("YOKE_API_PORT") == HOSTED_TENANT_API_PORT
+        and source.get("YOKE_ENVIRONMENT") in HOSTED_TENANT_ENVIRONMENTS
+    )
 
 
 def _connection(dsn: str) -> psycopg.Connection:
@@ -69,8 +90,13 @@ def exclusive_import_guard(dsn: str) -> Iterator[None]:
 
 
 __all__ = [
+    "HOSTED_TENANT_API_HOST",
+    "HOSTED_TENANT_API_PORT",
+    "HOSTED_TENANT_DSN_FILE",
+    "HOSTED_TENANT_ENVIRONMENTS",
     "UNIVERSE_STARTUP_LOCK_ID",
     "UniverseStartupBusy",
     "exclusive_import_guard",
+    "hosted_tenant_container_process",
     "server_startup_guard",
 ]

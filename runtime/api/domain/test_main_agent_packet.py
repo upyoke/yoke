@@ -1,18 +1,19 @@
-"""Regressions for the bootstrap main_agent packet.
+"""Regressions for the bootstrap main_agent startup block.
 
-Lives in its own sibling test module File Budget so
-``test_bootstrap.py`` does not press the file-line cap. Verifies that:
+Lives in its own sibling test module so ``test_bootstrap.py`` does not press
+the file-line cap. Verifies that:
 
-- The ``main_agent`` packet is rendered through the shared
-  ``yoke_core.domain.main_agent_packet`` helper (compact + full).
-- Bootstrap compact / full orientation injects the ``main_agent`` packet
-  via the same shared bootstrap path that Codex and Claude startup
-  surfaces consume — no hand-copied prose in either rendered orientation.
-- The ``harness_contract`` substrate name is mentioned in the helper's
-  prefix so the operator orientation distinguishes the LLM-facing packet
-  layer from the substrate manifest contract.
-- The packet is generated, never hand-copied: the rendered body matches
-  ``schema_api_context.render_role_packet("main_agent")``.
+- The block carries the short startup core and the reads that reach the rest,
+  through the shared ``yoke_core.domain.main_agent_packet`` helper
+  (compact + full).
+- The block does NOT inline the packet body. It used to, and the composed
+  reply outgrew every harness inline ceiling, so the tail was delivered in
+  name only; the block now names the command that renders the packet instead.
+- Bootstrap compact / full orientation injects that block through the same
+  shared path Codex and Claude startup surfaces consume — no hand-copied
+  prose in either rendered orientation.
+- The block stays small enough to fit the smallest inline channel, measured
+  rather than assumed.
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ from yoke_core.domain.main_agent_packet import (
     INSTALL_ADVISORY_HEADING,
     INSTALL_ADVISORY_POINTER,
     MAIN_AGENT_ROLE,
-    RENDER_FAILURE_PREFIX,
+    MAIN_AGENT_STARTUP_READS,
     render_install_advisory_block,
     render_interpreter_advisory_block,
     render_main_agent_block,
@@ -67,104 +68,121 @@ def test_main_agent_role_constant_matches_seed() -> None:
     assert MAIN_AGENT_ROLE in seed.ROLE_TOPICS
 
 
-def test_render_main_agent_block_returns_generated_body() -> None:
-    """The compact block embeds the freshly generated packet body —
-    never a hand-copied snippet of schema text."""
+def test_render_main_agent_block_carries_the_startup_reads() -> None:
+    """The compact block is the short core plus its named reads."""
 
     block = render_main_agent_block()
     assert block, "compact main_agent block must not be empty"
-    fresh = schema_api_context.render_role_packet("main_agent").rstrip()
-    for line in fresh.splitlines():
-        if not line.strip():
-            continue
-        assert line in block, (
-            f"generated packet line not found in compact block: {line!r}"
+    for line in MAIN_AGENT_STARTUP_READS.splitlines():
+        if line.strip():
+            assert line in block
+
+
+def test_render_main_agent_block_does_not_inline_the_packet_body() -> None:
+    """The block names the packet command instead of embedding the packet.
+
+    Embedding it is what put 106.8 KB into an 8 KiB channel, so the harness
+    persisted the block to a file and showed the model a preview from the
+    top. Anything past that preview was in force and unread.
+    """
+
+    block = render_main_agent_block()
+    packet = schema_api_context.render_role_packet("main_agent")
+    schema_lines = [
+        line
+        for line in packet.splitlines()
+        if line.startswith("- **`") and line.count("`") >= 2
+    ]
+    assert schema_lines, "expected the packet to list tables"
+    for line in schema_lines:
+        assert line not in block, (
+            "startup block must not inline the packet body; it names "
+            "`yoke packets render --role main_agent` instead"
         )
+    assert "yoke packets render --role main_agent" in block
 
 
-def test_render_main_agent_block_full_includes_heading_and_body() -> None:
+def test_startup_block_fits_the_smallest_inline_channel() -> None:
+    """Measured, not assumed: the block fits every harness inline ceiling."""
+
+    from yoke_contracts.hook_inline_context import INLINE_CONTEXT_BYTES
+
+    spent = len(render_main_agent_block().encode("utf-8"))
+    smallest = min(INLINE_CONTEXT_BYTES.values())
+    assert spent < smallest, (
+        f"startup block spends {spent} bytes against the smallest inline "
+        f"ceiling of {smallest}"
+    )
+
+
+def test_render_main_agent_block_full_leads_with_its_heading() -> None:
     block = render_main_agent_block_full()
     assert block, "full main_agent block must not be empty"
     assert block.startswith("=== "), (
         "full block must lead with an ``=== ... ===`` heading to match "
         "the surrounding bootstrap render_full layout"
     )
-    fresh = schema_api_context.render_role_packet("main_agent").rstrip()
-    for line in fresh.splitlines():
-        if not line.strip():
-            continue
-        assert line in block
+    assert "yoke packets render --role main_agent" in block
 
 
-def test_render_compact_injects_main_agent_packet(
+def test_render_compact_injects_main_agent_block(
     repo_root: Path, spec: dict
 ) -> None:
-    """the shared bootstrap render path used by Codex /
-    Claude startup surfaces injects the ``main_agent`` packet."""
+    """The shared bootstrap render path injects the startup block."""
 
     rendered = render_compact(repo_root, spec)
     assert "main_agent" in rendered
-    block = render_main_agent_block()
-    for line in block.splitlines():
-        if not line.strip():
-            continue
-        assert line in rendered, (
-            f"compact orientation missing packet line: {line!r}"
-        )
+    for line in render_main_agent_block().splitlines():
+        if line.strip():
+            assert line in rendered, (
+                f"compact orientation missing block line: {line!r}"
+            )
 
 
-def test_render_full_injects_main_agent_packet(
+def test_render_full_injects_main_agent_block(
     repo_root: Path, spec: dict
 ) -> None:
     rendered = render_full(repo_root, spec)
     assert "main_agent" in rendered
-    block = render_main_agent_block_full()
-    for line in block.splitlines():
-        if not line.strip():
-            continue
-        assert line in rendered, (
-            f"full orientation missing packet line: {line!r}"
-        )
+    for line in render_main_agent_block_full().splitlines():
+        if line.strip():
+            assert line in rendered, (
+                f"full orientation missing block line: {line!r}"
+            )
 
 
-def test_main_agent_block_names_harness_contract_distinction() -> None:
-    """The bootstrap orientation distinguishes
-    the LLM-facing packet layer (``main_agent`` / ``*_agent``) from the
-    substrate manifest contract (``harness_contract``). Operators reading
-    the rendered orientation must see both names so the layers are not
-    conflated."""
+def test_main_agent_block_separates_schema_from_substrate_authority() -> None:
+    """The block keeps the two authorities distinct by naming each one.
+
+    Schema and command truth is the packet, reached by its render command.
+    Substrate capability truth is the harness's own manifest. Conflating them
+    is how an agent ends up asserting what a harness can do from a document,
+    so the block names the manifest rather than describing it.
+    """
 
     block = render_main_agent_block()
-    assert "harness_contract" in block, (
-        "compact main_agent block must name the harness_contract layer "
-        "to keep the LLM packet vs. substrate manifest distinction visible"
-    )
-    for role in (
-        "architect_agent",
-        "engineer_agent",
-        "tester_agent",
-        "simulator_agent",
-        "boss_agent",
-    ):
-        assert role in block, (
-            f"compact block must name subagent packet role {role!r}"
-        )
+    assert "yoke packets render --role main_agent" in block
+    assert "runtime/harness/<harness_id>/manifest.json" in block
+    assert "never a document's claim" in block
 
 
-def test_append_helpers_no_op_when_packet_unavailable(monkeypatch) -> None:
-    """When the schema_api_context generator is unavailable (fresh
-    checkout, broken bootstrap state), the append helpers must be a no-op so the
-    bootstrap path stays fail-open."""
+def test_append_helpers_always_contribute_the_block() -> None:
+    """The block no longer depends on a packet render, so it cannot be empty.
+
+    It used to be skipped whenever the packet generator was unavailable,
+    which meant a fresh checkout got no orientation at all. The block is now
+    built from constants plus machine-local advisories, so the only thing a
+    broken generator costs is the packet the block points at.
+    """
 
     import yoke_core.domain.main_agent_packet as bp
 
-    monkeypatch.setattr(bp, "_render_packet_body", lambda: "")
     lines: list = []
     bp.append_main_agent_compact(lines)
-    assert lines == []
+    assert any("yoke packets render --role main_agent" in part for part in lines)
     parts: list = []
     bp.append_main_agent_full(parts)
-    assert parts == []
+    assert any("yoke packets render --role main_agent" in part for part in parts)
 
 
 def test_render_install_advisory_block_empty_when_yoke_on_path(
@@ -258,42 +276,21 @@ class _SimulatedDriftError(RuntimeError):
     type, while still exercising the structured-banner code path."""
 
 
-def test_render_main_agent_block_emits_loud_banner_on_render_failure(
-    monkeypatch,
-) -> None:
-    """``_render_packet_body`` must NOT silently return ``""`` when
-    ``render_role_packet`` raises. Instead it must return the
-    structured render-failure banner so the compact and full bootstrap
-    consumers surface it loudly. The banner must be non-empty, lead
-    with the canonical :data:`RENDER_FAILURE_PREFIX`, and name the
-    underlying error class so operators can identify the drift."""
+def test_block_survives_a_broken_packet_generator(monkeypatch) -> None:
+    """A packet that cannot render no longer takes orientation down with it.
 
-    failure_message = "items.kind column not in seed"
+    The block names the render command rather than embedding its output, so
+    drift surfaces where it is actionable — when the agent runs
+    ``yoke packets render`` — instead of replacing the session's only
+    orientation with a banner.
+    """
 
-    def _raises(_role: str) -> str:
-        raise _SimulatedDriftError(failure_message)
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("seed disagrees with live schema")
 
-    monkeypatch.setattr(schema_api_context, "render_role_packet", _raises)
-
+    monkeypatch.setattr(schema_api_context, "render_role_packet", boom)
     block = render_main_agent_block()
-    assert block, "render-failure banner must be non-empty"
-    assert RENDER_FAILURE_PREFIX in block, (
-        "compact block must include the canonical "
-        f"{RENDER_FAILURE_PREFIX!r} prefix"
-    )
-    assert _SimulatedDriftError.__name__ in block, (
-        "banner must name the underlying error class"
-    )
-    assert failure_message in block, (
-        "banner must propagate the underlying error message"
-    )
-
-    full = render_main_agent_block_full()
-    assert RENDER_FAILURE_PREFIX in full, (
-        "full block must propagate the render-failure banner"
-    )
-    assert _SimulatedDriftError.__name__ in full
-    assert failure_message in full
+    assert "yoke packets render --role main_agent" in block
 
 
 # Interpreter-advisory coverage. Probe behavior is

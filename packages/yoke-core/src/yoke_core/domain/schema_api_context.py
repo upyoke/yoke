@@ -13,8 +13,9 @@ import sys
 from typing import Optional
 
 from yoke_core.domain import schema_api_context_seed as seed
-from yoke_core.domain.schema_api_context_packet_budget import packet_line_count
 from yoke_core.domain.schema_api_context_render import (
+    PACKET_DETAIL_COMPACT,
+    packet_detail_pointer,
     render_command_block,
     render_function_call_surface_block,
     render_invariant_block,
@@ -244,12 +245,19 @@ _TOPIC_HEADERS = {
 }
 
 
-def render_topic_packet(topic: str, *, role: str = "main_agent") -> str:
+def render_topic_packet(
+    topic: str,
+    *,
+    role: str = "main_agent",
+    detail: str = PACKET_DETAIL_COMPACT,
+) -> str:
     """Return the role-aware markdown body for a single topic packet.
 
-    The body is what lives between the marker pair in the canonical
-    agent prompts. Caller wraps with ``agents_render_context`` if marker
-    framing is desired.
+    The body is what lives between the marker pair in the canonical agent
+    prompts. Caller wraps with ``agents_render_context`` if marker framing
+    is desired. ``detail`` selects the rendering depth described in
+    :mod:`schema_api_context_render`; compact is what ships, and a compact
+    body ends by naming the command that renders its own full form.
     """
     if topic not in seed.TOPICS:
         raise ValueError(f"unknown topic: {topic}")
@@ -266,21 +274,28 @@ def render_topic_packet(topic: str, *, role: str = "main_agent") -> str:
         parts.append("")
         parts.extend(render_function_call_surface_block())
         parts.append("")
-    parts.extend(render_command_block(topic, role=role))
+    parts.extend(render_command_block(topic, role=role, detail=detail))
     parts.append("")
-    parts.extend(render_table_block(topic, _resolve_columns))
+    parts.extend(render_table_block(topic, _resolve_columns, detail=detail))
     json_block = render_json_nested_schema_block(topic)
     if json_block:
         parts.append("")
         parts.extend(json_block)
+    if detail == PACKET_DETAIL_COMPACT:
+        parts.extend(["", packet_detail_pointer(role, topic)])
     return "\n".join(parts).rstrip() + "\n"
 
 
-def render_role_packet(role: str) -> str:
+def render_role_packet(
+    role: str, *, detail: str = PACKET_DETAIL_COMPACT
+) -> str:
     """Return the concatenated packet body for *role*'s assigned topics."""
     if role not in seed.ROLE_TOPICS:
         raise ValueError(f"unknown role: {role}")
-    chunks = [render_topic_packet(t, role=role) for t in seed.ROLE_TOPICS[role]]
+    chunks = [
+        render_topic_packet(t, role=role, detail=detail)
+        for t in seed.ROLE_TOPICS[role]
+    ]
     if role == "main_agent":
         chunks[-1] = (
             chunks[-1].rstrip()
@@ -302,7 +317,8 @@ def render_role_packet(role: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Drift / size checks
+# Drift checks — size checks live with the budgets they compare against, in
+# :mod:`schema_api_context_packet_budget`.
 # ---------------------------------------------------------------------------
 
 
@@ -315,18 +331,6 @@ def detect_seed_drift() -> list[str]:
         except DriftError as exc:
             drift.append(str(exc))
     return drift
-
-
-def check_role_packet_size(role: str) -> tuple[int, int]:
-    """Return ``(line_count, budget)`` for the role's packet."""
-    body = render_role_packet(role)
-    return (packet_line_count(body), seed.PACKET_LINE_BUDGET_PER_ROLE)
-
-
-def check_aggregate_size() -> tuple[int, int]:
-    """Return ``(total_line_count, aggregate_budget)`` across all roles."""
-    total = sum(packet_line_count(render_role_packet(r)) for r in seed.ROLE_TOPICS)
-    return (total, seed.PACKET_LINE_BUDGET_AGGREGATE)
 
 
 def main(argv: Optional[list[str]] = None) -> int:

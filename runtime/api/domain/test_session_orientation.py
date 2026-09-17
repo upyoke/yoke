@@ -174,7 +174,7 @@ def test_orientation_shows_each_machine_advisory_once(
     assert out.count("install advisory") == 1
 
 
-def test_cursor_session_start_carries_generated_packet(project: Path) -> None:
+def test_cursor_session_start_carries_the_startup_block(project: Path) -> None:
     (project / "AGENTS.md").write_text("# House rules\n", encoding="utf-8")
 
     out = so.orientation_for_hook(
@@ -184,7 +184,8 @@ def test_cursor_session_start_carries_generated_packet(project: Path) -> None:
     )
 
     assert out is not None
-    assert "Main-session DB/API packet (main_agent)" in out
+    assert "Main-session startup block (main_agent)" in out
+    assert "yoke packets render --role main_agent" in out
 
 
 def test_cwd_outside_a_managed_project_is_not_oriented(tmp_path: Path) -> None:
@@ -232,16 +233,18 @@ def test_orientation_survives_a_checkout_without_git(
     assert "Recent commits:" not in out
 
 
-def test_packet_is_delivered_with_installed_rules(
+def test_startup_block_is_delivered_with_installed_rules(
     project: Path,
 ) -> None:
-    # Auto-loaded rules stay compact; the hook supplies generated schema truth.
+    # Auto-loaded rules stay compact; the hook supplies the startup block that
+    # names where generated schema truth comes from.
     (project / "AGENTS.md").write_text("# House rules\n", encoding="utf-8")
 
     out = so.orientation_for_hook("UserPromptSubmit", _payload(project))
 
     assert out is not None
-    assert "Main-session DB/API packet (main_agent)" in out
+    assert "Main-session startup block (main_agent)" in out
+    assert "yoke packets render --role main_agent" in out
 
 
 def test_orientation_names_the_board_only_when_it_exists(project: Path) -> None:

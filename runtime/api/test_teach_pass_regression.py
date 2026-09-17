@@ -20,8 +20,9 @@ from yoke_core.domain.path_claim_bash_guard_narrative import (
 from yoke_core.domain.path_claim_register import compose_overlap_denial
 from yoke_core.domain.path_claim_target_resolver import ClaimContext
 from yoke_core.domain.yok_n_parser import parse_item_id
+from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
-_RENDERED_BODY: str = sac.render_role_packet("main_agent")
+_RENDERED_BODY: str = sac.render_role_packet("main_agent", detail=PACKET_DETAIL_FULL)
 _REPO = Path(__file__).resolve().parents[2]
 
 

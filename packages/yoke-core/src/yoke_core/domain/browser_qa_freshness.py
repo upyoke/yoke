@@ -234,20 +234,20 @@ def _establish_deployment_freshness(
     expected_sha: str,
     *,
     context: Dict[str, Any],
-    deployment_run_id: Optional[str],
     base_url: str = "",
     fetch_identity: Optional[Callable[[str], object]] = None,
 ) -> tuple[Optional[FreshnessFailure], str, str]:
     """Prove the target under test, and name what that proof covers.
 
-    Which target that is comes from the case's own subject, never from the
-    branch alone: a case attached to a deployment run verifies the
-    environment that run targeted, an item case verifies the branch's
-    preview, and an item case whose project publishes neither falls back to
-    asking the host it is about to browse. That fallback is last, not
-    lenient — it is reached only where nothing was deployed and nothing was
-    configured, so a preview that answered wrongly or a configuration that
-    could not be read still refuses on its own terms.
+    Which target that is comes from the target the case is bound to, never
+    from the branch alone: a case that names an environment verifies that
+    environment, whether it hangs off a deployment run or an item; a case
+    bound to nothing verifies the branch's preview; and where the project
+    publishes no preview proof either, the last source is the host the case
+    is about to browse. That fallback is last, not lenient — it is reached
+    only where nothing was deployed and nothing was configured, so a
+    preview that answered wrongly or a configuration that could not be read
+    still refuses on its own terms.
 
     Returns the failure (or ``None``), the origin the established freshness
     covers, and the commit the answering source reported. The origin is
@@ -255,7 +255,12 @@ def _establish_deployment_freshness(
     to a target something answered for; the commit is what the run records,
     so a stamped commit is always one some source actually produced.
     """
-    if deployment_run_id is not None:
+    if context.get("deployment_target") is not None:
+        # The case's own bound target answers first: an environment a case
+        # names is the deployment it is about, whether it hangs off a run or
+        # an item. Only a case bound to nothing falls through to the branch
+        # preview below, which is the question that fits a case with no
+        # target of its own.
         target = DeploymentUnderTest.from_payload(context.get("deployment_target"))
         failure = validate_deployment_identity(
             expected_sha,

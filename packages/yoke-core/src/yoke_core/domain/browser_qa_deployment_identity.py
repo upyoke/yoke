@@ -31,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
+from yoke_core.api.health_payload_contract import BUILD_FIELD
 from yoke_core.domain import served_revision_probe as probe
 from yoke_core.domain.browser_qa_freshness_outcome import (
     DEPLOYMENT_RECORD_MISSING,
@@ -52,10 +53,13 @@ from yoke_core.domain.deployment_target_identity_config import (
 class DeploymentUnderTest:
     """The deployment a run-bound Browser case verifies, as the server sees it.
 
-    ``origin`` is the environment's own registered url and nothing else: it
-    is the single host authorized both to answer for this environment and to
-    be browsed under this run's freshness claim. ``unresolved`` means the run
-    itself does not name a deployment to test,
+    ``origin`` is the deployment's own registered address: the single host
+    authorized both to answer for it and to be browsed under this freshness
+    claim. Where that host fronts more than one deployed artifact, which one
+    answers is decided by ``identity_path`` — a configured path selects the
+    artifact as well as the route, and nothing here infers it.
+
+    ``unresolved`` means the run itself does not name a deployment to test,
     which is a different answer from "it names one that cannot prove itself".
     """
 
@@ -142,9 +146,7 @@ def resolve_deployment_under_test(conn: Any, run_id: str) -> DeploymentUnderTest
             )
         )
     name = str(_scalar(environment, 0, "name") or "")
-    configured = persistent_identity_path(
-        conn, int(_scalar(run, 0, "project_id") or 0)
-    )
+    configured = persistent_identity_path(conn, int(_scalar(run, 0, "project_id") or 0))
     return DeploymentUnderTest(
         environment=name,
         origin=str(_scalar(environment, 1, "url") or "").strip(),
@@ -213,8 +215,11 @@ def validate_deployment_identity(
         return FreshnessFailure(
             IDENTITY_PROOF_MALFORMED,
             f"The environment at {outcome.url} answered with {outcome.detail}, "
-            "which is not a full 40-character commit SHA. An abbreviation or a "
-            "page is not proof; serve the exact commit identity there.",
+            "which states no full 40-character commit SHA — neither as the "
+            f"whole body nor as a {BUILD_FIELD!r} field of a health document. "
+            "An abbreviation, a page, or another service's liveness reply is "
+            "not proof; check that this path belongs to the deployment under "
+            "test and serves its exact commit identity.",
         )
     if outcome.kind == probe.MISMATCH:
         return FreshnessFailure(

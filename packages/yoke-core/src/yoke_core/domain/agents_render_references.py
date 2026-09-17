@@ -25,14 +25,14 @@ from yoke_core.domain.agents_render_field_note import (
 CLAUDE_REFERENCE_DIR = Path("runtime") / "harness" / "claude" / "agents" / "references"
 INSTALLED_REFERENCE_DIR = Path(".claude") / "agents" / "references"
 
-# These references are needed on every relevant run, so embedding them keeps
-# the adapter self-contained. Other fragments are materialized on demand.
-INLINE_REFERENCE_PATHS = frozenset(
-    {
-        Path("architect") / "hard-constraints.md",
-        Path("tester") / "regression-detection.md",
-    }
-)
+# References embedded in their parent prompt rather than materialized beside
+# it. Empty today, deliberately: every fragment so far turned out to be
+# conditional by its own wording — the regression procedure applies when the
+# criteria mention regressions, the hard-constraints list when a plan is
+# actually being written — while embedding charged every dispatch for them.
+# A genuinely unconditional reference belongs here; a conditional one belongs
+# in the parent's prose as a named read at the moment it applies.
+INLINE_REFERENCE_PATHS: frozenset = frozenset()
 _SHARED_REFERENCE_PATHS = (Path("_shared") / "ouroboros-reflection-contract.md",)
 _CANONICAL_REFERENCE_RE = re.compile(
     r"runtime/agents/(?P<relative>[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\.md)"

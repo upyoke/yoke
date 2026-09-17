@@ -15,11 +15,8 @@ from typing import Iterable, List, Set, Tuple
 
 from yoke_contracts.project_contract.strategy_docs_paths import is_strategy_view_path
 from yoke_core.engines.doctor_registry_tier_discipline import (
-    REQUIRED_FUNCTION_IDS,
-    TIER_3_GLOBS,
-    TIER_6_ARCHIVE_PREFIXES,
-    TIER_GLOBS,
-    iter_tier_paths,
+    BARE_NAME_CITATION_FAMILIES, REQUIRED_FUNCTION_IDS, TIER_3_GLOBS,
+    TIER_6_ARCHIVE_PREFIXES, TIER_GLOBS, iter_tier_paths,
 )
 from yoke_core.engines.doctor_report import (
     DoctorArgs,
@@ -164,7 +161,7 @@ def _normalize_cited(
         )
     candidates.append(posixpath.normpath(posixpath.join(_SKILL_ROOT, cited)))
     if "/" not in cited and cited.endswith(".md"):
-        candidates.append(posixpath.join("docs/archive/decisions", cited))
+        candidates += [posixpath.join(d, cited) for d in BARE_NAME_CITATION_FAMILIES]
     if cited.startswith("yoke/ouroboros/"):
         candidates.append(cited.removeprefix("yoke/"))
     for candidate in candidates:

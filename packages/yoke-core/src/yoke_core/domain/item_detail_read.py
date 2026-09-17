@@ -1,9 +1,17 @@
-"""One work item's stored narrative, execution posture, lanes, and proof."""
+"""One work item's execution posture, lanes, proof, and content index.
+
+The read answers what the item *is* on every call and serves the item's
+content — the stored narrative fields, the body rendered from them, the
+Progress Log — only to a caller that names the section it wants. What every
+caller gets instead is :mod:`yoke_core.domain.item_content_index`'s map of
+which content exists and the exact command that returns each piece, so the
+common read stays small and the reader can still find the rest.
+"""
 
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Sequence
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_contracts.merge_queue_status import render_merge_queue_status
@@ -13,6 +21,7 @@ from yoke_core.domain.field_note_dash_promotion import (
     source_field_note_for_dash,
 )
 from yoke_core.domain.gate_satisfier_stamp import read_rungs
+from yoke_core.domain.item_content_index import build_content_index
 from yoke_core.domain.item_page_claims import active_item_claims
 from yoke_core.domain.item_detail_qa import qa_plan_attachments, qa_rows
 from yoke_core.domain.item_terminal_resources import terminal_stage_ids
@@ -140,8 +149,17 @@ def _workflow_model(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def get_item_detail(item_id: int) -> dict[str, Any]:
-    """Return one complete read model for the work-item detail screens."""
+def get_item_detail(
+    item_id: int, *, include: Sequence[str] = ()
+) -> dict[str, Any]:
+    """Return the item's posture and proof, plus the content sections named.
+
+    ``include`` names sections from
+    :data:`~yoke_core.domain.item_content_index.DETAIL_INCLUDE_SECTIONS`; the
+    caller's handler validates the names. Sections not named are reported in
+    ``content_index`` with the read that returns them rather than served here.
+    """
+    wanted = set(include)
     conn = db_helpers.connect()
     try:
         marker = _p(conn)
@@ -167,19 +185,30 @@ def get_item_detail(item_id: int) -> dict[str, Any]:
         )
         if row is None:
             raise LookupError(ITEM_NOT_FOUND)
-        narrative = {field: str(row.get(field) or "") for field in _NARRATIVE_FIELDS}
-        narrative["body"] = build_body(conn, item_id) or ""
-        file_budget_paths = extract_file_budget_paths(
-            narrative["spec"] or narrative["body"]
+        stored = {field: str(row.get(field) or "") for field in _NARRATIVE_FIELDS}
+        # The body is rendered from the stored fields, so it is built only for
+        # a caller that asked for it, or to source the File Budget when the
+        # spec is empty and the body is the only place those paths can be.
+        body = (
+            build_body(conn, item_id) or ""
+            if "body" in wanted or not stored["spec"]
+            else ""
+        )
+        file_budget_paths = extract_file_budget_paths(stored["spec"] or body)
+        narrative: dict[str, str] = {}
+        if "narrative" in wanted:
+            narrative.update(stored)
+        if "body" in wanted:
+            narrative["body"] = body
+        progress_log = _progress_log(conn, item_id)
+        public_ref = format_item_ref(
+            row["project"], row["public_item_prefix"], row["project_sequence"]
         )
         claim = active_item_claims(conn, [item_id]).get(item_id)
         qa_requirements = qa_rows(conn, item_id)
         return {
             "id": int(row["id"]),
-            "public_ref": format_item_ref(
-                row["project"],
-                row["public_item_prefix"],
-                row["project_sequence"]),
+            "public_ref": public_ref,
             "title": str(row["title"]),
             "status": str(row["status"]),
             "priority": str(row.get("priority") or ""),
@@ -215,7 +244,12 @@ def get_item_detail(item_id: int) -> dict[str, Any]:
                 "paths": file_budget_paths,
             },
             "narrative": narrative,
-            "progress_log": _progress_log(conn, item_id),
+            "content_index": build_content_index(
+                public_ref, narrative=stored, progress_log=progress_log
+            ),
+            "progress_log": (
+                progress_log if "progress_log" in wanted else None
+            ),
             "source_field_note": source_field_note_for_dash(conn, item_id),
             "qa_requirements": qa_requirements,
             "gate_satisfactions": read_rungs(conn, item_id),

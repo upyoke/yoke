@@ -23,8 +23,14 @@ VALID_BLOCKING_MODES = ("blocking", "non_blocking")
 VALID_REQUIREMENT_SOURCES = ("explicit", "seeded_default", "ac_derived", "flow_derived")
 UNDETERMINED_VERDICT = "undetermined"
 VALID_VERDICTS = ("pass", "fail", UNDETERMINED_VERDICT, "error")
-BROWSER_METHOD_IDS = ("browser-check", "browser-inspection")
+BROWSER_CHECK_METHOD_ID = "browser-check"
+BROWSER_INSPECTION_METHOD_ID = "browser-inspection"
+BROWSER_METHOD_IDS = (BROWSER_CHECK_METHOD_ID, BROWSER_INSPECTION_METHOD_ID)
 INVALID_BROWSER_METHOD_LABEL = "invalid Browser method"
+#: The verdict path of a case decided by a reviewer reading its capture,
+#: and the outcome such a capture carries until that review lands.
+AGENT_VERDICT_PATH = "agent"
+NEEDS_REVIEW_OUTCOME = "needs_review"
 
 #: Ceiling on the timeout a registered Command case may declare, in
 #: seconds. No single gate run may be in flight longer than this, so it
@@ -41,6 +47,29 @@ def browser_requirement_predicate(alias: str = "r") -> str:
     """Return the SQL predicate for Browser method cases."""
     method_values = ", ".join(f"'{value}'" for value in BROWSER_METHOD_IDS)
     return f"{alias}.method_id IN ({method_values})"
+
+
+def is_agent_reviewed_case(
+    verdict_path: Optional[str],
+    method_id: Optional[str],
+) -> bool:
+    """Whether this case's verdict comes from a reviewer reading its capture.
+
+    Such a case is captured undecided on purpose: the substrate records what
+    it saw and a reviewer supplies the verdict afterwards.
+    """
+    return (
+        str(verdict_path or "").strip() == AGENT_VERDICT_PATH
+        or str(method_id or "").strip() == BROWSER_INSPECTION_METHOD_ID
+    )
+
+
+def agent_reviewed_case_predicate(alias: str = "r") -> str:
+    """Return :func:`is_agent_reviewed_case` as SQL over one requirement alias."""
+    return (
+        f"COALESCE({alias}.verdict_path = '{AGENT_VERDICT_PATH}' "
+        f"OR {alias}.method_id = '{BROWSER_INSPECTION_METHOD_ID}', FALSE)"
+    )
 
 
 def case_outcome_for_verdict(verdict: Optional[str]) -> Optional[str]:

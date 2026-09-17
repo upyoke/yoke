@@ -33,6 +33,18 @@ PACKET_ADAPTERS: List[AdapterEntry] = [
             "discovery path from a failed cap is one command."
         ),
     ),
+    _read_entry(
+        function_id="packets.startup_delivery.get",
+        cli_invocation=(
+            "yoke packets startup-delivery get [--target-root PATH] [--json]"
+        ),
+        notes=(
+            "Per harness, the combined instruction payload each startup "
+            "channel delivers, its budget, its headroom, and the contributing "
+            "files. Answers what a per-packet budget cannot: whether the text "
+            "a surface is handed fits the channel carrying it."
+        ),
+    ),
     AdapterEntry(
         function_id="agents.render.run",
         cli_invocation="python3 -m yoke_core.domain.agents_render render",

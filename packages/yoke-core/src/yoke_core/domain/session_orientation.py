@@ -19,9 +19,13 @@ nothing but the wheels installed:
   filesystem, and ``git``; a project whose control plane is unreachable
   still gets oriented rather than getting nothing.
 
-The generated packet is supplied by this client-side orientation path for
-every managed session. Keeping it out of the auto-loaded rules files preserves
-their harness context headroom while retaining the same startup teaching.
+Orientation is short by construction. It carries the facts a session cannot
+look up — its own id, this checkout, this machine's advisories — and then the
+main-session startup block, which names the command behind each remaining
+question rather than inlining the answer. The generated packet is deliberately
+not part of this delivery: composed inline it exceeded every harness's inline
+ceiling, so the harness persisted the block to a file and showed the model a
+preview, delivering the tail in name only.
 """
 
 from __future__ import annotations
@@ -132,12 +136,12 @@ def _advisory_lines(root: Path) -> list[str]:
     return lines
 
 
-def _packet_lines() -> list[str]:
-    """The generated main-agent packet delivered with session orientation.
+def _startup_block_lines() -> list[str]:
+    """The main-session startup block delivered with session orientation.
 
     Orientation already leads with the machine-local advisories, and it is
-    delivered once per session, so the packet omits them here rather than
-    repeating the same interpreter note further down the same block.
+    delivered once per session, so the block omits them here rather than
+    repeating the same interpreter note further down the same delivery.
     """
     from yoke_core.domain.main_agent_packet import render_main_agent_block
 
@@ -169,12 +173,15 @@ def render_orientation(payload: dict[str, Any], root: Path) -> str:
     branch = _git_line(root, ["branch", "--show-current"])
     if branch:
         lines.append(f"Current branch: {branch}")
-    commits = _git_line(root, ["log", "--oneline", "-3"])
+    # One commit, not three: this block rides the inline hook channel, which
+    # Codex caps at 2,500 bytes, and the required authority and trust teaching
+    # comes first. `git log` is one command away for the rest.
+    commits = _git_line(root, ["log", "--oneline", "-1"])
     if commits:
-        lines.extend(["", "Recent commits:", commits])
+        lines.extend(["", "Recent commit:", commits])
     if (root / ".yoke" / "BOARD.md").is_file():
         lines.extend(["", "Board available at .yoke/BOARD.md"])
-    lines.extend(_packet_lines())
+    lines.extend(_startup_block_lines())
     return "\n".join(lines).rstrip() + "\n"
 
 

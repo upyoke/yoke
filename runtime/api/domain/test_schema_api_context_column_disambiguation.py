@@ -13,11 +13,12 @@ future note rewrite that drops a disambiguation fails loudly.
 from __future__ import annotations
 
 from yoke_core.domain import schema_api_context as sac
+from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
 def test_work_claims_note_disambiguates_from_path_claims() -> None:
     """work_claims must not inherit the path_claims typed-owner columns."""
-    body = sac.render_topic_packet("claims")
+    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
     # The canonical target pair and exact kind-specific scopes are named.
     assert "target_kind plus one canonical JSON object in scope" in body
     assert 'item={"item_id":N}' in body
@@ -31,7 +32,7 @@ def test_work_claims_note_disambiguates_from_path_claims() -> None:
 
 def test_harness_sessions_note_calls_out_state_and_started_at() -> None:
     """harness_sessions has neither `state` nor `started_at`."""
-    body = sac.render_topic_packet("claims")
+    body = sac.render_topic_packet("claims", detail=PACKET_DETAIL_FULL)
     assert "NO `state` column" in body
     assert "`started_at` column" in body
     # The real session-offer timestamp is named (and listed as a column).
@@ -44,7 +45,7 @@ def test_harness_sessions_note_calls_out_state_and_started_at() -> None:
 
 def test_items_note_calls_out_id_pk_public_ref_and_github_issue() -> None:
     """Items has one integer PK; public refs are rendered, not stored."""
-    body = sac.render_topic_packet("core")
+    body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
     assert "NO `item_id` or `public_id` column" in body
     assert "{projects.public_item_prefix}-{items.project_sequence}" in body
     assert "`github_issue` column" in body
@@ -56,14 +57,14 @@ def test_items_note_calls_out_id_pk_public_ref_and_github_issue() -> None:
 
 def test_qa_requirements_note_names_qa_kind_not_kind() -> None:
     """The qa_requirements kind discriminator is `qa_kind`, not `kind`."""
-    body = sac.render_topic_packet("qa")
+    body = sac.render_topic_packet("qa", detail=PACKET_DETAIL_FULL)
     assert "discriminator is `qa_kind`" in body
     assert "no `requirement_type` column" in body
 
 
 def test_migration_audit_note_names_live_columns_for_observed_wrong_guesses() -> None:
     """Every observed raw-SELECT miss points directly to the live column."""
-    body = sac.render_topic_packet("project")
+    body = sac.render_topic_packet("project", detail=PACKET_DETAIL_FULL)
     assert "wrong guess `migration_id` means `migration_name`" in body
     assert "wrong guess `failure` means `failure_reason`" in body
     assert "wrong guess `source_description` means `description`" in body

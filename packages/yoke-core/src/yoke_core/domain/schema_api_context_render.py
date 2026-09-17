@@ -22,6 +22,38 @@ from yoke_core.domain.schema_api_context_json_schemas import (
 )
 
 
+# Two rendering depths, because the packet serves two jobs that used to be
+# fused. ``compact`` is the spine every session needs on arrival: the
+# invariants, the canonical recipes, and the table/column listing that keeps
+# an agent from confabulating a column name. ``full`` adds the long-form
+# per-table and per-command notes — the worked wrong guesses and the
+# operational caveats — which are worth reading at the moment they apply and
+# are pure weight before it. Rendering the full body by default put 107,818
+# bytes into an 8,192-byte channel, so the depth that arrives is the default
+# and the depth that explains is one command away.
+PACKET_DETAIL_COMPACT = "compact"
+PACKET_DETAIL_FULL = "full"
+PACKET_DETAILS: tuple[str, ...] = (PACKET_DETAIL_COMPACT, PACKET_DETAIL_FULL)
+
+
+def packet_detail_pointer(role: str, topic: str) -> str:
+    """Return the one line naming where a compact block's notes live."""
+    return (
+        f"_Compact depth. Per-table and per-command notes for this topic — "
+        f"the caveats and the wrong guesses they correct — read with_ "
+        f"`yoke packets render --role {role} --topic {topic} --detail full`."
+    )
+
+
+def _validate_detail(detail: str) -> str:
+    if detail not in PACKET_DETAILS:
+        raise ValueError(
+            f"unknown packet detail {detail!r}; expected one of "
+            f"{', '.join(PACKET_DETAILS)}"
+        )
+    return detail
+
+
 def render_invariant_block() -> list[str]:
     return [
         "**Control-plane DB invariant:** Yoke control-plane authority "
@@ -117,6 +149,13 @@ def render_function_call_surface_block() -> list[str]:
         "`sys.path` or set `PYTHONPATH`; `/tmp` imports are not the "
         "agent path.",
         "",
+        "",
+        "**Registered write function ids** (dispatch through these, never a "
+        "guessed name): "
+        + ", ".join(f"`{fid}`" for fid in seed.AGENT_WRITE_FUNCTION_IDS)
+        + ". Each has a CLI adapter under the reversible grammar "
+        "(dots→spaces, underscores→hyphens).",
+        "",
         "**`harness_id` enum:** `claude-code | codex | cursor` (on "
         "`harness_sessions.executor`). Variants `claude-desktop` / "
         "`claude-vscode` / `codex-desktop` / `cursor-desktop` / `cursor-cli` "
@@ -151,7 +190,19 @@ def render_json_nested_schema_block(topic: str) -> list[str]:
     return out
 
 
-def render_command_block(topic: str, *, role: str = "main_agent") -> list[str]:
+def render_command_block(
+    topic: str,
+    *,
+    role: str = "main_agent",
+    detail: str = PACKET_DETAIL_COMPACT,
+) -> list[str]:
+    """Render one topic's wrapper commands at the requested depth.
+
+    Both depths carry every command and its exact recipe — dropping a
+    command would make the packet lie about what exists. Compact drops only
+    the explanatory note beside each recipe.
+    """
+    _validate_detail(detail)
     rows = [
         command
         for command in seed.WRAPPER_COMMANDS
@@ -164,16 +215,56 @@ def render_command_block(topic: str, *, role: str = "main_agent") -> list[str]:
     out: list[str] = ["**Wrapper commands (prefer over raw SQL):**", ""]
     for row in rows:
         out.append(f"- _{row['purpose']}_")
-        out.append(f"  - `{row['recipe']}`")
-        if row.get("notes"):
+        for command in recipe_commands(str(row["recipe"])):
+            out.append(f"  - `{command}`")
+        if detail == PACKET_DETAIL_FULL and row.get("notes"):
             out.append(f"  - {row['notes']}")
     return out
+
+
+def recipe_commands(recipe: str) -> list[str]:
+    """Split a recipe into one entry per command it actually teaches.
+
+    A recipe row may hold several independent commands separated by newlines,
+    or one command continued across lines by a trailing backslash or an open
+    quote. Emitting the whole row as a single inline-code span conflates the
+    two: a span containing newlines is not code to any markdown reader, it
+    leaves a stray backtick on the closing line, and it hides each command
+    from the recipe extractor that audits whether a taught command resolves
+    to a registered surface — so a real recipe can go unaudited by formatting
+    alone.
+
+    Independent commands therefore each get their own span, while a continued
+    command keeps its newlines inside one span, because that is the single
+    command it is.
+    """
+    commands: list[str] = []
+    pending: list[str] = []
+    for line in recipe.split("\n"):
+        pending.append(line)
+        joined = "\n".join(pending)
+        if line.rstrip().endswith("\\") or joined.count('"') % 2:
+            continue
+        commands.append(joined)
+        pending = []
+    if pending:
+        commands.append("\n".join(pending))
+    return [command for command in commands if command.strip()]
 
 
 def render_table_block(
     topic: str,
     resolve_columns: Callable[[str], list[tuple[str, str]]],
+    *,
+    detail: str = PACKET_DETAIL_COMPACT,
 ) -> list[str]:
+    """Render one topic's schema cheat sheet at the requested depth.
+
+    Both depths carry every table and every column name, which is the
+    anti-confabulation surface the packet exists for. Compact drops the
+    long-form note under each table.
+    """
+    _validate_detail(detail)
     tables = seed.TOPIC_TABLES.get(topic, ())
     if not tables:
         return []
@@ -183,12 +274,17 @@ def render_table_block(
         col_str = ", ".join(name for name, _ in cols)
         notes = seed.CANONICAL_TABLES[table].get("notes", "")
         out.append(f"- **`{table}`** — `{col_str}`")
-        if notes:
+        if detail == PACKET_DETAIL_FULL and notes:
             out.append(f"  - {notes}")
     return out
 
 
 __all__ = [
+    "PACKET_DETAILS",
+    "recipe_commands",
+    "PACKET_DETAIL_COMPACT",
+    "PACKET_DETAIL_FULL",
+    "packet_detail_pointer",
     "render_invariant_block",
     "render_function_call_surface_block",
     "render_item_entry_surface_block",

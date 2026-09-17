@@ -101,7 +101,12 @@ def test_codex_agent_runtime_path_is_surfaced_to_native_location(
 def test_render_codex_agent_body_includes_unconditional_references(
     repo_root: Path,
 ) -> None:
-    """Always-needed role references are embedded into the prompt."""
+    """Any reference declared unconditional is embedded into the prompt.
+
+    The declared set is empty today — every fragment so far turned out to be
+    conditional by its own wording — so this asserts the embedding contract
+    for whatever the registry declares rather than for a hand-listed pair.
+    """
     canonical = repo_root / CANONICAL_DIR
     for role in ROLES_WITH_INLINE_REFERENCES:
         with patch(
@@ -109,15 +114,13 @@ def test_render_codex_agent_body_includes_unconditional_references(
         ):
             body = render_codex_agent_body(canonical, role)
         fragments = inline_fragment_paths(canonical, role)
-        assert fragments, f"{role}: expected inline references"
+        assert fragments, f"{role}: declared inline but has no fragments"
         for frag in fragments:
             text = frag.read_text(encoding="utf-8")
             marker = next((line for line in text.splitlines() if line.strip()), "")
             assert marker and marker in body, (
                 f"{role}: reference {frag.name} marker {marker!r} not embedded"
             )
-
-
 def test_no_codex_canonical_md_exists(repo_root: Path) -> None:
     """The Codex adapter must not have a parallel `.codex.md` canonical body.
 

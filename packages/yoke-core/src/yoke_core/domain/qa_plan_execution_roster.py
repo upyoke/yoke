@@ -78,22 +78,36 @@ def ordered_plan_requirements(
     ]
     if not requirements:
         raise QaPlanExecutionError(f"{subject} has no materialized QA cases")
-    for row in requirements:
+    for rank, row in enumerate(requirements, start=1):
         requirement_id = int(row["requirement_id"])
-        if (
-            row["case_position"] is None
-            or row["baseline_position"] is None
-            or not str(row["runner_id"] or "").strip()
-        ):
+        plan_id = int(row["plan_id"]) if row["plan_id"] is not None else None
+        if not str(row["runner_id"] or "").strip():
             raise QaPlanExecutionError(
                 f"materialized QA case {requirement_id} has an incomplete "
                 "execution snapshot; apply the QA requirement snapshot migration"
             )
+        if plan_id is None:
+            # A case belonging to no plan was never given a position inside
+            # one, and inventing a plan to hold it would make the roster
+            # claim an ordering authority nothing declared. Its order is the
+            # selection's own: plan-less cases first, oldest row first, which
+            # is stable for the same set of cases and is what the immutable
+            # execution snapshot records. Only a case that does belong to a
+            # plan still owes the positions that plan assigned it.
+            case_position, baseline_position = rank, 1
+        elif row["case_position"] is None or row["baseline_position"] is None:
+            raise QaPlanExecutionError(
+                f"materialized QA case {requirement_id} has an incomplete "
+                "execution snapshot; apply the QA requirement snapshot migration"
+            )
+        else:
+            case_position = int(row["case_position"])
+            baseline_position = int(row["baseline_position"])
         row.update(
             requirement_id=requirement_id,
-            plan_id=(int(row["plan_id"]) if row["plan_id"] is not None else None),
-            case_position=int(row["case_position"]),
-            baseline_position=int(row["baseline_position"]),
+            plan_id=plan_id,
+            case_position=case_position,
+            baseline_position=baseline_position,
         )
     return requirements
 

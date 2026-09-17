@@ -96,7 +96,7 @@ ALLOWED_EVENTS_READERS: tuple[str, ...] = (
     f"{_CORE_DOMAIN_SOURCE_ROOT}/events_queries.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/handlers/events_reads.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/events_audit_presets.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/events_prune.py",
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/events_prune_batches.py",
     f"{_CORE_DOMAIN_SOURCE_ROOT}/events_registry_audit.py",
     # bounds an audit filter's own elided-row count; the episode boundary
     # itself comes from harness_sessions

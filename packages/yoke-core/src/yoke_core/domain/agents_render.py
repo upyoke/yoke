@@ -37,7 +37,10 @@ from yoke_core.domain.agents_render_context import (
 from yoke_core.domain.agents_render_field_note import (
     detect_field_note_marker_drift,
 )
-from yoke_core.domain.agents_render_references import rendered_reference_outputs
+from yoke_core.domain.agents_render_references import (
+    INLINE_REFERENCE_PATHS,
+    rendered_reference_outputs,
+)
 from yoke_core.domain.agents_render_subagent_hooks import (
     CANONICAL_DIR,
     CLAUDE_SPEC_KEY_ORDER,  # noqa: F401 - preserve the renderer's public exports
@@ -91,7 +94,11 @@ AGENTS = [
     "qa-walker",
 ]
 
-ROLES_WITH_INLINE_REFERENCES = {"architect", "tester"}
+# Derived, never listed: a hand-written copy of this set went stale the moment
+# a reference moved from embedded to materialized, and nothing caught it.
+ROLES_WITH_INLINE_REFERENCES = {
+    path.parent.name for path in INLINE_REFERENCE_PATHS
+}
 
 
 def _agent_adapter_path(out_dir: Path, agent: str) -> Path:

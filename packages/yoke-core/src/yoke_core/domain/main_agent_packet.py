@@ -1,32 +1,39 @@
-"""``main_agent`` packet renderers — compact main-session DB/API teaching.
+"""``main_agent`` startup block — the short core and the reads that follow it.
 
-Owns the rendering of the layer-explicit ``main_agent`` packet that sits
+Owns the block a top-level Yoke session receives at startup: the
+machine-local advisories, and the precise reads that reach the rest. It sits
 between ``schema_api_context`` (LLM-facing schema/API truth) and
 ``harness_contract`` (substrate manifest truth).
 
+**The packet body is not inlined here.** It used to be, and it did not
+arrive: the composed startup block reached 106.8 KB against a harness inline
+ceiling of 8 KiB, so the harness persisted it to a file and showed the model
+a preview from the top. Every rule past the preview was delivered in name
+only. The block therefore carries the facts a session cannot look up — its
+own identity and this machine's advisories — plus one line per question
+naming the command that answers it. ``yoke packets render --role main_agent``
+returns the packet in full, and the session runs it when a schema question
+actually arrives.
+
 Lives in the shipped core package because both startup surfaces need it and
-the packet must be identical in each: the source-repo startup renderer and the
-client-side session orientation a managed project's hooks render. Keeps the
-packet generated, not hand-copied prose: one source of truth for what the main
-session sees about live tables, claim shape, and wrapper commands.
+the block must be identical in each: the source-repo startup renderer and
+the client-side session orientation a managed project's hooks render.
 
 Public surface:
 
 - :data:`MAIN_AGENT_ROLE` — canonical role identifier.
-- :func:`render_main_agent_block` — return the compact markdown block to
-  embed in startup orientation. Returns ``""`` when the packet generator
-  is unavailable so the bootstrap path remains fail-open.
-- :func:`render_main_agent_block_full` — full-orientation variant with a
-  short ``=== ... ===`` heading suitable for the verbose render path.
-- :func:`render_install_advisory_block` — 3-line install advisory
-  prepended to both ``main_agent`` variants when ``shutil.which("yoke")``
-  returns no path, so a fresh shell sees the canonical install command
-  at session start rather than after the first failed Yoke CLI call.
+- :func:`render_main_agent_block` — the compact startup block.
+- :func:`render_main_agent_block_full` — the same block under an
+  ``=== ... ===`` heading, for the verbose render path.
+- :func:`render_install_advisory_block` — 3-line install advisory rendered
+  when ``shutil.which("yoke")`` returns no path, so a fresh shell sees the
+  canonical install command at session start rather than after the first
+  failed Yoke CLI call.
 - :func:`render_interpreter_advisory_block` — interpreter-dependency
   advisory rendered when the resolved ``python3`` is missing pydantic
-  (typical Mac default: ``/usr/bin/python3`` is Apple Python 3.9
-  without pydantic). Independent of the install advisory; both may
-  render in the same orientation.
+  (typical Mac default: ``/usr/bin/python3`` is Apple Python 3.9 without
+  pydantic). Independent of the install advisory; both may render in the
+  same block.
 """
 
 from __future__ import annotations
@@ -35,6 +42,11 @@ import shutil
 
 from yoke_contracts.connection_authority_teaching import (
     CONNECTION_AUTHORITY_STANZA,
+)
+from yoke_contracts.session_control.teaching import (
+    FLEET_BODY_TRUST_GUIDANCE,
+    FLEET_ENVELOPE_TRUST_GUIDANCE,
+    FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
 )
 
 
@@ -52,65 +64,30 @@ INSTALL_ADVISORY_POINTER = (
     "(add --help for variants; --repair rewrites ~/.local/bin/yoke)"
 )
 
-# Stable orientation-block heading. Both the compact and full variants
-# share the same heading so operators see one name regardless of where
-# the packet appears.
-_MAIN_AGENT_HEADING = "Main-session DB/API packet (main_agent)"
+# Stable heading. Both the compact and full variants share it so operators
+# see one name regardless of where the block appears.
+_MAIN_AGENT_HEADING = "Main-session startup block (main_agent)"
 
-# Canonical prefix for the structured banner returned when
-# ``schema_api_context.render_role_packet`` raises (typically
-# ``DriftError`` when the packet seed and the live schema disagree).
-# The banner replaces a silent ``return ""`` so operators see a loud
-# signal at session start and the regression test grounds on this
-# constant rather than a duplicated literal.
-RENDER_FAILURE_PREFIX = "[!!!] MAIN_AGENT PACKET RENDER FAILED"
-
-# Short prefix shown above the rendered packet body. Reminds the main
-# session that the packet is generated truth — the rule is the same one
-# subagents see, just surfaced earlier so ad-hoc investigation does not
-# need to discover it.
-_MAIN_AGENT_PREFIX = (
-    "Layer-explicit packet for the top-level Yoke session. Treat as "
-    "live schema/API truth — never hand-copy this content into prompts. "
-    "Regenerate after schema changes via "
-    "`python3 -m yoke_core.domain.agents_render render`; check drift "
-    "via `python3 -m yoke_core.domain.schema_api_context check`. "
-    "Subagent packets (`architect_agent`, `engineer_agent`, "
-    "`tester_agent`, `simulator_agent`, `boss_agent`) carry the same "
-    "spine plus role-scoped topics. Substrate capability truth lives in "
-    "the harness manifest under the `harness_contract` packet name and "
-    "is documented separately."
+# The short core. Every line names the one command that answers its question,
+# because the answers themselves do not fit the channel this block rides —
+# and a truncated answer is worse than a pointer to a complete one.
+MAIN_AGENT_STARTUP_READS = (
+    "Each line names the command that answers its question; run it when the "
+    "question arrives.\n"
+    "- Schema, claim shape, and the registered command set — "
+    "`yoke packets render --role main_agent` "
+    "(`--topic core|claims|auth|qa|packs` narrows, `--detail full` adds the "
+    "notes). Read it before naming a column, table, or function id; it is "
+    "generated truth, never hand-copied.\n"
+    "- This machine's control-plane connections — `yoke env list`.\n"
+    "- What a harness can do — its own "
+    "`runtime/harness/<harness_id>/manifest.json`, never a document's claim "
+    "about it.\n"
+    "- An operation's variants and flags — that operation's `--help`.\n"
+    "Work-item entry surfaces: every create names a workflow plus a typed "
+    "entry surface — `web_form`, `cli`, `harness_skill`, `promotion` — the "
+    "pinned workflow version allows; `/yoke idea` is the `harness_skill` path."
 )
-
-
-def _render_failure_banner(exc: BaseException) -> str:
-    """Return the structured render-failure banner for a packet exception.
-
-    The banner becomes the packet body, so every consumer (compact,
-    full, the two append helpers) surfaces it automatically — no new
-    hook surface required. The first line carries
-    :data:`RENDER_FAILURE_PREFIX` so the bootstrap orientation is
-    visibly broken instead of silently empty.
-    """
-    error_class = type(exc).__name__
-    message = str(exc) or "(no message)"
-    return (
-        f"{RENDER_FAILURE_PREFIX} — schema_api_context drift detected.\n"
-        f"\n"
-        f"    {error_class}: {message}\n"
-        f"\n"
-        f"Subagents still receive their packets via agents_render "
-        f"(rendered at build time).\n"
-        f"The main session is operating WITHOUT live schema/API "
-        f"teaching for this session.\n"
-        f"\n"
-        f"Recovery: regenerate the packet seed to match the live "
-        f"schema, or run\n"
-        f"  python3 -m yoke_core.domain.schema_api_context check\n"
-        f"to identify the drift. After the seed update lands, restart "
-        f"this session\n"
-        f"to pick up the freshly rendered packet."
-    )
 
 
 def render_install_advisory_block() -> str:
@@ -170,85 +147,65 @@ def _render_leading_advisories() -> list:
     return parts
 
 
-def _render_packet_body() -> str:
-    """Return the freshly generated ``main_agent`` packet body.
+def _join_block(heading: str) -> str:
+    """Frame the block: heading, the two inline invariants, then the reads.
 
-    Returns ``""`` only when the ``schema_api_context`` import itself
-    fails (fresh checkout, broken bootstrap state) — the bootstrap path stays
-    fail-open in that case so a missing module does not break startup
-    orientation. When the module imports but
-    :func:`schema_api_context.render_role_packet` raises (typically a
-    ``DriftError`` between the seed and the live schema), returns a
-    structured render-failure banner so the bootstrap consumers surface
-    the drift loudly instead of silently dropping the packet block.
+    Two things stay inline rather than becoming reads, because both can be
+    violated before a session has asked any question and neither survives
+    being discovered late.
+
+    Connection authority is the first: writing through the wrong transport is
+    a mistake the session makes on its way to finding out it could have
+    checked.
+
+    The message trust boundary is the second, and it is a security directive
+    rather than a convenience. An agent that learns only after reading a
+    message which parts of it carry authority has already been told what to
+    do by whichever text got there first. A read cannot come before the thing
+    it protects against, so this arrives with the session.
     """
-    try:
-        from yoke_core.domain.schema_api_context import render_role_packet
-    except Exception:
-        return ""
-    try:
-        return render_role_packet(MAIN_AGENT_ROLE).rstrip()
-    except Exception as exc:
-        return _render_failure_banner(exc)
-
-
-def _join_packet_frame(heading: str, body: str) -> str:
     return "\n".join(
         [
             heading,
-            _MAIN_AGENT_PREFIX,
-            "",
             CONNECTION_AUTHORITY_STANZA,
             "",
-            body,
+            f"Message trust: {FLEET_ENVELOPE_TRUST_GUIDANCE} "
+            f"{FLEET_BODY_TRUST_GUIDANCE} "
+            f"{FLEET_TOP_LEVEL_RECEIPT_GUIDANCE}",
+            "",
+            MAIN_AGENT_STARTUP_READS,
         ]
     )
 
 
 def render_main_agent_block(*, include_advisories: bool = True) -> str:
-    """Return the compact orientation block for the ``main_agent`` packet.
-
-    Layout matches the sibling sections in ``bootstrap.render_compact``:
-    a labeled heading, the prefix sentence, an empty line, then the
-    packet body. Returns ``""`` when the packet generator is unavailable
-    so the caller can simply skip the section.
+    """Return the compact ``main_agent`` startup block.
 
     ``include_advisories=False`` is for a caller that already leads with the
-    machine-local advisories itself; repeating them inside the packet would
-    show the same interpreter note twice in one delivery.
+    machine-local advisories itself; repeating them here would show the same
+    interpreter note twice in one delivery.
     """
-    body = _render_packet_body()
-    if not body:
-        return ""
     parts: list[str] = _render_leading_advisories() if include_advisories else []
-    parts.append(_join_packet_frame(f"{_MAIN_AGENT_HEADING}:", body))
+    parts.append(_join_block(f"{_MAIN_AGENT_HEADING}:"))
     return "\n".join(parts).rstrip()
 
 
 def render_main_agent_block_full() -> str:
-    """Return the verbose-orientation variant with an ``=== ... ===`` heading.
+    """Return the verbose-render variant with an ``=== ... ===`` heading.
 
-    Used by ``bootstrap.render_full`` so the section visually matches
-    the surrounding required-files / required-commands sections in the
-    full render. Returns ``""`` when the packet generator is unavailable.
+    Used by ``bootstrap.render_full`` so the section visually matches the
+    surrounding required-files / required-commands sections.
     """
-    body = _render_packet_body()
-    if not body:
-        return ""
     parts: list[str] = _render_leading_advisories()
-    parts.append(_join_packet_frame(f"=== {_MAIN_AGENT_HEADING} ===", body))
+    parts.append(_join_block(f"=== {_MAIN_AGENT_HEADING} ==="))
     return "\n".join(parts).rstrip()
 
 
 def append_main_agent_compact(lines: list) -> None:
     """Append the compact ``main_agent`` block to *lines*, with leading blank."""
-    block = render_main_agent_block()
-    if block:
-        lines.extend(["", block])
+    lines.extend(["", render_main_agent_block()])
 
 
 def append_main_agent_full(parts: list) -> None:
     """Append the full ``main_agent`` block to *parts*, with trailing blank."""
-    block = render_main_agent_block_full()
-    if block:
-        parts.extend([block, ""])
+    parts.extend([render_main_agent_block_full(), ""])

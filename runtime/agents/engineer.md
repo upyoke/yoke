@@ -51,6 +51,8 @@ When you enter submission mode (30 or fewer turns remaining), you MUST follow th
 - **Check 3 (edited_tests):** Mandatory final-pass check — you MUST run every test file you edited, even if you ran them before. Test files may have been affected by later changes.
 - **Check 4 (clean_worktree):** Mandatory final-pass check — you MUST run `git -C {worktree-path} status --porcelain` and commit anything remaining. No exceptions.
 
+
+
 ## Common Data Surfaces
 
 Use the active project's verified paths; do not infer a source-tree layout:
@@ -166,6 +168,8 @@ If you cannot commit certain files (e.g., generated artifacts that should be git
 
 ---
 
+
+
 ## Required Submission Receipt Block
 
 Your final epic progress note MUST include this exact delimiter pair. The parent conduct session reads this block from the progress-note body field (see your `epic_progress_notes` packet stanza), not from the Agent tool result text:
@@ -190,6 +194,8 @@ Rules:
 Do not paraphrase the field names. Use the exact keys above so the parent conduct session can verify them reliably. You may repeat the block in your final chat response, but the DB progress note is the authoritative receipt.
 
 ---
+
+
 
 ## Path Resolution
 
@@ -226,16 +232,10 @@ Recurring telemetry signal: engineer `cd <worktree> && <cmd>` patterns account f
 <!-- YOKE:DB-PACKET end -->
 
 ## Path-Claim Discipline
-
-**Proactive workflow — widen BEFORE writing, not after the deny.** The per-tool-call `Write` / `Edit` / `git commit` deny is the safety net for forgotten widens; the primary workflow is widen-first. Run these steps at the start of each implementation slice, and again before any sibling-module create/edit that was not in the original slice:
-
-1. **Read your active claim's coverage.** The dispatch prompt's claim block lists the covered paths (`declared_paths` / `declared_targets` from `path-claim-list`); confirm directly with `yoke claims path list --item PREFIX-N --state active` if you need the current state. Treat the listed paths as your write budget.
-2. **Widen before the first uncovered write.** Before creating any new file or editing any file outside the listed coverage, call `claims.path.widen` (typed envelope in the claims packet above; canonical CLI is `yoke claims path widen --claim-id N --add-paths PATH1,PATH2,... --reason "<why>" --item PREFIX-N`). The `--claim-id` is required — read it from the `path-claim-list` output above. Bundle multiple new paths into a single widen call when the rationale is the same. The Write/Edit/commit deny is the safety net for forgotten widens, not the primary workflow entry — if you hit it, you skipped this step.
-3. **Merges from `main` need the same treatment.** Merges routinely touch files outside the original claim; widen first, then commit the merge.
-
-**`path-claim-override` is last resort.** Reserved for irreducible live collisions and requires **explicit operator approval**. You do not self-authorize the override mid-dispatch. If `claims.path.widen` is itself blocked because another active claim covers the same paths, that is a coordination event — surface it to the parent conduct/polish session and stop. Do not use override to make the obstacle go away.
-
-The same proactive rule applies to verification failures: if a test fix touches a file outside the claim, widen first and add the appropriate dependency edge per AGENTS.md `## Verification Failure Ownership — Hard Rule`. Override only with explicit operator approval.
+Edit only inside your claimed paths; a required file outside them is widened
+or escalated, never silently dropped. Full coverage contract and the
+sanctioned routes: `runtime/agents/engineer/path-claim-discipline.md` — read
+it before touching an unclaimed path.
 
 ## Progress Notes
 
@@ -257,17 +257,9 @@ rm -f "$_body_file"
 Progress notes are stored in the `epic_progress_notes` table, rendered into the parent epic body, and automatically synced to the GitHub issue. The final progress note for each attempt is the durable submission receipt.
 
 ## Root-Cause Analysis Protocol
-
-When you encounter a test failure or unexpected error, you MUST diagnose before fixing. Do NOT pattern-match on error text and jump to a fix. Follow these steps in order:
-
-1. **Read the failing assertion.** What exactly is being checked? What value was expected vs received?
-2. **Query the events table for context.** Check recent tool call telemetry and anomalies: `yoke events tail --limit 20` or `yoke events anomalies --since "2 hours ago"`. Anomaly flags (nonzero_exit, benign_failure) and timing data may reveal upstream failures that caused the current symptom.
-3. **Trace the code path.** Follow the function, table, schema, or data flow from the failing assertion back to the source code that creates, populates, or configures it. Read the actual source — don't guess from the error message.
-4. **Identify the discrepancy.** State explicitly: "The test expects X, but the code actually does Y." For example: "Test expects TABLE but init creates VIEW", or "Test checks column `foo` but migration renamed it to `bar`."
-5. **Write down the root cause** before writing any fix. Include it in your progress notes. Frame the root cause as what the SYSTEM should change to prevent recurrence — not "I made a mistake" but "the task spec referenced a nonexistent function" or "the dispatch context was missing the DB schema." If you cannot state the root cause in one sentence, you haven't finished investigating.
-6. **Only then write the fix** — and verify it addresses the root cause, not just the symptom. A correct fix changes the minimum code necessary to resolve the discrepancy identified in step 4.
-
-**Why this matters:** You are good at writing code once you understand the problem. The failure mode is spending multiple attempts guessing at fixes because you never investigated the root cause. One investigation cycle is cheaper than three fix-retry cycles.
+Never fix a failure you cannot explain. The full protocol — and the shapes
+that look like a root cause but are not — is
+`runtime/agents/engineer/root-cause-analysis.md`; read it before you fix.
 
 ## DB Schema Changes & Live-State ACs
 

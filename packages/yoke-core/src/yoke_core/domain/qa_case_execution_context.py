@@ -79,7 +79,7 @@ def get_case_execution_context(
         conn,
         "SELECT q.id AS requirement_id, q.item_id, q.deployment_run_id, "
         "q.deployment_stage,q.deployment_member_item_id, "
-        "q.plan_id, "
+        "q.plan_id, q.target_env, "
         "q.plan_case_key, q.method_id, q.qa_kind, q.instructions, "
         "q.expected_outcome, q.method_config, q.host_baseline, "
         "q.workflow_transition_id, q.entry_surface, "
@@ -185,9 +185,7 @@ def get_case_execution_context(
             )
         )
         unavailable_capabilities = tuple(
-            kind
-            for kind in missing_capabilities
-            if kind not in provisioned_on_the_host
+            kind for kind in missing_capabilities if kind not in provisioned_on_the_host
         )
         if unavailable_capabilities:
             raise QaCaseExecutionError(
@@ -281,6 +279,33 @@ def get_case_execution_context(
         require_case_target(context, execution_target)
         context["execution_target"] = execution_target
         context["execution_target_digest"] = str(row["execution_target_digest"])
+    elif str(row["target_env"] or "").strip():
+        # A case outside a plan has no plan target to inherit, so the
+        # environment it names on its own row is where it runs. Resolving it
+        # here rather than storing a snapshot keeps the case answerable to
+        # the environment as currently registered.
+        from yoke_core.domain.qa_environment_execution_target import (
+            require_case_endpoint,
+            resolve_named_environment_execution_target,
+        )
+        from yoke_core.domain.qa_execution_environment_target import (
+            QaExecutionTargetError,
+            require_case_target,
+            target_digest,
+        )
+
+        try:
+            execution_target = resolve_named_environment_execution_target(
+                conn,
+                project_id=int(row["project_id"]),
+                environment_name=str(row["target_env"]).strip(),
+            )
+            require_case_target(context, execution_target)
+            require_case_endpoint(context, execution_target)
+        except QaExecutionTargetError as exc:
+            raise QaCaseExecutionError(str(exc)) from exc
+        context["execution_target"] = execution_target
+        context["execution_target_digest"] = target_digest(execution_target)
     return context
 
 

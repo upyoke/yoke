@@ -9,10 +9,11 @@ from yoke_contracts.session_control.teaching import (
     FLEET_TOP_LEVEL_RECEIPT_GUIDANCE,
 )
 from yoke_core.domain import schema_api_context as sac
+from yoke_core.domain.schema_api_context_render import PACKET_DETAIL_FULL
 
 
 def test_core_packet_teaches_safe_structural_patch_composition() -> None:
-    body = sac.render_topic_packet("core")
+    body = sac.render_topic_packet("core", detail=PACKET_DETAIL_FULL)
 
     assert "one `*** Update File:` operation per path per patch" in body
     assert "Re-read a hook-mutated file" in body
@@ -20,7 +21,7 @@ def test_core_packet_teaches_safe_structural_patch_composition() -> None:
 
 
 def test_main_agent_packet_teaches_fleet_session_basics() -> None:
-    body = sac.render_role_packet("main_agent")
+    body = sac.render_role_packet("main_agent", detail=PACKET_DETAIL_FULL)
     assert "yoke sessions list" in body
     # Preview and send lead with the item; the session fallback is named
     # in the same entry's note rather than duplicated as a second pair.
@@ -52,7 +53,7 @@ def test_main_agent_packet_teaches_fleet_session_basics() -> None:
 
 def test_subagent_packets_use_native_parent_communication() -> None:
     for role in set(sac.seed.ROLE_TOPICS) - {"main_agent"}:
-        body = sac.render_role_packet(role)
+        body = sac.render_role_packet(role, detail=PACKET_DETAIL_FULL)
         assert "harness-native parent/subagent channel" in body
         assert "Fleet messages belong to the registered top-level session" in body
         assert "receipts shared with their parent read-only" in body
