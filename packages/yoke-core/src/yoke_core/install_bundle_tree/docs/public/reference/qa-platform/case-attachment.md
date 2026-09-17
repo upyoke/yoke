@@ -81,7 +81,7 @@ exactly the checks the rows sit beside.
 A plan carries its own `target_environment_id`, so every case materialized
 from it inherits one immutable execution target. A case attached without a
 plan names its own with `--target-env NAME`, resolved against the project's
-registered environments at execution time and held to three rules:
+registered environments at execution time and held to each of these:
 
 - the environment must be registered to that project and authorized for it,
   which is the same read a plan target passes;
