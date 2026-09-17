@@ -4,6 +4,25 @@ These rules bind `/yoke steer` launch behavior after one atomic steering
 acquire has paired the coordinator's project seat and strategy-doc lock.
 Workers never acquire or release either half. Do not defer these rules.
 
+## A quiet worker is not an absent worker
+
+- **A worker in any intentional external wait stamps parked before going
+  quiet** — blocked on an upstream item, waiting on operator sign-in,
+  waiting on an approval, or holding at an explicit operator instruction —
+  with a concrete reason:
+  `yoke sessions touch --mode parked --reason "waiting on PREFIX-N"`. That
+  write persists. Reporting the wait, reading the control plane, heartbeat,
+  message ack, failed wakes, and tool calls do not unpark. An accepted
+  UserPromptSubmit that stamps the turn running clears the previous parked
+  mode and reason. A later explicit re-park persists: the parked write
+  advances turn_posture_at, so a delayed accepted prompt observed before
+  that write cannot clear it. A stale start observation does not unpark.
+  Stamp a working mode when continuing by
+  choice (`yoke sessions touch --mode dash`). A genuinely
+  parked, in-flight, or merge-queue-landing worker is not terminated or
+  restaffed for being quiet; verify the recorded reason, then resume it
+  once its blocker actually clears.
+
 ## 1. Encode dependency edges before frontier availability
 
 Whoever files a batch of related items writes the `item_dependencies`

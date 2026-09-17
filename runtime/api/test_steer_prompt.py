@@ -37,7 +37,7 @@ class TestSteerSkillContract:
         assert "steer claim" in text
 
     def test_strategy_doc_resolves_and_is_offered_only_when_absent(self):
-        text = _read(_STEER_DIR / "SKILL.md")
+        text = _corpus()
         assert "STRATEGY-DOC-SLUG" in text
         assert "no doc-less" in text.lower()
         assert "offer to" in text.lower()
@@ -51,7 +51,7 @@ class TestSteerSkillContract:
 
     def test_a_project_level_request_locks_the_plan_without_narrowing(self):
         """The default slug must not shrink what the seat steers."""
-        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        skill = _words(_corpus())
         assert (
             "yoke claims steering acquire --project {_project} --plan-doc {SLUG}"
         ) in skill
@@ -94,7 +94,7 @@ class TestSteerSkillContract:
         assert "wait" in loop.lower()
 
     def test_each_pass_reads_plan_before_frontier_and_reconciles_authority(self):
-        skill = _read(_STEER_DIR / "SKILL.md")
+        skill = _corpus()
         loop = _read(_STEER_DIR / "loop.md")
         skill_words = _words(skill)
         loop_words = _words(loop)
@@ -278,24 +278,24 @@ class TestNearTermPlanDefault:
     """An omitted slug selects CURRENT-PLAN instead of asking the operator."""
 
     def test_omitted_slug_resolves_to_current_plan_without_asking(self):
-        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        skill = _words(_corpus())
         assert "`{SLUG}` is `CURRENT-PLAN` for every resolved project" in skill
         assert "An omitted slug is not a question to ask" in skill
 
     def test_explicitly_supplied_slug_wins_over_the_default(self):
-        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        skill = _words(_corpus())
         assert "An operator-supplied slug wins" in skill
         assert "an explicitly supplied slug always wins" in skill
 
     def test_only_a_genuinely_missing_document_reaches_the_create_gate(self):
-        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        skill = _words(_corpus())
         assert (
             "Only a genuinely missing document reaches this gate; an omitted "
             "slug never does, because it already resolved to `CURRENT-PLAN`"
         ) in skill
 
     def test_resolved_document_is_read_before_any_steering_action(self):
-        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        skill = _words(_corpus())
         assert (
             "Read `{SLUG}` before any steering action — before the frontier, "
             "before acknowledging reports, before staffing anything"
@@ -305,7 +305,7 @@ class TestNearTermPlanDefault:
         ) in skill
 
     def test_each_named_project_takes_its_own_document_and_seat(self):
-        skill = _words(_read(_STEER_DIR / "SKILL.md"))
+        skill = _words(_corpus())
         assert "Several projects mean several seats" in skill
         assert "There is no multi-project seat" in skill
         assert (
