@@ -52,8 +52,12 @@ stops even if the process keeps running. Unmatched DEBUG is dropped.
 INFO/ERROR logs and metrics are unchanged. Campaign env never becomes a
 metric attribute.
 
-Producers that want extra payload (for example a full function result on
-`YokeFunctionCalled`) call the same gate, default off:
+Producers that want extra payload call the same gate, default off. The
+dispatcher is the live one: `YokeFunctionCalled` carries only the result's
+byte count and checksum routinely, and copies the full result document
+onto the event while a matching campaign is live. Budget accordingly — an
+in-scope dispatch spends two records, the `FunctionDispatchDebug` log and
+the result capture, so a 200-record campaign covers about 100 dispatches:
 
 ```python
 from yoke_core.api.observability import debug_detail_allowed
@@ -66,6 +70,9 @@ if debug_detail_allowed({
 }):
     ...  # copy bounded extra detail
 ```
+
+Call it once per unit of work: a true answer consumes a record, so a
+speculative call spends budget on detail nobody records.
 
 `YOKE_API_LOG_LEVEL=DEBUG` without a campaign remains the local
 restart-to-clear path. Do not leave it on in hosted processes.
