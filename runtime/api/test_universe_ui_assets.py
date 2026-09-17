@@ -105,13 +105,16 @@ def test_responsive_shell_uses_a_drawer_and_search_overlay():
     assert ".universe-app-root .shell > .sidenav" in compact
     assert "transform: translateX(-105%)" in compact
     assert ".shell.side-open > .sidenav" in compact
-    assert ".header-search-button" in compact
-    assert ".shell-search-inline" in compact
+    # The wide field gives up its space to the icon button that opens the
+    # same dialog, so search never disappears with the room the field needed.
+    assert ".header-search-button { display: block; }" in compact
+    assert ".universe-app-root .header-search,\n" in compact
     phone = responsive.split("@media (max-width: 640px)", 1)[1]
     assert ".header-project-context" in phone
     assert (".universe-app-root .context-side {\n    display: contents;\n  }") in phone
+    # On a phone the dialog IS the screen rather than a panel floating over it.
     assert ".header-search-panel" in phone
-    assert "inset: 0" in phone
+    assert "height: 100%" in phone
 
 
 def test_page_module_exports_the_mount_contract():
@@ -230,11 +233,24 @@ def test_page_module_wires_the_workbench_shell():
     assert "sessions.list" in group_colors
     assert "sessions.list" not in shell
 
-    # Header search queries items on the server so the whole backlog stays
-    # reachable; only the session arm still filters a cached roster.
+    # Universe search reads all six domains it advertises. The reads live
+    # beside each other in one module so the chips in the dialog and the
+    # functions behind them cannot drift apart.
+    domains = static_root.joinpath("universe_search_domains.js").read_text()
+    for reference in (
+        "items.search.run", "sessions.list", "strategy.doc.list",
+        "qa.plan.list", "events.query.run", "packs.list",
+    ):
+        assert reference in domains, reference
+    # The controls module composes the dialog; it owns no read of its own.
     controls = static_root.joinpath("universe_shell_controls.js").read_text()
-    for reference in ("items.search.run", "sessions.list"):
-        assert reference in controls, reference
+    assert "items.search.run" not in controls
+    history = static_root.joinpath("universe_search_history.js").read_text()
+    for reference in (
+        "ui_preferences.search_history.list",
+        "ui_preferences.search_history.record",
+    ):
+        assert reference in history, reference
 
     view_references = {
         # Strategy reads its corpus, its holds and its write history from

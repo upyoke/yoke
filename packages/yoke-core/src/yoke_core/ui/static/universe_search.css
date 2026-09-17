@@ -1,0 +1,180 @@
+/* The universe search dialog: one centred panel over a dimmed app, holding
+   the query field, the empty state that says what search covers, and the
+   grouped results. The header entry points that open it are chrome and stay
+   with the rest of the header controls. */
+
+/* The panel is centred over a dimmed app at every width: one query state and
+   one keyboard model, rather than a dropdown here and a different surface
+   there. */
+.universe-app-root .header-search-overlay {
+  position: fixed;
+  z-index: 70;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 10vh 16px 16px;
+}
+.universe-app-root .header-search-overlay[hidden] {
+  display: none;
+}
+.universe-app-root .header-search-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: color-mix(in srgb, var(--yoke-ink) 34%, transparent);
+}
+.universe-app-root .header-search-panel {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-width: 560px;
+  max-height: 80vh;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--yoke-border);
+  border-radius: 14px;
+  background: var(--yoke-bg);
+  box-shadow: 0 24px 60px rgb(0 0 0 / 28%);
+}
+.universe-app-root .header-search-field {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--yoke-border);
+}
+.universe-app-root .header-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--yoke-ink);
+  font: inherit;
+  font-size: 15px;
+}
+.universe-app-root .header-search-input::placeholder {
+  color: var(--yoke-muted);
+  opacity: 1;
+}
+.universe-app-root .header-search-close {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--yoke-muted);
+  cursor: pointer;
+  font-family: var(--yoke-font-mono);
+  font-size: 10.5px;
+}
+.universe-app-root .header-search-close:hover {
+  background: var(--yoke-hover);
+  color: var(--yoke-ink);
+}
+.universe-app-root .header-search-body {
+  overflow-y: auto;
+  padding: 10px 8px 12px;
+}
+.universe-app-root .header-search-section {
+  padding: 4px 6px 10px;
+}
+.universe-app-root .header-search-section-label {
+  padding: 4px 8px 6px;
+  color: var(--yoke-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.universe-app-root .header-search-row {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--yoke-ink);
+  cursor: pointer;
+  font-family: var(--yoke-font-mono);
+  font-size: 12.5px;
+  text-align: left;
+}
+.universe-app-root .header-search-row:hover {
+  background: var(--yoke-surface);
+}
+.universe-app-root .header-search-result {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  color: var(--yoke-ink);
+  text-decoration: none;
+}
+.universe-app-root .header-search-result:hover,
+.universe-app-root .header-search-result.active {
+  background: var(--yoke-hover);
+}
+.universe-app-root .header-search-kind {
+  flex: 0 0 auto;
+  color: var(--yoke-muted);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.universe-app-root .header-search-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.universe-app-root .header-search-label,
+.universe-app-root .header-search-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.universe-app-root .header-search-label {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.universe-app-root .header-search-meta,
+.universe-app-root .header-search-status {
+  color: var(--yoke-muted);
+  font-size: 11px;
+}
+.universe-app-root .header-search-status {
+  margin: 0;
+  padding: 14px 14px 10px;
+}
+.universe-app-root .header-search-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 8px;
+}
+.universe-app-root .header-search-chip {
+  padding: 3px 10px;
+  border: 1px solid var(--yoke-border);
+  border-radius: 20px;
+  background: var(--yoke-surface);
+  color: var(--yoke-ink-2);
+  font-size: 11.5px;
+}
+.universe-app-root .header-search-hint {
+  margin: 4px 6px 0;
+  padding: 10px 14px 4px;
+  border-top: 1px solid var(--yoke-border);
+  color: var(--yoke-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}

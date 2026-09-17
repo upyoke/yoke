@@ -40,6 +40,7 @@ class TestRegistrationShape:
             "profile.onboarding.reset",
             "ui_preferences.screen_selection.set",
             "ui_preferences.nav_group.set",
+        "ui_preferences.search_history.record",
             "workflows.current.set",
             "workflows.policy_defaults.publish",
             "workflows.testing_default.set",

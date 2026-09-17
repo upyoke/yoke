@@ -77,6 +77,22 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
           }],
         } } };
       }
+      // The four domains this fixture has nothing in: search asks all six,
+      // and an empty answer is a real answer.
+      if (request.function === "strategy.doc.list") {
+        return { status: 200, envelope: { success: true, result: { docs: [] } } };
+      }
+      if (request.function === "packs.list") {
+        return { status: 200, envelope: { success: true, result: { packs: [] } } };
+      }
+      if (["qa.plan.list", "events.query.run"].includes(request.function)) {
+        return { status: 200, envelope: { success: true, result: { rows: [] } } };
+      }
+      if (request.function.startsWith("ui_preferences.search_history.")) {
+        return { status: 200, envelope: { success: true, result: {
+          queries: [],
+        } } };
+      }
       throw new Error(`unexpected function ${request.function}`);
     },
   };
@@ -125,7 +141,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   // the way items.search.run writes it.
   assert.equal(links.length, 2);
   assert.equal(links[0].href, "#/items/2228?project=1");
-  assert.equal(byClass(root, "header-search-kind")[0].textContent, "Item");
+  assert.equal(byClass(root, "header-search-kind")[0].textContent, "Items");
   assert.equal(byClass(root, "header-search-label")[0].textContent,
     "Build shell");
   assert.equal(byClass(root, "header-search-meta")[0].textContent,
@@ -135,7 +151,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   assert.equal(links[1].href, "#/sessions/session-shell?project=1");
   // Items are matched by the server, so the typed query travels with the
   // request — the browser never filters a prefetched roster it could outgrow.
-  assert.deepEqual(searchRequests.at(-1), { keywords: "shell", limit: 8 });
+  assert.deepEqual(searchRequests.at(-1), { keywords: "shell", limit: 6 });
 
   // Every shape an operator uses to name one item reaches the item result:
   // the bare number, the full ref, and the ref in either case.
@@ -143,7 +159,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
     input.value = keywords;
     input.dispatchEvent(new Event("input"));
     await settleSearch();
-    assert.deepEqual(searchRequests.at(-1), { keywords, limit: 8 });
+    assert.deepEqual(searchRequests.at(-1), { keywords, limit: 6 });
     const matched = byClass(root, "header-search-result");
     assert.equal(matched[0].href, "#/items/2228?project=1");
   }
@@ -164,7 +180,7 @@ test("shared shell search, footer, identity, and scroll contract are live", asyn
   input.value = "YOK-21";
   input.dispatchEvent(new Event("input"));
   await settleSearch();
-  assert.deepEqual(searchRequests.at(-1), { keywords: "YOK-21", limit: 8 });
+  assert.deepEqual(searchRequests.at(-1), { keywords: "YOK-21", limit: 6 });
   assert.equal(byClass(root, "header-search-result")[0].href,
     "#/items/2228?project=1");
 

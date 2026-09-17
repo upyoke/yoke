@@ -1,4 +1,5 @@
 @import url("./universe_shell_controls.css");
+@import url("./universe_search.css");
 
 /* Workbench chrome for the universe app shell. Colors, fonts, and radius
    come from the shared design tokens in theme.css, so light/dark follows

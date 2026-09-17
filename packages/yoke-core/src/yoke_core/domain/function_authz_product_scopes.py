@@ -43,6 +43,8 @@ PRODUCT_AUTHZ_BY_ID = {
     "ui_preferences.screen_selection.set": AuthzSpec(ACTOR_SESSION, None),
     "ui_preferences.nav_group.list": AuthzSpec(ACTOR_SESSION, None),
     "ui_preferences.nav_group.set": AuthzSpec(ACTOR_SESSION, None),
+    "ui_preferences.search_history.list": AuthzSpec(ACTOR_SESSION, None),
+    "ui_preferences.search_history.record": AuthzSpec(ACTOR_SESSION, None),
     "sessions.reclaim_stale": AuthzSpec(ORG, PERM_ORG_ADMIN),
     # A gate records that its own session is owed a CI verdict, and the
     # watcher that received success or failure resolves that wait. The
