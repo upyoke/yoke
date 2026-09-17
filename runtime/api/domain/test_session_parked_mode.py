@@ -202,3 +202,31 @@ def test_stale_prompt_submit_does_not_clear_a_later_repark(conn, monkeypatch):
     row = _parked_row(conn)
     assert row["mode"] == SESSION_MODE_PARKED
     assert row["quiet_reason"] == "waiting on operator"
+
+
+def test_delayed_prompt_does_not_clear_a_newer_park_write(conn, monkeypatch):
+    _register(conn)
+    _ensure_turn_posture(conn)
+    from yoke_core.domain.session_turn_posture import posture_timestamp
+
+    previous = datetime.now(timezone.utc) - timedelta(seconds=30)
+    prompt_observed = previous + timedelta(seconds=10)
+    stamp = posture_timestamp(previous)
+    conn.execute(
+        "UPDATE harness_sessions SET turn_posture = 'waiting', "
+        f"turn_posture_at = '{stamp}' WHERE session_id = 'sess-1'"
+    )
+    conn.commit()
+    set_session_mode(conn, "sess-1", SESSION_MODE_PARKED, reason="waiting on operator")
+    assert not persist_accepted_hook_turn_posture(
+        event_name="UserPromptSubmit",
+        session_id="sess-1",
+        observed_at=prompt_observed,
+        final_outcome="allow",
+        timed_out=False,
+        failed=False,
+        connection_factory=_shared_factory(conn, monkeypatch),
+    )
+    row = _parked_row(conn)
+    assert row["mode"] == SESSION_MODE_PARKED
+    assert row["quiet_reason"] == "waiting on operator"

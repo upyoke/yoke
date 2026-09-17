@@ -129,8 +129,10 @@ Do not invoke `/yoke feed`. Feed and steer are unrelated.
   write persists. Reporting the wait, reading the control plane, heartbeat,
   message ack, failed wakes, and tool calls do not unpark. An accepted
   UserPromptSubmit that stamps the turn running clears the previous parked
-  mode and reason; a later explicit re-park persists, and a stale start
-  observation does not unpark. Stamp a working mode when continuing by
+  mode and reason. A later explicit re-park persists: the parked write
+  advances turn_posture_at, so a delayed accepted prompt observed before
+  that write cannot clear it. A stale start observation does not unpark.
+  Stamp a working mode when continuing by
   choice (`yoke sessions touch --mode dash`). A genuinely
   parked, in-flight, or merge-queue-landing worker is not terminated or
   restaffed for being quiet; verify the recorded reason, then resume it
