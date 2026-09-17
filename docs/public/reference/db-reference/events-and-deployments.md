@@ -113,9 +113,10 @@ A run copies the internal `target_tier` and `target_environment_id` from its flo
 Successful completion also compares this run's immutable `release_lineage`
 with the previous succeeded run for the same project and target environment.
 The resulting `carried_work` object keeps item matches under `items` and
-unresolved first-parent commits as bare SHAs under `commits`. This record
-never enrolls those items in `deployment_run_items` and never changes their
-lifecycle state. Historical runs remain unset; recording is forward-only.
+unresolved first-parent commits as bare SHAs under `commits`. Recording it
+changes no lifecycle state; historical runs remain unset and recording is
+forward-only. The record is evidence, not membership — enrolling from it is a
+separate step, described under release admission below.
 
 The comparison runs wherever the completion does. A machine holding the
 project's registered checkout reads git directly; anywhere else — including a
@@ -129,9 +130,10 @@ repository binding. `derivation.source` names which answered (`checkout`,
 `derivation.status` is derived from it: `derived` when commits were attributed,
 `empty` when the run genuinely carries nothing, and `unknown` when nobody could
 look. `derivation.reason` names the case and `derivation.recovery` names the
-repair. Readers must not treat `unknown` as `empty`: an unknown record also
-suppresses the omitted-delivery-ready-member scan at composition freeze, so a
-run carrying unadmitted work would pass unexamined.
+repair. Readers must not treat `unknown` as `empty`: an unknown record
+suppresses both automatic enrollment and the omitted-delivery-ready-member scan
+at composition freeze, because a set nobody computed can neither be admitted
+nor cleared. Attribution is repaired, never guessed.
 
 A record is written once and then frozen, which is right for a comparison that
 ran and wrong for one that could not. `deployment_runs.carried_work.repair`
@@ -153,8 +155,10 @@ merge-only flows, Task items, and Epic task graphs are not admitted implicitly.
 The run records the shared artifact identity, an immutable composition digest,
 the effective flow for every member, and full recoverable QA requirement/plan
 content. Missing first-baseline attribution must be resolved explicitly before
-start. Cancellation preserves the frozen evidence. Schema-v1 and item-less
-environment runs retain their legacy start behavior.
+start. Cancellation preserves the frozen evidence. Schema-v1 runs retain their
+legacy start behavior.
+
+**A start completes its own membership.** Item-bound composition (`deployment_runs.start_for_item`, `deployment_runs.validate_composition`) and the driver's `deployment_runs.execution.context` read each enroll every delivery-ready item the pinned candidate carries and the run does not hold, through the same admission validation `add_item` uses, and print the public references added. Enrollment takes the item workflow-binding locks and then the run row, the order `lock_run_with_stable_membership` and `add_item` already use, and locks every carried item rather than only the currently eligible ones, so eligibility cannot move between the decision and the insert; a run that is no longer `created` enrolls nothing. Composition freeze then verifies rather than completes: the driver read its members before reaching it and seeds QA and stamps release against that list, so a member arriving at freeze would execute unseeded, and freeze refuses by name instead. An item-less environment run on a v2 flow enrolls like any other, and deliberate member choices — an explicit `progress` intent included — are never rewritten. Three cases refuse instead of enrolling: a carried item whose flow or stage this run cannot admit (named with its recovery), underivable attribution or an unattributed commit (needs `composition_resolution`, above), and a run whose members were inherited from a run that already froze them — a retry of the same candidate, marked by a member carrying a `requirement_snapshot` first — which reuses that immutable membership rather than deriving against a moved baseline.
 
 ## Table: deployment_stage_receipts
 

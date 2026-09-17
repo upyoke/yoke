@@ -1,6 +1,6 @@
 """Composition and batch-compatibility validation for deployment runs.
 
-Owns: ``cmd_validate_composition`` (post-creation enrolment check) and
+Owns: ``cmd_validate_composition`` (post-creation membership check) and
 ``cmd_check_batch_compatibility`` (pre-creation batch check). Both enforce
 project alignment, deployment-flow alignment, item-status floor, and
 unsatisfied hard-block dependency detection. SQL bodies preserved verbatim
@@ -13,6 +13,11 @@ from typing import List, Optional, Sequence, Tuple
 
 from yoke_core.domain.db_helpers import connect, query_rows, query_scalar
 from yoke_core.domain.dependency_satisfaction import unsatisfied_dependency_pairs
+from yoke_core.domain.deployment_run_carried_membership import (
+    carried_membership_refusal,
+    describe_enrollment,
+    enroll_carried_members,
+)
 from yoke_core.domain.deployment_run_pair_obligations import (
     split_pending_pair_merges,
 )
@@ -107,6 +112,15 @@ def cmd_validate_composition(
         )
         if run_project_id is None:
             return False, f"FAIL: Run '{run_id}' not found"
+        # Completing membership before the checks below is what lets the same
+        # checks judge the run that will actually execute. Enrolling after
+        # them would validate a composition the start no longer has.
+        try:
+            enrolled = enroll_carried_members(conn, run_id)
+            conn.commit()
+        except (LookupError, ValueError) as exc:
+            conn.rollback()
+            return False, f"FAIL: Composition validation failed:\n{exc}"
         run_project_id = int(run_project_id)
         run_project = resolve_project_slug(conn, run_project_id)
 
@@ -186,10 +200,6 @@ def cmd_validate_composition(
             )
             errors.append(f"Unsatisfied hard-block dependencies: {items_str}")
 
-        from yoke_core.domain.deployment_run_composition_freeze import (
-            carried_membership_refusal,
-        )
-
         carried_refusal = carried_membership_refusal(conn, run_id)
         if carried_refusal:
             errors.append(carried_refusal)
@@ -198,7 +208,8 @@ def cmd_validate_composition(
             error_text = "\n".join(errors)
             return False, f"FAIL: Composition validation failed:\n{error_text}"
 
-        return True, "OK"
+        enrollment = describe_enrollment(enrolled)
+        return True, f"OK; {enrollment}" if enrollment else "OK"
     finally:
         conn.close()
 

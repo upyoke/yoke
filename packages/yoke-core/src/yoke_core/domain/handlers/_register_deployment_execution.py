@@ -15,9 +15,13 @@ def register(registry) -> None:
         stability="stable",
         owner_module="yoke_core.domain.handlers.deployment_run_execution",
         target_kinds=["workflow_run"],
-        side_effects=[],
+        side_effects=["deployment_run_items_insert"],
         emitted_event_names=["YokeFunctionCalled"],
-        guardrails=["deploy_lock_required"],
+        guardrails=[
+            "deploy_lock_required",
+            "created_only_membership",
+            "item_workflow_binding",
+        ],
         adapter_status="internal",
         claim_required_kind=None,
     )

@@ -29,7 +29,6 @@ from yoke_core.domain.workflow_item_binding_lock import (
     lock_item_workflow_bindings,
 )
 from yoke_core.domain.workflow_delivery_binding_validation import (
-    validate_deployment_run_item,
     validate_deployment_run_items,
 )
 from yoke_core.domain.project_identity import render_item_ref
@@ -62,34 +61,20 @@ def cmd_add_item(
     try:
         lock_item_workflow_bindings(conn, (int(item_id),))
         _require_composable_run(conn, run_id)
-        validate_deployment_run_item(
+        from yoke_core.domain.deployment_run_carried_membership import (
+            admit_run_item,
+        )
+
+        ref = admit_run_item(
             conn,
             run_id=run_id,
             item_id=int(item_id),
-        )
-        from yoke_core.domain.deployment_requirement_snapshots import (
-            requirement_selection,
-            snapshot_member_requirements,
-        )
-        from yoke_core.domain.deployment_run_composition_freeze import (
-            validate_delivery_intent_for_item,
-        )
-
-        intent = validate_delivery_intent_for_item(conn, int(item_id), delivery_intent)
-        selection = requirement_selection(
-            requirement_ids=requirement_ids, plan_ids=plan_ids
-        )
-        snapshot_member_requirements(
-            conn, run_id=run_id, item_id=int(item_id), selection_json=selection
-        )
-        conn.execute(
-            "INSERT INTO deployment_run_items "
-            "(run_id, item_id, added_at, delivery_intent, requirement_selection) "
-            "VALUES (%s, %s, %s, %s, %s)",
-            (run_id, item_id, iso8601_now(), intent, selection),
+            delivery_intent=delivery_intent,
+            requirement_ids=requirement_ids,
+            plan_ids=plan_ids,
         )
         conn.commit()
-        return f"Added {render_item_ref(conn, item_id)} to run {run_id}"
+        return f"Added {ref} to run {run_id}"
     finally:
         conn.close()
 
