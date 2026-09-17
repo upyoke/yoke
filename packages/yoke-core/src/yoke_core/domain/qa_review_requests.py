@@ -270,6 +270,7 @@ def apply_qa_review_resolution(
     actor_id: int,
     note: Optional[str],
     resolved_at: Optional[str] = None,
+    reviewed_run_id: Optional[int] = None,
 ) -> None:
     """Apply the human decision to the canonical requirement evidence."""
     requirement = requirement_facts(conn, requirement_id)
@@ -290,9 +291,22 @@ def apply_qa_review_resolution(
         return
     verdict = "pass" if action == "approve" else "fail"
     from yoke_core.domain.qa_requirement_pass_currency import (
+        recorded_execution_target_digest,
         stamp_executed_method_config,
     )
 
+    evidence = None
+    run_id = int(reviewed_run_id or 0)
+    if run_id > 0:
+        capture = conn.execute(
+            f"SELECT raw_result FROM qa_runs WHERE id={p} "
+            f"AND qa_requirement_id={p}",
+            (run_id, int(requirement_id)),
+        ).fetchone()
+        if capture is not None:
+            evidence = (
+                capture["raw_result"] if hasattr(capture, "keys") else capture[0]
+            )
     conn.execute(
         "INSERT INTO qa_runs "
         "(qa_requirement_id, performed_by, qa_kind, verdict, raw_result, "
@@ -305,8 +319,8 @@ def apply_qa_review_resolution(
             stamp_executed_method_config(
                 note,
                 requirement.get("method_config"),
-                conn=conn,
-                requirement_id=int(requirement_id),
+                execution_target_digest=recorded_execution_target_digest(evidence)
+                or None,
             ),
             stamp,
             stamp,

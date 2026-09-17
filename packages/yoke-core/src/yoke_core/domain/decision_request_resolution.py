@@ -50,6 +50,11 @@ def _apply_subject_resolution(
     from yoke_core.domain.qa_review_requests import apply_qa_review_resolution
 
     if _table_exists(conn, "qa_requirements"):
+        context = request.get("subject_context") or {}
+        try:
+            reviewed_run_id = int(context.get("run_id") or 0) or None
+        except (TypeError, ValueError):
+            reviewed_run_id = None
         apply_qa_review_resolution(
             conn,
             requirement_id=int(request["subject_key"]),
@@ -57,6 +62,7 @@ def _apply_subject_resolution(
             actor_id=actor_id,
             note=note,
             resolved_at=stamp,
+            reviewed_run_id=reviewed_run_id,
         )
 
 
