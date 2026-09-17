@@ -75,3 +75,23 @@ every tenant. A planless case reports `plan_id`, `plan`, and `case_key` as
 `null`; readers name it by `method_name` / `method_id` instead. The day
 `summary` is computed from the same source as the rows, so its counts cover
 exactly the checks the rows sit beside.
+
+## Naming where a case runs
+
+A plan carries its own `target_environment_id`, so every case materialized
+from it inherits one immutable execution target. A case attached without a
+plan names its own with `--target-env NAME`, resolved against the project's
+registered environments at execution time and held to three rules:
+
+- the environment must be registered to that project and authorized for it,
+  which is the same read a plan target passes;
+- it must declare a reviewable address — `environments.url`, or `hosts.app` in
+  its environment settings. An environment with neither is refused rather than
+  bound, because a target carrying identity and no endpoint says the
+  environment exists, never that the evidence came from it;
+- when the case declares a `base_url` of its own, its origin must be that
+  address. A case browsing somewhere else is refused.
+
+Naming an environment is what a case opts into. A case that names none — an
+item's own verification command, for instance — keeps running against
+whatever its runner already resolves, with no execution target recorded.

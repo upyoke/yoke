@@ -188,42 +188,13 @@ def resolve_plan_execution_target(
             )
         except ValueError as exc:
             raise QaExecutionTargetError(str(exc)) from exc
-    if row["environment_id"] is None or row["site_name"] is None:
-        raise QaExecutionTargetError("QA plan execution environment is unavailable")
-    try:
-        hosted_identity.require_plan_environment_access(
-            conn,
-            plan_project_id=int(row["project_id"]),
-            environment_id=int(row["environment_id"]),
-        )
-    except ValueError as exc:
-        raise QaExecutionTargetError(str(exc)) from exc
-    settings = _decode(row["settings"])
-    environment_name = str(row["environment_name"])
-    endpoints = (
-        _yoke_endpoints(environment_name, str(row["tenant_slug"]))
-        if str(row["project_slug"]) == "yoke"
-        else _generic_endpoints(row, settings)
+    from yoke_core.domain.qa_environment_execution_target import (
+        environment_execution_target,
     )
-    target = {
-        "schema": 2,
-        "tenant": {
-            "id": int(row["tenant_id"]),
-            "slug": str(row["tenant_slug"]),
-            "name": str(row["tenant_name"]),
-        },
-        "project": {
-            "id": int(row["project_id"]),
-            "slug": str(row["project_slug"]),
-            "name": str(row["project_name"]),
-        },
-        "site": {"name": str(row["site_name"])},
-        "environment": {"name": environment_name},
-        "endpoints": endpoints,
-    }
-    if require_runtime_match:
-        require_runtime_target(target)
-    return target
+
+    return environment_execution_target(
+        conn, row, require_runtime_match=require_runtime_match
+    )
 
 
 def only_project_environment(conn: Any, *, project_id: int) -> int | None:
