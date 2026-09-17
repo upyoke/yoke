@@ -156,12 +156,18 @@ def test_ui_token_exchange_303_is_reachable() -> None:
     server = Server(
         Config(create_ui_app(token), host="127.0.0.1", port=port, log_level="warning")
     )
-    threading.Thread(target=server.run, daemon=True).start()
-    for _ in range(80):
-        if server.started:
-            break
-        time.sleep(0.05)
-    url = f"http://127.0.0.1:{port}/?token={token}"
-    err = freshness._validate_reachability(url)
-    assert err is None, err
-    assert token not in (err or "")
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        for _ in range(80):
+            if server.started:
+                break
+            time.sleep(0.05)
+        assert server.started, "uvicorn did not start"
+        url = f"http://127.0.0.1:{port}/?token={token}"
+        err = freshness._validate_reachability(url)
+        assert err is None, err
+        assert token not in (err or "")
+    finally:
+        server.should_exit = True
+        thread.join(timeout=5)
