@@ -118,7 +118,7 @@ move a requirement between `blocking` and `non_blocking`, bind it to a
 different `target_env`, correct a live `method_config` capture script
 (selectors, waits, assertions), or clear a nullable field. It preserves the
 requirement identity, so linked runs and artifacts stay attached. A
-`method_config` correction invalidates prior greens for gating; re-run the
+`method_config` correction invalidates prior greens for gating unless a later run recorded the new config at start; re-run the
 case. Frozen deployment-run requirements refuse `method_config` updates.
 Use `requirement-add` when the *verification surface itself* needs to change
 — for example, swapping from `unit_test` to `integration` — since that is a

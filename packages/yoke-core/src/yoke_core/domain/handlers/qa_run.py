@@ -146,11 +146,10 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
                 jsonpath="$.payload.raw_result",
             )
         from yoke_core.domain.qa_requirement_pass_currency import (
-            attach_method_config_snapshot,
+            stamp_executed_method_config,
         )
 
-        if row.get("method_config") not in (None, ""):
-            raw_result = attach_method_config_snapshot(raw_result, row["method_config"])
+        raw_result = stamp_executed_method_config(raw_result, row.get("method_config"))
 
         now_iso = iso8601_now()
         p = _p(conn)

@@ -108,11 +108,10 @@ def handle_qa_run_add(request: FunctionCallRequest) -> HandlerOutcome:
                 "payload_invalid", bind_error, jsonpath="$.payload.raw_result"
             )
         from yoke_core.domain.qa_requirement_pass_currency import (
-            attach_method_config_snapshot,
+            stamp_executed_method_config,
         )
 
-        if row.get("method_config") not in (None, ""):
-            raw_result = attach_method_config_snapshot(raw_result, row["method_config"])
+        raw_result = stamp_executed_method_config(raw_result, row.get("method_config"))
         now_iso = iso8601_now()
         completed_at_value = (
             now_iso if (verdict is not None or execution_status is not None) else None
@@ -222,7 +221,7 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
         row = query_one(
             conn,
             "SELECT run.qa_requirement_id, run.qa_kind, run.performed_by, "
-            "req.verdict_path, req.method_id FROM qa_runs run "
+            "run.raw_result, req.verdict_path, req.method_id FROM qa_runs run "
             "JOIN qa_requirements req ON req.id = run.qa_requirement_id "
             f"WHERE run.id = {p}",
             (int(run_id),),
@@ -265,6 +264,13 @@ def handle_qa_run_complete(request: FunctionCallRequest) -> HandlerOutcome:
             set_parts.append(f"execution_status = {p}")
             params.append(execution_status)
         if raw_result is not None:
+            from yoke_core.domain.qa_requirement_pass_currency import (
+                retain_start_bound_method_config,
+            )
+
+            raw_result = retain_start_bound_method_config(
+                row["raw_result"], raw_result
+            )
             set_parts.append(f"raw_result = {p}")
             params.append(raw_result)
         if duration_ms is not None:

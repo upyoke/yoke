@@ -216,12 +216,11 @@ def bind_cli_raw_result(
     if error:
         print(f"Error: {error}", file=sys.stderr)
         sys.exit(2)
-    if row["method_config"] not in (None, ""):
-        from yoke_core.domain.qa_requirement_pass_currency import (
-            attach_method_config_snapshot,
-        )
+    from yoke_core.domain.qa_requirement_pass_currency import (
+        stamp_executed_method_config,
+    )
 
-        bound = attach_method_config_snapshot(bound, row["method_config"])
+    bound = stamp_executed_method_config(bound, row["method_config"])
     return bound
 
 

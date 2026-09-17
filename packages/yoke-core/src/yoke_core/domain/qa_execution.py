@@ -262,15 +262,9 @@ def cmd_run_complete(
 ) -> int:
     """Finalize an in-progress run. Returns the run ID.
 
-    browser capture can finalize with ``execution_status='captured'``
-    and ``verdict=None`` — the infra step succeeded but quality has not been
-    inspected yet. Inspection is a later ``run-complete`` call that sets
-    ``pass``, ``fail``, or evidence-backed ``undetermined`` in place. Agent
-    undetermined requires a previously attached artifact. At least one result is required.
-
-    Event emission: ``QARunCompleted`` fires when a verdict is written,
-    ``QARunCaptured`` when only an execution_status is written (capture
-    finalized but awaiting inspection).
+    Capture may set ``execution_status='captured'`` without a verdict.
+    Inspection later writes ``pass`` / ``fail`` / ``undetermined``.
+    ``QARunCompleted`` fires on a verdict; ``QARunCaptured`` otherwise.
     """
     if not run_id:
         print("Error: --run-id is required", file=sys.stderr)
@@ -291,7 +285,8 @@ def cmd_run_complete(
     try:
         row = query_one(
             conn,
-            "SELECT qa_requirement_id, performed_by, qa_kind FROM qa_runs WHERE id = %s",
+            "SELECT qa_requirement_id, performed_by, qa_kind, raw_result "
+            "FROM qa_runs WHERE id = %s",
             (run_id,),
         )
         if row is None:
@@ -314,8 +309,13 @@ def cmd_run_complete(
             set_parts.append("execution_status = %s")
             params.append(execution_status)
         if raw_result is not None:
+            from yoke_core.domain.qa_requirement_pass_currency import (
+                retain_start_bound_method_config,
+            )
             set_parts.append("raw_result = %s")
-            params.append(raw_result)
+            params.append(
+                retain_start_bound_method_config(row["raw_result"], raw_result)
+            )
         if duration_ms is not None:
             set_parts.append("duration_ms = %s")
             params.append(duration_ms)

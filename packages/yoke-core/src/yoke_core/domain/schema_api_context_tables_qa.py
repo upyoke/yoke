@@ -99,6 +99,9 @@ QA_TABLES: dict[str, dict] = {
             "never replace snapshot fields during execution. "
             "A green run satisfies only while it still proves live method_config "
             "(`has_current_passing_run`); EXISTS(verdict=pass) is not current. "
+            "Runners stamp executed method_config into raw_result at start; "
+            "complete keeps that snapshot. Unstamped greens count only while "
+            "live config still matches the plan-case origin. "
             "Correct a live capture script with `yoke qa requirement update "
             "--field method_config`; frozen deployment-run rows refuse that write. "
             "Canonical unsatisfied-verification SELECT: "
@@ -155,7 +158,10 @@ QA_TABLES: dict[str, dict] = {
             "--expected-sha SHA`. The runner reads the immutable case "
             "through the write-authorized qa.case_execution.begin before "
             "local work and owns the qa.run.add / qa.run.complete / "
-            "qa.artifact.add evidence writes for that single requirement."
+            "qa.artifact.add evidence writes for that single requirement. "
+            "Those writes stamp executed method_config into raw_result at "
+            "run start; complete retains that snapshot so an in-flight "
+            "completion cannot prove a later live config."
         ),
     },
     "qa_artifacts": {

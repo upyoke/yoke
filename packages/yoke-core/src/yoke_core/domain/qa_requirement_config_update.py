@@ -1,8 +1,8 @@
 """Correct live QA case configuration without replacing the requirement.
 
 Frozen deployment-run rows stay immutable. Historical ``qa_runs`` rows stay
-immutable too: a configuration change records a later correction marker so
-an obsolete green verdict cannot satisfy the new executable contract.
+immutable too: a later green satisfies the new contract only when it recorded
+that live ``method_config`` at run start.
 """
 
 from __future__ import annotations
@@ -15,8 +15,6 @@ from yoke_core.domain.qa_constants import (
     VALID_BLOCKING_MODES,
     VALID_QA_PHASES,
     _normalize_qa_phase,
-    case_outcome_for_verdict,
-    normalized_verdict_reason,
 )
 from yoke_core.domain.qa_method_capabilities import (
     QaMethodCapabilityError,
@@ -29,16 +27,8 @@ from yoke_core.domain.qa_method_config_validation import (
 from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
 from yoke_core.domain.qa_plan_execution_store import canonical
 from yoke_core.domain.qa_requirement_pass_currency import (
-    METHOD_CONFIG_CORRECTION_KEY,
     METHOD_CONFIG_FIELD,
-    PREVIOUS_METHOD_CONFIG_KEY,
-    _json_object,
     _marker,
-    attach_method_config_snapshot,
-    canonical_method_config,
-    has_current_passing_run,
-    is_method_config_correction,
-    recorded_method_config,
 )
 from yoke_core.domain.schema_common import _table_exists
 
@@ -49,9 +39,6 @@ FROZEN_REQUIREMENT_MESSAGE = (
     "acceptance snapshot and cannot be corrected in place. Update the live "
     "item requirement, then re-run it. Recovery: yoke qa requirement update "
     "--requirement-id <live-id> --field method_config --value '<json>'"
-)
-CORRECTION_REASON = (
-    "method_config_updated; re-run the case to prove the corrected configuration"
 )
 
 UPDATABLE_REQUIREMENT_FIELDS: tuple[str, ...] = (
@@ -139,47 +126,6 @@ def _prepare_method_config(
     return canonical(config), ""
 
 
-def _record_correction(
-    conn: Any,
-    *,
-    requirement_id: int,
-    qa_kind: str,
-    previous: Any,
-    new_value: str,
-) -> None:
-    from yoke_core.domain.db_helpers import iso8601_now
-
-    marker = _marker(conn)
-    now = iso8601_now()
-    payload = canonical(
-        {
-            METHOD_CONFIG_CORRECTION_KEY: True,
-            PREVIOUS_METHOD_CONFIG_KEY: _json_object(previous),
-            METHOD_CONFIG_FIELD: _json_object(new_value),
-        }
-    )
-    reason = normalized_verdict_reason("error", CORRECTION_REASON)
-    conn.execute(
-        "INSERT INTO qa_runs ("
-        "qa_requirement_id, performed_by, qa_kind, verdict, verdict_reason, "
-        "case_outcome, raw_result, started_at, completed_at, created_at"
-        f") VALUES ({marker}, {marker}, {marker}, {marker}, {marker}, "
-        f"{marker}, {marker}, {marker}, {marker}, {marker})",
-        (
-            int(requirement_id),
-            "shell",
-            str(qa_kind),
-            "error",
-            reason,
-            case_outcome_for_verdict("error"),
-            payload,
-            now,
-            now,
-            now,
-        ),
-    )
-
-
 def apply_requirement_update(
     conn: Any,
     req_id: int,
@@ -257,7 +203,6 @@ def apply_requirement_update(
             req_id=req_id,
             field=field,
         )
-    previous_config = existing["method_config"]
     if field == METHOD_CONFIG_FIELD:
         prepared, error = _prepare_method_config(conn, existing, value)
         if error:
@@ -278,16 +223,6 @@ def apply_requirement_update(
         f"UPDATE qa_requirements SET {field} = {marker} WHERE id = {marker}",
         (value, int(req_id)),
     )
-    if field == METHOD_CONFIG_FIELD and canonical_method_config(
-        previous_config
-    ) != canonical_method_config(value):
-        _record_correction(
-            conn,
-            requirement_id=int(req_id),
-            qa_kind=str(existing["qa_kind"]),
-            previous=previous_config,
-            new_value=str(value),
-        )
     event_phase = value if field == "qa_phase" else str(existing["qa_phase"])
     conn.commit()
     emit_qa_requirement_event(
@@ -309,18 +244,10 @@ def apply_requirement_update(
 
 
 __all__ = [
-    "CORRECTION_REASON",
     "FROZEN_REQUIREMENT_CODE",
     "FROZEN_REQUIREMENT_MESSAGE",
-    "METHOD_CONFIG_CORRECTION_KEY",
     "METHOD_CONFIG_FIELD",
-    "PREVIOUS_METHOD_CONFIG_KEY",
     "RequirementUpdateResult",
     "UPDATABLE_REQUIREMENT_FIELDS",
     "apply_requirement_update",
-    "attach_method_config_snapshot",
-    "canonical_method_config",
-    "has_current_passing_run",
-    "is_method_config_correction",
-    "recorded_method_config",
 ]
