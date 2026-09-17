@@ -151,9 +151,11 @@ def cmd_find_by_item(
         rows = query_rows(
             conn,
             f"SELECT dr.id, dr.status, COALESCE(dr.current_stage,''), "
-            f"dr.created_at, dr.flow "
+            f"dr.created_at, dr.flow, COALESCE(e.name,''), "
+            f"COALESCE(dr.target_tier,'') "
             f"FROM deployment_runs dr "
             f"JOIN deployment_run_items dri ON dri.run_id = dr.id "
+            f"LEFT JOIN environments e ON e.id = dr.target_environment_id "
             f"WHERE dri.item_id=%s {status_clause} "
             f"ORDER BY dr.created_at DESC",
             tuple(params),

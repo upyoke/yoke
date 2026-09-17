@@ -50,6 +50,37 @@ def item_completion_flow(conn: Any, item_id: int) -> str:
     return str(default or "")
 
 
+def freeze_item_completion_flow(conn: Any, item_id: int) -> str:
+    """Pin the live default onto the item if it has no explicit flow.
+
+    Membership is the last write before a run can ship the item, so the
+    default that would close it is frozen here. A later project-default
+    change cannot retarget completion authority for an already-admitted
+    item.
+    """
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        f"SELECT deployment_flow FROM items WHERE id = {marker}",
+        (int(item_id),),
+    ).fetchone()
+    if row is None:
+        return ""
+    pinned = str(
+        (row["deployment_flow"] if hasattr(row, "keys") else row[0]) or ""
+    ).strip()
+    if pinned:
+        return pinned
+    flow = item_completion_flow(conn, int(item_id))
+    if not flow:
+        return ""
+    conn.execute(
+        f"UPDATE items SET deployment_flow = {marker} "
+        f"WHERE id = {marker} AND COALESCE(deployment_flow, '') = ''",
+        (flow, int(item_id)),
+    )
+    return flow
+
+
 def lookup_item_project_and_flow(item_id: int) -> tuple:
     """Return project and item override or workflow delivery default."""
     conn = db_helpers.connect()
@@ -118,6 +149,7 @@ def describe_missing_flow(item_ref: str, project: str) -> str:
 __all__ = [
     "NO_FLOW_HEAD",
     "describe_missing_flow",
+    "freeze_item_completion_flow",
     "item_completion_flow",
     "lookup_item_project_and_flow",
 ]

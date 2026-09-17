@@ -98,6 +98,12 @@ function deliveryRow(documentNode, item, run, resolved) {
       documentNode, "span", "item-delivery-run-flow", runFlow,
     ));
   }
+  row.appendChild(el(
+    documentNode,
+    "span",
+    "item-delivery-target",
+    run.target_environment || run.target_tier || "environment unavailable",
+  ));
   if (run.current_stage) {
     row.appendChild(el(
       documentNode, "span", "item-delivery-stage", String(run.current_stage),

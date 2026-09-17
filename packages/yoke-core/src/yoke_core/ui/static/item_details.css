@@ -313,6 +313,7 @@
 .universe-app-root .item-delivery-stage,
 .universe-app-root .item-delivery-when,
 .universe-app-root .item-delivery-run-flow,
+.universe-app-root .item-delivery-target,
 .universe-app-root .item-delivery-role { color: var(--yoke-muted); }
 .universe-app-root .item-delivery-role.is-release {
   color: var(--yoke-ink);

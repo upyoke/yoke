@@ -60,9 +60,11 @@ test("a Dash item lists its releases newest first and names its flow", async () 
   renderItemDetailView(
     itemContext(documentNode, deliveryClient(dash, [
       { id: "run-20260725-001", status: "succeeded", current_stage: "complete",
-        created_at: "2026-07-25T12:00:00Z", flow: "acme-stage-then-prod" },
+        created_at: "2026-07-25T12:00:00Z", flow: "acme-stage-then-prod",
+        target_environment: "prod" },
       { id: "run-20260726-002", status: "failed", current_stage: "item-qa",
-        created_at: "2026-07-26T12:00:00Z", flow: "acme-stage-then-prod" },
+        created_at: "2026-07-26T12:00:00Z", flow: "acme-stage-then-prod",
+        target_environment: "prod" },
     ], requests)),
     root, "7", "ACM-22",
   );
@@ -92,6 +94,10 @@ test("a Dash item lists its releases newest first and names its flow", async () 
   assert.deepEqual(
     byClass(root, "item-delivery-role").map((node) => node.textContent),
     ["this item's release", "this item's release"],
+  );
+  assert.deepEqual(
+    byClass(root, "item-delivery-target").map((node) => node.textContent),
+    ["prod", "prod"],
   );
 });
 
@@ -222,7 +228,8 @@ test("a carrying run on another flow is participation, not this item's release",
   renderItemDetailView(
     itemContext(documentNode, deliveryClient(dash, [
       { id: "run-prod", status: "executing", current_stage: "item-qa",
-        created_at: "2026-07-25T12:00:00Z", flow: "acme-prod" },
+        created_at: "2026-07-25T12:00:00Z", flow: "acme-prod",
+        target_environment: "prod" },
       { id: "run-stage", status: "succeeded", current_stage: "complete",
         created_at: "2026-07-26T12:00:00Z", flow: "acme-stage" },
     ], [])),
@@ -238,5 +245,9 @@ test("a carrying run on another flow is participation, not this item's release",
   assert.deepEqual(
     byClass(root, "item-delivery-role").map((node) => node.textContent),
     ["also carried", "this item's release"],
+  );
+  assert.deepEqual(
+    byClass(root, "item-delivery-target").map((node) => node.textContent),
+    ["environment unavailable", "prod"],
   );
 });
