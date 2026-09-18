@@ -90,7 +90,7 @@ def instruction_index(
         ),
         "read": (
             "yoke workflow execution-instruction resolve "
-            f"--workflow {workflow_id} --project {project_slug}"
+            f"--workflow {workflow_id} --project {project_slug} --full"
         ),
     }
 

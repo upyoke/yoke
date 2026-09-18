@@ -30,7 +30,7 @@ TASK_FILE_USAGE = (
 TASK_HELP = """File one laneless, merge-free Task through items.create.
 
 Examples:
-  yoke workflow execution-instruction resolve --workflow task --project acme
+  yoke workflow execution-instruction resolve --workflow task --project acme --full
   yoke task "Refresh inventory" --stdin --project acme \\
     --execution-instructions-considered <<'EOF'
   Refresh the local inventory file.

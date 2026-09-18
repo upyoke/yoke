@@ -50,7 +50,8 @@ def created(monkeypatch):
         "yoke_core.domain.backlog_create_op.execute_create", _record,
     )
     monkeypatch.setattr(
-        "yoke_core.domain.workflow_execution_instructions.resolve_for_item",
+        "yoke_core.domain.workflow_execution_instructions"
+        ".item_instruction_descriptors",
         lambda conn, item_id: [],
     )
     monkeypatch.setattr(
@@ -85,7 +86,7 @@ class TestGate:
         assert message == (
             "Retrieve the operator execution instructions first: yoke "
             "workflow execution-instruction resolve --workflow dash "
-            "--project yoke — then refile with "
+            "--project yoke --full — then refile with "
             "--execution-instructions-considered"
         )
 
@@ -156,7 +157,7 @@ class TestHandler:
         assert outcome.error.code == _REFUSAL_CODE
         assert (
             "yoke workflow execution-instruction resolve --workflow dash "
-            "--project yoke" in outcome.error.message
+            "--project yoke --full" in outcome.error.message
         )
         assert "--execution-instructions-considered" in outcome.error.message
 

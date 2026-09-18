@@ -8,7 +8,7 @@
    every matching instruction:
 
    ```text
-   yoke workflow execution-instruction resolve --workflow dash --project PROJECT
+   yoke workflow execution-instruction resolve --workflow dash --project PROJECT --full
    ```
 
 3. Write a specific title within the project's effective title limit

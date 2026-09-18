@@ -123,12 +123,14 @@ class ItemCreateResponse(BaseModel):
     # The attestation this create was accepted under, so the receipt an
     # auditor reads carries the answer rather than the absence of a refusal.
     execution_instructions_considered: bool = False
-    # Resolved operator execution-instruction blocks for the created item,
-    # so a creator that executes immediately still receives them without a
-    # re-fetch (the read surfaces prepend the same blocks above the body).
-    # A separate field, mirroring the item reads, so structured-field
-    # writes can never round-trip it back into item content. None on
-    # dry-run: no row exists to resolve against.
+    # One descriptor per operator execution instruction the created item is
+    # bound by: its id, its heading, its scope, and the command that serves
+    # the prose. The filer read that prose before authoring and attested to
+    # it above, so echoing the whole text back taught it nothing while
+    # costing kilobytes of every create receipt. A separate field,
+    # mirroring the item reads, so structured-field writes can never
+    # round-trip it back into item content. None on dry-run: no row exists
+    # to resolve against.
     execution_instructions: Optional[List[Dict[str, Any]]] = None
 
 
@@ -203,11 +205,13 @@ def handle_item_create(request: FunctionCallRequest) -> HandlerOutcome:
     if not result.get("dry_run"):
         from yoke_core.domain.db_helpers import connect
         from yoke_core.domain.workflow_execution_instructions import (
-            resolve_for_item,
+            item_instruction_descriptors,
         )
 
         with connect() as conn:
-            execution_instructions = resolve_for_item(conn, int(result["item_id"]))
+            execution_instructions = item_instruction_descriptors(
+                conn, int(result["item_id"])
+            )
 
     response = ItemCreateResponse(
         item_id=int(result["item_id"]),

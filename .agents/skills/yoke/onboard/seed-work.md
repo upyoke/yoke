@@ -14,7 +14,7 @@ The onboarding target already fixes `{project}`, and seeded work uses the
 instruction to the complete batch:
 
 ```bash
-yoke workflow execution-instruction resolve --workflow issue --project {project}
+yoke workflow execution-instruction resolve --workflow issue --project {project} --full
 ```
 
 Read CURRENT-PLAN (`yoke strategy doc get CURRENT-PLAN --project {project}`) and derive a short list of concrete, independently workable items — the plan's near-term outcomes, one item each, titles within the project's effective title limit. These are `/yoke idea` intakes filed through the registered create surface; follow the idea intake conventions:

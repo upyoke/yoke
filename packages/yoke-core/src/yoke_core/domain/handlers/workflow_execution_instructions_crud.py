@@ -18,6 +18,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.read_detail import DETAIL_SUMMARY, ReadDetail
 
 INSTRUCTION_CREATED_EVENT = "WorkflowExecutionInstructionCreated"
 INSTRUCTION_UPDATED_EVENT = "WorkflowExecutionInstructionUpdated"
@@ -49,6 +50,8 @@ class InstructionListRequest(BaseModel):
 class InstructionResolveRequest(BaseModel):
     workflow: str = Field(..., min_length=1)
     project: str = Field(..., min_length=1)
+    #: ``full`` serves the prose a filer must read and obey.
+    detail: ReadDetail = DETAIL_SUMMARY
 
 
 class InstructionDeleteRequest(BaseModel):
@@ -65,6 +68,7 @@ class InstructionListResponse(BaseModel):
 
 class InstructionResolveResponse(BaseModel):
     execution_instructions: list[dict[str, Any]]
+    detail: ReadDetail = DETAIL_SUMMARY
 
 
 def _error(code: str, message: str, jsonpath: str | None = None) -> HandlerOutcome:
@@ -117,11 +121,7 @@ def handle_instruction_create(request: FunctionCallRequest) -> HandlerOutcome:
         except _instructions.EmptyExecutionInstructionError as exc:
             return _error("empty_content_refused", str(exc))
         conn.commit()
-    _emit(
-        INSTRUCTION_CREATED_EVENT,
-        request,
-        {"instruction_id": instruction_id},
-    )
+    _emit(INSTRUCTION_CREATED_EVENT, request, {"instruction_id": instruction_id})
     return HandlerOutcome(
         result_payload={"instruction_id": instruction_id}, primary_success=True
     )
@@ -222,8 +222,14 @@ def handle_instruction_resolve(request: FunctionCallRequest) -> HandlerOutcome:
         instructions = _instructions.resolve_execution_instructions(
             conn, workflow_id=payload.workflow, project_id=project_id
         )
+    served = _instructions.resolve_projection(
+        instructions,
+        workflow=payload.workflow,
+        project=payload.project,
+        detail=payload.detail,
+    )
     return HandlerOutcome(
-        result_payload={"execution_instructions": instructions},
+        result_payload={"execution_instructions": served, "detail": payload.detail},
         primary_success=True,
     )
 

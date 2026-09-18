@@ -181,13 +181,32 @@ def test_resolve_returns_only_the_named_scope_in_specificity_order(monkeypatch):
 
     resolved = crud.handle_instruction_resolve(_request(
         "workflow.execution_instruction.resolve",
-        {"workflow": "dash", "project": "acme"},
+        {"workflow": "dash", "project": "acme", "detail": "full"},
     ))
 
     assert resolved.primary_success
+    assert resolved.result_payload["detail"] == "full"
     rows = resolved.result_payload["execution_instructions"]
     assert [row["id"] for row in rows] == [broad, specific]
     assert [row["content"] for row in rows] == ["Broad rule.", "Acme Dash rule."]
+
+    scanned = crud.handle_instruction_resolve(_request(
+        "workflow.execution_instruction.resolve",
+        {"workflow": "dash", "project": "acme"},
+    ))
+
+    assert scanned.primary_success
+    assert scanned.result_payload["detail"] == "summary"
+    descriptors = scanned.result_payload["execution_instructions"]
+    assert [row["id"] for row in descriptors] == [broad, specific]
+    assert [row["title"] for row in descriptors] == ["Broad rule.", "Acme Dash rule."]
+    # The prose is what the default leaves behind, and the descriptor says
+    # exactly which command brings it back.
+    assert all("content" not in row for row in descriptors)
+    assert descriptors[0]["read"] == (
+        "yoke workflow execution-instruction resolve "
+        "--workflow dash --project acme --full"
+    )
 
     missing = crud.handle_instruction_resolve(_request(
         "workflow.execution_instruction.resolve",
