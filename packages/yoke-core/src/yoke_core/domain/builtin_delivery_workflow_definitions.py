@@ -158,7 +158,12 @@ ISSUE_WORKFLOW_DEFINITION = definition_fixture(
         "qa": "project_transition_defaults",
         "approvals": "definition_transitions",
         "delivery": "release_stage",
-        "item_posture_allowlist": ["verification", "approval", "deployment"],
+        "item_posture_allowlist": [
+            "verification",
+            "approval",
+            "deployment",
+            "merge_candidate_review",
+        ],
     },
     approval_defaults={},
 )

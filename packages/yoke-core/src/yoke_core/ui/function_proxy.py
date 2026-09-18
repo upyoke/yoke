@@ -213,6 +213,7 @@ def proxy_function_call(
     envelope: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], int]:
     """Dispatch one browser envelope; return ``(payload, status_code)``."""
+    from yoke_contracts.ui_browser_origin import ui_browser_origin
     from yoke_contracts.api.function_call import (
         ActorContext,
         FunctionCallRequest,
@@ -323,7 +324,14 @@ def proxy_function_call(
     # ambient_session_id="" (never None): the browser's identity lives
     # client-side, so the dispatcher must not resolve the SERVER
     # process's env/ancestry into a session.
-    response = dispatch(request, ambient_session_id="")
+    #
+    # The origin mark is set HERE, around the dispatch, rather than put in
+    # the envelope: a gate that may only be answered by a person at a
+    # browser cannot read that fact off fields the caller wrote. It is
+    # process-local and never crosses a wire, so a relayed call and a
+    # session-less call on a machine API token both arrive without it.
+    with ui_browser_origin():
+        response = dispatch(request, ambient_session_id="")
     return response.model_dump(mode="json"), 200
 
 

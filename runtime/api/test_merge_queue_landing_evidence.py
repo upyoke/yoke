@@ -7,6 +7,8 @@ belongs to a different train. Each of those reads afterwards as a clean
 landing, which is what makes them worth a test apiece.
 """
 
+import pytest
+
 from runtime.api.merge_queue_landing_test_helpers import (
     CHECKOUT,
     LANE_SHA,
@@ -30,6 +32,18 @@ ALREADY_MERGED_HEAD = "b" * 40
 
 
 # --- The landing carries the commit it is answerable for --------------------
+
+
+@pytest.fixture(autouse=True)
+def no_candidate_review(monkeypatch):
+    """These cases are about what a landing records, not about clearance.
+
+    The candidate review runs before either route and has its own cases; an
+    item that does not select the posture answers exactly this.
+    """
+    monkeypatch.setattr(
+        selection_mod, "candidate_review_refusal", lambda **_kw: ""
+    )
 
 
 def _declared(monkeypatch) -> None:

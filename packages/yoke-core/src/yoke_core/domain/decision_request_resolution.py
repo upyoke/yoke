@@ -20,6 +20,7 @@ from yoke_core.domain.approval_decisions import (
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.decision_request_contract import (
     DECISION_RECORDED_EVENT,
+    MERGE_CANDIDATE_REVIEW,
     REQUEST_RESOLVED_EVENT,
     REQUEST_WITHDRAWN_EVENT,
 )
@@ -32,6 +33,37 @@ from yoke_core.domain.decision_requests import (
     _p,
     _request_row,
 )
+
+
+def _require_session_authority(
+    conn: Any,
+    request: dict[str, Any],
+    *,
+    actor_id: int,
+    session_id: str,
+) -> None:
+    """Apply the kinds whose authority is a session, not only an actor.
+
+    Every other kind is answered by whoever holds the role; a merge
+    candidate review is answered by somebody who is not the worker waiting
+    on it, and on a workstation that difference is invisible in the actor.
+    """
+    if request["kind"] != MERGE_CANDIDATE_REVIEW:
+        return
+    from yoke_core.domain.decision_request_merge_candidate import (
+        candidate_item_id,
+    )
+    from yoke_core.domain.merge_candidate_review_authority import (
+        require_clearance_authority,
+    )
+
+    require_clearance_authority(
+        conn,
+        item_id=candidate_item_id(request),
+        session_id=session_id,
+        actor_id=actor_id,
+        action="clear or reject this candidate",
+    )
 
 
 def _apply_subject_resolution(
@@ -130,6 +162,7 @@ def resolve_decision_request(
         raise ValueError("request_changes requires a note")
     if note is not None and len(note) > 4000:
         raise ValueError("resolution note must be at most 4000 characters")
+    _require_session_authority(conn, request, actor_id=actor_id, session_id=session_id)
     if authority_reason(conn, request_id, actor_id) is None:
         from yoke_core.domain.decision_request_authority import (
             unauthorized_resolution_message,
@@ -146,6 +179,7 @@ def resolve_decision_request(
         action=action,
         note=note,
         decided_at=stamp,
+        session_id=session_id,
     )
     progress = evaluate_decisions(conn, _request_row(conn, request_id))
     append_decision_event(

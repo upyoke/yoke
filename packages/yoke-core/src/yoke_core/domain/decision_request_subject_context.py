@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, NoReturn
 
+from yoke_core.domain import decision_request_merge_candidate as _merge_candidate
 from yoke_core.domain.deployment_run_release_effect import CONSEQUENCES, DEPLOYS
 from yoke_core.domain.decision_request_contract import (
     DEPLOYMENT_STAGE_APPROVAL,
@@ -319,6 +320,7 @@ _VALIDATORS = {
     QA_NEEDS_REVIEW: _validate_qa,
     LIFECYCLE_TRANSITION_APPROVAL: _validate_lifecycle,
     DEPLOYMENT_STAGE_APPROVAL: _validate_deployment,
+    _merge_candidate.KIND: _merge_candidate.validate,
 }
 
 

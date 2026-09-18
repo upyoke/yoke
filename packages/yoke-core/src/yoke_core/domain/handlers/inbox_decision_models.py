@@ -45,11 +45,17 @@ class DecisionCreateRequest(BaseModel):
 
     @field_validator("kind")
     @classmethod
-    def exclude_lifecycle_gate_requests(cls, value: str) -> str:
-        if value == "lifecycle_transition_approval":
-            raise ValueError(
-                "lifecycle approvals are created only by the lifecycle gate"
-            )
+    def exclude_gate_owned_requests(cls, value: str) -> str:
+        gate_owned = {
+            "lifecycle_transition_approval": "the lifecycle gate",
+            "merge_candidate_review": (
+                "the merge boundary's candidate-review gate "
+                "(`yoke merge-review candidate evaluate`)"
+            ),
+        }
+        owner = gate_owned.get(value)
+        if owner is not None:
+            raise ValueError(f"{value} requests are created only by {owner}")
         return value
 
 

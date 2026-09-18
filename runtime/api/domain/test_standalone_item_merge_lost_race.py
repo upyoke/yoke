@@ -19,6 +19,9 @@ from types import SimpleNamespace
 import pytest
 
 from runtime.api.fixtures.backlog_inserts import insert_item
+from runtime.api.domain.standalone_merge_simulation_support import (
+    stub_candidate_review,
+)
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
 from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
@@ -26,6 +29,13 @@ from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_evidence as evidence
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.dash_execution import record_dash_evidence
+
+
+
+@pytest.fixture(autouse=True)
+def _no_candidate_review(monkeypatch: pytest.MonkeyPatch) -> None:
+    stub_candidate_review(monkeypatch)
+
 
 CLAIM_REFUSAL = (
     "no active claim by session 'session-1' on item ITEM-1; acquire one "

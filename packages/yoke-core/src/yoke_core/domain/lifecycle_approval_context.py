@@ -23,7 +23,7 @@ def load_lifecycle_item(conn: Any, item_id: int) -> dict[str, Any]:
     """Load the item and workflow facts that define one transition snapshot."""
     row = conn.execute(
         "SELECT i.id, i.project_sequence, i.title, i.status, i.project_id, "
-        "i.workflow_id, i.workflow_version_id, "
+        "i.workflow_id, i.workflow_version_id, i.workflow_posture, "
         "p.slug AS project, p.public_item_prefix, p.org_id "
         "FROM items i JOIN projects p ON p.id = i.project_id "
         f"WHERE i.id = {_p(conn)}",

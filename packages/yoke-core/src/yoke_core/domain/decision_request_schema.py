@@ -94,11 +94,22 @@ def create_decision_request_tables(
             action TEXT NOT NULL,
             note TEXT,
             decided_at TEXT NOT NULL,
+            -- Which session answered, beside which actor did. On a machine
+            -- whose surfaces share one operator credential the actor is
+            -- the same for every one of them, so the session is the only
+            -- thing an audit can tell them apart by.
+            decided_session_id TEXT,
             UNIQUE (request_id, actor_id)
         );
         CREATE INDEX IF NOT EXISTS idx_decision_request_decisions_request
             ON decision_request_decisions(request_id, decided_at, id);
     """,
+    )
+    _add_column_if_not_exists(
+        conn,
+        "decision_request_decisions",
+        "decided_session_id",
+        "TEXT",
     )
     _add_column_if_not_exists(
         conn,

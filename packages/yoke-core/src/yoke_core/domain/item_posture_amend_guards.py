@@ -170,9 +170,38 @@ def guard_approval(
     )
 
 
+def guard_merge_candidate_review(
+    conn: Any,
+    *,
+    item_id: int,
+    key: str,
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> None:
+    """Refuse to drop the selection while a candidate review is still open."""
+    if before.get(key) is not True or after.get(key) is True:
+        return
+    from yoke_core.domain.decision_request_merge_candidate import (
+        pending_candidate_requests,
+    )
+
+    open_reviews = pending_candidate_requests(conn, int(item_id))
+    if not open_reviews:
+        return
+    named = ", ".join(str(row["id"]) for row in open_reviews)
+    raise ItemPostureAmendError(
+        f"{key} posture cannot be cleared: candidate review request(s) "
+        f"{named} are still open on this item, and the merge gate that "
+        "raised them is the only reader that would ever settle them. "
+        "Settle them first: `yoke inbox list` names each request id, then "
+        "`yoke decision-requests resolve REQUEST_ID approve|reject`."
+    )
+
+
 __all__ = [
     "ItemPostureAmendError",
     "guard_approval",
+    "guard_merge_candidate_review",
     "guard_path_claims",
     "guard_verification",
     "requirement_ids",

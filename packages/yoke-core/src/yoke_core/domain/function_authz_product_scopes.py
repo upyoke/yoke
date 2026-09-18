@@ -30,6 +30,10 @@ PRODUCT_AUTHZ_BY_ID = {
     # Convergence withdraws only what the subject-state contract already
     # reports ended, so any member may run what reading the Inbox runs anyway.
     "decision_requests.dispose_ended": AuthzSpec(ACTOR_SESSION, None),
+    # The merge boundary asks about an item it already holds a claim on, and
+    # the answer is a decision request whose own role authorities decide who
+    # may clear it. Raising the ask is not clearing it.
+    "merge_review.candidate.evaluate": AuthzSpec(ACTOR_SESSION, None),
     "overview.activation.get": AuthzSpec(ACTOR_SESSION, None),
     "overview.vitals.get": AuthzSpec(ACTOR_SESSION, None),
     "overview.module.dismiss": AuthzSpec(ACTOR_SESSION, None),

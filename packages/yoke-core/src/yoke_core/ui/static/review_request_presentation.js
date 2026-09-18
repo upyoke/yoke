@@ -15,6 +15,7 @@ export const KIND_LABELS = {
   deployment_stage_approval: "Release approval",
   lifecycle_transition_approval: "Work approval",
   qa_needs_review: "QA review",
+  merge_candidate_review: "Merge candidate review",
 };
 
 const DECIDED_LABELS = {

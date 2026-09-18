@@ -147,6 +147,16 @@ seat handoff cannot erase work whose mail is already acknowledged.
 yoke messages acknowledge MESSAGE-ID
 ```
 
+Your Inbox is part of the same pass. An item carrying the
+`merge_candidate_review` posture holds its worker at the merge until you
+clear the exact candidate commit, so a pending review left unread is a
+stalled worker, not a queued chore:
+
+```text
+yoke inbox list
+yoke decision-requests resolve REQUEST_ID approve --note "<what you reviewed>"
+```
+
 Typical report body: `DONE PREFIX-N <one-line summary>`. The PREFIX-N in
 that heading is the report identity: it must name work the sender holds or
 has released, not another live claim. When a

@@ -2,62 +2,33 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
 
+from runtime.api.domain.standalone_merge_simulation_support import (
+    git as _git,
+    make_checkout,
+    merge as _merge,
+    stub_candidate_review,
+    stub_receipts,
+)
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
 from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
 from yoke_core.domain.standalone_item_merge_release_status import CloseOutRoute
 from yoke_core.domain import standalone_item_merge_lane as sim_lane
-from yoke_core.domain import item_merge_receipts as receipts
 
 
 @pytest.fixture(autouse=True)
-def _receipt_free(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep these cases on git state alone.
-
-    The durable receipt and the retry paths that read it back have their own
-    suite (``test_standalone_item_merge_crash_retry``); here an unstubbed
-    ledger would only add control-plane calls to assertions about the merge.
-    """
-    monkeypatch.setattr(receipts, "record", lambda *_a, **_k: "")
-    monkeypatch.setattr(receipts, "load", lambda *_a, **_k: None)
-
-
-def _git(repo: Path, *args: str) -> str:
-    result = subprocess.run(["git", "-C", str(repo), *args], check=True,
-                            capture_output=True, text=True)
-    return result.stdout.strip()
-
-
-def _merge(repo: Path, *, item_id: int = 7, branch: str = "ITEM-1"):
-    return sim.merge_standalone_branch(
-        project="yoke", item_id=item_id, branch=branch, target="main",
-        repo_root=str(repo), commit_sha=_git(repo, "rev-parse", branch),
-    )
+def _no_control_plane(monkeypatch: pytest.MonkeyPatch) -> None:
+    stub_receipts(monkeypatch)
+    stub_candidate_review(monkeypatch)
 
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
-    """A checkout with a base branch and one item branch ahead of it."""
-    root = tmp_path / "checkout"
-    root.mkdir()
-    _git(root, "init", "-b", "main")
-    _git(root, "config", "user.email", "test@test.com")
-    _git(root, "config", "user.name", "Test")
-    (root / "base.txt").write_text("base\n")
-    _git(root, "add", "base.txt")
-    _git(root, "commit", "-m", "base")
-
-    _git(root, "checkout", "-b", "ITEM-1")
-    (root / "feature.txt").write_text("feature\n")
-    _git(root, "add", "feature.txt")
-    _git(root, "commit", "-m", "feature")
-    _git(root, "checkout", "main")
-    return root
+    return make_checkout(tmp_path)
 
 
 class TestMergeBoundary:

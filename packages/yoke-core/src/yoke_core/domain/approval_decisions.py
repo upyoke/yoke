@@ -85,7 +85,7 @@ def list_decisions(conn: Any, request_id: int) -> list[dict[str, Any]]:
     """Return one request's answers in the order they were given."""
     p = _p(conn)
     rows = conn.execute(
-        "SELECT id, actor_id, action, note, decided_at "
+        "SELECT id, actor_id, action, note, decided_at, decided_session_id "
         f"FROM decision_request_decisions WHERE request_id = {p} "
         "ORDER BY decided_at, id",
         (int(request_id),),
@@ -97,6 +97,9 @@ def list_decisions(conn: Any, request_id: int) -> list[dict[str, Any]]:
             "action": str(row[2]),
             "note": row[3],
             "decided_at": str(row[4]),
+            # Which surface answered. Empty for a decision recorded before
+            # the session was stored, and for one taken with no session.
+            "decided_session_id": str(row[5] or ""),
         }
         for row in rows
     ]
@@ -122,8 +125,15 @@ def record_decision(
     action: str,
     note: Optional[str],
     decided_at: str,
+    session_id: str = "",
 ) -> dict[str, Any]:
-    """Record one person's answer, refusing a second answer from the same one."""
+    """Record one person's answer, refusing a second answer from the same one.
+
+    ``session_id`` is stored beside the actor because on a machine whose
+    surfaces share one operator credential every answer carries the same
+    actor; the session is what an audit reads to tell a browser, a steering
+    seat, and a worker apart.
+    """
     existing = actor_decision(conn, request_id, actor_id)
     if existing is not None:
         raise ValueError(
@@ -134,9 +144,16 @@ def record_decision(
     p = _p(conn)
     conn.execute(
         "INSERT INTO decision_request_decisions "
-        f"(request_id, actor_id, action, note, decided_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p})",
-        (int(request_id), int(actor_id), str(action), note, str(decided_at)),
+        f"(request_id, actor_id, action, note, decided_at, decided_session_id) "
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p})",
+        (
+            int(request_id),
+            int(actor_id),
+            str(action),
+            note,
+            str(decided_at),
+            str(session_id or "") or None,
+        ),
     )
     recorded = actor_decision(conn, request_id, actor_id)
     if recorded is None:

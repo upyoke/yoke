@@ -22,6 +22,29 @@ SHA-bound verdict. Any intervening edit, commit, amend, or rebase invalidates
 the old verdict: commit the final tree and rerun the affected case. Do not
 merge by hand, force-push, bypass CI, or merge around a registered claim.
 
+## A candidate a person must clear
+
+When the item's posture selects `merge_candidate_review`, `yoke merge item`
+refuses before it arms, enqueues, or merges anything, because the exact
+commit the landing would carry has to be cleared first. The refusal names
+the open decision request; it sits in a reviewer's Inbox, and they answer it
+with `yoke decision-requests resolve REQUEST_ID approve`.
+
+You cannot answer it yourself. The session holding the item's work claim is
+refused by name — the actor you carry is the operator's own, so the session
+is what separates the work from its review. Clearing the posture key is
+refused for the same reason, and passing somebody else's `--session-id` to
+either is denied by the hook before the command runs. The gate is a
+mistake-stopper with an audit trail rather than a security boundary; the
+reasoning is in `docs/archive/decisions/merge-candidate-review.md`.
+
+That refusal is a blocker, not a retry — report it with the request id and
+stop rather than re-running the merge in a loop. The clearance is bound to
+the commit, so commit everything first and merge second: any commit made
+after a clearance is a different candidate and asks again. `yoke merge-review
+candidate evaluate ITEM --commit SHA` reports where a candidate stands
+without attempting a landing.
+
 ## The merge command may verify on CI itself
 
 Before any landing shape below, `yoke merge item` itself may dispatch or

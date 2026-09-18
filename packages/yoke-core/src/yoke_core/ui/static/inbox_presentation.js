@@ -10,7 +10,9 @@ export const KIND_PRESENTATION = {
   qa_needs_review: { icon: "◉", fallback: "QA evidence needs your review" },
   lifecycle_transition_approval: { icon: "≣", fallback: "Approve lifecycle transition" },
   machine_approval: { icon: "⚇", fallback: "Approve a new machine" },
+  merge_candidate_review: { icon: "⌥", fallback: "Clear a merge candidate" },
 };
+
 
 export const ACTION_LABELS = {
   approve: "Approve",
@@ -28,6 +30,10 @@ export const ACTION_RANK = {
   approve: 2,
 };
 
+// Kinds whose subject is one work item, so they name and link it alike.
+const isItemSubjectKind = (kind) => kind === "lifecycle_transition_approval"
+  || kind === "merge_candidate_review";
+
 export function subjectHref(row) {
   const facts = row.subject_context || {};
   if (facts.href) return String(facts.href);
@@ -44,7 +50,7 @@ export function subjectHref(row) {
     }
     return buildUniverseRoute("qa-activity", row.project_id);
   }
-  if (row.kind === "lifecycle_transition_approval") {
+  if (isItemSubjectKind(row.kind)) {
     return itemDrillInHref({
       projectId: row.project_id,
       publicRef: facts.item_ref,
@@ -70,7 +76,7 @@ export function decisionLinks(row) {
     const href = itemDrillInHref({ projectId: row.project_id, publicRef: ref });
     if (ref && href) links.push({ label: String(ref), href });
   };
-  if (row.kind === "lifecycle_transition_approval") itemLink(facts.item_ref);
+  if (isItemSubjectKind(row.kind)) itemLink(facts.item_ref);
   if (row.kind === "deployment_stage_approval" && facts.run_id) {
     links.push({
       label: String(facts.run_id),
@@ -139,6 +145,10 @@ export function decisionOrigin(row) {
   if (row.kind === "machine_approval") {
     return "A machine asked to join this organization and cannot act until "
       + "an admin admits it.";
+  }
+  if (row.kind === "merge_candidate_review") {
+    return "This item asks for a person to review the exact commit before it "
+      + "lands. Clearing binds to that commit; a later commit asks again.";
   }
   return "";
 }
@@ -212,6 +222,10 @@ const SUBTITLE_BUILDERS = {
     // reader a settings key instead of what they are looking at.
     return [facts.item_title];
   },
+  merge_candidate_review(facts) {
+    const head = String(facts.commit_sha || "").slice(0, 12);
+    return [facts.item_title, head ? `commit ${head}` : ""];
+  },
   machine_approval(facts, row) {
     return [
       facts.machine ? `machine ${facts.machine}` : "machine not named",
@@ -267,6 +281,11 @@ const TITLE_BUILDERS = {
     if (!facts.item_ref) return "";
     return `Approve ${facts.item_ref} ${facts.to_stage || "transition"}`;
   },
+  merge_candidate_review(facts) {
+    if (!facts.item_ref) return "";
+    const head = String(facts.commit_sha || "").slice(0, 12);
+    return `Clear ${facts.item_ref} at ${head || "its candidate"}`;
+  },
 };
 
 export function decisionSummary(row) {
@@ -292,6 +311,11 @@ export function decisionSummary(row) {
   }
   if (row.kind === "lifecycle_transition_approval") {
     return `Moves the item to ${facts.to_stage || "its next stage"}. Deploys nothing.`;
+  }
+  if (row.kind === "merge_candidate_review") {
+    const files = (facts.touched_files || []).length;
+    const base = facts.target || "the base branch";
+    return `Lands ${files} ${files === 1 ? "file" : "files"} on ${base}.`;
   }
   if (row.kind === "qa_needs_review") {
     const count = Number(facts.artifact_count || 0);

@@ -102,6 +102,14 @@ When approval-on-done is selected, the terminal transition creates the owner
 decision request without moving the item. Let an authorized owner resolve it,
 then retry the transition.
 
+A merge refused for an uncleared merge candidate never got as far as a
+landing, so nothing here has happened yet. The refusal names the open
+decision request an authorized reviewer answers; report it to the steering
+seat with that request id and stop, rather than re-running the merge. When
+the clearance lands, re-run the same `yoke merge item` command — but commit
+nothing in between, because a new commit is a new candidate and needs its
+own review.
+
 A successful standalone merge (or the terminal transition it drives)
 may already release the item work claim and remove the
 registered Dash worktree lane, then sweeps lanes earlier landings on this

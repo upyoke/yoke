@@ -57,7 +57,10 @@ def decision_request_connection():
             title TEXT NOT NULL,
             status TEXT NOT NULL,
             workflow_id TEXT NOT NULL,
-            workflow_version_id INTEGER NOT NULL
+            workflow_version_id INTEGER NOT NULL,
+            -- Defaulted and last so a positional INSERT of the identity
+            -- columns still describes an item with no posture selected.
+            workflow_posture TEXT NOT NULL DEFAULT '{}'
         );
         CREATE TABLE workflow_versions (
             id INTEGER PRIMARY KEY,
