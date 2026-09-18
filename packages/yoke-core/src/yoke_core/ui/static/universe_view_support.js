@@ -12,12 +12,12 @@ export function el(documentNode, tag, className, text) {
   return node;
 }
 
-export function callFunction(client, functionId, payload, target) {
+export function callFunction(client, functionId, payload, target, init) {
   const request = { function: functionId, payload: payload || {} };
   // Preserve the local proxy envelope: omit target unless a view supplies
   // one, so global-target reads keep their server-side default.
   if (target) request.target = target;
-  return client.call(request);
+  return init === undefined ? client.call(request) : client.call(request, init);
 }
 
 // A form control with its own label. Every dialog needs this and each one

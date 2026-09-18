@@ -43,6 +43,23 @@ export function createUnmountHandle(contractVersion, cleanup) {
   };
 }
 
+// One AbortSignal and one in-flight read map for the live view. A route
+// change aborts the old signal and swaps the map so a synchronous re-render
+// of the same artifact cannot reuse the aborted promise; the old finally
+// still holds the previous Map and cannot delete the new entry.
+export function replaceViewAbort(context) {
+  if (typeof context.abortView === "function") context.abortView();
+  context.artifactReads = new Map();
+  if (typeof AbortController !== "function") {
+    context.signal = undefined;
+    context.abortView = undefined;
+    return;
+  }
+  const controller = new AbortController();
+  context.signal = controller.signal;
+  context.abortView = () => controller.abort();
+}
+
 // One validation for every host-supplied content node, slot or section: an
 // Element (or a factory yielding one), never the mount root or its ancestor,
 // and never the same node twice — the shared `seen` set makes a node placed

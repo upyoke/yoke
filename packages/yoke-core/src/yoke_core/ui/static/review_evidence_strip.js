@@ -76,31 +76,53 @@ function decodeText(base64) {
   return new TextDecoder().decode(bytes);
 }
 
+function artifactReads(context) {
+  if (!context.artifactReads) context.artifactReads = new Map();
+  return context.artifactReads;
+}
+
 async function readArtifact(context, artifact) {
+  const reads = artifactReads(context);
+  const key = `${artifact.requirement_id}:${artifact.id}`;
+  const existing = reads.get(key);
+  if (existing) return existing;
   let timer;
-  try {
-    return await Promise.race([
-      callFunction(
-        context.client,
-        "qa.artifact.read",
-        { artifact_id: artifact.id },
-        { kind: "qa_requirement", qa_requirement_id: artifact.requirement_id },
-      ),
-      new Promise((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error("Evidence read timed out. Retry.")),
-          context.evidenceReadTimeoutMs || READ_TIMEOUT_MS,
-        );
-      }),
-    ]);
-  } catch (error) {
-    return {
-      status: 0,
-      envelope: { success: false, error: { message: String(error) } },
-    };
-  } finally {
+  const controller = typeof AbortController === "function"
+    ? new AbortController() : null;
+  const onAbort = () => controller?.abort();
+  const signal = context.signal;
+  if (signal?.aborted) onAbort();
+  else signal?.addEventListener("abort", onAbort, { once: true });
+  const pending = Promise.race([
+    callFunction(
+      context.client,
+      "qa.artifact.read",
+      { artifact_id: artifact.id },
+      { kind: "qa_requirement", qa_requirement_id: artifact.requirement_id },
+      controller ? { signal: controller.signal } : undefined,
+    ),
+    new Promise((_, reject) => {
+      const fail = (error) => reject(error);
+      timer = setTimeout(() => {
+        fail(new Error("Evidence read timed out. Retry."));
+        onAbort();
+      }, context.evidenceReadTimeoutMs || READ_TIMEOUT_MS);
+      const aborted = () => fail(new Error("Evidence read aborted."));
+      controller?.signal.addEventListener("abort", aborted, { once: true });
+      if (controller?.signal.aborted) aborted();
+    }),
+  ]).catch((error) => ({
+    status: 0,
+    envelope: { success: false, error: { message: String(error?.message || error) } },
+  })).finally(() => {
     clearTimeout(timer);
-  }
+    signal?.removeEventListener?.("abort", onAbort);
+    // Delete only from this view's map. A route swap installs a new Map on
+    // context before this finally runs, and must not lose the fresh read.
+    if (reads.get(key) === pending) reads.delete(key);
+  });
+  reads.set(key, pending);
+  return pending;
 }
 
 function readOutcome(response) {
@@ -166,6 +188,7 @@ function screenshot(context, artifact, stepCaptionsOnly) {
     figure.appendChild(figcaption);
   }
   void readArtifact(context, artifact).then((response) => {
+    if (context.isMounted && !context.isMounted()) return;
     const outcome = readOutcome(response);
     if (!outcome.ready) {
       markUnavailable(documentNode, figure, outcome);
@@ -286,17 +309,24 @@ export function evidenceStrip(context, artifacts, options = {}) {
   if (rest.length) {
     // Opened AND closable: expanding used to consume the control, so a strip
     // of twenty screenshots could be widened but never narrowed again.
+    // Hidden remainder is not drawn until expanded, so folded screenshots
+    // do not issue `qa.artifact.read` while they cannot be seen.
     const region = el(documentNode, "div", "review-evidence-rest");
     region.setAttribute("role", "region");
     region.setAttribute("aria-label", "More evidence");
-    for (const artifact of rest) region.appendChild(draw(artifact));
     strip.appendChild(region);
-    appendMoreDisclosure(documentNode, strip, {
+    const button = appendMoreDisclosure(documentNode, strip, {
       key: `evidence:${rows.map((artifact) => artifact.id).join(",")}`,
       hiddenCount: rest.length,
       region,
       className: "review-more",
     });
+    const fill = () => {
+      if (region.children.length) return;
+      for (const artifact of rest) region.appendChild(draw(artifact));
+    };
+    if (!region.hidden) fill();
+    button.addEventListener("click", () => { if (!region.hidden) fill(); });
   }
   return strip;
 }

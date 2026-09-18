@@ -78,9 +78,15 @@ export interface FunctionCallResult<Result = JsonObject> {
   readonly envelope: FunctionEnvelope<Result>;
 }
 
+export interface FunctionCallInit {
+  /** Forwards to `fetch` when the default HTTP client is used. */
+  readonly signal?: AbortSignal;
+}
+
 export interface UniverseFunctionClient {
   call<Result = JsonObject, Payload extends JsonObject = JsonObject>(
     request: FunctionCallRequest<Payload>,
+    init?: FunctionCallInit,
   ): Promise<FunctionCallResult<Result>>;
 }
 
