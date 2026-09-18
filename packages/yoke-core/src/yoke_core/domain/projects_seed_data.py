@@ -59,7 +59,8 @@ CAPABILITY_TEMPLATES: list[tuple[str, str, str, str, str]] = [
         "Project container-image registry (ECR). One repository per project; "
         "image tags are git SHAs; deploy stages pull from here. "
         "Requires aws-admin.",
-        '[{"key":"repository","description":"Registry repository name (e.g. <project>-core)","secret":false}]',
+        '[{"key":"repository","description":"Registry repository name (e.g. <project>-core)","secret":false},'
+        '{"key":"manage_platform_image_lifecycle","description":"Allow Yoke to manage the optional platform image lifecycle policy on the registry repository","secret":false}]',
         '["aws-admin"]',
     ),
     (

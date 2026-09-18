@@ -204,6 +204,7 @@ def render_pulumi_artifacts(
                     str(context.get("containerRepositoryName", "") or "")
                     or f"{settings.deploy_namespace}-core"
                 )
+                stack_values.setdefault("manage_platform_image_lifecycle", "false")
             elif stack_type == "infra" and domain_stack_owns_domain_records:
                 stack_values = dict(values)
                 stack_values["domain_txt_records_json"] = "[]"

@@ -45,4 +45,5 @@ _GATHER_VALUES_KEYS = {
     "preview_ttl_hours",
     "configure_aws_credentials_action",
     "checkout_action",
+    "manage_platform_image_lifecycle",
 }

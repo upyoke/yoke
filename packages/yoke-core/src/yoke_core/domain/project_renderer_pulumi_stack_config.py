@@ -76,7 +76,8 @@ _RENDER_KEYS_BY_KIND = {
         "delivery_distribution_bucket_names_json",
         "deploy_namespace", "github_api_url",
         "github_app_private_key_secret_arns_json", "github_repo_slug",
-        "kms_key_alias", "manage_github_oidc_provider", "repository_name",
+        "kms_key_alias", "manage_github_oidc_provider",
+        "manage_platform_image_lifecycle", "repository_name",
         "state_bucket",
     }),
     "environment": frozenset({
@@ -182,6 +183,7 @@ def _legacy_render_values(
             str(context.get("containerRepositoryName", "") or "")
             or f"{settings.deploy_namespace}-core"
         )
+        result.setdefault("manage_platform_image_lifecycle", "false")
     elif stack_kind == "infra" and "domain" in declared_stack_types:
         result["domain_txt_records_json"] = "[]"
         result["domain_mx_records_json"] = "[]"
