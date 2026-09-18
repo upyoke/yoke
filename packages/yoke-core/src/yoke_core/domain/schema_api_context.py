@@ -13,6 +13,9 @@ import sys
 from typing import Optional
 
 from yoke_core.domain import schema_api_context_seed as seed
+from yoke_core.domain.schema_api_context_main_agent_hints import (
+    MAIN_AGENT_HINTS,
+)
 from yoke_core.domain.schema_api_context_render import (
     PACKET_DETAIL_COMPACT,
     packet_detail_pointer,
@@ -297,22 +300,7 @@ def render_role_packet(
         for t in seed.ROLE_TOPICS[role]
     ]
     if role == "main_agent":
-        chunks[-1] = (
-            chunks[-1].rstrip()
-            + "\n"
-            + (
-                "**Deployment-run raw-query hint:** "
-                "`deployment_flows.target_environment_id` references "
-                "`environments.id` (JOIN environments for the display name; "
-                "`target_tier` is persistent/ephemeral/NULL — there is no "
-                "`target_env` column); `deployment_runs.status` and "
-                "`deployment_runs.current_stage` record progress. There is no "
-                "`deployment_runs.item_id`; join through `deployment_run_items` "
-                "for item-bound runs. `deployment_runs.carried_work` is the "
-                "inert JSON record of what a succeeded run shipped: resolved "
-                "items plus unresolved bare commits."
-            )
-        )
+        chunks[-1] = "\n".join([chunks[-1].rstrip(), *MAIN_AGENT_HINTS])
     return "\n".join(chunks).rstrip() + "\n"
 
 

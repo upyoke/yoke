@@ -18,6 +18,9 @@ from yoke_contracts.connection_authority_teaching import DB_GROUP_TEACHING
 from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
 )
+from yoke_contracts.deployment_release_roles_teaching import (
+    RELEASE_ROLE_RECIPE,
+)
 from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
 
 GROUP_ROUTES: dict[tuple[str, ...], tuple[tuple[str, ...], ...]] = {
@@ -50,7 +53,7 @@ GUIDANCE_ROUTES: dict[tuple[str, ...], str] = {
 # exist at all and the capability is reached another way.
 GROUP_TEACHING: dict[tuple[str, ...], str] = {
     ("db",): DB_GROUP_TEACHING,
-    ("deployment-runs",): ITEMLESS_RELEASE_RECIPE,
+    ("deployment-runs",): RELEASE_ROLE_RECIPE + "\n" + ITEMLESS_RELEASE_RECIPE,
     ("env",): (
         "Retirement is a `connection` command: `yoke connection remove ENV` "
         "deletes the entry and its Yoke-owned credential, taking "
