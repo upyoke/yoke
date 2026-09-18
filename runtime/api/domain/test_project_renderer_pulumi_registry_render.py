@@ -24,6 +24,7 @@ def registry_tree(tmp_path):
         '  webapp-infra:aws_account_id: "{{aws_account_id}}"\n'
         "  webapp-infra:project_name: {{project_name}}\n"
         "  webapp-infra:repository_name: {{repository_name}}\n"
+        '  webapp-infra:manage_platform_image_lifecycle: "{{manage_platform_image_lifecycle}}"\n'
     )
     program_files = {
         "__main__.py": "# pulumi entrypoint\n",
@@ -91,6 +92,7 @@ def test_registry_config_defaults_repository_name(registry_tree, monkeypatch):
 
     registry_yaml = (infra / "Pulumi.yoke-registry.yaml").read_text()
     assert "repository_name: yoke-core" in registry_yaml
+    assert 'manage_platform_image_lifecycle: "false"' in registry_yaml
     assert "aws:region: us-east-1" in registry_yaml
     assert "{{" not in registry_yaml
 
@@ -104,3 +106,24 @@ def test_registry_config_honors_repository_override(registry_tree, monkeypatch):
 
     registry_yaml = (infra / "Pulumi.yoke-registry.yaml").read_text()
     assert "repository_name: yoke-images" in registry_yaml
+
+
+def test_registry_config_honors_lifecycle_opt_in(registry_tree, monkeypatch):
+    _stub_renderer_settings(
+        monkeypatch,
+        "yoke",
+        {"projectName": "yoke", "stacks": ["registry"]},
+    )
+    root, project_root = registry_tree
+    values = dict(_VALUES)
+    values["manage_platform_image_lifecycle"] = "true"
+    project_renderer_pulumi.render_pulumi_artifacts(
+        "yoke",
+        values,
+        root,
+        project_root,
+        write=True,
+    )
+    registry_yaml = (project_root / "infra" / "Pulumi.yoke-registry.yaml").read_text()
+    assert 'manage_platform_image_lifecycle: "true"' in registry_yaml
+    assert "{{" not in registry_yaml

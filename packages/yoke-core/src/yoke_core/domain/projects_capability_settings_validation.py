@@ -86,7 +86,34 @@ def canonicalize_capability_settings(cap_type: str, raw_json: str) -> str:
         from yoke_core.domain.release_pin_capability import validate_json_string
 
         return validate_json_string(raw_json)
+    if cap_type == "container-registry":
+        return _canonicalize_container_registry(raw_json)
     return raw_json
+
+
+_CONTAINER_REGISTRY_KEYS = frozenset(
+    {"repository", "manage_platform_image_lifecycle"}
+)
+
+
+def _canonicalize_container_registry(raw_json: str) -> str:
+    payload = json_helper.loads_text(raw_json)
+    if not isinstance(payload, dict):
+        raise ValueError("container-registry settings must be a JSON object")
+    extra = sorted(set(payload) - _CONTAINER_REGISTRY_KEYS)
+    if extra:
+        raise ValueError(
+            "container-registry settings have unknown keys: "
+            f"{extra}. Allowed keys: repository, "
+            "manage_platform_image_lifecycle."
+        )
+    if "manage_platform_image_lifecycle" in payload and not isinstance(
+        payload["manage_platform_image_lifecycle"], bool
+    ):
+        raise ValueError(
+            "container-registry manage_platform_image_lifecycle must be a boolean"
+        )
+    return json_helper.dumps_compact(payload)
 
 
 __all__ = ["canonicalize_capability_settings"]
