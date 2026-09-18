@@ -144,6 +144,28 @@ class TestDurableArtifactSubmission:
                 )
         record.assert_called_once()
 
+    def test_https_transport_failed_without_timeout_does_not_retry(
+        self, tmp_path: Path,
+    ) -> None:
+        shot = tmp_path / "home.png"
+        shot.write_bytes(b"PNG")
+        with mock.patch.object(
+            browser_qa, "_presign_artifact", return_value=_presign_payload(),
+        ), mock.patch.object(
+            browser_qa, "_upload_artifact", return_value=None,
+        ), mock.patch.object(
+            browser_qa,
+            "_record_artifact",
+            side_effect=QaArtifactWriteError(
+                "https_transport_failed: connection refused"
+            ),
+        ) as record:
+            with pytest.raises(QaArtifactWriteError, match="connection refused"):
+                _record_artifact_file(
+                    1, 10, str(shot), "image/png", "screenshot", "{}",
+                )
+        record.assert_called_once()
+
 
 class TestUploadArtifact:
     def test_puts_bytes_with_content_type(self, tmp_path: Path) -> None:

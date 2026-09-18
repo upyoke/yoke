@@ -293,6 +293,9 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
                 return _error(exc.code, str(exc))
             except ValueError as exc:
                 return _error("target_invalid", str(exc))
+        # ensure_artifact_capacity holds FOR UPDATE on this qa_runs row
+        # until commit, so a retry racing a still-running writer waits,
+        # then sees the inserted handle. No extra unique index.
         existing = query_one(
             conn,
             "SELECT id FROM qa_artifacts "

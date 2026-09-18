@@ -35,8 +35,7 @@ class QaArtifactWriteError(RuntimeError):
 
 
 def _is_https_relay_timeout(exc: BaseException) -> bool:
-    text = str(exc)
-    return "https_transport_failed" in text or "exceeded the time limit" in text
+    return "exceeded the time limit" in str(exc)
 
 
 def _is_screenshot_step(step: Dict[str, Any]) -> bool:
