@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import decision_request_disposition as _disposition
-from yoke_core.domain.handlers import merge_candidate_review as _candidate
 from yoke_core.domain.handlers import inbox_decisions as _inbox
 from yoke_core.domain.handlers import inbox_decision_models as _models
 from yoke_core.domain import machine_approval_requests as _machine
@@ -39,25 +38,6 @@ def _register(
 
 
 def register(registry) -> None:
-    registry.register(
-        _candidate.FUNCTION_ID,
-        _candidate.handle_candidate_evaluate,
-        _candidate.CandidateReviewEvaluateRequest,
-        _candidate.CandidateReviewEvaluateResponse,
-        stability="stable",
-        owner_module="yoke_core.domain.handlers.merge_candidate_review",
-        target_kinds=["item"],
-        side_effects=["decision_requests_insert", "decision_requests_withdraw"],
-        emitted_event_names=[
-            "YokeFunctionCalled",
-            "DecisionRequestCreated",
-            "DecisionRequestWithdrawn",
-        ],
-        guardrails=["typed_subject", "authority_union", "closed_kind"],
-        adapter_status="live",
-        claim_required_kind=None,
-        ambient_session_required=False,
-    )
     _register(
         registry,
         "inbox.list",

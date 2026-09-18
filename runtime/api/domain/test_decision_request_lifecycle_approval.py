@@ -38,7 +38,8 @@ def conn():
 
 def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
     conn.execute(
-        "INSERT INTO items VALUES "
+        "INSERT INTO items (id, project_id, project_sequence, title, status, "
+        "workflow_id, workflow_version_id) VALUES "
         "(1907, 10, 4200, 'Identity shell', 'implementing', 'issue', 7)"
     )
     verdict = evaluate_lifecycle_approval(
@@ -115,7 +116,8 @@ def test_lifecycle_gate_fails_closed_without_moving_the_item(conn):
 
 def test_rejected_gate_creates_a_fresh_request_on_the_next_attempt(conn):
     conn.execute(
-        "INSERT INTO items VALUES "
+        "INSERT INTO items (id, project_id, project_sequence, title, status, "
+        "workflow_id, workflow_version_id) VALUES "
         "(1908, 10, 1908, 'Named gate', 'implementing', 'dash', 1)"
     )
     first = evaluate_lifecycle_approval(
@@ -151,7 +153,8 @@ def test_rejected_gate_creates_a_fresh_request_on_the_next_attempt(conn):
 
 def test_all_mode_lifecycle_gate_stays_closed_until_every_box_decides(conn):
     conn.execute(
-        "INSERT INTO items VALUES "
+        "INSERT INTO items (id, project_id, project_sequence, title, status, "
+        "workflow_id, workflow_version_id) VALUES "
         "(1909, 10, 4201, 'Release shell', 'implementing', 'issue', 1)"
     )
     policy = ApprovalPolicy(roles=("owner",), actors=(3,), mode="all")

@@ -242,6 +242,18 @@ OPS_ADAPTERS: List[AdapterEntry] = [
         function_id="harness.machine_report.upsert",
         cli_invocation="yoke harness machine-report upsert --project-id N",
     ),
+    AdapterEntry(
+        function_id="merge_review.candidate.evaluate",
+        cli_invocation=(
+            "yoke merge-review candidate evaluate ITEM --commit SHA "
+            "[--branch NAME] [--target BRANCH] [--touched-file PATH ...]"
+        ),
+        notes=(
+            "Reports whether one exact candidate head may land, and raises "
+            "the review that would clear it. The merge boundary calls it "
+            "itself; a reviewer runs it to queue the review early."
+        ),
+    ),
 ]
 
 
