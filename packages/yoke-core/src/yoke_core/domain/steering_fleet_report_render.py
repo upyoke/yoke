@@ -80,7 +80,14 @@ def _holder_lines(
             line += f", {holder.quiet_reason}"
         if holder.hand_started:
             line += "  hand-started (no launch record)"
-        if holder.native_process_gone:
+        if holder.contained_by_sweep:
+            # Not a worker that went quiet: its own machine ended it. Saying
+            # "idle" here sent a seat looking for a stalled agent when the
+            # finding was that containment had reaped a claim-holding one.
+            line += (
+                f"  contained by sweep: {holder.contained_reason}, claims held"
+            )
+        elif holder.native_process_gone:
             line += "  process gone, claims held — terminate deliberately if dead"
         elif with_wake:
             line += f"  wake `yoke say --item {holder.public_ref} --stdin`"

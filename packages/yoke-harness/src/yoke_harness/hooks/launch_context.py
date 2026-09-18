@@ -10,6 +10,7 @@ from yoke_harness.session_launch_handoff import (
     launch_delivery_rendered,
     mark_launch_attestation_delivered,
     project_launch_attestation,
+    release_launch_containment,
 )
 
 
@@ -27,8 +28,19 @@ def stamp_hook_input(
 
 
 def settle_projection(text: str, projection: LaunchProjection | None) -> None:
-    if projection is not None and launch_delivery_rendered(text, projection):
+    """Settle one hook's launch projection against what it proved.
+
+    Rendering the instruction proves delivery and suppresses replay. Merely
+    running this hook proves registration, which is the weaker fact and the
+    one containment is about -- so it retires containment on every hook of a
+    bound native, not only the hook that carries the mandate.
+    """
+    if projection is None:
+        return
+    if launch_delivery_rendered(text, projection):
         mark_launch_attestation_delivered(projection)
+        return
+    release_launch_containment(projection)
 
 
 __all__ = ["settle_projection", "stamp_hook_input"]

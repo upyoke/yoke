@@ -6,9 +6,20 @@ registered have read the backlog, adopted briefs assigned to other sessions,
 and written into the shared checkout with no claim and no lane. A record that
 outlives the registration deadline names such a process, and this reaps it.
 
-Delivery removes the record, so a native that registered and read its mandate
-is never in scope here: it has authority, and watching it for death is the
-relay liveness poll's job through the launch handle.
+Registration removes the record, so a native that registered is never in scope
+here: it has authority, and watching it for death is the relay liveness poll's
+job through the launch handle.
+
+That release used to require the mandate to render as well, which is a
+stricter fact than authority and does not always happen: a launch closed
+``registered_and_claimed`` at its deadline reaches a live worker without ever
+rendering an instruction. One such worker -- registered, holding its item
+claim, working -- was reaped here at the deadline plus the grace below. So the
+release moved to registration, and the check below is its backstop rather than
+its only guard: before terminating anything, the sweep asks this machine's own
+record of registration, the launch handle the hook writes when a native binds.
+A record whose launch has that handle names a native with authority, so the
+record is dropped rather than acted on.
 
 Detached resumes are supervised on a different question — not whether they
 have authority but whether they are still working — so they are contained for
@@ -33,6 +44,7 @@ from yoke_harness.session_launch_containment import (
     supervised_records,
     supervision_record_path,
 )
+from yoke_harness.session_launch_handles import native_handle_path
 
 
 # A native is contained only after the launch could no longer register, plus
@@ -109,10 +121,34 @@ def contain_stranded_launch_natives(
             reason = "inactivity"
         elif current - recorded_at < ttl_seconds:
             continue
+        elif _registration_handle_exists(payload):
+            # The native bound a session, so it has authority and this record
+            # is stale rather than actionable. Dropping it is what the
+            # registration release should already have done.
+            _drop(path)
+            continue
         outcome = _contain_payload(path, payload, kind=kind, reason=reason)
         if outcome is not None:
             outcomes.append(outcome)
     return outcomes
+
+
+def _registration_handle_exists(payload: dict[str, object]) -> bool:
+    """Whether this machine recorded the launch's native binding a session.
+
+    The launch handle is written by the hook running inside the native, so its
+    presence is local proof of registration that needs no control plane and no
+    second registry. Absence proves nothing on its own -- a handle that failed
+    to write reads the same as one never earned -- which is why this only ever
+    spares a native and never condemns one.
+    """
+    launch_id = str(payload.get("launch_id") or "").strip()
+    if not launch_id:
+        return False
+    try:
+        return native_handle_path(launch_id).is_file()
+    except OSError:
+        return False
 
 
 def _resume_activity_at(payload: dict[str, object]) -> float:
