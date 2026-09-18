@@ -182,3 +182,31 @@ def test_an_item_with_no_resolvable_environment_reports_nothing_deployed(
         )
 
     assert (result.merges, result.deployed, result.not_deployed) == (1, 0, 1)
+
+
+def test_only_the_newest_release_lineage_is_asked(monkeypatch) -> None:
+    """Containment carries forward, so older runs add cost and no answer."""
+    asked: list[str] = []
+
+    def _contains(conn, project_id, *, candidate_lineage, commit_sha):
+        asked.append(candidate_lineage)
+        return ContainmentVerdict(state=CONTAINED)
+
+    monkeypatch.setattr(summary_module, "candidate_contains_commit", _contains)
+    newest = "1" * 40
+    with test_database() as conn:
+        _record_landing(conn, CROSS_ITEM_MERGE, 1, 1)
+        _succeeded_run(conn, "run-old", carried=[])
+        _succeeded_run(conn, "run-older", carried=[])
+        conn.execute(
+            "UPDATE deployment_runs SET release_lineage=%s, "
+            "completed_at='2026-09-18T12:00:00Z' WHERE id='run-old'",
+            (newest,),
+        )
+        conn.commit()
+
+        result = _summary(conn)
+
+    assert result.deployed == 1
+    # One question, against the newest lineage — not one per run.
+    assert asked == [newest]

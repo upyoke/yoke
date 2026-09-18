@@ -16,9 +16,12 @@ reaches a release by two routes. Usually the run that carried it names it in
 its own carried work. But a merge can also reach the base branch under
 another item's landing, in which case no run ever lists it for this item
 while it is nonetheless deployed. Ancestry answers that second case, through
-the same containment helper the completion gate uses, so a merge is deployed
-exactly when some succeeded run to the item's environment either carried it
-or contains it.
+the same containment helper the completion gate uses.
+
+Only the newest release lineage is asked. Releases advance, so a commit an
+older one contained is contained by the newest as well, and the answer is
+the same either way — while asking each run in turn would spend a repository
+resolution per run, on every load of a roster that draws many such items.
 """
 
 from __future__ import annotations
@@ -26,6 +29,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import query_rows
 from yoke_core.domain.deployment_run_candidate_containment import (
     candidate_contains_commit,
@@ -73,17 +77,28 @@ def _carried_shas(raw: Any) -> set[str]:
     return carried
 
 
+def _placeholder(conn: Any) -> str:
+    return "%s" if db_backend.connection_is_postgres(conn) else "?"
+
+
 def succeeded_runs_for_environment(
     conn: Any, *, project_id: int, environment_id: Any
 ) -> list[dict[str, Any]]:
-    """Succeeded runs this project shipped to ``environment_id``, newest first."""
+    """Succeeded runs this project shipped to ``environment_id``, newest first.
+
+    Ordered by completion with the empty string sorting last, which every
+    backend agrees on — a run missing its completion is the oldest thing
+    here, not the newest.
+    """
     if environment_id is None:
         return []
+    marker = _placeholder(conn)
     return query_rows(
         conn,
         "SELECT id, release_lineage, carried_work FROM deployment_runs "
-        "WHERE project_id=%s AND target_environment_id=%s AND status=%s "
-        "ORDER BY completed_at DESC NULLS LAST, id DESC",
+        f"WHERE project_id={marker} AND target_environment_id={marker} "
+        f"AND status={marker} "
+        "ORDER BY COALESCE(completed_at, '') DESC, id DESC",
         (int(project_id), environment_id, SUCCEEDED),
     )
 
@@ -99,12 +114,19 @@ def delivery_summary(
         conn, project_id=project_id, environment_id=environment_id
     )
     carried: set[str] = set()
-    lineages: list[str] = []
     for run in runs:
         carried |= _carried_shas(run.get("carried_work"))
-        lineage = str(run.get("release_lineage") or "").strip()
-        if lineage:
-            lineages.append(lineage)
+    # Releases advance, so a commit an older release contained is contained
+    # by the newest one too. Asking every lineage would spend one repository
+    # resolution per run to re-derive an answer the first one already gives.
+    newest_lineage = next(
+        (
+            str(run.get("release_lineage") or "").strip()
+            for run in runs
+            if str(run.get("release_lineage") or "").strip()
+        ),
+        "",
+    )
     deployed = 0
     for sha in merges:
         if sha in carried:
@@ -113,15 +135,12 @@ def delivery_summary(
         # Not named by any run: it may still have reached the base branch
         # under another item's landing, which ancestry — not carried work —
         # is the record of.
-        if any(
-            candidate_contains_commit(
-                conn,
-                int(project_id),
-                candidate_lineage=lineage,
-                commit_sha=sha,
-            ).contained
-            for lineage in lineages
-        ):
+        if newest_lineage and candidate_contains_commit(
+            conn,
+            int(project_id),
+            candidate_lineage=newest_lineage,
+            commit_sha=sha,
+        ).contained:
             deployed += 1
     return DeliverySummary(merges=len(merges), deployed=deployed)
 
