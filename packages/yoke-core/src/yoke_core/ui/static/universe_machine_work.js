@@ -29,6 +29,24 @@ function sessionsOnMachine(sessions, relay) {
   );
 }
 
+// The Machines page loads the open roster after the cards, so this section
+// has to say loading or failed instead of going missing — missing reads as
+// idle. A plain array is the ready roster the panel already passed.
+function openRosterState(sessions) {
+  if (Array.isArray(sessions)) return { status: "ready", rows: sessions };
+  if (sessions && typeof sessions === "object") return sessions;
+  return { status: "absent" };
+}
+
+function appendWorkNotice(documentNode, card, text, className) {
+  const section = el(documentNode, "section", "machine-work");
+  const line = el(documentNode, "h3", className, text);
+  line.setAttribute("role", "status");
+  section.appendChild(line);
+  card.appendChild(section);
+  return section;
+}
+
 function steeringClaims(row) {
   return (row.holdings?.current || []).filter(
     (holding) => String(holding.target_kind || "") === "steering",
@@ -80,7 +98,21 @@ function workRow(documentNode, item) {
 export function appendMachineWork(
   documentNode, card, relay, sessions, projects = [],
 ) {
-  const rows = sessionsOnMachine(sessions, relay);
+  const roster = openRosterState(sessions);
+  if (roster.status === "loading") {
+    return appendWorkNotice(
+      documentNode, card, "Loading open sessions…", "machine-work-loading",
+    );
+  }
+  if (roster.status === "error") {
+    return appendWorkNotice(
+      documentNode,
+      card,
+      roster.message || "Open sessions could not be read.",
+      "error",
+    );
+  }
+  const rows = sessionsOnMachine(roster.rows, relay);
   if (!rows.length) return null;
   const section = el(documentNode, "section", "machine-work");
   const active = rows.filter(
