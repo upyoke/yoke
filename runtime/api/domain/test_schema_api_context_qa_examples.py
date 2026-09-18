@@ -160,6 +160,8 @@ def test_qa_packet_carries_per_requirement_browser_case_run_example() -> None:
     assert "records blocked_on_precondition instead" in body
     assert "A Command case exports `--base-url` as `BASE_URL`" in body
     assert "`YOKE_PYTHON`" in body
+    assert "`method_config.command`" in body
+    assert "`/bin/sh -c`" in body
     assert "yoke claims coordination-claim release --claim-id N" in body
 
 

@@ -139,7 +139,10 @@ cannot serve cases that require different machines.
 A Command case is executed live rather than collected. `--base-url`
 is exported as `BASE_URL` for the command even when `method_config`
 omits `requires_base_url`, including a direct run-attached row that
-never went through a plan execution target. `python3`, `python`, and
+never went through a plan execution target. `method_config.command` is a
+`/bin/sh -c` command line, not a Python module body: wrap the script as
+`python3 -c '...'` or invoke a file in the checkout (a leading `import` is
+ImageMagick `import(1)`, not Python). `python3`, `python`, and
 `yoke` in the command resolve to the product interpreter that is
 running the case runner (`YOKE_PYTHON`); do not use `yoke dev run`
 (source-dev only, and unavailable on an installed machine). A leftover

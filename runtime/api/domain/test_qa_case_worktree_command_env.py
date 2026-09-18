@@ -13,6 +13,11 @@ import pytest
 from yoke_core.domain.qa_case_command_stream import product_command_environment
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 from yoke_core.domain.qa_case_worktree_run import execute_worktree_case
+from yoke_core.domain.qa_method_config_validation import (
+    COMMAND_SHELL_CONTRACT,
+    QaMethodConfigError,
+    validate_method_config,
+)
 
 
 RUN_ID = "run-20260918-004"
@@ -160,3 +165,30 @@ def test_command_case_python3_imports_product_modules(
     assert result["verdict"] == "pass"
     capture = Path(result["output_capture"]).read_text(encoding="utf-8")
     assert "yoke_cli" in capture
+
+
+def test_authoring_refuses_python_module_body_as_command() -> None:
+    with pytest.raises(QaMethodConfigError, match="/bin/sh") as refused:
+        validate_method_config(
+            "command",
+            {"command": "import urllib.request\nprint('hi')"},
+        )
+    assert "python3 -c" in str(refused.value)
+    assert "import(1)" in str(refused.value)
+
+
+def test_authoring_accepts_python3_c_wrapper() -> None:
+    config = validate_method_config(
+        "command",
+        {"command": "python3 -c 'import urllib.request'"},
+    )
+    assert config["command"] == "python3 -c 'import urllib.request'"
+
+
+def test_runner_refuses_python_module_body_before_shell() -> None:
+    case = _run_attached_case(
+        method_config={"command": "import urllib.request\nprint('hi')"},
+    )
+    with pytest.raises(QaCaseExecutionError) as refused:
+        execute_worktree_case(case, checkout_path="/does-not-need-to-exist")
+    assert str(refused.value) == COMMAND_SHELL_CONTRACT

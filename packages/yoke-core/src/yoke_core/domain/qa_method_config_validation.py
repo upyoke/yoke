@@ -13,6 +13,38 @@ class QaMethodConfigError(ValueError):
     """A case configuration does not satisfy its method contract."""
 
 
+#: Command cases run ``/bin/sh -c``, so a Python body is not a command.
+COMMAND_SHELL_CONTRACT = (
+    "method_config.command is a /bin/sh -c command line, not a Python "
+    "module body. Wrap it as `python3 -c '...'` (the runner binds python3 "
+    "to the product interpreter) or invoke a file in the checkout. A leading "
+    "`import` is ImageMagick's import(1), not Python."
+)
+
+_PYTHON_BODY_PREFIXES = (
+    "import ",
+    "from ",
+    "def ",
+    "class ",
+    "async ",
+    "if __name__",
+)
+
+
+def looks_like_python_command_body(command: str) -> bool:
+    """True when *command* is a Python module body, not a shell line."""
+    stripped = command.strip()
+    if not stripped:
+        return False
+    first = stripped.splitlines()[0].strip()
+    if first.startswith("#!") and "python" in first.lower():
+        return True
+    token = first.split()[0]
+    if token in {"import", "from"}:
+        return True
+    return first.startswith(_PYTHON_BODY_PREFIXES)
+
+
 def _normalize_candidate_inputs(config: dict) -> None:
     """Validate the CI case's declared dispatch inputs in place.
 
@@ -72,6 +104,8 @@ def validate_method_config(
                 "Command cases require a non-empty method_config.command"
             )
         config["command"] = command.strip()
+        if looks_like_python_command_body(config["command"]):
+            raise QaMethodConfigError(COMMAND_SHELL_CONTRACT)
         timeout = config.get("timeout_seconds")
         if timeout is not None and (
             not isinstance(timeout, int) or timeout < 1 or timeout > 7200
@@ -152,6 +186,8 @@ def validate_method_config(
 
 
 __all__ = [
+    "COMMAND_SHELL_CONTRACT",
     "QaMethodConfigError",
+    "looks_like_python_command_body",
     "validate_method_config",
 ]
