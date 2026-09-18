@@ -18,6 +18,9 @@ from yoke_contracts.connection_authority_teaching import DB_GROUP_TEACHING
 from yoke_contracts.deployment_itemless_teaching import (
     ITEMLESS_RELEASE_RECIPE,
 )
+from yoke_contracts.deployment_release_roles_teaching import (
+    RELEASE_ROLE_RECIPE,
+)
 from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
 
 GROUP_ROUTES: dict[tuple[str, ...], tuple[tuple[str, ...], ...]] = {
@@ -50,7 +53,7 @@ GUIDANCE_ROUTES: dict[tuple[str, ...], str] = {
 # exist at all and the capability is reached another way.
 GROUP_TEACHING: dict[tuple[str, ...], str] = {
     ("db",): DB_GROUP_TEACHING,
-    ("deployment-runs",): ITEMLESS_RELEASE_RECIPE,
+    ("deployment-runs",): RELEASE_ROLE_RECIPE + "\n" + ITEMLESS_RELEASE_RECIPE,
     ("env",): (
         "Retirement is a `connection` command: `yoke connection remove ENV` "
         "deletes the entry and its Yoke-owned credential, taking "
@@ -183,8 +186,16 @@ def emit_nearest_group_help(
 
 
 def can_route_group(argv: Sequence[str]) -> bool:
-    """Return whether the CLI routes this exact spelling to useful guidance."""
+    """Return whether the CLI routes this exact spelling to useful guidance.
+
+    A trailing ``--help`` on a group prefix routes to the same listing the
+    bare prefix does, so it is the spelling teaching naturally uses for a
+    group's deep home. Accept it rather than reading the flag as a
+    subcommand that does not exist.
+    """
     prefix = tuple(argv)
+    if prefix and prefix[-1] in ("--help", "-h"):
+        prefix = prefix[:-1]
     if not prefix:
         return False
     if prefix in GROUP_ROUTES or prefix in GUIDANCE_ROUTES:

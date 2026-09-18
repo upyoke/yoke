@@ -8,6 +8,43 @@ The rules file every session loads carries the short normative form of each rule
 - **Disable definitions; retain history.** `yoke deployment-flows set-status <flow-id> disabled` prevents new assignments and runs without deleting the definition or any historical run. A definition referenced by a run is immutable and cannot be deleted.
 - **Schema/env shape:** `deployment_runs` has no `item_id`; `deployment_run_items` may be empty for started environment runs. The HTTPS product/API environment is the normal relayed authority, and it drives ordinary delivery end to end — create, start-for-item, execute, watch, retry, close-out — over whichever connection holds the run row. A local-Postgres `*-db-admin` environment is direct database write authority for sanctioned source-dev/admin work and audited break-glass SQL; a deployment needs it only when the run replaces that control plane's own serving API, and the executor refuses that one case by name and says which connection to use. Never go looking for control-plane database credentials to deploy a project: they are not the project's application database credentials, and a project whose control plane someone else operates has none to obtain.
 
+## Release-time roles
+
+A run that carries members is acted on by two different sessions, and neither
+learns the other's part from its own skill. The split is the whole rule:
+
+- **The seat driving delivery owns the run.** It holds `DEPLOY:<project>` for
+  the whole pair, pins one source SHA for stage and production, enrolls each
+  member with `yoke deployment-runs add-item`, accepts membership with
+  `validate-composition`, and drives it with `yoke watch deploy`. It does not
+  run a member's item QA and does not close a member out.
+- **The member owner owns its own item.** Its merge parked it at the flow's
+  release wait holding its work claim; the deployment wake re-enters it for its
+  QA stage and again when delivery clears.
+
+**A QA stage credits only requirements bound to its own stage name** — an
+item-scoped stage only ones bound to the member too. So the member owner runs
+`yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N`, and
+the unscoped run-wide form is refused rather than recording a pass the stage
+ignores. `yoke qa case run --requirement-id N` credits that requirement's
+existing binding and never a stage, so it cannot substitute either. Dropping
+`--stage` or `--member` is the failure that looks like success: every case
+passes and the stage still reads unsatisfied.
+
+**`yoke merge item` is the one agent-facing close-out**, at the merge and again
+at the release wait, carrying `--result` and `--verification` both times. There
+is no internal done engine to substitute: `done-transition --skip-deploy`
+records a selected-flow delivery as out-of-band, which is a false record and is
+refused once that flow has a succeeded run covering the merge. It remains only
+for a flow that genuinely delivers nothing.
+
+Each of those commands carries the full matrix in its own `--help` — that is
+the deep home for this section, and it is the one that cannot go stale against
+the code: `yoke qa plan run --help` (subject/scope matrix), `yoke qa case run
+--help` (which credit it cannot earn), `yoke merge item --help` (close-out
+routes and the queue landing handoff), and `yoke deployment-runs --help` (the
+item-bound batch release, plus the itemless environment release).
+
 ## Pack-first capabilities
 
 - **If your project distributes reusable capabilities, package them as Packs.** Reusable ops workflows, deployment tooling, and infrastructure patterns live in a focused `packs/<slug>/` bundle with immutable versions, explicit files, settings, dependencies, documentation, and verification.

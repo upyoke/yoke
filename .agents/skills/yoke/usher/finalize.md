@@ -126,7 +126,7 @@ Release failures surface as response errors but do not block the next item's rel
 - **Run-based deployment.** Multiple items with same project+flow grouped into single run. Pipeline called once per run.
 - **LLM-based dependency ordering.** Usher uses LLM reasoning for ordering, operator for conflict resolution.
 - **Lock management.** No weave lock. Merge serialization handled by the retained merge watcher (`yoke watch merge merge-worktree`).
-- **Push to origin.** Each `yoke watch merge done-transition` run preserves the underlying done-transition push behavior.
+- **Push to origin.** Route A's `yoke watch merge done-transition` runs preserve the underlying done-transition push behavior; Route B members close out through `yoke merge item`, which owns its own push.
 - **Cold-start capable.** All state read from DB.
 - **Pre-merge ephemeral verification.** For flows with `ephemeral-verify`, verification runs before merge (Step 7c). After merge, pipeline skips it via `--from-stage`.
 - **Preview-environment targeting.** Multiple targets → operator selection. Release lineage tracking for preview-to-prod progression.

@@ -49,6 +49,29 @@ def _report_outcome(result: dict) -> None:
         )
 
 
+#: Which subject this command can credit, and which one it cannot. Read as
+#: ``yoke qa case run --help``.
+_EPILOG = """\
+Which run earns which credit
+----------------------------
+This command executes exactly ONE requirement by id, and the credit lands on
+whatever subject that requirement is already bound to. It is the right form for
+an item's own verification gate -- the Command case that is a Dash item's single
+full run.
+
+It is NOT the form that credits a deployment stage. A deployment QA stage
+credits only the requirements bound to its own stage name, and an item-scoped
+stage needs the member named too, so reach for the stage-scoped plan run
+instead; running cases one id at a time can pass every case while the stage
+still reads unsatisfied:
+
+  yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --plan PLAN --project P
+
+See `yoke qa plan run --help` for the full subject/scope matrix, and
+`yoke merge item --help` for the close-out that follows a credited stage.
+"""
+
+
 def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa case run",
@@ -56,6 +79,8 @@ def run(args: List[str]) -> int:
             "Execute one materialized test-plan case through its declared "
             "registered runner."
         ),
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--requirement-id", type=int, required=True)
     parser.add_argument("--base-url", default="")

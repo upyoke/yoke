@@ -50,7 +50,10 @@ yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --plan 
 
 Every QA stage credits only requirements bound to its own name — an
 item-scoped one to the member too — so the run-wide form is refused rather
-than recording a pass the stage ignores. Materialization stamps the run's own
+than recording a pass the stage ignores, and `yoke qa case run
+--requirement-id N` credits that requirement's binding rather than the stage.
+Depth: `yoke qa plan run --help` for the subject/scope matrix, `yoke merge
+item --help` for the close-out routes. Materialization stamps the run's own
 deployed target onto the cases, so a plan authored before this release still
 verifies it. A deployment case is bound to the candidate the run deployed, not
 to your lane: run it from a checkout at that revision and no flag is needed;
@@ -95,6 +98,18 @@ prescribe a stage change. The mismatch refusal preserves the lane when the
 item is already closed out, or when the pinned workflow declares no release
 wait. Do not reset unlanded corrections as recovery.
 The command does not clean the lane or declare those commits delivered.
+
+## A steering rework request
+
+Steering does not gate your landing; it vets the work after it lands and
+before the item is admitted to a release. When that vetting finds a problem,
+steering moves the item back to `implementing` and names what to correct.
+That is a rework leg on this same item: correct it in the same lane,
+re-verify, re-land through the same `yoke merge item` command, and re-enter
+the release wait. Evidence recorded against the earlier revision does not
+carry over to the corrected one, so the verification gate runs again. Do not
+file a new item, and do not close this one out on the superseded evidence.
+Escalate only when you cannot make the correction, naming what blocks you.
 
 ## Approval, claim release, and the steering report
 

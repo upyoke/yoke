@@ -109,6 +109,19 @@ CANDIDATE_REVIEW_TEACHING = (
 )
 
 
+STEERING_REWORK_TEACHING = (
+    "Steering does not gate your landing — it vets your work after it lands "
+    "and before the item is admitted to a release. If that vetting finds a "
+    "problem, steering moves the item back to implementing and tells you "
+    "what to correct. That is a rework leg on the SAME item, not a new one "
+    "and not a refusal to argue with: correct it, re-verify, re-land through "
+    "the same merge command, and re-enter the release wait. Previous "
+    "evidence covered the revision it was taken on and does not carry over "
+    "to the corrected one. Escalate instead only when you cannot do the "
+    "correction, naming what blocks you."
+)
+
+
 #: Appended to every composed mandate, in the order a worker meets them.
 STANDING_TEACHINGS = (
     COMMITTED_GATE_TEACHING,
@@ -117,6 +130,9 @@ STANDING_TEACHINGS = (
     # those.
     CANDIDATE_REVIEW_TEACHING,
     RELEASE_WAIT_RETENTION_TEACHING,
+    # After the release wait, because that is where steering's vetting
+    # reaches a worker that is already parked and holding its item.
+    STEERING_REWORK_TEACHING,
     HEADLESS_CI_VERIFICATION_WAIT_TEACHING,
     HEADLESS_LANDING_WAIT_TEACHING,
     HEADLESS_TOOL_CONTINUATION_TEACHING,
@@ -131,4 +147,5 @@ __all__ = [
     "HEADLESS_TOOL_CONTINUATION_TEACHING",
     "RELEASE_WAIT_RETENTION_TEACHING",
     "STANDING_TEACHINGS",
+    "STEERING_REWORK_TEACHING",
 ]

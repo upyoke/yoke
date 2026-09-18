@@ -79,8 +79,8 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
 def test_dash_commits_before_every_sha_bound_case():
     content = _skill_corpus("dash")
     commit_rule = "Commit before every SHA-bound QA case."
-    assert commit_rule in content
-    assert content.index(commit_rule) < content.index("yoke qa case run")
+    verify = (CANONICAL / "dash" / "verify.md").read_text()
+    assert verify.index(commit_rule) < verify.index("yoke qa case run")
     assert "`worktree_run`" in content
     assert "`ci_run`" in content
     assert "running it before the commit" in content

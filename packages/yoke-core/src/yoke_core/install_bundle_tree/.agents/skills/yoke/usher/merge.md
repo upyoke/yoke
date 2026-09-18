@@ -14,7 +14,9 @@ If `_DEPLOY_ONLY`, skip entirely to deploy phase.
  BRANCH CLEANUP ORDERING CONTRACT
  1. Step 7c: Pre-merge ephemeral verification (before merge, gates it)
  2. Step 7d: `watch_merge merge-worktree` merges the branch into the project's registered default branch
- 3. Step 8: `watch_merge done-transition --skip-deploy` runs cleanup
+ 3. Step 8: the delivery boundary runs cleanup — Route A's
+    `watch_merge done-transition --skip-deploy` for a genuinely
+    deploy-free flow, Route B's `yoke merge item` close-out after a run
  DO NOT reorder these steps.
 -->
 

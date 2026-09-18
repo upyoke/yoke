@@ -356,69 +356,35 @@ their delivery ran, against four whose workers parked and held. The close-out
 keeps the claim and parks the session on that wait, and the mandate names the
 boundary so the worker does not undo it.
 
-### Hold a merge for your own review of the exact candidate
+### Vet each landing before it enters a release
 
-A worker merges as soon as its gate is green. When a seat wants to read the
-code before it lands, prose in the item does not stop anything — the posture
-knob does. Select it on the item any time before the merge:
+A worker merges as soon as its gate is green, and that is the design. Do not
+hold merges, and do not make your review a precondition of landing: a seat
+that gates landing becomes the fleet's bottleneck, and the failure it
+prevents is cheaper to correct afterwards than to queue for.
 
-```text
-yoke workflows item-posture amend PREFIX-N --key merge_candidate_review \
-  --value true --reason "steering reviews this candidate before it lands"
-```
+What you owe instead is vetting, as soon as you can and **always before the
+item is admitted to a deployment run**. Read the exact diff and the evidence
+covering it — `yoke items detail get PREFIX-N --json` for the merge identity
+and QA rows, `git -C {CHECKOUT} diff {BASE_SHA}...{LANDED_SHA}` for the code
+itself. A DONE report is a prompt to vet, never the vetting.
 
-Posture is bounded by the item's pinned immutable workflow version, so the
-amendment refuses by name on an item pinned below the generation that
-introduced the key (`dash@11`, `blitz@10`, `issue@7`). Items filed after
-those generations reach a universe can select it; older ones cannot, and
-there is no way to select it retroactively. Hold such a merge by hand, or
-re-file.
-
-From then on `yoke merge item` refuses that item until the **exact commit**
-the landing would carry has been cleared — merge-when-ready arming, queue
-enqueue, and a direct merge on a project with no queue alike. The refusal
-names an open decision request; it is in your Inbox, and you answer it:
+When vetting finds a problem, the item goes back to its owner to correct:
+fix, re-verify, re-land, re-enter release. The registered rework transition
+is a backward move, which the declared-transition gate leaves to rework
+rather than refusing:
 
 ```text
-yoke inbox list
-yoke decision-requests resolve REQUEST_ID approve --note "<what you reviewed>"
+yoke lifecycle transition PREFIX-N --to implementing --reason "steering rework: <what to correct>"
 ```
 
-**Only a second party can answer it.** The session holding the item's work
-claim is refused by name however privileged its actor — on a workstation
-every agent carries the operator's own actor, so the session is the only
-thing that tells a worker from its reviewer. The answer comes from the
-session holding the steering seat that covers the item, or from a person in
-the web Inbox. The same rule guards clearing the posture key: turning the
-requirement off is the same decision as answering it, so a worker cannot do
-that either. Every answer records the session that gave it, beside the
-actor, because here the actor tells you nothing.
+Message the owner what to correct. **An item with an unresolved vetting
+problem is not admitted to a release** — hold it out of the batch rather
+than shipping it and correcting after.
 
-**Know what this gate is.** It stops the ordinary mistake — a worker landing
-its own item before you have read it — and leaves an audit trail. It is not
-a security boundary and cannot be one on this machine: the server derives
-only the actor from the credential, so a session id is asserted rather than
-proved, and every surface here shares one operator credential. Three layers
-make evasion deliberate rather than accidental: the hook denies a foreign
-`--session-id` on these commands before they run, the session-less branch
-needs an origin mark only this machine's UI server can set, and the
-answering session is recorded. A caller determined to get past all three
-still can. Full reasoning and the residual outside Yoke:
-`docs/archive/decisions/merge-candidate-review.md`.
-
-The clearance is bound to that commit. Any commit made after it — a review
-fix, a rebase that rewrites the head — is a different candidate and asks
-again; evaluating the newer head withdraws the open review of the head it
-replaced, so your Inbox carries one review per item, not one per attempt. To
-see where a candidate stands, or to put the review in front of yourself
-before the worker tries to merge, run `yoke merge-review candidate evaluate
-PREFIX-N --commit SHA`. Rejecting instead of approving sends the worker back
-with the reason, and its next commit raises a fresh review.
-
-The gate sits at the standalone merge boundary, so it covers Dash, Blitz,
-and task-free Issue items. An epic's child task lanes merge through the epic
-integration path instead and are not individually reviewed; select the knob
-on the epic, whose own landing goes through this boundary.
+The `merge_candidate_review` posture still exists for an item a human owner
+explicitly wants held before it lands; it is not the default, and steering
+does not select it.
 
 The same mandate names the opposite failure, because a launched turn is the
 whole life of every command it starts. When the harness moves a long command
@@ -435,7 +401,9 @@ Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST ac
 
 An item whose posture selects merge_candidate_review may not land until a person has cleared the exact commit. `yoke merge item` refuses an uncleared candidate by name, before it arms, enqueues, or merges anything, and names the open decision request an authorized reviewer answers. You cannot answer it yourself: the session holding the item's work claim is refused by name, whatever actor it carries, and so is clearing the posture key. That refusal is a blocker, not a retry: report it with the request id and stop. Any commit you make after a clearance needs its own review, so commit everything first, then merge.
 
-A merge that lands your item at its pinned release wait is a completed merge that is NOT a finished item: the delivery still has to run and its post-deploy validation still has to be walked before the item reaches done. That close-out therefore keeps your work claim and parks your session with the wait named, and you keep both. Do NOT release the claim and do NOT end your session there — report what landed in your own output, say you are waiting on delivery, and stop deliberately. The deployment wake re-enters you when your delivery clears or its QA stage needs you; re-run the same `yoke merge item` command with --result and --verification then, and it finishes the close-out. Only once the item reaches done do you send the DONE report and end. Any prompt that wakes you CLEARS that park, including one that turns out not to finish the item, so whenever you go quiet still short of done — a wake you handled, a close-out that refused, a message about something else — re-park before stopping: `yoke sessions touch --mode parked --reason "awaiting <ITEM> delivery"`. A release-wait owner that goes quiet without that park is treated as gone and its item is handed to steering, so the park is what keeps the item yours.
+A merge that lands your item at its pinned release wait is a completed merge that is NOT a finished item: the delivery still has to run and its post-deploy validation still has to be walked before the item reaches done. That close-out therefore keeps your work claim and parks your session with the wait named, and you keep both. Do NOT release the claim and do NOT end your session there — report what landed in your own output, say you are waiting on delivery, and stop deliberately. The deployment wake re-enters you when your delivery clears or its QA stage needs you. A stage that wants your evidence is run by naming that stage AND your item, because a stage credits only requirements bound to its own name: `yoke qa plan run --deployment-run-id RUN --stage STAGE --member <ITEM> --plan PLAN --project P`. The run-wide form and `yoke qa case run` do not credit it. Then re-run the same `yoke merge item` command with --result and --verification, and it finishes the close-out. Only once the item reaches done do you send the DONE report and end. Any prompt that wakes you CLEARS that park, including one that turns out not to finish the item, so whenever you go quiet still short of done — a wake you handled, a close-out that refused, a message about something else — re-park before stopping: `yoke sessions touch --mode parked --reason "awaiting <ITEM> delivery"`. A release-wait owner that goes quiet without that park is treated as gone and its item is handed to steering, so the park is what keeps the item yours.
+
+Steering does not gate your landing — it vets your work after it lands and before the item is admitted to a release. If that vetting finds a problem, steering moves the item back to implementing and tells you what to correct. That is a rework leg on the SAME item, not a new one and not a refusal to argue with: correct it, re-verify, re-land through the same merge command, and re-enter the release wait. Previous evidence covered the revision it was taken on and does not carry over to the corrected one. Escalate instead only when you cannot do the correction, naming what blocks you.
 
 You are a headless command that cannot be prompted again, so a merge-queue landing is not yours to wait out: it outlasts your turn, and a wait that dies with the turn leaves the branch landed and the item open. Your merge arms the landing and returns landing_pending=true with the pull request named, whether or not you passed --wait. That is the handoff, not a failure. Report the pull request, stop deliberately, and say you are waiting on landing. The control-plane landing notice wakes you: re-run the same `yoke merge item` command then and it completes close-out. A stopped landing arrives the same way and names its recovery (usually rebase, re-run the verification gate, re-run the command); a stale server landing record names its last refresh and repair step. Never replace either with local GitHub polling, and never report a landing you did not read. A separate check uses `yoke github merge-queue readiness PREFIX-N --json`: the named queue-entry state decides whether null arming was consumed or cleared.
 

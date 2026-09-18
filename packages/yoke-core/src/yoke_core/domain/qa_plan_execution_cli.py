@@ -168,6 +168,55 @@ def _qualify_review_dispatch(result: dict[str, Any]) -> None:
     )
 
 
+#: The subject/scope matrix: which invocation credits which subject, and the
+#: release-time form whose omission leaves a stage unsatisfied. Read as
+#: ``yoke qa plan run --help``.
+_EPILOG = """\
+Pick the subject, then the scope
+--------------------------------
+Exactly one subject flag is required, and it decides everything else.
+
+  --item PREFIX-N --transition TRANSITION
+      An item's own attached plans, for a lifecycle transition's QA gate.
+      Requires --transition; does not accept --plan, because an item uses the
+      plans already attached to it.
+
+  --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN]
+      One frozen QA stage of a deployment run. The stage must be the run's
+      active pinned QA stage.
+
+Release-time scope: a stage credits only its own name
+-----------------------------------------------------
+A deployment QA stage is satisfied only by requirements bound to that stage's
+own name -- and an item-scoped stage by requirements bound to the member too.
+So the scope flags are not optional decoration:
+
+  * Run-scoped stage  -> --stage STAGE, no --member.
+  * Item-scoped stage -> --stage STAGE --member PREFIX-N. The run-wide form is
+    refused here rather than recording a pass the stage would ignore.
+
+Dropping --stage or --member is the failure that looks like success: cases run,
+verdicts record, and the stage still reads unsatisfied because nothing credited
+it. `yoke qa case run --requirement-id N` has the same problem at release time
+-- it credits the requirement's existing binding, never a stage.
+
+When the stage names no concrete cases, --plan records the executor's
+project-owned selection. Materialization stamps the run's own deployed target
+onto the cases, so a plan authored before this release still verifies it. A
+deployment case is bound to the candidate the run deployed, not to your lane:
+run it from a checkout at that revision, or pass --allow-tree-mismatch to
+declare the case reads nothing from the checkout.
+
+Who runs it, and what follows
+-----------------------------
+The item owner parked at its release wait runs its own stage when the
+deployment wake asks for it, then finishes with `yoke merge item PREFIX-N
+--result ... --verification ...`. The steering seat drives the run and never
+substitutes a run-wide pass for a member's stage. See `yoke merge item --help`
+for the close-out and `yoke deployment-runs --help` for the run itself.
+"""
+
+
 def run(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan run",
@@ -175,6 +224,8 @@ def run(args: List[str]) -> int:
             "Execute a materialized transition's cases in immutable "
             "plan/case/baseline order through their registered runners."
         ),
+        epilog=_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     subject = parser.add_mutually_exclusive_group(required=True)
     subject.add_argument("--item")

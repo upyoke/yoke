@@ -26,6 +26,21 @@ then work through this order:
    message the worker) or hand it to the successor named above. Releasing a
    lock never settles the operation it guarded.
 
+   A succeeded run is not a finished release. Each member closes itself out
+   after its own deployment wake, so read what the run's members still owe
+   before you call delivery done:
+
+   ```text
+   yoke deployment-runs get {RUN_ID}
+   yoke deployment-runs stages {RUN_ID}
+   ```
+
+   Members still parked at their release wait are owned, not abandoned — do
+   not release their work claims, terminate their sessions, or run their item
+   QA or close-out for them. Name each one and its owner in the successor
+   snapshot instead. Only a member the stale sweep already handed to this seat
+   is yours to finish, through the same `yoke merge item` every owner runs.
+
 4. **Inventory every claim and lock this session holds.** No single bulk
    call covers it — read all three:
 

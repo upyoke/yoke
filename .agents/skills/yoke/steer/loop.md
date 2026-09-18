@@ -147,15 +147,16 @@ seat handoff cannot erase work whose mail is already acknowledged.
 yoke messages acknowledge MESSAGE-ID
 ```
 
-Your Inbox is part of the same pass. An item carrying the
-`merge_candidate_review` posture holds its worker at the merge until you
-clear the exact candidate commit, so a pending review left unread is a
-stalled worker, not a queued chore:
+Your Inbox is part of the same pass — decision requests left unread are
+somebody blocked, not a queued chore:
 
 ```text
 yoke inbox list
-yoke decision-requests resolve REQUEST_ID approve --note "<what you reviewed>"
 ```
+
+Vetting landed work is a separate duty and is not done here; it is step 5b
+below. The `merge_candidate_review` posture exists for an item a human owner
+explicitly wants held before it lands, and steering does not select it.
 
 Typical report body: `DONE PREFIX-N <one-line summary>`. The PREFIX-N in
 that heading is the report identity: it must name work the sender holds or
@@ -250,6 +251,36 @@ covers its linked items, while a project seat covers the project. A watcher
 signal is a prompt to read that scope authority, never permission to staff
 outside it. Keep independent work moving while one item waits.
 
+### 5b. Vet each landing before it enters a release
+
+Workers merge on their own the moment their gates are green. Do not hold a
+merge, and do not make your review a precondition of landing — the seat that
+gates landing is the seat that becomes the bottleneck.
+
+Vet each worker's landed or landing work as soon as you can, and **always
+before admitting the item to a deployment run**. Read the exact diff and the
+evidence that covers it, not the summary you were sent:
+
+```text
+yoke items detail get PREFIX-N --json
+git -C {CHECKOUT} show --stat {LANDED_SHA}
+git -C {CHECKOUT} diff {BASE_SHA}...{LANDED_SHA}
+yoke qa requirement list --item PREFIX-N --json
+```
+
+When vetting finds a problem, the item goes back to the worker to correct —
+fix, re-verify, re-land, re-enter release. That is the registered rework
+transition, a backward move the declared-transition gate leaves to rework
+rather than refusing:
+
+```text
+yoke lifecycle transition PREFIX-N --to implementing --reason "steering rework: <what to correct>"
+```
+
+Then tell its owner what to correct. **An item with an unresolved vetting
+problem is not admitted to a release** — leave it out of the batch below
+rather than deploying it and correcting afterwards.
+
 ### 6. Deploy merged work in batches
 
 Workers merge but never create or dispatch deployment runs. The steerer owns batch delivery through the **prod control-plane** connection even when the target environment is stage.
@@ -285,17 +316,42 @@ Retry from the recorded run instead of silently creating unrelated lineage:
 yoke --env <cp> deployment-runs create {_project} {FLOW} --retry-of {RUN_ID}
 ```
 
-After the batch succeeds, finish every item parked at its release boundary.
-Briefly acquire that item's work claim and run its done ceremony:
+**A member's item QA is that member's own, not yours.** A QA stage is credited
+only by requirements bound to its own stage name — an item-scoped one by ones
+bound to the member too — so a run-wide pass you issue records nothing the
+stage counts. The deployment wake re-enters each parked owner for its stage,
+and the owner runs its own:
 
 ```text
-yoke claims work acquire --item PREFIX-N --reason "steering done ceremony"
-yoke watch merge done-transition -- PREFIX-N
+yoke qa plan run --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX-N --plan PLAN --project {_project}
 ```
 
-Release the claim only if the ceremony did not already release it. An item
-parked at release still holds path claims and blocks dependents until this
-ceremony finishes.
+Broadcast that exact form if an owner asks which command to run; never an
+unscoped `yoke qa plan run --deployment-run-id {RUN_ID}` and never
+`yoke qa case run --requirement-id N`, both of which leave the stage
+unsatisfied. Depth: `yoke qa plan run --help`.
+
+After the batch succeeds, every member parked at its release boundary closes
+ITSELF out: the deployment wake re-enters its owner, which still holds the
+item's work claim, and that owner runs the one agent-facing close-out
+`yoke merge item PREFIX-N --result ... --verification ...`. Do not acquire a
+live owner's claim to finish its item for it, and do not reach for the
+internal done engine — `done-transition --skip-deploy` records a selected-flow
+delivery as out-of-band, which is a false record and is refused when the item's
+flow already has a succeeded run covering its merge.
+
+Only an ORPHANED member is yours to finish — one whose owner the stale sweep
+reclaimed and handed to this seat by name. Take the claim and run the same
+close-out every owner runs:
+
+```text
+yoke claims work acquire --item PREFIX-N --reason "orphaned release-wait member"
+yoke merge item PREFIX-N --result "<what shipped>" --verification "<run evidence>"
+```
+
+Release the claim only if that close-out did not already release it. An item
+parked at release still holds path claims and blocks dependents until it
+reaches `done`. Depth: `yoke merge item --help`.
 
 Then release the deploy lock, so the next seat can drive:
 
