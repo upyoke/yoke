@@ -7,11 +7,15 @@ import hmac
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from yoke_contracts.machine_config.test_machine import (
     validate_golden_baseline_path,
     validate_test_machine_settings,
+)
+from yoke_contracts.machine_qa_case_target import (
+    MachineQaCaseTargetError,
+    require_case_execution_target,
 )
 
 
@@ -112,23 +116,7 @@ class MachineQaCaseContract(BaseModel):
         expected_digest = hashlib.sha256(encoded_target).hexdigest()
         if not hmac.compare_digest(self.execution_target_digest, expected_digest):
             raise ValueError("Machine QA execution target digest is invalid")
-        target_project = self.execution_target.get("project")
-        environment = self.execution_target.get("environment")
-        tenant = self.execution_target.get("tenant")
-        if (
-            not isinstance(target_project, dict)
-            or int(target_project.get("id") or 0) != self.project_id
-            or str(target_project.get("slug") or "") != self.project
-            or not isinstance(environment, dict)
-            or set(environment) != {"name"}
-            or not str(environment.get("name") or "")
-            or not isinstance(tenant, dict)
-            or not str(tenant.get("slug") or "")
-            or not isinstance(self.execution_target.get("endpoints"), dict)
-        ):
-            raise ValueError(
-                "Machine QA execution target does not match its case authority"
-            )
+        require_case_execution_target(self)
         return self
 
 
@@ -267,6 +255,24 @@ def execution_contract_digest(
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _validated_case(case: dict[str, Any]) -> MachineQaCaseContract:
+    """Validate one case, re-raising its refusal without pydantic's dump.
+
+    A rejected case otherwise arrives as a validation error carrying a
+    truncated copy of everything it was handed, burying the sentence that
+    says what is wrong and what to do about it.
+    """
+    try:
+        return MachineQaCaseContract.model_validate(case)
+    except ValidationError as exc:
+        raise MachineQaCaseTargetError(
+            "; ".join(
+                str(error.get("msg") or "").removeprefix("Value error, ")
+                for error in exc.errors()
+            )
+        ) from None
+
+
 def issue_execution_contract(
     *,
     operation: HostControlOperation,
@@ -299,7 +305,7 @@ def issue_execution_contract(
         selection_reason=selection_reason,
         checks=list(checks or []),
         baselines=list(baselines or []),
-        cases=[MachineQaCaseContract.model_validate(case) for case in (cases or [])],
+        cases=[_validated_case(case) for case in (cases or [])],
         golden_destination=golden_destination,
         plan_execution_id=plan_execution_id,
         continues_execution_id=continues_execution_id,

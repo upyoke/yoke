@@ -116,3 +116,37 @@ harness skill, not a terminal command. Held to each of these:
 Naming an environment is what a case opts into. A case that names none — an
 item's own verification command, for instance — keeps running against
 whatever its runner already resolves, with no execution target recorded.
+
+## Binding a deployment case to its stage and member
+
+A deployment run's QA stages declare their own scope. A stage whose scope is
+`item` credits a member only through a requirement carrying that stage name
+and that member's item, so materializing a plan run-wide — no stage, no
+member — writes rows the stage never reads: the owner sees a recorded pass
+and an unchanged stage that goes on waiting. Runs pinning such a stage refuse
+the unscoped form and name the binding invocation:
+
+```text
+yoke qa plan run --deployment-run-id <run-id> --stage <stage-name> \
+  --member <PREFIX-N> --plan <plan-slug> --project <project>
+```
+
+`yoke qa plan materialize` takes the same `--stage` / `--member` pair when
+only the requirement rows are wanted. A run-scoped stage takes `--stage`
+alone; `--member` without `--stage` is refused.
+
+Stage materialization stamps the run's **own** observed target — resolved
+from the receipt its deploying stage wrote — onto every case it creates. A
+plan authored before the release under test therefore verifies that release
+with nothing to retarget: the plan supplies the cases, the run supplies the
+target. A case bound this way carries a deployment execution target whose
+`environment` records the registered environment row and destination kind
+alongside its name, which is the shape Machine QA contracts accept beside a
+plan's own environment target.
+
+A deployment-run case is not bound to any local checkout: its subject is the
+candidate the run deployed, already built and observed at that endpoint. The
+verification tree binding that ties an item's own gate to the session's
+claimed worktree does not apply to it, so a member owner runs it without
+`--allow-tree-mismatch`; the tree the command ran in is still recorded on the
+verdict.

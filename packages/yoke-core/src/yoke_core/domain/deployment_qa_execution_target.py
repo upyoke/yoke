@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_contracts.machine_qa_case_target import DEPLOYMENT_TARGET_SCHEMA
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_qa_stage_contract import (
     deployment_qa_stage_subject,
@@ -19,7 +20,6 @@ from yoke_core.domain.qa_execution_environment_target import (
 )
 
 
-DEPLOYMENT_TARGET_SCHEMA = 4
 DEPLOYMENT_TARGET_KIND = "deployment"
 
 

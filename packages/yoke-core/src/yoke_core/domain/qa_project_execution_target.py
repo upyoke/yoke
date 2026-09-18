@@ -6,10 +6,10 @@ import json
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 
+from yoke_contracts.machine_qa_case_target import PROJECT_TARGET_SCHEMA
 from yoke_core.domain import db_backend
 
 
-PROJECT_TARGET_SCHEMA = 3
 PROJECT_TARGET_KIND = "project"
 ENVIRONMENT_TARGET_MODE = "environment"
 RUNTIME_BASE_URL_TARGET_MODE = "runtime-base-url"

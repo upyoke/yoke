@@ -68,6 +68,7 @@ def _owned_case(
 
 def _assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
     from yoke_core.domain.db_helpers import query_one
+    from yoke_core.domain.machine_qa_plan_case_snapshot import case_positions
     from yoke_core.domain.qa_case_execution_context import (
         get_case_execution_context,
     )
@@ -83,8 +84,7 @@ def _assert_current_snapshot(conn: Any, case: dict[str, Any]) -> None:
     )
     if row is None:
         raise ValueError("ordered plan requirement no longer exists")
-    current["case_position"] = int(row["case_position"])
-    current["baseline_position"] = int(row["baseline_position"])
+    current["case_position"], current["baseline_position"] = case_positions(case, row)
     stored = {key: value for key, value in case.items() if key != "ordinal"}
     if canonical(current) != canonical(stored):
         raise ValueError("ordered plan case snapshot changed during execution")

@@ -29,6 +29,7 @@ from yoke_core.domain import qa_gate_timeout
 from yoke_core.domain import verification_tree_binding
 from yoke_core.domain import verification_tree_binding_pytest_startup
 from yoke_core.domain import qa_case_execution
+from yoke_core.domain import qa_case_tree_binding_scope
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 #: Surface name carried by this runner's tree-binding refusal.
@@ -69,15 +70,28 @@ def execute_worktree_case(
     # A case whose lane branch has no live worktree falls back to the
     # project checkout, so the gate run can land in main while the
     # session's claimed lane sits untouched. The verdict this produces is
-    # recorded, so the refusal belongs before the command, not after.
-    binding = verification_tree_binding.evaluate_run(
-        surface=_TREE_BINDING_SURFACE, tree=str(checkout),
-        allow_mismatch=allow_tree_mismatch,
-    )
-    if binding.notice:
-        print(binding.notice, file=sys.stderr, flush=True)
-    if binding.refusal:
-        raise QaCaseExecutionError(binding.refusal)
+    # recorded, so the refusal belongs before the command, not after. A
+    # deployment-run case has no lane to drift from; it says what does bind
+    # it instead.
+    if qa_case_tree_binding_scope.session_lane_binds_case(case):
+        binding = verification_tree_binding.evaluate_run(
+            surface=_TREE_BINDING_SURFACE, tree=str(checkout),
+            allow_mismatch=allow_tree_mismatch,
+        )
+        if binding.notice:
+            print(binding.notice, file=sys.stderr, flush=True)
+        if binding.refusal:
+            raise QaCaseExecutionError(binding.refusal)
+    else:
+        print(
+            qa_case_tree_binding_scope.deployment_binding_notice(
+                surface=_TREE_BINDING_SURFACE,
+                case=case,
+                tree=str(checkout),
+            ),
+            file=sys.stderr,
+            flush=True,
+        )
     # Already judged above; a pytest-shaped command's startup check
     # inherits that answer instead of repeating the lookup.
     command_env = verification_tree_binding_pytest_startup.with_binding_evaluated(
