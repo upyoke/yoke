@@ -122,13 +122,14 @@ or a hand-written run.
 When the item's resolved deployment flow carries an **item-scoped QA stage**,
 that stage will later ask this item to prove its own behaviour on the deployed
 candidate. Author that plan here, while its cases are still editable, and
-attach it to the item through the ordinary per-transition attachment:
+attach it at the item's release stage, which is where post-deploy
+acceptance binds:
 
 ```text
 yoke qa plan create <slug> --project P --environment <env>
 yoke qa plan-cases replace --project P --plan-id <id> --stdin
 yoke qa item-plan attach --item ITEM --project P --plan-id <id> \
-  --transition reviewing-implementation --qa-phase post_deploy
+  --transition release --qa-phase post_deploy
 ```
 
 Its cases test **this item's** acceptance criteria — not another item's, and
@@ -136,16 +137,14 @@ not the release's in general. Then dry-run it once against your own candidate,
 before merging, while a defect still costs an edit:
 
 ```text
-yoke qa plan run --item ITEM --transition reviewing-implementation \
+yoke qa plan run --item ITEM --transition release \
   --base-url <your candidate>
 ```
 
-`yoke merge item` refuses an item whose flow has an item-scoped QA stage and
-no attached plan, and names this recipe. An item whose flow has no such stage
-is unaffected and needs none of this. The deployment stage picks the attached
-plan up on its own, so nothing has to be chosen at the wake — which is the
-point: a probe first executed against production, after its case has frozen,
-can only be waived or superseded.
+An item whose flow has no item-scoped QA stage needs none of this. The
+deployment stage picks the attached plan up on its own, so nothing has to be
+chosen at the wake — which is the point: a probe first executed against
+production, after its case has frozen, can only be waived or superseded.
 
 ## Posture knobs
 
