@@ -1,9 +1,9 @@
 # /yoke steer — standing loop
 
 Run this loop after each steering acquire atomically holds a project seat and
-its paired strategy-doc lock. Each pass reads every claimed document first, then keeps it current.
-
-Do not invoke `/yoke feed`.
+its paired strategy-doc lock. Routine resume reads only the Live Status
+checkpoint; get a claimed contract slug on demand via `yoke strategy doc get`.
+Never erase that contract to hit a size target. Do not invoke `/yoke feed`.
 
 ## Wake sources
 
@@ -33,13 +33,13 @@ reload this phase and reattach the running watcher or re-arm it when absent, res
 
 ## Pass
 
-### 1. Read the standing plan first, then the scope frontier
+### 1. Read the live checkpoint, then the scope frontier
 
 ```text
 yoke strategy doc get {SLUG} --project {_project}
 ```
 
-This is the narrowed steering read (`strategy.doc.get` of the claimed slug, not `yoke strategy render` of the corpus). Extract its next steps and standing decisions before reading the live DB frontier:
+Use only `## Live status — steering snapshot` from that get on routine resume. Extract next steps and standing decisions from it before the live DB frontier:
 
 ```text
 yoke charge schedule --project {_project} --json

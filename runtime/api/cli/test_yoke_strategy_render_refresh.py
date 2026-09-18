@@ -120,7 +120,7 @@ class TestSteerNarrowedRead:
         loop = (root / ".agents/skills/yoke/steer/loop.md").read_text(
             encoding="utf-8",
         )
-        assert "narrowed steering read" in loop
+        assert "Routine resume reads only the Live Status" in loop
         assert "never `yoke strategy render` of the corpus" in skill
     def test_dirty_unchanged_remote_keeps_edit(self, tmp_path: Path) -> None:
         original = render_file_text("MISSION", "ts", "# old\n")

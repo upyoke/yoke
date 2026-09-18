@@ -65,6 +65,9 @@ class TestCurrentStateCheckpointTeaching:
         assert "discarded context is gone" in loop
         assert "Preserve unresolved holds and obligations from other" in loop
         assert "Dated status sections other than this one are stale" not in loop
+        assert "reads every claimed document first" not in loop
+        assert "Routine resume reads only the Live Status" in loop
+        assert "Never erase that contract to hit a size target" in loop
         assert (
             "## Live status — steering snapshot "
             "(refresh or replace on next steering handoff)"

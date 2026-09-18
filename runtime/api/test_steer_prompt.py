@@ -101,7 +101,7 @@ class TestSteerSkillContract:
         assert loop.index("yoke strategy doc get {SLUG}") < loop.index(
             "yoke charge schedule"
         )
-        assert "Each pass reads every claimed document first" in loop_words
+        assert "Routine resume reads only the Live Status" in loop_words
         assert "document wins on intended scope, priority, order" in loop_words
         assert "DB wins" in loop_words
         assert "live item status, claims, dependencies" in loop_words
