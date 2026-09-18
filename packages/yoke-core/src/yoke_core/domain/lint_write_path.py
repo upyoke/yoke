@@ -26,7 +26,7 @@ import re
 import sys
 from typing import Optional
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
@@ -168,7 +168,7 @@ def evaluate(record: HookContext) -> HookDecision:
     reason = evaluate_payload(payload)
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    reason = append_field_note_footer(reason, rule_id="lint-write-path")
+    reason = attach_check_id(reason, check_id="lint-write-path")
     _emit_denial(payload, reason)
     envelope = json.dumps(_build_deny_response(reason))
     return HookDecision(

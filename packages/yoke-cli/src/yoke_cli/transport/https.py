@@ -209,9 +209,7 @@ def _relay_attempts(
                 timeout_s=timeout_s,
             )
             with opened as resp:
-                observe_server_version(
-                    getattr(resp, "headers", None), sensitive_values, handshake
-                )
+                observe_server_version(getattr(resp, "headers", None), handshake)
                 raw = read_bounded_response(resp, deadline=deadline)
         except urllib.error.HTTPError as exc:
             response, typed, response_error = http_error_response(

@@ -205,7 +205,9 @@ class TestBoardRebuild:
         assert rc == 1
         assert stdout == ""
         assert "Python board renderer failed: kaboom" in stderr
-        assert "yoke ouroboros field-note append" in stderr
+        # The failure states itself; a rebuild no longer trails the standing
+        # field-note directive, which every session already has.
+        assert "yoke ouroboros field-note append" not in stderr
         names = [call.args[0] for call in emit_event.call_args_list]
         assert names == ["BoardRebuildCommandStarted", "BoardRebuildCommandFailed"]
         failed = emit_event.call_args_list[-1].kwargs

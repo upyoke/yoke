@@ -8,10 +8,13 @@ impossible across either axis:
   ``check=True`` mode; FAILs on any drift or orphan-marker condition.
 * **Consumer-import check** — scans ``IMPORTING_CONSUMERS`` and FAILs
   when any one no longer imports a canonical name from
-  :mod:`yoke_contracts.field_note_text` (directly OR via
-  ``append_field_note_footer`` which does). The packet seeds carry
-  the canonical recipe string verbatim as packet *data* and are
-  validated separately for presence of the canonical command.
+  :mod:`yoke_contracts.field_note_text`. Those consumers are the
+  surfaces that teach the channel — ``--help`` renderers and the
+  startup-rules marker renderer. Ordinary hints and refusals
+  deliberately do NOT carry the directive: repeating it per command
+  made it boilerplate readers skip. The packet seeds carry the
+  canonical recipe string verbatim as packet *data* and are validated
+  separately for presence of the canonical command.
 
 ``IMPORTING_CONSUMERS`` / ``PACKET_SEED_CONSUMERS`` are the contract
 tuples (same shape as ``IN_SCOPE_WRITERS`` in the architecture-model
@@ -35,35 +38,21 @@ HC_DESC = (
 )
 
 CANONICAL_MODULE = "yoke_contracts.field_note_text"
-HELPER_MODULE = "yoke_core.domain.denial_field_note_footer"
-HELPER_SYMBOL = "append_field_note_footer"
 CANONICAL_COMMAND = "ouroboros field-note append"
 _CORE_DOMAIN_SOURCE_ROOT = "packages/yoke-core/src/yoke_core/domain"
 
-_LINTS: Tuple[str, ...] = tuple(
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/lint_{s}.py" for s in (
-        "claim_ownership_mutations", "destructive_git_messages", "event_registry",
-        "git_stash_arg_order", "long_command_polling", "main_commit",
-        "no_agent_curl_against_yoke_api",
-        "no_agent_runtime_api_import_from_c", "python_runtime_import_in_tmp",
-        "session_cwd", "shell_quoted_function_payload",
-        "shell_quoted_function_payload_messages", "db_cmd", "db_rules",
-        "structured_field_transform_shell",
-        "structured_field_transform_shell_messages", "subagent_background",
-        "yok_n_cruft", "tc_label", "workspace_cwd_match",
-        "write_path",
-    )
-)
-
 # Code consumers that MUST import a canonical name from
-# ``field_note_text`` (directly or via the helper that does).
+# ``field_note_text``: the ``--help`` renderers a reader reaches for
+# deliberately, and the renderer that stamps the directive into the
+# startup rules every session already receives.
 IMPORTING_CONSUMERS: Tuple[str, ...] = (
     "packages/yoke-cli/src/yoke_cli/main.py",
+    "packages/yoke-cli/src/yoke_cli/commands/_helpers.py",
+    "packages/yoke-cli/src/yoke_cli/commands/group_help.py",
     "packages/yoke-cli/src/yoke_cli/commands/adapters/ouroboros_field_note.py",
-    "packages/yoke-contracts/src/yoke_contracts/api/function_call.py",
-    f"{_CORE_DOMAIN_SOURCE_ROOT}/denial_field_note_footer.py",
-    "packages/yoke-core/src/yoke_core/engines/doctor_result_report.py",
-) + _LINTS
+    f"{_CORE_DOMAIN_SOURCE_ROOT}/agents_render_field_note.py",
+    "packages/yoke-core/src/yoke_core/tools/render_field_note_inline.py",
+)
 
 # Packet seeds carry the canonical field-note command verbatim as
 # packet data; they teach the channel to every session.
@@ -85,10 +74,7 @@ def _consumer_imports_canonical(repo_root: Path, relpath: str) -> Optional[bool]
         text = candidate.read_text(encoding="utf-8")
     except OSError:
         return None
-    return (
-        CANONICAL_MODULE in text
-        or (HELPER_MODULE in text and HELPER_SYMBOL in text)
-    )
+    return CANONICAL_MODULE in text
 
 
 def scan_importing_consumers(
@@ -163,8 +149,7 @@ def hc_field_note_coherence(
     if missing:
         findings.append(
             f"- {len(missing)} named code consumer(s) no longer import from "
-            f"`{CANONICAL_MODULE}` (directly or via "
-            f"`{HELPER_MODULE}.{HELPER_SYMBOL}`):"
+            f"`{CANONICAL_MODULE}`:"
         )
         findings.extend(f"  - {p}" for p in missing)
 
@@ -187,7 +172,7 @@ def hc_field_note_coherence(
 
 
 __all__ = [
-    "HC_NAME", "HC_DESC", "CANONICAL_MODULE", "HELPER_MODULE", "HELPER_SYMBOL",
+    "HC_NAME", "HC_DESC", "CANONICAL_MODULE",
     "CANONICAL_COMMAND", "IMPORTING_CONSUMERS", "PACKET_SEED_CONSUMERS",
     "hc_field_note_coherence", "scan_importing_consumers",
     "scan_packet_seeds",

@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_yok_n_cruft_scan import (
     CruftHit,
     LintResult,
@@ -94,7 +94,7 @@ def _emit_human(result: LintResult, repo_root: Path, *, quiet_pass: bool) -> Non
         f"\n{len(result.hits)} cruft reference(s) across {len({h.path for h in result.hits})} "
         f"file(s). Scanned {result.scanned_files} file(s)."
     )
-    print(append_field_note_footer(summary, rule_id="lint-yok-n-cruft"))
+    print(attach_check_id(summary, check_id="lint-yok-n-cruft"))
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

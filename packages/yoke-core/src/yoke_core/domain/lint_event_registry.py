@@ -43,7 +43,7 @@ from typing import Optional
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_event_registry_extract import (
     HookMeta,
     extract_command,
@@ -110,7 +110,7 @@ class Decision:
 
 
 def _deny_json_with_reason(reason: str) -> str:
-    """Serialize a PreToolUse deny envelope around a FOOTER-wrapped ``reason``."""
+    """Serialize a PreToolUse deny envelope around ``reason``."""
     payload = {"hookSpecificOutput": {"hookEventName": "PreToolUse",
         "permissionDecision": "deny", "permissionDecisionReason": reason}}
     return json.dumps(payload, separators=(", ", ": "))
@@ -200,8 +200,8 @@ def decide_dict(data: Optional[dict], db_path: str) -> Decision:
 
     if status is None:
         # Registry available but the event is not listed → deny.
-        reason = append_field_note_footer(
-            build_deny_reason(event_name), rule_id="lint-event-registry"
+        reason = attach_check_id(
+            build_deny_reason(event_name), check_id="lint-event-registry"
         )
         return Decision(
             action="deny",
@@ -223,8 +223,8 @@ def decide_dict(data: Optional[dict], db_path: str) -> Decision:
         )
 
     # Unknown future statuses behave like "not active" → deny.
-    reason = append_field_note_footer(
-        build_deny_reason(event_name), rule_id="lint-event-registry"
+    reason = attach_check_id(
+        build_deny_reason(event_name), check_id="lint-event-registry"
     )
     return Decision(
         action="deny",

@@ -34,7 +34,7 @@ import sys
 from typing import List, Optional, Sequence, Tuple
 
 from yoke_contracts.watch_cli_forms import WATCH_CLI_TOKENS, cli_form
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_raw_pytest_full_suite_shell import (
     mask_data_sink_lines, strip_heredoc_bodies,
 )
@@ -236,7 +236,7 @@ def _format_reason(
             "evidence (outcome=suppression_attempted) but does NOT unblock — "
             "the rule still denies. Use the wrapper spelling and retry."
         )
-    return append_field_note_footer(body, rule_id=CHECK_ID)
+    return attach_check_id(body, check_id=CHECK_ID)
 
 
 def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:

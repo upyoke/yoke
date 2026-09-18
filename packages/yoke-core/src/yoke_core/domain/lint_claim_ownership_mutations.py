@@ -17,9 +17,6 @@ import sys
 from typing import Iterable, Optional, Tuple
 
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.denial_field_note_footer import (  # noqa: F401
-    append_field_note_footer,
-)
 from yoke_core.domain.lint_session_bound_yoke_commands import (
     session_bound_yoke_family,
 )

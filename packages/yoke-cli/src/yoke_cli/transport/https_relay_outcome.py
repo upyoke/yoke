@@ -111,7 +111,7 @@ def http_error_response(
     handshake: Optional[ServerHandshake] = None,
 ) -> tuple[FunctionCallResponse, bool, str | None]:
     """Decode an HTTP error into its reply shape and response-policy result."""
-    observe_server_version(getattr(exc, "headers", None), sensitive_values, handshake)
+    observe_server_version(getattr(exc, "headers", None), handshake)
     try:
         raw = read_bounded_response(exc, deadline=deadline)
     except HttpsResponsePolicyError as read_error:

@@ -50,20 +50,6 @@ class BuildComparison:
         return self.relationship in (AHEAD, BEHIND, DIVERGED)
 
 
-@dataclass(frozen=True)
-class OriginComparison:
-    """How the main checkout's default branch relates to its fetched origin."""
-
-    relationship: str
-    branch: str = ""
-    behind_by: int = 0
-    reason: str = ""
-
-    @property
-    def behind(self) -> bool:
-        return self.behind_by > 0
-
-
 def _git(repo_root: str, *args: str) -> Optional[str]:
     """Run one read-only git command, or ``None`` when it cannot answer."""
     try:
@@ -165,54 +151,6 @@ def _compare_to_server_build_cached(
     )
 
 
-def compare_main_to_origin(repo_root: str) -> OriginComparison:
-    """Relate the main worktree's default branch to its last-fetched origin."""
-    head = head_commit(repo_root) or ""
-    return _compare_main_to_origin_cached(repo_root, head)
-
-
-@lru_cache(maxsize=8)
-def _compare_main_to_origin_cached(repo_root: str, head: str) -> OriginComparison:
-    del head  # included in the cache key so a new commit recomputes
-    listing = _git(repo_root, "worktree", "list", "--porcelain")
-    first = (listing or "").splitlines()
-    if not first or not first[0].startswith("worktree "):
-        return OriginComparison(UNKNOWN, reason="main checkout is not resolvable")
-    main_root = first[0].removeprefix("worktree ").strip()
-    remote_head = _git(
-        main_root,
-        "symbolic-ref",
-        "--quiet",
-        "--short",
-        "refs/remotes/origin/HEAD",
-    )
-    if not remote_head or not remote_head.startswith("origin/"):
-        return OriginComparison(UNKNOWN, reason="origin default branch is unknown")
-    branch = remote_head.removeprefix("origin/")
-    counts = _git(
-        main_root,
-        "rev-list",
-        "--left-right",
-        "--count",
-        f"refs/heads/{branch}...refs/remotes/origin/{branch}",
-    )
-    parts = (counts or "").split()
-    if len(parts) != 2 or not all(part.isdigit() for part in parts):
-        return OriginComparison(
-            UNKNOWN, branch=branch, reason="default branch distance is unreadable"
-        )
-    local_only, origin_only = map(int, parts)
-    if local_only and origin_only:
-        relationship = DIVERGED
-    elif origin_only:
-        relationship = BEHIND
-    elif local_only:
-        relationship = AHEAD
-    else:
-        relationship = EQUAL
-    return OriginComparison(relationship, branch=branch, behind_by=origin_only)
-
-
 def _short(ref: str) -> str:
     """Abbreviate a commit sha; leave a tag or branch name readable."""
     if len(ref) == 40 and all(c in "0123456789abcdef" for c in ref):
@@ -249,14 +187,6 @@ def describe(comparison: BuildComparison) -> str:
     )
 
 
-def describe_origin(comparison: OriginComparison) -> str:
-    """One operator-facing line for a stale fetched default branch."""
-    return (
-        f"checkout is {comparison.behind_by} commit(s) behind "
-        f"origin/{comparison.branch} — run `git pull --ff-only`"
-    )
-
-
 __all__ = [
     "AHEAD",
     "BEHIND",
@@ -264,9 +194,6 @@ __all__ = [
     "EQUAL",
     "UNKNOWN",
     "BuildComparison",
-    "OriginComparison",
-    "compare_main_to_origin",
     "compare_to_server_build",
     "describe",
-    "describe_origin",
 ]

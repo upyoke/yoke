@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 
 CHECK_ID = "lint-yoke-quoted-shell-substitution"
 HOOK_NAME = "lint-yoke-quoted-shell-substitution"
@@ -39,4 +39,4 @@ def format_reason(span: str, suppression_seen: bool, mode: str) -> str:
             f"\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence (outcome=suppression_attempted) but does NOT unblock."
         )
-    return append_field_note_footer(body, rule_id=CHECK_ID)
+    return attach_check_id(body, check_id=CHECK_ID)

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from yoke_contracts.field_note_text import FOOTER
-
 
 CHECK_ID_PREFIX = "Yoke check id: "
 
@@ -25,11 +23,7 @@ def attach_check_id(reason: str, check_id: str) -> str:
         part for part in stripped.splitlines() if not part.startswith(CHECK_ID_PREFIX)
     ]
     body = "\n".join(kept).rstrip("\n")
-    if body.endswith(FOOTER):
-        body = body[: -len(FOOTER)].rstrip("\n")
-        rendered = f"{body}\n\n{line}\n\n{FOOTER}"
-    else:
-        rendered = f"{body}\n\n{line}"
+    rendered = f"{body}\n\n{line}"
     return f"{rendered}\n" if trailing_newline else rendered
 
 

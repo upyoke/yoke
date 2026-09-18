@@ -23,7 +23,7 @@ from yoke_contracts.watch_cli_forms import (
     IN_TURN_WATCHER_TIMEOUT_MS,
     WATCH_CLI_TOKENS,
 )
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_session_cwd_host_command import (
     yoke_subcommand_positionals,
 )
@@ -156,7 +156,7 @@ def _format_reason(timeout_ms: Optional[int], suppression_seen: bool, mode: str)
             f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence but does NOT unblock this rule."
         )
-    return append_field_note_footer(body, rule_id=CHECK_ID)
+    return attach_check_id(body, check_id=CHECK_ID)
 
 
 def evaluate_payload(

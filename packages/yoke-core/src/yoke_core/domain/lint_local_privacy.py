@@ -20,7 +20,7 @@ from yoke_contracts.hook_runner.local_privacy_messages import (
     LIVE_ADVISORY,
     LIVE_DENY,
 )
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
@@ -73,7 +73,7 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     severity = finding.live_severity
     if severity not in (LIVE_DENY, LIVE_ADVISORY):
         return None
-    reason = append_field_note_footer(finding.reason(), rule_id=CHECK_ID)
+    reason = attach_check_id(finding.reason(), check_id=CHECK_ID)
     if severity == LIVE_ADVISORY:
         # An advisory is not the operator's guard mode speaking, so it does not
         # consult one: there is nothing here for a `deny` setting to escalate.

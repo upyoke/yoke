@@ -27,7 +27,7 @@ import sys
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_shell_quoted_function_payload_classify import (
     extract_subcommand_path,
     is_best_effort_wrapping,
@@ -307,7 +307,7 @@ def evaluate(record: HookContext) -> HookDecision:
             _emit_denial(payload, note, outcome="warn")
             return HookDecision(outcome=Outcome.WARN, message=note, audit_fields={"note": note})
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    reason = append_field_note_footer(reason, rule_id="lint-shell-quoted-function-payload")
+    reason = attach_check_id(reason, check_id="lint-shell-quoted-function-payload")
     if mode == "warn":
         _emit_denial(payload, reason, outcome="warn")
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)

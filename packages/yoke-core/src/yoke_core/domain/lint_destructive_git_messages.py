@@ -9,7 +9,7 @@ provenance line naming which ``.yoke/lint-config`` decided the mode.
 
 from __future__ import annotations
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 
 RULE_ID = "lint-destructive-git"
 SUPPRESSION_TOKEN = "# lint:no-uncommitted-wipe-check"
@@ -70,10 +70,10 @@ def format_reason(
     """
     label, remediation = SHAPES.get(shape, (shape, DEFAULT_REMEDIATION))
     config_line = f"\n{config_note}" if config_note else ""
-    return append_field_note_footer(
+    return attach_check_id(
         f"BLOCKED: destructive git command would wipe uncommitted changes.\n\n"
         f"Shape: {label}\n{_threat_block(shape, threatened)}\n\n"
         f"Remediation: {remediation}\n"
         f"Doctrine: AGENTS.md `## Destructive Operation Discipline`"
         f"{config_line}{_suffix(suppression_seen, mode)}",
-        rule_id=RULE_ID)
+        check_id=RULE_ID)

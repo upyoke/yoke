@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
 from yoke_core.domain.db_helpers import connect
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.project_identity import render_item_ref
 from yoke_core.domain.project_identity_item_ref import item_ref_for_id
 
@@ -74,7 +74,7 @@ def recent_claim_denial_holder(
 
 
 def spoof_reason(family: str, foreign_session: str) -> str:
-    return append_field_note_footer(
+    return attach_check_id(
         "BLOCKED: claim-boundary bypass attempt.\n\n"
         f"Mutation family: {family}\nForeign --session-id: {foreign_session}\n\n"
         "Artifact writes are work writes. Passing another session's id via "
@@ -82,13 +82,13 @@ def spoof_reason(family: str, foreign_session: str) -> str:
         "session is the only valid owner. Foreign operator override for a "
         "stranded claim must use the operator break-glass release surface "
         "named in the Atlas.",
-        rule_id="lint-claim-ownership-mutations",
+        check_id="lint-claim-ownership-mutations",
     )
 
 
 def recent_denial_reason(family: str, item_id: int, holder: str) -> str:
     public_ref = item_ref_for_id(int(item_id))
-    return append_field_note_footer(
+    return attach_check_id(
         "BLOCKED: claim-boundary bypass after live claim denial.\n\n"
         f"Mutation family: {family}\nItem: {public_ref}\n"
         f"Live holder: {holder}\n\n"
@@ -96,7 +96,7 @@ def recent_denial_reason(family: str, item_id: int, holder: str) -> str:
         "'already claimed by session' for the same item. Subsequent "
         f"mutating shapes against {public_ref} from this session are "
         "blocked until the holder releases or hands off.",
-        rule_id="lint-claim-ownership-mutations",
+        check_id="lint-claim-ownership-mutations",
     )
 
 

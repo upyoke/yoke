@@ -42,15 +42,8 @@ def test_older_server_case_payload_names_the_server_and_recovery(
         "compare_to_server_build",
         lambda *_args: comparison,
     )
-    monkeypatch.setattr(
-        source_build_skew,
-        "compare_main_to_origin",
-        lambda *_args: source_build_skew.OriginComparison(source_build_skew.EQUAL),
-    )
-    monkeypatch.setattr(https_engine_handshake, "_skew_warned", False)
     https_engine_handshake.observe_server_version(
         {https_engine_handshake.ENGINE_VERSION_HEADER: server_build.removeprefix("v")},
-        (),
         https_engine_handshake.ServerHandshake(),
     )
 
