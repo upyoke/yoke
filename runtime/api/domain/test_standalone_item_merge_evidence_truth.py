@@ -17,6 +17,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from runtime.api.domain.standalone_merge_simulation_support import (
+    stub_candidate_review,
+)
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as sim_cli
 from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
@@ -27,6 +30,12 @@ from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain import standalone_item_merge_terminal as terminal
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
+
+
+@pytest.fixture(autouse=True)
+def _no_candidate_review(monkeypatch: pytest.MonkeyPatch) -> None:
+    stub_candidate_review(monkeypatch)
+
 
 MERGE_SHA = "b" * 40
 
