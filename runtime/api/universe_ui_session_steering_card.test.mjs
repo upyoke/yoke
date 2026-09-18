@@ -152,7 +152,11 @@ test("a covered worker carries a row naming what it is steered from", () => {
   );
   // The same steering artwork the seat's box carries, not a second mark.
   assert.equal(row.children[0].children[0].tagName, "SVG");
-  // The seat's own document, from the seat's own scope.
+  // Project + covering document: CURRENT-PLAN exists in more than one
+  // project, so the slug alone is not the seat.
+  assert.equal(
+    byClass(row, "session-steering-project")[0].textContent, "yoke",
+  );
   assert.equal(
     byClass(row, "session-steering-docs")[0].textContent, "CURRENT-PLAN",
   );
@@ -176,6 +180,9 @@ test("two session document locks still name the covering claim", () => {
   });
   const row = byClass(rendered, "session-steered-row")[0];
   assert.equal(
+    byClass(row, "session-steering-project")[0].textContent, "yoke",
+  );
+  assert.equal(
     byClass(row, "session-steering-docs")[0].textContent, "CURRENT-PLAN",
   );
   assert.equal(byClass(row, "session-steering-wide").length, 0);
@@ -190,6 +197,9 @@ test("a project-wide covering claim says Project-wide, not its document locks", 
   });
   const row = byClass(rendered, "session-steered-row")[0];
   assert.equal(
+    byClass(row, "session-steering-project")[0].textContent, "yoke",
+  );
+  assert.equal(
     byClass(row, "session-steering-wide")[0].textContent, "Project-wide",
   );
   assert.equal(byClass(row, "session-steering-docs").length, 0);
@@ -202,6 +212,20 @@ test("a missing covering scope stays unlabeled, never inferred wide", () => {
     strategy_docs: ["CURRENT-PLAN", "RELEASES"],
   });
   const row = byClass(rendered, "session-steered-row")[0];
+  assert.equal(byClass(row, "session-steering-project").length, 0);
+  assert.equal(byClass(row, "session-steering-docs").length, 0);
+  assert.equal(byClass(row, "session-steering-wide").length, 0);
+});
+
+test("an empty covering scope object is not treated as project-wide", () => {
+  const rendered = coveredWorkerCard("active", {
+    project: "yoke",
+    project_id: 1,
+    scope: {},
+    strategy_docs: ["MISSION"],
+  });
+  const row = byClass(rendered, "session-steered-row")[0];
+  assert.equal(byClass(row, "session-steering-project").length, 0);
   assert.equal(byClass(row, "session-steering-docs").length, 0);
   assert.equal(byClass(row, "session-steering-wide").length, 0);
 });
