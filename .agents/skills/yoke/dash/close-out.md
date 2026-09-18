@@ -42,6 +42,16 @@ this item's delivery, so a stage run in a stage-and-production pair will not
 call you. Re-run the same `yoke merge item` command with `--result` and
 `--verification` then, and it finishes the close-out. Never poll the run.
 
+A run in ANOTHER project never calls you either, even when it deployed your
+code. A flow stage may bind a second project's branch tip through
+`input_bindings` and deploy that commit alongside its own candidate, so your
+merged change can already be live before any run of yours exists. That deploys
+the code; it does not discharge the item. Membership is same-project only, so
+only a run on your own item's flow carries you, wakes you, and lets this
+close-out finish. Keep waiting for that run — and when you report, say your
+code may already be serving, so the reader does not read your open wait as an
+unshipped change.
+
 A stage that wants your evidence is run by naming that stage AND your item:
 
 ```text

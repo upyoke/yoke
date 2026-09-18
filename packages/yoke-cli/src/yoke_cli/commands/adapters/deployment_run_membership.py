@@ -24,6 +24,24 @@ VALIDATE_COMPOSITION_USAGE = (
     "yoke deployment-runs validate-composition RUN-ID [--session-id S] [--json]"
 )
 
+# Deploying another project's code and carrying its items are separate facts,
+# and the gap between them is invisible from the run: a reader sees only the
+# members. Name it where the refusal lands.
+CROSS_PROJECT_MEMBERSHIP_NOTE = """\
+Membership is same-project only:
+  An item whose project differs from the run's is refused. That holds even
+  when the run deploys that project's code: a github-actions-workflow stage
+  may declare `input_bindings`, resolving another registered project's branch
+  tip at dispatch and shipping that commit alongside this run's own candidate.
+  Check with `yoke deployment-flows stages FLOW-ID`.
+
+  The bound project's items get no membership row, no requirement snapshot,
+  and no deployment wake here — they stay at their release wait until a run on
+  their own flow closes them out, which re-deploys a revision already serving.
+  Plan that run as the delivery record, not as the thing that ships the code,
+  and do not read its absence as proof the code is undeployed.
+"""
+
 
 def deployment_runs_add_item(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
@@ -32,6 +50,8 @@ def deployment_runs_add_item(args: List[str]) -> int:
             "Attach one public item reference to a created deployment run. "
             "Requires the caller's project deploy lock."
         ),
+        epilog=CROSS_PROJECT_MEMBERSHIP_NOTE,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("run_id")
     parser.add_argument("item")
