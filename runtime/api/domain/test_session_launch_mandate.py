@@ -9,10 +9,15 @@ from pydantic import ValidationError
 
 from yoke_contracts.session_control.models import LaunchCreateRequest
 from yoke_core.domain.session_launch_mandate import (
-    COMMITTED_GATE_TEACHING,
-    HEADLESS_TOOL_CONTINUATION_TEACHING,
     compose_item_launch_instructions,
     compose_single_item_mandate,
+)
+from yoke_core.domain.release_wait_ownership import (
+    RELEASE_WAIT_RETENTION_TEACHING,
+)
+from yoke_core.domain.session_launch_mandate_teaching import (
+    COMMITTED_GATE_TEACHING,
+    HEADLESS_TOOL_CONTINUATION_TEACHING,
 )
 from yoke_core.domain.session_launch_types import SessionLaunchError
 
@@ -74,6 +79,36 @@ def test_composed_mandate_tells_workers_to_continue_a_handed_back_call() -> None
     )
     assert "a machine-specific diagnostic" in teaching
     assert "a project without CI" in teaching
+
+
+def test_composed_mandate_keeps_a_release_wait_owner_holding_its_item() -> None:
+    """The close it carries says report and END when the legs are complete,
+    and a merge that stopped at a release wait has not completed them."""
+    body = _mandate()
+    assert RELEASE_WAIT_RETENTION_TEACHING in body
+    teaching = RELEASE_WAIT_RETENTION_TEACHING
+    assert "completed merge that is NOT a finished item" in teaching
+    assert "keeps your work claim and parks your session" in teaching
+    assert "Do NOT release the claim and do NOT end your session" in teaching
+    assert "deployment wake re-enters you" in teaching
+    assert "re-run the same `yoke merge item` command" in teaching
+    assert "Only once the item reaches done do you send the DONE report" in teaching
+    assert "handed to steering" in teaching
+
+
+def test_the_done_report_step_names_the_release_wait_as_incomplete() -> None:
+    body = _mandate()
+    assert "Complete means the item reached its own terminal status" in body
+    assert "stopped at a pinned release wait has NOT completed those legs" in body
+
+
+def test_the_retention_rule_precedes_the_landing_handoff() -> None:
+    """Order is the teaching: what "complete" means, before the two waits a
+    worker may legitimately stop on."""
+    body = _mandate()
+    assert body.index(RELEASE_WAIT_RETENTION_TEACHING) < body.index(
+        "headless command that cannot be prompted again"
+    )
 
 
 def test_the_landing_handoff_precedes_the_continuation_rule() -> None:

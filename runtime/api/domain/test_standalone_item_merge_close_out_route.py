@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+from yoke_core.domain import release_wait_park
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
@@ -79,6 +80,16 @@ def _wire(monkeypatch, *, route):
     monkeypatch.setattr(
         close_out_transition, "close_out_route", lambda *_a, **_k: route,
     )
+    retained: list = []
+
+    def record(envelope, **kw):
+        retained.append(kw)
+        envelope.setdefault("release_wait", {"parked": "yes"})
+
+    monkeypatch.setattr(close_out_transition, "retain_for_delivery", record)
+    # retain_if_waiting stays real, so the refusal paths exercise its own
+    # release-wait test; only the two writes underneath it are stood in for.
+    monkeypatch.setattr(release_wait_park, "retain_for_delivery", record)
     retirements: list = []
     monkeypatch.setattr(
         merge_cli, "record_terminal_lane_close_out",
@@ -89,7 +100,7 @@ def _wire(monkeypatch, *, route):
         merge_cli.pending, "clear_after_close_out",
         lambda item_id, _item: cleared.append(item_id) or "",
     )
-    return calls, retirements, cleared
+    return calls, retirements, cleared, retained
 
 
 def _run():
@@ -101,7 +112,7 @@ def _run():
 def test_a_pending_release_wait_lands_there_and_keeps_the_lane_and_claim(
     monkeypatch, capsys,
 ) -> None:
-    calls, retirements, cleared = _wire(
+    calls, retirements, cleared, retained = _wire(
         monkeypatch, route=CloseOutRoute(stages=("release",)),
     )
 
@@ -115,12 +126,17 @@ def test_a_pending_release_wait_lands_there_and_keeps_the_lane_and_claim(
     assert payloads["lifecycle.transition.execute"]["done_nonce_verified"] is False
     assert retirements == []
     assert cleared == []
+    # The claim is kept AND the session is parked on the wait it just entered:
+    # a retention nothing declared is one the stale sweep reclaims.
+    [parked] = retained
+    assert parked["item_id"] == 7
+    assert parked["public_ref"] == "ITEM-7"
 
 
 def test_a_delivery_already_clear_still_closes_out_and_retires_the_lane(
     monkeypatch, capsys,
 ) -> None:
-    calls, retirements, cleared = _wire(
+    calls, retirements, cleared, retained = _wire(
         monkeypatch, route=CloseOutRoute(stages=("done",)),
     )
 
@@ -133,12 +149,13 @@ def test_a_delivery_already_clear_still_closes_out_and_retires_the_lane(
     assert payloads["lifecycle.transition.execute"]["target_status"] == "done"
     assert len(retirements) == 1
     assert cleared == [7]
+    assert retained == []
 
 
 def test_mid_progress_work_stays_at_its_own_status(monkeypatch, capsys) -> None:
     """A still-implementing Blitz slice: not forced to release by stage
     order alone, and not treated as an error either."""
-    calls, retirements, cleared = _wire(monkeypatch, route=CloseOutRoute())
+    calls, retirements, cleared, retained = _wire(monkeypatch, route=CloseOutRoute())
 
     exit_code = _run()
 
@@ -148,6 +165,40 @@ def test_mid_progress_work_stays_at_its_own_status(monkeypatch, capsys) -> None:
     assert calls == []
     assert retirements == []
     assert cleared == []
+    # Mid-progress work owns no wait, so it is not parked on one either.
+    assert retained == []
+
+
+def test_a_refused_clearance_re_parks_the_owner_it_leaves_waiting(
+    monkeypatch, capsys,
+) -> None:
+    """A re-entry got here because a wake delivered a prompt, and that prompt
+    cleared the park. Declining without putting it back hands off an owner
+    who is awake, still waiting, and no longer declared."""
+    calls, retirements, cleared, retained = _wire(
+        monkeypatch, route=CloseOutRoute(error="delivery authority unreadable"),
+    )
+    monkeypatch.setattr(release_wait_park, "at_release_wait", lambda *_a: True)
+
+    exit_code = _run()
+
+    assert exit_code == 1
+    [re_parked] = retained
+    assert re_parked["item_id"] == 7
+    assert re_parked["public_ref"] == "ITEM-7"
+    assert retirements == []
+
+
+def test_a_refusal_short_of_the_release_wait_parks_nobody(
+    monkeypatch, capsys,
+) -> None:
+    calls, retirements, cleared, retained = _wire(
+        monkeypatch, route=CloseOutRoute(error="delivery authority unreadable"),
+    )
+    monkeypatch.setattr(release_wait_park, "at_release_wait", lambda *_a: False)
+
+    assert _run() == 1
+    assert retained == []
 
 
 def test_a_merge_only_item_walks_every_declared_stage_to_done(
@@ -157,7 +208,7 @@ def test_a_merge_only_item_walks_every_declared_stage_to_done(
     merge whose delivery is already discharged transitions through the
     release wait -- running that stage's own gates -- and asserts the
     done-transition ceremony it has just performed."""
-    calls, retirements, cleared = _wire(
+    calls, retirements, cleared, retained = _wire(
         monkeypatch,
         route=CloseOutRoute(
             stages=("release", "done"), delivery_discharged=True,
@@ -190,7 +241,7 @@ def test_a_refused_step_stops_the_walk_and_reports_the_refusal(
     """The stage in between is a real transition with real gates: when it
     refuses, the close-out reports that refusal rather than carrying on to a
     terminal status the item never legally reached."""
-    calls, retirements, cleared = _wire(
+    calls, retirements, cleared, retained = _wire(
         monkeypatch,
         route=CloseOutRoute(
             stages=("release", "done"), delivery_discharged=True,

@@ -170,6 +170,18 @@ def cmd_update(
                     stamp_run_environment(conn, run_id, when=completed_at)
                     record_carried_work(conn, run_id)
                 conn.commit()
+                if value == "succeeded":
+                    from yoke_core.domain.deployment_delivery_close_out_notice import (
+                        notify_delivery_cleared,
+                    )
+
+                    # Strictly after the status commit. A member still at its
+                    # pinned release wait is held by a session parked on
+                    # exactly this event, but announcing it is downstream of
+                    # the run's own record: on Postgres one failed send would
+                    # abort the transaction carrying 'succeeded' and lose the
+                    # delivery this is announcing.
+                    notify_delivery_cleared(conn, run_id=run_id)
                 return None
         elif field == lineage_rebind.LINEAGE_FIELD and (
             refusal := lineage_rebind.refuse_lineage_write(conn, run_id, value)

@@ -20,9 +20,36 @@ yoke merge item ITEM \
 
 The status the command reports is the pinned definition's, not a fixed `done`.
 When the item's registered deployment flow still owes a delivery, the close-out
-lands the item at that definition's release wait and keeps the lane and claim
-for the later close-out; the envelope's `status` names that stage, and this is
-a completed merge, not a failure. When the resolved flow discharges delivery at
+lands the item at that definition's release wait, keeps the lane and claim for
+the later close-out, and parks this session on that wait with a concrete
+deployment-wait reason; the envelope's `status` names that stage, the
+`release_wait` block names the park, and this is a completed merge, not a
+failure. **You stay the owner through delivery.** Do not release the claim and
+do not end the session there: the outcome block prints `awaiting delivery`,
+and the legs a worker mandate calls complete are not complete until the item
+reaches `done`. Report what landed in your own output, say you are waiting on
+delivery, and stop deliberately. If the block reports the park `unconfirmed`,
+stamp it yourself — an undeclared wait is what the stale sweep reclaims:
+
+```text
+yoke sessions touch --mode parked --reason "awaiting ITEM delivery: deployment run, then post-deploy validation and the done close-out"
+```
+
+The deployment wake re-enters you: a QA stage that needs your evidence, a
+verdict on one you supplied, or the notice that your run succeeded and the
+wait is over — that last one fires only for the run that actually discharges
+this item's delivery, so a stage run in a stage-and-production pair will not
+call you. Re-run the same `yoke merge item` command with `--result` and
+`--verification` then, and it finishes the close-out. Never poll the run.
+
+**Any prompt that wakes you clears the park**, including one that does not
+finish the item. The close-out re-stamps it for you when it refuses, but a
+wake you handled some other way does not: whenever you go quiet still short
+of `done`, re-park first with the command above. An undeclared wait is what
+the stale sweep reclaims, and it is bounded — a declared one is spared, but
+only while the session holds nothing else, is not reported process-gone, and
+stays inside the retention window; past that the item is handed to steering
+by name rather than sitting unowned. When the resolved flow discharges delivery at
 the merge — a flow with no target tier — the close-out transitions through
 every declared stage to `done`, so the release stage runs its own gates on the
 way. Read the `[close-out]` block and the envelope's `status` rather than
@@ -67,14 +94,17 @@ registered Dash worktree lane, then sweeps lanes earlier landings on this
 machine preserved: the
 envelope's `lane_sweep` names what it removed and kept (with the reason), and a
 refusal on the item's own lane is recorded as a `LandedLanePreserved` event.
-Only release when a claim remains, or when exiting before merge (including
-escalation):
+Only release when a claim remains AND the item is finished — a terminal status,
+or an exit before merge (including escalation). A claim retained at a release
+wait is not a leftover to tidy up; releasing it there is the abandonment this
+step exists to prevent:
 
 ```text
 yoke claims work release --item ITEM --reason "Dash completed"
 ```
 
-Skip that call when merge or `done` already released the claim. Do not treat an
+Skip that call when merge or `done` already released the claim, and skip it
+entirely while the item sits at a release wait. Do not treat an
 already-released claim as a close-out failure.
 
 When a report to the steering seat is still owed, send it BEFORE that release.
@@ -87,7 +117,9 @@ same completion deduplicates rather than arriving twice, and a send answering
 completion you are resumed to do is its own leg and is delivered, whether or
 not the resume hands you a fresh claim; never release an unfinished lane merely
 to be heard. Ending a turn sends no Fleet message; every worker uses this
-deliberate route regardless of launch origin.
+deliberate route regardless of launch origin. A close-out that stopped at a
+release wait owes no terminal report yet: the leg completes at `done`, and
+reporting early is how an item with a live owner gets read as finished.
 
 ## Surface this session's guardrail denials
 

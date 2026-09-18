@@ -26,7 +26,7 @@ def _empty_outcome(**_k) -> StandaloneMergeOutcome:
 def test_no_change_close_out_walks_the_cli_route_without_git_landing(
     monkeypatch, capsys,
 ) -> None:
-    calls, retirements, cleared = _wire(
+    calls, retirements, cleared, _retained = _wire(
         monkeypatch,
         route=CloseOutRoute(
             stages=("release", "done"), delivery_discharged=True,
