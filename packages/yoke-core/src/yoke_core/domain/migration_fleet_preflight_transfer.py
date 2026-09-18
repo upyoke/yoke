@@ -57,7 +57,7 @@ def run_transfer(
     redact: str = "",
     timeout: int,
     env: Optional[Mapping[str, str]] = None,
-) -> None:
+) -> subprocess.CompletedProcess:
     try:
         result = subprocess.run(
             list(argv),
@@ -71,7 +71,7 @@ def run_transfer(
             f"{Path(argv[0]).name} timed out after {timeout}s"
         ) from exc
     if result.returncode == 0:
-        return
+        return result
     stderr = (result.stderr or "").strip()
     if redact:
         stderr = stderr.replace(redact, "<dsn>")
@@ -151,22 +151,85 @@ def create_copy(spec: ClusterSpec, copy_name: str) -> None:
     )
 
 
-def restore_copy(spec: ClusterSpec, copy_name: str, dump: Path) -> None:
-    run_transfer(
-        [
-            postgres_cluster.binary(spec, "pg_restore"),
-            "-h",
-            str(spec.sock_dir),
-            "-U",
-            spec.superuser,
-            "-d",
-            copy_name,
-            "--no-owner",
-            "--no-privileges",
-            str(dump),
-        ],
+def restore_copy(
+    spec: ClusterSpec,
+    copy_name: str,
+    dump: Path,
+    *,
+    use_list: Optional[Path] = None,
+) -> None:
+    argv = [
+        postgres_cluster.binary(spec, "pg_restore"),
+        "-h",
+        str(spec.sock_dir),
+        "-U",
+        spec.superuser,
+        "-d",
+        copy_name,
+        "--no-owner",
+        "--no-privileges",
+    ]
+    if use_list is not None:
+        argv += ["-L", str(use_list)]
+    argv.append(str(dump))
+    run_transfer(argv, timeout=RESTORE_TIMEOUT_SECONDS)
+
+
+def restore_list_omitting_schemas(
+    spec: ClusterSpec,
+    dump: Path,
+    schemas: Sequence[str],
+    list_path: Path,
+) -> None:
+    """Write a ``pg_restore -L`` list that skips creating the named schemas.
+
+    A schema staged into the copy ahead of the restore is already there, so the
+    dump's plain ``CREATE SCHEMA`` would fail as a duplicate. Commenting out an
+    entry is how a restore list says "skip this one"; every other entry still
+    runs, the extension's own ``IF NOT EXISTS`` statement included.
+
+    A named schema with no entry to comment out refuses. The alternative is
+    handing pg_restore a list that still creates the schema, which fails the
+    restore for a reason the caller already knew how to avoid.
+    """
+    listing = run_transfer(
+        [postgres_cluster.binary(spec, "pg_restore"), "-l", str(dump)],
         timeout=RESTORE_TIMEOUT_SECONDS,
     )
+    wanted = set(schemas)
+    omitted = set()
+    lines = []
+    for line in (listing.stdout or "").splitlines(keepends=True):
+        listed = _listed_schema(line)
+        if listed is not None and listed in wanted:
+            omitted.add(listed)
+            lines.append(";" + line)
+        else:
+            lines.append(line)
+    unmatched = sorted(wanted - omitted)
+    if unmatched:
+        raise RuntimeError(
+            f"the dump carries no CREATE SCHEMA entry for "
+            f"{', '.join(unmatched)}, so the restore cannot be told to skip it"
+        )
+    list_path.parent.mkdir(parents=True, exist_ok=True)
+    list_path.write_text("".join(lines), encoding="utf-8")
+
+
+def _listed_schema(line: str) -> Optional[str]:
+    """The schema one ``pg_restore -l`` entry creates, if it creates one.
+
+    Entry shape is ``<id>; <tableoid> <oid> <desc> <namespace> <tag> <owner>``;
+    a schema entry carries no namespace of its own, so its tag is the name.
+    """
+    body = line.strip()
+    if not body or body.startswith(";"):
+        return None
+    _entry_id, _, rest = body.partition(";")
+    fields = rest.split()
+    if len(fields) < 5 or fields[2] != "SCHEMA" or fields[3] != "-":
+        return None
+    return fields[4]
 
 
 def drop_copy(spec: ClusterSpec, copy_name: str) -> None:

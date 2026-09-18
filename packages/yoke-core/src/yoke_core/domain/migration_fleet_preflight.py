@@ -30,9 +30,12 @@ normalizes belongs there too.
 Extension versions were the other such normalization, and this one is
 repairable rather than only readable: a dump names its extensions without
 versions, so the restore used to install the rehearsal cluster's defaults. The
-source's versions are now read before the copy and pinned into the fresh
-database before the restore, which is also why a cluster that cannot install
-one refuses before anything is dumped.
+source's versions are now read before the copy and staged into the fresh
+database before the restore — including any schema the extension lives in,
+which the restore is then told to skip creating. A cluster that cannot install
+a source version refuses before anything is dumped. Details, and why a wrong
+version can fail the restore outright, are in
+:mod:`yoke_core.domain.migration_fleet_preflight_extensions`.
 """
 
 from __future__ import annotations
@@ -220,10 +223,16 @@ def rehearse(
     try:
         migration_fleet_preflight_transfer.drop_copy(spec, copy_name)
         migration_fleet_preflight_transfer.create_copy(spec, copy_name)
-        migration_fleet_preflight_extensions.pin_extension_versions(
-            spec, copy_name, pins,
+        use_list = migration_fleet_preflight_extensions.stage_pinned_extensions(
+            spec,
+            copy_name,
+            pins,
+            dump=dump,
+            list_path=work_dir / f"{database}.restore-list",
         )
-        migration_fleet_preflight_transfer.restore_copy(spec, copy_name, dump)
+        migration_fleet_preflight_transfer.restore_copy(
+            spec, copy_name, dump, use_list=use_list,
+        )
         return _converge_copy(spec, database, copy_name, dump, plan)
     finally:
         migration_fleet_preflight_transfer.drop_copy(spec, copy_name)

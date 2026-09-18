@@ -4,40 +4,45 @@ A copy is only evidence while it is the same database. ``pg_dump`` names its
 extensions without versions — ``CREATE EXTENSION IF NOT EXISTS <name> WITH
 SCHEMA <schema>`` — deliberately, so a dump stays portable across builds. The
 cost is that a restore installs whatever version the *receiving* cluster
-defaults to, so a rehearsal cluster one Postgres release ahead of the fleet
-converges a copy running extension code the tenant has never run.
+defaults to, so a rehearsal cluster one Postgres release ahead converges a copy
+running extension code the tenant has never run.
 
 It is worse than a silent difference, because objects compiled against the
 source's row types may not restore at all. ``pg_get_viewdef`` renders a view
-over a set-returning extension function with a positional column alias list::
+over a set-returning function with a positional column alias list::
 
-    FROM pg_stat_statements(true) pg_stat_statements(userid, dbid, ..., wal_bytes)
+    FROM statement_statistics.current_database_statements_read()
+         current_database_statements_read(userid, dbid, ..., jit_emission_time)
 
-A newer extension version returns more columns, and inserts some of them
-mid-list. Postgres applies the shorter alias list positionally and lets the
-surplus columns keep their own names, so one name can end up resolving twice
-in the same range table entry and ``CREATE VIEW`` fails as ambiguous — naming
-a column the view selects, which reads like a corrupt dump rather than an
-extension-version mismatch.
+When that function returns ``SETOF`` an extension's own view, a newer extension
+version widens the rowtype and inserts some columns mid-list. Postgres applies
+the shorter alias list positionally and lets the surplus columns keep their own
+names, so one name ends up resolving twice in the same range table entry and
+``CREATE VIEW`` fails as ambiguous — naming a column the view selects, which
+reads like a corrupt dump rather than an extension-version mismatch.
 
-So the source's versions are read before anything is copied, and pinned into
-the fresh database before the restore runs. A version this cluster cannot
-install refuses while refusing is still free, rather than producing a copy
-that quietly is not the tenant.
+So the source's versions are read before anything is copied, and staged into
+the fresh database before the restore runs. Staging is the whole trick: once an
+extension already exists, the dump's ``IF NOT EXISTS`` statement is the no-op
+it reads as. An extension living in a schema the dump also creates needs that
+schema staged ahead of it, and then the dump's own ``CREATE SCHEMA`` is the one
+statement that must be skipped — which is what the ``pg_restore -L`` list is
+for. Nothing about the live source is touched or asked to change; a version
+this cluster cannot install refuses while refusing is still free.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, FrozenSet, List, Sequence, Tuple
+from pathlib import Path
+from typing import Dict, FrozenSet, List, Optional, Sequence, Tuple
 
-from yoke_core.domain import postgres_cluster
+from yoke_core.domain import migration_fleet_preflight_transfer, postgres_cluster
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
-#: Schemas a freshly created database already has. A pin may only target one
-#: of these: ``pg_dump`` emits ``CREATE SCHEMA`` for every schema it had to
-#: create, so pre-creating any other one makes the restore fail as a duplicate.
-PINNABLE_SCHEMAS: FrozenSet[str] = frozenset(
+#: Schemas a freshly created database already has, so an extension pinned into
+#: one needs no schema staged and no restore-list adjustment.
+PREEXISTING_SCHEMAS: FrozenSet[str] = frozenset(
     {"public", "pg_catalog", "information_schema"}
 )
 
@@ -137,8 +142,6 @@ def extension_pins(
             continue
         if not catalog.offers(extension):
             raise CopyFidelityError(_unavailable_version_refusal(extension, catalog))
-        if extension.schema not in PINNABLE_SCHEMAS:
-            raise CopyFidelityError(_unpinnable_schema_refusal(extension))
         pins.append(extension)
     return tuple(pins)
 
@@ -159,31 +162,52 @@ def _unavailable_version_refusal(
     )
 
 
-def _unpinnable_schema_refusal(extension: SourceExtension) -> str:
-    return (
-        f"the source installs {extension.name} {extension.version} in schema "
-        f"{extension.schema!r}, which the dump creates itself, so pinning the "
-        f"version there would collide with the dump's own CREATE SCHEMA. "
-        f"Pinning only reaches schemas every fresh database already has "
-        f"({', '.join(sorted(PINNABLE_SCHEMAS))}). Relocate the extension on "
-        f"the source (ALTER EXTENSION {extension.name} SET SCHEMA public), or "
-        f"teach this module to stage the dump's schemas before it pins."
+def staged_schemas(pins: Sequence[SourceExtension]) -> Tuple[str, ...]:
+    """The schemas that must be created before the pinned extensions can be.
+
+    Order-preserving and deduplicated: two pinned extensions may share one
+    schema, and the copy may only be told to create it once.
+    """
+    return tuple(
+        dict.fromkeys(
+            pin.schema for pin in pins if pin.schema not in PREEXISTING_SCHEMAS
+        )
     )
 
 
-def pin_extension_versions(
+def stage_pinned_extensions(
     spec: ClusterSpec,
     copy_name: str,
     pins: Sequence[SourceExtension],
-) -> None:
-    """Install the pinned extensions in the fresh copy, before the restore.
+    *,
+    dump: Path,
+    list_path: Path,
+) -> Optional[Path]:
+    """Create the pinned extensions in the fresh copy, before the restore.
 
-    The dump's ``CREATE EXTENSION IF NOT EXISTS`` then finds each one already
-    present and becomes the no-op it reads as, leaving the source's version in
-    place for every object the restore compiles against it.
+    Returns the ``pg_restore -L`` list the restore must use, or ``None`` when
+    the dump needs no adjustment — which is every case where no schema had to
+    be staged, because the dump's extension statements are already no-ops.
     """
     if not pins:
-        return
+        return None
+    schemas = staged_schemas(pins)
+    _create_pins(spec, copy_name, pins, schemas)
+    if not schemas:
+        return None
+    migration_fleet_preflight_transfer.restore_list_omitting_schemas(
+        spec, dump, schemas, list_path,
+    )
+    return list_path
+
+
+def _create_pins(
+    spec: ClusterSpec,
+    copy_name: str,
+    pins: Sequence[SourceExtension],
+    schemas: Sequence[str],
+) -> None:
+    """Issue the staging DDL. Identifiers are composed, never interpolated."""
     from psycopg import sql
 
     from yoke_core.domain import db_backend
@@ -192,12 +216,14 @@ def pin_extension_versions(
         postgres_cluster.dsn(spec, copy_name), autocommit=True
     )
     try:
-        for extension in pins:
+        for schema in schemas:
+            conn.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
+        for pin in pins:
             conn.execute(
                 sql.SQL("CREATE EXTENSION {} WITH SCHEMA {} VERSION {}").format(
-                    sql.Identifier(extension.name),
-                    sql.Identifier(extension.schema),
-                    sql.Literal(extension.version),
+                    sql.Identifier(pin.name),
+                    sql.Identifier(pin.schema),
+                    sql.Literal(pin.version),
                 )
             )
     finally:
@@ -208,11 +234,12 @@ __all__ = [
     "AVAILABLE_EXTENSIONS_SQL",
     "ClusterExtensions",
     "CopyFidelityError",
-    "PINNABLE_SCHEMAS",
+    "PREEXISTING_SCHEMAS",
     "SOURCE_EXTENSIONS_SQL",
     "SourceExtension",
     "cluster_extensions",
     "extension_pins",
-    "pin_extension_versions",
     "source_extensions",
+    "stage_pinned_extensions",
+    "staged_schemas",
 ]

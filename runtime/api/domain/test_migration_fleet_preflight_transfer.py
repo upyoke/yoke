@@ -156,3 +156,60 @@ def test_dump_names_both_failures_when_the_forward_stays_down(
     assert "Connection refused" in message
     assert "could not be restored" in message
     assert "rc=255" in message
+
+
+#: A ``pg_restore -l`` listing of the fleet's shape, headers and all.
+TOC_LISTING = """;
+; Archive created at 2026-09-18 03:00:00 UTC
+;     dbname: tenant_1
+;
+; Selected TOC Entries:
+;
+7; 2615 32866 SCHEMA - statement_statistics tenantowner
+2; 3079 32867 EXTENSION - pg_stat_statements 
+3838; 0 0 COMMENT - EXTENSION pg_stat_statements 
+234; 1255 32892 FUNCTION statement_statistics reader() tenantowner
+219; 1259 32893 VIEW statement_statistics current_database_statements tenantowner
+"""
+
+STAGED_SCHEMA = "statement_statistics"
+
+
+class TestRestoreListOmittingSchemas:
+    """A schema staged ahead of the restore must not be created twice."""
+
+    @pytest.fixture(autouse=True)
+    def _listing(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            transfer.postgres_cluster, "binary", lambda _spec, name: f"/bin/{name}"
+        )
+        monkeypatch.setattr(
+            transfer,
+            "run_transfer",
+            lambda *_a, **_kw: SimpleNamespace(stdout=TOC_LISTING, stderr=""),
+        )
+
+    def _write(self, tmp_path, schemas) -> list:
+        path = tmp_path / "nested" / "tenant.restore-list"
+        transfer.restore_list_omitting_schemas(
+            SimpleNamespace(), tmp_path / "tenant.dump", schemas, path
+        )
+        return path.read_text(encoding="utf-8").splitlines()
+
+    def test_only_the_named_schema_entry_is_commented_out(self, tmp_path) -> None:
+        lines = self._write(tmp_path, [STAGED_SCHEMA])
+
+        assert f";7; 2615 32866 SCHEMA - {STAGED_SCHEMA} tenantowner" in lines
+        # Everything else still restores, the extension's own IF NOT EXISTS
+        # statement included — it finds the staged extension and no-ops.
+        assert "2; 3079 32867 EXTENSION - pg_stat_statements " in lines
+        assert (
+            "219; 1259 32893 VIEW statement_statistics "
+            "current_database_statements tenantowner"
+        ) in lines
+
+    def test_a_schema_with_no_entry_to_skip_refuses(self, tmp_path) -> None:
+        # Proceeding would hand pg_restore a list that still creates the
+        # staged schema, failing the restore on a duplicate instead.
+        with pytest.raises(RuntimeError, match="cannot be told to skip"):
+            self._write(tmp_path, [STAGED_SCHEMA, "absent_schema"])

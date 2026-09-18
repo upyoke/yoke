@@ -2,14 +2,14 @@
 
 A dump names its extensions without versions, so a cluster one Postgres
 release ahead installs newer ones and a view compiled against the source's row
-type fails to restore as ambiguous. A copy that cannot be built faithfully has
-to say so before it is built, never converge and report a pass.
+type fails to restore as ambiguous. The fix stages the source's versions into
+the fresh copy first, including the schema an extension lives in, and never
+asks the live source to change. The real dump/restore round trip is in
+``test_migration_fleet_preflight_extension_restore``.
 """
 
 from __future__ import annotations
 
-import shutil
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -18,12 +18,15 @@ from yoke_core.domain import (
     migration_fleet_preflight as preflight,
     migration_fleet_preflight_extensions as extensions,
     migration_fleet_preflight_transfer as transfer,
-    postgres_cluster,
 )
 from yoke_core.domain.migration_fleet_preflight import RehearsalPlan
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
 STATISTICS_EXTENSION = "pg_stat_statements"
+
+#: Where prod and stage actually keep the statistics extension: a schema the
+#: dump creates, holding a view the tenant depends on.
+DUMP_CREATED_SCHEMA = "statement_statistics"
 
 #: The rehearsal never reaches convergence in these tests: a refusal stops
 #: before the copy, and the ordering test replaces the converge step.
@@ -87,6 +90,28 @@ class TestExtensionPins:
             (STATISTICS_EXTENSION, "1.10"),
         ]
 
+    def test_the_schema_an_extension_lives_in_never_makes_it_unpinnable(
+        self, monkeypatch,
+    ) -> None:
+        """The fleet's own shape: the extension sits in a dump-created schema.
+
+        Refusing here would block the very tenants this exists for, and the
+        only recovery would be moving an extension in a live database.
+        """
+        _catalog(
+            monkeypatch,
+            defaults={STATISTICS_EXTENSION: "1.11"},
+            offered={(STATISTICS_EXTENSION, "1.10")},
+        )
+
+        pins = extensions.extension_pins(
+            object(), [_source(schema=DUMP_CREATED_SCHEMA)]
+        )
+
+        assert [(pin.name, pin.schema) for pin in pins] == [
+            (STATISTICS_EXTENSION, DUMP_CREATED_SCHEMA),
+        ]
+
     def test_a_version_the_cluster_cannot_install_refuses_with_recovery(
         self, monkeypatch,
     ) -> None:
@@ -104,8 +129,11 @@ class TestExtensionPins:
         assert "PostgreSQL 17.10" in message
         assert "it offers 1.10, 1.11" in message
         assert "would install 1.11 instead" in message
-        # A refusal that does not say what to do just moves the outage.
+        # A refusal that does not say what to do just moves the outage — and
+        # what it says to do must never be "change the live database".
         assert "Install the contrib build" in message
+        assert "ALTER EXTENSION" not in message
+        assert "SET SCHEMA" not in message
 
     def test_an_extension_the_cluster_has_never_heard_of_refuses(
         self, monkeypatch,
@@ -115,29 +143,53 @@ class TestExtensionPins:
         with pytest.raises(extensions.CopyFidelityError, match="no version"):
             extensions.extension_pins(object(), [_source("vector", "0.7.0")])
 
-    def test_an_extension_outside_a_pinnable_schema_refuses(
-        self, monkeypatch,
-    ) -> None:
-        # Pinning it would need its schema first, and the dump carries a plain
-        # CREATE SCHEMA for that schema — a duplicate that fails the restore.
-        # Refusing beats trading one restore error for another.
-        _catalog(
-            monkeypatch,
-            defaults={STATISTICS_EXTENSION: "1.11"},
-            offered={(STATISTICS_EXTENSION, "1.10")},
+
+class _RecordingConn:
+    """Collects the composed DDL instead of executing it."""
+
+    def __init__(self, statements: list) -> None:
+        self._statements = statements
+
+    def execute(self, statement) -> None:
+        self._statements.append(statement.as_string(None))
+
+    def close(self) -> None:
+        return None
+
+
+class TestStagingPins:
+    @pytest.fixture
+    def statements(self, monkeypatch) -> list:
+        from yoke_core.domain import db_backend
+
+        recorded: list = []
+        monkeypatch.setattr(
+            db_backend,
+            "_open_native_postgres",
+            lambda *_a, **_kw: _RecordingConn(recorded),
+        )
+        return recorded
+
+    @pytest.fixture
+    def omitted(self, monkeypatch) -> list:
+        calls: list = []
+        monkeypatch.setattr(
+            transfer,
+            "restore_list_omitting_schemas",
+            lambda _spec, _dump, schemas, path: calls.append((tuple(schemas), path)),
+        )
+        return calls
+
+    def _stage(self, tmp_path: Path, pins):
+        return extensions.stage_pinned_extensions(
+            ClusterSpec(root=tmp_path, superuser="rehearsal"),
+            "migration_rehearsal_tenant",
+            pins,
+            dump=tmp_path / "tenant.dump",
+            list_path=tmp_path / "tenant.restore-list",
         )
 
-        with pytest.raises(extensions.CopyFidelityError) as excinfo:
-            extensions.extension_pins(object(), [_source(schema="ext_home")])
-
-        message = str(excinfo.value)
-        assert "'ext_home'" in message
-        assert "CREATE SCHEMA" in message
-        assert "SET SCHEMA public" in message
-
-
-class TestPinStatements:
-    def test_pinning_nothing_opens_no_connection(self, monkeypatch) -> None:
+    def test_staging_nothing_opens_no_connection(self, monkeypatch) -> None:
         from yoke_core.domain import db_backend
 
         monkeypatch.setattr(
@@ -146,30 +198,16 @@ class TestPinStatements:
             lambda *_a, **_kw: pytest.fail("an empty pin set must not connect"),
         )
 
-        extensions.pin_extension_versions(object(), "copy", ())
+        assert extensions.stage_pinned_extensions(
+            object(), "copy", (), dump=Path("d"), list_path=Path("l")
+        ) is None
 
     def test_a_pin_quotes_its_identifiers_and_its_version(
-        self, monkeypatch, tmp_path: Path,
+        self, statements, omitted, tmp_path: Path,
     ) -> None:
         """Names and versions come from the source's catalog, not from us."""
-        statements = []
-
-        class _Conn:
-            def execute(self, statement) -> None:
-                statements.append(statement.as_string(None))
-
-            def close(self) -> None:
-                return None
-
-        from yoke_core.domain import db_backend
-
-        monkeypatch.setattr(
-            db_backend, "_open_native_postgres", lambda *_a, **_kw: _Conn()
-        )
-
-        extensions.pin_extension_versions(
-            ClusterSpec(root=tmp_path, superuser="rehearsal"),
-            "migration_rehearsal_tenant",
+        use_list = self._stage(
+            tmp_path,
             [_source("uuid-ossp", "1.1"), _source("plpgsql", "1.0", "pg_catalog")],
         )
 
@@ -177,6 +215,38 @@ class TestPinStatements:
             'CREATE EXTENSION "uuid-ossp" WITH SCHEMA "public" VERSION \'1.1\'',
             'CREATE EXTENSION "plpgsql" WITH SCHEMA "pg_catalog" VERSION \'1.0\'',
         ]
+        # A database already has these schemas, so the dump needs no editing.
+        assert use_list is None
+        assert omitted == []
+
+    def test_a_dump_created_schema_is_staged_and_then_skipped_on_restore(
+        self, statements, omitted, tmp_path: Path,
+    ) -> None:
+        use_list = self._stage(tmp_path, [_source(schema=DUMP_CREATED_SCHEMA)])
+
+        # Schema first: the extension cannot be created into a schema that is
+        # not there yet.
+        assert statements == [
+            f'CREATE SCHEMA "{DUMP_CREATED_SCHEMA}"',
+            f'CREATE EXTENSION "{STATISTICS_EXTENSION}" WITH SCHEMA '
+            f'"{DUMP_CREATED_SCHEMA}" VERSION \'1.10\'',
+        ]
+        assert use_list == tmp_path / "tenant.restore-list"
+        assert omitted == [((DUMP_CREATED_SCHEMA,), use_list)]
+
+    def test_two_pins_sharing_one_schema_create_it_once(
+        self, statements, omitted, tmp_path: Path,
+    ) -> None:
+        self._stage(
+            tmp_path,
+            [
+                _source(schema=DUMP_CREATED_SCHEMA),
+                _source("pgstattuple", "1.5", DUMP_CREATED_SCHEMA),
+            ],
+        )
+
+        assert statements.count(f'CREATE SCHEMA "{DUMP_CREATED_SCHEMA}"') == 1
+        assert omitted[0][0] == (DUMP_CREATED_SCHEMA,)
 
 
 def _raise(error: Exception):
@@ -194,7 +264,7 @@ def _rehearse_tenant(tmp_path: Path, source_dsn: str):
 
 
 class TestRehearsalSequence:
-    """Where the pin sits in :func:`migration_fleet_preflight.rehearse`."""
+    """Where staging sits in :func:`migration_fleet_preflight.rehearse`."""
 
     @pytest.fixture(autouse=True)
     def _ownership_already_cleared(self, monkeypatch) -> None:
@@ -229,20 +299,27 @@ class TestRehearsalSequence:
         assert "<dsn>" in verdict.detail
         assert not verdict.pending_evaluated
 
-    def test_the_copy_is_pinned_between_creating_it_and_restoring_into_it(
+    def test_the_copy_is_staged_between_creating_it_and_restoring_into_it(
         self, monkeypatch, tmp_path: Path,
     ) -> None:
         order: list[str] = []
         monkeypatch.setattr(extensions, "extension_pins", lambda *_a: (_source(),))
         monkeypatch.setattr(
             extensions,
-            "pin_extension_versions",
-            lambda _spec, _copy, pins: order.append(f"pin:{pins[0].version}"),
+            "stage_pinned_extensions",
+            lambda _spec, _copy, pins, **kw: (
+                order.append(f"stage:{pins[0].version}") or kw["list_path"]
+            ),
         )
-        for name in ("dump_database", "drop_copy", "create_copy", "restore_copy"):
+        for name in ("dump_database", "drop_copy", "create_copy"):
             monkeypatch.setattr(
                 transfer, name, lambda *_a, _n=name, **_kw: order.append(_n)
             )
+        monkeypatch.setattr(
+            transfer,
+            "restore_copy",
+            lambda *_a, **kw: order.append(f"restore:{kw['use_list'].name}"),
+        )
         monkeypatch.setattr(
             preflight,
             "_converge_copy",
@@ -250,99 +327,7 @@ class TestRehearsalSequence:
         )
 
         assert _rehearse_tenant(tmp_path, "dsn").passed
-        assert order == ["dump_database", "drop_copy", "create_copy",
-                         "pin:1.10", "restore_copy", "drop_copy"]
-
-
-def _ordered(version: str) -> tuple:
-    return tuple(int(part) for part in version.split("."))
-
-
-def _older_offered_version(spec: ClusterSpec, default: str) -> "str | None":
-    """The highest installable statistics-extension version below *default*."""
-    probe = postgres_cluster.psql(
-        spec,
-        "SELECT version FROM pg_available_extension_versions "
-        f"WHERE name = '{STATISTICS_EXTENSION}'",
-    )
-    offered = {line.strip() for line in probe.stdout.splitlines() if line.strip()}
-    older = sorted(v for v in offered if _ordered(v) < _ordered(default))
-    return older[-1] if older else None
-
-
-@pytest.mark.skipif(
-    shutil.which("initdb") is None,
-    reason="system Postgres binaries not on PATH",
-)
-def test_a_view_over_the_extension_function_restores_at_the_source_version():
-    """The real dump/restore round trip the fleet preflight failed on.
-
-    The scratch root sits directly under the OS temp dir because unix socket
-    paths cap near 103 bytes and pytest's nested tmp_path blows that on macOS.
-    """
-    scratch = Path(tempfile.mkdtemp(prefix="yoke-extpin-", dir="/tmp"))
-    spec = ClusterSpec(
-        root=scratch,
-        superuser="rehearsaluser",
-        server_settings=(("fsync", "off"),),
-        stop_mode="immediate",
-    )
-    try:
-        assert postgres_cluster.ensure_started(spec) == 0
-        default = postgres_cluster.psql(
-            spec,
-            "SELECT default_version FROM pg_available_extensions "
-            f"WHERE name = '{STATISTICS_EXTENSION}'",
-        ).stdout.strip()
-        if not default:
-            pytest.skip(f"{STATISTICS_EXTENSION} is not available on this cluster")
-        older = _older_offered_version(spec, default)
-        if older is None:
-            pytest.skip(f"this cluster offers only {STATISTICS_EXTENSION} {default}")
-
-        transfer.create_copy(spec, "source_tenant")
-        built = postgres_cluster.psql(
-            spec,
-            f"CREATE EXTENSION {STATISTICS_EXTENSION} VERSION '{older}';"
-            "CREATE SCHEMA statement_statistics;"
-            "CREATE VIEW statement_statistics.current_database_statements AS"
-            f" SELECT * FROM {STATISTICS_EXTENSION}(true)"
-            " WHERE dbid = (SELECT oid FROM pg_database"
-            " WHERE datname = current_database());",
-            dbname="source_tenant",
-        )
-        assert built.returncode == 0, built.stderr
-
-        dump = scratch / "source_tenant.dump"
-        source_dsn = postgres_cluster.dsn(spec, "source_tenant")
-        transfer.dump_database(spec, source_dsn, dump)
-
-        # Unpinned is the reported failure: the dump installs the cluster
-        # default, and the view's positional alias list resolves a name twice.
-        transfer.create_copy(spec, "unpinned_copy")
-        with pytest.raises(RuntimeError, match="is ambiguous"):
-            transfer.restore_copy(spec, "unpinned_copy", dump)
-
-        pins = extensions.extension_pins(
-            spec, extensions.source_extensions(source_dsn)
-        )
-        assert [(pin.name, pin.version) for pin in pins] == [
-            (STATISTICS_EXTENSION, older),
+        assert order == [
+            "dump_database", "drop_copy", "create_copy", "stage:1.10",
+            "restore:tenant_1.restore-list", "drop_copy",
         ]
-
-        transfer.create_copy(spec, "pinned_copy")
-        extensions.pin_extension_versions(spec, "pinned_copy", pins)
-        transfer.restore_copy(spec, "pinned_copy", dump)
-
-        restored = postgres_cluster.psql(
-            spec,
-            "SELECT e.extversion, to_regclass("
-            "'statement_statistics.current_database_statements') IS NOT NULL "
-            "FROM pg_extension e "
-            f"WHERE e.extname = '{STATISTICS_EXTENSION}'",
-            dbname="pinned_copy",
-        )
-        assert restored.stdout.strip() == f"{older}|t"
-    finally:
-        postgres_cluster.destroy(spec)
-        shutil.rmtree(scratch, ignore_errors=True)
