@@ -125,7 +125,18 @@ that workflow's remaining legs. One worker owns the item across those legs.
 Work arriving in any workflow stays there; never convert or re-file it to make
 it Dash-shaped. Chaining `/yoke do` duplicates the steerer-owned selection.
 
-## 5. Workers self-end after their DONE report
+## 5. Workers self-end after their DONE report — once the item is done
+
+A worker's legs are complete when its item reaches a terminal status, not when
+its branch merges. A merge that lands at the pinned release wait keeps the
+worker's claim and parks its session on that wait, and the worker stays the
+owner through delivery and post-deploy validation. Do not read a parked
+release-wait holder as a worker that forgot to finish, do not ask it to
+release, and do not terminate it for being quiet: the deployment wake re-enters
+it when its delivery clears or a QA stage needs it, and it closes out and
+reports then. A holder that goes quiet WITHOUT that park is treated as gone —
+the stale sweep reclaims it and mails this seat a named hand-off for the
+orphaned item, which is staffing work, not a notification to file.
 
 After its `DONE PREFIX-N <one-line summary>` report, the worker must END its
 own session. That non-destructive self-END is the canonical close: no
@@ -337,6 +348,13 @@ that gap, and it re-enters the worker for close-out. The mandate therefore
 tells a launched worker to report the pull request, stop deliberately, and
 re-run the same command when the notice arrives.
 
+The same mandate names where those legs actually end. A worker whose merge
+landed at a pinned release wait read "when those legs are complete" as
+complete: twelve items in one night were reported and left unowned before
+their delivery ran, against four whose workers parked and held. The close-out
+keeps the claim and parks the session on that wait, and the mandate names the
+boundary so the worker does not undo it.
+
 The same mandate names the opposite failure, because a launched turn is the
 whole life of every command it starts. When the harness moves a long command
 to a background task, the child keeps running; a worker that read that
@@ -349,6 +367,8 @@ and to stop early only for a command-handed wait or the taught local-check inter
 {ROUTED_ENTRYPOINT}
 
 Single-item mandate (steering): acquire the PREFIX-N work claim as your FIRST action, then execute only PREFIX-N through {ROUTED_LEGS}. Do NOT create or dispatch any deployment run — the orchestrator batches deploys. Message the orchestrator ONLY for substantive updates — a red gate and what failed, a blocker, a conflict with this instruction, a defect outside your scope, a decision you need. NEVER send progress: no percentages, elapsed-time polls, watcher heartbeats, or "still green" notes; relay those in your own output instead. For a substantive peer request or reply, address the intended worker/session AND copy relevant steering using union recipient flags (`--item PREFIX-N --steering`, or an exact listed `--session SESSION-ID --steering`; use explicit `--steering-scope '{"project_id": N}'` when you hold no applicable item). Reply to the original requesting session for acceptance, refusal, scope conflict, blocker, or decision; never send a rejection only to steering. Acknowledgement records receipt, not acceptance or implementation. When those legs are complete, message the orchestrator (`printf %s "DONE PREFIX-N <one-line summary>" | yoke say --stdin --steering`) and END your session — do not pick up further work, do not chain into other items. Send that report before releasing any claim you still hold; after close-out already released it, `--steering` resolves from the item you last held in this session. The PREFIX-N in the DONE heading is the report identity and must name work this session holds or released. If your claim is swept mid-work, reacquire and continue.
+
+A merge that lands your item at its pinned release wait is a completed merge that is NOT a finished item: the delivery still has to run and its post-deploy validation still has to be walked before the item reaches done. That close-out therefore keeps your work claim and parks your session with the wait named, and you keep both. Do NOT release the claim and do NOT end your session there — report what landed in your own output, say you are waiting on delivery, and stop deliberately. The deployment wake re-enters you when your delivery clears or its QA stage needs you; re-run the same `yoke merge item` command with --result and --verification then, and it finishes the close-out. Only once the item reaches done do you send the DONE report and end. A release-wait owner that goes quiet without that park is treated as gone and its item is handed to steering, so the park is what keeps the item yours.
 
 You are a headless command that cannot be prompted again, so a merge-queue landing is not yours to wait out: it outlasts your turn, and a wait that dies with the turn leaves the branch landed and the item open. Your merge arms the landing and returns landing_pending=true with the pull request named, whether or not you passed --wait. That is the handoff, not a failure. Report the pull request, stop deliberately, and say you are waiting on landing. The control-plane landing notice wakes you: re-run the same `yoke merge item` command then and it completes close-out. A stopped landing arrives the same way and names its recovery (usually rebase, re-run the verification gate, re-run the command); a stale server landing record names its last refresh and repair step. Never replace either with local GitHub polling, and never report a landing you did not read. A separate check uses `yoke github merge-queue readiness PREFIX-N --json`: the named queue-entry state decides whether null arming was consumed or cleared.
 
@@ -386,6 +406,12 @@ yoke sessions touch --mode parked --reason "waiting on PREFIX-N"
 yoke sessions touch --mode parked --reason "waiting on operator sign-in"
 yoke sessions touch --mode parked --reason "waiting on approval: <what>"
 ```
+
+The release wait is the one such wait the server stamps for the worker:
+`yoke merge item` parks the merging session itself when its close-out lands at
+the pinned release wait, because a retention that depended on the worker
+remembering was the retention being lost. That park is what spares its claim
+from the stale sweep, which reports a spared owner as `release_wait_owner`.
 
 That write persists until the worker stamps a working mode
 (`yoke sessions touch --mode dash`) once the wait clears. Reporting the

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
 from . import db_backend
+from . import release_wait_ownership as _rwo
 from .session_cleanup_holdings import active_holding_sessions, effective_cleanup_ttl
 from .session_reclaim_activity import (
     SCOPE_SESSION_CLEANUP,
@@ -61,15 +62,8 @@ def clean_stale_harness_sessions(
     event.  Per-claim ``WorkReclaimed`` events are still emitted by
     ``reclaim_stale_session`` for audit continuity.
 
-    Returns::
-
-        {
-            "never_engaged": [...],
-            "heartbeat_stale": [...],
-            "progress_stale": [...],
-            "skipped_between_turns": [...],
-            "total_reclaimed": int,
-        }
+    The returned buckets are the literal dict built at the end of this
+    function; read that rather than a second copy of its keys here.
     """
     _sweep_start = _time.monotonic()
 
@@ -223,15 +217,24 @@ def clean_stale_harness_sessions(
             holdings_ttl_minutes=DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES,
         )
 
-        recheck = classify_reclaimable(
+        # A session parked on an item's pinned release wait is waiting by
+        # design: reclaiming it would strip the delivery's only owner. One
+        # that never declared that wait is gone, and its items are handed to
+        # steering by name after the release rather than dropped in silence.
+        owed_release_waits = _rwo.owned_release_waits(conn, sid)
+        recheck = _rwo.guard_release_wait_owner(
             conn,
             sid,
-            base_ttl_minutes=effective_ttl,
-            overrides={},
-            progress_threshold_minutes=(
-                max(progress_threshold_minutes, effective_ttl)
-                if has_active_holdings
-                else progress_threshold_minutes
+            classify_reclaimable(
+                conn,
+                sid,
+                base_ttl_minutes=effective_ttl,
+                overrides={},
+                progress_threshold_minutes=(
+                    max(progress_threshold_minutes, effective_ttl)
+                    if has_active_holdings
+                    else progress_threshold_minutes
+                ),
             ),
         )
         if not recheck.is_reclaimable:
@@ -272,6 +275,7 @@ def clean_stale_harness_sessions(
             # Concurrently reclaimed or already ended — still report attempt
             continue
         total_reclaimed += 1
+        _rwo.hand_off_release_wait(conn, sid, owed_release_waits)
 
         _sa._emit_event(
             EVENT_HARNESS_SESSION_STALE_RECLAIMED,

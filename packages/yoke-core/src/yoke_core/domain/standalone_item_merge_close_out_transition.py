@@ -5,12 +5,19 @@ Landing at a pinned release wait instead of ``done`` is not a failure: the
 merge is complete either way. Only a genuinely terminal result retires the
 lane and claim, so a redirect to the release stage leaves both alone for a
 later close-out (once delivery clears) to finish with authority.
+
+Leaving them alone was not enough on its own. The retained claim belonged to
+a session every other path was telling to release it and end, so the redirect
+now also parks that session on the wait it just entered
+(:mod:`release_wait_park`), which is what turns "the claim was not released"
+into "the item still has an owner the deployment wake can reach".
 """
 
 from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
+from yoke_core.domain.release_wait_park import retain_for_delivery
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.standalone_item_merge_release_status import (
     close_out_route,
@@ -108,6 +115,17 @@ def run_terminal_transition(
         marker_error = pending.clear_after_close_out(item_id, item)
         if marker_error:
             envelope["warnings"].append(f"queue marker not cleared: {marker_error}")
+        return None
+    # The merge stopped at the pinned release wait, which still owes this item
+    # a delivery and a done close-out. The session that merged it keeps the
+    # claim and parks on that wait instead of reporting and ending.
+    announce("release wait")
+    retain_for_delivery(
+        envelope,
+        item_id=item_id,
+        public_ref=public_ref,
+        session_id=session_id,
+    )
     return None
 
 

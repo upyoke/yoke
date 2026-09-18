@@ -37,6 +37,8 @@ CLOSED = "closed"
 ALREADY_CLOSED = "already_closed"
 # The branch is armed for a queue landing that outlives this command.
 LANDING_PENDING = "landing_pending"
+# The merge landed at the item's pinned release wait: complete, not finished.
+AWAITING_DELIVERY = "awaiting_delivery"
 # Anything else: a refusal, a merge without close-out, a delivery wait.
 NOT_CLOSED = "not_closed"
 
@@ -69,7 +71,42 @@ def _headline(public_ref: str, kind: str, status: str) -> str:
         )
     if kind == LANDING_PENDING:
         return f"{public_ref} not closed: landing pending"
+    if kind == AWAITING_DELIVERY:
+        return (
+            f"{public_ref} merged, not closed: awaiting delivery at "
+            f"{status or 'its release wait'}"
+        )
     return f"{public_ref} not closed"
+
+
+def _awaiting_delivery_lines(
+    record: Mapping[str, Any], public_ref: str
+) -> list[str]:
+    """What the owner of a release wait holds, and what re-enters it.
+
+    The close-out already keeps the claim and parks the session here; this
+    says so out loud because the worker reading it has been told everywhere
+    else to report and end. An unconfirmed park is named rather than
+    softened: a wait nothing recorded is one the stale sweep will reclaim.
+    """
+    block = record.get("release_wait")
+    block = block if isinstance(block, Mapping) else {}
+    parked = str(block.get("parked") or "")
+    lines = [
+        "work claim and lane: retained through delivery — do not release, "
+        "do not end this session",
+        f"session parked: {parked or 'not attempted'}"
+        + (f" — {block['park_reason']}" if block.get("park_reason") else ""),
+        f"re-enter on the deployment wake: yoke merge item {public_ref} "
+        "--result ... --verification ...",
+    ]
+    if parked and not parked.startswith(("yes", "skipped")):
+        lines.append(
+            "park unconfirmed: stamp it yourself with `yoke sessions touch "
+            f"--mode parked --reason \"{block.get('park_reason', '')}\"` — an "
+            "undeclared wait is reclaimed by the stale sweep"
+        )
+    return lines
 
 
 def _evidence_line(recorded: bool, *, from_record: bool) -> str:
@@ -158,6 +195,8 @@ def outcome_lines(
             f"pull request #{pr_number} holds the landing; re-run this command "
             "after the landing notice to close the item out"
         )
+    if kind == AWAITING_DELIVERY:
+        lines.extend(_awaiting_delivery_lines(record, ref))
     recorded = record.get("evidence_recorded")
     if recorded is not None:
         lines.append(_evidence_line(bool(recorded), from_record=evidence_from_record))
@@ -222,14 +261,21 @@ def final_outcome(
             "--skip-status was passed: the merge landed and the done "
             "transition was postponed"
         )
-    return NOT_CLOSED, (
+    blocker = (
         f"the merge landed and the item is at {status or 'an unchanged status'}; "
         "close-out finishes when its delivery clears"
     )
+    # Only a transition that actually entered the release wait records the
+    # retention block, so a mid-progress slice that simply has nowhere to go
+    # yet is still plainly "not closed" rather than an owner of a wait.
+    if isinstance(envelope.get("release_wait"), Mapping):
+        return AWAITING_DELIVERY, blocker
+    return NOT_CLOSED, blocker
 
 
 __all__: Sequence[str] = (
     "ALREADY_CLOSED",
+    "AWAITING_DELIVERY",
     "CLOSED",
     "EVIDENCE_WRITTEN_NOTE",
     "HOLDER_FUNCTION",

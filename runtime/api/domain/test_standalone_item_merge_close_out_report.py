@@ -257,12 +257,16 @@ def test_an_unreadable_holder_is_unconfirmed_rather_than_released():
 
 def test_a_merge_awaiting_delivery_is_not_reported_as_closed():
     kind, blocker = report.final_outcome(
-        {"public_ref": "ITEM-1", "status": "release"},
+        {
+            "public_ref": "ITEM-1",
+            "status": "release",
+            "release_wait": {"parked": "yes", "park_reason": "awaiting delivery"},
+        },
         source_status="reviewing-implementation",
         skip_status=False,
     )
 
-    assert kind == report.NOT_CLOSED
+    assert kind == report.AWAITING_DELIVERY
     assert "the merge landed and the item is at release" in blocker
 
 

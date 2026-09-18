@@ -26,10 +26,10 @@ from runtime.api.skill_doc_regressions_test_helpers import REPO, SKILLS, _read
 from yoke_core.domain.schema_api_context_commands_watchers import (
     WATCHERS_COMMANDS,
 )
-from yoke_core.domain.session_launch_mandate import (
+from yoke_core.domain.session_launch_mandate import compose_single_item_mandate
+from yoke_core.domain.session_launch_mandate_teaching import (
     HEADLESS_LANDING_WAIT_TEACHING,
     HEADLESS_TOOL_CONTINUATION_TEACHING,
-    compose_single_item_mandate,
 )
 from yoke_core.domain.standalone_item_merge_cli_parser import build_parser
 from yoke_core.tools import watch_merge

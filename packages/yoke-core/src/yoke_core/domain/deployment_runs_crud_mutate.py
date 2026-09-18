@@ -160,6 +160,9 @@ def cmd_update(
                     (value, completed_at, run_id),
                 )
                 if value == "succeeded":
+                    from yoke_core.domain.deployment_delivery_close_out_notice import (
+                        notify_delivery_cleared,
+                    )
                     from yoke_core.domain.deployment_run_carried_work import (
                         record_carried_work,
                     )
@@ -169,6 +172,10 @@ def cmd_update(
 
                     stamp_run_environment(conn, run_id, when=completed_at)
                     record_carried_work(conn, run_id)
+                    # A member still at its pinned release wait is held by a
+                    # session parked on exactly this event. Nothing else tells
+                    # it the wait is over, so the close-out never happens.
+                    notify_delivery_cleared(conn, run_id=run_id)
                 conn.commit()
                 return None
         elif field == lineage_rebind.LINEAGE_FIELD and (
