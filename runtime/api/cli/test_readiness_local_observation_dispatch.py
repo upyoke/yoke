@@ -123,6 +123,52 @@ def test_the_repairs_take_the_same_route() -> None:
     assert calls[1]["payload"]["local_observations"] == _OBSERVATIONS
 
 
+def test_a_repair_that_asks_twice_is_answered_twice() -> None:
+    """A spec write unbinds the reading that drove it, so the host asks again.
+
+    Answering the second request is what verifies the repair; stopping
+    after one round would report a repair that worked as unverified.
+    """
+    refused = _response({
+        "success": False,
+        "rerun_verdict": "unavailable",
+        "local_execution_request": _REQUEST,
+    })
+    applied = _response({
+        "success": False,
+        "rerun_verdict": "unavailable",
+        "local_execution_request": _REQUEST,
+    })
+    verified = _response({"success": True, "rerun_verdict": "pass"})
+
+    calls = _run(
+        readiness_repair_stale_count,
+        ["--item", "YOK-1800"],
+        [refused, applied, verified],
+        _OBSERVATIONS,
+    )
+
+    assert len(calls) == 3
+
+
+def test_a_host_that_keeps_asking_does_not_spin() -> None:
+    """The rounds are bounded, because the loop is driven by the host asking."""
+    asking = _response({
+        "success": False,
+        "rerun_verdict": "unavailable",
+        "local_execution_request": _REQUEST,
+    })
+
+    calls = _run(
+        readiness_repair_stale_count,
+        ["--item", "YOK-1800"],
+        [asking] * 8,
+        _OBSERVATIONS,
+    )
+
+    assert len(calls) == 3
+
+
 def test_the_client_survives_an_install_without_the_engine() -> None:
     """A thin client cannot observe; it must not fail trying."""
     from yoke_cli.commands.adapters import readiness_local_compose

@@ -47,6 +47,8 @@ from yoke_core.domain.idea_readiness_local_inputs import read_spec
 from yoke_core.domain.idea_readiness_results import (
     Issue,
     ReadinessOutcome,
+    UNRESOLVED_FUNCTION,
+    UNRESOLVED_MODULE,
     UnavailableValidation,
     VERDICT_PASS,
 )
@@ -117,7 +119,7 @@ def verify_function_owners(
         relative = str((candidate or candidates[0]).relative_to(repo_root))
         if candidate is None:
             issues.append(Issue(
-                code="UNRESOLVED_MODULE",
+                code=UNRESOLVED_MODULE,
                 message=(
                     f"spec references {full_path} but {relative} does "
                     f"not exist"
@@ -135,7 +137,7 @@ def verify_function_owners(
         )
         if proc.returncode != 0 or not proc.stdout.strip():
             issues.append(Issue(
-                code="UNRESOLVED_FUNCTION",
+                code=UNRESOLVED_FUNCTION,
                 message=(
                     f"spec references {full_path} but {relative} has "
                     f"no `def {func_name}`"

@@ -9,6 +9,12 @@ from typing import Any, Callable
 from yoke_contracts.project_contract.file_line_policy import DEFAULT_LIMIT
 from yoke_core.domain.file_budget_paths import extract_file_budget_paths
 from yoke_core.domain.file_budget_sizing import parse_file_budget_sizing
+from yoke_core.domain.idea_readiness_results import (
+    MISSING_FILE_BUDGET_SIZING,
+    MISSING_SIBLING_PLAN,
+    STALE_FILE_BUDGET_SIZING,
+    STALE_LINE_COUNT,
+)
 
 SIBLING_REQUIRED_THRESHOLD = 330
 _SIBLING_PATTERN = re.compile(
@@ -29,7 +35,7 @@ def verify_file_budget_sizing(
         entry = entries.get(rel)
         if entry is None:
             issues.append(issue_type(
-                code="MISSING_FILE_BUDGET_SIZING",
+                code=MISSING_FILE_BUDGET_SIZING,
                 message=f"File Budget path {rel} has no complete sizing fields",
                 remediation=(
                     "record current lines, remaining headroom against 350, "
@@ -44,7 +50,7 @@ def verify_file_budget_sizing(
             tolerance = max(2, int(entry.current_line_count * 0.05))
             if abs(actual - entry.current_line_count) > tolerance:
                 issues.append(issue_type(
-                    code="STALE_LINE_COUNT",
+                    code=STALE_LINE_COUNT,
                     message=(
                         f"spec records {rel}={entry.current_line_count} lines "
                         f"but the file currently has {actual} lines"
@@ -57,7 +63,7 @@ def verify_file_budget_sizing(
                 ))
             if actual >= SIBLING_REQUIRED_THRESHOLD and not _SIBLING_PATTERN.search(spec_text):
                 issues.append(issue_type(
-                    code="MISSING_SIBLING_PLAN",
+                    code=MISSING_SIBLING_PLAN,
                     message=(
                         f"{rel} is at {actual} lines (>= "
                         f"{SIBLING_REQUIRED_THRESHOLD}) but has no sibling plan"
@@ -72,7 +78,7 @@ def verify_file_budget_sizing(
             or entry.at_or_over_limit != expected_flag
         ):
             issues.append(issue_type(
-                code="STALE_FILE_BUDGET_SIZING",
+                code=STALE_FILE_BUDGET_SIZING,
                 message=f"File Budget sizing facts disagree for {rel}",
                 remediation="recompute headroom and the at-or-over-limit flag",
                 context={

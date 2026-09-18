@@ -91,6 +91,16 @@ def test_the_request_carries_what_the_checks_could_not_read(test_db, item) -> No
     )
 
 
+def test_the_answer_names_the_item_and_project_it_was_asked_about(
+    test_db, item, project_checkout,
+) -> None:
+    """Identical spec text across two items is otherwise indistinguishable."""
+    observations = local.collect(_request(test_db), project_checkout)
+
+    assert observations["item_id"] == _ITEM_ID
+    assert observations["project_id"] == _request(test_db)["project_id"]
+
+
 def test_observations_from_a_matching_checkout_complete_the_run(
     test_db, item, host_without_a_checkout, project_checkout,
 ) -> None:

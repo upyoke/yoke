@@ -92,6 +92,39 @@ def _unavailable_repair_payload(
     }
 
 
+def _reverification_request(
+    payload: Dict[str, Any], item_id: int,
+) -> Dict[str, Any]:
+    """Ask for a fresh reading when a repair's own re-run could not verify it.
+
+    The stale-count repair rewrites the spec, which unbinds every reading
+    taken before it, so on a host without the tree the re-run inside the
+    repair always comes back unperformed. Publishing the request the new
+    spec needs lets the caller holding the checkout answer again; the
+    repair is idempotent, so that second pass verifies rather than
+    repeats. Without this the caller is told the repair failed when what
+    actually happened is that nothing here could check it.
+    """
+    if str(payload.get("rerun_verdict") or "") != VERDICT_UNAVAILABLE:
+        return payload
+    if payload.get("local_execution_request"):
+        return payload
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.idea_readiness_local_inputs import (
+        build_local_execution_request,
+        read_spec,
+    )
+
+    conn = db_helpers.connect()
+    try:
+        payload["local_execution_request"] = build_local_execution_request(
+            conn, item_id, read_spec(conn, item_id),
+        )
+    finally:
+        conn.close()
+    return payload
+
+
 def _run_readiness(
     item_id: int, local_observations: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
@@ -226,10 +259,14 @@ def handle_repair_stale_count(request: FunctionCallRequest) -> HandlerOutcome:
             "error": "only pure stale-count handled by this repair",
         }
     else:
-        payload = attempt_stale_count_repair(
-            item_id=item_id,
-            issues=issues,
-        ).to_payload()
+        payload = _reverification_request(
+            attempt_stale_count_repair(
+                item_id=item_id,
+                issues=issues,
+                observations=body.local_observations,
+            ).to_payload(),
+            item_id,
+        )
     return HandlerOutcome(result_payload=payload, primary_success=True)
 
 
@@ -258,10 +295,14 @@ def handle_repair_claim_coverage(request: FunctionCallRequest) -> HandlerOutcome
     elif verdict == VERDICT_UNAVAILABLE:
         payload = _unavailable_repair_payload(item_id, readiness)
     else:
-        payload = attempt_claim_coverage_repair(
-            item_id=item_id,
-            issues=list(readiness["issues"]),
-        ).to_payload()
+        payload = _reverification_request(
+            attempt_claim_coverage_repair(
+                item_id=item_id,
+                issues=list(readiness["issues"]),
+                observations=body.local_observations,
+            ).to_payload(),
+            item_id,
+        )
     return HandlerOutcome(result_payload=payload, primary_success=True)
 
 

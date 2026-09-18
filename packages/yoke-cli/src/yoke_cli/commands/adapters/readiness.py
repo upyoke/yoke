@@ -40,15 +40,24 @@ READINESS_REPAIR_CLAIM_COVERAGE_USAGE = (
     "[--session-id S] [--json]"
 )
 
+# One round answers a check. A repair needs a second, because its own
+# write unbinds the reading that drove it and the host asks again for the
+# spec it now holds. Nothing legitimately asks a third time.
+_MAX_OBSERVATION_ROUNDS = 2
+
 
 _READINESS_CHECK_EPILOG = """\
 Four of these checks read the item project's files. A control plane with
 no checkout for that project cannot run them, so this command runs them
 here whenever this machine has that project registered, and sends what
 they found back for the verdict. Nothing is skipped and nothing is judged
-locally: observations are bound to the spec revision the control plane
-served and to the checkout revision they read, and a spec rewritten or a
-tree edited underneath them is reported unperformed rather than passed.
+locally. The control plane checks each answer against the item, project
+and spec revision it holds, and accepts only findings its own checks
+could have produced about surfaces this item already names, so a spec
+rewritten underneath a reading is reported unperformed rather than
+passed. The checkout revision travels too, but it is this machine's own
+report and the control plane has no tree to check it against: it catches
+a tree edited mid-read, not a machine that misreports.
 
 Reports one of three verdicts in the result payload:
 
@@ -205,22 +214,32 @@ def _dispatch_observing_locally(
     checks run here and the same call is re-dispatched carrying what they
     observed, so the verdict is still the control plane's. When it does
     not, the first answer stands — unperformed, never passed.
+
+    A repair can ask twice. Rewriting the spec unbinds the reading that
+    drove it, so the host publishes a second request covering the spec it
+    now holds, and answering that one is what verifies the repair. The
+    repairs are idempotent — each re-runs readiness first and does
+    nothing when it passes — so the extra pass confirms rather than
+    repeats. The rounds are bounded because the loop is driven by the
+    host asking, and a host that kept asking would otherwise spin.
     """
     def observe_then_redispatch(response, actor):
         from yoke_cli.commands.adapters import readiness_local_compose as local
 
-        request = local.local_execution_request(response)
-        if request is None:
-            return response
-        observations = local.collect_observations(request)
-        if observations is None:
-            return response
-        return call_dispatcher(
-            function_id=function_id,
-            target=target,
-            payload={**payload, "local_observations": observations},
-            actor=actor,
-        )
+        for _round in range(_MAX_OBSERVATION_ROUNDS):
+            request = local.local_execution_request(response)
+            if request is None:
+                return response
+            observations = local.collect_observations(request)
+            if observations is None:
+                return response
+            response = call_dispatcher(
+                function_id=function_id,
+                target=target,
+                payload={**payload, "local_observations": observations},
+                actor=actor,
+            )
+        return response
 
     return dispatch_and_emit(
         function_id=function_id,

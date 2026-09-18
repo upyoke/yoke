@@ -145,8 +145,12 @@ def test_a_caller_supplied_actor_never_travels_to_the_server(relayed):
 
     _, kwargs = relayed.calls[0]
     assert "actor" not in kwargs
-    assert "999" not in repr(kwargs)
-    assert "forged-session" not in repr(kwargs)
+    # The request id is a uuid4 this process mints, and a random hex string
+    # carries a short forged id like "999" often enough to fail a scan of
+    # the whole call for a reason that has nothing to do with identity.
+    carried = {key: value for key, value in kwargs.items() if key != "request_id"}
+    assert "999" not in repr(carried)
+    assert "forged-session" not in repr(carried)
 
 
 def test_a_caller_supplied_actor_is_dropped_in_process_too(local):

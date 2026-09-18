@@ -165,7 +165,7 @@ def test_repair_stale_count_calls_domain_repair(monkeypatch) -> None:
     monkeypatch.setattr(
         repair_mod,
         "attempt_stale_count_repair",
-        lambda *, item_id, issues: Outcome(),
+        lambda *, item_id, issues, observations=None: Outcome(),
     )
 
     outcome = readiness.handle_repair_stale_count(

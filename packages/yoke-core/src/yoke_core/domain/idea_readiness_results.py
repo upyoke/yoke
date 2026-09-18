@@ -29,7 +29,27 @@ VERDICT_PASS = "pass"
 VERDICT_BLOCK = "block"
 VERDICT_UNAVAILABLE = "unavailable"
 
-_STALE_CODE = "STALE_LINE_COUNT"
+# Issue codes grouped by the check that emits them. The grouping is load
+# bearing beyond naming: a readiness run can be handed findings collected
+# by a machine that is not the control plane, and these sets decide which
+# codes such a machine is allowed to report. A code's membership here is
+# therefore the answer to "could a file read have produced this?", which
+# is why the claim-coverage codes below are deliberately a separate set —
+# they are decided from the database and never from a file.
+UNRESOLVED_MODULE = "UNRESOLVED_MODULE"
+UNRESOLVED_FUNCTION = "UNRESOLVED_FUNCTION"
+MISSING_FILE_BUDGET_SIZING = "MISSING_FILE_BUDGET_SIZING"
+STALE_LINE_COUNT = "STALE_LINE_COUNT"
+MISSING_SIBLING_PLAN = "MISSING_SIBLING_PLAN"
+STALE_FILE_BUDGET_SIZING = "STALE_FILE_BUDGET_SIZING"
+
+FUNCTION_OWNER_CODES = frozenset({UNRESOLVED_MODULE, UNRESOLVED_FUNCTION})
+FILE_BUDGET_SIZING_CODES = frozenset({
+    MISSING_FILE_BUDGET_SIZING, STALE_LINE_COUNT,
+    MISSING_SIBLING_PLAN, STALE_FILE_BUDGET_SIZING,
+})
+
+_STALE_CODE = STALE_LINE_COUNT
 _RECOVERABLE_CLAIM_CODES = frozenset({
     "FILE_BUDGET_NOT_IN_CLAIM", "CLAIM_NOT_IN_FILE_BUDGET",
     "cross_item_overlap", "MISSING_FILE_BUDGET",
@@ -120,6 +140,14 @@ __all__ = [
     "CLASS_PURE_STALE_COUNT",
     "CLASS_UNAVAILABLE",
     "CLASS_UNRECOVERABLE",
+    "FILE_BUDGET_SIZING_CODES",
+    "FUNCTION_OWNER_CODES",
+    "MISSING_FILE_BUDGET_SIZING",
+    "MISSING_SIBLING_PLAN",
+    "STALE_FILE_BUDGET_SIZING",
+    "STALE_LINE_COUNT",
+    "UNRESOLVED_FUNCTION",
+    "UNRESOLVED_MODULE",
     "Issue",
     "ReadinessOutcome",
     "UnavailableValidation",

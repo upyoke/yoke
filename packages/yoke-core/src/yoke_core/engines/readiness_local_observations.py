@@ -10,7 +10,14 @@ checkout and returns what they found.
 Nothing here reads or writes control-plane state: it takes no connection,
 and the item facts it needs arrive in the request. The checkout revision
 is captured on both sides of the run so a tree edited while the checks
-were reading it is reported as moved rather than passed.
+were reading it is reported as moved rather than passed. That report is
+this machine's own word — the control plane has no checkout to check it
+against — so it guards against a race, not against a liar.
+
+The answer echoes the item, project and spec revision it was asked
+about. The control plane compares all three against what it holds, which
+is how an answer about one item is prevented from standing in for
+another whose spec happens to read the same.
 """
 
 from __future__ import annotations
@@ -39,9 +46,11 @@ def checkout_revision(repo_root: Path) -> str:
     """A marker that changes whenever the tree's content could have.
 
     Commit plus working-tree state, because a readiness check reads the
-    files as they are on disk, not as they are committed. An empty string
-    means the revision could not be established, which the control plane
-    treats as unverifiable rather than unchanged.
+    files as they are on disk, not as they are committed. Comparing it
+    before and after the run is what lets a tree edited mid-read be
+    reported rather than passed. An empty string means the revision could
+    not be established, which the control plane treats as unverifiable
+    rather than unchanged.
     """
     head = _git(repo_root, "rev-parse", "HEAD")
     if head is None:
@@ -102,6 +111,8 @@ def collect(request: Dict[str, Any], repo_root: Path) -> Dict[str, Any]:
     )
     after = checkout_revision(repo_root)
     return {
+        "item_id": int(request.get("item_id") or 0),
+        "project_id": request.get("project_id"),
         "spec_sha256": str(request.get("spec_sha256") or ""),
         "checks": list(request.get("checks") or ()),
         "checkout_path": str(repo_root),

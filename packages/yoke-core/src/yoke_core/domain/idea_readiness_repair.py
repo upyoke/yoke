@@ -45,13 +45,6 @@ _SIBLING_PATTERN = re.compile(
     r"\bsibling\b|\bextract\b|\bnew sibling\b|\bsibling module\b",
     re.IGNORECASE,
 )
-# Repair re-reads live line counts off disk, so a host with no checkout for
-# the item's project has nothing to repair against.
-_NO_CHECKOUT_ERROR = (
-    "no checkout for this item's project on this host; repair reads live "
-    "line counts from the project's files. Re-run from a machine whose "
-    "checkout for that project is registered."
-)
 
 
 @dataclass(frozen=True)
@@ -139,13 +132,6 @@ def _read_spec(item_id: int) -> Optional[str]:
         conn.close()
 
 
-def _file_line_count(repo_root: Path, rel: str) -> Optional[int]:
-    candidate = repo_root / rel
-    if not candidate.exists():
-        return None
-    return sum(1 for _ in candidate.open(encoding="utf-8"))
-
-
 def _emit_audit(*, item_id: int, repaired: List[RepairedPath],
                 refused: List[Dict[str, Any]], rerun_verdict: str) -> bool:
     """Emit ``IdeaReadinessAutofixApplied`` (best-effort)."""
@@ -167,8 +153,16 @@ def _emit_audit(*, item_id: int, repaired: List[RepairedPath],
 
 
 def _resolve_repairs(
-    issues: List[Dict[str, Any]], root: Path, spec_text: str,
+    issues: List[Dict[str, Any]], root: Optional[Path], spec_text: str,
 ) -> Tuple[List[RepairedPath], List[Dict[str, Any]]]:
+    """Pair each stale count with the path's real length.
+
+    ``root`` is ``None`` on a host without the item project's checkout,
+    where the real length is the one the machine that ran the check
+    reported rather than one read here.
+    """
+    from yoke_core.domain.idea_readiness_repair_handoff import live_line_count
+
     repairs: List[RepairedPath] = []
     refused: List[Dict[str, Any]] = []
     for issue in issues:
@@ -183,7 +177,7 @@ def _resolve_repairs(
         except (TypeError, ValueError):
             refused.append({"reason": "non_integer_recorded", "path": path})
             continue
-        actual = _file_line_count(root, path)
+        actual = live_line_count(root, path, dict(ctx))
         if actual is None:
             refused.append({"path": path, "reason": "missing_file",
                             "recorded": recorded})
@@ -199,12 +193,22 @@ def _resolve_repairs(
 def attempt_stale_count_repair(
     *, item_id: int, issues: List[Dict[str, Any]],
     repo_root: Optional[Path] = None,
+    observations: Optional[Dict[str, Any]] = None,
 ) -> RepairOutcome:
     """Repair pure-stale-count readiness drift for ``item_id``.
 
     Caller MUST classify ``issues`` with :func:`classify_readiness_issues`
     first; helper re-checks and refuses anything other than pure-stale-count.
+
+    A host without the item project's checkout repairs from ``issues``
+    that a machine holding it reported, and the re-run that proves the
+    result goes back through the same handoff.
     """
+    from yoke_core.domain.idea_readiness_repair_handoff import (
+        NO_CHECKOUT_TO_REPAIR_AGAINST,
+        repair_verifiable,
+    )
+
     classification = classify_readiness_issues(issues)
     base = {"classification": classification, "item_id": item_id}
     if classification != CLASS_PURE_STALE_COUNT:
@@ -212,8 +216,10 @@ def attempt_stale_count_repair(
             f"only pure stale-count handled; got classification={classification!r}"
         ))
     root = repo_root or _item_checkout(item_id)
-    if root is None:
-        return RepairOutcome(success=False, **base, error=_NO_CHECKOUT_ERROR)
+    if not repair_verifiable(root, observations):
+        return RepairOutcome(
+            success=False, **base, error=NO_CHECKOUT_TO_REPAIR_AGAINST,
+        )
     spec_text = _read_spec(item_id) or ""
     if not spec_text.strip():
         return RepairOutcome(success=False, **base,
@@ -240,6 +246,11 @@ def attempt_stale_count_repair(
         return RepairOutcome(success=False, **base, error=str(
             write_result.get("error") or "structured write failed"
         ))
+    # Deliberately without the answer that drove this repair: the write
+    # above changed the spec, so that answer is now bound to a revision
+    # the control plane no longer holds. The re-run comes back
+    # unperformed on a host without the tree, and the caller is asked for
+    # a fresh reading rather than handed a verdict nothing verified.
     rerun = _rerun_readiness(item_id)
     rerun_verdict = rerun.verdict
     audit_emitted = _emit_audit(item_id=item_id, repaired=repairs,
@@ -264,14 +275,9 @@ def _item_checkout(item_id: int) -> Optional[Path]:
 
 
 def _rerun_readiness(item_id: int) -> "ReadinessOutcome":
-    from yoke_core.domain.idea_readiness_check import run_all_checks
-    from yoke_core.domain.schema_common import _connect_raw, _resolve_db_path
+    from yoke_core.domain.idea_readiness_repair_handoff import rerun_readiness
 
-    conn = _connect_raw(_resolve_db_path())
-    try:
-        return run_all_checks(conn, item_id)
-    finally:
-        conn.close()
+    return rerun_readiness(item_id)
 
 
 class _NullSink:
