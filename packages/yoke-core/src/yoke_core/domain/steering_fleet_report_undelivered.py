@@ -39,12 +39,14 @@ from yoke_core.domain.session_tool_call_projections import (
     OPEN_TOOL_CALL_COLUMN,
     open_tool_call_select,
 )
+from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_relay_policy import effective_relay_policy
 from yoke_core.domain.steering_fleet_report_delivery_states import (
     ATTEMPT_FAILED,
     DELIVERY_STATES,
     IN_DELIVERY_STATES,
+    NEVER_ATTEMPTED,
     RECIPIENT_ENDED,
     RECIPIENT_TERMINATED,
     SEAT_ACTION_STATES,
@@ -87,6 +89,11 @@ class UndeliveredMessages:
     turn_in_flight_since: str = ""
     #: When the recipient ended or was terminated, for the two gone states.
     recipient_gone_at: str = ""
+    #: True when an explicit wake was requested for this recipient and the
+    #: delivery plane has still made no attempt on it. The row then names a
+    #: queued wake rather than an absence of one, because the receipt itself
+    #: is what refuses the next wake request until it is released.
+    queued_wake: bool = False
 
     @property
     def needs_seat_action(self) -> bool:
@@ -146,6 +153,7 @@ class _Group:
     evidence_id: str = ""
     turn_in_flight_since: str = ""
     recipient_gone_at: str = ""
+    queued_wake: bool = False
 
     def __post_init__(self) -> None:
         if self.message_ids is None:
@@ -165,6 +173,15 @@ class _Group:
             self.wake_escalation = escalation
         if state == TURN_IN_FLIGHT:
             self.turn_in_flight_since = str(record.get(OPEN_TOOL_CALL_COLUMN) or "")
+        # An explicit wake still at zero attempts is not a missing wake, it
+        # is a wake the plane never picked up — and that receipt blocks the
+        # next wake request for this session until something releases it.
+        if (
+            state == NEVER_ATTEMPTED
+            and int(record.get("wake_attempt_count") or 0) == 0
+            and explicit_stopped_wake_requested(record.get("routing_snapshot"))
+        ):
+            self.queued_wake = True
         if state in (RECIPIENT_ENDED, RECIPIENT_TERMINATED):
             self.recipient_gone_at = str(
                 record.get("terminated_at") or record.get("ended_at") or ""
@@ -221,6 +238,8 @@ def undelivered_messages(
                    r.session_id AS session_id,
                    r.created_at AS created_at,
                    r.wake_escalation AS wake_escalation,
+                   r.wake_attempt_count AS wake_attempt_count,
+                   r.routing_snapshot AS routing_snapshot,
                    s.executor_surface AS executor_surface,
                    s.last_tool_call_at AS last_tool_call_at,
                    s.last_heartbeat AS last_heartbeat,
@@ -277,6 +296,7 @@ def undelivered_messages(
             evidence_id=group.evidence_id,
             turn_in_flight_since=group.turn_in_flight_since,
             recipient_gone_at=group.recipient_gone_at,
+            queued_wake=group.queued_wake,
         )
         for (session_id, state), group in sorted(
             groups.items(),

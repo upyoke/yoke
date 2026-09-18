@@ -58,6 +58,12 @@ def _references(entry: UndeliveredMessages) -> str:
 
 
 def _state_phrase(entry: UndeliveredMessages) -> str:
+    if entry.delivery_state == NEVER_ATTEMPTED and entry.queued_wake:
+        # "No delivery attempted" is true and useless here: a wake WAS asked
+        # for, the plane never picked it up, and that queued receipt is what
+        # refuses the seat's next wake. Saying so is what makes the row
+        # actionable rather than a restatement of the silence.
+        return "never injected, wake queued but unattempted"
     if entry.delivery_state == TURN_IN_FLIGHT:
         return (
             f"recipient turn in flight since {entry.turn_in_flight_since} — "
@@ -81,9 +87,20 @@ def _wake_suffix(entry: UndeliveredMessages) -> str:
     seat owes by hand, so the line says which absence authorized it. A
     desktop recipient is neither: Yoke never resumes one, so the line asks
     for the only thing that delivers it instead of naming a revive recipe.
+    A queued-but-unattempted wake outranks the escalation note, because the
+    escalation on that row describes the attempt that never happened.
     """
     if entry.delivery_state in _NO_WAKE_STATES:
         return ""
+    if entry.queued_wake and not entry.operator_wake:
+        # The recovery is the same command that was already asked for: it
+        # releases the queued receipt that outlived its window and takes a
+        # fresh route decision, so whatever refused the first attempt now
+        # refuses by name instead of blocking silently.
+        return (
+            f", re-run `yoke session-control session wake {entry.session_id}` "
+            "to release the queued wake and retry"
+        )
     if entry.operator_wake:
         return (
             ", waiting for the operator to wake it — ask them to type "

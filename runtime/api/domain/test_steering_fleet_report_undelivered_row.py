@@ -67,6 +67,32 @@ def test_a_row_says_what_was_tried_and_how_it_ended():
     )
 
 
+def test_a_queued_unattempted_wake_says_so_and_names_its_recovery():
+    """`no delivery attempted` hides the receipt that is doing the blocking.
+
+    A wake WAS asked for here; the plane never picked it up, and that
+    queued receipt refuses every later wake for the session it was meant to
+    recover. The row has to name it and the command that releases it, or
+    the seat reads an absence of a wake and asks for one that is refused.
+    """
+    queued = _row(delivery_state=NEVER_ATTEMPTED, queued_wake=True)
+
+    assert "wake queued but unattempted" in queued
+    assert f"yoke session-control session wake {SESSION}" in queued
+    assert "release the queued wake and retry" in queued
+    assert "no delivery attempted" not in queued
+
+
+def test_a_queued_wake_on_a_desktop_recipient_still_asks_its_operator():
+    """Yoke never resumes a desktop chat, so no release recipe applies."""
+    desktop = _row(
+        delivery_state=NEVER_ATTEMPTED, queued_wake=True, operator_wake=True
+    )
+
+    assert "waiting for the operator to wake it" in desktop
+    assert "yoke session-control session wake" not in desktop
+
+
 def test_a_delivery_still_under_way_reads_as_waiting_not_as_a_failure():
     """The whole point of naming the state: waiting must not read as failed."""
     in_flight = _row(delivery_state=ATTEMPT_IN_FLIGHT)

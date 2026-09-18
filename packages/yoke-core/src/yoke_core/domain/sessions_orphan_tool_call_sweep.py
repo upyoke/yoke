@@ -19,7 +19,24 @@ The sweep maintains BOTH surfaces (operator-locked R3 decision):
 Idempotency: the second pass sees no open rows (pass one closed them)
 and emits nothing. The events table additionally enforces sentinel
 dedup structurally via ``idx_events_tool_use_id_dedup ON
-events(tool_use_id, event_name)``.
+events(tool_use_id, event_name)``, and the sentinel insert names no
+conflict target so that index settles a repeat the same way the
+primary key does.
+
+The sentinel is telemetry, so it is written where it cannot take the
+caller's operational work down with it. A tool call whose completion
+event was already recorded — by the hook that ran before the process
+died, or by an earlier sweep whose row close was rolled back — makes
+the insert collide, and an escaping integrity error aborts the whole
+surrounding transaction. That is how one duplicate event poisoned a
+relay's liveness batch every poll: the batch rolled back, the open row
+never closed, the next poll produced the identical collision, and the
+sessions behind it were never settled — which left their envelopes
+reading as a turn still in flight, so no wake was attempted for them
+either. An already-recorded event is a
+sentinel that is already there, so the insert runs inside its own
+savepoint and any database refusal on it leaves the row close, and the
+rest of the batch, committed.
 
 The module is a pure helper: callers pass an open connection so the
 row closes and sentinel inserts share the session-end transaction.
@@ -33,6 +50,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
+from yoke_core.domain import db_backend
 from yoke_core.domain.events_project_identity import (
     resolve_envelope_project_id_for_event,
 )
@@ -151,8 +169,19 @@ def _build_sentinel_envelope(
     return envelope
 
 
+_SENTINEL_SAVEPOINT = "orphan_sweep_sentinel"
+
+
 def _insert_sentinel(conn: Any, envelope: Dict[str, Any]) -> bool:
-    """Insert the sentinel row. Returns True on insert, False on dedup skip."""
+    """Insert the sentinel row. Returns True on insert, False on dedup skip.
+
+    The insert runs inside its own savepoint and answers ``False`` to every
+    database refusal. Two absences read the same here on purpose: a sentinel
+    some unique rule already holds, and one this database would not take at
+    all. Neither is a fact a caller stores — the tool call's state lives in
+    ``session_tool_calls``, which this function never touches — so neither
+    may roll the caller's transaction back.
+    """
     envelope_json = json.dumps(envelope, separators=(",", ":"))
     project_id = resolve_envelope_project_id_for_event(conn, None, envelope)
     values = (
@@ -179,8 +208,11 @@ def _insert_sentinel(conn: Any, envelope: Dict[str, Any]) -> bool:
         envelope_json,
         envelope["event_time"],
     )
-    cursor = conn.execute(
-        """INSERT INTO events (
+    # No conflict target: the sentinel is settled by whichever unique rule
+    # already holds it — the ``event_id`` primary key on a replayed insert,
+    # or ``idx_events_tool_use_id_dedup`` when this tool call's completion
+    # event was recorded before the sweep ever ran.
+    statement = """INSERT INTO events (
             event_id, source_type, session_id, severity,
             event_kind, event_type, event_name, event_outcome,
             service, project_id, item_id, task_num,
@@ -195,9 +227,15 @@ def _insert_sentinel(conn: Any, envelope: Dict[str, Any]) -> bool:
             %s, %s, %s,
             %s, %s, %s
         )
-        ON CONFLICT(event_id) DO NOTHING""",
-        values,
-    )
+        ON CONFLICT DO NOTHING"""
+    try:
+        conn.execute(f"SAVEPOINT {_SENTINEL_SAVEPOINT}")
+        cursor = conn.execute(statement, values)
+        conn.execute(f"RELEASE SAVEPOINT {_SENTINEL_SAVEPOINT}")
+    except db_backend.database_error_types(conn):
+        conn.execute(f"ROLLBACK TO SAVEPOINT {_SENTINEL_SAVEPOINT}")
+        conn.execute(f"RELEASE SAVEPOINT {_SENTINEL_SAVEPOINT}")
+        return False
     return cursor.rowcount > 0
 
 

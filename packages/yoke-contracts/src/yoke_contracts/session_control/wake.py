@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -46,6 +46,10 @@ class SessionWakeResponse(BaseModel):
     deduplicated: bool = False
     wake_attempt_count: int = 0
     last_wake_at: Optional[str] = None
+    #: Envelopes of earlier explicit wakes this request cancelled because the
+    #: delivery plane was owed an attempt on them and made none. They would
+    #: otherwise refuse every later wake for the same session.
+    released_queued_wakes: List[str] = Field(default_factory=list)
 
 
 __all__ = [

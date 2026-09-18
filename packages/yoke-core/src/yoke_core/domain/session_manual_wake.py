@@ -1,4 +1,15 @@
-"""One-shot explicit wake requests over the durable message relay."""
+"""One-shot explicit wake requests over the durable message relay.
+
+A request refuses while an earlier wake for the same session is still
+moving, and releases one that demonstrably is not. The second half is what
+keeps the refusal honest: the delivery plane can decline to attempt a queued
+wake — the route it needs is gone, the recipient still reads as a turn in
+flight — and that receipt then blocks every later wake for the session it
+was meant to recover. Past the acknowledgement grace window such a receipt
+is cancelled as superseded and this request takes its own route decision, so
+the caller reads the actual obstacle with its own recovery step rather than
+an opaque ``wake_in_flight``.
+"""
 
 from __future__ import annotations
 
@@ -22,6 +33,7 @@ from yoke_core.domain.session_message_selectors import resolve_recipients
 from yoke_core.domain.session_message_service import send_message
 from yoke_core.domain.session_message_store import (
     begin_message_mutation,
+    cancel_message_rows,
     message_details,
 )
 from yoke_core.domain.session_message_types import (
@@ -36,11 +48,19 @@ from yoke_core.domain.session_relay_machine_versions import (
     connected_relay_routes,
     machine_surface_versions,
 )
-from yoke_core.domain.session_wake_idempotency import recent_wake_blocker
+from yoke_core.domain.session_wake_idempotency import (
+    recent_wake_blocker,
+    stale_queued_wakes,
+)
 
 
 SESSION_WAKE_RESULT_WAIT_SECONDS = 10.0
 _RESULT_POLL_SECONDS = 0.25
+
+#: Why a queued wake nothing ever attempted was cancelled. It travels on the
+#: superseded envelope, so its sender reads why its wake stopped rather than
+#: finding a receipt that silently disappeared.
+QUEUED_WAKE_RELEASE_REASON = "superseded_by_wake_retry"
 
 
 def _selector(*, session_id: str | None, public_ref: str | None) -> RecipientSelector:
@@ -122,6 +142,7 @@ def _wake_result(
     target_liveness: str,
     routing: dict[str, Any],
     deduplicated: bool,
+    released_queued_wakes: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     wake_attempts = [
         attempt
@@ -151,6 +172,7 @@ def _wake_result(
         "evidence": evidence,
         "recovery": recovery,
         "deduplicated": deduplicated,
+        "released_queued_wakes": list(released_queued_wakes),
         "wake_attempt_count": int(recipient.get("wake_attempt_count") or 0),
         "last_wake_at": recipient.get("last_wake_at"),
     }
@@ -222,6 +244,29 @@ def request_session_wake(
         ]
         target = session_control_target(conn, recipient.session_id)
         routing = _stopped_route(conn, recipient, target, now=current)
+        # A wake the plane was owed and never attempted is not in flight, and
+        # leaving it to refuse this request is the deadlock: the receipt that
+        # cannot be delivered would block the only move that recovers the
+        # session. Release it here, then let this request take its own route
+        # refusal by name if the route really is gone.
+        released = tuple(
+            str(stale["message_id"])
+            for stale in stale_queued_wakes(
+                conn,
+                session_id=recipient.session_id,
+                now=current,
+                grace_seconds=policy.wake_ack_grace_seconds,
+                exclude_message_id=message_id,
+            )
+        )
+        for stale_message_id in released:
+            cancel_message_rows(
+                conn,
+                message_id=stale_message_id,
+                actor_id=actor_id,
+                reason=QUEUED_WAKE_RELEASE_REASON,
+                cancelled_at=current,
+            )
         blocker = recent_wake_blocker(
             conn,
             session_id=recipient.session_id,
@@ -279,10 +324,12 @@ def request_session_wake(
         target_liveness=recipient.liveness,
         routing=routing,
         deduplicated=bool(created["deduplicated"]),
+        released_queued_wakes=released,
     )
 
 
 __all__ = [
+    "QUEUED_WAKE_RELEASE_REASON",
     "SESSION_WAKE_RESULT_WAIT_SECONDS",
     "request_session_wake",
     "wait_for_session_wake_result",

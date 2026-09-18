@@ -8,6 +8,27 @@ from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain import db_backend, json_helper
 
 
+def explicit_stopped_wake_requested(routing_snapshot: Any) -> bool:
+    """Whether a recipient's routing snapshot carries the explicit-wake flag.
+
+    Every reader of the flag shares this one test. A snapshot arrives as a
+    mapping from one driver and as stored text from another, and an
+    unreadable one is simply not an explicit wake -- a receipt is never
+    treated as one on a parse failure, because that would silently promote
+    ordinary mail onto the stopped-session route.
+    """
+    if isinstance(routing_snapshot, Mapping):
+        return routing_snapshot.get(EXPLICIT_WAKE_ROUTING_FLAG) is True
+    try:
+        loaded = json_helper.loads_text(str(routing_snapshot or "{}"))
+    except (TypeError, ValueError):
+        return False
+    return (
+        isinstance(loaded, Mapping)
+        and loaded.get(EXPLICIT_WAKE_ROUTING_FLAG) is True
+    )
+
+
 def mark_explicit_stopped_wake(
     conn: Any,
     *,
@@ -51,4 +72,4 @@ def mark_explicit_stopped_wake(
     )
 
 
-__all__ = ["mark_explicit_stopped_wake"]
+__all__ = ["explicit_stopped_wake_requested", "mark_explicit_stopped_wake"]

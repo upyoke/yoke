@@ -24,6 +24,7 @@ from runtime.api.steering_fleet_test_helpers import (
     seed_session,
     seed_tool_call,
 )
+from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain.steering_fleet_report_delivery_states import (
     ATTEMPT_FAILED,
     ATTEMPT_IN_FLIGHT,
@@ -76,6 +77,41 @@ def test_a_zero_attempt_envelope_is_owed_on_the_recipients_own_silence(fleet):
     assert [entry.session_id for entry in rows] == [ANSWERER]
     assert rows[0].delivery_state == NEVER_ATTEMPTED
     assert rows[0].diagnostic == ""
+
+
+def test_a_requested_wake_the_plane_never_took_reads_as_queued(fleet):
+    """The receipt itself is the obstacle, so the row has to carry it.
+
+    A wake was requested and no attempt was ever made on it. Reported as a
+    bare absence of delivery, the seat asks for the wake that this very
+    receipt refuses; carried as a queued wake, the row names what to
+    release instead.
+    """
+    seed_message(
+        fleet,
+        "msg-1",
+        sender=ASKER,
+        to=ANSWERER,
+        at=LONG_AGO,
+        routing_snapshot={EXPLICIT_WAKE_ROUTING_FLAG: True},
+    )
+    fleet.commit()
+
+    rows = undelivered_messages(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert rows[0].delivery_state == NEVER_ATTEMPTED
+    assert rows[0].queued_wake is True
+
+
+def test_an_ordinary_undelivered_envelope_is_not_a_queued_wake(fleet):
+    """No wake was asked for, so there is none to release."""
+    seed_message(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
+    fleet.commit()
+
+    rows = undelivered_messages(fleet, project_id=PROJECT_ID, now=NOW)
+
+    assert rows[0].delivery_state == NEVER_ATTEMPTED
+    assert rows[0].queued_wake is False
 
 
 def test_a_recipient_that_is_still_running_tool_calls_is_waiting(fleet):
