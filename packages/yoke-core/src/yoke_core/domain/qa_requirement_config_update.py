@@ -33,7 +33,7 @@ from yoke_core.domain.qa_requirement_pass_currency import (
     bind_correction_identity,
     executable_method_config,
 )
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
 FROZEN_REQUIREMENT_CODE = "frozen_requirement_immutable"
@@ -141,13 +141,9 @@ def _prepare_target_env(
             f"FROM deployment_runs WHERE id={_marker(conn)}",
             (str(run_id),),
         )
-        frozen = (
-            run is None
-            or str(run["composition_frozen_at"] or "").strip()
-            or str(run["status"] or "") != "created"
-            or str(existing.get("execution_target_digest") or "").strip()
-        )
-        if frozen:
+        if run is None or str(run["status"] or "") != "created" or str(
+            run["composition_frozen_at"] or existing.get("execution_target_digest") or ""
+        ).strip():
             return None, FROZEN_REQUIREMENT_MESSAGE
         project_id = int(run["project_id"])
     name = str(value or "").strip() or None
@@ -252,11 +248,15 @@ def apply_requirement_update(
             )
 
     marker = _marker(conn)
+    digest_col = (
+        ", execution_target_digest"
+        if _column_exists(conn, "qa_requirements", "execution_target_digest")
+        else ""
+    )
     existing = query_one(
         conn,
         "SELECT qa_kind, qa_phase, item_id, epic_id, task_num, "
-        "deployment_run_id, method_id, method_config, "
-        "execution_target_digest "
+        f"deployment_run_id, method_id, method_config{digest_col} "
         f"FROM qa_requirements WHERE id = {marker}",
         (int(req_id),),
     )
