@@ -98,3 +98,38 @@ def test_an_unreadable_comparison_decides_nothing(repo):
     assert git.lane_adds_nothing(str(repo), "", "main") is None
     assert git.lane_adds_nothing(str(repo), _head(repo), "") is None
     assert git.lane_adds_nothing(str(repo), "does-not-exist", "main") is None
+
+
+def test_a_conflicting_lane_names_the_paths_that_conflict(repo):
+    """The detail a "not the recorded landing" refusal cannot supply itself.
+
+    A lane whose file the base has since moved past does not merge cleanly,
+    so it needs a rebase rather than a convergence — and the shas alone
+    never say which files put it in that state.
+    """
+    _run(repo, "checkout", "-q", "-b", "lane")
+    (repo / "feature.py").write_text("first\nlane version\n")
+    _commit(repo, "lane edits the feature")
+    lane = _head(repo, "lane")
+
+    _run(repo, "checkout", "-q", "main")
+    (repo / "feature.py").write_text("first\nbase moved on\n")
+    _commit(repo, "base edits the same line differently")
+
+    conflicts = git.lane_merge_conflicts(str(repo), lane, "main")
+
+    assert conflicts == ("feature.py",)
+    # The tree answer cannot decide a conflict, which is why the paths matter.
+    assert git.lane_adds_nothing(str(repo), lane, "main") is None
+
+
+def test_a_clean_lane_reports_no_conflicting_paths(repo):
+    """Detail only ever rides an actual conflict; it never invents one."""
+    _run(repo, "checkout", "-q", "-b", "lane")
+    (repo / "only-here.py").write_text("new\n")
+    _commit(repo, "an unrelated addition")
+    lane = _head(repo, "lane")
+    _run(repo, "checkout", "-q", "main")
+
+    assert git.lane_merge_conflicts(str(repo), lane, "main") == ()
+    assert git.lane_merge_conflicts(str(repo), "", "main") == ()
