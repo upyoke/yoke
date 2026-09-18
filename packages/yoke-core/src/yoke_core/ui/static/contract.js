@@ -16,11 +16,14 @@ export function createHttpFunctionClient(options = {}) {
   }
 
   return {
-    async call(request) {
+    // Hosts that inject a client may ignore `init`; this default forwards
+    // `signal` to fetch so a view can cancel an in-flight function call.
+    async call(request, init = {}) {
       const response = await fetchImpl(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(request),
+        signal: init.signal,
       });
       // Read text first: an error body may not be JSON (proxy/server failure
       // pages), and an unconditional response.json() would strand the panel.
