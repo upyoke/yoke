@@ -43,11 +43,30 @@ def test_an_item_still_implementing_has_not_reached_release(monkeypatch) -> None
     ) is False
 
 
-def test_an_item_waiting_at_release_has_reached_it(monkeypatch) -> None:
+def test_a_closed_out_dash_item_treats_mismatch_as_foreign(monkeypatch) -> None:
     _serve(monkeypatch, "dash")
 
+    assert release_status.stale_mismatch_is_foreign(
+        _item(workflow_id="dash", status="done"), "done"
+    ) is True
+
+
+def test_a_dash_item_at_release_keeps_same_item_mismatch(monkeypatch) -> None:
+    _serve(monkeypatch, "dash")
+
+    assert release_status.stale_mismatch_is_foreign(
+        _item(workflow_id="dash", status="release"), "release"
+    ) is False
     assert release_status.reached_release(
         _item(workflow_id="dash", status="release"), "release"
+    ) is True
+
+
+def test_a_task_pin_still_treats_mismatch_as_foreign(monkeypatch) -> None:
+    _serve(monkeypatch, "task")
+
+    assert release_status.stale_mismatch_is_foreign(
+        _item(workflow_id="task", status="implementing"), "implementing"
     ) is True
 
 

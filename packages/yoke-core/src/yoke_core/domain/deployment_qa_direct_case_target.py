@@ -9,6 +9,7 @@ create, at stage materialization, and at execute-time recovery.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -44,6 +45,12 @@ MISSING_DIRECT_TARGET_REPAIR = (
     "(composition is frozen) and do not attach a plan to bind the target."
 )
 
+UNBOUND_BEFORE_START_REPAIR = (
+    "is a known run-attached case with no execution target; bind it "
+    "before this run starts: `yoke qa requirement update --requirement-id "
+    "{requirement_id} --field target_env --value <environment>`"
+)
+
 
 def _environment_name(target: Mapping[str, Any]) -> str | None:
     environment = target.get("environment")
@@ -61,6 +68,40 @@ def _run_project_id(conn: Any, run_id: str) -> int | None:
     if row is None or row["project_id"] is None:
         return None
     return int(row["project_id"])
+
+
+def declared_persistent_qa_environment(
+    conn: Any, *, run_id: str, stage: str
+) -> str | None:
+    """Return the flow-declared persistent environment, ignoring receipts."""
+    row = conn.execute(
+        "SELECT df.stages FROM deployment_runs dr "
+        "JOIN deployment_flows df ON df.id=dr.flow WHERE dr.id=%s",
+        (str(run_id),),
+    ).fetchone()
+    if row is None:
+        return None
+    raw = row["stages"] if hasattr(row, "keys") else row[0]
+    try:
+        stages = json.loads(str(raw or "[]"))
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(stages, list):
+        return None
+    matches = [
+        dict(entry)
+        for entry in stages
+        if isinstance(entry, Mapping) and str(entry.get("name") or "") == stage
+    ]
+    if len(matches) != 1:
+        return None
+    target = matches[0].get("target")
+    if not isinstance(target, Mapping):
+        return None
+    if str(target.get("kind") or "") != "persistent_environment":
+        return None
+    name = str(target.get("environment") or "").strip()
+    return name or None
 
 
 def resolve_frozen_deployment_case_target(
@@ -99,6 +140,15 @@ def bind_authored_deployment_requirement(
     """Fill target columns on an about-to-insert row; return a refusal or ''."""
     named = str(row.get("target_env") or "").strip()
     if stage:
+        declared = declared_persistent_qa_environment(
+            conn, run_id=str(run_id), stage=str(stage)
+        )
+        if named and declared and named != declared:
+            return (
+                f"case names environment {named!r}, but frozen stage "
+                f"{stage!r} targets {declared!r}; omit --target-env or "
+                "name the stage's own environment"
+            )
         try:
             target = resolve_frozen_deployment_case_target(
                 conn,
@@ -107,6 +157,12 @@ def bind_authored_deployment_requirement(
                 member_item_id=member_item_id,
             )
         except (LookupError, TypeError, ValueError) as exc:
+            if declared:
+                return (
+                    f"{exc}. Recovery: wait for the QA stage's source "
+                    "stage to have a ready receipt. Do not substitute "
+                    "--target-env for the stage's declared environment."
+                )
             if not named:
                 return (
                     f"{exc}. Recovery: attach the case to a deployment QA stage "
@@ -270,9 +326,11 @@ def restore_missing_deployment_case_target(
 __all__ = [
     "INCOMPLETE_TARGET_REPAIR",
     "MISSING_DIRECT_TARGET_REPAIR",
+    "UNBOUND_BEFORE_START_REPAIR",
     "bind_authored_deployment_requirement",
     "bind_existing_direct_deployment_cases",
     "bind_missing_deployment_case_target",
+    "declared_persistent_qa_environment",
     "list_direct_deployment_method_cases",
     "resolve_frozen_deployment_case_target",
     "restore_missing_deployment_case_target",

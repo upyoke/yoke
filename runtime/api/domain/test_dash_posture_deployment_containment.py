@@ -11,6 +11,7 @@ import pytest
 from runtime.api.fixtures.backlog_inserts import (
     insert_deployment_run,
     insert_item,
+    insert_item_worktree,
 )
 from runtime.api.fixtures.file_test_db import connect_test_db, init_test_db
 from yoke_core.domain import deployment_run_carried_work_source
@@ -98,8 +99,34 @@ def _release_history(tmp_path: Path) -> tuple[Path, str, str, str]:
     return repo, merge, tip, fork
 
 
-def _deploy_posture_item(conn, *, item_id: int, merge_sha: str, lineage: str) -> None:
-    _insert_dash(conn, item_id=item_id, posture={"deployment": True})
+def _bind_lane_head(conn, *, item_id: int, commit_sha: str) -> None:
+    lane = insert_item_worktree(
+        conn,
+        item_id=item_id,
+        branch=f"ITEM-{item_id}",
+        path=f"/repo/.worktrees/ITEM-{item_id}",
+        state="active",
+    )
+    conn.execute(
+        "UPDATE item_worktrees SET commit_sha = %s, updated_at = %s WHERE id = %s",
+        (commit_sha, iso8601_now(), int(lane["id"])),
+    )
+    conn.commit()
+
+
+def _deploy_posture_item(
+    conn,
+    *,
+    item_id: int,
+    merge_sha: str,
+    lineage: str,
+    posture: dict | None = None,
+) -> None:
+    _insert_dash(
+        conn,
+        item_id=item_id,
+        posture={"deployment": True} if posture is None else posture,
+    )
     record_dash_evidence(
         conn,
         item_id=item_id,
@@ -237,3 +264,56 @@ def test_deploy_posture_refuses_clearly_when_containment_cannot_be_read(
     assert refusal["error_code"] == "GATE_DASH_DEPLOYMENT_CONTAINMENT_UNDETERMINED"
     assert "project_source_unavailable" in refusal["error"]
     assert "redeploy" in refusal["remediation_hint"]
+
+
+def test_a_first_landing_run_cannot_close_a_newer_undeployed_lane(
+    dash_db_path: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Done after a run of the first landing refuses while the live head is newer.
+
+    Deployment posture stays off: a succeeded first-landing run must not
+    close the item when the same-item lane has moved past that run's source.
+    """
+    repo, merge, tip, _fork = _release_history(tmp_path)
+    monkeypatch.setattr(
+        deployment_run_carried_work_source,
+        "checkout_for_project_id",
+        lambda _project_id: repo,
+    )
+    conn = connect_test_db(dash_db_path)
+    try:
+        _deploy_posture_item(
+            conn, item_id=2309, merge_sha=merge, lineage=merge, posture={},
+        )
+        _bind_lane_head(conn, item_id=2309, commit_sha=tip)
+    finally:
+        conn.close()
+
+    refusal = evaluate(item_id=2309, target_status="done", db_path=dash_db_path)
+    assert refusal is not None
+    assert refusal["error_code"] == "GATE_DASH_DEPLOYMENT_LINEAGE"
+
+
+def test_a_first_landing_run_still_closes_when_the_lane_matches(
+    dash_db_path: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    repo, merge, _tip, _fork = _release_history(tmp_path)
+    monkeypatch.setattr(
+        deployment_run_carried_work_source,
+        "checkout_for_project_id",
+        lambda _project_id: repo,
+    )
+    conn = connect_test_db(dash_db_path)
+    try:
+        _deploy_posture_item(
+            conn, item_id=2310, merge_sha=merge, lineage=merge, posture={},
+        )
+        _bind_lane_head(conn, item_id=2310, commit_sha=merge)
+    finally:
+        conn.close()
+
+    assert evaluate(item_id=2310, target_status="done", db_path=dash_db_path) is None

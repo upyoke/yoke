@@ -23,13 +23,12 @@ Close-out therefore compares the current lane candidate to those recorded
 identities before it stamps, records, or cleans. Matching the recorded
 candidate is the same landing even when a squash is not an ancestor of the
 base. A different candidate that the base does not contain is new work.
-Same-item correction is supported only while the item is before a
-declared release stage under its pinned workflow: continue on the same
-item and lane, re-verify, review, and run the governed merge again. Do
-not prescribe a stage change. Otherwise the mismatch refusal preserves
-the lane and requires separate work subject to operator preference
-(the default, including when no release stage is declared). Do not
-reset unlanded corrections.
+Same-item correction continues on the same item and lane through a
+declared release wait: re-verify, review, and run the governed merge
+again, then a fresh selected-flow delivery. Do not prescribe a stage
+change. The mismatch refusal preserves the lane when the item is
+already closed out, or when the pinned workflow declares no release
+wait. Do not reset unlanded corrections.
 
 Rebasing after a landing is neither of those, and it is the case sha reads
 cannot see: the base holds the work, the lane holds new shas for the same
@@ -126,24 +125,24 @@ def stale_unlanded_work(
     target: str,
     repo_root: str,
     recorded_head: str = "",
-    reached_release: bool = True,
+    stale_mismatch_is_foreign: bool = True,
 ) -> str:
     """Why this close-out must not run, or empty when the landing still matches.
 
     A target-contained receipt merge SHA proves the landing. Its source commit
     can match squash re-entry; any other uncontained head is new work.
 
-    ``reached_release`` selects whether a mismatch is close-out's
+    ``stale_mismatch_is_foreign`` selects whether a mismatch is close-out's
     foreign/stale refusal. ``True`` is the safe default — including when no
     release stage is declared, when the definition could not be read, and
-    when a declared wait has actually been reached — and every close-out
-    caller that omits it keeps that existing refusal. A caller that has
-    already confirmed THIS same item is still short of a declared release
-    wait (the item's own next merge, not a stage change this function
-    prescribes) passes ``False`` so that mismatch is not read as someone
-    else's foreign work on a reused branch name. It never changes what
-    counts as a match; it only lets a genuine mismatch pass when the item's
-    own state already accounts for it.
+    when the item is already closed out — and every close-out caller that
+    omits it keeps that existing refusal. A caller that has already
+    confirmed THIS same item still owns a declared release wait (the item's
+    own next merge, including while it waits at that stage) passes
+    ``False`` so that mismatch is not read as someone else's foreign work
+    on a reused branch name. It never changes what counts as a match; it
+    only lets a genuine mismatch pass when the item's own state already
+    accounts for it.
     """
     current = current_candidate(repo_root, branch, recorded_head)
     receipt = receipts.load(item_id, branch, target)
@@ -156,15 +155,15 @@ def stale_unlanded_work(
         return ""
     if _replayed_base_ref(repo_root, current, target, receipt):
         return ""
-    if not reached_release:
+    if not stale_mismatch_is_foreign:
         return ""
     named = ", ".join(sorted(sha[:12] for sha in identities))
     return (
         f"branch {branch!r} head {current[:12]} is not the recorded landing "
-        f"({named}). Same-item correction is supported only while the item "
-        "is before a declared release stage under its pinned workflow; "
-        "otherwise this refusal preserves the lane and requires separate "
-        "work subject to operator preference. Do not prescribe a stage "
+        f"({named}). Same-item correction continues through a declared "
+        "release wait on the same item and lane; this refusal preserves "
+        "the lane when the item is already closed out, or when the pinned "
+        "workflow declares no release wait. Do not prescribe a stage "
         "change or reset unlanded corrections. Close-out will not declare "
         "them delivered or clean this lane"
     )

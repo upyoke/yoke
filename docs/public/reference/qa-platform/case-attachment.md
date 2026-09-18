@@ -53,13 +53,19 @@ The command refuses, by name and with the recovery:
   stage and the subject constraint rejects half-named;
 - a case with no bindable target — name `--deployment-stage` after the QA
   stage's source receipt is ready, or `--target-env`.
+- `--target-env` that disagrees with the QA stage's declared persistent
+  environment — even when that stage's source receipt is not ready yet.
+  Named-env is not a substitute for a declared stage destination.
 
 A hand-authored run/stage/member case carries the same execution-target
 fields plan materialization writes, so it is executable on that frozen
 destination. Existing unbound rows recover on `yoke qa case run
 --requirement-id N` — do not add the member to the run and do not attach a
 plan. When the flow lists no cases, those direct member cases are the
-selection; materialize does not copy them into a plan.
+selection; materialize does not copy them into a plan. A known run-attached
+method case still missing its target refuses `freeze_run_composition` (run
+start → executing) with `yoke qa requirement update --requirement-id N
+--field target_env --value <environment>`.
 
 Epic-task attachment remains operator-debug only, through
 `python3 -m yoke_core.domain.qa requirement-add --epic-id E --task-num K

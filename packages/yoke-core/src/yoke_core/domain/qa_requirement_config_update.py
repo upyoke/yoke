@@ -33,7 +33,7 @@ from yoke_core.domain.qa_requirement_pass_currency import (
     bind_correction_identity,
     executable_method_config,
 )
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
 FROZEN_REQUIREMENT_CODE = "frozen_requirement_immutable"
@@ -132,8 +132,20 @@ def _prepare_method_config(
 def _prepare_target_env(
     conn: Any, existing: Any, value: Any
 ) -> tuple[Optional[tuple[Any, ...]], str]:
-    if existing["deployment_run_id"]:
-        return None, FROZEN_REQUIREMENT_MESSAGE
+    run_id = existing["deployment_run_id"]
+    project_id = None
+    if run_id:
+        run = query_one(
+            conn,
+            f"SELECT status, composition_frozen_at, project_id "
+            f"FROM deployment_runs WHERE id={_marker(conn)}",
+            (str(run_id),),
+        )
+        if run is None or str(run["status"] or "") != "created" or str(
+            run["composition_frozen_at"] or existing.get("execution_target_digest") or ""
+        ).strip():
+            return None, FROZEN_REQUIREMENT_MESSAGE
+        project_id = int(run["project_id"])
     name = str(value or "").strip() or None
     from yoke_core.domain.qa_environment_execution_target import (
         persistable_named_environment_target,
@@ -149,8 +161,7 @@ def _prepare_target_env(
         if existing["item_id"] is not None
         else existing["epic_id"]
     )
-    project_id = None
-    if owner is not None and _table_exists(conn, "items"):
+    if owner is not None and project_id is None and _table_exists(conn, "items"):
         project_row = query_one(
             conn,
             f"SELECT project_id FROM items WHERE id={_marker(conn)}",
@@ -237,10 +248,15 @@ def apply_requirement_update(
             )
 
     marker = _marker(conn)
+    digest_col = (
+        ", execution_target_digest"
+        if _column_exists(conn, "qa_requirements", "execution_target_digest")
+        else ""
+    )
     existing = query_one(
         conn,
         "SELECT qa_kind, qa_phase, item_id, epic_id, task_num, "
-        "deployment_run_id, method_id, method_config "
+        f"deployment_run_id, method_id, method_config{digest_col} "
         f"FROM qa_requirements WHERE id = {marker}",
         (int(req_id),),
     )

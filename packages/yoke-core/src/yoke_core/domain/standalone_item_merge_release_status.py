@@ -138,4 +138,27 @@ def reached_release(item: dict[str, Any], status: str) -> bool:
     return workflow.has_reached_stage(status, release_stage_id)
 
 
-__all__ = ["CloseOutRoute", "close_out_route", "reached_release"]
+def stale_mismatch_is_foreign(item: dict[str, Any], status: str) -> bool:
+    """Whether a mismatched lane head is foreign/stale work at close-out.
+
+    A workflow that owns a release wait treats this item's own new
+    commits as the next governed merge until ``done``, including while
+    the item waits at that release stage. Workflows with no release wait,
+    and unreadable definitions, keep the existing refusal.
+    """
+    if status == CLOSED_OUT_STATUS:
+        return True
+    workflow, error = pinned_workflow_for_item(item)
+    if workflow is None or error:
+        return True
+    if delivery_redirect_stage(workflow) is None:
+        return True
+    return False
+
+
+__all__ = [
+    "CloseOutRoute",
+    "close_out_route",
+    "reached_release",
+    "stale_mismatch_is_foreign",
+]

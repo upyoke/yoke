@@ -25,7 +25,7 @@ from yoke_core.domain.deploy_pipeline_environment import watch_deploy_command
 from yoke_core.domain.qa_workflow_binding_validation import (
     ITEM_POSTURE_VERIFICATION_TRANSITION,
 )
-from yoke_core.domain.schema_common import _table_exists
+from yoke_core.domain.schema_common import _column_exists, _table_exists
 
 
 def approval_policy_for_posture(
@@ -108,6 +108,86 @@ def _approval_gate(
     )
 
 
+def _active_lane_head(conn: Any, item_id: int) -> str:
+    if not (
+        _table_exists(conn, "item_worktrees")
+        and _column_exists(conn, "item_worktrees", "commit_sha")
+    ):
+        return ""
+    from yoke_core.domain import db_backend
+
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    row = conn.execute(
+        "SELECT commit_sha FROM item_worktrees "
+        f"WHERE item_id = {marker} AND state = 'active' "
+        "AND commit_sha IS NOT NULL "
+        "ORDER BY id DESC LIMIT 1",
+        (int(item_id),),
+    ).fetchone()
+    if row is None:
+        return ""
+    value = row["commit_sha"] if hasattr(row, "keys") else row[0]
+    return str(value or "").strip()
+
+
+def _lineage_covers(
+    conn: Any,
+    project_id: int,
+    *,
+    lineage: str,
+    commit_sha: str,
+) -> Optional[dict[str, Any]]:
+    verdict = candidate_contains_commit(
+        conn,
+        int(project_id),
+        candidate_lineage=lineage,
+        commit_sha=commit_sha,
+    )
+    if verdict.state == _CONTAINMENT_UNDETERMINED:
+        return _failure(
+            "GATE_DASH_DEPLOYMENT_CONTAINMENT_UNDETERMINED",
+            "Whether the deployed candidate contains the current work could "
+            f"not be determined ({verdict.reason}).",
+            f"{verdict.recovery} Do not redeploy to make this merge the "
+            "candidate tip; the other members of that release would then fail "
+            "the same way.",
+        )
+    if not verdict.contained:
+        return _failure(
+            "GATE_DASH_DEPLOYMENT_LINEAGE",
+            "The successful deployment run does not contain this item's "
+            "current candidate.",
+            "Deliver this item through a run whose candidate contains its "
+            "merge and live lane head.",
+        )
+    return None
+
+
+def _stale_completion_run_gate(
+    conn: Any,
+    item_id: int,
+) -> Optional[dict[str, Any]]:
+    """Refuse a succeeded run that does not contain the live lane head.
+
+    Selected deployment posture still requires a succeeded run and still
+    contains the recorded merge. This narrower check runs even when that
+    posture is off: a first-landing run must not close the item while a
+    newer same-item head is unmerged or undeployed.
+    """
+    head = _active_lane_head(conn, item_id)
+    if not head:
+        return None
+    row = latest_completion_run(conn, int(item_id))
+    if row is None or str(row["status"]) != "succeeded":
+        return None
+    return _lineage_covers(
+        conn,
+        int(row["project_id"]),
+        lineage=str(row.get("release_lineage") or ""),
+        commit_sha=head,
+    )
+
+
 def _deployment_gate(
     conn: Any,
     item_id: int,
@@ -156,28 +236,15 @@ def _deployment_gate(
     # member would be told to redeploy until its own merge became the tip,
     # which the batch it shipped in cannot satisfy. Containment is the fact
     # the gate means.
-    verdict = candidate_contains_commit(
+    blocked = _lineage_covers(
         conn,
         int(row["project_id"]),
-        candidate_lineage=str(row.get("release_lineage") or ""),
+        lineage=str(row.get("release_lineage") or ""),
         commit_sha=merge_sha,
     )
-    if verdict.state == _CONTAINMENT_UNDETERMINED:
-        return _failure(
-            "GATE_DASH_DEPLOYMENT_CONTAINMENT_UNDETERMINED",
-            "Whether the deployed candidate contains the recorded merge could "
-            f"not be determined ({verdict.reason}).",
-            f"{verdict.recovery} Do not redeploy to make this merge the "
-            "candidate tip; the other members of that release would then fail "
-            "the same way.",
-        )
-    if not verdict.contained:
-        return _failure(
-            "GATE_DASH_DEPLOYMENT_LINEAGE",
-            "The successful deployment run does not carry the recorded merge.",
-            "Deliver this item through a run whose candidate contains its merge.",
-        )
-    return None
+    if blocked is not None:
+        return blocked
+    return _stale_completion_run_gate(conn, item_id)
 
 
 def evaluate(
@@ -220,7 +287,7 @@ def evaluate(
                 return blocked
         if posture.get("deployment") is True:
             return _deployment_gate(conn, int(item_id))
-        return None
+        return _stale_completion_run_gate(conn, int(item_id))
     finally:
         conn.close()
 

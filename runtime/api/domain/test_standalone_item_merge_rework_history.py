@@ -261,7 +261,7 @@ def test_merge_a_then_real_qa_rejection_then_merge_b(
     # This item's own next merge attempt is not foreign or stale work.
     assert landed.stale_unlanded_work(
         item_id=ITEM_ID, branch=BRANCH, target=TARGET, repo_root=str(repo),
-        recorded_head="", reached_release=False,
+        recorded_head="", stale_mismatch_is_foreign=False,
     ) == ""
     assert _lane(ITEM_ID, repo) is None  # the stale receipt no longer answers
 
