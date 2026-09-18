@@ -95,6 +95,34 @@ def _scope_rows(
     return scopes
 
 
+def _covering_group_scope(
+    seat: Mapping[str, Any],
+    scopes: Mapping[int, Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Name the covering claim, not every document lock on that project.
+
+    Live seats are often two document claims on one session. Folding every
+    overlapping lock onto the first claim makes a covered worker look
+    project-wide. The worker row has to follow ``work_claims.scope``.
+    """
+    claim_scope = dict(seat.get("scope") or {})
+    project_id = claim_scope.get("project_id")
+    collapsed: Mapping[str, Any] = {}
+    if project_id is not None:
+        collapsed = scopes.get(int(project_id)) or {}
+    document = claim_scope.get("document")
+    return {
+        "claim_id": int(seat["claim_id"]),
+        "project_id": int(project_id) if project_id is not None else None,
+        "project": collapsed.get("project"),
+        "holder_session_id": str(seat["session_id"]),
+        "claimed_at": seat.get("claimed_at"),
+        "liveness": collapsed.get("liveness"),
+        "strategy_docs": [str(document)] if document else [],
+        "scope": claim_scope,
+    }
+
+
 def _attach_strategy_docs(
     conn: Any,
     scopes: dict[int, dict[str, Any]],
@@ -184,11 +212,9 @@ def steering_visibility(
             projected[session_id]["steering_group_session_id"] = str(
                 seat["session_id"]
             )
-            covering = scopes.get(int(item_project_id))
-            if covering and covering["holder_session_id"] == str(
-                seat["session_id"]
-            ):
-                projected[session_id]["steering_group_scope"] = covering
+            projected[session_id]["steering_group_scope"] = (
+                _covering_group_scope(seat, scopes)
+            )
     return projected
 
 

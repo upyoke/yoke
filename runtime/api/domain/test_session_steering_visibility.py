@@ -130,6 +130,10 @@ def test_a_worker_holding_a_covered_item_associates_to_the_seat() -> None:
 
     assert facts["worker-1"]["steering_group_session_id"] == "holder-1"
     assert facts["operator-1"]["steering_group_session_id"] is None
+    group = facts["worker-1"]["steering_group_scope"]
+    assert group["scope"] == {"project_id": 10}
+    assert "document" not in group["scope"]
+    assert group["strategy_docs"] == []
 
 
 def test_a_worker_on_another_document_is_not_the_project_seat() -> None:
@@ -193,3 +197,127 @@ def test_roster_schema_without_item_columns_still_projects_the_seat() -> None:
     )
 
     assert facts["holder-1"]["steering_group_session_id"] == "holder-1"
+
+
+def _two_document_seats(conn: sqlite3.Connection) -> None:
+    conn.execute("DELETE FROM work_claims")
+    conn.execute("DELETE FROM strategy_doc_claims")
+    conn.execute(
+        "INSERT INTO work_claims VALUES (1,?,?,?,?,NULL)",
+        (
+            "holder-1",
+            "steering",
+            make_steering_target(10, "CURRENT-PLAN").scope_json(),
+            "2026-08-26T11:00:00Z",
+        ),
+    )
+    conn.execute(
+        "INSERT INTO work_claims VALUES (2,?,?,?,?,NULL)",
+        (
+            "holder-1",
+            "steering",
+            make_steering_target(10, "RELEASES").scope_json(),
+            "2026-08-26T11:01:00Z",
+        ),
+    )
+    conn.execute(
+        "INSERT INTO strategy_doc_claims VALUES "
+        "(10,'CURRENT-PLAN','session','holder-1','2026-08-26T11:00:00Z',NULL)"
+    )
+    conn.execute(
+        "INSERT INTO strategy_doc_claims VALUES "
+        "(10,'RELEASES','session','holder-1','2026-08-26T11:01:00Z',NULL)"
+    )
+
+
+def test_worker_group_scope_names_the_covering_document_claim() -> None:
+    conn = _connection()
+    _two_document_seats(conn)
+    conn.execute("INSERT INTO items VALUES (42, 10)")
+    conn.execute(
+        "INSERT INTO item_strategy_docs VALUES (42, 10, 'CURRENT-PLAN')"
+    )
+    conn.execute(
+        "UPDATE harness_sessions SET current_item_id = 42 "
+        "WHERE session_id = 'worker-1'"
+    )
+
+    group = steering_visibility(conn, _rows(), now=NOW)["worker-1"][
+        "steering_group_scope"
+    ]
+
+    assert group["scope"] == {"project_id": 10, "document": "CURRENT-PLAN"}
+    assert group["strategy_docs"] == ["CURRENT-PLAN"]
+
+
+def test_worker_on_the_later_document_does_not_inherit_the_first_claim() -> None:
+    conn = _connection()
+    _two_document_seats(conn)
+    conn.execute("INSERT INTO items VALUES (42, 10)")
+    conn.execute("INSERT INTO item_strategy_docs VALUES (42, 10, 'RELEASES')")
+    conn.execute(
+        "UPDATE harness_sessions SET current_item_id = 42 "
+        "WHERE session_id = 'worker-1'"
+    )
+
+    group = steering_visibility(conn, _rows(), now=NOW)["worker-1"][
+        "steering_group_scope"
+    ]
+
+    assert group["scope"]["document"] == "RELEASES"
+    assert group["strategy_docs"] == ["RELEASES"]
+
+
+def test_covering_claim_projects_when_it_is_not_the_first_project_seat() -> None:
+    conn = _connection()
+    conn.execute(
+        "INSERT INTO harness_sessions "
+        "(session_id, project_id, last_heartbeat, last_tool_call_at, "
+        "ended_at, terminated_at, executor) VALUES (?,?,?,?,?,?,?)",
+        (
+            "holder-2",
+            10,
+            "2026-08-26T12:00:00Z",
+            None,
+            None,
+            None,
+            "codex",
+        ),
+    )
+    conn.execute("DELETE FROM work_claims")
+    conn.execute("DELETE FROM strategy_doc_claims")
+    conn.execute(
+        "INSERT INTO work_claims VALUES (1,?,?,?,?,NULL)",
+        (
+            "holder-1",
+            "steering",
+            make_steering_target(10, "CURRENT-PLAN").scope_json(),
+            "2026-08-26T11:00:00Z",
+        ),
+    )
+    conn.execute(
+        "INSERT INTO work_claims VALUES (2,?,?,?,?,NULL)",
+        (
+            "holder-2",
+            "steering",
+            make_steering_target(10, "RELEASES").scope_json(),
+            "2026-08-26T11:01:00Z",
+        ),
+    )
+    conn.execute("INSERT INTO items VALUES (42, 10)")
+    conn.execute("INSERT INTO item_strategy_docs VALUES (42, 10, 'RELEASES')")
+    conn.execute(
+        "UPDATE harness_sessions SET current_item_id = 42 "
+        "WHERE session_id = 'worker-1'"
+    )
+
+    facts = steering_visibility(
+        conn,
+        _rows() + [{"session_id": "holder-2", "project_id": 10, "project": "yoke"}],
+        now=NOW,
+    )
+    group = facts["worker-1"]["steering_group_scope"]
+
+    assert facts["worker-1"]["steering_group_session_id"] == "holder-2"
+    assert group["holder_session_id"] == "holder-2"
+    assert group["scope"]["document"] == "RELEASES"

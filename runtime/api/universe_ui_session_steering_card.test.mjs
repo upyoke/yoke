@@ -119,7 +119,12 @@ test("the group hue lightly fills the worker label and never the card itself", (
 });
 
 
-function coveredWorkerCard(liveness = "active") {
+function coveredWorkerCard(liveness = "active", groupScope = {
+  project: "yoke",
+  project_id: 1,
+  scope: { project_id: 1, document: "CURRENT-PLAN" },
+  strategy_docs: ["CURRENT-PLAN"],
+}) {
   return sessionCard(
     new FakeDocument(),
     {
@@ -131,9 +136,7 @@ function coveredWorkerCard(liveness = "active") {
       holdings: { current: [], previous: [], previous_remainder: 0 },
       messageability: { messageable: false },
       steering_group_session_id: "seat-1",
-      steering_group_scope: {
-        project: "yoke", project_id: 1, strategy_docs: ["CURRENT-PLAN"],
-      },
+      steering_group_scope: groupScope,
     },
     () => {},
     [{ id: 1, slug: "yoke" }],
@@ -162,6 +165,45 @@ test("a stale covered worker keeps both its steered row and its stale class", ()
   const rendered = coveredWorkerCard("stale");
   assert.equal(byClass(rendered, "session-steered-row").length, 1);
   assert.ok(rendered.classList.contains("is-stale"));
+});
+
+test("two session document locks still name the covering claim", () => {
+  const rendered = coveredWorkerCard("active", {
+    project: "yoke",
+    project_id: 1,
+    scope: { project_id: 1, document: "CURRENT-PLAN" },
+    strategy_docs: ["CURRENT-PLAN", "RELEASES"],
+  });
+  const row = byClass(rendered, "session-steered-row")[0];
+  assert.equal(
+    byClass(row, "session-steering-docs")[0].textContent, "CURRENT-PLAN",
+  );
+  assert.equal(byClass(row, "session-steering-wide").length, 0);
+});
+
+test("a project-wide covering claim says Project-wide, not its document locks", () => {
+  const rendered = coveredWorkerCard("active", {
+    project: "yoke",
+    project_id: 1,
+    scope: { project_id: 1 },
+    strategy_docs: ["MISSION"],
+  });
+  const row = byClass(rendered, "session-steered-row")[0];
+  assert.equal(
+    byClass(row, "session-steering-wide")[0].textContent, "Project-wide",
+  );
+  assert.equal(byClass(row, "session-steering-docs").length, 0);
+});
+
+test("a missing covering scope stays unlabeled, never inferred wide", () => {
+  const rendered = coveredWorkerCard("active", {
+    project: "yoke",
+    project_id: 1,
+    strategy_docs: ["CURRENT-PLAN", "RELEASES"],
+  });
+  const row = byClass(rendered, "session-steered-row")[0];
+  assert.equal(byClass(row, "session-steering-docs").length, 0);
+  assert.equal(byClass(row, "session-steering-wide").length, 0);
 });
 
 test("the seat itself carries no steered row, and an unsteered card none", () => {
