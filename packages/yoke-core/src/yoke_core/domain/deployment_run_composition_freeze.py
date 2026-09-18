@@ -249,6 +249,29 @@ def freeze_run_composition(conn: Any, run_id: str) -> dict[str, Any]:
     # discovered here stops the run by name instead of widening it silently.
     if refusal := carried_membership_refusal(conn, run_id, carried_work=carried_work):
         raise ValueError(refusal)
+    from yoke_core.domain.deployment_qa_admission_materialization import (
+        ADMITTED_REQUIREMENT_CASE_PREFIX,
+    )
+    from yoke_core.domain.deployment_qa_direct_case_target import (
+        UNBOUND_BEFORE_START_REPAIR,
+    )
+    from yoke_core.domain.db_helpers import query_rows
+
+    unbound = query_rows(
+        conn,
+        "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
+        "AND method_id IS NOT NULL AND waived_at IS NULL "
+        "AND (execution_target_digest IS NULL OR execution_target_digest='') "
+        "AND (plan_case_key IS NULL OR plan_case_key NOT LIKE %s) "
+        "ORDER BY id",
+        (str(run_id), f"{ADMITTED_REQUIREMENT_CASE_PREFIX}%"),
+    )
+    if unbound:
+        requirement_id = int(unbound[0]["id"])
+        raise ValueError(
+            f"QA requirement {requirement_id} "
+            + UNBOUND_BEFORE_START_REPAIR.format(requirement_id=requirement_id)
+        )
     for item_id in member_ids(conn, run_id):
         member = conn.execute(
             f"SELECT delivery_intent,requirement_selection "
