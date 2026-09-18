@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.deployment_flow_clearance import resolve_delivery_clearance
-from yoke_core.domain.delivery_discharge_read import delivery_has_discharged
+from yoke_core.domain.delivery_discharge_read import delivery_discharge
 from yoke_core.domain.merge_review_readiness import pinned_workflow_for_item
 from yoke_core.domain.standalone_item_merge_evidence import CLOSED_OUT_STATUS
 from yoke_core.domain.workflow_behavior import delivery_redirect_stage
@@ -106,11 +106,25 @@ def close_out_route(
         # withheld it from every item whose deploy had just succeeded — so a
         # delivered member's close-out recorded its evidence and was then
         # refused done for a ceremony nobody could perform.
+        if clearance.merge_only:
+            return CloseOutRoute(
+                stages=(CLOSED_OUT_STATUS,), delivery_discharged=True
+            )
+        discharge = delivery_discharge(item)
+        if discharge.unread:
+            # Never assert a ceremony on an unread delivery — but never hide
+            # the unread state either. Refusing here names the provider's own
+            # reason, where letting it read as "not delivered" would hand the
+            # owner the undiagnosable nonce refusal instead.
+            return CloseOutRoute(
+                error=(
+                    "whether this item's delivery has happened could not be "
+                    f"read: {discharge.detail}. {discharge.recovery}"
+                )
+            )
         return CloseOutRoute(
             stages=(CLOSED_OUT_STATUS,),
-            delivery_discharged=(
-                clearance.merge_only or delivery_has_discharged(item)
-            ),
+            delivery_discharged=discharge.discharged,
         )
     if not declares_transition(workflow, status, release_stage_id):
         return CloseOutRoute()
