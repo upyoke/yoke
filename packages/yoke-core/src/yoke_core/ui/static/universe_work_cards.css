@@ -93,8 +93,9 @@
   letter-spacing: .075em;
   text-transform: uppercase;
 }
+/* The age follows the status chip it qualifies and stays there: pushed to
+   the right edge it read as a column of its own. The head already wraps. */
 .universe-app-root .work-item-card-when {
-  margin-left: auto;
   color: var(--yoke-muted);
   font-size: 12px;
   overflow-wrap: anywhere;

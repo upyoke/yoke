@@ -1,9 +1,10 @@
-"""How many of a releasing item's merges have actually shipped.
+"""How many of an item's merges have actually shipped.
 
-An item waiting at its release stage has landed at least one merge and is
-waiting for a run to carry it. "How many, and how many are out?" is the
-question its card asks, and both halves come from records the control plane
-already keeps.
+"How many landed, and how many are out?" is the question every Frontier card
+that draws a delivery box asks — an item waiting at its release stage for a
+run to carry it, and one already finished whose card names where the work
+went. Both halves of the answer come from records the control plane already
+keeps.
 
 The merges themselves are the landings the item recorded — each landing
 writes a ``merge_queue_batch`` block naming the commit it merged, which
@@ -42,7 +43,7 @@ SUCCEEDED = "succeeded"
 
 @dataclass(frozen=True)
 class DeliverySummary:
-    """One releasing item's merge counts."""
+    """One item's merge counts."""
 
     merges: int = 0
     deployed: int = 0
