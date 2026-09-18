@@ -9,8 +9,10 @@ import sys
 from typing import Any, Callable, List
 
 from yoke_cli.commands._helpers import (
+    add_full_arg,
     add_json_arg,
     add_session_arg,
+    detail_of,
     dispatch_and_emit,
     item_target,
     parse_or_usage_error,
@@ -168,14 +170,16 @@ def qa_plan_list(args: List[str]) -> int:
 
 
 def qa_plan_get(args: List[str]) -> int:
-    usage = "yoke qa plan get PLAN_ID --project P [--deployment-run-id RUN] [--json]"
+    usage = USAGE_BY_FUNCTION_ID["qa.plan.get"]
 
     def configure(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("plan_id", type=int)
         parser.add_argument("--deployment-run-id")
+        add_full_arg(parser, "each probe's source and every proof's evidence")
 
     def payload(parsed: argparse.Namespace) -> dict[str, Any]:
-        result: dict[str, Any] = {"plan_id": parsed.plan_id}
+        detail = detail_of(parsed)
+        result: dict[str, Any] = {"plan_id": parsed.plan_id, "detail": detail}
         if parsed.deployment_run_id:
             result["deployment_run_id"] = parsed.deployment_run_id
         return result

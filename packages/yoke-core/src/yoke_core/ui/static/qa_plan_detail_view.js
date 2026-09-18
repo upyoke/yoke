@@ -276,7 +276,10 @@ function renderPlanDetail(context, host, plan, scope) {
 
 async function planDetail(context, scope, planId) {
   const calls = projectCalls(
-    context, scope, "qa.plan.get", { plan_id: Number(planId) },
+    // The detail view renders each probe's source and every proof's
+    // evidence, so it asks for the whole document rather than the
+    // scannable summary the read defaults to.
+    context, scope, "qa.plan.get", { plan_id: Number(planId), detail: "full" },
   );
   const responses = await Promise.all(calls.map((call) => {
     const payload = { ...call.payload };

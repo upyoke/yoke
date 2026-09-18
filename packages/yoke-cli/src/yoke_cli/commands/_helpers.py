@@ -18,6 +18,11 @@ from typing import Any, Callable, Dict, List, Optional, TextIO
 
 from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.read_detail import DETAIL_FULL, DETAIL_SUMMARY
+
+#: Re-exported so an adapter that always wants the whole record names it
+#: from the same place it takes ``--full`` and ``detail_of``.
+FULL_DETAIL = DETAIL_FULL
 from yoke_cli.commands.local_dispatch_preload import ensure_handlers_loaded
 from yoke_cli.transport.dispatcher import (
     build_actor,
@@ -28,8 +33,11 @@ from yoke_cli.transport.dispatcher import (
 
 __all__ = [
     "ensure_handlers_loaded",
+    "FULL_DETAIL",
+    "add_full_arg",
     "add_session_arg",
     "add_json_arg",
+    "detail_of",
     "client_project_context",
     "item_target",
     "resolve_item_id_via_dispatch",
@@ -93,6 +101,20 @@ def add_json_arg(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Emit the command's JSON response envelope on stdout.",
     )
+
+
+def add_full_arg(parser: argparse.ArgumentParser, adds: str) -> None:
+    """Opt one read out of its compact default; ``adds`` names what returns."""
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help=f"Serve the whole record: {adds}. The default is a summary.",
+    )
+
+
+def detail_of(parsed: argparse.Namespace) -> str:
+    """The read-detail request value ``--full`` selects."""
+    return DETAIL_FULL if getattr(parsed, "full", False) else DETAIL_SUMMARY
 
 
 def add_project_arg(parser: argparse.ArgumentParser) -> None:

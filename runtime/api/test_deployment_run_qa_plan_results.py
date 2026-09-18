@@ -120,7 +120,7 @@ def test_plan_get_handler_forwards_the_named_deployment_run() -> None:
         patch("yoke_core.domain.db_helpers.connect", connected),
         patch(
             "yoke_core.domain.qa_plan_detail.get_plan",
-            return_value={"project": "yoke"},
+            return_value={"id": 17, "project": "yoke"},
         ) as read,
     ):
         outcome = activity_handlers.handle_plan_get(request)
@@ -130,6 +130,7 @@ def test_plan_get_handler_forwards_the_named_deployment_run() -> None:
         "plan_id": 17,
         "deployment_run_id": "run-20260728-905",
     }
+    assert outcome.result_payload["detail"] == "summary"
 
 
 def test_plan_get_handler_accepts_the_web_project_id() -> None:
@@ -147,7 +148,7 @@ def test_plan_get_handler_accepts_the_web_project_id() -> None:
         patch("yoke_core.domain.db_helpers.connect", connected),
         patch(
             "yoke_core.domain.qa_plan_detail.get_plan",
-            return_value={"project": "yoke", "project_id": 1},
+            return_value={"id": 17, "project": "yoke", "project_id": 1},
         ),
     ):
         outcome = activity_handlers.handle_plan_get(request)

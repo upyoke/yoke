@@ -20,6 +20,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_cli.commands import _helpers
 from yoke_cli.commands._helpers import (
+    FULL_DETAIL,
     add_json_arg,
     add_project_arg,
     add_session_arg,
@@ -58,13 +59,8 @@ Exit codes: 0 saved or unchanged; 1 editor, validation, CAS, or dispatch failure
 2 command-line usage error.
 """
 _DOCUMENT_KEYS = {
-    "slug",
-    "name",
-    "description",
-    "success_policy_id",
-    "success_policy_params",
-    "target_environment",
-    "cases",
+    "slug", "name", "description", "success_policy_id",
+    "success_policy_params", "target_environment", "cases",
 }
 _CASE_KEYS = (
     "case_key",
@@ -185,7 +181,7 @@ def _load_edited_document(path: Path, slug: str) -> dict[str, Any]:
 def qa_plan_edit(args: List[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="yoke qa plan edit",
-        description=(f"{QA_PLAN_EDIT_USAGE}\n\n{_QA_PLAN_EDIT_HELP_DEEP}"),
+        description=f"{QA_PLAN_EDIT_USAGE}\n\n{_QA_PLAN_EDIT_HELP_DEEP}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("slug")
@@ -251,7 +247,7 @@ def qa_plan_edit(args: List[str]) -> int:
     fetched = call_dispatcher(
         function_id="qa.plan.get",
         target=target,
-        payload={"project": project, "plan_id": plan_id},
+        payload={"project": project, "plan_id": plan_id, "detail": FULL_DETAIL},
         actor=actor,
     )
     if not fetched.success:

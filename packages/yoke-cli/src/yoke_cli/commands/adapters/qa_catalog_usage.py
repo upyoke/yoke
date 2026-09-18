@@ -13,7 +13,10 @@ USAGE_BY_FUNCTION_ID = {
         "--evidence-contract TEXT [--required-capability KIND ...]"
     ),
     "qa.plan.list": "yoke qa plan list --project P",
-    "qa.plan.get": ("yoke qa plan get PLAN_ID --project P [--deployment-run-id RUN]"),
+    "qa.plan.get": (
+        "yoke qa plan get PLAN_ID --project P [--deployment-run-id RUN] "
+        "[--full] [--json]"
+    ),
     "qa.activity.list": (
         "yoke qa activity list --project P [--deployment-run-id RUN] "
         "[--item-id N ...] [--limit N] [--json]"
