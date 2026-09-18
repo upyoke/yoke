@@ -267,12 +267,14 @@ class TestSteerSkillContract:
         assert "activation dependencies do not send their own go-signal" in loop
         assert "deployment-runs create" in loop
         assert "--source-ref {PINNED_SHA}" in loop
-        assert "yoke watch merge done-transition -- PREFIX-N" in loop
-        assert (
-            "## Live status — steering snapshot "
-            "(refresh or replace on next steering handoff)" in loop
-        )
-
+        # A member closes ITSELF out and credits its own stage; only an
+        # orphan is steering's to finish.
+        assert "yoke merge item PREFIX-N --result" in loop
+        assert "done-transition --skip-deploy" in loop
+        assert "orphaned release-wait member" in loop
+        assert "--stage STAGE --member PREFIX-N" in loop
+        assert ("## Live status — steering snapshot (refresh or replace on "
+                "next steering handoff)") in loop
 
 class TestNearTermPlanDefault:
     """An omitted slug selects CURRENT-PLAN instead of asking the operator."""

@@ -186,8 +186,16 @@ def emit_nearest_group_help(
 
 
 def can_route_group(argv: Sequence[str]) -> bool:
-    """Return whether the CLI routes this exact spelling to useful guidance."""
+    """Return whether the CLI routes this exact spelling to useful guidance.
+
+    A trailing ``--help`` on a group prefix routes to the same listing the
+    bare prefix does, so it is the spelling teaching naturally uses for a
+    group's deep home. Accept it rather than reading the flag as a
+    subcommand that does not exist.
+    """
     prefix = tuple(argv)
+    if prefix and prefix[-1] in ("--help", "-h"):
+        prefix = prefix[:-1]
     if not prefix:
         return False
     if prefix in GROUP_ROUTES or prefix in GUIDANCE_ROUTES:
