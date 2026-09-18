@@ -19,6 +19,15 @@ time beside it, in two record families that already exist for other readers:
   been reported;
 * the launch handle the hook writes when a launched native registers.
 
+A deferral also reports how long that native has been silent, read from its
+own capture. Custody still refuses on the pid alone -- silence is never
+authority to start a second turn, because a turn between tool calls is
+silent by design. It travels because the refusal repeats: two natives held
+custody for half an hour and an hour while every wake to their sessions was
+declined, and nothing in the refusal said whether the turn behind it was
+moving. That is the difference between a wake worth retrying and a session
+a person needs to look at.
+
 Both are custody records: this machine started a headless native that exits
 when its turn ends, so its pid still being that process means the turn is
 still running. A record proves nothing about a pid it no longer names, so
@@ -36,10 +45,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import time
 from typing import Any, Callable, Iterator, Mapping
 
 from yoke_contracts.process_ancestry import process_start_time
 from yoke_contracts.session_control.wake_delivery import NATIVE_TURN_RUNNING_RESULT
+from yoke_harness.session_relay_native_capture_format import (
+    parse_capture,
+    stamp_seconds,
+)
 from yoke_harness import session_launch_handles
 from yoke_harness.session_launch_containment import supervised_records
 from yoke_harness.session_relay_process_liveness import LAUNCH_HANDLE_SOURCE
@@ -63,15 +77,22 @@ class RunningNative:
     pid: int
     process_start_time: str
     source: str
+    #: Seconds since this native last said anything, when its capture records
+    #: that. ``None`` when there is no capture to read or it predates the
+    #: field -- an unknown silence is reported as unknown rather than as zero.
+    silent_for_seconds: int | None = None
 
     @property
     def evidence(self) -> dict[str, Any]:
-        return {
+        evidence: dict[str, Any] = {
             "result_code": NATIVE_TURN_RUNNING_RESULT,
             "running_native_pid": self.pid,
             "running_native_start_time": self.process_start_time,
             "running_native_source": self.source,
         }
+        if self.silent_for_seconds is not None:
+            evidence["running_native_silent_for_seconds"] = self.silent_for_seconds
+        return evidence
 
 
 @dataclass(frozen=True)
@@ -95,6 +116,36 @@ class FinishedResume:
         return payload
 
 
+def _silent_for_seconds(
+    record: Mapping[str, Any],
+    *,
+    now: Callable[[], float],
+) -> int | None:
+    """How long this native has produced nothing, from its own capture.
+
+    The capture's modification time cannot answer this: the supervisor
+    refreshes a running capture on a fixed interval so that a reader can tell
+    a live supervisor from a dead one, so that clock reports the supervisor.
+    ``last-output-at`` inside the envelope is the native's own, and its
+    absence -- no capture, an unreadable one, or one written before the field
+    existed -- is reported as unknown rather than guessed at.
+    """
+    raw = record.get("capture_path")
+    if not isinstance(raw, str) or not raw.strip():
+        return None
+    try:
+        payload = Path(raw).read_bytes()
+    except OSError:
+        return None
+    capture = parse_capture(payload)
+    if capture is None:
+        return None
+    spoke = stamp_seconds(capture.last_output_at)
+    if spoke is None:
+        return None
+    return max(0, int(now() - spoke))
+
+
 def _running(
     session_id: str,
     record: Mapping[str, Any],
@@ -102,6 +153,7 @@ def _running(
     pid_key: str,
     source: str,
     start_time_of: StartTimeOf,
+    now: Callable[[], float] = time.time,
 ) -> RunningNative | None:
     pid = record.get(pid_key)
     recorded_start = record.get("process_start_time")
@@ -109,7 +161,13 @@ def _running(
         return None
     if start_time_of(pid) != recorded_start:
         return None
-    return RunningNative(session_id, pid, str(recorded_start), source)
+    return RunningNative(
+        session_id,
+        pid,
+        str(recorded_start),
+        source,
+        silent_for_seconds=_silent_for_seconds(record, now=now),
+    )
 
 
 def _launch_handles() -> Iterator[Mapping[str, Any]]:

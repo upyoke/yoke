@@ -11,6 +11,13 @@ should not need a parser — and deliberately self-describing about whether the
 native is still running, because a capture is written while the turn is still
 going and its reader has to tell "no output yet" from "exited silently".
 
+It also carries when the native last spoke. The supervisor refreshes a running
+capture on a fixed interval so that a reader can tell a live supervisor from a
+dead one, which means the file's modification time answers a question about
+the supervisor rather than about the native. ``last-output-at`` is the native's
+own clock, and the difference between the two is what makes "this turn has
+produced nothing for twenty minutes" a fact rather than a guess.
+
 Yoke-authored spawn-refusal lines in stderr carry a UTC stamp. The native's
 own stdout and stderr stay raw: they are vendor words, not Yoke diagnostics.
 """
@@ -47,6 +54,12 @@ class NativeCapture:
     stderr: bytes
     exit_code: int | None = None
     exit_at: str | None = None
+    #: When the native itself last said anything. The envelope's own
+    #: modification time cannot answer that once the supervisor refreshes it
+    #: on a fixed interval -- that clock reports the supervisor, and this one
+    #: reports the native, which is the half a stall is measured against.
+    #: Absent on a capture written before this line existed.
+    last_output_at: str | None = None
 
     @property
     def exited(self) -> bool:
@@ -58,9 +71,30 @@ class NativeCapture:
         return capture_tail(self.stderr) or capture_tail(self.stdout)
 
 
+#: The one stamp shape this envelope writes and reads back.
+_STAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+
 def utc_stamp(now: float) -> str:
     """Render one capture timestamp in the stamp shape evidence carries."""
-    return datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.fromtimestamp(now, timezone.utc).strftime(_STAMP_FORMAT)
+
+
+def stamp_seconds(value: str | None) -> float | None:
+    """Read one of this envelope's own stamps back, or ``None``.
+
+    The inverse of :func:`utc_stamp` lives beside it because this module owns
+    the shape; a reader that wants the difference between a capture's clock
+    and now would otherwise reimplement the format, or reach across a package
+    boundary for a parser that answers a different question.
+    """
+    if not value:
+        return None
+    try:
+        parsed = datetime.strptime(value.strip(), _STAMP_FORMAT)
+    except (TypeError, ValueError):
+        return None
+    return parsed.replace(tzinfo=timezone.utc).timestamp()
 
 
 def capture_tail(stream: bytes) -> str:
@@ -92,9 +126,12 @@ def compose_capture(
     state: str = STATE_EXITED,
     exit_code: int | None = None,
     exit_at: str | None = None,
+    last_output_at: str | None = None,
 ) -> bytes:
     """Render one complete envelope, with both streams capped independently."""
     lines = [CAPTURE_HEADER, f"state: {state}".encode()]
+    if last_output_at:
+        lines.append(f"last-output-at: {last_output_at}".encode())
     if state == STATE_EXITED:
         code = "unknown" if exit_code is None else str(int(exit_code))
         lines.append(f"exit-code: {code}".encode())
@@ -145,6 +182,7 @@ def parse_capture(payload: bytes) -> NativeCapture | None:
         stderr=stderr if stderr_separator else b"",
         exit_code=exit_code,
         exit_at=values.get("exit-at") or None,
+        last_output_at=values.get("last-output-at") or None,
     )
 
 
@@ -163,5 +201,6 @@ __all__ = [
     "elision_notice",
     "compose_capture",
     "parse_capture",
+    "stamp_seconds",
     "utc_stamp",
 ]

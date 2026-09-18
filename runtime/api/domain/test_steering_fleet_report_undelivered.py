@@ -319,3 +319,4 @@ def test_a_desktop_recipient_is_flagged_as_its_operators_to_wake(fleet):
     }
 
     assert operator_wake == {ANSWERER: True, ASKER: False}
+

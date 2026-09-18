@@ -25,6 +25,10 @@ from yoke_core.domain.session_relay_jobs import (
 )
 from yoke_core.domain.session_relay_launch_lease import claim_next_launch
 from yoke_core.domain.session_relay_policy import effective_relay_policy
+from yoke_core.domain.session_wake_drain_cadence import (
+    RELAY_DRAIN_POLL_SECONDS,
+    wake_work_pending,
+)
 from yoke_core.domain.session_relay_storage import (
     heartbeat_relay,
     machine_is_idle,
@@ -67,7 +71,10 @@ def claim_relay_job(
 
     A poll leases at most one job of any kind. Native creates on one machine
     are spaced apart by the launch lease, and wakes touch shared session
-    state, so neither is ever handed out in bulk.
+    state, so neither is ever handed out in bulk. The cadence returned with
+    that job keeps one-at-a-time from meaning one-a-minute: a poll leaving
+    wake work behind asks the relay straight back, per
+    :mod:`session_wake_drain_cadence`.
     """
     heartbeat = validate_heartbeat(heartbeat)
     if broker_only != bool(broker_lease_id):
@@ -190,11 +197,23 @@ def claim_relay_job(
             )
             jobs = (wake,) if wake is not None else ()
         if jobs:
+            # Handing out one job does not mean the machine is done.
+            next_poll = (
+                RELAY_DRAIN_POLL_SECONDS
+                if not broker_only
+                and wake_work_pending(
+                    conn,
+                    machine_id=heartbeat.machine_id,
+                    project_ids=heartbeat.project_ids,
+                    now=current,
+                )
+                else policy.poll_seconds
+            )
             connected = heartbeat_relay(
                 conn,
                 heartbeat,
                 state="active",
-                next_poll_seconds=policy.poll_seconds,
+                next_poll_seconds=next_poll,
                 now=current,
             )
             return RelayClaimOutcome(
@@ -202,7 +221,7 @@ def claim_relay_job(
                 machine_id=heartbeat.machine_id,
                 state="active",
                 connected_until=connected,
-                next_poll_seconds=policy.poll_seconds,
+                next_poll_seconds=next_poll,
                 jobs=jobs,
             )
         # Never hold a read transaction open across the long-poll sleep.

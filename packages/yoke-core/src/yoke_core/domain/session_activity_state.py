@@ -90,6 +90,11 @@ def session_mode_column_present(conn: Any) -> bool:
     return "mode" in _columns(conn, "harness_sessions")
 
 
+def native_process_observation_columns_present(conn: Any) -> bool:
+    """True when the connected schema carries the machine's process verdict."""
+    return "native_process_gone_at" in _columns(conn, "harness_sessions")
+
+
 def native_thread_id_column_present(conn: Any) -> bool:
     """True when the connected schema carries the Codex native-thread mapping.
 

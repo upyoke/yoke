@@ -57,6 +57,12 @@ harness does declare an idle wake, the session can still be resumed by its
 own machinery, so a parked recipient there stays with the evidence-bound
 test above.
 
+A third absence is not a clock at all, and therefore lives next door in
+:mod:`session_wake_process_absence`: the machine that started the native
+watched it exit and reported so. Nothing here could derive that fact, and
+nothing here should make it wait out a window once it has arrived. The
+one-wake-per-window spacing below is shared with it.
+
 Only a session whose own surface declares ``message_stopped`` may be
 escalated this way, which is every headless CLI surface and no desktop or
 IDE one. A desktop conversation is a person's open window, and its
@@ -161,7 +167,7 @@ def hook_ran_since_send(row: Mapping[str, Any]) -> bool:
     return last_tool_call is not None and last_tool_call > created
 
 
-def _escalated_wake_available(
+def escalated_wake_available(
     row: Mapping[str, Any],
     *,
     window: timedelta,
@@ -231,7 +237,7 @@ def starved_hook_route(
     silent_since = hook_route_silent_since(row)
     if silent_since is None or silent_since + window > now:
         return False
-    return _escalated_wake_available(
+    return escalated_wake_available(
         row,
         window=window,
         now=now,
@@ -273,7 +279,7 @@ def parked_without_idle_wake(
         "message_stopped",
     ):
         return False
-    return _escalated_wake_available(
+    return escalated_wake_available(
         row,
         window=timedelta(seconds=grace_seconds),
         now=now,
@@ -285,6 +291,7 @@ __all__ = [
     "PARKED_WITHOUT_IDLE_WAKE",
     "STARVED_HOOK_ROUTE",
     "awaiting_injection",
+    "escalated_wake_available",
     "hook_ran_since_send",
     "hook_route_silent_since",
     "parked_without_idle_wake",

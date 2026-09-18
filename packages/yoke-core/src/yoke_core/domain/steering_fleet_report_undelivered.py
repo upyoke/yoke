@@ -44,6 +44,7 @@ from yoke_core.domain.session_message_authorization import project_policy
 from yoke_core.domain.session_relay_policy import effective_relay_policy
 from yoke_core.domain.steering_fleet_report_delivery_states import (
     ATTEMPT_FAILED,
+    WAKE_HELD_FOR_NATIVE_TURN,
     DELIVERY_STATES,
     IN_DELIVERY_STATES,
     NEVER_ATTEMPTED,
@@ -89,6 +90,10 @@ class UndeliveredMessages:
     turn_in_flight_since: str = ""
     #: When the recipient ended or was terminated, for the two gone states.
     recipient_gone_at: str = ""
+    #: How long the native holding a declined wake has produced nothing, when
+    #: its machine could measure that. Set only for the held state, where it
+    #: is the difference between a turn that is working and one to look at.
+    held_native_silent_for_seconds: int | None = None
     #: True when an explicit wake was requested for this recipient and the
     #: delivery plane has still made no attempt on it. The row then names a
     #: queued wake rather than an absence of one, because the receipt itself
@@ -153,6 +158,7 @@ class _Group:
     evidence_id: str = ""
     turn_in_flight_since: str = ""
     recipient_gone_at: str = ""
+    held_native_silent_for_seconds: int | None = None
     queued_wake: bool = False
 
     def __post_init__(self) -> None:
@@ -203,6 +209,17 @@ class _Group:
         )
         if reference is not None:
             self.evidence_id = reference
+
+    def note_held_native(self, *, evidence: Mapping[str, Any]) -> None:
+        """Record how long the native holding this wake has been silent.
+
+        The machine measures it from the native's own output clock and may
+        not be able to at all, so an absent reading stays absent: a held row
+        that claims zero silence would read as a turn that just spoke.
+        """
+        silent = evidence.get("running_native_silent_for_seconds")
+        if isinstance(silent, int) and not isinstance(silent, bool):
+            self.held_native_silent_for_seconds = silent
 
 
 def undelivered_messages(
@@ -283,6 +300,8 @@ def undelivered_messages(
         group.absorb(record, state=state, waited=waited)
         if state == ATTEMPT_FAILED:
             group.name_the_failure(result_code=result_code, evidence=evidence)
+        elif state == WAKE_HELD_FOR_NATIVE_TURN:
+            group.note_held_native(evidence=evidence)
     return tuple(
         UndeliveredMessages(
             session_id=session_id,
@@ -293,6 +312,7 @@ def undelivered_messages(
             wake_escalation=group.wake_escalation,
             operator_wake=group.operator_wake,
             diagnostic=group.diagnostic,
+            held_native_silent_for_seconds=group.held_native_silent_for_seconds,
             evidence_id=group.evidence_id,
             turn_in_flight_since=group.turn_in_flight_since,
             recipient_gone_at=group.recipient_gone_at,

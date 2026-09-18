@@ -67,6 +67,10 @@ def adopt_launched_session(
         "native_session_id": record.get("native_session_id"),
         "pid": pid,
         "process_start_time": start,
+        # Carried over from the supervision record this replaces, so a reader
+        # holding only the handle can still find the native's own account.
+        # Absent on a handle written before this field existed.
+        "capture_path": record.get("capture_path"),
     }
     try:
         destination = session_launch_handles.native_handle_path(launch_id)

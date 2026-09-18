@@ -1,9 +1,11 @@
 """What one undelivered-messages row tells the seat to do about it.
 
-Seven shapes reach this section and they divide three ways: two the seat
-owes a move, three still on their way, and two beyond anyone's reach. The
-line has to separate them, because before it did a seat watching a machine
-where every wake refused saw only a worker that had gone quiet.
+Eight shapes reach this section and they divide three ways: two the seat
+owes a move, three still on their way, two beyond anyone's reach, and one
+that is none of those -- a wake the machine keeps holding because it is
+already running a native turn for that session. The line has to separate
+them, because before it did a seat watching a machine where every wake
+refused saw only a worker that had gone quiet.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from yoke_core.domain.steering_fleet_report_delivery_states import (
     RECIPIENT_ENDED,
     RECIPIENT_TERMINATED,
     TURN_IN_FLIGHT,
+    WAKE_HELD_FOR_NATIVE_TURN,
 )
 from yoke_core.domain.steering_fleet_report_undelivered import UndeliveredMessages
 
@@ -145,3 +148,40 @@ def test_a_row_names_the_envelopes_it_counts():
     line = _row(envelope_count=5, message_ids=("msg-1", "msg-2", "msg-3"))
 
     assert "5 message(s) [msg-1 msg-2 msg-3 +2]" in line
+
+
+def test_a_held_wake_names_the_native_holding_it_and_how_to_end_it():
+    """The state that used to read as a delivery moments away.
+
+    Held wakes were classified as an attempt in flight, so the row said
+    "waiting" every time the machine refused for the same reason -- and the
+    observed runs of this repeat for hours, not moments. The line now says
+    what is holding the envelope and names the one lever the seat has.
+    """
+    line = _row(delivery_state=WAKE_HELD_FOR_NATIVE_TURN, wake_escalation="starved_hook_route")
+    assert "wake held" in line
+    assert "a native turn is already running" in line
+    assert f"yoke sessions terminate {SESSION}" in line
+    # The escalation note would read as a wake still on its way, which is
+    # the exact misreading this state exists to end.
+    assert "wake escalated" not in line
+
+
+def test_a_held_wake_says_whether_the_native_holding_it_is_moving():
+    """Thinking and stopped read identically without the native's own clock.
+
+    The seat's decision differs entirely between them, so the silence the
+    machine measured travels onto the row.
+    """
+    line = _row(
+        delivery_state=WAKE_HELD_FOR_NATIVE_TURN,
+        held_native_silent_for_seconds=1800,
+    )
+    assert "silent for" in line
+
+
+def test_an_unmeasured_silence_claims_nothing():
+    """No capture to read must not render as a native that just spoke."""
+    line = _row(delivery_state=WAKE_HELD_FOR_NATIVE_TURN)
+    assert "silent for" not in line
+    assert "a native turn is already running" in line

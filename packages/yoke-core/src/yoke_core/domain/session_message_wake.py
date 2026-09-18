@@ -10,6 +10,8 @@ from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain import db_backend
 from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.session_activity_state import (
+    episode_column_present,
+    native_process_observation_columns_present,
     native_thread_id_column_present,
     session_mode_column_present,
 )
@@ -33,6 +35,10 @@ from yoke_core.domain.session_message_starvation import (
     starved_hook_route,
     turn_in_flight,
 )
+from yoke_core.domain.session_wake_process_absence import (
+    NATIVE_PROCESS_GONE,
+    native_process_gone,
+)
 from yoke_core.domain.session_message_types import (
     parse_timestamp,
     row_dict,
@@ -47,10 +53,12 @@ from yoke_core.domain.session_relay_types import WakeMode
 from yoke_core.domain.session_relay_versions import wake_operation
 
 
-#: The two absences that override deferring to a live session's own hooks,
-#: in the order they are tested. The parked test is cheaper and needs no
-#: waiting window, so it answers first for the recipients it covers.
+#: The absences that override deferring to a live session's own hooks, in the
+#: order they are tested. The observed death answers first because it is the
+#: only one that settles the question rather than inferring it; the parked
+#: test comes next because it needs no waiting window either.
 _HOOK_ROUTE_ABSENCES = (
+    (NATIVE_PROCESS_GONE, native_process_gone),
     (PARKED_WITHOUT_IDLE_WAKE, parked_without_idle_wake),
     (STARVED_HOOK_ROUTE, starved_hook_route),
 )
@@ -144,6 +152,14 @@ def wake_eligible_recipients(
         # A fixture composed by hand carries no declared posture, so no
         # recipient there reads as parked and the parked absence self-skips.
         mode_select = ",hs.mode" if session_mode_column_present(conn) else ""
+        # The observed-death reader needs the machine's verdict, its evidence,
+        # and the episode clock that retires it. A hand-composed fixture
+        # carries none, and a recipient there simply has no such verdict.
+        process_select = (
+            ",hs.native_process_gone_at,hs.native_process_gone_evidence"
+            if native_process_observation_columns_present(conn)
+            else ""
+        ) + (",hs.episode_started_at" if episode_column_present(conn) else "")
         open_call_select = open_tool_call_select(conn, session_alias="hs")
         rows = conn.execute(
             "SELECT r.*,m.created_at AS message_created_at,m.expires_at,"
@@ -151,7 +167,7 @@ def wake_eligible_recipients(
             "hs.workspace AS session_workspace,"
             "hs.last_tool_call_at,hs.ended_at,hs.terminated_at,hs.turn_posture,"
             f"hs.turn_posture_at{thread_select}{mode_select}"
-            f"{open_call_select} "
+            f"{process_select}{open_call_select} "
             "FROM session_message_recipients r "
             "JOIN session_messages m ON m.message_id=r.message_id "
             "JOIN harness_sessions hs ON hs.session_id=r.session_id "

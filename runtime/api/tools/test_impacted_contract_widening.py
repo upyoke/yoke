@@ -147,3 +147,52 @@ def test_cursor_identity_dispatch_survives_bounded_tooling_deferral(tmp_path):
         f"cursor_session_identity_dispatch_contract:{cursor_payload}"
         in selection.telemetry()
     )
+
+
+def test_a_harness_package_edit_selects_the_client_import_boundary(tmp_path):
+    """The boundary tests police every client package, not just the CLI.
+
+    They scan the source tree rather than importing what they check, so
+    reachability can never link them to the file that breaks them, and they
+    rode in a family triggered by the CLI's own source. An import added under
+    yoke-harness therefore reached a green selection and a red suite -- the
+    exact violation these two exist to catch.
+    """
+    root = _tiny_repo(tmp_path)
+    harness_source = "packages/yoke-harness/src/yoke_harness/session_relay_cursor.py"
+    skeleton_test = "tests/import_graph/test_skeletons_importable.py"
+    installer_test = "runtime/api/test_installer_package_boundaries.py"
+    _write(root, harness_source, "def resume(): pass\n")
+    _write(root, skeleton_test, "def test_client_packages(): pass\n")
+    _write(root, installer_test, "def test_direct_core_imports(): pass\n")
+
+    selection = select([harness_source], build_import_index(root))
+
+    assert selection.full_sweep is False
+    assert skeleton_test in selection.files
+    assert installer_test in selection.files
+    assert (
+        f"client_package_boundary_contract:{harness_source}" in selection.telemetry()
+    )
+
+
+def test_a_contracts_package_edit_selects_them_too(tmp_path):
+    """yoke-contracts is a client package on the same terms."""
+    root = _tiny_repo(tmp_path)
+    contract_source = "packages/yoke-contracts/src/yoke_contracts/process_ancestry.py"
+    skeleton_test = "tests/import_graph/test_skeletons_importable.py"
+    _write(root, contract_source, "def process_start_time(): pass\n")
+    _write(root, skeleton_test, "def test_client_packages(): pass\n")
+
+    selection = select([contract_source], build_import_index(root))
+
+    assert skeleton_test in selection.files
+
+
+def test_every_client_package_root_is_named_by_the_boundary_trigger():
+    """A new client package that is not listed here is silently unpoliced."""
+    assert set(prefix_contracts.CLIENT_PACKAGE_SOURCE_PREFIXES) == {
+        "packages/yoke-cli/src/yoke_cli/",
+        "packages/yoke-contracts/src/yoke_contracts/",
+        "packages/yoke-harness/src/yoke_harness/",
+    }

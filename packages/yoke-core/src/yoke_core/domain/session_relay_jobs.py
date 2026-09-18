@@ -232,9 +232,9 @@ def report_wake_job(
     if result_code in WAKE_DEFERRED_RESULTS:
         restore_deferred_wake_budget(
             conn,
-            message_id=str(row[4] or ""),
-            session_id=str(row[5] or ""),
+            message_id=str(row[4] or ""), session_id=str(row[5] or ""),
             now=now,
+            running_native_pid=(evidence or {}).get("running_native_pid"),
         )
     clear_relay_batch_when_drained(conn, relay_id=relay_id, batch_id=lease_id)
     conn.commit()
