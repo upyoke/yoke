@@ -122,7 +122,8 @@ QA_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         "qa.requirement.supersede",
         "yoke qa requirement supersede --requirement-id N "
-        "--superseded-by-requirement-id N --rationale TEXT "
+        "--superseded-by-requirement-id N "
+        "(--rationale TEXT | --content-file PATH | --stdin) "
         "[--source operator|agent] [--session-id S] [--json]",
     ),
     AdapterEntry(

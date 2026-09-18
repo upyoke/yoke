@@ -20,11 +20,9 @@ from yoke_cli.commands.adapters.qa_browser import AGENT_UNDETERMINED_HELP
 
 
 __all__ = [
-    "qa_requirement_supersede",
     "qa_requirement_update",
     "qa_requirement_waive",
     "qa_run_record_verdict",
-    "QA_REQUIREMENT_SUPERSEDE_USAGE",
     "QA_REQUIREMENT_UPDATE_USAGE",
     "QA_REQUIREMENT_WAIVE_USAGE",
     "QA_RUN_RECORD_VERDICT_USAGE",
@@ -190,97 +188,6 @@ def qa_requirement_waive(args: List[str]) -> int:
     )
 
 
-QA_REQUIREMENT_SUPERSEDE_USAGE = (
-    "yoke qa requirement supersede --requirement-id N "
-    "--superseded-by-requirement-id N --rationale TEXT "
-    "[--source operator|agent] [--session-id S] [--json]"
-)
-
-
-def _write_supersede_result(
-    response: FunctionCallResponse,
-    stdout: TextIO,
-    _stderr: TextIO,
-) -> None:
-    result = response.result
-    if "requirement_id" in result and "superseded_by_requirement_id" in result:
-        print(
-            f"Requirement {result['requirement_id']} superseded by "
-            f"{result['superseded_by_requirement_id']} "
-            f"(source={result['supersession_source']})",
-            file=stdout,
-        )
-    else:
-        print(json.dumps(result, sort_keys=True), file=stdout)
-
-
-def qa_requirement_supersede(args: List[str]) -> int:
-    parser = argparse.ArgumentParser(
-        prog="yoke qa requirement supersede",
-        description=QA_REQUIREMENT_SUPERSEDE_USAGE,
-        epilog=(
-            "Discharge a frozen deployment-run case whose defect only became "
-            "visible after it was materialized, using a corrected case that "
-            "actually passed instead of a waiver. The corrected case must be "
-            "bound to the same run, stage, member and deployment target, be "
-            "blocking, and have a recorded passing verdict. The superseded row "
-            "is left exactly as it is, so what went wrong stays readable; the "
-            "stage gate reads its obligation as answered by the named case. "
-            "Correct a live item requirement in place with "
-            "'yoke qa requirement update' instead -- supersession exists only "
-            "for rows a run has already frozen."
-        ),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument(
-        "--requirement-id",
-        dest="requirement_id",
-        type=int,
-        required=True,
-        help="The frozen qa_requirements.id being discharged.",
-    )
-    parser.add_argument(
-        "--superseded-by-requirement-id",
-        dest="superseded_by_requirement_id",
-        type=int,
-        required=True,
-        help="The corrected qa_requirements.id that passed in its place.",
-    )
-    parser.add_argument(
-        "--rationale",
-        required=True,
-        help="Why the corrected case answers the frozen one's obligation.",
-    )
-    parser.add_argument(
-        "--source",
-        choices=("operator", "agent"),
-        default="agent",
-        help="Supersession authority source.",
-    )
-    add_session_arg(parser)
-    add_json_arg(parser)
-    parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_SUPERSEDE_USAGE)
-    if parsed is None:
-        return 2
-    return dispatch_and_emit(
-        function_id="qa.requirement.supersede",
-        target=TargetRef(
-            kind="qa_requirement",
-            qa_requirement_id=int(parsed.requirement_id),
-        ),
-        payload={
-            "superseded_by_requirement_id": int(
-                parsed.superseded_by_requirement_id
-            ),
-            "rationale": parsed.rationale,
-            "source": parsed.source,
-        },
-        session_id=parsed.session_id,
-        json_mode=parsed.json_mode,
-        human_writer=_write_supersede_result,
-    )
-
-
 QA_RUN_RECORD_VERDICT_USAGE = (
     "yoke qa run record-verdict --requirement-id N "
     "--performed-by WHO --verdict VERDICT "
@@ -361,7 +268,6 @@ def qa_run_record_verdict(args: List[str]) -> int:
 
 USAGE_BY_FUNCTION_ID = {
     "qa.requirement.update": QA_REQUIREMENT_UPDATE_USAGE,
-    "qa.requirement.supersede": QA_REQUIREMENT_SUPERSEDE_USAGE,
     "qa.requirement.waive": QA_REQUIREMENT_WAIVE_USAGE,
     "qa.run.record_verdict": QA_RUN_RECORD_VERDICT_USAGE,
 }
