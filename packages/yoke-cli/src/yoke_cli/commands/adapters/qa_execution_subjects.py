@@ -158,15 +158,22 @@ def qa_plan_rematerialize(args: List[str]) -> int:
             project_id=parsed.project,
         )
     )
-    return dispatch_and_emit(
-        function_id="qa.plan.rematerialize",
-        target=target,
-        payload={
-            "transition_id": parsed.transition,
+    # Only the selected subject's keys travel, so the item path sends exactly
+    # what it always sent and a deployment payload never carries an empty
+    # transition the handler would have to ignore.
+    payload = (
+        {"transition_id": parsed.transition}
+        if parsed.item
+        else {
             "deployment_stage": parsed.stage,
             "deployment_member": parsed.member,
             "plan": parsed.plan,
-        },
+        }
+    )
+    return dispatch_and_emit(
+        function_id="qa.plan.rematerialize",
+        target=target,
+        payload=payload,
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )
