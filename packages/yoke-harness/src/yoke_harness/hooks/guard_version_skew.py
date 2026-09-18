@@ -36,14 +36,14 @@ def guard_version_skew_notice(
         or _same_revision(client_revision, server_revision)
     ):
         return ""
+    # One line: this rides along on a refusal the reader is already
+    # diagnosing, so it names both revisions and the one recovery that
+    # works, and spends no further lines on it.
     return (
-        f"{_NOTICE_PREFIX} this refusal was evaluated by server revision "
-        f"{server_revision[:12]}, while the client hook is running "
-        f"{client_revision[:12]}. The two sides are executing different "
-        "guard code, so this denial cannot validate a just-merged allowance. "
-        "Bring the serving Yoke process to the intended revision and restart "
-        "it, then retry. Restarting only this harness session will not update "
-        "a behind server."
+        f"{_NOTICE_PREFIX} evaluated by server revision "
+        f"{server_revision[:12]}, client hook is {client_revision[:12]} — "
+        "restart the serving Yoke process at the intended revision "
+        "(restarting this session will not update a behind server)."
     )
 
 

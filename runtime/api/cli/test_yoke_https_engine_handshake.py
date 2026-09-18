@@ -6,6 +6,7 @@ import io
 import json
 import urllib.error
 
+from yoke_cli.transport import control_plane_payload
 from yoke_cli.transport import https as yoke_transport
 from yoke_cli.transport import https_engine_handshake as yoke_handshake
 from yoke_cli.transport.dispatcher import emit_response
@@ -54,7 +55,14 @@ class _FakeResponse:
         return False
 
 
-class TestEngineVersionSkewWarning:
+class TestEngineVersionHandshakeStaysQuiet:
+    """The handshake records skew and prints nothing.
+
+    An advisory on every relay response repeated itself hundreds of times a
+    session. Skew is now named only where it changes a decision: a payload
+    or relay-build refusal, doctor, and the fleet report.
+    """
+
     _CONN = HttpsConnection(api_url="https://api.example", token="tok-123")
 
     def _relay_with_header(
@@ -72,10 +80,7 @@ class TestEngineVersionSkewWarning:
         assert response.success is True
         return response
 
-    def test_mismatch_warns_exactly_once_per_process(
-        self, monkeypatch, capsys,
-    ):
-        monkeypatch.setattr(yoke_handshake, "_skew_warned", False)
+    def test_version_mismatch_prints_nothing(self, monkeypatch, capsys):
         monkeypatch.setattr(
             yoke_handshake, "local_handshake_version", lambda: "1.0.0"
         )
@@ -84,14 +89,24 @@ class TestEngineVersionSkewWarning:
         self._relay_with_header(monkeypatch, header)
         self._relay_with_header(monkeypatch, header)
 
-        err = capsys.readouterr().err
-        assert err.count("server engine version 2.0.0") == 1
-        assert "1.0.0" in err
+        captured = capsys.readouterr()
+        assert captured.err == ""
+        assert captured.out == ""
 
-    def test_json_emission_keeps_skew_advisory_off_stdout(
+    def test_mismatch_is_still_recorded_for_refusal_readers(
+        self, monkeypatch,
+    ):
+        monkeypatch.setattr(
+            yoke_handshake, "local_handshake_version", lambda: "1.0.0"
+        )
+        self._relay_with_header(
+            monkeypatch, {yoke_handshake.ENGINE_VERSION_HEADER: "2.0.0"}
+        )
+        assert control_plane_payload.current_server_build().name == "v2.0.0"
+
+    def test_json_emission_carries_no_advisory_on_either_stream(
         self, monkeypatch, capsys,
     ):
-        monkeypatch.setattr(yoke_handshake, "_skew_warned", False)
         monkeypatch.setattr(
             yoke_handshake, "local_handshake_version", lambda: "1.0.0"
         )
@@ -105,10 +120,9 @@ class TestEngineVersionSkewWarning:
         captured = capsys.readouterr()
         assert json.loads(captured.out)["success"] is True
         assert captured.out.count("\n") == 1
-        assert "server engine version 2.0.0" in captured.err
+        assert captured.err == ""
 
     def test_matching_versions_stay_silent(self, monkeypatch, capsys):
-        monkeypatch.setattr(yoke_handshake, "_skew_warned", False)
         monkeypatch.setattr(
             yoke_handshake, "local_handshake_version", lambda: "2.0.0"
         )
@@ -118,50 +132,34 @@ class TestEngineVersionSkewWarning:
         assert capsys.readouterr().err == ""
 
     def test_absent_header_stays_silent(self, monkeypatch, capsys):
-        monkeypatch.setattr(yoke_handshake, "_skew_warned", False)
         monkeypatch.setattr(
             yoke_handshake, "local_handshake_version", lambda: "1.0.0"
         )
         self._relay_with_header(monkeypatch, {})
         assert capsys.readouterr().err == ""
 
-    def test_unresolvable_local_version_stays_silent(
+    def test_source_checkout_ahead_records_without_printing(
         self, monkeypatch, capsys,
     ):
-        monkeypatch.setattr(yoke_handshake, "_skew_warned", False)
-        monkeypatch.setattr(
-            yoke_handshake, "local_handshake_version", lambda: ""
-        )
-        self._relay_with_header(
-            monkeypatch, {yoke_handshake.ENGINE_VERSION_HEADER: "2.0.0"}
-        )
-        assert capsys.readouterr().err == ""
-
-    def test_source_checkout_behind_origin_warns(self, monkeypatch, capsys):
         from yoke_cli.transport import source_build_skew as skew
 
-        monkeypatch.setattr(yoke_handshake, "_skew_warned", False)
         monkeypatch.setattr(yoke_handshake, "local_handshake_version", lambda: "")
-        monkeypatch.setattr(
-            skew, "compare_to_server_build",
-            lambda *_a: skew.BuildComparison(skew.EQUAL),
-        )
-        monkeypatch.setattr(
-            skew, "compare_main_to_origin",
-            lambda *_a: skew.OriginComparison(skew.BEHIND, "main", 2),
-        )
+        ahead = skew.BuildComparison(skew.AHEAD, ahead_by=2, server_build="v2.0.0")
+        monkeypatch.setattr(skew, "compare_to_server_build", lambda *_a: ahead)
 
         self._relay_with_header(
             monkeypatch, {yoke_handshake.ENGINE_VERSION_HEADER: "2.0.0"}
         )
 
-        assert "checkout is 2 commit(s) behind origin/main" in capsys.readouterr().err
+        assert capsys.readouterr().err == ""
+        observed = control_plane_payload.current_server_build()
+        assert observed.comparison is not None
+        assert observed.comparison.relationship == skew.AHEAD
 
     def test_error_response_headers_also_feed_the_handshake(
         self, monkeypatch, capsys,
     ):
-        """A 401 denial still advertises the server version; skew warns."""
-        monkeypatch.setattr(yoke_handshake, "_skew_warned", False)
+        """A 401 denial still advertises the server version; still no banner."""
         monkeypatch.setattr(
             yoke_handshake, "local_handshake_version", lambda: "1.0.0"
         )
@@ -182,7 +180,8 @@ class TestEngineVersionSkewWarning:
         )
         response = relay_https(_request(), self._CONN)
         assert response.success is False
-        assert "server engine version 2.0.0" in capsys.readouterr().err
+        assert capsys.readouterr().err == ""
+        assert control_plane_payload.current_server_build().name == "v2.0.0"
 
 
 class TestLocalHandshakeVersion:

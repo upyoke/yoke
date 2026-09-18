@@ -135,44 +135,6 @@ def test_a_sha_is_abbreviated_for_reading(repo):
     assert build not in described
 
 
-def test_fetched_origin_ahead_of_local_main_reports_the_gap(repo):
-    local = _git(repo, "rev-parse", "HEAD")
-    origin = _commit(repo, "landed remotely\n")
-    _git(repo, "update-ref", "refs/remotes/origin/main", origin)
-    _git(
-        repo,
-        "symbolic-ref",
-        "refs/remotes/origin/HEAD",
-        "refs/remotes/origin/main",
-    )
-    _git(repo, "reset", "--hard", local)
-
-    result = skew.compare_main_to_origin(str(repo))
-
-    assert result.relationship == skew.BEHIND
-    assert result.behind_by == 1
-    assert result.behind
-    assert skew.describe_origin(result) == (
-        "checkout is 1 commit(s) behind origin/main — run `git pull --ff-only`"
-    )
-
-
-def test_current_main_has_no_origin_gap(repo):
-    head = _git(repo, "rev-parse", "HEAD")
-    _git(repo, "update-ref", "refs/remotes/origin/main", head)
-    _git(
-        repo,
-        "symbolic-ref",
-        "refs/remotes/origin/HEAD",
-        "refs/remotes/origin/main",
-    )
-
-    result = skew.compare_main_to_origin(str(repo))
-
-    assert result.relationship == skew.EQUAL
-    assert not result.behind
-
-
 def test_same_checkout_head_and_build_reuse_the_history_walk(repo, monkeypatch):
     """A second compare for the same HEAD must not cat-file the build again."""
     seen: list[tuple[str, ...]] = []

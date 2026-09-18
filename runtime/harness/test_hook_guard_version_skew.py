@@ -34,9 +34,15 @@ def test_matching_full_and_short_revisions_need_no_notice() -> None:
 def test_mismatch_notice_names_serving_process_restart_boundary() -> None:
     notice = guard_version_skew_notice(client=CLIENT, server=SERVER)
     assert "server revision bbbbbbbbbbbb" in notice
-    assert "client hook is running aaaaaaaaaaaa" in notice
+    assert "client hook is aaaaaaaaaaaa" in notice
     assert "serving Yoke process" in notice
-    assert "Restarting only this harness session" in notice
+    assert "restarting this session will not update a behind server" in notice
+
+
+def test_mismatch_notice_is_one_line() -> None:
+    """It rides along on a refusal the reader is already diagnosing."""
+    notice = guard_version_skew_notice(client=CLIENT, server=SERVER)
+    assert notice.count("\n") == 0
 
 
 def test_codex_deny_reason_receives_skew_notice_once() -> None:

@@ -271,8 +271,13 @@ def test_non_envelope_excerpt_scrubs_repeated_echo(monkeypatch) -> None:
     _assert_scrubbed(serialized_response(response))
 
 
-def test_engine_skew_header_echo_is_scrubbed_from_stderr(monkeypatch, capsys) -> None:
-    monkeypatch.setattr(handshake_module, "_skew_warned", False)
+def test_engine_version_header_never_reaches_stderr(monkeypatch, capsys) -> None:
+    """A sensitive header echo cannot leak from a banner that no longer prints.
+
+    The handshake used to echo the advertised version into a stderr advisory,
+    which had to be scrubbed. It prints nothing now, so the header has no path
+    to the terminal at all.
+    """
     monkeypatch.setattr(
         handshake_module, "local_handshake_version", lambda: "local-version"
     )
@@ -290,7 +295,7 @@ def test_engine_skew_header_echo_is_scrubbed_from_stderr(monkeypatch, capsys) ->
     response = relay_https(sensitive_request(), CONNECTION)
 
     assert response.success is True
-    stderr = capsys.readouterr().err
-    assert "server engine version" in stderr
-    assert REDACTED in stderr
-    _assert_scrubbed(stderr)
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    assert USER_TOKEN not in captured.out
+    assert TRANSPORT_TOKEN not in captured.out
