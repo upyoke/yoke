@@ -53,7 +53,8 @@ def _wire(
     )
     monkeypatch.setattr(
         close_out_mod, "observe_batch",
-        lambda ctx, *, pr_num, member_snapshot, drift_check=None: (
+        lambda ctx, *, pr_num, member_snapshot, drift_check=None,
+        landed_merge_sha="": (
             batch,
             failure,
         ),

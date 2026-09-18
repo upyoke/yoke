@@ -60,6 +60,7 @@ def observe_batch(
     pr_num: str,
     member_snapshot: tuple[str, ...] = (),
     drift_check: Optional[Mapping[str, str]] = None,
+    landed_merge_sha: str = "",
 ) -> tuple[Optional[BatchReceipt], Optional[TrainRunLookupFailure]]:
     """Resolve the merge_group run and merge identity covering ``pr_num``.
 
@@ -97,7 +98,16 @@ def observe_batch(
         pr_body = (
             pr_response.body if isinstance(pr_response.body, dict) else {}
         )
-        merge_sha = str(pr_body.get("merge_commit_sha") or "")
+        # An open pull request still reports a merge_commit_sha — GitHub's
+        # own test-merge — so the merged flag is what says this landing came
+        # from THIS pull request. A lane whose commits reached the base under
+        # a companion item's train leaves its own pull request open, and
+        # reading that test-merge as the landing sends the receipt hunting a
+        # merge_group run this pull request never ran.
+        pr_merged = bool(pr_body.get("merged") or pr_body.get("merged_at"))
+        merge_sha = (
+            str(pr_body.get("merge_commit_sha") or "") if pr_merged else ""
+        )
     except RestTransportError as exc:
         return None, TrainRunLookupFailure(
             reason=f"pull request read failed: {exc}",
@@ -107,6 +117,26 @@ def observe_batch(
             ),
             retryable=True,
         )
+
+    if not merge_sha:
+        # The recorded pull request did not land this work, so the train that
+        # did is found by the merge the base actually holds rather than by
+        # this pull request's own marker.
+        merge_sha = str(landed_merge_sha or "").strip()
+        if not merge_sha:
+            return None, TrainRunLookupFailure(
+                reason=(
+                    f"pull request {pr_num} has not merged, and no merge "
+                    "commit was resolved for the work the base already holds"
+                ),
+                recovery=(
+                    "This lane's content reached the base under some other "
+                    f"landing, so pull request {pr_num} has no merge_group "
+                    "run to attribute. Resolve the merge that carried it, or "
+                    "treat this as an operator decision rather than a retry."
+                ),
+                retryable=False,
+            )
 
     run, run_note = read_train_run(ctx, pr_num, covering_sha=merge_sha)
     return (

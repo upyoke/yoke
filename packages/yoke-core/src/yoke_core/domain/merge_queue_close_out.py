@@ -83,9 +83,14 @@ class QueueCloseOut:
         """Name the recovery for a landing whose proof was not recorded."""
         if not self.ci_evidence_error:
             return ""
+        # Deliberately does not say the pull request landed: a lane whose
+        # commits reached the base under a companion item's train leaves its
+        # own pull request open, and asserting otherwise sends the reader
+        # looking for a merge that never happened.
         preamble = (
-            f"pull request {pr_num} landed, but merge-group CI evidence was "
-            f"not recorded: {self.ci_evidence_error}"
+            f"the base already holds this lane's work, but merge-group CI "
+            f"evidence was not recorded for pull request {pr_num}: "
+            f"{self.ci_evidence_error}"
         )
         if not self.ci_evidence_retryable:
             detail = (
@@ -130,8 +135,16 @@ def record_landing(
     pr_num: str,
     member_snapshot: tuple[str, ...] = (),
     drift_check: Optional[Mapping[str, str]] = None,
+    landed_merge_sha: str = "",
 ) -> QueueCloseOut:
-    """Record everything the item owes after its train landed."""
+    """Record everything the item owes after its train landed.
+
+    ``landed_merge_sha`` is the merge the base actually holds this lane's
+    work under. It matters when the item's own pull request never merged —
+    a lane whose commits reached the base under a companion item's train —
+    because the train to attribute is then that merge's, not this pull
+    request's.
+    """
     warnings: list[str] = []
     stamp_error = stamp_merged_at(item_id)
     if stamp_error:
@@ -152,6 +165,7 @@ def record_landing(
             pr_num=pr_num,
             member_snapshot=member_snapshot,
             drift_check=drift_check,
+            landed_merge_sha=landed_merge_sha,
         )
         if batch_failure is not None:
             warnings.append(batch_failure.reason)

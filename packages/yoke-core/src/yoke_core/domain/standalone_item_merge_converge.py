@@ -48,6 +48,9 @@ def _converge_queue_landing(
         commit_sha=lane.commit_sha,
         pr_num=queue_pr_number,
         member_snapshot=(public_ref,) if public_ref else (),
+        # What the base actually holds this lane under, which is the train to
+        # attribute when the item's own pull request never merged.
+        landed_merge_sha=lane.merge_sha,
     )
     merge_sha = closed.merge_sha or lane.merge_sha or lane.commit_sha
     touched_files = closed.touched_files or lane.touched_files
