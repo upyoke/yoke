@@ -37,6 +37,7 @@ from yoke_core.domain.release_wait_ownership import (
     park_reason,
 )
 from yoke_core.domain.merge_review_readiness import pinned_workflow_for_item
+from yoke_core.domain.session_ambient_identity import resolve_ambient_session_id
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED
 from yoke_core.domain.workflow_behavior import delivery_redirect_stage
 
@@ -130,10 +131,15 @@ def retain_for_delivery(
         ),
     }
     envelope["release_wait"] = block
-    if not session_id:
-        block["parked"] = "skipped: this run carries no session identity"
-        return
     try:
+        # Same fallback close_out_report.claim_state uses: the merge CLI
+        # defaults --session-id to $YOKE_SESSION_ID, which the watcher
+        # invocation leaves empty, while the process still has an ambient
+        # session the park must stamp.
+        session_id = session_id or str(resolve_ambient_session_id() or "")
+        if not session_id:
+            block["parked"] = "skipped: this run carries no session identity"
+            return
         with connected_control_plane():
             if not _held_by(call_dispatcher, item_id, session_id):
                 block["parked"] = (
