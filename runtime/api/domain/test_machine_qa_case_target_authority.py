@@ -167,7 +167,10 @@ def test_a_refused_deployment_case_names_the_command_that_rebinds_it() -> None:
 
     message = str(refusal.value)
     assert "environment.name: target names no environment" in message
-    assert f"--deployment-run-id {RUN_ID} --plan 431 --project {PROJECT}" in message
+    assert (
+        f"--deployment-run-id {RUN_ID} --stage item-qa --member 77 "
+        f"--plan 431 --project {PROJECT}" in message
+    )
     # The refusal reads as itself, not as a pydantic dump of the whole case.
     assert "validation error" not in message
     assert "input_value" not in message

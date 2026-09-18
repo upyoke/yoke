@@ -119,12 +119,13 @@ whatever its runner already resolves, with no execution target recorded.
 
 ## Binding a deployment case to its stage and member
 
-A deployment run's QA stages declare their own scope. A stage whose scope is
-`item` credits a member only through a requirement carrying that stage name
-and that member's item, so materializing a plan run-wide — no stage, no
-member — writes rows the stage never reads: the owner sees a recorded pass
-and an unchanged stage that goes on waiting. Runs pinning such a stage refuse
-the unscoped form and name the binding invocation:
+A deployment run's QA stages declare their own scope. Acceptance reads
+`deployment_stage = <name>` for every one of them, and an item-scoped stage
+reads its member item too, so materializing a plan run-wide — no stage, no
+member — writes rows no stage reads: the owner sees a recorded pass and an
+unchanged stage that goes on waiting. A run pinning **any** QA stage, of
+either scope, refuses the run-wide form and names the binding invocation; a
+run whose flow pins no QA stage keeps it:
 
 ```text
 yoke qa plan run --deployment-run-id <run-id> --stage <stage-name> \
@@ -144,9 +145,14 @@ target. A case bound this way carries a deployment execution target whose
 alongside its name, which is the shape Machine QA contracts accept beside a
 plan's own environment target.
 
-A deployment-run case is not bound to any local checkout: its subject is the
-candidate the run deployed, already built and observed at that endpoint. The
-verification tree binding that ties an item's own gate to the session's
-claimed worktree does not apply to it, so a member owner runs it without
-`--allow-tree-mismatch`; the tree the command ran in is still recorded on the
-verdict.
+A deployment-run case is not bound to the session's claimed lane: its subject
+is the candidate the run deployed, already built and observed at that
+endpoint, which no member's worktree contributed to. It is bound to that
+candidate instead. A checkout sitting at the run's `release_lineage` runs
+with no flag — the ordinary case for an owner supplying evidence after the
+release. A checkout that has moved is refused, naming both revisions, because
+a command that reads the repository would otherwise report on code the run
+never deployed; `--allow-tree-mismatch` remains available and here declares
+that the case reads nothing from the checkout, as a probe against the
+deployed endpoint does. The tree the command ran in is recorded on the
+verdict either way.

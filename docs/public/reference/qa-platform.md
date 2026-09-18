@@ -233,7 +233,7 @@ verification requirement and every blocking epic-level requirement is satisfied.
 ### Deployment Run Requirements
 
 Deployment runs materialize a named project plan as post-deploy requirements that prove release
-health. Name the QA stage, and the member too when its scope is `item` — a stage credits only requirements carrying both, so the unscoped form is refused ([case-attachment.md](qa-platform/case-attachment.md)):
+health. Name the QA stage, and the member too when its scope is `item` — every QA stage credits only requirements carrying its own name, so a run pinning one refuses the unscoped form ([case-attachment.md](qa-platform/case-attachment.md)):
 
 ```text
 yoke qa plan run \

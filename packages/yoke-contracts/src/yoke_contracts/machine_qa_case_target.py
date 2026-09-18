@@ -104,18 +104,27 @@ def case_target_recovery(
     project: str,
     plan_id: int | None,
     deployment_run_id: str | None,
-    workflow_transition_id: str | None,
+    deployment_stage: str | None = None,
+    deployment_member: str | None = None,
+    workflow_transition_id: str | None = None,
 ) -> str:
-    """Name the registered command that re-binds this case to a live target."""
+    """Name the registered command that re-binds this case to a live target.
+
+    A deployment stage credits only requirements carrying its own stage name,
+    and its member item when the stage is item-scoped, so the recovery names
+    both rather than the run-wide form the stage would ignore.
+    """
     if deployment_run_id:
         plan = str(plan_id) if plan_id is not None else "<plan>"
+        stage = str(deployment_stage or "<stage>")
+        member = f" --member {deployment_member}" if deployment_member else ""
         return (
             "Recovery: a deployment stage binds the run's own observed target, "
             "so re-materialize this case against it with `yoke qa plan "
-            f"materialize --deployment-run-id {deployment_run_id} --plan {plan} "
-            f"--project {project}`, then re-run the stage's cases. When the run "
-            "itself has moved on, the evidence belongs to a replacement run "
-            "rather than to this one."
+            f"materialize --deployment-run-id {deployment_run_id} --stage "
+            f"{stage}{member} --plan {plan} --project {project}`, then re-run "
+            "the stage's cases. When the run itself has moved on, the evidence "
+            "belongs to a replacement run rather than to this one."
         )
     if plan_id is None:
         return (
@@ -154,6 +163,8 @@ def require_case_execution_target(case: Any) -> None:
             project=case.project,
             plan_id=case.plan_id,
             deployment_run_id=case.deployment_run_id,
+            deployment_stage=case.deployment_stage,
+            deployment_member=case.deployment_member_item_id,
             workflow_transition_id=case.workflow_transition_id,
         )
     )
