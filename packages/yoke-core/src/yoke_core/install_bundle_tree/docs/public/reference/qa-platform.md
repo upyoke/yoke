@@ -78,6 +78,10 @@ suite_id TEXT -- nullable, unconstrained; links to future test-intelligence suit
 waived_at TEXT -- ISO timestamp if waived
 waiver_rationale TEXT -- why waived
 waiver_source TEXT -- 'operator' or 'agent'
+superseded_by_requirement_id INTEGER -- the corrected case that answered this one
+superseded_at TEXT -- ISO timestamp if superseded
+supersession_rationale TEXT -- why the corrected case answers this obligation
+supersession_source TEXT -- 'operator' or 'agent'
 created_at TEXT NOT NULL
 ```
 
@@ -276,7 +280,7 @@ Browser execution is method-backed and case-scoped. The built-in methods are:
 - **Browser inspection** (`browser-inspection`) — captures evidence before agent
   `undetermined`, which halts for owner/operator review; an unexecuted case records `blocked_on_precondition` and fails its scheduler without human work.
 
-Each materialized requirement carries a `method_config` snapshot. Correct a live item case with `qa.requirement.update --field method_config`; frozen deployment-run rows refuse that write. Case runners record the executed config and execution-target digest at run start inside `raw_result` and keep those snapshots through complete, so a prior green does not prove a later script or a later `target_env`. Human review of a capture copies that capture's recorded method_config and digest; approve fails closed when the live case is executable and the reviewed capture has no recorded method_config. An in-place method_config correction records a revision marker on the requirement; once set it stays, including through empty config, and unstamped historical greens then no longer satisfy. A `target_env` correction persists the live snapshot instead of that marker; acceptance compares the start-bound digest. Routes, assertions, waits, and screenshots belong in the snapshot, not in `qa_kind`.
+Each materialized requirement carries a `method_config` snapshot. Correct a live item case with `qa.requirement.update --field method_config`; a deployment-run row accepts that write until it records a `pass` or `fail`, then refuses it as `frozen_requirement_immutable` and names supersession. Case runners record the executed config and execution-target digest at run start inside `raw_result` and keep those snapshots through complete, so a prior green does not prove a later script or a later `target_env`. Human review of a capture copies that capture's recorded method_config and digest; approve fails closed when the live case is executable and the reviewed capture has no recorded method_config. An in-place method_config correction records a revision marker on the requirement; once set it stays, including through empty config, and unstamped historical greens then no longer satisfy. A `target_env` correction persists the live snapshot instead of that marker; acceptance compares the start-bound digest. Routes, assertions, waits, and screenshots belong in the snapshot, not in `qa_kind`.
 
 ```json
 {
@@ -316,17 +320,11 @@ Requirements with `requirement_source='ac_derived'` are derived from acceptance 
 3. If the check proves stable, it can be graduated to a permanent suite (`suite_id` is populated)
 4. Future test-intelligence tooling tracks suite membership, flakiness, and coverage
 
-## Waivers
+## Discharges: waiver and supersession
 
-Any requirement can be waived by recording a `waived_at` timestamp, `waiver_rationale`, and `waiver_source`. Waived requirements are treated as satisfied for gating purposes.
+A requirement that has not passed can still be discharged, two ways. Both are recorded, both count as satisfied for gating, and both stay distinguishable from a passing result. **Waiver** records `waived_at`, `waiver_rationale`, and `waiver_source` (`operator` or `agent`), via `yoke qa requirement waive`; a `blocking` requirement needs `--force`. **Supersession** records that a corrected case answered a frozen one, via `yoke qa requirement supersede`: the corrected case must be bound to the same deployment run, stage, member and execution target, be blocking, and have recorded a passing verdict, and it is still graded on its own evidence, so a link cannot carry a failure through. The superseded row is left untouched as history.
 
-**Blocking requirements require explicit authorization.** The implementation
-checks the requirement's `blocking_mode`; if it is `blocking`, waiver requests
-must carry force/authorization semantics. No public `yoke qa requirement
-waive` adapter is registered in this branch, so this page documents waiver
-semantics without teaching an operator command recipe.
-
-The `waiver_source` field records whether the waiver was authorized by a human operator (`operator`) or an automated agent (`agent`). This provides an audit trail for blocking requirement waivers.
+A deployment stage subject whose every blocking case is discharged has nothing left to execute, so it reports `discharged` rather than `accepted` — accepted for gating, named apart because an authorized discharge is not a result that passed. A subject with no materialized cases is not discharged; that obligation is unanswered. Depth: [deployment-stage execution](../../qa-platform/deployment-stage-execution.md).
 
 ## Events
 
@@ -336,6 +334,7 @@ QA-domain writes emit unified events via `yoke_core.domain.events.emit_event` (c
 |------------|--------------|
 | `QARequirementCreated` | Every qa_requirement insert, whatever created it — an operator/function add, a materialized plan case, the merge-gate CI requirement, or the seeded no-tests floor. Paths that write the row inside a transaction their caller commits emit with `transactional=True`, so the row and its event become durable together; `HC-event-family-liveness` pairs rows with events per `requirement_source`, so one emitting path cannot mask a silent one. |
 | `QARequirementWaived` | Requirement waived |
+| `QARequirementSuperseded` | Frozen requirement discharged by a corrected case that passed |
 | `QARunStarted` | New qa_run row inserted (no verdict yet) |
 | `QARunCompleted` | qa_run verdict recorded |
 | `QAArtifactAttached` | qa_artifact row inserted |

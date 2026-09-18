@@ -28,13 +28,21 @@ from typing import Any, Optional
 from yoke_contracts.session_control.models import RecipientSelector
 from yoke_core.domain.deployment_item_owner import item_owner_actor
 from yoke_core.domain.delivery_notice_kind import QA_RESULT_NOTICE_PREFIX
+from yoke_core.domain.deployment_qa_stage_gate import (
+    OUTCOME_DISCHARGED,
+    OUTCOME_PASSED,
+    OUTCOME_REJECTED,
+)
 from yoke_core.domain.session_message_service import send_message
 
 #: A stage result worth reporting. A stage still waiting is not one: the
-#: agent wake already addressed that, and this audience cannot act on it.
-OUTCOME_PASSED = "passed"
-OUTCOME_REJECTED = "rejected"
-REPORTABLE_OUTCOMES = frozenset({OUTCOME_PASSED, OUTCOME_REJECTED})
+#: agent wake already addressed that, and this audience cannot act on it. A
+#: discharge is: the member was released without its cases passing, which is
+#: precisely what its owner needs told rather than left to infer from a run
+#: that simply moved on.
+REPORTABLE_OUTCOMES = frozenset(
+    {OUTCOME_PASSED, OUTCOME_REJECTED, OUTCOME_DISCHARGED}
+)
 
 
 def qa_result_idempotency_key(
@@ -64,7 +72,13 @@ def qa_result_message(
     """Report the decision, what it covered, and where the evidence lives."""
     rev = (revision or "")[:12] or "an unresolved revision"
     target = target_tier or "an unspecified target"
-    verdict = "passed" if outcome == OUTCOME_PASSED else "was rejected"
+    verdict = {
+        OUTCOME_PASSED: "passed",
+        OUTCOME_DISCHARGED: (
+            "was discharged without its cases passing, by waiver or by a "
+            "corrected case superseding them"
+        ),
+    }.get(outcome, "was rejected")
     return (
         f"Deployment run {run_id} QA stage {stage_name!r} {verdict} for "
         f"{subject} on {target} at {rev}. This is informational — nothing to "
@@ -192,6 +206,7 @@ def notify_qa_stage_result(
 
 
 __all__ = [
+    "OUTCOME_DISCHARGED",
     "OUTCOME_PASSED",
     "OUTCOME_REJECTED",
     "REPORTABLE_OUTCOMES",

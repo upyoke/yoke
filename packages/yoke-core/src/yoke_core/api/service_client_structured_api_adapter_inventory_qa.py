@@ -110,13 +110,21 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.plan.rematerialize",
-        "yoke qa plan rematerialize --item PREFIX-N --transition T",
+        "yoke qa plan rematerialize (--item PREFIX-N --transition T | "
+        "--deployment-run-id RUN --stage S [--member PREFIX-N] [--plan P])",
     ),
     AdapterEntry(
         "qa.requirement.update",
         "yoke qa requirement update --requirement-id N --field FIELD "
         "(--value VALUE | --content-file PATH | --stdin | --null) "
         "[--session-id S] [--json]",
+    ),
+    AdapterEntry(
+        "qa.requirement.supersede",
+        "yoke qa requirement supersede --requirement-id N "
+        "--superseded-by-requirement-id N "
+        "(--rationale TEXT | --content-file PATH | --stdin) "
+        "[--source operator|agent] [--session-id S] [--json]",
     ),
     AdapterEntry(
         "qa.requirement.waive",

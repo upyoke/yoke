@@ -6,6 +6,7 @@ from yoke_core.domain.handlers import (
     qa as _qa,
     qa_browser as _qa_browser,
     qa_browser_writes as _qa_browser_writes,
+    qa_requirement_supersede as _qa_requirement_supersede,
     qa_requirement_waive as _qa_requirement_waive,
     qa_run as _qa_run,
 )
@@ -38,6 +39,20 @@ def register(registry) -> None:
         side_effects=["qa_requirements_update"],
         emitted_event_names=["YokeFunctionCalled", "QARequirementWaived"],
         guardrails=["claim_required", "force_required_for_blocking"],
+        adapter_status="live",
+        claim_required_kind="qa_subject",
+    )
+    registry.register(
+        "qa.requirement.supersede",
+        _qa_requirement_supersede.handle_qa_requirement_supersede,
+        _qa_requirement_supersede.QaRequirementSupersedeRequest,
+        _qa_requirement_supersede.QaRequirementSupersedeResponse,
+        stability="stable",
+        owner_module="yoke_core.domain.handlers.qa_requirement_supersede",
+        target_kinds=["qa_requirement"],
+        side_effects=["qa_requirements_update"],
+        emitted_event_names=["YokeFunctionCalled", "QARequirementSuperseded"],
+        guardrails=["claim_required"],
         adapter_status="live",
         claim_required_kind="qa_subject",
     )

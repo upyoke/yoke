@@ -24,6 +24,9 @@ from typing import Tuple
 from yoke_core.domain.populate_registry_data_authoritative import (
     QA_RUN_COMPLETED_DESCRIPTION,
 )
+from yoke_core.domain.populate_registry_data_curated_relay import (
+    RELAY_TRANSPORT_EVENTS,
+)
 from yoke_core.domain.populate_registry_data_updates import (  # noqa: F401
     CORRECTIVE_UPDATES,
     SEVERITY_ONLY_UPDATES,
@@ -83,6 +86,15 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "qa_lifecycle",
         "qa-db",
         "QA requirement waived with rationale",
+        "STATUS",
+    ),
+    (
+        "QARequirementSuperseded",
+        "lifecycle",
+        "qa_lifecycle",
+        "qa-db",
+        "Frozen deployment-run QA requirement discharged by a corrected case "
+        "that passed, with rationale",
         "STATUS",
     ),
     (
@@ -306,20 +318,5 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "STATUS",
     ),
     # --- relay transport (spooled machine-side, emitted once a call lands) ---
-    (
-        "RelayTransportRetrySucceeded",
-        "system",
-        "relay_transport",
-        "cli",
-        "An HTTPS relay call needed more than one attempt and then landed; context distinguishes transport delivery from the final application outcome and carries the function, env, and attempt count",
-        "INFO",
-    ),
-    (
-        "RelayTransportAttemptsExhausted",
-        "system",
-        "relay_transport",
-        "cli",
-        "An HTTPS relay call spent its whole attempt budget without an answer; context carries the function, env, and attempt count, and the session id resolves the harness it ran under",
-        "WARN",
-    ),
+    *RELAY_TRANSPORT_EVENTS,
 )

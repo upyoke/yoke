@@ -14,6 +14,9 @@ from yoke_cli.commands.adapters import qa_browser as _qa_browser
 from yoke_cli.commands.adapters import qa_crud as _qa_crud
 from yoke_cli.commands.adapters import qa_crud_batch as _qa_crud_batch
 from yoke_cli.commands.adapters import qa_read as _qa_read
+from yoke_cli.commands.adapters import (
+    qa_requirement_supersede as _qa_supersede,
+)
 
 AdapterFn = Callable[[List[str]], int]
 
@@ -21,6 +24,10 @@ QA_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
     ("qa", "requirement", "update"): (
         "qa.requirement.update",
         _qa.qa_requirement_update,
+    ),
+    ("qa", "requirement", "supersede"): (
+        "qa.requirement.supersede",
+        _qa_supersede.qa_requirement_supersede,
     ),
     ("qa", "requirement", "waive"): (
         "qa.requirement.waive",

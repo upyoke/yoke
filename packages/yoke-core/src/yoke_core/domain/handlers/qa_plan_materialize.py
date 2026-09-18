@@ -22,7 +22,12 @@ class MaterializeRequest(BaseModel):
 
 
 class RematerializeRequest(BaseModel):
-    transition_id: str = Field(..., min_length=1)
+    # An item subject names its transition; a deployment subject names the
+    # pinned stage, and its member when the stage is item-scoped.
+    transition_id: str | None = None
+    deployment_stage: str | None = None
+    deployment_member: str | None = None
+    plan: str | None = None
 
 
 def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
@@ -138,23 +143,67 @@ def handle_rematerialize(request: FunctionCallRequest) -> HandlerOutcome:
         payload = RematerializeRequest.model_validate(request.payload or {})
     except ValueError as exc:
         return _error("payload_invalid", str(exc), "$.payload")
-    if request.target.kind != "item" or request.target.item_id is None:
-        return _error(
-            "target_invalid",
-            "qa.plan.rematerialize requires an item target",
-            "$.target",
-        )
     from yoke_core.domain.db_helpers import connect
     from yoke_core.domain.qa_plan_management import QaPlanError
     from yoke_core.domain.qa_plan_rematerialize import rematerialize_for_item
+    from yoke_core.domain.qa_plan_rematerialize_deployment import (
+        rematerialize_for_deployment_stage,
+    )
+
+    if request.target.kind == "item" and request.target.item_id is not None:
+        if not payload.transition_id:
+            return _error(
+                "payload_invalid",
+                "qa.plan.rematerialize on an item requires transition_id",
+                "$.payload.transition_id",
+            )
+    elif (
+        request.target.kind == "deployment_run"
+        and request.target.deployment_run_id is not None
+    ):
+        if not payload.deployment_stage:
+            return _error(
+                "payload_invalid",
+                "qa.plan.rematerialize on a deployment run requires "
+                "deployment_stage",
+                "$.payload.deployment_stage",
+            )
+    else:
+        return _error(
+            "target_invalid",
+            "qa.plan.rematerialize requires an item or deployment run target",
+            "$.target",
+        )
 
     try:
         with connect() as conn:
-            result = rematerialize_for_item(
-                conn,
-                item_id=int(request.target.item_id),
-                transition_id=payload.transition_id,
-            )
+            if request.target.kind == "item":
+                result = rematerialize_for_item(
+                    conn,
+                    item_id=int(request.target.item_id),
+                    transition_id=str(payload.transition_id),
+                )
+            else:
+                from yoke_core.domain.project_identity import resolve_item_id
+
+                member_id = (
+                    resolve_item_id(conn, payload.deployment_member)
+                    if payload.deployment_member is not None
+                    else None
+                )
+                if payload.deployment_member is not None and member_id is None:
+                    return _error(
+                        "not_found",
+                        f"deployment member {payload.deployment_member!r} not found",
+                        "$.payload.deployment_member",
+                    )
+                result = rematerialize_for_deployment_stage(
+                    conn,
+                    deployment_run_id=str(request.target.deployment_run_id),
+                    deployment_stage=str(payload.deployment_stage),
+                    deployment_member_item_id=member_id,
+                    plan=payload.plan,
+                )
     except QaPlanError as exc:
         return _error("incompatible", str(exc), "$.payload")
     return HandlerOutcome(result_payload={"result": result}, primary_success=True)

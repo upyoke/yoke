@@ -220,7 +220,7 @@ def refresh_requirement(
     conn: Any,
     *,
     requirement_id: int,
-    transition_id: str,
+    transition_id: Optional[str],
     plan: Any,
     attachment: dict,
     case: Any,

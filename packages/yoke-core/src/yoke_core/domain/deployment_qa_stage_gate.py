@@ -14,7 +14,10 @@ from yoke_core.domain.deployment_qa_stage_acceptance import (
     existing_acceptance_requirement,
     latest_verdict,
 )
-from yoke_core.domain.deployment_qa_stage_case_failures import case_failures
+from yoke_core.domain.deployment_qa_stage_case_failures import (
+    case_failures,
+    obligations_fully_discharged,
+)
 from yoke_core.domain.deployment_qa_stage_contract import (
     DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND,
     deployment_qa_stage_subject,
@@ -36,6 +39,10 @@ ACCEPTANCE_QA_KIND = DEPLOYMENT_STAGE_ACCEPTANCE_QA_KIND
 OUTCOME_PASSED = "passed"
 OUTCOME_REJECTED = "rejected"
 OUTCOME_WAITING = "waiting"
+#: Nothing was left to execute because every case was waived or superseded.
+#: Accepted for gating, named separately so a discharge never reads back as
+#: a result that passed.
+OUTCOME_DISCHARGED = "discharged"
 
 
 def _waiting(reasons: list[str]) -> dict[str, Any]:
@@ -51,6 +58,15 @@ def _passed() -> dict[str, Any]:
     return {
         "accepted": True,
         "outcome": OUTCOME_PASSED,
+        "reasons": [],
+        "request_id": None,
+    }
+
+
+def _discharged() -> dict[str, Any]:
+    return {
+        "accepted": True,
+        "outcome": OUTCOME_DISCHARGED,
         "reasons": [],
         "request_id": None,
     }
@@ -217,10 +233,20 @@ def _settle_stage_status(
         run_id=run_id,
         stage_name=stage_name,
         member_item_id=member_item_id,
-        execution_id=str(execution["id"]) if execution is not None else None,
         execution_target_digest=current_target_digest,
     )
     if execution is None:
+        if obligations_fully_discharged(
+            conn,
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=member_item_id,
+            execution_target_digest=current_target_digest,
+        ):
+            # See deployment_qa_stage_acceptance: a subject whose every case
+            # is waived or superseded has nothing left to run, so the missing
+            # execution is the expected end state rather than a blocker.
+            return _discharged()
         failures.insert(0, "no completed scoped QA execution exists")
     if failures:
         return _waiting(failures)
@@ -302,6 +328,7 @@ def _settle_stage_status(
 
 __all__ = [
     "ACCEPTANCE_QA_KIND",
+    "OUTCOME_DISCHARGED",
     "OUTCOME_PASSED",
     "OUTCOME_REJECTED",
     "OUTCOME_WAITING",

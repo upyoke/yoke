@@ -298,6 +298,22 @@ class TestQaPlanRematerialize:
         assert req.target.public_ref == "YOK-1927"
         assert req.payload == {"transition_id": "release"}
 
+    def test_dispatches_deployment_stage_refresh(self) -> None:
+        args = ("qa", "plan", "rematerialize", "--deployment-run-id", "run-901")
+        assert _run(_stub_ok, *args, "--stage", "item-qa", "--member", "YOK-1927") == 0
+        req = _CAPTURED_REQUESTS[-1]
+        assert req.function == "qa.plan.rematerialize"
+        assert req.target.kind == "deployment_run"
+        assert req.target.deployment_run_id == "run-901"
+        # No empty transition rides along on a deployment subject, and the
+        # item subject's payload above stays exactly what it was.
+        assert req.payload == {
+            "deployment_stage": "item-qa",
+            "deployment_member": "YOK-1927",
+            "plan": None,
+        }
+        assert _run(_stub_ok, *args) == 2  # a stage is required
+
 
 class TestQaRequirementList:
     def test_deployment_run_filter_rides_target(self) -> None:

@@ -47,7 +47,7 @@ target, or changed candidate. Historical evidence stays attached to the old
 execution and cannot settle a replacement or satisfy a later-stage prerequisite.
 
 All concrete blocking cases must pass with evidence attached to the exact
-execution capture, or carry an explicit waiver, before stage acceptance.
+execution capture, or carry an explicit discharge, before stage acceptance.
 Admitted aggregate obligations require their own explicit passing result linked
 to evidence artifacts from concrete cases in that execution; case success is
 never copied into an automatic obligation pass. `agent_only` requires a
@@ -64,6 +64,76 @@ Advanced definitions remain disabled while
 coordinated lifecycle/runtime rollout after its consumers are verified. The
 receipt table and read/write contract are additive, but no current flow writes
 receipts until that rollout lands its executor integration.
+
+## Correcting a case, and discharging one that cannot be corrected
+
+A run-bound case is a frozen acceptance snapshot, but the freeze starts when
+the case answers, not when it is materialized. Until it records a `pass` or
+`fail`, `yoke qa requirement update --field method_config` corrects it in
+place. That window exists because the defects worth catching are not visible
+in the case text: materialization already rejects a case pinned to another
+environment's endpoints or one whose configuration breaks its method
+contract, so what is left — a probe asserting a response field the endpoint
+does not project, a case asserting data the environment does not have — only
+appears the first time the case runs against the real deployed target. An
+`undetermined` or `error` verdict does not close the window; neither reached
+a judgement.
+
+Relatedly, a Command case that reads `BASE_URL` must set
+`method_config.requires_base_url`. The runner injects `BASE_URL` only for a
+case that declares it, so an undeclared probe does not fail — it falls
+through to whatever default it hardcodes and quietly tests a different
+environment than the stage deployed.
+
+When the plan itself was corrected, refresh the whole subject rather than
+each row:
+
+```text
+yoke qa plan rematerialize --deployment-run-id <run-id> --stage <stage-name> \
+  [--member <PREFIX-N>] [--plan <plan>]
+```
+
+A materialized case is unique on
+`(run, stage, member, plan_id, plan_case_key, host_baseline, target)`, so a
+corrected plan case cannot arrive as a second row — refreshing in place is the
+only route, and before this there was none for a deployment subject at all.
+The refresh keeps the deployment target the stage receipt pinned; it never
+re-points a frozen run at whatever environment the plan names today. It
+refuses as a whole, naming each row, when any case in the subject has already
+answered, rather than leaving the stage half refreshed.
+
+Once a case has answered, its snapshot is frozen for good and there are two
+discharges, both recorded and both distinguishable from a passing result:
+
+- **Supersession.** A corrected case bound to the same run, stage, member and
+  execution target, which has itself passed, is recorded as answering the
+  broken case's obligation:
+
+  ```text
+  yoke qa requirement supersede --requirement-id <frozen-id> \
+    --superseded-by-requirement-id <corrected-id> --rationale "<why>"
+  ```
+
+  The superseded row is left exactly as it is, so what went wrong stays
+  readable. The superseding row is graded on its own evidence in the same
+  pass, so a link cannot carry a failure through. Supersession refuses a
+  replacement in another subject, one that is non-blocking, waived, already
+  superseded, or that has not recorded a passing verdict. A case's evidence
+  is found through any completed execution of that same subject and target,
+  not only the newest one — a corrected case normally runs under its own plan
+  and therefore its own execution, and reading a single execution made such a
+  case report "no attached evidence" and hold the stage it had just
+  satisfied.
+- **Waiver.** `yoke qa requirement waive --force` remains the authorized
+  operator discharge when no corrected case answers.
+
+A stage subject whose every blocking case is waived or superseded has nothing
+left to execute, so it is **discharged**: it gates exactly like `accepted`,
+and reads as `discharged` wherever a state is rendered — including the stage
+result notice sent to the member's owner. Keeping the two words apart is
+deliberate; an authorized discharge is not a result that passed. A subject
+with no materialized cases at all is not discharged: that is an unanswered
+obligation, not a settled one.
 
 ## Governed cutover
 
