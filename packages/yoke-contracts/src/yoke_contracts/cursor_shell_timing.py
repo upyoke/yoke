@@ -5,7 +5,9 @@ gates. Cursor CLI 2026.09.02-c22c1a3 delivers ``command`` and ``sandbox``
 on those events, and does not deliver ``tool_use_id`` or ``duration_ms``.
 Yoke's observe-pre path requires ``tool_use_id`` to open rolling tool-call
 state, so ID-less starts are dropped and the matching completions have no
-duration. That is an unsupported surface, not a failed measurement.
+duration. That is an unsupported surface, not a failed measurement, and not
+a delayed start that later repairs ``session_tool_calls``. Reports keep
+this gap in the coverage denominator as unsupported timing.
 
 When a later Cursor build adds a native correlation id or duration, copy
 those fields through. Never invent an id, pair concurrent shells by

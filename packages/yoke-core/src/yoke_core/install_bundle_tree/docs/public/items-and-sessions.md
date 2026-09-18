@@ -60,20 +60,24 @@ conversation mapping) — operators should not invent session IDs.
 `yoke sessions hook-overhead [--hours N]` summarizes hourly PreToolUse and
 PostToolUse client wall time, evaluator time, and their remainder, then shows
 completed tool-call latency beside timed/total coverage globally and per
-harness. Missing durations stay unknown rather than becoming zero. The
-distinct-session `ACTIVE*` count is a fixed-hour activity proxy, not the live
-roster or proof of simultaneous execution. Add `--json` for the registered
-result envelope.
+harness. Tool latency re-reads repaired `session_tool_calls` owner timestamps;
+a start or client wall still inside the pending-delivery window is pending,
+not incomplete. Missing durations outside that window stay unknown rather
+than becoming zero. The `--hours` observation cutoff and the pending window
+are explicit on the JSON result. The distinct-session `ACTIVE*` count is a
+fixed-hour activity proxy, not the live roster or proof of simultaneous
+execution. Add `--json` for the registered result envelope.
 
 `yoke hook benchmark --samples 5 [--json]` runs the harmless system `true`
 command between normal PreToolUse and PostToolUse checks. It records direct
 pre/command/post/envelope wall times and reads evaluator/client-wall phases
 from durable `HookDispatchTelemetry`, with exact timing coverage, harness,
 surface, revisions when available, time window, run count, and separately
-defined live-roster and running-session proxy counts. Save a JSON report and
+defined live-roster and running-session proxy counts. A phase still in
+flight is pending delivery, not incomplete coverage. Save a JSON report and
 compare it with `--compare REPORT.json`; mismatched identity, revisions,
-command, or sample count, and incomplete evaluator/client-wall coverage, are
-labelled incomparable.
+command, or sample count, pending delivery, and incomplete
+evaluator/client-wall coverage, are labelled incomparable.
 
 ## Focus pages and Inbox
 

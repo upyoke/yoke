@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 
 from runtime.api.fixtures.backlog import insert_event
 from yoke_contracts.api.function_call import (
@@ -12,6 +13,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain import hook_client_wall, hook_overhead
 from yoke_core.domain.handlers import sessions_hook_overhead
+from yoke_core.domain.observe_timing import PENDING_DELIVERY_WINDOW
 
 
 class _KeepOpenConnection:
@@ -73,12 +75,14 @@ def test_handler_validates_the_hour_window_and_returns_registered_shape(
     monkeypatch.setattr(hook_overhead, "tool_latency_rows", lambda hours: [])
     accepted = sessions_hook_overhead.handle_sessions_hook_overhead(_request(12))
     assert accepted.primary_success is True
-    assert accepted.result_payload == {
-        "fields": hook_overhead.HOOK_OVERHEAD_FIELDS,
-        "rows": [],
-        "tool_fields": hook_overhead.TOOL_LATENCY_FIELDS,
-        "tool_rows": [],
-    }
+    assert accepted.result_payload["hours"] == 12
+    assert accepted.result_payload["pending_delivery_window_seconds"] == int(
+        PENDING_DELIVERY_WINDOW.total_seconds()
+    )
+    assert accepted.result_payload["fields"] == hook_overhead.HOOK_OVERHEAD_FIELDS
+    assert accepted.result_payload["tool_fields"] == hook_overhead.TOOL_LATENCY_FIELDS
+    assert accepted.result_payload["rows"] == []
+    assert accepted.result_payload["tool_rows"] == []
 
     refused = sessions_hook_overhead.handle_sessions_hook_overhead(_request(0))
     assert refused.primary_success is False
@@ -139,8 +143,10 @@ def test_hourly_projection_splits_client_server_and_remainder(
     row = next(row for row in rows if row["scope"] == "global")
     assert row["hook_count"] == 4
     assert row["evaluator_timed_count"] == 4
+    assert row["evaluator_pending_count"] == 0
     assert row["evaluator_timing_coverage_pct"] == 100.0
     assert row["client_timed_count"] == 4
+    assert row["client_pending_count"] == 0
     assert row["client_timing_coverage_pct"] == 100.0
     assert row["comparison_status"] == "comparable"
     assert row["pre_client_p50_ms"] == 120
@@ -158,6 +164,9 @@ def test_missing_durations_are_coverage_gaps_while_zero_is_timed(
     test_db, monkeypatch
 ) -> None:
     _use_fixture_database(monkeypatch, test_db)
+    stale = (datetime.now(timezone.utc) - timedelta(minutes=20)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     samples = [
         ("zero", "PreToolUse", 0, 0),
         ("missing-server", "PreToolUse", None, 25),
@@ -173,6 +182,7 @@ def test_missing_durations_are_coverage_gaps_while_zero_is_timed(
             duration_ms=server_ms,
             hook_event_name=hook_event,
             session_id=f"session-{event_id}",
+            created_at=stale,
             envelope=_dispatch_envelope(event_id, server_ms, client_wall_ms=client_ms),
         )
 
@@ -180,8 +190,10 @@ def test_missing_durations_are_coverage_gaps_while_zero_is_timed(
         row for row in hook_overhead.hook_overhead_rows(1) if row["scope"] == "global"
     )
     assert row["evaluator_timed_count"] == 2
+    assert row["evaluator_pending_count"] == 0
     assert row["evaluator_timing_coverage_pct"] == 66.7
     assert row["client_timed_count"] == 2
+    assert row["client_pending_count"] == 0
     assert row["client_timing_coverage_pct"] == 66.7
     assert row["pre_evaluator_p50_ms"] == 0
     assert row["pre_client_p50_ms"] == 12
@@ -193,6 +205,9 @@ def test_tool_latency_reports_timed_total_globally_and_per_harness(
     test_db, monkeypatch
 ) -> None:
     _use_fixture_database(monkeypatch, test_db)
+    stale = (datetime.now(timezone.utc) - timedelta(minutes=20)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     samples = [
         ("cursor-zero", "cursor", 0),
         ("cursor-missing", "cursor", None),
@@ -207,6 +222,7 @@ def test_tool_latency_reports_timed_total_globally_and_per_harness(
             source_type="hook",
             duration_ms=duration_ms,
             session_id=f"session-{event_id}",
+            created_at=stale,
             envelope=json.dumps({"context": {"executor": executor}}),
         )
 
@@ -221,6 +237,7 @@ def test_tool_latency_reports_timed_total_globally_and_per_harness(
 
     assert global_row["timed_count"] == 2
     assert global_row["call_count"] == 3
+    assert global_row["pending_count"] == 0
     assert global_row["timing_coverage_pct"] == 66.7
     assert global_row["mean_ms"] == 60
     assert global_row["comparison_status"] == "incomplete"

@@ -120,7 +120,7 @@ def test_partial_delivery_attaches_what_landed_and_names_what_did_not() -> None:
             "ordinal": 2,
             "phase": "post_phase",
             "hook_event": "PostToolUse",
-            "reason": "no HookDispatchTelemetry row names this call identity",
+            "reason": "pending HookDispatchTelemetry delivery for this call identity",
         }
     ]
 
@@ -265,3 +265,74 @@ def test_comparison_rejects_different_harness_and_incomplete_coverage() -> None:
 def test_benchmark_rejects_unbounded_sample_count() -> None:
     with pytest.raises(BenchmarkRefusal, match="sample count must be between"):
         run_benchmark(21)
+
+
+def test_benchmark_names_pending_delivery_instead_of_incomplete() -> None:
+    hook_identities: list[str] = []
+
+    def fake_run(argv, **kwargs):
+        tokens = tuple(str(value) for value in argv)
+        if "evaluate" in tokens:
+            hook_identities.append(json.loads(kwargs["input"])["tool_use_id"])
+        if "identity" in tokens:
+            return subprocess.CompletedProcess(
+                argv,
+                0,
+                json.dumps(
+                    {
+                        "result": {
+                            "session_id": "session-1",
+                            "executor": "cursor",
+                            "executor_surface": "cursor-cli",
+                        }
+                    }
+                ),
+                "",
+            )
+        if "list" in tokens:
+            return subprocess.CompletedProcess(
+                argv, 0, json.dumps({"result": {"rows": []}}), ""
+            )
+        if "events" in tokens:
+            first = hook_identities[0]
+            rows = [_dispatch_row(1, "PreToolUse", 3, None, tool_use_id=first)]
+            return subprocess.CompletedProcess(
+                argv, 0, json.dumps({"result": {"rows": rows}}), ""
+            )
+        if "evaluate" in tokens:
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    report = run_benchmark(1, run=fake_run)
+
+    assert report["status"] == "pending"
+    assert report["samples"][0]["status"] == "pending"
+    assert report["summary"]["client_wall_pending_count"] >= 1
+    assert report["phase_coverage"]["missing_phases"][0]["reason"].startswith(
+        "pending HookDispatchTelemetry"
+    )
+
+
+def test_comparison_names_pending_delivery_not_incomplete_coverage() -> None:
+    def report(status, evaluator, client):
+        return {
+            "status": status,
+            "harness": "cursor",
+            "surface": "cursor-cli",
+            "client_revision": "a",
+            "server_revision": "b",
+            "command": "/usr/bin/true",
+            "run_count": 5,
+            "summary": {
+                "evaluator_timing_coverage_pct": evaluator,
+                "client_wall_timing_coverage_pct": client,
+                "envelope_ms_mean": 10,
+            },
+        }
+
+    comparison = compare_reports(
+        report("complete", 100.0, 100.0), report("pending", 50.0, 50.0)
+    )
+    assert comparison["status"] == "incomparable"
+    assert "baseline timing delivery is pending" in comparison["reasons"]
+    assert not any("timing coverage is" in reason for reason in comparison["reasons"])

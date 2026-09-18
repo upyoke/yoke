@@ -77,10 +77,12 @@ def summarize_samples(samples: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             "phase_record_count": len(phases),
             "phase_total_count": hook_total,
             "evaluator_timed_count": evaluator_timed,
+            "evaluator_pending_count": hook_total - evaluator_timed,
             "evaluator_timing_coverage_pct": (
                 round(evaluator_timed * 100.0 / hook_total, 1) if hook_total else 0.0
             ),
             "client_wall_timed_count": client_timed,
+            "client_wall_pending_count": hook_total - client_timed,
             "client_wall_timing_coverage_pct": (
                 round(client_timed * 100.0 / hook_total, 1) if hook_total else 0.0
             ),
@@ -104,6 +106,9 @@ def compare_reports(
         if current.get(field) != baseline.get(field):
             reasons.append(f"{field} differs")
     for label, report in (("current", current), ("baseline", baseline)):
+        if report.get("status") == "pending":
+            reasons.append(f"{label} timing delivery is pending")
+            continue
         summary = report.get("summary") or {}
         for phase, field in (
             ("evaluator", "evaluator_timing_coverage_pct"),
@@ -230,7 +235,7 @@ def phase_coverage(
                 "bounded query returned its full row limit, so the row may be "
                 "outside it"
                 if truncated
-                else "no HookDispatchTelemetry row names this call identity"
+                else "pending HookDispatchTelemetry delivery for this call identity"
             ),
         }
         for sample in samples

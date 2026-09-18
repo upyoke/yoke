@@ -22,6 +22,8 @@ class SessionsHookOverheadResponse(BaseModel):
     rows: list[dict[str, Any]]
     tool_fields: list[str]
     tool_rows: list[dict[str, Any]]
+    hours: int
+    pending_delivery_window_seconds: int
 
 
 def _error(message: str, *, jsonpath: str) -> HandlerOutcome:
@@ -53,6 +55,7 @@ def handle_sessions_hook_overhead(request: FunctionCallRequest) -> HandlerOutcom
         hook_overhead_rows,
         tool_latency_rows,
     )
+    from yoke_core.domain.observe_timing import PENDING_DELIVERY_WINDOW
 
     return HandlerOutcome(
         result_payload={
@@ -60,6 +63,10 @@ def handle_sessions_hook_overhead(request: FunctionCallRequest) -> HandlerOutcom
             "rows": hook_overhead_rows(hours),
             "tool_fields": TOOL_LATENCY_FIELDS,
             "tool_rows": tool_latency_rows(hours),
+            "hours": hours,
+            "pending_delivery_window_seconds": int(
+                PENDING_DELIVERY_WINDOW.total_seconds()
+            ),
         },
         primary_success=True,
     )
