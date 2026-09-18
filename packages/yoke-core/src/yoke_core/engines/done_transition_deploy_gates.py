@@ -28,6 +28,14 @@ from yoke_core.engines.done_transition_delivery_default import (
     freeze_resolved_delivery_flow as _freeze_resolved_delivery_flow,
     resolve_default_delivery_flow as _resolve_default_delivery_flow,
 )
+from yoke_core.engines.done_transition_delivery_evidence import (
+    DISCHARGED as _DELIVERY_DISCHARGED,
+    UNDETERMINED as _DELIVERY_UNDETERMINED,
+    false_out_of_band_refusal as _false_out_of_band_refusal,
+    read_delivery_evidence as _read_delivery_evidence_via,
+    redirect_to_delivery_stage as _redirect_to_delivery_stage,
+    undetermined_refusal as _undetermined_refusal,
+)
 from yoke_core.engines.done_transition_run_qa_gates import check_run_qa_gates
 
 
@@ -154,10 +162,34 @@ def _check_deployment_flow_guard(
     if _read_deployment_flow_target_tier(deploy_flow, required=True) == "":
         return None
 
-    # One read serves the evidence question and the QA gates below.
+    # The shared delivery ladder answers the evidence question — membership
+    # first, then whether a succeeded release of this flow contains the
+    # item's merge. Reading only membership is what let two members of one
+    # release get opposite verdicts.
+    delivery = _read_delivery_evidence(item_id)
+    delivery_state = str(delivery.get("state") or "")
     run_status, run_id = _get_latest_run_status(item_id)
+    if delivery_state == _DELIVERY_DISCHARGED:
+        run_id = str(delivery.get("run_id") or run_id)
+        run_status = "succeeded"
+
+    if delivery_state == _DELIVERY_UNDETERMINED:
+        return _undetermined_refusal(
+            delivery, public_ref=public_ref, old_status=old_status
+        )
 
     if skip_deploy:
+        # --skip-deploy records a delivery as having happened outside the
+        # selected flow. When that flow demonstrably delivered this item,
+        # the label is false, so the flag is refused rather than honoured:
+        # the ordinary close-out is both available and correct.
+        if delivery_state == _DELIVERY_DISCHARGED:
+            return _false_out_of_band_refusal(
+                public_ref=public_ref,
+                deploy_flow=deploy_flow,
+                run_id=run_id,
+                old_status=old_status,
+            )
         # still requires evidence
         if run_status != "succeeded":
             print("\n=== Deployment evidence guard ===")
@@ -254,35 +286,6 @@ def _check_deployment_flow_guard(
     return None
 
 
-def _redirect_to_delivery_stage(
-    item_id: int,
-    old_status: str,
-    delivery_stage_id: str | None,
-    *,
-    public_ref: str,
-) -> Tuple[int, str]:
-    """Move to the pinned definition's delivery stage when it declares one.
-
-    ``public_ref`` is the caller's already-resolved public ref, so the redirect
-    narrative renders without opening a local connection.
-    """
-    if delivery_stage_id is None:
-        return 7, old_status
-    print(f"Merge completed successfully. Setting status to '{delivery_stage_id}'.")
-    _parent()._update_item_direct(
-        item_id,
-        "status",
-        delivery_stage_id,
-        env_overrides={"YOKE_STATUS_SOURCE": "done-transition"},
-        public_ref=public_ref,
-    )
-    print(
-        f"\nNext step: run '/yoke usher {public_ref}' to execute "
-        "the deployment pipeline."
-    )
-    return 7, delivery_stage_id
-
-
 def _check_deployment_evidence(item_id: int) -> bool:
     """True iff the item's latest deployment run succeeded."""
     data = _relay_read(
@@ -290,6 +293,11 @@ def _check_deployment_evidence(item_id: int) -> bool:
         TargetRef(kind="item", item_id=int(item_id)),
     )
     return data.get("status") == "succeeded"
+
+
+def _read_delivery_evidence(item_id: int) -> dict:
+    """The shared delivery ladder's verdict for this item."""
+    return _read_delivery_evidence_via(_relay_read, int(item_id))
 
 
 def _get_latest_run_status(item_id: int) -> Tuple[str, str]:
