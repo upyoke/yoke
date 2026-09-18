@@ -1,6 +1,5 @@
 import {
   usageSummaryCostDisplay,
-  usageSummaryScope,
   usageSummaryTokenDisplay,
 } from "./session_usage_display.js";
 import { usageStatTile } from "./universe_usage_stats.js";
@@ -136,15 +135,6 @@ export function renderSessionRows(
   // the two cannot be read as one reading.
   appendSessionUsageFacts(documentNode, stats, usage);
   host.replaceChildren(stats);
-  const coverage = usage?.summary && usageSummaryScope(usage.summary);
-  if (usage?.note || coverage) {
-    host.appendChild(el(
-      documentNode,
-      "p",
-      "sessions-usage-scope",
-      [usage?.note, coverage].filter(Boolean).join(" · "),
-    ));
-  }
   if (historySummary) host.appendChild(el(
     documentNode, "p", "sessions-history-status", historySummary,
   ));

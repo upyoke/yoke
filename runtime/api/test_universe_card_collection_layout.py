@@ -72,6 +72,19 @@ def test_the_overflow_tile_is_a_full_height_card_with_a_centred_label():
     assert "align-self: start" not in in_grid
 
 
+def test_a_band_header_marks_itself_with_the_chevron_alone():
+    """No bullet between the expand chevron and the band title.
+
+    The chevron already says the section opens, and the title already carries
+    the band's colour, so the dot marked nothing and read as clutter on every
+    page that draws bands.
+    """
+    static = files("yoke_core.ui").joinpath("static")
+    bands = static.joinpath("universe_bands.css").read_text()
+    assert ".work-band-title::before" not in bands
+    assert ".band-chevron {" in bands
+
+
 def test_writes_sits_a_section_away_from_the_band_above_it():
     """Archived is closed by default, so the gap cannot be its to give.
 

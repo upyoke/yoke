@@ -23,12 +23,6 @@
   gap: 8px;
   margin-bottom: 8px;
 }
-.universe-app-root .sessions-usage-scope {
-  margin: 0 0 14px;
-  color: var(--yoke-muted);
-  font-size: 12px;
-  line-height: 1.5;
-}
 
 .universe-app-root .sessions-empty {
   margin: 0;

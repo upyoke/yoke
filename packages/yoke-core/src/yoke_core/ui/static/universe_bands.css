@@ -75,19 +75,13 @@
   letter-spacing: .075em;
   text-transform: uppercase;
 }
+/* The chevron beside the title already says the section opens and closes,
+   and the title is already in the band's own colour. A dot between the two
+   marked nothing the header did not already carry. */
 .universe-app-root .work-band-title {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
   white-space: nowrap;
-}
-.universe-app-root .work-band-title::before {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: currentColor;
-  content: "";
 }
 .universe-app-root .work-band-count {
   color: var(--yoke-muted);

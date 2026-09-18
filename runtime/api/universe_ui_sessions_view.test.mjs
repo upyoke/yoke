@@ -195,6 +195,34 @@ test("Sessions styles use theme tokens and collapse stats and cards on narrow sc
   );
 });
 
+test("Sessions states its spend without a coverage count under it", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  globalThis.fetch = () => response(200, {});
+  const documentNode = new FakeDocument();
+  documentNode.defaultView.location.hash = "#/sessions?project=1";
+  const root = documentNode.createElement("div");
+  const rows = [{
+    session_id: "priced-1", liveness: "active", executor: "claude-cli",
+    actor_id: 2, actor_kind: "human", actor_label: "Ben",
+    project_id: 1, project: "yoke", claims: [],
+  }];
+  // Two sessions read for tokens, one of them on a model nobody has priced:
+  // the divergence that used to print "1 priced" beneath the stat strip.
+  const usage = [
+    { session_id: "priced-1", machine_id: "m-1", usage_tokens: 900, usage_cost_usd: 3 },
+    { session_id: "priced-2", machine_id: "m-1", usage_tokens: 400 },
+  ];
+  const mounted = mountUniverseApp(root, {
+    client: sessionsClient(() => rows, [], null, usage),
+  });
+  await settle();
+  assert.equal(byClass(root, "sessions-stats").length, 1);
+  assert.equal(byClass(root, "sessions-usage-scope").length, 0);
+  assert.ok(!visibleText(root).includes("priced"));
+  mounted.unmount();
+});
+
 test("The session card identity line wraps instead of truncating its labels", () => {
   const css = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_sessions.css",
@@ -231,7 +259,9 @@ test("Sessions sizes its stats and keeps the message row to one text line", () =
     css,
     /\.sessions-stats \{[\s\S]*?grid-template-columns: repeat\(5, minmax\(0, 1fr\)\);/,
   );
-  assert.match(css, /\.sessions-usage-scope \{[^}]*font-size: 12px;/s);
+  // Nothing sits under the strip: the page said "<n> priced" there, a
+  // coverage count nobody reading the roster had asked for.
+  assert.ok(!css.includes("sessions-usage-scope"));
   const content = readFileSync(new URL(
     "../../packages/yoke-core/src/yoke_core/ui/static/universe_content.css",
     import.meta.url,
