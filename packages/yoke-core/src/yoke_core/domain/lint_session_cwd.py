@@ -17,7 +17,7 @@ import sys
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Sequence
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_lane_main_write_classify import (
     is_write_operation,
 )
@@ -122,8 +122,8 @@ def evaluate_pre_tool_use(
     if not session_id:
         return Verdict(
             allow=False,
-            reason=append_field_note_footer(
-                build_identity_failure_message(), rule_id="lint-session-cwd",
+            reason=attach_check_id(
+                build_identity_failure_message(), check_id="lint-session-cwd",
             ),
             failure_class=IDENTITY_FAILURE_CLASS,
         )
@@ -193,7 +193,7 @@ def evaluate_pre_tool_use(
             command=command,
         )
         body += repo_command_block(payload, outcome.claims) if not targets else ""
-    reason = append_field_note_footer(body, rule_id="lint-session-cwd")
+    reason = attach_check_id(body, check_id="lint-session-cwd")
     return Verdict(
         allow=False,
         reason=reason,

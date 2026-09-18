@@ -68,7 +68,7 @@ from yoke_core.domain.lint_long_command_polling_constants import (  # noqa: F401
     SUPPRESSION_TOKEN,
     VALID_MODES,
 )
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_long_command_polling_config import (  # noqa: F401
     _read_lint_mode,
 )
@@ -123,7 +123,7 @@ def evaluate(record: HookContext) -> HookDecision:
         return _allow_decision()
 
     mode, reason, context = verdict_result
-    reason = append_field_note_footer(reason, rule_id="lint-long-command-polling")
+    reason = attach_check_id(reason, check_id="lint-long-command-polling")
     tool_name = _extract_tool_name(payload) or "Bash"
     outcome_label = (
         context.get("outcome", "denied")

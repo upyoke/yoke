@@ -20,13 +20,11 @@ from __future__ import annotations
 
 from typing import Tuple
 
-# Recipe-event FOOTER attribution: the structured-field transform denial-emit
-# site lives in the sibling ``lint_structured_field_transform_shell.evaluate``,
-# which applies ``append_field_note_footer`` to the assembled reason
-# (``REMEDIATION_TEXT`` + ``REMEDIATION_API_FIRST``) right before the deny
-# envelope is built. Imported here to keep the FOOTER coupling visible to
-# anyone editing the templates below.
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer  # noqa: F401
+# The denial-emit site lives in the sibling
+# ``lint_structured_field_transform_shell.evaluate``, which attaches the
+# check-id line to the assembled reason (``REMEDIATION_TEXT`` +
+# ``REMEDIATION_API_FIRST``) right before the deny envelope is built. The
+# templates below carry the recovery text only.
 
 
 REMEDIATION_TEXT = (

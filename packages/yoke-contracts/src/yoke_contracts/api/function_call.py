@@ -20,7 +20,6 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
-from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 
 
 # ``<family>.<subfamily>.<operation>`` or ``<family>.<operation>`` — each
@@ -135,35 +134,17 @@ class FunctionWarning(BaseModel):
 class FunctionError(BaseModel):
     """Populated when ``success=False`` on the response envelope.
 
-    Every constructed error envelope carries the field-note footer
-    on ``recovery_hint``. The footer routes operators and agents
-    to ``yoke ouroboros field-note append`` so failure surfaces close
-    the Ouroboros learning loop at the point of friction. Idempotency is
-    structural — re-constructing or re-validating a ``FunctionError`` that
-    already carries the footer is a no-op, never a double-append.
+    ``recovery_hint`` carries the recovery step for this specific failure, or
+    nothing when the message already states it. Nothing generic is appended
+    here: a hint that repeats on every error stops being read, and the
+    field-note directive reaches every session through the startup rules and
+    ``yoke ouroboros field-note append --help``.
     """
 
     code: str
     message: str
     jsonpath: Optional[str] = None
     recovery_hint: Optional[str] = None
-
-    @model_validator(mode="after")
-    def _append_field_note_footer(self) -> "FunctionError":
-        # Idempotent: if the footer is already in recovery_hint, leave it
-        # alone — Pydantic re-runs validators on model copy / round-trip.
-        existing = self.recovery_hint
-        if existing and _FIELD_NOTE_FOOTER in existing:
-            return self
-        if existing:
-            object.__setattr__(
-                self,
-                "recovery_hint",
-                f"{existing}\n\n{_FIELD_NOTE_FOOTER}",
-            )
-        else:
-            object.__setattr__(self, "recovery_hint", _FIELD_NOTE_FOOTER)
-        return self
 
 
 class FunctionCallRequest(BaseModel):

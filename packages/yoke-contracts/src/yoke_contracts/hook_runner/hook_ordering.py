@@ -93,12 +93,7 @@ PostToolUse Bash chain order rationale:
    row-count collapse) front-door first; emits an additionalContext
    envelope when a write went sideways. Runs first so its targeted
    advisory wins when both could match.
-2. ``hint_posttool_field_note`` — fires the canonical
-   field-note FOOTER advisory when a Yoke CLI invocation exits
-   non-zero. Runs after the DB-shape advisory and before telemetry so
-   the agent sees the field-note nudge in the same turn the failure
-   surfaced. Path-string parsing only — no DB, no IO.
-3. ``observe`` — telemetry tail.
+2. ``observe`` — telemetry tail.
 """
 
 from __future__ import annotations
@@ -228,7 +223,6 @@ _PRE_APPLY_PATCH: tuple[str, ...] = (
 
 _POST_DEFAULT: tuple[str, ...] = (
     "yoke_core.domain.db_error_hook",
-    "yoke_core.domain.hint_posttool_field_note",
     *_MODEL_DELIVERY,
     "yoke_core.hooks.heartbeat",
     "yoke_core.domain.observe",

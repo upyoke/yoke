@@ -11,7 +11,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, Mapping
+from typing import Any, Dict
 
 from yoke_cli.terminal_pager import page_or_write
 from yoke_cli.commands.board_terminal_output import (
@@ -23,7 +23,6 @@ from yoke_cli.commands.board_terminal_output import (
 from yoke_cli.board import outcome as _outcome
 from yoke_cli.board.outcome import REBUILT, FAILED, PRINTED, RebuildResult
 from yoke_cli.board.rebuild import resolve_board_path
-from yoke_contracts.field_note_text import FOOTER as _FIELD_NOTE_FOOTER
 from yoke_contracts.api.function_call import FunctionError
 
 
@@ -171,7 +170,6 @@ def emit_board_human(result: RebuildResult, payload: Dict[str, Any]) -> None:
             else sys.stdout
         )
         print(message, file=stream)
-    print(f"hint: {_FIELD_NOTE_FOOTER}", file=sys.stderr)
 
 
 def emit_board_print(

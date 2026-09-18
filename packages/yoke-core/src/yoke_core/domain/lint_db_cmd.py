@@ -19,7 +19,7 @@ from typing import Any, Dict, Tuple
 
 from yoke_contracts.executor_labels import canonical_harness_id
 from yoke_contracts.harness_family_identity import nearest_harness_family
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_db_rules import HOOK_POLICY_SOURCE
 from yoke_core.domain.lint_db_runner import run_hook
 from yoke_core.domain.lint_nested_claude_cli import CALLER_HARNESS_PAYLOAD_KEY
@@ -155,7 +155,7 @@ def evaluate(
     is_deny, reason, check_id = _deny_reason_from_output(output)
     if not is_deny:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
-    reason = append_field_note_footer(reason, rule_id=check_id)
+    reason = attach_check_id(reason, check_id=check_id)
     output = json.dumps(
         {
             "hookSpecificOutput": {

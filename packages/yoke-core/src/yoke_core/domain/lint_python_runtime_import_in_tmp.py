@@ -45,7 +45,7 @@ import re
 import sys
 from typing import Optional
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
 
@@ -221,8 +221,8 @@ def evaluate_fields(file_path: str, content: str) -> Optional[str]:
         return None
     if not _content_imports_runtime(content):
         return None
-    return append_field_note_footer(
-        _DENY_REASON, rule_id="lint-python-runtime-import-in-tmp"
+    return attach_check_id(
+        _DENY_REASON, check_id="lint-python-runtime-import-in-tmp"
     )
 
 

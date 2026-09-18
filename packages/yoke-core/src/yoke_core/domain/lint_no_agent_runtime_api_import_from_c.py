@@ -40,7 +40,7 @@ import shlex
 import sys
 from typing import Optional, Tuple
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_no_agent_runtime_api_import_from_c_readonly import (
     is_read_only_import_probe,
 )
@@ -198,8 +198,8 @@ def _format_reason(suppression_seen: bool, mode: str) -> str:
             body + f"\n\nSuppression token `{SUPPRESSION_TOKEN}` is recorded as audit "
             "evidence (outcome=suppression_attempted) but does NOT unblock."
         )
-    return append_field_note_footer(
-        body, rule_id="lint-no-agent-runtime-api-import-from-c"
+    return attach_check_id(
+        body, check_id="lint-no-agent-runtime-api-import-from-c"
     )
 
 

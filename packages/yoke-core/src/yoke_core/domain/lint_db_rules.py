@@ -9,11 +9,9 @@ The assembly consumes the focused ``lint_db_rules_*`` fragments directly.
 
 from __future__ import annotations
 
-# Recipe-event FOOTER attribution: the denial emit site lives in
-# ``yoke_core.domain.lint_db_cmd`` and re-serializes the deny envelope with
-# ``append_field_note_footer`` applied to the reason text and resolved check id,
-# so every denial carries one identity line and the FOOTER.
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer  # noqa: F401
+# The denial emit site lives in ``yoke_core.domain.lint_db_cmd``, which
+# re-serializes the deny envelope with the reason text and resolved check
+# id, so every denial carries exactly one identity line.
 from yoke_core.domain.lint_db_rules_columns import (
     RULE_TEXT_COLUMNS,
 )

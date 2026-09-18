@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_lane_main_write_derivation import (
     LANE_EDIT_GUIDANCE,
     TargetDerivation,
@@ -65,7 +65,7 @@ def format_denial(
         f"{escape_guidance(tool_name)}"
         f"{config_line}{suffix}"
     )
-    return append_field_note_footer(body, rule_id=RULE_ID)
+    return attach_check_id(body, check_id=RULE_ID)
 
 
 def escape_guidance(tool_name: str = "") -> str:

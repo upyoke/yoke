@@ -59,7 +59,6 @@ from yoke_core.domain.db_helpers import connect
 from yoke_core.engines.doctor_context import default_project, resolve_context
 from yoke_core.engines.doctor_check_execution import execute_check_isolated
 from yoke_core.engines import doctor_progress
-from yoke_core.engines.doctor_result_report import attach_remediation_footers
 from yoke_core.engines.doctor_roster import (
     build_roster,
     record_discovery_failures,
@@ -133,7 +132,6 @@ def run_checks(args: DoctorArgs) -> int:
 
     conn.close()
 
-    attach_remediation_footers(rec)
     report = rec.format_report()
     print(report)
 

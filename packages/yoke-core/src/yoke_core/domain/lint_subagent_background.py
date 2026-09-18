@@ -67,7 +67,7 @@ import re
 import sys
 from typing import Optional
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_subagent_background_constants import (
     AGENT_TYPE_ENV_VAR,
     DEFAULT_MODE,
@@ -225,7 +225,7 @@ def evaluate_payload(
 
     mode = _read_lint_mode(payload)
     outcome = "suppression_attempted" if suppressed else "denied"
-    reason = append_field_note_footer(
+    reason = attach_check_id(
         format_reason(
             tool_name=tool_name,
             command=command,
@@ -234,7 +234,7 @@ def evaluate_payload(
             suppressed=suppressed,
             mode=mode,
         ),
-        rule_id="lint-subagent-background",
+        check_id="lint-subagent-background",
     )
     return mode, reason, tool_name, outcome
 

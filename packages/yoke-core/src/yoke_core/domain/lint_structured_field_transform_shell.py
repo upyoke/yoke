@@ -34,7 +34,7 @@ import re
 import sys
 from typing import Optional
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_structured_field_transform_shell_messages import (
     REMEDIATION_API_FIRST,
     REMEDIATION_TEXT,
@@ -247,7 +247,7 @@ def evaluate(record: HookContext) -> HookDecision:
     if reason is None:
         return HookDecision(outcome=Outcome.NOOP, next=Next.CONTINUE)
     outcome = ("suppression_attempted" if _BYPASS_TOKEN in command else "denied")
-    reason = append_field_note_footer(reason, rule_id="lint-structured-field-transform-shell")
+    reason = attach_check_id(reason, check_id="lint-structured-field-transform-shell")
     envelope = json.dumps(_build_deny_response(reason))
     _emit_denial(payload, reason, outcome=outcome)
     return HookDecision(outcome=Outcome.DENY, message=envelope,

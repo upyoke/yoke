@@ -26,7 +26,7 @@ from __future__ import annotations
 import shlex
 from typing import Dict, List, Tuple
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_structured_field_transform_shell_messages import (
     REMEDIATION_API_FIRST,
 )
@@ -150,9 +150,9 @@ def build_payload_remediation() -> str:
         "command body (audit-only; the rule still denies in deny mode)."
     )
     # Wrap here as defense-in-depth; the parent ``lint_shell_quoted_function_payload``
-    # emit site also calls ``append_field_note_footer`` and the helper is
+    # emit site also calls ``attach_check_id`` and the helper is
     # idempotent (double-append short-circuits to no-op).
-    return append_field_note_footer(body, rule_id="lint-shell-quoted-function-payload")
+    return attach_check_id(body, check_id="lint-shell-quoted-function-payload")
 
 
 def build_choreography_remediation(adapter_key: str, function_id: str) -> str:

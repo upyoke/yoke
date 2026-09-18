@@ -13,7 +13,7 @@ from yoke_contracts.hook_runner.main_commit import (
     is_actual_git_commit,
     is_bookkeeping as _contract_is_bookkeeping,
 )
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_main_commit_client_facts import (
     client_facts,
     client_list,
@@ -139,7 +139,7 @@ def _format_reason(
         "  2. File a separate work item: /yoke idea\n"
         "  3. Override: add # lint:no-main-check to the command"
     ) % (impl_files, active_list)
-    return append_field_note_footer(body, rule_id="lint-main-commit")
+    return attach_check_id(body, check_id="lint-main-commit")
 
 
 def evaluate_payload(payload: dict) -> Optional[str]:

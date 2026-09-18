@@ -19,7 +19,7 @@ import json
 import sys
 from typing import Optional, Tuple
 
-from yoke_core.domain.denial_field_note_footer import append_field_note_footer
+from yoke_contracts.hook_runner.denial_identity import attach_check_id
 from yoke_core.domain.lint_destructive_git import _parse_git_invocations
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
@@ -119,7 +119,7 @@ def _format_reason(flag: str, suppression_seen: bool, mode: str) -> str:
               "evidence (outcome=suppression_attempted) but does NOT unblock — the "
               "rule still denies. Reorder `-m` ahead of `--` and retry."
         )
-    return append_field_note_footer(body, rule_id="lint-git-stash-arg-order")
+    return attach_check_id(body, check_id="lint-git-stash-arg-order")
 
 
 def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
