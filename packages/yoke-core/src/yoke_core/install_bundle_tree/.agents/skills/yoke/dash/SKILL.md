@@ -16,7 +16,7 @@ It does not route through `/yoke idea`.
 
 `/yoke dash "instruction"` files and executes. `/yoke dash PREFIX-N` (or a bare
 number, resolved against the current project's sequence) resumes.
-`yoke dash "title" "instruction" --execution-instructions-considered` files
+`yoke dash "title" --stdin --execution-instructions-considered <<'EOF'` files
 without executing; `yoke task ...` is the laneless, merge-free alternative with
 no optional gate posture.
 

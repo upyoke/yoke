@@ -1,16 +1,4 @@
-"""``yoke items ...`` + ``yoke lifecycle transition`` flag adapters.
-
-Covers four function ids in the canonical yoke CLI set:
-
-* ``items.get.run`` — ``yoke items get <PREFIX-N> [field ...]``
-* ``items.progress_log.append`` — ``yoke items progress-log append``
-* ``items.structured_field.replace`` — ``yoke items structured-field replace``
-* ``lifecycle.transition.execute`` — ``yoke lifecycle transition``
-
-Each adapter parses its own flags, builds the typed envelope, and
-delegates dispatch / response emit to
-:mod:`yoke_cli.commands._helpers`.
-"""
+"""Items get, progress-log, structured-field replace, and lifecycle adapters."""
 
 from __future__ import annotations
 
@@ -30,7 +18,7 @@ from yoke_cli.commands._helpers import (
 from yoke_cli.commands.adapters.workflow_execution_instructions import (
     render_execution_instruction_block,
 )
-from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
+from yoke_cli.commands.text_file import add_stdin_flag, add_text_file_pair, resolve_text_file
 from yoke_contracts.items_projection import render_field_catalog
 
 
@@ -143,7 +131,7 @@ def items_get(args: List[str]) -> int:
 
 PROGRESS_LOG_USAGE = (
     "yoke items progress-log append <PREFIX-N> --headline TEXT "
-    "(--content TEXT | --content-file PATH) [--source S] "
+    "(--content TEXT | --content-file PATH | --stdin) [--source S] "
     "[--session-id S] [--json]"
 )
 
@@ -161,18 +149,22 @@ def items_progress_log_append(args: List[str]) -> int:
         dest="content",
         help_text="Entry body. Use --content-file to read from a path.",
     )
+    add_stdin_flag(content_group, help_text="Read the entry body from stdin.")
     parser.add_argument("--source", default=None, help="Optional source tag.")
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, PROGRESS_LOG_USAGE)
     if parsed is None:
         return 2
-    try:
-        content = resolve_text_file(
-            parsed.content, parsed.content_file, "--content-file",
-        )
-    except ValueError as exc:
-        return usage_error(str(exc))
+    if parsed.stdin:
+        content = sys.stdin.read()
+    else:
+        try:
+            content = resolve_text_file(
+                parsed.content, parsed.content_file, "--content-file",
+            )
+        except ValueError as exc:
+            return usage_error(str(exc))
     payload: Dict[str, Any] = {"headline": parsed.headline, "content": content}
     if parsed.source:
         payload["source"] = parsed.source

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 
 
 def add_text_file_pair(
@@ -18,6 +19,14 @@ def add_text_file_pair(
     group.add_argument(file_flag, dest=f"{dest}_file", help=file_help)
 
 
+def add_stdin_flag(
+    group: argparse._MutuallyExclusiveGroup,
+    *,
+    help_text: str = "Read the text value from stdin.",
+) -> None:
+    group.add_argument("--stdin", action="store_true", help=help_text)
+
+
 def resolve_text_file(value: str | None, file_path: str | None, flag: str) -> str | None:
     if not file_path:
         return value
@@ -28,4 +37,55 @@ def resolve_text_file(value: str | None, file_path: str | None, flag: str) -> st
         raise ValueError(f"cannot read {flag}: {exc}") from exc
 
 
-__all__ = ["add_text_file_pair", "resolve_text_file"]
+def resolve_one_text_source(
+    *,
+    positional: str | None,
+    file_path: str | None,
+    stdin: bool,
+    positional_label: str,
+    file_flag: str,
+) -> str:
+    selected = sum(bool(item) for item in (positional, file_path, stdin))
+    if selected > 1:
+        raise ValueError(
+            f"pass exactly one of {positional_label}, {file_flag}, or --stdin"
+        )
+    if stdin:
+        return sys.stdin.read()
+    if file_path:
+        text = resolve_text_file(None, file_path, file_flag)
+        return text if text is not None else ""
+    if positional:
+        return positional
+    raise ValueError(
+        f"{positional_label}, {file_flag}, or --stdin is required"
+    )
+
+
+def resolve_optional_text_source(
+    *,
+    value: str | None,
+    file_path: str | None,
+    stdin: bool,
+    text_flag: str,
+    file_flag: str,
+) -> str | None:
+    selected = sum(bool(item) for item in (value, file_path, stdin))
+    if selected == 0:
+        return None
+    return resolve_one_text_source(
+        positional=value,
+        file_path=file_path,
+        stdin=stdin,
+        positional_label=text_flag,
+        file_flag=file_flag,
+    )
+
+
+__all__ = [
+    "add_stdin_flag",
+    "add_text_file_pair",
+    "resolve_one_text_source",
+    "resolve_optional_text_source",
+    "resolve_text_file",
+]

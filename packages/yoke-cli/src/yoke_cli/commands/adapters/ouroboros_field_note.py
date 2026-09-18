@@ -21,7 +21,11 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
-from yoke_cli.commands.text_file import add_text_file_pair, resolve_text_file
+from yoke_cli.commands.text_file import (
+    add_stdin_flag,
+    add_text_file_pair,
+    resolve_one_text_source,
+)
 from yoke_contracts.field_note_text import (
     CATEGORY_PREFIX,
     EVIDENCE_MAX_CHARS,
@@ -153,7 +157,7 @@ def ouroboros_field_note_get(args: List[str]) -> int:
 OUROBOROS_USAGE = (
     "yoke ouroboros field-note append "
     "--kind {failed|new|unclear|observation} "
-    "(--evidence TEXT | --evidence-file PATH) [--corrects ENTRY_ID] "
+    "(--evidence TEXT | --evidence-file PATH | --stdin) [--corrects ENTRY_ID] "
     "[--target-project P] [--correlation-id ID] [--session-id S] [--json]"
 )
 
@@ -185,6 +189,10 @@ def ouroboros_field_note_append(args: List[str]) -> int:
             f"Non-empty evidence text (≤{EVIDENCE_MAX_CHARS} chars). "
             "Use --evidence-file to read from a path."
         ),
+    )
+    add_stdin_flag(
+        evidence_group,
+        help_text="Read evidence from stdin (quoted heredoc: <<'EOF').",
     )
     parser.add_argument(
         "--corrects",
@@ -225,10 +233,12 @@ def ouroboros_field_note_append(args: List[str]) -> int:
         return 2
 
     try:
-        evidence = resolve_text_file(
-            parsed.evidence,
-            parsed.evidence_file,
-            "--evidence-file",
+        evidence = resolve_one_text_source(
+            positional=parsed.evidence,
+            file_path=parsed.evidence_file,
+            stdin=parsed.stdin,
+            positional_label="--evidence",
+            file_flag="--evidence-file",
         )
     except ValueError as exc:
         return usage_error(str(exc))

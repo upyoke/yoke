@@ -27,9 +27,11 @@ from yoke_cli.commands.adapters.dash_verification_plan import (
 from yoke_cli.commands.adapters.workflows_item_posture import (
     WORKFLOWS_ITEM_POSTURE_AMEND_HINT,
 )
+from yoke_cli.commands.text_file import resolve_one_text_source
 
 DASH_FILE_USAGE = (
-    "yoke dash TITLE INSTRUCTION --execution-instructions-considered "
+    "yoke dash TITLE (INSTRUCTION | --content-file PATH | --stdin) "
+    "--execution-instructions-considered "
     "[--project P] [--priority P] "
     "[--verification-plan ID_OR_SLUG | --verification-method ID] [--path-claims] "
     "[--approval-on-done] [--deployment] [--strategy-doc SLUG] "
@@ -41,7 +43,18 @@ DASH_PRIORITY_CHOICES = ("high", "medium", "low")
 def dash_file(args: List[str]) -> int:
     parser = argparse.ArgumentParser(prog="yoke dash", description=DASH_FILE_USAGE)
     parser.add_argument("title")
-    parser.add_argument("instruction")
+    parser.add_argument("instruction", nargs="?")
+    parser.add_argument(
+        "--content-file",
+        dest="instruction_file",
+        default=None,
+        help="Read the instruction from a path instead of INSTRUCTION.",
+    )
+    parser.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read the instruction from stdin (quoted heredoc: <<'EOF').",
+    )
     parser.add_argument("--project")
     parser.add_argument(
         "--priority",
@@ -81,6 +94,16 @@ def dash_file(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, DASH_FILE_USAGE)
     if parsed is None:
         return 2
+    try:
+        instruction = resolve_one_text_source(
+            positional=parsed.instruction,
+            file_path=parsed.instruction_file,
+            stdin=parsed.stdin,
+            positional_label="INSTRUCTION",
+            file_flag="--content-file",
+        )
+    except ValueError as exc:
+        return usage_error(str(exc))
     project = client_project_context(parsed.project)
     posture: Dict[str, Any] = {}
     if parsed.verification_plan is not None:
@@ -106,7 +129,7 @@ def dash_file(args: List[str]) -> int:
             posture[key] = True
     payload: Dict[str, Any] = {
         "title": parsed.title,
-        "instruction": parsed.instruction,
+        "instruction": instruction,
         "workflow": "dash",
         "entry_surface": "cli",
         "workflow_posture": posture,

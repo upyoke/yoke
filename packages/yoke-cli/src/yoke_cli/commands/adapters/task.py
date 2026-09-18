@@ -14,11 +14,13 @@ from yoke_cli.commands._helpers import (
     usage_error,
 )
 from yoke_cli.commands.adapters.dash_file import DASH_PRIORITY_CHOICES
+from yoke_cli.commands.text_file import resolve_one_text_source
 from yoke_contracts.api.function_call import TargetRef
 
 
 TASK_FILE_USAGE = (
-    "yoke task TITLE INSTRUCTION --execution-instructions-considered "
+    "yoke task TITLE (INSTRUCTION | --content-file PATH | --stdin) "
+    "--execution-instructions-considered "
     "[--project P] [--priority P] "
     "[--verification-plan ID_OR_SLUG | --verification-method ID] "
     "[--path-claims] [--approval-on-done] [--deployment] "
@@ -29,8 +31,10 @@ TASK_HELP = """File one laneless, merge-free Task through items.create.
 
 Examples:
   yoke workflow execution-instruction resolve --workflow task --project acme
-  yoke task "Refresh inventory" "Refresh the local inventory file." \
-    --project acme --execution-instructions-considered
+  yoke task "Refresh inventory" --stdin --project acme \\
+    --execution-instructions-considered <<'EOF'
+  Refresh the local inventory file.
+  EOF
 
 Choose the filing surface:
   task  Laneless, merge-free work whose observed changes need a floor attestation.
@@ -83,7 +87,18 @@ def task_file(args: List[str]) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("title")
-    parser.add_argument("instruction")
+    parser.add_argument("instruction", nargs="?")
+    parser.add_argument(
+        "--content-file",
+        dest="instruction_file",
+        default=None,
+        help="Read the instruction from a path instead of INSTRUCTION.",
+    )
+    parser.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read the instruction from stdin (quoted heredoc: <<'EOF').",
+    )
     parser.add_argument("--project")
     parser.add_argument(
         "--priority",
@@ -118,6 +133,16 @@ def task_file(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, TASK_FILE_USAGE)
     if parsed is None:
         return 2
+    try:
+        instruction = resolve_one_text_source(
+            positional=parsed.instruction,
+            file_path=parsed.instruction_file,
+            stdin=parsed.stdin,
+            positional_label="INSTRUCTION",
+            file_flag="--content-file",
+        )
+    except ValueError as exc:
+        return usage_error(str(exc))
     refusal = _unsupported_posture(parsed)
     if refusal is not None:
         return usage_error(refusal)
@@ -125,7 +150,7 @@ def task_file(args: List[str]) -> int:
     project = client_project_context(parsed.project)
     payload: Dict[str, Any] = {
         "title": parsed.title,
-        "instruction": parsed.instruction,
+        "instruction": instruction,
         "workflow": "task",
         "entry_surface": "cli",
         "workflow_posture": {},

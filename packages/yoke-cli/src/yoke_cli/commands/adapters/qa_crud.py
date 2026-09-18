@@ -29,6 +29,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.commands.text_file import resolve_optional_text_source
 
 
 QA_REQUIREMENT_ADD_USAGE = (
@@ -37,6 +38,8 @@ QA_REQUIREMENT_ADD_USAGE = (
     "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
     "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
     "[--required-capability KIND ...] [--suite-id ID] "
+    "[--instructions TEXT | --instructions-file PATH | --stdin] "
+    "[--expected-outcome TEXT | --expected-outcome-file PATH] "
     "[--workflow-transition STAGE] [--deployment-stage STAGE] "
     "[--deployment-member-item PREFIX-N] [--session-id S] [--json]"
 )
@@ -194,10 +197,27 @@ def qa_requirement_add(args: List[str]) -> int:
         "--instructions", default=None, help="Method case instructions."
     )
     parser.add_argument(
+        "--instructions-file",
+        dest="instructions_file",
+        default=None,
+        help="Read method case instructions from a path.",
+    )
+    parser.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read method case instructions from stdin.",
+    )
+    parser.add_argument(
         "--expected-outcome",
         dest="expected_outcome",
         default=None,
         help="Method case passing outcome.",
+    )
+    parser.add_argument(
+        "--expected-outcome-file",
+        dest="expected_outcome_file",
+        default=None,
+        help="Read the passing outcome from a path.",
     )
     parser.add_argument(
         "--method-config",
@@ -221,6 +241,23 @@ def qa_requirement_add(args: List[str]) -> int:
             "--workflow-transition is required with --item: an item case "
             "names the pinned workflow stage it governs"
         )
+    try:
+        instructions = resolve_optional_text_source(
+            value=parsed.instructions,
+            file_path=parsed.instructions_file,
+            stdin=parsed.stdin,
+            text_flag="--instructions",
+            file_flag="--instructions-file",
+        )
+        expected_outcome = resolve_optional_text_source(
+            value=parsed.expected_outcome,
+            file_path=parsed.expected_outcome_file,
+            stdin=False,
+            text_flag="--expected-outcome",
+            file_flag="--expected-outcome-file",
+        )
+    except ValueError as exc:
+        return usage_error(str(exc))
     if parsed.deployment_run:
         if parsed.workflow_transition_id is not None:
             return usage_error(
@@ -251,13 +288,15 @@ def qa_requirement_add(args: List[str]) -> int:
         "success_policy",
         "capability_requirements",
         "suite_id",
-        "instructions",
-        "expected_outcome",
         "workflow_transition_id",
     ):
         value = getattr(parsed, key)
         if value is not None:
             payload[key] = value
+    if instructions is not None:
+        payload["instructions"] = instructions
+    if expected_outcome is not None:
+        payload["expected_outcome"] = expected_outcome
     if parsed.method_config is not None:
         try:
             method_config = json.loads(parsed.method_config)

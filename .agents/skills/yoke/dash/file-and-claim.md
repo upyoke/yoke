@@ -19,8 +19,14 @@
    for you):
 
    ```text
-   yoke dash "<title>" "<instruction>" --execution-instructions-considered --json
+   yoke dash "<title>" --stdin --execution-instructions-considered --json <<'EOF'
+   <instruction>
+   EOF
    ```
+
+   Positional `INSTRUCTION` is still accepted for text that needs no
+   backticks or `$(`. Free text that names commands goes on `--stdin` or
+   `--content-file` so the shell cannot substitute it.
 
    When the instruction asks for a screenshot or other visual evidence, pass
    `--verification-method browser-inspection` on that same file command.

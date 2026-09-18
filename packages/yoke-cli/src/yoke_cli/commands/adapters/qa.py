@@ -11,7 +11,9 @@ from yoke_cli.commands._helpers import (
     add_session_arg,
     dispatch_and_emit,
     parse_or_usage_error,
+    usage_error,
 )
+from yoke_cli.commands.text_file import add_stdin_flag, add_text_file_pair, resolve_one_text_source
 from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.api.function_call import FunctionCallResponse
 from yoke_cli.commands.adapters.qa_browser import AGENT_UNDETERMINED_HELP
@@ -30,7 +32,8 @@ __all__ = [
 
 QA_REQUIREMENT_UPDATE_USAGE = (
     "yoke qa requirement update --requirement-id N --field FIELD "
-    "(--value VALUE | --null) [--session-id S] [--json]"
+    "(--value VALUE | --content-file PATH | --stdin | --null) "
+    "[--session-id S] [--json]"
 )
 
 
@@ -57,6 +60,13 @@ def qa_requirement_update(args: List[str]) -> int:
     value_group = parser.add_mutually_exclusive_group(required=True)
     value_group.add_argument("--value", default=None, help="New value (string).")
     value_group.add_argument(
+        "--content-file",
+        dest="value_file",
+        default=None,
+        help="Read the new value from a path.",
+    )
+    add_stdin_flag(value_group, help_text="Read the new value from stdin.")
+    value_group.add_argument(
         "--null", action="store_true", help="Set the field to null."
     )
     add_session_arg(parser)
@@ -68,7 +78,16 @@ def qa_requirement_update(args: List[str]) -> int:
     if parsed.null:
         payload["value"] = None
     else:
-        payload["value"] = parsed.value
+        try:
+            payload["value"] = resolve_one_text_source(
+                positional=parsed.value,
+                file_path=parsed.value_file,
+                stdin=parsed.stdin,
+                positional_label="--value",
+                file_flag="--content-file",
+            )
+        except ValueError as exc:
+            return usage_error(str(exc))
     return dispatch_and_emit(
         function_id="qa.requirement.update",
         target=TargetRef(
@@ -82,7 +101,8 @@ def qa_requirement_update(args: List[str]) -> int:
 
 
 QA_REQUIREMENT_WAIVE_USAGE = (
-    "yoke qa requirement waive --requirement-id N --rationale TEXT "
+    "yoke qa requirement waive --requirement-id N "
+    "(--rationale TEXT | --content-file PATH | --stdin) "
     "[--source operator|agent] [--force] [--session-id S] [--json]"
 )
 
@@ -115,8 +135,17 @@ def qa_requirement_waive(args: List[str]) -> int:
         required=True,
         help="Target qa_requirements.id.",
     )
-    parser.add_argument(
-        "--rationale", required=True, help="Reason this requirement is waived."
+    rationale_group = parser.add_mutually_exclusive_group(required=True)
+    add_text_file_pair(
+        rationale_group,
+        "--rationale",
+        "--content-file",
+        dest="rationale",
+        help_text="Reason this requirement is waived.",
+        file_help="Read the waiver rationale from a path.",
+    )
+    add_stdin_flag(
+        rationale_group, help_text="Read the waiver rationale from stdin."
     )
     parser.add_argument(
         "--source",
@@ -132,6 +161,16 @@ def qa_requirement_waive(args: List[str]) -> int:
     parsed = parse_or_usage_error(parser, args, QA_REQUIREMENT_WAIVE_USAGE)
     if parsed is None:
         return 2
+    try:
+        rationale = resolve_one_text_source(
+            positional=parsed.rationale,
+            file_path=parsed.rationale_file,
+            stdin=parsed.stdin,
+            positional_label="--rationale",
+            file_flag="--content-file",
+        )
+    except ValueError as exc:
+        return usage_error(str(exc))
     return dispatch_and_emit(
         function_id="qa.requirement.waive",
         target=TargetRef(
@@ -139,7 +178,7 @@ def qa_requirement_waive(args: List[str]) -> int:
             qa_requirement_id=int(parsed.requirement_id),
         ),
         payload={
-            "rationale": parsed.rationale,
+            "rationale": rationale,
             "source": parsed.source,
             "force": bool(parsed.force),
         },
