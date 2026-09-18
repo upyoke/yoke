@@ -2,13 +2,14 @@
 
 A lane directory is disposable when git reports nothing in it except caches
 this module can name — build output, virtualenvs, interpreter and tool
-caches — or paths the owning project declared through its
+caches — the operating-layer state Yoke itself renders into every checkout,
+or paths the owning project declared through its
 ``disposable_generated_paths`` policy (see
 ``yoke_core.engines.lane_residue_declared_paths``). Tracked edits and
-untracked files are work. Ignored content that is *not* a named or declared
-cache is unknown rather than worthless: a local database, a credential
-file, and an operator's scratch notes are all ignored, and none of them is
-the repository's to delete.
+untracked files are work. Ignored content that is *not* a named, generated
+or declared cache is unknown rather than worthless: a local database, a
+credential file, and an operator's scratch notes are all ignored, and none
+of them is the repository's to delete.
 
 Landing cleanup, the machine-wide merged-lane sweep, the epic merge
 boundary, and the doctor lane report all read this one classification, so a
@@ -20,9 +21,32 @@ from __future__ import annotations
 import shutil
 import sys
 from dataclasses import dataclass
+from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
+from yoke_contracts.project_contract.install_policy import YOKE_TREE_IGNORED_NAMES
+from yoke_contracts.project_contract.installed_layer import (
+    INSTALLED_LAYER_RECEIPT_REL,
+    PROJECT_CONTRACT_DEST,
+)
+
+
+# Machine-local state Yoke renders into every checkout, and so into every
+# lane it creates: the operating-layer receipt plus each generated name the
+# installer seeds into the contract tree's own ignore policy. Both come from
+# the constants the installer renders them from, so a new generated name is
+# disposable here the moment it is added there — never from a second list
+# that could fall behind. Patterns because a few of those names are globs.
+_GENERATED_PATH_PATTERNS: tuple[str, ...] = tuple(
+    sorted(
+        {INSTALLED_LAYER_RECEIPT_REL}
+        | {
+            f"{PROJECT_CONTRACT_DEST}/{name.rstrip('/')}"
+            for name in YOKE_TREE_IGNORED_NAMES
+        }
+    )
+)
 
 _DISPOSABLE_DIR_NAMES = frozenset(
     {
@@ -61,6 +85,11 @@ def _cache_root(
     for declared in declared_roots:
         if path == declared or path.is_relative_to(declared):
             return declared
+    for index in range(len(path.parts)):
+        prefix = PurePosixPath(*path.parts[: index + 1])
+        posix = prefix.as_posix()
+        if any(fnmatchcase(posix, pattern) for pattern in _GENERATED_PATH_PATTERNS):
+            return prefix
     for index, part in enumerate(path.parts):
         if part in _DISPOSABLE_DIR_NAMES or part.endswith(".egg-info"):
             return PurePosixPath(*path.parts[: index + 1])
