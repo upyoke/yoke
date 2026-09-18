@@ -18,6 +18,7 @@ from runtime.api.fixtures.backlog_qa_inserts import insert_qa_requirement
 from yoke_core.domain.deployment_runs_crud_mutate import cmd_add_item
 from yoke_core.domain.handlers import qa_requirement_create
 from yoke_core.domain.qa_case_execution_context import get_case_execution_context
+from yoke_core.domain.qa_requirement_config_update import apply_requirement_update
 from yoke_core.domain.qa_plan_execution_state import begin_plan_execution
 from yoke_core.domain.deployment_qa_stage_materialization import (
     materialize_deployment_qa_stage,
@@ -287,3 +288,16 @@ def test_unbound_run_attached_case_refuses_at_composition_freeze(
     test_db.commit()
     with pytest.raises(ValueError, match=rf"requirement {int(row['id'])}.*before this run starts"):
         composition.freeze_run_composition(test_db, "run-unbound-direct")
+    updated = apply_requirement_update(
+        test_db, int(row["id"]), "target_env", "stage"
+    )
+    assert updated.ok
+    digest = test_db.execute(
+        "SELECT execution_target_digest FROM qa_requirements WHERE id=%s",
+        (int(row["id"]),),
+    ).fetchone()[0]
+    assert digest
+    composition.freeze_run_composition(test_db, "run-unbound-direct")
+    frozen = apply_requirement_update(test_db, int(row["id"]), "target_env", "prod")
+    assert not frozen.ok
+    assert frozen.error_code == "frozen_requirement_immutable"
