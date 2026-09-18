@@ -111,7 +111,6 @@
 .universe-app-root .see-more-card {
   align-items: center;
   justify-content: center;
-  align-self: start;
   min-height: 68px;
   padding: 14px 18px;
   border-style: dashed;

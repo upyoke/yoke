@@ -104,17 +104,17 @@
 }
 
 /* Card collections size columns from the grid's own inline size, not the
-   viewport. The minimum is what decides how many fit; the available width
-   decides how wide they are, so three cards fill their row instead of
-   stopping at a fixed maximum and leaving a ragged strip of page beside
-   them. min(100%, min-track) stacks on a pane narrower than the track
-   without clipping.
-
-   The minimums differ by what the card has to hold: a document card carries
-   a slug and a summary, a work or session card carries a head plus rows, and
-   a machine card carries meters and surface rows that do not compress. */
+   viewport, and auto-fill keeps the columns a section did not fill. auto-fit
+   collapsed them, so one card became one full-width track and three became
+   thirds while the section below drew four; sections are read as a set, so
+   their columns line up whatever each one holds. min(100%, min-track) stacks
+   on a pane narrower than the track without clipping. A document card then
+   takes the width it is given, while work, session and machine cards stop at
+   a maximum rather than stretching a short row across a whole wide screen. */
 .universe-app-root {
-  --yoke-card-track-min: 300px;
+  --yoke-card-track-min: 268px;
+  --yoke-card-track-max: 360px;
+  --yoke-card-grid-gap: 12px;
 }
 .universe-app-root .session-grid,
 .universe-app-root .work-card-grid,
@@ -122,16 +122,19 @@
 .universe-app-root .strategy-doc-grid,
 .universe-app-root .machines-grid {
   display: grid;
-  grid-template-columns: repeat(
-    auto-fit, minmax(min(100%, var(--yoke-card-track-min)), 1fr)
-  );
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(
+    min(100%, var(--yoke-card-track-min)), var(--yoke-card-track-max)
+  ));
+  gap: var(--yoke-card-grid-gap);
 }
 .universe-app-root .strategy-doc-grid {
   --yoke-card-track-min: 280px;
+  --yoke-card-track-max: 1fr;
+  --yoke-card-grid-gap: 10px;
 }
 .universe-app-root .machines-grid {
-  --yoke-card-track-min: 440px;
+  --yoke-card-track-min: 340px;
+  --yoke-card-track-max: 380px;
 }
 .universe-app-root .navigation-toggle {
   padding: 9px;

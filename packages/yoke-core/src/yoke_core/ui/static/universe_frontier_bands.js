@@ -109,8 +109,8 @@ function seeMoreCard(documentNode, scope) {
   card.href = buildUniverseRoute(
     "items", scope === "all" ? null : scope.join(","),
   );
-  card.setAttribute("aria-label", "See more");
-  card.appendChild(el(documentNode, "span", null, "See more"));
+  card.setAttribute("aria-label", "See more...");
+  card.appendChild(el(documentNode, "span", null, "See more..."));
   return card;
 }
 
