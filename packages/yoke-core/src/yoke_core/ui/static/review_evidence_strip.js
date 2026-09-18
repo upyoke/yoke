@@ -117,6 +117,8 @@ async function readArtifact(context, artifact) {
   })).finally(() => {
     clearTimeout(timer);
     signal?.removeEventListener?.("abort", onAbort);
+    // Delete only from this view's map. A route swap installs a new Map on
+    // context before this finally runs, and must not lose the fresh read.
     if (reads.get(key) === pending) reads.delete(key);
   });
   reads.set(key, pending);

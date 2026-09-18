@@ -43,10 +43,13 @@ export function createUnmountHandle(contractVersion, cleanup) {
   };
 }
 
-// One AbortSignal for the live view: a route change or unmount aborts it
-// so in-flight reads die with the page, not on a per-request timer.
+// One AbortSignal and one in-flight read map for the live view. A route
+// change aborts the old signal and swaps the map so a synchronous re-render
+// of the same artifact cannot reuse the aborted promise; the old finally
+// still holds the previous Map and cannot delete the new entry.
 export function replaceViewAbort(context) {
   if (typeof context.abortView === "function") context.abortView();
+  context.artifactReads = new Map();
   if (typeof AbortController !== "function") {
     context.signal = undefined;
     context.abortView = undefined;

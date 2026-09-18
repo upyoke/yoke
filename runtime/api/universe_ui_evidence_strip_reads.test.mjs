@@ -121,6 +121,32 @@ test("two strips on one view share one in-flight read", async () => {
   assert.equal(client.aborts.length, 1);
 });
 
+test("a replacement view fetches the same artifact instead of the aborted read", async () => {
+  const documentNode = new FakeDocument();
+  const client = countingClient(true);
+  const context = { document: documentNode, client };
+  replaceViewAbort(context);
+  const first = evidenceStrip(context, [shot(81)]);
+  await settle();
+  const previousReads = context.artifactReads;
+  assert.equal(client.calls.length, 1);
+
+  replaceViewAbort(context);
+  const next = evidenceStrip(context, [shot(81)]);
+  await settle();
+
+  assert.notEqual(context.artifactReads, previousReads);
+  assert.equal(previousReads.size, 0);
+  assert.equal(context.artifactReads.size, 1);
+  assert.equal(client.calls.length, 2);
+  assert.equal(
+    byClass(next, "review-shot")[0].classList.contains("is-unavailable"), false,
+  );
+  assert.equal(
+    byClass(first, "review-shot")[0].classList.contains("is-unavailable"), true,
+  );
+});
+
 test("leaving the view aborts through the view disposal signal", async () => {
   const documentNode = new FakeDocument();
   const client = countingClient(true);
