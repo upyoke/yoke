@@ -262,6 +262,8 @@ class TestQaDeploymentPlanMaterialize:
             "transition_id": None,
             "plan": "installer-campaign",
             "project": "yoke",
+            "deployment_stage": None,
+            "deployment_member": None,
         }
 
     def test_requires_named_plan_and_project(self) -> None:
