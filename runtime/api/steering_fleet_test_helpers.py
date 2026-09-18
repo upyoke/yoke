@@ -119,8 +119,14 @@ def seed_message(
     state: str = "pending",
     expires_at: str = NOT_YET_EXPIRED,
     cancelled_at: str | None = None,
+    routing_snapshot: dict | None = None,
 ) -> None:
-    """One envelope and its single receipt, undelivered by default."""
+    """One envelope and its single receipt, undelivered by default.
+
+    ``routing_snapshot`` carries the receipt's routing facts; an explicit
+    wake is one of them, so a caller that needs this receipt to read as a
+    requested wake passes that flag rather than patching the row after.
+    """
     conn.execute(
         "INSERT INTO session_messages "
         "(message_id, sender_actor_id, sender_session_id, body, body_sha256, "
@@ -141,7 +147,16 @@ def seed_message(
         "(message_id, session_id, project_id, resolution_evidence, "
         "routing_snapshot, state, created_at, wake_after, injection_count) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0)",
-        (message_id, to, PROJECT_ID, json.dumps({}), json.dumps({}), state, at, at),
+        (
+            message_id,
+            to,
+            PROJECT_ID,
+            json.dumps({}),
+            json.dumps(routing_snapshot or {}),
+            state,
+            at,
+            at,
+        ),
     )
 
 

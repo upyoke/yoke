@@ -40,6 +40,9 @@ def _write_wake_result(response: Any, stdout: TextIO, stderr: TextIO) -> None:
             ("WAKE COUNT", result.get("wake_attempt_count", 0)),
             ("LAST WAKE", result.get("last_wake_at")),
             ("EVIDENCE", json.dumps(evidence, sort_keys=True)),
+            # Cancelling somebody's envelope is never silent: the earlier
+            # wake stops existing here, and the row says which one.
+            ("RELEASED", " ".join(result.get("released_queued_wakes") or ()) or "none"),
             ("RECOVERY", result.get("recovery")),
         ),
         stdout,
@@ -57,7 +60,14 @@ def session_wake(args: List[str]) -> int:
             "person is reading, because that forks their transcript. Send "
             "the message instead — `yoke say --session SESSION-ID --stdin` "
             "— and it is delivered by hook injection the moment that "
-            "operator types anything in the chat."
+            "operator types anything in the chat.\n\n"
+            "A wake already moving refuses this one as `wake_in_flight`, "
+            "naming the receipt and when to retry. A wake the plane was "
+            "owed and never attempted is not moving: past the project's "
+            "`fleet.wake_ack_grace_seconds` this command cancels it as "
+            "superseded, reports it under RELEASED, and takes its own "
+            "route decision — so a queued receipt nothing will deliver "
+            "can no longer block every later wake for that session."
         ),
     )
     parser.add_argument("target_session_id", metavar="SESSION-ID", nargs="?")

@@ -8,7 +8,7 @@ from typing import Any, Mapping
 from yoke_contracts.session_control.capabilities import native_wake_supported
 from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain import db_backend
-from yoke_core.domain import json_helper
+from yoke_core.domain.session_explicit_wake import explicit_stopped_wake_requested
 from yoke_core.domain.session_activity_state import (
     native_thread_id_column_present,
     session_mode_column_present,
@@ -117,17 +117,6 @@ def _native_wake_route_available(
     return False
 
 
-def _explicit_wake_requested(row: Mapping[str, Any]) -> bool:
-    try:
-        snapshot = json_helper.loads_text(str(row.get("routing_snapshot") or ""))
-    except (TypeError, ValueError):
-        return False
-    return bool(
-        isinstance(snapshot, Mapping)
-        and snapshot.get(EXPLICIT_WAKE_ROUTING_FLAG) is True
-    )
-
-
 def wake_eligible_recipients(
     conn: Any,
     *,
@@ -195,7 +184,9 @@ def wake_eligible_recipients(
             row = row_dict(raw)
             policy = project_policy(conn, int(row["project_id"]))
             liveness = session_liveness(row, now=current)
-            explicit_wake = _explicit_wake_requested(row)
+            explicit_wake = explicit_stopped_wake_requested(
+                row.get("routing_snapshot")
+            )
             attempt_count = int(row["wake_attempt_count"] or 0)
             at_limit = attempt_count >= policy.max_wake_attempts
             adopting_final_attempt = bool(
