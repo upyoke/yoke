@@ -143,7 +143,16 @@ MIGRATION_HISTORY_SOURCE_PREFIXES = (
     "packages/yoke-core/src/yoke_core/domain/session_control_schema.py",
 )
 
-UNIVERSE_UI_CONTRACT_TESTS = ("runtime/api/test_universe_ui_mount_contract.py",)
+UNIVERSE_UI_CONTRACT_TESTS = (
+    "runtime/api/test_universe_ui_mount_contract.py",
+    # The served-asset roster is a closed list the server reads, so a module
+    # added under static/ is unreachable until it is named there. Both checks
+    # walk the directory rather than importing it, which is precisely what
+    # reachability cannot see: adding a shared copy module passed a bounded
+    # selection and failed the full suite on the roster it was missing from.
+    "runtime/api/test_universe_ui_assets.py",
+    "runtime/api/test_hosted_stylesheet_entrypoints.py",
+)
 UNIVERSE_UI_SOURCE_PREFIXES = (
     "packages/yoke-core/src/yoke_core/ui/static/",
     "runtime/api/universe_ui_",
