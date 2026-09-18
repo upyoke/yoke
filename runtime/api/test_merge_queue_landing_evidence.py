@@ -187,7 +187,8 @@ def _wire_close_out(monkeypatch, *, pr_files) -> dict:
     monkeypatch.setattr(
         close_out_mod,
         "observe_batch",
-        lambda _ctx, *, pr_num, member_snapshot, drift_check=None: (None, None),
+        lambda _ctx, *, pr_num, member_snapshot, drift_check=None,
+        landed_merge_sha="": (None, None),
     )
     monkeypatch.setattr(
         close_out_mod, "read_pr_changed_files", lambda _ctx, _pr: pr_files

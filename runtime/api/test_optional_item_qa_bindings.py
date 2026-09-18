@@ -272,3 +272,63 @@ def test_selected_verification_without_requirements_refuses(
     result = check_verification_gate(GateTarget(item_id=2421), tmp_db)
     assert not result.passed
     assert any("GATE_QA_REQUIREMENTS_EMPTY" in error for error in result.errors)
+
+
+def test_a_waived_selected_case_is_still_a_bound_case(
+    tmp_db,  # noqa: F811
+) -> None:
+    """A waiver discharges a case; it does not unbind the posture.
+
+    Filtering waived rows out of the bound-ness read made an item whose only
+    selected case had been waived look like it had no case at all, and the
+    refusal then asked for a case to be authored that already existed. No
+    rerun or authoring clears that, because the case is there and settled.
+    """
+    from yoke_core.domain.dash_posture_verification_gate import verification_gate
+
+    conn = _conn(tmp_db)
+    try:
+        insert_item(
+            conn,
+            id=2422,
+            status="reviewing-implementation",
+            workflow_id="dash",
+            workflow_posture=json.dumps(
+                {"verification": {"kind": "ad_hoc", "method_id": "command"}}
+            ),
+        )
+        conn.execute(
+            "INSERT INTO qa_requirements "
+            "(item_id, method_id, runner_id, qa_kind, qa_phase, "
+            " blocking_mode, workflow_transition_id, plan_id, waived_at, "
+            " instructions, expected_outcome, created_at) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            (
+                2422,
+                "command",
+                "worktree_run",
+                "plan_case",
+                "verification",
+                "blocking",
+                "reviewing-implementation",
+                None,
+                "2026-01-02T00:00:00Z",
+                "The selected ad hoc check.",
+                "It passes.",
+                "2026-01-01T00:00:00Z",
+            ),
+        )
+        conn.commit()
+
+        refusal = verification_gate(
+            conn,
+            item_id=2422,
+            verification={"kind": "ad_hoc", "method_id": "command"},
+            target_status="reviewing-implementation",
+        )
+    finally:
+        conn.close()
+
+    # The waiver settles it, so the gate neither calls the posture unbound
+    # nor reports the case unsatisfied.
+    assert refusal is None, refusal

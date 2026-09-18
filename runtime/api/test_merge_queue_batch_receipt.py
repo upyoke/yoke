@@ -32,7 +32,9 @@ def _wire_transport(monkeypatch, *, runs):
 
     def fake_request(req, *, token, **_kw):
         if "/pulls/" in req.path:
-            return _response({"merge_commit_sha": "m" * 40})
+            # Real GitHub always reports merged; an open pull request offers
+            # a test-merge sha that is not a landing.
+            return _response({"merged": True, "merge_commit_sha": "m" * 40})
         # Scoped to the declared workflow's own runs collection, so a
         # second merge_group workflow cannot spend the page budget.
         assert req.path.endswith("/actions/workflows/yoke-ci.yml/runs")
@@ -149,3 +151,72 @@ def test_record_batch_evidence_surfaces_dispatch_error():
     receipt = BatchReceipt(pr_num="42")
     error = receipt_mod.record_batch_evidence(9, receipt, dispatch=dispatch)
     assert error == "claim gate refused"
+
+
+def test_an_open_pull_request_is_not_this_landing(monkeypatch):
+    """A lane carried in by a companion item leaves its own PR open.
+
+    GitHub reports a merge_commit_sha for an open pull request too — its own
+    test-merge — so reading that as the landing sends the receipt hunting a
+    merge_group run this pull request never ran, and the refusal then tells
+    the owner their open PR "landed".
+    """
+    combined = "c" * 40
+    carried_by = "d" * 40
+    seen: dict = {}
+
+    def fake_request(req, *, token, **_kw):
+        if "/pulls/" in req.path:
+            # Open: GitHub still offers a test-merge sha.
+            return _response({"merged": False, "merge_commit_sha": "t" * 40})
+        seen["head_sha"] = req.query.get("head_sha")
+        return _response({"workflow_runs": [{
+            "path": ".github/workflows/yoke-ci.yml",
+            "head_branch": "gh-readonly-queue/main/pr-999-abc",
+            "head_sha": carried_by, "html_url": "https://runs/999",
+            "conclusion": "success",
+        }]})
+
+    for module in (receipt_mod, queue_mod, train_run_mod):
+        monkeypatch.setattr(
+            module, "resolve_auth_detail", lambda ctx, perms: (_auth(), None),
+        )
+    monkeypatch.setattr(receipt_mod, "request_with_retry", fake_request)
+    monkeypatch.setattr(train_run_mod, "request_with_retry", fake_request)
+    monkeypatch.setattr(
+        train_run_mod, "project_ci_workflow_file", lambda _project: "yoke-ci.yml",
+    )
+
+    receipt, warn = receipt_mod.observe_batch(
+        _ctx(), pr_num="42", landed_merge_sha=carried_by,
+    )
+
+    # The train attributed is the one that actually carried the work.
+    assert warn is None
+    assert seen["head_sha"] == carried_by
+    assert receipt.merge_sha == carried_by
+    assert receipt.run_url == "https://runs/999"
+    # The open pull request's own test-merge is never the landing.
+    assert receipt.merge_sha != "t" * 40
+    assert combined not in (receipt.merge_sha, receipt.head_sha)
+
+
+def test_an_open_pull_request_with_no_known_landing_refuses_by_name(monkeypatch):
+    """Nothing to attribute, so say that rather than blaming missing CI."""
+    def fake_request(req, *, token, **_kw):
+        if "/pulls/" in req.path:
+            return _response({"merged": False, "merge_commit_sha": "t" * 40})
+        raise AssertionError("must not hunt a train for an unlanded PR")
+
+    for module in (receipt_mod, queue_mod, train_run_mod):
+        monkeypatch.setattr(
+            module, "resolve_auth_detail", lambda ctx, perms: (_auth(), None),
+        )
+    monkeypatch.setattr(receipt_mod, "request_with_retry", fake_request)
+
+    receipt, warn = receipt_mod.observe_batch(_ctx(), pr_num="42")
+
+    assert receipt is None
+    assert "has not merged" in warn.reason
+    assert warn.retryable is False
+    assert "other landing" in warn.recovery

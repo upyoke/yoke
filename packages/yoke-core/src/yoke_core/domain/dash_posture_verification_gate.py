@@ -100,11 +100,15 @@ def verification_gate(
         selector_value,
         ITEM_POSTURE_VERIFICATION_TRANSITION,
     )
+    # Waived rows stay in this read. A waiver DISCHARGES a case; it does not
+    # unbind it, and filtering it out here made the posture look unbound —
+    # so an item whose only selected case was waived was refused for having
+    # no case at all, which no rerun or authoring could fix.
     cursor = conn.execute(
-        "SELECT r.id, r.qa_phase "
+        "SELECT r.id, r.qa_phase, r.waived_at "
         "FROM qa_requirements r "
         f"WHERE r.item_id = {marker} AND {selector} "
-        "AND r.blocking_mode = 'blocking' AND r.waived_at IS NULL "
+        "AND r.blocking_mode = 'blocking' "
         f"{transition_sql}"
         f"{phase_sql}"
         "ORDER BY r.id",
@@ -123,7 +127,7 @@ def verification_gate(
             and conn.execute(
                 "SELECT 1 FROM qa_requirements r "
                 f"WHERE r.item_id = {marker} AND {selector} "
-                "AND r.blocking_mode = 'blocking' AND r.waived_at IS NULL "
+                "AND r.blocking_mode = 'blocking' "
                 f"AND r.workflow_transition_id = {marker} "
                 "AND r.qa_phase <> 'verification' LIMIT 1",
                 params,
@@ -138,7 +142,10 @@ def verification_gate(
     unsatisfied_rows = [
         row
         for row in rows
-        if not _requirement_consumed(
+        # A waiver is how a case is discharged, so it is satisfied here even
+        # though it never ran. Only the still-open cases belong in this list.
+        if not row.get("waived_at")
+        and not _requirement_consumed(
             conn, row, pre_merge=pre_merge, item_id=int(item_id)
         )
     ]

@@ -270,7 +270,8 @@ def wire_happy_path(
     monkeypatch.setattr(
         close_out_mod,
         "observe_batch",
-        lambda _ctx, *, pr_num, member_snapshot, drift_check=None: (
+        lambda _ctx, *, pr_num, member_snapshot, drift_check=None,
+        landed_merge_sha="": (
             receipt,
             None,
         ),
