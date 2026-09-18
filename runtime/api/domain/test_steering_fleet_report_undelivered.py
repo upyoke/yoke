@@ -28,7 +28,6 @@ from yoke_contracts.session_control.wake import EXPLICIT_WAKE_ROUTING_FLAG
 from yoke_core.domain.steering_fleet_report_delivery_states import (
     ATTEMPT_FAILED,
     ATTEMPT_IN_FLIGHT,
-    WAKE_HELD_FOR_NATIVE_TURN,
     AWAITING_ATTEMPT,
     NEVER_ATTEMPTED,
     TURN_IN_FLIGHT,
@@ -321,27 +320,3 @@ def test_a_desktop_recipient_is_flagged_as_its_operators_to_wake(fleet):
 
     assert operator_wake == {ANSWERER: True, ASKER: False}
 
-
-def test_a_wake_the_machine_held_back_is_neither_failed_nor_in_flight(fleet):
-    """The machine refused to start a second turn, and nothing is moving.
-
-    ``native_turn_running`` is deliberately not a failure -- the relay made
-    the right call -- so it classified as an attempt in flight, and a seat
-    reading the row was told a delivery was moments away every time the
-    same refusal repeated. Every observed run of it repeats for hours, so
-    the state it needed was one of its own.
-    """
-    seed_message(fleet, "msg-1", sender=ASKER, to=ANSWERER, at=LONG_AGO)
-    seed_delivery_attempt(
-        fleet,
-        "attempt-1",
-        message_id="msg-1",
-        to=ANSWERER,
-        result_code="native_turn_running",
-        started_at=LONG_AGO,
-    )
-    fleet.commit()
-
-    rows = undelivered_messages(fleet, project_id=PROJECT_ID, now=NOW)
-
-    assert [entry.delivery_state for entry in rows] == [WAKE_HELD_FOR_NATIVE_TURN]

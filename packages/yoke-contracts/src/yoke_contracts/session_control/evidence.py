@@ -122,6 +122,7 @@ _INTEGER_FIELDS = frozenset(
         "registered_context_window_tokens",
         "requested_context_window_tokens",
         "running_native_pid",
+        "running_native_silent_for_seconds",
     }
 )
 _MAX_TEXT_LENGTH = 128

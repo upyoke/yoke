@@ -11,6 +11,17 @@ on that: the containment sweep reads the file's modification time as the proof
 that a long turn is alive rather than hung, and an operator watching a native
 that has not ended yet still wants to see what it has said. The final write
 adds the exit status, which is what turns a capture into a settled outcome.
+
+"Current" has to mean the supervisor, not only the native. The refresh once
+ran only when the native had said something new, which reads correctly right
+up until a native says nothing: a cursor turn producing no output left its
+capture at the modification time of its spawn, so the sweep's liveness proof
+was frozen for the whole turn and the file was indistinguishable from one
+whose supervisor had died. One sat that way for an hour. The interval write
+therefore happens whether or not there is new output -- it is this process
+reporting that it is still here and still waiting on its child, which is the
+fact the mtime was always meant to carry. New output still changes the
+contents; the unconditional write only changes the clock.
 """
 
 from __future__ import annotations
@@ -43,9 +54,11 @@ from yoke_harness.session_relay_native_streams import (
 )
 
 
-#: How often a running native's words reach the file. Long enough that a chatty
-#: turn does not rewrite the capture on every line, short enough that the
-#: containment sweep's inactivity window never mistakes output for silence.
+#: How often a running native's words -- and, when it has none, the bare fact
+#: that this supervisor is still waiting on it -- reach the file. Long enough
+#: that a chatty turn does not rewrite the capture on every line, short enough
+#: that the containment sweep's inactivity window never mistakes output for
+#: silence.
 FLUSH_INTERVAL_SECONDS = 2.0
 _DRAIN_JOIN_SECONDS = 2.0
 _TERMINATE_WAIT_SECONDS = 5.0
@@ -58,6 +71,7 @@ def _write(
     state: str,
     exit_code: int | None = None,
     now: float | None = None,
+    last_output_at: float | None = None,
 ) -> None:
     stdout, stderr = streams.snapshot()
     payload = compose_capture(
@@ -68,6 +82,9 @@ def _write(
         exit_at=utc_stamp(time.time() if now is None else now)
         if state == STATE_EXITED
         else None,
+        last_output_at=(
+            None if last_output_at is None else utc_stamp(last_output_at)
+        ),
     )
     try:
         write_native_capture(capture, payload)
@@ -110,16 +127,32 @@ def supervise(capture: Path, native: Sequence[str]) -> int:
         if started is not None
     )
     _install_stop_handler(process)
+    # The native has said nothing yet, so its clock starts at the spawn: a
+    # turn that never speaks is silent from the moment it began, which is
+    # exactly what a reader measuring a stall needs it to say.
+    spoke_at = time.time()
     while True:
         try:
             exit_code: int | None = process.wait(timeout=FLUSH_INTERVAL_SECONDS)
             break
         except subprocess.TimeoutExpired:
+            # ``take_dirty`` no longer decides whether to write -- the refresh
+            # is unconditional -- but it is still the one signal that the
+            # native itself produced something, so it sets the native's clock.
             if streams.take_dirty():
-                _write(capture, streams, state=STATE_RUNNING)
+                spoke_at = time.time()
+            _write(capture, streams, state=STATE_RUNNING, last_output_at=spoke_at)
     for drain in drains:
         drain.join(_DRAIN_JOIN_SECONDS)
-    _write(capture, streams, state=STATE_EXITED, exit_code=exit_code)
+    if streams.take_dirty():
+        spoke_at = time.time()
+    _write(
+        capture,
+        streams,
+        state=STATE_EXITED,
+        exit_code=exit_code,
+        last_output_at=spoke_at,
+    )
     return 0
 
 

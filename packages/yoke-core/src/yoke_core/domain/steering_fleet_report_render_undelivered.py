@@ -82,13 +82,15 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
     if entry.delivery_state == ATTEMPT_FAILED:
         return f"never injected, last attempt failed ({entry.diagnostic})"
     if entry.delivery_state == WAKE_HELD_FOR_NATIVE_TURN:
-        # Say what is holding it and what ends the hold. The seat's only
-        # lever is the native itself, so the line names it rather than
-        # suggesting another wake, which would be held for the same reason.
+        # Say what is holding it, whether that thing is moving, and what ends
+        # the hold. The seat's only lever is the native itself, so the line
+        # names it rather than suggesting another wake, which the machine
+        # would hold for the same reason.
         return (
             "never injected, wake held — a native turn is already running "
-            "for this session; it delivers when that turn ends, or end it "
-            f"with `yoke sessions terminate {entry.session_id} --reason ...`"
+            f"for this session{_held_silence(entry)}; it delivers when that "
+            "turn ends, or end it with "
+            f"`yoke sessions terminate {entry.session_id} --reason ...`"
         )
     phrase = _STATE_PHRASES[entry.delivery_state]
     if entry.recipient_gone_at:
@@ -128,6 +130,20 @@ def _wake_suffix(entry: UndeliveredMessages) -> str:
     if entry.wake_escalation:
         return f", wake escalated ({entry.wake_escalation})"
     return ""
+
+
+def _held_silence(entry: UndeliveredMessages) -> str:
+    """How long the holding native has said nothing, when that is known.
+
+    A held wake reads the same whether the turn behind it is thinking or
+    has stopped, and the seat's decision differs entirely between those.
+    The native's own output clock separates them; an unknown silence says
+    nothing rather than implying zero.
+    """
+    silent = entry.held_native_silent_for_seconds
+    if silent is None:
+        return ""
+    return f" and silent for {minutes(silent)}"
 
 
 def undelivered_line(entry: UndeliveredMessages) -> str:

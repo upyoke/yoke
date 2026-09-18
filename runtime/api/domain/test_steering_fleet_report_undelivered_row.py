@@ -165,3 +165,23 @@ def test_a_held_wake_names_the_native_holding_it_and_how_to_end_it():
     # The escalation note would read as a wake still on its way, which is
     # the exact misreading this state exists to end.
     assert "wake escalated" not in line
+
+
+def test_a_held_wake_says_whether_the_native_holding_it_is_moving():
+    """Thinking and stopped read identically without the native's own clock.
+
+    The seat's decision differs entirely between them, so the silence the
+    machine measured travels onto the row.
+    """
+    line = _row(
+        delivery_state=WAKE_HELD_FOR_NATIVE_TURN,
+        held_native_silent_for_seconds=1800,
+    )
+    assert "silent for" in line
+
+
+def test_an_unmeasured_silence_claims_nothing():
+    """No capture to read must not render as a native that just spoke."""
+    line = _row(delivery_state=WAKE_HELD_FOR_NATIVE_TURN)
+    assert "silent for" not in line
+    assert "a native turn is already running" in line

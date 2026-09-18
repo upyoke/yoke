@@ -1,6 +1,23 @@
 """Documented Cursor CLI transport for relay-owned creates and resumes.
 
-Both routes run one print-mode ``cursor-agent`` turn and exit. A create uses
+Both routes run one print-mode ``cursor-agent`` turn and exit -- or are
+supposed to. Two natives outlived their turns by half an hour and an hour,
+holding wake custody the whole time, and nothing on the machine could tell
+them from a native that was working: ``--output-format json`` emits nothing
+at all until the turn ends, so a hung cursor native and a busy one are
+byte-identical on disk, and the containment sweep's premise that a capture's
+modification time proves a long turn is alive rather than hung cannot hold
+for either. ``stream-json`` is the same turn reporting itself as it goes --
+measured on 2026.09.15-d2fe57e, system and user events at 2.2s, thinking at
+7.6s, then assistant and the terminal ``result`` -- so the capture carries
+where a native stopped, and silence in it is evidence rather than the
+format's normal behaviour.
+
+The terminal ``result`` object is unchanged and still last, which is what
+the result reader already looks for: it scans the capture's lines newest
+first, so a stream ends at the same envelope a single document was.
+
+A create uses
 the native new-chat path and lets Cursor assign the conversation identity; a
 resume alone names an existing conversation with ``--resume``.
 
@@ -90,6 +107,11 @@ def cursor_turn_command(
     Omitting ``resume_session_id`` is the create contract. Passing even a
     fresh id to ``--resume`` selects Cursor's resume branch, which suppresses
     the opening ``sessionStart`` hook that launch registration depends on.
+
+    ``stream-json`` rather than ``json`` for the reason in the module
+    docstring: the turn's account has to reach the capture while the turn is
+    running, or nothing on this machine can tell a working native from a
+    stuck one.
     """
     command = [binary]
     if resume_session_id is not None:
@@ -98,7 +120,7 @@ def cursor_turn_command(
         (
             "--print",
             "--output-format",
-            "json",
+            "stream-json",
             "--workspace",
             checkout,
             "--trust",
