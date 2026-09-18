@@ -43,6 +43,20 @@ export function createUnmountHandle(contractVersion, cleanup) {
   };
 }
 
+// One AbortSignal for the live view: a route change or unmount aborts it
+// so in-flight reads die with the page, not on a per-request timer.
+export function replaceViewAbort(context) {
+  if (typeof context.abortView === "function") context.abortView();
+  if (typeof AbortController !== "function") {
+    context.signal = undefined;
+    context.abortView = undefined;
+    return;
+  }
+  const controller = new AbortController();
+  context.signal = controller.signal;
+  context.abortView = () => controller.abort();
+}
+
 // One validation for every host-supplied content node, slot or section: an
 // Element (or a factory yielding one), never the mount root or its ancestor,
 // and never the same node twice — the shared `seen` set makes a node placed

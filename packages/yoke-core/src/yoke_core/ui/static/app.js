@@ -11,7 +11,7 @@ import {
 import {
   attachMountRootClass,
   createUnmountHandle, detachMountedSlots, materializeSections,
-  materializeSlots, validateMountRoot,
+  materializeSlots, replaceViewAbort, validateMountRoot,
 } from "./mount-options.js";
 import {
   buildUniverseRoute,
@@ -166,12 +166,8 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   function renderRoute() {
     if (!mounted || !projectsLoaded) return;
-    // The nav keeps its own position, but every destination begins at the
-    // top of its independent content scroller.
+    replaceViewAbort(context);
     main.scrollTop = 0;
-    // A section the previous route mounted leaves before the new route
-    // renders, so the host's node reference never strands inside a
-    // discarded subtree.
     detachMountedSlots(rootNode, sectionNodes);
     heldScope.reset(); // a full render drops any held scoped view
     setScopeVisible(false);
@@ -340,6 +336,7 @@ export function mountUniverseApp(rootNode, options = {}) {
 
   return createUnmountHandle(UNIVERSE_APP_CONTRACT_VERSION, () => {
     mounted = false;
+    if (typeof context.abortView === "function") context.abortView();
     navigation.dispose();
     windowNode.removeEventListener("hashchange", heldScope.onHashChange);
     disposeChrome();

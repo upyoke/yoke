@@ -81,15 +81,7 @@ function artifactReads(context) {
   return context.artifactReads;
 }
 
-function abortWhenObsolete(context, abort) {
-  if (typeof context.isMounted !== "function") return () => {};
-  const timer = setInterval(() => {
-    if (!context.isMounted()) abort();
-  }, 25);
-  return () => clearInterval(timer);
-}
-
-async function readArtifact(context, artifact, signal) {
+async function readArtifact(context, artifact) {
   const reads = artifactReads(context);
   const key = `${artifact.requirement_id}:${artifact.id}`;
   const existing = reads.get(key);
@@ -98,9 +90,9 @@ async function readArtifact(context, artifact, signal) {
   const controller = typeof AbortController === "function"
     ? new AbortController() : null;
   const onAbort = () => controller?.abort();
+  const signal = context.signal;
   if (signal?.aborted) onAbort();
   else signal?.addEventListener("abort", onAbort, { once: true });
-  const stopWatch = abortWhenObsolete(context, onAbort);
   const pending = Promise.race([
     callFunction(
       context.client,
@@ -124,7 +116,6 @@ async function readArtifact(context, artifact, signal) {
     envelope: { success: false, error: { message: String(error?.message || error) } },
   })).finally(() => {
     clearTimeout(timer);
-    stopWatch();
     signal?.removeEventListener?.("abort", onAbort);
     if (reads.get(key) === pending) reads.delete(key);
   });

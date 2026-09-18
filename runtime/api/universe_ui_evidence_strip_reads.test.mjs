@@ -12,6 +12,7 @@ import {
   settle,
 } from "./universe_ui_dom_test_support.mjs";
 import { createHttpFunctionClient } from "../../packages/yoke-core/src/yoke_core/ui/static/contract.js";
+import { replaceViewAbort } from "../../packages/yoke-core/src/yoke_core/ui/static/mount-options.js";
 import {
   EVIDENCE_SHOWN,
   evidenceStrip,
@@ -101,20 +102,37 @@ test("two figures of the same artifact share one in-flight read", async () => {
   assert.equal(client.calls.length, 1);
 });
 
-test("leaving the view aborts an in-flight screenshot read", async () => {
+test("two strips on one view share one in-flight read", async () => {
   const documentNode = new FakeDocument();
   const client = countingClient(true);
-  let mounted = true;
-  evidenceStrip(
-    { document: documentNode, client, isMounted: () => mounted },
-    [shot(55)],
-  );
+  const context = { document: documentNode, client };
+  replaceViewAbort(context);
+  const first = evidenceStrip(context, [shot(81)]);
+  const second = evidenceStrip(context, [shot(81)]);
+  await settle();
+
+  assert.equal(byClass(first, "review-shot").length, 1);
+  assert.equal(byClass(second, "review-shot").length, 1);
+  assert.equal(client.calls.length, 1);
+  assert.equal(context.artifactReads.size, 1);
+
+  context.abortView();
+  await settle();
+  assert.equal(client.aborts.length, 1);
+});
+
+test("leaving the view aborts through the view disposal signal", async () => {
+  const documentNode = new FakeDocument();
+  const client = countingClient(true);
+  const context = { document: documentNode, client };
+  replaceViewAbort(context);
+  evidenceStrip(context, [shot(55)]);
   await settle();
   assert.equal(client.calls.length, 1);
   assert.equal(client.aborts.length, 0);
 
-  mounted = false;
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  context.abortView();
+  await settle();
   assert.equal(client.aborts.length, 1);
 });
 
@@ -134,12 +152,12 @@ test("a timed-out screenshot read aborts the request when the client supports it
   );
 });
 
-test("the HTTP client forwards abort to fetch", async () => {
-  const controller = new AbortController();
-  let init;
+test("a strip read through the HTTP client aborts fetch on view dispose", async () => {
+  const documentNode = new FakeDocument();
+  let fetchInit;
   const client = createHttpFunctionClient({
     fetch: (_url, options) => {
-      init = options;
+      fetchInit = options;
       return new Promise((_, reject) => {
         options.signal.addEventListener("abort", () => {
           const error = new Error("The operation was aborted");
@@ -149,11 +167,14 @@ test("the HTTP client forwards abort to fetch", async () => {
       });
     },
   });
-  const pending = client.call(
-    { function: "qa.artifact.read", payload: { artifact_id: 81 } },
-    { signal: controller.signal },
-  );
-  controller.abort();
-  await assert.rejects(pending, { name: "AbortError" });
-  assert.equal(init.signal.aborted, true);
+  const context = { document: documentNode, client };
+  replaceViewAbort(context);
+  evidenceStrip(context, [shot(81)]);
+  await settle();
+  assert.equal(typeof fetchInit.signal.addEventListener, "function");
+  assert.equal(fetchInit.signal.aborted, false);
+
+  context.abortView();
+  await settle();
+  assert.equal(fetchInit.signal.aborted, true);
 });
