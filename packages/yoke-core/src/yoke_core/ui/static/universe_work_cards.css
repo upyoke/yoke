@@ -107,18 +107,28 @@
 }
 /* The overflow card is one word, large, and centred in whatever height the
    row gave it: the band heading already carries the count, so repeating it
-   here spent a whole card saying a number twice. */
+   here spent a whole card saying a number twice. The label is the whole tile,
+   so it is set at the approved display size — shrunk to body copy inside a
+   dashed box, the tile read as an empty placeholder rather than the way to
+   the rest of the band, which is how an overflow card goes missing without
+   ever being deleted. The row it sits in gives it its height.
+   `.work-card-grid > .see-more-card` in the band sheet centres it there. */
 .universe-app-root .see-more-card {
   align-items: center;
   justify-content: center;
-  min-height: 68px;
-  padding: 14px 18px;
   border-style: dashed;
   color: var(--yoke-ink);
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 28px;
+  font-weight: 700;
   line-height: 1.2;
   text-align: center;
+}
+/* Every other work card is text with its own links inside, so the shared rule
+   above takes the pointer and the hover lift away. This tile IS the link, and
+   is the one card in the grid that has to say so. */
+.universe-app-root a.see-more-card:hover {
+  border-color: color-mix(in srgb, var(--yoke-border) 45%, var(--yoke-accent));
+  cursor: pointer;
 }
 .universe-app-root .see-more-card > span {
   margin: 0;

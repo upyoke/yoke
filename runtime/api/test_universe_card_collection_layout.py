@@ -72,6 +72,38 @@ def test_the_overflow_tile_is_a_full_height_card_with_a_centred_label():
     assert "align-self: start" not in in_grid
 
 
+def test_the_overflow_tile_carries_the_approved_display_label():
+    """One 28px bold word, sized by the row rather than a floor of its own.
+
+    Shrunk to 15px inside a dashed box, the tile read as an empty placeholder
+    and the band looked like it had lost its way to the rest of the items.
+    A `min-height` of its own would fight the row it is stretched into.
+    """
+    static = files("yoke_core.ui").joinpath("static")
+    cards = static.joinpath("universe_work_cards.css").read_text()
+    tile = cards.split(".see-more-card {", 1)[1].split("}", 1)[0]
+    assert "font-size: 28px" in tile
+    assert "font-weight: 700" in tile
+    assert "min-height" not in tile
+    # Every other work card is text holding its own links, so the shared rule
+    # drops the pointer; the one card that IS a link takes it back.
+    hover = cards.split("a.see-more-card:hover {", 1)[1].split("}", 1)[0]
+    assert "cursor: pointer" in hover
+
+
+def test_a_band_header_marks_itself_with_the_chevron_alone():
+    """No bullet between the expand chevron and the band title.
+
+    The chevron already says the section opens, and the title already carries
+    the band's colour, so the dot marked nothing and read as clutter on every
+    page that draws bands.
+    """
+    static = files("yoke_core.ui").joinpath("static")
+    bands = static.joinpath("universe_bands.css").read_text()
+    assert ".work-band-title::before" not in bands
+    assert ".band-chevron {" in bands
+
+
 def test_writes_sits_a_section_away_from_the_band_above_it():
     """Archived is closed by default, so the gap cannot be its to give.
 

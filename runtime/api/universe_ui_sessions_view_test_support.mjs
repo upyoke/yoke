@@ -10,7 +10,9 @@ export function visibleText(root) {
   return allNodes(root).map((node) => node.textContent || "").join(" ");
 }
 
-export function sessionsClient(rows, requests, mutation = null) {
+export function sessionsClient(
+  rows, requests, mutation = null, usageRows = [],
+) {
   return {
     async call(request) {
       requests.push(request);
@@ -31,7 +33,7 @@ export function sessionsClient(rows, requests, mutation = null) {
       if (request.function === "sessions.list") {
         // The machines panel's own durable 24h-usage read, independent of
         // the roster rows this fixture otherwise serves.
-        if (request.payload.usage_last_24h) return ok({ rows: [] });
+        if (request.payload.usage_last_24h) return ok({ rows: usageRows });
         return ok({ rows: typeof rows === "function" ? rows() : rows });
       }
       if (request.function === "sessions.reclaim_stale" && mutation) {
