@@ -197,6 +197,36 @@ def lane_adds_nothing(repo_root: str, commit: str, base: str) -> Optional[bool]:
     return merged_tree[0].strip() == base_tree
 
 
+def lane_merge_conflicts(
+    repo_root: str, commit: str, base: str
+) -> tuple[str, ...]:
+    """Paths where merging ``commit`` into ``base`` conflicts.
+
+    The companion to :func:`lane_adds_nothing`, which answers ``None`` for a
+    conflict because it cannot compare trees that do not combine. Knowing
+    *which* files conflicted is what turns "this lane is not the recorded
+    landing" into a refusal an owner can act on: the base moved under those
+    paths, so the lane needs a rebase rather than a convergence.
+
+    Empty when the merge is clean or could not run — this only ever adds
+    detail to a refusal, never causes one.
+    """
+    if not commit or not base:
+        return ()
+    merged = _git(repo_root, "merge-tree", "--write-tree", base, commit)
+    if merged.returncode == 0:
+        return ()
+    paths: list[str] = []
+    for line in merged.stdout.splitlines():
+        # Conflicted entries are index lines: "<mode> <oid> <stage>\t<path>".
+        if "\t" not in line:
+            continue
+        head, _, path = line.partition("\t")
+        if head.split()[-1:] in (["1"], ["2"], ["3"]) and path not in paths:
+            paths.append(path)
+    return tuple(paths)
+
+
 def changed_files(repo_root: str, branch: str, target: str) -> tuple[str, ...]:
     """Files the branch changed relative to where it left the base branch.
 

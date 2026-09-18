@@ -175,13 +175,39 @@ def stale_unlanded_work(
         return ""
     named = ", ".join(sorted(sha[:12] for sha in identities))
     return (
-        f"branch {branch!r} head {current[:12]} is not the recorded landing "
-        f"({named}). Same-item correction continues through a declared "
+        f"branch {branch!r} head {current[:12]} is past its recorded landing "
+        f"({named})"
+        f"{_conflict_clause(repo_root, current, target)}. Same-item "
+        "correction continues through a declared "
         "release wait on the same item and lane; this refusal preserves "
         "the lane when the item is already closed out, or when the pinned "
         "workflow declares no release wait. Do not prescribe a stage "
         "change or reset unlanded corrections. Close-out will not declare "
         "them delivered or clean this lane"
+    )
+
+
+def _conflict_clause(repo_root: str, head: str, target: str) -> str:
+    """Name the paths that stop this lane converging, when that is why.
+
+    Without it the refusal says only that the head is not the landing,
+    which reads as bookkeeping drift and invites a retry. The lane may
+    instead carry a version of a file the base has since moved past, and
+    that is a rebase, not a convergence — so say which files, because the
+    owner cannot see it from the shas.
+    """
+    base = git.current_base_ref(repo_root, target)
+    if not base:
+        return ""
+    paths = git.lane_merge_conflicts(repo_root, head, base)
+    if not paths:
+        return ""
+    shown = ", ".join(paths[:5])
+    more = f" (and {len(paths) - 5} more)" if len(paths) > 5 else ""
+    return (
+        f", and merging it into {base} conflicts in {shown}{more} — the base "
+        "moved past this lane there, so it needs a rebase rather than a "
+        "convergence"
     )
 
 
