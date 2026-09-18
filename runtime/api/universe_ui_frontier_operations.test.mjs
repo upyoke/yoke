@@ -162,6 +162,30 @@ test("the overflow tile says See more... and fills the row it sits in", async (t
   mounted.unmount();
 });
 
+test("a card's age sits at the end of its head row, not on a line of its own", async (t) => {
+  stubFetch(t);
+  const { mounted, root } = await mountAt("#/frontier?project=1", workbenchClient());
+
+  const card = byClass(root, "work-item-card")[0];
+  const head = byClass(card, "work-item-card-head")[0];
+  const when = byClass(head, "work-item-card-when");
+  assert.equal(when.length, 1);
+  // Last in the head, after the status chip, and machine-readable.
+  assert.equal(head.children.at(-1), when[0]);
+  // The label is the band's ("filed", "updated", "finished"); what moved is
+  // where the phrase sits, not what it says.
+  assert.match(when[0].textContent, /^\w+ .+ ago$/);
+  assert.ok(when[0].getAttribute("datetime"));
+  // It no longer owns a line: the meta line survives only for meta text.
+  assert.equal(
+    byClass(card, "work-item-card-meta").some(
+      (node) => /ago/.test(node.textContent),
+    ),
+    false,
+  );
+  mounted.unmount();
+});
+
 test("Release shows every card it holds, and Done alone truncates", async (t) => {
   stubFetch(t);
   const hour = 60 * 60 * 1000;

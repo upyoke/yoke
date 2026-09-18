@@ -93,6 +93,12 @@
   letter-spacing: .075em;
   text-transform: uppercase;
 }
+.universe-app-root .work-item-card-when {
+  margin-left: auto;
+  color: var(--yoke-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 .universe-app-root .work-item-card-meta {
   margin-top: 0;
   padding-top: 14px;

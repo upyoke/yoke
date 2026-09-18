@@ -78,16 +78,16 @@ function deploymentCard(documentNode, run, projectId) {
     when.setAttribute("datetime", completed);
     when.textContent = `Deployed ${relativeAgePhrase(completed)}`;
     card.appendChild(when);
-  } else {
+  } else if (status === SUCCEEDED) {
     card.appendChild(el(
       documentNode,
       "span",
       "item-deployment-time is-unavailable",
-      status === SUCCEEDED
-        ? "deployment time unavailable"
-        : `carried by a run that ${status}`,
+      "deployment time unavailable",
     ));
   }
+  // A run that has not succeeded says so through its own state chip and run
+  // id; a sentence repeating the chip read as a defect rather than a status.
   card.appendChild(el(
     documentNode, "small", "item-deployment-run", String(run.id || run.run_id || ""),
   ));

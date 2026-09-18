@@ -66,6 +66,20 @@ export function workItemCard(documentNode, row, scope, options = {}) {
     row.stage_label || row.status,
   );
   if (status) top.appendChild(status);
+  // The age rides the end of the head row rather than owning a line of its
+  // own: it is the least of what the card says, and the head already wraps,
+  // so a narrow card drops it to a second line instead of truncating it.
+  const timestamp = options.timestamp || row.updated_at || row.created_at;
+  if (timestamp) {
+    const when = el(
+      documentNode,
+      "time",
+      "work-item-card-when",
+      `${options.timeLabel || "updated"} ${relativeAgePhrase(timestamp)}`,
+    );
+    when.setAttribute("datetime", timestamp);
+    top.appendChild(when);
+  }
   card.appendChild(top);
   const title = el(documentNode, "strong", "work-item-card-title");
   const titleLink = el(
@@ -90,13 +104,8 @@ export function workItemCard(documentNode, row, scope, options = {}) {
     card.appendChild(itemStatusDisclosure(documentNode, options.flag));
   }
 
-  const timestamp = options.timestamp || row.updated_at || row.created_at;
-  const meta = [
-    options.meta,
-    timestamp ? `${options.timeLabel || "updated"} ${relativeAgePhrase(timestamp)}` : null,
-  ].filter(Boolean).join(" · ");
-  if (meta) card.appendChild(el(
-    documentNode, "span", "work-item-card-meta", meta,
+  if (options.meta) card.appendChild(el(
+    documentNode, "span", "work-item-card-meta", options.meta,
   ));
   return card;
 }
