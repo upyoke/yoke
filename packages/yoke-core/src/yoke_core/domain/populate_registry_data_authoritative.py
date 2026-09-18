@@ -147,6 +147,7 @@ AUTHORITATIVE_METADATA: Tuple[Tuple[str, str, str, str, str, str], ...] = (
     ("QARequirementCreated", "lifecycle", "qa_lifecycle", "qa-db", "INFO", "QA requirement created and attached to item, task, or deployment run"),
     ("QARequirementUpdated", "lifecycle", "qa_lifecycle", "qa-db", "INFO", "QA requirement field updated via qa requirement-update"),
     ("QARequirementWaived", "lifecycle", "qa_lifecycle", "qa-db", "STATUS", "QA requirement waived with rationale"),
+    ("QARequirementSuperseded", "lifecycle", "qa_lifecycle", "qa-db", "STATUS", "Frozen deployment-run QA requirement discharged by a corrected case that passed, with rationale"),
     ("QARunCompleted", "lifecycle", "qa_execution", "yoke_core.domain.qa_events", "INFO", QA_RUN_COMPLETED_DESCRIPTION),
     ("RetiredSchemaResurrectionAttempt", "system", "schema_guard", "yoke_core.domain.retired_schema_registry", "WARN", "Ambient init/bootstrap attempted to re-add a column registered in yoke_core/domain/retired_schema_surfaces.yaml; the ADD COLUMN was skipped. Context names project, table, column, caller, and the retiring migration module."),
     ("SchedulerOfferSkipped", "audit", "scheduler_selection", "backend", "INFO", "A scheduler offer was skipped before claim acquisition. Carries session_id, item_id (or process_key), recommended_action, skip_reason (stale_lifecycle, live_claim_conflict, recoverable_substrate, process_disabled_by_config, ...), current_status, claim_holder_session_id, claim_id, claimed_at, chain_step. Drives within-chain skip/cooldown memory."),

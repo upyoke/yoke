@@ -86,6 +86,15 @@ CURATED_EVENTS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
         "STATUS",
     ),
     (
+        "QARequirementSuperseded",
+        "lifecycle",
+        "qa_lifecycle",
+        "qa-db",
+        "Frozen deployment-run QA requirement discharged by a corrected case "
+        "that passed, with rationale",
+        "STATUS",
+    ),
+    (
         "QARequirementUpdated",
         "lifecycle",
         "qa_lifecycle",
