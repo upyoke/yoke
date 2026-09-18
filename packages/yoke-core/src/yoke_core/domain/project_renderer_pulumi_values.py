@@ -77,12 +77,9 @@ def gather_pulumi_values(
         manage_default if manage_default is not None else True
     )
     registry = settings.capabilities.get("container-registry", {})
-    lifecycle = (
-        registry.get("manage_platform_image_lifecycle")
-        if isinstance(registry, dict)
-        else None
+    values["manage_platform_image_lifecycle"] = _stringify(
+        registry.get("manage_platform_image_lifecycle"), "false"
     )
-    values["manage_platform_image_lifecycle"] = _stringify(lifecycle, "false")
     values.update(delivery_ci_values(settings))
     runner_fleet_enabled = "runner-fleet" in (data.get("stacks") or [])
     if (
