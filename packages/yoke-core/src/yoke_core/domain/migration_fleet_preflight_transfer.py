@@ -1,4 +1,8 @@
-"""Copy a live database onto the local rehearsal cluster."""
+"""Copy a live database onto the local rehearsal cluster.
+
+Extension-version fidelity of that copy lives next door, in
+:mod:`yoke_core.domain.migration_fleet_preflight_extensions`.
+"""
 
 from __future__ import annotations
 

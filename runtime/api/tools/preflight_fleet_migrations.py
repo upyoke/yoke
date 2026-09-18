@@ -6,6 +6,10 @@ apply to the databases that are behind? — by running it against a copy of
 each of them, on the local embedded cluster, exactly as a booting container
 would. The live databases are only read.
 
+A copy installing different extension versions than its source is not evidence
+about that source, so each source's versions are pinned into its copy; a
+version this machine's engine cannot install refuses before anything is dumped.
+
 The fleet is what the release must keep serving, which is narrower than
 every Yoke-schema database on the cluster: the Platform catalog, scratch
 databases a test run abandoned, and the validation database governed
