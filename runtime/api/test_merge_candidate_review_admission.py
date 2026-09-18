@@ -176,6 +176,43 @@ def test_a_rejected_candidate_is_refused_with_its_verdict(monkeypatch):
     assert "the new commit raises its own review" in outcome.error
 
 
+def test_a_control_plane_without_the_function_lands_normally(monkeypatch):
+    """The slice has to survive its own rollout.
+
+    A universe learns the posture key and this function in one deploy, so a
+    server that does not serve it has no item that can require a review.
+    Refusing there would block every merge on every project until the
+    deploy landed -- including the merge that ships it.
+    """
+    monkeypatch.setattr(
+        selection_mod, "project_declares_merge_queue",
+        lambda project, dispatch=None: (False, None),
+    )
+    landed = {}
+
+    def fake_standalone(**kwargs):
+        landed.update(kwargs)
+        return StandaloneMergeOutcome(ok=True, exit_code=0, already_merged=False)
+
+    monkeypatch.setattr(selection_mod, "merge_standalone_branch", fake_standalone)
+
+    def dispatch(*, function_id, **_kw):
+        if function_id == admission_mod.EVALUATE_FUNCTION_ID:
+            return SimpleNamespace(
+                success=False,
+                result=None,
+                error=SimpleNamespace(
+                    code="function_version_skew",
+                    message="the active HTTPS env does not serve function",
+                ),
+            )
+        return _response({"rows": [[0]]})
+
+    outcome = _route(dispatch)
+    assert outcome.ok
+    assert landed["branch"] == "YOK-200"
+
+
 def test_an_unreadable_answer_refuses_rather_than_landing(monkeypatch):
     """A boundary that cannot ask must not answer with a landing."""
     monkeypatch.setattr(
@@ -189,7 +226,7 @@ def test_an_unreadable_answer_refuses_rather_than_landing(monkeypatch):
             return SimpleNamespace(
                 success=False,
                 result=None,
-                error=SimpleNamespace(message="relay unavailable"),
+                error=SimpleNamespace(code="relay_error", message="relay unavailable"),
             )
         return _response({"rows": [[0]]})
 

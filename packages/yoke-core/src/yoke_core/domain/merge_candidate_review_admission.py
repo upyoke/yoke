@@ -15,6 +15,7 @@ still has to remember to take.
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Callable
 
 from yoke_contracts.api.function_call import TargetRef
@@ -23,6 +24,21 @@ from yoke_core.api.service_client_structured_api_adapter import call_dispatcher
 from yoke_core.domain import standalone_item_merge_git as git
 
 EVALUATE_FUNCTION_ID = "merge_review.candidate.evaluate"
+
+#: Answers that mean "this control plane has no candidate review at all",
+#: rather than "the review could not be read".
+#:
+#: A universe learns the posture key and this function in the same deploy:
+#: the key is selectable only on a workflow generation whose allowlist
+#: carries it, and those generations converge from the build that registers
+#: the function. So a control plane that does not serve it provably has no
+#: item that can require a review, and proceeding is the rollout order
+#: rather than a hole. Treating it as an unreadable answer instead would
+#: refuse EVERY merge on EVERY project until the deploy landed -- including
+#: the merge that ships the deploy.
+_UNSERVED_ERROR_CODES = frozenset(
+    {"function_version_skew", "function_not_registered"}
+)
 
 _RESOLVE_RECIPE = (
     "`yoke decision-requests resolve {request_id} approve "
@@ -93,6 +109,18 @@ def candidate_review_refusal(
     )
     if not getattr(response, "success", False):
         error = getattr(response, "error", None)
+        code = str(getattr(error, "code", "") or "")
+        if code in _UNSERVED_ERROR_CODES:
+            # Said out loud rather than skipped quietly: an operator reading
+            # this merge should see which gate did not run and why.
+            print(
+                f"[phase:admission] candidate review not served by this "
+                f"control plane ({code}); no item here can require one yet, "
+                "so the landing proceeds",
+                file=sys.stderr,
+                flush=True,
+            )
+            return ""
         detail = getattr(error, "message", None) or "candidate review read failed"
         return (
             f"{public_ref}: candidate review could not be checked: {detail}. "

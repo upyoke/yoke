@@ -58,6 +58,22 @@ hook, or import `ui_browser_origin` and lie on purpose. That is the line this
 design draws — **accidents and convenience are stopped; evasion becomes
 deliberate and visible** — and it is the honest limit, not an oversight.
 
+## Rollout order: the gate must not refuse before it exists
+
+A universe learns the posture key and the `merge_review.candidate.evaluate`
+function in the same deploy — the key is selectable only on a workflow
+generation whose allowlist carries it, and those generations converge from
+the build that registers the function. So a control plane that does not
+serve the function provably has no item that can require a review, and the
+merge boundary proceeds there, saying so on stderr.
+
+That is the rollout order, not a hole. The alternative was discovered the
+hard way: an unconditional ask treats "the server has never heard of this
+function" as "the review could not be read" and refuses **every merge on
+every project** until the deploy lands — including the merge that ships the
+deploy. Only the two registry-skew answers are read this way; every other
+failure (relay down, database error, permission) still refuses.
+
 ## The residual outside Yoke entirely
 
 A raw `gh pr merge --auto`, a merge from the GitHub web UI, or a push
