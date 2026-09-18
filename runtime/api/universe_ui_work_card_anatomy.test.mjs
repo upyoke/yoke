@@ -41,7 +41,7 @@ test("a band is a native disclosure carrying its own count", async (t) => {
   assert.equal(bands.every((node) => node.children[0].tagName === "SUMMARY"), true);
   assert.deepEqual(
     bands.map((node) => node.attributes.get("data-fold")),
-    ["band:waiting", "band:ready", "band:active", "band:done"],
+    ["band:waiting", "band:ready", "band:active", "band:release", "band:done"],
   );
   assert.equal(bands.every((node) => node.open), true);
   assert.equal(byClass(bands[0], "band-chevron").length, 1);
@@ -49,7 +49,7 @@ test("a band is a native disclosure carrying its own count", async (t) => {
   // Counts live on the bands, never on the page heading.
   assert.deepEqual(
     byClass(root, "work-band-count").map(ownTextContent),
-    ["1", "1", "0", "1"],
+    ["1", "1", "0", "0", "1"],
   );
   assert.equal(byClass(root, "title")[0].textContent, "Frontier");
   mounted.unmount();

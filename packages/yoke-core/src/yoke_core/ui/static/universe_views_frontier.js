@@ -1,7 +1,8 @@
-// Frontier is the work itself, in the four states work is actually in:
-// stopped and why, free to pick up, being worked on right now, and finished
-// in the last day. Deployment runs are their own page — what is shipping is a
-// different question from what is being built.
+// Frontier is the work itself, in the five states work is actually in:
+// stopped and why, free to pick up, being worked on right now, merged and
+// waiting on its deployment, and finished in the last day. Deployment runs
+// are their own page — what is shipping is a different question from what is
+// being built, and Release answers only which items are between the two.
 
 import { successfulResult, workBand } from "./universe_band_primitives.js";
 import { loadFrontier } from "./universe_frontier_bands.js";
@@ -27,11 +28,14 @@ export function renderFrontierView(context, main, scope) {
     "Active",
     "No session is running against this universe.",
   );
+  const release = workBand(
+    documentNode, "release", "Release", "Nothing is waiting to ship.",
+  );
   const done = workBand(
     documentNode, "done", "Done (24h)", "Nothing finished in the last 24 hours.",
   );
   const dialogHost = el(documentNode, "div", "work-session-dialog-host");
-  main.replaceChildren(waiting, ready, active, done, dialogHost);
+  main.replaceChildren(waiting, ready, active, release, done, dialogHost);
 
   let currentScope = scope;
   const getScope = () => currentScope;
@@ -70,7 +74,7 @@ export function renderFrontierView(context, main, scope) {
     );
     return loadFrontier(
       context,
-      { waiting, ready, active, done },
+      { waiting, ready, active, release, done },
       getScope,
       sessionRoster,
       {

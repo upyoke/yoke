@@ -59,7 +59,7 @@
 .universe-app-root .work-band-active {
   --work-band-tone: var(--yoke-run);
 }
-.universe-app-root .work-band-shipping {
+.universe-app-root .work-band-release {
   --work-band-tone: #8b5cf6;
 }
 .universe-app-root .work-band-done {
