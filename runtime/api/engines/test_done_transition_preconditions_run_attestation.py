@@ -42,9 +42,10 @@ def _seed_deploy_run(db_path, item_id, status, current_stage="complete"):
     p = _p(conn)
     conn.execute(
         "INSERT INTO deployment_runs "
-        "(id, project_id, status, current_stage, created_at) "
-        f"VALUES ({p}, {p}, {p}, {p}, {p})",
-        (run_id, 1, status, current_stage, "2025-01-01T00:00:00Z"),
+        "(id, project_id, flow, status, current_stage, created_at) "
+        f"VALUES ({p}, {p}, {p}, {p}, {p}, {p})",
+        (run_id, 1, "yoke-hosted-production", status, current_stage,
+         "2025-01-01T00:00:00Z"),
     )
     conn.execute(
         f"INSERT INTO deployment_run_items (run_id, item_id) VALUES ({p}, {p})",

@@ -71,6 +71,7 @@ def test_overview_composes_through_actor_scoped_listing(monkeypatch):
         "blocked_reason",
         "deployed_to",
         "merged_at",
+        "deployment_flow",
         "created_at",
         "updated_at",
         "project_id",

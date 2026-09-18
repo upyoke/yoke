@@ -10,7 +10,7 @@ const fail = () => ({
   status: 500,
   envelope: { success: false, error: { message: "boom" } },
 });
-const recentIso = (hours = 1) => new Date(
+export const recentIso = (hours = 1) => new Date(
   Date.now() - hours * 60 * 60 * 1000,
 ).toISOString();
 
@@ -165,6 +165,7 @@ export function workbenchClient(overrides = {}) {
     status: "done",
     merged_at: recentIso(2),
     deployed_to: "stage",
+    deployment_flow: "yoke-hosted-stage",
   });
   const answers = {
     "items.overview.list": { rows: [frozen, ready, done] },

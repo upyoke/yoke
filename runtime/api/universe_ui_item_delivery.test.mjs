@@ -60,9 +60,11 @@ test("a Dash item lists its releases newest first and names its flow", async () 
   renderItemDetailView(
     itemContext(documentNode, deliveryClient(dash, [
       { id: "run-20260725-001", status: "succeeded", current_stage: "complete",
-        created_at: "2026-07-25T12:00:00Z" },
+        created_at: "2026-07-25T12:00:00Z", flow: "acme-stage-then-prod",
+        target_environment: "prod" },
       { id: "run-20260726-002", status: "failed", current_stage: "item-qa",
-        created_at: "2026-07-26T12:00:00Z" },
+        created_at: "2026-07-26T12:00:00Z", flow: "acme-stage-then-prod",
+        target_environment: "prod" },
     ], requests)),
     root, "7", "ACM-22",
   );
@@ -89,6 +91,14 @@ test("a Dash item lists its releases newest first and names its flow", async () 
     flow.children[1].href, "#/deployments/flows/acme-stage-then-prod?project=7",
   );
   assert.equal(flow.children[2].textContent, "selected on this item");
+  assert.deepEqual(
+    byClass(root, "item-delivery-role").map((node) => node.textContent),
+    ["this item's release", "this item's release"],
+  );
+  assert.deepEqual(
+    byClass(root, "item-delivery-target").map((node) => node.textContent),
+    ["prod", "prod"],
+  );
 });
 
 test("an item with no selection names the project default it actually resolves", async () => {
@@ -184,11 +194,11 @@ test("a Blitz item carried by several releases lists every one of them", async (
   renderItemDetailView(
     itemContext(documentNode, deliveryClient(blitz, [
       { id: "run-20260724-001", status: "succeeded", current_stage: "complete",
-        created_at: "2026-07-24T09:00:00Z" },
+        created_at: "2026-07-24T09:00:00Z", flow: "acme-preview-then-prod" },
       { id: "run-20260726-003", status: "executing", current_stage: "preview-item-qa",
-        created_at: "2026-07-26T15:00:00Z" },
+        created_at: "2026-07-26T15:00:00Z", flow: "acme-preview-then-prod" },
       { id: "run-20260725-002", status: "cancelled", current_stage: "stage-deploy",
-        created_at: "2026-07-25T11:00:00Z" },
+        created_at: "2026-07-25T11:00:00Z", flow: "acme-preview-then-prod" },
     ], requests)),
     root, "7", "ACM-31",
   );
@@ -208,4 +218,36 @@ test("a Blitz item carried by several releases lists every one of them", async (
   const flow = byClass(root, "item-delivery-flow")[0];
   assert.equal(flow.children[1].textContent, "acme-preview-then-prod");
   assert.equal(flow.children[2].textContent, "selected on this item");
+});
+
+test("a carrying run on another flow is participation, not this item's release", async () => {
+  const documentNode = new FakeDocument();
+  const root = documentNode.createElement("div");
+  const dash = detailItem("dash");
+  dash.deployment_flow = "acme-prod";
+  renderItemDetailView(
+    itemContext(documentNode, deliveryClient(dash, [
+      { id: "run-prod", status: "executing", current_stage: "item-qa",
+        created_at: "2026-07-25T12:00:00Z", flow: "acme-prod",
+        target_environment: "prod" },
+      { id: "run-stage", status: "succeeded", current_stage: "complete",
+        created_at: "2026-07-26T12:00:00Z", flow: "acme-stage" },
+    ], [])),
+    root, "7", "ACM-22",
+  );
+  await settle();
+  await settle();
+
+  assert.deepEqual(
+    byClass(root, "item-delivery-run").map((node) => node.children[0].textContent),
+    ["run-stage", "run-prod"],
+  );
+  assert.deepEqual(
+    byClass(root, "item-delivery-role").map((node) => node.textContent),
+    ["also carried", "this item's release"],
+  );
+  assert.deepEqual(
+    byClass(root, "item-delivery-target").map((node) => node.textContent),
+    ["environment unavailable", "prod"],
+  );
 });

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow
 from yoke_core.domain.deployment_qa_admission_materialization import (
     admitted_requirement_case_key,
 )
@@ -38,27 +39,54 @@ POST_DEPLOY_RECOVERY = (
 )
 
 
-def latest_deployment_run_for_item(conn: Any, item_id: int) -> dict[str, str]:
-    """Return the registered ``done_transition.latest_deployment_run`` binding.
+def latest_completion_run(conn: Any, item_id: int) -> dict[str, Any] | None:
+    """Newest membership on the item's selected completion flow, or none.
 
-    Empty ``run_id`` and ``status`` mean the item has no attached run.
+    Freshness is still ``created_at`` (then ``id``) — only the flow filter
+    is added, so a later retry of the selected flow still wins, and a later
+    carrying run of a different flow does not.
     """
     required = ("deployment_runs", "deployment_run_items")
     if not all(_table_exists(conn, table) for table in required):
-        return {"run_id": "", "status": ""}
+        return None
+    flow = item_completion_flow(conn, int(item_id))
+    if not flow:
+        return None
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
-        "SELECT dr.id, dr.status FROM deployment_runs dr "
+        "SELECT dr.id, dr.status, dr.current_stage, dr.project_id, "
+        "COALESCE(dr.release_lineage, '') AS release_lineage, dr.flow "
+        "FROM deployment_runs dr "
         "JOIN deployment_run_items dri ON dr.id = dri.run_id "
-        f"WHERE dri.item_id = {marker} "
-        "ORDER BY dr.created_at DESC LIMIT 1",
-        (int(item_id),),
+        f"WHERE dri.item_id = {marker} AND dr.flow = {marker} "
+        "ORDER BY dr.created_at DESC, dr.id DESC LIMIT 1",
+        (int(item_id), flow),
     ).fetchone()
     if not row:
+        return None
+    return {
+        "id": str((row["id"] if hasattr(row, "keys") else row[0]) or ""),
+        "status": str((row["status"] if hasattr(row, "keys") else row[1]) or ""),
+        "current_stage": str(
+            (row["current_stage"] if hasattr(row, "keys") else row[2]) or ""
+        ),
+        "project_id": row["project_id"] if hasattr(row, "keys") else row[3],
+        "release_lineage": str(
+            (row["release_lineage"] if hasattr(row, "keys") else row[4]) or ""
+        ),
+        "flow": str((row["flow"] if hasattr(row, "keys") else row[5]) or ""),
+    }
+
+
+def latest_deployment_run_for_item(conn: Any, item_id: int) -> dict[str, str]:
+    """Return the registered ``done_transition.latest_deployment_run`` binding.
+
+    Empty ``run_id`` and ``status`` mean the item has no completion-flow run.
+    """
+    row = latest_completion_run(conn, int(item_id))
+    if row is None:
         return {"run_id": "", "status": ""}
-    run_id = row["id"] if hasattr(row, "keys") else row[0]
-    status = row["status"] if hasattr(row, "keys") else row[1]
-    return {"run_id": str(run_id or ""), "status": str(status or "")}
+    return {"run_id": row["id"], "status": row["status"]}
 
 
 def source_obligation_consumed(
@@ -228,6 +256,7 @@ __all__ = [
     "POST_DEPLOY_RECOVERY",
     "UnsatisfiedBlocking",
     "blocking_row_unsatisfied_at_done",
+    "latest_completion_run",
     "latest_deployment_run_for_item",
     "row_unsatisfied_at_done",
     "source_obligation_consumed",

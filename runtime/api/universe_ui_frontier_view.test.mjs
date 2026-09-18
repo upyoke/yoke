@@ -13,6 +13,7 @@ import {
 import {
   claimingSession,
   descendantText,
+  recentIso,
   workbenchClient,
 } from "./universe_ui_workbench_test_support.mjs";
 
@@ -145,6 +146,42 @@ test("Done says its lifecycle once and names where the work went", async (t) => 
   assert.match(descendantText(deployment), /succeeded/);
   assert.match(descendantText(deployment), /stage/);
   assert.match(descendantText(deployment), /Deployed/);
+  mounted.unmount();
+});
+
+test("Done names the selected-flow release, not a newer ancillary success", async (t) => {
+  stubFetch(t);
+  const { root, mounted } = await mountAt(
+    "#/frontier?project=1",
+    workbenchClient({
+      "deployment_runs.list": { rows: [{
+        id: "run-stage",
+        project: "yoke",
+        flow: "yoke-hosted-preview",
+        target_environment: "preview",
+        status: "succeeded",
+        created_at: recentIso(1),
+        completed_at: recentIso(1),
+        stages: [{ name: "deploy", state: "complete" }],
+        member_items: [{ id: 106, ref: "YOK-6", title: "Land the release" }],
+      }, {
+        id: "run-0",
+        project: "yoke",
+        flow: "yoke-hosted-stage",
+        target_environment: "stage",
+        status: "succeeded",
+        created_at: recentIso(3),
+        completed_at: recentIso(2),
+        stages: [{ name: "deploy", state: "complete" }],
+        member_items: [{ id: 106, ref: "YOK-6", title: "Land the release" }],
+      }] },
+    }),
+  );
+
+  const deployment = byClass(band(root, "done"), "item-deployment")[0];
+  assert.ok(deployment);
+  assert.equal(deployment.href, "#/deployments/runs/run-0?project=1");
+  assert.doesNotMatch(descendantText(deployment), /preview/);
   mounted.unmount();
 });
 

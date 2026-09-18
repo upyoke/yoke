@@ -178,17 +178,15 @@ def test_unknown_attribution_enrolls_nothing_and_keeps_refusing(
     assert "carried-code membership is project_source_unavailable" in refusal
 
 
-def test_a_carried_item_bound_to_another_flow_refuses_with_its_recovery(
+def test_a_carried_item_bound_to_another_flow_is_still_admitted(
     test_db: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     item_ref = _candidate(test_db, tmp_path, monkeypatch, item_flow=LEGACY_FLOW)
 
-    with pytest.raises(ValueError) as refusal:
-        enroll_carried_members(test_db, "run-candidate")
+    enrolled = enroll_carried_members(test_db, "run-candidate")
 
-    assert item_ref in str(refusal.value)
-    assert "choose a candidate that excludes its code" in str(refusal.value)
-    assert _members(test_db) == []
+    assert enrolled == (item_ref,)
+    assert [member["item_id"] for member in _members(test_db)] == [CARRIED_ITEM_ID]
 
 
 def test_terminal_carried_history_is_never_enrolled(

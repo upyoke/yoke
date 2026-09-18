@@ -87,7 +87,7 @@ def test_terminal_item_cannot_be_newly_admitted(test_db: Any) -> None:
         cmd_add_item("run-terminal-admission", 9452)
 
 
-def test_completed_member_keeps_original_flow_alignment(test_db: Any) -> None:
+def test_completed_member_survives_a_later_selected_flow_change(test_db: Any) -> None:
     _environment(test_db)
     _flow(test_db, "completion-alignment", advanced=True)
     _member(test_db, 9455, "completion-alignment")
@@ -100,8 +100,13 @@ def test_completed_member_keeps_original_flow_alignment(test_db: Any) -> None:
 
     refusal = cmd_update("run-completion-alignment", "status", "executing")
 
-    assert refusal is not None
-    assert "selects deployment flow 'another-flow'" in refusal
+    assert refusal is None
+    run = test_db.execute(
+        "SELECT status,composition_frozen_at FROM deployment_runs "
+        "WHERE id='run-completion-alignment'"
+    ).fetchone()
+    assert run["status"] == "executing"
+    assert run["composition_frozen_at"]
 
 
 @pytest.mark.parametrize("terminal_status", ["cancelled", "stopped"])

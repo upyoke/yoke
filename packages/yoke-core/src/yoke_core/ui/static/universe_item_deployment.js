@@ -31,9 +31,8 @@ function memberItemId(member) {
 /**
  * Index runs by the internal id of each item they carry.
  *
- * Runs arrive newest-completion-first within each item's list, and a
- * succeeded run outranks any other outcome: a release that landed is what
- * "where did this go" means, and a later failed retry does not undo it.
+ * Newest completion first. Selected-flow filtering belongs to the
+ * card painter: an ancillary Stage success must not become "Deployed".
  */
 export function deploymentsByItemId(runs) {
   const index = new Map();
@@ -47,9 +46,7 @@ export function deploymentsByItemId(runs) {
   }
   for (const [, carried] of index) {
     carried.sort((left, right) => (
-      Number(String(right.status || "") === SUCCEEDED)
-      - Number(String(left.status || "") === SUCCEEDED)
-      || String(right.completed_at || "").localeCompare(
+      String(right.completed_at || "").localeCompare(
         String(left.completed_at || ""),
       )
     ));
@@ -97,18 +94,30 @@ function deploymentCard(documentNode, run, projectId) {
 }
 
 /**
- * Append the deployment that carried `row`, when one did.
+ * Append the selected-flow deployment that carried `row`, when one did.
  *
- * `deployments` is the index built above. An item no run carries gets nothing
- * — silence is correct there, because plenty of finished work ships with the
- * next release rather than one of its own.
+ * `deployments` is the index built above. An item no selected-flow run
+ * carries gets nothing — silence is correct there, because an ancillary
+ * Stage success is participation, not this item's release.
  */
 export function appendItemDeployment(documentNode, card, row, deployments) {
   if (!deployments) return null;
   const itemId = row.internal_id ?? row.item_id ?? row.id;
   const carried = deployments.get(String(itemId)) || [];
   if (!carried.length) return null;
-  const node = deploymentCard(documentNode, carried[0], row.project_id);
+  const selectedFlow = String(row.deployment_flow || "");
+  const matching = selectedFlow
+    ? carried.filter((run) => String(run.flow || "") === selectedFlow)
+    : [];
+  if (!matching.length) return null;
+  matching.sort((left, right) => (
+    Number(String(right.status || "") === SUCCEEDED)
+    - Number(String(left.status || "") === SUCCEEDED)
+    || String(right.completed_at || "").localeCompare(
+      String(left.completed_at || ""),
+    )
+  ));
+  const node = deploymentCard(documentNode, matching[0], row.project_id);
   card.appendChild(node);
   return node;
 }

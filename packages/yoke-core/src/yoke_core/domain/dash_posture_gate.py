@@ -13,11 +13,10 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED as _CONTAINMENT_UNDETERMINED,
     candidate_contains_commit,
 )
+from yoke_core.domain.deployment_qa_source_obligation import latest_completion_run
 from yoke_core.domain.dash_posture_read import (
-    dict_row as _dict_row,
     failure as _failure,
     item_row as _item,
-    marker as _p,
     posture as _posture,
 )
 from yoke_core.domain.dash_posture_verification_gate import verification_gate
@@ -134,18 +133,7 @@ def _deployment_gate(
             "Deploy-after-merge has no item-bound deployment-run authority.",
             "Start and complete a deployment run for this item.",
         )
-    marker = _p(conn)
-    row = _dict_row(
-        conn.execute(
-            "SELECT dr.id, dr.status, dr.project_id, "
-            "COALESCE(dr.release_lineage, '') "
-            "AS release_lineage FROM deployment_runs dr "
-            "JOIN deployment_run_items dri ON dri.run_id = dr.id "
-            f"WHERE dri.item_id = {marker} "
-            "ORDER BY dr.created_at DESC, dr.id DESC LIMIT 1",
-            (int(item_id),),
-        )
-    )
+    row = latest_completion_run(conn, int(item_id))
     if row is None or str(row["status"]) != "succeeded":
         # A prepared run is a named obligation, not a missing one: say which
         # run is owed so the operator does not start a second.
@@ -155,7 +143,7 @@ def _deployment_gate(
             (
                 f"Prepared deployment run {row['id']} has not been executed."
                 if prepared
-                else "The latest item-bound deployment run has not succeeded."
+                else "The latest selected-flow deployment run has not succeeded."
             ),
             (
                 f"Execute it: {watch_deploy_command(str(row['id']))}"

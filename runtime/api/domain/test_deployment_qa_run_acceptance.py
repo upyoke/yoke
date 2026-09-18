@@ -18,6 +18,7 @@ from runtime.api.domain.test_deployment_qa_stage_execution import (
     _stages,
 )
 from runtime.api.domain.test_deployment_qa_stage_ordering import (
+    _complete_failed,
     _stages as _ordered_stages,
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
@@ -227,3 +228,50 @@ def test_legacy_flow_owes_no_scoped_verdicts(test_db) -> None:
     assert item_qa_acceptance_blockers(
         test_db, run_id="run-legacy", item_id=9816
     ) == []
+
+
+def test_ancillary_run_cannot_borrow_selected_flow_qa_or_reopen_done(
+    test_db,
+) -> None:
+    plan_id = _plan(test_db, "ancillary-member-qa")
+    stages = _stages(plan_id)
+    member = 9817
+    _seed_run(
+        test_db, run_id="run-selected-prod", stages=stages, members=(member,),
+    )
+    _settle(test_db, run_id="run-selected-prod", stage="item-qa", member=member)
+    _finish_run(test_db, "run-selected-prod")
+    _seed_run(
+        test_db, run_id="run-ancillary-stage", stages=stages,
+        members=(), existing_members=(member,),
+    )
+
+    assert item_qa_acceptance_blockers(
+        test_db, run_id="run-selected-prod", item_id=member,
+    ) == []
+    assert item_qa_acceptance_blockers(
+        test_db, run_id="run-ancillary-stage", item_id=member,
+    )
+    materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id="run-ancillary-stage",
+        deployment_stage="item-qa",
+        deployment_member_item_id=member,
+    )
+    execution = begin_plan_execution(
+        test_db,
+        deployment_run_id="run-ancillary-stage",
+        deployment_stage="item-qa",
+        deployment_member_item_id=member,
+        actor_id="2",
+        session_id="ancillary-item-qa",
+    )
+    _complete_failed(test_db, execution)
+    status = test_db.execute(
+        "SELECT status FROM items WHERE id=%s", (member,),
+    ).fetchone()[0]
+    assert status == "done"
+    assert not deployment_qa_stage_status(
+        test_db, run_id="run-ancillary-stage", stage_name="item-qa",
+        member_item_id=member,
+    )["accepted"]

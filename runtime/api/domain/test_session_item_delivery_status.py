@@ -37,13 +37,14 @@ def _connection(*, with_runs: bool = True) -> sqlite3.Connection:
             definition_json TEXT,
             definition_digest TEXT
         );
-        CREATE TABLE items (
+            CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             project_id INTEGER,
             project_sequence INTEGER,
             status TEXT,
             workflow_id TEXT,
-            workflow_version_id INTEGER
+            workflow_version_id INTEGER,
+            deployment_flow TEXT
         );
         CREATE TABLE work_claims (
             id INTEGER PRIMARY KEY,
@@ -62,7 +63,8 @@ def _connection(*, with_runs: bool = True) -> sqlite3.Connection:
                 id TEXT PRIMARY KEY,
                 status TEXT,
                 current_stage TEXT,
-                created_at TEXT
+                created_at TEXT,
+                flow TEXT
             );
             CREATE TABLE deployment_run_items (
                 run_id TEXT,
@@ -86,7 +88,7 @@ def _connection(*, with_runs: bool = True) -> sqlite3.Connection:
         (8, 21, "s2", 2),
     ):
         conn.execute(
-            "INSERT INTO items VALUES (?,1,?,'implementing','dash',1)",
+            "INSERT INTO items VALUES (?,1,?,'implementing','dash',1,'prod-flow')",
             (item_id, sequence),
         )
         conn.execute(
@@ -109,9 +111,11 @@ def _run(
     at: str,
     *,
     items: tuple[int, ...] = (7,),
+    flow: str = "prod-flow",
 ) -> None:
     conn.execute(
-        "INSERT INTO deployment_runs VALUES (?,?,?,?)", (run_id, status, stage, at)
+        "INSERT INTO deployment_runs VALUES (?,?,?,?,?)",
+        (run_id, status, stage, at, flow),
     )
     for item_id in items:
         conn.execute("INSERT INTO deployment_run_items VALUES (?,?)", (run_id, item_id))
@@ -161,6 +165,19 @@ def test_a_universe_with_no_scoped_qa_reports_no_item_qa() -> None:
     delivery = primary_item_delivery_by_session(conn, [{"session_id": "s1"}])["s1"]
     assert delivery["item_qa"] is None
     assert delivery["item_qa_reason"] is None
+
+
+def test_a_newer_ancillary_run_does_not_become_the_release() -> None:
+    conn = _connection()
+    _run(conn, "run-prod", "executing", "item-qa", "2026-09-01T10:00:00Z")
+    _run(
+        conn, "run-stage", "succeeded", "complete", "2026-09-02T10:00:00Z",
+        flow="stage-flow",
+    )
+
+    delivery = primary_item_delivery_by_session(conn, [{"session_id": "s1"}])["s1"]
+    assert delivery["run_id"] == "run-prod"
+    assert delivery["live"] is True
 
 
 def test_an_item_no_release_carries_reports_nothing() -> None:

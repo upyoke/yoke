@@ -132,8 +132,8 @@ class TestValidateComposition:
         dr.cmd_add_item(run_id, 403, db_path=db_path)
 
         ok, msg = dr.cmd_validate_composition(run_id, db_path=db_path)
-        assert not ok
-        assert "Incompatible deployment flow" in msg
+        assert ok
+        assert msg == "OK"
 
 
 class TestCheckBatchCompatibility:

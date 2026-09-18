@@ -34,6 +34,7 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.deployment_item_flow_resolution import item_completion_flow
 from yoke_core.domain.schema_common import _table_exists
 from yoke_core.domain.session_item_stage_states import primary_item_ids
 
@@ -57,7 +58,8 @@ def _member_runs(conn: Any, item_ids: Sequence[int]) -> dict[int, list[dict[str,
     marker = _marker(conn)
     placeholders = ", ".join(marker for _ in item_ids)
     rows = conn.execute(
-        "SELECT dri.item_id, dr.id, dr.status, dr.current_stage, dr.created_at "
+        "SELECT dri.item_id, dr.id, dr.status, dr.current_stage, dr.created_at, "
+        "dr.flow "
         "FROM deployment_runs dr "
         "JOIN deployment_run_items dri ON dri.run_id = dr.id "
         f"WHERE dri.item_id IN ({placeholders}) "
@@ -71,17 +73,24 @@ def _member_runs(conn: Any, item_ids: Sequence[int]) -> dict[int, list[dict[str,
                 "run_id": str(row["id"]),
                 "status": str(row["status"] or ""),
                 "stage": str(row["current_stage"] or ""),
+                "flow": str(row["flow"] or ""),
             }
         )
     return grouped
 
 
-def _chosen_run(runs: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """The release this item is riding, or the last one it rode."""
-    for run in runs:
+def _chosen_run(
+    runs: list[dict[str, Any]], *, completion_flow: str,
+) -> dict[str, Any] | None:
+    """The selected-flow release this item is riding, or the last one it rode."""
+    matching = [
+        run for run in runs
+        if completion_flow and run.get("flow") == completion_flow
+    ] if completion_flow else []
+    for run in matching:
         if run["status"] not in TERMINAL_RUN_STATUSES:
             return {**run, "live": True}
-    return {**runs[0], "live": False} if runs else None
+    return {**matching[0], "live": False} if matching else None
 
 
 def _member_qa(
@@ -125,12 +134,15 @@ def primary_item_delivery_by_session(
 ) -> dict[str, Mapping[str, Any]]:
     """Project the release carrying each roster session's primary held item."""
     selected = primary_item_ids(conn, rows)
-    by_item = _member_runs(conn, tuple(dict.fromkeys(selected.values())))
-    chosen = {
-        item_id: run
-        for item_id, runs in by_item.items()
-        if (run := _chosen_run(runs)) is not None
-    }
+    item_ids = tuple(dict.fromkeys(selected.values()))
+    by_item = _member_runs(conn, item_ids)
+    chosen = {}
+    for item_id, runs in by_item.items():
+        run = _chosen_run(
+            runs, completion_flow=item_completion_flow(conn, item_id),
+        )
+        if run is not None:
+            chosen[item_id] = run
     qa = _member_qa(
         conn,
         [(run["run_id"], item_id, run["stage"]) for item_id, run in chosen.items()],

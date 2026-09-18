@@ -49,6 +49,7 @@ def _insert_dash(conn, *, item_id: int, posture: dict) -> None:
         status="reviewing-implementation",
         source="901",
         workflow_posture=json.dumps(posture),
+        deployment_flow="flow-test",
     )
 
 

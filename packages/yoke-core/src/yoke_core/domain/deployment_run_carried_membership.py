@@ -31,6 +31,9 @@ from typing import Any, Iterable
 
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
+from yoke_core.domain.deployment_item_flow_resolution import (
+    freeze_item_completion_flow,
+)
 from yoke_core.domain.deployment_run_carried_work import (
     derive_carried_work_safely,
 )
@@ -82,6 +85,7 @@ def admit_run_item(
     same transaction that freezes the composition it just completed.
     """
     validate_deployment_run_item(conn, run_id=run_id, item_id=int(item_id))
+    freeze_item_completion_flow(conn, int(item_id))
     intent = validate_delivery_intent_for_item(conn, int(item_id), delivery_intent)
     selection = requirement_selection(
         requirement_ids=requirement_ids, plan_ids=plan_ids
