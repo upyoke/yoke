@@ -99,6 +99,18 @@ item is already closed out, or when the pinned workflow declares no release
 wait. Do not reset unlanded corrections as recovery.
 The command does not clean the lane or declare those commits delivered.
 
+## A steering rework request
+
+Steering does not gate your landing; it vets the work after it lands and
+before the item is admitted to a release. When that vetting finds a problem,
+steering moves the item back to `implementing` and names what to correct.
+That is a rework leg on this same item: correct it in the same lane,
+re-verify, re-land through the same `yoke merge item` command, and re-enter
+the release wait. Evidence recorded against the earlier revision does not
+carry over to the corrected one, so the verification gate runs again. Do not
+file a new item, and do not close this one out on the superseded evidence.
+Escalate only when you cannot make the correction, naming what blocks you.
+
 ## Approval, claim release, and the steering report
 
 When approval-on-done is selected, the terminal transition creates the owner

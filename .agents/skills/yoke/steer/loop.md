@@ -147,15 +147,16 @@ seat handoff cannot erase work whose mail is already acknowledged.
 yoke messages acknowledge MESSAGE-ID
 ```
 
-Your Inbox is part of the same pass. An item carrying the
-`merge_candidate_review` posture holds its worker at the merge until you
-clear the exact candidate commit, so a pending review left unread is a
-stalled worker, not a queued chore:
+Your Inbox is part of the same pass — decision requests left unread are
+somebody blocked, not a queued chore:
 
 ```text
 yoke inbox list
-yoke decision-requests resolve REQUEST_ID approve --note "<what you reviewed>"
 ```
+
+Vetting landed work is a separate duty and is not done here; it is step 5b
+below. The `merge_candidate_review` posture exists for an item a human owner
+explicitly wants held before it lands, and steering does not select it.
 
 Typical report body: `DONE PREFIX-N <one-line summary>`. The PREFIX-N in
 that heading is the report identity: it must name work the sender holds or
@@ -249,6 +250,36 @@ anything unfinished. Reconcile every seat this session holds; a document seat
 covers its linked items, while a project seat covers the project. A watcher
 signal is a prompt to read that scope authority, never permission to staff
 outside it. Keep independent work moving while one item waits.
+
+### 5b. Vet each landing before it enters a release
+
+Workers merge on their own the moment their gates are green. Do not hold a
+merge, and do not make your review a precondition of landing — the seat that
+gates landing is the seat that becomes the bottleneck.
+
+Vet each worker's landed or landing work as soon as you can, and **always
+before admitting the item to a deployment run**. Read the exact diff and the
+evidence that covers it, not the summary you were sent:
+
+```text
+yoke items detail get PREFIX-N --json
+git -C {CHECKOUT} show --stat {LANDED_SHA}
+git -C {CHECKOUT} diff {BASE_SHA}...{LANDED_SHA}
+yoke qa requirement list --item PREFIX-N --json
+```
+
+When vetting finds a problem, the item goes back to the worker to correct —
+fix, re-verify, re-land, re-enter release. That is the registered rework
+transition, a backward move the declared-transition gate leaves to rework
+rather than refusing:
+
+```text
+yoke lifecycle transition PREFIX-N --to implementing --reason "steering rework: <what to correct>"
+```
+
+Then tell its owner what to correct. **An item with an unresolved vetting
+problem is not admitted to a release** — leave it out of the batch below
+rather than deploying it and correcting afterwards.
 
 ### 6. Deploy merged work in batches
 
