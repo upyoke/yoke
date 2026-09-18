@@ -28,15 +28,15 @@ from yoke_core.domain.workflow_definition_codec import definition_digest
 # workflow has. Canon is append-only: appending updates both deliberately,
 # and nothing else ever should.
 PINNED_CANON_GENERATION_COUNTS = {
-    "issue": 6,
+    "issue": 7,
     "epic": 6,
-    "blitz": 9,
-    "dash": 10,
+    "blitz": 10,
+    "dash": 11,
     "task": 1,
 }
 
 PINNED_CANON_FINGERPRINT = (
-    "a4e115e3a52de01653db85e25dc3dcc810e6c99538dde7a3373f1bf44c6185f1"
+    "b057a19332dccc91a5c47e4e3d5af24007c7d9357d718f93840fe84f96a0fd8c"
 )
 
 

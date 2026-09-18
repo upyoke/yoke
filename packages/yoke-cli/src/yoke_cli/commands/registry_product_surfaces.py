@@ -6,6 +6,7 @@ from yoke_cli.commands.adapters import (
     inbox_decisions,
     item_worktree_create,
     item_worktrees,
+    merge_review,
     models,
     overview,
     qa_catalog,
@@ -121,6 +122,10 @@ TEST_MACHINE_SUBCOMMAND_REGISTRY = {
 
 INBOX_DECISION_SUBCOMMAND_REGISTRY = {
     ("inbox", "list"): ("inbox.list", inbox_decisions.inbox_list),
+    ("merge-review", "candidate", "evaluate"): (
+        "merge_review.candidate.evaluate",
+        merge_review.merge_review_candidate_evaluate,
+    ),
     ("decision-requests", "resolve"): (
         "decision_requests.resolve",
         inbox_decisions.decision_requests_resolve,

@@ -26,6 +26,7 @@ from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.item_posture_amend_guards import (
     ItemPostureAmendError,
     guard_approval,
+    guard_merge_candidate_review,
     guard_path_claims,
     guard_verification,
     requirement_ids,
@@ -59,6 +60,7 @@ AMEND_GUARDS: dict[str, Optional[Guard]] = {
     "approval_on_done": guard_approval,
     "deployment": None,
     "file_budget": None,
+    "merge_candidate_review": guard_merge_candidate_review,
     "path_claims": guard_path_claims,
     "path_survey": None,
     "verification": guard_verification,

@@ -15,12 +15,14 @@ DEPLOYMENT_STAGE_APPROVAL = "deployment_stage_approval"
 QA_NEEDS_REVIEW = "qa_needs_review"
 LIFECYCLE_TRANSITION_APPROVAL = "lifecycle_transition_approval"
 MACHINE_APPROVAL = "machine_approval"
+MERGE_CANDIDATE_REVIEW = "merge_candidate_review"
 
 DECISION_REQUEST_KINDS = (
     DEPLOYMENT_STAGE_APPROVAL,
     QA_NEEDS_REVIEW,
     LIFECYCLE_TRANSITION_APPROVAL,
     MACHINE_APPROVAL,
+    MERGE_CANDIDATE_REVIEW,
 )
 
 
@@ -56,6 +58,15 @@ DECISION_KINDS = {
         "org",
         ("admin",),
         "machine_auth_request",
+    ),
+    # Bound to one commit, not to the item: the subject is the exact head a
+    # landing would carry, so a review answers the code that is about to
+    # merge and nothing else.
+    MERGE_CANDIDATE_REVIEW: DecisionKind(
+        ("approve", "reject"),
+        "project",
+        ("owner", "operator", "admin"),
+        "item_merge_candidate",
     ),
 }
 
@@ -100,6 +111,7 @@ __all__ = [
     "DEPLOYMENT_STAGE_APPROVAL",
     "LIFECYCLE_TRANSITION_APPROVAL",
     "MACHINE_APPROVAL",
+    "MERGE_CANDIDATE_REVIEW",
     "QA_NEEDS_REVIEW",
     "REQUEST_CREATED_EVENT",
     "REQUEST_RESOLVED_EVENT",

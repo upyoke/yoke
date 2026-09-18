@@ -99,6 +99,8 @@ def validate_item_posture(
             )
         if key == "approval_on_done":
             _require_human_project_owner(conn, project_id)
+        if key == "merge_candidate_review":
+            _require_human_candidate_reviewer(conn, project_id)
         normalized[key] = True
     return normalized
 
@@ -114,6 +116,30 @@ def _require_human_project_owner(conn: Any, project_id: int) -> None:
         "approval_on_done requires at least one human project owner; this "
         "project currently has none. Grant the owner role to a human actor, "
         "then retry. Do not assign roles automatically."
+    )
+
+
+def _require_human_candidate_reviewer(conn: Any, project_id: int) -> None:
+    """Refuse a landing gate this project has nobody to open.
+
+    The merge boundary holds the branch until an authorized person clears
+    the exact candidate. Selecting that on a project whose reviewing roles
+    are unheld would arm a refusal with no recovery, so the roster is
+    checked when the selection is made rather than when the merge is
+    refused.
+    """
+    from yoke_core.domain.decision_request_authority import human_role_holders
+
+    for role_name in ("owner", "operator"):
+        if human_role_holders(
+            conn, scope_kind="project", scope_id=int(project_id), role_name=role_name
+        ):
+            return
+    raise ItemPostureError(
+        "merge_candidate_review requires at least one human project owner or "
+        "operator to clear the candidate; this project currently has "
+        "neither. Grant one of those roles to a human actor, then retry. Do "
+        "not assign roles automatically."
     )
 
 
