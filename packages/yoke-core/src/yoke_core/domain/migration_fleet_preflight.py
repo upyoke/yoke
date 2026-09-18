@@ -26,6 +26,16 @@ role can never afterwards gain a column, which fails a boot rather than a
 migration. Ownership is therefore read from the live database, before the
 rehearsal, in :func:`_live_ownership_verdict`. Anything else a copy silently
 normalizes belongs there too.
+
+Extension versions were the other such normalization, and this one is
+repairable rather than only readable: a dump names its extensions without
+versions, so the restore used to install the rehearsal cluster's defaults. The
+source's versions are now read before the copy and staged into the fresh
+database before the restore — including any schema the extension lives in,
+which the restore is then told to skip creating. A cluster that cannot install
+a source version refuses before anything is dumped. Details, and why a wrong
+version can fail the restore outright, are in
+:mod:`yoke_core.domain.migration_fleet_preflight_extensions`.
 """
 
 from __future__ import annotations
@@ -36,7 +46,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, List, Optional, Sequence, Tuple
 
-from yoke_core.domain import migration_fleet_preflight_transfer, postgres_cluster
+from yoke_core.domain import (
+    migration_fleet_preflight_extensions,
+    migration_fleet_preflight_transfer,
+    postgres_cluster,
+)
 from yoke_core.domain.migration_restore_point import RESTORE_POINT_ENV
 from yoke_core.domain.postgres_cluster import ClusterSpec
 
@@ -178,6 +192,23 @@ def rehearse(
     if refusal is not None:
         return refusal
 
+    # Before any data moves: a source version this cluster cannot install is a
+    # copy that would silently not be the tenant, so it refuses while refusing
+    # is still free.
+    try:
+        pins = migration_fleet_preflight_extensions.extension_pins(
+            spec,
+            migration_fleet_preflight_extensions.source_extensions(source_dsn),
+        )
+    except Exception as exc:  # noqa: BLE001 — a verdict, not a crash
+        detail = str(exc).replace(source_dsn, "<dsn>")
+        return Verdict(
+            database,
+            False,
+            f"could not copy faithfully: {detail}",
+            pending_evaluated=False,
+        )
+
     copy_name = f"{REHEARSAL_PREFIX}{database}"
     dump = work_dir / f"{database}.dump"
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -192,7 +223,16 @@ def rehearse(
     try:
         migration_fleet_preflight_transfer.drop_copy(spec, copy_name)
         migration_fleet_preflight_transfer.create_copy(spec, copy_name)
-        migration_fleet_preflight_transfer.restore_copy(spec, copy_name, dump)
+        use_list = migration_fleet_preflight_extensions.stage_pinned_extensions(
+            spec,
+            copy_name,
+            pins,
+            dump=dump,
+            list_path=work_dir / f"{database}.restore-list",
+        )
+        migration_fleet_preflight_transfer.restore_copy(
+            spec, copy_name, dump, use_list=use_list,
+        )
         return _converge_copy(spec, database, copy_name, dump, plan)
     finally:
         migration_fleet_preflight_transfer.drop_copy(spec, copy_name)
