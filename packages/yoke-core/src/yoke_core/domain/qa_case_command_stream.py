@@ -39,9 +39,12 @@ def product_command_environment(env: Mapping[str, str]) -> dict[str, str]:
     ``sys.executable`` directory so ``python3``, ``python``, and the product
     ``yoke`` console script are that same environment. ``YOKE_PYTHON`` names
     the interpreter for scripts that want it explicitly.
+
+    Do not ``Path.resolve()`` the executable: a venv ``python`` is often a
+    symlink onto the base interpreter, and that base has no product packages.
     """
     out = dict(env)
-    python_bin = str(Path(sys.executable).resolve().parent)
+    python_bin = str(Path(sys.executable).parent)
     existing = out.get("PATH", "")
     out["PATH"] = python_bin + ((os.pathsep + existing) if existing else "")
     out["YOKE_PYTHON"] = sys.executable

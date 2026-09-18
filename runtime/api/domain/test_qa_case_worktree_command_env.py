@@ -63,9 +63,32 @@ def _run_attached_case(**overrides) -> dict:
 
 def test_product_command_environment_prepends_runner_python() -> None:
     bound = product_command_environment({"PATH": "/usr/bin"})
-    python_bin = str(Path(sys.executable).resolve().parent)
+    python_bin = str(Path(sys.executable).parent)
     assert bound["PATH"].split(os.pathsep)[0] == python_bin
     assert bound["YOKE_PYTHON"] == sys.executable
+
+
+def test_product_command_environment_keeps_venv_bin_when_python_is_symlink(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A venv python that symlinks onto a base interpreter must stay first.
+
+    ``Path.resolve()`` would prepend the base bin, whose python3 has no
+    product packages — the CI failure for Command-case ``import yoke_cli``.
+    """
+    base_bin = tmp_path / "base" / "bin"
+    base_bin.mkdir(parents=True)
+    (base_bin / "python3").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    (base_bin / "python3").chmod(0o755)
+    venv_bin = tmp_path / "venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    venv_python = venv_bin / "python"
+    venv_python.symlink_to(base_bin / "python3")
+    monkeypatch.setattr(sys, "executable", str(venv_python))
+    bound = product_command_environment({"PATH": str(base_bin)})
+    assert bound["PATH"].split(os.pathsep)[0] == str(venv_bin)
+    assert bound["YOKE_PYTHON"] == str(venv_python)
+    assert Path(sys.executable).resolve().parent == base_bin
 
 
 def test_run_attached_command_exports_passed_base_url_without_requires_flag(
