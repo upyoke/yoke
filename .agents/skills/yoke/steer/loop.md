@@ -285,17 +285,42 @@ Retry from the recorded run instead of silently creating unrelated lineage:
 yoke --env <cp> deployment-runs create {_project} {FLOW} --retry-of {RUN_ID}
 ```
 
-After the batch succeeds, finish every item parked at its release boundary.
-Briefly acquire that item's work claim and run its done ceremony:
+**A member's item QA is that member's own, not yours.** A QA stage is credited
+only by requirements bound to its own stage name — an item-scoped one by ones
+bound to the member too — so a run-wide pass you issue records nothing the
+stage counts. The deployment wake re-enters each parked owner for its stage,
+and the owner runs its own:
 
 ```text
-yoke claims work acquire --item PREFIX-N --reason "steering done ceremony"
-yoke watch merge done-transition -- PREFIX-N
+yoke qa plan run --deployment-run-id {RUN_ID} --stage STAGE --member PREFIX-N --plan PLAN --project {_project}
 ```
 
-Release the claim only if the ceremony did not already release it. An item
-parked at release still holds path claims and blocks dependents until this
-ceremony finishes.
+Broadcast that exact form if an owner asks which command to run; never an
+unscoped `yoke qa plan run --deployment-run-id {RUN_ID}` and never
+`yoke qa case run --requirement-id N`, both of which leave the stage
+unsatisfied. Depth: `yoke qa plan run --help`.
+
+After the batch succeeds, every member parked at its release boundary closes
+ITSELF out: the deployment wake re-enters its owner, which still holds the
+item's work claim, and that owner runs the one agent-facing close-out
+`yoke merge item PREFIX-N --result ... --verification ...`. Do not acquire a
+live owner's claim to finish its item for it, and do not reach for the
+internal done engine — `done-transition --skip-deploy` records a selected-flow
+delivery as out-of-band, which is a false record and is refused when the item's
+flow already has a succeeded run covering its merge.
+
+Only an ORPHANED member is yours to finish — one whose owner the stale sweep
+reclaimed and handed to this seat by name. Take the claim and run the same
+close-out every owner runs:
+
+```text
+yoke claims work acquire --item PREFIX-N --reason "orphaned release-wait member"
+yoke merge item PREFIX-N --result "<what shipped>" --verification "<run evidence>"
+```
+
+Release the claim only if that close-out did not already release it. An item
+parked at release still holds path claims and blocks dependents until it
+reaches `done`. Depth: `yoke merge item --help`.
 
 Then release the deploy lock, so the next seat can drive:
 

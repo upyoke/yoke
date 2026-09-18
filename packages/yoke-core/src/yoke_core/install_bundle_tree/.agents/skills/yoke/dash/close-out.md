@@ -50,7 +50,10 @@ yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --plan 
 
 Every QA stage credits only requirements bound to its own name — an
 item-scoped one to the member too — so the run-wide form is refused rather
-than recording a pass the stage ignores. Materialization stamps the run's own
+than recording a pass the stage ignores, and `yoke qa case run
+--requirement-id N` credits that requirement's binding rather than the stage.
+Depth: `yoke qa plan run --help` for the subject/scope matrix, `yoke merge
+item --help` for the close-out routes. Materialization stamps the run's own
 deployed target onto the cases, so a plan authored before this release still
 verifies it. A deployment case is bound to the candidate the run deployed, not
 to your lane: run it from a checkout at that revision and no flag is needed;
