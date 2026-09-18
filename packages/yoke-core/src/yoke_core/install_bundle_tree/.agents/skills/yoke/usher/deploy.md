@@ -167,7 +167,21 @@ If execution refuses because the target is the selected control plane's own
 serving API, rerun through the paired local `*-db-admin` env named in that
 refusal. Do not switch transports for an ordinary external target.
 
-**Exit 0:** Run done-transition for each item: `yoke watch merge done-transition -- PREFIX-N --skip-deploy`
+**Exit 0:** Close each member out through the one agent-facing close-out,
+carrying the run as its evidence:
+
+```bash
+yoke merge item PREFIX-N --result "<what shipped>" --verification "<run-id, stages, QA>"
+```
+
+Do NOT reach for `done-transition --skip-deploy` here. This member's delivery
+ran on its selected flow, so recording it as out-of-band is a false record, and
+the close-out refuses it once that flow has a succeeded run covering the merge.
+`--skip-deploy` belongs to Route A above, where the flow genuinely delivers
+nothing. If a member's QA stage is still unsatisfied, it is credited by naming
+that stage AND the member — `yoke qa plan run --deployment-run-id {run-id}
+--stage STAGE --member PREFIX-N` — never by an unscoped run-wide pass. Depth:
+`yoke merge item --help`, `yoke qa plan run --help`.
 
 **Exit 1 (HALT — `usher-halt-deploy-stage-failure`):** Stage failed. For every member item of the run, release the work claim with `usher-halt-deploy-stage-failure` BEFORE printing resume/recovery instructions. If the release call itself fails, the halt summary MUST say the release failed and include the failure class / holder when available — do not print a clean recovery summary while the claim is still live. Operator/debug adapter (dispatches `claims.work.release`):
 

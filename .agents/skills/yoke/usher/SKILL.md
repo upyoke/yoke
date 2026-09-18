@@ -6,7 +6,10 @@ argument-hint: "PREFIX-N [PREFIX-N ...] [--dry-run] [--merge-only] [--deploy-onl
 
 <!--
  done-transition caller audit: agent-facing execution uses
- yoke watch merge done-transition.
+ yoke watch merge done-transition, and only for Route A — a flow
+ that genuinely delivers nothing. A Route B member's delivery ran on
+ its selected flow, so it closes out through yoke merge item;
+ --skip-deploy there would record that delivery as out-of-band.
  Raw done_transition engine calls are internal implementation detail.
  Usher is the PRIMARY caller for the implemented -> done path.
  Other valid callers: advance/done/SKILL.md (manual operator transitions).
@@ -77,7 +80,8 @@ Read and follow each phase file in order. Each phase may halt the pipeline (bloc
 **Phase 4 — Deployment Routing:** Read `.agents/skills/yoke/usher/deploy.md`
 - Skip if `--merge-only`
 - Route A (internal flows → done-transition)
-- Route B (deployment runs → pipeline execution with inline approval)
+- Route B (deployment runs → pipeline execution with inline approval, then
+  each member closes out through `yoke merge item`)
 
 **Phase 5 — Finalize:** Read `.agents/skills/yoke/usher/finalize.md`
 - Completion report, idempotency rules, pipeline failure recovery, operational notes
