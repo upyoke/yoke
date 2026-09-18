@@ -105,25 +105,20 @@
   font-size: 10.5px;
   overflow-wrap: anywhere;
 }
-/* The overflow card is one word at display size, centred in whatever height
-   the row gave it, because the band heading already carries the count. Shrunk
-   to body copy in a dashed box it read as an empty placeholder rather than
-   the way to the rest of the band — an overflow card gone missing without
-   being deleted — and a height of its own would only fight the row's. The
-   hover cue says this is the one card in the grid that IS a link. */
+/* The overflow card is one word, large, and centred in whatever height the
+   row gave it: the band heading already carries the count, so repeating it
+   here spent a whole card saying a number twice. */
 .universe-app-root .see-more-card {
   align-items: center;
   justify-content: center;
+  min-height: 68px;
+  padding: 14px 18px;
   border-style: dashed;
   color: var(--yoke-ink);
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   line-height: 1.2;
   text-align: center;
-}
-.universe-app-root a.see-more-card:hover {
-  border-color: color-mix(in srgb, var(--yoke-border) 45%, var(--yoke-accent));
-  cursor: pointer;
 }
 .universe-app-root .see-more-card > span {
   margin: 0;
