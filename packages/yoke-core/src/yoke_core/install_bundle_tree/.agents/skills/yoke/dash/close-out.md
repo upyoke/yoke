@@ -47,11 +47,12 @@ landing plus later uncontained commits takes the candidate merge path — also
 from a release stage entered by a false close-out — and does not erase
 receipts. Unverifiable containment refuses rather than succeeding. This is
 installed-client merge-boundary code; a serving rollout is not required. New
-commits after a genuine landing: same-item correction is supported only while
-the item is before a declared release stage under its pinned workflow —
-re-verify, review, and run the governed merge again. Do not prescribe a stage
-change. Otherwise the refusal preserves the lane and requires separate work
-subject to operator preference. Do not reset unlanded corrections as recovery.
+commits after a genuine landing: same-item correction continues through a
+declared release wait on the same item and lane — re-verify, review, and run
+the governed merge again, then a fresh selected-flow delivery. Do not
+prescribe a stage change. The mismatch refusal preserves the lane when the
+item is already closed out, or when the pinned workflow declares no release
+wait. Do not reset unlanded corrections as recovery.
 The command does not clean the lane or declare those commits delivered.
 
 ## Approval, claim release, and the steering report

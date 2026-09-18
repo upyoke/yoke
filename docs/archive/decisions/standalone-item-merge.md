@@ -122,11 +122,12 @@ execution evidence is evaluated. It never republishes the lane or re-enters
 the pull request. Close-out first compares the current lane candidate to the
 recorded landing identity; matching it is enough even when a squash is not an
 ancestor of the base. New commits after that landing: same-item correction
-is supported only while the item is before a declared release stage under
-its pinned workflow — re-verify, review, and run the governed merge again.
-Do not prescribe a stage change. Otherwise the refusal preserves the lane
-and requires separate work subject to operator preference. Do not reset
-unlanded corrections. Missing proof leaves the already-landed item open with a
+continues through a declared release wait on the same item and lane —
+re-verify, review, and run the governed merge again, then a fresh
+selected-flow delivery. Do not prescribe a stage change. The mismatch
+refusal preserves the lane when the item is already closed out, or when the
+pinned workflow declares no release wait. Do not reset unlanded corrections.
+Missing proof leaves the already-landed item open with a
 retry instruction, rather than silently classifying it as a local merge. The
 marker makes that handoff visible and idempotent. The record keeps the named
 `queue_holding`, `queue_entry_state`, and `merge_when_ready` outcomes alongside

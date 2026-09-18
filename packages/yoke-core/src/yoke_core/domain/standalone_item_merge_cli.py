@@ -25,7 +25,7 @@ from yoke_core.domain.standalone_item_merge_close_out_transition import (
     run_terminal_transition,
 )
 from yoke_core.domain.standalone_item_merge_release_status import (
-    reached_release as _reached_release,
+    stale_mismatch_is_foreign as _reached_release,
 )
 from yoke_core.domain import standalone_item_merge_pending as pending
 from yoke_core.domain import standalone_item_merge_verify as verify
