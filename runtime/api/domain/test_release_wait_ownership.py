@@ -28,6 +28,7 @@ from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
 )
 from runtime.api.fixtures.backlog_inserts import insert_item
 from yoke_core.domain import release_wait_ownership as ownership
+from yoke_core.domain import release_wait_sweep as sweep
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
     grant_actor_project_role,
@@ -126,7 +127,7 @@ def test_an_item_that_reached_done_is_no_longer_a_release_wait(test_db: Any) -> 
     set_session_mode(test_db, HOLDER_A, SESSION_MODE_PARKED, "awaiting delivery")
 
     assert ownership.owned_release_waits(test_db, HOLDER_A) == []
-    assert ownership.guard_release_wait_owner(
+    assert sweep.guard_release_wait_owner(
         test_db, HOLDER_A, _classified(test_db, reclaimable=True)
     ).is_reclaimable
 
@@ -139,12 +140,12 @@ def test_the_sweep_spares_a_parked_release_wait_owner(test_db: Any) -> None:
         test_db, HOLDER_A, SESSION_MODE_PARKED, ownership.park_reason("YOK-9804")
     )
 
-    guarded = ownership.guard_release_wait_owner(
+    guarded = sweep.guard_release_wait_owner(
         test_db, HOLDER_A, _classified(test_db, reclaimable=True)
     )
 
     assert guarded.is_reclaimable is False
-    assert guarded.reason == ownership.REASON_RELEASE_WAIT_OWNER
+    assert guarded.reason == sweep.REASON_RELEASE_WAIT_OWNER
 
 
 def test_an_undeclared_release_wait_owner_is_still_reclaimable(test_db: Any) -> None:
@@ -154,7 +155,7 @@ def test_an_undeclared_release_wait_owner_is_still_reclaimable(test_db: Any) -> 
     _dash_item(test_db, 9805)
     _own_item(test_db, HOLDER_A, 9805)
 
-    assert ownership.guard_release_wait_owner(
+    assert sweep.guard_release_wait_owner(
         test_db, HOLDER_A, _classified(test_db, reclaimable=True)
     ).is_reclaimable
 
@@ -166,7 +167,7 @@ def test_a_fresh_session_is_never_re_decided_by_the_guard(test_db: Any) -> None:
     set_session_mode(test_db, HOLDER_A, SESSION_MODE_PARKED, "awaiting delivery")
     fresh = _classified(test_db, reclaimable=False)
 
-    assert ownership.guard_release_wait_owner(test_db, HOLDER_A, fresh) is fresh
+    assert sweep.guard_release_wait_owner(test_db, HOLDER_A, fresh) is fresh
 
 
 def test_an_orphaned_release_wait_is_handed_to_steering_by_name(
@@ -191,10 +192,10 @@ def test_an_orphaned_release_wait_is_handed_to_steering_by_name(
         scope_json=make_steering_target(PROJECT_YOKE).scope_json(),
     )
 
-    [report] = ownership.hand_off_release_wait(test_db, HOLDER_A, owed)
+    [report] = sweep.hand_off_release_wait(test_db, HOLDER_A, owed)
 
     assert report["delivery"] in ("delivered", "undelivered")
-    key = ownership.handoff_idempotency_key(9807, HOLDER_A)
+    key = sweep.handoff_idempotency_key(9807, HOLDER_A)
     assert _recipients(test_db, key) == [HOLDER_B]
     [body] = _bodies(test_db, key)
     assert report["public_ref"] in body
@@ -205,4 +206,4 @@ def test_an_orphaned_release_wait_is_handed_to_steering_by_name(
 def test_nothing_owed_sends_nothing(test_db: Any) -> None:
     _project(test_db)
 
-    assert ownership.hand_off_release_wait(test_db, HOLDER_A, []) == []
+    assert sweep.hand_off_release_wait(test_db, HOLDER_A, []) == []

@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from . import sessions_analytics as _sa
 from . import db_backend
-from . import release_wait_ownership as _rwo
+from . import release_wait_sweep as _rwo
 from .session_cleanup_holdings import active_holding_sessions, effective_cleanup_ttl
 from .session_reclaim_activity import (
     SCOPE_SESSION_CLEANUP,

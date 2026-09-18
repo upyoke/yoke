@@ -29,6 +29,7 @@ from runtime.api.domain.test_deployment_qa_stage_wake_delivery import (
 from runtime.api.fixtures.backlog_inserts import insert_item
 from runtime.api.sessions_api_stale_test_helpers import _ago_minutes
 from yoke_core.domain import release_wait_ownership as ownership
+from yoke_core.domain import release_wait_sweep as sweep
 from yoke_core.domain.actor_permissions import (
     ROLE_OWNER,
     grant_actor_project_role,
@@ -140,7 +141,7 @@ def test_an_undeclared_owner_is_reclaimed_and_its_item_named_to_steering(
 
     assert result["total_reclaimed"] == 1
     assert _live_claim(test_db, 9822) == []
-    key = ownership.handoff_idempotency_key(9822, OWNER)
+    key = sweep.handoff_idempotency_key(9822, OWNER)
     assert _recipients(test_db, key) == [HOLDER_B]
     [body] = _bodies(test_db, key)
     assert "is at its release wait and its owner is gone" in body
@@ -162,5 +163,5 @@ def test_a_quiet_session_owning_no_release_wait_is_swept_as_before(
     assert result["total_reclaimed"] == 1
     assert _live_claim(test_db, 9823) == []
     assert _recipients(
-        test_db, ownership.handoff_idempotency_key(9823, OWNER)
+        test_db, sweep.handoff_idempotency_key(9823, OWNER)
     ) == []

@@ -11,13 +11,23 @@ a session every other path was telling to release it and end, so the redirect
 now also parks that session on the wait it just entered
 (:mod:`release_wait_park`), which is what turns "the claim was not released"
 into "the item still has an owner the deployment wake can reach".
+
+Every declining path here re-stamps that park too. A re-entry gets here
+because a wake delivered a prompt, and that prompt cleared the park the
+owner was holding; a close-out that then refuses -- unresolvable delivery
+clearance, refused terminal transition -- would hand back an owner who is
+awake, still waiting, and no longer declared, which is precisely the state
+the sweep reclaims.
 """
 
 from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-from yoke_core.domain.release_wait_park import retain_for_delivery
+from yoke_core.domain.release_wait_park import (
+    retain_for_delivery,
+    retain_if_waiting,
+)
 from yoke_core.domain.standalone_item_merge_landed import LandedLane
 from yoke_core.domain.standalone_item_merge_release_status import (
     close_out_route,
@@ -54,12 +64,20 @@ def run_terminal_transition(
     """
     announce("terminal transition")
     route = close_out_route(item, status, postpone_terminal=postpone_terminal)
+    waiting = {
+        "item": item,
+        "item_id": item_id,
+        "public_ref": public_ref,
+        "status": status,
+        "session_id": session_id,
+    }
     if route.error:
         envelope["ok"] = False
         envelope["error"] = (
             f"merge landed and evidence recorded, but delivery clearance "
             f"could not be resolved: {route.error}"
         )
+        retain_if_waiting(envelope, **waiting)
         return 1
     if not route.stages:
         # Mid-progress work (e.g. a still-implementing Blitz slice): the
@@ -100,6 +118,7 @@ def run_terminal_transition(
             f"merge landed and evidence recorded, but the terminal "
             f"transition was refused: {transition_error}"
         )
+        retain_if_waiting(envelope, **waiting)
         return 1
     envelope["status"] = new_status
     if new_status == evidence.CLOSED_OUT_STATUS:

@@ -16,41 +16,25 @@ place that says what a release-wait owner is and what may happen to it; the
 mandate, the merge close-out, and the sweep all read it from here rather
 than each carrying its own idea.
 
-Two dispositions are possible for such an owner, and they are deliberately
-different facts:
+This module owns the concept alone: what a release-wait owner is, and the
+words a worker is taught about being one. Its two collaborators own the
+writes, because each has a transport this one must not assume:
 
-* An owner that parked with its wait declared is waiting BY DESIGN. The
-  sweep spares it, so its claim survives until the item reaches done.
-* An owner that went quiet without declaring anything is gone as far as the
-  control plane can tell. It is reclaimed, and its item is handed to the
-  project's steering seat by name -- an explicit restaffing fact, never a
-  silent release.
-
-The park itself is stamped by the merge close-out rather than left to the
-worker to remember -- that write is :mod:`release_wait_park`, which
-relays instead of connecting because it runs installed-client side.
+* :mod:`release_wait_park` stamps the park from the merge close-out, which
+  is installed-client code and relays rather than connecting;
+* :mod:`release_wait_sweep` decides what the stale sweep may do to a quiet
+  owner, and hands an abandoned item to the project's steering seat.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import Any
 
 from yoke_contracts.public_ref import format_item_ref
 from yoke_core.domain.schema_common import _table_exists
-from yoke_core.domain.session_mode import SESSION_MODE_PARKED
-from yoke_core.domain.work_claim_targets import scope_int_sql
+from yoke_core.domain.work_claim_target_sql import scope_int_sql
 from yoke_core.domain.workflow_behavior import delivery_redirect_stage
 from yoke_core.domain.workflow_runtime import workflow_runtime_from_row
-
-if TYPE_CHECKING:  # the classifier's own import chain pulls the harness
-    from yoke_core.domain.session_reclaim_activity import ReclaimClassification
-
-#: The reclaim classification reason a spared release-wait owner reports.
-REASON_RELEASE_WAIT_OWNER = "release_wait_owner"
-
-#: One hand-off notice per item and the session that abandoned its wait.
-HANDOFF_KEY_PREFIX = "release-wait-handoff:"
 
 TOUCH_FUNCTION = "sessions.touch"
 HOLDER_FUNCTION = "claims.work.holder_get"
@@ -67,9 +51,14 @@ RELEASE_WAIT_RETENTION_TEACHING = (
     "deployment wake re-enters you when your delivery clears or its QA stage "
     "needs you; re-run the same `yoke merge item` command with --result and "
     "--verification then, and it finishes the close-out. Only once the item "
-    "reaches done do you send the DONE report and end. A release-wait owner "
-    "that goes quiet without that park is treated as gone and its item is "
-    "handed to steering, so the park is what keeps the item yours."
+    "reaches done do you send the DONE report and end. Any prompt that wakes "
+    "you CLEARS that park, including one that turns out not to finish the "
+    "item, so whenever you go quiet still short of done — a wake you handled, "
+    "a close-out that refused, a message about something else — re-park "
+    "before stopping: `yoke sessions touch --mode parked --reason \"awaiting "
+    "<ITEM> delivery\"`. A release-wait owner that goes quiet without that "
+    "park is treated as gone and its item is handed to steering, so the park "
+    "is what keeps the item yours."
 )
 
 
@@ -82,8 +71,19 @@ def park_reason(public_ref: str) -> str:
     )
 
 
-def _now(now: Optional[datetime] = None) -> datetime:
-    return now or datetime.now(timezone.utc)
+def item_at_release_wait(row: Any, status: str) -> bool:
+    """Whether a joined item/workflow-version row stands at its pinned wait.
+
+    An unreadable pin answers no. A definition this cannot interpret is not
+    evidence that an item is waiting, and every caller here treats "waiting"
+    as a reason to hold something open or to announce something — both worse
+    to get wrong than a missed spare.
+    """
+    try:
+        release_stage = delivery_redirect_stage(workflow_runtime_from_row(row))
+    except Exception:  # noqa: BLE001 - an unreadable pin names no wait
+        return False
+    return release_stage is not None and str(status or "") == release_stage
 
 
 def owned_release_waits(conn: Any, session_id: str) -> list[dict[str, Any]]:
@@ -112,12 +112,8 @@ def owned_release_waits(conn: Any, session_id: str) -> list[dict[str, Any]]:
     ).fetchall()
     owned: list[dict[str, Any]] = []
     for row in rows:
-        try:
-            runtime = workflow_runtime_from_row(row)
-            release_stage = delivery_redirect_stage(runtime)
-        except Exception:  # noqa: BLE001 - an unreadable pin spares nothing
-            continue
-        if release_stage is None or str(row["status"] or "") != release_stage:
+        status = str(row["status"] or "")
+        if not item_at_release_wait(row, status):
             continue
         owned.append(
             {
@@ -126,139 +122,17 @@ def owned_release_waits(conn: Any, session_id: str) -> list[dict[str, Any]]:
                 "public_ref": format_item_ref(
                     None, row["public_item_prefix"], row["project_sequence"]
                 ),
-                "status": release_stage,
+                "status": status,
             }
         )
     return owned
 
 
-def _session_mode(conn: Any, session_id: str) -> str:
-    if not _table_exists(conn, "harness_sessions"):
-        return ""
-    row = conn.execute(
-        "SELECT mode FROM harness_sessions WHERE session_id=%s",
-        (session_id,),
-    ).fetchone()
-    return str(row["mode"] or "") if row is not None else ""
-
-
-def waiting_by_design(conn: Any, session_id: str) -> bool:
-    """True when this session declared its wait by parking."""
-    return _session_mode(conn, session_id) == SESSION_MODE_PARKED
-
-
-def guard_release_wait_owner(
-    conn: Any,
-    session_id: str,
-    classification: "ReclaimClassification",
-) -> "ReclaimClassification":
-    """Refuse a reclaim that would strip a declared release-wait owner.
-
-    ``classification`` is whatever :func:`session_reclaim_activity.
-    classify_reclaimable` decided; this returns it unchanged unless the
-    session is a parked owner of an item at its pinned release wait, in
-    which case the reclaim is aborted with
-    :data:`REASON_RELEASE_WAIT_OWNER`. The sweep already emits its
-    ``ReclaimAborted`` evidence from that reason, so the spared owner is a
-    named, queryable fact rather than a silent exemption.
-
-    A session whose row has already ended is past this protection: its
-    holdings are settled by the end path, and pinning them open here would
-    leave an item owned by nobody that can act on it.
-    """
-    from yoke_core.domain.session_reclaim_activity import ReclaimClassification
-
-    if not classification.is_reclaimable:
-        return classification
-    if not waiting_by_design(conn, session_id):
-        return classification
-    if not owned_release_waits(conn, session_id):
-        return classification
-    return ReclaimClassification(
-        is_reclaimable=False,
-        reason=REASON_RELEASE_WAIT_OWNER,
-        evidence=classification.evidence,
-    )
-
-
-def handoff_idempotency_key(item_id: int, session_id: str) -> str:
-    """One hand-off per item and the session that stopped answering for it."""
-    return f"{HANDOFF_KEY_PREFIX}{item_id}:{session_id}"
-
-
-def handoff_message(*, public_ref: str, session_id: str, route: str) -> str:
-    """Name the abandoned wait, and what the reader has to decide."""
-    who = "You are" if route == "holder" else "This seat is"
-    return (
-        f"{public_ref} is at its release wait and its owner is gone: session "
-        f"{session_id} held the item's work claim, never declared a "
-        f"deployment wait, and the stale sweep reclaimed it. The merge "
-        f"landed and the delivery still owes this item a close-out, so the "
-        f"item is now unowned rather than finished. {who} the addressable "
-        f"owner of that gap: staff a session at `/yoke dash {public_ref}` to "
-        f"finish the close-out once its delivery clears, or close the item "
-        f"out directly with `yoke merge item {public_ref} --result ... "
-        f"--verification ...`."
-    )
-
-
-def hand_off_release_wait(
-    conn: Any,
-    session_id: str,
-    owned: list[dict[str, Any]],
-    *,
-    now: Optional[datetime] = None,
-) -> list[dict[str, Any]]:
-    """Tell steering about each release wait this reclaim just orphaned.
-
-    Called AFTER the claim is released on purpose: the notice resolves its
-    own recipient from the live claim, so sending before the release would
-    address the very session the sweep just decided is gone.
-
-    A delivery failure here never reverses the reclaim, which has already
-    committed. It is reported per item so an operator can see which
-    hand-off did not land.
-    """
-    from yoke_core.domain.merge_queue_landing_notice import push_notice
-
-    results: list[dict[str, Any]] = []
-    if not owned:
-        return results
-    stamp = _now(now)
-    for entry in owned:
-        public_ref = str(entry["public_ref"])
-        try:
-            delivery = push_notice(
-                conn,
-                item_id=int(entry["item_id"]),
-                project_id=int(entry["project_id"]),
-                body_for_route=lambda route, ref=public_ref: handoff_message(
-                    public_ref=ref, session_id=session_id, route=route
-                ),
-                idempotency_key=handoff_idempotency_key(
-                    int(entry["item_id"]), session_id
-                ),
-                now=stamp,
-            )
-            conn.commit()
-        except Exception as exc:  # noqa: BLE001 - never reverses a reclaim
-            conn.rollback()
-            delivery = f"failed: {exc}"
-        results.append({"public_ref": public_ref, "delivery": delivery})
-    return results
-
-
 __all__ = [
-    "HANDOFF_KEY_PREFIX",
     "HOLDER_FUNCTION",
-    "REASON_RELEASE_WAIT_OWNER",
     "RELEASE_WAIT_RETENTION_TEACHING",
     "TOUCH_FUNCTION",
-    "guard_release_wait_owner",
-    "hand_off_release_wait",
-    "handoff_idempotency_key",
-    "handoff_message",
+    "item_at_release_wait",
     "owned_release_waits",
     "park_reason",
-    "waiting_by_design",
 ]

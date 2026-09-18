@@ -64,6 +64,7 @@ def test_the_worker_lifecycle_copy_matches_the_composed_teaching():
     assert "A holder that goes quiet WITHOUT that park is treated as gone" in (
         collapsed
     )
+    assert "expected to re-park before it goes quiet again" in collapsed
 
 
 def test_the_dash_close_out_stops_teaching_a_release_wait_release():
@@ -74,6 +75,16 @@ def test_the_dash_close_out_stops_teaching_a_release_wait_release():
     assert "Do not release the claim and do not end the session there" in collapsed
     assert "skip it entirely while the item sits at a release wait" in collapsed
     assert "owes no terminal report yet" in collapsed
+    # The two corrections the review caught: a wake clears the park, and the
+    # spare that protects a declared wait is bounded rather than forever.
+    assert "Any prompt that wakes you clears the park" in collapsed
+    assert "re-park first with the command above" in collapsed
+    assert "only while the session holds nothing else" in collapsed
+    assert "handed to steering by name" in collapsed
+    # Only the run that discharges THIS item's delivery calls its owner.
+    assert "a stage run in a stage-and-production pair will not call you" in (
+        collapsed
+    )
 
 
 def test_the_close_out_park_recipe_is_the_reason_the_product_stamps():

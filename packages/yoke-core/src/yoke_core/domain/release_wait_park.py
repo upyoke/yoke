@@ -36,7 +36,51 @@ from yoke_core.domain.release_wait_ownership import (
     TOUCH_FUNCTION,
     park_reason,
 )
+from yoke_core.domain.merge_review_readiness import pinned_workflow_for_item
 from yoke_core.domain.session_mode import SESSION_MODE_PARKED
+from yoke_core.domain.workflow_behavior import delivery_redirect_stage
+
+
+def at_release_wait(item: dict[str, Any], status: str) -> bool:
+    """Whether this merge-boundary item dict stands at its pinned wait.
+
+    Reads the item's own pinned definition, so a workflow with no release
+    wait and one this cannot interpret both answer no. Deliberately narrower
+    than ``reached_release``, whose safe default is yes: that answer belongs
+    to a refusal, and this one decides whether to hold a claim open.
+    """
+    workflow, error = pinned_workflow_for_item(item)
+    if workflow is None or error:
+        return False
+    try:
+        return delivery_redirect_stage(workflow) == str(status or "")
+    except ValueError:
+        return False
+
+
+def retain_if_waiting(
+    envelope: dict[str, Any],
+    *,
+    item: dict[str, Any],
+    item_id: int,
+    public_ref: str,
+    status: str,
+    session_id: str,
+) -> None:
+    """Re-stamp the park on a close-out that left the item at its wait.
+
+    Every way this merge can decline — an unresolvable delivery clearance, a
+    refused terminal transition — leaves a session that was parked on the
+    wait, woke to run the close-out, and had its park cleared by the very
+    prompt that delivered the wake. Without this the owner ends the attempt
+    unparked and reclaimable, which is the abandonment the retention exists
+    to prevent: the refusal path has to put the park back.
+    """
+    if not at_release_wait(item, status):
+        return
+    retain_for_delivery(
+        envelope, item_id=item_id, public_ref=public_ref, session_id=session_id
+    )
 
 
 def _held_by(dispatch: Any, item_id: int, session_id: str) -> bool:
@@ -114,4 +158,4 @@ def retain_for_delivery(
     block["session_mode"] = SESSION_MODE_PARKED
 
 
-__all__ = ["retain_for_delivery"]
+__all__ = ["at_release_wait", "retain_for_delivery", "retain_if_waiting"]

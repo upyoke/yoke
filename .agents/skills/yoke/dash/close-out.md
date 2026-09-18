@@ -37,8 +37,19 @@ yoke sessions touch --mode parked --reason "awaiting ITEM delivery: deployment r
 
 The deployment wake re-enters you: a QA stage that needs your evidence, a
 verdict on one you supplied, or the notice that your run succeeded and the
-wait is over. Re-run the same `yoke merge item` command with `--result` and
-`--verification` then, and it finishes the close-out. Never poll the run. When the resolved flow discharges delivery at
+wait is over — that last one fires only for the run that actually discharges
+this item's delivery, so a stage run in a stage-and-production pair will not
+call you. Re-run the same `yoke merge item` command with `--result` and
+`--verification` then, and it finishes the close-out. Never poll the run.
+
+**Any prompt that wakes you clears the park**, including one that does not
+finish the item. The close-out re-stamps it for you when it refuses, but a
+wake you handled some other way does not: whenever you go quiet still short
+of `done`, re-park first with the command above. An undeclared wait is what
+the stale sweep reclaims, and it is bounded — a declared one is spared, but
+only while the session holds nothing else, is not reported process-gone, and
+stays inside the retention window; past that the item is handed to steering
+by name rather than sitting unowned. When the resolved flow discharges delivery at
 the merge — a flow with no target tier — the close-out transitions through
 every declared stage to `done`, so the release stage runs its own gates on the
 way. Read the `[close-out]` block and the envelope's `status` rather than

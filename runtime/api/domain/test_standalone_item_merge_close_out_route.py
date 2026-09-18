@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+from yoke_core.domain import release_wait_park
 from yoke_core.domain import standalone_item_merge as sim
 from yoke_core.domain import standalone_item_merge_cli as merge_cli
 from yoke_core.domain import standalone_item_merge_close_out_transition as close_out_transition
@@ -80,11 +81,15 @@ def _wire(monkeypatch, *, route):
         close_out_transition, "close_out_route", lambda *_a, **_k: route,
     )
     retained: list = []
-    monkeypatch.setattr(
-        close_out_transition, "retain_for_delivery",
-        lambda envelope, **kw: retained.append(kw)
-        or envelope.setdefault("release_wait", {"parked": "yes"}),
-    )
+
+    def record(envelope, **kw):
+        retained.append(kw)
+        envelope.setdefault("release_wait", {"parked": "yes"})
+
+    monkeypatch.setattr(close_out_transition, "retain_for_delivery", record)
+    # retain_if_waiting stays real, so the refusal paths exercise its own
+    # release-wait test; only the two writes underneath it are stood in for.
+    monkeypatch.setattr(release_wait_park, "retain_for_delivery", record)
     retirements: list = []
     monkeypatch.setattr(
         merge_cli, "record_terminal_lane_close_out",
@@ -161,6 +166,38 @@ def test_mid_progress_work_stays_at_its_own_status(monkeypatch, capsys) -> None:
     assert retirements == []
     assert cleared == []
     # Mid-progress work owns no wait, so it is not parked on one either.
+    assert retained == []
+
+
+def test_a_refused_clearance_re_parks_the_owner_it_leaves_waiting(
+    monkeypatch, capsys,
+) -> None:
+    """A re-entry got here because a wake delivered a prompt, and that prompt
+    cleared the park. Declining without putting it back hands off an owner
+    who is awake, still waiting, and no longer declared."""
+    calls, retirements, cleared, retained = _wire(
+        monkeypatch, route=CloseOutRoute(error="delivery authority unreadable"),
+    )
+    monkeypatch.setattr(release_wait_park, "at_release_wait", lambda *_a: True)
+
+    exit_code = _run()
+
+    assert exit_code == 1
+    [re_parked] = retained
+    assert re_parked["item_id"] == 7
+    assert re_parked["public_ref"] == "ITEM-7"
+    assert retirements == []
+
+
+def test_a_refusal_short_of_the_release_wait_parks_nobody(
+    monkeypatch, capsys,
+) -> None:
+    calls, retirements, cleared, retained = _wire(
+        monkeypatch, route=CloseOutRoute(error="delivery authority unreadable"),
+    )
+    monkeypatch.setattr(release_wait_park, "at_release_wait", lambda *_a: False)
+
+    assert _run() == 1
     assert retained == []
 
 
