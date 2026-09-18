@@ -16,6 +16,11 @@ def _fail_response(message):
         success=False, result=None, error=SimpleNamespace(message=message)
     )
 
+def _cleared(**_kw):
+    """Stand in for an item that needs no candidate review."""
+    return ""
+
+
 def _probe_dispatch(count):
     def dispatch(*, function_id, target, payload, **_kw):
         assert function_id == "db.read.run"
@@ -90,6 +95,8 @@ def test_selection_declared_adapts_queue_outcome(monkeypatch):
         selection_mod, "project_declares_merge_queue",
         lambda project, dispatch=None: (True, None),
     )
+    # The candidate review has its own cases; this one is about the adapter.
+    monkeypatch.setattr(selection_mod, "candidate_review_refusal", _cleared)
     seen: dict = {}
 
     def land(ctx, **kwargs):

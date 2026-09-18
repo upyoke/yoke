@@ -151,22 +151,16 @@ def route_standalone_landing(
     one, and merging locally are all landings, so the review holds them all
     from the one place that selects between them.
     """
-    # The commit a landing is answerable for, resolved before the route is
-    # chosen because the review is bound to it. A lane with no resolvable
-    # head is left to the route to refuse in its own words.
-    lane_head, head_error = queue_lane_head(
-        item_id=item_id,
-        branch=branch,
-        target=target,
-        repo_root=repo_root,
-        project=project,
-        commit_sha=commit_sha,
-    )
-    if not head_error:
+    # The head a review would be about, resolved before the route is chosen
+    # because the clearance is bound to it. The receipt fallback the queue
+    # route uses is deliberately not consulted: a receipt answers for a
+    # branch that already landed, and there is nothing left to review there.
+    review_head = str(commit_sha or "").strip() or git.head_of(repo_root, branch)
+    if review_head:
         review_refusal = candidate_review_refusal(
             item_id=item_id,
             public_ref=public_ref or branch,
-            commit_sha=lane_head,
+            commit_sha=review_head,
             branch=branch,
             target=target,
             repo_root=repo_root,
@@ -177,7 +171,7 @@ def route_standalone_landing(
                 ok=False,
                 exit_code=1,
                 already_merged=False,
-                commit_sha=lane_head,
+                commit_sha=review_head,
                 error=review_refusal,
             )
     declared, probe_error = project_declares_merge_queue(project, dispatch=dispatch)
@@ -207,6 +201,14 @@ def route_standalone_landing(
             local_merge=local_merge,
             resume_command=resume_command,
         )
+    lane_head, head_error = queue_lane_head(
+        item_id=item_id,
+        branch=branch,
+        target=target,
+        repo_root=repo_root,
+        project=project,
+        commit_sha=commit_sha,
+    )
     if head_error:
         return StandaloneMergeOutcome(
             ok=False,

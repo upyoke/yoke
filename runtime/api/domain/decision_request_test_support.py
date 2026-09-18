@@ -57,7 +57,8 @@ def decision_request_connection():
             title TEXT NOT NULL,
             status TEXT NOT NULL,
             workflow_id TEXT NOT NULL,
-            workflow_version_id INTEGER NOT NULL
+            workflow_version_id INTEGER NOT NULL,
+            workflow_posture TEXT NOT NULL DEFAULT '{}'
         );
         CREATE TABLE workflow_versions (
             id INTEGER PRIMARY KEY,
