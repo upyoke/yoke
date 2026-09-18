@@ -46,7 +46,7 @@ def test_dash_resolves_before_filing_and_before_escalation_authoring() -> None:
     _ordered(
         filing,
         f"{RESOLVER} --workflow dash --project PROJECT",
-        'yoke dash "<title>" "<instruction>" '
+        'yoke dash "<title>" --stdin '
         f'{ATTESTATION} --json',
     )
 

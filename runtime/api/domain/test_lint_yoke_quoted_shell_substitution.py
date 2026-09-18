@@ -36,6 +36,8 @@ def test_double_quoted_backtick_in_yoke_arg_denies():
     assert "double-quoted argument" in reason
     assert "--stdin" in reason
     assert "<<'EOF'" in reason
+    assert "sha=$(git rev-parse HEAD)" in reason
+    assert '--source-ref "$sha"' in reason
 
 
 def test_double_quoted_dollar_paren_in_yoke_arg_denies():
@@ -62,6 +64,14 @@ def test_piped_stdin_allows_upstream_double_quotes():
     command = (
         'printf %s "run `whoami`" | yoke dash TITLE --stdin '
         "--execution-instructions-considered"
+    )
+    assert _eval(command) is None
+
+
+def test_captured_variable_passed_to_yoke_allows():
+    command = (
+        "sha=$(git rev-parse HEAD); "
+        'yoke deployment-runs create --source-ref "$sha"'
     )
     assert _eval(command) is None
 

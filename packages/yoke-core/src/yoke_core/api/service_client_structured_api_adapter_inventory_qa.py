@@ -115,11 +115,13 @@ QA_ADAPTERS: List[AdapterEntry] = [
     AdapterEntry(
         "qa.requirement.update",
         "yoke qa requirement update --requirement-id N --field FIELD "
-        "(--value VALUE | --null) [--session-id S] [--json]",
+        "(--value VALUE | --content-file PATH | --stdin | --null) "
+        "[--session-id S] [--json]",
     ),
     AdapterEntry(
         "qa.requirement.waive",
-        "yoke qa requirement waive --requirement-id N --rationale TEXT "
+        "yoke qa requirement waive --requirement-id N "
+        "(--rationale TEXT | --content-file PATH | --stdin) "
         "[--source operator|agent] [--force] [--session-id S] [--json]",
     ),
     AdapterEntry(
@@ -150,6 +152,8 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "--qa-phase PHASE [--target-env E] [--blocking-mode M] "
         "[--requirement-source S] [--success-policy JSON-OR-TEXT] "
         "[--required-capability KIND ...] [--suite-id ID] "
+        "[--instructions TEXT | --instructions-file PATH | --stdin] "
+        "[--expected-outcome TEXT | --expected-outcome-file PATH] "
         "[--workflow-transition STAGE] [--deployment-stage STAGE] "
         "[--deployment-member-item PREFIX-N] [--session-id S] [--json]",
     ),

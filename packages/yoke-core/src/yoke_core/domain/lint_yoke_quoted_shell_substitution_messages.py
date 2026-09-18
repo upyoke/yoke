@@ -15,7 +15,10 @@ SAFE_FORM = (
     "  instruction that names `yoke items get` and $(whoami) literally\n"
     "  EOF\n"
     "  printf '%s' \"$instruction\" | yoke dash TITLE --stdin "
-    "--execution-instructions-considered"
+    "--execution-instructions-considered\n"
+    "For a computed value, capture first, then pass the variable:\n"
+    "  sha=$(git rev-parse HEAD)\n"
+    "  yoke ... --source-ref \"$sha\""
 )
 
 
