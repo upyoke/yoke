@@ -191,3 +191,60 @@ def test_a_quiet_detector_renders_nothing_at_all(steering_scope):
     ):
         assert absent not in body
     assert ": none" not in body.replace("launchable machine/surface pairs: none", "")
+
+
+def test_a_sweep_contained_holder_is_named_rather_than_called_idle(steering_scope):
+    """Containment and going quiet want opposite responses from a seat.
+
+    A worker its own machine reaped reads exactly like one that stopped
+    calling tools, and that is how a registered, claim-holding worker was
+    terminated with nothing in the report but "idle holder 20m".
+    """
+    claim_work(
+        steering_scope,
+        session_id=WORKER_SESSION,
+        target=make_item_target(1),
+    )
+    steering_scope.execute(
+        "UPDATE harness_sessions SET "
+        "native_process_gone_at='2026-08-26T12:01:00Z', "
+        "native_process_gone_evidence='{\"containment_reason\": "
+        "\"registration_timeout\"}' WHERE session_id=%s",
+        (WORKER_SESSION,),
+    )
+    steering_scope.commit()
+
+    report = _compose(steering_scope)
+    holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
+
+    assert holder.contained_by_sweep is True
+    assert holder.contained_reason == "registration_timeout"
+    holder_line = next(
+        line for line in report_body(report).splitlines() if WORKER_SESSION in line
+    )
+    assert "contained by sweep: registration_timeout, claims held" in holder_line
+    # The generic process-gone advice would send a seat to terminate something
+    # that is already terminated, and would not say what did it.
+    assert "terminate deliberately if dead" not in holder_line
+
+
+def test_an_unexplained_death_keeps_the_process_gone_wording(steering_scope):
+    """Only a recorded containment claims one; anything else stays generic."""
+    claim_work(
+        steering_scope,
+        session_id=WORKER_SESSION,
+        target=make_item_target(1),
+    )
+    steering_scope.execute(
+        "UPDATE harness_sessions SET "
+        "native_process_gone_at='2026-08-26T12:01:00Z', "
+        "native_process_gone_evidence='{\"pids\": [41]}' WHERE session_id=%s",
+        (WORKER_SESSION,),
+    )
+    steering_scope.commit()
+
+    report = _compose(steering_scope)
+    holder = next(row for row in report.idle if row.session_id == WORKER_SESSION)
+
+    assert holder.contained_by_sweep is False
+    assert "process gone, claims held" in report_body(report)

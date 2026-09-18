@@ -178,6 +178,42 @@ def project_launch_attestation(
     return LaunchProjection(launch, binding)
 
 
+def release_launch_containment(
+    projection: LaunchProjection,
+    *,
+    state_dir: Path | None = None,
+) -> bool:
+    """Retire containment for a launch whose native has registered.
+
+    Containment exists for the gap between starting a native and that native
+    registering, because an unregistered one holds no claim and no lane. A
+    projection carrying a binding closes that gap on its own: the hook running
+    it is executing inside the launched native, under that session's identity.
+    Waiting for the instruction to render as well conflated two questions --
+    does this native have authority, and has it been told what to do -- and
+    only the first is containment's.
+
+    Every settlement that proves registration therefore lands here. The one
+    that renders its instruction goes on to suppress replay; the one closed
+    ``registered_and_claimed`` at its deadline never renders anything, and used
+    to leave the record behind for the sweep. A worker that had registered,
+    taken its item claim and was working was reaped on that path, at the
+    registration deadline plus the sweep's own grace, with nothing naming it.
+
+    Returns whether registration was proven, so a caller can tell a native
+    still coming up from one that has arrived.
+    """
+    if not projection.binding_id:
+        return False
+    adopt_launched_session(
+        projection.launch_id,
+        projection.binding_id,
+        state_dir=state_dir,
+    )
+    release_supervised_native(projection.launch_id, state_dir=state_dir)
+    return True
+
+
 def mark_launch_attestation_delivered(
     projection: LaunchProjection,
     *,
@@ -188,14 +224,9 @@ def mark_launch_attestation_delivered(
         _delivered_path(projection.launch_id, state_dir),
         {"launch_id": projection.launch_id, "delivered_at": int(time.time())},
     )
-    # Delivery only happens inside a registered session's own hook, so this is
-    # the local proof that the native no longer needs containing.
-    adopt_launched_session(
-        projection.launch_id,
-        projection.binding_id,
-        state_dir=state_dir,
-    )
-    release_supervised_native(projection.launch_id, state_dir=state_dir)
+    # Delivery happens inside a registered session's own hook, so it proves
+    # registration too -- but it is no longer the only thing that does.
+    release_launch_containment(projection, state_dir=state_dir)
     if projection.binding_id:
         try:
             _handoff_path(projection.binding_id, state_dir).unlink(missing_ok=True)
@@ -215,5 +246,6 @@ __all__ = [
     "launch_delivery_rendered",
     "mark_launch_attestation_delivered",
     "project_launch_attestation",
+    "release_launch_containment",
     "stage_launch_attestation",
 ]

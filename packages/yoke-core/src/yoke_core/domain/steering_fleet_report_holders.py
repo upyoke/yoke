@@ -41,10 +41,34 @@ class ClaimHolder:
     quiet_reason: str = ""
     native_process_gone_at: str = ""
     hand_started: bool = False
+    #: Why this machine's containment sweep ended the native, when it did.
+    #: A holder whose process a sweep stopped is not a worker that went
+    #: quiet: something on its own machine decided it had no authority, and
+    #: the two want opposite responses from a seat.
+    contained_reason: str = ""
 
     @property
     def native_process_gone(self) -> bool:
         return bool(self.native_process_gone_at)
+
+    @property
+    def contained_by_sweep(self) -> bool:
+        return bool(self.contained_reason)
+
+
+def _contained_reason(process: dict[str, Any]) -> str:
+    """The sweep's own reason for ending this native, when it recorded one.
+
+    Containment writes the reason onto the death it caused, so a holder whose
+    process a sweep stopped can be told from one whose native merely exited.
+    Anything else -- an ordinary exit, a crash, a death nobody explained --
+    leaves this empty rather than inventing a cause.
+    """
+    evidence = process.get("evidence")
+    if not isinstance(evidence, dict):
+        return ""
+    reason = evidence.get("containment_reason")
+    return reason.strip() if isinstance(reason, str) else ""
 
 
 def _held_item_rows(conn: Any, *, project_id: int) -> list[dict[str, Any]]:
@@ -128,6 +152,7 @@ def claim_holders(
                 idle_seconds=age_seconds(last_activity, now) or 0,
                 quiet_reason=str(row.get("quiet_reason") or ""),
                 native_process_gone_at=str(process.get("observed_at") or ""),
+                contained_reason=_contained_reason(process),
                 hand_started=not bool(row.get("launch_recorded")),
             )
         )

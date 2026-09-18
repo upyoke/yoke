@@ -3,10 +3,14 @@
 A launch handle is the only machine-local record binding a launched session
 to the pid that served it. The relay's process-death report reads it, and so
 does the fold that turns a print-mode native's own exit result into that
-session's token totals. Writing it is the last step of delivering the launch
-instruction, so a hook entry that never settled the launch projection wrote
-no handle at all: the session's death went unreported until the stale sweep,
-and its measured usage stayed unavailable with the counters sitting on disk.
+session's token totals. It is written the moment the native registers, so a
+hook entry that never settled the launch projection wrote no handle at all:
+the session's death went unreported until the stale sweep, and its measured
+usage stayed unavailable with the counters sitting on disk.
+
+Registration rather than delivery, because those are different facts and only
+the first is about authority. Tying the handle to a rendered mandate left a
+registered worker supervised, and the containment sweep reaped it.
 """
 
 from __future__ import annotations
@@ -15,8 +19,6 @@ import io
 import json
 import os
 from contextlib import redirect_stderr, redirect_stdout
-
-import pytest
 
 
 LAUNCH_ID = "11111111-1111-4111-8111-111111111111"
@@ -151,39 +153,59 @@ def test_a_delivered_launch_is_adopted_and_stops_being_supervised(
     )
 
 
-@pytest.mark.parametrize(
-    "stdout, launch_context, undelivered",
-    [
-        ("", True, "the hook rendered no launch delivery"),
-        (DELIVERED_INSTRUCTIONS, False, "the native carried no launch context"),
-    ],
-)
-def test_an_undelivered_launch_is_neither_adopted_nor_released(
+def test_a_registered_native_is_adopted_before_its_mandate_renders(
     monkeypatch,
     tmp_path,
-    stdout: str,
-    launch_context: bool,
-    undelivered: str,
 ) -> None:
-    """Adoption follows delivery, so custody survives every other outcome.
+    """Adoption follows registration, which is the weaker fact of the two.
 
-    Adopting a native whose mandate never reached it would retire the record
-    the containment sweep terminates an unattended process by, and the one
-    the launch settlement closes a launch that died coming up by.
+    It used to follow delivery. That is stricter than authority and does not
+    always happen: a launch instruction large enough to overflow the inline
+    budget is served as a pointer, so the hook renders no delivery, the launch
+    closes ``registered_and_claimed`` at its deadline, and custody survives.
+    A registered worker holding its item claim was terminated on exactly that
+    path. This hook renders nothing and still retires custody, because the
+    session it names is the authority containment was asking about.
+
+    The two records move together, so nothing the old contract protected is
+    lost: the handle the death-and-usage report reads is written in the same
+    breath the custody record is dropped.
+    """
+    native = _LaunchedNative(tmp_path, monkeypatch)
+
+    assert native.run_opening_hook(monkeypatch, stdout="") == 0
+
+    assert native.handle.is_file(), "a registered native was left uncontained"
+    assert json.loads(native.handle.read_text())["target_session_id"] == (
+        LAUNCHED_SESSION
+    )
+    assert not native.custody.exists(), "custody outlived the registration"
+
+
+def test_a_native_with_no_launch_context_is_neither_adopted_nor_released(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    """No projection is no registration, so custody is exactly what holds.
+
+    This is the case containment was written for: a native that cannot name
+    the launch it came from has proven nothing, and retiring its record would
+    strand both the sweep and the launch settlement that closes a native which
+    died coming up.
     """
     native = _LaunchedNative(tmp_path, monkeypatch)
 
     assert (
         native.run_opening_hook(
             monkeypatch,
-            stdout=stdout,
-            launch_context=launch_context,
+            stdout=DELIVERED_INSTRUCTIONS,
+            launch_context=False,
         )
         == 0
     )
 
-    assert not native.handle.exists(), f"adopted though {undelivered}"
-    assert native.custody.is_file(), f"custody dropped though {undelivered}"
+    assert not native.handle.exists(), "adopted though it carried no launch context"
+    assert native.custody.is_file(), "custody dropped though nothing was proven"
 
 
 def test_the_adopted_handle_carries_the_native_reading_to_the_relay(
