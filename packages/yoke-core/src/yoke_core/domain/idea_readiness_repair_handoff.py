@@ -29,7 +29,7 @@ verified against.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 NO_CHECKOUT_TO_REPAIR_AGAINST = (
     "no checkout for this item's project on this host, and no reading from "

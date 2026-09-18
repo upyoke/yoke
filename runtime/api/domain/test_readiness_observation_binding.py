@@ -83,6 +83,26 @@ def test_an_answer_about_another_item_cannot_stand_in(observations) -> None:
     assert binding_mismatch_reason(observations, _BINDING) == WRONG_ITEM_REASON
 
 
+@pytest.mark.parametrize(
+    "observations",
+    [
+        _observations(item_id="not-a-number"),
+        _observations(item_id=None),
+        _observations(project_id="7; drop table"),
+        _observations(project_id=[7]),
+    ],
+)
+def test_an_identity_that_is_not_a_row_id_is_a_refusal_not_a_crash(
+    observations,
+) -> None:
+    """Every field arrived over the wire, so none of them may raise.
+
+    An answer that cannot say which item it describes has not identified
+    this one, which is the same answer as naming a different one.
+    """
+    assert binding_mismatch_reason(observations, _BINDING) == WRONG_ITEM_REASON
+
+
 def test_a_tree_edited_mid_check_is_not_a_pass() -> None:
     reason = binding_mismatch_reason(_observations(checkout_moved=True), _BINDING)
 

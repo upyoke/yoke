@@ -60,6 +60,21 @@ def _digest(spec_text: str) -> str:
     return spec_digest(spec_text)
 
 
+def _as_int(value: Any) -> Optional[int]:
+    """An identity the answer carried, or ``None`` when it carried no usable one.
+
+    Everything in the answer arrived over the wire, so a field that
+    should be a row id can be absent, null or a string. None of those
+    identify the item this run is about, and all of them resolve the same
+    way — as a mismatch the caller is told about, never as an exception
+    escaping a comparison.
+    """
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def binding_mismatch_reason(
     observations: Any, binding: ObservationBinding,
 ) -> str:
@@ -68,10 +83,10 @@ def binding_mismatch_reason(
         return INCOMPLETE_REASON
     if str(observations.get("spec_sha256") or "") != _digest(binding.spec_text):
         return STALE_SPEC_REASON
-    if int(observations.get("item_id") or 0) != int(binding.item_id):
+    if _as_int(observations.get("item_id")) != int(binding.item_id):
         return WRONG_ITEM_REASON
     if binding.project_id is not None and (
-        int(observations.get("project_id") or 0) != int(binding.project_id)
+        _as_int(observations.get("project_id")) != int(binding.project_id)
     ):
         return WRONG_ITEM_REASON
     if not str(observations.get("checkout_revision") or ""):

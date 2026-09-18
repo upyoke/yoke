@@ -71,17 +71,16 @@ def item(test_db):
     )
 
 
-@pytest.fixture
-def observing_machine(tmp_path):
-    """A checkout whose file has drifted past what the spec records."""
-    root = tmp_path / "project"
+def _checkout_with(root, lines: int):
+    """A git checkout holding the module at a given length.
+
+    Defines the function the spec names, so the only thing the checks can
+    find is a difference between its length and the recorded one.
+    """
     module = root / _BUDGET_PATH
     module.parent.mkdir(parents=True)
-    # Defines the function the spec names, so the only thing the checks
-    # find is the drift between its length and the recorded one.
     module.write_text(
-        "def stream_rows():\n" + "    pass\n" * (_ACTUAL_LINES - 1),
-        encoding="utf-8",
+        "def stream_rows():\n" + "    pass\n" * (lines - 1), encoding="utf-8",
     )
     subprocess.run(["git", "init", "-q", str(root)], check=True)
     subprocess.run(["git", "-C", str(root), "add", "-A"], check=True)
@@ -91,6 +90,18 @@ def observing_machine(tmp_path):
         check=True,
     )
     return root
+
+
+@pytest.fixture
+def observing_machine(tmp_path):
+    """A checkout whose file has drifted past what the spec records."""
+    return _checkout_with(tmp_path / "drifted", _ACTUAL_LINES)
+
+
+@pytest.fixture
+def agreeing_machine(tmp_path):
+    """A checkout whose file is exactly the length the spec records."""
+    return _checkout_with(tmp_path / "agreeing", _RECORDED_LINES)
 
 
 @pytest.fixture
@@ -210,6 +221,34 @@ def _register_claim(conn, paths) -> int:
     )
     conn.commit()
     return claim_id
+
+
+def test_a_widen_succeeds_and_is_verified_by_the_same_reading(
+    test_db, item, hosted, agreeing_machine,
+) -> None:
+    """The case the hosted repair used to get wrong.
+
+    Widening changes a path claim and touches neither the spec nor the
+    tree, so the reading that drove the repair is still bound afterwards
+    and verifies it. Before, the re-run dropped that reading and came
+    back unavailable — reporting success=False for a repair that had
+    already been applied.
+    """
+    _register_claim(test_db, ["packages/yoke-core/already_claimed.py"])
+    seed_target(test_db, path_string=_BUDGET_PATH)
+    test_db.commit()
+    observations = _observe(test_db, agreeing_machine)
+
+    repair = attempt_claim_coverage_repair(
+        item_id=_ITEM_ID,
+        issues=[{"code": "FILE_BUDGET_NOT_IN_CLAIM",
+                 "context": {"path": _BUDGET_PATH}}],
+        observations=observations,
+    )
+
+    assert [p.path for p in repair.repaired_paths] == [_BUDGET_PATH]
+    assert repair.rerun_verdict == VERDICT_PASS
+    assert repair.success is True
 
 
 def test_a_narrow_refuses_before_it_has_changed_anything(
