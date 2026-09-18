@@ -105,6 +105,45 @@ class TestDurableArtifactSubmission:
                 )
         record.assert_not_called()
 
+    def test_relay_timeout_after_put_retries_record(self, tmp_path: Path) -> None:
+        shot = tmp_path / "home.png"
+        shot.write_bytes(b"PNG")
+        timeout = QaArtifactWriteError(
+            "https_transport_failed: HTTPS function relay response "
+            "exceeded the time limit"
+        )
+        with mock.patch.object(
+            browser_qa, "_presign_artifact", return_value=_presign_payload(),
+        ), mock.patch.object(
+            browser_qa, "_upload_artifact", return_value=None,
+        ) as upload, mock.patch.object(
+            browser_qa, "_record_artifact", side_effect=[timeout, 81],
+        ) as record:
+            artifact_id = _record_artifact_file(
+                1, 10, str(shot), "image/png", "screenshot", "{}",
+            )
+        assert artifact_id == 81
+        upload.assert_called_once()
+        assert record.call_count == 2
+
+    def test_non_timeout_record_failure_does_not_retry(self, tmp_path: Path) -> None:
+        shot = tmp_path / "home.png"
+        shot.write_bytes(b"PNG")
+        with mock.patch.object(
+            browser_qa, "_presign_artifact", return_value=_presign_payload(),
+        ), mock.patch.object(
+            browser_qa, "_upload_artifact", return_value=None,
+        ), mock.patch.object(
+            browser_qa,
+            "_record_artifact",
+            side_effect=QaArtifactWriteError("s3_upload_failed: boom"),
+        ) as record:
+            with pytest.raises(QaArtifactWriteError, match="s3_upload_failed"):
+                _record_artifact_file(
+                    1, 10, str(shot), "image/png", "screenshot", "{}",
+                )
+        record.assert_called_once()
+
 
 class TestUploadArtifact:
     def test_puts_bytes_with_content_type(self, tmp_path: Path) -> None:

@@ -118,7 +118,7 @@ def _present(payload: dict[str, Any], key: str) -> bool:
 
 
 def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
-    from yoke_core.domain.db_helpers import connect, iso8601_now
+    from yoke_core.domain.db_helpers import connect, iso8601_now, query_one
     from yoke_core.domain.qa_artifact_handle import (
         ArtifactHandleError,
         parse_handle,
@@ -293,23 +293,33 @@ def handle_qa_artifact_add(request: FunctionCallRequest) -> HandlerOutcome:
                 return _error(exc.code, str(exc))
             except ValueError as exc:
                 return _error("target_invalid", str(exc))
-        cur = conn.execute(
-            "INSERT INTO qa_artifacts "
-            "(qa_run_id, artifact_type, content_type, artifact_handle, "
-            "metadata, created_at) "
-            f"VALUES ({_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, "
-            f"{_p(conn)}, {_p(conn)}) RETURNING id",
-            (
-                int(run_id),
-                artifact_type,
-                content_type,
-                handle_text,
-                metadata,
-                iso8601_now(),
-            ),
+        existing = query_one(
+            conn,
+            "SELECT id FROM qa_artifacts "
+            f"WHERE qa_run_id = {_p(conn)} AND artifact_handle = {_p(conn)}",
+            (int(run_id), handle_text),
         )
-        artifact_id = int(cur.fetchone()[0])
-        conn.commit()
+        if existing is not None:
+            artifact_id = int(existing["id"])
+            conn.commit()
+        else:
+            cur = conn.execute(
+                "INSERT INTO qa_artifacts "
+                "(qa_run_id, artifact_type, content_type, artifact_handle, "
+                "metadata, created_at) "
+                f"VALUES ({_p(conn)}, {_p(conn)}, {_p(conn)}, {_p(conn)}, "
+                f"{_p(conn)}, {_p(conn)}) RETURNING id",
+                (
+                    int(run_id),
+                    artifact_type,
+                    content_type,
+                    handle_text,
+                    metadata,
+                    iso8601_now(),
+                ),
+            )
+            artifact_id = int(cur.fetchone()[0])
+            conn.commit()
     finally:
         conn.close()
     return HandlerOutcome(

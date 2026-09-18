@@ -140,6 +140,60 @@ class TestQaArtifactAdd(unittest.TestCase):
             },
         )
 
+    def test_same_handle_returns_existing_artifact_id(self):
+        with test_database() as conn:
+            _seed_browser_requirement(conn)
+            with patch("yoke_core.domain.qa_events.emit_qa_run_event"):
+                run_outcome = qa_browser_writes.handle_qa_run_add(
+                    _request(
+                        "qa.run.add",
+                        TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                        payload={"performed_by": "browser_substrate"},
+                    ),
+                )
+            run_id = int(run_outcome.result_payload["qa_run_id"])
+            handle = {
+                "backend": "s3",
+                "bucket": "yoke-prod-artifacts",
+                "key": f"qa-artifacts/yoke/42/{run_id}/home.png",
+            }
+            payload = {
+                "run_id": run_id,
+                "artifact_type": "screenshot",
+                "content_type": "image/png",
+                "artifact_handle": handle,
+                "metadata": "{}",
+            }
+            with patch(
+                "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+                return_value=("prod", "yoke-prod-artifacts", None),
+            ):
+                first = qa_browser_writes.handle_qa_artifact_add(
+                    _request(
+                        "qa.artifact.add",
+                        TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                        payload=payload,
+                    ),
+                )
+                second = qa_browser_writes.handle_qa_artifact_add(
+                    _request(
+                        "qa.artifact.add",
+                        TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                        payload=payload,
+                    ),
+                )
+            self.assertTrue(first.primary_success, first.error)
+            self.assertTrue(second.primary_success, second.error)
+            self.assertEqual(
+                first.result_payload["qa_artifact_id"],
+                second.result_payload["qa_artifact_id"],
+            )
+            count = conn.execute(
+                "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id = %s",
+                (run_id,),
+            ).fetchone()
+        self.assertEqual(int(count[0]), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

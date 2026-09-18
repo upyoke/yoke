@@ -23,6 +23,7 @@ def call_qa_function(
     target: TargetRef,
     payload: Optional[dict[str, Any]] = None,
     actor: Optional[ActorContext] = None,
+    timeout_s: Optional[float] = None,
 ) -> FunctionCallResponse:
     """Call a registered QA function through the normal dispatcher."""
     from yoke_core.api.service_client_structured_api_adapter import (
@@ -34,6 +35,7 @@ def call_qa_function(
         target=target,
         payload=dict(payload or {}),
         actor=actor,
+        timeout_s=timeout_s,
     )
 
 
