@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
@@ -215,6 +216,36 @@ def stamp_activity(
         "UPDATE harness_sessions SET last_heartbeat=?,last_tool_call_at=? "
         "WHERE session_id=?",
         (when.strftime("%Y-%m-%dT%H:%M:%SZ"), tool_call, session_id),
+    )
+    conn.commit()
+
+
+def record_process_gone(
+    conn: sqlite3.Connection,
+    *,
+    when: datetime,
+    session_id: str = NATIVE_WAKE_SESSION_ID,
+    exit_code: int = 0,
+) -> None:
+    """Record the machine's verdict that this session's native has exited.
+
+    The fixture above composes ``harness_sessions`` by hand, so the two
+    observation columns arrive with the tests that need them, exactly as
+    ``park_session`` brings the posture column. In production both are
+    additive columns the boot converge propagates.
+    """
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(harness_sessions)")}
+    for column in ("native_process_gone_at", "native_process_gone_evidence"):
+        if column not in columns:
+            conn.execute(f"ALTER TABLE harness_sessions ADD COLUMN {column} TEXT")
+    conn.execute(
+        "UPDATE harness_sessions SET native_process_gone_at=?,"
+        "native_process_gone_evidence=? WHERE session_id=?",
+        (
+            when.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            json.dumps({"native_exit_code": exit_code}),
+            session_id,
+        ),
     )
     conn.commit()
 

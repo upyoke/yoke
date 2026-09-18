@@ -1,4 +1,4 @@
-"""Which of seven reasons an envelope has not been read yet.
+"""Which of eight reasons an envelope has not been read yet.
 
 A message that has not landed is one symptom with unrelated causes, and the
 responses to them are opposite. A plane that never tried needs a wake. An
@@ -27,7 +27,10 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any, Mapping
 
-from yoke_contracts.session_control.wake_delivery import delivery_attempt_failed
+from yoke_contracts.session_control.wake_delivery import (
+    WAKE_DEFERRED_RESULTS,
+    delivery_attempt_failed,
+)
 from yoke_core.domain.session_tool_call_projections import OPEN_TOOL_CALL_COLUMN
 from yoke_core.domain.session_message_starvation import hook_route_silent_since
 from yoke_core.domain.session_native_process_observation import (
@@ -49,6 +52,11 @@ TURN_IN_FLIGHT = "turn_in_flight"
 RECIPIENT_ENDED = "recipient_ended"
 #: The recipient was terminated. Same absence, deliberately caused.
 RECIPIENT_TERMINATED = "recipient_terminated"
+#: An attempt was made and the machine held it back: it is already running a
+#: native turn for this session, so a resume would be a second turn on one
+#: conversation. Nothing broke, and nothing is progressing either -- which
+#: is why it cannot borrow the words of the two states it sits between.
+WAKE_HELD_FOR_NATIVE_TURN = "wake_held_for_native_turn"
 
 #: The states that are a delivery the seat has to do something about. Every
 #: other state is either still progressing or beyond anyone's reach, and
@@ -63,12 +71,21 @@ SEAT_ACTION_STATES = frozenset({ATTEMPT_FAILED, NEVER_ATTEMPTED})
 #: wakes for mail that is about to land on its own.
 IN_DELIVERY_STATES = frozenset({ATTEMPT_IN_FLIGHT, AWAITING_ATTEMPT})
 
+#: A held wake is deliberately not one of those. It was read as an attempt in
+#: flight for as long as the state existed, which made it the one shape the
+#: report could never show: every observed run of it repeated for hours --
+#: forty-seven deferrals across three hours on one session, eighteen across a
+#: day on another -- while the line said a delivery was moments away. Keeping
+#: it out of the identity above is what lets a session newly stuck behind a
+#: native that will not end change the report that a seat reads.
+
 #: Worst first, so a capped section drops waiting noise and not real
 #: findings: what the seat owes, then what it can only be told, then what
 #: is still on its way.
 DELIVERY_STATES = (
     ATTEMPT_FAILED,
     NEVER_ATTEMPTED,
+    WAKE_HELD_FOR_NATIVE_TURN,
     RECIPIENT_TERMINATED,
     RECIPIENT_ENDED,
     ATTEMPT_IN_FLIGHT,
@@ -154,6 +171,8 @@ def delivery_state(
     if result_code:
         if delivery_attempt_failed(result_code):
             return ATTEMPT_FAILED
+        if str(result_code) in WAKE_DEFERRED_RESULTS:
+            return WAKE_HELD_FOR_NATIVE_TURN
         return ATTEMPT_IN_FLIGHT
     if _attempt_owed(record, sent_at=sent_at, grace=grace, sla=sla, current=current):
         return NEVER_ATTEMPTED
@@ -171,6 +190,7 @@ __all__ = [
     "RECIPIENT_TERMINATED",
     "SEAT_ACTION_STATES",
     "TURN_IN_FLIGHT",
+    "WAKE_HELD_FOR_NATIVE_TURN",
     "delivery_state",
     "deliverable_receipt",
 ]

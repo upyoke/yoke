@@ -3,10 +3,11 @@
 Undelivered is where one visible symptom has several causes, and telling
 them apart is the whole value of the line. A plane that never tried, one
 whose every attempt refused for a nameable reason, one already escalated to
-a wake, one only a person typing in a desktop chat can feed, a recipient
-busy inside a tool call, and a recipient that is gone all read as "nothing
-arrived" and want different responses from the seat -- or, for the last two
-groups, no response at all.
+a wake, one whose wake the machine keeps holding because a native turn for
+that session is already running, one only a person typing in a desktop chat
+can feed, a recipient busy inside a tool call, and a recipient that is gone
+all read as "nothing arrived" and want different responses from the seat --
+or, for some of those groups, no response at all.
 
 So the state decides the words. A waiting shape says it is waiting, and
 never borrows the vocabulary of a failure; a gone recipient names the loss
@@ -30,6 +31,7 @@ from yoke_core.domain.steering_fleet_report_delivery_states import (
     RECIPIENT_ENDED,
     RECIPIENT_TERMINATED,
     TURN_IN_FLIGHT,
+    WAKE_HELD_FOR_NATIVE_TURN,
 )
 
 #: What each state is, in the seat's terms. The two waiting shapes say so
@@ -44,8 +46,16 @@ _STATE_PHRASES = {
 }
 
 #: States where naming a wake would be wrong: one has a hook already coming,
-#: and two have no recipient left to wake.
-_NO_WAKE_STATES = frozenset({TURN_IN_FLIGHT, RECIPIENT_ENDED, RECIPIENT_TERMINATED})
+#: two have no recipient left to wake, and one already named the wake it is
+#: holding, so appending "wake escalated" to it would read as progress.
+_NO_WAKE_STATES = frozenset(
+    {
+        TURN_IN_FLIGHT,
+        RECIPIENT_ENDED,
+        RECIPIENT_TERMINATED,
+        WAKE_HELD_FOR_NATIVE_TURN,
+    }
+)
 
 
 def _references(entry: UndeliveredMessages) -> str:
@@ -71,6 +81,15 @@ def _state_phrase(entry: UndeliveredMessages) -> str:
         )
     if entry.delivery_state == ATTEMPT_FAILED:
         return f"never injected, last attempt failed ({entry.diagnostic})"
+    if entry.delivery_state == WAKE_HELD_FOR_NATIVE_TURN:
+        # Say what is holding it and what ends the hold. The seat's only
+        # lever is the native itself, so the line names it rather than
+        # suggesting another wake, which would be held for the same reason.
+        return (
+            "never injected, wake held — a native turn is already running "
+            "for this session; it delivers when that turn ends, or end it "
+            f"with `yoke sessions terminate {entry.session_id} --reason ...`"
+        )
     phrase = _STATE_PHRASES[entry.delivery_state]
     if entry.recipient_gone_at:
         # The loss is the finding. No revive recipe follows: the envelope
