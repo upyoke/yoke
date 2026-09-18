@@ -272,6 +272,9 @@ def _establish_deployment_freshness(
         origin = credential_free_origin(target.origin) if target.origin else ""
         return None, origin, expected_sha
 
+    # Unbound cases only. qa.browser_context.get populates
+    # context.deployment_target from the case/run/stage target, so a
+    # prod-targeted case never reaches this preview question.
     identity_target = resolve_preview_identity_target(project, expected_branch)
     deployment_recorded = bool(context.get("deployment_recorded"))
     if (

@@ -6,14 +6,16 @@ routes through registered function ids:
 
 - ``qa.browser_context.get`` (this module) — one requirement-scoped read:
   the named Browser-method case plus whichever deployment the case is
-  about. For an item case that is the branch preview: (when
+  about. A case that names a persistent environment — a frozen snapshot,
+  ``target_env``, a run, or a run-member stage — is returned as
+  ``deployment_target`` so freshness asks that host, never a branch
+  preview. Only an unbound item case is about the branch preview: (when
   ``expected_branch`` is supplied) the latest
   ``ephemeral_environments.deployed_sha`` for the freshness gate and the
   branch's latest recorded ephemeral preview URL (``ephemeral_url`` — the
-  advance gate-entry read that replaces raw client SQL). For a
-  deployment-run case it is instead the environment that run targeted,
-  returned as ``deployment_target``; the preview fields stay empty there,
-  because a run's deployment is not found by slugifying a branch.
+  advance gate-entry read that replaces raw client SQL). Preview fields
+  stay empty on a bound persistent target, because that deployment is not
+  found by slugifying a branch.
 - ``qa.run.add`` / ``qa.run.complete`` / ``qa.artifact.add`` — the write
   half, hosted in the companion module
   :mod:`yoke_core.domain.handlers.qa_browser_writes` so each file stays
@@ -65,9 +67,8 @@ class QaBrowserContextGetResponse(BaseModel):
     # fields above describe a branch preview and are meaningful only for an
     # item case.
     ephemeral_url: Optional[str] = None
-    # For a deployment-run case: the environment that run targeted, what a
-    # receipt-producing stage observed it serving, and where it publishes
-    # its own revision. None for an item case.
+    # The environment this case verifies when it names one (snapshot,
+    # target_env, run, or run-member stage). None for an unbound preview.
     deployment_target: Optional[Dict[str, Any]] = None
 
 
