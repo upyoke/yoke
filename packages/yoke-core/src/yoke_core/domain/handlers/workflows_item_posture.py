@@ -70,6 +70,10 @@ def handle_item_posture_amend(request: FunctionCallRequest) -> HandlerOutcome:
             )
     except ItemPostureAmendError as exc:
         return _error("incompatible", str(exc), "$.payload.key")
+    except PermissionError as exc:
+        # A posture key whose removal is itself the decision it gates
+        # refuses by session rather than by workflow compatibility.
+        return _error("permission_denied", str(exc), "$.payload.key")
     except LookupError as exc:
         return _error("not_found", str(exc), "$.target.item_id")
     return HandlerOutcome(result_payload=result, primary_success=True)

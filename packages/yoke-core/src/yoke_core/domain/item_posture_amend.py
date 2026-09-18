@@ -151,6 +151,43 @@ def _emit_amended(
     return envelope.event_id if envelope.ok else None
 
 
+def _require_relax_authority(
+    conn: Any,
+    *,
+    item_id: int,
+    key: str,
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+    actor_id: Optional[int],
+    session_id: str,
+) -> None:
+    """Guard the keys whose removal is itself the decision they gate.
+
+    Clearing ``merge_candidate_review`` does not waive one candidate -- it
+    makes every future candidate need no review at all, which is a larger
+    version of the approval the key exists to require. So it takes the same
+    session-bound authority as clearing a candidate; a worker that could
+    turn the gate off has no gate.
+    """
+    from yoke_core.domain.merge_candidate_review_gate import POSTURE_KEY
+
+    if key != POSTURE_KEY:
+        return
+    if before.get(key) is not True or after.get(key) is True:
+        return
+    from yoke_core.domain.merge_candidate_review_authority import (
+        require_clearance_authority,
+    )
+
+    require_clearance_authority(
+        conn,
+        item_id=int(item_id),
+        session_id=session_id,
+        actor_id=actor_id,
+        action=f"clear the {key} posture",
+    )
+
+
 def amend_item_posture(
     conn: Any,
     *,
@@ -220,6 +257,16 @@ def amend_item_posture(
             "binding": None,
             "event_id": None,
         }
+
+    _require_relax_authority(
+        conn,
+        item_id=int(item_id),
+        key=key,
+        before=before,
+        after=normalized,
+        actor_id=actor_id,
+        session_id=session_id,
+    )
 
     guard = AMEND_GUARDS[key]
     if guard is not None:

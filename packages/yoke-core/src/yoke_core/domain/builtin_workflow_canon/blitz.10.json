@@ -42,7 +42,7 @@
       {
         "board_bucket": "idea",
         "gates": [],
-        "glyph": "\ud83d\udca1",
+        "glyph": "💡",
         "id": "idea",
         "label": "idea"
       },
@@ -57,7 +57,7 @@
             "mode": "joint"
           }
         ],
-        "glyph": "\ud83d\udcdd",
+        "glyph": "📝",
         "id": "refining-idea",
         "label": "refining idea"
       },
@@ -71,13 +71,13 @@
             "id": "architecture_impact"
           }
         ],
-        "glyph": "\ud83d\udc8e",
+        "glyph": "💎",
         "id": "refined-idea",
         "label": "refined idea"
       },
       {
         "board_bucket": "implementing",
-        "description": "The continuous slice loop \u2014 the linked document is executed directly, and each slice may merge, migrate, and release on its own; only the final closeout waits at the release stage.",
+        "description": "The continuous slice loop — the linked document is executed directly, and each slice may merge, migrate, and release on its own; only the final closeout waits at the release stage.",
         "gates": [
           {
             "id": "doc_claim_activation"
@@ -89,13 +89,13 @@
             "id": "architecture_impact"
           }
         ],
-        "glyph": "\ud83d\udd28",
+        "glyph": "🔨",
         "id": "implementing",
         "label": "implementing"
       },
       {
         "board_bucket": "reviewing",
-        "description": "The once-per-item close \u2014 the full suite runs and the document records what was completed, what changed, what remains, the evidence, and how the parent strategy was reconciled.",
+        "description": "The once-per-item close — the full suite runs and the document records what was completed, what changed, what remains, the evidence, and how the parent strategy was reconciled.",
         "gates": [
           {
             "id": "db_claim_prose"
@@ -108,7 +108,7 @@
             "id": "architecture_impact"
           }
         ],
-        "glyph": "\ud83d\udc40",
+        "glyph": "👀",
         "id": "reviewing-implementation",
         "label": "reviewing implementation"
       },
@@ -126,7 +126,7 @@
             "id": "qa_verification"
           }
         ],
-        "glyph": "\ud83d\ude80",
+        "glyph": "🚀",
         "id": "release",
         "label": "release"
       },
@@ -144,7 +144,7 @@
             "id": "doc_completion"
           }
         ],
-        "glyph": "\u2705",
+        "glyph": "✅",
         "id": "done",
         "label": "done"
       }

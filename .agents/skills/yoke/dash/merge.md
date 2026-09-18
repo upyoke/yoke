@@ -26,10 +26,14 @@ merge by hand, force-push, bypass CI, or merge around a registered claim.
 
 When the item's posture selects `merge_candidate_review`, `yoke merge item`
 refuses before it arms, enqueues, or merges anything, because the exact
-commit the landing would carry has to be cleared by an authorized project
-owner or operator first. The refusal names the open decision request; it sits
-in that reviewer's Inbox, and they answer it with `yoke decision-requests
-resolve REQUEST_ID approve`.
+commit the landing would carry has to be cleared first. The refusal names
+the open decision request; it sits in a reviewer's Inbox, and they answer it
+with `yoke decision-requests resolve REQUEST_ID approve`.
+
+You cannot answer it yourself. The session holding the item's work claim is
+refused by name — the actor you carry is the operator's own, so the session
+is what separates the work from its review. Clearing the posture key is
+refused for the same reason.
 
 That refusal is a blocker, not a retry — report it with the request id and
 stop rather than re-running the merge in a loop. The clearance is bound to

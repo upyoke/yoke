@@ -40,7 +40,7 @@
       {
         "board_bucket": "idea",
         "gates": [],
-        "glyph": "\ud83d\udca1",
+        "glyph": "💡",
         "id": "idea",
         "label": "idea"
       },
@@ -58,13 +58,13 @@
             "id": "architecture_impact"
           }
         ],
-        "glyph": "\ud83d\udd28",
+        "glyph": "🔨",
         "id": "implementing",
         "label": "implementing"
       },
       {
         "board_bucket": "reviewing",
-        "description": "The verification close \u2014 the agent self-checks, plus any case a tightened posture knob added.",
+        "description": "The verification close — the agent self-checks, plus any case a tightened posture knob added.",
         "gates": [
           {
             "id": "db_claim_prose"
@@ -77,7 +77,7 @@
             "id": "architecture_impact"
           }
         ],
-        "glyph": "\ud83d\udc40",
+        "glyph": "👀",
         "id": "reviewing-implementation",
         "label": "reviewing implementation"
       },
@@ -95,7 +95,7 @@
             "id": "qa_verification"
           }
         ],
-        "glyph": "\ud83d\ude80",
+        "glyph": "🚀",
         "id": "release",
         "label": "release"
       },
@@ -110,7 +110,7 @@
             "id": "dash_evidence"
           }
         ],
-        "glyph": "\u2705",
+        "glyph": "✅",
         "id": "done",
         "label": "done"
       }

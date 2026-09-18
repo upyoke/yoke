@@ -100,9 +100,12 @@ CANDIDATE_REVIEW_TEACHING = (
     "until a person has cleared the exact commit. `yoke merge item` refuses "
     "an uncleared candidate by name, before it arms, enqueues, or merges "
     "anything, and names the open decision request an authorized reviewer "
-    "answers. That refusal is a blocker, not a retry: report it with the "
-    "request id and stop. Any commit you make after a clearance needs its "
-    "own review, so commit everything first, then merge."
+    "answers. You cannot answer it yourself: the session holding the item's "
+    "work claim is refused by name, whatever actor it carries, and so is "
+    "clearing the posture key. That refusal is a blocker, not a retry: "
+    "report it with the request id and stop. Any commit you make after a "
+    "clearance needs its own review, so commit everything first, then "
+    "merge."
 )
 
 

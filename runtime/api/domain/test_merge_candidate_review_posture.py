@@ -143,6 +143,10 @@ def test_clearing_the_posture_refuses_while_a_review_is_open() -> None:
                 key=POSTURE_KEY,
                 clear=True,
                 reason="steering changed its mind mid-review",
+                # Authorized to relax the key; the open review is what
+                # refuses. Session-bound authority has its own cases.
+                actor_id=REVIEWER,
+                session_id="",
             )
         message = str(caught.value)
         assert str(verdict.request_id) in message
@@ -167,6 +171,8 @@ def test_clearing_the_posture_succeeds_once_the_review_is_settled() -> None:
             key=POSTURE_KEY,
             clear=True,
             reason="no further review needed on this item",
+            actor_id=REVIEWER,
+            session_id="",
         )
         assert result["changed"] is True
         assert POSTURE_KEY not in result["after"]

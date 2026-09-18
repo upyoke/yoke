@@ -194,7 +194,10 @@ def route_standalone_landing(
         return merge_standalone_branch(
             item_id=item_id,
             branch=branch,
-            commit_sha=commit_sha,
+            # The head the review answered, so the gate and the merge cannot
+            # name different commits: the local engine would otherwise
+            # re-derive the branch tip and land whatever it found there.
+            commit_sha=review_head or commit_sha,
             target=target,
             repo_root=repo_root,
             project=project,
