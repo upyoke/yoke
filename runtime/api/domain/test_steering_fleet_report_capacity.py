@@ -154,6 +154,26 @@ def test_a_machine_serving_another_project_is_not_reported_here(fleet):
     assert [c.machine_id for c in _compose(fleet).machine_capacity] == [MACHINE]
 
 
+def test_launchable_surfaces_read_relay_rows_once(fleet, monkeypatch):
+    from yoke_core.domain import session_launch_eligibility as eligibility
+    from yoke_core.domain.steering_fleet_report_capacity import launchable_surfaces
+
+    calls = {"n": 0}
+    original = eligibility.load_relay_eligibility_rows
+
+    def counting(conn, *, machine_id=None):
+        calls["n"] += 1
+        return original(conn, machine_id=machine_id)
+
+    monkeypatch.setattr(eligibility, "load_relay_eligibility_rows", counting)
+    monkeypatch.setattr(
+        "yoke_core.domain.steering_fleet_report_capacity.load_relay_eligibility_rows",
+        counting,
+    )
+    launchable_surfaces(fleet, project_id=PROJECT_ID, now=NOW)
+    assert calls["n"] == 1
+
+
 def test_an_ended_session_stops_occupying_a_lane(fleet):
     # The lane frees when the session ends; counting it would keep a machine
     # at its cap long after the worker that filled it was gone.

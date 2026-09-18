@@ -53,3 +53,38 @@ def test_relationship_refresh_keeps_file_render_advisory(monkeypatch):
     )
 
     assert subject.record_render_relationships_to_canonical_db() == 0
+
+
+def test_record_render_relationships_looks_up_paths_in_one_query(tmp_path):
+    from runtime.api.domain.test_path_context import _seed_target
+    from runtime.api.path_context_test_helpers import init_minimal_schema
+    from yoke_core.domain.agents_render_path_context import (
+        record_render_relationships,
+    )
+    from yoke_core.domain.render_relationship_inventory import (
+        render_relationship_map,
+    )
+
+    conn = init_minimal_schema(str(tmp_path / "t.db"))
+    try:
+        relationships = render_relationship_map()
+        for target_path in relationships:
+            _seed_target(conn, path_string=target_path)
+        conn.commit()
+        original = conn.execute
+        lookups = {"n": 0}
+
+        def counting(sql, params=None):
+            text = str(sql)
+            if "FROM path_targets" in text and "path_string IN" in text:
+                lookups["n"] += 1
+            if params is None:
+                return original(sql)
+            return original(sql, params)
+
+        conn.execute = counting  # type: ignore[method-assign]
+        written = record_render_relationships(conn)
+        assert written == len(relationships)
+        assert lookups["n"] == 1
+    finally:
+        conn.close()

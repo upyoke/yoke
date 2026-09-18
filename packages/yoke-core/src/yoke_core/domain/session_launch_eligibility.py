@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Sequence
 
 from yoke_contracts.session_control.capabilities import capability_for_surface
 from yoke_contracts.session_control.surface_versions import (
@@ -69,6 +69,30 @@ def _allowed_version(surface: str, offered: str) -> bool:
     return surface_operation_supported(surface, offered, "create")
 
 
+def load_relay_eligibility_rows(
+    conn: Any,
+    *,
+    machine_id: str | None = None,
+) -> list[Any]:
+    """Load the relay rows eligibility derives from, newest first."""
+    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    params: list[Any] = []
+    machine_clause = ""
+    if machine_id:
+        machine_clause = f" WHERE machine_id = {marker}"
+        params.append(machine_id)
+    return list(
+        conn.execute(
+            "SELECT relay_id, machine_id, surface_versions, project_checkouts, "
+            "last_seen_at, state, connected_until, machine_capacity, hostname, "
+            "actor_id "
+            "FROM session_relays"
+            f"{machine_clause} ORDER BY last_seen_at DESC, relay_id ASC",
+            tuple(params),
+        ).fetchall()
+    )
+
+
 def derive_launch_eligibility(
     conn: Any,
     *,
@@ -76,6 +100,7 @@ def derive_launch_eligibility(
     surface: str,
     machine_id: str | None,
     now: str,
+    relay_rows: Sequence[Any] | None = None,
 ) -> EligibilitySnapshot:
     """Return one freshest eligible relay per machine.
 
@@ -88,20 +113,16 @@ def derive_launch_eligibility(
     if capability is None or capability.create == "none":
         return EligibilitySnapshot(relays=(), rejection_codes=("unsupported_surface",))
 
-    marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    params: list[Any] = []
-    machine_clause = ""
-    if machine_id:
-        machine_clause = f" WHERE machine_id = {marker}"
-        params.append(machine_id)
-    rows = conn.execute(
-        "SELECT relay_id, machine_id, surface_versions, project_checkouts, "
-        "last_seen_at, state, connected_until, machine_capacity, hostname, "
-        "actor_id "
-        "FROM session_relays"
-        f"{machine_clause} ORDER BY last_seen_at DESC, relay_id ASC",
-        tuple(params),
-    ).fetchall()
+    if relay_rows is None:
+        rows = load_relay_eligibility_rows(conn, machine_id=machine_id)
+    elif machine_id:
+        rows = [
+            row
+            for row in relay_rows
+            if str(_value(row, "machine_id", 1)) == machine_id
+        ]
+    else:
+        rows = list(relay_rows)
     project_keys = _project_keys(conn, project_id)
     considered: set[str] = set()
     selected_by_machine: dict[str, EligibleRelay] = {}
@@ -167,4 +188,4 @@ def derive_launch_eligibility(
     )
 
 
-__all__ = ["derive_launch_eligibility"]
+__all__ = ["derive_launch_eligibility", "load_relay_eligibility_rows"]
