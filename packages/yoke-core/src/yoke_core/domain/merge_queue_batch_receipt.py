@@ -65,9 +65,10 @@ def observe_batch(
     stays attributable even when no run is identified. Returns
     ``(receipt, warning)`` — a receipt with an empty ``head_sha`` plus a
     warning when the run could not be identified; observation never blocks
-    a landed merge. An empty combined head is the honest reading there: the
-    only run this receipt may name is the one carrying the pull request's own
-    queue ref marker.
+    a landed merge. An empty combined head is the honest reading there:
+    the only run this receipt may name is the one whose queue ref carries
+    this pull request's marker or whose ``head_sha`` is this pull
+    request's merge commit — never a different revision.
     """
     auth, auth_err = resolve_auth_detail(ctx, PR_READ)
     if auth_err or auth is None:
@@ -90,7 +91,7 @@ def observe_batch(
     except RestTransportError as exc:
         return None, f"pull request read failed: {exc}"
 
-    run, run_note = read_train_run(ctx, pr_num)
+    run, run_note = read_train_run(ctx, pr_num, covering_sha=merge_sha)
     return (
         BatchReceipt(
             pr_num=pr_num,

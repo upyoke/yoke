@@ -66,7 +66,7 @@ def test_observe_batch_matches_queue_ref_marker_and_required_workflow(monkeypatc
 
 
 def test_observe_batch_never_adopts_another_trains_combined_head(monkeypatch):
-    """Only the run carrying this pull request's marker names its head.
+    """A different combined-head SHA is not this member's proof.
 
     The receipt is what covering-evidence readers compare trees by, so a
     head borrowed from a different train is worse than none: it asserts this
@@ -83,6 +83,23 @@ def test_observe_batch_never_adopts_another_trains_combined_head(monkeypatch):
     assert receipt.run_url == ""
     assert receipt.merge_sha == "m" * 40
     assert "no merge_group workflow run identified" in warn
+
+
+def test_observe_batch_accepts_sibling_when_merge_commit_is_the_combined_head(
+    monkeypatch,
+):
+    """A batch member named after a sibling still records the shared run."""
+    _wire_transport(monkeypatch, runs=[
+        {"path": ".github/workflows/yoke-ci.yml",
+         "head_branch": "gh-readonly-queue/main/pr-7-abc",
+         "head_sha": "m" * 40, "html_url": "https://runs/7",
+         "conclusion": "success"},
+    ])
+    receipt, warn = receipt_mod.observe_batch(_ctx(), pr_num="42")
+    assert warn is None
+    assert receipt.head_sha == "m" * 40
+    assert receipt.run_url == "https://runs/7"
+    assert receipt.merge_sha == "m" * 40
 
 
 def test_observe_batch_without_runs_keeps_merge_identity(monkeypatch):
