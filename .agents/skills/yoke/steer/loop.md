@@ -132,7 +132,14 @@ No Yoke surface shortens a session id, so a short one did not come from Yoke: ne
 
 ```text
 yoke messages list --json
+yoke messages get MESSAGE-ID
 ```
+
+The list serves one row per message — sender, state, recipients, expiry, and
+the first line. It is how you decide which report to open, never the report
+itself: read each inbound message with `yoke messages get MESSAGE-ID` before
+disposing of it, because a disposition assigned off an excerpt is assigned
+off the part of the body that happened to fit.
 
 For each authenticated inbound message: acknowledge immediately, then assign
 a substantive disposition before switching topics or ending this pass: act
