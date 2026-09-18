@@ -22,7 +22,7 @@ was captured at all or synthesized by a completion that arrived first.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Union
 
 CapturedTimestamp = Union[str, datetime, None]
@@ -36,7 +36,12 @@ MAX_PLAUSIBLE_ELAPSED_MS = 24 * 60 * 60 * 1000
 TIMING_MEASURED = "measured"
 TIMING_UNKNOWN_NO_CALL_IDENTITY = "unknown_no_call_identity"
 TIMING_UNKNOWN_NO_RECORDED_START = "unknown_no_recorded_start"
+TIMING_PENDING_START_DELIVERY = "pending_start_delivery"
 TIMING_UNKNOWN_NO_CAPTURED_END = "unknown_no_captured_end"
+# Completing client-wall reports and late opening observations share this
+# window: inside it a missing start or client wall is still in flight, not a
+# permanently absent measurement. hook_client_wall uses the same bound.
+PENDING_DELIVERY_WINDOW = timedelta(minutes=15)
 TIMING_UNKNOWN_LOOKUP_FAILED = "unknown_lookup_failed"
 TIMING_INVALID_ENDPOINT_FORMAT = "invalid_endpoint_format"
 TIMING_INVALID_NEGATIVE_ELAPSED = "invalid_negative_elapsed"
@@ -159,20 +164,65 @@ def start_endpoint_is_synthesized(
     return start == end
 
 
+def delivery_is_pending(
+    observed_at: CapturedTimestamp,
+    *,
+    now: Optional[datetime] = None,
+) -> bool:
+    """True when *observed_at* is still inside the shared delivery window."""
+    observed = parse_captured_timestamp(observed_at)
+    if observed is None:
+        return False
+    current = now if now is not None else datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    else:
+        current = current.astimezone(timezone.utc)
+    return current - observed <= PENDING_DELIVERY_WINDOW
+
+
+def report_owner_elapsed(
+    started_at: CapturedTimestamp,
+    completed_at: CapturedTimestamp,
+    *,
+    observed_at: CapturedTimestamp,
+    now: Optional[datetime] = None,
+) -> ElapsedMeasurement:
+    """Measure from owner timestamps, naming pending vs absent starts.
+
+    Reports re-read ``session_tool_calls`` after a late start has been
+    reconciled. A placeholder or missing start still inside the delivery
+    window is pending delivery, not a permanently absent measurement.
+    """
+    if (
+        started_at is None
+        or (isinstance(started_at, str) and not started_at.strip())
+        or start_endpoint_is_synthesized(started_at, completed_at)
+    ):
+        if delivery_is_pending(observed_at, now=now):
+            return ElapsedMeasurement(None, TIMING_PENDING_START_DELIVERY)
+        return ElapsedMeasurement(None, TIMING_UNKNOWN_NO_RECORDED_START)
+    return measure_elapsed(started_at, completed_at)
+
+
 __all__ = [
     "CapturedTimestamp",
     "ElapsedMeasurement",
     "MAX_PLAUSIBLE_ELAPSED_MS",
+    "PENDING_DELIVERY_WINDOW",
     "TIMING_INVALID_ENDPOINT_FORMAT",
     "TIMING_INVALID_IMPLAUSIBLE_ELAPSED",
     "TIMING_INVALID_NEGATIVE_ELAPSED",
     "TIMING_MEASURED",
+    "TIMING_PENDING_START_DELIVERY",
     "TIMING_UNKNOWN_LOOKUP_FAILED",
     "TIMING_UNKNOWN_NO_CALL_IDENTITY",
     "TIMING_UNKNOWN_NO_CAPTURED_END",
     "TIMING_UNKNOWN_NO_RECORDED_START",
     "arriving_start_supersedes",
+    "delivery_is_pending",
     "measure_elapsed",
     "parse_captured_timestamp",
+    "report_owner_elapsed",
     "start_endpoint_is_synthesized",
 ]

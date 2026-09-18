@@ -20,6 +20,11 @@ from yoke_core.domain.hook_overhead import (
     _timestamp,
     _value,
 )
+from yoke_core.domain.observe_timing import (
+    TIMING_MEASURED,
+    TIMING_PENDING_START_DELIVERY,
+    report_owner_elapsed,
+)
 
 TOOL_LATENCY_FIELDS = [
     "hour_utc",
@@ -28,6 +33,7 @@ TOOL_LATENCY_FIELDS = [
     "surfaces",
     "call_count",
     "timed_count",
+    "pending_count",
     "unsupported_count",
     "unknown_count",
     "timing_coverage_pct",
@@ -51,36 +57,99 @@ def _tool_metric_rows(conn: Any, cutoff: str) -> list[Any]:
     return conn.execute(
         "SELECT e.duration_ms, e.envelope, e.created_at, e.session_id, "
         "COALESCE(hs.executor, ''), COALESCE(hs.executor_surface, ''), "
-        "e.tool_name, e.tool_use_id "
+        "e.tool_name, e.tool_use_id, stc.started_at, stc.completed_at "
         "FROM events e LEFT JOIN harness_sessions hs "
         "ON hs.session_id=e.session_id "
+        "LEFT JOIN session_tool_calls stc "
+        "ON stc.session_id=e.session_id AND stc.tool_use_id=e.tool_use_id "
         f"WHERE e.event_name IN ({placeholders}) AND e.created_at >= {marker}",
         (*_TOOL_COMPLETION_EVENTS, cutoff),
     ).fetchall()
 
 
-def _tool_status(timed: int, unsupported: int, unknown: int, total: int) -> str:
+def _tool_status(
+    timed: int, pending: int, unsupported: int, unknown: int, total: int
+) -> str:
     if unknown:
         return "incomplete"
+    if pending:
+        return "pending"
     if total and timed == 0 and unsupported == total:
         return "unsupported"
     return "comparable" if total else "incomplete"
 
 
+def _classify_call(
+    *,
+    event_duration: int | None,
+    started_at: Any,
+    completed_at: Any,
+    observed: datetime,
+    now: datetime,
+    harness: str,
+    tool_name: str,
+    tool_use_id: str | None,
+) -> tuple[int | None, str]:
+    """Return (milliseconds, kind) using owner timestamps when a row exists."""
+    owner_present = started_at is not None or completed_at is not None
+    if owner_present:
+        measurement = report_owner_elapsed(
+            started_at, completed_at, observed_at=observed, now=now
+        )
+        if measurement.status == TIMING_MEASURED:
+            return measurement.milliseconds, "timed"
+        if measurement.status == TIMING_PENDING_START_DELIVERY:
+            return None, "pending"
+        return None, "unknown"
+    if event_duration is not None:
+        return event_duration, "timed"
+    if is_unsupported_cursor_shell_duration(
+        harness=harness,
+        tool_name=tool_name,
+        tool_use_id=tool_use_id,
+        duration_ms=event_duration,
+    ):
+        return None, "unsupported"
+    measurement = report_owner_elapsed(None, None, observed_at=observed, now=now)
+    if measurement.status == TIMING_PENDING_START_DELIVERY:
+        return None, "pending"
+    return None, "unknown"
+
+
+def _unique_calls(rows: list[Any]) -> list[Any]:
+    """Count one call per ``(session_id, tool_use_id)``; ID-less events stay 1:1."""
+    seen: dict[tuple[str, str, str], Any] = {}
+    unique: list[Any] = []
+    for index, row in enumerate(rows):
+        session_id = str(_value(row, "session_id", 3) or "").strip()
+        tool_use_id = str(_value(row, "tool_use_id", 7) or "").strip()
+        key = (
+            ("call", session_id, tool_use_id)
+            if session_id and tool_use_id
+            else ("event", str(index), "")
+        )
+        if key in seen:
+            continue
+        seen[key] = row
+        unique.append(row)
+    return unique
+
+
 def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
     """Return tool-duration means with timed/total coverage.
 
-    Measured durations enter mean/p95. Unsupported Cursor shell gaps stay in
-    the denominator with an explicit reason. Other missing durations are
-    unknown coverage gaps. A measured zero is timed.
+    Reports read repaired ``session_tool_calls`` endpoints, not the stale
+    ingest snapshot on the event. Unsupported Cursor shell gaps stay in the
+    denominator. Pending start delivery is named separately from unknown.
+    Duplicate completion events for one call identity count once.
     """
-    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
+    now = datetime.now(timezone.utc)
+    cutoff = (now - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
     grouped: dict[tuple[str, str, str], dict[str, Any]] = defaultdict(
         lambda: {
             "total": 0,
             "durations": [],
+            "pending": 0,
             "unsupported": 0,
             "sessions": set(),
             "surfaces": set(),
@@ -88,7 +157,7 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
     )
     conn = db_backend.connect()
     try:
-        rows = _tool_metric_rows(conn, cutoff)
+        rows = _unique_calls(_tool_metric_rows(conn, cutoff))
     finally:
         conn.close()
     for row in rows:
@@ -102,19 +171,25 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
         harness = str(_value(row, "executor", 4) or "").strip() or _executor(envelope)
         surface = str(_value(row, "executor_surface", 5) or "").strip()
         session_id = str(_value(row, "session_id", 3) or "").strip()
-        duration = _duration(_value(row, "duration_ms", 0))
-        unsupported = is_unsupported_cursor_shell_duration(
+        tool_use_id = str(_value(row, "tool_use_id", 7) or "").strip() or None
+        duration, kind = _classify_call(
+            event_duration=_duration(_value(row, "duration_ms", 0)),
+            started_at=_value(row, "started_at", 8),
+            completed_at=_value(row, "completed_at", 9),
+            observed=observed,
+            now=now,
             harness=harness,
             tool_name=str(_value(row, "tool_name", 6) or "").strip(),
-            tool_use_id=str(_value(row, "tool_use_id", 7) or "").strip() or None,
-            duration_ms=duration,
+            tool_use_id=tool_use_id,
         )
         for scope, group_harness in (("global", "all"), ("harness", harness)):
             bucket = grouped[(hour_key, scope, group_harness)]
             bucket["total"] += 1
-            if duration is not None:
+            if kind == "timed" and duration is not None:
                 bucket["durations"].append(duration)
-            elif unsupported:
+            elif kind == "pending":
+                bucket["pending"] += 1
+            elif kind == "unsupported":
                 bucket["unsupported"] += 1
             if session_id:
                 bucket["sessions"].add(session_id)
@@ -129,8 +204,9 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
     ):
         total = bucket["total"]
         timed = len(bucket["durations"])
+        pending_count = bucket["pending"]
         unsupported_count = bucket["unsupported"]
-        unknown_count = total - timed - unsupported_count
+        unknown_count = total - timed - pending_count - unsupported_count
         result.append(
             {
                 "hour_utc": hour,
@@ -139,6 +215,7 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
                 "surfaces": sorted(bucket["surfaces"]),
                 "call_count": total,
                 "timed_count": timed,
+                "pending_count": pending_count,
                 "unsupported_count": unsupported_count,
                 "unknown_count": unknown_count,
                 "timing_coverage_pct": _coverage(timed, total),
@@ -149,7 +226,7 @@ def tool_latency_rows(hours: int) -> list[dict[str, Any]]:
                 "p95_ms": _percentile(bucket["durations"], 0.95),
                 "tool_active_session_count": len(bucket["sessions"]),
                 "comparison_status": _tool_status(
-                    timed, unsupported_count, unknown_count, total
+                    timed, pending_count, unsupported_count, unknown_count, total
                 ),
             }
         )

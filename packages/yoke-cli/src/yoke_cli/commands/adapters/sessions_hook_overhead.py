@@ -39,10 +39,12 @@ def _surfaces(row):
 
 
 def _tool_coverage(row):
-    return (
+    base = (
         f"{row.get('timed_count', 0)}/{row.get('call_count', 0)} "
         f"({row.get('timing_coverage_pct', 0):.1f}%)"
     )
+    pending = row.get("pending_count") or 0
+    return f"{base} pending {pending}" if pending else base
 
 
 def sessions_hook_overhead(args: List[str]) -> int:
@@ -85,6 +87,12 @@ def sessions_hook_overhead(args: List[str]) -> int:
                 "\n* ACTIVE is distinct sessions emitting hook telemetry in the "
                 "hour; it is a load proxy, not simultaneous-execution proof.\n"
             )
+            window = result.get("pending_delivery_window_seconds")
+            if window:
+                stdout.write(
+                    f"Pending delivery window: {window}s; observation cutoff "
+                    f"{result.get('hours', 24)}h. Pending is not incomplete.\n"
+                )
         tool_columns = (
             ("HOUR UTC", _cell("hour_utc"), 20),
             ("SCOPE", _cell("scope"), 8),

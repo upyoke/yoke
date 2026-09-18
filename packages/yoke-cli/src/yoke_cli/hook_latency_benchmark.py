@@ -198,16 +198,28 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
         dispatch_row_count=len(dispatch_rows),
         dispatch_row_limit=dispatch_limit,
     )
+    truncated = bool(coverage["dispatch_row_limit_reached"])
+    missing = {
+        (entry.get("ordinal"), entry.get("phase"))
+        for entry in coverage["missing_phases"]
+    }
     for sample in samples:
+        pending = False
+        incomplete = False
+        for field in PHASE_HOOK_EVENTS:
+            phase = sample.get(field)
+            if not isinstance(phase, dict):
+                if truncated and (sample.get("ordinal"), field) in missing:
+                    incomplete = True
+                else:
+                    pending = True
+                continue
+            if not isinstance(phase.get("evaluator_ms"), int) or not isinstance(
+                phase.get("client_wall_ms"), int
+            ):
+                pending = True
         sample["status"] = (
-            "complete"
-            if all(
-                isinstance(sample.get(field), dict)
-                and isinstance(sample[field].get("evaluator_ms"), int)
-                and isinstance(sample[field].get("client_wall_ms"), int)
-                for field in PHASE_HOOK_EVENTS
-            )
-            else "incomplete"
+            "incomplete" if incomplete else "pending" if pending else "complete"
         )
     roster_end = _roster_evidence(
         _run_json(run, ("sessions", "list", "--liveness", "active"), env).get(
@@ -215,14 +227,16 @@ def run_benchmark(sample_count: int, *, run: Run = subprocess.run) -> dict[str, 
         )
     )
     summary = summarize_samples(samples)
+    sample_statuses = {sample["status"] for sample in samples}
+    if "incomplete" in sample_statuses:
+        report_status = "incomplete"
+    elif "pending" in sample_statuses:
+        report_status = "pending"
+    else:
+        report_status = "complete"
     return {
         "schema": 1,
-        "status": (
-            "complete"
-            if summary["client_wall_timing_coverage_pct"] == 100.0
-            and summary["evaluator_timing_coverage_pct"] == 100.0
-            else "incomplete"
-        ),
+        "status": report_status,
         "harness": harness,
         "surface": surface,
         "client_revision": next(iter(client_revisions), None)

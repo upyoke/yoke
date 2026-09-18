@@ -14,7 +14,7 @@ connection pool down for thirty-five minutes on 2026-09-04.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Iterable
 
 from yoke_contracts.hook_evaluator_protocol import HOOK_CLIENT_TIMING_ID_FIELD
@@ -22,13 +22,7 @@ from yoke_core.domain import db_backend
 from yoke_core.domain.hook_observation_db_session import (
     apply_hook_observation_statement_timeout,
 )
-
-
-# How far back a completing report may reach for its dispatch row. The
-# resident flushes its observation queue every two seconds, so this covers
-# an ordinary report a thousand times over and leaves room for retry
-# backoff; anything older is a report whose row was never written.
-_LOOKBACK = timedelta(minutes=15)
+from yoke_core.domain.observe_timing import PENDING_DELIVERY_WINDOW
 
 
 def _value(row: Any, key: str, index: int) -> Any:
@@ -38,7 +32,9 @@ def _value(row: Any, key: str, index: int) -> Any:
 def _matching_event(conn: Any, event_id: str) -> Any | None:
     """Return the dispatch row for *event_id*, or ``None`` without scanning."""
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
-    cutoff = (datetime.now(timezone.utc) - _LOOKBACK).strftime("%Y-%m-%dT%H:%M:%SZ")
+    cutoff = (datetime.now(timezone.utc) - PENDING_DELIVERY_WINDOW).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
     row = conn.execute(
         "SELECT id, duration_ms, envelope, session_id, actor_id, project_id FROM events "
         f"WHERE client_timing_id={marker} AND created_at >= {marker} LIMIT 1",

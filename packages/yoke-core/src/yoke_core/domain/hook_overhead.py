@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from yoke_core.domain import db_backend
+from yoke_core.domain.observe_timing import delivery_is_pending
 
 
 HOOK_OVERHEAD_FIELDS = [
@@ -19,8 +20,10 @@ HOOK_OVERHEAD_FIELDS = [
     "hook_count",
     "tool_active_session_count",
     "evaluator_timed_count",
+    "evaluator_pending_count",
     "evaluator_timing_coverage_pct",
     "client_timed_count",
+    "client_pending_count",
     "client_timing_coverage_pct",
     "comparison_status",
     "pre_client_p50_ms",
@@ -107,6 +110,8 @@ def _new_bucket() -> dict[str, Any]:
         "post_client": [],
         "post_evaluator": [],
         "post_remainder": [],
+        "evaluator_pending": 0,
+        "client_pending": 0,
     }
 
 
@@ -122,12 +127,15 @@ def _executor(envelope: Any) -> str:
 def hook_overhead_rows(hours: int) -> list[dict[str, Any]]:
     """Return global and per-harness UTC buckets from dispatch events.
 
-    Missing durations stay absent from latency statistics and are counted in
-    coverage. A real zero remains a timed value. ``tool_active_session_count``
-    is the distinct-session count that emitted a hook in the hour; it is a
-    load proxy, not proof those sessions executed simultaneously.
+    Missing durations stay absent from latency statistics. A real zero remains
+    timed. A missing evaluator or client wall still inside the shared delivery
+    window is pending, not a permanently absent coverage gap. The observation
+    cutoff is ``hours`` back from now. ``tool_active_session_count`` is the
+    distinct-session count that emitted a hook in the hour; it is a load
+    proxy, not proof those sessions executed simultaneously.
     """
-    cutoff_at = datetime.now(timezone.utc) - timedelta(hours=hours)
+    now = datetime.now(timezone.utc)
+    cutoff_at = now - timedelta(hours=hours)
     cutoff = cutoff_at.strftime("%Y-%m-%dT%H:%M:%SZ")
     grouped: dict[tuple[str, str, str], dict[str, Any]] = defaultdict(_new_bucket)
     conn = db_backend.connect()
@@ -162,6 +170,8 @@ def hook_overhead_rows(hours: int) -> list[dict[str, Any]]:
                 bucket["surfaces"].add(surface)
             if evaluator_ms is not None:
                 bucket[f"{hook_key}_evaluator"].append(evaluator_ms)
+            elif delivery_is_pending(observed, now=now):
+                bucket["evaluator_pending"] += 1
             if client_ms is not None:
                 comparable_client_ms = (
                     max(evaluator_ms, client_ms)
@@ -173,6 +183,8 @@ def hook_overhead_rows(hours: int) -> list[dict[str, Any]]:
                     bucket[f"{hook_key}_remainder"].append(
                         comparable_client_ms - evaluator_ms
                     )
+            elif delivery_is_pending(observed, now=now):
+                bucket["client_pending"] += 1
 
     result = []
     for (hour, scope, harness), bucket in sorted(
@@ -182,13 +194,24 @@ def hook_overhead_rows(hours: int) -> list[dict[str, Any]]:
     ):
         evaluator_timed = len(bucket["pre_evaluator"]) + len(bucket["post_evaluator"])
         client_timed = len(bucket["pre_client"]) + len(bucket["post_client"])
+        evaluator_pending = bucket["evaluator_pending"]
+        client_pending = bucket["client_pending"]
         total = bucket["hook_count"]
-        complete = (
+        evaluator_unknown = total - evaluator_timed - evaluator_pending
+        client_unknown = total - client_timed - client_pending
+        if evaluator_unknown > 0 or client_unknown > 0:
+            comparison_status = "incomplete"
+        elif evaluator_pending or client_pending:
+            comparison_status = "pending"
+        elif (
             total > 0
             and evaluator_timed == total
             and client_timed == total
             and bucket["pre_total"] == bucket["post_total"]
-        )
+        ):
+            comparison_status = "comparable"
+        else:
+            comparison_status = "incomplete"
         row = {
             "hour_utc": hour,
             "scope": scope,
@@ -197,10 +220,12 @@ def hook_overhead_rows(hours: int) -> list[dict[str, Any]]:
             "hook_count": total,
             "tool_active_session_count": len(bucket["sessions"]),
             "evaluator_timed_count": evaluator_timed,
+            "evaluator_pending_count": evaluator_pending,
             "evaluator_timing_coverage_pct": _coverage(evaluator_timed, total),
             "client_timed_count": client_timed,
+            "client_pending_count": client_pending,
             "client_timing_coverage_pct": _coverage(client_timed, total),
-            "comparison_status": "comparable" if complete else "incomplete",
+            "comparison_status": comparison_status,
         }
         for hook_key in ("pre", "post"):
             clients = bucket[f"{hook_key}_client"]

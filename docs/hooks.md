@@ -157,10 +157,13 @@ PostToolUse client p50/p90/mean, evaluator p50, client-minus-evaluator
 remainder, and timed/total coverage. “Evaluator” is deliberate: on hosted
 transport it includes server work, while local and admin execution can happen
 in-process. The tool table reports completed-call mean/p95 beside timed/total
-coverage globally and per harness. Missing duration is unknown and excluded
-from latency statistics; a measured zero remains timed. The event's own
-`timing_status` says which endpoint was missing, so an uncovered call is
-diagnosable rather than merely absent. Cursor shell completions with no
+coverage globally and per harness. It re-reads repaired `session_tool_calls`
+owner timestamps rather than the event's ingest snapshot, so a late start
+that corrected the row is timed even when the event still says missing.
+Missing duration outside the 15-minute pending-delivery window is unknown
+and excluded from latency statistics; a measured zero remains timed; a start
+or client wall still inside that window is `pending`, not incomplete. The
+observation cutoff is the `--hours` window. Cursor shell completions with no
 `tool_use_id` are `unknown_no_call_identity` (native
 `beforeShellExecution` / `afterShellExecution` omit correlation and
 duration — see `yoke_contracts.cursor_shell_timing`); hook-overhead keeps
@@ -176,12 +179,14 @@ report records the harness and surface, available client/server revisions,
 exact time window, run count, timing coverage, per-hook phase lines from
 the durable `HookDispatchTelemetry` context, actual command time, and
 whole-envelope time. The durable phase read preserves missing
-`client_wall_ms` as unknown; it does not infer it from the opt-in stderr line.
-Its concurrency evidence labels the live roster separately from the
-running-session bucket proxy. Save `--json` output and pass it back with
+`client_wall_ms` as pending delivery while the completing report is still
+in flight; it does not infer it from the opt-in stderr line or mark the
+run incomplete. A phase with no row after the query filled its limit is
+incomplete. Its concurrency evidence labels the live roster separately from
+the running-session bucket proxy. Save `--json` output and pass it back with
 `--compare REPORT.json`; differing harnesses, surfaces, revisions, commands,
-or sample counts, and incomplete evaluator/client-wall coverage, are marked
-incomparable rather than blended.
+or sample counts, pending delivery, and incomplete evaluator/client-wall
+coverage, are marked incomparable rather than blended.
 
 **Deadline contract.** One shared ceiling — `hook_runner_total_timeout_ms`, default 10000ms (`yoke_core.domain.hook_runner_deadline`) — spans both halves: the client-side subset fits within the remaining budget (head-starves-tail, identical to one in-process chain), the client's POST socket timeout is the remainder after it, `deadline_ms` propagates that same remainder, and the server stops launching further chain policies once it is exhausted (clamped to its own ceiling). A deny computed before expiry is preserved on either side; otherwise the response marks `deadline_exhausted` in `degraded` and names every skipped guard as `deadline_skipped:N:a,b,c`. Server-side latency telemetry: `yoke.hook.wait_ms` histogram + `yoke.hook.requests` counter with `outcome ∈ completed|timeout|denied` (the same `outcome` field rides the response for the client's composition).
 
@@ -237,7 +242,8 @@ value carries a null duration and says why:
 | Status | Meaning |
 |---|---|
 | `unknown_no_call_identity` | No session or tool-use id to look the call up by. Cursor `beforeShellExecution` / `afterShellExecution` omit `tool_use_id`. |
-| `unknown_no_recorded_start` | The call has no captured start: no `session_tool_calls` row at all, or a row whose start is still the placeholder its own completion stamped because the opening observation has not landed. Until it does, the duration is unknown rather than the zero-length call two identical endpoints would measure. |
+| `unknown_no_recorded_start` | The call has no captured start after the pending-delivery window: no `session_tool_calls` row, or a row whose start is still the placeholder its own completion stamped. |
+| `pending_start_delivery` | The opening observation has not landed yet and the completion is still inside the 15-minute pending-delivery window. Reports name this pending, not incomplete. |
 | `unknown_no_captured_end` | The caller captured no completion instant. |
 | `unknown_lookup_failed` | The start lookup failed; hooks stay fail-open and never block a tool on telemetry. |
 | `invalid_endpoint_format` | An endpoint could not be read as a timestamp. |
