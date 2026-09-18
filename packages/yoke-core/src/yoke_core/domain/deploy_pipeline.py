@@ -194,7 +194,9 @@ def run_pipeline(
 
     # --- Stage iteration ---
     found_start = not start_stage  # True if no resume point
-    run_started = run_status != "created"
+    # Same-run --from-stage of a failed/cancelled run must re-enter executing
+    # before stage_receipt_allocate; skipped completed stages are not replayed.
+    run_started = run_status not in {"created", "failed", "cancelled"}
 
     for stage in stages:
         s_name = stage["name"]

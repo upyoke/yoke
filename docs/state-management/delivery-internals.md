@@ -179,6 +179,14 @@ Naming a different revision or artifact alongside `--retry-of` is refused as
 `retry_candidate_mismatch` — a different candidate is a replacement release
 and needs its own membership decision.
 
+## Resuming a failed run on the same id
+
+`yoke watch deploy -- RUN-ID --from-stage STAGE` (or `deployment-runs execute
+--from-stage`) is the same-run resume. It re-enters `status=executing` at
+that stage, leaves completed earlier stages unreplayed (including a
+successful hosted-release), and keeps existing failed receipts. A field
+update of `status` or a `--retry-of` new run is not this path.
+
 ## No-Flow Fast Path
 
 For current `release_stage` definitions, items without a deployment flow (or

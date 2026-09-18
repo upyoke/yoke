@@ -47,6 +47,10 @@ Retry a failed or cancelled run without following a moving branch:
     PROJECT FLOW --retry-of FAILED_RUN_ID)
   yoke --env CONTROL-PLANE watch deploy -- "$RETRY_ID"
 
+Resume the same failed run without minting a new run or replaying completed stages:
+  yoke --env CONTROL-PLANE watch deploy -- RUN-ID --from-stage STAGE
+That re-enters executing on this run. `--retry-of` is a new run of the same candidate.
+
 """
     + INTERRUPTED_RUN_RECOVERY
 )

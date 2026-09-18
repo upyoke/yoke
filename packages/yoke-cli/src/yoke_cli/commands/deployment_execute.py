@@ -27,7 +27,9 @@ def deployment_runs_execute(args: List[str]) -> int:
         print(f"usage: {DEPLOYMENT_RUNS_EXECUTE_USAGE}")
         print(
             "Drives runs from `yoke deployment-runs create` (which never "
-            "executes) and resumes failed ones (--from-stage). The project "
+            "executes) and resumes failed ones (--from-stage). A failed "
+            "same-run --from-stage resume re-enters executing at that stage "
+            "and does not replay skipped completed stages. The project "
             "checkout is resolved from the machine-config projects mapping "
             "for the active env; a stale mapping fails the lineage preflight "
             "with the resolved path named.\n\n"
