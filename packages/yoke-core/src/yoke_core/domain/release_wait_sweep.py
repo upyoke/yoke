@@ -96,11 +96,19 @@ def _quiet_past_retention(conn: Any, session_id: str, now: datetime) -> bool:
 
     The spare has to be bounded or a holder whose machine never comes back
     pins its item open forever, and the stale-alive probe will not chase it
-    either — that probe skips parked sessions by design. The bound is a
-    multiple of the holdings TTL rather than a new knob, mirroring
-    ``IN_FLIGHT_HARD_TTL_MULTIPLIER``: a real delivery plus its post-deploy
-    validation is hours, so a week of silence is generous by any reading and
-    still ends in a named hand-off rather than in silence.
+    either — that probe skips parked sessions by design.
+
+    The bound is :data:`RELEASE_WAIT_TTL_MULTIPLIER` times the holdings TTL
+    (``DEFAULT_STALE_WITH_HOLDINGS_THRESHOLD_MINUTES``) rather than a new
+    knob, mirroring ``IN_FLIGHT_HARD_TTL_MULTIPLIER``. Both factors are read
+    at call time and the TTL is a machine-owned setting, so no duration is
+    stated here on purpose: the wall-clock bound differs per machine, and a
+    number written into this docstring would be right on whichever box it
+    was measured on and quietly wrong everywhere else. What is fixed is the
+    ratio — several times longer than the sweep already waits for any
+    claim-holding session, which is the generosity a real delivery plus its
+    post-deploy validation needs — and that the bound ends in a named
+    hand-off rather than in silence.
     """
     from yoke_core.domain.session_reclaim_activity import read_activity_signals
     from yoke_core.domain.sessions_analytics_core import (

@@ -127,8 +127,11 @@ def test_a_declared_owner_inside_the_bound_is_spared(test_db: Any) -> None:
 
 
 def test_quiet_past_the_retention_bound_is_no_longer_spared(test_db: Any) -> None:
-    """The bound is a multiple of the holdings TTL, so a week of silence ends
-    the spare and the sweep hands the item to steering instead."""
+    """Silence past the multiple of the holdings TTL ends the spare, and the
+    sweep hands the item to steering instead. The case derives its own gap
+    from the same two constants rather than naming a duration, because the
+    TTL is a machine-owned setting and any fixed number here would pass or
+    fail by which box ran it."""
     _project(test_db)
     _parked_owner(test_db, 9832)
     _quiet_for(
