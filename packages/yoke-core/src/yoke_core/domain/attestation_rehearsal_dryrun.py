@@ -158,12 +158,15 @@ def issue_payloads_for_item(
     """Return one ``Issue``-shaped dict per failing rehearsal command."""
     from yoke_core.domain.project_identity import render_item_ref
 
+    # Ahead of the claim probe: on a schema without the path-claim tables
+    # that probe aborts the transaction, and every read after it fails.
+    public_ref = render_item_ref(conn, item_id)
     commands, planned_paths = rehearsal_command_inputs(conn, item_id)
     return issue_payloads_for_commands(
         commands,
         repo_root=repo_root,
         planned_paths=planned_paths,
-        public_ref=render_item_ref(conn, item_id),
+        public_ref=public_ref,
     )
 
 

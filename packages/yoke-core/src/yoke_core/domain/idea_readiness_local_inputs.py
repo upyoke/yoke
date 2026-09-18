@@ -67,11 +67,14 @@ def build_local_execution_request(
     from yoke_core.domain.idea_readiness_checkout import item_project_identity
     from yoke_core.domain.project_identity import render_item_ref
 
-    commands, planned_paths = rehearsal_command_inputs(conn, item_id)
+    # Ahead of the claim probes: on a schema without the path-claim tables
+    # those abort the transaction, and every read after them fails.
+    item_ref = render_item_ref(conn, item_id)
     project_id, project_slug = item_project_identity(conn, item_id)
+    commands, planned_paths = rehearsal_command_inputs(conn, item_id)
     return {
         "item_id": int(item_id),
-        "item_ref": render_item_ref(conn, item_id),
+        "item_ref": item_ref,
         "project_id": project_id,
         "project_slug": project_slug,
         "spec_sha256": spec_digest(spec_text),

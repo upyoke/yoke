@@ -45,6 +45,7 @@ def _readiness_payload(
     issues=(),
     unavailable=(),
     advisories=(),
+    local_execution_request=None,
 ) -> dict:
     return {
         "verdict": verdict,
@@ -52,6 +53,7 @@ def _readiness_payload(
         "issues": list(issues),
         "unavailable_checks": list(unavailable),
         "advisories": list(advisories),
+        "local_execution_request": local_execution_request,
     }
 
 
@@ -59,7 +61,7 @@ def test_readiness_check_returns_classified_payload(monkeypatch) -> None:
     monkeypatch.setattr(
         readiness,
         "_run_readiness",
-        lambda item_id: _readiness_payload(
+        lambda item_id, observations=None: _readiness_payload(
             "block",
             "pure_stale_count",
             issues=[_STALE_ISSUE],
@@ -83,7 +85,7 @@ def test_readiness_check_reports_unperformed_checks_in_a_success_envelope(
     monkeypatch.setattr(
         readiness,
         "_run_readiness",
-        lambda item_id: _readiness_payload(
+        lambda item_id, observations=None: _readiness_payload(
             "unavailable", "unavailable", unavailable=[_UNPERFORMED_CHECK],
         ),
     )
@@ -100,7 +102,7 @@ def test_readiness_check_reports_unperformed_checks_in_a_success_envelope(
 def test_readiness_check_missing_tool_returns_structured_error(monkeypatch) -> None:
     """A missing PATH executable stays a typed failure — it is installable."""
 
-    def missing_tool(_item_id: int):
+    def missing_tool(_item_id: int, _observations=None):
         raise FileNotFoundError(2, "No such file or directory", "rg")
 
     monkeypatch.setattr(readiness, "_run_readiness", missing_tool)
@@ -118,7 +120,7 @@ def test_repair_refuses_when_validation_was_not_performed(monkeypatch) -> None:
     monkeypatch.setattr(
         readiness,
         "_run_readiness",
-        lambda item_id: _readiness_payload(
+        lambda item_id, observations=None: _readiness_payload(
             "unavailable", "unavailable", unavailable=[_UNPERFORMED_CHECK],
         ),
     )
@@ -144,7 +146,7 @@ def test_repair_stale_count_calls_domain_repair(monkeypatch) -> None:
     monkeypatch.setattr(
         readiness,
         "_run_readiness",
-        lambda item_id: _readiness_payload(
+        lambda item_id, observations=None: _readiness_payload(
             "block", "pure_stale_count", issues=[_STALE_ISSUE],
         ),
     )
