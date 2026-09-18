@@ -15,6 +15,9 @@ from yoke_core.domain.deployment_qa_admission_materialization import (
     materialize_admitted_requirement,
     member_requirements,
 )
+from yoke_core.domain.deployment_qa_direct_case_target import (
+    bind_existing_direct_deployment_cases,
+)
 from yoke_core.domain.deployment_requirement_snapshots import _plan_snapshot
 from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_execution_environment_target import target_digest
@@ -179,7 +182,7 @@ def materialize_deployment_qa_stage(
         subject,
         agent_plan=agent_plan,
         target=target,
-        allow_empty=any(requirement.get("method_id") for requirement in admitted),
+        allow_empty=True,
     )
     created: list[int] = []
     existing: list[int] = []
@@ -190,6 +193,19 @@ def materialize_deployment_qa_stage(
             "SELECT id FROM deployment_runs WHERE id=%s FOR UPDATE",
             (str(deployment_run_id),),
         )
+        bound_direct = bind_existing_direct_deployment_cases(
+            conn, subject=subject, target=target
+        )
+        if not (
+            snapshots
+            or bound_direct
+            or any(requirement.get("method_id") for requirement in admitted)
+        ):
+            raise QaCasesNotSelectedError(
+                "deployment QA stage has no pinned cases; select a project QA plan "
+                "for this execution and retry materialization"
+            )
+        existing.extend(bound_direct)
         for position, requirement in enumerate(admitted, start=1):
             requirement_id, was_created = materialize_admitted_requirement(
                 conn,

@@ -51,6 +51,16 @@ def _request(run_id, payload) -> FunctionCallRequest:
     )
 
 
+def _named_env(conn, name="stage", url="https://preview.example.test"):
+    conn.execute(
+        "INSERT INTO environments(site,project_id,name,url,settings,created_at) "
+        "SELECT id,1,%s,%s,%s,%s FROM sites WHERE project_id=1 "
+        "ORDER BY id LIMIT 1 ON CONFLICT(project_id,name) DO UPDATE "
+        "SET url=EXCLUDED.url, settings=EXCLUDED.settings",
+        (name, url, json.dumps({"hosts": {"app": url}}), "2026-09-16T00:00:00Z"),
+    )
+
+
 def _run_with_member(conn, run_id="run-20260916-950", status="executing"):
     insert_item(conn, id=6110, title="Carried", status="implementing")
     insert_deployment_run(conn, id=run_id, status=status)
@@ -75,44 +85,37 @@ class TestRunAttachedRequirementAdd(unittest.TestCase):
             outcome = qa_requirement_create.handle_qa_requirement_add(
                 _request(run_id, dict(BROWSER_CASE)),
             )
-            self.assertTrue(outcome.primary_success, outcome.error)
-            self.assertEqual(outcome.result_payload["deployment_run_id"], run_id)
-            row = conn.execute(
-                "SELECT item_id, deployment_run_id, deployment_stage, "
-                "deployment_member_item_id, qa_kind, method_id, "
-                "workflow_transition_id, execution_target_digest "
-                "FROM qa_requirements WHERE id=%s",
-                (outcome.result_payload["requirement_id"],),
-            ).fetchone()
-        self.assertIsNone(row["item_id"])
-        self.assertEqual(row["deployment_run_id"], run_id)
-        self.assertIsNone(row["deployment_stage"])
-        self.assertEqual(row["qa_kind"], "method_case")
-        self.assertEqual(row["method_id"], "browser-check")
-        self.assertIsNone(row["workflow_transition_id"])
-        # A hand-authored case never carries the execution target the stage
-        # gate matches on, so it is evidence rather than a silent gate.
-        self.assertIsNone(row["execution_target_digest"])
+        self.assertFalse(outcome.primary_success)
+        self.assertEqual(outcome.error.code, "payload_invalid")
+        self.assertIn("--deployment-stage", outcome.error.message)
 
-    def test_named_target_env_does_not_write_execution_snapshot(self):
+    def test_named_target_env_writes_execution_snapshot(self):
         with test_database() as conn:
             run_id = _run_with_member(conn, run_id="run-20260917-960")
+            _named_env(conn)
+            conn.commit()
             outcome = qa_requirement_create.handle_qa_requirement_add(
                 _request(run_id, {**BROWSER_CASE, "target_env": "stage"}),
             )
             self.assertTrue(outcome.primary_success, outcome.error)
             row = conn.execute(
-                "SELECT target_env, execution_target_json, "
-                "execution_target_digest FROM qa_requirements WHERE id=%s",
+                "SELECT item_id, deployment_run_id, target_env, "
+                "execution_target_json, execution_target_digest, "
+                "workflow_transition_id FROM qa_requirements WHERE id=%s",
                 (outcome.result_payload["requirement_id"],),
             ).fetchone()
+        self.assertIsNone(row["item_id"])
+        self.assertEqual(row["deployment_run_id"], run_id)
         self.assertEqual(row["target_env"], "stage")
-        self.assertIsNone(row["execution_target_json"])
-        self.assertIsNone(row["execution_target_digest"])
+        self.assertIsNone(row["workflow_transition_id"])
+        self.assertIsNotNone(row["execution_target_json"])
+        self.assertIsNotNone(row["execution_target_digest"])
 
     def test_scopes_a_case_to_a_stage_and_member_by_public_ref(self):
         with test_database() as conn:
             run_id = _run_with_member(conn)
+            _named_env(conn)
+            conn.commit()
             outcome = qa_requirement_create.handle_qa_requirement_add(
                 _request(
                     run_id,
@@ -120,6 +123,7 @@ class TestRunAttachedRequirementAdd(unittest.TestCase):
                         **BROWSER_CASE,
                         "deployment_stage": "stage-smoke",
                         "deployment_member_item": "YOK-6110",
+                        "target_env": "stage",
                     },
                 ),
             )
@@ -129,12 +133,13 @@ class TestRunAttachedRequirementAdd(unittest.TestCase):
                 6110,
             )
             row = conn.execute(
-                "SELECT deployment_stage, deployment_member_item_id "
-                "FROM qa_requirements WHERE id=%s",
+                "SELECT deployment_stage, deployment_member_item_id, "
+                "execution_target_digest FROM qa_requirements WHERE id=%s",
                 (outcome.result_payload["requirement_id"],),
             ).fetchone()
         self.assertEqual(row["deployment_stage"], "stage-smoke")
         self.assertEqual(int(row["deployment_member_item_id"]), 6110)
+        self.assertIsNotNone(row["execution_target_digest"])
 
     def test_finished_run_refuses_with_its_status(self):
         with test_database() as conn:
@@ -277,8 +282,10 @@ class TestRunAttachedCaseRoundtrip(unittest.TestCase):
 
         with test_database() as conn:
             run_id = _run_with_member(conn, run_id="run-20260916-960")
+            _named_env(conn)
+            conn.commit()
             created = qa_requirement_create.handle_qa_requirement_add(
-                _request(run_id, dict(BROWSER_CASE)),
+                _request(run_id, {**BROWSER_CASE, "target_env": "stage"}),
             )
             self.assertTrue(created.primary_success, created.error)
             requirement_id = created.result_payload["requirement_id"]

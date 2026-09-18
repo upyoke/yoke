@@ -13,8 +13,8 @@ Recipe shape doctrine:
     operator-debug fallbacks (and as the sole surface for shapes the
     typed adapters deliberately omit: file-backed
     ``--raw-result-file``/``--artifact-path`` evidence, score /
-    confidence fields, epic-task / deployment-run-attached
-    requirement creation, ``qa_gates`` previews). Epic task list/body
+    confidence fields, epic-task requirement creation, ``qa_gates``
+    previews). Epic task list/body
     reads are wrapped (``yoke epic-tasks list`` / ``yoke
     workflow-item epic-task body-get``); the ``dispatch-chain-*`` CLIs
     have no ``yoke`` CLI adapter yet and stay multi-module.
@@ -103,10 +103,11 @@ QA_COMMANDS: list[dict] = [
             "--method-id browser-inspection --qa-phase post_deploy "
             "[--deployment-stage STAGE [--deployment-member-item PREFIX-N]] "
             "--instructions ... --expected-outcome ... --method-config ...`. "
-            "A run-attached case requires `--method-id`, is refused on a "
-            "finished run or a stage/member the run does not declare, and "
-            "is evidence rather than a stage gate — the pipeline's own "
-            "materialized admission is separate. Epic-task attachment is "
+            "A run-attached case requires `--method-id` and a bindable "
+            "target (`--deployment-stage` for frozen run/stage authority, "
+            "or `--target-env`). Unbound existing member cases recover on "
+            "`yoke qa case run --requirement-id N`; do not add-item onto a "
+            "frozen run and do not attach a plan. Epic-task attachment is "
             "operator-debug only and requires the item binding: "
             "`python3 -m yoke_core.domain.qa requirement-add "
             "--epic-id E --task-num K --workflow-transition STAGE ...`. "
