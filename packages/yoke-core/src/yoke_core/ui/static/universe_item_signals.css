@@ -210,13 +210,24 @@
   font-style: italic;
 }
 
-/* The project-wide deploy lock a waiting run is serialized behind. */
+/* The project-wide deploy lock a waiting run is serialized behind.
+ *
+ * Boxed exactly like a session card's holding group — a 3px hue rule on the
+ * leading edge, an 8% wash of the same hue, and that group's padding and
+ * radius — because both say the same thing: something is held, and that hold
+ * is why nothing is moving. Left as plain text on the card fill it read as
+ * one more line of card copy, which is what post-deploy acceptance rejected.
+ * The hue is the warn token the lock glyph already wore; no new color. */
 .universe-app-root .shipping-run-lock {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
   margin: 4px 0 10px;
+  padding: 7px 9px;
+  border-left: 3px solid var(--yoke-warn);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--yoke-warn) 8%, transparent);
   color: var(--yoke-muted);
   font-size: 11px;
 }
@@ -225,6 +236,12 @@
   color: var(--yoke-warn);
   font-size: 14px;
   line-height: 1;
+}
+/* The box states a condition, so its subject carries the hue the box is
+   drawn in rather than sitting at the muted weight of supporting copy. */
+.universe-app-root .shipping-run-lock-label {
+  color: var(--yoke-warn);
+  font-weight: 650;
 }
 .universe-app-root .shipping-run-lock .item-claimant-row {
   margin: 0;

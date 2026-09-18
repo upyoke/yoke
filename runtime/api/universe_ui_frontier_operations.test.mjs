@@ -80,6 +80,36 @@ test("a waiting run names the project deploy lock holding it", async (t) => {
     /Deploy lock · yoke · project-wide/,
   );
   assert.equal(byClass(locks[0], "item-claimant-mini").length, 1);
+  // The lock is a box, not a line of card copy: acceptance on the served
+  // build rejected it as plain text on the card fill. It wears the hue rule,
+  // wash, padding and radius a session card's holding group wears, so the
+  // two reads of "something is held" look like one another.
+  const signals = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/universe_item_signals.css",
+    import.meta.url,
+  ), "utf8");
+  const lockRule = signals.slice(
+    signals.indexOf(".shipping-run-lock {"),
+  );
+  const lockBody = lockRule.slice(0, lockRule.indexOf("}"));
+  assert.match(lockBody, /border-left: 3px solid var\(--yoke-warn\)/);
+  assert.match(
+    lockBody,
+    /background: color-mix\(in srgb, var\(--yoke-warn\) 8%, transparent\)/,
+  );
+  const holdings = readFileSync(new URL(
+    "../../packages/yoke-core/src/yoke_core/ui/static/"
+      + "universe_sessions_holdings.css",
+    import.meta.url,
+  ), "utf8");
+  for (const shape of ["padding: 7px 9px", "border-radius: 4px"]) {
+    assert.match(lockBody, new RegExp(shape));
+    assert.match(
+      holdings,
+      new RegExp(shape),
+      `${shape} is the session holding box's own shape`,
+    );
+  }
   mounted.unmount();
 });
 
