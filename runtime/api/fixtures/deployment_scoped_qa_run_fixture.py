@@ -12,6 +12,7 @@ and as ``test_deployment_qa_stage_execution.py`` does inline.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from runtime.api.fixtures.backlog_inserts import insert_item
@@ -102,4 +103,119 @@ def seed_frozen_scoped_qa_run(
     conn.commit()
 
 
-__all__ = ["create_smoke_plan", "seed_frozen_scoped_qa_run"]
+def seed_run_standing_on_qa_stage(
+    conn: Any,
+    *,
+    run_id: str,
+    project: str,
+    stages: list[dict],
+    members: tuple[int, ...],
+    lineage: str,
+    environment: str = "stage",
+    environment_url: str = "https://preview.example.test",
+) -> None:
+    """Seed a frozen run parked on its item QA stage with deploy done.
+
+    ``seed_frozen_scoped_qa_run`` stops at admission, which is enough for
+    callers testing composition. Anything asking what the *gate* says needs
+    the run to have actually reached the QA stage: an environment to point
+    at, a ready deploy receipt naming the served lineage, and the run's
+    cursor moved onto the QA stage. Seeding those three together keeps
+    callers from each inventing a slightly different "deployed" state.
+    """
+    from yoke_core.domain.deployment_flow_versioning import cmd_create
+    from yoke_core.domain.deployment_stage_receipts import (
+        allocate_deployment_stage_receipt,
+        complete_deployment_stage_receipt,
+    )
+
+    project_id = resolve_project_id(conn, project)
+    now = iso8601_now()
+    conn.execute(
+        "INSERT INTO environments(site,project_id,name,url,settings,created_at) "
+        "SELECT id,%s,%s,%s,'{}',%s FROM sites "
+        "WHERE project_id=%s ORDER BY id LIMIT 1 "
+        "ON CONFLICT(project_id,name) DO UPDATE SET url=EXCLUDED.url",
+        (project_id, environment, environment_url, now, project_id),
+    )
+    flow_id = f"flow-{run_id}"
+    cmd_create(
+        conn, flow_id, project, flow_id, "", json.dumps(stages), status="disabled"
+    )
+    flow_snapshot = snapshot_flow_requirements(
+        conn, flow_id=flow_id, project_id=project_id, stages=stages
+    )
+    conn.execute(
+        "INSERT INTO deployment_runs("
+        "id,project_id,flow,release_lineage,status,current_stage,created_at,"
+        "composition_frozen_at,requirement_snapshot"
+        ") VALUES (%s,%s,%s,%s,'executing',%s,%s,%s,%s)",
+        (
+            run_id,
+            project_id,
+            flow_id,
+            lineage,
+            str(stages[0]["name"]),
+            now,
+            now,
+            flow_snapshot,
+        ),
+    )
+    for item_id in members:
+        insert_item(
+            conn,
+            id=item_id,
+            project_sequence=item_id,
+            project=project,
+            workflow_id="issue",
+            status="done",
+        )
+        conn.execute(
+            "INSERT INTO deployment_run_items("
+            "run_id,item_id,added_at,requirement_snapshot"
+            ") VALUES (%s,%s,%s,%s)",
+            (
+                run_id,
+                item_id,
+                now,
+                snapshot_member_requirements(
+                    conn,
+                    run_id=run_id,
+                    item_id=item_id,
+                    selection_json=requirement_selection(),
+                ),
+            ),
+        )
+    receipt = allocate_deployment_stage_receipt(
+        conn,
+        run_id=run_id,
+        stage_name=str(stages[0]["name"]),
+        correlation_id=f"{run_id}-deploy-1",
+        target_kind="persistent_environment",
+        executor="test",
+        commit=False,
+    )
+    complete_deployment_stage_receipt(
+        conn,
+        run_id=run_id,
+        receipt_id=int(receipt["id"]),
+        correlation_id=str(receipt["correlation_id"]),
+        status="ready",
+        target_name=environment,
+        observed_url=environment_url,
+        observed_release_lineage=lineage,
+        executor_receipt="test://deploy-ready",
+        commit=False,
+    )
+    conn.execute(
+        "UPDATE deployment_runs SET current_stage=%s WHERE id=%s",
+        (str(stages[1]["name"]), run_id),
+    )
+    conn.commit()
+
+
+__all__ = [
+    "create_smoke_plan",
+    "seed_frozen_scoped_qa_run",
+    "seed_run_standing_on_qa_stage",
+]

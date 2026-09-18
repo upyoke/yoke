@@ -40,6 +40,7 @@ from yoke_core.domain.deployment_flow_policy import (
 )
 from yoke_core.domain.deployment_qa_stage_acceptance import (
     STAGE_ACCEPTED,
+    STAGE_DISCHARGED,
     stage_acceptance,
     stage_acceptance_blockers,
 )
@@ -138,7 +139,7 @@ class ItemStageQa:
 
     @property
     def accepted(self) -> bool:
-        return self.state == STAGE_ACCEPTED
+        return self.state in (STAGE_ACCEPTED, STAGE_DISCHARGED)
 
     @property
     def reason(self) -> str:

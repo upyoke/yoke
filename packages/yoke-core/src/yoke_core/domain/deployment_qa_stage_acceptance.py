@@ -20,7 +20,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from yoke_core.domain.deployment_qa_stage_case_failures import case_failures
+from yoke_core.domain.deployment_qa_stage_case_failures import (
+    case_failures,
+    obligations_fully_discharged,
+)
 from yoke_core.domain.deployment_qa_admission_materialization import (
     fulfill_admitted_obligations,
 )
@@ -134,6 +137,11 @@ STAGE_NOT_RUN = "not yet run"
 STAGE_CASES_UNRESOLVED = "cases unresolved"
 STAGE_INCOMPLETE = "incomplete"
 STAGE_UNSETTLED = "not settled"
+#: Every case was waived or superseded, so nothing remained to execute. It
+#: gates exactly like ``accepted`` and reads differently on purpose: the
+#: release contract keeps an authorized discharge distinguishable from a
+#: result something actually passed.
+STAGE_DISCHARGED = "discharged"
 STAGE_REJECTED = "rejected"
 STAGE_AWAITING_REVIEW = "awaiting review"
 
@@ -147,7 +155,7 @@ class StageAcceptance:
 
     @property
     def accepted(self) -> bool:
-        return self.state == STAGE_ACCEPTED
+        return self.state in (STAGE_ACCEPTED, STAGE_DISCHARGED)
 
 
 def stage_acceptance(
@@ -191,6 +199,19 @@ def stage_acceptance(
         execution_target_digest=digest,
     )
     if execution is None:
+        if obligations_fully_discharged(
+            conn,
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=member_item_id,
+            execution_target_digest=digest,
+        ):
+            # Waiving or superseding every case leaves no case to run, so
+            # demanding a scoped execution here would block on evidence the
+            # discharge already stood in for -- the trap that made a
+            # fully-waived member unreleasable without removing it from the
+            # run, which deployment membership has no way to do.
+            return StageAcceptance(STAGE_DISCHARGED, ())
         return StageAcceptance(
             STAGE_NOT_RUN,
             ("no completed scoped QA execution exists", *failures),
@@ -259,6 +280,7 @@ def stage_acceptance_blockers(
 __all__ = [
     "STAGE_ACCEPTED",
     "STAGE_AWAITING_REVIEW",
+    "STAGE_DISCHARGED",
     "STAGE_CASES_UNRESOLVED",
     "STAGE_INCOMPLETE",
     "STAGE_NOT_RUN",

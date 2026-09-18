@@ -137,6 +137,13 @@ _REQUIREMENT_COLUMNS = (
     ("method_config", "TEXT"),
     ("execution_target_json", "TEXT"),
     ("execution_target_digest", "TEXT"),
+    # A frozen case discharged by a corrected one records the link, the
+    # rationale and when it was drawn, so the broken row survives as
+    # history instead of being edited away or waived.
+    ("superseded_by_requirement_id", "INTEGER REFERENCES qa_requirements(id)"),
+    ("superseded_at", "TEXT"),
+    ("supersession_rationale", "TEXT"),
+    ("supersession_source", "TEXT"),
 )
 
 _RUN_COLUMNS = (
