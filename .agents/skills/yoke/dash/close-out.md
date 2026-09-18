@@ -45,8 +45,12 @@ call you. Re-run the same `yoke merge item` command with `--result` and
 A stage that wants your evidence is run by naming that stage AND your item:
 
 ```text
-yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --plan PLAN --project P
+yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member PREFIX-N --plan PLAN --project P
 ```
+
+That is the long, prod-touching step, so it runs under its own wrapper —
+`yoke watch qa-plan`, not `yoke watch qa-case`, which wraps the narrower
+`qa case run --requirement-id N` and refuses these flags.
 
 Every QA stage credits only requirements bound to its own name — an
 item-scoped one to the member too — so the run-wide form is refused rather
@@ -79,6 +83,13 @@ approval, or after a queue landing that has not reached `done` — re-run the
 same merge command with `--result` and `--verification`. It restores the work
 claim close-out needs and records evidence if the merge identity is not yet on
 the item. Do not hand-run `lifecycle.transition --to done` for Dash close-out.
+
+A delivery-required item finishes through that same command. Re-entering at
+the release wait once the deploy has succeeded IS the done ceremony: the
+close-out asks whether a succeeded run of the item's selected flow delivered
+it, and performs the ceremony when the answer is yes. So there is no second
+command to reach for and no usher leg to jump to — if the transition still
+refuses, read the named reason rather than switching routes.
 
 A queue landing's merge-group proof is recorded when the train lands, and the
 close-out at the deployment wake reads that record rather than asking GitHub

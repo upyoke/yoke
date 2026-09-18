@@ -36,6 +36,26 @@ _RELEASE_CEREMONY_DELIVERY_POLICIES = frozenset(
 )
 
 
+def _ceremony_recovery(workflow: Any, item: Any) -> str:
+    """Name the command that actually performs this item's done ceremony.
+
+    Naming one skill for every workflow sent owners to a command their own
+    definition does not bind — a Dash item has no usher leg, so the printed
+    recovery could not be run at all. The pinned definition already says
+    which skill owns the item's current stage, so ask it.
+    """
+    try:
+        skill_id = workflow.skill_for_stage(str(item.status))
+    except Exception:  # noqa: BLE001 - a refusal must not raise a second error
+        skill_id = None
+    if skill_id:
+        return f"Close it out through '/yoke {skill_id} {item.ref}'."
+    return (
+        f"Close {item.ref} out through the close-out command its pinned "
+        f"workflow binds; do not set 'done' directly."
+    )
+
+
 def prepare_update(
     *,
     item: ItemState,
@@ -137,7 +157,8 @@ def prepare_update(
                     success=False,
                     error=(
                         f"Cannot set {item.ref} to 'done' -- missing done-transition "
-                        f"ceremony nonce. Use '/yoke usher {item.ref}'."
+                        f"ceremony nonce. "
+                        f"{_ceremony_recovery(workflow, item)}"
                     ),
                     error_code="GATE_DONE_NONCE",
                     item_id=item.id,

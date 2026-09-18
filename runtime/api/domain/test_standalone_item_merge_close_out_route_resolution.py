@@ -56,6 +56,13 @@ def _clearance(monkeypatch, verdict: DeliveryClearance) -> None:
     )
 
 
+def _discharged(monkeypatch, answer: bool) -> None:
+    """Whether a succeeded run of the item's selected flow delivered it."""
+    monkeypatch.setattr(
+        release_status, "delivery_has_discharged", lambda _item: answer,
+    )
+
+
 def test_a_merge_only_item_routes_through_the_declared_release_wait(
     monkeypatch,
 ) -> None:
@@ -114,7 +121,7 @@ def test_an_item_already_at_the_release_wait_carries_its_flows_verdict(
     assert route.delivery_discharged is True
 
 
-def test_a_deploying_flow_at_the_release_wait_is_never_discharged(
+def test_a_deploying_flow_still_awaiting_its_delivery_is_not_discharged(
     monkeypatch,
 ) -> None:
     _serve(monkeypatch, "dash")
@@ -122,6 +129,7 @@ def test_a_deploying_flow_at_the_release_wait_is_never_discharged(
         monkeypatch,
         DeliveryClearance(merge_only=False, resolved_flow=DEPLOYING_FLOW),
     )
+    _discharged(monkeypatch, False)
 
     route = release_status.close_out_route(
         _item(
@@ -132,6 +140,34 @@ def test_a_deploying_flow_at_the_release_wait_is_never_discharged(
 
     assert route.stages == ("done",)
     assert route.delivery_discharged is False
+
+
+def test_a_deploying_flow_whose_delivery_succeeded_is_discharged(
+    monkeypatch,
+) -> None:
+    """The ceremony is owed to a deploy, and that deploy has happened.
+
+    Keying this on ``merge_only`` asserted the ceremony for exactly the items
+    that never owed a deploy and withheld it from every item whose deploy had
+    just succeeded, so a delivered member recorded its evidence and was then
+    refused ``done`` for a ceremony no command could perform.
+    """
+    _serve(monkeypatch, "dash")
+    _clearance(
+        monkeypatch,
+        DeliveryClearance(merge_only=False, resolved_flow=DEPLOYING_FLOW),
+    )
+    _discharged(monkeypatch, True)
+
+    route = release_status.close_out_route(
+        _item(
+            workflow_id="dash", status="release", deployment_flow=DEPLOYING_FLOW,
+        ),
+        "release",
+    )
+
+    assert route.stages == ("done",)
+    assert route.delivery_discharged is True
 
 
 def test_a_workflow_with_no_release_wait_closes_straight_out(monkeypatch) -> None:

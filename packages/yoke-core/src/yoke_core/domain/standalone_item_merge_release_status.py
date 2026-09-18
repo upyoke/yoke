@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from yoke_core.domain.deployment_flow_clearance import resolve_delivery_clearance
+from yoke_core.domain.delivery_discharge_read import delivery_has_discharged
 from yoke_core.domain.merge_review_readiness import pinned_workflow_for_item
 from yoke_core.domain.standalone_item_merge_evidence import CLOSED_OUT_STATUS
 from yoke_core.domain.workflow_behavior import delivery_redirect_stage
@@ -29,12 +30,15 @@ class CloseOutRoute:
     Otherwise it is the ordered stage ids to transition through, each one a
     declared edge so every stage in between runs its own gates.
 
-    ``delivery_discharged`` is true only when the item's own registered
-    deployment flow resolved merge-only: the merge that just landed is the
-    whole of its delivery, so this close-out has performed the
-    done-transition ceremony rather than owing one to a later deploy. A
-    delivery-required item is never marked discharged, and stops at its
-    pinned release wait instead.
+    ``delivery_discharged`` is true when this close-out has performed the
+    whole of the item's delivery ceremony rather than owing one to a later
+    deploy. Two ways reach that. The item's registered deployment flow
+    resolved merge-only, so the merge that just landed IS its delivery. Or
+    the item is re-entering at its release wait and the delivery it was
+    waiting for has since succeeded — the deploy happened, so the ceremony
+    it owed is performed, and there is nothing left for a later run to do.
+    An item still waiting on a delivery that has not run is never marked
+    discharged, and stops at its pinned release wait instead.
 
     ``error`` is non-empty when the decision itself could not be made -- an
     unreadable pinned definition, an unread deployment-flow authority, or a
@@ -96,9 +100,17 @@ def close_out_route(
     if clearance.blocked_reason:
         return CloseOutRoute(error=clearance.blocked_reason)
     if workflow.has_reached_stage(status, release_stage_id):
+        # Re-entry at the release wait: the delivery this item waited for may
+        # have happened since. Keying the ceremony on ``merge_only`` alone
+        # asserted it for exactly the items that never owed a deploy, and
+        # withheld it from every item whose deploy had just succeeded — so a
+        # delivered member's close-out recorded its evidence and was then
+        # refused done for a ceremony nobody could perform.
         return CloseOutRoute(
             stages=(CLOSED_OUT_STATUS,),
-            delivery_discharged=clearance.merge_only,
+            delivery_discharged=(
+                clearance.merge_only or delivery_has_discharged(item)
+            ),
         )
     if not declares_transition(workflow, status, release_stage_id):
         return CloseOutRoute()

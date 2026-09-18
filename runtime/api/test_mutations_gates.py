@@ -77,6 +77,23 @@ class TestDoneNonceGate:
         assert result.success is False
         assert result.error_code == "GATE_DONE_NONCE"
 
+    def test_the_refusal_names_the_skill_this_workflow_actually_binds(self):
+        """A recovery the item's own definition cannot run is not a recovery.
+
+        Naming one skill for every workflow sent Dash owners to an usher leg
+        their pinned definition never binds, so the printed command could not
+        be run at all.
+        """
+        item = _make_item(workflow="dash", status="release")
+        gate = _make_gate(done_nonce_verified=False, force=False)
+        result = prepare_update(item=item, field_name="status", value="done", gate=gate)
+        assert result.success is False
+        assert result.error_code == "GATE_DONE_NONCE"
+        bound = item.workflow.skill_for_stage("release")
+        if bound:
+            assert f"/yoke {bound} " in result.error
+        assert "/yoke usher" not in result.error or bound == "usher"
+
     def test_done_allowed_with_nonce(self):
         item = _make_item(workflow="epic", status="implementing")
         gate = _make_gate(done_nonce_verified=True, has_merged_at=True)
