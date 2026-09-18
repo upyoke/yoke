@@ -32,7 +32,8 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
     usage = (
         "yoke qa plan materialize "
         "(--item PREFIX-N --transition T | "
-        "--deployment-run-id RUN --plan PLAN --project P) [--json]"
+        "--deployment-run-id RUN --plan PLAN --project P "
+        "[--stage STAGE [--member PREFIX-N]]) [--json]"
     )
     parser = argparse.ArgumentParser(
         prog="yoke qa plan materialize",
@@ -44,6 +45,17 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
     parser.add_argument("--transition")
     parser.add_argument("--plan")
     parser.add_argument("--project")
+    parser.add_argument(
+        "--stage",
+        help=(
+            "Bind the materialized cases to a pinned deployment QA stage. "
+            "An item-scoped stage also requires --member."
+        ),
+    )
+    parser.add_argument(
+        "--member",
+        help="The run member item an item-scoped QA stage credits.",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
@@ -53,8 +65,12 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
         return usage_error("--item requires --transition")
     if parsed.item and parsed.plan:
         return usage_error("--item uses attached plans and does not accept --plan")
-    if parsed.deployment_run_id and not parsed.plan:
+    if parsed.deployment_run_id and not parsed.plan and not parsed.stage:
         return usage_error("--deployment-run-id requires --plan")
+    if parsed.member and not parsed.stage:
+        return usage_error("--member requires --stage")
+    if parsed.stage and not parsed.deployment_run_id:
+        return usage_error("--stage belongs to --deployment-run-id materialization")
     if parsed.deployment_run_id and parsed.transition:
         return usage_error("--deployment-run-id does not accept --transition")
     if parsed.deployment_run_id and not parsed.project:
@@ -75,6 +91,8 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
             "transition_id": parsed.transition,
             "plan": parsed.plan,
             "project": parsed.project,
+            "deployment_stage": parsed.stage,
+            "deployment_member": parsed.member,
         },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,

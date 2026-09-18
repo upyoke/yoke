@@ -9,8 +9,8 @@ Yoke CLI, which dispatches the registered `qa.*` function ids:
 
 - `yoke qa requirement add|add-batch|list|get|update|waive ...`
 - `yoke qa plan materialize --item PREFIX-N --transition T`
-- `yoke qa plan run --deployment-run-id RUN --plan PLAN --project P`
 - `yoke qa plan run --deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P`
+- `yoke qa plan run --deployment-run-id RUN --plan PLAN --project P` — run-wide, and refused on a run pinning any QA stage
 - `yoke qa run add|complete|record-verdict|list|get ...`
 - `yoke qa artifact presign|add ...`
 - `yoke qa gate-summary ...`
@@ -69,9 +69,12 @@ yoke workflow-item epic-task review-insert \
 # List runs
 yoke qa run list --requirement-id 1
 
-# Materialize and execute a named plan against a real deployment run
+# Materialize and execute a named plan against a real deployment run.
+# Name the stage the run is at, plus the member when that stage's scope is
+# item: a stage credits only requirements bound to both.
 yoke qa plan run \
- --deployment-run-id run-YYYYMMDD-NNN --plan installer-campaign --project yoke
+ --deployment-run-id run-YYYYMMDD-NNN --stage item-qa --member PREFIX-N \
+ --plan installer-campaign --project yoke
 
 # Attach an artifact
 yoke qa artifact add \
@@ -91,7 +94,7 @@ yoke qa gate-summary --item PREFIX-N --target reviewed-implementation --json
 |---|---|---|
 | `yoke qa requirement add` | `--item PREFIX-N (--qa-kind K \| --method-id M) --qa-phase P --workflow-transition STAGE [opts]`, or `--deployment-run RUN --method-id M --qa-phase P [--deployment-stage STAGE [--deployment-member-item PREFIX-N]] [opts]` | Insert one requirement — bound to a QA-gated stage in the item's pinned workflow, or attached to a deployment run (authorized by the run's project scope, no workflow transition, refused on a finished run or a stage/member the run does not declare) |
 | `yoke qa requirement add-batch` | `--item PREFIX-N (--rows-file PATH \| --stdin)` | Insert item-attached requirements atomically; every row requires `workflow_transition_id` |
-| `yoke qa plan materialize` | `--item PREFIX-N --transition T`, legacy `--deployment-run-id RUN --plan PLAN --project P`, or scoped `--deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P` | Materialize attached item plans, one legacy run plan, or frozen stage/member obligations; each case stays on the shared QA authority |
+| `yoke qa plan materialize` | `--item PREFIX-N --transition T`, legacy `--deployment-run-id RUN --plan PLAN --project P`, or scoped `--deployment-run-id RUN --stage STAGE [--member PREFIX-N] [--plan PLAN] --project P` | Materialize attached item plans, one run-wide plan (refused when the run pins any QA stage, since every stage counts only rows carrying its own name), or frozen stage/member obligations; each case stays on the shared QA authority |
 | `yoke qa plan run` | The same item, legacy run, or scoped stage/member selectors as materialize | Execute one server-issued durable roster against its exact subject and target |
 | `yoke qa requirement list` | `[--item PREFIX-N \| --epic-id N \| --deployment-run-id ID]` | List requirements |
 | `yoke qa requirement get` | `--requirement-id N` | Get one requirement |

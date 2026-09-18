@@ -100,3 +100,38 @@ def test_run_message_names_steering_when_the_route_is_steering():
 
     assert "steering seat" in body
     assert "no session holds its deploy lock" in body
+
+
+def test_item_message_names_the_stage_and_member_bound_invocation():
+    body = stage_wait_message(
+        run_id="run-1",
+        stage_name="item-qa",
+        item_ref="EXT-541",
+        target_tier="persistent",
+        revision="a" * 40,
+        reasons="awaiting agent verdict",
+        route=HOLDER,
+    )
+
+    assert (
+        "yoke qa plan run --deployment-run-id run-1 --stage item-qa "
+        "--member EXT-541 --plan PLAN --project PROJECT" in body
+    )
+    assert "never counts" in body
+
+
+def test_run_message_names_the_stage_bound_invocation_without_a_member():
+    body = run_stage_wait_message(
+        run_id="run-9",
+        stage_name="run-qa",
+        target_tier="ephemeral",
+        revision="b" * 40,
+        reasons="awaiting agent verdict",
+        route=DRIVER,
+    )
+
+    assert (
+        "yoke qa plan run --deployment-run-id run-9 --stage run-qa "
+        "--plan PLAN --project PROJECT" in body
+    )
+    assert "--member" not in body

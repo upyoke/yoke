@@ -127,8 +127,11 @@ def _selected_plans(
         unique[key] = snapshot
     if not unique and not allow_empty:
         raise QaCasesNotSelectedError(
-            "deployment QA stage has no pinned cases; select a project QA plan "
-            "for this execution and retry materialization"
+            "deployment QA stage has no pinned cases; select a project QA "
+            "plan and retry, naming the same stage (and member, on an "
+            "item-scoped stage) this execution runs under: `yoke qa plan run "
+            "--deployment-run-id RUN --stage STAGE [--member PREFIX-N] "
+            "--plan PLAN --project P`"
         )
     return list(unique.values())
 
@@ -202,8 +205,11 @@ def materialize_deployment_qa_stage(
             or any(requirement.get("method_id") for requirement in admitted)
         ):
             raise QaCasesNotSelectedError(
-                "deployment QA stage has no pinned cases; select a project QA plan "
-                "for this execution and retry materialization"
+                "deployment QA stage has no pinned cases; select a project QA "
+                "plan and retry, naming the same stage (and member, on an "
+                "item-scoped stage) this execution runs under: `yoke qa plan "
+                "run --deployment-run-id RUN --stage STAGE [--member "
+                "PREFIX-N] --plan PLAN --project P`"
             )
         existing.extend(bound_direct)
         for position, requirement in enumerate(admitted, start=1):

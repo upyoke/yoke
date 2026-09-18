@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 from urllib.parse import urlsplit
 
+from yoke_contracts.machine_qa_case_target import ENVIRONMENT_TARGET_SCHEMA
 from yoke_core.domain import db_backend, qa_hosted_runtime_identity as hosted_identity
 from yoke_core.domain.qa_execution_environment_target import (
     QaExecutionTargetError,
@@ -69,7 +70,7 @@ def environment_execution_target(
         else {}
     ) or _generic_endpoints(identity, settings)
     target = {
-        "schema": 2,
+        "schema": ENVIRONMENT_TARGET_SCHEMA,
         "tenant": {
             "id": int(identity["tenant_id"]),
             "slug": str(identity["tenant_slug"]),

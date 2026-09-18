@@ -93,8 +93,15 @@ def stage_wait_message(
     return (
         f"Deployment run {run_id} reached item-scoped QA stage {stage_name!r} "
         f"for {context}. Reaching {addressed}: {item_ref} still needs to "
-        f"supply this stage's evidence/verdict ({reasons}). Check "
-        f"'yoke deployment-runs get {run_id}' for the current state."
+        f"supply this stage's evidence/verdict ({reasons}). Run its cases "
+        "naming BOTH the stage and the member, which is what this stage "
+        f"credits: 'yoke qa plan run --deployment-run-id {run_id} --stage "
+        f"{stage_name} --member {item_ref} --plan PLAN --project PROJECT'. "
+        "Omitting them materializes requirements this stage never counts, so "
+        "the verdict would discharge nothing. The stage binds the run's own "
+        "deployed target, so a plan authored before this release still "
+        f"verifies it. Check 'yoke deployment-runs get {run_id}' for the "
+        "current state."
     )
 
 
@@ -117,8 +124,11 @@ def run_stage_wait_message(
     return (
         f"Deployment run {run_id} reached run-scoped QA stage {stage_name!r} "
         f"for {context}. Reaching {addressed}: the stage still needs "
-        f"evidence/verdict ({reasons}). Check "
-        f"'yoke deployment-runs get {run_id}' for the current state."
+        f"evidence/verdict ({reasons}). Run its cases naming the stage, "
+        "which is what this stage credits: 'yoke qa plan run "
+        f"--deployment-run-id {run_id} --stage {stage_name} --plan PLAN "
+        f"--project PROJECT'. Check 'yoke deployment-runs get {run_id}' for "
+        "the current state."
     )
 
 

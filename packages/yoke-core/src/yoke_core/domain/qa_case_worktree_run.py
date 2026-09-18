@@ -29,6 +29,7 @@ from yoke_core.domain import qa_gate_timeout
 from yoke_core.domain import verification_tree_binding
 from yoke_core.domain import verification_tree_binding_pytest_startup
 from yoke_core.domain import qa_case_execution
+from yoke_core.domain import qa_case_tree_binding_scope
 from yoke_core.domain.qa_case_execution import QaCaseExecutionError
 
 #: Surface name carried by this runner's tree-binding refusal.
@@ -66,14 +67,31 @@ def execute_worktree_case(
         raise QaCaseExecutionError(
             f"command execution checkout does not exist: {checkout}"
         )
+    # Which tree produced this verdict. Without it a green recorded against
+    # the wrong tree reads exactly like a green against the right one;
+    # ``head_sha`` additionally pins the commit the run covered, and the
+    # binding decision below compares it against the tree this case answers
+    # for.
+    tree = verification_tree_binding.resolve_tree_identity(checkout)
     # A case whose lane branch has no live worktree falls back to the
     # project checkout, so the gate run can land in main while the
     # session's claimed lane sits untouched. The verdict this produces is
-    # recorded, so the refusal belongs before the command, not after.
-    binding = verification_tree_binding.evaluate_run(
-        surface=_TREE_BINDING_SURFACE, tree=str(checkout),
-        allow_mismatch=allow_tree_mismatch,
-    )
+    # recorded, so the refusal belongs before the command, not after. A
+    # deployment-run case answers for the candidate its run deployed
+    # instead, so that revision is what its checkout is held to.
+    if qa_case_tree_binding_scope.session_lane_binds_case(case):
+        binding = verification_tree_binding.evaluate_run(
+            surface=_TREE_BINDING_SURFACE, tree=str(checkout),
+            allow_mismatch=allow_tree_mismatch,
+        )
+    else:
+        binding = qa_case_tree_binding_scope.evaluate_deployment_binding(
+            surface=_TREE_BINDING_SURFACE,
+            case=case,
+            tree=str(checkout),
+            head_sha=tree.head_sha if tree else "",
+            allow_mismatch=allow_tree_mismatch,
+        )
     if binding.notice:
         print(binding.notice, file=sys.stderr, flush=True)
     if binding.refusal:
@@ -132,10 +150,6 @@ def execute_worktree_case(
     )
     if timeout_summary:
         output += f"\n[timeout]\n{timeout_summary}\n"
-    # Which tree produced this verdict. Without it a green recorded
-    # against the wrong tree reads exactly like a green against the right
-    # one; ``head_sha`` additionally pins the commit the run covered.
-    tree = verification_tree_binding.resolve_tree_identity(checkout)
     record = {
         "command": command,
         "cwd": str(checkout),

@@ -116,3 +116,43 @@ harness skill, not a terminal command. Held to each of these:
 Naming an environment is what a case opts into. A case that names none — an
 item's own verification command, for instance — keeps running against
 whatever its runner already resolves, with no execution target recorded.
+
+## Binding a deployment case to its stage and member
+
+A deployment run's QA stages declare their own scope. Acceptance reads
+`deployment_stage = <name>` for every one of them, and an item-scoped stage
+reads its member item too, so materializing a plan run-wide — no stage, no
+member — writes rows no stage reads: the owner sees a recorded pass and an
+unchanged stage that goes on waiting. A run pinning **any** QA stage, of
+either scope, refuses the run-wide form and names the binding invocation; a
+run whose flow pins no QA stage keeps it:
+
+```text
+yoke qa plan run --deployment-run-id <run-id> --stage <stage-name> \
+  --member <PREFIX-N> --plan <plan-slug> --project <project>
+```
+
+`yoke qa plan materialize` takes the same `--stage` / `--member` pair when
+only the requirement rows are wanted. A run-scoped stage takes `--stage`
+alone; `--member` without `--stage` is refused.
+
+Stage materialization stamps the run's **own** observed target — resolved
+from the receipt its deploying stage wrote — onto every case it creates. A
+plan authored before the release under test therefore verifies that release
+with nothing to retarget: the plan supplies the cases, the run supplies the
+target. A case bound this way carries a deployment execution target whose
+`environment` records the registered environment row and destination kind
+alongside its name, which is the shape Machine QA contracts accept beside a
+plan's own environment target.
+
+A deployment-run case is not bound to the session's claimed lane: its subject
+is the candidate the run deployed, already built and observed at that
+endpoint, which no member's worktree contributed to. It is bound to that
+candidate instead. A checkout sitting at the run's `release_lineage` runs
+with no flag — the ordinary case for an owner supplying evidence after the
+release. A checkout that has moved is refused, naming both revisions, because
+a command that reads the repository would otherwise report on code the run
+never deployed; `--allow-tree-mismatch` remains available and here declares
+that the case reads nothing from the checkout, as a probe against the
+deployed endpoint does. The tree the command ran in is recorded on the
+verdict either way.

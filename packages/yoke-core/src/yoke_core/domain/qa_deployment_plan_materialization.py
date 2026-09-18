@@ -10,6 +10,9 @@ from yoke_core.domain.qa_plan_management import QaPlanError, _placeholder
 from yoke_core.domain.qa_execution_environment_target import (
     resolve_plan_execution_target,
 )
+from yoke_core.domain.qa_deployment_run_stage_scope import (
+    require_stage_scoped_materialization,
+)
 from yoke_core.domain.qa_plan_requirement_snapshot import (
     require_existing_target,
     require_requirement_id_target,
@@ -39,6 +42,12 @@ def materialize_deployment_plan(
         raise QaPlanError(f"deployment run {deployment_run_id!r} not found")
     if project is not None and str(run["project"]) != str(project):
         raise QaPlanError("deployment run does not belong to the requested project")
+    require_stage_scoped_materialization(
+        conn,
+        deployment_run_id=str(deployment_run_id),
+        plan=str(plan),
+        project=str(project or run["project"]),
+    )
     plan_row = query_one(
         conn,
         "SELECT * FROM qa_plans "

@@ -42,6 +42,20 @@ this item's delivery, so a stage run in a stage-and-production pair will not
 call you. Re-run the same `yoke merge item` command with `--result` and
 `--verification` then, and it finishes the close-out. Never poll the run.
 
+A stage that wants your evidence is run by naming that stage AND your item:
+
+```text
+yoke qa plan run --deployment-run-id RUN --stage STAGE --member PREFIX-N --plan PLAN --project P
+```
+
+Every QA stage credits only requirements bound to its own name — an
+item-scoped one to the member too — so the run-wide form is refused rather
+than recording a pass the stage ignores. Materialization stamps the run's own
+deployed target onto the cases, so a plan authored before this release still
+verifies it. A deployment case is bound to the candidate the run deployed, not
+to your lane: run it from a checkout at that revision and no flag is needed;
+`--allow-tree-mismatch` declares the case reads nothing from the checkout.
+
 **Any prompt that wakes you clears the park**, including one that does not
 finish the item. The close-out re-stamps it for you when it refuses, but a
 wake you handled some other way does not: whenever you go quiet still short

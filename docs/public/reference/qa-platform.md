@@ -232,12 +232,13 @@ verification requirement and every blocking epic-level requirement is satisfied.
 
 ### Deployment Run Requirements
 
-Deployment runs may materialize a named project plan as run-level requirements. These are flow- or
-release-scoped post-deploy requirements that prove release health:
+Deployment runs materialize a named project plan as post-deploy requirements that prove release
+health. Name the QA stage, and the member too when its scope is `item` — every QA stage credits only requirements carrying its own name, so a run pinning one refuses the unscoped form ([case-attachment.md](qa-platform/case-attachment.md)):
 
 ```text
 yoke qa plan run \
   --deployment-run-id <run-id> \
+  --stage <stage-name> [--member <PREFIX-N>] \
   --plan <plan-slug> \
   --project <project>
 ```
