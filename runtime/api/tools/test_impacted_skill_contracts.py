@@ -57,3 +57,36 @@ def test_qa_seeding_change_keeps_no_tests_teaching_contract(tmp_path: Path) -> N
 
     assert contract in selection.files
     assert f"agent_skill_contract:{changed}" in selection.widening_triggers
+
+
+def test_every_skill_doc_assertion_is_rostered() -> None:
+    """A test that reads skill prose must be selected when prose changes.
+
+    The roster is hand-maintained, so a new test asserting a skill doc's
+    bytes joins it only if someone remembers. One did not, and the selection
+    it should have triggered stayed green while the full suite went red on
+    the exact file the change edited.
+
+    Importing the shared skill-doc helper IS the declaration that a test
+    reads that prose, so it is the membership rule rather than a second list
+    to keep in step.
+    """
+    root = Path(__file__).resolve().parents[3]
+    helper = "skill_doc_regressions_test_helpers"
+    rostered = set(impacted_tests.AGENT_SKILL_CONTRACT_TESTS)
+
+    this_file = Path(__file__).resolve()
+    unrostered = sorted(
+        path.relative_to(root).as_posix()
+        for path in (root / "runtime" / "api").rglob("test_*.py")
+        # This module names the helper to state the rule, not to read prose.
+        if path.resolve() != this_file
+        and helper in path.read_text(encoding="utf-8", errors="replace")
+        and path.relative_to(root).as_posix() not in rostered
+    )
+
+    assert unrostered == [], (
+        "these tests assert skill-doc prose but are not in "
+        "AGENT_SKILL_CONTRACT_TESTS, so a skill-doc change does not select "
+        f"them: {unrostered}"
+    )

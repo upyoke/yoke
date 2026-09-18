@@ -21,11 +21,30 @@ from yoke_core.domain.install_bundle import (
 
 AGENT_SKILL_CONTRACT_TESTS = (
     # Skill command prose has no import edge to its contract checks.
+    "runtime/api/cli/test_yoke_strategy_render_refresh.py",
+    "runtime/api/domain/test_db_claim_prose_check_buckets.py",
+    "runtime/api/domain/test_idea_db_claim_buckets.py",
+    "runtime/api/domain/test_install_bundle_tree_sync.py",
+    "runtime/api/domain/test_migration_instruction_coherence.py",
     "runtime/api/engines/test_doctor_hc_atlas.py",
+    "runtime/api/engines/test_doctor_skill_entrypoint_disclosure.py",
+    "runtime/api/test_active_context_concision.py",
     "runtime/api/test_agent_authored_filing_instruction_resolution.py",
+    "runtime/api/test_browser_case_docs.py",
+    "runtime/api/test_canonical_xdist_teaching.py",
     "runtime/api/test_direct_workflow_skills.py",
     "runtime/api/test_file_budget_workflow_teaching.py",
+    "runtime/api/test_headless_landing_wait_teaching.py",
     "runtime/api/test_idea_db_claim_recipe_fail_closed.py",
+    "runtime/api/test_onboard_deferred_hosting.py",
+    "runtime/api/test_onboard_delivery_choice.py",
+    "runtime/api/test_onboard_test_setup_profiles.py",
+    "runtime/api/test_polish_skill_framing.py",
+    "runtime/api/test_release_wait_retention_teaching.py",
+    "runtime/api/test_safe_operator_surface_drift.py",
+    "runtime/api/test_simulate_operator_contract.py",
+    "runtime/api/test_simulation_prompt_assembly.py",
+    "runtime/api/test_skill_doc_drift.py",
     "runtime/api/test_skill_doc_regressions_advance.py",
     "runtime/api/test_skill_doc_regressions_conduct_claims.py",
     "runtime/api/test_skill_doc_regressions_conduct_core.py",
@@ -38,6 +57,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_impacted_bounded.py",
     "runtime/api/test_skill_doc_regressions_misc.py",
     "runtime/api/test_skill_doc_regressions_onboard.py",
+    "runtime/api/test_skill_doc_regressions_onboard_delivery.py",
     "runtime/api/test_skill_doc_regressions_onboard_no_tests.py",
     "runtime/api/test_skill_doc_regressions_path_claim_coordination.py",
     "runtime/api/test_skill_doc_regressions_plan_merge.py",
@@ -49,24 +69,7 @@ AGENT_SKILL_CONTRACT_TESTS = (
     "runtime/api/test_skill_doc_regressions_usher_collect.py",
     "runtime/api/test_skill_prose_schema_drift.py",
     "runtime/api/test_steer_prompt.py",
-    # Splitting a sibling out of a listed module moves its tests outside this
-    # roster — the same failure the product-CLI family below records. These
-    # four assert skill prose and were each missed by a bounded selection that
-    # then failed the full suite: the steer worker-lifecycle sibling of
-    # test_steer_prompt.py, the current-state checkpoint contracts, the steer
-    # narrowed-read class inside a strategy-render module, and the operator
-    # surface catalog that names where the command reference lives.
     "runtime/api/test_steer_prompt_worker_lifecycle.py",
-    "runtime/api/test_active_context_concision.py",
-    "runtime/api/cli/test_yoke_strategy_render_refresh.py",
-    "runtime/api/test_safe_operator_surface_drift.py",
-    # The entrypoint-disclosure check reads the whole corpus, so any prose
-    # change can put an entrypoint over budget or strand a phase reference.
-    "runtime/api/engines/test_doctor_skill_entrypoint_disclosure.py",
-    "runtime/api/domain/test_db_claim_prose_check_buckets.py",
-    "runtime/api/domain/test_idea_db_claim_buckets.py",
-    "runtime/api/domain/test_install_bundle_tree_sync.py",
-    "runtime/api/domain/test_migration_instruction_coherence.py",
 )
 
 AGENT_SKILL_SOURCE_PREFIXES = (
