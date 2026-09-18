@@ -42,11 +42,13 @@ def test_dash_skill_carries_the_end_to_end_execution_contract():
         "`work_claim_activation` gate",
         "may already release the item work claim",
         "registered Dash worktree lane",
-        # The claim is acquired up front, before any survey/edit work; its
-        # release is conditional on what merge/done already did.
+        # The claim is acquired up front, before any survey/edit work, and
+        # its release is conditional twice over: a claim has to remain AND
+        # the item has to be finished, which a release wait is not.
         "Claim the item first.",
         'yoke claims work acquire --item ITEM --reason "Dash execution"',
-        "Only release when a claim remains, or when",
+        "Only release when a claim remains AND the item is finished",
+        "skip it\nentirely while the item sits at a release wait",
         'yoke claims work release --item ITEM --reason "Dash completed"',
         "Every survey call replaces the entire stored touch set",
         "narrow it to the complete",
