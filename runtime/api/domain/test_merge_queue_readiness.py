@@ -9,6 +9,7 @@ from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     TargetRef,
 )
+from yoke_core.domain import merge_queue_read_reuse as reads_mod
 from yoke_core.domain import merge_queue_readiness as readiness_mod
 from yoke_core.domain.handlers import github_merge_queue_readiness as handler
 from yoke_core.engines.merge_worktree_pr_check_runs import LandingCheck
@@ -47,7 +48,7 @@ def _wire(
         lambda _item_id: _item(),
     )
     monkeypatch.setattr(
-        readiness_mod,
+        reads_mod,
         "read_pr_landing_state",
         lambda _ctx, _pr: (state, None),
     )
@@ -56,13 +57,13 @@ def _wire(
         targets.append(base_branch)
         return list(members), None
 
-    monkeypatch.setattr(readiness_mod, "read_queue_members", read_members)
+    monkeypatch.setattr(reads_mod, "read_queue_members", read_members)
 
     def read_checks(_ctx, pr_num):
         checks_calls.append(pr_num)
         return tuple(checks), None
 
-    monkeypatch.setattr(readiness_mod, "read_required_checks", read_checks)
+    monkeypatch.setattr(reads_mod, "read_required_checks", read_checks)
     return targets, checks_calls
 
 

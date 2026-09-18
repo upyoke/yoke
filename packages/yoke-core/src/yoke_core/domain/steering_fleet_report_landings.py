@@ -12,6 +12,7 @@ from yoke_core.domain.merge_queue_readiness import (
     MergeQueueReadiness,
     read_merge_queue_readiness,
 )
+from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
 from yoke_core.domain.schema_common import _column_exists
 from yoke_core.domain.session_message_types import row_dict
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
@@ -70,10 +71,22 @@ def landing_readbacks(
     project_id: int,
     members: Optional[set[int]] = None,
     in_flight_item_ids: frozenset[int] = frozenset(),
+    reads: Optional[FleetReportReads] = None,
 ) -> tuple[FleetLandingReadback, ...]:
-    """Read admitted handoffs and inline waits in the seat's item scope."""
+    """Read admitted handoffs and inline waits in the seat's item scope.
+
+    ``reads`` is the request this readback belongs to: the project's open
+    landing rows are read once for it, and every landing asks GitHub
+    through the same memo, so one repository's queue answers one question
+    per request however many landings are open in it.
+    """
+    request = reads if reads is not None else FleetReportReads()
     result: list[FleetLandingReadback] = []
-    for row in _candidates(conn, project_id=project_id):
+    candidates = request.cached(
+        ("landing_candidates", int(project_id)),
+        lambda: _candidates(conn, project_id=project_id),
+    )
+    for row in candidates:
         item_id = int(row["id"])
         if members is not None and item_id not in members:
             continue
@@ -91,6 +104,7 @@ def landing_readbacks(
             ctx,
             pr_number=str(row["merge_queue_pr_number"]),
             target=target,
+            reads=request.landings,
         )
         result.append(
             FleetLandingReadback(

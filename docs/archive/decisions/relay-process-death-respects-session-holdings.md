@@ -35,8 +35,8 @@ releasing a live holder's authority can admit conflicting work.
 
 The liveness handler reads
 `sessions_holdings_projection.session_holdings_by_session`, the same complete
-current-holdings projection used by session cards and fleet reporting. It
-does not maintain a second query for a subset of claim kinds. A non-empty
+current-holdings projection the session cards read. It does not maintain a
+second query for a subset of claim kinds. A non-empty
 `current` list is the whole preservation decision, independent of harness,
 surface, launch origin, or holding kind.
 
