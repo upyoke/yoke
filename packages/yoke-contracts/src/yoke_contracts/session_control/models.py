@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from yoke_contracts.executor_labels import KNOWN_SURFACE_LABELS
+from yoke_contracts.read_detail import DETAIL_SUMMARY, ReadDetail
 from yoke_contracts.session_control.recipient_selector import RecipientSelector
 from yoke_contracts.session_control.states import (
     LaunchState,
@@ -106,6 +107,13 @@ class MessageListRequest(BaseModel):
     projects: Optional[List[int]] = None
     limit: int = Field(default=50, ge=1, le=500)
     cursor: Optional[str] = None
+    detail: ReadDetail = Field(
+        default=DETAIL_SUMMARY,
+        description=(
+            "summary serves one compact row per message; full serves every "
+            "body and recipient receipt, for callers that render them."
+        ),
+    )
 
 
 class MessageGetRequest(BaseModel):
@@ -135,6 +143,7 @@ class MessageLeaseCompleteRequest(BaseModel):
 class MessageListResponse(BaseModel):
     messages: List[Dict[str, Any]]
     count: int
+    detail: ReadDetail = DETAIL_SUMMARY
 
 
 class MessageGetResponse(BaseModel):

@@ -12,7 +12,9 @@ from yoke_core.domain.actor_permissions import PERM_ITEMS_READ
 from yoke_core.domain.actor_project_visibility import (
     actor_project_ids_with_permission,
 )
+from yoke_contracts.read_detail import DETAIL_FULL, DETAIL_SUMMARY
 from yoke_core.domain.json_helper import dumps_compact, loads_text
+from yoke_core.domain.session_message_list_row import message_list_row
 from yoke_core.domain.session_message_queries import (
     expire_message_receipts,
     message_visible,
@@ -223,6 +225,7 @@ def _summaries(
     actor_id: int,
     caller_session_id: str | None,
     needs_attention: bool,
+    detail: str,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for message_id, _created_at in ids:
@@ -238,7 +241,12 @@ def _summaries(
             summary, actor_id=actor_id, session_id=caller_session_id
         )
         summary["needs_attention"] = needs_attention
-        rows.append(summary)
+        # Visibility above is decided from the recipient rows the compact
+        # projection drops, so the narrowing happens here rather than in
+        # the query it would otherwise have to re-widen.
+        rows.append(
+            summary if detail == DETAIL_FULL else message_list_row(summary)
+        )
     return rows
 
 
@@ -252,6 +260,7 @@ def read_message_page(
     projects: list[int] | None = None,
     limit: int = DEFAULT_SETTLED_LIMIT,
     cursor: str | None = None,
+    detail: str = DETAIL_SUMMARY,
 ) -> dict[str, Any]:
     """Return every matching actionable message and one settled page."""
     expire_message_receipts(conn)
@@ -304,6 +313,7 @@ def read_message_page(
             actor_id=actor_id,
             caller_session_id=caller_session_id,
             needs_attention=True,
+            detail=detail,
         ),
         *_summaries(
             conn,
@@ -311,6 +321,7 @@ def read_message_page(
             actor_id=actor_id,
             caller_session_id=caller_session_id,
             needs_attention=False,
+            detail=detail,
         ),
     ]
     return {
@@ -320,6 +331,7 @@ def read_message_page(
         "settled_loaded_count": len(settled_ids),
         "settled_matched_count": settled_matched_count,
         "next_cursor": next_cursor,
+        "detail": detail,
     }
 
 

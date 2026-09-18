@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, TextIO
 
+from yoke_contracts.read_detail import SUMMARY_EXCERPT_CHARACTERS
 from yoke_contracts.session_control.liveness import ENDED_CAUSE_KILLED
 from yoke_contracts.session_control.terminal_report import (
     COLLAPSED_DIFFERING_BODY_NOTICE,
@@ -27,7 +28,7 @@ from yoke_cli.commands.adapters.session_control_recipient_output import (
 )
 
 
-BODY_EXCERPT_CHARACTERS = 72
+BODY_EXCERPT_CHARACTERS = SUMMARY_EXCERPT_CHARACTERS
 EMPTY_VALUE = "—"
 #: ``(heading, accessor, width)``. ``None`` width elides; part of an id is not the id.
 Column = tuple[str, Callable[[Mapping[str, Any]], Any], int | None]
@@ -202,12 +203,15 @@ def _write_recipients(
         ("MACHINE", lambda row: row.get("machine_id"), None),
         ("MESSAGEABLE", _messageable, 18),
     )
-    write_table(
-        "RECIPIENTS",
-        columns,
-        rows,
-        stdout,
-        empty="No recipients found.",
+    write_table("RECIPIENTS", columns, rows, stdout, empty="No recipients found.")
+
+
+def _sender(row: Mapping[str, Any]) -> Any:
+    """However a row spells its sender; a compact row resolves it for us."""
+    return (
+        row.get("sender")
+        or row.get("sender_session_id")
+        or row.get("sender_actor_label")
     )
 
 
@@ -219,8 +223,11 @@ def _message_state(message: Mapping[str, Any]) -> str:
     return " / ".join(states) if states else "no recipients"
 
 
-def _body_excerpt(value: Any) -> str:
-    return _fit(value, BODY_EXCERPT_CHARACTERS)
+def _body_excerpt(message: Mapping[str, Any]) -> str:
+    """A compact row already carries its excerpt; a full message has prose."""
+    if "body_excerpt" in message:
+        return _fit(message["body_excerpt"], BODY_EXCERPT_CHARACTERS)
+    return _fit(message.get("body"), BODY_EXCERPT_CHARACTERS)
 
 
 def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
@@ -239,7 +246,7 @@ def _write_message_detail(message: Mapping[str, Any], stdout: TextIO) -> None:
         ("Recipients", recipient_count(message)),
         ("Created (UTC)", utc_time(message.get("created_at"))),
         ("Expires (UTC)", utc_time(message.get("expires_at"))),
-        ("Body excerpt", _body_excerpt(message.get("body"))),
+        ("Body excerpt", _body_excerpt(message)),
     ]
     if message.get("cancellation_reason"):
         fields.insert(
@@ -297,23 +304,19 @@ def write_message_result(result: Mapping[str, Any], stdout: TextIO) -> None:
                 print(command, file=stdout)
         columns: tuple[Column, ...] = (
             ("MESSAGE", lambda row: row.get("message_id"), None),
+            ("FROM", _sender, 24),
             ("STATE / REASON", _message_state, 28),
             ("TO", recipient_count, 4),
             ("CREATED (UTC)", lambda row: utc_time(row.get("created_at")), 22),
             ("EXPIRES (UTC)", lambda row: utc_time(row.get("expires_at")), 22),
-            (
-                "BODY",
-                lambda row: _body_excerpt(row.get("body")),
-                BODY_EXCERPT_CHARACTERS,
-            ),
+            ("BODY", _body_excerpt, BODY_EXCERPT_CHARACTERS),
         )
-        write_table(
-            "MESSAGES",
-            columns,
-            messages,
-            stdout,
-            empty="No messages found.",
-        )
+        write_table("MESSAGES", columns, messages, stdout, empty="No messages found.")
+        if messages:
+            print(
+                "Read one whole: yoke messages get MESSAGE-ID",
+                file=stdout,
+            )
         return
     message = result.get("message")
     if isinstance(message, Mapping):
