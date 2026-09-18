@@ -52,10 +52,12 @@ close-out finish. Keep waiting for that run — and when you report, say your
 code may already be serving, so the reader does not read your open wait as an
 unshipped change.
 
-A stage that wants your evidence is run by naming that stage AND your item:
+A stage that wants your evidence is run by naming that stage AND your item.
+When you attached an item QA plan at verify, the stage has already resolved it
+and `--plan` is unnecessary; name one only to select a different plan:
 
 ```text
-yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member PREFIX-N --plan PLAN --project P
+yoke watch qa-plan -- --deployment-run-id RUN --stage STAGE --member PREFIX-N --project P
 ```
 
 That is the long, prod-touching step, so it runs under its own wrapper —

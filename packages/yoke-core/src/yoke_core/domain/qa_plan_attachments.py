@@ -84,6 +84,7 @@ def attach_plan_to_item(
         item_id=int(item_id),
         transition_id=transition_id,
         plan_id=int(plan_id),
+        qa_phase=qa_phase,
     )
     now = iso8601_now()
     try:

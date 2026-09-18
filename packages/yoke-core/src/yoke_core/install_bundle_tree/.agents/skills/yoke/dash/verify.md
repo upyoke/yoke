@@ -117,6 +117,35 @@ An empty listing means no effective plan is attached at that transition. For
 optional Dash QA that is an honest absence; do not invent a substitute command
 or a hand-written run.
 
+## Bring your own item QA plan
+
+When the item's resolved deployment flow carries an **item-scoped QA stage**,
+that stage will later ask this item to prove its own behaviour on the deployed
+candidate. Author that plan here, while its cases are still editable, and
+attach it at the item's release stage, which is where post-deploy
+acceptance binds:
+
+```text
+yoke qa plan create <slug> --project P --environment <env>
+yoke qa plan-cases replace --project P --plan-id <id> --stdin
+yoke qa item-plan attach --item ITEM --project P --plan-id <id> \
+  --transition release --qa-phase post_deploy
+```
+
+Its cases test **this item's** acceptance criteria — not another item's, and
+not the release's in general. Then dry-run it once against your own candidate,
+before merging, while a defect still costs an edit:
+
+```text
+yoke qa plan run --item ITEM --transition release \
+  --base-url <your candidate>
+```
+
+An item whose flow has no item-scoped QA stage needs none of this. The
+deployment stage picks the attached plan up on its own, so nothing has to be
+chosen at the wake — which is the point: a probe first executed against
+production, after its case has frozen, can only be waived or superseded.
+
 ## Posture knobs
 
 Then execute each selected posture knob through its shared authority:

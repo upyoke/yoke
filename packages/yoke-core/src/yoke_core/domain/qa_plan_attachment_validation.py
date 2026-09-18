@@ -33,14 +33,23 @@ def validate_item_transition(
     item_id: int,
     transition_id: Any,
     plan_id: Any = None,
+    qa_phase: Any = None,
 ) -> str:
-    """Map the shared item QA binding error to the plan domain error."""
+    """Map the shared item QA binding error to the plan domain error.
+
+    ``qa_phase`` decides which gate the binding is asked to reach: a
+    post-merge phase binds where its own acceptance runs rather than at a
+    verification gate. Dropping it here made every attachment read as
+    verification, so a post-deploy plan could not be attached at all on a
+    workflow whose item QA is an optional attachment.
+    """
     try:
         transition, _workflow = validate_item_qa_transition(
             conn,
             item_id=int(item_id),
             transition_id=transition_id,
             plan_id=plan_id,
+            qa_phase=qa_phase,
         )
     except QaWorkflowBindingError as exc:
         raise QaPlanError(str(exc)) from exc

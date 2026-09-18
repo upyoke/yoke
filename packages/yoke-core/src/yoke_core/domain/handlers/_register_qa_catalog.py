@@ -265,7 +265,7 @@ def register(registry) -> None:
         _writes.MutationResponse,
         stability="stable",
         owner_module="yoke_core.domain.handlers.qa_plan_writes",
-        target_kinds=["item"],
+        target_kinds=["item", "deployment_run"],
         side_effects=["qa_requirements_update", "qa_requirements_insert"],
         emitted_event_names=["YokeFunctionCalled"],
         guardrails=["snapshot_replacement", "claim_required"],

@@ -65,6 +65,8 @@ def _make_request(
     epic_id: Optional[int] = None,
     task_num: Optional[int] = None,
     claim_id: Optional[int] = None,
+    deployment_run_id: Optional[str] = None,
+    payload: Optional[dict] = None,
 ) -> FunctionCallRequest:
     target = TargetRef(
         kind=kind,
@@ -72,11 +74,13 @@ def _make_request(
         epic_id=epic_id,
         task_num=task_num,
         claim_id=claim_id,
+        deployment_run_id=deployment_run_id,
     )
     return FunctionCallRequest(
         function=function,
         actor=ActorContext(actor_id="op", session_id=session_id),
         target=target,
+        payload=payload or {},
     )
 
 

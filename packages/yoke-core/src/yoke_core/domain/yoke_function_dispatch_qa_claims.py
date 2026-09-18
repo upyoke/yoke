@@ -155,8 +155,46 @@ def qa_subject_claim_verdict(
     )
 
 
+def resolve_deployment_member_item_id(
+    member_ref: Any,
+) -> tuple[Optional[int], Optional[str], Optional[str]]:
+    """Resolve the member item a deployment-scoped call is claimed against.
+
+    A deployment-run target names its subject by run and stage; on an
+    item-scoped stage the thing a caller must hold a claim on is the member,
+    which travels in the payload rather than in ``target.item_id``. Without
+    this the item claim check has no id to look up and refuses every
+    deployment-form call, however the caller is claimed.
+
+    Returns the same ``(item_id, error_code, error_message)`` triple as
+    :func:`resolve_qa_requirement_item_id`.
+    """
+    if member_ref in (None, ""):
+        return (None, None, None)
+    try:
+        from yoke_core.domain import db_helpers
+        from yoke_core.domain.project_identity import resolve_item_id
+
+        with db_helpers.connect() as conn:
+            resolved = resolve_item_id(conn, str(member_ref))
+    except Exception as exc:  # noqa: BLE001 - a refusal must name its cause
+        return (
+            None,
+            "claim_required",
+            f"failed to resolve deployment member {member_ref!r} to item_id: {exc}",
+        )
+    if resolved is None:
+        return (
+            None,
+            "not_found",
+            f"deployment member {member_ref!r} not found",
+        )
+    return (int(resolved), None, None)
+
+
 __all__ = [
     "qa_subject_claim_verdict",
+    "resolve_deployment_member_item_id",
     "resolve_qa_requirement_item_id",
     "resolve_qa_requirement_subject",
 ]
