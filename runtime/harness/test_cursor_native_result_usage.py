@@ -7,6 +7,7 @@ stdout as it exits, after the turn's last hook has already run.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 import json
 import sqlite3
@@ -65,6 +66,12 @@ def _capture(stdout: str, *, state: str = STATE_EXITED, exit_code: int | None = 
     )
 
 
+def _measured(document: str):
+    usage = usage_from_document(document)
+    assert usage is not None
+    return replace(usage, observed_at="")
+
+
 def _result_line(*, request_id: str, output_tokens: int = 30) -> str:
     payload = json.loads(NATIVE_RESULT_LINE)
     payload["request_id"] = request_id
@@ -98,7 +105,8 @@ def test_settled_result_folds_the_turn_the_hooks_could_not_see() -> None:
     assert entry.cached_input == 9600
     assert entry.cache_write == 0
     assert entry.output == 30
-    assert session_usage_document(CONVERSATION) == document
+    # Every read retakes the reading, so observed_at moves on its own.
+    assert _measured(session_usage_document(CONVERSATION)) == _measured(document)
 
 
 def test_a_redelivered_result_is_counted_once() -> None:
@@ -186,7 +194,7 @@ def test_a_launch_capture_is_folded_by_its_launch_id(tmp_path: Path) -> None:
     document = fold_launch_native_result(launch_id, state_dir=tmp_path)
 
     assert usage_from_document(document).billable_tokens() > 0
-    assert session_usage_document(CONVERSATION) == document
+    assert _measured(session_usage_document(CONVERSATION)) == _measured(document)
 
 
 def test_an_unreadable_launch_reference_folds_nothing(tmp_path: Path) -> None:
