@@ -25,9 +25,12 @@ is refused and names both revisions, with ``--allow-tree-mismatch`` reserved
 for its true meaning here — a case that reads nothing from the checkout,
 such as a probe against a deployed endpoint.
 
-Nothing here blocks a run it could not judge: a target with no recorded
-candidate, or a checkout with no readable HEAD, proceeds under a notice that
-says the binding is unverified, never in silence.
+A binding this cannot evaluate refuses rather than proceeding. Elsewhere an
+unanswerable lookup is a notice, because the thing being checked is a
+coordination fact and the run itself is still meaningful; here the missing
+fact IS the evidence's subject, so "which code did this verdict cover?" has
+no answer at all. Every deployment run carries its candidate revision and
+every checkout has a HEAD, so this fires only on a real fault.
 """
 
 from __future__ import annotations
@@ -89,14 +92,33 @@ def evaluate_deployment_binding(
     subject = _subject(case)
     candidate = candidate_revision(case)
     if not candidate or not head_sha:
-        missing = "its target records no candidate revision" if not candidate else (
-            f"'{tree}' has no readable HEAD"
+        missing = (
+            "its execution target records no candidate revision"
+            if not candidate
+            else f"'{tree}' has no readable HEAD"
         )
+        if allow_mismatch:
+            return DeploymentBinding(
+                notice=(
+                    f"{surface}: {ALLOW_TREE_MISMATCH_FLAG} — {subject} is "
+                    f"bound to the candidate it deployed, but {missing}. Taken "
+                    "as a declaration that this case reads nothing from the "
+                    "checkout; its verdict says nothing about repository "
+                    "content."
+                )
+            )
         return DeploymentBinding(
-            notice=(
-                f"{surface}: {subject} is bound to the candidate it deployed, "
-                f"not to any claimed worktree, but {missing}. Proceeding "
-                f"unverified; '{tree}' is recorded on the verdict."
+            refusal=(
+                f"{surface} TREE-BINDING REFUSAL: {subject} is bound to the "
+                f"candidate it deployed, but {missing}, so which code this "
+                "verdict covers cannot be established. A run always records "
+                "its candidate and a checkout always has a HEAD, so this is a "
+                "fault rather than a missing option.\n"
+                f"Repair the checkout at '{tree}' (or the run's recorded "
+                "candidate) and re-run, or pass "
+                f"{ALLOW_TREE_MISMATCH_FLAG} only when this case reads nothing "
+                "from the checkout, such as a probe against the deployed "
+                "endpoint."
             )
         )
     if head_sha == candidate:

@@ -125,7 +125,7 @@ def test_the_mismatch_flag_declares_the_case_reads_no_checkout() -> None:
     assert "reads nothing from the checkout" in binding.notice
 
 
-def test_a_target_without_a_candidate_proceeds_but_says_it_is_unverified() -> None:
+def test_a_target_without_a_candidate_is_refused_rather_than_unverified() -> None:
     case = _deployment_case(execution_target={"deployment": {"run_id": RUN_ID}})
 
     binding = evaluate_deployment_binding(
@@ -135,9 +135,47 @@ def test_a_target_without_a_candidate_proceeds_but_says_it_is_unverified() -> No
         head_sha=OTHER_REVISION,
     )
 
+    assert binding.notice == ""
+    assert "records no candidate revision" in binding.refusal
+    assert "cannot be established" in binding.refusal
+    assert "--allow-tree-mismatch" in binding.refusal
+
+
+def test_a_checkout_without_a_readable_head_is_refused() -> None:
+    binding = evaluate_deployment_binding(
+        surface="qa case run",
+        case=_deployment_case(),
+        tree="/checkout",
+        head_sha="",
+    )
+
+    assert binding.notice == ""
+    assert "has no readable HEAD" in binding.refusal
+    assert "Repair the checkout at '/checkout'" in binding.refusal
+
+
+def test_the_flag_still_carries_a_case_whose_binding_cannot_be_evaluated() -> None:
+    binding = evaluate_deployment_binding(
+        surface="qa case run",
+        case=_deployment_case(),
+        tree="/checkout",
+        head_sha="",
+        allow_mismatch=True,
+    )
+
     assert binding.refusal == ""
-    assert "no candidate revision" in binding.notice
-    assert "unverified" in binding.notice
+    assert "reads nothing from the checkout" in binding.notice
+
+
+def test_a_deployment_case_outside_a_repository_refuses_before_the_command(
+    tmp_path,
+) -> None:
+    case = _deployment_case(method_config={"command": "cat probe.txt"})
+
+    with pytest.raises(QaCaseExecutionError) as refusal:
+        execute_worktree_case(case, checkout_path=tmp_path)
+
+    assert "has no readable HEAD" in str(refusal.value)
 
 
 def test_a_tree_dependent_deployment_case_refuses_a_checkout_off_candidate(
