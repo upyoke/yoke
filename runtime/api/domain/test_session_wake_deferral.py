@@ -326,3 +326,4 @@ def _connection_at(path) -> sqlite3.Connection:
     memory.close()
     disk.row_factory = sqlite3.Row
     return disk
+
