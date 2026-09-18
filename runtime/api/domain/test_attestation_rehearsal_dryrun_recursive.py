@@ -18,7 +18,9 @@ from pathlib import Path
 
 import pytest
 
-from yoke_core.domain.attestation_rehearsal_dryrun import _check_command_shape
+from yoke_core.domain.attestation_rehearsal_command_shape import (
+    check_command_shape,
+)
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -32,7 +34,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
     ],
 )
 def test_recursive_migration_apply_self_call_caught(command: str) -> None:
-    result = _check_command_shape(
+    result = check_command_shape(
         command,
         _REPO_ROOT,
     )
@@ -45,7 +47,7 @@ def test_dotted_module_ref_without_subcommand_passes() -> None:
     # (no rehearse subcommand) must NOT trigger the
     # recursive-self-call guard — it's a meta-invocation, not a child
     # rehearsal run.
-    assert _check_command_shape(
+    assert check_command_shape(
         "python3 -m yoke_core.domain.migration_apply --help",
         _REPO_ROOT,
     ) is None

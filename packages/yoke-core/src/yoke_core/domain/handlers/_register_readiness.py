@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from yoke_core.domain.handlers import readiness as _readiness
+from yoke_core.domain.handlers import readiness_prd_validate as _prd
 
 
 def register(registry) -> None:
@@ -22,11 +23,11 @@ def register(registry) -> None:
     )
     registry.register(
         "readiness.prd_validate.run",
-        _readiness.handle_prd_validate,
-        _readiness.ReadinessPrdValidateRequest,
-        _readiness.ReadinessPrdValidateResponse,
+        _prd.handle_prd_validate,
+        _prd.ReadinessPrdValidateRequest,
+        _prd.ReadinessPrdValidateResponse,
         stability="stable",
-        owner_module="yoke_core.domain.handlers.readiness",
+        owner_module="yoke_core.domain.handlers.readiness_prd_validate",
         target_kinds=["item"],
         side_effects=[],
         emitted_event_names=["YokeFunctionCalled"],

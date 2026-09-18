@@ -27,7 +27,7 @@ import argparse
 import json
 import subprocess
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from yoke_core.domain.file_budget_paths import (
     extract_file_budget_paths_set,
@@ -42,10 +42,8 @@ from yoke_core.domain.idea_readiness_check_refs import (
     is_module_or_planned_ref,
     module_file_candidates as _module_file_candidates,
 )
-from yoke_core.domain.idea_readiness_checkout import (
-    item_project_checkout,
-    unavailable_checkout_dependent_checks,
-)
+from yoke_core.domain.idea_readiness_checkout import item_project_checkout
+from yoke_core.domain.idea_readiness_local_inputs import read_spec
 from yoke_core.domain.idea_readiness_results import (
     Issue,
     ReadinessOutcome,
@@ -63,16 +61,6 @@ _IDEA_STATUS_ALLOWS_UNRESOLVED_BUDGET = "idea"
 
 def _p(conn) -> str:
     return "%s" if db_backend.connection_is_postgres(conn) else "?"
-
-
-def _read_spec_for_item(conn: Any, item_id: int) -> str:
-    p = _p(conn)
-    row = conn.execute(
-        f"SELECT spec FROM items WHERE id = {p}", (item_id,),
-    ).fetchone()
-    if row is None or row[0] is None:
-        return ""
-    return str(row[0])
 
 
 def _read_status_for_item(conn: Any, item_id: int) -> str:
@@ -102,17 +90,23 @@ def verify_function_owners(
     item_id: int = 0,
     *,
     repo_root: Path,
+    suppressed_refs: Optional[Set[str]] = None,
 ) -> List[Issue]:
     """Every ``runtime.api...func_name`` paired with a verb
     (modify/extend/edit/wraps/add behavior to) resolves to a real
     ``def func_name`` in the named module's .py file. Missing or
     renamed definitions surface as ``Issue``.
+
+    ``suppressed_refs`` carries the planned-claim carve-out for a caller
+    that has the checkout but not the claim tables; a caller with ``conn``
+    resolves the same carve-out itself.
     """
     issues: List[Issue] = []
     # Pre-filter: skip package-submodule and planned refs before rg search.
     refs = {
         (fp, fn) for fp, fn in _function_refs_to_verify(spec_text)
-        if not is_module_or_planned_ref(fp, item_id, conn, repo_root)
+        if fp not in (suppressed_refs or ())
+        and not is_module_or_planned_ref(fp, item_id, conn, repo_root)
     }
     if not refs or rg_available() is None:
         return issues
@@ -182,7 +176,7 @@ def verify_file_budget_claim_consistency(
 
     return verify_claim_consistency(
         conn, item_id,
-        spec_text=_read_spec_for_item(conn, item_id),
+        spec_text=read_spec(conn, item_id),
         issue_type=Issue,
     )
 
@@ -208,14 +202,22 @@ def verify_effective_file_budget_claim_consistency(
 
 
 def run_all_checks(
-    conn: Any, item_id: int,
+    conn: Any,
+    item_id: int,
+    local_observations: Optional[Dict[str, Any]] = None,
 ) -> ReadinessOutcome:
     """Compose the readiness checks into one outcome.
 
     File-reading checks run against the item project's checkout when this
-    host has one, and are reported as unperformed when it does not. Every
-    check that needs no files runs either way.
+    host has one. When it does not, ``local_observations`` collected by a
+    machine that does have the tree stand in for them, and are merged only
+    while they remain bound to the spec this run read. Absent both, those
+    checks are reported as unperformed. Every check that needs no files
+    runs either way.
     """
+    from yoke_core.domain.idea_readiness_local_inputs import (
+        checkout_absent_findings,
+    )
     from yoke_core.domain.idea_readiness_repair_cross_item_overlap import (
         probe_cross_item_overlap,
     )
@@ -226,7 +228,7 @@ def run_all_checks(
         evaluate as evaluate_file_budget,
     )
 
-    spec_text = _read_spec_for_item(conn, item_id)
+    spec_text = read_spec(conn, item_id)
     issues: List[Issue] = []
     unavailable: List[UnavailableValidation] = []
     advisories: List[Any] = []
@@ -242,7 +244,10 @@ def run_all_checks(
         ))
     checkout = item_project_checkout(conn, item_id)
     if checkout is None:
-        unavailable = unavailable_checkout_dependent_checks(conn, item_id)
+        observed, advisories, unavailable = checkout_absent_findings(
+            conn, item_id, spec_text, local_observations,
+        )
+        issues.extend(observed)
     else:
         issues.extend(verify_function_owners(
             spec_text, conn, item_id, repo_root=checkout,
