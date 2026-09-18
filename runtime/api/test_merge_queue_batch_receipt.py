@@ -33,7 +33,9 @@ def _wire_transport(monkeypatch, *, runs):
     def fake_request(req, *, token, **_kw):
         if "/pulls/" in req.path:
             return _response({"merge_commit_sha": "m" * 40})
-        assert req.path.endswith("/actions/runs")
+        # Scoped to the declared workflow's own runs collection, so a
+        # second merge_group workflow cannot spend the page budget.
+        assert req.path.endswith("/actions/workflows/yoke-ci.yml/runs")
         assert req.query["event"] == "merge_group"
         return _response({"workflow_runs": runs})
 
@@ -82,7 +84,7 @@ def test_observe_batch_never_adopts_another_trains_combined_head(monkeypatch):
     assert receipt.head_sha == ""
     assert receipt.run_url == ""
     assert receipt.merge_sha == "m" * 40
-    assert "no merge_group workflow run identified" in warn
+    assert "no merge_group workflow run identified" in warn.reason
 
 
 def test_observe_batch_accepts_sibling_when_merge_commit_is_the_combined_head(
@@ -107,7 +109,7 @@ def test_observe_batch_without_runs_keeps_merge_identity(monkeypatch):
     receipt, warn = receipt_mod.observe_batch(_ctx(), pr_num="42")
     assert receipt.head_sha == ""
     assert receipt.merge_sha == "m" * 40
-    assert "no merge_group workflow run" in warn
+    assert "no merge_group workflow run" in warn.reason
 
 
 def test_record_batch_evidence_payload_shape():
