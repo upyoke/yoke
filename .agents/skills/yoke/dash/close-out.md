@@ -80,13 +80,28 @@ same merge command with `--result` and `--verification`. It restores the work
 claim close-out needs and records evidence if the merge identity is not yet on
 the item. Do not hand-run `lifecycle.transition --to done` for Dash close-out.
 
+A queue landing's merge-group proof is recorded when the train lands, and the
+close-out at the deployment wake reads that record rather than asking GitHub
+again — so parking across a release wait costs the evidence nothing. When no
+record exists and the derivation itself fails, read whether the refusal says
+a retry can help: a provider that failed to answer is worth re-running, while
+an anchored search that completed and found no run returns the same answer
+forever and says so. Do not answer the second kind by re-running the command,
+and do not reach for `done-transition --skip-deploy` — that flag records
+delivery as out-of-band, and the done engine now refuses it outright when the
+item's own selected flow already delivered it.
+
 Re-entry converges only when the current lane candidate is the recorded landing
 identity, a fast-forward onto that merge — including a squash whose original
-head is not an ancestor of the base — or a lane holding nothing but copies of
-the commits that merge already took, which is what a rebase after a landing
-leaves behind. A merge-queue `landed_at` / PR record is not that proof by
-itself: close-out reuses it only when Git containment (or a rebased copy with
-no leftover commits) shows the current candidate already landed. An earlier
+head is not an ancestor of the base — or a lane that adds nothing to the base
+branch at all. That last one covers both a rebase after a landing and a lane
+whose commits reached the base under a companion item's landing: it is asked
+by merging the lane into the base and comparing the result to the base's own
+tree, so foreign shas and lane-side merges do not defeat it, and a lane still
+carrying anything — a deletion included — still takes the candidate merge
+path. A merge-queue `landed_at` / PR record is not that proof by
+itself: close-out reuses it only when Git containment (or a lane that adds
+nothing) shows the current candidate already landed. An earlier
 landing plus later uncontained commits takes the candidate merge path — also
 from a release stage entered by a false close-out — and does not erase
 receipts. Unverifiable containment refuses rather than succeeding. This is

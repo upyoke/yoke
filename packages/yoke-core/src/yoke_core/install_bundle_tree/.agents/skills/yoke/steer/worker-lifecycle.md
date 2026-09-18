@@ -356,6 +356,19 @@ their delivery ran, against four whose workers parked and held. The close-out
 keeps the claim and parks the session on that wait, and the mandate names the
 boundary so the worker does not undo it.
 
+Re-running that one command is the whole close-out, and it stays the whole
+close-out however long the wait ran. The merge-group proof is recorded when
+the train lands and read back at the wake, and delivery is answered by
+whether a succeeded run of the item's selected flow contains its merge rather
+than by whether that run happened to enrol it. Neither decays. So a worker
+that reaches the wake owes steering a report only when the close-out refuses,
+and a refusal that says a retry cannot help is a blocker to report rather
+than a loop to run. Workers must not reach for `done-transition
+--skip-deploy` to get past one: it records delivery as out-of-band, the done
+engine refuses it when the selected flow already delivered the item, and
+using it on a selected-flow release writes a false record of how that release
+happened.
+
 ### Vet each landing before it enters a release
 
 A worker merges as soon as its gate is green, and that is the design. Do not

@@ -36,6 +36,12 @@ run it through the merge watcher, then handle exit codes:
 yoke watch merge done-transition -- PREFIX-N --skip-deploy
 ```
 
+`--skip-deploy` records delivery as having happened outside the item's
+selected flow, so it belongs only to items this route is for. The guard
+refuses it when a succeeded run of that item's own flow already delivered the
+item — recording a selected-flow release as out-of-band is a false record,
+and an item in that state closes out through `yoke merge item` instead.
+
 For any non-zero exit code that revert-to-implemented requires, call `lifecycle.transition.execute` to revert the item from `release` back to `implemented` (the handler runs the standard rollback gate, posts the GitHub status-change comment, and emits `ItemStatusChanged`):
 
 ```json
