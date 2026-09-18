@@ -32,7 +32,10 @@ from yoke_core.domain.gh_rest_transport import (
 )
 from yoke_core.domain.json_helper import dumps_compact
 from yoke_core.engines.merge_worktree_pr_queue import resolve_auth_detail
-from yoke_core.engines.merge_worktree_pr_train_run import read_train_run
+from yoke_core.engines.merge_worktree_pr_train_run import (
+    TrainRunLookupFailure,
+    read_train_run,
+)
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
 
@@ -57,7 +60,7 @@ def observe_batch(
     pr_num: str,
     member_snapshot: tuple[str, ...] = (),
     drift_check: Optional[Mapping[str, str]] = None,
-) -> tuple[Optional[BatchReceipt], Optional[str]]:
+) -> tuple[Optional[BatchReceipt], Optional[TrainRunLookupFailure]]:
     """Resolve the merge_group run and merge identity covering ``pr_num``.
 
     ``member_snapshot`` is the queue membership observed at entry time
@@ -72,7 +75,14 @@ def observe_batch(
     """
     auth, auth_err = resolve_auth_detail(ctx, PR_READ)
     if auth_err or auth is None:
-        return None, auth_err
+        return None, TrainRunLookupFailure(
+            reason=f"pull request read unavailable: {auth_err}",
+            recovery=(
+                "Restore the project's GitHub binding for pull-request reads, "
+                "then re-run the same close-out command."
+            ),
+            retryable=True,
+        )
     owner, repo = split_repo(auth.repo)
 
     merge_sha = ""
@@ -89,7 +99,14 @@ def observe_batch(
         )
         merge_sha = str(pr_body.get("merge_commit_sha") or "")
     except RestTransportError as exc:
-        return None, f"pull request read failed: {exc}"
+        return None, TrainRunLookupFailure(
+            reason=f"pull request read failed: {exc}",
+            recovery=(
+                "The provider read failed rather than answering; re-run the "
+                "same close-out command once it is reachable."
+            ),
+            retryable=True,
+        )
 
     run, run_note = read_train_run(ctx, pr_num, covering_sha=merge_sha)
     return (

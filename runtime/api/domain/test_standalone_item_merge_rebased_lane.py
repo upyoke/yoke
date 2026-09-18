@@ -241,9 +241,33 @@ def test_a_receipt_the_base_does_not_contain_converges_nothing(
 
 
 def test_an_unreadable_comparison_is_not_a_landing(tmp_path, monkeypatch):
+    """With no comparison able to run, "already landed" is unprovable.
+
+    Both content reads are silenced, because either one answering is a real
+    answer; the mistake this guards is converging when neither did.
+    """
+    repo, _base, lane_head, merge_commit = _landed_lane_repo(tmp_path)
+    receipt = _receipt(lane_head, merge_commit)
+    monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: receipt)
+    monkeypatch.setattr(landed.git, "unlanded_commits", lambda *_a: None)
+    monkeypatch.setattr(landed.git, "lane_adds_nothing", lambda *_a: None)
+
+    assert landed.landed_lane(**_look(repo), project="yoke") is None
+
+
+def test_the_tree_read_answers_where_patch_identity_cannot(tmp_path, monkeypatch):
+    """Either read suffices, so an unreadable `git cherry` is not the end.
+
+    This is what recognises extra lane commits that reached the base under a
+    companion item's landing: their shas are foreign to the base, and the
+    lane may hold merges patch identity refuses to speak for.
+    """
     repo, _base, lane_head, merge_commit = _landed_lane_repo(tmp_path)
     receipt = _receipt(lane_head, merge_commit)
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: receipt)
     monkeypatch.setattr(landed.git, "unlanded_commits", lambda *_a: None)
 
-    assert landed.landed_lane(**_look(repo), project="yoke") is None
+    lane = landed.landed_lane(**_look(repo), project="yoke")
+
+    assert lane is not None
+    assert lane.source == "rebased copy of the landed lane"

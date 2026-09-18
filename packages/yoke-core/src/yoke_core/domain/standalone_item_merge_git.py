@@ -161,6 +161,42 @@ def unlanded_commits(
     return tuple(dict.fromkeys(unlanded))
 
 
+def lane_adds_nothing(repo_root: str, commit: str, base: str) -> Optional[bool]:
+    """Whether merging ``commit`` into ``base`` would change ``base`` at all.
+
+    The exact form of "this lane has nothing left to land", and the one that
+    survives commit shapes :func:`unlanded_commits` cannot speak for. A lane
+    whose work reached the base under some *other* item's landing holds
+    commits the base has never seen by sha, and may hold merges that patch
+    identity refuses to reason about — yet contributes no content, because
+    every line it carries is already there.
+
+    Asked as a tree question rather than a commit question: merge the lane
+    into the base in memory and compare the result to the base's own tree.
+    Identical means the lane adds nothing. Anything the lane still carried —
+    including a deletion, which changes the tree as surely as an addition —
+    makes the trees differ, so this cannot mistake unlanded work for landed
+    work.
+
+    ``None`` when the comparison could not run, so an unreadable checkout is
+    never read as "nothing left to land".
+    """
+    if not commit or not base:
+        return None
+    merged = _git(repo_root, "merge-tree", "--write-tree", base, commit)
+    if merged.returncode != 0:
+        # A conflict or an unsupported git both land here. Either way this
+        # read has not established anything, and its caller has other rungs.
+        return None
+    merged_tree = merged.stdout.strip().splitlines()
+    if not merged_tree:
+        return None
+    base_tree = git_out(repo_root, "rev-parse", f"{base}^{{tree}}")
+    if not base_tree:
+        return None
+    return merged_tree[0].strip() == base_tree
+
+
 def changed_files(repo_root: str, branch: str, target: str) -> tuple[str, ...]:
     """Files the branch changed relative to where it left the base branch.
 

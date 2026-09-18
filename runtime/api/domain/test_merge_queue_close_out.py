@@ -7,6 +7,7 @@ import pytest
 from yoke_core.domain import merge_queue_close_out as close_out_mod
 from yoke_core.domain.merge_queue_batch_receipt import BatchReceipt
 from yoke_core.domain.item_merge_receipts import MergeReceipt
+from yoke_core.engines.merge_worktree_pr_train_run import TrainRunLookupFailure
 from yoke_core.engines.merge_worktree_prepare import MergeArgs, MergeContext
 
 LANE_SHA = "1" * 40
@@ -28,16 +29,33 @@ def _wire(
     *,
     batch=None,
     batch_warning=None,
+    batch_recovery="",
+    batch_retryable=True,
+    recorded_batch=None,
     touched=("runtime/api/thing.py",),
     files_error=None,
 ):
     recorded: dict = {}
     monkeypatch.setattr(close_out_mod, "stamp_merged_at", lambda item_id: None)
+    # No receipt recorded yet, so every case here exercises the derivation.
+    monkeypatch.setattr(
+        close_out_mod, "read_recorded_batch",
+        lambda item_id, *, pr_num: recorded_batch,
+    )
+    failure = (
+        None
+        if batch_warning is None
+        else TrainRunLookupFailure(
+            reason=batch_warning,
+            recovery=batch_recovery,
+            retryable=batch_retryable,
+        )
+    )
     monkeypatch.setattr(
         close_out_mod, "observe_batch",
         lambda ctx, *, pr_num, member_snapshot, drift_check=None: (
             batch,
-            batch_warning,
+            failure,
         ),
     )
     monkeypatch.setattr(
@@ -262,3 +280,59 @@ def test_ci_recording_failure_keeps_close_out_retriable(monkeypatch):
     assert "Re-run yoke merge item YOK-200" in outcome.ci_evidence_refusal(
         "42", "yoke merge item YOK-200"
     )
+
+
+def test_a_recorded_receipt_is_reused_rather_than_re_derived(monkeypatch):
+    """The second close-out reads what the first one wrote.
+
+    A member that parks at a release wait reaches this again hours later,
+    long after GitHub's merge_group runs collection is the easy answer. The
+    receipt its own landing recorded does not decay, so re-deriving it can
+    only agree or fail — and failing is what stranded members whose proof was
+    sitting in their own QA rows.
+    """
+    stored = BatchReceipt(
+        pr_num="42",
+        merge_sha=MERGE_SHA,
+        head_sha=COMBINED_SHA,
+        run_url=RUN_URL,
+    )
+    _wire(monkeypatch, recorded_batch=stored)
+    monkeypatch.setattr(
+        close_out_mod,
+        "observe_batch",
+        lambda *_a, **_k: pytest.fail("a recorded receipt must not be re-derived"),
+    )
+    monkeypatch.setattr(
+        close_out_mod,
+        "record_batch_evidence",
+        lambda *_a, **_k: pytest.fail("a recorded receipt must not be re-recorded"),
+    )
+
+    outcome = close_out_mod.record_landing(
+        _ctx(), item_id=7, commit_sha=LANE_SHA, pr_num="42",
+    )
+
+    assert outcome.ci_evidence_error == ""
+    assert outcome.merge_sha == MERGE_SHA
+    assert outcome.batch is stored
+
+
+def test_a_search_that_cannot_succeed_does_not_prescribe_a_re_run(monkeypatch):
+    """Naming a retry for a stable answer is a loop with no exit."""
+    _wire(
+        monkeypatch,
+        batch=None,
+        batch_warning="no merge_group workflow run identified for pull request 42",
+        batch_recovery="Confirm the queue ran that workflow on the merge group.",
+        batch_retryable=False,
+    )
+
+    outcome = close_out_mod.record_landing(
+        _ctx(), item_id=7, commit_sha=LANE_SHA, pr_num="42",
+    )
+    refusal = outcome.ci_evidence_refusal("42", "yoke merge item YOK-200")
+
+    assert "Re-run" not in refusal
+    assert "reaches the same answer" in refusal
+    assert "Confirm the queue ran that workflow" in refusal

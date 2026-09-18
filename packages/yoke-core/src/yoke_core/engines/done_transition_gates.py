@@ -281,8 +281,11 @@ def _check_deployment_redirect(
             f"Use '/yoke usher {ref}' to merge and deploy through the pipeline."
         )
         print(
-            f"If deployment was handled out-of-band, use "
-            f"'/yoke advance {ref} done --skip-deploy'."
+            "If delivery genuinely happened OUTSIDE this flow, use "
+            f"'/yoke advance {ref} done --skip-deploy'. That flag records "
+            "delivery as out-of-band, so it is refused when this flow's own "
+            "run already delivered the item — in that case close out through "
+            "'yoke merge item' instead."
         )
         return 7
     return None

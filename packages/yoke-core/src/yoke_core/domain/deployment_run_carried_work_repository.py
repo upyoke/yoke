@@ -33,6 +33,7 @@ from yoke_core.domain.deployment_run_compare_response import (
     require_total,
 )
 from yoke_core.domain.function_target_row_project import slug_for_project_id
+from yoke_core.domain.gh_rest_failure_diagnosis import diagnose
 from yoke_core.domain.gh_rest_transport import RestRequest, request_with_retry
 from yoke_core.domain.gh_rest_transport_errors import RestTransportError
 from yoke_core.domain.project_github_auth import (
@@ -222,10 +223,13 @@ class RepositoryProviderSource:
         try:
             response = request_with_retry(request, token=self._token)
         except RestTransportError as exc:
+            # One summary code cannot separate a rate limit from a revoked
+            # permission from a 502, and those need three different actions.
+            # The transport already classified this, so say which it was.
+            diagnosis = diagnose(exc, subject="read repository contents")
             raise CarriedWorkSourceUnavailable(
                 "repository_provider_read_failed",
-                "Confirm the project's GitHub binding can read repository "
-                f"contents, then retry: {exc}",
+                f"{diagnosis.detail}. {diagnosis.recovery}",
             ) from exc
         body = response.body
         if not isinstance(body, Mapping):

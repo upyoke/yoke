@@ -116,6 +116,23 @@ def queue_batch_covers_receipt(
     return False
 
 
+def recorded_batch_blocks(conn: Any, item_id: int) -> tuple[dict[str, Any], ...]:
+    """Every ``merge_queue_batch`` block this item recorded, newest first.
+
+    The block a landing wrote is the durable answer to what validated the
+    train, and it outlives the Actions window the landing read it from. A
+    close-out that reaches it stops asking GitHub a question it already has
+    the answer to.
+    """
+    return tuple(
+        block
+        for block in (
+            _batch_block(raw) for raw in _passing_ci_raw_results(conn, item_id)
+        )
+        if block
+    )
+
+
 def _evidence_sha(conn: Any, item_id: int) -> str:
     from yoke_core.domain.dash_execution import DASH_EVIDENCE_SECTION
     from yoke_core.domain.item_json_sections import read_json_section
@@ -212,6 +229,7 @@ def accepted_merging_shas(
 
 __all__ = [
     "accepted_merging_shas",
+    "recorded_batch_blocks",
     "ci_run_identity_shas",
     "queue_batch_covers_receipt",
     "recorded_head_sha",

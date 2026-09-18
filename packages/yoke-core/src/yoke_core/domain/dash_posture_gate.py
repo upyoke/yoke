@@ -13,6 +13,10 @@ from yoke_core.domain.deployment_run_candidate_containment import (
     UNDETERMINED as _CONTAINMENT_UNDETERMINED,
     candidate_contains_commit,
 )
+from yoke_core.domain.delivery_evidence_ladder import (
+    UNDETERMINED_DELIVERY as _DELIVERY_UNDETERMINED,
+    delivery_evidence,
+)
 from yoke_core.domain.deployment_qa_source_obligation import latest_completion_run
 from yoke_core.domain.dash_posture_read import (
     failure as _failure,
@@ -213,33 +217,47 @@ def _deployment_gate(
             "Deploy-after-merge has no item-bound deployment-run authority.",
             "Start and complete a deployment run for this item.",
         )
-    row = latest_completion_run(conn, int(item_id))
-    if row is None or str(row["status"]) != "succeeded":
-        # A prepared run is a named obligation, not a missing one: say which
-        # run is owed so the operator does not start a second.
+    # Membership, then containment — the shared ladder the done engine
+    # reads, so both answer one release the same way. A batch has exactly
+    # one tip, so requiring the run to be pinned to this item's merge could
+    # only ever pass a release of one item; every other member would be told
+    # to redeploy until its own merge became the tip, which the batch it
+    # shipped in cannot satisfy.
+    evidence_verdict = delivery_evidence(conn, int(item_id))
+    if evidence_verdict.state == _DELIVERY_UNDETERMINED:
+        return _failure(
+            "GATE_DASH_DEPLOYMENT_CONTAINMENT_UNDETERMINED",
+            "Whether the deployed candidate contains the current work could "
+            f"not be determined ({evidence_verdict.reason}).",
+            f"{evidence_verdict.recovery} Do not redeploy to make this merge "
+            "the candidate tip; the other members of that release would then "
+            "fail the same way.",
+        )
+    if not evidence_verdict.discharged:
+        row = latest_completion_run(conn, int(item_id))
         prepared = row is not None and str(row["status"]) == "created"
         return _failure(
             "GATE_DASH_DEPLOYMENT_REQUIRED",
             (
                 f"Prepared deployment run {row['id']} has not been executed."
                 if prepared
-                else "The latest selected-flow deployment run has not succeeded."
+                else f"No succeeded run of the selected flow delivers this "
+                f"item ({evidence_verdict.reason})."
             ),
             (
                 f"Execute it: {watch_deploy_command(str(row['id']))}"
                 if prepared
-                else "Run the selected project delivery flow to completion."
+                else evidence_verdict.recovery
             ),
         )
-    # A batch has exactly one tip, so requiring the run to be pinned to this
-    # item's merge could only ever pass a release of one item; every other
-    # member would be told to redeploy until its own merge became the tip,
-    # which the batch it shipped in cannot satisfy. Containment is the fact
-    # the gate means.
+    # Delivery having happened is not this posture's whole question. It also
+    # requires the deployed candidate to contain this item's merge, which the
+    # ladder deliberately does not decide — a run can list the item as a
+    # member while shipping a revision that predates its merge.
     blocked = _lineage_covers(
         conn,
-        int(row["project_id"]),
-        lineage=str(row.get("release_lineage") or ""),
+        int(evidence_verdict.project_id or 0),
+        lineage=evidence_verdict.release_lineage,
         commit_sha=merge_sha,
     )
     if blocked is not None:

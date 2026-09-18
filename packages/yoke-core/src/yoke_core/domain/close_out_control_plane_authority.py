@@ -83,6 +83,24 @@ def record_merge_queue_ci_evidence(
         return queue_ci.record_batch_evidence(item_id, receipt)
 
 
+def recorded_merge_queue_ci_evidence(
+    item_id: int,
+    *,
+    pr_num: str,
+) -> Optional[queue_ci.BatchReceipt]:
+    """Read that same record back from the control plane that holds it.
+
+    Bound to the connected control plane for the same reason the write is:
+    a receipt recorded in one universe is not evidence in another, and a
+    read that answered from the wrong one would let a close-out cite proof
+    the terminal gate cannot see.
+    """
+    from yoke_core.domain.merge_queue_recorded_receipt import recorded_receipt
+
+    with connected_control_plane():
+        return recorded_receipt(item_id, pr_num=pr_num)
+
+
 def record_execution_evidence(
     *,
     item_id: int,
@@ -157,5 +175,6 @@ __all__: Sequence[str] = (
     "connected_control_plane",
     "record_execution_evidence",
     "record_merge_queue_ci_evidence",
+    "recorded_merge_queue_ci_evidence",
     "transition_to_done",
 )

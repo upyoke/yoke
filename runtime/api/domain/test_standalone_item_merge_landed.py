@@ -47,12 +47,16 @@ def _probe(
     head: str,
     contains: tuple[str, ...],
     unlanded: tuple[str, ...] | None = ("9" * 40,),
+    adds_nothing: bool | None = None,
 ):
     """Answer every read of the checkout, so no test reaches a real repo.
 
     ``unlanded`` is the patch-identity answer: a lane still carrying a commit
     of its own by default, which is what keeps these cases about shas.
+    ``adds_nothing`` is the tree answer, unreadable by default for the same
+    reason.
     """
+    monkeypatch.setattr(landed.git, "lane_adds_nothing", lambda *_a: adds_nothing)
     monkeypatch.setattr(landed.git, "branch_exists", lambda *_a: branch_exists)
     monkeypatch.setattr(landed.git, "head_of", lambda *_a: head)
     monkeypatch.setattr(landed.git, "current_base_ref", lambda _repo, target: target)

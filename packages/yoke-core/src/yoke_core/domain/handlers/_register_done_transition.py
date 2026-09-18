@@ -11,6 +11,9 @@ glue, never an agent CLI surface), so they need no CLI adapter row.
 from __future__ import annotations
 
 from yoke_core.domain.handlers import done_transition_delivery_notice as _notice
+from yoke_core.domain.handlers import (
+    done_transition_delivery_evidence_read as _delivery,
+)
 from yoke_core.domain.handlers import done_transition_deploy_reads as _dep
 from yoke_core.domain.handlers import done_transition_item_reads as _item
 
@@ -121,6 +124,17 @@ def register(registry) -> None:
         _dep.LatestDeploymentRunRequest,
         _dep.LatestDeploymentRunResponse,
         owner_module=_DEPLOY_MODULE,
+        target_kinds=["item"],
+    )
+    _register_read(
+        registry,
+        "done_transition.delivery_evidence",
+        _delivery.handle_delivery_evidence,
+        _delivery.DeliveryEvidenceRequest,
+        _delivery.DeliveryEvidenceResponse,
+        owner_module=(
+            "yoke_core.domain.handlers.done_transition_delivery_evidence_read"
+        ),
         target_kinds=["item"],
     )
     _register_read(
