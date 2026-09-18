@@ -12,6 +12,7 @@
 // unavailable instead of borrowing one.
 
 import { deploymentRunHref } from "./universe_navigation.js";
+import { NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
 import { navIcon } from "./universe_nav_sidebar.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import { el, statePill } from "./universe_view_support.js";
@@ -69,7 +70,7 @@ function deploymentCard(documentNode, run, projectId) {
     documentNode,
     "strong",
     "item-deployment-environment",
-    run.target_environment || run.target_tier || "environment unavailable",
+    run.target_environment || run.target_tier || NO_ENVIRONMENT_LABEL,
   ));
   const completed = String(run.completed_at || "");
   if (status === SUCCEEDED && completed) {

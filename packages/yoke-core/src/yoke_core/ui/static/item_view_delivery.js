@@ -13,6 +13,7 @@ import {
   deploymentRunHref,
 } from "./universe_navigation.js";
 import { relativeAgePhrase } from "./universe_time.js";
+import { NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
 import { workflowPanel } from "./workflow_view_primitives.js";
 import { callFunction, el, statePill } from "./universe_view_support.js";
 
@@ -102,7 +103,7 @@ function deliveryRow(documentNode, item, run, resolved) {
     documentNode,
     "span",
     "item-delivery-target",
-    run.target_environment || run.target_tier || "environment unavailable",
+    run.target_environment || run.target_tier || NO_ENVIRONMENT_LABEL,
   ));
   if (run.current_stage) {
     row.appendChild(el(
