@@ -15,9 +15,21 @@ in the *project's* environment, not in the environment that happens to own
 the ``yoke`` console script. So when the invocation directory belongs to
 a uv-managed project (``pyproject.toml`` beside a ``uv.lock``) **and that
 project's environment can import the wrapper**, the adapter re-execs
-through ``uv run --frozen``. This is what makes the command correct
-inside a linked worktree: the worktree's sources run, not the ones behind
-the installed console script.
+through ``uv run --frozen``.
+
+A Yoke source checkout is the one project this never applies to. The
+main checkout and every linked worktree under ``.worktrees/`` is its own
+uv project with its own ``.venv`` holding an editable install of that
+tree, so re-execing would run whatever source the surrounding lane was
+prepared from. For a watcher wrapping a control-plane engine that means
+silently running stale code: a worker that closed its merge out from
+inside its lane got a refusal worded by the release *before* the fix its
+lane carried, with nothing at the call site naming the skew. The
+installed ``yoke`` runs the main checkout's install whatever the cwd, as
+the CLI contract promises; ``yoke dev run -- yoke watch <kind> ...`` is
+the one way to bind a claimed lane's source, and it already arrives on
+the lane-bound interpreter — so running in-process is what preserves
+either binding rather than discarding it.
 
 The import probe is what keeps the re-exec from recreating the very
 failure this command exists to fix. A project that installed Yoke as an
@@ -39,6 +51,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from yoke_contracts.install_binding import is_yoke_source_checkout
 from yoke_contracts.uv_project import (
     UV_EXECUTABLE,
     uv_project_root,
@@ -140,8 +153,16 @@ def reexec_argv(wrapper_module: str, args: List[str]) -> Optional[List[str]]:
     project from it, and the wrapped workload (pytest collection above
     all) resolves its relative paths against the directory the operator
     typed the command in.
+
+    A Yoke source checkout — the main one or a linked worktree — always
+    runs in-process instead, on the interpreter that reached this call:
+    the installed launcher's, bound to the main checkout, or the
+    lane-bound one ``yoke dev run --`` supplies.
     """
-    if uv_project_root(Path.cwd()) is None:
+    project_root = uv_project_root(Path.cwd())
+    if project_root is None:
+        return None
+    if is_yoke_source_checkout(project_root):
         return None
     if shutil.which(UV_EXECUTABLE) is None:
         return None

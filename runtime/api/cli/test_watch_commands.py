@@ -3,7 +3,10 @@
 Covers the two properties that make the command correct where the bare
 module form was not: every registered wrapper is reachable through a
 ``yoke`` token tuple, and the adapter binds a uv-managed project's own
-environment instead of the environment owning the console script.
+environment instead of the environment owning the console script — with
+a Yoke source checkout excluded from that binding, so a watcher typed
+inside a lane runs the interpreter that reached it rather than the lane's
+own editable install.
 """
 
 from __future__ import annotations
@@ -109,6 +112,55 @@ def test_reexec_binds_the_project_environment(
         "--",
         "tests/",
     ]
+
+
+def _fake_yoke_checkout(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A uv project that ``is_yoke_source_checkout`` recognizes, with a venv.
+
+    The lane in the incident had exactly this shape: its own lockfile, its
+    own ``.venv`` carrying an editable install, and an environment that
+    imports the wrapper — every condition the re-exec used to accept.
+    """
+    (root / "runtime" / "harness").mkdir(parents=True)
+    (root / ".venv" / "bin").mkdir(parents=True)
+    (root / "pyproject.toml").write_text('[project]\nname = "yoke"\n', encoding="utf-8")
+    (root / "uv.lock").write_text("", encoding="utf-8")
+    monkeypatch.chdir(root)
+    monkeypatch.setattr(watchers.shutil, "which", lambda _name: "/usr/bin/uv")
+    monkeypatch.setattr(watchers, "project_env_imports", lambda _module: True)
+
+
+def test_reexec_declines_inside_a_yoke_source_checkout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checkout = tmp_path / "yoke"
+    checkout.mkdir()
+    _fake_yoke_checkout(checkout, monkeypatch)
+
+    assert watchers.reexec_argv("yoke_core.tools.watch_pytest", []) is None
+
+
+def test_reexec_declines_inside_a_yoke_lane_with_its_own_venv(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The control-plane defect: a lane's editable install is stale source.
+
+    A watcher typed from inside the lane must reach the interpreter that
+    invoked it — the installed launcher's, bound to the main checkout —
+    not the lane's own environment. ``yoke dev run --`` is the only shape
+    that binds lane source, and it arrives already on that interpreter.
+    """
+    lane = tmp_path / "yoke" / ".worktrees" / "lane"
+    lane.mkdir(parents=True)
+    _fake_yoke_checkout(lane, monkeypatch)
+    nested = lane / "packages" / "yoke-cli"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+
+    runtime = "yoke_cli.commands.merge_item_local_runtime"
+    assert watchers.reexec_argv(runtime, []) is None
 
 
 def test_reexec_declines_outside_a_uv_project(
