@@ -104,7 +104,7 @@ def test_settled_history_pages_by_stable_cursor_without_repeating_rows() -> None
     assert second["next_cursor"] is None
 
 
-def test_list_projection_is_compact_and_actor_visibility_is_enforced() -> None:
+def test_default_page_serves_one_compact_row_per_message() -> None:
     conn = message_connection()
     message_id = _message(conn, session_id="s1", offset=1, settled=False)
 
@@ -114,12 +114,45 @@ def test_list_projection_is_compact_and_actor_visibility_is_enforced() -> None:
         caller_session_id=None,
         projects=[1],
     )
-    assert visible["messages"][0]["message_id"] == message_id
-    assert "attempts" not in visible["messages"][0]
-    recipient = visible["messages"][0]["recipients"][0]
+
+    assert visible["detail"] == "summary"
+    row = visible["messages"][0]
+    assert row["message_id"] == message_id
+    assert row["recipient_count"] == 1
+    assert row["recipient_states"] == ["pending"]
+    assert row["body_read"] == f"yoke messages get {message_id}"
+    # The prose and the per-recipient receipts are what the row exists to
+    # leave behind; `yoke messages get` still serves them whole.
+    for dropped in ("body", "recipients", "actor_recipients", "attempts"):
+        assert dropped not in row
+
+
+def test_full_detail_still_serves_bodies_and_trimmed_recipient_rows() -> None:
+    conn = message_connection()
+    message_id = _message(conn, session_id="s1", offset=1, settled=False)
+
+    visible = read_message_page(
+        conn,
+        actor_id=11,
+        caller_session_id=None,
+        projects=[1],
+        detail="full",
+    )
+
+    assert visible["detail"] == "full"
+    message = visible["messages"][0]
+    assert message["message_id"] == message_id
+    assert message["body"]
+    assert "attempts" not in message
+    recipient = message["recipients"][0]
     assert recipient["executor_surface"] == "codex-desktop"
     assert "routing_snapshot" not in recipient
     assert "resolution_evidence" not in recipient
+
+
+def test_actor_visibility_is_enforced_before_the_projection() -> None:
+    conn = message_connection()
+    _message(conn, session_id="s1", offset=1, settled=False)
 
     hidden = read_message_page(
         conn,
@@ -127,6 +160,7 @@ def test_list_projection_is_compact_and_actor_visibility_is_enforced() -> None:
         caller_session_id=None,
         projects=[1],
     )
+
     assert hidden["messages"] == []
     assert hidden["actionable_count"] == 0
 

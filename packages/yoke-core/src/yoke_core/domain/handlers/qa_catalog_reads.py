@@ -11,6 +11,7 @@ from yoke_contracts.api.function_call import (
     FunctionError,
     HandlerOutcome,
 )
+from yoke_contracts.read_detail import DETAIL_FULL, DETAIL_SUMMARY, ReadDetail
 
 
 class ProjectReadRequest(BaseModel):
@@ -24,6 +25,13 @@ class MethodGetRequest(ProjectReadRequest):
 class PlanGetRequest(ProjectReadRequest):
     plan_id: int
     deployment_run_id: Optional[str] = Field(default=None, min_length=1)
+    detail: ReadDetail = Field(
+        default=DETAIL_SUMMARY,
+        description=(
+            "summary serves the cases, methods, target and verdicts; full "
+            "adds each probe's source and every proof's evidence."
+        ),
+    )
 
 
 class ActivityListRequest(ProjectReadRequest):
@@ -79,6 +87,7 @@ class MethodGetResponse(BaseModel):
 
 class PlanGetResponse(BaseModel):
     plan: Dict[str, Any]
+    detail: ReadDetail = DETAIL_SUMMARY
 
 
 def _error(code: str, message: str, jsonpath: str) -> HandlerOutcome:
@@ -177,7 +186,14 @@ def handle_plan_get(request: FunctionCallRequest) -> HandlerOutcome:
         project_refs.add(str(plan["project_id"]))
     if str(payload.project) not in project_refs:
         return _error("not_found", "QA plan not found", "$.payload.plan_id")
-    return HandlerOutcome(result_payload={"plan": plan}, primary_success=True)
+    if payload.detail != DETAIL_FULL:
+        from yoke_core.domain.qa_plan_summary import plan_summary
+
+        plan = plan_summary(plan, project=str(payload.project))
+    return HandlerOutcome(
+        result_payload={"plan": plan, "detail": payload.detail},
+        primary_success=True,
+    )
 
 
 def handle_activity_list(request: FunctionCallRequest) -> HandlerOutcome:

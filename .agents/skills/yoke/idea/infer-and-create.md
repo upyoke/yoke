@@ -101,7 +101,7 @@ Once `_project` and `{workflow}` are fixed, call registered
 `workflow.execution_instruction.resolve` before finalizing any prose:
 
 ```bash
-yoke workflow execution-instruction resolve --workflow "{workflow}" --project "${_project}"
+yoke workflow execution-instruction resolve --workflow "{workflow}" --project "${_project}" --full
 ```
 
 Apply every result before continuing. The post-`items.create` instruction

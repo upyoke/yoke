@@ -85,7 +85,7 @@ def dash_file(args: List[str]) -> int:
         help=(
             "Attest that this filer retrieved the operator execution "
             "instructions for this workflow and project first (yoke "
-            "workflow execution-instruction resolve). Required for "
+            "workflow execution-instruction resolve --full). Required for "
             "this surface."
         ),
     )

@@ -113,6 +113,7 @@ def handle_message_list(request: FunctionCallRequest) -> HandlerOutcome:
             projects=body.projects,
             limit=body.limit,
             cursor=body.cursor,
+            detail=body.detail,
         ),
     )
 

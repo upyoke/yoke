@@ -25,7 +25,7 @@ call registered `workflow.execution_instruction.resolve`, and apply every
 returned instruction before finalizing the promotion title or instruction:
 
 ```bash
-yoke workflow execution-instruction resolve --workflow dash --project {project}
+yoke workflow execution-instruction resolve --workflow dash --project {project} --full
 yoke ouroboros field-note promote {entry-id} --title "{specific title}" [--instruction "{what to do}"]
 ```
 

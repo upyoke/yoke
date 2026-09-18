@@ -125,7 +125,7 @@ WORKFLOW_ADAPTERS = [
         function_id="workflow.execution_instruction.resolve",
         cli_invocation=(
             "yoke workflow execution-instruction resolve "
-            "--workflow W --project P [--json]"
+            "--workflow W --project P [--full] [--json]"
         ),
         notes="Only instructions matching the named workflow and project.",
     ),

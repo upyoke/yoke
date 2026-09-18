@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from yoke_contracts.read_detail import DETAIL_FULL, excerpt
 from yoke_core.domain import db_backend
 from yoke_core.domain.db_helpers import iso8601_now
 from yoke_core.domain.workflow_execution_instructions_schema import (
@@ -69,6 +70,57 @@ def resolve_execution_instructions(
     ]
 
 
+def resolve_read_command(workflow: str, project: str) -> str:
+    """The command that serves this scope's instruction prose in full."""
+    return (
+        "yoke workflow execution-instruction resolve "
+        f"--workflow {workflow} --project {project} --full"
+    )
+
+
+def resolve_projection(
+    instructions: List[Dict[str, Any]],
+    *,
+    workflow: str,
+    project: str,
+    detail: str,
+) -> List[Dict[str, Any]]:
+    """Serve the prose on ``full``, and one descriptor each otherwise."""
+    if detail == DETAIL_FULL:
+        return instructions
+    return instruction_descriptors(
+        instructions, read=resolve_read_command(workflow, project)
+    )
+
+
+def instruction_descriptors(
+    instructions: List[Dict[str, Any]], *, read: str
+) -> List[Dict[str, Any]]:
+    """Name each resolved instruction without repeating its prose.
+
+    A filer reads the instructions, obeys them, and attests that it did;
+    echoing the same kilobytes back in the create receipt taught the filer
+    nothing it had not just read. A descriptor keeps what a receipt is for
+    — which instructions this item is bound by, and where to read them in
+    full — and ``read`` carries that command so a reader who does need the
+    text is never left guessing.
+
+    The heading is the instruction's own first line, which is where
+    operators already put what the block is about.
+    """
+    return [
+        {
+            "id": instruction["id"],
+            "title": excerpt(instruction.get("content")),
+            "content_characters": len(str(instruction.get("content") or "")),
+            "applies_to_all_workflows": instruction["applies_to_all_workflows"],
+            "applies_to_all_projects": instruction["applies_to_all_projects"],
+            "read": read,
+        }
+        for instruction in instructions
+    ]
+
+
 def resolve_for_item(conn: Any, item_id: int) -> List[Dict[str, Any]]:
     """Resolve instructions from an item's pinned workflow and project."""
     row = conn.execute(
@@ -79,6 +131,30 @@ def resolve_for_item(conn: Any, item_id: int) -> List[Dict[str, Any]]:
         return []
     return resolve_execution_instructions(
         conn, workflow_id=str(row[0]), project_id=int(row[1])
+    )
+
+
+def item_instruction_descriptors(conn: Any, item_id: int) -> List[Dict[str, Any]]:
+    """Descriptors for the instructions an item is bound by, and their read.
+
+    One row read serves both halves — the scope the item pins, and the
+    command that returns that scope's prose — and both come from the
+    stored row rather than from whatever a caller passed, so an item filed
+    without an explicit project still gets a command that runs.
+    """
+    p = _p(conn)
+    row = conn.execute(
+        f"SELECT i.workflow_id, i.project_id, pr.slug FROM items i "
+        f"JOIN projects pr ON pr.id = i.project_id WHERE i.id = {p}",
+        (item_id,),
+    ).fetchone()
+    if row is None or row[0] is None:
+        return []
+    return instruction_descriptors(
+        resolve_execution_instructions(
+            conn, workflow_id=str(row[0]), project_id=int(row[1])
+        ),
+        read=resolve_read_command(str(row[0]), str(row[2])),
     )
 
 

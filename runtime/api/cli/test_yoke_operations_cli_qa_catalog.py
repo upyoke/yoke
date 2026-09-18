@@ -75,7 +75,11 @@ def test_method_and_plan_reads_keep_project_context_in_payload() -> None:
     )
     assert result == 0
     assert request.function == "qa.plan.get"
-    assert request.payload == {"project": "yoke", "plan_id": 17}
+    assert request.payload == {
+        "project": "yoke",
+        "plan_id": 17,
+        "detail": "summary",
+    }
 
     result, request = _run(
         "qa",
@@ -84,6 +88,7 @@ def test_method_and_plan_reads_keep_project_context_in_payload() -> None:
         "17",
         "--project",
         "yoke",
+        "--full",
         "--deployment-run-id",
         "run-20260728-906",
     )
@@ -91,6 +96,7 @@ def test_method_and_plan_reads_keep_project_context_in_payload() -> None:
     assert request.payload == {
         "project": "yoke",
         "plan_id": 17,
+        "detail": "full",
         "deployment_run_id": "run-20260728-906",
     }
 

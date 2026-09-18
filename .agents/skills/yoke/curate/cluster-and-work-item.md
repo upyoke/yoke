@@ -112,7 +112,7 @@ registered `workflow.execution_instruction.resolve` read:
 
 ```bash
 yoke workflow execution-instruction resolve \
- --workflow {dash|issue} --project {project}
+ --workflow {dash|issue} --project {project} --full
 ```
 
 Apply every returned instruction to the proposed title, Dash instruction, or
@@ -156,7 +156,7 @@ Action? (create / skip / defer)
 Promote the entry that best states the signal. The promotion creates the Dash, links it to the note, and marks that note reviewed:
 
 ```bash
-yoke workflow execution-instruction resolve --workflow dash --project {project}
+yoke workflow execution-instruction resolve --workflow dash --project {project} --full
 yoke ouroboros field-note promote {entry-id} \
   --title "{specific title}" \
   --instruction "{the complete requested scope, in one paragraph}"
@@ -169,7 +169,7 @@ The instruction defaults to the note's own body — pass `--instruction` when th
 Invoke:
 
 ```bash
-yoke workflow execution-instruction resolve --workflow issue --project {project}
+yoke workflow execution-instruction resolve --workflow issue --project {project} --full
 yoke items create "{title}" issue --priority {priority} --entry-surface harness_skill --execution-instructions-considered
 ```
 

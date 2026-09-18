@@ -33,6 +33,10 @@ export function sessionMessagePageLoader(context, projects, onChange) {
     context,
     "session_control.message.list",
     {
+      // This view renders every body and receipt it loads, so it asks for
+      // the whole message. The compact default exists for readers that
+      // scan the page and then open one message.
+      detail: "full",
       ...(projects === null ? {} : { projects }),
       ...(nextCursor ? { cursor: nextCursor } : {}),
     },

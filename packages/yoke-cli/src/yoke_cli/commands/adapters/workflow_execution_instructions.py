@@ -11,15 +11,22 @@ import sys
 from typing import Any, Callable, Dict, List
 
 from yoke_cli.commands._helpers import (
+    add_full_arg,
     add_json_arg,
     add_session_arg,
+    detail_of,
     dispatch_and_emit,
     parse_or_usage_error,
 )
 from yoke_contracts.api.function_call import TargetRef
+from yoke_contracts.read_detail import DETAIL_FULL
 
 EXECUTION_INSTRUCTION_BLOCK_HEADER = (
     "# Workflow Execution Instructions (operator-authored — obey these)"
+)
+DESCRIPTOR_BLOCK_HEADER = (
+    "# Workflow Execution Instructions bound to this scope (obey these; "
+    "read them in full before authoring)"
 )
 
 
@@ -150,15 +157,30 @@ def workflow_execution_instruction_list(args: List[str]) -> int:
 def _resolve_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--workflow", required=True)
     parser.add_argument("--project", required=True)
+    add_full_arg(parser, "the instruction prose a filer must read and obey")
+
+
+def render_instruction_descriptors(descriptors: List[Dict[str, Any]]) -> str:
+    """List what binds this scope, and the command that serves the prose."""
+    if not descriptors:
+        return "No operator execution instructions apply to this scope.\n"
+    lines = [DESCRIPTOR_BLOCK_HEADER, ""]
+    for descriptor in descriptors:
+        lines.append(f"  {descriptor.get('id')}  {descriptor.get('title') or ''}")
+    lines.extend(["", f"Read them in full: {descriptors[0].get('read') or ''}", ""])
+    return "\n".join(lines)
 
 
 def _resolved_instructions_writer(response, stdout, stderr) -> None:
     del stderr
-    if response.success:
-        result = response.result or {}
-        stdout.write(render_execution_instruction_block(
-            result.get("execution_instructions") or []
-        ))
+    if not response.success:
+        return
+    result = response.result or {}
+    instructions = result.get("execution_instructions") or []
+    if result.get("detail") == DETAIL_FULL:
+        stdout.write(render_execution_instruction_block(instructions))
+        return
+    stdout.write(render_instruction_descriptors(instructions))
 
 
 def workflow_execution_instruction_resolve(args: List[str]) -> int:
@@ -169,6 +191,7 @@ def workflow_execution_instruction_resolve(args: List[str]) -> int:
         payload=lambda parsed: {
             "workflow": parsed.workflow,
             "project": parsed.project,
+            "detail": detail_of(parsed),
         },
         human_writer=_resolved_instructions_writer,
     )
@@ -204,7 +227,7 @@ USAGE_BY_FUNCTION_ID = {
     ),
     "workflow.execution_instruction.resolve": (
         "yoke workflow execution-instruction resolve "
-        "--workflow W --project P [--json]"
+        "--workflow W --project P [--full] [--json]"
     ),
     "workflow.execution_instruction.delete": (
         "yoke workflow execution-instruction delete ID [--json]"
@@ -213,9 +236,11 @@ USAGE_BY_FUNCTION_ID = {
 
 
 __all__ = [
+    "DESCRIPTOR_BLOCK_HEADER",
     "EXECUTION_INSTRUCTION_BLOCK_HEADER",
     "USAGE_BY_FUNCTION_ID",
     "render_execution_instruction_block",
+    "render_instruction_descriptors",
     "workflow_execution_instruction_create",
     "workflow_execution_instruction_delete",
     "workflow_execution_instruction_list",

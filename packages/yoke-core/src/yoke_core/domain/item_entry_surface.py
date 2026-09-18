@@ -94,7 +94,7 @@ def execution_instructions_refusal_message(
     return (
         "Retrieve the operator execution instructions first: yoke workflow "
         f"execution-instruction resolve --workflow {workflow} --project "
-        f"{project or UNNAMED_PROJECT_TOKEN} — then refile with "
+        f"{project or UNNAMED_PROJECT_TOKEN} --full — then refile with "
         "--execution-instructions-considered"
     )
 

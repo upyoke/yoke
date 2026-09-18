@@ -194,7 +194,8 @@ GUARD_CATALOG: Tuple[GuardSpec, ...] = (
         "lint_yoke_adapter_stderr_visibility",
         f"{_MODULE_PREFIX}lint_yoke_adapter_stderr_visibility",
         False,
-        "Keep diagnostic stderr visible on state-changing Yoke adapters.",
+        "Keep Yoke adapter output readable: visible stderr on state-changing "
+        "adapters, untruncated stdout on every yoke invocation.",
         check_id="lint-yoke-adapter-stderr-visibility",
     ),
     GuardSpec(

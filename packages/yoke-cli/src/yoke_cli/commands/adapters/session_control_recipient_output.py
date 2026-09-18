@@ -33,6 +33,13 @@ def display_recipients(
 
 
 def recipient_count(message: Mapping[str, Any]) -> int:
+    """How many parties a message reached.
+
+    A compact mailbox row carries the answer because it dropped the rows
+    it would be counted from; a full message still carries the rows.
+    """
+    if "recipient_count" in message:
+        return int(message["recipient_count"])
     return (
         len(message.get("recipients") or [])
         + len(message.get("actor_recipients") or [])
@@ -41,6 +48,9 @@ def recipient_count(message: Mapping[str, Any]) -> int:
 
 
 def recipient_states(message: Mapping[str, Any]) -> set[Any]:
+    """Every distinct recipient state, from the rows or the compact list."""
+    if "recipient_states" in message:
+        return {state for state in message["recipient_states"] if state}
     steering = message.get("steering_recipient")
     rows = [
         *(message.get("recipients") or []),
@@ -63,6 +73,8 @@ def recipient_project(row: Mapping[str, Any]) -> Any:
 
 def steering_summary(message: Mapping[str, Any]) -> str | None:
     """The one sentence a role-addressed message's own state is worth."""
+    if "steering_summary" in message:
+        return str(message["steering_summary"])
     steering = message.get("steering_recipient")
     if not isinstance(steering, Mapping):
         return None

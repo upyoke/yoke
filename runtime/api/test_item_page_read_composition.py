@@ -200,7 +200,7 @@ def test_detail_withholds_instruction_prose_but_never_their_existence(
     assert index["bytes"] == len("Cover the full scope.")
     assert index["read"] == (
         "yoke workflow execution-instruction resolve "
-        "--workflow dash --project acme"
+        "--workflow dash --project acme --full"
     )
 
 

@@ -105,7 +105,10 @@ test("plan detail uses transition ids and carries the per-case authority copy", 
     client: {
       async call(request) {
         assert.equal(request.function, "qa.plan.get");
-        assert.deepEqual(request.payload, { plan_id: 7, project: "1" });
+        assert.deepEqual(
+          request.payload,
+          { plan_id: 7, project: "1", detail: "full" },
+        );
         return ok({ plan });
       },
     },

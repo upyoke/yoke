@@ -69,17 +69,49 @@ def test_resolve_dispatches_the_scope_and_renders_only_matching_prose(
 
     assert captured["function_id"] == "workflow.execution_instruction.resolve"
     assert captured["target"].kind == "global"
-    assert captured["payload"] == {"workflow": "dash", "project": "acme"}
+    assert captured["payload"] == {
+        "workflow": "dash",
+        "project": "acme",
+        "detail": "summary",
+    }
     assert USAGE_BY_FUNCTION_ID[captured["function_id"]] == (
         "yoke workflow execution-instruction resolve "
-        "--workflow W --project P [--json]"
+        "--workflow W --project P [--full] [--json]"
     )
+
+    # The default names what binds the scope and how to read it.
+    stdout = io.StringIO()
+    captured["human_writer"](
+        SimpleNamespace(
+            success=True,
+            result={
+                "detail": "summary",
+                "execution_instructions": [
+                    {"id": 4, "title": "Obey me.", "read": "yoke ... --full"},
+                ],
+            },
+        ),
+        stdout,
+        io.StringIO(),
+    )
+    scanned = stdout.getvalue()
+    assert "4  Obey me." in scanned
+    assert "Read them in full: yoke ... --full" in scanned
+    assert EXECUTION_INSTRUCTION_BLOCK_HEADER not in scanned
+
+    assert adapters.workflow_execution_instruction_resolve([
+        "--workflow", "dash", "--project", "acme", "--full",
+    ]) == 0
+    assert captured["payload"]["detail"] == "full"
 
     stdout = io.StringIO()
     captured["human_writer"](
         SimpleNamespace(
             success=True,
-            result={"execution_instructions": [{"content": "Obey me."}]},
+            result={
+                "detail": "full",
+                "execution_instructions": [{"content": "Obey me."}],
+            },
         ),
         stdout,
         io.StringIO(),
