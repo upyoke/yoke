@@ -106,10 +106,15 @@ def cmd_seed_from_flow(
                 continue
 
             try:
+                # The stage is named even though a schema-1 check settles
+                # through record_qa_pass rather than stage acceptance: a
+                # blocking run-bound obligation with no stage is what holds
+                # a run whose stages have all delivered, and is refused.
                 with contextlib.redirect_stdout(io.StringIO()):
                     req_id = cmd_requirement_add(
                         db_path=db_path,
                         deployment_run_id=run_id,
+                        deployment_stage=qs["name"],
                         qa_kind=qs["qa_kind"],
                         qa_phase="post_deploy",
                         blocking_mode="blocking",

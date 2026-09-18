@@ -16,6 +16,10 @@ What it refuses, and why each refusal names its recovery:
   executed, and a run whose composition is frozen is not renegotiated here;
 * a member without a stage — storage models a member check as a check at a
   stage, and the subject constraint rejects the half-named shape;
+* a blocking case with no stage on a run whose flow pins QA stages — stage
+  acceptance credits only rows carrying its own stage name, so such a case
+  would hold the run's completion, and its final stage, for evidence no
+  stage can deliver;
 * a member the run does not carry, named back with the ones it does;
 * a case with no method — what distinguishes a case from a bookkeeping row
   is that something can execute it, and only the run's own pipeline writes
@@ -110,12 +114,40 @@ def _match_member(members: list[tuple[int, str]], ref: str) -> Optional[int]:
     return None
 
 
+def _refuse_stageless_blocking(
+    conn: Any,
+    *,
+    run_id: str,
+    stage: Optional[str],
+    blocking_mode: Optional[str],
+) -> Optional[HandlerOutcome]:
+    """Refuse a blocking case no QA stage of this run could ever credit."""
+    from yoke_core.domain.qa_deployment_run_stage_scope import (
+        require_stage_scoped_requirement,
+    )
+    from yoke_core.domain.qa_plan_management import QaPlanError
+
+    try:
+        require_stage_scoped_requirement(
+            conn,
+            deployment_run_id=run_id,
+            blocking_mode=blocking_mode,
+            deployment_stage=stage,
+        )
+    except QaPlanError as exc:
+        return _error(
+            "payload_invalid", str(exc), jsonpath="$.payload.deployment_stage"
+        )
+    return None
+
+
 def _validate_run_subject(
     conn: Any,
     *,
     run_id: str,
     stage: Optional[str],
     member_ref: Optional[str],
+    blocking_mode: Optional[str],
 ) -> tuple[Optional[RequirementSubject], Optional[HandlerOutcome]]:
     run = _run_row(conn, run_id)
     if run is None:
@@ -150,6 +182,11 @@ def _validate_run_subject(
                 f"its stages are {', '.join(names) or 'none'}",
                 jsonpath="$.payload.deployment_stage",
             )
+    refusal = _refuse_stageless_blocking(
+        conn, run_id=run_id, stage=stage, blocking_mode=blocking_mode
+    )
+    if refusal is not None:
+        return None, refusal
     resolved_member: Optional[int] = None
     if member_ref is not None:
         members = _members(conn, run_id)
@@ -217,6 +254,7 @@ def handle_deployment_run_requirement_add(
             run_id=run_id,
             stage=None if stage is None else str(stage),
             member_ref=None if member_ref is None else str(member_ref),
+            blocking_mode=row.get("blocking_mode"),
         )
         if invalid is not None:
             return invalid

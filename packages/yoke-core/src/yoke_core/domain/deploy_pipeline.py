@@ -23,7 +23,7 @@ from yoke_core.domain.deploy_pipeline_reporting import (
 )
 from yoke_core.domain.deploy_pipeline_run_context import (
     EXIT_FINALIZATION_PENDING,  # noqa: F401 — public pipeline exit 4
-    complete_run_finalization,
+    finalize_after_stages,
     resolve_project_checkout_path,
 )
 from yoke_core.domain import deploy_pipeline_stage_checks as stage_checks
@@ -170,14 +170,10 @@ def run_pipeline(
             if run_status == "succeeded":
                 print(f"Pipeline already complete for run {run_id}")
                 return EXIT_SUCCESS
-            return complete_run_finalization(
-                run_id,
-                flow_id,
-                project,
-                member_items,
-                target_tier,
-                environment_name,
-                sd=sd,
+            return finalize_after_stages(
+                run_id, flow_id, project, member_items, target_tier,
+                environment_name, usage_exit=EXIT_USAGE,
+                awaiting_qa_exit=EXIT_AWAITING_QA, sd=sd,
             )
         else:
             start_stage = current_stage
@@ -206,6 +202,13 @@ def run_pipeline(
                 found_start = True
             else:
                 continue
+
+        qa_exit = stage_checks.check_completion_stage_qa(
+            stage, stages, run_id,
+            usage_exit=EXIT_USAGE, awaiting_qa_exit=EXIT_AWAITING_QA,
+        )
+        if qa_exit is not None:
+            return qa_exit
 
         print(f"--- Stage: {s_name} (step_runner: {stage['step_runner']}) ---")
 
@@ -318,20 +321,10 @@ def run_pipeline(
     # --- Pipeline complete ---
     _set_deploy_stage("complete", run_id, member_items, sd=sd)
 
-    qa_exit = stage_checks.check_unresolved_qa(
-        run_id, usage_exit=EXIT_USAGE, awaiting_qa_exit=EXIT_AWAITING_QA
-    )
-    if qa_exit is not None:
-        return qa_exit
-
-    return complete_run_finalization(
-        run_id,
-        flow_id,
-        project,
-        member_items,
-        target_tier,
-        environment_name,
-        sd=sd,
+    return finalize_after_stages(
+        run_id, flow_id, project, member_items, target_tier,
+        environment_name, usage_exit=EXIT_USAGE,
+        awaiting_qa_exit=EXIT_AWAITING_QA, sd=sd,
     )
 
 

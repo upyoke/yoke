@@ -28,6 +28,14 @@ def build_parser() -> argparse.ArgumentParser:
     ra.add_argument("--epic-id", type=int)
     ra.add_argument("--task-num", type=int)
     ra.add_argument("--deployment-run-id")
+    ra.add_argument(
+        "--deployment-stage",
+        help=(
+            "Run stage a run-bound obligation answers for. Required for a "
+            "blocking one when the run's flow pins QA stages, which credit "
+            "only rows carrying their own stage name."
+        ),
+    )
     ra.add_argument("--qa-kind", required=True, help=_qap.QA_KIND_HELP)
     ra.add_argument("--qa-phase", required=True)
     ra.add_argument("--target-env")

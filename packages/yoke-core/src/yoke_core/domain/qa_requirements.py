@@ -82,6 +82,7 @@ def cmd_requirement_add(
     epic_id: Optional[int] = None,
     task_num: Optional[int] = None,
     deployment_run_id: Optional[str] = None,
+    deployment_stage: Optional[str] = None,
     qa_kind: str,
     qa_phase: str,
     target_env: Optional[str] = None,
@@ -176,6 +177,23 @@ def cmd_requirement_add(
             if refused:
                 print(f"Error: {refused}", file=sys.stderr)
                 sys.exit(2)
+        if deployment_run_id is not None:
+            from yoke_core.domain.qa_deployment_run_stage_scope import (
+                require_stage_scoped_requirement,
+            )
+
+            from yoke_core.domain.qa_plan_management import QaPlanError
+
+            try:
+                require_stage_scoped_requirement(
+                    conn,
+                    deployment_run_id=deployment_run_id,
+                    blocking_mode=blocking_mode,
+                    deployment_stage=deployment_stage,
+                )
+            except QaPlanError as exc:
+                print(f"Error: {exc}", file=sys.stderr)
+                sys.exit(2)
         cur = conn.execute(
             INSERT_SQL,
             insert_params(
@@ -183,6 +201,7 @@ def cmd_requirement_add(
                 epic_id=epic_id,
                 task_num=task_num,
                 deployment_run_id=deployment_run_id,
+                deployment_stage=deployment_stage,
                 row=row,
                 created_at=iso8601_now(),
             ),

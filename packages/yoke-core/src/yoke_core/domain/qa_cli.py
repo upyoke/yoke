@@ -62,6 +62,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             epic_id=args.epic_id,
             task_num=args.task_num,
             deployment_run_id=args.deployment_run_id,
+            deployment_stage=args.deployment_stage,
             qa_kind=args.qa_kind,
             qa_phase=args.qa_phase,
             target_env=args.target_env,

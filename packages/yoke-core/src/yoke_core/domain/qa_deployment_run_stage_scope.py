@@ -12,6 +12,13 @@ an item-scoped one: a run-scoped stage filters on the stage name just the
 same, and a NULL-stage row is as invisible to it. The run-wide form survives
 only for a run whose flow pins no QA stage at all, where there is no stage to
 be invisible to.
+
+Plan materialization is not the only way such a row is born, so the same
+boundary is offered per requirement in
+:func:`require_stage_scoped_requirement`. A blocking run-bound obligation
+naming no stage holds the run's completion while no stage can ever credit
+it, whichever surface authored it — which is how a run ends up with every
+stage delivered and a status that will not settle.
 """
 
 from __future__ import annotations
@@ -103,8 +110,42 @@ def require_stage_scoped_materialization(
     )
 
 
+def require_stage_scoped_requirement(
+    conn: Any,
+    *,
+    deployment_run_id: str,
+    blocking_mode: str | None,
+    deployment_stage: str | None,
+) -> None:
+    """Refuse a stage-less blocking obligation a staged run cannot credit.
+
+    Only a blocking one is refused. A non-blocking row is equally invisible
+    to stage acceptance but holds nothing, so rejecting it would cost an
+    author a note the run was never going to wait on.
+    """
+    if deployment_stage or str(blocking_mode or "blocking") != "blocking":
+        return
+    stages = pinned_qa_stages(conn, deployment_run_id)
+    if not stages:
+        return
+    named = ", ".join(
+        f"{stage['name']!r} (scope {stage['scope'] or 'unset'!s})"
+        for stage in stages
+    )
+    raise QaPlanError(
+        f"deployment run {deployment_run_id!r} pins QA stage(s) {named}, and a "
+        "blocking obligation naming no stage is credited by none of them. It "
+        "would hold the run's completion — and its final stage — for evidence "
+        "that structurally cannot arrive. Name the stage this obligation "
+        "belongs to (`deployment_stage`, plus the member item on an "
+        "item-scoped stage), or record it as non-blocking if nothing should "
+        "wait on it."
+    )
+
+
 __all__ = [
     "ITEM_STAGE_SCOPE",
     "pinned_qa_stages",
     "require_stage_scoped_materialization",
+    "require_stage_scoped_requirement",
 ]

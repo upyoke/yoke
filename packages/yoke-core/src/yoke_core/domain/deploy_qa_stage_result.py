@@ -81,6 +81,7 @@ def cmd_record_stage_result(
                     req_id = cmd_requirement_add(
                         db_path=db_path,
                         deployment_run_id=run_id,
+                        deployment_stage=stage_name,
                         qa_kind=qa_kind,
                         qa_phase="post_deploy",
                         blocking_mode="blocking",

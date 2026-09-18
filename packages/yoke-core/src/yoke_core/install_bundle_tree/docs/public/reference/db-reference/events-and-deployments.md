@@ -284,15 +284,26 @@ Two tables carry those obligations, and both are read:
 Non-blocking checks never hold a run, and `force=True` overrides the
 hold exactly as it overrides the stage checks beside it.
 
-The pipeline reports this before it tries the write, so the operator
-reads the specific unresolved obligations rather than a refusal from
-the status update. It stamps `current_stage='complete'`, prints each
-obligation, and exits 5 without emitting `DeploymentRunSucceeded` or a
-`completed_at`. The stages already executed keep their recorded results.
-Settle or waive each obligation and re-drive the run: the pipeline
-resumes at `complete`, skips every stage, and finalizes.
+### The run-completing stage is held, not recorded early
 
-Owner: `yoke_core.domain.deployment_run_completion_preconditions`.
+The flow's last stage drawn green says the run delivered, so the
+pipeline evaluates the run's blocking obligations *before* that stage
+starts: with any unresolved it prints each one and exits 5 without
+starting the stage, setting `current_stage`, emitting
+`DeploymentRunStageStarted`, or allocating a receipt. That stage stays
+pending on the card exactly while work remains, `status` stays
+`executing`, and earlier stages keep their results. Settle or waive each
+obligation and re-drive: the run resumes at the stage `current_stage`
+names, the held stage runs, and it finalizes. A run parked at
+`current_stage='complete'` by an earlier build takes the same report.
+
+A blocking obligation bound to a run but naming no stage is refused at
+admission wherever the flow pins QA stages: acceptance credits only rows
+carrying its own stage name, so such a row would hold the run for
+evidence that cannot arrive. Name the stage (and, on an item-scoped
+stage, the member), or record it non-blocking. Owners:
+`deployment_run_completion_preconditions`,
+`deploy_pipeline_stage_checks`, `qa_deployment_run_stage_scope`.
 
 ## Table: deployment_preview_environments
 
