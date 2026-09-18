@@ -25,7 +25,7 @@ from yoke_core.domain.standalone_item_merge_close_out_transition import (
     run_terminal_transition,
 )
 from yoke_core.domain.standalone_item_merge_release_status import (
-    stale_mismatch_is_foreign as _reached_release,
+    stale_mismatch_is_foreign,
 )
 from yoke_core.domain import standalone_item_merge_pending as pending
 from yoke_core.domain import standalone_item_merge_verify as verify
@@ -153,7 +153,7 @@ def run(argv: List[str]) -> int:
         target=target,
         repo_root=str(repo_root),
         recorded_head=recorded_head,
-        reached_release=_reached_release(item, status),
+        stale_mismatch_is_foreign=stale_mismatch_is_foreign(item, status),
     )
     queue = item.get("merge_queue") or {}
     # A recorded queue landing that does not cover this candidate is the

@@ -147,8 +147,8 @@ def test_a_lane_carrying_new_commits_has_not_landed(monkeypatch):
 
 
 def test_reached_release_defaults_true_and_keeps_the_existing_refusal(monkeypatch):
-    """Every close-out caller passes no ``reached_release`` at all; the
-    default must keep refusing a mismatch exactly as before."""
+    """Every close-out caller passes no ``stale_mismatch_is_foreign`` at
+    all; the default must keep refusing a mismatch exactly as before."""
     _probe(
         monkeypatch,
         branch_exists=True,
@@ -156,7 +156,7 @@ def test_reached_release_defaults_true_and_keeps_the_existing_refusal(monkeypatc
         contains=(LANE_SHA, MERGE_SHA),
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
-    refusal = landed.stale_unlanded_work(**_LOOK, reached_release=True)
+    refusal = landed.stale_unlanded_work(**_LOOK, stale_mismatch_is_foreign=True)
     assert "closed out" in refusal
     assert "preserves the lane" in refusal
     assert "reset the lane" not in refusal.lower()
@@ -177,7 +177,9 @@ def test_an_item_that_has_not_reached_release_gets_its_own_mismatch_through(
         contains=(LANE_SHA, MERGE_SHA),
     )
     monkeypatch.setattr(landed.receipts, "load", lambda *_a, **_k: RECEIPT)
-    assert landed.stale_unlanded_work(**_LOOK, reached_release=False) == ""
+    assert landed.stale_unlanded_work(
+        **_LOOK, stale_mismatch_is_foreign=False
+    ) == ""
 
 
 def test_a_squashed_head_matching_the_receipt_has_landed(monkeypatch):

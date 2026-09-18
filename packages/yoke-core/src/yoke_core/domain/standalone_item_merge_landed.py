@@ -125,24 +125,24 @@ def stale_unlanded_work(
     target: str,
     repo_root: str,
     recorded_head: str = "",
-    reached_release: bool = True,
+    stale_mismatch_is_foreign: bool = True,
 ) -> str:
     """Why this close-out must not run, or empty when the landing still matches.
 
     A target-contained receipt merge SHA proves the landing. Its source commit
     can match squash re-entry; any other uncontained head is new work.
 
-    ``reached_release`` selects whether a mismatch is close-out's
+    ``stale_mismatch_is_foreign`` selects whether a mismatch is close-out's
     foreign/stale refusal. ``True`` is the safe default — including when no
     release stage is declared, when the definition could not be read, and
-    when a declared wait has actually been reached — and every close-out
-    caller that omits it keeps that existing refusal. A caller that has
-    already confirmed THIS same item is still short of a declared release
-    wait (the item's own next merge, not a stage change this function
-    prescribes) passes ``False`` so that mismatch is not read as someone
-    else's foreign work on a reused branch name. It never changes what
-    counts as a match; it only lets a genuine mismatch pass when the item's
-    own state already accounts for it.
+    when the item is already closed out — and every close-out caller that
+    omits it keeps that existing refusal. A caller that has already
+    confirmed THIS same item still owns a declared release wait (the item's
+    own next merge, including while it waits at that stage) passes
+    ``False`` so that mismatch is not read as someone else's foreign work
+    on a reused branch name. It never changes what counts as a match; it
+    only lets a genuine mismatch pass when the item's own state already
+    accounts for it.
     """
     current = current_candidate(repo_root, branch, recorded_head)
     receipt = receipts.load(item_id, branch, target)
@@ -155,7 +155,7 @@ def stale_unlanded_work(
         return ""
     if _replayed_base_ref(repo_root, current, target, receipt):
         return ""
-    if not reached_release:
+    if not stale_mismatch_is_foreign:
         return ""
     named = ", ".join(sorted(sha[:12] for sha in identities))
     return (
