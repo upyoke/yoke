@@ -32,6 +32,27 @@ def _dict_rows(cursor: Any) -> list[dict[str, Any]]:
     ]
 
 
+def _runner_column(conn: Any, has_methods: bool) -> str:
+    """The runner that will actually execute a requirement.
+
+    Stored in two places: on the requirement when it overrides its method's
+    default, and otherwise on the method. Readers classify by the effective
+    one -- the merge boundary decides from it whether commit-bound recovery
+    may re-run a requirement or must refuse it as substrate-owned -- so
+    answering with only the requirement's own column reports the great
+    majority of rows as having no runner at all.
+    """
+    on_requirement = _column_exists(conn, "qa_requirements", "runner_id")
+    on_method = has_methods and _column_exists(conn, "qa_methods", "runner_id")
+    if on_requirement and on_method:
+        return "COALESCE(q.runner_id, m.runner_id) AS runner_id"
+    if on_requirement:
+        return "q.runner_id"
+    if on_method:
+        return "m.runner_id"
+    return "NULL AS runner_id"
+
+
 def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
     """Return each requirement with its latest run and proof summary."""
     if not _table_exists(conn, "qa_requirements"):
@@ -70,6 +91,7 @@ def qa_rows(conn: Any, item_id: int) -> list[dict[str, Any]]:
         requirement_column("plan_id"),
         requirement_column("plan_case_key"),
         requirement_column("method_id"),
+        _runner_column(conn, has_methods),
         requirement_column("workflow_transition_id"),
         requirement_column("instructions"),
         requirement_column("expected_outcome"),

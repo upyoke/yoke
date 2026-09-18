@@ -123,31 +123,21 @@ def record_lane_head_after_merge(ctx: MergeContext) -> None:
     behind work this engine already completed -- the gap
     :func:`bind_recorded_source` above tolerates, closed at the source.
 
-    Goes through the same registered ``project.snapshot.sync`` surface the
-    git post-commit hook drives on every ordinary commit -- the transport-
-    universal recording path, correct on both a local-Postgres and an
-    https-authority machine. ``head_only=True`` requests that hook's own
-    fast identity-only shape (HEAD's commit identity, no full tree content
-    scan). Best-effort like that hook: a write failure is reported, never
-    silent, but never fails an otherwise-landed merge.
+    Shares :mod:`yoke_core.domain.lane_head_record` with the QA gate's own
+    publish, because both are the same event -- a lane HEAD advanced by
+    something other than a commit, which the git post-commit hook therefore
+    never sees. Best-effort like that hook: a write failure is reported,
+    never silent, but never fails an otherwise-landed merge.
     """
-    from yoke_cli.commands.adapters.project_snapshot import (
-        sync_local_snapshot_for_write,
-    )
+    from yoke_core.domain import lane_head_record
 
     mw = _parent()
     checkout_path = ctx.worktree_path or ctx.repo_root
-    result = sync_local_snapshot_for_write(
-        project=ctx.project or "yoke",
-        repo_root=checkout_path,
-        integration_target=None,
-        session_id=None,
-        head_only=True,
-    )
-    if result.get("status") not in ("ok", "deferred"):
+    detail = lane_head_record.record_lane_head(ctx.project, checkout_path)
+    if detail:
         mw._print(
             f"warning: could not persist advanced lane HEAD for "
-            f"{checkout_path}: {result.get('message') or result.get('status')}",
+            f"{checkout_path}: {detail}",
             err=True,
         )
 
