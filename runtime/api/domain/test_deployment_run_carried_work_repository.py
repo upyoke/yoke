@@ -189,6 +189,12 @@ def test_an_unreadable_provider_names_itself_rather_than_answering_empty(
         source.commit_range(BASE, TIP)
 
     assert raised.value.reason == "repository_provider_read_failed"
+    # The stable code stays the code; the classification rides the recovery,
+    # because one summary cannot separate a rate limit from a revoked
+    # permission from a 502 — and those need three different actions. An
+    # unclassified transport failure still names its status and says so.
+    assert "HTTP 503" in raised.value.recovery
+    assert "without a classified cause" in raised.value.recovery
 
 
 def test_a_comparison_beyond_the_page_budget_refuses_instead_of_truncating(

@@ -33,9 +33,10 @@ wait. Do not reset unlanded corrections.
 Rebasing after a landing is neither of those, and it is the case sha reads
 cannot see: the base holds the work, the lane holds new shas for the same
 patches, and calling that new work sends close-out off to publish the lane
-and open a second pull request for a merge that already happened. So a head
-the base does not contain is asked one further question, by patch identity
-rather than by sha — see :func:`_replayed_base_ref`.
+and open a second pull request for a merge that already happened. The same
+is true of a lane whose commits reached the base under a *different* item's
+landing. So a head the base does not contain is asked one further question —
+by content rather than by sha — see :func:`_replayed_base_ref`.
 
 What a landed lane then owes its item is a separate concern, owned by
 :mod:`yoke_core.domain.standalone_item_merge_converge`.
@@ -95,24 +96,41 @@ def _replayed_base_ref(
 ) -> str:
     """The base ref already holding this lane's work under different shas.
 
-    Rebasing a lane rewrites every commit it carries, so a lane rebased after
-    its own landing points at copies no ancestry read can attribute to the
-    merge that took them. Two facts together make them copies rather than new
-    work, and both are required: the base contains the commit the merge
+    Two reads answer this, and a lane needs only one of them.
+
+    The direct one asks whether merging the lane into the base would change
+    the base at all. A lane that adds nothing has nothing left to land,
+    whatever shape its commits take, so this recognises a lane whose work
+    reached the base under another item's landing — where the shas are
+    foreign and patch identity may refuse to speak for a merge the lane
+    carries.
+
+    The second is the older, receipt-bound read, kept because it answers
+    where a tree merge cannot run: the base contains the commit the merge
     receipt recorded — the landing whose identity a convergence here
     preserves — and the lane holds no commit whose patch that base lacks.
 
-    A lane carrying a commit of its own answers empty, which is what keeps a
-    retry after a red train and deliberate new work on the ordinary landing
-    route — as does a lane holding a merge the base lacks, whose content
-    patch identity cannot speak for. So does a comparison that could not run,
-    because reading an unreadable checkout as "already landed" is the one
-    mistake that closes an item out against a merge nobody confirmed.
+    A lane still carrying content of its own answers empty under both, which
+    is what keeps a retry after a red train and deliberate new work on the
+    ordinary landing route. So does a comparison that could not run, because
+    reading an unreadable checkout as "already landed" is the one mistake
+    that closes an item out against a merge nobody confirmed.
     """
-    recorded = receipt.commit_sha if receipt is not None else ""
-    if not recorded or not head:
+    if not head:
         return ""
     base = git.current_base_ref(repo_root, target)
+    if not base:
+        return ""
+    # The exact question, asked first because it needs no receipt: would
+    # merging this lane into the base change the base at all? A lane whose
+    # commits reached the base under another item's landing answers no, and
+    # no sha or patch read can see that — the shas are foreign and the lane
+    # may hold merges patch identity will not speak for.
+    if git.lane_adds_nothing(repo_root, head, base) is True:
+        return base
+    recorded = receipt.commit_sha if receipt is not None else ""
+    if not recorded:
+        return ""
     if not git.is_ancestor(repo_root, recorded, base):
         return ""
     return base if git.unlanded_commits(repo_root, head, base) == () else ""
