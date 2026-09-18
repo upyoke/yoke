@@ -103,7 +103,13 @@ def test_complete_run_finalization_returns_pending_exit(monkeypatch, capsys):
     assert "re-drive run-9 to finalize" in capsys.readouterr().err
 
 
-def _run_resumed(monkeypatch, *, status: str, stage: str, finish):
+def _run_resumed(monkeypatch, *, status: str, stage: str, finish=None):
+    """Drive a run whose recorded stage is already the pipeline sentinel.
+
+    ``finish`` replaces the finalization route when a case only cares that
+    it was reached; passing ``None`` runs the real one, which reports the
+    run's unresolved blocking QA before it tries the succeeded write.
+    """
     run_id = "run-env-001"
     context = {
         "run": {
@@ -166,8 +172,8 @@ def _run_resumed(monkeypatch, *, status: str, stage: str, finish):
         ),
         mock.patch.object(
             deploy_pipeline,
-            "complete_run_finalization",
-            finish,
+            "finalize_after_stages",
+            finish or deploy_pipeline.finalize_after_stages,
         ),
     ):
         return deploy_pipeline.run_pipeline(
@@ -200,3 +206,29 @@ def test_complete_not_succeeded_redrives_finalize(monkeypatch):
     )
     assert rc == deploy_pipeline.EXIT_FINALIZATION_PENDING
     finish.assert_called_once()
+
+
+def test_a_run_parked_at_complete_reports_its_unresolved_qa(monkeypatch, capsys):
+    """An earlier build could park a run here with obligations open.
+
+    That resume skips the stage loop, so without this the run would retry
+    the succeeded write into a refusal reported as finalization pending —
+    wording that says the deploy succeeded when it has not.
+    """
+    monkeypatch.setattr(
+        deploy_pipeline.control_plane,
+        "unresolved_qa",
+        lambda run_id: ["requirement #4101 (plan_case): no passing run"],
+    )
+    monkeypatch.setattr(
+        run_context,
+        "complete_run_finalization",
+        mock.Mock(side_effect=AssertionError("must not finalize")),
+    )
+
+    rc = _run_resumed(monkeypatch, status="executing", stage="complete")
+
+    assert rc == deploy_pipeline.EXIT_AWAITING_QA
+    report = capsys.readouterr().err
+    assert "#4101" in report
+    assert "blocking QA unresolved" in report

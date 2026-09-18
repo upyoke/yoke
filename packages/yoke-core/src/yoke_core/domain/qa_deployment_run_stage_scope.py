@@ -30,13 +30,25 @@ from typing import Any
 from yoke_core.domain import db_backend
 from yoke_core.domain.deployment_flow_policy import QA_STEP_RUNNER, STAGE_KIND_QA
 from yoke_core.domain.qa_plan_management import QaPlanError
+from yoke_core.domain.schema_common import _table_exists
 
 #: The scope a QA stage declares when each run member owes its own evidence.
 ITEM_STAGE_SCOPE = "item"
 
 
 def pinned_qa_stages(conn: Any, deployment_run_id: str) -> list[dict[str, str]]:
-    """Return every QA stage the run's flow pins, with its declared scope."""
+    """Return every QA stage the run's flow pins, with its declared scope.
+
+    A universe carrying no deployment tables pins no stage, so it reports
+    an empty list rather than failing: the QA fixtures that exercise
+    requirement authoring create only the QA tables they use, and a run
+    that cannot exist has no stage to be invisible to.
+    """
+    if not (
+        _table_exists(conn, "deployment_runs")
+        and _table_exists(conn, "deployment_flows")
+    ):
+        return []
     marker = "%s" if db_backend.connection_is_postgres(conn) else "?"
     row = conn.execute(
         "SELECT df.stages FROM deployment_runs dr "
