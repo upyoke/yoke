@@ -16,6 +16,7 @@ from yoke_core.domain.release_wait_ownership import (
     RELEASE_WAIT_RETENTION_TEACHING,
 )
 from yoke_core.domain.session_launch_mandate_teaching import (
+    CANDIDATE_REVIEW_TEACHING,
     COMMITTED_GATE_TEACHING,
     HEADLESS_TOOL_CONTINUATION_TEACHING,
 )
@@ -55,6 +56,23 @@ def test_composed_mandate_tells_workers_to_leave_the_only_push_to_the_gate() -> 
     assert COMMITTED_GATE_TEACHING in body
     assert "rebases onto the base branch, pushes once, and runs CI" in body
     assert "do not push the lane by hand" in body
+
+
+def test_composed_mandate_names_the_candidate_review_a_merge_can_refuse() -> None:
+    body = _mandate()
+    assert CANDIDATE_REVIEW_TEACHING in body
+    assert "merge_candidate_review" in CANDIDATE_REVIEW_TEACHING
+    assert "refuses an uncleared candidate by name" in CANDIDATE_REVIEW_TEACHING
+    assert "a blocker, not a retry" in CANDIDATE_REVIEW_TEACHING
+    assert "needs its own review" in CANDIDATE_REVIEW_TEACHING
+
+
+def test_the_candidate_review_precedes_the_merge_wait_teaching() -> None:
+    """A worker learns the merge can refuse before it learns how to wait."""
+    body = _mandate()
+    assert body.index(CANDIDATE_REVIEW_TEACHING) < body.index(
+        "headless command that cannot be prompted again"
+    )
 
 
 def test_composed_mandate_tells_workers_to_continue_a_handed_back_call() -> None:

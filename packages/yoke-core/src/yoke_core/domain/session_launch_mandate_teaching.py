@@ -95,9 +95,24 @@ _DELIBERATE_CLOSE = (
 )
 
 
+CANDIDATE_REVIEW_TEACHING = (
+    "An item whose posture selects merge_candidate_review may not land "
+    "until a person has cleared the exact commit. `yoke merge item` refuses "
+    "an uncleared candidate by name, before it arms, enqueues, or merges "
+    "anything, and names the open decision request an authorized reviewer "
+    "answers. That refusal is a blocker, not a retry: report it with the "
+    "request id and stop. Any commit you make after a clearance needs its "
+    "own review, so commit everything first, then merge."
+)
+
+
 #: Appended to every composed mandate, in the order a worker meets them.
 STANDING_TEACHINGS = (
     COMMITTED_GATE_TEACHING,
+    # Before the waits: a refusal here means nothing was armed, enqueued, or
+    # merged, so the worker needs it before it learns how to wait on any of
+    # those.
+    CANDIDATE_REVIEW_TEACHING,
     RELEASE_WAIT_RETENTION_TEACHING,
     HEADLESS_CI_VERIFICATION_WAIT_TEACHING,
     HEADLESS_LANDING_WAIT_TEACHING,
@@ -106,6 +121,7 @@ STANDING_TEACHINGS = (
 
 
 __all__ = [
+    "CANDIDATE_REVIEW_TEACHING",
     "COMMITTED_GATE_TEACHING",
     "HEADLESS_CI_VERIFICATION_WAIT_TEACHING",
     "HEADLESS_LANDING_WAIT_TEACHING",
