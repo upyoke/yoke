@@ -163,42 +163,29 @@ def _lineage_covers(
     return None
 
 
-def _current_candidate_shas(conn: Any, item_id: int) -> tuple[str, ...]:
-    evidence = _evidence(conn, item_id)
-    merge_sha = str((evidence or {}).get("merge_sha") or "")
-    return tuple(
-        dict.fromkeys(sha for sha in (merge_sha, _active_lane_head(conn, item_id)) if sha)
-    )
-
-
 def _stale_completion_run_gate(
     conn: Any,
     item_id: int,
 ) -> Optional[dict[str, Any]]:
-    """Refuse a succeeded run that does not contain the live candidate.
+    """Refuse a succeeded run that does not contain the live lane head.
 
-    Selected deployment posture still requires a succeeded run. This
-    narrower check runs even when that posture is off: a first-landing
-    run must not close the item while a newer same-item head is unmerged
-    or undeployed.
+    Selected deployment posture still requires a succeeded run and still
+    contains the recorded merge. This narrower check runs even when that
+    posture is off: a first-landing run must not close the item while a
+    newer same-item head is unmerged or undeployed.
     """
+    head = _active_lane_head(conn, item_id)
+    if not head:
+        return None
     row = latest_completion_run(conn, int(item_id))
     if row is None or str(row["status"]) != "succeeded":
         return None
-    shas = _current_candidate_shas(conn, item_id)
-    if not shas:
-        return None
-    lineage = str(row.get("release_lineage") or "")
-    for sha in shas:
-        blocked = _lineage_covers(
-            conn,
-            int(row["project_id"]),
-            lineage=lineage,
-            commit_sha=sha,
-        )
-        if blocked is not None:
-            return blocked
-    return None
+    return _lineage_covers(
+        conn,
+        int(row["project_id"]),
+        lineage=str(row.get("release_lineage") or ""),
+        commit_sha=head,
+    )
 
 
 def _deployment_gate(
