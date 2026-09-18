@@ -163,7 +163,37 @@ def preflight(
         return commit_sha, (
             "merge refused before the branch landed:\n" + "\n".join(errors)
         )
+    plan_refusal = _item_qa_plan_refusal(item, public_ref=public_ref)
+    if plan_refusal:
+        return commit_sha, plan_refusal
     return commit_sha, ""
+
+
+def _item_qa_plan_refusal(item: dict[str, Any], *, public_ref: str) -> str:
+    """Refuse a landing whose flow will later ask this item to prove itself."""
+    from yoke_core.domain.db_helpers import connect
+    from yoke_core.domain.qa_item_stage_plan_gate import (
+        missing_item_qa_plan_refusal,
+    )
+
+    project = item.get("project")
+    project_slug = (
+        str(project.get("slug") or "") if isinstance(project, dict) else str(project or "")
+    )
+    item_id = item.get("id")
+    if item_id is None or not project_slug:
+        return ""
+    conn = connect()
+    try:
+        return missing_item_qa_plan_refusal(
+            conn,
+            item_id=int(item_id),
+            public_ref=public_ref,
+            project=project_slug,
+            flow_id=str(item.get("deployment_flow") or ""),
+        )
+    finally:
+        conn.close()
 
 
 __all__ = ["evaluate", "item_for_merge_phase", "preflight"]

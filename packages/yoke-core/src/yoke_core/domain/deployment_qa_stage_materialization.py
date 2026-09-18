@@ -6,6 +6,9 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.qa_deployment_member_attached_plans import (
+    attached_member_plans,
+)
 from yoke_core.domain.qa_deployment_case_content_refresh import (
     refreshed_case_keys,
 )
@@ -94,6 +97,10 @@ def _selected_plans(
     allow_empty: bool = False,
 ) -> list[dict[str, Any]]:
     frozen = [*_flow_plan(subject), *_member_plans(subject, target=target)]
+    if not frozen:
+        # Nothing pinned or frozen selected cases, so the member's own
+        # attached plan answers before any --plan choice is needed.
+        frozen = attached_member_plans(conn, subject, target=target)
     configured = isinstance(subject["stage"].get("cases"), Mapping)
     if configured and agent_plan is not None:
         raise QaPlanError(

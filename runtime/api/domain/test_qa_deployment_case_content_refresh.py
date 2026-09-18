@@ -161,3 +161,44 @@ def test_content_digest_ignores_encoding_but_not_content() -> None:
 
     changed = {"method_id": "command", "method_config": {"command": "probe -v"}}
     assert case_content_digest(decoded) != case_content_digest(changed)
+
+
+def test_stage_picks_up_the_members_attached_plan_without_a_flag(test_db) -> None:
+    """The wake needs no --plan choice once the member owns a plan.
+
+    The member attaches its plan the ordinary way, before landing; stage
+    materialization resolves it, so nobody picks a plan under pressure
+    against an already-deployed candidate.
+    """
+    run_id = "run-attached-plan"
+    slug = f"smoke-{run_id}"
+    plan_id = create_smoke_plan(test_db, project="yoke", slug=slug)
+    seed_run_standing_on_qa_stage(
+        test_db,
+        run_id=run_id,
+        project="yoke",
+        stages=item_qa_stage_definitions(None),
+        members=(MEMBER,),
+        lineage="b" * 40,
+    )
+    test_db.execute(
+        "INSERT INTO qa_plan_item_attachments"
+        "(item_id,plan_id,transition_id,qa_phase,attached_at)"
+        " VALUES (%s,%s,%s,'post_deploy',%s)",
+        (MEMBER, int(plan_id), "reviewing-implementation", "2026-09-18T00:00:00Z"),
+    )
+    test_db.commit()
+
+    result = materialize_deployment_qa_stage(
+        test_db,
+        deployment_run_id=run_id,
+        deployment_stage=ITEM_QA_STAGE,
+        deployment_member_item_id=MEMBER,
+    )
+    assert len(result["created_requirement_ids"]) == 1, result
+    row = test_db.execute(
+        "SELECT plan_id,plan_case_key FROM qa_requirements WHERE id=%s",
+        (result["created_requirement_ids"][0],),
+    ).fetchone()
+    assert int(row["plan_id"]) == int(plan_id)
+    assert str(row["plan_case_key"]) == "command-smoke"
