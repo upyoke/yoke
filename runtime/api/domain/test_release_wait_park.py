@@ -122,10 +122,29 @@ def test_an_unreachable_control_plane_never_fails_the_merge(monkeypatch) -> None
 def test_a_run_with_no_session_identity_says_so(monkeypatch) -> None:
     envelope: dict = {}
     _wire(monkeypatch, _dispatch([], holder_session=SESSION))
+    monkeypatch.setattr(park, "resolve_ambient_session_id", lambda: None)
     park.retain_for_delivery(
         envelope, item_id=7, public_ref="ITEM-7", session_id=""
     )
 
     assert envelope["release_wait"]["parked"] == (
         "skipped: this run carries no session identity"
+    )
+
+
+def test_an_empty_flag_falls_back_to_ambient_identity(monkeypatch) -> None:
+    """The watcher leaves --session-id empty; ambient identity still parks."""
+    calls: list = []
+    _wire(monkeypatch, _dispatch(calls, holder_session=SESSION))
+    monkeypatch.setattr(park, "resolve_ambient_session_id", lambda: SESSION)
+    envelope: dict = {}
+    park.retain_for_delivery(
+        envelope, item_id=7, public_ref="ITEM-7", session_id=""
+    )
+
+    assert envelope["release_wait"]["parked"] == "yes"
+    assert envelope["release_wait"]["session_mode"] == SESSION_MODE_PARKED
+    assert calls[-1] == (
+        TOUCH_FUNCTION,
+        {"mode": SESSION_MODE_PARKED, "reason": park_reason("ITEM-7")},
     )
