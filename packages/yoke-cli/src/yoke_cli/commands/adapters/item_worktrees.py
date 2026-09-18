@@ -23,6 +23,7 @@ from yoke_cli.transport.dispatcher import (
 from yoke_cli.commands.adapters.item_worktree_lane_evidence import (
     attest_releasable_lane,
 )
+from yoke_contracts.api.function_call import TargetRef
 from yoke_contracts.item_worktrees import EVIDENCE_ONLY_RECOVERY_REASON
 
 
@@ -34,6 +35,10 @@ ITEM_WORKTREES_GET_USAGE = (
 ITEM_WORKTREES_LIST_USAGE = (
     "yoke item-worktrees list <PREFIX-N> "
     "[--project P] [--session-id S] [--json]"
+)
+ITEM_WORKTREES_INVENTORY_USAGE = (
+    "yoke item-worktrees inventory --project P "
+    "[--session-id S] [--json]"
 )
 ITEM_WORKTREES_PATH_RECORD_USAGE = (
     "yoke item-worktrees path-record <PREFIX-N> --worktree-id ID "
@@ -136,6 +141,47 @@ def item_worktrees_list(args: List[str]) -> int:
         function_id="item_worktrees.list",
         target=item_target("item", parsed.item, parsed.project),
         payload={},
+        session_id=parsed.session_id,
+        json_mode=parsed.json_mode,
+        human_writer=_human_writer,
+    )
+
+
+def item_worktrees_inventory(args: List[str]) -> int:
+    """Read every registered lane in a project with its owning item's state."""
+    parser = argparse.ArgumentParser(
+        prog="yoke item-worktrees inventory",
+        description=ITEM_WORKTREES_INVENTORY_USAGE,
+    )
+    parser.add_argument(
+        "--project",
+        required=True,
+        help="Project slug or numeric id whose lanes to read.",
+    )
+    add_session_arg(parser)
+    add_json_arg(parser)
+    parsed = parse_or_usage_error(parser, args, ITEM_WORKTREES_INVENTORY_USAGE)
+    if parsed is None:
+        return 2
+
+    def _human_writer(response, stdout, _stderr) -> None:
+        for lane in (response.result or {}).get("lanes") or []:
+            print(
+                "|".join([
+                    str(lane.get("public_ref") or ""),
+                    str(lane.get("status") or ""),
+                    str(lane.get("branch") or ""),
+                    str(lane.get("path") or ""),
+                    str(lane.get("state") or ""),
+                    str(lane.get("target_branch") or ""),
+                ]),
+                file=stdout,
+            )
+
+    return dispatch_and_emit(
+        function_id="item_worktrees.inventory",
+        target=TargetRef(kind="global"),
+        payload={"project": parsed.project},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
         human_writer=_human_writer,

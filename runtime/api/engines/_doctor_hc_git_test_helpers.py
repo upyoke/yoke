@@ -10,8 +10,16 @@ the test surfaces self-contained while the schema lives in one place.
 
 from __future__ import annotations
 
+import contextlib
 import subprocess
 import textwrap
+from pathlib import Path
+
+from yoke_contracts.api.function_call import (
+    ActorContext,
+    FunctionCallRequest,
+    TargetRef,
+)
 
 from yoke_core.engines.doctor import DoctorArgs, RecordCollector
 from yoke_core.engines._project_identity_test_helpers import (  # noqa: F401
@@ -111,12 +119,18 @@ def _make_conn():
 
 
 def _run_hc(hc_func, conn=None, **kwargs):
-    """Run a single HC and return the RecordCollector."""
+    """Run a single HC against *conn* and return the RecordCollector.
+
+    ``conn`` is the test's whole control plane, so it backs both the checks
+    that take a connection and the relayed reads a check makes instead of
+    one; a check that needs neither is unaffected.
+    """
     if conn is None:
         conn = _make_conn()
     args = _default_args(**kwargs)
     rec = RecordCollector()
-    hc_func(conn, args, rec)
+    with relayed_control_plane(conn):
+        hc_func(conn, args, rec)
     return rec
 
 
@@ -126,3 +140,64 @@ def _result(rec: RecordCollector, idx: int = 0):
 
 def _completed(returncode=0, stdout="", stderr=""):
     return subprocess.CompletedProcess([], returncode, stdout, stderr)
+
+
+class _KeepOpenConn:
+    """Stop a handler's ``with connect()`` closing the test's connection."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def __enter__(self):
+        return self._conn
+
+    def __exit__(self, *exc):
+        return False
+
+
+@contextlib.contextmanager
+def relayed_control_plane(conn):
+    """Serve HC-worktree-health's relayed reads from *conn*.
+
+    The check reaches its control plane over the registered relay rather
+    than a connection, so a test holding a seeded database stands one up
+    here by routing those two function ids at the real handlers. That keeps
+    these tests exercising the production read path instead of a stub that
+    could agree with a broken check.
+    """
+    from unittest.mock import patch
+
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.handlers import item_worktree_inventory
+    from yoke_core.engines import merge_prune_authority
+
+    def _relay(function_id: str, payload: dict, *_args, **_kwargs) -> dict:
+        if function_id == "item_worktrees.inventory":
+            request = FunctionCallRequest(
+                function=function_id,
+                actor=ActorContext(actor_id="1", session_id="doctor-test"),
+                target=TargetRef(kind="global"),
+                payload=payload,
+            )
+            with patch.object(db_helpers, "connect", lambda: _KeepOpenConn(conn)):
+                outcome = item_worktree_inventory.handle_inventory(request)
+            if not outcome.primary_success:
+                raise RuntimeError(outcome.error.message if outcome.error else "refused")
+            return outcome.result_payload
+        if function_id == "merge.prune.authority_verdict":
+            path = Path(payload["path"]) if payload.get("path") else None
+            owner = merge_prune_authority.terminal_owner(
+                conn, branch=payload["branch"], path=path
+            )
+            if owner is None:
+                return {"prunable": False, "reason": "no_terminal_owner"}
+            if merge_prune_authority.has_active_authority(conn, owner, path):
+                return {"prunable": False, "reason": "active_authority"}
+            return {"prunable": True, "reason": "prunable"}
+        raise AssertionError(f"unexpected relayed function {function_id}")
+
+    with patch(
+        "yoke_core.engines.doctor_hc_worktrees_health.relay",
+        side_effect=_relay,
+    ):
+        yield
