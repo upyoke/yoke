@@ -117,6 +117,10 @@ def _seed_selected_requirement_run(
         "VALUES (%s,%s,%s,%s)",
         (run_id, item_id, "2026-09-14T00:00:00Z", member_snapshot),
     )
+    conn.execute(
+        "UPDATE items SET deployment_flow = %s WHERE id = %s",
+        (flow_id, item_id),
+    )
     receipt = allocate_deployment_stage_receipt(
         conn,
         run_id=run_id,

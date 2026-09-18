@@ -186,8 +186,9 @@ class TestDeploymentEvidence:
         _insert_item(db_path, 50, deployment_flow="standard")
         conn = connect_dt_db(db_path)
         conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, created_at) "
-            "VALUES ('r1', 1, 'succeeded', '2025-01-01')"
+            "INSERT INTO deployment_runs "
+            "(id, project_id, flow, status, created_at) "
+            "VALUES ('r1', 1, 'standard', 'succeeded', '2025-01-01')"
         )
         conn.execute(
             "INSERT INTO deployment_run_items (run_id, item_id) VALUES ('r1', 50)"
@@ -207,8 +208,9 @@ class TestDeploymentEvidence:
         _insert_item(db_path, 52, deployment_flow="standard")
         conn = connect_dt_db(db_path)
         conn.execute(
-            "INSERT INTO deployment_runs (id, project_id, status, created_at) "
-            "VALUES ('r2', 1, 'failed', '2025-01-01')"
+            "INSERT INTO deployment_runs "
+            "(id, project_id, flow, status, created_at) "
+            "VALUES ('r2', 1, 'standard', 'failed', '2025-01-01')"
         )
         conn.execute(
             "INSERT INTO deployment_run_items (run_id, item_id) VALUES ('r2', 52)"
