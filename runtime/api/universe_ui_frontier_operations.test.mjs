@@ -162,6 +162,36 @@ test("the overflow tile says See more... and fills the row it sits in", async (t
   mounted.unmount();
 });
 
+test("Release shows every card it holds, and Done alone truncates", async (t) => {
+  stubFetch(t);
+  const hour = 60 * 60 * 1000;
+  // One past the card limit Done truncates at. Release is a queue somebody
+  // is waiting to see empty, so a hidden remainder would understate what is
+  // still unshipped; only Done is a growing window on finished work.
+  const releasing = Array.from({ length: 9 }, (_, index) => ({
+    public_ref: `YOK-${40 + index}`,
+    internal_id: 400 + index,
+    title: `releasing ${index}`,
+    project: "yoke",
+    project_id: 1,
+    project_sequence: 40 + index,
+    workflow_id: "issue",
+    status: "release",
+    created_at: new Date(Date.now() - 6 * hour).toISOString(),
+    updated_at: new Date(Date.now() - (index + 1) * hour).toISOString(),
+    merged_at: new Date(Date.now() - (index + 1) * hour).toISOString(),
+  }));
+  const { mounted, root } = await mountAt("#/frontier?project=1", workbenchClient({
+    "items.overview.list": { rows: releasing },
+  }));
+
+  const release = byClass(root, "work-band-release")[0];
+  assert.equal(byClass(release, "work-item-card").length, 9);
+  assert.equal(byClass(release, "work-band-count")[0].textContent, "9");
+  assert.equal(byClass(release, "see-more-card").length, 0);
+  mounted.unmount();
+});
+
 test("the final responsive layer caps grids and owns compact behavior", () => {
   const staticUrl = "../../packages/yoke-core/src/yoke_core/ui/static/";
   const responsive = readFileSync(new URL(
