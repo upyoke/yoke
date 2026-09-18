@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from yoke_core.domain import prd_validate
-from yoke_core.domain.handlers import readiness
+from yoke_core.domain.handlers import readiness_prd_validate as readiness
 from yoke_core.domain.handlers import __init_register__ as init_register
 from yoke_core.domain import yoke_function_registry
 from yoke_contracts.api.function_call import (

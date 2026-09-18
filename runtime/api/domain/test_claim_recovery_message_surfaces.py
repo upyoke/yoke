@@ -12,6 +12,7 @@ from yoke_core.tools.atlas_render_docs import _render_permanent_roster
 
 _CORE = Path(__file__).parents[3] / "packages" / "yoke-core" / "src" / "yoke_core"
 _ACTIVE_RECOVERY_SURFACES = (
+    "domain/attestation_rehearsal_command_shape.py",
     "domain/attestation_rehearsal_dryrun.py",
     "domain/backlog_update_op.py",
     "domain/db_error_hook_query_failure.py",

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import io
-from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
@@ -20,6 +18,7 @@ from yoke_core.domain.idea_readiness_results import VERDICT_UNAVAILABLE
 class ReadinessCheckRequest(BaseModel):
     item_id: Optional[int] = None
     skip_readiness_check: bool = False
+    local_observations: Optional[Dict[str, Any]] = None
 
 
 class ReadinessCheckResponse(BaseModel):
@@ -28,11 +27,13 @@ class ReadinessCheckResponse(BaseModel):
     issues: List[Dict[str, Any]] = Field(default_factory=list)
     unavailable_checks: List[Dict[str, Any]] = Field(default_factory=list)
     advisories: List[Dict[str, Any]] = Field(default_factory=list)
+    local_execution_request: Optional[Dict[str, Any]] = None
     skip_reason: Optional[str] = None
 
 
 class ReadinessRepairRequest(BaseModel):
     item_id: Optional[int] = None
+    local_observations: Optional[Dict[str, Any]] = None
 
 
 class ReadinessRepairResponse(BaseModel):
@@ -42,30 +43,12 @@ class ReadinessRepairResponse(BaseModel):
     repaired_paths: List[Dict[str, Any]] = Field(default_factory=list)
     refused_paths: List[Dict[str, Any]] = Field(default_factory=list)
     unavailable_checks: List[Dict[str, Any]] = Field(default_factory=list)
+    local_execution_request: Optional[Dict[str, Any]] = None
     field_written: str = ""
     rerun_verdict: str = ""
     rerun_issues: List[Dict[str, Any]] = Field(default_factory=list)
     error: str = ""
     audit_emitted: bool = False
-
-
-class ReadinessPrdValidateRequest(BaseModel):
-    item_id: Optional[int] = None
-    strict: bool = False
-
-
-class ReadinessPrdValidateResponse(BaseModel):
-    item_id: int
-    item_label: str
-    strict: bool
-    passed: bool
-    pass_count: int
-    warn_count: int
-    fail_count: int
-    passed_checks: List[str] = Field(default_factory=list)
-    warnings: List[str] = Field(default_factory=list)
-    failures: List[str] = Field(default_factory=list)
-    report_text: str
 
 
 def _err(code: str, message: str) -> HandlerOutcome:
@@ -90,8 +73,9 @@ def _unavailable_repair_payload(
 
     Repair rewrites the item from what the checks read on disk, so a host
     with no checkout has nothing to repair against and no way to prove the
-    rerun. The refusal carries the unperformed checks and their recovery
-    rather than a retry.
+    rerun. The refusal carries the unperformed checks and their recovery,
+    plus the ``local_execution_request`` a caller holding the checkout
+    answers to turn this same call into a performed one.
     """
     return {
         "success": False,
@@ -100,6 +84,7 @@ def _unavailable_repair_payload(
         "rerun_verdict": str(readiness["verdict"]),
         "rerun_issues": list(readiness["issues"]),
         "unavailable_checks": list(readiness["unavailable_checks"]),
+        "local_execution_request": readiness["local_execution_request"],
         "error": (
             "readiness validation was not performed on this host; repair "
             "needs the item project's checkout"
@@ -107,32 +92,90 @@ def _unavailable_repair_payload(
     }
 
 
-def _run_readiness(item_id: int) -> Dict[str, Any]:
+def _reverification_request(
+    payload: Dict[str, Any], item_id: int,
+) -> Dict[str, Any]:
+    """Ask for a fresh reading when a repair's own re-run could not verify it.
+
+    The stale-count repair rewrites the spec, which unbinds every reading
+    taken before it, so on a host without the tree the re-run inside the
+    repair always comes back unperformed. Publishing the request the new
+    spec needs lets the caller holding the checkout answer again; the
+    repair is idempotent, so that second pass verifies rather than
+    repeats. Without this the caller is told the repair failed when what
+    actually happened is that nothing here could check it.
+    """
+    if str(payload.get("rerun_verdict") or "") != VERDICT_UNAVAILABLE:
+        return payload
+    if payload.get("local_execution_request"):
+        return payload
+    from yoke_core.domain import db_helpers
+    from yoke_core.domain.idea_readiness_local_inputs import (
+        build_local_execution_request,
+        read_spec,
+    )
+
+    conn = db_helpers.connect()
+    try:
+        payload["local_execution_request"] = build_local_execution_request(
+            conn, item_id, read_spec(conn, item_id),
+        )
+    finally:
+        conn.close()
+    return payload
+
+
+def _run_readiness(
+    item_id: int, local_observations: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """Run every readiness check for one item and render its payload.
 
     ``unavailable_checks`` names the checks the executing host could not
     perform — each carries its own reason, supported recovery, and
     ``retryable`` flag. A non-empty list is never a pass.
+
+    A host without the item project's checkout publishes what those
+    checks need as ``local_execution_request``, so a caller that does
+    have the tree can run them and hand back ``local_observations``.
     """
     from yoke_core.domain import db_helpers
     from yoke_core.domain.idea_readiness_check import run_all_checks
+    from yoke_core.domain.idea_readiness_local_inputs import (
+        build_local_execution_request,
+        read_spec,
+    )
+    from yoke_core.domain.idea_readiness_checkout import (
+        CHECKOUT_UNAVAILABLE_REASON,
+    )
 
     conn = db_helpers.connect()
     try:
-        outcome = run_all_checks(conn, item_id)
+        outcome = run_all_checks(conn, item_id, local_observations)
+        unavailable = outcome.unavailable_payloads()
+        request = (
+            build_local_execution_request(conn, item_id, read_spec(conn, item_id))
+            if any(
+                u["reason"] == CHECKOUT_UNAVAILABLE_REASON for u in unavailable
+            )
+            else None
+        )
     finally:
         conn.close()
     return {
         "verdict": outcome.verdict,
         "classification": outcome.classification,
         "issues": outcome.issue_payloads(),
-        "unavailable_checks": outcome.unavailable_payloads(),
+        "unavailable_checks": unavailable,
         "advisories": list(outcome.advisories),
+        "local_execution_request": request,
     }
 
 
 def _check_payload(
-    *, item_id: int, skip_readiness_check: bool = False,
+    *,
+    item_id: int,
+    skip_readiness_check: bool = False,
+    local_observations: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     if skip_readiness_check:
         return {
@@ -143,7 +186,7 @@ def _check_payload(
             "advisories": [],
             "skip_reason": "operator-override",
         }
-    return _run_readiness(item_id)
+    return _run_readiness(item_id, local_observations)
 
 
 def handle_check(request: FunctionCallRequest) -> HandlerOutcome:
@@ -157,6 +200,7 @@ def handle_check(request: FunctionCallRequest) -> HandlerOutcome:
         payload = _check_payload(
             item_id=item_id,
             skip_readiness_check=bool(body.skip_readiness_check),
+            local_observations=body.local_observations,
         )
     except FileNotFoundError as exc:
         missing = getattr(exc, "filename", None) or str(exc)
@@ -176,60 +220,6 @@ def handle_check(request: FunctionCallRequest) -> HandlerOutcome:
     )
 
 
-def handle_prd_validate(request: FunctionCallRequest) -> HandlerOutcome:
-    try:
-        body = ReadinessPrdValidateRequest.model_validate(request.payload)
-        item_id = _target_item_id(request, body.item_id)
-    except Exception as exc:
-        return _err(
-            "payload_invalid",
-            f"readiness.prd_validate.run payload invalid: {exc}",
-        )
-
-    from yoke_core.domain import prd_validate
-
-    from yoke_core.domain.project_identity_item_ref import item_ref_for_id
-
-    stderr = io.StringIO()
-    try:
-        with redirect_stderr(stderr):
-            prd_body, item_label = prd_validate.resolve_body(
-                item_ref_for_id(int(item_id)),
-                None,
-            )
-    except SystemExit as exc:
-        detail = stderr.getvalue().strip() or str(exc.code)
-        return _err("prd_body_unavailable", detail)
-
-    report = prd_validate.validate_prd(prd_body, item_label)
-    passed = report.fail_count == 0 and (
-        not body.strict or report.warn_count == 0
-    )
-    payload = ReadinessPrdValidateResponse(
-        item_id=item_id,
-        item_label=item_label,
-        strict=body.strict,
-        passed=passed,
-        pass_count=report.pass_count,
-        warn_count=report.warn_count,
-        fail_count=report.fail_count,
-        passed_checks=list(report.passed),
-        warnings=list(report.warnings),
-        failures=list(report.failures),
-        report_text=_render_prd_report(item_label, report),
-    ).model_dump()
-    return HandlerOutcome(result_payload=payload, primary_success=passed)
-
-
-def _render_prd_report(item_label: str, report: Any) -> str:
-    from yoke_core.domain.prd_validate_render import print_report
-
-    stdout = io.StringIO()
-    with redirect_stdout(stdout):
-        print_report(item_label, report)
-    return stdout.getvalue().rstrip()
-
-
 def handle_repair_stale_count(request: FunctionCallRequest) -> HandlerOutcome:
     try:
         body = ReadinessRepairRequest.model_validate(request.payload)
@@ -246,7 +236,7 @@ def handle_repair_stale_count(request: FunctionCallRequest) -> HandlerOutcome:
         attempt_stale_count_repair,
     )
 
-    readiness = _run_readiness(item_id)
+    readiness = _run_readiness(item_id, body.local_observations)
     verdict = str(readiness["verdict"])
     issues = list(readiness["issues"])
     classification = str(readiness["classification"])
@@ -269,10 +259,14 @@ def handle_repair_stale_count(request: FunctionCallRequest) -> HandlerOutcome:
             "error": "only pure stale-count handled by this repair",
         }
     else:
-        payload = attempt_stale_count_repair(
-            item_id=item_id,
-            issues=issues,
-        ).to_payload()
+        payload = _reverification_request(
+            attempt_stale_count_repair(
+                item_id=item_id,
+                issues=issues,
+                observations=body.local_observations,
+            ).to_payload(),
+            item_id,
+        )
     return HandlerOutcome(result_payload=payload, primary_success=True)
 
 
@@ -290,7 +284,7 @@ def handle_repair_claim_coverage(request: FunctionCallRequest) -> HandlerOutcome
         attempt_claim_coverage_repair,
     )
 
-    readiness = _run_readiness(item_id)
+    readiness = _run_readiness(item_id, body.local_observations)
     verdict = str(readiness["verdict"])
     if verdict == "pass":
         payload = {
@@ -301,22 +295,23 @@ def handle_repair_claim_coverage(request: FunctionCallRequest) -> HandlerOutcome
     elif verdict == VERDICT_UNAVAILABLE:
         payload = _unavailable_repair_payload(item_id, readiness)
     else:
-        payload = attempt_claim_coverage_repair(
-            item_id=item_id,
-            issues=list(readiness["issues"]),
-        ).to_payload()
+        payload = _reverification_request(
+            attempt_claim_coverage_repair(
+                item_id=item_id,
+                issues=list(readiness["issues"]),
+                observations=body.local_observations,
+            ).to_payload(),
+            item_id,
+        )
     return HandlerOutcome(result_payload=payload, primary_success=True)
 
 
 __all__ = [
     "ReadinessCheckRequest",
     "ReadinessCheckResponse",
-    "ReadinessPrdValidateRequest",
-    "ReadinessPrdValidateResponse",
     "ReadinessRepairRequest",
     "ReadinessRepairResponse",
     "handle_check",
-    "handle_prd_validate",
     "handle_repair_claim_coverage",
     "handle_repair_stale_count",
 ]

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Optional, Set, Tuple
+from typing import Any, FrozenSet, Optional, Set, Tuple
 
 from yoke_core.domain import db_backend
 
@@ -87,42 +87,84 @@ def is_module_or_planned_ref(
     ):
         return True
     # Check 2: full dotted path maps to a pre-observation claim target.
-    if conn is not None and item_id:
-        try:
-            p = _p(conn)
-            for candidate in module_file_candidates(repo_root, full_path):
-                rel = str(candidate.relative_to(repo_root))
-                row = conn.execute(
-                    "SELECT 1 FROM path_claim_targets pct "
-                    "JOIN path_claims pc ON pc.id = pct.claim_id "
-                    "JOIN path_targets pt ON pt.id = pct.target_id "
-                    f"WHERE pc.owner_kind = 'item' AND pc.owner_item_id = {p} "
-                    "  AND pc.state IN ('planned', 'active', 'blocked') "
-                    "  AND pt.materialization_state IN "
-                    "('planned', 'tentative') "
-                    f"  AND pt.path_string = {p}",
-                    (item_id, rel),
-                ).fetchone()
-                if row:
-                    return True
-        except db_backend.operational_error_types(conn):
-            pass
+    return _has_pre_observation_claim_target(conn, item_id, full_path)
+
+
+def planned_claim_suppressed_refs(
+    spec_text: str,
+    conn: Optional[Any],
+    item_id: int,
+) -> FrozenSet[str]:
+    """Return the spec's dotted refs that a pre-observation claim covers.
+
+    The same carve-out :func:`is_module_or_planned_ref` applies from check
+    2, resolved from the control plane alone. A host with the claim rows
+    but no checkout computes this set and hands it to the host that does
+    have the files, which cannot reach the claim tables itself.
+    """
+    if conn is None or not item_id:
+        return frozenset()
+    return frozenset(
+        full_path
+        for full_path, _func in function_refs_to_verify(spec_text)
+        if "." in full_path
+        and _has_pre_observation_claim_target(conn, item_id, full_path)
+    )
+
+
+def _has_pre_observation_claim_target(
+    conn: Optional[Any], item_id: int, full_path: str,
+) -> bool:
+    if conn is None or not item_id:
+        return False
+    try:
+        p = _p(conn)
+        for rel in relative_module_file_candidates(full_path):
+            row = conn.execute(
+                "SELECT 1 FROM path_claim_targets pct "
+                "JOIN path_claims pc ON pc.id = pct.claim_id "
+                "JOIN path_targets pt ON pt.id = pct.target_id "
+                f"WHERE pc.owner_kind = 'item' AND pc.owner_item_id = {p} "
+                "  AND pc.state IN ('planned', 'active', 'blocked') "
+                "  AND pt.materialization_state IN "
+                "('planned', 'tentative') "
+                f"  AND pt.path_string = {p}",
+                (item_id, rel),
+            ).fetchone()
+            if row:
+                return True
+    except db_backend.operational_error_types(conn):
+        pass
     return False
 
 
 def module_file_candidates(repo_root: Path, module_dotted: str) -> tuple[Path, ...]:
-    return tuple(path.with_suffix(".py") for path in _module_candidates(
-        repo_root, module_dotted,
-    ))
+    return tuple(
+        repo_root / rel for rel in relative_module_file_candidates(module_dotted)
+    )
+
+
+def relative_module_file_candidates(module_dotted: str) -> tuple[str, ...]:
+    """Repo-relative ``.py`` paths a dotted module reference could name.
+
+    Repo-relative on purpose: the checkout root cancels out of the claim
+    lookup, so a host without one still resolves the same path strings.
+    """
+    return tuple(
+        str(path.with_suffix(".py"))
+        for path in _relative_module_candidates(module_dotted)
+    )
 
 
 def _module_dir_candidates(repo_root: Path, module_dotted: str) -> tuple[Path, ...]:
-    return _module_candidates(repo_root, module_dotted)
+    return tuple(
+        repo_root / rel for rel in _relative_module_candidates(module_dotted)
+    )
 
 
-def _module_candidates(repo_root: Path, module_dotted: str) -> tuple[Path, ...]:
+def _relative_module_candidates(module_dotted: str) -> tuple[Path, ...]:
     rel = Path(*module_dotted.split("."))
     package_root = _PACKAGE_SOURCE_ROOTS.get(module_dotted.split(".", 1)[0])
     if package_root is not None:
-        return (repo_root / package_root / rel,)
-    return (repo_root / rel,)
+        return (package_root / rel,)
+    return (rel,)

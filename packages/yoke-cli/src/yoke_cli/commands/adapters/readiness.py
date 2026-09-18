@@ -40,20 +40,38 @@ READINESS_REPAIR_CLAIM_COVERAGE_USAGE = (
     "[--session-id S] [--json]"
 )
 
+# One round answers a check. A repair needs a second, because its own
+# write unbinds the reading that drove it and the host asks again for the
+# spec it now holds. Nothing legitimately asks a third time.
+_MAX_OBSERVATION_ROUNDS = 2
+
 
 _READINESS_CHECK_EPILOG = """\
+Four of these checks read the item project's files. A control plane with
+no checkout for that project cannot run them, so this command runs them
+here whenever this machine has that project registered, and sends what
+they found back for the verdict. Nothing is skipped and nothing is judged
+locally. The control plane checks each answer against the item, project
+and spec revision it holds, and accepts only findings its own checks
+could have produced about surfaces this item already names, so a spec
+rewritten underneath a reading is reported unperformed rather than
+passed. The checkout revision travels too, but it is this machine's own
+report and the control plane has no tree to check it against: it catches
+a tree edited mid-read, not a machine that misreports.
+
 Reports one of three verdicts in the result payload:
 
   pass         every applicable check ran and found nothing.
   block        a check found a defect; `issues` names each one with its
                remediation, and `classification` routes refine's repair.
-  unavailable  a check could not be performed on the executing host;
-               `unavailable_checks` names each unperformed check, why, and
-               a recovery that works. Every entry is `retryable: false` —
-               the checks that read the item project's files need that
-               project's checkout, and re-running where there is none
-               returns the same answer. The envelope still succeeds: read
-               the verdict, not the exit status.
+  unavailable  a check could not be performed; `unavailable_checks` names
+               each unperformed check, why, and a recovery that works.
+               `retryable: false` means no rerun anywhere changes the
+               answer — this machine has no checkout for that project
+               either (`yoke project register <checkout> --project-id N`).
+               `retryable: true` means something moved mid-check and the
+               same command run again resolves it. The envelope still
+               succeeds: read the verdict, not the exit status.
 """
 
 
@@ -78,7 +96,7 @@ def readiness_check(args: List[str]) -> int:
     payload: Dict[str, Any] = {}
     if parsed.skip_readiness_check:
         payload["skip_readiness_check"] = True
-    return dispatch_and_emit(
+    return _dispatch_observing_locally(
         function_id="readiness.check.run",
         target=item_target("item", parsed.item, parsed.project),
         payload=payload,
@@ -172,12 +190,64 @@ def _repair(
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
-    return dispatch_and_emit(
+    return _dispatch_observing_locally(
         function_id=function_id,
         target=item_target("item", parsed.item, parsed.project),
         payload={},
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
+    )
+
+
+def _dispatch_observing_locally(
+    *,
+    function_id: str,
+    target: Any,
+    payload: Dict[str, Any],
+    session_id: Any,
+    json_mode: bool,
+) -> int:
+    """Dispatch, and answer a request to read this machine's checkout.
+
+    A readiness host without the item project's files publishes what its
+    file-reading checks needed. When this machine has that checkout, the
+    checks run here and the same call is re-dispatched carrying what they
+    observed, so the verdict is still the control plane's. When it does
+    not, the first answer stands — unperformed, never passed.
+
+    A repair can ask twice. Rewriting the spec unbinds the reading that
+    drove it, so the host publishes a second request covering the spec it
+    now holds, and answering that one is what verifies the repair. The
+    repairs are idempotent — each re-runs readiness first and does
+    nothing when it passes — so the extra pass confirms rather than
+    repeats. The rounds are bounded because the loop is driven by the
+    host asking, and a host that kept asking would otherwise spin.
+    """
+    def observe_then_redispatch(response, actor):
+        from yoke_cli.commands.adapters import readiness_local_compose as local
+
+        for _round in range(_MAX_OBSERVATION_ROUNDS):
+            request = local.local_execution_request(response)
+            if request is None:
+                return response
+            observations = local.collect_observations(request)
+            if observations is None:
+                return response
+            response = call_dispatcher(
+                function_id=function_id,
+                target=target,
+                payload={**payload, "local_observations": observations},
+                actor=actor,
+            )
+        return response
+
+    return dispatch_and_emit(
+        function_id=function_id,
+        target=target,
+        payload=payload,
+        session_id=session_id,
+        json_mode=json_mode,
+        response_recovery=observe_then_redispatch,
     )
 
 

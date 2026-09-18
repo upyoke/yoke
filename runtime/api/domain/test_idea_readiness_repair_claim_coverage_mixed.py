@@ -182,9 +182,14 @@ class TestAttemptClaimCoverageRepairMixed:
         assert outcome.refused_paths[0]["reason"] == "widen_failed"
         assert outcome.rerun_verdict == "block"
 
-    def test_both_blocked_refused_before_mutation(self, conn):
-        """Both sides blocked -> success=False, refused_paths covers both."""
-        # Empty checkout path -> narrow refuses before mutating coverage.
+    def test_a_narrow_without_a_checkout_stops_the_whole_repair(self, conn):
+        """The paired widen is not attempted, so nothing is half-applied.
+
+        Narrowing needs a worktree for its boundary proof. With no
+        checkout it can never succeed, and a widen applied first would
+        leave the claim changed on one side only — so the refusal comes
+        before either amendment rather than after the widen.
+        """
         _seed_claim(
             conn, item_id=9209, repo_path="", owned_paths=["src/keep.py"],
         )
@@ -197,7 +202,6 @@ class TestAttemptClaimCoverageRepairMixed:
         assert outcome.success is False
         assert outcome.repaired_paths == []
         reasons = {entry["reason"] for entry in outcome.refused_paths}
-        assert "widen_failed" in reasons
-        assert "narrow_boundary_checkout_missing" in reasons
+        assert reasons == {"narrow_boundary_checkout_missing"}
         assert outcome.rerun_verdict == ""
         assert outcome.error == "repair refused before mutation"

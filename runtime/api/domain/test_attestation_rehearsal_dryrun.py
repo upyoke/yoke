@@ -25,9 +25,11 @@ import pytest
 from runtime.api.engines._doctor_native_sql_test_helpers import (
     connect_disposable_test_db,
 )
-from yoke_core.domain.attestation_rehearsal_dryrun import (
+from yoke_core.domain.attestation_rehearsal_command_shape import (
     ATTESTATION_REHEARSAL_COMMAND_FAILED,
     ValidationOutcome,
+)
+from yoke_core.domain.attestation_rehearsal_dryrun import (
     issue_payloads_for_item,
     validate_attestation_rehearsal_commands,
 )

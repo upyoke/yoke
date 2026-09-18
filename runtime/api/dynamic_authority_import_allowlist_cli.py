@@ -230,6 +230,14 @@ CLI_PACKAGE_DYNAMIC_AUTHORITY_IMPORTS = {
         "https doctor honors caller-checkout project-local --only slugs",
     ),
     (
+        "packages/yoke-cli/src/yoke_cli/commands/adapters/readiness_local_compose.py",
+        "yoke_core.engines.readiness_local_observations",
+    ): (
+        "client_local_diagnostics",
+        "readiness runs its file-reading checks against this machine's tree "
+        "when the control plane holding the item has no checkout",
+    ),
+    (
         "packages/yoke-cli/src/yoke_cli/commands/adapters/doctor_output.py",
         "yoke_core.engines.doctor_progress",
     ): (

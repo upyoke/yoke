@@ -14,23 +14,19 @@ from yoke_core.domain.idea_readiness_repair import (
     RepairOutcome,
     RepairedPath,
 )
+from yoke_core.domain.idea_readiness_repair_handoff import (
+    narrow_refusal_without_checkout,
+    paths_from_issues,
+)
 from yoke_core.domain.idea_readiness_results import _RECOVERABLE_CLAIM_CODES
 from yoke_core.domain.idea_readiness_repair_missing_file_budget import (
     maybe_repair_missing_file_budget,
 )
-from yoke_core.domain.path_claims import PathClaimError
-from yoke_core.domain.path_claims_amend import (
-    AmendmentError,
-    NarrowWouldOrphanCommittedWork,
-    narrow,
-    widen,
+from yoke_core.domain.idea_readiness_claim_amendments import (
+    apply_narrow,
+    apply_widen,
 )
-from yoke_core.domain.path_claims_events import emit_amended
-from yoke_core.domain.path_claims_read import claim_projection, item_view
-from yoke_core.domain.path_claims_resolve import (
-    PathResolveError,
-    resolve_paths_to_target_ids,
-)
+from yoke_core.domain.path_claims_read import item_view
 from yoke_core.domain.project_checkout_locations import checkout_for_project
 
 
@@ -43,8 +39,6 @@ _WIDEN_CODE = "FILE_BUDGET_NOT_IN_CLAIM"
 _NARROW_CODE = "CLAIM_NOT_IN_FILE_BUDGET"
 _FIELD_WRITTEN = ""
 _EVENT_NAME = "IdeaReadinessClaimCoverageRepairApplied"
-_WIDEN_REASON = "refine entry: auto-widen for FILE_BUDGET_NOT_IN_CLAIM"
-_NARROW_REASON = "refine entry: auto-narrow for CLAIM_NOT_IN_FILE_BUDGET"
 
 
 def _p(conn: Any) -> str:
@@ -84,20 +78,6 @@ def _find_single_exclusive_claim(
             "claim_ids": [int(c["id"]) for c in exclusive],
         }]
     return int(exclusive[0]["id"]), []
-
-
-def _paths_from_issues(issues: List[Dict[str, Any]], code: str) -> List[str]:
-    seen: Set[str] = set()
-    out: List[str] = []
-    for issue in issues:
-        if str(issue.get("code") or "") != code:
-            continue
-        path = str((issue.get("context") or {}).get("path") or "")
-        if not path or path in seen:
-            continue
-        seen.add(path)
-        out.append(path)
-    return out
 
 
 def _scalar(conn, sql: str, params: tuple, key: str) -> Optional[str]:
@@ -150,77 +130,25 @@ def _emit_repair_event(
         return False
 
 
-def _rerun_readiness(item_id: int) -> Tuple[str, List[Dict[str, Any]]]:
-    from yoke_core.domain.idea_readiness_check import run_all_checks
-    from yoke_core.domain.schema_common import _connect_raw
+def _rerun_readiness(
+    item_id: int, observations: Optional[Dict[str, Any]] = None,
+) -> Tuple[str, List[Dict[str, Any]]]:
+    """Re-run readiness, reusing the answer that drove the repair.
 
-    conn = _connect_raw()
-    try:
-        outcome = run_all_checks(conn, item_id)
-    finally:
-        conn.close()
+    Widening and narrowing a claim touches neither the spec nor the tree,
+    so an answer bound before the repair is still bound after it and can
+    verify the result without a second round trip to the machine holding
+    the checkout.
+    """
+    from yoke_core.domain.idea_readiness_repair_handoff import rerun_readiness
+
+    outcome = rerun_readiness(item_id, observations)
     return (outcome.verdict, outcome.issue_payloads())
-
-
-_AMEND_EXCS = (AmendmentError, PathClaimError, PathResolveError)
-
-
-def _apply_widen(
-    conn, *, claim_id: int, project: str, paths: List[str],
-) -> Tuple[List[RepairedPath], List[Dict[str, Any]]]:
-    try:
-        target_ids = resolve_paths_to_target_ids(conn, project, paths)
-        amendment_id = widen(
-            conn, claim_id=claim_id, add_target_ids=target_ids,
-            reason=_WIDEN_REASON,
-        )
-        emit_amended(
-            conn=conn, claim=claim_projection(conn, claim_id),
-            amendment_id=amendment_id, amendment_kind="widen",
-            payload={"added": list(target_ids)},
-            reason=_WIDEN_REASON, project=project,
-        )
-    except _AMEND_EXCS as exc:
-        return [], [{"reason": "widen_failed", "paths": list(paths),
-                     "error": str(exc)}]
-    return [RepairedPath(path=p, recorded=0, actual=0) for p in paths], []
-
-
-def _apply_narrow(
-    conn, *, claim_id: int, project: str, drop_paths: List[str],
-    repo_path: Optional[str],
-) -> Tuple[List[RepairedPath], List[Dict[str, Any]]]:
-    if not repo_path:
-        return [], [{"reason": "narrow_boundary_checkout_missing",
-                     "drop_paths": list(drop_paths)}]
-    try:
-        target_ids = resolve_paths_to_target_ids(conn, project, drop_paths)
-        amendment_id = narrow(
-            conn, claim_id=claim_id, drop_target_ids=target_ids,
-            reason=_NARROW_REASON, repo_path=repo_path,
-        )
-        emit_amended(
-            conn=conn, claim=claim_projection(conn, claim_id),
-            amendment_id=amendment_id, amendment_kind="narrow",
-            payload={"removed": list(target_ids)},
-            reason=_NARROW_REASON, project=project,
-        )
-    except NarrowWouldOrphanCommittedWork as exc:
-        return [], [{
-            "reason": "narrow_boundary_risk",
-            "offending_paths": list(exc.offending_paths),
-            "error": str(exc),
-        }]
-    except _AMEND_EXCS as exc:
-        return [], [{"reason": "narrow_failed",
-                     "drop_paths": list(drop_paths), "error": str(exc)}]
-    return (
-        [RepairedPath(path=p, recorded=0, actual=0) for p in drop_paths], [],
-    )
 
 
 def attempt_claim_coverage_repair(
     *, item_id: int, issues: List[Dict[str, Any]],
+    observations: Optional[Dict[str, Any]] = None,
 ) -> RepairOutcome:
     """Repair claim-coverage drift on the item's single exclusive claim."""
     base = {"classification": CLASS_MIXED_STALE_COUNT, "item_id": item_id}
@@ -267,20 +195,31 @@ def attempt_claim_coverage_repair(
                 error="item has no project; cannot resolve paths",
             )
         repo_path = _repo_path_for_project(conn, project)
+        drop_paths = paths_from_issues(issues, _NARROW_CODE)
+        # Before the widen, not after it: a narrow this host cannot prove
+        # would otherwise refuse with the paired widen already applied,
+        # leaving the claim half-repaired and the item worse off than if
+        # nothing had run.
+        if _NARROW_CODE in codes:
+            blocked = narrow_refusal_without_checkout(repo_path, drop_paths)
+            if blocked is not None:
+                return RepairOutcome(
+                    success=False, **base, refused_paths=[blocked],
+                    error="repair refused before mutation",
+                )
         repaired: List[RepairedPath] = []
         apply_refused: List[Dict[str, Any]] = []
         if _WIDEN_CODE in codes:
-            r, ar = _apply_widen(
+            r, ar = apply_widen(
                 conn, claim_id=claim_id, project=project,
-                paths=_paths_from_issues(issues, _WIDEN_CODE),
+                paths=paths_from_issues(issues, _WIDEN_CODE),
             )
             repaired += r
             apply_refused += ar
         if _NARROW_CODE in codes:
-            r, ar = _apply_narrow(
+            r, ar = apply_narrow(
                 conn, claim_id=claim_id, project=project,
-                drop_paths=_paths_from_issues(issues, _NARROW_CODE),
-                repo_path=repo_path,
+                drop_paths=drop_paths, repo_path=repo_path,
             )
             repaired += r
             apply_refused += ar
@@ -291,7 +230,7 @@ def attempt_claim_coverage_repair(
     finally:
         conn.close()
 
-    rerun_verdict, rerun_issues = _rerun_readiness(item_id)
+    rerun_verdict, rerun_issues = _rerun_readiness(item_id, observations)
     audit_emitted = _emit_repair_event(
         item_id=item_id, action=action, rerun_verdict=rerun_verdict,
         repaired=repaired, refused=apply_refused,
