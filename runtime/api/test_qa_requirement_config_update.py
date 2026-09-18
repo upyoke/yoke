@@ -231,13 +231,53 @@ class TestMethodConfigUpdate:
         assert extra == 1
         assert passed is False
 
-    def test_frozen_deployment_run_row_refuses_update(self, db_path: str) -> None:
+    def test_unjudged_deployment_run_row_accepts_a_correction(
+        self, db_path: str
+    ) -> None:
+        """A run-bound case nobody has judged is still a case, not a result.
+
+        The freeze protects a recorded acceptance. Before the case has
+        answered there is nothing to protect, and this is the only window in
+        which a defect that only shows up against the real deployed target
+        can be fixed at all.
+        """
         req_id = _seed_browser_requirement(db_path, steps=_OLD_STEPS)
         conn = connect_test_db(db_path)
         conn.execute(
             "UPDATE qa_requirements SET item_id = NULL, deployment_run_id = %s "
             "WHERE id = %s",
             ("run-20260420-001", req_id),
+        )
+        conn.commit()
+        conn.close()
+        qa.cmd_requirement_update(
+            req_id,
+            "method_config",
+            json.dumps({"steps": _NEW_STEPS}),
+            db_path=db_path,
+        )
+        conn = connect_test_db(db_path)
+        after = conn.execute(
+            "SELECT method_config FROM qa_requirements WHERE id = %s", (req_id,)
+        ).fetchone()[0]
+        conn.close()
+        stored = after if isinstance(after, dict) else json.loads(after)
+        assert stored["steps"] == _NEW_STEPS
+
+    def test_answered_deployment_run_row_refuses_update(self, db_path: str) -> None:
+        req_id = _seed_browser_requirement(db_path, steps=_OLD_STEPS)
+        conn = connect_test_db(db_path)
+        conn.execute(
+            "UPDATE qa_requirements SET item_id = NULL, deployment_run_id = %s "
+            "WHERE id = %s",
+            ("run-20260420-001", req_id),
+        )
+        # A determinate verdict is what closes the window: the case has now
+        # answered, so its snapshot is the acceptance record.
+        conn.execute(
+            "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
+            "created_at) VALUES (%s,'worktree_run','plan_case','fail',%s)",
+            (req_id, "2026-04-20T00:00:00Z"),
         )
         before = conn.execute(
             "SELECT method_config FROM qa_requirements WHERE id = %s", (req_id,)
@@ -261,8 +301,7 @@ class TestMethodConfigUpdate:
         ).fetchone()[0]
         conn.close()
         assert after == before
-        assert marker_count == 0
-
+        assert marker_count == 1
     def test_non_method_requirement_cannot_take_method_config(
         self, db_path: str
     ) -> None:
