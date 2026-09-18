@@ -22,6 +22,9 @@ from yoke_core.domain import standalone_item_merge_git as git
 from yoke_core.domain import item_merge_receipts as receipts
 from yoke_core.domain.capability_undeclare_remedy import undeclare_remedy
 from yoke_core.domain.db_read_constants import DB_READ_FUNCTION_ID
+from yoke_core.domain.merge_candidate_review_admission import (
+    candidate_review_refusal,
+)
 from yoke_core.domain.merge_queue_route import land_item_through_merge_queue
 from yoke_core.domain.projects_seed_ci_workflow import (
     MERGE_QUEUE_CAPABILITY_TYPE,
@@ -142,7 +145,41 @@ def route_standalone_landing(
     queue landing runs out of its record wait budget. Only the caller knows it, and a
     resumable outcome that prints a command the operator can paste is the
     difference between resuming and reconstructing.
+
+    A candidate the item's posture says a person must review is refused here,
+    before either route: arming a merge-when-ready pull request, enqueuing
+    one, and merging locally are all landings, so the review holds them all
+    from the one place that selects between them.
     """
+    # The commit a landing is answerable for, resolved before the route is
+    # chosen because the review is bound to it. A lane with no resolvable
+    # head is left to the route to refuse in its own words.
+    lane_head, head_error = queue_lane_head(
+        item_id=item_id,
+        branch=branch,
+        target=target,
+        repo_root=repo_root,
+        project=project,
+        commit_sha=commit_sha,
+    )
+    if not head_error:
+        review_refusal = candidate_review_refusal(
+            item_id=item_id,
+            public_ref=public_ref or branch,
+            commit_sha=lane_head,
+            branch=branch,
+            target=target,
+            repo_root=repo_root,
+            dispatch=dispatch,
+        )
+        if review_refusal:
+            return StandaloneMergeOutcome(
+                ok=False,
+                exit_code=1,
+                already_merged=False,
+                commit_sha=lane_head,
+                error=review_refusal,
+            )
     declared, probe_error = project_declares_merge_queue(project, dispatch=dispatch)
     if probe_error:
         return StandaloneMergeOutcome(
@@ -170,14 +207,6 @@ def route_standalone_landing(
             local_merge=local_merge,
             resume_command=resume_command,
         )
-    lane_head, head_error = queue_lane_head(
-        item_id=item_id,
-        branch=branch,
-        target=target,
-        repo_root=repo_root,
-        project=project,
-        commit_sha=commit_sha,
-    )
     if head_error:
         return StandaloneMergeOutcome(
             ok=False,
