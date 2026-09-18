@@ -27,7 +27,10 @@ import {
   claimedItemRefs,
   isQualifyingClaimant,
 } from "./universe_item_claimant.js";
-import { appendItemDeployment } from "./universe_item_deployment.js";
+import {
+  appendItemDeployment,
+  appendReleaseDelivery,
+} from "./universe_item_deployment.js";
 import { workItemCard } from "./universe_work_cards.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
@@ -281,18 +284,18 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       },
     )), "Nothing is ready to pick up.");
 
-    const releasingCards = releasing.slice(0, BAND_CARD_LIMIT).map((row) => {
+    // Every card, with no overflow tile: Done is the one band that truncates,
+    // because it is a window on finished work that only grows. Release is a
+    // queue somebody is waiting to see empty, and a hidden remainder there
+    // would understate what is still unshipped.
+    bands.release.setCount(releasing.length);
+    bands.release.renderCards(releasing.map((row) => {
       const card = workItemCard(documentNode, row, scope, {
         timestamp: row.updated_at,
       });
-      appendItemDeployment(documentNode, card, row, options.deployments);
+      appendReleaseDelivery(documentNode, card, row, options.deployments);
       return card;
-    });
-    if (releasing.length > releasingCards.length) {
-      releasingCards.push(seeMoreCard(documentNode, scope));
-    }
-    bands.release.setCount(releasing.length);
-    bands.release.renderCards(releasingCards, "Nothing is waiting to ship.");
+    }), "Nothing is waiting to ship.");
 
     const done = items
       .filter((row) => recentlyDone(row))
