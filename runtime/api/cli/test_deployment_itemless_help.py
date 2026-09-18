@@ -32,6 +32,8 @@ def _assert_itemless_recipe(text: str) -> None:
     assert "--source-ref origin/main" in text
     assert "--retry-of FAILED_RUN_ID" in text
     assert "without following a moving branch" in text
+    assert "--from-stage STAGE" in text
+    assert "re-enters executing" in text
     assert "watch deploy --" in text
     assert "--env CONTROL-PLANE" in text
     assert "serving API" in text
@@ -89,6 +91,8 @@ def test_execute_help_teaches_interrupted_run_redrive() -> None:
     assert "SAME run id" in text
     assert "does not fire a second release" in text
     assert "finalization pending" in text
+    assert "re-enters executing at that stage" in text
+    assert "does not replay skipped completed stages" in text
 
 
 def test_create_post_note_points_at_watch_deploy() -> None:
