@@ -205,6 +205,6 @@ def test_unreachable_authority_fails_closed(monkeypatch, relayed_client) -> None
         verdict=RuntimeError("control plane unreachable"),
     )
 
-    rec = _run_check(DoctorArgs(project="platform", fix=True))
+    _run_check(DoctorArgs(project="platform", fix=True))
 
     assert not relayed_client["prune"]
