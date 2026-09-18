@@ -26,8 +26,14 @@ from yoke_core.api.http_auth import (
     require_auth_context,
 )
 from yoke_core.api.function_failure_observability import record_function_failure
+from yoke_core.api.observability import record_request_phase
 from yoke_core.domain import yoke_function_registry as function_registry
 from yoke_core.domain.yoke_function_dispatch import dispatch
+from yoke_core.domain.yoke_function_dispatch_observability import (
+    elapsed_duration_ms,
+    handler_duration_ms,
+    start_duration_measurement,
+)
 from yoke_contracts.api.function_call import (
     FunctionCallRequest,
     FunctionCallResponse,
@@ -134,12 +140,31 @@ def call_function(request: Request, envelope: Dict[str, Any]) -> JSONResponse:
             return JSONResponse(content=body, status_code=_status_for_response(body))
         bound_envelope, ambient = bind_actor_from_auth(envelope, auth)
         _record_pre_dispatch_authz(request, bound_envelope, auth)
+        dispatch_started = start_duration_measurement()
         response = dispatch(bound_envelope, ambient_session_id=ambient or "")
+        _record_dispatch_overhead(request, dispatch_started)
     except Exception as exc:
         record_function_failure(request, bound_envelope, exc)
         response = _exception_response(bound_envelope, exc)
     body = response.model_dump()
     return JSONResponse(content=body, status_code=_status_for_response(body))
+
+
+def _record_dispatch_overhead(request: Request, dispatch_started: float | None) -> None:
+    """Report the dispatcher's own cost, with the handler's time removed.
+
+    The handler already reports itself through ``YokeFunctionCalled``; what
+    the completed-request log lacked is everything the dispatcher spends
+    around it.
+    """
+    dispatch_ms = elapsed_duration_ms(dispatch_started)
+    if dispatch_ms is None:
+        return
+    record_request_phase(
+        request,
+        "dispatch_overhead",
+        dispatch_ms - (handler_duration_ms() or 0),
+    )
 
 
 def _service_token_guard_response(
