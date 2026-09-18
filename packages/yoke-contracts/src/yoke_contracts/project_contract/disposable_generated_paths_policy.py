@@ -2,11 +2,13 @@
 
 The shared lane residue policy
 (``yoke_core.engines.merge_worktree_cleanliness``) treats a small hardcoded
-set of build/tool caches as safe to remove from a retired lane. A project's
-own regenerated, gitignored output — a rendered doc, a materialized asset
-directory — is exactly as safe to remove, but that shared engine must never
-hardcode one project's paths (Platform's build outputs have no business
-living in Yoke's source). Each project instead declares its own list
+set of build/tool caches, plus the operating-layer state Yoke renders into
+every checkout, as safe to remove from a retired lane. No project needs to
+declare that Yoke-generated state. A project's own regenerated, gitignored
+output — a rendered doc, a materialized asset directory — is exactly as
+safe to remove, but that shared engine must never hardcode one project's
+paths (Platform's build outputs have no business living in Yoke's source).
+Each project instead declares its own list
 through the ordinary ``project-policy`` capability key
 ``disposable_generated_paths``, validated here the same way on write and on
 read so a rejected save and a refused stored value agree on the same rule.

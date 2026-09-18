@@ -84,6 +84,78 @@ def test_tracked_edit_still_blocks_despite_declared_roots(tmp_path: Path):
     assert "unignored changes present" in assessment.reason
 
 
+def test_yoke_generated_lane_state_is_disposable(tmp_path: Path):
+    """A finished lane holding only what Yoke itself renders retires.
+
+    These are the exact paths the steering audit saw preserving finished
+    lanes: the strategy render, the operating-layer receipt and the install
+    manifest, none of which a project declares because Yoke generates them
+    in every checkout.
+    """
+    stdout = _porcelain(
+        ignored=[
+            ".yoke/strategy/",
+            ".yoke-operating-layer.json",
+            ".yoke/install-manifest.json",
+        ]
+    )
+
+    assessment = assess_lane_residue(_fake_git(stdout), tmp_path)
+
+    assert assessment.disposable
+    assert {root.as_posix() for root in assessment.cache_roots} == {
+        ".yoke/strategy",
+        ".yoke-operating-layer.json",
+        ".yoke/install-manifest.json",
+    }
+
+
+def test_unknown_ignored_file_beside_generated_state_still_preserves(tmp_path: Path):
+    """Generated state never launders an unknown neighbour out of the lane."""
+    stdout = _porcelain(ignored=[".yoke/strategy/", ".private/credentials"])
+
+    assessment = assess_lane_residue(_fake_git(stdout), tmp_path)
+
+    assert not assessment.disposable
+    assert assessment.reason == "unknown ignored files present: .private/credentials"
+
+
+def test_contract_tree_content_outside_the_generated_names_stays_unknown(
+    tmp_path: Path,
+):
+    """``.yoke/`` is a tracked contract tree, not a disposable directory."""
+    stdout = _porcelain(ignored=[".yoke/operator-scratch.md"])
+
+    assessment = assess_lane_residue(_fake_git(stdout), tmp_path)
+
+    assert not assessment.disposable
+    assert ".yoke/operator-scratch.md" in assessment.reason
+
+
+def test_clear_lane_residue_removes_generated_lane_state(tmp_path: Path):
+    strategy = tmp_path / ".yoke" / "strategy"
+    strategy.mkdir(parents=True)
+    (strategy / "CURRENT-PLAN.md").write_text("render")
+    receipt = tmp_path / ".yoke-operating-layer.json"
+    receipt.write_text("{}")
+
+    calls = {"n": 0}
+
+    def run_git(_args: list[str], cwd: Any = None, capture: bool = True) -> _FakeResult:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return _FakeResult(
+                _porcelain(ignored=[".yoke/strategy/", ".yoke-operating-layer.json"])
+            )
+        return _FakeResult("")
+
+    assessment = clear_lane_residue(run_git, tmp_path)
+
+    assert assessment.disposable
+    assert not strategy.exists()
+    assert not receipt.exists()
+
+
 def test_clear_lane_residue_removes_declared_nested_content(tmp_path: Path):
     generated_dir = tmp_path / "nested" / "generated"
     generated_dir.mkdir(parents=True)
