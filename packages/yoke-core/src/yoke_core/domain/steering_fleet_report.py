@@ -55,71 +55,41 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from yoke_core.domain.machine_registry import machine_names
-from yoke_core.domain.steering_fleet_report_available import (
-    FrontierEntry,
-    scope_candidates,
-)
 from yoke_core.domain.session_launch_capacity import MachineCapacity
+from yoke_core.domain.steering_fleet_report_abandoned import AbandonedLaunch
+from yoke_core.domain.steering_fleet_report_available import FrontierEntry
 from yoke_core.domain.steering_fleet_report_capacity import (
     SessionCount,
     SurfaceReadiness,
-    launchable_surfaces,
-    live_launch_origin_counts,
-    live_session_counts,
-    machine_capacities,
 )
 from yoke_core.domain.steering_fleet_report_dead_waits import DeadWait, dead_waits
-from yoke_core.domain.steering_fleet_report_in_flight import (
-    InFlightCall,
-    partition_quiet,
-)
-from yoke_core.domain.steering_fleet_report_undelivered import (
-    UndeliveredMessages,
-    undelivered_messages,
-)
-from yoke_core.domain.steering_fleet_report_abandoned import (
-    AbandonedLaunch,
-    abandoned_launches,
-)
 from yoke_core.domain.steering_fleet_report_detectors import (
     LandedItem,
     UnregisteredLaunch,
-    landed_without_closeout,
     suspected_orphaned_waiters,
-    unregistered_launches,
-)
-from yoke_core.domain.steering_fleet_report_vendor_errors import (
-    VendorErrorSession,
-    vendor_error_sessions,
-)
-from yoke_core.domain.steering_message_recipients import awaiting_seat_count
-from yoke_core.domain.steering_fleet_report_scope import (
-    members_only,
-    seat_members,
-    sessions_only,
-)
-from yoke_core.domain.steering_fleet_report_holders import (
-    ClaimHolder,
-    claim_holders,
 )
 from yoke_core.domain.steering_fleet_report_fingerprint import report_fingerprint
-from yoke_core.domain.steering_fleet_report_limits import (
-    MachinePlanLimit,
-    load_plan_limits,
-)
-from yoke_core.domain.steering_fleet_report_native_models import (
-    MachineNativeModels,
-    load_native_models,
+from yoke_core.domain.steering_fleet_report_holders import ClaimHolder
+from yoke_core.domain.steering_fleet_report_in_flight import (
+    InFlightCall,
+    partition_quiet,
 )
 from yoke_core.domain.steering_fleet_report_landings import (
     FleetLandingReadback,
     landing_readbacks,
 )
-from yoke_core.domain.steering_fleet_report_relay_health import (
-    RelayHealthCondition,
-    relay_health_conditions,
+from yoke_core.domain.steering_fleet_report_limits import MachinePlanLimit
+from yoke_core.domain.steering_fleet_report_native_models import MachineNativeModels
+from yoke_core.domain.steering_fleet_report_reads import FleetReportReads
+from yoke_core.domain.steering_fleet_report_relay_health import RelayHealthCondition
+from yoke_core.domain.steering_fleet_report_scope import (
+    members_only,
+    seat_members,
+    sessions_only,
 )
+from yoke_core.domain.steering_fleet_report_undelivered import UndeliveredMessages
+from yoke_core.domain.steering_fleet_report_vendor_errors import VendorErrorSession
+from yoke_core.domain.steering_message_recipients import awaiting_seat_count
 
 
 @dataclass(frozen=True)
@@ -233,6 +203,7 @@ def compose_report(
     idle_after_seconds: int,
     now: str,
     scope: Mapping[str, Any] | None = None,
+    reads: FleetReportReads | None = None,
 ) -> FleetReport:
     """Assemble one steering scope's report from live control-plane state.
 
@@ -241,10 +212,19 @@ def compose_report(
     filtered to its members. Delivery-plane and machine facts stay
     project-wide: a launch that never bound a session has no item to
     attribute, and machines are shared by every seat on them.
+
+    ``reads`` is the request this report belongs to. A caller composing
+    several scopes passes its own, so each project's facts are read once
+    for the whole request and every scope narrows the same values; a caller
+    composing one scope passes nothing and reads them for itself.
     """
+    request = reads if reads is not None else FleetReportReads()
+    facts = request.project_facts(
+        conn, project_id=project_id, session_id=session_id, now=now
+    )
     seat_scope = dict(scope) if scope else {"project_id": int(project_id)}
     members = seat_members(conn, seat_scope)
-    holders = members_only(claim_holders(conn, project_id=project_id, now=now), members)
+    holders = members_only(facts.holders, members)
     quiet = tuple(
         holder
         for holder in holders
@@ -253,44 +233,32 @@ def compose_report(
     )
     split = partition_quiet(conn, quiet=quiet, now=now)
     alive_idle = split.alive_idle
-    names = machine_names(conn)
     return FleetReport(
         project_id=int(project_id),
         composed_at=now,
         staffing_after_seconds=int(staffing_after_seconds),
         idle_after_seconds=int(idle_after_seconds),
-        available=members_only(
-            scope_candidates(conn, project_id=project_id, session_id=session_id),
-            members,
-        ),
+        available=members_only(facts.available, members),
         holders=holders,
         idle=split.idle,
         undelivered=sessions_only(
-            undelivered_messages(conn, project_id=project_id, now=now),
+            facts.undelivered,
             session_ids=(holder.session_id for holder in holders),
             members=members,
         ),
-        unregistered_launches=unregistered_launches(
-            conn, project_id=project_id, now=now
-        ),
-        abandoned_launches=abandoned_launches(conn, project_id=project_id, now=now),
-        landed_open=members_only(
-            landed_without_closeout(conn, project_id=project_id, now=now), members
-        ),
+        unregistered_launches=facts.unregistered_launches,
+        abandoned_launches=facts.abandoned_launches,
+        landed_open=members_only(facts.landed_open, members),
         suspected_orphaned_waiters=suspected_orphaned_waiters(conn, idle=alive_idle),
         in_flight=split.in_flight,
         dead_waits=dead_waits(conn, idle=alive_idle, now=now),
-        vendor_errors=vendor_error_sessions(conn, project_id=project_id, now=now),
-        launchable=launchable_surfaces(conn, project_id=project_id, now=now),
-        session_counts=live_session_counts(conn, project_id=project_id),
-        origin_counts=live_launch_origin_counts(conn, project_id=project_id),
-        plan_limits=load_plan_limits(
-            conn, project_id=project_id, now=now, registered_names=names
-        ),
-        native_models=load_native_models(
-            conn, project_id=project_id, now=now, registered_names=names
-        ),
-        machine_capacity=machine_capacities(conn, project_id=project_id, now=now),
+        vendor_errors=facts.vendor_errors,
+        launchable=facts.launchable,
+        session_counts=facts.session_counts,
+        origin_counts=facts.origin_counts,
+        plan_limits=facts.plan_limits,
+        native_models=facts.native_models,
+        machine_capacity=facts.machine_capacity,
         landings=landing_readbacks(
             conn,
             project_id=project_id,
@@ -298,9 +266,10 @@ def compose_report(
             in_flight_item_ids=frozenset(
                 call.item_id for call in split.in_flight if "merge" in call.command
             ),
+            reads=request,
         ),
-        machine_names=tuple(sorted(names.items())),
-        relay_health=relay_health_conditions(conn, project_id=project_id, now=now),
+        machine_names=tuple(sorted(facts.machine_names.items())),
+        relay_health=facts.relay_health,
         messages_awaiting_seat=awaiting_seat_count(
             conn,
             project_id=int(project_id),
@@ -315,8 +284,5 @@ __all__ = [
     "FrontierEntry",
     "SurfaceReadiness",
     "VendorErrorSession",
-    "claim_holders",
     "compose_report",
-    "launchable_surfaces",
-    "scope_candidates",
 ]

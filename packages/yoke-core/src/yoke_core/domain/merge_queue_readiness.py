@@ -35,16 +35,14 @@ from yoke_core.domain.merge_queue_readback_outcomes import (
     NOT_STARTED,
     UNREADABLE,
 )
+from yoke_core.domain.merge_queue_read_reuse import MergeQueueReads
 from yoke_core.engines.merge_worktree_pr_check_runs import (
     LandingCheck,
     check_payload,
-    read_required_checks,
 )
 from yoke_core.engines.merge_worktree_pr_queue import (
     PrLandingState,
     QueueMember,
-    read_pr_landing_state,
-    read_queue_members,
 )
 from yoke_core.engines.merge_worktree_prepare import MergeContext
 
@@ -252,20 +250,31 @@ def classify_readiness(
 
 
 def read_merge_queue_readiness(
-    ctx: MergeContext, *, pr_number: str, target: str
+    ctx: MergeContext,
+    *,
+    pr_number: str,
+    target: str,
+    reads: Optional[MergeQueueReads] = None,
 ) -> MergeQueueReadiness:
     """Read the PR, the target branch's queue, and required checks.
 
     A merged pull request answers everything the required checks could —
     it already landed — so the read is skipped there; every other outcome
     needs the same terminal fact the landing notifier already reads.
+
+    ``reads`` is one request's read memo. A caller inspecting several
+    landings passes its own so the repository's queue is read once for the
+    whole request instead of once per landing; a single-landing caller
+    passes nothing and gets a memo of its own, which reads exactly as
+    before.
     """
-    state, state_error = read_pr_landing_state(ctx, pr_number)
-    members, queue_error = read_queue_members(ctx, base_branch=target)
+    reader = reads if reads is not None else MergeQueueReads()
+    state, state_error = reader.pr_landing_state(ctx, pr_number)
+    members, queue_error = reader.queue_members(ctx, base_branch=target)
     required_checks: Optional[Sequence[LandingCheck]] = None
     checks_error = ""
     if state is not None and not state.merged:
-        required_checks, checks_error = read_required_checks(ctx, pr_number)
+        required_checks, checks_error = reader.required_checks(ctx, pr_number)
     return classify_readiness(
         pr_number=pr_number,
         target=target,
