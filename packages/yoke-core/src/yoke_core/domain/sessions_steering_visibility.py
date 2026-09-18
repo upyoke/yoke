@@ -95,6 +95,22 @@ def _scope_rows(
     return scopes
 
 
+def _claim_scope(seat: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The covering claim's own scope, or None when it is not a real seat.
+
+    Missing, empty, or project-less JSON must not become ``{}``. An empty
+    object has no document key, and the worker row would read that as
+    project-wide.
+    """
+    raw = seat.get("scope")
+    if not isinstance(raw, Mapping):
+        return None
+    claim_scope = dict(raw)
+    if claim_scope.get("project_id") is None:
+        return None
+    return claim_scope
+
+
 def _covering_group_scope(
     seat: Mapping[str, Any],
     scopes: Mapping[int, Mapping[str, Any]],
@@ -105,13 +121,13 @@ def _covering_group_scope(
     overlapping lock onto the first claim makes a covered worker look
     project-wide. The worker row has to follow ``work_claims.scope``.
     """
-    claim_scope = dict(seat.get("scope") or {})
-    project_id = claim_scope.get("project_id")
+    claim_scope = _claim_scope(seat)
+    project_id = None if claim_scope is None else claim_scope.get("project_id")
     collapsed: Mapping[str, Any] = {}
     if project_id is not None:
         collapsed = scopes.get(int(project_id)) or {}
-    document = claim_scope.get("document")
-    return {
+    document = None if claim_scope is None else claim_scope.get("document")
+    group = {
         "claim_id": int(seat["claim_id"]),
         "project_id": int(project_id) if project_id is not None else None,
         "project": collapsed.get("project"),
@@ -119,8 +135,10 @@ def _covering_group_scope(
         "claimed_at": seat.get("claimed_at"),
         "liveness": collapsed.get("liveness"),
         "strategy_docs": [str(document)] if document else [],
-        "scope": claim_scope,
     }
+    if claim_scope is not None:
+        group["scope"] = claim_scope
+    return group
 
 
 def _attach_strategy_docs(

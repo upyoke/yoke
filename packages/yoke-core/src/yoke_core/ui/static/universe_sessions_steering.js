@@ -260,11 +260,19 @@ export function isSteeredWorker(row) {
 
 // Compact steered row: same covering-claim label the holder card uses.
 function coveringWorkerScope(group) {
-  if (!group || typeof group !== "object") return { wide: false, docs: "" };
-  if (!Object.prototype.hasOwnProperty.call(group, "scope")) {
-    return { wide: false, docs: "" };
+  const blank = { project: "", wide: false, docs: "" };
+  if (!group || typeof group !== "object") return blank;
+  if (!Object.prototype.hasOwnProperty.call(group, "scope")) return blank;
+  const scope = group.scope;
+  if (scope == null || typeof scope !== "object" || scope.project_id == null) {
+    return blank;
   }
-  return steeringScope(group, []);
+  const labeled = steeringScope(group, []);
+  const project = String(group.project || "").trim();
+  labeled.project = project || (
+    labeled.project === "unknown project" ? "" : labeled.project
+  );
+  return labeled;
 }
 
 export function steeringWorkerRow(documentNode, row) {
@@ -278,6 +286,11 @@ export function steeringWorkerRow(documentNode, row) {
     documentNode, "span", "session-steering-lead-label", "Steered",
   ));
   const labeled = coveringWorkerScope(row?.steering_group_scope);
+  if (labeled.project && (labeled.wide || labeled.docs)) {
+    line.appendChild(el(
+      documentNode, "span", "session-steering-project", labeled.project,
+    ));
+  }
   if (labeled.wide) {
     line.appendChild(el(
       documentNode, "span", "session-steering-wide", "Project-wide",

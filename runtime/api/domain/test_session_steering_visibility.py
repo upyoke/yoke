@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import sqlite3
 
-from yoke_core.domain.sessions_steering_visibility import steering_visibility
+from yoke_core.domain.sessions_steering_visibility import (
+    _covering_group_scope,
+    steering_visibility,
+)
 from yoke_core.domain.work_claim_targets import make_steering_target
 
 
@@ -321,3 +324,11 @@ def test_covering_claim_projects_when_it_is_not_the_first_project_seat() -> None
     assert facts["worker-1"]["steering_group_session_id"] == "holder-2"
     assert group["holder_session_id"] == "holder-2"
     assert group["scope"]["document"] == "RELEASES"
+
+
+def test_missing_covering_scope_is_not_normalized_wide() -> None:
+    seat = {"claim_id": 1, "session_id": "h", "claimed_at": "t"}
+    for scope in (None, {}, {"document": "CURRENT-PLAN"}):
+        group = _covering_group_scope({**seat, "scope": scope}, {})
+        assert "scope" not in group
+        assert group["strategy_docs"] == []
