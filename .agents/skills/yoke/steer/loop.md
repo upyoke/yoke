@@ -310,6 +310,25 @@ membership. These commands preserve the same deploy lock and refuse items from
 another project, incompatible flow bindings, or enrollment after the run has
 left `created`.
 
+**A run can deploy a second project's code without carrying its items.** A
+`github-actions-workflow` stage may declare an `input_bindings` map, resolving
+another registered project's branch tip at dispatch and shipping that commit
+alongside this run's own candidate. The binding is the only place this is
+stated, so read it before planning either project's release:
+
+```text
+yoke deployment-flows stages {FLOW}
+```
+
+Membership does not follow that code — `add-item` refuses a foreign-project
+item — so the bound project's items get no membership row and no deployment
+wake from the run that actually deployed them. They stay at their release wait
+until a run on their OWN flow closes them out, and that run re-deploys a
+revision already serving. Plan it as the delivery record rather than as the
+thing that ships the code, do not read its absence or failure as proof that
+code is undeployed, and check the ordering: work merged after the binding
+resolved did not ride, and genuinely needs its own run.
+
 Retry from the recorded run instead of silently creating unrelated lineage:
 
 ```text
