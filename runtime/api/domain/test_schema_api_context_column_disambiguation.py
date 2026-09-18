@@ -28,6 +28,7 @@ def test_work_claims_note_disambiguates_from_path_claims() -> None:
     assert "`claimed_at`" in body
     # Holder lookups steer to the registered holder command over a raw SELECT.
     assert "yoke claims work holder-get" in body
+    assert "yoke claims coordination-claim release --claim-id N" in body
 
 
 def test_harness_sessions_note_calls_out_state_and_started_at() -> None:

@@ -58,7 +58,14 @@ def run(args: List[str]) -> int:
         ),
     )
     parser.add_argument("--requirement-id", type=int, required=True)
-    parser.add_argument("--base-url", default="")
+    parser.add_argument(
+        "--base-url",
+        default="",
+        help=(
+            "HTTP(S) URL exported to the Command as BASE_URL, including a "
+            "direct run-attached row that omits method_config.requires_base_url"
+        ),
+    )
     parser.add_argument("--expected-branch")
     parser.add_argument("--expected-sha")
     parser.add_argument("--timeout-seconds", type=int)

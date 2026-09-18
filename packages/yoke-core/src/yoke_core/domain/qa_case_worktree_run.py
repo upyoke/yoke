@@ -101,9 +101,15 @@ def execute_worktree_case(
     command_env = verification_tree_binding_pytest_startup.with_binding_evaluated(
         os.environ
     )
-    if config.get("requires_base_url"):
-        if not base_url:
-            raise QaCaseExecutionError("this Command case requires --base-url")
+    if config.get("requires_base_url") and not base_url:
+        raise QaCaseExecutionError(
+            "this Command case requires --base-url. Pass "
+            "`yoke qa case run --requirement-id N --base-url URL` "
+            "(or the matching plan-run flag); the runner exports it as "
+            "BASE_URL for the command, including a direct run-attached "
+            "row that never went through a plan execution target."
+        )
+    if base_url:
         command_env["BASE_URL"] = base_url
     process_timeout = qa_gate_timeout.process_timeout_for_command(
         command, timeout, command_env

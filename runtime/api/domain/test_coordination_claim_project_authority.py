@@ -35,6 +35,7 @@ from yoke_core.domain.schema_init_actor_path_claim_tables import (
 )
 from yoke_core.domain.schema_init_path_tables import create_path_registry_tables
 from yoke_core.domain.schema_init_tables import create_core_tables
+from yoke_core.domain.work_claim_targets import make_qa_admission_target
 from yoke_core.domain.yoke_function_permissions import check_dispatch_permission
 from yoke_core.domain.yoke_function_registry import RegistryEntry
 
@@ -142,6 +143,26 @@ def _deploy_claim(conn: Any, *, project: str, session_id: str) -> int:
     return claim_id
 
 
+def _qa_host_claim(conn: Any, *, machine: str, session_id: str) -> int:
+    """Insert a machine-scoped QA_HOST row built by the production constructor."""
+    target = make_qa_admission_target(machine)
+    cur = conn.execute(
+        "INSERT INTO work_claims "
+        "(session_id, target_kind, scope, claimed_at, last_heartbeat) "
+        "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+        (
+            session_id,
+            target.kind,
+            target.scope_json(),
+            "2026-09-15T00:00:00Z",
+            "2026-09-15T00:00:00Z",
+        ),
+    )
+    claim_id = int(cur.fetchone()[0])
+    conn.commit()
+    return claim_id
+
+
 def _release_request(actor_id: int, payload: dict) -> FunctionCallRequest:
     return FunctionCallRequest(
         function="claims.coordination_claim.release",
@@ -221,3 +242,40 @@ def test_listing_by_session_alone_resolves_that_session_project(conn: Any):
     )
 
     assert resolve_project_context(conn, entry, request) == (yoke, "yoke")
+
+
+def test_qa_admission_release_by_claim_id_resolves_holding_session_project(
+    conn: Any,
+):
+    yoke = resolve_project_id(conn, "yoke")
+    actor_id = _project_owner(conn, yoke)
+    _session(conn, "holder-session", yoke)
+    claim_id = _qa_host_claim(
+        conn, machine="mac-mini-lab", session_id="holder-session"
+    )
+    entry = _entry("claims.coordination_claim.release")
+
+    request = _release_request(actor_id, {"claim_id": claim_id, "reason": "done"})
+
+    assert resolve_project_context(conn, entry, request) == (yoke, "yoke")
+    allowed = check_dispatch_permission(conn, entry, request)
+    assert allowed.error is None
+    assert allowed.project_id == yoke
+
+
+def test_qa_admission_release_refuses_an_actor_without_the_session_project(
+    conn: Any,
+):
+    yoke = resolve_project_id(conn, "yoke")
+    external = resolve_project_id(conn, "externalwebapp")
+    outsider = _project_owner(conn, external)
+    _session(conn, "holder-session", yoke)
+    claim_id = _qa_host_claim(
+        conn, machine="mac-mini-lab", session_id="holder-session"
+    )
+    entry = _entry("claims.coordination_claim.release")
+
+    request = _release_request(outsider, {"claim_id": claim_id, "reason": "done"})
+
+    assert resolve_project_context(conn, entry, request) == (yoke, "yoke")
+    assert check_dispatch_permission(conn, entry, request).error is not None

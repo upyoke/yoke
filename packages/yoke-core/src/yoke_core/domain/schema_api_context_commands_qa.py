@@ -256,7 +256,13 @@ QA_COMMANDS: list[dict] = [
             "(target_env, frozen snapshot, run, or run-member stage) proves "
             "freshness against that host's identity path, not a branch "
             "preview; --expected-branch/--expected-sha still name the "
-            "revision to compare."
+            "revision to compare. A Command case exports `--base-url` as "
+            "`BASE_URL` even when method_config omits requires_base_url, "
+            "including a direct run-attached row. `python3`/`python`/"
+            "`yoke` resolve to the product interpreter running the case "
+            "runner (`YOKE_PYTHON`); do not use `yoke dev run`. A leftover "
+            "QA_HOST claim is released by its holder with `yoke claims "
+            "coordination-claim release --claim-id N --reason TEXT`."
         ),
     },
     {

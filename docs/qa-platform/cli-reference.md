@@ -136,7 +136,18 @@ Authoring validates the project's registered machine and materialization adds
 `--machine` must match every case constraint; an uninterrupted plan lease
 cannot serve cases that require different machines.
 
-A Command case is executed live rather than collected. Its combined output
+A Command case is executed live rather than collected. `--base-url`
+is exported as `BASE_URL` for the command even when `method_config`
+omits `requires_base_url`, including a direct run-attached row that
+never went through a plan execution target. `python3`, `python`, and
+`yoke` in the command resolve to the product interpreter that is
+running the case runner (`YOKE_PYTHON`); do not use `yoke dev run`
+(source-dev only, and unavailable on an installed machine). A leftover
+`QA_HOST:<machine>` claim is released by its holder with
+`yoke claims coordination-claim release --claim-id N --reason TEXT`
+(permission follows the holding session's project; the scope names only
+the machine). Its
+combined output
 streams to **stderr** line by line as it arrives, preceded by a banner naming
 the raw capture file, so a long registered command is followable while it runs
 and re-readable afterwards; the same output is stored whole as the run's
