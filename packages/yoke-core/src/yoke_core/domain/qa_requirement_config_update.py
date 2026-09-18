@@ -25,7 +25,14 @@ from yoke_core.domain.qa_method_config_validation import (
     QaMethodConfigError,
     validate_method_config,
 )
+from yoke_core.domain.qa_deployment_case_correction_window import (
+    correction_window_closed_reason,
+    correction_window_open,
+)
 from yoke_core.domain.qa_method_definitions import BUILTIN_QA_METHODS
+from yoke_core.domain.qa_requirement_target_env_update import (
+    _prepare_target_env,
+)
 from yoke_core.domain.qa_plan_execution_store import canonical
 from yoke_core.domain.qa_requirement_pass_currency import (
     METHOD_CONFIG_FIELD,
@@ -33,16 +40,12 @@ from yoke_core.domain.qa_requirement_pass_currency import (
     bind_correction_identity,
     executable_method_config,
 )
+from yoke_core.domain.qa_requirement_frozen_snapshot import (
+    FROZEN_REQUIREMENT_CODE,
+    FROZEN_REQUIREMENT_MESSAGE,
+)
 from yoke_core.domain.schema_common import _column_exists, _table_exists
 
-
-FROZEN_REQUIREMENT_CODE = "frozen_requirement_immutable"
-FROZEN_REQUIREMENT_MESSAGE = (
-    "frozen_requirement_immutable: a deployment-run requirement is a frozen "
-    "acceptance snapshot and cannot be corrected in place. Update the live "
-    "item requirement, then re-run it. Recovery: yoke qa requirement update "
-    "--requirement-id <live-id> --field method_config --value '<json>'"
-)
 
 UPDATABLE_REQUIREMENT_FIELDS: tuple[str, ...] = (
     "success_policy",
@@ -109,8 +112,18 @@ def _prepare_method_config(
     method_id = str(existing["method_id"] or "") if existing["method_id"] else ""
     if not method_id:
         return None, "method_config is only updatable on method-backed requirements"
-    if existing["deployment_run_id"]:
-        return None, FROZEN_REQUIREMENT_MESSAGE
+    if existing["deployment_run_id"] and not correction_window_open(
+        conn, int(existing["id"])
+    ):
+        # Frozen only once the case has actually answered. Before that the
+        # row is a case nobody has judged, and correcting it is how a
+        # wrong-target, missing-field or data-precondition defect gets
+        # fixed at all -- those surface on the first real run, not by
+        # reading the case.
+        return None, (
+            f"{FROZEN_REQUIREMENT_CODE}: "
+            + correction_window_closed_reason(int(existing["id"]))
+        )
     contract_id = _config_contract_id(conn, method_id)
     if contract_id is None:
         return None, f"method {method_id!r} is not registered"
@@ -127,63 +140,6 @@ def _prepare_method_config(
     except QaMethodConfigError as exc:
         return None, str(exc)
     return canonical(config), ""
-
-
-def _prepare_target_env(
-    conn: Any, existing: Any, value: Any
-) -> tuple[Optional[tuple[Any, ...]], str]:
-    run_id = existing["deployment_run_id"]
-    project_id = None
-    if run_id:
-        run = query_one(
-            conn,
-            f"SELECT status, composition_frozen_at, project_id "
-            f"FROM deployment_runs WHERE id={_marker(conn)}",
-            (str(run_id),),
-        )
-        if run is None or str(run["status"] or "") != "created" or str(
-            run["composition_frozen_at"] or existing.get("execution_target_digest") or ""
-        ).strip():
-            return None, FROZEN_REQUIREMENT_MESSAGE
-        project_id = int(run["project_id"])
-    name = str(value or "").strip() or None
-    from yoke_core.domain.qa_environment_execution_target import (
-        persistable_named_environment_target,
-    )
-    from yoke_core.domain.qa_execution_environment_target import (
-        QaExecutionTargetError,
-        canonical_target,
-        target_digest,
-    )
-
-    owner = (
-        existing["item_id"]
-        if existing["item_id"] is not None
-        else existing["epic_id"]
-    )
-    if owner is not None and project_id is None and _table_exists(conn, "items"):
-        project_row = query_one(
-            conn,
-            f"SELECT project_id FROM items WHERE id={_marker(conn)}",
-            (int(owner),),
-        )
-        if project_row is not None and project_row["project_id"] is not None:
-            project_id = int(project_row["project_id"])
-    if name and project_id is None and _table_exists(conn, "environments"):
-        return None, (
-            "requirement has no project to resolve an execution target against"
-        )
-    try:
-        snapshot = None
-        if name and project_id is not None and _table_exists(conn, "environments"):
-            snapshot = persistable_named_environment_target(
-                conn, project_id=int(project_id), environment_name=name
-            )
-    except QaExecutionTargetError as exc:
-        return None, str(exc)
-    target_json = canonical_target(snapshot) if snapshot else None
-    digest = target_digest(snapshot) if snapshot else None
-    return (name, target_json, digest), ""
 
 
 def apply_requirement_update(
@@ -255,7 +211,7 @@ def apply_requirement_update(
     )
     existing = query_one(
         conn,
-        "SELECT qa_kind, qa_phase, item_id, epic_id, task_num, "
+        "SELECT id, qa_kind, qa_phase, item_id, epic_id, task_num, "
         f"deployment_run_id, method_id, method_config{digest_col} "
         f"FROM qa_requirements WHERE id = {marker}",
         (int(req_id),),

@@ -22,6 +22,10 @@ QA_SUBCOMMAND_REGISTRY: Dict[Tuple[str, ...], Tuple[str, AdapterFn]] = {
         "qa.requirement.update",
         _qa.qa_requirement_update,
     ),
+    ("qa", "requirement", "supersede"): (
+        "qa.requirement.supersede",
+        _qa.qa_requirement_supersede,
+    ),
     ("qa", "requirement", "waive"): (
         "qa.requirement.waive",
         _qa.qa_requirement_waive,

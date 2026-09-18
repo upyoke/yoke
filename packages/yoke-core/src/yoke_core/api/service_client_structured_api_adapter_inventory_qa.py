@@ -119,6 +119,12 @@ QA_ADAPTERS: List[AdapterEntry] = [
         "[--session-id S] [--json]",
     ),
     AdapterEntry(
+        "qa.requirement.supersede",
+        "yoke qa requirement supersede --requirement-id N "
+        "--superseded-by-requirement-id N --rationale TEXT "
+        "[--source operator|agent] [--session-id S] [--json]",
+    ),
+    AdapterEntry(
         "qa.requirement.waive",
         "yoke qa requirement waive --requirement-id N "
         "(--rationale TEXT | --content-file PATH | --stdin) "

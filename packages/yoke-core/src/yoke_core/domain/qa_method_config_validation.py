@@ -85,6 +85,22 @@ def validate_method_config(
             bool,
         ):
             raise QaMethodConfigError("Command requires_base_url must be true or false")
+        if (
+            config_contract_id == "command"
+            and "BASE_URL" in config["command"]
+            and requires_base_url is not True
+        ):
+            # The runner injects BASE_URL only for a case that declares it,
+            # so a probe reading it without the declaration does not fail --
+            # it silently falls through to whatever default it hardcodes,
+            # and quietly tests a different environment than the one the
+            # stage deployed. Catch that while the case is still editable.
+            raise QaMethodConfigError(
+                "This Command case reads BASE_URL but does not set "
+                "method_config.requires_base_url, so the runner will not "
+                "supply it and the command will use its own fallback target. "
+                "Set requires_base_url to true, or stop reading BASE_URL."
+            )
         if config_contract_id == "command-ci":
             workflow = config.get("ci_workflow")
             if not isinstance(workflow, str) or not workflow.strip():
