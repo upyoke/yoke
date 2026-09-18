@@ -195,7 +195,6 @@ def stage_acceptance(
         run_id=run_id,
         stage_name=stage_name,
         member_item_id=member_item_id,
-        execution_id=str(execution["id"]) if execution is not None else None,
         execution_target_digest=digest,
     )
     if execution is None:

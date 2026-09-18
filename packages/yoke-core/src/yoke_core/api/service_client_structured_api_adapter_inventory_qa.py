@@ -110,7 +110,8 @@ QA_ADAPTERS: List[AdapterEntry] = [
     ),
     AdapterEntry(
         "qa.plan.rematerialize",
-        "yoke qa plan rematerialize --item PREFIX-N --transition T",
+        "yoke qa plan rematerialize (--item PREFIX-N --transition T | "
+        "--deployment-run-id RUN --stage S [--member PREFIX-N] [--plan P])",
     ),
     AdapterEntry(
         "qa.requirement.update",

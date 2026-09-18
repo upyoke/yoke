@@ -214,8 +214,103 @@ def seed_run_standing_on_qa_stage(
     conn.commit()
 
 
+
+#: The one item-scoped QA stage these helpers seed, named once so a test and
+#: the fixture cannot drift apart on the string.
+ITEM_QA_STAGE = "item-qa"
+
+
+def item_qa_stage_definitions(plan_id: int, *, environment: str = "stage") -> list[dict]:
+    """A deploy stage followed by the item-scoped QA stage it feeds."""
+    return [
+        {
+            "name": "deploy",
+            "step_runner": "auto",
+            "stage_kind": "execution",
+            "scope": "run",
+        },
+        {
+            "name": ITEM_QA_STAGE,
+            "step_runner": "qa",
+            "stage_kind": "qa",
+            "scope": "item",
+            "target": {
+                "kind": "persistent_environment",
+                "environment": environment,
+                "source_stage": "deploy",
+            },
+            "cases": {"plan_id": plan_id, "case_keys": ["command-smoke"]},
+            "verdict": {"mode": "agent_only"},
+        },
+    ]
+
+
+def seed_member_qa_case(
+    conn: Any,
+    *,
+    run_id: str,
+    member_item_id: int,
+    project: str = "yoke",
+    lineage: str = "b" * 40,
+) -> int:
+    """Seed a member parked on the QA stage; return its materialized case id."""
+    from yoke_core.domain.deployment_qa_stage_materialization import (
+        materialize_deployment_qa_stage,
+    )
+
+    plan_id = create_smoke_plan(conn, project=project, slug=f"smoke-{run_id}")
+    seed_run_standing_on_qa_stage(
+        conn,
+        run_id=run_id,
+        project=project,
+        stages=item_qa_stage_definitions(plan_id),
+        members=(member_item_id,),
+        lineage=lineage,
+    )
+    materialize_deployment_qa_stage(
+        conn,
+        deployment_run_id=run_id,
+        deployment_stage=ITEM_QA_STAGE,
+        deployment_member_item_id=member_item_id,
+    )
+    row = conn.execute(
+        "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
+        "AND deployment_stage=%s AND deployment_member_item_id=%s "
+        "AND method_id IS NOT NULL ORDER BY id",
+        (run_id, ITEM_QA_STAGE, member_item_id),
+    ).fetchone()
+    return int(row["id"] if hasattr(row, "keys") else row[0])
+
+
+def record_case_verdict(
+    conn: Any, requirement_id: int, verdict: str, *, evidence: bool
+) -> int:
+    """Record one verdict, with or without the evidence the gate looks for."""
+    now = "2026-09-18T00:02:00Z"
+    qa_run_id = int(
+        conn.execute(
+            "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
+            "started_at,completed_at,created_at) "
+            "VALUES (%s,'worktree_run','plan_case',%s,%s,%s,%s) RETURNING id",
+            (int(requirement_id), verdict, now, now, now),
+        ).fetchone()[0]
+    )
+    if evidence:
+        conn.execute(
+            "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
+            "artifact_handle,created_at) VALUES (%s,'log','application/json',%s,%s)",
+            (qa_run_id, f"evidence://requirement-{requirement_id}", now),
+        )
+    conn.commit()
+    return qa_run_id
+
+
 __all__ = [
+    "ITEM_QA_STAGE",
     "create_smoke_plan",
+    "item_qa_stage_definitions",
+    "record_case_verdict",
     "seed_frozen_scoped_qa_run",
+    "seed_member_qa_case",
     "seed_run_standing_on_qa_stage",
 ]

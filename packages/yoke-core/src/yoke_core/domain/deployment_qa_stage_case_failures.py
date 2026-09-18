@@ -72,13 +72,72 @@ def obligations_fully_discharged(
     return bool(rows) and all(_discharged(row) for row in rows)
 
 
+#: A case's evidence, found through any completed execution of this same
+#: subject and target rather than through one chosen execution. A corrected
+#: case typically runs under its own plan, and therefore its own execution;
+#: reading only the newest execution's results made that passing case report
+#: "no attached evidence" and hold the stage it had just satisfied. The
+#: digest predicate still carries the target-identity guarantee, so evidence
+#: recorded against a replaced target is no more visible than before.
+_CASE_EVIDENCE_SQL = (
+    "SELECT r.result_json FROM qa_plan_execution_results r "
+    "JOIN qa_plan_executions e ON e.id=r.execution_id "
+    "WHERE r.requirement_id=%s AND e.deployment_run_id=%s "
+    "AND e.deployment_stage=%s "
+    "AND COALESCE(e.deployment_member_item_id,0)=%s "
+    "AND e.execution_target_digest=%s AND e.state='completed' "
+    "ORDER BY r.completed_at DESC,r.ordinal DESC"
+)
+
+
+def _has_evidence(
+    conn: Any,
+    *,
+    requirement_id: int,
+    run_id: str,
+    stage_name: str,
+    member_item_id: int | None,
+    execution_target_digest: str,
+) -> bool:
+    """True when some completed execution of this subject attached artifacts."""
+    rows = query_rows(
+        conn,
+        _CASE_EVIDENCE_SQL,
+        (
+            int(requirement_id),
+            run_id,
+            stage_name,
+            member_item_id or 0,
+            execution_target_digest,
+        ),
+    )
+    for row in rows:
+        raw_result = row["result_json"]
+        result = (
+            dict(raw_result)
+            if isinstance(raw_result, Mapping)
+            else json.loads(str(raw_result or "{}"))
+        )
+        evidence_run_id = result.get("qa_run_id") or result.get("run_id")
+        if evidence_run_id is None:
+            continue
+        attached = int(
+            conn.execute(
+                "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id=%s",
+                (int(evidence_run_id),),
+            ).fetchone()[0]
+        )
+        if attached:
+            return True
+    return False
+
+
 def case_failures(
     conn: Any,
     *,
     run_id: str,
     stage_name: str,
     member_item_id: int | None,
-    execution_id: str | None,
     execution_target_digest: str,
 ) -> list[str]:
     rows = scoped_cases(
@@ -110,29 +169,14 @@ def case_failures(
                 f"verdict is {verdict or 'missing'}"
             )
             continue
-        evidence_count = 0
-        if execution_id is not None:
-            result_row = conn.execute(
-                "SELECT result_json FROM qa_plan_execution_results "
-                "WHERE execution_id=%s AND requirement_id=%s",
-                (execution_id, int(row["id"])),
-            ).fetchone()
-            if result_row is not None:
-                raw_result = result_row["result_json"]
-                result = (
-                    dict(raw_result)
-                    if isinstance(raw_result, Mapping)
-                    else json.loads(str(raw_result or "{}"))
-                )
-                evidence_run_id = result.get("qa_run_id") or result.get("run_id")
-                if evidence_run_id is not None:
-                    evidence_count = int(
-                        conn.execute(
-                            "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id=%s",
-                            (int(evidence_run_id),),
-                        ).fetchone()[0]
-                    )
-        if evidence_count == 0:
+        if not _has_evidence(
+            conn,
+            requirement_id=int(row["id"]),
+            run_id=run_id,
+            stage_name=stage_name,
+            member_item_id=member_item_id,
+            execution_target_digest=execution_target_digest,
+        ):
             failures.append(
                 f"requirement #{row['id']} ({row['plan_case_key']}) latest "
                 "passing result has no attached evidence"

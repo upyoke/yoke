@@ -13,8 +13,9 @@ from typing import Any
 import pytest
 
 from runtime.api.fixtures.deployment_scoped_qa_run_fixture import (
-    create_smoke_plan,
-    seed_run_standing_on_qa_stage,
+    ITEM_QA_STAGE,
+    record_case_verdict,
+    seed_member_qa_case,
 )
 from yoke_core.domain.deployment_qa_stage_acceptance import (
     STAGE_ACCEPTED,
@@ -33,9 +34,6 @@ from yoke_core.domain.deployment_qa_stage_gate import (
     OUTCOME_DISCHARGED,
     deployment_qa_stage_status,
 )
-from yoke_core.domain.deployment_qa_stage_materialization import (
-    materialize_deployment_qa_stage,
-)
 from yoke_core.domain.qa_plan_execution_state import (
     advance_plan_execution,
     begin_plan_execution,
@@ -48,85 +46,33 @@ from yoke_core.domain.qa_requirement_supersession import (
     supersession_history,
 )
 
-LINEAGE = "b" * 40
-STAGE = "item-qa"
+STAGE = ITEM_QA_STAGE
 MEMBER = 9801
-
-
-def _stages(plan_id: int) -> list[dict[str, Any]]:
-    return [
-        {
-            "name": "deploy",
-            "step_runner": "auto",
-            "stage_kind": "execution",
-            "scope": "run",
-        },
-        {
-            "name": STAGE,
-            "step_runner": "qa",
-            "stage_kind": "qa",
-            "scope": "item",
-            "target": {
-                "kind": "persistent_environment",
-                "environment": "stage",
-                "source_stage": "deploy",
-            },
-            "cases": {"plan_id": plan_id, "case_keys": ["command-smoke"]},
-            "verdict": {"mode": "agent_only"},
-        },
-    ]
 
 
 def _seed(conn: Any, run_id: str) -> int:
     """Seed one member parked on the QA stage; return its case requirement."""
-    plan_id = create_smoke_plan(conn, project="yoke", slug=f"smoke-{run_id}")
-    seed_run_standing_on_qa_stage(
-        conn,
-        run_id=run_id,
-        project="yoke",
-        stages=_stages(plan_id),
-        members=(MEMBER,),
-        lineage=LINEAGE,
-    )
-    materialize_deployment_qa_stage(
-        conn,
-        deployment_run_id=run_id,
-        deployment_stage=STAGE,
-        deployment_member_item_id=MEMBER,
-    )
-    row = conn.execute(
-        "SELECT id FROM qa_requirements WHERE deployment_run_id=%s "
-        "AND deployment_stage=%s AND deployment_member_item_id=%s "
-        "AND method_id IS NOT NULL ORDER BY id",
-        (run_id, STAGE, MEMBER),
-    ).fetchone()
-    return int(row["id"] if hasattr(row, "keys") else row[0])
+    return seed_member_qa_case(conn, run_id=run_id, member_item_id=MEMBER)
 
 
 def _record_verdict(
     conn: Any, requirement_id: int, verdict: str, *, evidence: bool
 ) -> int:
-    now = "2026-09-18T00:02:00Z"
-    qa_run_id = int(
-        conn.execute(
-            "INSERT INTO qa_runs(qa_requirement_id,performed_by,qa_kind,verdict,"
-            "started_at,completed_at,created_at) "
-            "VALUES (%s,'worktree_run','plan_case',%s,%s,%s,%s) RETURNING id",
-            (int(requirement_id), verdict, now, now, now),
-        ).fetchone()[0]
-    )
-    if evidence:
-        conn.execute(
-            "INSERT INTO qa_artifacts(qa_run_id,artifact_type,content_type,"
-            "artifact_handle,created_at) VALUES (%s,'log','application/json',%s,%s)",
-            (qa_run_id, f"evidence://requirement-{requirement_id}", now),
-        )
-    conn.commit()
-    return qa_run_id
+    return record_case_verdict(conn, requirement_id, verdict, evidence=evidence)
 
 
-def _execute_stage(conn: Any, run_id: str, verdicts: dict[int, str]) -> None:
-    """Run the member's scoped execution, recording one verdict per case."""
+def _execute_stage(
+    conn: Any,
+    run_id: str,
+    verdicts: dict[int, str],
+    *,
+    evidence_for: set[int] | None = None,
+) -> None:
+    """Run the member's scoped execution, recording one verdict per case.
+
+    ``evidence_for`` narrows which passing cases attach artifacts, standing
+    in for a later execution that re-graded a case without re-capturing it.
+    """
     execution = begin_plan_execution(
         conn,
         deployment_run_id=run_id,
@@ -138,9 +84,10 @@ def _execute_stage(conn: Any, run_id: str, verdicts: dict[int, str]) -> None:
     for ordinal, entry in enumerate(execution["roster"]):
         requirement_id = int(entry["requirement_id"])
         verdict = verdicts[requirement_id]
-        qa_run_id = _record_verdict(
-            conn, requirement_id, verdict, evidence=verdict == "pass"
+        attaches = verdict == "pass" and (
+            evidence_for is None or requirement_id in evidence_for
         )
+        qa_run_id = _record_verdict(conn, requirement_id, verdict, evidence=attaches)
         advance_plan_execution(
             conn,
             execution,
@@ -345,3 +292,35 @@ def test_supersession_refuses_itself_and_an_empty_rationale(test_db) -> None:
             superseded_by_requirement_id=broken_id + 1,
             rationale="   ",
         )
+
+
+def test_corrected_case_evidence_counts_from_its_own_execution(test_db) -> None:
+    """A corrected case usually runs under its own plan, so its own execution.
+
+    Reading evidence only through the subject's newest execution made that
+    passing case report "no attached evidence" and hold the stage it had
+    just satisfied -- the supersession would name a row the gate still
+    refused.
+    """
+    run_id = "run-discharge-second-execution"
+    broken_id = _seed(test_db, run_id)
+    corrected_id = _corrected_case(test_db, broken_id=broken_id)
+    # The corrected case passes with evidence here...
+    _execute_stage(test_db, run_id, {broken_id: "fail", corrected_id: "pass"})
+    # ...and a later execution re-grades without capturing again, so the
+    # subject's newest execution holds no evidence for it.
+    _execute_stage(
+        test_db,
+        run_id,
+        {broken_id: "fail", corrected_id: "pass"},
+        evidence_for=set(),
+    )
+
+    supersede_requirement(
+        test_db,
+        requirement_id=broken_id,
+        superseded_by_requirement_id=corrected_id,
+        rationale="corrected case passed under its own execution",
+    )
+    status = _status(test_db, run_id)
+    assert status["accepted"], status["reasons"]

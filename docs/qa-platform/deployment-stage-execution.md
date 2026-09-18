@@ -85,6 +85,23 @@ case that declares it, so an undeclared probe does not fail — it falls
 through to whatever default it hardcodes and quietly tests a different
 environment than the stage deployed.
 
+When the plan itself was corrected, refresh the whole subject rather than
+each row:
+
+```text
+yoke qa plan rematerialize --deployment-run-id <run-id> --stage <stage-name> \
+  [--member <PREFIX-N>] [--plan <plan>]
+```
+
+A materialized case is unique on
+`(run, stage, member, plan_id, plan_case_key, host_baseline, target)`, so a
+corrected plan case cannot arrive as a second row — refreshing in place is the
+only route, and before this there was none for a deployment subject at all.
+The refresh keeps the deployment target the stage receipt pinned; it never
+re-points a frozen run at whatever environment the plan names today. It
+refuses as a whole, naming each row, when any case in the subject has already
+answered, rather than leaving the stage half refreshed.
+
 Once a case has answered, its snapshot is frozen for good and there are two
 discharges, both recorded and both distinguishable from a passing result:
 
@@ -101,7 +118,12 @@ discharges, both recorded and both distinguishable from a passing result:
   readable. The superseding row is graded on its own evidence in the same
   pass, so a link cannot carry a failure through. Supersession refuses a
   replacement in another subject, one that is non-blocking, waived, already
-  superseded, or that has not recorded a passing verdict.
+  superseded, or that has not recorded a passing verdict. A case's evidence
+  is found through any completed execution of that same subject and target,
+  not only the newest one — a corrected case normally runs under its own plan
+  and therefore its own execution, and reading a single execution made such a
+  case report "no attached evidence" and hold the stage it had just
+  satisfied.
 - **Waiver.** `yoke qa requirement waive --force` remains the authorized
   operator discharge when no corrected case answers.
 

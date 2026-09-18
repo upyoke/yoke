@@ -100,22 +100,73 @@ def qa_plan_materialize_for_item(args: List[str]) -> int:
 
 
 def qa_plan_rematerialize(args: List[str]) -> int:
-    usage = "yoke qa plan rematerialize --item PREFIX-N --transition T [--json]"
+    usage = (
+        "yoke qa plan rematerialize "
+        "(--item PREFIX-N --transition T | "
+        "--deployment-run-id RUN --stage S [--member PREFIX-N] [--plan P]) "
+        "[--json]"
+    )
     parser = argparse.ArgumentParser(
         prog="yoke qa plan rematerialize",
         description=usage,
+        epilog=(
+            "Refresh materialized cases from their current plan definitions. "
+            "A deployment subject refreshes only cases that have not recorded "
+            "a determinate verdict; one that has already answered is an "
+            "acceptance record, so the call refuses and names it for "
+            "'yoke qa requirement supersede' instead. The subject keeps the "
+            "deployment target its stage receipt pinned; rematerializing never "
+            "re-points a frozen run at the plan's current environment."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--item", required=True)
-    parser.add_argument("--transition", required=True)
+    subject = parser.add_mutually_exclusive_group(required=True)
+    subject.add_argument("--item")
+    subject.add_argument("--deployment-run-id")
+    parser.add_argument("--transition")
+    parser.add_argument("--project")
+    parser.add_argument(
+        "--stage", help="The pinned deployment QA stage whose cases to refresh."
+    )
+    parser.add_argument(
+        "--member", help="The run member item an item-scoped QA stage credits."
+    )
+    parser.add_argument(
+        "--plan", help="Refresh only cases materialized from this plan."
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, usage)
     if parsed is None:
         return 2
+    if parsed.item and not parsed.transition:
+        return usage_error("--item requires --transition")
+    if parsed.deployment_run_id and not parsed.stage:
+        return usage_error("--deployment-run-id requires --stage")
+    if parsed.deployment_run_id and parsed.transition:
+        return usage_error("--deployment-run-id does not accept --transition")
+    if parsed.member and not parsed.stage:
+        return usage_error("--member requires --stage")
+    if parsed.stage and not parsed.deployment_run_id:
+        return usage_error("--stage belongs to --deployment-run-id rematerialization")
+    target = (
+        item_target("item", parsed.item, parsed.project)
+        if parsed.item
+        else TargetRef(
+            kind="deployment_run",
+            deployment_run_id=parsed.deployment_run_id,
+            project_id=parsed.project,
+        )
+    )
     return dispatch_and_emit(
         function_id="qa.plan.rematerialize",
-        target=item_target("item", parsed.item, parsed.project),
-        payload={"transition_id": parsed.transition},
+        target=target,
+        payload={
+            "transition_id": parsed.transition,
+            "deployment_stage": parsed.stage,
+            "deployment_member": parsed.member,
+            "plan": parsed.plan,
+        },
         session_id=parsed.session_id,
         json_mode=parsed.json_mode,
     )

@@ -220,7 +220,8 @@ def refresh_requirement(
     conn: Any,
     *,
     requirement_id: int,
-    transition_id: str,
+    # ``None`` for a deployment-scoped row, which has no workflow transition.
+    transition_id: Optional[str],
     plan: Any,
     attachment: dict,
     case: Any,
