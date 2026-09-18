@@ -236,16 +236,14 @@ class _JsonAdapterTests(unittest.TestCase):
         self.assertEqual(rc, 1)
 
 
-class _RemediationFooterTests(unittest.TestCase):
-    """Every HC remediation prompt in the Markdown report ends with
-    the field-note footer. Applied at the doctor result-render layer
-    so per-HC modules need no edits."""
+class _ReportCarriesNoFieldNoteDirectiveTests(unittest.TestCase):
+    """The Markdown report states each HC's own remediation and nothing
+    generic. Repeating the field-note directive once per FAIL / WARN turned
+    a long report into mostly boilerplate; the directive reaches a session
+    through the startup rules and `yoke ouroboros field-note append --help`."""
 
-    def test_fail_detail_in_rendered_report_carries_footer(self):
-        with patch(
-            "yoke_core.engines.doctor.HEALTH_CHECKS",
-            [HealthCheck(slug="fail-hc", name="Failing HC", fn=_fake_fail_hc)],
-        ):
+    def _render(self, health_check):
+        with patch("yoke_core.engines.doctor.HEALTH_CHECKS", [health_check]):
             with patch(
                 "yoke_core.engines.doctor._should_run_hc", return_value=True,
             ):
@@ -260,62 +258,27 @@ class _RemediationFooterTests(unittest.TestCase):
                                 runtime=_ENGINE_ONLY_RUNTIME,
                             )
                         )
-        output = buf.getvalue()
+        return rc, buf.getvalue()
+
+    def test_fail_detail_keeps_its_own_prompt_without_the_directive(self):
+        rc, output = self._render(
+            HealthCheck(slug="fail-hc", name="Failing HC", fn=_fake_fail_hc)
+        )
         self.assertEqual(rc, 1)
-        # The FAIL section's detail block in the Markdown report carries
-        # the footer right after the synthetic failure prompt.
         self.assertIn("synthetic failure", output)
-        self.assertIn(FIELD_NOTE_FOOTER, output)
+        self.assertNotIn(FIELD_NOTE_FOOTER, output)
 
-    def test_warn_detail_in_rendered_report_carries_footer(self):
-        with patch(
-            "yoke_core.engines.doctor.HEALTH_CHECKS",
-            [HealthCheck(slug="bar", name="Bar HC", fn=_fake_bar_warn_hc)],
-        ):
-            with patch(
-                "yoke_core.engines.doctor._should_run_hc", return_value=True,
-            ):
-                with patch(
-                    "yoke_core.engines.doctor.connect", return_value=_StubConn(),
-                ):
-                    buf = io.StringIO()
-                    with redirect_stdout(buf):
-                        doctor_engine.run_checks(
-                            doctor_engine.DoctorArgs(
-                                quick=True, project="yoke",
-                                runtime=_ENGINE_ONLY_RUNTIME,
-                            )
-                        )
-        output = buf.getvalue()
-        # WARN section detail carries the footer too.
+    def test_warn_detail_keeps_its_own_prompt_without_the_directive(self):
+        _rc, output = self._render(
+            HealthCheck(slug="bar", name="Bar HC", fn=_fake_bar_warn_hc)
+        )
         self.assertIn("needs attention", output)
-        self.assertIn(FIELD_NOTE_FOOTER, output)
+        self.assertNotIn(FIELD_NOTE_FOOTER, output)
 
-    def test_pass_results_do_not_carry_footer(self):
-        # PASS entries are diagnostics, not remediation prompts. Adding the
-        # footer to every passing line would dilute the channel — the footer
-        # belongs only on actionable FAIL / WARN remediation text.
-        with patch(
-            "yoke_core.engines.doctor.HEALTH_CHECKS",
-            [HealthCheck(slug="foo", name="Foo HC", fn=_fake_foo_pass_hc)],
-        ):
-            with patch(
-                "yoke_core.engines.doctor._should_run_hc", return_value=True,
-            ):
-                with patch(
-                    "yoke_core.engines.doctor.connect", return_value=_StubConn(),
-                ):
-                    buf = io.StringIO()
-                    with redirect_stdout(buf):
-                        doctor_engine.run_checks(
-                            doctor_engine.DoctorArgs(
-                                quick=True, project="yoke",
-                                runtime=_ENGINE_ONLY_RUNTIME,
-                            )
-                        )
-        output = buf.getvalue()
-        # Pass-only run: footer must NOT show up in the rendered report
-        # (we slice after the streaming-progress lines).
+    def test_pass_results_carry_no_directive(self):
+        _rc, output = self._render(
+            HealthCheck(slug="foo", name="Foo HC", fn=_fake_foo_pass_hc)
+        )
         report_idx = output.index("# Ouroboros Health Report")
         self.assertNotIn(FIELD_NOTE_FOOTER, output[report_idx:])
 

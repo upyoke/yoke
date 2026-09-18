@@ -16,10 +16,7 @@ from yoke_core.engines import doctor_progress
 from yoke_core.engines.doctor_check_execution import execute_check_isolated
 from yoke_core.engines.doctor_registry_types import HealthCheck
 from yoke_core.engines.doctor_report import DoctorArgs, RecordCollector
-from yoke_core.engines.doctor_result_report import (
-    remediation_with_footer,
-    report_from_result,
-)
+from yoke_core.engines.doctor_result_report import report_from_result
 from yoke_core.tools.watch_doctor import classify_doctor_line
 from yoke_core.tools._watch_throttle import LineClass
 
@@ -153,21 +150,6 @@ class TestRelayedRows:
         assert stream.getvalue() == ""
 
 
-class TestRemediationFooter:
-    def test_appends_when_absent(self) -> None:
-        wrapped = remediation_with_footer("fix the column drift")
-        assert wrapped.startswith("fix the column drift")
-        assert wrapped.endswith(FIELD_NOTE_FOOTER)
-
-    def test_is_idempotent(self) -> None:
-        # Re-wrapping must not double-append; the second call sees the
-        # footer already present and returns the input unchanged.
-        once = remediation_with_footer("first prompt")
-        twice = remediation_with_footer(once)
-        assert once == twice
-        assert twice.count(FIELD_NOTE_FOOTER) == 1
-
-
 class TestReportFromResult:
     def _result(self) -> dict:
         return {
@@ -194,9 +176,10 @@ class TestReportFromResult:
         assert "2 checks run: 1 passed, 0 warnings, 1 failure" in report
         assert "### HC-two: Second" in report
 
-    def test_failure_details_carry_the_field_note_footer(self) -> None:
+    def test_failure_details_carry_no_generic_directive(self) -> None:
         report = report_from_result(self._result())
-        assert remediation_with_footer("it broke") in report
+        assert "it broke" in report
+        assert FIELD_NOTE_FOOTER not in report
 
     def test_empty_result_still_renders_a_report(self) -> None:
         assert "0 checks run" in report_from_result({"results": []})

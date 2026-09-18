@@ -138,63 +138,41 @@ class TestEnvelope(unittest.TestCase):
         self.assertIsNone(error.jsonpath)
 
 
-class TestFunctionErrorFieldNoteFooter(unittest.TestCase):
-    """Every FunctionError envelope carries the field-note footer
-    on ``recovery_hint``. Idempotent: re-validating an
-    error that already carries the footer is a no-op."""
+class TestFunctionErrorRecoveryHint(unittest.TestCase):
+    """``recovery_hint`` carries this failure's own recovery step, or
+    nothing. No generic directive is appended to every error envelope."""
 
-    def test_empty_recovery_hint_becomes_footer(self):
-        # Success path success-on-error: when no recovery_hint is provided,
-        # the footer alone IS the recovery hint.
+    def test_absent_recovery_hint_stays_absent(self):
         err = FunctionError(code="empty_body", message="payload empty")
-        self.assertEqual(err.recovery_hint, FIELD_NOTE_FOOTER)
+        self.assertIsNone(err.recovery_hint)
 
-    def test_existing_recovery_hint_gets_footer_appended(self):
+    def test_existing_recovery_hint_is_left_verbatim(self):
+        hint = "See .yoke/docs/reference/db-reference/functions.md."
         err = FunctionError(
-            code="payload_invalid",
-            message="bad payload",
-            recovery_hint="See .yoke/docs/reference/db-reference/functions.md.",
+            code="payload_invalid", message="bad payload", recovery_hint=hint,
         )
-        # Original guidance preserved; footer appended with a blank-line
-        # separator so the operator-facing render reads cleanly.
-        self.assertTrue(err.recovery_hint.startswith("See .yoke/docs/reference/db-reference/functions.md."))
-        self.assertTrue(err.recovery_hint.endswith(FIELD_NOTE_FOOTER))
-        self.assertIn("\n\n", err.recovery_hint)
+        self.assertEqual(err.recovery_hint, hint)
 
-    def test_footer_append_is_idempotent(self):
-        # Construct once; the footer lands. Round-trip through model_validate
-        # MUST NOT double-append — Pydantic re-runs `model_validator(mode=
-        # "after")` on copy / validate operations.
+    def test_no_field_note_directive_on_any_error(self):
         err = FunctionError(code="x", message="y")
-        once = err.recovery_hint
-        # Simulate a round-trip through dict + model_validate (the same path
-        # a JSON-decoded response envelope follows).
+        self.assertNotIn(FIELD_NOTE_FOOTER, err.recovery_hint or "")
+        with_hint = FunctionError(code="x", message="y", recovery_hint="Retry.")
+        self.assertNotIn(FIELD_NOTE_FOOTER, with_hint.recovery_hint)
+
+    def test_round_trip_preserves_recovery_hint(self):
+        err = FunctionError(code="x", message="y", recovery_hint="Retry.")
         replayed = FunctionError.model_validate(err.model_dump())
-        self.assertEqual(replayed.recovery_hint, once)
-        # And model_copy() should not re-append either.
-        copied = err.model_copy()
-        self.assertEqual(copied.recovery_hint, once)
+        self.assertEqual(replayed.recovery_hint, "Retry.")
+        self.assertEqual(err.model_copy().recovery_hint, "Retry.")
 
-    def test_pre_appended_footer_is_left_alone(self):
-        # Caller already composed a recovery_hint containing the footer.
-        pre_composed = f"Existing prefix.\n\n{FIELD_NOTE_FOOTER}"
-        err = FunctionError(
-            code="x", message="y", recovery_hint=pre_composed,
-        )
-        self.assertEqual(err.recovery_hint, pre_composed)
-        self.assertEqual(err.recovery_hint.count(FIELD_NOTE_FOOTER), 1)
-
-    def test_response_envelope_carries_footer_on_error(self):
-        # FunctionCallResponse with success=False and an error envelope —
-        # the dispatcher's typical failure path — surfaces the footer to
-        # the agent without any per-handler wiring.
+    def test_response_envelope_error_carries_no_directive(self):
         resp = FunctionCallResponse(
             success=False,
             function="items.scalar.update",
             version="v1",
             error=FunctionError(code="frozen", message="item is frozen"),
         )
-        self.assertEqual(resp.error.recovery_hint, FIELD_NOTE_FOOTER)
+        self.assertIsNone(resp.error.recovery_hint)
 
 
 class TestHandlerOutcome(unittest.TestCase):

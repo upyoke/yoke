@@ -14,8 +14,6 @@ from yoke_project_checks.check_field_note_coherence import (
     CANONICAL_COMMAND,
     CANONICAL_MODULE,
     HC_NAME,
-    HELPER_MODULE,
-    HELPER_SYMBOL,
     IMPORTING_CONSUMERS,
     PACKET_SEED_CONSUMERS,
     hc_field_note_coherence,
@@ -40,8 +38,8 @@ def _run_hc() -> RecordCollector:
 def test_contract_tuples_are_non_empty() -> None:
     """Regression guard: clearing the enforcement scope would silently PASS."""
     assert len(IMPORTING_CONSUMERS) >= 5
-    # 5 hand-named consumers plus the lint-denial importer set.
-    assert len(IMPORTING_CONSUMERS) == 5 + 21
+    # The `--help` renderers plus the startup-rules marker renderer.
+    assert len(IMPORTING_CONSUMERS) == 6
     assert len(PACKET_SEED_CONSUMERS) == 2
 
 
@@ -103,19 +101,6 @@ def test_compliant_fixture_passes(tmp_path: Path) -> None:
     fake_path.write_text(
         f"from {CANONICAL_MODULE} import FOOTER\n"
         "DENY = FOOTER\n"
-    )
-    missing = scan_importing_consumers(tmp_path, consumers=(fake_rel,))
-    assert missing == []
-
-
-def test_helper_indirection_fixture_passes(tmp_path: Path) -> None:
-    """Importing the denial helper (which re-exports FOOTER) is sufficient."""
-    fake_rel = "runtime/api/domain/lint_synthetic_indirection.py"
-    fake_path = tmp_path / fake_rel
-    fake_path.parent.mkdir(parents=True)
-    fake_path.write_text(
-        f"from {HELPER_MODULE} import {HELPER_SYMBOL}\n"
-        f"def reason(t): return {HELPER_SYMBOL}(t, rule_id='x')\n"
     )
     missing = scan_importing_consumers(tmp_path, consumers=(fake_rel,))
     assert missing == []

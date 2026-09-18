@@ -259,20 +259,13 @@ class TestNonPreEvents(unittest.TestCase):
                 "yoke_core.hooks.session_launch_attestation",
             )
 
-    def test_TC_post_tool_use_bash_includes_field_note_hint(self):
-        # PostToolUse field-note hint registered between the
-        # DB-error advisory (front-door first) and telemetry (tail).
+    def test_TC_post_tool_use_bash_carries_no_field_note_hint(self):
+        # The field-note directive reaches a session through the startup
+        # rules and `--help`, so no PostToolUse hook repeats it per failure.
         chain = ordered_pipeline_for("PostToolUse", "Bash")
-        self.assertIn(
-            "yoke_core.domain.hint_posttool_field_note",
-            chain,
-        )
+        self.assertNotIn("yoke_core.domain.hint_posttool_field_note", chain)
         self.assertLess(
             chain.index("yoke_core.domain.db_error_hook"),
-            chain.index("yoke_core.domain.hint_posttool_field_note"),
-        )
-        self.assertLess(
-            chain.index("yoke_core.domain.hint_posttool_field_note"),
             chain.index("yoke_core.domain.observe"),
         )
 

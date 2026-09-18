@@ -1,15 +1,13 @@
-"""End-to-end ``additionalContext`` delivery for the three typed hint modules.
+"""End-to-end ``additionalContext`` delivery for the typed hint modules.
 
-These tests load the real hint module (``hint_posttool_field_note``,
-``hint_monitor_relay``, ``hint_file_line_limit_approach``) into a single-entry
+These tests load the real hint module (``hint_monitor_relay``,
+``hint_file_line_limit_approach``) into a single-entry
 chain, drive ``yoke_core.hooks.runner.run_event`` with a realistic
 stdin payload, and assert the rendered ``hookSpecificOutput.additionalContext``
 envelope reaches stdout for both Claude and Codex.
 
 Coverage map:
 
-* ``hint_posttool_field_note`` on a non-zero Yoke CLI PostToolUse
-  payload emits the canonical field-note footer.
 * ``hint_monitor_relay`` on a Claude ``Monitor`` PreToolUse payload
   emits the relay-only reminder.
 * ``hint_file_line_limit_approach`` on a ``Write`` payload that crosses
@@ -27,7 +25,6 @@ from typing import Any, Iterable
 
 import pytest
 
-from yoke_contracts.field_note_text import FOOTER as FIELD_NOTE_FOOTER
 from yoke_core.domain.file_line_check import LIMIT as FILE_LINE_LIMIT
 from yoke_core.hooks import runner as runner_module
 from yoke_core.hooks.adapter_capability import AdapterCapability
@@ -59,88 +56,6 @@ def _capability(
         payload_parser=lambda raw: json.loads(raw) if raw else {},
         decision_renderer=renderer,
     )
-
-
-# ---------------------------------------------------------------------------
-# hint_posttool_field_note through run_event.
-# ---------------------------------------------------------------------------
-
-
-def _post_tool_use_payload(command: str, exit_code: int) -> str:
-    return json.dumps({
-        "tool_name": "Bash",
-        "tool_input": {"command": command},
-        "tool_response": {"content": f"... output ...\nExit code {exit_code}\n"},
-        "cwd": "/tmp",
-        "session_id": "test-session",
-    })
-
-
-def test_field_note_through_runner_reaches_claude_output(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A non-zero Yoke CLI exit produces the field-note footer."""
-    capability = _capability(
-        monkeypatch, family="claude",
-        chain=["yoke_core.domain.hint_posttool_field_note"],
-    )
-    _silence_telemetry(monkeypatch)
-
-    text, exit_code = runner_module.run_event(
-        "PostToolUse",
-        capability=capability,
-        stdin_data=_post_tool_use_payload("yoke items get YOK-1", 2),
-    )
-
-    assert exit_code == 0
-    payload = json.loads(text)
-    hook = payload["hookSpecificOutput"]
-    assert hook["hookEventName"] == "PostToolUse"
-    assert FIELD_NOTE_FOOTER in hook["additionalContext"]
-
-
-def test_field_note_through_runner_reaches_codex_output(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Same footer reaches Codex through the shared runner."""
-    capability = _capability(
-        monkeypatch, family="codex",
-        chain=["yoke_core.domain.hint_posttool_field_note"],
-    )
-    _silence_telemetry(monkeypatch)
-
-    text, exit_code = runner_module.run_event(
-        "PostToolUse",
-        capability=capability,
-        stdin_data=_post_tool_use_payload(
-            "python3 -m yoke_core.cli.db_router items get YOK-2", 1,
-        ),
-    )
-
-    assert exit_code == 0
-    payload = json.loads(text)
-    hook = payload["hookSpecificOutput"]
-    assert hook["hookEventName"] == "PostToolUse"
-    assert FIELD_NOTE_FOOTER in hook["additionalContext"]
-
-
-def test_field_note_zero_exit_emits_no_envelope(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Zero exit code -> no advisory, no envelope, plain empty allow."""
-    capability = _capability(
-        monkeypatch, family="claude",
-        chain=["yoke_core.domain.hint_posttool_field_note"],
-    )
-    _silence_telemetry(monkeypatch)
-
-    text, exit_code = runner_module.run_event(
-        "PostToolUse",
-        capability=capability,
-        stdin_data=_post_tool_use_payload("yoke items get YOK-1", 0),
-    )
-
-    assert (text, exit_code) == ("", 0)
 
 
 # ---------------------------------------------------------------------------
