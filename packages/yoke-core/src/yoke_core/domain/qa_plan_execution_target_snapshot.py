@@ -6,6 +6,14 @@ import json
 from typing import Any, Iterable, Mapping
 
 
+def _captured_inspection_review_recovery() -> str:
+    from yoke_core.domain.qa_captured_inspection_review import (
+        CAPTURED_INSPECTION_REVIEW_RECOVERY,
+    )
+
+    return CAPTURED_INSPECTION_REVIEW_RECOVERY
+
+
 def execution_target_for_roster(
     roster: list[dict[str, Any]],
 ) -> tuple[dict[str, Any], str]:
@@ -35,7 +43,8 @@ def execution_target_for_roster(
             "target_env --value <environment>`, then create the executable "
             "roster with `yoke qa plan_execution begin` or `yoke qa case run`. "
             "The harness skill `/yoke advance PREFIX-N STAGE` is not a CLI "
-            "command."
+            "command. "
+            + _captured_inspection_review_recovery()
         )
     if len({canonical(target) for target in targets}) != 1 or len(set(digests)) != 1:
         raise QaPlanExecutionStateError(

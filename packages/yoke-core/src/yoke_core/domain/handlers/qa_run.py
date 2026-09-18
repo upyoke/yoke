@@ -117,11 +117,18 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         if row is None:
             return _error("not_found", f"requirement {req_id} not found")
         qa_kind = str(row["qa_kind"])
-        if performed_by == "agent" and is_browser_method_requirement(row["method_id"]):
+        agent_browser = (
+            performed_by == "agent"
+            and is_browser_method_requirement(row["method_id"])
+        )
+        if agent_browser and str(row["method_id"]) != "browser-inspection":
+            from yoke_core.domain.qa_captured_inspection_review import (
+                AGENT_IS_NOT_A_BROWSER_CAPTURE_RUNNER,
+            )
+
             return _error(
                 "policy_violation",
-                "performed_by 'agent' is not allowed for Browser methods "
-                "-- use browser_substrate",
+                AGENT_IS_NOT_A_BROWSER_CAPTURE_RUNNER,
                 jsonpath="$.payload.performed_by",
             )
 
@@ -134,7 +141,9 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
         except QaUndeterminedEvidenceError as exc:
             return _error(exc.code, str(exc), jsonpath="$.payload.verdict")
 
-        if _names_no_verified_tree(verdict, row, raw_result):
+        if (not agent_browser) and _names_no_verified_tree(
+            verdict, row, raw_result
+        ):
             return _error(
                 "payload_invalid",
                 "a passing verdict on a blocking requirement must name the "
@@ -177,6 +186,29 @@ def handle_qa_run_record_verdict(request: FunctionCallRequest) -> HandlerOutcome
             ),
         )
         run_id = int(cur.fetchone()[0])
+        if agent_browser:
+            from yoke_core.domain.qa_captured_inspection_review import (
+                CapturedInspectionReviewError,
+                attach_agent_review_to_capture,
+            )
+
+            try:
+                attach_agent_review_to_capture(
+                    conn,
+                    requirement_id=int(req_id),
+                    review_run_id=run_id,
+                    verdict=str(verdict),
+                    rationale=str(verdict_reason or ""),
+                    actor_id=str(request.actor.actor_id or ""),
+                    session_id=str(request.actor.session_id or ""),
+                )
+            except CapturedInspectionReviewError as exc:
+                conn.rollback()
+                return _error(
+                    "policy_violation",
+                    str(exc),
+                    jsonpath="$.payload.performed_by",
+                )
         conn.commit()
         qa_events.emit_qa_run_event(
             conn,
