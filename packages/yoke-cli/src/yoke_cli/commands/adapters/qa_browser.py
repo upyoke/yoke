@@ -4,7 +4,8 @@ Function ids used by the per-requirement Browser method runner. Execution
 enters through ``yoke qa case run --requirement-id``; there is no aggregate
 Browser run command:
 
-* ``qa.browser_context.get`` — one Browser method case + freshness row.
+* ``qa.browser_context.get`` — one Browser method case plus whichever
+  deployment it is about (named persistent environment or branch preview).
 * ``qa.run.add`` — insert a ``qa_runs`` row (two-phase shape; verdict may
   land later via complete).
 * ``qa.run.complete`` — finalize a run in place.

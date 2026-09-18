@@ -1,16 +1,10 @@
 """Which deployment a Browser case's own bound target names.
 
 A case that names an environment is about that environment, whatever it
-hangs off. Answering from that binding is what lets a case attached to an
-item verify the deployment it was bound to rather than the branch preview
-its attachment shape would otherwise imply.
-
-Two rules keep the answer honest. Membership is the roster, never a shared
-subject: one item can carry several plans, so an execution that merely
-names the same item would lend a case a target it was never rostered
-against. And a binding that exists but cannot be read refuses by name,
-because falling through to the branch would quietly answer a different
-question than the one the case was bound to.
+hangs off. Membership is the roster, never a shared subject — a run-member
+execution is found by ``deployment_member_item_id``. A binding that cannot
+be read refuses by name. Named ``target_env`` and run-attached rows are
+that same binding without a frozen snapshot.
 """
 
 from __future__ import annotations
@@ -19,7 +13,10 @@ import json
 from typing import Any, Mapping
 
 from yoke_core.domain import db_backend
-from yoke_core.domain.browser_qa_deployment_identity import DeploymentUnderTest
+from yoke_core.domain.browser_qa_deployment_identity import (
+    DeploymentUnderTest,
+    resolve_deployment_under_test,
+)
 from yoke_core.domain.deployment_target_identity_config import (
     persistent_identity_path,
     preview_identity_path,
@@ -74,15 +71,15 @@ def _rosters(conn: Any, requirement_id: int) -> Any:
     ).fetchone()
     if subject is None:
         return
+    item_id = _scalar(subject, 0, "item_id")
+    run_id = _scalar(subject, 1, "deployment_run_id")
     rows = conn.execute(
         "SELECT roster_json, execution_target_json FROM qa_plan_executions "
-        f"WHERE (item_id={marker} OR deployment_run_id={marker}) "
+        f"WHERE (item_id={marker} OR deployment_run_id={marker} "
+        f"OR deployment_member_item_id={marker}) "
         "AND state IN ('active','waiting','awaiting_agent_review') "
         "ORDER BY created_at DESC",
-        (
-            _scalar(subject, 0, "item_id"),
-            _scalar(subject, 1, "deployment_run_id"),
-        ),
+        (item_id, run_id, item_id),
     ).fetchall()
     for row in rows:
         try:
@@ -222,6 +219,63 @@ def _receipt_located_preview(
     )
 
 
+def _persistent_named_environment(
+    conn: Any, project_id: int, name: str
+) -> DeploymentUnderTest:
+    """Resolve the registered persistent environment a case named."""
+    from yoke_core.domain.qa_environment_execution_target import (
+        persistable_named_environment_target,
+    )
+    from yoke_core.domain.qa_execution_environment_target import (
+        QaExecutionTargetError,
+    )
+
+    try:
+        snapshot = persistable_named_environment_target(
+            conn, project_id=int(project_id), environment_name=name
+        )
+    except QaExecutionTargetError as exc:
+        return DeploymentUnderTest(unresolved=str(exc))
+    if snapshot is None:
+        return DeploymentUnderTest(
+            unresolved=(
+                f"this Browser case names environment {name!r}, which "
+                f"project {int(project_id)} has not registered, so what "
+                "its evidence would answer for cannot be established"
+            )
+        )
+    endpoints = snapshot.get("endpoints")
+    urls = endpoints if isinstance(endpoints, dict) else {}
+    configured = persistent_identity_path(conn, int(project_id), name)
+    return DeploymentUnderTest(
+        environment=name,
+        origin=str(urls.get("app_url") or urls.get("api_url") or "").strip(),
+        identity_path=configured.path,
+        identity_error=configured.error,
+    )
+
+
+def _named_or_run_target(
+    conn: Any, requirement_id: int, project_id: int
+) -> DeploymentUnderTest | None:
+    """Resolve case/run authority when no frozen snapshot is on the row."""
+    marker = _p(conn)
+    row = conn.execute(
+        f"SELECT target_env, deployment_run_id FROM qa_requirements "
+        f"WHERE id={marker}",
+        (int(requirement_id),),
+    ).fetchone()
+    if row is None:
+        return None
+    name = str(_scalar(row, 0, "target_env") or "").strip()
+    run_id = _scalar(row, 1, "deployment_run_id")
+    if name:
+        return _persistent_named_environment(conn, project_id, name)
+    if run_id:
+        return resolve_deployment_under_test(conn, str(run_id))
+    return None
+
+
 def resolve_case_deployment_under_test(
     conn: Any,
     *,
@@ -233,15 +287,16 @@ def resolve_case_deployment_under_test(
     A case that names an environment is about that environment, whatever it
     is attached to. Reading its bound target here is what lets an item case
     verify the deployment it was bound to rather than a branch preview it
-    was never about. A case with no bound target returns None, so the
-    branch-preview path it has always taken is left exactly as it was.
+    was never about. Named ``target_env`` and run-attached rows are the
+    same question without a frozen snapshot. A case with no case, run, or
+    stage target returns None, so the branch-preview path is left as it was.
     """
     try:
         target = _bound_execution_target(conn, requirement_id)
     except _MalformedBoundTarget as exc:
         return DeploymentUnderTest(unresolved=str(exc))
     if target is None:
-        return None
+        return _named_or_run_target(conn, requirement_id, project_id)
     environment = target.get("environment")
     endpoints = target.get("endpoints")
     if not isinstance(environment, Mapping) or not isinstance(endpoints, Mapping):

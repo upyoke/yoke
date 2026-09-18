@@ -251,7 +251,11 @@ QA_COMMANDS: list[dict] = [
             "require the active item "
             "claim; deployment-run cases require project permission and the "
             "bound execution session. Never add a parallel Browser run "
-            "manually."
+            "manually. A case that names a persistent environment "
+            "(target_env, frozen snapshot, run, or run-member stage) proves "
+            "freshness against that host's identity path, not a branch "
+            "preview; --expected-branch/--expected-sha still name the "
+            "revision to compare."
         ),
     },
     {
