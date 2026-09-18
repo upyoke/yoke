@@ -62,35 +62,40 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
   main.replaceChildren(status, stats, roster, retired);
   chrome.setPageHead?.({ title: "Machines" });
 
-  const load = async () => {
+  const showStatus = (text, retry) => {
     status.hidden = false;
-    status.textContent = "Loading machines…";
+    status.replaceChildren();
+    if (text) status.appendChild(el(documentNode, "span", null, text));
+    if (!retry) return;
+    const button = el(documentNode, "button", "machines-retry", "Try again");
+    button.type = "button";
+    button.addEventListener("click", retry);
+    status.appendChild(button);
+  };
+
+  const load = async () => {
+    showStatus("Loading machines…");
     let machines;
     let relays;
     let usageRows;
-    let openSessions = [];
     try {
-      const [machineCall, relayResult, recentUsageRows, openRoster] =
-        await Promise.all([
-          callFunction(context.client, "machine.list", {}),
-          sessionControlCall(context, "session_control.relay.list", { limit: 500 }),
-          fetchRecentUsageRows(context),
-          // What each machine is carrying right now, which the 24-hour usage
-          // cohort cannot answer: that one includes sessions already ended.
-          callFunction(context.client, "sessions.list", { open: true }),
-        ]);
+      // Cards need machine.list, relay.list, and the 24h usage cohort.
+      // sessions.list {open:true} is the slow live roster (bounded at 500)
+      // and only feeds machine_id / liveness / holdings onto the cards.
+      const [machineCall, relayResult, recentUsageRows] = await Promise.all([
+        callFunction(context.client, "machine.list", {}),
+        sessionControlCall(context, "session_control.relay.list", { limit: 500 }),
+        fetchRecentUsageRows(context),
+      ]);
       if (!machineCall.envelope.success) throw machineCall;
       machines = machineCall.envelope.result.machines || [];
       relays = relayResult.relays || [];
       usageRows = recentUsageRows;
-      openSessions = openRoster.envelope.success
-        ? openRoster.envelope.result?.rows || [] : [];
     } catch (error) {
       if (!context.isMounted()) return;
-      status.hidden = false;
-      status.textContent = presentSessionControlFailure(
+      showStatus(presentSessionControlFailure(
         error, "The machine roster could not be read.",
-      );
+      ));
       return;
     }
     if (!context.isMounted()) return;
@@ -105,38 +110,64 @@ export function renderMachinesView(context, main, _scope, chromeArg) {
       [online, "online"],
       [active.length - seen, "not seen"],
     ]);
-    // A registered machine needs no sentence saying the page shows what it
-    // shows; only the empty universe has something to say.
-    status.hidden = Boolean(active.length);
-    status.textContent = active.length
-      ? "" : "No active machines are registered.";
-    roster.replaceChildren();
     const machineById = machinesById(machines);
-    renderMachinesPanel(context, roster, activeRelays, {
-      showHeading: false,
-      showManagement: true,
-      machineById,
-      sessions: () => usageRows,
-      openSessions,
-      projectRows: context.projects(),
-      onRetire: async (machineId) => {
-        if (!documentNode.defaultView.confirm(
-          "Retire this machine? Its bearer will be revoked; history stays available.",
-        )) return;
-        const result = await callFunction(
-          context.client, "machine.retire", { machine_id: machineId },
-        );
-        if (!result.envelope.success) {
-          status.hidden = false;
-          status.textContent = presentSessionControlFailure(
-            result, "The machine could not be retired.",
+    const paintWork = (openSessions) => {
+      roster.replaceChildren();
+      renderMachinesPanel(context, roster, activeRelays, {
+        showHeading: false,
+        showManagement: true,
+        machineById,
+        sessions: () => usageRows,
+        openSessions,
+        projectRows: context.projects(),
+        onRetire: async (machineId) => {
+          if (!documentNode.defaultView.confirm(
+            "Retire this machine? Its bearer will be revoked; history stays available.",
+          )) return;
+          const result = await callFunction(
+            context.client, "machine.retire", { machine_id: machineId },
           );
-          return;
-        }
-        await load();
-      },
-    });
+          if (!result.envelope.success) {
+            showStatus(presentSessionControlFailure(
+              result, "The machine could not be retired.",
+            ));
+            return;
+          }
+          await load();
+        },
+      });
+    };
+    const showReadyStatus = () => {
+      if (active.length) {
+        status.hidden = true;
+        status.replaceChildren();
+        return;
+      }
+      showStatus("No active machines are registered.");
+    };
+    showReadyStatus();
+    paintWork({ status: "loading" });
     retired.replaceChildren(retiredTable(documentNode, historical));
+    const loadOpenRoster = async () => {
+      paintWork({ status: "loading" });
+      try {
+        const openRoster = await callFunction(
+          context.client, "sessions.list", { open: true },
+        );
+        if (!context.isMounted()) return;
+        if (!openRoster.envelope.success) throw openRoster;
+        paintWork(openRoster.envelope.result?.rows || []);
+        showReadyStatus();
+      } catch (error) {
+        if (!context.isMounted()) return;
+        const message = presentSessionControlFailure(
+          error, "Open sessions could not be read.",
+        );
+        paintWork({ status: "error", message });
+        showStatus(message, loadOpenRoster);
+      }
+    };
+    await loadOpenRoster();
   };
   load();
 }
