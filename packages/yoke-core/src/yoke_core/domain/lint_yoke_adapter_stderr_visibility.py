@@ -1,15 +1,22 @@
-"""PreToolUse Bash lint: keep mutating Yoke adapter stderr visible.
+"""PreToolUse Bash lint: keep Yoke adapter output readable.
 
 Registered adapters already return a non-zero status and a named recovery
-when they refuse. Suppressing stderr, or merging it into stdout immediately
-before a parser/truncator, discards that diagnosis and can make a correct
-refusal look like silence or malformed JSON.
+when they refuse, and they print their answer whole. Two shapes throw that
+away, so this one guard refuses both:
 
-This guard is deliberately narrow. It recognizes only the named mutating
-``yoke`` command paths below, scans only live quote-aware pipeline stages,
-and allows every command shape it cannot classify confidently. Read adapters,
-watcher/test commands, and stdout-only parsing with visible stderr stay out of
-scope. The suppression token is audit-only and never unblocks a denial.
+* Suppressing stderr, or merging it into stdout immediately before a
+  parser/truncator, discards the diagnosis and can make a correct refusal
+  look like silence or malformed JSON. That rule lives here and applies to
+  the named mutating command paths below.
+* Piping any ``yoke`` invocation into ``head`` or ``tail`` keeps a byte
+  window and drops the rest, including a refusal past the window. That rule
+  lives in :mod:`yoke_core.domain.lint_yoke_adapter_output_truncation`,
+  which also owns the ``yoke``-stage parsing both rules share.
+
+This guard is deliberately narrow. It scans only live quote-aware pipeline
+stages and allows every command shape it cannot classify confidently;
+``--help`` output and watcher/test commands stay out of scope. The
+suppression token is audit-only and never unblocks a denial.
 """
 
 from __future__ import annotations
@@ -21,6 +28,13 @@ import sys
 from typing import Optional, Tuple
 
 from yoke_contracts.hook_runner.denial_identity import attach_check_id
+from yoke_core.domain.lint_yoke_adapter_output_truncation import (
+    TRUNCATORS,
+    find_truncation_violation,
+    stage_tokens,
+    truncation_reason,
+    yoke_args,
+)
 from yoke_core.domain.path_claim_bash_splitter import iter_pipeline_groups
 from yoke_core.hooks.types import HookContext, HookDecision, Next, Outcome
 
@@ -34,7 +48,6 @@ _ITEM_STRUCTURED_WRITES = frozenset(
 _ITEM_SECTION_WRITES = frozenset({"upsert", "delete"})
 _LAUNCH_WRITES = frozenset({"create", "retry", "reconcile"})
 _MESSAGE_ACKS = frozenset({"ack", "acknowledge"})
-_PARSERS_AND_TRUNCATORS = frozenset({"head", "tail"})
 
 
 def _extract_command(payload: dict) -> str:
@@ -65,44 +78,8 @@ def _read_mode(payload: object | None = None) -> str:
     )
 
 
-def _tokens(stage: str) -> list[str]:
-    try:
-        tokens = shlex.split(stage, posix=True)
-    except ValueError:
-        return []
-    if tokens:
-        tokens[0] = tokens[0].lstrip("({")
-    return [token for token in tokens if token]
-
-
-def _yoke_args(stage: str) -> list[str]:
-    """Return arguments for a direct ``yoke`` stage, else an empty list."""
-    tokens = _tokens(stage)
-    if not tokens:
-        return []
-    index = 0
-    while index < len(tokens) and "=" in tokens[index]:
-        index += 1
-    if index < len(tokens) and os.path.basename(tokens[index]) == "env":
-        index += 1
-        while index < len(tokens) and "=" in tokens[index]:
-            index += 1
-    if index >= len(tokens) or os.path.basename(tokens[index]) != "yoke":
-        return []
-    args = tokens[index + 1 :]
-    while args:
-        if args[0] == "--env" and len(args) >= 2:
-            args = args[2:]
-            continue
-        if args[0].startswith("--env="):
-            args = args[1:]
-            continue
-        break
-    return args
-
-
 def _mutating_adapter_label(stage: str) -> Optional[str]:
-    args = _yoke_args(stage)
+    args = yoke_args(stage)
     if not args or any(token in {"--help", "-h"} for token in args):
         return None
     path: tuple[str, ...] = ()
@@ -176,11 +153,11 @@ def _has_redirection(tokens: list[str], target: str) -> bool:
 
 
 def _is_parser_or_truncator(stage: str) -> bool:
-    tokens = _tokens(stage)
+    tokens = stage_tokens(stage)
     if not tokens:
         return False
     command = os.path.basename(tokens[0])
-    if command in _PARSERS_AND_TRUNCATORS:
+    if command in TRUNCATORS:
         return True
     return command in {"python", "python3"} and "-c" in tokens[1:]
 
@@ -239,12 +216,24 @@ def evaluate_payload(payload: dict) -> Optional[Tuple[str, str, str]]:
     command = _extract_command(payload)
     if not command:
         return None
-    violation = _find_violation(command)
-    if violation is None:
+    # A hidden refusal is the graver of the two shapes, so a command that
+    # commits both is named by its stderr hazard rather than its truncator.
+    hidden = _find_violation(command)
+    truncated = None if hidden is not None else find_truncation_violation(command)
+    if hidden is None and truncated is None:
         return None
     mode = _read_mode(payload)
     suppression_seen = SUPPRESSION_TOKEN in command
-    reason = _format_reason(*violation, suppression_seen, mode)
+    if hidden is not None:
+        reason = _format_reason(*hidden, suppression_seen, mode)
+    else:
+        reason = truncation_reason(
+            *truncated,
+            suppression_seen,
+            mode,
+            check_id=CHECK_ID,
+            suppression_token=SUPPRESSION_TOKEN,
+        )
     outcome = "suppression_attempted" if suppression_seen else "denied"
     return mode, reason, outcome
 

@@ -18,8 +18,10 @@ Scope is the named long-command set (watcher wrappers, pytest, the
 generic test runner, doctor/deploy engines). Pure read discovery tools
 (``rg``, ``grep``, ``ls``, ``find``, ``git grep``) are short commands and
 stay exempt — the truncator denial is for the long set, not sub-second
-reads. Short Yoke adapters stay out of scope; the shell-payload lint
-already classifies those.
+reads. Short Yoke adapters stay out of scope here because
+:mod:`yoke_core.domain.lint_yoke_adapter_output_truncation` owns them: it
+refuses a truncated ``yoke`` invocation of any duration, and teaches the
+narrower read rather than this module's capture-first recipe.
 
 Pattern mirrors :mod:`yoke_core.domain.lint_git_stash_arg_order`: typed
 ``evaluate(record: HookContext) -> HookDecision`` entry, CLI ``__main__``

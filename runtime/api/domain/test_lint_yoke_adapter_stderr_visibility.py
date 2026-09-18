@@ -1,4 +1,8 @@
-"""Regression corpus for visible stderr on mutating Yoke adapters."""
+"""Regression corpus for readable Yoke adapter output.
+
+Both halves of the one guard live here: visible stderr on mutating
+adapters, and untruncated stdout on every ``yoke`` invocation.
+"""
 
 from __future__ import annotations
 
@@ -80,15 +84,9 @@ def test_named_mutating_adapter_families_are_denied(command: str):
 @pytest.mark.parametrize(
     "command",
     [
-        "yoke db read 'SELECT 1' 2>/dev/null | tail -1",
         "yoke items get YOK-1 --json 2>&1 | python3 -c 'print(1)'",
-        "yoke session-control launch preview --json 2>&1 | head -1",
-        "yoke session-control launch list --json 2>/dev/null | tail -1",
         "yoke messages list --json 2>&1 | python3 -c 'print(1)'",
-        "yoke sessions list --json 2>/dev/null | tail -1",
-        "yoke claims path list --json 2>&1 | head -1",
         "yoke items create --title example --json | python3 -c 'print(1)'",
-        "yoke say --stdin --session sess-test | tail -1",
         "command -v yoke 2>/dev/null",
         "ssh host true 2>/dev/null",
         "yoke watch pytest -- runtime/api/domain/test_example.py",
@@ -113,9 +111,16 @@ def test_global_env_selector_still_classifies_mutation():
 
 
 def test_quoted_redirection_text_is_not_shell_redirection():
-    assert _eval(
-        "yoke items create --title 'example 2>/dev/null' --json | tail -1"
-    ) is None
+    """Redirection inside a quoted value is a literal, not a hidden stderr.
+
+    The command is still refused, by the truncation rule for its ``tail``
+    stage; what must not happen is the stderr rule reading the quoted
+    ``2>/dev/null`` as a real redirection.
+    """
+    command = "yoke items create --title 'example 2>/dev/null' --json | tail -1"
+
+    assert lint._find_violation(command) is None
+    assert _eval(command)[1].startswith("BLOCKED: Yoke adapter output truncated")
 
 
 def test_non_bash_tool_is_allowed():
@@ -165,3 +170,71 @@ def test_denial_teaches_bare_and_visible_stderr_shapes():
     assert "Run the adapter bare" in reason
     assert "leave stderr attached to the terminal" in reason
     assert "--json | python3 -c" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "yoke messages list | head -20",
+        "yoke items get YOK-1 body | tail -5",
+        "yoke db read 'SELECT 1' 2>/dev/null | tail -1",
+        "yoke qa plan get 7 --project yoke --json | head -40",
+        "yoke sessions list --json | tail -1",
+        "yoke claims path list --json | head -1",
+        "yoke say --stdin --session sess-test | tail -1",
+        "yoke workflows definition get --project yoke | grep gate | head -3",
+        "YOKE_TRACE=1 yoke --env prod-db-admin events query | head -2",
+    ],
+)
+def test_truncated_adapter_output_is_denied(command: str):
+    result = _eval(command)
+
+    assert result is not None
+    mode, reason, outcome = result
+    assert mode == "deny"
+    assert outcome == "denied"
+    assert "Yoke adapter output truncated" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "yoke messages list",
+        "yoke messages list --json",
+        "yoke messages list --help | head -60",
+        "yoke items get YOK-1 body -h | tail -20",
+        "yoke watch tail /tmp/yoke-watch-capture.log",
+        "git log --oneline | head -5",
+        "tail -80 /tmp/yoke-cmd.abc123",
+        'cat /tmp/out | head -1  # yoke messages list ran earlier',
+        "yoke messages list --json | python3 -c 'print(1)'",
+    ],
+)
+def test_untruncated_and_out_of_scope_shapes_stay_allowed(command: str):
+    assert _eval(command) is None
+
+
+def test_capture_then_inspect_is_the_taught_shape():
+    command = (
+        '_tmp=$(mktemp /tmp/yoke-cmd.XXXXXX); yoke watch merge merge-item YOK-1 '
+        '>"$_tmp" 2>&1; _rc=$?; tail -80 "$_tmp"'
+    )
+
+    assert _eval(command) is None
+
+
+def test_truncation_denial_names_a_narrower_read():
+    result = _eval("yoke items get YOK-1 body | head -30")
+
+    assert result is not None
+    reason = result[1]
+    assert "yoke items get" in reason
+    assert "--json" in reason
+    assert "mktemp /tmp/yoke-cmd.XXXXXX" in reason
+
+
+def test_hidden_stderr_outranks_truncation_when_a_command_does_both():
+    result = _eval("yoke say --stdin --item YOK-1 2>/dev/null | tail -1")
+
+    assert result is not None
+    assert "hid its diagnostic stderr" in result[1]
