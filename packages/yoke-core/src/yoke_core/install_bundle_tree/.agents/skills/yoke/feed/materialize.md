@@ -106,7 +106,7 @@ those values as `_project` and `_workflow`, then call the registered
 
 ```bash
 yoke workflow execution-instruction resolve \
- --workflow "${_workflow}" --project "${_project}"
+ --workflow "${_workflow}" --project "${_project}" --full
 ```
 
 Apply every returned instruction while finalizing the title, instruction,

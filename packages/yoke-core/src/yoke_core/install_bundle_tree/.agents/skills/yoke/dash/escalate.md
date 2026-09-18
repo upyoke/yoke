@@ -38,7 +38,7 @@ and read the issue-workflow projection through registered
 `workflow.execution_instruction.resolve`:
 
 ```text
-yoke workflow execution-instruction resolve --workflow issue --project PROJECT
+yoke workflow execution-instruction resolve --workflow issue --project PROJECT --full
 ```
 
 Apply every returned instruction, then present to the operator:

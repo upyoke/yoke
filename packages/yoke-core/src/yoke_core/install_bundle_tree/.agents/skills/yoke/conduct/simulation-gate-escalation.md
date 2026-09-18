@@ -76,7 +76,7 @@ gap title or spec, call the registered
 instruction:
 
 ```bash
-yoke workflow execution-instruction resolve --workflow issue --project "$_project"
+yoke workflow execution-instruction resolve --workflow issue --project "$_project" --full
 ```
 
 For each `### GAP #N:` block in `_simulation_gaps`:

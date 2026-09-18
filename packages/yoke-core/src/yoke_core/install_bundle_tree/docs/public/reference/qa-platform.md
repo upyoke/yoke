@@ -256,6 +256,8 @@ all remain bound through `qa_requirements.deployment_run_id`. Run-scoped reads s
 same field, `qa.browser_context.get` takes a `deployment_run` target and scopes its case read
 to that run, and `qa.artifact.read` resolves evidence through the run's owning project.
 
+`qa.plan.get` defaults to the scannable shape — cases, methods, target, each case's verdict. Probe source and every proof's output tail, evidence and review come back under `detail="full"` (`--full` on `yoke qa plan get`), which the summary names.
+
 Item-scoped reads are the other half, because an item-attached requirement records no
 deployment run at all: `qa.activity.list` also takes `item_ids` (absent reads the project; an
 empty list matches nothing), and every row reports `item_id`, `deployment_member_item_id`,
