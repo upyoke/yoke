@@ -13,16 +13,23 @@ while the identical release closed its neighbour out. Enrolment is
 bookkeeping about how a run was requested; it is not the fact the gate
 means.
 
-The fact the gate means is containment: does a succeeded run of this item's
-selected flow ship a revision that already contains this item's merge? That
-holds for every member of a batch rather than only the one that happens to
-be the tip, and it holds whether or not anyone remembered to enrol it.
+Containment is what answers when membership does not: does a succeeded run
+of this item's selected flow ship a revision that already contains this
+item's merge? That holds for every member of a batch rather than only the
+one that happens to be the tip, and it holds whether or not anyone
+remembered to enrol it.
 
 So the ladder is membership first — it is cheap, local, and the common case
 — then containment. An unreadable containment source is ``undetermined``,
 never ``not delivered``: a reader that could not look has learned nothing,
 and refusing on that would strand correct releases for as long as the
 provider is unwell.
+
+This answers "has delivery happened", and nothing stricter. A caller may
+have a stricter question — Dash completion posture additionally requires the
+deployed candidate to contain the item's merge and its live lane head — so
+the verdict carries the run's own candidate for that caller to judge, rather
+than folding two different questions into one answer.
 """
 
 from __future__ import annotations
@@ -63,6 +70,12 @@ class DeliveryEvidence:
     source: str = ""
     reason: str = ""
     recovery: str = ""
+    # The run's own candidate and project, so a caller with a STRICTER
+    # question than "did delivery happen" can ask it of the same run. The
+    # Dash completion posture is that caller: it additionally requires the
+    # deployed candidate to contain the item's merge and live lane head.
+    release_lineage: str = ""
+    project_id: Optional[int] = None
 
     @property
     def discharged(self) -> bool:
@@ -146,11 +159,17 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
 
     member = latest_completion_run(conn, int(item_id))
     if member is not None and str(member["status"]) == "succeeded":
+        # Membership answers the delivery question on its own, as it always
+        # has. It does not answer the containment question, which is why the
+        # run's own candidate travels with the verdict rather than being
+        # treated as already checked.
         return DeliveryEvidence(
             DISCHARGED,
             run_id=str(member["id"]),
             run_status="succeeded",
             source=SOURCE_MEMBERSHIP,
+            release_lineage=str(member.get("release_lineage") or ""),
+            project_id=member.get("project_id"),
         )
 
     merge_sha = item_merge_identity(conn, int(item_id))
@@ -175,6 +194,8 @@ def delivery_evidence(conn: Any, item_id: int) -> DeliveryEvidence:
                 run_id=run["id"],
                 run_status="succeeded",
                 source=SOURCE_CONTAINMENT,
+                release_lineage=lineage,
+                project_id=int(project_id),
             )
         if verdict.state == UNDETERMINED and undetermined is None:
             # Remember the first unreadable comparison but keep walking: an

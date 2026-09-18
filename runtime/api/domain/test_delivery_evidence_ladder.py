@@ -143,3 +143,26 @@ def test_no_selected_flow_is_not_a_containment_question(monkeypatch):
     verdict = ladder.delivery_evidence(object(), 1)
     assert verdict.state == ladder.NOT_DISCHARGED
     assert "no completion deployment flow" in verdict.reason
+
+
+def test_the_verdict_carries_the_run_candidate_for_a_stricter_caller(monkeypatch):
+    """Delivery happened and containment are two questions, not one.
+
+    A run can list an item as a member while shipping a revision that
+    predates its merge. The ladder answers only the first, so it hands back
+    the run's own candidate rather than letting a caller with the stricter
+    question believe it was already checked.
+    """
+    _wire(
+        monkeypatch,
+        member={
+            "id": "run-1",
+            "status": "succeeded",
+            "release_lineage": LINEAGE,
+            "project_id": 7,
+        },
+    )
+    verdict = ladder.delivery_evidence(object(), 1)
+    assert verdict.discharged
+    assert verdict.release_lineage == LINEAGE
+    assert verdict.project_id == 7

@@ -250,6 +250,18 @@ def _deployment_gate(
                 else evidence_verdict.recovery
             ),
         )
+    # Delivery having happened is not this posture's whole question. It also
+    # requires the deployed candidate to contain this item's merge, which the
+    # ladder deliberately does not decide — a run can list the item as a
+    # member while shipping a revision that predates its merge.
+    blocked = _lineage_covers(
+        conn,
+        int(evidence_verdict.project_id or 0),
+        lineage=evidence_verdict.release_lineage,
+        commit_sha=merge_sha,
+    )
+    if blocked is not None:
+        return blocked
     return _stale_completion_run_gate(conn, item_id)
 
 
