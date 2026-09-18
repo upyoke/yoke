@@ -27,7 +27,10 @@ import {
   claimedItemRefs,
   isQualifyingClaimant,
 } from "./universe_item_claimant.js";
-import { appendItemDeployment } from "./universe_item_deployment.js";
+import {
+  appendItemDeployment,
+  appendReleaseDelivery,
+} from "./universe_item_deployment.js";
 import { workItemCard } from "./universe_work_cards.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
@@ -290,7 +293,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       const card = workItemCard(documentNode, row, scope, {
         timestamp: row.updated_at,
       });
-      appendItemDeployment(documentNode, card, row, options.deployments);
+      appendReleaseDelivery(documentNode, card, row, options.deployments);
       return card;
     }), "Nothing is waiting to ship.");
 

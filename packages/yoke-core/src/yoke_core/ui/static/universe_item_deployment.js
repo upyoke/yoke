@@ -94,6 +94,110 @@ function deploymentCard(documentNode, run, projectId) {
   return card;
 }
 
+//: A run still moving. Anything else has recorded its outcome.
+const TERMINAL_RUN_STATES = new Set([SUCCEEDED, "failed", "cancelled"]);
+
+function runEnvironment(run) {
+  return String(run.target_environment || run.target_tier || "");
+}
+
+function newestFirst(runs) {
+  // Created, not completed: a live run has no completion yet and would sort
+  // to the bottom on one, which is the opposite of what "newest" means here.
+  return [...runs].sort((left, right) => String(
+    right.created_at || "",
+  ).localeCompare(String(left.created_at || "")));
+}
+
+/**
+ * The runs worth drawing: what is shipping now, and where it last landed.
+ *
+ * One live run, plus the newest succeeded run per environment. Older
+ * succeeded runs to the same environment are superseded by definition, and
+ * failed ones a later success replaced are history the run page still holds.
+ */
+export function shownDeliveryRuns(carried) {
+  const shown = [];
+  const environmentsSeen = new Set();
+  let liveShown = false;
+  for (const run of newestFirst(carried)) {
+    const status = String(run.status || "");
+    if (!TERMINAL_RUN_STATES.has(status)) {
+      if (liveShown) continue;
+      liveShown = true;
+      shown.push(run);
+      continue;
+    }
+    if (status !== SUCCEEDED) continue;
+    const environment = runEnvironment(run);
+    if (environmentsSeen.has(environment)) continue;
+    environmentsSeen.add(environment);
+    shown.push(run);
+  }
+  return shown;
+}
+
+function deliveryRunCard(documentNode, run, row) {
+  const status = String(run.status || "unknown");
+  const card = el(documentNode, "a", "release-delivery-run");
+  card.href = deploymentRunHref(row.project_id ?? null, run.id || run.run_id);
+  card.appendChild(el(
+    documentNode,
+    "small",
+    "release-delivery-run-id",
+    String(run.id || run.run_id || ""),
+  ));
+  card.appendChild(el(
+    documentNode,
+    "strong",
+    "release-delivery-run-environment",
+    runEnvironment(run) || NO_ENVIRONMENT_LABEL,
+  ));
+  const pill = statePill(documentNode, status, status);
+  if (pill) card.appendChild(pill);
+  // The flow only when it is not the item's own: repeating the line above
+  // every sub-card says nothing, while a differing flow is the whole point.
+  const flow = String(run.flow || "");
+  if (flow && flow !== String(row.deployment_flow || "")) {
+    card.appendChild(el(
+      documentNode, "small", "release-delivery-run-flow", flow,
+    ));
+  }
+  return card;
+}
+
+/**
+ * Append the delivery box a Release-band card always carries.
+ *
+ * Unlike the Done band's box, this one is drawn even when no run has picked
+ * the item up: "waiting to ship, in no run yet" is the state the band exists
+ * to show, and an absent box would read as nothing to say.
+ */
+export function appendReleaseDelivery(documentNode, card, row, deployments) {
+  const box = el(documentNode, "div", "release-delivery");
+  box.appendChild(el(
+    documentNode,
+    "span",
+    "release-delivery-flow",
+    String(row.deployment_flow || "") || "no flow",
+  ));
+  const itemId = row.internal_id ?? row.item_id ?? row.id;
+  const carried = deployments?.get(String(itemId)) || [];
+  const runs = shownDeliveryRuns(carried);
+  if (!runs.length) {
+    box.appendChild(el(
+      documentNode, "p", "release-delivery-empty", "Not in a run yet",
+    ));
+  } else {
+    for (const run of runs) {
+      box.appendChild(deliveryRunCard(documentNode, run, row));
+    }
+  }
+  card.appendChild(box);
+  return box;
+}
+
+
 /**
  * Append the selected-flow deployment that carried `row`, when one did.
  *
