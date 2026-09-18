@@ -36,6 +36,12 @@ RESOLVED_RUN_QA_STATUSES = ("passed", "waived")
 #: the deploy succeeded — here it has not.
 AWAITING_QA_PREFIX = "deploy stages complete, blocking QA unresolved"
 
+#: Leads the report when the run-completing stage was held back before it
+#: ran. Distinct from :data:`AWAITING_QA_PREFIX` because the stages are
+#: *not* complete: one is deliberately unstarted, and saying otherwise is
+#: the false-completion this hold exists to prevent.
+HELD_STAGE_PREFIX = "final stage held, blocking QA unresolved"
+
 
 def unresolved_blocking_qa(conn: Any, run_id: str) -> List[str]:
     """Describe every blocking QA obligation *run_id* has not settled.
@@ -112,6 +118,20 @@ def awaiting_qa_report_lines(run_id: str, unresolved: List[str]) -> List[str]:
         f"obligation(s) unresolved for run {run_id}",
         *(f"  - {detail}" for detail in unresolved),
         f"  Settle or waive each one, then re-drive {run_id} to finalize.",
+    ]
+
+
+def held_stage_report_lines(
+    run_id: str, stage_name: str, unresolved: List[str]
+) -> List[str]:
+    """Render the report for a run-completing stage held before it ran."""
+    return [
+        f"{HELD_STAGE_PREFIX} — stage {stage_name!r} stays pending while "
+        f"{len(unresolved)} blocking QA obligation(s) are unresolved for "
+        f"run {run_id}",
+        *(f"  - {detail}" for detail in unresolved),
+        f"  Settle or waive each one, then re-drive {run_id}: the stage "
+        "runs and the run completes only once nothing is outstanding.",
     ]
 
 
@@ -197,6 +217,8 @@ def _final_stage_name(conn: Any, run_id: str) -> str:
 __all__ = [
     "AWAITING_QA_PREFIX",
     "awaiting_qa_report_lines",
+    "held_stage_report_lines",
+    "HELD_STAGE_PREFIX",
     "RESOLVED_RUN_QA_STATUSES",
     "refuse_succeeded",
     "unresolved_blocking_qa",

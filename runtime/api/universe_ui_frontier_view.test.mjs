@@ -34,7 +34,7 @@ async function mountAt(hash, client) {
 
 const band = (root, key) => byClass(root, `work-band-${key}`)[0];
 
-test("Frontier is four bands of work under one page heading", async (t) => {
+test("Frontier is five bands of work under one page heading", async (t) => {
   stubFetch(t);
   const client = workbenchClient();
   const { root, mounted } = await mountAt("#/frontier?project=1", client);
@@ -45,7 +45,7 @@ test("Frontier is four bands of work under one page heading", async (t) => {
   assert.equal(byClass(root, "title")[0].textContent, "Frontier");
   assert.deepEqual(
     byClass(root, "work-band-title").map(ownTextContent),
-    ["Waiting", "Ready", "Active", "Done (24h)"],
+    ["Waiting", "Ready", "Active", "Release", "Done (24h)"],
   );
   // Shipping is its own page; the Frontier does not draw run cards.
   assert.equal(byClass(root, "shipping-run-card").length, 0);
@@ -250,5 +250,92 @@ test("work whose only claimant is gone waits, and says whose fault that is", asy
   const waiting = descendantText(band(root, "waiting"));
   assert.match(waiting, /YOK-9/);
   assert.match(waiting, /Owner unavailable/);
+  mounted.unmount();
+});
+
+// An item between merge and deployment is the one case a lifecycle status
+// decides outright. The other live bands read work claims and gate rows, so
+// the same item can satisfy several of them at once — which is exactly how a
+// release item used to be drawn twice.
+function releasingClient() {
+  const releasing = {
+    public_ref: "YOK-11",
+    internal_id: 111,
+    title: "Land the release band",
+    project: "yoke",
+    project_id: 1,
+    project_sequence: 11,
+    workflow_id: "issue",
+    status: "release",
+    created_at: recentIso(12),
+    updated_at: recentIso(1),
+    merged_at: recentIso(1),
+  };
+  return workbenchClient({
+    "items.overview.list": { rows: [releasing] },
+    "frontier.list": {
+      ready_rows: [{
+        ...releasing,
+        item_id: "YOK-11",
+        why_ready: "No blocker is holding this item.",
+        run_command: "yoke advance YOK-11",
+      }],
+      blocked_rows: [],
+    },
+    "sessions.list": { rows: [{
+      ...claimingSession(),
+      current_item: "YOK-11",
+      current_item_title: "Land the release band",
+      claims: [{ target_kind: "item", public_ref: "YOK-11", target: "YOK-11" }],
+    }] },
+  });
+}
+
+test("a release item is drawn once, and only in Release", async (t) => {
+  stubFetch(t);
+  const { root, mounted } = await mountAt("#/frontier?project=1", releasingClient());
+
+  assert.deepEqual(
+    byClass(root, "work-item-card").map(
+      (card) => byClass(card, "work-item-card-ref")[0].textContent,
+    ),
+    ["YOK-11"],
+  );
+  assert.deepEqual(
+    byClass(band(root, "release"), "work-item-card-ref").map(
+      (node) => node.textContent,
+    ),
+    ["YOK-11"],
+  );
+  assert.equal(byClass(band(root, "release"), "work-band-count")[0].textContent, "1");
+  // The readings that would otherwise have claimed it: a live session holds
+  // its work claim, and the frontier still calls it ready to pick up.
+  for (const key of ["waiting", "ready", "active", "done"]) {
+    assert.equal(byClass(band(root, key), "work-item-card").length, 0, key);
+  }
+  mounted.unmount();
+});
+
+test("Release sits between Active and Done", async (t) => {
+  stubFetch(t);
+  const { root, mounted } = await mountAt("#/frontier?project=1", releasingClient());
+
+  const keys = ["waiting", "ready", "active", "release", "done"];
+  const bands = byClass(root, "work-band");
+  assert.deepEqual(
+    bands.map((node) => node.getAttribute("data-fold")),
+    keys.map((key) => `band:${key}`),
+  );
+  mounted.unmount();
+});
+
+test("Release says what an empty one means", async (t) => {
+  stubFetch(t);
+  const { root, mounted } = await mountAt("#/frontier?project=1", workbenchClient());
+
+  assert.equal(
+    byClass(band(root, "release"), "work-band-empty")[0].textContent,
+    "Nothing is waiting to ship.",
+  );
   mounted.unmount();
 });

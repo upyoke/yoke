@@ -86,8 +86,60 @@ def check_unresolved_qa(
     return None
 
 
+def stage_completes_run(
+    stage: dict[str, Any], stages: list[dict[str, Any]]
+) -> bool:
+    """Is *stage* the one whose completion leaves the run nothing to do?
+
+    A flow's stages execute in declared order, so only the last one carries
+    that meaning. Asking the stage list rather than matching a stage name
+    keeps flows that call their final stage something other than ``complete``
+    on the same boundary.
+    """
+    return bool(stages) and stage["name"] == stages[-1]["name"]
+
+
+def check_completion_stage_qa(
+    stage: dict[str, Any],
+    stages: list[dict[str, Any]],
+    run_id: str,
+    *,
+    usage_exit: int,
+    awaiting_qa_exit: int,
+) -> Optional[int]:
+    """Hold the run-completing stage until the run's blocking QA settles.
+
+    Recording that stage completed is what makes a run read as delivered, on
+    the dashboard's stage bar and everywhere else. Evaluating the run's
+    blocking obligations *before* it starts is therefore the difference
+    between a stage bar that is merely optimistic and one that is wrong: a
+    stage that never ran is never drawn green, so the card shows work
+    outstanding exactly while it is. Non-final stages are unaffected — their
+    completion says nothing about the run as a whole.
+    """
+    if not stage_completes_run(stage, stages):
+        return None
+    from yoke_core.domain import deploy_pipeline_control_plane as control_plane
+    from yoke_core.domain.deployment_run_completion_preconditions import (
+        held_stage_report_lines,
+    )
+
+    try:
+        unresolved_qa = control_plane.unresolved_qa(run_id)
+    except control_plane.DeploymentControlPlaneError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return usage_exit
+    if not unresolved_qa:
+        return None
+    for line in held_stage_report_lines(run_id, stage["name"], unresolved_qa):
+        print(line, file=sys.stderr)
+    return awaiting_qa_exit
+
+
 __all__ = [
+    "check_completion_stage_qa",
     "check_resume_qa_gate",
     "check_unresolved_qa",
     "report_missing_start_stage",
+    "stage_completes_run",
 ]

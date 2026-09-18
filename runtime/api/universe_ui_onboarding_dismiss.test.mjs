@@ -241,7 +241,7 @@ test("empty live bands remain visible beside day-zero onboarding", async (t) => 
 
   assert.deepEqual(
     byClass(root, "work-band-title").map((node) => node.textContent),
-    ["Waiting", "Ready", "Active", "Done (24h)"],
+    ["Waiting", "Ready", "Active", "Release", "Done (24h)"],
   );
   const text = allNodes(root).map((node) => node.textContent || "").join(" ");
   assert.ok(text.includes("Nothing is stopped."));

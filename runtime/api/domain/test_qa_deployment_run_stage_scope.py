@@ -1,4 +1,4 @@
-"""A run-wide QA materialization is refused where any QA stage counts by name.
+"""A stage-less run-bound QA obligation is refused where a QA stage counts by name.
 
 Stage acceptance reads `deployment_stage = <name>`, and an item-scoped stage
 reads its member item too. A plan materialized run-wide carries neither, so
@@ -7,6 +7,10 @@ evidence that could not reach it. Three owners on one release did exactly
 that before the write refused. A run-scoped stage filters on its own name
 just the same, so the refusal covers it rather than only the item-scoped
 case.
+
+The same boundary applies per requirement, whatever surface authored it: a
+blocking run-bound obligation carrying no stage holds the run's completion
+— and its final stage — for evidence no stage can credit.
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ from runtime.api.fixtures.pg_testdb import test_database
 from yoke_core.domain.qa_deployment_run_stage_scope import (
     pinned_qa_stages,
     require_stage_scoped_materialization,
+    require_stage_scoped_requirement,
 )
 from yoke_core.domain.qa_plan_management import QaPlanError
 
@@ -155,4 +160,77 @@ def test_a_run_with_no_qa_stage_keeps_the_run_wide_write() -> None:
             deployment_run_id=RUN_ID,
             plan="release-boundary-qa",
             project="yoke",
+        )
+
+
+def test_a_stageless_blocking_obligation_is_refused_on_a_staged_run() -> None:
+    """The shape that leaves a delivered run unable to settle."""
+    with test_database() as conn:
+        _run(conn, ITEM_SCOPED_STAGES)
+
+        with pytest.raises(QaPlanError) as refusal:
+            require_stage_scoped_requirement(
+                conn,
+                deployment_run_id=RUN_ID,
+                blocking_mode="blocking",
+                deployment_stage=None,
+            )
+
+    message = str(refusal.value)
+    assert "pins QA stage(s) 'item-qa' (scope item)" in message
+    assert "credited by none of them" in message
+    assert "deployment_stage" in message
+
+
+def test_every_pinned_stage_is_named_in_the_requirement_refusal() -> None:
+    with test_database() as conn:
+        _run(conn, BOTH_SCOPED_STAGES)
+
+        with pytest.raises(QaPlanError) as refusal:
+            require_stage_scoped_requirement(
+                conn,
+                deployment_run_id=RUN_ID,
+                blocking_mode="blocking",
+                deployment_stage=None,
+            )
+
+    message = str(refusal.value)
+    assert "'item-qa' (scope item)" in message
+    assert "'release-qa' (scope run)" in message
+
+
+def test_naming_the_stage_admits_the_obligation() -> None:
+    with test_database() as conn:
+        _run(conn, ITEM_SCOPED_STAGES)
+
+        require_stage_scoped_requirement(
+            conn,
+            deployment_run_id=RUN_ID,
+            blocking_mode="blocking",
+            deployment_stage="item-qa",
+        )
+
+
+def test_a_non_blocking_obligation_needs_no_stage() -> None:
+    """Nothing waits on it, so nothing is held by its invisibility."""
+    with test_database() as conn:
+        _run(conn, ITEM_SCOPED_STAGES)
+
+        require_stage_scoped_requirement(
+            conn,
+            deployment_run_id=RUN_ID,
+            blocking_mode="non_blocking",
+            deployment_stage=None,
+        )
+
+
+def test_a_run_with_no_qa_stage_keeps_the_stageless_obligation() -> None:
+    with test_database() as conn:
+        _run(conn, NO_QA_STAGES)
+
+        require_stage_scoped_requirement(
+            conn,
+            deployment_run_id=RUN_ID,
+            blocking_mode="blocking",
+            deployment_stage=None,
         )

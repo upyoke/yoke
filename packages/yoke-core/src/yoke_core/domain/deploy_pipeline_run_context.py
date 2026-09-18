@@ -144,10 +144,50 @@ def complete_run_finalization(
     return 0
 
 
+def finalize_after_stages(
+    run_id: str,
+    flow_id: str,
+    project: str,
+    member_items: List[str],
+    target_tier: str,
+    environment_name: str,
+    *,
+    usage_exit: int,
+    awaiting_qa_exit: int,
+    sd: Optional[str] = None,
+) -> int:
+    """Report any unresolved blocking QA, else land the succeeded stamp.
+
+    Both routes into finalization — the stage loop running off its end, and
+    a re-drive resuming a run already parked at ``complete`` — arrive here,
+    so neither can reach the succeeded write while the run still owes QA.
+    The write itself refuses too; checking first is what turns that refusal
+    into the named obligations plus their recovery, without the retry
+    backoff that exists for a transient write failure.
+    """
+    from yoke_core.domain import deploy_pipeline_stage_checks as stage_checks
+
+    qa_exit = stage_checks.check_unresolved_qa(
+        run_id, usage_exit=usage_exit, awaiting_qa_exit=awaiting_qa_exit
+    )
+    if qa_exit is not None:
+        return qa_exit
+    return complete_run_finalization(
+        run_id,
+        flow_id,
+        project,
+        member_items,
+        target_tier,
+        environment_name,
+        sd=sd,
+    )
+
+
 __all__ = [
     "EXIT_FINALIZATION_PENDING",
     "RunFinalizationPending",
     "complete_run_finalization",
+    "finalize_after_stages",
     "finalize_run_success",
     "resolve_project_checkout_path",
 ]

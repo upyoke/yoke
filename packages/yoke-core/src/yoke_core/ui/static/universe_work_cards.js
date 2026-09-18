@@ -6,6 +6,7 @@ import {
   deploymentRunHref,
 } from "./universe_navigation.js";
 import { itemDrillInHref } from "./universe_item_routes.js";
+import { NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
 import { deliveryStageBar, workflowBadge } from "./universe_secondary_primitives.js";
 import { relativeAgePhrase } from "./universe_time.js";
 import { appendRunGates, runGateStatus, runGates } from "./universe_run_gates.js";
@@ -217,7 +218,7 @@ export function shippingRunCard(context, row, scope, options = {}) {
     documentNode,
     "span",
     "shipping-run-environment",
-    row.target_environment || row.target_tier || "environment unavailable",
+    row.target_environment || row.target_tier || NO_ENVIRONMENT_LABEL,
   ));
   const statusNode = statePill(documentNode, status, status);
   if (statusNode) head.appendChild(statusNode);

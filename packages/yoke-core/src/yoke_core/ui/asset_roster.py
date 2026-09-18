@@ -67,6 +67,7 @@ ASSET_CONTENT_TYPES: Dict[str, str] = {
     "universe_delivery_flow_form.js": "text/javascript; charset=utf-8",
     "universe_delivery_flow_stage_policy.js": "text/javascript; charset=utf-8",
     "deployment_run_terminalization_dialog.js": "text/javascript; charset=utf-8",
+    "deployment_environment_copy.js": "text/javascript; charset=utf-8",
     "universe_views_delivery_inventory.js": "text/javascript; charset=utf-8",
     "universe_views_doctor.js": "text/javascript; charset=utf-8",
     "universe_views_events.js": "text/javascript; charset=utf-8",

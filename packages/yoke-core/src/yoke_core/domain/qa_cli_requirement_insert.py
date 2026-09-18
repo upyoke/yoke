@@ -7,10 +7,11 @@ from typing import Any
 
 INSERT_SQL = """
     INSERT INTO qa_requirements
-    (item_id, epic_id, task_num, deployment_run_id, qa_kind, qa_phase,
+    (item_id, epic_id, task_num, deployment_run_id, deployment_stage,
+     qa_kind, qa_phase,
      target_env, blocking_mode, requirement_source, success_policy,
      capability_requirements, suite_id, workflow_transition_id, created_at)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     RETURNING id
 """
 
@@ -23,13 +24,21 @@ def insert_params(
     deployment_run_id: str | None,
     row: dict[str, Any],
     created_at: str,
+    deployment_stage: str | None = None,
 ) -> tuple[Any, ...]:
-    """Return values in :data:`INSERT_SQL` column order."""
+    """Return values in :data:`INSERT_SQL` column order.
+
+    ``deployment_stage`` is the run stage a run-bound obligation answers
+    for. Storing it is what lets that stage's acceptance credit the row;
+    leaving it unset on a run whose flow pins QA stages is refused upstream
+    by ``qa_deployment_run_stage_scope``.
+    """
     return (
         item_id,
         epic_id,
         task_num,
         deployment_run_id,
+        deployment_stage,
         row["qa_kind"],
         row["qa_phase"],
         row.get("target_env"),

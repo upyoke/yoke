@@ -1,6 +1,11 @@
-// Waiting, Ready, Active and Done are four readings of one item roster, so
-// they are computed together: an item appears in exactly one of them, and each
-// band's count is the number of cards it drew.
+// Waiting, Ready, Active, Release and Done are five readings of one item
+// roster, so they are computed together: an item appears in exactly one of
+// them, and each band's count is the number of cards it drew.
+//
+// Release is the one band a status decides outright. An item that has merged
+// and is waiting on its deployment is neither stopped, free to pick up, nor
+// being worked on, so it is held out of the other live bands rather than
+// appearing twice under two partly-true readings.
 //
 // Active is the band that has to be earned. Lifecycle status alone does not
 // put an item here — an item whose status says implementing while nothing
@@ -27,11 +32,16 @@ import { workItemCard } from "./universe_work_cards.js";
 import { el, settledScopedCalls } from "./universe_view_support.js";
 
 const TERMINAL_STATES = new Set(["done", "cancelled", "stopped"]);
+const RELEASE_STATE = "release";
 const LIVE_SESSION_STATES = new Set(["active", "stale"]);
 const DONE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function reference(row) {
   return String(row.public_ref || row.item_id || row.id || "");
+}
+
+function status(row) {
+  return String(row.status || "").toLowerCase();
 }
 
 function enabled(value) {
@@ -93,7 +103,7 @@ function completedAt(row) {
 }
 
 function recentlyDone(row, now = Date.now()) {
-  if (!TERMINAL_STATES.has(String(row.status || "").toLowerCase())) return false;
+  if (!TERMINAL_STATES.has(status(row))) return false;
   const timestamp = new Date(completedAt(row)).getTime();
   return Number.isFinite(timestamp) && now - timestamp <= DONE_WINDOW_MS;
 }
@@ -185,9 +195,15 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
       el(documentNode, "p", "empty", "Session detail is unavailable here.")
     ));
 
-    const live = items.filter(
-      (row) => !TERMINAL_STATES.has(String(row.status || "").toLowerCase()),
-    );
+    const releasing = items
+      .filter((row) => status(row) === RELEASE_STATE)
+      .sort((left, right) => String(right.updated_at || "").localeCompare(
+        String(left.updated_at || ""),
+      ));
+    const releasingRefs = new Set(releasing.map(reference));
+    const live = items.filter((row) => (
+      !TERMINAL_STATES.has(status(row)) && !releasingRefs.has(reference(row))
+    ));
     // Active first, because being worked on is the stronger fact: a blocked
     // item somebody is actively unblocking belongs where the work is, with
     // its reason still on the card.
@@ -244,6 +260,7 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
 
     const ready = readyRows
       .map((row) => mergeItemFacts(row, itemsByRef))
+      .filter((row) => !releasingRefs.has(reference(row)))
       .filter((row) => !waitingRefs.has(reference(row)))
       .filter((row) => !activeRefs.has(reference(row)))
       .filter((row) => !heldByAnyLiveSession.has(reference(row)));
@@ -263,6 +280,19 @@ export async function loadFrontier(context, bands, getScope, sessionRoster, opti
         timeLabel: "filed",
       },
     )), "Nothing is ready to pick up.");
+
+    const releasingCards = releasing.slice(0, BAND_CARD_LIMIT).map((row) => {
+      const card = workItemCard(documentNode, row, scope, {
+        timestamp: row.updated_at,
+      });
+      appendItemDeployment(documentNode, card, row, options.deployments);
+      return card;
+    });
+    if (releasing.length > releasingCards.length) {
+      releasingCards.push(seeMoreCard(documentNode, scope));
+    }
+    bands.release.setCount(releasing.length);
+    bands.release.renderCards(releasingCards, "Nothing is waiting to ship.");
 
     const done = items
       .filter((row) => recentlyDone(row))

@@ -4,6 +4,7 @@ import {
 import {
   qaPanel,
 } from "./qa_view_primitives.js";
+import { NO_ENVIRONMENT_LABEL } from "./deployment_environment_copy.js";
 
 export function executionTargetLabel(target) {
   if (!target) return "not bound";
@@ -11,7 +12,7 @@ export function executionTargetLabel(target) {
     return "project source · no deployment environment";
   }
   const tenant = target.tenant?.slug || target.project?.slug || "target";
-  return `${tenant} · ${target.environment?.name || "environment unavailable"}`;
+  return `${tenant} · ${target.environment?.name || NO_ENVIRONMENT_LABEL}`;
 }
 
 export function renderExecutionTarget(documentNode, plan) {
@@ -44,7 +45,7 @@ export function renderExecutionTarget(documentNode, plan) {
     null,
     target.target_kind === "project"
       ? executionTargetLabel(target)
-      : target.environment?.name || "environment unavailable",
+      : target.environment?.name || NO_ENVIRONMENT_LABEL,
   ));
   result.body.appendChild(identity);
   const endpoints = target.endpoints || {};

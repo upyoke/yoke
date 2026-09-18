@@ -8,6 +8,9 @@ import {
   renderItemDetailView,
 } from "../../packages/yoke-core/src/yoke_core/ui/static/universe_views_items.js";
 import {
+  NO_ENVIRONMENT_LABEL,
+} from "../../packages/yoke-core/src/yoke_core/ui/static/deployment_environment_copy.js";
+import {
   FakeDocument,
   byClass,
   settle,
@@ -248,6 +251,6 @@ test("a carrying run on another flow is participation, not this item's release",
   );
   assert.deepEqual(
     byClass(root, "item-delivery-target").map((node) => node.textContent),
-    ["environment unavailable", "prod"],
+    [NO_ENVIRONMENT_LABEL, "prod"],
   );
 });

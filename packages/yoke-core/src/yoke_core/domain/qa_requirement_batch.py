@@ -8,6 +8,10 @@ from typing import List, Optional
 
 from yoke_core.domain.db_helpers import connect, iso8601_now
 from yoke_core.domain.qa_cli_requirement_insert import INSERT_SQL, insert_params
+from yoke_core.domain.qa_deployment_run_stage_scope import (
+    require_stage_scoped_requirement,
+)
+from yoke_core.domain.qa_plan_management import QaPlanError
 from yoke_core.domain.qa_cli_transition_binding import require_cli_workflow_transition
 from yoke_core.domain.qa_constants import _normalize_qa_kind, _normalize_qa_phase
 from yoke_core.domain.qa_events import emit_qa_requirement_event
@@ -75,6 +79,17 @@ def cmd_requirement_add_batch(
                     label=f"row {len(inserted_ids)}",
                     qa_phase=row.get("qa_phase"),
                 )
+            if row.get("deployment_run_id") is not None:
+                try:
+                    require_stage_scoped_requirement(
+                        conn,
+                        deployment_run_id=str(row["deployment_run_id"]),
+                        blocking_mode=row.get("blocking_mode"),
+                        deployment_stage=row.get("deployment_stage"),
+                    )
+                except QaPlanError as exc:
+                    conn.rollback()
+                    _exit(f"row {len(inserted_ids)}: {exc}")
             cur = conn.execute(
                 INSERT_SQL,
                 insert_params(
@@ -82,6 +97,7 @@ def cmd_requirement_add_batch(
                     epic_id=row.get("epic_id"),
                     task_num=row.get("task_num"),
                     deployment_run_id=row.get("deployment_run_id"),
+                    deployment_stage=row.get("deployment_stage"),
                     row=row,
                     created_at=iso8601_now(),
                 ),
