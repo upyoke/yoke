@@ -220,8 +220,14 @@ def seed_run_standing_on_qa_stage(
 ITEM_QA_STAGE = "item-qa"
 
 
-def item_qa_stage_definitions(plan_id: int, *, environment: str = "stage") -> list[dict]:
-    """A deploy stage followed by the item-scoped QA stage it feeds."""
+def item_qa_stage_definitions(
+    plan_id: int | None, *, environment: str = "stage"
+) -> list[dict]:
+    """A deploy stage followed by the item-scoped QA stage it feeds.
+
+    ``plan_id`` of ``None`` pins no cases on the QA stage, which is the shape
+    that makes a worker select a project plan at execution time.
+    """
     return [
         {
             "name": "deploy",
@@ -239,7 +245,11 @@ def item_qa_stage_definitions(plan_id: int, *, environment: str = "stage") -> li
                 "environment": environment,
                 "source_stage": "deploy",
             },
-            "cases": {"plan_id": plan_id, "case_keys": ["command-smoke"]},
+            **(
+                {"cases": {"plan_id": plan_id, "case_keys": ["command-smoke"]}}
+                if plan_id is not None
+                else {}
+            ),
             "verdict": {"mode": "agent_only"},
         },
     ]

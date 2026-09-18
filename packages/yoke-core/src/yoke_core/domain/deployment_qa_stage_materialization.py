@@ -6,6 +6,9 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
+from yoke_core.domain.qa_deployment_case_content_refresh import (
+    refreshed_case_keys,
+)
 from yoke_core.domain.db_helpers import iso8601_now, query_rows
 from yoke_core.domain.deployment_qa_execution_target import (
     deployment_qa_execution_target,
@@ -233,7 +236,16 @@ def materialize_deployment_qa_stage(
                 plan_id=plan_id,
                 execution_target_digest=target_digest(target),
             )
-            if rows:
+            refreshed = refreshed_case_keys(
+                conn,
+                run_id=str(deployment_run_id),
+                stage_name=str(deployment_stage),
+                member_item_id=deployment_member_item_id,
+                plan_id=plan_id,
+                execution_target_digest=target_digest(target),
+                cases=[dict(case) for case in snapshot["cases"]],
+            )
+            if rows and not refreshed:
                 existing.extend(
                     require_existing_target(
                         rows,
@@ -248,6 +260,14 @@ def materialize_deployment_qa_stage(
             attachment = {"qa_phase": "post_deploy"}
             for case_value in snapshot["cases"]:
                 case = dict(case_value)
+                if rows:
+                    # Already-materialized plan: only the cases whose content
+                    # changed after their row stopped answering get a fresh
+                    # row, and they take a key distinct from the frozen one.
+                    fresh_key = refreshed.get(str(case["case_key"]))
+                    if fresh_key is None:
+                        continue
+                    case["case_key"] = fresh_key
                 raw_baselines = case.get("host_baselines") or []
                 baselines = (
                     list(raw_baselines)

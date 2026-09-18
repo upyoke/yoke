@@ -95,12 +95,26 @@ yoke qa plan rematerialize --deployment-run-id <run-id> --stage <stage-name> \
 
 A materialized case is unique on
 `(run, stage, member, plan_id, plan_case_key, host_baseline, target)`, so a
-corrected plan case cannot arrive as a second row — refreshing in place is the
-only route, and before this there was none for a deployment subject at all.
+corrected plan case cannot arrive as a second row under the same key —
+refreshing in place is the route, and before this there was none for a
+deployment subject at all. The claim this checks is the member's, resolved
+from `--member`, since a deployment target carries no item of its own.
 The refresh keeps the deployment target the stage receipt pinned; it never
 re-points a frozen run at whatever environment the plan names today. It
 refuses as a whole, naming each row, when any case in the subject has already
 answered, rather than leaving the stage half refreshed.
+
+Selecting a plan on a stage that pins no cases is the other correction route.
+Materialization there is idempotent per plan, which used to strand a member:
+once its only row was waived, a corrected case could not reach it, because the
+discharged row satisfied idempotency. Now a case materializes again when both
+halves hold — the existing rows no longer answer (waived, superseded, or a
+settled `fail`) and the case's executable content has changed since it was
+materialized. The corrected row takes a key carrying that content's digest, so
+it sits beside the frozen one rather than replacing it, and supersession is
+what then links the two. An unchanged case stays idempotent however its row was
+discharged, and a case whose row is still answering never gets a second row
+racing it.
 
 Once a case has answered, its snapshot is frozen for good and there are two
 discharges, both recorded and both distinguishable from a passing result:

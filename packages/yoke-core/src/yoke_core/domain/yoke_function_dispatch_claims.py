@@ -31,6 +31,7 @@ from yoke_contracts.api.function_call import (
 )
 from yoke_core.domain.yoke_function_dispatch_qa_claims import (
     qa_subject_claim_verdict as _qa_subject_claim_verdict,
+    resolve_deployment_member_item_id as _resolve_deployment_member_item_id,
     resolve_qa_requirement_item_id as _resolve_qa_requirement_item_id,
 )
 from yoke_core.domain.claim_recovery import (
@@ -175,6 +176,21 @@ def verify_claim(
         ):
             resolved, err_code, err_msg = _resolve_qa_requirement_item_id(
                 target.qa_requirement_id
+            )
+            if err_code is not None:
+                return _claim_error(request, fid, ver, err_code, err_msg or "")
+            target_id = resolved
+        if (
+            target_id is None
+            and kind == "item"
+            and target.kind == "deployment_run"
+        ):
+            # An item-scoped deployment stage names its member in the
+            # payload, not in target.item_id; that member is the thing a
+            # caller holds a claim on.
+            payload = request.payload if isinstance(request.payload, dict) else {}
+            resolved, err_code, err_msg = _resolve_deployment_member_item_id(
+                payload.get("deployment_member")
             )
             if err_code is not None:
                 return _claim_error(request, fid, ver, err_code, err_msg or "")
