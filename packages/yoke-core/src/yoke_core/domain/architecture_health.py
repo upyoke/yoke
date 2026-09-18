@@ -27,17 +27,23 @@ from yoke_core.domain.architecture_model import derive_edges
 UnclassifiedFinding = Tuple[int, str]
 ForbiddenEdgeFinding = Tuple[str, str, str, str]
 CrossCuttingFinding = Tuple[str, str, str, List[str]]
+PythonEntry = Tuple[int, str, str, str]
+ParsedEntry = Tuple[int, str, Any]
 
 
 def unclassified_paths(
     conn: Any, project_id: str | int, *, model: Mapping[str, Any],
+    entries: Optional[List[PythonEntry]] = None,
+    contexts: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> List[UnclassifiedFinding]:
     """Python paths with no inherited layer/domain and no exemption."""
     findings: List[UnclassifiedFinding] = []
-    entries = iter_python_entries(conn, project_id)
-    contexts = load_architecture_context(
-        conn, (target_id for target_id, _path, _mod, _deps in entries),
-    )
+    if entries is None:
+        entries = iter_python_entries(conn, project_id)
+    if contexts is None:
+        contexts = load_architecture_context(
+            conn, (target_id for target_id, _path, _mod, _deps in entries),
+        )
     for target_id, path, _mod, _deps in entries:
         context = contexts.get(target_id, {})
         if context.get("exempt"):
@@ -52,6 +58,9 @@ def unclassified_paths(
 
 def forbidden_edge_violations(
     conn: Any, project_id: str | int, *, model: Mapping[str, Any],
+    entries: Optional[List[PythonEntry]] = None,
+    contexts: Optional[Dict[int, Dict[str, Any]]] = None,
+    module_index: Optional[Dict[str, int]] = None,
 ) -> List[ForbiddenEdgeFinding]:
     """Recorded dependency edges the layer rules forbid or omit.
 
@@ -60,28 +69,17 @@ def forbidden_edge_violations(
     """
     allowed_edges, forbidden_edges = derive_edges(model)
     package_roots = package_roots_from_model(model)
-    entries = iter_python_entries(conn, project_id)
-    module_index = load_module_target_index(conn, project_id)
-    parsed_entries = []
-    context_ids = {target_id for target_id, _path, _mod, _deps in entries}
-    for target_id, path, _mod, deps_text in entries:
-        try:
-            edges = json.loads(deps_text)
-        except (TypeError, ValueError):
-            continue
-        parsed_entries.append((target_id, path, edges))
-        for edge in edges:
-            if not isinstance(edge, Mapping):
-                continue
-            imp_target = module_to_target_id_from_index(
-                module_index,
-                str(edge.get("imported_module", "")),
-                str(edge.get("imported_name", "")),
-                package_roots=package_roots,
-            )
-            if imp_target is not None:
-                context_ids.add(imp_target)
-    contexts = load_architecture_context(conn, context_ids)
+    if entries is None:
+        entries = iter_python_entries(conn, project_id)
+    if module_index is None:
+        module_index = load_module_target_index(conn, project_id)
+    parsed_entries, extra_ids = _parsed_python_entries(
+        entries, module_index, package_roots,
+    )
+    if contexts is None:
+        context_ids = {target_id for target_id, _path, _mod, _deps in entries}
+        context_ids.update(extra_ids)
+        contexts = load_architecture_context(conn, context_ids)
     findings: List[ForbiddenEdgeFinding] = []
     for target_id, path, edges in parsed_entries:
         source_layer = contexts.get(target_id, {}).get("layer")
@@ -131,6 +129,7 @@ def _guarded_index(
 
 def cross_cutting_violations(
     conn: Any, project_id: str | int, *, model: Mapping[str, Any],
+    entries: Optional[List[PythonEntry]] = None,
 ) -> List[CrossCuttingFinding]:
     """Direct imports of guarded symbols outside the approved modules.
 
@@ -140,10 +139,10 @@ def cross_cutting_violations(
     guarded = _guarded_index(model)
     if not guarded:
         return []
+    if entries is None:
+        entries = iter_python_entries(conn, project_id)
     findings: List[CrossCuttingFinding] = []
-    for _tid, path, source_module, deps_text in iter_python_entries(
-        conn, project_id,
-    ):
+    for _tid, path, source_module, deps_text in entries:
         try:
             edges = json.loads(deps_text)
         except (TypeError, ValueError):
@@ -167,14 +166,47 @@ def cross_cutting_violations(
 EXAMPLE_LIMIT = 10
 
 
+def _parsed_python_entries(
+    entries: List[PythonEntry],
+    module_index: Dict[str, int],
+    package_roots: Mapping[str, Any],
+) -> Tuple[List[ParsedEntry], set[int]]:
+    """Parse snapshot edges once and collect imported target ids."""
+    parsed: List[ParsedEntry] = []
+    extra_ids: set[int] = set()
+    for target_id, path, _mod, deps_text in entries:
+        try:
+            edges = json.loads(deps_text)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(edges, list):
+            continue
+        parsed.append((target_id, path, edges))
+        for edge in edges:
+            if not isinstance(edge, Mapping):
+                continue
+            imp_target = module_to_target_id_from_index(
+                module_index,
+                str(edge.get("imported_module", "")),
+                str(edge.get("imported_name", "")),
+                package_roots=package_roots,
+            )
+            if imp_target is not None:
+                extra_ids.add(imp_target)
+    return parsed, extra_ids
+
+
 def compute_architecture_health(
     conn: Any, project_id: str | int,
 ) -> Dict[str, Any]:
     """Aggregate map summary, classification coverage, and violations.
 
-    ``{"declared": False}`` when the project declares no map. Coverage
-    counts every Python path in the latest snapshot as classified
-    (inherits a layer or domain), exempt, or unclassified.
+    One request loads the latest Python snapshot, module index, and
+    inherited context once, then reuses those facts for coverage and
+    both violation scans. ``{"declared": False}`` when the project
+    declares no map. Coverage counts every Python path in the latest
+    snapshot as classified (inherits a layer or domain), exempt, or
+    unclassified.
     """
     model: Optional[Dict[str, Any]] = load_architecture_model(
         conn, project_id,
@@ -182,9 +214,16 @@ def compute_architecture_health(
     if model is None:
         return {"declared": False}
     entries = iter_python_entries(conn, project_id)
-    contexts = load_architecture_context(
-        conn, (target_id for target_id, _path, _mod, _deps in entries),
+    package_roots = package_roots_from_model(model)
+    module_index = load_module_target_index(conn, project_id)
+    _parsed, extra_ids = _parsed_python_entries(
+        entries, module_index, package_roots,
     )
+    context_ids = {
+        target_id for target_id, _path, _mod, _deps in entries
+    }
+    context_ids.update(extra_ids)
+    contexts = load_architecture_context(conn, context_ids)
     classified = exempt = unclassified = 0
     for target_id, _path, _mod, _deps in entries:
         context = contexts.get(target_id, {})
@@ -196,8 +235,13 @@ def compute_architecture_health(
             unclassified += 1
     total = len(entries)
     covered = classified + exempt
-    forbidden = forbidden_edge_violations(conn, project_id, model=model)
-    cross_cutting = cross_cutting_violations(conn, project_id, model=model)
+    forbidden = forbidden_edge_violations(
+        conn, project_id, model=model,
+        entries=entries, contexts=contexts, module_index=module_index,
+    )
+    cross_cutting = cross_cutting_violations(
+        conn, project_id, model=model, entries=entries,
+    )
     return {
         "declared": True,
         "python_paths": total,

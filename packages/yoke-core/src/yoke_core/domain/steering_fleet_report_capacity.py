@@ -19,7 +19,10 @@ from yoke_core.domain.session_launch_capacity import (
     MachineCapacity,
     machine_capacity,
 )
-from yoke_core.domain.session_launch_eligibility import derive_launch_eligibility
+from yoke_core.domain.session_launch_eligibility import (
+    derive_launch_eligibility,
+    load_relay_eligibility_rows,
+)
 from yoke_core.domain.session_probe import not_probe_session_sql
 from yoke_core.domain.steering_fleet_report_detectors import marker
 
@@ -58,10 +61,13 @@ def launchable_surfaces(
 ) -> tuple[SurfaceReadiness, ...]:
     """Every ``(machine, surface)`` a launch could reach for this project.
 
-    Read through the same eligibility composition the launch preview uses, so
-    the report can never claim a surface the launch plane would refuse.
+    Relay rows are loaded once for the request, then eligibility is
+    derived per surface from that same set, so the report cannot claim a
+    surface the launch plane would refuse and does not re-query
+    ``session_relays`` for each surface.
     """
     ready: set[tuple[str, str]] = set()
+    relay_rows = load_relay_eligibility_rows(conn)
     for surface in KNOWN_SURFACE_LABELS:
         capability = capability_for_surface(surface)
         if capability is None or capability.create == "none":
@@ -72,6 +78,7 @@ def launchable_surfaces(
             surface=surface,
             machine_id=None,
             now=now,
+            relay_rows=relay_rows,
         )
         for relay in snapshot.relays:
             ready.add((relay.machine_id, surface))

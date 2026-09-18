@@ -24,7 +24,7 @@ Public surface:
 from __future__ import annotations
 
 import uuid
-from typing import Any, List, Optional, Sequence
+from typing import Any, List, Mapping, Optional, Sequence
 
 from yoke_core.domain.event_registry_seed_render_relationship import (
     EVENT_NAME_RENDER_RELATIONSHIP_RECORDED,
@@ -41,6 +41,34 @@ from yoke_core.domain.render_relationship_inventory import (
 )
 
 
+def _latest_target_ids(
+    conn: Any,
+    project_id: str | int,
+    paths: Sequence[str],
+) -> dict[str, int]:
+    """Latest path_targets.id per path, matching ``target_at`` generation order."""
+    from yoke_core.domain import db_backend
+    from yoke_core.domain.project_identity import resolve_project_id
+
+    wanted = sorted({str(path) for path in paths if path})
+    if not wanted:
+        return {}
+    placeholder = "%s" if db_backend.connection_is_postgres(conn) else "?"
+    slots = ",".join(placeholder for _ in wanted)
+    rows = conn.execute(
+        "SELECT path_string, id FROM path_targets "
+        f"WHERE project_id = {placeholder} AND path_string IN ({slots}) "
+        "ORDER BY generation DESC",
+        (resolve_project_id(conn, project_id), *wanted),
+    ).fetchall()
+    latest: dict[str, int] = {}
+    for row in rows:
+        path = str(row[0])
+        if path not in latest:
+            latest[path] = int(row[1])
+    return latest
+
+
 def set_render_relationship(
     conn: Any,
     *,
@@ -48,6 +76,7 @@ def set_render_relationship(
     source_paths: Sequence[str],
     recorded_event_id: str,
     project_id: str | int = "yoke",
+    target_id_by_path: Mapping[str, int] | None = None,
 ) -> Optional[int]:
     """Record ``target_path`` as a render target with ``source_paths`` as seeds.
 
@@ -64,7 +93,10 @@ def set_render_relationship(
     """
     from yoke_core.domain.path_registry import target_at
 
-    target_id = target_at(conn, project_id, target_path)
+    if target_id_by_path is not None:
+        target_id = target_id_by_path.get(target_path)
+    else:
+        target_id = target_at(conn, project_id, target_path)
     if target_id is None:
         return None
     normalised_sources = sorted({str(p) for p in source_paths if p})
@@ -77,7 +109,10 @@ def set_render_relationship(
         recorded_event_id=recorded_event_id,
     )
     for source_path in normalised_sources:
-        source_target_id = target_at(conn, project_id, source_path)
+        if target_id_by_path is not None:
+            source_target_id = target_id_by_path.get(source_path)
+        else:
+            source_target_id = target_at(conn, project_id, source_path)
         if source_target_id is None:
             continue
         put_context_value(
@@ -152,6 +187,12 @@ def record_render_relationships(
     longer withhold the relationships the overlap classifier reads.
     """
     relationships = render_relationship_map(_tracked_file_paths(conn, project_id))
+    needed_paths = {
+        path
+        for target, sources in relationships.items()
+        for path in (target, *sources)
+    }
+    target_id_by_path = _latest_target_ids(conn, project_id, sorted(needed_paths))
     operation_id = f"render-relationship-batch:{uuid.uuid4()}"
     written = 0
     for target_path in sorted(relationships):
@@ -162,6 +203,7 @@ def record_render_relationships(
             source_paths=sources,
             recorded_event_id=operation_id,
             project_id=project_id,
+            target_id_by_path=target_id_by_path,
         )
         if row_id is not None:
             written += 1

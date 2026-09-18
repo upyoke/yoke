@@ -27,10 +27,15 @@ from yoke_contracts.api.function_call import ActorContext
 _SCREENSHOT_ACTIONS = frozenset({"screenshot"})
 
 _BROWSER_EXECUTOR_TYPE = "browser_substrate"
+_ARTIFACT_WRITE_TIMEOUT_S = 90.0
 
 
 class QaArtifactWriteError(RuntimeError):
     """A browser capture could not reach durable evidence storage."""
+
+
+def _is_https_relay_timeout(exc: BaseException) -> bool:
+    return "exceeded the time limit" in str(exc)
 
 
 def _is_screenshot_step(step: Dict[str, Any]) -> bool:
@@ -92,6 +97,9 @@ def _dispatch_qa_write(
             ),
             payload=payload,
             actor=actor,
+            timeout_s=(
+                _ARTIFACT_WRITE_TIMEOUT_S if raise_on_failure else None
+            ),
         )
     except Exception as exc:
         if raise_on_failure:
@@ -222,6 +230,7 @@ def _presign_artifact(
                 "content_type": content_type,
             },
             actor=actor,
+            timeout_s=_ARTIFACT_WRITE_TIMEOUT_S,
         )
     except Exception as exc:
         raise QaArtifactWriteError(
@@ -293,16 +302,19 @@ def _record_artifact_file(
                 "qa.artifact.presign returned no upload_url or artifact_handle"
             )
         _bqa._upload_artifact(upload_url, file_path, content_type)
-        artifact_id = _bqa._record_artifact(
-            run_id,
-            requirement_id,
-            artifact_type,
-            content_type,
-            handle,
-            metadata,
-            actor=actor,
-            raise_on_failure=True,
-        )
+
+        def _record_handle():
+            return _bqa._record_artifact(
+                run_id, requirement_id, artifact_type, content_type, handle,
+                metadata, actor=actor, raise_on_failure=True,
+            )
+
+        try:
+            artifact_id = _record_handle()
+        except QaArtifactWriteError as exc:
+            if not _is_https_relay_timeout(exc):
+                raise
+            artifact_id = _record_handle()
     else:
         try:
             content = Path(file_path).read_bytes()

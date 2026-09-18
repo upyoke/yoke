@@ -9,6 +9,7 @@ bare-path payloads are refused.
 from __future__ import annotations
 
 import json
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -139,6 +140,130 @@ class TestQaArtifactAdd(unittest.TestCase):
                 "key": f"qa-artifacts/yoke/42/{run_id}/home.png",
             },
         )
+
+    def test_same_handle_returns_existing_artifact_id(self):
+        with test_database() as conn:
+            _seed_browser_requirement(conn)
+            with patch("yoke_core.domain.qa_events.emit_qa_run_event"):
+                run_outcome = qa_browser_writes.handle_qa_run_add(
+                    _request(
+                        "qa.run.add",
+                        TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                        payload={"performed_by": "browser_substrate"},
+                    ),
+                )
+            run_id = int(run_outcome.result_payload["qa_run_id"])
+            handle = {
+                "backend": "s3",
+                "bucket": "yoke-prod-artifacts",
+                "key": f"qa-artifacts/yoke/42/{run_id}/home.png",
+            }
+            payload = {
+                "run_id": run_id,
+                "artifact_type": "screenshot",
+                "content_type": "image/png",
+                "artifact_handle": handle,
+                "metadata": "{}",
+            }
+            with patch(
+                "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+                return_value=("prod", "yoke-prod-artifacts", None),
+            ):
+                first = qa_browser_writes.handle_qa_artifact_add(
+                    _request(
+                        "qa.artifact.add",
+                        TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                        payload=payload,
+                    ),
+                )
+                second = qa_browser_writes.handle_qa_artifact_add(
+                    _request(
+                        "qa.artifact.add",
+                        TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                        payload=payload,
+                    ),
+                )
+            self.assertTrue(first.primary_success, first.error)
+            self.assertTrue(second.primary_success, second.error)
+            self.assertEqual(
+                first.result_payload["qa_artifact_id"],
+                second.result_payload["qa_artifact_id"],
+            )
+            count = conn.execute(
+                "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id = %s",
+                (run_id,),
+            ).fetchone()
+        self.assertEqual(int(count[0]), 1)
+
+    def test_concurrent_same_handle_callers_share_one_row(self):
+        with test_database() as conn:
+            _seed_browser_requirement(conn)
+            with patch("yoke_core.domain.qa_events.emit_qa_run_event"):
+                run_outcome = qa_browser_writes.handle_qa_run_add(
+                    _request(
+                        "qa.run.add",
+                        TargetRef(kind="qa_requirement", qa_requirement_id=10),
+                        payload={"performed_by": "browser_substrate"},
+                    ),
+                )
+            run_id = int(run_outcome.result_payload["qa_run_id"])
+            payload = {
+                "run_id": run_id,
+                "artifact_type": "screenshot",
+                "content_type": "image/png",
+                "artifact_handle": {
+                    "backend": "s3",
+                    "bucket": "yoke-prod-artifacts",
+                    "key": f"qa-artifacts/yoke/42/{run_id}/home.png",
+                },
+                "metadata": "{}",
+            }
+            barrier = threading.Barrier(2)
+            outcomes: list = [None, None]
+            errors: list[Exception] = []
+
+            def _caller(index: int) -> None:
+                try:
+                    barrier.wait(timeout=10)
+                    outcomes[index] = qa_browser_writes.handle_qa_artifact_add(
+                        _request(
+                            "qa.artifact.add",
+                            TargetRef(
+                                kind="qa_requirement",
+                                qa_requirement_id=10,
+                            ),
+                            payload=payload,
+                        ),
+                    )
+                except Exception as exc:  # noqa: BLE001 - collected
+                    errors.append(exc)
+
+            with patch(
+                "yoke_core.domain.handlers.qa_artifact_presign.resolve_artifacts_bucket",
+                return_value=("prod", "yoke-prod-artifacts", None),
+            ):
+                threads = [
+                    threading.Thread(target=_caller, args=(index,))
+                    for index in (0, 1)
+                ]
+                for thread in threads:
+                    thread.start()
+                for thread in threads:
+                    thread.join(timeout=15)
+            self.assertEqual(errors, [])
+            self.assertIsNotNone(outcomes[0])
+            self.assertIsNotNone(outcomes[1])
+            self.assertTrue(outcomes[0].primary_success, outcomes[0].error)
+            self.assertTrue(outcomes[1].primary_success, outcomes[1].error)
+            self.assertEqual(
+                outcomes[0].result_payload["qa_artifact_id"],
+                outcomes[1].result_payload["qa_artifact_id"],
+            )
+            count = conn.execute(
+                "SELECT COUNT(*) FROM qa_artifacts WHERE qa_run_id = %s",
+                (run_id,),
+            ).fetchone()
+        self.assertEqual(int(count[0]), 1)
 
 
 if __name__ == "__main__":

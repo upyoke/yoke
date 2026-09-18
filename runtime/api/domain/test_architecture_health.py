@@ -157,3 +157,30 @@ def test_aggregate_counts_coverage_and_violations(conn) -> None:
     assert [layer["id"] for layer in health["layers"]] == [
         "storage", "service",
     ]
+
+
+def test_aggregate_health_reads_the_python_snapshot_once(conn, monkeypatch) -> None:
+    from yoke_core.domain import architecture_health as subject
+    from yoke_core.domain import architecture_context_data as data
+
+    _write_model(conn, _model())
+    cur = conn.execute(
+        "INSERT INTO path_snapshots (project_id, commit_sha, built_at) "
+        "VALUES (%s, %s, %s) RETURNING id",
+        (1, "abc1234", iso8601_now()),
+    )
+    snap = int(cur.fetchone()[0])
+    tid = mint_target(conn, "yoke", "src/api.py")
+    _entry(conn, snap, tid, "src.api", [])
+    conn.commit()
+
+    calls = {"n": 0}
+    original = data.iter_python_entries
+
+    def counting(conn_arg, project_id):
+        calls["n"] += 1
+        return original(conn_arg, project_id)
+
+    monkeypatch.setattr(subject, "iter_python_entries", counting)
+    compute_architecture_health(conn, 1)
+    assert calls["n"] == 1
