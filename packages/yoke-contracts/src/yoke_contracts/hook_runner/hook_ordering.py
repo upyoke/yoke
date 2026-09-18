@@ -38,11 +38,12 @@ PreToolUse Bash chain order rationale:
 11. Adapter-shape lints block hand-quoted payloads, shell choreography, and
     hidden diagnostic stderr on the named state-changing Yoke CLI families.
     They run together after the structured-field transform shell lint.
-12. ``lint_shell_backtick_search`` / ``lint_local_privacy`` /
-    ``lint_unmatched_path_glob`` —
-    shell-footgun deniers (backticks in double-quoted grep/rg; unquoted
-    path globs that match no files, teaching ``rg --files``). Shape parse
-    first; unmatched globs then check the command cwd.
+12. ``lint_shell_backtick_search`` /
+    ``lint_yoke_quoted_shell_substitution`` / ``lint_local_privacy`` /
+    ``lint_unmatched_path_glob`` — shell-footgun deniers (backticks/`$()`
+    in double-quoted grep/rg or yoke args; unquoted path globs that match
+    no files, teaching ``rg --files``). Shape parse first; unmatched globs
+    then check the command cwd.
 13. ``lint_no_agent_runtime_api_import_from_c`` — block ad-hoc
     ``python3 -c "from runtime..."`` one-liners. Shape-only denier in the
     same family as the shell-quoted payload lint above; keyed on the
@@ -147,6 +148,7 @@ _PRE_BASH: tuple[str, ...] = (
     "yoke_core.domain.lint_shell_quoted_function_payload",
     "yoke_core.domain.lint_yoke_adapter_stderr_visibility",
     "yoke_core.domain.lint_shell_backtick_search",
+    "yoke_core.domain.lint_yoke_quoted_shell_substitution",
     "yoke_core.domain.lint_local_privacy",
     "yoke_core.domain.lint_unmatched_path_glob",
     "yoke_core.domain.lint_no_agent_runtime_api_import_from_c",

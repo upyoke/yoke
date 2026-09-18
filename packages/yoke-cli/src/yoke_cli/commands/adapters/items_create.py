@@ -32,6 +32,7 @@ from yoke_cli.commands._helpers import (
     parse_or_usage_error,
     usage_error,
 )
+from yoke_cli.commands.text_file import resolve_one_text_source
 from yoke_contracts.api.function_call import TargetRef
 
 
@@ -55,7 +56,8 @@ ITEMS_CREATE_SKILL_SCAFFOLDING_REFUSAL = (
 )
 
 ITEMS_CREATE_USAGE = (
-    "yoke items create TITLE [WORKFLOW] --execution-instructions-considered "
+    "yoke items create (TITLE | --content-file PATH | --stdin) [WORKFLOW] "
+    "--execution-instructions-considered "
     "[--priority P] [--project NAME] "
     "[--deployment-flow FLOW] [--status STATUS] [--source ACTOR] "
     "[--owner ACTOR] [--entry-surface SURFACE] [--strategy-doc SLUG] "
@@ -139,9 +141,11 @@ def items_create(args: List[str]) -> int:
     )
     parser.add_argument(
         "title",
+        nargs="?",
         help=(
             "Item title; the project's title policy caps its length "
-            "(`yoke workflows definition get --project P`)."
+            "(`yoke workflows definition get --project P`). "
+            "Use --content-file or --stdin when the title is free text."
         ),
     )
     parser.add_argument(
@@ -211,6 +215,17 @@ def items_create(args: List[str]) -> int:
             "this surface."
         ),
     )
+    parser.add_argument(
+        "--content-file",
+        dest="title_file",
+        default=None,
+        help="Read the title from a path instead of TITLE.",
+    )
+    parser.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read the title from stdin (quoted heredoc: <<'EOF').",
+    )
     add_session_arg(parser)
     add_json_arg(parser)
     parsed = parse_or_usage_error(parser, args, ITEMS_CREATE_USAGE)
@@ -219,9 +234,19 @@ def items_create(args: List[str]) -> int:
     refused = _refuse_unscaffolded_create(dry_run=bool(parsed.dry_run))
     if refused is not None:
         return refused
+    try:
+        title = resolve_one_text_source(
+            positional=parsed.title,
+            file_path=parsed.title_file,
+            stdin=parsed.stdin,
+            positional_label="TITLE",
+            file_flag="--content-file",
+        )
+    except ValueError as exc:
+        return usage_error(str(exc))
 
     payload: Dict[str, Any] = {
-        "title": parsed.title,
+        "title": title,
         "dry_run": bool(parsed.dry_run),
         # Passed through, never inferred: the flag attests what the filer
         # did before authoring, which this adapter cannot observe.
