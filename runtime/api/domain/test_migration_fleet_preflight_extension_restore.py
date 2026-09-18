@@ -5,13 +5,23 @@ statistics extension in a schema of its own, a function returning ``SETOF``
 that extension's view, and a view over the function. Restoring that into a
 database whose extension version differs fails outright, so the round trip is
 run twice — once unpinned to watch it fail, once staged to watch it survive.
+
+This needs real Postgres *server* binaries, which is why it resolves them
+rather than trusting ``PATH``: Debian wraps the client tools into ``PATH`` but
+not ``initdb``, so a runner with a complete install still has to be asked for
+its versioned directory. Where the environment says it is CI, a missing
+prerequisite fails instead of skipping — a round trip that quietly does not
+run is how the unrestorable copy reached a release in the first place.
 """
 
 from __future__ import annotations
 
+import os
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
+from typing import List, Optional, Tuple
 
 import pytest
 
@@ -29,18 +39,45 @@ EXTENSION_SCHEMA = "statement_statistics"
 READER_FUNCTION = f"{EXTENSION_SCHEMA}.current_database_statements_read"
 DEPENDENT_VIEW = f"{EXTENSION_SCHEMA}.current_database_statements"
 
+#: Debian keeps every server binary here, one directory per major version.
+VERSIONED_BIN_GLOB = "/usr/lib/postgresql/*/bin"
 
-def _ordered(version: str) -> tuple:
-    return tuple(int(part) for part in version.split("."))
+
+def _unavailable(reason: str) -> None:
+    """Skip locally, fail on CI. A skip there proves nothing and reads green."""
+    if os.environ.get("CI"):
+        pytest.fail(f"this round trip must run on CI: {reason}")
+    pytest.skip(reason)
 
 
-def _offered_versions(spec: ClusterSpec) -> tuple:
-    probe = postgres_cluster.psql(
-        spec,
-        "SELECT version FROM pg_available_extension_versions "
-        f"WHERE name = '{STATISTICS_EXTENSION}'",
-    )
-    return tuple(line.strip() for line in probe.stdout.splitlines() if line.strip())
+def _server_bin_dir() -> Tuple[Optional[Path], List[str]]:
+    """The directory holding ``initdb``, plus the places that were tried."""
+    searched: List[str] = []
+
+    on_path = shutil.which("initdb")
+    if on_path:
+        return Path(on_path).parent, searched
+    searched.append("PATH")
+
+    if shutil.which("pg_config"):
+        probe = subprocess.run(
+            ["pg_config", "--bindir"], capture_output=True, text=True, timeout=30
+        )
+        candidate = Path(probe.stdout.strip()) if probe.stdout.strip() else None
+        if candidate is not None:
+            searched.append(str(candidate))
+            if (candidate / "initdb").exists():
+                return candidate, searched
+    else:
+        searched.append("pg_config (absent)")
+
+    versioned = sorted(Path("/").glob(VERSIONED_BIN_GLOB.lstrip("/")))
+    searched.append(VERSIONED_BIN_GLOB)
+    for candidate in reversed(versioned):
+        if (candidate / "initdb").exists():
+            return candidate, searched
+
+    return None, searched
 
 
 @pytest.fixture(scope="module")
@@ -50,18 +87,18 @@ def cluster():
     The root sits directly under the OS temp dir because socket paths cap near
     103 bytes and pytest's nested tmp_path blows that on macOS.
     """
-    if shutil.which("initdb") is None:
-        pytest.skip("system Postgres binaries not on PATH")
+    bin_dir, searched = _server_bin_dir()
+    if bin_dir is None:
+        _unavailable(
+            "no Postgres server binaries (initdb) found; searched "
+            + ", ".join(searched)
+        )
     scratch = Path(tempfile.mkdtemp(prefix="yoke-extpin-", dir="/tmp"))
     spec = ClusterSpec(
         root=scratch,
         superuser="rehearsaluser",
-        # Preloaded so the restored view can actually be read; the extension
-        # installs either way, but querying it needs the shared library.
-        server_settings=(
-            ("fsync", "off"),
-            ("shared_preload_libraries", STATISTICS_EXTENSION),
-        ),
+        server_settings=(("fsync", "off"),),
+        bin_dir=bin_dir,
         stop_mode="immediate",
     )
     try:
@@ -70,6 +107,19 @@ def cluster():
     finally:
         postgres_cluster.destroy(spec)
         shutil.rmtree(scratch, ignore_errors=True)
+
+
+def _offered_versions(spec: ClusterSpec) -> Tuple[str, ...]:
+    probe = postgres_cluster.psql(
+        spec,
+        "SELECT version FROM pg_available_extension_versions "
+        f"WHERE name = '{STATISTICS_EXTENSION}'",
+    )
+    return tuple(line.strip() for line in probe.stdout.splitlines() if line.strip())
+
+
+def _ordered(version: str) -> tuple:
+    return tuple(int(part) for part in version.split("."))
 
 
 @pytest.fixture(scope="module")
@@ -81,13 +131,19 @@ def older_version(cluster) -> str:
         f"WHERE name = '{STATISTICS_EXTENSION}'",
     ).stdout.strip()
     if not default:
-        pytest.skip(f"{STATISTICS_EXTENSION} is not available on this cluster")
+        _unavailable(
+            f"{STATISTICS_EXTENSION} is not available on this cluster; the "
+            "contrib modules for its Postgres build are not installed"
+        )
     older = sorted(
         (v for v in _offered_versions(cluster) if _ordered(v) < _ordered(default)),
         key=_ordered,
     )
     if not older:
-        pytest.skip(f"this cluster offers only {STATISTICS_EXTENSION} {default}")
+        _unavailable(
+            f"this cluster offers only {STATISTICS_EXTENSION} {default}, so no "
+            "version shift can be staged"
+        )
     return older[-1]
 
 
@@ -115,6 +171,16 @@ def _build_source(spec: ClusterSpec, database: str, version: str) -> None:
         dbname=database,
     )
     assert built.returncode == 0, built.stderr
+
+
+def _view_column_count(spec: ClusterSpec, database: str) -> str:
+    return postgres_cluster.psql(
+        spec,
+        "SELECT count(*) FROM information_schema.columns"
+        f" WHERE table_schema = '{EXTENSION_SCHEMA}'"
+        f" AND table_name = 'current_database_statements'",
+        dbname=database,
+    ).stdout.strip()
 
 
 def test_a_view_over_the_extension_rowtype_restores_at_the_source_version(
@@ -160,10 +226,8 @@ def test_a_view_over_the_extension_rowtype_restores_at_the_source_version(
     )
     assert restored.stdout.strip() == f"{older_version}|{EXTENSION_SCHEMA}|t|t"
 
-    # The staged schema must hold the dump's objects, not shadow them: reading
-    # the view proves the restored definition binds to the pinned extension.
-    readable = postgres_cluster.psql(
-        spec, f"SELECT count(*) >= 0 FROM {DEPENDENT_VIEW}", dbname="pinned_copy",
+    # The staged extension must give the view the source's rowtype, not the
+    # cluster default's wider one — which is the whole point of pinning.
+    assert _view_column_count(spec, "pinned_copy") == _view_column_count(
+        spec, "source_tenant"
     )
-    assert readable.returncode == 0, readable.stderr
-    assert readable.stdout.strip() == "t"
