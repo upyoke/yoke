@@ -178,6 +178,7 @@
   background: var(--yoke-surface);
 }
 .universe-app-root .release-delivery-flow,
+.universe-app-root .release-delivery-merges,
 .universe-app-root .release-delivery-empty {
   margin: 0;
   color: var(--yoke-muted);

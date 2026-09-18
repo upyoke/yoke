@@ -137,6 +137,21 @@ export function shownDeliveryRuns(carried) {
   return shown;
 }
 
+/**
+ * What the card says about this item's landed merges.
+ *
+ * The counts come from the projection, which reads the item's own recorded
+ * landings: a merge that landed after the last run is still one of them, and
+ * saying so is the point of the line.
+ */
+export function mergesPhrase(delivery) {
+  const merges = Number(delivery?.merges || 0);
+  if (!merges) return "no merges";
+  const deployed = Number(delivery?.deployed || 0);
+  const notDeployed = Number(delivery?.not_deployed ?? merges - deployed);
+  return `${merges} merges · ${deployed} deployed · ${notDeployed} not deployed`;
+}
+
 function deliveryRunCard(documentNode, run, row) {
   const status = String(run.status || "unknown");
   const card = el(documentNode, "a", "release-delivery-run");
@@ -180,6 +195,9 @@ export function appendReleaseDelivery(documentNode, card, row, deployments) {
     "span",
     "release-delivery-flow",
     String(row.deployment_flow || "") || "no flow",
+  ));
+  box.appendChild(el(
+    documentNode, "span", "release-delivery-merges", mergesPhrase(row.delivery),
   ));
   const itemId = row.internal_id ?? row.item_id ?? row.id;
   const carried = deployments?.get(String(itemId)) || [];

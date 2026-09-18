@@ -172,6 +172,7 @@ def enrich_item_overview_rows(
             int(version["workflow_version_id"]): workflow_runtime_from_row(version)
             for version in _dict_rows(version_cursor)
         }
+        delivery = _release_delivery(conn, base_rows, facts, compact=compact)
     finally:
         conn.close()
 
@@ -195,12 +196,77 @@ def enrich_item_overview_rows(
                 "worktrees": worktrees.get(item_id, []),
                 "stage_label": runtime.stage_label(str(row["status"])),
                 "qa_attention": qa_attention.get(item_id),
+                "delivery": delivery.get(item_id),
             }
         )
         result.append(
             {key: row[key] for key in COMPACT_ROSTER_FIELDS} if compact else row
         )
     return result
+
+
+#: The one stage whose cards ask how much of the item has actually shipped.
+RELEASE_STATUS = "release"
+
+
+def _release_delivery(
+    conn: Any,
+    base_rows: list[dict[str, Any]],
+    facts: dict[int, Any],
+    *,
+    compact: bool,
+) -> dict[int, dict[str, int]]:
+    """Merge counts for the rows a Release band will draw, and no others.
+
+    Every other band answers a question this costs nothing to leave
+    unanswered, and the ancestry reads behind it are per item — so the
+    roster pays for them only where a card will show the result.
+    """
+    if compact:
+        return {}
+    releasing = [
+        row for row in base_rows
+        if str(row.get("status") or "").strip().lower() == RELEASE_STATUS
+    ]
+    if not releasing:
+        return {}
+    from yoke_core.domain.release_delivery_summary import delivery_summary
+
+    flows = sorted({
+        str(row.get("deployment_flow") or "").strip()
+        for row in releasing
+        if str(row.get("deployment_flow") or "").strip()
+    })
+    environment_by_flow: dict[str, Any] = {}
+    if flows:
+        marker = _p(conn)
+        flow_placeholders = ", ".join(marker for _ in flows)
+        flow_cursor = conn.execute(
+            "SELECT id, target_environment_id FROM deployment_flows "
+            f"WHERE id IN ({flow_placeholders})",
+            tuple(flows),
+        )
+        environment_by_flow = {
+            str(flow["id"]): flow["target_environment_id"]
+            for flow in _dict_rows(flow_cursor)
+        }
+    summaries: dict[int, dict[str, int]] = {}
+    for row in releasing:
+        item_id = int(row["internal_id"])
+        summary = delivery_summary(
+            conn,
+            item_id=item_id,
+            project_id=int(facts[item_id]["project_id"]),
+            environment_id=environment_by_flow.get(
+                str(row.get("deployment_flow") or "").strip()
+            ),
+        )
+        summaries[item_id] = {
+            "merges": summary.merges,
+            "deployed": summary.deployed,
+            "not_deployed": summary.not_deployed,
+        }
+    return summaries
 
 
 __all__ = [

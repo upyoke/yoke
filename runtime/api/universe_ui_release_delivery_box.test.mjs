@@ -66,9 +66,9 @@ function run(id, facts = {}) {
   };
 }
 
-async function mountRelease(t, runs) {
+async function mountRelease(t, runs, itemFacts = {}) {
   const client = workbenchClient({
-    "items.overview.list": { rows: [releasingItem()] },
+    "items.overview.list": { rows: [releasingItem(itemFacts)] },
     "frontier.list": { ready_rows: [], blocked_rows: [] },
     "sessions.list": { rows: [] },
     "deployment_runs.list": { rows: runs },
@@ -142,5 +142,38 @@ test("several runs cap at the live one plus the newest success per environment",
     byClass(box, "release-delivery-run-flow").map((node) => node.textContent),
     ["yoke-hosted-ancillary"],
   );
+  mounted.unmount();
+});
+
+test("the merges line counts what landed and what of it shipped", async (t) => {
+  stubFetch(t);
+  const { mounted, box } = await mountRelease(t, [], {
+    delivery: { merges: 3, deployed: 1, not_deployed: 2 },
+  });
+
+  assert.equal(
+    byClass(box, "release-delivery-merges")[0].textContent,
+    "3 merges · 1 deployed · 2 not deployed",
+  );
+  mounted.unmount();
+});
+
+test("an item that has landed nothing says so rather than showing zeroes", async (t) => {
+  stubFetch(t);
+  const { mounted, box } = await mountRelease(t, [], {
+    delivery: { merges: 0, deployed: 0, not_deployed: 0 },
+  });
+
+  assert.equal(byClass(box, "release-delivery-merges")[0].textContent, "no merges");
+  mounted.unmount();
+});
+
+test("a projection that carried no delivery block still draws the line", async (t) => {
+  stubFetch(t);
+  // An older serving build answers without the field; the card must not
+  // render "undefined merges" at a reader while that rolls out.
+  const { mounted, box } = await mountRelease(t, []);
+
+  assert.equal(byClass(box, "release-delivery-merges")[0].textContent, "no merges");
   mounted.unmount();
 });
